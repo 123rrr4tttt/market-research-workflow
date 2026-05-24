@@ -11,6 +11,8 @@ from app.services.local_index import (
     LocalIndexQuery,
     LocalIndexSearchResult,
     LocalIndexService,
+    RepoLocalHashingEmbeddingProvider,
+    cosine_similarity,
     normalize_local_index_mode,
 )
 from app.services.local_index.adapters import LanceDBLocalIndexAdapter, is_lancedb_available
@@ -109,7 +111,64 @@ class FakeLanceTable:
         return FakeLanceQuery(self.rows, call)
 
 
+class FakeEmbeddingProvider:
+    provider_id = "fake_live_provider"
+    model = "fake-live-model"
+    model_version = "2026-test"
+    vector_version = "fake-vector-v1"
+    embedding_dim = 2
+    network_required = False
+
+    def embed_text(self, _text: str) -> list[float]:
+        return [0.25, 0.75]
+
+    def embed_query(self, _text: str) -> list[float]:
+        return [0.25, 0.75]
+
+    def embed_documents(self, texts):
+        return [self.embed_text(text) for text in texts]
+
+    def metadata(self) -> dict[str, object]:
+        return {
+            "provider_id": self.provider_id,
+            "model": self.model,
+            "model_version": self.model_version,
+            "embedding_dim": self.embedding_dim,
+            "vector_version": self.vector_version,
+            "network_required": self.network_required,
+        }
+
+    def readback(self, texts) -> dict[str, object]:
+        rows = list(texts)
+        return {
+            **self.metadata(),
+            "status": "passed",
+            "live_provider_verified": True,
+            "vector_count": len(rows),
+            "failures": [],
+        }
+
+
 class LocalIndexServiceTest(unittest.TestCase):
+    def test_repo_local_embedding_provider_is_executable_and_query_sensitive(self) -> None:
+        provider = RepoLocalHashingEmbeddingProvider()
+        readback = provider.readback(
+            [
+                "robotics commercialization policy grant",
+                "unrelated festival ticket sales",
+            ]
+        )
+
+        self.assertEqual(readback["status"], "passed")
+        self.assertTrue(readback["live_provider_verified"])
+        self.assertFalse(readback["network_required"])
+        self.assertEqual(readback["embedding_dim"], 64)
+
+        query_vector = provider.embed_query("robotics policy")
+        robotics_vector = provider.embed_text("robotics automation policy procurement")
+        festival_vector = provider.embed_text("music festival ticket sales venue")
+        self.assertGreater(cosine_similarity(query_vector, robotics_vector), cosine_similarity(query_vector, festival_vector))
+
     def test_service_indexes_material_chunks_without_source_library_schema(self) -> None:
         adapter = FakeLocalIndexAdapter()
         service = LocalIndexService(adapter)
@@ -203,6 +262,24 @@ class LocalIndexServiceTest(unittest.TestCase):
         self.assertEqual(hybrid_results[0].trace["project_id"], "demo_proj")
         self.assertIsNone(hybrid_results[0].trace["source_id"])
         self.assertEqual(hybrid_results[0].trace["top_k"], 10)
+        self.assertTrue(hybrid_results[0].trace["provider_live_verified"])
+        self.assertEqual(
+            hybrid_results[0].trace["embedding_provider"]["provider_id"],
+            "repo_local_token_hashing",
+        )
+
+    def test_lancedb_adapter_uses_injected_live_embedding_provider_for_vector_queries(self) -> None:
+        adapter = object.__new__(LanceDBLocalIndexAdapter)
+        table = FakeLanceTable()
+        adapter._table = table
+        adapter._embedding_provider = FakeEmbeddingProvider()
+
+        results = adapter.search(LocalIndexQuery(query="robotics", project_id="demo_proj", mode="vector"))
+
+        self.assertEqual(table.calls[0]["query"], [0.25, 0.75])
+        self.assertEqual(results[0].retrieval_mode, "vector")
+        self.assertEqual(results[0].trace["embedding_provider"]["provider_id"], "fake_live_provider")
+        self.assertTrue(results[0].trace["provider_live_verified"])
 
     def test_lancedb_adapter_falls_back_to_keyword_when_vector_runtime_is_unavailable(self) -> None:
         adapter = object.__new__(LanceDBLocalIndexAdapter)

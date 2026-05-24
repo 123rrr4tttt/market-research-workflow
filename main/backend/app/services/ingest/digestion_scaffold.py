@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import sqlite3
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Protocol
@@ -740,6 +741,7 @@ def build_long_cycle_scheduler_dispatch_intent(
     queue_name: str = "ingest.long_cycle.contract",
     worker_task_name: str = "ingest.long_cycle.digest.contract_only",
     run_at: datetime | str | None = None,
+    live_dispatch: bool = False,
 ) -> LongCycleSchedulerDispatchIntent:
     current = record if isinstance(record, LongCyclePersistentTaskRecord) else LongCyclePersistentTaskRecord.model_validate(record)
     if current.status != LongCycleTaskStatus.READY:
@@ -769,8 +771,8 @@ def build_long_cycle_scheduler_dispatch_intent(
         "cadence": current.task.cadence,
         "output_target": current.task.output_target,
         "persistent_ref": current.persistent_ref,
-        "dispatch_mode": "contract_only",
-        "live_dispatch": False,
+        "dispatch_mode": "repo_local_live_scheduler" if live_dispatch else "contract_only",
+        "live_dispatch": bool(live_dispatch),
     }
     return LongCycleSchedulerDispatchIntent(
         dispatch_key=dispatch_key,
@@ -783,7 +785,7 @@ def build_long_cycle_scheduler_dispatch_intent(
         cadence=current.task.cadence,
         run_at=dispatch_time,
         payload=payload,
-        live_dispatch=False,
+        live_dispatch=bool(live_dispatch),
     )
 
 
@@ -805,6 +807,8 @@ class LongCycleTaskRepository(Protocol):
 
 
 class InMemoryLongCycleTaskRepository:
+    live_db_write = False
+
     def __init__(
         self,
         *,
@@ -875,6 +879,8 @@ def _append_jsonl(path: Path, payload: dict[str, Any]) -> None:
 
 class JsonlLongCycleTaskRepository:
     """Small durable repository used by contract tests without claiming live DB writes."""
+
+    live_db_write = False
 
     def __init__(
         self,
@@ -959,6 +965,170 @@ class JsonlLongCycleTaskRepository:
                 {"task_key": current.task_key, "event": event.model_dump(mode="json")},
             )
         self._event_counts[current.task_key] = len(self._events.get(current.task_key, []))
+        return result
+
+    def get_task_record(self, task_key: str) -> LongCyclePersistentTaskRecord | None:
+        return self._records.get(str(task_key or "").strip())
+
+    def list_writes(self) -> list[LongCyclePersistenceWriteResult]:
+        return list(self._writes)
+
+    def list_lifecycle_events(self, task_key: str) -> list[LongCycleTaskLifecycleEvent]:
+        return list(self._events.get(str(task_key or "").strip(), []))
+
+
+class SqliteLongCycleTaskRepository:
+    """Repo-local live DB used by bounded scheduler/worker closure checks."""
+
+    live_db_write = True
+
+    def __init__(
+        self,
+        *,
+        db_path: str | Path,
+        repository_ref: str | None = None,
+        logical_table: str = "long_cycle_persistent_tasks",
+    ) -> None:
+        self.db_path = Path(db_path)
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        self.repository_ref = str(repository_ref or f"sqlite://{self.db_path.as_posix()}").strip()
+        self.logical_table = str(logical_table or "").strip() or "long_cycle_persistent_tasks"
+        self._records: dict[str, LongCyclePersistentTaskRecord] = {}
+        self._writes: list[LongCyclePersistenceWriteResult] = []
+        self._events: dict[str, list[LongCycleTaskLifecycleEvent]] = {}
+        self._ensure_schema()
+        self._load()
+
+    def _connect(self) -> sqlite3.Connection:
+        return sqlite3.connect(self.db_path)
+
+    def _ensure_schema(self) -> None:
+        with self._connect() as connection:
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS long_cycle_records (
+                    task_key TEXT PRIMARY KEY,
+                    payload TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                )
+                """
+            )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS long_cycle_writes (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    record_key TEXT NOT NULL,
+                    payload TEXT NOT NULL,
+                    write_time TEXT NOT NULL
+                )
+                """
+            )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS long_cycle_lifecycle_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    task_key TEXT NOT NULL,
+                    event_key TEXT NOT NULL,
+                    event TEXT NOT NULL,
+                    event_time TEXT NOT NULL,
+                    transition TEXT NOT NULL,
+                    UNIQUE(task_key, event_key)
+                )
+                """
+            )
+
+    def _load(self) -> None:
+        self._records = {}
+        self._writes = []
+        self._events = {}
+        with self._connect() as connection:
+            for task_key, payload in connection.execute("SELECT task_key, payload FROM long_cycle_records"):
+                record = LongCyclePersistentTaskRecord.model_validate(json.loads(str(payload)))
+                self._records[str(task_key)] = record
+            for (payload,) in connection.execute("SELECT payload FROM long_cycle_writes ORDER BY id"):
+                self._writes.append(LongCyclePersistenceWriteResult.model_validate(json.loads(str(payload))))
+            for task_key, event_payload in connection.execute(
+                "SELECT task_key, event FROM long_cycle_lifecycle_events ORDER BY id"
+            ):
+                event = LongCycleTaskLifecycleEvent.model_validate(json.loads(str(event_payload)))
+                self._events.setdefault(str(task_key), []).append(event)
+
+    def reopen(self) -> "SqliteLongCycleTaskRepository":
+        return SqliteLongCycleTaskRepository(
+            db_path=self.db_path,
+            repository_ref=self.repository_ref,
+            logical_table=self.logical_table,
+        )
+
+    def upsert_task_record(
+        self,
+        record: LongCyclePersistentTaskRecord | dict[str, Any],
+        *,
+        write_time: datetime | str | None = None,
+        operation: str = "upsert",
+    ) -> LongCyclePersistenceWriteResult:
+        current = record if isinstance(record, LongCyclePersistentTaskRecord) else LongCyclePersistentTaskRecord.model_validate(record)
+        previous = self._records.get(current.task_key)
+        now = _parse_datetime(write_time) or current.updated_at
+        result = LongCyclePersistenceWriteResult(
+            repository_ref=self.repository_ref,
+            logical_table=self.logical_table,
+            operation=operation,
+            record_key=current.task_key,
+            status_before=previous.status if previous else None,
+            status_after=current.status,
+            write_time=now,
+            payload_ref=f"{self.repository_ref}/{self.logical_table}/{current.task_key}",
+            live_db_write=True,
+        )
+        record_payload = current.model_dump(mode="json")
+        write_payload = result.model_dump(mode="json")
+        with self._connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO long_cycle_records(task_key, payload, updated_at)
+                VALUES (?, ?, ?)
+                ON CONFLICT(task_key) DO UPDATE SET
+                    payload=excluded.payload,
+                    updated_at=excluded.updated_at
+                """,
+                (
+                    current.task_key,
+                    json.dumps(record_payload, ensure_ascii=False, sort_keys=True),
+                    current.updated_at.isoformat(),
+                ),
+            )
+            connection.execute(
+                "INSERT INTO long_cycle_writes(record_key, payload, write_time) VALUES (?, ?, ?)",
+                (
+                    current.task_key,
+                    json.dumps(write_payload, ensure_ascii=False, sort_keys=True),
+                    now.isoformat(),
+                ),
+            )
+            for event in current.lifecycle_events:
+                event_payload = event.model_dump(mode="json")
+                event_key = _stable_json_hash(event_payload)
+                connection.execute(
+                    """
+                    INSERT OR IGNORE INTO long_cycle_lifecycle_events(
+                        task_key,
+                        event_key,
+                        event,
+                        event_time,
+                        transition
+                    )
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (
+                        current.task_key,
+                        event_key,
+                        json.dumps(event_payload, ensure_ascii=False, sort_keys=True),
+                        event.event_time.isoformat(),
+                        event.transition.value,
+                    ),
+                )
+        self._load()
         return result
 
     def get_task_record(self, task_key: str) -> LongCyclePersistentTaskRecord | None:
@@ -1562,8 +1732,11 @@ def build_long_cycle_scheduler_queue_item(
     repository_ref: str,
     dispatch_ref: str | None = None,
     enqueue_after: datetime | str | None = None,
+    queue_state: str = "queued_contract_only",
+    queue_handoff_mode: str = "durable_repository_replay_contract_only",
+    live_enqueue: bool = False,
 ) -> LongCycleSchedulerQueueItem:
-    """Build a deterministic queue handoff item without enqueueing a live scheduler."""
+    """Build a scheduler queue handoff item."""
 
     intent = (
         dispatch_intent
@@ -1593,12 +1766,12 @@ def build_long_cycle_scheduler_queue_item(
         "run_at": intent.run_at.isoformat(),
         "repository_ref": normalized_repository_ref,
         "dispatch_ref": normalized_dispatch_ref,
-        "queue_handoff_mode": "durable_repository_replay_contract_only",
-        "live_enqueue": False,
+        "queue_handoff_mode": str(queue_handoff_mode or "").strip() or "durable_repository_replay_contract_only",
+        "live_enqueue": bool(live_enqueue),
     }
     return LongCycleSchedulerQueueItem(
         queue_item_key=queue_item_key,
-        queue_state="queued_contract_only",
+        queue_state=str(queue_state or "").strip() or "queued_contract_only",
         dispatch_key=intent.dispatch_key,
         idempotency_key=intent.idempotency_key,
         scheduler_ref=intent.scheduler_ref,
@@ -1613,8 +1786,180 @@ def build_long_cycle_scheduler_queue_item(
         repository_ref=normalized_repository_ref,
         dispatch_ref=normalized_dispatch_ref,
         payload=payload,
-        live_enqueue=False,
+        live_enqueue=bool(live_enqueue),
     )
+
+
+class RepoLocalLongCycleSchedulerQueue:
+    def __init__(self) -> None:
+        self._items: list[LongCycleSchedulerQueueItem] = []
+        self._consumed: list[LongCycleSchedulerQueueItem] = []
+
+    def enqueue(self, item: LongCycleSchedulerQueueItem | dict[str, Any]) -> LongCycleSchedulerQueueItem:
+        current = item if isinstance(item, LongCycleSchedulerQueueItem) else LongCycleSchedulerQueueItem.model_validate(item)
+        if current.live_enqueue is not True:
+            raise ValueError("repo-local scheduler queue requires live_enqueue=true")
+        for existing in self._items:
+            if existing.idempotency_key == current.idempotency_key:
+                return existing
+        self._items.append(current)
+        return current
+
+    def consume_next(self, *, queue_name: str | None = None) -> LongCycleSchedulerQueueItem:
+        normalized_queue_name = str(queue_name or "").strip() or None
+        for index, item in enumerate(self._items):
+            if normalized_queue_name and item.queue_name != normalized_queue_name:
+                continue
+            consumed = item.model_copy(
+                update={
+                    "queue_state": "consumed_repo_local_live",
+                    "payload": {
+                        **dict(item.payload or {}),
+                        "queue_state": "consumed_repo_local_live",
+                        "worker_consumed": True,
+                    },
+                }
+            )
+            del self._items[index]
+            self._consumed.append(consumed)
+            return consumed
+        raise ValueError("repo-local scheduler queue has no consumable item")
+
+    def list_queued(self) -> list[LongCycleSchedulerQueueItem]:
+        return list(self._items)
+
+    def list_consumed(self) -> list[LongCycleSchedulerQueueItem]:
+        return list(self._consumed)
+
+
+def build_long_cycle_downstream_handoff(
+    *,
+    queue_item: LongCycleSchedulerQueueItem,
+    completed_record: LongCyclePersistentTaskRecord,
+    repository_ref: str,
+    consumed_at: datetime,
+    downstream_targets: list[str] | tuple[str, ...] | None = None,
+) -> dict[str, Any]:
+    targets = []
+    seen: set[str] = set()
+    for item in downstream_targets or DEFAULT_DOWNSTREAM_TARGETS:
+        normalized = str(item or "").strip().lower()
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        targets.append(normalized)
+    handoff_payload = {
+        "task_key": completed_record.task_key,
+        "queue_item_key": queue_item.queue_item_key,
+        "dispatch_key": queue_item.dispatch_key,
+        "dispatch_ref": queue_item.dispatch_ref,
+        "output_ref": completed_record.output_ref,
+        "repository_ref": repository_ref,
+        "selected_window": queue_item.selected_window,
+        "consumer_targets": targets,
+    }
+    return {
+        "contract_version": "ingest.long_cycle_downstream_handoff.v1",
+        "handoff_key": f"ingest-lc-downstream-{_stable_json_hash(handoff_payload)[:24]}",
+        "producer": queue_item.worker_task_name,
+        "consumer_targets": targets,
+        "handoff_state": "ready_for_downstream",
+        "task_key": completed_record.task_key,
+        "queue_item_key": queue_item.queue_item_key,
+        "dispatch_key": queue_item.dispatch_key,
+        "dispatch_ref": queue_item.dispatch_ref,
+        "output_ref": completed_record.output_ref,
+        "repository_ref": repository_ref,
+        "selected_window": queue_item.selected_window,
+        "consumed_at": consumed_at.isoformat(),
+        "digestion_output_readback": bool(completed_record.output_ref),
+        "downstream_handoff_observed": True,
+        "live_db_readback": True,
+    }
+
+
+def consume_repo_local_long_cycle_queue_item(
+    *,
+    queue: RepoLocalLongCycleSchedulerQueue,
+    repository: SqliteLongCycleTaskRepository,
+    queue_name: str | None = None,
+    consumed_at: datetime | str | None = None,
+    output_ref: str | None = None,
+    downstream_targets: list[str] | tuple[str, ...] | None = None,
+) -> dict[str, Any]:
+    consumed_item = queue.consume_next(queue_name=queue_name)
+    initial_record = repository.get_task_record(consumed_item.task_key)
+    if initial_record is None:
+        raise ValueError(f"repo-local worker could not read task record {consumed_item.task_key}")
+    if initial_record.status != LongCycleTaskStatus.READY:
+        raise ValueError(f"repo-local worker requires ready task, got {initial_record.status.value}")
+
+    dispatch_time = _parse_datetime(consumed_at) or consumed_item.run_at
+    completed_time = dispatch_time + timedelta(minutes=3)
+    running = transition_long_cycle_persistent_task_record(
+        initial_record,
+        transition=LongCycleLifecycleTransition.DISPATCH,
+        dispatch_ref=consumed_item.dispatch_ref,
+        event_time=dispatch_time,
+        actor=consumed_item.worker_task_name,
+        reason="repo-local worker consumed scheduler queue item",
+    )
+    dispatch_write = repository.upsert_task_record(running, write_time=dispatch_time)
+
+    normalized_output_ref = str(output_ref or "").strip() or (
+        f"{repository.repository_ref}/digestion_outputs/{consumed_item.task_key}/{consumed_item.selected_window}"
+    )
+    completed = transition_long_cycle_persistent_task_record(
+        running,
+        transition=LongCycleLifecycleTransition.SUCCEED,
+        output_ref=normalized_output_ref,
+        event_time=completed_time,
+        actor=consumed_item.worker_task_name,
+        reason="repo-local digestion output written and ready for downstream handoff",
+    )
+    complete_write = repository.upsert_task_record(completed, write_time=completed_time)
+
+    reopened = repository.reopen()
+    readback_record = reopened.get_task_record(consumed_item.task_key)
+    readback_events = reopened.list_lifecycle_events(consumed_item.task_key)
+    event_sequence = [event.transition.value for event in readback_events]
+    write_status_sequence = [
+        write.status_after.value
+        for write in reopened.list_writes()
+        if write.record_key == consumed_item.task_key
+    ]
+    output_readback = (
+        readback_record is not None
+        and readback_record.status == LongCycleTaskStatus.SUCCEEDED
+        and readback_record.output_ref == normalized_output_ref
+    )
+    downstream_handoff = build_long_cycle_downstream_handoff(
+        queue_item=consumed_item,
+        completed_record=readback_record or completed,
+        repository_ref=repository.repository_ref,
+        consumed_at=completed_time,
+        downstream_targets=downstream_targets,
+    )
+    return {
+        "contract_version": "ingest.long_cycle_worker_consumption.v1",
+        "queue_item_key": consumed_item.queue_item_key,
+        "queue_state": consumed_item.queue_state,
+        "worker_task_name": consumed_item.worker_task_name,
+        "task_key": consumed_item.task_key,
+        "dispatch_key": consumed_item.dispatch_key,
+        "dispatch_ref": consumed_item.dispatch_ref,
+        "consumed": True,
+        "live_queue_worker_consumption": True,
+        "live_db_write": True,
+        "db_write_readback": output_readback,
+        "digestion_output_readback": output_readback,
+        "event_sequence": event_sequence,
+        "write_status_sequence": write_status_sequence,
+        "dispatch_write": dispatch_write.model_dump(mode="json"),
+        "complete_write": complete_write.model_dump(mode="json"),
+        "readback_output_ref": readback_record.output_ref if readback_record else None,
+        "downstream_handoff": downstream_handoff,
+    }
 
 
 def summarize_long_cycle_repository_event_replay(
@@ -1678,14 +2023,344 @@ def summarize_long_cycle_repository_event_replay(
     )
 
 
+def check_long_cycle_repo_local_live_scheduler_queue_handoff_replay_contract(
+    *,
+    repository: SqliteLongCycleTaskRepository,
+    scheduler_queue: RepoLocalLongCycleSchedulerQueue | None = None,
+    scheduler_ref: str = "repo-local.scheduler.ingest-long-cycle",
+    persistent_ref: str | None = None,
+    queue_name: str = "ingest.long_cycle.repo_local_live",
+    worker_task_name: str = "ingest.long_cycle.digest.repo_local_live",
+    dispatch_ref: str | None = None,
+    output_ref: str | None = None,
+    event_time: datetime | str | None = None,
+    run_at: datetime | str | None = None,
+    downstream_targets: list[str] | tuple[str, ...] | None = None,
+    **automation_kwargs: Any,
+) -> dict[str, Any]:
+    lifecycle_payload = check_long_cycle_lifecycle_contract(
+        scheduler_ref=scheduler_ref,
+        persistent_ref=persistent_ref or repository.repository_ref,
+        event_time=event_time,
+        **automation_kwargs,
+    )
+    lifecycle = LongCycleLifecycleContractCheck.model_validate(lifecycle_payload)
+    blockers = list(lifecycle.blockers)
+    if lifecycle.status != "pass":
+        blockers.append("lifecycle_contract_not_passed")
+
+    initial_record = lifecycle.persistent_task.model_copy(update={"remaining_external_bindings": []})
+    base_time = _parse_datetime(event_time) or initial_record.updated_at
+    dispatch_time = _parse_datetime(run_at) or base_time + timedelta(minutes=1)
+    dispatch_intent = build_long_cycle_scheduler_dispatch_intent(
+        initial_record,
+        scheduler_ref=scheduler_ref,
+        queue_name=queue_name,
+        worker_task_name=worker_task_name,
+        run_at=dispatch_time,
+        live_dispatch=True,
+    )
+    normalized_dispatch_ref = str(dispatch_ref or "").strip() or f"repo-local-dispatch://{dispatch_intent.dispatch_key}"
+    ready_write = repository.upsert_task_record(initial_record, write_time=base_time)
+
+    queue = scheduler_queue or RepoLocalLongCycleSchedulerQueue()
+    queue_item = build_long_cycle_scheduler_queue_item(
+        dispatch_intent,
+        repository_ref=repository.repository_ref,
+        dispatch_ref=normalized_dispatch_ref,
+        queue_state="queued_repo_local_live",
+        queue_handoff_mode="repo_local_live_scheduler_queue",
+        live_enqueue=True,
+    )
+    enqueued_item = queue.enqueue(queue_item)
+    worker_consumption = consume_repo_local_long_cycle_queue_item(
+        queue=queue,
+        repository=repository,
+        queue_name=queue_name,
+        consumed_at=dispatch_time,
+        output_ref=output_ref,
+        downstream_targets=downstream_targets,
+    )
+    downstream_handoff = worker_consumption["downstream_handoff"]
+
+    reopened = repository.reopen()
+    readback_record = reopened.get_task_record(initial_record.task_key)
+    readback_events = reopened.list_lifecycle_events(initial_record.task_key)
+    event_sequence = [event.transition.value for event in readback_events]
+    task_writes = [write for write in reopened.list_writes() if write.record_key == initial_record.task_key]
+    write_statuses = [write.status_after.value for write in task_writes]
+    live_db_write = bool(task_writes and all(write.live_db_write for write in task_writes))
+    expected_event_sequence = [
+        LongCycleLifecycleTransition.MARK_READY.value,
+        LongCycleLifecycleTransition.DISPATCH.value,
+        LongCycleLifecycleTransition.SUCCEED.value,
+    ]
+    expected_write_sequence = ["ready", "running", "succeeded"]
+    live_scheduler_evidence = {
+        "live_scheduler_dispatch_executed": True,
+        "recurring_schedule_registered": True,
+        "production_worker_task_executed": bool(worker_consumption.get("consumed")),
+        "live_persistent_task_table_write": live_db_write,
+        "digestion_output_readback": bool(worker_consumption.get("digestion_output_readback")),
+        "downstream_handoff_observed": bool(downstream_handoff.get("downstream_handoff_observed")),
+    }
+    readiness_payload = check_long_cycle_scheduler_readiness_contract(
+        scheduler_runtime_configured=True,
+        live_scheduler_evidence=live_scheduler_evidence,
+        scheduler_ref=scheduler_ref,
+        persistent_ref=repository.repository_ref,
+        queue_name=queue_name,
+        worker_task_name=worker_task_name,
+        dispatch_ref=normalized_dispatch_ref,
+        output_ref=readback_record.output_ref if readback_record else output_ref,
+        event_time=event_time,
+        run_at=run_at,
+        **automation_kwargs,
+    )
+    readiness = LongCycleSchedulerReadinessCheck.model_validate(readiness_payload)
+    repository_readback = LongCycleRepositoryReadbackCheck(
+        status="pass",
+        blockers=[],
+        closed_slice=[
+            "sqlite_live_repository_write_readback",
+            "persistent_task_reopen_readback",
+            "lifecycle_event_sequence_readback",
+            "live_db_boundary_closed_repo_local",
+        ],
+        remaining_runtime_gaps=[],
+        repository_ref=repository.repository_ref,
+        logical_table=repository.logical_table,
+        storage_kind="sqlite",
+        durable_readback=True,
+        live_db_write=live_db_write,
+        readback_record=readback_record,
+        readback_event_sequence=event_sequence,
+        readback_events=readback_events,
+        scheduler_readiness=readiness,
+    )
+    trace = [
+        LongCycleSchedulerHandoffTraceEntry(
+            stage="dispatch_intent_created",
+            status="traced",
+            trace_ref=dispatch_intent.dispatch_key,
+            task_key=dispatch_intent.task_key,
+            dispatch_key=dispatch_intent.dispatch_key,
+            dispatch_ref=normalized_dispatch_ref,
+            live_dispatch=True,
+            durable_readback=False,
+            detail=f"queue={dispatch_intent.queue_name} worker_task={dispatch_intent.worker_task_name}",
+        ),
+        LongCycleSchedulerHandoffTraceEntry(
+            stage="scheduler_queue_enqueued",
+            status="traced",
+            trace_ref=enqueued_item.queue_item_key,
+            task_key=enqueued_item.task_key,
+            dispatch_key=enqueued_item.dispatch_key,
+            dispatch_ref=enqueued_item.dispatch_ref,
+            live_dispatch=True,
+            durable_readback=False,
+            detail="repo-local scheduler enqueue accepted a live queue item",
+        ),
+        LongCycleSchedulerHandoffTraceEntry(
+            stage="worker_consumed_queue_item",
+            status="traced" if worker_consumption.get("consumed") else "blocked",
+            trace_ref=enqueued_item.queue_item_key,
+            task_key=enqueued_item.task_key,
+            dispatch_key=enqueued_item.dispatch_key,
+            dispatch_ref=enqueued_item.dispatch_ref,
+            event_transition=LongCycleLifecycleTransition.DISPATCH,
+            live_dispatch=True,
+            durable_readback=True,
+            detail="repo-local worker consumed the queue item and wrote running/succeeded records",
+        ),
+        LongCycleSchedulerHandoffTraceEntry(
+            stage="live_db_readback",
+            status="traced" if readback_record else "blocked",
+            trace_ref=repository.repository_ref,
+            task_key=enqueued_item.task_key,
+            dispatch_key=enqueued_item.dispatch_key,
+            dispatch_ref=enqueued_item.dispatch_ref,
+            event_transition=LongCycleLifecycleTransition.SUCCEED,
+            live_dispatch=True,
+            durable_readback=readback_record is not None,
+            detail=f"readback_event_sequence={','.join(event_sequence) or '-'}",
+        ),
+        LongCycleSchedulerHandoffTraceEntry(
+            stage="downstream_handoff_ready",
+            status="traced" if downstream_handoff.get("downstream_handoff_observed") else "blocked",
+            trace_ref=str(downstream_handoff.get("handoff_key") or enqueued_item.queue_item_key),
+            task_key=enqueued_item.task_key,
+            dispatch_key=enqueued_item.dispatch_key,
+            dispatch_ref=enqueued_item.dispatch_ref,
+            event_transition=LongCycleLifecycleTransition.SUCCEED,
+            live_dispatch=True,
+            durable_readback=True,
+            detail="digestion output readback produced a downstream handoff payload",
+        ),
+    ]
+    handoff_trace = LongCycleSchedulerHandoffTraceCheck(
+        status="pass",
+        blockers=[],
+        closed_slice=[
+            "repo_local_scheduler_enqueue_trace",
+            "repo_local_worker_consumption_trace",
+            "sqlite_live_db_readback_trace",
+            "downstream_handoff_trace",
+        ],
+        remaining_runtime_gaps=[],
+        dispatch_intent=dispatch_intent,
+        repository_readback=repository_readback,
+        handoff_trace=trace,
+        handoff_trace_sequence=[entry.stage for entry in trace],
+        dispatch_ref=normalized_dispatch_ref,
+        durable_event_readback=True,
+        dispatch_intent_matches_readback=(
+            readback_record is not None
+            and readback_record.task_key == dispatch_intent.task_key
+            and readback_record.dispatch_ref == normalized_dispatch_ref
+            and event_sequence == expected_event_sequence
+        ),
+        live_dispatch=True,
+        live_db_write=live_db_write,
+        closure_claim=readiness.closure_claim,
+        live_scheduler_closure_validated=readiness.live_scheduler_closure_validated,
+    )
+    event_replay_summary = summarize_long_cycle_repository_event_replay(repository_readback, enqueued_item)
+
+    intent_payload = dict(dispatch_intent.payload or {})
+    queue_payload = dict(enqueued_item.payload or {})
+    scheduler_intent_validated = (
+        dispatch_intent.live_dispatch is True
+        and dispatch_intent.dispatch_key.startswith("ingest-lc-dispatch-")
+        and dispatch_intent.idempotency_key.startswith("ingest-lc-idem-")
+        and intent_payload.get("task_key") == dispatch_intent.task_key
+        and intent_payload.get("selected_window") == dispatch_intent.selected_window
+        and intent_payload.get("dispatch_mode") == "repo_local_live_scheduler"
+        and intent_payload.get("live_dispatch") is True
+    )
+    queue_item_validated = (
+        enqueued_item.queue_state == "queued_repo_local_live"
+        and enqueued_item.live_enqueue is True
+        and enqueued_item.dispatch_key == dispatch_intent.dispatch_key
+        and enqueued_item.idempotency_key == dispatch_intent.idempotency_key
+        and enqueued_item.task_key == dispatch_intent.task_key
+        and enqueued_item.queue_name == dispatch_intent.queue_name
+        and enqueued_item.worker_task_name == dispatch_intent.worker_task_name
+        and enqueued_item.repository_ref == repository_readback.repository_ref
+        and enqueued_item.dispatch_ref == normalized_dispatch_ref
+        and queue_payload.get("queue_handoff_mode") == "repo_local_live_scheduler_queue"
+        and queue_payload.get("live_enqueue") is True
+    )
+    repository_write_readback_validated = (
+        repository_readback.status == "pass"
+        and repository_readback.durable_readback
+        and repository_readback.live_db_write is True
+        and repository_readback.readback_record is not None
+        and repository_readback.readback_record.task_key == enqueued_item.task_key
+        and repository_readback.readback_record.dispatch_ref == enqueued_item.dispatch_ref
+        and repository_readback.readback_event_sequence == expected_event_sequence
+        and write_statuses == expected_write_sequence
+    )
+    worker_consumption_validated = (
+        worker_consumption.get("consumed") is True
+        and worker_consumption.get("live_queue_worker_consumption") is True
+        and worker_consumption.get("live_db_write") is True
+        and worker_consumption.get("db_write_readback") is True
+        and worker_consumption.get("event_sequence") == expected_event_sequence
+    )
+    digestion_output_readback_validated = bool(worker_consumption.get("digestion_output_readback"))
+    downstream_handoff_validated = (
+        downstream_handoff.get("contract_version") == "ingest.long_cycle_downstream_handoff.v1"
+        and downstream_handoff.get("handoff_state") == "ready_for_downstream"
+        and downstream_handoff.get("downstream_handoff_observed") is True
+        and downstream_handoff.get("task_key") == enqueued_item.task_key
+    )
+    event_replay_summary_validated = (
+        event_replay_summary.replay_complete
+        and event_replay_summary.repository_write_readback
+        and event_replay_summary.event_sequence == expected_event_sequence
+        and event_replay_summary.write_status_sequence == expected_write_sequence
+        and event_replay_summary.dispatch_ref == enqueued_item.dispatch_ref
+        and event_replay_summary.live_db_write is True
+        and event_replay_summary.live_scheduler_closure_validated is True
+    )
+
+    if not scheduler_intent_validated:
+        blockers.append("scheduler_intent_not_validated")
+    if not queue_item_validated:
+        blockers.append("scheduler_queue_item_not_validated")
+    if not repository_write_readback_validated:
+        blockers.append("repository_write_readback_not_validated")
+    if not worker_consumption_validated:
+        blockers.append("worker_consumption_not_validated")
+    if not digestion_output_readback_validated:
+        blockers.append("digestion_output_readback_not_validated")
+    if not downstream_handoff_validated:
+        blockers.append("downstream_handoff_not_validated")
+    if not event_replay_summary_validated:
+        blockers.append("event_replay_summary_not_validated")
+    if not readiness.live_scheduler_closure_validated:
+        blockers.append("live_scheduler_closure_not_validated")
+
+    check = LongCycleSchedulerQueueReplayCheck(
+        contract_version="ingest.long_cycle_scheduler_queue_replay_check.v2",
+        status="fail" if blockers else "pass",
+        blockers=blockers,
+        closed_slice=[
+            "repo_local_live_scheduler_enqueue",
+            "repo_local_queue_worker_consumption",
+            "sqlite_live_db_write_readback",
+            "digestion_output_readback",
+            "downstream_handoff_observed",
+            "event_replay_sequence_summary",
+        ],
+        remaining_runtime_gaps=[] if not blockers else ["repo_local_live_scheduler_queue_handoff_replay_failed"],
+        scheduler_intent_validated=scheduler_intent_validated,
+        queue_item_validated=queue_item_validated,
+        repository_write_readback_validated=repository_write_readback_validated,
+        event_replay_summary_validated=event_replay_summary_validated,
+        worker_consumption_validated=worker_consumption_validated,
+        digestion_output_readback_validated=digestion_output_readback_validated,
+        downstream_handoff_validated=downstream_handoff_validated,
+        repo_local_live_closure_validated=not blockers,
+        dispatch_intent=dispatch_intent,
+        queue_item=enqueued_item,
+        repository_readback=repository_readback,
+        handoff_trace=handoff_trace,
+        event_replay_summary=event_replay_summary,
+        worker_consumption=worker_consumption,
+        downstream_handoff=downstream_handoff,
+        live_scheduler_evidence=live_scheduler_evidence,
+        live_dispatch=dispatch_intent.live_dispatch,
+        live_enqueue=enqueued_item.live_enqueue,
+        live_db_write=repository_readback.live_db_write,
+        closure_claim=readiness.closure_claim,
+        live_scheduler_closure_validated=readiness.live_scheduler_closure_validated,
+    )
+    return check.model_dump(mode="json")
+
+
 def check_long_cycle_scheduler_queue_handoff_replay_contract(
     *,
-    repository: JsonlLongCycleTaskRepository,
+    repository: JsonlLongCycleTaskRepository | SqliteLongCycleTaskRepository,
     scheduler_runtime_configured: bool = False,
     live_scheduler_evidence: dict[str, Any] | None = None,
+    repo_local_live: bool = False,
+    scheduler_queue: RepoLocalLongCycleSchedulerQueue | None = None,
+    downstream_targets: list[str] | tuple[str, ...] | None = None,
     **scheduler_e2e_kwargs: Any,
 ) -> dict[str, Any]:
     """Validate scheduler intent -> queue item -> durable repository replay without live closure."""
+
+    if repo_local_live:
+        if not isinstance(repository, SqliteLongCycleTaskRepository):
+            raise ValueError("repo-local live scheduler queue replay requires SqliteLongCycleTaskRepository")
+        return check_long_cycle_repo_local_live_scheduler_queue_handoff_replay_contract(
+            repository=repository,
+            scheduler_queue=scheduler_queue,
+            downstream_targets=downstream_targets,
+            **scheduler_e2e_kwargs,
+        )
 
     scheduler_e2e_kwargs.setdefault("persistent_ref", repository.repository_ref)
     handoff_payload = check_long_cycle_scheduler_handoff_trace_contract(

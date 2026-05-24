@@ -27,6 +27,11 @@ TOPIC_DOCS = [
         "04_wave12-meaningful-ingest-canary-handoff-evidence-2026-05-22.md"
     ),
 ]
+MEANINGFUL_LIVE_HANDOFF_DOC = Path(
+    "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
+    "2026-03-02-meaningful-ingest-guardrails-plan/"
+    "11_wave55-production-like-canary-handoff-2026-05-24.md"
+)
 
 
 def _repo_root() -> Path:
@@ -62,6 +67,7 @@ def _runtime_checks() -> list[dict[str, Any]]:
     sys.path.insert(0, str(_backend_root()))
 
     from app.services.ingest.canary_handoff import CANARY_HANDOFF_CONTRACT_VERSION
+    from app.services.ingest.canary_handoff_live import run_repo_local_production_like_handoff_canary
     from app.services.ingest.frontdoor_ingress import build_frontdoor_ingress_envelope
     from app.services.ingest.postprocess_frontdoor import run_postprocess_frontdoor
 
@@ -112,7 +118,7 @@ def _runtime_checks() -> list[dict[str, Any]]:
     metrics_rollout = metrics.get("guardrail_rollout") if isinstance(metrics.get("guardrail_rollout"), dict) else {}
     strict_gate = handoff.get("strict_gate_state") if isinstance(handoff.get("strict_gate_state"), dict) else {}
 
-    return [
+    runtime_results = [
         {
             "name": "postprocess_emits_canary_handoff_contract",
             "passed": handoff.get("contract_version") == CANARY_HANDOFF_CONTRACT_VERSION
@@ -153,6 +159,67 @@ def _runtime_checks() -> list[dict[str, Any]]:
             },
         },
     ]
+
+    live_result = run_repo_local_production_like_handoff_canary()
+    validated_handoff = (
+        live_result.get("validated_handoff")
+        if isinstance(live_result.get("validated_handoff"), dict)
+        else {}
+    )
+    live_evidence = (
+        live_result.get("evidence") if isinstance(live_result.get("evidence"), dict) else {}
+    )
+    live_validation = (
+        live_result.get("validation") if isinstance(live_result.get("validation"), dict) else {}
+    )
+    db_readback = (
+        live_evidence.get("db_readback") if isinstance(live_evidence.get("db_readback"), dict) else {}
+    )
+    remaining_gaps = list(validated_handoff.get("remaining_live_run_gaps") or [])
+    runtime_results.extend(
+        [
+            {
+                "name": "production_like_api_db_canary_executes",
+                "passed": live_result.get("status") == "passed" and live_validation.get("passed") is True,
+                "evidence": {
+                    "status": live_result.get("status"),
+                    "project_key": live_result.get("project_key"),
+                    "accepted_response_status_code": live_result.get("accepted_response_status_code"),
+                    "rejected_response_status_code": live_result.get("rejected_response_status_code"),
+                    "validation": live_validation,
+                    "cleanup": live_result.get("cleanup"),
+                },
+            },
+            {
+                "name": "production_like_canary_reads_back_db_guardrails",
+                "passed": int(db_readback.get("accepted_doc_count") or 0) == 1
+                and int(db_readback.get("rejected_doc_count") or 0) == 0
+                and (live_evidence.get("validation_checks") or {}).get("guardrail_pass_observed") is True
+                and (live_evidence.get("validation_checks") or {}).get("guardrail_block_observed") is True,
+                "evidence": {
+                    "db_readback": db_readback,
+                    "guardrail_readback": live_evidence.get("guardrail_readback"),
+                    "validation_checks": live_evidence.get("validation_checks"),
+                },
+            },
+            {
+                "name": "validated_handoff_closes_live_canary_gap_without_closure_claim",
+                "passed": validated_handoff.get("handoff_state") == "live_canary_validated"
+                and validated_handoff.get("live_canary_validated") is True
+                and validated_handoff.get("closure_claim") is False
+                and remaining_gaps
+                and not any("live canary execution has not been run" in str(gap) for gap in remaining_gaps),
+                "evidence": {
+                    "handoff_state": validated_handoff.get("handoff_state"),
+                    "live_canary_validated": validated_handoff.get("live_canary_validated"),
+                    "closure_claim": validated_handoff.get("closure_claim"),
+                    "remaining_live_run_gaps": remaining_gaps,
+                    "live_canary_evidence": validated_handoff.get("live_canary_evidence"),
+                },
+            },
+        ]
+    )
+    return runtime_results
 
 
 def run_check() -> dict[str, Any]:
@@ -200,13 +267,25 @@ def run_check() -> dict[str, Any]:
                 ),
             )
         )
+    token_results.append(
+        _token_check(
+            root,
+            str(MEANINGFUL_LIVE_HANDOFF_DOC),
+            (
+                "Wave55 Production-like Canary Handoff",
+                "repo_local_api_db_runtime",
+                "live_canary_validated=true",
+                "closure_claim=false",
+            ),
+        )
+    )
 
     runtime_results = _runtime_checks()
     passed = all(item["passed"] for item in token_results) and all(item["passed"] for item in runtime_results)
     return {
         "contract_version": CONTRACT_VERSION,
         "status": "passed" if passed else "failed",
-        "topic_docs": [str(path) for path in TOPIC_DOCS],
+        "topic_docs": [str(path) for path in [*TOPIC_DOCS, MEANINGFUL_LIVE_HANDOFF_DOC]],
         "token_results": token_results,
         "runtime_results": runtime_results,
     }

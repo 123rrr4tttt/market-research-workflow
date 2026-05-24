@@ -1,19 +1,20 @@
 {
   "schema": "external-blocker-manifest/v1",
   "updated": "2026-05-23 PST",
-  "purpose": "Bind every external_blocked review target to a structured external dependency, repo-local evidence, required external proof, exit criteria, and owner surface. Wave42 manually closed the local open-search and Clue Chain live-provider blockers; Wave43 manually closed the Graph Node live DB blocker; Wave44 manually closed the Graph 3D live UI/WebGL blocker; Wave45 manually closed the structured/consumer live DB/API blockers; Wave46 manually closed the Graph Editing live-audit blocker; Wave47 manually closed the Crawler Source Expansion public replay blocker; Wave48 manually closed the R41 OpenClaw runtime blocker; Wave49 manually closed the Source-Library Adapter Capability public replay blocker; Wave50 reclassified the Open Source Platform parent wrapper, MERGED_OVERVIEW drift gate, and Search Chain Source-Library Mounting Audit as non-target evidence; Wave51 reclassified the Ingest Platformization Assessment parent wrapper as non-target evidence; Wave52 reclassified Source-Time Window and Time Statistics as time-semantics cluster evidence; Wave53 manually closed the Agent Symbolic Batch Search live-provider quality and provider-auto rollout blocker; Wave54 implemented and closed Typed Knowledge Organization plus Writing Workbench Evolution live DB/API/UI/governance blockers, so the manifest now tracks the remaining external-blocked targets only.",
+  "purpose": "Bind every external_blocked review target to a structured external dependency, repo-local evidence, required external proof, exit criteria, and owner surface. Wave42 manually closed the local open-search and Clue Chain live-provider blockers; Wave43 manually closed the Graph Node live DB blocker; Wave44 manually closed the Graph 3D live UI/WebGL blocker; Wave45 manually closed the structured/consumer live DB/API blockers; Wave46 manually closed the Graph Editing live-audit blocker; Wave47 manually closed the Crawler Source Expansion public replay blocker; Wave48 manually closed the R41 OpenClaw runtime blocker; Wave49 manually closed the Source-Library Adapter Capability public replay blocker; Wave50 reclassified the Open Source Platform parent wrapper, MERGED_OVERVIEW drift gate, and Search Chain Source-Library Mounting Audit as non-target evidence; Wave51 reclassified the Ingest Platformization Assessment parent wrapper as non-target evidence; Wave52 reclassified Source-Time Window and Time Statistics as time-semantics cluster evidence; Wave53 manually closed the Agent Symbolic Batch Search live-provider quality and provider-auto rollout blocker; Wave54 implemented and closed Typed Knowledge Organization plus Writing Workbench Evolution live DB/API/UI/governance blockers; Wave55 implemented and closed Ingest Digestion and Long-Cycle Automation live scheduler/queue/worker/DB/handoff blockers, Source-Library Ingest Minimal Migration live article-extraction/external-project replay blockers, OSS Node scheduler/tenant DB/UI SLA readback, Source Library three-lane live collection/provider extraction readback, Meaningful Ingest repo-local canary handoff, and Global Vectorization live embedding provider gate, so the manifest now tracks the remaining external-blocked targets only.",
   "targets": [
     {
       "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-meaningful-ingest-guardrails-plan",
       "dependency_type": "service",
-      "blocked_on": "Live guardrail canary feedback, production 24h metrics, and strict-gate promotion approval are not attached.",
+      "blocked_on": "Repo-local live canary handoff is attached; production 24h metrics and strict-gate promotion approval are not attached.",
       "external_surfaces": [
         "demo_proj guardrails",
         "production guardrail metrics",
         "ops approval"
       ],
       "repo_local_evidence": [
-        "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-meaningful-ingest-guardrails-plan/10_wave29-source-policy-tuning-attachment-decision-2026-05-23.md"
+        "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-meaningful-ingest-guardrails-plan/10_wave29-source-policy-tuning-attachment-decision-2026-05-23.md",
+        "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-meaningful-ingest-guardrails-plan/11_wave55-production-like-canary-handoff-2026-05-24.md"
       ],
       "evidence_required": [
         "probe",
@@ -23,11 +24,11 @@
       ],
       "probe_or_manual_evidence": {
         "mode": "probe",
-        "command": "PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 main/backend/scripts/check_ingest_canary_handoff_contract.py --format json",
-        "last_run_at": "pending_external_evidence",
-        "result_artifact": "development/latest-dev-docs/automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md",
-        "exit_code_expectation": "0 with live evidence attached, or nonzero while external dependency remains unavailable",
-        "result_summary": "Repo-local gate is recorded; live external proof is still required before this target can leave external_blocked."
+        "command": "PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 main/backend/scripts/check_ingest_canary_handoff_contract.py --json",
+        "last_run_at": "2026-05-23 PST",
+        "result_artifact": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-meaningful-ingest-guardrails-plan/11_wave55-production-like-canary-handoff-2026-05-24.md",
+        "exit_code_expectation": "0 while keeping closure_claim=false until production 24h metrics and operations promotion are attached",
+        "result_summary": "Repo-local API/DB canary handoff is validated; production 24h readback and operations strict-gate promotion remain external."
       },
       "exit_criteria": [
         {
@@ -37,10 +38,16 @@
           "note": "Repo-local deterministic evidence is present and linked from the target topic."
         },
         {
+          "id": "guardrail-live-canary-handoff",
+          "state": "satisfied",
+          "evidence": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-meaningful-ingest-guardrails-plan/11_wave55-production-like-canary-handoff-2026-05-24.md",
+          "note": "Wave55 validates repo-local API/DB canary handoff with closure_claim=false."
+        },
+        {
           "id": "guardrail-production-promotion",
           "state": "blocked",
-          "evidence": "development/latest-dev-docs/automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md",
-          "note": "Live guardrail canary feedback, production 24h metrics, and strict-gate promotion approval are not attached."
+          "evidence": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-meaningful-ingest-guardrails-plan/11_wave55-production-like-canary-handoff-2026-05-24.md",
+          "note": "Production 24h metrics and strict-gate promotion approval are not attached."
         }
       ],
       "owner_surface": {
@@ -69,7 +76,7 @@
       ],
       "probe_or_manual_evidence": {
         "mode": "probe",
-        "command": "PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 main/backend/scripts/check_ingest_canary_handoff_contract.py --format json",
+        "command": "PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 main/backend/scripts/check_ingest_canary_handoff_contract.py --json",
         "last_run_at": "pending_external_evidence",
         "result_artifact": "development/latest-dev-docs/automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md",
         "exit_code_expectation": "0 with live evidence attached, or nonzero while external dependency remains unavailable",
@@ -98,14 +105,14 @@
     {
       "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-05-oss-node-platform-io-plan",
       "dependency_type": "provider",
-      "blocked_on": "Live embedding provider, open-search quality, semantic relevance, and scheduler/tenant DB/UI SLA are not attached.",
+      "blocked_on": "Live embedding provider, open-search quality, and semantic relevance are not attached.",
       "external_surfaces": [
         "embedding provider",
-        "open-search",
-        "scheduler tenant DB UI"
+        "open-search"
       ],
       "repo_local_evidence": [
-        "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-05-oss-node-platform-io-plan/08_wave29-oss-node-vector-manifest-replay-2026-05-23.md"
+        "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-05-oss-node-platform-io-plan/08_wave29-oss-node-vector-manifest-replay-2026-05-23.md",
+        "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-05-oss-node-platform-io-plan/09_wave55-oss-node-platform-io-live-sla-readback-2026-05-23.md"
       ],
       "evidence_required": [
         "probe",
@@ -115,11 +122,11 @@
       ],
       "probe_or_manual_evidence": {
         "mode": "probe",
-        "command": "PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 ops/search-lab/scripts/wave29_oss_node_vector_manifest_replay.py --out-dir development/latest-dev-docs/automation-runs/wave29-oss-node-vector-manifest-replay/2026-05-23",
-        "last_run_at": "pending_external_evidence",
-        "result_artifact": "development/latest-dev-docs/automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md",
-        "exit_code_expectation": "0 with live evidence attached, or nonzero while external dependency remains unavailable",
-        "result_summary": "Repo-local gate is recorded; live external proof is still required before this target can leave external_blocked."
+        "command": "PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 ops/search-lab/scripts/wave29_oss_node_vector_manifest_replay.py --out-dir development/latest-dev-docs/automation-runs/wave29-oss-node-vector-manifest-replay/2026-05-23 --live-api-base http://127.0.0.1:8000/api/v1 --live-ui-base http://127.0.0.1:5173/ --live-probe-timeout 5",
+        "last_run_at": "2026-05-23 PST",
+        "result_artifact": "development/latest-dev-docs/automation-runs/wave29-oss-node-vector-manifest-replay/2026-05-23/oss_node_vector_manifest_replay.json",
+        "exit_code_expectation": "0 with platform_io_live_sla_closed=true; target remains external_blocked until provider/quality evidence is attached",
+        "result_summary": "Wave55 live scheduler/tenant DB/UI SLA readback is closed; live embedding provider, open-search quality, and semantic relevance remain external."
       },
       "exit_criteria": [
         {
@@ -130,56 +137,15 @@
         },
         {
           "id": "oss-node-live-sla",
-          "state": "blocked",
-          "evidence": "development/latest-dev-docs/automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md",
-          "note": "Live embedding provider, open-search quality, semantic relevance, and scheduler/tenant DB/UI SLA are not attached."
-        }
-      ],
-      "owner_surface": {
-        "owner": "external-blocker-review",
-        "surface": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/INDEX.md",
-        "contact": "@devdocs-supervisor"
-      }
-    },
-    {
-      "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-ingest-digestion-and-long-cycle-automation",
-      "dependency_type": "infra",
-      "blocked_on": "Live scheduler enqueue, worker consumption, live DB write/readback, and downstream handoff evidence are not attached.",
-      "external_surfaces": [
-        "scheduler",
-        "worker queue",
-        "live DB",
-        "downstream handoff"
-      ],
-      "repo_local_evidence": [
-        "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-ingest-digestion-and-long-cycle-automation/10_wave23-closure-decision-2026-05-23.md"
-      ],
-      "evidence_required": [
-        "probe",
-        "run_output",
-        "manual_check",
-        "contract"
-      ],
-      "probe_or_manual_evidence": {
-        "mode": "probe",
-        "command": "PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 main/backend/scripts/check_ingest_long_cycle_scheduler_queue_handoff_replay_contract.py --output development/latest-dev-docs/automation-runs/wave40-external-blocker-manifest/2026-05-23/long_cycle_queue_handoff_replay.json",
-        "last_run_at": "pending_external_evidence",
-        "result_artifact": "development/latest-dev-docs/automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md",
-        "exit_code_expectation": "0 with live evidence attached, or nonzero while external dependency remains unavailable",
-        "result_summary": "Repo-local gate is recorded; live external proof is still required before this target can leave external_blocked."
-      },
-      "exit_criteria": [
-        {
-          "id": "repo-local-boundary-recorded",
           "state": "satisfied",
-          "evidence": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-ingest-digestion-and-long-cycle-automation/10_wave23-closure-decision-2026-05-23.md",
-          "note": "Repo-local deterministic evidence is present and linked from the target topic."
+          "evidence": "development/latest-dev-docs/automation-runs/wave29-oss-node-vector-manifest-replay/2026-05-23/oss_node_vector_manifest_replay.json",
+          "note": "Wave55 live API/UI readback closed scheduler, tenant DB, event stream, compiled graph, replay, and frontend client binding SLA."
         },
         {
-          "id": "long-cycle-live-worker",
+          "id": "oss-node-provider-quality",
           "state": "blocked",
-          "evidence": "development/latest-dev-docs/automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md",
-          "note": "Live scheduler enqueue, worker consumption, live DB write/readback, and downstream handoff evidence are not attached."
+          "evidence": "development/latest-dev-docs/automation-runs/wave29-oss-node-vector-manifest-replay/2026-05-23/oss_node_vector_manifest_replay.json",
+          "note": "Live embedding provider, open-search quality, and semantic relevance are not attached."
         }
       ],
       "owner_surface": {
@@ -208,7 +174,7 @@
       ],
       "probe_or_manual_evidence": {
         "mode": "probe",
-        "command": "PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 main/backend/scripts/check_agent_core_provider_live_readiness.py --format json",
+        "command": "PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 main/backend/scripts/check_agent_core_provider_live_readiness.py --json",
         "last_run_at": "pending_external_evidence",
         "result_artifact": "development/latest-dev-docs/automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md",
         "exit_code_expectation": "0 with live evidence attached, or nonzero while external dependency remains unavailable",
@@ -237,14 +203,15 @@
     {
       "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-08-llm-crawler-unified-frontdoor",
       "dependency_type": "vendor_api",
-      "blocked_on": "Real high-JS public browser/crawler replay and public output shards are not attached.",
+      "blocked_on": "Five public replay shards are attached, but full real high-JS public browser/crawler replay is not proven because one public target is auth/anti-bot blocked.",
       "external_surfaces": [
         "public network",
         "high-JS browser runtime",
         "external site policy"
       ],
       "repo_local_evidence": [
-        "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-08-llm-crawler-unified-frontdoor/10_wave23-external-blocked-decision-2026-05-23.md"
+        "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-08-llm-crawler-unified-frontdoor/10_wave23-external-blocked-decision-2026-05-23.md",
+        "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-08-llm-crawler-unified-frontdoor/11_wave55-c1-public-replay-shard-closure-2026-05-23.md"
       ],
       "evidence_required": [
         "probe",
@@ -254,11 +221,11 @@
       ],
       "probe_or_manual_evidence": {
         "mode": "probe",
-        "command": "PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 main/backend/scripts/check_llm_crawler_high_js_replay_readiness.py --repo-root . --public-artifact development/latest-dev-docs/automation-runs/llm-crawler-high-js-public-replay/2026-05-22/output.public.json",
-        "last_run_at": "pending_external_evidence",
-        "result_artifact": "development/latest-dev-docs/automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md",
-        "exit_code_expectation": "0 with live evidence attached, or nonzero while external dependency remains unavailable",
-        "result_summary": "Repo-local gate is recorded; live external proof is still required before this target can leave external_blocked."
+        "command": "PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 main/backend/scripts/check_llm_crawler_high_js_replay_readiness.py --public-artifact development/latest-dev-docs/automation-runs/llm-crawler-high-js-public-replay/2026-05-23/output.public.attempt.json --output development/latest-dev-docs/automation-runs/llm-crawler-high-js-public-replay/2026-05-23/check.attempt.json",
+        "last_run_at": "2026-05-23 PST",
+        "result_artifact": "development/latest-dev-docs/automation-runs/llm-crawler-high-js-public-replay/2026-05-23/check.attempt.json",
+        "exit_code_expectation": "nonzero until all high-JS public targets return success with browser_rendered=true",
+        "result_summary": "Five public replay shards are present; high-JS browser run attempted three targets with two successes and one auth/anti-bot block, so full closure remains external."
       },
       "exit_criteria": [
         {
@@ -268,10 +235,16 @@
           "note": "Repo-local deterministic evidence is present and linked from the target topic."
         },
         {
+          "id": "llm-crawler-public-replay-shards",
+          "state": "satisfied",
+          "evidence": "development/latest-dev-docs/automation-runs/crawler-public-replay-shards/2026-05-22/check.json",
+          "note": "Wave55 records five public replay shard outputs and passes shard validation with review-required non-closure semantics."
+        },
+        {
           "id": "llm-crawler-high-js-public-replay",
           "state": "blocked",
-          "evidence": "development/latest-dev-docs/automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md",
-          "note": "Real high-JS public browser/crawler replay and public output shards are not attached."
+          "evidence": "development/latest-dev-docs/automation-runs/llm-crawler-high-js-public-replay/2026-05-23/check.attempt.json",
+          "note": "High-JS public browser replay attempted three targets; Instagram and YouTube succeeded, X remains auth/anti-bot blocked."
         }
       ],
       "owner_surface": {
@@ -283,14 +256,13 @@
     {
       "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-11-source-library-three-lane-architecture",
       "dependency_type": "vendor_api",
-      "blocked_on": "Live source collection, provider article extraction, and completed human review are not attached.",
+      "blocked_on": "Live source collection and provider article extraction are attached; completed human review is not attached.",
       "external_surfaces": [
-        "live source collection",
-        "provider article extraction",
         "human relevance review"
       ],
       "repo_local_evidence": [
-        "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-11-source-library-three-lane-architecture/14_wave21-source-library-reviewer-2026-05-22.md"
+        "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-11-source-library-three-lane-architecture/14_wave21-source-library-reviewer-2026-05-22.md",
+        "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-11-source-library-three-lane-architecture/15_wave55-live-collection-provider-extraction-readback-2026-05-23.md"
       ],
       "evidence_required": [
         "probe",
@@ -300,11 +272,11 @@
       ],
       "probe_or_manual_evidence": {
         "mode": "probe",
-        "command": "PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 main/backend/scripts/check_source_library_review_closure_batch4.py --format json",
-        "last_run_at": "pending_external_evidence",
-        "result_artifact": "development/latest-dev-docs/automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md",
-        "exit_code_expectation": "0 with live evidence attached, or nonzero while external dependency remains unavailable",
-        "result_summary": "Repo-local gate is recorded; live external proof is still required before this target can leave external_blocked."
+        "command": "PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 main/backend/scripts/check_source_library_three_lane_live_closure.py --repo-root . --allow-public-network --strict --output development/latest-dev-docs/automation-runs/wave55-source-library-three-lane-live-closure/2026-05-23/closure.json",
+        "last_run_at": "2026-05-23 PST",
+        "result_artifact": "development/latest-dev-docs/automation-runs/wave55-source-library-three-lane-live-closure/2026-05-23/closure.json",
+        "exit_code_expectation": "0 for live collection/article extraction readback; target remains external_blocked until human review evidence is attached",
+        "result_summary": "Wave55 live collection and provider article extraction readback are closed; human review queue completion remains external."
       },
       "exit_criteria": [
         {
@@ -315,9 +287,15 @@
         },
         {
           "id": "source-library-three-lane-live-review",
+          "state": "satisfied",
+          "evidence": "development/latest-dev-docs/automation-runs/wave55-source-library-three-lane-live-closure/2026-05-23/closure.json",
+          "note": "Wave55 attached live source collection and provider article extraction readback."
+        },
+        {
+          "id": "source-library-human-review",
           "state": "blocked",
-          "evidence": "development/latest-dev-docs/automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md",
-          "note": "Live source collection, provider article extraction, and completed human review are not attached."
+          "evidence": "development/latest-dev-docs/automation-runs/wave55-source-library-three-lane-live-closure/2026-05-23/closure.json",
+          "note": "Human review queue sl_review:cba6e135df79b9d5 remains open."
         }
       ],
       "owner_surface": {
@@ -373,62 +351,16 @@
       }
     },
     {
-      "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-25-source-library-ingest-minimal-migration",
-      "dependency_type": "vendor_api",
-      "blocked_on": "Live article-extraction stack replay and live external-project replay are not attached.",
-      "external_surfaces": [
-        "public provider sites",
-        "browser runtime",
-        "external project replay"
-      ],
-      "repo_local_evidence": [
-        "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-25-source-library-ingest-minimal-migration/18_wave27-external-blocked-decision-2026-05-23.md"
-      ],
-      "evidence_required": [
-        "probe",
-        "run_output",
-        "manual_check",
-        "contract"
-      ],
-      "probe_or_manual_evidence": {
-        "mode": "probe",
-        "command": "PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 main/backend/scripts/check_source_library_review_closure_batch4.py --format json",
-        "last_run_at": "pending_external_evidence",
-        "result_artifact": "development/latest-dev-docs/automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md",
-        "exit_code_expectation": "0 with live evidence attached, or nonzero while external dependency remains unavailable",
-        "result_summary": "Repo-local gate is recorded; live external proof is still required before this target can leave external_blocked."
-      },
-      "exit_criteria": [
-        {
-          "id": "repo-local-boundary-recorded",
-          "state": "satisfied",
-          "evidence": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-25-source-library-ingest-minimal-migration/18_wave27-external-blocked-decision-2026-05-23.md",
-          "note": "Repo-local deterministic evidence is present and linked from the target topic."
-        },
-        {
-          "id": "source-library-ingest-live-replay",
-          "state": "blocked",
-          "evidence": "development/latest-dev-docs/automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md",
-          "note": "Live article-extraction stack replay and live external-project replay are not attached."
-        }
-      ],
-      "owner_surface": {
-        "owner": "external-blocker-review",
-        "surface": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/INDEX.md",
-        "contact": "@devdocs-supervisor"
-      }
-    },
-    {
       "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-global-vectorization-general-foundation",
       "dependency_type": "provider",
-      "blocked_on": "Live embedding provider, semantic embedding quality, and production vector quality evidence are not attached.",
+      "blocked_on": "Live embedding provider gate is attached; semantic embedding quality and production vector quality evidence are not attached.",
       "external_surfaces": [
-        "embedding provider",
         "vector store",
         "production quality review"
       ],
       "repo_local_evidence": [
-        "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-global-vectorization-general-foundation/11_wave30-vector-closure-external-blocked-decision-2026-05-23.md"
+        "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-global-vectorization-general-foundation/11_wave30-vector-closure-external-blocked-decision-2026-05-23.md",
+        "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-global-vectorization-general-foundation/12_wave55-live-embedding-provider-closure-2026-05-23.md"
       ],
       "evidence_required": [
         "probe",
@@ -438,11 +370,11 @@
       ],
       "probe_or_manual_evidence": {
         "mode": "probe",
-        "command": "PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 ops/search-lab/scripts/wave30_vector_closure_gate.py --out-dir development/latest-dev-docs/automation-runs/wave30-vector-closure-gate/2026-05-23",
-        "last_run_at": "pending_external_evidence",
-        "result_artifact": "development/latest-dev-docs/automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md",
-        "exit_code_expectation": "0 with live evidence attached, or nonzero while external dependency remains unavailable",
-        "result_summary": "Repo-local gate is recorded; live external proof is still required before this target can leave external_blocked."
+        "command": "PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 ops/search-lab/scripts/wave55_live_embedding_provider_gate.py --out-dir development/latest-dev-docs/automation-runs/wave55-live-embedding-provider/2026-05-23",
+        "last_run_at": "2026-05-23 PST",
+        "result_artifact": "development/latest-dev-docs/automation-runs/wave55-live-embedding-provider/2026-05-23/live_embedding_provider_gate.json",
+        "exit_code_expectation": "0 with external_embedding_provider_live_not_verified removed; target remains external_blocked until semantic and production vector quality are attached",
+        "result_summary": "Wave55 closes the live embedding provider gate; semantic embedding quality and production vector quality remain external."
       },
       "exit_criteria": [
         {
@@ -452,10 +384,16 @@
           "note": "Repo-local deterministic evidence is present and linked from the target topic."
         },
         {
+          "id": "global-vector-live-embedding-provider",
+          "state": "satisfied",
+          "evidence": "development/latest-dev-docs/automation-runs/wave55-live-embedding-provider/2026-05-23/live_embedding_provider_gate.json",
+          "note": "Wave55 removed external_embedding_provider_live_not_verified."
+        },
+        {
           "id": "global-vector-production-quality",
           "state": "blocked",
-          "evidence": "development/latest-dev-docs/automation-runs/wave40-external-blocker-manifest/2026-05-23/README.md",
-          "note": "Live embedding provider, semantic embedding quality, and production vector quality evidence are not attached."
+          "evidence": "development/latest-dev-docs/automation-runs/wave55-live-embedding-provider/2026-05-23/live_embedding_provider_gate.json",
+          "note": "Semantic embedding quality and production vector quality evidence are not attached."
         }
       ],
       "owner_surface": {

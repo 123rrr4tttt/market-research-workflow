@@ -8,20 +8,22 @@ cluster spanning:
 - [2026-03-11-source-library-three-lane-architecture](.)
 - [2026-03-14-search-chain-source-library-mounting-audit](../2026-03-14-search-chain-source-library-mounting-audit)
 - [2026-03-14-source-library-adapter-capability-remediation](../../../../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-14-source-library-adapter-capability-remediation/20_wave49-manual-public-replay-closure-2026-05-23.md)
-- [2026-03-25-source-library-ingest-minimal-migration](../2026-03-25-source-library-ingest-minimal-migration)
+- [2026-03-25-source-library-ingest-minimal-migration](../../../../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-25-source-library-ingest-minimal-migration/19_wave55-c3-live-replay-closure-2026-05-23.md)
 
 No shared indexes are edited in this pass. Moving directories out of
 `CURRENT_DEV` still requires a later integration pass because it must update the
 shared navigation surfaces.
 
-Wave33/Wave49 note (2026-05-23): this note is preserved as a Wave21 snapshot.
+Wave33/Wave49/Wave55 note (2026-05-23): this note is preserved as a Wave21 snapshot.
 The later Wave27 decision moved `2026-03-25-source-library-ingest-minimal-migration`
 to `external_blocked` after closing the former
 `python_library_cli_container_runners_not_enabled` repo-local blocker. Wave49
 then moved `2026-03-14-source-library-adapter-capability-remediation` to
-`ARCHIVE_CLOSED` after the real 45-site public replay was attached. Do not
-reuse the `retained_partial` or `external_blocked_candidate` rows below as
-current status.
+`ARCHIVE_CLOSED` after the real 45-site public replay was attached. Wave55
+then moved `2026-03-25-source-library-ingest-minimal-migration` to
+`ARCHIVE_CLOSED` after live article-extraction stack replay and live
+external-project replay were attached. Do not reuse the `retained_partial` or
+`external_blocked_candidate` rows below as current status.
 
 ## Decision
 
@@ -74,8 +76,8 @@ allowed to edit the top-level shared indexes.
   - `claims_live_source_collection_complete=false`
   - `claims_live_ingest_migration_complete=false`
   - `shared_indexes_edited=false`
-- Retained-partial ingest evidence:
-  `../2026-03-25-source-library-ingest-minimal-migration/11_wave11-source-library-extraction-runner-evidence-2026-05-22.md`
+- Historical ingest evidence:
+  `../../../../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-25-source-library-ingest-minimal-migration/11_wave11-source-library-extraction-runner-evidence-2026-05-22.md`
 
 ## Verification Commands
 

@@ -1,0 +1,987 @@
+{
+  "contract_version": "crawler_source_expansion.public_replay_shard_output.v1",
+  "generated_at": "2026-05-24T00:58:07Z",
+  "inputs": {
+    "enabled_public_target_count": 8,
+    "policy_disabled_target_count": 1,
+    "target_count": 9,
+    "target_ids": [
+      "demo_proj_49_slashgear_com",
+      "demo_proj_59_arstechnica_com",
+      "demo_proj_62_linkedin_com",
+      "demo_proj_66_laptopmag_com",
+      "demo_proj_70_theverge_com",
+      "demo_proj_75_howtogeek_com",
+      "demo_proj_79_cosmopolitan_com",
+      "demo_proj_83_moorinsightsstrategy_com",
+      "demo_proj_93_androidpolice_com"
+    ]
+  },
+  "manifest_path": "development/latest-dev-docs/automation-runs/crawler-public-replay-shards/2026-05-22/shard_manifest.json",
+  "mode": {
+    "allow_public_network": true,
+    "browser_runtime_started": false,
+    "source_probe_id": "source_library_replay_scaleout_2026_05_22",
+    "source_runner": "source_library_replay_scaleout"
+  },
+  "outputs": {
+    "blockers_by_target": [
+      {
+        "blocker_type": "relevance_review",
+        "domain": "slashgear.com",
+        "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+        "status": "candidate_ready_with_term_fallback",
+        "target_id": "demo_proj_49_slashgear_com",
+        "template": "https://slashgear.com/search?q={{q}}"
+      },
+      {
+        "blocker_type": "relevance_review",
+        "domain": "arstechnica.com",
+        "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+        "status": "candidate_ready_with_term_fallback",
+        "target_id": "demo_proj_59_arstechnica_com",
+        "template": "https://arstechnica.com/search?q={{q}}"
+      },
+      {
+        "blocker_type": "policy_or_platform_required",
+        "domain": "linkedin.com",
+        "reason": "Historical target is disabled in demo_proj because it requires a platform/API-specific lane.",
+        "status": "skipped_policy_disabled_platform_entry",
+        "target_id": "demo_proj_62_linkedin_com",
+        "template": "https://linkedin.com/search?q={{q}}"
+      },
+      {
+        "blocker_type": "relevance_review",
+        "domain": "laptopmag.com",
+        "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+        "status": "candidate_ready_with_term_fallback",
+        "target_id": "demo_proj_66_laptopmag_com",
+        "template": "https://laptopmag.com/search?q={{q}}"
+      },
+      {
+        "blocker_type": "relevance_review",
+        "domain": "theverge.com",
+        "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+        "status": "candidate_ready_with_term_fallback",
+        "target_id": "demo_proj_70_theverge_com",
+        "template": "https://theverge.com/search?q={{q}}"
+      },
+      {
+        "blocker_type": "empty_or_dynamic_source",
+        "domain": "howtogeek.com",
+        "reason": "Public page fetched without selected or raw candidates; dynamic shell or source mismatch likely.",
+        "status": "empty_public_result",
+        "target_id": "demo_proj_75_howtogeek_com",
+        "template": "https://howtogeek.com/search/?q={{q}}"
+      },
+      {
+        "blocker_type": "relevance_review",
+        "domain": "cosmopolitan.com",
+        "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+        "status": "candidate_ready_with_term_fallback",
+        "target_id": "demo_proj_79_cosmopolitan_com",
+        "template": "https://cosmopolitan.com/search?q={{q}}"
+      },
+      {
+        "blocker_type": "relevance_review",
+        "domain": "moorinsightsstrategy.com",
+        "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+        "status": "candidate_ready_with_term_fallback",
+        "target_id": "demo_proj_83_moorinsightsstrategy_com",
+        "template": "https://moorinsightsstrategy.com/find?q={{q}}"
+      },
+      {
+        "blocker_type": "empty_or_dynamic_source",
+        "domain": "androidpolice.com",
+        "reason": "Public page fetched without selected or raw candidates; dynamic shell or source mismatch likely.",
+        "status": "empty_public_result",
+        "target_id": "demo_proj_93_androidpolice_com",
+        "template": "https://androidpolice.com/search/?q={{q}}"
+      }
+    ],
+    "public_targets_attempted": 8,
+    "status_counts": {
+      "candidate_ready_with_term_fallback": 6,
+      "empty_public_result": 2,
+      "skipped_policy_disabled_platform_entry": 1
+    },
+    "target_results": [
+      {
+        "adapter_plan": {
+          "adapter_key": "search_template.generic",
+          "param_overrides": {
+            "max_pages": 1
+          },
+          "parser_profile": "site_adaptive",
+          "reason": "Default generic search_template adapter."
+        },
+        "adapter_result": {
+          "adapter_taxonomy": {
+            "entry_type": "search_template",
+            "internal_adapter_only": true,
+            "item_key": "handler.cluster.search_template",
+            "item_type": "service_aggregated",
+            "lane": "site_search_internal_adapter",
+            "managed_by": "system",
+            "source_family": "generic_web"
+          },
+          "candidate_count": 30,
+          "candidates": [
+            "https://slashgear.com/1516951/apps-for-budgeting-2024",
+            "https://slashgear.com/1594788/cheapest-vehicles-to-repair-total-annual-maintenance-costs-ranked",
+            "https://slashgear.com/1861121/1967-ford-mustang-eleanor-how-many-made-what-cost-worth-now",
+            "https://slashgear.com/1861313/electrical-outlets-t-shaped-hole-reason",
+            "https://slashgear.com/2164107/2026-audi-rs6-avant-review",
+            "https://slashgear.com/2176035/tech-brands-acquired-by-apple",
+            "https://slashgear.com/2176133/toyota-vehicles-great-for-seniors",
+            "https://slashgear.com/2176222/what-does-n-mean-motorcycle-gear-shift-indicator-why-come-after-1",
+            "https://slashgear.com/2176255/old-cars-high-resale-value-you-might-own",
+            "https://slashgear.com/2176365/best-cooper-tires-for-suvs"
+          ],
+          "capability_profile": {
+            "entry_type": "search_template",
+            "extractor_kind": "html_link_extractor",
+            "fallback_policy": "term_match_then_search_template_fallback",
+            "source_mode": "site_search",
+            "supports_pagination": true,
+            "supports_query_terms": true
+          },
+          "diagnostics": {
+            "candidate_filter_state": "term_filter_empty_fallback_used",
+            "entry_domain": "slashgear.com",
+            "fallback_allowed": true,
+            "pages_scanned": 1,
+            "parser_candidate_rejected_low_value": 199,
+            "parser_container_hit": 32,
+            "parser_global_anchor_hit": 0,
+            "parser_json_ld_hit": 0,
+            "parser_parser_module_used": "container",
+            "parser_parser_modules_tried": [
+              "container"
+            ],
+            "parser_parser_profile_resolved": "site_adaptive",
+            "parser_structured_hit": 0,
+            "raw_candidates": 32,
+            "search_service": "basic",
+            "search_service_fallbacks": 0,
+            "selected_candidates": 30,
+            "transport_errors": 0,
+            "used_term_fallback": true
+          },
+          "errors": [],
+          "inserted": 30,
+          "pages_scanned": 1,
+          "search_urls": [
+            "https://slashgear.com/search?q=openai+api+pricing+anthropic+claude+code+gpt+4.1+release+langchain+sqlitecache&page_size=20"
+          ],
+          "skipped": 0,
+          "source_mode": "site_search",
+          "used_term_fallback": true
+        },
+        "classification": {
+          "blocker_type": "relevance_review",
+          "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+          "status": "candidate_ready_with_term_fallback"
+        },
+        "elapsed_ms": 448,
+        "entry_domain": "slashgear.com",
+        "target": {
+          "category": "historical_search_template",
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "target_id": "demo_proj_49_slashgear_com",
+          "template": "https://slashgear.com/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_plan": {
+          "adapter_key": "search_template.generic",
+          "param_overrides": {
+            "max_pages": 1
+          },
+          "parser_profile": "site_adaptive",
+          "reason": "Default generic search_template adapter."
+        },
+        "adapter_result": {
+          "adapter_taxonomy": {
+            "entry_type": "search_template",
+            "internal_adapter_only": true,
+            "item_key": "handler.cluster.search_template",
+            "item_type": "service_aggregated",
+            "lane": "site_search_internal_adapter",
+            "managed_by": "system",
+            "source_family": "generic_web"
+          },
+          "candidate_count": 2,
+          "candidates": [
+            "https://arstechnica.com/store/product/subscriptions",
+            "https://bsky.app/profile/arstechnica.com"
+          ],
+          "capability_profile": {
+            "entry_type": "search_template",
+            "extractor_kind": "html_link_extractor",
+            "fallback_policy": "term_match_then_search_template_fallback",
+            "source_mode": "site_search",
+            "supports_pagination": true,
+            "supports_query_terms": true
+          },
+          "diagnostics": {
+            "candidate_filter_state": "term_filter_empty_fallback_used",
+            "entry_domain": "arstechnica.com",
+            "fallback_allowed": true,
+            "pages_scanned": 1,
+            "parser_candidate_rejected_low_value": 17,
+            "parser_container_hit": 0,
+            "parser_global_anchor_hit": 2,
+            "parser_json_ld_hit": 0,
+            "parser_parser_module_used": "global_anchor",
+            "parser_parser_modules_tried": [
+              "global_anchor"
+            ],
+            "parser_parser_profile_resolved": "site_adaptive",
+            "parser_structured_hit": 0,
+            "raw_candidates": 2,
+            "search_service": "basic",
+            "search_service_fallbacks": 0,
+            "selected_candidates": 2,
+            "transport_errors": 0,
+            "used_term_fallback": true
+          },
+          "errors": [],
+          "inserted": 2,
+          "pages_scanned": 1,
+          "search_urls": [
+            "https://arstechnica.com/search?q=openai+api+pricing+anthropic+claude+code+gpt+4.1+release+langchain+sqlitecache&page_size=20"
+          ],
+          "skipped": 0,
+          "source_mode": "site_search",
+          "used_term_fallback": true
+        },
+        "classification": {
+          "blocker_type": "relevance_review",
+          "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+          "status": "candidate_ready_with_term_fallback"
+        },
+        "elapsed_ms": 662,
+        "entry_domain": "arstechnica.com",
+        "target": {
+          "category": "historical_search_template",
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "target_id": "demo_proj_59_arstechnica_com",
+          "template": "https://arstechnica.com/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_result": {
+          "candidate_count": 0,
+          "candidates": [],
+          "diagnostics": {},
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 0,
+          "search_urls": [],
+          "skipped": 1,
+          "used_term_fallback": null
+        },
+        "classification": {
+          "blocker_type": "policy_or_platform_required",
+          "reason": "Historical target is disabled in demo_proj because it requires a platform/API-specific lane.",
+          "status": "skipped_policy_disabled_platform_entry"
+        },
+        "elapsed_ms": 0,
+        "entry_domain": "linkedin.com",
+        "target": {
+          "category": "platform_api_required",
+          "domain": "linkedin.com",
+          "enabled": false,
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Disabled in demo_proj as platform/API-required search; keep in the historical 45-site replay manifest but do not contact by default even when public replay is enabled.",
+          "site_entry_id": 62,
+          "target_id": "demo_proj_62_linkedin_com",
+          "template": "https://linkedin.com/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_plan": {
+          "adapter_key": "search_template.generic",
+          "param_overrides": {
+            "max_pages": 1
+          },
+          "parser_profile": "site_adaptive",
+          "reason": "Default generic search_template adapter."
+        },
+        "adapter_result": {
+          "adapter_taxonomy": {
+            "entry_type": "search_template",
+            "internal_adapter_only": true,
+            "item_key": "handler.cluster.search_template",
+            "item_type": "service_aggregated",
+            "lane": "site_search_internal_adapter",
+            "managed_by": "system",
+            "source_family": "generic_web"
+          },
+          "candidate_count": 21,
+          "candidates": [
+            "https://bsky.app/profile/laptopmag.com",
+            "https://google.com/preferences/source?q=laptopmag.com",
+            "https://www.laptopmag.com/articles/best-2-in-1-laptop",
+            "https://www.laptopmag.com/articles/best-2-in-1-laptops",
+            "https://www.laptopmag.com/articles/best-docking-station",
+            "https://www.laptopmag.com/articles/best-laptop-under-500",
+            "https://www.laptopmag.com/articles/best-webcam",
+            "https://www.laptopmag.com/articles/laptop-benchmark-tests",
+            "https://www.laptopmag.com/articles/laptop-with-cd-dvd-drives",
+            "https://www.laptopmag.com/best-picks"
+          ],
+          "capability_profile": {
+            "entry_type": "search_template",
+            "extractor_kind": "html_link_extractor",
+            "fallback_policy": "term_match_then_search_template_fallback",
+            "source_mode": "site_search",
+            "supports_pagination": true,
+            "supports_query_terms": true
+          },
+          "diagnostics": {
+            "candidate_filter_state": "term_filter_empty_fallback_used",
+            "entry_domain": "laptopmag.com",
+            "fallback_allowed": true,
+            "pages_scanned": 1,
+            "parser_candidate_rejected_low_value": 22,
+            "parser_container_hit": 0,
+            "parser_global_anchor_hit": 14,
+            "parser_json_ld_hit": 7,
+            "parser_parser_module_used": "jsonld",
+            "parser_parser_modules_tried": [
+              "jsonld",
+              "global_anchor"
+            ],
+            "parser_parser_profile_resolved": "site_adaptive",
+            "parser_structured_hit": 0,
+            "raw_candidates": 21,
+            "search_service": "basic",
+            "search_service_fallbacks": 0,
+            "selected_candidates": 21,
+            "transport_errors": 0,
+            "used_term_fallback": true
+          },
+          "errors": [],
+          "inserted": 21,
+          "pages_scanned": 1,
+          "search_urls": [
+            "https://laptopmag.com/search?q=openai+api+pricing+anthropic+claude+code+gpt+4.1+release+langchain+sqlitecache&page_size=20"
+          ],
+          "skipped": 0,
+          "source_mode": "site_search",
+          "used_term_fallback": true
+        },
+        "classification": {
+          "blocker_type": "relevance_review",
+          "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+          "status": "candidate_ready_with_term_fallback"
+        },
+        "elapsed_ms": 487,
+        "entry_domain": "laptopmag.com",
+        "target": {
+          "category": "historical_search_template",
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "target_id": "demo_proj_66_laptopmag_com",
+          "template": "https://laptopmag.com/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_plan": {
+          "adapter_key": "search_template.generic",
+          "param_overrides": {
+            "max_pages": 1
+          },
+          "parser_profile": "site_adaptive",
+          "reason": "Default generic search_template adapter."
+        },
+        "adapter_result": {
+          "adapter_taxonomy": {
+            "entry_type": "search_template",
+            "internal_adapter_only": true,
+            "item_key": "handler.cluster.search_template",
+            "item_type": "service_aggregated",
+            "lane": "site_search_internal_adapter",
+            "managed_by": "system",
+            "source_family": "generic_web"
+          },
+          "candidate_count": 4,
+          "candidates": [
+            "https://theverge.com/archives/full",
+            "https://theverge.com/pages/how-we-rate",
+            "https://www.voxmedia.com/legal/accessibility",
+            "https://www.voxmedia.com/pages/licensing"
+          ],
+          "capability_profile": {
+            "entry_type": "search_template",
+            "extractor_kind": "html_link_extractor",
+            "fallback_policy": "term_match_then_search_template_fallback",
+            "source_mode": "site_search",
+            "supports_pagination": true,
+            "supports_query_terms": true
+          },
+          "diagnostics": {
+            "candidate_filter_state": "term_filter_empty_fallback_used",
+            "entry_domain": "theverge.com",
+            "fallback_allowed": true,
+            "pages_scanned": 1,
+            "parser_candidate_rejected_low_value": 27,
+            "parser_container_hit": 0,
+            "parser_global_anchor_hit": 4,
+            "parser_json_ld_hit": 0,
+            "parser_parser_module_used": "global_anchor",
+            "parser_parser_modules_tried": [
+              "global_anchor"
+            ],
+            "parser_parser_profile_resolved": "site_adaptive",
+            "parser_structured_hit": 0,
+            "raw_candidates": 4,
+            "search_service": "basic",
+            "search_service_fallbacks": 0,
+            "selected_candidates": 4,
+            "transport_errors": 0,
+            "used_term_fallback": true
+          },
+          "errors": [],
+          "inserted": 4,
+          "pages_scanned": 1,
+          "search_urls": [
+            "https://theverge.com/search?q=openai+api+pricing+anthropic+claude+code+gpt+4.1+release+langchain+sqlitecache&page_size=20"
+          ],
+          "skipped": 0,
+          "source_mode": "site_search",
+          "used_term_fallback": true
+        },
+        "classification": {
+          "blocker_type": "relevance_review",
+          "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+          "status": "candidate_ready_with_term_fallback"
+        },
+        "elapsed_ms": 296,
+        "entry_domain": "theverge.com",
+        "target": {
+          "category": "historical_search_template",
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "target_id": "demo_proj_70_theverge_com",
+          "template": "https://theverge.com/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_plan": {
+          "adapter_key": "search_template.generic",
+          "param_overrides": {
+            "max_pages": 1
+          },
+          "parser_profile": "site_adaptive",
+          "reason": "Default generic search_template adapter."
+        },
+        "adapter_result": {
+          "adapter_taxonomy": {
+            "entry_type": "search_template",
+            "internal_adapter_only": true,
+            "item_key": "handler.cluster.search_template",
+            "item_type": "service_aggregated",
+            "lane": "site_search_internal_adapter",
+            "managed_by": "system",
+            "source_family": "generic_web"
+          },
+          "candidate_count": 0,
+          "candidates": [],
+          "capability_profile": {
+            "entry_type": "search_template",
+            "extractor_kind": "html_link_extractor",
+            "fallback_policy": "term_match_then_search_template_fallback",
+            "source_mode": "site_search",
+            "supports_pagination": true,
+            "supports_query_terms": true
+          },
+          "diagnostics": {
+            "candidate_filter_state": "empty_no_raw_candidates",
+            "entry_domain": "howtogeek.com",
+            "fallback_allowed": true,
+            "pages_scanned": 1,
+            "parser_candidate_rejected_low_value": 51,
+            "parser_container_hit": 0,
+            "parser_global_anchor_hit": 0,
+            "parser_json_ld_hit": 0,
+            "parser_parser_module_used": "",
+            "parser_parser_modules_tried": [],
+            "parser_parser_profile_resolved": "site_adaptive",
+            "parser_structured_hit": 0,
+            "raw_candidates": 0,
+            "search_service": "basic",
+            "search_service_fallbacks": 0,
+            "selected_candidates": 0,
+            "transport_errors": 0,
+            "used_term_fallback": true
+          },
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 1,
+          "search_urls": [
+            "https://howtogeek.com/search/?q=openai+api+pricing+anthropic+claude+code+gpt+4.1+release+langchain+sqlitecache&page_size=20"
+          ],
+          "skipped": 0,
+          "source_mode": "site_search",
+          "used_term_fallback": true
+        },
+        "classification": {
+          "blocker_type": "empty_or_dynamic_source",
+          "reason": "Public page fetched without selected or raw candidates; dynamic shell or source mismatch likely.",
+          "status": "empty_public_result"
+        },
+        "elapsed_ms": 265,
+        "entry_domain": "howtogeek.com",
+        "target": {
+          "category": "historical_search_template",
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "target_id": "demo_proj_75_howtogeek_com",
+          "template": "https://howtogeek.com/search/?q={{q}}"
+        }
+      },
+      {
+        "adapter_plan": {
+          "adapter_key": "search_template.generic",
+          "param_overrides": {
+            "max_pages": 1
+          },
+          "parser_profile": "site_adaptive",
+          "reason": "Default generic search_template adapter."
+        },
+        "adapter_result": {
+          "adapter_taxonomy": {
+            "entry_type": "search_template",
+            "internal_adapter_only": true,
+            "item_key": "handler.cluster.search_template",
+            "item_type": "service_aggregated",
+            "lane": "site_search_internal_adapter",
+            "managed_by": "system",
+            "source_family": "generic_web"
+          },
+          "candidate_count": 8,
+          "candidates": [
+            "http://cosmomediakit.com/r5/home.asp",
+            "https://cosmopolitan.com/email/cosmopolitan-newsletter",
+            "https://cosmopolitan.com/lifestyle/advice/a1845/customer-service",
+            "https://eevd.fa.us6.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_9",
+            "https://www.cosmopolitan.com/email/cosmo-newsletter-lets-talk-shop",
+            "https://www.cosmopolitan.com/email/cosmopolitan-newsletter",
+            "https://www.hearst.com/-/us-magazines-privacy-notice",
+            "https://www.hearst.com/-/us-magazines-terms-of-use"
+          ],
+          "capability_profile": {
+            "entry_type": "search_template",
+            "extractor_kind": "html_link_extractor",
+            "fallback_policy": "term_match_then_search_template_fallback",
+            "source_mode": "site_search",
+            "supports_pagination": true,
+            "supports_query_terms": true
+          },
+          "diagnostics": {
+            "candidate_filter_state": "term_filter_empty_fallback_used",
+            "entry_domain": "cosmopolitan.com",
+            "fallback_allowed": true,
+            "pages_scanned": 1,
+            "parser_candidate_rejected_low_value": 33,
+            "parser_container_hit": 0,
+            "parser_global_anchor_hit": 8,
+            "parser_json_ld_hit": 0,
+            "parser_parser_module_used": "global_anchor",
+            "parser_parser_modules_tried": [
+              "global_anchor"
+            ],
+            "parser_parser_profile_resolved": "site_adaptive",
+            "parser_structured_hit": 0,
+            "raw_candidates": 8,
+            "search_service": "basic",
+            "search_service_fallbacks": 0,
+            "selected_candidates": 8,
+            "transport_errors": 0,
+            "used_term_fallback": true
+          },
+          "errors": [],
+          "inserted": 8,
+          "pages_scanned": 1,
+          "search_urls": [
+            "https://cosmopolitan.com/search?q=openai+api+pricing+anthropic+claude+code+gpt+4.1+release+langchain+sqlitecache&page_size=20"
+          ],
+          "skipped": 0,
+          "source_mode": "site_search",
+          "used_term_fallback": true
+        },
+        "classification": {
+          "blocker_type": "relevance_review",
+          "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+          "status": "candidate_ready_with_term_fallback"
+        },
+        "elapsed_ms": 1030,
+        "entry_domain": "cosmopolitan.com",
+        "target": {
+          "category": "historical_search_template",
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "target_id": "demo_proj_79_cosmopolitan_com",
+          "template": "https://cosmopolitan.com/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_plan": {
+          "adapter_key": "search_template.generic",
+          "param_overrides": {
+            "max_pages": 1
+          },
+          "parser_profile": "site_adaptive",
+          "reason": "Default generic search_template adapter."
+        },
+        "adapter_result": {
+          "adapter_taxonomy": {
+            "entry_type": "search_template",
+            "internal_adapter_only": true,
+            "item_key": "handler.cluster.search_template",
+            "item_type": "service_aggregated",
+            "lane": "site_search_internal_adapter",
+            "managed_by": "system",
+            "source_family": "generic_web"
+          },
+          "candidate_count": 29,
+          "candidates": [
+            "https://lenovopress.com/lp1296-thinkagile-mx1020-mx1021-azure-stack-hci",
+            "https://lenovopress.com/lp1384-lenovo-thinkagile-hx1021-certified-node",
+            "https://moorinsightsstrategy.com/analyst-insight-google-clouds-ai-hypercomputer-at-next-2026-real-co-design-targeted-reach",
+            "https://moorinsightsstrategy.com/analyst-insight-how-googles-agentic-data-cloud-redefines-what-context-means-for-the-enterprise",
+            "https://moorinsightsstrategy.com/enterprises-need-to-be-careful-before-they-go-all-in-on-anthropic",
+            "https://moorinsightsstrategy.com/find?page_size=20&q=openai+api+pricing+anthropic+claude+code+gpt+4.1+release+langchain+sqlitecache",
+            "https://moorinsightsstrategy.com/finding-the-gems-in-lenovos-multiple-product-announcements",
+            "https://moorinsightsstrategy.com/mis-weekly-analyst-insights-week-ending-may-1-2026",
+            "https://moorinsightsstrategy.com/mis-weekly-analyst-insights-week-ending-may-15-2026",
+            "https://moorinsightsstrategy.com/mis-weekly-analyst-insights-week-ending-may-8-2026"
+          ],
+          "capability_profile": {
+            "entry_type": "search_template",
+            "extractor_kind": "html_link_extractor",
+            "fallback_policy": "term_match_then_search_template_fallback",
+            "source_mode": "site_search",
+            "supports_pagination": true,
+            "supports_query_terms": true
+          },
+          "diagnostics": {
+            "candidate_filter_state": "term_filter_empty_fallback_used",
+            "entry_domain": "moorinsightsstrategy.com",
+            "fallback_allowed": true,
+            "pages_scanned": 1,
+            "parser_candidate_rejected_low_value": 38,
+            "parser_container_hit": 28,
+            "parser_global_anchor_hit": 0,
+            "parser_json_ld_hit": 1,
+            "parser_parser_module_used": "container",
+            "parser_parser_modules_tried": [
+              "container",
+              "jsonld"
+            ],
+            "parser_parser_profile_resolved": "site_adaptive",
+            "parser_structured_hit": 0,
+            "raw_candidates": 29,
+            "search_service": "basic",
+            "search_service_fallbacks": 0,
+            "selected_candidates": 29,
+            "transport_errors": 0,
+            "used_term_fallback": true
+          },
+          "errors": [],
+          "inserted": 29,
+          "pages_scanned": 1,
+          "search_urls": [
+            "https://moorinsightsstrategy.com/find?q=openai+api+pricing+anthropic+claude+code+gpt+4.1+release+langchain+sqlitecache&page_size=20"
+          ],
+          "skipped": 0,
+          "source_mode": "site_search",
+          "used_term_fallback": true
+        },
+        "classification": {
+          "blocker_type": "relevance_review",
+          "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+          "status": "candidate_ready_with_term_fallback"
+        },
+        "elapsed_ms": 2003,
+        "entry_domain": "moorinsightsstrategy.com",
+        "target": {
+          "category": "parser_enhance",
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "target_id": "demo_proj_83_moorinsightsstrategy_com",
+          "template": "https://moorinsightsstrategy.com/find?q={{q}}"
+        }
+      },
+      {
+        "adapter_plan": {
+          "adapter_key": "search_template.generic",
+          "param_overrides": {
+            "max_pages": 1
+          },
+          "parser_profile": "site_adaptive",
+          "reason": "Default generic search_template adapter."
+        },
+        "adapter_result": {
+          "adapter_taxonomy": {
+            "entry_type": "search_template",
+            "internal_adapter_only": true,
+            "item_key": "handler.cluster.search_template",
+            "item_type": "service_aggregated",
+            "lane": "site_search_internal_adapter",
+            "managed_by": "system",
+            "source_family": "generic_web"
+          },
+          "candidate_count": 0,
+          "candidates": [],
+          "capability_profile": {
+            "entry_type": "search_template",
+            "extractor_kind": "html_link_extractor",
+            "fallback_policy": "term_match_then_search_template_fallback",
+            "source_mode": "site_search",
+            "supports_pagination": true,
+            "supports_query_terms": true
+          },
+          "diagnostics": {
+            "candidate_filter_state": "empty_no_raw_candidates",
+            "entry_domain": "androidpolice.com",
+            "fallback_allowed": true,
+            "pages_scanned": 1,
+            "parser_candidate_rejected_low_value": 19,
+            "parser_container_hit": 0,
+            "parser_global_anchor_hit": 0,
+            "parser_json_ld_hit": 0,
+            "parser_parser_module_used": "",
+            "parser_parser_modules_tried": [],
+            "parser_parser_profile_resolved": "site_adaptive",
+            "parser_structured_hit": 0,
+            "raw_candidates": 0,
+            "search_service": "basic",
+            "search_service_fallbacks": 0,
+            "selected_candidates": 0,
+            "transport_errors": 0,
+            "used_term_fallback": true
+          },
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 1,
+          "search_urls": [
+            "https://androidpolice.com/search/?q=openai+api+pricing+anthropic+claude+code+gpt+4.1+release+langchain+sqlitecache&page_size=20"
+          ],
+          "skipped": 0,
+          "source_mode": "site_search",
+          "used_term_fallback": true
+        },
+        "classification": {
+          "blocker_type": "empty_or_dynamic_source",
+          "reason": "Public page fetched without selected or raw candidates; dynamic shell or source mismatch likely.",
+          "status": "empty_public_result"
+        },
+        "elapsed_ms": 206,
+        "entry_domain": "androidpolice.com",
+        "target": {
+          "category": "historical_search_template",
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "target_id": "demo_proj_93_androidpolice_com",
+          "template": "https://androidpolice.com/search/?q={{q}}"
+        }
+      }
+    ],
+    "term_fallback_relevance_review": [
+      {
+        "candidate_count": 30,
+        "candidates": [
+          "https://slashgear.com/1516951/apps-for-budgeting-2024",
+          "https://slashgear.com/1594788/cheapest-vehicles-to-repair-total-annual-maintenance-costs-ranked",
+          "https://slashgear.com/1861121/1967-ford-mustang-eleanor-how-many-made-what-cost-worth-now",
+          "https://slashgear.com/1861313/electrical-outlets-t-shaped-hole-reason",
+          "https://slashgear.com/2164107/2026-audi-rs6-avant-review",
+          "https://slashgear.com/2176035/tech-brands-acquired-by-apple",
+          "https://slashgear.com/2176133/toyota-vehicles-great-for-seniors",
+          "https://slashgear.com/2176222/what-does-n-mean-motorcycle-gear-shift-indicator-why-come-after-1",
+          "https://slashgear.com/2176255/old-cars-high-resale-value-you-might-own",
+          "https://slashgear.com/2176365/best-cooper-tires-for-suvs"
+        ],
+        "domain": "slashgear.com",
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "review_reason": "Candidates were selected only after term fallback; inspect relevance before counting as dirty-source closure.",
+        "target_id": "demo_proj_49_slashgear_com"
+      },
+      {
+        "candidate_count": 2,
+        "candidates": [
+          "https://arstechnica.com/store/product/subscriptions",
+          "https://bsky.app/profile/arstechnica.com"
+        ],
+        "domain": "arstechnica.com",
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "review_reason": "Candidates were selected only after term fallback; inspect relevance before counting as dirty-source closure.",
+        "target_id": "demo_proj_59_arstechnica_com"
+      },
+      {
+        "candidate_count": 21,
+        "candidates": [
+          "https://bsky.app/profile/laptopmag.com",
+          "https://google.com/preferences/source?q=laptopmag.com",
+          "https://www.laptopmag.com/articles/best-2-in-1-laptop",
+          "https://www.laptopmag.com/articles/best-2-in-1-laptops",
+          "https://www.laptopmag.com/articles/best-docking-station",
+          "https://www.laptopmag.com/articles/best-laptop-under-500",
+          "https://www.laptopmag.com/articles/best-webcam",
+          "https://www.laptopmag.com/articles/laptop-benchmark-tests",
+          "https://www.laptopmag.com/articles/laptop-with-cd-dvd-drives",
+          "https://www.laptopmag.com/best-picks"
+        ],
+        "domain": "laptopmag.com",
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "review_reason": "Candidates were selected only after term fallback; inspect relevance before counting as dirty-source closure.",
+        "target_id": "demo_proj_66_laptopmag_com"
+      },
+      {
+        "candidate_count": 4,
+        "candidates": [
+          "https://theverge.com/archives/full",
+          "https://theverge.com/pages/how-we-rate",
+          "https://www.voxmedia.com/legal/accessibility",
+          "https://www.voxmedia.com/pages/licensing"
+        ],
+        "domain": "theverge.com",
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "review_reason": "Candidates were selected only after term fallback; inspect relevance before counting as dirty-source closure.",
+        "target_id": "demo_proj_70_theverge_com"
+      },
+      {
+        "candidate_count": 8,
+        "candidates": [
+          "http://cosmomediakit.com/r5/home.asp",
+          "https://cosmopolitan.com/email/cosmopolitan-newsletter",
+          "https://cosmopolitan.com/lifestyle/advice/a1845/customer-service",
+          "https://eevd.fa.us6.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_9",
+          "https://www.cosmopolitan.com/email/cosmo-newsletter-lets-talk-shop",
+          "https://www.cosmopolitan.com/email/cosmopolitan-newsletter",
+          "https://www.hearst.com/-/us-magazines-privacy-notice",
+          "https://www.hearst.com/-/us-magazines-terms-of-use"
+        ],
+        "domain": "cosmopolitan.com",
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "review_reason": "Candidates were selected only after term fallback; inspect relevance before counting as dirty-source closure.",
+        "target_id": "demo_proj_79_cosmopolitan_com"
+      },
+      {
+        "candidate_count": 29,
+        "candidates": [
+          "https://lenovopress.com/lp1296-thinkagile-mx1020-mx1021-azure-stack-hci",
+          "https://lenovopress.com/lp1384-lenovo-thinkagile-hx1021-certified-node",
+          "https://moorinsightsstrategy.com/analyst-insight-google-clouds-ai-hypercomputer-at-next-2026-real-co-design-targeted-reach",
+          "https://moorinsightsstrategy.com/analyst-insight-how-googles-agentic-data-cloud-redefines-what-context-means-for-the-enterprise",
+          "https://moorinsightsstrategy.com/enterprises-need-to-be-careful-before-they-go-all-in-on-anthropic",
+          "https://moorinsightsstrategy.com/find?page_size=20&q=openai+api+pricing+anthropic+claude+code+gpt+4.1+release+langchain+sqlitecache",
+          "https://moorinsightsstrategy.com/finding-the-gems-in-lenovos-multiple-product-announcements",
+          "https://moorinsightsstrategy.com/mis-weekly-analyst-insights-week-ending-may-1-2026",
+          "https://moorinsightsstrategy.com/mis-weekly-analyst-insights-week-ending-may-15-2026",
+          "https://moorinsightsstrategy.com/mis-weekly-analyst-insights-week-ending-may-8-2026"
+        ],
+        "domain": "moorinsightsstrategy.com",
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "review_reason": "Candidates were selected only after term fallback; inspect relevance before counting as dirty-source closure.",
+        "target_id": "demo_proj_83_moorinsightsstrategy_com"
+      }
+    ]
+  },
+  "shard_id": "crawler_public_replay_shard_02",
+  "shard_index": 2,
+  "source_full_output_path": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/output.public.json",
+  "source_public_replay_window": {
+    "finished_at": "2026-05-23T10:53:31Z",
+    "started_at": "2026-05-23T10:50:31Z"
+  },
+  "validation": {
+    "operator_gate_skip_count": 0,
+    "passed": true,
+    "policy_skipped_status_count": 1,
+    "public_network_attempted": true,
+    "skipped": false,
+    "target_order_matches_manifest": true
+  }
+}

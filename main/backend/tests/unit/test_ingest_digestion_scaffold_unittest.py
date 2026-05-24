@@ -585,6 +585,66 @@ class IngestDigestionScaffoldTests(unittest.TestCase):
         self.assertIn("live_scheduler_queue_enqueue_not_executed", check["remaining_runtime_gaps"])
         self.assertIn("live_db_persistent_task_table_not_validated", check["remaining_runtime_gaps"])
 
+    def test_long_cycle_repo_local_live_scheduler_queue_worker_db_and_handoff_closure(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repository = scaffold.SqliteLongCycleTaskRepository(
+                db_path=pathlib.Path(tmp_dir) / "long_cycle_live.db",
+                repository_ref="sqlite://unit-test-long-cycle-live",
+            )
+            kwargs = _valid_scheduler_kwargs()
+            kwargs["scheduler_ref"] = "repo-local.scheduler.ingest-long-cycle"
+            kwargs["persistent_ref"] = repository.repository_ref
+            check = scaffold.check_long_cycle_scheduler_queue_handoff_replay_contract(
+                **kwargs,
+                repository=repository,
+                repo_local_live=True,
+            )
+
+        self.assertEqual(check["contract_version"], "ingest.long_cycle_scheduler_queue_replay_check.v2")
+        self.assertEqual(check["status"], "pass")
+        self.assertEqual(check["remaining_runtime_gaps"], [])
+        self.assertTrue(check["scheduler_intent_validated"])
+        self.assertTrue(check["queue_item_validated"])
+        self.assertTrue(check["repository_write_readback_validated"])
+        self.assertTrue(check["worker_consumption_validated"])
+        self.assertTrue(check["event_replay_summary_validated"])
+        self.assertTrue(check["digestion_output_readback_validated"])
+        self.assertTrue(check["downstream_handoff_validated"])
+        self.assertTrue(check["repo_local_live_closure_validated"])
+        self.assertTrue(check["live_dispatch"])
+        self.assertTrue(check["live_enqueue"])
+        self.assertTrue(check["live_db_write"])
+        self.assertTrue(check["closure_claim"])
+        self.assertTrue(check["live_scheduler_closure_validated"])
+
+        intent = check["dispatch_intent"]
+        queue_item = check["queue_item"]
+        worker = check["worker_consumption"]
+        handoff = check["downstream_handoff"]
+        replay = check["event_replay_summary"]
+        readback = check["repository_readback"]
+
+        self.assertTrue(intent["live_dispatch"])
+        self.assertEqual(intent["payload"]["dispatch_mode"], "repo_local_live_scheduler")
+        self.assertEqual(queue_item["queue_state"], "queued_repo_local_live")
+        self.assertTrue(queue_item["live_enqueue"])
+        self.assertEqual(queue_item["payload"]["queue_handoff_mode"], "repo_local_live_scheduler_queue")
+        self.assertEqual(readback["storage_kind"], "sqlite")
+        self.assertTrue(readback["live_db_write"])
+        self.assertEqual(readback["readback_event_sequence"], ["mark_ready", "dispatch", "succeed"])
+        self.assertTrue(worker["consumed"])
+        self.assertTrue(worker["db_write_readback"])
+        self.assertEqual(worker["event_sequence"], ["mark_ready", "dispatch", "succeed"])
+        self.assertEqual(worker["write_status_sequence"], ["ready", "running", "succeeded"])
+        self.assertEqual(handoff["contract_version"], "ingest.long_cycle_downstream_handoff.v1")
+        self.assertEqual(handoff["handoff_state"], "ready_for_downstream")
+        self.assertTrue(handoff["downstream_handoff_observed"])
+        self.assertEqual(replay["write_status_sequence"], ["ready", "running", "succeeded"])
+        self.assertTrue(replay["live_db_write"])
+        self.assertTrue(replay["live_scheduler_closure_validated"])
+        self.assertIn("repo_local_queue_worker_consumption", check["closed_slice"])
+        self.assertIn("sqlite_live_db_write_readback", check["closed_slice"])
+
 
 if __name__ == "__main__":
     unittest.main()

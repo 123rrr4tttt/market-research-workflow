@@ -11,7 +11,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 pytestmark = pytest.mark.unit
 
 from app.services.ingest.canary_handoff import CANARY_HANDOFF_CONTRACT_VERSION, CANARY_METRICS_SNAPSHOT_CONTRACT_VERSION
-from app.services.ingest.canary_metrics import build_ingest_canary_metrics_readiness
+from app.services.ingest.canary_metrics import (
+    CONFIGURED_PROVIDER_CANARY_CONTRACT_VERSION,
+    build_configured_provider_canary_boundary,
+    build_ingest_canary_metrics_readiness,
+)
 
 
 def _handoff_fixture() -> dict:
@@ -82,6 +86,25 @@ def _handoff_fixture() -> dict:
     }
 
 
+def _configured_provider_live_evidence() -> dict:
+    handoff = _handoff_fixture()
+    return {
+        "demo_proj_live_canary_validated": True,
+        "single_url_frontdoor_run_completed": True,
+        "configured_services_used": True,
+        "canary_handoff_readback_present": True,
+        "configured_provider": {
+            "provider_key": "source_library_frontdoor",
+            "config_state": "configured",
+            "runtime": "configured_source_library_provider",
+            "live_probe_status": "passed",
+        },
+        "frontdoor_run": dict(handoff["frontdoor_run"]),
+        "handoff_readback": handoff,
+        "closure_claim": False,
+    }
+
+
 class IngestCanaryMetricsReadinessUnitTestCase(unittest.TestCase):
     def test_deterministic_readiness_keeps_live_canary_and_24h_metrics_open(self) -> None:
         report = build_ingest_canary_metrics_readiness(handoff=_handoff_fixture())
@@ -99,6 +122,7 @@ class IngestCanaryMetricsReadinessUnitTestCase(unittest.TestCase):
         self.assertEqual(stages["deterministic_canary_metrics_snapshot"].status, "passed")
         self.assertEqual(stages["demo_proj_live_canary"].status, "ready_not_run")
         self.assertEqual(stages["metric_24h_readback"].status, "open_waiting_for_live_canary")
+        self.assertEqual(report.configured_provider_canary_boundary["status"], "missing_evidence")
         self.assertIn("live canary execution remains open", " ".join(report.remaining_live_gaps))
         self.assertIn("24h rejection-rate readback remains open", " ".join(report.remaining_live_gaps))
 
@@ -117,17 +141,45 @@ class IngestCanaryMetricsReadinessUnitTestCase(unittest.TestCase):
         self.assertTrue(report.metric_24h_readback_open)
         stages = {stage.name: stage for stage in report.stages}
         self.assertEqual(stages["demo_proj_live_canary"].status, "failed_evidence")
-        self.assertIn("configured_services_used", stages["demo_proj_live_canary"].detail)
+        self.assertIn("configured_provider.provider_key", stages["demo_proj_live_canary"].detail)
+        self.assertIn(
+            "configured_provider.provider_key",
+            report.configured_provider_canary_boundary["validation"]["missing_fields"],
+        )
 
-    def test_complete_live_and_24h_evidence_validates_readbacks_without_closure_claim(self) -> None:
-        report = build_ingest_canary_metrics_readiness(
-            handoff=_handoff_fixture(),
+    def test_configured_provider_canary_boundary_requires_provider_runtime_and_handoff(self) -> None:
+        boundary = build_configured_provider_canary_boundary(
             live_canary_evidence={
                 "demo_proj_live_canary_validated": True,
                 "single_url_frontdoor_run_completed": True,
                 "configured_services_used": True,
                 "canary_handoff_readback_present": True,
+                "configured_provider": {
+                    "provider_key": "source_library_frontdoor",
+                    "config_state": "missing_config",
+                    "runtime": "configured_source_library_provider",
+                    "live_probe_status": "blocked",
+                },
+                "frontdoor_run": {
+                    "project_key": "demo_proj",
+                    "entrypoint": "ingest.url_pool",
+                    "source_mode": "url_execution",
+                    "source_url": "https://example.com/search?q=robotics",
+                },
+                "handoff_readback": {"contract_version": CANARY_HANDOFF_CONTRACT_VERSION},
             },
+        )
+
+        self.assertEqual(boundary["contract_version"], CONFIGURED_PROVIDER_CANARY_CONTRACT_VERSION)
+        self.assertEqual(boundary["status"], "failed_evidence")
+        self.assertFalse(boundary["validation"]["passed"])
+        self.assertIn("configured_provider_configured", boundary["validation"]["failed_checks"])
+        self.assertIn("configured_provider_live_runtime_validated", boundary["validation"]["failed_checks"])
+
+    def test_complete_live_and_24h_evidence_validates_readbacks_without_closure_claim(self) -> None:
+        report = build_ingest_canary_metrics_readiness(
+            handoff=_handoff_fixture(),
+            live_canary_evidence=_configured_provider_live_evidence(),
             metric_readback_evidence={
                 "metric_24h_readback_validated": True,
                 "window_hours_at_least_24": True,
@@ -143,6 +195,7 @@ class IngestCanaryMetricsReadinessUnitTestCase(unittest.TestCase):
         self.assertFalse(report.demo_proj_live_canary_open)
         self.assertFalse(report.metric_24h_readback_open)
         self.assertFalse(report.closure_claim)
+        self.assertEqual(report.configured_provider_canary_boundary["status"], "validated")
         self.assertEqual(report.remaining_live_gaps, [])
 
 

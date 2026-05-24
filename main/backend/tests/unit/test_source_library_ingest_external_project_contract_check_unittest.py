@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
+import tempfile
 import unittest
 
 import pytest
@@ -80,6 +82,45 @@ class SourceLibraryIngestExternalProjectContractCheckTest(unittest.TestCase):
 
         self.assertEqual(
             sorted(gap["code"] for gap in contract["remaining_gaps"]),
+            [
+                "live_article_extraction_stack_replay_not_run",
+                "live_external_project_replay_not_run",
+            ],
+        )
+
+    def test_contract_gate_accepts_passing_live_replay_artifact(self) -> None:
+        module = _load_contract_module()
+        artifact = {
+            "contract_version": "source-library-ingest-live-replay.v1",
+            "replay_id": "source_library_ingest_live_replay_2026_05_23",
+            "started_at": "2026-05-23T00:00:00Z",
+            "finished_at": "2026-05-23T00:00:01Z",
+            "outputs": {
+                "article_extraction_stack": {"status": "completed"},
+                "external_project_replay": {"status": "completed"},
+            },
+            "validation": {
+                "passed": True,
+                "skipped": False,
+                "live_evidence_sufficient": True,
+                "live_article_extraction_stack_replay_closed": True,
+                "live_external_project_replay_closed": True,
+                "errors": [],
+            },
+        }
+        with tempfile.TemporaryDirectory() as tmpdir:
+            artifact_path = Path(tmpdir) / "live-replay.json"
+            artifact_path.write_text(json.dumps(artifact), encoding="utf-8")
+
+            contract = module.build_contract(live_replay_artifact=artifact_path)
+
+        self.assertEqual(contract["status"], "passed")
+        self.assertEqual(contract["remaining_gaps"], [])
+        self.assertEqual(contract["failures"], [])
+        self.assertEqual(contract["at_ext_status"]["AT-EXT-09"]["status"], "closed_live_replay_v1")
+        self.assertEqual(contract["evidence"]["live_replay"]["status"], "accepted")
+        self.assertEqual(
+            contract["evidence"]["live_replay"]["closed_gap_codes"],
             [
                 "live_article_extraction_stack_replay_not_run",
                 "live_external_project_replay_not_run",

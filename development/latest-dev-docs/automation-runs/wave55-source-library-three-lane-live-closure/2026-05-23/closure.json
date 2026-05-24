@@ -1,0 +1,480 @@
+{
+  "closure_state": "live_collection_article_extraction_ready_human_review_open",
+  "contract_version": "source_library.three_lane_live_closure.v1",
+  "finished_at": "2026-05-24T01:11:24Z",
+  "human_review_readback": {
+    "complete": false,
+    "evidence_supplied": false,
+    "readiness": {
+      "contract_version": "source_library.taxonomy_review_readiness.v1",
+      "gap_markers": {
+        "human_review_completed": false,
+        "review_completion_claim": "not_claimed",
+        "review_queue_claim": "ready_for_review",
+        "review_queue_ready": true,
+        "taxonomy_ready": true
+      },
+      "human_review": {
+        "completed": false,
+        "completed_queue_ids": [],
+        "completion_claim": "not_claimed",
+        "evidence_count": 0,
+        "invalid_evidence": [],
+        "missing_queue_ids": [
+          "sl_review:cba6e135df79b9d5"
+        ],
+        "valid_evidence_count": 0
+      },
+      "readiness": {
+        "human_review_completed": false,
+        "review_queue_ready": true,
+        "status": "ready_for_human_review",
+        "taxonomy_readiness": "ready"
+      },
+      "review_queue": {
+        "entries_missing_reviewer_fields": [],
+        "queue_ids": [
+          "sl_review:cba6e135df79b9d5"
+        ],
+        "queued_count": 1,
+        "ready": true,
+        "ready_for_review": true,
+        "reviewer_ready_count": 1,
+        "state": "ready_for_review"
+      },
+      "source_surface": "check_source_library_three_lane_live_closure",
+      "taxonomy": {
+        "case_count": 3,
+        "cases": [
+          {
+            "case_id": "live_source_collection_site_search",
+            "invalid_fields": [],
+            "item_channel_key": "handler.cluster",
+            "item_key": "handler.cluster.search_template.wave55_live",
+            "live_source_taxonomy": "site_search:generic_web:service_aggregated:system",
+            "missing_fields": [],
+            "ready": true,
+            "source_mode": "site_search",
+            "taxonomy": {
+              "channel_family": "generic_web",
+              "expected_entry_type": "search_template",
+              "internal_adapter_only": true,
+              "item_type": "service_aggregated",
+              "managed_by": "system",
+              "site_search_authoritative": true
+            },
+            "warnings": []
+          },
+          {
+            "case_id": "provider_article_extraction",
+            "invalid_fields": [],
+            "item_channel_key": "external_project.manifest",
+            "item_key": "external.three_lane.live_article_extractor",
+            "live_source_taxonomy": "provider_harvest:external_project:service_aggregated:system",
+            "missing_fields": [],
+            "ready": true,
+            "source_mode": "provider_harvest",
+            "taxonomy": {
+              "channel_family": "external_project",
+              "expected_entry_type": "article_extractor",
+              "internal_adapter_only": false,
+              "item_type": "service_aggregated",
+              "managed_by": "system",
+              "site_search_authoritative": false
+            },
+            "warnings": []
+          },
+          {
+            "case_id": "human_review_candidate_readback",
+            "invalid_fields": [],
+            "item_channel_key": "handler.cluster",
+            "item_key": "handler.cluster.search_template.wave55_live",
+            "live_source_taxonomy": "url_execution:review_queue:service_aggregated:system",
+            "missing_fields": [],
+            "ready": true,
+            "source_mode": "url_execution",
+            "taxonomy": {
+              "channel_family": "review_queue",
+              "expected_entry_type": "review_candidate",
+              "internal_adapter_only": false,
+              "item_type": "service_aggregated",
+              "managed_by": "system",
+              "site_search_authoritative": false
+            },
+            "warnings": []
+          }
+        ],
+        "ready": true,
+        "required_fields": [
+          "source_mode",
+          "taxonomy.channel_family",
+          "taxonomy.item_type",
+          "taxonomy.managed_by",
+          "taxonomy.site_search_authoritative"
+        ],
+        "status": "ready"
+      }
+    },
+    "review_queue": {
+      "contract_version": "source_library.relevance_review_queue.v1",
+      "entries": [
+        {
+          "contract_version": "source_library.relevance_review_queue.v1",
+          "fail_closed": {
+            "auto_accept_allowed": false,
+            "auto_ingest_allowed": false,
+            "requires_human_relevance_review": true,
+            "state": "review_required"
+          },
+          "gap_markers": {
+            "human_relevance_review_completed": false,
+            "live_public_replay_completed": false,
+            "live_replay_gap": "live_public_replay_not_run",
+            "public_replay_claim": "not_claimed",
+            "review_completion_claim": "not_claimed"
+          },
+          "position": 3,
+          "queue_id": "sl_review:cba6e135df79b9d5",
+          "queue_state": "review_required",
+          "reason_codes": [
+            "term_fallback_candidates",
+            "low_confidence_candidate",
+            "adapter_capability_review"
+          ],
+          "reviewer_fields": {
+            "adapter_capability_reason": "term_fallback_candidates",
+            "adapter_capability_status": "review",
+            "candidate_quality": "low",
+            "candidate_source": "wave55_live_probe:commercialobserver_parser_weak",
+            "domain": "commercialobserver.com",
+            "entry_domain": "commercialobserver.com",
+            "matched_by": "none",
+            "parser_profile_resolved": null,
+            "project_key": "demo_proj",
+            "query_terms": [
+              "inflation",
+              "openai"
+            ],
+            "route_kind": "article",
+            "search_service": "generic_web.search_template",
+            "site_entry_url": "https://commercialobserver.com/?s=openai&page_size=20",
+            "site_policy": "keep",
+            "source_library_item_key": "handler.cluster.search_template.wave55_live",
+            "url": "https://commercialobserver.com/2025/05/7b-oracle-leased-texas-data-center-development"
+          },
+          "reviewer_fields_missing": [],
+          "reviewer_ready": true,
+          "source_trace": {
+            "candidate_ref": {
+              "adapter_capability_status": "review",
+              "candidate_quality": "low",
+              "candidate_review_state": "relevance_review",
+              "candidate_source": "wave55_live_probe:commercialobserver_parser_weak",
+              "entry_domain": "commercialobserver.com",
+              "entry_type": "search_template",
+              "matched_by": "none",
+              "parser_profile_resolved": null,
+              "relevance_review_required": true,
+              "route_kind": "article",
+              "search_service": "generic_web.search_template",
+              "site_entry_url": "https://commercialobserver.com/?s=openai&page_size=20",
+              "site_policy": "keep",
+              "usable_for_search": false
+            },
+            "runtime_errors": [
+              {
+                "error": "url_term_filter_empty_fallback_used",
+                "error_class": null,
+                "search_service_used": "generic_web.search_template",
+                "site_url": "https://commercialobserver.com/?s=openai&page_size=20"
+              }
+            ],
+            "runtime_relevance_review_reason": "term_fallback_candidates",
+            "runtime_search_template_adapter": null,
+            "runtime_search_template_adapter_mode": null,
+            "source_surface": "wave55_source_library_three_lane_live_closure"
+          }
+        }
+      ],
+      "gap_markers": {
+        "human_relevance_review_completed": false,
+        "live_public_replay_completed": false,
+        "live_replay_gap": "live_public_replay_not_run",
+        "public_replay_claim": "not_claimed",
+        "review_completion_claim": "not_claimed"
+      },
+      "project_key": "demo_proj",
+      "query_terms": [
+        "inflation",
+        "openai"
+      ],
+      "queue_state": "ready_for_review",
+      "source_library_item_key": "handler.cluster.search_template.wave55_live",
+      "source_surface": "wave55_source_library_three_lane_live_closure",
+      "summary": {
+        "auto_accept_allowed": false,
+        "auto_ingest_allowed": false,
+        "fail_closed": true,
+        "queued_count": 1,
+        "reason_code_counts": {
+          "adapter_capability_review": 1,
+          "low_confidence_candidate": 1,
+          "term_fallback_candidates": 1
+        },
+        "reviewer_ready_count": 1
+      }
+    },
+    "review_queue_contract": "source_library.relevance_review_queue.v1",
+    "taxonomy_review_contract": "source_library.taxonomy_review_readiness.v1"
+  },
+  "live_source_collection": {
+    "candidate_count": 4,
+    "candidate_ready_targets": [
+      "commercialobserver_parser_weak",
+      "pymnts_parser_weak",
+      "investopedia_validated_query",
+      "hai_stanford_mixed_shell"
+    ],
+    "candidate_rows": [
+      {
+        "adapter_capability_reason": null,
+        "adapter_capability_status": "allow",
+        "candidate_quality": "medium",
+        "domain": "pymnts.com",
+        "entry_domain": "pymnts.com",
+        "matched_by": "live_public_probe",
+        "parser_profile_resolved": null,
+        "query_terms": [
+          "openai"
+        ],
+        "site_entry_url": "https://www.pymnts.com/?s=openai&page_size=20",
+        "source_status": "candidate_ready",
+        "target_id": "pymnts_parser_weak",
+        "url": "https://www.pymnts.com/artificial-intelligence-2/2026/openais-codex-helps-drive-nearly-6-billion-quarter",
+        "used_term_fallback": false
+      },
+      {
+        "adapter_capability_reason": null,
+        "adapter_capability_status": "allow",
+        "candidate_quality": "medium",
+        "domain": "pymnts.com",
+        "entry_domain": "pymnts.com",
+        "matched_by": "live_public_probe",
+        "parser_profile_resolved": null,
+        "query_terms": [
+          "openai"
+        ],
+        "site_entry_url": "https://www.pymnts.com/?s=openai&page_size=20",
+        "source_status": "candidate_ready",
+        "target_id": "pymnts_parser_weak",
+        "url": "https://www.pymnts.com/cryptocurrency/2026/openai-and-moonpay-let-chatgpt-users-buy-crypto-without-leaving-chats",
+        "used_term_fallback": false
+      },
+      {
+        "adapter_capability_reason": null,
+        "adapter_capability_status": "allow",
+        "candidate_quality": "medium",
+        "domain": "investopedia.com",
+        "entry_domain": "investopedia.com",
+        "matched_by": "live_public_probe",
+        "parser_profile_resolved": null,
+        "query_terms": [
+          "inflation"
+        ],
+        "site_entry_url": "https://www.investopedia.com/search?q=inflation&page_size=20",
+        "source_status": "candidate_ready",
+        "target_id": "investopedia_validated_query",
+        "url": "https://www.investopedia.com/articles/markets/081515/how-inflation-and-unemployment-are-related.asp",
+        "used_term_fallback": false
+      },
+      {
+        "adapter_capability_reason": "term_fallback_candidates",
+        "adapter_capability_status": "review",
+        "candidate_quality": "low",
+        "domain": "commercialobserver.com",
+        "entry_domain": "commercialobserver.com",
+        "matched_by": "none",
+        "parser_profile_resolved": null,
+        "query_terms": [
+          "openai"
+        ],
+        "site_entry_url": "https://commercialobserver.com/?s=openai&page_size=20",
+        "source_status": "candidate_ready_with_term_fallback",
+        "target_id": "commercialobserver_parser_weak",
+        "url": "https://commercialobserver.com/2025/05/7b-oracle-leased-texas-data-center-development",
+        "used_term_fallback": true
+      }
+    ],
+    "complete": true,
+    "probe_contract": "source_library_public_live_probes_2026_05_22",
+    "status_counts": {
+      "candidate_ready": 2,
+      "candidate_ready_with_term_fallback": 2
+    },
+    "validation": {
+      "errors": [],
+      "live_evidence_sufficient": true,
+      "passed": true,
+      "skipped": false,
+      "warnings": [
+        "public live evidence is environment-dependent; rerun before using it as closure proof"
+      ]
+    }
+  },
+  "non_closure_markers": {
+    "claims_human_relevance_review_complete": false,
+    "claims_human_review_complete": false,
+    "claims_live_source_collection_complete": true,
+    "claims_provider_article_extraction_complete": true,
+    "shared_indexes_edited": false
+  },
+  "provider_article_extraction": {
+    "article_body_extracted_count": 4,
+    "attempted": true,
+    "candidate_url_count": 4,
+    "complete": true,
+    "diagnostics": {
+      "article_body_extracted": 4,
+      "fallback_states": [
+        {
+          "confidence": "medium",
+          "content_chars": 5693,
+          "extractor": "heuristic.main_content.v1",
+          "state": "article_body_extracted",
+          "url": "https://www.pymnts.com/artificial-intelligence-2/2026/openais-codex-helps-drive-nearly-6-billion-quarter"
+        },
+        {
+          "confidence": "medium",
+          "content_chars": 5105,
+          "extractor": "heuristic.main_content.v1",
+          "state": "article_body_extracted",
+          "url": "https://www.pymnts.com/cryptocurrency/2026/openai-and-moonpay-let-chatgpt-users-buy-crypto-without-leaving-chats"
+        },
+        {
+          "confidence": "medium",
+          "content_chars": 18254,
+          "extractor": "heuristic.main_content.v1",
+          "state": "article_body_extracted",
+          "url": "https://www.investopedia.com/articles/markets/081515/how-inflation-and-unemployment-are-related.asp"
+        },
+        {
+          "confidence": "medium",
+          "content_chars": 3598,
+          "extractor": "heuristic.main_content.v1",
+          "state": "article_body_extracted",
+          "url": "https://commercialobserver.com/2025/05/7b-oracle-leased-texas-data-center-development"
+        }
+      ],
+      "parser_capability": {
+        "article_body": true,
+        "contract_version": "external_project.article_extraction_runner.v1",
+        "fallback_states": [
+          "article_body_extracted",
+          "metadata_only_fallback",
+          "fetch_error_fallback"
+        ],
+        "parser": "trafilatura_or_heuristic"
+      },
+      "records_total": 4,
+      "target_urls": [
+        "https://www.pymnts.com/artificial-intelligence-2/2026/openais-codex-helps-drive-nearly-6-billion-quarter",
+        "https://www.pymnts.com/cryptocurrency/2026/openai-and-moonpay-let-chatgpt-users-buy-crypto-without-leaving-chats",
+        "https://www.investopedia.com/articles/markets/081515/how-inflation-and-unemployment-are-related.asp",
+        "https://commercialobserver.com/2025/05/7b-oracle-leased-texas-data-center-development"
+      ]
+    },
+    "errors": [],
+    "provider_binding": {
+      "accepts_date_range": false,
+      "accepts_domains": false,
+      "accepts_query_terms": false,
+      "accepts_urls": true,
+      "adapter_ref": "source_library.adapters.external_project.article_extractor",
+      "capability_family": "article_body_extraction",
+      "execution_mode": "article_extractor",
+      "frontdoor_strategy": "records_allow_extract",
+      "parser_capability": {
+        "article_body": true,
+        "fallback_states": [
+          "article_body_extracted",
+          "metadata_only_fallback",
+          "fetch_error_fallback"
+        ],
+        "parser": "trafilatura_or_heuristic"
+      },
+      "provider_family": "article_extraction_stack",
+      "provider_key": "external_project.article_extractor",
+      "record_kind": "document_candidate",
+      "registry_version": "external_project.provider_registry.v1",
+      "supports_article_body": true,
+      "supports_pdf_artifact": false
+    },
+    "record_count": 4,
+    "records": [
+      {
+        "confidence": "medium",
+        "content_chars": 5693,
+        "extractor": "heuristic.main_content.v1",
+        "has_content_text": true,
+        "state": "article_body_extracted",
+        "title": null,
+        "url": "https://www.pymnts.com/artificial-intelligence-2/2026/openais-codex-helps-drive-nearly-6-billion-quarter"
+      },
+      {
+        "confidence": "medium",
+        "content_chars": 5105,
+        "extractor": "heuristic.main_content.v1",
+        "has_content_text": true,
+        "state": "article_body_extracted",
+        "title": null,
+        "url": "https://www.pymnts.com/cryptocurrency/2026/openai-and-moonpay-let-chatgpt-users-buy-crypto-without-leaving-chats"
+      },
+      {
+        "confidence": "medium",
+        "content_chars": 18254,
+        "extractor": "heuristic.main_content.v1",
+        "has_content_text": true,
+        "state": "article_body_extracted",
+        "title": null,
+        "url": "https://www.investopedia.com/articles/markets/081515/how-inflation-and-unemployment-are-related.asp"
+      },
+      {
+        "confidence": "medium",
+        "content_chars": 3598,
+        "extractor": "heuristic.main_content.v1",
+        "has_content_text": true,
+        "state": "article_body_extracted",
+        "title": null,
+        "url": "https://commercialobserver.com/2025/05/7b-oracle-leased-texas-data-center-development"
+      }
+    ],
+    "skipped": false,
+    "state_counts": {
+      "article_body_extracted": 4
+    },
+    "status": "ok",
+    "validation": {
+      "all_candidates_materialized": true,
+      "provider_article_extraction_complete": true
+    }
+  },
+  "repo_root": "/Users/wangyiliang/market-research-workflow",
+  "scope": {
+    "global_manifest_indexes_edited": false,
+    "public_network_attempted": true,
+    "public_network_required_for_live_evidence": true,
+    "shared_indexes_edited": false,
+    "topic_doc_dir": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-11-source-library-three-lane-architecture"
+  },
+  "started_at": "2026-05-24T01:11:14Z",
+  "validation": {
+    "errors": [],
+    "human_review_completed": false,
+    "passed": true,
+    "strict_live_runtime_complete": true,
+    "warnings": [
+      "public live evidence is environment-dependent; rerun before promotion or archive migration",
+      "human review completion is only claimed when explicit evidence covers every live review queue id"
+    ]
+  }
+}

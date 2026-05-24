@@ -1,0 +1,960 @@
+{
+  "contract_version": "crawler_source_expansion.public_replay_shard_output.v1",
+  "generated_at": "2026-05-24T00:58:07Z",
+  "inputs": {
+    "enabled_public_target_count": 7,
+    "policy_disabled_target_count": 2,
+    "target_count": 9,
+    "target_ids": [
+      "demo_proj_99_supernote_com",
+      "demo_proj_106_gizmodo_com",
+      "demo_proj_110_reddit_com",
+      "demo_proj_113_youtube_com",
+      "demo_proj_116_cybernews_com",
+      "demo_proj_119_thequalityedit_com",
+      "demo_proj_123_dcrainmaker_com",
+      "demo_proj_130_serverman_co_uk",
+      "demo_proj_148_news_google_com"
+    ]
+  },
+  "manifest_path": "development/latest-dev-docs/automation-runs/crawler-public-replay-shards/2026-05-22/shard_manifest.json",
+  "mode": {
+    "allow_public_network": true,
+    "browser_runtime_started": false,
+    "source_probe_id": "source_library_replay_scaleout_2026_05_22",
+    "source_runner": "source_library_replay_scaleout"
+  },
+  "outputs": {
+    "blockers_by_target": [
+      {
+        "blocker_type": "relevance_review",
+        "domain": "supernote.com",
+        "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+        "status": "candidate_ready_with_term_fallback",
+        "target_id": "demo_proj_99_supernote_com",
+        "template": "https://supernote.com/search?q={{q}}"
+      },
+      {
+        "blocker_type": "relevance_review",
+        "domain": "gizmodo.com",
+        "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+        "status": "candidate_ready_with_term_fallback",
+        "target_id": "demo_proj_106_gizmodo_com",
+        "template": "https://gizmodo.com/search?q={{q}}"
+      },
+      {
+        "blocker_type": "policy_or_platform_required",
+        "domain": "reddit.com",
+        "reason": "Historical target is disabled in demo_proj because it requires a platform/API-specific lane.",
+        "status": "skipped_policy_disabled_platform_entry",
+        "target_id": "demo_proj_110_reddit_com",
+        "template": "https://reddit.com/search?q={{q}}"
+      },
+      {
+        "blocker_type": "policy_or_platform_required",
+        "domain": "youtube.com",
+        "reason": "Historical target is disabled in demo_proj because it requires a platform/API-specific lane.",
+        "status": "skipped_policy_disabled_platform_entry",
+        "target_id": "demo_proj_113_youtube_com",
+        "template": "https://youtube.com/search?q={{q}}"
+      },
+      {
+        "blocker_type": "public_network_or_anti_bot",
+        "domain": "cybernews.com",
+        "reason": "Public fetch failed with anti-bot/rate-limit/transport signature.",
+        "status": "anti_bot_or_transport_blocked",
+        "target_id": "demo_proj_116_cybernews_com",
+        "template": "https://cybernews.com/search?q={{q}}"
+      },
+      {
+        "blocker_type": "relevance_review",
+        "domain": "thequalityedit.com",
+        "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+        "status": "candidate_ready_with_term_fallback",
+        "target_id": "demo_proj_119_thequalityedit_com",
+        "template": "https://thequalityedit.com/search?q={{q}}"
+      },
+      {
+        "blocker_type": "relevance_review",
+        "domain": "dcrainmaker.com",
+        "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+        "status": "candidate_ready_with_term_fallback",
+        "target_id": "demo_proj_123_dcrainmaker_com",
+        "template": "https://dcrainmaker.com/search?q={{q}}"
+      },
+      {
+        "blocker_type": "relevance_review",
+        "domain": "serverman.co.uk",
+        "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+        "status": "candidate_ready_with_term_fallback",
+        "target_id": "demo_proj_130_serverman_co_uk",
+        "template": "https://www.serverman.co.uk/?s={{q}}"
+      },
+      {
+        "blocker_type": "relevance_review",
+        "domain": "news.google.com",
+        "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+        "status": "candidate_ready_with_term_fallback",
+        "target_id": "demo_proj_148_news_google_com",
+        "template": "https://news.google.com/search?q={{q}}"
+      }
+    ],
+    "public_targets_attempted": 7,
+    "status_counts": {
+      "anti_bot_or_transport_blocked": 1,
+      "candidate_ready_with_term_fallback": 6,
+      "skipped_policy_disabled_platform_entry": 2
+    },
+    "target_results": [
+      {
+        "adapter_plan": {
+          "adapter_key": "search_template.generic",
+          "param_overrides": {
+            "max_pages": 1
+          },
+          "parser_profile": "site_adaptive",
+          "reason": "Default generic search_template adapter."
+        },
+        "adapter_result": {
+          "adapter_taxonomy": {
+            "entry_type": "search_template",
+            "internal_adapter_only": true,
+            "item_key": "handler.cluster.search_template",
+            "item_type": "service_aggregated",
+            "lane": "site_search_internal_adapter",
+            "managed_by": "system",
+            "source_family": "generic_web"
+          },
+          "candidate_count": 30,
+          "candidates": [
+            "https://supernote.com/collections/accessories",
+            "https://supernote.com/collections/all",
+            "https://supernote.com/collections/open-box",
+            "https://supernote.com/collections/trial-open-box-accessories",
+            "https://supernote.com/pages/authorized-sellers",
+            "https://supernote.com/pages/business-and-management",
+            "https://supernote.com/pages/creative-writers",
+            "https://supernote.com/pages/distinguished-contributors",
+            "https://supernote.com/pages/diy-zone",
+            "https://supernote.com/pages/healthcare"
+          ],
+          "capability_profile": {
+            "entry_type": "search_template",
+            "extractor_kind": "html_link_extractor",
+            "fallback_policy": "term_match_then_search_template_fallback",
+            "source_mode": "site_search",
+            "supports_pagination": true,
+            "supports_query_terms": true
+          },
+          "diagnostics": {
+            "candidate_filter_state": "term_filter_empty_fallback_used",
+            "entry_domain": "supernote.com",
+            "fallback_allowed": true,
+            "pages_scanned": 1,
+            "parser_candidate_rejected_low_value": 37,
+            "parser_container_hit": 0,
+            "parser_global_anchor_hit": 36,
+            "parser_json_ld_hit": 0,
+            "parser_parser_module_used": "global_anchor",
+            "parser_parser_modules_tried": [
+              "global_anchor"
+            ],
+            "parser_parser_profile_resolved": "site_adaptive",
+            "parser_structured_hit": 0,
+            "raw_candidates": 36,
+            "search_service": "basic",
+            "search_service_fallbacks": 0,
+            "selected_candidates": 30,
+            "transport_errors": 0,
+            "used_term_fallback": true
+          },
+          "errors": [],
+          "inserted": 30,
+          "pages_scanned": 1,
+          "search_urls": [
+            "https://supernote.com/search?q=openai+api+pricing+anthropic+claude+code+gpt+4.1+release+langchain+sqlitecache&page_size=20"
+          ],
+          "skipped": 0,
+          "source_mode": "site_search",
+          "used_term_fallback": true
+        },
+        "classification": {
+          "blocker_type": "relevance_review",
+          "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+          "status": "candidate_ready_with_term_fallback"
+        },
+        "elapsed_ms": 907,
+        "entry_domain": "supernote.com",
+        "target": {
+          "category": "parser_enhance",
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "target_id": "demo_proj_99_supernote_com",
+          "template": "https://supernote.com/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_plan": {
+          "adapter_key": "search_template.generic",
+          "param_overrides": {
+            "max_pages": 1
+          },
+          "parser_profile": "site_adaptive",
+          "reason": "Default generic search_template adapter."
+        },
+        "adapter_result": {
+          "adapter_taxonomy": {
+            "entry_type": "search_template",
+            "internal_adapter_only": true,
+            "item_key": "handler.cluster.search_template",
+            "item_type": "service_aggregated",
+            "lane": "site_search_internal_adapter",
+            "managed_by": "system",
+            "source_family": "generic_web"
+          },
+          "candidate_count": 30,
+          "candidates": [
+            "https://gizmodo.com/antivirus/compare",
+            "https://gizmodo.com/best-cloud-storage/free",
+            "https://gizmodo.com/best-cloud-storage/pcloud",
+            "https://gizmodo.com/best-vpn/cheap",
+            "https://gizmodo.com/best-vpn/expressvpn",
+            "https://gizmodo.com/best-vpn/free",
+            "https://gizmodo.com/best-vpn/nordvpn",
+            "https://gizmodo.com/best-vpn/watch-french-open-free-live-stream",
+            "https://gizmodo.com/best-web-hosting/hostinger",
+            "https://gizmodo.com/deals/buying-guides"
+          ],
+          "capability_profile": {
+            "entry_type": "search_template",
+            "extractor_kind": "html_link_extractor",
+            "fallback_policy": "term_match_then_search_template_fallback",
+            "source_mode": "site_search",
+            "supports_pagination": true,
+            "supports_query_terms": true
+          },
+          "diagnostics": {
+            "candidate_filter_state": "term_filter_empty_fallback_used",
+            "entry_domain": "gizmodo.com",
+            "fallback_allowed": true,
+            "pages_scanned": 1,
+            "parser_candidate_rejected_low_value": 52,
+            "parser_container_hit": 0,
+            "parser_global_anchor_hit": 38,
+            "parser_json_ld_hit": 0,
+            "parser_parser_module_used": "global_anchor",
+            "parser_parser_modules_tried": [
+              "global_anchor"
+            ],
+            "parser_parser_profile_resolved": "site_adaptive",
+            "parser_structured_hit": 0,
+            "raw_candidates": 38,
+            "search_service": "basic",
+            "search_service_fallbacks": 0,
+            "selected_candidates": 30,
+            "transport_errors": 0,
+            "used_term_fallback": true
+          },
+          "errors": [],
+          "inserted": 30,
+          "pages_scanned": 1,
+          "search_urls": [
+            "https://gizmodo.com/search?q=openai+api+pricing+anthropic+claude+code+gpt+4.1+release+langchain+sqlitecache&page_size=20"
+          ],
+          "skipped": 0,
+          "source_mode": "site_search",
+          "used_term_fallback": true
+        },
+        "classification": {
+          "blocker_type": "relevance_review",
+          "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+          "status": "candidate_ready_with_term_fallback"
+        },
+        "elapsed_ms": 360,
+        "entry_domain": "gizmodo.com",
+        "target": {
+          "category": "parser_enhance",
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "target_id": "demo_proj_106_gizmodo_com",
+          "template": "https://gizmodo.com/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_result": {
+          "candidate_count": 0,
+          "candidates": [],
+          "diagnostics": {},
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 0,
+          "search_urls": [],
+          "skipped": 1,
+          "used_term_fallback": null
+        },
+        "classification": {
+          "blocker_type": "policy_or_platform_required",
+          "reason": "Historical target is disabled in demo_proj because it requires a platform/API-specific lane.",
+          "status": "skipped_policy_disabled_platform_entry"
+        },
+        "elapsed_ms": 0,
+        "entry_domain": "reddit.com",
+        "target": {
+          "category": "platform_api_required",
+          "domain": "reddit.com",
+          "enabled": false,
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Disabled in demo_proj as platform/API-required search; keep in the historical 45-site replay manifest but do not contact by default even when public replay is enabled.",
+          "site_entry_id": 110,
+          "target_id": "demo_proj_110_reddit_com",
+          "template": "https://reddit.com/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_result": {
+          "candidate_count": 0,
+          "candidates": [],
+          "diagnostics": {},
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 0,
+          "search_urls": [],
+          "skipped": 1,
+          "used_term_fallback": null
+        },
+        "classification": {
+          "blocker_type": "policy_or_platform_required",
+          "reason": "Historical target is disabled in demo_proj because it requires a platform/API-specific lane.",
+          "status": "skipped_policy_disabled_platform_entry"
+        },
+        "elapsed_ms": 0,
+        "entry_domain": "youtube.com",
+        "target": {
+          "category": "platform_api_required",
+          "domain": "youtube.com",
+          "enabled": false,
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Disabled in demo_proj as platform/API-required search; keep in the historical 45-site replay manifest but do not contact by default even when public replay is enabled.",
+          "site_entry_id": 113,
+          "target_id": "demo_proj_113_youtube_com",
+          "template": "https://youtube.com/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_plan": {
+          "adapter_key": "search_template.generic",
+          "param_overrides": {
+            "max_pages": 1
+          },
+          "parser_profile": "site_adaptive",
+          "reason": "Default generic search_template adapter."
+        },
+        "adapter_result": {
+          "adapter_taxonomy": {
+            "entry_type": "search_template",
+            "internal_adapter_only": true,
+            "item_key": "handler.cluster.search_template",
+            "item_type": "service_aggregated",
+            "lane": "site_search_internal_adapter",
+            "managed_by": "system",
+            "source_family": "generic_web"
+          },
+          "candidate_count": 0,
+          "candidates": [],
+          "capability_profile": {
+            "entry_type": "search_template",
+            "extractor_kind": "html_link_extractor",
+            "fallback_policy": "term_match_then_search_template_fallback",
+            "source_mode": "site_search",
+            "supports_pagination": true,
+            "supports_query_terms": true
+          },
+          "diagnostics": {
+            "candidate_filter_state": "empty_no_raw_candidates",
+            "entry_domain": "cybernews.com",
+            "fallback_allowed": true,
+            "pages_scanned": 1,
+            "raw_candidates": 0,
+            "search_service": "basic",
+            "search_service_fallbacks": 0,
+            "selected_candidates": 0,
+            "transport_errors": 1,
+            "used_term_fallback": true
+          },
+          "errors": [
+            {
+              "error": "403 Client Error: Forbidden for url: https://cybernews.com/search?q=openai+api+pricing+anthropic+claude+code+gpt+4.1+release+langchain+sqlitecache&page_size=20",
+              "error_class": "transport_failure",
+              "recommended_search_service": "resilient",
+              "search_url": "https://cybernews.com/search?q=openai+api+pricing+anthropic+claude+code+gpt+4.1+release+langchain+sqlitecache&page_size=20",
+              "site_url": "https://cybernews.com/search?q={{q}}"
+            }
+          ],
+          "inserted": 0,
+          "pages_scanned": 1,
+          "search_urls": [
+            "https://cybernews.com/search?q=openai+api+pricing+anthropic+claude+code+gpt+4.1+release+langchain+sqlitecache&page_size=20"
+          ],
+          "skipped": 0,
+          "source_mode": "site_search",
+          "used_term_fallback": true
+        },
+        "classification": {
+          "blocker_type": "public_network_or_anti_bot",
+          "reason": "Public fetch failed with anti-bot/rate-limit/transport signature.",
+          "status": "anti_bot_or_transport_blocked"
+        },
+        "elapsed_ms": 245,
+        "entry_domain": "cybernews.com",
+        "target": {
+          "category": "historical_search_template",
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "target_id": "demo_proj_116_cybernews_com",
+          "template": "https://cybernews.com/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_plan": {
+          "adapter_key": "search_template.generic",
+          "param_overrides": {
+            "max_pages": 1
+          },
+          "parser_profile": "site_adaptive",
+          "reason": "Default generic search_template adapter."
+        },
+        "adapter_result": {
+          "adapter_taxonomy": {
+            "entry_type": "search_template",
+            "internal_adapter_only": true,
+            "item_key": "handler.cluster.search_template",
+            "item_type": "service_aggregated",
+            "lane": "site_search_internal_adapter",
+            "managed_by": "system",
+            "source_family": "generic_web"
+          },
+          "candidate_count": 30,
+          "candidates": [
+            "https://thequalityedit.com/article-categories/baby-gear",
+            "https://thequalityedit.com/article-categories/birthday-registry",
+            "https://thequalityedit.com/article-categories/city-guides",
+            "https://thequalityedit.com/article-categories/clean-beauty",
+            "https://thequalityedit.com/article-categories/entertaining",
+            "https://thequalityedit.com/article-categories/family-friendly-vacations",
+            "https://thequalityedit.com/article-categories/food-beverage",
+            "https://thequalityedit.com/article-categories/gift-guides",
+            "https://thequalityedit.com/article-categories/hair-care",
+            "https://thequalityedit.com/article-categories/holiday-gifts"
+          ],
+          "capability_profile": {
+            "entry_type": "search_template",
+            "extractor_kind": "html_link_extractor",
+            "fallback_policy": "term_match_then_search_template_fallback",
+            "source_mode": "site_search",
+            "supports_pagination": true,
+            "supports_query_terms": true
+          },
+          "diagnostics": {
+            "candidate_filter_state": "term_filter_empty_fallback_used",
+            "entry_domain": "thequalityedit.com",
+            "fallback_allowed": true,
+            "pages_scanned": 1,
+            "parser_candidate_rejected_low_value": 30,
+            "parser_container_hit": 0,
+            "parser_global_anchor_hit": 33,
+            "parser_json_ld_hit": 0,
+            "parser_parser_module_used": "global_anchor",
+            "parser_parser_modules_tried": [
+              "global_anchor"
+            ],
+            "parser_parser_profile_resolved": "site_adaptive",
+            "parser_structured_hit": 0,
+            "raw_candidates": 33,
+            "search_service": "basic",
+            "search_service_fallbacks": 0,
+            "selected_candidates": 30,
+            "transport_errors": 0,
+            "used_term_fallback": true
+          },
+          "errors": [],
+          "inserted": 30,
+          "pages_scanned": 1,
+          "search_urls": [
+            "https://thequalityedit.com/search?q=openai+api+pricing+anthropic+claude+code+gpt+4.1+release+langchain+sqlitecache&page_size=20"
+          ],
+          "skipped": 0,
+          "source_mode": "site_search",
+          "used_term_fallback": true
+        },
+        "classification": {
+          "blocker_type": "relevance_review",
+          "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+          "status": "candidate_ready_with_term_fallback"
+        },
+        "elapsed_ms": 1006,
+        "entry_domain": "thequalityedit.com",
+        "target": {
+          "category": "parser_enhance",
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "target_id": "demo_proj_119_thequalityedit_com",
+          "template": "https://thequalityedit.com/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_plan": {
+          "adapter_key": "search_template.generic",
+          "param_overrides": {
+            "max_pages": 1
+          },
+          "parser_profile": "site_adaptive",
+          "reason": "Default generic search_template adapter."
+        },
+        "adapter_result": {
+          "adapter_taxonomy": {
+            "entry_type": "search_template",
+            "internal_adapter_only": true,
+            "item_key": "handler.cluster.search_template",
+            "item_type": "service_aggregated",
+            "lane": "site_search_internal_adapter",
+            "managed_by": "system",
+            "source_family": "generic_web"
+          },
+          "candidate_count": 30,
+          "candidates": [
+            "http://en.wikipedia.org/wiki/Northwest_Passage",
+            "http://www.blogger.com/profile/06956192345302508941",
+            "http://www.blogger.com/profile/12474719507117105890",
+            "http://www.blogger.com/profile/15317043391426026024",
+            "http://www.blogger.com/profile/15973716015995895795",
+            "http://www.geek.com/articles/news/bing-destination-maps-adds-cool-treasure-map-sketch-feature-2010064",
+            "https://amzn.to/3SEEIK9",
+            "https://amzn.to/3SEMN1M",
+            "https://bsky.app/intent/compose?text=Search+for+the+Eastern+Passage+https%3A%2F%2Fwww.dcrainmaker.com%2F2011%2F05%2Fsearch-for-eastern-passage.html",
+            "https://dcrainmaker.com/2007/10/my-wetsuit-makes-brown-water.html"
+          ],
+          "capability_profile": {
+            "entry_type": "search_template",
+            "extractor_kind": "html_link_extractor",
+            "fallback_policy": "term_match_then_search_template_fallback",
+            "source_mode": "site_search",
+            "supports_pagination": true,
+            "supports_query_terms": true
+          },
+          "diagnostics": {
+            "candidate_filter_state": "term_filter_empty_fallback_used",
+            "entry_domain": "dcrainmaker.com",
+            "fallback_allowed": true,
+            "pages_scanned": 1,
+            "parser_candidate_rejected_low_value": 108,
+            "parser_container_hit": 7,
+            "parser_global_anchor_hit": 39,
+            "parser_json_ld_hit": 0,
+            "parser_parser_module_used": "container",
+            "parser_parser_modules_tried": [
+              "container",
+              "global_anchor"
+            ],
+            "parser_parser_profile_resolved": "site_adaptive",
+            "parser_structured_hit": 0,
+            "raw_candidates": 46,
+            "search_service": "basic",
+            "search_service_fallbacks": 0,
+            "selected_candidates": 30,
+            "transport_errors": 0,
+            "used_term_fallback": true
+          },
+          "errors": [],
+          "inserted": 30,
+          "pages_scanned": 1,
+          "search_urls": [
+            "https://dcrainmaker.com/search?q=openai+api+pricing+anthropic+claude+code+gpt+4.1+release+langchain+sqlitecache&page_size=20"
+          ],
+          "skipped": 0,
+          "source_mode": "site_search",
+          "used_term_fallback": true
+        },
+        "classification": {
+          "blocker_type": "relevance_review",
+          "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+          "status": "candidate_ready_with_term_fallback"
+        },
+        "elapsed_ms": 1114,
+        "entry_domain": "dcrainmaker.com",
+        "target": {
+          "category": "historical_search_template",
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "target_id": "demo_proj_123_dcrainmaker_com",
+          "template": "https://dcrainmaker.com/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_plan": {
+          "adapter_key": "search_template.generic",
+          "param_overrides": {
+            "max_pages": 1
+          },
+          "parser_profile": "site_adaptive",
+          "reason": "Default generic search_template adapter."
+        },
+        "adapter_result": {
+          "adapter_taxonomy": {
+            "entry_type": "search_template",
+            "internal_adapter_only": true,
+            "item_key": "handler.cluster.search_template",
+            "item_type": "service_aggregated",
+            "lane": "site_search_internal_adapter",
+            "managed_by": "system",
+            "source_family": "generic_web"
+          },
+          "candidate_count": 30,
+          "candidates": [
+            "https://www.serverman.co.uk/ai/ai-for-builders-merchants",
+            "https://www.serverman.co.uk/ai/ai-for-electrical-wholesalers",
+            "https://www.serverman.co.uk/ai/ai-for-wholesale-distribution",
+            "https://www.serverman.co.uk/ai/ai-guides",
+            "https://www.serverman.co.uk/ai/ai-in-business",
+            "https://www.serverman.co.uk/ai/claude",
+            "https://www.serverman.co.uk/ai/ollama/what-is-ollama",
+            "https://www.serverman.co.uk/ai/perplexity-ai",
+            "https://www.serverman.co.uk/crypto/crypto-com-review",
+            "https://www.serverman.co.uk/crypto/crypto-wallet-security-tips"
+          ],
+          "capability_profile": {
+            "entry_type": "search_template",
+            "extractor_kind": "html_link_extractor",
+            "fallback_policy": "term_match_then_search_template_fallback",
+            "source_mode": "site_search",
+            "supports_pagination": true,
+            "supports_query_terms": true
+          },
+          "diagnostics": {
+            "candidate_filter_state": "term_filter_empty_fallback_used",
+            "entry_domain": "serverman.co.uk",
+            "fallback_allowed": true,
+            "pages_scanned": 1,
+            "parser_candidate_rejected_low_value": 11,
+            "parser_container_hit": 0,
+            "parser_global_anchor_hit": 50,
+            "parser_json_ld_hit": 0,
+            "parser_parser_module_used": "global_anchor",
+            "parser_parser_modules_tried": [
+              "global_anchor"
+            ],
+            "parser_parser_profile_resolved": "site_adaptive",
+            "parser_structured_hit": 0,
+            "raw_candidates": 50,
+            "search_service": "basic",
+            "search_service_fallbacks": 0,
+            "selected_candidates": 30,
+            "transport_errors": 0,
+            "used_term_fallback": true
+          },
+          "errors": [],
+          "inserted": 30,
+          "pages_scanned": 1,
+          "search_urls": [
+            "https://www.serverman.co.uk/?s=openai+api+pricing+anthropic+claude+code+gpt+4.1+release+langchain+sqlitecache&page_size=20"
+          ],
+          "skipped": 0,
+          "source_mode": "site_search",
+          "used_term_fallback": true
+        },
+        "classification": {
+          "blocker_type": "relevance_review",
+          "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+          "status": "candidate_ready_with_term_fallback"
+        },
+        "elapsed_ms": 1316,
+        "entry_domain": "serverman.co.uk",
+        "target": {
+          "category": "parser_enhance",
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "target_id": "demo_proj_130_serverman_co_uk",
+          "template": "https://www.serverman.co.uk/?s={{q}}"
+        }
+      },
+      {
+        "adapter_plan": {
+          "adapter_key": "search_template.generic",
+          "param_overrides": {
+            "max_pages": 1
+          },
+          "parser_profile": "site_adaptive",
+          "reason": "Default generic search_template adapter."
+        },
+        "adapter_result": {
+          "adapter_taxonomy": {
+            "entry_type": "search_template",
+            "internal_adapter_only": true,
+            "item_key": "handler.cluster.search_template",
+            "item_type": "service_aggregated",
+            "lane": "site_search_internal_adapter",
+            "managed_by": "system",
+            "source_family": "generic_web"
+          },
+          "candidate_count": 3,
+          "candidates": [
+            "https://news.google.com/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNREpxYW5RU0FtVnVHZ0pWVXlnQVAB?ceid=US%3Aen&gl=US&hl=en-US",
+            "https://news.google.com/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGRqTVhZU0FtVnVHZ0pWVXlnQVAB?ceid=US%3Aen&gl=US&hl=en-US",
+            "https://news.google.com/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGx6TVdZU0FtVnVHZ0pWVXlnQVAB?ceid=US%3Aen&gl=US&hl=en-US"
+          ],
+          "capability_profile": {
+            "entry_type": "search_template",
+            "extractor_kind": "html_link_extractor",
+            "fallback_policy": "term_match_then_search_template_fallback",
+            "source_mode": "site_search",
+            "supports_pagination": true,
+            "supports_query_terms": true
+          },
+          "diagnostics": {
+            "candidate_filter_state": "term_filter_empty_fallback_used",
+            "entry_domain": "news.google.com",
+            "fallback_allowed": true,
+            "pages_scanned": 1,
+            "parser_candidate_rejected_low_value": 5,
+            "parser_container_hit": 0,
+            "parser_global_anchor_hit": 3,
+            "parser_json_ld_hit": 0,
+            "parser_parser_module_used": "global_anchor",
+            "parser_parser_modules_tried": [
+              "global_anchor"
+            ],
+            "parser_parser_profile_resolved": "site_adaptive",
+            "parser_structured_hit": 0,
+            "raw_candidates": 3,
+            "search_service": "basic",
+            "search_service_fallbacks": 0,
+            "selected_candidates": 3,
+            "transport_errors": 0,
+            "used_term_fallback": true
+          },
+          "errors": [],
+          "inserted": 3,
+          "pages_scanned": 1,
+          "search_urls": [
+            "https://news.google.com/search?q=openai+api+pricing+anthropic+claude+code+gpt+4.1+release+langchain+sqlitecache&page_size=20"
+          ],
+          "skipped": 0,
+          "source_mode": "site_search",
+          "used_term_fallback": true
+        },
+        "classification": {
+          "blocker_type": "relevance_review",
+          "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+          "status": "candidate_ready_with_term_fallback"
+        },
+        "elapsed_ms": 664,
+        "entry_domain": "news.google.com",
+        "target": {
+          "category": "parser_enhance",
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "target_id": "demo_proj_148_news_google_com",
+          "template": "https://news.google.com/search?q={{q}}"
+        }
+      }
+    ],
+    "term_fallback_relevance_review": [
+      {
+        "candidate_count": 30,
+        "candidates": [
+          "https://supernote.com/collections/accessories",
+          "https://supernote.com/collections/all",
+          "https://supernote.com/collections/open-box",
+          "https://supernote.com/collections/trial-open-box-accessories",
+          "https://supernote.com/pages/authorized-sellers",
+          "https://supernote.com/pages/business-and-management",
+          "https://supernote.com/pages/creative-writers",
+          "https://supernote.com/pages/distinguished-contributors",
+          "https://supernote.com/pages/diy-zone",
+          "https://supernote.com/pages/healthcare"
+        ],
+        "domain": "supernote.com",
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "review_reason": "Candidates were selected only after term fallback; inspect relevance before counting as dirty-source closure.",
+        "target_id": "demo_proj_99_supernote_com"
+      },
+      {
+        "candidate_count": 30,
+        "candidates": [
+          "https://gizmodo.com/antivirus/compare",
+          "https://gizmodo.com/best-cloud-storage/free",
+          "https://gizmodo.com/best-cloud-storage/pcloud",
+          "https://gizmodo.com/best-vpn/cheap",
+          "https://gizmodo.com/best-vpn/expressvpn",
+          "https://gizmodo.com/best-vpn/free",
+          "https://gizmodo.com/best-vpn/nordvpn",
+          "https://gizmodo.com/best-vpn/watch-french-open-free-live-stream",
+          "https://gizmodo.com/best-web-hosting/hostinger",
+          "https://gizmodo.com/deals/buying-guides"
+        ],
+        "domain": "gizmodo.com",
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "review_reason": "Candidates were selected only after term fallback; inspect relevance before counting as dirty-source closure.",
+        "target_id": "demo_proj_106_gizmodo_com"
+      },
+      {
+        "candidate_count": 30,
+        "candidates": [
+          "https://thequalityedit.com/article-categories/baby-gear",
+          "https://thequalityedit.com/article-categories/birthday-registry",
+          "https://thequalityedit.com/article-categories/city-guides",
+          "https://thequalityedit.com/article-categories/clean-beauty",
+          "https://thequalityedit.com/article-categories/entertaining",
+          "https://thequalityedit.com/article-categories/family-friendly-vacations",
+          "https://thequalityedit.com/article-categories/food-beverage",
+          "https://thequalityedit.com/article-categories/gift-guides",
+          "https://thequalityedit.com/article-categories/hair-care",
+          "https://thequalityedit.com/article-categories/holiday-gifts"
+        ],
+        "domain": "thequalityedit.com",
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "review_reason": "Candidates were selected only after term fallback; inspect relevance before counting as dirty-source closure.",
+        "target_id": "demo_proj_119_thequalityedit_com"
+      },
+      {
+        "candidate_count": 30,
+        "candidates": [
+          "http://en.wikipedia.org/wiki/Northwest_Passage",
+          "http://www.blogger.com/profile/06956192345302508941",
+          "http://www.blogger.com/profile/12474719507117105890",
+          "http://www.blogger.com/profile/15317043391426026024",
+          "http://www.blogger.com/profile/15973716015995895795",
+          "http://www.geek.com/articles/news/bing-destination-maps-adds-cool-treasure-map-sketch-feature-2010064",
+          "https://amzn.to/3SEEIK9",
+          "https://amzn.to/3SEMN1M",
+          "https://bsky.app/intent/compose?text=Search+for+the+Eastern+Passage+https%3A%2F%2Fwww.dcrainmaker.com%2F2011%2F05%2Fsearch-for-eastern-passage.html",
+          "https://dcrainmaker.com/2007/10/my-wetsuit-makes-brown-water.html"
+        ],
+        "domain": "dcrainmaker.com",
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "review_reason": "Candidates were selected only after term fallback; inspect relevance before counting as dirty-source closure.",
+        "target_id": "demo_proj_123_dcrainmaker_com"
+      },
+      {
+        "candidate_count": 30,
+        "candidates": [
+          "https://www.serverman.co.uk/ai/ai-for-builders-merchants",
+          "https://www.serverman.co.uk/ai/ai-for-electrical-wholesalers",
+          "https://www.serverman.co.uk/ai/ai-for-wholesale-distribution",
+          "https://www.serverman.co.uk/ai/ai-guides",
+          "https://www.serverman.co.uk/ai/ai-in-business",
+          "https://www.serverman.co.uk/ai/claude",
+          "https://www.serverman.co.uk/ai/ollama/what-is-ollama",
+          "https://www.serverman.co.uk/ai/perplexity-ai",
+          "https://www.serverman.co.uk/crypto/crypto-com-review",
+          "https://www.serverman.co.uk/crypto/crypto-wallet-security-tips"
+        ],
+        "domain": "serverman.co.uk",
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "review_reason": "Candidates were selected only after term fallback; inspect relevance before counting as dirty-source closure.",
+        "target_id": "demo_proj_130_serverman_co_uk"
+      },
+      {
+        "candidate_count": 3,
+        "candidates": [
+          "https://news.google.com/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNREpxYW5RU0FtVnVHZ0pWVXlnQVAB?ceid=US%3Aen&gl=US&hl=en-US",
+          "https://news.google.com/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGRqTVhZU0FtVnVHZ0pWVXlnQVAB?ceid=US%3Aen&gl=US&hl=en-US",
+          "https://news.google.com/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGx6TVdZU0FtVnVHZ0pWVXlnQVAB?ceid=US%3Aen&gl=US&hl=en-US"
+        ],
+        "domain": "news.google.com",
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "review_reason": "Candidates were selected only after term fallback; inspect relevance before counting as dirty-source closure.",
+        "target_id": "demo_proj_148_news_google_com"
+      }
+    ]
+  },
+  "shard_id": "crawler_public_replay_shard_03",
+  "shard_index": 3,
+  "source_full_output_path": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/output.public.json",
+  "source_public_replay_window": {
+    "finished_at": "2026-05-23T10:53:31Z",
+    "started_at": "2026-05-23T10:50:31Z"
+  },
+  "validation": {
+    "operator_gate_skip_count": 0,
+    "passed": true,
+    "policy_skipped_status_count": 2,
+    "public_network_attempted": true,
+    "skipped": false,
+    "target_order_matches_manifest": true
+  }
+}

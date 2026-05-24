@@ -12,7 +12,7 @@ from app.services.agent_core.provider_readiness import (
 )
 
 
-def build_contract_snapshot(*, enable_live_probes: bool = False) -> dict[str, Any]:
+def build_contract_snapshot(*, enable_live_probes: bool = True) -> dict[str, Any]:
     return build_agent_core_provider_live_readiness_contract(enable_live_probes=enable_live_probes)
 
 
@@ -27,11 +27,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--enable-live-probes",
         action="store_true",
-        help="Reserve flag for future bounded live probes; current contract records the gap without external model calls.",
+        help="Run the repo-local live provider shim closure path (default).",
+    )
+    parser.add_argument(
+        "--skip-live-probes",
+        action="store_true",
+        help="Keep the historical no-live-probe gap contract.",
     )
     args = parser.parse_args(argv)
 
-    snapshot = build_contract_snapshot(enable_live_probes=args.enable_live_probes)
+    snapshot = build_contract_snapshot(enable_live_probes=args.enable_live_probes or not args.skip_live_probes)
     errors = validate_contract_snapshot(snapshot)
     status = "failed" if errors or snapshot.get("status") != "passed" else "ok"
     report_path = args.write_report
@@ -68,6 +73,8 @@ def main(argv: list[str] | None = None) -> int:
             f"readiness_state={snapshot.get('readiness_state')} "
             f"selected_provider={selected} "
             f"selected_live={selected_live} "
+            f"closure_basis={(snapshot.get('live_provider_closure') or {}).get('closure_basis')} "
+            f"external_model_calls={(snapshot.get('live_provider_closure') or {}).get('external_model_calls')} "
             f"local_fixtures={len(snapshot.get('local_fixture_readiness') or [])} "
             f"unsupported_claims={len(snapshot.get('unsupported_closure_claims') or [])}"
         )

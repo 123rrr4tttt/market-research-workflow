@@ -9,11 +9,21 @@ from .metrics_payload import build_metrics_payload_for_result
 
 CANARY_HANDOFF_CONTRACT_VERSION = "ingest.single_url_canary_handoff.v1"
 CANARY_METRICS_SNAPSHOT_CONTRACT_VERSION = "ingest.single_url_canary_metrics_snapshot.v1"
+LIVE_CANARY_EVIDENCE_CONTRACT_VERSION = "ingest.single_url_canary_handoff.live_evidence.v1"
+
+_LIVE_CANARY_EXECUTION_GAP = "demo_proj live canary execution has not been run against configured services"
+_METRIC_24H_READBACK_GAP = "24h rejection-rate and inserted-valid ratios have not been inspected"
+_PRODUCTION_STRICT_GATE_GAP = "production all-project strict-gate enablement remains operations-owned"
 
 REMAINING_LIVE_RUN_GAPS: tuple[str, ...] = (
-    "demo_proj live canary execution has not been run against configured services",
-    "24h rejection-rate and inserted-valid ratios have not been inspected",
-    "production all-project strict-gate enablement remains operations-owned",
+    _LIVE_CANARY_EXECUTION_GAP,
+    _METRIC_24H_READBACK_GAP,
+    _PRODUCTION_STRICT_GATE_GAP,
+)
+
+REMAINING_POST_LIVE_CANARY_GAPS: tuple[str, ...] = (
+    _METRIC_24H_READBACK_GAP,
+    _PRODUCTION_STRICT_GATE_GAP,
 )
 
 
@@ -26,6 +36,7 @@ def build_single_url_canary_handoff(
     fallback_adapter: str = "source_library_frontdoor",
     live_canary_validated: bool | None = None,
     closure_claim: bool | None = None,
+    live_canary_evidence: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     ingress = dict(ingress_envelope or {})
     postprocess = dict(postprocess_frontdoor or {})
@@ -61,18 +72,24 @@ def build_single_url_canary_handoff(
         fallback_adapter=fallback_adapter,
         provided_metrics=metrics_payload,
     )
+    evidence = _normalize_live_canary_evidence(live_canary_evidence)
     live_validated = bool(
         live_canary_validated
         if live_canary_validated is not None
-        else rollout.get("live_canary_validated") or (metrics.get("guardrail_rollout") or {}).get("live_canary_validated")
+        else _live_canary_evidence_validated(evidence)
+        or rollout.get("live_canary_validated")
+        or (metrics.get("guardrail_rollout") or {}).get("live_canary_validated")
     )
     closed = bool(
         closure_claim
         if closure_claim is not None
-        else rollout.get("closure_claim") or (metrics.get("guardrail_rollout") or {}).get("closure_claim")
+        else (evidence.get("closure_claim") if evidence else False)
+        or rollout.get("closure_claim")
+        or (metrics.get("guardrail_rollout") or {}).get("closure_claim")
     )
     if not live_validated:
         closed = False
+    _apply_live_flags_to_metrics(metrics, live_canary_validated=live_validated, closure_claim=closed)
 
     return {
         "contract_version": CANARY_HANDOFF_CONTRACT_VERSION,
@@ -115,9 +132,13 @@ def build_single_url_canary_handoff(
             "decision_contract_version": rollout.get("contract_version"),
         },
         "metrics_snapshot": metrics,
+        "live_canary_evidence": evidence or None,
         "live_canary_validated": live_validated,
         "closure_claim": closed,
-        "remaining_live_run_gaps": [] if closed else list(REMAINING_LIVE_RUN_GAPS),
+        "remaining_live_run_gaps": _remaining_live_run_gaps(
+            live_canary_validated=live_validated,
+            closure_claim=closed,
+        ),
     }
 
 
@@ -237,9 +258,66 @@ def _coerce_float(value: Any) -> float:
         return 0.0
 
 
+def _normalize_live_canary_evidence(value: Mapping[str, Any] | None) -> dict[str, Any]:
+    if not isinstance(value, Mapping) or not value:
+        return {}
+    evidence = deepcopy(dict(value))
+    evidence.setdefault("contract_version", LIVE_CANARY_EVIDENCE_CONTRACT_VERSION)
+    evidence["live_canary_validated"] = bool(
+        evidence.get("live_canary_validated") or _live_canary_evidence_validated(evidence)
+    )
+    evidence["closure_claim"] = bool(evidence.get("closure_claim"))
+    return evidence
+
+
+def _live_canary_evidence_validated(evidence: Mapping[str, Any] | None) -> bool:
+    if not isinstance(evidence, Mapping) or not evidence:
+        return False
+    if evidence.get("live_canary_validated") is True:
+        return True
+    checks = evidence.get("validation_checks")
+    if not isinstance(checks, Mapping):
+        return False
+    required = {
+        "api_runtime_validated",
+        "db_readback_validated",
+        "guardrail_pass_observed",
+        "guardrail_block_observed",
+        "handoff_readback_present",
+    }
+    return all(checks.get(name) is True for name in required)
+
+
+def _apply_live_flags_to_metrics(
+    metrics: dict[str, Any],
+    *,
+    live_canary_validated: bool,
+    closure_claim: bool,
+) -> None:
+    guardrail = metrics.get("guardrail_rollout")
+    if not isinstance(guardrail, dict):
+        return
+    guardrail["live_canary_validated"] = bool(live_canary_validated)
+    guardrail["closure_claim"] = bool(closure_claim)
+
+
+def _remaining_live_run_gaps(
+    *,
+    live_canary_validated: bool,
+    closure_claim: bool,
+) -> list[str]:
+    if closure_claim:
+        return []
+    if live_canary_validated:
+        return [_METRIC_24H_READBACK_GAP, _PRODUCTION_STRICT_GATE_GAP]
+    return list(REMAINING_LIVE_RUN_GAPS)
+
+
 __all__ = [
     "CANARY_HANDOFF_CONTRACT_VERSION",
     "CANARY_METRICS_SNAPSHOT_CONTRACT_VERSION",
+    "LIVE_CANARY_EVIDENCE_CONTRACT_VERSION",
     "REMAINING_LIVE_RUN_GAPS",
+    "REMAINING_POST_LIVE_CANARY_GAPS",
     "build_single_url_canary_handoff",
 ]

@@ -35,7 +35,15 @@ The second closure is limited to the deterministic repo-local fixture boundary: 
 - `semantic_embedding_quality_not_proven`
 - `live_scheduler_tenant_db_ui_sla_not_proven`
 
-Supervisor wording: live embedding provider verification, local open-search quality, semantic relevance, and live scheduler/tenant DB/UI SLA remain external conditions for the concrete OSS-node target.
+Supervisor wording: this Wave29 snapshot left live embedding provider verification, local open-search quality, semantic relevance, and live scheduler/tenant DB/UI SLA as external conditions. Wave55 later closed the live scheduler/tenant DB/UI SLA readback in `09_wave55-oss-node-platform-io-live-sla-readback-2026-05-23.md`; provider and quality conditions remain external.
+
+## Wave55 Addendum
+
+Wave55 later added a live backend/frontend platform IO readback in
+`09_wave55-oss-node-platform-io-live-sla-readback-2026-05-23.md`. That addendum
+closes `live_scheduler_tenant_db_ui_sla_not_proven`; the retained external
+conditions are now live embedding provider verification, local open-search
+quality, and semantic relevance.
 
 ## Archive Recommendation
 

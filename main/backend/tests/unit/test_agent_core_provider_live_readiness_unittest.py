@@ -73,6 +73,55 @@ class AgentCoreProviderLiveReadinessUnitTest(unittest.TestCase):
         self.assertEqual(live_rows["openai"]["gap_reason"], "live_probe_disabled")
         self.assertEqual(contract["readiness_state"], "partial")
 
+    def test_repo_local_live_provider_shim_closes_selected_runtime_without_external_claim(self) -> None:
+        contract = build_agent_core_provider_live_readiness_contract(
+            settings_source={"llm_provider": "openai", "openai_api_key": None},
+            codex_cli_status={
+                "available": False,
+                "binary_available": False,
+                "auth_available": False,
+                "fallback_enabled": True,
+                "model": None,
+            },
+            enable_live_probes=True,
+        )
+
+        self.assertEqual(validate_agent_core_provider_live_readiness_contract(contract), [])
+        self.assertEqual(contract["status"], "passed")
+        self.assertEqual(contract["readiness_state"], "ready")
+        self.assertEqual(
+            contract["scope"],
+            "agent_core_provider_live_readiness_with_repo_local_live_provider_shim",
+        )
+        closure = contract["live_provider_closure"]
+        self.assertTrue(closure["closed"])
+        self.assertEqual(closure["closure_basis"], "repo_local_live_provider_shim")
+        self.assertEqual(closure["provider_key"], "repo_local_live_provider_shim")
+        self.assertFalse(closure["external_provider_live_verified"])
+        self.assertEqual(closure["external_model_calls"], 0)
+        self.assertEqual(closure["repo_local_model_calls"], 2)
+        self.assertEqual(closure["failure_taxonomy"], "none")
+        self.assertEqual(closure["latency_status"], "within_timeout")
+        self.assertEqual(
+            closure["provider_invocation"]["network_scope"],
+            "repo_local_in_process_no_external_network",
+        )
+        self.assertTrue(closure["status_data_error_meta_trace"]["compatible"])
+        self.assertEqual(
+            [event["event_type"] for event in closure["runtime_dispatch"]["tool_event_sequence"]],
+            ["tool_call_requested", "tool_call_started", "tool_result"],
+        )
+        self.assertTrue(closure["tool_call_readback"]["arguments_redacted"])
+        self.assertTrue(closure["redaction"]["raw_sensitive_values_absent"])
+
+        live_rows = {row["provider"]: row for row in contract["live_availability"]["providers"]}
+        self.assertEqual(live_rows["openai"]["live_probe_status"], "ready")
+        self.assertEqual(live_rows["openai"]["closure_basis"], "repo_local_live_provider_shim")
+        self.assertFalse(live_rows["openai"]["external_provider_live_verified"])
+        claim_codes = {row["code"] for row in contract["unsupported_closure_claims"]}
+        self.assertIn("repo_local_shim_is_not_external_provider_evidence", claim_codes)
+        self.assertNotIn("selected_provider_live_availability_not_closed", claim_codes)
+
     def test_local_llm_provider_is_explicitly_unsupported_until_adapter_exists(self) -> None:
         contract = build_agent_core_provider_live_readiness_contract(
             settings_source={"llm_provider": "local", "local_llm_enabled": True},
@@ -103,6 +152,16 @@ class AgentCoreProviderLiveReadinessUnitTest(unittest.TestCase):
 
         self.assertEqual(validate_contract_snapshot(snapshot), [])
         self.assertEqual(snapshot["contract_version"], "agent_core.provider_live_readiness.v1")
+        self.assertEqual(snapshot["readiness_state"], "ready")
+        self.assertTrue(snapshot["live_provider_closure"]["closed"])
+        self.assertFalse(snapshot["live_provider_closure"]["external_provider_live_verified"])
+
+    def test_checker_snapshot_can_still_render_historical_no_live_probe_gap(self) -> None:
+        snapshot = build_contract_snapshot(enable_live_probes=False)
+
+        self.assertEqual(validate_contract_snapshot(snapshot), [])
+        self.assertEqual(snapshot["readiness_state"], "partial")
+        self.assertFalse(snapshot["live_provider_closure"]["closed"])
 
 
 if __name__ == "__main__":

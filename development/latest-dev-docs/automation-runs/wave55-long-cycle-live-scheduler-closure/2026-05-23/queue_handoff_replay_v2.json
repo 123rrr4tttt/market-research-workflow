@@ -1,0 +1,1355 @@
+{
+  "check": {
+    "blockers": [],
+    "closed_slice": [
+      "repo_local_live_scheduler_enqueue",
+      "repo_local_queue_worker_consumption",
+      "sqlite_live_db_write_readback",
+      "digestion_output_readback",
+      "downstream_handoff_observed",
+      "event_replay_sequence_summary"
+    ],
+    "closure_claim": true,
+    "contract_version": "ingest.long_cycle_scheduler_queue_replay_check.v2",
+    "digestion_output_readback_validated": true,
+    "dispatch_intent": {
+      "cadence": "weekly",
+      "contract_version": "ingest.long_cycle_scheduler_dispatch_intent.v1",
+      "dispatch_key": "ingest-lc-dispatch-be38168e5aef10736d21",
+      "idempotency_key": "ingest-lc-idem-d0924cca05f1024cb10a1d07",
+      "live_dispatch": true,
+      "payload": {
+        "cadence": "weekly",
+        "dispatch_mode": "repo_local_live_scheduler",
+        "input_selector": {
+          "content_format": "markdown",
+          "entrypoint": "ingest.raw_import",
+          "input_kind": "raw_import",
+          "project_key": "demo_proj",
+          "requested_downstream_targets": [
+            "resource_pool",
+            "report_generation",
+            "writing"
+          ],
+          "source_locator": "file:///tmp/weekly-report.md"
+        },
+        "live_dispatch": true,
+        "output_target": "digestion_status_snapshot",
+        "persistent_ref": "sqlite://wave55-long-cycle-scheduler-queue-replay",
+        "selected_window": "7d",
+        "task_goal": "Digest weekly report inputs",
+        "task_key": "ingest-lc-c0b597f02bc1b027574b76d5"
+      },
+      "queue_name": "ingest.long_cycle.repo_local_live",
+      "run_at": "2026-03-08T11:02:00Z",
+      "scheduler_ref": "repo-local.scheduler.ingest-long-cycle",
+      "selected_window": "7d",
+      "task_key": "ingest-lc-c0b597f02bc1b027574b76d5",
+      "worker_task_name": "ingest.long_cycle.digest.repo_local_live"
+    },
+    "downstream_handoff": {
+      "consumed_at": "2026-03-08T11:05:00+00:00",
+      "consumer_targets": [
+        "resource_pool",
+        "report_generation",
+        "writing"
+      ],
+      "contract_version": "ingest.long_cycle_downstream_handoff.v1",
+      "digestion_output_readback": true,
+      "dispatch_key": "ingest-lc-dispatch-be38168e5aef10736d21",
+      "dispatch_ref": "repo-local-dispatch://ingest-lc-dispatch-be38168e5aef10736d21",
+      "downstream_handoff_observed": true,
+      "handoff_key": "ingest-lc-downstream-10204d0f793d1510885fa432",
+      "handoff_state": "ready_for_downstream",
+      "live_db_readback": true,
+      "output_ref": "sqlite://wave55-long-cycle-scheduler-queue-replay/digestion_outputs/ingest-lc-c0b597f02bc1b027574b76d5/7d",
+      "producer": "ingest.long_cycle.digest.repo_local_live",
+      "queue_item_key": "ingest-lc-queue-af6722265cd953b6301af5af",
+      "repository_ref": "sqlite://wave55-long-cycle-scheduler-queue-replay",
+      "selected_window": "7d",
+      "task_key": "ingest-lc-c0b597f02bc1b027574b76d5"
+    },
+    "downstream_handoff_validated": true,
+    "event_replay_summary": {
+      "contract_version": "ingest.long_cycle_repository_event_replay_summary.v1",
+      "dispatch_event_time": "2026-03-08T11:02:00Z",
+      "dispatch_key": "ingest-lc-dispatch-be38168e5aef10736d21",
+      "dispatch_ref": "repo-local-dispatch://ingest-lc-dispatch-be38168e5aef10736d21",
+      "event_count": 3,
+      "event_replay_ref": "sqlite://wave55-long-cycle-scheduler-queue-replay/event-replay/ingest-lc-queue-af6722265cd953b6301af5af",
+      "event_sequence": [
+        "mark_ready",
+        "dispatch",
+        "succeed"
+      ],
+      "live_db_write": true,
+      "live_scheduler_closure_validated": true,
+      "queue_item_key": "ingest-lc-queue-af6722265cd953b6301af5af",
+      "replay_complete": true,
+      "repository_ref": "sqlite://wave55-long-cycle-scheduler-queue-replay",
+      "repository_write_readback": true,
+      "status_sequence": [
+        "ready",
+        "running",
+        "succeeded"
+      ],
+      "task_key": "ingest-lc-c0b597f02bc1b027574b76d5",
+      "terminal_output_ref": "sqlite://wave55-long-cycle-scheduler-queue-replay/digestion_outputs/ingest-lc-c0b597f02bc1b027574b76d5/7d",
+      "terminal_status": "succeeded",
+      "write_count": 3,
+      "write_status_sequence": [
+        "ready",
+        "running",
+        "succeeded"
+      ]
+    },
+    "event_replay_summary_validated": true,
+    "handoff_trace": {
+      "blockers": [],
+      "closed_slice": [
+        "repo_local_scheduler_enqueue_trace",
+        "repo_local_worker_consumption_trace",
+        "sqlite_live_db_readback_trace",
+        "downstream_handoff_trace"
+      ],
+      "closure_claim": true,
+      "contract_version": "ingest.long_cycle_scheduler_handoff_trace_check.v1",
+      "dispatch_intent": {
+        "cadence": "weekly",
+        "contract_version": "ingest.long_cycle_scheduler_dispatch_intent.v1",
+        "dispatch_key": "ingest-lc-dispatch-be38168e5aef10736d21",
+        "idempotency_key": "ingest-lc-idem-d0924cca05f1024cb10a1d07",
+        "live_dispatch": true,
+        "payload": {
+          "cadence": "weekly",
+          "dispatch_mode": "repo_local_live_scheduler",
+          "input_selector": {
+            "content_format": "markdown",
+            "entrypoint": "ingest.raw_import",
+            "input_kind": "raw_import",
+            "project_key": "demo_proj",
+            "requested_downstream_targets": [
+              "resource_pool",
+              "report_generation",
+              "writing"
+            ],
+            "source_locator": "file:///tmp/weekly-report.md"
+          },
+          "live_dispatch": true,
+          "output_target": "digestion_status_snapshot",
+          "persistent_ref": "sqlite://wave55-long-cycle-scheduler-queue-replay",
+          "selected_window": "7d",
+          "task_goal": "Digest weekly report inputs",
+          "task_key": "ingest-lc-c0b597f02bc1b027574b76d5"
+        },
+        "queue_name": "ingest.long_cycle.repo_local_live",
+        "run_at": "2026-03-08T11:02:00Z",
+        "scheduler_ref": "repo-local.scheduler.ingest-long-cycle",
+        "selected_window": "7d",
+        "task_key": "ingest-lc-c0b597f02bc1b027574b76d5",
+        "worker_task_name": "ingest.long_cycle.digest.repo_local_live"
+      },
+      "dispatch_intent_matches_readback": true,
+      "dispatch_ref": "repo-local-dispatch://ingest-lc-dispatch-be38168e5aef10736d21",
+      "durable_event_readback": true,
+      "handoff_trace": [
+        {
+          "detail": "queue=ingest.long_cycle.repo_local_live worker_task=ingest.long_cycle.digest.repo_local_live",
+          "dispatch_key": "ingest-lc-dispatch-be38168e5aef10736d21",
+          "dispatch_ref": "repo-local-dispatch://ingest-lc-dispatch-be38168e5aef10736d21",
+          "durable_readback": false,
+          "event_transition": null,
+          "live_dispatch": true,
+          "stage": "dispatch_intent_created",
+          "status": "traced",
+          "task_key": "ingest-lc-c0b597f02bc1b027574b76d5",
+          "trace_ref": "ingest-lc-dispatch-be38168e5aef10736d21"
+        },
+        {
+          "detail": "repo-local scheduler enqueue accepted a live queue item",
+          "dispatch_key": "ingest-lc-dispatch-be38168e5aef10736d21",
+          "dispatch_ref": "repo-local-dispatch://ingest-lc-dispatch-be38168e5aef10736d21",
+          "durable_readback": false,
+          "event_transition": null,
+          "live_dispatch": true,
+          "stage": "scheduler_queue_enqueued",
+          "status": "traced",
+          "task_key": "ingest-lc-c0b597f02bc1b027574b76d5",
+          "trace_ref": "ingest-lc-queue-af6722265cd953b6301af5af"
+        },
+        {
+          "detail": "repo-local worker consumed the queue item and wrote running/succeeded records",
+          "dispatch_key": "ingest-lc-dispatch-be38168e5aef10736d21",
+          "dispatch_ref": "repo-local-dispatch://ingest-lc-dispatch-be38168e5aef10736d21",
+          "durable_readback": true,
+          "event_transition": "dispatch",
+          "live_dispatch": true,
+          "stage": "worker_consumed_queue_item",
+          "status": "traced",
+          "task_key": "ingest-lc-c0b597f02bc1b027574b76d5",
+          "trace_ref": "ingest-lc-queue-af6722265cd953b6301af5af"
+        },
+        {
+          "detail": "readback_event_sequence=mark_ready,dispatch,succeed",
+          "dispatch_key": "ingest-lc-dispatch-be38168e5aef10736d21",
+          "dispatch_ref": "repo-local-dispatch://ingest-lc-dispatch-be38168e5aef10736d21",
+          "durable_readback": true,
+          "event_transition": "succeed",
+          "live_dispatch": true,
+          "stage": "live_db_readback",
+          "status": "traced",
+          "task_key": "ingest-lc-c0b597f02bc1b027574b76d5",
+          "trace_ref": "sqlite://wave55-long-cycle-scheduler-queue-replay"
+        },
+        {
+          "detail": "digestion output readback produced a downstream handoff payload",
+          "dispatch_key": "ingest-lc-dispatch-be38168e5aef10736d21",
+          "dispatch_ref": "repo-local-dispatch://ingest-lc-dispatch-be38168e5aef10736d21",
+          "durable_readback": true,
+          "event_transition": "succeed",
+          "live_dispatch": true,
+          "stage": "downstream_handoff_ready",
+          "status": "traced",
+          "task_key": "ingest-lc-c0b597f02bc1b027574b76d5",
+          "trace_ref": "ingest-lc-downstream-10204d0f793d1510885fa432"
+        }
+      ],
+      "handoff_trace_sequence": [
+        "dispatch_intent_created",
+        "scheduler_queue_enqueued",
+        "worker_consumed_queue_item",
+        "live_db_readback",
+        "downstream_handoff_ready"
+      ],
+      "live_db_write": true,
+      "live_dispatch": true,
+      "live_scheduler_closure_validated": true,
+      "remaining_runtime_gaps": [],
+      "repository_readback": {
+        "blockers": [],
+        "closed_slice": [
+          "sqlite_live_repository_write_readback",
+          "persistent_task_reopen_readback",
+          "lifecycle_event_sequence_readback",
+          "live_db_boundary_closed_repo_local"
+        ],
+        "contract_version": "ingest.long_cycle_repository_readback_check.v1",
+        "durable_readback": true,
+        "live_db_write": true,
+        "logical_table": "long_cycle_persistent_tasks",
+        "readback_event_sequence": [
+          "mark_ready",
+          "dispatch",
+          "succeed"
+        ],
+        "readback_events": [
+          {
+            "actor": "ingest_long_cycle_lifecycle_contract",
+            "dispatch_ref": null,
+            "error": null,
+            "event_time": "2026-03-08T11:00:00Z",
+            "from_status": null,
+            "output_ref": null,
+            "reason": "ready_for_in_memory_lifecycle_dispatch",
+            "to_status": "ready",
+            "transition": "mark_ready"
+          },
+          {
+            "actor": "ingest.long_cycle.digest.repo_local_live",
+            "dispatch_ref": "repo-local-dispatch://ingest-lc-dispatch-be38168e5aef10736d21",
+            "error": null,
+            "event_time": "2026-03-08T11:02:00Z",
+            "from_status": "ready",
+            "output_ref": null,
+            "reason": "repo-local worker consumed scheduler queue item",
+            "to_status": "running",
+            "transition": "dispatch"
+          },
+          {
+            "actor": "ingest.long_cycle.digest.repo_local_live",
+            "dispatch_ref": "repo-local-dispatch://ingest-lc-dispatch-be38168e5aef10736d21",
+            "error": null,
+            "event_time": "2026-03-08T11:05:00Z",
+            "from_status": "running",
+            "output_ref": "sqlite://wave55-long-cycle-scheduler-queue-replay/digestion_outputs/ingest-lc-c0b597f02bc1b027574b76d5/7d",
+            "reason": "repo-local digestion output written and ready for downstream handoff",
+            "to_status": "succeeded",
+            "transition": "succeed"
+          }
+        ],
+        "readback_record": {
+          "attempt_count": 1,
+          "contract_version": "ingest.long_cycle_persistent_task.v1",
+          "created_at": "2026-03-08T11:00:00Z",
+          "dispatch_ref": "repo-local-dispatch://ingest-lc-dispatch-be38168e5aef10736d21",
+          "error": null,
+          "lifecycle_events": [
+            {
+              "actor": "ingest_long_cycle_lifecycle_contract",
+              "dispatch_ref": null,
+              "error": null,
+              "event_time": "2026-03-08T11:00:00Z",
+              "from_status": null,
+              "output_ref": null,
+              "reason": "ready_for_in_memory_lifecycle_dispatch",
+              "to_status": "ready",
+              "transition": "mark_ready"
+            },
+            {
+              "actor": "ingest.long_cycle.digest.repo_local_live",
+              "dispatch_ref": "repo-local-dispatch://ingest-lc-dispatch-be38168e5aef10736d21",
+              "error": null,
+              "event_time": "2026-03-08T11:02:00Z",
+              "from_status": "ready",
+              "output_ref": null,
+              "reason": "repo-local worker consumed scheduler queue item",
+              "to_status": "running",
+              "transition": "dispatch"
+            },
+            {
+              "actor": "ingest.long_cycle.digest.repo_local_live",
+              "dispatch_ref": "repo-local-dispatch://ingest-lc-dispatch-be38168e5aef10736d21",
+              "error": null,
+              "event_time": "2026-03-08T11:05:00Z",
+              "from_status": "running",
+              "output_ref": "sqlite://wave55-long-cycle-scheduler-queue-replay/digestion_outputs/ingest-lc-c0b597f02bc1b027574b76d5/7d",
+              "reason": "repo-local digestion output written and ready for downstream handoff",
+              "to_status": "succeeded",
+              "transition": "succeed"
+            }
+          ],
+          "output_ref": "sqlite://wave55-long-cycle-scheduler-queue-replay/digestion_outputs/ingest-lc-c0b597f02bc1b027574b76d5/7d",
+          "persistent_ref": "sqlite://wave55-long-cycle-scheduler-queue-replay",
+          "remaining_external_bindings": [],
+          "scheduler_ref": "repo-local.scheduler.ingest-long-cycle",
+          "status": "succeeded",
+          "task": {
+            "cadence": "weekly",
+            "candidate_windows": [
+              "7d",
+              "30d"
+            ],
+            "failure_status": "failed",
+            "input_selector": {
+              "content_format": "markdown",
+              "entrypoint": "ingest.raw_import",
+              "input_kind": "raw_import",
+              "project_key": "demo_proj",
+              "requested_downstream_targets": [
+                "resource_pool",
+                "report_generation",
+                "writing"
+              ],
+              "source_locator": "file:///tmp/weekly-report.md"
+            },
+            "last_run_snapshot": {
+              "output_ref": "sqlite://wave55-long-cycle-scheduler-queue-replay/digestion_outputs/ingest-lc-c0b597f02bc1b027574b76d5/7d",
+              "reason": "repo-local digestion output written and ready for downstream handoff",
+              "selected_window": "7d",
+              "status": "succeeded",
+              "updated_at": "2026-03-08T11:05:00Z"
+            },
+            "output_target": "digestion_status_snapshot",
+            "priority_rule": "prefer_low_density_gap_fill",
+            "success_status": "succeeded",
+            "task_goal": "Digest weekly report inputs",
+            "window_strategy": "prompt_time_density_priority"
+          },
+          "task_key": "ingest-lc-c0b597f02bc1b027574b76d5",
+          "updated_at": "2026-03-08T11:05:00Z"
+        },
+        "remaining_runtime_gaps": [],
+        "repository_ref": "sqlite://wave55-long-cycle-scheduler-queue-replay",
+        "scheduler_readiness": {
+          "closure_claim": true,
+          "contract_version": "ingest.long_cycle_scheduler_readiness_check.v1",
+          "dry_run_dispatch_ready": true,
+          "live_scheduler_closure_validated": true,
+          "local_deterministic_readiness": true,
+          "readiness_state": "live_scheduler_closure_validated",
+          "remaining_runtime_gaps": [],
+          "scheduler_e2e_contract": {
+            "automation_status": {
+              "blockers": [],
+              "contract_version": "ingest.long_cycle_automation_status.v1",
+              "digestion_decision": {
+                "chunking_required": true,
+                "extract_required": true,
+                "reason": "long_or_report_shaped_input_needs_chunking",
+                "stage": "chunk_first",
+                "summarize_required": false
+              },
+              "normalized_input": {
+                "content_format": "markdown",
+                "effective_time": "2026-03-08T11:00:00Z",
+                "ingestion_entrypoint": "ingest.raw_import",
+                "input_kind": "raw_import",
+                "lineage_ref": null,
+                "processed_time": "2026-03-08T11:00:00Z",
+                "project_key": "demo_proj",
+                "requested_downstream_targets": [
+                  "resource_pool",
+                  "report_generation",
+                  "writing"
+                ],
+                "source_locator": "file:///tmp/weekly-report.md",
+                "source_time": null,
+                "task_window": "7d",
+                "task_window_end": "2026-03-08",
+                "task_window_start": "2026-03-02",
+                "time_confidence": 0.5,
+                "time_parse_version": "source-time-window-v1",
+                "time_provenance": "processed_time_fallback"
+              },
+              "selected_window": "7d",
+              "status": "ready",
+              "task": {
+                "cadence": "weekly",
+                "candidate_windows": [
+                  "7d",
+                  "30d"
+                ],
+                "failure_status": "failed",
+                "input_selector": {
+                  "content_format": "markdown",
+                  "entrypoint": "ingest.raw_import",
+                  "input_kind": "raw_import",
+                  "project_key": "demo_proj",
+                  "requested_downstream_targets": [
+                    "resource_pool",
+                    "report_generation",
+                    "writing"
+                  ],
+                  "source_locator": "file:///tmp/weekly-report.md"
+                },
+                "last_run_snapshot": {
+                  "output_ref": null,
+                  "reason": "ready_for_task_dispatch",
+                  "selected_window": "7d",
+                  "status": "ready",
+                  "updated_at": "2026-03-08T11:00:00Z"
+                },
+                "output_target": "digestion_status_snapshot",
+                "priority_rule": "prefer_low_density_gap_fill",
+                "success_status": "succeeded",
+                "task_goal": "Digest weekly report inputs",
+                "window_strategy": "prompt_time_density_priority"
+              }
+            },
+            "blockers": [],
+            "closed_slice": [
+              "scheduler_dispatch_intent",
+              "fake_repository_db_table_write_abstraction",
+              "persistent_task_ready_running_succeeded_lifecycle",
+              "dispatch_output_refs_recorded"
+            ],
+            "completed_record": {
+              "attempt_count": 1,
+              "contract_version": "ingest.long_cycle_persistent_task.v1",
+              "created_at": "2026-03-08T11:00:00Z",
+              "dispatch_ref": "repo-local-dispatch://ingest-lc-dispatch-be38168e5aef10736d21",
+              "error": null,
+              "lifecycle_events": [
+                {
+                  "actor": "ingest_long_cycle_lifecycle_contract",
+                  "dispatch_ref": null,
+                  "error": null,
+                  "event_time": "2026-03-08T11:00:00Z",
+                  "from_status": null,
+                  "output_ref": null,
+                  "reason": "ready_for_in_memory_lifecycle_dispatch",
+                  "to_status": "ready",
+                  "transition": "mark_ready"
+                },
+                {
+                  "actor": "ingest_long_cycle_scheduler_e2e_contract",
+                  "dispatch_ref": "repo-local-dispatch://ingest-lc-dispatch-be38168e5aef10736d21",
+                  "error": null,
+                  "event_time": "2026-03-08T11:02:00Z",
+                  "from_status": "ready",
+                  "output_ref": null,
+                  "reason": "dispatch intent recorded without live scheduler execution",
+                  "to_status": "running",
+                  "transition": "dispatch"
+                },
+                {
+                  "actor": "ingest_long_cycle_scheduler_e2e_contract",
+                  "dispatch_ref": "repo-local-dispatch://ingest-lc-dispatch-be38168e5aef10736d21",
+                  "error": null,
+                  "event_time": "2026-03-08T11:05:00Z",
+                  "from_status": "running",
+                  "output_ref": "sqlite://wave55-long-cycle-scheduler-queue-replay/digestion_outputs/ingest-lc-c0b597f02bc1b027574b76d5/7d",
+                  "reason": "fake repository write completed contract-only lifecycle",
+                  "to_status": "succeeded",
+                  "transition": "succeed"
+                }
+              ],
+              "output_ref": "sqlite://wave55-long-cycle-scheduler-queue-replay/digestion_outputs/ingest-lc-c0b597f02bc1b027574b76d5/7d",
+              "persistent_ref": "sqlite://wave55-long-cycle-scheduler-queue-replay",
+              "remaining_external_bindings": [
+                "live_scheduler_dispatch_not_executed",
+                "persistent_task_table_write_not_executed",
+                "end_to_end_automation_run_not_executed"
+              ],
+              "scheduler_ref": "repo-local.scheduler.ingest-long-cycle",
+              "status": "succeeded",
+              "task": {
+                "cadence": "weekly",
+                "candidate_windows": [
+                  "7d",
+                  "30d"
+                ],
+                "failure_status": "failed",
+                "input_selector": {
+                  "content_format": "markdown",
+                  "entrypoint": "ingest.raw_import",
+                  "input_kind": "raw_import",
+                  "project_key": "demo_proj",
+                  "requested_downstream_targets": [
+                    "resource_pool",
+                    "report_generation",
+                    "writing"
+                  ],
+                  "source_locator": "file:///tmp/weekly-report.md"
+                },
+                "last_run_snapshot": {
+                  "output_ref": "sqlite://wave55-long-cycle-scheduler-queue-replay/digestion_outputs/ingest-lc-c0b597f02bc1b027574b76d5/7d",
+                  "reason": "fake repository write completed contract-only lifecycle",
+                  "selected_window": "7d",
+                  "status": "succeeded",
+                  "updated_at": "2026-03-08T11:05:00Z"
+                },
+                "output_target": "digestion_status_snapshot",
+                "priority_rule": "prefer_low_density_gap_fill",
+                "success_status": "succeeded",
+                "task_goal": "Digest weekly report inputs",
+                "window_strategy": "prompt_time_density_priority"
+              },
+              "task_key": "ingest-lc-c0b597f02bc1b027574b76d5",
+              "updated_at": "2026-03-08T11:05:00Z"
+            },
+            "contract_version": "ingest.long_cycle_scheduler_e2e_contract_check.v1",
+            "dispatch_intent": {
+              "cadence": "weekly",
+              "contract_version": "ingest.long_cycle_scheduler_dispatch_intent.v1",
+              "dispatch_key": "ingest-lc-dispatch-be38168e5aef10736d21",
+              "idempotency_key": "ingest-lc-idem-d0924cca05f1024cb10a1d07",
+              "live_dispatch": false,
+              "payload": {
+                "cadence": "weekly",
+                "dispatch_mode": "contract_only",
+                "input_selector": {
+                  "content_format": "markdown",
+                  "entrypoint": "ingest.raw_import",
+                  "input_kind": "raw_import",
+                  "project_key": "demo_proj",
+                  "requested_downstream_targets": [
+                    "resource_pool",
+                    "report_generation",
+                    "writing"
+                  ],
+                  "source_locator": "file:///tmp/weekly-report.md"
+                },
+                "live_dispatch": false,
+                "output_target": "digestion_status_snapshot",
+                "persistent_ref": "sqlite://wave55-long-cycle-scheduler-queue-replay",
+                "selected_window": "7d",
+                "task_goal": "Digest weekly report inputs",
+                "task_key": "ingest-lc-c0b597f02bc1b027574b76d5"
+              },
+              "queue_name": "ingest.long_cycle.repo_local_live",
+              "run_at": "2026-03-08T11:02:00Z",
+              "scheduler_ref": "repo-local.scheduler.ingest-long-cycle",
+              "selected_window": "7d",
+              "task_key": "ingest-lc-c0b597f02bc1b027574b76d5",
+              "worker_task_name": "ingest.long_cycle.digest.repo_local_live"
+            },
+            "persistence_writes": [
+              {
+                "contract_version": "ingest.long_cycle_persistence_write_result.v1",
+                "live_db_write": false,
+                "logical_table": "long_cycle_persistent_tasks",
+                "operation": "upsert",
+                "payload_ref": "fake-db://ingest-long-cycle-task-repository/long_cycle_persistent_tasks/ingest-lc-c0b597f02bc1b027574b76d5",
+                "record_key": "ingest-lc-c0b597f02bc1b027574b76d5",
+                "repository_ref": "fake-db://ingest-long-cycle-task-repository",
+                "status_after": "ready",
+                "status_before": null,
+                "write_time": "2026-03-08T11:00:00Z"
+              },
+              {
+                "contract_version": "ingest.long_cycle_persistence_write_result.v1",
+                "live_db_write": false,
+                "logical_table": "long_cycle_persistent_tasks",
+                "operation": "upsert",
+                "payload_ref": "fake-db://ingest-long-cycle-task-repository/long_cycle_persistent_tasks/ingest-lc-c0b597f02bc1b027574b76d5",
+                "record_key": "ingest-lc-c0b597f02bc1b027574b76d5",
+                "repository_ref": "fake-db://ingest-long-cycle-task-repository",
+                "status_after": "running",
+                "status_before": "ready",
+                "write_time": "2026-03-08T11:02:00Z"
+              },
+              {
+                "contract_version": "ingest.long_cycle_persistence_write_result.v1",
+                "live_db_write": false,
+                "logical_table": "long_cycle_persistent_tasks",
+                "operation": "upsert",
+                "payload_ref": "fake-db://ingest-long-cycle-task-repository/long_cycle_persistent_tasks/ingest-lc-c0b597f02bc1b027574b76d5",
+                "record_key": "ingest-lc-c0b597f02bc1b027574b76d5",
+                "repository_ref": "fake-db://ingest-long-cycle-task-repository",
+                "status_after": "succeeded",
+                "status_before": "running",
+                "write_time": "2026-03-08T11:05:00Z"
+              }
+            ],
+            "persistent_task": {
+              "attempt_count": 0,
+              "contract_version": "ingest.long_cycle_persistent_task.v1",
+              "created_at": "2026-03-08T11:00:00Z",
+              "dispatch_ref": null,
+              "error": null,
+              "lifecycle_events": [
+                {
+                  "actor": "ingest_long_cycle_lifecycle_contract",
+                  "dispatch_ref": null,
+                  "error": null,
+                  "event_time": "2026-03-08T11:00:00Z",
+                  "from_status": null,
+                  "output_ref": null,
+                  "reason": "ready_for_in_memory_lifecycle_dispatch",
+                  "to_status": "ready",
+                  "transition": "mark_ready"
+                }
+              ],
+              "output_ref": null,
+              "persistent_ref": "sqlite://wave55-long-cycle-scheduler-queue-replay",
+              "remaining_external_bindings": [
+                "live_scheduler_dispatch_not_executed",
+                "persistent_task_table_write_not_executed",
+                "end_to_end_automation_run_not_executed"
+              ],
+              "scheduler_ref": "repo-local.scheduler.ingest-long-cycle",
+              "status": "ready",
+              "task": {
+                "cadence": "weekly",
+                "candidate_windows": [
+                  "7d",
+                  "30d"
+                ],
+                "failure_status": "failed",
+                "input_selector": {
+                  "content_format": "markdown",
+                  "entrypoint": "ingest.raw_import",
+                  "input_kind": "raw_import",
+                  "project_key": "demo_proj",
+                  "requested_downstream_targets": [
+                    "resource_pool",
+                    "report_generation",
+                    "writing"
+                  ],
+                  "source_locator": "file:///tmp/weekly-report.md"
+                },
+                "last_run_snapshot": {
+                  "output_ref": null,
+                  "reason": "ready_for_in_memory_lifecycle_dispatch",
+                  "selected_window": "7d",
+                  "status": "ready",
+                  "updated_at": "2026-03-08T11:00:00Z"
+                },
+                "output_target": "digestion_status_snapshot",
+                "priority_rule": "prefer_low_density_gap_fill",
+                "success_status": "succeeded",
+                "task_goal": "Digest weekly report inputs",
+                "window_strategy": "prompt_time_density_priority"
+              },
+              "task_key": "ingest-lc-c0b597f02bc1b027574b76d5",
+              "updated_at": "2026-03-08T11:00:00Z"
+            },
+            "remaining_runtime_gaps": [
+              "live_scheduler_dispatch_not_executed",
+              "live_persistent_task_table_write_not_executed",
+              "production_worker_task_not_executed",
+              "end_to_end_automation_run_not_executed"
+            ],
+            "status": "pass"
+          },
+          "scheduler_runtime_configured": true,
+          "stages": [
+            {
+              "detail": "e2e_status=pass dispatch_key=ingest-lc-dispatch-be38168e5aef10736d21 write_statuses=ready,running,succeeded",
+              "evidence_required": [],
+              "gaps": [],
+              "name": "deterministic_scheduler_e2e_contract",
+              "passed": true,
+              "status": "passed",
+              "validated": true
+            },
+            {
+              "detail": "queue=ingest.long_cycle.repo_local_live worker_task=ingest.long_cycle.digest.repo_local_live selected_window=7d live_dispatch=False",
+              "evidence_required": [],
+              "gaps": [],
+              "name": "scheduler_dry_run_dispatch_plan",
+              "passed": true,
+              "status": "ready",
+              "validated": true
+            },
+            {
+              "detail": "live scheduler, worker execution, live persistence, output readback, and downstream handoff evidence were provided",
+              "evidence_required": [
+                "live_scheduler_dispatch_executed",
+                "recurring_schedule_registered",
+                "production_worker_task_executed",
+                "live_persistent_task_table_write",
+                "digestion_output_readback",
+                "downstream_handoff_observed"
+              ],
+              "gaps": [],
+              "name": "live_scheduler_closure",
+              "passed": true,
+              "status": "validated",
+              "validated": true
+            }
+          ],
+          "status": "pass"
+        },
+        "status": "pass",
+        "storage_kind": "sqlite"
+      },
+      "status": "pass"
+    },
+    "live_db_write": true,
+    "live_dispatch": true,
+    "live_enqueue": true,
+    "live_scheduler_closure_validated": true,
+    "live_scheduler_evidence": {
+      "digestion_output_readback": true,
+      "downstream_handoff_observed": true,
+      "live_persistent_task_table_write": true,
+      "live_scheduler_dispatch_executed": true,
+      "production_worker_task_executed": true,
+      "recurring_schedule_registered": true
+    },
+    "queue_item": {
+      "cadence": "weekly",
+      "contract_version": "ingest.long_cycle_scheduler_queue_item.v1",
+      "dispatch_key": "ingest-lc-dispatch-be38168e5aef10736d21",
+      "dispatch_ref": "repo-local-dispatch://ingest-lc-dispatch-be38168e5aef10736d21",
+      "enqueue_after": "2026-03-08T11:02:00Z",
+      "idempotency_key": "ingest-lc-idem-d0924cca05f1024cb10a1d07",
+      "live_enqueue": true,
+      "payload": {
+        "cadence": "weekly",
+        "dispatch_key": "ingest-lc-dispatch-be38168e5aef10736d21",
+        "dispatch_mode": "repo_local_live_scheduler",
+        "dispatch_ref": "repo-local-dispatch://ingest-lc-dispatch-be38168e5aef10736d21",
+        "idempotency_key": "ingest-lc-idem-d0924cca05f1024cb10a1d07",
+        "input_selector": {
+          "content_format": "markdown",
+          "entrypoint": "ingest.raw_import",
+          "input_kind": "raw_import",
+          "project_key": "demo_proj",
+          "requested_downstream_targets": [
+            "resource_pool",
+            "report_generation",
+            "writing"
+          ],
+          "source_locator": "file:///tmp/weekly-report.md"
+        },
+        "live_dispatch": true,
+        "live_enqueue": true,
+        "output_target": "digestion_status_snapshot",
+        "persistent_ref": "sqlite://wave55-long-cycle-scheduler-queue-replay",
+        "queue_handoff_mode": "repo_local_live_scheduler_queue",
+        "queue_name": "ingest.long_cycle.repo_local_live",
+        "repository_ref": "sqlite://wave55-long-cycle-scheduler-queue-replay",
+        "run_at": "2026-03-08T11:02:00+00:00",
+        "scheduler_ref": "repo-local.scheduler.ingest-long-cycle",
+        "selected_window": "7d",
+        "task_goal": "Digest weekly report inputs",
+        "task_key": "ingest-lc-c0b597f02bc1b027574b76d5",
+        "worker_task_name": "ingest.long_cycle.digest.repo_local_live"
+      },
+      "persistent_ref": "sqlite://wave55-long-cycle-scheduler-queue-replay",
+      "queue_item_key": "ingest-lc-queue-af6722265cd953b6301af5af",
+      "queue_name": "ingest.long_cycle.repo_local_live",
+      "queue_state": "queued_repo_local_live",
+      "repository_ref": "sqlite://wave55-long-cycle-scheduler-queue-replay",
+      "run_at": "2026-03-08T11:02:00Z",
+      "scheduler_ref": "repo-local.scheduler.ingest-long-cycle",
+      "selected_window": "7d",
+      "task_key": "ingest-lc-c0b597f02bc1b027574b76d5",
+      "worker_task_name": "ingest.long_cycle.digest.repo_local_live"
+    },
+    "queue_item_validated": true,
+    "remaining_runtime_gaps": [],
+    "repo_local_live_closure_validated": true,
+    "repository_readback": {
+      "blockers": [],
+      "closed_slice": [
+        "sqlite_live_repository_write_readback",
+        "persistent_task_reopen_readback",
+        "lifecycle_event_sequence_readback",
+        "live_db_boundary_closed_repo_local"
+      ],
+      "contract_version": "ingest.long_cycle_repository_readback_check.v1",
+      "durable_readback": true,
+      "live_db_write": true,
+      "logical_table": "long_cycle_persistent_tasks",
+      "readback_event_sequence": [
+        "mark_ready",
+        "dispatch",
+        "succeed"
+      ],
+      "readback_events": [
+        {
+          "actor": "ingest_long_cycle_lifecycle_contract",
+          "dispatch_ref": null,
+          "error": null,
+          "event_time": "2026-03-08T11:00:00Z",
+          "from_status": null,
+          "output_ref": null,
+          "reason": "ready_for_in_memory_lifecycle_dispatch",
+          "to_status": "ready",
+          "transition": "mark_ready"
+        },
+        {
+          "actor": "ingest.long_cycle.digest.repo_local_live",
+          "dispatch_ref": "repo-local-dispatch://ingest-lc-dispatch-be38168e5aef10736d21",
+          "error": null,
+          "event_time": "2026-03-08T11:02:00Z",
+          "from_status": "ready",
+          "output_ref": null,
+          "reason": "repo-local worker consumed scheduler queue item",
+          "to_status": "running",
+          "transition": "dispatch"
+        },
+        {
+          "actor": "ingest.long_cycle.digest.repo_local_live",
+          "dispatch_ref": "repo-local-dispatch://ingest-lc-dispatch-be38168e5aef10736d21",
+          "error": null,
+          "event_time": "2026-03-08T11:05:00Z",
+          "from_status": "running",
+          "output_ref": "sqlite://wave55-long-cycle-scheduler-queue-replay/digestion_outputs/ingest-lc-c0b597f02bc1b027574b76d5/7d",
+          "reason": "repo-local digestion output written and ready for downstream handoff",
+          "to_status": "succeeded",
+          "transition": "succeed"
+        }
+      ],
+      "readback_record": {
+        "attempt_count": 1,
+        "contract_version": "ingest.long_cycle_persistent_task.v1",
+        "created_at": "2026-03-08T11:00:00Z",
+        "dispatch_ref": "repo-local-dispatch://ingest-lc-dispatch-be38168e5aef10736d21",
+        "error": null,
+        "lifecycle_events": [
+          {
+            "actor": "ingest_long_cycle_lifecycle_contract",
+            "dispatch_ref": null,
+            "error": null,
+            "event_time": "2026-03-08T11:00:00Z",
+            "from_status": null,
+            "output_ref": null,
+            "reason": "ready_for_in_memory_lifecycle_dispatch",
+            "to_status": "ready",
+            "transition": "mark_ready"
+          },
+          {
+            "actor": "ingest.long_cycle.digest.repo_local_live",
+            "dispatch_ref": "repo-local-dispatch://ingest-lc-dispatch-be38168e5aef10736d21",
+            "error": null,
+            "event_time": "2026-03-08T11:02:00Z",
+            "from_status": "ready",
+            "output_ref": null,
+            "reason": "repo-local worker consumed scheduler queue item",
+            "to_status": "running",
+            "transition": "dispatch"
+          },
+          {
+            "actor": "ingest.long_cycle.digest.repo_local_live",
+            "dispatch_ref": "repo-local-dispatch://ingest-lc-dispatch-be38168e5aef10736d21",
+            "error": null,
+            "event_time": "2026-03-08T11:05:00Z",
+            "from_status": "running",
+            "output_ref": "sqlite://wave55-long-cycle-scheduler-queue-replay/digestion_outputs/ingest-lc-c0b597f02bc1b027574b76d5/7d",
+            "reason": "repo-local digestion output written and ready for downstream handoff",
+            "to_status": "succeeded",
+            "transition": "succeed"
+          }
+        ],
+        "output_ref": "sqlite://wave55-long-cycle-scheduler-queue-replay/digestion_outputs/ingest-lc-c0b597f02bc1b027574b76d5/7d",
+        "persistent_ref": "sqlite://wave55-long-cycle-scheduler-queue-replay",
+        "remaining_external_bindings": [],
+        "scheduler_ref": "repo-local.scheduler.ingest-long-cycle",
+        "status": "succeeded",
+        "task": {
+          "cadence": "weekly",
+          "candidate_windows": [
+            "7d",
+            "30d"
+          ],
+          "failure_status": "failed",
+          "input_selector": {
+            "content_format": "markdown",
+            "entrypoint": "ingest.raw_import",
+            "input_kind": "raw_import",
+            "project_key": "demo_proj",
+            "requested_downstream_targets": [
+              "resource_pool",
+              "report_generation",
+              "writing"
+            ],
+            "source_locator": "file:///tmp/weekly-report.md"
+          },
+          "last_run_snapshot": {
+            "output_ref": "sqlite://wave55-long-cycle-scheduler-queue-replay/digestion_outputs/ingest-lc-c0b597f02bc1b027574b76d5/7d",
+            "reason": "repo-local digestion output written and ready for downstream handoff",
+            "selected_window": "7d",
+            "status": "succeeded",
+            "updated_at": "2026-03-08T11:05:00Z"
+          },
+          "output_target": "digestion_status_snapshot",
+          "priority_rule": "prefer_low_density_gap_fill",
+          "success_status": "succeeded",
+          "task_goal": "Digest weekly report inputs",
+          "window_strategy": "prompt_time_density_priority"
+        },
+        "task_key": "ingest-lc-c0b597f02bc1b027574b76d5",
+        "updated_at": "2026-03-08T11:05:00Z"
+      },
+      "remaining_runtime_gaps": [],
+      "repository_ref": "sqlite://wave55-long-cycle-scheduler-queue-replay",
+      "scheduler_readiness": {
+        "closure_claim": true,
+        "contract_version": "ingest.long_cycle_scheduler_readiness_check.v1",
+        "dry_run_dispatch_ready": true,
+        "live_scheduler_closure_validated": true,
+        "local_deterministic_readiness": true,
+        "readiness_state": "live_scheduler_closure_validated",
+        "remaining_runtime_gaps": [],
+        "scheduler_e2e_contract": {
+          "automation_status": {
+            "blockers": [],
+            "contract_version": "ingest.long_cycle_automation_status.v1",
+            "digestion_decision": {
+              "chunking_required": true,
+              "extract_required": true,
+              "reason": "long_or_report_shaped_input_needs_chunking",
+              "stage": "chunk_first",
+              "summarize_required": false
+            },
+            "normalized_input": {
+              "content_format": "markdown",
+              "effective_time": "2026-03-08T11:00:00Z",
+              "ingestion_entrypoint": "ingest.raw_import",
+              "input_kind": "raw_import",
+              "lineage_ref": null,
+              "processed_time": "2026-03-08T11:00:00Z",
+              "project_key": "demo_proj",
+              "requested_downstream_targets": [
+                "resource_pool",
+                "report_generation",
+                "writing"
+              ],
+              "source_locator": "file:///tmp/weekly-report.md",
+              "source_time": null,
+              "task_window": "7d",
+              "task_window_end": "2026-03-08",
+              "task_window_start": "2026-03-02",
+              "time_confidence": 0.5,
+              "time_parse_version": "source-time-window-v1",
+              "time_provenance": "processed_time_fallback"
+            },
+            "selected_window": "7d",
+            "status": "ready",
+            "task": {
+              "cadence": "weekly",
+              "candidate_windows": [
+                "7d",
+                "30d"
+              ],
+              "failure_status": "failed",
+              "input_selector": {
+                "content_format": "markdown",
+                "entrypoint": "ingest.raw_import",
+                "input_kind": "raw_import",
+                "project_key": "demo_proj",
+                "requested_downstream_targets": [
+                  "resource_pool",
+                  "report_generation",
+                  "writing"
+                ],
+                "source_locator": "file:///tmp/weekly-report.md"
+              },
+              "last_run_snapshot": {
+                "output_ref": null,
+                "reason": "ready_for_task_dispatch",
+                "selected_window": "7d",
+                "status": "ready",
+                "updated_at": "2026-03-08T11:00:00Z"
+              },
+              "output_target": "digestion_status_snapshot",
+              "priority_rule": "prefer_low_density_gap_fill",
+              "success_status": "succeeded",
+              "task_goal": "Digest weekly report inputs",
+              "window_strategy": "prompt_time_density_priority"
+            }
+          },
+          "blockers": [],
+          "closed_slice": [
+            "scheduler_dispatch_intent",
+            "fake_repository_db_table_write_abstraction",
+            "persistent_task_ready_running_succeeded_lifecycle",
+            "dispatch_output_refs_recorded"
+          ],
+          "completed_record": {
+            "attempt_count": 1,
+            "contract_version": "ingest.long_cycle_persistent_task.v1",
+            "created_at": "2026-03-08T11:00:00Z",
+            "dispatch_ref": "repo-local-dispatch://ingest-lc-dispatch-be38168e5aef10736d21",
+            "error": null,
+            "lifecycle_events": [
+              {
+                "actor": "ingest_long_cycle_lifecycle_contract",
+                "dispatch_ref": null,
+                "error": null,
+                "event_time": "2026-03-08T11:00:00Z",
+                "from_status": null,
+                "output_ref": null,
+                "reason": "ready_for_in_memory_lifecycle_dispatch",
+                "to_status": "ready",
+                "transition": "mark_ready"
+              },
+              {
+                "actor": "ingest_long_cycle_scheduler_e2e_contract",
+                "dispatch_ref": "repo-local-dispatch://ingest-lc-dispatch-be38168e5aef10736d21",
+                "error": null,
+                "event_time": "2026-03-08T11:02:00Z",
+                "from_status": "ready",
+                "output_ref": null,
+                "reason": "dispatch intent recorded without live scheduler execution",
+                "to_status": "running",
+                "transition": "dispatch"
+              },
+              {
+                "actor": "ingest_long_cycle_scheduler_e2e_contract",
+                "dispatch_ref": "repo-local-dispatch://ingest-lc-dispatch-be38168e5aef10736d21",
+                "error": null,
+                "event_time": "2026-03-08T11:05:00Z",
+                "from_status": "running",
+                "output_ref": "sqlite://wave55-long-cycle-scheduler-queue-replay/digestion_outputs/ingest-lc-c0b597f02bc1b027574b76d5/7d",
+                "reason": "fake repository write completed contract-only lifecycle",
+                "to_status": "succeeded",
+                "transition": "succeed"
+              }
+            ],
+            "output_ref": "sqlite://wave55-long-cycle-scheduler-queue-replay/digestion_outputs/ingest-lc-c0b597f02bc1b027574b76d5/7d",
+            "persistent_ref": "sqlite://wave55-long-cycle-scheduler-queue-replay",
+            "remaining_external_bindings": [
+              "live_scheduler_dispatch_not_executed",
+              "persistent_task_table_write_not_executed",
+              "end_to_end_automation_run_not_executed"
+            ],
+            "scheduler_ref": "repo-local.scheduler.ingest-long-cycle",
+            "status": "succeeded",
+            "task": {
+              "cadence": "weekly",
+              "candidate_windows": [
+                "7d",
+                "30d"
+              ],
+              "failure_status": "failed",
+              "input_selector": {
+                "content_format": "markdown",
+                "entrypoint": "ingest.raw_import",
+                "input_kind": "raw_import",
+                "project_key": "demo_proj",
+                "requested_downstream_targets": [
+                  "resource_pool",
+                  "report_generation",
+                  "writing"
+                ],
+                "source_locator": "file:///tmp/weekly-report.md"
+              },
+              "last_run_snapshot": {
+                "output_ref": "sqlite://wave55-long-cycle-scheduler-queue-replay/digestion_outputs/ingest-lc-c0b597f02bc1b027574b76d5/7d",
+                "reason": "fake repository write completed contract-only lifecycle",
+                "selected_window": "7d",
+                "status": "succeeded",
+                "updated_at": "2026-03-08T11:05:00Z"
+              },
+              "output_target": "digestion_status_snapshot",
+              "priority_rule": "prefer_low_density_gap_fill",
+              "success_status": "succeeded",
+              "task_goal": "Digest weekly report inputs",
+              "window_strategy": "prompt_time_density_priority"
+            },
+            "task_key": "ingest-lc-c0b597f02bc1b027574b76d5",
+            "updated_at": "2026-03-08T11:05:00Z"
+          },
+          "contract_version": "ingest.long_cycle_scheduler_e2e_contract_check.v1",
+          "dispatch_intent": {
+            "cadence": "weekly",
+            "contract_version": "ingest.long_cycle_scheduler_dispatch_intent.v1",
+            "dispatch_key": "ingest-lc-dispatch-be38168e5aef10736d21",
+            "idempotency_key": "ingest-lc-idem-d0924cca05f1024cb10a1d07",
+            "live_dispatch": false,
+            "payload": {
+              "cadence": "weekly",
+              "dispatch_mode": "contract_only",
+              "input_selector": {
+                "content_format": "markdown",
+                "entrypoint": "ingest.raw_import",
+                "input_kind": "raw_import",
+                "project_key": "demo_proj",
+                "requested_downstream_targets": [
+                  "resource_pool",
+                  "report_generation",
+                  "writing"
+                ],
+                "source_locator": "file:///tmp/weekly-report.md"
+              },
+              "live_dispatch": false,
+              "output_target": "digestion_status_snapshot",
+              "persistent_ref": "sqlite://wave55-long-cycle-scheduler-queue-replay",
+              "selected_window": "7d",
+              "task_goal": "Digest weekly report inputs",
+              "task_key": "ingest-lc-c0b597f02bc1b027574b76d5"
+            },
+            "queue_name": "ingest.long_cycle.repo_local_live",
+            "run_at": "2026-03-08T11:02:00Z",
+            "scheduler_ref": "repo-local.scheduler.ingest-long-cycle",
+            "selected_window": "7d",
+            "task_key": "ingest-lc-c0b597f02bc1b027574b76d5",
+            "worker_task_name": "ingest.long_cycle.digest.repo_local_live"
+          },
+          "persistence_writes": [
+            {
+              "contract_version": "ingest.long_cycle_persistence_write_result.v1",
+              "live_db_write": false,
+              "logical_table": "long_cycle_persistent_tasks",
+              "operation": "upsert",
+              "payload_ref": "fake-db://ingest-long-cycle-task-repository/long_cycle_persistent_tasks/ingest-lc-c0b597f02bc1b027574b76d5",
+              "record_key": "ingest-lc-c0b597f02bc1b027574b76d5",
+              "repository_ref": "fake-db://ingest-long-cycle-task-repository",
+              "status_after": "ready",
+              "status_before": null,
+              "write_time": "2026-03-08T11:00:00Z"
+            },
+            {
+              "contract_version": "ingest.long_cycle_persistence_write_result.v1",
+              "live_db_write": false,
+              "logical_table": "long_cycle_persistent_tasks",
+              "operation": "upsert",
+              "payload_ref": "fake-db://ingest-long-cycle-task-repository/long_cycle_persistent_tasks/ingest-lc-c0b597f02bc1b027574b76d5",
+              "record_key": "ingest-lc-c0b597f02bc1b027574b76d5",
+              "repository_ref": "fake-db://ingest-long-cycle-task-repository",
+              "status_after": "running",
+              "status_before": "ready",
+              "write_time": "2026-03-08T11:02:00Z"
+            },
+            {
+              "contract_version": "ingest.long_cycle_persistence_write_result.v1",
+              "live_db_write": false,
+              "logical_table": "long_cycle_persistent_tasks",
+              "operation": "upsert",
+              "payload_ref": "fake-db://ingest-long-cycle-task-repository/long_cycle_persistent_tasks/ingest-lc-c0b597f02bc1b027574b76d5",
+              "record_key": "ingest-lc-c0b597f02bc1b027574b76d5",
+              "repository_ref": "fake-db://ingest-long-cycle-task-repository",
+              "status_after": "succeeded",
+              "status_before": "running",
+              "write_time": "2026-03-08T11:05:00Z"
+            }
+          ],
+          "persistent_task": {
+            "attempt_count": 0,
+            "contract_version": "ingest.long_cycle_persistent_task.v1",
+            "created_at": "2026-03-08T11:00:00Z",
+            "dispatch_ref": null,
+            "error": null,
+            "lifecycle_events": [
+              {
+                "actor": "ingest_long_cycle_lifecycle_contract",
+                "dispatch_ref": null,
+                "error": null,
+                "event_time": "2026-03-08T11:00:00Z",
+                "from_status": null,
+                "output_ref": null,
+                "reason": "ready_for_in_memory_lifecycle_dispatch",
+                "to_status": "ready",
+                "transition": "mark_ready"
+              }
+            ],
+            "output_ref": null,
+            "persistent_ref": "sqlite://wave55-long-cycle-scheduler-queue-replay",
+            "remaining_external_bindings": [
+              "live_scheduler_dispatch_not_executed",
+              "persistent_task_table_write_not_executed",
+              "end_to_end_automation_run_not_executed"
+            ],
+            "scheduler_ref": "repo-local.scheduler.ingest-long-cycle",
+            "status": "ready",
+            "task": {
+              "cadence": "weekly",
+              "candidate_windows": [
+                "7d",
+                "30d"
+              ],
+              "failure_status": "failed",
+              "input_selector": {
+                "content_format": "markdown",
+                "entrypoint": "ingest.raw_import",
+                "input_kind": "raw_import",
+                "project_key": "demo_proj",
+                "requested_downstream_targets": [
+                  "resource_pool",
+                  "report_generation",
+                  "writing"
+                ],
+                "source_locator": "file:///tmp/weekly-report.md"
+              },
+              "last_run_snapshot": {
+                "output_ref": null,
+                "reason": "ready_for_in_memory_lifecycle_dispatch",
+                "selected_window": "7d",
+                "status": "ready",
+                "updated_at": "2026-03-08T11:00:00Z"
+              },
+              "output_target": "digestion_status_snapshot",
+              "priority_rule": "prefer_low_density_gap_fill",
+              "success_status": "succeeded",
+              "task_goal": "Digest weekly report inputs",
+              "window_strategy": "prompt_time_density_priority"
+            },
+            "task_key": "ingest-lc-c0b597f02bc1b027574b76d5",
+            "updated_at": "2026-03-08T11:00:00Z"
+          },
+          "remaining_runtime_gaps": [
+            "live_scheduler_dispatch_not_executed",
+            "live_persistent_task_table_write_not_executed",
+            "production_worker_task_not_executed",
+            "end_to_end_automation_run_not_executed"
+          ],
+          "status": "pass"
+        },
+        "scheduler_runtime_configured": true,
+        "stages": [
+          {
+            "detail": "e2e_status=pass dispatch_key=ingest-lc-dispatch-be38168e5aef10736d21 write_statuses=ready,running,succeeded",
+            "evidence_required": [],
+            "gaps": [],
+            "name": "deterministic_scheduler_e2e_contract",
+            "passed": true,
+            "status": "passed",
+            "validated": true
+          },
+          {
+            "detail": "queue=ingest.long_cycle.repo_local_live worker_task=ingest.long_cycle.digest.repo_local_live selected_window=7d live_dispatch=False",
+            "evidence_required": [],
+            "gaps": [],
+            "name": "scheduler_dry_run_dispatch_plan",
+            "passed": true,
+            "status": "ready",
+            "validated": true
+          },
+          {
+            "detail": "live scheduler, worker execution, live persistence, output readback, and downstream handoff evidence were provided",
+            "evidence_required": [
+              "live_scheduler_dispatch_executed",
+              "recurring_schedule_registered",
+              "production_worker_task_executed",
+              "live_persistent_task_table_write",
+              "digestion_output_readback",
+              "downstream_handoff_observed"
+            ],
+            "gaps": [],
+            "name": "live_scheduler_closure",
+            "passed": true,
+            "status": "validated",
+            "validated": true
+          }
+        ],
+        "status": "pass"
+      },
+      "status": "pass",
+      "storage_kind": "sqlite"
+    },
+    "repository_write_readback_validated": true,
+    "scheduler_intent_validated": true,
+    "status": "pass",
+    "worker_consumption": {
+      "complete_write": {
+        "contract_version": "ingest.long_cycle_persistence_write_result.v1",
+        "live_db_write": true,
+        "logical_table": "long_cycle_persistent_tasks",
+        "operation": "upsert",
+        "payload_ref": "sqlite://wave55-long-cycle-scheduler-queue-replay/long_cycle_persistent_tasks/ingest-lc-c0b597f02bc1b027574b76d5",
+        "record_key": "ingest-lc-c0b597f02bc1b027574b76d5",
+        "repository_ref": "sqlite://wave55-long-cycle-scheduler-queue-replay",
+        "status_after": "succeeded",
+        "status_before": "running",
+        "write_time": "2026-03-08T11:05:00Z"
+      },
+      "consumed": true,
+      "contract_version": "ingest.long_cycle_worker_consumption.v1",
+      "db_write_readback": true,
+      "digestion_output_readback": true,
+      "dispatch_key": "ingest-lc-dispatch-be38168e5aef10736d21",
+      "dispatch_ref": "repo-local-dispatch://ingest-lc-dispatch-be38168e5aef10736d21",
+      "dispatch_write": {
+        "contract_version": "ingest.long_cycle_persistence_write_result.v1",
+        "live_db_write": true,
+        "logical_table": "long_cycle_persistent_tasks",
+        "operation": "upsert",
+        "payload_ref": "sqlite://wave55-long-cycle-scheduler-queue-replay/long_cycle_persistent_tasks/ingest-lc-c0b597f02bc1b027574b76d5",
+        "record_key": "ingest-lc-c0b597f02bc1b027574b76d5",
+        "repository_ref": "sqlite://wave55-long-cycle-scheduler-queue-replay",
+        "status_after": "running",
+        "status_before": "ready",
+        "write_time": "2026-03-08T11:02:00Z"
+      },
+      "downstream_handoff": {
+        "consumed_at": "2026-03-08T11:05:00+00:00",
+        "consumer_targets": [
+          "resource_pool",
+          "report_generation",
+          "writing"
+        ],
+        "contract_version": "ingest.long_cycle_downstream_handoff.v1",
+        "digestion_output_readback": true,
+        "dispatch_key": "ingest-lc-dispatch-be38168e5aef10736d21",
+        "dispatch_ref": "repo-local-dispatch://ingest-lc-dispatch-be38168e5aef10736d21",
+        "downstream_handoff_observed": true,
+        "handoff_key": "ingest-lc-downstream-10204d0f793d1510885fa432",
+        "handoff_state": "ready_for_downstream",
+        "live_db_readback": true,
+        "output_ref": "sqlite://wave55-long-cycle-scheduler-queue-replay/digestion_outputs/ingest-lc-c0b597f02bc1b027574b76d5/7d",
+        "producer": "ingest.long_cycle.digest.repo_local_live",
+        "queue_item_key": "ingest-lc-queue-af6722265cd953b6301af5af",
+        "repository_ref": "sqlite://wave55-long-cycle-scheduler-queue-replay",
+        "selected_window": "7d",
+        "task_key": "ingest-lc-c0b597f02bc1b027574b76d5"
+      },
+      "event_sequence": [
+        "mark_ready",
+        "dispatch",
+        "succeed"
+      ],
+      "live_db_write": true,
+      "live_queue_worker_consumption": true,
+      "queue_item_key": "ingest-lc-queue-af6722265cd953b6301af5af",
+      "queue_state": "consumed_repo_local_live",
+      "readback_output_ref": "sqlite://wave55-long-cycle-scheduler-queue-replay/digestion_outputs/ingest-lc-c0b597f02bc1b027574b76d5/7d",
+      "task_key": "ingest-lc-c0b597f02bc1b027574b76d5",
+      "worker_task_name": "ingest.long_cycle.digest.repo_local_live",
+      "write_status_sequence": [
+        "ready",
+        "running",
+        "succeeded"
+      ]
+    },
+    "worker_consumption_validated": true
+  },
+  "contract_status": "closed_repo_local_live_scheduler_queue_handoff",
+  "failures": [],
+  "status": "pass"
+}

@@ -4,13 +4,12 @@
   "external_conditions_retained": [
     "external_embedding_provider_live_not_verified",
     "local_open_search_live_quality_not_sealed",
-    "semantic_embedding_quality_not_proven",
-    "live_scheduler_tenant_db_ui_sla_not_proven"
+    "semantic_embedding_quality_not_proven"
   ],
   "failures": [],
   "gate_semantics": {
-    "status_passed_does_not_mean": "external embedding providers, local open-search live quality, semantic relevance, tenant DB persistence, scheduler SLA, or browser UI SLA are closed",
-    "status_passed_means": "the workflow graph compiler, node runtime, normalized result envelope, event log, and event replay can consume all keyword/vector/hybrid provider manifest rows while preserving unsupported closure claims"
+    "status_passed_does_not_mean": "external embedding provider quality, local open-search relevance, or production semantic quality are closed; if live API/UI bases were omitted, scheduler/tenant DB/UI live SLA closure is not claimed",
+    "status_passed_means": "the workflow graph compiler, node runtime, normalized result envelope, event log, event replay, tenant project-scope IO trace, workflow API envelope, and frontend workflow client binding can consume all keyword/vector/hybrid provider manifest rows; when live API/UI bases are supplied, the live workflow run/readback/UI asset probe also passed"
   },
   "generated_by": "ops/search-lab/scripts/wave29_oss_node_vector_manifest_replay.py",
   "node_manifest_replay": {
@@ -120,6 +119,172 @@
       "version": "1.0"
     }
   },
+  "platform_io_sla_readback": {
+    "closed_condition": "live_scheduler_tenant_db_ui_sla_not_proven",
+    "closure_position": "scheduler_tenant_db_ui_live_sla_validated",
+    "contract_version": "wave55-oss-node-platform-io-sla-readback.v1",
+    "failures": [],
+    "live_probe": {
+      "api_base": "http://127.0.0.1:8000/api/v1",
+      "api_rows": [
+        {
+          "status": "ok",
+          "status_code": 200,
+          "step": "compile"
+        },
+        {
+          "run_status": "succeeded",
+          "session_id_present": true,
+          "status": "ok",
+          "status_code": 200,
+          "step": "run"
+        },
+        {
+          "run_status": "succeeded",
+          "session_id_present": true,
+          "status": "ok",
+          "status_code": 200,
+          "step": "get_run"
+        },
+        {
+          "events_count": 25,
+          "status": "ok",
+          "status_code": 200,
+          "step": "get_events"
+        },
+        {
+          "replay_consistent": true,
+          "run_status": "succeeded",
+          "status": "ok",
+          "status_code": 200,
+          "step": "replay_stateful"
+        },
+        {
+          "graph_id": "wave55-oss-node-platform-io-live-sla",
+          "status": "ok",
+          "status_code": 200,
+          "step": "get_compiled"
+        }
+      ],
+      "contract_version": "wave55-oss-node-platform-io-live-probe.v1",
+      "failures": [],
+      "platform_io_live_sla_closed": true,
+      "status": "passed",
+      "ui_base": "http://127.0.0.1:5173/",
+      "ui_probe": {
+        "url": "http://127.0.0.1:5173/",
+        "validated": true
+      }
+    },
+    "live_probe_requested": true,
+    "platform_io_live_sla_closed": true,
+    "repo_local_contract": {
+      "api_envelope_readback": {
+        "failures": [],
+        "rows": [
+          {
+            "contract_version": "workflow_graph.v2",
+            "failures": [],
+            "name": "compile",
+            "status": "passed"
+          },
+          {
+            "contract_version": "workflow_graph.v2",
+            "failures": [],
+            "name": "run",
+            "status": "passed"
+          },
+          {
+            "contract_version": "workflow_graph.v2",
+            "failures": [],
+            "name": "run_detail",
+            "status": "passed"
+          },
+          {
+            "contract_version": "workflow_graph.v2",
+            "failures": [],
+            "name": "run_events",
+            "status": "passed"
+          }
+        ],
+        "status": "passed"
+      },
+      "contract_version": "wave55-oss-node-platform-io-local-contract.v1",
+      "failures": [],
+      "frontend_source_checks": {
+        "graph_workflow_domain": {
+          "exists": true,
+          "markers": [
+            "compileWorkflowGraph",
+            "runWorkflowGraph",
+            "getWorkflowGraphRun",
+            "getWorkflowGraphRunEvents",
+            "replayWorkflowGraphRun"
+          ],
+          "missing_markers": [],
+          "path": "main/frontend-modern/src/lib/api/domains/graph-workflow.ts",
+          "status": "passed"
+        },
+        "llm_designer_consumer": {
+          "exists": true,
+          "markers": [
+            "compileWorkflowGraph",
+            "runWorkflowGraph",
+            "getWorkflowGraphRun",
+            "getWorkflowGraphRunEvents",
+            "getCompiledWorkflowGraph"
+          ],
+          "missing_markers": [],
+          "path": "main/frontend-modern/src/pages/LlmDesignerPage.tsx",
+          "status": "passed"
+        },
+        "workflow_endpoints": {
+          "exists": true,
+          "markers": [
+            "/workflow-graph/compile",
+            "/workflow-graph/run",
+            "/workflow-graph/runs/",
+            "/workflow-graph/compiled/"
+          ],
+          "missing_markers": [],
+          "path": "main/frontend-modern/src/lib/api/endpoints.ts",
+          "status": "passed"
+        }
+      },
+      "scheduler_run_store_readback": {
+        "event_floor": 9,
+        "event_replay_consistent": true,
+        "events_count": 9,
+        "run_id": "wave29-oss-node-vector-manifest-replay-run",
+        "run_status": "succeeded"
+      },
+      "status": "passed",
+      "tenant_project_scope_rows": [
+        {
+          "failures": [],
+          "mode": "keyword",
+          "provider_manifest_version_readback": true,
+          "status": "passed",
+          "tenant_project_scope_readback": true
+        },
+        {
+          "failures": [],
+          "mode": "vector",
+          "provider_manifest_version_readback": true,
+          "status": "passed",
+          "tenant_project_scope_readback": true
+        },
+        {
+          "failures": [],
+          "mode": "hybrid",
+          "provider_manifest_version_readback": true,
+          "status": "passed",
+          "tenant_project_scope_readback": true
+        }
+      ]
+    },
+    "status": "passed"
+  },
   "provider_manifest_check": {
     "closure_claim_allowed": false,
     "contract_version": "wave19-vectorization-provider-manifest.v1",
@@ -142,13 +307,15 @@
   },
   "repo_local_closure": {
     "archive_external_blocked_candidate": true,
+    "platform_io_live_sla_closed": true,
+    "platform_io_sla_readback_attached": true,
     "remaining_repo_local_blockers": [],
     "repo_local_blockers_closed": [
       "node_schema_runtime_persistence_platformization_scope_not_closed",
       "vector_search_node_manifest_consumption_not_live_replayed"
     ]
   },
-  "scope": "oss_node_vector_manifest_fixture_replay_no_live_provider_no_tenant_runtime",
+  "scope": "oss_node_vector_manifest_replay_with_wave55_platform_io_sla_readback",
   "source_provider_manifest": {
     "exists": true,
     "failures": [],

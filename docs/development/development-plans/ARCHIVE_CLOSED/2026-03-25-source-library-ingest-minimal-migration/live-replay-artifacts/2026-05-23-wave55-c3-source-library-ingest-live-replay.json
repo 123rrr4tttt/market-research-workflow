@@ -1,0 +1,151 @@
+{
+  "contract_version": "source-library-ingest-live-replay.v1",
+  "finished_at": "2026-05-24T00:51:33Z",
+  "inputs": {
+    "article_urls": [
+      "https://peps.python.org/pep-0008/"
+    ],
+    "external_project_api_url": "https://api.github.com/repos/python/cpython",
+    "external_project_link": "https://github.com/python/cpython",
+    "min_article_content_chars": 1000,
+    "project_key": "demo_proj",
+    "timeout_ms": 10000
+  },
+  "mode": {
+    "allow_public_network": true,
+    "public_network_env": "",
+    "skip_safe": true
+  },
+  "outputs": {
+    "article_extraction_stack": {
+      "case_id": "live_article_extraction_stack",
+      "elapsed_ms": 161,
+      "frontdoor": {
+        "execution_mode": "article_extractor",
+        "handoff": {
+          "admission": "return_for_cleanup",
+          "run_extraction": false,
+          "run_writer": false
+        },
+        "record_stats": {
+          "dropped": 0,
+          "errors": 0,
+          "fetched": 1,
+          "normalized": 1
+        },
+        "source_kind": "article_extraction_stack",
+        "terminal_status": "ok"
+      },
+      "runner_result": {
+        "article_extraction": {
+          "article_body_extracted": 1,
+          "fallback_states": [
+            {
+              "confidence": "medium",
+              "content_chars": 46584,
+              "extractor": "heuristic.main_content.v1",
+              "state": "article_body_extracted",
+              "url": "https://peps.python.org/pep-0008/"
+            }
+          ],
+          "parser_capability": {
+            "article_body": true,
+            "contract_version": "external_project.article_extraction_runner.v1",
+            "fallback_states": [
+              "article_body_extracted",
+              "metadata_only_fallback",
+              "fetch_error_fallback"
+            ],
+            "parser": "heuristic.main_content.v1"
+          },
+          "target_urls": [
+            "https://peps.python.org/pep-0008/"
+          ]
+        },
+        "error_count": 0,
+        "errors": [],
+        "execution_mode": "article_extractor",
+        "http_api": {
+          "endpoint": null,
+          "method": null,
+          "records_total": 1
+        },
+        "provider": "external_project",
+        "provider_key": "external_project.article_extractor",
+        "record_count": 1,
+        "record_refs": [
+          {
+            "content_chars": 46584,
+            "summary_chars": 800,
+            "title": "",
+            "url": "https://peps.python.org/pep-0008/"
+          }
+        ],
+        "status": "ok"
+      },
+      "status": "completed"
+    },
+    "external_project_replay": {
+      "case_id": "live_external_project_http_api",
+      "elapsed_ms": 157,
+      "frontdoor": {
+        "execution_mode": "http_api",
+        "handoff": {
+          "admission": "defer",
+          "run_extraction": false,
+          "run_writer": false
+        },
+        "record_stats": {
+          "dropped": 0,
+          "errors": 0,
+          "fetched": 1,
+          "normalized": 1
+        },
+        "source_kind": "api_provider",
+        "terminal_status": "ok"
+      },
+      "runner_result": {
+        "article_extraction": {
+          "article_body_extracted": 0,
+          "fallback_states": [],
+          "parser_capability": {},
+          "target_urls": []
+        },
+        "error_count": 0,
+        "errors": [],
+        "execution_mode": "http_api",
+        "http_api": {
+          "endpoint": "https://api.github.com/repos/python/cpython",
+          "method": "GET",
+          "records_total": 1
+        },
+        "provider": "external_project",
+        "provider_key": "external_project.http_api",
+        "record_count": 1,
+        "record_refs": [
+          {
+            "content_chars": 0,
+            "summary_chars": 31,
+            "title": "python/cpython",
+            "url": "https://github.com/python/cpython"
+          }
+        ],
+        "status": "ok"
+      },
+      "status": "completed"
+    }
+  },
+  "replay_id": "source_library_ingest_live_replay_2026_05_23",
+  "started_at": "2026-05-24T00:51:33Z",
+  "validation": {
+    "errors": [],
+    "live_article_extraction_stack_replay_closed": true,
+    "live_evidence_sufficient": true,
+    "live_external_project_replay_closed": true,
+    "passed": true,
+    "skipped": false,
+    "warnings": [
+      "live replay is environment-dependent; rerun before using it as fresh closure evidence"
+    ]
+  }
+}

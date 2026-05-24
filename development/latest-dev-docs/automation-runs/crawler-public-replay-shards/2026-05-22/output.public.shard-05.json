@@ -1,0 +1,1142 @@
+{
+  "contract_version": "crawler_source_expansion.public_replay_shard_output.v1",
+  "generated_at": "2026-05-24T00:58:07Z",
+  "inputs": {
+    "enabled_public_target_count": 9,
+    "policy_disabled_target_count": 0,
+    "target_count": 9,
+    "target_ids": [
+      "demo_proj_171_developer_mozilla_org",
+      "demo_proj_172_docs_anthropic_com",
+      "demo_proj_173_cloud_google_com",
+      "demo_proj_174_help_openai_com",
+      "demo_proj_175_venturebeat_com",
+      "demo_proj_176_www_pymnts_com",
+      "demo_proj_177_www_finextra_com",
+      "demo_proj_178_commercialobserver_com",
+      "demo_proj_179_www_investopedia_com"
+    ]
+  },
+  "manifest_path": "development/latest-dev-docs/automation-runs/crawler-public-replay-shards/2026-05-22/shard_manifest.json",
+  "mode": {
+    "allow_public_network": true,
+    "browser_runtime_started": false,
+    "source_probe_id": "source_library_replay_scaleout_2026_05_22",
+    "source_runner": "source_library_replay_scaleout"
+  },
+  "outputs": {
+    "blockers_by_target": [
+      {
+        "blocker_type": "relevance_review",
+        "domain": "developer.mozilla.org",
+        "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+        "status": "candidate_ready_with_term_fallback",
+        "target_id": "demo_proj_171_developer_mozilla_org",
+        "template": "https://developer.mozilla.org/en-US/search?q={{q}}"
+      },
+      {
+        "blocker_type": "relevance_review",
+        "domain": "docs.anthropic.com",
+        "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+        "status": "candidate_ready_with_term_fallback",
+        "target_id": "demo_proj_172_docs_anthropic_com",
+        "template": "https://docs.anthropic.com/en/search?q={{q}}"
+      },
+      {
+        "blocker_type": "relevance_review",
+        "domain": "cloud.google.com",
+        "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+        "status": "candidate_ready_with_term_fallback",
+        "target_id": "demo_proj_173_cloud_google_com",
+        "template": "https://cloud.google.com/search?query={{q}}"
+      },
+      {
+        "blocker_type": "relevance_review",
+        "domain": "help.openai.com",
+        "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+        "status": "candidate_ready_with_term_fallback",
+        "target_id": "demo_proj_174_help_openai_com",
+        "template": "https://help.openai.com/en/?q={{q}}"
+      },
+      {
+        "blocker_type": "relevance_review",
+        "domain": "venturebeat.com",
+        "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+        "status": "candidate_ready_with_term_fallback",
+        "target_id": "demo_proj_175_venturebeat_com",
+        "template": "https://venturebeat.com/?s={{q}}"
+      },
+      {
+        "blocker_type": "relevance_review",
+        "domain": "pymnts.com",
+        "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+        "status": "candidate_ready_with_term_fallback",
+        "target_id": "demo_proj_176_www_pymnts_com",
+        "template": "https://www.pymnts.com/?s={{q}}"
+      },
+      {
+        "blocker_type": "public_network_or_anti_bot",
+        "domain": "finextra.com",
+        "reason": "Public fetch failed with anti-bot/rate-limit/transport signature.",
+        "status": "anti_bot_or_transport_blocked",
+        "target_id": "demo_proj_177_www_finextra_com",
+        "template": "https://www.finextra.com/searcharticle.aspx?search={{q}}"
+      },
+      {
+        "blocker_type": "relevance_review",
+        "domain": "commercialobserver.com",
+        "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+        "status": "candidate_ready_with_term_fallback",
+        "target_id": "demo_proj_178_commercialobserver_com",
+        "template": "https://commercialobserver.com/?s={{q}}"
+      },
+      {
+        "blocker_type": "relevance_review",
+        "domain": "investopedia.com",
+        "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+        "status": "candidate_ready_with_term_fallback",
+        "target_id": "demo_proj_179_www_investopedia_com",
+        "template": "https://www.investopedia.com/search?q={{q}}"
+      }
+    ],
+    "public_targets_attempted": 9,
+    "status_counts": {
+      "anti_bot_or_transport_blocked": 1,
+      "candidate_ready_with_term_fallback": 8
+    },
+    "target_results": [
+      {
+        "adapter_plan": {
+          "adapter_key": "search_template.doc_native",
+          "param_overrides": {
+            "enable_external_search_fallback": false,
+            "enable_external_search_slowlane": false,
+            "max_pages": 1
+          },
+          "parser_profile": "site_adaptive",
+          "reason": "Docs/help search should stay on a single native search page."
+        },
+        "adapter_result": {
+          "adapter_taxonomy": {
+            "entry_type": "search_template",
+            "internal_adapter_only": true,
+            "item_key": "handler.cluster.search_template",
+            "item_type": "service_aggregated",
+            "lane": "site_search_internal_adapter",
+            "managed_by": "system",
+            "source_family": "generic_web"
+          },
+          "candidate_count": 30,
+          "candidates": [
+            "https://bsky.app/profile/developer.mozilla.org",
+            "https://developer.mozilla.org/docs/MDN/Writing_guidelines/Attrib_copyright_license",
+            "https://developer.mozilla.org/en-US/blog/rss.xml",
+            "https://developer.mozilla.org/en-US/community",
+            "https://developer.mozilla.org/en-US/curriculum",
+            "https://developer.mozilla.org/en-US/docs/Glossary",
+            "https://developer.mozilla.org/en-US/docs/Learn_web_development",
+            "https://developer.mozilla.org/en-US/docs/Learn_web_development/Core",
+            "https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/CSS_layout",
+            "https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/Scripting"
+          ],
+          "capability_profile": {
+            "entry_type": "search_template",
+            "extractor_kind": "html_link_extractor",
+            "fallback_policy": "term_match_then_search_template_fallback",
+            "source_mode": "site_search",
+            "supports_pagination": true,
+            "supports_query_terms": true
+          },
+          "diagnostics": {
+            "candidate_filter_state": "term_filter_empty_fallback_used",
+            "entry_domain": "developer.mozilla.org",
+            "fallback_allowed": true,
+            "pages_scanned": 1,
+            "parser_candidate_rejected_low_value": 29,
+            "parser_container_hit": 0,
+            "parser_global_anchor_hit": 78,
+            "parser_json_ld_hit": 0,
+            "parser_parser_module_used": "global_anchor",
+            "parser_parser_modules_tried": [
+              "global_anchor"
+            ],
+            "parser_parser_profile_resolved": "site_adaptive",
+            "parser_structured_hit": 0,
+            "raw_candidates": 78,
+            "search_service": "basic",
+            "search_service_fallbacks": 0,
+            "selected_candidates": 30,
+            "transport_errors": 0,
+            "used_term_fallback": true
+          },
+          "errors": [],
+          "inserted": 30,
+          "pages_scanned": 1,
+          "search_urls": [
+            "https://developer.mozilla.org/en-US/search?q=openai+api+pricing+anthropic+claude+code+gpt+4.1+release+langchain+sqlitecache&page_size=20"
+          ],
+          "skipped": 0,
+          "source_mode": "site_search",
+          "used_term_fallback": true
+        },
+        "classification": {
+          "blocker_type": "relevance_review",
+          "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+          "status": "candidate_ready_with_term_fallback"
+        },
+        "elapsed_ms": 247,
+        "entry_domain": "developer.mozilla.org",
+        "target": {
+          "category": "historical_search_template",
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "target_id": "demo_proj_171_developer_mozilla_org",
+          "template": "https://developer.mozilla.org/en-US/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_plan": {
+          "adapter_key": "search_template.doc_native",
+          "param_overrides": {
+            "enable_external_search_fallback": false,
+            "enable_external_search_slowlane": false,
+            "max_pages": 1
+          },
+          "parser_profile": "site_adaptive",
+          "reason": "Docs/help search should stay on a single native search page."
+        },
+        "adapter_result": {
+          "adapter_taxonomy": {
+            "entry_type": "search_template",
+            "internal_adapter_only": true,
+            "item_key": "handler.cluster.search_template",
+            "item_type": "service_aggregated",
+            "lane": "site_search_internal_adapter",
+            "managed_by": "system",
+            "source_family": "generic_web"
+          },
+          "candidate_count": 30,
+          "candidates": [
+            "https://claude.com/blog",
+            "https://claude.com/customers",
+            "https://claude.com/partners/amazon-bedrock",
+            "https://claude.com/partners/google-cloud-vertex-ai",
+            "https://claude.com/partners/mcp",
+            "https://claude.com/partners/powered-by-claude",
+            "https://claude.com/partners/services",
+            "https://claude.com/programs/startups",
+            "https://claude.com/resources/use-cases",
+            "https://claude.com/solutions/agents"
+          ],
+          "capability_profile": {
+            "entry_type": "search_template",
+            "extractor_kind": "html_link_extractor",
+            "fallback_policy": "term_match_then_search_template_fallback",
+            "source_mode": "site_search",
+            "supports_pagination": true,
+            "supports_query_terms": true
+          },
+          "diagnostics": {
+            "candidate_filter_state": "term_filter_empty_fallback_used",
+            "entry_domain": "docs.anthropic.com",
+            "fallback_allowed": true,
+            "pages_scanned": 1,
+            "parser_candidate_rejected_low_value": 15,
+            "parser_container_hit": 27,
+            "parser_global_anchor_hit": 7,
+            "parser_json_ld_hit": 0,
+            "parser_parser_module_used": "container",
+            "parser_parser_modules_tried": [
+              "container",
+              "global_anchor"
+            ],
+            "parser_parser_profile_resolved": "site_adaptive",
+            "parser_structured_hit": 0,
+            "raw_candidates": 34,
+            "search_service": "basic",
+            "search_service_fallbacks": 0,
+            "selected_candidates": 30,
+            "transport_errors": 0,
+            "used_term_fallback": true
+          },
+          "errors": [],
+          "inserted": 30,
+          "pages_scanned": 1,
+          "search_urls": [
+            "https://docs.anthropic.com/en/search?q=openai+api+pricing+anthropic+claude+code+gpt+4.1+release+langchain+sqlitecache&page_size=20"
+          ],
+          "skipped": 0,
+          "source_mode": "site_search",
+          "used_term_fallback": true
+        },
+        "classification": {
+          "blocker_type": "relevance_review",
+          "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+          "status": "candidate_ready_with_term_fallback"
+        },
+        "elapsed_ms": 449,
+        "entry_domain": "docs.anthropic.com",
+        "target": {
+          "category": "historical_search_template",
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "target_id": "demo_proj_172_docs_anthropic_com",
+          "template": "https://docs.anthropic.com/en/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_plan": {
+          "adapter_key": "search_template.doc_native",
+          "param_overrides": {
+            "enable_external_search_fallback": false,
+            "enable_external_search_slowlane": false,
+            "max_pages": 1
+          },
+          "parser_profile": "site_adaptive",
+          "reason": "Docs/help search should stay on a single native search page."
+        },
+        "adapter_result": {
+          "adapter_taxonomy": {
+            "entry_type": "search_template",
+            "internal_adapter_only": true,
+            "item_key": "handler.cluster.search_template",
+            "item_type": "service_aggregated",
+            "lane": "site_search_internal_adapter",
+            "managed_by": "system",
+            "source_family": "generic_web"
+          },
+          "candidate_count": 30,
+          "candidates": [
+            "https://cloud.google.com/ai/gemini",
+            "https://cloud.google.com/api-gateway/docs",
+            "https://cloud.google.com/appsheet/automation",
+            "https://cloud.google.com/architecture/framework/cost-optimization",
+            "https://cloud.google.com/artifact-registry/docs",
+            "https://cloud.google.com/compute/all-pricing",
+            "https://cloud.google.com/compute/docs/nodes/sole-tenant-nodes",
+            "https://cloud.google.com/config-connector/docs/overview",
+            "https://cloud.google.com/deep-learning-containers/docs",
+            "https://cloud.google.com/deployment-manager/docs"
+          ],
+          "capability_profile": {
+            "entry_type": "search_template",
+            "extractor_kind": "html_link_extractor",
+            "fallback_policy": "term_match_then_search_template_fallback",
+            "source_mode": "site_search",
+            "supports_pagination": true,
+            "supports_query_terms": true
+          },
+          "diagnostics": {
+            "candidate_filter_state": "term_filter_empty_fallback_used",
+            "entry_domain": "cloud.google.com",
+            "fallback_allowed": true,
+            "pages_scanned": 1,
+            "parser_candidate_rejected_low_value": 90,
+            "parser_container_hit": 0,
+            "parser_global_anchor_hit": 145,
+            "parser_json_ld_hit": 0,
+            "parser_parser_module_used": "global_anchor",
+            "parser_parser_modules_tried": [
+              "global_anchor"
+            ],
+            "parser_parser_profile_resolved": "site_adaptive",
+            "parser_structured_hit": 0,
+            "raw_candidates": 145,
+            "search_service": "basic",
+            "search_service_fallbacks": 0,
+            "selected_candidates": 30,
+            "transport_errors": 0,
+            "used_term_fallback": true
+          },
+          "errors": [],
+          "inserted": 30,
+          "pages_scanned": 1,
+          "search_urls": [
+            "https://cloud.google.com/search?query=openai+api+pricing+anthropic+claude+code+gpt+4.1+release+langchain+sqlitecache&page_size=20"
+          ],
+          "skipped": 0,
+          "source_mode": "site_search",
+          "used_term_fallback": true
+        },
+        "classification": {
+          "blocker_type": "relevance_review",
+          "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+          "status": "candidate_ready_with_term_fallback"
+        },
+        "elapsed_ms": 575,
+        "entry_domain": "cloud.google.com",
+        "target": {
+          "category": "historical_search_template",
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "target_id": "demo_proj_173_cloud_google_com",
+          "template": "https://cloud.google.com/search?query={{q}}"
+        }
+      },
+      {
+        "adapter_plan": {
+          "adapter_key": "search_template.doc_native",
+          "param_overrides": {
+            "enable_external_search_fallback": false,
+            "enable_external_search_slowlane": false,
+            "max_pages": 1
+          },
+          "parser_profile": "site_adaptive",
+          "reason": "Docs/help search should stay on a single native search page."
+        },
+        "adapter_result": {
+          "adapter_taxonomy": {
+            "entry_type": "search_template",
+            "internal_adapter_only": true,
+            "item_key": "handler.cluster.search_template",
+            "item_type": "service_aggregated",
+            "lane": "site_search_internal_adapter",
+            "managed_by": "system",
+            "source_family": "generic_web"
+          },
+          "candidate_count": 19,
+          "candidates": [
+            "https://help.openai.com/en/articles/10128477-chatgpt-enterprise-edu-release-notes",
+            "https://help.openai.com/en/articles/11165333-chatgpt-enterprise-and-edu-models-limits",
+            "https://help.openai.com/en/articles/11481834-chatgpt-rate-card-business-enterpriseedu",
+            "https://help.openai.com/en/articles/11870455-openai-open-weight-models-gpt-oss",
+            "https://help.openai.com/en/articles/11954883-legacy-model-access-for-enterprise-and-edu-users",
+            "https://help.openai.com/en/articles/12003714-chatgpt-business-models-limits",
+            "https://help.openai.com/en/articles/20000951-openai-azure-ekm-integration-instructions",
+            "https://help.openai.com/en/articles/20001106-codex-rate-card",
+            "https://help.openai.com/en/articles/4936856-what-are-tokens-and-how-to-count-them",
+            "https://help.openai.com/en/articles/6643435-how-do-i-get-more-tokens-or-increase-my-monthly-usage-limits"
+          ],
+          "capability_profile": {
+            "entry_type": "search_template",
+            "extractor_kind": "html_link_extractor",
+            "fallback_policy": "term_match_then_search_template_fallback",
+            "source_mode": "site_search",
+            "supports_pagination": true,
+            "supports_query_terms": true
+          },
+          "diagnostics": {
+            "candidate_filter_state": "term_filter_empty_fallback_used",
+            "entry_domain": "help.openai.com",
+            "fallback_allowed": true,
+            "pages_scanned": 1,
+            "parser_candidate_rejected_low_value": 2,
+            "parser_container_hit": 0,
+            "parser_global_anchor_hit": 19,
+            "parser_json_ld_hit": 0,
+            "parser_parser_module_used": "global_anchor",
+            "parser_parser_modules_tried": [
+              "global_anchor"
+            ],
+            "parser_parser_profile_resolved": "site_adaptive",
+            "parser_structured_hit": 0,
+            "raw_candidates": 19,
+            "search_service": "basic",
+            "search_service_fallbacks": 0,
+            "selected_candidates": 19,
+            "transport_errors": 0,
+            "used_term_fallback": true
+          },
+          "errors": [],
+          "inserted": 19,
+          "pages_scanned": 1,
+          "search_urls": [
+            "https://help.openai.com/en/?q=openai+api+pricing+anthropic+claude+code+gpt+4.1+release+langchain+sqlitecache&page_size=20"
+          ],
+          "skipped": 0,
+          "source_mode": "site_search",
+          "used_term_fallback": true
+        },
+        "classification": {
+          "blocker_type": "relevance_review",
+          "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+          "status": "candidate_ready_with_term_fallback"
+        },
+        "elapsed_ms": 2740,
+        "entry_domain": "help.openai.com",
+        "target": {
+          "category": "historical_search_template",
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "target_id": "demo_proj_174_help_openai_com",
+          "template": "https://help.openai.com/en/?q={{q}}"
+        }
+      },
+      {
+        "adapter_plan": {
+          "adapter_key": "search_template.wordpress_fastlane",
+          "param_overrides": {
+            "enable_external_search_fallback": false,
+            "enable_external_search_slowlane": false,
+            "max_pages": 1
+          },
+          "parser_profile": "site_adaptive",
+          "reason": "WordPress search source should stay on a single lightweight search page."
+        },
+        "adapter_result": {
+          "adapter_taxonomy": {
+            "entry_type": "search_template",
+            "internal_adapter_only": true,
+            "item_key": "handler.cluster.search_template",
+            "item_type": "service_aggregated",
+            "lane": "site_search_internal_adapter",
+            "managed_by": "system",
+            "source_family": "generic_web"
+          },
+          "candidate_count": 30,
+          "candidates": [
+            "https://app.termly.io/notify/f592675e-4484-4dc9-bb50-462a84720662",
+            "https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-3-5",
+            "https://blog.google/innovation-and-ai/products/gemini-app/next-evolution-gemini-app",
+            "https://io.google/2026",
+            "https://venturebeat.com/business/daversa-named-to-forbes-americas-best-executive-recruiting-firms-list-for-fifth-consecutive-year",
+            "https://venturebeat.com/business/google-deepmind-features-hirundos-security-hardened-gemma-4-model-outperforms-llms-170x-its-size-on-security",
+            "https://venturebeat.com/business/payman-ai-selected-for-icba-thinktech-accelerator",
+            "https://venturebeat.com/business/university-of-manchester-techbio-spin-out-secures-5-million-to-deploy-quantum-physics-ai-modelling-and-highly-automated-labs-to-power-next-gen-enzyme-engineering",
+            "https://venturebeat.com/data/context-architecture-is-replacing-rag-as-agentic-ai-pushes-enterprise-retrieval-to-its-limits",
+            "https://venturebeat.com/data/d-and-bs-database-of-642-million-businesses-was-built-for-humans-not-ai-agents-so-they-rebuilt-it"
+          ],
+          "capability_profile": {
+            "entry_type": "search_template",
+            "extractor_kind": "html_link_extractor",
+            "fallback_policy": "term_match_then_search_template_fallback",
+            "source_mode": "site_search",
+            "supports_pagination": true,
+            "supports_query_terms": true
+          },
+          "diagnostics": {
+            "candidate_filter_state": "term_filter_empty_fallback_used",
+            "entry_domain": "venturebeat.com",
+            "fallback_allowed": true,
+            "pages_scanned": 1,
+            "parser_candidate_rejected_low_value": 166,
+            "parser_container_hit": 48,
+            "parser_global_anchor_hit": 1,
+            "parser_json_ld_hit": 0,
+            "parser_parser_module_used": "container",
+            "parser_parser_modules_tried": [
+              "container",
+              "global_anchor"
+            ],
+            "parser_parser_profile_resolved": "site_adaptive",
+            "parser_structured_hit": 0,
+            "raw_candidates": 49,
+            "search_service": "basic",
+            "search_service_fallbacks": 0,
+            "selected_candidates": 30,
+            "transport_errors": 0,
+            "used_term_fallback": true
+          },
+          "errors": [],
+          "inserted": 30,
+          "pages_scanned": 1,
+          "search_urls": [
+            "https://venturebeat.com/?s=openai+api+pricing+anthropic+claude+code+gpt+4.1+release+langchain+sqlitecache&page_size=20"
+          ],
+          "skipped": 0,
+          "source_mode": "site_search",
+          "used_term_fallback": true
+        },
+        "classification": {
+          "blocker_type": "relevance_review",
+          "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+          "status": "candidate_ready_with_term_fallback"
+        },
+        "elapsed_ms": 268,
+        "entry_domain": "venturebeat.com",
+        "target": {
+          "category": "historical_search_template",
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "target_id": "demo_proj_175_venturebeat_com",
+          "template": "https://venturebeat.com/?s={{q}}"
+        }
+      },
+      {
+        "adapter_plan": {
+          "adapter_key": "search_template.pymnts_card",
+          "param_overrides": {
+            "enable_external_search_fallback": false,
+            "enable_external_search_slowlane": false,
+            "max_pages": 1,
+            "search_service": "resilient"
+          },
+          "parser_profile": "site_adaptive.pymnts_card",
+          "reason": "PYMNTS has a validated parser profile and should stay on the parser-enhanced path."
+        },
+        "adapter_result": {
+          "adapter_taxonomy": {
+            "entry_type": "search_template",
+            "internal_adapter_only": true,
+            "item_key": "handler.cluster.search_template",
+            "item_type": "service_aggregated",
+            "lane": "site_search_internal_adapter",
+            "managed_by": "system",
+            "source_family": "generic_web"
+          },
+          "candidate_count": 17,
+          "candidates": [
+            "https://www.pymnts.com/topic/ai",
+            "https://www.pymnts.com/topic/automotive",
+            "https://www.pymnts.com/topic/buy-now-pay-later",
+            "https://www.pymnts.com/topic/connected-economy",
+            "https://www.pymnts.com/topic/cross-border",
+            "https://www.pymnts.com/topic/gig-economy",
+            "https://www.pymnts.com/topic/grocery-and-pharmacy",
+            "https://www.pymnts.com/topic/healthcare-payments",
+            "https://www.pymnts.com/topic/insurtech",
+            "https://www.pymnts.com/topic/real-time-payments"
+          ],
+          "capability_profile": {
+            "entry_type": "search_template",
+            "extractor_kind": "html_link_extractor",
+            "fallback_policy": "term_match_then_search_template_fallback",
+            "source_mode": "site_search",
+            "supports_pagination": true,
+            "supports_query_terms": true
+          },
+          "diagnostics": {
+            "candidate_filter_state": "term_filter_empty_fallback_used",
+            "entry_domain": "pymnts.com",
+            "fallback_allowed": true,
+            "pages_scanned": 1,
+            "parser_candidate_rejected_low_value": 19,
+            "parser_container_hit": 0,
+            "parser_global_anchor_hit": 17,
+            "parser_json_ld_hit": 0,
+            "parser_parser_module_used": "global_anchor",
+            "parser_parser_modules_tried": [
+              "global_anchor"
+            ],
+            "parser_parser_profile_resolved": "site_adaptive.pymnts_card",
+            "parser_structured_hit": 0,
+            "raw_candidates": 17,
+            "search_service": "resilient",
+            "search_service_fallbacks": 0,
+            "selected_candidates": 17,
+            "transport_errors": 0,
+            "used_term_fallback": true
+          },
+          "errors": [],
+          "inserted": 17,
+          "pages_scanned": 1,
+          "search_urls": [
+            "https://www.pymnts.com/?s=openai+api+pricing+anthropic+claude+code+gpt+4.1+release+langchain+sqlitecache&page_size=20"
+          ],
+          "skipped": 0,
+          "source_mode": "site_search",
+          "used_term_fallback": true
+        },
+        "classification": {
+          "blocker_type": "relevance_review",
+          "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+          "status": "candidate_ready_with_term_fallback"
+        },
+        "elapsed_ms": 7968,
+        "entry_domain": "pymnts.com",
+        "target": {
+          "category": "parser_enhance",
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "target_id": "demo_proj_176_www_pymnts_com",
+          "template": "https://www.pymnts.com/?s={{q}}"
+        }
+      },
+      {
+        "adapter_plan": {
+          "adapter_key": "search_template.generic",
+          "param_overrides": {
+            "max_pages": 1
+          },
+          "parser_profile": "site_adaptive",
+          "reason": "Default generic search_template adapter."
+        },
+        "adapter_result": {
+          "adapter_taxonomy": {
+            "entry_type": "search_template",
+            "internal_adapter_only": true,
+            "item_key": "handler.cluster.search_template",
+            "item_type": "service_aggregated",
+            "lane": "site_search_internal_adapter",
+            "managed_by": "system",
+            "source_family": "generic_web"
+          },
+          "candidate_count": 0,
+          "candidates": [],
+          "capability_profile": {
+            "entry_type": "search_template",
+            "extractor_kind": "html_link_extractor",
+            "fallback_policy": "term_match_then_search_template_fallback",
+            "source_mode": "site_search",
+            "supports_pagination": true,
+            "supports_query_terms": true
+          },
+          "diagnostics": {
+            "candidate_filter_state": "empty_no_raw_candidates",
+            "entry_domain": "finextra.com",
+            "fallback_allowed": true,
+            "pages_scanned": 1,
+            "raw_candidates": 0,
+            "search_service": "basic",
+            "search_service_fallbacks": 0,
+            "selected_candidates": 0,
+            "transport_errors": 1,
+            "used_term_fallback": true
+          },
+          "errors": [
+            {
+              "error": "403 Client Error: Forbidden for url: https://www.finextra.com/searcharticle.aspx?search=openai+api+pricing+anthropic+claude+code+gpt+4.1+release+langchain+sqlitecache&page_size=20",
+              "error_class": "transport_failure",
+              "recommended_search_service": "resilient",
+              "search_url": "https://www.finextra.com/searcharticle.aspx?search=openai+api+pricing+anthropic+claude+code+gpt+4.1+release+langchain+sqlitecache&page_size=20",
+              "site_url": "https://www.finextra.com/searcharticle.aspx?search={{q}}"
+            }
+          ],
+          "inserted": 0,
+          "pages_scanned": 1,
+          "search_urls": [
+            "https://www.finextra.com/searcharticle.aspx?search=openai+api+pricing+anthropic+claude+code+gpt+4.1+release+langchain+sqlitecache&page_size=20"
+          ],
+          "skipped": 0,
+          "source_mode": "site_search",
+          "used_term_fallback": true
+        },
+        "classification": {
+          "blocker_type": "public_network_or_anti_bot",
+          "reason": "Public fetch failed with anti-bot/rate-limit/transport signature.",
+          "status": "anti_bot_or_transport_blocked"
+        },
+        "elapsed_ms": 190,
+        "entry_domain": "finextra.com",
+        "target": {
+          "category": "historical_search_template",
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "target_id": "demo_proj_177_www_finextra_com",
+          "template": "https://www.finextra.com/searcharticle.aspx?search={{q}}"
+        }
+      },
+      {
+        "adapter_plan": {
+          "adapter_key": "search_template.commercialobserver_card",
+          "param_overrides": {
+            "enable_external_search_fallback": false,
+            "enable_external_search_slowlane": false,
+            "max_pages": 1,
+            "search_service": "resilient"
+          },
+          "parser_profile": "site_adaptive.commercialobserver_card",
+          "reason": "Commercial Observer has a validated card parser and should avoid the generic fallback chain."
+        },
+        "adapter_result": {
+          "adapter_taxonomy": {
+            "entry_type": "search_template",
+            "internal_adapter_only": true,
+            "item_key": "handler.cluster.search_template",
+            "item_type": "service_aggregated",
+            "lane": "site_search_internal_adapter",
+            "managed_by": "system",
+            "source_family": "generic_web"
+          },
+          "candidate_count": 4,
+          "candidates": [
+            "https://commercialobserver.com/2026/05/breevest-avida-aventura-fifield-multifamily-housing",
+            "https://commercialobserver.com/2026/05/icsc-2026-retail",
+            "https://commercialobserver.com/2026/05/nyc-developers-building-construction-q1-rebny",
+            "https://commercialobserver.com/2026/05/peachtree-group-huntsville-alabama-marriott-hotel"
+          ],
+          "capability_profile": {
+            "entry_type": "search_template",
+            "extractor_kind": "html_link_extractor",
+            "fallback_policy": "term_match_then_search_template_fallback",
+            "source_mode": "site_search",
+            "supports_pagination": true,
+            "supports_query_terms": true
+          },
+          "diagnostics": {
+            "candidate_filter_state": "term_filter_empty_fallback_used",
+            "entry_domain": "commercialobserver.com",
+            "fallback_allowed": true,
+            "pages_scanned": 1,
+            "parser_candidate_rejected_low_value": 339,
+            "parser_container_hit": 4,
+            "parser_global_anchor_hit": 0,
+            "parser_json_ld_hit": 0,
+            "parser_parser_module_used": "container",
+            "parser_parser_modules_tried": [
+              "container"
+            ],
+            "parser_parser_profile_resolved": "site_adaptive.commercialobserver_card",
+            "parser_structured_hit": 0,
+            "raw_candidates": 4,
+            "search_service": "resilient",
+            "search_service_fallbacks": 0,
+            "selected_candidates": 4,
+            "transport_errors": 0,
+            "used_term_fallback": true
+          },
+          "errors": [],
+          "inserted": 4,
+          "pages_scanned": 1,
+          "search_urls": [
+            "https://commercialobserver.com/?s=openai+api+pricing+anthropic+claude+code+gpt+4.1+release+langchain+sqlitecache&page_size=20"
+          ],
+          "skipped": 0,
+          "source_mode": "site_search",
+          "used_term_fallback": true
+        },
+        "classification": {
+          "blocker_type": "relevance_review",
+          "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+          "status": "candidate_ready_with_term_fallback"
+        },
+        "elapsed_ms": 2431,
+        "entry_domain": "commercialobserver.com",
+        "target": {
+          "category": "historical_search_template",
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "target_id": "demo_proj_178_commercialobserver_com",
+          "template": "https://commercialobserver.com/?s={{q}}"
+        }
+      },
+      {
+        "adapter_plan": {
+          "adapter_key": "search_template.query_native",
+          "param_overrides": {
+            "enable_external_search_fallback": false,
+            "enable_external_search_slowlane": false,
+            "max_pages": 1
+          },
+          "parser_profile": "site_adaptive.investopedia_cards",
+          "reason": "Investopedia query search should remain on a single native search result page."
+        },
+        "adapter_result": {
+          "adapter_taxonomy": {
+            "entry_type": "search_template",
+            "internal_adapter_only": true,
+            "item_key": "handler.cluster.search_template",
+            "item_type": "service_aggregated",
+            "lane": "site_search_internal_adapter",
+            "managed_by": "system",
+            "source_family": "generic_web"
+          },
+          "candidate_count": 24,
+          "candidates": [
+            "https://www.investopedia.com/ai-mega-ipos-are-on-the-way-is-there-enough-love-to-go-around-11976151",
+            "https://www.investopedia.com/americans-mostly-hate-one-of-the-economys-biggest-bright-spots-11979252",
+            "https://www.investopedia.com/anthropic-identifies-jobs-most-exposed-to-ai-risks-is-your-occupation-affected-1776901536470-11956549",
+            "https://www.investopedia.com/best-1-year-cd-rates-4796650",
+            "https://www.investopedia.com/best-18-month-cd-rates-5272348",
+            "https://www.investopedia.com/best-3-month-cd-rates-5272288",
+            "https://www.investopedia.com/best-high-yield-checking-accounts-5070332",
+            "https://www.investopedia.com/best-money-market-accounts-5096917",
+            "https://www.investopedia.com/chatgpt-can-now-connect-to-your-financial-accounts-experts-warn-against-sharing-too-much-11982446",
+            "https://www.investopedia.com/fidelity-cash-management-account-interest-rates-7505903"
+          ],
+          "capability_profile": {
+            "entry_type": "search_template",
+            "extractor_kind": "html_link_extractor",
+            "fallback_policy": "term_match_then_search_template_fallback",
+            "source_mode": "site_search",
+            "supports_pagination": true,
+            "supports_query_terms": true
+          },
+          "diagnostics": {
+            "candidate_filter_state": "term_filter_empty_fallback_used",
+            "entry_domain": "investopedia.com",
+            "fallback_allowed": true,
+            "pages_scanned": 1,
+            "parser_candidate_rejected_low_value": 80,
+            "parser_container_hit": 24,
+            "parser_global_anchor_hit": 0,
+            "parser_json_ld_hit": 0,
+            "parser_parser_module_used": "container",
+            "parser_parser_modules_tried": [
+              "container"
+            ],
+            "parser_parser_profile_resolved": "site_adaptive.investopedia_cards",
+            "parser_structured_hit": 0,
+            "raw_candidates": 24,
+            "search_service": "resilient",
+            "search_service_fallbacks": 1,
+            "selected_candidates": 24,
+            "transport_errors": 0,
+            "used_term_fallback": true
+          },
+          "errors": [],
+          "inserted": 24,
+          "pages_scanned": 1,
+          "search_urls": [
+            "https://www.investopedia.com/search?q=openai+api+pricing+anthropic+claude+code+gpt+4.1+release+langchain+sqlitecache&page_size=20"
+          ],
+          "skipped": 0,
+          "source_mode": "site_search",
+          "used_term_fallback": true
+        },
+        "classification": {
+          "blocker_type": "relevance_review",
+          "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+          "status": "candidate_ready_with_term_fallback"
+        },
+        "elapsed_ms": 730,
+        "entry_domain": "investopedia.com",
+        "target": {
+          "category": "historical_search_template",
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "target_id": "demo_proj_179_www_investopedia_com",
+          "template": "https://www.investopedia.com/search?q={{q}}"
+        }
+      }
+    ],
+    "term_fallback_relevance_review": [
+      {
+        "candidate_count": 30,
+        "candidates": [
+          "https://bsky.app/profile/developer.mozilla.org",
+          "https://developer.mozilla.org/docs/MDN/Writing_guidelines/Attrib_copyright_license",
+          "https://developer.mozilla.org/en-US/blog/rss.xml",
+          "https://developer.mozilla.org/en-US/community",
+          "https://developer.mozilla.org/en-US/curriculum",
+          "https://developer.mozilla.org/en-US/docs/Glossary",
+          "https://developer.mozilla.org/en-US/docs/Learn_web_development",
+          "https://developer.mozilla.org/en-US/docs/Learn_web_development/Core",
+          "https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/CSS_layout",
+          "https://developer.mozilla.org/en-US/docs/Learn_web_development/Core/Scripting"
+        ],
+        "domain": "developer.mozilla.org",
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "review_reason": "Candidates were selected only after term fallback; inspect relevance before counting as dirty-source closure.",
+        "target_id": "demo_proj_171_developer_mozilla_org"
+      },
+      {
+        "candidate_count": 30,
+        "candidates": [
+          "https://claude.com/blog",
+          "https://claude.com/customers",
+          "https://claude.com/partners/amazon-bedrock",
+          "https://claude.com/partners/google-cloud-vertex-ai",
+          "https://claude.com/partners/mcp",
+          "https://claude.com/partners/powered-by-claude",
+          "https://claude.com/partners/services",
+          "https://claude.com/programs/startups",
+          "https://claude.com/resources/use-cases",
+          "https://claude.com/solutions/agents"
+        ],
+        "domain": "docs.anthropic.com",
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "review_reason": "Candidates were selected only after term fallback; inspect relevance before counting as dirty-source closure.",
+        "target_id": "demo_proj_172_docs_anthropic_com"
+      },
+      {
+        "candidate_count": 30,
+        "candidates": [
+          "https://cloud.google.com/ai/gemini",
+          "https://cloud.google.com/api-gateway/docs",
+          "https://cloud.google.com/appsheet/automation",
+          "https://cloud.google.com/architecture/framework/cost-optimization",
+          "https://cloud.google.com/artifact-registry/docs",
+          "https://cloud.google.com/compute/all-pricing",
+          "https://cloud.google.com/compute/docs/nodes/sole-tenant-nodes",
+          "https://cloud.google.com/config-connector/docs/overview",
+          "https://cloud.google.com/deep-learning-containers/docs",
+          "https://cloud.google.com/deployment-manager/docs"
+        ],
+        "domain": "cloud.google.com",
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "review_reason": "Candidates were selected only after term fallback; inspect relevance before counting as dirty-source closure.",
+        "target_id": "demo_proj_173_cloud_google_com"
+      },
+      {
+        "candidate_count": 19,
+        "candidates": [
+          "https://help.openai.com/en/articles/10128477-chatgpt-enterprise-edu-release-notes",
+          "https://help.openai.com/en/articles/11165333-chatgpt-enterprise-and-edu-models-limits",
+          "https://help.openai.com/en/articles/11481834-chatgpt-rate-card-business-enterpriseedu",
+          "https://help.openai.com/en/articles/11870455-openai-open-weight-models-gpt-oss",
+          "https://help.openai.com/en/articles/11954883-legacy-model-access-for-enterprise-and-edu-users",
+          "https://help.openai.com/en/articles/12003714-chatgpt-business-models-limits",
+          "https://help.openai.com/en/articles/20000951-openai-azure-ekm-integration-instructions",
+          "https://help.openai.com/en/articles/20001106-codex-rate-card",
+          "https://help.openai.com/en/articles/4936856-what-are-tokens-and-how-to-count-them",
+          "https://help.openai.com/en/articles/6643435-how-do-i-get-more-tokens-or-increase-my-monthly-usage-limits"
+        ],
+        "domain": "help.openai.com",
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "review_reason": "Candidates were selected only after term fallback; inspect relevance before counting as dirty-source closure.",
+        "target_id": "demo_proj_174_help_openai_com"
+      },
+      {
+        "candidate_count": 30,
+        "candidates": [
+          "https://app.termly.io/notify/f592675e-4484-4dc9-bb50-462a84720662",
+          "https://blog.google/innovation-and-ai/models-and-research/gemini-models/gemini-3-5",
+          "https://blog.google/innovation-and-ai/products/gemini-app/next-evolution-gemini-app",
+          "https://io.google/2026",
+          "https://venturebeat.com/business/daversa-named-to-forbes-americas-best-executive-recruiting-firms-list-for-fifth-consecutive-year",
+          "https://venturebeat.com/business/google-deepmind-features-hirundos-security-hardened-gemma-4-model-outperforms-llms-170x-its-size-on-security",
+          "https://venturebeat.com/business/payman-ai-selected-for-icba-thinktech-accelerator",
+          "https://venturebeat.com/business/university-of-manchester-techbio-spin-out-secures-5-million-to-deploy-quantum-physics-ai-modelling-and-highly-automated-labs-to-power-next-gen-enzyme-engineering",
+          "https://venturebeat.com/data/context-architecture-is-replacing-rag-as-agentic-ai-pushes-enterprise-retrieval-to-its-limits",
+          "https://venturebeat.com/data/d-and-bs-database-of-642-million-businesses-was-built-for-humans-not-ai-agents-so-they-rebuilt-it"
+        ],
+        "domain": "venturebeat.com",
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "review_reason": "Candidates were selected only after term fallback; inspect relevance before counting as dirty-source closure.",
+        "target_id": "demo_proj_175_venturebeat_com"
+      },
+      {
+        "candidate_count": 17,
+        "candidates": [
+          "https://www.pymnts.com/topic/ai",
+          "https://www.pymnts.com/topic/automotive",
+          "https://www.pymnts.com/topic/buy-now-pay-later",
+          "https://www.pymnts.com/topic/connected-economy",
+          "https://www.pymnts.com/topic/cross-border",
+          "https://www.pymnts.com/topic/gig-economy",
+          "https://www.pymnts.com/topic/grocery-and-pharmacy",
+          "https://www.pymnts.com/topic/healthcare-payments",
+          "https://www.pymnts.com/topic/insurtech",
+          "https://www.pymnts.com/topic/real-time-payments"
+        ],
+        "domain": "pymnts.com",
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "review_reason": "Candidates were selected only after term fallback; inspect relevance before counting as dirty-source closure.",
+        "target_id": "demo_proj_176_www_pymnts_com"
+      },
+      {
+        "candidate_count": 4,
+        "candidates": [
+          "https://commercialobserver.com/2026/05/breevest-avida-aventura-fifield-multifamily-housing",
+          "https://commercialobserver.com/2026/05/icsc-2026-retail",
+          "https://commercialobserver.com/2026/05/nyc-developers-building-construction-q1-rebny",
+          "https://commercialobserver.com/2026/05/peachtree-group-huntsville-alabama-marriott-hotel"
+        ],
+        "domain": "commercialobserver.com",
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "review_reason": "Candidates were selected only after term fallback; inspect relevance before counting as dirty-source closure.",
+        "target_id": "demo_proj_178_commercialobserver_com"
+      },
+      {
+        "candidate_count": 24,
+        "candidates": [
+          "https://www.investopedia.com/ai-mega-ipos-are-on-the-way-is-there-enough-love-to-go-around-11976151",
+          "https://www.investopedia.com/americans-mostly-hate-one-of-the-economys-biggest-bright-spots-11979252",
+          "https://www.investopedia.com/anthropic-identifies-jobs-most-exposed-to-ai-risks-is-your-occupation-affected-1776901536470-11956549",
+          "https://www.investopedia.com/best-1-year-cd-rates-4796650",
+          "https://www.investopedia.com/best-18-month-cd-rates-5272348",
+          "https://www.investopedia.com/best-3-month-cd-rates-5272288",
+          "https://www.investopedia.com/best-high-yield-checking-accounts-5070332",
+          "https://www.investopedia.com/best-money-market-accounts-5096917",
+          "https://www.investopedia.com/chatgpt-can-now-connect-to-your-financial-accounts-experts-warn-against-sharing-too-much-11982446",
+          "https://www.investopedia.com/fidelity-cash-management-account-interest-rates-7505903"
+        ],
+        "domain": "investopedia.com",
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "review_reason": "Candidates were selected only after term fallback; inspect relevance before counting as dirty-source closure.",
+        "target_id": "demo_proj_179_www_investopedia_com"
+      }
+    ]
+  },
+  "shard_id": "crawler_public_replay_shard_05",
+  "shard_index": 5,
+  "source_full_output_path": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/output.public.json",
+  "source_public_replay_window": {
+    "finished_at": "2026-05-23T10:53:31Z",
+    "started_at": "2026-05-23T10:50:31Z"
+  },
+  "validation": {
+    "operator_gate_skip_count": 0,
+    "passed": true,
+    "policy_skipped_status_count": 0,
+    "public_network_attempted": true,
+    "skipped": false,
+    "target_order_matches_manifest": true
+  }
+}

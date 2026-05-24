@@ -1,0 +1,347 @@
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Callable, Mapping
+
+
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
+if str(BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(BACKEND_ROOT))
+
+from app.services.ingest import url_pool as url_pool_module
+from scripts.check_llm_crawler_high_js_replay_readiness import DEFAULT_HIGH_JS_TARGETS
+from scripts.check_llm_crawler_high_js_replay_readiness import PUBLIC_REPLAY_CONTRACT_VERSION
+from scripts.check_llm_crawler_replay_manifest import OPT_IN_CONTRACT_VERSION
+
+
+DEFAULT_OUTPUT_PATH = Path(
+    "development/latest-dev-docs/automation-runs/llm-crawler-high-js-public-replay/"
+    "2026-05-23/output.public.attempt.json"
+)
+CHROME_CANDIDATES = [
+    os.environ.get("LLM_CRAWLER_CHROME_PATH", ""),
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    shutil.which("google-chrome") or "",
+    shutil.which("chromium") or "",
+    shutil.which("chromium-browser") or "",
+]
+
+TargetRunner = Callable[[Mapping[str, Any], str, int], dict[str, Any]]
+
+
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parents[3]
+
+
+def _utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
+def _resolve_path(root: Path, value: str | Path) -> Path:
+    path = Path(value)
+    return path if path.is_absolute() else root / path
+
+
+def _write_json(path: Path, payload: Mapping[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _discover_chrome() -> str | None:
+    for candidate in CHROME_CANDIDATES:
+        if candidate and Path(candidate).is_file():
+            return candidate
+    return None
+
+
+def _title_from_dom(dom: str) -> str:
+    match = re.search(r"<title[^>]*>(.*?)</title>", dom, flags=re.IGNORECASE | re.DOTALL)
+    if not match:
+        return ""
+    return re.sub(r"\s+", " ", match.group(1)).strip()
+
+
+def _route_profile(target: Mapping[str, Any]) -> dict[str, Any]:
+    profile = url_pool_module._frontdoor_route_profile_for_url(str(target.get("url") or ""))
+    router = profile.get("router_contract") if isinstance(profile.get("router_contract"), Mapping) else {}
+    fallback = router.get("fallback_boundary") if isinstance(router.get("fallback_boundary"), Mapping) else {}
+    return {
+        "contract_version": profile.get("contract_version"),
+        "domain": profile.get("domain"),
+        "route_hint": profile.get("route_hint"),
+        "fetch_strategy": profile.get("fetch_strategy"),
+        "high_js": profile.get("high_js") is True,
+        "render_required": profile.get("render_required") is True,
+        "router_state": router.get("router_state"),
+        "reason_code": router.get("reason_code"),
+        "browser_fetch_required": fallback.get("browser_fetch_required") is True,
+        "http_fetch_fallback_allowed": fallback.get("http_fetch_fallback_allowed") is True,
+    }
+
+
+def _success_marker(target_id: str, dom: str, title: str) -> bool:
+    lower = dom.lower()
+    title_lower = title.lower()
+    if target_id == "youtube_search_robotics":
+        return "robotics - youtube" in title_lower or "video-title" in lower or "ytd-video-renderer" in lower
+    if target_id == "instagram_tag_robotics":
+        return "robotics" in lower and "instagram" in lower and bool(title)
+    if target_id == "x_search_robotics":
+        return "robotics" in lower and ("x.com/search" in lower or "search?q=robotics" in lower)
+    return "robotics" in lower
+
+
+def _classify_browser_result(target: Mapping[str, Any], browser: Mapping[str, Any]) -> dict[str, Any]:
+    target_id = str(target.get("target_id") or "")
+    dom = str(browser.get("dom") or "")
+    stderr = str(browser.get("stderr") or "")
+    title = _title_from_dom(dom)
+    lower = dom.lower()
+    rendered = bool(len(dom) > 40 and "<html" in lower and "javascript is not available" not in lower)
+    markers = {
+        "title": title,
+        "contains_robotics": "robotics" in lower,
+        "contains_login": "login" in lower,
+        "contains_captcha": "captcha" in lower,
+        "contains_video_title": "video-title" in lower,
+        "contains_javascript_disabled": "javascript is not available" in lower,
+    }
+    success = bool(rendered and _success_marker(target_id, dom, title))
+    if success:
+        status = "success"
+        reason = "Headless Chrome rendered target-specific public search content."
+    elif rendered and (markers["contains_login"] or markers["contains_captcha"]):
+        status = "auth_or_anti_bot_blocked"
+        reason = "Headless Chrome rendered the page, but public content was gated by auth or anti-bot markers."
+    elif rendered:
+        status = "rendered_without_expected_search_content"
+        reason = "Headless Chrome rendered HTML without the target-specific search evidence."
+    else:
+        status = "browser_runtime_failed"
+        reason = stderr[-500:] or "Headless Chrome did not return a usable rendered DOM."
+    return {
+        "status": status,
+        "reason": reason,
+        "browser_rendered": rendered,
+        "browser_runtime_started": bool(browser.get("browser_runtime_started")),
+        "public_network_attempted": bool(browser.get("public_network_attempted")),
+        "browser_timed_out": bool(browser.get("timed_out")),
+        "returncode": browser.get("returncode"),
+        "elapsed_ms": browser.get("elapsed_ms"),
+        "rendered_dom_bytes": len(dom.encode("utf-8")),
+        "stderr_tail": stderr[-1000:],
+        "markers": markers,
+    }
+
+
+def _run_chrome_target(target: Mapping[str, Any], chrome_path: str, timeout_seconds: int) -> dict[str, Any]:
+    url = str(target.get("url") or "")
+    started = time.monotonic()
+    user_data_dir = tempfile.mkdtemp(prefix="mrw-high-js-chrome-")
+    cmd = [
+        chrome_path,
+        "--headless=new",
+        "--disable-gpu",
+        "--no-first-run",
+        "--no-default-browser-check",
+        "--disable-background-networking",
+        "--disable-component-update",
+        f"--user-data-dir={user_data_dir}",
+        "--virtual-time-budget=8000",
+        "--dump-dom",
+        url,
+    ]
+    try:
+        completed = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=timeout_seconds)
+        return {
+            "browser_runtime_started": True,
+            "public_network_attempted": True,
+            "timed_out": False,
+            "returncode": completed.returncode,
+            "elapsed_ms": int((time.monotonic() - started) * 1000),
+            "dom": completed.stdout or "",
+            "stderr": completed.stderr or "",
+        }
+    except subprocess.TimeoutExpired as exc:
+        stdout = exc.stdout or ""
+        stderr = exc.stderr or ""
+        if isinstance(stdout, bytes):
+            stdout = stdout.decode("utf-8", "ignore")
+        if isinstance(stderr, bytes):
+            stderr = stderr.decode("utf-8", "ignore")
+        return {
+            "browser_runtime_started": True,
+            "public_network_attempted": True,
+            "timed_out": True,
+            "returncode": None,
+            "elapsed_ms": int((time.monotonic() - started) * 1000),
+            "dom": stdout,
+            "stderr": stderr,
+        }
+    finally:
+        shutil.rmtree(user_data_dir, ignore_errors=True)
+
+
+def _status_counts(results: list[Mapping[str, Any]]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for row in results:
+        status = str(row.get("status") or "unknown")
+        counts[status] = counts.get(status, 0) + 1
+    return counts
+
+
+def run_high_js_public_replay(
+    *,
+    operator: str,
+    run_id: str,
+    allow_public_network: bool,
+    allow_browser_runtime: bool,
+    timeout_seconds: int = 20,
+    chrome_path: str | None = None,
+    target_runner: TargetRunner | None = None,
+) -> dict[str, Any]:
+    started_at = _utc_now()
+    resolved_chrome = chrome_path or _discover_chrome()
+    target_results: list[dict[str, Any]] = []
+    validation_errors: list[str] = []
+
+    if not allow_public_network:
+        validation_errors.append("allow_public_network must be true for real high-JS public replay")
+    if not allow_browser_runtime:
+        validation_errors.append("allow_browser_runtime must be true for real high-JS public replay")
+    if target_runner is None and not resolved_chrome:
+        validation_errors.append("Chrome runtime not found; set LLM_CRAWLER_CHROME_PATH")
+
+    for target in DEFAULT_HIGH_JS_TARGETS:
+        route = _route_profile(target)
+        if validation_errors:
+            classified = {
+                "status": "skipped_runtime_not_available",
+                "reason": "; ".join(validation_errors),
+                "browser_rendered": False,
+                "browser_runtime_started": False,
+                "public_network_attempted": False,
+                "browser_timed_out": False,
+                "returncode": None,
+                "elapsed_ms": 0,
+                "rendered_dom_bytes": 0,
+                "stderr_tail": "",
+                "markers": {},
+            }
+        else:
+            browser = (
+                target_runner(target, str(resolved_chrome), timeout_seconds)
+                if target_runner is not None
+                else _run_chrome_target(target, str(resolved_chrome), timeout_seconds)
+            )
+            classified = _classify_browser_result(target, browser)
+        target_results.append(
+            {
+                "target_id": target["target_id"],
+                "url": target["url"],
+                "expected_domain": target["expected_domain"],
+                "frontdoor_route_profile": route,
+                **classified,
+            }
+        )
+
+    success_count = sum(1 for row in target_results if row.get("status") == "success" and row.get("browser_rendered") is True)
+    public_attempted = sum(1 for row in target_results if row.get("public_network_attempted") is True)
+    browser_started = any(row.get("browser_runtime_started") is True for row in target_results)
+    public_network_attempted = any(row.get("public_network_attempted") is True for row in target_results)
+    proven = bool(
+        not validation_errors
+        and allow_public_network
+        and allow_browser_runtime
+        and public_attempted == len(DEFAULT_HIGH_JS_TARGETS)
+        and success_count == len(DEFAULT_HIGH_JS_TARGETS)
+    )
+
+    return {
+        "contract_version": PUBLIC_REPLAY_CONTRACT_VERSION,
+        "started_at": started_at,
+        "finished_at": _utc_now(),
+        "operator_opt_in": {
+            "contract_version": OPT_IN_CONTRACT_VERSION,
+            "operator": operator,
+            "run_id": run_id,
+            "requested_at": started_at,
+            "browser_runtime": resolved_chrome or "",
+            "evidence_output": str(DEFAULT_OUTPUT_PATH),
+            "output_contract_version": PUBLIC_REPLAY_CONTRACT_VERSION,
+            "target_ids": [target["target_id"] for target in DEFAULT_HIGH_JS_TARGETS],
+            "allow_public_network": bool(allow_public_network),
+            "allow_browser_runtime": bool(allow_browser_runtime),
+            "allow_high_js_targets": True,
+            "acknowledge_external_site_terms": True,
+            "acknowledge_rate_limits": True,
+            "acknowledge_no_shared_index_edits": True,
+        },
+        "inputs": {
+            "target_count": len(DEFAULT_HIGH_JS_TARGETS),
+            "targets": [dict(target) for target in DEFAULT_HIGH_JS_TARGETS],
+            "timeout_seconds": timeout_seconds,
+        },
+        "outputs": {
+            "target_results": target_results,
+            "status_counts": _status_counts(target_results),
+            "public_targets_attempted": public_attempted,
+            "high_js_success_count": success_count,
+        },
+        "validation": {
+            "passed": not validation_errors,
+            "errors": validation_errors,
+            "public_network_attempted": public_network_attempted,
+            "browser_runtime_started": browser_started,
+            "real_public_high_js_replay_proven": proven,
+        },
+        "closure": {
+            "real_public_high_js_replay_complete": proven,
+            "full_closure_allowed": proven,
+            "claim": "real_public_high_js_replay_complete" if proven else "real_public_high_js_replay_attempted_not_proven",
+        },
+    }
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Run an opt-in high-JS public replay through a local headless Chrome runtime.")
+    parser.add_argument("--operator", default="codex")
+    parser.add_argument("--run-id", default=f"high-js-public-replay-{_utc_now()}")
+    parser.add_argument("--timeout-seconds", type=int, default=20)
+    parser.add_argument("--chrome-path", default=None)
+    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT_PATH)
+    parser.add_argument("--allow-public-network", action="store_true")
+    parser.add_argument("--allow-browser-runtime", action="store_true")
+    parser.add_argument("--strict", action="store_true")
+    args = parser.parse_args(argv)
+
+    result = run_high_js_public_replay(
+        operator=args.operator,
+        run_id=args.run_id,
+        allow_public_network=args.allow_public_network,
+        allow_browser_runtime=args.allow_browser_runtime,
+        timeout_seconds=args.timeout_seconds,
+        chrome_path=args.chrome_path,
+    )
+    output_path = _resolve_path(_repo_root(), args.output)
+    _write_json(output_path, result)
+    print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+    if result.get("validation", {}).get("errors"):
+        return 1
+    if args.strict and not result.get("validation", {}).get("real_public_high_js_replay_proven"):
+        return 2
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

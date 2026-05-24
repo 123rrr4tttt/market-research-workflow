@@ -1,0 +1,173 @@
+{
+  "closure": {
+    "claim": "real_public_high_js_replay_attempted_not_proven",
+    "full_closure_allowed": false,
+    "real_public_high_js_replay_complete": false
+  },
+  "contract_version": "llm_crawler.high_js_public_replay.v1",
+  "finished_at": "2026-05-24T00:59:02Z",
+  "inputs": {
+    "target_count": 3,
+    "targets": [
+      {
+        "expected_domain": "x.com",
+        "target_id": "x_search_robotics",
+        "url": "https://x.com/search?q=robotics"
+      },
+      {
+        "expected_domain": "instagram.com",
+        "target_id": "instagram_tag_robotics",
+        "url": "https://www.instagram.com/explore/tags/robotics/"
+      },
+      {
+        "expected_domain": "youtube.com",
+        "target_id": "youtube_search_robotics",
+        "url": "https://www.youtube.com/results?search_query=robotics"
+      }
+    ],
+    "timeout_seconds": 12
+  },
+  "operator_opt_in": {
+    "acknowledge_external_site_terms": true,
+    "acknowledge_no_shared_index_edits": true,
+    "acknowledge_rate_limits": true,
+    "allow_browser_runtime": true,
+    "allow_high_js_targets": true,
+    "allow_public_network": true,
+    "browser_runtime": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "contract_version": "llm_crawler.high_js_public_replay.opt_in_request.v1",
+    "evidence_output": "development/latest-dev-docs/automation-runs/llm-crawler-high-js-public-replay/2026-05-23/output.public.attempt.json",
+    "operator": "codex-wave55-c1",
+    "output_contract_version": "llm_crawler.high_js_public_replay.v1",
+    "requested_at": "2026-05-24T00:58:26Z",
+    "run_id": "wave55-c1-high-js-2026-05-23",
+    "target_ids": [
+      "x_search_robotics",
+      "instagram_tag_robotics",
+      "youtube_search_robotics"
+    ]
+  },
+  "outputs": {
+    "high_js_success_count": 2,
+    "public_targets_attempted": 3,
+    "status_counts": {
+      "auth_or_anti_bot_blocked": 1,
+      "success": 2
+    },
+    "target_results": [
+      {
+        "browser_rendered": true,
+        "browser_runtime_started": true,
+        "browser_timed_out": true,
+        "elapsed_ms": 12026,
+        "expected_domain": "x.com",
+        "frontdoor_route_profile": {
+          "browser_fetch_required": true,
+          "contract_version": "ingest.frontdoor_route_profile.v1",
+          "domain": "x.com",
+          "fetch_strategy": "browser_render",
+          "high_js": true,
+          "http_fetch_fallback_allowed": false,
+          "reason_code": "needs_browser_runtime",
+          "render_required": true,
+          "route_hint": "crawler_browse",
+          "router_state": "needs_browser"
+        },
+        "markers": {
+          "contains_captcha": false,
+          "contains_javascript_disabled": false,
+          "contains_login": true,
+          "contains_robotics": false,
+          "contains_video_title": false,
+          "title": "X - 包罗万象的应用 / X"
+        },
+        "public_network_attempted": true,
+        "reason": "Headless Chrome rendered the page, but public content was gated by auth or anti-bot markers.",
+        "rendered_dom_bytes": 397516,
+        "returncode": null,
+        "status": "auth_or_anti_bot_blocked",
+        "stderr_tail": "tooth because the responsible app for the process does not have Bluetooth metadata in its Info.plist. Launch from Finder to fix.\n[69093:62613397:0523/175832.394148:ERROR:components/device_event_log/device_event_log_impl.cc:202] [17:58:32.394] FIDO: fido_request_handler_base.cc:299 Cannot use Bluetooth because the responsible app for the process does not have Bluetooth metadata in its Info.plist. Launch from Finder to fix.\n[69093:62613563:0523/175832.755237:ERROR:base/process/process_mac.cc:53] task_policy_set TASK_CATEGORY_POLICY: (os/kern) invalid argument (4)\n[69093:62613563:0523/175832.755254:ERROR:base/process/process_mac.cc:98] task_policy_set TASK_SUPPRESSION_POLICY: (os/kern) invalid argument (4)\n[69093:62613563:0523/175832.761888:ERROR:base/process/process_mac.cc:53] task_policy_set TASK_CATEGORY_POLICY: (os/kern) invalid argument (4)\n[69093:62613563:0523/175832.761930:ERROR:base/process/process_mac.cc:98] task_policy_set TASK_SUPPRESSION_POLICY: (os/kern) invalid argument (4)\n",
+        "target_id": "x_search_robotics",
+        "url": "https://x.com/search?q=robotics"
+      },
+      {
+        "browser_rendered": true,
+        "browser_runtime_started": true,
+        "browser_timed_out": true,
+        "elapsed_ms": 12032,
+        "expected_domain": "instagram.com",
+        "frontdoor_route_profile": {
+          "browser_fetch_required": true,
+          "contract_version": "ingest.frontdoor_route_profile.v1",
+          "domain": "instagram.com",
+          "fetch_strategy": "browser_render",
+          "high_js": true,
+          "http_fetch_fallback_allowed": false,
+          "reason_code": "needs_browser_runtime",
+          "render_required": true,
+          "route_hint": "crawler_browse",
+          "router_state": "needs_browser"
+        },
+        "markers": {
+          "contains_captcha": true,
+          "contains_javascript_disabled": false,
+          "contains_login": true,
+          "contains_robotics": true,
+          "contains_video_title": false,
+          "title": "Robotics • 1,932&nbsp;万 reels on Instagram"
+        },
+        "public_network_attempted": true,
+        "reason": "Headless Chrome rendered target-specific public search content.",
+        "rendered_dom_bytes": 1056393,
+        "returncode": null,
+        "status": "success",
+        "stderr_tail": "Trying to load the allocator multiple times. This is *not* supported.\n[69622:62615911:0523/175841.463200:ERROR:google_apis/gcm/engine/registration_request.cc:291] Registration response error message: PHONE_REGISTRATION_ERROR\n[69622:62615911:0523/175841.467373:ERROR:google_apis/gcm/engine/registration_request.cc:291] Registration response error message: PHONE_REGISTRATION_ERROR\n[69622:62615911:0523/175841.470931:ERROR:google_apis/gcm/engine/registration_request.cc:291] Registration response error message: PHONE_REGISTRATION_ERROR\n[69622:62615933:0523/175842.784800:ERROR:base/process/process_mac.cc:53] task_policy_set TASK_CATEGORY_POLICY: (os/kern) invalid argument (4)\n[69622:62615933:0523/175842.784821:ERROR:base/process/process_mac.cc:98] task_policy_set TASK_SUPPRESSION_POLICY: (os/kern) invalid argument (4)\n",
+        "target_id": "instagram_tag_robotics",
+        "url": "https://www.instagram.com/explore/tags/robotics/"
+      },
+      {
+        "browser_rendered": true,
+        "browser_runtime_started": true,
+        "browser_timed_out": true,
+        "elapsed_ms": 12025,
+        "expected_domain": "youtube.com",
+        "frontdoor_route_profile": {
+          "browser_fetch_required": true,
+          "contract_version": "ingest.frontdoor_route_profile.v1",
+          "domain": "youtube.com",
+          "fetch_strategy": "browser_render",
+          "high_js": true,
+          "http_fetch_fallback_allowed": false,
+          "reason_code": "needs_browser_runtime",
+          "render_required": true,
+          "route_hint": "crawler_browse",
+          "router_state": "needs_browser"
+        },
+        "markers": {
+          "contains_captcha": true,
+          "contains_javascript_disabled": false,
+          "contains_login": true,
+          "contains_robotics": true,
+          "contains_video_title": true,
+          "title": "robotics - YouTube"
+        },
+        "public_network_attempted": true,
+        "reason": "Headless Chrome rendered target-specific public search content.",
+        "rendered_dom_bytes": 2935925,
+        "returncode": null,
+        "status": "success",
+        "stderr_tail": "Trying to load the allocator multiple times. This is *not* supported.\n[69894:62617311:0523/175853.563700:ERROR:google_apis/gcm/engine/registration_request.cc:291] Registration response error message: PHONE_REGISTRATION_ERROR\n[69894:62617311:0523/175853.563816:ERROR:google_apis/gcm/engine/registration_request.cc:291] Registration response error message: PHONE_REGISTRATION_ERROR\n[69894:62617311:0523/175853.564986:ERROR:google_apis/gcm/engine/registration_request.cc:291] Registration response error message: PHONE_REGISTRATION_ERROR\n[69894:62617326:0523/175855.380169:ERROR:base/process/process_mac.cc:53] task_policy_set TASK_CATEGORY_POLICY: (os/kern) invalid argument (4)\n[69894:62617326:0523/175855.380191:ERROR:base/process/process_mac.cc:98] task_policy_set TASK_SUPPRESSION_POLICY: (os/kern) invalid argument (4)\n",
+        "target_id": "youtube_search_robotics",
+        "url": "https://www.youtube.com/results?search_query=robotics"
+      }
+    ]
+  },
+  "started_at": "2026-05-24T00:58:26Z",
+  "validation": {
+    "browser_runtime_started": true,
+    "errors": [],
+    "passed": true,
+    "public_network_attempted": true,
+    "real_public_high_js_replay_proven": false
+  }
+}

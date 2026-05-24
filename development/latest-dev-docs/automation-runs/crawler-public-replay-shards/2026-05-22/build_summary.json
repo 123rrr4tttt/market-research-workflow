@@ -1,0 +1,98 @@
+{
+  "generated_at": "2026-05-24T00:58:07Z",
+  "manifest_path": "development/latest-dev-docs/automation-runs/crawler-public-replay-shards/2026-05-22/shard_manifest.json",
+  "readback_path": "development/latest-dev-docs/automation-runs/crawler-public-replay-shards/2026-05-22/shard_readback.json",
+  "shards": [
+    {
+      "path": "development/latest-dev-docs/automation-runs/crawler-public-replay-shards/2026-05-22/output.public.shard-01.json",
+      "public_targets_attempted": 8,
+      "shard_id": "crawler_public_replay_shard_01",
+      "status_counts": {
+        "anti_bot_or_transport_blocked": 1,
+        "candidate_ready_with_term_fallback": 5,
+        "empty_public_result": 1,
+        "skipped_policy_disabled_platform_entry": 1,
+        "transport_blocked": 1
+      },
+      "validation_passed": true
+    },
+    {
+      "path": "development/latest-dev-docs/automation-runs/crawler-public-replay-shards/2026-05-22/output.public.shard-02.json",
+      "public_targets_attempted": 8,
+      "shard_id": "crawler_public_replay_shard_02",
+      "status_counts": {
+        "candidate_ready_with_term_fallback": 6,
+        "empty_public_result": 2,
+        "skipped_policy_disabled_platform_entry": 1
+      },
+      "validation_passed": true
+    },
+    {
+      "path": "development/latest-dev-docs/automation-runs/crawler-public-replay-shards/2026-05-22/output.public.shard-03.json",
+      "public_targets_attempted": 7,
+      "shard_id": "crawler_public_replay_shard_03",
+      "status_counts": {
+        "anti_bot_or_transport_blocked": 1,
+        "candidate_ready_with_term_fallback": 6,
+        "skipped_policy_disabled_platform_entry": 2
+      },
+      "validation_passed": true
+    },
+    {
+      "path": "development/latest-dev-docs/automation-runs/crawler-public-replay-shards/2026-05-22/output.public.shard-04.json",
+      "public_targets_attempted": 8,
+      "shard_id": "crawler_public_replay_shard_04",
+      "status_counts": {
+        "anti_bot_or_transport_blocked": 1,
+        "candidate_ready_with_term_fallback": 5,
+        "empty_public_result": 1,
+        "skipped_policy_disabled_platform_entry": 1,
+        "transport_blocked": 1
+      },
+      "validation_passed": true
+    },
+    {
+      "path": "development/latest-dev-docs/automation-runs/crawler-public-replay-shards/2026-05-22/output.public.shard-05.json",
+      "public_targets_attempted": 9,
+      "shard_id": "crawler_public_replay_shard_05",
+      "status_counts": {
+        "anti_bot_or_transport_blocked": 1,
+        "candidate_ready_with_term_fallback": 8
+      },
+      "validation_passed": true
+    }
+  ],
+  "source_public_output": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/output.public.json",
+  "source_public_replay": {
+    "checks": {
+      "allow_public_network": true,
+      "enabled_count": true,
+      "full_historical_manifest": true,
+      "not_skipped": true,
+      "operator_gate_skip_count": true,
+      "policy_skip_status_count": true,
+      "policy_skipped_count": true,
+      "public_targets_attempted": true,
+      "source_manifest_valid": true,
+      "target_count": true,
+      "target_results_count": true,
+      "validation_passed": true
+    },
+    "errors": [],
+    "passed": true,
+    "public_targets_attempted": 40,
+    "status_counts": {
+      "anti_bot_or_transport_blocked": 4,
+      "candidate_ready_with_term_fallback": 30,
+      "empty_public_result": 4,
+      "skipped_policy_disabled_platform_entry": 5,
+      "transport_blocked": 2
+    },
+    "target_result_count": 45
+  },
+  "validation": {
+    "errors": [],
+    "passed": true,
+    "write": true
+  }
+}

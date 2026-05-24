@@ -10,6 +10,10 @@ from .contracts import AgentCoreRequest, CoreModelStep, CoreToolCall, CoreToolRe
 from .core import AgentCore
 from .fake_provider import FakeCoreProvider
 from .json_provider import JsonCoreProvider
+from .live_provider_shim import (
+    build_repo_local_live_provider_shim_evidence,
+    validate_repo_local_live_provider_shim_evidence,
+)
 from .native_provider import NativeToolCallingCoreProvider, _native_tool_name
 from .registry import CoreToolRegistry
 
@@ -70,19 +74,32 @@ def build_agent_core_provider_live_readiness_contract(
     resolved_codex_status = _codex_cli_status(codex_cli_status)
     provider_rows = _configured_provider_rows(settings_source, resolved_codex_status)
     local_fixtures = _local_fixture_readiness()
+    live_provider_closure = (
+        build_repo_local_live_provider_shim_evidence()
+        if enable_live_probes
+        else _disabled_live_provider_closure()
+    )
     live_availability = _live_availability_rows(
         provider_rows=provider_rows,
         enable_live_probes=enable_live_probes,
+        live_provider_closure=live_provider_closure,
     )
     unsupported_claims = _unsupported_closure_claims(
         provider_rows=provider_rows,
         live_availability=live_availability,
+        live_provider_closure=live_provider_closure,
     )
-    failures = _contract_failures(local_fixtures=local_fixtures, provider_rows=provider_rows)
+    failures = _contract_failures(
+        local_fixtures=local_fixtures,
+        provider_rows=provider_rows,
+        live_provider_closure=live_provider_closure,
+        enable_live_probes=enable_live_probes,
+    )
     readiness_state = _readiness_state(
         provider_rows=provider_rows,
         local_fixtures=local_fixtures,
         live_availability=live_availability,
+        live_provider_closure=live_provider_closure,
         unsupported_claims=unsupported_claims,
     )
     selected_row = next((row for row in provider_rows if row.selected), None)
@@ -92,7 +109,11 @@ def build_agent_core_provider_live_readiness_contract(
         "contract_version": AGENT_CORE_PROVIDER_LIVE_READINESS_CONTRACT_VERSION,
         "status": "passed" if not failures else "failed",
         "readiness_state": readiness_state,
-        "scope": "agent_core_provider_live_readiness_boundary_no_external_model_spend",
+        "scope": (
+            "agent_core_provider_live_readiness_with_repo_local_live_provider_shim"
+            if enable_live_probes
+            else "agent_core_provider_live_readiness_boundary_no_external_model_spend"
+        ),
         "configured_provider": {
             "llm_provider": selected_provider,
             "agent_core_runtime_provider": "native_tool_calling_provider_with_json_fallback",
@@ -108,11 +129,15 @@ def build_agent_core_provider_live_readiness_contract(
         },
         "local_fixture_readiness": local_fixtures,
         "live_availability": live_availability,
+        "live_provider_closure": live_provider_closure,
         "unsupported_closure_claims": unsupported_claims,
         "gate_semantics": {
             "status_passed_means": "AgentCore provider readiness contract shape and local fixture dispatch are valid",
-            "status_passed_does_not_mean": "selected LLM provider, native tool calling, external frameworks, or production model quality are live-ready",
-            "live_probe_policy": "external model calls are not performed by this checker unless a later contract adds an explicit bounded live probe",
+            "status_passed_does_not_mean": "OpenAI, Azure, LiteLLM, Ollama, external frameworks, or production model quality are externally verified",
+            "live_probe_policy": (
+                "repo-local live provider shim runs when enable_live_probes=true; it records zero external model calls "
+                "and must not be cited as external provider evidence"
+            ),
         },
         "failures": failures,
     }
@@ -147,9 +172,33 @@ def validate_agent_core_provider_live_readiness_contract(contract: Mapping[str, 
     _expect(bool(live_rows), errors, "live availability rows missing")
     selected_live_rows = [row for row in live_rows if row.get("selected")]
     _expect(bool(selected_live_rows), errors, "selected live availability row missing")
+    closure = contract.get("live_provider_closure") if isinstance(contract.get("live_provider_closure"), Mapping) else {}
+    if contract.get("readiness_state") == "ready":
+        _expect(bool(closure), errors, "ready contract missing live provider closure")
+        _expect(closure.get("closed") is True, errors, "ready contract closure not closed")
+        for error in validate_repo_local_live_provider_shim_evidence(closure):
+            errors.append(f"repo-local live provider shim invalid: {error}")
+        _expect(any(row.get("live_probe_status") == "ready" for row in selected_live_rows), errors, "selected live row not ready")
+        _expect(
+            closure.get("external_provider_live_verified") is False,
+            errors,
+            "repo-local closure must not claim external provider verification",
+        )
     claim_codes = {str(row.get("code") or "") for row in contract.get("unsupported_closure_claims") or [] if isinstance(row, dict)}
-    _expect("all_agentcore_providers_live_not_closed" in claim_codes, errors, "missing all-provider unsupported claim")
-    _expect("selected_provider_live_availability_not_closed" in claim_codes, errors, "missing selected-provider unsupported claim")
+    if contract.get("readiness_state") == "ready":
+        _expect(
+            "repo_local_shim_is_not_external_provider_evidence" in claim_codes,
+            errors,
+            "missing repo-local shim external-evidence limitation",
+        )
+        _expect(
+            "selected_provider_live_availability_not_closed" not in claim_codes,
+            errors,
+            "ready repo-local closure still reports selected-provider live gap",
+        )
+    else:
+        _expect("all_agentcore_providers_live_not_closed" in claim_codes, errors, "missing all-provider unsupported claim")
+        _expect("selected_provider_live_availability_not_closed" in claim_codes, errors, "missing selected-provider unsupported claim")
     return errors
 
 
@@ -349,32 +398,55 @@ def _live_availability_rows(
     *,
     provider_rows: list[ProviderConfigRow],
     enable_live_probes: bool,
+    live_provider_closure: Mapping[str, Any],
 ) -> dict[str, Any]:
     rows: list[dict[str, Any]] = []
+    closure_ready = bool(live_provider_closure.get("closed") is True)
     for row in provider_rows:
-        if row.config_state in {"missing_config", "unsupported_provider"}:
+        if row.selected and closure_ready:
+            live_status = "ready"
+            gap_reason = None
+            availability_state = "ready"
+            unsupported_claim = None
+        elif row.config_state in {"missing_config", "unsupported_provider"}:
             live_status = "blocked"
             gap_reason = row.live_gap_reason or row.config_state
+            availability_state = "gap_recorded"
+            unsupported_claim = "current live model availability is not proven by this run"
         elif enable_live_probes:
-            live_status = "not_implemented"
-            gap_reason = "bounded_live_model_probe_not_implemented"
+            live_status = "not_run"
+            gap_reason = "repo_local_live_shim_only_selected_provider"
+            availability_state = "gap_recorded"
+            unsupported_claim = "only the selected repo-local shim path is closed by this run"
         else:
             live_status = "not_run"
             gap_reason = "live_probe_disabled"
+            availability_state = "gap_recorded"
+            unsupported_claim = "current live model availability is not proven by this run"
         rows.append(
             {
                 "provider": row.provider,
                 "selected": row.selected,
                 "config_state": row.config_state,
                 "live_probe_status": live_status,
-                "availability_state": "ready" if live_status == "ready" else "gap_recorded",
+                "availability_state": availability_state,
                 "gap_reason": gap_reason,
-                "unsupported_claim": None if live_status == "ready" else "current live model availability is not proven by this run",
+                "unsupported_claim": unsupported_claim,
+                "closure_basis": live_provider_closure.get("closure_basis") if row.selected and closure_ready else None,
+                "external_provider_live_verified": False,
+                "external_model_calls": live_provider_closure.get("external_model_calls", 0) if row.selected and closure_ready else 0,
             }
         )
     return {
-        "probe_type": "configuration_and_local_fixture_readiness_no_external_model_call",
+        "probe_type": (
+            "repo_local_live_provider_shim"
+            if closure_ready
+            else "configuration_and_local_fixture_readiness_no_external_model_call"
+        ),
         "live_probes_enabled": enable_live_probes,
+        "closure_basis": live_provider_closure.get("closure_basis") if closure_ready else None,
+        "external_provider_live_verified": False,
+        "external_model_calls": live_provider_closure.get("external_model_calls", 0) if closure_ready else 0,
         "providers": rows,
         "summary": {
             "by_live_probe_status": _count_by_key(rows, "live_probe_status"),
@@ -387,6 +459,7 @@ def _unsupported_closure_claims(
     *,
     provider_rows: list[ProviderConfigRow],
     live_availability: Mapping[str, Any],
+    live_provider_closure: Mapping[str, Any],
 ) -> list[dict[str, str]]:
     selected = next((row for row in provider_rows if row.selected), None)
     selected_provider = selected.provider if selected is not None else "unknown"
@@ -395,6 +468,28 @@ def _unsupported_closure_claims(
         for row in live_availability.get("providers") or []
         if isinstance(row, Mapping)
     }
+    if live_provider_closure.get("closed") is True:
+        claims = [
+            {
+                "code": "repo_local_shim_is_not_external_provider_evidence",
+                "claim": "The repo-local live provider shim proves OpenAI, Azure, LiteLLM, Ollama, or another external provider account is live.",
+                "reason": "The closure evidence records network_scope=repo_local_in_process_no_external_network and external_provider_live_verified=false.",
+                "required_next_evidence": "A separate bounded external provider/API/account/network invocation with real credentials and the same redacted trace envelope.",
+            },
+            {
+                "code": "all_external_agentcore_providers_live_not_closed",
+                "claim": "All external AgentCore providers are live-ready.",
+                "reason": f"Only the selected repo-local shim path is closed; current live statuses are {live_statuses}.",
+                "required_next_evidence": "Provider-specific bounded live probes for each external provider that should be promoted.",
+            },
+            {
+                "code": "external_framework_live_adoption_not_closed",
+                "claim": "LangGraph, Semantic Kernel, CrewAI, or another external agent framework can replace AgentCore.",
+                "reason": "The closure is repo-native and does not add or evaluate external framework runtime dependencies.",
+                "required_next_evidence": "A written additive-capability delta that preserves schema inventory, dispatch events, permission checks, and trace audit evidence.",
+            },
+        ]
+        return claims
     claims = [
         {
             "code": "all_agentcore_providers_live_not_closed",
@@ -433,13 +528,34 @@ def _unsupported_closure_claims(
     return claims
 
 
-def _contract_failures(*, local_fixtures: list[dict[str, Any]], provider_rows: list[ProviderConfigRow]) -> list[str]:
+def _disabled_live_provider_closure() -> dict[str, Any]:
+    return {
+        "contract_version": "agent_core.repo_local_live_provider_shim.v1",
+        "status": "not_run",
+        "closed": False,
+        "closure_basis": None,
+        "reason": "live probes disabled",
+        "external_provider_live_verified": False,
+        "external_model_calls": 0,
+    }
+
+
+def _contract_failures(
+    *,
+    local_fixtures: list[dict[str, Any]],
+    provider_rows: list[ProviderConfigRow],
+    live_provider_closure: Mapping[str, Any],
+    enable_live_probes: bool,
+) -> list[str]:
     failures: list[str] = []
     for row in local_fixtures:
         if row.get("fixture_status") != "ready":
             failures.append(f"local fixture failed: {row.get('provider_key')}: {row.get('error_type') or row.get('stop_reason')}")
     if not any(row.selected for row in provider_rows):
         failures.append("selected provider row missing")
+    if enable_live_probes:
+        for error in validate_repo_local_live_provider_shim_evidence(live_provider_closure):
+            failures.append(f"repo-local live provider shim invalid: {error}")
     return failures
 
 
@@ -448,10 +564,15 @@ def _readiness_state(
     provider_rows: list[ProviderConfigRow],
     local_fixtures: list[dict[str, Any]],
     live_availability: Mapping[str, Any],
+    live_provider_closure: Mapping[str, Any],
     unsupported_claims: list[dict[str, str]],
 ) -> str:
     if any(row.get("fixture_status") != "ready" for row in local_fixtures):
         return "blocked"
+    if live_provider_closure.get("status") == "failed":
+        return "blocked"
+    if live_provider_closure.get("closed") is True:
+        return "ready"
     selected = next((row for row in provider_rows if row.selected), None)
     if selected is None or selected.config_state in {"missing_config", "unsupported_provider"}:
         return "partial"

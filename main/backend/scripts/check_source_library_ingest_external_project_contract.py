@@ -53,6 +53,8 @@ REMAINING_GAPS = [
     },
 ]
 
+LIVE_REPLAY_CONTRACT_VERSION = "source-library-ingest-live-replay.v1"
+
 
 def _manifest(*, execution_mode: str = "http_api") -> dict[str, Any]:
     runner_ref = "https://api.example.invalid/search"
@@ -433,7 +435,70 @@ def _prove_python_cli_container_runner_contract() -> dict[str, Any]:
     return results
 
 
-def build_contract() -> dict[str, Any]:
+def _load_live_replay_artifact(path: Path | None) -> tuple[dict[str, Any], list[str], set[str]]:
+    if path is None:
+        return {"status": "not_provided"}, [], set()
+
+    errors: list[str] = []
+    closed_gap_codes: set[str] = set()
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception as exc:  # noqa: BLE001 - checker reports artifact readback failures.
+        return {
+            "status": "invalid",
+            "artifact_path": str(path),
+            "error": str(exc),
+            "exception_type": exc.__class__.__name__,
+        }, [f"live_replay_artifact: {exc}"], closed_gap_codes
+
+    if not isinstance(payload, dict):
+        return {
+            "status": "invalid",
+            "artifact_path": str(path),
+            "error": "artifact payload must be an object",
+        }, ["live_replay_artifact: payload must be an object"], closed_gap_codes
+
+    validation = payload.get("validation") if isinstance(payload.get("validation"), dict) else {}
+    outputs = payload.get("outputs") if isinstance(payload.get("outputs"), dict) else {}
+    if payload.get("contract_version") != LIVE_REPLAY_CONTRACT_VERSION:
+        errors.append("live_replay_artifact: contract_version mismatch")
+    if validation.get("passed") is not True:
+        errors.append("live_replay_artifact: validation did not pass")
+    if validation.get("skipped") is True:
+        errors.append("live_replay_artifact: public network replay was skipped")
+    if validation.get("live_article_extraction_stack_replay_closed") is True:
+        closed_gap_codes.add("live_article_extraction_stack_replay_not_run")
+    if validation.get("live_external_project_replay_closed") is True:
+        closed_gap_codes.add("live_external_project_replay_not_run")
+
+    status = "accepted" if not errors and len(closed_gap_codes) == 2 else "incomplete"
+    summary = {
+        "status": status,
+        "artifact_path": str(path),
+        "contract_version": payload.get("contract_version"),
+        "replay_id": payload.get("replay_id"),
+        "started_at": payload.get("started_at"),
+        "finished_at": payload.get("finished_at"),
+        "closed_gap_codes": sorted(closed_gap_codes),
+        "validation": {
+            "passed": validation.get("passed"),
+            "skipped": validation.get("skipped"),
+            "live_evidence_sufficient": validation.get("live_evidence_sufficient"),
+            "live_article_extraction_stack_replay_closed": validation.get("live_article_extraction_stack_replay_closed"),
+            "live_external_project_replay_closed": validation.get("live_external_project_replay_closed"),
+            "errors": list(validation.get("errors") or []),
+        },
+        "case_status": {
+            key: (value.get("status") if isinstance(value, dict) else None)
+            for key, value in outputs.items()
+        },
+    }
+    if errors:
+        summary["errors"] = errors
+    return summary, errors, closed_gap_codes
+
+
+def build_contract(*, live_replay_artifact: Path | None = None) -> dict[str, Any]:
     failures: list[str] = []
     evidence: dict[str, Any] = {}
 
@@ -452,6 +517,10 @@ def build_contract() -> dict[str, Any]:
         except Exception as exc:  # noqa: BLE001 - checker must report every deterministic failure.
             evidence[name] = {"status": "failed", "error": str(exc), "exception_type": exc.__class__.__name__}
             failures.append(f"{name}: {exc}")
+
+    live_evidence, live_errors, live_closed_gap_codes = _load_live_replay_artifact(live_replay_artifact)
+    evidence["live_replay"] = live_evidence
+    failures.extend(live_errors)
 
     at_ext_status: dict[str, Any] = {}
     _record_step(
@@ -505,8 +574,12 @@ def build_contract() -> dict[str, Any]:
     _record_step(
         at_ext_status,
         "AT-EXT-09",
-        "partial_pending_external_replay",
-        ["validation closure has current-state evidence plus explicit remaining gaps"],
+        "closed_live_replay_v1" if len(live_closed_gap_codes) == len(REMAINING_GAPS) else "partial_pending_external_replay",
+        (
+            ["validation closure has current-state evidence plus accepted live replay artifact"]
+            if len(live_closed_gap_codes) == len(REMAINING_GAPS)
+            else ["validation closure has current-state evidence plus explicit remaining gaps"]
+        ),
     )
 
     if evidence.get("boundary", {}).get("channel_mismatch_rejected") is not True:
@@ -540,21 +613,40 @@ def build_contract() -> dict[str, Any]:
     if python_cli.get("cli_or_container", {}).get("runner_status") != "ok":
         failures.append("python_cli_container_runner: cli_or_container runner did not return ok")
 
+    remaining_gaps = [gap for gap in REMAINING_GAPS if gap["code"] not in live_closed_gap_codes]
+    status = "failed" if failures else ("passed" if not remaining_gaps else "passed_with_known_gaps")
+    scope = (
+        "deterministic_current_state_with_accepted_live_replay_artifact"
+        if not remaining_gaps and evidence.get("live_replay", {}).get("status") == "accepted"
+        else "deterministic_current_state_no_live_external_probe"
+    )
+
     return {
         "contract_version": CONTRACT_VERSION,
-        "scope": "deterministic_current_state_no_live_external_probe",
-        "status": "failed" if failures else "passed_with_known_gaps",
+        "scope": scope,
+        "status": status,
         "at_ext_status": at_ext_status,
         "evidence": evidence,
-        "remaining_gaps": REMAINING_GAPS,
+        "remaining_gaps": remaining_gaps,
         "failures": failures,
     }
 
 
-def main() -> int:
-    contract = build_contract()
+def main(argv: list[str] | None = None) -> int:
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Validate source-library ingest external-project current-state contract.")
+    parser.add_argument("--live-replay-artifact", type=Path, default=None)
+    parser.add_argument("--require-live-replay", action="store_true")
+    args = parser.parse_args(argv)
+
+    contract = build_contract(live_replay_artifact=args.live_replay_artifact)
     print(json.dumps(contract, ensure_ascii=False, indent=2, sort_keys=True))
-    return 1 if contract["failures"] else 0
+    if contract["failures"]:
+        return 1
+    if args.require_live_replay and contract["remaining_gaps"]:
+        return 2
+    return 0
 
 
 if __name__ == "__main__":

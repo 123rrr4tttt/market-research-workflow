@@ -1,0 +1,123 @@
+{
+  "closure": {
+    "claim": "deterministic_fixture_ready_not_public_high_js_replay_complete",
+    "deterministic_fixture_ready": true,
+    "full_closure_allowed": false,
+    "real_public_high_js_replay_complete": false
+  },
+  "contract_version": "llm_crawler.high_js_replay_readiness.v1",
+  "deterministic_fixture": {
+    "provider_handoff": {
+      "assertions": {
+        "authority_provider_summary": true,
+        "frontdoor_browser_route": true,
+        "frontdoor_provider_dispatch": true,
+        "terminal_handoff_contract": true,
+        "terminal_provider_job_id": true
+      },
+      "contract_version": "crawler_provider_handoff.check.v1",
+      "fixture_target": "https://x.com/search?q=robotics",
+      "public_network_attempted": false,
+      "status": "passed"
+    },
+    "ready": true,
+    "target_count": 3,
+    "target_profiles": [
+      {
+        "domain": "x.com",
+        "fetch_strategy": "browser_render",
+        "high_js": true,
+        "render_required": true,
+        "route_hint": "crawler_browse",
+        "router_contract": {
+          "browser_fetch_required": true,
+          "contract_version": "ingest.frontdoor_fetch_router.v1",
+          "crawler_provider_allowed": true,
+          "dashboard_status": "degraded_success",
+          "http_fetch_fallback_allowed": false,
+          "public_browser_replay_performed": false,
+          "reason_code": "needs_browser_runtime",
+          "router_state": "needs_browser"
+        },
+        "target_id": "x_search_robotics",
+        "url": "https://x.com/search?q=robotics"
+      },
+      {
+        "domain": "instagram.com",
+        "fetch_strategy": "browser_render",
+        "high_js": true,
+        "render_required": true,
+        "route_hint": "crawler_browse",
+        "router_contract": {
+          "browser_fetch_required": true,
+          "contract_version": "ingest.frontdoor_fetch_router.v1",
+          "crawler_provider_allowed": true,
+          "dashboard_status": "degraded_success",
+          "http_fetch_fallback_allowed": false,
+          "public_browser_replay_performed": false,
+          "reason_code": "needs_browser_runtime",
+          "router_state": "needs_browser"
+        },
+        "target_id": "instagram_tag_robotics",
+        "url": "https://www.instagram.com/explore/tags/robotics/"
+      },
+      {
+        "domain": "youtube.com",
+        "fetch_strategy": "browser_render",
+        "high_js": true,
+        "render_required": true,
+        "route_hint": "crawler_browse",
+        "router_contract": {
+          "browser_fetch_required": true,
+          "contract_version": "ingest.frontdoor_fetch_router.v1",
+          "crawler_provider_allowed": true,
+          "dashboard_status": "degraded_success",
+          "http_fetch_fallback_allowed": false,
+          "public_browser_replay_performed": false,
+          "reason_code": "needs_browser_runtime",
+          "router_state": "needs_browser"
+        },
+        "target_id": "youtube_search_robotics",
+        "url": "https://www.youtube.com/results?search_query=robotics"
+      }
+    ]
+  },
+  "evidence_doc": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-08-llm-crawler-unified-frontdoor/06_wave13-high-js-public-replay-readiness-2026-05-22.md",
+  "public_high_js_replay": {
+    "blocker_type": "public_artifact_present_but_not_proven",
+    "contract_version": "llm_crawler.high_js_public_replay.v1",
+    "full_closure_allowed": false,
+    "high_js_success_count": 2,
+    "path": "development/latest-dev-docs/automation-runs/llm-crawler-high-js-public-replay/2026-05-23/output.public.attempt.json",
+    "public_network_attempted": true,
+    "public_targets_attempted": 3,
+    "real_public_high_js_replay_proven": false,
+    "requirements": {
+      "all_targets_successful": false,
+      "contract_version_ok": true,
+      "explicit_proof": false,
+      "public_network_attempted": true,
+      "sufficient_targets": true
+    },
+    "status": "present_not_proven",
+    "target_count": 3
+  },
+  "repo_root": "/Users/wangyiliang/market-research-workflow",
+  "scope": "llm_crawler_unified_frontdoor_high_js_public_replay_boundary",
+  "status": "public_replay_artifact_not_proven",
+  "validation": {
+    "errors": [
+      "public replay artifact is present but does not prove real public high-JS replay completion"
+    ],
+    "passed": false,
+    "protected_shared_indexes": [
+      "development/latest-dev-docs/development-plans/CURRENT_DEV/INDEX.md",
+      "development/latest-dev-docs/development-plans/CURRENT_DEV/STATUS_AUDIT_2026-04-07.md",
+      "development/latest-dev-docs/development-plans/INDEX.md",
+      "development/latest-dev-docs/README.md",
+      "development/latest-dev-docs/MERGED_OVERVIEW.md"
+    ],
+    "public_network_attempted": true,
+    "shared_indexes_edited": false
+  }
+}

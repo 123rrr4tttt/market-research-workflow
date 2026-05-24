@@ -77,6 +77,15 @@ class Wave29OssNodeVectorManifestReplayTest(unittest.TestCase):
             self.assertIn("semantic_embedding_quality_not_proven", row["unsupported_claim_codes"])
             self.assertIn("live_scheduler_tenant_db_ui_sla_not_proven", row["unsupported_claim_codes"])
 
+        platform = contract["platform_io_sla_readback"]
+        self.assertEqual(platform["contract_version"], "wave55-oss-node-platform-io-sla-readback.v1")
+        self.assertEqual(platform["status"], "passed")
+        self.assertEqual(platform["repo_local_contract"]["status"], "passed")
+        self.assertEqual(platform["live_probe"]["status"], "not_requested")
+        self.assertFalse(platform["platform_io_live_sla_closed"])
+        self.assertIn("live_scheduler_tenant_db_ui_sla_not_proven", contract["external_conditions_retained"])
+        self.assertTrue(contract["repo_local_closure"]["platform_io_sla_readback_attached"])
+
     def test_gate_fails_if_manifest_mode_claims_live_provider(self) -> None:
         module = _load_wave29_module()
         manifest = json.loads(module.DEFAULT_PROVIDER_MANIFEST.read_text(encoding="utf-8"))
@@ -92,6 +101,37 @@ class Wave29OssNodeVectorManifestReplayTest(unittest.TestCase):
         self.assertTrue(
             any("live_provider_verified must remain false" in failure for failure in contract["failures"])
         )
+
+    def test_live_platform_probe_can_close_scheduler_tenant_ui_condition(self) -> None:
+        module = _load_wave29_module()
+        original_probe = module._run_live_platform_probe
+
+        def fake_live_probe(*, live_api_base: str | None, live_ui_base: str | None, timeout: float) -> dict:
+            return {
+                "contract_version": "wave55-oss-node-platform-io-live-probe.v1",
+                "status": "passed",
+                "platform_io_live_sla_closed": True,
+                "api_base": live_api_base,
+                "ui_base": live_ui_base,
+                "api_rows": [{"step": "run", "status": "ok", "run_status": "succeeded"}],
+                "ui_probe": {"validated": True},
+                "failures": [],
+            }
+
+        module._run_live_platform_probe = fake_live_probe
+        try:
+            contract = module.build_contract(
+                live_api_base="http://127.0.0.1:8000/api/v1",
+                live_ui_base="http://127.0.0.1:5173/",
+            )
+        finally:
+            module._run_live_platform_probe = original_probe
+
+        self.assertEqual(contract["status"], "passed")
+        self.assertTrue(contract["platform_io_sla_readback"]["platform_io_live_sla_closed"])
+        self.assertTrue(contract["repo_local_closure"]["platform_io_live_sla_closed"])
+        self.assertNotIn("live_scheduler_tenant_db_ui_sla_not_proven", contract["external_conditions_retained"])
+        self.assertIn("external_embedding_provider_live_not_verified", contract["external_conditions_retained"])
 
 
 if __name__ == "__main__":

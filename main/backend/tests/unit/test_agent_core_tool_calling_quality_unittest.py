@@ -9,6 +9,10 @@ import pytest
 
 from app.services.agent_core import AgentCoreRequest, CoreToolSpec, NativeToolCallingCoreProvider
 from app.services.agent_core.native_provider import _native_tool_name
+from app.services.agent_core.live_provider_shim import (
+    build_repo_local_live_provider_shim_evidence,
+    validate_repo_local_live_provider_shim_evidence,
+)
 from app.services.agent_core.tool_calling_quality import (
     build_agent_core_tool_calling_quality_contract,
     validate_agent_core_tool_calling_quality_contract,
@@ -110,6 +114,23 @@ class AgentCoreToolCallingQualityUnitTest(unittest.TestCase):
         self.assertEqual(call.call_id, "call-native-openai-function-shape")
         self.assertEqual(call.tool_name, "agent.tool_calling_quality.echo")
         self.assertEqual(call.arguments, {"query": "native-openai-shape"})
+
+    def test_repo_local_live_provider_shim_records_native_tool_calling_closure_shape(self) -> None:
+        evidence = build_repo_local_live_provider_shim_evidence()
+
+        self.assertEqual(validate_repo_local_live_provider_shim_evidence(evidence), [])
+        self.assertTrue(evidence["closed"])
+        self.assertEqual(evidence["closure_basis"], "repo_local_live_provider_shim")
+        self.assertFalse(evidence["external_provider_live_verified"])
+        self.assertEqual(evidence["external_model_calls"], 0)
+        self.assertEqual(evidence["repo_local_model_calls"], 2)
+        response_shapes = evidence["raw_response_shape_classification"]["responses"]
+        self.assertEqual(response_shapes[0]["response_kind"], "openai_compatible_tool_calls")
+        self.assertEqual(response_shapes[0]["arguments_type"], "json_string")
+        self.assertFalse(response_shapes[0]["raw_arguments_persisted"])
+        self.assertEqual(response_shapes[1]["response_kind"], "final_answer")
+        self.assertEqual(evidence["tool_call_readback"]["shape_status"], "valid")
+        self.assertTrue(evidence["tool_call_readback"]["arguments_redacted"])
 
 
 class _OpenAiFunctionToolCallChat:

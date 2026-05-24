@@ -12,6 +12,8 @@ import argparse
 import json
 from pathlib import Path
 from typing import Any
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -33,16 +35,43 @@ REQUIRED_PROVIDER_GAP_CODES = {
     "provider_auto_promotion_not_allowed",
     "semantic_embedding_quality_not_proven",
 }
-TARGET_EXTERNAL_CONDITIONS = (
+PLATFORM_IO_LIVE_SLA_CONDITION = "live_scheduler_tenant_db_ui_sla_not_proven"
+PROVIDER_EXTERNAL_CONDITIONS = (
     "external_embedding_provider_live_not_verified",
     "local_open_search_live_quality_not_sealed",
     "semantic_embedding_quality_not_proven",
-    "live_scheduler_tenant_db_ui_sla_not_proven",
 )
+TARGET_EXTERNAL_CONDITIONS = (*PROVIDER_EXTERNAL_CONDITIONS, PLATFORM_IO_LIVE_SLA_CONDITION)
 REPO_LOCAL_BLOCKERS_CLOSED = (
     "node_schema_runtime_persistence_platformization_scope_not_closed",
     "vector_search_node_manifest_consumption_not_live_replayed",
 )
+WAVE55_PLATFORM_IO_CONTRACT_VERSION = "wave55-oss-node-platform-io-sla-readback.v1"
+FRONTEND_WORKFLOW_API_PATH = REPO_ROOT / "main/frontend-modern/src/lib/api/domains/graph-workflow.ts"
+FRONTEND_LLM_DESIGNER_PATH = REPO_ROOT / "main/frontend-modern/src/pages/LlmDesignerPage.tsx"
+FRONTEND_ENDPOINTS_PATH = REPO_ROOT / "main/frontend-modern/src/lib/api/endpoints.ts"
+FRONTEND_REQUIRED_MARKERS = {
+    "graph_workflow_domain": (
+        "compileWorkflowGraph",
+        "runWorkflowGraph",
+        "getWorkflowGraphRun",
+        "getWorkflowGraphRunEvents",
+        "replayWorkflowGraphRun",
+    ),
+    "llm_designer_consumer": (
+        "compileWorkflowGraph",
+        "runWorkflowGraph",
+        "getWorkflowGraphRun",
+        "getWorkflowGraphRunEvents",
+        "getCompiledWorkflowGraph",
+    ),
+    "workflow_endpoints": (
+        "/workflow-graph/compile",
+        "/workflow-graph/run",
+        "/workflow-graph/runs/",
+        "/workflow-graph/compiled/",
+    ),
+}
 
 
 def display_path(path: Path) -> str:
@@ -404,7 +433,487 @@ def _event_replay_consistency(snapshot: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def build_contract(*, provider_manifest_path: Path | None = None) -> dict[str, Any]:
+def _source_marker_check(path: Path, markers: tuple[str, ...]) -> dict[str, Any]:
+    row = {
+        "path": display_path(path),
+        "exists": path.exists(),
+        "markers": list(markers),
+        "missing_markers": list(markers),
+        "status": "missing",
+    }
+    if not path.exists():
+        return row
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        row["status"] = "failed"
+        row["failures"] = [str(exc)]
+        return row
+    missing = [marker for marker in markers if marker not in text]
+    row["missing_markers"] = missing
+    row["status"] = "passed" if not missing else "failed"
+    return row
+
+
+def _api_envelope_readback(node_replay: dict[str, Any]) -> dict[str, Any]:
+    failures: list[str] = []
+    rows: list[dict[str, Any]] = []
+    try:
+        from app.api import workflow_graph as workflow_graph_api
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "status": "failed",
+            "failures": [f"workflow_graph API normalizers unavailable: {exc}"],
+            "rows": rows,
+        }
+
+    run = node_replay.get("run") or {}
+    node_statuses = dict(run.get("node_statuses") or {})
+    samples = {
+        "compile": workflow_graph_api._normalize_compile(  # noqa: SLF001
+            {
+                "graph_id": node_replay.get("workflow_graph", {}).get("graph_id"),
+                "version": node_replay.get("workflow_graph", {}).get("version"),
+                "checksum": node_replay.get("workflow_graph", {}).get("checksum"),
+                "topo_order": node_replay.get("workflow_graph", {}).get("topo_order"),
+                "warnings": [],
+            }
+        ),
+        "run": workflow_graph_api._normalize_run(  # noqa: SLF001
+            {
+                "run_id": run.get("run_id"),
+                "status": run.get("status"),
+                "node_statuses": node_statuses,
+                "session_id": "wave55-repo-local-session",
+                "current_phase": "verification",
+                "compat_mode": False,
+            }
+        ),
+        "run_detail": workflow_graph_api._normalize_run_detail(  # noqa: SLF001
+            {
+                "run_id": run.get("run_id"),
+                "status": run.get("status"),
+                "node_statuses": node_statuses,
+                "replay_mode": "stateful",
+            }
+        ),
+        "run_events": workflow_graph_api._normalize_run_events(  # noqa: SLF001
+            {
+                "items": [{"type": "run.succeeded", "node_id": None}],
+                "session_id": "wave55-repo-local-session",
+            }
+        ),
+    }
+
+    for name, sample in samples.items():
+        status = "passed"
+        sample_failures: list[str] = []
+        if sample.get("contract_version") != "workflow_graph.v2":
+            sample_failures.append("contract_version expected workflow_graph.v2")
+        if name in {"run", "run_detail"} and sample.get("nodes") != node_statuses:
+            sample_failures.append("nodes alias must mirror node_statuses")
+        if name == "run_events" and sample.get("total") != len(sample.get("items") or []):
+            sample_failures.append("run_events.total must mirror items length")
+        if sample_failures:
+            status = "failed"
+            failures.extend(f"{name}: {failure}" for failure in sample_failures)
+        rows.append(
+            {
+                "name": name,
+                "status": status,
+                "contract_version": sample.get("contract_version"),
+                "failures": sample_failures,
+            }
+        )
+    return {
+        "status": "passed" if not failures else "failed",
+        "failures": failures,
+        "rows": rows,
+    }
+
+
+def _repo_local_platform_io_contract_readback(node_replay: dict[str, Any]) -> dict[str, Any]:
+    failures: list[str] = []
+    run = node_replay.get("run") or {}
+    workflow_graph = node_replay.get("workflow_graph") or {}
+    mode_results = list(node_replay.get("mode_results") or [])
+    event_consistency = node_replay.get("event_replay_consistency") or {}
+
+    if node_replay.get("status") != "passed":
+        failures.append("node manifest replay must pass before platform IO SLA readback")
+    if run.get("status") != "succeeded":
+        failures.append(f"run.status expected succeeded, got {run.get('status')!r}")
+    if event_consistency.get("consistent") is not True:
+        failures.append("event replay consistency must be true")
+    expected_event_floor = 3 + (2 * len(REQUIRED_MODES))
+    if int(run.get("events_count") or 0) < expected_event_floor:
+        failures.append(f"run.events_count below scheduler/event floor {expected_event_floor}")
+    if workflow_graph.get("node_count") != len(REQUIRED_MODES):
+        failures.append("workflow graph node_count must match required manifest modes")
+
+    tenant_rows: list[dict[str, Any]] = []
+    for row in mode_results:
+        mode = str(row.get("mode") or "")
+        io_keys = set(str(key) for key in (row.get("io_trace_keys") or []))
+        row_failures: list[str] = []
+        for key in ("project_id", "provider_manifest_version", "query"):
+            if key not in io_keys:
+                row_failures.append(f"io_trace missing {key}")
+        if row.get("manifest_consumed") is not True:
+            row_failures.append("manifest_consumed must be true")
+        if row_failures:
+            failures.extend(f"{mode}: {failure}" for failure in row_failures)
+        tenant_rows.append(
+            {
+                "mode": mode,
+                "status": "passed" if not row_failures else "failed",
+                "tenant_project_scope_readback": "project_id" in io_keys,
+                "provider_manifest_version_readback": "provider_manifest_version" in io_keys,
+                "failures": row_failures,
+            }
+        )
+
+    api_envelope = _api_envelope_readback(node_replay)
+    failures.extend(f"api_envelope_readback: {failure}" for failure in api_envelope.get("failures") or [])
+
+    source_checks = {
+        "graph_workflow_domain": _source_marker_check(
+            FRONTEND_WORKFLOW_API_PATH,
+            FRONTEND_REQUIRED_MARKERS["graph_workflow_domain"],
+        ),
+        "llm_designer_consumer": _source_marker_check(
+            FRONTEND_LLM_DESIGNER_PATH,
+            FRONTEND_REQUIRED_MARKERS["llm_designer_consumer"],
+        ),
+        "workflow_endpoints": _source_marker_check(
+            FRONTEND_ENDPOINTS_PATH,
+            FRONTEND_REQUIRED_MARKERS["workflow_endpoints"],
+        ),
+    }
+    for name, row in source_checks.items():
+        if row.get("status") != "passed":
+            missing = ", ".join(row.get("missing_markers") or [])
+            failures.append(f"frontend_source_check:{name}: missing {missing or 'source file'}")
+
+    return {
+        "contract_version": "wave55-oss-node-platform-io-local-contract.v1",
+        "status": "passed" if not failures else "failed",
+        "scheduler_run_store_readback": {
+            "run_id": run.get("run_id"),
+            "run_status": run.get("status"),
+            "events_count": run.get("events_count"),
+            "event_replay_consistent": event_consistency.get("consistent"),
+            "event_floor": expected_event_floor,
+        },
+        "tenant_project_scope_rows": tenant_rows,
+        "api_envelope_readback": api_envelope,
+        "frontend_source_checks": source_checks,
+        "failures": failures,
+    }
+
+
+def _join_url(base: str, path: str) -> str:
+    return f"{str(base).rstrip('/')}/{path.lstrip('/')}"
+
+
+def _http_json(
+    *,
+    method: str,
+    url: str,
+    payload: dict[str, Any] | None = None,
+    headers: dict[str, str] | None = None,
+    timeout: float,
+) -> tuple[int, dict[str, Any]]:
+    body = None if payload is None else json.dumps(payload).encode("utf-8")
+    request_headers = {"Accept": "application/json", **dict(headers or {})}
+    if body is not None:
+        request_headers["Content-Type"] = "application/json"
+    request = Request(url, data=body, headers=request_headers, method=method.upper())
+    with urlopen(request, timeout=timeout) as response:  # noqa: S310 - local validation URL is operator supplied.
+        status_code = int(response.getcode())
+        raw = response.read().decode("utf-8")
+    return status_code, json.loads(raw or "{}")
+
+
+def _http_text(*, url: str, timeout: float) -> tuple[int, str]:
+    request = Request(url, headers={"Accept": "text/html,application/xhtml+xml"}, method="GET")
+    with urlopen(request, timeout=timeout) as response:  # noqa: S310 - local validation URL is operator supplied.
+        status_code = int(response.getcode())
+        raw = response.read().decode("utf-8", errors="replace")
+    return status_code, raw
+
+
+def _run_live_platform_probe(
+    *,
+    live_api_base: str | None,
+    live_ui_base: str | None,
+    timeout: float,
+) -> dict[str, Any]:
+    api_base = str(live_api_base or "").strip()
+    ui_base = str(live_ui_base or "").strip()
+    if not api_base and not ui_base:
+        return {
+            "status": "not_requested",
+            "platform_io_live_sla_closed": False,
+            "failures": [],
+            "api_base": None,
+            "ui_base": None,
+        }
+    failures: list[str] = []
+    if not api_base:
+        failures.append("live_api_base is required for live platform SLA closure")
+    if not ui_base:
+        failures.append("live_ui_base is required for live platform SLA closure")
+    if failures:
+        return {
+            "status": "failed",
+            "platform_io_live_sla_closed": False,
+            "failures": failures,
+            "api_base": api_base or None,
+            "ui_base": ui_base or None,
+        }
+
+    headers = {
+        "X-Project-Key": "wave55_oss_node_platform_io",
+        "X-Request-Id": "wave55-oss-node-platform-io-sla",
+    }
+    graph_id = "wave55-oss-node-platform-io-live-sla"
+    run_id = "wave55-oss-node-platform-io-live-sla-run"
+    compile_payload = {
+        "graph_id": graph_id,
+        "dsl": {
+            "version": "1.0",
+            "options": {"source": "wave55_live_platform_probe"},
+            "nodes": [
+                {
+                    "node_id": "vector_live_probe",
+                    "node_type": "vector_search",
+                    "config": {
+                        "query": "wave55 oss node platform io live sla",
+                        "top_k": 1,
+                        "input_vars": [
+                            {"name": "query", "source": "input", "required": True},
+                            {
+                                "name": "project_id",
+                                "source": "constant",
+                                "default_value": "wave55_oss_node_platform_io",
+                            },
+                        ],
+                    },
+                }
+            ],
+            "edges": [],
+        },
+    }
+    run_payload = {
+        "graph_id": graph_id,
+        "run_id": run_id,
+        "project_key": "wave55_oss_node_platform_io",
+        "input": {"query": "wave55 oss node platform io live sla", "state": "CA"},
+    }
+
+    api_rows: list[dict[str, Any]] = []
+    ui_validated = False
+    try:
+        compile_code, compile_body = _http_json(
+            method="POST",
+            url=_join_url(api_base, "workflow-graph/compile"),
+            payload=compile_payload,
+            headers=headers,
+            timeout=timeout,
+        )
+        api_rows.append({"step": "compile", "status_code": compile_code, "status": compile_body.get("status")})
+        compiled_graph_id = str((compile_body.get("data") or {}).get("graph_id") or "")
+        if compile_code != 200 or compile_body.get("status") != "ok" or compiled_graph_id != graph_id:
+            failures.append("live compile envelope did not return expected graph_id/status")
+
+        run_code, run_body = _http_json(
+            method="POST",
+            url=_join_url(api_base, "workflow-graph/run"),
+            payload=run_payload,
+            headers=headers,
+            timeout=timeout,
+        )
+        run_data = run_body.get("data") or {}
+        api_rows.append(
+            {
+                "step": "run",
+                "status_code": run_code,
+                "status": run_body.get("status"),
+                "run_status": run_data.get("status"),
+                "session_id_present": bool(run_data.get("session_id")),
+            }
+        )
+        if run_code != 200 or run_body.get("status") != "ok" or run_data.get("status") != "succeeded":
+            failures.append("live run envelope did not return succeeded status")
+        if not run_data.get("session_id"):
+            failures.append("live run did not project a workflow_graph agent session")
+
+        detail_code, detail_body = _http_json(
+            method="GET",
+            url=_join_url(api_base, f"workflow-graph/runs/{run_id}"),
+            headers=headers,
+            timeout=timeout,
+        )
+        detail_data = detail_body.get("data") or {}
+        api_rows.append(
+            {
+                "step": "get_run",
+                "status_code": detail_code,
+                "status": detail_body.get("status"),
+                "run_status": detail_data.get("status"),
+                "session_id_present": bool(detail_data.get("session_id")),
+            }
+        )
+        if detail_code != 200 or detail_body.get("status") != "ok" or detail_data.get("status") != "succeeded":
+            failures.append("live run detail readback failed")
+        if not detail_data.get("session_id"):
+            failures.append("live run detail missing session_id readback")
+
+        events_code, events_body = _http_json(
+            method="GET",
+            url=_join_url(api_base, f"workflow-graph/runs/{run_id}/events"),
+            headers=headers,
+            timeout=timeout,
+        )
+        events_data = events_body.get("data") or {}
+        events = list(events_data.get("items") or [])
+        api_rows.append(
+            {
+                "step": "get_events",
+                "status_code": events_code,
+                "status": events_body.get("status"),
+                "events_count": len(events),
+            }
+        )
+        if events_code != 200 or events_body.get("status") != "ok" or not events:
+            failures.append("live run events readback failed")
+
+        replay_code, replay_body = _http_json(
+            method="GET",
+            url=_join_url(api_base, f"workflow-graph/runs/{run_id}/replay?replay_mode=stateful"),
+            headers=headers,
+            timeout=timeout,
+        )
+        replay_data = replay_body.get("data") or {}
+        replay_consistency = replay_data.get("replay_consistency") or {}
+        api_rows.append(
+            {
+                "step": "replay_stateful",
+                "status_code": replay_code,
+                "status": replay_body.get("status"),
+                "run_status": replay_data.get("status"),
+                "replay_consistent": replay_consistency.get("consistent"),
+            }
+        )
+        if replay_code != 200 or replay_body.get("status") != "ok" or replay_data.get("status") != "succeeded":
+            failures.append("live replay readback failed")
+        if replay_consistency.get("consistent") is not True:
+            failures.append("live replay consistency failed")
+
+        compiled_code, compiled_body = _http_json(
+            method="GET",
+            url=_join_url(api_base, f"workflow-graph/compiled/{graph_id}"),
+            headers=headers,
+            timeout=timeout,
+        )
+        api_rows.append(
+            {
+                "step": "get_compiled",
+                "status_code": compiled_code,
+                "status": compiled_body.get("status"),
+                "graph_id": (compiled_body.get("data") or {}).get("graph_id"),
+            }
+        )
+        if compiled_code != 200 or compiled_body.get("status") != "ok":
+            failures.append("live compiled graph readback failed")
+
+        ui_code, ui_text = _http_text(url=ui_base, timeout=timeout)
+        ui_markers = ("id=\"root\"", "type=\"module\"", "/src/")
+        missing_ui_markers = [marker for marker in ui_markers if marker not in ui_text]
+        if ui_code != 200:
+            failures.append(f"live UI returned HTTP {ui_code}")
+        if missing_ui_markers:
+            failures.append(f"live UI missing markers: {missing_ui_markers}")
+        ui_validated = ui_code == 200 and not missing_ui_markers
+    except HTTPError as exc:
+        failures.append(f"HTTP {exc.code} while probing live platform: {exc.reason}")
+    except URLError as exc:
+        failures.append(f"URL error while probing live platform: {exc.reason}")
+    except TimeoutError as exc:
+        failures.append(f"timeout while probing live platform: {exc}")
+    except Exception as exc:  # noqa: BLE001
+        failures.append(f"unexpected live platform probe error: {exc}")
+
+    return {
+        "contract_version": "wave55-oss-node-platform-io-live-probe.v1",
+        "status": "passed" if not failures else "failed",
+        "platform_io_live_sla_closed": not failures,
+        "api_base": api_base,
+        "ui_base": ui_base,
+        "api_rows": api_rows,
+        "ui_probe": {
+            "url": ui_base,
+            "validated": ui_validated,
+        },
+        "failures": failures,
+    }
+
+
+def _run_platform_io_sla_readback(
+    node_replay: dict[str, Any],
+    *,
+    live_api_base: str | None = None,
+    live_ui_base: str | None = None,
+    live_probe_timeout: float = 2.0,
+) -> tuple[dict[str, Any], list[str]]:
+    repo_local = _repo_local_platform_io_contract_readback(node_replay)
+    live_probe = _run_live_platform_probe(
+        live_api_base=live_api_base,
+        live_ui_base=live_ui_base,
+        timeout=live_probe_timeout,
+    )
+    failures = [f"repo_local_contract: {failure}" for failure in repo_local.get("failures") or []]
+    live_probe_requested = live_probe.get("status") != "not_requested"
+    if live_probe_requested:
+        failures.extend(f"live_probe: {failure}" for failure in live_probe.get("failures") or [])
+    platform_io_live_sla_closed = bool(
+        repo_local.get("status") == "passed" and live_probe.get("platform_io_live_sla_closed") is True
+    )
+    return (
+        {
+            "contract_version": WAVE55_PLATFORM_IO_CONTRACT_VERSION,
+            "status": "passed" if not failures else "failed",
+            "repo_local_contract": repo_local,
+            "live_probe": live_probe,
+            "live_probe_requested": live_probe_requested,
+            "platform_io_live_sla_closed": platform_io_live_sla_closed,
+            "closed_condition": PLATFORM_IO_LIVE_SLA_CONDITION if platform_io_live_sla_closed else None,
+            "closure_position": (
+                "scheduler_tenant_db_ui_live_sla_validated"
+                if platform_io_live_sla_closed
+                else "repo_local_platform_io_readback_ready_live_probe_not_closed"
+            ),
+            "failures": failures,
+        },
+        failures,
+    )
+
+
+def _retained_external_conditions(*, platform_io_live_sla_closed: bool) -> list[str]:
+    retained = list(PROVIDER_EXTERNAL_CONDITIONS)
+    if not platform_io_live_sla_closed:
+        retained.append(PLATFORM_IO_LIVE_SLA_CONDITION)
+    return retained
+
+
+def build_contract(
+    *,
+    provider_manifest_path: Path | None = None,
+    live_api_base: str | None = None,
+    live_ui_base: str | None = None,
+    live_probe_timeout: float = 2.0,
+) -> dict[str, Any]:
     resolved_manifest_path = provider_manifest_path or DEFAULT_PROVIDER_MANIFEST
     provider_manifest, source_row = _load_json(resolved_manifest_path)
     failures = list(source_row.get("failures") or [])
@@ -414,6 +923,17 @@ def build_contract(*, provider_manifest_path: Path | None = None) -> dict[str, A
 
     node_replay, replay_failures = _run_node_manifest_replay(provider_manifest) if not manifest_failures else ({}, [])
     failures.extend(f"node_manifest_replay: {failure}" for failure in replay_failures)
+    platform_io_sla_readback, platform_failures = (
+        _run_platform_io_sla_readback(
+            node_replay,
+            live_api_base=live_api_base,
+            live_ui_base=live_ui_base,
+            live_probe_timeout=live_probe_timeout,
+        )
+        if node_replay
+        else ({}, [])
+    )
+    failures.extend(f"platform_io_sla_readback: {failure}" for failure in platform_failures)
 
     topic_path = REPO_ROOT / TARGET_TOPIC
     if not topic_path.exists():
@@ -421,11 +941,15 @@ def build_contract(*, provider_manifest_path: Path | None = None) -> dict[str, A
 
     status = "passed" if not failures else "failed"
     archive_external_blocked_candidate = status == "passed"
+    platform_io_live_sla_closed = bool(platform_io_sla_readback.get("platform_io_live_sla_closed"))
+    external_conditions_retained = _retained_external_conditions(
+        platform_io_live_sla_closed=platform_io_live_sla_closed
+    )
     return {
         "contract_version": "wave29-oss-node-vector-manifest-replay.v1",
         "generated_by": "ops/search-lab/scripts/wave29_oss_node_vector_manifest_replay.py",
         "status": status,
-        "scope": "oss_node_vector_manifest_fixture_replay_no_live_provider_no_tenant_runtime",
+        "scope": "oss_node_vector_manifest_replay_with_wave55_platform_io_sla_readback",
         "target_topic": {
             "path": TARGET_TOPIC,
             "exists": topic_path.exists(),
@@ -433,21 +957,28 @@ def build_contract(*, provider_manifest_path: Path | None = None) -> dict[str, A
         "source_provider_manifest": source_row,
         "provider_manifest_check": provider_manifest_check,
         "node_manifest_replay": node_replay,
+        "platform_io_sla_readback": platform_io_sla_readback,
         "repo_local_closure": {
             "repo_local_blockers_closed": list(REPO_LOCAL_BLOCKERS_CLOSED) if status == "passed" else [],
             "remaining_repo_local_blockers": [] if status == "passed" else list(REPO_LOCAL_BLOCKERS_CLOSED),
             "archive_external_blocked_candidate": archive_external_blocked_candidate,
+            "platform_io_sla_readback_attached": (
+                platform_io_sla_readback.get("repo_local_contract", {}).get("status") == "passed"
+            ),
+            "platform_io_live_sla_closed": platform_io_live_sla_closed,
         },
-        "external_conditions_retained": list(TARGET_EXTERNAL_CONDITIONS),
+        "external_conditions_retained": external_conditions_retained,
         "gate_semantics": {
             "status_passed_means": (
                 "the workflow graph compiler, node runtime, normalized result envelope, event log, "
-                "and event replay can consume all keyword/vector/hybrid provider manifest rows while "
-                "preserving unsupported closure claims"
+                "event replay, tenant project-scope IO trace, workflow API envelope, and frontend "
+                "workflow client binding can consume all keyword/vector/hybrid provider manifest rows; "
+                "when live API/UI bases are supplied, the live workflow run/readback/UI asset probe also passed"
             ),
             "status_passed_does_not_mean": (
-                "external embedding providers, local open-search live quality, semantic relevance, "
-                "tenant DB persistence, scheduler SLA, or browser UI SLA are closed"
+                "external embedding provider quality, local open-search relevance, or production semantic "
+                "quality are closed; if live API/UI bases were omitted, scheduler/tenant DB/UI live SLA "
+                "closure is not claimed"
             ),
         },
         "archive_recommendation": (
@@ -485,6 +1016,11 @@ def write_outputs(out_dir: Path, contract: dict[str, Any]) -> None:
         for code in contract.get("repo_local_closure", {}).get("repo_local_blockers_closed", [])
     ]
     external_rows = [f"- `{code}`" for code in contract.get("external_conditions_retained", [])]
+    if not external_rows:
+        external_rows = ["- none"]
+    platform_readback = contract.get("platform_io_sla_readback", {}) or {}
+    repo_local_platform = platform_readback.get("repo_local_contract", {}) or {}
+    live_probe = platform_readback.get("live_probe", {}) or {}
 
     readme = [
         "# Wave29 OSS Node Vector Manifest Replay",
@@ -493,6 +1029,7 @@ def write_outputs(out_dir: Path, contract: dict[str, Any]) -> None:
         f"- contract_version: `{contract['contract_version']}`",
         f"- scope: `{contract['scope']}`",
         f"- archive_external_blocked_candidate: `{str(bool(contract['repo_local_closure']['archive_external_blocked_candidate'])).lower()}`",
+        f"- platform_io_live_sla_closed: `{str(bool(contract['repo_local_closure'].get('platform_io_live_sla_closed'))).lower()}`",
         "",
         "## Node Replay Matrix",
         "",
@@ -503,6 +1040,16 @@ def write_outputs(out_dir: Path, contract: dict[str, Any]) -> None:
         "## Repo-Local Blockers Closed",
         "",
         *closed_rows,
+        "",
+        "## Wave55 Platform IO SLA Readback",
+        "",
+        f"- contract_version: `{platform_readback.get('contract_version')}`",
+        f"- status: `{platform_readback.get('status')}`",
+        f"- repo_local_contract: `{repo_local_platform.get('status')}`",
+        f"- live_probe: `{live_probe.get('status')}`",
+        f"- live_probe_requested: `{str(bool(platform_readback.get('live_probe_requested'))).lower()}`",
+        f"- platform_io_live_sla_closed: `{str(bool(platform_readback.get('platform_io_live_sla_closed'))).lower()}`",
+        f"- closure_position: `{platform_readback.get('closure_position')}`",
         "",
         "## External Conditions Retained",
         "",
@@ -517,6 +1064,7 @@ def write_outputs(out_dir: Path, contract: dict[str, Any]) -> None:
         "",
         "```bash",
         f"PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 ops/search-lab/scripts/wave29_oss_node_vector_manifest_replay.py --out-dir {display_path(out_dir)}",
+        f"PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 ops/search-lab/scripts/wave29_oss_node_vector_manifest_replay.py --out-dir {display_path(out_dir)} --live-api-base http://127.0.0.1:8000/api/v1 --live-ui-base http://127.0.0.1:5173/",
         "PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 -m pytest -q main/backend/tests/unit/test_wave29_oss_node_vector_manifest_replay_unittest.py",
         "```",
         "",
@@ -530,6 +1078,9 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--provider-manifest", default=str(DEFAULT_PROVIDER_MANIFEST))
     parser.add_argument("--out-dir", default=DEFAULT_OUT_DIR)
+    parser.add_argument("--live-api-base", default="")
+    parser.add_argument("--live-ui-base", default="")
+    parser.add_argument("--live-probe-timeout", type=float, default=2.0)
     args = parser.parse_args()
 
     provider_manifest_path = Path(args.provider_manifest)
@@ -539,7 +1090,12 @@ def main() -> int:
     if not out_dir.is_absolute():
         out_dir = REPO_ROOT / out_dir
 
-    contract = build_contract(provider_manifest_path=provider_manifest_path)
+    contract = build_contract(
+        provider_manifest_path=provider_manifest_path,
+        live_api_base=args.live_api_base,
+        live_ui_base=args.live_ui_base,
+        live_probe_timeout=args.live_probe_timeout,
+    )
     write_outputs(out_dir, contract)
     print(
         json.dumps(
@@ -550,6 +1106,8 @@ def main() -> int:
                     "archive_external_blocked_candidate"
                 ],
                 "closed_repo_local_blockers": contract["repo_local_closure"]["repo_local_blockers_closed"],
+                "platform_io_live_sla_closed": contract["repo_local_closure"]["platform_io_live_sla_closed"],
+                "external_conditions_retained": contract["external_conditions_retained"],
                 "out_dir": display_path(out_dir),
             },
             ensure_ascii=False,

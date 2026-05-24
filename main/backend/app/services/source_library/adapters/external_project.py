@@ -244,6 +244,7 @@ def _run_article_extractor_manifest(*, manifest: dict[str, Any], params: dict[st
                 url,
                 headers=request_headers,
                 timeout=timeout_seconds,
+                follow_redirects=True,
             )
         except Exception as exc:  # noqa: BLE001 - runner diagnostics must preserve fallback state.
             state = {

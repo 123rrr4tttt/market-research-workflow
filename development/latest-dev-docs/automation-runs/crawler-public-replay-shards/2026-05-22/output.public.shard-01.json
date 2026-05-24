@@ -1,0 +1,950 @@
+{
+  "contract_version": "crawler_source_expansion.public_replay_shard_output.v1",
+  "generated_at": "2026-05-24T00:58:07Z",
+  "inputs": {
+    "enabled_public_target_count": 8,
+    "policy_disabled_target_count": 1,
+    "target_count": 9,
+    "target_ids": [
+      "demo_proj_33_news_google_com",
+      "demo_proj_34_actiontoaction_ai",
+      "demo_proj_35_hai_stanford_edu",
+      "demo_proj_37_iyiou_com",
+      "demo_proj_38_news_cn",
+      "demo_proj_39_x_com",
+      "demo_proj_40_github_com",
+      "demo_proj_41_arxiv_org",
+      "demo_proj_43_stcn_com"
+    ]
+  },
+  "manifest_path": "development/latest-dev-docs/automation-runs/crawler-public-replay-shards/2026-05-22/shard_manifest.json",
+  "mode": {
+    "allow_public_network": true,
+    "browser_runtime_started": false,
+    "source_probe_id": "source_library_replay_scaleout_2026_05_22",
+    "source_runner": "source_library_replay_scaleout"
+  },
+  "outputs": {
+    "blockers_by_target": [
+      {
+        "blocker_type": "relevance_review",
+        "domain": "news.google.com",
+        "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+        "status": "candidate_ready_with_term_fallback",
+        "target_id": "demo_proj_33_news_google_com",
+        "template": "https://news.google.com/search?q={{q}}"
+      },
+      {
+        "blocker_type": "relevance_review",
+        "domain": "actiontoaction.ai",
+        "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+        "status": "candidate_ready_with_term_fallback",
+        "target_id": "demo_proj_34_actiontoaction_ai",
+        "template": "https://actiontoaction.ai/search/search?query={{q}}"
+      },
+      {
+        "blocker_type": "relevance_review",
+        "domain": "hai.stanford.edu",
+        "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+        "status": "candidate_ready_with_term_fallback",
+        "target_id": "demo_proj_35_hai_stanford_edu",
+        "template": "https://hai.stanford.edu/search?q={{q}}"
+      },
+      {
+        "blocker_type": "public_network_or_anti_bot",
+        "domain": "iyiou.com",
+        "reason": "Public fetch failed with anti-bot/rate-limit/transport signature.",
+        "status": "anti_bot_or_transport_blocked",
+        "target_id": "demo_proj_37_iyiou_com",
+        "template": "https://iyiou.com/search/?q={{q}}"
+      },
+      {
+        "blocker_type": "empty_or_dynamic_source",
+        "domain": "news.cn",
+        "reason": "Public page fetched without selected or raw candidates; dynamic shell or source mismatch likely.",
+        "status": "empty_public_result",
+        "target_id": "demo_proj_38_news_cn",
+        "template": "http://news.cn/search?q={{q}}"
+      },
+      {
+        "blocker_type": "policy_or_platform_required",
+        "domain": "x.com",
+        "reason": "Historical target is disabled in demo_proj because it requires a platform/API-specific lane.",
+        "status": "skipped_policy_disabled_platform_entry",
+        "target_id": "demo_proj_39_x_com",
+        "template": "https://x.com/search?q={{q}}"
+      },
+      {
+        "blocker_type": "relevance_review",
+        "domain": "github.com",
+        "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+        "status": "candidate_ready_with_term_fallback",
+        "target_id": "demo_proj_40_github_com",
+        "template": "https://github.com/search?q={{q}}"
+      },
+      {
+        "blocker_type": "relevance_review",
+        "domain": "arxiv.org",
+        "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+        "status": "candidate_ready_with_term_fallback",
+        "target_id": "demo_proj_41_arxiv_org",
+        "template": "https://arxiv.org/search?q={{q}}"
+      },
+      {
+        "blocker_type": "public_network",
+        "domain": "stcn.com",
+        "reason": "Public fetch failed before candidate extraction completed.",
+        "status": "transport_blocked",
+        "target_id": "demo_proj_43_stcn_com",
+        "template": "https://stcn.com/search?q={{q}}"
+      }
+    ],
+    "public_targets_attempted": 8,
+    "status_counts": {
+      "anti_bot_or_transport_blocked": 1,
+      "candidate_ready_with_term_fallback": 5,
+      "empty_public_result": 1,
+      "skipped_policy_disabled_platform_entry": 1,
+      "transport_blocked": 1
+    },
+    "target_results": [
+      {
+        "adapter_plan": {
+          "adapter_key": "search_template.generic",
+          "param_overrides": {
+            "max_pages": 1
+          },
+          "parser_profile": "site_adaptive",
+          "reason": "Default generic search_template adapter."
+        },
+        "adapter_result": {
+          "adapter_taxonomy": {
+            "entry_type": "search_template",
+            "internal_adapter_only": true,
+            "item_key": "handler.cluster.search_template",
+            "item_type": "service_aggregated",
+            "lane": "site_search_internal_adapter",
+            "managed_by": "system",
+            "source_family": "generic_web"
+          },
+          "candidate_count": 3,
+          "candidates": [
+            "https://news.google.com/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNREpxYW5RU0FtVnVHZ0pWVXlnQVAB?ceid=US%3Aen&gl=US&hl=en-US",
+            "https://news.google.com/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGRqTVhZU0FtVnVHZ0pWVXlnQVAB?ceid=US%3Aen&gl=US&hl=en-US",
+            "https://news.google.com/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGx6TVdZU0FtVnVHZ0pWVXlnQVAB?ceid=US%3Aen&gl=US&hl=en-US"
+          ],
+          "capability_profile": {
+            "entry_type": "search_template",
+            "extractor_kind": "html_link_extractor",
+            "fallback_policy": "term_match_then_search_template_fallback",
+            "source_mode": "site_search",
+            "supports_pagination": true,
+            "supports_query_terms": true
+          },
+          "diagnostics": {
+            "candidate_filter_state": "term_filter_empty_fallback_used",
+            "entry_domain": "news.google.com",
+            "fallback_allowed": true,
+            "pages_scanned": 1,
+            "parser_candidate_rejected_low_value": 5,
+            "parser_container_hit": 0,
+            "parser_global_anchor_hit": 3,
+            "parser_json_ld_hit": 0,
+            "parser_parser_module_used": "global_anchor",
+            "parser_parser_modules_tried": [
+              "global_anchor"
+            ],
+            "parser_parser_profile_resolved": "site_adaptive",
+            "parser_structured_hit": 0,
+            "raw_candidates": 3,
+            "search_service": "basic",
+            "search_service_fallbacks": 0,
+            "selected_candidates": 3,
+            "transport_errors": 0,
+            "used_term_fallback": true
+          },
+          "errors": [],
+          "inserted": 3,
+          "pages_scanned": 1,
+          "search_urls": [
+            "https://news.google.com/search?q=openai+api+pricing+anthropic+claude+code+gpt+4.1+release+langchain+sqlitecache&page_size=20"
+          ],
+          "skipped": 0,
+          "source_mode": "site_search",
+          "used_term_fallback": true
+        },
+        "classification": {
+          "blocker_type": "relevance_review",
+          "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+          "status": "candidate_ready_with_term_fallback"
+        },
+        "elapsed_ms": 645,
+        "entry_domain": "news.google.com",
+        "target": {
+          "category": "historical_search_template",
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "target_id": "demo_proj_33_news_google_com",
+          "template": "https://news.google.com/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_plan": {
+          "adapter_key": "search_template.generic",
+          "param_overrides": {
+            "max_pages": 1
+          },
+          "parser_profile": "site_adaptive",
+          "reason": "Default generic search_template adapter."
+        },
+        "adapter_result": {
+          "adapter_taxonomy": {
+            "entry_type": "search_template",
+            "internal_adapter_only": true,
+            "item_key": "handler.cluster.search_template",
+            "item_type": "service_aggregated",
+            "lane": "site_search_internal_adapter",
+            "managed_by": "system",
+            "source_family": "generic_web"
+          },
+          "candidate_count": 13,
+          "candidates": [
+            "https://g.page/r/Cbrsx5h4lc9GEB0/review",
+            "https://www.actiontoaction.ai/product-page/Advanced-Full-Size-Humanoid-Robot",
+            "https://www.actiontoaction.ai/product-page/ai-visual-recognition-robot-arm",
+            "https://www.actiontoaction.ai/product-page/intelligent-ai-magic-mirror",
+            "https://www.actiontoaction.ai/product-page/intelligent-marketing-robot-advertisement-robot",
+            "https://www.actiontoaction.ai/product-page/mall-ice-cream-robotics-kiosk",
+            "https://www.actiontoaction.ai/product-page/new-unitree-robotics-go1-bionic-quadruped-robot",
+            "https://www.actiontoaction.ai/product-page/pudu-ad-display-series-ketty-bot-delivery-robot",
+            "https://www.actiontoaction.ai/product-page/restaurant-service-robot",
+            "https://www.actiontoaction.ai/product-page/security-robot"
+          ],
+          "capability_profile": {
+            "entry_type": "search_template",
+            "extractor_kind": "html_link_extractor",
+            "fallback_policy": "term_match_then_search_template_fallback",
+            "source_mode": "site_search",
+            "supports_pagination": true,
+            "supports_query_terms": true
+          },
+          "diagnostics": {
+            "candidate_filter_state": "term_filter_empty_fallback_used",
+            "entry_domain": "actiontoaction.ai",
+            "fallback_allowed": true,
+            "pages_scanned": 1,
+            "parser_candidate_rejected_low_value": 34,
+            "parser_container_hit": 12,
+            "parser_global_anchor_hit": 1,
+            "parser_json_ld_hit": 0,
+            "parser_parser_module_used": "container",
+            "parser_parser_modules_tried": [
+              "container",
+              "global_anchor"
+            ],
+            "parser_parser_profile_resolved": "site_adaptive",
+            "parser_structured_hit": 0,
+            "raw_candidates": 13,
+            "search_service": "basic",
+            "search_service_fallbacks": 0,
+            "selected_candidates": 13,
+            "transport_errors": 0,
+            "used_term_fallback": true
+          },
+          "errors": [],
+          "inserted": 13,
+          "pages_scanned": 1,
+          "search_urls": [
+            "https://actiontoaction.ai/search/search?query=openai+api+pricing+anthropic+claude+code+gpt+4.1+release+langchain+sqlitecache&page_size=20"
+          ],
+          "skipped": 0,
+          "source_mode": "site_search",
+          "used_term_fallback": true
+        },
+        "classification": {
+          "blocker_type": "relevance_review",
+          "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+          "status": "candidate_ready_with_term_fallback"
+        },
+        "elapsed_ms": 1943,
+        "entry_domain": "actiontoaction.ai",
+        "target": {
+          "category": "historical_search_template",
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "target_id": "demo_proj_34_actiontoaction_ai",
+          "template": "https://actiontoaction.ai/search/search?query={{q}}"
+        }
+      },
+      {
+        "adapter_plan": {
+          "adapter_key": "search_template.generic",
+          "param_overrides": {
+            "max_pages": 1
+          },
+          "parser_profile": "site_adaptive",
+          "reason": "Default generic search_template adapter."
+        },
+        "adapter_result": {
+          "adapter_taxonomy": {
+            "entry_type": "search_template",
+            "internal_adapter_only": true,
+            "item_key": "handler.cluster.search_template",
+            "item_type": "service_aggregated",
+            "lane": "site_search_internal_adapter",
+            "managed_by": "system",
+            "source_family": "generic_web"
+          },
+          "candidate_count": 6,
+          "candidates": [
+            "https://hai.stanford.edu/policy/publications",
+            "https://hai.stanford.edu/research/publications",
+            "https://hai.stanford.edu/ai-index/2026-ai-index-report",
+            "https://hai.stanford.edu/ai-index/global-vibrancy-tool",
+            "https://hai.stanford.edu/research/fellowship-programs",
+            "https://hai.stanford.edu/research/student-affinity-groups"
+          ],
+          "capability_profile": {
+            "entry_type": "search_template",
+            "extractor_kind": "html_link_extractor",
+            "fallback_policy": "term_match_then_search_template_fallback",
+            "source_mode": "site_search",
+            "supports_pagination": true,
+            "supports_query_terms": true
+          },
+          "diagnostics": {
+            "candidate_filter_state": "term_filter_empty_fallback_used",
+            "entry_domain": "hai.stanford.edu",
+            "fallback_allowed": true,
+            "pages_scanned": 1,
+            "parser_candidate_rejected_low_value": 45,
+            "parser_container_hit": 0,
+            "parser_global_anchor_hit": 6,
+            "parser_json_ld_hit": 0,
+            "parser_parser_module_used": "global_anchor",
+            "parser_parser_modules_tried": [
+              "global_anchor"
+            ],
+            "parser_parser_profile_resolved": "site_adaptive.hai_research_shell",
+            "parser_structured_hit": 0,
+            "raw_candidates": 6,
+            "search_service": "basic",
+            "search_service_fallbacks": 0,
+            "selected_candidates": 6,
+            "transport_errors": 0,
+            "used_term_fallback": true
+          },
+          "errors": [],
+          "inserted": 6,
+          "pages_scanned": 1,
+          "search_urls": [
+            "https://hai.stanford.edu/search?q=openai+api+pricing+anthropic+claude+code+gpt+4.1+release+langchain+sqlitecache&page_size=20"
+          ],
+          "skipped": 0,
+          "source_mode": "site_search",
+          "used_term_fallback": true
+        },
+        "classification": {
+          "blocker_type": "relevance_review",
+          "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+          "status": "candidate_ready_with_term_fallback"
+        },
+        "elapsed_ms": 314,
+        "entry_domain": "hai.stanford.edu",
+        "target": {
+          "category": "historical_search_template",
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "target_id": "demo_proj_35_hai_stanford_edu",
+          "template": "https://hai.stanford.edu/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_plan": {
+          "adapter_key": "search_template.generic",
+          "param_overrides": {
+            "max_pages": 1
+          },
+          "parser_profile": "site_adaptive",
+          "reason": "Default generic search_template adapter."
+        },
+        "adapter_result": {
+          "adapter_taxonomy": {
+            "entry_type": "search_template",
+            "internal_adapter_only": true,
+            "item_key": "handler.cluster.search_template",
+            "item_type": "service_aggregated",
+            "lane": "site_search_internal_adapter",
+            "managed_by": "system",
+            "source_family": "generic_web"
+          },
+          "candidate_count": 0,
+          "candidates": [],
+          "capability_profile": {
+            "entry_type": "search_template",
+            "extractor_kind": "html_link_extractor",
+            "fallback_policy": "term_match_then_search_template_fallback",
+            "source_mode": "site_search",
+            "supports_pagination": true,
+            "supports_query_terms": true
+          },
+          "diagnostics": {
+            "candidate_filter_state": "empty_no_raw_candidates",
+            "entry_domain": "iyiou.com",
+            "fallback_allowed": true,
+            "pages_scanned": 1,
+            "raw_candidates": 0,
+            "search_service": "basic",
+            "search_service_fallbacks": 0,
+            "selected_candidates": 0,
+            "transport_errors": 1,
+            "used_term_fallback": true
+          },
+          "errors": [
+            {
+              "error": "Failed to fetch https://iyiou.com/search/?q=openai+api+pricing+anthropic+claude+code+gpt+4.1+release+langchain+sqlitecache&page_size=20",
+              "error_class": "transport_failure",
+              "recommended_search_service": "resilient",
+              "search_url": "https://iyiou.com/search/?q=openai+api+pricing+anthropic+claude+code+gpt+4.1+release+langchain+sqlitecache&page_size=20",
+              "site_url": "https://iyiou.com/search/?q={{q}}"
+            }
+          ],
+          "inserted": 0,
+          "pages_scanned": 1,
+          "search_urls": [
+            "https://iyiou.com/search/?q=openai+api+pricing+anthropic+claude+code+gpt+4.1+release+langchain+sqlitecache&page_size=20"
+          ],
+          "skipped": 0,
+          "source_mode": "site_search",
+          "used_term_fallback": true
+        },
+        "classification": {
+          "blocker_type": "public_network_or_anti_bot",
+          "reason": "Public fetch failed with anti-bot/rate-limit/transport signature.",
+          "status": "anti_bot_or_transport_blocked"
+        },
+        "elapsed_ms": 22412,
+        "entry_domain": "iyiou.com",
+        "target": {
+          "category": "historical_search_template",
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "target_id": "demo_proj_37_iyiou_com",
+          "template": "https://iyiou.com/search/?q={{q}}"
+        }
+      },
+      {
+        "adapter_plan": {
+          "adapter_key": "search_template.generic",
+          "param_overrides": {
+            "max_pages": 1
+          },
+          "parser_profile": "site_adaptive",
+          "reason": "Default generic search_template adapter."
+        },
+        "adapter_result": {
+          "adapter_taxonomy": {
+            "entry_type": "search_template",
+            "internal_adapter_only": true,
+            "item_key": "handler.cluster.search_template",
+            "item_type": "service_aggregated",
+            "lane": "site_search_internal_adapter",
+            "managed_by": "system",
+            "source_family": "generic_web"
+          },
+          "candidate_count": 0,
+          "candidates": [],
+          "capability_profile": {
+            "entry_type": "search_template",
+            "extractor_kind": "html_link_extractor",
+            "fallback_policy": "term_match_then_search_template_fallback",
+            "source_mode": "site_search",
+            "supports_pagination": true,
+            "supports_query_terms": true
+          },
+          "diagnostics": {
+            "candidate_filter_state": "empty_no_raw_candidates",
+            "entry_domain": "news.cn",
+            "fallback_allowed": true,
+            "pages_scanned": 1,
+            "parser_candidate_rejected_low_value": 1,
+            "parser_container_hit": 0,
+            "parser_global_anchor_hit": 0,
+            "parser_json_ld_hit": 0,
+            "parser_parser_module_used": "",
+            "parser_parser_modules_tried": [],
+            "parser_parser_profile_resolved": "site_adaptive",
+            "parser_structured_hit": 0,
+            "raw_candidates": 0,
+            "search_service": "basic",
+            "search_service_fallbacks": 0,
+            "selected_candidates": 0,
+            "transport_errors": 0,
+            "used_term_fallback": true
+          },
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 1,
+          "search_urls": [
+            "http://news.cn/search?q=openai+api+pricing+anthropic+claude+code+gpt+4.1+release+langchain+sqlitecache&page_size=20"
+          ],
+          "skipped": 0,
+          "source_mode": "site_search",
+          "used_term_fallback": true
+        },
+        "classification": {
+          "blocker_type": "empty_or_dynamic_source",
+          "reason": "Public page fetched without selected or raw candidates; dynamic shell or source mismatch likely.",
+          "status": "empty_public_result"
+        },
+        "elapsed_ms": 50166,
+        "entry_domain": "news.cn",
+        "target": {
+          "category": "historical_search_template",
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "target_id": "demo_proj_38_news_cn",
+          "template": "http://news.cn/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_result": {
+          "candidate_count": 0,
+          "candidates": [],
+          "diagnostics": {},
+          "errors": [],
+          "inserted": 0,
+          "pages_scanned": 0,
+          "search_urls": [],
+          "skipped": 1,
+          "used_term_fallback": null
+        },
+        "classification": {
+          "blocker_type": "policy_or_platform_required",
+          "reason": "Historical target is disabled in demo_proj because it requires a platform/API-specific lane.",
+          "status": "skipped_policy_disabled_platform_entry"
+        },
+        "elapsed_ms": 0,
+        "entry_domain": "x.com",
+        "target": {
+          "category": "platform_api_required",
+          "domain": "x.com",
+          "enabled": false,
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Disabled in demo_proj as platform/API-required search; keep in the historical 45-site replay manifest but do not contact by default even when public replay is enabled.",
+          "site_entry_id": 39,
+          "target_id": "demo_proj_39_x_com",
+          "template": "https://x.com/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_plan": {
+          "adapter_key": "search_template.doc_native",
+          "param_overrides": {
+            "enable_external_search_fallback": false,
+            "enable_external_search_slowlane": false,
+            "max_pages": 1
+          },
+          "parser_profile": "site_adaptive",
+          "reason": "Docs/help search should stay on a single native search page."
+        },
+        "adapter_result": {
+          "adapter_taxonomy": {
+            "entry_type": "search_template",
+            "internal_adapter_only": true,
+            "item_key": "handler.cluster.search_template",
+            "item_type": "service_aggregated",
+            "lane": "site_search_internal_adapter",
+            "managed_by": "system",
+            "source_family": "generic_web"
+          },
+          "candidate_count": 28,
+          "candidates": [
+            "https://github.com/enterprise/startups",
+            "https://github.com/features/actions",
+            "https://github.com/features/code-review",
+            "https://github.com/features/codespaces",
+            "https://github.com/features/copilot",
+            "https://github.com/features/copilot/copilot-business",
+            "https://github.com/features/issues",
+            "https://github.com/features/models",
+            "https://github.com/features/spark",
+            "https://github.com/orgs/community/discussions"
+          ],
+          "capability_profile": {
+            "entry_type": "search_template",
+            "extractor_kind": "html_link_extractor",
+            "fallback_policy": "term_match_then_search_template_fallback",
+            "source_mode": "site_search",
+            "supports_pagination": true,
+            "supports_query_terms": true
+          },
+          "diagnostics": {
+            "candidate_filter_state": "term_filter_empty_fallback_used",
+            "entry_domain": "github.com",
+            "fallback_allowed": true,
+            "pages_scanned": 1,
+            "parser_candidate_rejected_low_value": 40,
+            "parser_container_hit": 0,
+            "parser_global_anchor_hit": 28,
+            "parser_json_ld_hit": 0,
+            "parser_parser_module_used": "global_anchor",
+            "parser_parser_modules_tried": [
+              "global_anchor"
+            ],
+            "parser_parser_profile_resolved": "site_adaptive",
+            "parser_structured_hit": 0,
+            "raw_candidates": 28,
+            "search_service": "basic",
+            "search_service_fallbacks": 0,
+            "selected_candidates": 28,
+            "transport_errors": 0,
+            "used_term_fallback": true
+          },
+          "errors": [],
+          "inserted": 28,
+          "pages_scanned": 1,
+          "search_urls": [
+            "https://github.com/search?q=openai+api+pricing+anthropic+claude+code+gpt+4.1+release+langchain+sqlitecache&page_size=20"
+          ],
+          "skipped": 0,
+          "source_mode": "site_search",
+          "used_term_fallback": true
+        },
+        "classification": {
+          "blocker_type": "relevance_review",
+          "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+          "status": "candidate_ready_with_term_fallback"
+        },
+        "elapsed_ms": 434,
+        "entry_domain": "github.com",
+        "target": {
+          "category": "historical_search_template",
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "target_id": "demo_proj_40_github_com",
+          "template": "https://github.com/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_plan": {
+          "adapter_key": "search_template.generic",
+          "param_overrides": {
+            "max_pages": 1
+          },
+          "parser_profile": "site_adaptive",
+          "reason": "Default generic search_template adapter."
+        },
+        "adapter_result": {
+          "adapter_taxonomy": {
+            "entry_type": "search_template",
+            "internal_adapter_only": true,
+            "item_key": "handler.cluster.search_template",
+            "item_type": "service_aggregated",
+            "lane": "site_search_internal_adapter",
+            "managed_by": "system",
+            "source_family": "generic_web"
+          },
+          "candidate_count": 3,
+          "candidates": [
+            "https://github.com/arXiv/arxiv-search/releases",
+            "https://info.arxiv.org/help/license/index.html",
+            "https://info.arxiv.org/help/web_accessibility.html"
+          ],
+          "capability_profile": {
+            "entry_type": "search_template",
+            "extractor_kind": "html_link_extractor",
+            "fallback_policy": "term_match_then_search_template_fallback",
+            "source_mode": "site_search",
+            "supports_pagination": true,
+            "supports_query_terms": true
+          },
+          "diagnostics": {
+            "candidate_filter_state": "term_filter_empty_fallback_used",
+            "entry_domain": "arxiv.org",
+            "fallback_allowed": true,
+            "pages_scanned": 1,
+            "parser_candidate_rejected_low_value": 14,
+            "parser_container_hit": 1,
+            "parser_global_anchor_hit": 2,
+            "parser_json_ld_hit": 0,
+            "parser_parser_module_used": "container",
+            "parser_parser_modules_tried": [
+              "container",
+              "global_anchor"
+            ],
+            "parser_parser_profile_resolved": "site_adaptive",
+            "parser_structured_hit": 0,
+            "raw_candidates": 3,
+            "search_service": "basic",
+            "search_service_fallbacks": 0,
+            "selected_candidates": 3,
+            "transport_errors": 0,
+            "used_term_fallback": true
+          },
+          "errors": [],
+          "inserted": 3,
+          "pages_scanned": 1,
+          "search_urls": [
+            "https://arxiv.org/search?q=openai+api+pricing+anthropic+claude+code+gpt+4.1+release+langchain+sqlitecache&page_size=20"
+          ],
+          "skipped": 0,
+          "source_mode": "site_search",
+          "used_term_fallback": true
+        },
+        "classification": {
+          "blocker_type": "relevance_review",
+          "reason": "Public execution returned candidates only after term fallback; keep as review evidence, not full dirty-source closure.",
+          "status": "candidate_ready_with_term_fallback"
+        },
+        "elapsed_ms": 364,
+        "entry_domain": "arxiv.org",
+        "target": {
+          "category": "historical_search_template",
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "target_id": "demo_proj_41_arxiv_org",
+          "template": "https://arxiv.org/search?q={{q}}"
+        }
+      },
+      {
+        "adapter_plan": {
+          "adapter_key": "search_template.generic",
+          "param_overrides": {
+            "max_pages": 1
+          },
+          "parser_profile": "site_adaptive",
+          "reason": "Default generic search_template adapter."
+        },
+        "adapter_result": {
+          "adapter_taxonomy": {
+            "entry_type": "search_template",
+            "internal_adapter_only": true,
+            "item_key": "handler.cluster.search_template",
+            "item_type": "service_aggregated",
+            "lane": "site_search_internal_adapter",
+            "managed_by": "system",
+            "source_family": "generic_web"
+          },
+          "candidate_count": 0,
+          "candidates": [],
+          "capability_profile": {
+            "entry_type": "search_template",
+            "extractor_kind": "html_link_extractor",
+            "fallback_policy": "term_match_then_search_template_fallback",
+            "source_mode": "site_search",
+            "supports_pagination": true,
+            "supports_query_terms": true
+          },
+          "diagnostics": {
+            "candidate_filter_state": "empty_no_raw_candidates",
+            "entry_domain": "stcn.com",
+            "fallback_allowed": true,
+            "pages_scanned": 1,
+            "raw_candidates": 0,
+            "search_service": "basic",
+            "search_service_fallbacks": 0,
+            "selected_candidates": 0,
+            "transport_errors": 1,
+            "used_term_fallback": true
+          },
+          "errors": [
+            {
+              "error": "404 Client Error: Not Found for url: https://stcn.com/search?q=openai+api+pricing+anthropic+claude+code+gpt+4.1+release+langchain+sqlitecache&page_size=20",
+              "error_class": "transport_failure",
+              "recommended_search_service": null,
+              "search_url": "https://stcn.com/search?q=openai+api+pricing+anthropic+claude+code+gpt+4.1+release+langchain+sqlitecache&page_size=20",
+              "site_url": "https://stcn.com/search?q={{q}}"
+            }
+          ],
+          "inserted": 0,
+          "pages_scanned": 1,
+          "search_urls": [
+            "https://stcn.com/search?q=openai+api+pricing+anthropic+claude+code+gpt+4.1+release+langchain+sqlitecache&page_size=20"
+          ],
+          "skipped": 0,
+          "source_mode": "site_search",
+          "used_term_fallback": true
+        },
+        "classification": {
+          "blocker_type": "public_network",
+          "reason": "Public fetch failed before candidate extraction completed.",
+          "status": "transport_blocked"
+        },
+        "elapsed_ms": 1182,
+        "entry_domain": "stcn.com",
+        "target": {
+          "category": "historical_search_template",
+          "query_terms": [
+            "openai api pricing",
+            "anthropic claude code",
+            "gpt 4.1 release",
+            "langchain sqlitecache"
+          ],
+          "reason": "Historical demo_proj handler.cluster.search_template site-entry replay target.",
+          "target_id": "demo_proj_43_stcn_com",
+          "template": "https://stcn.com/search?q={{q}}"
+        }
+      }
+    ],
+    "term_fallback_relevance_review": [
+      {
+        "candidate_count": 3,
+        "candidates": [
+          "https://news.google.com/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNREpxYW5RU0FtVnVHZ0pWVXlnQVAB?ceid=US%3Aen&gl=US&hl=en-US",
+          "https://news.google.com/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGRqTVhZU0FtVnVHZ0pWVXlnQVAB?ceid=US%3Aen&gl=US&hl=en-US",
+          "https://news.google.com/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGx6TVdZU0FtVnVHZ0pWVXlnQVAB?ceid=US%3Aen&gl=US&hl=en-US"
+        ],
+        "domain": "news.google.com",
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "review_reason": "Candidates were selected only after term fallback; inspect relevance before counting as dirty-source closure.",
+        "target_id": "demo_proj_33_news_google_com"
+      },
+      {
+        "candidate_count": 13,
+        "candidates": [
+          "https://g.page/r/Cbrsx5h4lc9GEB0/review",
+          "https://www.actiontoaction.ai/product-page/Advanced-Full-Size-Humanoid-Robot",
+          "https://www.actiontoaction.ai/product-page/ai-visual-recognition-robot-arm",
+          "https://www.actiontoaction.ai/product-page/intelligent-ai-magic-mirror",
+          "https://www.actiontoaction.ai/product-page/intelligent-marketing-robot-advertisement-robot",
+          "https://www.actiontoaction.ai/product-page/mall-ice-cream-robotics-kiosk",
+          "https://www.actiontoaction.ai/product-page/new-unitree-robotics-go1-bionic-quadruped-robot",
+          "https://www.actiontoaction.ai/product-page/pudu-ad-display-series-ketty-bot-delivery-robot",
+          "https://www.actiontoaction.ai/product-page/restaurant-service-robot",
+          "https://www.actiontoaction.ai/product-page/security-robot"
+        ],
+        "domain": "actiontoaction.ai",
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "review_reason": "Candidates were selected only after term fallback; inspect relevance before counting as dirty-source closure.",
+        "target_id": "demo_proj_34_actiontoaction_ai"
+      },
+      {
+        "candidate_count": 6,
+        "candidates": [
+          "https://hai.stanford.edu/policy/publications",
+          "https://hai.stanford.edu/research/publications",
+          "https://hai.stanford.edu/ai-index/2026-ai-index-report",
+          "https://hai.stanford.edu/ai-index/global-vibrancy-tool",
+          "https://hai.stanford.edu/research/fellowship-programs",
+          "https://hai.stanford.edu/research/student-affinity-groups"
+        ],
+        "domain": "hai.stanford.edu",
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "review_reason": "Candidates were selected only after term fallback; inspect relevance before counting as dirty-source closure.",
+        "target_id": "demo_proj_35_hai_stanford_edu"
+      },
+      {
+        "candidate_count": 28,
+        "candidates": [
+          "https://github.com/enterprise/startups",
+          "https://github.com/features/actions",
+          "https://github.com/features/code-review",
+          "https://github.com/features/codespaces",
+          "https://github.com/features/copilot",
+          "https://github.com/features/copilot/copilot-business",
+          "https://github.com/features/issues",
+          "https://github.com/features/models",
+          "https://github.com/features/spark",
+          "https://github.com/orgs/community/discussions"
+        ],
+        "domain": "github.com",
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "review_reason": "Candidates were selected only after term fallback; inspect relevance before counting as dirty-source closure.",
+        "target_id": "demo_proj_40_github_com"
+      },
+      {
+        "candidate_count": 3,
+        "candidates": [
+          "https://github.com/arXiv/arxiv-search/releases",
+          "https://info.arxiv.org/help/license/index.html",
+          "https://info.arxiv.org/help/web_accessibility.html"
+        ],
+        "domain": "arxiv.org",
+        "query_terms": [
+          "openai api pricing",
+          "anthropic claude code",
+          "gpt 4.1 release",
+          "langchain sqlitecache"
+        ],
+        "review_reason": "Candidates were selected only after term fallback; inspect relevance before counting as dirty-source closure.",
+        "target_id": "demo_proj_41_arxiv_org"
+      }
+    ]
+  },
+  "shard_id": "crawler_public_replay_shard_01",
+  "shard_index": 1,
+  "source_full_output_path": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/output.public.json",
+  "source_public_replay_window": {
+    "finished_at": "2026-05-23T10:53:31Z",
+    "started_at": "2026-05-23T10:50:31Z"
+  },
+  "validation": {
+    "operator_gate_skip_count": 0,
+    "passed": true,
+    "policy_skipped_status_count": 1,
+    "public_network_attempted": true,
+    "skipped": false,
+    "target_order_matches_manifest": true
+  }
+}

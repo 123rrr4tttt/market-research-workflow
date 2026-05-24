@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Wave20 gate for long-cycle scheduler queue handoff and repository replay."""
+"""Wave55 gate for repo-local live long-cycle scheduler queue handoff replay."""
 
 from __future__ import annotations
 
@@ -14,39 +14,44 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
-from app.services.ingest.digestion_scaffold import JsonlLongCycleTaskRepository  # noqa: E402
+from app.services.ingest.digestion_scaffold import SqliteLongCycleTaskRepository  # noqa: E402
 from app.services.ingest.digestion_scaffold import check_long_cycle_scheduler_queue_handoff_replay_contract  # noqa: E402
 
 
 TOPIC_EVIDENCE_FILE = (
     REPO_ROOT
-    / "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED"
+    / "docs/development/development-plans/ARCHIVE_CLOSED"
     / "2026-03-07-ingest-digestion-and-long-cycle-automation"
-    / "09_wave20-long-cycle-scheduler-queue-handoff-replay-2026-05-22.md"
+    / "12_wave55-repo-local-live-scheduler-queue-handoff-closure-2026-05-23.md"
 )
 REQUIRED_TOPIC_MARKERS = (
-    "contract_version: ingest.long_cycle_scheduler_queue_replay_check.v1",
+    "contract_version: ingest.long_cycle_scheduler_queue_replay_check.v2",
     "scheduler_intent_validated: true",
     "queue_item_validated: true",
     "repository_write_readback_validated: true",
+    "worker_consumption_validated: true",
     "event_replay_summary_validated: true",
-    "live_dispatch: false",
-    "live_enqueue: false",
-    "live_db_write: false",
-    "closure_claim: false",
-    "live_scheduler_closure_validated: false",
+    "digestion_output_readback_validated: true",
+    "downstream_handoff_validated: true",
+    "repo_local_live_closure_validated: true",
+    "live_dispatch: true",
+    "live_enqueue: true",
+    "live_db_write: true",
+    "closure_claim: true",
+    "live_scheduler_closure_validated: true",
 )
 
 
 def build_check() -> dict[str, object]:
     with tempfile.TemporaryDirectory(prefix="ingest-lc-queue-replay-") as tmp_dir:
-        repository = JsonlLongCycleTaskRepository(
-            storage_dir=tmp_dir,
-            repository_ref="jsonl://wave20-long-cycle-scheduler-queue-replay",
+        repository = SqliteLongCycleTaskRepository(
+            db_path=Path(tmp_dir) / "long_cycle_live.db",
+            repository_ref="sqlite://wave55-long-cycle-scheduler-queue-replay",
             logical_table="long_cycle_persistent_tasks",
         )
         return check_long_cycle_scheduler_queue_handoff_replay_contract(
             repository=repository,
+            repo_local_live=True,
             task_goal="Digest weekly report inputs",
             project_key="demo_proj",
             entrypoint="ingest.raw_import",
@@ -57,7 +62,7 @@ def build_check() -> dict[str, object]:
             candidate_windows=["7d", "30d"],
             selected_window="7d",
             cadence="weekly",
-            scheduler_ref="contract.scheduler.ingest-long-cycle",
+            scheduler_ref="repo-local.scheduler.ingest-long-cycle",
             persistent_ref=repository.repository_ref,
             event_time="2026-03-08T11:00:00Z",
             run_at="2026-03-08T11:02:00Z",
@@ -73,24 +78,30 @@ def validate_check(check: dict[str, object]) -> list[str]:
 
     if check.get("status") != "pass":
         failures.append(f"expected pass, got {check.get('status')}: {check.get('blockers')}")
-    if check.get("contract_version") != "ingest.long_cycle_scheduler_queue_replay_check.v1":
+    if check.get("contract_version") != "ingest.long_cycle_scheduler_queue_replay_check.v2":
         failures.append("queue replay contract version drifted")
     for field in (
         "scheduler_intent_validated",
         "queue_item_validated",
         "repository_write_readback_validated",
+        "worker_consumption_validated",
         "event_replay_summary_validated",
+        "digestion_output_readback_validated",
+        "downstream_handoff_validated",
+        "repo_local_live_closure_validated",
     ):
         if check.get(field) is not True:
             failures.append(f"{field} must be true")
     for field in ("live_dispatch", "live_enqueue", "live_db_write", "closure_claim", "live_scheduler_closure_validated"):
-        if check.get(field) is not False:
-            failures.append(f"{field} must remain false")
+        if check.get(field) is not True:
+            failures.append(f"{field} must be true")
 
     if queue_item.get("contract_version") != "ingest.long_cycle_scheduler_queue_item.v1":
         failures.append("queue item contract version drifted")
-    if queue_item.get("queue_state") != "queued_contract_only":
-        failures.append("queue item state must remain queued_contract_only")
+    if queue_item.get("queue_state") != "queued_repo_local_live":
+        failures.append("queue item state must be queued_repo_local_live")
+    if dispatch_intent.get("live_dispatch") is not True:
+        failures.append("dispatch intent must claim repo-local live dispatch")
     if queue_item.get("dispatch_key") != dispatch_intent.get("dispatch_key"):
         failures.append("queue item dispatch_key must match scheduler intent")
     if queue_item.get("idempotency_key") != dispatch_intent.get("idempotency_key"):
@@ -98,15 +109,17 @@ def validate_check(check: dict[str, object]) -> list[str]:
     if queue_item.get("task_key") != dispatch_intent.get("task_key"):
         failures.append("queue item task_key must match scheduler intent")
     queue_payload = queue_item.get("payload") if isinstance(queue_item.get("payload"), dict) else {}
-    if queue_payload.get("queue_handoff_mode") != "durable_repository_replay_contract_only":
-        failures.append("queue item payload must preserve contract-only handoff mode")
-    if queue_payload.get("live_enqueue") is not False:
-        failures.append("queue item payload must not claim live enqueue")
+    if queue_payload.get("queue_handoff_mode") != "repo_local_live_scheduler_queue":
+        failures.append("queue item payload must preserve repo-local live handoff mode")
+    if queue_payload.get("live_enqueue") is not True:
+        failures.append("queue item payload must claim repo-local live enqueue")
 
     if repository_readback.get("readback_event_sequence") != ["mark_ready", "dispatch", "succeed"]:
         failures.append(f"repository readback event sequence drifted: {repository_readback.get('readback_event_sequence')}")
-    if repository_readback.get("live_db_write") is not False:
-        failures.append("repository readback must not claim live DB write")
+    if repository_readback.get("storage_kind") != "sqlite":
+        failures.append("repository readback must use repo-local sqlite storage")
+    if repository_readback.get("live_db_write") is not True:
+        failures.append("repository readback must validate repo-local live DB write")
     if replay.get("contract_version") != "ingest.long_cycle_repository_event_replay_summary.v1":
         failures.append("event replay summary contract version drifted")
     if replay.get("replay_complete") is not True:
@@ -119,10 +132,38 @@ def validate_check(check: dict[str, object]) -> list[str]:
         failures.append(f"write status sequence drifted: {replay.get('write_status_sequence')}")
     if replay.get("terminal_status") != "succeeded":
         failures.append(f"terminal replay status must be succeeded, got {replay.get('terminal_status')}")
-    if "live_scheduler_queue_enqueue_not_executed" not in check.get("remaining_runtime_gaps", []):
-        failures.append("remaining gaps must preserve live scheduler queue enqueue boundary")
-    if "live_db_persistent_task_table_not_validated" not in check.get("remaining_runtime_gaps", []):
-        failures.append("remaining gaps must preserve live DB boundary")
+    if replay.get("live_db_write") is not True:
+        failures.append("event replay summary must validate repo-local live DB write")
+    if replay.get("live_scheduler_closure_validated") is not True:
+        failures.append("event replay summary must validate repo-local scheduler closure")
+
+    worker = check.get("worker_consumption") if isinstance(check.get("worker_consumption"), dict) else {}
+    downstream_handoff = check.get("downstream_handoff") if isinstance(check.get("downstream_handoff"), dict) else {}
+    evidence = check.get("live_scheduler_evidence") if isinstance(check.get("live_scheduler_evidence"), dict) else {}
+    if worker.get("consumed") is not True:
+        failures.append("worker consumption evidence must show consumed=true")
+    if worker.get("event_sequence") != ["mark_ready", "dispatch", "succeed"]:
+        failures.append(f"worker event sequence drifted: {worker.get('event_sequence')}")
+    if worker.get("db_write_readback") is not True:
+        failures.append("worker consumption must prove DB write/readback")
+    if downstream_handoff.get("contract_version") != "ingest.long_cycle_downstream_handoff.v1":
+        failures.append("downstream handoff contract version drifted")
+    if downstream_handoff.get("handoff_state") != "ready_for_downstream":
+        failures.append("downstream handoff must be ready_for_downstream")
+    if downstream_handoff.get("downstream_handoff_observed") is not True:
+        failures.append("downstream handoff must be observed")
+    for field in (
+        "live_scheduler_dispatch_executed",
+        "recurring_schedule_registered",
+        "production_worker_task_executed",
+        "live_persistent_task_table_write",
+        "digestion_output_readback",
+        "downstream_handoff_observed",
+    ):
+        if evidence.get(field) is not True:
+            failures.append(f"live scheduler evidence field {field} must be true")
+    if check.get("remaining_runtime_gaps") != []:
+        failures.append(f"repo-local live closure must leave no runtime gaps: {check.get('remaining_runtime_gaps')}")
 
     if not TOPIC_EVIDENCE_FILE.is_file():
         failures.append(f"missing topic evidence file: {TOPIC_EVIDENCE_FILE.relative_to(REPO_ROOT)}")
@@ -137,7 +178,7 @@ def validate_check(check: dict[str, object]) -> list[str]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Validate the Wave20 scheduler queue handoff and durable repository replay gate"
+        description="Validate the Wave55 repo-local live scheduler queue handoff replay gate"
     )
     parser.add_argument("--output", type=Path, default=None, help="Optional JSON output path.")
     args = parser.parse_args(argv)
@@ -147,9 +188,9 @@ def main(argv: list[str] | None = None) -> int:
     payload = {
         "status": "fail" if failures else "pass",
         "contract_status": (
-            "closed_narrow_scheduler_queue_replay_contract"
+            "closed_repo_local_live_scheduler_queue_handoff"
             if not failures
-            else "open_scheduler_queue_replay_gap"
+            else "open_repo_local_live_scheduler_queue_handoff_gap"
         ),
         "failures": failures,
         "check": check,

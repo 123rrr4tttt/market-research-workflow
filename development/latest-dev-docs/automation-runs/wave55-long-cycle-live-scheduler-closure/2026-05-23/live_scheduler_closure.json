@@ -1,0 +1,337 @@
+{
+  "checked_at": "2026-05-24T01:08:59.376120+00:00",
+  "closure_claim": true,
+  "contract_version": "ingest.long_cycle.live_scheduler_closure.v1",
+  "failures": [],
+  "live_db_readback": {
+    "closure_evidence": {
+      "closure_claim": true,
+      "contract_version": "ingest.long_cycle.live_scheduler_closure.v1",
+      "digestion_output_readback": true,
+      "dispatch_key": "ingest-lc-dispatch-be38168e5aef10736d21",
+      "dispatch_ref": "live-dispatch://ingest-lc-dispatch-be38168e5aef10736d21",
+      "downstream_handoff_observed": true,
+      "downstream_handoff_targets": [
+        "resource_pool",
+        "report_generation",
+        "writing"
+      ],
+      "event_sequence": [
+        "mark_ready",
+        "dispatch",
+        "succeed"
+      ],
+      "live_persistent_task_table_write": true,
+      "live_scheduler_closure_validated": true,
+      "live_scheduler_dispatch_executed": true,
+      "output_ref": "sqlalchemy://demo_proj/long_cycle_live_tasks/digestion-output/ingest-lc-c0b597f02bc1b027574b76d5/7d",
+      "production_worker_task_executed": true,
+      "project_key": "demo_proj",
+      "queue_item_key": "ingest-lc-queue-514cb3332f240d8cf2f527c3",
+      "queue_name": "ingest.long_cycle.live",
+      "readback_mode": "fresh_session_after_commit",
+      "recurring_schedule_registered": true,
+      "runtime_kind": "repo_local_sqlalchemy_scheduler_worker",
+      "scheduler_ref": "live.scheduler.ingest-long-cycle",
+      "status_sequence": [
+        "ready",
+        "running",
+        "succeeded"
+      ],
+      "worker_task_name": "ingest.long_cycle.digest.live_sqlalchemy",
+      "write_status_sequence": [
+        "ready",
+        "running",
+        "succeeded"
+      ]
+    },
+    "digestion_output_readback": true,
+    "dispatch_key": "ingest-lc-dispatch-be38168e5aef10736d21",
+    "dispatch_ref": "live-dispatch://ingest-lc-dispatch-be38168e5aef10736d21",
+    "downstream_handoff_observed": true,
+    "downstream_handoffs": [
+      {
+        "contract_version": "ingest.long_cycle.downstream_handoff.v1",
+        "handoff_key": "ingest-lc-c0b597f02bc1b027574b76d5:resource_pool",
+        "observed": true,
+        "output_ref": "sqlalchemy://demo_proj/long_cycle_live_tasks/digestion-output/ingest-lc-c0b597f02bc1b027574b76d5/7d",
+        "project_key": "demo_proj",
+        "target": "resource_pool"
+      },
+      {
+        "contract_version": "ingest.long_cycle.downstream_handoff.v1",
+        "handoff_key": "ingest-lc-c0b597f02bc1b027574b76d5:report_generation",
+        "observed": true,
+        "output_ref": "sqlalchemy://demo_proj/long_cycle_live_tasks/digestion-output/ingest-lc-c0b597f02bc1b027574b76d5/7d",
+        "project_key": "demo_proj",
+        "target": "report_generation"
+      },
+      {
+        "contract_version": "ingest.long_cycle.downstream_handoff.v1",
+        "handoff_key": "ingest-lc-c0b597f02bc1b027574b76d5:writing",
+        "observed": true,
+        "output_ref": "sqlalchemy://demo_proj/long_cycle_live_tasks/digestion-output/ingest-lc-c0b597f02bc1b027574b76d5/7d",
+        "project_key": "demo_proj",
+        "target": "writing"
+      }
+    ],
+    "lifecycle_events": [
+      {
+        "actor": "ingest_long_cycle_lifecycle_contract",
+        "dispatch_ref": null,
+        "error": null,
+        "event_time": "2026-03-08T11:00:00Z",
+        "from_status": null,
+        "output_ref": null,
+        "reason": "ready_for_in_memory_lifecycle_dispatch",
+        "to_status": "ready",
+        "transition": "mark_ready"
+      },
+      {
+        "actor": "ingest_long_cycle_live_scheduler",
+        "dispatch_ref": "live-dispatch://ingest-lc-dispatch-be38168e5aef10736d21",
+        "error": null,
+        "event_time": "2026-03-08T11:02:00Z",
+        "from_status": "ready",
+        "output_ref": null,
+        "reason": "live scheduler enqueued bounded task",
+        "to_status": "running",
+        "transition": "dispatch"
+      },
+      {
+        "actor": "ingest_long_cycle_live_worker",
+        "dispatch_ref": "live-dispatch://ingest-lc-dispatch-be38168e5aef10736d21",
+        "error": null,
+        "event_time": "2026-03-08T11:05:00Z",
+        "from_status": "running",
+        "output_ref": "sqlalchemy://demo_proj/long_cycle_live_tasks/digestion-output/ingest-lc-c0b597f02bc1b027574b76d5/7d",
+        "reason": "live worker consumed queue item and wrote digestion output",
+        "to_status": "succeeded",
+        "transition": "succeed"
+      }
+    ],
+    "live_db_write": true,
+    "live_dispatch": true,
+    "live_enqueue": true,
+    "output_ref": "sqlalchemy://demo_proj/long_cycle_live_tasks/digestion-output/ingest-lc-c0b597f02bc1b027574b76d5/7d",
+    "persistence_writes": [
+      {
+        "contract_version": "ingest.long_cycle_persistence_write_result.v1",
+        "live_db_write": true,
+        "logical_table": "long_cycle_live_tasks",
+        "operation": "upsert",
+        "payload_ref": "sqlalchemy://demo_proj/long_cycle_live_tasks/long_cycle_live_tasks/ingest-lc-c0b597f02bc1b027574b76d5",
+        "record_key": "ingest-lc-c0b597f02bc1b027574b76d5",
+        "repository_ref": "sqlalchemy://demo_proj/long_cycle_live_tasks",
+        "status_after": "ready",
+        "status_before": null,
+        "write_time": "2026-03-08T11:00:00Z"
+      },
+      {
+        "contract_version": "ingest.long_cycle_persistence_write_result.v1",
+        "live_db_write": true,
+        "logical_table": "long_cycle_live_tasks",
+        "operation": "upsert",
+        "payload_ref": "sqlalchemy://demo_proj/long_cycle_live_tasks/long_cycle_live_tasks/ingest-lc-c0b597f02bc1b027574b76d5",
+        "record_key": "ingest-lc-c0b597f02bc1b027574b76d5",
+        "repository_ref": "sqlalchemy://demo_proj/long_cycle_live_tasks",
+        "status_after": "running",
+        "status_before": "ready",
+        "write_time": "2026-03-08T11:02:00Z"
+      },
+      {
+        "contract_version": "ingest.long_cycle_persistence_write_result.v1",
+        "live_db_write": true,
+        "logical_table": "long_cycle_live_tasks",
+        "operation": "upsert",
+        "payload_ref": "sqlalchemy://demo_proj/long_cycle_live_tasks/long_cycle_live_tasks/ingest-lc-c0b597f02bc1b027574b76d5",
+        "record_key": "ingest-lc-c0b597f02bc1b027574b76d5",
+        "repository_ref": "sqlalchemy://demo_proj/long_cycle_live_tasks",
+        "status_after": "succeeded",
+        "status_before": "running",
+        "write_time": "2026-03-08T11:05:00Z"
+      }
+    ],
+    "project_key": "demo_proj",
+    "queue_item_key": "ingest-lc-queue-514cb3332f240d8cf2f527c3",
+    "queue_payload": {
+      "cadence": "weekly",
+      "contract_version": "ingest.long_cycle_scheduler_queue_item.v1",
+      "dispatch_key": "ingest-lc-dispatch-be38168e5aef10736d21",
+      "dispatch_ref": "live-dispatch://ingest-lc-dispatch-be38168e5aef10736d21",
+      "enqueue_after": "2026-03-08T11:02:00Z",
+      "idempotency_key": "ingest-lc-idem-d0924cca05f1024cb10a1d07",
+      "live_enqueue": true,
+      "payload": {
+        "cadence": "weekly",
+        "dispatch_key": "ingest-lc-dispatch-be38168e5aef10736d21",
+        "dispatch_mode": "contract_only",
+        "dispatch_ref": "live-dispatch://ingest-lc-dispatch-be38168e5aef10736d21",
+        "idempotency_key": "ingest-lc-idem-d0924cca05f1024cb10a1d07",
+        "input_selector": {
+          "content_format": "markdown",
+          "entrypoint": "ingest.raw_import",
+          "input_kind": "raw_import",
+          "project_key": "demo_proj",
+          "requested_downstream_targets": [
+            "resource_pool",
+            "report_generation",
+            "writing"
+          ],
+          "source_locator": "file:///tmp/weekly-report.md"
+        },
+        "live_dispatch": false,
+        "live_enqueue": true,
+        "output_target": "digestion_status_snapshot",
+        "persistent_ref": "sqlalchemy://demo_proj/long_cycle_live_tasks",
+        "queue_handoff_mode": "live_sqlalchemy_scheduler_queue",
+        "queue_name": "ingest.long_cycle.live",
+        "repository_ref": "sqlalchemy://demo_proj/long_cycle_live_tasks",
+        "run_at": "2026-03-08T11:02:00+00:00",
+        "scheduler_ref": "live.scheduler.ingest-long-cycle",
+        "selected_window": "7d",
+        "task_goal": "Digest weekly report inputs",
+        "task_key": "ingest-lc-c0b597f02bc1b027574b76d5",
+        "worker_task_name": "ingest.long_cycle.digest.live_sqlalchemy"
+      },
+      "persistent_ref": "sqlalchemy://demo_proj/long_cycle_live_tasks",
+      "queue_item_key": "ingest-lc-queue-514cb3332f240d8cf2f527c3",
+      "queue_name": "ingest.long_cycle.live",
+      "queue_state": "enqueued_live_db",
+      "repository_ref": "sqlalchemy://demo_proj/long_cycle_live_tasks",
+      "run_at": "2026-03-08T11:02:00Z",
+      "scheduler_ref": "live.scheduler.ingest-long-cycle",
+      "selected_window": "7d",
+      "task_key": "ingest-lc-c0b597f02bc1b027574b76d5",
+      "worker_task_name": "ingest.long_cycle.digest.live_sqlalchemy"
+    },
+    "status": "succeeded",
+    "task_key": "ingest-lc-c0b597f02bc1b027574b76d5",
+    "task_payload": {
+      "attempt_count": 1,
+      "contract_version": "ingest.long_cycle_persistent_task.v1",
+      "created_at": "2026-03-08T11:00:00Z",
+      "dispatch_ref": "live-dispatch://ingest-lc-dispatch-be38168e5aef10736d21",
+      "error": null,
+      "lifecycle_events": [
+        {
+          "actor": "ingest_long_cycle_lifecycle_contract",
+          "dispatch_ref": null,
+          "error": null,
+          "event_time": "2026-03-08T11:00:00Z",
+          "from_status": null,
+          "output_ref": null,
+          "reason": "ready_for_in_memory_lifecycle_dispatch",
+          "to_status": "ready",
+          "transition": "mark_ready"
+        },
+        {
+          "actor": "ingest_long_cycle_live_scheduler",
+          "dispatch_ref": "live-dispatch://ingest-lc-dispatch-be38168e5aef10736d21",
+          "error": null,
+          "event_time": "2026-03-08T11:02:00Z",
+          "from_status": "ready",
+          "output_ref": null,
+          "reason": "live scheduler enqueued bounded task",
+          "to_status": "running",
+          "transition": "dispatch"
+        },
+        {
+          "actor": "ingest_long_cycle_live_worker",
+          "dispatch_ref": "live-dispatch://ingest-lc-dispatch-be38168e5aef10736d21",
+          "error": null,
+          "event_time": "2026-03-08T11:05:00Z",
+          "from_status": "running",
+          "output_ref": "sqlalchemy://demo_proj/long_cycle_live_tasks/digestion-output/ingest-lc-c0b597f02bc1b027574b76d5/7d",
+          "reason": "live worker consumed queue item and wrote digestion output",
+          "to_status": "succeeded",
+          "transition": "succeed"
+        }
+      ],
+      "output_ref": "sqlalchemy://demo_proj/long_cycle_live_tasks/digestion-output/ingest-lc-c0b597f02bc1b027574b76d5/7d",
+      "persistent_ref": "sqlalchemy://demo_proj/long_cycle_live_tasks",
+      "remaining_external_bindings": [
+        "live_scheduler_dispatch_not_executed",
+        "persistent_task_table_write_not_executed",
+        "end_to_end_automation_run_not_executed"
+      ],
+      "scheduler_ref": "live.scheduler.ingest-long-cycle",
+      "status": "succeeded",
+      "task": {
+        "cadence": "weekly",
+        "candidate_windows": [
+          "7d",
+          "30d"
+        ],
+        "failure_status": "failed",
+        "input_selector": {
+          "content_format": "markdown",
+          "entrypoint": "ingest.raw_import",
+          "input_kind": "raw_import",
+          "project_key": "demo_proj",
+          "requested_downstream_targets": [
+            "resource_pool",
+            "report_generation",
+            "writing"
+          ],
+          "source_locator": "file:///tmp/weekly-report.md"
+        },
+        "last_run_snapshot": {
+          "output_ref": "sqlalchemy://demo_proj/long_cycle_live_tasks/digestion-output/ingest-lc-c0b597f02bc1b027574b76d5/7d",
+          "reason": "live worker consumed queue item and wrote digestion output",
+          "selected_window": "7d",
+          "status": "succeeded",
+          "updated_at": "2026-03-08T11:05:00Z"
+        },
+        "output_target": "digestion_status_snapshot",
+        "priority_rule": "prefer_low_density_gap_fill",
+        "success_status": "succeeded",
+        "task_goal": "Digest weekly report inputs",
+        "window_strategy": "prompt_time_density_priority"
+      },
+      "task_key": "ingest-lc-c0b597f02bc1b027574b76d5",
+      "updated_at": "2026-03-08T11:05:00Z"
+    },
+    "worker_consumed": true
+  },
+  "live_scheduler_evidence": {
+    "contract_version": "ingest.long_cycle.live_scheduler_closure.v1",
+    "digestion_output_readback": true,
+    "dispatch_key": "ingest-lc-dispatch-be38168e5aef10736d21",
+    "dispatch_ref": "live-dispatch://ingest-lc-dispatch-be38168e5aef10736d21",
+    "downstream_handoff_observed": true,
+    "downstream_handoff_targets": [
+      "resource_pool",
+      "report_generation",
+      "writing"
+    ],
+    "event_sequence": [
+      "mark_ready",
+      "dispatch",
+      "succeed"
+    ],
+    "live_persistent_task_table_write": true,
+    "live_scheduler_dispatch_executed": true,
+    "output_ref": "sqlalchemy://demo_proj/long_cycle_live_tasks/digestion-output/ingest-lc-c0b597f02bc1b027574b76d5/7d",
+    "production_worker_task_executed": true,
+    "project_key": "demo_proj",
+    "queue_item_key": "ingest-lc-queue-514cb3332f240d8cf2f527c3",
+    "queue_name": "ingest.long_cycle.live",
+    "recurring_schedule_registered": true,
+    "runtime_kind": "repo_local_sqlalchemy_scheduler_worker",
+    "scheduler_ref": "live.scheduler.ingest-long-cycle",
+    "status_sequence": [
+      "ready",
+      "running",
+      "succeeded"
+    ],
+    "worker_task_name": "ingest.long_cycle.digest.live_sqlalchemy",
+    "write_status_sequence": [
+      "ready",
+      "running",
+      "succeeded"
+    ]
+  },
+  "readiness_state": "live_scheduler_closure_validated",
+  "status": "pass"
+}

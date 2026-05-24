@@ -661,6 +661,13 @@ class LongCycleSchedulerQueueReplayCheck(BaseModel):
     repository_readback: LongCycleRepositoryReadbackCheck
     handoff_trace: LongCycleSchedulerHandoffTraceCheck
     event_replay_summary: LongCycleRepositoryEventReplaySummary
+    worker_consumption_validated: bool = False
+    digestion_output_readback_validated: bool = False
+    downstream_handoff_validated: bool = False
+    repo_local_live_closure_validated: bool = False
+    worker_consumption: dict[str, Any] = Field(default_factory=dict)
+    downstream_handoff: dict[str, Any] = Field(default_factory=dict)
+    live_scheduler_evidence: dict[str, Any] = Field(default_factory=dict)
     live_dispatch: bool = False
     live_enqueue: bool = False
     live_db_write: bool = False

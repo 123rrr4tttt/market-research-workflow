@@ -53,7 +53,7 @@ REQUIRED_ARTIFACT_KEYS = {
     "shard_readback",
 }
 OPTIONAL_ARTIFACT_KEYS: set[str] = set()
-REQUIRED_RUNTIME_FLAGS = {
+MISSING_OUTPUT_RUNTIME_FLAGS = {
     "repo_local_fixture": True,
     "deterministic": True,
     "public_network_attempted": False,
@@ -61,6 +61,19 @@ REQUIRED_RUNTIME_FLAGS = {
     "public_browser_replay_performed": False,
     "real_public_replay_claimed": False,
 }
+PUBLIC_OUTPUT_RUNTIME_FLAGS = {
+    "repo_local_fixture": False,
+    "deterministic": False,
+    "public_network_attempted": True,
+    "browser_runtime_started": False,
+    "public_browser_replay_performed": False,
+    "real_public_replay_claimed": True,
+}
+MISSING_OUTPUT_READBACK_SCOPE = "crawler_public_replay_shards_missing_output_readback"
+PUBLIC_OUTPUT_READBACK_SCOPE = "crawler_public_replay_shards_public_output_readback"
+MISSING_OUTPUT_RUNTIME_MODE = "repo_local_public_replay_shard_readback"
+PUBLIC_OUTPUT_RUNTIME_MODE = "public_replay_shard_output_readback"
+PUBLIC_OUTPUT_STATUS = "real_evidence_present_review_required"
 
 
 def _repo_root() -> Path:
@@ -123,6 +136,46 @@ def _target_counts(targets: list[Mapping[str, Any]]) -> dict[str, int]:
         "enabled_public_target_count": sum(1 for target in targets if bool(target.get("enabled", True))),
         "policy_disabled_target_count": sum(1 for target in targets if bool(target.get("skip_public_execution"))),
     }
+
+
+def _target_id_from_result(row: Mapping[str, Any]) -> str:
+    target = row.get("target") if isinstance(row.get("target"), Mapping) else {}
+    return str(target.get("target_id") or row.get("target_id") or "").strip()
+
+
+def _classification_status(row: Mapping[str, Any]) -> str:
+    classification = row.get("classification") if isinstance(row.get("classification"), Mapping) else {}
+    return str(classification.get("status") or row.get("status") or "").strip()
+
+
+def _status_counts_from_results(results: list[Mapping[str, Any]]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for row in results:
+        status = _classification_status(row) or "unknown"
+        counts[status] = counts.get(status, 0) + 1
+    return counts
+
+
+def _status_counts_from_payload(payload: Mapping[str, Any]) -> dict[str, int]:
+    outputs = payload.get("outputs") if isinstance(payload.get("outputs"), Mapping) else {}
+    raw_counts = outputs.get("status_counts") if isinstance(outputs.get("status_counts"), Mapping) else {}
+    counts: dict[str, int] = {}
+    for key, value in raw_counts.items():
+        try:
+            counts[str(key)] = int(value)
+        except (TypeError, ValueError):
+            counts[str(key)] = 0
+    return counts
+
+
+def _target_results_from_payload(payload: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    outputs = payload.get("outputs") if isinstance(payload.get("outputs"), Mapping) else {}
+    raw_results = outputs.get("target_results")
+    return [row for row in raw_results if isinstance(row, Mapping)] if isinstance(raw_results, list) else []
+
+
+def _public_attempted_count(results: list[Mapping[str, Any]]) -> int:
+    return sum(1 for row in results if not _classification_status(row).startswith("skipped_"))
 
 
 def _validate_expected_counts(raw_counts: Any, errors: list[str], label: str) -> dict[str, int]:
@@ -288,7 +341,7 @@ def _manifest_shard_summary(root: Path, manifest: Mapping[str, Any], errors: lis
                 "target_ids": target_ids,
                 "public_output": _relative_path(resolved_public_output, root),
                 "public_output_present": resolved_public_output.is_file(),
-                "public_output_status": "present_review_required" if resolved_public_output.is_file() else "external_blocked",
+                "public_output_status": PUBLIC_OUTPUT_STATUS if resolved_public_output.is_file() else "external_blocked",
             }
         )
 
@@ -350,17 +403,105 @@ def _public_output_boundary_summary(root: Path, manifest: Mapping[str, Any], err
     }
 
 
-def _readback_runtime_summary(readback: Mapping[str, Any], errors: list[str]) -> dict[str, Any]:
+def _readback_runtime_summary(
+    readback: Mapping[str, Any],
+    errors: list[str],
+    *,
+    public_output_mode: bool,
+) -> dict[str, Any]:
     runtime = readback.get("runtime") if isinstance(readback.get("runtime"), Mapping) else {}
     _require(isinstance(readback.get("runtime"), Mapping), errors, "readback.runtime must be an object")
-    for key, expected in REQUIRED_RUNTIME_FLAGS.items():
+    expected_flags = PUBLIC_OUTPUT_RUNTIME_FLAGS if public_output_mode else MISSING_OUTPUT_RUNTIME_FLAGS
+    expected_mode = PUBLIC_OUTPUT_RUNTIME_MODE if public_output_mode else MISSING_OUTPUT_RUNTIME_MODE
+    for key, expected in expected_flags.items():
         _require(runtime.get(key) is expected, errors, f"readback.runtime.{key} must be {expected!r}")
     _require(
-        runtime.get("mode") == "repo_local_public_replay_shard_readback",
+        runtime.get("mode") == expected_mode,
         errors,
-        "readback.runtime.mode must be repo_local_public_replay_shard_readback",
+        f"readback.runtime.mode must be {expected_mode}",
     )
-    return {"mode": runtime.get("mode"), **{key: runtime.get(key) for key in REQUIRED_RUNTIME_FLAGS}}
+    return {"mode": runtime.get("mode"), **{key: runtime.get(key) for key in expected_flags}}
+
+
+def _validate_public_shard_output(
+    *,
+    root: Path,
+    public_output_path: Path,
+    manifest_shard: Mapping[str, Any],
+    source_full_output: str,
+    errors: list[str],
+) -> dict[str, Any]:
+    shard_id = str(manifest_shard.get("shard_id") or "").strip()
+    payload = _load_json_file(public_output_path, errors, f"{shard_id} public shard output")
+    if not payload:
+        return {}
+
+    validation = payload.get("validation") if isinstance(payload.get("validation"), Mapping) else {}
+    mode = payload.get("mode") if isinstance(payload.get("mode"), Mapping) else {}
+    inputs = payload.get("inputs") if isinstance(payload.get("inputs"), Mapping) else {}
+    outputs = payload.get("outputs") if isinstance(payload.get("outputs"), Mapping) else {}
+    target_results = _target_results_from_payload(payload)
+    result_target_ids = [_target_id_from_result(row) for row in target_results]
+    expected_target_ids = list(manifest_shard.get("target_ids") or [])
+    status_counts = _status_counts_from_payload(payload)
+    computed_status_counts = _status_counts_from_results(target_results)
+    public_attempted = int(outputs.get("public_targets_attempted") or _public_attempted_count(target_results))
+    policy_skipped = int(status_counts.get("skipped_policy_disabled_platform_entry") or 0)
+    operator_gate_skipped = int(status_counts.get("skipped_public_network_disabled") or 0)
+
+    _require(payload.get("contract_version") == SHARD_OUTPUT_CONTRACT_VERSION, errors, f"{shard_id}: shard output contract mismatch")
+    _require(payload.get("shard_id") == shard_id, errors, f"{shard_id}: shard output shard_id mismatch")
+    _require(payload.get("shard_index") == manifest_shard.get("shard_index"), errors, f"{shard_id}: shard output shard_index mismatch")
+    _require(payload.get("source_full_output_path") == source_full_output, errors, f"{shard_id}: source_full_output_path mismatch")
+    _require(bool(mode.get("allow_public_network")), errors, f"{shard_id}: shard output must record allow_public_network=true")
+    _require(bool(validation.get("passed")), errors, f"{shard_id}: shard output validation.passed must be true")
+    _require(validation.get("skipped") is False, errors, f"{shard_id}: shard output validation.skipped must be false")
+    _require(
+        validation.get("public_network_attempted") is True,
+        errors,
+        f"{shard_id}: shard output validation.public_network_attempted must be true",
+    )
+    _require(
+        validation.get("target_order_matches_manifest") is True,
+        errors,
+        f"{shard_id}: shard output target_order_matches_manifest must be true",
+    )
+    _require(inputs.get("target_count") == manifest_shard.get("target_count"), errors, f"{shard_id}: shard output target_count mismatch")
+    _require(
+        inputs.get("enabled_public_target_count") == manifest_shard.get("enabled_public_target_count"),
+        errors,
+        f"{shard_id}: shard output enabled_public_target_count mismatch",
+    )
+    _require(
+        inputs.get("policy_disabled_target_count") == manifest_shard.get("policy_disabled_target_count"),
+        errors,
+        f"{shard_id}: shard output policy_disabled_target_count mismatch",
+    )
+    _require(result_target_ids == expected_target_ids, errors, f"{shard_id}: shard output target_results order mismatch")
+    _require(status_counts == computed_status_counts, errors, f"{shard_id}: shard output status_counts mismatch target_results")
+    _require(
+        public_attempted == int(manifest_shard.get("enabled_public_target_count") or 0),
+        errors,
+        f"{shard_id}: shard output must attempt every enabled public target",
+    )
+    _require(
+        policy_skipped == int(manifest_shard.get("policy_disabled_target_count") or 0),
+        errors,
+        f"{shard_id}: shard output policy-disabled skip count mismatch",
+    )
+    _require(operator_gate_skipped == 0, errors, f"{shard_id}: shard output must not contain operator-gate skips")
+
+    return {
+        "contract_version": payload.get("contract_version"),
+        "source_full_output_path": payload.get("source_full_output_path"),
+        "allow_public_network": bool(mode.get("allow_public_network")),
+        "validation_passed": bool(validation.get("passed")),
+        "target_count": len(target_results),
+        "public_targets_attempted": public_attempted,
+        "policy_skipped_status_count": policy_skipped,
+        "operator_gate_skip_count": operator_gate_skipped,
+        "status_counts": status_counts,
+    }
 
 
 def _readback_summary(
@@ -369,13 +510,16 @@ def _readback_summary(
     manifest_path: Path,
     readback_path: Path,
     manifest_shards: Mapping[str, Any],
+    public_output_boundary: Mapping[str, Any],
     readback: Mapping[str, Any],
     artifacts: Mapping[str, Path],
     errors: list[str],
 ) -> dict[str, Any]:
     _require(readback.get("contract_version") == READBACK_CONTRACT_VERSION, errors, "readback contract_version mismatch")
+    readback_scope = str(readback.get("scope") or "").strip()
+    public_output_mode = readback_scope == PUBLIC_OUTPUT_READBACK_SCOPE
     _require(
-        readback.get("scope") == "crawler_public_replay_shards_missing_output_readback",
+        readback_scope in {MISSING_OUTPUT_READBACK_SCOPE, PUBLIC_OUTPUT_READBACK_SCOPE},
         errors,
         "readback.scope mismatch",
     )
@@ -397,7 +541,7 @@ def _readback_summary(
         "readback.browser_fixture_path mismatch",
     )
 
-    runtime = _readback_runtime_summary(readback, errors)
+    runtime = _readback_runtime_summary(readback, errors, public_output_mode=public_output_mode)
     readback_counts = readback.get("readback") if isinstance(readback.get("readback"), Mapping) else {}
     _require(isinstance(readback.get("readback"), Mapping), errors, "readback.readback must be an object")
     _require(readback_counts.get("shard_count") == manifest_shards.get("shard_count"), errors, "readback.shard_count mismatch")
@@ -409,16 +553,30 @@ def _readback_summary(
         errors,
         "readback missing_public_output_count mismatch",
     )
-    _require(
-        readback_counts.get("missing_public_output_status") == "external_blocked",
-        errors,
-        "readback missing_public_output_status must be external_blocked",
-    )
-    _require(
-        readback_counts.get("real_public_browser_fleet_replay_complete") is False,
-        errors,
-        "readback real_public_browser_fleet_replay_complete must be false",
-    )
+    if public_output_mode:
+        _require(readback_counts.get("present_public_output_count") == manifest_shards.get("present_public_output_count"), errors, "readback present_public_output_count mismatch")
+        _require(readback_counts.get("missing_public_output_count") == 0, errors, "readback missing_public_output_count must be 0")
+        _require(
+            readback_counts.get("public_output_status") == PUBLIC_OUTPUT_STATUS,
+            errors,
+            f"readback public_output_status must be {PUBLIC_OUTPUT_STATUS}",
+        )
+        _require(
+            readback_counts.get("real_public_browser_fleet_replay_complete") is True,
+            errors,
+            "readback real_public_browser_fleet_replay_complete must be true",
+        )
+    else:
+        _require(
+            readback_counts.get("missing_public_output_status") == "external_blocked",
+            errors,
+            "readback missing_public_output_status must be external_blocked",
+        )
+        _require(
+            readback_counts.get("real_public_browser_fleet_replay_complete") is False,
+            errors,
+            "readback real_public_browser_fleet_replay_complete must be false",
+        )
     _require(readback_counts.get("full_closure_allowed") is False, errors, "readback full_closure_allowed must be false")
 
     manifest_shards_by_id = {
@@ -431,6 +589,8 @@ def _readback_summary(
     _require(isinstance(raw_shards, list), errors, "readback.shards must be a list")
     shard_summaries: list[dict[str, Any]] = []
     seen_ids: set[str] = set()
+    public_output_summaries: dict[str, dict[str, Any]] = {}
+    source_full_output = str(public_output_boundary.get("source_full_output") or "").strip()
     for raw_shard in shards:
         shard = raw_shard if isinstance(raw_shard, Mapping) else {}
         shard_id = str(shard.get("shard_id") or "").strip()
@@ -450,9 +610,26 @@ def _readback_summary(
             f"{shard_id}: readback target_ids mismatch",
         )
         _require(public_output == expected_public_output, errors, f"{shard_id}: readback public_output mismatch")
-        _require(shard.get("evidence_present") is False, errors, f"{shard_id}: evidence_present must be false")
-        _require(shard.get("public_output_status") == "external_blocked", errors, f"{shard_id}: public_output_status must be external_blocked")
-        _require(not public_output_path.is_file(), errors, f"{shard_id}: public output must remain absent for external_blocked readback")
+        if public_output_mode:
+            _require(shard.get("evidence_present") is True, errors, f"{shard_id}: evidence_present must be true")
+            _require(
+                shard.get("public_output_status") == PUBLIC_OUTPUT_STATUS,
+                errors,
+                f"{shard_id}: public_output_status must be {PUBLIC_OUTPUT_STATUS}",
+            )
+            _require(public_output_path.is_file(), errors, f"{shard_id}: public output must be present")
+            if public_output_path.is_file():
+                public_output_summaries[shard_id] = _validate_public_shard_output(
+                    root=root,
+                    public_output_path=public_output_path,
+                    manifest_shard=manifest_shard,
+                    source_full_output=source_full_output,
+                    errors=errors,
+                )
+        else:
+            _require(shard.get("evidence_present") is False, errors, f"{shard_id}: evidence_present must be false")
+            _require(shard.get("public_output_status") == "external_blocked", errors, f"{shard_id}: public_output_status must be external_blocked")
+            _require(not public_output_path.is_file(), errors, f"{shard_id}: public output must remain absent for external_blocked readback")
         shard_summaries.append(
             {
                 "shard_id": shard_id,
@@ -461,6 +638,7 @@ def _readback_summary(
                 "public_output": _relative_path(public_output_path, root),
                 "evidence_present": shard.get("evidence_present") is True,
                 "public_output_status": shard.get("public_output_status"),
+                "public_output_summary": public_output_summaries.get(shard_id, {}),
             }
         )
 
@@ -471,16 +649,25 @@ def _readback_summary(
 
     closure = readback.get("closure") if isinstance(readback.get("closure"), Mapping) else {}
     _require(isinstance(readback.get("closure"), Mapping), errors, "readback.closure must be an object")
-    _require(closure.get("status") == "external_blocked", errors, "readback.closure.status must be external_blocked")
-    _require(
-        closure.get("real_public_browser_fleet_replay_complete") is False,
-        errors,
-        "readback.closure.real_public_browser_fleet_replay_complete must be false",
-    )
+    if public_output_mode:
+        _require(closure.get("status") == PUBLIC_OUTPUT_STATUS, errors, f"readback.closure.status must be {PUBLIC_OUTPUT_STATUS}")
+        _require(
+            closure.get("real_public_browser_fleet_replay_complete") is True,
+            errors,
+            "readback.closure.real_public_browser_fleet_replay_complete must be true",
+        )
+    else:
+        _require(closure.get("status") == "external_blocked", errors, "readback.closure.status must be external_blocked")
+        _require(
+            closure.get("real_public_browser_fleet_replay_complete") is False,
+            errors,
+            "readback.closure.real_public_browser_fleet_replay_complete must be false",
+        )
     _require(closure.get("full_closure_allowed") is False, errors, "readback.closure.full_closure_allowed must be false")
 
     return {
         "readback_path": _relative_path(readback_path, root),
+        "scope": readback_scope,
         "runtime": runtime,
         "counts": {
             "shard_count": readback_counts.get("shard_count"),
@@ -489,6 +676,8 @@ def _readback_summary(
             "policy_disabled_target_count": readback_counts.get("policy_disabled_target_count"),
             "missing_public_output_count": readback_counts.get("missing_public_output_count"),
             "missing_public_output_status": readback_counts.get("missing_public_output_status"),
+            "present_public_output_count": readback_counts.get("present_public_output_count"),
+            "public_output_status": readback_counts.get("public_output_status"),
         },
         "shards": shard_summaries,
         "closure": {
@@ -506,15 +695,20 @@ def _gate_summary(root: Path, gate_manifest_path: Path, errors: list[str]) -> di
     live_public = gate.get("live_public_replay") if isinstance(gate.get("live_public_replay"), Mapping) else {}
     _require(validation.get("passed") is True, errors, "crawler public replay gate must pass")
     _require(validation.get("public_network_attempted") is False, errors, "crawler public replay gate must not attempt public network")
+    allowed_overall_statuses = {
+        "deterministic_artifacts_valid_live_public_replay_not_closed",
+        "deterministic_artifacts_valid_live_public_replay_evidence_present_review_required",
+    }
+    allowed_live_statuses = {"not_closed_missing_real_evidence", PUBLIC_OUTPUT_STATUS}
     _require(
-        gate.get("overall_status") == "deterministic_artifacts_valid_live_public_replay_not_closed",
+        gate.get("overall_status") in allowed_overall_statuses,
         errors,
-        "crawler public replay gate must keep live replay not closed",
+        "crawler public replay gate status must be not_closed or evidence_present_review_required",
     )
     _require(
-        live_public.get("status") == "not_closed_missing_real_evidence",
+        live_public.get("status") in allowed_live_statuses,
         errors,
-        "crawler public replay gate live status must be not_closed_missing_real_evidence",
+        "crawler public replay gate live status must be not_closed_missing_real_evidence or real_evidence_present_review_required",
     )
     return {
         "contract_version": gate.get("contract_version"),
@@ -601,6 +795,7 @@ def build_check(
             manifest_path=manifest_abs,
             readback_path=readback_abs,
             manifest_shards=manifest_shards,
+            public_output_boundary=public_output_boundary,
             readback=readback,
             artifacts=artifacts,
             errors=errors,
@@ -619,9 +814,28 @@ def build_check(
         else {}
     )
 
-    validation_passed = not errors
-    status = "shard_manifest_valid_public_outputs_external_blocked" if validation_passed else "failed"
     missing_output_count = int(manifest_shards.get("missing_public_output_count") or 0)
+    present_output_count = int(manifest_shards.get("present_public_output_count") or 0)
+    public_outputs_complete = bool(
+        not errors
+        and present_output_count == int(manifest_shards.get("shard_count") or 0)
+        and readback_summary.get("closure", {}).get("real_public_browser_fleet_replay_complete") is True
+    )
+    validation_passed = not errors
+    status = (
+        "failed"
+        if not validation_passed
+        else "shard_outputs_present_review_required"
+        if public_outputs_complete
+        else "shard_manifest_valid_public_outputs_external_blocked"
+    )
+    overall_status = (
+        "failed"
+        if not validation_passed
+        else "public_replay_shards_present_review_required"
+        if public_outputs_complete
+        else "external_blocked"
+    )
     return {
         "contract_version": CONTRACT_VERSION,
         "manifest_contract_version": MANIFEST_CONTRACT_VERSION,
@@ -647,11 +861,14 @@ def build_check(
             "shard_manifest_valid": validation_passed,
             "shard_readback_valid": validation_passed,
             "missing_public_outputs_external_blocked": missing_output_count == 5 and validation_passed,
-            "real_public_browser_fleet_replay_complete": False,
+            "public_shard_outputs_present": public_outputs_complete,
+            "real_public_browser_fleet_replay_complete": public_outputs_complete,
             "full_closure_allowed": False,
-            "overall_status": "external_blocked" if validation_passed else "failed",
+            "overall_status": overall_status,
             "claim": (
-                "repo_local_shard_manifest_passed_missing_public_outputs_external_blocked"
+                "real_public_replay_shard_outputs_present_review_required"
+                if public_outputs_complete
+                else "repo_local_shard_manifest_passed_missing_public_outputs_external_blocked"
                 if validation_passed
                 else "repo_local_shard_manifest_failed"
             ),
@@ -659,7 +876,7 @@ def build_check(
         "validation": {
             "passed": validation_passed,
             "errors": errors,
-            "public_network_attempted": False,
+            "public_network_attempted": bool(readback_summary.get("runtime", {}).get("public_network_attempted")),
             "browser_runtime_started": False,
             "shared_indexes_edited": False,
         },

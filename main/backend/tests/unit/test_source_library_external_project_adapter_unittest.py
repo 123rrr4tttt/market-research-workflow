@@ -274,6 +274,7 @@ class ExternalProjectAdapterUnitTestCase(unittest.TestCase):
             result = handle_external_project_manifest(params, project_key="demo_proj")
 
         get_text.assert_called_once()
+        self.assertTrue(get_text.call_args.kwargs["follow_redirects"])
         extractor.assert_called_once()
         self.assertEqual(result["status"], "ok")
         self.assertEqual(result["execution_mode"], "article_extractor")

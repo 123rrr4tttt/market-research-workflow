@@ -126,8 +126,11 @@ def run_check(
             REPO_ROOT / "main/backend/app/services/ingest/canary_metrics.py",
             (
                 "CONTRACT_VERSION",
+                "CONFIGURED_PROVIDER_CANARY_CONTRACT_VERSION",
+                "CONFIGURED_PROVIDER_CANARY_EVIDENCE_FIELDS",
                 "LIVE_CANARY_EVIDENCE_FIELDS",
                 "METRIC_24H_EVIDENCE_FIELDS",
+                "configured_provider_canary_boundary",
                 "demo_proj_live_canary_open",
                 "metric_24h_readback_open",
             ),
@@ -160,6 +163,9 @@ def run_check(
         metric_readback_evidence=metric_readback_evidence,
     )
     default_open_expected = live_canary_evidence is None and metric_readback_evidence is None
+    boundary = report.configured_provider_canary_boundary
+    boundary_validation = boundary.get("validation", {}) if isinstance(boundary.get("validation"), dict) else {}
+    boundary_passed = boundary_validation.get("passed") is True
     runtime_results = [
         {
             "name": "deterministic_canary_metrics_ready",
@@ -172,6 +178,19 @@ def run_check(
             "evidence": {
                 "demo_proj_live_canary_open": report.demo_proj_live_canary_open,
                 "live_canary_validated": report.live_canary_validated,
+            },
+        },
+        {
+            "name": "configured_provider_canary_boundary_is_explicit",
+            "passed": (
+                boundary.get("status") == "missing_evidence"
+                and boundary_validation.get("passed") is False
+            )
+            if default_open_expected
+            else boundary_passed == report.live_canary_validated,
+            "evidence": {
+                "boundary_status": boundary.get("status"),
+                "boundary_passed": boundary_validation.get("passed"),
             },
         },
         {
