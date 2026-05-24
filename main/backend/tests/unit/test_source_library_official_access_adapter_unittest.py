@@ -17,9 +17,12 @@ from app.services.source_library.adapters.official_access import handle_official
 
 class OfficialAccessAdapterUnitTestCase(unittest.TestCase):
     def setUp(self) -> None:
-        patcher = patch("app.services.source_library.adapters.official_access._ARXIV_RESULT_CACHE", {})
-        self.addCleanup(patcher.stop)
-        patcher.start()
+        arxiv_patcher = patch("app.services.source_library.adapters.official_access._ARXIV_RESULT_CACHE", {})
+        crossref_patcher = patch("app.services.source_library.adapters.official_access._CROSSREF_RESULT_CACHE", {})
+        self.addCleanup(arxiv_patcher.stop)
+        self.addCleanup(crossref_patcher.stop)
+        arxiv_patcher.start()
+        crossref_patcher.start()
 
     def test_arxiv_official_api_returns_candidate_urls(self) -> None:
         with patch("app.services.source_library.adapters.official_access.execute_feed_probe") as execute:
@@ -184,6 +187,88 @@ class OfficialAccessAdapterUnitTestCase(unittest.TestCase):
         result = handle_official_access_api({"provider_key": "unknown"}, project_key=None)
         self.assertEqual(result["candidates"], [])
         self.assertIn("placeholder", result["message"])
+
+    def test_crossref_official_api_returns_doi_candidate_urls(self) -> None:
+        payload = {
+            "message": {
+                "total-results": 2,
+                "items": [
+                    {
+                        "DOI": "10.5555/example-1",
+                        "URL": "https://doi.org/10.5555/example-1",
+                        "title": ["Robotics Market Evidence"],
+                        "publisher": "Example Publisher",
+                        "type": "journal-article",
+                    },
+                    {
+                        "DOI": "10.5555/example-2",
+                        "title": ["Automation Adoption Evidence"],
+                    },
+                ],
+            }
+        }
+        with patch("app.services.source_library.adapters.official_access.default_http_client.get_json") as get_json:
+            get_json.return_value = payload
+            result = handle_official_access_api(
+                {
+                    "provider_key": "crossref",
+                    "query_terms": ["robotics market"],
+                    "max_results": 5,
+                },
+                project_key=None,
+            )
+
+        get_json.assert_called_once()
+        self.assertEqual(
+            result["candidates"],
+            [
+                "https://doi.org/10.5555/example-1",
+                "https://doi.org/10.5555/example-2",
+            ],
+        )
+        self.assertEqual(result["diagnostics"]["provider_key"], "crossref")
+        self.assertEqual(result["diagnostics"]["endpoint"], "https://api.crossref.org/works")
+        self.assertFalse(result["diagnostics"]["credential_required"])
+        self.assertTrue(result["diagnostics"]["public_api"])
+        self.assertEqual(result["candidate_records"][0]["title"], "Robotics Market Evidence")
+
+    def test_crossref_official_api_reuses_cached_candidates(self) -> None:
+        payload = {
+            "message": {
+                "total-results": 1,
+                "items": [{"DOI": "10.5555/cached", "title": ["Cached Record"]}],
+            }
+        }
+        with patch("app.services.source_library.adapters.official_access.default_http_client.get_json") as get_json:
+            get_json.return_value = payload
+            first = handle_official_access_api(
+                {"provider_key": "crossref", "query_terms": ["robotics market"], "max_results": 2},
+                project_key=None,
+            )
+        self.assertEqual(first["candidates"], ["https://doi.org/10.5555/cached"])
+
+        with patch("app.services.source_library.adapters.official_access.default_http_client.get_json") as get_json:
+            second = handle_official_access_api(
+                {"provider_key": "crossref", "query_terms": ["robotics market"], "max_results": 2},
+                project_key=None,
+            )
+
+        get_json.assert_not_called()
+        self.assertEqual(second["candidates"], ["https://doi.org/10.5555/cached"])
+        self.assertTrue(second["diagnostics"]["cache_hit"])
+
+    def test_crossref_official_api_reports_transport_failure(self) -> None:
+        with patch("app.services.source_library.adapters.official_access.default_http_client.get_json") as get_json:
+            get_json.side_effect = RuntimeError("crossref unavailable")
+            result = handle_official_access_api(
+                {"provider_key": "crossref", "query_terms": ["robotics market"], "max_results": 2},
+                project_key=None,
+            )
+
+        self.assertEqual(result["candidates"], [])
+        self.assertEqual(result["diagnostics"]["provider_key"], "crossref")
+        self.assertFalse(result["diagnostics"]["credential_required"])
+        self.assertEqual(result["errors"][0]["error_class"], "transport_failure")
 
 
 if __name__ == "__main__":

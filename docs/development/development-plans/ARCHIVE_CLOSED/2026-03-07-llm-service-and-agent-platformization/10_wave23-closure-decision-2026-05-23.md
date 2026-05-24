@@ -1,8 +1,15 @@
 # Wave23 Closure Decision: LLM Service And Agent Platformization
 
 Date: 2026-05-23 PST
-Decision: `archive_external_blocked_candidate`
-Scope: `development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-llm-service-and-agent-platformization`
+Decision: `archive_external_blocked_candidate` (historical)
+Scope: `docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-llm-service-and-agent-platformization`
+
+Superseded by Wave55 T4: `12_wave55-agentcore-external-provider-live-readback-2026-05-24.md` records real selected-provider OpenAI network/API/account invocation, reviewer readback, and `remaining_blockers=0`. The current directory status is `closed`; this file is retained as the pre-live external-blocked decision snapshot.
+
+2026-05-24 update: the selected-provider external live invocation and reviewer
+readback blocker described below is superseded by
+`12_wave55-agentcore-external-provider-live-readback-2026-05-24.md`. Shared
+indexes/manifest were intentionally left to the parent integration pass.
 
 ## Decision
 
@@ -74,4 +81,4 @@ Observed results:
 
 ## Migration Recommendation
 
-Move this directory to `development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-07-llm-service-and-agent-platformization/` in the parent integration pass, then update the shared indexes there. Do not label it `ARCHIVE_CLOSED`: no live external provider/API/account/network invocation has been recorded.
+Historical integration instruction: this file originally required moving the directory to `ARCHIVE_EXTERNAL_BLOCKED` because no live external provider/API/account/network invocation had been recorded. Wave55 T4 later supplied that live readback and superseded this instruction; the directory now belongs in `ARCHIVE_CLOSED`.

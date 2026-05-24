@@ -1,0 +1,2655 @@
+{
+  "archive_closed_recommendation": "do_not_mark_archive_closed_until_live_production_replay_exists",
+  "closed_condition_scope": {
+    "semantic_embedding_quality_not_proven": "closed for the repo-local provider path against the frozen production-like semantic evaluation set"
+  },
+  "closed_conditions": [
+    "semantic_embedding_quality_not_proven"
+  ],
+  "contract_version": "wave56-semantic-vector-quality-gate.v1",
+  "failures": [],
+  "generated_by": "ops/search-lab/scripts/wave56_semantic_vector_quality_gate.py",
+  "production_quality_claim_allowed": false,
+  "production_vector_quality_reduced": true,
+  "provider_readback": {
+    "embedding_dim": 512,
+    "executable": true,
+    "failures": [],
+    "live_provider_verified": true,
+    "model": "repo-local-token-hashing-v1",
+    "model_version": "2026-05-23.wave56",
+    "network_required": false,
+    "provider_family": "repo_local",
+    "provider_id": "repo_local_token_hashing",
+    "status": "passed",
+    "vector_count": 16,
+    "vector_version": "repo-local-live-v2",
+    "vectors": [
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 95,
+        "norm": 1.0,
+        "text_digest": "6b7e3f45a70a1e09",
+        "vector_digest": "3d0c34835b84a610"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 74,
+        "norm": 1.0,
+        "text_digest": "e27c4203e75d133a",
+        "vector_digest": "9cdb20a2082b8d42"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 84,
+        "norm": 1.0,
+        "text_digest": "0ed20c1b5e31593e",
+        "vector_digest": "f4a7562e023cf0bf"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 72,
+        "norm": 1.0,
+        "text_digest": "dbd0508b2736bd18",
+        "vector_digest": "fc234af5c785c28f"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 80,
+        "norm": 1.0,
+        "text_digest": "1cd884fd22a27712",
+        "vector_digest": "d3524d6f93ba460e"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 81,
+        "norm": 1.0,
+        "text_digest": "b7a2ce1cec9ac009",
+        "vector_digest": "e95979b14eccaa66"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 63,
+        "norm": 1.0,
+        "text_digest": "b03e53a15290f92d",
+        "vector_digest": "c18b60a3d7854dbb"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 63,
+        "norm": 1.0,
+        "text_digest": "c0bfdd7c0bf59aae",
+        "vector_digest": "724a2d17929ed402"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 35,
+        "norm": 1.0,
+        "text_digest": "18989dc7e30c84cc",
+        "vector_digest": "fc5f400ece4ea4c9"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 41,
+        "norm": 1.0,
+        "text_digest": "89a7e5450be45701",
+        "vector_digest": "169f5ca6a028a49e"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 27,
+        "norm": 1.0,
+        "text_digest": "a9a90e1573da4470",
+        "vector_digest": "9bdb1cb29a3dcc94"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 38,
+        "norm": 1.0,
+        "text_digest": "d16ad0ecc874ec56",
+        "vector_digest": "a0f4c87e0619e4ed"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 34,
+        "norm": 1.0,
+        "text_digest": "10c5e0139c53562b",
+        "vector_digest": "3382484119808a34"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 40,
+        "norm": 1.0,
+        "text_digest": "736f0d2d027582f1",
+        "vector_digest": "9933a65d8c6b2e67"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 23,
+        "norm": 1.0,
+        "text_digest": "18dfba57d78e0fdd",
+        "vector_digest": "7942f2543f9cd418"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 26,
+        "norm": 1.0,
+        "text_digest": "421b908262d00809",
+        "vector_digest": "431feaa9e790261d"
+      }
+    ]
+  },
+  "quality_evaluation": {
+    "case_count": 8,
+    "cases": [
+      {
+        "case_id": "robotics-policy-paraphrase-a",
+        "domain": "robotics_policy",
+        "expected_document_id": "wave56-robotics-policy-grants",
+        "expected_rank": 1,
+        "hard_negative_document_ids": [
+          "wave56-robotics-safety-compliance"
+        ],
+        "hard_negative_margin": 0.331423,
+        "passed": true,
+        "query": "public incentives for commercial robotics deployment",
+        "repeat_count": 3,
+        "repeat_score_samples": [
+          [
+            [
+              "wave56-robotics-policy-grants",
+              0.483159
+            ],
+            [
+              "wave56-robotics-safety-compliance",
+              0.151736
+            ],
+            [
+              "wave56-energy-storage-procurement",
+              0.113913
+            ],
+            [
+              "wave56-health-reimbursement",
+              0.083611
+            ],
+            [
+              "wave56-agriculture-futures-insurance",
+              0.069899
+            ],
+            [
+              "wave56-farm-irrigation-subsidy",
+              -0.001124
+            ],
+            [
+              "wave56-festival-ticketing",
+              -0.02457
+            ],
+            [
+              "wave56-solar-market-forecast",
+              -0.025066
+            ]
+          ],
+          [
+            [
+              "wave56-robotics-policy-grants",
+              0.483159
+            ],
+            [
+              "wave56-robotics-safety-compliance",
+              0.151736
+            ],
+            [
+              "wave56-energy-storage-procurement",
+              0.113913
+            ],
+            [
+              "wave56-health-reimbursement",
+              0.083611
+            ],
+            [
+              "wave56-agriculture-futures-insurance",
+              0.069899
+            ],
+            [
+              "wave56-farm-irrigation-subsidy",
+              -0.001124
+            ],
+            [
+              "wave56-festival-ticketing",
+              -0.02457
+            ],
+            [
+              "wave56-solar-market-forecast",
+              -0.025066
+            ]
+          ],
+          [
+            [
+              "wave56-robotics-policy-grants",
+              0.483159
+            ],
+            [
+              "wave56-robotics-safety-compliance",
+              0.151736
+            ],
+            [
+              "wave56-energy-storage-procurement",
+              0.113913
+            ],
+            [
+              "wave56-health-reimbursement",
+              0.083611
+            ],
+            [
+              "wave56-agriculture-futures-insurance",
+              0.069899
+            ],
+            [
+              "wave56-farm-irrigation-subsidy",
+              -0.001124
+            ],
+            [
+              "wave56-festival-ticketing",
+              -0.02457
+            ],
+            [
+              "wave56-solar-market-forecast",
+              -0.025066
+            ]
+          ]
+        ],
+        "second_document_id": "wave56-robotics-safety-compliance",
+        "second_score": 0.151736,
+        "stable_order": true,
+        "top2_margin": 0.331423,
+        "top3_document_ids": [
+          "wave56-robotics-policy-grants",
+          "wave56-robotics-safety-compliance",
+          "wave56-energy-storage-procurement"
+        ],
+        "top_document_id": "wave56-robotics-policy-grants",
+        "top_score": 0.483159
+      },
+      {
+        "case_id": "robotics-policy-paraphrase-b",
+        "domain": "robotics_policy",
+        "expected_document_id": "wave56-robotics-policy-grants",
+        "expected_rank": 1,
+        "hard_negative_document_ids": [
+          "wave56-robotics-safety-compliance",
+          "wave56-solar-market-forecast"
+        ],
+        "hard_negative_margin": 0.297961,
+        "passed": true,
+        "query": "automation procurement grants for robotics market rollout",
+        "repeat_count": 3,
+        "repeat_score_samples": [
+          [
+            [
+              "wave56-robotics-policy-grants",
+              0.348363
+            ],
+            [
+              "wave56-farm-irrigation-subsidy",
+              0.160628
+            ],
+            [
+              "wave56-energy-storage-procurement",
+              0.149509
+            ],
+            [
+              "wave56-robotics-safety-compliance",
+              0.050402
+            ],
+            [
+              "wave56-festival-ticketing",
+              0.035672
+            ],
+            [
+              "wave56-health-reimbursement",
+              0.029279
+            ],
+            [
+              "wave56-agriculture-futures-insurance",
+              0.025953
+            ],
+            [
+              "wave56-solar-market-forecast",
+              0.014983
+            ]
+          ],
+          [
+            [
+              "wave56-robotics-policy-grants",
+              0.348363
+            ],
+            [
+              "wave56-farm-irrigation-subsidy",
+              0.160628
+            ],
+            [
+              "wave56-energy-storage-procurement",
+              0.149509
+            ],
+            [
+              "wave56-robotics-safety-compliance",
+              0.050402
+            ],
+            [
+              "wave56-festival-ticketing",
+              0.035672
+            ],
+            [
+              "wave56-health-reimbursement",
+              0.029279
+            ],
+            [
+              "wave56-agriculture-futures-insurance",
+              0.025953
+            ],
+            [
+              "wave56-solar-market-forecast",
+              0.014983
+            ]
+          ],
+          [
+            [
+              "wave56-robotics-policy-grants",
+              0.348363
+            ],
+            [
+              "wave56-farm-irrigation-subsidy",
+              0.160628
+            ],
+            [
+              "wave56-energy-storage-procurement",
+              0.149509
+            ],
+            [
+              "wave56-robotics-safety-compliance",
+              0.050402
+            ],
+            [
+              "wave56-festival-ticketing",
+              0.035672
+            ],
+            [
+              "wave56-health-reimbursement",
+              0.029279
+            ],
+            [
+              "wave56-agriculture-futures-insurance",
+              0.025953
+            ],
+            [
+              "wave56-solar-market-forecast",
+              0.014983
+            ]
+          ]
+        ],
+        "second_document_id": "wave56-farm-irrigation-subsidy",
+        "second_score": 0.160628,
+        "stable_order": true,
+        "top2_margin": 0.187735,
+        "top3_document_ids": [
+          "wave56-robotics-policy-grants",
+          "wave56-farm-irrigation-subsidy",
+          "wave56-energy-storage-procurement"
+        ],
+        "top_document_id": "wave56-robotics-policy-grants",
+        "top_score": 0.348363
+      },
+      {
+        "case_id": "agriculture-risk-paraphrase-a",
+        "domain": "agriculture_risk",
+        "expected_document_id": "wave56-agriculture-futures-insurance",
+        "expected_rank": 1,
+        "hard_negative_document_ids": [
+          "wave56-farm-irrigation-subsidy"
+        ],
+        "hard_negative_margin": 0.205863,
+        "passed": true,
+        "query": "crop futures risk coverage for farm commodities",
+        "repeat_count": 3,
+        "repeat_score_samples": [
+          [
+            [
+              "wave56-agriculture-futures-insurance",
+              0.323784
+            ],
+            [
+              "wave56-farm-irrigation-subsidy",
+              0.117921
+            ],
+            [
+              "wave56-energy-storage-procurement",
+              0.042745
+            ],
+            [
+              "wave56-festival-ticketing",
+              0.031743
+            ],
+            [
+              "wave56-robotics-policy-grants",
+              0.027094
+            ],
+            [
+              "wave56-health-reimbursement",
+              0.021707
+            ],
+            [
+              "wave56-robotics-safety-compliance",
+              -0.013984
+            ],
+            [
+              "wave56-solar-market-forecast",
+              -0.038323
+            ]
+          ],
+          [
+            [
+              "wave56-agriculture-futures-insurance",
+              0.323784
+            ],
+            [
+              "wave56-farm-irrigation-subsidy",
+              0.117921
+            ],
+            [
+              "wave56-energy-storage-procurement",
+              0.042745
+            ],
+            [
+              "wave56-festival-ticketing",
+              0.031743
+            ],
+            [
+              "wave56-robotics-policy-grants",
+              0.027094
+            ],
+            [
+              "wave56-health-reimbursement",
+              0.021707
+            ],
+            [
+              "wave56-robotics-safety-compliance",
+              -0.013984
+            ],
+            [
+              "wave56-solar-market-forecast",
+              -0.038323
+            ]
+          ],
+          [
+            [
+              "wave56-agriculture-futures-insurance",
+              0.323784
+            ],
+            [
+              "wave56-farm-irrigation-subsidy",
+              0.117921
+            ],
+            [
+              "wave56-energy-storage-procurement",
+              0.042745
+            ],
+            [
+              "wave56-festival-ticketing",
+              0.031743
+            ],
+            [
+              "wave56-robotics-policy-grants",
+              0.027094
+            ],
+            [
+              "wave56-health-reimbursement",
+              0.021707
+            ],
+            [
+              "wave56-robotics-safety-compliance",
+              -0.013984
+            ],
+            [
+              "wave56-solar-market-forecast",
+              -0.038323
+            ]
+          ]
+        ],
+        "second_document_id": "wave56-farm-irrigation-subsidy",
+        "second_score": 0.117921,
+        "stable_order": true,
+        "top2_margin": 0.205863,
+        "top3_document_ids": [
+          "wave56-agriculture-futures-insurance",
+          "wave56-farm-irrigation-subsidy",
+          "wave56-energy-storage-procurement"
+        ],
+        "top_document_id": "wave56-agriculture-futures-insurance",
+        "top_score": 0.323784
+      },
+      {
+        "case_id": "agriculture-risk-paraphrase-b",
+        "domain": "agriculture_risk",
+        "expected_document_id": "wave56-agriculture-futures-insurance",
+        "expected_rank": 1,
+        "hard_negative_document_ids": [
+          "wave56-farm-irrigation-subsidy"
+        ],
+        "hard_negative_margin": 0.299936,
+        "passed": true,
+        "query": "commodity insurance against harvest price volatility",
+        "repeat_count": 3,
+        "repeat_score_samples": [
+          [
+            [
+              "wave56-agriculture-futures-insurance",
+              0.300991
+            ],
+            [
+              "wave56-robotics-policy-grants",
+              0.090809
+            ],
+            [
+              "wave56-robotics-safety-compliance",
+              0.009746
+            ],
+            [
+              "wave56-festival-ticketing",
+              0.004648
+            ],
+            [
+              "wave56-farm-irrigation-subsidy",
+              0.001055
+            ],
+            [
+              "wave56-energy-storage-procurement",
+              -0.011591
+            ],
+            [
+              "wave56-health-reimbursement",
+              -0.025352
+            ],
+            [
+              "wave56-solar-market-forecast",
+              -0.107417
+            ]
+          ],
+          [
+            [
+              "wave56-agriculture-futures-insurance",
+              0.300991
+            ],
+            [
+              "wave56-robotics-policy-grants",
+              0.090809
+            ],
+            [
+              "wave56-robotics-safety-compliance",
+              0.009746
+            ],
+            [
+              "wave56-festival-ticketing",
+              0.004648
+            ],
+            [
+              "wave56-farm-irrigation-subsidy",
+              0.001055
+            ],
+            [
+              "wave56-energy-storage-procurement",
+              -0.011591
+            ],
+            [
+              "wave56-health-reimbursement",
+              -0.025352
+            ],
+            [
+              "wave56-solar-market-forecast",
+              -0.107417
+            ]
+          ],
+          [
+            [
+              "wave56-agriculture-futures-insurance",
+              0.300991
+            ],
+            [
+              "wave56-robotics-policy-grants",
+              0.090809
+            ],
+            [
+              "wave56-robotics-safety-compliance",
+              0.009746
+            ],
+            [
+              "wave56-festival-ticketing",
+              0.004648
+            ],
+            [
+              "wave56-farm-irrigation-subsidy",
+              0.001055
+            ],
+            [
+              "wave56-energy-storage-procurement",
+              -0.011591
+            ],
+            [
+              "wave56-health-reimbursement",
+              -0.025352
+            ],
+            [
+              "wave56-solar-market-forecast",
+              -0.107417
+            ]
+          ]
+        ],
+        "second_document_id": "wave56-robotics-policy-grants",
+        "second_score": 0.090809,
+        "stable_order": true,
+        "top2_margin": 0.210182,
+        "top3_document_ids": [
+          "wave56-agriculture-futures-insurance",
+          "wave56-robotics-policy-grants",
+          "wave56-robotics-safety-compliance"
+        ],
+        "top_document_id": "wave56-agriculture-futures-insurance",
+        "top_score": 0.300991
+      },
+      {
+        "case_id": "energy-storage-paraphrase-a",
+        "domain": "energy_storage",
+        "expected_document_id": "wave56-energy-storage-procurement",
+        "expected_rank": 1,
+        "hard_negative_document_ids": [
+          "wave56-solar-market-forecast"
+        ],
+        "hard_negative_margin": 0.311886,
+        "passed": true,
+        "query": "renewable grid resilience battery procurement",
+        "repeat_count": 3,
+        "repeat_score_samples": [
+          [
+            [
+              "wave56-energy-storage-procurement",
+              0.311886
+            ],
+            [
+              "wave56-robotics-safety-compliance",
+              0.031856
+            ],
+            [
+              "wave56-solar-market-forecast",
+              0.0
+            ],
+            [
+              "wave56-agriculture-futures-insurance",
+              -0.002318
+            ],
+            [
+              "wave56-festival-ticketing",
+              -0.028962
+            ],
+            [
+              "wave56-health-reimbursement",
+              -0.032231
+            ],
+            [
+              "wave56-farm-irrigation-subsidy",
+              -0.057195
+            ],
+            [
+              "wave56-robotics-policy-grants",
+              -0.093676
+            ]
+          ],
+          [
+            [
+              "wave56-energy-storage-procurement",
+              0.311886
+            ],
+            [
+              "wave56-robotics-safety-compliance",
+              0.031856
+            ],
+            [
+              "wave56-solar-market-forecast",
+              0.0
+            ],
+            [
+              "wave56-agriculture-futures-insurance",
+              -0.002318
+            ],
+            [
+              "wave56-festival-ticketing",
+              -0.028962
+            ],
+            [
+              "wave56-health-reimbursement",
+              -0.032231
+            ],
+            [
+              "wave56-farm-irrigation-subsidy",
+              -0.057195
+            ],
+            [
+              "wave56-robotics-policy-grants",
+              -0.093676
+            ]
+          ],
+          [
+            [
+              "wave56-energy-storage-procurement",
+              0.311886
+            ],
+            [
+              "wave56-robotics-safety-compliance",
+              0.031856
+            ],
+            [
+              "wave56-solar-market-forecast",
+              0.0
+            ],
+            [
+              "wave56-agriculture-futures-insurance",
+              -0.002318
+            ],
+            [
+              "wave56-festival-ticketing",
+              -0.028962
+            ],
+            [
+              "wave56-health-reimbursement",
+              -0.032231
+            ],
+            [
+              "wave56-farm-irrigation-subsidy",
+              -0.057195
+            ],
+            [
+              "wave56-robotics-policy-grants",
+              -0.093676
+            ]
+          ]
+        ],
+        "second_document_id": "wave56-robotics-safety-compliance",
+        "second_score": 0.031856,
+        "stable_order": true,
+        "top2_margin": 0.28003,
+        "top3_document_ids": [
+          "wave56-energy-storage-procurement",
+          "wave56-robotics-safety-compliance",
+          "wave56-solar-market-forecast"
+        ],
+        "top_document_id": "wave56-energy-storage-procurement",
+        "top_score": 0.311886
+      },
+      {
+        "case_id": "energy-storage-paraphrase-b",
+        "domain": "energy_storage",
+        "expected_document_id": "wave56-energy-storage-procurement",
+        "expected_rank": 1,
+        "hard_negative_document_ids": [
+          "wave56-solar-market-forecast",
+          "wave56-robotics-policy-grants"
+        ],
+        "hard_negative_margin": 0.379665,
+        "passed": true,
+        "query": "public battery storage tenders for renewable grid resilience",
+        "repeat_count": 3,
+        "repeat_score_samples": [
+          [
+            [
+              "wave56-energy-storage-procurement",
+              0.417123
+            ],
+            [
+              "wave56-solar-market-forecast",
+              0.037458
+            ],
+            [
+              "wave56-health-reimbursement",
+              -0.005043
+            ],
+            [
+              "wave56-agriculture-futures-insurance",
+              -0.015582
+            ],
+            [
+              "wave56-festival-ticketing",
+              -0.030069
+            ],
+            [
+              "wave56-robotics-policy-grants",
+              -0.031065
+            ],
+            [
+              "wave56-robotics-safety-compliance",
+              -0.034232
+            ],
+            [
+              "wave56-farm-irrigation-subsidy",
+              -0.03942
+            ]
+          ],
+          [
+            [
+              "wave56-energy-storage-procurement",
+              0.417123
+            ],
+            [
+              "wave56-solar-market-forecast",
+              0.037458
+            ],
+            [
+              "wave56-health-reimbursement",
+              -0.005043
+            ],
+            [
+              "wave56-agriculture-futures-insurance",
+              -0.015582
+            ],
+            [
+              "wave56-festival-ticketing",
+              -0.030069
+            ],
+            [
+              "wave56-robotics-policy-grants",
+              -0.031065
+            ],
+            [
+              "wave56-robotics-safety-compliance",
+              -0.034232
+            ],
+            [
+              "wave56-farm-irrigation-subsidy",
+              -0.03942
+            ]
+          ],
+          [
+            [
+              "wave56-energy-storage-procurement",
+              0.417123
+            ],
+            [
+              "wave56-solar-market-forecast",
+              0.037458
+            ],
+            [
+              "wave56-health-reimbursement",
+              -0.005043
+            ],
+            [
+              "wave56-agriculture-futures-insurance",
+              -0.015582
+            ],
+            [
+              "wave56-festival-ticketing",
+              -0.030069
+            ],
+            [
+              "wave56-robotics-policy-grants",
+              -0.031065
+            ],
+            [
+              "wave56-robotics-safety-compliance",
+              -0.034232
+            ],
+            [
+              "wave56-farm-irrigation-subsidy",
+              -0.03942
+            ]
+          ]
+        ],
+        "second_document_id": "wave56-solar-market-forecast",
+        "second_score": 0.037458,
+        "stable_order": true,
+        "top2_margin": 0.379665,
+        "top3_document_ids": [
+          "wave56-energy-storage-procurement",
+          "wave56-solar-market-forecast",
+          "wave56-health-reimbursement"
+        ],
+        "top_document_id": "wave56-energy-storage-procurement",
+        "top_score": 0.417123
+      },
+      {
+        "case_id": "robotics-safety-hard-negative",
+        "domain": "robotics_safety",
+        "expected_document_id": "wave56-robotics-safety-compliance",
+        "expected_rank": 1,
+        "hard_negative_document_ids": [
+          "wave56-robotics-policy-grants"
+        ],
+        "hard_negative_margin": 0.170647,
+        "passed": true,
+        "query": "robot worker safety inspections",
+        "repeat_count": 3,
+        "repeat_score_samples": [
+          [
+            [
+              "wave56-robotics-safety-compliance",
+              0.411038
+            ],
+            [
+              "wave56-robotics-policy-grants",
+              0.240391
+            ],
+            [
+              "wave56-farm-irrigation-subsidy",
+              0.148869
+            ],
+            [
+              "wave56-energy-storage-procurement",
+              0.053149
+            ],
+            [
+              "wave56-health-reimbursement",
+              0.043233
+            ],
+            [
+              "wave56-solar-market-forecast",
+              0.026835
+            ],
+            [
+              "wave56-festival-ticketing",
+              0.006135
+            ],
+            [
+              "wave56-agriculture-futures-insurance",
+              -0.095783
+            ]
+          ],
+          [
+            [
+              "wave56-robotics-safety-compliance",
+              0.411038
+            ],
+            [
+              "wave56-robotics-policy-grants",
+              0.240391
+            ],
+            [
+              "wave56-farm-irrigation-subsidy",
+              0.148869
+            ],
+            [
+              "wave56-energy-storage-procurement",
+              0.053149
+            ],
+            [
+              "wave56-health-reimbursement",
+              0.043233
+            ],
+            [
+              "wave56-solar-market-forecast",
+              0.026835
+            ],
+            [
+              "wave56-festival-ticketing",
+              0.006135
+            ],
+            [
+              "wave56-agriculture-futures-insurance",
+              -0.095783
+            ]
+          ],
+          [
+            [
+              "wave56-robotics-safety-compliance",
+              0.411038
+            ],
+            [
+              "wave56-robotics-policy-grants",
+              0.240391
+            ],
+            [
+              "wave56-farm-irrigation-subsidy",
+              0.148869
+            ],
+            [
+              "wave56-energy-storage-procurement",
+              0.053149
+            ],
+            [
+              "wave56-health-reimbursement",
+              0.043233
+            ],
+            [
+              "wave56-solar-market-forecast",
+              0.026835
+            ],
+            [
+              "wave56-festival-ticketing",
+              0.006135
+            ],
+            [
+              "wave56-agriculture-futures-insurance",
+              -0.095783
+            ]
+          ]
+        ],
+        "second_document_id": "wave56-robotics-policy-grants",
+        "second_score": 0.240391,
+        "stable_order": true,
+        "top2_margin": 0.170647,
+        "top3_document_ids": [
+          "wave56-robotics-safety-compliance",
+          "wave56-robotics-policy-grants",
+          "wave56-farm-irrigation-subsidy"
+        ],
+        "top_document_id": "wave56-robotics-safety-compliance",
+        "top_score": 0.411038
+      },
+      {
+        "case_id": "event-ops-noise-control",
+        "domain": "event_ops",
+        "expected_document_id": "wave56-festival-ticketing",
+        "expected_rank": 1,
+        "hard_negative_document_ids": [
+          "wave56-health-reimbursement"
+        ],
+        "hard_negative_margin": 0.642851,
+        "passed": true,
+        "query": "festival ticketing venue staffing",
+        "repeat_count": 3,
+        "repeat_score_samples": [
+          [
+            [
+              "wave56-festival-ticketing",
+              0.588999
+            ],
+            [
+              "wave56-energy-storage-procurement",
+              -0.040516
+            ],
+            [
+              "wave56-solar-market-forecast",
+              -0.041149
+            ],
+            [
+              "wave56-farm-irrigation-subsidy",
+              -0.045615
+            ],
+            [
+              "wave56-health-reimbursement",
+              -0.053852
+            ],
+            [
+              "wave56-robotics-safety-compliance",
+              -0.055288
+            ],
+            [
+              "wave56-agriculture-futures-insurance",
+              -0.108154
+            ],
+            [
+              "wave56-robotics-policy-grants",
+              -0.129359
+            ]
+          ],
+          [
+            [
+              "wave56-festival-ticketing",
+              0.588999
+            ],
+            [
+              "wave56-energy-storage-procurement",
+              -0.040516
+            ],
+            [
+              "wave56-solar-market-forecast",
+              -0.041149
+            ],
+            [
+              "wave56-farm-irrigation-subsidy",
+              -0.045615
+            ],
+            [
+              "wave56-health-reimbursement",
+              -0.053852
+            ],
+            [
+              "wave56-robotics-safety-compliance",
+              -0.055288
+            ],
+            [
+              "wave56-agriculture-futures-insurance",
+              -0.108154
+            ],
+            [
+              "wave56-robotics-policy-grants",
+              -0.129359
+            ]
+          ],
+          [
+            [
+              "wave56-festival-ticketing",
+              0.588999
+            ],
+            [
+              "wave56-energy-storage-procurement",
+              -0.040516
+            ],
+            [
+              "wave56-solar-market-forecast",
+              -0.041149
+            ],
+            [
+              "wave56-farm-irrigation-subsidy",
+              -0.045615
+            ],
+            [
+              "wave56-health-reimbursement",
+              -0.053852
+            ],
+            [
+              "wave56-robotics-safety-compliance",
+              -0.055288
+            ],
+            [
+              "wave56-agriculture-futures-insurance",
+              -0.108154
+            ],
+            [
+              "wave56-robotics-policy-grants",
+              -0.129359
+            ]
+          ]
+        ],
+        "second_document_id": "wave56-energy-storage-procurement",
+        "second_score": -0.040516,
+        "stable_order": true,
+        "top2_margin": 0.629515,
+        "top3_document_ids": [
+          "wave56-festival-ticketing",
+          "wave56-energy-storage-procurement",
+          "wave56-solar-market-forecast"
+        ],
+        "top_document_id": "wave56-festival-ticketing",
+        "top_score": 0.588999
+      }
+    ],
+    "domain_count": 5,
+    "domains": [
+      "agriculture_risk",
+      "energy_storage",
+      "event_ops",
+      "robotics_policy",
+      "robotics_safety"
+    ],
+    "min_hard_negative_margin": 0.170647,
+    "min_top2_margin": 0.170647,
+    "mrr": 1.0,
+    "recall_at_3": 1.0,
+    "status": "passed",
+    "thresholds": {
+      "min_cases": 8,
+      "min_domains": 4,
+      "min_hard_negative_margin": 0.02,
+      "min_mrr": 1.0,
+      "min_recall_at_3": 1.0,
+      "min_top1_accuracy": 1.0,
+      "min_top2_margin": 0.02,
+      "repeat_count": 3,
+      "required_retrieval_mode": "vector"
+    },
+    "top1_accuracy": 1.0
+  },
+  "reduced_conditions": [
+    "production_vector_quality_not_proven"
+  ],
+  "remaining_conditions": [
+    {
+      "code": "production_vector_quality_not_proven",
+      "remaining_scope": "live production traffic or production-corpus replay is still required for final ARCHIVE_CLOSED migration"
+    }
+  ],
+  "retrieval_contracts": {
+    "evidence_hit": "search_evidence_hit.v1",
+    "evidence_hit_count": 8,
+    "query_group_id": "qg_5227ecd09fc60744",
+    "readback_status": "passed",
+    "retrieval_run": "search_retrieval_run.v1",
+    "retrieval_run_id": "retrieval_run_870dbf6b5891417b"
+  },
+  "sample_retrieval_run": {
+    "branch_count": 1,
+    "branch_records": [
+      {
+        "backend": "repo_local_semantic_vector",
+        "global_vector_object_refs": [
+          {
+            "chunk_id": "wave56-robotics-policy-grants:chunk:0",
+            "document_id": "wave56-robotics-policy-grants",
+            "source_id": "wave56-production-like-corpus",
+            "vector_version": "repo-local-live-v2"
+          },
+          {
+            "chunk_id": "wave56-agriculture-futures-insurance:chunk:0",
+            "document_id": "wave56-agriculture-futures-insurance",
+            "source_id": "wave56-production-like-corpus",
+            "vector_version": "repo-local-live-v2"
+          },
+          {
+            "chunk_id": "wave56-energy-storage-procurement:chunk:0",
+            "document_id": "wave56-energy-storage-procurement",
+            "source_id": "wave56-production-like-corpus",
+            "vector_version": "repo-local-live-v2"
+          },
+          {
+            "chunk_id": "wave56-robotics-safety-compliance:chunk:0",
+            "document_id": "wave56-robotics-safety-compliance",
+            "source_id": "wave56-production-like-corpus",
+            "vector_version": "repo-local-live-v2"
+          },
+          {
+            "chunk_id": "wave56-festival-ticketing:chunk:0",
+            "document_id": "wave56-festival-ticketing",
+            "source_id": "wave56-production-like-corpus",
+            "vector_version": "repo-local-live-v2"
+          }
+        ],
+        "hit_count": 8,
+        "hit_ids": [
+          "eh_372e4a927774a359",
+          "eh_f9ab4533ce48cf13",
+          "eh_360274247fab1176",
+          "eh_941c24b8b49eb120",
+          "eh_8312ebdd35a0489e",
+          "eh_256ae8942a3abd4b",
+          "eh_c9b603aa7ea4f3b5",
+          "eh_03c99cba1303aa48"
+        ],
+        "matrix_branch_id": "branch_8ba3354b1e90cdbd",
+        "retrieval_family": "main_search",
+        "retrieval_mode": "vector",
+        "top_score": 0.588999,
+        "verification_states": [
+          "unverified"
+        ]
+      }
+    ],
+    "contract_version": "search_retrieval_run.v1",
+    "evidence_hits": [
+      {
+        "backend": "repo_local_semantic_vector",
+        "contract_version": "search_evidence_hit.v1",
+        "evidence_class": "policy_chunk",
+        "global_vector_object": {
+          "chunk_id": "wave56-robotics-policy-grants:chunk:0",
+          "contract_version": "global_vector_object.v1",
+          "document_id": "wave56-robotics-policy-grants",
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "matrix_branch_id": "branch_8ba3354b1e90cdbd",
+          "object_id": "wave56-robotics-policy-grants",
+          "object_type": "policy_chunk",
+          "project_key": "demo_proj",
+          "provenance": {
+            "backend": "repo_local_semantic_vector",
+            "effective_time": null,
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "embedding_model_version": "2026-05-23.wave56",
+            "fallback_reason": null,
+            "language": null,
+            "provider": "repo_local_token_hashing",
+            "provider_payload_kind": "repo_local_semantic_vector",
+            "reference": "repo-local://wave56/robotics-policy-grants",
+            "retrieval_mode": "vector",
+            "score": 0.483159,
+            "source": "wave56-production-like-corpus",
+            "source_domain": "wave56",
+            "source_id": "wave56-production-like-corpus",
+            "source_reference": "repo-local://wave56/robotics-policy-grants",
+            "source_uri": "repo-local://wave56/robotics-policy-grants",
+            "vector_version": "repo-local-live-v2"
+          },
+          "source_id": "wave56-production-like-corpus",
+          "vector_version": "repo-local-live-v2"
+        },
+        "hit_id": "eh_372e4a927774a359",
+        "matrix_branch_id": "branch_8ba3354b1e90cdbd",
+        "provenance": {
+          "backend": "repo_local_semantic_vector",
+          "chunk_id": "wave56-robotics-policy-grants:chunk:0",
+          "document_id": "wave56-robotics-policy-grants",
+          "effective_time": null,
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "embedding_model_version": "2026-05-23.wave56",
+          "fallback_reason": null,
+          "language": null,
+          "matrix_branch_id": "branch_8ba3354b1e90cdbd",
+          "project_key": "demo_proj",
+          "provider": "repo_local_token_hashing",
+          "provider_payload_kind": "repo_local_semantic_vector",
+          "reference": "repo-local://wave56/robotics-policy-grants",
+          "retrieval_mode": "vector",
+          "score": 0.483159,
+          "source": "wave56-production-like-corpus",
+          "source_domain": "wave56",
+          "source_id": "wave56-production-like-corpus",
+          "source_reference": "repo-local://wave56/robotics-policy-grants",
+          "source_uri": "repo-local://wave56/robotics-policy-grants",
+          "vector_version": "repo-local-live-v2"
+        },
+        "query_group_id": "qg_5227ecd09fc60744",
+        "rank": 1,
+        "rank_features": {
+          "backend": "repo_local_semantic_vector",
+          "fusion_score": 0.0,
+          "lexical_score": 0.0,
+          "rank": 1,
+          "retrieval_mode": "vector",
+          "score": 0.483159,
+          "tags": [
+            "vector",
+            "repo_local_semantic_quality",
+            "robotics_policy"
+          ],
+          "vector_score": 0.0
+        },
+        "retrieval_family": "main_search",
+        "retrieval_mode": "vector",
+        "score": 0.483159,
+        "verification_state": "unverified"
+      },
+      {
+        "backend": "repo_local_semantic_vector",
+        "contract_version": "search_evidence_hit.v1",
+        "evidence_class": "policy_chunk",
+        "global_vector_object": {
+          "chunk_id": "wave56-robotics-policy-grants:chunk:0",
+          "contract_version": "global_vector_object.v1",
+          "document_id": "wave56-robotics-policy-grants",
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "matrix_branch_id": "branch_8ba3354b1e90cdbd",
+          "object_id": "wave56-robotics-policy-grants",
+          "object_type": "policy_chunk",
+          "project_key": "demo_proj",
+          "provenance": {
+            "backend": "repo_local_semantic_vector",
+            "effective_time": null,
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "embedding_model_version": "2026-05-23.wave56",
+            "fallback_reason": null,
+            "language": null,
+            "provider": "repo_local_token_hashing",
+            "provider_payload_kind": "repo_local_semantic_vector",
+            "reference": "repo-local://wave56/robotics-policy-grants",
+            "retrieval_mode": "vector",
+            "score": 0.348363,
+            "source": "wave56-production-like-corpus",
+            "source_domain": "wave56",
+            "source_id": "wave56-production-like-corpus",
+            "source_reference": "repo-local://wave56/robotics-policy-grants",
+            "source_uri": "repo-local://wave56/robotics-policy-grants",
+            "vector_version": "repo-local-live-v2"
+          },
+          "source_id": "wave56-production-like-corpus",
+          "vector_version": "repo-local-live-v2"
+        },
+        "hit_id": "eh_f9ab4533ce48cf13",
+        "matrix_branch_id": "branch_8ba3354b1e90cdbd",
+        "provenance": {
+          "backend": "repo_local_semantic_vector",
+          "chunk_id": "wave56-robotics-policy-grants:chunk:0",
+          "document_id": "wave56-robotics-policy-grants",
+          "effective_time": null,
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "embedding_model_version": "2026-05-23.wave56",
+          "fallback_reason": null,
+          "language": null,
+          "matrix_branch_id": "branch_8ba3354b1e90cdbd",
+          "project_key": "demo_proj",
+          "provider": "repo_local_token_hashing",
+          "provider_payload_kind": "repo_local_semantic_vector",
+          "reference": "repo-local://wave56/robotics-policy-grants",
+          "retrieval_mode": "vector",
+          "score": 0.348363,
+          "source": "wave56-production-like-corpus",
+          "source_domain": "wave56",
+          "source_id": "wave56-production-like-corpus",
+          "source_reference": "repo-local://wave56/robotics-policy-grants",
+          "source_uri": "repo-local://wave56/robotics-policy-grants",
+          "vector_version": "repo-local-live-v2"
+        },
+        "query_group_id": "qg_5227ecd09fc60744",
+        "rank": 2,
+        "rank_features": {
+          "backend": "repo_local_semantic_vector",
+          "fusion_score": 0.0,
+          "lexical_score": 0.0,
+          "rank": 2,
+          "retrieval_mode": "vector",
+          "score": 0.348363,
+          "tags": [
+            "vector",
+            "repo_local_semantic_quality",
+            "robotics_policy"
+          ],
+          "vector_score": 0.0
+        },
+        "retrieval_family": "main_search",
+        "retrieval_mode": "vector",
+        "score": 0.348363,
+        "verification_state": "unverified"
+      },
+      {
+        "backend": "repo_local_semantic_vector",
+        "contract_version": "search_evidence_hit.v1",
+        "evidence_class": "policy_chunk",
+        "global_vector_object": {
+          "chunk_id": "wave56-agriculture-futures-insurance:chunk:0",
+          "contract_version": "global_vector_object.v1",
+          "document_id": "wave56-agriculture-futures-insurance",
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "matrix_branch_id": "branch_8ba3354b1e90cdbd",
+          "object_id": "wave56-agriculture-futures-insurance",
+          "object_type": "policy_chunk",
+          "project_key": "demo_proj",
+          "provenance": {
+            "backend": "repo_local_semantic_vector",
+            "effective_time": null,
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "embedding_model_version": "2026-05-23.wave56",
+            "fallback_reason": null,
+            "language": null,
+            "provider": "repo_local_token_hashing",
+            "provider_payload_kind": "repo_local_semantic_vector",
+            "reference": "repo-local://wave56/agriculture-futures-insurance",
+            "retrieval_mode": "vector",
+            "score": 0.323784,
+            "source": "wave56-production-like-corpus",
+            "source_domain": "wave56",
+            "source_id": "wave56-production-like-corpus",
+            "source_reference": "repo-local://wave56/agriculture-futures-insurance",
+            "source_uri": "repo-local://wave56/agriculture-futures-insurance",
+            "vector_version": "repo-local-live-v2"
+          },
+          "source_id": "wave56-production-like-corpus",
+          "vector_version": "repo-local-live-v2"
+        },
+        "hit_id": "eh_360274247fab1176",
+        "matrix_branch_id": "branch_8ba3354b1e90cdbd",
+        "provenance": {
+          "backend": "repo_local_semantic_vector",
+          "chunk_id": "wave56-agriculture-futures-insurance:chunk:0",
+          "document_id": "wave56-agriculture-futures-insurance",
+          "effective_time": null,
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "embedding_model_version": "2026-05-23.wave56",
+          "fallback_reason": null,
+          "language": null,
+          "matrix_branch_id": "branch_8ba3354b1e90cdbd",
+          "project_key": "demo_proj",
+          "provider": "repo_local_token_hashing",
+          "provider_payload_kind": "repo_local_semantic_vector",
+          "reference": "repo-local://wave56/agriculture-futures-insurance",
+          "retrieval_mode": "vector",
+          "score": 0.323784,
+          "source": "wave56-production-like-corpus",
+          "source_domain": "wave56",
+          "source_id": "wave56-production-like-corpus",
+          "source_reference": "repo-local://wave56/agriculture-futures-insurance",
+          "source_uri": "repo-local://wave56/agriculture-futures-insurance",
+          "vector_version": "repo-local-live-v2"
+        },
+        "query_group_id": "qg_5227ecd09fc60744",
+        "rank": 3,
+        "rank_features": {
+          "backend": "repo_local_semantic_vector",
+          "fusion_score": 0.0,
+          "lexical_score": 0.0,
+          "rank": 3,
+          "retrieval_mode": "vector",
+          "score": 0.323784,
+          "tags": [
+            "vector",
+            "repo_local_semantic_quality",
+            "agriculture_risk"
+          ],
+          "vector_score": 0.0
+        },
+        "retrieval_family": "main_search",
+        "retrieval_mode": "vector",
+        "score": 0.323784,
+        "verification_state": "unverified"
+      },
+      {
+        "backend": "repo_local_semantic_vector",
+        "contract_version": "search_evidence_hit.v1",
+        "evidence_class": "policy_chunk",
+        "global_vector_object": {
+          "chunk_id": "wave56-agriculture-futures-insurance:chunk:0",
+          "contract_version": "global_vector_object.v1",
+          "document_id": "wave56-agriculture-futures-insurance",
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "matrix_branch_id": "branch_8ba3354b1e90cdbd",
+          "object_id": "wave56-agriculture-futures-insurance",
+          "object_type": "policy_chunk",
+          "project_key": "demo_proj",
+          "provenance": {
+            "backend": "repo_local_semantic_vector",
+            "effective_time": null,
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "embedding_model_version": "2026-05-23.wave56",
+            "fallback_reason": null,
+            "language": null,
+            "provider": "repo_local_token_hashing",
+            "provider_payload_kind": "repo_local_semantic_vector",
+            "reference": "repo-local://wave56/agriculture-futures-insurance",
+            "retrieval_mode": "vector",
+            "score": 0.300991,
+            "source": "wave56-production-like-corpus",
+            "source_domain": "wave56",
+            "source_id": "wave56-production-like-corpus",
+            "source_reference": "repo-local://wave56/agriculture-futures-insurance",
+            "source_uri": "repo-local://wave56/agriculture-futures-insurance",
+            "vector_version": "repo-local-live-v2"
+          },
+          "source_id": "wave56-production-like-corpus",
+          "vector_version": "repo-local-live-v2"
+        },
+        "hit_id": "eh_941c24b8b49eb120",
+        "matrix_branch_id": "branch_8ba3354b1e90cdbd",
+        "provenance": {
+          "backend": "repo_local_semantic_vector",
+          "chunk_id": "wave56-agriculture-futures-insurance:chunk:0",
+          "document_id": "wave56-agriculture-futures-insurance",
+          "effective_time": null,
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "embedding_model_version": "2026-05-23.wave56",
+          "fallback_reason": null,
+          "language": null,
+          "matrix_branch_id": "branch_8ba3354b1e90cdbd",
+          "project_key": "demo_proj",
+          "provider": "repo_local_token_hashing",
+          "provider_payload_kind": "repo_local_semantic_vector",
+          "reference": "repo-local://wave56/agriculture-futures-insurance",
+          "retrieval_mode": "vector",
+          "score": 0.300991,
+          "source": "wave56-production-like-corpus",
+          "source_domain": "wave56",
+          "source_id": "wave56-production-like-corpus",
+          "source_reference": "repo-local://wave56/agriculture-futures-insurance",
+          "source_uri": "repo-local://wave56/agriculture-futures-insurance",
+          "vector_version": "repo-local-live-v2"
+        },
+        "query_group_id": "qg_5227ecd09fc60744",
+        "rank": 4,
+        "rank_features": {
+          "backend": "repo_local_semantic_vector",
+          "fusion_score": 0.0,
+          "lexical_score": 0.0,
+          "rank": 4,
+          "retrieval_mode": "vector",
+          "score": 0.300991,
+          "tags": [
+            "vector",
+            "repo_local_semantic_quality",
+            "agriculture_risk"
+          ],
+          "vector_score": 0.0
+        },
+        "retrieval_family": "main_search",
+        "retrieval_mode": "vector",
+        "score": 0.300991,
+        "verification_state": "unverified"
+      },
+      {
+        "backend": "repo_local_semantic_vector",
+        "contract_version": "search_evidence_hit.v1",
+        "evidence_class": "policy_chunk",
+        "global_vector_object": {
+          "chunk_id": "wave56-energy-storage-procurement:chunk:0",
+          "contract_version": "global_vector_object.v1",
+          "document_id": "wave56-energy-storage-procurement",
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "matrix_branch_id": "branch_8ba3354b1e90cdbd",
+          "object_id": "wave56-energy-storage-procurement",
+          "object_type": "policy_chunk",
+          "project_key": "demo_proj",
+          "provenance": {
+            "backend": "repo_local_semantic_vector",
+            "effective_time": null,
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "embedding_model_version": "2026-05-23.wave56",
+            "fallback_reason": null,
+            "language": null,
+            "provider": "repo_local_token_hashing",
+            "provider_payload_kind": "repo_local_semantic_vector",
+            "reference": "repo-local://wave56/energy-storage-procurement",
+            "retrieval_mode": "vector",
+            "score": 0.311886,
+            "source": "wave56-production-like-corpus",
+            "source_domain": "wave56",
+            "source_id": "wave56-production-like-corpus",
+            "source_reference": "repo-local://wave56/energy-storage-procurement",
+            "source_uri": "repo-local://wave56/energy-storage-procurement",
+            "vector_version": "repo-local-live-v2"
+          },
+          "source_id": "wave56-production-like-corpus",
+          "vector_version": "repo-local-live-v2"
+        },
+        "hit_id": "eh_8312ebdd35a0489e",
+        "matrix_branch_id": "branch_8ba3354b1e90cdbd",
+        "provenance": {
+          "backend": "repo_local_semantic_vector",
+          "chunk_id": "wave56-energy-storage-procurement:chunk:0",
+          "document_id": "wave56-energy-storage-procurement",
+          "effective_time": null,
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "embedding_model_version": "2026-05-23.wave56",
+          "fallback_reason": null,
+          "language": null,
+          "matrix_branch_id": "branch_8ba3354b1e90cdbd",
+          "project_key": "demo_proj",
+          "provider": "repo_local_token_hashing",
+          "provider_payload_kind": "repo_local_semantic_vector",
+          "reference": "repo-local://wave56/energy-storage-procurement",
+          "retrieval_mode": "vector",
+          "score": 0.311886,
+          "source": "wave56-production-like-corpus",
+          "source_domain": "wave56",
+          "source_id": "wave56-production-like-corpus",
+          "source_reference": "repo-local://wave56/energy-storage-procurement",
+          "source_uri": "repo-local://wave56/energy-storage-procurement",
+          "vector_version": "repo-local-live-v2"
+        },
+        "query_group_id": "qg_5227ecd09fc60744",
+        "rank": 5,
+        "rank_features": {
+          "backend": "repo_local_semantic_vector",
+          "fusion_score": 0.0,
+          "lexical_score": 0.0,
+          "rank": 5,
+          "retrieval_mode": "vector",
+          "score": 0.311886,
+          "tags": [
+            "vector",
+            "repo_local_semantic_quality",
+            "energy_storage"
+          ],
+          "vector_score": 0.0
+        },
+        "retrieval_family": "main_search",
+        "retrieval_mode": "vector",
+        "score": 0.311886,
+        "verification_state": "unverified"
+      },
+      {
+        "backend": "repo_local_semantic_vector",
+        "contract_version": "search_evidence_hit.v1",
+        "evidence_class": "policy_chunk",
+        "global_vector_object": {
+          "chunk_id": "wave56-energy-storage-procurement:chunk:0",
+          "contract_version": "global_vector_object.v1",
+          "document_id": "wave56-energy-storage-procurement",
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "matrix_branch_id": "branch_8ba3354b1e90cdbd",
+          "object_id": "wave56-energy-storage-procurement",
+          "object_type": "policy_chunk",
+          "project_key": "demo_proj",
+          "provenance": {
+            "backend": "repo_local_semantic_vector",
+            "effective_time": null,
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "embedding_model_version": "2026-05-23.wave56",
+            "fallback_reason": null,
+            "language": null,
+            "provider": "repo_local_token_hashing",
+            "provider_payload_kind": "repo_local_semantic_vector",
+            "reference": "repo-local://wave56/energy-storage-procurement",
+            "retrieval_mode": "vector",
+            "score": 0.417123,
+            "source": "wave56-production-like-corpus",
+            "source_domain": "wave56",
+            "source_id": "wave56-production-like-corpus",
+            "source_reference": "repo-local://wave56/energy-storage-procurement",
+            "source_uri": "repo-local://wave56/energy-storage-procurement",
+            "vector_version": "repo-local-live-v2"
+          },
+          "source_id": "wave56-production-like-corpus",
+          "vector_version": "repo-local-live-v2"
+        },
+        "hit_id": "eh_256ae8942a3abd4b",
+        "matrix_branch_id": "branch_8ba3354b1e90cdbd",
+        "provenance": {
+          "backend": "repo_local_semantic_vector",
+          "chunk_id": "wave56-energy-storage-procurement:chunk:0",
+          "document_id": "wave56-energy-storage-procurement",
+          "effective_time": null,
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "embedding_model_version": "2026-05-23.wave56",
+          "fallback_reason": null,
+          "language": null,
+          "matrix_branch_id": "branch_8ba3354b1e90cdbd",
+          "project_key": "demo_proj",
+          "provider": "repo_local_token_hashing",
+          "provider_payload_kind": "repo_local_semantic_vector",
+          "reference": "repo-local://wave56/energy-storage-procurement",
+          "retrieval_mode": "vector",
+          "score": 0.417123,
+          "source": "wave56-production-like-corpus",
+          "source_domain": "wave56",
+          "source_id": "wave56-production-like-corpus",
+          "source_reference": "repo-local://wave56/energy-storage-procurement",
+          "source_uri": "repo-local://wave56/energy-storage-procurement",
+          "vector_version": "repo-local-live-v2"
+        },
+        "query_group_id": "qg_5227ecd09fc60744",
+        "rank": 6,
+        "rank_features": {
+          "backend": "repo_local_semantic_vector",
+          "fusion_score": 0.0,
+          "lexical_score": 0.0,
+          "rank": 6,
+          "retrieval_mode": "vector",
+          "score": 0.417123,
+          "tags": [
+            "vector",
+            "repo_local_semantic_quality",
+            "energy_storage"
+          ],
+          "vector_score": 0.0
+        },
+        "retrieval_family": "main_search",
+        "retrieval_mode": "vector",
+        "score": 0.417123,
+        "verification_state": "unverified"
+      },
+      {
+        "backend": "repo_local_semantic_vector",
+        "contract_version": "search_evidence_hit.v1",
+        "evidence_class": "policy_chunk",
+        "global_vector_object": {
+          "chunk_id": "wave56-robotics-safety-compliance:chunk:0",
+          "contract_version": "global_vector_object.v1",
+          "document_id": "wave56-robotics-safety-compliance",
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "matrix_branch_id": "branch_8ba3354b1e90cdbd",
+          "object_id": "wave56-robotics-safety-compliance",
+          "object_type": "policy_chunk",
+          "project_key": "demo_proj",
+          "provenance": {
+            "backend": "repo_local_semantic_vector",
+            "effective_time": null,
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "embedding_model_version": "2026-05-23.wave56",
+            "fallback_reason": null,
+            "language": null,
+            "provider": "repo_local_token_hashing",
+            "provider_payload_kind": "repo_local_semantic_vector",
+            "reference": "repo-local://wave56/robotics-safety-compliance",
+            "retrieval_mode": "vector",
+            "score": 0.411038,
+            "source": "wave56-production-like-corpus",
+            "source_domain": "wave56",
+            "source_id": "wave56-production-like-corpus",
+            "source_reference": "repo-local://wave56/robotics-safety-compliance",
+            "source_uri": "repo-local://wave56/robotics-safety-compliance",
+            "vector_version": "repo-local-live-v2"
+          },
+          "source_id": "wave56-production-like-corpus",
+          "vector_version": "repo-local-live-v2"
+        },
+        "hit_id": "eh_c9b603aa7ea4f3b5",
+        "matrix_branch_id": "branch_8ba3354b1e90cdbd",
+        "provenance": {
+          "backend": "repo_local_semantic_vector",
+          "chunk_id": "wave56-robotics-safety-compliance:chunk:0",
+          "document_id": "wave56-robotics-safety-compliance",
+          "effective_time": null,
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "embedding_model_version": "2026-05-23.wave56",
+          "fallback_reason": null,
+          "language": null,
+          "matrix_branch_id": "branch_8ba3354b1e90cdbd",
+          "project_key": "demo_proj",
+          "provider": "repo_local_token_hashing",
+          "provider_payload_kind": "repo_local_semantic_vector",
+          "reference": "repo-local://wave56/robotics-safety-compliance",
+          "retrieval_mode": "vector",
+          "score": 0.411038,
+          "source": "wave56-production-like-corpus",
+          "source_domain": "wave56",
+          "source_id": "wave56-production-like-corpus",
+          "source_reference": "repo-local://wave56/robotics-safety-compliance",
+          "source_uri": "repo-local://wave56/robotics-safety-compliance",
+          "vector_version": "repo-local-live-v2"
+        },
+        "query_group_id": "qg_5227ecd09fc60744",
+        "rank": 7,
+        "rank_features": {
+          "backend": "repo_local_semantic_vector",
+          "fusion_score": 0.0,
+          "lexical_score": 0.0,
+          "rank": 7,
+          "retrieval_mode": "vector",
+          "score": 0.411038,
+          "tags": [
+            "vector",
+            "repo_local_semantic_quality",
+            "robotics_safety"
+          ],
+          "vector_score": 0.0
+        },
+        "retrieval_family": "main_search",
+        "retrieval_mode": "vector",
+        "score": 0.411038,
+        "verification_state": "unverified"
+      },
+      {
+        "backend": "repo_local_semantic_vector",
+        "contract_version": "search_evidence_hit.v1",
+        "evidence_class": "policy_chunk",
+        "global_vector_object": {
+          "chunk_id": "wave56-festival-ticketing:chunk:0",
+          "contract_version": "global_vector_object.v1",
+          "document_id": "wave56-festival-ticketing",
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "matrix_branch_id": "branch_8ba3354b1e90cdbd",
+          "object_id": "wave56-festival-ticketing",
+          "object_type": "policy_chunk",
+          "project_key": "demo_proj",
+          "provenance": {
+            "backend": "repo_local_semantic_vector",
+            "effective_time": null,
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "embedding_model_version": "2026-05-23.wave56",
+            "fallback_reason": null,
+            "language": null,
+            "provider": "repo_local_token_hashing",
+            "provider_payload_kind": "repo_local_semantic_vector",
+            "reference": "repo-local://wave56/festival-ticketing",
+            "retrieval_mode": "vector",
+            "score": 0.588999,
+            "source": "wave56-production-like-corpus",
+            "source_domain": "wave56",
+            "source_id": "wave56-production-like-corpus",
+            "source_reference": "repo-local://wave56/festival-ticketing",
+            "source_uri": "repo-local://wave56/festival-ticketing",
+            "vector_version": "repo-local-live-v2"
+          },
+          "source_id": "wave56-production-like-corpus",
+          "vector_version": "repo-local-live-v2"
+        },
+        "hit_id": "eh_03c99cba1303aa48",
+        "matrix_branch_id": "branch_8ba3354b1e90cdbd",
+        "provenance": {
+          "backend": "repo_local_semantic_vector",
+          "chunk_id": "wave56-festival-ticketing:chunk:0",
+          "document_id": "wave56-festival-ticketing",
+          "effective_time": null,
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "embedding_model_version": "2026-05-23.wave56",
+          "fallback_reason": null,
+          "language": null,
+          "matrix_branch_id": "branch_8ba3354b1e90cdbd",
+          "project_key": "demo_proj",
+          "provider": "repo_local_token_hashing",
+          "provider_payload_kind": "repo_local_semantic_vector",
+          "reference": "repo-local://wave56/festival-ticketing",
+          "retrieval_mode": "vector",
+          "score": 0.588999,
+          "source": "wave56-production-like-corpus",
+          "source_domain": "wave56",
+          "source_id": "wave56-production-like-corpus",
+          "source_reference": "repo-local://wave56/festival-ticketing",
+          "source_uri": "repo-local://wave56/festival-ticketing",
+          "vector_version": "repo-local-live-v2"
+        },
+        "query_group_id": "qg_5227ecd09fc60744",
+        "rank": 8,
+        "rank_features": {
+          "backend": "repo_local_semantic_vector",
+          "fusion_score": 0.0,
+          "lexical_score": 0.0,
+          "rank": 8,
+          "retrieval_mode": "vector",
+          "score": 0.588999,
+          "tags": [
+            "vector",
+            "repo_local_semantic_quality",
+            "event_ops"
+          ],
+          "vector_score": 0.0
+        },
+        "retrieval_family": "main_search",
+        "retrieval_mode": "vector",
+        "score": 0.588999,
+        "verification_state": "unverified"
+      }
+    ],
+    "filters": {
+      "modality": "any",
+      "state": null,
+      "top_k": 8
+    },
+    "hit_count": 8,
+    "modality": "any",
+    "project_key": "demo_proj",
+    "query": "wave56 repo-local semantic vector quality evaluation",
+    "query_group_id": "qg_5227ecd09fc60744",
+    "query_text": "wave56 repo-local semantic vector quality evaluation",
+    "rank_mode": "vector",
+    "retrieval_branches": [
+      {
+        "backend": "repo_local_semantic_vector",
+        "contract_version": "search_retrieval_branch.v1",
+        "filters": {
+          "modality": "any",
+          "state": null,
+          "top_k": 8
+        },
+        "global_vector_object_refs": [
+          {
+            "chunk_id": "wave56-robotics-policy-grants:chunk:0",
+            "document_id": "wave56-robotics-policy-grants",
+            "source_id": "wave56-production-like-corpus",
+            "vector_version": "repo-local-live-v2"
+          },
+          {
+            "chunk_id": "wave56-agriculture-futures-insurance:chunk:0",
+            "document_id": "wave56-agriculture-futures-insurance",
+            "source_id": "wave56-production-like-corpus",
+            "vector_version": "repo-local-live-v2"
+          },
+          {
+            "chunk_id": "wave56-energy-storage-procurement:chunk:0",
+            "document_id": "wave56-energy-storage-procurement",
+            "source_id": "wave56-production-like-corpus",
+            "vector_version": "repo-local-live-v2"
+          },
+          {
+            "chunk_id": "wave56-robotics-safety-compliance:chunk:0",
+            "document_id": "wave56-robotics-safety-compliance",
+            "source_id": "wave56-production-like-corpus",
+            "vector_version": "repo-local-live-v2"
+          },
+          {
+            "chunk_id": "wave56-festival-ticketing:chunk:0",
+            "document_id": "wave56-festival-ticketing",
+            "source_id": "wave56-production-like-corpus",
+            "vector_version": "repo-local-live-v2"
+          }
+        ],
+        "hit_count": 8,
+        "hit_ids": [
+          "eh_372e4a927774a359",
+          "eh_f9ab4533ce48cf13",
+          "eh_360274247fab1176",
+          "eh_941c24b8b49eb120",
+          "eh_8312ebdd35a0489e",
+          "eh_256ae8942a3abd4b",
+          "eh_c9b603aa7ea4f3b5",
+          "eh_03c99cba1303aa48"
+        ],
+        "matrix_branch_id": "branch_8ba3354b1e90cdbd",
+        "provider_or_index": "repo_local_semantic_vector",
+        "query_group_id": "qg_5227ecd09fc60744",
+        "query_text": "wave56 repo-local semantic vector quality evaluation",
+        "rank_mode": "vector",
+        "retrieval_family": "main_search",
+        "retrieval_mode": "vector",
+        "retrieval_run_id": "retrieval_run_870dbf6b5891417b",
+        "run_id": "retrieval_run_870dbf6b5891417b",
+        "status": "completed",
+        "top_score": 0.588999,
+        "verification_states": [
+          "unverified"
+        ]
+      }
+    ],
+    "retrieval_family": "main_search",
+    "retrieval_hits": [
+      {
+        "backend": "repo_local_semantic_vector",
+        "chunk_id": "wave56-robotics-policy-grants:chunk:0",
+        "contract_version": "search_retrieval_hit.v1",
+        "document_id": "wave56-robotics-policy-grants",
+        "evidence_class": "policy_chunk",
+        "global_vector_object": {
+          "chunk_id": "wave56-robotics-policy-grants:chunk:0",
+          "contract_version": "global_vector_object.v1",
+          "document_id": "wave56-robotics-policy-grants",
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "matrix_branch_id": "branch_8ba3354b1e90cdbd",
+          "object_id": "wave56-robotics-policy-grants",
+          "object_type": "policy_chunk",
+          "project_key": "demo_proj",
+          "provenance": {
+            "backend": "repo_local_semantic_vector",
+            "effective_time": null,
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "embedding_model_version": "2026-05-23.wave56",
+            "fallback_reason": null,
+            "language": null,
+            "provider": "repo_local_token_hashing",
+            "provider_payload_kind": "repo_local_semantic_vector",
+            "reference": "repo-local://wave56/robotics-policy-grants",
+            "retrieval_mode": "vector",
+            "score": 0.483159,
+            "source": "wave56-production-like-corpus",
+            "source_domain": "wave56",
+            "source_id": "wave56-production-like-corpus",
+            "source_reference": "repo-local://wave56/robotics-policy-grants",
+            "source_uri": "repo-local://wave56/robotics-policy-grants",
+            "vector_version": "repo-local-live-v2"
+          },
+          "source_id": "wave56-production-like-corpus",
+          "vector_version": "repo-local-live-v2"
+        },
+        "hit_id": "eh_372e4a927774a359",
+        "matrix_branch_id": "branch_8ba3354b1e90cdbd",
+        "object_id": "wave56-robotics-policy-grants",
+        "object_type": "policy_chunk",
+        "provenance": {
+          "backend": "repo_local_semantic_vector",
+          "chunk_id": "wave56-robotics-policy-grants:chunk:0",
+          "document_id": "wave56-robotics-policy-grants",
+          "effective_time": null,
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "embedding_model_version": "2026-05-23.wave56",
+          "fallback_reason": null,
+          "language": null,
+          "matrix_branch_id": "branch_8ba3354b1e90cdbd",
+          "project_key": "demo_proj",
+          "provider": "repo_local_token_hashing",
+          "provider_payload_kind": "repo_local_semantic_vector",
+          "reference": "repo-local://wave56/robotics-policy-grants",
+          "retrieval_mode": "vector",
+          "score": 0.483159,
+          "source": "wave56-production-like-corpus",
+          "source_domain": "wave56",
+          "source_id": "wave56-production-like-corpus",
+          "source_reference": "repo-local://wave56/robotics-policy-grants",
+          "source_uri": "repo-local://wave56/robotics-policy-grants",
+          "vector_version": "repo-local-live-v2"
+        },
+        "query_group_id": "qg_5227ecd09fc60744",
+        "rank": 1,
+        "retrieval_family": "main_search",
+        "retrieval_mode": "vector",
+        "retrieval_run_id": "retrieval_run_870dbf6b5891417b",
+        "run_id": "retrieval_run_870dbf6b5891417b",
+        "score": 0.483159,
+        "source_id": "wave56-production-like-corpus",
+        "verification_state": "unverified"
+      },
+      {
+        "backend": "repo_local_semantic_vector",
+        "chunk_id": "wave56-robotics-policy-grants:chunk:0",
+        "contract_version": "search_retrieval_hit.v1",
+        "document_id": "wave56-robotics-policy-grants",
+        "evidence_class": "policy_chunk",
+        "global_vector_object": {
+          "chunk_id": "wave56-robotics-policy-grants:chunk:0",
+          "contract_version": "global_vector_object.v1",
+          "document_id": "wave56-robotics-policy-grants",
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "matrix_branch_id": "branch_8ba3354b1e90cdbd",
+          "object_id": "wave56-robotics-policy-grants",
+          "object_type": "policy_chunk",
+          "project_key": "demo_proj",
+          "provenance": {
+            "backend": "repo_local_semantic_vector",
+            "effective_time": null,
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "embedding_model_version": "2026-05-23.wave56",
+            "fallback_reason": null,
+            "language": null,
+            "provider": "repo_local_token_hashing",
+            "provider_payload_kind": "repo_local_semantic_vector",
+            "reference": "repo-local://wave56/robotics-policy-grants",
+            "retrieval_mode": "vector",
+            "score": 0.348363,
+            "source": "wave56-production-like-corpus",
+            "source_domain": "wave56",
+            "source_id": "wave56-production-like-corpus",
+            "source_reference": "repo-local://wave56/robotics-policy-grants",
+            "source_uri": "repo-local://wave56/robotics-policy-grants",
+            "vector_version": "repo-local-live-v2"
+          },
+          "source_id": "wave56-production-like-corpus",
+          "vector_version": "repo-local-live-v2"
+        },
+        "hit_id": "eh_f9ab4533ce48cf13",
+        "matrix_branch_id": "branch_8ba3354b1e90cdbd",
+        "object_id": "wave56-robotics-policy-grants",
+        "object_type": "policy_chunk",
+        "provenance": {
+          "backend": "repo_local_semantic_vector",
+          "chunk_id": "wave56-robotics-policy-grants:chunk:0",
+          "document_id": "wave56-robotics-policy-grants",
+          "effective_time": null,
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "embedding_model_version": "2026-05-23.wave56",
+          "fallback_reason": null,
+          "language": null,
+          "matrix_branch_id": "branch_8ba3354b1e90cdbd",
+          "project_key": "demo_proj",
+          "provider": "repo_local_token_hashing",
+          "provider_payload_kind": "repo_local_semantic_vector",
+          "reference": "repo-local://wave56/robotics-policy-grants",
+          "retrieval_mode": "vector",
+          "score": 0.348363,
+          "source": "wave56-production-like-corpus",
+          "source_domain": "wave56",
+          "source_id": "wave56-production-like-corpus",
+          "source_reference": "repo-local://wave56/robotics-policy-grants",
+          "source_uri": "repo-local://wave56/robotics-policy-grants",
+          "vector_version": "repo-local-live-v2"
+        },
+        "query_group_id": "qg_5227ecd09fc60744",
+        "rank": 2,
+        "retrieval_family": "main_search",
+        "retrieval_mode": "vector",
+        "retrieval_run_id": "retrieval_run_870dbf6b5891417b",
+        "run_id": "retrieval_run_870dbf6b5891417b",
+        "score": 0.348363,
+        "source_id": "wave56-production-like-corpus",
+        "verification_state": "unverified"
+      },
+      {
+        "backend": "repo_local_semantic_vector",
+        "chunk_id": "wave56-agriculture-futures-insurance:chunk:0",
+        "contract_version": "search_retrieval_hit.v1",
+        "document_id": "wave56-agriculture-futures-insurance",
+        "evidence_class": "policy_chunk",
+        "global_vector_object": {
+          "chunk_id": "wave56-agriculture-futures-insurance:chunk:0",
+          "contract_version": "global_vector_object.v1",
+          "document_id": "wave56-agriculture-futures-insurance",
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "matrix_branch_id": "branch_8ba3354b1e90cdbd",
+          "object_id": "wave56-agriculture-futures-insurance",
+          "object_type": "policy_chunk",
+          "project_key": "demo_proj",
+          "provenance": {
+            "backend": "repo_local_semantic_vector",
+            "effective_time": null,
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "embedding_model_version": "2026-05-23.wave56",
+            "fallback_reason": null,
+            "language": null,
+            "provider": "repo_local_token_hashing",
+            "provider_payload_kind": "repo_local_semantic_vector",
+            "reference": "repo-local://wave56/agriculture-futures-insurance",
+            "retrieval_mode": "vector",
+            "score": 0.323784,
+            "source": "wave56-production-like-corpus",
+            "source_domain": "wave56",
+            "source_id": "wave56-production-like-corpus",
+            "source_reference": "repo-local://wave56/agriculture-futures-insurance",
+            "source_uri": "repo-local://wave56/agriculture-futures-insurance",
+            "vector_version": "repo-local-live-v2"
+          },
+          "source_id": "wave56-production-like-corpus",
+          "vector_version": "repo-local-live-v2"
+        },
+        "hit_id": "eh_360274247fab1176",
+        "matrix_branch_id": "branch_8ba3354b1e90cdbd",
+        "object_id": "wave56-agriculture-futures-insurance",
+        "object_type": "policy_chunk",
+        "provenance": {
+          "backend": "repo_local_semantic_vector",
+          "chunk_id": "wave56-agriculture-futures-insurance:chunk:0",
+          "document_id": "wave56-agriculture-futures-insurance",
+          "effective_time": null,
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "embedding_model_version": "2026-05-23.wave56",
+          "fallback_reason": null,
+          "language": null,
+          "matrix_branch_id": "branch_8ba3354b1e90cdbd",
+          "project_key": "demo_proj",
+          "provider": "repo_local_token_hashing",
+          "provider_payload_kind": "repo_local_semantic_vector",
+          "reference": "repo-local://wave56/agriculture-futures-insurance",
+          "retrieval_mode": "vector",
+          "score": 0.323784,
+          "source": "wave56-production-like-corpus",
+          "source_domain": "wave56",
+          "source_id": "wave56-production-like-corpus",
+          "source_reference": "repo-local://wave56/agriculture-futures-insurance",
+          "source_uri": "repo-local://wave56/agriculture-futures-insurance",
+          "vector_version": "repo-local-live-v2"
+        },
+        "query_group_id": "qg_5227ecd09fc60744",
+        "rank": 3,
+        "retrieval_family": "main_search",
+        "retrieval_mode": "vector",
+        "retrieval_run_id": "retrieval_run_870dbf6b5891417b",
+        "run_id": "retrieval_run_870dbf6b5891417b",
+        "score": 0.323784,
+        "source_id": "wave56-production-like-corpus",
+        "verification_state": "unverified"
+      },
+      {
+        "backend": "repo_local_semantic_vector",
+        "chunk_id": "wave56-agriculture-futures-insurance:chunk:0",
+        "contract_version": "search_retrieval_hit.v1",
+        "document_id": "wave56-agriculture-futures-insurance",
+        "evidence_class": "policy_chunk",
+        "global_vector_object": {
+          "chunk_id": "wave56-agriculture-futures-insurance:chunk:0",
+          "contract_version": "global_vector_object.v1",
+          "document_id": "wave56-agriculture-futures-insurance",
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "matrix_branch_id": "branch_8ba3354b1e90cdbd",
+          "object_id": "wave56-agriculture-futures-insurance",
+          "object_type": "policy_chunk",
+          "project_key": "demo_proj",
+          "provenance": {
+            "backend": "repo_local_semantic_vector",
+            "effective_time": null,
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "embedding_model_version": "2026-05-23.wave56",
+            "fallback_reason": null,
+            "language": null,
+            "provider": "repo_local_token_hashing",
+            "provider_payload_kind": "repo_local_semantic_vector",
+            "reference": "repo-local://wave56/agriculture-futures-insurance",
+            "retrieval_mode": "vector",
+            "score": 0.300991,
+            "source": "wave56-production-like-corpus",
+            "source_domain": "wave56",
+            "source_id": "wave56-production-like-corpus",
+            "source_reference": "repo-local://wave56/agriculture-futures-insurance",
+            "source_uri": "repo-local://wave56/agriculture-futures-insurance",
+            "vector_version": "repo-local-live-v2"
+          },
+          "source_id": "wave56-production-like-corpus",
+          "vector_version": "repo-local-live-v2"
+        },
+        "hit_id": "eh_941c24b8b49eb120",
+        "matrix_branch_id": "branch_8ba3354b1e90cdbd",
+        "object_id": "wave56-agriculture-futures-insurance",
+        "object_type": "policy_chunk",
+        "provenance": {
+          "backend": "repo_local_semantic_vector",
+          "chunk_id": "wave56-agriculture-futures-insurance:chunk:0",
+          "document_id": "wave56-agriculture-futures-insurance",
+          "effective_time": null,
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "embedding_model_version": "2026-05-23.wave56",
+          "fallback_reason": null,
+          "language": null,
+          "matrix_branch_id": "branch_8ba3354b1e90cdbd",
+          "project_key": "demo_proj",
+          "provider": "repo_local_token_hashing",
+          "provider_payload_kind": "repo_local_semantic_vector",
+          "reference": "repo-local://wave56/agriculture-futures-insurance",
+          "retrieval_mode": "vector",
+          "score": 0.300991,
+          "source": "wave56-production-like-corpus",
+          "source_domain": "wave56",
+          "source_id": "wave56-production-like-corpus",
+          "source_reference": "repo-local://wave56/agriculture-futures-insurance",
+          "source_uri": "repo-local://wave56/agriculture-futures-insurance",
+          "vector_version": "repo-local-live-v2"
+        },
+        "query_group_id": "qg_5227ecd09fc60744",
+        "rank": 4,
+        "retrieval_family": "main_search",
+        "retrieval_mode": "vector",
+        "retrieval_run_id": "retrieval_run_870dbf6b5891417b",
+        "run_id": "retrieval_run_870dbf6b5891417b",
+        "score": 0.300991,
+        "source_id": "wave56-production-like-corpus",
+        "verification_state": "unverified"
+      },
+      {
+        "backend": "repo_local_semantic_vector",
+        "chunk_id": "wave56-energy-storage-procurement:chunk:0",
+        "contract_version": "search_retrieval_hit.v1",
+        "document_id": "wave56-energy-storage-procurement",
+        "evidence_class": "policy_chunk",
+        "global_vector_object": {
+          "chunk_id": "wave56-energy-storage-procurement:chunk:0",
+          "contract_version": "global_vector_object.v1",
+          "document_id": "wave56-energy-storage-procurement",
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "matrix_branch_id": "branch_8ba3354b1e90cdbd",
+          "object_id": "wave56-energy-storage-procurement",
+          "object_type": "policy_chunk",
+          "project_key": "demo_proj",
+          "provenance": {
+            "backend": "repo_local_semantic_vector",
+            "effective_time": null,
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "embedding_model_version": "2026-05-23.wave56",
+            "fallback_reason": null,
+            "language": null,
+            "provider": "repo_local_token_hashing",
+            "provider_payload_kind": "repo_local_semantic_vector",
+            "reference": "repo-local://wave56/energy-storage-procurement",
+            "retrieval_mode": "vector",
+            "score": 0.311886,
+            "source": "wave56-production-like-corpus",
+            "source_domain": "wave56",
+            "source_id": "wave56-production-like-corpus",
+            "source_reference": "repo-local://wave56/energy-storage-procurement",
+            "source_uri": "repo-local://wave56/energy-storage-procurement",
+            "vector_version": "repo-local-live-v2"
+          },
+          "source_id": "wave56-production-like-corpus",
+          "vector_version": "repo-local-live-v2"
+        },
+        "hit_id": "eh_8312ebdd35a0489e",
+        "matrix_branch_id": "branch_8ba3354b1e90cdbd",
+        "object_id": "wave56-energy-storage-procurement",
+        "object_type": "policy_chunk",
+        "provenance": {
+          "backend": "repo_local_semantic_vector",
+          "chunk_id": "wave56-energy-storage-procurement:chunk:0",
+          "document_id": "wave56-energy-storage-procurement",
+          "effective_time": null,
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "embedding_model_version": "2026-05-23.wave56",
+          "fallback_reason": null,
+          "language": null,
+          "matrix_branch_id": "branch_8ba3354b1e90cdbd",
+          "project_key": "demo_proj",
+          "provider": "repo_local_token_hashing",
+          "provider_payload_kind": "repo_local_semantic_vector",
+          "reference": "repo-local://wave56/energy-storage-procurement",
+          "retrieval_mode": "vector",
+          "score": 0.311886,
+          "source": "wave56-production-like-corpus",
+          "source_domain": "wave56",
+          "source_id": "wave56-production-like-corpus",
+          "source_reference": "repo-local://wave56/energy-storage-procurement",
+          "source_uri": "repo-local://wave56/energy-storage-procurement",
+          "vector_version": "repo-local-live-v2"
+        },
+        "query_group_id": "qg_5227ecd09fc60744",
+        "rank": 5,
+        "retrieval_family": "main_search",
+        "retrieval_mode": "vector",
+        "retrieval_run_id": "retrieval_run_870dbf6b5891417b",
+        "run_id": "retrieval_run_870dbf6b5891417b",
+        "score": 0.311886,
+        "source_id": "wave56-production-like-corpus",
+        "verification_state": "unverified"
+      },
+      {
+        "backend": "repo_local_semantic_vector",
+        "chunk_id": "wave56-energy-storage-procurement:chunk:0",
+        "contract_version": "search_retrieval_hit.v1",
+        "document_id": "wave56-energy-storage-procurement",
+        "evidence_class": "policy_chunk",
+        "global_vector_object": {
+          "chunk_id": "wave56-energy-storage-procurement:chunk:0",
+          "contract_version": "global_vector_object.v1",
+          "document_id": "wave56-energy-storage-procurement",
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "matrix_branch_id": "branch_8ba3354b1e90cdbd",
+          "object_id": "wave56-energy-storage-procurement",
+          "object_type": "policy_chunk",
+          "project_key": "demo_proj",
+          "provenance": {
+            "backend": "repo_local_semantic_vector",
+            "effective_time": null,
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "embedding_model_version": "2026-05-23.wave56",
+            "fallback_reason": null,
+            "language": null,
+            "provider": "repo_local_token_hashing",
+            "provider_payload_kind": "repo_local_semantic_vector",
+            "reference": "repo-local://wave56/energy-storage-procurement",
+            "retrieval_mode": "vector",
+            "score": 0.417123,
+            "source": "wave56-production-like-corpus",
+            "source_domain": "wave56",
+            "source_id": "wave56-production-like-corpus",
+            "source_reference": "repo-local://wave56/energy-storage-procurement",
+            "source_uri": "repo-local://wave56/energy-storage-procurement",
+            "vector_version": "repo-local-live-v2"
+          },
+          "source_id": "wave56-production-like-corpus",
+          "vector_version": "repo-local-live-v2"
+        },
+        "hit_id": "eh_256ae8942a3abd4b",
+        "matrix_branch_id": "branch_8ba3354b1e90cdbd",
+        "object_id": "wave56-energy-storage-procurement",
+        "object_type": "policy_chunk",
+        "provenance": {
+          "backend": "repo_local_semantic_vector",
+          "chunk_id": "wave56-energy-storage-procurement:chunk:0",
+          "document_id": "wave56-energy-storage-procurement",
+          "effective_time": null,
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "embedding_model_version": "2026-05-23.wave56",
+          "fallback_reason": null,
+          "language": null,
+          "matrix_branch_id": "branch_8ba3354b1e90cdbd",
+          "project_key": "demo_proj",
+          "provider": "repo_local_token_hashing",
+          "provider_payload_kind": "repo_local_semantic_vector",
+          "reference": "repo-local://wave56/energy-storage-procurement",
+          "retrieval_mode": "vector",
+          "score": 0.417123,
+          "source": "wave56-production-like-corpus",
+          "source_domain": "wave56",
+          "source_id": "wave56-production-like-corpus",
+          "source_reference": "repo-local://wave56/energy-storage-procurement",
+          "source_uri": "repo-local://wave56/energy-storage-procurement",
+          "vector_version": "repo-local-live-v2"
+        },
+        "query_group_id": "qg_5227ecd09fc60744",
+        "rank": 6,
+        "retrieval_family": "main_search",
+        "retrieval_mode": "vector",
+        "retrieval_run_id": "retrieval_run_870dbf6b5891417b",
+        "run_id": "retrieval_run_870dbf6b5891417b",
+        "score": 0.417123,
+        "source_id": "wave56-production-like-corpus",
+        "verification_state": "unverified"
+      },
+      {
+        "backend": "repo_local_semantic_vector",
+        "chunk_id": "wave56-robotics-safety-compliance:chunk:0",
+        "contract_version": "search_retrieval_hit.v1",
+        "document_id": "wave56-robotics-safety-compliance",
+        "evidence_class": "policy_chunk",
+        "global_vector_object": {
+          "chunk_id": "wave56-robotics-safety-compliance:chunk:0",
+          "contract_version": "global_vector_object.v1",
+          "document_id": "wave56-robotics-safety-compliance",
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "matrix_branch_id": "branch_8ba3354b1e90cdbd",
+          "object_id": "wave56-robotics-safety-compliance",
+          "object_type": "policy_chunk",
+          "project_key": "demo_proj",
+          "provenance": {
+            "backend": "repo_local_semantic_vector",
+            "effective_time": null,
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "embedding_model_version": "2026-05-23.wave56",
+            "fallback_reason": null,
+            "language": null,
+            "provider": "repo_local_token_hashing",
+            "provider_payload_kind": "repo_local_semantic_vector",
+            "reference": "repo-local://wave56/robotics-safety-compliance",
+            "retrieval_mode": "vector",
+            "score": 0.411038,
+            "source": "wave56-production-like-corpus",
+            "source_domain": "wave56",
+            "source_id": "wave56-production-like-corpus",
+            "source_reference": "repo-local://wave56/robotics-safety-compliance",
+            "source_uri": "repo-local://wave56/robotics-safety-compliance",
+            "vector_version": "repo-local-live-v2"
+          },
+          "source_id": "wave56-production-like-corpus",
+          "vector_version": "repo-local-live-v2"
+        },
+        "hit_id": "eh_c9b603aa7ea4f3b5",
+        "matrix_branch_id": "branch_8ba3354b1e90cdbd",
+        "object_id": "wave56-robotics-safety-compliance",
+        "object_type": "policy_chunk",
+        "provenance": {
+          "backend": "repo_local_semantic_vector",
+          "chunk_id": "wave56-robotics-safety-compliance:chunk:0",
+          "document_id": "wave56-robotics-safety-compliance",
+          "effective_time": null,
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "embedding_model_version": "2026-05-23.wave56",
+          "fallback_reason": null,
+          "language": null,
+          "matrix_branch_id": "branch_8ba3354b1e90cdbd",
+          "project_key": "demo_proj",
+          "provider": "repo_local_token_hashing",
+          "provider_payload_kind": "repo_local_semantic_vector",
+          "reference": "repo-local://wave56/robotics-safety-compliance",
+          "retrieval_mode": "vector",
+          "score": 0.411038,
+          "source": "wave56-production-like-corpus",
+          "source_domain": "wave56",
+          "source_id": "wave56-production-like-corpus",
+          "source_reference": "repo-local://wave56/robotics-safety-compliance",
+          "source_uri": "repo-local://wave56/robotics-safety-compliance",
+          "vector_version": "repo-local-live-v2"
+        },
+        "query_group_id": "qg_5227ecd09fc60744",
+        "rank": 7,
+        "retrieval_family": "main_search",
+        "retrieval_mode": "vector",
+        "retrieval_run_id": "retrieval_run_870dbf6b5891417b",
+        "run_id": "retrieval_run_870dbf6b5891417b",
+        "score": 0.411038,
+        "source_id": "wave56-production-like-corpus",
+        "verification_state": "unverified"
+      },
+      {
+        "backend": "repo_local_semantic_vector",
+        "chunk_id": "wave56-festival-ticketing:chunk:0",
+        "contract_version": "search_retrieval_hit.v1",
+        "document_id": "wave56-festival-ticketing",
+        "evidence_class": "policy_chunk",
+        "global_vector_object": {
+          "chunk_id": "wave56-festival-ticketing:chunk:0",
+          "contract_version": "global_vector_object.v1",
+          "document_id": "wave56-festival-ticketing",
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "matrix_branch_id": "branch_8ba3354b1e90cdbd",
+          "object_id": "wave56-festival-ticketing",
+          "object_type": "policy_chunk",
+          "project_key": "demo_proj",
+          "provenance": {
+            "backend": "repo_local_semantic_vector",
+            "effective_time": null,
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "embedding_model_version": "2026-05-23.wave56",
+            "fallback_reason": null,
+            "language": null,
+            "provider": "repo_local_token_hashing",
+            "provider_payload_kind": "repo_local_semantic_vector",
+            "reference": "repo-local://wave56/festival-ticketing",
+            "retrieval_mode": "vector",
+            "score": 0.588999,
+            "source": "wave56-production-like-corpus",
+            "source_domain": "wave56",
+            "source_id": "wave56-production-like-corpus",
+            "source_reference": "repo-local://wave56/festival-ticketing",
+            "source_uri": "repo-local://wave56/festival-ticketing",
+            "vector_version": "repo-local-live-v2"
+          },
+          "source_id": "wave56-production-like-corpus",
+          "vector_version": "repo-local-live-v2"
+        },
+        "hit_id": "eh_03c99cba1303aa48",
+        "matrix_branch_id": "branch_8ba3354b1e90cdbd",
+        "object_id": "wave56-festival-ticketing",
+        "object_type": "policy_chunk",
+        "provenance": {
+          "backend": "repo_local_semantic_vector",
+          "chunk_id": "wave56-festival-ticketing:chunk:0",
+          "document_id": "wave56-festival-ticketing",
+          "effective_time": null,
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "embedding_model_version": "2026-05-23.wave56",
+          "fallback_reason": null,
+          "language": null,
+          "matrix_branch_id": "branch_8ba3354b1e90cdbd",
+          "project_key": "demo_proj",
+          "provider": "repo_local_token_hashing",
+          "provider_payload_kind": "repo_local_semantic_vector",
+          "reference": "repo-local://wave56/festival-ticketing",
+          "retrieval_mode": "vector",
+          "score": 0.588999,
+          "source": "wave56-production-like-corpus",
+          "source_domain": "wave56",
+          "source_id": "wave56-production-like-corpus",
+          "source_reference": "repo-local://wave56/festival-ticketing",
+          "source_uri": "repo-local://wave56/festival-ticketing",
+          "vector_version": "repo-local-live-v2"
+        },
+        "query_group_id": "qg_5227ecd09fc60744",
+        "rank": 8,
+        "retrieval_family": "main_search",
+        "retrieval_mode": "vector",
+        "retrieval_run_id": "retrieval_run_870dbf6b5891417b",
+        "run_id": "retrieval_run_870dbf6b5891417b",
+        "score": 0.588999,
+        "source_id": "wave56-production-like-corpus",
+        "verification_state": "unverified"
+      }
+    ],
+    "retrieval_run_id": "retrieval_run_870dbf6b5891417b",
+    "run_id": "retrieval_run_870dbf6b5891417b",
+    "state": null,
+    "status": "completed",
+    "top_k": 8
+  },
+  "scope": "repo_local_production_like_semantic_vector_quality_no_network_no_live_traffic",
+  "semantic_quality_claim_allowed": true,
+  "status": "passed"
+}

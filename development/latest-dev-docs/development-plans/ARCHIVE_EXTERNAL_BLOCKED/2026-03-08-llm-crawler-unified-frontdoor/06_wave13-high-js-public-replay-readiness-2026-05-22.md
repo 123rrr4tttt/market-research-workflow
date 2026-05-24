@@ -53,6 +53,14 @@ Required real replay proof before full closure:
 - attempted public target count covers the declared high-JS target count
 - every target result records `status=success` and `browser_rendered=true`
 
+Wave55 T5 reduced-boundary proof:
+
+- `validation.accessible_public_high_js_replay_proven=true`
+- `validation.external_gate_blockers_proven=true`
+- at least one declared high-JS target records `status=success`
+- every non-success target is accounted for as `intrinsic_external_auth_or_anti_bot_gate`
+- this permits `status=accessible_public_high_js_replay_proven_external_targets_blocked`, but still keeps `closure.full_closure_allowed=false`
+
 Default public artifact path:
 
 `development/latest-dev-docs/automation-runs/llm-crawler-high-js-public-replay/2026-05-22/output.public.json`
@@ -94,6 +102,8 @@ Expected gate result for this branch:
 
 ## remaining blocker:
 
-Real public high-JS replay is still unproven. This topic must remain partial
-until a live external replay run produces the required public artifact and the
-checker returns `status=real_public_high_js_replay_proven`.
+Full real public high-JS replay is still unproven. Wave55 T5 proved the
+accessible public path and narrowed the remaining blocker to external platform
+auth/anti-bot gates; full closure still requires every declared public high-JS
+target to return target-specific public content and the checker to return
+`status=real_public_high_js_replay_proven`.

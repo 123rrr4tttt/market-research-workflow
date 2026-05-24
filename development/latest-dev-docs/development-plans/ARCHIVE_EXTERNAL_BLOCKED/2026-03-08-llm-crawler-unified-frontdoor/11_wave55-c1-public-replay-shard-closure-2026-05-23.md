@@ -45,6 +45,8 @@ Therefore the high-JS readiness checker correctly remains not proven:
 - `high_js_success_count=2`
 - `real_public_high_js_replay_complete=false`
 
+Superseding T5 note: `12_wave55-t5-accessible-high-js-replay-boundary-2026-05-23.md` keeps full closure false, but reduces the high-JS blocker by proving the accessible public replay path and classifying the remaining failed targets as intrinsic external auth/anti-bot gates.
+
 ## Commands
 
 ```bash

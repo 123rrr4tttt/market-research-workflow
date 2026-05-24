@@ -19,6 +19,8 @@ Wave55 新增一个可执行、无网络、无密钥的 repo-local embedding pro
 
 原因：Wave55 的质量门是受控语料 top-k/readback gate，只证明本地 provider、vector retrieval wiring、provenance 与 retrieval-run readback，不证明生产语料或外部 embedding model 的语义质量。
 
+后续更新：Wave56 已在 repo-local production-like evaluation set 范围内关闭 `semantic_embedding_quality_not_proven`，但 `production_vector_quality_not_proven` 仍需真实生产流量或生产语料 replay。
+
 ## 落地
 
 - `main/backend/app/services/local_index/embedding_provider.py` 新增 `RepoLocalHashingEmbeddingProvider`。

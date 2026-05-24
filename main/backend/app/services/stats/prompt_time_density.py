@@ -216,6 +216,58 @@ def _freeze_time_provenance_summary(summary: dict[str, Any] | None) -> dict[str,
     }
 
 
+def summarize_effective_time_source_distribution(
+    effective_time_provenance: dict[str, Any] | None,
+) -> dict[str, Any]:
+    provenance = effective_time_provenance or {}
+    source_counts = {
+        str(key): int(value or 0)
+        for key, value in sorted((provenance.get("source_counts") or {}).items())
+    }
+    gap_counts = {
+        str(key): int(value or 0)
+        for key, value in sorted((provenance.get("gap_counts") or {}).items())
+    }
+    total_docs = int(provenance.get("total_docs") or 0)
+    if total_docs <= 0:
+        total_docs = sum(source_counts.values())
+    denominator = float(max(1, total_docs))
+
+    def count(*keys: str) -> int:
+        return sum(int(source_counts.get(key, 0)) for key in keys)
+
+    explicit_semantic_time_count = count(
+        "effective_time",
+        "source_time",
+        "policy_effective_date",
+    )
+    fallback_count = count("publish_date", "created_at", "missing")
+    ratios = {
+        key: float(value) / denominator
+        for key, value in sorted(source_counts.items())
+    }
+    return {
+        "total_docs": total_docs,
+        "source_counts": source_counts,
+        "source_ratios": ratios,
+        "source_time_count": int(source_counts.get("source_time", 0)),
+        "source_time_coverage": float(source_counts.get("source_time", 0)) / denominator,
+        "explicit_semantic_time_count": explicit_semantic_time_count,
+        "explicit_semantic_time_coverage": float(explicit_semantic_time_count) / denominator,
+        "fallback_doc_count": fallback_count,
+        "fallback_rate": float(fallback_count) / denominator,
+        "gap_counts": gap_counts,
+        "missing_effective_time_count": int(gap_counts.get("effective_time_missing", 0)),
+        "created_at_fallback_count": int(gap_counts.get("created_at_fallback_used", 0)),
+        "parse_versions": sorted(
+            str(version)
+            for version in (provenance.get("parse_versions") or [])
+            if str(version).strip()
+        ),
+        "fallback_chain": list(provenance.get("fallback_chain") or _TIME_DENSITY_TIME_FALLBACK_CHAIN),
+    }
+
+
 def build_time_density_live_gap_markers(
     *,
     effective_time_provenance: dict[str, Any] | None = None,
@@ -259,6 +311,15 @@ def build_time_density_decision_log_features(
     trace: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     trace = trace or row.get("policy_decision_trace") or {}
+    effective_time_provenance = (
+        trace.get("effective_time_provenance")
+        or row.get("effective_time_provenance")
+        or {}
+    )
+    source_distribution = (
+        trace.get("effective_time_source_distribution")
+        or summarize_effective_time_source_distribution(effective_time_provenance)
+    )
     return {
         "density": float(row.get("density") or 0.0),
         "norm_density": float(row.get("norm_density") or 0.0),
@@ -271,9 +332,12 @@ def build_time_density_decision_log_features(
         "contract_version": str(
             trace.get("contract_version") or TIME_DENSITY_DECISION_LOG_CONTRACT_VERSION
         ),
-        "effective_time_provenance": trace.get("effective_time_provenance")
-        or row.get("effective_time_provenance")
-        or {},
+        "effective_time_provenance": effective_time_provenance,
+        "effective_time_source_distribution": source_distribution,
+        "source_time_coverage": float(source_distribution.get("source_time_coverage") or 0.0),
+        "explicit_semantic_time_coverage": float(
+            source_distribution.get("explicit_semantic_time_coverage") or 0.0
+        ),
         "ope_freshness_inputs": trace.get("ope_freshness_inputs") or {},
         "priority_decision_trace": trace.get("priority_decision_trace") or {},
         "live_data_gap_markers": trace.get("live_data_gap_markers") or [],
@@ -478,6 +542,7 @@ def build_policy_decision_trace(
     ope_freshness_inputs: dict[str, Any] | None = None,
     live_data_gap_markers: list[str] | None = None,
 ) -> dict[str, Any]:
+    effective_time_provenance = effective_time_provenance or {}
     return {
         "contract_version": TIME_DENSITY_DECISION_LOG_CONTRACT_VERSION,
         "window": window,
@@ -494,7 +559,10 @@ def build_policy_decision_trace(
         "p_base": p_base,
         "p_new": p_new,
         "kl_to_base": kl_to_base,
-        "effective_time_provenance": effective_time_provenance or {},
+        "effective_time_provenance": effective_time_provenance,
+        "effective_time_source_distribution": summarize_effective_time_source_distribution(
+            effective_time_provenance
+        ),
         "priority_decision_trace": priority_decision_trace or {},
         "ope_freshness_inputs": ope_freshness_inputs or {},
         "live_data_gap_markers": live_data_gap_markers or [],

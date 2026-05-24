@@ -162,7 +162,7 @@ class LocalIndexServiceTest(unittest.TestCase):
         self.assertEqual(readback["status"], "passed")
         self.assertTrue(readback["live_provider_verified"])
         self.assertFalse(readback["network_required"])
-        self.assertEqual(readback["embedding_dim"], 64)
+        self.assertEqual(readback["embedding_dim"], 512)
 
         query_vector = provider.embed_query("robotics policy")
         robotics_vector = provider.embed_text("robotics automation policy procurement")

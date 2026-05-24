@@ -18,6 +18,10 @@ Artifact:
 
 `development/latest-dev-docs/automation-runs/wave55-source-library-three-lane-live-closure/2026-05-23/closure.json`
 
+Focused human-review blocker artifact:
+
+`development/latest-dev-docs/automation-runs/wave55-source-library-three-lane-live-closure/2026-05-23/human-review-blocker.json`
+
 Checker:
 
 `main/backend/scripts/check_source_library_three_lane_live_closure.py`
@@ -55,6 +59,10 @@ Human-review readback:
 - review queue state: `ready_for_review`
 - open queue id: `sl_review:cba6e135df79b9d5`
 - missing human-review evidence: `sl_review:cba6e135df79b9d5`
+- blocker contract: `source_library.three_lane_human_review_blocker.v1`
+- blocker status: `human_review_evidence_missing`
+- closure allowed: `false`
+- required evidence fields: `queue_id`, `reviewed_by`, `reviewed_at`, `decision`, `state`
 
 Human review is therefore wired and readable, but not closed by this worker.
 Completion requires explicit evidence with `queue_id`, `reviewed_by`,
@@ -72,6 +80,10 @@ Completion requires explicit evidence with `queue_id`, `reviewed_by`,
 - Human review completion remains evidence-gated. The checker can validate
   completion through `--human-review-evidence`, but this run did not supply
   actual human-review evidence.
+- T6 added a focused blocker/readback artifact so the remaining external
+  blocker is exact and machine-readable rather than a prose-only note. The
+  checker still refuses `--require-human-review-complete` unless explicit
+  human-review evidence covers every queue id.
 
 ## Commands
 
@@ -90,17 +102,37 @@ PYTHONPATH=main/backend python3.11 \
   main/backend/scripts/check_source_library_three_lane_live_closure.py \
   --allow-public-network \
   --strict \
+  --live-probe-input development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22/output.json \
   --probe-timeout 8 \
   --max-candidates 4 \
-  --output development/latest-dev-docs/automation-runs/wave55-source-library-three-lane-live-closure/2026-05-23/closure.json
+  --output development/latest-dev-docs/automation-runs/wave55-source-library-three-lane-live-closure/2026-05-23/closure.json \
+  --human-review-blocker-output development/latest-dev-docs/automation-runs/wave55-source-library-three-lane-live-closure/2026-05-23/human-review-blocker.json
 ```
 
 Result: passed. `strict_live_runtime_complete=true`,
 `human_review_completed=false`.
 
+```bash
+PYTHONPATH=main/backend python3.11 \
+  main/backend/scripts/check_source_library_three_lane_live_closure.py \
+  --allow-public-network \
+  --strict \
+  --require-human-review-complete \
+  --live-probe-input development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22/output.json \
+  --probe-timeout 8 \
+  --max-candidates 4 \
+  --output /tmp/t6-source-library-three-lane-require-human-review.json \
+  --human-review-blocker-output /tmp/t6-source-library-three-lane-human-review-blocker.json
+```
+
+Result: expected exit `3`. The live runtime gate stays closed, but the
+human-review completion gate remains open because no explicit review evidence
+is attached for `sl_review:cba6e135df79b9d5`.
+
 ## Decision
 
 The live source-collection and provider article-extraction gaps now have
-runtime evidence for this topic. The topic should remain `ARCHIVE_EXTERNAL_BLOCKED`
-until an explicit human-review evidence file closes the live queue id and an
-integration owner decides whether archive/index migration is in scope.
+runtime evidence for this topic. The blocker has been reduced to one exact
+human-review queue id. The topic should remain `ARCHIVE_EXTERNAL_BLOCKED` until
+an explicit human-review evidence file closes `sl_review:cba6e135df79b9d5` and
+an integration owner decides whether archive/index migration is in scope.

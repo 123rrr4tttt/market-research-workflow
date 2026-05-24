@@ -1,0 +1,49 @@
+{
+  "blocker_type": "explicit_human_review_evidence_required",
+  "closure_allowed": false,
+  "completed_queue_ids": [],
+  "completed_state": "completed",
+  "contract_version": "source_library.three_lane_human_review_blocker.v1",
+  "evidence_supplied": false,
+  "invalid_evidence": [],
+  "missing_queue_ids": [
+    "sl_review:cba6e135df79b9d5"
+  ],
+  "non_closure_rule": "Do not claim human review closure unless explicit evidence covers every queue id with queue_id, reviewed_by, reviewed_at, decision, and state=completed.",
+  "queue_ids": [
+    "sl_review:cba6e135df79b9d5"
+  ],
+  "required_fields": [
+    "queue_id",
+    "reviewed_by",
+    "reviewed_at",
+    "decision",
+    "state"
+  ],
+  "review_packet": [
+    {
+      "domain": "commercialobserver.com",
+      "query_terms": [
+        "inflation",
+        "openai"
+      ],
+      "queue_id": "sl_review:cba6e135df79b9d5",
+      "reason_codes": [
+        "term_fallback_candidates",
+        "low_confidence_candidate",
+        "adapter_capability_review"
+      ],
+      "required_evidence": {
+        "decision": "<accept|reject|defer plus reviewer rationale>",
+        "queue_id": "sl_review:cba6e135df79b9d5",
+        "reviewed_at": "<RFC3339 timestamp>",
+        "reviewed_by": "<human-or-approved-reviewer-id>",
+        "state": "completed"
+      },
+      "reviewer_fields_missing": [],
+      "reviewer_ready": true,
+      "url": "https://commercialobserver.com/2025/05/7b-oracle-leased-texas-data-center-development"
+    }
+  ],
+  "status": "human_review_evidence_missing"
+}

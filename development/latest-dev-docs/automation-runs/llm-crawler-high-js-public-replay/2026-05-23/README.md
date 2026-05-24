@@ -1,17 +1,19 @@
-# Wave55 C1 High-JS Public Replay Attempt
+# Wave55 High-JS Public Replay Attempts
 
 Date: 2026-05-23
 
 ## Purpose
 
-This run exercises the LLM crawler unified frontdoor high-JS path against the three public browser-required targets using local headless Chrome. It records actual browser/runtime evidence without editing shared indexes.
+These runs exercise the LLM crawler unified frontdoor high-JS path against the three public browser-required targets using local headless Chrome. They record actual browser/runtime evidence without editing shared indexes.
 
 ## Artifacts
 
-- `output.public.attempt.json`: opt-in high-JS public replay attempt.
-- `check.attempt.json`: readiness checker output for the attempt artifact.
+- `output.public.attempt.json`: Wave55 C1 opt-in high-JS public replay attempt.
+- `check.attempt.json`: readiness checker output for the C1 attempt artifact.
+- `output.public.t5.json`: Wave55 T5 opt-in high-JS public replay with accessible-target/external-gate split.
+- `check.t5.json`: readiness checker output for the T5 artifact.
 
-## Result
+## C1 Result
 
 - Chrome runtime: `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`
 - `public_targets_attempted=3`
@@ -23,6 +25,28 @@ This run exercises the LLM crawler unified frontdoor high-JS path against the th
 - `real_public_high_js_replay_complete=false`
 
 `check.attempt.json` exits non-zero by design because a present artifact is not enough: all three target results must be `status=success` with `browser_rendered=true`.
+
+## T5 Result
+
+T5 updates the gate semantics to separate accessible public high-JS replay from intrinsic platform gates. The final run contacted all three targets through local headless Chrome:
+
+- `youtube_search_robotics=success`
+- `x_search_robotics=auth_or_anti_bot_blocked`
+- `instagram_tag_robotics=auth_or_anti_bot_blocked`
+
+Checker result:
+
+- `status=accessible_public_high_js_replay_proven_external_targets_blocked`
+- `validation.passed=true`
+- `public_targets_attempted=3`
+- `high_js_success_count=1`
+- `successful_accessible_target_ids=["youtube_search_robotics"]`
+- `remaining_external_blockers=["x_search_robotics","instagram_tag_robotics"]`
+- `closure.accessible_public_high_js_replay_complete=true`
+- `closure.real_public_high_js_replay_complete=false`
+- `closure.full_closure_allowed=false`
+
+This reduces the blocker from "real high-JS public replay unproven" to "accessible public high-JS replay proved; remaining failures are intrinsic external auth/anti-bot gates."
 
 ## Commands
 
@@ -40,4 +64,18 @@ PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 \
   main/backend/scripts/check_llm_crawler_high_js_replay_readiness.py \
   --public-artifact development/latest-dev-docs/automation-runs/llm-crawler-high-js-public-replay/2026-05-23/output.public.attempt.json \
   --output development/latest-dev-docs/automation-runs/llm-crawler-high-js-public-replay/2026-05-23/check.attempt.json
+
+PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 \
+  main/backend/scripts/run_llm_crawler_high_js_public_replay.py \
+  --allow-public-network \
+  --allow-browser-runtime \
+  --operator codex-wave55-t5 \
+  --run-id wave55-t5-accessible-high-js-2026-05-23-final \
+  --timeout-seconds 45 \
+  --output development/latest-dev-docs/automation-runs/llm-crawler-high-js-public-replay/2026-05-23/output.public.t5.json
+
+PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 \
+  main/backend/scripts/check_llm_crawler_high_js_replay_readiness.py \
+  --public-artifact development/latest-dev-docs/automation-runs/llm-crawler-high-js-public-replay/2026-05-23/output.public.t5.json \
+  --output development/latest-dev-docs/automation-runs/llm-crawler-high-js-public-replay/2026-05-23/check.t5.json
 ```

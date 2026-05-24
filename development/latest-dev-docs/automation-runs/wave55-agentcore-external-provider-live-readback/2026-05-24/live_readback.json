@@ -1,0 +1,194 @@
+{
+  "closed": true,
+  "closure_basis": "selected_external_provider_live_readback",
+  "contract_version": "agent_core.external_provider_live_readback.v1",
+  "external_model_calls": 2,
+  "external_provider_live_verified": true,
+  "failures": [],
+  "latency_ms": 585.325,
+  "latency_status": "within_timeout",
+  "model_id": "gpt-4o-mini",
+  "provider": "openai",
+  "provider_invocation": {
+    "account_state": "selected_provider_credentials_configured",
+    "api_endpoint": "https://api.openai.com/v1",
+    "network_scope": "external_provider_network",
+    "provider": "openai",
+    "provider_path": "langchain_openai.ChatOpenAI"
+  },
+  "raw_response_shape_classification": {
+    "contract_version": "agent_core.external_provider_live_readback.response_shape.v1",
+    "raw_response_persisted": false,
+    "responses": [
+      {
+        "content_present": false,
+        "finish_reason": "tool_calls",
+        "latency_ms": 464.41,
+        "model_name": "gpt-4o-mini-2024-07-18",
+        "raw_response_persisted": false,
+        "response_index": 1,
+        "response_kind": "native_tool_calls",
+        "tool_call_count": 1
+      },
+      {
+        "content_present": true,
+        "finish_reason": "stop",
+        "latency_ms": 8.226,
+        "model_name": "gpt-4o-mini-2024-07-18",
+        "raw_response_persisted": false,
+        "response_index": 2,
+        "response_kind": "final_answer",
+        "tool_call_count": 0
+      }
+    ]
+  },
+  "redaction": {
+    "contract_version": "agent_core.external_provider_live_readback.redaction.v1",
+    "raw_request_body_persisted": false,
+    "raw_sensitive_values_absent": true,
+    "raw_tool_arguments_persisted": false,
+    "redaction_marker": "[REDACTED]"
+  },
+  "remaining_blockers": [],
+  "reviewer_readback": {
+    "contract_version": "agent_core.external_provider_live_readback.reviewer.v1",
+    "remaining_blockers": [],
+    "reviewed_assertions": [
+      {
+        "code": "external_provider_invoked",
+        "passed": true
+      },
+      {
+        "code": "tool_call_shape_valid",
+        "passed": true
+      },
+      {
+        "code": "runtime_completed_tool",
+        "passed": true
+      },
+      {
+        "code": "status_data_error_meta_compatible",
+        "passed": true
+      },
+      {
+        "code": "raw_arguments_redacted",
+        "passed": true
+      }
+    ],
+    "status": "accepted"
+  },
+  "runtime_dispatch": {
+    "contract_version": "agent_core.external_provider_live_readback.runtime_dispatch.v1",
+    "event_type_counts": {
+      "assistant_message": 1,
+      "final_answer": 1,
+      "session_started": 1,
+      "tool_call_requested": 1,
+      "tool_call_started": 1,
+      "tool_result": 1,
+      "user_message": 1
+    },
+    "final_answer_present": true,
+    "session_id": "agent-core-external-provider-live-readback",
+    "stop_reason": "final_answer",
+    "tool_event_sequence": [
+      {
+        "call_id": "call_yQNHjl9DhwKC3UT4hnPuRJsc",
+        "contract_version": "agent_core.external_provider_live_readback.tool_event.v1",
+        "event_type": "tool_call_requested",
+        "has_tool_call": true,
+        "has_tool_result": false,
+        "has_tool_spec": false,
+        "tool_name": "agent.external_provider_live.echo"
+      },
+      {
+        "call_id": "call_yQNHjl9DhwKC3UT4hnPuRJsc",
+        "contract_version": "agent_core.external_provider_live_readback.tool_event.v1",
+        "event_type": "tool_call_started",
+        "has_tool_call": true,
+        "has_tool_result": false,
+        "has_tool_spec": true,
+        "tool_name": "agent.external_provider_live.echo"
+      },
+      {
+        "call_id": "call_yQNHjl9DhwKC3UT4hnPuRJsc",
+        "contract_version": "agent_core.external_provider_live_readback.tool_event.v1",
+        "event_type": "tool_result",
+        "has_tool_call": false,
+        "has_tool_result": true,
+        "has_tool_spec": false,
+        "tool_name": "agent.external_provider_live.echo"
+      }
+    ],
+    "tool_result_status_counts": {
+      "completed": 1
+    },
+    "turn_id": "turn-agent-core-external-provider-live-readback"
+  },
+  "status": "passed",
+  "status_data_error_meta_trace": {
+    "compatible": true,
+    "contract_version": "agent_core.status_data_error_meta.readback.v1",
+    "data_keys": [
+      "argument_keys",
+      "contract_version",
+      "echo",
+      "request_body_sha256_12",
+      "trace_id"
+    ],
+    "error_present": false,
+    "meta_keys": [
+      "contract_version",
+      "raw_request_body_persisted",
+      "request_id",
+      "tool_name",
+      "trace_id"
+    ],
+    "raw_request_body_persisted": false,
+    "request_id": "req-agent-core-external-provider-live-readback",
+    "status": "ok",
+    "trace_id": "trace-agent-core-external-provider-live-readback"
+  },
+  "timeout_ms": 30000,
+  "tool_call_readback": {
+    "arguments": {
+      "query": {
+        "sha256_12": "cf1a10b81c04",
+        "type": "str",
+        "value": "[REDACTED]"
+      },
+      "request_body": {
+        "sha256_12": "56387b4ac5c4",
+        "type": "str",
+        "value": "[REDACTED]"
+      },
+      "trace_id": {
+        "sha256_12": "9118de04f9d0",
+        "type": "str",
+        "value": "[REDACTED]"
+      }
+    },
+    "arguments_redacted": true,
+    "arguments_type": "object",
+    "call_id": "call_yQNHjl9DhwKC3UT4hnPuRJsc",
+    "contract_version": "agent_core.tool_call_shape.v1",
+    "missing_keys": [],
+    "present_keys": [
+      "arguments",
+      "call_id",
+      "reason",
+      "tool_name"
+    ],
+    "provider_key": "openai",
+    "raw_arguments_persisted": false,
+    "reason_present": false,
+    "required_keys": [
+      "call_id",
+      "tool_name",
+      "arguments",
+      "reason"
+    ],
+    "shape_status": "valid",
+    "tool_name": "agent.external_provider_live.echo"
+  }
+}

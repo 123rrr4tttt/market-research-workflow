@@ -99,6 +99,62 @@ class LlmCrawlerHighJsReplayReadinessCheckUnitTestCase(unittest.TestCase):
             result["validation"]["errors"],
         )
 
+    def test_accessible_public_artifact_reduces_blocker_to_intrinsic_x_gate(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            public_artifact = Path(tmpdir) / "output.public.json"
+            public_artifact.write_text(
+                json.dumps(
+                    {
+                        "contract_version": PUBLIC_REPLAY_CONTRACT_VERSION,
+                        "validation": {
+                            "real_public_high_js_replay_proven": False,
+                            "public_network_attempted": True,
+                        },
+                        "inputs": {"target_count": 3},
+                        "outputs": {
+                            "public_targets_attempted": 3,
+                            "high_js_success_count": 2,
+                            "target_results": [
+                                {
+                                    "target_id": "x_search_robotics",
+                                    "status": "auth_or_anti_bot_blocked",
+                                    "browser_rendered": True,
+                                    "public_network_attempted": True,
+                                    "reason": "login required",
+                                    "markers": {"contains_login": True, "contains_captcha": False},
+                                },
+                                {
+                                    "target_id": "instagram_tag_robotics",
+                                    "status": "success",
+                                    "browser_rendered": True,
+                                },
+                                {
+                                    "target_id": "youtube_search_robotics",
+                                    "status": "success",
+                                    "browser_rendered": True,
+                                },
+                            ],
+                        },
+                    },
+                    sort_keys=True,
+                ),
+                encoding="utf-8",
+            )
+            result = build_check(REPO_ROOT, public_artifact)
+
+        self.assertEqual(result["status"], "accessible_public_high_js_replay_proven_external_targets_blocked")
+        self.assertTrue(result["validation"]["passed"], result["validation"]["errors"])
+        self.assertTrue(result["public_high_js_replay"]["accessible_public_high_js_replay_proven"])
+        self.assertTrue(result["public_high_js_replay"]["external_gate_blockers_proven"])
+        self.assertFalse(result["public_high_js_replay"]["real_public_high_js_replay_proven"])
+        self.assertEqual(
+            result["public_high_js_replay"]["blocker_type"],
+            "intrinsic_external_auth_or_anti_bot_gate",
+        )
+        self.assertTrue(result["closure"]["accessible_public_high_js_replay_complete"])
+        self.assertFalse(result["closure"]["full_closure_allowed"])
+        self.assertEqual(result["closure"]["remaining_external_blockers"][0]["target_id"], "x_search_robotics")
+
     def test_proven_public_artifact_is_required_for_full_closure(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             public_artifact = Path(tmpdir) / "output.public.json"

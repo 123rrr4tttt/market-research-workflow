@@ -40,16 +40,22 @@ DEFAULT_HIGH_JS_TARGETS = [
         "target_id": "x_search_robotics",
         "url": "https://x.com/search?q=robotics",
         "expected_domain": "x.com",
+        "public_replay_role": "public_high_js_probe",
+        "external_blocker_accept_statuses": ["auth_or_anti_bot_blocked"],
     },
     {
         "target_id": "instagram_tag_robotics",
         "url": "https://www.instagram.com/explore/tags/robotics/",
         "expected_domain": "instagram.com",
+        "public_replay_role": "public_high_js_probe",
+        "external_blocker_accept_statuses": ["auth_or_anti_bot_blocked"],
     },
     {
         "target_id": "youtube_search_robotics",
         "url": "https://www.youtube.com/results?search_query=robotics",
         "expected_domain": "youtube.com",
+        "public_replay_role": "public_high_js_probe",
+        "external_blocker_accept_statuses": ["auth_or_anti_bot_blocked"],
     },
 ]
 
@@ -166,6 +172,45 @@ def _target_results_successful(payload: dict[str, Any]) -> bool:
     return True
 
 
+def _result_by_target_id(payload: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    outputs = payload.get("outputs") if isinstance(payload.get("outputs"), dict) else {}
+    target_results = outputs.get("target_results")
+    if not isinstance(target_results, list):
+        return {}
+    result: dict[str, dict[str, Any]] = {}
+    for item in target_results:
+        if isinstance(item, dict):
+            target_id = str(item.get("target_id") or "").strip()
+            if target_id:
+                result[target_id] = item
+    return result
+
+
+def _target_result_successful(item: dict[str, Any] | None) -> bool:
+    if not isinstance(item, dict):
+        return False
+    return str(item.get("status") or "").strip().lower() == "success" and item.get("browser_rendered") is True
+
+
+def _external_gate_result_proven(target: dict[str, Any], item: dict[str, Any] | None) -> bool:
+    if not isinstance(item, dict):
+        return False
+    allowed_statuses = {
+        str(status).strip().lower()
+        for status in target.get("external_blocker_accept_statuses", [])
+        if str(status).strip()
+    }
+    status = str(item.get("status") or "").strip().lower()
+    markers = item.get("markers") if isinstance(item.get("markers"), dict) else {}
+    auth_or_anti_bot_marker = bool(markers.get("contains_login") or markers.get("contains_captcha"))
+    return bool(
+        status in allowed_statuses
+        and item.get("browser_rendered") is True
+        and item.get("public_network_attempted") is True
+        and auth_or_anti_bot_marker
+    )
+
+
 def _public_artifact_summary(root: Path, public_artifact: Path | str | None, errors: list[str]) -> dict[str, Any]:
     artifact_path = _resolve_public_artifact_path(root, public_artifact)
     relative_path = str(artifact_path.relative_to(root)) if artifact_path.is_relative_to(root) else str(artifact_path)
@@ -196,6 +241,28 @@ def _public_artifact_summary(root: Path, public_artifact: Path | str | None, err
     sufficient_targets = target_count >= len(DEFAULT_HIGH_JS_TARGETS) and attempted >= target_count
     all_targets_successful = success_count >= target_count and _target_results_successful(payload)
     contract_version_ok = payload.get("contract_version") == PUBLIC_REPLAY_CONTRACT_VERSION
+    by_target_id = _result_by_target_id(payload)
+    public_probe_targets = list(DEFAULT_HIGH_JS_TARGETS)
+    successful_accessible_targets = [
+        target
+        for target in public_probe_targets
+        if _target_result_successful(by_target_id.get(str(target.get("target_id") or "")))
+    ]
+    gate_blocked_targets = [
+        target
+        for target in public_probe_targets
+        if not _target_result_successful(by_target_id.get(str(target.get("target_id") or "")))
+        and _external_gate_result_proven(target, by_target_id.get(str(target.get("target_id") or "")))
+    ]
+    all_probe_targets_accounted_for = len(successful_accessible_targets) + len(gate_blocked_targets) == len(public_probe_targets)
+    accessible_targets_successful = bool(successful_accessible_targets) and all_probe_targets_accounted_for
+    external_gate_blockers_proven = bool(gate_blocked_targets) and all_probe_targets_accounted_for
+    accessible_replay_proven = bool(
+        contract_version_ok
+        and public_network_attempted
+        and sufficient_targets
+        and accessible_targets_successful
+    )
     proven = bool(
         contract_version_ok
         and explicit_proof
@@ -203,29 +270,68 @@ def _public_artifact_summary(root: Path, public_artifact: Path | str | None, err
         and sufficient_targets
         and all_targets_successful
     )
+    remaining_external_blockers = []
+    for target in gate_blocked_targets:
+        target_id = str(target.get("target_id") or "")
+        item = by_target_id.get(target_id, {})
+        remaining_external_blockers.append(
+            {
+                "target_id": target_id,
+                "url": target.get("url"),
+                "status": item.get("status"),
+                "reason": item.get("reason"),
+                "markers": item.get("markers") if isinstance(item.get("markers"), dict) else {},
+                "classification": "intrinsic_external_auth_or_anti_bot_gate",
+            }
+        )
 
-    if not proven:
+    if not proven and not (accessible_replay_proven and external_gate_blockers_proven):
         errors.append(
             "public replay artifact is present but does not prove real public high-JS replay completion"
         )
 
     return {
-        "status": "proven" if proven else "present_not_proven",
+        "status": (
+            "proven"
+            if proven
+            else (
+                "accessible_replay_proven_external_targets_blocked"
+                if accessible_replay_proven and external_gate_blockers_proven
+                else "present_not_proven"
+            )
+        ),
         "path": relative_path,
         "contract_version": payload.get("contract_version"),
         "public_network_attempted": public_network_attempted,
         "real_public_high_js_replay_proven": proven,
+        "accessible_public_high_js_replay_proven": accessible_replay_proven,
+        "external_gate_blockers_proven": external_gate_blockers_proven,
         "full_closure_allowed": proven,
         "target_count": target_count,
         "public_targets_attempted": attempted,
         "high_js_success_count": success_count,
-        "blocker_type": None if proven else "public_artifact_present_but_not_proven",
+        "public_high_js_probe_target_ids": [target["target_id"] for target in public_probe_targets],
+        "successful_accessible_target_ids": [target["target_id"] for target in successful_accessible_targets],
+        "external_gate_target_ids": [target["target_id"] for target in gate_blocked_targets],
+        "remaining_external_blockers": remaining_external_blockers,
+        "blocker_type": (
+            None
+            if proven
+            else (
+                "intrinsic_external_auth_or_anti_bot_gate"
+                if accessible_replay_proven and external_gate_blockers_proven
+                else "public_artifact_present_but_not_proven"
+            )
+        ),
         "requirements": {
             "contract_version_ok": contract_version_ok,
             "explicit_proof": explicit_proof,
             "public_network_attempted": public_network_attempted,
             "sufficient_targets": sufficient_targets,
             "all_targets_successful": all_targets_successful,
+            "all_probe_targets_accounted_for": all_probe_targets_accounted_for,
+            "accessible_targets_successful": accessible_targets_successful,
+            "external_gate_blockers_proven": external_gate_blockers_proven,
         },
     }
 
@@ -247,6 +353,8 @@ def build_check(
         and errors[0] == "public replay artifact is present but does not prove real public high-JS replay completion"
     )
     public_proven = bool(public_replay.get("real_public_high_js_replay_proven"))
+    accessible_public_proven = bool(public_replay.get("accessible_public_high_js_replay_proven"))
+    external_gate_blockers_proven = bool(public_replay.get("external_gate_blockers_proven"))
     full_closure_allowed = bool(deterministic_fixture_ready and public_proven)
 
     if errors and public_replay.get("status") == "present_not_proven":
@@ -255,6 +363,8 @@ def build_check(
         status = "failed"
     elif full_closure_allowed:
         status = "real_public_high_js_replay_proven"
+    elif deterministic_fixture_ready and accessible_public_proven and external_gate_blockers_proven:
+        status = "accessible_public_high_js_replay_proven_external_targets_blocked"
     else:
         status = "fixture_ready_real_public_replay_blocked"
 
@@ -274,15 +384,26 @@ def build_check(
         "closure": {
             "deterministic_fixture_ready": deterministic_fixture_ready,
             "real_public_high_js_replay_complete": public_proven,
+            "accessible_public_high_js_replay_complete": accessible_public_proven,
+            "remaining_external_blockers": list(public_replay.get("remaining_external_blockers") or []),
             "full_closure_allowed": full_closure_allowed,
             "claim": (
                 "real_public_high_js_replay_complete"
                 if full_closure_allowed
-                else "deterministic_fixture_ready_not_public_high_js_replay_complete"
+                else (
+                    "accessible_public_high_js_replay_complete_external_targets_blocked"
+                    if accessible_public_proven and external_gate_blockers_proven
+                    else "deterministic_fixture_ready_not_public_high_js_replay_complete"
+                )
             ),
         },
         "validation": {
-            "passed": status in {"fixture_ready_real_public_replay_blocked", "real_public_high_js_replay_proven"},
+            "passed": status
+            in {
+                "fixture_ready_real_public_replay_blocked",
+                "accessible_public_high_js_replay_proven_external_targets_blocked",
+                "real_public_high_js_replay_proven",
+            },
             "errors": errors,
             "public_network_attempted": bool(public_replay.get("public_network_attempted")),
             "shared_indexes_edited": False,

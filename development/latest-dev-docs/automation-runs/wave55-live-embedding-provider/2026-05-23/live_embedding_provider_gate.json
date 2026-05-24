@@ -12,67 +12,67 @@
   "local_provider_closure_claim_allowed": true,
   "production_quality_claim_allowed": false,
   "provider_readback": {
-    "embedding_dim": 64,
+    "embedding_dim": 512,
     "executable": true,
     "failures": [],
     "live_provider_verified": true,
     "model": "repo-local-token-hashing-v1",
-    "model_version": "2026-05-23.wave55",
+    "model_version": "2026-05-23.wave56",
     "network_required": false,
     "provider_family": "repo_local",
     "provider_id": "repo_local_token_hashing",
     "status": "passed",
     "vector_count": 7,
-    "vector_version": "repo-local-live-v1",
+    "vector_version": "repo-local-live-v2",
     "vectors": [
       {
-        "embedding_dim": 64,
-        "non_zero_dimensions": 39,
+        "embedding_dim": 512,
+        "non_zero_dimensions": 72,
         "norm": 1.0,
         "text_digest": "2e83b30ada2803ff",
-        "vector_digest": "df65cc1d7241c3af"
+        "vector_digest": "c7b8899f5eaf3064"
       },
       {
-        "embedding_dim": 64,
-        "non_zero_dimensions": 42,
+        "embedding_dim": 512,
+        "non_zero_dimensions": 60,
         "norm": 1.0,
         "text_digest": "9a02601586a9a6dd",
-        "vector_digest": "33d957cd26051b16"
+        "vector_digest": "8c9935e680b1cc48"
       },
       {
-        "embedding_dim": 64,
-        "non_zero_dimensions": 37,
+        "embedding_dim": 512,
+        "non_zero_dimensions": 61,
         "norm": 1.0,
         "text_digest": "ca6cb4d7bc2cc81e",
-        "vector_digest": "e70adb1bffeb89e8"
+        "vector_digest": "168f22de6982253b"
       },
       {
-        "embedding_dim": 64,
-        "non_zero_dimensions": 35,
+        "embedding_dim": 512,
+        "non_zero_dimensions": 53,
         "norm": 1.0,
         "text_digest": "fafb58a8ad9fa947",
-        "vector_digest": "739de29560e60fcf"
+        "vector_digest": "2f565b6cb4d5d78a"
       },
       {
-        "embedding_dim": 64,
-        "non_zero_dimensions": 21,
+        "embedding_dim": 512,
+        "non_zero_dimensions": 29,
         "norm": 1.0,
         "text_digest": "5ca17e1f156bec98",
-        "vector_digest": "5f05ed6c24e79608"
+        "vector_digest": "b0811cc6b4332fcd"
       },
       {
-        "embedding_dim": 64,
-        "non_zero_dimensions": 25,
+        "embedding_dim": 512,
+        "non_zero_dimensions": 32,
         "norm": 1.0,
         "text_digest": "ba6b30866d6a58a0",
-        "vector_digest": "4f9ef4d7fc716c4a"
+        "vector_digest": "a5c06e1b4c733e4e"
       },
       {
-        "embedding_dim": 64,
-        "non_zero_dimensions": 21,
+        "embedding_dim": 512,
+        "non_zero_dimensions": 28,
         "norm": 1.0,
         "text_digest": "a67538cb8b1d1ffc",
-        "vector_digest": "fb06d972c08911c2"
+        "vector_digest": "7b3b0731a5186c63"
       }
     ]
   },
@@ -83,33 +83,33 @@
         "passed": true,
         "query": "robotics commercialization policy grant",
         "second_document_id": "wave55-agriculture-risk",
-        "second_score": 0.154795,
+        "second_score": 0.161858,
         "top_document_id": "wave55-robotics-policy",
-        "top_margin": 0.627245,
-        "top_score": 0.78204
+        "top_margin": 0.625351,
+        "top_score": 0.787209
       },
       {
         "expected_document_id": "wave55-agriculture-risk",
         "passed": true,
         "query": "agricultural commodity futures insurance",
-        "second_document_id": "wave55-energy-storage",
-        "second_score": 0.127233,
+        "second_document_id": "wave55-unrelated-events",
+        "second_score": 0.086881,
         "top_document_id": "wave55-agriculture-risk",
-        "top_margin": 0.669263,
-        "top_score": 0.796496
+        "top_margin": 0.711653,
+        "top_score": 0.798534
       },
       {
         "expected_document_id": "wave55-energy-storage",
         "passed": true,
         "query": "renewable energy storage procurement",
-        "second_document_id": "wave55-robotics-policy",
-        "second_score": 0.094561,
+        "second_document_id": "wave55-unrelated-events",
+        "second_score": 0.119298,
         "top_document_id": "wave55-energy-storage",
-        "top_margin": 0.704827,
-        "top_score": 0.799388
+        "top_margin": 0.646456,
+        "top_score": 0.765754
       }
     ],
-    "min_top_margin": 0.627245,
+    "min_top_margin": 0.625351,
     "min_top_margin_threshold": 0.02,
     "query_count": 3,
     "status": "passed",
@@ -126,7 +126,7 @@
     "query_group_id": "qg_c0eecf82636766e5",
     "readback_status": "passed",
     "retrieval_run": "search_retrieval_run.v1",
-    "retrieval_run_id": "retrieval_run_9bd5bad4a3ae9981"
+    "retrieval_run_id": "retrieval_run_bf489a89715288e2"
   },
   "sample_retrieval_run": {
     "branch_count": 1,
@@ -138,19 +138,19 @@
             "chunk_id": "wave55-robotics-policy:chunk:0",
             "document_id": "wave55-robotics-policy",
             "source_id": "wave55-controlled-corpus",
-            "vector_version": "repo-local-live-v1"
+            "vector_version": "repo-local-live-v2"
           },
           {
             "chunk_id": "wave55-agriculture-risk:chunk:0",
             "document_id": "wave55-agriculture-risk",
             "source_id": "wave55-controlled-corpus",
-            "vector_version": "repo-local-live-v1"
+            "vector_version": "repo-local-live-v2"
           },
           {
             "chunk_id": "wave55-energy-storage:chunk:0",
             "document_id": "wave55-energy-storage",
             "source_id": "wave55-controlled-corpus",
-            "vector_version": "repo-local-live-v1"
+            "vector_version": "repo-local-live-v2"
           }
         ],
         "hit_count": 3,
@@ -162,7 +162,7 @@
         "matrix_branch_id": "branch_b6e6182b4918f500",
         "retrieval_family": "main_search",
         "retrieval_mode": "vector",
-        "top_score": 0.799388,
+        "top_score": 0.798534,
         "verification_states": [
           "unverified"
         ]
@@ -178,7 +178,7 @@
           "chunk_id": "wave55-robotics-policy:chunk:0",
           "contract_version": "global_vector_object.v1",
           "document_id": "wave55-robotics-policy",
-          "embedding_dim": 64,
+          "embedding_dim": 512,
           "embedding_model": "repo-local-token-hashing-v1",
           "matrix_branch_id": "branch_b6e6182b4918f500",
           "object_id": "wave55-robotics-policy",
@@ -187,25 +187,25 @@
           "provenance": {
             "backend": "repo_local_live_embedding",
             "effective_time": null,
-            "embedding_dim": 64,
+            "embedding_dim": 512,
             "embedding_model": "repo-local-token-hashing-v1",
-            "embedding_model_version": "2026-05-23.wave55",
+            "embedding_model_version": "2026-05-23.wave56",
             "fallback_reason": null,
             "language": null,
             "provider": "repo_local_token_hashing",
             "provider_payload_kind": "repo_local_embedding_vector",
             "reference": "repo-local://wave55/robotics-policy",
             "retrieval_mode": "vector",
-            "score": 0.78204,
+            "score": 0.787209,
             "source": "wave55-controlled-corpus",
             "source_domain": "wave55",
             "source_id": "wave55-controlled-corpus",
             "source_reference": "repo-local://wave55/robotics-policy",
             "source_uri": "repo-local://wave55/robotics-policy",
-            "vector_version": "repo-local-live-v1"
+            "vector_version": "repo-local-live-v2"
           },
           "source_id": "wave55-controlled-corpus",
-          "vector_version": "repo-local-live-v1"
+          "vector_version": "repo-local-live-v2"
         },
         "hit_id": "eh_f7d7be0d6f482df4",
         "matrix_branch_id": "branch_b6e6182b4918f500",
@@ -214,9 +214,9 @@
           "chunk_id": "wave55-robotics-policy:chunk:0",
           "document_id": "wave55-robotics-policy",
           "effective_time": null,
-          "embedding_dim": 64,
+          "embedding_dim": 512,
           "embedding_model": "repo-local-token-hashing-v1",
-          "embedding_model_version": "2026-05-23.wave55",
+          "embedding_model_version": "2026-05-23.wave56",
           "fallback_reason": null,
           "language": null,
           "matrix_branch_id": "branch_b6e6182b4918f500",
@@ -225,13 +225,13 @@
           "provider_payload_kind": "repo_local_embedding_vector",
           "reference": "repo-local://wave55/robotics-policy",
           "retrieval_mode": "vector",
-          "score": 0.78204,
+          "score": 0.787209,
           "source": "wave55-controlled-corpus",
           "source_domain": "wave55",
           "source_id": "wave55-controlled-corpus",
           "source_reference": "repo-local://wave55/robotics-policy",
           "source_uri": "repo-local://wave55/robotics-policy",
-          "vector_version": "repo-local-live-v1"
+          "vector_version": "repo-local-live-v2"
         },
         "query_group_id": "qg_c0eecf82636766e5",
         "rank": 1,
@@ -241,7 +241,7 @@
           "lexical_score": 0.0,
           "rank": 1,
           "retrieval_mode": "vector",
-          "score": 0.78204,
+          "score": 0.787209,
           "tags": [
             "vector",
             "repo_local_live_embedding"
@@ -250,7 +250,7 @@
         },
         "retrieval_family": "main_search",
         "retrieval_mode": "vector",
-        "score": 0.78204,
+        "score": 0.787209,
         "verification_state": "unverified"
       },
       {
@@ -261,7 +261,7 @@
           "chunk_id": "wave55-agriculture-risk:chunk:0",
           "contract_version": "global_vector_object.v1",
           "document_id": "wave55-agriculture-risk",
-          "embedding_dim": 64,
+          "embedding_dim": 512,
           "embedding_model": "repo-local-token-hashing-v1",
           "matrix_branch_id": "branch_b6e6182b4918f500",
           "object_id": "wave55-agriculture-risk",
@@ -270,25 +270,25 @@
           "provenance": {
             "backend": "repo_local_live_embedding",
             "effective_time": null,
-            "embedding_dim": 64,
+            "embedding_dim": 512,
             "embedding_model": "repo-local-token-hashing-v1",
-            "embedding_model_version": "2026-05-23.wave55",
+            "embedding_model_version": "2026-05-23.wave56",
             "fallback_reason": null,
             "language": null,
             "provider": "repo_local_token_hashing",
             "provider_payload_kind": "repo_local_embedding_vector",
             "reference": "repo-local://wave55/agriculture-risk",
             "retrieval_mode": "vector",
-            "score": 0.796496,
+            "score": 0.798534,
             "source": "wave55-controlled-corpus",
             "source_domain": "wave55",
             "source_id": "wave55-controlled-corpus",
             "source_reference": "repo-local://wave55/agriculture-risk",
             "source_uri": "repo-local://wave55/agriculture-risk",
-            "vector_version": "repo-local-live-v1"
+            "vector_version": "repo-local-live-v2"
           },
           "source_id": "wave55-controlled-corpus",
-          "vector_version": "repo-local-live-v1"
+          "vector_version": "repo-local-live-v2"
         },
         "hit_id": "eh_5dab047a100693cb",
         "matrix_branch_id": "branch_b6e6182b4918f500",
@@ -297,9 +297,9 @@
           "chunk_id": "wave55-agriculture-risk:chunk:0",
           "document_id": "wave55-agriculture-risk",
           "effective_time": null,
-          "embedding_dim": 64,
+          "embedding_dim": 512,
           "embedding_model": "repo-local-token-hashing-v1",
-          "embedding_model_version": "2026-05-23.wave55",
+          "embedding_model_version": "2026-05-23.wave56",
           "fallback_reason": null,
           "language": null,
           "matrix_branch_id": "branch_b6e6182b4918f500",
@@ -308,13 +308,13 @@
           "provider_payload_kind": "repo_local_embedding_vector",
           "reference": "repo-local://wave55/agriculture-risk",
           "retrieval_mode": "vector",
-          "score": 0.796496,
+          "score": 0.798534,
           "source": "wave55-controlled-corpus",
           "source_domain": "wave55",
           "source_id": "wave55-controlled-corpus",
           "source_reference": "repo-local://wave55/agriculture-risk",
           "source_uri": "repo-local://wave55/agriculture-risk",
-          "vector_version": "repo-local-live-v1"
+          "vector_version": "repo-local-live-v2"
         },
         "query_group_id": "qg_c0eecf82636766e5",
         "rank": 2,
@@ -324,7 +324,7 @@
           "lexical_score": 0.0,
           "rank": 2,
           "retrieval_mode": "vector",
-          "score": 0.796496,
+          "score": 0.798534,
           "tags": [
             "vector",
             "repo_local_live_embedding"
@@ -333,7 +333,7 @@
         },
         "retrieval_family": "main_search",
         "retrieval_mode": "vector",
-        "score": 0.796496,
+        "score": 0.798534,
         "verification_state": "unverified"
       },
       {
@@ -344,7 +344,7 @@
           "chunk_id": "wave55-energy-storage:chunk:0",
           "contract_version": "global_vector_object.v1",
           "document_id": "wave55-energy-storage",
-          "embedding_dim": 64,
+          "embedding_dim": 512,
           "embedding_model": "repo-local-token-hashing-v1",
           "matrix_branch_id": "branch_b6e6182b4918f500",
           "object_id": "wave55-energy-storage",
@@ -353,25 +353,25 @@
           "provenance": {
             "backend": "repo_local_live_embedding",
             "effective_time": null,
-            "embedding_dim": 64,
+            "embedding_dim": 512,
             "embedding_model": "repo-local-token-hashing-v1",
-            "embedding_model_version": "2026-05-23.wave55",
+            "embedding_model_version": "2026-05-23.wave56",
             "fallback_reason": null,
             "language": null,
             "provider": "repo_local_token_hashing",
             "provider_payload_kind": "repo_local_embedding_vector",
             "reference": "repo-local://wave55/energy-storage",
             "retrieval_mode": "vector",
-            "score": 0.799388,
+            "score": 0.765754,
             "source": "wave55-controlled-corpus",
             "source_domain": "wave55",
             "source_id": "wave55-controlled-corpus",
             "source_reference": "repo-local://wave55/energy-storage",
             "source_uri": "repo-local://wave55/energy-storage",
-            "vector_version": "repo-local-live-v1"
+            "vector_version": "repo-local-live-v2"
           },
           "source_id": "wave55-controlled-corpus",
-          "vector_version": "repo-local-live-v1"
+          "vector_version": "repo-local-live-v2"
         },
         "hit_id": "eh_54917d008ed4de85",
         "matrix_branch_id": "branch_b6e6182b4918f500",
@@ -380,9 +380,9 @@
           "chunk_id": "wave55-energy-storage:chunk:0",
           "document_id": "wave55-energy-storage",
           "effective_time": null,
-          "embedding_dim": 64,
+          "embedding_dim": 512,
           "embedding_model": "repo-local-token-hashing-v1",
-          "embedding_model_version": "2026-05-23.wave55",
+          "embedding_model_version": "2026-05-23.wave56",
           "fallback_reason": null,
           "language": null,
           "matrix_branch_id": "branch_b6e6182b4918f500",
@@ -391,13 +391,13 @@
           "provider_payload_kind": "repo_local_embedding_vector",
           "reference": "repo-local://wave55/energy-storage",
           "retrieval_mode": "vector",
-          "score": 0.799388,
+          "score": 0.765754,
           "source": "wave55-controlled-corpus",
           "source_domain": "wave55",
           "source_id": "wave55-controlled-corpus",
           "source_reference": "repo-local://wave55/energy-storage",
           "source_uri": "repo-local://wave55/energy-storage",
-          "vector_version": "repo-local-live-v1"
+          "vector_version": "repo-local-live-v2"
         },
         "query_group_id": "qg_c0eecf82636766e5",
         "rank": 3,
@@ -407,7 +407,7 @@
           "lexical_score": 0.0,
           "rank": 3,
           "retrieval_mode": "vector",
-          "score": 0.799388,
+          "score": 0.765754,
           "tags": [
             "vector",
             "repo_local_live_embedding"
@@ -416,7 +416,7 @@
         },
         "retrieval_family": "main_search",
         "retrieval_mode": "vector",
-        "score": 0.799388,
+        "score": 0.765754,
         "verification_state": "unverified"
       }
     ],
@@ -446,19 +446,19 @@
             "chunk_id": "wave55-robotics-policy:chunk:0",
             "document_id": "wave55-robotics-policy",
             "source_id": "wave55-controlled-corpus",
-            "vector_version": "repo-local-live-v1"
+            "vector_version": "repo-local-live-v2"
           },
           {
             "chunk_id": "wave55-agriculture-risk:chunk:0",
             "document_id": "wave55-agriculture-risk",
             "source_id": "wave55-controlled-corpus",
-            "vector_version": "repo-local-live-v1"
+            "vector_version": "repo-local-live-v2"
           },
           {
             "chunk_id": "wave55-energy-storage:chunk:0",
             "document_id": "wave55-energy-storage",
             "source_id": "wave55-controlled-corpus",
-            "vector_version": "repo-local-live-v1"
+            "vector_version": "repo-local-live-v2"
           }
         ],
         "hit_count": 3,
@@ -474,10 +474,10 @@
         "rank_mode": "vector",
         "retrieval_family": "main_search",
         "retrieval_mode": "vector",
-        "retrieval_run_id": "retrieval_run_9bd5bad4a3ae9981",
-        "run_id": "retrieval_run_9bd5bad4a3ae9981",
+        "retrieval_run_id": "retrieval_run_bf489a89715288e2",
+        "run_id": "retrieval_run_bf489a89715288e2",
         "status": "completed",
-        "top_score": 0.799388,
+        "top_score": 0.798534,
         "verification_states": [
           "unverified"
         ]
@@ -495,7 +495,7 @@
           "chunk_id": "wave55-robotics-policy:chunk:0",
           "contract_version": "global_vector_object.v1",
           "document_id": "wave55-robotics-policy",
-          "embedding_dim": 64,
+          "embedding_dim": 512,
           "embedding_model": "repo-local-token-hashing-v1",
           "matrix_branch_id": "branch_b6e6182b4918f500",
           "object_id": "wave55-robotics-policy",
@@ -504,25 +504,25 @@
           "provenance": {
             "backend": "repo_local_live_embedding",
             "effective_time": null,
-            "embedding_dim": 64,
+            "embedding_dim": 512,
             "embedding_model": "repo-local-token-hashing-v1",
-            "embedding_model_version": "2026-05-23.wave55",
+            "embedding_model_version": "2026-05-23.wave56",
             "fallback_reason": null,
             "language": null,
             "provider": "repo_local_token_hashing",
             "provider_payload_kind": "repo_local_embedding_vector",
             "reference": "repo-local://wave55/robotics-policy",
             "retrieval_mode": "vector",
-            "score": 0.78204,
+            "score": 0.787209,
             "source": "wave55-controlled-corpus",
             "source_domain": "wave55",
             "source_id": "wave55-controlled-corpus",
             "source_reference": "repo-local://wave55/robotics-policy",
             "source_uri": "repo-local://wave55/robotics-policy",
-            "vector_version": "repo-local-live-v1"
+            "vector_version": "repo-local-live-v2"
           },
           "source_id": "wave55-controlled-corpus",
-          "vector_version": "repo-local-live-v1"
+          "vector_version": "repo-local-live-v2"
         },
         "hit_id": "eh_f7d7be0d6f482df4",
         "matrix_branch_id": "branch_b6e6182b4918f500",
@@ -533,9 +533,9 @@
           "chunk_id": "wave55-robotics-policy:chunk:0",
           "document_id": "wave55-robotics-policy",
           "effective_time": null,
-          "embedding_dim": 64,
+          "embedding_dim": 512,
           "embedding_model": "repo-local-token-hashing-v1",
-          "embedding_model_version": "2026-05-23.wave55",
+          "embedding_model_version": "2026-05-23.wave56",
           "fallback_reason": null,
           "language": null,
           "matrix_branch_id": "branch_b6e6182b4918f500",
@@ -544,21 +544,21 @@
           "provider_payload_kind": "repo_local_embedding_vector",
           "reference": "repo-local://wave55/robotics-policy",
           "retrieval_mode": "vector",
-          "score": 0.78204,
+          "score": 0.787209,
           "source": "wave55-controlled-corpus",
           "source_domain": "wave55",
           "source_id": "wave55-controlled-corpus",
           "source_reference": "repo-local://wave55/robotics-policy",
           "source_uri": "repo-local://wave55/robotics-policy",
-          "vector_version": "repo-local-live-v1"
+          "vector_version": "repo-local-live-v2"
         },
         "query_group_id": "qg_c0eecf82636766e5",
         "rank": 1,
         "retrieval_family": "main_search",
         "retrieval_mode": "vector",
-        "retrieval_run_id": "retrieval_run_9bd5bad4a3ae9981",
-        "run_id": "retrieval_run_9bd5bad4a3ae9981",
-        "score": 0.78204,
+        "retrieval_run_id": "retrieval_run_bf489a89715288e2",
+        "run_id": "retrieval_run_bf489a89715288e2",
+        "score": 0.787209,
         "source_id": "wave55-controlled-corpus",
         "verification_state": "unverified"
       },
@@ -572,7 +572,7 @@
           "chunk_id": "wave55-agriculture-risk:chunk:0",
           "contract_version": "global_vector_object.v1",
           "document_id": "wave55-agriculture-risk",
-          "embedding_dim": 64,
+          "embedding_dim": 512,
           "embedding_model": "repo-local-token-hashing-v1",
           "matrix_branch_id": "branch_b6e6182b4918f500",
           "object_id": "wave55-agriculture-risk",
@@ -581,25 +581,25 @@
           "provenance": {
             "backend": "repo_local_live_embedding",
             "effective_time": null,
-            "embedding_dim": 64,
+            "embedding_dim": 512,
             "embedding_model": "repo-local-token-hashing-v1",
-            "embedding_model_version": "2026-05-23.wave55",
+            "embedding_model_version": "2026-05-23.wave56",
             "fallback_reason": null,
             "language": null,
             "provider": "repo_local_token_hashing",
             "provider_payload_kind": "repo_local_embedding_vector",
             "reference": "repo-local://wave55/agriculture-risk",
             "retrieval_mode": "vector",
-            "score": 0.796496,
+            "score": 0.798534,
             "source": "wave55-controlled-corpus",
             "source_domain": "wave55",
             "source_id": "wave55-controlled-corpus",
             "source_reference": "repo-local://wave55/agriculture-risk",
             "source_uri": "repo-local://wave55/agriculture-risk",
-            "vector_version": "repo-local-live-v1"
+            "vector_version": "repo-local-live-v2"
           },
           "source_id": "wave55-controlled-corpus",
-          "vector_version": "repo-local-live-v1"
+          "vector_version": "repo-local-live-v2"
         },
         "hit_id": "eh_5dab047a100693cb",
         "matrix_branch_id": "branch_b6e6182b4918f500",
@@ -610,9 +610,9 @@
           "chunk_id": "wave55-agriculture-risk:chunk:0",
           "document_id": "wave55-agriculture-risk",
           "effective_time": null,
-          "embedding_dim": 64,
+          "embedding_dim": 512,
           "embedding_model": "repo-local-token-hashing-v1",
-          "embedding_model_version": "2026-05-23.wave55",
+          "embedding_model_version": "2026-05-23.wave56",
           "fallback_reason": null,
           "language": null,
           "matrix_branch_id": "branch_b6e6182b4918f500",
@@ -621,21 +621,21 @@
           "provider_payload_kind": "repo_local_embedding_vector",
           "reference": "repo-local://wave55/agriculture-risk",
           "retrieval_mode": "vector",
-          "score": 0.796496,
+          "score": 0.798534,
           "source": "wave55-controlled-corpus",
           "source_domain": "wave55",
           "source_id": "wave55-controlled-corpus",
           "source_reference": "repo-local://wave55/agriculture-risk",
           "source_uri": "repo-local://wave55/agriculture-risk",
-          "vector_version": "repo-local-live-v1"
+          "vector_version": "repo-local-live-v2"
         },
         "query_group_id": "qg_c0eecf82636766e5",
         "rank": 2,
         "retrieval_family": "main_search",
         "retrieval_mode": "vector",
-        "retrieval_run_id": "retrieval_run_9bd5bad4a3ae9981",
-        "run_id": "retrieval_run_9bd5bad4a3ae9981",
-        "score": 0.796496,
+        "retrieval_run_id": "retrieval_run_bf489a89715288e2",
+        "run_id": "retrieval_run_bf489a89715288e2",
+        "score": 0.798534,
         "source_id": "wave55-controlled-corpus",
         "verification_state": "unverified"
       },
@@ -649,7 +649,7 @@
           "chunk_id": "wave55-energy-storage:chunk:0",
           "contract_version": "global_vector_object.v1",
           "document_id": "wave55-energy-storage",
-          "embedding_dim": 64,
+          "embedding_dim": 512,
           "embedding_model": "repo-local-token-hashing-v1",
           "matrix_branch_id": "branch_b6e6182b4918f500",
           "object_id": "wave55-energy-storage",
@@ -658,25 +658,25 @@
           "provenance": {
             "backend": "repo_local_live_embedding",
             "effective_time": null,
-            "embedding_dim": 64,
+            "embedding_dim": 512,
             "embedding_model": "repo-local-token-hashing-v1",
-            "embedding_model_version": "2026-05-23.wave55",
+            "embedding_model_version": "2026-05-23.wave56",
             "fallback_reason": null,
             "language": null,
             "provider": "repo_local_token_hashing",
             "provider_payload_kind": "repo_local_embedding_vector",
             "reference": "repo-local://wave55/energy-storage",
             "retrieval_mode": "vector",
-            "score": 0.799388,
+            "score": 0.765754,
             "source": "wave55-controlled-corpus",
             "source_domain": "wave55",
             "source_id": "wave55-controlled-corpus",
             "source_reference": "repo-local://wave55/energy-storage",
             "source_uri": "repo-local://wave55/energy-storage",
-            "vector_version": "repo-local-live-v1"
+            "vector_version": "repo-local-live-v2"
           },
           "source_id": "wave55-controlled-corpus",
-          "vector_version": "repo-local-live-v1"
+          "vector_version": "repo-local-live-v2"
         },
         "hit_id": "eh_54917d008ed4de85",
         "matrix_branch_id": "branch_b6e6182b4918f500",
@@ -687,9 +687,9 @@
           "chunk_id": "wave55-energy-storage:chunk:0",
           "document_id": "wave55-energy-storage",
           "effective_time": null,
-          "embedding_dim": 64,
+          "embedding_dim": 512,
           "embedding_model": "repo-local-token-hashing-v1",
-          "embedding_model_version": "2026-05-23.wave55",
+          "embedding_model_version": "2026-05-23.wave56",
           "fallback_reason": null,
           "language": null,
           "matrix_branch_id": "branch_b6e6182b4918f500",
@@ -698,27 +698,27 @@
           "provider_payload_kind": "repo_local_embedding_vector",
           "reference": "repo-local://wave55/energy-storage",
           "retrieval_mode": "vector",
-          "score": 0.799388,
+          "score": 0.765754,
           "source": "wave55-controlled-corpus",
           "source_domain": "wave55",
           "source_id": "wave55-controlled-corpus",
           "source_reference": "repo-local://wave55/energy-storage",
           "source_uri": "repo-local://wave55/energy-storage",
-          "vector_version": "repo-local-live-v1"
+          "vector_version": "repo-local-live-v2"
         },
         "query_group_id": "qg_c0eecf82636766e5",
         "rank": 3,
         "retrieval_family": "main_search",
         "retrieval_mode": "vector",
-        "retrieval_run_id": "retrieval_run_9bd5bad4a3ae9981",
-        "run_id": "retrieval_run_9bd5bad4a3ae9981",
-        "score": 0.799388,
+        "retrieval_run_id": "retrieval_run_bf489a89715288e2",
+        "run_id": "retrieval_run_bf489a89715288e2",
+        "score": 0.765754,
         "source_id": "wave55-controlled-corpus",
         "verification_state": "unverified"
       }
     ],
-    "retrieval_run_id": "retrieval_run_9bd5bad4a3ae9981",
-    "run_id": "retrieval_run_9bd5bad4a3ae9981",
+    "retrieval_run_id": "retrieval_run_bf489a89715288e2",
+    "run_id": "retrieval_run_bf489a89715288e2",
     "state": null,
     "status": "completed",
     "top_k": 3

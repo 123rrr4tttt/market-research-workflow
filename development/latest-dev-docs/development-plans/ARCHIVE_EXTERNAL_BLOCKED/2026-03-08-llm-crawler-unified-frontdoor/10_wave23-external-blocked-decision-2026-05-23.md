@@ -22,6 +22,11 @@ the broader 45-site shard outputs:
 - `development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/output.public.json`
 - all five `development/latest-dev-docs/automation-runs/crawler-public-replay-shards/2026-05-22/output.public.shard-*.json`
 
+Wave55 update: the five shard outputs have since been attached, and T5 produced
+`output.public.t5.json` / `check.t5.json` for the high-JS lane. The remaining
+blocker is no longer missing shard evidence or a totally absent high-JS replay;
+it is the intrinsic external auth/anti-bot gates observed for X and Instagram.
+
 ## Evidence Readback
 
 Topic-local markdown reviewed:

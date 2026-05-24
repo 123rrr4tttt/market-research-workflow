@@ -121,8 +121,18 @@ class SourceLibraryThreeLaneLiveClosureTest(unittest.TestCase):
             first["closure_state"],
             "live_collection_article_extraction_ready_human_review_open",
         )
+        blocker = first["human_review_readback"]["blocker"]
+        self.assertEqual(blocker["status"], "human_review_evidence_missing")
+        self.assertFalse(blocker["closure_allowed"])
+        self.assertEqual(
+            blocker["required_fields"],
+            ["queue_id", "reviewed_by", "reviewed_at", "decision", "state"],
+        )
         queue_ids = first["human_review_readback"]["readiness"]["review_queue"]["queue_ids"]
         self.assertEqual(len(queue_ids), 1)
+        self.assertEqual(blocker["missing_queue_ids"], queue_ids)
+        self.assertEqual(blocker["review_packet"][0]["queue_id"], queue_ids[0])
+        self.assertEqual(blocker["review_packet"][0]["required_evidence"]["state"], "completed")
 
         human_evidence = [
             {
@@ -146,6 +156,11 @@ class SourceLibraryThreeLaneLiveClosureTest(unittest.TestCase):
 
         self.assertTrue(reviewed["human_review_readback"]["complete"])
         self.assertTrue(reviewed["non_closure_markers"]["claims_human_review_complete"])
+        self.assertEqual(
+            reviewed["human_review_readback"]["blocker"]["status"],
+            "closed_by_explicit_human_review_evidence",
+        )
+        self.assertTrue(reviewed["human_review_readback"]["blocker"]["closure_allowed"])
         self.assertEqual(
             reviewed["closure_state"],
             "live_collection_article_extraction_human_review_complete",

@@ -26,6 +26,14 @@ _API_PREFERRED = {
         implementation_hint="official_access.api",
         parser_profile="official_api",
     ),
+    "crossref.org": SiteSearchPolicy(
+        category="api_preferred",
+        reason="Prefer official Crossref works API search over HTML search templates.",
+        provider_key="crossref",
+        preferred_search_service="official_api",
+        implementation_hint="official_access.api",
+        parser_profile="official_api",
+    ),
 }
 
 _EXTERNAL_PREFERRED = {

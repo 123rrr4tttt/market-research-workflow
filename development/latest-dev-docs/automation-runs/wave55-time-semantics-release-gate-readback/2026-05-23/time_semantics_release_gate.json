@@ -1,0 +1,137 @@
+{
+  "checks": {
+    "decision_log_features_readback_repo_local_verified": true,
+    "decision_log_provenance_verified": true,
+    "deterministic_source_time_contract_verified": true,
+    "production_data_semantic_chain_live_verified": false,
+    "release_gate_integration_verified": true,
+    "sample_provenance_readback_verified": true,
+    "source_time_distribution_repo_local_verified": true,
+    "target_doc_artifact_verified": true
+  },
+  "closure_claim": false,
+  "contract_version": "time-semantics.release-gate-readback.v1",
+  "external_blockers_reduced": [
+    "release_gate_integration",
+    "source_time_distribution_repo_local_readback",
+    "decision_log_features_repo_local_readback"
+  ],
+  "failures": [],
+  "full_closure_allowed": false,
+  "readiness_boundaries": {
+    "decision_log_provenance": "passed",
+    "deterministic_sample_readback_chain": "passed",
+    "deterministic_source_time_contract": "passed",
+    "production_data_semantic_chain": "ready_not_run"
+  },
+  "remaining_external_blockers": [
+    "production_data_semantic_chain_live_validation_not_run"
+  ],
+  "remaining_live_requirements": [
+    "configured production/live source-time coverage distribution",
+    "configured production/live prompt-time policy decision-log rows",
+    "configured production/live feedback reward alignment"
+  ],
+  "sample_readback_status": "passed_with_known_gaps",
+  "scope": "time_semantics_density_release_gate_repo_local_readback",
+  "source_readiness_status": "passed_with_known_gaps",
+  "stages": [
+    {
+      "checks": {
+        "decision_log_features_readback_repo_local_verified": true,
+        "live_gap_markers_retained": true,
+        "persisted_rows_captured": true,
+        "priority_rows_emitted": true,
+        "source_time_distribution_repo_local_verified": true
+      },
+      "evidence": {
+        "explicit_semantic_time_coverage_90d": 0.8333333333333334,
+        "fallback_rate_90d": 0.16666666666666666,
+        "features_contract_version": "time-density-decision-log-freshness-contract.v1",
+        "live_gap_markers_90d": [
+          "effective_time_gap:created_at_fallback_used",
+          "effective_time_gap:effective_time_missing",
+          "effective_time_gap:semantic_time_fallback_used",
+          "production_freshness_probe_not_run",
+          "prompt_time_window_feedback_pending"
+        ],
+        "project_key": "wave55_time_semantics_release_gate",
+        "row_windows": [
+          "30d",
+          "7d",
+          "90d"
+        ],
+        "source_distribution_90d": {
+          "created_at_fallback_count": 1,
+          "explicit_semantic_time_count": 5,
+          "explicit_semantic_time_coverage": 0.8333333333333334,
+          "fallback_chain": [
+            "extracted_data.effective_time",
+            "extracted_data.source_time",
+            "extracted_data.policy.effective_date",
+            "publish_date",
+            "created_at"
+          ],
+          "fallback_doc_count": 1,
+          "fallback_rate": 0.16666666666666666,
+          "gap_counts": {
+            "created_at_fallback_used": 1,
+            "effective_time_missing": 5,
+            "semantic_time_fallback_used": 1
+          },
+          "missing_effective_time_count": 5,
+          "parse_versions": [
+            "policy-time-expr-v1",
+            "source-time-window-v1"
+          ],
+          "source_counts": {
+            "created_at": 1,
+            "effective_time": 1,
+            "source_time": 4
+          },
+          "source_ratios": {
+            "created_at": 0.16666666666666666,
+            "effective_time": 0.16666666666666666,
+            "source_time": 0.6666666666666666
+          },
+          "source_time_count": 4,
+          "source_time_coverage": 0.6666666666666666,
+          "total_docs": 6
+        },
+        "source_time_coverage_90d": 0.6666666666666666
+      },
+      "missing_requirements": [],
+      "name": "source_time_distribution_decision_log_readback",
+      "passed": true,
+      "status": "passed"
+    },
+    {
+      "checks": {
+        "pre_release_gate_exists": true,
+        "release_gate_calls_time_semantics_checker": true,
+        "release_gate_keeps_sample_readback_test": true,
+        "release_gate_runs_time_semantics_unit_test": true
+      },
+      "missing_requirements": [],
+      "name": "pre_release_gate_integration",
+      "passed": true,
+      "path": "main/backend/scripts/pre_release_gate.sh",
+      "status": "passed"
+    },
+    {
+      "checks": {
+        "target_evidence_exists": true,
+        "target_evidence_markers_present": true,
+        "target_readme_links_evidence": true
+      },
+      "missing_markers": [],
+      "missing_requirements": [],
+      "name": "target_doc_artifact",
+      "passed": true,
+      "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-time-semantics-density-merged-plan/12_wave55-time-semantics-release-gate-readback-2026-05-23.md",
+      "status": "passed"
+    }
+  ],
+  "status": "passed_with_known_gaps",
+  "target": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-time-semantics-density-merged-plan"
+}

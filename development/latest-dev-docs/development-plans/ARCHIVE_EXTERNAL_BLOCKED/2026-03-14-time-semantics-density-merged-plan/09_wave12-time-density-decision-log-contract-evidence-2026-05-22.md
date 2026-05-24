@@ -18,11 +18,12 @@ Scope: bounded merged-plan slice for the live decision-log/production freshness 
 
 - `doc_stale`: reduced for the decision-log contract slice because the runtime payload is now checker-backed.
 - `doc_drift`: reduced for merged time-semantics/density docs because the source-time and OPE freshness fields meet in one deterministic payload contract.
-- `external_gap`: remains open for live production volume, feedback reward alignment, production freshness proof, and release-pipeline wiring.
+- `external_gap`: remains open for live production volume, feedback reward alignment, and production freshness proof.
+- Release-pipeline wiring is superseded by Wave55 `check_time_semantics_release_gate.py` evidence.
 
 ## Status Boundary
 
-This is a bounded local contract, not a full closure. It intentionally reports `passed_with_known_gaps` and keeps production freshness open until a live-data worker validates decision-log volume and feedback alignment.
+This is a bounded local contract, not a full closure. It intentionally reports `passed_with_known_gaps` and keeps production freshness open until a live-data worker validates decision-log volume and feedback alignment. Release gate wiring is no longer a remaining gap after Wave55.
 
 ## Repeatable Validation
 

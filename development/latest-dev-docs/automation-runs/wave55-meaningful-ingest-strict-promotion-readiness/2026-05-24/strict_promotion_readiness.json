@@ -1,0 +1,233 @@
+{
+  "contract_version": "ingest.canary_strict_promotion_readiness.v1",
+  "evidence_doc": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-meaningful-ingest-guardrails-plan/12_wave55-strict-promotion-readiness-2026-05-24.md",
+  "live_canary_result": {
+    "cleanup": {
+      "error": null,
+      "performed": true,
+      "schema_name": "project_wave55_ingest_canary_656ceed42d"
+    },
+    "contract_version": "ingest.single_url_canary_handoff.production_like_check.v1",
+    "project_key": "wave55_ingest_canary_656ceed42d",
+    "status": "passed",
+    "validation": {
+      "contract_version": "ingest.single_url_canary_handoff.production_like_check.v1",
+      "failed_checks": [],
+      "passed": true,
+      "status": "passed",
+      "validation_checks": {
+        "api_runtime_validated": true,
+        "contract_version": true,
+        "db_readback_validated": true,
+        "guardrail_block_observed": true,
+        "guardrail_pass_observed": true,
+        "handoff_readback_present": true,
+        "live_canary_validated": true,
+        "no_closure_claim": true,
+        "validation_scope": true
+      }
+    }
+  },
+  "readiness_report": {
+    "boundaries": [
+      {
+        "blockers": [],
+        "detail": "repo-local API/DB canary validated accepted and rejected strict-gate paths",
+        "evidence": {
+          "closure_claim": false,
+          "failed_validation_checks": [],
+          "live_canary_validated": true,
+          "validation_scope": "repo_local_api_db_runtime"
+        },
+        "name": "repo_local_live_canary",
+        "passed": true,
+        "status": "validated",
+        "validated": true
+      },
+      {
+        "blockers": [
+          "production_24h_rejection_rate_readback_not_available",
+          "production_24h_inserted_valid_ratio_readback_not_available",
+          "production_guardrail_rollout_counts_readback_not_available"
+        ],
+        "detail": "repo-local 24h metric shape is valid, but the artifact does not claim production data",
+        "evidence": {
+          "checks": {
+            "contract_version": true,
+            "guardrail_rollout_counts_reviewed": true,
+            "inserted_valid_ratio_reviewed": true,
+            "rejection_rate_reviewed": true,
+            "window_hours_at_least_24": true
+          },
+          "deterministic_fixture": true,
+          "failed_checks": [],
+          "inserted_valid_ratio": 1.0,
+          "metric_24h_live_readback_claim": false,
+          "production_data_claim": false,
+          "rejection_rate": 0.25,
+          "window_hours": 24
+        },
+        "name": "metric_24h_readback",
+        "passed": true,
+        "status": "repo_local_shape_validated_production_open",
+        "validated": false
+      },
+      {
+        "blockers": [
+          "operations_strict_gate_promotion_decision_not_recorded",
+          "operations_strict_gate_global_default_not_enabled"
+        ],
+        "detail": "all-project strict-gate promotion is operations-owned and not satisfied locally",
+        "evidence": {
+          "checks": {
+            "operations_approval_recorded": false,
+            "production_24h_metrics_reviewed": false,
+            "promotion_decision_is_promote": false,
+            "rollback_plan_recorded": false,
+            "strict_gate_global_default_enabled": false
+          },
+          "failed_checks": [
+            "operations_approval_recorded",
+            "production_24h_metrics_reviewed",
+            "rollback_plan_recorded",
+            "promotion_decision_is_promote",
+            "strict_gate_global_default_enabled"
+          ],
+          "promotion_decision": null,
+          "strict_gate_global_default_enabled": null
+        },
+        "name": "ops_strict_gate_promotion",
+        "passed": false,
+        "status": "missing_evidence",
+        "validated": false
+      }
+    ],
+    "closure_claim": false,
+    "contract_version": "ingest.canary_strict_promotion_readiness.v1",
+    "production_24h_metrics_satisfied": false,
+    "project_key": "wave55_ingest_canary_656ceed42d",
+    "promotion_recommendation": "do_not_promote_without_production_24h_metrics_and_operations_decision",
+    "remaining_external_blockers": [
+      {
+        "classification": "external_live_operational",
+        "id": "production_24h_rejection_rate_readback_not_available"
+      },
+      {
+        "classification": "external_live_operational",
+        "id": "production_24h_inserted_valid_ratio_readback_not_available"
+      },
+      {
+        "classification": "external_live_operational",
+        "id": "production_guardrail_rollout_counts_readback_not_available"
+      },
+      {
+        "classification": "external_live_operational",
+        "id": "operations_strict_gate_promotion_decision_not_recorded"
+      },
+      {
+        "classification": "external_live_operational",
+        "id": "operations_strict_gate_global_default_not_enabled"
+      }
+    ],
+    "repo_local_live_canary_validated": true,
+    "repo_local_metric_24h_shape_validated": true,
+    "repo_local_preflight_passed": true,
+    "status": "external_blocked",
+    "strict_gate_promotion_satisfied": false
+  },
+  "runtime_results": [
+    {
+      "evidence": {
+        "accepted_response_status_code": 200,
+        "live_result_status": "passed",
+        "project_key": "wave55_ingest_canary_656ceed42d",
+        "rejected_response_status_code": 200
+      },
+      "name": "repo_local_live_canary_validated",
+      "passed": true
+    },
+    {
+      "evidence": {
+        "deterministic_fixture": true,
+        "inserted_valid_ratio": 1.0,
+        "rejection_rate": 0.25,
+        "window_hours": 24
+      },
+      "name": "repo_local_24h_metric_shape_validated",
+      "passed": true
+    },
+    {
+      "evidence": {
+        "closure_claim": false,
+        "remaining_external_blockers": [
+          {
+            "classification": "external_live_operational",
+            "id": "production_24h_rejection_rate_readback_not_available"
+          },
+          {
+            "classification": "external_live_operational",
+            "id": "production_24h_inserted_valid_ratio_readback_not_available"
+          },
+          {
+            "classification": "external_live_operational",
+            "id": "production_guardrail_rollout_counts_readback_not_available"
+          },
+          {
+            "classification": "external_live_operational",
+            "id": "operations_strict_gate_promotion_decision_not_recorded"
+          },
+          {
+            "classification": "external_live_operational",
+            "id": "operations_strict_gate_global_default_not_enabled"
+          }
+        ],
+        "status": "external_blocked"
+      },
+      "name": "production_and_ops_blockers_remain_explicit",
+      "passed": true
+    }
+  ],
+  "status": "passed",
+  "token_results": [
+    {
+      "exists": true,
+      "missing_tokens": [],
+      "passed": true,
+      "path": "main/backend/app/services/ingest/canary_strict_promotion.py",
+      "tokens_checked": [
+        "CONTRACT_VERSION",
+        "PRODUCTION_24H_BLOCKERS",
+        "OPS_PROMOTION_BLOCKERS",
+        "build_strict_promotion_readiness",
+        "validate_strict_promotion_readiness"
+      ]
+    },
+    {
+      "exists": true,
+      "missing_tokens": [],
+      "passed": true,
+      "path": "main/backend/scripts/check_ingest_canary_strict_promotion_readiness.py",
+      "tokens_checked": [
+        "run_repo_local_production_like_handoff_canary",
+        "build_24h_metrics_artifact",
+        "build_strict_promotion_readiness"
+      ]
+    },
+    {
+      "exists": true,
+      "missing_tokens": [],
+      "passed": true,
+      "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-meaningful-ingest-guardrails-plan/12_wave55-strict-promotion-readiness-2026-05-24.md",
+      "tokens_checked": [
+        "Wave55 Strict Promotion Readiness",
+        "repo_local_preflight_passed=true",
+        "production_24h_metrics_satisfied=false",
+        "strict_gate_promotion_satisfied=false",
+        "closure_claim=false"
+      ]
+    }
+  ],
+  "topic_dir": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-meaningful-ingest-guardrails-plan",
+  "topic_id": "2026-03-02-meaningful-ingest-guardrails-plan",
+  "validation_errors": []
+}

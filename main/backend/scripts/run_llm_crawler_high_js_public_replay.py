@@ -200,6 +200,30 @@ def _status_counts(results: list[Mapping[str, Any]]) -> dict[str, int]:
     return counts
 
 
+def _target_result_successful(row: Mapping[str, Any] | None) -> bool:
+    if not isinstance(row, Mapping):
+        return False
+    return str(row.get("status") or "").strip().lower() == "success" and row.get("browser_rendered") is True
+
+
+def _external_gate_blocker_proven(target: Mapping[str, Any], row: Mapping[str, Any] | None) -> bool:
+    if not isinstance(row, Mapping):
+        return False
+    allowed_statuses = {
+        str(status).strip().lower()
+        for status in target.get("external_blocker_accept_statuses", [])
+        if str(status).strip()
+    }
+    markers = row.get("markers") if isinstance(row.get("markers"), Mapping) else {}
+    auth_or_anti_bot_marker = bool(markers.get("contains_login") or markers.get("contains_captcha"))
+    return bool(
+        str(row.get("status") or "").strip().lower() in allowed_statuses
+        and row.get("browser_rendered") is True
+        and row.get("public_network_attempted") is True
+        and auth_or_anti_bot_marker
+    )
+
+
 def run_high_js_public_replay(
     *,
     operator: str,
@@ -208,6 +232,7 @@ def run_high_js_public_replay(
     allow_browser_runtime: bool,
     timeout_seconds: int = 20,
     chrome_path: str | None = None,
+    evidence_output: str | Path | None = None,
     target_runner: TargetRunner | None = None,
 ) -> dict[str, Any]:
     started_at = _utc_now()
@@ -259,6 +284,42 @@ def run_high_js_public_replay(
     public_attempted = sum(1 for row in target_results if row.get("public_network_attempted") is True)
     browser_started = any(row.get("browser_runtime_started") is True for row in target_results)
     public_network_attempted = any(row.get("public_network_attempted") is True for row in target_results)
+    by_target_id = {str(row.get("target_id") or ""): row for row in target_results}
+    public_probe_targets = list(DEFAULT_HIGH_JS_TARGETS)
+    successful_accessible_targets = [
+        target
+        for target in public_probe_targets
+        if _target_result_successful(by_target_id.get(str(target.get("target_id") or "")))
+    ]
+    gate_blocked_targets = [
+        target
+        for target in public_probe_targets
+        if not _target_result_successful(by_target_id.get(str(target.get("target_id") or "")))
+        and _external_gate_blocker_proven(target, by_target_id.get(str(target.get("target_id") or "")))
+    ]
+    all_probe_targets_accounted_for = len(successful_accessible_targets) + len(gate_blocked_targets) == len(public_probe_targets)
+    accessible_public_proven = bool(
+        not validation_errors
+        and allow_public_network
+        and allow_browser_runtime
+        and bool(successful_accessible_targets)
+        and all_probe_targets_accounted_for
+    )
+    remaining_external_blockers = []
+    for target in gate_blocked_targets:
+        target_id = str(target.get("target_id") or "")
+        row = by_target_id.get(target_id)
+        remaining_external_blockers.append(
+            {
+                "target_id": target_id,
+                "url": target.get("url"),
+                "status": row.get("status") if isinstance(row, Mapping) else None,
+                "reason": row.get("reason") if isinstance(row, Mapping) else None,
+                "markers": row.get("markers") if isinstance(row, Mapping) and isinstance(row.get("markers"), Mapping) else {},
+                "classification": "intrinsic_external_auth_or_anti_bot_gate",
+            }
+        )
+    external_gate_blockers_proven = bool(remaining_external_blockers and all_probe_targets_accounted_for)
     proven = bool(
         not validation_errors
         and allow_public_network
@@ -277,7 +338,7 @@ def run_high_js_public_replay(
             "run_id": run_id,
             "requested_at": started_at,
             "browser_runtime": resolved_chrome or "",
-            "evidence_output": str(DEFAULT_OUTPUT_PATH),
+            "evidence_output": str(evidence_output or DEFAULT_OUTPUT_PATH),
             "output_contract_version": PUBLIC_REPLAY_CONTRACT_VERSION,
             "target_ids": [target["target_id"] for target in DEFAULT_HIGH_JS_TARGETS],
             "allow_public_network": bool(allow_public_network),
@@ -290,6 +351,10 @@ def run_high_js_public_replay(
         "inputs": {
             "target_count": len(DEFAULT_HIGH_JS_TARGETS),
             "targets": [dict(target) for target in DEFAULT_HIGH_JS_TARGETS],
+            "public_high_js_probe_target_ids": [target["target_id"] for target in public_probe_targets],
+            "minimum_accessible_success_count": 1,
+            "successful_accessible_target_ids": [target["target_id"] for target in successful_accessible_targets],
+            "external_gate_target_ids": [target["target_id"] for target in gate_blocked_targets],
             "timeout_seconds": timeout_seconds,
         },
         "outputs": {
@@ -297,6 +362,7 @@ def run_high_js_public_replay(
             "status_counts": _status_counts(target_results),
             "public_targets_attempted": public_attempted,
             "high_js_success_count": success_count,
+            "remaining_external_blockers": remaining_external_blockers,
         },
         "validation": {
             "passed": not validation_errors,
@@ -304,11 +370,23 @@ def run_high_js_public_replay(
             "public_network_attempted": public_network_attempted,
             "browser_runtime_started": browser_started,
             "real_public_high_js_replay_proven": proven,
+            "accessible_public_high_js_replay_proven": accessible_public_proven,
+            "external_gate_blockers_proven": external_gate_blockers_proven,
         },
         "closure": {
             "real_public_high_js_replay_complete": proven,
+            "accessible_public_high_js_replay_complete": accessible_public_proven,
+            "remaining_external_blockers": remaining_external_blockers,
             "full_closure_allowed": proven,
-            "claim": "real_public_high_js_replay_complete" if proven else "real_public_high_js_replay_attempted_not_proven",
+            "claim": (
+                "real_public_high_js_replay_complete"
+                if proven
+                else (
+                    "accessible_public_high_js_replay_complete_external_targets_blocked"
+                    if accessible_public_proven and external_gate_blockers_proven
+                    else "real_public_high_js_replay_attempted_not_proven"
+                )
+            ),
         },
     }
 
@@ -332,6 +410,7 @@ def main(argv: list[str] | None = None) -> int:
         allow_browser_runtime=args.allow_browser_runtime,
         timeout_seconds=args.timeout_seconds,
         chrome_path=args.chrome_path,
+        evidence_output=args.output,
     )
     output_path = _resolve_path(_repo_root(), args.output)
     _write_json(output_path, result)

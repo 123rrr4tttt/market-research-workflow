@@ -67,6 +67,11 @@ class SourceTimeProductionReadinessTest(unittest.TestCase):
             sample_stage["evidence"]["target_overlap_gap_90d"],
             sample_stage["evidence"]["features_json_target_overlap_gap_90d"],
         )
+        self.assertEqual(sample_stage["evidence"]["source_time_coverage_90d"], 1.0)
+        self.assertEqual(
+            sample_stage["evidence"]["effective_time_source_distribution_90d"]["source_time_count"],
+            2,
+        )
         self.assertIn(
             "production_freshness_probe_not_run",
             sample_stage["evidence"]["live_gap_markers_90d"],

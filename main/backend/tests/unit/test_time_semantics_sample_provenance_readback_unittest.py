@@ -56,6 +56,11 @@ class TimeSemanticsSampleProvenanceReadbackTest(unittest.TestCase):
         )
         self.assertEqual(result["sample_evidence"]["source_time"], "2026-03-02T12:00:00Z")
         self.assertEqual(result["sample_evidence"]["time_provenance"], "source_time")
+        self.assertEqual(result["sample_evidence"]["source_time_coverage_90d"], 1.0)
+        self.assertEqual(
+            result["sample_evidence"]["effective_time_source_distribution_90d"]["source_time_count"],
+            2,
+        )
         self.assertTrue(
             all(
                 row["path"].startswith(

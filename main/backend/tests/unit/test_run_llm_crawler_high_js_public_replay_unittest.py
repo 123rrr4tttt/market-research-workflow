@@ -49,6 +49,27 @@ def _fake_partial_runner(target, chrome_path: str, timeout_seconds: int) -> dict
     }
 
 
+def _fake_accessible_success_x_external_runner(target, chrome_path: str, timeout_seconds: int) -> dict:
+    if target["target_id"] == "x_search_robotics":
+        dom = "<html><head><title>X</title></head><body>login required</body></html>"
+    elif target["target_id"] == "instagram_tag_robotics":
+        dom = (
+            "<html><head><title>Robotics on Instagram</title></head>"
+            "<body>robotics instagram public tag page</body></html>"
+        )
+    else:
+        dom = "<html><head><title>robotics - YouTube</title></head><body>video-title robotics</body></html>"
+    return {
+        "browser_runtime_started": True,
+        "public_network_attempted": True,
+        "timed_out": False,
+        "returncode": 0,
+        "elapsed_ms": 100,
+        "dom": dom,
+        "stderr": "",
+    }
+
+
 class RunLlmCrawlerHighJsPublicReplayUnitTestCase(unittest.TestCase):
     def test_fake_success_proves_public_high_js_replay(self) -> None:
         result = run_high_js_public_replay(
@@ -84,6 +105,31 @@ class RunLlmCrawlerHighJsPublicReplayUnitTestCase(unittest.TestCase):
         self.assertEqual(result["outputs"]["public_targets_attempted"], 3)
         self.assertLess(result["outputs"]["high_js_success_count"], 3)
         self.assertIn("auth_or_anti_bot_blocked", result["outputs"]["status_counts"])
+        self.assertFalse(result["validation"]["accessible_public_high_js_replay_proven"])
+
+    def test_accessible_public_targets_can_close_with_x_external_gate_retained(self) -> None:
+        result = run_high_js_public_replay(
+            operator="unit",
+            run_id="unit-accessible",
+            allow_public_network=True,
+            allow_browser_runtime=True,
+            chrome_path="/tmp/fake-chrome",
+            target_runner=_fake_accessible_success_x_external_runner,
+        )
+
+        self.assertTrue(result["validation"]["public_network_attempted"])
+        self.assertTrue(result["validation"]["browser_runtime_started"])
+        self.assertFalse(result["validation"]["real_public_high_js_replay_proven"])
+        self.assertTrue(result["validation"]["accessible_public_high_js_replay_proven"])
+        self.assertTrue(result["validation"]["external_gate_blockers_proven"])
+        self.assertFalse(result["closure"]["full_closure_allowed"])
+        self.assertTrue(result["closure"]["accessible_public_high_js_replay_complete"])
+        self.assertEqual(
+            result["closure"]["claim"],
+            "accessible_public_high_js_replay_complete_external_targets_blocked",
+        )
+        self.assertEqual(result["outputs"]["high_js_success_count"], 2)
+        self.assertEqual(result["outputs"]["remaining_external_blockers"][0]["target_id"], "x_search_robotics")
 
 
 if __name__ == "__main__":

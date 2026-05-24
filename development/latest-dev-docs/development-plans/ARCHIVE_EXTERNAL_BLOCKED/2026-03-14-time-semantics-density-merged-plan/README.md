@@ -10,6 +10,7 @@
 - 原子任务单（执行与门禁）：[`./06_atomic-tasklist-density-cloud-overlap-shift-implementation-2026-03-14.md`](./06_atomic-tasklist-density-cloud-overlap-shift-implementation-2026-03-14.md)
 - Wave8 target-overlap priority evidence：[`./07_wave8-target-overlap-priority-evidence-2026-05-22.md`](./07_wave8-target-overlap-priority-evidence-2026-05-22.md)
 - Wave10 time-semantics/OPE deterministic contract evidence：[`./08_wave10-time-semantics-ope-contract-evidence-2026-05-22.md`](./08_wave10-time-semantics-ope-contract-evidence-2026-05-22.md)
+- Wave55 release gate/source distribution readback：[`./12_wave55-time-semantics-release-gate-readback-2026-05-23.md`](./12_wave55-time-semantics-release-gate-readback-2026-05-23.md)
 
 ## 迁移关系
 

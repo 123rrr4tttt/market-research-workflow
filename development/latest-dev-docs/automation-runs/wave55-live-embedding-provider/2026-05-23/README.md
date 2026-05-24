@@ -10,8 +10,8 @@
 
 - provider_id: `repo_local_token_hashing`
 - model: `repo-local-token-hashing-v1`
-- model_version: `2026-05-23.wave55`
-- embedding_dim: `64`
+- model_version: `2026-05-23.wave56`
+- embedding_dim: `512`
 - network_required: `false`
 - live_provider_verified: `true`
 
@@ -19,7 +19,7 @@
 
 - query_count: `3`
 - top1_accuracy: `1.0`
-- min_top_margin: `0.627245`
+- min_top_margin: `0.625351`
 
 ## Decision
 

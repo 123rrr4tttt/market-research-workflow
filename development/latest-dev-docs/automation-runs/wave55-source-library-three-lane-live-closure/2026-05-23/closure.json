@@ -1,8 +1,56 @@
 {
   "closure_state": "live_collection_article_extraction_ready_human_review_open",
   "contract_version": "source_library.three_lane_live_closure.v1",
-  "finished_at": "2026-05-24T01:11:24Z",
+  "finished_at": "2026-05-24T02:01:11Z",
   "human_review_readback": {
+    "blocker": {
+      "blocker_type": "explicit_human_review_evidence_required",
+      "closure_allowed": false,
+      "completed_queue_ids": [],
+      "completed_state": "completed",
+      "contract_version": "source_library.three_lane_human_review_blocker.v1",
+      "evidence_supplied": false,
+      "invalid_evidence": [],
+      "missing_queue_ids": [
+        "sl_review:a8088ac888cbaaa0"
+      ],
+      "non_closure_rule": "Do not claim human review closure unless explicit evidence covers every queue id with queue_id, reviewed_by, reviewed_at, decision, and state=completed.",
+      "queue_ids": [
+        "sl_review:a8088ac888cbaaa0"
+      ],
+      "required_fields": [
+        "queue_id",
+        "reviewed_by",
+        "reviewed_at",
+        "decision",
+        "state"
+      ],
+      "review_packet": [
+        {
+          "domain": "commercialobserver.com",
+          "query_terms": [
+            "openai"
+          ],
+          "queue_id": "sl_review:a8088ac888cbaaa0",
+          "reason_codes": [
+            "term_fallback_candidates",
+            "low_confidence_candidate",
+            "adapter_capability_review"
+          ],
+          "required_evidence": {
+            "decision": "<accept|reject|defer plus reviewer rationale>",
+            "queue_id": "sl_review:a8088ac888cbaaa0",
+            "reviewed_at": "<RFC3339 timestamp>",
+            "reviewed_by": "<human-or-approved-reviewer-id>",
+            "state": "completed"
+          },
+          "reviewer_fields_missing": [],
+          "reviewer_ready": true,
+          "url": "https://commercialobserver.com/2025/05/7b-oracle-leased-texas-data-center-development"
+        }
+      ],
+      "status": "human_review_evidence_missing"
+    },
     "complete": false,
     "evidence_supplied": false,
     "readiness": {
@@ -21,7 +69,7 @@
         "evidence_count": 0,
         "invalid_evidence": [],
         "missing_queue_ids": [
-          "sl_review:cba6e135df79b9d5"
+          "sl_review:a8088ac888cbaaa0"
         ],
         "valid_evidence_count": 0
       },
@@ -34,7 +82,7 @@
       "review_queue": {
         "entries_missing_reviewer_fields": [],
         "queue_ids": [
-          "sl_review:cba6e135df79b9d5"
+          "sl_review:a8088ac888cbaaa0"
         ],
         "queued_count": 1,
         "ready": true,
@@ -133,8 +181,8 @@
             "public_replay_claim": "not_claimed",
             "review_completion_claim": "not_claimed"
           },
-          "position": 3,
-          "queue_id": "sl_review:cba6e135df79b9d5",
+          "position": 2,
+          "queue_id": "sl_review:a8088ac888cbaaa0",
           "queue_state": "review_required",
           "reason_codes": [
             "term_fallback_candidates",
@@ -152,7 +200,6 @@
             "parser_profile_resolved": null,
             "project_key": "demo_proj",
             "query_terms": [
-              "inflation",
               "openai"
             ],
             "route_kind": "article",
@@ -205,7 +252,6 @@
       },
       "project_key": "demo_proj",
       "query_terms": [
-        "inflation",
         "openai"
       ],
       "queue_state": "ready_for_review",
@@ -228,11 +274,10 @@
     "taxonomy_review_contract": "source_library.taxonomy_review_readiness.v1"
   },
   "live_source_collection": {
-    "candidate_count": 4,
+    "candidate_count": 3,
     "candidate_ready_targets": [
       "commercialobserver_parser_weak",
       "pymnts_parser_weak",
-      "investopedia_validated_query",
       "hai_stanford_mixed_shell"
     ],
     "candidate_rows": [
@@ -271,23 +316,6 @@
         "used_term_fallback": false
       },
       {
-        "adapter_capability_reason": null,
-        "adapter_capability_status": "allow",
-        "candidate_quality": "medium",
-        "domain": "investopedia.com",
-        "entry_domain": "investopedia.com",
-        "matched_by": "live_public_probe",
-        "parser_profile_resolved": null,
-        "query_terms": [
-          "inflation"
-        ],
-        "site_entry_url": "https://www.investopedia.com/search?q=inflation&page_size=20",
-        "source_status": "candidate_ready",
-        "target_id": "investopedia_validated_query",
-        "url": "https://www.investopedia.com/articles/markets/081515/how-inflation-and-unemployment-are-related.asp",
-        "used_term_fallback": false
-      },
-      {
         "adapter_capability_reason": "term_fallback_candidates",
         "adapter_capability_status": "review",
         "candidate_quality": "low",
@@ -308,7 +336,8 @@
     "complete": true,
     "probe_contract": "source_library_public_live_probes_2026_05_22",
     "status_counts": {
-      "candidate_ready": 2,
+      "anti_bot_or_transport_blocked": 1,
+      "candidate_ready": 1,
       "candidate_ready_with_term_fallback": 2
     },
     "validation": {
@@ -329,12 +358,12 @@
     "shared_indexes_edited": false
   },
   "provider_article_extraction": {
-    "article_body_extracted_count": 4,
+    "article_body_extracted_count": 3,
     "attempted": true,
-    "candidate_url_count": 4,
+    "candidate_url_count": 3,
     "complete": true,
     "diagnostics": {
-      "article_body_extracted": 4,
+      "article_body_extracted": 3,
       "fallback_states": [
         {
           "confidence": "medium",
@@ -349,13 +378,6 @@
           "extractor": "heuristic.main_content.v1",
           "state": "article_body_extracted",
           "url": "https://www.pymnts.com/cryptocurrency/2026/openai-and-moonpay-let-chatgpt-users-buy-crypto-without-leaving-chats"
-        },
-        {
-          "confidence": "medium",
-          "content_chars": 18254,
-          "extractor": "heuristic.main_content.v1",
-          "state": "article_body_extracted",
-          "url": "https://www.investopedia.com/articles/markets/081515/how-inflation-and-unemployment-are-related.asp"
         },
         {
           "confidence": "medium",
@@ -375,11 +397,10 @@
         ],
         "parser": "trafilatura_or_heuristic"
       },
-      "records_total": 4,
+      "records_total": 3,
       "target_urls": [
         "https://www.pymnts.com/artificial-intelligence-2/2026/openais-codex-helps-drive-nearly-6-billion-quarter",
         "https://www.pymnts.com/cryptocurrency/2026/openai-and-moonpay-let-chatgpt-users-buy-crypto-without-leaving-chats",
-        "https://www.investopedia.com/articles/markets/081515/how-inflation-and-unemployment-are-related.asp",
         "https://commercialobserver.com/2025/05/7b-oracle-leased-texas-data-center-development"
       ]
     },
@@ -409,7 +430,7 @@
       "supports_article_body": true,
       "supports_pdf_artifact": false
     },
-    "record_count": 4,
+    "record_count": 3,
     "records": [
       {
         "confidence": "medium",
@@ -431,15 +452,6 @@
       },
       {
         "confidence": "medium",
-        "content_chars": 18254,
-        "extractor": "heuristic.main_content.v1",
-        "has_content_text": true,
-        "state": "article_body_extracted",
-        "title": null,
-        "url": "https://www.investopedia.com/articles/markets/081515/how-inflation-and-unemployment-are-related.asp"
-      },
-      {
-        "confidence": "medium",
         "content_chars": 3598,
         "extractor": "heuristic.main_content.v1",
         "has_content_text": true,
@@ -450,7 +462,7 @@
     ],
     "skipped": false,
     "state_counts": {
-      "article_body_extracted": 4
+      "article_body_extracted": 3
     },
     "status": "ok",
     "validation": {
@@ -466,7 +478,7 @@
     "shared_indexes_edited": false,
     "topic_doc_dir": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-11-source-library-three-lane-architecture"
   },
-  "started_at": "2026-05-24T01:11:14Z",
+  "started_at": "2026-05-24T02:01:01Z",
   "validation": {
     "errors": [],
     "human_review_completed": false,

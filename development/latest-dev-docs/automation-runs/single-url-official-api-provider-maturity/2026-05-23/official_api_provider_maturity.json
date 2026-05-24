@@ -1,0 +1,234 @@
+{
+  "closure_claim": false,
+  "contract_version": "single_url.official_api_provider_maturity.v1",
+  "decision_marker": "single_url_non_arxiv_official_api_provider_reduced",
+  "fixture_probe": {
+    "http_call_count": 1,
+    "result": {
+      "candidate_records": [
+        {
+          "doi": "10.5555/single-url-crossref-1",
+          "publisher": "Fixture Publisher",
+          "title": "Single URL Robotics Market Evidence",
+          "type": "journal-article",
+          "url": "https://doi.org/10.5555/single-url-crossref-1"
+        },
+        {
+          "doi": "10.5555/single-url-crossref-2",
+          "publisher": "Fixture Publisher",
+          "title": "Single URL Automation Evidence",
+          "type": "proceedings-article",
+          "url": "https://doi.org/10.5555/single-url-crossref-2"
+        }
+      ],
+      "candidates": [
+        "https://doi.org/10.5555/single-url-crossref-1",
+        "https://doi.org/10.5555/single-url-crossref-2"
+      ],
+      "diagnostics": {
+        "credential_required": false,
+        "endpoint": "https://api.crossref.org/works",
+        "provider_key": "crossref",
+        "public_api": true,
+        "query": "single url robotics market",
+        "records_total": 2,
+        "rows": 5,
+        "selected_candidates": 2,
+        "selection_mode": "crossref_message_items"
+      },
+      "errors": [],
+      "inserted": 2,
+      "message": "official_access.api executed via Crossref works API",
+      "pages_scanned": 1,
+      "skipped": 0,
+      "used_term_fallback": false,
+      "written": null
+    }
+  },
+  "live_crossref": {
+    "candidate_count": 3,
+    "diagnostics": {
+      "credential_required": false,
+      "endpoint": "https://api.crossref.org/works",
+      "provider_key": "crossref",
+      "public_api": true,
+      "query": "robotics market adoption",
+      "records_total": 883746,
+      "rows": 3,
+      "selected_candidates": 3,
+      "selection_mode": "crossref_message_items"
+    },
+    "errors": [],
+    "result": {
+      "candidate_records": [
+        {
+          "doi": "10.2139/ssrn.5271347",
+          "publisher": "Elsevier BV",
+          "title": "Driving Large-Scale Adoption of Surgical Navigation and Robotics: Lessons from the Latin American Market",
+          "type": "posted-content",
+          "url": "https://doi.org/10.2139/ssrn.5271347"
+        },
+        {
+          "doi": "10.4172/2168-9695.1000164",
+          "publisher": "OMICS Publishing Group",
+          "title": "Top Robotics Market Majorly Driven by the Growing Adoption of IoT and AI",
+          "type": "journal-article",
+          "url": "https://doi.org/10.4172/2168-9695.1000164"
+        },
+        {
+          "doi": "10.1016/j.fopow.2023.11.031",
+          "publisher": "Elsevier BV",
+          "title": "Adoption of robotics across various industry verticals is impacting the coatings market",
+          "type": "journal-article",
+          "url": "https://doi.org/10.1016/j.fopow.2023.11.031"
+        }
+      ],
+      "candidates": [
+        "https://doi.org/10.2139/ssrn.5271347",
+        "https://doi.org/10.4172/2168-9695.1000164",
+        "https://doi.org/10.1016/j.fopow.2023.11.031"
+      ],
+      "diagnostics": {
+        "credential_required": false,
+        "endpoint": "https://api.crossref.org/works",
+        "provider_key": "crossref",
+        "public_api": true,
+        "query": "robotics market adoption",
+        "records_total": 883746,
+        "rows": 3,
+        "selected_candidates": 3,
+        "selection_mode": "crossref_message_items"
+      },
+      "errors": [],
+      "inserted": 3,
+      "message": "official_access.api executed via Crossref works API",
+      "pages_scanned": 1,
+      "skipped": 0,
+      "used_term_fallback": false,
+      "written": null
+    },
+    "sample_candidates": [
+      "https://doi.org/10.2139/ssrn.5271347",
+      "https://doi.org/10.4172/2168-9695.1000164",
+      "https://doi.org/10.1016/j.fopow.2023.11.031"
+    ],
+    "status": "passed"
+  },
+  "non_arxiv_provider_maturity": {
+    "closed_provider": "crossref",
+    "credential_required": false,
+    "provider_scope": "public Crossref works API",
+    "remaining_provider_catalog_boundary": [
+      "provider-specific credentials and quota behavior beyond public Crossref remain external",
+      "public browser/runtime replay remains external to this gate",
+      "configured demo_proj canary and production 24h readback remain external/live"
+    ]
+  },
+  "runtime_results": [
+    {
+      "evidence": {
+        "category": "api_preferred",
+        "implementation_hint": "official_access.api",
+        "provider_key": "crossref"
+      },
+      "name": "crossref_policy_is_api_preferred",
+      "passed": true
+    },
+    {
+      "evidence": {
+        "candidate_count": 2,
+        "http_call_count": 1,
+        "provider_key": "crossref"
+      },
+      "name": "crossref_official_api_fixture_returns_candidates",
+      "passed": true
+    },
+    {
+      "evidence": {
+        "credential_required": false,
+        "endpoint": "https://api.crossref.org/works",
+        "public_api": true
+      },
+      "name": "crossref_provider_is_public_no_credential_boundary",
+      "passed": true
+    },
+    {
+      "evidence": {
+        "record_count": 2,
+        "sample_record": {
+          "doi": "10.5555/single-url-crossref-1",
+          "publisher": "Fixture Publisher",
+          "title": "Single URL Robotics Market Evidence",
+          "type": "journal-article",
+          "url": "https://doi.org/10.5555/single-url-crossref-1"
+        }
+      },
+      "name": "crossref_candidate_records_preserve_title_and_doi",
+      "passed": true
+    },
+    {
+      "evidence": {
+        "candidate_count": 3,
+        "errors": [],
+        "sample_candidates": [
+          "https://doi.org/10.2139/ssrn.5271347",
+          "https://doi.org/10.4172/2168-9695.1000164",
+          "https://doi.org/10.1016/j.fopow.2023.11.031"
+        ]
+      },
+      "name": "crossref_public_api_live_probe",
+      "passed": true
+    }
+  ],
+  "status": "passed",
+  "token_results": [
+    {
+      "exists": true,
+      "missing_tokens": [],
+      "passed": true,
+      "path": "main/backend/app/services/source_library/adapters/official_access.py",
+      "tokens_checked": [
+        "_run_crossref_works_probe",
+        "crossref_works_api",
+        "https://api.crossref.org/works",
+        "credential_required",
+        "_CROSSREF_RESULT_CACHE"
+      ]
+    },
+    {
+      "exists": true,
+      "missing_tokens": [],
+      "passed": true,
+      "path": "main/backend/app/services/resource_pool/site_search_policy.py",
+      "tokens_checked": [
+        "crossref.org",
+        "provider_key=\"crossref\"",
+        "Prefer official Crossref works API search"
+      ]
+    },
+    {
+      "exists": true,
+      "missing_tokens": [],
+      "passed": true,
+      "path": "main/backend/tests/unit/test_source_library_official_access_adapter_unittest.py",
+      "tokens_checked": [
+        "test_crossref_official_api_returns_doi_candidate_urls",
+        "test_crossref_official_api_reuses_cached_candidates",
+        "test_crossref_official_api_reports_transport_failure"
+      ]
+    },
+    {
+      "exists": true,
+      "missing_tokens": [],
+      "passed": true,
+      "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-single-url-first-ingest-allocation-plan/12_wave56-crossref-official-api-provider-maturity-2026-05-23.md",
+      "tokens_checked": [
+        "Wave56 Crossref Official API Provider Maturity",
+        "single_url_non_arxiv_official_api_provider_reduced",
+        "crossref_works_api",
+        "closure_claim=false"
+      ]
+    }
+  ],
+  "topic_slug": "2026-03-02-single-url-first-ingest-allocation-plan"
+}

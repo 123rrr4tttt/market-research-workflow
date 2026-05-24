@@ -101,6 +101,7 @@ def build_contract() -> dict[str, Any]:
     trace = first.get("policy_decision_trace") or {}
     features_json = (captured.get("features_json") or [{}])[0]
     effective_time_provenance = trace.get("effective_time_provenance") or {}
+    source_distribution = features_json.get("effective_time_source_distribution") or {}
     ope_freshness_inputs = trace.get("ope_freshness_inputs") or {}
     priority_trace = trace.get("priority_decision_trace") or {}
     gap_markers = trace.get("live_data_gap_markers") or []
@@ -113,6 +114,11 @@ def build_contract() -> dict[str, Any]:
             "features_json_contract_version_recorded": features_json.get("contract_version") == CONTRACT_VERSION,
             "effective_time_provenance_recorded": (
                 (effective_time_provenance.get("source_counts") or {}).get("source_time") == 2
+            ),
+            "effective_time_source_distribution_recorded": (
+                source_distribution.get("source_time_count") == 2
+                and float(source_distribution.get("source_time_coverage") or 0.0) == 1.0
+                and float(features_json.get("source_time_coverage") or 0.0) == 1.0
             ),
             "ope_freshness_inputs_recorded": (
                 ope_freshness_inputs.get("freshness_timestamp_field") == "created_at"
@@ -132,6 +138,9 @@ def build_contract() -> dict[str, Any]:
         },
         "persisted_payload_shape": {
             "features_json_carries_provenance": bool(features_json.get("effective_time_provenance")),
+            "features_json_carries_source_distribution": bool(
+                features_json.get("effective_time_source_distribution")
+            ),
             "features_json_carries_ope_inputs": bool(features_json.get("ope_freshness_inputs")),
             "features_json_carries_priority_trace": bool(features_json.get("priority_decision_trace")),
             "features_json_carries_live_gaps": bool(features_json.get("live_data_gap_markers")),
@@ -153,7 +162,6 @@ def build_contract() -> dict[str, Any]:
             "live_prompt_time_policy_decision_log_volume_not_verified",
             "live_prompt_time_window_feedback_alignment_not_verified",
             "production_freshness_not_claimed_by_local_contract",
-            "release_pipeline_gate_wiring_not_changed",
         ],
     }
 

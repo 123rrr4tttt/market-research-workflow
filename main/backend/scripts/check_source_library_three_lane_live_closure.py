@@ -38,6 +38,8 @@ TOPIC_DOC_DIR = Path(
     "2026-03-11-source-library-three-lane-architecture"
 )
 ARTICLE_EXTRACTOR_ITEM_KEY = "external.three_lane.live_article_extractor"
+HUMAN_REVIEW_REQUIRED_FIELDS = ("queue_id", "reviewed_by", "reviewed_at", "decision", "state")
+HUMAN_REVIEW_COMPLETED_STATE = "completed"
 
 
 def _utc_now() -> str:
@@ -67,6 +69,12 @@ def _load_human_review_evidence(path: Path | None) -> list[dict[str, Any]]:
     if not isinstance(payload, list):
         raise ValueError("--human-review-evidence must contain a JSON array")
     return [dict(row) for row in payload if isinstance(row, dict)]
+
+
+def _repo_output_path(repo_root: Path | None, path: Path) -> Path:
+    if path.is_absolute():
+        return path
+    return (repo_root.resolve() if repo_root else REPO_ROOT) / path
 
 
 def _candidate_rows_from_probe(probe: dict[str, Any], *, max_candidates: int) -> list[dict[str, Any]]:
@@ -317,6 +325,76 @@ def _build_live_review_queue(candidate_rows: list[dict[str, Any]]) -> dict[str, 
     )
 
 
+def _human_review_blocker(
+    *,
+    review_queue: dict[str, Any],
+    readiness: dict[str, Any],
+    human_review_evidence: list[dict[str, Any]],
+) -> dict[str, Any]:
+    review = readiness.get("review_queue") if isinstance(readiness.get("review_queue"), dict) else {}
+    human_review = readiness.get("human_review") if isinstance(readiness.get("human_review"), dict) else {}
+    queue_ids = [str(row).strip() for row in review.get("queue_ids") or [] if str(row).strip()]
+    missing_queue_ids = [
+        str(row).strip() for row in human_review.get("missing_queue_ids") or [] if str(row).strip()
+    ]
+    completed = bool(human_review.get("completed"))
+    if completed:
+        status = "closed_by_explicit_human_review_evidence"
+        blocker_type = None
+    elif human_review_evidence:
+        status = "human_review_evidence_incomplete_or_invalid"
+        blocker_type = "explicit_human_review_evidence_required_for_all_queue_ids"
+    elif queue_ids:
+        status = "human_review_evidence_missing"
+        blocker_type = "explicit_human_review_evidence_required"
+    else:
+        status = "review_queue_not_ready"
+        blocker_type = "review_queue_not_ready"
+
+    review_entries: list[dict[str, Any]] = []
+    for entry in review_queue.get("entries") or []:
+        if not isinstance(entry, dict):
+            continue
+        fields = entry.get("reviewer_fields") if isinstance(entry.get("reviewer_fields"), dict) else {}
+        review_entries.append(
+            {
+                "queue_id": entry.get("queue_id"),
+                "url": fields.get("url"),
+                "domain": fields.get("domain"),
+                "query_terms": fields.get("query_terms") or [],
+                "reason_codes": list(entry.get("reason_codes") or []),
+                "reviewer_ready": bool(entry.get("reviewer_ready")),
+                "reviewer_fields_missing": list(entry.get("reviewer_fields_missing") or []),
+                "required_evidence": {
+                    "queue_id": entry.get("queue_id"),
+                    "reviewed_by": "<human-or-approved-reviewer-id>",
+                    "reviewed_at": "<RFC3339 timestamp>",
+                    "decision": "<accept|reject|defer plus reviewer rationale>",
+                    "state": HUMAN_REVIEW_COMPLETED_STATE,
+                },
+            }
+        )
+
+    return {
+        "contract_version": "source_library.three_lane_human_review_blocker.v1",
+        "status": status,
+        "blocker_type": blocker_type,
+        "closure_allowed": completed,
+        "evidence_supplied": bool(human_review_evidence),
+        "required_fields": list(HUMAN_REVIEW_REQUIRED_FIELDS),
+        "completed_state": HUMAN_REVIEW_COMPLETED_STATE,
+        "queue_ids": queue_ids,
+        "missing_queue_ids": missing_queue_ids,
+        "completed_queue_ids": list(human_review.get("completed_queue_ids") or []),
+        "invalid_evidence": list(human_review.get("invalid_evidence") or []),
+        "review_packet": review_entries,
+        "non_closure_rule": (
+            "Do not claim human review closure unless explicit evidence covers every queue id "
+            "with queue_id, reviewed_by, reviewed_at, decision, and state=completed."
+        ),
+    }
+
+
 def _taxonomy_cases() -> list[dict[str, Any]]:
     return [
         {
@@ -400,6 +478,11 @@ def build_contract(
         human_review_evidence=human_review_evidence or [],
         source_surface="check_source_library_three_lane_live_closure",
     )
+    human_review_blocker = _human_review_blocker(
+        review_queue=review_queue,
+        readiness=readiness,
+        human_review_evidence=human_review_evidence or [],
+    )
 
     probe_validation = probe.get("validation") if isinstance(probe.get("validation"), dict) else {}
     live_source_collection_complete = (
@@ -458,6 +541,7 @@ def build_contract(
             "taxonomy_review_contract": TAXONOMY_REVIEW_READINESS_CONTRACT_VERSION,
             "review_queue": review_queue,
             "readiness": readiness,
+            "blocker": human_review_blocker,
             "complete": human_review_completed,
             "evidence_supplied": bool(human_review_evidence),
         },
@@ -488,6 +572,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--target-file", type=Path, default=None)
     parser.add_argument("--live-probe-input", type=Path, default=None)
     parser.add_argument("--human-review-evidence", type=Path, default=None)
+    parser.add_argument(
+        "--human-review-blocker-output",
+        type=Path,
+        default=None,
+        help="Write a focused human-review blocker/readback artifact for the live review queue.",
+    )
     parser.add_argument("--output", type=Path, default=DEFAULT_ARTIFACT_PATH)
     parser.add_argument("--probe-timeout", type=float, default=6.0)
     parser.add_argument("--max-targets", type=int, default=None)
@@ -516,11 +606,24 @@ def main(argv: list[str] | None = None) -> int:
     )
     payload = json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True)
     if args.output is not None:
-        output_path = (Path(args.repo_root).resolve() if args.repo_root else REPO_ROOT) / args.output
+        output_path = _repo_output_path(args.repo_root, args.output)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text(payload + "\n", encoding="utf-8")
     else:
         print(payload)
+    if args.human_review_blocker_output is not None:
+        blocker_output_path = _repo_output_path(args.repo_root, args.human_review_blocker_output)
+        blocker_output_path.parent.mkdir(parents=True, exist_ok=True)
+        blocker_output_path.write_text(
+            json.dumps(
+                result["human_review_readback"]["blocker"],
+                ensure_ascii=False,
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
 
     if not result["validation"]["passed"]:
         return 1

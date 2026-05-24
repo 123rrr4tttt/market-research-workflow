@@ -161,6 +161,7 @@ def _evaluate_source_readiness(source_readiness: dict[str, Any]) -> dict[str, An
 
     sample_gap = sample_evidence.get("target_overlap_gap_90d")
     features_gap = sample_evidence.get("features_json_target_overlap_gap_90d")
+    source_distribution = sample_evidence.get("effective_time_source_distribution_90d") or {}
     try:
         sample_gap_positive = float(sample_gap or 0.0) > 0.0
         feature_gap_matches = float(sample_gap or 0.0) == float(features_gap or 0.0)
@@ -178,6 +179,11 @@ def _evaluate_source_readiness(source_readiness: dict[str, Any]) -> dict[str, An
         "document_effective_day_read_back": sample_evidence.get("document_effective_day") == "2026-03-02",
         "target_overlap_gap_read_back": sample_gap_positive,
         "features_json_gap_matches_row": feature_gap_matches,
+        "source_time_distribution_read_back": (
+            source_distribution.get("source_time_count") == 2
+            and float(source_distribution.get("source_time_coverage") or 0.0) == 1.0
+            and float(sample_evidence.get("source_time_coverage_90d") or 0.0) == 1.0
+        ),
         "features_json_live_gap_retained": "production_freshness_probe_not_run" in live_gap_markers,
         "production_data_semantic_chain_live_verified": bool(
             source_readiness.get("checks", {}).get("production_data_semantic_chain_live_verified")
@@ -216,6 +222,7 @@ def _evaluate_source_readiness(source_readiness: dict[str, Any]) -> dict[str, An
         for key in (
             "decision_log_provenance_passed",
             "features_json_gap_matches_row",
+            "source_time_distribution_read_back",
             "features_json_live_gap_retained",
         )
     )

@@ -47,10 +47,10 @@ fi
 
 echo "[gate] python=$PYTHON_BIN"
 
-echo "[gate] step 1/3: python syntax smoke (compileall app/)"
+echo "[gate] step 1/4: python syntax smoke (compileall app/)"
 "$PYTHON_BIN" -m compileall -q app
 
-echo "[gate] step 2/3: targeted contract/unit tests"
+echo "[gate] step 2/4: targeted contract/unit tests"
 if [[ "$MODE" == "quick" ]]; then
   "$PYTHON_BIN" -m pytest -q \
     tests/unit/test_streamplus_contracts_unittest.py \
@@ -65,6 +65,8 @@ if [[ "$MODE" == "quick" ]]; then
     tests/unit/test_source_candidate_trust_unittest.py \
     tests/unit/test_source_library_url_pool_adapter_unittest.py \
     tests/unit/test_structured_data_search_unittest.py \
+    tests/unit/test_time_semantics_release_gate_unittest.py \
+    tests/unit/test_time_semantics_sample_provenance_readback_unittest.py \
     tests/integration/test_agent_chat_api_unittest.py \
     tests/integration/test_agent_runtime_artifact_idle_replay_unittest.py \
     tests/integration/test_agent_runtime_scenario_replay_unittest.py \
@@ -76,7 +78,10 @@ else
     tests/integration/test_api_exception_envelope_unittest.py
 fi
 
-echo "[gate] step 3/3: api import guard"
+echo "[gate] step 3/4: time semantics release gate"
+"$PYTHON_BIN" scripts/check_time_semantics_release_gate.py
+
+echo "[gate] step 4/4: api import guard"
 if [[ "$STRICT" == "true" ]]; then
   "$PYTHON_BIN" scripts/check_api_layer_imports.py
 else

@@ -1,7 +1,7 @@
 # Global Vectorization General Foundation Index
 
 更新时间：2026-05-23 PST<br>
-状态：`external_blocked` / `wave30_checked`。全项目数据向量化 / 标准化 repo-local blocker 已由 Wave30 清零；目录已从 `CURRENT_DEV` 迁入 `ARCHIVE_EXTERNAL_BLOCKED`。剩余条件是真实 live embedding provider、`semantic_embedding_quality_not_proven` 与 production vector quality，不再作为当前仓内 `partial` 入口。
+状态：`external_blocked` / `wave56_semantic_quality_reduced`。全项目数据向量化 / 标准化 repo-local blocker 已由 Wave30 清零；Wave55 已补 repo-local live embedding provider，Wave56 已在 repo-local production-like evaluation set 范围内关闭 `semantic_embedding_quality_not_proven`。剩余条件是 `production_vector_quality_not_proven` 的真实生产流量或生产语料 replay；本目录仍不迁入 `ARCHIVE_CLOSED`。
 
 防误读：下方 Wave2/Wave3/Wave8/Wave10 段落中的 `partial` 是历史快照；当前 canonical readback 以本 `INDEX.md` 和 `11_wave30-vector-closure-external-blocked-decision-2026-05-23.md` 为准。
 
@@ -39,6 +39,12 @@
 
 - [11_wave30-vector-closure-external-blocked-decision-2026-05-23.md](./11_wave30-vector-closure-external-blocked-decision-2026-05-23.md)
   Wave30 external-blocked decision：关闭 retrieval run JSONL persistence/readback、qdrant/pgvector payload provenance 统一、Agent matrix/main search schema join 三个 repo-local blocker；剩余条件均为外部 provider / production quality evidence。
+
+- [12_wave55-live-embedding-provider-closure-2026-05-23.md](./12_wave55-live-embedding-provider-closure-2026-05-23.md)
+  Wave55 repo-local live provider gate：新增可执行 embedding provider、provider readback、vector retrieval wiring 与 retrieval-run readback，关闭 repo-local provider scope 的 `external_embedding_provider_live_not_verified`。
+
+- [13_wave56-semantic-vector-quality-gate-2026-05-23.md](./13_wave56-semantic-vector-quality-gate-2026-05-23.md)
+  Wave56 semantic/vector quality gate：将 provider 版本提升到 `2026-05-23.wave56` / `repo-local-live-v2`，以 5 个 domain、8 个 paraphrase/hard-negative case 和 repeat stability 关闭 repo-local scope 的 `semantic_embedding_quality_not_proven`，并把 `production_vector_quality_not_proven` 降为仅剩真实生产 replay 缺口。
 
 ## 2026-05-22 lane 9 落地
 
@@ -86,5 +92,6 @@
 - 搜索 provider 解隔离继续归 `../2026-05-14-local-open-search-provider-isolation/`。
 - 数据向量化、chunk/material 标准化、hybrid retrieval、向量版本化和 provenance 归本目录。
 - 本目录已开始落地 runtime contract 与受控 benchmark evidence；lane 9/Wave3 A 均保持 `local_index` optional boundary，不引入 LanceDB 强依赖。
-- Wave30 已关闭仓内 retrieval persistence、stored payload provenance、Agent matrix join blocker，但不声明 live embedding provider 或生产语义质量已封口。
+- Wave30 已关闭仓内 retrieval persistence、stored payload provenance、Agent matrix join blocker；Wave55 已补 repo-local live embedding provider；Wave56 已补 repo-local production-like semantic/vector quality gate。
+- 本目录仍不声明真实生产流量或生产语料 replay 已封口，因此 `production_vector_quality_not_proven` 仍是全局迁 closed 前的剩余条件。
 - 02 号文档本来就是 2026-05-14 文档，文件名和主体保留；仅由本目录索引继续引用。

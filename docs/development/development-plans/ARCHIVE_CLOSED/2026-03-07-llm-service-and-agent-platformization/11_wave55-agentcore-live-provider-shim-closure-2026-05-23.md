@@ -5,6 +5,11 @@ Scope: `2026-03-07-llm-service-and-agent-platformization`
 Worker: Wave55 worker D1 / LLM service and agent platformization live provider closure
 Status: topic-local evidence only; shared navigation indexes intentionally untouched
 
+2026-05-24 update: this repo-local shim remains valid as a no-external-network
+runtime check, but its external-provider limitation is superseded for the
+selected `openai` provider by
+`12_wave55-agentcore-external-provider-live-readback-2026-05-24.md`.
+
 ## Result
 
 This pass closes the repo-local live provider path with

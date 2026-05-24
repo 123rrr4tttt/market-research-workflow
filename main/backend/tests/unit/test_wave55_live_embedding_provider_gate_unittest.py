@@ -46,7 +46,7 @@ class Wave55LiveEmbeddingProviderGateTest(unittest.TestCase):
         self.assertEqual(provider["provider_id"], "repo_local_token_hashing")
         self.assertFalse(provider["network_required"])
         self.assertTrue(provider["live_provider_verified"])
-        self.assertEqual(provider["embedding_dim"], 64)
+        self.assertEqual(provider["embedding_dim"], 512)
 
         quality = contract["quality_readback"]
         self.assertEqual(quality["status"], "passed")

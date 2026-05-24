@@ -214,6 +214,7 @@ def _deterministic_sample_readback_stage() -> dict[str, Any]:
     row_90d = row_by_window.get("90d") or {}
     features_90d = features_by_window.get("90d") or {}
     trace_90d = row_90d.get("policy_decision_trace") or {}
+    source_distribution_90d = features_90d.get("effective_time_source_distribution") or {}
     source_counts = (
         (features_90d.get("effective_time_provenance") or {}).get("source_counts") or {}
     )
@@ -232,6 +233,11 @@ def _deterministic_sample_readback_stage() -> dict[str, Any]:
         "features_json_read_back_decision_evidence": features_90d.get("target_overlap") == 0.95
         and float(features_90d.get("target_overlap_gap") or 0.0) == float(row_90d.get("target_overlap_gap") or 0.0)
         and bool(features_90d.get("live_data_gap_markers")),
+        "source_time_distribution_read_back": (
+            source_distribution_90d.get("source_time_count") == 2
+            and float(source_distribution_90d.get("source_time_coverage") or 0.0) == 1.0
+            and float(features_90d.get("source_time_coverage") or 0.0) == 1.0
+        ),
         "sample_does_not_claim_live_production": "production_freshness_probe_not_run"
         in (trace_90d.get("live_data_gap_markers") or []),
     }
@@ -253,6 +259,8 @@ def _deterministic_sample_readback_stage() -> dict[str, Any]:
             "target_overlap": row_90d.get("target_overlap"),
             "target_overlap_gap_90d": row_90d.get("target_overlap_gap"),
             "features_json_target_overlap_gap_90d": features_90d.get("target_overlap_gap"),
+            "effective_time_source_distribution_90d": source_distribution_90d,
+            "source_time_coverage_90d": features_90d.get("source_time_coverage"),
             "live_gap_markers_90d": trace_90d.get("live_data_gap_markers") or [],
             "project_key": captured.get("project_key"),
         },
@@ -309,12 +317,14 @@ def _decision_log_stage(contract: dict[str, Any]) -> dict[str, Any]:
         "contract_version_recorded",
         "features_json_contract_version_recorded",
         "effective_time_provenance_recorded",
+        "effective_time_source_distribution_recorded",
         "ope_freshness_inputs_recorded",
         "priority_decision_trace_recorded",
         "live_data_gap_markers_recorded",
     )
     required_payload = (
         "features_json_carries_provenance",
+        "features_json_carries_source_distribution",
         "features_json_carries_ope_inputs",
         "features_json_carries_priority_trace",
         "features_json_carries_live_gaps",

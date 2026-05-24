@@ -130,6 +130,8 @@ class PromptTimeDensityDecisionLogContractUnitTest(unittest.TestCase):
             prompt_time_density.TIME_DENSITY_DECISION_LOG_CONTRACT_VERSION,
         )
         self.assertEqual(trace["effective_time_provenance"]["source_counts"]["source_time"], 2)
+        self.assertEqual(trace["effective_time_source_distribution"]["source_time_count"], 2)
+        self.assertEqual(trace["effective_time_source_distribution"]["source_time_coverage"], 1.0)
         self.assertEqual(trace["ope_freshness_inputs"]["freshness_timestamp_field"], "created_at")
         self.assertEqual(trace["ope_freshness_inputs"]["feedback_table"], "public.prompt_time_window_feedback")
         self.assertEqual(trace["priority_decision_trace"]["behavior_policy"], "highest_p_base_window_for_ope_replay")
@@ -140,6 +142,8 @@ class PromptTimeDensityDecisionLogContractUnitTest(unittest.TestCase):
 
         self.assertEqual(features["contract_version"], trace["contract_version"])
         self.assertTrue(features["effective_time_provenance"])
+        self.assertEqual(features["effective_time_source_distribution"]["source_time_count"], 2)
+        self.assertEqual(features["source_time_coverage"], 1.0)
         self.assertTrue(features["ope_freshness_inputs"])
         self.assertTrue(features["priority_decision_trace"])
         self.assertTrue(features["live_data_gap_markers"])
@@ -154,6 +158,12 @@ class PromptTimeDensityDecisionLogContractUnitTest(unittest.TestCase):
         )
         self.assertEqual(contract["status"], "passed_with_known_gaps")
         self.assertEqual(contract["failures"], [])
+        self.assertTrue(
+            contract["checks"]["decision_log_contract"]["effective_time_source_distribution_recorded"]
+        )
+        self.assertTrue(
+            contract["checks"]["persisted_payload_shape"]["features_json_carries_source_distribution"]
+        )
         self.assertIn(
             "production_freshness_not_claimed_by_local_contract",
             contract["remaining_gaps"],

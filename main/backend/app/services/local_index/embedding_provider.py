@@ -9,9 +9,9 @@ from typing import Iterable, Protocol
 
 LOCAL_LIVE_EMBEDDING_PROVIDER_ID = "repo_local_token_hashing"
 LOCAL_LIVE_EMBEDDING_MODEL = "repo-local-token-hashing-v1"
-LOCAL_LIVE_EMBEDDING_MODEL_VERSION = "2026-05-23.wave55"
-LOCAL_LIVE_VECTOR_VERSION = "repo-local-live-v1"
-DEFAULT_LOCAL_LIVE_EMBEDDING_DIM = 64
+LOCAL_LIVE_EMBEDDING_MODEL_VERSION = "2026-05-23.wave56"
+LOCAL_LIVE_VECTOR_VERSION = "repo-local-live-v2"
+DEFAULT_LOCAL_LIVE_EMBEDDING_DIM = 512
 
 
 class LocalEmbeddingProvider(Protocol):
@@ -126,11 +126,69 @@ class RepoLocalHashingEmbeddingProvider:
 
 _TOKEN_RE = re.compile(r"[a-z0-9]+|[\u4e00-\u9fff]", re.IGNORECASE)
 _ALIAS_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
-    ("robotics", ("robotic", "robotics", "robot", "automation", "autonomous", "embodied")),
-    ("commercialization", ("commercial", "commercialization", "market", "revenue", "business")),
-    ("policy", ("policy", "regulation", "regulatory", "government", "grant", "procurement")),
-    ("agriculture", ("agriculture", "agricultural", "commodity", "crop", "futures", "insurance")),
-    ("energy", ("energy", "renewable", "storage", "battery", "grid", "procurement")),
+    ("robotics", ("robotic", "robotics", "robot", "robots", "automation", "autonomous", "embodied")),
+    (
+        "commercialization",
+        ("commercial", "commercialization", "market", "revenue", "business", "deployment", "rollout", "adoption"),
+    ),
+    (
+        "policy",
+        (
+            "policy",
+            "regulation",
+            "regulatory",
+            "government",
+            "grant",
+            "grants",
+            "funding",
+            "subsidy",
+            "subsidies",
+            "incentive",
+            "incentives",
+            "procurement",
+            "program",
+            "public",
+            "tender",
+            "tenders",
+        ),
+    ),
+    (
+        "agriculture",
+        (
+            "agriculture",
+            "agricultural",
+            "commodity",
+            "commodities",
+            "crop",
+            "crops",
+            "farm",
+            "farmer",
+            "farming",
+            "harvest",
+            "futures",
+            "insurance",
+            "coverage",
+            "risk",
+            "volatility",
+        ),
+    ),
+    (
+        "energy",
+        (
+            "energy",
+            "renewable",
+            "renewables",
+            "storage",
+            "battery",
+            "batteries",
+            "grid",
+            "procurement",
+            "resilience",
+            "infrastructure",
+        ),
+    ),
+    ("safety", ("safety", "worker", "workers", "inspection", "inspections", "compliance", "hazard", "hazards")),
+    ("event_ticketing", ("festival", "ticket", "tickets", "ticketing", "venue", "venues", "staff", "staffing")),
 )
 
 
