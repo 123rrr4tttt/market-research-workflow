@@ -11,7 +11,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from app.services.ingest.canary_handoff_live import build_production_like_handoff_evidence
 from app.services.ingest.canary_strict_promotion import (
     OPS_PROMOTION_BLOCKERS,
+    OPS_PROMOTION_EVIDENCE_INVALID_BLOCKER,
+    OPS_STRICT_GATE_PROMOTION_CONTRACT_VERSION,
     PRODUCTION_24H_BLOCKERS,
+    PRODUCTION_24H_METRICS_CONTRACT_VERSION,
     build_strict_promotion_readiness,
     validate_strict_promotion_readiness,
 )
@@ -57,6 +60,52 @@ def _live_evidence() -> dict:
     )
 
 
+def _production_metrics_artifact() -> dict:
+    artifact = build_24h_metrics_artifact(project_key="demo_proj")
+    artifact.update(
+        {
+            "contract_version": PRODUCTION_24H_METRICS_CONTRACT_VERSION,
+            "artifact_kind": "production_ingest_canary_24h_metrics_readback",
+            "deterministic_fixture": False,
+            "evidence_scope": "production",
+            "generated_by": "ops_production_metrics_export",
+            "source_record": {
+                "record_id": "ops-prod-ingest-24h-20260524",
+                "system": "production_metrics_export",
+                "generated_at": "2026-05-24T00:05:00Z",
+            },
+        }
+    )
+    artifact["window"]["window_label"] = "production_24h"
+    artifact["window"]["live_window_observed"] = True
+    artifact["live_boundaries"].update(
+        {
+            "live_production_canary_claim": True,
+            "metric_24h_live_readback_claim": True,
+            "production_data_claim": True,
+            "closure_claim": False,
+            "remaining_live_gaps": [],
+        }
+    )
+    return artifact
+
+
+def _ops_promotion_evidence() -> dict:
+    return {
+        "contract_version": OPS_STRICT_GATE_PROMOTION_CONTRACT_VERSION,
+        "evidence_scope": "operations",
+        "operations_approval_recorded": True,
+        "production_24h_metrics_reviewed": True,
+        "rollback_plan_recorded": True,
+        "promotion_decision": "promote",
+        "strict_gate_global_default_enabled": True,
+        "approved_by": "ops-oncall",
+        "approved_at": "2026-05-24T00:15:00Z",
+        "approval_ticket": "OPS-INGEST-STRICT-20260524",
+        "rollback_plan_ref": "runbook://ingest-strict-gate-rollback",
+    }
+
+
 class IngestCanaryStrictPromotionReadinessUnitTestCase(unittest.TestCase):
     def test_repo_local_preflight_passes_but_production_and_ops_remain_external(self) -> None:
         report = build_strict_promotion_readiness(
@@ -81,6 +130,61 @@ class IngestCanaryStrictPromotionReadinessUnitTestCase(unittest.TestCase):
             report.promotion_recommendation,
             "do_not_promote_without_production_24h_metrics_and_operations_decision",
         )
+
+    def test_production_metrics_artifact_clears_only_production_blockers(self) -> None:
+        report = build_strict_promotion_readiness(
+            project_key="demo_proj",
+            live_canary_evidence=_live_evidence(),
+            metrics_artifact=_production_metrics_artifact(),
+        )
+        payload = report.to_dict()
+        remaining = {item["id"] for item in payload["remaining_external_blockers"]}
+
+        self.assertEqual(validate_strict_promotion_readiness(payload), [])
+        self.assertEqual(report.status, "external_blocked")
+        self.assertTrue(report.repo_local_preflight_passed)
+        self.assertTrue(report.production_24h_metrics_satisfied)
+        self.assertFalse(report.strict_gate_promotion_satisfied)
+        self.assertFalse(report.closure_claim)
+        self.assertFalse(set(PRODUCTION_24H_BLOCKERS).intersection(remaining))
+        self.assertTrue(set(OPS_PROMOTION_BLOCKERS).issubset(remaining))
+
+    def test_valid_production_and_ops_artifacts_can_close_when_claimed(self) -> None:
+        report = build_strict_promotion_readiness(
+            project_key="demo_proj",
+            live_canary_evidence=_live_evidence(),
+            metrics_artifact=_production_metrics_artifact(),
+            ops_promotion_evidence=_ops_promotion_evidence(),
+            closure_claim=True,
+        )
+        payload = report.to_dict()
+
+        self.assertEqual(validate_strict_promotion_readiness(payload), [])
+        self.assertEqual(report.status, "closed")
+        self.assertTrue(report.closure_claim)
+        self.assertTrue(report.production_24h_metrics_satisfied)
+        self.assertTrue(report.strict_gate_promotion_satisfied)
+        self.assertEqual(payload["remaining_external_blockers"], [])
+        self.assertEqual(report.promotion_recommendation, "promotion_evidence_satisfied")
+
+    def test_invalid_ops_artifact_does_not_clear_ops_boundary(self) -> None:
+        ops_evidence = _ops_promotion_evidence()
+        ops_evidence.pop("approval_ticket")
+        report = build_strict_promotion_readiness(
+            project_key="demo_proj",
+            live_canary_evidence=_live_evidence(),
+            metrics_artifact=_production_metrics_artifact(),
+            ops_promotion_evidence=ops_evidence,
+            closure_claim=True,
+        )
+        payload = report.to_dict()
+        remaining = {item["id"] for item in payload["remaining_external_blockers"]}
+
+        self.assertEqual(validate_strict_promotion_readiness(payload), [])
+        self.assertEqual(report.status, "external_blocked")
+        self.assertFalse(report.closure_claim)
+        self.assertFalse(report.strict_gate_promotion_satisfied)
+        self.assertIn(OPS_PROMOTION_EVIDENCE_INVALID_BLOCKER, remaining)
 
     def test_missing_live_evidence_keeps_repo_local_blocked(self) -> None:
         report = build_strict_promotion_readiness(

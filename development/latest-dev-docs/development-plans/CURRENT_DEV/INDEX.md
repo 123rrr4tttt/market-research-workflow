@@ -44,20 +44,20 @@
 
 ## 本次外部阻塞归档
 
-- `external_blocked` [2026-03-11 Source Library Three-Lane Architecture](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-11-source-library-three-lane-architecture/15_wave55-live-collection-provider-extraction-readback-2026-05-23.md)
+- `closed` [2026-03-11 Source Library Three-Lane Architecture](../../../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-11-source-library-three-lane-architecture/16_wave57-human-review-closure-2026-05-23.md)
 - `closed` [2026-03-14 Source-Library Adapter Capability Remediation](../../../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-14-source-library-adapter-capability-remediation/20_wave49-manual-public-replay-closure-2026-05-23.md)
-- `external_blocked` [2026-03-14 Time Semantics Density Merged Plan](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-time-semantics-density-merged-plan/12_wave55-time-semantics-release-gate-readback-2026-05-23.md)
-- `external_blocked` [2026-03-08 LLM Crawler Unified FrontDoor](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-08-llm-crawler-unified-frontdoor/12_wave55-t5-accessible-high-js-replay-boundary-2026-05-23.md)
+- `external_blocked` [2026-03-14 Time Semantics Density Merged Plan](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-14-time-semantics-density-merged-plan/13_wave56-configured-live-semantic-chain-evidence-2026-05-24.md)
+- `external_blocked` [2026-03-08 LLM Crawler Unified FrontDoor](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-08-llm-crawler-unified-frontdoor/13_wave56-session-aware-high-js-replay-boundary-2026-05-23.md)
 - `closed` [2026-03-09 Agent Symbolic Batch Search Architecture](../../../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-09-agent-symbolic-batch-search-architecture/23_wave53-manual-live-provider-quality-closure-2026-05-23.md)
 - `closed` [2026-03-07 Ingest Digestion And Long-Cycle Automation](../../../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-ingest-digestion-and-long-cycle-automation/11_wave55-live-scheduler-closure-2026-05-23.md)
 - `closed` [2026-03-07 LLM Service And Agent Platformization](../../../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-llm-service-and-agent-platformization/12_wave55-agentcore-external-provider-live-readback-2026-05-24.md)
 - `closed` [2026-03-07 Typed Knowledge Organization](../../../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-typed-knowledge-organization/07_wave54-typed-writing-live-closure-2026-05-23.md)
 - `closed` [2026-03-07 Writing Workbench Evolution](../../../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-writing-workbench-evolution/08_wave54-typed-writing-live-closure-2026-05-23.md)
 - `closed` [2026-03-25 Source-Library Ingest Minimal Migration](../../../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-25-source-library-ingest-minimal-migration/19_wave55-c3-live-replay-closure-2026-05-23.md)
-- `external_blocked` [2026-03-02 Meaningful Ingest Guardrails Plan](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-meaningful-ingest-guardrails-plan/12_wave55-strict-promotion-readiness-2026-05-24.md)
-- `external_blocked` [2026-03-02 Single URL First Ingest Allocation Plan](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-single-url-first-ingest-allocation-plan/12_wave56-crossref-official-api-provider-maturity-2026-05-23.md)
-- `external_blocked` [2026-03-05 OSS Node Platform IO Plan](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-05-oss-node-platform-io-plan/10_wave55-oss-node-search-quality-gate-2026-05-23.md)
-- `external_blocked` [2026-05-14 Global Vectorization General Foundation](../ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-global-vectorization-general-foundation/13_wave56-semantic-vector-quality-gate-2026-05-23.md)
+- `external_blocked` [2026-03-02 Meaningful Ingest Guardrails Plan](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-meaningful-ingest-guardrails-plan/13_wave56-strict-promotion-final-gate-2026-05-24.md)
+- `external_blocked` [2026-03-02 Single URL First Ingest Allocation Plan](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-single-url-first-ingest-allocation-plan/13_wave57-single-url-external-blocker-closure-2026-05-24.md)
+- `closed` [2026-03-05 OSS Node Platform IO Plan](../../../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-05-oss-node-platform-io-plan/11_wave57-oss-node-public-corpus-semantic-relevance-2026-05-23.md)
+- `closed` [2026-05-14 Global Vectorization General Foundation](../../../../docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/14_wave57-production-vector-quality-gate-2026-05-23.md)
 
 ## 本次非目标证据 / 父级汇总
 

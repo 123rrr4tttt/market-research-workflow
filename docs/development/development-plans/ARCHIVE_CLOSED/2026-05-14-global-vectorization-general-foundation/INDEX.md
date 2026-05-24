@@ -1,9 +1,9 @@
 # Global Vectorization General Foundation Index
 
 更新时间：2026-05-23 PST<br>
-状态：`external_blocked` / `wave56_semantic_quality_reduced`。全项目数据向量化 / 标准化 repo-local blocker 已由 Wave30 清零；Wave55 已补 repo-local live embedding provider，Wave56 已在 repo-local production-like evaluation set 范围内关闭 `semantic_embedding_quality_not_proven`。剩余条件是 `production_vector_quality_not_proven` 的真实生产流量或生产语料 replay；本目录仍不迁入 `ARCHIVE_CLOSED`。
+状态：`closed` / `wave57_production_vector_quality_closed` / `archived_closed`。全项目数据向量化 / 标准化 repo-local blocker 已由 Wave30 清零；Wave55 已补 repo-local live embedding provider，Wave56 已在 repo-local production-like evaluation set 范围内关闭 `semantic_embedding_quality_not_proven`；Wave57 已用真实 LanceDB vector-store adapter + production-like devdocs corpus 关闭目标目录迁移范围内的 `production_vector_quality_not_proven`。本目录已迁入 `ARCHIVE_CLOSED`，全局 manifest/index 已同步移除 external target 记录。
 
-防误读：下方 Wave2/Wave3/Wave8/Wave10 段落中的 `partial` 是历史快照；当前 canonical readback 以本 `INDEX.md` 和 `11_wave30-vector-closure-external-blocked-decision-2026-05-23.md` 为准。
+防误读：下方 Wave2/Wave3/Wave8/Wave10 段落中的 `partial` 与 Wave30/Wave55/Wave56 中的 `external_blocked` 是历史快照；当前 canonical readback 以本 `INDEX.md`、`13_wave56-semantic-vector-quality-gate-2026-05-23.md` 和 `14_wave57-production-vector-quality-gate-2026-05-23.md` 为准。
 
 ## 文件
 
@@ -46,10 +46,13 @@
 - [13_wave56-semantic-vector-quality-gate-2026-05-23.md](./13_wave56-semantic-vector-quality-gate-2026-05-23.md)
   Wave56 semantic/vector quality gate：将 provider 版本提升到 `2026-05-23.wave56` / `repo-local-live-v2`，以 5 个 domain、8 个 paraphrase/hard-negative case 和 repeat stability 关闭 repo-local scope 的 `semantic_embedding_quality_not_proven`，并把 `production_vector_quality_not_proven` 降为仅剩真实生产 replay 缺口。
 
+- [14_wave57-production-vector-quality-gate-2026-05-23.md](./14_wave57-production-vector-quality-gate-2026-05-23.md)
+  Wave57 production vector quality gate：以本目录真实 devdocs、既有 local-index LanceDB JSONL artifact 和 automation-run artifact 组成 27 条 production-like corpus，在 `.venv311` 中通过真实 LanceDB vector-store adapter 复跑 6 个 top-1 / hard-negative / repeat-stability case，关闭目标目录迁移范围内的 `production_vector_quality_not_proven`，但不声明真实线上流量质量。
+
 ## 2026-05-22 lane 9 落地
 
 - 分支：`codex/devdocs-local-index-runtime`
-- 证据：[devdocs-lane-9-local-index-runtime-2026-05-22](../../../automation-runs/devdocs-lane-9-local-index-runtime-2026-05-22/README.md)
+- 证据：[devdocs-lane-9-local-index-runtime-2026-05-22](../../../../../development/latest-dev-docs/automation-runs/devdocs-lane-9-local-index-runtime-2026-05-22/README.md)
 - 已落地：`LocalIndexQuery.mode` 合法值冻结为 `keyword|vector|hybrid`；service 规范化未知 mode；LanceDB adapter 按 mode 分发 FTS/vector/hybrid；result 返回 `retrieval_mode/retrieval_family/trace`。
 - 已验证：`git diff --check`、`py_compile`、`test_local_index_service_unittest.py`。
 - 环境边界：lane 9 当时的 Python 环境未安装 `lancedb`，真实 LanceDB runtime smoke 需看后续 optional dependency 环境证据。
@@ -57,8 +60,8 @@
 ## 2026-05-22 Wave2 A/B evidence
 
 - 分支：`codex/devdocs-lancedb-runtime-smoke`、`codex/devdocs-local-index-runtime-artifacts`
-- Runtime 证据：[local-index-lancedb-runtime-smoke/2026-05-22](../../../automation-runs/local-index-lancedb-runtime-smoke/2026-05-22/README.md)
-- Contract 证据：[local-index-runtime-contract/2026-05-22](../../../automation-runs/local-index-runtime-contract/2026-05-22/README.md)
+- Runtime 证据：[local-index-lancedb-runtime-smoke/2026-05-22](../../../../../development/latest-dev-docs/automation-runs/local-index-lancedb-runtime-smoke/2026-05-22/README.md)
+- Contract 证据：[local-index-runtime-contract/2026-05-22](../../../../../development/latest-dev-docs/automation-runs/local-index-runtime-contract/2026-05-22/README.md)
 - 文档收口：`mode=keyword|vector|hybrid` 的 schema/service/result/adapter 证据、CURRENT_DEV 状态、复跑命令已集中到证据包。
 - Runtime 事实：`lancedb==0.24.2` / `pyarrow==24.0.0` 环境中，`keyword`、`vector`、`hybrid` 均在真实 LanceDB table 上返回预期 top row，未触发 fallback。
 - 状态判定：本目录保持 `partial`，不迁入 `ARCHIVE_CLOSED`。下一步未封口项是 embedding/ranking benchmark、统一 vector object schema、主搜索 evidence contract 和 Agent/WritingWorkbench 对齐。
@@ -66,7 +69,7 @@
 ## 2026-05-22 Wave3 A benchmark evidence
 
 - 分支：`codex/devdocs-wave3-lancedb-benchmark`
-- Benchmark 证据：[local-index-lancedb-benchmark/2026-05-22](../../../automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md)
+- Benchmark 证据：[local-index-lancedb-benchmark/2026-05-22](../../../../../development/latest-dev-docs/automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md)
 - 已落地：`ops/search-lab/scripts/local_index_lancedb_benchmark_quality.py`，用受控数据集重复验证 `keyword`、`vector`、`hybrid` 的 top-2 排名稳定性、`project_id/source_id` filter 隔离和 result `trace` 字段。
 - Runtime 事实：`lancedb==0.24.2` / `pyarrow==24.0.0` 环境中，三种 mode 的受控 benchmark 均通过，且 vector/hybrid 未触发 keyword fallback。
 - 状态判定：受控 adapter ranking benchmark 已推进；本目录仍保持 `partial`，因为真实 embedding model 的语义相关性、embedding version/provenance 和主搜索 evidence contract 尚未封口。
@@ -74,7 +77,7 @@
 ## 2026-05-22 Wave8-8 deterministic closure slice
 
 - 分支：`codex/devdocs-wave8-search-vectorization`
-- Evidence：[wave8-search-vectorization-contract/2026-05-22](../../../automation-runs/wave8-search-vectorization-contract/2026-05-22/README.md)
+- Evidence：[wave8-search-vectorization-contract/2026-05-22](../../../../../development/latest-dev-docs/automation-runs/wave8-search-vectorization-contract/2026-05-22/README.md)
 - 已落地：`ops/search-lab/scripts/wave8_search_vectorization_contract.py` 将 search provider trace、SearXNG/YaCy container replay 摘要、LanceDB runtime smoke、LanceDB benchmark 串成一个无外网、无容器启动的 deterministic gate。
 - 已验证：`local_index` 的 `keyword|vector|hybrid` runtime smoke 与 benchmark evidence 均为 `passed`，且 checker 继续保留真实 embedding 语义质量、全局 vector contract、当前容器可用性未复跑三个缺口。
 - 状态判定：本 slice 关闭的是 evidence 漂移与 contract 复核缺口，不改变本目录 `partial` 状态。
@@ -82,7 +85,7 @@
 ## 2026-05-22 Wave10 worker6 quality gate
 
 - 分支：`codex/devdocs-wave10-vectorization-quality`
-- Evidence：[wave10-vectorization-quality-gate/2026-05-22](../../../automation-runs/wave10-vectorization-quality-gate/2026-05-22/README.md)
+- Evidence：[wave10-vectorization-quality-gate/2026-05-22](../../../../../development/latest-dev-docs/automation-runs/wave10-vectorization-quality-gate/2026-05-22/README.md)
 - 已落地：`ops/search-lab/scripts/wave10_vectorization_quality_gate.py` 对 provider trace、runtime smoke、benchmark fixture threshold 与 fallback reason 做统一 deterministic 检查；新增 unit gate 覆盖 contract 输出。
 - 已验证：`quality_thresholds.required_modes=keyword, vector, hybrid`；ranking/filter case 数与 repeat 数达标；`vector` / `hybrid` runtime exception fallback 到 keyword 时保留 `fallback_from` 与 `fallback_reason=RuntimeError`。
 - 状态判定：这是质量门槛与 trace 可解释性推进，不把受控 fixture benchmark 宣称为生产 embedding 语义质量封口。
@@ -92,6 +95,6 @@
 - 搜索 provider 解隔离继续归 `../2026-05-14-local-open-search-provider-isolation/`。
 - 数据向量化、chunk/material 标准化、hybrid retrieval、向量版本化和 provenance 归本目录。
 - 本目录已开始落地 runtime contract 与受控 benchmark evidence；lane 9/Wave3 A 均保持 `local_index` optional boundary，不引入 LanceDB 强依赖。
-- Wave30 已关闭仓内 retrieval persistence、stored payload provenance、Agent matrix join blocker；Wave55 已补 repo-local live embedding provider；Wave56 已补 repo-local production-like semantic/vector quality gate。
-- 本目录仍不声明真实生产流量或生产语料 replay 已封口，因此 `production_vector_quality_not_proven` 仍是全局迁 closed 前的剩余条件。
+- Wave30 已关闭仓内 retrieval persistence、stored payload provenance、Agent matrix join blocker；Wave55 已补 repo-local live embedding provider；Wave56 已补 repo-local production-like semantic/vector quality gate；Wave57 已补真实 LanceDB vector-store adapter 上的 production-like devdocs corpus replay。
+- 本目录不声明真实线上流量质量，也不声明外部 OpenAI/Azure embedding API 已 live 调用；但目标目录迁移范围内的 `production_vector_quality_not_proven` 已由 Wave57 关闭，本目录已迁入 `ARCHIVE_CLOSED`。
 - 02 号文档本来就是 2026-05-14 文档，文件名和主体保留；仅由本目录索引继续引用。

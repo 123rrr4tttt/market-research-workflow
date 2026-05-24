@@ -1,0 +1,185 @@
+{
+  "closure": {
+    "accessible_public_high_js_replay_complete": true,
+    "claim": "accessible_public_high_js_replay_complete_external_targets_blocked",
+    "deterministic_fixture_ready": true,
+    "full_closure_allowed": false,
+    "real_public_high_js_replay_complete": false,
+    "remaining_external_blockers": [
+      {
+        "classification": "intrinsic_external_auth_or_anti_bot_gate",
+        "markers": {
+          "contains_captcha": false,
+          "contains_javascript_disabled": false,
+          "contains_login": true,
+          "contains_robotics": false,
+          "contains_video_title": false,
+          "title": "X - 包罗万象的应用 / X"
+        },
+        "reason": "Headless Chrome rendered the page, but public content was gated by auth or anti-bot markers.",
+        "status": "auth_or_anti_bot_blocked",
+        "target_id": "x_search_robotics",
+        "url": "https://x.com/search?q=robotics"
+      }
+    ]
+  },
+  "contract_version": "llm_crawler.high_js_replay_readiness.v1",
+  "deterministic_fixture": {
+    "provider_handoff": {
+      "assertions": {
+        "authority_provider_summary": true,
+        "frontdoor_browser_route": true,
+        "frontdoor_provider_dispatch": true,
+        "terminal_handoff_contract": true,
+        "terminal_provider_job_id": true
+      },
+      "contract_version": "crawler_provider_handoff.check.v1",
+      "fixture_target": "https://x.com/search?q=robotics",
+      "public_network_attempted": false,
+      "status": "passed"
+    },
+    "ready": true,
+    "target_count": 3,
+    "target_profiles": [
+      {
+        "domain": "x.com",
+        "fetch_strategy": "browser_render",
+        "high_js": true,
+        "render_required": true,
+        "route_hint": "crawler_browse",
+        "router_contract": {
+          "browser_fetch_required": true,
+          "contract_version": "ingest.frontdoor_fetch_router.v1",
+          "crawler_provider_allowed": true,
+          "dashboard_status": "degraded_success",
+          "http_fetch_fallback_allowed": false,
+          "public_browser_replay_performed": false,
+          "reason_code": "needs_browser_runtime",
+          "router_state": "needs_browser"
+        },
+        "target_id": "x_search_robotics",
+        "url": "https://x.com/search?q=robotics"
+      },
+      {
+        "domain": "instagram.com",
+        "fetch_strategy": "browser_render",
+        "high_js": true,
+        "render_required": true,
+        "route_hint": "crawler_browse",
+        "router_contract": {
+          "browser_fetch_required": true,
+          "contract_version": "ingest.frontdoor_fetch_router.v1",
+          "crawler_provider_allowed": true,
+          "dashboard_status": "degraded_success",
+          "http_fetch_fallback_allowed": false,
+          "public_browser_replay_performed": false,
+          "reason_code": "needs_browser_runtime",
+          "router_state": "needs_browser"
+        },
+        "target_id": "instagram_tag_robotics",
+        "url": "https://www.instagram.com/explore/tags/robotics/"
+      },
+      {
+        "domain": "youtube.com",
+        "fetch_strategy": "browser_render",
+        "high_js": true,
+        "render_required": true,
+        "route_hint": "crawler_browse",
+        "router_contract": {
+          "browser_fetch_required": true,
+          "contract_version": "ingest.frontdoor_fetch_router.v1",
+          "crawler_provider_allowed": true,
+          "dashboard_status": "degraded_success",
+          "http_fetch_fallback_allowed": false,
+          "public_browser_replay_performed": false,
+          "reason_code": "needs_browser_runtime",
+          "router_state": "needs_browser"
+        },
+        "target_id": "youtube_search_robotics",
+        "url": "https://www.youtube.com/results?search_query=robotics"
+      }
+    ]
+  },
+  "evidence_doc": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-08-llm-crawler-unified-frontdoor/06_wave13-high-js-public-replay-readiness-2026-05-22.md",
+  "public_high_js_replay": {
+    "accessible_public_high_js_replay_proven": true,
+    "blocker_type": "intrinsic_external_auth_or_anti_bot_gate",
+    "contract_version": "llm_crawler.high_js_public_replay.v1",
+    "external_gate_blockers_proven": true,
+    "external_gate_target_ids": [
+      "x_search_robotics"
+    ],
+    "full_closure_allowed": false,
+    "high_js_success_count": 2,
+    "path": "development/latest-dev-docs/automation-runs/llm-crawler-high-js-public-replay/2026-05-23/output.public.session-aware-attempt.json",
+    "public_high_js_probe_target_ids": [
+      "x_search_robotics",
+      "instagram_tag_robotics",
+      "youtube_search_robotics"
+    ],
+    "public_network_attempted": true,
+    "public_targets_attempted": 3,
+    "real_public_high_js_replay_proven": false,
+    "remaining_external_blockers": [
+      {
+        "classification": "intrinsic_external_auth_or_anti_bot_gate",
+        "markers": {
+          "contains_captcha": false,
+          "contains_javascript_disabled": false,
+          "contains_login": true,
+          "contains_robotics": false,
+          "contains_video_title": false,
+          "title": "X - 包罗万象的应用 / X"
+        },
+        "reason": "Headless Chrome rendered the page, but public content was gated by auth or anti-bot markers.",
+        "status": "auth_or_anti_bot_blocked",
+        "target_id": "x_search_robotics",
+        "url": "https://x.com/search?q=robotics"
+      }
+    ],
+    "requirements": {
+      "accessible_targets_successful": true,
+      "all_probe_targets_accounted_for": true,
+      "all_targets_successful": false,
+      "contract_version_ok": true,
+      "explicit_proof": false,
+      "external_gate_blockers_proven": true,
+      "public_network_attempted": true,
+      "session_evidence_contract_ok": true,
+      "sufficient_targets": true
+    },
+    "session_replay_evidence": {
+      "contract_version": "llm_crawler.high_js_session_replay_evidence.v1",
+      "copy_session_user_data_dir": false,
+      "credential_material_logged": false,
+      "path_disclosed": false,
+      "session_aware_replay_requested": false,
+      "session_context_applied": false,
+      "source": "none",
+      "status": "present",
+      "user_data_dir_mode": "ephemeral_empty_profile"
+    },
+    "status": "accessible_replay_proven_external_targets_blocked",
+    "successful_accessible_target_ids": [
+      "instagram_tag_robotics",
+      "youtube_search_robotics"
+    ],
+    "target_count": 3
+  },
+  "repo_root": "/Users/wangyiliang/market-research-workflow",
+  "scope": "llm_crawler_unified_frontdoor_high_js_public_replay_boundary",
+  "status": "accessible_public_high_js_replay_proven_external_targets_blocked",
+  "validation": {
+    "errors": [],
+    "passed": true,
+    "protected_shared_indexes": [
+      "development/latest-dev-docs/development-plans/CURRENT_DEV/INDEX.md",
+      "development/latest-dev-docs/development-plans/CURRENT_DEV/STATUS_AUDIT_2026-04-07.md",
+      "development/latest-dev-docs/development-plans/INDEX.md",
+      "development/latest-dev-docs/README.md",
+      "development/latest-dev-docs/MERGED_OVERVIEW.md"
+    ],
+    "public_network_attempted": true,
+    "shared_indexes_edited": false
+  }
+}

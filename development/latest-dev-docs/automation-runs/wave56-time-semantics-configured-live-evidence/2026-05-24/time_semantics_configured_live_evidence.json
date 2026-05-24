@@ -1,0 +1,409 @@
+{
+  "cleanup_performed": true,
+  "configured_services_used": true,
+  "contract_version": "time-semantics.configured-semantic-chain-evidence.v1",
+  "data_source": "configured_db_production_like_sample",
+  "decision_log_features_readback": true,
+  "decision_log_row_count": 3,
+  "decision_log_rows_readback": true,
+  "effective_time_source_distribution_readback": true,
+  "evidence_tier": "production_like",
+  "feedback_reward_alignment_readback": true,
+  "feedback_row_count": 3,
+  "generated_at": "2026-05-24T02:20:36.846939+00:00",
+  "inserted_doc_count": 4,
+  "live_query_used": true,
+  "production_data_semantic_chain_verified": true,
+  "project_key": "demo_proj",
+  "request_ids": [
+    "638978303f8a45d69e38c5010b906e06"
+  ],
+  "sample_rows": [
+    {
+      "chosen_window": "7d",
+      "created_at": "2026-05-23T19:20:36.801064-07:00",
+      "features_json": {
+        "collection_priority_score": 0.4882191780821918,
+        "contract_version": "time-density-decision-log-freshness-contract.v1",
+        "density": 0.03333333333333333,
+        "dup_ratio": 0.0,
+        "effective_time_provenance": {
+          "fallback_chain": [
+            "extracted_data.effective_time",
+            "extracted_data.source_time",
+            "extracted_data.policy.effective_date",
+            "publish_date",
+            "created_at"
+          ],
+          "gap_counts": {
+            "effective_time_missing": 4
+          },
+          "parse_versions": [
+            "source-time-window-v1"
+          ],
+          "source_counts": {
+            "source_time": 4
+          },
+          "total_docs": 4
+        },
+        "effective_time_source_distribution": {
+          "created_at_fallback_count": 0,
+          "explicit_semantic_time_count": 4,
+          "explicit_semantic_time_coverage": 1.0,
+          "fallback_chain": [
+            "extracted_data.effective_time",
+            "extracted_data.source_time",
+            "extracted_data.policy.effective_date",
+            "publish_date",
+            "created_at"
+          ],
+          "fallback_doc_count": 0,
+          "fallback_rate": 0.0,
+          "gap_counts": {
+            "effective_time_missing": 4
+          },
+          "missing_effective_time_count": 4,
+          "parse_versions": [
+            "source-time-window-v1"
+          ],
+          "source_counts": {
+            "source_time": 4
+          },
+          "source_ratios": {
+            "source_time": 1.0
+          },
+          "source_time_count": 4,
+          "source_time_coverage": 1.0,
+          "total_docs": 4
+        },
+        "explicit_semantic_time_coverage": 1.0,
+        "latent_density_score": 0.75,
+        "live_data_gap_markers": [
+          "effective_time_gap:effective_time_missing",
+          "production_freshness_probe_not_run",
+          "prompt_time_window_feedback_pending"
+        ],
+        "norm_density": 0.75,
+        "ope_freshness_inputs": {
+          "chosen_window": "7d",
+          "decision_log_table": "public.prompt_time_policy_decision_logs",
+          "default_stale_after_hours": 48.0,
+          "feedback_join_keys": [
+            "request_id",
+            "source_domain",
+            "noun_group_id",
+            "window"
+          ],
+          "feedback_table": "public.prompt_time_window_feedback",
+          "freshness_timestamp_field": "created_at",
+          "freshness_timestamp_source": "database_server_default",
+          "is_chosen": false,
+          "p_base": 0.3333333333333333,
+          "p_new": 0.27756856235778626,
+          "request_id": "638978303f8a45d69e38c5010b906e06",
+          "reward_fallback": "reward_proxy_from_features",
+          "reward_field": "observed_reward",
+          "window": "30d"
+        },
+        "peak_pressure": 0.75,
+        "priority_decision_trace": {
+          "avoid_peak": true,
+          "behavior_policy": "highest_p_base_window_for_ope_replay",
+          "chosen_window": "7d",
+          "delta_max": 1.0,
+          "eta": 1.0,
+          "exclude_high_dup": true,
+          "is_chosen": false,
+          "min_overlap": 0.35,
+          "prefer_low_density": true,
+          "rank": 3,
+          "sort_order": [
+            "p_new_desc",
+            "collection_priority_score_asc",
+            "vector_overlap_desc"
+          ],
+          "target_overlap": 0.95,
+          "tau": 10.0
+        },
+        "source_time_coverage": 1.0,
+        "target_overlap": 0.95,
+        "target_overlap_gap": 0.15000000000000002
+      },
+      "feedback_json": {
+        "contract_version": "time-semantics.configured-semantic-chain-evidence.v1",
+        "is_chosen": false,
+        "source": "configured_db_production_like_sample"
+      },
+      "is_chosen": false,
+      "noun_group_id": "robotics_live_gate",
+      "observed_reward": 0.54,
+      "p_base": 0.333333,
+      "p_new": 0.277569,
+      "policy_version": "density-cloud-v1",
+      "project_key": "demo_proj",
+      "request_id": "638978303f8a45d69e38c5010b906e06",
+      "source_domain": "time-semantics-prodlike.example",
+      "vector_overlap": 0.8,
+      "window": "30d"
+    },
+    {
+      "chosen_window": "7d",
+      "created_at": "2026-05-23T19:20:36.801064-07:00",
+      "features_json": {
+        "collection_priority_score": 1.9304892367906064,
+        "contract_version": "time-density-decision-log-freshness-contract.v1",
+        "density": 0.14285714285714285,
+        "dup_ratio": 0.0,
+        "effective_time_provenance": {
+          "fallback_chain": [
+            "extracted_data.effective_time",
+            "extracted_data.source_time",
+            "extracted_data.policy.effective_date",
+            "publish_date",
+            "created_at"
+          ],
+          "gap_counts": {
+            "effective_time_missing": 4
+          },
+          "parse_versions": [
+            "source-time-window-v1"
+          ],
+          "source_counts": {
+            "source_time": 4
+          },
+          "total_docs": 4
+        },
+        "effective_time_source_distribution": {
+          "created_at_fallback_count": 0,
+          "explicit_semantic_time_count": 4,
+          "explicit_semantic_time_coverage": 1.0,
+          "fallback_chain": [
+            "extracted_data.effective_time",
+            "extracted_data.source_time",
+            "extracted_data.policy.effective_date",
+            "publish_date",
+            "created_at"
+          ],
+          "fallback_doc_count": 0,
+          "fallback_rate": 0.0,
+          "gap_counts": {
+            "effective_time_missing": 4
+          },
+          "missing_effective_time_count": 4,
+          "parse_versions": [
+            "source-time-window-v1"
+          ],
+          "source_counts": {
+            "source_time": 4
+          },
+          "source_ratios": {
+            "source_time": 1.0
+          },
+          "source_time_count": 4,
+          "source_time_coverage": 1.0,
+          "total_docs": 4
+        },
+        "explicit_semantic_time_coverage": 1.0,
+        "latent_density_score": 3.214285714285714,
+        "live_data_gap_markers": [
+          "effective_time_gap:effective_time_missing",
+          "production_freshness_probe_not_run",
+          "prompt_time_window_feedback_pending"
+        ],
+        "norm_density": 3.214285714285714,
+        "ope_freshness_inputs": {
+          "chosen_window": "7d",
+          "decision_log_table": "public.prompt_time_policy_decision_logs",
+          "default_stale_after_hours": 48.0,
+          "feedback_join_keys": [
+            "request_id",
+            "source_domain",
+            "noun_group_id",
+            "window"
+          ],
+          "feedback_table": "public.prompt_time_window_feedback",
+          "freshness_timestamp_field": "created_at",
+          "freshness_timestamp_source": "database_server_default",
+          "is_chosen": true,
+          "p_base": 0.3333333333333333,
+          "p_new": 0.4319875383224428,
+          "request_id": "638978303f8a45d69e38c5010b906e06",
+          "reward_fallback": "reward_proxy_from_features",
+          "reward_field": "observed_reward",
+          "window": "7d"
+        },
+        "peak_pressure": 1.0,
+        "priority_decision_trace": {
+          "avoid_peak": true,
+          "behavior_policy": "highest_p_base_window_for_ope_replay",
+          "chosen_window": "7d",
+          "delta_max": 1.0,
+          "eta": 1.0,
+          "exclude_high_dup": true,
+          "is_chosen": true,
+          "min_overlap": 0.35,
+          "prefer_low_density": true,
+          "rank": 1,
+          "sort_order": [
+            "p_new_desc",
+            "collection_priority_score_asc",
+            "vector_overlap_desc"
+          ],
+          "target_overlap": 0.95,
+          "tau": 10.0
+        },
+        "source_time_coverage": 1.0,
+        "target_overlap": 0.95,
+        "target_overlap_gap": 0.0
+      },
+      "feedback_json": {
+        "contract_version": "time-semantics.configured-semantic-chain-evidence.v1",
+        "is_chosen": true,
+        "source": "configured_db_production_like_sample"
+      },
+      "is_chosen": true,
+      "noun_group_id": "robotics_live_gate",
+      "observed_reward": 0.82,
+      "p_base": 0.333333,
+      "p_new": 0.431988,
+      "policy_version": "density-cloud-v1",
+      "project_key": "demo_proj",
+      "request_id": "638978303f8a45d69e38c5010b906e06",
+      "source_domain": "time-semantics-prodlike.example",
+      "vector_overlap": 1.0,
+      "window": "7d"
+    },
+    {
+      "chosen_window": "7d",
+      "created_at": "2026-05-23T19:20:36.801064-07:00",
+      "features_json": {
+        "collection_priority_score": 0.21799086757990868,
+        "contract_version": "time-density-decision-log-freshness-contract.v1",
+        "density": 0.011111111111111112,
+        "dup_ratio": 0.0,
+        "effective_time_provenance": {
+          "fallback_chain": [
+            "extracted_data.effective_time",
+            "extracted_data.source_time",
+            "extracted_data.policy.effective_date",
+            "publish_date",
+            "created_at"
+          ],
+          "gap_counts": {
+            "effective_time_missing": 4
+          },
+          "parse_versions": [
+            "source-time-window-v1"
+          ],
+          "source_counts": {
+            "source_time": 4
+          },
+          "total_docs": 4
+        },
+        "effective_time_source_distribution": {
+          "created_at_fallback_count": 0,
+          "explicit_semantic_time_count": 4,
+          "explicit_semantic_time_coverage": 1.0,
+          "fallback_chain": [
+            "extracted_data.effective_time",
+            "extracted_data.source_time",
+            "extracted_data.policy.effective_date",
+            "publish_date",
+            "created_at"
+          ],
+          "fallback_doc_count": 0,
+          "fallback_rate": 0.0,
+          "gap_counts": {
+            "effective_time_missing": 4
+          },
+          "missing_effective_time_count": 4,
+          "parse_versions": [
+            "source-time-window-v1"
+          ],
+          "source_counts": {
+            "source_time": 4
+          },
+          "source_ratios": {
+            "source_time": 1.0
+          },
+          "source_time_count": 4,
+          "source_time_coverage": 1.0,
+          "total_docs": 4
+        },
+        "explicit_semantic_time_coverage": 1.0,
+        "latent_density_score": 0.25,
+        "live_data_gap_markers": [
+          "effective_time_gap:effective_time_missing",
+          "production_freshness_probe_not_run",
+          "prompt_time_window_feedback_pending"
+        ],
+        "norm_density": 0.25,
+        "ope_freshness_inputs": {
+          "chosen_window": "7d",
+          "decision_log_table": "public.prompt_time_policy_decision_logs",
+          "default_stale_after_hours": 48.0,
+          "feedback_join_keys": [
+            "request_id",
+            "source_domain",
+            "noun_group_id",
+            "window"
+          ],
+          "feedback_table": "public.prompt_time_window_feedback",
+          "freshness_timestamp_field": "created_at",
+          "freshness_timestamp_source": "database_server_default",
+          "is_chosen": false,
+          "p_base": 0.3333333333333333,
+          "p_new": 0.290443899319771,
+          "request_id": "638978303f8a45d69e38c5010b906e06",
+          "reward_fallback": "reward_proxy_from_features",
+          "reward_field": "observed_reward",
+          "window": "90d"
+        },
+        "peak_pressure": 0.25,
+        "priority_decision_trace": {
+          "avoid_peak": true,
+          "behavior_policy": "highest_p_base_window_for_ope_replay",
+          "chosen_window": "7d",
+          "delta_max": 1.0,
+          "eta": 1.0,
+          "exclude_high_dup": true,
+          "is_chosen": false,
+          "min_overlap": 0.35,
+          "prefer_low_density": true,
+          "rank": 2,
+          "sort_order": [
+            "p_new_desc",
+            "collection_priority_score_asc",
+            "vector_overlap_desc"
+          ],
+          "target_overlap": 0.95,
+          "tau": 10.0
+        },
+        "source_time_coverage": 1.0,
+        "target_overlap": 0.95,
+        "target_overlap_gap": 0.21666666666666667
+      },
+      "feedback_json": {
+        "contract_version": "time-semantics.configured-semantic-chain-evidence.v1",
+        "is_chosen": false,
+        "source": "configured_db_production_like_sample"
+      },
+      "is_chosen": false,
+      "noun_group_id": "robotics_live_gate",
+      "observed_reward": 0.54,
+      "p_base": 0.333333,
+      "p_new": 0.290444,
+      "policy_version": "density-cloud-v1",
+      "project_key": "demo_proj",
+      "request_id": "638978303f8a45d69e38c5010b906e06",
+      "source_domain": "time-semantics-prodlike.example",
+      "vector_overlap": 0.733333,
+      "window": "90d"
+    }
+  ],
+  "semantic_chain_sample_count": 1,
+  "source_time_count": 12,
+  "source_time_coverage": 1.0,
+  "source_time_coverage_measured": true,
+  "source_time_total_docs": 12
+}

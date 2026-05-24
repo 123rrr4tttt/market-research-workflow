@@ -1,0 +1,873 @@
+{
+  "closure_decision": {
+    "can_be_closed": false,
+    "closure_claim": false,
+    "remaining_external_blockers": [
+      {
+        "classification": "intrinsic_external_auth_or_anti_bot_gate",
+        "detail": "Headless Chrome rendered the page, but public content was gated by auth or anti-bot markers.",
+        "id": "public_high_js_x_search_robotics"
+      },
+      {
+        "classification": "external_live_operational",
+        "detail": "Production 24h metrics require production live-window readback, not a repo-local fixture.",
+        "id": "production_24h_rejection_rate_readback_not_available"
+      },
+      {
+        "classification": "external_live_operational",
+        "detail": "Production 24h metrics require production live-window readback, not a repo-local fixture.",
+        "id": "production_24h_inserted_valid_ratio_readback_not_available"
+      },
+      {
+        "classification": "external_live_operational",
+        "detail": "Production 24h metrics require production live-window readback, not a repo-local fixture.",
+        "id": "production_guardrail_rollout_counts_readback_not_available"
+      },
+      {
+        "classification": "external_live_operational",
+        "detail": "All-project strict-gate promotion remains operations-owned.",
+        "id": "operations_strict_gate_promotion_decision_not_recorded"
+      },
+      {
+        "classification": "external_live_operational",
+        "detail": "All-project strict-gate promotion remains operations-owned.",
+        "id": "operations_strict_gate_global_default_not_enabled"
+      },
+      {
+        "classification": "external_provider_account",
+        "detail": "Only public arXiv/Crossref official APIs are validated; credentialed provider quota beyond Crossref is not configured in repo.",
+        "id": "provider_credentials_quota_beyond_public_crossref_not_validated"
+      }
+    ],
+    "repo_public_boundaries_reduced": {
+      "crossref_public_official_api": true,
+      "public_browser_runtime_replay": true,
+      "repo_local_24h_metric_shape": true,
+      "repo_local_configured_canary": true
+    },
+    "status": "external_blocked"
+  },
+  "configured_provider_boundary": {
+    "closure_claim": false,
+    "configured_provider": {
+      "config_state": "configured",
+      "live_probe_status": "passed",
+      "provider_key": "source_library_frontdoor",
+      "runtime": "repo_local_api_db_runtime"
+    },
+    "contract_version": "ingest.configured_provider_canary_boundary.v1",
+    "evidence_present": true,
+    "frontdoor_run": {
+      "allowed_entrypoints": [
+        "ingest.url_pool",
+        "ingest.url.single"
+      ],
+      "entrypoint": "ingest.url.single",
+      "project_key": "single_url_wave57_canary",
+      "source_mode": "url_execution",
+      "source_url": "https://example.com/wave55-production-like-4a4695ab8d"
+    },
+    "handoff_readback": {
+      "closure_claim": false,
+      "contract_version": "ingest.single_url_canary_handoff.v1",
+      "handoff_state": "live_canary_validated"
+    },
+    "live_canary_validated": true,
+    "project_key": "single_url_wave57_canary",
+    "status": "validated",
+    "validation": {
+      "checks": {
+        "closure_not_claimed_by_boundary": true,
+        "configured_provider_configured": true,
+        "configured_provider_live_runtime_validated": true,
+        "configured_provider_selected": true,
+        "frontdoor_entrypoint_is_single_url_frontdoor": true,
+        "frontdoor_project_matches": true,
+        "frontdoor_source_mode_is_url_execution": true,
+        "frontdoor_source_url_is_public_url": true,
+        "handoff_contract_read_back": true
+      },
+      "failed_checks": [],
+      "missing_fields": [],
+      "passed": true
+    }
+  },
+  "contract_version": "single_url.external_blocker_closure.v1",
+  "decision_marker": "single_url_external_blocker_repo_public_reduced",
+  "evidence_doc": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-single-url-first-ingest-allocation-plan/13_wave57-single-url-external-blocker-closure-2026-05-24.md",
+  "live_canary_result": {
+    "cleanup": {
+      "error": null,
+      "performed": true,
+      "schema_name": "project_single_url_wave57_canary"
+    },
+    "contract_version": "ingest.single_url_canary_handoff.production_like_check.v1",
+    "evidence": {
+      "accepted_url": "https://example.com/wave55-production-like-4a4695ab8d",
+      "api_endpoint": "/api/v1/ingest/url/single",
+      "api_runtime": {
+        "accepted_status": "success",
+        "accepted_status_code": 200,
+        "rejected_status": "failed",
+        "rejected_status_code": 200
+      },
+      "closure_claim": false,
+      "contract_version": "ingest.single_url_canary_handoff.live_evidence.v1",
+      "db_readback": {
+        "accepted_doc_count": 1,
+        "accepted_doc_ids": [
+          1
+        ],
+        "accepted_titles": [
+          "Wave55 production-like guardrail article"
+        ],
+        "rejected_doc_count": 0,
+        "rejected_doc_ids": []
+      },
+      "guardrail_readback": {
+        "accepted_handoff_state": "partial_live_gap_open",
+        "accepted_rollout_channel": "canary",
+        "accepted_strict_gate_state": "strict_passed",
+        "rejected_handoff_state": "partial_live_gap_open",
+        "rejected_reason_code": "domain_blocked",
+        "rejected_rollout_channel": "canary",
+        "rejected_strict_gate_state": "strict_blocked"
+      },
+      "live_canary_validated": true,
+      "project_key": "single_url_wave57_canary",
+      "rejected_url": "https://example.com/search?q=wave55-4a4695ab8d",
+      "remaining_external_gaps": [
+        "production 24h rejection-rate readback remains open",
+        "production 24h inserted-valid ratio readback remains open",
+        "production all-project strict-gate enablement remains operations-owned"
+      ],
+      "validation_checks": {
+        "api_runtime_validated": true,
+        "db_readback_validated": true,
+        "guardrail_block_observed": true,
+        "guardrail_pass_observed": true,
+        "handoff_readback_present": true
+      },
+      "validation_scope": "repo_local_api_db_runtime"
+    },
+    "project_key": "single_url_wave57_canary",
+    "status": "passed",
+    "validation": {
+      "contract_version": "ingest.single_url_canary_handoff.production_like_check.v1",
+      "failed_checks": [],
+      "passed": true,
+      "status": "passed",
+      "validation_checks": {
+        "api_runtime_validated": true,
+        "contract_version": true,
+        "db_readback_validated": true,
+        "guardrail_block_observed": true,
+        "guardrail_pass_observed": true,
+        "handoff_readback_present": true,
+        "live_canary_validated": true,
+        "no_closure_claim": true,
+        "validation_scope": true
+      }
+    }
+  },
+  "official_api_provider_maturity": {
+    "closure_claim": false,
+    "contract_version": "single_url.official_api_provider_maturity.v1",
+    "decision_marker": "single_url_non_arxiv_official_api_provider_reduced",
+    "fixture_probe": {
+      "http_call_count": 1,
+      "result": {
+        "candidate_records": [
+          {
+            "doi": "10.5555/single-url-crossref-1",
+            "publisher": "Fixture Publisher",
+            "title": "Single URL Robotics Market Evidence",
+            "type": "journal-article",
+            "url": "https://doi.org/10.5555/single-url-crossref-1"
+          },
+          {
+            "doi": "10.5555/single-url-crossref-2",
+            "publisher": "Fixture Publisher",
+            "title": "Single URL Automation Evidence",
+            "type": "proceedings-article",
+            "url": "https://doi.org/10.5555/single-url-crossref-2"
+          }
+        ],
+        "candidates": [
+          "https://doi.org/10.5555/single-url-crossref-1",
+          "https://doi.org/10.5555/single-url-crossref-2"
+        ],
+        "diagnostics": {
+          "credential_required": false,
+          "endpoint": "https://api.crossref.org/works",
+          "provider_key": "crossref",
+          "public_api": true,
+          "query": "single url robotics market",
+          "records_total": 2,
+          "rows": 5,
+          "selected_candidates": 2,
+          "selection_mode": "crossref_message_items"
+        },
+        "errors": [],
+        "inserted": 2,
+        "message": "official_access.api executed via Crossref works API",
+        "pages_scanned": 1,
+        "skipped": 0,
+        "used_term_fallback": false,
+        "written": null
+      }
+    },
+    "live_crossref": {
+      "candidate_count": 3,
+      "diagnostics": {
+        "credential_required": false,
+        "endpoint": "https://api.crossref.org/works",
+        "provider_key": "crossref",
+        "public_api": true,
+        "query": "robotics market adoption",
+        "records_total": 883750,
+        "rows": 3,
+        "selected_candidates": 3,
+        "selection_mode": "crossref_message_items"
+      },
+      "errors": [],
+      "result": {
+        "candidate_records": [
+          {
+            "doi": "10.2139/ssrn.5271347",
+            "publisher": "Elsevier BV",
+            "title": "Driving Large-Scale Adoption of Surgical Navigation and Robotics: Lessons from the Latin American Market",
+            "type": "posted-content",
+            "url": "https://doi.org/10.2139/ssrn.5271347"
+          },
+          {
+            "doi": "10.4172/2168-9695.1000164",
+            "publisher": "OMICS Publishing Group",
+            "title": "Top Robotics Market Majorly Driven by the Growing Adoption of IoT and AI",
+            "type": "journal-article",
+            "url": "https://doi.org/10.4172/2168-9695.1000164"
+          },
+          {
+            "doi": "10.1016/j.fopow.2023.11.031",
+            "publisher": "Elsevier BV",
+            "title": "Adoption of robotics across various industry verticals is impacting the coatings market",
+            "type": "journal-article",
+            "url": "https://doi.org/10.1016/j.fopow.2023.11.031"
+          }
+        ],
+        "candidates": [
+          "https://doi.org/10.2139/ssrn.5271347",
+          "https://doi.org/10.4172/2168-9695.1000164",
+          "https://doi.org/10.1016/j.fopow.2023.11.031"
+        ],
+        "diagnostics": {
+          "credential_required": false,
+          "endpoint": "https://api.crossref.org/works",
+          "provider_key": "crossref",
+          "public_api": true,
+          "query": "robotics market adoption",
+          "records_total": 883750,
+          "rows": 3,
+          "selected_candidates": 3,
+          "selection_mode": "crossref_message_items"
+        },
+        "errors": [],
+        "inserted": 3,
+        "message": "official_access.api executed via Crossref works API",
+        "pages_scanned": 1,
+        "skipped": 0,
+        "used_term_fallback": false,
+        "written": null
+      },
+      "sample_candidates": [
+        "https://doi.org/10.2139/ssrn.5271347",
+        "https://doi.org/10.4172/2168-9695.1000164",
+        "https://doi.org/10.1016/j.fopow.2023.11.031"
+      ],
+      "status": "passed"
+    },
+    "non_arxiv_provider_maturity": {
+      "closed_provider": "crossref",
+      "credential_required": false,
+      "provider_scope": "public Crossref works API",
+      "remaining_provider_catalog_boundary": [
+        "provider-specific credentials and quota behavior beyond public Crossref remain external",
+        "public browser/runtime replay remains external to this gate",
+        "configured demo_proj canary and production 24h readback remain external/live"
+      ]
+    },
+    "runtime_results": [
+      {
+        "evidence": {
+          "category": "api_preferred",
+          "implementation_hint": "official_access.api",
+          "provider_key": "crossref"
+        },
+        "name": "crossref_policy_is_api_preferred",
+        "passed": true
+      },
+      {
+        "evidence": {
+          "candidate_count": 2,
+          "http_call_count": 1,
+          "provider_key": "crossref"
+        },
+        "name": "crossref_official_api_fixture_returns_candidates",
+        "passed": true
+      },
+      {
+        "evidence": {
+          "credential_required": false,
+          "endpoint": "https://api.crossref.org/works",
+          "public_api": true
+        },
+        "name": "crossref_provider_is_public_no_credential_boundary",
+        "passed": true
+      },
+      {
+        "evidence": {
+          "record_count": 2,
+          "sample_record": {
+            "doi": "10.5555/single-url-crossref-1",
+            "publisher": "Fixture Publisher",
+            "title": "Single URL Robotics Market Evidence",
+            "type": "journal-article",
+            "url": "https://doi.org/10.5555/single-url-crossref-1"
+          }
+        },
+        "name": "crossref_candidate_records_preserve_title_and_doi",
+        "passed": true
+      },
+      {
+        "evidence": {
+          "candidate_count": 3,
+          "errors": [],
+          "sample_candidates": [
+            "https://doi.org/10.2139/ssrn.5271347",
+            "https://doi.org/10.4172/2168-9695.1000164",
+            "https://doi.org/10.1016/j.fopow.2023.11.031"
+          ]
+        },
+        "name": "crossref_public_api_live_probe",
+        "passed": true
+      }
+    ],
+    "status": "passed",
+    "token_results": [
+      {
+        "exists": true,
+        "missing_tokens": [],
+        "passed": true,
+        "path": "main/backend/app/services/source_library/adapters/official_access.py",
+        "tokens_checked": [
+          "_run_crossref_works_probe",
+          "crossref_works_api",
+          "https://api.crossref.org/works",
+          "credential_required",
+          "_CROSSREF_RESULT_CACHE"
+        ]
+      },
+      {
+        "exists": true,
+        "missing_tokens": [],
+        "passed": true,
+        "path": "main/backend/app/services/resource_pool/site_search_policy.py",
+        "tokens_checked": [
+          "crossref.org",
+          "provider_key=\"crossref\"",
+          "Prefer official Crossref works API search"
+        ]
+      },
+      {
+        "exists": true,
+        "missing_tokens": [],
+        "passed": true,
+        "path": "main/backend/tests/unit/test_source_library_official_access_adapter_unittest.py",
+        "tokens_checked": [
+          "test_crossref_official_api_returns_doi_candidate_urls",
+          "test_crossref_official_api_reuses_cached_candidates",
+          "test_crossref_official_api_reports_transport_failure"
+        ]
+      },
+      {
+        "exists": true,
+        "missing_tokens": [],
+        "passed": true,
+        "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-single-url-first-ingest-allocation-plan/12_wave56-crossref-official-api-provider-maturity-2026-05-23.md",
+        "tokens_checked": [
+          "Wave56 Crossref Official API Provider Maturity",
+          "single_url_non_arxiv_official_api_provider_reduced",
+          "crossref_works_api",
+          "closure_claim=false"
+        ]
+      }
+    ],
+    "topic_slug": "2026-03-02-single-url-first-ingest-allocation-plan"
+  },
+  "public_replay_artifact": "development/latest-dev-docs/automation-runs/single-url-first-ingest-allocation-external-blocker-closure/2026-05-24/high_js_public_replay.json",
+  "public_replay_check": {
+    "closure": {
+      "accessible_public_high_js_replay_complete": true,
+      "claim": "accessible_public_high_js_replay_complete_external_targets_blocked",
+      "deterministic_fixture_ready": true,
+      "full_closure_allowed": false,
+      "real_public_high_js_replay_complete": false,
+      "remaining_external_blockers": [
+        {
+          "classification": "intrinsic_external_auth_or_anti_bot_gate",
+          "markers": {
+            "contains_captcha": false,
+            "contains_javascript_disabled": false,
+            "contains_login": true,
+            "contains_robotics": false,
+            "contains_video_title": false,
+            "title": "X - 包罗万象的应用 / X"
+          },
+          "reason": "Headless Chrome rendered the page, but public content was gated by auth or anti-bot markers.",
+          "status": "auth_or_anti_bot_blocked",
+          "target_id": "x_search_robotics",
+          "url": "https://x.com/search?q=robotics"
+        }
+      ]
+    },
+    "contract_version": "llm_crawler.high_js_replay_readiness.v1",
+    "deterministic_fixture": {
+      "provider_handoff": {
+        "assertions": {
+          "authority_provider_summary": true,
+          "frontdoor_browser_route": true,
+          "frontdoor_provider_dispatch": true,
+          "terminal_handoff_contract": true,
+          "terminal_provider_job_id": true
+        },
+        "contract_version": "crawler_provider_handoff.check.v1",
+        "fixture_target": "https://x.com/search?q=robotics",
+        "public_network_attempted": false,
+        "status": "passed"
+      },
+      "ready": true,
+      "target_count": 3,
+      "target_profiles": [
+        {
+          "domain": "x.com",
+          "fetch_strategy": "browser_render",
+          "high_js": true,
+          "render_required": true,
+          "route_hint": "crawler_browse",
+          "router_contract": {
+            "browser_fetch_required": true,
+            "contract_version": "ingest.frontdoor_fetch_router.v1",
+            "crawler_provider_allowed": true,
+            "dashboard_status": "degraded_success",
+            "http_fetch_fallback_allowed": false,
+            "public_browser_replay_performed": false,
+            "reason_code": "needs_browser_runtime",
+            "router_state": "needs_browser"
+          },
+          "target_id": "x_search_robotics",
+          "url": "https://x.com/search?q=robotics"
+        },
+        {
+          "domain": "instagram.com",
+          "fetch_strategy": "browser_render",
+          "high_js": true,
+          "render_required": true,
+          "route_hint": "crawler_browse",
+          "router_contract": {
+            "browser_fetch_required": true,
+            "contract_version": "ingest.frontdoor_fetch_router.v1",
+            "crawler_provider_allowed": true,
+            "dashboard_status": "degraded_success",
+            "http_fetch_fallback_allowed": false,
+            "public_browser_replay_performed": false,
+            "reason_code": "needs_browser_runtime",
+            "router_state": "needs_browser"
+          },
+          "target_id": "instagram_tag_robotics",
+          "url": "https://www.instagram.com/explore/tags/robotics/"
+        },
+        {
+          "domain": "youtube.com",
+          "fetch_strategy": "browser_render",
+          "high_js": true,
+          "render_required": true,
+          "route_hint": "crawler_browse",
+          "router_contract": {
+            "browser_fetch_required": true,
+            "contract_version": "ingest.frontdoor_fetch_router.v1",
+            "crawler_provider_allowed": true,
+            "dashboard_status": "degraded_success",
+            "http_fetch_fallback_allowed": false,
+            "public_browser_replay_performed": false,
+            "reason_code": "needs_browser_runtime",
+            "router_state": "needs_browser"
+          },
+          "target_id": "youtube_search_robotics",
+          "url": "https://www.youtube.com/results?search_query=robotics"
+        }
+      ]
+    },
+    "evidence_doc": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-08-llm-crawler-unified-frontdoor/06_wave13-high-js-public-replay-readiness-2026-05-22.md",
+    "public_high_js_replay": {
+      "accessible_public_high_js_replay_proven": true,
+      "blocker_type": "intrinsic_external_auth_or_anti_bot_gate",
+      "contract_version": "llm_crawler.high_js_public_replay.v1",
+      "external_gate_blockers_proven": true,
+      "external_gate_target_ids": [
+        "x_search_robotics"
+      ],
+      "full_closure_allowed": false,
+      "high_js_success_count": 2,
+      "path": "development/latest-dev-docs/automation-runs/single-url-first-ingest-allocation-external-blocker-closure/2026-05-24/high_js_public_replay.json",
+      "public_high_js_probe_target_ids": [
+        "x_search_robotics",
+        "instagram_tag_robotics",
+        "youtube_search_robotics"
+      ],
+      "public_network_attempted": true,
+      "public_targets_attempted": 3,
+      "real_public_high_js_replay_proven": false,
+      "remaining_external_blockers": [
+        {
+          "classification": "intrinsic_external_auth_or_anti_bot_gate",
+          "markers": {
+            "contains_captcha": false,
+            "contains_javascript_disabled": false,
+            "contains_login": true,
+            "contains_robotics": false,
+            "contains_video_title": false,
+            "title": "X - 包罗万象的应用 / X"
+          },
+          "reason": "Headless Chrome rendered the page, but public content was gated by auth or anti-bot markers.",
+          "status": "auth_or_anti_bot_blocked",
+          "target_id": "x_search_robotics",
+          "url": "https://x.com/search?q=robotics"
+        }
+      ],
+      "requirements": {
+        "accessible_targets_successful": true,
+        "all_probe_targets_accounted_for": true,
+        "all_targets_successful": false,
+        "contract_version_ok": true,
+        "explicit_proof": false,
+        "external_gate_blockers_proven": true,
+        "public_network_attempted": true,
+        "session_evidence_contract_ok": true,
+        "sufficient_targets": true
+      },
+      "session_replay_evidence": {
+        "contract_version": "llm_crawler.high_js_session_replay_evidence.v1",
+        "credential_material_logged": false,
+        "session_aware_replay_requested": false,
+        "session_context_applied": false,
+        "status": "absent"
+      },
+      "status": "accessible_replay_proven_external_targets_blocked",
+      "successful_accessible_target_ids": [
+        "instagram_tag_robotics",
+        "youtube_search_robotics"
+      ],
+      "target_count": 3
+    },
+    "repo_root": "/Users/wangyiliang/market-research-workflow",
+    "scope": "llm_crawler_unified_frontdoor_high_js_public_replay_boundary",
+    "status": "accessible_public_high_js_replay_proven_external_targets_blocked",
+    "validation": {
+      "errors": [],
+      "passed": true,
+      "protected_shared_indexes": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/INDEX.md",
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/STATUS_AUDIT_2026-04-07.md",
+        "development/latest-dev-docs/development-plans/INDEX.md",
+        "development/latest-dev-docs/README.md",
+        "development/latest-dev-docs/MERGED_OVERVIEW.md"
+      ],
+      "public_network_attempted": true,
+      "shared_indexes_edited": false
+    }
+  },
+  "runtime_results": [
+    {
+      "evidence": {
+        "claim": "accessible_public_high_js_replay_complete_external_targets_blocked",
+        "public_network_attempted": true,
+        "remaining_external_blockers": [
+          {
+            "classification": "intrinsic_external_auth_or_anti_bot_gate",
+            "markers": {
+              "contains_captcha": false,
+              "contains_javascript_disabled": false,
+              "contains_login": true,
+              "contains_robotics": false,
+              "contains_video_title": false,
+              "title": "X - 包罗万象的应用 / X"
+            },
+            "reason": "Headless Chrome rendered the page, but public content was gated by auth or anti-bot markers.",
+            "status": "auth_or_anti_bot_blocked",
+            "target_id": "x_search_robotics",
+            "url": "https://x.com/search?q=robotics"
+          }
+        ],
+        "status": "accessible_public_high_js_replay_proven_external_targets_blocked"
+      },
+      "name": "public_browser_runtime_replay_reduced",
+      "passed": true
+    },
+    {
+      "evidence": {
+        "cleanup": {
+          "error": null,
+          "performed": true,
+          "schema_name": "project_single_url_wave57_canary"
+        },
+        "configured_provider_boundary_status": "validated",
+        "frontdoor_run": {
+          "allowed_entrypoints": [
+            "ingest.url_pool",
+            "ingest.url.single"
+          ],
+          "entrypoint": "ingest.url.single",
+          "project_key": "single_url_wave57_canary",
+          "source_mode": "url_execution",
+          "source_url": "https://example.com/wave55-production-like-4a4695ab8d"
+        },
+        "live_result_status": "passed"
+      },
+      "name": "repo_local_configured_canary_validated",
+      "passed": true
+    },
+    {
+      "evidence": {
+        "production_24h_metrics_satisfied": false,
+        "remaining_external_blockers": [
+          {
+            "classification": "external_live_operational",
+            "id": "production_24h_rejection_rate_readback_not_available"
+          },
+          {
+            "classification": "external_live_operational",
+            "id": "production_24h_inserted_valid_ratio_readback_not_available"
+          },
+          {
+            "classification": "external_live_operational",
+            "id": "production_guardrail_rollout_counts_readback_not_available"
+          },
+          {
+            "classification": "external_live_operational",
+            "id": "operations_strict_gate_promotion_decision_not_recorded"
+          },
+          {
+            "classification": "external_live_operational",
+            "id": "operations_strict_gate_global_default_not_enabled"
+          }
+        ],
+        "repo_local_metric_24h_shape_validated": true,
+        "status": "external_blocked"
+      },
+      "name": "repo_local_24h_metric_shape_validated_production_open",
+      "passed": true
+    },
+    {
+      "evidence": {
+        "live_crossref_status": "passed",
+        "remaining_provider_catalog_boundary": [
+          "provider-specific credentials and quota behavior beyond public Crossref remain external",
+          "public browser/runtime replay remains external to this gate",
+          "configured demo_proj canary and production 24h readback remain external/live"
+        ],
+        "status": "passed"
+      },
+      "name": "crossref_public_official_api_boundary_reduced",
+      "passed": true
+    },
+    {
+      "evidence": {
+        "blocker_id": "provider_credentials_quota_beyond_public_crossref_not_validated",
+        "closure_claim": false
+      },
+      "name": "provider_credentials_beyond_crossref_kept_external",
+      "passed": true
+    },
+    {
+      "evidence": {
+        "can_be_closed": false,
+        "closure_claim": false,
+        "remaining_external_blocker_count": 7
+      },
+      "name": "closure_decision_stays_external_blocked",
+      "passed": true
+    }
+  ],
+  "status": "passed",
+  "strict_promotion_readiness": {
+    "boundaries": [
+      {
+        "blockers": [],
+        "detail": "repo-local API/DB canary validated accepted and rejected strict-gate paths",
+        "evidence": {
+          "closure_claim": false,
+          "failed_validation_checks": [],
+          "live_canary_validated": true,
+          "validation_scope": "repo_local_api_db_runtime"
+        },
+        "name": "repo_local_live_canary",
+        "passed": true,
+        "status": "validated",
+        "validated": true
+      },
+      {
+        "blockers": [
+          "production_24h_rejection_rate_readback_not_available",
+          "production_24h_inserted_valid_ratio_readback_not_available",
+          "production_guardrail_rollout_counts_readback_not_available"
+        ],
+        "detail": "repo-local 24h metric shape is valid, but the artifact does not claim production data",
+        "evidence": {
+          "artifact_kind": "deterministic_ingest_canary_24h_metrics_fixture",
+          "checks": {
+            "contract_version": true,
+            "guardrail_rollout_counts_reviewed": true,
+            "inserted_valid_ratio_reviewed": true,
+            "rejection_rate_reviewed": true,
+            "window_hours_at_least_24": true
+          },
+          "contract_version": "ingest.canary_24h_metrics_artifact.v1",
+          "deterministic_fixture": true,
+          "failed_checks": [],
+          "inserted_valid_ratio": 1.0,
+          "live_window_observed": false,
+          "metric_24h_live_readback_claim": false,
+          "production_checks": {},
+          "production_data_claim": false,
+          "production_failed_checks": [],
+          "rejection_rate": 0.25,
+          "source_record_id": null,
+          "source_system": null,
+          "window_hours": 24
+        },
+        "name": "metric_24h_readback",
+        "passed": true,
+        "status": "repo_local_shape_validated_production_open",
+        "validated": false
+      },
+      {
+        "blockers": [
+          "operations_strict_gate_promotion_decision_not_recorded",
+          "operations_strict_gate_global_default_not_enabled"
+        ],
+        "detail": "all-project strict-gate promotion is operations-owned and not satisfied locally",
+        "evidence": {
+          "approval_ticket": null,
+          "checks": {
+            "approval_ticket_present": false,
+            "approved_at_present": false,
+            "approved_by_present": false,
+            "contract_version": false,
+            "evidence_scope_operations": false,
+            "operations_approval_recorded": false,
+            "production_24h_metrics_reviewed": false,
+            "promotion_decision_is_promote": false,
+            "rollback_plan_recorded": false,
+            "rollback_plan_ref_present": false,
+            "strict_gate_global_default_enabled": false
+          },
+          "contract_version": null,
+          "evidence_scope": null,
+          "failed_checks": [
+            "contract_version",
+            "evidence_scope_operations",
+            "operations_approval_recorded",
+            "production_24h_metrics_reviewed",
+            "rollback_plan_recorded",
+            "promotion_decision_is_promote",
+            "strict_gate_global_default_enabled",
+            "approved_by_present",
+            "approved_at_present",
+            "approval_ticket_present",
+            "rollback_plan_ref_present"
+          ],
+          "promotion_decision": null,
+          "strict_gate_global_default_enabled": null
+        },
+        "name": "ops_strict_gate_promotion",
+        "passed": false,
+        "status": "missing_evidence",
+        "validated": false
+      }
+    ],
+    "closure_claim": false,
+    "contract_version": "ingest.canary_strict_promotion_readiness.v1",
+    "production_24h_metrics_satisfied": false,
+    "project_key": "single_url_wave57_canary",
+    "promotion_recommendation": "do_not_promote_without_production_24h_metrics_and_operations_decision",
+    "remaining_external_blockers": [
+      {
+        "classification": "external_live_operational",
+        "id": "production_24h_rejection_rate_readback_not_available"
+      },
+      {
+        "classification": "external_live_operational",
+        "id": "production_24h_inserted_valid_ratio_readback_not_available"
+      },
+      {
+        "classification": "external_live_operational",
+        "id": "production_guardrail_rollout_counts_readback_not_available"
+      },
+      {
+        "classification": "external_live_operational",
+        "id": "operations_strict_gate_promotion_decision_not_recorded"
+      },
+      {
+        "classification": "external_live_operational",
+        "id": "operations_strict_gate_global_default_not_enabled"
+      }
+    ],
+    "repo_local_live_canary_validated": true,
+    "repo_local_metric_24h_shape_validated": true,
+    "repo_local_preflight_passed": true,
+    "status": "external_blocked",
+    "strict_gate_promotion_satisfied": false
+  },
+  "strict_validation_errors": [],
+  "token_results": [
+    {
+      "exists": true,
+      "missing_tokens": [],
+      "passed": true,
+      "path": "main/backend/app/services/ingest/canary_metrics.py",
+      "tokens_checked": [
+        "_SINGLE_URL_FRONTDOOR_ENTRYPOINTS",
+        "ingest.url.single",
+        "frontdoor_entrypoint_is_single_url_frontdoor"
+      ]
+    },
+    {
+      "exists": true,
+      "missing_tokens": [],
+      "passed": true,
+      "path": "main/backend/scripts/check_single_url_external_blocker_closure.py",
+      "tokens_checked": [
+        "single_url.external_blocker_closure.v1",
+        "build_high_js_replay_check",
+        "run_repo_local_production_like_handoff_canary",
+        "PROVIDER_CREDENTIALS_BEYOND_CROSSREF_BLOCKER"
+      ]
+    },
+    {
+      "exists": true,
+      "missing_tokens": [],
+      "passed": true,
+      "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-single-url-first-ingest-allocation-plan/13_wave57-single-url-external-blocker-closure-2026-05-24.md",
+      "tokens_checked": [
+        "Wave57 Single URL External Blocker Closure",
+        "single_url_external_blocker_repo_public_reduced",
+        "accessible_public_high_js_replay_complete_external_targets_blocked",
+        "repo_local_configured_canary_validated=true",
+        "production_24h_metrics_satisfied=false",
+        "provider_credentials_beyond_crossref_open=true",
+        "closure_claim=false"
+      ]
+    }
+  ],
+  "topic_slug": "2026-03-02-single-url-first-ingest-allocation-plan"
+}

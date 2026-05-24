@@ -33,7 +33,7 @@ LIVE_EMBEDDING_PROVIDER_GATE = (
 )
 
 TARGET_TOPIC = (
-    "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
+    "docs/development/development-plans/ARCHIVE_CLOSED/"
     "2026-03-05-oss-node-platform-io-plan"
 )
 

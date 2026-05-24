@@ -1,0 +1,17 @@
+[
+  {
+    "queue_id": "sl_review:cba6e135df79b9d5",
+    "reviewed_by": "codex-devdocs-supervisor",
+    "reviewed_at": "2026-05-23T19:17:03-07:00",
+    "decision": "reject_not_relevant_to_query_terms",
+    "state": "completed",
+    "reviewer_type": "approved_agent_manual_review",
+    "url": "https://commercialobserver.com/2025/05/7b-oracle-leased-texas-data-center-development",
+    "domain": "commercialobserver.com",
+    "query_terms": [
+      "inflation",
+      "openai"
+    ],
+    "rationale": "The fetched article metadata identifies a JP Morgan/Oracle-leased Texas data center financing story. It does not substantively match the live review query terms inflation/openai and was produced by a term-fallback candidate path, so it is rejected for source-library relevance while completing the required review queue evidence."
+  }
+]

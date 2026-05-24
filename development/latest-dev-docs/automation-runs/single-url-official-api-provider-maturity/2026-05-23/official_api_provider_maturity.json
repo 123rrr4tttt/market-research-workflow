@@ -53,7 +53,7 @@
       "provider_key": "crossref",
       "public_api": true,
       "query": "robotics market adoption",
-      "records_total": 883746,
+      "records_total": 883750,
       "rows": 3,
       "selected_candidates": 3,
       "selection_mode": "crossref_message_items"
@@ -94,7 +94,7 @@
         "provider_key": "crossref",
         "public_api": true,
         "query": "robotics market adoption",
-        "records_total": 883746,
+        "records_total": 883750,
         "rows": 3,
         "selected_candidates": 3,
         "selection_mode": "crossref_message_items"

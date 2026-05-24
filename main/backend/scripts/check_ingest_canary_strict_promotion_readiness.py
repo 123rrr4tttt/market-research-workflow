@@ -19,7 +19,11 @@ from app.services.ingest.canary_handoff_live import run_repo_local_production_li
 from app.services.ingest.canary_strict_promotion import (  # noqa: E402
     CONTRACT_VERSION,
     OPS_PROMOTION_BLOCKERS,
+    OPS_PROMOTION_EVIDENCE_INVALID_BLOCKER,
+    OPS_STRICT_GATE_PROMOTION_CONTRACT_VERSION,
     PRODUCTION_24H_BLOCKERS,
+    PRODUCTION_24H_EVIDENCE_INVALID_BLOCKER,
+    PRODUCTION_24H_METRICS_CONTRACT_VERSION,
     build_strict_promotion_readiness,
     validate_strict_promotion_readiness,
 )
@@ -29,6 +33,7 @@ from check_ingest_canary_24h_metrics_artifact import build_24h_metrics_artifact 
 TOPIC_ID = "2026-03-02-meaningful-ingest-guardrails-plan"
 TOPIC_DIR = Path("development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED") / TOPIC_ID
 EVIDENCE_DOC = TOPIC_DIR / "12_wave55-strict-promotion-readiness-2026-05-24.md"
+FINAL_GATE_DOC = TOPIC_DIR / "13_wave56-strict-promotion-final-gate-2026-05-24.md"
 
 
 def _read_text(path: Path) -> str:
@@ -54,15 +59,57 @@ def _token_check(path: Path, tokens: tuple[str, ...]) -> dict[str, Any]:
     }
 
 
-def build_check(*, project_key: str | None = None) -> dict[str, Any]:
+def _resolve_path(path: Path) -> Path:
+    return path if path.is_absolute() else REPO_ROOT / path
+
+
+def _read_json_artifact(path: Path | None) -> tuple[dict[str, Any] | None, str | None, str | None]:
+    if path is None:
+        return None, None, None
+    full_path = _resolve_path(path)
+    try:
+        payload = json.loads(full_path.read_text(encoding="utf-8"))
+    except Exception as exc:  # noqa: BLE001
+        return None, str(full_path), f"{exc.__class__.__name__}: {exc}"
+    if not isinstance(payload, dict):
+        return None, str(full_path), "artifact JSON must be an object"
+    return payload, str(full_path), None
+
+
+def build_check(
+    *,
+    project_key: str | None = None,
+    production_metrics_artifact_path: Path | None = None,
+    ops_promotion_artifact_path: Path | None = None,
+    closure_claim: bool = False,
+) -> dict[str, Any]:
     live_result = run_repo_local_production_like_handoff_canary(project_key=project_key)
     live_evidence = live_result.get("evidence") if isinstance(live_result.get("evidence"), dict) else {}
     resolved_project_key = str(live_result.get("project_key") or project_key or "demo_proj")
-    metrics_artifact = build_24h_metrics_artifact(project_key=resolved_project_key)
+    deterministic_metrics_artifact = build_24h_metrics_artifact(project_key=resolved_project_key)
+    production_metrics_artifact, production_metrics_path, production_metrics_error = _read_json_artifact(
+        production_metrics_artifact_path
+    )
+    ops_promotion_evidence, ops_promotion_path, ops_promotion_error = _read_json_artifact(
+        ops_promotion_artifact_path
+    )
+    metrics_artifact = production_metrics_artifact or deterministic_metrics_artifact
+    if production_metrics_artifact_path is not None and production_metrics_artifact is None:
+        metrics_artifact = {
+            "_artifact_load_error": production_metrics_error,
+            "contract_version": None,
+        }
+    if ops_promotion_artifact_path is not None and ops_promotion_evidence is None:
+        ops_promotion_evidence = {
+            "_artifact_load_error": ops_promotion_error,
+            "contract_version": None,
+        }
     readiness = build_strict_promotion_readiness(
         project_key=resolved_project_key,
         live_canary_evidence=live_evidence,
         metrics_artifact=metrics_artifact,
+        ops_promotion_evidence=ops_promotion_evidence,
+        closure_claim=closure_claim,
     )
     report = readiness.to_dict()
     validation_errors = validate_strict_promotion_readiness(report)
@@ -76,6 +123,8 @@ def build_check(*, project_key: str | None = None) -> dict[str, Any]:
             Path("main/backend/app/services/ingest/canary_strict_promotion.py"),
             (
                 "CONTRACT_VERSION",
+                "PRODUCTION_24H_METRICS_CONTRACT_VERSION",
+                "OPS_STRICT_GATE_PROMOTION_CONTRACT_VERSION",
                 "PRODUCTION_24H_BLOCKERS",
                 "OPS_PROMOTION_BLOCKERS",
                 "build_strict_promotion_readiness",
@@ -88,6 +137,9 @@ def build_check(*, project_key: str | None = None) -> dict[str, Any]:
                 "run_repo_local_production_like_handoff_canary",
                 "build_24h_metrics_artifact",
                 "build_strict_promotion_readiness",
+                "--production-metrics-artifact",
+                "--ops-promotion-artifact",
+                "--claim-closure",
             ),
         ),
         _token_check(
@@ -100,7 +152,32 @@ def build_check(*, project_key: str | None = None) -> dict[str, Any]:
                 "closure_claim=false",
             ),
         ),
+        _token_check(
+            FINAL_GATE_DOC,
+            (
+                "Wave56 Strict Promotion Final Gate",
+                "production_24h_metrics_artifact_optional",
+                "ops_strict_gate_promotion_artifact_optional",
+                "closure_claim_requires_both_artifacts",
+                "closure_claim=false",
+            ),
+        ),
     ]
+    production_blockers = set(PRODUCTION_24H_BLOCKERS) | {PRODUCTION_24H_EVIDENCE_INVALID_BLOCKER}
+    ops_blockers = set(OPS_PROMOTION_BLOCKERS) | {OPS_PROMOTION_EVIDENCE_INVALID_BLOCKER}
+    production_remaining = sorted(blocker for blocker in remaining_ids if blocker in production_blockers)
+    ops_remaining = sorted(blocker for blocker in remaining_ids if blocker in ops_blockers)
+    production_artifact_was_supplied = production_metrics_artifact_path is not None
+    ops_artifact_was_supplied = ops_promotion_artifact_path is not None
+    ops_boundary = next(
+        (
+            boundary
+            for boundary in report.get("boundaries", [])
+            if isinstance(boundary, dict) and boundary.get("name") == "ops_strict_gate_promotion"
+        ),
+        {},
+    )
+    ops_boundary_validated = ops_boundary.get("validated") is True
     runtime_results = [
         {
             "name": "repo_local_live_canary_validated",
@@ -113,23 +190,69 @@ def build_check(*, project_key: str | None = None) -> dict[str, Any]:
             },
         },
         {
-            "name": "repo_local_24h_metric_shape_validated",
-            "passed": report.get("repo_local_metric_24h_shape_validated") is True
-            and metrics_artifact.get("deterministic_fixture") is True,
+            "name": "24h_metric_shape_validated",
+            "passed": report.get("repo_local_metric_24h_shape_validated") is True,
             "evidence": {
                 "deterministic_fixture": metrics_artifact.get("deterministic_fixture"),
+                "contract_version": metrics_artifact.get("contract_version"),
+                "artifact_kind": metrics_artifact.get("artifact_kind"),
+                "source_path": production_metrics_path,
                 "window_hours": (metrics_artifact.get("window") or {}).get("window_hours"),
                 "rejection_rate": (metrics_artifact.get("metrics_24h") or {}).get("rejection_rate"),
                 "inserted_valid_ratio": (metrics_artifact.get("metrics_24h") or {}).get("inserted_valid_ratio"),
             },
         },
         {
-            "name": "production_and_ops_blockers_remain_explicit",
-            "passed": report.get("status") == "external_blocked"
-            and report.get("closure_claim") is False
-            and set(PRODUCTION_24H_BLOCKERS).issubset(remaining_ids)
-            and set(OPS_PROMOTION_BLOCKERS).issubset(remaining_ids),
+            "name": "production_24h_metrics_gate",
+            "passed": (
+                report.get("production_24h_metrics_satisfied") is True
+                if production_artifact_was_supplied
+                else set(PRODUCTION_24H_BLOCKERS).issubset(remaining_ids)
+            ),
             "evidence": {
+                "artifact_supplied": production_artifact_was_supplied,
+                "source_path": production_metrics_path,
+                "load_error": production_metrics_error,
+                "production_24h_metrics_satisfied": report.get("production_24h_metrics_satisfied"),
+                "remaining_production_blockers": production_remaining,
+                "required_contract_version": PRODUCTION_24H_METRICS_CONTRACT_VERSION,
+            },
+        },
+        {
+            "name": "ops_strict_gate_promotion_gate",
+            "passed": (
+                ops_boundary_validated
+                if ops_artifact_was_supplied
+                else bool(ops_remaining)
+            ),
+            "evidence": {
+                "artifact_supplied": ops_artifact_was_supplied,
+                "source_path": ops_promotion_path,
+                "load_error": ops_promotion_error,
+                "strict_gate_promotion_satisfied": report.get("strict_gate_promotion_satisfied"),
+                "remaining_ops_blockers": ops_remaining,
+                "required_contract_version": OPS_STRICT_GATE_PROMOTION_CONTRACT_VERSION,
+            },
+        },
+        {
+            "name": "final_classification_consistent",
+            "passed": (
+                (
+                    report.get("status") == "closed"
+                    and report.get("closure_claim") is True
+                    and report.get("remaining_external_blockers") == []
+                    and report.get("production_24h_metrics_satisfied") is True
+                    and report.get("strict_gate_promotion_satisfied") is True
+                )
+                or (
+                    not closure_claim
+                    and report.get("status") == "external_blocked"
+                    and report.get("closure_claim") is False
+                    and bool(report.get("remaining_external_blockers"))
+                )
+            ),
+            "evidence": {
+                "closure_requested": closure_claim,
                 "status": report.get("status"),
                 "closure_claim": report.get("closure_claim"),
                 "remaining_external_blockers": report.get("remaining_external_blockers"),
@@ -147,10 +270,18 @@ def build_check(*, project_key: str | None = None) -> dict[str, Any]:
         "topic_id": TOPIC_ID,
         "topic_dir": str(TOPIC_DIR),
         "evidence_doc": str(EVIDENCE_DOC),
+        "final_gate_doc": str(FINAL_GATE_DOC),
         "token_results": token_results,
         "runtime_results": runtime_results,
         "validation_errors": validation_errors,
         "readiness_report": report,
+        "closure_requested": closure_claim,
+        "evidence_inputs": {
+            "production_metrics_artifact_path": production_metrics_path,
+            "production_metrics_artifact_error": production_metrics_error,
+            "ops_promotion_artifact_path": ops_promotion_path,
+            "ops_promotion_artifact_error": ops_promotion_error,
+        },
         "live_canary_result": {
             "contract_version": live_result.get("contract_version"),
             "status": live_result.get("status"),
@@ -166,9 +297,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--json", action="store_true", help="print JSON output")
     parser.add_argument("--output", type=Path, default=None, help="write full check output JSON")
     parser.add_argument("--project-key", default=None, help="optional explicit project key; defaults to an isolated temp key")
+    parser.add_argument("--production-metrics-artifact", type=Path, default=None, help="optional production 24h metrics artifact")
+    parser.add_argument("--ops-promotion-artifact", type=Path, default=None, help="optional ops strict-gate promotion artifact")
+    parser.add_argument("--claim-closure", action="store_true", help="claim closure only when production and ops artifacts pass")
     args = parser.parse_args(argv)
 
-    result = build_check(project_key=args.project_key)
+    result = build_check(
+        project_key=args.project_key,
+        production_metrics_artifact_path=args.production_metrics_artifact,
+        ops_promotion_artifact_path=args.ops_promotion_artifact,
+        closure_claim=args.claim_closure,
+    )
     if args.output is not None:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(

@@ -8,6 +8,7 @@ from .canary_handoff import CANARY_HANDOFF_CONTRACT_VERSION, CANARY_METRICS_SNAP
 
 CONTRACT_VERSION = "ingest.canary_metrics_readiness.v1"
 CONFIGURED_PROVIDER_CANARY_CONTRACT_VERSION = "ingest.configured_provider_canary_boundary.v1"
+_SINGLE_URL_FRONTDOOR_ENTRYPOINTS = ("ingest.url_pool", "ingest.url.single")
 
 LIVE_CANARY_EVIDENCE_FIELDS = (
     "demo_proj_live_canary_validated",
@@ -177,7 +178,7 @@ def build_configured_provider_canary_boundary(
             or provider.get("runtime_validated") is True
             or evidence.get("provider_live_runtime_validated") is True
         ),
-        "frontdoor_entrypoint_is_url_pool": frontdoor_entrypoint == "ingest.url_pool",
+        "frontdoor_entrypoint_is_single_url_frontdoor": frontdoor_entrypoint in _SINGLE_URL_FRONTDOOR_ENTRYPOINTS,
         "frontdoor_source_mode_is_url_execution": frontdoor_source_mode == "url_execution",
         "frontdoor_project_matches": not frontdoor_project or frontdoor_project == normalized_project,
         "frontdoor_source_url_is_public_url": source_url.startswith(("http://", "https://")),
@@ -200,6 +201,7 @@ def build_configured_provider_canary_boundary(
         "frontdoor_run": {
             "project_key": frontdoor_project or None,
             "entrypoint": frontdoor_entrypoint or None,
+            "allowed_entrypoints": list(_SINGLE_URL_FRONTDOOR_ENTRYPOINTS),
             "source_mode": frontdoor_source_mode or None,
             "source_url": source_url or None,
         },

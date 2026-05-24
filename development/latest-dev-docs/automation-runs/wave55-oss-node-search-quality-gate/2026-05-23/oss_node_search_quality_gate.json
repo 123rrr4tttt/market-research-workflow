@@ -770,6 +770,6 @@
   "status": "passed",
   "target_topic": {
     "exists": true,
-    "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-05-oss-node-platform-io-plan"
+    "path": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-05-oss-node-platform-io-plan"
   }
 }

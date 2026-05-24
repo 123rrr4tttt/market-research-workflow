@@ -17,6 +17,7 @@ from scripts.check_crawler_provider_handoff_contract import build_check as build
 
 CONTRACT_VERSION = "llm_crawler.high_js_replay_readiness.v1"
 PUBLIC_REPLAY_CONTRACT_VERSION = "llm_crawler.high_js_public_replay.v1"
+SESSION_EVIDENCE_CONTRACT_VERSION = "llm_crawler.high_js_session_replay_evidence.v1"
 TOPIC_DIR = Path(
     "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
     "2026-03-08-llm-crawler-unified-frontdoor"
@@ -192,6 +193,36 @@ def _target_result_successful(item: dict[str, Any] | None) -> bool:
     return str(item.get("status") or "").strip().lower() == "success" and item.get("browser_rendered") is True
 
 
+def _session_evidence_summary(payload: dict[str, Any], errors: list[str]) -> dict[str, Any]:
+    evidence = payload.get("evidence")
+    if not isinstance(evidence, dict):
+        return {
+            "status": "absent",
+            "contract_version": SESSION_EVIDENCE_CONTRACT_VERSION,
+            "session_aware_replay_requested": False,
+            "session_context_applied": False,
+            "credential_material_logged": False,
+        }
+    session = evidence.get("session") if isinstance(evidence.get("session"), dict) else {}
+    if session.get("contract_version") != SESSION_EVIDENCE_CONTRACT_VERSION:
+        errors.append("session replay evidence contract missing or drifted")
+    if evidence.get("credential_material_logged") is not False or session.get("credential_material_logged") is not False:
+        errors.append("public replay artifact must not log credential material")
+    if session.get("path_disclosed") not in {False, None}:
+        errors.append("public replay artifact must not disclose local credential/session paths")
+    return {
+        "status": "present",
+        "contract_version": session.get("contract_version"),
+        "session_aware_replay_requested": bool(session.get("requested")),
+        "session_context_applied": bool(session.get("applied")),
+        "source": session.get("source"),
+        "user_data_dir_mode": session.get("user_data_dir_mode"),
+        "copy_session_user_data_dir": bool(session.get("copy_session_user_data_dir")),
+        "credential_material_logged": False,
+        "path_disclosed": bool(session.get("path_disclosed")),
+    }
+
+
 def _external_gate_result_proven(target: dict[str, Any], item: dict[str, Any] | None) -> bool:
     if not isinstance(item, dict):
         return False
@@ -238,6 +269,7 @@ def _public_artifact_summary(root: Path, public_artifact: Path | str | None, err
     success_count = int(outputs.get("high_js_success_count") or 0)
     explicit_proof = validation.get("real_public_high_js_replay_proven") is True
     public_network_attempted = validation.get("public_network_attempted") is True
+    session_replay_evidence = _session_evidence_summary(payload, errors)
     sufficient_targets = target_count >= len(DEFAULT_HIGH_JS_TARGETS) and attempted >= target_count
     all_targets_successful = success_count >= target_count and _target_results_successful(payload)
     contract_version_ok = payload.get("contract_version") == PUBLIC_REPLAY_CONTRACT_VERSION
@@ -314,6 +346,7 @@ def _public_artifact_summary(root: Path, public_artifact: Path | str | None, err
         "successful_accessible_target_ids": [target["target_id"] for target in successful_accessible_targets],
         "external_gate_target_ids": [target["target_id"] for target in gate_blocked_targets],
         "remaining_external_blockers": remaining_external_blockers,
+        "session_replay_evidence": session_replay_evidence,
         "blocker_type": (
             None
             if proven
@@ -332,6 +365,8 @@ def _public_artifact_summary(root: Path, public_artifact: Path | str | None, err
             "all_probe_targets_accounted_for": all_probe_targets_accounted_for,
             "accessible_targets_successful": accessible_targets_successful,
             "external_gate_blockers_proven": external_gate_blockers_proven,
+            "session_evidence_contract_ok": session_replay_evidence.get("status") == "absent"
+            or session_replay_evidence.get("contract_version") == SESSION_EVIDENCE_CONTRACT_VERSION,
         },
     }
 

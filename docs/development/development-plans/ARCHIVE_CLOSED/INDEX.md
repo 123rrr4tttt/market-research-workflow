@@ -56,6 +56,8 @@
 - [2026-03-07 Writing Workbench Evolution](./2026-03-07-writing-workbench-evolution/08_wave54-typed-writing-live-closure-2026-05-23.md)
 - [2026-03-07 Crawler Source Expansion](./2026-03-07-crawler-source-expansion/10_wave47-manual-public-replay-closure-2026-05-23.md)
 - [2026-03-07 Frontend I18N Theme Modularization](./2026-03-07-frontend-i18n-theme-modularization/12_wave28-closure-decision-2026-05-23.md)
+- [2026-03-05 OSS Node Platform IO Plan](./2026-03-05-oss-node-platform-io-plan/11_wave57-oss-node-public-corpus-semantic-relevance-2026-05-23.md)
+- [2026-03-11 Source Library Three-Lane Architecture](./2026-03-11-source-library-three-lane-architecture/16_wave57-human-review-closure-2026-05-23.md)
 - [2026-03-12 Data Structured Service Modularization](./2026-03-12-data-structured-service-modularization/15_wave45-manual-live-api-closure-2026-05-23.md)
 - [2026-03-14 Consumer-Side Modularization](./2026-03-14-consumer-side-modularization/09_wave45-manual-live-api-closure-2026-05-23.md)
 - [2026-03-14 Source-Library Adapter Capability Remediation](./2026-03-14-source-library-adapter-capability-remediation/20_wave49-manual-public-replay-closure-2026-05-23.md)
@@ -65,6 +67,7 @@
 - [2026-04-07 Parallel Agent Wave Orchestration](./2026-04-07-parallel-agent-wave-orchestration/07_wave16-runtime-boundary-closure-2026-05-22.md)
 - [2026-05-22 Clue Chain Investigation Tool](./2026-05-22-clue-chain-investigation-tool/05_wave16_closure_split-2026-05-22.md)
 - [2026-05-14 Local Open Search Provider Isolation](./2026-05-14-local-open-search-provider-isolation/17_wave42-manual-open-search-live-closure-2026-05-23.md)
+- [2026-05-14 Global Vectorization General Foundation](./2026-05-14-global-vectorization-general-foundation/14_wave57-production-vector-quality-gate-2026-05-23.md)
 - [2026-05-22 Clue Chain Successor Scopes](./2026-05-22-clue-chain-successor-scopes/04_wave42-live-provider-reliability-closure-2026-05-23.md)
 
 ## 返回

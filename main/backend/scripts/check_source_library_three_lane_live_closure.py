@@ -34,7 +34,7 @@ CONTRACT_VERSION = "source_library.three_lane_live_closure.v1"
 DEFAULT_RUN_DIR = Path("development/latest-dev-docs/automation-runs/wave55-source-library-three-lane-live-closure/2026-05-23")
 DEFAULT_ARTIFACT_PATH = DEFAULT_RUN_DIR / "closure.json"
 TOPIC_DOC_DIR = Path(
-    "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
+    "docs/development/development-plans/ARCHIVE_CLOSED/"
     "2026-03-11-source-library-three-lane-architecture"
 )
 ARTICLE_EXTRACTOR_ITEM_KEY = "external.three_lane.live_article_extractor"

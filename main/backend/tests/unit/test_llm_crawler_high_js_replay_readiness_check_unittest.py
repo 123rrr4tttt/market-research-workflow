@@ -14,6 +14,7 @@ pytestmark = pytest.mark.unit
 
 from scripts.check_llm_crawler_high_js_replay_readiness import CONTRACT_VERSION
 from scripts.check_llm_crawler_high_js_replay_readiness import PUBLIC_REPLAY_CONTRACT_VERSION
+from scripts.check_llm_crawler_high_js_replay_readiness import SESSION_EVIDENCE_CONTRACT_VERSION
 from scripts.check_llm_crawler_high_js_replay_readiness import build_check
 
 
@@ -147,6 +148,7 @@ class LlmCrawlerHighJsReplayReadinessCheckUnitTestCase(unittest.TestCase):
         self.assertTrue(result["public_high_js_replay"]["accessible_public_high_js_replay_proven"])
         self.assertTrue(result["public_high_js_replay"]["external_gate_blockers_proven"])
         self.assertFalse(result["public_high_js_replay"]["real_public_high_js_replay_proven"])
+        self.assertEqual(result["public_high_js_replay"]["session_replay_evidence"]["status"], "absent")
         self.assertEqual(
             result["public_high_js_replay"]["blocker_type"],
             "intrinsic_external_auth_or_anti_bot_gate",
@@ -201,6 +203,129 @@ class LlmCrawlerHighJsReplayReadinessCheckUnitTestCase(unittest.TestCase):
         self.assertTrue(result["closure"]["real_public_high_js_replay_complete"])
         self.assertTrue(result["closure"]["full_closure_allowed"])
         self.assertEqual(result["closure"]["claim"], "real_public_high_js_replay_complete")
+
+    def test_session_evidence_contract_is_validated_without_requiring_full_closure(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            public_artifact = Path(tmpdir) / "output.public.json"
+            public_artifact.write_text(
+                json.dumps(
+                    {
+                        "contract_version": PUBLIC_REPLAY_CONTRACT_VERSION,
+                        "validation": {
+                            "real_public_high_js_replay_proven": False,
+                            "public_network_attempted": True,
+                        },
+                        "inputs": {"target_count": 3},
+                        "outputs": {
+                            "public_targets_attempted": 3,
+                            "high_js_success_count": 1,
+                            "target_results": [
+                                {
+                                    "target_id": "x_search_robotics",
+                                    "status": "auth_or_anti_bot_blocked",
+                                    "browser_rendered": True,
+                                    "public_network_attempted": True,
+                                    "reason": "login required",
+                                    "markers": {"contains_login": True, "contains_captcha": False},
+                                },
+                                {
+                                    "target_id": "instagram_tag_robotics",
+                                    "status": "auth_or_anti_bot_blocked",
+                                    "browser_rendered": True,
+                                    "public_network_attempted": True,
+                                    "reason": "captcha required",
+                                    "markers": {"contains_login": True, "contains_captcha": True},
+                                },
+                                {
+                                    "target_id": "youtube_search_robotics",
+                                    "status": "success",
+                                    "browser_rendered": True,
+                                },
+                            ],
+                        },
+                        "evidence": {
+                            "contract_version": "llm_crawler.high_js_public_replay_evidence.v1",
+                            "credential_material_logged": False,
+                            "session": {
+                                "contract_version": SESSION_EVIDENCE_CONTRACT_VERSION,
+                                "requested": True,
+                                "configured": True,
+                                "applied": True,
+                                "source": "unit_session_user_data_dir",
+                                "user_data_dir_mode": "copied_operator_profile",
+                                "copy_session_user_data_dir": True,
+                                "credential_material_logged": False,
+                                "path_disclosed": False,
+                            },
+                        },
+                    },
+                    sort_keys=True,
+                ),
+                encoding="utf-8",
+            )
+            result = build_check(REPO_ROOT, public_artifact)
+
+        session_evidence = result["public_high_js_replay"]["session_replay_evidence"]
+        self.assertEqual(result["status"], "accessible_public_high_js_replay_proven_external_targets_blocked")
+        self.assertTrue(result["validation"]["passed"], result["validation"]["errors"])
+        self.assertEqual(session_evidence["contract_version"], SESSION_EVIDENCE_CONTRACT_VERSION)
+        self.assertTrue(session_evidence["session_aware_replay_requested"])
+        self.assertTrue(session_evidence["session_context_applied"])
+        self.assertFalse(session_evidence["credential_material_logged"])
+        self.assertFalse(result["closure"]["full_closure_allowed"])
+
+    def test_session_evidence_rejects_credential_material_logging(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            public_artifact = Path(tmpdir) / "output.public.json"
+            public_artifact.write_text(
+                json.dumps(
+                    {
+                        "contract_version": PUBLIC_REPLAY_CONTRACT_VERSION,
+                        "validation": {
+                            "real_public_high_js_replay_proven": True,
+                            "public_network_attempted": True,
+                        },
+                        "inputs": {"target_count": 3},
+                        "outputs": {
+                            "public_targets_attempted": 3,
+                            "high_js_success_count": 3,
+                            "target_results": [
+                                {"target_id": "x_search_robotics", "status": "success", "browser_rendered": True},
+                                {
+                                    "target_id": "instagram_tag_robotics",
+                                    "status": "success",
+                                    "browser_rendered": True,
+                                },
+                                {
+                                    "target_id": "youtube_search_robotics",
+                                    "status": "success",
+                                    "browser_rendered": True,
+                                },
+                            ],
+                        },
+                        "evidence": {
+                            "contract_version": "llm_crawler.high_js_public_replay_evidence.v1",
+                            "credential_material_logged": True,
+                            "session": {
+                                "contract_version": SESSION_EVIDENCE_CONTRACT_VERSION,
+                                "requested": True,
+                                "configured": True,
+                                "applied": True,
+                                "credential_material_logged": True,
+                                "path_disclosed": True,
+                            },
+                        },
+                    },
+                    sort_keys=True,
+                ),
+                encoding="utf-8",
+            )
+            result = build_check(REPO_ROOT, public_artifact)
+
+        self.assertEqual(result["status"], "failed")
+        self.assertFalse(result["validation"]["passed"])
+        self.assertFalse(result["closure"]["full_closure_allowed"])
+        self.assertIn("public replay artifact must not log credential material", result["validation"]["errors"])
 
 
 if __name__ == "__main__":

@@ -1,0 +1,280 @@
+{
+  "closure": {
+    "accessible_public_high_js_replay_complete": true,
+    "claim": "accessible_public_high_js_replay_complete_external_targets_blocked",
+    "full_closure_allowed": false,
+    "real_public_high_js_replay_complete": false,
+    "remaining_external_blockers": [
+      {
+        "classification": "intrinsic_external_auth_or_anti_bot_gate",
+        "markers": {
+          "contains_captcha": false,
+          "contains_javascript_disabled": false,
+          "contains_login": true,
+          "contains_robotics": false,
+          "contains_video_title": false,
+          "title": "X - 包罗万象的应用 / X"
+        },
+        "reason": "Headless Chrome rendered the page, but public content was gated by auth or anti-bot markers.",
+        "status": "auth_or_anti_bot_blocked",
+        "target_id": "x_search_robotics",
+        "url": "https://x.com/search?q=robotics"
+      }
+    ]
+  },
+  "contract_version": "llm_crawler.high_js_public_replay.v1",
+  "evidence": {
+    "contract_version": "llm_crawler.high_js_public_replay_evidence.v1",
+    "credential_material_logged": false,
+    "session": {
+      "applied": false,
+      "configured": false,
+      "contract_version": "llm_crawler.high_js_session_replay_evidence.v1",
+      "copy_session_user_data_dir": false,
+      "credential_material_logged": false,
+      "path_disclosed": false,
+      "requested": false,
+      "source": "none",
+      "user_data_dir_mode": "ephemeral_empty_profile"
+    }
+  },
+  "finished_at": "2026-05-24T02:20:39Z",
+  "inputs": {
+    "external_gate_target_ids": [
+      "x_search_robotics"
+    ],
+    "minimum_accessible_success_count": 1,
+    "public_high_js_probe_target_ids": [
+      "x_search_robotics",
+      "instagram_tag_robotics",
+      "youtube_search_robotics"
+    ],
+    "successful_accessible_target_ids": [
+      "instagram_tag_robotics",
+      "youtube_search_robotics"
+    ],
+    "target_count": 3,
+    "targets": [
+      {
+        "expected_domain": "x.com",
+        "external_blocker_accept_statuses": [
+          "auth_or_anti_bot_blocked"
+        ],
+        "public_replay_role": "public_high_js_probe",
+        "target_id": "x_search_robotics",
+        "url": "https://x.com/search?q=robotics"
+      },
+      {
+        "expected_domain": "instagram.com",
+        "external_blocker_accept_statuses": [
+          "auth_or_anti_bot_blocked"
+        ],
+        "public_replay_role": "public_high_js_probe",
+        "target_id": "instagram_tag_robotics",
+        "url": "https://www.instagram.com/explore/tags/robotics/"
+      },
+      {
+        "expected_domain": "youtube.com",
+        "external_blocker_accept_statuses": [
+          "auth_or_anti_bot_blocked"
+        ],
+        "public_replay_role": "public_high_js_probe",
+        "target_id": "youtube_search_robotics",
+        "url": "https://www.youtube.com/results?search_query=robotics"
+      }
+    ],
+    "timeout_seconds": 45
+  },
+  "operator_opt_in": {
+    "acknowledge_external_site_terms": true,
+    "acknowledge_no_shared_index_edits": true,
+    "acknowledge_rate_limits": true,
+    "allow_browser_runtime": true,
+    "allow_high_js_targets": true,
+    "allow_public_network": true,
+    "browser_runtime": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "contract_version": "llm_crawler.high_js_public_replay.opt_in_request.v1",
+    "credential_material_logged": false,
+    "evidence_output": "development/latest-dev-docs/automation-runs/llm-crawler-high-js-public-replay/2026-05-23/output.public.session-aware-attempt.json",
+    "operator": "codex-session-aware",
+    "output_contract_version": "llm_crawler.high_js_public_replay.v1",
+    "requested_at": "2026-05-24T02:18:23Z",
+    "run_id": "session-aware-high-js-2026-05-23",
+    "session_aware_replay_requested": false,
+    "session_context_applied": false,
+    "session_context_source": "none",
+    "target_ids": [
+      "x_search_robotics",
+      "instagram_tag_robotics",
+      "youtube_search_robotics"
+    ]
+  },
+  "outputs": {
+    "high_js_success_count": 2,
+    "public_targets_attempted": 3,
+    "remaining_external_blockers": [
+      {
+        "classification": "intrinsic_external_auth_or_anti_bot_gate",
+        "markers": {
+          "contains_captcha": false,
+          "contains_javascript_disabled": false,
+          "contains_login": true,
+          "contains_robotics": false,
+          "contains_video_title": false,
+          "title": "X - 包罗万象的应用 / X"
+        },
+        "reason": "Headless Chrome rendered the page, but public content was gated by auth or anti-bot markers.",
+        "status": "auth_or_anti_bot_blocked",
+        "target_id": "x_search_robotics",
+        "url": "https://x.com/search?q=robotics"
+      }
+    ],
+    "status_counts": {
+      "auth_or_anti_bot_blocked": 1,
+      "success": 2
+    },
+    "target_results": [
+      {
+        "browser_rendered": true,
+        "browser_runtime_started": true,
+        "browser_timed_out": true,
+        "elapsed_ms": 45028,
+        "expected_domain": "x.com",
+        "frontdoor_route_profile": {
+          "browser_fetch_required": true,
+          "contract_version": "ingest.frontdoor_route_profile.v1",
+          "domain": "x.com",
+          "fetch_strategy": "browser_render",
+          "high_js": true,
+          "http_fetch_fallback_allowed": false,
+          "reason_code": "needs_browser_runtime",
+          "render_required": true,
+          "route_hint": "crawler_browse",
+          "router_state": "needs_browser"
+        },
+        "markers": {
+          "contains_captcha": false,
+          "contains_javascript_disabled": false,
+          "contains_login": true,
+          "contains_robotics": false,
+          "contains_video_title": false,
+          "title": "X - 包罗万象的应用 / X"
+        },
+        "public_network_attempted": true,
+        "reason": "Headless Chrome rendered the page, but public content was gated by auth or anti-bot markers.",
+        "rendered_dom_bytes": 396140,
+        "returncode": null,
+        "session_context": {
+          "contract_version": "llm_crawler.high_js_session_replay_evidence.v1",
+          "credential_material_logged": false,
+          "session_aware_replay_requested": false,
+          "session_context_applied": false,
+          "source": "none",
+          "user_data_dir_mode": "ephemeral_empty_profile"
+        },
+        "status": "auth_or_anti_bot_blocked",
+        "stderr_tail": "68430:63003545:0523/191843.223284:VERBOSE1:chrome/updater/ipc/update_service_internal_proxy_mojo.cc:61] Run\n[68430:63003545:0523/191900.192997:VERBOSE1:chrome/updater/app/app.cc:52] Shutdown: 0\n[68430:63003545:0523/191900.193480:VERBOSE2:chrome/updater/event_history.cc:265] Emitted a UPDATER_PROCESS END event to the history log\n[68430:63003545:0523/191900.193495:VERBOSE1:chrome/updater/updater.cc:390] UpdaterMain (--wake) returned 0.\n[68427:63003541:0523/191900.226995:VERBOSE1:chrome/updater/app/app_wakeall.cc:68] `/Users/wangyiliang/Library/Application Support/Google/GoogleUpdater/149.0.7814.0/GoogleUpdater.app/Contents/MacOS/GoogleUpdater --wake` exited 0\n[68427:63003529:0523/191900.227153:VERBOSE1:chrome/updater/app/app.cc:52] Shutdown: 0\n[68427:63003529:0523/191900.227534:VERBOSE2:chrome/updater/event_history.cc:265] Emitted a UPDATER_PROCESS END event to the history log\n[68427:63003529:0523/191900.227548:VERBOSE1:chrome/updater/updater.cc:390] UpdaterMain (--wake-all) returned 0.\n",
+        "target_id": "x_search_robotics",
+        "url": "https://x.com/search?q=robotics"
+      },
+      {
+        "browser_rendered": true,
+        "browser_runtime_started": true,
+        "browser_timed_out": true,
+        "elapsed_ms": 45023,
+        "expected_domain": "instagram.com",
+        "frontdoor_route_profile": {
+          "browser_fetch_required": true,
+          "contract_version": "ingest.frontdoor_route_profile.v1",
+          "domain": "instagram.com",
+          "fetch_strategy": "browser_render",
+          "high_js": true,
+          "http_fetch_fallback_allowed": false,
+          "reason_code": "needs_browser_runtime",
+          "render_required": true,
+          "route_hint": "crawler_browse",
+          "router_state": "needs_browser"
+        },
+        "markers": {
+          "contains_captcha": true,
+          "contains_javascript_disabled": false,
+          "contains_login": true,
+          "contains_robotics": true,
+          "contains_video_title": false,
+          "title": "Robotics • 1,932&nbsp;万 reels on Instagram"
+        },
+        "public_network_attempted": true,
+        "reason": "Headless Chrome rendered target-specific public search content.",
+        "rendered_dom_bytes": 1056899,
+        "returncode": null,
+        "session_context": {
+          "contract_version": "llm_crawler.high_js_session_replay_evidence.v1",
+          "credential_material_logged": false,
+          "session_aware_replay_requested": false,
+          "session_context_applied": false,
+          "source": "none",
+          "user_data_dir_mode": "ephemeral_empty_profile"
+        },
+        "status": "success",
+        "stderr_tail": "70028:63010396:0523/191928.524359:VERBOSE1:chrome/updater/ipc/update_service_internal_proxy_mojo.cc:61] Run\n[70028:63010396:0523/191944.591062:VERBOSE1:chrome/updater/app/app.cc:52] Shutdown: 0\n[70028:63010396:0523/191944.591595:VERBOSE2:chrome/updater/event_history.cc:265] Emitted a UPDATER_PROCESS END event to the history log\n[70028:63010396:0523/191944.591614:VERBOSE1:chrome/updater/updater.cc:390] UpdaterMain (--wake) returned 0.\n[70019:63010391:0523/191944.702504:VERBOSE1:chrome/updater/app/app_wakeall.cc:68] `/Users/wangyiliang/Library/Application Support/Google/GoogleUpdater/149.0.7814.0/GoogleUpdater.app/Contents/MacOS/GoogleUpdater --wake` exited 0\n[70019:63010344:0523/191944.702682:VERBOSE1:chrome/updater/app/app.cc:52] Shutdown: 0\n[70019:63010344:0523/191944.703086:VERBOSE2:chrome/updater/event_history.cc:265] Emitted a UPDATER_PROCESS END event to the history log\n[70019:63010344:0523/191944.703108:VERBOSE1:chrome/updater/updater.cc:390] UpdaterMain (--wake-all) returned 0.\n",
+        "target_id": "instagram_tag_robotics",
+        "url": "https://www.instagram.com/explore/tags/robotics/"
+      },
+      {
+        "browser_rendered": true,
+        "browser_runtime_started": true,
+        "browser_timed_out": true,
+        "elapsed_ms": 45037,
+        "expected_domain": "youtube.com",
+        "frontdoor_route_profile": {
+          "browser_fetch_required": true,
+          "contract_version": "ingest.frontdoor_route_profile.v1",
+          "domain": "youtube.com",
+          "fetch_strategy": "browser_render",
+          "high_js": true,
+          "http_fetch_fallback_allowed": false,
+          "reason_code": "needs_browser_runtime",
+          "render_required": true,
+          "route_hint": "crawler_browse",
+          "router_state": "needs_browser"
+        },
+        "markers": {
+          "contains_captcha": true,
+          "contains_javascript_disabled": false,
+          "contains_login": true,
+          "contains_robotics": true,
+          "contains_video_title": true,
+          "title": "robotics - YouTube"
+        },
+        "public_network_attempted": true,
+        "reason": "Headless Chrome rendered target-specific public search content.",
+        "rendered_dom_bytes": 2842431,
+        "returncode": null,
+        "session_context": {
+          "contract_version": "llm_crawler.high_js_session_replay_evidence.v1",
+          "credential_material_logged": false,
+          "session_aware_replay_requested": false,
+          "session_context_applied": false,
+          "source": "none",
+          "user_data_dir_mode": "ephemeral_empty_profile"
+        },
+        "status": "success",
+        "stderr_tail": "71547:63017500:0523/192013.487856:VERBOSE1:chrome/updater/ipc/update_service_internal_proxy_mojo.cc:61] Run\n[71547:63017500:0523/192029.659860:VERBOSE1:chrome/updater/app/app.cc:52] Shutdown: 0\n[71547:63017500:0523/192029.660506:VERBOSE2:chrome/updater/event_history.cc:265] Emitted a UPDATER_PROCESS END event to the history log\n[71547:63017500:0523/192029.660528:VERBOSE1:chrome/updater/updater.cc:390] UpdaterMain (--wake) returned 0.\n[71544:63017496:0523/192029.709952:VERBOSE1:chrome/updater/app/app_wakeall.cc:68] `/Users/wangyiliang/Library/Application Support/Google/GoogleUpdater/149.0.7814.0/GoogleUpdater.app/Contents/MacOS/GoogleUpdater --wake` exited 0\n[71544:63017484:0523/192029.710238:VERBOSE1:chrome/updater/app/app.cc:52] Shutdown: 0\n[71544:63017484:0523/192029.710894:VERBOSE2:chrome/updater/event_history.cc:265] Emitted a UPDATER_PROCESS END event to the history log\n[71544:63017484:0523/192029.710912:VERBOSE1:chrome/updater/updater.cc:390] UpdaterMain (--wake-all) returned 0.\n",
+        "target_id": "youtube_search_robotics",
+        "url": "https://www.youtube.com/results?search_query=robotics"
+      }
+    ]
+  },
+  "started_at": "2026-05-24T02:18:23Z",
+  "validation": {
+    "accessible_public_high_js_replay_proven": true,
+    "browser_runtime_started": true,
+    "errors": [],
+    "external_gate_blockers_proven": true,
+    "passed": true,
+    "public_network_attempted": true,
+    "real_public_high_js_replay_proven": false,
+    "session_aware_replay_requested": false,
+    "session_context_applied": false
+  }
+}

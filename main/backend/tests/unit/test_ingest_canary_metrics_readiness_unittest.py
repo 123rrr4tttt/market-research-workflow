@@ -176,6 +176,24 @@ class IngestCanaryMetricsReadinessUnitTestCase(unittest.TestCase):
         self.assertIn("configured_provider_configured", boundary["validation"]["failed_checks"])
         self.assertIn("configured_provider_live_runtime_validated", boundary["validation"]["failed_checks"])
 
+    def test_configured_provider_canary_boundary_accepts_single_url_endpoint(self) -> None:
+        handoff = _handoff_fixture()
+        handoff["frontdoor_run"] = {
+            **handoff["frontdoor_run"],
+            "entrypoint": "ingest.url.single",
+            "source_url": "https://example.com/wave57-single-url",
+        }
+        evidence = _configured_provider_live_evidence()
+        evidence["frontdoor_run"] = dict(handoff["frontdoor_run"])
+        evidence["handoff_readback"] = handoff
+
+        boundary = build_configured_provider_canary_boundary(live_canary_evidence=evidence)
+
+        self.assertEqual(boundary["status"], "validated")
+        self.assertTrue(boundary["validation"]["passed"])
+        self.assertTrue(boundary["validation"]["checks"]["frontdoor_entrypoint_is_single_url_frontdoor"])
+        self.assertIn("ingest.url.single", boundary["frontdoor_run"]["allowed_entrypoints"])
+
     def test_complete_live_and_24h_evidence_validates_readbacks_without_closure_claim(self) -> None:
         report = build_ingest_canary_metrics_readiness(
             handoff=_handoff_fixture(),

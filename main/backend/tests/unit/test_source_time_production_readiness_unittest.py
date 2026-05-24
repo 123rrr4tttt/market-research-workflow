@@ -49,6 +49,7 @@ class SourceTimeProductionReadinessTest(unittest.TestCase):
         self.assertTrue(result["checks"]["deterministic_source_time_contract_verified"])
         self.assertTrue(result["checks"]["decision_log_provenance_verified"])
         self.assertTrue(result["checks"]["deterministic_sample_readback_chain_verified"])
+        self.assertFalse(result["checks"]["configured_semantic_chain_evidence_verified"])
         self.assertFalse(result["checks"]["production_data_semantic_chain_live_verified"])
         self.assertTrue(result["checks"]["production_data_semantic_chain_live_gap_retained"])
         self.assertIn(
@@ -139,9 +140,11 @@ class SourceTimeProductionReadinessTest(unittest.TestCase):
                 "source_time_coverage_measured": True,
                 "decision_log_rows_readback": True,
                 "decision_log_features_readback": True,
+                "feedback_reward_alignment_readback": True,
                 "semantic_chain_sample_count": 12,
                 "source_time_coverage": 0.84,
                 "decision_log_row_count": 12,
+                "feedback_row_count": 12,
             }
         )
 
@@ -149,9 +152,40 @@ class SourceTimeProductionReadinessTest(unittest.TestCase):
         self.assertFalse(result["closure_claim"])
         self.assertTrue(result["full_closure_allowed"])
         self.assertEqual(result["readiness_boundaries"]["production_data_semantic_chain"], "live_verified")
+        self.assertTrue(result["checks"]["configured_semantic_chain_evidence_verified"])
         self.assertTrue(result["checks"]["production_data_semantic_chain_live_verified"])
         self.assertFalse(result["checks"]["production_data_semantic_chain_live_gap_retained"])
         self.assertEqual(result["remaining_live_gaps"], [])
+
+    def test_production_like_evidence_verifies_configured_chain_without_full_closure(self) -> None:
+        module = _load_checker_module()
+        result = module.build_check(
+            live_evidence={
+                "evidence_tier": "production_like",
+                "production_data_semantic_chain_verified": True,
+                "live_query_used": True,
+                "configured_services_used": True,
+                "effective_time_source_distribution_readback": True,
+                "source_time_coverage_measured": True,
+                "decision_log_rows_readback": True,
+                "decision_log_features_readback": True,
+                "feedback_reward_alignment_readback": True,
+                "semantic_chain_sample_count": 1,
+                "source_time_coverage": 1.0,
+                "decision_log_row_count": 3,
+                "feedback_row_count": 3,
+            }
+        )
+
+        self.assertEqual(result["status"], "passed_with_configured_evidence")
+        self.assertFalse(result["full_closure_allowed"])
+        self.assertEqual(
+            result["readiness_boundaries"]["production_data_semantic_chain"],
+            "production_like_verified",
+        )
+        self.assertTrue(result["checks"]["configured_semantic_chain_evidence_verified"])
+        self.assertFalse(result["checks"]["production_data_semantic_chain_live_verified"])
+        self.assertIn("production_live_dataset_not_verified", result["remaining_live_gaps"])
 
 
 if __name__ == "__main__":

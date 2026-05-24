@@ -265,6 +265,7 @@ def build_check(
     live_evidence: dict[str, Any] | None = None,
     include_doc_checks: bool = True,
     pre_release_gate_path: Path | None = None,
+    strict_closure: bool = False,
 ) -> dict[str, Any]:
     root = Path(repo_root) if repo_root is not None else REPO_ROOT
     root = root.resolve()
@@ -291,6 +292,9 @@ def build_check(
     production_live_verified = bool(
         source_readiness.get("checks", {}).get("production_data_semantic_chain_live_verified")
     )
+    configured_semantic_chain_verified = bool(
+        source_readiness.get("checks", {}).get("configured_semantic_chain_evidence_verified")
+    )
     stages = [distribution_stage, release_gate, doc_stage]
     failures: list[str] = []
     if source_readiness.get("failures"):
@@ -300,8 +304,17 @@ def build_check(
     for stage in stages:
         if not stage.get("passed"):
             failures.append(f"stage.{stage['name']}.{stage['status']}")
+    if strict_closure and not production_live_verified:
+        failures.append("production_data_semantic_chain_live_required")
 
-    status = "failed" if failures else ("passed" if production_live_verified else "passed_with_known_gaps")
+    if failures:
+        status = "failed"
+    elif production_live_verified:
+        status = "passed"
+    elif configured_semantic_chain_verified:
+        status = "passed_with_configured_evidence"
+    else:
+        status = "passed_with_known_gaps"
     external_blockers_reduced = []
     if release_gate.get("passed"):
         external_blockers_reduced.append("release_gate_integration")
@@ -315,6 +328,7 @@ def build_check(
         "contract_version": CONTRACT_VERSION,
         "scope": "time_semantics_density_release_gate_repo_local_readback",
         "status": status,
+        "strict_closure": bool(strict_closure),
         "closure_claim": False,
         "full_closure_allowed": bool(production_live_verified and not failures),
         "target": str(TARGET_DIR),
@@ -334,6 +348,7 @@ def build_check(
                 stage_checks.get("decision_log_features_readback_repo_local_verified")
             ),
             "release_gate_integration_verified": bool(release_gate.get("passed")),
+            "configured_semantic_chain_evidence_verified": configured_semantic_chain_verified,
             "production_data_semantic_chain_live_verified": production_live_verified,
             "target_doc_artifact_verified": bool(doc_stage.get("passed")),
         },
@@ -344,6 +359,9 @@ def build_check(
         "remaining_live_requirements": []
         if production_live_verified
         else [
+            "configured production/live semantic-chain evidence"
+            if not configured_semantic_chain_verified
+            else "true production/live dataset tier beyond production-like sample",
             "configured production/live source-time coverage distribution",
             "configured production/live prompt-time policy decision-log rows",
             "configured production/live feedback reward alignment",
@@ -366,6 +384,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output", type=Path, default=None, help="Write full JSON output.")
     parser.add_argument("--skip-doc-checks", action="store_true", help="Skip target evidence doc checks.")
     parser.add_argument("--pre-release-gate-path", type=Path, default=None)
+    parser.add_argument(
+        "--strict-closure",
+        action="store_true",
+        help="Fail unless production/live semantic-chain evidence fully verifies the remaining blocker.",
+    )
     args = parser.parse_args(argv)
 
     result = build_check(
@@ -373,6 +396,7 @@ def main(argv: list[str] | None = None) -> int:
         live_evidence=_read_json(args.live_evidence_json),
         include_doc_checks=not args.skip_doc_checks,
         pre_release_gate_path=args.pre_release_gate_path,
+        strict_closure=bool(args.strict_closure),
     )
     if args.output is not None:
         args.output.parent.mkdir(parents=True, exist_ok=True)
@@ -393,6 +417,8 @@ def main(argv: list[str] | None = None) -> int:
             f"{str(checks['decision_log_features_readback_repo_local_verified']).lower()} "
             f"release_gate_integration_verified="
             f"{str(checks['release_gate_integration_verified']).lower()} "
+            f"configured_semantic_chain_evidence_verified="
+            f"{str(checks['configured_semantic_chain_evidence_verified']).lower()} "
             f"production_data_semantic_chain_live_verified="
             f"{str(checks['production_data_semantic_chain_live_verified']).lower()} "
             f"closure_claim={str(result['closure_claim']).lower()} "

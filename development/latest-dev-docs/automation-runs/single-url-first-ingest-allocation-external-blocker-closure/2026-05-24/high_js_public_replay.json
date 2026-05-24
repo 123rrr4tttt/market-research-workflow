@@ -1,0 +1,235 @@
+{
+  "closure": {
+    "accessible_public_high_js_replay_complete": true,
+    "claim": "accessible_public_high_js_replay_complete_external_targets_blocked",
+    "full_closure_allowed": false,
+    "real_public_high_js_replay_complete": false,
+    "remaining_external_blockers": [
+      {
+        "classification": "intrinsic_external_auth_or_anti_bot_gate",
+        "markers": {
+          "contains_captcha": false,
+          "contains_javascript_disabled": false,
+          "contains_login": true,
+          "contains_robotics": false,
+          "contains_video_title": false,
+          "title": "X - 包罗万象的应用 / X"
+        },
+        "reason": "Headless Chrome rendered the page, but public content was gated by auth or anti-bot markers.",
+        "status": "auth_or_anti_bot_blocked",
+        "target_id": "x_search_robotics",
+        "url": "https://x.com/search?q=robotics"
+      }
+    ]
+  },
+  "contract_version": "llm_crawler.high_js_public_replay.v1",
+  "finished_at": "2026-05-24T02:16:50Z",
+  "inputs": {
+    "external_gate_target_ids": [
+      "x_search_robotics"
+    ],
+    "minimum_accessible_success_count": 1,
+    "public_high_js_probe_target_ids": [
+      "x_search_robotics",
+      "instagram_tag_robotics",
+      "youtube_search_robotics"
+    ],
+    "successful_accessible_target_ids": [
+      "instagram_tag_robotics",
+      "youtube_search_robotics"
+    ],
+    "target_count": 3,
+    "targets": [
+      {
+        "expected_domain": "x.com",
+        "external_blocker_accept_statuses": [
+          "auth_or_anti_bot_blocked"
+        ],
+        "public_replay_role": "public_high_js_probe",
+        "target_id": "x_search_robotics",
+        "url": "https://x.com/search?q=robotics"
+      },
+      {
+        "expected_domain": "instagram.com",
+        "external_blocker_accept_statuses": [
+          "auth_or_anti_bot_blocked"
+        ],
+        "public_replay_role": "public_high_js_probe",
+        "target_id": "instagram_tag_robotics",
+        "url": "https://www.instagram.com/explore/tags/robotics/"
+      },
+      {
+        "expected_domain": "youtube.com",
+        "external_blocker_accept_statuses": [
+          "auth_or_anti_bot_blocked"
+        ],
+        "public_replay_role": "public_high_js_probe",
+        "target_id": "youtube_search_robotics",
+        "url": "https://www.youtube.com/results?search_query=robotics"
+      }
+    ],
+    "timeout_seconds": 20
+  },
+  "operator_opt_in": {
+    "acknowledge_external_site_terms": true,
+    "acknowledge_no_shared_index_edits": true,
+    "acknowledge_rate_limits": true,
+    "allow_browser_runtime": true,
+    "allow_high_js_targets": true,
+    "allow_public_network": true,
+    "browser_runtime": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "contract_version": "llm_crawler.high_js_public_replay.opt_in_request.v1",
+    "evidence_output": "development/latest-dev-docs/automation-runs/single-url-first-ingest-allocation-external-blocker-closure/2026-05-24/high_js_public_replay.json",
+    "operator": "codex",
+    "output_contract_version": "llm_crawler.high_js_public_replay.v1",
+    "requested_at": "2026-05-24T02:15:49Z",
+    "run_id": "single-url-first-ingest-allocation-2026-05-24",
+    "target_ids": [
+      "x_search_robotics",
+      "instagram_tag_robotics",
+      "youtube_search_robotics"
+    ]
+  },
+  "outputs": {
+    "high_js_success_count": 2,
+    "public_targets_attempted": 3,
+    "remaining_external_blockers": [
+      {
+        "classification": "intrinsic_external_auth_or_anti_bot_gate",
+        "markers": {
+          "contains_captcha": false,
+          "contains_javascript_disabled": false,
+          "contains_login": true,
+          "contains_robotics": false,
+          "contains_video_title": false,
+          "title": "X - 包罗万象的应用 / X"
+        },
+        "reason": "Headless Chrome rendered the page, but public content was gated by auth or anti-bot markers.",
+        "status": "auth_or_anti_bot_blocked",
+        "target_id": "x_search_robotics",
+        "url": "https://x.com/search?q=robotics"
+      }
+    ],
+    "status_counts": {
+      "auth_or_anti_bot_blocked": 1,
+      "success": 2
+    },
+    "target_results": [
+      {
+        "browser_rendered": true,
+        "browser_runtime_started": true,
+        "browser_timed_out": true,
+        "elapsed_ms": 20052,
+        "expected_domain": "x.com",
+        "frontdoor_route_profile": {
+          "browser_fetch_required": true,
+          "contract_version": "ingest.frontdoor_route_profile.v1",
+          "domain": "x.com",
+          "fetch_strategy": "browser_render",
+          "high_js": true,
+          "http_fetch_fallback_allowed": false,
+          "reason_code": "needs_browser_runtime",
+          "render_required": true,
+          "route_hint": "crawler_browse",
+          "router_state": "needs_browser"
+        },
+        "markers": {
+          "contains_captcha": false,
+          "contains_javascript_disabled": false,
+          "contains_login": true,
+          "contains_robotics": false,
+          "contains_video_title": false,
+          "title": "X - 包罗万象的应用 / X"
+        },
+        "public_network_attempted": true,
+        "reason": "Headless Chrome rendered the page, but public content was gated by auth or anti-bot markers.",
+        "rendered_dom_bytes": 396140,
+        "returncode": null,
+        "status": "auth_or_anti_bot_blocked",
+        "stderr_tail": "958391:VERBOSE2:chrome/updater/event_history.cc:265] Emitted a UPDATER_PROCESS START event to the history log\n[64301:62983956:0523/191609.960178:VERBOSE1:chrome/updater/crash_reporter.cc:124] Crash handler launched and ready.\n[64301:62983956:0523/191609.962951:VERBOSE1:chrome/updater/crash_client.cc:108] Found 0 completed crash reports\n[64301:62983956:0523/191609.963279:VERBOSE1:chrome/updater/crash_client.cc:132] Found 0 pending crash reports\n[64301:62983956:0523/191609.963623:ERROR:third_party/crashpad/crashpad/util/file/file_io_posix.cc:145] open /Users/wangyiliang/Library/Application Support/Google/RLZ/Crashpad/settings.dat: No such file or directory (2)\n[64301:62983956:0523/191609.964323:VERBOSE1:chrome/updater/updater.cc:103] Crash reporting initialized.\n[64301:62983969:0523/191609.965409:VERBOSE1:chrome/updater/app/app_wakeall.cc:58] Launching `/Users/wangyiliang/Library/Application Support/Google/GoogleUpdater/149.0.7814.0/GoogleUpdater.app/Contents/MacOS/GoogleUpdater --wake`\n",
+        "target_id": "x_search_robotics",
+        "url": "https://x.com/search?q=robotics"
+      },
+      {
+        "browser_rendered": true,
+        "browser_runtime_started": true,
+        "browser_timed_out": true,
+        "elapsed_ms": 20033,
+        "expected_domain": "instagram.com",
+        "frontdoor_route_profile": {
+          "browser_fetch_required": true,
+          "contract_version": "ingest.frontdoor_route_profile.v1",
+          "domain": "instagram.com",
+          "fetch_strategy": "browser_render",
+          "high_js": true,
+          "http_fetch_fallback_allowed": false,
+          "reason_code": "needs_browser_runtime",
+          "render_required": true,
+          "route_hint": "crawler_browse",
+          "router_state": "needs_browser"
+        },
+        "markers": {
+          "contains_captcha": true,
+          "contains_javascript_disabled": false,
+          "contains_login": true,
+          "contains_robotics": true,
+          "contains_video_title": false,
+          "title": "Robotics • 1,932&nbsp;万 reels on Instagram"
+        },
+        "public_network_attempted": true,
+        "reason": "Headless Chrome rendered target-specific public search content.",
+        "rendered_dom_bytes": 1056368,
+        "returncode": null,
+        "status": "success",
+        "stderr_tail": "er.cc:355] OS version: 26.3.0, arch: arm64, System uptime (seconds): 2366552, parent pid: 1\n[64674:62986305:0523/191629.606430:VERBOSE2:chrome/updater/event_history.cc:265] Emitted a UPDATER_PROCESS START event to the history log\n[64672:62986301:0523/191629.607053:VERBOSE1:chrome/updater/crash_reporter.cc:124] Crash handler launched and ready.\n[64672:62986301:0523/191629.608021:VERBOSE1:chrome/updater/crash_client.cc:108] Found 0 completed crash reports\n[64672:62986301:0523/191629.608135:VERBOSE1:chrome/updater/crash_client.cc:132] Found 0 pending crash reports\n[64672:62986301:0523/191629.608234:ERROR:third_party/crashpad/crashpad/util/file/file_io_posix.cc:145] open /Users/wangyiliang/Library/Application Support/Google/RLZ/Crashpad/settings.dat: No such file or directory (2)\n[64672:62986301:0523/191629.608533:VERBOSE1:chrome/updater/updater.cc:103] Crash reporting initialized.\n[64672:62986301:0523/191629.608891:VERBOSE1:chrome/updater/ipc/update_service_internal_proxy_mojo.cc:61] Run\n",
+        "target_id": "instagram_tag_robotics",
+        "url": "https://www.instagram.com/explore/tags/robotics/"
+      },
+      {
+        "browser_rendered": true,
+        "browser_runtime_started": true,
+        "browser_timed_out": true,
+        "elapsed_ms": 20028,
+        "expected_domain": "youtube.com",
+        "frontdoor_route_profile": {
+          "browser_fetch_required": true,
+          "contract_version": "ingest.frontdoor_route_profile.v1",
+          "domain": "youtube.com",
+          "fetch_strategy": "browser_render",
+          "high_js": true,
+          "http_fetch_fallback_allowed": false,
+          "reason_code": "needs_browser_runtime",
+          "render_required": true,
+          "route_hint": "crawler_browse",
+          "router_state": "needs_browser"
+        },
+        "markers": {
+          "contains_captcha": true,
+          "contains_javascript_disabled": false,
+          "contains_login": true,
+          "contains_robotics": true,
+          "contains_video_title": true,
+          "title": "robotics - YouTube"
+        },
+        "public_network_attempted": true,
+        "reason": "Headless Chrome rendered target-specific public search content.",
+        "rendered_dom_bytes": 3087507,
+        "returncode": null,
+        "status": "success",
+        "stderr_tail": "er.cc:355] OS version: 26.3.0, arch: arm64, System uptime (seconds): 2366572, parent pid: 1\n[65325:62989295:0523/191649.929904:VERBOSE2:chrome/updater/event_history.cc:265] Emitted a UPDATER_PROCESS START event to the history log\n[65323:62989291:0523/191649.931155:VERBOSE1:chrome/updater/crash_reporter.cc:124] Crash handler launched and ready.\n[65323:62989291:0523/191649.933302:VERBOSE1:chrome/updater/crash_client.cc:108] Found 0 completed crash reports\n[65323:62989291:0523/191649.933486:VERBOSE1:chrome/updater/crash_client.cc:132] Found 0 pending crash reports\n[65323:62989291:0523/191649.933644:ERROR:third_party/crashpad/crashpad/util/file/file_io_posix.cc:145] open /Users/wangyiliang/Library/Application Support/Google/RLZ/Crashpad/settings.dat: No such file or directory (2)\n[65323:62989291:0523/191649.934001:VERBOSE1:chrome/updater/updater.cc:103] Crash reporting initialized.\n[65323:62989291:0523/191649.934474:VERBOSE1:chrome/updater/ipc/update_service_internal_proxy_mojo.cc:61] Run\n",
+        "target_id": "youtube_search_robotics",
+        "url": "https://www.youtube.com/results?search_query=robotics"
+      }
+    ]
+  },
+  "started_at": "2026-05-24T02:15:49Z",
+  "validation": {
+    "accessible_public_high_js_replay_proven": true,
+    "browser_runtime_started": true,
+    "errors": [],
+    "external_gate_blockers_proven": true,
+    "passed": true,
+    "public_network_attempted": true,
+    "real_public_high_js_replay_proven": false
+  }
+}

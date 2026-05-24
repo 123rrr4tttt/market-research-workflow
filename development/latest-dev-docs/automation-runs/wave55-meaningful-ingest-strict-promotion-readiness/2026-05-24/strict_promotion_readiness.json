@@ -1,14 +1,22 @@
 {
+  "closure_requested": false,
   "contract_version": "ingest.canary_strict_promotion_readiness.v1",
   "evidence_doc": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-meaningful-ingest-guardrails-plan/12_wave55-strict-promotion-readiness-2026-05-24.md",
+  "evidence_inputs": {
+    "ops_promotion_artifact_error": null,
+    "ops_promotion_artifact_path": null,
+    "production_metrics_artifact_error": null,
+    "production_metrics_artifact_path": null
+  },
+  "final_gate_doc": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-meaningful-ingest-guardrails-plan/13_wave56-strict-promotion-final-gate-2026-05-24.md",
   "live_canary_result": {
     "cleanup": {
       "error": null,
       "performed": true,
-      "schema_name": "project_wave55_ingest_canary_656ceed42d"
+      "schema_name": "project_wave55_ingest_canary_320fec97fd"
     },
     "contract_version": "ingest.single_url_canary_handoff.production_like_check.v1",
-    "project_key": "wave55_ingest_canary_656ceed42d",
+    "project_key": "wave55_ingest_canary_320fec97fd",
     "status": "passed",
     "validation": {
       "contract_version": "ingest.single_url_canary_handoff.production_like_check.v1",
@@ -52,6 +60,7 @@
         ],
         "detail": "repo-local 24h metric shape is valid, but the artifact does not claim production data",
         "evidence": {
+          "artifact_kind": "deterministic_ingest_canary_24h_metrics_fixture",
           "checks": {
             "contract_version": true,
             "guardrail_rollout_counts_reviewed": true,
@@ -59,12 +68,18 @@
             "rejection_rate_reviewed": true,
             "window_hours_at_least_24": true
           },
+          "contract_version": "ingest.canary_24h_metrics_artifact.v1",
           "deterministic_fixture": true,
           "failed_checks": [],
           "inserted_valid_ratio": 1.0,
+          "live_window_observed": false,
           "metric_24h_live_readback_claim": false,
+          "production_checks": {},
           "production_data_claim": false,
+          "production_failed_checks": [],
           "rejection_rate": 0.25,
+          "source_record_id": null,
+          "source_system": null,
           "window_hours": 24
         },
         "name": "metric_24h_readback",
@@ -79,19 +94,34 @@
         ],
         "detail": "all-project strict-gate promotion is operations-owned and not satisfied locally",
         "evidence": {
+          "approval_ticket": null,
           "checks": {
+            "approval_ticket_present": false,
+            "approved_at_present": false,
+            "approved_by_present": false,
+            "contract_version": false,
+            "evidence_scope_operations": false,
             "operations_approval_recorded": false,
             "production_24h_metrics_reviewed": false,
             "promotion_decision_is_promote": false,
             "rollback_plan_recorded": false,
+            "rollback_plan_ref_present": false,
             "strict_gate_global_default_enabled": false
           },
+          "contract_version": null,
+          "evidence_scope": null,
           "failed_checks": [
+            "contract_version",
+            "evidence_scope_operations",
             "operations_approval_recorded",
             "production_24h_metrics_reviewed",
             "rollback_plan_recorded",
             "promotion_decision_is_promote",
-            "strict_gate_global_default_enabled"
+            "strict_gate_global_default_enabled",
+            "approved_by_present",
+            "approved_at_present",
+            "approval_ticket_present",
+            "rollback_plan_ref_present"
           ],
           "promotion_decision": null,
           "strict_gate_global_default_enabled": null
@@ -105,7 +135,7 @@
     "closure_claim": false,
     "contract_version": "ingest.canary_strict_promotion_readiness.v1",
     "production_24h_metrics_satisfied": false,
-    "project_key": "wave55_ingest_canary_656ceed42d",
+    "project_key": "wave55_ingest_canary_320fec97fd",
     "promotion_recommendation": "do_not_promote_without_production_24h_metrics_and_operations_decision",
     "remaining_external_blockers": [
       {
@@ -140,7 +170,7 @@
       "evidence": {
         "accepted_response_status_code": 200,
         "live_result_status": "passed",
-        "project_key": "wave55_ingest_canary_656ceed42d",
+        "project_key": "wave55_ingest_canary_320fec97fd",
         "rejected_response_status_code": 200
       },
       "name": "repo_local_live_canary_validated",
@@ -148,17 +178,52 @@
     },
     {
       "evidence": {
+        "artifact_kind": "deterministic_ingest_canary_24h_metrics_fixture",
+        "contract_version": "ingest.canary_24h_metrics_artifact.v1",
         "deterministic_fixture": true,
         "inserted_valid_ratio": 1.0,
         "rejection_rate": 0.25,
+        "source_path": null,
         "window_hours": 24
       },
-      "name": "repo_local_24h_metric_shape_validated",
+      "name": "24h_metric_shape_validated",
+      "passed": true
+    },
+    {
+      "evidence": {
+        "artifact_supplied": false,
+        "load_error": null,
+        "production_24h_metrics_satisfied": false,
+        "remaining_production_blockers": [
+          "production_24h_inserted_valid_ratio_readback_not_available",
+          "production_24h_rejection_rate_readback_not_available",
+          "production_guardrail_rollout_counts_readback_not_available"
+        ],
+        "required_contract_version": "ingest.production_24h_metrics_readback.v1",
+        "source_path": null
+      },
+      "name": "production_24h_metrics_gate",
+      "passed": true
+    },
+    {
+      "evidence": {
+        "artifact_supplied": false,
+        "load_error": null,
+        "remaining_ops_blockers": [
+          "operations_strict_gate_global_default_not_enabled",
+          "operations_strict_gate_promotion_decision_not_recorded"
+        ],
+        "required_contract_version": "ingest.ops_strict_gate_promotion_evidence.v1",
+        "source_path": null,
+        "strict_gate_promotion_satisfied": false
+      },
+      "name": "ops_strict_gate_promotion_gate",
       "passed": true
     },
     {
       "evidence": {
         "closure_claim": false,
+        "closure_requested": false,
         "remaining_external_blockers": [
           {
             "classification": "external_live_operational",
@@ -183,7 +248,7 @@
         ],
         "status": "external_blocked"
       },
-      "name": "production_and_ops_blockers_remain_explicit",
+      "name": "final_classification_consistent",
       "passed": true
     }
   ],
@@ -196,6 +261,8 @@
       "path": "main/backend/app/services/ingest/canary_strict_promotion.py",
       "tokens_checked": [
         "CONTRACT_VERSION",
+        "PRODUCTION_24H_METRICS_CONTRACT_VERSION",
+        "OPS_STRICT_GATE_PROMOTION_CONTRACT_VERSION",
         "PRODUCTION_24H_BLOCKERS",
         "OPS_PROMOTION_BLOCKERS",
         "build_strict_promotion_readiness",
@@ -210,7 +277,10 @@
       "tokens_checked": [
         "run_repo_local_production_like_handoff_canary",
         "build_24h_metrics_artifact",
-        "build_strict_promotion_readiness"
+        "build_strict_promotion_readiness",
+        "--production-metrics-artifact",
+        "--ops-promotion-artifact",
+        "--claim-closure"
       ]
     },
     {
@@ -223,6 +293,19 @@
         "repo_local_preflight_passed=true",
         "production_24h_metrics_satisfied=false",
         "strict_gate_promotion_satisfied=false",
+        "closure_claim=false"
+      ]
+    },
+    {
+      "exists": true,
+      "missing_tokens": [],
+      "passed": true,
+      "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-meaningful-ingest-guardrails-plan/13_wave56-strict-promotion-final-gate-2026-05-24.md",
+      "tokens_checked": [
+        "Wave56 Strict Promotion Final Gate",
+        "production_24h_metrics_artifact_optional",
+        "ops_strict_gate_promotion_artifact_optional",
+        "closure_claim_requires_both_artifacts",
         "closure_claim=false"
       ]
     }

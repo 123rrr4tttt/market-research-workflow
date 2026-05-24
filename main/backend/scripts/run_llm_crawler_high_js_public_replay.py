@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -28,6 +29,9 @@ DEFAULT_OUTPUT_PATH = Path(
     "development/latest-dev-docs/automation-runs/llm-crawler-high-js-public-replay/"
     "2026-05-23/output.public.attempt.json"
 )
+SESSION_EVIDENCE_CONTRACT_VERSION = "llm_crawler.high_js_session_replay_evidence.v1"
+SESSION_USER_DATA_DIR_ENV = "LLM_CRAWLER_HIGH_JS_SESSION_USER_DATA_DIR"
+COPY_SESSION_USER_DATA_DIR_ENV = "LLM_CRAWLER_HIGH_JS_COPY_SESSION_USER_DATA_DIR"
 CHROME_CANDIDATES = [
     os.environ.get("LLM_CRAWLER_CHROME_PATH", ""),
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
@@ -52,6 +56,10 @@ def _resolve_path(root: Path, value: str | Path) -> Path:
     return path if path.is_absolute() else root / path
 
 
+def _env_flag(name: str) -> bool:
+    return str(os.environ.get(name) or "").strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
 def _write_json(path: Path, payload: Mapping[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -62,6 +70,101 @@ def _discover_chrome() -> str | None:
         if candidate and Path(candidate).is_file():
             return candidate
     return None
+
+
+def _path_fingerprint(path: Path) -> str:
+    return hashlib.sha256(str(path.resolve()).encode("utf-8")).hexdigest()[:16]
+
+
+def _ignore_chrome_runtime_files(_directory: str, names: list[str]) -> set[str]:
+    return {
+        name
+        for name in names
+        if name.startswith("Singleton")
+        or name in {
+            "Crashpad",
+            "BrowserMetrics",
+            "GrShaderCache",
+            "GraphiteDawnCache",
+            "ShaderCache",
+        }
+    }
+
+
+def _prepare_session_runtime(
+    *,
+    root: Path,
+    session_user_data_dir: str | Path | None,
+    session_user_data_dir_source: str,
+    copy_session_user_data_dir: bool,
+) -> tuple[Path | None, dict[str, Any], list[str], Path | None]:
+    errors: list[str] = []
+    if session_user_data_dir is None:
+        return (
+            None,
+            {
+                "contract_version": SESSION_EVIDENCE_CONTRACT_VERSION,
+                "requested": False,
+                "configured": False,
+                "applied": False,
+                "source": "none",
+                "user_data_dir_mode": "ephemeral_empty_profile",
+                "copy_session_user_data_dir": False,
+                "credential_material_logged": False,
+                "path_disclosed": False,
+            },
+            errors,
+            None,
+        )
+
+    source_path = _resolve_path(root, session_user_data_dir)
+    exists = source_path.is_dir()
+    evidence: dict[str, Any] = {
+        "contract_version": SESSION_EVIDENCE_CONTRACT_VERSION,
+        "requested": True,
+        "configured": exists,
+        "applied": False,
+        "source": session_user_data_dir_source,
+        "user_data_dir_mode": "configured_path_unavailable",
+        "copy_session_user_data_dir": bool(copy_session_user_data_dir),
+        "source_path_name": source_path.name,
+        "source_path_fingerprint": _path_fingerprint(source_path),
+        "credential_material_logged": False,
+        "path_disclosed": False,
+    }
+    if not exists:
+        errors.append(f"session user data dir is not available or not a directory: source={session_user_data_dir_source}")
+        return None, evidence, errors, None
+
+    if not copy_session_user_data_dir:
+        evidence["applied"] = True
+        evidence["user_data_dir_mode"] = "operator_profile_direct"
+        return source_path, evidence, errors, None
+
+    runtime_dir = Path(tempfile.mkdtemp(prefix="mrw-high-js-session-profile-"))
+    try:
+        shutil.rmtree(runtime_dir)
+        shutil.copytree(source_path, runtime_dir, symlinks=True, ignore=_ignore_chrome_runtime_files)
+    except Exception as exc:  # pragma: no cover - platform/filesystem dependent safety path
+        shutil.rmtree(runtime_dir, ignore_errors=True)
+        errors.append(f"failed to copy session user data dir for replay: {type(exc).__name__}")
+        return None, evidence, errors, None
+
+    evidence["applied"] = True
+    evidence["user_data_dir_mode"] = "copied_operator_profile"
+    evidence["runtime_profile_disposable_copy"] = True
+    return runtime_dir, evidence, errors, runtime_dir
+
+
+def _session_context_for_target(session_evidence: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "contract_version": SESSION_EVIDENCE_CONTRACT_VERSION,
+        "session_aware_replay_requested": bool(session_evidence.get("requested")),
+        "session_context_applied": bool(session_evidence.get("applied")),
+        "source": session_evidence.get("source"),
+        "user_data_dir_mode": session_evidence.get("user_data_dir_mode"),
+        "credential_material_logged": False,
+    }
 
 
 def _title_from_dom(dom: str) -> str:
@@ -144,10 +247,17 @@ def _classify_browser_result(target: Mapping[str, Any], browser: Mapping[str, An
     }
 
 
-def _run_chrome_target(target: Mapping[str, Any], chrome_path: str, timeout_seconds: int) -> dict[str, Any]:
+def _run_chrome_target(
+    target: Mapping[str, Any],
+    chrome_path: str,
+    timeout_seconds: int,
+    *,
+    user_data_dir: Path | None = None,
+) -> dict[str, Any]:
     url = str(target.get("url") or "")
     started = time.monotonic()
-    user_data_dir = tempfile.mkdtemp(prefix="mrw-high-js-chrome-")
+    temp_user_data_dir = Path(tempfile.mkdtemp(prefix="mrw-high-js-chrome-")) if user_data_dir is None else None
+    runtime_user_data_dir = user_data_dir or temp_user_data_dir
     cmd = [
         chrome_path,
         "--headless=new",
@@ -156,7 +266,7 @@ def _run_chrome_target(target: Mapping[str, Any], chrome_path: str, timeout_seco
         "--no-default-browser-check",
         "--disable-background-networking",
         "--disable-component-update",
-        f"--user-data-dir={user_data_dir}",
+        f"--user-data-dir={runtime_user_data_dir}",
         "--virtual-time-budget=8000",
         "--dump-dom",
         url,
@@ -189,7 +299,8 @@ def _run_chrome_target(target: Mapping[str, Any], chrome_path: str, timeout_seco
             "stderr": stderr,
         }
     finally:
-        shutil.rmtree(user_data_dir, ignore_errors=True)
+        if temp_user_data_dir is not None:
+            shutil.rmtree(temp_user_data_dir, ignore_errors=True)
 
 
 def _status_counts(results: list[Mapping[str, Any]]) -> dict[str, int]:
@@ -233,12 +344,23 @@ def run_high_js_public_replay(
     timeout_seconds: int = 20,
     chrome_path: str | None = None,
     evidence_output: str | Path | None = None,
+    session_user_data_dir: str | Path | None = None,
+    session_user_data_dir_source: str = "explicit",
+    copy_session_user_data_dir: bool = False,
     target_runner: TargetRunner | None = None,
 ) -> dict[str, Any]:
     started_at = _utc_now()
+    root = _repo_root()
     resolved_chrome = chrome_path or _discover_chrome()
     target_results: list[dict[str, Any]] = []
     validation_errors: list[str] = []
+    runtime_user_data_dir, session_evidence, session_errors, session_cleanup_dir = _prepare_session_runtime(
+        root=root,
+        session_user_data_dir=session_user_data_dir,
+        session_user_data_dir_source=session_user_data_dir_source if session_user_data_dir else "none",
+        copy_session_user_data_dir=copy_session_user_data_dir,
+    )
+    validation_errors.extend(session_errors)
 
     if not allow_public_network:
         validation_errors.append("allow_public_network must be true for real high-JS public replay")
@@ -247,38 +369,49 @@ def run_high_js_public_replay(
     if target_runner is None and not resolved_chrome:
         validation_errors.append("Chrome runtime not found; set LLM_CRAWLER_CHROME_PATH")
 
-    for target in DEFAULT_HIGH_JS_TARGETS:
-        route = _route_profile(target)
-        if validation_errors:
-            classified = {
-                "status": "skipped_runtime_not_available",
-                "reason": "; ".join(validation_errors),
-                "browser_rendered": False,
-                "browser_runtime_started": False,
-                "public_network_attempted": False,
-                "browser_timed_out": False,
-                "returncode": None,
-                "elapsed_ms": 0,
-                "rendered_dom_bytes": 0,
-                "stderr_tail": "",
-                "markers": {},
-            }
-        else:
-            browser = (
-                target_runner(target, str(resolved_chrome), timeout_seconds)
-                if target_runner is not None
-                else _run_chrome_target(target, str(resolved_chrome), timeout_seconds)
+    try:
+        for target in DEFAULT_HIGH_JS_TARGETS:
+            route = _route_profile(target)
+            if validation_errors:
+                classified = {
+                    "status": "skipped_runtime_not_available",
+                    "reason": "; ".join(validation_errors),
+                    "browser_rendered": False,
+                    "browser_runtime_started": False,
+                    "public_network_attempted": False,
+                    "browser_timed_out": False,
+                    "returncode": None,
+                    "elapsed_ms": 0,
+                    "rendered_dom_bytes": 0,
+                    "stderr_tail": "",
+                    "markers": {},
+                }
+            else:
+                browser = (
+                    target_runner(target, str(resolved_chrome), timeout_seconds)
+                    if target_runner is not None
+                    else _run_chrome_target(
+                        target,
+                        str(resolved_chrome),
+                        timeout_seconds,
+                        user_data_dir=runtime_user_data_dir,
+                    )
+                )
+                classified = _classify_browser_result(target, browser)
+            target_results.append(
+                {
+                    "target_id": target["target_id"],
+                    "url": target["url"],
+                    "expected_domain": target["expected_domain"],
+                    "frontdoor_route_profile": route,
+                    "session_context": _session_context_for_target(session_evidence),
+                    **classified,
+                }
             )
-            classified = _classify_browser_result(target, browser)
-        target_results.append(
-            {
-                "target_id": target["target_id"],
-                "url": target["url"],
-                "expected_domain": target["expected_domain"],
-                "frontdoor_route_profile": route,
-                **classified,
-            }
-        )
+    finally:
+        if session_cleanup_dir is not None:
+            shutil.rmtree(session_cleanup_dir, ignore_errors=True)
+            session_evidence["runtime_profile_cleanup"] = "attempted"
 
     success_count = sum(1 for row in target_results if row.get("status") == "success" and row.get("browser_rendered") is True)
     public_attempted = sum(1 for row in target_results if row.get("public_network_attempted") is True)
@@ -341,6 +474,10 @@ def run_high_js_public_replay(
             "evidence_output": str(evidence_output or DEFAULT_OUTPUT_PATH),
             "output_contract_version": PUBLIC_REPLAY_CONTRACT_VERSION,
             "target_ids": [target["target_id"] for target in DEFAULT_HIGH_JS_TARGETS],
+            "session_aware_replay_requested": bool(session_evidence.get("requested")),
+            "session_context_applied": bool(session_evidence.get("applied")),
+            "session_context_source": session_evidence.get("source"),
+            "credential_material_logged": False,
             "allow_public_network": bool(allow_public_network),
             "allow_browser_runtime": bool(allow_browser_runtime),
             "allow_high_js_targets": True,
@@ -372,6 +509,8 @@ def run_high_js_public_replay(
             "real_public_high_js_replay_proven": proven,
             "accessible_public_high_js_replay_proven": accessible_public_proven,
             "external_gate_blockers_proven": external_gate_blockers_proven,
+            "session_aware_replay_requested": bool(session_evidence.get("requested")),
+            "session_context_applied": bool(session_evidence.get("applied")),
         },
         "closure": {
             "real_public_high_js_replay_complete": proven,
@@ -388,6 +527,11 @@ def run_high_js_public_replay(
                 )
             ),
         },
+        "evidence": {
+            "contract_version": "llm_crawler.high_js_public_replay_evidence.v1",
+            "session": session_evidence,
+            "credential_material_logged": False,
+        },
     }
 
 
@@ -400,8 +544,33 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT_PATH)
     parser.add_argument("--allow-public-network", action="store_true")
     parser.add_argument("--allow-browser-runtime", action="store_true")
+    parser.add_argument(
+        "--session-user-data-dir",
+        type=Path,
+        default=None,
+        help=(
+            "Optional operator-provided Chrome user data dir with legal X/Instagram session state. "
+            f"Can also be set with {SESSION_USER_DATA_DIR_ENV}."
+        ),
+    )
+    parser.add_argument(
+        "--copy-session-user-data-dir",
+        action="store_true",
+        help=(
+            "Copy the operator-provided session user data dir to a disposable temp profile before replay. "
+            f"Can also be enabled with {COPY_SESSION_USER_DATA_DIR_ENV}=true."
+        ),
+    )
     parser.add_argument("--strict", action="store_true")
     args = parser.parse_args(argv)
+    env_session_user_data_dir = os.environ.get(SESSION_USER_DATA_DIR_ENV)
+    session_user_data_dir = args.session_user_data_dir or env_session_user_data_dir
+    session_user_data_dir_source = (
+        "cli_session_user_data_dir"
+        if args.session_user_data_dir is not None
+        else (f"env:{SESSION_USER_DATA_DIR_ENV}" if env_session_user_data_dir else "none")
+    )
+    copy_session_user_data_dir = bool(args.copy_session_user_data_dir or _env_flag(COPY_SESSION_USER_DATA_DIR_ENV))
 
     result = run_high_js_public_replay(
         operator=args.operator,
@@ -411,6 +580,9 @@ def main(argv: list[str] | None = None) -> int:
         timeout_seconds=args.timeout_seconds,
         chrome_path=args.chrome_path,
         evidence_output=args.output,
+        session_user_data_dir=session_user_data_dir,
+        session_user_data_dir_source=session_user_data_dir_source,
+        copy_session_user_data_dir=copy_session_user_data_dir,
     )
     output_path = _resolve_path(_repo_root(), args.output)
     _write_json(output_path, result)

@@ -79,7 +79,14 @@ else
 fi
 
 echo "[gate] step 3/4: time semantics release gate"
-"$PYTHON_BIN" scripts/check_time_semantics_release_gate.py
+TIME_SEMANTICS_GATE_ARGS=()
+if [[ "$STRICT" == "true" ]]; then
+  TIME_SEMANTICS_GATE_ARGS+=(--strict-closure)
+fi
+if [[ -n "${TIME_SEMANTICS_LIVE_EVIDENCE_JSON:-}" ]]; then
+  TIME_SEMANTICS_GATE_ARGS+=(--live-evidence-json "$TIME_SEMANTICS_LIVE_EVIDENCE_JSON")
+fi
+"$PYTHON_BIN" scripts/check_time_semantics_release_gate.py "${TIME_SEMANTICS_GATE_ARGS[@]}"
 
 echo "[gate] step 4/4: api import guard"
 if [[ "$STRICT" == "true" ]]; then

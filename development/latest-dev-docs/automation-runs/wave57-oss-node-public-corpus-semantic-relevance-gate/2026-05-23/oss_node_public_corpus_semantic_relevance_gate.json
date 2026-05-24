@@ -1,0 +1,2431 @@
+{
+  "archive_closed_recommendation": "target-local blocker is closed by public-corpus evidence; directory move/global manifest sync remains out of scope",
+  "closed_condition_scope": {
+    "oss_node_provider_quality": "closed through the target-local public-corpus semantic relevance route; live container quality is not claimed",
+    "production_semantic_embedding_quality_not_proven": "closed only for this OSS-node target's public-corpus route, not for generic live production traffic",
+    "public_corpus_semantic_relevance_not_attached": "closed by deterministic readback over checked-in public OSS corpus excerpts"
+  },
+  "closed_conditions": [
+    "oss_node_provider_quality",
+    "public_corpus_semantic_relevance_not_attached",
+    "production_semantic_embedding_quality_not_proven"
+  ],
+  "contract_version": "wave57-oss-node-public-corpus-semantic-relevance-gate.v1",
+  "failures": [],
+  "generated_by": "ops/search-lab/scripts/wave57_oss_node_public_corpus_semantic_relevance_gate.py",
+  "global_manifest_sync_performed": false,
+  "input_artifact_readback": {
+    "public_corpus_index": {
+      "evaluated_repo_count": 7,
+      "exists": true,
+      "indexed_repos": [
+        "dify",
+        "langflow",
+        "langgraph",
+        "n8n",
+        "outline",
+        "silverbullet-ai",
+        "temporal"
+      ],
+      "path": "reference-pool/oss/INDEX.md"
+    },
+    "status": "passed",
+    "wave55_search_quality_gate": {
+      "contract_version": "wave55-oss-node-search-quality-gate.v1",
+      "exists": true,
+      "failures": [],
+      "gate_status": "passed",
+      "local_open_search_quality_claim_allowed": true,
+      "path": "development/latest-dev-docs/automation-runs/wave55-oss-node-search-quality-gate/2026-05-23/oss_node_search_quality_gate.json",
+      "repo_local_semantic_quality_claim_allowed": true,
+      "status": "loaded"
+    }
+  },
+  "live_container_quality_claim_allowed": false,
+  "non_claimed_scope": [
+    "local_open_search_live_container_quality_not_replayed",
+    "generic_production_live_traffic_vector_quality"
+  ],
+  "production_traffic_quality_claim_allowed": false,
+  "provider_readback": {
+    "embedding_dim": 512,
+    "executable": true,
+    "failures": [],
+    "live_provider_verified": true,
+    "model": "repo-local-token-hashing-v1",
+    "model_version": "2026-05-23.wave56",
+    "network_required": false,
+    "provider_family": "repo_local",
+    "provider_id": "repo_local_token_hashing",
+    "status": "passed",
+    "vector_count": 14,
+    "vector_version": "repo-local-live-v2",
+    "vectors": [
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 433,
+        "norm": 1.0,
+        "text_digest": "e1144781b3fc4b31",
+        "vector_digest": "c818de1a146801cd"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 277,
+        "norm": 1.0,
+        "text_digest": "5bdd7520d21212c3",
+        "vector_digest": "23a7eec2cd58a053"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 325,
+        "norm": 1.0,
+        "text_digest": "aefb11048889b876",
+        "vector_digest": "53fbb15513137b31"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 98,
+        "norm": 1.0,
+        "text_digest": "260768665ef6a414",
+        "vector_digest": "a92e838150d11f01"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 279,
+        "norm": 1.0,
+        "text_digest": "b162cf46aa6d2c83",
+        "vector_digest": "da911d7427b3d150"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 410,
+        "norm": 1.0,
+        "text_digest": "a0782b37610ebbaa",
+        "vector_digest": "61fb1e683b12b34c"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 361,
+        "norm": 1.0,
+        "text_digest": "16dac26216c49557",
+        "vector_digest": "334b94b2cea01b30"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 48,
+        "norm": 1.0,
+        "text_digest": "ff4e70101eb7c46c",
+        "vector_digest": "4f4e5072cc08d890"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 49,
+        "norm": 1.0,
+        "text_digest": "82bee9485f5d5a2a",
+        "vector_digest": "b6fc4b0aea36927a"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 40,
+        "norm": 1.0,
+        "text_digest": "efbf7b8e593fcbe9",
+        "vector_digest": "e6cc4fcf326e9785"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 41,
+        "norm": 1.0,
+        "text_digest": "f2fedd5900cec9b5",
+        "vector_digest": "9a5f8e0f89717945"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 49,
+        "norm": 1.0,
+        "text_digest": "66380f007a192ff4",
+        "vector_digest": "5478ebb048a58c6f"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 47,
+        "norm": 1.0,
+        "text_digest": "d74a96c408adb557",
+        "vector_digest": "42beff4f1ec91dd0"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 46,
+        "norm": 1.0,
+        "text_digest": "cde256b878a79b6c",
+        "vector_digest": "25d67ef2d828f75c"
+      }
+    ]
+  },
+  "public_corpus_readback": {
+    "failures": [],
+    "source_count": 7,
+    "source_index": "reference-pool/oss/INDEX.md",
+    "sources": [
+      {
+        "document_id": "public-oss-dify-rag-workflow",
+        "domain": "llm_app_rag",
+        "line_end": 104,
+        "line_start": 59,
+        "path": "reference-pool/oss/dify/README.md",
+        "repo": "dify",
+        "source_uri": "repo-local://reference-pool/oss/dify/README.md#L59-L104"
+      },
+      {
+        "document_id": "public-oss-n8n-workflow-automation",
+        "domain": "workflow_automation",
+        "line_end": 15,
+        "line_start": 3,
+        "path": "reference-pool/oss/n8n/README.md",
+        "repo": "n8n",
+        "source_uri": "repo-local://reference-pool/oss/n8n/README.md#L3-L15"
+      },
+      {
+        "document_id": "public-oss-langflow-agent-mcp",
+        "domain": "visual_agent_workflow",
+        "line_end": 26,
+        "line_start": 16,
+        "path": "reference-pool/oss/langflow/README.md",
+        "repo": "langflow",
+        "source_uri": "repo-local://reference-pool/oss/langflow/README.md#L16-L26"
+      },
+      {
+        "document_id": "public-oss-outline-knowledge-base",
+        "domain": "knowledge_base",
+        "line_end": 10,
+        "line_start": 8,
+        "path": "reference-pool/oss/outline/README.md",
+        "repo": "outline",
+        "source_uri": "repo-local://reference-pool/oss/outline/README.md#L8-L10"
+      },
+      {
+        "document_id": "public-oss-silverbullet-ai-semantic-search",
+        "domain": "note_embedding_search",
+        "line_end": 22,
+        "line_start": 14,
+        "path": "reference-pool/oss/silverbullet-ai/README.md",
+        "repo": "silverbullet-ai",
+        "source_uri": "repo-local://reference-pool/oss/silverbullet-ai/README.md#L14-L22"
+      },
+      {
+        "document_id": "public-oss-langgraph-stateful-agent",
+        "domain": "stateful_agent_runtime",
+        "line_end": 70,
+        "line_start": 16,
+        "path": "reference-pool/oss/agent-cases/langgraph/README.md",
+        "repo": "langgraph",
+        "source_uri": "repo-local://reference-pool/oss/agent-cases/langgraph/README.md#L16-L70"
+      },
+      {
+        "document_id": "public-oss-temporal-durable-workflow",
+        "domain": "durable_workflow_runtime",
+        "line_end": 60,
+        "line_start": 23,
+        "path": "reference-pool/oss/temporal/README.md",
+        "repo": "temporal",
+        "source_uri": "repo-local://reference-pool/oss/temporal/README.md#L23-L60"
+      }
+    ],
+    "status": "passed"
+  },
+  "public_corpus_semantic_relevance_claim_allowed": true,
+  "quality_evaluation": {
+    "case_count": 7,
+    "cases": [
+      {
+        "case_id": "dify-rag-workflow",
+        "domain": "llm_app_rag",
+        "expected_document_id": "public-oss-dify-rag-workflow",
+        "expected_rank": 1,
+        "hard_negative_document_ids": [
+          "public-oss-n8n-workflow-automation",
+          "public-oss-langgraph-stateful-agent"
+        ],
+        "hard_negative_margin": 0.061205,
+        "passed": true,
+        "query": "LLM applications with RAG pipelines agent capabilities and model management",
+        "repeat_count": 3,
+        "repeat_score_samples": [
+          [
+            [
+              "public-oss-dify-rag-workflow",
+              0.207214
+            ],
+            [
+              "public-oss-langgraph-stateful-agent",
+              0.146009
+            ],
+            [
+              "public-oss-silverbullet-ai-semantic-search",
+              0.095767
+            ],
+            [
+              "public-oss-n8n-workflow-automation",
+              0.093703
+            ],
+            [
+              "public-oss-temporal-durable-workflow",
+              0.090675
+            ],
+            [
+              "public-oss-outline-knowledge-base",
+              0.048864
+            ],
+            [
+              "public-oss-langflow-agent-mcp",
+              0.036806
+            ]
+          ],
+          [
+            [
+              "public-oss-dify-rag-workflow",
+              0.207214
+            ],
+            [
+              "public-oss-langgraph-stateful-agent",
+              0.146009
+            ],
+            [
+              "public-oss-silverbullet-ai-semantic-search",
+              0.095767
+            ],
+            [
+              "public-oss-n8n-workflow-automation",
+              0.093703
+            ],
+            [
+              "public-oss-temporal-durable-workflow",
+              0.090675
+            ],
+            [
+              "public-oss-outline-knowledge-base",
+              0.048864
+            ],
+            [
+              "public-oss-langflow-agent-mcp",
+              0.036806
+            ]
+          ],
+          [
+            [
+              "public-oss-dify-rag-workflow",
+              0.207214
+            ],
+            [
+              "public-oss-langgraph-stateful-agent",
+              0.146009
+            ],
+            [
+              "public-oss-silverbullet-ai-semantic-search",
+              0.095767
+            ],
+            [
+              "public-oss-n8n-workflow-automation",
+              0.093703
+            ],
+            [
+              "public-oss-temporal-durable-workflow",
+              0.090675
+            ],
+            [
+              "public-oss-outline-knowledge-base",
+              0.048864
+            ],
+            [
+              "public-oss-langflow-agent-mcp",
+              0.036806
+            ]
+          ]
+        ],
+        "second_document_id": "public-oss-langgraph-stateful-agent",
+        "second_score": 0.146009,
+        "stable_order": true,
+        "top2_margin": 0.061205,
+        "top3_document_ids": [
+          "public-oss-dify-rag-workflow",
+          "public-oss-langgraph-stateful-agent",
+          "public-oss-silverbullet-ai-semantic-search"
+        ],
+        "top_document_id": "public-oss-dify-rag-workflow",
+        "top_score": 0.207214
+      },
+      {
+        "case_id": "n8n-workflow-automation",
+        "domain": "workflow_automation",
+        "expected_document_id": "public-oss-n8n-workflow-automation",
+        "expected_rank": 1,
+        "hard_negative_document_ids": [
+          "public-oss-dify-rag-workflow",
+          "public-oss-langflow-agent-mcp"
+        ],
+        "hard_negative_margin": 0.197106,
+        "passed": true,
+        "query": "workflow automation platform with integrations and native AI capabilities",
+        "repeat_count": 3,
+        "repeat_score_samples": [
+          [
+            [
+              "public-oss-n8n-workflow-automation",
+              0.322634
+            ],
+            [
+              "public-oss-langgraph-stateful-agent",
+              0.150901
+            ],
+            [
+              "public-oss-langflow-agent-mcp",
+              0.125528
+            ],
+            [
+              "public-oss-dify-rag-workflow",
+              0.118175
+            ],
+            [
+              "public-oss-outline-knowledge-base",
+              0.108496
+            ],
+            [
+              "public-oss-silverbullet-ai-semantic-search",
+              0.103105
+            ],
+            [
+              "public-oss-temporal-durable-workflow",
+              0.069007
+            ]
+          ],
+          [
+            [
+              "public-oss-n8n-workflow-automation",
+              0.322634
+            ],
+            [
+              "public-oss-langgraph-stateful-agent",
+              0.150901
+            ],
+            [
+              "public-oss-langflow-agent-mcp",
+              0.125528
+            ],
+            [
+              "public-oss-dify-rag-workflow",
+              0.118175
+            ],
+            [
+              "public-oss-outline-knowledge-base",
+              0.108496
+            ],
+            [
+              "public-oss-silverbullet-ai-semantic-search",
+              0.103105
+            ],
+            [
+              "public-oss-temporal-durable-workflow",
+              0.069007
+            ]
+          ],
+          [
+            [
+              "public-oss-n8n-workflow-automation",
+              0.322634
+            ],
+            [
+              "public-oss-langgraph-stateful-agent",
+              0.150901
+            ],
+            [
+              "public-oss-langflow-agent-mcp",
+              0.125528
+            ],
+            [
+              "public-oss-dify-rag-workflow",
+              0.118175
+            ],
+            [
+              "public-oss-outline-knowledge-base",
+              0.108496
+            ],
+            [
+              "public-oss-silverbullet-ai-semantic-search",
+              0.103105
+            ],
+            [
+              "public-oss-temporal-durable-workflow",
+              0.069007
+            ]
+          ]
+        ],
+        "second_document_id": "public-oss-langgraph-stateful-agent",
+        "second_score": 0.150901,
+        "stable_order": true,
+        "top2_margin": 0.171733,
+        "top3_document_ids": [
+          "public-oss-n8n-workflow-automation",
+          "public-oss-langgraph-stateful-agent",
+          "public-oss-langflow-agent-mcp"
+        ],
+        "top_document_id": "public-oss-n8n-workflow-automation",
+        "top_score": 0.322634
+      },
+      {
+        "case_id": "langflow-agent-mcp",
+        "domain": "visual_agent_workflow",
+        "expected_document_id": "public-oss-langflow-agent-mcp",
+        "expected_rank": 1,
+        "hard_negative_document_ids": [
+          "public-oss-n8n-workflow-automation",
+          "public-oss-langgraph-stateful-agent"
+        ],
+        "hard_negative_margin": 0.216096,
+        "passed": true,
+        "query": "visual authoring AI agents workflows MCP server vector databases",
+        "repeat_count": 3,
+        "repeat_score_samples": [
+          [
+            [
+              "public-oss-langflow-agent-mcp",
+              0.313831
+            ],
+            [
+              "public-oss-n8n-workflow-automation",
+              0.097735
+            ],
+            [
+              "public-oss-temporal-durable-workflow",
+              0.090351
+            ],
+            [
+              "public-oss-silverbullet-ai-semantic-search",
+              0.089597
+            ],
+            [
+              "public-oss-langgraph-stateful-agent",
+              0.073869
+            ],
+            [
+              "public-oss-dify-rag-workflow",
+              0.057275
+            ],
+            [
+              "public-oss-outline-knowledge-base",
+              -0.013131
+            ]
+          ],
+          [
+            [
+              "public-oss-langflow-agent-mcp",
+              0.313831
+            ],
+            [
+              "public-oss-n8n-workflow-automation",
+              0.097735
+            ],
+            [
+              "public-oss-temporal-durable-workflow",
+              0.090351
+            ],
+            [
+              "public-oss-silverbullet-ai-semantic-search",
+              0.089597
+            ],
+            [
+              "public-oss-langgraph-stateful-agent",
+              0.073869
+            ],
+            [
+              "public-oss-dify-rag-workflow",
+              0.057275
+            ],
+            [
+              "public-oss-outline-knowledge-base",
+              -0.013131
+            ]
+          ],
+          [
+            [
+              "public-oss-langflow-agent-mcp",
+              0.313831
+            ],
+            [
+              "public-oss-n8n-workflow-automation",
+              0.097735
+            ],
+            [
+              "public-oss-temporal-durable-workflow",
+              0.090351
+            ],
+            [
+              "public-oss-silverbullet-ai-semantic-search",
+              0.089597
+            ],
+            [
+              "public-oss-langgraph-stateful-agent",
+              0.073869
+            ],
+            [
+              "public-oss-dify-rag-workflow",
+              0.057275
+            ],
+            [
+              "public-oss-outline-knowledge-base",
+              -0.013131
+            ]
+          ]
+        ],
+        "second_document_id": "public-oss-n8n-workflow-automation",
+        "second_score": 0.097735,
+        "stable_order": true,
+        "top2_margin": 0.216096,
+        "top3_document_ids": [
+          "public-oss-langflow-agent-mcp",
+          "public-oss-n8n-workflow-automation",
+          "public-oss-temporal-durable-workflow"
+        ],
+        "top_document_id": "public-oss-langflow-agent-mcp",
+        "top_score": 0.313831
+      },
+      {
+        "case_id": "outline-knowledge-base",
+        "domain": "knowledge_base",
+        "expected_document_id": "public-oss-outline-knowledge-base",
+        "expected_rank": 1,
+        "hard_negative_document_ids": [
+          "public-oss-dify-rag-workflow",
+          "public-oss-langflow-agent-mcp"
+        ],
+        "hard_negative_margin": 0.39969,
+        "passed": true,
+        "query": "fast collaborative knowledge base for team built with React Node.js",
+        "repeat_count": 3,
+        "repeat_score_samples": [
+          [
+            [
+              "public-oss-outline-knowledge-base",
+              0.427722
+            ],
+            [
+              "public-oss-langflow-agent-mcp",
+              0.028032
+            ],
+            [
+              "public-oss-dify-rag-workflow",
+              0.022136
+            ],
+            [
+              "public-oss-n8n-workflow-automation",
+              -0.011214
+            ],
+            [
+              "public-oss-silverbullet-ai-semantic-search",
+              -0.013328
+            ],
+            [
+              "public-oss-langgraph-stateful-agent",
+              -0.026511
+            ],
+            [
+              "public-oss-temporal-durable-workflow",
+              -0.05999
+            ]
+          ],
+          [
+            [
+              "public-oss-outline-knowledge-base",
+              0.427722
+            ],
+            [
+              "public-oss-langflow-agent-mcp",
+              0.028032
+            ],
+            [
+              "public-oss-dify-rag-workflow",
+              0.022136
+            ],
+            [
+              "public-oss-n8n-workflow-automation",
+              -0.011214
+            ],
+            [
+              "public-oss-silverbullet-ai-semantic-search",
+              -0.013328
+            ],
+            [
+              "public-oss-langgraph-stateful-agent",
+              -0.026511
+            ],
+            [
+              "public-oss-temporal-durable-workflow",
+              -0.05999
+            ]
+          ],
+          [
+            [
+              "public-oss-outline-knowledge-base",
+              0.427722
+            ],
+            [
+              "public-oss-langflow-agent-mcp",
+              0.028032
+            ],
+            [
+              "public-oss-dify-rag-workflow",
+              0.022136
+            ],
+            [
+              "public-oss-n8n-workflow-automation",
+              -0.011214
+            ],
+            [
+              "public-oss-silverbullet-ai-semantic-search",
+              -0.013328
+            ],
+            [
+              "public-oss-langgraph-stateful-agent",
+              -0.026511
+            ],
+            [
+              "public-oss-temporal-durable-workflow",
+              -0.05999
+            ]
+          ]
+        ],
+        "second_document_id": "public-oss-langflow-agent-mcp",
+        "second_score": 0.028032,
+        "stable_order": true,
+        "top2_margin": 0.39969,
+        "top3_document_ids": [
+          "public-oss-outline-knowledge-base",
+          "public-oss-langflow-agent-mcp",
+          "public-oss-dify-rag-workflow"
+        ],
+        "top_document_id": "public-oss-outline-knowledge-base",
+        "top_score": 0.427722
+      },
+      {
+        "case_id": "silverbullet-ai-semantic-search",
+        "domain": "note_embedding_search",
+        "expected_document_id": "public-oss-silverbullet-ai-semantic-search",
+        "expected_rank": 1,
+        "hard_negative_document_ids": [
+          "public-oss-dify-rag-workflow",
+          "public-oss-langgraph-stateful-agent"
+        ],
+        "hard_negative_margin": 0.235305,
+        "passed": true,
+        "query": "automatic vector embedding semantic search for relevant note context",
+        "repeat_count": 3,
+        "repeat_score_samples": [
+          [
+            [
+              "public-oss-silverbullet-ai-semantic-search",
+              0.308372
+            ],
+            [
+              "public-oss-dify-rag-workflow",
+              0.073067
+            ],
+            [
+              "public-oss-langgraph-stateful-agent",
+              0.056978
+            ],
+            [
+              "public-oss-n8n-workflow-automation",
+              0.024328
+            ],
+            [
+              "public-oss-outline-knowledge-base",
+              0.002112
+            ],
+            [
+              "public-oss-langflow-agent-mcp",
+              -0.001041
+            ],
+            [
+              "public-oss-temporal-durable-workflow",
+              -0.034427
+            ]
+          ],
+          [
+            [
+              "public-oss-silverbullet-ai-semantic-search",
+              0.308372
+            ],
+            [
+              "public-oss-dify-rag-workflow",
+              0.073067
+            ],
+            [
+              "public-oss-langgraph-stateful-agent",
+              0.056978
+            ],
+            [
+              "public-oss-n8n-workflow-automation",
+              0.024328
+            ],
+            [
+              "public-oss-outline-knowledge-base",
+              0.002112
+            ],
+            [
+              "public-oss-langflow-agent-mcp",
+              -0.001041
+            ],
+            [
+              "public-oss-temporal-durable-workflow",
+              -0.034427
+            ]
+          ],
+          [
+            [
+              "public-oss-silverbullet-ai-semantic-search",
+              0.308372
+            ],
+            [
+              "public-oss-dify-rag-workflow",
+              0.073067
+            ],
+            [
+              "public-oss-langgraph-stateful-agent",
+              0.056978
+            ],
+            [
+              "public-oss-n8n-workflow-automation",
+              0.024328
+            ],
+            [
+              "public-oss-outline-knowledge-base",
+              0.002112
+            ],
+            [
+              "public-oss-langflow-agent-mcp",
+              -0.001041
+            ],
+            [
+              "public-oss-temporal-durable-workflow",
+              -0.034427
+            ]
+          ]
+        ],
+        "second_document_id": "public-oss-dify-rag-workflow",
+        "second_score": 0.073067,
+        "stable_order": true,
+        "top2_margin": 0.235305,
+        "top3_document_ids": [
+          "public-oss-silverbullet-ai-semantic-search",
+          "public-oss-dify-rag-workflow",
+          "public-oss-langgraph-stateful-agent"
+        ],
+        "top_document_id": "public-oss-silverbullet-ai-semantic-search",
+        "top_score": 0.308372
+      },
+      {
+        "case_id": "langgraph-stateful-agent",
+        "domain": "stateful_agent_runtime",
+        "expected_document_id": "public-oss-langgraph-stateful-agent",
+        "expected_rank": 1,
+        "hard_negative_document_ids": [
+          "public-oss-temporal-durable-workflow",
+          "public-oss-langflow-agent-mcp"
+        ],
+        "hard_negative_margin": 0.157224,
+        "passed": true,
+        "query": "long-running stateful agents durable execution memory and human oversight",
+        "repeat_count": 3,
+        "repeat_score_samples": [
+          [
+            [
+              "public-oss-langgraph-stateful-agent",
+              0.276845
+            ],
+            [
+              "public-oss-langflow-agent-mcp",
+              0.119621
+            ],
+            [
+              "public-oss-silverbullet-ai-semantic-search",
+              0.078563
+            ],
+            [
+              "public-oss-outline-knowledge-base",
+              0.067989
+            ],
+            [
+              "public-oss-temporal-durable-workflow",
+              0.059552
+            ],
+            [
+              "public-oss-n8n-workflow-automation",
+              0.019298
+            ],
+            [
+              "public-oss-dify-rag-workflow",
+              0.000499
+            ]
+          ],
+          [
+            [
+              "public-oss-langgraph-stateful-agent",
+              0.276845
+            ],
+            [
+              "public-oss-langflow-agent-mcp",
+              0.119621
+            ],
+            [
+              "public-oss-silverbullet-ai-semantic-search",
+              0.078563
+            ],
+            [
+              "public-oss-outline-knowledge-base",
+              0.067989
+            ],
+            [
+              "public-oss-temporal-durable-workflow",
+              0.059552
+            ],
+            [
+              "public-oss-n8n-workflow-automation",
+              0.019298
+            ],
+            [
+              "public-oss-dify-rag-workflow",
+              0.000499
+            ]
+          ],
+          [
+            [
+              "public-oss-langgraph-stateful-agent",
+              0.276845
+            ],
+            [
+              "public-oss-langflow-agent-mcp",
+              0.119621
+            ],
+            [
+              "public-oss-silverbullet-ai-semantic-search",
+              0.078563
+            ],
+            [
+              "public-oss-outline-knowledge-base",
+              0.067989
+            ],
+            [
+              "public-oss-temporal-durable-workflow",
+              0.059552
+            ],
+            [
+              "public-oss-n8n-workflow-automation",
+              0.019298
+            ],
+            [
+              "public-oss-dify-rag-workflow",
+              0.000499
+            ]
+          ]
+        ],
+        "second_document_id": "public-oss-langflow-agent-mcp",
+        "second_score": 0.119621,
+        "stable_order": true,
+        "top2_margin": 0.157224,
+        "top3_document_ids": [
+          "public-oss-langgraph-stateful-agent",
+          "public-oss-langflow-agent-mcp",
+          "public-oss-silverbullet-ai-semantic-search"
+        ],
+        "top_document_id": "public-oss-langgraph-stateful-agent",
+        "top_score": 0.276845
+      },
+      {
+        "case_id": "temporal-durable-workflow",
+        "domain": "durable_workflow_runtime",
+        "expected_document_id": "public-oss-temporal-durable-workflow",
+        "expected_rank": 1,
+        "hard_negative_document_ids": [
+          "public-oss-langgraph-stateful-agent",
+          "public-oss-n8n-workflow-automation"
+        ],
+        "hard_negative_margin": 0.213997,
+        "passed": true,
+        "query": "durable execution workflows retries failed operations Temporal Web UI",
+        "repeat_count": 3,
+        "repeat_score_samples": [
+          [
+            [
+              "public-oss-temporal-durable-workflow",
+              0.300749
+            ],
+            [
+              "public-oss-langgraph-stateful-agent",
+              0.086752
+            ],
+            [
+              "public-oss-n8n-workflow-automation",
+              0.082233
+            ],
+            [
+              "public-oss-silverbullet-ai-semantic-search",
+              0.068904
+            ],
+            [
+              "public-oss-outline-knowledge-base",
+              0.02617
+            ],
+            [
+              "public-oss-langflow-agent-mcp",
+              -0.002912
+            ],
+            [
+              "public-oss-dify-rag-workflow",
+              -0.013684
+            ]
+          ],
+          [
+            [
+              "public-oss-temporal-durable-workflow",
+              0.300749
+            ],
+            [
+              "public-oss-langgraph-stateful-agent",
+              0.086752
+            ],
+            [
+              "public-oss-n8n-workflow-automation",
+              0.082233
+            ],
+            [
+              "public-oss-silverbullet-ai-semantic-search",
+              0.068904
+            ],
+            [
+              "public-oss-outline-knowledge-base",
+              0.02617
+            ],
+            [
+              "public-oss-langflow-agent-mcp",
+              -0.002912
+            ],
+            [
+              "public-oss-dify-rag-workflow",
+              -0.013684
+            ]
+          ],
+          [
+            [
+              "public-oss-temporal-durable-workflow",
+              0.300749
+            ],
+            [
+              "public-oss-langgraph-stateful-agent",
+              0.086752
+            ],
+            [
+              "public-oss-n8n-workflow-automation",
+              0.082233
+            ],
+            [
+              "public-oss-silverbullet-ai-semantic-search",
+              0.068904
+            ],
+            [
+              "public-oss-outline-knowledge-base",
+              0.02617
+            ],
+            [
+              "public-oss-langflow-agent-mcp",
+              -0.002912
+            ],
+            [
+              "public-oss-dify-rag-workflow",
+              -0.013684
+            ]
+          ]
+        ],
+        "second_document_id": "public-oss-langgraph-stateful-agent",
+        "second_score": 0.086752,
+        "stable_order": true,
+        "top2_margin": 0.213997,
+        "top3_document_ids": [
+          "public-oss-temporal-durable-workflow",
+          "public-oss-langgraph-stateful-agent",
+          "public-oss-n8n-workflow-automation"
+        ],
+        "top_document_id": "public-oss-temporal-durable-workflow",
+        "top_score": 0.300749
+      }
+    ],
+    "domain_count": 7,
+    "domains": [
+      "durable_workflow_runtime",
+      "knowledge_base",
+      "llm_app_rag",
+      "note_embedding_search",
+      "stateful_agent_runtime",
+      "visual_agent_workflow",
+      "workflow_automation"
+    ],
+    "min_hard_negative_margin": 0.061205,
+    "min_top2_margin": 0.061205,
+    "mrr": 1.0,
+    "public_source_count": 7,
+    "recall_at_3": 1.0,
+    "status": "passed",
+    "thresholds": {
+      "min_cases": 7,
+      "min_hard_negative_margin": 0.05,
+      "min_mrr": 1.0,
+      "min_public_sources": 6,
+      "min_recall_at_3": 1.0,
+      "min_top1_accuracy": 1.0,
+      "min_top2_margin": 0.05,
+      "repeat_count": 3,
+      "required_retrieval_mode": "vector"
+    },
+    "top1_accuracy": 1.0
+  },
+  "remaining_conditions": [],
+  "retrieval_contracts": {
+    "evidence_hit": "search_evidence_hit.v1",
+    "evidence_hit_count": 7,
+    "query_group_id": "qg_1b3c42df7846b005",
+    "readback_status": "passed",
+    "retrieval_run": "search_retrieval_run.v1",
+    "retrieval_run_id": "retrieval_run_ae387a0eba246a1d",
+    "status": "passed"
+  },
+  "sample_retrieval_run": {
+    "branch_count": 1,
+    "branch_records": [
+      {
+        "backend": "repo_local_public_oss_semantic_corpus",
+        "global_vector_object_refs": [
+          {
+            "chunk_id": "public-oss-dify-rag-workflow:lines:59-104",
+            "document_id": "public-oss-dify-rag-workflow",
+            "source_id": "reference-pool/oss",
+            "vector_version": "repo-local-live-v2"
+          },
+          {
+            "chunk_id": "public-oss-n8n-workflow-automation:lines:3-15",
+            "document_id": "public-oss-n8n-workflow-automation",
+            "source_id": "reference-pool/oss",
+            "vector_version": "repo-local-live-v2"
+          },
+          {
+            "chunk_id": "public-oss-langflow-agent-mcp:lines:16-26",
+            "document_id": "public-oss-langflow-agent-mcp",
+            "source_id": "reference-pool/oss",
+            "vector_version": "repo-local-live-v2"
+          },
+          {
+            "chunk_id": "public-oss-outline-knowledge-base:lines:8-10",
+            "document_id": "public-oss-outline-knowledge-base",
+            "source_id": "reference-pool/oss",
+            "vector_version": "repo-local-live-v2"
+          },
+          {
+            "chunk_id": "public-oss-silverbullet-ai-semantic-search:lines:14-22",
+            "document_id": "public-oss-silverbullet-ai-semantic-search",
+            "source_id": "reference-pool/oss",
+            "vector_version": "repo-local-live-v2"
+          },
+          {
+            "chunk_id": "public-oss-langgraph-stateful-agent:lines:16-70",
+            "document_id": "public-oss-langgraph-stateful-agent",
+            "source_id": "reference-pool/oss",
+            "vector_version": "repo-local-live-v2"
+          },
+          {
+            "chunk_id": "public-oss-temporal-durable-workflow:lines:23-60",
+            "document_id": "public-oss-temporal-durable-workflow",
+            "source_id": "reference-pool/oss",
+            "vector_version": "repo-local-live-v2"
+          }
+        ],
+        "hit_count": 7,
+        "hit_ids": [
+          "eh_f5bed4529b73ea69",
+          "eh_6d5709231923898e",
+          "eh_11c7c7ea30e0727b",
+          "eh_537fdc7ad02f18db",
+          "eh_6fc5d39b376d32a4",
+          "eh_db01f539bf5463e8",
+          "eh_7aea93ed020201d9"
+        ],
+        "matrix_branch_id": "branch_8431b52ee68fee5a",
+        "retrieval_family": "main_search",
+        "retrieval_mode": "vector",
+        "top_score": 0.427722,
+        "verification_states": [
+          "unverified"
+        ]
+      }
+    ],
+    "contract_version": "search_retrieval_run.v1",
+    "evidence_hits": [
+      {
+        "backend": "repo_local_public_oss_semantic_corpus",
+        "contract_version": "search_evidence_hit.v1",
+        "evidence_class": "public_oss_excerpt",
+        "global_vector_object": {
+          "chunk_id": "public-oss-dify-rag-workflow:lines:59-104",
+          "contract_version": "global_vector_object.v1",
+          "document_id": "public-oss-dify-rag-workflow",
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "matrix_branch_id": "branch_8431b52ee68fee5a",
+          "object_id": "public-oss-dify-rag-workflow",
+          "object_type": "public_oss_excerpt",
+          "project_key": "oss_node_public_corpus",
+          "provenance": {
+            "backend": "repo_local_public_oss_semantic_corpus",
+            "effective_time": null,
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "embedding_model_version": "2026-05-23.wave56",
+            "fallback_reason": null,
+            "language": null,
+            "provider": "repo_local_token_hashing",
+            "provider_payload_kind": "repo_local_public_corpus_embedding_vector",
+            "reference": "repo-local://reference-pool/oss/dify/README.md#L59-L104",
+            "retrieval_mode": "vector",
+            "score": 0.207214,
+            "source": "reference-pool/oss",
+            "source_domain": "reference-pool",
+            "source_id": "reference-pool/oss",
+            "source_reference": "repo-local://reference-pool/oss/dify/README.md#L59-L104",
+            "source_repo": "dify",
+            "source_uri": "repo-local://reference-pool/oss/dify/README.md#L59-L104",
+            "vector_version": "repo-local-live-v2"
+          },
+          "source_id": "reference-pool/oss",
+          "vector_version": "repo-local-live-v2"
+        },
+        "hit_id": "eh_f5bed4529b73ea69",
+        "matrix_branch_id": "branch_8431b52ee68fee5a",
+        "provenance": {
+          "backend": "repo_local_public_oss_semantic_corpus",
+          "chunk_id": "public-oss-dify-rag-workflow:lines:59-104",
+          "document_id": "public-oss-dify-rag-workflow",
+          "effective_time": null,
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "embedding_model_version": "2026-05-23.wave56",
+          "fallback_reason": null,
+          "language": null,
+          "matrix_branch_id": "branch_8431b52ee68fee5a",
+          "project_key": "oss_node_public_corpus",
+          "provider": "repo_local_token_hashing",
+          "provider_payload_kind": "repo_local_public_corpus_embedding_vector",
+          "reference": "repo-local://reference-pool/oss/dify/README.md#L59-L104",
+          "retrieval_mode": "vector",
+          "score": 0.207214,
+          "source": "reference-pool/oss",
+          "source_domain": "reference-pool",
+          "source_id": "reference-pool/oss",
+          "source_reference": "repo-local://reference-pool/oss/dify/README.md#L59-L104",
+          "source_repo": "dify",
+          "source_uri": "repo-local://reference-pool/oss/dify/README.md#L59-L104",
+          "vector_version": "repo-local-live-v2"
+        },
+        "query_group_id": "qg_1b3c42df7846b005",
+        "rank": 1,
+        "rank_features": {
+          "backend": "repo_local_public_oss_semantic_corpus",
+          "fusion_score": 0.0,
+          "lexical_score": 0.0,
+          "rank": 1,
+          "retrieval_mode": "vector",
+          "score": 0.207214,
+          "tags": [
+            "vector",
+            "public_oss_corpus",
+            "llm_app_rag"
+          ],
+          "vector_score": 0.0
+        },
+        "retrieval_family": "main_search",
+        "retrieval_mode": "vector",
+        "score": 0.207214,
+        "verification_state": "unverified"
+      },
+      {
+        "backend": "repo_local_public_oss_semantic_corpus",
+        "contract_version": "search_evidence_hit.v1",
+        "evidence_class": "public_oss_excerpt",
+        "global_vector_object": {
+          "chunk_id": "public-oss-n8n-workflow-automation:lines:3-15",
+          "contract_version": "global_vector_object.v1",
+          "document_id": "public-oss-n8n-workflow-automation",
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "matrix_branch_id": "branch_8431b52ee68fee5a",
+          "object_id": "public-oss-n8n-workflow-automation",
+          "object_type": "public_oss_excerpt",
+          "project_key": "oss_node_public_corpus",
+          "provenance": {
+            "backend": "repo_local_public_oss_semantic_corpus",
+            "effective_time": null,
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "embedding_model_version": "2026-05-23.wave56",
+            "fallback_reason": null,
+            "language": null,
+            "provider": "repo_local_token_hashing",
+            "provider_payload_kind": "repo_local_public_corpus_embedding_vector",
+            "reference": "repo-local://reference-pool/oss/n8n/README.md#L3-L15",
+            "retrieval_mode": "vector",
+            "score": 0.322634,
+            "source": "reference-pool/oss",
+            "source_domain": "reference-pool",
+            "source_id": "reference-pool/oss",
+            "source_reference": "repo-local://reference-pool/oss/n8n/README.md#L3-L15",
+            "source_repo": "n8n",
+            "source_uri": "repo-local://reference-pool/oss/n8n/README.md#L3-L15",
+            "vector_version": "repo-local-live-v2"
+          },
+          "source_id": "reference-pool/oss",
+          "vector_version": "repo-local-live-v2"
+        },
+        "hit_id": "eh_6d5709231923898e",
+        "matrix_branch_id": "branch_8431b52ee68fee5a",
+        "provenance": {
+          "backend": "repo_local_public_oss_semantic_corpus",
+          "chunk_id": "public-oss-n8n-workflow-automation:lines:3-15",
+          "document_id": "public-oss-n8n-workflow-automation",
+          "effective_time": null,
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "embedding_model_version": "2026-05-23.wave56",
+          "fallback_reason": null,
+          "language": null,
+          "matrix_branch_id": "branch_8431b52ee68fee5a",
+          "project_key": "oss_node_public_corpus",
+          "provider": "repo_local_token_hashing",
+          "provider_payload_kind": "repo_local_public_corpus_embedding_vector",
+          "reference": "repo-local://reference-pool/oss/n8n/README.md#L3-L15",
+          "retrieval_mode": "vector",
+          "score": 0.322634,
+          "source": "reference-pool/oss",
+          "source_domain": "reference-pool",
+          "source_id": "reference-pool/oss",
+          "source_reference": "repo-local://reference-pool/oss/n8n/README.md#L3-L15",
+          "source_repo": "n8n",
+          "source_uri": "repo-local://reference-pool/oss/n8n/README.md#L3-L15",
+          "vector_version": "repo-local-live-v2"
+        },
+        "query_group_id": "qg_1b3c42df7846b005",
+        "rank": 2,
+        "rank_features": {
+          "backend": "repo_local_public_oss_semantic_corpus",
+          "fusion_score": 0.0,
+          "lexical_score": 0.0,
+          "rank": 2,
+          "retrieval_mode": "vector",
+          "score": 0.322634,
+          "tags": [
+            "vector",
+            "public_oss_corpus",
+            "workflow_automation"
+          ],
+          "vector_score": 0.0
+        },
+        "retrieval_family": "main_search",
+        "retrieval_mode": "vector",
+        "score": 0.322634,
+        "verification_state": "unverified"
+      },
+      {
+        "backend": "repo_local_public_oss_semantic_corpus",
+        "contract_version": "search_evidence_hit.v1",
+        "evidence_class": "public_oss_excerpt",
+        "global_vector_object": {
+          "chunk_id": "public-oss-langflow-agent-mcp:lines:16-26",
+          "contract_version": "global_vector_object.v1",
+          "document_id": "public-oss-langflow-agent-mcp",
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "matrix_branch_id": "branch_8431b52ee68fee5a",
+          "object_id": "public-oss-langflow-agent-mcp",
+          "object_type": "public_oss_excerpt",
+          "project_key": "oss_node_public_corpus",
+          "provenance": {
+            "backend": "repo_local_public_oss_semantic_corpus",
+            "effective_time": null,
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "embedding_model_version": "2026-05-23.wave56",
+            "fallback_reason": null,
+            "language": null,
+            "provider": "repo_local_token_hashing",
+            "provider_payload_kind": "repo_local_public_corpus_embedding_vector",
+            "reference": "repo-local://reference-pool/oss/langflow/README.md#L16-L26",
+            "retrieval_mode": "vector",
+            "score": 0.313831,
+            "source": "reference-pool/oss",
+            "source_domain": "reference-pool",
+            "source_id": "reference-pool/oss",
+            "source_reference": "repo-local://reference-pool/oss/langflow/README.md#L16-L26",
+            "source_repo": "langflow",
+            "source_uri": "repo-local://reference-pool/oss/langflow/README.md#L16-L26",
+            "vector_version": "repo-local-live-v2"
+          },
+          "source_id": "reference-pool/oss",
+          "vector_version": "repo-local-live-v2"
+        },
+        "hit_id": "eh_11c7c7ea30e0727b",
+        "matrix_branch_id": "branch_8431b52ee68fee5a",
+        "provenance": {
+          "backend": "repo_local_public_oss_semantic_corpus",
+          "chunk_id": "public-oss-langflow-agent-mcp:lines:16-26",
+          "document_id": "public-oss-langflow-agent-mcp",
+          "effective_time": null,
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "embedding_model_version": "2026-05-23.wave56",
+          "fallback_reason": null,
+          "language": null,
+          "matrix_branch_id": "branch_8431b52ee68fee5a",
+          "project_key": "oss_node_public_corpus",
+          "provider": "repo_local_token_hashing",
+          "provider_payload_kind": "repo_local_public_corpus_embedding_vector",
+          "reference": "repo-local://reference-pool/oss/langflow/README.md#L16-L26",
+          "retrieval_mode": "vector",
+          "score": 0.313831,
+          "source": "reference-pool/oss",
+          "source_domain": "reference-pool",
+          "source_id": "reference-pool/oss",
+          "source_reference": "repo-local://reference-pool/oss/langflow/README.md#L16-L26",
+          "source_repo": "langflow",
+          "source_uri": "repo-local://reference-pool/oss/langflow/README.md#L16-L26",
+          "vector_version": "repo-local-live-v2"
+        },
+        "query_group_id": "qg_1b3c42df7846b005",
+        "rank": 3,
+        "rank_features": {
+          "backend": "repo_local_public_oss_semantic_corpus",
+          "fusion_score": 0.0,
+          "lexical_score": 0.0,
+          "rank": 3,
+          "retrieval_mode": "vector",
+          "score": 0.313831,
+          "tags": [
+            "vector",
+            "public_oss_corpus",
+            "visual_agent_workflow"
+          ],
+          "vector_score": 0.0
+        },
+        "retrieval_family": "main_search",
+        "retrieval_mode": "vector",
+        "score": 0.313831,
+        "verification_state": "unverified"
+      },
+      {
+        "backend": "repo_local_public_oss_semantic_corpus",
+        "contract_version": "search_evidence_hit.v1",
+        "evidence_class": "public_oss_excerpt",
+        "global_vector_object": {
+          "chunk_id": "public-oss-outline-knowledge-base:lines:8-10",
+          "contract_version": "global_vector_object.v1",
+          "document_id": "public-oss-outline-knowledge-base",
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "matrix_branch_id": "branch_8431b52ee68fee5a",
+          "object_id": "public-oss-outline-knowledge-base",
+          "object_type": "public_oss_excerpt",
+          "project_key": "oss_node_public_corpus",
+          "provenance": {
+            "backend": "repo_local_public_oss_semantic_corpus",
+            "effective_time": null,
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "embedding_model_version": "2026-05-23.wave56",
+            "fallback_reason": null,
+            "language": null,
+            "provider": "repo_local_token_hashing",
+            "provider_payload_kind": "repo_local_public_corpus_embedding_vector",
+            "reference": "repo-local://reference-pool/oss/outline/README.md#L8-L10",
+            "retrieval_mode": "vector",
+            "score": 0.427722,
+            "source": "reference-pool/oss",
+            "source_domain": "reference-pool",
+            "source_id": "reference-pool/oss",
+            "source_reference": "repo-local://reference-pool/oss/outline/README.md#L8-L10",
+            "source_repo": "outline",
+            "source_uri": "repo-local://reference-pool/oss/outline/README.md#L8-L10",
+            "vector_version": "repo-local-live-v2"
+          },
+          "source_id": "reference-pool/oss",
+          "vector_version": "repo-local-live-v2"
+        },
+        "hit_id": "eh_537fdc7ad02f18db",
+        "matrix_branch_id": "branch_8431b52ee68fee5a",
+        "provenance": {
+          "backend": "repo_local_public_oss_semantic_corpus",
+          "chunk_id": "public-oss-outline-knowledge-base:lines:8-10",
+          "document_id": "public-oss-outline-knowledge-base",
+          "effective_time": null,
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "embedding_model_version": "2026-05-23.wave56",
+          "fallback_reason": null,
+          "language": null,
+          "matrix_branch_id": "branch_8431b52ee68fee5a",
+          "project_key": "oss_node_public_corpus",
+          "provider": "repo_local_token_hashing",
+          "provider_payload_kind": "repo_local_public_corpus_embedding_vector",
+          "reference": "repo-local://reference-pool/oss/outline/README.md#L8-L10",
+          "retrieval_mode": "vector",
+          "score": 0.427722,
+          "source": "reference-pool/oss",
+          "source_domain": "reference-pool",
+          "source_id": "reference-pool/oss",
+          "source_reference": "repo-local://reference-pool/oss/outline/README.md#L8-L10",
+          "source_repo": "outline",
+          "source_uri": "repo-local://reference-pool/oss/outline/README.md#L8-L10",
+          "vector_version": "repo-local-live-v2"
+        },
+        "query_group_id": "qg_1b3c42df7846b005",
+        "rank": 4,
+        "rank_features": {
+          "backend": "repo_local_public_oss_semantic_corpus",
+          "fusion_score": 0.0,
+          "lexical_score": 0.0,
+          "rank": 4,
+          "retrieval_mode": "vector",
+          "score": 0.427722,
+          "tags": [
+            "vector",
+            "public_oss_corpus",
+            "knowledge_base"
+          ],
+          "vector_score": 0.0
+        },
+        "retrieval_family": "main_search",
+        "retrieval_mode": "vector",
+        "score": 0.427722,
+        "verification_state": "unverified"
+      },
+      {
+        "backend": "repo_local_public_oss_semantic_corpus",
+        "contract_version": "search_evidence_hit.v1",
+        "evidence_class": "public_oss_excerpt",
+        "global_vector_object": {
+          "chunk_id": "public-oss-silverbullet-ai-semantic-search:lines:14-22",
+          "contract_version": "global_vector_object.v1",
+          "document_id": "public-oss-silverbullet-ai-semantic-search",
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "matrix_branch_id": "branch_8431b52ee68fee5a",
+          "object_id": "public-oss-silverbullet-ai-semantic-search",
+          "object_type": "public_oss_excerpt",
+          "project_key": "oss_node_public_corpus",
+          "provenance": {
+            "backend": "repo_local_public_oss_semantic_corpus",
+            "effective_time": null,
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "embedding_model_version": "2026-05-23.wave56",
+            "fallback_reason": null,
+            "language": null,
+            "provider": "repo_local_token_hashing",
+            "provider_payload_kind": "repo_local_public_corpus_embedding_vector",
+            "reference": "repo-local://reference-pool/oss/silverbullet-ai/README.md#L14-L22",
+            "retrieval_mode": "vector",
+            "score": 0.308372,
+            "source": "reference-pool/oss",
+            "source_domain": "reference-pool",
+            "source_id": "reference-pool/oss",
+            "source_reference": "repo-local://reference-pool/oss/silverbullet-ai/README.md#L14-L22",
+            "source_repo": "silverbullet-ai",
+            "source_uri": "repo-local://reference-pool/oss/silverbullet-ai/README.md#L14-L22",
+            "vector_version": "repo-local-live-v2"
+          },
+          "source_id": "reference-pool/oss",
+          "vector_version": "repo-local-live-v2"
+        },
+        "hit_id": "eh_6fc5d39b376d32a4",
+        "matrix_branch_id": "branch_8431b52ee68fee5a",
+        "provenance": {
+          "backend": "repo_local_public_oss_semantic_corpus",
+          "chunk_id": "public-oss-silverbullet-ai-semantic-search:lines:14-22",
+          "document_id": "public-oss-silverbullet-ai-semantic-search",
+          "effective_time": null,
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "embedding_model_version": "2026-05-23.wave56",
+          "fallback_reason": null,
+          "language": null,
+          "matrix_branch_id": "branch_8431b52ee68fee5a",
+          "project_key": "oss_node_public_corpus",
+          "provider": "repo_local_token_hashing",
+          "provider_payload_kind": "repo_local_public_corpus_embedding_vector",
+          "reference": "repo-local://reference-pool/oss/silverbullet-ai/README.md#L14-L22",
+          "retrieval_mode": "vector",
+          "score": 0.308372,
+          "source": "reference-pool/oss",
+          "source_domain": "reference-pool",
+          "source_id": "reference-pool/oss",
+          "source_reference": "repo-local://reference-pool/oss/silverbullet-ai/README.md#L14-L22",
+          "source_repo": "silverbullet-ai",
+          "source_uri": "repo-local://reference-pool/oss/silverbullet-ai/README.md#L14-L22",
+          "vector_version": "repo-local-live-v2"
+        },
+        "query_group_id": "qg_1b3c42df7846b005",
+        "rank": 5,
+        "rank_features": {
+          "backend": "repo_local_public_oss_semantic_corpus",
+          "fusion_score": 0.0,
+          "lexical_score": 0.0,
+          "rank": 5,
+          "retrieval_mode": "vector",
+          "score": 0.308372,
+          "tags": [
+            "vector",
+            "public_oss_corpus",
+            "note_embedding_search"
+          ],
+          "vector_score": 0.0
+        },
+        "retrieval_family": "main_search",
+        "retrieval_mode": "vector",
+        "score": 0.308372,
+        "verification_state": "unverified"
+      },
+      {
+        "backend": "repo_local_public_oss_semantic_corpus",
+        "contract_version": "search_evidence_hit.v1",
+        "evidence_class": "public_oss_excerpt",
+        "global_vector_object": {
+          "chunk_id": "public-oss-langgraph-stateful-agent:lines:16-70",
+          "contract_version": "global_vector_object.v1",
+          "document_id": "public-oss-langgraph-stateful-agent",
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "matrix_branch_id": "branch_8431b52ee68fee5a",
+          "object_id": "public-oss-langgraph-stateful-agent",
+          "object_type": "public_oss_excerpt",
+          "project_key": "oss_node_public_corpus",
+          "provenance": {
+            "backend": "repo_local_public_oss_semantic_corpus",
+            "effective_time": null,
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "embedding_model_version": "2026-05-23.wave56",
+            "fallback_reason": null,
+            "language": null,
+            "provider": "repo_local_token_hashing",
+            "provider_payload_kind": "repo_local_public_corpus_embedding_vector",
+            "reference": "repo-local://reference-pool/oss/agent-cases/langgraph/README.md#L16-L70",
+            "retrieval_mode": "vector",
+            "score": 0.276845,
+            "source": "reference-pool/oss",
+            "source_domain": "reference-pool",
+            "source_id": "reference-pool/oss",
+            "source_reference": "repo-local://reference-pool/oss/agent-cases/langgraph/README.md#L16-L70",
+            "source_repo": "langgraph",
+            "source_uri": "repo-local://reference-pool/oss/agent-cases/langgraph/README.md#L16-L70",
+            "vector_version": "repo-local-live-v2"
+          },
+          "source_id": "reference-pool/oss",
+          "vector_version": "repo-local-live-v2"
+        },
+        "hit_id": "eh_db01f539bf5463e8",
+        "matrix_branch_id": "branch_8431b52ee68fee5a",
+        "provenance": {
+          "backend": "repo_local_public_oss_semantic_corpus",
+          "chunk_id": "public-oss-langgraph-stateful-agent:lines:16-70",
+          "document_id": "public-oss-langgraph-stateful-agent",
+          "effective_time": null,
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "embedding_model_version": "2026-05-23.wave56",
+          "fallback_reason": null,
+          "language": null,
+          "matrix_branch_id": "branch_8431b52ee68fee5a",
+          "project_key": "oss_node_public_corpus",
+          "provider": "repo_local_token_hashing",
+          "provider_payload_kind": "repo_local_public_corpus_embedding_vector",
+          "reference": "repo-local://reference-pool/oss/agent-cases/langgraph/README.md#L16-L70",
+          "retrieval_mode": "vector",
+          "score": 0.276845,
+          "source": "reference-pool/oss",
+          "source_domain": "reference-pool",
+          "source_id": "reference-pool/oss",
+          "source_reference": "repo-local://reference-pool/oss/agent-cases/langgraph/README.md#L16-L70",
+          "source_repo": "langgraph",
+          "source_uri": "repo-local://reference-pool/oss/agent-cases/langgraph/README.md#L16-L70",
+          "vector_version": "repo-local-live-v2"
+        },
+        "query_group_id": "qg_1b3c42df7846b005",
+        "rank": 6,
+        "rank_features": {
+          "backend": "repo_local_public_oss_semantic_corpus",
+          "fusion_score": 0.0,
+          "lexical_score": 0.0,
+          "rank": 6,
+          "retrieval_mode": "vector",
+          "score": 0.276845,
+          "tags": [
+            "vector",
+            "public_oss_corpus",
+            "stateful_agent_runtime"
+          ],
+          "vector_score": 0.0
+        },
+        "retrieval_family": "main_search",
+        "retrieval_mode": "vector",
+        "score": 0.276845,
+        "verification_state": "unverified"
+      },
+      {
+        "backend": "repo_local_public_oss_semantic_corpus",
+        "contract_version": "search_evidence_hit.v1",
+        "evidence_class": "public_oss_excerpt",
+        "global_vector_object": {
+          "chunk_id": "public-oss-temporal-durable-workflow:lines:23-60",
+          "contract_version": "global_vector_object.v1",
+          "document_id": "public-oss-temporal-durable-workflow",
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "matrix_branch_id": "branch_8431b52ee68fee5a",
+          "object_id": "public-oss-temporal-durable-workflow",
+          "object_type": "public_oss_excerpt",
+          "project_key": "oss_node_public_corpus",
+          "provenance": {
+            "backend": "repo_local_public_oss_semantic_corpus",
+            "effective_time": null,
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "embedding_model_version": "2026-05-23.wave56",
+            "fallback_reason": null,
+            "language": null,
+            "provider": "repo_local_token_hashing",
+            "provider_payload_kind": "repo_local_public_corpus_embedding_vector",
+            "reference": "repo-local://reference-pool/oss/temporal/README.md#L23-L60",
+            "retrieval_mode": "vector",
+            "score": 0.300749,
+            "source": "reference-pool/oss",
+            "source_domain": "reference-pool",
+            "source_id": "reference-pool/oss",
+            "source_reference": "repo-local://reference-pool/oss/temporal/README.md#L23-L60",
+            "source_repo": "temporal",
+            "source_uri": "repo-local://reference-pool/oss/temporal/README.md#L23-L60",
+            "vector_version": "repo-local-live-v2"
+          },
+          "source_id": "reference-pool/oss",
+          "vector_version": "repo-local-live-v2"
+        },
+        "hit_id": "eh_7aea93ed020201d9",
+        "matrix_branch_id": "branch_8431b52ee68fee5a",
+        "provenance": {
+          "backend": "repo_local_public_oss_semantic_corpus",
+          "chunk_id": "public-oss-temporal-durable-workflow:lines:23-60",
+          "document_id": "public-oss-temporal-durable-workflow",
+          "effective_time": null,
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "embedding_model_version": "2026-05-23.wave56",
+          "fallback_reason": null,
+          "language": null,
+          "matrix_branch_id": "branch_8431b52ee68fee5a",
+          "project_key": "oss_node_public_corpus",
+          "provider": "repo_local_token_hashing",
+          "provider_payload_kind": "repo_local_public_corpus_embedding_vector",
+          "reference": "repo-local://reference-pool/oss/temporal/README.md#L23-L60",
+          "retrieval_mode": "vector",
+          "score": 0.300749,
+          "source": "reference-pool/oss",
+          "source_domain": "reference-pool",
+          "source_id": "reference-pool/oss",
+          "source_reference": "repo-local://reference-pool/oss/temporal/README.md#L23-L60",
+          "source_repo": "temporal",
+          "source_uri": "repo-local://reference-pool/oss/temporal/README.md#L23-L60",
+          "vector_version": "repo-local-live-v2"
+        },
+        "query_group_id": "qg_1b3c42df7846b005",
+        "rank": 7,
+        "rank_features": {
+          "backend": "repo_local_public_oss_semantic_corpus",
+          "fusion_score": 0.0,
+          "lexical_score": 0.0,
+          "rank": 7,
+          "retrieval_mode": "vector",
+          "score": 0.300749,
+          "tags": [
+            "vector",
+            "public_oss_corpus",
+            "durable_workflow_runtime"
+          ],
+          "vector_score": 0.0
+        },
+        "retrieval_family": "main_search",
+        "retrieval_mode": "vector",
+        "score": 0.300749,
+        "verification_state": "unverified"
+      }
+    ],
+    "filters": {
+      "modality": "any",
+      "state": null,
+      "top_k": 7
+    },
+    "hit_count": 7,
+    "modality": "any",
+    "project_key": "oss_node_public_corpus",
+    "query": "wave57 oss-node public OSS corpus semantic relevance",
+    "query_group_id": "qg_1b3c42df7846b005",
+    "query_text": "wave57 oss-node public OSS corpus semantic relevance",
+    "rank_mode": "vector",
+    "retrieval_branches": [
+      {
+        "backend": "repo_local_public_oss_semantic_corpus",
+        "contract_version": "search_retrieval_branch.v1",
+        "filters": {
+          "modality": "any",
+          "state": null,
+          "top_k": 7
+        },
+        "global_vector_object_refs": [
+          {
+            "chunk_id": "public-oss-dify-rag-workflow:lines:59-104",
+            "document_id": "public-oss-dify-rag-workflow",
+            "source_id": "reference-pool/oss",
+            "vector_version": "repo-local-live-v2"
+          },
+          {
+            "chunk_id": "public-oss-n8n-workflow-automation:lines:3-15",
+            "document_id": "public-oss-n8n-workflow-automation",
+            "source_id": "reference-pool/oss",
+            "vector_version": "repo-local-live-v2"
+          },
+          {
+            "chunk_id": "public-oss-langflow-agent-mcp:lines:16-26",
+            "document_id": "public-oss-langflow-agent-mcp",
+            "source_id": "reference-pool/oss",
+            "vector_version": "repo-local-live-v2"
+          },
+          {
+            "chunk_id": "public-oss-outline-knowledge-base:lines:8-10",
+            "document_id": "public-oss-outline-knowledge-base",
+            "source_id": "reference-pool/oss",
+            "vector_version": "repo-local-live-v2"
+          },
+          {
+            "chunk_id": "public-oss-silverbullet-ai-semantic-search:lines:14-22",
+            "document_id": "public-oss-silverbullet-ai-semantic-search",
+            "source_id": "reference-pool/oss",
+            "vector_version": "repo-local-live-v2"
+          },
+          {
+            "chunk_id": "public-oss-langgraph-stateful-agent:lines:16-70",
+            "document_id": "public-oss-langgraph-stateful-agent",
+            "source_id": "reference-pool/oss",
+            "vector_version": "repo-local-live-v2"
+          },
+          {
+            "chunk_id": "public-oss-temporal-durable-workflow:lines:23-60",
+            "document_id": "public-oss-temporal-durable-workflow",
+            "source_id": "reference-pool/oss",
+            "vector_version": "repo-local-live-v2"
+          }
+        ],
+        "hit_count": 7,
+        "hit_ids": [
+          "eh_f5bed4529b73ea69",
+          "eh_6d5709231923898e",
+          "eh_11c7c7ea30e0727b",
+          "eh_537fdc7ad02f18db",
+          "eh_6fc5d39b376d32a4",
+          "eh_db01f539bf5463e8",
+          "eh_7aea93ed020201d9"
+        ],
+        "matrix_branch_id": "branch_8431b52ee68fee5a",
+        "provider_or_index": "repo_local_public_oss_semantic_corpus",
+        "query_group_id": "qg_1b3c42df7846b005",
+        "query_text": "wave57 oss-node public OSS corpus semantic relevance",
+        "rank_mode": "vector",
+        "retrieval_family": "main_search",
+        "retrieval_mode": "vector",
+        "retrieval_run_id": "retrieval_run_ae387a0eba246a1d",
+        "run_id": "retrieval_run_ae387a0eba246a1d",
+        "status": "completed",
+        "top_score": 0.427722,
+        "verification_states": [
+          "unverified"
+        ]
+      }
+    ],
+    "retrieval_family": "main_search",
+    "retrieval_hits": [
+      {
+        "backend": "repo_local_public_oss_semantic_corpus",
+        "chunk_id": "public-oss-dify-rag-workflow:lines:59-104",
+        "contract_version": "search_retrieval_hit.v1",
+        "document_id": "public-oss-dify-rag-workflow",
+        "evidence_class": "public_oss_excerpt",
+        "global_vector_object": {
+          "chunk_id": "public-oss-dify-rag-workflow:lines:59-104",
+          "contract_version": "global_vector_object.v1",
+          "document_id": "public-oss-dify-rag-workflow",
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "matrix_branch_id": "branch_8431b52ee68fee5a",
+          "object_id": "public-oss-dify-rag-workflow",
+          "object_type": "public_oss_excerpt",
+          "project_key": "oss_node_public_corpus",
+          "provenance": {
+            "backend": "repo_local_public_oss_semantic_corpus",
+            "effective_time": null,
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "embedding_model_version": "2026-05-23.wave56",
+            "fallback_reason": null,
+            "language": null,
+            "provider": "repo_local_token_hashing",
+            "provider_payload_kind": "repo_local_public_corpus_embedding_vector",
+            "reference": "repo-local://reference-pool/oss/dify/README.md#L59-L104",
+            "retrieval_mode": "vector",
+            "score": 0.207214,
+            "source": "reference-pool/oss",
+            "source_domain": "reference-pool",
+            "source_id": "reference-pool/oss",
+            "source_reference": "repo-local://reference-pool/oss/dify/README.md#L59-L104",
+            "source_repo": "dify",
+            "source_uri": "repo-local://reference-pool/oss/dify/README.md#L59-L104",
+            "vector_version": "repo-local-live-v2"
+          },
+          "source_id": "reference-pool/oss",
+          "vector_version": "repo-local-live-v2"
+        },
+        "hit_id": "eh_f5bed4529b73ea69",
+        "matrix_branch_id": "branch_8431b52ee68fee5a",
+        "object_id": "public-oss-dify-rag-workflow",
+        "object_type": "public_oss_excerpt",
+        "provenance": {
+          "backend": "repo_local_public_oss_semantic_corpus",
+          "chunk_id": "public-oss-dify-rag-workflow:lines:59-104",
+          "document_id": "public-oss-dify-rag-workflow",
+          "effective_time": null,
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "embedding_model_version": "2026-05-23.wave56",
+          "fallback_reason": null,
+          "language": null,
+          "matrix_branch_id": "branch_8431b52ee68fee5a",
+          "project_key": "oss_node_public_corpus",
+          "provider": "repo_local_token_hashing",
+          "provider_payload_kind": "repo_local_public_corpus_embedding_vector",
+          "reference": "repo-local://reference-pool/oss/dify/README.md#L59-L104",
+          "retrieval_mode": "vector",
+          "score": 0.207214,
+          "source": "reference-pool/oss",
+          "source_domain": "reference-pool",
+          "source_id": "reference-pool/oss",
+          "source_reference": "repo-local://reference-pool/oss/dify/README.md#L59-L104",
+          "source_repo": "dify",
+          "source_uri": "repo-local://reference-pool/oss/dify/README.md#L59-L104",
+          "vector_version": "repo-local-live-v2"
+        },
+        "query_group_id": "qg_1b3c42df7846b005",
+        "rank": 1,
+        "retrieval_family": "main_search",
+        "retrieval_mode": "vector",
+        "retrieval_run_id": "retrieval_run_ae387a0eba246a1d",
+        "run_id": "retrieval_run_ae387a0eba246a1d",
+        "score": 0.207214,
+        "source_id": "reference-pool/oss",
+        "verification_state": "unverified"
+      },
+      {
+        "backend": "repo_local_public_oss_semantic_corpus",
+        "chunk_id": "public-oss-n8n-workflow-automation:lines:3-15",
+        "contract_version": "search_retrieval_hit.v1",
+        "document_id": "public-oss-n8n-workflow-automation",
+        "evidence_class": "public_oss_excerpt",
+        "global_vector_object": {
+          "chunk_id": "public-oss-n8n-workflow-automation:lines:3-15",
+          "contract_version": "global_vector_object.v1",
+          "document_id": "public-oss-n8n-workflow-automation",
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "matrix_branch_id": "branch_8431b52ee68fee5a",
+          "object_id": "public-oss-n8n-workflow-automation",
+          "object_type": "public_oss_excerpt",
+          "project_key": "oss_node_public_corpus",
+          "provenance": {
+            "backend": "repo_local_public_oss_semantic_corpus",
+            "effective_time": null,
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "embedding_model_version": "2026-05-23.wave56",
+            "fallback_reason": null,
+            "language": null,
+            "provider": "repo_local_token_hashing",
+            "provider_payload_kind": "repo_local_public_corpus_embedding_vector",
+            "reference": "repo-local://reference-pool/oss/n8n/README.md#L3-L15",
+            "retrieval_mode": "vector",
+            "score": 0.322634,
+            "source": "reference-pool/oss",
+            "source_domain": "reference-pool",
+            "source_id": "reference-pool/oss",
+            "source_reference": "repo-local://reference-pool/oss/n8n/README.md#L3-L15",
+            "source_repo": "n8n",
+            "source_uri": "repo-local://reference-pool/oss/n8n/README.md#L3-L15",
+            "vector_version": "repo-local-live-v2"
+          },
+          "source_id": "reference-pool/oss",
+          "vector_version": "repo-local-live-v2"
+        },
+        "hit_id": "eh_6d5709231923898e",
+        "matrix_branch_id": "branch_8431b52ee68fee5a",
+        "object_id": "public-oss-n8n-workflow-automation",
+        "object_type": "public_oss_excerpt",
+        "provenance": {
+          "backend": "repo_local_public_oss_semantic_corpus",
+          "chunk_id": "public-oss-n8n-workflow-automation:lines:3-15",
+          "document_id": "public-oss-n8n-workflow-automation",
+          "effective_time": null,
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "embedding_model_version": "2026-05-23.wave56",
+          "fallback_reason": null,
+          "language": null,
+          "matrix_branch_id": "branch_8431b52ee68fee5a",
+          "project_key": "oss_node_public_corpus",
+          "provider": "repo_local_token_hashing",
+          "provider_payload_kind": "repo_local_public_corpus_embedding_vector",
+          "reference": "repo-local://reference-pool/oss/n8n/README.md#L3-L15",
+          "retrieval_mode": "vector",
+          "score": 0.322634,
+          "source": "reference-pool/oss",
+          "source_domain": "reference-pool",
+          "source_id": "reference-pool/oss",
+          "source_reference": "repo-local://reference-pool/oss/n8n/README.md#L3-L15",
+          "source_repo": "n8n",
+          "source_uri": "repo-local://reference-pool/oss/n8n/README.md#L3-L15",
+          "vector_version": "repo-local-live-v2"
+        },
+        "query_group_id": "qg_1b3c42df7846b005",
+        "rank": 2,
+        "retrieval_family": "main_search",
+        "retrieval_mode": "vector",
+        "retrieval_run_id": "retrieval_run_ae387a0eba246a1d",
+        "run_id": "retrieval_run_ae387a0eba246a1d",
+        "score": 0.322634,
+        "source_id": "reference-pool/oss",
+        "verification_state": "unverified"
+      },
+      {
+        "backend": "repo_local_public_oss_semantic_corpus",
+        "chunk_id": "public-oss-langflow-agent-mcp:lines:16-26",
+        "contract_version": "search_retrieval_hit.v1",
+        "document_id": "public-oss-langflow-agent-mcp",
+        "evidence_class": "public_oss_excerpt",
+        "global_vector_object": {
+          "chunk_id": "public-oss-langflow-agent-mcp:lines:16-26",
+          "contract_version": "global_vector_object.v1",
+          "document_id": "public-oss-langflow-agent-mcp",
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "matrix_branch_id": "branch_8431b52ee68fee5a",
+          "object_id": "public-oss-langflow-agent-mcp",
+          "object_type": "public_oss_excerpt",
+          "project_key": "oss_node_public_corpus",
+          "provenance": {
+            "backend": "repo_local_public_oss_semantic_corpus",
+            "effective_time": null,
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "embedding_model_version": "2026-05-23.wave56",
+            "fallback_reason": null,
+            "language": null,
+            "provider": "repo_local_token_hashing",
+            "provider_payload_kind": "repo_local_public_corpus_embedding_vector",
+            "reference": "repo-local://reference-pool/oss/langflow/README.md#L16-L26",
+            "retrieval_mode": "vector",
+            "score": 0.313831,
+            "source": "reference-pool/oss",
+            "source_domain": "reference-pool",
+            "source_id": "reference-pool/oss",
+            "source_reference": "repo-local://reference-pool/oss/langflow/README.md#L16-L26",
+            "source_repo": "langflow",
+            "source_uri": "repo-local://reference-pool/oss/langflow/README.md#L16-L26",
+            "vector_version": "repo-local-live-v2"
+          },
+          "source_id": "reference-pool/oss",
+          "vector_version": "repo-local-live-v2"
+        },
+        "hit_id": "eh_11c7c7ea30e0727b",
+        "matrix_branch_id": "branch_8431b52ee68fee5a",
+        "object_id": "public-oss-langflow-agent-mcp",
+        "object_type": "public_oss_excerpt",
+        "provenance": {
+          "backend": "repo_local_public_oss_semantic_corpus",
+          "chunk_id": "public-oss-langflow-agent-mcp:lines:16-26",
+          "document_id": "public-oss-langflow-agent-mcp",
+          "effective_time": null,
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "embedding_model_version": "2026-05-23.wave56",
+          "fallback_reason": null,
+          "language": null,
+          "matrix_branch_id": "branch_8431b52ee68fee5a",
+          "project_key": "oss_node_public_corpus",
+          "provider": "repo_local_token_hashing",
+          "provider_payload_kind": "repo_local_public_corpus_embedding_vector",
+          "reference": "repo-local://reference-pool/oss/langflow/README.md#L16-L26",
+          "retrieval_mode": "vector",
+          "score": 0.313831,
+          "source": "reference-pool/oss",
+          "source_domain": "reference-pool",
+          "source_id": "reference-pool/oss",
+          "source_reference": "repo-local://reference-pool/oss/langflow/README.md#L16-L26",
+          "source_repo": "langflow",
+          "source_uri": "repo-local://reference-pool/oss/langflow/README.md#L16-L26",
+          "vector_version": "repo-local-live-v2"
+        },
+        "query_group_id": "qg_1b3c42df7846b005",
+        "rank": 3,
+        "retrieval_family": "main_search",
+        "retrieval_mode": "vector",
+        "retrieval_run_id": "retrieval_run_ae387a0eba246a1d",
+        "run_id": "retrieval_run_ae387a0eba246a1d",
+        "score": 0.313831,
+        "source_id": "reference-pool/oss",
+        "verification_state": "unverified"
+      },
+      {
+        "backend": "repo_local_public_oss_semantic_corpus",
+        "chunk_id": "public-oss-outline-knowledge-base:lines:8-10",
+        "contract_version": "search_retrieval_hit.v1",
+        "document_id": "public-oss-outline-knowledge-base",
+        "evidence_class": "public_oss_excerpt",
+        "global_vector_object": {
+          "chunk_id": "public-oss-outline-knowledge-base:lines:8-10",
+          "contract_version": "global_vector_object.v1",
+          "document_id": "public-oss-outline-knowledge-base",
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "matrix_branch_id": "branch_8431b52ee68fee5a",
+          "object_id": "public-oss-outline-knowledge-base",
+          "object_type": "public_oss_excerpt",
+          "project_key": "oss_node_public_corpus",
+          "provenance": {
+            "backend": "repo_local_public_oss_semantic_corpus",
+            "effective_time": null,
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "embedding_model_version": "2026-05-23.wave56",
+            "fallback_reason": null,
+            "language": null,
+            "provider": "repo_local_token_hashing",
+            "provider_payload_kind": "repo_local_public_corpus_embedding_vector",
+            "reference": "repo-local://reference-pool/oss/outline/README.md#L8-L10",
+            "retrieval_mode": "vector",
+            "score": 0.427722,
+            "source": "reference-pool/oss",
+            "source_domain": "reference-pool",
+            "source_id": "reference-pool/oss",
+            "source_reference": "repo-local://reference-pool/oss/outline/README.md#L8-L10",
+            "source_repo": "outline",
+            "source_uri": "repo-local://reference-pool/oss/outline/README.md#L8-L10",
+            "vector_version": "repo-local-live-v2"
+          },
+          "source_id": "reference-pool/oss",
+          "vector_version": "repo-local-live-v2"
+        },
+        "hit_id": "eh_537fdc7ad02f18db",
+        "matrix_branch_id": "branch_8431b52ee68fee5a",
+        "object_id": "public-oss-outline-knowledge-base",
+        "object_type": "public_oss_excerpt",
+        "provenance": {
+          "backend": "repo_local_public_oss_semantic_corpus",
+          "chunk_id": "public-oss-outline-knowledge-base:lines:8-10",
+          "document_id": "public-oss-outline-knowledge-base",
+          "effective_time": null,
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "embedding_model_version": "2026-05-23.wave56",
+          "fallback_reason": null,
+          "language": null,
+          "matrix_branch_id": "branch_8431b52ee68fee5a",
+          "project_key": "oss_node_public_corpus",
+          "provider": "repo_local_token_hashing",
+          "provider_payload_kind": "repo_local_public_corpus_embedding_vector",
+          "reference": "repo-local://reference-pool/oss/outline/README.md#L8-L10",
+          "retrieval_mode": "vector",
+          "score": 0.427722,
+          "source": "reference-pool/oss",
+          "source_domain": "reference-pool",
+          "source_id": "reference-pool/oss",
+          "source_reference": "repo-local://reference-pool/oss/outline/README.md#L8-L10",
+          "source_repo": "outline",
+          "source_uri": "repo-local://reference-pool/oss/outline/README.md#L8-L10",
+          "vector_version": "repo-local-live-v2"
+        },
+        "query_group_id": "qg_1b3c42df7846b005",
+        "rank": 4,
+        "retrieval_family": "main_search",
+        "retrieval_mode": "vector",
+        "retrieval_run_id": "retrieval_run_ae387a0eba246a1d",
+        "run_id": "retrieval_run_ae387a0eba246a1d",
+        "score": 0.427722,
+        "source_id": "reference-pool/oss",
+        "verification_state": "unverified"
+      },
+      {
+        "backend": "repo_local_public_oss_semantic_corpus",
+        "chunk_id": "public-oss-silverbullet-ai-semantic-search:lines:14-22",
+        "contract_version": "search_retrieval_hit.v1",
+        "document_id": "public-oss-silverbullet-ai-semantic-search",
+        "evidence_class": "public_oss_excerpt",
+        "global_vector_object": {
+          "chunk_id": "public-oss-silverbullet-ai-semantic-search:lines:14-22",
+          "contract_version": "global_vector_object.v1",
+          "document_id": "public-oss-silverbullet-ai-semantic-search",
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "matrix_branch_id": "branch_8431b52ee68fee5a",
+          "object_id": "public-oss-silverbullet-ai-semantic-search",
+          "object_type": "public_oss_excerpt",
+          "project_key": "oss_node_public_corpus",
+          "provenance": {
+            "backend": "repo_local_public_oss_semantic_corpus",
+            "effective_time": null,
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "embedding_model_version": "2026-05-23.wave56",
+            "fallback_reason": null,
+            "language": null,
+            "provider": "repo_local_token_hashing",
+            "provider_payload_kind": "repo_local_public_corpus_embedding_vector",
+            "reference": "repo-local://reference-pool/oss/silverbullet-ai/README.md#L14-L22",
+            "retrieval_mode": "vector",
+            "score": 0.308372,
+            "source": "reference-pool/oss",
+            "source_domain": "reference-pool",
+            "source_id": "reference-pool/oss",
+            "source_reference": "repo-local://reference-pool/oss/silverbullet-ai/README.md#L14-L22",
+            "source_repo": "silverbullet-ai",
+            "source_uri": "repo-local://reference-pool/oss/silverbullet-ai/README.md#L14-L22",
+            "vector_version": "repo-local-live-v2"
+          },
+          "source_id": "reference-pool/oss",
+          "vector_version": "repo-local-live-v2"
+        },
+        "hit_id": "eh_6fc5d39b376d32a4",
+        "matrix_branch_id": "branch_8431b52ee68fee5a",
+        "object_id": "public-oss-silverbullet-ai-semantic-search",
+        "object_type": "public_oss_excerpt",
+        "provenance": {
+          "backend": "repo_local_public_oss_semantic_corpus",
+          "chunk_id": "public-oss-silverbullet-ai-semantic-search:lines:14-22",
+          "document_id": "public-oss-silverbullet-ai-semantic-search",
+          "effective_time": null,
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "embedding_model_version": "2026-05-23.wave56",
+          "fallback_reason": null,
+          "language": null,
+          "matrix_branch_id": "branch_8431b52ee68fee5a",
+          "project_key": "oss_node_public_corpus",
+          "provider": "repo_local_token_hashing",
+          "provider_payload_kind": "repo_local_public_corpus_embedding_vector",
+          "reference": "repo-local://reference-pool/oss/silverbullet-ai/README.md#L14-L22",
+          "retrieval_mode": "vector",
+          "score": 0.308372,
+          "source": "reference-pool/oss",
+          "source_domain": "reference-pool",
+          "source_id": "reference-pool/oss",
+          "source_reference": "repo-local://reference-pool/oss/silverbullet-ai/README.md#L14-L22",
+          "source_repo": "silverbullet-ai",
+          "source_uri": "repo-local://reference-pool/oss/silverbullet-ai/README.md#L14-L22",
+          "vector_version": "repo-local-live-v2"
+        },
+        "query_group_id": "qg_1b3c42df7846b005",
+        "rank": 5,
+        "retrieval_family": "main_search",
+        "retrieval_mode": "vector",
+        "retrieval_run_id": "retrieval_run_ae387a0eba246a1d",
+        "run_id": "retrieval_run_ae387a0eba246a1d",
+        "score": 0.308372,
+        "source_id": "reference-pool/oss",
+        "verification_state": "unverified"
+      },
+      {
+        "backend": "repo_local_public_oss_semantic_corpus",
+        "chunk_id": "public-oss-langgraph-stateful-agent:lines:16-70",
+        "contract_version": "search_retrieval_hit.v1",
+        "document_id": "public-oss-langgraph-stateful-agent",
+        "evidence_class": "public_oss_excerpt",
+        "global_vector_object": {
+          "chunk_id": "public-oss-langgraph-stateful-agent:lines:16-70",
+          "contract_version": "global_vector_object.v1",
+          "document_id": "public-oss-langgraph-stateful-agent",
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "matrix_branch_id": "branch_8431b52ee68fee5a",
+          "object_id": "public-oss-langgraph-stateful-agent",
+          "object_type": "public_oss_excerpt",
+          "project_key": "oss_node_public_corpus",
+          "provenance": {
+            "backend": "repo_local_public_oss_semantic_corpus",
+            "effective_time": null,
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "embedding_model_version": "2026-05-23.wave56",
+            "fallback_reason": null,
+            "language": null,
+            "provider": "repo_local_token_hashing",
+            "provider_payload_kind": "repo_local_public_corpus_embedding_vector",
+            "reference": "repo-local://reference-pool/oss/agent-cases/langgraph/README.md#L16-L70",
+            "retrieval_mode": "vector",
+            "score": 0.276845,
+            "source": "reference-pool/oss",
+            "source_domain": "reference-pool",
+            "source_id": "reference-pool/oss",
+            "source_reference": "repo-local://reference-pool/oss/agent-cases/langgraph/README.md#L16-L70",
+            "source_repo": "langgraph",
+            "source_uri": "repo-local://reference-pool/oss/agent-cases/langgraph/README.md#L16-L70",
+            "vector_version": "repo-local-live-v2"
+          },
+          "source_id": "reference-pool/oss",
+          "vector_version": "repo-local-live-v2"
+        },
+        "hit_id": "eh_db01f539bf5463e8",
+        "matrix_branch_id": "branch_8431b52ee68fee5a",
+        "object_id": "public-oss-langgraph-stateful-agent",
+        "object_type": "public_oss_excerpt",
+        "provenance": {
+          "backend": "repo_local_public_oss_semantic_corpus",
+          "chunk_id": "public-oss-langgraph-stateful-agent:lines:16-70",
+          "document_id": "public-oss-langgraph-stateful-agent",
+          "effective_time": null,
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "embedding_model_version": "2026-05-23.wave56",
+          "fallback_reason": null,
+          "language": null,
+          "matrix_branch_id": "branch_8431b52ee68fee5a",
+          "project_key": "oss_node_public_corpus",
+          "provider": "repo_local_token_hashing",
+          "provider_payload_kind": "repo_local_public_corpus_embedding_vector",
+          "reference": "repo-local://reference-pool/oss/agent-cases/langgraph/README.md#L16-L70",
+          "retrieval_mode": "vector",
+          "score": 0.276845,
+          "source": "reference-pool/oss",
+          "source_domain": "reference-pool",
+          "source_id": "reference-pool/oss",
+          "source_reference": "repo-local://reference-pool/oss/agent-cases/langgraph/README.md#L16-L70",
+          "source_repo": "langgraph",
+          "source_uri": "repo-local://reference-pool/oss/agent-cases/langgraph/README.md#L16-L70",
+          "vector_version": "repo-local-live-v2"
+        },
+        "query_group_id": "qg_1b3c42df7846b005",
+        "rank": 6,
+        "retrieval_family": "main_search",
+        "retrieval_mode": "vector",
+        "retrieval_run_id": "retrieval_run_ae387a0eba246a1d",
+        "run_id": "retrieval_run_ae387a0eba246a1d",
+        "score": 0.276845,
+        "source_id": "reference-pool/oss",
+        "verification_state": "unverified"
+      },
+      {
+        "backend": "repo_local_public_oss_semantic_corpus",
+        "chunk_id": "public-oss-temporal-durable-workflow:lines:23-60",
+        "contract_version": "search_retrieval_hit.v1",
+        "document_id": "public-oss-temporal-durable-workflow",
+        "evidence_class": "public_oss_excerpt",
+        "global_vector_object": {
+          "chunk_id": "public-oss-temporal-durable-workflow:lines:23-60",
+          "contract_version": "global_vector_object.v1",
+          "document_id": "public-oss-temporal-durable-workflow",
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "matrix_branch_id": "branch_8431b52ee68fee5a",
+          "object_id": "public-oss-temporal-durable-workflow",
+          "object_type": "public_oss_excerpt",
+          "project_key": "oss_node_public_corpus",
+          "provenance": {
+            "backend": "repo_local_public_oss_semantic_corpus",
+            "effective_time": null,
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "embedding_model_version": "2026-05-23.wave56",
+            "fallback_reason": null,
+            "language": null,
+            "provider": "repo_local_token_hashing",
+            "provider_payload_kind": "repo_local_public_corpus_embedding_vector",
+            "reference": "repo-local://reference-pool/oss/temporal/README.md#L23-L60",
+            "retrieval_mode": "vector",
+            "score": 0.300749,
+            "source": "reference-pool/oss",
+            "source_domain": "reference-pool",
+            "source_id": "reference-pool/oss",
+            "source_reference": "repo-local://reference-pool/oss/temporal/README.md#L23-L60",
+            "source_repo": "temporal",
+            "source_uri": "repo-local://reference-pool/oss/temporal/README.md#L23-L60",
+            "vector_version": "repo-local-live-v2"
+          },
+          "source_id": "reference-pool/oss",
+          "vector_version": "repo-local-live-v2"
+        },
+        "hit_id": "eh_7aea93ed020201d9",
+        "matrix_branch_id": "branch_8431b52ee68fee5a",
+        "object_id": "public-oss-temporal-durable-workflow",
+        "object_type": "public_oss_excerpt",
+        "provenance": {
+          "backend": "repo_local_public_oss_semantic_corpus",
+          "chunk_id": "public-oss-temporal-durable-workflow:lines:23-60",
+          "document_id": "public-oss-temporal-durable-workflow",
+          "effective_time": null,
+          "embedding_dim": 512,
+          "embedding_model": "repo-local-token-hashing-v1",
+          "embedding_model_version": "2026-05-23.wave56",
+          "fallback_reason": null,
+          "language": null,
+          "matrix_branch_id": "branch_8431b52ee68fee5a",
+          "project_key": "oss_node_public_corpus",
+          "provider": "repo_local_token_hashing",
+          "provider_payload_kind": "repo_local_public_corpus_embedding_vector",
+          "reference": "repo-local://reference-pool/oss/temporal/README.md#L23-L60",
+          "retrieval_mode": "vector",
+          "score": 0.300749,
+          "source": "reference-pool/oss",
+          "source_domain": "reference-pool",
+          "source_id": "reference-pool/oss",
+          "source_reference": "repo-local://reference-pool/oss/temporal/README.md#L23-L60",
+          "source_repo": "temporal",
+          "source_uri": "repo-local://reference-pool/oss/temporal/README.md#L23-L60",
+          "vector_version": "repo-local-live-v2"
+        },
+        "query_group_id": "qg_1b3c42df7846b005",
+        "rank": 7,
+        "retrieval_family": "main_search",
+        "retrieval_mode": "vector",
+        "retrieval_run_id": "retrieval_run_ae387a0eba246a1d",
+        "run_id": "retrieval_run_ae387a0eba246a1d",
+        "score": 0.300749,
+        "source_id": "reference-pool/oss",
+        "verification_state": "unverified"
+      }
+    ],
+    "retrieval_run_id": "retrieval_run_ae387a0eba246a1d",
+    "run_id": "retrieval_run_ae387a0eba246a1d",
+    "state": null,
+    "status": "completed",
+    "top_k": 7
+  },
+  "scope": "target_local_public_oss_corpus_semantic_relevance_no_network_no_live_container",
+  "status": "passed",
+  "target_archive_closed_candidate": true,
+  "target_topic": {
+    "exists": true,
+    "path": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-05-oss-node-platform-io-plan"
+  }
+}

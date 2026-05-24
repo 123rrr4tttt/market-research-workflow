@@ -1,0 +1,2503 @@
+{
+  "archive_closed_recommendation": "target_topic_evidence_ready_for_archive_closed_migration_without_global_index_update",
+  "closed_condition_scope": {
+    "production_vector_quality_not_proven": "closed for target-topic migration scope by replaying a production-like MRW devdocs corpus through the repo-local live embedding provider and LanceDB vector-store adapter"
+  },
+  "closed_conditions": [
+    "production_vector_quality_not_proven"
+  ],
+  "contract_version": "wave57-production-vector-quality-gate.v1",
+  "corpus_readback": {
+    "automation_artifact_row_count": 4,
+    "automation_artifacts": [
+      {
+        "exists": true,
+        "failures": [],
+        "path": "development/latest-dev-docs/automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md",
+        "status": "loaded"
+      },
+      {
+        "exists": true,
+        "failures": [],
+        "path": "development/latest-dev-docs/automation-runs/wave55-live-embedding-provider/2026-05-23/README.md",
+        "status": "loaded"
+      },
+      {
+        "exists": true,
+        "failures": [],
+        "path": "development/latest-dev-docs/automation-runs/wave56-semantic-vector-quality-gate/2026-05-23/README.md",
+        "status": "loaded"
+      },
+      {
+        "exists": true,
+        "failures": [],
+        "path": "development/latest-dev-docs/automation-runs/wave30-vector-closure-gate/2026-05-23/README.md",
+        "status": "loaded"
+      }
+    ],
+    "distinct_document_count": 27,
+    "existing_lancedb_jsonl_artifacts": [
+      {
+        "exists": true,
+        "failures": [],
+        "loaded_rows": 10,
+        "path": "development/latest-dev-docs/automation-runs/deisolation-project-coherence/2026-05-14/local_index_lancedb_project_prototype.jsonl",
+        "row_count": 10,
+        "status": "loaded"
+      },
+      {
+        "exists": true,
+        "failures": [],
+        "loaded_rows": 0,
+        "path": "development/latest-dev-docs/automation-runs/frontend-coherence-and-searxng-gate/2026-05-14/local_index_lancedb_project_prototype.jsonl",
+        "row_count": 10,
+        "status": "loaded"
+      }
+    ],
+    "existing_lancedb_jsonl_row_count": 10,
+    "failures": [],
+    "project_id": "global-vectorization-production-quality",
+    "row_count": 27,
+    "source_group_count": 3,
+    "source_groups": [
+      "automation_run_artifact",
+      "existing_lancedb_jsonl_artifact",
+      "target_blocker_docs"
+    ],
+    "status": "passed",
+    "target_topic": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation",
+    "target_topic_row_count": 13,
+    "thresholds": {
+      "min_corpus_rows": 20,
+      "min_distinct_documents": 20,
+      "min_source_groups": 3
+    }
+  },
+  "duration_ms": 540.5,
+  "failures": [],
+  "generated_at": "2026-05-24T02:42:38.351458+00:00",
+  "generated_by": "ops/search-lab/scripts/wave57_production_vector_quality_gate.py",
+  "global_manifest_update_performed": false,
+  "input_artifact_readback": {
+    "status": "passed",
+    "wave56_semantic_vector_quality_gate": {
+      "closed_conditions": [
+        "semantic_embedding_quality_not_proven"
+      ],
+      "contract_version": "wave56-semantic-vector-quality-gate.v1",
+      "exists": true,
+      "failures": [],
+      "gate_status": "passed",
+      "path": "development/latest-dev-docs/automation-runs/wave56-semantic-vector-quality-gate/2026-05-23/semantic_vector_quality_gate.json",
+      "production_quality_claim_allowed": false,
+      "reduced_conditions": [
+        "production_vector_quality_not_proven"
+      ],
+      "semantic_quality_claim_allowed": true,
+      "status": "loaded"
+    }
+  },
+  "production_like_vector_quality_claim_allowed": true,
+  "production_traffic_claim_allowed": false,
+  "provider_readback": {
+    "embedding_dim": 512,
+    "executable": true,
+    "failures": [],
+    "live_provider_verified": true,
+    "model": "repo-local-token-hashing-v1",
+    "model_version": "2026-05-23.wave56",
+    "network_required": false,
+    "provider_family": "repo_local",
+    "provider_id": "repo_local_token_hashing",
+    "status": "passed",
+    "vector_count": 33,
+    "vector_version": "repo-local-live-v2",
+    "vectors": [
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 492,
+        "norm": 1.0,
+        "text_digest": "f2489cdc33276d90",
+        "vector_digest": "f9efcf8b2eeb29c8"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 486,
+        "norm": 1.0,
+        "text_digest": "f4d168e69bd176ec",
+        "vector_digest": "cbc6c08af29acc1d"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 402,
+        "norm": 1.0,
+        "text_digest": "15e5ec079b34d2d7",
+        "vector_digest": "6268cb1a8ad59077"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 373,
+        "norm": 1.0,
+        "text_digest": "e9852623eefd962d",
+        "vector_digest": "14478455d4d6c084"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 363,
+        "norm": 1.0,
+        "text_digest": "ed5be5d4decefff7",
+        "vector_digest": "a3232dd9173358fa"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 358,
+        "norm": 1.0,
+        "text_digest": "dfbec941a5cd8043",
+        "vector_digest": "a3ed77b19c790d75"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 349,
+        "norm": 1.0,
+        "text_digest": "df9fcb2a5bcb5899",
+        "vector_digest": "0a0d19def18ca556"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 441,
+        "norm": 1.0,
+        "text_digest": "cc94dca5ac3e3ad9",
+        "vector_digest": "666766105dc379cd"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 351,
+        "norm": 1.0,
+        "text_digest": "975fce49d96c6cdb",
+        "vector_digest": "5370bfb325aaf0cc"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 406,
+        "norm": 1.0,
+        "text_digest": "00e849ccbb0ac08c",
+        "vector_digest": "abd421f74416f0cf"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 378,
+        "norm": 1.0,
+        "text_digest": "110801b0496b8c24",
+        "vector_digest": "62e8d71b226d7b4f"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 386,
+        "norm": 1.0,
+        "text_digest": "06f40d9bbdf80e62",
+        "vector_digest": "d9583d59585770b1"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 390,
+        "norm": 1.0,
+        "text_digest": "619243f018099e7b",
+        "vector_digest": "61a688125cf25057"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 137,
+        "norm": 1.0,
+        "text_digest": "6f8f68292b45780c",
+        "vector_digest": "e2f0a929c8593f45"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 133,
+        "norm": 1.0,
+        "text_digest": "439180b2a552051a",
+        "vector_digest": "93258fc49b3944c6"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 141,
+        "norm": 1.0,
+        "text_digest": "0e6d17313ca56749",
+        "vector_digest": "731d29bf9f59fc2c"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 156,
+        "norm": 1.0,
+        "text_digest": "235b1d6cbef61af9",
+        "vector_digest": "d0f636472d781024"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 168,
+        "norm": 1.0,
+        "text_digest": "db9e541aaa5797ca",
+        "vector_digest": "c6d1dfce65f675b3"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 171,
+        "norm": 1.0,
+        "text_digest": "c2b6b2cd340cb6af",
+        "vector_digest": "cb2f75c44d4b5091"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 185,
+        "norm": 1.0,
+        "text_digest": "61e5f3664b0ab9c0",
+        "vector_digest": "7a0b64f65fc32a8b"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 200,
+        "norm": 1.0,
+        "text_digest": "0cf12cf21c69db74",
+        "vector_digest": "8ee11e101b346a3e"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 200,
+        "norm": 1.0,
+        "text_digest": "dc38d1da987cfacb",
+        "vector_digest": "c8ca21827c365ef1"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 299,
+        "norm": 1.0,
+        "text_digest": "d4ec7065f64edbd1",
+        "vector_digest": "ee71855ccfe5582a"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 360,
+        "norm": 1.0,
+        "text_digest": "14470faa7392af4b",
+        "vector_digest": "a29f744aae7bba19"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 274,
+        "norm": 1.0,
+        "text_digest": "4c4b682768738696",
+        "vector_digest": "c1cca2ec3f355b00"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 305,
+        "norm": 1.0,
+        "text_digest": "ad269980dad80908",
+        "vector_digest": "ec1991c7ac7824f4"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 293,
+        "norm": 1.0,
+        "text_digest": "5f0d81ac7211b322",
+        "vector_digest": "3345aa300e9328a7"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 45,
+        "norm": 1.0,
+        "text_digest": "ea7dfba0db6aa308",
+        "vector_digest": "a51736821a92abc8"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 39,
+        "norm": 1.0,
+        "text_digest": "a7f745b09ff93345",
+        "vector_digest": "5d1aa18e137ba4d8"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 48,
+        "norm": 1.0,
+        "text_digest": "2538568fa8a5365d",
+        "vector_digest": "1762725ad655f7e9"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 55,
+        "norm": 1.0,
+        "text_digest": "88fded201c130a93",
+        "vector_digest": "d192b4974c57cd40"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 43,
+        "norm": 1.0,
+        "text_digest": "aec02a0a366be598",
+        "vector_digest": "2dfda78b3a961b09"
+      },
+      {
+        "embedding_dim": 512,
+        "non_zero_dimensions": 64,
+        "norm": 1.0,
+        "text_digest": "719244b351a182aa",
+        "vector_digest": "99097d6e5c263fd8"
+      }
+    ]
+  },
+  "quality_evaluation": {
+    "backend": "lancedb",
+    "case_count": 6,
+    "cases": [
+      {
+        "backend": "lancedb_vector_store",
+        "case_id": "live-provider-artifact-readback",
+        "expected_chunk_id": "artifact-wave55-live-embedding-provider-2026-05-23",
+        "expected_rank": 1,
+        "hard_negative_chunk_ids": [
+          "12_wave55-live-embedding-provider-closure-2026-05-23",
+          "08_wave22-vectorization-provider-external-blocked-decision-2026-05-22"
+        ],
+        "hard_negative_margin": 0.051938,
+        "passed": true,
+        "query": "live embedding provider readback repo local vector retrieval wiring",
+        "repeat_count": 3,
+        "repeat_score_samples": [
+          [
+            [
+              "artifact-wave55-live-embedding-provider-2026-05-23",
+              -1.162275
+            ],
+            [
+              "12_wave55-live-embedding-provider-closure-2026-05-23",
+              -1.214213
+            ],
+            [
+              "08_wave22-vectorization-provider-external-blocked-decision-2026-05-22",
+              -1.560213
+            ],
+            [
+              "02_local-index-hybrid-retrieval-vectorization-routing-2026-05-14",
+              -1.579862
+            ],
+            [
+              "07_wave19-vectorization-provider-manifest-2026-05-22",
+              -1.588288
+            ],
+            [
+              "10_wave29-vector-schema-alignment-2026-05-23",
+              -1.654325
+            ],
+            [
+              "09_wave27-vectorization-closure-decision-2026-05-23",
+              -1.659716
+            ],
+            [
+              "05_wave14-vectorization-provider-capability-2026-05-22",
+              -1.678109
+            ],
+            [
+              "06_wave18-vectorization-hybrid-readback-2026-05-22",
+              -1.687297
+            ],
+            [
+              "artifact-wave30-vector-closure-gate-2026-05-23",
+              -1.7291
+            ]
+          ],
+          [
+            [
+              "artifact-wave55-live-embedding-provider-2026-05-23",
+              -1.162275
+            ],
+            [
+              "12_wave55-live-embedding-provider-closure-2026-05-23",
+              -1.214213
+            ],
+            [
+              "08_wave22-vectorization-provider-external-blocked-decision-2026-05-22",
+              -1.560213
+            ],
+            [
+              "02_local-index-hybrid-retrieval-vectorization-routing-2026-05-14",
+              -1.579862
+            ],
+            [
+              "07_wave19-vectorization-provider-manifest-2026-05-22",
+              -1.588288
+            ],
+            [
+              "10_wave29-vector-schema-alignment-2026-05-23",
+              -1.654325
+            ],
+            [
+              "09_wave27-vectorization-closure-decision-2026-05-23",
+              -1.659716
+            ],
+            [
+              "05_wave14-vectorization-provider-capability-2026-05-22",
+              -1.678109
+            ],
+            [
+              "06_wave18-vectorization-hybrid-readback-2026-05-22",
+              -1.687297
+            ],
+            [
+              "artifact-wave30-vector-closure-gate-2026-05-23",
+              -1.7291
+            ]
+          ],
+          [
+            [
+              "artifact-wave55-live-embedding-provider-2026-05-23",
+              -1.162275
+            ],
+            [
+              "12_wave55-live-embedding-provider-closure-2026-05-23",
+              -1.214213
+            ],
+            [
+              "08_wave22-vectorization-provider-external-blocked-decision-2026-05-22",
+              -1.560213
+            ],
+            [
+              "02_local-index-hybrid-retrieval-vectorization-routing-2026-05-14",
+              -1.579862
+            ],
+            [
+              "07_wave19-vectorization-provider-manifest-2026-05-22",
+              -1.588288
+            ],
+            [
+              "10_wave29-vector-schema-alignment-2026-05-23",
+              -1.654325
+            ],
+            [
+              "09_wave27-vectorization-closure-decision-2026-05-23",
+              -1.659716
+            ],
+            [
+              "05_wave14-vectorization-provider-capability-2026-05-22",
+              -1.678109
+            ],
+            [
+              "06_wave18-vectorization-hybrid-readback-2026-05-22",
+              -1.687297
+            ],
+            [
+              "artifact-wave30-vector-closure-gate-2026-05-23",
+              -1.7291
+            ]
+          ]
+        ],
+        "retrieval_mode": "vector",
+        "score_semantics": "lower_distance_is_better",
+        "second_chunk_id": "12_wave55-live-embedding-provider-closure-2026-05-23",
+        "second_raw_score": 1.214213,
+        "second_score": -1.214213,
+        "stable_order": true,
+        "top2_margin": 0.051938,
+        "top5_chunk_ids": [
+          "artifact-wave55-live-embedding-provider-2026-05-23",
+          "12_wave55-live-embedding-provider-closure-2026-05-23",
+          "08_wave22-vectorization-provider-external-blocked-decision-2026-05-22",
+          "02_local-index-hybrid-retrieval-vectorization-routing-2026-05-14",
+          "07_wave19-vectorization-provider-manifest-2026-05-22"
+        ],
+        "top_chunk_id": "artifact-wave55-live-embedding-provider-2026-05-23",
+        "top_document_id": "artifact-wave55-live-embedding-provider-2026-05-23",
+        "top_raw_score": 1.162275,
+        "top_score": -1.162275
+      },
+      {
+        "backend": "lancedb_vector_store",
+        "case_id": "semantic-quality-target-doc",
+        "expected_chunk_id": "13_wave56-semantic-vector-quality-gate-2026-05-23",
+        "expected_rank": 1,
+        "hard_negative_chunk_ids": [
+          "artifact-wave56-semantic-vector-quality-gate-2026-05-23",
+          "03_wave10-vectorization-quality-gate-2026-05-22"
+        ],
+        "hard_negative_margin": 0.15063,
+        "passed": true,
+        "query": "semantic vector quality hard negative margin repeat stability",
+        "repeat_count": 3,
+        "repeat_score_samples": [
+          [
+            [
+              "13_wave56-semantic-vector-quality-gate-2026-05-23",
+              -1.122728
+            ],
+            [
+              "artifact-wave56-semantic-vector-quality-gate-2026-05-23",
+              -1.273358
+            ],
+            [
+              "artifact-local-index-lancedb-benchmark-2026-05-22",
+              -1.769843
+            ],
+            [
+              "03_wave10-vectorization-quality-gate-2026-05-22",
+              -1.792664
+            ],
+            [
+              "05_wave14-vectorization-provider-capability-2026-05-22",
+              -1.801221
+            ],
+            [
+              "11_wave30-vector-closure-external-blocked-decision-2026-05-23",
+              -1.826276
+            ],
+            [
+              "12_wave55-live-embedding-provider-closure-2026-05-23",
+              -1.837586
+            ],
+            [
+              "09_wave27-vectorization-closure-decision-2026-05-23",
+              -1.866246
+            ],
+            [
+              "02_local-index-hybrid-retrieval-vectorization-routing-2026-05-14",
+              -1.870827
+            ],
+            [
+              "10_wave29-vector-schema-alignment-2026-05-23",
+              -1.871228
+            ]
+          ],
+          [
+            [
+              "13_wave56-semantic-vector-quality-gate-2026-05-23",
+              -1.122728
+            ],
+            [
+              "artifact-wave56-semantic-vector-quality-gate-2026-05-23",
+              -1.273358
+            ],
+            [
+              "artifact-local-index-lancedb-benchmark-2026-05-22",
+              -1.769843
+            ],
+            [
+              "03_wave10-vectorization-quality-gate-2026-05-22",
+              -1.792664
+            ],
+            [
+              "05_wave14-vectorization-provider-capability-2026-05-22",
+              -1.801221
+            ],
+            [
+              "11_wave30-vector-closure-external-blocked-decision-2026-05-23",
+              -1.826276
+            ],
+            [
+              "12_wave55-live-embedding-provider-closure-2026-05-23",
+              -1.837586
+            ],
+            [
+              "09_wave27-vectorization-closure-decision-2026-05-23",
+              -1.866246
+            ],
+            [
+              "02_local-index-hybrid-retrieval-vectorization-routing-2026-05-14",
+              -1.870827
+            ],
+            [
+              "10_wave29-vector-schema-alignment-2026-05-23",
+              -1.871228
+            ]
+          ],
+          [
+            [
+              "13_wave56-semantic-vector-quality-gate-2026-05-23",
+              -1.122728
+            ],
+            [
+              "artifact-wave56-semantic-vector-quality-gate-2026-05-23",
+              -1.273358
+            ],
+            [
+              "artifact-local-index-lancedb-benchmark-2026-05-22",
+              -1.769843
+            ],
+            [
+              "03_wave10-vectorization-quality-gate-2026-05-22",
+              -1.792664
+            ],
+            [
+              "05_wave14-vectorization-provider-capability-2026-05-22",
+              -1.801221
+            ],
+            [
+              "11_wave30-vector-closure-external-blocked-decision-2026-05-23",
+              -1.826276
+            ],
+            [
+              "12_wave55-live-embedding-provider-closure-2026-05-23",
+              -1.837586
+            ],
+            [
+              "09_wave27-vectorization-closure-decision-2026-05-23",
+              -1.866246
+            ],
+            [
+              "02_local-index-hybrid-retrieval-vectorization-routing-2026-05-14",
+              -1.870827
+            ],
+            [
+              "10_wave29-vector-schema-alignment-2026-05-23",
+              -1.871228
+            ]
+          ]
+        ],
+        "retrieval_mode": "vector",
+        "score_semantics": "lower_distance_is_better",
+        "second_chunk_id": "artifact-wave56-semantic-vector-quality-gate-2026-05-23",
+        "second_raw_score": 1.273358,
+        "second_score": -1.273358,
+        "stable_order": true,
+        "top2_margin": 0.15063,
+        "top5_chunk_ids": [
+          "13_wave56-semantic-vector-quality-gate-2026-05-23",
+          "artifact-wave56-semantic-vector-quality-gate-2026-05-23",
+          "artifact-local-index-lancedb-benchmark-2026-05-22",
+          "03_wave10-vectorization-quality-gate-2026-05-22",
+          "05_wave14-vectorization-provider-capability-2026-05-22"
+        ],
+        "top_chunk_id": "13_wave56-semantic-vector-quality-gate-2026-05-23",
+        "top_document_id": "13_wave56-semantic-vector-quality-gate-2026-05-23",
+        "top_raw_score": 1.122728,
+        "top_score": -1.122728
+      },
+      {
+        "backend": "lancedb_vector_store",
+        "case_id": "schema-provenance-target-doc",
+        "expected_chunk_id": "10_wave29-vector-schema-alignment-2026-05-23",
+        "expected_rank": 1,
+        "hard_negative_chunk_ids": [
+          "11_wave30-vector-closure-external-blocked-decision-2026-05-23",
+          "09_wave27-vectorization-closure-decision-2026-05-23"
+        ],
+        "hard_negative_margin": 0.267533,
+        "passed": true,
+        "query": "qdrant pgvector payload provenance global vector object schema alignment",
+        "repeat_count": 3,
+        "repeat_score_samples": [
+          [
+            [
+              "10_wave29-vector-schema-alignment-2026-05-23",
+              -1.116196
+            ],
+            [
+              "artifact-wave30-vector-closure-gate-2026-05-23",
+              -1.358178
+            ],
+            [
+              "11_wave30-vector-closure-external-blocked-decision-2026-05-23",
+              -1.383729
+            ],
+            [
+              "09_wave27-vectorization-closure-decision-2026-05-23",
+              -1.490484
+            ],
+            [
+              "08_wave22-vectorization-provider-external-blocked-decision-2026-05-22",
+              -1.5564
+            ],
+            [
+              "artifact-wave56-semantic-vector-quality-gate-2026-05-23",
+              -1.591023
+            ],
+            [
+              "13_wave56-semantic-vector-quality-gate-2026-05-23",
+              -1.646235
+            ],
+            [
+              "artifact-wave55-live-embedding-provider-2026-05-23",
+              -1.677907
+            ],
+            [
+              "07_wave19-vectorization-provider-manifest-2026-05-22",
+              -1.679575
+            ],
+            [
+              "12_wave55-live-embedding-provider-closure-2026-05-23",
+              -1.689379
+            ]
+          ],
+          [
+            [
+              "10_wave29-vector-schema-alignment-2026-05-23",
+              -1.116196
+            ],
+            [
+              "artifact-wave30-vector-closure-gate-2026-05-23",
+              -1.358178
+            ],
+            [
+              "11_wave30-vector-closure-external-blocked-decision-2026-05-23",
+              -1.383729
+            ],
+            [
+              "09_wave27-vectorization-closure-decision-2026-05-23",
+              -1.490484
+            ],
+            [
+              "08_wave22-vectorization-provider-external-blocked-decision-2026-05-22",
+              -1.5564
+            ],
+            [
+              "artifact-wave56-semantic-vector-quality-gate-2026-05-23",
+              -1.591023
+            ],
+            [
+              "13_wave56-semantic-vector-quality-gate-2026-05-23",
+              -1.646235
+            ],
+            [
+              "artifact-wave55-live-embedding-provider-2026-05-23",
+              -1.677907
+            ],
+            [
+              "07_wave19-vectorization-provider-manifest-2026-05-22",
+              -1.679575
+            ],
+            [
+              "12_wave55-live-embedding-provider-closure-2026-05-23",
+              -1.689379
+            ]
+          ],
+          [
+            [
+              "10_wave29-vector-schema-alignment-2026-05-23",
+              -1.116196
+            ],
+            [
+              "artifact-wave30-vector-closure-gate-2026-05-23",
+              -1.358178
+            ],
+            [
+              "11_wave30-vector-closure-external-blocked-decision-2026-05-23",
+              -1.383729
+            ],
+            [
+              "09_wave27-vectorization-closure-decision-2026-05-23",
+              -1.490484
+            ],
+            [
+              "08_wave22-vectorization-provider-external-blocked-decision-2026-05-22",
+              -1.5564
+            ],
+            [
+              "artifact-wave56-semantic-vector-quality-gate-2026-05-23",
+              -1.591023
+            ],
+            [
+              "13_wave56-semantic-vector-quality-gate-2026-05-23",
+              -1.646235
+            ],
+            [
+              "artifact-wave55-live-embedding-provider-2026-05-23",
+              -1.677907
+            ],
+            [
+              "07_wave19-vectorization-provider-manifest-2026-05-22",
+              -1.679575
+            ],
+            [
+              "12_wave55-live-embedding-provider-closure-2026-05-23",
+              -1.689379
+            ]
+          ]
+        ],
+        "retrieval_mode": "vector",
+        "score_semantics": "lower_distance_is_better",
+        "second_chunk_id": "artifact-wave30-vector-closure-gate-2026-05-23",
+        "second_raw_score": 1.358178,
+        "second_score": -1.358178,
+        "stable_order": true,
+        "top2_margin": 0.241982,
+        "top5_chunk_ids": [
+          "10_wave29-vector-schema-alignment-2026-05-23",
+          "artifact-wave30-vector-closure-gate-2026-05-23",
+          "11_wave30-vector-closure-external-blocked-decision-2026-05-23",
+          "09_wave27-vectorization-closure-decision-2026-05-23",
+          "08_wave22-vectorization-provider-external-blocked-decision-2026-05-22"
+        ],
+        "top_chunk_id": "10_wave29-vector-schema-alignment-2026-05-23",
+        "top_document_id": "10_wave29-vector-schema-alignment-2026-05-23",
+        "top_raw_score": 1.116196,
+        "top_score": -1.116196
+      },
+      {
+        "backend": "lancedb_vector_store",
+        "case_id": "wave30-persistence-target-doc",
+        "expected_chunk_id": "11_wave30-vector-closure-external-blocked-decision-2026-05-23",
+        "expected_rank": 1,
+        "hard_negative_chunk_ids": [
+          "10_wave29-vector-schema-alignment-2026-05-23",
+          "09_wave27-vectorization-closure-decision-2026-05-23"
+        ],
+        "hard_negative_margin": 0.025746,
+        "passed": true,
+        "query": "Wave30 external blocked decision retrieval runs branches hits persistence closed",
+        "repeat_count": 3,
+        "repeat_score_samples": [
+          [
+            [
+              "11_wave30-vector-closure-external-blocked-decision-2026-05-23",
+              -1.569962
+            ],
+            [
+              "10_wave29-vector-schema-alignment-2026-05-23",
+              -1.595708
+            ],
+            [
+              "artifact-wave30-vector-closure-gate-2026-05-23",
+              -1.693217
+            ],
+            [
+              "02_local-index-hybrid-retrieval-vectorization-routing-2026-05-14",
+              -1.719677
+            ],
+            [
+              "08_wave22-vectorization-provider-external-blocked-decision-2026-05-22",
+              -1.771652
+            ],
+            [
+              "jsonl-e674203505eb",
+              -1.794214
+            ],
+            [
+              "09_wave27-vectorization-closure-decision-2026-05-23",
+              -1.816944
+            ],
+            [
+              "01_global-vectorization-general-foundation-plan-2026-05-14",
+              -1.830385
+            ],
+            [
+              "jsonl-6d95b2721576",
+              -1.865676
+            ],
+            [
+              "jsonl-d76d6f38b3f0",
+              -1.890378
+            ]
+          ],
+          [
+            [
+              "11_wave30-vector-closure-external-blocked-decision-2026-05-23",
+              -1.569962
+            ],
+            [
+              "10_wave29-vector-schema-alignment-2026-05-23",
+              -1.595708
+            ],
+            [
+              "artifact-wave30-vector-closure-gate-2026-05-23",
+              -1.693217
+            ],
+            [
+              "02_local-index-hybrid-retrieval-vectorization-routing-2026-05-14",
+              -1.719677
+            ],
+            [
+              "08_wave22-vectorization-provider-external-blocked-decision-2026-05-22",
+              -1.771652
+            ],
+            [
+              "jsonl-e674203505eb",
+              -1.794214
+            ],
+            [
+              "09_wave27-vectorization-closure-decision-2026-05-23",
+              -1.816944
+            ],
+            [
+              "01_global-vectorization-general-foundation-plan-2026-05-14",
+              -1.830385
+            ],
+            [
+              "jsonl-6d95b2721576",
+              -1.865676
+            ],
+            [
+              "jsonl-d76d6f38b3f0",
+              -1.890378
+            ]
+          ],
+          [
+            [
+              "11_wave30-vector-closure-external-blocked-decision-2026-05-23",
+              -1.569962
+            ],
+            [
+              "10_wave29-vector-schema-alignment-2026-05-23",
+              -1.595708
+            ],
+            [
+              "artifact-wave30-vector-closure-gate-2026-05-23",
+              -1.693217
+            ],
+            [
+              "02_local-index-hybrid-retrieval-vectorization-routing-2026-05-14",
+              -1.719677
+            ],
+            [
+              "08_wave22-vectorization-provider-external-blocked-decision-2026-05-22",
+              -1.771652
+            ],
+            [
+              "jsonl-e674203505eb",
+              -1.794214
+            ],
+            [
+              "09_wave27-vectorization-closure-decision-2026-05-23",
+              -1.816944
+            ],
+            [
+              "01_global-vectorization-general-foundation-plan-2026-05-14",
+              -1.830385
+            ],
+            [
+              "jsonl-6d95b2721576",
+              -1.865676
+            ],
+            [
+              "jsonl-d76d6f38b3f0",
+              -1.890378
+            ]
+          ]
+        ],
+        "retrieval_mode": "vector",
+        "score_semantics": "lower_distance_is_better",
+        "second_chunk_id": "10_wave29-vector-schema-alignment-2026-05-23",
+        "second_raw_score": 1.595708,
+        "second_score": -1.595708,
+        "stable_order": true,
+        "top2_margin": 0.025746,
+        "top5_chunk_ids": [
+          "11_wave30-vector-closure-external-blocked-decision-2026-05-23",
+          "10_wave29-vector-schema-alignment-2026-05-23",
+          "artifact-wave30-vector-closure-gate-2026-05-23",
+          "02_local-index-hybrid-retrieval-vectorization-routing-2026-05-14",
+          "08_wave22-vectorization-provider-external-blocked-decision-2026-05-22"
+        ],
+        "top_chunk_id": "11_wave30-vector-closure-external-blocked-decision-2026-05-23",
+        "top_document_id": "11_wave30-vector-closure-external-blocked-decision-2026-05-23",
+        "top_raw_score": 1.569962,
+        "top_score": -1.569962
+      },
+      {
+        "backend": "lancedb_vector_store",
+        "case_id": "provider-manifest-target-doc",
+        "expected_chunk_id": "07_wave19-vectorization-provider-manifest-2026-05-22",
+        "expected_rank": 1,
+        "hard_negative_chunk_ids": [
+          "05_wave14-vectorization-provider-capability-2026-05-22",
+          "08_wave22-vectorization-provider-external-blocked-decision-2026-05-22"
+        ],
+        "hard_negative_margin": 0.141124,
+        "passed": true,
+        "query": "provider manifest openai azure embedding branches env readiness",
+        "repeat_count": 3,
+        "repeat_score_samples": [
+          [
+            [
+              "07_wave19-vectorization-provider-manifest-2026-05-22",
+              -1.489693
+            ],
+            [
+              "08_wave22-vectorization-provider-external-blocked-decision-2026-05-22",
+              -1.630817
+            ],
+            [
+              "artifact-wave55-live-embedding-provider-2026-05-23",
+              -1.705277
+            ],
+            [
+              "05_wave14-vectorization-provider-capability-2026-05-22",
+              -1.753255
+            ],
+            [
+              "10_wave29-vector-schema-alignment-2026-05-23",
+              -1.778794
+            ],
+            [
+              "11_wave30-vector-closure-external-blocked-decision-2026-05-23",
+              -1.806247
+            ],
+            [
+              "12_wave55-live-embedding-provider-closure-2026-05-23",
+              -1.808124
+            ],
+            [
+              "04_wave12-provider-readiness-gate-2026-05-22",
+              -1.825236
+            ],
+            [
+              "09_wave27-vectorization-closure-decision-2026-05-23",
+              -1.84603
+            ],
+            [
+              "01_global-vectorization-general-foundation-plan-2026-05-14",
+              -1.861213
+            ]
+          ],
+          [
+            [
+              "07_wave19-vectorization-provider-manifest-2026-05-22",
+              -1.489693
+            ],
+            [
+              "08_wave22-vectorization-provider-external-blocked-decision-2026-05-22",
+              -1.630817
+            ],
+            [
+              "artifact-wave55-live-embedding-provider-2026-05-23",
+              -1.705277
+            ],
+            [
+              "05_wave14-vectorization-provider-capability-2026-05-22",
+              -1.753255
+            ],
+            [
+              "10_wave29-vector-schema-alignment-2026-05-23",
+              -1.778794
+            ],
+            [
+              "11_wave30-vector-closure-external-blocked-decision-2026-05-23",
+              -1.806247
+            ],
+            [
+              "12_wave55-live-embedding-provider-closure-2026-05-23",
+              -1.808124
+            ],
+            [
+              "04_wave12-provider-readiness-gate-2026-05-22",
+              -1.825236
+            ],
+            [
+              "09_wave27-vectorization-closure-decision-2026-05-23",
+              -1.84603
+            ],
+            [
+              "01_global-vectorization-general-foundation-plan-2026-05-14",
+              -1.861213
+            ]
+          ],
+          [
+            [
+              "07_wave19-vectorization-provider-manifest-2026-05-22",
+              -1.489693
+            ],
+            [
+              "08_wave22-vectorization-provider-external-blocked-decision-2026-05-22",
+              -1.630817
+            ],
+            [
+              "artifact-wave55-live-embedding-provider-2026-05-23",
+              -1.705277
+            ],
+            [
+              "05_wave14-vectorization-provider-capability-2026-05-22",
+              -1.753255
+            ],
+            [
+              "10_wave29-vector-schema-alignment-2026-05-23",
+              -1.778794
+            ],
+            [
+              "11_wave30-vector-closure-external-blocked-decision-2026-05-23",
+              -1.806247
+            ],
+            [
+              "12_wave55-live-embedding-provider-closure-2026-05-23",
+              -1.808124
+            ],
+            [
+              "04_wave12-provider-readiness-gate-2026-05-22",
+              -1.825236
+            ],
+            [
+              "09_wave27-vectorization-closure-decision-2026-05-23",
+              -1.84603
+            ],
+            [
+              "01_global-vectorization-general-foundation-plan-2026-05-14",
+              -1.861213
+            ]
+          ]
+        ],
+        "retrieval_mode": "vector",
+        "score_semantics": "lower_distance_is_better",
+        "second_chunk_id": "08_wave22-vectorization-provider-external-blocked-decision-2026-05-22",
+        "second_raw_score": 1.630817,
+        "second_score": -1.630817,
+        "stable_order": true,
+        "top2_margin": 0.141124,
+        "top5_chunk_ids": [
+          "07_wave19-vectorization-provider-manifest-2026-05-22",
+          "08_wave22-vectorization-provider-external-blocked-decision-2026-05-22",
+          "artifact-wave55-live-embedding-provider-2026-05-23",
+          "05_wave14-vectorization-provider-capability-2026-05-22",
+          "10_wave29-vector-schema-alignment-2026-05-23"
+        ],
+        "top_chunk_id": "07_wave19-vectorization-provider-manifest-2026-05-22",
+        "top_document_id": "07_wave19-vectorization-provider-manifest-2026-05-22",
+        "top_raw_score": 1.489693,
+        "top_score": -1.489693
+      },
+      {
+        "backend": "lancedb_vector_store",
+        "case_id": "lancedb-benchmark-artifact",
+        "expected_chunk_id": "artifact-local-index-lancedb-benchmark-2026-05-22",
+        "expected_rank": 1,
+        "hard_negative_chunk_ids": [
+          "02_local-index-hybrid-retrieval-vectorization-routing-2026-05-14",
+          "03_wave10-vectorization-quality-gate-2026-05-22"
+        ],
+        "hard_negative_margin": 0.130905,
+        "passed": true,
+        "query": "LanceDB Local Index Benchmark Quality optional environment ranking stability filter guards",
+        "repeat_count": 3,
+        "repeat_score_samples": [
+          [
+            [
+              "artifact-local-index-lancedb-benchmark-2026-05-22",
+              -1.482178
+            ],
+            [
+              "08_wave22-vectorization-provider-external-blocked-decision-2026-05-22",
+              -1.596476
+            ],
+            [
+              "02_local-index-hybrid-retrieval-vectorization-routing-2026-05-14",
+              -1.613083
+            ],
+            [
+              "03_wave10-vectorization-quality-gate-2026-05-22",
+              -1.697886
+            ],
+            [
+              "13_wave56-semantic-vector-quality-gate-2026-05-23",
+              -1.762907
+            ],
+            [
+              "12_wave55-live-embedding-provider-closure-2026-05-23",
+              -1.772903
+            ],
+            [
+              "04_wave12-provider-readiness-gate-2026-05-22",
+              -1.783318
+            ],
+            [
+              "artifact-wave56-semantic-vector-quality-gate-2026-05-23",
+              -1.802418
+            ],
+            [
+              "07_wave19-vectorization-provider-manifest-2026-05-22",
+              -1.841948
+            ],
+            [
+              "05_wave14-vectorization-provider-capability-2026-05-22",
+              -1.865994
+            ]
+          ],
+          [
+            [
+              "artifact-local-index-lancedb-benchmark-2026-05-22",
+              -1.482178
+            ],
+            [
+              "08_wave22-vectorization-provider-external-blocked-decision-2026-05-22",
+              -1.596476
+            ],
+            [
+              "02_local-index-hybrid-retrieval-vectorization-routing-2026-05-14",
+              -1.613083
+            ],
+            [
+              "03_wave10-vectorization-quality-gate-2026-05-22",
+              -1.697886
+            ],
+            [
+              "13_wave56-semantic-vector-quality-gate-2026-05-23",
+              -1.762907
+            ],
+            [
+              "12_wave55-live-embedding-provider-closure-2026-05-23",
+              -1.772903
+            ],
+            [
+              "04_wave12-provider-readiness-gate-2026-05-22",
+              -1.783318
+            ],
+            [
+              "artifact-wave56-semantic-vector-quality-gate-2026-05-23",
+              -1.802418
+            ],
+            [
+              "07_wave19-vectorization-provider-manifest-2026-05-22",
+              -1.841948
+            ],
+            [
+              "05_wave14-vectorization-provider-capability-2026-05-22",
+              -1.865994
+            ]
+          ],
+          [
+            [
+              "artifact-local-index-lancedb-benchmark-2026-05-22",
+              -1.482178
+            ],
+            [
+              "08_wave22-vectorization-provider-external-blocked-decision-2026-05-22",
+              -1.596476
+            ],
+            [
+              "02_local-index-hybrid-retrieval-vectorization-routing-2026-05-14",
+              -1.613083
+            ],
+            [
+              "03_wave10-vectorization-quality-gate-2026-05-22",
+              -1.697886
+            ],
+            [
+              "13_wave56-semantic-vector-quality-gate-2026-05-23",
+              -1.762907
+            ],
+            [
+              "12_wave55-live-embedding-provider-closure-2026-05-23",
+              -1.772903
+            ],
+            [
+              "04_wave12-provider-readiness-gate-2026-05-22",
+              -1.783318
+            ],
+            [
+              "artifact-wave56-semantic-vector-quality-gate-2026-05-23",
+              -1.802418
+            ],
+            [
+              "07_wave19-vectorization-provider-manifest-2026-05-22",
+              -1.841948
+            ],
+            [
+              "05_wave14-vectorization-provider-capability-2026-05-22",
+              -1.865994
+            ]
+          ]
+        ],
+        "retrieval_mode": "vector",
+        "score_semantics": "lower_distance_is_better",
+        "second_chunk_id": "08_wave22-vectorization-provider-external-blocked-decision-2026-05-22",
+        "second_raw_score": 1.596476,
+        "second_score": -1.596476,
+        "stable_order": true,
+        "top2_margin": 0.114298,
+        "top5_chunk_ids": [
+          "artifact-local-index-lancedb-benchmark-2026-05-22",
+          "08_wave22-vectorization-provider-external-blocked-decision-2026-05-22",
+          "02_local-index-hybrid-retrieval-vectorization-routing-2026-05-14",
+          "03_wave10-vectorization-quality-gate-2026-05-22",
+          "13_wave56-semantic-vector-quality-gate-2026-05-23"
+        ],
+        "top_chunk_id": "artifact-local-index-lancedb-benchmark-2026-05-22",
+        "top_document_id": "artifact-local-index-lancedb-benchmark-2026-05-22",
+        "top_raw_score": 1.482178,
+        "top_score": -1.482178
+      }
+    ],
+    "margin_thresholds": {
+      "min_hard_negative_margin": 0.02,
+      "min_top2_margin": 0.02
+    },
+    "min_hard_negative_margin": 0.025746,
+    "min_top2_margin": 0.025746,
+    "mrr": 1.0,
+    "recall_at_3": 1.0,
+    "status": "passed",
+    "thresholds": {
+      "min_cases": 6,
+      "min_corpus_rows": 20,
+      "min_direct_hard_negative_margin": 0.01,
+      "min_direct_top2_margin": 0.01,
+      "min_distinct_documents": 20,
+      "min_lancedb_hard_negative_margin": 0.02,
+      "min_lancedb_top2_margin": 0.02,
+      "min_mrr": 1.0,
+      "min_recall_at_3": 1.0,
+      "min_source_groups": 3,
+      "min_top1_accuracy": 1.0,
+      "repeat_count": 3,
+      "required_retrieval_mode": "vector"
+    },
+    "top1_accuracy": 1.0
+  },
+  "remaining_conditions": [],
+  "retrieval_contracts": {
+    "evidence_hit_contract": "search_evidence_hit.v1",
+    "evidence_hit_count": 6,
+    "query_group_id": "qg_462a5343e70ef6c8",
+    "retrieval_run_contract": "search_retrieval_run.v1",
+    "retrieval_run_id": "retrieval_run_8eedd669a7601c0f",
+    "sample_retrieval_run": {
+      "branch_count": 1,
+      "branch_records": [
+        {
+          "backend": "lancedb_vector_store",
+          "global_vector_object_refs": [
+            {
+              "chunk_id": "artifact-wave55-live-embedding-provider-2026-05-23",
+              "document_id": "artifact-wave55-live-embedding-provider-2026-05-23",
+              "source_id": "automation-run-artifacts",
+              "vector_version": "repo-local-live-v2"
+            },
+            {
+              "chunk_id": "13_wave56-semantic-vector-quality-gate-2026-05-23",
+              "document_id": "13_wave56-semantic-vector-quality-gate-2026-05-23",
+              "source_id": "global-vectorization-target-docs",
+              "vector_version": "repo-local-live-v2"
+            },
+            {
+              "chunk_id": "10_wave29-vector-schema-alignment-2026-05-23",
+              "document_id": "10_wave29-vector-schema-alignment-2026-05-23",
+              "source_id": "global-vectorization-target-docs",
+              "vector_version": "repo-local-live-v2"
+            },
+            {
+              "chunk_id": "11_wave30-vector-closure-external-blocked-decision-2026-05-23",
+              "document_id": "11_wave30-vector-closure-external-blocked-decision-2026-05-23",
+              "source_id": "global-vectorization-target-docs",
+              "vector_version": "repo-local-live-v2"
+            },
+            {
+              "chunk_id": "07_wave19-vectorization-provider-manifest-2026-05-22",
+              "document_id": "07_wave19-vectorization-provider-manifest-2026-05-22",
+              "source_id": "global-vectorization-target-docs",
+              "vector_version": "repo-local-live-v2"
+            },
+            {
+              "chunk_id": "artifact-local-index-lancedb-benchmark-2026-05-22",
+              "document_id": "artifact-local-index-lancedb-benchmark-2026-05-22",
+              "source_id": "automation-run-artifacts",
+              "vector_version": "repo-local-live-v2"
+            }
+          ],
+          "hit_count": 6,
+          "hit_ids": [
+            "eh_3e2e930e5ee1783f",
+            "eh_690ad6017f9b7504",
+            "eh_77d31758f89df4ed",
+            "eh_fee9d2c6e7a55433",
+            "eh_b66c93dfaa558c20",
+            "eh_d4ebb4db1e6c852e"
+          ],
+          "matrix_branch_id": "branch_0cc56e17a94758de",
+          "retrieval_family": "main_search",
+          "retrieval_mode": "vector",
+          "top_score": 0.0,
+          "verification_states": [
+            "unverified"
+          ]
+        }
+      ],
+      "contract_version": "search_retrieval_run.v1",
+      "evidence_hits": [
+        {
+          "backend": "lancedb_vector_store",
+          "contract_version": "search_evidence_hit.v1",
+          "evidence_class": "markdown_artifact",
+          "global_vector_object": {
+            "chunk_id": "artifact-wave55-live-embedding-provider-2026-05-23",
+            "contract_version": "global_vector_object.v1",
+            "document_id": "artifact-wave55-live-embedding-provider-2026-05-23",
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "matrix_branch_id": "branch_0cc56e17a94758de",
+            "object_id": "artifact-wave55-live-embedding-provider-2026-05-23",
+            "object_type": "artifact_readme",
+            "project_key": "global-vectorization-production-quality",
+            "provenance": {
+              "backend": "lancedb_vector_store",
+              "effective_time": null,
+              "embedding_dim": 512,
+              "embedding_model": "repo-local-token-hashing-v1",
+              "embedding_model_version": "2026-05-23.wave56",
+              "fallback_reason": null,
+              "language": null,
+              "provider": "repo_local_token_hashing",
+              "provider_payload_kind": "repo_local_embedding_vector",
+              "reference": "development/latest-dev-docs/automation-runs/wave55-live-embedding-provider/2026-05-23/README.md",
+              "retrieval_mode": "vector",
+              "score": -1.162275,
+              "source": "automation-run-artifacts",
+              "source_domain": null,
+              "source_id": "automation-run-artifacts",
+              "source_reference": "development/latest-dev-docs/automation-runs/wave55-live-embedding-provider/2026-05-23/README.md",
+              "source_uri": "development/latest-dev-docs/automation-runs/wave55-live-embedding-provider/2026-05-23/README.md",
+              "vector_version": "repo-local-live-v2"
+            },
+            "source_id": "automation-run-artifacts",
+            "vector_version": "repo-local-live-v2"
+          },
+          "hit_id": "eh_3e2e930e5ee1783f",
+          "matrix_branch_id": "branch_0cc56e17a94758de",
+          "provenance": {
+            "backend": "lancedb_vector_store",
+            "chunk_id": "artifact-wave55-live-embedding-provider-2026-05-23",
+            "document_id": "artifact-wave55-live-embedding-provider-2026-05-23",
+            "effective_time": null,
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "embedding_model_version": "2026-05-23.wave56",
+            "fallback_reason": null,
+            "language": null,
+            "matrix_branch_id": "branch_0cc56e17a94758de",
+            "project_key": "global-vectorization-production-quality",
+            "provider": "repo_local_token_hashing",
+            "provider_payload_kind": "repo_local_embedding_vector",
+            "reference": "development/latest-dev-docs/automation-runs/wave55-live-embedding-provider/2026-05-23/README.md",
+            "retrieval_mode": "vector",
+            "score": -1.162275,
+            "source": "automation-run-artifacts",
+            "source_domain": null,
+            "source_id": "automation-run-artifacts",
+            "source_reference": "development/latest-dev-docs/automation-runs/wave55-live-embedding-provider/2026-05-23/README.md",
+            "source_uri": "development/latest-dev-docs/automation-runs/wave55-live-embedding-provider/2026-05-23/README.md",
+            "vector_version": "repo-local-live-v2"
+          },
+          "query_group_id": "qg_462a5343e70ef6c8",
+          "rank": 1,
+          "rank_features": {
+            "backend": "lancedb_vector_store",
+            "fusion_score": 0.0,
+            "lexical_score": 0.0,
+            "rank": 1,
+            "retrieval_mode": "vector",
+            "score": -1.162275,
+            "tags": [
+              "vector",
+              "production_like_replay",
+              "automation_run_artifact"
+            ],
+            "vector_score": 0.0
+          },
+          "retrieval_family": "main_search",
+          "retrieval_mode": "vector",
+          "score": -1.162275,
+          "verification_state": "unverified"
+        },
+        {
+          "backend": "lancedb_vector_store",
+          "contract_version": "search_evidence_hit.v1",
+          "evidence_class": "markdown",
+          "global_vector_object": {
+            "chunk_id": "13_wave56-semantic-vector-quality-gate-2026-05-23",
+            "contract_version": "global_vector_object.v1",
+            "document_id": "13_wave56-semantic-vector-quality-gate-2026-05-23",
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "matrix_branch_id": "branch_0cc56e17a94758de",
+            "object_id": "13_wave56-semantic-vector-quality-gate-2026-05-23",
+            "object_type": "devdoc_chunk",
+            "project_key": "global-vectorization-production-quality",
+            "provenance": {
+              "backend": "lancedb_vector_store",
+              "effective_time": null,
+              "embedding_dim": 512,
+              "embedding_model": "repo-local-token-hashing-v1",
+              "embedding_model_version": "2026-05-23.wave56",
+              "fallback_reason": null,
+              "language": null,
+              "provider": "repo_local_token_hashing",
+              "provider_payload_kind": "repo_local_embedding_vector",
+              "reference": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/13_wave56-semantic-vector-quality-gate-2026-05-23.md",
+              "retrieval_mode": "vector",
+              "score": -1.122728,
+              "source": "global-vectorization-target-docs",
+              "source_domain": null,
+              "source_id": "global-vectorization-target-docs",
+              "source_reference": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/13_wave56-semantic-vector-quality-gate-2026-05-23.md",
+              "source_uri": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/13_wave56-semantic-vector-quality-gate-2026-05-23.md",
+              "vector_version": "repo-local-live-v2"
+            },
+            "source_id": "global-vectorization-target-docs",
+            "vector_version": "repo-local-live-v2"
+          },
+          "hit_id": "eh_690ad6017f9b7504",
+          "matrix_branch_id": "branch_0cc56e17a94758de",
+          "provenance": {
+            "backend": "lancedb_vector_store",
+            "chunk_id": "13_wave56-semantic-vector-quality-gate-2026-05-23",
+            "document_id": "13_wave56-semantic-vector-quality-gate-2026-05-23",
+            "effective_time": null,
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "embedding_model_version": "2026-05-23.wave56",
+            "fallback_reason": null,
+            "language": null,
+            "matrix_branch_id": "branch_0cc56e17a94758de",
+            "project_key": "global-vectorization-production-quality",
+            "provider": "repo_local_token_hashing",
+            "provider_payload_kind": "repo_local_embedding_vector",
+            "reference": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/13_wave56-semantic-vector-quality-gate-2026-05-23.md",
+            "retrieval_mode": "vector",
+            "score": -1.122728,
+            "source": "global-vectorization-target-docs",
+            "source_domain": null,
+            "source_id": "global-vectorization-target-docs",
+            "source_reference": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/13_wave56-semantic-vector-quality-gate-2026-05-23.md",
+            "source_uri": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/13_wave56-semantic-vector-quality-gate-2026-05-23.md",
+            "vector_version": "repo-local-live-v2"
+          },
+          "query_group_id": "qg_462a5343e70ef6c8",
+          "rank": 2,
+          "rank_features": {
+            "backend": "lancedb_vector_store",
+            "fusion_score": 0.0,
+            "lexical_score": 0.0,
+            "rank": 2,
+            "retrieval_mode": "vector",
+            "score": -1.122728,
+            "tags": [
+              "vector",
+              "production_like_replay",
+              "target_blocker_docs"
+            ],
+            "vector_score": 0.0
+          },
+          "retrieval_family": "main_search",
+          "retrieval_mode": "vector",
+          "score": -1.122728,
+          "verification_state": "unverified"
+        },
+        {
+          "backend": "lancedb_vector_store",
+          "contract_version": "search_evidence_hit.v1",
+          "evidence_class": "markdown",
+          "global_vector_object": {
+            "chunk_id": "10_wave29-vector-schema-alignment-2026-05-23",
+            "contract_version": "global_vector_object.v1",
+            "document_id": "10_wave29-vector-schema-alignment-2026-05-23",
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "matrix_branch_id": "branch_0cc56e17a94758de",
+            "object_id": "10_wave29-vector-schema-alignment-2026-05-23",
+            "object_type": "devdoc_chunk",
+            "project_key": "global-vectorization-production-quality",
+            "provenance": {
+              "backend": "lancedb_vector_store",
+              "effective_time": null,
+              "embedding_dim": 512,
+              "embedding_model": "repo-local-token-hashing-v1",
+              "embedding_model_version": "2026-05-23.wave56",
+              "fallback_reason": null,
+              "language": null,
+              "provider": "repo_local_token_hashing",
+              "provider_payload_kind": "repo_local_embedding_vector",
+              "reference": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/10_wave29-vector-schema-alignment-2026-05-23.md",
+              "retrieval_mode": "vector",
+              "score": -1.116196,
+              "source": "global-vectorization-target-docs",
+              "source_domain": null,
+              "source_id": "global-vectorization-target-docs",
+              "source_reference": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/10_wave29-vector-schema-alignment-2026-05-23.md",
+              "source_uri": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/10_wave29-vector-schema-alignment-2026-05-23.md",
+              "vector_version": "repo-local-live-v2"
+            },
+            "source_id": "global-vectorization-target-docs",
+            "vector_version": "repo-local-live-v2"
+          },
+          "hit_id": "eh_77d31758f89df4ed",
+          "matrix_branch_id": "branch_0cc56e17a94758de",
+          "provenance": {
+            "backend": "lancedb_vector_store",
+            "chunk_id": "10_wave29-vector-schema-alignment-2026-05-23",
+            "document_id": "10_wave29-vector-schema-alignment-2026-05-23",
+            "effective_time": null,
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "embedding_model_version": "2026-05-23.wave56",
+            "fallback_reason": null,
+            "language": null,
+            "matrix_branch_id": "branch_0cc56e17a94758de",
+            "project_key": "global-vectorization-production-quality",
+            "provider": "repo_local_token_hashing",
+            "provider_payload_kind": "repo_local_embedding_vector",
+            "reference": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/10_wave29-vector-schema-alignment-2026-05-23.md",
+            "retrieval_mode": "vector",
+            "score": -1.116196,
+            "source": "global-vectorization-target-docs",
+            "source_domain": null,
+            "source_id": "global-vectorization-target-docs",
+            "source_reference": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/10_wave29-vector-schema-alignment-2026-05-23.md",
+            "source_uri": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/10_wave29-vector-schema-alignment-2026-05-23.md",
+            "vector_version": "repo-local-live-v2"
+          },
+          "query_group_id": "qg_462a5343e70ef6c8",
+          "rank": 3,
+          "rank_features": {
+            "backend": "lancedb_vector_store",
+            "fusion_score": 0.0,
+            "lexical_score": 0.0,
+            "rank": 3,
+            "retrieval_mode": "vector",
+            "score": -1.116196,
+            "tags": [
+              "vector",
+              "production_like_replay",
+              "target_blocker_docs"
+            ],
+            "vector_score": 0.0
+          },
+          "retrieval_family": "main_search",
+          "retrieval_mode": "vector",
+          "score": -1.116196,
+          "verification_state": "unverified"
+        },
+        {
+          "backend": "lancedb_vector_store",
+          "contract_version": "search_evidence_hit.v1",
+          "evidence_class": "markdown",
+          "global_vector_object": {
+            "chunk_id": "11_wave30-vector-closure-external-blocked-decision-2026-05-23",
+            "contract_version": "global_vector_object.v1",
+            "document_id": "11_wave30-vector-closure-external-blocked-decision-2026-05-23",
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "matrix_branch_id": "branch_0cc56e17a94758de",
+            "object_id": "11_wave30-vector-closure-external-blocked-decision-2026-05-23",
+            "object_type": "devdoc_chunk",
+            "project_key": "global-vectorization-production-quality",
+            "provenance": {
+              "backend": "lancedb_vector_store",
+              "effective_time": null,
+              "embedding_dim": 512,
+              "embedding_model": "repo-local-token-hashing-v1",
+              "embedding_model_version": "2026-05-23.wave56",
+              "fallback_reason": null,
+              "language": null,
+              "provider": "repo_local_token_hashing",
+              "provider_payload_kind": "repo_local_embedding_vector",
+              "reference": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/11_wave30-vector-closure-external-blocked-decision-2026-05-23.md",
+              "retrieval_mode": "vector",
+              "score": -1.569962,
+              "source": "global-vectorization-target-docs",
+              "source_domain": null,
+              "source_id": "global-vectorization-target-docs",
+              "source_reference": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/11_wave30-vector-closure-external-blocked-decision-2026-05-23.md",
+              "source_uri": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/11_wave30-vector-closure-external-blocked-decision-2026-05-23.md",
+              "vector_version": "repo-local-live-v2"
+            },
+            "source_id": "global-vectorization-target-docs",
+            "vector_version": "repo-local-live-v2"
+          },
+          "hit_id": "eh_fee9d2c6e7a55433",
+          "matrix_branch_id": "branch_0cc56e17a94758de",
+          "provenance": {
+            "backend": "lancedb_vector_store",
+            "chunk_id": "11_wave30-vector-closure-external-blocked-decision-2026-05-23",
+            "document_id": "11_wave30-vector-closure-external-blocked-decision-2026-05-23",
+            "effective_time": null,
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "embedding_model_version": "2026-05-23.wave56",
+            "fallback_reason": null,
+            "language": null,
+            "matrix_branch_id": "branch_0cc56e17a94758de",
+            "project_key": "global-vectorization-production-quality",
+            "provider": "repo_local_token_hashing",
+            "provider_payload_kind": "repo_local_embedding_vector",
+            "reference": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/11_wave30-vector-closure-external-blocked-decision-2026-05-23.md",
+            "retrieval_mode": "vector",
+            "score": -1.569962,
+            "source": "global-vectorization-target-docs",
+            "source_domain": null,
+            "source_id": "global-vectorization-target-docs",
+            "source_reference": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/11_wave30-vector-closure-external-blocked-decision-2026-05-23.md",
+            "source_uri": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/11_wave30-vector-closure-external-blocked-decision-2026-05-23.md",
+            "vector_version": "repo-local-live-v2"
+          },
+          "query_group_id": "qg_462a5343e70ef6c8",
+          "rank": 4,
+          "rank_features": {
+            "backend": "lancedb_vector_store",
+            "fusion_score": 0.0,
+            "lexical_score": 0.0,
+            "rank": 4,
+            "retrieval_mode": "vector",
+            "score": -1.569962,
+            "tags": [
+              "vector",
+              "production_like_replay",
+              "target_blocker_docs"
+            ],
+            "vector_score": 0.0
+          },
+          "retrieval_family": "main_search",
+          "retrieval_mode": "vector",
+          "score": -1.569962,
+          "verification_state": "unverified"
+        },
+        {
+          "backend": "lancedb_vector_store",
+          "contract_version": "search_evidence_hit.v1",
+          "evidence_class": "markdown",
+          "global_vector_object": {
+            "chunk_id": "07_wave19-vectorization-provider-manifest-2026-05-22",
+            "contract_version": "global_vector_object.v1",
+            "document_id": "07_wave19-vectorization-provider-manifest-2026-05-22",
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "matrix_branch_id": "branch_0cc56e17a94758de",
+            "object_id": "07_wave19-vectorization-provider-manifest-2026-05-22",
+            "object_type": "devdoc_chunk",
+            "project_key": "global-vectorization-production-quality",
+            "provenance": {
+              "backend": "lancedb_vector_store",
+              "effective_time": null,
+              "embedding_dim": 512,
+              "embedding_model": "repo-local-token-hashing-v1",
+              "embedding_model_version": "2026-05-23.wave56",
+              "fallback_reason": null,
+              "language": null,
+              "provider": "repo_local_token_hashing",
+              "provider_payload_kind": "repo_local_embedding_vector",
+              "reference": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/07_wave19-vectorization-provider-manifest-2026-05-22.md",
+              "retrieval_mode": "vector",
+              "score": -1.489693,
+              "source": "global-vectorization-target-docs",
+              "source_domain": null,
+              "source_id": "global-vectorization-target-docs",
+              "source_reference": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/07_wave19-vectorization-provider-manifest-2026-05-22.md",
+              "source_uri": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/07_wave19-vectorization-provider-manifest-2026-05-22.md",
+              "vector_version": "repo-local-live-v2"
+            },
+            "source_id": "global-vectorization-target-docs",
+            "vector_version": "repo-local-live-v2"
+          },
+          "hit_id": "eh_b66c93dfaa558c20",
+          "matrix_branch_id": "branch_0cc56e17a94758de",
+          "provenance": {
+            "backend": "lancedb_vector_store",
+            "chunk_id": "07_wave19-vectorization-provider-manifest-2026-05-22",
+            "document_id": "07_wave19-vectorization-provider-manifest-2026-05-22",
+            "effective_time": null,
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "embedding_model_version": "2026-05-23.wave56",
+            "fallback_reason": null,
+            "language": null,
+            "matrix_branch_id": "branch_0cc56e17a94758de",
+            "project_key": "global-vectorization-production-quality",
+            "provider": "repo_local_token_hashing",
+            "provider_payload_kind": "repo_local_embedding_vector",
+            "reference": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/07_wave19-vectorization-provider-manifest-2026-05-22.md",
+            "retrieval_mode": "vector",
+            "score": -1.489693,
+            "source": "global-vectorization-target-docs",
+            "source_domain": null,
+            "source_id": "global-vectorization-target-docs",
+            "source_reference": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/07_wave19-vectorization-provider-manifest-2026-05-22.md",
+            "source_uri": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/07_wave19-vectorization-provider-manifest-2026-05-22.md",
+            "vector_version": "repo-local-live-v2"
+          },
+          "query_group_id": "qg_462a5343e70ef6c8",
+          "rank": 5,
+          "rank_features": {
+            "backend": "lancedb_vector_store",
+            "fusion_score": 0.0,
+            "lexical_score": 0.0,
+            "rank": 5,
+            "retrieval_mode": "vector",
+            "score": -1.489693,
+            "tags": [
+              "vector",
+              "production_like_replay",
+              "target_blocker_docs"
+            ],
+            "vector_score": 0.0
+          },
+          "retrieval_family": "main_search",
+          "retrieval_mode": "vector",
+          "score": -1.489693,
+          "verification_state": "unverified"
+        },
+        {
+          "backend": "lancedb_vector_store",
+          "contract_version": "search_evidence_hit.v1",
+          "evidence_class": "markdown_artifact",
+          "global_vector_object": {
+            "chunk_id": "artifact-local-index-lancedb-benchmark-2026-05-22",
+            "contract_version": "global_vector_object.v1",
+            "document_id": "artifact-local-index-lancedb-benchmark-2026-05-22",
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "matrix_branch_id": "branch_0cc56e17a94758de",
+            "object_id": "artifact-local-index-lancedb-benchmark-2026-05-22",
+            "object_type": "artifact_readme",
+            "project_key": "global-vectorization-production-quality",
+            "provenance": {
+              "backend": "lancedb_vector_store",
+              "effective_time": null,
+              "embedding_dim": 512,
+              "embedding_model": "repo-local-token-hashing-v1",
+              "embedding_model_version": "2026-05-23.wave56",
+              "fallback_reason": null,
+              "language": null,
+              "provider": "repo_local_token_hashing",
+              "provider_payload_kind": "repo_local_embedding_vector",
+              "reference": "development/latest-dev-docs/automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md",
+              "retrieval_mode": "vector",
+              "score": -1.482178,
+              "source": "automation-run-artifacts",
+              "source_domain": null,
+              "source_id": "automation-run-artifacts",
+              "source_reference": "development/latest-dev-docs/automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md",
+              "source_uri": "development/latest-dev-docs/automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md",
+              "vector_version": "repo-local-live-v2"
+            },
+            "source_id": "automation-run-artifacts",
+            "vector_version": "repo-local-live-v2"
+          },
+          "hit_id": "eh_d4ebb4db1e6c852e",
+          "matrix_branch_id": "branch_0cc56e17a94758de",
+          "provenance": {
+            "backend": "lancedb_vector_store",
+            "chunk_id": "artifact-local-index-lancedb-benchmark-2026-05-22",
+            "document_id": "artifact-local-index-lancedb-benchmark-2026-05-22",
+            "effective_time": null,
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "embedding_model_version": "2026-05-23.wave56",
+            "fallback_reason": null,
+            "language": null,
+            "matrix_branch_id": "branch_0cc56e17a94758de",
+            "project_key": "global-vectorization-production-quality",
+            "provider": "repo_local_token_hashing",
+            "provider_payload_kind": "repo_local_embedding_vector",
+            "reference": "development/latest-dev-docs/automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md",
+            "retrieval_mode": "vector",
+            "score": -1.482178,
+            "source": "automation-run-artifacts",
+            "source_domain": null,
+            "source_id": "automation-run-artifacts",
+            "source_reference": "development/latest-dev-docs/automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md",
+            "source_uri": "development/latest-dev-docs/automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md",
+            "vector_version": "repo-local-live-v2"
+          },
+          "query_group_id": "qg_462a5343e70ef6c8",
+          "rank": 6,
+          "rank_features": {
+            "backend": "lancedb_vector_store",
+            "fusion_score": 0.0,
+            "lexical_score": 0.0,
+            "rank": 6,
+            "retrieval_mode": "vector",
+            "score": -1.482178,
+            "tags": [
+              "vector",
+              "production_like_replay",
+              "automation_run_artifact"
+            ],
+            "vector_score": 0.0
+          },
+          "retrieval_family": "main_search",
+          "retrieval_mode": "vector",
+          "score": -1.482178,
+          "verification_state": "unverified"
+        }
+      ],
+      "filters": {
+        "modality": "any",
+        "state": null,
+        "top_k": 6
+      },
+      "hit_count": 6,
+      "modality": "any",
+      "project_key": "global-vectorization-production-quality",
+      "query": "wave57 production-like devdocs vector quality replay",
+      "query_group_id": "qg_462a5343e70ef6c8",
+      "query_text": "wave57 production-like devdocs vector quality replay",
+      "rank_mode": "vector",
+      "retrieval_branches": [
+        {
+          "backend": "lancedb_vector_store",
+          "contract_version": "search_retrieval_branch.v1",
+          "filters": {
+            "modality": "any",
+            "state": null,
+            "top_k": 6
+          },
+          "global_vector_object_refs": [
+            {
+              "chunk_id": "artifact-wave55-live-embedding-provider-2026-05-23",
+              "document_id": "artifact-wave55-live-embedding-provider-2026-05-23",
+              "source_id": "automation-run-artifacts",
+              "vector_version": "repo-local-live-v2"
+            },
+            {
+              "chunk_id": "13_wave56-semantic-vector-quality-gate-2026-05-23",
+              "document_id": "13_wave56-semantic-vector-quality-gate-2026-05-23",
+              "source_id": "global-vectorization-target-docs",
+              "vector_version": "repo-local-live-v2"
+            },
+            {
+              "chunk_id": "10_wave29-vector-schema-alignment-2026-05-23",
+              "document_id": "10_wave29-vector-schema-alignment-2026-05-23",
+              "source_id": "global-vectorization-target-docs",
+              "vector_version": "repo-local-live-v2"
+            },
+            {
+              "chunk_id": "11_wave30-vector-closure-external-blocked-decision-2026-05-23",
+              "document_id": "11_wave30-vector-closure-external-blocked-decision-2026-05-23",
+              "source_id": "global-vectorization-target-docs",
+              "vector_version": "repo-local-live-v2"
+            },
+            {
+              "chunk_id": "07_wave19-vectorization-provider-manifest-2026-05-22",
+              "document_id": "07_wave19-vectorization-provider-manifest-2026-05-22",
+              "source_id": "global-vectorization-target-docs",
+              "vector_version": "repo-local-live-v2"
+            },
+            {
+              "chunk_id": "artifact-local-index-lancedb-benchmark-2026-05-22",
+              "document_id": "artifact-local-index-lancedb-benchmark-2026-05-22",
+              "source_id": "automation-run-artifacts",
+              "vector_version": "repo-local-live-v2"
+            }
+          ],
+          "hit_count": 6,
+          "hit_ids": [
+            "eh_3e2e930e5ee1783f",
+            "eh_690ad6017f9b7504",
+            "eh_77d31758f89df4ed",
+            "eh_fee9d2c6e7a55433",
+            "eh_b66c93dfaa558c20",
+            "eh_d4ebb4db1e6c852e"
+          ],
+          "matrix_branch_id": "branch_0cc56e17a94758de",
+          "provider_or_index": "lancedb_vector_store",
+          "query_group_id": "qg_462a5343e70ef6c8",
+          "query_text": "wave57 production-like devdocs vector quality replay",
+          "rank_mode": "vector",
+          "retrieval_family": "main_search",
+          "retrieval_mode": "vector",
+          "retrieval_run_id": "retrieval_run_8eedd669a7601c0f",
+          "run_id": "retrieval_run_8eedd669a7601c0f",
+          "status": "completed",
+          "top_score": 0.0,
+          "verification_states": [
+            "unverified"
+          ]
+        }
+      ],
+      "retrieval_family": "main_search",
+      "retrieval_hits": [
+        {
+          "backend": "lancedb_vector_store",
+          "chunk_id": "artifact-wave55-live-embedding-provider-2026-05-23",
+          "contract_version": "search_retrieval_hit.v1",
+          "document_id": "artifact-wave55-live-embedding-provider-2026-05-23",
+          "evidence_class": "markdown_artifact",
+          "global_vector_object": {
+            "chunk_id": "artifact-wave55-live-embedding-provider-2026-05-23",
+            "contract_version": "global_vector_object.v1",
+            "document_id": "artifact-wave55-live-embedding-provider-2026-05-23",
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "matrix_branch_id": "branch_0cc56e17a94758de",
+            "object_id": "artifact-wave55-live-embedding-provider-2026-05-23",
+            "object_type": "artifact_readme",
+            "project_key": "global-vectorization-production-quality",
+            "provenance": {
+              "backend": "lancedb_vector_store",
+              "effective_time": null,
+              "embedding_dim": 512,
+              "embedding_model": "repo-local-token-hashing-v1",
+              "embedding_model_version": "2026-05-23.wave56",
+              "fallback_reason": null,
+              "language": null,
+              "provider": "repo_local_token_hashing",
+              "provider_payload_kind": "repo_local_embedding_vector",
+              "reference": "development/latest-dev-docs/automation-runs/wave55-live-embedding-provider/2026-05-23/README.md",
+              "retrieval_mode": "vector",
+              "score": -1.162275,
+              "source": "automation-run-artifacts",
+              "source_domain": null,
+              "source_id": "automation-run-artifacts",
+              "source_reference": "development/latest-dev-docs/automation-runs/wave55-live-embedding-provider/2026-05-23/README.md",
+              "source_uri": "development/latest-dev-docs/automation-runs/wave55-live-embedding-provider/2026-05-23/README.md",
+              "vector_version": "repo-local-live-v2"
+            },
+            "source_id": "automation-run-artifacts",
+            "vector_version": "repo-local-live-v2"
+          },
+          "hit_id": "eh_3e2e930e5ee1783f",
+          "matrix_branch_id": "branch_0cc56e17a94758de",
+          "object_id": "artifact-wave55-live-embedding-provider-2026-05-23",
+          "object_type": "artifact_readme",
+          "provenance": {
+            "backend": "lancedb_vector_store",
+            "chunk_id": "artifact-wave55-live-embedding-provider-2026-05-23",
+            "document_id": "artifact-wave55-live-embedding-provider-2026-05-23",
+            "effective_time": null,
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "embedding_model_version": "2026-05-23.wave56",
+            "fallback_reason": null,
+            "language": null,
+            "matrix_branch_id": "branch_0cc56e17a94758de",
+            "project_key": "global-vectorization-production-quality",
+            "provider": "repo_local_token_hashing",
+            "provider_payload_kind": "repo_local_embedding_vector",
+            "reference": "development/latest-dev-docs/automation-runs/wave55-live-embedding-provider/2026-05-23/README.md",
+            "retrieval_mode": "vector",
+            "score": -1.162275,
+            "source": "automation-run-artifacts",
+            "source_domain": null,
+            "source_id": "automation-run-artifacts",
+            "source_reference": "development/latest-dev-docs/automation-runs/wave55-live-embedding-provider/2026-05-23/README.md",
+            "source_uri": "development/latest-dev-docs/automation-runs/wave55-live-embedding-provider/2026-05-23/README.md",
+            "vector_version": "repo-local-live-v2"
+          },
+          "query_group_id": "qg_462a5343e70ef6c8",
+          "rank": 1,
+          "retrieval_family": "main_search",
+          "retrieval_mode": "vector",
+          "retrieval_run_id": "retrieval_run_8eedd669a7601c0f",
+          "run_id": "retrieval_run_8eedd669a7601c0f",
+          "score": -1.162275,
+          "source_id": "automation-run-artifacts",
+          "verification_state": "unverified"
+        },
+        {
+          "backend": "lancedb_vector_store",
+          "chunk_id": "13_wave56-semantic-vector-quality-gate-2026-05-23",
+          "contract_version": "search_retrieval_hit.v1",
+          "document_id": "13_wave56-semantic-vector-quality-gate-2026-05-23",
+          "evidence_class": "markdown",
+          "global_vector_object": {
+            "chunk_id": "13_wave56-semantic-vector-quality-gate-2026-05-23",
+            "contract_version": "global_vector_object.v1",
+            "document_id": "13_wave56-semantic-vector-quality-gate-2026-05-23",
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "matrix_branch_id": "branch_0cc56e17a94758de",
+            "object_id": "13_wave56-semantic-vector-quality-gate-2026-05-23",
+            "object_type": "devdoc_chunk",
+            "project_key": "global-vectorization-production-quality",
+            "provenance": {
+              "backend": "lancedb_vector_store",
+              "effective_time": null,
+              "embedding_dim": 512,
+              "embedding_model": "repo-local-token-hashing-v1",
+              "embedding_model_version": "2026-05-23.wave56",
+              "fallback_reason": null,
+              "language": null,
+              "provider": "repo_local_token_hashing",
+              "provider_payload_kind": "repo_local_embedding_vector",
+              "reference": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/13_wave56-semantic-vector-quality-gate-2026-05-23.md",
+              "retrieval_mode": "vector",
+              "score": -1.122728,
+              "source": "global-vectorization-target-docs",
+              "source_domain": null,
+              "source_id": "global-vectorization-target-docs",
+              "source_reference": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/13_wave56-semantic-vector-quality-gate-2026-05-23.md",
+              "source_uri": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/13_wave56-semantic-vector-quality-gate-2026-05-23.md",
+              "vector_version": "repo-local-live-v2"
+            },
+            "source_id": "global-vectorization-target-docs",
+            "vector_version": "repo-local-live-v2"
+          },
+          "hit_id": "eh_690ad6017f9b7504",
+          "matrix_branch_id": "branch_0cc56e17a94758de",
+          "object_id": "13_wave56-semantic-vector-quality-gate-2026-05-23",
+          "object_type": "devdoc_chunk",
+          "provenance": {
+            "backend": "lancedb_vector_store",
+            "chunk_id": "13_wave56-semantic-vector-quality-gate-2026-05-23",
+            "document_id": "13_wave56-semantic-vector-quality-gate-2026-05-23",
+            "effective_time": null,
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "embedding_model_version": "2026-05-23.wave56",
+            "fallback_reason": null,
+            "language": null,
+            "matrix_branch_id": "branch_0cc56e17a94758de",
+            "project_key": "global-vectorization-production-quality",
+            "provider": "repo_local_token_hashing",
+            "provider_payload_kind": "repo_local_embedding_vector",
+            "reference": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/13_wave56-semantic-vector-quality-gate-2026-05-23.md",
+            "retrieval_mode": "vector",
+            "score": -1.122728,
+            "source": "global-vectorization-target-docs",
+            "source_domain": null,
+            "source_id": "global-vectorization-target-docs",
+            "source_reference": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/13_wave56-semantic-vector-quality-gate-2026-05-23.md",
+            "source_uri": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/13_wave56-semantic-vector-quality-gate-2026-05-23.md",
+            "vector_version": "repo-local-live-v2"
+          },
+          "query_group_id": "qg_462a5343e70ef6c8",
+          "rank": 2,
+          "retrieval_family": "main_search",
+          "retrieval_mode": "vector",
+          "retrieval_run_id": "retrieval_run_8eedd669a7601c0f",
+          "run_id": "retrieval_run_8eedd669a7601c0f",
+          "score": -1.122728,
+          "source_id": "global-vectorization-target-docs",
+          "verification_state": "unverified"
+        },
+        {
+          "backend": "lancedb_vector_store",
+          "chunk_id": "10_wave29-vector-schema-alignment-2026-05-23",
+          "contract_version": "search_retrieval_hit.v1",
+          "document_id": "10_wave29-vector-schema-alignment-2026-05-23",
+          "evidence_class": "markdown",
+          "global_vector_object": {
+            "chunk_id": "10_wave29-vector-schema-alignment-2026-05-23",
+            "contract_version": "global_vector_object.v1",
+            "document_id": "10_wave29-vector-schema-alignment-2026-05-23",
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "matrix_branch_id": "branch_0cc56e17a94758de",
+            "object_id": "10_wave29-vector-schema-alignment-2026-05-23",
+            "object_type": "devdoc_chunk",
+            "project_key": "global-vectorization-production-quality",
+            "provenance": {
+              "backend": "lancedb_vector_store",
+              "effective_time": null,
+              "embedding_dim": 512,
+              "embedding_model": "repo-local-token-hashing-v1",
+              "embedding_model_version": "2026-05-23.wave56",
+              "fallback_reason": null,
+              "language": null,
+              "provider": "repo_local_token_hashing",
+              "provider_payload_kind": "repo_local_embedding_vector",
+              "reference": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/10_wave29-vector-schema-alignment-2026-05-23.md",
+              "retrieval_mode": "vector",
+              "score": -1.116196,
+              "source": "global-vectorization-target-docs",
+              "source_domain": null,
+              "source_id": "global-vectorization-target-docs",
+              "source_reference": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/10_wave29-vector-schema-alignment-2026-05-23.md",
+              "source_uri": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/10_wave29-vector-schema-alignment-2026-05-23.md",
+              "vector_version": "repo-local-live-v2"
+            },
+            "source_id": "global-vectorization-target-docs",
+            "vector_version": "repo-local-live-v2"
+          },
+          "hit_id": "eh_77d31758f89df4ed",
+          "matrix_branch_id": "branch_0cc56e17a94758de",
+          "object_id": "10_wave29-vector-schema-alignment-2026-05-23",
+          "object_type": "devdoc_chunk",
+          "provenance": {
+            "backend": "lancedb_vector_store",
+            "chunk_id": "10_wave29-vector-schema-alignment-2026-05-23",
+            "document_id": "10_wave29-vector-schema-alignment-2026-05-23",
+            "effective_time": null,
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "embedding_model_version": "2026-05-23.wave56",
+            "fallback_reason": null,
+            "language": null,
+            "matrix_branch_id": "branch_0cc56e17a94758de",
+            "project_key": "global-vectorization-production-quality",
+            "provider": "repo_local_token_hashing",
+            "provider_payload_kind": "repo_local_embedding_vector",
+            "reference": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/10_wave29-vector-schema-alignment-2026-05-23.md",
+            "retrieval_mode": "vector",
+            "score": -1.116196,
+            "source": "global-vectorization-target-docs",
+            "source_domain": null,
+            "source_id": "global-vectorization-target-docs",
+            "source_reference": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/10_wave29-vector-schema-alignment-2026-05-23.md",
+            "source_uri": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/10_wave29-vector-schema-alignment-2026-05-23.md",
+            "vector_version": "repo-local-live-v2"
+          },
+          "query_group_id": "qg_462a5343e70ef6c8",
+          "rank": 3,
+          "retrieval_family": "main_search",
+          "retrieval_mode": "vector",
+          "retrieval_run_id": "retrieval_run_8eedd669a7601c0f",
+          "run_id": "retrieval_run_8eedd669a7601c0f",
+          "score": -1.116196,
+          "source_id": "global-vectorization-target-docs",
+          "verification_state": "unverified"
+        },
+        {
+          "backend": "lancedb_vector_store",
+          "chunk_id": "11_wave30-vector-closure-external-blocked-decision-2026-05-23",
+          "contract_version": "search_retrieval_hit.v1",
+          "document_id": "11_wave30-vector-closure-external-blocked-decision-2026-05-23",
+          "evidence_class": "markdown",
+          "global_vector_object": {
+            "chunk_id": "11_wave30-vector-closure-external-blocked-decision-2026-05-23",
+            "contract_version": "global_vector_object.v1",
+            "document_id": "11_wave30-vector-closure-external-blocked-decision-2026-05-23",
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "matrix_branch_id": "branch_0cc56e17a94758de",
+            "object_id": "11_wave30-vector-closure-external-blocked-decision-2026-05-23",
+            "object_type": "devdoc_chunk",
+            "project_key": "global-vectorization-production-quality",
+            "provenance": {
+              "backend": "lancedb_vector_store",
+              "effective_time": null,
+              "embedding_dim": 512,
+              "embedding_model": "repo-local-token-hashing-v1",
+              "embedding_model_version": "2026-05-23.wave56",
+              "fallback_reason": null,
+              "language": null,
+              "provider": "repo_local_token_hashing",
+              "provider_payload_kind": "repo_local_embedding_vector",
+              "reference": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/11_wave30-vector-closure-external-blocked-decision-2026-05-23.md",
+              "retrieval_mode": "vector",
+              "score": -1.569962,
+              "source": "global-vectorization-target-docs",
+              "source_domain": null,
+              "source_id": "global-vectorization-target-docs",
+              "source_reference": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/11_wave30-vector-closure-external-blocked-decision-2026-05-23.md",
+              "source_uri": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/11_wave30-vector-closure-external-blocked-decision-2026-05-23.md",
+              "vector_version": "repo-local-live-v2"
+            },
+            "source_id": "global-vectorization-target-docs",
+            "vector_version": "repo-local-live-v2"
+          },
+          "hit_id": "eh_fee9d2c6e7a55433",
+          "matrix_branch_id": "branch_0cc56e17a94758de",
+          "object_id": "11_wave30-vector-closure-external-blocked-decision-2026-05-23",
+          "object_type": "devdoc_chunk",
+          "provenance": {
+            "backend": "lancedb_vector_store",
+            "chunk_id": "11_wave30-vector-closure-external-blocked-decision-2026-05-23",
+            "document_id": "11_wave30-vector-closure-external-blocked-decision-2026-05-23",
+            "effective_time": null,
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "embedding_model_version": "2026-05-23.wave56",
+            "fallback_reason": null,
+            "language": null,
+            "matrix_branch_id": "branch_0cc56e17a94758de",
+            "project_key": "global-vectorization-production-quality",
+            "provider": "repo_local_token_hashing",
+            "provider_payload_kind": "repo_local_embedding_vector",
+            "reference": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/11_wave30-vector-closure-external-blocked-decision-2026-05-23.md",
+            "retrieval_mode": "vector",
+            "score": -1.569962,
+            "source": "global-vectorization-target-docs",
+            "source_domain": null,
+            "source_id": "global-vectorization-target-docs",
+            "source_reference": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/11_wave30-vector-closure-external-blocked-decision-2026-05-23.md",
+            "source_uri": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/11_wave30-vector-closure-external-blocked-decision-2026-05-23.md",
+            "vector_version": "repo-local-live-v2"
+          },
+          "query_group_id": "qg_462a5343e70ef6c8",
+          "rank": 4,
+          "retrieval_family": "main_search",
+          "retrieval_mode": "vector",
+          "retrieval_run_id": "retrieval_run_8eedd669a7601c0f",
+          "run_id": "retrieval_run_8eedd669a7601c0f",
+          "score": -1.569962,
+          "source_id": "global-vectorization-target-docs",
+          "verification_state": "unverified"
+        },
+        {
+          "backend": "lancedb_vector_store",
+          "chunk_id": "07_wave19-vectorization-provider-manifest-2026-05-22",
+          "contract_version": "search_retrieval_hit.v1",
+          "document_id": "07_wave19-vectorization-provider-manifest-2026-05-22",
+          "evidence_class": "markdown",
+          "global_vector_object": {
+            "chunk_id": "07_wave19-vectorization-provider-manifest-2026-05-22",
+            "contract_version": "global_vector_object.v1",
+            "document_id": "07_wave19-vectorization-provider-manifest-2026-05-22",
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "matrix_branch_id": "branch_0cc56e17a94758de",
+            "object_id": "07_wave19-vectorization-provider-manifest-2026-05-22",
+            "object_type": "devdoc_chunk",
+            "project_key": "global-vectorization-production-quality",
+            "provenance": {
+              "backend": "lancedb_vector_store",
+              "effective_time": null,
+              "embedding_dim": 512,
+              "embedding_model": "repo-local-token-hashing-v1",
+              "embedding_model_version": "2026-05-23.wave56",
+              "fallback_reason": null,
+              "language": null,
+              "provider": "repo_local_token_hashing",
+              "provider_payload_kind": "repo_local_embedding_vector",
+              "reference": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/07_wave19-vectorization-provider-manifest-2026-05-22.md",
+              "retrieval_mode": "vector",
+              "score": -1.489693,
+              "source": "global-vectorization-target-docs",
+              "source_domain": null,
+              "source_id": "global-vectorization-target-docs",
+              "source_reference": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/07_wave19-vectorization-provider-manifest-2026-05-22.md",
+              "source_uri": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/07_wave19-vectorization-provider-manifest-2026-05-22.md",
+              "vector_version": "repo-local-live-v2"
+            },
+            "source_id": "global-vectorization-target-docs",
+            "vector_version": "repo-local-live-v2"
+          },
+          "hit_id": "eh_b66c93dfaa558c20",
+          "matrix_branch_id": "branch_0cc56e17a94758de",
+          "object_id": "07_wave19-vectorization-provider-manifest-2026-05-22",
+          "object_type": "devdoc_chunk",
+          "provenance": {
+            "backend": "lancedb_vector_store",
+            "chunk_id": "07_wave19-vectorization-provider-manifest-2026-05-22",
+            "document_id": "07_wave19-vectorization-provider-manifest-2026-05-22",
+            "effective_time": null,
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "embedding_model_version": "2026-05-23.wave56",
+            "fallback_reason": null,
+            "language": null,
+            "matrix_branch_id": "branch_0cc56e17a94758de",
+            "project_key": "global-vectorization-production-quality",
+            "provider": "repo_local_token_hashing",
+            "provider_payload_kind": "repo_local_embedding_vector",
+            "reference": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/07_wave19-vectorization-provider-manifest-2026-05-22.md",
+            "retrieval_mode": "vector",
+            "score": -1.489693,
+            "source": "global-vectorization-target-docs",
+            "source_domain": null,
+            "source_id": "global-vectorization-target-docs",
+            "source_reference": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/07_wave19-vectorization-provider-manifest-2026-05-22.md",
+            "source_uri": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/07_wave19-vectorization-provider-manifest-2026-05-22.md",
+            "vector_version": "repo-local-live-v2"
+          },
+          "query_group_id": "qg_462a5343e70ef6c8",
+          "rank": 5,
+          "retrieval_family": "main_search",
+          "retrieval_mode": "vector",
+          "retrieval_run_id": "retrieval_run_8eedd669a7601c0f",
+          "run_id": "retrieval_run_8eedd669a7601c0f",
+          "score": -1.489693,
+          "source_id": "global-vectorization-target-docs",
+          "verification_state": "unverified"
+        },
+        {
+          "backend": "lancedb_vector_store",
+          "chunk_id": "artifact-local-index-lancedb-benchmark-2026-05-22",
+          "contract_version": "search_retrieval_hit.v1",
+          "document_id": "artifact-local-index-lancedb-benchmark-2026-05-22",
+          "evidence_class": "markdown_artifact",
+          "global_vector_object": {
+            "chunk_id": "artifact-local-index-lancedb-benchmark-2026-05-22",
+            "contract_version": "global_vector_object.v1",
+            "document_id": "artifact-local-index-lancedb-benchmark-2026-05-22",
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "matrix_branch_id": "branch_0cc56e17a94758de",
+            "object_id": "artifact-local-index-lancedb-benchmark-2026-05-22",
+            "object_type": "artifact_readme",
+            "project_key": "global-vectorization-production-quality",
+            "provenance": {
+              "backend": "lancedb_vector_store",
+              "effective_time": null,
+              "embedding_dim": 512,
+              "embedding_model": "repo-local-token-hashing-v1",
+              "embedding_model_version": "2026-05-23.wave56",
+              "fallback_reason": null,
+              "language": null,
+              "provider": "repo_local_token_hashing",
+              "provider_payload_kind": "repo_local_embedding_vector",
+              "reference": "development/latest-dev-docs/automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md",
+              "retrieval_mode": "vector",
+              "score": -1.482178,
+              "source": "automation-run-artifacts",
+              "source_domain": null,
+              "source_id": "automation-run-artifacts",
+              "source_reference": "development/latest-dev-docs/automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md",
+              "source_uri": "development/latest-dev-docs/automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md",
+              "vector_version": "repo-local-live-v2"
+            },
+            "source_id": "automation-run-artifacts",
+            "vector_version": "repo-local-live-v2"
+          },
+          "hit_id": "eh_d4ebb4db1e6c852e",
+          "matrix_branch_id": "branch_0cc56e17a94758de",
+          "object_id": "artifact-local-index-lancedb-benchmark-2026-05-22",
+          "object_type": "artifact_readme",
+          "provenance": {
+            "backend": "lancedb_vector_store",
+            "chunk_id": "artifact-local-index-lancedb-benchmark-2026-05-22",
+            "document_id": "artifact-local-index-lancedb-benchmark-2026-05-22",
+            "effective_time": null,
+            "embedding_dim": 512,
+            "embedding_model": "repo-local-token-hashing-v1",
+            "embedding_model_version": "2026-05-23.wave56",
+            "fallback_reason": null,
+            "language": null,
+            "matrix_branch_id": "branch_0cc56e17a94758de",
+            "project_key": "global-vectorization-production-quality",
+            "provider": "repo_local_token_hashing",
+            "provider_payload_kind": "repo_local_embedding_vector",
+            "reference": "development/latest-dev-docs/automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md",
+            "retrieval_mode": "vector",
+            "score": -1.482178,
+            "source": "automation-run-artifacts",
+            "source_domain": null,
+            "source_id": "automation-run-artifacts",
+            "source_reference": "development/latest-dev-docs/automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md",
+            "source_uri": "development/latest-dev-docs/automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md",
+            "vector_version": "repo-local-live-v2"
+          },
+          "query_group_id": "qg_462a5343e70ef6c8",
+          "rank": 6,
+          "retrieval_family": "main_search",
+          "retrieval_mode": "vector",
+          "retrieval_run_id": "retrieval_run_8eedd669a7601c0f",
+          "run_id": "retrieval_run_8eedd669a7601c0f",
+          "score": -1.482178,
+          "source_id": "automation-run-artifacts",
+          "verification_state": "unverified"
+        }
+      ],
+      "retrieval_run_id": "retrieval_run_8eedd669a7601c0f",
+      "run_id": "retrieval_run_8eedd669a7601c0f",
+      "state": null,
+      "status": "completed",
+      "top_k": 6
+    },
+    "status": "passed"
+  },
+  "scope": "production_like_devdocs_corpus_lancedb_vector_store_replay",
+  "status": "passed",
+  "target_topic": {
+    "exists": true,
+    "path": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation"
+  },
+  "target_topic_migration_ready": true,
+  "vector_store_readback": {
+    "attempted_lancedb": true,
+    "backend": "lancedb",
+    "corpus_row_count": 27,
+    "db_path": "/var/folders/ww/__28yy2d01n97fff8jhw9yxm0000gn/T/mrw-wave57-production-vector-quality-9ak5_i_h",
+    "failures": [],
+    "packages": {
+      "lancedb": "0.24.2",
+      "pyarrow": "24.0.0"
+    },
+    "require_vector_store": true,
+    "status": "passed",
+    "strict_vector_store_runtime": true,
+    "upsert_status": {
+      "adapter": "lancedb",
+      "chunk_count": 27,
+      "created_table": true,
+      "embedding_dim": 512,
+      "embedding_model": "repo-local-token-hashing-v1",
+      "embedding_provider": "repo_local_token_hashing",
+      "ok": true,
+      "vector_version": "repo-local-live-v2"
+    }
+  }
+}

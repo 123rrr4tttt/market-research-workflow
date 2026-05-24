@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -87,6 +88,10 @@ class RunLlmCrawlerHighJsPublicReplayUnitTestCase(unittest.TestCase):
         self.assertEqual(result["outputs"]["public_targets_attempted"], 3)
         self.assertEqual(result["outputs"]["high_js_success_count"], 3)
         self.assertEqual(result["outputs"]["status_counts"], {"success": 3})
+        session_evidence = result["evidence"]["session"]
+        self.assertFalse(session_evidence["requested"])
+        self.assertFalse(session_evidence["applied"])
+        self.assertFalse(result["operator_opt_in"]["credential_material_logged"])
 
     def test_partial_browser_run_records_attempt_without_claiming_proof(self) -> None:
         result = run_high_js_public_replay(
@@ -130,6 +135,52 @@ class RunLlmCrawlerHighJsPublicReplayUnitTestCase(unittest.TestCase):
         )
         self.assertEqual(result["outputs"]["high_js_success_count"], 2)
         self.assertEqual(result["outputs"]["remaining_external_blockers"][0]["target_id"], "x_search_robotics")
+
+    def test_operator_session_profile_is_recorded_without_logging_secret_material(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            session_dir = Path(tmpdir) / "operator-session"
+            session_dir.mkdir()
+            result = run_high_js_public_replay(
+                operator="unit",
+                run_id="unit-session",
+                allow_public_network=True,
+                allow_browser_runtime=True,
+                chrome_path="/tmp/fake-chrome",
+                session_user_data_dir=session_dir,
+                session_user_data_dir_source="unit_session_user_data_dir",
+                copy_session_user_data_dir=True,
+                target_runner=_fake_success_runner,
+            )
+
+        session_evidence = result["evidence"]["session"]
+        self.assertTrue(session_evidence["requested"])
+        self.assertTrue(session_evidence["configured"])
+        self.assertTrue(session_evidence["applied"])
+        self.assertEqual(session_evidence["source"], "unit_session_user_data_dir")
+        self.assertEqual(session_evidence["user_data_dir_mode"], "copied_operator_profile")
+        self.assertFalse(session_evidence["credential_material_logged"])
+        self.assertFalse(session_evidence["path_disclosed"])
+        self.assertNotIn(str(session_dir), str(result))
+        for target_result in result["outputs"]["target_results"]:
+            self.assertTrue(target_result["session_context"]["session_context_applied"])
+
+    def test_missing_operator_session_profile_keeps_replay_blocked(self) -> None:
+        result = run_high_js_public_replay(
+            operator="unit",
+            run_id="unit-missing-session",
+            allow_public_network=True,
+            allow_browser_runtime=True,
+            chrome_path="/tmp/fake-chrome",
+            session_user_data_dir="/tmp/mrw-missing-session-profile",
+            session_user_data_dir_source="unit_session_user_data_dir",
+            target_runner=_fake_success_runner,
+        )
+
+        self.assertFalse(result["validation"]["passed"])
+        self.assertFalse(result["validation"]["public_network_attempted"])
+        self.assertFalse(result["closure"]["full_closure_allowed"])
+        self.assertIn("session user data dir is not available", result["validation"]["errors"][0])
+        self.assertEqual(result["outputs"]["status_counts"], {"skipped_runtime_not_available": 3})
 
 
 if __name__ == "__main__":
