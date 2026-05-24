@@ -93,9 +93,10 @@ def build_check(
     ops_promotion_evidence, ops_promotion_path, ops_promotion_error = _read_json_artifact(
         ops_promotion_artifact_path
     )
-    metrics_artifact = production_metrics_artifact or deterministic_metrics_artifact
+    metrics_artifact = deterministic_metrics_artifact
+    production_metrics_evidence = production_metrics_artifact
     if production_metrics_artifact_path is not None and production_metrics_artifact is None:
-        metrics_artifact = {
+        production_metrics_evidence = {
             "_artifact_load_error": production_metrics_error,
             "contract_version": None,
         }
@@ -108,7 +109,10 @@ def build_check(
         project_key=resolved_project_key,
         live_canary_evidence=live_evidence,
         metrics_artifact=metrics_artifact,
+        production_metrics_artifact=production_metrics_evidence,
+        production_metrics_artifact_attached=production_metrics_artifact_path is not None,
         ops_promotion_evidence=ops_promotion_evidence,
+        ops_promotion_artifact_attached=ops_promotion_artifact_path is not None,
         closure_claim=closure_claim,
     )
     report = readiness.to_dict()
@@ -127,6 +131,9 @@ def build_check(
                 "OPS_STRICT_GATE_PROMOTION_CONTRACT_VERSION",
                 "PRODUCTION_24H_BLOCKERS",
                 "OPS_PROMOTION_BLOCKERS",
+                "closure_requested",
+                "production_24h_metrics_artifact_status",
+                "ops_promotion_artifact_status",
                 "build_strict_promotion_readiness",
                 "validate_strict_promotion_readiness",
             ),
@@ -140,6 +147,8 @@ def build_check(
                 "--production-metrics-artifact",
                 "--ops-promotion-artifact",
                 "--claim-closure",
+                "production_metrics_artifact_attached",
+                "ops_promotion_artifact_attached",
             ),
         ),
         _token_check(
@@ -239,7 +248,9 @@ def build_check(
             "passed": (
                 (
                     report.get("status") == "closed"
+                    and report.get("closure_requested") is True
                     and report.get("closure_claim") is True
+                    and report.get("closure_request_status") == "claimed_closed"
                     and report.get("remaining_external_blockers") == []
                     and report.get("production_24h_metrics_satisfied") is True
                     and report.get("strict_gate_promotion_satisfied") is True
@@ -247,13 +258,25 @@ def build_check(
                 or (
                     not closure_claim
                     and report.get("status") == "external_blocked"
+                    and report.get("closure_requested") is False
                     and report.get("closure_claim") is False
+                    and report.get("closure_request_status") == "not_requested"
+                    and bool(report.get("remaining_external_blockers"))
+                )
+                or (
+                    closure_claim
+                    and report.get("status") in {"repo_local_blocked", "external_blocked"}
+                    and report.get("closure_requested") is True
+                    and report.get("closure_claim") is False
+                    and report.get("closure_request_status") == "requested_but_blocked"
                     and bool(report.get("remaining_external_blockers"))
                 )
             ),
             "evidence": {
                 "closure_requested": closure_claim,
                 "status": report.get("status"),
+                "closure_request_status": report.get("closure_request_status"),
+                "readiness_closure_requested": report.get("closure_requested"),
                 "closure_claim": report.get("closure_claim"),
                 "remaining_external_blockers": report.get("remaining_external_blockers"),
             },
@@ -281,6 +304,8 @@ def build_check(
             "production_metrics_artifact_error": production_metrics_error,
             "ops_promotion_artifact_path": ops_promotion_path,
             "ops_promotion_artifact_error": ops_promotion_error,
+            "production_metrics_artifact_attached": production_metrics_artifact_path is not None,
+            "ops_promotion_artifact_attached": ops_promotion_artifact_path is not None,
         },
         "live_canary_result": {
             "contract_version": live_result.get("contract_version"),
@@ -321,9 +346,14 @@ def main(argv: list[str] | None = None) -> int:
         print(
             f"{result['status'].upper()} {CONTRACT_VERSION} "
             f"readiness_status={report['status']} "
+            f"repo_local_readiness_status={report['repo_local_readiness_status']} "
             f"repo_local_preflight_passed={str(report['repo_local_preflight_passed']).lower()} "
+            f"production_24h_metrics_artifact_status={report['production_24h_metrics_artifact_status']} "
             f"production_24h_metrics_satisfied={str(report['production_24h_metrics_satisfied']).lower()} "
+            f"ops_promotion_artifact_status={report['ops_promotion_artifact_status']} "
             f"strict_gate_promotion_satisfied={str(report['strict_gate_promotion_satisfied']).lower()} "
+            f"closure_requested={str(report['closure_requested']).lower()} "
+            f"closure_request_status={report['closure_request_status']} "
             f"closure_claim={str(report['closure_claim']).lower()}"
         )
         if result["status"] != "passed":

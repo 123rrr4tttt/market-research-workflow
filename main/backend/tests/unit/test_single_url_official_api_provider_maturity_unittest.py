@@ -12,8 +12,29 @@ pytestmark = pytest.mark.unit
 
 from scripts.check_single_url_official_api_provider_maturity import (  # noqa: E402
     CONTRACT_VERSION,
+    PROVIDER_CREDENTIALS_EVIDENCE_CONTRACT_VERSION,
     build_report,
 )
+
+
+def _provider_credentials_evidence() -> dict:
+    return {
+        "contract_version": PROVIDER_CREDENTIALS_EVIDENCE_CONTRACT_VERSION,
+        "evidence_scope": "provider_credentials_quota",
+        "generated_by": "ops-provider-health-export",
+        "generated_at": "2026-05-24T01:00:00Z",
+        "credential_material_logged": False,
+        "providers": [
+            {
+                "provider_key": "semanticscholar",
+                "credential_state": "configured",
+                "quota_status": "within_quota",
+                "live_probe_status": "passed",
+                "provider_specific_quota_validated": True,
+                "credential_material_logged": False,
+            }
+        ],
+    }
 
 
 class SingleUrlOfficialApiProviderMaturityTestCase(unittest.TestCase):
@@ -33,6 +54,34 @@ class SingleUrlOfficialApiProviderMaturityTestCase(unittest.TestCase):
         self.assertTrue(runtime["crossref_official_api_fixture_returns_candidates"]["passed"])
         self.assertTrue(runtime["crossref_provider_is_public_no_credential_boundary"]["passed"])
         self.assertEqual(report["live_crossref"]["status"], "not_requested")
+        self.assertFalse(
+            report["non_arxiv_provider_maturity"]["provider_credentials_beyond_crossref_satisfied"]
+        )
+
+    def test_provider_credentials_artifact_can_close_beyond_crossref_boundary(self) -> None:
+        report = build_report(provider_credentials_evidence=_provider_credentials_evidence())
+
+        self.assertEqual(report["status"], "passed")
+        maturity = report["non_arxiv_provider_maturity"]
+        self.assertTrue(maturity["provider_credentials_beyond_crossref_satisfied"])
+        self.assertEqual(maturity["provider_credentials_boundary"]["status"], "validated")
+        self.assertFalse(
+            any(
+                "provider-specific credentials" in item
+                for item in maturity["remaining_provider_catalog_boundary"]
+            )
+        )
+
+    def test_invalid_provider_credentials_artifact_fails_gate(self) -> None:
+        evidence = _provider_credentials_evidence()
+        evidence["providers"][0]["credential_material_logged"] = True
+
+        report = build_report(provider_credentials_evidence=evidence)
+
+        self.assertEqual(report["status"], "failed")
+        maturity = report["non_arxiv_provider_maturity"]
+        self.assertFalse(maturity["provider_credentials_beyond_crossref_satisfied"])
+        self.assertEqual(maturity["provider_credentials_boundary"]["status"], "failed_evidence")
 
 
 if __name__ == "__main__":

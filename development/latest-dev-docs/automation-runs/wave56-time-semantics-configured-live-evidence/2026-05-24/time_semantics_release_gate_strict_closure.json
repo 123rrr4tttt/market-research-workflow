@@ -1,5 +1,6 @@
 {
   "checks": {
+    "configured_production_like_semantic_chain_evidence_verified": true,
     "configured_semantic_chain_evidence_verified": true,
     "decision_log_features_readback_repo_local_verified": true,
     "decision_log_provenance_verified": true,
@@ -28,11 +29,11 @@
     "production_data_semantic_chain": "production_like_verified"
   },
   "remaining_external_blockers": [
-    "production_data_semantic_chain_live_validation_not_run"
+    "production_live_dataset_not_verified"
   ],
   "remaining_live_requirements": [
-    "true production/live dataset tier beyond production-like sample",
-    "configured production/live source-time coverage distribution",
+    "explicit production/live dataset tier and data_source beyond configured production-like sample",
+    "configured production/live source-time coverage count and total proof",
     "configured production/live prompt-time policy decision-log rows",
     "configured production/live feedback reward alignment"
   ],

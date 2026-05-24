@@ -14,13 +14,14 @@ import json
 import re
 import sys
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from urllib.parse import unquote
 
 
 DEV_PLANS_ROOT = Path("development/latest-dev-docs/development-plans")
+UTC = timezone.utc
 ALLOWLIST = DEV_PLANS_ROOT / "TARGET_TOPIC_ALLOWLIST.json"
 CURRENT_DEV = DEV_PLANS_ROOT / "CURRENT_DEV"
 CURRENT_DEV_INDEX = CURRENT_DEV / "INDEX.md"

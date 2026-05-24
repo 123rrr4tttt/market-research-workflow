@@ -21,14 +21,21 @@ from app.services.ingest.canary_handoff import CANARY_HANDOFF_CONTRACT_VERSION  
 from app.services.ingest.canary_handoff_live import run_repo_local_production_like_handoff_canary  # noqa: E402
 from app.services.ingest.canary_metrics import build_configured_provider_canary_boundary  # noqa: E402
 from app.services.ingest.canary_strict_promotion import (  # noqa: E402
+    OPS_PROMOTION_EVIDENCE_INVALID_BLOCKER,
     OPS_PROMOTION_BLOCKERS,
+    OPS_STRICT_GATE_PROMOTION_CONTRACT_VERSION,
+    PRODUCTION_24H_EVIDENCE_INVALID_BLOCKER,
     PRODUCTION_24H_BLOCKERS,
+    PRODUCTION_24H_METRICS_CONTRACT_VERSION,
     build_strict_promotion_readiness,
     validate_strict_promotion_readiness,
 )
 from check_ingest_canary_24h_metrics_artifact import build_24h_metrics_artifact  # noqa: E402
 from check_llm_crawler_high_js_replay_readiness import build_check as build_high_js_replay_check  # noqa: E402
-from check_single_url_official_api_provider_maturity import build_report as build_official_api_report  # noqa: E402
+from check_single_url_official_api_provider_maturity import (  # noqa: E402
+    PROVIDER_CREDENTIALS_BEYOND_CROSSREF_BLOCKER,
+    build_report as build_official_api_report,
+)
 
 
 CONTRACT_VERSION = "single_url.external_blocker_closure.v1"
@@ -40,7 +47,6 @@ DEFAULT_RUN_DIR = Path(
     "single-url-first-ingest-allocation-external-blocker-closure/2026-05-24"
 )
 DEFAULT_PUBLIC_REPLAY_ARTIFACT = DEFAULT_RUN_DIR / "high_js_public_replay.json"
-PROVIDER_CREDENTIALS_BEYOND_CROSSREF_BLOCKER = "provider_credentials_quota_beyond_public_crossref_not_validated"
 
 LiveCanaryRunner = Callable[..., dict[str, Any]]
 OfficialApiReportBuilder = Callable[..., dict[str, Any]]
@@ -71,6 +77,23 @@ def _token_check(path: Path, tokens: tuple[str, ...]) -> dict[str, Any]:
 
 def _mapping(value: Any) -> Mapping[str, Any]:
     return value if isinstance(value, Mapping) else {}
+
+
+def _resolve_path(path: Path) -> Path:
+    return path if path.is_absolute() else REPO_ROOT / path
+
+
+def _read_json_artifact(path: Path | None) -> tuple[dict[str, Any] | None, str | None, str | None]:
+    if path is None:
+        return None, None, None
+    full_path = _resolve_path(path)
+    try:
+        payload = json.loads(full_path.read_text(encoding="utf-8"))
+    except Exception as exc:  # noqa: BLE001
+        return None, str(full_path), f"{exc.__class__.__name__}: {exc}"
+    if not isinstance(payload, dict):
+        return None, str(full_path), "artifact JSON must be an object"
+    return payload, str(full_path), None
 
 
 def _configured_provider_live_evidence_from_canary(live_result: Mapping[str, Any]) -> dict[str, Any]:
@@ -122,10 +145,16 @@ def _provider_boundary_reduced(official_api_report: Mapping[str, Any], *, requir
     )
 
 
+def _provider_credentials_satisfied(official_api_report: Mapping[str, Any]) -> bool:
+    maturity = _mapping(official_api_report.get("non_arxiv_provider_maturity"))
+    return maturity.get("provider_credentials_beyond_crossref_satisfied") is True
+
+
 def _remaining_external_blockers(
     *,
     public_replay_check: Mapping[str, Any],
     strict_promotion_report: Mapping[str, Any],
+    official_api_report: Mapping[str, Any],
 ) -> list[dict[str, Any]]:
     blockers: list[dict[str, Any]] = []
     closure = _mapping(public_replay_check.get("closure"))
@@ -143,31 +172,40 @@ def _remaining_external_blockers(
         for item in strict_promotion_report.get("remaining_external_blockers") or []
         if isinstance(item, Mapping)
     }
-    for blocker_id in PRODUCTION_24H_BLOCKERS:
+    for blocker_id in (*PRODUCTION_24H_BLOCKERS, PRODUCTION_24H_EVIDENCE_INVALID_BLOCKER):
         if blocker_id in remaining_ids:
             blockers.append(
                 {
                     "id": blocker_id,
                     "classification": "external_live_operational",
-                    "detail": "Production 24h metrics require production live-window readback, not a repo-local fixture.",
+                    "detail": (
+                        "Production 24h metrics artifact is present but invalid."
+                        if blocker_id == PRODUCTION_24H_EVIDENCE_INVALID_BLOCKER
+                        else "Production 24h metrics require production live-window readback, not a repo-local fixture."
+                    ),
                 }
             )
-    for blocker_id in OPS_PROMOTION_BLOCKERS:
+    for blocker_id in (*OPS_PROMOTION_BLOCKERS, OPS_PROMOTION_EVIDENCE_INVALID_BLOCKER):
         if blocker_id in remaining_ids:
             blockers.append(
                 {
                     "id": blocker_id,
                     "classification": "external_live_operational",
-                    "detail": "All-project strict-gate promotion remains operations-owned.",
+                    "detail": (
+                        "Operations promotion artifact is present but invalid."
+                        if blocker_id == OPS_PROMOTION_EVIDENCE_INVALID_BLOCKER
+                        else "All-project strict-gate promotion remains operations-owned."
+                    ),
                 }
             )
-    blockers.append(
-        {
-            "id": PROVIDER_CREDENTIALS_BEYOND_CROSSREF_BLOCKER,
-            "classification": "external_provider_account",
-            "detail": "Only public arXiv/Crossref official APIs are validated; credentialed provider quota beyond Crossref is not configured in repo.",
-        }
-    )
+    if not _provider_credentials_satisfied(official_api_report):
+        blockers.append(
+            {
+                "id": PROVIDER_CREDENTIALS_BEYOND_CROSSREF_BLOCKER,
+                "classification": "external_provider_account",
+                "detail": "Only public arXiv/Crossref official APIs are validated; credentialed provider quota beyond Crossref is not configured in repo.",
+            }
+        )
     return blockers
 
 
@@ -177,6 +215,10 @@ def build_check(
     project_key: str | None = "single_url_wave57_canary",
     allow_live_crossref: bool = False,
     require_live_crossref: bool = False,
+    production_metrics_artifact_path: Path | None = None,
+    ops_promotion_artifact_path: Path | None = None,
+    provider_credentials_artifact_path: Path | None = None,
+    claim_closure: bool = False,
     live_canary_runner: LiveCanaryRunner = run_repo_local_production_like_handoff_canary,
     official_api_report_builder: OfficialApiReportBuilder = build_official_api_report,
 ) -> dict[str, Any]:
@@ -192,17 +234,31 @@ def build_check(
         project_key=resolved_project_key,
     )
 
-    metrics_artifact = build_24h_metrics_artifact(project_key=resolved_project_key)
+    deterministic_metrics_artifact = build_24h_metrics_artifact(project_key=resolved_project_key)
+    production_metrics_artifact, production_metrics_path, production_metrics_error = _read_json_artifact(
+        production_metrics_artifact_path
+    )
+    ops_promotion_evidence, ops_promotion_path, ops_promotion_error = _read_json_artifact(
+        ops_promotion_artifact_path
+    )
+    metrics_artifact = production_metrics_artifact or deterministic_metrics_artifact
+    if production_metrics_artifact_path is not None and production_metrics_artifact is None:
+        metrics_artifact = {"_artifact_load_error": production_metrics_error, "contract_version": None}
+    if ops_promotion_artifact_path is not None and ops_promotion_evidence is None:
+        ops_promotion_evidence = {"_artifact_load_error": ops_promotion_error, "contract_version": None}
     strict_readiness = build_strict_promotion_readiness(
         project_key=resolved_project_key,
         live_canary_evidence=live_evidence,
         metrics_artifact=metrics_artifact,
+        ops_promotion_evidence=ops_promotion_evidence,
+        closure_claim=claim_closure,
     )
     strict_report = strict_readiness.to_dict()
     strict_validation_errors = validate_strict_promotion_readiness(strict_report)
     official_api_report = official_api_report_builder(
         allow_live_crossref=allow_live_crossref or require_live_crossref,
         require_live_crossref=require_live_crossref,
+        provider_credentials_artifact=provider_credentials_artifact_path,
     )
 
     token_results = [
@@ -221,6 +277,10 @@ def build_check(
                 "build_high_js_replay_check",
                 "run_repo_local_production_like_handoff_canary",
                 "PROVIDER_CREDENTIALS_BEYOND_CROSSREF_BLOCKER",
+                "--production-metrics-artifact",
+                "--ops-promotion-artifact",
+                "--provider-credentials-artifact",
+                "--claim-closure",
             ),
         ),
         _token_check(
@@ -246,13 +306,32 @@ def build_check(
     remaining_blockers = _remaining_external_blockers(
         public_replay_check=public_replay_check,
         strict_promotion_report=strict_report,
+        official_api_report=official_api_report,
     )
-    closure_claim = False
-    can_be_closed = False
+    public_replay_full_closure = _mapping(public_replay_check.get("closure")).get("full_closure_allowed") is True
+    provider_credentials_closed = _provider_credentials_satisfied(official_api_report)
+    remaining_ids = {
+        item.get("id")
+        for item in remaining_blockers
+        if isinstance(item, Mapping)
+    }
+    production_blockers = set(PRODUCTION_24H_BLOCKERS) | {PRODUCTION_24H_EVIDENCE_INVALID_BLOCKER}
+    ops_blockers = set(OPS_PROMOTION_BLOCKERS) | {OPS_PROMOTION_EVIDENCE_INVALID_BLOCKER}
+    can_be_closed = bool(
+        public_replay_full_closure
+        and configured_boundary_validation.get("passed") is True
+        and strict_report.get("production_24h_metrics_satisfied") is True
+        and strict_report.get("strict_gate_promotion_satisfied") is True
+        and provider_boundary_reduced
+        and provider_credentials_closed
+        and not remaining_blockers
+        and not strict_validation_errors
+    )
+    closure_claim = bool(claim_closure and can_be_closed)
     runtime_results = [
         {
             "name": "public_browser_runtime_replay_reduced",
-            "passed": public_replay_check.get("validation", {}).get("passed") is True
+            "passed": public_replay_check.get("validation", {}).get("readiness_checks_passed") is True
             and public_replay_check.get("validation", {}).get("public_network_attempted") is True
             and public_replay_reduced,
             "evidence": {
@@ -275,14 +354,45 @@ def build_check(
         },
         {
             "name": "repo_local_24h_metric_shape_validated_production_open",
-            "passed": strict_report.get("repo_local_metric_24h_shape_validated") is True
-            and strict_report.get("production_24h_metrics_satisfied") is False
-            and strict_report.get("status") == "external_blocked",
+            "passed": (
+                strict_report.get("repo_local_metric_24h_shape_validated") is True
+                and (
+                    (
+                        production_metrics_artifact_path is None
+                        and strict_report.get("production_24h_metrics_satisfied") is False
+                        and bool(production_blockers.intersection(remaining_ids))
+                    )
+                    or (
+                        production_metrics_artifact_path is not None
+                        and strict_report.get("production_24h_metrics_satisfied") is True
+                    )
+                )
+            ),
             "evidence": {
                 "status": strict_report.get("status"),
+                "artifact_supplied": production_metrics_artifact_path is not None,
+                "source_path": production_metrics_path,
+                "load_error": production_metrics_error,
                 "repo_local_metric_24h_shape_validated": strict_report.get("repo_local_metric_24h_shape_validated"),
                 "production_24h_metrics_satisfied": strict_report.get("production_24h_metrics_satisfied"),
-                "remaining_external_blockers": strict_report.get("remaining_external_blockers"),
+                "remaining_production_blockers": sorted(production_blockers.intersection(remaining_ids)),
+                "required_contract_version": PRODUCTION_24H_METRICS_CONTRACT_VERSION,
+            },
+        },
+        {
+            "name": "ops_strict_gate_promotion_evidence_gate",
+            "passed": (
+                strict_report.get("strict_gate_promotion_satisfied") is True
+                if ops_promotion_artifact_path is not None
+                else bool(ops_blockers.intersection(remaining_ids))
+            ),
+            "evidence": {
+                "artifact_supplied": ops_promotion_artifact_path is not None,
+                "source_path": ops_promotion_path,
+                "load_error": ops_promotion_error,
+                "strict_gate_promotion_satisfied": strict_report.get("strict_gate_promotion_satisfied"),
+                "remaining_ops_blockers": sorted(ops_blockers.intersection(remaining_ids)),
+                "required_contract_version": OPS_STRICT_GATE_PROMOTION_CONTRACT_VERSION,
             },
         },
         {
@@ -297,21 +407,45 @@ def build_check(
             },
         },
         {
-            "name": "provider_credentials_beyond_crossref_kept_external",
-            "passed": any(
-                item.get("id") == PROVIDER_CREDENTIALS_BEYOND_CROSSREF_BLOCKER
-                for item in remaining_blockers
-            )
-            and closure_claim is False,
+            "name": "provider_credentials_beyond_crossref_evidence_gate",
+            "passed": (
+                provider_credentials_closed
+                if provider_credentials_artifact_path is not None
+                else any(
+                    item.get("id") == PROVIDER_CREDENTIALS_BEYOND_CROSSREF_BLOCKER
+                    for item in remaining_blockers
+                )
+            ),
             "evidence": {
+                "artifact_supplied": provider_credentials_artifact_path is not None,
                 "blocker_id": PROVIDER_CREDENTIALS_BEYOND_CROSSREF_BLOCKER,
+                "provider_credentials_beyond_crossref_satisfied": provider_credentials_closed,
                 "closure_claim": closure_claim,
             },
         },
         {
-            "name": "closure_decision_stays_external_blocked",
-            "passed": can_be_closed is False and closure_claim is False and bool(remaining_blockers),
+            "name": "closure_decision_consistent",
+            "passed": (
+                (
+                    claim_closure
+                    and can_be_closed
+                    and closure_claim
+                    and not remaining_blockers
+                )
+                or (
+                    not claim_closure
+                    and can_be_closed
+                    and closure_claim is False
+                    and not remaining_blockers
+                )
+                or (
+                    not can_be_closed
+                    and closure_claim is False
+                    and bool(remaining_blockers)
+                )
+            ),
             "evidence": {
+                "closure_requested": claim_closure,
                 "can_be_closed": can_be_closed,
                 "closure_claim": closure_claim,
                 "remaining_external_blocker_count": len(remaining_blockers),
@@ -323,6 +457,7 @@ def build_check(
         and all(item["passed"] for item in token_results)
         and all(item["passed"] for item in runtime_results)
     )
+    closure_status = "closed" if closure_claim else ("ready_for_closure" if can_be_closed else "external_blocked")
     return {
         "contract_version": CONTRACT_VERSION,
         "status": "passed" if passed else "failed",
@@ -331,7 +466,7 @@ def build_check(
         "public_replay_artifact": str(public_artifact),
         "decision_marker": "single_url_external_blocker_repo_public_reduced",
         "closure_decision": {
-            "status": "external_blocked",
+            "status": closure_status,
             "can_be_closed": can_be_closed,
             "closure_claim": closure_claim,
             "repo_public_boundaries_reduced": {
@@ -339,6 +474,7 @@ def build_check(
                 "repo_local_configured_canary": configured_boundary_validation.get("passed") is True,
                 "repo_local_24h_metric_shape": strict_report.get("repo_local_metric_24h_shape_validated") is True,
                 "crossref_public_official_api": provider_boundary_reduced,
+                "provider_credentials_beyond_crossref": provider_credentials_closed,
             },
             "remaining_external_blockers": remaining_blockers,
         },
@@ -349,6 +485,15 @@ def build_check(
         "configured_provider_boundary": configured_provider_boundary,
         "strict_promotion_readiness": strict_report,
         "official_api_provider_maturity": official_api_report,
+        "evidence_inputs": {
+            "production_metrics_artifact_path": production_metrics_path,
+            "production_metrics_artifact_error": production_metrics_error,
+            "ops_promotion_artifact_path": ops_promotion_path,
+            "ops_promotion_artifact_error": ops_promotion_error,
+            "provider_credentials_artifact_path": str(_resolve_path(provider_credentials_artifact_path))
+            if provider_credentials_artifact_path is not None
+            else None,
+        },
         "live_canary_result": {
             "contract_version": live_result.get("contract_version"),
             "status": live_result.get("status"),
@@ -368,6 +513,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--project-key", default="single_url_wave57_canary")
     parser.add_argument("--allow-live-crossref", action="store_true")
     parser.add_argument("--require-live-crossref", action="store_true")
+    parser.add_argument("--production-metrics-artifact", type=Path, default=None)
+    parser.add_argument("--ops-promotion-artifact", type=Path, default=None)
+    parser.add_argument("--provider-credentials-artifact", type=Path, default=None)
+    parser.add_argument("--claim-closure", action="store_true")
     args = parser.parse_args(argv)
 
     result = build_check(
@@ -375,6 +524,10 @@ def main(argv: list[str] | None = None) -> int:
         project_key=args.project_key,
         allow_live_crossref=args.allow_live_crossref,
         require_live_crossref=args.require_live_crossref,
+        production_metrics_artifact_path=args.production_metrics_artifact,
+        ops_promotion_artifact_path=args.ops_promotion_artifact,
+        provider_credentials_artifact_path=args.provider_credentials_artifact,
+        claim_closure=args.claim_closure,
     )
     if args.output is not None:
         args.output.parent.mkdir(parents=True, exist_ok=True)

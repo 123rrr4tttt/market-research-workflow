@@ -72,7 +72,7 @@ def _fake_accessible_success_x_external_runner(target, chrome_path: str, timeout
 
 
 class RunLlmCrawlerHighJsPublicReplayUnitTestCase(unittest.TestCase):
-    def test_fake_success_proves_public_high_js_replay(self) -> None:
+    def test_fake_x_success_without_session_evidence_is_platform_blocked(self) -> None:
         result = run_high_js_public_replay(
             operator="unit",
             run_id="unit-success",
@@ -83,15 +83,19 @@ class RunLlmCrawlerHighJsPublicReplayUnitTestCase(unittest.TestCase):
         )
 
         self.assertEqual(result["contract_version"], PUBLIC_REPLAY_CONTRACT_VERSION)
-        self.assertTrue(result["validation"]["real_public_high_js_replay_proven"])
-        self.assertTrue(result["closure"]["real_public_high_js_replay_complete"])
+        self.assertFalse(result["validation"]["real_public_high_js_replay_proven"])
+        self.assertFalse(result["closure"]["real_public_high_js_replay_complete"])
         self.assertEqual(result["outputs"]["public_targets_attempted"], 3)
-        self.assertEqual(result["outputs"]["high_js_success_count"], 3)
-        self.assertEqual(result["outputs"]["status_counts"], {"success": 3})
+        self.assertEqual(result["outputs"]["high_js_success_count"], 2)
+        self.assertEqual(result["outputs"]["status_counts"], {"platform_blocked": 1, "success": 2})
         session_evidence = result["evidence"]["session"]
         self.assertFalse(session_evidence["requested"])
         self.assertFalse(session_evidence["applied"])
         self.assertFalse(result["operator_opt_in"]["credential_material_logged"])
+        blocker = result["outputs"]["remaining_external_blockers"][0]
+        self.assertEqual(blocker["target_id"], "x_search_robotics")
+        self.assertEqual(blocker["classification"], "platform_blocked")
+        self.assertFalse(blocker["lawful_session_evidence"]["session_mode_configured"])
 
     def test_partial_browser_run_records_attempt_without_claiming_proof(self) -> None:
         result = run_high_js_public_replay(
@@ -109,7 +113,7 @@ class RunLlmCrawlerHighJsPublicReplayUnitTestCase(unittest.TestCase):
         self.assertFalse(result["closure"]["real_public_high_js_replay_complete"])
         self.assertEqual(result["outputs"]["public_targets_attempted"], 3)
         self.assertLess(result["outputs"]["high_js_success_count"], 3)
-        self.assertIn("auth_or_anti_bot_blocked", result["outputs"]["status_counts"])
+        self.assertIn("platform_blocked", result["outputs"]["status_counts"])
         self.assertFalse(result["validation"]["accessible_public_high_js_replay_proven"])
 
     def test_accessible_public_targets_can_close_with_x_external_gate_retained(self) -> None:
@@ -135,6 +139,7 @@ class RunLlmCrawlerHighJsPublicReplayUnitTestCase(unittest.TestCase):
         )
         self.assertEqual(result["outputs"]["high_js_success_count"], 2)
         self.assertEqual(result["outputs"]["remaining_external_blockers"][0]["target_id"], "x_search_robotics")
+        self.assertEqual(result["outputs"]["remaining_external_blockers"][0]["classification"], "platform_blocked")
 
     def test_operator_session_profile_is_recorded_without_logging_secret_material(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -161,6 +166,11 @@ class RunLlmCrawlerHighJsPublicReplayUnitTestCase(unittest.TestCase):
         self.assertFalse(session_evidence["credential_material_logged"])
         self.assertFalse(session_evidence["path_disclosed"])
         self.assertNotIn(str(session_dir), str(result))
+        self.assertTrue(result["validation"]["real_public_high_js_replay_proven"])
+        self.assertTrue(result["closure"]["real_public_high_js_replay_complete"])
+        self.assertEqual(result["outputs"]["status_counts"], {"success": 3})
+        x_result = next(row for row in result["outputs"]["target_results"] if row["target_id"] == "x_search_robotics")
+        self.assertTrue(x_result["lawful_session_evidence"]["accepted"])
         for target_result in result["outputs"]["target_results"]:
             self.assertTrue(target_result["session_context"]["session_context_applied"])
 

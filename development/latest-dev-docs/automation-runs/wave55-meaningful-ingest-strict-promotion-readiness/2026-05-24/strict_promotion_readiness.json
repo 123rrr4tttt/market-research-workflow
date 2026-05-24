@@ -3,8 +3,10 @@
   "contract_version": "ingest.canary_strict_promotion_readiness.v1",
   "evidence_doc": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-meaningful-ingest-guardrails-plan/12_wave55-strict-promotion-readiness-2026-05-24.md",
   "evidence_inputs": {
+    "ops_promotion_artifact_attached": false,
     "ops_promotion_artifact_error": null,
     "ops_promotion_artifact_path": null,
+    "production_metrics_artifact_attached": false,
     "production_metrics_artifact_error": null,
     "production_metrics_artifact_path": null
   },
@@ -13,10 +15,10 @@
     "cleanup": {
       "error": null,
       "performed": true,
-      "schema_name": "project_wave55_ingest_canary_320fec97fd"
+      "schema_name": "project_wave55_ingest_canary_98150105a3"
     },
     "contract_version": "ingest.single_url_canary_handoff.production_like_check.v1",
-    "project_key": "wave55_ingest_canary_320fec97fd",
+    "project_key": "wave55_ingest_canary_98150105a3",
     "status": "passed",
     "validation": {
       "contract_version": "ingest.single_url_canary_handoff.production_like_check.v1",
@@ -74,9 +76,16 @@
           "inserted_valid_ratio": 1.0,
           "live_window_observed": false,
           "metric_24h_live_readback_claim": false,
+          "production_artifact_attached": false,
+          "production_artifact_kind": "deterministic_ingest_canary_24h_metrics_fixture",
           "production_checks": {},
+          "production_contract_version": "ingest.canary_24h_metrics_artifact.v1",
           "production_data_claim": false,
+          "production_deterministic_fixture": true,
           "production_failed_checks": [],
+          "production_live_window_observed": false,
+          "production_shape_checks": {},
+          "production_shape_failed_checks": [],
           "rejection_rate": 0.25,
           "source_record_id": null,
           "source_system": null,
@@ -133,9 +142,13 @@
       }
     ],
     "closure_claim": false,
+    "closure_request_status": "not_requested",
+    "closure_requested": false,
     "contract_version": "ingest.canary_strict_promotion_readiness.v1",
+    "ops_promotion_artifact_status": "not_attached",
+    "production_24h_metrics_artifact_status": "not_attached",
     "production_24h_metrics_satisfied": false,
-    "project_key": "wave55_ingest_canary_320fec97fd",
+    "project_key": "wave55_ingest_canary_98150105a3",
     "promotion_recommendation": "do_not_promote_without_production_24h_metrics_and_operations_decision",
     "remaining_external_blockers": [
       {
@@ -162,6 +175,7 @@
     "repo_local_live_canary_validated": true,
     "repo_local_metric_24h_shape_validated": true,
     "repo_local_preflight_passed": true,
+    "repo_local_readiness_status": "validated",
     "status": "external_blocked",
     "strict_gate_promotion_satisfied": false
   },
@@ -170,7 +184,7 @@
       "evidence": {
         "accepted_response_status_code": 200,
         "live_result_status": "passed",
-        "project_key": "wave55_ingest_canary_320fec97fd",
+        "project_key": "wave55_ingest_canary_98150105a3",
         "rejected_response_status_code": 200
       },
       "name": "repo_local_live_canary_validated",
@@ -223,7 +237,9 @@
     {
       "evidence": {
         "closure_claim": false,
+        "closure_request_status": "not_requested",
         "closure_requested": false,
+        "readiness_closure_requested": false,
         "remaining_external_blockers": [
           {
             "classification": "external_live_operational",
@@ -265,6 +281,9 @@
         "OPS_STRICT_GATE_PROMOTION_CONTRACT_VERSION",
         "PRODUCTION_24H_BLOCKERS",
         "OPS_PROMOTION_BLOCKERS",
+        "closure_requested",
+        "production_24h_metrics_artifact_status",
+        "ops_promotion_artifact_status",
         "build_strict_promotion_readiness",
         "validate_strict_promotion_readiness"
       ]
@@ -280,7 +299,9 @@
         "build_strict_promotion_readiness",
         "--production-metrics-artifact",
         "--ops-promotion-artifact",
-        "--claim-closure"
+        "--claim-closure",
+        "production_metrics_artifact_attached",
+        "ops_promotion_artifact_attached"
       ]
     },
     {

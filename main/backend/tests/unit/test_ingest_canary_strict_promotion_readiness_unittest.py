@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import sys
+import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -14,11 +16,13 @@ from app.services.ingest.canary_strict_promotion import (
     OPS_PROMOTION_EVIDENCE_INVALID_BLOCKER,
     OPS_STRICT_GATE_PROMOTION_CONTRACT_VERSION,
     PRODUCTION_24H_BLOCKERS,
+    PRODUCTION_24H_EVIDENCE_INVALID_BLOCKER,
     PRODUCTION_24H_METRICS_CONTRACT_VERSION,
     build_strict_promotion_readiness,
     validate_strict_promotion_readiness,
 )
 from scripts.check_ingest_canary_24h_metrics_artifact import build_24h_metrics_artifact
+from scripts.check_ingest_canary_strict_promotion_readiness import build_check as build_strict_promotion_check
 
 
 pytestmark = pytest.mark.unit
@@ -106,6 +110,17 @@ def _ops_promotion_evidence() -> dict:
     }
 
 
+def _live_result() -> dict:
+    return {
+        "contract_version": "ingest.live_canary_handoff_runtime.v1",
+        "status": "passed",
+        "project_key": "demo_proj",
+        "accepted_response_status_code": 200,
+        "rejected_response_status_code": 200,
+        "evidence": _live_evidence(),
+    }
+
+
 class IngestCanaryStrictPromotionReadinessUnitTestCase(unittest.TestCase):
     def test_repo_local_preflight_passes_but_production_and_ops_remain_external(self) -> None:
         report = build_strict_promotion_readiness(
@@ -119,10 +134,15 @@ class IngestCanaryStrictPromotionReadinessUnitTestCase(unittest.TestCase):
         self.assertEqual(validate_strict_promotion_readiness(payload), [])
         self.assertEqual(report.status, "external_blocked")
         self.assertTrue(report.repo_local_preflight_passed)
+        self.assertEqual(report.repo_local_readiness_status, "validated")
         self.assertTrue(report.repo_local_live_canary_validated)
         self.assertTrue(report.repo_local_metric_24h_shape_validated)
+        self.assertEqual(report.production_24h_metrics_artifact_status, "not_attached")
+        self.assertEqual(report.ops_promotion_artifact_status, "not_attached")
         self.assertFalse(report.production_24h_metrics_satisfied)
         self.assertFalse(report.strict_gate_promotion_satisfied)
+        self.assertFalse(report.closure_requested)
+        self.assertEqual(report.closure_request_status, "not_requested")
         self.assertFalse(report.closure_claim)
         self.assertTrue(set(PRODUCTION_24H_BLOCKERS).issubset(remaining))
         self.assertTrue(set(OPS_PROMOTION_BLOCKERS).issubset(remaining))
@@ -143,11 +163,58 @@ class IngestCanaryStrictPromotionReadinessUnitTestCase(unittest.TestCase):
         self.assertEqual(validate_strict_promotion_readiness(payload), [])
         self.assertEqual(report.status, "external_blocked")
         self.assertTrue(report.repo_local_preflight_passed)
+        self.assertEqual(report.production_24h_metrics_artifact_status, "attached_validated")
+        self.assertEqual(report.ops_promotion_artifact_status, "not_attached")
         self.assertTrue(report.production_24h_metrics_satisfied)
         self.assertFalse(report.strict_gate_promotion_satisfied)
         self.assertFalse(report.closure_claim)
         self.assertFalse(set(PRODUCTION_24H_BLOCKERS).intersection(remaining))
         self.assertTrue(set(OPS_PROMOTION_BLOCKERS).issubset(remaining))
+
+    def test_attached_invalid_production_metrics_do_not_break_repo_local_readiness(self) -> None:
+        report = build_strict_promotion_readiness(
+            project_key="demo_proj",
+            live_canary_evidence=_live_evidence(),
+            metrics_artifact=build_24h_metrics_artifact(project_key="demo_proj"),
+            production_metrics_artifact={
+                "_artifact_load_error": "JSONDecodeError: invalid payload",
+                "contract_version": None,
+            },
+            production_metrics_artifact_attached=True,
+            closure_claim=True,
+        )
+        payload = report.to_dict()
+        remaining = {item["id"] for item in payload["remaining_external_blockers"]}
+
+        self.assertEqual(validate_strict_promotion_readiness(payload), [])
+        self.assertEqual(report.status, "external_blocked")
+        self.assertTrue(report.repo_local_preflight_passed)
+        self.assertEqual(report.repo_local_readiness_status, "validated")
+        self.assertEqual(report.production_24h_metrics_artifact_status, "attached_invalid")
+        self.assertFalse(report.production_24h_metrics_satisfied)
+        self.assertTrue(report.closure_requested)
+        self.assertFalse(report.closure_claim)
+        self.assertEqual(report.closure_request_status, "requested_but_blocked")
+        self.assertIn(PRODUCTION_24H_EVIDENCE_INVALID_BLOCKER, remaining)
+
+    def test_valid_ops_artifact_is_distinguished_when_production_metrics_are_open(self) -> None:
+        report = build_strict_promotion_readiness(
+            project_key="demo_proj",
+            live_canary_evidence=_live_evidence(),
+            metrics_artifact=build_24h_metrics_artifact(project_key="demo_proj"),
+            ops_promotion_evidence=_ops_promotion_evidence(),
+        )
+        payload = report.to_dict()
+        remaining = {item["id"] for item in payload["remaining_external_blockers"]}
+
+        self.assertEqual(validate_strict_promotion_readiness(payload), [])
+        self.assertEqual(report.status, "external_blocked")
+        self.assertEqual(report.production_24h_metrics_artifact_status, "not_attached")
+        self.assertEqual(report.ops_promotion_artifact_status, "attached_validated")
+        self.assertFalse(report.production_24h_metrics_satisfied)
+        self.assertFalse(report.strict_gate_promotion_satisfied)
+        self.assertTrue(set(PRODUCTION_24H_BLOCKERS).issubset(remaining))
+        self.assertFalse(set(OPS_PROMOTION_BLOCKERS).intersection(remaining))
 
     def test_valid_production_and_ops_artifacts_can_close_when_claimed(self) -> None:
         report = build_strict_promotion_readiness(
@@ -161,7 +228,11 @@ class IngestCanaryStrictPromotionReadinessUnitTestCase(unittest.TestCase):
 
         self.assertEqual(validate_strict_promotion_readiness(payload), [])
         self.assertEqual(report.status, "closed")
+        self.assertTrue(report.closure_requested)
         self.assertTrue(report.closure_claim)
+        self.assertEqual(report.closure_request_status, "claimed_closed")
+        self.assertEqual(report.production_24h_metrics_artifact_status, "attached_validated")
+        self.assertEqual(report.ops_promotion_artifact_status, "attached_validated")
         self.assertTrue(report.production_24h_metrics_satisfied)
         self.assertTrue(report.strict_gate_promotion_satisfied)
         self.assertEqual(payload["remaining_external_blockers"], [])
@@ -182,7 +253,10 @@ class IngestCanaryStrictPromotionReadinessUnitTestCase(unittest.TestCase):
 
         self.assertEqual(validate_strict_promotion_readiness(payload), [])
         self.assertEqual(report.status, "external_blocked")
+        self.assertTrue(report.closure_requested)
         self.assertFalse(report.closure_claim)
+        self.assertEqual(report.closure_request_status, "requested_but_blocked")
+        self.assertEqual(report.ops_promotion_artifact_status, "attached_invalid")
         self.assertFalse(report.strict_gate_promotion_satisfied)
         self.assertIn(OPS_PROMOTION_EVIDENCE_INVALID_BLOCKER, remaining)
 
@@ -195,6 +269,7 @@ class IngestCanaryStrictPromotionReadinessUnitTestCase(unittest.TestCase):
         remaining = {item["id"] for item in report.to_dict()["remaining_external_blockers"]}
 
         self.assertEqual(report.status, "repo_local_blocked")
+        self.assertEqual(report.repo_local_readiness_status, "blocked")
         self.assertFalse(report.repo_local_preflight_passed)
         self.assertIn("repo_local_live_canary_evidence_missing", remaining)
         self.assertFalse(report.closure_claim)
@@ -210,6 +285,37 @@ class IngestCanaryStrictPromotionReadinessUnitTestCase(unittest.TestCase):
         errors = validate_strict_promotion_readiness(report)
 
         self.assertTrue(any("closure_claim" in error for error in errors))
+
+    def test_script_keeps_repo_local_shape_when_attached_production_artifact_load_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            artifact_path = Path(tmp) / "production_metrics.json"
+            artifact_path.write_text("{invalid-json", encoding="utf-8")
+            with patch(
+                "scripts.check_ingest_canary_strict_promotion_readiness.run_repo_local_production_like_handoff_canary",
+                return_value=_live_result(),
+            ):
+                result = build_strict_promotion_check(
+                    production_metrics_artifact_path=artifact_path,
+                    closure_claim=True,
+                )
+
+        report = result["readiness_report"]
+        remaining = {item["id"] for item in report["remaining_external_blockers"]}
+
+        self.assertEqual(result["status"], "failed")
+        self.assertTrue(report["repo_local_preflight_passed"])
+        self.assertEqual(report["repo_local_readiness_status"], "validated")
+        self.assertEqual(report["production_24h_metrics_artifact_status"], "attached_invalid")
+        self.assertTrue(report["closure_requested"])
+        self.assertFalse(report["closure_claim"])
+        self.assertEqual(report["closure_request_status"], "requested_but_blocked")
+        self.assertIn(PRODUCTION_24H_EVIDENCE_INVALID_BLOCKER, remaining)
+        self.assertTrue(
+            any(
+                item["name"] == "24h_metric_shape_validated" and item["passed"] is True
+                for item in result["runtime_results"]
+            )
+        )
 
 
 if __name__ == "__main__":

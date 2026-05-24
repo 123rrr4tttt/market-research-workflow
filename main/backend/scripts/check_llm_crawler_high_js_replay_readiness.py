@@ -18,6 +18,8 @@ from scripts.check_crawler_provider_handoff_contract import build_check as build
 CONTRACT_VERSION = "llm_crawler.high_js_replay_readiness.v1"
 PUBLIC_REPLAY_CONTRACT_VERSION = "llm_crawler.high_js_public_replay.v1"
 SESSION_EVIDENCE_CONTRACT_VERSION = "llm_crawler.high_js_session_replay_evidence.v1"
+X_LAWFUL_SESSION_TARGET_ID = "x_search_robotics"
+CONFIGURED_SESSION_USER_DATA_DIR_MODES = {"operator_profile_direct", "copied_operator_profile"}
 TOPIC_DIR = Path(
     "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
     "2026-03-08-llm-crawler-unified-frontdoor"
@@ -193,6 +195,47 @@ def _target_result_successful(item: dict[str, Any] | None) -> bool:
     return str(item.get("status") or "").strip().lower() == "success" and item.get("browser_rendered") is True
 
 
+def _configured_session_mode(session: dict[str, Any]) -> bool:
+    return bool(
+        session.get("session_aware_replay_requested") is True
+        and session.get("configured") is True
+        and session.get("session_context_applied") is True
+        and str(session.get("user_data_dir_mode") or "") in CONFIGURED_SESSION_USER_DATA_DIR_MODES
+    )
+
+
+def _lawful_session_evidence_for_target(
+    target: dict[str, Any],
+    item: dict[str, Any] | None,
+    session: dict[str, Any],
+) -> dict[str, Any]:
+    target_id = str(target.get("target_id") or "").strip()
+    browser_rendered_success = _target_result_successful(item)
+    session_mode_configured = _configured_session_mode(session)
+    required = target_id == X_LAWFUL_SESSION_TARGET_ID
+    return {
+        "contract_version": SESSION_EVIDENCE_CONTRACT_VERSION,
+        "target_id": target_id,
+        "required": required,
+        "accepted": bool(required and browser_rendered_success and session_mode_configured),
+        "browser_rendered_success": browser_rendered_success,
+        "session_mode_configured": session_mode_configured,
+        "session_aware_replay_requested": bool(session.get("session_aware_replay_requested")),
+        "session_context_applied": bool(session.get("session_context_applied")),
+        "user_data_dir_mode": session.get("user_data_dir_mode"),
+    }
+
+
+def _target_result_accepted_for_closure(
+    target: dict[str, Any],
+    item: dict[str, Any] | None,
+    session: dict[str, Any],
+) -> bool:
+    if str(target.get("target_id") or "").strip() == X_LAWFUL_SESSION_TARGET_ID:
+        return bool(_lawful_session_evidence_for_target(target, item, session)["accepted"])
+    return _target_result_successful(item)
+
+
 def _session_evidence_summary(payload: dict[str, Any], errors: list[str]) -> dict[str, Any]:
     evidence = payload.get("evidence")
     if not isinstance(evidence, dict):
@@ -214,6 +257,7 @@ def _session_evidence_summary(payload: dict[str, Any], errors: list[str]) -> dic
         "status": "present",
         "contract_version": session.get("contract_version"),
         "session_aware_replay_requested": bool(session.get("requested")),
+        "configured": bool(session.get("configured")),
         "session_context_applied": bool(session.get("applied")),
         "source": session.get("source"),
         "user_data_dir_mode": session.get("user_data_dir_mode"),
@@ -239,6 +283,17 @@ def _external_gate_result_proven(target: dict[str, Any], item: dict[str, Any] | 
         and item.get("browser_rendered") is True
         and item.get("public_network_attempted") is True
         and auth_or_anti_bot_marker
+    )
+
+
+def _x_platform_blocker_proven(item: dict[str, Any] | None, lawful_session_evidence: dict[str, Any]) -> bool:
+    if not isinstance(item, dict):
+        return False
+    return bool(
+        lawful_session_evidence.get("required") is True
+        and lawful_session_evidence.get("accepted") is not True
+        and item.get("browser_rendered") is True
+        and item.get("public_network_attempted") is True
     )
 
 
@@ -271,24 +326,53 @@ def _public_artifact_summary(root: Path, public_artifact: Path | str | None, err
     public_network_attempted = validation.get("public_network_attempted") is True
     session_replay_evidence = _session_evidence_summary(payload, errors)
     sufficient_targets = target_count >= len(DEFAULT_HIGH_JS_TARGETS) and attempted >= target_count
-    all_targets_successful = success_count >= target_count and _target_results_successful(payload)
     contract_version_ok = payload.get("contract_version") == PUBLIC_REPLAY_CONTRACT_VERSION
     by_target_id = _result_by_target_id(payload)
     public_probe_targets = list(DEFAULT_HIGH_JS_TARGETS)
+    lawful_session_by_target_id = {
+        str(target.get("target_id") or ""): _lawful_session_evidence_for_target(
+            target,
+            by_target_id.get(str(target.get("target_id") or "")),
+            session_replay_evidence,
+        )
+        for target in public_probe_targets
+    }
     successful_accessible_targets = [
         target
         for target in public_probe_targets
-        if _target_result_successful(by_target_id.get(str(target.get("target_id") or "")))
+        if _target_result_accepted_for_closure(
+            target,
+            by_target_id.get(str(target.get("target_id") or "")),
+            session_replay_evidence,
+        )
     ]
     gate_blocked_targets = [
         target
         for target in public_probe_targets
-        if not _target_result_successful(by_target_id.get(str(target.get("target_id") or "")))
-        and _external_gate_result_proven(target, by_target_id.get(str(target.get("target_id") or "")))
+        if not _target_result_accepted_for_closure(
+            target,
+            by_target_id.get(str(target.get("target_id") or "")),
+            session_replay_evidence,
+        )
+        and (
+            _external_gate_result_proven(target, by_target_id.get(str(target.get("target_id") or "")))
+            or _x_platform_blocker_proven(
+                by_target_id.get(str(target.get("target_id") or "")),
+                lawful_session_by_target_id.get(str(target.get("target_id") or ""), {}),
+            )
+        )
     ]
     all_probe_targets_accounted_for = len(successful_accessible_targets) + len(gate_blocked_targets) == len(public_probe_targets)
     accessible_targets_successful = bool(successful_accessible_targets) and all_probe_targets_accounted_for
     external_gate_blockers_proven = bool(gate_blocked_targets) and all_probe_targets_accounted_for
+    all_targets_successful = success_count >= target_count and all(
+        _target_result_accepted_for_closure(
+            target,
+            by_target_id.get(str(target.get("target_id") or "")),
+            session_replay_evidence,
+        )
+        for target in public_probe_targets
+    )
     accessible_replay_proven = bool(
         contract_version_ok
         and public_network_attempted
@@ -306,6 +390,12 @@ def _public_artifact_summary(root: Path, public_artifact: Path | str | None, err
     for target in gate_blocked_targets:
         target_id = str(target.get("target_id") or "")
         item = by_target_id.get(target_id, {})
+        lawful_session_evidence = lawful_session_by_target_id.get(target_id, {})
+        classification = (
+            "platform_blocked"
+            if _x_platform_blocker_proven(item, lawful_session_evidence)
+            else "intrinsic_external_auth_or_anti_bot_gate"
+        )
         remaining_external_blockers.append(
             {
                 "target_id": target_id,
@@ -313,7 +403,8 @@ def _public_artifact_summary(root: Path, public_artifact: Path | str | None, err
                 "status": item.get("status"),
                 "reason": item.get("reason"),
                 "markers": item.get("markers") if isinstance(item.get("markers"), dict) else {},
-                "classification": "intrinsic_external_auth_or_anti_bot_gate",
+                "classification": classification,
+                "lawful_session_evidence": lawful_session_evidence,
             }
         )
 
@@ -347,11 +438,14 @@ def _public_artifact_summary(root: Path, public_artifact: Path | str | None, err
         "external_gate_target_ids": [target["target_id"] for target in gate_blocked_targets],
         "remaining_external_blockers": remaining_external_blockers,
         "session_replay_evidence": session_replay_evidence,
+        "lawful_session_evidence": lawful_session_by_target_id.get(X_LAWFUL_SESSION_TARGET_ID, {}),
         "blocker_type": (
             None
             if proven
             else (
-                "intrinsic_external_auth_or_anti_bot_gate"
+                "platform_blocked"
+                if any(item.get("classification") == "platform_blocked" for item in remaining_external_blockers)
+                else "intrinsic_external_auth_or_anti_bot_gate"
                 if accessible_replay_proven and external_gate_blockers_proven
                 else "public_artifact_present_but_not_proven"
             )
@@ -433,12 +527,15 @@ def build_check(
             ),
         },
         "validation": {
-            "passed": status
+            "passed": full_closure_allowed,
+            "readiness_checks_passed": status
             in {
                 "fixture_ready_real_public_replay_blocked",
                 "accessible_public_high_js_replay_proven_external_targets_blocked",
                 "real_public_high_js_replay_proven",
             },
+            "external_blocked": bool(public_replay.get("remaining_external_blockers")),
+            "closure_ready": full_closure_allowed,
             "errors": errors,
             "public_network_attempted": bool(public_replay.get("public_network_attempted")),
             "shared_indexes_edited": False,

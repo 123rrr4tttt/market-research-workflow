@@ -295,6 +295,11 @@ def build_check(
     configured_semantic_chain_verified = bool(
         source_readiness.get("checks", {}).get("configured_semantic_chain_evidence_verified")
     )
+    configured_production_like_verified = bool(
+        source_readiness.get("checks", {}).get(
+            "configured_production_like_semantic_chain_evidence_verified"
+        )
+    )
     stages = [distribution_stage, release_gate, doc_stage]
     failures: list[str] = []
     if source_readiness.get("failures"):
@@ -349,20 +354,21 @@ def build_check(
             ),
             "release_gate_integration_verified": bool(release_gate.get("passed")),
             "configured_semantic_chain_evidence_verified": configured_semantic_chain_verified,
+            "configured_production_like_semantic_chain_evidence_verified": configured_production_like_verified,
             "production_data_semantic_chain_live_verified": production_live_verified,
             "target_doc_artifact_verified": bool(doc_stage.get("passed")),
         },
         "external_blockers_reduced": external_blockers_reduced,
         "remaining_external_blockers": []
         if production_live_verified
-        else ["production_data_semantic_chain_live_validation_not_run"],
+        else list(source_readiness.get("remaining_live_gaps") or []),
         "remaining_live_requirements": []
         if production_live_verified
         else [
-            "configured production/live semantic-chain evidence"
+            "explicit configured-live or production-like semantic-chain evidence with tier/data_source/source-time coverage proof"
             if not configured_semantic_chain_verified
-            else "true production/live dataset tier beyond production-like sample",
-            "configured production/live source-time coverage distribution",
+            else "explicit production/live dataset tier and data_source beyond configured production-like sample",
+            "configured production/live source-time coverage count and total proof",
             "configured production/live prompt-time policy decision-log rows",
             "configured production/live feedback reward alignment",
         ],

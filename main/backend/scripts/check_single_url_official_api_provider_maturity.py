@@ -17,10 +17,13 @@ if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
 from app.services.resource_pool.site_search_policy import resolve_site_search_policy  # noqa: E402
+from app.services.source_library.adapters import official_access as official_access_module  # noqa: E402
 from app.services.source_library.adapters.official_access import handle_official_access_api  # noqa: E402
 
 
 CONTRACT_VERSION = "single_url.official_api_provider_maturity.v1"
+PROVIDER_CREDENTIALS_EVIDENCE_CONTRACT_VERSION = "single_url.provider_credentials_quota_evidence.v1"
+PROVIDER_CREDENTIALS_BEYOND_CROSSREF_BLOCKER = "provider_credentials_quota_beyond_public_crossref_not_validated"
 TOPIC_SLUG = "2026-03-02-single-url-first-ingest-allocation-plan"
 TOPIC_DIR = Path("development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED") / TOPIC_SLUG
 WAVE56_DOC = TOPIC_DIR / "12_wave56-crossref-official-api-provider-maturity-2026-05-23.md"
@@ -76,6 +79,7 @@ def _fixture_crossref_payload() -> dict[str, Any]:
 
 
 def _run_fixture_probe() -> dict[str, Any]:
+    official_access_module._CROSSREF_RESULT_CACHE.clear()
     with patch("app.services.source_library.adapters.official_access.default_http_client.get_json") as get_json:
         get_json.return_value = _fixture_crossref_payload()
         result = handle_official_access_api(
@@ -116,6 +120,91 @@ def _run_live_probe() -> dict[str, Any]:
         "diagnostics": dict(diagnostics or {}) if isinstance(diagnostics, Mapping) else {},
         "errors": list(result.get("errors") or []) if isinstance(result, Mapping) else [],
         "result": result,
+    }
+
+
+def _read_json_artifact(path: Path | None) -> tuple[dict[str, Any] | None, str | None, str | None]:
+    if path is None:
+        return None, None, None
+    full_path = path if path.is_absolute() else REPO_ROOT / path
+    try:
+        payload = json.loads(full_path.read_text(encoding="utf-8"))
+    except Exception as exc:  # noqa: BLE001
+        return None, str(full_path), f"{exc.__class__.__name__}: {exc}"
+    if not isinstance(payload, dict):
+        return None, str(full_path), "artifact JSON must be an object"
+    return payload, str(full_path), None
+
+
+def _clean_text(value: Any) -> str:
+    return str(value or "").strip()
+
+
+def _provider_credentials_boundary(
+    evidence: Mapping[str, Any] | None,
+    *,
+    source_path: str | None = None,
+    load_error: str | None = None,
+) -> dict[str, Any]:
+    payload = evidence if isinstance(evidence, Mapping) else {}
+    providers = payload.get("providers") if isinstance(payload.get("providers"), list) else []
+    provider_results: list[dict[str, Any]] = []
+    for item in providers:
+        if not isinstance(item, Mapping):
+            provider_results.append(
+                {
+                    "provider_key": None,
+                    "status": "invalid",
+                    "failed_checks": ["provider_entry_must_be_object"],
+                }
+            )
+            continue
+        checks = {
+            "provider_key_present": bool(_clean_text(item.get("provider_key"))),
+            "credential_state_configured": _clean_text(item.get("credential_state")).lower()
+            in {"configured", "available", "valid"},
+            "quota_status_healthy": _clean_text(item.get("quota_status")).lower()
+            in {"within_quota", "healthy", "available"},
+            "live_probe_status_passed": _clean_text(item.get("live_probe_status")).lower()
+            in {"passed", "validated", "ok"},
+            "provider_specific_quota_validated": item.get("provider_specific_quota_validated") is True,
+            "credential_material_not_logged": item.get("credential_material_logged") is False,
+        }
+        failed = [name for name, passed in checks.items() if not passed]
+        provider_results.append(
+            {
+                "provider_key": item.get("provider_key"),
+                "status": "validated" if not failed else "failed_evidence",
+                "checks": checks,
+                "failed_checks": failed,
+                "quota_status": item.get("quota_status"),
+                "live_probe_status": item.get("live_probe_status"),
+            }
+        )
+
+    checks = {
+        "artifact_loaded": load_error is None,
+        "contract_version": payload.get("contract_version") == PROVIDER_CREDENTIALS_EVIDENCE_CONTRACT_VERSION,
+        "evidence_scope": payload.get("evidence_scope") == "provider_credentials_quota",
+        "providers_present": bool(providers),
+        "all_provider_entries_validated": bool(provider_results)
+        and all(result.get("status") == "validated" for result in provider_results),
+        "generated_by_present": bool(_clean_text(payload.get("generated_by"))),
+        "generated_at_present": bool(_clean_text(payload.get("generated_at"))),
+        "credential_material_not_logged": payload.get("credential_material_logged") is False,
+    }
+    failed_checks = [name for name, passed in checks.items() if not passed]
+    validated = bool(payload) and not failed_checks
+    return {
+        "contract_version": PROVIDER_CREDENTIALS_EVIDENCE_CONTRACT_VERSION,
+        "status": "validated" if validated else ("failed_evidence" if payload or load_error else "missing_evidence"),
+        "validated": validated,
+        "source_path": source_path,
+        "load_error": load_error,
+        "checks": checks,
+        "failed_checks": failed_checks,
+        "provider_results": provider_results,
+        "credentialed_provider_count": sum(1 for result in provider_results if result.get("status") == "validated"),
     }
 
 
@@ -169,7 +258,13 @@ def _fixture_runtime_results(fixture: Mapping[str, Any]) -> list[dict[str, Any]]
     ]
 
 
-def build_report(*, allow_live_crossref: bool = False, require_live_crossref: bool = False) -> dict[str, Any]:
+def build_report(
+    *,
+    allow_live_crossref: bool = False,
+    require_live_crossref: bool = False,
+    provider_credentials_artifact: Path | None = None,
+    provider_credentials_evidence: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
     token_results = [
         _token_check(
             REPO_ROOT / "main/backend/app/services/source_library/adapters/official_access.py",
@@ -224,11 +319,32 @@ def build_report(*, allow_live_crossref: bool = False, require_live_crossref: bo
             }
         )
     live_required_failed = require_live_crossref and live_crossref.get("status") != "passed"
+    loaded_provider_evidence, provider_evidence_path, provider_evidence_error = _read_json_artifact(
+        provider_credentials_artifact
+    )
+    credentials_boundary = _provider_credentials_boundary(
+        provider_credentials_evidence or loaded_provider_evidence,
+        source_path=provider_evidence_path,
+        load_error=provider_evidence_error,
+    )
+    provider_credentials_satisfied = credentials_boundary.get("validated") is True
+    provider_artifact_supplied = provider_credentials_artifact is not None or provider_credentials_evidence is not None
+    provider_artifact_failed = provider_artifact_supplied and not provider_credentials_satisfied
     passed = (
         all(item["passed"] for item in token_results)
         and all(item["passed"] for item in runtime_results)
         and not live_required_failed
+        and not provider_artifact_failed
     )
+    remaining_provider_boundary = [
+        "public browser/runtime replay remains external to this gate",
+        "configured demo_proj canary and production 24h readback remain external/live",
+    ]
+    if not provider_credentials_satisfied:
+        remaining_provider_boundary.insert(
+            0,
+            "provider-specific credentials and quota behavior beyond public Crossref remain external",
+        )
     return {
         "contract_version": CONTRACT_VERSION,
         "topic_slug": TOPIC_SLUG,
@@ -239,11 +355,10 @@ def build_report(*, allow_live_crossref: bool = False, require_live_crossref: bo
             "closed_provider": "crossref",
             "provider_scope": "public Crossref works API",
             "credential_required": False,
-            "remaining_provider_catalog_boundary": [
-                "provider-specific credentials and quota behavior beyond public Crossref remain external",
-                "public browser/runtime replay remains external to this gate",
-                "configured demo_proj canary and production 24h readback remain external/live",
-            ],
+            "provider_credentials_beyond_crossref_satisfied": provider_credentials_satisfied,
+            "provider_credentials_blocker_id": PROVIDER_CREDENTIALS_BEYOND_CROSSREF_BLOCKER,
+            "provider_credentials_boundary": credentials_boundary,
+            "remaining_provider_catalog_boundary": remaining_provider_boundary,
         },
         "token_results": token_results,
         "runtime_results": runtime_results,
@@ -257,12 +372,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--json", action="store_true", help="print JSON report")
     parser.add_argument("--allow-live-crossref", action="store_true", help="run a live public Crossref API probe")
     parser.add_argument("--require-live-crossref", action="store_true", help="fail unless live Crossref probe passes")
+    parser.add_argument("--provider-credentials-artifact", type=Path, default=None)
     parser.add_argument("--write-report", type=Path, default=None, help="write JSON report to this path")
     args = parser.parse_args(argv)
 
     report = build_report(
         allow_live_crossref=args.allow_live_crossref or args.require_live_crossref,
         require_live_crossref=args.require_live_crossref,
+        provider_credentials_artifact=args.provider_credentials_artifact,
     )
     if args.write_report is not None:
         args.write_report.parent.mkdir(parents=True, exist_ok=True)

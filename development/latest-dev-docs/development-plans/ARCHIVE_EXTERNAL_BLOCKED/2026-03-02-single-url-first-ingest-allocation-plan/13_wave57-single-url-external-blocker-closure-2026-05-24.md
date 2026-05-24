@@ -15,6 +15,7 @@ This slice reduces the remaining Single URL external blockers with real public/r
 - Repo-local configured canary passed through the Single URL API/DB/guardrail path with `ingest.url.single`, accepted and rejected readbacks, and canary handoff validation. `repo_local_configured_canary_validated=true`.
 - 24h metric artifact shape is valid for the repo-local fixture, but it is not production evidence. `production_24h_metrics_satisfied=false`.
 - Crossref public official API maturity remains reduced by Wave56. Provider credentials/quota beyond public Crossref are still not configured or validated. `provider_credentials_beyond_crossref_open=true`.
+- The closure checker now has optional external evidence attachment inputs for production metrics, ops promotion, and provider credential/quota proof. `external_evidence_artifacts_optional`.
 
 ## Evidence
 
@@ -30,6 +31,17 @@ Commands:
 PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 main/backend/scripts/run_llm_crawler_high_js_public_replay.py --allow-public-network --allow-browser-runtime --timeout-seconds 20 --operator codex --run-id single-url-first-ingest-allocation-2026-05-24 --output development/latest-dev-docs/automation-runs/single-url-first-ingest-allocation-external-blocker-closure/2026-05-24/high_js_public_replay.json
 PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 main/backend/scripts/check_llm_crawler_high_js_replay_readiness.py --repo-root /Users/wangyiliang/market-research-workflow --public-artifact development/latest-dev-docs/automation-runs/single-url-first-ingest-allocation-external-blocker-closure/2026-05-24/high_js_public_replay.json --output development/latest-dev-docs/automation-runs/single-url-first-ingest-allocation-external-blocker-closure/2026-05-24/high_js_public_replay_check.json
 PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 main/backend/scripts/check_single_url_external_blocker_closure.py --allow-live-crossref --require-live-crossref --output development/latest-dev-docs/automation-runs/single-url-first-ingest-allocation-external-blocker-closure/2026-05-24/single_url_external_blocker_closure.json
+```
+
+Optional closure input shape, only for externally supplied production/ops/provider evidence:
+
+```bash
+PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 main/backend/scripts/check_single_url_external_blocker_closure.py \
+  --production-metrics-artifact <production_24h_metrics.json> \
+  --ops-promotion-artifact <ops_strict_gate_promotion.json> \
+  --provider-credentials-artifact <provider_credentials_quota.json> \
+  --claim-closure \
+  --output <closure_check.json>
 ```
 
 ## Closure Decision

@@ -27,7 +27,75 @@ def _load_checker_module():
     return module
 
 
+def _load_evidence_builder_module():
+    module_path = (
+        Path(__file__).resolve().parents[2]
+        / "scripts"
+        / "build_time_semantics_configured_live_evidence.py"
+    )
+    spec = importlib.util.spec_from_file_location(
+        "build_time_semantics_configured_live_evidence",
+        module_path,
+    )
+    if spec is None or spec.loader is None:
+        raise AssertionError(f"cannot load time-semantics evidence builder: {module_path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _sample_builder_rows() -> list[dict[str, object]]:
+    return [
+        {
+            "request_id": "req-1",
+            "features_json": {
+                "contract_version": "time-density-decision-log.v1",
+                "effective_time_source_distribution": {
+                    "total_docs": 4,
+                    "source_time_count": 3,
+                    "source_time_coverage": 0.75,
+                },
+            },
+            "observed_reward": 0.82,
+        }
+    ]
+
+
 class SourceTimeProductionReadinessTest(unittest.TestCase):
+    def test_evidence_builder_marks_live_and_production_like_artifact_identity(self) -> None:
+        module = _load_evidence_builder_module()
+
+        live_payload = module._build_evidence_from_rows(
+            _sample_builder_rows(),
+            project_key="demo_proj",
+            mode="read-existing",
+        )
+        production_like_payload = module._build_evidence_from_rows(
+            _sample_builder_rows(),
+            project_key="demo_proj",
+            mode="production-like-sample",
+        )
+
+        self.assertTrue(live_payload["production_data_semantic_chain_verified"])
+        self.assertEqual(live_payload["evidence_tier"], "configured_live")
+        self.assertEqual(live_payload["data_source"], "configured_db_existing_decision_logs")
+        self.assertEqual(live_payload["semantic_chain_artifact_scope"], "configured_live_decision_logs")
+        self.assertTrue(live_payload["source_time_coverage_proved"])
+        self.assertEqual(live_payload["source_time_count"], 3)
+        self.assertEqual(live_payload["source_time_total_docs"], 4)
+
+        self.assertTrue(production_like_payload["production_data_semantic_chain_verified"])
+        self.assertEqual(production_like_payload["evidence_tier"], "production_like")
+        self.assertEqual(
+            production_like_payload["data_source"],
+            "configured_db_production_like_sample",
+        )
+        self.assertEqual(
+            production_like_payload["semantic_chain_artifact_scope"],
+            "configured_production_like_sample",
+        )
+
     def test_checker_distinguishes_deterministic_decision_log_and_live_gap(self) -> None:
         module = _load_checker_module()
         result = module.build_check()
@@ -133,6 +201,8 @@ class SourceTimeProductionReadinessTest(unittest.TestCase):
         module = _load_checker_module()
         result = module.build_check(
             live_evidence={
+                "evidence_tier": "configured_live",
+                "data_source": "configured_db_existing_decision_logs",
                 "production_data_semantic_chain_verified": True,
                 "live_query_used": True,
                 "configured_services_used": True,
@@ -143,6 +213,8 @@ class SourceTimeProductionReadinessTest(unittest.TestCase):
                 "feedback_reward_alignment_readback": True,
                 "semantic_chain_sample_count": 12,
                 "source_time_coverage": 0.84,
+                "source_time_count": 21,
+                "source_time_total_docs": 25,
                 "decision_log_row_count": 12,
                 "feedback_row_count": 12,
             }
@@ -153,15 +225,80 @@ class SourceTimeProductionReadinessTest(unittest.TestCase):
         self.assertTrue(result["full_closure_allowed"])
         self.assertEqual(result["readiness_boundaries"]["production_data_semantic_chain"], "live_verified")
         self.assertTrue(result["checks"]["configured_semantic_chain_evidence_verified"])
+        self.assertFalse(
+            result["checks"]["configured_production_like_semantic_chain_evidence_verified"]
+        )
         self.assertTrue(result["checks"]["production_data_semantic_chain_live_verified"])
         self.assertFalse(result["checks"]["production_data_semantic_chain_live_gap_retained"])
         self.assertEqual(result["remaining_live_gaps"], [])
+
+    def test_complete_booleans_without_explicit_tier_and_source_are_not_live(self) -> None:
+        module = _load_checker_module()
+        result = module.build_check(
+            live_evidence={
+                "production_data_semantic_chain_verified": True,
+                "live_query_used": True,
+                "configured_services_used": True,
+                "effective_time_source_distribution_readback": True,
+                "source_time_coverage_measured": True,
+                "decision_log_rows_readback": True,
+                "decision_log_features_readback": True,
+                "feedback_reward_alignment_readback": True,
+                "semantic_chain_sample_count": 3,
+                "source_time_coverage": 0.75,
+                "source_time_count": 3,
+                "source_time_total_docs": 4,
+                "decision_log_row_count": 3,
+                "feedback_row_count": 3,
+            }
+        )
+
+        self.assertEqual(result["status"], "failed")
+        self.assertFalse(result["checks"]["production_data_semantic_chain_live_verified"])
+        production_stage = {
+            stage["name"]: stage for stage in result["stages"]
+        }["production_data_semantic_chain"]
+        self.assertIn("evidence_tier_explicit", production_stage["missing_requirements"])
+        self.assertIn("data_source_explicit", production_stage["missing_requirements"])
+
+    def test_live_evidence_without_source_count_proof_fails(self) -> None:
+        module = _load_checker_module()
+        result = module.build_check(
+            live_evidence={
+                "evidence_tier": "configured_live",
+                "data_source": "configured_db_existing_decision_logs",
+                "production_data_semantic_chain_verified": True,
+                "live_query_used": True,
+                "configured_services_used": True,
+                "effective_time_source_distribution_readback": True,
+                "source_time_coverage_measured": True,
+                "decision_log_rows_readback": True,
+                "decision_log_features_readback": True,
+                "feedback_reward_alignment_readback": True,
+                "semantic_chain_sample_count": 3,
+                "source_time_coverage": 0.75,
+                "decision_log_row_count": 3,
+                "feedback_row_count": 3,
+            }
+        )
+
+        self.assertEqual(result["status"], "failed")
+        production_stage = {
+            stage["name"]: stage for stage in result["stages"]
+        }["production_data_semantic_chain"]
+        self.assertIn("source_time_count>=1", production_stage["missing_requirements"])
+        self.assertIn("source_time_total_docs>=1", production_stage["missing_requirements"])
+        self.assertIn(
+            "source_time_coverage_matches_counts",
+            production_stage["missing_requirements"],
+        )
 
     def test_production_like_evidence_verifies_configured_chain_without_full_closure(self) -> None:
         module = _load_checker_module()
         result = module.build_check(
             live_evidence={
                 "evidence_tier": "production_like",
+                "data_source": "configured_db_production_like_sample",
                 "production_data_semantic_chain_verified": True,
                 "live_query_used": True,
                 "configured_services_used": True,
@@ -172,6 +309,8 @@ class SourceTimeProductionReadinessTest(unittest.TestCase):
                 "feedback_reward_alignment_readback": True,
                 "semantic_chain_sample_count": 1,
                 "source_time_coverage": 1.0,
+                "source_time_count": 4,
+                "source_time_total_docs": 4,
                 "decision_log_row_count": 3,
                 "feedback_row_count": 3,
             }
@@ -184,6 +323,9 @@ class SourceTimeProductionReadinessTest(unittest.TestCase):
             "production_like_verified",
         )
         self.assertTrue(result["checks"]["configured_semantic_chain_evidence_verified"])
+        self.assertTrue(
+            result["checks"]["configured_production_like_semantic_chain_evidence_verified"]
+        )
         self.assertFalse(result["checks"]["production_data_semantic_chain_live_verified"])
         self.assertIn("production_live_dataset_not_verified", result["remaining_live_gaps"])
 

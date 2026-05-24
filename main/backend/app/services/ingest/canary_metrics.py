@@ -8,6 +8,8 @@ from .canary_handoff import CANARY_HANDOFF_CONTRACT_VERSION, CANARY_METRICS_SNAP
 
 CONTRACT_VERSION = "ingest.canary_metrics_readiness.v1"
 CONFIGURED_PROVIDER_CANARY_CONTRACT_VERSION = "ingest.configured_provider_canary_boundary.v1"
+SINGLE_URL_PROVIDER_EVIDENCE_CONTRACT_VERSION = "ingest.single_url_provider_evidence.v1"
+SINGLE_URL_PROVIDER_EVIDENCE_BOUNDARY_CONTRACT_VERSION = "ingest.single_url_provider_evidence_boundary.v1"
 _SINGLE_URL_FRONTDOOR_ENTRYPOINTS = ("ingest.url_pool", "ingest.url.single")
 
 LIVE_CANARY_EVIDENCE_FIELDS = (
@@ -38,6 +40,20 @@ METRIC_24H_EVIDENCE_FIELDS = (
     "rejection_rate_reviewed",
     "inserted_valid_ratio_reviewed",
     "guardrail_rollout_counts_reviewed",
+)
+
+SINGLE_URL_PROVIDER_EVIDENCE_FIELDS = (
+    "contract_version",
+    "artifact_kind",
+    "evidence_scope",
+    "provider_credentials_quota_beyond_public_crossref_validated",
+    "provider_catalog_reviewed",
+    "provider_credentials_validated",
+    "provider_quota_behavior_validated",
+    "providers_validated",
+    "source_record.record_id",
+    "source_record.system",
+    "source_record.generated_at",
 )
 
 DETERMINISTIC_METRICS_FIELDS = (
@@ -115,6 +131,12 @@ def _missing_evidence_fields(evidence: Mapping[str, Any] | None, fields: tuple[s
     if not evidence:
         return list(fields)
     return [field for field in fields if not bool(evidence.get(field))]
+
+
+def _missing_dotted_evidence_fields(evidence: Mapping[str, Any] | None, fields: tuple[str, ...]) -> list[str]:
+    if not evidence:
+        return list(fields)
+    return [field for field in fields if not bool(_get_path(evidence, field))]
 
 
 def build_configured_provider_canary_boundary(
@@ -217,6 +239,67 @@ def build_configured_provider_canary_boundary(
             "checks": checks,
         },
         "live_canary_validated": passed,
+        "closure_claim": False,
+    }
+
+
+def build_single_url_provider_evidence_boundary(
+    *,
+    provider_evidence: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    """Validate explicit provider-account/quota evidence without claiming closure."""
+    evidence = provider_evidence if isinstance(provider_evidence, Mapping) else {}
+    source_record = evidence.get("source_record") if isinstance(evidence.get("source_record"), Mapping) else {}
+    providers = evidence.get("providers_validated") if isinstance(evidence.get("providers_validated"), list) else []
+    provider_keys = [
+        str(provider).strip()
+        for provider in providers
+        if str(provider or "").strip()
+    ]
+    evidence_scope = _clean_text(evidence.get("evidence_scope")).lower()
+    artifact_kind = _clean_text(evidence.get("artifact_kind"))
+    missing_fields = _missing_dotted_evidence_fields(evidence, SINGLE_URL_PROVIDER_EVIDENCE_FIELDS)
+    checks = {
+        "contract_version": evidence.get("contract_version") == SINGLE_URL_PROVIDER_EVIDENCE_CONTRACT_VERSION,
+        "artifact_kind": artifact_kind == "single_url_provider_account_quota_readiness",
+        "status_passed": evidence.get("status") == "passed",
+        "evidence_scope_provider_account": evidence_scope in {"provider_account", "production_provider_account"},
+        "provider_credentials_quota_boundary_validated": (
+            evidence.get("provider_credentials_quota_beyond_public_crossref_validated") is True
+        ),
+        "provider_catalog_reviewed": evidence.get("provider_catalog_reviewed") is True,
+        "provider_credentials_validated": evidence.get("provider_credentials_validated") is True,
+        "provider_quota_behavior_validated": evidence.get("provider_quota_behavior_validated") is True,
+        "providers_validated_present": bool(provider_keys),
+        "source_record_present": bool(
+            _clean_text(source_record.get("record_id"))
+            and _clean_text(source_record.get("system"))
+            and _clean_text(source_record.get("generated_at"))
+        ),
+        "closure_not_claimed_by_boundary": evidence.get("closure_claim") is not True,
+    }
+    failed_checks = [name for name, passed in checks.items() if not passed]
+    passed = bool(evidence) and not missing_fields and not failed_checks
+    return {
+        "contract_version": SINGLE_URL_PROVIDER_EVIDENCE_BOUNDARY_CONTRACT_VERSION,
+        "status": "validated" if passed else ("failed_evidence" if evidence else "missing_evidence"),
+        "evidence_present": bool(evidence),
+        "provider_evidence_contract_version": evidence.get("contract_version"),
+        "artifact_kind": artifact_kind or None,
+        "evidence_scope": evidence_scope or None,
+        "providers_validated": provider_keys,
+        "source_record": {
+            "record_id": source_record.get("record_id"),
+            "system": source_record.get("system"),
+            "generated_at": source_record.get("generated_at"),
+        },
+        "validation": {
+            "passed": passed,
+            "missing_fields": missing_fields,
+            "failed_checks": failed_checks,
+            "checks": checks,
+        },
+        "provider_credentials_quota_beyond_public_crossref_validated": passed,
         "closure_claim": False,
     }
 
@@ -480,8 +563,12 @@ __all__ = [
     "DETERMINISTIC_METRICS_FIELDS",
     "LIVE_CANARY_EVIDENCE_FIELDS",
     "METRIC_24H_EVIDENCE_FIELDS",
+    "SINGLE_URL_PROVIDER_EVIDENCE_BOUNDARY_CONTRACT_VERSION",
+    "SINGLE_URL_PROVIDER_EVIDENCE_CONTRACT_VERSION",
+    "SINGLE_URL_PROVIDER_EVIDENCE_FIELDS",
     "IngestCanaryMetricsReadinessReport",
     "IngestCanaryMetricsStage",
     "build_configured_provider_canary_boundary",
     "build_ingest_canary_metrics_readiness",
+    "build_single_url_provider_evidence_boundary",
 ]

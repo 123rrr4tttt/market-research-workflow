@@ -232,12 +232,21 @@ def _build_evidence_from_rows(
         if total_docs > 0
         else max((float(p.get("source_time_coverage") or 0.0) for p in feature_payloads), default=0.0)
     )
+    source_time_coverage_from_counts = (
+        float(source_time_count) / float(total_docs) if total_docs > 0 else 0.0
+    )
+    source_time_coverage_proved = (
+        total_docs > 0
+        and source_time_count > 0
+        and abs(source_time_coverage - source_time_coverage_from_counts) <= 0.000001
+    )
     feedback_rows = [row for row in rows if row.get("observed_reward") is not None]
     checks = {
         "live_query_used": bool(rows),
         "configured_services_used": bool(rows),
         "effective_time_source_distribution_readback": bool(distributions),
         "source_time_coverage_measured": source_time_coverage > 0.0,
+        "source_time_coverage_count_proof": source_time_coverage_proved,
         "decision_log_rows_readback": bool(rows),
         "decision_log_features_readback": all(
             bool(payload.get("contract_version"))
@@ -265,9 +274,21 @@ def _build_evidence_from_rows(
         "semantic_chain_sample_count": len(request_ids),
         "decision_log_row_count": len(rows),
         "feedback_row_count": len(feedback_rows),
+        "semantic_chain_artifact_scope": (
+            "configured_production_like_sample"
+            if mode == "production-like-sample"
+            else "configured_live_decision_logs"
+        ),
         "source_time_coverage": source_time_coverage,
         "source_time_count": source_time_count,
         "source_time_total_docs": total_docs,
+        "source_time_coverage_from_counts": source_time_coverage_from_counts,
+        "source_time_coverage_proved": source_time_coverage_proved,
+        "effective_time_source_distribution": {
+            "total_docs": total_docs,
+            "source_time_count": source_time_count,
+            "source_time_coverage": source_time_coverage,
+        },
         "inserted_doc_count": inserted_doc_count,
         "cleanup_performed": cleanup_performed,
         **checks,

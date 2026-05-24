@@ -53,7 +53,7 @@
       "provider_key": "crossref",
       "public_api": true,
       "query": "robotics market adoption",
-      "records_total": 883750,
+      "records_total": 883751,
       "rows": 3,
       "selected_candidates": 3,
       "selection_mode": "crossref_message_items"
@@ -94,7 +94,7 @@
         "provider_key": "crossref",
         "public_api": true,
         "query": "robotics market adoption",
-        "records_total": 883750,
+        "records_total": 883751,
         "rows": 3,
         "selected_candidates": 3,
         "selection_mode": "crossref_message_items"
@@ -117,6 +117,36 @@
   "non_arxiv_provider_maturity": {
     "closed_provider": "crossref",
     "credential_required": false,
+    "provider_credentials_beyond_crossref_satisfied": false,
+    "provider_credentials_blocker_id": "provider_credentials_quota_beyond_public_crossref_not_validated",
+    "provider_credentials_boundary": {
+      "checks": {
+        "all_provider_entries_validated": false,
+        "artifact_loaded": true,
+        "contract_version": false,
+        "credential_material_not_logged": false,
+        "evidence_scope": false,
+        "generated_at_present": false,
+        "generated_by_present": false,
+        "providers_present": false
+      },
+      "contract_version": "single_url.provider_credentials_quota_evidence.v1",
+      "credentialed_provider_count": 0,
+      "failed_checks": [
+        "contract_version",
+        "evidence_scope",
+        "providers_present",
+        "all_provider_entries_validated",
+        "generated_by_present",
+        "generated_at_present",
+        "credential_material_not_logged"
+      ],
+      "load_error": null,
+      "provider_results": [],
+      "source_path": null,
+      "status": "missing_evidence",
+      "validated": false
+    },
     "provider_scope": "public Crossref works API",
     "remaining_provider_catalog_boundary": [
       "provider-specific credentials and quota behavior beyond public Crossref remain external",

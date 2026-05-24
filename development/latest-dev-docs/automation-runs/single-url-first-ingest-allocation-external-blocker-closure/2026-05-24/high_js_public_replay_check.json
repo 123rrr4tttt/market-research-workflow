@@ -7,7 +7,18 @@
     "real_public_high_js_replay_complete": false,
     "remaining_external_blockers": [
       {
-        "classification": "intrinsic_external_auth_or_anti_bot_gate",
+        "classification": "platform_blocked",
+        "lawful_session_evidence": {
+          "accepted": false,
+          "browser_rendered_success": false,
+          "contract_version": "llm_crawler.high_js_session_replay_evidence.v1",
+          "required": true,
+          "session_aware_replay_requested": false,
+          "session_context_applied": false,
+          "session_mode_configured": false,
+          "target_id": "x_search_robotics",
+          "user_data_dir_mode": null
+        },
         "markers": {
           "contains_captcha": false,
           "contains_javascript_disabled": false,
@@ -103,7 +114,7 @@
   "evidence_doc": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-08-llm-crawler-unified-frontdoor/06_wave13-high-js-public-replay-readiness-2026-05-22.md",
   "public_high_js_replay": {
     "accessible_public_high_js_replay_proven": true,
-    "blocker_type": "intrinsic_external_auth_or_anti_bot_gate",
+    "blocker_type": "platform_blocked",
     "contract_version": "llm_crawler.high_js_public_replay.v1",
     "external_gate_blockers_proven": true,
     "external_gate_target_ids": [
@@ -111,6 +122,17 @@
     ],
     "full_closure_allowed": false,
     "high_js_success_count": 2,
+    "lawful_session_evidence": {
+      "accepted": false,
+      "browser_rendered_success": false,
+      "contract_version": "llm_crawler.high_js_session_replay_evidence.v1",
+      "required": true,
+      "session_aware_replay_requested": false,
+      "session_context_applied": false,
+      "session_mode_configured": false,
+      "target_id": "x_search_robotics",
+      "user_data_dir_mode": null
+    },
     "path": "development/latest-dev-docs/automation-runs/single-url-first-ingest-allocation-external-blocker-closure/2026-05-24/high_js_public_replay.json",
     "public_high_js_probe_target_ids": [
       "x_search_robotics",
@@ -122,7 +144,18 @@
     "real_public_high_js_replay_proven": false,
     "remaining_external_blockers": [
       {
-        "classification": "intrinsic_external_auth_or_anti_bot_gate",
+        "classification": "platform_blocked",
+        "lawful_session_evidence": {
+          "accepted": false,
+          "browser_rendered_success": false,
+          "contract_version": "llm_crawler.high_js_session_replay_evidence.v1",
+          "required": true,
+          "session_aware_replay_requested": false,
+          "session_context_applied": false,
+          "session_mode_configured": false,
+          "target_id": "x_search_robotics",
+          "user_data_dir_mode": null
+        },
         "markers": {
           "contains_captcha": false,
           "contains_javascript_disabled": false,
@@ -166,8 +199,10 @@
   "scope": "llm_crawler_unified_frontdoor_high_js_public_replay_boundary",
   "status": "accessible_public_high_js_replay_proven_external_targets_blocked",
   "validation": {
+    "closure_ready": false,
     "errors": [],
-    "passed": true,
+    "external_blocked": true,
+    "passed": false,
     "protected_shared_indexes": [
       "development/latest-dev-docs/development-plans/CURRENT_DEV/INDEX.md",
       "development/latest-dev-docs/development-plans/CURRENT_DEV/STATUS_AUDIT_2026-04-07.md",
@@ -176,6 +211,7 @@
       "development/latest-dev-docs/MERGED_OVERVIEW.md"
     ],
     "public_network_attempted": true,
+    "readiness_checks_passed": true,
     "shared_indexes_edited": false
   }
 }

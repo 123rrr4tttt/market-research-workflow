@@ -19,7 +19,8 @@ Latest artifact pair:
 Checker result:
 
 - `status=accessible_public_high_js_replay_proven_external_targets_blocked`
-- `validation.passed=true`
+- `validation.passed=false`
+- `validation.readiness_checks_passed=true`
 - `closure.accessible_public_high_js_replay_complete=true`
 - `closure.real_public_high_js_replay_complete=false`
 - `closure.full_closure_allowed=false`
@@ -102,7 +103,7 @@ PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 -m pytest -q \
 
 Validation result:
 
-- readiness checker exit code `0`
+- readiness checker exit code is nonzero until `closure.full_closure_allowed=true`; `readiness_checks_passed=true` records the reduced external-blocked state without claiming closure.
 - unit tests `11 passed`
 
 ## Closure Decision

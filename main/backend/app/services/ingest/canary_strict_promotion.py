@@ -43,7 +43,12 @@ class StrictPromotionReadiness:
     contract_version: str
     status: str
     project_key: str
+    closure_requested: bool
     closure_claim: bool
+    closure_request_status: str
+    repo_local_readiness_status: str
+    production_24h_metrics_artifact_status: str
+    ops_promotion_artifact_status: str
     repo_local_preflight_passed: bool
     repo_local_live_canary_validated: bool
     repo_local_metric_24h_shape_validated: bool
@@ -127,19 +132,21 @@ def _live_canary_boundary(live_canary_evidence: Mapping[str, Any] | None) -> Bou
     )
 
 
-def _metric_24h_shape_boundary(metrics_artifact: Mapping[str, Any] | None) -> Boundary:
+def _metric_24h_shape_boundary(
+    metrics_artifact: Mapping[str, Any] | None,
+    *,
+    production_metrics_artifact: Mapping[str, Any] | None = None,
+    production_metrics_artifact_attached: bool = False,
+) -> Boundary:
     artifact = _mapping(metrics_artifact)
     metrics = _mapping(artifact.get("metrics_24h"))
     window = _mapping(artifact.get("window"))
     guardrail = _mapping(artifact.get("guardrail_rollout"))
-    live_boundaries = _mapping(artifact.get("live_boundaries"))
-    source_record = _mapping(artifact.get("source_record"))
     total_attempts = metrics.get("total_attempts")
     inserted_total = metrics.get("inserted_total_count")
     inserted_valid = metrics.get("inserted_valid_count")
     rejected = metrics.get("rejected_count")
     contract_version = artifact.get("contract_version")
-    is_production_evidence = contract_version == PRODUCTION_24H_METRICS_CONTRACT_VERSION
 
     checks = {
         "contract_version": contract_version
@@ -162,27 +169,70 @@ def _metric_24h_shape_boundary(metrics_artifact: Mapping[str, Any] | None) -> Bo
     }
     failed = [name for name, passed in checks.items() if not passed]
     shape_passed = bool(artifact) and not failed
+
+    production_artifact = _mapping(production_metrics_artifact) if production_metrics_artifact is not None else artifact
+    production_attached = (
+        production_metrics_artifact_attached
+        or production_metrics_artifact is not None
+        or production_artifact.get("contract_version") == PRODUCTION_24H_METRICS_CONTRACT_VERSION
+    )
+    production_metrics = _mapping(production_artifact.get("metrics_24h"))
+    production_window = _mapping(production_artifact.get("window"))
+    production_guardrail = _mapping(production_artifact.get("guardrail_rollout"))
+    production_live_boundaries = _mapping(production_artifact.get("live_boundaries"))
+    production_source_record = _mapping(production_artifact.get("source_record"))
+    production_total_attempts = production_metrics.get("total_attempts")
+    production_inserted_total = production_metrics.get("inserted_total_count")
+    production_inserted_valid = production_metrics.get("inserted_valid_count")
+    production_rejected = production_metrics.get("rejected_count")
+    production_contract_version = production_artifact.get("contract_version")
+    is_production_evidence = production_contract_version == PRODUCTION_24H_METRICS_CONTRACT_VERSION
+    production_shape_checks = {
+        "contract_version": production_contract_version
+        in {
+            "ingest.canary_24h_metrics_artifact.v1",
+            PRODUCTION_24H_METRICS_CONTRACT_VERSION,
+        },
+        "window_hours_at_least_24": int(production_window.get("window_hours") or 0) >= 24,
+        "rejection_rate_reviewed": _rate_matches(
+            production_metrics.get("rejection_rate"),
+            production_rejected,
+            production_total_attempts,
+        ),
+        "inserted_valid_ratio_reviewed": _rate_matches(
+            production_metrics.get("inserted_valid_ratio"),
+            production_inserted_valid,
+            production_inserted_total,
+        ),
+        "guardrail_rollout_counts_reviewed": bool(
+            production_guardrail.get("strict_enabled_samples")
+            and production_guardrail.get("canary_matched_samples")
+            and production_guardrail.get("guardrail_rollout_counts_review_present") is True
+        ),
+    }
+    production_shape_failed = [name for name, passed in production_shape_checks.items() if not passed]
+    production_shape_passed = bool(production_artifact) and not production_shape_failed
     production_checks = {
         "production_contract_version": is_production_evidence,
-        "artifact_kind": artifact.get("artifact_kind") == "production_ingest_canary_24h_metrics_readback",
-        "status_passed": artifact.get("status") == "passed",
-        "deterministic_fixture_false": artifact.get("deterministic_fixture") is False,
-        "evidence_scope_production": artifact.get("evidence_scope") == "production",
-        "live_window_observed": window.get("live_window_observed") is True,
-        "production_data_claim": live_boundaries.get("production_data_claim") is True,
-        "metric_24h_live_readback_claim": live_boundaries.get("metric_24h_live_readback_claim") is True,
-        "source_record_present": _string_present(source_record.get("record_id"))
-        and _string_present(source_record.get("system"))
-        and _string_present(source_record.get("generated_at")),
+        "artifact_kind": production_artifact.get("artifact_kind") == "production_ingest_canary_24h_metrics_readback",
+        "status_passed": production_artifact.get("status") == "passed",
+        "deterministic_fixture_false": production_artifact.get("deterministic_fixture") is False,
+        "evidence_scope_production": production_artifact.get("evidence_scope") == "production",
+        "live_window_observed": production_window.get("live_window_observed") is True,
+        "production_data_claim": production_live_boundaries.get("production_data_claim") is True,
+        "metric_24h_live_readback_claim": production_live_boundaries.get("metric_24h_live_readback_claim") is True,
+        "source_record_present": _string_present(production_source_record.get("record_id"))
+        and _string_present(production_source_record.get("system"))
+        and _string_present(production_source_record.get("generated_at")),
     }
     production_failed = [name for name, passed in production_checks.items() if not passed]
     production_satisfied = (
-        shape_passed
+        production_shape_passed
         and is_production_evidence
         and not production_failed
     )
     blockers = [] if shape_passed else ["repo_local_24h_metric_shape_invalid"]
-    if shape_passed and is_production_evidence and not production_satisfied:
+    if shape_passed and production_attached and not production_satisfied:
         blockers.append(PRODUCTION_24H_EVIDENCE_INVALID_BLOCKER)
     elif shape_passed and not production_satisfied:
         blockers.extend(PRODUCTION_24H_BLOCKERS)
@@ -191,13 +241,17 @@ def _metric_24h_shape_boundary(metrics_artifact: Mapping[str, Any] | None) -> Bo
         status=(
             "production_validated"
             if production_satisfied
-            else ("repo_local_shape_validated_production_open" if shape_passed else "failed_evidence")
+            else (
+                "production_artifact_invalid"
+                if shape_passed and production_attached
+                else ("repo_local_shape_validated_production_open" if shape_passed else "failed_evidence")
+            )
         ),
         passed=shape_passed,
         validated=production_satisfied,
         detail=(
             "production 24h metric evidence is present but incomplete"
-            if shape_passed and is_production_evidence and not production_satisfied
+            if shape_passed and production_attached and not production_satisfied
             else (
                 "repo-local 24h metric shape is valid, but the artifact does not claim production data"
                 if shape_passed and not production_satisfied
@@ -212,7 +266,10 @@ def _metric_24h_shape_boundary(metrics_artifact: Mapping[str, Any] | None) -> Bo
         evidence={
             "checks": checks,
             "failed_checks": failed,
+            "production_artifact_attached": production_attached,
             "production_checks": production_checks if is_production_evidence else {},
+            "production_shape_checks": production_shape_checks if production_attached else {},
+            "production_shape_failed_checks": production_shape_failed if production_attached else [],
             "production_failed_checks": production_failed if is_production_evidence else [],
             "deterministic_fixture": artifact.get("deterministic_fixture"),
             "contract_version": contract_version,
@@ -221,10 +278,14 @@ def _metric_24h_shape_boundary(metrics_artifact: Mapping[str, Any] | None) -> Bo
             "live_window_observed": window.get("live_window_observed"),
             "rejection_rate": metrics.get("rejection_rate"),
             "inserted_valid_ratio": metrics.get("inserted_valid_ratio"),
-            "production_data_claim": live_boundaries.get("production_data_claim"),
-            "metric_24h_live_readback_claim": live_boundaries.get("metric_24h_live_readback_claim"),
-            "source_record_id": source_record.get("record_id"),
-            "source_system": source_record.get("system"),
+            "production_contract_version": production_contract_version,
+            "production_artifact_kind": production_artifact.get("artifact_kind"),
+            "production_deterministic_fixture": production_artifact.get("deterministic_fixture"),
+            "production_live_window_observed": production_window.get("live_window_observed"),
+            "production_data_claim": production_live_boundaries.get("production_data_claim"),
+            "metric_24h_live_readback_claim": production_live_boundaries.get("metric_24h_live_readback_claim"),
+            "source_record_id": production_source_record.get("record_id"),
+            "source_system": production_source_record.get("system"),
         },
     )
 
@@ -275,11 +336,18 @@ def build_strict_promotion_readiness(
     project_key: str = "demo_proj",
     live_canary_evidence: Mapping[str, Any] | None,
     metrics_artifact: Mapping[str, Any] | None,
+    production_metrics_artifact: Mapping[str, Any] | None = None,
+    production_metrics_artifact_attached: bool = False,
     ops_promotion_evidence: Mapping[str, Any] | None = None,
+    ops_promotion_artifact_attached: bool = False,
     closure_claim: bool = False,
 ) -> StrictPromotionReadiness:
     live_boundary = _live_canary_boundary(live_canary_evidence)
-    metric_boundary = _metric_24h_shape_boundary(metrics_artifact)
+    metric_boundary = _metric_24h_shape_boundary(
+        metrics_artifact,
+        production_metrics_artifact=production_metrics_artifact,
+        production_metrics_artifact_attached=production_metrics_artifact_attached,
+    )
     ops_boundary = _ops_promotion_boundary(ops_promotion_evidence)
     boundaries = [live_boundary, metric_boundary, ops_boundary]
 
@@ -296,6 +364,23 @@ def build_strict_promotion_readiness(
     production_24h_satisfied = metric_boundary.validated
     strict_gate_satisfied = ops_boundary.validated and production_24h_satisfied
     closed = bool(closure_claim and repo_local_preflight_passed and production_24h_satisfied and strict_gate_satisfied)
+    closure_request_status = (
+        "claimed_closed"
+        if closed
+        else ("requested_but_blocked" if closure_claim else "not_requested")
+    )
+    production_artifact_attached = bool(metric_boundary.evidence.get("production_artifact_attached"))
+    production_artifact_status = (
+        "attached_validated"
+        if production_24h_satisfied
+        else ("attached_invalid" if production_artifact_attached else "not_attached")
+    )
+    ops_artifact_attached = ops_promotion_artifact_attached or ops_promotion_evidence is not None
+    ops_artifact_status = (
+        "attached_validated"
+        if ops_boundary.validated
+        else ("attached_invalid" if ops_artifact_attached else "not_attached")
+    )
     if closed:
         status = "closed"
     elif repo_local_preflight_passed:
@@ -307,7 +392,12 @@ def build_strict_promotion_readiness(
         contract_version=CONTRACT_VERSION,
         status=status,
         project_key=str(project_key or "demo_proj").strip() or "demo_proj",
+        closure_requested=bool(closure_claim),
         closure_claim=closed,
+        closure_request_status=closure_request_status,
+        repo_local_readiness_status="validated" if repo_local_preflight_passed else "blocked",
+        production_24h_metrics_artifact_status=production_artifact_status,
+        ops_promotion_artifact_status=ops_artifact_status,
         repo_local_preflight_passed=repo_local_preflight_passed,
         repo_local_live_canary_validated=live_boundary.passed,
         repo_local_metric_24h_shape_validated=metric_boundary.passed,
@@ -329,6 +419,8 @@ def validate_strict_promotion_readiness(report: Mapping[str, Any]) -> list[str]:
     errors: list[str] = []
     if report.get("contract_version") != CONTRACT_VERSION:
         errors.append("contract_version mismatch")
+    if not isinstance(report.get("closure_requested"), bool):
+        errors.append("closure_requested must be boolean")
     remaining = report.get("remaining_external_blockers")
     remaining_ids = {
         item.get("id")
@@ -338,6 +430,17 @@ def validate_strict_promotion_readiness(report: Mapping[str, Any]) -> list[str]:
     status = report.get("status")
     if report.get("closure_claim") is not False and report.get("status") != "closed":
         errors.append("closure_claim can only be true when status is closed")
+    if report.get("closure_claim") is True and report.get("closure_requested") is not True:
+        errors.append("closure_claim requires closure_requested true")
+    closure_request_status = report.get("closure_request_status")
+    if closure_request_status not in {"not_requested", "requested_but_blocked", "claimed_closed"}:
+        errors.append("closure_request_status invalid")
+    if report.get("closure_requested") is False and closure_request_status != "not_requested":
+        errors.append("unrequested closure must use closure_request_status not_requested")
+    if report.get("closure_requested") is True and report.get("closure_claim") is False and closure_request_status != "requested_but_blocked":
+        errors.append("blocked closure request must use closure_request_status requested_but_blocked")
+    if report.get("closure_claim") is True and closure_request_status != "claimed_closed":
+        errors.append("claimed closure must use closure_request_status claimed_closed")
     if status == "closed":
         if report.get("closure_claim") is not True:
             errors.append("closed status requires closure_claim true")
@@ -353,10 +456,32 @@ def validate_strict_promotion_readiness(report: Mapping[str, Any]) -> list[str]:
         errors.append("external_blocked status requires remaining_external_blockers")
     if report.get("repo_local_preflight_passed") is True and report.get("status") not in {"external_blocked", "closed"}:
         errors.append("repo_local_preflight_passed requires external_blocked or closed status")
+    repo_local_status = report.get("repo_local_readiness_status")
+    if repo_local_status not in {"validated", "blocked"}:
+        errors.append("repo_local_readiness_status invalid")
+    if report.get("repo_local_preflight_passed") is True and repo_local_status != "validated":
+        errors.append("repo_local_preflight_passed requires repo_local_readiness_status validated")
+    if report.get("repo_local_preflight_passed") is False and repo_local_status != "blocked":
+        errors.append("repo_local_preflight_passed false requires repo_local_readiness_status blocked")
     if report.get("production_24h_metrics_satisfied") is False and not report.get("remaining_external_blockers"):
         errors.append("open production 24h metrics must have explicit external blockers")
     if report.get("strict_gate_promotion_satisfied") is False and not report.get("remaining_external_blockers"):
         errors.append("open strict-gate promotion must have explicit external blockers")
+    production_artifact_status = report.get("production_24h_metrics_artifact_status")
+    if production_artifact_status not in {"not_attached", "attached_invalid", "attached_validated"}:
+        errors.append("production_24h_metrics_artifact_status invalid")
+    if report.get("production_24h_metrics_satisfied") is True and production_artifact_status != "attached_validated":
+        errors.append("satisfied production 24h metrics require attached_validated artifact status")
+    ops_artifact_status = report.get("ops_promotion_artifact_status")
+    if ops_artifact_status not in {"not_attached", "attached_invalid", "attached_validated"}:
+        errors.append("ops_promotion_artifact_status invalid")
+    if ops_artifact_status == "attached_validated" and not any(
+        isinstance(boundary, Mapping)
+        and boundary.get("name") == "ops_strict_gate_promotion"
+        and boundary.get("validated") is True
+        for boundary in report.get("boundaries", []) or []
+    ):
+        errors.append("attached_validated ops artifact status requires validated ops boundary")
     if report.get("strict_gate_promotion_satisfied") is True and report.get("production_24h_metrics_satisfied") is not True:
         errors.append("strict_gate_promotion_satisfied requires production_24h_metrics_satisfied")
     production_blocker_ids = set(PRODUCTION_24H_BLOCKERS) | {PRODUCTION_24H_EVIDENCE_INVALID_BLOCKER}

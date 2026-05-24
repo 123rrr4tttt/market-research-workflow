@@ -4,7 +4,7 @@
     "closure_claim": false,
     "remaining_external_blockers": [
       {
-        "classification": "intrinsic_external_auth_or_anti_bot_gate",
+        "classification": "platform_blocked",
         "detail": "Headless Chrome rendered the page, but public content was gated by auth or anti-bot markers.",
         "id": "public_high_js_x_search_robotics"
       },
@@ -41,6 +41,7 @@
     ],
     "repo_public_boundaries_reduced": {
       "crossref_public_official_api": true,
+      "provider_credentials_beyond_crossref": false,
       "public_browser_runtime_replay": true,
       "repo_local_24h_metric_shape": true,
       "repo_local_configured_canary": true
@@ -65,7 +66,7 @@
       "entrypoint": "ingest.url.single",
       "project_key": "single_url_wave57_canary",
       "source_mode": "url_execution",
-      "source_url": "https://example.com/wave55-production-like-4a4695ab8d"
+      "source_url": "https://example.com/wave55-production-like-ee0e1236ff"
     },
     "handoff_readback": {
       "closure_claim": false,
@@ -95,6 +96,13 @@
   "contract_version": "single_url.external_blocker_closure.v1",
   "decision_marker": "single_url_external_blocker_repo_public_reduced",
   "evidence_doc": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-single-url-first-ingest-allocation-plan/13_wave57-single-url-external-blocker-closure-2026-05-24.md",
+  "evidence_inputs": {
+    "ops_promotion_artifact_error": null,
+    "ops_promotion_artifact_path": null,
+    "production_metrics_artifact_error": null,
+    "production_metrics_artifact_path": null,
+    "provider_credentials_artifact_path": null
+  },
   "live_canary_result": {
     "cleanup": {
       "error": null,
@@ -103,7 +111,7 @@
     },
     "contract_version": "ingest.single_url_canary_handoff.production_like_check.v1",
     "evidence": {
-      "accepted_url": "https://example.com/wave55-production-like-4a4695ab8d",
+      "accepted_url": "https://example.com/wave55-production-like-ee0e1236ff",
       "api_endpoint": "/api/v1/ingest/url/single",
       "api_runtime": {
         "accepted_status": "success",
@@ -135,7 +143,7 @@
       },
       "live_canary_validated": true,
       "project_key": "single_url_wave57_canary",
-      "rejected_url": "https://example.com/search?q=wave55-4a4695ab8d",
+      "rejected_url": "https://example.com/search?q=wave55-ee0e1236ff",
       "remaining_external_gaps": [
         "production 24h rejection-rate readback remains open",
         "production 24h inserted-valid ratio readback remains open",
@@ -289,6 +297,36 @@
     "non_arxiv_provider_maturity": {
       "closed_provider": "crossref",
       "credential_required": false,
+      "provider_credentials_beyond_crossref_satisfied": false,
+      "provider_credentials_blocker_id": "provider_credentials_quota_beyond_public_crossref_not_validated",
+      "provider_credentials_boundary": {
+        "checks": {
+          "all_provider_entries_validated": false,
+          "artifact_loaded": true,
+          "contract_version": false,
+          "credential_material_not_logged": false,
+          "evidence_scope": false,
+          "generated_at_present": false,
+          "generated_by_present": false,
+          "providers_present": false
+        },
+        "contract_version": "single_url.provider_credentials_quota_evidence.v1",
+        "credentialed_provider_count": 0,
+        "failed_checks": [
+          "contract_version",
+          "evidence_scope",
+          "providers_present",
+          "all_provider_entries_validated",
+          "generated_by_present",
+          "generated_at_present",
+          "credential_material_not_logged"
+        ],
+        "load_error": null,
+        "provider_results": [],
+        "source_path": null,
+        "status": "missing_evidence",
+        "validated": false
+      },
       "provider_scope": "public Crossref works API",
       "remaining_provider_catalog_boundary": [
         "provider-specific credentials and quota behavior beyond public Crossref remain external",
@@ -414,7 +452,18 @@
       "real_public_high_js_replay_complete": false,
       "remaining_external_blockers": [
         {
-          "classification": "intrinsic_external_auth_or_anti_bot_gate",
+          "classification": "platform_blocked",
+          "lawful_session_evidence": {
+            "accepted": false,
+            "browser_rendered_success": false,
+            "contract_version": "llm_crawler.high_js_session_replay_evidence.v1",
+            "required": true,
+            "session_aware_replay_requested": false,
+            "session_context_applied": false,
+            "session_mode_configured": false,
+            "target_id": "x_search_robotics",
+            "user_data_dir_mode": null
+          },
           "markers": {
             "contains_captcha": false,
             "contains_javascript_disabled": false,
@@ -510,7 +559,7 @@
     "evidence_doc": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-08-llm-crawler-unified-frontdoor/06_wave13-high-js-public-replay-readiness-2026-05-22.md",
     "public_high_js_replay": {
       "accessible_public_high_js_replay_proven": true,
-      "blocker_type": "intrinsic_external_auth_or_anti_bot_gate",
+      "blocker_type": "platform_blocked",
       "contract_version": "llm_crawler.high_js_public_replay.v1",
       "external_gate_blockers_proven": true,
       "external_gate_target_ids": [
@@ -518,6 +567,17 @@
       ],
       "full_closure_allowed": false,
       "high_js_success_count": 2,
+      "lawful_session_evidence": {
+        "accepted": false,
+        "browser_rendered_success": false,
+        "contract_version": "llm_crawler.high_js_session_replay_evidence.v1",
+        "required": true,
+        "session_aware_replay_requested": false,
+        "session_context_applied": false,
+        "session_mode_configured": false,
+        "target_id": "x_search_robotics",
+        "user_data_dir_mode": null
+      },
       "path": "development/latest-dev-docs/automation-runs/single-url-first-ingest-allocation-external-blocker-closure/2026-05-24/high_js_public_replay.json",
       "public_high_js_probe_target_ids": [
         "x_search_robotics",
@@ -529,7 +589,18 @@
       "real_public_high_js_replay_proven": false,
       "remaining_external_blockers": [
         {
-          "classification": "intrinsic_external_auth_or_anti_bot_gate",
+          "classification": "platform_blocked",
+          "lawful_session_evidence": {
+            "accepted": false,
+            "browser_rendered_success": false,
+            "contract_version": "llm_crawler.high_js_session_replay_evidence.v1",
+            "required": true,
+            "session_aware_replay_requested": false,
+            "session_context_applied": false,
+            "session_mode_configured": false,
+            "target_id": "x_search_robotics",
+            "user_data_dir_mode": null
+          },
           "markers": {
             "contains_captcha": false,
             "contains_javascript_disabled": false,
@@ -573,8 +644,10 @@
     "scope": "llm_crawler_unified_frontdoor_high_js_public_replay_boundary",
     "status": "accessible_public_high_js_replay_proven_external_targets_blocked",
     "validation": {
+      "closure_ready": false,
       "errors": [],
-      "passed": true,
+      "external_blocked": true,
+      "passed": false,
       "protected_shared_indexes": [
         "development/latest-dev-docs/development-plans/CURRENT_DEV/INDEX.md",
         "development/latest-dev-docs/development-plans/CURRENT_DEV/STATUS_AUDIT_2026-04-07.md",
@@ -583,6 +656,7 @@
         "development/latest-dev-docs/MERGED_OVERVIEW.md"
       ],
       "public_network_attempted": true,
+      "readiness_checks_passed": true,
       "shared_indexes_edited": false
     }
   },
@@ -593,7 +667,18 @@
         "public_network_attempted": true,
         "remaining_external_blockers": [
           {
-            "classification": "intrinsic_external_auth_or_anti_bot_gate",
+            "classification": "platform_blocked",
+            "lawful_session_evidence": {
+              "accepted": false,
+              "browser_rendered_success": false,
+              "contract_version": "llm_crawler.high_js_session_replay_evidence.v1",
+              "required": true,
+              "session_aware_replay_requested": false,
+              "session_context_applied": false,
+              "session_mode_configured": false,
+              "target_id": "x_search_robotics",
+              "user_data_dir_mode": null
+            },
             "markers": {
               "contains_captcha": false,
               "contains_javascript_disabled": false,
@@ -629,7 +714,7 @@
           "entrypoint": "ingest.url.single",
           "project_key": "single_url_wave57_canary",
           "source_mode": "url_execution",
-          "source_url": "https://example.com/wave55-production-like-4a4695ab8d"
+          "source_url": "https://example.com/wave55-production-like-ee0e1236ff"
         },
         "live_result_status": "passed"
       },
@@ -638,33 +723,35 @@
     },
     {
       "evidence": {
+        "artifact_supplied": false,
+        "load_error": null,
         "production_24h_metrics_satisfied": false,
-        "remaining_external_blockers": [
-          {
-            "classification": "external_live_operational",
-            "id": "production_24h_rejection_rate_readback_not_available"
-          },
-          {
-            "classification": "external_live_operational",
-            "id": "production_24h_inserted_valid_ratio_readback_not_available"
-          },
-          {
-            "classification": "external_live_operational",
-            "id": "production_guardrail_rollout_counts_readback_not_available"
-          },
-          {
-            "classification": "external_live_operational",
-            "id": "operations_strict_gate_promotion_decision_not_recorded"
-          },
-          {
-            "classification": "external_live_operational",
-            "id": "operations_strict_gate_global_default_not_enabled"
-          }
+        "remaining_production_blockers": [
+          "production_24h_inserted_valid_ratio_readback_not_available",
+          "production_24h_rejection_rate_readback_not_available",
+          "production_guardrail_rollout_counts_readback_not_available"
         ],
         "repo_local_metric_24h_shape_validated": true,
+        "required_contract_version": "ingest.production_24h_metrics_readback.v1",
+        "source_path": null,
         "status": "external_blocked"
       },
       "name": "repo_local_24h_metric_shape_validated_production_open",
+      "passed": true
+    },
+    {
+      "evidence": {
+        "artifact_supplied": false,
+        "load_error": null,
+        "remaining_ops_blockers": [
+          "operations_strict_gate_global_default_not_enabled",
+          "operations_strict_gate_promotion_decision_not_recorded"
+        ],
+        "required_contract_version": "ingest.ops_strict_gate_promotion_evidence.v1",
+        "source_path": null,
+        "strict_gate_promotion_satisfied": false
+      },
+      "name": "ops_strict_gate_promotion_evidence_gate",
       "passed": true
     },
     {
@@ -682,19 +769,22 @@
     },
     {
       "evidence": {
+        "artifact_supplied": false,
         "blocker_id": "provider_credentials_quota_beyond_public_crossref_not_validated",
-        "closure_claim": false
+        "closure_claim": false,
+        "provider_credentials_beyond_crossref_satisfied": false
       },
-      "name": "provider_credentials_beyond_crossref_kept_external",
+      "name": "provider_credentials_beyond_crossref_evidence_gate",
       "passed": true
     },
     {
       "evidence": {
         "can_be_closed": false,
         "closure_claim": false,
+        "closure_requested": false,
         "remaining_external_blocker_count": 7
       },
-      "name": "closure_decision_stays_external_blocked",
+      "name": "closure_decision_consistent",
       "passed": true
     }
   ],
@@ -737,9 +827,16 @@
           "inserted_valid_ratio": 1.0,
           "live_window_observed": false,
           "metric_24h_live_readback_claim": false,
+          "production_artifact_attached": false,
+          "production_artifact_kind": "deterministic_ingest_canary_24h_metrics_fixture",
           "production_checks": {},
+          "production_contract_version": "ingest.canary_24h_metrics_artifact.v1",
           "production_data_claim": false,
+          "production_deterministic_fixture": true,
           "production_failed_checks": [],
+          "production_live_window_observed": false,
+          "production_shape_checks": {},
+          "production_shape_failed_checks": [],
           "rejection_rate": 0.25,
           "source_record_id": null,
           "source_system": null,
@@ -796,7 +893,11 @@
       }
     ],
     "closure_claim": false,
+    "closure_request_status": "not_requested",
+    "closure_requested": false,
     "contract_version": "ingest.canary_strict_promotion_readiness.v1",
+    "ops_promotion_artifact_status": "not_attached",
+    "production_24h_metrics_artifact_status": "not_attached",
     "production_24h_metrics_satisfied": false,
     "project_key": "single_url_wave57_canary",
     "promotion_recommendation": "do_not_promote_without_production_24h_metrics_and_operations_decision",
@@ -825,6 +926,7 @@
     "repo_local_live_canary_validated": true,
     "repo_local_metric_24h_shape_validated": true,
     "repo_local_preflight_passed": true,
+    "repo_local_readiness_status": "validated",
     "status": "external_blocked",
     "strict_gate_promotion_satisfied": false
   },
@@ -850,7 +952,11 @@
         "single_url.external_blocker_closure.v1",
         "build_high_js_replay_check",
         "run_repo_local_production_like_handoff_canary",
-        "PROVIDER_CREDENTIALS_BEYOND_CROSSREF_BLOCKER"
+        "PROVIDER_CREDENTIALS_BEYOND_CROSSREF_BLOCKER",
+        "--production-metrics-artifact",
+        "--ops-promotion-artifact",
+        "--provider-credentials-artifact",
+        "--claim-closure"
       ]
     },
     {

@@ -20,8 +20,10 @@ if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
 from app.services.ingest import url_pool as url_pool_module
+from scripts.check_llm_crawler_high_js_replay_readiness import CONFIGURED_SESSION_USER_DATA_DIR_MODES
 from scripts.check_llm_crawler_high_js_replay_readiness import DEFAULT_HIGH_JS_TARGETS
 from scripts.check_llm_crawler_high_js_replay_readiness import PUBLIC_REPLAY_CONTRACT_VERSION
+from scripts.check_llm_crawler_high_js_replay_readiness import X_LAWFUL_SESSION_TARGET_ID
 from scripts.check_llm_crawler_replay_manifest import OPT_IN_CONTRACT_VERSION
 
 
@@ -317,6 +319,80 @@ def _target_result_successful(row: Mapping[str, Any] | None) -> bool:
     return str(row.get("status") or "").strip().lower() == "success" and row.get("browser_rendered") is True
 
 
+def _configured_session_mode(session_evidence: Mapping[str, Any]) -> bool:
+    return bool(
+        session_evidence.get("requested") is True
+        and session_evidence.get("configured") is True
+        and session_evidence.get("applied") is True
+        and str(session_evidence.get("user_data_dir_mode") or "") in CONFIGURED_SESSION_USER_DATA_DIR_MODES
+    )
+
+
+def _lawful_session_evidence_for_target(
+    target: Mapping[str, Any],
+    row: Mapping[str, Any] | None,
+    session_evidence: Mapping[str, Any],
+) -> dict[str, Any]:
+    target_id = str(target.get("target_id") or "")
+    browser_rendered_success = _target_result_successful(row)
+    session_mode_configured = _configured_session_mode(session_evidence)
+    required = target_id == X_LAWFUL_SESSION_TARGET_ID
+    return {
+        "contract_version": SESSION_EVIDENCE_CONTRACT_VERSION,
+        "target_id": target_id,
+        "required": required,
+        "accepted": bool(required and browser_rendered_success and session_mode_configured),
+        "browser_rendered_success": browser_rendered_success,
+        "session_mode_configured": session_mode_configured,
+        "session_aware_replay_requested": bool(session_evidence.get("requested")),
+        "session_context_applied": bool(session_evidence.get("applied")),
+        "user_data_dir_mode": session_evidence.get("user_data_dir_mode"),
+    }
+
+
+def _apply_lawful_session_policy(
+    target: Mapping[str, Any],
+    row: Mapping[str, Any],
+    session_evidence: Mapping[str, Any],
+) -> dict[str, Any]:
+    target_id = str(target.get("target_id") or "")
+    lawful_session_evidence = _lawful_session_evidence_for_target(target, row, session_evidence)
+    classified = dict(row)
+    classified["lawful_session_evidence"] = lawful_session_evidence
+    if (
+        target_id == X_LAWFUL_SESSION_TARGET_ID
+        and lawful_session_evidence.get("accepted") is not True
+        and classified.get("browser_rendered") is True
+        and classified.get("public_network_attempted") is True
+    ):
+        classified["pre_session_policy_status"] = classified.get("status")
+        classified["status"] = "platform_blocked"
+        classified["reason"] = (
+            "X high-JS replay rendered, but full success requires explicit configured lawful-session evidence."
+        )
+    return classified
+
+
+def _target_result_accepted_for_closure(target: Mapping[str, Any], row: Mapping[str, Any] | None) -> bool:
+    if str(target.get("target_id") or "") == X_LAWFUL_SESSION_TARGET_ID:
+        lawful_session_evidence = row.get("lawful_session_evidence") if isinstance(row, Mapping) else {}
+        return bool(_target_result_successful(row) and lawful_session_evidence.get("accepted") is True)
+    return _target_result_successful(row)
+
+
+def _x_platform_blocker_proven(row: Mapping[str, Any] | None) -> bool:
+    if not isinstance(row, Mapping):
+        return False
+    lawful_session_evidence = row.get("lawful_session_evidence") if isinstance(row.get("lawful_session_evidence"), Mapping) else {}
+    return bool(
+        str(row.get("target_id") or "") == X_LAWFUL_SESSION_TARGET_ID
+        and str(row.get("status") or "").strip().lower() == "platform_blocked"
+        and row.get("browser_rendered") is True
+        and row.get("public_network_attempted") is True
+        and lawful_session_evidence.get("accepted") is not True
+    )
+
+
 def _external_gate_blocker_proven(target: Mapping[str, Any], row: Mapping[str, Any] | None) -> bool:
     if not isinstance(row, Mapping):
         return False
@@ -398,6 +474,7 @@ def run_high_js_public_replay(
                     )
                 )
                 classified = _classify_browser_result(target, browser)
+            classified = _apply_lawful_session_policy(target, classified, session_evidence)
             target_results.append(
                 {
                     "target_id": target["target_id"],
@@ -422,13 +499,16 @@ def run_high_js_public_replay(
     successful_accessible_targets = [
         target
         for target in public_probe_targets
-        if _target_result_successful(by_target_id.get(str(target.get("target_id") or "")))
+        if _target_result_accepted_for_closure(target, by_target_id.get(str(target.get("target_id") or "")))
     ]
     gate_blocked_targets = [
         target
         for target in public_probe_targets
-        if not _target_result_successful(by_target_id.get(str(target.get("target_id") or "")))
-        and _external_gate_blocker_proven(target, by_target_id.get(str(target.get("target_id") or "")))
+        if not _target_result_accepted_for_closure(target, by_target_id.get(str(target.get("target_id") or "")))
+        and (
+            _external_gate_blocker_proven(target, by_target_id.get(str(target.get("target_id") or "")))
+            or _x_platform_blocker_proven(by_target_id.get(str(target.get("target_id") or "")))
+        )
     ]
     all_probe_targets_accounted_for = len(successful_accessible_targets) + len(gate_blocked_targets) == len(public_probe_targets)
     accessible_public_proven = bool(
@@ -442,6 +522,7 @@ def run_high_js_public_replay(
     for target in gate_blocked_targets:
         target_id = str(target.get("target_id") or "")
         row = by_target_id.get(target_id)
+        classification = "platform_blocked" if _x_platform_blocker_proven(row) else "intrinsic_external_auth_or_anti_bot_gate"
         remaining_external_blockers.append(
             {
                 "target_id": target_id,
@@ -449,16 +530,26 @@ def run_high_js_public_replay(
                 "status": row.get("status") if isinstance(row, Mapping) else None,
                 "reason": row.get("reason") if isinstance(row, Mapping) else None,
                 "markers": row.get("markers") if isinstance(row, Mapping) and isinstance(row.get("markers"), Mapping) else {},
-                "classification": "intrinsic_external_auth_or_anti_bot_gate",
+                "classification": classification,
+                "lawful_session_evidence": (
+                    row.get("lawful_session_evidence")
+                    if isinstance(row, Mapping) and isinstance(row.get("lawful_session_evidence"), Mapping)
+                    else {}
+                ),
             }
         )
     external_gate_blockers_proven = bool(remaining_external_blockers and all_probe_targets_accounted_for)
+    all_targets_accepted = all(
+        _target_result_accepted_for_closure(target, by_target_id.get(str(target.get("target_id") or "")))
+        for target in public_probe_targets
+    )
     proven = bool(
         not validation_errors
         and allow_public_network
         and allow_browser_runtime
         and public_attempted == len(DEFAULT_HIGH_JS_TARGETS)
         and success_count == len(DEFAULT_HIGH_JS_TARGETS)
+        and all_targets_accepted
     )
 
     return {

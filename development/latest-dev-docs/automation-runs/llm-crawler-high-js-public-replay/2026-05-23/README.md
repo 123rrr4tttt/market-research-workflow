@@ -39,7 +39,8 @@ T5 updates the gate semantics to separate accessible public high-JS replay from 
 Checker result:
 
 - `status=accessible_public_high_js_replay_proven_external_targets_blocked`
-- `validation.passed=true`
+- `validation.passed=false`
+- `validation.readiness_checks_passed=true`
 - `public_targets_attempted=3`
 - `high_js_success_count=1`
 - `successful_accessible_target_ids=["youtube_search_robotics"]`
@@ -65,7 +66,8 @@ The final run contacted all three targets through local headless Chrome:
 Checker result:
 
 - `status=accessible_public_high_js_replay_proven_external_targets_blocked`
-- `validation.passed=true`
+- `validation.passed=false`
+- `validation.readiness_checks_passed=true`
 - `public_targets_attempted=3`
 - `high_js_success_count=2`
 - `successful_accessible_target_ids=["instagram_tag_robotics","youtube_search_robotics"]`
@@ -76,6 +78,8 @@ Checker result:
 - `closure.accessible_public_high_js_replay_complete=true`
 - `closure.real_public_high_js_replay_complete=false`
 - `closure.full_closure_allowed=false`
+
+Current checker semantics reserve `validation.passed=true` for full closure. Reduced accessible replay exits nonzero unless the caller explicitly treats `validation.readiness_checks_passed=true` as an external-blocked readback state.
 
 ## Commands
 

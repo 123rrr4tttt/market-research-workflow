@@ -201,7 +201,7 @@
       ],
       "probe_or_manual_evidence": {
         "mode": "probe",
-        "command": "PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 main/backend/scripts/check_time_semantics_release_gate.py --configured-live-evidence development/latest-dev-docs/automation-runs/wave56-time-semantics-configured-live-evidence/2026-05-24/time_semantics_configured_live_evidence.json --output development/latest-dev-docs/automation-runs/wave56-time-semantics-configured-live-evidence/2026-05-24/time_semantics_release_gate_configured_evidence.json",
+        "command": "PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 main/backend/scripts/check_time_semantics_release_gate.py --live-evidence-json development/latest-dev-docs/automation-runs/wave56-time-semantics-configured-live-evidence/2026-05-24/time_semantics_configured_live_evidence.json --output development/latest-dev-docs/automation-runs/wave56-time-semantics-configured-live-evidence/2026-05-24/time_semantics_release_gate_configured_evidence.json",
         "last_run_at": "2026-05-24 PST",
         "result_artifact": "development/latest-dev-docs/automation-runs/wave56-time-semantics-configured-live-evidence/2026-05-24/time_semantics_release_gate_configured_evidence.json",
         "exit_code_expectation": "0 or passed_with_known_gaps for configured evidence; strict closure remains nonzero until production/live semantic-chain evidence is attached",

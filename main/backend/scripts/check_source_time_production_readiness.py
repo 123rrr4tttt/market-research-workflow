@@ -46,11 +46,24 @@ DEFAULT_LIVE_GAPS = (
     "live_source_time_coverage_distribution_not_measured",
     "live_decision_log_features_readback_not_verified",
 )
+PRODUCTION_LIVE_EVIDENCE_TIERS = {
+    "configured_live",
+    "configured_db_live",
+    "production_live",
+    "production_db_live",
+}
+PRODUCTION_LIVE_DATA_SOURCES = {
+    "configured_db_existing_decision_logs",
+    "configured_db_live_decision_logs",
+    "production_db_decision_logs",
+    "production_live_decision_logs",
+}
 PRODUCTION_LIKE_EVIDENCE_TIERS = {
     "production_like",
-    "production-like",
     "configured_db_production_like_sample",
-    "configured-db-production-like-sample",
+}
+PRODUCTION_LIKE_DATA_SOURCES = {
+    "configured_db_production_like_sample",
 }
 
 PROTECTED_SHARED_INDEXES = (
@@ -278,6 +291,69 @@ def _missing_truthy(payload: dict[str, Any], required_keys: tuple[str, ...]) -> 
     return [key for key in required_keys if payload.get(key) is not True]
 
 
+def _canonical_evidence_label(value: Any) -> str:
+    return str(value or "").strip().lower().replace("-", "_")
+
+
+def _as_int(value: Any) -> int:
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _as_float(value: Any) -> float:
+    try:
+        return float(value or 0.0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _source_distribution_payload(live_evidence: dict[str, Any]) -> dict[str, Any]:
+    for key in (
+        "effective_time_source_distribution",
+        "source_time_distribution",
+        "source_distribution",
+    ):
+        value = live_evidence.get(key)
+        if isinstance(value, dict):
+            return value
+    return {}
+
+
+def _coverage_proof(live_evidence: dict[str, Any]) -> dict[str, Any]:
+    distribution = _source_distribution_payload(live_evidence)
+    source_time_count = _as_int(
+        live_evidence.get("source_time_count")
+        if live_evidence.get("source_time_count") is not None
+        else distribution.get("source_time_count")
+    )
+    total_docs = _as_int(
+        live_evidence.get("source_time_total_docs")
+        if live_evidence.get("source_time_total_docs") is not None
+        else distribution.get("total_docs")
+    )
+    source_time_coverage = _as_float(
+        live_evidence.get("source_time_coverage")
+        if live_evidence.get("source_time_coverage") is not None
+        else distribution.get("source_time_coverage")
+    )
+    coverage_from_counts = (
+        float(source_time_count) / float(total_docs) if total_docs > 0 else 0.0
+    )
+    return {
+        "source_time_count": source_time_count,
+        "source_time_total_docs": total_docs,
+        "source_time_coverage": source_time_coverage,
+        "source_time_coverage_from_counts": coverage_from_counts,
+        "source_time_coverage_matches_counts": (
+            total_docs > 0
+            and source_time_count > 0
+            and abs(source_time_coverage - coverage_from_counts) <= 0.000001
+        ),
+    }
+
+
 def _source_time_stage(contract: dict[str, Any]) -> dict[str, Any]:
     checks = contract.get("checks") if isinstance(contract.get("checks"), dict) else {}
     source_time_window = checks.get("source_time_window") if isinstance(checks.get("source_time_window"), dict) else {}
@@ -391,52 +467,82 @@ def _production_semantic_chain_stage(
         }
 
     missing = _missing_truthy(live_evidence, LIVE_EVIDENCE_REQUIREMENTS)
-    try:
-        sample_count = int(
-            live_evidence.get("semantic_chain_sample_count")
-            or live_evidence.get("sample_count")
-            or 0
-        )
-    except (TypeError, ValueError):
-        sample_count = 0
+    sample_count = _as_int(
+        live_evidence.get("semantic_chain_sample_count")
+        or live_evidence.get("sample_count")
+    )
     if sample_count < 1:
         missing.append("semantic_chain_sample_count>=1")
 
-    try:
-        decision_log_row_count = int(live_evidence.get("decision_log_row_count") or 0)
-    except (TypeError, ValueError):
-        decision_log_row_count = 0
+    decision_log_row_count = _as_int(live_evidence.get("decision_log_row_count"))
     if decision_log_row_count < sample_count:
         missing.append("decision_log_row_count>=semantic_chain_sample_count")
 
-    try:
-        feedback_row_count = int(live_evidence.get("feedback_row_count") or 0)
-    except (TypeError, ValueError):
-        feedback_row_count = 0
+    feedback_row_count = _as_int(live_evidence.get("feedback_row_count"))
     if feedback_row_count < 1:
         missing.append("feedback_row_count>=1")
 
-    try:
-        source_time_coverage = float(live_evidence.get("source_time_coverage") or 0.0)
-    except (TypeError, ValueError):
-        source_time_coverage = 0.0
+    coverage = _coverage_proof(live_evidence)
+    source_time_coverage = float(coverage["source_time_coverage"])
     if source_time_coverage <= 0.0:
         missing.append("source_time_coverage>0")
+    if coverage["source_time_count"] < 1:
+        missing.append("source_time_count>=1")
+    if coverage["source_time_total_docs"] < 1:
+        missing.append("source_time_total_docs>=1")
+    if coverage["source_time_total_docs"] < coverage["source_time_count"]:
+        missing.append("source_time_total_docs>=source_time_count")
+    if not coverage["source_time_coverage_matches_counts"]:
+        missing.append("source_time_coverage_matches_counts")
+
+    raw_tier = live_evidence.get("evidence_tier")
+    raw_data_source = live_evidence.get("data_source")
+    evidence_tier = str(raw_tier or "").strip()
+    data_source = str(raw_data_source or "").strip()
+    tier_key = _canonical_evidence_label(raw_tier)
+    data_source_key = _canonical_evidence_label(raw_data_source)
+    if not evidence_tier:
+        missing.append("evidence_tier_explicit")
+    if not data_source:
+        missing.append("data_source_explicit")
+
+    tier_is_live = tier_key in PRODUCTION_LIVE_EVIDENCE_TIERS
+    source_is_live = data_source_key in PRODUCTION_LIVE_DATA_SOURCES
+    tier_is_production_like = tier_key in PRODUCTION_LIKE_EVIDENCE_TIERS
+    source_is_production_like = data_source_key in PRODUCTION_LIKE_DATA_SOURCES
+    has_conflicting_identity = (
+        (tier_is_live and source_is_production_like)
+        or (tier_is_production_like and source_is_live)
+    )
+    if has_conflicting_identity:
+        missing.append("evidence_tier_data_source_conflict")
+
+    production_like = (
+        tier_is_production_like
+        and source_is_production_like
+        and not has_conflicting_identity
+    )
+    production_live_candidate = (
+        tier_is_live and source_is_live and not has_conflicting_identity
+    )
+    if evidence_tier and data_source and not production_like and not production_live_candidate:
+        missing.append("evidence_tier_data_source_supported")
 
     verified = not missing
-    raw_tier = str(
-        live_evidence.get("evidence_tier")
-        or live_evidence.get("data_source")
-        or "production_live"
-    ).strip()
-    evidence_tier = raw_tier or "production_live"
-    production_like = evidence_tier.lower() in PRODUCTION_LIKE_EVIDENCE_TIERS
-    production_live_verified = bool(verified and not production_like)
+    production_live_verified = bool(verified and production_live_candidate)
+    configured_production_like_verified = bool(verified and production_like)
     remaining_live_gaps = []
     if not verified:
         remaining_live_gaps = list(DEFAULT_LIVE_GAPS)
-    elif production_like:
+    elif configured_production_like_verified:
         remaining_live_gaps = ["production_live_dataset_not_verified"]
+    evidence_category = (
+        "production_live"
+        if production_live_candidate
+        else "production_like"
+        if production_like
+        else "unsupported"
+    )
 
     return {
         "name": "production_data_semantic_chain",
@@ -444,20 +550,32 @@ def _production_semantic_chain_stage(
             "live_verified"
             if production_live_verified
             else "production_like_verified"
-            if verified
+            if configured_production_like_verified
             else "failed_evidence"
         ),
         "passed": verified,
         "production_live_verified": production_live_verified,
         "configured_semantic_chain_verified": verified,
+        "configured_production_like_verified": configured_production_like_verified,
         "missing_requirements": missing,
         "remaining_live_gaps": remaining_live_gaps,
         "evidence": {
             "live_evidence_supplied": True,
             "evidence_tier": evidence_tier,
+            "data_source": data_source,
+            "evidence_category": evidence_category,
             "semantic_chain_sample_count": sample_count,
             "requirements_checked": list(LIVE_EVIDENCE_REQUIREMENTS),
+            "coverage_requirements_checked": [
+                "source_time_count>=1",
+                "source_time_total_docs>=1",
+                "source_time_total_docs>=source_time_count",
+                "source_time_coverage_matches_counts",
+            ],
             "source_time_coverage": source_time_coverage,
+            "source_time_count": coverage["source_time_count"],
+            "source_time_total_docs": coverage["source_time_total_docs"],
+            "source_time_coverage_from_counts": coverage["source_time_coverage_from_counts"],
             "decision_log_row_count": decision_log_row_count,
             "feedback_row_count": feedback_row_count,
         },
@@ -553,6 +671,9 @@ def build_check(
     configured_semantic_chain_verified = bool(
         production_stage.get("configured_semantic_chain_verified")
     )
+    configured_production_like_verified = bool(
+        production_stage.get("configured_production_like_verified")
+    )
     if failures:
         status = "failed"
     elif production_live_verified:
@@ -580,6 +701,7 @@ def build_check(
             "decision_log_provenance_verified": decision_stage["status"] == "passed",
             "deterministic_sample_readback_chain_verified": sample_stage["status"] == "passed",
             "configured_semantic_chain_evidence_verified": configured_semantic_chain_verified,
+            "configured_production_like_semantic_chain_evidence_verified": configured_production_like_verified,
             "production_data_semantic_chain_live_verified": production_live_verified,
             "production_data_semantic_chain_live_gap_retained": production_stage["status"] == "ready_not_run",
             "doc_evidence_current": all(result.get("passed") for result in doc_results),

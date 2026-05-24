@@ -41,7 +41,7 @@
 | 目录归属 | `ARCHIVE_EXTERNAL_BLOCKED` | `CURRENT_DEV/INDEX.md` 不再将本主题计入 `partial` |
 | Frontdoor / router / manifest / fixture gates | sealed | Wave8-Wave19 topic-local evidence |
 | 45-site public replay shards | sealed | `crawler-public-replay-shards/2026-05-22/check.json` |
-| Accessible high-JS public replay | reduced / evidence-backed | `llm-crawler-high-js-public-replay/2026-05-23/check.session-aware-attempt.json` |
+| Accessible high-JS public replay | reduced / evidence-backed, not closure-passed | `llm-crawler-high-js-public-replay/2026-05-23/check.session-aware-attempt.json` |
 | Session-aware replay evidence | implemented / no credential material logged | `llm-crawler-high-js-public-replay/2026-05-23/output.public.session-aware-attempt.json` |
 | Remaining high-JS external gates | external blocker | `x_search_robotics` auth/anti-bot gated |
 
@@ -54,3 +54,5 @@ PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 main/backend/sc
   --public-artifact development/latest-dev-docs/automation-runs/llm-crawler-high-js-public-replay/2026-05-23/output.public.session-aware-attempt.json \
   --output /tmp/wave56-session-aware-llm-crawler-high-js-readiness.json
 ```
+
+The high-JS checker returns a closure-passed exit code only when all declared public targets satisfy `closure.full_closure_allowed=true`. Reduced accessible replay is recorded as `validation.readiness_checks_passed=true` with `validation.passed=false`.

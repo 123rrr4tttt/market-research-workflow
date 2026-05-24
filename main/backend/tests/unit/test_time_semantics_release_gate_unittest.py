@@ -55,7 +55,11 @@ class TimeSemanticsReleaseGateTest(unittest.TestCase):
         )
         self.assertEqual(
             result["remaining_external_blockers"],
-            ["production_data_semantic_chain_live_validation_not_run"],
+            [
+                "production_data_semantic_chain_live_validation_not_run",
+                "live_source_time_coverage_distribution_not_measured",
+                "live_decision_log_features_readback_not_verified",
+            ],
         )
         distribution_stage = {
             stage["name"]: stage for stage in result["stages"]
@@ -70,6 +74,39 @@ class TimeSemanticsReleaseGateTest(unittest.TestCase):
         result = module.build_check(
             include_doc_checks=False,
             live_evidence={
+                "evidence_tier": "configured_live",
+                "data_source": "configured_db_existing_decision_logs",
+                "production_data_semantic_chain_verified": True,
+                "live_query_used": True,
+                "configured_services_used": True,
+                "effective_time_source_distribution_readback": True,
+                "source_time_coverage_measured": True,
+                "decision_log_rows_readback": True,
+                "decision_log_features_readback": True,
+                "feedback_reward_alignment_readback": True,
+                "semantic_chain_sample_count": 6,
+                "source_time_coverage": 0.67,
+                "source_time_count": 67,
+                "source_time_total_docs": 100,
+                "decision_log_row_count": 6,
+                "feedback_row_count": 6,
+            },
+        )
+
+        self.assertEqual(result["status"], "passed")
+        self.assertFalse(result["closure_claim"])
+        self.assertTrue(result["full_closure_allowed"])
+        self.assertTrue(result["checks"]["configured_semantic_chain_evidence_verified"])
+        self.assertTrue(result["checks"]["production_data_semantic_chain_live_verified"])
+        self.assertEqual(result["remaining_external_blockers"], [])
+
+    def test_release_gate_rejects_live_payload_without_source_count_proof(self) -> None:
+        module = _load_checker_module()
+        result = module.build_check(
+            include_doc_checks=False,
+            live_evidence={
+                "evidence_tier": "configured_live",
+                "data_source": "configured_db_existing_decision_logs",
                 "production_data_semantic_chain_verified": True,
                 "live_query_used": True,
                 "configured_services_used": True,
@@ -85,12 +122,9 @@ class TimeSemanticsReleaseGateTest(unittest.TestCase):
             },
         )
 
-        self.assertEqual(result["status"], "passed")
-        self.assertFalse(result["closure_claim"])
-        self.assertTrue(result["full_closure_allowed"])
-        self.assertTrue(result["checks"]["configured_semantic_chain_evidence_verified"])
-        self.assertTrue(result["checks"]["production_data_semantic_chain_live_verified"])
-        self.assertEqual(result["remaining_external_blockers"], [])
+        self.assertEqual(result["status"], "failed")
+        self.assertIn("source_readiness.failed", result["failures"])
+        self.assertFalse(result["checks"]["production_data_semantic_chain_live_verified"])
 
     def test_strict_closure_fails_without_true_live_evidence(self) -> None:
         module = _load_checker_module()
@@ -106,6 +140,7 @@ class TimeSemanticsReleaseGateTest(unittest.TestCase):
             include_doc_checks=False,
             live_evidence={
                 "evidence_tier": "production_like",
+                "data_source": "configured_db_production_like_sample",
                 "production_data_semantic_chain_verified": True,
                 "live_query_used": True,
                 "configured_services_used": True,
@@ -116,6 +151,8 @@ class TimeSemanticsReleaseGateTest(unittest.TestCase):
                 "feedback_reward_alignment_readback": True,
                 "semantic_chain_sample_count": 1,
                 "source_time_coverage": 1.0,
+                "source_time_count": 4,
+                "source_time_total_docs": 4,
                 "decision_log_row_count": 3,
                 "feedback_row_count": 3,
             },
@@ -124,7 +161,14 @@ class TimeSemanticsReleaseGateTest(unittest.TestCase):
         self.assertEqual(result["status"], "passed_with_configured_evidence")
         self.assertFalse(result["full_closure_allowed"])
         self.assertTrue(result["checks"]["configured_semantic_chain_evidence_verified"])
+        self.assertTrue(
+            result["checks"]["configured_production_like_semantic_chain_evidence_verified"]
+        )
         self.assertFalse(result["checks"]["production_data_semantic_chain_live_verified"])
+        self.assertEqual(
+            result["remaining_external_blockers"],
+            ["production_live_dataset_not_verified"],
+        )
 
     def test_release_gate_marker_check_fails_for_unwired_gate(self) -> None:
         module = _load_checker_module()

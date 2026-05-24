@@ -6,22 +6,27 @@
   "decision_log_features_readback": true,
   "decision_log_row_count": 3,
   "decision_log_rows_readback": true,
+  "effective_time_source_distribution": {
+    "source_time_count": 12,
+    "source_time_coverage": 1.0,
+    "total_docs": 12
+  },
   "effective_time_source_distribution_readback": true,
   "evidence_tier": "production_like",
   "feedback_reward_alignment_readback": true,
   "feedback_row_count": 3,
-  "generated_at": "2026-05-24T02:20:36.846939+00:00",
+  "generated_at": "2026-05-24T03:05:17.359957+00:00",
   "inserted_doc_count": 4,
   "live_query_used": true,
   "production_data_semantic_chain_verified": true,
   "project_key": "demo_proj",
   "request_ids": [
-    "638978303f8a45d69e38c5010b906e06"
+    "7cd72d4544a64c2c97c4dc90483b1106"
   ],
   "sample_rows": [
     {
       "chosen_window": "7d",
-      "created_at": "2026-05-23T19:20:36.801064-07:00",
+      "created_at": "2026-05-23T20:05:17.343627-07:00",
       "features_json": {
         "collection_priority_score": 0.4882191780821918,
         "contract_version": "time-density-decision-log-freshness-contract.v1",
@@ -100,7 +105,7 @@
           "is_chosen": false,
           "p_base": 0.3333333333333333,
           "p_new": 0.27756856235778626,
-          "request_id": "638978303f8a45d69e38c5010b906e06",
+          "request_id": "7cd72d4544a64c2c97c4dc90483b1106",
           "reward_fallback": "reward_proxy_from_features",
           "reward_field": "observed_reward",
           "window": "30d"
@@ -141,14 +146,14 @@
       "p_new": 0.277569,
       "policy_version": "density-cloud-v1",
       "project_key": "demo_proj",
-      "request_id": "638978303f8a45d69e38c5010b906e06",
+      "request_id": "7cd72d4544a64c2c97c4dc90483b1106",
       "source_domain": "time-semantics-prodlike.example",
       "vector_overlap": 0.8,
       "window": "30d"
     },
     {
       "chosen_window": "7d",
-      "created_at": "2026-05-23T19:20:36.801064-07:00",
+      "created_at": "2026-05-23T20:05:17.343627-07:00",
       "features_json": {
         "collection_priority_score": 1.9304892367906064,
         "contract_version": "time-density-decision-log-freshness-contract.v1",
@@ -227,7 +232,7 @@
           "is_chosen": true,
           "p_base": 0.3333333333333333,
           "p_new": 0.4319875383224428,
-          "request_id": "638978303f8a45d69e38c5010b906e06",
+          "request_id": "7cd72d4544a64c2c97c4dc90483b1106",
           "reward_fallback": "reward_proxy_from_features",
           "reward_field": "observed_reward",
           "window": "7d"
@@ -268,14 +273,14 @@
       "p_new": 0.431988,
       "policy_version": "density-cloud-v1",
       "project_key": "demo_proj",
-      "request_id": "638978303f8a45d69e38c5010b906e06",
+      "request_id": "7cd72d4544a64c2c97c4dc90483b1106",
       "source_domain": "time-semantics-prodlike.example",
       "vector_overlap": 1.0,
       "window": "7d"
     },
     {
       "chosen_window": "7d",
-      "created_at": "2026-05-23T19:20:36.801064-07:00",
+      "created_at": "2026-05-23T20:05:17.343627-07:00",
       "features_json": {
         "collection_priority_score": 0.21799086757990868,
         "contract_version": "time-density-decision-log-freshness-contract.v1",
@@ -354,7 +359,7 @@
           "is_chosen": false,
           "p_base": 0.3333333333333333,
           "p_new": 0.290443899319771,
-          "request_id": "638978303f8a45d69e38c5010b906e06",
+          "request_id": "7cd72d4544a64c2c97c4dc90483b1106",
           "reward_fallback": "reward_proxy_from_features",
           "reward_field": "observed_reward",
           "window": "90d"
@@ -395,15 +400,19 @@
       "p_new": 0.290444,
       "policy_version": "density-cloud-v1",
       "project_key": "demo_proj",
-      "request_id": "638978303f8a45d69e38c5010b906e06",
+      "request_id": "7cd72d4544a64c2c97c4dc90483b1106",
       "source_domain": "time-semantics-prodlike.example",
       "vector_overlap": 0.733333,
       "window": "90d"
     }
   ],
+  "semantic_chain_artifact_scope": "configured_production_like_sample",
   "semantic_chain_sample_count": 1,
   "source_time_count": 12,
   "source_time_coverage": 1.0,
+  "source_time_coverage_count_proof": true,
+  "source_time_coverage_from_counts": 1.0,
   "source_time_coverage_measured": true,
+  "source_time_coverage_proved": true,
   "source_time_total_docs": 12
 }
