@@ -15,6 +15,7 @@ Scope: configured DB semantic-chain readback for `2026-03-14-time-semantics-dens
 - `contract_version=time-semantics.configured-semantic-chain-evidence.v1`
 - `evidence_tier=production_like`
 - `data_source=configured_db_production_like_sample`
+- `semantic_chain_artifact_scope=configured_production_like_sample`
 - `production_data_semantic_chain_verified=true`
 - `decision_log_row_count=3`
 - `feedback_row_count=3`
@@ -49,3 +50,5 @@ Result:
 
 - `status=failed`
 - `failures=["production_data_semantic_chain_live_required"]`
+
+Follow-up guard: `read-existing` evidence now preserves production-like identity when rows carry the production-like source domain or feedback source, and the release gate rejects a live tier/data_source paired with `semantic_chain_artifact_scope=configured_production_like_sample`.

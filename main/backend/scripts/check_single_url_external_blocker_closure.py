@@ -34,6 +34,7 @@ from check_ingest_canary_24h_metrics_artifact import build_24h_metrics_artifact 
 from check_llm_crawler_high_js_replay_readiness import build_check as build_high_js_replay_check  # noqa: E402
 from check_single_url_official_api_provider_maturity import (  # noqa: E402
     PROVIDER_CREDENTIALS_BEYOND_CROSSREF_BLOCKER,
+    PROVIDER_CREDENTIALS_CONFIGURED_ONLY_STATUS,
     build_report as build_official_api_report,
 )
 
@@ -199,11 +200,19 @@ def _remaining_external_blockers(
                 }
             )
     if not _provider_credentials_satisfied(official_api_report):
+        provider_boundary = _mapping(
+            _mapping(official_api_report.get("non_arxiv_provider_maturity")).get("provider_credentials_boundary")
+        )
+        configured_only = provider_boundary.get("status") == PROVIDER_CREDENTIALS_CONFIGURED_ONLY_STATUS
         blockers.append(
             {
                 "id": PROVIDER_CREDENTIALS_BEYOND_CROSSREF_BLOCKER,
                 "classification": "external_provider_account",
-                "detail": "Only public arXiv/Crossref official APIs are validated; credentialed provider quota beyond Crossref is not configured in repo.",
+                "detail": (
+                    "Credentialed provider presence is recorded as configured_only, but live provider-specific quota validation is not authorized or passed."
+                    if configured_only
+                    else "Only public arXiv/Crossref official APIs are validated; credentialed provider quota beyond Crossref is not configured in repo."
+                ),
             }
         )
     return blockers
@@ -310,6 +319,10 @@ def build_check(
     )
     public_replay_full_closure = _mapping(public_replay_check.get("closure")).get("full_closure_allowed") is True
     provider_credentials_closed = _provider_credentials_satisfied(official_api_report)
+    provider_credentials_boundary = _mapping(
+        _mapping(official_api_report.get("non_arxiv_provider_maturity")).get("provider_credentials_boundary")
+    )
+    provider_credentials_boundary_status = provider_credentials_boundary.get("status")
     remaining_ids = {
         item.get("id")
         for item in remaining_blockers
@@ -328,6 +341,22 @@ def build_check(
         and not strict_validation_errors
     )
     closure_claim = bool(claim_closure and can_be_closed)
+    provider_credentials_blocker_present = any(
+        item.get("id") == PROVIDER_CREDENTIALS_BEYOND_CROSSREF_BLOCKER
+        for item in remaining_blockers
+    )
+    provider_credentials_gate_passed = (
+        provider_credentials_closed
+        if provider_credentials_artifact_path is not None
+        else provider_credentials_blocker_present
+    )
+    if (
+        provider_credentials_artifact_path is not None
+        and provider_credentials_boundary_status == PROVIDER_CREDENTIALS_CONFIGURED_ONLY_STATUS
+        and provider_credentials_blocker_present
+        and not closure_claim
+    ):
+        provider_credentials_gate_passed = True
     runtime_results = [
         {
             "name": "public_browser_runtime_replay_reduced",
@@ -408,17 +437,11 @@ def build_check(
         },
         {
             "name": "provider_credentials_beyond_crossref_evidence_gate",
-            "passed": (
-                provider_credentials_closed
-                if provider_credentials_artifact_path is not None
-                else any(
-                    item.get("id") == PROVIDER_CREDENTIALS_BEYOND_CROSSREF_BLOCKER
-                    for item in remaining_blockers
-                )
-            ),
+            "passed": provider_credentials_gate_passed,
             "evidence": {
                 "artifact_supplied": provider_credentials_artifact_path is not None,
                 "blocker_id": PROVIDER_CREDENTIALS_BEYOND_CROSSREF_BLOCKER,
+                "provider_credentials_boundary_status": provider_credentials_boundary_status,
                 "provider_credentials_beyond_crossref_satisfied": provider_credentials_closed,
                 "closure_claim": closure_claim,
             },

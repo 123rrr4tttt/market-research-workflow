@@ -214,6 +214,36 @@ class DevelopmentPlansTargetTopicMatrixTestCase(unittest.TestCase):
         self.assertIn(checker.DEV_PLANS_ROOT / "A_ARCHITECTURE", result.non_target_roots)
         self.assertFalse(any(target.path.name == "A_ARCHITECTURE" for target in result.targets))
 
+    def test_checker_excludes_global_non_target_and_evidence_roots_inside_target_root(self) -> None:
+        root = self.make_repo()
+        navigation = root / checker.DEV_PLANS_ROOT / "ARCHIVE_EXTERNAL_BLOCKED/navigation-wrapper"
+        evidence = root / checker.DEV_PLANS_ROOT / "ARCHIVE_EXTERNAL_BLOCKED/evidence-bundle"
+        navigation.mkdir()
+        evidence.mkdir()
+        (navigation / "README.md").write_text("# Navigation wrapper\n\nNo target evidence.\n", encoding="utf-8")
+        (evidence / "README.md").write_text("# Evidence bundle\n\nNo target evidence.\n", encoding="utf-8")
+
+        allowlist_path = root / checker.ALLOWLIST
+        allowlist = json.loads(allowlist_path.read_text(encoding="utf-8"))
+        allowlist["non_target_roots"].append(
+            {
+                "path": (checker.DEV_PLANS_ROOT / "ARCHIVE_EXTERNAL_BLOCKED/navigation-wrapper").as_posix(),
+                "role": "navigation_wrapper",
+            }
+        )
+        allowlist["evidence_roots"].append(
+            (checker.DEV_PLANS_ROOT / "ARCHIVE_EXTERNAL_BLOCKED/evidence-bundle").as_posix()
+        )
+        allowlist_path.write_text(json.dumps(allowlist, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+        result = checker.check(root)
+
+        self.assertTrue(result.ok, result.problems)
+        self.assertIn(checker.DEV_PLANS_ROOT / "ARCHIVE_EXTERNAL_BLOCKED/navigation-wrapper", result.non_target_roots)
+        self.assertIn(checker.DEV_PLANS_ROOT / "ARCHIVE_EXTERNAL_BLOCKED/evidence-bundle", result.evidence_roots)
+        self.assertFalse(any(target.path.name == "navigation-wrapper" for target in result.targets))
+        self.assertFalse(any(target.path.name == "evidence-bundle" for target in result.targets))
+
     def test_checker_rejects_closed_topic_without_code_script_test_or_gate_signal(self) -> None:
         root = self.make_repo()
         topic = root / "docs/development/development-plans/ARCHIVE_CLOSED/weak-closed-topic"

@@ -5,7 +5,7 @@
     "remaining_external_blockers": [
       {
         "classification": "platform_blocked",
-        "detail": "Headless Chrome rendered the page, but public content was gated by auth or anti-bot markers.",
+        "detail": "X high-JS replay rendered, but full success requires explicit configured lawful-session evidence.",
         "id": "public_high_js_x_search_robotics"
       },
       {
@@ -35,7 +35,7 @@
       },
       {
         "classification": "external_provider_account",
-        "detail": "Only public arXiv/Crossref official APIs are validated; credentialed provider quota beyond Crossref is not configured in repo.",
+        "detail": "Credentialed provider presence is recorded as configured_only, but live provider-specific quota validation is not authorized or passed.",
         "id": "provider_credentials_quota_beyond_public_crossref_not_validated"
       }
     ],
@@ -66,7 +66,7 @@
       "entrypoint": "ingest.url.single",
       "project_key": "single_url_wave57_canary",
       "source_mode": "url_execution",
-      "source_url": "https://example.com/wave55-production-like-ee0e1236ff"
+      "source_url": "https://example.com/wave55-production-like-22e44d20f1"
     },
     "handoff_readback": {
       "closure_claim": false,
@@ -101,7 +101,7 @@
     "ops_promotion_artifact_path": null,
     "production_metrics_artifact_error": null,
     "production_metrics_artifact_path": null,
-    "provider_credentials_artifact_path": null
+    "provider_credentials_artifact_path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/automation-runs/single-url-provider-credentials-evidence/2026-05-24/provider_credentials_configured_only.json"
   },
   "live_canary_result": {
     "cleanup": {
@@ -111,7 +111,7 @@
     },
     "contract_version": "ingest.single_url_canary_handoff.production_like_check.v1",
     "evidence": {
-      "accepted_url": "https://example.com/wave55-production-like-ee0e1236ff",
+      "accepted_url": "https://example.com/wave55-production-like-22e44d20f1",
       "api_endpoint": "/api/v1/ingest/url/single",
       "api_runtime": {
         "accepted_status": "success",
@@ -143,7 +143,7 @@
       },
       "live_canary_validated": true,
       "project_key": "single_url_wave57_canary",
-      "rejected_url": "https://example.com/search?q=wave55-ee0e1236ff",
+      "rejected_url": "https://example.com/search?q=wave55-22e44d20f1",
       "remaining_external_gaps": [
         "production 24h rejection-rate readback remains open",
         "production 24h inserted-valid ratio readback remains open",
@@ -226,73 +226,7 @@
       }
     },
     "live_crossref": {
-      "candidate_count": 3,
-      "diagnostics": {
-        "credential_required": false,
-        "endpoint": "https://api.crossref.org/works",
-        "provider_key": "crossref",
-        "public_api": true,
-        "query": "robotics market adoption",
-        "records_total": 883750,
-        "rows": 3,
-        "selected_candidates": 3,
-        "selection_mode": "crossref_message_items"
-      },
-      "errors": [],
-      "result": {
-        "candidate_records": [
-          {
-            "doi": "10.2139/ssrn.5271347",
-            "publisher": "Elsevier BV",
-            "title": "Driving Large-Scale Adoption of Surgical Navigation and Robotics: Lessons from the Latin American Market",
-            "type": "posted-content",
-            "url": "https://doi.org/10.2139/ssrn.5271347"
-          },
-          {
-            "doi": "10.4172/2168-9695.1000164",
-            "publisher": "OMICS Publishing Group",
-            "title": "Top Robotics Market Majorly Driven by the Growing Adoption of IoT and AI",
-            "type": "journal-article",
-            "url": "https://doi.org/10.4172/2168-9695.1000164"
-          },
-          {
-            "doi": "10.1016/j.fopow.2023.11.031",
-            "publisher": "Elsevier BV",
-            "title": "Adoption of robotics across various industry verticals is impacting the coatings market",
-            "type": "journal-article",
-            "url": "https://doi.org/10.1016/j.fopow.2023.11.031"
-          }
-        ],
-        "candidates": [
-          "https://doi.org/10.2139/ssrn.5271347",
-          "https://doi.org/10.4172/2168-9695.1000164",
-          "https://doi.org/10.1016/j.fopow.2023.11.031"
-        ],
-        "diagnostics": {
-          "credential_required": false,
-          "endpoint": "https://api.crossref.org/works",
-          "provider_key": "crossref",
-          "public_api": true,
-          "query": "robotics market adoption",
-          "records_total": 883750,
-          "rows": 3,
-          "selected_candidates": 3,
-          "selection_mode": "crossref_message_items"
-        },
-        "errors": [],
-        "inserted": 3,
-        "message": "official_access.api executed via Crossref works API",
-        "pages_scanned": 1,
-        "skipped": 0,
-        "used_term_fallback": false,
-        "written": null
-      },
-      "sample_candidates": [
-        "https://doi.org/10.2139/ssrn.5271347",
-        "https://doi.org/10.4172/2168-9695.1000164",
-        "https://doi.org/10.1016/j.fopow.2023.11.031"
-      ],
-      "status": "passed"
+      "status": "not_requested"
     },
     "non_arxiv_provider_maturity": {
       "closed_provider": "crossref",
@@ -303,28 +237,48 @@
         "checks": {
           "all_provider_entries_validated": false,
           "artifact_loaded": true,
-          "contract_version": false,
-          "credential_material_not_logged": false,
-          "evidence_scope": false,
-          "generated_at_present": false,
-          "generated_by_present": false,
-          "providers_present": false
+          "contract_version": true,
+          "credential_material_not_logged": true,
+          "evidence_scope": true,
+          "generated_at_present": true,
+          "generated_by_present": true,
+          "no_invalid_provider_entries": true,
+          "providers_present": true,
+          "secret_material_absent": true
         },
+        "configured_only": true,
+        "configured_only_provider_count": 1,
         "contract_version": "single_url.provider_credentials_quota_evidence.v1",
         "credentialed_provider_count": 0,
         "failed_checks": [
-          "contract_version",
-          "evidence_scope",
-          "providers_present",
-          "all_provider_entries_validated",
-          "generated_by_present",
-          "generated_at_present",
-          "credential_material_not_logged"
+          "all_provider_entries_validated"
         ],
         "load_error": null,
-        "provider_results": [],
-        "source_path": null,
-        "status": "missing_evidence",
+        "provider_results": [
+          {
+            "checks": {
+              "credential_material_not_logged": true,
+              "credential_state_configured": true,
+              "live_probe_authorized": false,
+              "live_probe_status_passed": false,
+              "provider_key_present": true,
+              "provider_specific_quota_validated": false,
+              "quota_status_healthy": false,
+              "secret_material_absent": true
+            },
+            "configured_only_reason": "live_probe_authorized_false_or_missing",
+            "failed_checks": [],
+            "live_probe_authorized": false,
+            "live_probe_status": "configured_only",
+            "provider_key": "serper",
+            "quota_status": "configured_only",
+            "secret_material_field_paths": [],
+            "status": "configured_only"
+          }
+        ],
+        "secret_material_field_paths": [],
+        "source_path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/automation-runs/single-url-provider-credentials-evidence/2026-05-24/provider_credentials_configured_only.json",
+        "status": "configured_only",
         "validated": false
       },
       "provider_scope": "public Crossref works API",
@@ -374,19 +328,6 @@
           }
         },
         "name": "crossref_candidate_records_preserve_title_and_doi",
-        "passed": true
-      },
-      {
-        "evidence": {
-          "candidate_count": 3,
-          "errors": [],
-          "sample_candidates": [
-            "https://doi.org/10.2139/ssrn.5271347",
-            "https://doi.org/10.4172/2168-9695.1000164",
-            "https://doi.org/10.1016/j.fopow.2023.11.031"
-          ]
-        },
-        "name": "crossref_public_api_live_probe",
         "passed": true
       }
     ],
@@ -462,7 +403,7 @@
             "session_context_applied": false,
             "session_mode_configured": false,
             "target_id": "x_search_robotics",
-            "user_data_dir_mode": null
+            "user_data_dir_mode": "ephemeral_empty_profile"
           },
           "markers": {
             "contains_captcha": false,
@@ -472,8 +413,8 @@
             "contains_video_title": false,
             "title": "X - 包罗万象的应用 / X"
           },
-          "reason": "Headless Chrome rendered the page, but public content was gated by auth or anti-bot markers.",
-          "status": "auth_or_anti_bot_blocked",
+          "reason": "X high-JS replay rendered, but full success requires explicit configured lawful-session evidence.",
+          "status": "platform_blocked",
           "target_id": "x_search_robotics",
           "url": "https://x.com/search?q=robotics"
         }
@@ -576,7 +517,7 @@
         "session_context_applied": false,
         "session_mode_configured": false,
         "target_id": "x_search_robotics",
-        "user_data_dir_mode": null
+        "user_data_dir_mode": "ephemeral_empty_profile"
       },
       "path": "development/latest-dev-docs/automation-runs/single-url-first-ingest-allocation-external-blocker-closure/2026-05-24/high_js_public_replay.json",
       "public_high_js_probe_target_ids": [
@@ -599,7 +540,7 @@
             "session_context_applied": false,
             "session_mode_configured": false,
             "target_id": "x_search_robotics",
-            "user_data_dir_mode": null
+            "user_data_dir_mode": "ephemeral_empty_profile"
           },
           "markers": {
             "contains_captcha": false,
@@ -609,8 +550,8 @@
             "contains_video_title": false,
             "title": "X - 包罗万象的应用 / X"
           },
-          "reason": "Headless Chrome rendered the page, but public content was gated by auth or anti-bot markers.",
-          "status": "auth_or_anti_bot_blocked",
+          "reason": "X high-JS replay rendered, but full success requires explicit configured lawful-session evidence.",
+          "status": "platform_blocked",
           "target_id": "x_search_robotics",
           "url": "https://x.com/search?q=robotics"
         }
@@ -627,11 +568,16 @@
         "sufficient_targets": true
       },
       "session_replay_evidence": {
+        "configured": false,
         "contract_version": "llm_crawler.high_js_session_replay_evidence.v1",
+        "copy_session_user_data_dir": false,
         "credential_material_logged": false,
+        "path_disclosed": false,
         "session_aware_replay_requested": false,
         "session_context_applied": false,
-        "status": "absent"
+        "source": "none",
+        "status": "present",
+        "user_data_dir_mode": "ephemeral_empty_profile"
       },
       "status": "accessible_replay_proven_external_targets_blocked",
       "successful_accessible_target_ids": [
@@ -677,7 +623,7 @@
               "session_context_applied": false,
               "session_mode_configured": false,
               "target_id": "x_search_robotics",
-              "user_data_dir_mode": null
+              "user_data_dir_mode": "ephemeral_empty_profile"
             },
             "markers": {
               "contains_captcha": false,
@@ -687,8 +633,8 @@
               "contains_video_title": false,
               "title": "X - 包罗万象的应用 / X"
             },
-            "reason": "Headless Chrome rendered the page, but public content was gated by auth or anti-bot markers.",
-            "status": "auth_or_anti_bot_blocked",
+            "reason": "X high-JS replay rendered, but full success requires explicit configured lawful-session evidence.",
+            "status": "platform_blocked",
             "target_id": "x_search_robotics",
             "url": "https://x.com/search?q=robotics"
           }
@@ -714,7 +660,7 @@
           "entrypoint": "ingest.url.single",
           "project_key": "single_url_wave57_canary",
           "source_mode": "url_execution",
-          "source_url": "https://example.com/wave55-production-like-ee0e1236ff"
+          "source_url": "https://example.com/wave55-production-like-22e44d20f1"
         },
         "live_result_status": "passed"
       },
@@ -756,7 +702,7 @@
     },
     {
       "evidence": {
-        "live_crossref_status": "passed",
+        "live_crossref_status": "not_requested",
         "remaining_provider_catalog_boundary": [
           "provider-specific credentials and quota behavior beyond public Crossref remain external",
           "public browser/runtime replay remains external to this gate",
@@ -769,10 +715,11 @@
     },
     {
       "evidence": {
-        "artifact_supplied": false,
+        "artifact_supplied": true,
         "blocker_id": "provider_credentials_quota_beyond_public_crossref_not_validated",
         "closure_claim": false,
-        "provider_credentials_beyond_crossref_satisfied": false
+        "provider_credentials_beyond_crossref_satisfied": false,
+        "provider_credentials_boundary_status": "configured_only"
       },
       "name": "provider_credentials_beyond_crossref_evidence_gate",
       "passed": true
@@ -816,8 +763,14 @@
           "artifact_kind": "deterministic_ingest_canary_24h_metrics_fixture",
           "checks": {
             "contract_version": true,
+            "guardrail_rollout_counts_match_total_attempts": true,
             "guardrail_rollout_counts_reviewed": true,
             "inserted_valid_ratio_reviewed": true,
+            "metric_counts_non_negative": true,
+            "metric_counts_present": true,
+            "metric_inserted_valid_invalid_consistent": true,
+            "metric_rejected_inserted_total_consistent": true,
+            "metric_total_attempts_positive": true,
             "rejection_rate_reviewed": true,
             "window_hours_at_least_24": true
           },
@@ -858,7 +811,9 @@
           "checks": {
             "approval_ticket_present": false,
             "approved_at_present": false,
+            "approved_at_timestamp": false,
             "approved_by_present": false,
+            "artifact_kind": false,
             "contract_version": false,
             "evidence_scope_operations": false,
             "operations_approval_recorded": false,
@@ -872,6 +827,7 @@
           "evidence_scope": null,
           "failed_checks": [
             "contract_version",
+            "artifact_kind",
             "evidence_scope_operations",
             "operations_approval_recorded",
             "production_24h_metrics_reviewed",
@@ -880,6 +836,7 @@
             "strict_gate_global_default_enabled",
             "approved_by_present",
             "approved_at_present",
+            "approved_at_timestamp",
             "approval_ticket_present",
             "rollback_plan_ref_present"
           ],

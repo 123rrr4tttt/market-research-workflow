@@ -30,11 +30,25 @@ def _provider_credentials_evidence() -> dict:
                 "credential_state": "configured",
                 "quota_status": "within_quota",
                 "live_probe_status": "passed",
+                "live_probe_authorized": True,
                 "provider_specific_quota_validated": True,
                 "credential_material_logged": False,
             }
         ],
     }
+
+
+def _provider_credentials_configured_only_evidence() -> dict:
+    evidence = _provider_credentials_evidence()
+    evidence["providers"][0].update(
+        {
+            "quota_status": "configured_only",
+            "live_probe_status": "configured_only",
+            "live_probe_authorized": False,
+            "provider_specific_quota_validated": False,
+        }
+    )
+    return evidence
 
 
 class SingleUrlOfficialApiProviderMaturityTestCase(unittest.TestCase):
@@ -72,6 +86,20 @@ class SingleUrlOfficialApiProviderMaturityTestCase(unittest.TestCase):
             )
         )
 
+    def test_provider_credentials_without_live_authorization_is_configured_only(self) -> None:
+        report = build_report(provider_credentials_evidence=_provider_credentials_configured_only_evidence())
+
+        self.assertEqual(report["status"], "passed")
+        maturity = report["non_arxiv_provider_maturity"]
+        boundary = maturity["provider_credentials_boundary"]
+        self.assertFalse(maturity["provider_credentials_beyond_crossref_satisfied"])
+        self.assertEqual(boundary["status"], "configured_only")
+        self.assertEqual(boundary["configured_only_provider_count"], 1)
+        self.assertIn(
+            "provider-specific credentials and quota behavior beyond public Crossref remain external",
+            maturity["remaining_provider_catalog_boundary"],
+        )
+
     def test_invalid_provider_credentials_artifact_fails_gate(self) -> None:
         evidence = _provider_credentials_evidence()
         evidence["providers"][0]["credential_material_logged"] = True
@@ -82,6 +110,18 @@ class SingleUrlOfficialApiProviderMaturityTestCase(unittest.TestCase):
         maturity = report["non_arxiv_provider_maturity"]
         self.assertFalse(maturity["provider_credentials_beyond_crossref_satisfied"])
         self.assertEqual(maturity["provider_credentials_boundary"]["status"], "failed_evidence")
+
+    def test_provider_credentials_artifact_rejects_secret_material_without_echoing_value(self) -> None:
+        evidence = _provider_credentials_evidence()
+        evidence["providers"][0]["api_key"] = "fixture-material-should-not-echo"
+
+        report = build_report(provider_credentials_evidence=evidence)
+
+        self.assertEqual(report["status"], "failed")
+        boundary = report["non_arxiv_provider_maturity"]["provider_credentials_boundary"]
+        self.assertEqual(boundary["status"], "failed_evidence")
+        self.assertIn("$.providers[0].api_key", boundary["secret_material_field_paths"])
+        self.assertNotIn("fixture-material-should-not-echo", str(report))
 
 
 if __name__ == "__main__":

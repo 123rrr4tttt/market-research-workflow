@@ -26,6 +26,12 @@ CONTRACT_VERSION = "time-semantics.configured-semantic-chain-evidence.v1"
 SOURCE_DOMAIN = "time-semantics-prodlike.example"
 NOUN_GROUP_ID = "robotics_live_gate"
 DEFAULT_PROJECT_KEY = "demo_proj"
+CONFIGURED_LIVE_DATA_SOURCE = "configured_db_existing_decision_logs"
+CONFIGURED_LIVE_EVIDENCE_TIER = "configured_live"
+CONFIGURED_LIVE_ARTIFACT_SCOPE = "configured_live_decision_logs"
+PRODUCTION_LIKE_DATA_SOURCE = "configured_db_production_like_sample"
+PRODUCTION_LIKE_EVIDENCE_TIER = "production_like"
+PRODUCTION_LIKE_ARTIFACT_SCOPE = "configured_production_like_sample"
 
 
 def _jsonable(value: Any) -> Any:
@@ -210,6 +216,27 @@ def _features(row: dict[str, Any]) -> dict[str, Any]:
     return raw if isinstance(raw, dict) else {}
 
 
+def _feedback_payload(row: dict[str, Any]) -> dict[str, Any]:
+    raw = row.get("feedback_json") or {}
+    if isinstance(raw, str):
+        try:
+            decoded = json.loads(raw)
+        except json.JSONDecodeError:
+            return {}
+        return decoded if isinstance(decoded, dict) else {}
+    return raw if isinstance(raw, dict) else {}
+
+
+def _rows_are_production_like_sample(rows: list[dict[str, Any]]) -> bool:
+    for row in rows:
+        feedback = _feedback_payload(row)
+        if str(row.get("source_domain") or "") == SOURCE_DOMAIN:
+            return True
+        if str(feedback.get("source") or "") == PRODUCTION_LIKE_DATA_SOURCE:
+            return True
+    return False
+
+
 def _build_evidence_from_rows(
     rows: list[dict[str, Any]],
     *,
@@ -220,6 +247,16 @@ def _build_evidence_from_rows(
 ) -> dict[str, Any]:
     request_ids = sorted({str(row.get("request_id") or "") for row in rows if row.get("request_id")})
     feature_payloads = [_features(row) for row in rows]
+    feedback_payloads = [_feedback_payload(row) for row in rows]
+    source_domains = sorted(
+        {str(row.get("source_domain") or "") for row in rows if row.get("source_domain")}
+    )
+    feedback_sources = sorted(
+        {str(payload.get("source") or "") for payload in feedback_payloads if payload.get("source")}
+    )
+    production_like_artifact = (
+        mode == "production-like-sample" or _rows_are_production_like_sample(rows)
+    )
     distributions = [
         payload.get("effective_time_source_distribution")
         for payload in feature_payloads
@@ -260,30 +297,28 @@ def _build_evidence_from_rows(
     verified = all(checks.values()) and bool(request_ids)
     return {
         "contract_version": CONTRACT_VERSION,
-        "evidence_tier": (
-            "production_like" if mode == "production-like-sample" else "configured_live"
-        ),
-        "data_source": (
-            "configured_db_production_like_sample"
-            if mode == "production-like-sample"
-            else "configured_db_existing_decision_logs"
-        ),
+        "evidence_tier": PRODUCTION_LIKE_EVIDENCE_TIER
+        if production_like_artifact
+        else CONFIGURED_LIVE_EVIDENCE_TIER,
+        "data_source": PRODUCTION_LIKE_DATA_SOURCE
+        if production_like_artifact
+        else CONFIGURED_LIVE_DATA_SOURCE,
         "project_key": project_key,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "production_data_semantic_chain_verified": verified,
         "semantic_chain_sample_count": len(request_ids),
         "decision_log_row_count": len(rows),
         "feedback_row_count": len(feedback_rows),
-        "semantic_chain_artifact_scope": (
-            "configured_production_like_sample"
-            if mode == "production-like-sample"
-            else "configured_live_decision_logs"
-        ),
+        "semantic_chain_artifact_scope": PRODUCTION_LIKE_ARTIFACT_SCOPE
+        if production_like_artifact
+        else CONFIGURED_LIVE_ARTIFACT_SCOPE,
         "source_time_coverage": source_time_coverage,
         "source_time_count": source_time_count,
         "source_time_total_docs": total_docs,
         "source_time_coverage_from_counts": source_time_coverage_from_counts,
         "source_time_coverage_proved": source_time_coverage_proved,
+        "source_domains": source_domains,
+        "feedback_sources": feedback_sources,
         "effective_time_source_distribution": {
             "total_docs": total_docs,
             "source_time_count": source_time_count,
@@ -370,7 +405,9 @@ def build_evidence(
             "production_data_semantic_chain_verified": False,
             "_evidence_read_error": f"{exc.__class__.__name__}: {exc}",
             "project_key": project_key,
-            "data_source": "configured_db_production_like_sample",
+            "evidence_tier": PRODUCTION_LIKE_EVIDENCE_TIER,
+            "data_source": PRODUCTION_LIKE_DATA_SOURCE,
+            "semantic_chain_artifact_scope": PRODUCTION_LIKE_ARTIFACT_SCOPE,
         }
 
 

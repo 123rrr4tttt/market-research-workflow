@@ -96,6 +96,28 @@ class SourceTimeProductionReadinessTest(unittest.TestCase):
             "configured_production_like_sample",
         )
 
+    def test_evidence_builder_keeps_production_like_rows_from_impersonating_live(self) -> None:
+        module = _load_evidence_builder_module()
+        rows = _sample_builder_rows()
+        rows[0]["source_domain"] = "time-semantics-prodlike.example"
+        rows[0]["feedback_json"] = {"source": "configured_db_production_like_sample"}
+
+        payload = module._build_evidence_from_rows(
+            rows,
+            project_key="demo_proj",
+            mode="read-existing",
+        )
+
+        self.assertTrue(payload["production_data_semantic_chain_verified"])
+        self.assertEqual(payload["evidence_tier"], "production_like")
+        self.assertEqual(payload["data_source"], "configured_db_production_like_sample")
+        self.assertEqual(
+            payload["semantic_chain_artifact_scope"],
+            "configured_production_like_sample",
+        )
+        self.assertIn("time-semantics-prodlike.example", payload["source_domains"])
+        self.assertIn("configured_db_production_like_sample", payload["feedback_sources"])
+
     def test_checker_distinguishes_deterministic_decision_log_and_live_gap(self) -> None:
         module = _load_checker_module()
         result = module.build_check()
@@ -231,6 +253,40 @@ class SourceTimeProductionReadinessTest(unittest.TestCase):
         self.assertTrue(result["checks"]["production_data_semantic_chain_live_verified"])
         self.assertFalse(result["checks"]["production_data_semantic_chain_live_gap_retained"])
         self.assertEqual(result["remaining_live_gaps"], [])
+
+    def test_live_identity_with_production_like_artifact_scope_fails(self) -> None:
+        module = _load_checker_module()
+        result = module.build_check(
+            live_evidence={
+                "evidence_tier": "configured_live",
+                "data_source": "configured_db_existing_decision_logs",
+                "semantic_chain_artifact_scope": "configured_production_like_sample",
+                "production_data_semantic_chain_verified": True,
+                "live_query_used": True,
+                "configured_services_used": True,
+                "effective_time_source_distribution_readback": True,
+                "source_time_coverage_measured": True,
+                "decision_log_rows_readback": True,
+                "decision_log_features_readback": True,
+                "feedback_reward_alignment_readback": True,
+                "semantic_chain_sample_count": 3,
+                "source_time_coverage": 0.75,
+                "source_time_count": 3,
+                "source_time_total_docs": 4,
+                "decision_log_row_count": 3,
+                "feedback_row_count": 3,
+            }
+        )
+
+        self.assertEqual(result["status"], "failed")
+        self.assertFalse(result["checks"]["production_data_semantic_chain_live_verified"])
+        production_stage = {
+            stage["name"]: stage for stage in result["stages"]
+        }["production_data_semantic_chain"]
+        self.assertIn(
+            "evidence_tier_data_source_artifact_scope_conflict",
+            production_stage["missing_requirements"],
+        )
 
     def test_complete_booleans_without_explicit_tier_and_source_are_not_live(self) -> None:
         module = _load_checker_module()

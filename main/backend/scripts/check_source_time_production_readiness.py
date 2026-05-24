@@ -58,11 +58,21 @@ PRODUCTION_LIVE_DATA_SOURCES = {
     "production_db_decision_logs",
     "production_live_decision_logs",
 }
+PRODUCTION_LIVE_ARTIFACT_SCOPES = {
+    "configured_live_decision_logs",
+    "configured_db_live_decision_logs",
+    "production_db_decision_logs",
+    "production_live_decision_logs",
+}
 PRODUCTION_LIKE_EVIDENCE_TIERS = {
     "production_like",
     "configured_db_production_like_sample",
 }
 PRODUCTION_LIKE_DATA_SOURCES = {
+    "configured_db_production_like_sample",
+}
+PRODUCTION_LIKE_ARTIFACT_SCOPES = {
+    "configured_production_like_sample",
     "configured_db_production_like_sample",
 }
 
@@ -497,10 +507,13 @@ def _production_semantic_chain_stage(
 
     raw_tier = live_evidence.get("evidence_tier")
     raw_data_source = live_evidence.get("data_source")
+    raw_artifact_scope = live_evidence.get("semantic_chain_artifact_scope")
     evidence_tier = str(raw_tier or "").strip()
     data_source = str(raw_data_source or "").strip()
+    artifact_scope = str(raw_artifact_scope or "").strip()
     tier_key = _canonical_evidence_label(raw_tier)
     data_source_key = _canonical_evidence_label(raw_data_source)
+    artifact_scope_key = _canonical_evidence_label(raw_artifact_scope)
     if not evidence_tier:
         missing.append("evidence_tier_explicit")
     if not data_source:
@@ -508,22 +521,34 @@ def _production_semantic_chain_stage(
 
     tier_is_live = tier_key in PRODUCTION_LIVE_EVIDENCE_TIERS
     source_is_live = data_source_key in PRODUCTION_LIVE_DATA_SOURCES
+    scope_is_live = artifact_scope_key in PRODUCTION_LIVE_ARTIFACT_SCOPES
     tier_is_production_like = tier_key in PRODUCTION_LIKE_EVIDENCE_TIERS
     source_is_production_like = data_source_key in PRODUCTION_LIKE_DATA_SOURCES
+    scope_is_production_like = artifact_scope_key in PRODUCTION_LIKE_ARTIFACT_SCOPES
     has_conflicting_identity = (
         (tier_is_live and source_is_production_like)
         or (tier_is_production_like and source_is_live)
+        or (tier_is_live and scope_is_production_like)
+        or (tier_is_production_like and scope_is_live)
+        or (source_is_live and scope_is_production_like)
+        or (source_is_production_like and scope_is_live)
     )
     if has_conflicting_identity:
-        missing.append("evidence_tier_data_source_conflict")
+        missing.append("evidence_tier_data_source_artifact_scope_conflict")
+    if artifact_scope and not scope_is_live and not scope_is_production_like:
+        missing.append("semantic_chain_artifact_scope_supported")
 
     production_like = (
         tier_is_production_like
         and source_is_production_like
+        and (not artifact_scope or scope_is_production_like)
         and not has_conflicting_identity
     )
     production_live_candidate = (
-        tier_is_live and source_is_live and not has_conflicting_identity
+        tier_is_live
+        and source_is_live
+        and (not artifact_scope or scope_is_live)
+        and not has_conflicting_identity
     )
     if evidence_tier and data_source and not production_like and not production_live_candidate:
         missing.append("evidence_tier_data_source_supported")
@@ -563,9 +588,15 @@ def _production_semantic_chain_stage(
             "live_evidence_supplied": True,
             "evidence_tier": evidence_tier,
             "data_source": data_source,
+            "semantic_chain_artifact_scope": artifact_scope,
             "evidence_category": evidence_category,
             "semantic_chain_sample_count": sample_count,
             "requirements_checked": list(LIVE_EVIDENCE_REQUIREMENTS),
+            "identity_requirements_checked": [
+                "evidence_tier",
+                "data_source",
+                "semantic_chain_artifact_scope_when_supplied",
+            ],
             "coverage_requirements_checked": [
                 "source_time_count>=1",
                 "source_time_total_docs>=1",

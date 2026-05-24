@@ -170,6 +170,37 @@ class TimeSemanticsReleaseGateTest(unittest.TestCase):
             ["production_live_dataset_not_verified"],
         )
 
+    def test_strict_closure_rejects_live_tier_with_production_like_artifact_scope(self) -> None:
+        module = _load_checker_module()
+        result = module.build_check(
+            include_doc_checks=False,
+            strict_closure=True,
+            live_evidence={
+                "evidence_tier": "configured_live",
+                "data_source": "configured_db_existing_decision_logs",
+                "semantic_chain_artifact_scope": "configured_production_like_sample",
+                "production_data_semantic_chain_verified": True,
+                "live_query_used": True,
+                "configured_services_used": True,
+                "effective_time_source_distribution_readback": True,
+                "source_time_coverage_measured": True,
+                "decision_log_rows_readback": True,
+                "decision_log_features_readback": True,
+                "feedback_reward_alignment_readback": True,
+                "semantic_chain_sample_count": 3,
+                "source_time_coverage": 0.75,
+                "source_time_count": 3,
+                "source_time_total_docs": 4,
+                "decision_log_row_count": 3,
+                "feedback_row_count": 3,
+            },
+        )
+
+        self.assertEqual(result["status"], "failed")
+        self.assertIn("source_readiness.failed", result["failures"])
+        self.assertIn("production_data_semantic_chain_live_required", result["failures"])
+        self.assertFalse(result["checks"]["production_data_semantic_chain_live_verified"])
+
     def test_release_gate_marker_check_fails_for_unwired_gate(self) -> None:
         module = _load_checker_module()
         with tempfile.TemporaryDirectory() as tmp:

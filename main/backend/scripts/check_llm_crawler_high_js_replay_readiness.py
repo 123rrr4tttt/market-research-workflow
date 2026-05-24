@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -61,6 +62,15 @@ DEFAULT_HIGH_JS_TARGETS = [
         "external_blocker_accept_statuses": ["auth_or_anti_bot_blocked"],
     },
 ]
+
+SENSITIVE_DIAGNOSTIC_PATTERNS = (
+    re.compile(r"--user-data-dir=", re.IGNORECASE),
+    re.compile(r"/Users/[^\s'\"<>]+"),
+    re.compile(r"/home/[^\s'\"<>]+"),
+    re.compile(r"/private/var/folders/[^\s'\"<>]+"),
+    re.compile(r"[A-Za-z]:\\Users\\", re.IGNORECASE),
+    re.compile(r"%APPDATA%", re.IGNORECASE),
+)
 
 
 def _repo_root() -> Path:
@@ -189,10 +199,33 @@ def _result_by_target_id(payload: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return result
 
 
+def _validate_target_diagnostics(payload: dict[str, Any], errors: list[str]) -> None:
+    outputs = payload.get("outputs") if isinstance(payload.get("outputs"), dict) else {}
+    target_results = outputs.get("target_results")
+    if not isinstance(target_results, list):
+        return
+    for index, item in enumerate(target_results):
+        if not isinstance(item, dict):
+            continue
+        for field in ("stderr_tail", "reason"):
+            value = item.get(field)
+            if not isinstance(value, str) or not value:
+                continue
+            if any(pattern.search(value) for pattern in SENSITIVE_DIAGNOSTIC_PATTERNS):
+                errors.append(f"target_results[{index}].{field} contains unredacted local path or session diagnostic")
+
+
 def _target_result_successful(item: dict[str, Any] | None) -> bool:
     if not isinstance(item, dict):
         return False
     return str(item.get("status") or "").strip().lower() == "success" and item.get("browser_rendered") is True
+
+
+def _has_auth_or_anti_bot_marker(item: dict[str, Any] | None) -> bool:
+    if not isinstance(item, dict):
+        return False
+    markers = item.get("markers") if isinstance(item.get("markers"), dict) else {}
+    return bool(markers.get("contains_login") or markers.get("contains_captcha"))
 
 
 def _configured_session_mode(session: dict[str, Any]) -> bool:
@@ -276,24 +309,31 @@ def _external_gate_result_proven(target: dict[str, Any], item: dict[str, Any] | 
         if str(status).strip()
     }
     status = str(item.get("status") or "").strip().lower()
-    markers = item.get("markers") if isinstance(item.get("markers"), dict) else {}
-    auth_or_anti_bot_marker = bool(markers.get("contains_login") or markers.get("contains_captcha"))
     return bool(
         status in allowed_statuses
         and item.get("browser_rendered") is True
         and item.get("public_network_attempted") is True
-        and auth_or_anti_bot_marker
+        and _has_auth_or_anti_bot_marker(item)
     )
 
 
 def _x_platform_blocker_proven(item: dict[str, Any] | None, lawful_session_evidence: dict[str, Any]) -> bool:
     if not isinstance(item, dict):
         return False
+    status = str(item.get("status") or "").strip().lower()
+    pre_session_status = str(item.get("pre_session_policy_status") or "").strip().lower()
+    lawful_session_basis = (
+        status == "success"
+        or pre_session_status == "success"
+        or (status == "auth_or_anti_bot_blocked" and _has_auth_or_anti_bot_marker(item))
+        or (pre_session_status == "auth_or_anti_bot_blocked" and _has_auth_or_anti_bot_marker(item))
+    )
     return bool(
         lawful_session_evidence.get("required") is True
         and lawful_session_evidence.get("accepted") is not True
         and item.get("browser_rendered") is True
         and item.get("public_network_attempted") is True
+        and lawful_session_basis
     )
 
 
@@ -316,6 +356,7 @@ def _public_artifact_summary(root: Path, public_artifact: Path | str | None, err
         }
 
     payload = _load_json(artifact_path, errors)
+    _validate_target_diagnostics(payload, errors)
     validation = payload.get("validation") if isinstance(payload.get("validation"), dict) else {}
     inputs = payload.get("inputs") if isinstance(payload.get("inputs"), dict) else {}
     outputs = payload.get("outputs") if isinstance(payload.get("outputs"), dict) else {}

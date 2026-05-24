@@ -310,11 +310,16 @@ def strings(value: Any) -> set[str]:
     return {item for item in value if isinstance(item, str)}
 
 
+def path_is_within_or_equal(path: Path, root: Path) -> bool:
+    return path == root or root in path.parents
+
+
 def collect_targets(
     root: Path,
     allowlist: dict[str, Any],
     problems: list[Problem],
     reference_patterns: tuple[str, ...] | None = None,
+    declared_non_targets: tuple[Path, ...] = (),
 ) -> tuple[TargetTopic, ...]:
     targets: list[TargetTopic] = []
     target_roots = allowlist.get("target_roots")
@@ -346,6 +351,8 @@ def collect_targets(
         for child in direct_child_dirs(root, root_path, reference_patterns):
             name = child.name
             if name in excluded or name in allowed_non_topic:
+                continue
+            if any(path_is_within_or_equal(child, declared_root) for declared_root in declared_non_targets):
                 continue
             targets.append(TargetTopic(path=child, status=status, entrypoint=entrypoint))
     return tuple(sorted(targets, key=lambda item: item.path.as_posix()))
@@ -534,7 +541,9 @@ def check(root: Path, allowlist_path: Path = ALLOWLIST) -> Result:
     reference_patterns = reference_excludes(allowlist)
     status_counts = parse_current_status_counts(root, problems, reference_patterns)
     target_overrides = collect_target_overrides(allowlist, problems)
-    targets = collect_targets(root, allowlist, problems, reference_patterns)
+    non_target_roots = collect_declared_roots(allowlist, "non_target_roots", problems)
+    evidence_roots = collect_declared_roots(allowlist, "evidence_roots", problems)
+    targets = collect_targets(root, allowlist, problems, reference_patterns, non_target_roots + evidence_roots)
     if target_overrides:
         targets = tuple(
             TargetTopic(
@@ -552,9 +561,6 @@ def check(root: Path, allowlist_path: Path = ALLOWLIST) -> Result:
             if override_path not in target_paths:
                 problems.append(Problem(override_path, "target_topic_override path does not match any target topic"))
     target_profiles = {target.path: evidence_profile(root, target.path, reference_patterns) for target in targets}
-    non_target_roots = collect_declared_roots(allowlist, "non_target_roots", problems)
-    evidence_roots = collect_declared_roots(allowlist, "evidence_roots", problems)
-
     for status in PRIMARY_STATUSES:
         if status not in status_counts:
             problems.append(Problem(CURRENT_DEV_INDEX, f"remaining status distribution missing {status} count"))

@@ -24,9 +24,26 @@ from app.services.source_library.adapters.official_access import handle_official
 CONTRACT_VERSION = "single_url.official_api_provider_maturity.v1"
 PROVIDER_CREDENTIALS_EVIDENCE_CONTRACT_VERSION = "single_url.provider_credentials_quota_evidence.v1"
 PROVIDER_CREDENTIALS_BEYOND_CROSSREF_BLOCKER = "provider_credentials_quota_beyond_public_crossref_not_validated"
+PROVIDER_CREDENTIALS_VALIDATED_STATUS = "validated"
+PROVIDER_CREDENTIALS_CONFIGURED_ONLY_STATUS = "configured_only"
+PROVIDER_CREDENTIALS_FAILED_STATUS = "failed_evidence"
 TOPIC_SLUG = "2026-03-02-single-url-first-ingest-allocation-plan"
 TOPIC_DIR = Path("development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED") / TOPIC_SLUG
 WAVE56_DOC = TOPIC_DIR / "12_wave56-crossref-official-api-provider-maturity-2026-05-23.md"
+_SECRET_MATERIAL_KEY_NAMES = {
+    "apikey",
+    "authorization",
+    "bearertoken",
+    "clientsecret",
+    "credentialmaterial",
+    "credentialvalue",
+    "idtoken",
+    "password",
+    "privatekey",
+    "refreshtoken",
+    "secret",
+    "token",
+}
 
 
 def _read_text(path: Path) -> str:
@@ -140,6 +157,49 @@ def _clean_text(value: Any) -> str:
     return str(value or "").strip()
 
 
+def _clean_lower(value: Any) -> str:
+    return _clean_text(value).lower()
+
+
+def _is_true(value: Any) -> bool:
+    if value is True:
+        return True
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "y", "authorized", "approved", "granted"}
+    return False
+
+
+def _normalized_key(value: Any) -> str:
+    return "".join(char for char in str(value or "").lower() if char.isalnum())
+
+
+def _is_secret_material_key(key: Any) -> bool:
+    normalized = _normalized_key(key)
+    return normalized in _SECRET_MATERIAL_KEY_NAMES or normalized.endswith("secret")
+
+
+def _secret_material_field_paths(value: Any, *, prefix: str = "$", limit: int = 50) -> list[str]:
+    paths: list[str] = []
+
+    def visit(current: Any, current_prefix: str) -> None:
+        if len(paths) >= limit:
+            return
+        if isinstance(current, Mapping):
+            for key, child in current.items():
+                key_text = str(key)
+                child_prefix = f"{current_prefix}.{key_text}" if current_prefix else key_text
+                if _is_secret_material_key(key_text):
+                    paths.append(child_prefix)
+                    continue
+                visit(child, child_prefix)
+        elif isinstance(current, list):
+            for index, child in enumerate(current):
+                visit(child, f"{current_prefix}[{index}]")
+
+    visit(value, prefix)
+    return paths[:limit]
+
+
 def _provider_credentials_boundary(
     evidence: Mapping[str, Any] | None,
     *,
@@ -148,6 +208,8 @@ def _provider_credentials_boundary(
 ) -> dict[str, Any]:
     payload = evidence if isinstance(evidence, Mapping) else {}
     providers = payload.get("providers") if isinstance(payload.get("providers"), list) else []
+    secret_field_paths = _secret_material_field_paths(payload) if payload else []
+    top_level_live_authorized = _is_true(payload.get("live_probe_authorized"))
     provider_results: list[dict[str, Any]] = []
     for item in providers:
         if not isinstance(item, Mapping):
@@ -159,52 +221,130 @@ def _provider_credentials_boundary(
                 }
             )
             continue
-        checks = {
-            "provider_key_present": bool(_clean_text(item.get("provider_key"))),
-            "credential_state_configured": _clean_text(item.get("credential_state")).lower()
-            in {"configured", "available", "valid"},
-            "quota_status_healthy": _clean_text(item.get("quota_status")).lower()
-            in {"within_quota", "healthy", "available"},
-            "live_probe_status_passed": _clean_text(item.get("live_probe_status")).lower()
-            in {"passed", "validated", "ok"},
-            "provider_specific_quota_validated": item.get("provider_specific_quota_validated") is True,
-            "credential_material_not_logged": item.get("credential_material_logged") is False,
+        item_secret_paths = _secret_material_field_paths(item, prefix="provider")
+        credential_state_configured = _clean_lower(item.get("credential_state")) in {
+            "configured",
+            "available",
+            "valid",
         }
-        failed = [name for name, passed in checks.items() if not passed]
+        quota_status = _clean_lower(item.get("quota_status"))
+        live_probe_status = _clean_lower(item.get("live_probe_status"))
+        live_probe_authorized = (
+            _is_true(item.get("live_probe_authorized"))
+            if "live_probe_authorized" in item
+            else top_level_live_authorized
+        )
+        base_checks = {
+            "provider_key_present": bool(_clean_text(item.get("provider_key"))),
+            "credential_state_configured": credential_state_configured,
+            "credential_material_not_logged": item.get("credential_material_logged") is False,
+            "secret_material_absent": not item_secret_paths,
+        }
+        checks = {
+            **base_checks,
+            "live_probe_authorized": live_probe_authorized,
+            "quota_status_healthy": quota_status in {"within_quota", "healthy", "available"},
+            "live_probe_status_passed": live_probe_status in {"passed", "validated", "ok"},
+            "provider_specific_quota_validated": item.get("provider_specific_quota_validated") is True,
+        }
+        base_failed = [name for name, passed in base_checks.items() if not passed]
+        live_failed = [
+            name
+            for name in (
+                "live_probe_authorized",
+                "quota_status_healthy",
+                "live_probe_status_passed",
+                "provider_specific_quota_validated",
+            )
+            if not checks[name]
+        ]
+        status = PROVIDER_CREDENTIALS_FAILED_STATUS
+        if not base_failed and live_probe_authorized and not live_failed:
+            status = PROVIDER_CREDENTIALS_VALIDATED_STATUS
+        elif not base_failed and not live_probe_authorized:
+            status = PROVIDER_CREDENTIALS_CONFIGURED_ONLY_STATUS
         provider_results.append(
             {
                 "provider_key": item.get("provider_key"),
-                "status": "validated" if not failed else "failed_evidence",
+                "status": status,
                 "checks": checks,
-                "failed_checks": failed,
+                "failed_checks": (
+                    base_failed
+                    if status == PROVIDER_CREDENTIALS_CONFIGURED_ONLY_STATUS
+                    else base_failed + live_failed
+                ),
+                "configured_only_reason": (
+                    "live_probe_authorized_false_or_missing"
+                    if status == PROVIDER_CREDENTIALS_CONFIGURED_ONLY_STATUS
+                    else None
+                ),
+                "secret_material_field_paths": item_secret_paths,
                 "quota_status": item.get("quota_status"),
                 "live_probe_status": item.get("live_probe_status"),
+                "live_probe_authorized": live_probe_authorized,
             }
         )
 
+    invalid_provider_count = sum(
+        1
+        for result in provider_results
+        if result.get("status") not in {PROVIDER_CREDENTIALS_VALIDATED_STATUS, PROVIDER_CREDENTIALS_CONFIGURED_ONLY_STATUS}
+    )
+    validated_provider_count = sum(
+        1 for result in provider_results if result.get("status") == PROVIDER_CREDENTIALS_VALIDATED_STATUS
+    )
+    configured_only_provider_count = sum(
+        1 for result in provider_results if result.get("status") == PROVIDER_CREDENTIALS_CONFIGURED_ONLY_STATUS
+    )
     checks = {
         "artifact_loaded": load_error is None,
         "contract_version": payload.get("contract_version") == PROVIDER_CREDENTIALS_EVIDENCE_CONTRACT_VERSION,
         "evidence_scope": payload.get("evidence_scope") == "provider_credentials_quota",
         "providers_present": bool(providers),
         "all_provider_entries_validated": bool(provider_results)
-        and all(result.get("status") == "validated" for result in provider_results),
+        and all(result.get("status") == PROVIDER_CREDENTIALS_VALIDATED_STATUS for result in provider_results),
+        "no_invalid_provider_entries": bool(provider_results) and invalid_provider_count == 0,
         "generated_by_present": bool(_clean_text(payload.get("generated_by"))),
         "generated_at_present": bool(_clean_text(payload.get("generated_at"))),
         "credential_material_not_logged": payload.get("credential_material_logged") is False,
+        "secret_material_absent": not secret_field_paths,
     }
     failed_checks = [name for name, passed in checks.items() if not passed]
+    validation_blockers = {
+        "all_provider_entries_validated",
+    }
+    configured_only_failed_checks = [
+        check for check in failed_checks if check not in validation_blockers
+    ]
     validated = bool(payload) and not failed_checks
+    configured_only = (
+        bool(payload)
+        and not validated
+        and not configured_only_failed_checks
+        and configured_only_provider_count > 0
+        and invalid_provider_count == 0
+    )
     return {
         "contract_version": PROVIDER_CREDENTIALS_EVIDENCE_CONTRACT_VERSION,
-        "status": "validated" if validated else ("failed_evidence" if payload or load_error else "missing_evidence"),
+        "status": (
+            PROVIDER_CREDENTIALS_VALIDATED_STATUS
+            if validated
+            else (
+                PROVIDER_CREDENTIALS_CONFIGURED_ONLY_STATUS
+                if configured_only
+                else (PROVIDER_CREDENTIALS_FAILED_STATUS if payload or load_error else "missing_evidence")
+            )
+        ),
         "validated": validated,
+        "configured_only": configured_only,
         "source_path": source_path,
         "load_error": load_error,
         "checks": checks,
         "failed_checks": failed_checks,
+        "secret_material_field_paths": secret_field_paths,
         "provider_results": provider_results,
-        "credentialed_provider_count": sum(1 for result in provider_results if result.get("status") == "validated"),
+        "credentialed_provider_count": validated_provider_count,
+        "configured_only_provider_count": configured_only_provider_count,
     }
 
 
@@ -327,9 +467,11 @@ def build_report(
         source_path=provider_evidence_path,
         load_error=provider_evidence_error,
     )
-    provider_credentials_satisfied = credentials_boundary.get("validated") is True
+    provider_credentials_satisfied = credentials_boundary.get("status") == PROVIDER_CREDENTIALS_VALIDATED_STATUS
     provider_artifact_supplied = provider_credentials_artifact is not None or provider_credentials_evidence is not None
-    provider_artifact_failed = provider_artifact_supplied and not provider_credentials_satisfied
+    provider_artifact_failed = (
+        provider_artifact_supplied and credentials_boundary.get("status") == PROVIDER_CREDENTIALS_FAILED_STATUS
+    )
     passed = (
         all(item["passed"] for item in token_results)
         and all(item["passed"] for item in runtime_results)

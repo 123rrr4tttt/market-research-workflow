@@ -16,7 +16,9 @@ pytestmark = pytest.mark.unit
 from app.services.ingest.canary_handoff import CANARY_HANDOFF_CONTRACT_VERSION
 from app.services.ingest.canary_handoff_live import build_production_like_handoff_evidence
 from app.services.ingest.canary_strict_promotion import (
+    OPS_STRICT_GATE_PROMOTION_ARTIFACT_KIND,
     OPS_STRICT_GATE_PROMOTION_CONTRACT_VERSION,
+    PRODUCTION_24H_METRICS_ARTIFACT_KIND,
     PRODUCTION_24H_METRICS_CONTRACT_VERSION,
 )
 from scripts.check_ingest_canary_24h_metrics_artifact import build_24h_metrics_artifact
@@ -128,7 +130,7 @@ def _production_metrics_artifact() -> dict:
     artifact.update(
         {
             "contract_version": PRODUCTION_24H_METRICS_CONTRACT_VERSION,
-            "artifact_kind": "production_ingest_canary_24h_metrics_readback",
+            "artifact_kind": PRODUCTION_24H_METRICS_ARTIFACT_KIND,
             "deterministic_fixture": False,
             "evidence_scope": "production",
             "source_record": {
@@ -153,6 +155,7 @@ def _production_metrics_artifact() -> dict:
 def _ops_promotion_artifact() -> dict:
     return {
         "contract_version": OPS_STRICT_GATE_PROMOTION_CONTRACT_VERSION,
+        "artifact_kind": OPS_STRICT_GATE_PROMOTION_ARTIFACT_KIND,
         "evidence_scope": "operations",
         "operations_approval_recorded": True,
         "production_24h_metrics_reviewed": True,
@@ -172,6 +175,7 @@ def _provider_credentials_artifact() -> dict:
         "evidence_scope": "provider_credentials_quota",
         "generated_by": "ops-provider-health-export",
         "generated_at": "2026-05-24T01:30:00Z",
+        "live_probe_authorized": True,
         "credential_material_logged": False,
         "providers": [
             {
@@ -179,11 +183,26 @@ def _provider_credentials_artifact() -> dict:
                 "credential_state": "configured",
                 "quota_status": "within_quota",
                 "live_probe_status": "passed",
+                "live_probe_authorized": True,
                 "provider_specific_quota_validated": True,
                 "credential_material_logged": False,
             }
         ],
     }
+
+
+def _provider_credentials_configured_only_artifact() -> dict:
+    artifact = _provider_credentials_artifact()
+    artifact["live_probe_authorized"] = False
+    artifact["providers"][0].update(
+        {
+            "quota_status": "configured_only",
+            "live_probe_status": "configured_only",
+            "live_probe_authorized": False,
+            "provider_specific_quota_validated": False,
+        }
+    )
+    return artifact
 
 
 def _fake_live_canary_result(**_kwargs) -> dict:
@@ -316,6 +335,50 @@ class SingleUrlExternalBlockerClosureUnitTestCase(unittest.TestCase):
         self.assertTrue(result["closure_decision"]["can_be_closed"])
         self.assertTrue(result["closure_decision"]["closure_claim"])
         self.assertEqual(result["closure_decision"]["remaining_external_blockers"], [])
+
+    def test_configured_only_provider_credentials_keep_closure_external_blocked(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            public_artifact = tmp_path / "high_js_public_replay.json"
+            production_artifact = tmp_path / "production_metrics.json"
+            ops_artifact = tmp_path / "ops_promotion.json"
+            provider_artifact = tmp_path / "provider_credentials.json"
+            public_artifact.write_text(
+                json.dumps(_closed_public_replay_artifact(), ensure_ascii=False) + "\n",
+                encoding="utf-8",
+            )
+            production_artifact.write_text(
+                json.dumps(_production_metrics_artifact(), ensure_ascii=False) + "\n",
+                encoding="utf-8",
+            )
+            ops_artifact.write_text(
+                json.dumps(_ops_promotion_artifact(), ensure_ascii=False) + "\n",
+                encoding="utf-8",
+            )
+            provider_artifact.write_text(
+                json.dumps(_provider_credentials_configured_only_artifact(), ensure_ascii=False) + "\n",
+                encoding="utf-8",
+            )
+            result = build_check(
+                public_replay_artifact=public_artifact,
+                live_canary_runner=_fake_live_canary_result,
+                production_metrics_artifact_path=production_artifact,
+                ops_promotion_artifact_path=ops_artifact,
+                provider_credentials_artifact_path=provider_artifact,
+                claim_closure=True,
+            )
+
+        self.assertEqual(result["status"], "passed", result["runtime_results"])
+        self.assertEqual(result["closure_decision"]["status"], "external_blocked")
+        self.assertFalse(result["closure_decision"]["can_be_closed"])
+        self.assertFalse(result["closure_decision"]["closure_claim"])
+        self.assertFalse(
+            result["closure_decision"]["repo_public_boundaries_reduced"]["provider_credentials_beyond_crossref"]
+        )
+        maturity = result["official_api_provider_maturity"]["non_arxiv_provider_maturity"]
+        self.assertEqual(maturity["provider_credentials_boundary"]["status"], "configured_only")
+        remaining_ids = {item["id"] for item in result["closure_decision"]["remaining_external_blockers"]}
+        self.assertEqual(remaining_ids, {PROVIDER_CREDENTIALS_BEYOND_CROSSREF_BLOCKER})
 
 
 if __name__ == "__main__":

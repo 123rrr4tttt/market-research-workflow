@@ -45,3 +45,11 @@ This closes only the repo-local/public Crossref portion of the non-arXiv provide
 - configured-service single-URL canary for `demo_proj`
 - production 24h metrics readback from URL pool output
 - provider-specific credentials and quota behavior beyond public Crossref
+
+Provider credential/quota evidence is intentionally two-tiered:
+
+- `configured_only`: credential presence may be recorded without live authorization, but it cannot satisfy external blocker closure.
+- `validated`: requires explicit `live_probe_authorized=true`, a passed live probe, provider-specific quota validation, and `credential_material_logged=false`.
+
+Provider artifacts must not include API keys, tokens, passwords, client secrets, private keys, authorization headers, or other credential values.
+The checker records only safe status fields and fails artifacts that expose secret-bearing fields.

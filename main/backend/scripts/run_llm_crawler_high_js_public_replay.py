@@ -169,6 +169,25 @@ def _session_context_for_target(session_evidence: Mapping[str, Any]) -> dict[str
     }
 
 
+def _redact_diagnostic_text(value: str) -> str:
+    redacted = str(value or "")
+    redacted = re.sub(r"--user-data-dir=(?:\"[^\"]+\"|'[^']+'|\S+)", "<redacted_user_data_dir>", redacted)
+    redacted = re.sub(r"/Users/[^\s'\"<>]+", "/Users/<redacted_path>", redacted)
+    redacted = re.sub(r"/home/[^\s'\"<>]+", "/home/<redacted_path>", redacted)
+    redacted = re.sub(r"/private/var/folders/[^\s'\"<>]+", "/private/var/folders/<redacted_path>", redacted)
+    redacted = re.sub(
+        r"[A-Za-z]:\\Users\\[^\s'\"<>]+",
+        lambda _match: r"C:\Users\<redacted_path>",
+        redacted,
+    )
+    redacted = re.sub(
+        r"%APPDATA%\\?[^\s'\"<>]*",
+        lambda _match: r"%APPDATA%\<redacted_path>",
+        redacted,
+    )
+    return redacted
+
+
 def _title_from_dom(dom: str) -> str:
     match = re.search(r"<title[^>]*>(.*?)</title>", dom, flags=re.IGNORECASE | re.DOTALL)
     if not match:
@@ -209,7 +228,7 @@ def _success_marker(target_id: str, dom: str, title: str) -> bool:
 def _classify_browser_result(target: Mapping[str, Any], browser: Mapping[str, Any]) -> dict[str, Any]:
     target_id = str(target.get("target_id") or "")
     dom = str(browser.get("dom") or "")
-    stderr = str(browser.get("stderr") or "")
+    stderr = _redact_diagnostic_text(str(browser.get("stderr") or ""))
     title = _title_from_dom(dom)
     lower = dom.lower()
     rendered = bool(len(dom) > 40 and "<html" in lower and "javascript is not available" not in lower)
@@ -359,11 +378,13 @@ def _apply_lawful_session_policy(
     lawful_session_evidence = _lawful_session_evidence_for_target(target, row, session_evidence)
     classified = dict(row)
     classified["lawful_session_evidence"] = lawful_session_evidence
+    status = str(classified.get("status") or "").strip().lower()
     if (
         target_id == X_LAWFUL_SESSION_TARGET_ID
         and lawful_session_evidence.get("accepted") is not True
         and classified.get("browser_rendered") is True
         and classified.get("public_network_attempted") is True
+        and status in {"success", "auth_or_anti_bot_blocked"}
     ):
         classified["pre_session_policy_status"] = classified.get("status")
         classified["status"] = "platform_blocked"
@@ -384,12 +405,22 @@ def _x_platform_blocker_proven(row: Mapping[str, Any] | None) -> bool:
     if not isinstance(row, Mapping):
         return False
     lawful_session_evidence = row.get("lawful_session_evidence") if isinstance(row.get("lawful_session_evidence"), Mapping) else {}
+    markers = row.get("markers") if isinstance(row.get("markers"), Mapping) else {}
+    pre_session_status = str(row.get("pre_session_policy_status") or "").strip().lower()
+    lawful_session_basis = (
+        pre_session_status == "success"
+        or (
+            pre_session_status == "auth_or_anti_bot_blocked"
+            and bool(markers.get("contains_login") or markers.get("contains_captcha"))
+        )
+    )
     return bool(
         str(row.get("target_id") or "") == X_LAWFUL_SESSION_TARGET_ID
         and str(row.get("status") or "").strip().lower() == "platform_blocked"
         and row.get("browser_rendered") is True
         and row.get("public_network_attempted") is True
         and lawful_session_evidence.get("accepted") is not True
+        and lawful_session_basis
     )
 
 

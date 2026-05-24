@@ -67,7 +67,7 @@
     {
       "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-single-url-first-ingest-allocation-plan",
       "dependency_type": "service",
-      "blocked_on": "Instagram/YouTube public replay, configured canary, and Crossref public official API provider maturity are attached; X auth/anti-bot, production 24h readback, ops promotion, and provider-specific credentials/quota beyond Crossref are not attached.",
+      "blocked_on": "Instagram/YouTube public replay, configured canary, Crossref public official API provider maturity, and configured-only provider credential presence are attached; X auth/anti-bot, production 24h readback, ops promotion, and provider-specific live quota validation beyond Crossref are not attached.",
       "external_surfaces": [
         "public browser runtime",
         "provider API credentials",
@@ -86,11 +86,11 @@
       ],
       "probe_or_manual_evidence": {
         "mode": "probe",
-        "command": "PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 main/backend/scripts/check_single_url_external_blocker_closure.py --output development/latest-dev-docs/automation-runs/single-url-first-ingest-allocation-external-blocker-closure/2026-05-24/single_url_external_blocker_closure.json",
+        "command": "PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 main/backend/scripts/check_single_url_external_blocker_closure.py --provider-credentials-artifact development/latest-dev-docs/automation-runs/single-url-provider-credentials-evidence/2026-05-24/provider_credentials_configured_only.json --output development/latest-dev-docs/automation-runs/single-url-first-ingest-allocation-external-blocker-closure/2026-05-24/single_url_external_blocker_closure.json",
         "last_run_at": "2026-05-24 PST",
         "result_artifact": "development/latest-dev-docs/automation-runs/single-url-first-ingest-allocation-external-blocker-closure/2026-05-24/single_url_external_blocker_closure.json",
-        "exit_code_expectation": "0 with closure_claim=false until X, production 24h, ops promotion, and non-Crossref provider credentials/quota evidence are attached",
-        "result_summary": "Instagram/YouTube public replay, configured canary, and Crossref API maturity are validated; X auth/anti-bot, production 24h readback, ops promotion, and non-Crossref credentials/quota remain external."
+        "exit_code_expectation": "0 with closure_claim=false until X, production 24h, ops promotion, and non-Crossref live provider quota evidence are attached",
+        "result_summary": "Instagram/YouTube public replay, configured canary, Crossref API maturity, and configured-only provider credential presence are validated; X auth/anti-bot, production 24h readback, ops promotion, and non-Crossref live provider quota validation remain external."
       },
       "exit_criteria": [
         {
@@ -112,10 +112,16 @@
           "note": "Wave57 validates Instagram/YouTube public replay plus configured canary and records X as platform auth/anti-bot blocked."
         },
         {
+          "id": "single-url-provider-credentials-configured-only",
+          "state": "blocked",
+          "evidence": "development/latest-dev-docs/automation-runs/single-url-provider-credentials-evidence/2026-05-24/provider_credentials_configured_only.json",
+          "note": "Non-secret provider credential presence is recorded as configured_only, but live provider-specific quota validation is not authorized or passed."
+        },
+        {
           "id": "single-url-production-promotion",
           "state": "blocked",
           "evidence": "development/latest-dev-docs/automation-runs/single-url-first-ingest-allocation-external-blocker-closure/2026-05-24/single_url_external_blocker_closure.json",
-          "note": "X auth/anti-bot, production 24h readback, ops promotion, and provider-specific credentials/quota beyond Crossref are not attached."
+          "note": "X auth/anti-bot, production 24h readback, ops promotion, and provider-specific live quota validation beyond Crossref are not attached."
         }
       ],
       "owner_surface": {

@@ -61,6 +61,14 @@ Wave55 T5 reduced-boundary proof:
 - every non-success target is accounted for as `intrinsic_external_auth_or_anti_bot_gate`
 - this permits `status=accessible_public_high_js_replay_proven_external_targets_blocked`, but still keeps `closure.full_closure_allowed=false`
 
+X lawful-session evidence boundary:
+
+- X full closure requires target success plus explicit configured lawful-session
+  evidence; public success without that evidence remains `platform_blocked`.
+- X reduced-boundary blocker evidence must have either target-specific success
+  before session policy or explicit auth/anti-bot markers. A generic rendered X
+  shell without success or auth markers is not accepted as an external gate.
+
 Default public artifact path:
 
 `development/latest-dev-docs/automation-runs/llm-crawler-high-js-public-replay/2026-05-22/output.public.json`
@@ -75,7 +83,8 @@ readiness only and keeps the real public replay blocker active.
   proof.
 - `main/backend/tests/unit/test_llm_crawler_high_js_replay_readiness_check_unittest.py`
   covers the absent-artifact blocked state, a present-but-insufficient artifact,
-  and the schema required for full closure.
+  the X lawful-session/auth-marker boundary, and the schema required for full
+  closure.
 - Existing route/handoff anchors remain:
   - `main/backend/app/services/ingest/frontdoor_router_contract.py`
   - `main/backend/app/services/ingest/url_pool.py`

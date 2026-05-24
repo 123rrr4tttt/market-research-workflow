@@ -25,6 +25,13 @@ deterministic 24h metric shape gate. It now also accepts optional evidence:
 - production 24h metrics: `ingest.production_24h_metrics_readback.v1`
 - ops promotion approval: `ingest.ops_strict_gate_promotion_evidence.v1`
 
+Artifact schema hardening now rejects malformed external inputs before any
+closure claim can clear: production metrics must use
+`production_ingest_canary_24h_metrics_readback`, pass count consistency checks,
+carry a production source timestamp, and keep `closure_claim=false`; operations
+approval must use `ops_strict_gate_promotion_evidence` and carry a parseable
+approval timestamp.
+
 No repository-local fixture is promoted into production evidence. A closure
 claim is accepted only when both optional artifacts pass and `--claim-closure`
 is supplied.

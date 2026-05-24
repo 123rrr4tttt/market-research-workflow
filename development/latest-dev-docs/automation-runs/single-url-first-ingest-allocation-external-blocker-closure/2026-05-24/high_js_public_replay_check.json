@@ -17,7 +17,7 @@
           "session_context_applied": false,
           "session_mode_configured": false,
           "target_id": "x_search_robotics",
-          "user_data_dir_mode": null
+          "user_data_dir_mode": "ephemeral_empty_profile"
         },
         "markers": {
           "contains_captcha": false,
@@ -27,8 +27,8 @@
           "contains_video_title": false,
           "title": "X - 包罗万象的应用 / X"
         },
-        "reason": "Headless Chrome rendered the page, but public content was gated by auth or anti-bot markers.",
-        "status": "auth_or_anti_bot_blocked",
+        "reason": "X high-JS replay rendered, but full success requires explicit configured lawful-session evidence.",
+        "status": "platform_blocked",
         "target_id": "x_search_robotics",
         "url": "https://x.com/search?q=robotics"
       }
@@ -131,7 +131,7 @@
       "session_context_applied": false,
       "session_mode_configured": false,
       "target_id": "x_search_robotics",
-      "user_data_dir_mode": null
+      "user_data_dir_mode": "ephemeral_empty_profile"
     },
     "path": "development/latest-dev-docs/automation-runs/single-url-first-ingest-allocation-external-blocker-closure/2026-05-24/high_js_public_replay.json",
     "public_high_js_probe_target_ids": [
@@ -154,7 +154,7 @@
           "session_context_applied": false,
           "session_mode_configured": false,
           "target_id": "x_search_robotics",
-          "user_data_dir_mode": null
+          "user_data_dir_mode": "ephemeral_empty_profile"
         },
         "markers": {
           "contains_captcha": false,
@@ -164,8 +164,8 @@
           "contains_video_title": false,
           "title": "X - 包罗万象的应用 / X"
         },
-        "reason": "Headless Chrome rendered the page, but public content was gated by auth or anti-bot markers.",
-        "status": "auth_or_anti_bot_blocked",
+        "reason": "X high-JS replay rendered, but full success requires explicit configured lawful-session evidence.",
+        "status": "platform_blocked",
         "target_id": "x_search_robotics",
         "url": "https://x.com/search?q=robotics"
       }
@@ -182,11 +182,16 @@
       "sufficient_targets": true
     },
     "session_replay_evidence": {
+      "configured": false,
       "contract_version": "llm_crawler.high_js_session_replay_evidence.v1",
+      "copy_session_user_data_dir": false,
       "credential_material_logged": false,
+      "path_disclosed": false,
       "session_aware_replay_requested": false,
       "session_context_applied": false,
-      "status": "absent"
+      "source": "none",
+      "status": "present",
+      "user_data_dir_mode": "ephemeral_empty_profile"
     },
     "status": "accessible_replay_proven_external_targets_blocked",
     "successful_accessible_target_ids": [

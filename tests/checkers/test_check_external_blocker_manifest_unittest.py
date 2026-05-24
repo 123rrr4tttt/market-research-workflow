@@ -225,6 +225,28 @@ class ExternalBlockerManifestTestCase(unittest.TestCase):
         self.assertFalse(result.ok)
         self.assertTrue(any("repo_local_evidence file is missing" in problem.message for problem in result.problems))
 
+    def test_rejects_missing_evidence_required(self) -> None:
+        root = self.make_repo()
+        payload = json.loads((root / MANIFEST).read_text(encoding="utf-8"))
+        payload["targets"][0].pop("evidence_required")
+        (root / MANIFEST).write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+        result = checker.check(root)
+
+        self.assertFalse(result.ok)
+        self.assertTrue(any("evidence_required must be a non-empty string list" in problem.message for problem in result.problems))
+
+    def test_rejects_invalid_evidence_required_value(self) -> None:
+        root = self.make_repo()
+        payload = json.loads((root / MANIFEST).read_text(encoding="utf-8"))
+        payload["targets"][0]["evidence_required"] = ["probe", "unsupported"]
+        (root / MANIFEST).write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+        result = checker.check(root)
+
+        self.assertFalse(result.ok)
+        self.assertTrue(any("evidence_required has invalid values" in problem.message for problem in result.problems))
+
 
 if __name__ == "__main__":
     unittest.main()

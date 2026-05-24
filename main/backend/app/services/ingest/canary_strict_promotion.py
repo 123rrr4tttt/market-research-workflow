@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+from datetime import datetime
 from typing import Any, Mapping
 
 from .canary_handoff import LIVE_CANARY_EVIDENCE_CONTRACT_VERSION
@@ -8,7 +9,9 @@ from .canary_handoff import LIVE_CANARY_EVIDENCE_CONTRACT_VERSION
 
 CONTRACT_VERSION = "ingest.canary_strict_promotion_readiness.v1"
 PRODUCTION_24H_METRICS_CONTRACT_VERSION = "ingest.production_24h_metrics_readback.v1"
+PRODUCTION_24H_METRICS_ARTIFACT_KIND = "production_ingest_canary_24h_metrics_readback"
 OPS_STRICT_GATE_PROMOTION_CONTRACT_VERSION = "ingest.ops_strict_gate_promotion_evidence.v1"
+OPS_STRICT_GATE_PROMOTION_ARTIFACT_KIND = "ops_strict_gate_promotion_evidence"
 
 PRODUCTION_24H_BLOCKERS = (
     "production_24h_rejection_rate_readback_not_available",
@@ -73,8 +76,27 @@ def _number(value: Any) -> float | None:
         return None
 
 
+def _integer(value: Any) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    return None
+
+
 def _string_present(value: Any) -> bool:
     return bool(str(value or "").strip())
+
+
+def _timestamp_present(value: Any) -> bool:
+    text = str(value or "").strip()
+    if "T" not in text:
+        return False
+    try:
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    return parsed.tzinfo is not None
 
 
 def _rate_matches(actual: Any, numerator: Any, denominator: Any) -> bool:
@@ -87,6 +109,29 @@ def _rate_matches(actual: Any, numerator: Any, denominator: Any) -> bool:
     if actual_rate is None or den <= 0:
         return False
     return round(num / den, 6) == round(actual_rate, 6)
+
+
+def _metric_count_checks(metrics: Mapping[str, Any], guardrail: Mapping[str, Any]) -> dict[str, bool]:
+    total_attempts = _integer(metrics.get("total_attempts"))
+    rejected = _integer(metrics.get("rejected_count"))
+    inserted_total = _integer(metrics.get("inserted_total_count"))
+    inserted_valid = _integer(metrics.get("inserted_valid_count"))
+    inserted_invalid = _integer(metrics.get("inserted_invalid_count"))
+    counts = (total_attempts, rejected, inserted_total, inserted_valid, inserted_invalid)
+    counts_present = all(value is not None for value in counts)
+    counts_non_negative = counts_present and all(value >= 0 for value in counts if value is not None)
+    return {
+        "metric_counts_present": counts_present,
+        "metric_counts_non_negative": counts_non_negative,
+        "metric_total_attempts_positive": total_attempts is not None and total_attempts > 0,
+        "metric_rejected_inserted_total_consistent": counts_present
+        and rejected + inserted_total == total_attempts,
+        "metric_inserted_valid_invalid_consistent": counts_present
+        and inserted_valid + inserted_invalid == inserted_total,
+        "guardrail_rollout_counts_match_total_attempts": total_attempts is not None
+        and _integer(guardrail.get("strict_enabled_samples")) == total_attempts
+        and _integer(guardrail.get("canary_matched_samples")) == total_attempts,
+    }
 
 
 def _live_canary_boundary(live_canary_evidence: Mapping[str, Any] | None) -> Boundary:
@@ -167,6 +212,7 @@ def _metric_24h_shape_boundary(
             and guardrail.get("guardrail_rollout_counts_review_present") is True
         ),
     }
+    checks.update(_metric_count_checks(metrics, guardrail))
     failed = [name for name, passed in checks.items() if not passed]
     shape_passed = bool(artifact) and not failed
 
@@ -210,20 +256,23 @@ def _metric_24h_shape_boundary(
             and production_guardrail.get("guardrail_rollout_counts_review_present") is True
         ),
     }
+    production_shape_checks.update(_metric_count_checks(production_metrics, production_guardrail))
     production_shape_failed = [name for name, passed in production_shape_checks.items() if not passed]
     production_shape_passed = bool(production_artifact) and not production_shape_failed
     production_checks = {
         "production_contract_version": is_production_evidence,
-        "artifact_kind": production_artifact.get("artifact_kind") == "production_ingest_canary_24h_metrics_readback",
+        "artifact_kind": production_artifact.get("artifact_kind") == PRODUCTION_24H_METRICS_ARTIFACT_KIND,
         "status_passed": production_artifact.get("status") == "passed",
         "deterministic_fixture_false": production_artifact.get("deterministic_fixture") is False,
         "evidence_scope_production": production_artifact.get("evidence_scope") == "production",
         "live_window_observed": production_window.get("live_window_observed") is True,
         "production_data_claim": production_live_boundaries.get("production_data_claim") is True,
         "metric_24h_live_readback_claim": production_live_boundaries.get("metric_24h_live_readback_claim") is True,
+        "live_boundaries_closure_claim_false": production_live_boundaries.get("closure_claim") is False,
         "source_record_present": _string_present(production_source_record.get("record_id"))
         and _string_present(production_source_record.get("system"))
         and _string_present(production_source_record.get("generated_at")),
+        "source_record_generated_at_timestamp": _timestamp_present(production_source_record.get("generated_at")),
     }
     production_failed = [name for name, passed in production_checks.items() if not passed]
     production_satisfied = (
@@ -294,6 +343,7 @@ def _ops_promotion_boundary(ops_promotion_evidence: Mapping[str, Any] | None) ->
     evidence = _mapping(ops_promotion_evidence)
     checks = {
         "contract_version": evidence.get("contract_version") == OPS_STRICT_GATE_PROMOTION_CONTRACT_VERSION,
+        "artifact_kind": evidence.get("artifact_kind") == OPS_STRICT_GATE_PROMOTION_ARTIFACT_KIND,
         "evidence_scope_operations": evidence.get("evidence_scope") == "operations",
         "operations_approval_recorded": evidence.get("operations_approval_recorded") is True,
         "production_24h_metrics_reviewed": evidence.get("production_24h_metrics_reviewed") is True,
@@ -302,6 +352,7 @@ def _ops_promotion_boundary(ops_promotion_evidence: Mapping[str, Any] | None) ->
         "strict_gate_global_default_enabled": evidence.get("strict_gate_global_default_enabled") is True,
         "approved_by_present": _string_present(evidence.get("approved_by")),
         "approved_at_present": _string_present(evidence.get("approved_at")),
+        "approved_at_timestamp": _timestamp_present(evidence.get("approved_at")),
         "approval_ticket_present": _string_present(evidence.get("approval_ticket")),
         "rollback_plan_ref_present": _string_present(evidence.get("rollback_plan_ref")),
     }
@@ -498,9 +549,11 @@ def validate_strict_promotion_readiness(report: Mapping[str, Any]) -> list[str]:
 
 __all__ = [
     "CONTRACT_VERSION",
+    "OPS_STRICT_GATE_PROMOTION_ARTIFACT_KIND",
     "OPS_PROMOTION_BLOCKERS",
     "OPS_PROMOTION_EVIDENCE_INVALID_BLOCKER",
     "OPS_STRICT_GATE_PROMOTION_CONTRACT_VERSION",
+    "PRODUCTION_24H_METRICS_ARTIFACT_KIND",
     "PRODUCTION_24H_BLOCKERS",
     "PRODUCTION_24H_EVIDENCE_INVALID_BLOCKER",
     "PRODUCTION_24H_METRICS_CONTRACT_VERSION",

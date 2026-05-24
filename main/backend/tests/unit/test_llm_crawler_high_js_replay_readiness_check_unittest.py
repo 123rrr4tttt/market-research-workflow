@@ -279,6 +279,55 @@ class LlmCrawlerHighJsReplayReadinessCheckUnitTestCase(unittest.TestCase):
         self.assertEqual(blocker["classification"], "platform_blocked")
         self.assertFalse(blocker["lawful_session_evidence"]["session_mode_configured"])
 
+    def test_x_rendered_without_auth_or_success_does_not_reduce_external_gate(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            public_artifact = Path(tmpdir) / "output.public.json"
+            public_artifact.write_text(
+                json.dumps(
+                    {
+                        "contract_version": PUBLIC_REPLAY_CONTRACT_VERSION,
+                        "validation": {
+                            "real_public_high_js_replay_proven": False,
+                            "public_network_attempted": True,
+                        },
+                        "inputs": {"target_count": 3},
+                        "outputs": {
+                            "public_targets_attempted": 3,
+                            "high_js_success_count": 2,
+                            "target_results": [
+                                {
+                                    "target_id": "x_search_robotics",
+                                    "status": "rendered_without_expected_search_content",
+                                    "browser_rendered": True,
+                                    "public_network_attempted": True,
+                                    "reason": "rendered generic X shell",
+                                    "markers": {"contains_login": False, "contains_captcha": False},
+                                },
+                                {
+                                    "target_id": "instagram_tag_robotics",
+                                    "status": "success",
+                                    "browser_rendered": True,
+                                },
+                                {
+                                    "target_id": "youtube_search_robotics",
+                                    "status": "success",
+                                    "browser_rendered": True,
+                                },
+                            ],
+                        },
+                    },
+                    sort_keys=True,
+                ),
+                encoding="utf-8",
+            )
+            result = build_check(REPO_ROOT, public_artifact)
+
+        self.assertEqual(result["status"], "public_replay_artifact_not_proven")
+        self.assertFalse(result["validation"]["readiness_checks_passed"])
+        self.assertFalse(result["public_high_js_replay"]["external_gate_blockers_proven"])
+        self.assertFalse(result["closure"]["accessible_public_high_js_replay_complete"])
+        self.assertFalse(result["closure"]["full_closure_allowed"])
+
     def test_session_evidence_contract_is_validated_without_requiring_full_closure(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             public_artifact = Path(tmpdir) / "output.public.json"
@@ -405,6 +454,56 @@ class LlmCrawlerHighJsReplayReadinessCheckUnitTestCase(unittest.TestCase):
         self.assertFalse(result["validation"]["passed"])
         self.assertFalse(result["closure"]["full_closure_allowed"])
         self.assertIn("public replay artifact must not log credential material", result["validation"]["errors"])
+
+    def test_public_artifact_rejects_unredacted_session_paths_in_diagnostics(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            public_artifact = Path(tmpdir) / "output.public.json"
+            public_artifact.write_text(
+                json.dumps(
+                    {
+                        "contract_version": PUBLIC_REPLAY_CONTRACT_VERSION,
+                        "validation": {
+                            "real_public_high_js_replay_proven": False,
+                            "public_network_attempted": True,
+                        },
+                        "inputs": {"target_count": 3},
+                        "outputs": {
+                            "public_targets_attempted": 3,
+                            "high_js_success_count": 2,
+                            "target_results": [
+                                {
+                                    "target_id": "x_search_robotics",
+                                    "status": "auth_or_anti_bot_blocked",
+                                    "browser_rendered": True,
+                                    "public_network_attempted": True,
+                                    "reason": "Chrome used --user-data-dir=/Users/alice/Profile",
+                                    "stderr_tail": "/Users/alice/Profile/Default stderr",
+                                    "markers": {"contains_login": True, "contains_captcha": False},
+                                },
+                                {
+                                    "target_id": "instagram_tag_robotics",
+                                    "status": "success",
+                                    "browser_rendered": True,
+                                },
+                                {
+                                    "target_id": "youtube_search_robotics",
+                                    "status": "success",
+                                    "browser_rendered": True,
+                                },
+                            ],
+                        },
+                    },
+                    sort_keys=True,
+                ),
+                encoding="utf-8",
+            )
+            result = build_check(REPO_ROOT, public_artifact)
+
+        self.assertEqual(result["status"], "failed")
+        self.assertFalse(result["validation"]["passed"])
+        self.assertTrue(
+            any("contains unredacted local path" in error for error in result["validation"]["errors"])
+        )
 
 
 if __name__ == "__main__":

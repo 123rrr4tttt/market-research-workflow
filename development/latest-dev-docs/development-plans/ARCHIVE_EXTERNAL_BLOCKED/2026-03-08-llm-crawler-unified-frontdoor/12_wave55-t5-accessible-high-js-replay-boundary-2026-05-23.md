@@ -10,6 +10,10 @@ The readiness gate now distinguishes:
 
 - full closure: every declared high-JS public target succeeds
 - reduced external boundary: at least one public high-JS target succeeds, and every remaining failed target is proven by the browser artifact to be an intrinsic auth/anti-bot gate
+- X lawful-session boundary: X can be reduced to `platform_blocked` only when
+  the artifact shows target success before session policy or explicit
+  auth/anti-bot markers; a generic rendered shell does not count as an external
+  gate
 
 Final T5 artifact:
 
@@ -60,6 +64,11 @@ Observed target results:
 - `instagram_tag_robotics=auth_or_anti_bot_blocked`
 
 The X page rendered a login-gated document. The Instagram page rendered an auth/captcha-gated document. Those are now recorded as external platform gates rather than repo-local implementation blockers.
+
+Follow-up hardening: the checker and runner now reject X reduced-boundary claims
+when the artifact only shows a rendered non-target shell with no auth/anti-bot
+marker and no pre-policy success. This keeps public replay readiness separate
+from `closure.full_closure_allowed`.
 
 ## Validation
 

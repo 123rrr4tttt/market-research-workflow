@@ -81,6 +81,12 @@ Checker result:
 
 Current checker semantics reserve `validation.passed=true` for full closure. Reduced accessible replay exits nonzero unless the caller explicitly treats `validation.readiness_checks_passed=true` as an external-blocked readback state.
 
+The X lawful-session gate is stricter than generic rendering: an X blocker is
+accepted only when the artifact shows target-specific success before session
+policy or explicit auth/anti-bot markers. A rendered X shell with no success and
+no auth/anti-bot marker remains `present_not_proven` / not reduced-boundary
+evidence.
+
 ## Commands
 
 ```bash

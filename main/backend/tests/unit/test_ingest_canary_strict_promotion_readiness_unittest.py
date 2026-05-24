@@ -14,9 +14,11 @@ from app.services.ingest.canary_handoff_live import build_production_like_handof
 from app.services.ingest.canary_strict_promotion import (
     OPS_PROMOTION_BLOCKERS,
     OPS_PROMOTION_EVIDENCE_INVALID_BLOCKER,
+    OPS_STRICT_GATE_PROMOTION_ARTIFACT_KIND,
     OPS_STRICT_GATE_PROMOTION_CONTRACT_VERSION,
     PRODUCTION_24H_BLOCKERS,
     PRODUCTION_24H_EVIDENCE_INVALID_BLOCKER,
+    PRODUCTION_24H_METRICS_ARTIFACT_KIND,
     PRODUCTION_24H_METRICS_CONTRACT_VERSION,
     build_strict_promotion_readiness,
     validate_strict_promotion_readiness,
@@ -69,7 +71,7 @@ def _production_metrics_artifact() -> dict:
     artifact.update(
         {
             "contract_version": PRODUCTION_24H_METRICS_CONTRACT_VERSION,
-            "artifact_kind": "production_ingest_canary_24h_metrics_readback",
+            "artifact_kind": PRODUCTION_24H_METRICS_ARTIFACT_KIND,
             "deterministic_fixture": False,
             "evidence_scope": "production",
             "generated_by": "ops_production_metrics_export",
@@ -97,6 +99,7 @@ def _production_metrics_artifact() -> dict:
 def _ops_promotion_evidence() -> dict:
     return {
         "contract_version": OPS_STRICT_GATE_PROMOTION_CONTRACT_VERSION,
+        "artifact_kind": OPS_STRICT_GATE_PROMOTION_ARTIFACT_KIND,
         "evidence_scope": "operations",
         "operations_approval_recorded": True,
         "production_24h_metrics_reviewed": True,
@@ -171,6 +174,35 @@ class IngestCanaryStrictPromotionReadinessUnitTestCase(unittest.TestCase):
         self.assertFalse(set(PRODUCTION_24H_BLOCKERS).intersection(remaining))
         self.assertTrue(set(OPS_PROMOTION_BLOCKERS).issubset(remaining))
 
+    def test_inconsistent_production_metrics_counts_do_not_clear_production_boundary(self) -> None:
+        artifact = _production_metrics_artifact()
+        artifact["metrics_24h"]["inserted_total_count"] = artifact["metrics_24h"]["inserted_total_count"] + 1
+        artifact["metrics_24h"]["inserted_valid_ratio"] = 0.75
+        report = build_strict_promotion_readiness(
+            project_key="demo_proj",
+            live_canary_evidence=_live_evidence(),
+            metrics_artifact=build_24h_metrics_artifact(project_key="demo_proj"),
+            production_metrics_artifact=artifact,
+            production_metrics_artifact_attached=True,
+        )
+        payload = report.to_dict()
+        metric_boundary = next(
+            boundary for boundary in payload["boundaries"] if boundary["name"] == "metric_24h_readback"
+        )
+        remaining = {item["id"] for item in payload["remaining_external_blockers"]}
+
+        self.assertEqual(validate_strict_promotion_readiness(payload), [])
+        self.assertEqual(report.status, "external_blocked")
+        self.assertTrue(report.repo_local_preflight_passed)
+        self.assertEqual(report.production_24h_metrics_artifact_status, "attached_invalid")
+        self.assertFalse(report.production_24h_metrics_satisfied)
+        self.assertEqual(metric_boundary["status"], "production_artifact_invalid")
+        self.assertIn(
+            "metric_rejected_inserted_total_consistent",
+            metric_boundary["evidence"]["production_shape_failed_checks"],
+        )
+        self.assertIn(PRODUCTION_24H_EVIDENCE_INVALID_BLOCKER, remaining)
+
     def test_attached_invalid_production_metrics_do_not_break_repo_local_readiness(self) -> None:
         report = build_strict_promotion_readiness(
             project_key="demo_proj",
@@ -215,6 +247,29 @@ class IngestCanaryStrictPromotionReadinessUnitTestCase(unittest.TestCase):
         self.assertFalse(report.strict_gate_promotion_satisfied)
         self.assertTrue(set(PRODUCTION_24H_BLOCKERS).issubset(remaining))
         self.assertFalse(set(OPS_PROMOTION_BLOCKERS).intersection(remaining))
+
+    def test_invalid_ops_approval_timestamp_does_not_clear_ops_boundary(self) -> None:
+        ops_evidence = _ops_promotion_evidence()
+        ops_evidence["approved_at"] = "not-a-timestamp"
+        report = build_strict_promotion_readiness(
+            project_key="demo_proj",
+            live_canary_evidence=_live_evidence(),
+            metrics_artifact=_production_metrics_artifact(),
+            ops_promotion_evidence=ops_evidence,
+            closure_claim=True,
+        )
+        payload = report.to_dict()
+        ops_boundary = next(
+            boundary for boundary in payload["boundaries"] if boundary["name"] == "ops_strict_gate_promotion"
+        )
+        remaining = {item["id"] for item in payload["remaining_external_blockers"]}
+
+        self.assertEqual(validate_strict_promotion_readiness(payload), [])
+        self.assertEqual(report.status, "external_blocked")
+        self.assertEqual(report.ops_promotion_artifact_status, "attached_invalid")
+        self.assertFalse(report.strict_gate_promotion_satisfied)
+        self.assertIn("approved_at_timestamp", ops_boundary["evidence"]["failed_checks"])
+        self.assertIn(OPS_PROMOTION_EVIDENCE_INVALID_BLOCKER, remaining)
 
     def test_valid_production_and_ops_artifacts_can_close_when_claimed(self) -> None:
         report = build_strict_promotion_readiness(
