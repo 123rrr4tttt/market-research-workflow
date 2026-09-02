@@ -4,7 +4,7 @@
   "record_id": "AllLinesAuthorityDecisionRequest.v1",
   "date": "2026-09-02",
   "generated_at_utc": "2026-09-02T16:30:00Z",
-  "status": "OPT_B_SELECTED_EXACT_CANDIDATE_PASS_AWAITING_ITEMIZED_RUNNABLE_AUTHORITY",
+  "status": "USER_AUTHORIZED_ITEMS_01_04_DOCUMENTED_ITEMS_01_03_EXECUTION_ITEM_04_RECORDED_ONLY",
   "generated_by": "root-supervisor-01a06230",
   "goal_ref": "MRW 全线迁移（调查/冻结/逐条线迁移/双门 review/授权后运行面验收）",
   "precondition_evidence": {
@@ -83,5 +83,13 @@
     "ITEM-02: all-lines live provider bounded parity（真实凭据存在且 parity 通过才执行；否则如实 BLOCK）",
     "ITEM-03: Docker 全栈 all-lines cutover rehearsal（容器化、legacy 保持可用、不替换生产路由）",
     "ITEM-04: 生产 cutover / authority transfer / legacy retirement（不在 OPT-B 默认解锁内，需另行逐项批准）"
-  ]
+  ],
+  "user_decision_2026_09_03": {
+    "instruction": "先 01-04 记录文档，然后 01-03 执行",
+    "documented_items": ["ITEM-01", "ITEM-02", "ITEM-03", "ITEM-04"],
+    "execution_authorized": ["ITEM-01", "ITEM-02", "ITEM-03"],
+    "item_04_execution_status": "RECORDED_ONLY_NOT_AUTHORIZED",
+    "recorded_by": "root-supervisor-01a06230",
+    "recorded_at_utc": "2026-09-03T00:00:00Z"
+  }
 }

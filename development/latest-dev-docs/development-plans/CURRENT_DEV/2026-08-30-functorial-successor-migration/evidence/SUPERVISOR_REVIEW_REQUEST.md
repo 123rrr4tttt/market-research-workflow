@@ -364,3 +364,12 @@ SUPERVISOR_REVIEW_REQUEST
 - 非阻断 open findings：P1 x2（精确引用 gap / 历史状态未行内 supersede，继承），P2 x3（postdate、37/39 PG 未复跑、PG head 为生成上下文）。
 - 监督接受：`SUPERVISOR_ACCEPT_ALL_LINES_EXACT_CANDIDATE_LOCAL_ONLY`；authority 全 false；live/cutover/authority transfer 未解锁。
 - 下一步：按 OPT-B 把 runnable/authority 门逐项列出供用户批准；每项批准后才执行。
+
+## User authorization: ITEM-01..04 recorded; ITEM-01..03 execute (2026-09-03)
+
+- 用户指令：先 01-04 记录文档，然后 01-03 执行。
+- ITEM-01 生产 canonical write（仅 successor 表，disposable/local 库，exact-candidate 字节）→ 授权执行。
+- ITEM-02 live provider bounded parity（真实凭据存在且 parity 通过才执行；否则如实 BLOCK）→ 授权执行。
+- ITEM-03 Docker 全栈 all-lines cutover rehearsal（容器化，legacy 可用，不替换生产路由）→ 授权执行。
+- ITEM-04 生产 cutover / authority transfer / legacy retirement → 仅记录文档，不执行，后续另行批准。
+- 边界：候选字节 `3706655f`；authority_transfer/cutover/legacy retirement 保持 false；不 push。

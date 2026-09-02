@@ -650,3 +650,12 @@ When the target task reaches a review boundary, it must return a message beginni
 - Open findings 非阻断：P1 `ALL_LINES_EXACT_REFERENCE_GAP`（007/015 引用非最大化精确，继承）、P1 `PRIOR_STATE_DOCUMENTS_NOT_SUPERSEDED_INLINE`（继承）；P2 `P1_ADDENDUM_AND_STATUS_POSTDATED_REVIEW`、P2 `PG_CANARY_37_OF_39_NOT_RERUN`、P2 `PG_EVIDENCE_HEAD_IS_GENERATION_CONTEXT`。
 - 状态：`ALL_LINES_EXACT_CANDIDATE_PASS_LOCAL_ONLY`；authority 仍全 false；未 push、未 promotion。
 - 下一步：按 OPT-B 进入 runnable/authority 门逐项评估；每项待用户明确批准。
+
+## User authorization: ITEM-01..04 recorded, ITEM-01..03 execution (2026-09-03)
+
+- 用户指令：先 01-04 记录文档，然后 01-03 执行。
+- 已记录：ITEM-01（successor 表 canonical write，disposable/local 库）、ITEM-02（live provider bounded parity，凭据缺失则 BLOCK）、ITEM-03（Docker 全栈 cutover rehearsal，legacy 保留）、ITEM-04（生产 cutover/authority transfer/legacy retirement）。
+- 执行授权：仅 ITEM-01/02/03；ITEM-04 仅记录文档，不执行，需后续另行批准。
+- 决策记录：`evidence/all-lines-investigation/AllLinesAuthorityDecisionRequest.v1.json` 状态 `USER_AUTHORIZED_ITEMS_01_04_DOCUMENTED_ITEMS_01_03_EXECUTION_ITEM_04_RECORDED_ONLY`。
+- 边界：候选字节 = exact-candidate `3706655f`；legacy 代码/页面/路由不替换；不 push；authority_transfer/cutover/legacy retirement 仍 false。
+- 下一步：并行执行 ITEM-01/02/03，各产出独立证据并回传；执行结果汇总后再决定 ITEM-04 是否立新里程碑。
