@@ -1,0 +1,55 @@
+{
+  "schema": "mrw.functorial_successor.all_lines.agent_codex_bridge_evidence.v1",
+  "version": "1.0.0",
+  "record_id": "all-lines-agent-codex-bridge-2026-09-03",
+  "date": "2026-09-03",
+  "status": "AGENT_CODEX_BRIDGE_VERTICAL_SLICE_BUILT_DEFAULT_AUTO",
+  "feature": {
+    "goal": "agent 对话由本机 Codex 套壳驱动，同时把 MRW 正常业务链数据以只读上下文暴露给模型",
+    "slice": "provider 模式开关 + 只读业务链快照注入 request.context",
+    "default_behavior_unchanged": true
+  },
+  "settings": {
+    "key": "AGENT_CORE_MODEL_PROVIDER",
+    "values": ["auto", "openai", "codex_cli"],
+    "default": "auto",
+    "codex_cli_requirement": "local codex CLI + valid Codex auth; read-only sandbox; MCP/plugin/apps disabled"
+  },
+  "implementation": {
+    "settings": "main/backend/app/settings/config.py (agent_core_model_provider)",
+    "provider_select": "main/backend/app/api/agent_chat.py (_build_agent_core_provider)",
+    "snapshot_module": "main/backend/app/services/agent_core/business_chain_context.py",
+    "snapshot_content": [
+      "s1 horizontal port registry + digest",
+      "s2c ops-domain surface registry + digest",
+      "public table row counts (projects/agent_sessions/registry/c7 canonical/runtime journal)",
+      "ACTIVE project_scope_registry identity rows",
+      "fail-closed unavailable markers; no secret values"
+    ],
+    "injection": "business_chain_snapshot_json 加入 agent_core context；仅 provider=codex_cli 时注入"
+  },
+  "verification": {
+    "focused_tests": "test_agent_core_codex_bridge_unittest.py 3 passed",
+    "agent_chat_regression": "test_agent_chat_api_unittest.py 26 passed",
+    "ruff": "All checks passed",
+    "real_db_snapshot": "projects 9, agent_sessions 2410, project_scope_registry 1, c7_movement_canonical_documents 1, runtime journal rows present, active registry resolved"
+  },
+  "authority_ceiling": {
+    "local_codex_model_driver": "enabled only when AGENT_CORE_MODEL_PROVIDER=codex_cli",
+    "tool_execution_owner": "MRW AgentCore tool registry (unchanged authority boundaries)",
+    "canonical_write": false,
+    "cutover": false,
+    "authority_transfer": false,
+    "legacy_retired": false
+  },
+  "next_steps": [
+    "user flips AGENT_CORE_MODEL_PROVIDER=codex_cli in .env to activate",
+    "optional: live single-turn Codex smoke through /agent-chat/turn",
+    "optional: wider read-only context (project scope data via successor read ports) or tool-level data exposure milestone"
+  ],
+  "risks": [
+    "Codex CLI exec 仍为单轮/受限文本通道；更强工具/文件能力需显式授权并放开 sandbox/MCP",
+    "快照行数为当前真实库状态，非实时业务语义；不要把它当作 authority/canonical write 证据",
+    "launchd 后端需重启才会读取新 settings/env"
+  ]
+}

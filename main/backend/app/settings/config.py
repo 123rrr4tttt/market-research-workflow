@@ -153,6 +153,9 @@ class Settings(BaseSettings):
     agent_chat_turn_decision_timeout_seconds: int = Field(default=8)
     agent_chat_model_answer_timeout_seconds: int = Field(default=45)
     agent_core_e2e_scripted_provider_enabled: bool = Field(default=False)
+    agent_core_model_provider: str = Field(
+        default="auto"
+    )  # auto | openai | codex_cli ; auto preserves current OpenAI-then-Codex behavior
 
     # LLM providers
     # Allowed values now include: openai | azure | ollama | litellm | local
