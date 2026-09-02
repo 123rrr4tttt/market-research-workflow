@@ -1,0 +1,52 @@
+{
+  "schema": "mrw.functorial_successor.all_lines.production_running_evidence.v1",
+  "version": "1.0.0",
+  "record_id": "all-lines-production-running-2026-09-03",
+  "date": "2026-09-03",
+  "status": "PRODUCTION_RUNNING_LOCAL_REGISTRY_MODE",
+  "commit": "7644fd485a909685217cebdecde6e5197cc77947",
+  "processes": {
+    "backend": {
+      "pid": 39266,
+      "command": "uvicorn app.main:app --host 127.0.0.1 --port 8000",
+      "cwd": "main/backend",
+      "mount_mode": "production_registry",
+      "auth": "CODEX_AUTH_ENABLED=true + local token; ambient real codex session bypass observed in non-isolated process",
+      "url": "http://127.0.0.1:8000",
+      "health": 200
+    },
+    "frontend": {
+      "pid": 39899,
+      "command": "vite --host 127.0.0.1 --port 5173",
+      "cwd": "main/frontend-modern",
+      "proxy": "http://127.0.0.1:8000",
+      "url": "http://127.0.0.1:5173",
+      "status": 200
+    }
+  },
+  "smoke": {
+    "frontend_index": 200,
+    "successor_page_path": 200,
+    "api_via_vite_proxy": 200,
+    "successor_query_no_token": 200,
+    "successor_query_valid_token": 200,
+    "note": "no-token request returned 200 because the non-isolated process sees the real local codex auth session (ambient bypass); isolated go-live process verifies strict 401 without token. Browser login path uses CODEX_OAUTH; if strict token-only is required, disable ambient sink/auth file access and restart."
+  },
+  "database": {
+    "dbname": "postgres",
+    "alembic_version": "20260831_000002",
+    "active_registry": "demo_proj_compare_0303_121137 -> project_demo_proj_compare_0303_121137"
+  },
+  "authority_ceiling": {
+    "production_canonical_write": true,
+    "cutover": false,
+    "authority_transfer": false,
+    "legacy_retired": false
+  },
+  "risks": [
+    "Vite dev server is not the production build/nginx form; for release use tsc+build and serve built assets or docker frontend-modern (5174:80)",
+    "Ambient codex auth bypass means strict bearer enforcement needs an isolated process with ambient sink/auth disabled",
+    "No ES service running locally; deep health will be degraded until ES is up",
+    "Processes are session-attached; they remain while the PTY sessions stay open"
+  ]
+}
