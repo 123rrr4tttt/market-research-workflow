@@ -346,3 +346,9 @@ SUPERVISOR_REVIEW_REQUEST
 - local-only closure commit：`3706655f`（129 文件，含 20/20 REIMPLEMENTED_AS inventory、S1-S2c 代码/测试/evidence、spec/manifest 重绑、标准同步与台账）。
 - 提交边界：`main/frontend-modern/pnpm-lock.yaml` 与 `pnpm-workspace.yaml`（盘点前已存在、依赖管理裁决未决）未纳入。
 - 下一步：all-lines 的 authority/candidate/live/cutover 需用户明确决策；批准后才评估运行面验收。
+
+## All-lines authority decision request recorded (2026-09-02)
+
+- `AllLinesAuthorityDecisionRequest.v1.json`（commit `02afce68`）状态 `AWAITING_USER_AUTHORITY_DECISION_NOT_GRANTED`；authority 六项全 false。
+- 决策选项已结构化：OPT-A = 仅 local-only exact-candidate + I2 式候选终审；OPT-B = OPT-A 通过后再逐项评估 runnable/authority 门。live/cutover/authority transfer 不在任何选项的默认解锁范围内。
+- 等待用户批准；批准前不创建候选、不做运行面验收。

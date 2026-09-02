@@ -631,3 +631,9 @@ When the target task reaches a review boundary, it must return a message beginni
 - 提交边界：`main/frontend-modern/pnpm-lock.yaml` 与 `pnpm-workspace.yaml` 为盘点前已存在的未跟踪文件（依赖管理裁决未决），未纳入本提交。
 - 状态：`ALL_LINES_0_UB_LOCAL_CLOSURE_COMMITTED`；authority/candidate/live/cutover 全 false，未 promotion。
 - 下一步：authority/candidate/live/cutover 门待用户明确决策后再评估运行面验收。
+
+## All-lines authority decision request (2026-09-02)
+
+- `evidence/all-lines-investigation/AllLinesAuthorityDecisionRequest.v1.json`（commit `02afce68`）落盘：状态 `AWAITING_USER_AUTHORITY_DECISION_NOT_GRANTED`，authority 全 false。
+- 预条件已闭合：0 UB、双门 PASS、P1 独立评审 PASS、非 PG `1565/119/0`、PG `353/0/0`、spec `30/30 MATCH`、语义 generator/validator PASS。
+- 等待用户对候选/运行面验收 scope 明确批准；本记录不构成任何授权。
