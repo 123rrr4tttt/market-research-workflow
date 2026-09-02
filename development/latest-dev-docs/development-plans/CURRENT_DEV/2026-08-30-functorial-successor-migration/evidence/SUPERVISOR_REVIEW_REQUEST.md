@@ -338,3 +338,11 @@ SUPERVISOR_REVIEW_REQUEST
 ## All-lines P1 independent review PASS (2026-09-02)
 
 - `AllLinesP1ClosureIndependentReview.v1.json`（SHA `76502214…`）verdict `PASS_P1_CLOSURE_REVIEWED`，无阻断 finding。
+
+## All-lines local closure baseline committed (2026-09-02)
+
+- 状态：`ALL_LINES_0_UB_LOCAL_CLOSURE_COMMITTED · NOT_PROMOTED`；candidate 仍 `null`；authority/live/cutover 全 false；未 push。
+- 监督复核实测：非 PG 全量 `1565 passed / 119 skipped / 0 failed`；semantic generator `CHECK_OK 60/0`；semantic validator `PASS`（refs 323/323、unresolved 0）。
+- local-only closure commit：`3706655f`（129 文件，含 20/20 REIMPLEMENTED_AS inventory、S1-S2c 代码/测试/evidence、spec/manifest 重绑、标准同步与台账）。
+- 提交边界：`main/frontend-modern/pnpm-lock.yaml` 与 `pnpm-workspace.yaml`（盘点前已存在、依赖管理裁决未决）未纳入。
+- 下一步：all-lines 的 authority/candidate/live/cutover 需用户明确决策；批准后才评估运行面验收。

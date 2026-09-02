@@ -623,3 +623,11 @@ When the target task reaches a review boundary, it must return a message beginni
 - `evidence/all-lines-investigation/reviews/AllLinesP1ClosureIndependentReview.v1.json`（SHA `76502214…`）verdict `PASS_P1_CLOSURE_REVIEWED`，无阻断 finding：14 条 decision 配对/owner/reason/normative ref 全校验；supersede 链 5/5；inventory summary 与行级一致；007/015 引用全解析。
 - 复核命令：semantic generator/validator PASS、30/30 spec --check、S1-S2c focused `140 passed`。
 - 下一步：把 all-lines 本地闭合作为 local closure baseline 提交并记录；authority/live/cutover 门待用户决策。
+
+## All-lines local closure baseline commit (2026-09-02)
+
+- 监督复核（当前字节重跑）：非 PG 全量 `1565 passed / 119 skipped / 0 failed / 0 errors`（`env -u SUCCESSOR_* python3.11 -m pytest tests/successor_runtime -q`）；semantic generator `CHECK_OK 60/0`；semantic validator `PASS`（14/14，refs 323/323，unresolved 0）。
+- all-lines 本地闭合已提交为 local-only baseline commit：`3706655f`（`all-lines closure: migrate 18 legacy business-line surfaces + 2 supplementary gaps into successor_runtime`）；129 个文件，代码/测试/evidence/spec-rebind/标准同步/台账一体入树；未 push。
+- 提交边界：`main/frontend-modern/pnpm-lock.yaml` 与 `pnpm-workspace.yaml` 为盘点前已存在的未跟踪文件（依赖管理裁决未决），未纳入本提交。
+- 状态：`ALL_LINES_0_UB_LOCAL_CLOSURE_COMMITTED`；authority/candidate/live/cutover 全 false，未 promotion。
+- 下一步：authority/candidate/live/cutover 门待用户明确决策后再评估运行面验收。
