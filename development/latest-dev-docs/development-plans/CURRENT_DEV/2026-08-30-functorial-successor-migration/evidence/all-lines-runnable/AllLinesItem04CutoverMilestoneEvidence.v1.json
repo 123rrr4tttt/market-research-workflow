@@ -1,0 +1,67 @@
+{
+  "schema": "mrw.functorial_successor.all_lines.item04_cutover_milestone_evidence.v1",
+  "version": "1.0.0",
+  "record_id": "all-lines-item04-cutover-milestone-2026-09-03",
+  "date": "2026-09-03",
+  "status": "ITEM_04_MILESTONE_PREPARED_CUTOVER_BLOCKED_BY_PRODUCTION_GAPS_AND_UNADDRESSED_SCOPE",
+  "user_instruction": "04执行",
+  "candidate": {
+    "commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+    "tree": "5840bf9ba906c49f70020d226c54446f4ba5aa33",
+    "branch": "codex/functorial-successor-p0",
+    "exact_candidate_review": "PASS_EXACT_CANDIDATE"
+  },
+  "runnable_items_results": {
+    "ITEM-01": "PASS_CANONICAL_WRITE_BOUNDED_LOCAL_ONLY",
+    "ITEM-02": "PASS_LIVE_PROVIDER_PARITY_BOUNDED",
+    "ITEM-03": "PASS_CUTOVER_REHEARSAL_LOCAL_ONLY"
+  },
+  "preparation_executed": {
+    "docker_deploy_checkpoint": {
+      "command": "./scripts/docker-deploy.sh checkpoint",
+      "snapshot_id": "20260903-002841",
+      "status": "CREATED"
+    },
+    "rollback_drill_dry_run": {
+      "command": "./scripts/docker-deploy.sh rollback-drill --dry-run",
+      "steps": ["preflight", "stop", "start", "health", "stop"],
+      "status": "PLAN_OK_DRY_RUN_NOT_EXECUTED"
+    }
+  },
+  "production_readiness_gaps_observed": [
+    "successor mount default is LOCAL_ONLY closed-fixture options (app_assembly.py LOCAL_ONLY_MOUNT_CONFIGURATION); production registry resolver resolve_expected is closed and raises ProjectScopeValidationError",
+    "successor endpoint authentication is not enabled: settings.codex_auth_enabled default false and /api/v1/successor-runtime is not in codex_auth_protected_prefixes default",
+    "production canonical write to successor tables beyond disposable/local PG is not established",
+    "frontend successor runtime components are not wired into page routes/module manifest (FrontendArchitectureInventory); legacy UI remains the canonical user surface",
+    "real rollback drill (stop/start/health) not yet executed against a live production-like stack in this milestone; monitoring/alerting, TLS, backup restore and DB downgrade drills remain unimplemented per production-readiness docs"
+  ],
+  "scope_interpretation_applied": {
+    "target": "migration worktree Docker/local runnable stack (branch codex/functorial-successor-p0)",
+    "donor_or_origin_writes": false,
+    "legacy_byte_removal": false,
+    "legacy_disposition": "legacy code/routes/pages retained; a default-entry switch is NOT executed because successor production resolver/auth/frontend wiring are not yet production-ready",
+    "objective_conflict_note": "The goal objective clause 'legacy 保持可用且不退休' and ITEM-04's legacy-retirement term conflict; without an explicit user override of that clause, retirement was not executed."
+  },
+  "not_executed_because": [
+    "no target-scope answer was provided for donor/origin vs local-stack cutover",
+    "production registry resolver path is closed (resolve_expected raises) so successor cannot yet serve real project scope",
+    "successor endpoints are not behind authentication by default",
+    "frontend successor components are not wired into pages/module manifest; retiring legacy UI would leave no successor UI",
+    "real rollback drill, backup restore and DB downgrade drills are not yet executed"
+  ],
+  "decision_status": "NO_ANSWER_RECEIVED_APPLIED_BOUNDED_LOCAL_INTERPRETATION",
+  "authority_ceiling": {
+    "live_provider": true,
+    "canonical_write": "disposable/local-only",
+    "cutover": false,
+    "authority_transfer": false,
+    "legacy_retired": false,
+    "production_canonical_write": false,
+    "candidate_promotion": false
+  },
+  "risks": [
+    "Executing cutover against donor checkout or origin without exact scope would mutate the user-owned 606-file dirty checkout or publish a branch not yet authorized",
+    "Retiring legacy before successor pages/auth/resolver are production-ready would leave the real UI or API surface without a working replacement",
+    "ITEM-04 conflicts with the goal objective clause 'legacy 保持可用且不退休' unless the user's 04-execution instruction is recorded as an explicit override"
+  ]
+}

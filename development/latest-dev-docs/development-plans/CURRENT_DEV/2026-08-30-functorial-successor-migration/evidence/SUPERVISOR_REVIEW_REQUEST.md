@@ -382,3 +382,10 @@ SUPERVISOR_REVIEW_REQUEST
 - ITEM-03 `PASS_CUTOVER_REHEARSAL_LOCAL_ONLY`：SHA `f4a52b1a…`；`mrw-alllines-rehearsal` 6 容器 healthy；successor 只读 route 与 legacy route 均 200；teardown 零残留容器。
 - 偏差注记：ITEM-03 执行代理对 ITEM-02 证据文件名/字段做了规范化，超出其单文件写边界；磁盘复核最终 3 份文件自洽，无 secret，采纳当前字节并记录偏差。
 - 状态：authority 仅解锁 bounded live_provider 与 disposable/local canonical_write；production_canonical_write/cutover/authority_transfer/legacy_retired/candidate_promotion 全 false；ITEM-04 仅记录未执行。
+
+## ITEM-04 milestone preparation (2026-09-03)
+
+- 用户指令 `04执行`。checkpoint `20260903-002841` 已建；rollback-drill dry-run 计划 OK；里程碑证据 `evidence/all-lines-runnable/AllLinesItem04CutoverMilestoneEvidence.v1.json`。
+- 状态：`ITEM_04_MILESTONE_PREPARED_CUTOVER_BLOCKED_BY_PRODUCTION_GAPS_AND_UNADDRESSED_SCOPE`。
+- 未执行字面 cutover/retirement 的原因（证据化）：successor production resolver 关闭、端点默认无认证、前端 successor 未接线、真实回滚/备份/降级 drill 未跑；donor/origin 目标未获授权；ITEM-04 的 legacy retirement 与“legacy 保持可用且不退休”条款冲突。
+- 等待用户明确目标（本地栈 cutover vs donor/origin cutover）或批准补足生产缺口后再执行 stop/go cutover。

@@ -668,3 +668,12 @@ When the target task reaches a review boundary, it must return a message beginni
 - 监督注记：ITEM-03 执行代理在回传前对 ITEM-02 证据文件名与 authority 字段做了规范化（原任务边界为“唯一写入 ITEM-03 文件”）；该项超出其单文件写入边界，属执行偏差。磁盘复核确认最终仅 3 份证据文件、schema/status/candidate/authority 字段自洽、无 secret 值、ITEM-02 原始生成字节未保留（SHA `ad04b7f2…` 对应旧名文件已不存在）。已按当前字节采纳并记录偏差；后续执行代理须严守单文件边界。
 - 状态：`ITEMS_01_03_EXECUTED_PASS_LOCAL_ONLY`；authority：live_provider（bounded）true、canonical_write（disposable/local）true、production_canonical_write/cutover/authority_transfer/legacy_retired/candidate_promotion 全 false；ITEM-04 仍仅记录未执行。
 - 下一步：汇总 ITEM-01..03 证据为监督报告；ITEM-04（生产 cutover/authority transfer/legacy retirement）需另行里程碑与逐项授权。
+
+## ITEM-04 milestone preparation (2026-09-03)
+
+- 用户指令 `04执行`；未答复 cutover 目标问卷（donor/origin vs 本地栈），按有界本地解释执行里程碑准备。
+- 已执行：`./scripts/docker-deploy.sh checkpoint` 快照 `20260903-002841`；`rollback-drill --dry-run` 计划 OK（preflight→stop→start→health→stop）。
+- 证据：`evidence/all-lines-runnable/AllLinesItem04CutoverMilestoneEvidence.v1.json`，状态 `ITEM_04_MILESTONE_PREPARED_CUTOVER_BLOCKED_BY_PRODUCTION_GAPS_AND_UNADDRESSED_SCOPE`。
+- 未执行原因（如实）：生产 registry resolver 关闭（resolve_expected 抛错）、successor 端点默认无认证、前端 successor 组件未接入页面/路由、真实 rollback/备份/DB 降级 drill 未跑、donor/origin 写入未获目标授权；且 ITEM-04 的 legacy retirement 与目标条款“legacy 保持可用且不退休”冲突，未获显式覆盖前不执行。
+- authority：cutover/authority_transfer/legacy_retired/production_canonical_write 全 false。
+- 下一步：需用户在「本地栈 cutover（不动 donor/origin，legacy 保留可逆停用）」与「donor/origin cutover（需备份/回滚与 push 授权）」之间明确目标；或先批准补齐生产 resolver/认证/前端接线/回滚 drill 后，再按 stop/go 执行正式 cutover。
