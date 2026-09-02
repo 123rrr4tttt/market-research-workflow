@@ -1,0 +1,119 @@
+{
+  "schema": "mrw.functorial_successor.all_lines.http_projection_evidence.v1",
+  "status": "PASS_HTTP_PROJECTION_READ_REAL_DB",
+  "generated_at": "2026-09-03T03:05:00+08:00",
+  "worktree": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0",
+  "worktree_head": "b070cc9959c01bebe2f9ec4a576fbf5dac7e6022",
+  "candidate": {
+    "revision": "b070cc9959c01bebe2f9ec4a576fbf5dac7e6022",
+    "note": "HTTP read-facade wiring changes are intentionally uncommitted and unpushed for supervisor review (no commit/push authorized in this lane)."
+  },
+  "implementation": {
+    "files": [
+      "main/backend/app/successor_runtime/substrate/postgres/projection_query_read_port.py",
+      "main/backend/app/successor_runtime/assembly/app_assembly.py",
+      "main/backend/app/successor_runtime/assembly/c9_assembly.py",
+      "main/backend/tests/successor_runtime/test_http_projection_read_port_postgres.py"
+    ],
+    "boundary": "additive read-only wiring; local_only default assembly unchanged; command submission stays on the deterministic no-write port; registry reads dispatch C7 canonical projector ids to C7ProjectorDriver.read_document and delegate every other projection snapshot to the existing PostgresC9QueryRepository"
+  },
+  "query_request": {
+    "endpoint": "POST /api/v1/successor-runtime/v2/queries",
+    "query_kind": "projection_snapshot",
+    "project_locator": "demo_proj_compare_0303_121137",
+    "params": {
+      "projection_id": "projection.c7-document.sys-successor-runtime.v1",
+      "projector_id": "successor.ingest_index.search.projector",
+      "projector_version": "1.0.0",
+      "source_kind": "ingest_canonical",
+      "source_ref": "document:ingest-doc:c7-production-cutover-acceptance-2026-09-03",
+      "source_incarnation": "incarnation:production-go-live:v1"
+    }
+  },
+  "http_codes": {
+    "health": 200,
+    "query_without_token": 401,
+    "query_with_valid_bearer": 200,
+    "query_repeat_with_valid_bearer": 200
+  },
+  "query_response_sample": {
+    "status": "ok",
+    "control_feedback": false,
+    "meta": {
+      "project_key": "demo_proj_compare_0303_121137",
+      "project_scope_ref": {
+        "resolved_schema": "project_demo_proj_compare_0303_121137",
+        "project_registry_revision": 1,
+        "incarnation": "incarnation:production-go-live:v1",
+        "scope_digest": "88fe54420b357e5a5a932d280d008badf940c35629753c6cefda5b3172b17b67"
+      },
+      "projector_id": "successor.ingest_index.search.projector",
+      "source_kind": "ingest_canonical",
+      "source_ref": "document:ingest-doc:c7-production-cutover-acceptance-2026-09-03",
+      "source_incarnation": "incarnation:production-go-live:v1",
+      "projection_generation": 1,
+      "offset_revision": 0,
+      "projection_revision": 1,
+      "source_digest": "d2495d61135d7e2436a97b4da2b2d64b04767f25881eeb65e2d7a1a018310337",
+      "cursor": 1
+    },
+    "data": {
+      "source_digest": "d2495d61135d7e2436a97b4da2b2d64b04767f25881eeb65e2d7a1a018310337",
+      "candidate_values": [
+        {
+          "value_id": "c7:document-projection:ingest-doc:c7-production-cutover-acceptance-2026-09-03:rev-1",
+          "value_ref": "value:project_demo_proj_compare_0303_121137:c7:document-projection:ingest-doc:c7-production-cutover-acceptance-2026-09-03:rev-1",
+          "content_digest": "d2495d61135d7e2436a97b4da2b2d64b04767f25881eeb65e2d7a1a018310337",
+          "sink": "search",
+          "payload_flags": {
+            "read_only": true,
+            "no_postgres_write": true,
+            "document_ref_object_id": "ingest-doc:c7-production-cutover-acceptance-2026-09-03",
+            "document_ref_content_digest": "d2495d61135d7e2436a97b4da2b2d64b04767f25881eeb65e2d7a1a018310337"
+          }
+        }
+      ]
+    }
+  },
+  "digest_assert": {
+    "expected": "d2495d61135d7e2436a97b4da2b2d64b04767f25881eeb65e2d7a1a018310337",
+    "observed": "d2495d61135d7e2436a97b4da2b2d64b04767f25881eeb65e2d7a1a018310337",
+    "match": true,
+    "response_stable_across_repeat": true
+  },
+  "read_only_verified": {
+    "real_database": "local PostgreSQL 18.3 database postgres (Unix socket, backend .env DATABASE_URL)",
+    "rows_before": {
+      "c7_movement_canonical_documents": 1,
+      "project_scope_registry_active": 1
+    },
+    "rows_after": {
+      "c7_movement_canonical_documents": 1,
+      "project_scope_registry_active": 1,
+      "runtime_projection_offsets_for_project": 0
+    },
+    "write_effects": "none observed; repeated query returned an identical response and no offset/value row was created"
+  },
+  "focused_tests": {
+    "file": "main/backend/tests/successor_runtime/test_http_projection_read_port_postgres.py",
+    "result": "2 passed (repository/facade read + app.state HTTP router read over a disposable PostgreSQL database)"
+  },
+  "authority_ceiling": {
+    "canonical_write": false,
+    "live_provider": false,
+    "external_delivery": false,
+    "cutover": false,
+    "authority_transfer": false,
+    "legacy_retired": false,
+    "candidate_promotion": false,
+    "read_only_projection": true,
+    "note": "This lane adds read-only HTTP projection wiring only. The committed acceptance row existed from the prior bounded C7 production admission lane; this lane performed no write."
+  },
+  "risks": [
+    "Changes and evidence are uncommitted/unpushed local state on branch codex/functorial-successor-p0 for supervisor review.",
+    "The real smoke proves one committed C7 acceptance document under one ACTIVE registry scope; it does not generalize to every C7 document or to other projection families without matching evidence.",
+    "Non-C7 projection_snapshot queries now delegate to PostgresC9QueryRepository, which fails closed unless an active projection offset/value set already exists.",
+    "The frontend page source key is still the deterministic local-offline key (successorRuntimeConfig.ts), so switching the UI to real C7 data is a separate small wiring change not made in this backend lane.",
+    "The launchd production_registry backend was restarted against this uncommitted working tree during the smoke; a future deploy must rerun the same smoke against committed/deployed bytes."
+  ]
+}

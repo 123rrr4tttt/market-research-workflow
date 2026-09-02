@@ -24,12 +24,16 @@ from app.successor_runtime.assembly.base import (
 )
 from app.successor_runtime.assembly.c9_assembly import (
     build_deterministic_facade_closure,
+    build_deterministic_command_submission_port,
 )
 from app.successor_runtime.assembly.successor_assembly import (
     build_local_offline_fixture_options,
 )
 from app.successor_runtime.runtime.facade import SuccessorRuntimeFacade
 from app.successor_runtime.runtime.ports import ProjectScopeRef
+from app.successor_runtime.substrate.postgres.projection_query_read_port import (
+    EngineBackedProjectionQueryReadPort,
+)
 from app.successor_runtime.substrate.postgres.session import (
     ProjectScopeResolver,
     ProjectScopeValidationError,
@@ -292,15 +296,23 @@ def build_successor_registry_app_dependencies(
     function never opens a connection and never creates one implicitly; the
     resolver opens short-lived connections only when a request needs scope
     resolution.
+
+    The mounted facade always binds the registry-backed read query port:
+    ``options.c9.facade`` is the deterministic LOCAL_ONLY closure and is never
+    adopted for registry reads.  Commands stay on the deterministic no-write
+    submission port; no canonical write, provider, promotion or authority
+    transfer is opened by this wiring.
     """
 
     _production_validation_from_settings()
     assembly_options = options or build_local_offline_fixture_options()
-    facade = assembly_options.c9.facade
-    if facade is None:
-        facade = build_deterministic_facade_closure()
-    if not isinstance(facade, SuccessorRuntimeFacade):
-        raise TypeError("assembly options c9.facade must be a SuccessorRuntimeFacade")
+    facade = SuccessorRuntimeFacade(
+        submission_port=build_deterministic_command_submission_port(),
+        query_port=EngineBackedProjectionQueryReadPort(
+            engine=engine,
+            engine_factory=engine_factory,
+        ),
+    )
     resolver = RegistryBackedProjectScopeResolver(
         engine=engine,
         engine_factory=engine_factory,

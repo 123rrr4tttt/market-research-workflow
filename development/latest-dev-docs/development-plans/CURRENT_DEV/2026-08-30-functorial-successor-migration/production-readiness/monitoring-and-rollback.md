@@ -301,3 +301,69 @@ Authorization: Bearer dev-final-runnable-token -> HTTP 200
 - 已收口（原 7.5 保留项）：ES 单节点运行并接入 deep health；计划备份脚本 + launchd 调度 + 一次真实备份（RPO 基线文件存在）；Prometheus/Alertmanager 在线采集与本地告警落盘。
 - 仍保留：deep health `status=degraded`（HTTP 200 + JSON degraded）的语义级告警需后端领域指标（如 `deep_health_status`），规则中已注释标注未实现；外部通知通道（email/Slack/PagerDuty）未配置（仅本地文件 webhook）；TLS 终结、镜像 digest、secret/依赖漏洞扫描、volume 级恢复 drill、真实网络级 ingress 认证复测、生产 owner/ACL 仍为环境边界缺口。
 - Grafana 登录凭据是本机随机生成文件（非仓库 commit 内容，未 commit/push）；若纳入版本管理需先迁移到 secret 管理。
+
+## 9. 第一条业务链验收：C7 canonical verify/admit + 真实库投影读（2026-09-03 Projection Read Lane）
+
+> 本节固化第一条业务链的验收状态，并记录回退/可逆开关与 authority 上限。写侧证据：`evidence/all-lines-runnable/AllLinesC7ProductionAdmissionEvidence.v1.json`（PASS_C7_PRODUCTION_ADMISSION_BOUNDED）；读侧证据：`evidence/all-lines-runnable/AllLinesProjectionReadEvidence.v1.json`（PASS_PROJECTION_READ_REAL_DB，SHA-256 `70b3bc1020773c896d447547e0e5a5b80254b3b9d1651417abb7c2de772d2c38`）。本线改动未 commit/push。
+
+### 9.1 第一条业务链定义
+
+第一条业务链 = **C7 canonical document verify/admit（真实写已 PASS）→ registry ACTIVE scope 定位 → C7.3 投影源只读回读（本轮 PASS）**。
+
+真实库当前状态：
+
+```text
+alembic version      -> 20260903_000003 (head)
+ACTIVE registry      -> demo_proj_compare_0303_121137
+resolved_schema      -> project_demo_proj_compare_0303_121137
+registry_revision    -> 1
+scope_digest         -> 88fe54420b357e5a5a932d280d008badf940c35629753c6cefda5b3172b17b67
+canonical row        -> ingest-doc:c7-production-cutover-acceptance-2026-09-03, revision 1
+row content_digest   -> d2495d61135d7e2436a97b4da2b2d64b04767f25881eeb65e2d7a1a018310337
+```
+
+### 9.2 本轮读侧实测（真实库，只读事务）
+
+投影读取路径：`main/backend/app/successor_runtime/substrate/postgres/c7_projector_driver.py` 的 `C7ProjectorDriver.read_document`，由 `projection_read_probe_20260903.py` 在 `SET TRANSACTION READ ONLY` 事务内执行。
+
+```text
+project scope registry ACTIVE rows read     -> 1
+c7_movement_canonical_documents rows read   -> 1（按 project_key + object_id 过滤）
+returned object_id                          -> ingest-doc:c7-production-cutover-acceptance-2026-09-03
+returned revision                           -> 1（expected=1，match=true）
+returned content_digest                     -> d2495d61135d7e2436a97b4da2b2d64b04767f25881eeb65e2d7a1a018310337（match=true）
+transaction_read_only                       -> on
+exit code                                   -> 0
+```
+
+该结果证明 repository-owned 投影源读取链路已到达真实 committed 数据并做 digest/revision 校验；未写任何行、未动 legacy。
+
+### 9.3 HTTP/UI 边界（如实记录）
+
+本轮对运行中的 `POST http://127.0.0.1:8000/api/v1/successor-runtime/v2/queries`（Bearer 认证 200）做了实测：返回仍是**确定性 in-memory facade** envelope（projector_id=`c9.local-offline.validation.projector.v1`、source_ref=`local-offline:facade-validation`、cells C9.1/C9.2 INSTALLED、`no_postgres_write=true`），**不返回真实 C7 DB 数据**。
+
+原因：`build_successor_registry_app_dependencies` 的 facade 仍默认绑定 `build_deterministic_facade_closure()`；`PostgresC9QueryRepository`/`projection_snapshot` 与 C7 read 路径未挂进 HTTP composition root。
+
+因此 **UI 切换条件尚未满足**：需要先把 registry-backed projection facade/query repository 接进 HTTP composition root，再把 SuccessorRuntime 前端的只读观察绑定到该 query，并对真实 ACTIVE scope 复测后，才能声明“UI 显示真实投影数据”。
+
+### 9.4 authority 记录
+
+```text
+c7_canonical_write_production  -> true（bounded：单条 production-cutover acceptance 文档）
+projection read                -> read-only registry-backed DB projection read
+cutover                        -> false
+authority_transfer             -> false
+legacy_retired                 -> false
+candidate_promotion            -> false
+```
+
+### 9.5 回退/可逆开关
+
+- 真实库 go-live 前全量备份：`/Users/wangyiliang/.codex/rollback/production-postgres-go-live-2026-09-03/postgres-full.dump`，SHA-256 `c3161d0a2dce426b1039ffbc69fc08bbda22a4c1e8c743a70d75a3288d25da8f`；恢复说明见同目录 `ROLLBACK.md`。
+- schema 回退：`alembic downgrade 20260831_000002` 会撤销 revision `20260903_000003`（`c7_movement_canonical_documents` 所在迁移）；disposable downgrade/re-upgrade 已在此前 admission 线验证过。
+- 重放语义：C7 production admission runner 按 idempotency_key 幂等；replay 结果为 `REPLAYED_COMMITTED` 且 readback 与首次一致。
+- 本轮读侧为只读事务，无写入，因此无额外回滚需求；HTTP/UI 接线若后续实施，应以第 4 节 stop/go 与第 5 节回滚流程执行。
+
+### 9.6 结论
+
+第一条业务链的**真实写 + repository-owned 真实读**已闭环并有各自 PASS 证据；**HTTP/UI 投影展示与 production 业务切流仍未授权/未接线**，cutover、authority transfer、legacy retirement 继续为 false。

@@ -290,6 +290,17 @@ def build_deterministic_facade_closure() -> SuccessorRuntimeFacade:
     )
 
 
+def build_deterministic_command_submission_port() -> CommandSubmissionPort:
+    """Return the deterministic no-write command submission port.
+
+    The registry-backed HTTP facade reuses this port so commands stay
+    validation-only and never perform a write while the read facade is being
+    wired to real PostgreSQL reads.
+    """
+
+    return _MemoryCommandSubmissionPort()
+
+
 def _validate_exact_facade_binding(
     assignment: RuntimeAssignment,
     claim: ClaimBinding,
@@ -634,4 +645,5 @@ __all__ = [
     "build_c9_assembly",
     "build_deterministic_facade_closure",
     "build_deterministic_facade_validation_query",
+    "build_deterministic_command_submission_port",
 ]
