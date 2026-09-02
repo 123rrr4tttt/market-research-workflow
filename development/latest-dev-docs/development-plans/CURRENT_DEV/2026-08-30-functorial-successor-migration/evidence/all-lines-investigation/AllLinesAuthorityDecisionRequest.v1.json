@@ -1,0 +1,73 @@
+{
+  "schema": "mrw.functorial_successor.all_lines_authority_decision_request.v1",
+  "version": "1.0.0",
+  "record_id": "AllLinesAuthorityDecisionRequest.v1",
+  "date": "2026-09-02",
+  "generated_at_utc": "2026-09-02T16:30:00Z",
+  "status": "AWAITING_USER_AUTHORITY_DECISION_NOT_GRANTED",
+  "generated_by": "root-supervisor-01a06230",
+  "goal_ref": "MRW 全线迁移（调查/冻结/逐条线迁移/双门 review/授权后运行面验收）",
+  "precondition_evidence": {
+    "freeze_receipt": {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesMigrationScope.freeze-receipt.v1.json",
+      "status": "FROZEN_VALIDATED",
+      "scope": "18 business lines, 130 donor sources, 16 UNASSIGNED_BLOCKER at freeze time"
+    },
+    "movement_inventory": {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesSuccessorMovementInventory.v1.json",
+      "sha256": "08fad9f59a5c588ca86085410efc792d33114903d4723038f50f46c0f858510d",
+      "status": "20/20 REIMPLEMENTED_AS, 0 UNASSIGNED_BLOCKER"
+    },
+    "closure_chain": [
+      "AllLinesS2Closure.amendment.v1.json (4e55bf96)",
+      "AllLinesS2bClosure.amendment.v1.json (1c9e9215)",
+      "AllLinesS2cClosure.amendment.v1.json (1244e285)",
+      "AllLinesFinalRebind.amendment.v1.json (92e69d9a)"
+    ],
+    "independent_gate_reviews": [
+      "AllLinesMovementDeclaredScopeReview.v1.json: PASS_ALL_LINES_MOVEMENT_GATE",
+      "AllLinesMovementPredecessorReview.v1.json: PASS_ALL_LINES_MOVEMENT_GATE",
+      "AllLinesP1ClosureIndependentReview.v1.json: PASS_P1_CLOSURE_REVIEWED"
+    ],
+    "validation_at_local_closure_commit": {
+      "commit": "3706655f",
+      "non_pg_successor_runtime": "1565 passed / 119 skipped / 0 failed",
+      "pg_dedicated": "353 passed / 0 failed",
+      "semantic_generator": "CHECK_OK 60/0",
+      "semantic_validator": "PASS (refs 323/323, unresolved 0)",
+      "capability_spec_check": "30/30 MATCH"
+    }
+  },
+  "authority_ceiling_before_decision": {
+    "authority_transfer": false,
+    "business_authority_migrated": false,
+    "canonical_write": false,
+    "candidate_created": false,
+    "credential_read": false,
+    "cutover": false,
+    "executor": false,
+    "external_delivery": false,
+    "legacy_retired": false,
+    "live_provider": false,
+    "promotion": false,
+    "scheduler": false,
+    "successor_claim_enabled_for_all_lines": false
+  },
+  "requested_decision_scope": [
+    {
+      "option_id": "OPT-A-CANDIDATE_AND_EXACT_REVIEW",
+      "label": "仅创建 all-lines local-only exact-candidate 并执行 I2 式候选终审",
+      "unlocks": ["all-lines candidate commit/tree creation", "exact-candidate byte review"],
+      "does_not_unlock": ["live provider", "cutover", "authority transfer", "production canonical write", "legacy retirement"]
+    },
+    {
+      "option_id": "OPT-B_PLUS_RUNNABLE_AUTHORITY",
+      "label": "在 OPT-A 通过后继续评估 runnable/authority 迁移门（逐项授权）",
+      "unlocks": [],
+      "does_not_unlock": [],
+      "note": "runable/authority/cutover 门需在 OPT-A 候选终审通过后另行逐项明确授权，本记录不预设任何授权。"
+    }
+  ],
+  "decision_not_granted_note": "本记录只表达等待中的授权请求，不构成任何 authority/candidate/live/cutover 授权，也不改变 legacy 可用状态。",
+  "supervisor_boundary_note": "候选创建、运行面验收与 authority transfer 仅在用户对上述 scope 明确批准后执行；批准应以本记录或其后续监督记录为准。"
+}
