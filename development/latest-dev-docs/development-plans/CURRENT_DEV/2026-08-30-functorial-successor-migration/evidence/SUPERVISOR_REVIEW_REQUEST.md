@@ -397,3 +397,11 @@ SUPERVISOR_REVIEW_REQUEST
 - donor 主工作树已切换：`codex/all-lines-donor-cutover` → HEAD/tree `3706655f`/`5840bf9b`（exact candidate）；证据 `evidence/all-lines-runnable/AllLinesItem04DonorCutoverEvidence.v1.json`。
 - 边界：未 push/merge origin、未删除 legacy 代码、未做 runnable cutover；598 项既有 dirty 延续并留痕。authority：code-level cutover only。
 - 待决：是否干净 checkout 启动 donor 服务 / 授权 origin / 补齐生产缺口后正式 runnable cutover。
+
+## Gap closure complete + origin branch push (2026-09-03)
+
+- Lane A 生产装配（registry-backed resolver/actor/auth prefix，fail-closed）、Lane B 前端只读 slice、Lane C cutover drills 证据、全量 evidence rebind 均完成；非 PG `1580/119/0`，spec 30/30 MATCH，PG canary 零残留。
+- 本地集成 commit `ec29ced6`；用户已授权 push。
+- 已 push origin 新分支：`codex/functorial-successor-p0`（commit `ec29ced6`；非 force；未覆盖 main）；PR 链接 `https://github.com/123rrr4tttt/market-research-workflow/pull/new/codex/functorial-successor-p0`。
+- 证据：`evidence/all-lines-runnable/AllLinesGapBackendProductionWiring.v1.json`、`AllLinesGapFrontendWiring.v1.json`、`AllLinesItem04CutoverDrillsEvidence.v1.json`、`AllLinesGapEvidenceRebind.v1.json`、`AllLinesOriginPushEvidence.v1.json`。
+- 边界：正式 runnable cutover/main merge/authority transfer/legacy retirement 未执行；donor 仍停 `@3706655f` 保留 dirty 与回滚点；部署环境项（TLS/digest/告警/扫描/RPO）如实保留待部署环境处理。

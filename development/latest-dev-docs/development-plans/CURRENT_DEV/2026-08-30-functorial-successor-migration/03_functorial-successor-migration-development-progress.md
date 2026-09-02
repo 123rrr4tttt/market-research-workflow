@@ -691,3 +691,19 @@ When the target task reaches a review boundary, it must return a message beginni
 - dirty 处理：606 → 598 项延续；8 个 tracked-modified overlap 与 21 个 untracked-overlap 由候选字节替代，原件全部保存于 rollback 包；未 commit/push donor。
 - 状态：cutover（code-level donor branch）= true；origin_push/authority_transfer/legacy_retired/production_canonical_write/candidate_promotion 全 false。
 - 下一步：由用户决定是否 (a) 以干净 checkout 启动 donor 服务（避免 598 dirty 影响运行时字节），(b) 授权 origin push/merge，或 (c) 先补齐生产 resolver/认证/前端接线后做正式 runnable cutover。
+
+## Gap closure: production wiring, frontend slice, cutover drills (2026-09-03)
+
+- Lane A（后端生产装配）：`successor_mount_mode = local_only|production_registry`（默认 local_only、fail-closed）；registry-backed resolver/app deps 与 authenticated actor provider；`codex_auth_protected_prefixes` 默认纳入 `/api/v1/successor-runtime`；app.state 初始化、未初始化 503 typed；新增 `test_successor_production_wiring.py`（36 passed + PG registry 4 passed）。
+- Lane B（前端接线）：最小只读 `sysSuccessorRuntime` 观察页挂入 kernel manifest/nav/i18n；只走既有 successor transport 只读 query；Playwright 新页面 wiring 5 passed、successor e2e 65 passed、tsc/eslint/拓扑/i18n gate 全绿。
+- Lane C（drill 证据，候选快照执行）：真实 rollback drill、disposable DB backup/restore、alembic downgrade/upgrade 全 PASS 零残留；生产环境余项（TLS/digest 固定/在线告警/secret 扫描/RPO）如实保留未假完成。
+- Rebind：12 项 P1P3 canonical + 5 spec + 5 manifest + C9 共享 + C1 slices + route decision 重生成；30/30 spec MATCH；全量非 PG `1580 passed / 119 skipped / 0 failed`；PG canary 零残留。
+- 本地集成提交：`ec29ced6`。
+- 状态：缺口补齐证据闭环；authority 仍 cutover/live(除 bounded parity)/authority_transfer/legacy_retired/production_canonical_write 全 false。
+
+## Origin push: successor review branch (2026-09-03)
+
+- 用户授权：补齐后直接 push，无需另行要求。
+- 已推送：`codex/functorial-successor-p0:codex/functorial-successor-p0`（origin 新分支，commit `ec29ced6`，非 force，未覆盖 main）；PR 创建链接 `https://github.com/123rrr4tttt/market-research-workflow/pull/new/codex/functorial-successor-p0`。
+- 证据：`evidence/all-lines-runnable/AllLinesOriginPushEvidence.v1.json`。
+- 边界：donor 主工作树仍停留在 `codex/all-lines-donor-cutover @3706655f`（保留 dirty + 回滚点），未推进到 `ec29ced6`；正式 runnable cutover/main merge/authority transfer/legacy retirement 均未执行，需干净 checkout 复跑 drills 后再做。

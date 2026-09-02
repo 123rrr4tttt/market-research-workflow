@@ -1,0 +1,55 @@
+{
+  "schema": "mrw.functorial_successor.all_lines.origin_push_evidence.v1",
+  "version": "1.0.0",
+  "record_id": "all-lines-origin-push-2026-09-03",
+  "date": "2026-09-03",
+  "status": "ORIGIN_BRANCH_PUSHED_SUCCESSOR_REVIEW_BRANCH",
+  "user_authorization": "补齐缺口后授权 push，到时无需另行要求",
+  "remote": {
+    "origin_url": "https://github.com/123rrr4tttt/market-research-workflow.git",
+    "pushed_refspec": "codex/functorial-successor-p0:codex/functorial-successor-p0",
+    "result": "new branch created on origin",
+    "pr_create_url": "https://github.com/123rrr4tttt/market-research-workflow/pull/new/codex/functorial-successor-p0"
+  },
+  "pushed_commit": {
+    "commit": "ec29ced6",
+    "subject": "production wiring: registry-backed successor mount + auth + frontend slice + cutover drills",
+    "contains": [
+      "Lane A: successor_mount_mode local_only|production_registry + registry-backed resolver/actor + successor-runtime auth prefix",
+      "Lane B: read-only sysSuccessorRuntime frontend slice wired into kernel manifest/nav/i18n",
+      "Lane C: real rollback drill + disposable DB backup/restore + alembic downgrade/upgrade drills (candidate-snapshot evidence)",
+      "evidence rebind: 12 P1P3 canonical, 30/30 capability spec MATCH, C1 slices, route decision"
+    ]
+  },
+  "verification": {
+    "non_pg_successor_runtime": "1580 passed / 119 skipped / 0 failed",
+    "pg_focused_canary": "test_p4_c7_6_postgres.py 4 passed; test_p0c_production_composition_root.py 3 passed; zero residue",
+    "semantic_generator": "CHECK_OK 60/0",
+    "semantic_validator": "PASS refs 323/323 unresolved 0",
+    "capability_spec": "30/30 MATCH",
+    "frontend": "tsc -b PASS; successor e2e 65 passed; new page wiring 5 passed"
+  },
+  "not_executed": {
+    "main_branch_merge_or_push": true,
+    "production_cutover_runnable": true,
+    "authority_transfer": true,
+    "legacy_retired": true,
+    "donor_working_tree_advance_to_ec29ced6": true,
+    "note": "origin push is a successor review branch only; donor main worktree remains on codex/all-lines-donor-cutover @3706655f with its preserved dirty state and rollback point"
+  },
+  "authority_ceiling": {
+    "candidate_promotion": false,
+    "cutover": false,
+    "authority_transfer": false,
+    "legacy_retired": false,
+    "production_canonical_write": false,
+    "live_provider": true
+  },
+  "risks": [
+    "Production registry resolver requires an ACTIVE project_scope_registry row in the deployment DB; without it the production_registry mount fails closed",
+    "successor_mount_mode defaults to local_only; production_registry must be explicitly enabled with auth",
+    "Frontend page defaults to a projection placeholder; real exact projection requires backend registry/projector data",
+    "Lane C drills were executed on the candidate snapshot because Lane A/B were mid-edit; re-run drills on final pushed bytes before formal runnable cutover",
+    "Deployment environment items remain: TLS, image digest pins, Prometheus/Alertmanager online, secret/dependency scanning, RPO backup scheduling"
+  ]
+}
