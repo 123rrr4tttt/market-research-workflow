@@ -42,6 +42,7 @@ const MODULE_TITLE_KEY_BY_MODULE: Record<KernelModuleKey, TitleMessageKey> = {
   sysBackend: 'shell.title.sysBackend',
   sysSettings: 'shell.title.sysSettings',
   sysLlm: 'shell.title.sysLlm',
+  sysSuccessorRuntime: 'shell.title.sysSuccessorRuntime',
 }
 
 const MODULE_NAV_LABEL_KEY_BY_MODULE: Record<KernelModuleKey, NavMessageKey> = {
@@ -76,6 +77,7 @@ const MODULE_NAV_LABEL_KEY_BY_MODULE: Record<KernelModuleKey, NavMessageKey> = {
   sysBackend: 'navigation.item.sysBackend',
   sysSettings: 'navigation.item.sysSettings',
   sysLlm: 'navigation.item.sysLlm',
+  sysSuccessorRuntime: 'navigation.item.sysSuccessorRuntime',
 }
 
 const DESIGN_SOURCES = {
@@ -167,6 +169,7 @@ export const moduleManifest: readonly ModuleManifestEntry[] = [
   defineModule('sysBackend', 'C', 'management', '/admin/backend', '#backend-dashboard.html', 'navigation.group.system', ['status-review', 'ops-control'], false),
   defineModule('sysSettings', 'C', 'management', '/admin/settings', '#settings.html', 'navigation.group.system', ['settings-edit', 'template-config'], false),
   defineModule('sysLlm', 'C', 'management', '/admin/settings/llm', '#settings.html#llm-config', 'navigation.group.system', ['llm-template-edit', 'settings-edit'], false),
+  defineModule('sysSuccessorRuntime', 'C', 'management', '/admin/successor-runtime', '#successor-runtime.html', 'navigation.group.system', ['status-review'], false),
 ] as const
 
 export const moduleManifestByKey = Object.fromEntries(

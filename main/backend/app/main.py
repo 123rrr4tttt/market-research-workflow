@@ -566,3 +566,34 @@ register_ui_routes(app, usa_map_path=USA_MAP_PATH)
 from .api import router as api_router  # type: ignore
 
 app.include_router(api_router, prefix="/api/v1")
+
+# Successor production registry mount: initialize app.state only at startup so
+# no database connection or server registry resolver is created at import time.
+if str(getattr(settings, "successor_mount_mode", "local_only")).strip().lower() == (
+    "production_registry"
+):
+    from app.successor_runtime.assembly.app_assembly import (
+        AuthActorUnresolvedError,
+        authenticated_oauth_session_actor_ref,
+        authenticated_token_actor_ref,
+        initialize_successor_registry_mount,
+    )
+
+    def _successor_production_actor_provider(request: Request) -> str:
+        token = _extract_codex_token(request)
+        if token:
+            return authenticated_token_actor_ref(token)
+        if _has_valid_codex_oauth_session(request):
+            sid = (request.cookies.get(codex_cookie_name()) or "").strip()
+            if sid:
+                return authenticated_oauth_session_actor_ref(sid)
+            return "actor:codex-oauth:token-sink"
+        raise AuthActorUnresolvedError(
+            "no authenticated actor identity found on successor request"
+        )
+
+    @app.on_event("startup")
+    def _initialize_successor_registry_mount() -> None:
+        initialize_successor_registry_mount(
+            app, actor_provider=_successor_production_actor_provider
+        )

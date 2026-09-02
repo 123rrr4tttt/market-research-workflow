@@ -1,12 +1,16 @@
-from typing import Optional
-from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import Field
 import os
 from pathlib import Path
+from typing import Optional
+
+from pydantic import Field, field_validator, model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 REPO_ROOT = BACKEND_ROOT.parents[1] if len(BACKEND_ROOT.parents) > 1 else BACKEND_ROOT
 ENV_FILE_CANDIDATES = (str(BACKEND_ROOT / ".env"), str(REPO_ROOT / ".env"))
+
+SUCCESSOR_MOUNT_MODES: tuple[str, ...] = ("local_only", "production_registry")
+_SUCCESSOR_MOUNT_DEFAULT_PREFIX = "/api/v1/successor-runtime"
 
 
 def _get_default_database_url() -> str:
@@ -107,7 +111,11 @@ class Settings(BaseSettings):
     codex_auth_enabled: bool = Field(default=False)
     codex_auth_tokens: str = Field(default="")
     codex_auth_protected_prefixes: str = Field(
-        default="/api/v1/agent-chat,/api/v1/agent-batch,/api/v1/agent-sessions,/api/v1/agent-approvals,/api/v1/workflow-graph,/api/v1/skills"
+        default=(
+            "/api/v1/agent-chat,/api/v1/agent-batch,/api/v1/agent-sessions,"
+            "/api/v1/agent-approvals,/api/v1/workflow-graph,/api/v1/skills,"
+            + _SUCCESSOR_MOUNT_DEFAULT_PREFIX
+        )
     )
     codex_oauth_enabled: bool = Field(default=True)
     codex_oauth_authorize_url: str = Field(default="")
@@ -197,10 +205,82 @@ class Settings(BaseSettings):
     embedding_model: str = Field(default="text-embedding-3-large")
     embedding_dim: int = Field(default=3072)
 
+    # Successor runtime v2 mount (Lane A production wiring).
+    # local_only keeps the import-time closed fixture mount; production_registry
+    # requires an injected server registry resolver plus codex auth by default.
+    successor_mount_mode: str = Field(default="local_only")
+    successor_production_requires_auth: bool = Field(default=True)
+
+    @field_validator("successor_mount_mode")
+    @classmethod
+    def _normalize_successor_mount_mode(cls, value: str) -> str:
+        normalized = str(value or "").strip().lower()
+        if normalized not in SUCCESSOR_MOUNT_MODES:
+            raise ValueError(
+                "successor_mount_mode must be one of "
+                f"{SUCCESSOR_MOUNT_MODES}; got {value!r}"
+            )
+        return normalized
+
+    @model_validator(mode="after")
+    def _validate_successor_mount(self) -> "Settings":
+        validate_successor_mount_mode(
+            mount_mode=self.successor_mount_mode,
+            production_requires_auth=self.successor_production_requires_auth,
+            codex_auth_enabled=self.codex_auth_enabled,
+        )
+        return self
+
     # Prefer backend-local .env so runtime reload and settings-manager writes stay consistent.
     model_config = SettingsConfigDict(
         env_file=ENV_FILE_CANDIDATES,
         extra="ignore",
+    )
+
+
+def validate_successor_mount_mode(
+    *,
+    mount_mode: str | None,
+    production_requires_auth: bool | None = None,
+    codex_auth_enabled: bool | None = None,
+) -> str:
+    """Validate successor mount mode and its fail-closed auth coupling.
+
+    Raises ``ValueError`` for unknown modes and for the production registry
+    mode running without codex auth when production auth is required.
+    """
+
+    normalized = str(mount_mode or "").strip().lower()
+    if normalized not in SUCCESSOR_MOUNT_MODES:
+        raise ValueError(
+            "successor_mount_mode must be one of "
+            f"{SUCCESSOR_MOUNT_MODES}; got {mount_mode!r}"
+        )
+    if (
+        normalized == "production_registry"
+        and bool(production_requires_auth)
+        and not bool(codex_auth_enabled)
+    ):
+        raise ValueError(
+            "successor_mount_mode=production_registry requires "
+            "codex_auth_enabled=true when "
+            "successor_production_requires_auth=true"
+        )
+    return normalized
+
+
+def successor_mount_mode_is_production() -> bool:
+    """Return whether the successor mount should use the server registry."""
+
+    return (
+        validate_successor_mount_mode(
+            mount_mode=getattr(settings, "successor_mount_mode", "local_only"),
+            production_requires_auth=getattr(
+                settings, "successor_production_requires_auth", True
+            ),
+            codex_auth_enabled=getattr(settings, "codex_auth_enabled", False),
+        )
+        == "production_registry"
     )
 
 

@@ -1,0 +1,158 @@
+{
+  "schema": "mrw.functorial-successor.all-lines-gap-evidence-rebind.v1",
+  "status": "REBOUND_LOCAL_ONLY",
+  "date": "2026-09-03",
+  "worktree": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0",
+  "branch": "codex/functorial-successor-p0",
+  "baseline_commit": "b26da684690c15bf093a625701b221aae87126e9",
+  "committed": false,
+  "authority_ceiling": {
+    "canonical_write": false,
+    "live_provider": false,
+    "external_delivery": false,
+    "cutover": false,
+    "authority_transfer": false,
+    "candidate_created": false,
+    "legacy_retired": false
+  },
+  "drift_cause": {
+    "summary": "Lane A backend production wiring and Lane B frontend successor-runtime wiring changed exact-bound source bytes, so shared generators no longer reproduced persisted canonical evidence.",
+    "observed_before_rebind": {
+      "semantic_generator_check": "DRIFT",
+      "semantic_validator_canonical_rebuild_matches": "FAIL",
+      "canonical_drift_artifacts": 12,
+      "full_non_pg_pytest": "1573 passed / 119 skipped / 7 failed before rebind (baseline reported by supervisor)"
+    }
+  },
+  "rebound_artifact_groups": {
+    "semantic_movement_canonical_12": [
+      "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C1.v1.json",
+      "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C2.v1.json",
+      "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C3.v1.json",
+      "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C4.v1.json",
+      "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C5.v1.json",
+      "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C6.v1.json",
+      "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C7.v1.json",
+      "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C8.v1.json",
+      "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C9.v1.json",
+      "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/P1P3LegacyDonorSemanticMovementInventory.v1.json",
+      "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/P1P3SuccessorMovementMatrix.v1.json",
+      "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/P1P3SemanticMovementGate.v1.json"
+    ],
+    "capability_specs_rebound_5": [
+      "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C1.1.v1.json",
+      "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C1.2.v1.json",
+      "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C1.3.v1.json",
+      "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C9.2.v1.json",
+      "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C9.3.v1.json"
+    ],
+    "capability_build_manifests_rebound_5": [
+      "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C1.1.BuildManifest.v1.json",
+      "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C1.2.BuildManifest.v1.json",
+      "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C1.3.BuildManifest.v1.json",
+      "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C9.2.BuildManifest.v1.json",
+      "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C9.3.BuildManifest.v1.json"
+    ],
+    "shared_family_fragment_rebound_1": [
+      "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p4-fragments/C9.json"
+    ],
+    "c1_slice_evidence_rebound_4": [
+      "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p5-c1-slices/C1SliceA.v1.json",
+      "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p5-c1-slices/C1SliceB.v1.json",
+      "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p5-c1-slices/C1SliceC.v1.json",
+      "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/P5C1SliceAcceptance.v1.json"
+    ],
+    "route_decision_evidence_rebound_2": [
+      "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/CapabilitySpecCompilationAndVerticalSlicesDecision.v1.json",
+      "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/CapabilitySpecGeneratedHandwrittenOwnership.v1.json"
+    ]
+  },
+  "rebind_method": {
+    "semantic_canonical": "re-ran generate_successor_p1_p3_semantic_movement.py without --check, then --check CHECK_OK and validator PASS",
+    "capability_spec_pins": "mechanical exact-hash replacement of regenerated canonical/fragment/slice pins in 5 spec files; no verdict/authority/schema semantics changed",
+    "manifests": "re-generated only the 5 drifted BuildManifest files via generate_capability_spec_pilots.py",
+    "shared_family": "re-generated C9 shared family fragment via generate_family_fragment_shared.py; C2-C8 already MATCH",
+    "c1_slices": "re-generated C1SliceA/B/C and P5C1SliceAcceptance via generate_c1_slice_acceptance.py after canonical rebind",
+    "route_decision": "re-generated CapabilitySpecCompilationAndVerticalSlicesDecision and CapabilitySpecGeneratedHandwrittenOwnership via generate_capability_spec_route_decision.py"
+  },
+  "validation_commands": [
+    {
+      "command": "python3.11 scripts/generate_successor_p1_p3_semantic_movement.py --repo-root ../.. --output-root ../..",
+      "exit_code": 0,
+      "result": "WROTE 60 movements / exact_blockers 0"
+    },
+    {
+      "command": "python3.11 scripts/generate_successor_p1_p3_semantic_movement.py --repo-root ../.. --output-root ../.. --check",
+      "exit_code": 0,
+      "result": "CHECK_OK 60 movements / exact_blockers 0"
+    },
+    {
+      "command": "python3.11 scripts/validate_successor_semantic_movement.py --repo-root ../.. --output-root ../..",
+      "exit_code": 0,
+      "result": "PASS 14/14 checks, refs 323/323 resolved, canonical_rebuild_matches PASS"
+    },
+    {
+      "command": "generate_capability_spec_pilots.py --check across 30 capability specs + RuntimeKernelABI",
+      "exit_code": 0,
+      "result": "30/30 MATCH (5 specs/manifests rebound)"
+    },
+    {
+      "command": "python3.11 scripts/generate_family_fragment_shared.py --repo-root ../.. --family {C2..C9} --check",
+      "exit_code": 0,
+      "result": "8/8 MATCH (C9 fragment regenerated, others unchanged)"
+    },
+    {
+      "command": "python3.11 scripts/generate_c1_slice_acceptance.py --check",
+      "exit_code": 0,
+      "result": "unchanged after regeneration"
+    },
+    {
+      "command": "python3.11 scripts/generate_capability_spec_route_decision.py --repo-root ../.. --check",
+      "exit_code": 0,
+      "result": "CHECK_OK"
+    },
+    {
+      "command": "env -u SUCCESSOR_TEST_DATABASE_URL -u SUCCESSOR_P3_C5_DATABASE_URL -u SUCCESSOR_DATABASE_URL PYTHONDONTWRITEBYTECODE=1 python3.11 -m pytest tests/successor_runtime -q -p no:cacheprovider",
+      "exit_code": 0,
+      "result": "1580 passed / 119 skipped / 0 failed / 0 errors"
+    },
+    {
+      "command": "git diff --check",
+      "exit_code": 0,
+      "result": "PASS"
+    }
+  ],
+  "pg_focused_canary": {
+    "method": "disposable dedicated databases on localhost PostgreSQL; pre/post filtered pg_database and pg_roles snapshots compared",
+    "runs": [
+      {
+        "test_file": "tests/successor_runtime/test_p4_c7_6_postgres.py",
+        "disposable_db": "mrw_gap_rebind_test_p4_c7_6_postgres_test",
+        "exit_code": 0,
+        "result": "4 passed"
+      },
+      {
+        "test_file": "tests/successor_runtime/test_p0c_production_composition_root.py",
+        "disposable_db": "mrw_gap_rebind_test_p0c_production_composition_root_test",
+        "exit_code": 0,
+        "result": "3 passed"
+      }
+    ],
+    "teardown_zero": true,
+    "post_run_databases_identical_to_baseline": true,
+    "post_run_roles_identical_to_baseline": true
+  },
+  "notes": [
+    "Evidence-only mechanical rebind; no production code semantics changed by this rebind task.",
+    "The pre-existing Lane A/Lane B code changes and their evidence files were not modified by this task.",
+    "Rebound spec files changed only source_bindings file_sha256 values that pointed at regenerated canonical artifacts.",
+    "Review files and ledger records that reference old fragment/slice hashes may still require a separate additive mainline_rebind pass.",
+    "No commit/push performed; worktree remains dirty with pre-existing and rebind changes."
+  ],
+  "risks": [
+    "authority remains all false; no candidate/live/cutover/authority-transfer claim is made.",
+    "Rebound evidence proves current-worktree byte consistency only; it does not re-review semantic verdicts.",
+    "Stale exact-hash references outside the regenerated family (e.g. review/ledger records pinning older p4-fragments/C9.json or C1Slice hashes) were not re-pinned in this pass.",
+    "Full non-PG suite is local-only; PG canary coverage is limited to two focused files with teardown verified."
+  ]
+}

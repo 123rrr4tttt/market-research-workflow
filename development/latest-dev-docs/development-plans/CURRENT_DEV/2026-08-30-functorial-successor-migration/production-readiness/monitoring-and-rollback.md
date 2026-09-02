@@ -1,6 +1,6 @@
 # Successor 生产监控与回滚
 
-> 状态：`RECOMMENDATION_NOT_IMPLEMENTED`。本文件把候选里已有的可观测/回滚基础与尚缺的生产能力分开；所有阈值、canary 与回滚步骤都是建议流程，标注为“待真实环境验证”的部分没有在本轮被执行。
+> 状态：`RECOMMENDATION_NOT_IMPLEMENTED`，但 2026-09-03 已完成三项本地 cutover drill（真实 rollback drill、DB 备份/恢复、DB 迁移 downgrade），见第 6 节。本文件把候选里已有的可观测/回滚基础与尚缺的生产能力分开；真实生产监控/告警/TLS/secret 扫描与生产回滚编排仍未实现。
 
 ## 1. 候选已有的可观测性基础
 
@@ -133,3 +133,63 @@ curl -fsS http://localhost:8000/api/v1/health/deep
 ```
 
 再按回退目标执行 legacy 功能回归与 successor 路由存在性断言。回退完成后更新监控基线，保留 snapshot 至少一个发布周期。
+
+## 6. 2026-09-03 Lane C 实测 drill 记录
+
+> 执行范围：候选 commit `3706655f` / tree `5840bf9b` 的干净快照 `/tmp/mrw-cutover-drill.umjWv5`（`git archive 3706655f` 生成，`.env` 由 `.env.example` 复制，无真实密钥）。当时 live worktree 正被另一条线并发改写（15 个 backend/frontend 文件未提交），因此 drill 不在半成品字节上执行；最终 cutover 前需在 Lane A 收口后的字节上复跑。证据 JSON：`../evidence/all-lines-runnable/AllLinesItem04CutoverDrillsEvidence.v1.json`。
+
+### 6.1 wrapper 限制实测
+
+```text
+COMPOSE_PROJECT_NAME=mrw-alllines-rehearsal ./scripts/docker-deploy.sh rollback-drill --skip-preflight --profile modern-ui
+-> exit 1：start-all 非交互端口检查命中宿主 5432（Homebrew PostgreSQL），未启动任何容器
+```
+
+等价 drill（`COMPOSE_PROJECT_NAME=mrw-alllines-rehearsal`，`main/ops/docker-compose.yml` + db/es/redis 内部端口 override，profile `modern-ui`；backend 8000、frontend-modern 5174 暴露宿主）：
+
+```text
+docker compose ... config -q                                        -> exit 0
+docker compose ... up -d db es redis backend celery-worker frontend-modern
+                                                                    -> exit 0（cycle 1）
+backend/celery/db/es: Up (healthy)；redis/frontend-modern: Up
+GET /api/v1/health                                                   -> 200
+GET /api/v1/health/deep                                              -> 200（database/pool/es ok）
+POST /api/v1/successor-runtime/v2/queries                            -> 200（typed envelope，no_postgres_write=true）
+GET /api/v1/agent-batch/executor/health（legacy）                    -> 200
+GET http://localhost:5174/                                           -> 200
+docker exec <es> curl http://localhost:9200/_cluster/health          -> green
+docker compose ... down --remove-orphans（保留 volumes）             -> exit 0；残留容器 0
+docker compose ... up -d ...                                         -> exit 0（cycle 2，20s 内全 healthy）
+GET /api/v1/health、/api/v1/health/deep、http://localhost:5174/      -> 全部 200
+docker compose ... down -v --remove-orphans                          -> exit 0；残留容器/网络/volume = 0/0/0
+```
+
+镜像沿用 ITEM-03 产物并保留：`mrw-alllines-rehearsal-backend:latest (25c7b263cf12)`、`-celery-worker:latest (eacf5d2c243f)`、`-frontend-modern:latest (16b83649a705)`。
+
+### 6.2 DB 备份/恢复 drill（disposable local PG，完整 29 条迁移链）
+
+```text
+库名：mrw_cutover_drill_backup_20260903
+alembic upgrade head                                                -> exit 0，version=20260831_000002
+seed：public.project_scope_registry 一行（count=1）
+pg_dump --format=custom                                             -> sha256 30a25e39ccf33626110f72feae1e850e02e69d1ea7b77ac993af951b39fdfbdc
+DROP DATABASE ... WITH (FORCE) → CREATE DATABASE → pg_restore（--no-owner --no-privileges --exit-on-error）
+                                                                    -> exit 0；version=20260831_000002；seed row 恢复（count=1）
+C7 focused PG：test_c7_canonical_write_projector_postgres.py          -> exit 0，9 passed / 0 failed（1.29s，自建自删专用库）
+teardown：删除 drill 库；pg_database/pg_roles 回到基线
+```
+
+### 6.3 DB 迁移 downgrade drill（disposable local PG）
+
+```text
+库名：mrw_cutover_drill_downgrade_20260903
+alembic upgrade head                                                -> exit 0；version=20260831_000002；runtime_* 表 22、project_scope_registry 1
+alembic downgrade 20260402_000004                                   -> exit 0；version=20260402_000004；runtime_* 表 0、project_scope_registry 0
+alembic upgrade head（再次）                                         -> exit 0；version=20260831_000002；runtime_* 表 22
+teardown：删除 drill 库；残留 0
+```
+
+### 6.4 结论与剩余环境项
+
+- 三项 drill 在本机 disposable/local 范围通过并零残留；这是 local 演练证据，不是生产 cutover/authority 证据。
+- 尚未满足的生产环境项（如实保留为缺口）：TLS 终结、镜像 digest/registry tag、Prometheus/Alertmanager 在线告警、secret/依赖漏洞扫描、生产 successor registry resolver + 端点认证、successor 前端页面接线、计划备份/RPO 自动化、生产 owner/ACL 与 volume 级恢复 drill。

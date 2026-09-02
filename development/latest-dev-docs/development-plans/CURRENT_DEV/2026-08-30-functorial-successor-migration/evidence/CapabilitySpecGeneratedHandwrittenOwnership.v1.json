@@ -18,9 +18,9 @@
     ],
     "semantic_abi_change": "SERIAL_MAINLINE_REVIEW_REQUIRED"
   },
-  "content_digest": "d4fb43ddc1972cdce573f6f578c5741384b9cd0ab087f3c87efac9cf7d4a065d",
+  "content_digest": "1356c5ddf646e0407335434e1849c7a9671a555eebaae807bf0b8e547e8b7498",
   "decision_binding": {
-    "content_digest": "c103952f0b61c756e10f2455ee96340f997c7103c8de210886018bfa91dbf7ee",
+    "content_digest": "c425f976f9c1fd0077f457e7a0faa91fc1929246c2c0fed9bb1b0b52a1d23853",
     "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/CapabilitySpecCompilationAndVerticalSlicesDecision.v1.json",
     "schema": "mrw.functorial_successor.capability_spec_route_decision.v1"
   },

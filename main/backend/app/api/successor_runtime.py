@@ -11,8 +11,10 @@ from __future__ import annotations
 
 import dataclasses
 from collections.abc import Callable
+from typing import Protocol, runtime_checkable
 
 from fastapi import APIRouter, Request
+from fastapi.responses import JSONResponse
 
 from app.contracts.successor_runtime import (
     SuccessorRuntimeCommandMetaV2DTO,
@@ -42,7 +44,24 @@ __all__ = [
     "bind_server_command",
     "bind_server_query",
     "create_successor_runtime_router",
+    "create_successor_runtime_state_router",
 ]
+
+
+@runtime_checkable
+class SuccessorRuntimeRouteDependencies(Protocol):
+    """Dependency shape shared by direct and app-state router factories."""
+
+    resolver: ProjectScopeResolver
+    facade: SuccessorRuntimeFacade
+    actor_provider: Callable[[Request], str]
+
+
+@dataclasses.dataclass(frozen=True, slots=True)
+class _DirectDependencies:
+    resolver: ProjectScopeResolver
+    facade: SuccessorRuntimeFacade
+    actor_provider: Callable[[Request], str]
 
 
 def bind_server_command(
@@ -196,6 +215,56 @@ def _resolution_failure_dto(
     )
 
 
+def _handle_command(
+    dto: SuccessorRuntimeCommandV2DTO,
+    request: Request,
+    dependencies: SuccessorRuntimeRouteDependencies,
+) -> SuccessorRuntimeEnvelopeV2DTO:
+    try:
+        scope = dependencies.resolver.resolve(dto.project_locator)
+    except Exception as exc:  # noqa: BLE001 - typed envelope, never HTTP 500
+        return _resolution_failure_dto(
+            dto,
+            code="SCOPE_RESOLUTION_FAILED",
+            message=str(exc),
+        )
+    try:
+        actor_ref = dependencies.actor_provider(request)
+    except Exception as exc:  # noqa: BLE001 - typed envelope, never HTTP 500
+        return _resolution_failure_dto(
+            dto,
+            code="ACTOR_RESOLUTION_FAILED",
+            message=str(exc),
+        )
+    command = bind_server_command(dto, scope=scope, actor_ref=actor_ref)
+    return _envelope_dto(dependencies.facade.submit(command))
+
+
+def _handle_query(
+    dto: SuccessorRuntimeQueryV2DTO,
+    request: Request,
+    dependencies: SuccessorRuntimeRouteDependencies,
+) -> SuccessorRuntimeEnvelopeV2DTO:
+    try:
+        scope = dependencies.resolver.resolve(dto.project_locator)
+    except Exception as exc:  # noqa: BLE001 - typed envelope, never HTTP 500
+        return _resolution_failure_dto(
+            dto,
+            code="SCOPE_RESOLUTION_FAILED",
+            message=str(exc),
+        )
+    try:
+        actor_ref = dependencies.actor_provider(request)
+    except Exception as exc:  # noqa: BLE001 - typed envelope, never HTTP 500
+        return _resolution_failure_dto(
+            dto,
+            code="ACTOR_RESOLUTION_FAILED",
+            message=str(exc),
+        )
+    query = bind_server_query(dto, scope=scope, actor_ref=actor_ref)
+    return _envelope_dto(dependencies.facade.query(query))
+
+
 def create_successor_runtime_router(
     *,
     resolver: ProjectScopeResolver,
@@ -214,24 +283,13 @@ def create_successor_runtime_router(
         dto: SuccessorRuntimeCommandV2DTO,
         request: Request,
     ) -> SuccessorRuntimeEnvelopeV2DTO:
-        try:
-            scope = resolver.resolve(dto.project_locator)
-        except Exception as exc:  # noqa: BLE001 - typed envelope, never HTTP 500
-            return _resolution_failure_dto(
-                dto,
-                code="SCOPE_RESOLUTION_FAILED",
-                message=str(exc),
-            )
-        try:
-            actor_ref = actor_provider(request)
-        except Exception as exc:  # noqa: BLE001 - typed envelope, never HTTP 500
-            return _resolution_failure_dto(
-                dto,
-                code="ACTOR_RESOLUTION_FAILED",
-                message=str(exc),
-            )
-        command = bind_server_command(dto, scope=scope, actor_ref=actor_ref)
-        return _envelope_dto(facade.submit(command))
+        return _handle_command(
+            dto,
+            request,
+            _DirectDependencies(
+                resolver=resolver, facade=facade, actor_provider=actor_provider
+            ),
+        )
 
     @router.post(
         "/queries",
@@ -241,23 +299,80 @@ def create_successor_runtime_router(
         dto: SuccessorRuntimeQueryV2DTO,
         request: Request,
     ) -> SuccessorRuntimeEnvelopeV2DTO:
-        try:
-            scope = resolver.resolve(dto.project_locator)
-        except Exception as exc:  # noqa: BLE001 - typed envelope, never HTTP 500
-            return _resolution_failure_dto(
-                dto,
-                code="SCOPE_RESOLUTION_FAILED",
-                message=str(exc),
-            )
-        try:
-            actor_ref = actor_provider(request)
-        except Exception as exc:  # noqa: BLE001 - typed envelope, never HTTP 500
-            return _resolution_failure_dto(
-                dto,
-                code="ACTOR_RESOLUTION_FAILED",
-                message=str(exc),
-            )
-        query = bind_server_query(dto, scope=scope, actor_ref=actor_ref)
-        return _envelope_dto(facade.query(query))
+        return _handle_query(
+            dto,
+            request,
+            _DirectDependencies(
+                resolver=resolver, facade=facade, actor_provider=actor_provider
+            ),
+        )
+
+    return router
+
+
+def _state_dependencies(request: Request) -> SuccessorRuntimeRouteDependencies | None:
+    app_state = getattr(getattr(request, "app", None), "state", None)
+    if app_state is None:
+        return None
+    from app.successor_runtime.assembly.app_assembly import (
+        SUCCESSOR_DEPENDENCIES_STATE_ATTR,
+    )
+
+    return getattr(app_state, SUCCESSOR_DEPENDENCIES_STATE_ATTR, None)
+
+
+def _mount_unavailable_response(
+    dto: SuccessorRuntimeCommandV2DTO | SuccessorRuntimeQueryV2DTO,
+) -> JSONResponse:
+    envelope = _resolution_failure_dto(
+        dto,
+        code="MOUNT_NOT_INITIALIZED",
+        message=(
+            "successor production registry mount is not initialized; "
+            "startup must call initialize_successor_registry_mount"
+        ),
+    )
+    return JSONResponse(status_code=503, content=envelope.model_dump(mode="json"))
+
+
+def create_successor_runtime_state_router() -> APIRouter:
+    """Return an app.state-backed successor router for production registry mode.
+
+    Dependencies are loaded per request from the FastAPI app state, so no
+    engine or connection is opened while this module is imported.  If startup
+    did not initialize the mount, requests fail closed with a typed 503
+    ``MOUNT_NOT_INITIALIZED`` envelope instead of silently degrading to the
+    LOCAL_ONLY mount.
+    """
+
+    router = APIRouter(prefix="/successor-runtime/v2", tags=["successor-runtime-v2"])
+
+    @router.post(
+        "/commands",
+        response_model=SuccessorRuntimeEnvelopeV2DTO,
+        responses={503: {"model": SuccessorRuntimeEnvelopeV2DTO}},
+    )
+    def submit_command(
+        dto: SuccessorRuntimeCommandV2DTO,
+        request: Request,
+    ):
+        dependencies = _state_dependencies(request)
+        if dependencies is None:
+            return _mount_unavailable_response(dto)
+        return _handle_command(dto, request, dependencies)
+
+    @router.post(
+        "/queries",
+        response_model=SuccessorRuntimeEnvelopeV2DTO,
+        responses={503: {"model": SuccessorRuntimeEnvelopeV2DTO}},
+    )
+    def run_query(
+        dto: SuccessorRuntimeQueryV2DTO,
+        request: Request,
+    ):
+        dependencies = _state_dependencies(request)
+        if dependencies is None:
+            return _mount_unavailable_response(dto)
+        return _handle_query(dto, request, dependencies)
 
     return router

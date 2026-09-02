@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 
+from app.settings.config import settings
 from app.successor_runtime.assembly.app_assembly import (
     build_successor_runtime_app_dependencies,
 )
@@ -32,7 +33,10 @@ from .search import router as search_router
 from .skills import router as skills_router
 from .source_library import router as source_library_router
 from .stats import router as stats_router
-from .successor_runtime import create_successor_runtime_router
+from .successor_runtime import (
+    create_successor_runtime_router,
+    create_successor_runtime_state_router,
+)
 from .topics import router as topics_router
 from .typed_knowledge import router as typed_knowledge_router
 from .workflow_graph import router as workflow_graph_router
@@ -72,14 +76,27 @@ router.include_router(skills_router)
 router.include_router(codex_auth_router)
 router.include_router(clue_chains_router)
 
-# Bounded successor runtime v2 transport (LOCAL_ONLY default dependencies).
-# The router factory keeps legacy routes untouched and only adds the new
-# /successor-runtime/v2 prefix below the mounted /api/v1 path.
-_successor_runtime_dependencies = build_successor_runtime_app_dependencies()
-router.include_router(
-    create_successor_runtime_router(
-        resolver=_successor_runtime_dependencies.resolver,
-        facade=_successor_runtime_dependencies.facade,
-        actor_provider=_successor_runtime_dependencies.actor_provider,
-    )
+# Bounded successor runtime v2 transport.
+#
+# LOCAL_ONLY (default): import-time closed fixture dependencies, matching the
+# WP-I1-06 route-mount contract.
+#
+# production_registry: an app.state-backed lazy router is mounted instead.
+# No engine/connection is opened at import time; the application startup point
+# must call initialize_successor_registry_mount(app) before serving.  If it is
+# missing, requests fail closed with a typed 503 rather than silently falling
+# back to LOCAL_ONLY semantics.
+_successor_mount_mode = (
+    str(getattr(settings, "successor_mount_mode", "local_only")).strip().lower()
 )
+if _successor_mount_mode == "production_registry":
+    router.include_router(create_successor_runtime_state_router())
+else:
+    _successor_runtime_dependencies = build_successor_runtime_app_dependencies()
+    router.include_router(
+        create_successor_runtime_router(
+            resolver=_successor_runtime_dependencies.resolver,
+            facade=_successor_runtime_dependencies.facade,
+            actor_provider=_successor_runtime_dependencies.actor_provider,
+        )
+    )

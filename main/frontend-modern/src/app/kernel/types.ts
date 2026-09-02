@@ -60,6 +60,7 @@ export type KernelModuleKey =
   | 'sysBackend'
   | 'sysSettings'
   | 'sysLlm'
+  | 'sysSuccessorRuntime'
 
 export type NavMode = KernelModuleKey
 

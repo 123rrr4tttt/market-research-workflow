@@ -115,7 +115,7 @@
   "shadow_observation_ref": "c9.frontend.typed-observation-command-submit.validation-only-shadow.dispatch-false.v1",
   "source_bindings": [
     {
-      "file_sha256": "fdc4b2ab2616431b2d20ec41e207b41e978df833c94a1c92561360708bc89be1",
+      "file_sha256": "f36409094406f3baf340a22b1bc59a99a58c5f6117419adddf4ca7a141a018e8",
       "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p4-fragments/C9.json",
       "role": "p4_c9_family_scaffold_observation"
     },
@@ -125,7 +125,7 @@
       "role": "p1_c9_cell_fragment"
     },
     {
-      "file_sha256": "88a63d5293f827b46bb97d4269aada2c539dac494b2e2e117f19521a022f4230",
+      "file_sha256": "7d4834d8e86c3d7001b7ff23b6bd9b6145e823fc65b8bf44bcad43e1eb8e5359",
       "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C9.v1.json",
       "role": "c9_semantic_movement_fragment"
     },
@@ -135,17 +135,17 @@
       "role": "p1_eligibility_record"
     },
     {
-      "file_sha256": "482ae2934fbe8ffd19a2e8d43365d4f910ff8cb82398cfd885086f07bb2740db",
+      "file_sha256": "5f7da07b34480d206bda6474704500afe0fba712cfc1cd93afdb2a4177f2f35b",
       "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/P1P3SuccessorMovementMatrix.v1.json",
       "role": "successor_movement_matrix_c9_rows"
     },
     {
-      "file_sha256": "c032207f0070424b83fc81a8d49167dbb8f5624f08aaa97853e34f7a6f296be9",
+      "file_sha256": "c3dbea1c405a8274a19dff8d60bfd66b7df3a229a0412fa3d218fa11b37d52af",
       "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/P1P3LegacyDonorSemanticMovementInventory.v1.json",
       "role": "legacy_donor_movement_inventory_c9_rows"
     },
     {
-      "file_sha256": "74ade16f3113d68ff1642e5bf0a87aac7cc91dac868f5f3e9bcbbe06b0ca3ce0",
+      "file_sha256": "dcaf3791f8c905a53db66c8d69e9671e962e51b60c93d5f44ddf16acb20dddb5",
       "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/P1P3SemanticMovementGate.v1.json",
       "role": "semantic_movement_gate"
     },

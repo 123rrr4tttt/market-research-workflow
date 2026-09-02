@@ -1,0 +1,165 @@
+{
+  "schema": "mrw.functorial_successor.all_lines.item04_cutover_drills_evidence.v1",
+  "version": "1.0.0",
+  "record_id": "all-lines-item04-cutover-drills-2026-09-03",
+  "date": "2026-09-03",
+  "generated_at": "2026-09-03T01:09:15+08:00",
+  "generated_by": "gap_cutover_drills_lane",
+  "status": "PASS_CUTOVER_DRILLS_LOCAL_ONLY_ON_CANDIDATE_SNAPSHOT",
+  "candidate": {
+    "commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+    "tree_sha": "5840bf9ba906c49f70020d226c54446f4ba5aa33",
+    "branch": "codex/functorial-successor-p0",
+    "snapshot_dir": "/tmp/mrw-cutover-drill.umjWv5",
+    "snapshot_source": "git archive 3706655f extracted to mktemp directory; main/backend/.env copied from committed .env.example (no real secrets)",
+    "snapshot_cleanup": "snapshot directory and pg_dump file moved to macOS Trash after evidence capture"
+  },
+  "concurrency_note": "The live worktree /Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0 was being concurrently modified by another lane (15 modified backend/frontend files observed at 01:09, including successor_mount_mode config, api wiring and frontend kernel/topology files). Drills were therefore executed against a clean candidate snapshot so the evidence is not attributable to an unstable half-edit. Re-run against the final Lane-A bytes is recommended before any production cutover decision.",
+  "drill1_rollback": {
+    "wrapper_attempt": {
+      "command": "COMPOSE_PROJECT_NAME=mrw-alllines-rehearsal ./scripts/docker-deploy.sh rollback-drill --skip-preflight --profile modern-ui",
+      "exit_code": 1,
+      "reason": "start-all non-interactive host-port check fails on 5432 (Homebrew PostgreSQL) before any container starts; rollback-drill does not forward --force and preflight checks the same host ports",
+      "limitation_recorded": true
+    },
+    "equivalent_compose_steps": {
+      "project": "mrw-alllines-rehearsal",
+      "compose_file": "main/ops/docker-compose.yml",
+      "override_file": "/tmp/mrw-internal-ports-override.yml (db/es/redis ports: !override []; backend 8000 and frontend-modern 5174 remain host-exposed)",
+      "profile": "modern-ui",
+      "services": ["db", "es", "redis", "backend", "celery-worker", "frontend-modern"],
+      "preflight_equivalent": {
+        "command": "COMPOSE_PROJECT_NAME=mrw-alllines-rehearsal docker compose -f main/ops/docker-compose.yml -f /tmp/mrw-internal-ports-override.yml --profile modern-ui config -q",
+        "exit_code": 0
+      }
+    },
+    "cycle1": {
+      "start_command": "docker compose ... up -d db es redis backend celery-worker frontend-modern",
+      "start_exit_code": 0,
+      "containers": [
+        {"name": "mrw-alllines-rehearsal-backend-1", "status": "Up (healthy)"},
+        {"name": "mrw-alllines-rehearsal-celery-worker-1", "status": "Up (healthy)"},
+        {"name": "mrw-alllines-rehearsal-db-1", "status": "Up (healthy)"},
+        {"name": "mrw-alllines-rehearsal-es-1", "status": "Up (healthy)"},
+        {"name": "mrw-alllines-rehearsal-frontend-modern-1", "status": "Up"},
+        {"name": "mrw-alllines-rehearsal-redis-1", "status": "Up"}
+      ],
+      "smoke": [
+        {"label": "GET /api/v1/health", "http_code": 200, "summary": "status=ok provider=openai env=dev"},
+        {"label": "GET /api/v1/health/deep", "http_code": 200, "summary": "status=ok database=ok database_pool=ok elasticsearch=ok"},
+        {"label": "POST /api/v1/successor-runtime/v2/queries", "http_code": 200, "summary": "status=ok control_feedback=false cells C9.1/C9.2 INSTALLED no_postgres_write=true"},
+        {"label": "GET /api/v1/agent-batch/executor/health (legacy)", "http_code": 200, "summary": "status=ok worker_online=true broker_url_masked"},
+        {"label": "GET frontend :5174/", "http_code": 200, "summary": "HTML index 878 bytes"},
+        {"label": "ES cluster health via docker exec", "http_code": 200, "summary": "cluster_status=green 1 node 0 shards"}
+      ]
+    },
+    "stop_between_cycles": {
+      "command": "docker compose ... down --remove-orphans (volumes retained)",
+      "exit_code": 0,
+      "containers_residual": 0
+    },
+    "cycle2": {
+      "start_exit_code": 0,
+      "ready_after_seconds": 20,
+      "containers": [
+        {"name": "mrw-alllines-rehearsal-backend-1", "status": "Up (healthy)"},
+        {"name": "mrw-alllines-rehearsal-celery-worker-1", "status": "Up (healthy)"},
+        {"name": "mrw-alllines-rehearsal-db-1", "status": "Up (healthy)"},
+        {"name": "mrw-alllines-rehearsal-es-1", "status": "Up (healthy)"},
+        {"name": "mrw-alllines-rehearsal-frontend-modern-1", "status": "Up"},
+        {"name": "mrw-alllines-rehearsal-redis-1", "status": "Up"}
+      ],
+      "smoke": [
+        {"label": "GET /api/v1/health", "http_code": 200, "summary": "status=ok"},
+        {"label": "GET /api/v1/health/deep", "http_code": 200, "summary": "status=ok database=ok database_pool=ok elasticsearch=ok"},
+        {"label": "GET frontend :5174/", "http_code": 200, "summary": "HTML index served"}
+      ]
+    },
+    "teardown": {
+      "command": "docker compose ... down -v --remove-orphans",
+      "exit_code": 0,
+      "containers_residual": 0,
+      "networks_residual": 0,
+      "volumes_residual": 0,
+      "images_retained": ["mrw-alllines-rehearsal-backend:latest 25c7b263cf12", "mrw-alllines-rehearsal-celery-worker:latest eacf5d2c243f", "mrw-alllines-rehearsal-frontend-modern:latest 16b83649a705"]
+    }
+  },
+  "drill2_backup_restore": {
+    "database": "mrw_cutover_drill_backup_20260903",
+    "alembic_upgrade_head": {"exit_code": 0, "version_num": "20260831_000002"},
+    "seed_row": {
+      "table": "public.project_scope_registry",
+      "key": "cutover-drill-proj",
+      "pre_dump_count": 1
+    },
+    "dump": {
+      "format": "custom",
+      "file": "/tmp/mrw_cutover_drill_backup_20260903.pgc",
+      "sha256": "30a25e39ccf33626110f72feae1e850e02e69d1ea7b77ac993af951b39fdfbdc"
+    },
+    "restore": {
+      "database_recreated_after_drop": true,
+      "command": "pg_restore -h localhost -d <db> --no-owner --no-privileges --exit-on-error <dump>",
+      "exit_code": 0,
+      "restored_version_num": "20260831_000002",
+      "restored_seed_count": 1,
+      "restored_row": "cutover-drill-proj|drill_cutover_schema|ACTIVE"
+    },
+    "c7_focused_test": {
+      "file": "tests/successor_runtime/test_c7_canonical_write_projector_postgres.py",
+      "exit_code": 0,
+      "passed": 9,
+      "skipped": 0,
+      "failed": 0,
+      "seconds": 1.29,
+      "notes": "test owns and drops its disposable database; post-run pg_database snapshot equals baseline"
+    },
+    "teardown": {"database_dropped": true, "zero_residual": true}
+  },
+  "drill3_downgrade": {
+    "database": "mrw_cutover_drill_downgrade_20260903",
+    "upgrade_head": {"exit_code": 0, "version_num": "20260831_000002", "runtime_tables": 22, "project_scope_registry": 1},
+    "downgrade_to_pre_candidate": {
+      "command": "alembic downgrade 20260402_000004",
+      "exit_code": 0,
+      "version_num": "20260402_000004",
+      "runtime_tables": 0,
+      "project_scope_registry": 0
+    },
+    "re_upgrade_head": {"exit_code": 0, "version_num": "20260831_000002", "runtime_tables": 22},
+    "teardown": {"database_dropped": true, "zero_residual": true}
+  },
+  "residual_checks": {
+    "pg_database_after_all_drills": ["codex_p0c_full_chain_test", "mrw_p0b_rereview_test_01a0504c"],
+    "pg_roles_after_all_drills": [],
+    "docker_project_residual": {"containers": 0, "networks": 0, "volumes": 0},
+    "live_worktree_untouched_by_drills": true
+  },
+  "remaining_env_bound_gaps": [
+    "TLS termination at production ingress not present (candidate compose serves container-internal HTTP)",
+    "Image tags are latest/non-digest and local builds have no registry tag/push path; digest pinning and image signing not implemented",
+    "Prometheus/Alertmanager online deployment and alert rules not present; /metrics is only a scrape endpoint",
+    "Repository-level secret scanning and dependency vulnerability gates (gitleaks, pip-audit, npm audit blocking) not implemented",
+    "Production successor registry resolver and successor endpoint authentication are not present in the candidate snapshot (Lane A wiring is in progress in the live worktree)",
+    "Successor frontend runtime wiring into pages/module manifest is not present in the candidate snapshot (Lane A wiring is in progress in the live worktree)",
+    "Scheduled backup/RPO automation and monitoring baseline ownership are not established",
+    "docker-deploy.sh rollback-drill cannot run on this host while 5432/6379 are occupied because it does not forward --force; the equivalent compose sequence above is the local rehearsal path",
+    "DB restore used --no-owner/--no-privileges on a disposable local database; production owner/ACL restore and volume-level restore drill remain to be executed in the deployment environment"
+  ],
+  "risks": [
+    "Drills executed on a clean candidate snapshot (3706655f), not on the concurrently modified live worktree bytes; final rerun after Lane A closes is required before treating results as evidence for the wired tree",
+    "Rollback drill exercised stop/start/health with volumes retained between cycles and volume deletion only at final teardown; it is a local rehearsal, not a production cutover",
+    "Backup/restore and downgrade drills used disposable local PostgreSQL databases on the candidate's full 29-migration chain and left zero residual databases/roles; this does not prove production backup scheduling or live restore under operational load",
+    "Wrapper limitation (rc=1 on host port conflicts) is an orchestration-script constraint and was replaced by an equivalent compose sequence; no production code or compose business file was modified",
+    "No provider calls, production canonical writes, authority transfer, legacy retirement or origin push were performed during these drills"
+  ],
+  "authority_ceiling": {
+    "cutover": false,
+    "authority_transfer": false,
+    "legacy_retired": false,
+    "live_provider": false,
+    "production_canonical_write": false,
+    "candidate_promotion": false,
+    "rehearsal_local_only": true
+  }
+}

@@ -222,6 +222,20 @@ const PAGE_PLACEMENT_BASELINE: readonly PagePlacementRecord[] = [
       primaryOutcome: 'management',
     },
   },
+  {
+    page: 'SuccessorRuntimePage',
+    navModes: ['sysSuccessorRuntime'],
+    phase1Surface: 'management',
+    reason: 'Read-only successor runtime observation stays in the admin review surface; no command or control action is mounted.',
+    revisit: false,
+    rubricSignals: {
+      interactionDensity: 'management',
+      contextContinuity: 'management',
+      panelCoordination: 'management',
+      stateCoupling: 'management',
+      primaryOutcome: 'management',
+    },
+  },
 ] as const
 
 export const PAGE_PLACEMENT_MATRIX = PAGE_PLACEMENT_BASELINE.map((record) => ({

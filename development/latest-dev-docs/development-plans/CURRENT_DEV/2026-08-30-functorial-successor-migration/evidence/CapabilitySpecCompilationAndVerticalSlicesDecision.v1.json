@@ -36,7 +36,7 @@
     ],
     "purpose": "MECHANICAL_STRUCTURE_ONLY"
   },
-  "content_digest": "c103952f0b61c756e10f2455ee96340f997c7103c8de210886018bfa91dbf7ee",
+  "content_digest": "c425f976f9c1fd0077f457e7a0faa91fc1929246c2c0fed9bb1b0b52a1d23853",
   "current_readiness_inputs": [
     {
       "adoption": "UNADOPTED_INPUT_ONLY",
@@ -65,9 +65,9 @@
     {
       "adoption": "UNADOPTED_INPUT_ONLY",
       "bytes": 16124,
-      "content_digest": "fc201a163214b9e17c917b803d15dd4e152487e972012cedc51dc24df62ab9c0",
+      "content_digest": "59914dbb7ca61f0976aef462baa602b1ccd1a429fbdf9ce7f4e8758fbe4700fb",
       "family": "C9",
-      "file_sha256": "fdc4b2ab2616431b2d20ec41e207b41e978df833c94a1c92561360708bc89be1",
+      "file_sha256": "f36409094406f3baf340a22b1bc59a99a58c5f6117419adddf4ca7a141a018e8",
       "lines": 1,
       "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p4-fragments/C9.json",
       "role": "current_c9_readiness_fragment",
