@@ -1,0 +1,128 @@
+{
+  "schema": "mrw.functorial_successor.capability_cell_spec.v1",
+  "version": "1.0.0",
+  "cell_id": "C5.2",
+  "family_id": "C5",
+  "owner_capability_id": "runtime.effect.reconcile.v1",
+  "entrypoint_kind": "FACADE_VALIDATION",
+  "commutativity_claim": "NOT_CLAIMED",
+  "input_contract_refs": [
+    "mrw.migration.exact-legacy-attempt-binding.v1",
+    "mrw.successor.runtime-assignment.v1",
+    "LegacyInterpreterProfile"
+  ],
+  "output_contract_refs": [
+    "EffectAttemptObservation",
+    "AuthoritativeEffectReadback",
+    "ReconciliationResult",
+    "mrw.migration.legacy-attempt-evidence.v1"
+  ],
+  "object_contract_refs": [
+    "CapabilityCall",
+    "ToolCallExecutionRecord",
+    "EffectAttemptObservation",
+    "AuthoritativeEffectReadback"
+  ],
+  "operation_contract_refs": [
+    "runtime.effect.reconcile.v1"
+  ],
+  "program_shape_ref": "runtime.effect.reconcile.v1",
+  "ordered_composition_refs": [
+    "runtime.effect.reconcile.v1"
+  ],
+  "interpreter_refs": [
+    "successor.c5.reconciliation.v1",
+    "legacy.c5.attempt_replay.v1"
+  ],
+  "profile_refs": [
+    "LegacyInterpreterProfile",
+    "readback-profile:p3-c5"
+  ],
+  "deployment_binding_refs": [
+    "deployment.local-only.no-network.no-provider.no-canonical-write.v1"
+  ],
+  "legacy_oracle_ref": "legacy.c5.attempt_replay.v1",
+  "shadow_observation_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C5.json#/cells/1/successor_observation",
+  "failure_union_refs": [
+    "EffectFailed",
+    "OutcomeUnknown",
+    "ReadbackUnavailable",
+    "NonStartUnprovable",
+    "BindingMismatch",
+    "ApprovalRequired",
+    "CanceledBeforeEffect"
+  ],
+  "declared_lossy_projection_refs": [],
+  "effect_policy_ref": "mrw.successor.runtime.c5-2.effect.v1",
+  "resource_policy_ref": "mrw.successor.runtime.c5-2.resource.v1",
+  "recovery_policy_ref": "mrw.successor.runtime.c5-2.recovery.v1",
+  "readback_policy_ref": "mrw.successor.runtime.c5-2.readback.v1",
+  "authority_ceiling": {
+    "canonical_write": false,
+    "live_provider": false,
+    "external_delivery": false,
+    "cutover": false,
+    "authority_transfer": false
+  },
+  "adoption_prerequisites": [
+    "P3_AUTHORITY_RECORD_DIVERGENCE",
+    "C5_2_DURABLE_ATTEMPT_NODE_NOT_PROVEN",
+    "P3_REVIEW_SURFACE_NOT_GIT_IDENTIFIED"
+  ],
+  "source_bindings": [
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/P1FunctorizationEligibility.v1.json",
+      "file_sha256": "16dac2d34f2cdcaeffa4718fe2e63733f48b29ad0ba64daab32ed011527d4642",
+      "role": "p1_eligibility"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p1-fragments/C5.json",
+      "file_sha256": "a61c3bb6b19bfa384fefb49545c715a0375753bc9fcd1646a333d179ab18c265",
+      "role": "p1_fragment"
+    },
+    {
+      "path": "main/backend/app/services/agent_runtime/run_loop.py",
+      "file_sha256": "9c11c49cf985d9e5d5563e6111a6084def841875e584c80f7ffd5c7a5ff934c5",
+      "role": "legacy_donor_c5_2"
+    },
+    {
+      "path": "main/backend/app/services/agent_runtime/interactive_agent.py",
+      "file_sha256": "cf6505a2ebf0d1bb19dc22cba0e5b7ed34e2d04db5142b1276ee04949e1072a6",
+      "role": "legacy_donor_c5_2"
+    }
+  ],
+  "test_bindings": [
+    {
+      "path": "main/backend/tests/successor_runtime/test_p3_c5_2_attempt_replay_reconciliation.py",
+      "file_sha256": "5ab2d33109faffface843b8f54c7c9809b90911e7cbc2cb80ebf167e3b9bfe62",
+      "role": "c5_2_attempt_replay_reconciliation"
+    },
+    {
+      "path": "main/backend/tests/successor_runtime/test_p3_c5_2_reconciliation_postgres.py",
+      "file_sha256": "ddaadb2e3213236466dcde6bf700a99eac3f430e28809e370247f42b23c76acc",
+      "role": "c5_2_reconciliation_postgres"
+    }
+  ],
+  "rollback_bindings": [
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C5.json",
+      "file_sha256": "38ce21888d0c2780bac3c2b6dbef9fcc42341eb041d281a2a994cbed35215d39",
+      "role": "rollback_observation"
+    },
+    {
+      "path": "main/backend/app/successor_migration/legacy_effect_attempts.py",
+      "file_sha256": "8370fbc2bb599951c6f9a7f7f3182a608ef93f6bfdc7ad8c576bc8033c8f594f",
+      "role": "legacy_rollback_route"
+    }
+  ],
+  "generated_ownership_refs": [
+    "capability-spec.contract-ref-scaffolding.C5.2.v1",
+    "capability-spec.build-manifest.C5.2.v1"
+  ],
+  "handwritten_ownership_refs": [
+    "main/backend/app/successor_runtime/runtime/reconciliation.py",
+    "main/backend/app/successor_runtime/runtime/assignments.py",
+    "main/backend/app/successor_migration/legacy_effect_attempts.py",
+    "main/backend/app/successor_runtime/specification/c5_p3.py"
+  ]
+}

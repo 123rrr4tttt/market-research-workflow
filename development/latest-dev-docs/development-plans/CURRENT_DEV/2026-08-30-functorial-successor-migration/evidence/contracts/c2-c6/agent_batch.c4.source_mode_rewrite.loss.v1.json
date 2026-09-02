@@ -1,0 +1,37 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "agent_batch.c4.source_mode_rewrite.loss.v1",
+  "ref_kind": "declared_loss",
+  "cell_id": "C4.1",
+  "family_id": "C4",
+  "movement_ids": [
+    "C4-M001"
+  ],
+  "semantics": {
+    "movement_target_object": "Typed C4 batch plan with explicit no-match and ordered tasks",
+    "loss_statement": "Legacy source_mode rewrite is counted but intentionally not projected into the C4 vocabulary"
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C4.v1.json",
+      "pointer": "#/movements/C4-M001/target_object",
+      "sha256": "e54d9c412f33293b471bbc625533da20b0998c62659189fcdde09abb1ea9e59d"
+    },
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C4.v1.json",
+      "pointer": "#/movements/C4-M001/projection_loss",
+      "sha256": "e54d9c412f33293b471bbc625533da20b0998c62659189fcdde09abb1ea9e59d"
+    },
+    {
+      "kind": "p3_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C4.json",
+      "pointer": "#/cells/0/successor_observation/source_mode_present",
+      "sha256": "058b02345b9d67c1e7ff51006afb4c28e2c8ce4dadf7a505fac6bbac781bd188"
+    }
+  ],
+  "derivation_note": "loss ref agent_batch.c4.source_mode_rewrite.loss.v1 recommended by contract section 9.6; contract section 10.6 references the same ref for C4.2; loss_statement copied from movement C4-M001 projection_loss and corroborated by fragment source_mode_present=false",
+  "content_digest": "f241532ac7dedd8e95ab5ca34e68cc00c655685208a2196d483e0f543cd6d698"
+}

@@ -1,0 +1,32 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "mrw.successor.source-library.c2-3.readback.v1",
+  "ref_kind": "readback_policy",
+  "cell_id": "C2.3",
+  "family_id": "C2",
+  "movement_ids": [
+    "C2-M007"
+  ],
+  "semantics": {
+    "movement_recovery": "Terminal readback adopts once; waiting and unavailable remain outcome unknown; non-start proof is required before redispatch",
+    "code_readback_ref": "mrw.successor.source-library.c2-3.readback.v1",
+    "readback_schema": "mrw.successor.source-library.c2-3.authoritative-readback.v1"
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C2.v1.json",
+      "pointer": "#/movements/C2-M007/recovery",
+      "sha256": "a6608ce0645c3d240c31ab1225ed31559655f2594ccb848f8178a1172e9ad110"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/capabilities/source_library_c2_3.py",
+      "pointer": "_interpreter_profile/authoritative_readback_profile_ref",
+      "sha256": "faabdd4d82d867f68aa3158dab8a90c3d7e7273cb674ac4f2b32a1437abd27da"
+    }
+  ],
+  "derivation_note": "readback semantics derive from movement C2-M007 (terminal readback adopts once; non-start proof required before redispatch) and the existing authoritative readback profile/schema refs",
+  "content_digest": "5c19c8f426161eb324a052dba9bf1ac77ed46adb31a2d31a1fa53488d7a1d8b9"
+}

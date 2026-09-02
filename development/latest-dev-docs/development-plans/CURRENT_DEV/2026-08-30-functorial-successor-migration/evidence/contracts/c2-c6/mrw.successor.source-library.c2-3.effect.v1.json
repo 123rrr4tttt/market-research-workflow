@@ -1,0 +1,41 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "mrw.successor.source-library.c2-3.effect.v1",
+  "ref_kind": "effect_policy",
+  "cell_id": "C2.3",
+  "family_id": "C2",
+  "movement_ids": [
+    "C2-M007"
+  ],
+  "semantics": {
+    "movement_effect": "Provider effect boundary; reviewed traces use fixtures and report real provider calls zero",
+    "code_effect_profile": {
+      "effect_profile_id": "mrw.successor.source-library.c2-3.effect.v1",
+      "execution_class": "EFFECTFUL",
+      "external_visibility": "INTERNAL_ONLY",
+      "network_required": false,
+      "cancellation_points": [
+        "after_attempt_created",
+        "before_terminal_readback"
+      ],
+      "idempotency_profile_ref": "mrw.successor.source-library.c2-3.idempotency.v1"
+    }
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C2.v1.json",
+      "pointer": "#/movements/C2-M007/effect",
+      "sha256": "a6608ce0645c3d240c31ab1225ed31559655f2594ccb848f8178a1172e9ad110"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/capabilities/source_library_c2_3.py",
+      "pointer": "_effect_profile",
+      "sha256": "faabdd4d82d867f68aa3158dab8a90c3d7e7273cb674ac4f2b32a1437abd27da"
+    }
+  ],
+  "derivation_note": "effect semantics copied verbatim from movement C2-M007.effect and the existing EffectProfile in source_library_c2_3.py; fixture-only, real provider calls zero",
+  "content_digest": "db33bfddb980222c4df6a8c78e1cf9e121c21295bed7e04c5eb6211d41d7e6f2"
+}

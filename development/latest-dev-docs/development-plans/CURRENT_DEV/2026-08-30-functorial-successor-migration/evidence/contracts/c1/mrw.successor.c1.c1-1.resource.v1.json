@@ -1,0 +1,32 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "mrw.successor.c1.c1-1.resource.v1",
+  "ref_kind": "resource_policy",
+  "cell_id": "C1.1",
+  "family_id": "C1",
+  "movement_ids": [
+    "C1-M001",
+    "C1-M002"
+  ],
+  "semantics": {
+    "movement_resource_m001": "O(V+E) with explicit graph and payload ceilings required",
+    "movement_resource_m002": "O(V+E) plus canonical serialization and SHA-256 under explicit ceilings"
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C1.v1.json",
+      "pointer": "#/movements/C1-M001/resource",
+      "sha256": "ccbb50ee217882d1640bca7f57430eaea651f8ae83258873449d2c998d30bb0a"
+    },
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C1.v1.json",
+      "pointer": "#/movements/C1-M002/resource",
+      "sha256": "ccbb50ee217882d1640bca7f57430eaea651f8ae83258873449d2c998d30bb0a"
+    }
+  ],
+  "derivation_note": "resource semantics copied verbatim from movements C1-M001/C1-M002; numeric ceilings remain required, not yet frozen",
+  "content_digest": "f426d061ab30b0129196238eb4b7a1b91faf13c4ccc51708a677bb0f9d130401"
+}

@@ -1,0 +1,31 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "mrw.successor.source-library.c2-3.recovery.v1",
+  "ref_kind": "recovery_policy",
+  "cell_id": "C2.3",
+  "family_id": "C2",
+  "movement_ids": [
+    "C2-M007"
+  ],
+  "semantics": {
+    "movement_recovery": "Terminal readback adopts once; waiting and unavailable remain outcome unknown; non-start proof is required before redispatch",
+    "rollback_observation": "no duplicate provider dispatch; outcome unknown remains unresolved"
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C2.v1.json",
+      "pointer": "#/movements/C2-M007/recovery",
+      "sha256": "a6608ce0645c3d240c31ab1225ed31559655f2594ccb848f8178a1172e9ad110"
+    },
+    {
+      "kind": "p3_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C2.json",
+      "pointer": "#/cells/1/rollback_observation",
+      "sha256": "5274116a2a083ec1553d05c034f5490f1450851d805fb2590efec21be95c544b"
+    }
+  ],
+  "derivation_note": "recovery semantics copied verbatim from movement C2-M007.recovery and fragment C2 /cells/1 rollback observation",
+  "content_digest": "a253d0cf9a149de443e1e7c46e8667db9d3ae60a028cca872d0db1c4cd9416c3"
+}

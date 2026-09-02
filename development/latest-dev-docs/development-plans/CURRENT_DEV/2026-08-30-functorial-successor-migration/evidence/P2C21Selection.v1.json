@@ -1,0 +1,57 @@
+{
+  "schema": "mrw.functorial_successor.p2_selection.v1",
+  "status": "FROZEN_SELECTION_IMPLEMENTATION_NOT_PROMOTED",
+  "goal_id": "01a0504c-47ef-77e1-9783-454dbcbe3697",
+  "p1_artifact": {
+    "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/P1FunctorizationEligibility.v1.json",
+    "file_sha256": "16dac2d34f2cdcaeffa4718fe2e63733f48b29ad0ba64daab32ed011527d4642",
+    "content_digest": "f474818f7a7db5f68d93721234dfde2961c7e4588b26e78eea4345dc25e52b52"
+  },
+  "selected_cell": {
+    "cell": "C2.1",
+    "cell_digest": "c239fcf8cf44031b036df5d201177b38bff0512ffcea15f6a2183e5ce8f1e450",
+    "disposition": "EXTRACT_AND_REWRITE",
+    "risk": "MEDIUM",
+    "p1_atom_kind": "source_library.resolve_execution_request.v1 (candidate, not registered)",
+    "operation_kind": "source_library.resolve_execution_request.v1",
+    "canonical_owner": "source_library capability owner"
+  },
+  "independent_review": {
+    "task": "/root/p1_eligibility_review",
+    "disposition": "ALLOW P1 COMPLETE AND SELECT C2.1 FOR P2",
+    "open_p0": [],
+    "open_p1": []
+  },
+  "selection_basis": [
+    "localized deterministic taxonomy and ordered mode-precedence core",
+    "immediate bounded resolution readback",
+    "legacy replay and shadow require no provider call",
+    "future-resolution rollback does not replay downstream effects"
+  ],
+  "prerequisites": [
+    "freeze typed object, operation, profile, codec, warning and rejection contracts",
+    "bind authenticated project scope and exact item/channel catalog revision and incarnation",
+    "compile one typed Program and ExecutionPlan consumed by independent legacy and successor interpreters",
+    "prove taxonomy idempotence and ordered precedence with counterexamples",
+    "prove micro specimen, legacy replay, exact shadow observation parity and future-only rollback",
+    "bind each realization to an exact InterpreterBinding; do not dual claim"
+  ],
+  "authority": {
+    "business_authority_migrated": false,
+    "successor_claim_enabled": false,
+    "live_provider": false,
+    "external_delivery": false,
+    "production_canonical_write": false,
+    "cutover": false,
+    "authority_transfer": false,
+    "local_fixture_replay_shadow": true
+  },
+  "non_claims": [
+    "P2 complete",
+    "capability promoted",
+    "canary complete",
+    "legacy retired",
+    "provider effect executed"
+  ],
+  "content_digest": "764ffea64b60593205309a1419871c12cd1e81bd00e02058f6fe5176dd609d78"
+}

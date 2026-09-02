@@ -1,0 +1,89 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "mrw.successor.source-library.c2-2.effect.pure.v1",
+  "ref_kind": "effect_policy",
+  "cell_id": "C2.2",
+  "family_id": "C2",
+  "movement_ids": [
+    "C2-M003",
+    "C2-M004",
+    "C2-M005",
+    "C2-M006"
+  ],
+  "semantics": {
+    "movement_rows": {
+      "C2-M003": {
+        "effect": "Pure plan construction; execution effect remains downstream"
+      },
+      "C2-M004": {
+        "effect": "Pure plan construction with credential bytes excluded"
+      },
+      "C2-M005": {
+        "effect": "Pure plan construction"
+      },
+      "C2-M006": {
+        "effect": "Pure plan construction"
+      }
+    },
+    "code_contract": {
+      "effect_profile_id": "mrw.successor.source-library.c2-2.effect.v1",
+      "effect_profile_version": "1.0.0",
+      "execution_class": "PURE_TRANSFORM",
+      "external_visibility": "NONE",
+      "network_required": false,
+      "irreversible": false,
+      "cancellation_points": [],
+      "internal_export_only": true,
+      "human_approval_required": false,
+      "external_acquisition": false,
+      "idempotency_profile_ref": "mrw.successor.source-library.c2-2.idempotency.v1"
+    }
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C2.v1.json",
+      "pointer": "#/movements/C2-M003/effect",
+      "sha256": "a6608ce0645c3d240c31ab1225ed31559655f2594ccb848f8178a1172e9ad110"
+    },
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C2.v1.json",
+      "pointer": "#/movements/C2-M004/effect",
+      "sha256": "a6608ce0645c3d240c31ab1225ed31559655f2594ccb848f8178a1172e9ad110"
+    },
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C2.v1.json",
+      "pointer": "#/movements/C2-M005/effect",
+      "sha256": "a6608ce0645c3d240c31ab1225ed31559655f2594ccb848f8178a1172e9ad110"
+    },
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C2.v1.json",
+      "pointer": "#/movements/C2-M006/effect",
+      "sha256": "a6608ce0645c3d240c31ab1225ed31559655f2594ccb848f8178a1172e9ad110"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/capabilities/source_library_c2_2.py",
+      "pointer": "_effect_profile()",
+      "sha256": "b5d7f24a2514358652eee9ce47cdaa49be970a41b75542d77df3b4408bc567ce"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/capabilities/source_library_c2_2.py",
+      "pointer": "_effect_profile()::execution_class",
+      "sha256": "b5d7f24a2514358652eee9ce47cdaa49be970a41b75542d77df3b4408bc567ce"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/capabilities/source_library_c2_2.py",
+      "pointer": "_effect_profile()::idempotency_profile_ref",
+      "sha256": "b5d7f24a2514358652eee9ce47cdaa49be970a41b75542d77df3b4408bc567ce"
+    }
+  ],
+  "derivation_note": "pure naming supported by four movement effect rows and code EffectProfile execution_class=PURE_TRANSFORM, credential bytes excluded.",
+  "content_digest": "f323cb5bc5274728db2cdcdda08dfc176055f5af5638384e0b6da950c3d2bf77"
+}

@@ -1,0 +1,31 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "mrw.successor.agent-core.c6-2.program-shape.v1",
+  "ref_kind": "program_shape",
+  "cell_id": "C6.2",
+  "family_id": "C6",
+  "movement_ids": [
+    "C6-M002"
+  ],
+  "semantics": {
+    "shape": "single-Atom Program for the exact C6.2 provider-step request",
+    "fragment_reason": "single-Atom Program for the exact C6.2 provider-step request"
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C6.v1.json",
+      "pointer": "#/movements/C6-M002/target_object",
+      "sha256": "bdc430a903d6b1823f91fdeab1873e9a2f8482520cc0f85b0ceec43d040c901a"
+    },
+    {
+      "kind": "p3_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C6.json",
+      "pointer": "#/cells/1/program_digest/reason",
+      "sha256": "de997e287f8c51d8c984ae37c81c102834a2a64061967d089fd7d3180468796f"
+    }
+  ],
+  "derivation_note": "shape copied from fragment C6 /cells/1 program_digest.reason and movement target object; no new semantics added",
+  "content_digest": "afff14197ef94676518eacd7274a9c31ca7f19a6643891095d29203c702f4ed8"
+}

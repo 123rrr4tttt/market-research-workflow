@@ -1,0 +1,1874 @@
+{
+  "evidence_id": "I1SuccessorAssembly.v1",
+  "schema": "mrw.functorial_successor.i1_successor_assembly_evidence.v1",
+  "version": "1.0.0",
+  "status": "DESIGN_EVIDENCE_ONLY_NOT_IMPLEMENTED_NOT_PROMOTION",
+  "generated_at": "2026-09-02",
+  "worktree": {
+    "path": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0",
+    "branch": "codex/functorial-successor-p0",
+    "head_short_sha256": "35ca039c"
+  },
+  "scope": {
+    "read_only": true,
+    "write_boundary": [
+      "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/i1-successor-assembly/"
+    ],
+    "production_code_modified": false,
+    "frozen_members_modified": false
+  },
+  "summary": {
+    "i1_definition_source": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/00_functorial-successor-migration-development-contract.draft.md:490-492",
+    "i1_definition": "C1-C9 达到至少 SHADOW_PARITY 后，经 adapter 集成 successor 路径并保持 legacy 可用；不得因 specimen 通过而退休 legacy 能力。",
+    "i1_status": "NOT_STARTED",
+    "i1_status_evidence": [
+      "03_functorial-successor-migration-development-progress.md:321 (P5/I1/I2 未开始)",
+      "04_functorial-successor-capability-ledger.json status (I1_I2_PENDING)",
+      "evidence/SUPERVISOR_REVIEW_REQUEST.md:7,74"
+    ],
+    "cell_spec_status": "30/30 份 CapabilityCellSpec + BuildManifest 存在，但全部为 UNADOPTED_BUILD_GREEN 级证据；candidate_created=false、handler_implementation_generated=false、rollback_implementation_generated=false、registration_is_authority_adoption=false、commutativity_claim=NOT_CLAIMED。",
+    "assembly_existing": "PostgresFirstSpecimenRuntime 组合根 + PostgresFirstSpecimenAssembly + C8PostgresDeliveryAssembly 均存在，但无任何 app 层调用方；create_successor_runtime_router 未挂载。",
+    "overall_wiring": "严格按 composition root 注册判定，30 个 cell 中 0 个被 app 可调用组合体直接注册；C1.2/C1.3 仅内核机制推断覆盖，C8.3 有 assembly 定义但无调用方，其余 26 个有模块未接线，C9.2 仅有 design-only 契约。",
+    "authority_ceiling": "live provider、external delivery、cutover、authority transfer、production canonical write 全部 NOT_AUTHORIZED；本证据不构成 promotion/candidate/live 证据。"
+  },
+  "normative_inputs": {
+    "frozen_contract": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/02_functorial-successor-migration-development-contract.freeze.json",
+    "semantic_movement_amendment": [
+      "20_functorial-successor-semantic-movement-completeness-amendment.v1.md",
+      "21_functorial-successor-semantic-movement-completeness-amendment.v1.json"
+    ],
+    "locator_inventory": "13_functorial-successor-c1-c9-locator-pending-inventory.v1.json",
+    "route_decision": "evidence/CapabilitySpecCompilationAndVerticalSlicesDecision.v1.json",
+    "ownership": "evidence/CapabilitySpecGeneratedHandwrittenOwnership.v1.json",
+    "capability_ledger": "04_functorial-successor-capability-ledger.json (MUTABLE_CAPABILITY_STATE, 非冻结成员)"
+  },
+  "assembly_topology": {
+    "existing_roots": [
+      {
+        "name": "compose_postgres_first_specimen_runtime",
+        "path": "main/backend/app/successor_runtime/substrate/postgres/composition_root.py:435",
+        "role": "基础设施无关 RuntimeNode 内核组合根；实例化 UoW 工厂、PostgresRuntimeNodeAdapter、PostgresCapturedValueReplayAdapter、PostgresMaterialReadHandler、ExactInstalledHandlerResolver、DeploymentInstallationSnapshot/Set、PostgresBacklogAwareClaimPort、PostgresCancellationAuthorityGuard、RuntimeNode",
+        "app_caller": "无"
+      },
+      {
+        "name": "build_postgres_first_specimen_assembly",
+        "path": "main/backend/app/successor_runtime/substrate/postgres/first_specimen_assembly.py:172",
+        "role": "first-specimen bundle 6 ops (capture/read/qualify/claim/compose/deliver) 全部包装为 handler + recovery，再调用 compose_postgres_first_specimen_runtime",
+        "app_caller": "无"
+      },
+      {
+        "name": "build_postgres_c8_delivery_assembly",
+        "path": "main/backend/app/successor_runtime/substrate/postgres/c8_production.py:551",
+        "role": "C8.3 报告链 5 kinds (C8_3/verify/admission/delivery_intent_prepare/delivery.internal_export) 包装后走同一组合根",
+        "app_caller": "无"
+      },
+      {
+        "name": "create_successor_runtime_router",
+        "path": "main/backend/app/api/successor_runtime.py:199",
+        "role": "POST /successor-runtime/v2/commands 与 /v2/queries 路由工厂；未 include 进 app/api/__init__.py",
+        "app_caller": "无"
+      }
+    ],
+    "cells": [
+      {
+        "cell_id": "C1.1",
+        "family": "C1",
+        "phase": "P1/P5 横切",
+        "entrypoint_kind": "PROGRAM",
+        "capability_summary": "legacy workflow-graph DSL 的 successor parse-validate-compile 纯程序；shadow named-observation oracle。",
+        "spec_evidence": {
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C1.1.v1.json",
+          "build_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C1.1.BuildManifest.v1.json",
+          "ledger_status": "UNADOPTED_BUILD_GREEN",
+          "candidate_created": false,
+          "handler_implementation_generated": false,
+          "rollback_implementation_generated": false,
+          "registration_is_authority_adoption": false
+        },
+        "production_components": [
+          "main/backend/app/successor_runtime/capabilities/c1_legacy_dsl.py (parse_and_validate_legacy_dsl)",
+          "main/backend/app/successor_runtime/capabilities/c1_slice_acceptance.py (accept_c1_slice)",
+          "main/backend/app/successor_migration/legacy_workflow_graph.py (rollback)"
+        ],
+        "composition_root": {
+          "registered": false,
+          "note": "纯 compile facade，只有脚本/测试调用，无 RuntimeHandler/Program 接线"
+        },
+        "wiring_status": "UNWIRED_KNOWN_TARGET",
+        "required_wiring": [
+          "C1.1 successor compiler 绑定到可执行 Program/RuntimeHandler",
+          "legacy DSL named-observation oracle 作为 shadow parity 门",
+          "rollback binding: legacy_workflow_graph.py (spec 已绑定)"
+        ],
+        "acceptance_evidence": {
+          "micro": ["test_p5_c1_legacy_dsl_parity.py"],
+          "legacy_trace_replay": ["test_p5_c1_legacy_oracle.py"],
+          "shadow_parity": ["test_p5_c1_legacy_dsl_parity.py"],
+          "rollback": ["test_p5_c1_legacy_dsl_parity.py (rollback 部分)"],
+          "canary": [],
+          "postgres": ["test_p5_c1_slice_acceptance_postgres.py"]
+        },
+        "gaps": [
+          "candidate 未创建",
+          "P3_REVIEW_SURFACE_NOT_GIT_IDENTIFIED",
+          "C1_SOURCE_PATH_UNDER_CURRENT_DEV_TREE"
+        ],
+        "fail_closed": []
+      },
+      {
+        "cell_id": "C1.2",
+        "family": "C1",
+        "phase": "P1/P5 横切",
+        "entrypoint_kind": "PROGRAM",
+        "capability_summary": "runtime node 执行/观察程序：C1NamedStepObservation、runtime evidence refs、rollback before/after。",
+        "spec_evidence": {
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C1.2.v1.json",
+          "build_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C1.2.BuildManifest.v1.json",
+          "ledger_status": "UNADOPTED_BUILD_GREEN",
+          "candidate_created": false,
+          "handler_implementation_generated": false,
+          "rollback_implementation_generated": false,
+          "registration_is_authority_adoption": false
+        },
+        "production_components": [
+          "main/backend/app/successor_runtime/runtime/node.py:RuntimeNode (组合根实例化)",
+          "main/backend/app/successor_runtime/substrate/postgres/node_adapter.py:PostgresRuntimeNodeAdapter (组合根实例化)",
+          "main/backend/app/successor_runtime/substrate/postgres/runtime_failures.py:RuntimeFailureRepository"
+        ],
+        "composition_root": {
+          "registered": "KERNEL_MECHANISM_INFERRED",
+          "note": "RuntimeNode/adapter/failure repo 由组合根实例化，但无显式 C1.2 观察 handler/operation binding；cell 归属为推断"
+        },
+        "wiring_status": "UNRESOLVED_WIRING",
+        "required_wiring": [
+          "显式 C1.2 观察 handler binding（哪些 operation contract 产生 C1NamedStepObservation）",
+          "slice A/B/C 验收面与 timeout failure 演练"
+        ],
+        "acceptance_evidence": {
+          "micro": [],
+          "legacy_trace_replay": [],
+          "shadow_parity": [],
+          "rollback": [],
+          "canary": [],
+          "postgres": ["test_p5_c1_slice_acceptance_postgres.py (slice 间接覆盖)"]
+        },
+        "gaps": [
+          "无独立 cell 测试文件；仅 slice A/B/C 与 evidence generator 间接覆盖",
+          "C1_M003_TIMEOUT_FAILURE_NOT_EXERCISED",
+          "P3_REVIEW_SURFACE_NOT_GIT_IDENTIFIED"
+        ],
+        "fail_closed": [
+          "CELL_BINDING_INFERRED: 无法从现有产物确定 C1.2 的显式接线语义，标记 UNRESOLVED_WIRING"
+        ]
+      },
+      {
+        "cell_id": "C1.3",
+        "family": "C1",
+        "phase": "P1/P5 横切",
+        "entrypoint_kind": "FACADE_VALIDATION",
+        "capability_summary": "runtime node store 的 store-rehydrate facade 校验面。",
+        "spec_evidence": {
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C1.3.v1.json",
+          "build_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C1.3.BuildManifest.v1.json",
+          "ledger_status": "UNADOPTED_BUILD_GREEN",
+          "candidate_created": false,
+          "handler_implementation_generated": false,
+          "rollback_implementation_generated": false,
+          "registration_is_authority_adoption": false
+        },
+        "production_components": [
+          "main/backend/app/successor_runtime/runtime/replay.py",
+          "main/backend/app/successor_runtime/substrate/postgres/captured_values.py:PostgresCapturedValueReplayAdapter (组合根实例化)",
+          "main/backend/app/successor_runtime/substrate/postgres/runtime_journal.py"
+        ],
+        "composition_root": {
+          "registered": "KERNEL_MECHANISM_INFERRED",
+          "note": "replay adapter 由组合根实例化，但 C1.3 store-rehydrate facade surface 未注册"
+        },
+        "wiring_status": "UNRESOLVED_WIRING",
+        "required_wiring": [
+          "store-rehydrate facade surface 绑定（ordered_outer_contract_refs: runtime.store.rehydrate.v1）",
+          "replay projection 生产注册"
+        ],
+        "acceptance_evidence": {
+          "micro": [],
+          "legacy_trace_replay": [],
+          "shadow_parity": [],
+          "rollback": [],
+          "canary": [],
+          "postgres": ["test_p5_c1_slice_acceptance_postgres.py (slice 间接覆盖)"]
+        },
+        "gaps": [
+          "facade 只生成验证面，program_atom_generated=false",
+          "C1_M003_TIMEOUT_FAILURE_NOT_EXERCISED",
+          "P3_REVIEW_SURFACE_NOT_GIT_IDENTIFIED"
+        ],
+        "fail_closed": [
+          "CELL_BINDING_INFERRED: 无法从现有产物确定 C1.3 的显式 facade 接线语义，标记 UNRESOLVED_WIRING"
+        ]
+      },
+      {
+        "cell_id": "C2.1",
+        "family": "C2",
+        "phase": "P3",
+        "entrypoint_kind": "PROGRAM",
+        "capability_summary": "source-library resolve execution request 纯程序（source_library.resolve_execution_request.v1）。",
+        "spec_evidence": {
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C2.1.v1.json",
+          "build_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C2.1.BuildManifest.v1.json",
+          "ledger_status": "UNADOPTED_BUILD_GREEN",
+          "candidate_created": false,
+          "handler_implementation_generated": false,
+          "rollback_implementation_generated": false,
+          "registration_is_authority_adoption": false
+        },
+        "production_components": [
+          "main/backend/app/successor_runtime/capabilities/source_library_c2_1{,_program,_interpreters}.py",
+          "main/backend/app/successor_runtime/substrate/postgres/source_library_c2_1_handler.py:SourceLibraryC2_1StoreRehydratedHandler",
+          "main/backend/app/successor_runtime/substrate/postgres/source_library_c2_1_canary.py:C2_1SuccessorResolutionHandler/SourceLibraryC2_1CanaryService",
+          "main/backend/app/successor_migration/legacy_source_library.py (rollback)"
+        ],
+        "composition_root": {
+          "registered": false,
+          "note": "无任何 import 链到 composition/assembly；未传 additional_handlers"
+        },
+        "wiring_status": "UNWIRED_KNOWN_TARGET",
+        "required_wiring": [
+          "activation catalog 条目",
+          "handler installation 注入 additional_handlers",
+          "recovery binding (legacy_source_library.py)",
+          "canary 选择门"
+        ],
+        "acceptance_evidence": {
+          "micro": ["test_p2_c2_1_contracts.py", "test_p2_c2_1_packet.py", "test_p2_c2_1_selection.py"],
+          "legacy_trace_replay": ["test_p2_c2_1_parity.py"],
+          "shadow_parity": ["test_p2_c2_1_parity.py"],
+          "rollback": ["test_p2_c2_1_canary_postgres.py"],
+          "canary": ["test_p2_c2_1_canary_postgres.py"],
+          "postgres": ["test_p3_c2_1_rehydration_postgres.py"]
+        },
+        "gaps": [
+          "P3_AUTHORITY_RECORD_DIVERGENCE",
+          "P3_REVIEW_SURFACE_NOT_GIT_IDENTIFIED"
+        ],
+        "fail_closed": []
+      },
+      {
+        "cell_id": "C2.2",
+        "family": "C2",
+        "phase": "P3",
+        "entrypoint_kind": "PROGRAM",
+        "capability_summary": "source-library 四模式规划纯程序（protocol_search/provider_harvest/site_search/url_execution）。",
+        "spec_evidence": {
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C2.2.v1.json",
+          "build_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C2.2.BuildManifest.v1.json",
+          "ledger_status": "UNADOPTED_BUILD_GREEN",
+          "candidate_created": false,
+          "handler_implementation_generated": false,
+          "rollback_implementation_generated": false,
+          "registration_is_authority_adoption": false
+        },
+        "production_components": [
+          "main/backend/app/successor_runtime/capabilities/source_library_c2_2{,_program,_interpreters}.py",
+          "main/backend/app/successor_runtime/substrate/postgres/source_library_c2_23_canary.py:C2_2PlannerHandler/C2_2StoreRehydratedHandler",
+          "main/backend/app/successor_runtime/specification/c2_p3.py"
+        ],
+        "composition_root": {
+          "registered": false,
+          "note": "canary/worker 测试接线，未进组合根"
+        },
+        "wiring_status": "UNWIRED_KNOWN_TARGET",
+        "required_wiring": [
+          "planner handler installation",
+          "recovery binding (legacy_source_library_c2_2.py)"
+        ],
+        "acceptance_evidence": {
+          "micro": ["test_p3_c2_2_contracts.py"],
+          "legacy_trace_replay": ["test_p3_c2_2_parity.py"],
+          "shadow_parity": ["test_p3_c2_2_parity.py"],
+          "rollback": ["test_p3_c2_2_parity.py"],
+          "canary": ["test_p3_c2_23_runtime_canary_postgres.py"],
+          "postgres": ["test_p3_c2_23_runtime_canary_postgres.py"]
+        },
+        "gaps": [
+          "C2_2_DURABLE_RUNTIME_NODE_LOCAL_ONLY",
+          "P3_AUTHORITY_RECORD_DIVERGENCE",
+          "P3_REVIEW_SURFACE_NOT_GIT_IDENTIFIED"
+        ],
+        "fail_closed": []
+      },
+      {
+        "cell_id": "C2.3",
+        "family": "C2",
+        "phase": "P3",
+        "entrypoint_kind": "PROGRAM",
+        "capability_summary": "provider effect 执行程序（source_library.execute_provider_effect.v1）。",
+        "spec_evidence": {
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C2.3.v1.json",
+          "build_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C2.3.BuildManifest.v1.json",
+          "ledger_status": "UNADOPTED_BUILD_GREEN",
+          "candidate_created": false,
+          "handler_implementation_generated": false,
+          "rollback_implementation_generated": false,
+          "registration_is_authority_adoption": false
+        },
+        "production_components": [
+          "main/backend/app/successor_runtime/capabilities/source_library_c2_3{,_ports,_test_interpreters}.py",
+          "main/backend/app/successor_runtime/substrate/postgres/source_library_c2_23_canary.py:C2_3FixtureProviderEffectHandler/C2_3ReconcileHandler/C2_3StoreRehydratedHandler",
+          "main/backend/app/successor_migration/legacy_source_library_c2_3.py (rollback)"
+        ],
+        "composition_root": {
+          "registered": false,
+          "note": "provider effect 仍为 fixture 端口，非生产 provider port"
+        },
+        "wiring_status": "UNWIRED_KNOWN_TARGET",
+        "required_wiring": [
+          "生产 provider/readback port 替换 FixtureProviderEffectGateway",
+          "handler installation + recovery binding"
+        ],
+        "acceptance_evidence": {
+          "micro": ["test_p3_c2_3_contracts.py"],
+          "legacy_trace_replay": ["test_p3_c2_3_parity.py"],
+          "shadow_parity": ["test_p3_c2_3_parity.py"],
+          "rollback": ["test_p3_c2_3_recovery.py"],
+          "canary": ["test_p3_c2_23_runtime_canary_postgres.py"],
+          "postgres": ["test_p3_c2_23_runtime_canary_postgres.py"]
+        },
+        "gaps": [
+          "C2_3_LIVE_PROVIDER_AUTHORITY_NOT_FROZEN",
+          "P3_AUTHORITY_RECORD_DIVERGENCE",
+          "P3_REVIEW_SURFACE_NOT_GIT_IDENTIFIED"
+        ],
+        "fail_closed": [
+          "LIVE_PROVIDER_DIMENSION_UNRESOLVED: 生产 provider 接线语义未冻结，fixture 路径不构成生产 wiring"
+        ]
+      },
+      {
+        "cell_id": "C2.4",
+        "family": "C2",
+        "phase": "P3",
+        "entrypoint_kind": "FACADE_VALIDATION",
+        "capability_summary": "terminal compatibility 投影 facade 校验面。",
+        "spec_evidence": {
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C2.4.v1.json",
+          "build_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C2.4.BuildManifest.v1.json",
+          "ledger_status": "UNADOPTED_BUILD_GREEN",
+          "candidate_created": false,
+          "handler_implementation_generated": false,
+          "rollback_implementation_generated": false,
+          "registration_is_authority_adoption": false
+        },
+        "production_components": [
+          "main/backend/app/successor_runtime/capabilities/source_library_c2_4_projection.py",
+          "main/backend/app/successor_runtime/substrate/projections/source_library_terminal.py:PostgresSourceLibraryTerminalProjector",
+          "main/backend/app/successor_runtime/specification/c2_p3.py"
+        ],
+        "composition_root": {
+          "registered": false,
+          "note": "projector 未注册进 ProjectorRegistry，offset 无生产驱动"
+        },
+        "wiring_status": "UNWIRED_KNOWN_TARGET",
+        "required_wiring": [
+          "ProjectorRegistry 注册",
+          "ProjectionOffsetRepository 驱动",
+          "facade query 接线"
+        ],
+        "acceptance_evidence": {
+          "micro": ["test_p3_c2_4_projection.py"],
+          "legacy_trace_replay": [],
+          "shadow_parity": [],
+          "rollback": ["test_p3_c2_4_projection.py"],
+          "canary": ["test_p3_c2_23_runtime_canary_postgres.py"],
+          "postgres": ["test_p3_c2_4_postgres.py"]
+        },
+        "gaps": [
+          "C2_4_SOURCE_CLOSURE_AND_OFFSET_NOT_LIVE",
+          "P3_AUTHORITY_RECORD_DIVERGENCE",
+          "P3_REVIEW_SURFACE_NOT_GIT_IDENTIFIED"
+        ],
+        "fail_closed": []
+      },
+      {
+        "cell_id": "C3.1",
+        "family": "C3",
+        "phase": "P3",
+        "entrypoint_kind": "PROGRAM",
+        "capability_summary": "collect batch ordered traversal 程序（collect.execute_batch_element.v1 + ordered fold）。",
+        "spec_evidence": {
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C3.1.v1.json",
+          "build_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C3.1.BuildManifest.v1.json",
+          "ledger_status": "UNADOPTED_BUILD_GREEN",
+          "candidate_created": false,
+          "handler_implementation_generated": false,
+          "rollback_implementation_generated": false,
+          "registration_is_authority_adoption": false
+        },
+        "production_components": [
+          "main/backend/app/successor_runtime/capabilities/collect_c3{,_program,_interpreters}.py:COLLECT_C3_1_KIND",
+          "main/backend/app/successor_runtime/substrate/postgres/collect_c3_canary.py:C3CollectComposedRuntimeHandler",
+          "main/backend/app/successor_migration/legacy_collect_runtime.py (rollback)",
+          "main/backend/app/successor_runtime/specification/c3_p3.py"
+        ],
+        "composition_root": {
+          "registered": false,
+          "note": "canary handler 未进任何 assembly"
+        },
+        "wiring_status": "UNWIRED_KNOWN_TARGET",
+        "required_wiring": [
+          "traversal handler installation",
+          "recovery binding"
+        ],
+        "acceptance_evidence": {
+          "micro": ["test_p3_c3_contracts.py", "test_p3_c3_micro.py"],
+          "legacy_trace_replay": ["test_p3_c3_replay_shadow.py"],
+          "shadow_parity": ["test_p3_c3_replay_shadow.py"],
+          "rollback": ["test_p3_c3_rollback.py"],
+          "canary": ["test_p3_c3_canary_postgres.py"],
+          "postgres": ["test_p3_c3_canary_postgres.py"]
+        },
+        "gaps": [
+          "C3_POSTGRES_CANARY_DISPOSABLE_ONLY",
+          "C3_DURABLE_RUNTIME_NODE_NOT_PROVEN",
+          "C3_LIVE_PROVIDER_AUTHORITY_NOT_FROZEN",
+          "P3_AUTHORITY_RECORD_DIVERGENCE",
+          "P3_REVIEW_SURFACE_NOT_GIT_IDENTIFIED"
+        ],
+        "fail_closed": [
+          "LIVE_PROVIDER_DIMENSION_UNRESOLVED: 生产 provider 接线语义未冻结"
+        ]
+      },
+      {
+        "cell_id": "C3.2",
+        "family": "C3",
+        "phase": "P3",
+        "entrypoint_kind": "PROGRAM",
+        "capability_summary": "collect result fold 纯程序（collect.fold_ordered_results.v1）。",
+        "spec_evidence": {
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C3.2.v1.json",
+          "build_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C3.2.BuildManifest.v1.json",
+          "ledger_status": "UNADOPTED_BUILD_GREEN",
+          "candidate_created": false,
+          "handler_implementation_generated": false,
+          "rollback_implementation_generated": false,
+          "registration_is_authority_adoption": false
+        },
+        "production_components": [
+          "main/backend/app/successor_runtime/capabilities/collect_c3{,_program,_interpreters}.py:COLLECT_C3_2_KIND",
+          "main/backend/app/successor_runtime/substrate/postgres/collect_c3_canary.py",
+          "main/backend/app/successor_migration/legacy_collect_runtime.py (rollback)"
+        ],
+        "composition_root": {
+          "registered": false,
+          "note": "纯 fold，无独立 substrate 模块，未接线"
+        },
+        "wiring_status": "UNWIRED_KNOWN_TARGET",
+        "required_wiring": [
+          "fold handler installation",
+          "recovery binding"
+        ],
+        "acceptance_evidence": {
+          "micro": ["test_p3_c3_contracts.py", "test_p3_c3_micro.py"],
+          "legacy_trace_replay": ["test_p3_c3_replay_shadow.py"],
+          "shadow_parity": ["test_p3_c3_replay_shadow.py"],
+          "rollback": ["test_p3_c3_rollback.py"],
+          "canary": ["test_p3_c3_canary_postgres.py"],
+          "postgres": ["test_p3_c3_canary_postgres.py"]
+        },
+        "gaps": [
+          "C3_POSTGRES_CANARY_DISPOSABLE_ONLY",
+          "C3_DURABLE_RUNTIME_NODE_NOT_PROVEN",
+          "C3_LIVE_PROVIDER_AUTHORITY_NOT_FROZEN",
+          "P3_AUTHORITY_RECORD_DIVERGENCE",
+          "P3_REVIEW_SURFACE_NOT_GIT_IDENTIFIED"
+        ],
+        "fail_closed": [
+          "LIVE_PROVIDER_DIMENSION_UNRESOLVED: 生产 provider 接线语义未冻结"
+        ]
+      },
+      {
+        "cell_id": "C4.1",
+        "family": "C4",
+        "phase": "P3",
+        "entrypoint_kind": "PROGRAM",
+        "capability_summary": "agent batch plan 构建纯程序（agent_batch.build_batch_plan.v1）。",
+        "spec_evidence": {
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C4.1.v1.json",
+          "build_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C4.1.BuildManifest.v1.json",
+          "ledger_status": "UNADOPTED_BUILD_GREEN",
+          "candidate_created": false,
+          "handler_implementation_generated": false,
+          "rollback_implementation_generated": false,
+          "registration_is_authority_adoption": false
+        },
+        "production_components": [
+          "main/backend/app/successor_runtime/capabilities/agent_batch_c4{,_program,_interpreters}.py",
+          "main/backend/app/successor_runtime/substrate/postgres/agent_batch_c4_canary.py:C4_1_BatchPlanRuntimeHandler",
+          "main/backend/app/successor_migration/legacy_agent_batch.py (rollback)",
+          "main/backend/app/successor_runtime/specification/c4_p3.py"
+        ],
+        "composition_root": {
+          "registered": false,
+          "note": "纯 canary handler，缺 assembly"
+        },
+        "wiring_status": "UNWIRED_KNOWN_TARGET",
+        "required_wiring": [
+          "plan handler installation",
+          "recovery binding"
+        ],
+        "acceptance_evidence": {
+          "micro": ["test_p3_c4_1_plan.py", "test_p3_c4_1_program.py"],
+          "legacy_trace_replay": ["test_p3_c4_1_parity.py"],
+          "shadow_parity": ["test_p3_c4_1_parity.py"],
+          "rollback": ["test_p3_c4_5_runtime_postgres.py"],
+          "canary": ["test_p3_c4_canary.py"],
+          "postgres": ["test_p3_c4_5_runtime_postgres.py"]
+        },
+        "gaps": [
+          "P3_AUTHORITY_RECORD_DIVERGENCE",
+          "P3_REVIEW_SURFACE_NOT_GIT_IDENTIFIED"
+        ],
+        "fail_closed": []
+      },
+      {
+        "cell_id": "C4.2",
+        "family": "C4",
+        "phase": "P3",
+        "entrypoint_kind": "PROGRAM",
+        "capability_summary": "retry reducer 纯程序（agent_batch.reduce_retry_action.v1）。",
+        "spec_evidence": {
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C4.2.v1.json",
+          "build_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C4.2.BuildManifest.v1.json",
+          "ledger_status": "UNADOPTED_BUILD_GREEN",
+          "candidate_created": false,
+          "handler_implementation_generated": false,
+          "rollback_implementation_generated": false,
+          "registration_is_authority_adoption": false
+        },
+        "production_components": [
+          "main/backend/app/successor_runtime/capabilities/agent_batch_c4{,_program,_interpreters}.py",
+          "main/backend/app/successor_runtime/substrate/postgres/agent_batch_c4_canary.py:C4_2_RetryRuntimeHandler",
+          "main/backend/app/successor_migration/legacy_agent_batch.py (rollback)"
+        ],
+        "composition_root": {
+          "registered": false,
+          "note": "纯 canary handler，缺 assembly"
+        },
+        "wiring_status": "UNWIRED_KNOWN_TARGET",
+        "required_wiring": [
+          "retry reducer handler installation",
+          "recovery binding"
+        ],
+        "acceptance_evidence": {
+          "micro": ["test_p3_c4_2_retry_reducer.py"],
+          "legacy_trace_replay": ["test_p3_c4_1_parity.py"],
+          "shadow_parity": ["test_p3_c4_1_parity.py"],
+          "rollback": ["test_p3_c4_5_runtime_postgres.py"],
+          "canary": ["test_p3_c4_canary.py"],
+          "postgres": ["test_p3_c4_5_runtime_postgres.py"]
+        },
+        "gaps": [
+          "P3_AUTHORITY_RECORD_DIVERGENCE",
+          "P3_REVIEW_SURFACE_NOT_GIT_IDENTIFIED"
+        ],
+        "fail_closed": []
+      },
+      {
+        "cell_id": "C4.3",
+        "family": "C4",
+        "phase": "P3",
+        "entrypoint_kind": "PROGRAM",
+        "capability_summary": "batch submission 提交程序（agent_batch.submit.v1，effect）。",
+        "spec_evidence": {
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C4.3.v1.json",
+          "build_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C4.3.BuildManifest.v1.json",
+          "ledger_status": "UNADOPTED_BUILD_GREEN",
+          "candidate_created": false,
+          "handler_implementation_generated": false,
+          "rollback_implementation_generated": false,
+          "registration_is_authority_adoption": false
+        },
+        "production_components": [
+          "main/backend/app/successor_runtime/capabilities/agent_batch_c4{,_program,_interpreters}.py",
+          "main/backend/app/successor_runtime/substrate/postgres/agent_batch_c4.py (repository scaffold)",
+          "main/backend/app/successor_runtime/substrate/postgres/agent_batch_c4_3_handler.py:C4_3SubmissionStoreRehydratedHandler",
+          "main/backend/app/successor_runtime/substrate/postgres/idempotency.py:IdempotencyRepository"
+        ],
+        "composition_root": {
+          "registered": false,
+          "note": "store-rehydrated handler 已具备 RuntimeHandler 形状，缺 assembly"
+        },
+        "wiring_status": "UNWIRED_KNOWN_TARGET",
+        "required_wiring": [
+          "submission handler installation",
+          "readback + recovery binding"
+        ],
+        "acceptance_evidence": {
+          "micro": ["test_p3_c4_3_submission.py"],
+          "legacy_trace_replay": [],
+          "shadow_parity": [],
+          "rollback": ["test_p3_c4_5_runtime_postgres.py"],
+          "canary": ["test_p3_c4_canary.py"],
+          "postgres": ["test_p3_c4_4_postgres.py", "test_p3_c4_5_runtime_postgres.py"]
+        },
+        "gaps": [
+          "C4_3_DURABLE_ADOPTION_NOT_PROMOTED",
+          "P3_AUTHORITY_RECORD_DIVERGENCE",
+          "P3_REVIEW_SURFACE_NOT_GIT_IDENTIFIED"
+        ],
+        "fail_closed": []
+      },
+      {
+        "cell_id": "C5.1",
+        "family": "C5",
+        "phase": "P3",
+        "entrypoint_kind": "FACADE_VALIDATION",
+        "capability_summary": "agent session journal projection facade（agent_session.task_transition.v1）。",
+        "spec_evidence": {
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C5.1.v1.json",
+          "build_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C5.1.BuildManifest.v1.json",
+          "ledger_status": "UNADOPTED_BUILD_GREEN",
+          "candidate_created": false,
+          "handler_implementation_generated": false,
+          "rollback_implementation_generated": false,
+          "registration_is_authority_adoption": false
+        },
+        "production_components": [
+          "main/backend/app/successor_runtime/substrate/projections/agent_session.py:fold_agent_session/PostgresAgentSessionReadAdapter",
+          "main/backend/app/successor_runtime/runtime/replay.py",
+          "main/backend/app/successor_migration/legacy_agent_sessions.py (rollback)",
+          "main/backend/app/successor_runtime/specification/c5_p3.py"
+        ],
+        "composition_root": {
+          "registered": false,
+          "note": "projection 未注册、未接线"
+        },
+        "wiring_status": "UNWIRED_KNOWN_TARGET",
+        "required_wiring": [
+          "ProjectorRegistry 注册",
+          "legacy session/task replay binding"
+        ],
+        "acceptance_evidence": {
+          "micro": ["test_p3_c5_1_session_projection.py"],
+          "legacy_trace_replay": ["test_p3_c5_1_session_projection.py"],
+          "shadow_parity": ["test_p3_c5_1_session_projection.py"],
+          "rollback": ["test_p3_c5_1_session_projection.py"],
+          "canary": [],
+          "postgres": []
+        },
+        "gaps": [
+          "C5_1_SESSION_TASK_CONTROL_NOT_MIGRATED",
+          "P3_AUTHORITY_RECORD_DIVERGENCE",
+          "P3_REVIEW_SURFACE_NOT_GIT_IDENTIFIED"
+        ],
+        "fail_closed": []
+      },
+      {
+        "cell_id": "C5.2",
+        "family": "C5",
+        "phase": "P3",
+        "entrypoint_kind": "FACADE_VALIDATION",
+        "capability_summary": "runtime effect reconciliation facade（runtime.effect.reconcile.v1）。",
+        "spec_evidence": {
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C5.2.v1.json",
+          "build_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C5.2.BuildManifest.v1.json",
+          "ledger_status": "UNADOPTED_BUILD_GREEN",
+          "candidate_created": false,
+          "handler_implementation_generated": false,
+          "rollback_implementation_generated": false,
+          "registration_is_authority_adoption": false
+        },
+        "production_components": [
+          "main/backend/app/successor_runtime/runtime/reconciliation.py:EffectReconciler",
+          "main/backend/app/successor_runtime/substrate/postgres/reconciliation.py:PostgresReconciliationOwner",
+          "main/backend/app/successor_runtime/substrate/postgres/first_specimen_reconciliation_handler.py (P0C assembly 注入)",
+          "main/backend/app/successor_migration/legacy_effect_attempts.py (rollback)"
+        ],
+        "composition_root": {
+          "registered": "KERNEL_RECONCILE_REUSED_INFERRED",
+          "note": "first-specimen RECONCILE handler 经 P0C assembly 注入；C5.2 家族自身 legacy-effect replay 无接线"
+        },
+        "wiring_status": "UNWIRED_KNOWN_TARGET",
+        "required_wiring": [
+          "C5.2 reconcile handler 绑定 legacy attempt kinds",
+          "readback policy 接线"
+        ],
+        "acceptance_evidence": {
+          "micro": ["test_p3_c5_2_attempt_replay_reconciliation.py"],
+          "legacy_trace_replay": ["test_p3_c5_2_attempt_replay_reconciliation.py"],
+          "shadow_parity": ["test_p3_c5_2_attempt_replay_reconciliation.py"],
+          "rollback": ["test_p3_c5_2_attempt_replay_reconciliation.py"],
+          "canary": [],
+          "postgres": ["test_p3_c5_2_reconciliation_postgres.py"]
+        },
+        "gaps": [
+          "C5_2_DURABLE_ATTEMPT_NODE_NOT_PROVEN",
+          "P3_AUTHORITY_RECORD_DIVERGENCE",
+          "P3_REVIEW_SURFACE_NOT_GIT_IDENTIFIED"
+        ],
+        "fail_closed": [
+          "REUSE_INFERRED: P0C RECONCILE 路径与 C5.2 家族绑定关系未显式建立"
+        ]
+      },
+      {
+        "cell_id": "C5.3",
+        "family": "C5",
+        "phase": "P3",
+        "entrypoint_kind": "FACADE_VALIDATION",
+        "capability_summary": "runtime event projection facade（runtime.event.project.v1）。",
+        "spec_evidence": {
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C5.3.v1.json",
+          "build_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C5.3.BuildManifest.v1.json",
+          "ledger_status": "UNADOPTED_BUILD_GREEN",
+          "candidate_created": false,
+          "handler_implementation_generated": false,
+          "rollback_implementation_generated": false,
+          "registration_is_authority_adoption": false
+        },
+        "production_components": [
+          "main/backend/app/successor_runtime/substrate/projections/runtime_run.py:PostgresRuntimeRunProjector",
+          "main/backend/app/successor_runtime/runtime/replay.py"
+        ],
+        "composition_root": {
+          "registered": false,
+          "note": "projection 未注册"
+        },
+        "wiring_status": "UNWIRED_KNOWN_TARGET",
+        "required_wiring": [
+          "ProjectorRegistry 注册",
+          "projection offset owner 绑定"
+        ],
+        "acceptance_evidence": {
+          "micro": ["test_p3_c5_3_projection_postgres.py"],
+          "legacy_trace_replay": [],
+          "shadow_parity": [],
+          "rollback": ["test_p3_c5_3_projection_postgres.py"],
+          "canary": [],
+          "postgres": ["test_p3_c5_3_projection_postgres.py"]
+        },
+        "gaps": [
+          "C5_3_SESSION_PROJECTION_OFFSET_NOT_OWNED",
+          "P3_AUTHORITY_RECORD_DIVERGENCE",
+          "P3_REVIEW_SURFACE_NOT_GIT_IDENTIFIED"
+        ],
+        "fail_closed": []
+      },
+      {
+        "cell_id": "C5.4",
+        "family": "C5",
+        "phase": "P3",
+        "entrypoint_kind": "FACADE_VALIDATION",
+        "capability_summary": "legacy process observation join facade（legacy.runtime_observation.project.v1）。",
+        "spec_evidence": {
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C5.4.v1.json",
+          "build_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C5.4.BuildManifest.v1.json",
+          "ledger_status": "UNADOPTED_BUILD_GREEN",
+          "candidate_created": false,
+          "handler_implementation_generated": false,
+          "rollback_implementation_generated": false,
+          "registration_is_authority_adoption": false
+        },
+        "production_components": [
+          "main/backend/app/successor_runtime/runtime/observations.py",
+          "main/backend/app/successor_runtime/substrate/projections/legacy_process.py:join_process_observations",
+          "main/backend/app/successor_migration/legacy_process_observations.py (rollback)",
+          "main/backend/app/successor_runtime/specification/c5_p3.py"
+        ],
+        "composition_root": {
+          "registered": false,
+          "note": "只读观察/join，无接线"
+        },
+        "wiring_status": "UNWIRED_KNOWN_TARGET",
+        "required_wiring": [
+          "ProjectorRegistry 注册",
+          "observation source binding"
+        ],
+        "acceptance_evidence": {
+          "micro": ["test_p3_c5_4_process_observations.py"],
+          "legacy_trace_replay": ["test_p3_c5_4_process_observations.py"],
+          "shadow_parity": ["test_p3_c5_4_process_observations.py"],
+          "rollback": ["test_p3_c5_4_process_observations.py"],
+          "canary": [],
+          "postgres": []
+        },
+        "gaps": [
+          "P3_AUTHORITY_RECORD_DIVERGENCE",
+          "P3_REVIEW_SURFACE_NOT_GIT_IDENTIFIED"
+        ],
+        "fail_closed": []
+      },
+      {
+        "cell_id": "C6.1",
+        "family": "C6",
+        "phase": "P3",
+        "entrypoint_kind": "PROGRAM",
+        "capability_summary": "agent episode interpret 程序（agent_core.episode_interpret.v1，effect）。",
+        "spec_evidence": {
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C6.1.v1.json",
+          "build_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C6.1.BuildManifest.v1.json",
+          "ledger_status": "UNADOPTED_BUILD_GREEN",
+          "candidate_created": false,
+          "handler_implementation_generated": false,
+          "rollback_implementation_generated": false,
+          "registration_is_authority_adoption": false
+        },
+        "production_components": [
+          "main/backend/app/successor_runtime/capabilities/agent_core_c6_1{,_program,_interpreters}.py",
+          "main/backend/app/successor_runtime/substrate/postgres/agent_core_c6_handler.py:AgentCoreC6StoreRehydratedHandler",
+          "main/backend/app/successor_runtime/substrate/postgres/agent_core_c6_worker.py:AgentCoreC6WorkerStore",
+          "main/backend/app/successor_migration/legacy_agent_core.py (rollback)",
+          "main/backend/app/successor_runtime/specification/c6_p3.py"
+        ],
+        "composition_root": {
+          "registered": false,
+          "note": "缺 assembly"
+        },
+        "wiring_status": "UNWIRED_KNOWN_TARGET",
+        "required_wiring": [
+          "episode handler installation",
+          "worker store wiring"
+        ],
+        "acceptance_evidence": {
+          "micro": ["test_p3_c6_1_episode.py"],
+          "legacy_trace_replay": ["test_p3_c6_legacy_shadow.py"],
+          "shadow_parity": ["test_p3_c6_legacy_shadow.py"],
+          "rollback": ["test_p3_c6_runtime_canary_postgres.py"],
+          "canary": ["test_p3_c6_runtime_canary_postgres.py"],
+          "postgres": ["test_p3_c6_worker_postgres.py", "test_p3_c6_runtime_canary_postgres.py"]
+        },
+        "gaps": [
+          "P3C6_PRODUCTION_RUNTIME_NODE_NOT_PROVEN",
+          "P3C6_LOOP_LIVE_MODEL_NOT_PROVEN",
+          "P3_AUTHORITY_RECORD_DIVERGENCE",
+          "P3_REVIEW_SURFACE_NOT_GIT_IDENTIFIED"
+        ],
+        "fail_closed": []
+      },
+      {
+        "cell_id": "C6.2",
+        "family": "C6",
+        "phase": "P3",
+        "entrypoint_kind": "PROGRAM",
+        "capability_summary": "model provider 调用程序（agent.model_step.v1，effect）。",
+        "spec_evidence": {
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C6.2.v1.json",
+          "build_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C6.2.BuildManifest.v1.json",
+          "ledger_status": "UNADOPTED_BUILD_GREEN",
+          "candidate_created": false,
+          "handler_implementation_generated": false,
+          "rollback_implementation_generated": false,
+          "registration_is_authority_adoption": false
+        },
+        "production_components": [
+          "main/backend/app/successor_runtime/capabilities/agent_core_c6_2{,_program,_interpreters}.py",
+          "main/backend/app/successor_runtime/substrate/postgres/agent_core_c6_worker.py",
+          "main/backend/app/successor_runtime/substrate/postgres/agent_core_c6_handler.py",
+          "main/backend/app/successor_migration/legacy_agent_core.py (rollback)"
+        ],
+        "composition_root": {
+          "registered": false,
+          "note": "缺 assembly；provider 仅 fixture/canary"
+        },
+        "wiring_status": "UNWIRED_KNOWN_TARGET",
+        "required_wiring": [
+          "provider handler installation",
+          "生产 provider port（live 维度未冻结）"
+        ],
+        "acceptance_evidence": {
+          "micro": ["test_p3_c6_2_provider.py"],
+          "legacy_trace_replay": ["test_p3_c6_legacy_shadow.py"],
+          "shadow_parity": ["test_p3_c6_legacy_shadow.py"],
+          "rollback": ["test_p3_c6_runtime_canary_postgres.py"],
+          "canary": ["test_p3_c6_runtime_canary_postgres.py"],
+          "postgres": ["test_p3_c6_runtime_canary_postgres.py"]
+        },
+        "gaps": [
+          "C6_2_LIVE_PROVIDER_AUTHORITY_NOT_FROZEN",
+          "P3C6_LOOP_LIVE_MODEL_NOT_PROVEN",
+          "P3_AUTHORITY_RECORD_DIVERGENCE",
+          "P3_REVIEW_SURFACE_NOT_GIT_IDENTIFIED"
+        ],
+        "fail_closed": [
+          "LIVE_PROVIDER_DIMENSION_UNRESOLVED: 生产 provider 接线语义未冻结"
+        ]
+      },
+      {
+        "cell_id": "C6.3",
+        "family": "C6",
+        "phase": "P3",
+        "entrypoint_kind": "PROGRAM",
+        "capability_summary": "evidence redaction 纯程序（observability.redact_evidence.v1）。",
+        "spec_evidence": {
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C6.3.v1.json",
+          "build_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C6.3.BuildManifest.v1.json",
+          "ledger_status": "UNADOPTED_BUILD_GREEN",
+          "candidate_created": false,
+          "handler_implementation_generated": false,
+          "rollback_implementation_generated": false,
+          "registration_is_authority_adoption": false
+        },
+        "production_components": [
+          "main/backend/app/successor_runtime/capabilities/agent_core_c6_3{,_program,_interpreters}.py",
+          "main/backend/app/successor_runtime/substrate/postgres/agent_core_c6_worker.py",
+          "main/backend/app/successor_migration/legacy_agent_core.py (rollback)"
+        ],
+        "composition_root": {
+          "registered": false,
+          "note": "缺 assembly"
+        },
+        "wiring_status": "UNWIRED_KNOWN_TARGET",
+        "required_wiring": [
+          "redaction handler installation",
+          "redaction persistence wiring"
+        ],
+        "acceptance_evidence": {
+          "micro": ["test_p3_c6_3_redaction.py"],
+          "legacy_trace_replay": ["test_p3_c6_legacy_shadow.py"],
+          "shadow_parity": ["test_p3_c6_legacy_shadow.py"],
+          "rollback": ["test_p3_c6_runtime_canary_postgres.py"],
+          "canary": ["test_p3_c6_runtime_canary_postgres.py"],
+          "postgres": ["test_p3_c6_worker_postgres.py", "test_p3_c6_runtime_canary_postgres.py"]
+        },
+        "gaps": [
+          "P3C6_PRODUCTION_REDACTION_PERSISTENCE_NOT_PROVEN",
+          "P3C6_PRODUCTION_STORE_NOT_PROVEN",
+          "P3_AUTHORITY_RECORD_DIVERGENCE",
+          "P3_REVIEW_SURFACE_NOT_GIT_IDENTIFIED"
+        ],
+        "fail_closed": []
+      },
+      {
+        "cell_id": "C7.1",
+        "family": "C7",
+        "phase": "P4",
+        "entrypoint_kind": "PROGRAM",
+        "capability_summary": "ingest staging 候选程序（ingest_index.stage_candidate.v1 + document admission）。",
+        "spec_evidence": {
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C7.1.v1.json",
+          "build_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C7.1.BuildManifest.v1.json",
+          "ledger_status": "UNADOPTED_BUILD_GREEN",
+          "candidate_created": false,
+          "handler_implementation_generated": false,
+          "rollback_implementation_generated": false,
+          "registration_is_authority_adoption": false
+        },
+        "production_components": [
+          "main/backend/app/successor_runtime/capabilities/ingest_c7_common.py:STAGE_CANDIDATE_KIND",
+          "main/backend/app/successor_runtime/capabilities/ingest_c7_movements.py",
+          "main/backend/app/successor_runtime/capabilities/ingest_c7_program.py",
+          "main/backend/app/successor_runtime/capabilities/ingest_c7_interpreters.py:interpret_staged_candidate",
+          "main/backend/app/successor_runtime/substrate/postgres/ingest_c7_candidate_values.py",
+          "main/backend/app/successor_runtime/substrate/postgres/ingest_c7_movement_admission.py"
+        ],
+        "composition_root": {
+          "registered": false,
+          "note": "缺 assembly + admission coordinator 注册"
+        },
+        "wiring_status": "UNWIRED_KNOWN_TARGET",
+        "required_wiring": [
+          "C7 assembly 与 AdmissionCoordinator 注册",
+          "legacy writer 保持 zero 的适配边界",
+          "document admission/canonical write 需单独 authority review"
+        ],
+        "acceptance_evidence": {
+          "micro": ["test_capability_spec_pilot_c7_1.py", "test_p4_c7_1_staged_candidate.py", "test_p4_c7_1_program.py"],
+          "legacy_trace_replay": ["test_p4_c7_legacy_writer_spy.py", "test_c7_movement_decision_parity.py"],
+          "shadow_parity": ["test_c7_movement_decision_parity.py"],
+          "rollback": ["test_c7_movement_failure_reverse.py"],
+          "canary": [],
+          "postgres": ["test_c7_movement_admission_postgres.py", "test_p4_c7_6_postgres.py"]
+        },
+        "gaps": [
+          "C7_AHEAD_OF_TIME_SCAFFOLD_REMAINS_UNADOPTED",
+          "LEGACY_WRITER_REMAINS_ZERO",
+          "DOCUMENT_ADMISSION_AND_CANONICAL_WRITE_REQUIRE_SEPARATE_AUTHORITY_REVIEW",
+          "rollback_bindings 为空数组"
+        ],
+        "fail_closed": [
+          "ROLLBACK_BINDING_MISSING: C7.1 spec 无 rollback_bindings，rollback 排练无法从现有产物规划"
+        ]
+      },
+      {
+        "cell_id": "C7.2",
+        "family": "C7",
+        "phase": "P4",
+        "entrypoint_kind": "PROGRAM",
+        "capability_summary": "commit-intent/admission readback 决策程序（ADMISSION）。",
+        "spec_evidence": {
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C7.2.v1.json",
+          "build_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C7.2.BuildManifest.v1.json",
+          "ledger_status": "UNADOPTED_BUILD_GREEN",
+          "candidate_created": false,
+          "handler_implementation_generated": false,
+          "rollback_implementation_generated": false,
+          "registration_is_authority_adoption": false
+        },
+        "production_components": [
+          "main/backend/app/successor_runtime/capabilities/ingest_c7_interpreters.py:interpret_commit_readback",
+          "main/backend/app/successor_runtime/substrate/postgres/commit_intents.py:CommitIntentRepository",
+          "main/backend/app/successor_runtime/substrate/postgres/c7_document_readback.py:CanonicalCommitReadback",
+          "main/backend/app/successor_runtime/runtime/admission.py",
+          "main/backend/app/successor_runtime/runtime/admission_coordinator.py"
+        ],
+        "composition_root": {
+          "registered": false,
+          "note": "admission coordinator 仅被 first-specimen/C8 bridge 使用，C7 未注册"
+        },
+        "wiring_status": "UNWIRED_KNOWN_TARGET",
+        "required_wiring": [
+          "C7 admission 注册",
+          "readback resource policy"
+        ],
+        "acceptance_evidence": {
+          "micro": ["test_p4_c7_2_commit_readback.py", "test_p4_c7_0_return_registry.py"],
+          "legacy_trace_replay": ["test_p4_c7_legacy_writer_spy.py"],
+          "shadow_parity": ["test_c7_movement_decision_parity.py"],
+          "rollback": ["test_c7_movement_failure_reverse.py"],
+          "canary": [],
+          "postgres": ["test_p4_c7_6_postgres.py"]
+        },
+        "gaps": [
+          "C7_AHEAD_OF_TIME_SCAFFOLD_REMAINS_UNADOPTED",
+          "LEGACY_WRITER_REMAINS_ZERO",
+          "rollback_bindings 为空数组"
+        ],
+        "fail_closed": [
+          "ROLLBACK_BINDING_MISSING: C7.2 spec 无 rollback_bindings"
+        ]
+      },
+      {
+        "cell_id": "C7.3",
+        "family": "C7",
+        "phase": "P4",
+        "entrypoint_kind": "PROGRAM",
+        "capability_summary": "search/graph declared-loss projection 程序（PROJECTION）。",
+        "spec_evidence": {
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C7.3.v1.json",
+          "build_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C7.3.BuildManifest.v1.json",
+          "ledger_status": "UNADOPTED_BUILD_GREEN",
+          "candidate_created": false,
+          "handler_implementation_generated": false,
+          "rollback_implementation_generated": false,
+          "registration_is_authority_adoption": false
+        },
+        "production_components": [
+          "main/backend/app/successor_runtime/capabilities/ingest_c7_interpreters.py:interpret_projection_diff",
+          "main/backend/app/successor_runtime/substrate/postgres/projection_offsets.py:ProjectionOffsetRepository (C9/c8 使用，非 C7)",
+          "main/backend/app/successor_migration/projection_common_c7.py"
+        ],
+        "composition_root": {
+          "registered": false,
+          "note": "缺 C7 投影驱动"
+        },
+        "wiring_status": "UNWIRED_KNOWN_TARGET",
+        "required_wiring": [
+          "C7 projector 注册",
+          "projection offset 驱动"
+        ],
+        "acceptance_evidence": {
+          "micro": ["test_p4_c7_3_projection_diff.py"],
+          "legacy_trace_replay": [],
+          "shadow_parity": ["test_c7_movement_decision_parity.py"],
+          "rollback": ["test_c7_movement_failure_reverse.py"],
+          "canary": [],
+          "postgres": ["test_p4_c7_6_postgres.py"]
+        },
+        "gaps": [
+          "PROJECTION_ONLY_NO_CANONICAL_WRITE_AUTHORITY",
+          "LEGACY_WRITER_REMAINS_ZERO",
+          "rollback_bindings 为空数组"
+        ],
+        "fail_closed": [
+          "ROLLBACK_BINDING_MISSING: C7.3 spec 无 rollback_bindings"
+        ]
+      },
+      {
+        "cell_id": "C7.4",
+        "family": "C7",
+        "phase": "P4",
+        "entrypoint_kind": "PROGRAM",
+        "capability_summary": "reconcile/control 决策程序（ingest_index.reconcile.readback.v1）。",
+        "spec_evidence": {
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C7.4.v1.json",
+          "build_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C7.4.BuildManifest.v1.json",
+          "ledger_status": "UNADOPTED_BUILD_GREEN",
+          "candidate_created": false,
+          "handler_implementation_generated": false,
+          "rollback_implementation_generated": false,
+          "registration_is_authority_adoption": false
+        },
+        "production_components": [
+          "main/backend/app/successor_runtime/capabilities/ingest_c7_interpreters.py:interpret_reconciliation",
+          "main/backend/app/successor_runtime/substrate/postgres/ingest_c7_movement_admission.py:require_locked_runtime_step_attempt",
+          "main/backend/app/successor_runtime/runtime/reconciliation.py",
+          "main/backend/app/successor_runtime/runtime/recovery.py"
+        ],
+        "composition_root": {
+          "registered": false,
+          "note": "缺 C7 reconcile handler 组装"
+        },
+        "wiring_status": "UNWIRED_KNOWN_TARGET",
+        "required_wiring": [
+          "C7 reconcile handler installation",
+          "recovery binding"
+        ],
+        "acceptance_evidence": {
+          "micro": ["test_p4_c7_4_reconciliation.py"],
+          "legacy_trace_replay": ["test_p4_c7_legacy_writer_spy.py"],
+          "shadow_parity": ["test_c7_movement_decision_parity.py"],
+          "rollback": ["test_c7_movement_failure_reverse.py"],
+          "canary": [],
+          "postgres": ["test_p4_c7_6_postgres.py"]
+        },
+        "gaps": [
+          "RECOVERY_JOURNAL_ONLY_NO_CANONICAL_WRITE_AUTHORITY",
+          "LEGACY_WRITER_REMAINS_ZERO",
+          "rollback_bindings 为空数组"
+        ],
+        "fail_closed": [
+          "ROLLBACK_BINDING_MISSING: C7.4 spec 无 rollback_bindings"
+        ]
+      },
+      {
+        "cell_id": "C8.1",
+        "family": "C8",
+        "phase": "P4",
+        "entrypoint_kind": "PROGRAM",
+        "capability_summary": "typed knowledge demand-read 程序（c8.typed_knowledge.demand_read.v1）。",
+        "spec_evidence": {
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C8.1.v1.json",
+          "build_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C8.1.BuildManifest.v1.json",
+          "ledger_status": "UNADOPTED_BUILD_GREEN",
+          "candidate_created": false,
+          "handler_implementation_generated": false,
+          "rollback_implementation_generated": false,
+          "registration_is_authority_adoption": false
+        },
+        "production_components": [
+          "main/backend/app/successor_runtime/capabilities/c8_typed_knowledge.py:demand_read/strict_issued_demand_read",
+          "main/backend/app/successor_runtime/substrate/postgres/c8_material_handler.py:read_canonical_material/form_knowledge_candidate/stage_knowledge_value",
+          "main/backend/app/successor_runtime/substrate/postgres/c8_production.py:C8ProductionRoot.read_material/stage_knowledge"
+        ],
+        "composition_root": {
+          "registered": false,
+          "note": "C8ProductionRoot 仅在测试中实例化；C8 bridge 不含 C8.1 kind"
+        },
+        "wiring_status": "UNWIRED_KNOWN_TARGET",
+        "required_wiring": [
+          "C8.1 RuntimeHandler 化",
+          "admission_not_called/export_not_executed 保持"
+        ],
+        "acceptance_evidence": {
+          "micro": ["test_p4_c8_1_typed_knowledge.py", "test_p4_c8_5_program.py"],
+          "legacy_trace_replay": ["test_p4_c8_legacy_adapters.py"],
+          "shadow_parity": ["test_p4_c8_legacy_adapters.py"],
+          "rollback": ["test_p4_c8_5_program.py"],
+          "canary": [],
+          "postgres": ["test_c8_movement_closure_postgres.py", "test_c8_research_artifact_delivery_bridge_postgres.py"]
+        },
+        "gaps": [
+          "NO_ADMISSION_OR_EXPORT authority"
+        ],
+        "fail_closed": []
+      },
+      {
+        "cell_id": "C8.2",
+        "family": "C8",
+        "phase": "P4",
+        "entrypoint_kind": "PROGRAM",
+        "capability_summary": "writing compose+stage 程序（c8.writing.compose.v1 + stage.v1，PURE_TRANSFORM）。",
+        "spec_evidence": {
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C8.2.v1.json",
+          "build_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C8.2.BuildManifest.v1.json",
+          "ledger_status": "UNADOPTED_BUILD_GREEN",
+          "candidate_created": false,
+          "handler_implementation_generated": false,
+          "rollback_implementation_generated": false,
+          "registration_is_authority_adoption": false
+        },
+        "production_components": [
+          "main/backend/app/successor_runtime/capabilities/c8_writing.py:compose_markdown_draft/validate_citation_closure",
+          "main/backend/app/successor_runtime/substrate/postgres/c8_artifact_handler.py:stage_artifact",
+          "main/backend/app/successor_runtime/substrate/postgres/c8_production.py:C8ProductionRoot.compose_and_stage_writing"
+        ],
+        "composition_root": {
+          "registered": false,
+          "note": "bridge 不含 C8.2 kinds"
+        },
+        "wiring_status": "UNWIRED_KNOWN_TARGET",
+        "required_wiring": [
+          "C8.2 RuntimeHandler 化"
+        ],
+        "acceptance_evidence": {
+          "micro": ["test_p4_c8_2_writing.py", "test_p4_c8_5_program.py"],
+          "legacy_trace_replay": ["test_p4_c8_legacy_adapters.py"],
+          "shadow_parity": ["test_p4_c8_legacy_adapters.py"],
+          "rollback": ["test_p4_c8_5_program.py"],
+          "canary": ["test_p4_c8_5_program.py"],
+          "postgres": ["test_c8_movement_closure_postgres.py"]
+        },
+        "gaps": [
+          "NO_ADMISSION_OR_EXPORT authority"
+        ],
+        "fail_closed": []
+      },
+      {
+        "cell_id": "C8.3",
+        "family": "C8",
+        "phase": "P4",
+        "entrypoint_kind": "PROGRAM",
+        "capability_summary": "report stage/admission/delivery 程序（c8.report.stage/admission/delivery.v1，ADMISSION）。",
+        "spec_evidence": {
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C8.3.v1.json",
+          "build_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C8.3.BuildManifest.v1.json",
+          "ledger_status": "UNADOPTED_BUILD_GREEN",
+          "candidate_created": false,
+          "handler_implementation_generated": false,
+          "rollback_implementation_generated": false,
+          "registration_is_authority_adoption": false
+        },
+        "production_components": [
+          "main/backend/app/successor_runtime/capabilities/c8_report.py",
+          "main/backend/app/successor_runtime/substrate/postgres/c8_artifact_handler.py:C8BridgeEffectHandler/C8BridgeEffectStore",
+          "main/backend/app/successor_runtime/substrate/postgres/c8_production.py:build_postgres_c8_delivery_assembly (5 kinds)"
+        ],
+        "composition_root": {
+          "registered": "ASSEMBLY_DEFINED_NO_APP_CALLER",
+          "note": "build_postgres_c8_delivery_assembly 存在但无 app 实例化；严格注册判定不成立"
+        },
+        "wiring_status": "ASSEMBLY_DEFINED_NO_APP_CALLER",
+        "required_wiring": [
+          "app 层调用方/挂载",
+          "admission/export authority gate 保持关闭"
+        ],
+        "acceptance_evidence": {
+          "micro": ["test_p4_c8_3_report.py", "test_p4_c8_5_program.py"],
+          "legacy_trace_replay": ["test_p4_c8_legacy_adapters.py"],
+          "shadow_parity": ["test_p4_c8_legacy_adapters.py"],
+          "rollback": ["test_p4_c8_5_program.py"],
+          "canary": [],
+          "postgres": ["test_c8_research_artifact_delivery_bridge_postgres.py", "test_c8_movement_closure_postgres.py"]
+        },
+        "gaps": [
+          "无 app 调用方",
+          "NO_ADMISSION_OR_EXPORT authority"
+        ],
+        "fail_closed": []
+      },
+      {
+        "cell_id": "C8.4",
+        "family": "C8",
+        "phase": "P4",
+        "entrypoint_kind": "PROGRAM",
+        "capability_summary": "graph projection 程序（c8.graph.project.v1，PROJECTION）。",
+        "spec_evidence": {
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C8.4.v1.json",
+          "build_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C8.4.BuildManifest.v1.json",
+          "ledger_status": "UNADOPTED_BUILD_GREEN",
+          "candidate_created": false,
+          "handler_implementation_generated": false,
+          "rollback_implementation_generated": false,
+          "registration_is_authority_adoption": false
+        },
+        "production_components": [
+          "main/backend/app/successor_runtime/capabilities/c8_graph.py:project_successor_graph",
+          "main/backend/app/successor_runtime/substrate/postgres/c8_graph_projector.py:project_graph_generation/C8_GRAPH_PROJECTOR_ID",
+          "main/backend/app/successor_runtime/substrate/postgres/c8_production.py:C8ProductionRoot.project_graph"
+        ],
+        "composition_root": {
+          "registered": false,
+          "note": "缺 RuntimeHandler/注册；只经 C8ProductionRoot 函数调用"
+        },
+        "wiring_status": "UNWIRED_KNOWN_TARGET",
+        "required_wiring": [
+          "C8.4 RuntimeHandler/注册",
+          "declared-loss projection 记账"
+        ],
+        "acceptance_evidence": {
+          "micro": ["test_p4_c8_4_graph.py", "test_p4_c8_5_program.py"],
+          "legacy_trace_replay": ["test_p4_c8_legacy_adapters.py"],
+          "shadow_parity": ["test_p4_c8_legacy_adapters.py"],
+          "rollback": ["test_p4_c8_5_program.py"],
+          "canary": [],
+          "postgres": ["test_c8_movement_closure_postgres.py"]
+        },
+        "gaps": [
+          "NO_ADMISSION_OR_EXPORT authority"
+        ],
+        "fail_closed": []
+      },
+      {
+        "cell_id": "C9.1",
+        "family": "C9",
+        "phase": "P4",
+        "entrypoint_kind": "FACADE_VALIDATION",
+        "capability_summary": "command/query envelope + status + SSE facade 校验面。",
+        "spec_evidence": {
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C9.1.v1.json",
+          "build_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C9.1.BuildManifest.v1.json",
+          "ledger_status": "UNADOPTED_BUILD_GREEN",
+          "candidate_created": false,
+          "handler_implementation_generated": false,
+          "rollback_implementation_generated": false,
+          "registration_is_authority_adoption": false
+        },
+        "production_components": [
+          "main/backend/app/successor_runtime/runtime/facade.py:SuccessorRuntimeFacade",
+          "main/backend/app/successor_runtime/runtime/facade_contracts.py",
+          "main/backend/app/successor_runtime/substrate/postgres/facade_commands.py:PostgresC9CommandRepository/PostgresC9QueryRepository",
+          "main/backend/app/api/successor_runtime.py:create_successor_runtime_router (未挂载)",
+          "main/backend/app/contracts/successor_runtime.py"
+        ],
+        "composition_root": {
+          "registered": false,
+          "note": "router 未挂入 app；facade 仅测试装配"
+        },
+        "wiring_status": "UNWIRED_KNOWN_TARGET",
+        "required_wiring": [
+          "router 挂载 (app/api/__init__.py)",
+          "facade command/query repository 接线",
+          "NO_ROUTE_OR_CONTROL_EFFECT 保持"
+        ],
+        "acceptance_evidence": {
+          "micro": ["test_p4_c9_1_facade_contracts.py", "test_p4_c9_3_transport_dto.py"],
+          "legacy_trace_replay": ["test_p4_c9_5_p1_consistency_and_public_payload.py"],
+          "shadow_parity": ["test_p4_c9_5_p1_consistency_and_public_payload.py"],
+          "rollback": ["test_p4_c9_5_p1_consistency_and_public_payload.py"],
+          "canary": [],
+          "postgres": []
+        },
+        "gaps": [
+          "NO_ROUTE_OR_CONTROL_EFFECT；validation-only"
+        ],
+        "fail_closed": []
+      },
+      {
+        "cell_id": "C9.2",
+        "family": "C9",
+        "phase": "P4",
+        "entrypoint_kind": "FACADE_VALIDATION",
+        "capability_summary": "frontend typed observation/command-submit design-only 校验面。",
+        "spec_evidence": {
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C9.2.v1.json",
+          "build_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C9.2.BuildManifest.v1.json",
+          "ledger_status": "UNADOPTED_BUILD_GREEN",
+          "candidate_created": false,
+          "handler_implementation_generated": false,
+          "rollback_implementation_generated": false,
+          "registration_is_authority_adoption": false
+        },
+        "production_components": [
+          "main/frontend-modern/src/lib/api/domains/successor-runtime.ts (design-only)",
+          "main/frontend-modern/src/components/SuccessorRuntimeStatus.tsx (design-only)",
+          "main/backend/app/contracts/successor_runtime.py"
+        ],
+        "composition_root": {
+          "registered": false,
+          "note": "frontend_bytes_written=0；spec prereq C9_FRONTEND_ZERO_BYTES_UNADOPTED"
+        },
+        "wiring_status": "SPEC_FRAGMENT_ONLY",
+        "required_wiring": [
+          "frontend typed contract 实现（当前零字节）",
+          "no provider/network effect 保持"
+        ],
+        "acceptance_evidence": {
+          "micro": ["main/frontend-modern/tests/e2e/successor-runtime-client.spec.ts"],
+          "legacy_trace_replay": [],
+          "shadow_parity": [],
+          "rollback": ["test_p4_c9_5_p1_consistency_and_public_payload.py"],
+          "canary": [],
+          "postgres": []
+        },
+        "gaps": [
+          "C9_2_FRONTEND_DESIGN_ONLY_TYPED_CONTRACT_VALIDATION",
+          "frontend 零字节未采纳"
+        ],
+        "fail_closed": []
+      },
+      {
+        "cell_id": "C9.3",
+        "family": "C9",
+        "phase": "P4",
+        "entrypoint_kind": "FACADE_VALIDATION",
+        "capability_summary": "projector registry / offset CAS / rebuild plan-only facade 校验面。",
+        "spec_evidence": {
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C9.3.v1.json",
+          "build_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C9.3.BuildManifest.v1.json",
+          "ledger_status": "UNADOPTED_BUILD_GREEN",
+          "candidate_created": false,
+          "handler_implementation_generated": false,
+          "rollback_implementation_generated": false,
+          "registration_is_authority_adoption": false
+        },
+        "production_components": [
+          "main/backend/app/successor_runtime/substrate/projections/registry.py:ProjectorRegistry",
+          "main/backend/app/successor_runtime/substrate/projections/c9_sources.py",
+          "main/backend/app/successor_runtime/substrate/postgres/c9_projection_sources.py",
+          "main/backend/app/successor_runtime/substrate/postgres/projection_offsets.py:ProjectionOffsetRepository",
+          "main/backend/scripts/c9_projection_rebuild.py"
+        ],
+        "composition_root": {
+          "registered": false,
+          "note": "ProjectorRegistry 无任何默认/生产注册；实例只在测试中出现"
+        },
+        "wiring_status": "UNWIRED_KNOWN_TARGET",
+        "required_wiring": [
+          "默认 projector 注册",
+          "offset CAS 生产接线",
+          "C9_NO_POSTGRES_WRITE_UNADOPTED 保持"
+        ],
+        "acceptance_evidence": {
+          "micro": ["test_p4_c9_2_projector_registry.py"],
+          "legacy_trace_replay": ["test_c9_legacy_named_observations.py"],
+          "shadow_parity": ["test_c9_movement_closure_backend.py"],
+          "rollback": ["test_c9_generalized_rollback_identity.py", "test_c9_movement_closure_backend_postgres.py"],
+          "canary": [],
+          "postgres": ["test_c9_projection_sources_postgres.py", "test_c9_typed_source_evolution_postgres.py", "test_c9_movement_closure_backend_postgres.py"]
+        },
+        "gaps": [
+          "validation-only、offset CAS plan-only、无 Postgres 写"
+        ],
+        "fail_closed": []
+      }
+    ],
+    "coverage_stats": {
+      "total_cells": 30,
+      "strict_direct_composition_root_registration": 0,
+      "kernel_mechanism_inferred": 2,
+      "kernel_mechanism_inferred_cells": ["C1.2", "C1.3"],
+      "assembly_defined_no_app_caller": 1,
+      "assembly_defined_no_app_caller_cells": ["C8.3"],
+      "unwired_with_modules": 26,
+      "unwired_with_modules_cells": [
+        "C1.1", "C2.1", "C2.2", "C2.3", "C2.4",
+        "C3.1", "C3.2", "C4.1", "C4.2", "C4.3",
+        "C5.1", "C5.2", "C5.3", "C5.4", "C6.1", "C6.2", "C6.3",
+        "C7.1", "C7.2", "C7.3", "C7.4", "C8.1", "C8.2", "C8.4",
+        "C9.1", "C9.3"
+      ],
+      "spec_fragment_only": 1,
+      "spec_fragment_only_cells": ["C9.2"],
+      "unresolved_wiring_cells": ["C1.2", "C1.3"],
+      "unresolved_wiring_dimensions": [
+        "LIVE_PROVIDER_DIMENSION_UNRESOLVED: C2.3/C3.1/C3.2/C6.2",
+        "ROLLBACK_BINDING_MISSING: C7.1/C7.2/C7.3/C7.4",
+        "UNKNOWN_CELL_REFERENCE: C9.API_UI_REPORT_PROJECTION"
+      ],
+      "rollback_binding_absent_cells": ["C7.1", "C7.2", "C7.3", "C7.4"]
+    }
+  },
+  "composition_root_coverage": {
+    "postgres_first_specimen_runtime": {
+      "path": "main/backend/app/successor_runtime/substrate/postgres/composition_root.py:435",
+      "instantiates": [
+        "runtime_uow_factory (node_adapter.py:929)",
+        "PostgresRuntimeNodeAdapter (node_adapter.py:429)",
+        "PostgresCapturedValueReplayAdapter (captured_values.py)",
+        "PostgresMaterialReadHandler (composition_root.py:88)",
+        "ExactInstalledHandlerResolver (composition_root.py:147)",
+        "DeploymentInstallationSnapshot/Set (deployment_backlog.py)",
+        "PostgresBacklogAwareClaimPort (deployment_backlog.py)",
+        "PostgresCancellationAuthorityGuard (composition_root.py:184)",
+        "RuntimeNode (runtime/node.py:368)"
+      ],
+      "cell_coverage": "strict: 无 C1-C9 cell 直接注册；C1.2/C1.3 为内核机制推断覆盖；其余 handler 均需调用方经 additional_handlers 注入"
+    },
+    "postgres_first_specimen_assembly": {
+      "path": "main/backend/app/successor_runtime/substrate/postgres/first_specimen_assembly.py:172",
+      "cell_coverage": "first-specimen bundle 6 ops，非 C1-C9 cell 清单；C5.2 复用的 RECONCILE 路径仅此间接关系"
+    },
+    "postgres_c8_delivery_assembly": {
+      "path": "main/backend/app/successor_runtime/substrate/postgres/c8_production.py:551",
+      "cell_coverage": "C8.3 报告链 5 kinds；无 app 调用方，严格判定为未运行接线"
+    },
+    "successor_runtime_router": {
+      "path": "main/backend/app/api/successor_runtime.py:199",
+      "cell_coverage": "C9.1 facade 路由定义存在；未 include 进 app/api/__init__.py"
+    }
+  },
+  "missing_wiring": {
+    "summary": "现有组合根只接收 additional_handlers 注入；C2-C9 各家族模块存在但未组装，C1.1 为纯 compile facade，C9.2 为 frontend design-only。",
+    "by_cell": [
+      {
+        "cells": ["C1.1"],
+        "required": ["RuntimeHandler/Program 接线", "activation catalog 条目或 slice acceptance 装配"]
+      },
+      {
+        "cells": ["C1.2", "C1.3"],
+        "required": ["显式 cell 绑定", "store-rehydrate facade/replay projection 注册"],
+        "note": "UNRESOLVED_WIRING"
+      },
+      {
+        "cells": ["C2.1"],
+        "required": ["activation catalog 条目", "handler installation (additional_handlers)", "recovery binding"]
+      },
+      {
+        "cells": ["C2.2"],
+        "required": ["planner handler installation", "recovery binding"]
+      },
+      {
+        "cells": ["C2.3"],
+        "required": ["生产 provider/readback port", "handler installation", "recovery binding"]
+      },
+      {
+        "cells": ["C2.4"],
+        "required": ["ProjectorRegistry 注册", "ProjectionOffsetRepository 驱动", "facade query"]
+      },
+      {
+        "cells": ["C3.1", "C3.2"],
+        "required": ["traversal/fold handler installation", "recovery binding"]
+      },
+      {
+        "cells": ["C4.1", "C4.2", "C4.3"],
+        "required": ["plan/retry/submission handler installation", "C4.3 readback + recovery binding"]
+      },
+      {
+        "cells": ["C5.1", "C5.3", "C5.4"],
+        "required": ["ProjectorRegistry 注册", "offset owner", "legacy replay binding"]
+      },
+      {
+        "cells": ["C5.2"],
+        "required": ["C5.2 legacy-effect reconcile handler", "readback policy 接线"]
+      },
+      {
+        "cells": ["C6.1", "C6.2", "C6.3"],
+        "required": ["episode/provider/redaction handler installation", "worker store wiring", "C6.2 生产 provider port"]
+      },
+      {
+        "cells": ["C7.1", "C7.2", "C7.3", "C7.4"],
+        "required": ["C7 assembly", "AdmissionCoordinator 注册", "projector/reconcile handler", "rollback_bindings 补齐"]
+      },
+      {
+        "cells": ["C8.1", "C8.2", "C8.4"],
+        "required": ["RuntimeHandler 化", "C8.4 projector 注册"]
+      },
+      {
+        "cells": ["C8.3"],
+        "required": ["app 层调用方/挂载"]
+      },
+      {
+        "cells": ["C9.1", "C9.3"],
+        "required": ["router 挂载", "facade repository 接线", "默认 projector 注册", "offset CAS 生产接线"]
+      },
+      {
+        "cells": ["C9.2"],
+        "required": ["frontend typed contract 实现"]
+      }
+    ]
+  },
+  "acceptance_plan": {
+    "overall": {
+      "purpose": "I1 successor assembly 验收：30 个 cell 的能力装配为可运行/可验证的 successor 组合体，保留 legacy adapter、失败、authority、recovery 与 rollback。",
+      "preconditions": [
+        "20/21 语义运动完整性门：movement inventory + successor movement matrix 为强制输入",
+        "UNASSIGNED_BLOCKER == 0（当前 P1-P3 局部 backfill 零 blocker 为 recorded 状态，但 P1 open risks 未清零）",
+        "P1 关闭项：P3_REVIEW_SURFACE_NOT_GIT_IDENTIFIED、C1_M003_TIMEOUT_FAILURE_NOT_EXERCISED、C1_SOURCE_PATH_UNDER_CURRENT_DEV_TREE",
+        "authority ceiling：local-only，不授权 live provider/external delivery/cutover/candidate"
+      ],
+      "fail_closed_rule": "任一 cell 无法从现有产物确定接线语义时，该 cell 标 UNRESOLVED_WIRING 并阻断其 assembly 验收，不得臆造接线。"
+    },
+    "micro_specimen": {
+      "purpose": "每个 cell 的 spec -> program -> plan -> assignment -> interpreter 最小可执行标本。",
+      "commands": [
+        "cd <WT>/main/backend && python3.11 -m pytest tests/successor_runtime/test_p3_c3_micro.py tests/successor_runtime/test_p2_c2_1_contracts.py -q",
+        "python3.11 -m pytest tests/successor_runtime/test_capability_spec_core.py tests/successor_runtime/test_capability_spec_route_decision.py tests/successor_runtime/test_capability_spec_runtime_kernel_abi_artifact.py -q"
+      ],
+      "test_surfaces": [
+        "现有：test_p3_c3_micro.py、test_p3_c4_1_program.py、test_p4_c7_1_program.py、test_p4_c8_5_program.py、test_p5_c1_slice_programs.py",
+        "新建边界：tests/successor_runtime/test_i1_micro_specimens.py（30 rows，每 cell 一个微标本）"
+      ],
+      "acceptance_criteria": [
+        "30/30 cell 微标本通过（非 PG）",
+        "CapabilityCellSpec.from_dict PASS + generate_capability_spec_pilots.py --check MATCH exit 0",
+        "spec/build 绑定 SHA 与磁盘一致",
+        "每个 cell 至少一条 failure/reverse-return trace（20/21 gate2 要求）"
+      ]
+    },
+    "legacy_trace_replay": {
+      "purpose": "legacy 可复现 trace 经 adapter 重放到 successor 路径，证明 legacy 行为可重放且 successor 不重复执行。",
+      "commands": [
+        "python3.11 -m pytest tests/successor_runtime/test_p2_c2_1_parity.py tests/successor_runtime/test_p3_c3_replay_shadow.py tests/successor_runtime/test_p5_c1_legacy_oracle.py -q",
+        "python3.11 -m pytest tests/successor_runtime/test_c7_movement_decision_parity.py tests/successor_runtime/test_c9_legacy_named_observations.py -q"
+      ],
+      "test_surfaces": [
+        "现有：test_p2_c2_1_parity.py、test_p3_c2_2_parity.py、test_p3_c2_3_parity.py、test_p3_c3_replay_shadow.py、test_p3_c6_legacy_shadow.py、test_p4_c8_legacy_adapters.py、test_p5_c1_legacy_dsl_parity.py、test_p4_c7_legacy_writer_spy.py",
+        "新建边界：tests/successor_runtime/test_i1_legacy_trace_replay.py（legacy trace fixtures -> successor replay）"
+      ],
+      "acceptance_criteria": [
+        "同一 legacy trace 重放结果确定性一致",
+        "重放期间 zero successor double effect",
+        "C7 legacy writer 保持 zero（适配边界证据）",
+        "每条 trace 带 source_evidence 与 target_acceptance_trace（20/21 movement record 必填字段）"
+      ]
+    },
+    "shadow_parity": {
+      "purpose": "legacy 与 successor 同输入 shadow 执行并比较 named observation / failure union / declared loss。",
+      "commands": [
+        "python3.11 -m pytest tests/successor_runtime/test_p3_c3_replay_shadow.py tests/successor_runtime/test_p3_c6_legacy_shadow.py tests/successor_runtime/test_p3_c4_1_parity.py -q",
+        "python3.11 -m pytest tests/successor_runtime/test_c7_movement_decision_parity.py tests/successor_runtime/test_c8_movement_closure_pure.py tests/successor_runtime/test_c9_movement_closure_backend.py -q"
+      ],
+      "test_surfaces": [
+        "现有：各 family parity/shadow 测试（见 commands）",
+        "新建边界：tests/successor_runtime/test_i1_shadow_parity_matrix.py（A/B/C vertical slices + 30-cell 全矩阵）"
+      ],
+      "acceptance_criteria": [
+        "named observational compatibility 全 cell 通过",
+        "failure union parity 一致",
+        "declared lossy projection 逐项记账（C7.3/C8.x/C9.x 声明项）",
+        "shadow 执行零 double effect",
+        "vertical slice gate policy 要求：focused_tests + legacy_shadow_gate + disposable PostgreSQL gate + rollback_gate + assembly_fixture + rollback_receipt + authority_ceiling + candidate_ready_binding"
+      ]
+    },
+    "rollback_rehearsal": {
+      "purpose": "rollback 预演：authority epoch 改变、journal 保留、legacy 可回选、不产生 dual claim。",
+      "commands": [
+        "python3.11 -m pytest tests/successor_runtime/test_p3_c3_rollback.py tests/successor_runtime/test_p3_c4_5_runtime_postgres.py -q",
+        "SUCCESSOR_TEST_DATABASE_URL=... python3.11 -m pytest tests/successor_runtime/test_p2_c2_1_canary_postgres.py -q",
+        "python3.11 -m pytest tests/successor_runtime/test_c9_generalized_rollback_identity.py tests/successor_runtime/test_p0d_cw12_rolling_deploy.py -q"
+      ],
+      "test_surfaces": [
+        "现有：test_p2_c2_1_canary_postgres.py、test_p3_c3_rollback.py、test_p3_c4_5_runtime_postgres.py、test_p3_c6_runtime_canary_postgres.py、test_p4_c8_5_program.py、test_c9_generalized_rollback_identity.py、test_c9_movement_closure_backend_postgres.py、test_p0d_cw12_rolling_deploy.py",
+        "新建边界：tests/successor_runtime/test_i1_rollback_rehearsal.py（per-family rollback receipt + authority epoch 断言）"
+      ],
+      "acceptance_criteria": [
+        "rollback 后 journal 事实可读可重放",
+        "未来 owner epoch 改变、stale authority fail-closed",
+        "legacy 保持可选，无 dual claim/duplicate effect",
+        "C7.1-C7.4 rollback rehearsal 阻断，直至 rollback_bindings 补齐并过 generator --check"
+      ]
+    },
+    "canary": {
+      "purpose": "每家族/每 cell 的 canary：successor 仅在 parity 闭合后选中，legacy 为默认，fail 自动回退。",
+      "commands": [
+        "SUCCESSOR_TEST_DATABASE_URL=... python3.11 -m pytest tests/successor_runtime/test_p2_c2_1_canary_postgres.py tests/successor_runtime/test_p3_c2_23_runtime_canary_postgres.py -q",
+        "python3.11 -m pytest tests/successor_runtime/test_p3_c3_canary_postgres.py tests/successor_runtime/test_p3_c4_canary.py -q",
+        "SUCCESSOR_TEST_DATABASE_URL=... python3.11 -m pytest tests/successor_runtime/test_p3_c6_runtime_canary_postgres.py -q",
+        "python3.11 -m pytest tests/successor_runtime/test_p5_c1_slice_acceptance_postgres.py -q"
+      ],
+      "test_surfaces": [
+        "现有：C2.1/C2.2-2.4/C3/C4/C6 有 canary；C1 用 slice acceptance；C5/C8/C9 缺 canary",
+        "新建边界：tests/successor_runtime/test_i1_canary_assembly.py（C5/C8/C9 家族 canary + 30-cell 装配断言）"
+      ],
+      "acceptance_criteria": [
+        "每个可 canary 的 cell 至少一条 canary 证据",
+        "canary 选中 successor 前必须通过 shadow parity",
+        "legacy 默认、回退后无 duplicate effect",
+        "authority ceiling local-only；PG teardown residue 0"
+      ]
+    }
+  },
+  "work_packages": [
+    {
+      "id": "WP-I1-01",
+      "name": "I1 micro-specimen 验收套件",
+      "kind": "evidence_only",
+      "parallel_group": "A",
+      "depends_on": [],
+      "goal": "建立 30-cell micro specimen 验收面，固化 spec/build 绑定校验。",
+      "inputs": [
+        "evidence/capability-specs/*.v1.json",
+        "evidence/capability-spec-builds/*.v1.json",
+        "既有 micro/contract 测试"
+      ],
+      "outputs": [
+        "main/backend/tests/successor_runtime/test_i1_micro_specimens.py (new)",
+        "evidence/i1-successor-assembly/ 下 micro 证据 JSON"
+      ],
+      "allowed_writes": [
+        "main/backend/tests/successor_runtime/test_i1_micro_specimens.py",
+        "evidence/i1-successor-assembly/"
+      ],
+      "acceptance": [
+        "30/30 micro rows 非 PG 通过",
+        "CapabilityCellSpec.from_dict + manifest --check MATCH exit 0",
+        "生产代码零改动"
+      ],
+      "conflicts": [],
+      "authority_ceiling": "LOCAL_ONLY"
+    },
+    {
+      "id": "WP-I1-02",
+      "name": "家族 assembly builder（C2/C3/C4/C5/C6/C7/C8/C9 八条并行 lane）",
+      "kind": "production",
+      "parallel_group": "B",
+      "depends_on": ["WP-I1-01 (契约固定后流水线并行)"],
+      "goal": "每家族新增 build_*_assembly 函数，把已有 handler/store/projection/canary 包装成组合根可注入的装配件。",
+      "inputs": [
+        "每家族 capability spec/build 的绑定",
+        "既有 substrate/postgres 与 capabilities 模块"
+      ],
+      "outputs": [
+        "main/backend/app/successor_runtime/substrate/postgres/successor_c2_assembly.py ... successor_c9_assembly.py (new)",
+        "每 lane 的 focused 测试 test_i1_c2_assembly.py ... test_i1_c9_assembly.py (new)"
+      ],
+      "allowed_writes": [
+        "上述 new 模块与其测试文件；禁止修改 composition_root.py、substrate/postgres/__init__.py、app/api/__init__.py"
+      ],
+      "acceptance": [
+        "每 lane focused pytest 通过",
+        "dependency lint 0 violations",
+        "不扩大语义、不改 frozen semantics、不决定 promotion"
+      ],
+      "conflicts": [
+        "composition_root.py / substrate/postgres/__init__.py 保留给 WP-I1-03 串行整合",
+        "各 lane 测试文件名唯一"
+      ],
+      "authority_ceiling": "LOCAL_OFFLINE_RUNTIME_NODE_ONLY"
+    },
+    {
+      "id": "WP-I1-03",
+      "name": "successor assembly 串行整合",
+      "kind": "production",
+      "parallel_group": "C (serial)",
+      "depends_on": ["WP-I1-02 全部 lane"],
+      "goal": "在组合根上新增 assemble_successor_runtime，注册全部家族装配件与 handler binding，缺失 cell fail-closed。",
+      "inputs": [
+        "WP-I1-02 输出的各家族 assembly builder",
+        "composition_root.py 现有端口图"
+      ],
+      "outputs": [
+        "composition_root.py 或新增 successor_assembly.py 的整合函数",
+        "tests/successor_runtime/test_i1_assembly_composition_root.py (new)"
+      ],
+      "allowed_writes": [
+        "composition_root.py（或 successor_assembly.py）、该测试文件、evidence/i1-successor-assembly/"
+      ],
+      "acceptance": [
+        "30 个 cell handler binding 全部可安装；未安装 cell 断言 fail-closed",
+        "full chain smoke（non-PG + 可弃 PG）通过",
+        "不挂载 app 路由、不启动 run_once（另设权限里程碑）"
+      ],
+      "conflicts": [
+        "唯一触碰 composition_root.py 的工作包；其他 lane 不得并行修改"
+      ],
+      "authority_ceiling": "LOCAL_ONLY"
+    },
+    {
+      "id": "WP-I1-04",
+      "name": "legacy trace replay + shadow parity 全矩阵",
+      "kind": "evidence_only",
+      "parallel_group": "A",
+      "depends_on": [],
+      "goal": "把 30-cell legacy trace 与 shadow parity 收敛为 assembly 级矩阵。",
+      "inputs": [
+        "spec 内 legacy/shadow oracle 绑定",
+        "既有 family parity 测试"
+      ],
+      "outputs": [
+        "evidence/i1-successor-assembly/ 下 replay/parity 矩阵 JSON",
+        "tests/successor_runtime/test_i1_legacy_trace_replay.py、test_i1_shadow_parity_matrix.py (new)"
+      ],
+      "allowed_writes": [
+        "上述新测试文件与 evidence/i1-successor-assembly/"
+      ],
+      "acceptance": [
+        "矩阵行全部可执行（无未执行行）",
+        "确定性重放、zero double effect",
+        "declared loss 逐项记账",
+        "UNASSIGNED_BLOCKER 计数随每 cell 报告"
+      ],
+      "conflicts": [],
+      "authority_ceiling": "LOCAL_ONLY"
+    },
+    {
+      "id": "WP-I1-05",
+      "name": "rollback rehearsal harness + C7 rollback binding 闭合",
+      "kind": "evidence_only",
+      "parallel_group": "C (serial)",
+      "depends_on": ["WP-I1-03"],
+      "goal": "per-family rollback 排练并补齐 C7 缺失的 rollback_bindings。",
+      "inputs": [
+        "各 cell spec 的 rollback bindings（C7 为空）",
+        "既有 rollback 测试"
+      ],
+      "outputs": [
+        "evidence/i1-successor-assembly/ 下 rollback receipts",
+        "generate_capability_spec_pilots.py 重新生成的 C7 spec/build（补齐 rollback_bindings）",
+        "tests/successor_runtime/test_i1_rollback_rehearsal.py (new)"
+      ],
+      "allowed_writes": [
+        "evidence/capability-specs/、evidence/capability-spec-builds/（仅经生成器，禁止手改）、evidence/i1-successor-assembly/、该测试文件"
+      ],
+      "acceptance": [
+        "rollback receipt 覆盖已可 rollback 的 cell",
+        "C7.1-C7.4 rollback_bindings 非空且 generator --check MATCH exit 0",
+        "authority ceiling 与 candidate 保持不变"
+      ],
+      "conflicts": [
+        "C7 spec/build 字节与 WP-I1-04 并行读取冲突（串行执行）"
+      ],
+      "authority_ceiling": "LOCAL_ONLY"
+    },
+    {
+      "id": "WP-I1-06",
+      "name": "app 入口挂载（router + run_once）",
+      "kind": "production",
+      "parallel_group": "D (blocked)",
+      "depends_on": ["WP-I1-03"],
+      "goal": "把 successor router 挂入 app 并启动离线/本地 run_once；live 运行另立里程碑。",
+      "inputs": [
+        "WP-I1-03 整合后的 assembly",
+        "app/api/successor_runtime.py router"
+      ],
+      "outputs": [
+        "app/api/__init__.py include 修改（如授权）",
+        "入口/worker 脚本"
+      ],
+      "allowed_writes": [
+        "app/api/__init__.py、新入口脚本"
+      ],
+      "acceptance": [
+        "路由挂载后 facade 只暴露已授权命令/查询",
+        "run_once 不调用 live provider、不做 canonical write"
+      ],
+      "conflicts": [
+        "app/api/__init__.py 全仓库唯一入口文件，串行且需 authority"
+      ],
+      "authority_ceiling": "NOT_AUTHORIZED_AS_LIVE; 需独立 authority 里程碑"
+    }
+  ],
+  "fail_closed": [
+    {
+      "id": "FC-01",
+      "severity": "GATE",
+      "message": "I1 在 03/04 与 SUPERVISOR_REVIEW_REQUEST 中均记录 NOT_STARTED；本证据为设计证据，不构成 promotion/candidate/live/权威完成证据。"
+    },
+    {
+      "id": "FC-02",
+      "severity": "UNRESOLVED_WIRING",
+      "cells": ["C1.2", "C1.3"],
+      "message": "C1.2/C1.3 的 cell 接线语义无法从现有产物确定（仅内核机制推断），未臆造接线。"
+    },
+    {
+      "id": "FC-03",
+      "severity": "UNKNOWN_REFERENCE",
+      "message": "vertical slice C 中的 C9.API_UI_REPORT_PROJECTION 不在 13/04 的 30-cell 正式清单中，无法映射到正式 cell。"
+    },
+    {
+      "id": "FC-04",
+      "severity": "ROLLBACK_GAP",
+      "cells": ["C7.1", "C7.2", "C7.3", "C7.4"],
+      "message": "C7 四 cell 的 rollback_bindings 均为空；rollback rehearsal 与 assembly rollback 验收在补齐前阻断。"
+    },
+    {
+      "id": "FC-05",
+      "severity": "LIVE_PROVIDER_UNRESOLVED",
+      "cells": ["C2.3", "C3.1", "C3.2", "C6.2"],
+      "message": "live provider authority 未冻结；fixture 端口路径不构成生产 provider wiring。"
+    },
+    {
+      "id": "FC-06",
+      "severity": "GATE",
+      "message": "P1 open risks（P3_REVIEW_SURFACE_NOT_GIT_IDENTIFIED、C1_M003_TIMEOUT_FAILURE_NOT_EXERCISED、C1_SOURCE_PATH_UNDER_CURRENT_DEV_TREE）未清零前，I1 执行不应开始。"
+    },
+    {
+      "id": "FC-07",
+      "severity": "EVIDENCE_BOUNDARY",
+      "message": "PG 测试动态 skip；非 PG 绿套件不证明 PG 覆盖；C7 当前 exact-bundle 测试计数与 superseded historical 计数分离。"
+    },
+    {
+      "id": "FC-08",
+      "severity": "ASSEMBLY_CALLER_GAP",
+      "message": "PostgresFirstSpecimenAssembly 与 C8PostgresDeliveryAssembly 均无 app 层调用方；组合根覆盖只到 factory 层，不能表述为运行中。"
+    }
+  ]
+}

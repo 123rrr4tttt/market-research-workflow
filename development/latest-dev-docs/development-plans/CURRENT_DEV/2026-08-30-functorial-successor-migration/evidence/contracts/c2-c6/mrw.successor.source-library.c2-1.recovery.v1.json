@@ -1,0 +1,38 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "mrw.successor.source-library.c2-1.recovery.v1",
+  "ref_kind": "recovery_policy",
+  "cell_id": "C2.1",
+  "family_id": "C2",
+  "movement_ids": [
+    "C2-M001",
+    "C2-M002"
+  ],
+  "semantics": {
+    "movement_rows": {
+      "C2-M001": {
+        "recovery": "Deterministic replay; corrected exact input may be retried without downstream effect replay"
+      },
+      "C2-M002": {
+        "recovery": "Caller may correct input; rollback selects legacy only for future execution"
+      }
+    }
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C2.v1.json",
+      "pointer": "#/movements/C2-M001/recovery",
+      "sha256": "a6608ce0645c3d240c31ab1225ed31559655f2594ccb848f8178a1172e9ad110"
+    },
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C2.v1.json",
+      "pointer": "#/movements/C2-M002/recovery",
+      "sha256": "a6608ce0645c3d240c31ab1225ed31559655f2594ccb848f8178a1172e9ad110"
+    }
+  ],
+  "derivation_note": "recovery semantics copied verbatim from movement rows C2-M001/C2-M002.",
+  "content_digest": "fedd27b3291f120a8504b1fa752946f2c8788a3b7216c0a17ca7d9075d6bccea"
+}

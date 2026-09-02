@@ -1,0 +1,79 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "mrw.successor.source-library.c2-1.program-shape.v1",
+  "ref_kind": "program_shape",
+  "cell_id": "C2.1",
+  "family_id": "C2",
+  "movement_ids": [
+    "C2-M001",
+    "C2-M002"
+  ],
+  "semantics": {
+    "movement_rows": {
+      "C2-M001": {
+        "effect": "Pure deterministic normalization with zero provider and credential effects",
+        "recovery": "Deterministic replay; corrected exact input may be retried without downstream effect replay",
+        "resource": "CPU-light with frozen payload, URL, site, term and scalar ceilings",
+        "named_transform": "legacy normalization helpers and sibling adapter project source input into canonical typed resolution",
+        "target_object": "Typed SourceResolutionPayload.v1 and canonical resolved request",
+        "projection_loss": "Explicit zero loss suggested for the reviewed local typed projection"
+      },
+      "C2-M002": {
+        "effect": "Pure decision with zero provider calls",
+        "recovery": "Caller may correct input; rollback selects legacy only for future execution",
+        "resource": "Bounded scalar and collection inspection under the C2.1 resource ceiling",
+        "named_transform": "apply frozen ordered mode precedence and explicit internal-only generic-web rejection",
+        "target_object": "Typed SourceMode decision or RejectedResolution",
+        "projection_loss": "Explicit zero loss suggested for reviewed precedence and rejection behavior"
+      }
+    },
+    "code_contract": {
+      "SOURCE_LIBRARY_C2_1_KIND": "source_library.resolve_execution_request.v1",
+      "SOURCE_LIBRARY_C2_1_OWNER": "source_library.c2_1.v1",
+      "SOURCE_LIBRARY_C2_1_PAYLOAD_SCHEMA": "mrw.successor.source-library.c2-1.payload.v1",
+      "SOURCE_RESOLUTION_OBSERVATION_PROFILE": "mrw.successor.source-library.c2-1.observation.v1",
+      "RESOURCE_CEILING_SCHEMA_REF": "mrw.successor.source-library.c2-1.resource-ceiling.v1"
+    }
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C2.v1.json",
+      "pointer": "#/movements/C2-M001",
+      "sha256": "a6608ce0645c3d240c31ab1225ed31559655f2594ccb848f8178a1172e9ad110"
+    },
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C2.v1.json",
+      "pointer": "#/movements/C2-M002",
+      "sha256": "a6608ce0645c3d240c31ab1225ed31559655f2594ccb848f8178a1172e9ad110"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/capabilities/source_library_c2_1.py",
+      "pointer": "SOURCE_LIBRARY_C2_1_KIND",
+      "sha256": "e6b3fc246c39013597a8b68d116a5725548178ac70910d141b1b2769af0358c6"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/capabilities/source_library_c2_1.py",
+      "pointer": "SOURCE_LIBRARY_C2_1_OWNER",
+      "sha256": "e6b3fc246c39013597a8b68d116a5725548178ac70910d141b1b2769af0358c6"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/capabilities/source_library_c2_1.py",
+      "pointer": "SOURCE_LIBRARY_C2_1_PAYLOAD_SCHEMA",
+      "sha256": "e6b3fc246c39013597a8b68d116a5725548178ac70910d141b1b2769af0358c6"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/capabilities/source_library_c2_1.py",
+      "pointer": "SOURCE_RESOLUTION_OBSERVATION_PROFILE",
+      "sha256": "e6b3fc246c39013597a8b68d116a5725548178ac70910d141b1b2769af0358c6"
+    }
+  ],
+  "derivation_note": "program shape derived from C2-M001/C2-M002 named_transform/target_object and C2.1 code identity constants; no new semantics.",
+  "content_digest": "52a12a15f1aeb2fb5ab40db4ddcd3433ea606f940a262e637f1fb80280c7a602"
+}

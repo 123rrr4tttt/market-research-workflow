@@ -1,0 +1,90 @@
+{
+  "schema": "mrw.functorial_successor.i1_test_evidence.v1",
+  "version": "1.0.0",
+  "generated_at": "2026-09-02",
+  "cwd": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0/main/backend",
+  "interpreter": "python3.11",
+  "runs": [
+    {
+      "label": "I1 projector registry closed-config smoke",
+      "command": "python3.11 -c \"assemble_successor_runtime(options=build_local_offline_fixture_options()); assert 6 registered projector contracts\"",
+      "exit_code": 0,
+      "result": "closed config: 28 INSTALLED; ProjectorRegistry revision=0, 6 unique projector keys, registry_digest=9dfc73a3b1bbbc46fb98773197146fa3ab5d32a97a54443505aef215524e19b9",
+      "notes": "REGISTRY_REGISTRATION_ONLY_NO_PG_WRITE_AUTHORITY_CLOSED: in-memory assembly registration only; no PostgreSQL write adopted"
+    },
+    {
+      "label": "I1 focused suite",
+      "command": "python3.11 -m pytest tests/successor_runtime -q -k i1",
+      "exit_code": 0,
+      "result": "50 passed, 1437 deselected, 0 failed, 3 pydantic deprecation warnings",
+      "notes": "previous recorded count 42 passed; +8 I1 tests after C1.1 route and six projector registrations"
+    },
+    {
+      "label": "full non-PostgreSQL tests/successor_runtime",
+      "command": "python3.11 -m pytest tests/successor_runtime -q",
+      "exit_code": 0,
+      "result": "1370 passed, 117 skipped, 0 failed, 3 pydantic deprecation warnings",
+      "notes": "previous recorded count 1362 passed; +8 I1 tests"
+    },
+    {
+      "label": "successor runtime dependency lint",
+      "command": "python3.11 scripts/check_successor_runtime_dependencies.py",
+      "exit_code": 0,
+      "result": "ok=true, files_checked=206, function_local_imports_scanned=43, violations=0"
+    },
+    {
+      "label": "ruff check",
+      "command": "ruff check app/successor_runtime/assembly tests/successor_runtime/test_i1_*.py",
+      "exit_code": 0,
+      "result": "All checks passed (8 import-order fixes applied then rechecked)"
+    },
+    {
+      "label": "ruff format",
+      "command": "ruff format app/successor_runtime/assembly tests/successor_runtime/test_i1_*.py",
+      "exit_code": 0,
+      "result": "7 files reformatted, 13 already formatted; I1 suite re-run green after format"
+    },
+    {
+      "label": "git diff whitespace check",
+      "command": "git diff --check",
+      "exit_code": 0,
+      "result": "PASS"
+    },
+    {
+      "label": "PG canary C1 (kernel-installed family)",
+      "command": "SUCCESSOR_TEST_DATABASE_URL=postgresql+psycopg2://localhost/postgres python3.11 -m pytest -q -p no:cacheprovider tests/successor_runtime/test_p5_c1_slice_acceptance_postgres.py",
+      "exit_code": 0,
+      "result": "9 passed; disposable database dropped on teardown"
+    },
+    {
+      "label": "PG canary C2.1 (INSTALLED family)",
+      "command": "SUCCESSOR_TEST_DATABASE_URL=postgresql+psycopg2://localhost/mrw_i1_c2_canary_test python3.11 -m pytest -q -p no:cacheprovider tests/successor_runtime/test_p2_c2_1_canary_postgres.py",
+      "exit_code": 0,
+      "result": "16 passed; dedicated database dropped after run"
+    },
+    {
+      "label": "PG canary C2.2-C2.4 (INSTALLED family)",
+      "command": "SUCCESSOR_TEST_DATABASE_URL=postgresql+psycopg2://localhost/postgres python3.11 -m pytest -q -p no:cacheprovider tests/successor_runtime/test_p3_c2_23_runtime_canary_postgres.py",
+      "exit_code": 0,
+      "result": "1 passed; disposable database dropped on teardown"
+    },
+    {
+      "label": "PG canary C4.3 (INSTALLED family)",
+      "command": "SUCCESSOR_TEST_DATABASE_URL=postgresql+psycopg2://localhost/postgres python3.11 -m pytest -q -p no:cacheprovider tests/successor_runtime/test_p3_c4_4_postgres.py tests/successor_runtime/test_p3_c4_5_runtime_postgres.py",
+      "exit_code": 0,
+      "result": "3 passed + 3 passed; disposable databases dropped on teardown"
+    }
+  ],
+  "not_run": [
+    "SUCCESSOR_TEST_DATABASE_URL full PostgreSQL opt-in suites beyond the installed-family canaries: not executed; non-PG green does not prove PG coverage",
+    "WP-I1-06 app router mounting / run_once: NOT_AUTHORIZED"
+  ],
+  "authority_ceiling": {
+    "canonical_write": false,
+    "live_provider": false,
+    "external_delivery": false,
+    "cutover": false,
+    "authority_transfer": false,
+    "candidate_created": false
+  }
+}

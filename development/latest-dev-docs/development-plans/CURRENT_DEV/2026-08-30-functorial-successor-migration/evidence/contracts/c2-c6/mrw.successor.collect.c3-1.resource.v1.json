@@ -1,0 +1,65 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "mrw.successor.collect.c3-1.resource.v1",
+  "ref_kind": "resource_policy",
+  "cell_id": "C3.1",
+  "family_id": "C3",
+  "movement_ids": [
+    "C3-M001",
+    "C3-M002"
+  ],
+  "semantics": {
+    "movement_resource_m001": "Parallelism, backpressure, outcome count and payload byte ceilings are explicit",
+    "movement_resource_m002": "Parallelism clamp, backpressure and payload ceilings are enforced",
+    "collect_resource_policy_schema_ref": "mrw.successor.collect.c3.resource-policy.v1",
+    "policy_digest_binding": "CollectResourcePolicy.policy_digest is computed per instance in collect_c3.py; no module-level policy_digest constant exists, so this independent contract ref binds the frozen schema_ref and deadline_policy_ref as the concrete resource_policy_ref required by contract 7.4",
+    "code_resource_profile": {
+      "resource_profile_id": "collect.execute_batch_element.v1.resource",
+      "resource_profile_version": "1.0.0",
+      "resource_classes": [
+        "cpu",
+        "network"
+      ],
+      "concurrency_key": "project:provider",
+      "budget_units": "element",
+      "default_soft_limit_seconds": 120,
+      "default_hard_limit_seconds": 300,
+      "node_profile_selector": "any",
+      "budget_ref": "mrw.functorial-successor.budget.collect-c3.v1",
+      "deadline_policy_ref": "mrw.functorial-successor.deadline.collect-c3.v1",
+      "node_profile_requirements": [
+        "any"
+      ],
+      "units": 1
+    }
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C3.v1.json",
+      "pointer": "/movements/0/resource",
+      "sha256": "20fd31deb9357aa5e50541b3d60d3c819e7bf90b103d0d3ec36e4713a3d17b72"
+    },
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C3.v1.json",
+      "pointer": "/movements/1/resource",
+      "sha256": "20fd31deb9357aa5e50541b3d60d3c819e7bf90b103d0d3ec36e4713a3d17b72"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/capabilities/collect_c3.py",
+      "pointer": "COLLECT_RESOURCE_POLICY_SCHEMA_REF (line 172)",
+      "sha256": "3d02a978725278ace760d5af0bc9ade34072cbe0098c201402214afd3c7ed56f"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/capabilities/collect_c3.py",
+      "pointer": "_resource_profile/deadline_policy_ref (line 2488)",
+      "sha256": "3d02a978725278ace760d5af0bc9ade34072cbe0098c201402214afd3c7ed56f"
+    }
+  ],
+  "derivation_note": "resource_policy derived from C3-M001/C3-M002 movement resource rows and collect_c3.py _resource_profile literal values; binds COLLECT_RESOURCE_POLICY_SCHEMA_REF and deadline_policy_ref as the C3.1 independent resource constant required by contract 7.4; no new semantics added",
+  "content_digest": "a4c22d791e5972b282bcde32975c3be6d80895bba9ab8e3ea3093998bcafe8a3"
+}

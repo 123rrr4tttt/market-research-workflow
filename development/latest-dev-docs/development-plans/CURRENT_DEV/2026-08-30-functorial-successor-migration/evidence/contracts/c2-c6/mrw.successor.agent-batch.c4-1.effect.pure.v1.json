@@ -1,0 +1,57 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "mrw.successor.agent-batch.c4-1.effect.pure.v1",
+  "ref_kind": "effect_policy",
+  "cell_id": "C4.1",
+  "family_id": "C4",
+  "movement_ids": [
+    "C4-M001",
+    "C4-M002"
+  ],
+  "semantics": {
+    "movement_effect_m001": "Pure plan construction from exact supplied snapshot",
+    "movement_effect_m002": "Pure branch and traversal planning",
+    "code_effect_profile": {
+      "effect_profile_id": "agent_batch.c4.plan.effect",
+      "effect_profile_version": "1.0.0",
+      "execution_class": "PURE_TRANSFORM",
+      "external_visibility": "NONE",
+      "network_required": false,
+      "irreversible": false,
+      "cancellation_points": [],
+      "internal_export_only": false,
+      "human_approval_required": false,
+      "external_acquisition": false,
+      "idempotency_profile_ref": "mrw.successor.agent-batch.c4.idempotency.v1"
+    }
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C4.v1.json",
+      "pointer": "#/movements/C4-M001/effect",
+      "sha256": "e54d9c412f33293b471bbc625533da20b0998c62659189fcdde09abb1ea9e59d"
+    },
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C4.v1.json",
+      "pointer": "#/movements/C4-M002/effect",
+      "sha256": "e54d9c412f33293b471bbc625533da20b0998c62659189fcdde09abb1ea9e59d"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/capabilities/agent_batch_c4.py",
+      "pointer": "_effect_profile/execution_class",
+      "sha256": "3e8906729700409953f665201b171b55a87e6d0001d2d27c24df5afc9eaafcf5"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/capabilities/agent_batch_c4.py",
+      "pointer": "_effect_profile/network_required",
+      "sha256": "3e8906729700409953f665201b171b55a87e6d0001d2d27c24df5afc9eaafcf5"
+    }
+  ],
+  "derivation_note": "movement effects copied verbatim from C4-M001/C4-M002; code_effect_profile copied from _effect_profile literal values in agent_batch_c4.py",
+  "content_digest": "b2da05ffa7c637dee987cded58b97474260738120984e614e7c892c81d8a44dc"
+}

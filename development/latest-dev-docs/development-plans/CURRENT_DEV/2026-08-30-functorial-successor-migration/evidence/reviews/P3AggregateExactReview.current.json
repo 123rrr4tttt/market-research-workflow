@@ -1,0 +1,456 @@
+{
+  "artifact_bindings": [
+    {
+      "bytes": 94852,
+      "content_digest": "83e56d32cf6d025fdbfc84c0132755f4b5fc859134bb51f1a70f2fd52953faf8",
+      "declared_status": "REVIEW_COMPLETE_DECISION_PENDING_NOT_PROMOTED",
+      "file_sha256": "a80c4f2af17f80b7ebf0399ddcbcb80a64a99a09f26b15512d46c585cfec3609",
+      "lines": 2146,
+      "note": "file SHA-256 and content_digest both verified by recomputation",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/P3CapabilityMigration.v1.json",
+      "resolved": true,
+      "role": "p3_aggregate"
+    },
+    {
+      "canonical_content_digest": "431488dab5f24066dd52895d338c70e9222f449761f0e70d2f47fdf24b9782ba",
+      "file_sha256": "2a96bb63d0e3b548173558959da9fc4421024f300d9c39daf6dda5f7b79e53d2",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/p1-p3-semantic-movement-spec.v1.json",
+      "resolved": true,
+      "role": "semantic_movement_spec"
+    },
+    {
+      "content_digest": "4a328bf2f5d7d29959c10240dacb3e7201143f37f3c0b693ecaec1c9ebf4b5ef",
+      "file_sha256": "31e59601a7fef35afc5cf2a3e784fc1692d40ad3a53b816e3439eeb4f27990cc",
+      "note": "content_digest recomputed with P1P3 generator convention (compact, sort_keys, ensure_ascii=False, trailing newline)",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/P1P3LegacyDonorSemanticMovementInventory.v1.json",
+      "resolved": true,
+      "role": "semantic_movement_inventory"
+    },
+    {
+      "content_digest": "13b04acf95f37470389b815360dfe5b2e5097e80be2a7a6cf058335f741d85f7",
+      "file_sha256": "9dc614c73f6ce48202f7087a8971e812c5eae44844e9453267e6550bb0f8712e",
+      "note": "content_digest recomputed with P1P3 generator convention",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/P1P3SuccessorMovementMatrix.v1.json",
+      "resolved": true,
+      "role": "semantic_movement_matrix"
+    },
+    {
+      "content_digest": "97439a8b3b85158fd797e8a998e1fe7719f8b26fb399234acf691652c23a08bd",
+      "file_sha256": "f70e1fbebf31bd44cef85a2517d69ceb816b6ac1d6892a2b3ffe40c937ad5913",
+      "note": "content_digest recomputed with P1P3 generator convention",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/P1P3SemanticMovementGate.v1.json",
+      "resolved": true,
+      "role": "semantic_movement_gate"
+    },
+    {
+      "file_sha256": "433bc8178f2615bbfc0f72308606a61c8541c4c436ed6173f6648d55a22e065e",
+      "open_p0": 0,
+      "open_p1": 0,
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p5-c1-slices/reviews/C1DeclaredScopeCorrectnessReview.v1.json",
+      "resolved": true,
+      "role": "family_review_c1_declared",
+      "verdict": "PASS_DECLARED_SCOPE"
+    },
+    {
+      "file_sha256": "88c756d66a064e8b529a25971d600552382f6d24af269780b4460857c9b148f4",
+      "open_p0": 0,
+      "open_p1": 2,
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p5-c1-slices/reviews/C1PredecessorCompletenessReview.v1.json",
+      "resolved": true,
+      "role": "family_review_c1_predecessor",
+      "verdict": "PASS_CURRENT_EXACT_PREDECESSOR_COMPLETENESS"
+    },
+    {
+      "file_sha256": "9b03fdabdd7f957f6a9f61f37386ea00f39e2cc3f8ab78f5538814171f4d55bb",
+      "open_p0": 0,
+      "open_p1": 1,
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movements/reviews/C8DeclaredScopeCorrectnessReview.v1.json",
+      "resolved": true,
+      "role": "family_review_c8_declared",
+      "verdict": "PASS_DECLARED_SCOPE"
+    },
+    {
+      "file_sha256": "03c9cd2fa4bd3095b58bac1a8c48f6766204fac436b8263fa4241d0f27afe0ef",
+      "open_p0": 0,
+      "open_p1": 0,
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movements/reviews/C8PredecessorCompletenessReview.v1.json",
+      "resolved": true,
+      "role": "family_review_c8_predecessor",
+      "verdict": "PASS_PREDECESSOR_COMPLETENESS"
+    },
+    {
+      "file_sha256": "19dd23a96cce38d18aa4a69c6df1866265f0bf085439b7394f5b4fa369ab9f4a",
+      "open_p0": 0,
+      "open_p1": 1,
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movements/reviews/C9DeclaredScopeCorrectnessReview.v1.json",
+      "resolved": true,
+      "role": "family_review_c9_declared",
+      "verdict": "PASS_DECLARED_SCOPE"
+    },
+    {
+      "file_sha256": "48c7afc679a5a30bc8bf3102ee6c13efcf257f6223750c76e8365ed546517325",
+      "open_p0": 0,
+      "open_p1": 2,
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movements/reviews/C9PredecessorCompletenessReview.v1.json",
+      "resolved": true,
+      "role": "family_review_c9_predecessor",
+      "verdict": "PASS_CURRENT_EXACT_PREDECESSOR_COMPLETENESS"
+    }
+  ],
+  "content_digest": "3232380636bfa482d1bbf425145e711a05bc1410eaa15672542058ba189f5146",
+  "content_digest_basis": "recursive content_digest removal; sort_keys=True; ensure_ascii=True; separators=(',',':'); no trailing newline",
+  "mainline_rebind": {
+    "authority": "NO_PROMOTION_NO_CANDIDATE_NO_LIVE_NO_PROVIDER_NO_CUTOVER",
+    "current_bundle_hashes": {
+      "aggregate_content_digest": "1036f2ef00a7ccddc732664bd46e9866dcd79a6767764db7ecdb5a26295e17f5",
+      "aggregate_file_sha256": "ba428b3d50137bed259761fd45b06f9ee4f23c3c96f0f43b808cbe9b5ac5a20e",
+      "c1_fragment_content_digest": "1cbc544ebb6f703a6d0ce2cc51275528807ef92b9d2dba6302363e64752814cb",
+      "c1_fragment_file_sha256": "924f121290c88d46ac2a4b17017b897fcfd98cdb85900696fa898c34f86d1277",
+      "c8_fragment_content_digest": "be4f0693c070f7d19a67d1d0a184167d25a536ab4290c86cd14131599f3daf04",
+      "c8_fragment_file_sha256": "46c400ea5f7d213a6ab9e17a42b1aebfda063ffabf8665223832e15c8ab3faa1",
+      "c9_fragment_content_digest": "590202e05907c0f81604a08a51bc2c05853f766a2646d964f8cba08d0eda1ca9",
+      "c9_fragment_file_sha256": "f4f2407f1ebf39d27423127d4795db6f70dd94c24fa3864ecd9d405b3cf98192",
+      "gate_content_digest": "97439a8b3b85158fd797e8a998e1fe7719f8b26fb399234acf691652c23a08bd",
+      "gate_file_sha256": "f70e1fbebf31bd44cef85a2517d69ceb816b6ac1d6892a2b3ffe40c937ad5913",
+      "inventory_content_digest": "4a328bf2f5d7d29959c10240dacb3e7201143f37f3c0b693ecaec1c9ebf4b5ef",
+      "inventory_file_sha256": "31e59601a7fef35afc5cf2a3e784fc1692d40ad3a53b816e3439eeb4f27990cc",
+      "matrix_content_digest": "13b04acf95f37470389b815360dfe5b2e5097e80be2a7a6cf058335f741d85f7",
+      "matrix_file_sha256": "9dc614c73f6ce48202f7087a8971e812c5eae44844e9453267e6550bb0f8712e",
+      "route_decision_content_digest": "c103952f0b61c756e10f2455ee96340f997c7103c8de210886018bfa91dbf7ee",
+      "route_decision_file_sha256": "f64899dbd5f85ed6bb74863b6b26b9b44056c12f69f0efc03e5dd94a64f9d9c0",
+      "slice_a_content_digest": "5adc0be009b7d07023f6b2fd171d9579c56c578548b5890f4094ddb62f8c71ed",
+      "slice_a_file_sha256": "ad4bfc92eade8e7bd190f276ad44f306da056f859e910dd5c7d224773386170f",
+      "slice_b_content_digest": "cb1df3df0888833e53ba813c7c61de3c9b675c9e0a674404d2844eab95e69508",
+      "slice_b_file_sha256": "8950c1fe7728422ec1b6a2357c83af6e219c919fcb1a0802f2ade1aa41dfb8ce",
+      "slice_c_content_digest": "c83732ee6a24694b5d200f0ead1dbde822157250f10f57cd5edd181e44568723",
+      "slice_c_file_sha256": "38e2cf14dbdfcfaa10d2f6640c8bfa7c6d9949117a1905375054c4423cbf1ac6",
+      "spec_canonical_content_digest": "431488dab5f24066dd52895d338c70e9222f449761f0e70d2f47fdf24b9782ba",
+      "spec_file_sha256": "2a96bb63d0e3b548173558959da9fc4421024f300d9c39daf6dda5f7b79e53d2"
+    },
+    "date": "2026-09-02",
+    "kind": "MAINLINE_MECHANICAL_REBIND",
+    "no_semantic_rereview": true,
+    "review_path": "reviews/P3AggregateExactReview.current.json",
+    "semantics": "independent review verdict and findings carried over; only exact artifact byte bindings updated",
+    "supersedes_binding": "review previously bound the M3 bundle generated before I1 evidence regeneration (inventory 38ad71f4.../be1fcf7c..., matrix 957d2bb8.../e8aa68a4..., gate 89c77589.../e432ff63..., C9 fragment 04fcd2d4.../c77b3e88...) and family review bytes before the I1 rebind (C1DeclaredScopeCorrectnessReview.v1.json 0af51b3e...->433bc817...; C1PredecessorCompletenessReview.v1.json 731f0ada...->88c756d6...; C8DeclaredScopeCorrectnessReview.v1.json 7f52d494...->9b03fdab...; C8PredecessorCompletenessReview.v1.json 299b698b...->03c9cd2f...; C9DeclaredScopeCorrectnessReview.v1.json e489958f...->19dd23a9...; C9PredecessorCompletenessReview.v1.json 4bf63405...->48c7afc6...)",
+    "worktree": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0"
+  },
+  "open_findings": {
+    "p0": [],
+    "p1": [
+      {
+        "blocking_for_local_only": false,
+        "blocking_scopes": [
+          "P5_EXACT_CANDIDATE",
+          "PRODUCTION_CANONICAL_WRITE"
+        ],
+        "detail": "frozen 01/02 and mutable ledger authority still diverge; promotion requires root/supervisor authority record",
+        "finding_id": "P3_AUTHORITY_RECORD_DIVERGENCE",
+        "severity": "P0"
+      },
+      {
+        "blocking_for_local_only": false,
+        "blocking_scopes": [
+          "P5_EXACT_CANDIDATE"
+        ],
+        "detail": "capability surface remains untracked; exact review tree pending",
+        "finding_id": "P3_REVIEW_SURFACE_NOT_GIT_IDENTIFIED",
+        "severity": "P1"
+      },
+      {
+        "blocking_for_local_only": false,
+        "blocking_scopes": [
+          "P5_EXACT_CANDIDATE"
+        ],
+        "detail": "disposable-PG RuntimeNode canary verified locally for one C2.3 attempt; production/live promotion not authorized",
+        "finding_id": "C2_2_DURABLE_RUNTIME_NODE_LOCAL_ONLY",
+        "severity": "P1"
+      },
+      {
+        "blocking_for_local_only": false,
+        "blocking_scopes": [
+          "LIVE_PROVIDER"
+        ],
+        "detail": "live provider/credential authority, readback and idempotency/non-start proof not frozen",
+        "finding_id": "C2_3_LIVE_PROVIDER_AUTHORITY_NOT_FROZEN",
+        "severity": "P0"
+      },
+      {
+        "blocking_for_local_only": false,
+        "blocking_scopes": [
+          "LIVE_PROVIDER"
+        ],
+        "detail": "source closure, declared-loss profile and offset/rebuild fixture-verified only",
+        "finding_id": "C2_4_SOURCE_CLOSURE_AND_OFFSET_NOT_LIVE",
+        "severity": "P1"
+      },
+      {
+        "blocking_for_local_only": false,
+        "blocking_scopes": [
+          "P5_EXACT_CANDIDATE"
+        ],
+        "detail": "successor execution fixture/unit-level only; durable journal/replay/rollback not proven",
+        "finding_id": "C3_DURABLE_RUNTIME_NODE_NOT_PROVEN",
+        "severity": "P1"
+      },
+      {
+        "blocking_for_local_only": false,
+        "blocking_scopes": [
+          "LIVE_PROVIDER"
+        ],
+        "detail": "live provider/network, readback and idempotency/non-start proof not frozen",
+        "finding_id": "C3_LIVE_PROVIDER_AUTHORITY_NOT_FROZEN",
+        "severity": "P0"
+      },
+      {
+        "blocking_for_local_only": false,
+        "blocking_scopes": [
+          "P5_EXACT_CANDIDATE"
+        ],
+        "detail": "PG canary executed on disposable schema with teardown; production database/cutover not claimed",
+        "finding_id": "C3_POSTGRES_CANARY_DISPOSABLE_ONLY",
+        "severity": "P1"
+      },
+      {
+        "blocking_for_local_only": false,
+        "blocking_scopes": [
+          "P5_EXACT_CANDIDATE"
+        ],
+        "detail": "submission adoption, restart recovery and concurrent duplicate-request claim remain unpromoted",
+        "finding_id": "C4_3_DURABLE_ADOPTION_NOT_PROMOTED",
+        "severity": "P1"
+      },
+      {
+        "blocking_for_local_only": false,
+        "blocking_scopes": [
+          "PRODUCTION_CANONICAL_WRITE"
+        ],
+        "detail": "legacy rows remain read-only compat views; no write authority transfer",
+        "finding_id": "C5_1_SESSION_TASK_CONTROL_NOT_MIGRATED",
+        "severity": "P1"
+      },
+      {
+        "blocking_for_local_only": false,
+        "blocking_scopes": [
+          "P5_EXACT_CANDIDATE"
+        ],
+        "detail": "attempt replay/reconciliation fixture/sqlite-level only",
+        "finding_id": "C5_2_DURABLE_ATTEMPT_NODE_NOT_PROVEN",
+        "severity": "P1"
+      },
+      {
+        "blocking_for_local_only": false,
+        "blocking_scopes": [
+          "P5_EXACT_CANDIDATE"
+        ],
+        "detail": "session/task view derives from existing runtime-run projection",
+        "finding_id": "C5_3_SESSION_PROJECTION_OFFSET_NOT_OWNED",
+        "severity": "P1"
+      },
+      {
+        "blocking_for_local_only": false,
+        "blocking_scopes": [
+          "LIVE_PROVIDER"
+        ],
+        "detail": "live provider/credential authority not frozen",
+        "finding_id": "C6_2_LIVE_PROVIDER_AUTHORITY_NOT_FROZEN",
+        "severity": "P1"
+      },
+      {
+        "blocking_for_local_only": false,
+        "blocking_scopes": [
+          "LIVE_PROVIDER"
+        ],
+        "detail": "C6.1 model-step source is scripted deterministic fixture",
+        "finding_id": "P3C6_LOOP_LIVE_MODEL_NOT_PROVEN",
+        "severity": "P1"
+      },
+      {
+        "blocking_for_local_only": false,
+        "blocking_scopes": [
+          "PRODUCTION_CANONICAL_WRITE"
+        ],
+        "detail": "pre-persistence redaction verified on disposable schema only",
+        "finding_id": "P3C6_PRODUCTION_REDACTION_PERSISTENCE_NOT_PROVEN",
+        "severity": "P1"
+      },
+      {
+        "blocking_for_local_only": false,
+        "blocking_scopes": [
+          "PRODUCTION_CANONICAL_WRITE"
+        ],
+        "detail": "disposable local RuntimeNode canary only; production/cutover pending",
+        "finding_id": "P3C6_PRODUCTION_RUNTIME_NODE_NOT_PROVEN",
+        "severity": "P1"
+      },
+      {
+        "blocking_for_local_only": false,
+        "blocking_scopes": [
+          "PRODUCTION_CANONICAL_WRITE"
+        ],
+        "detail": "project-store rehydration proven in disposable schema only",
+        "finding_id": "P3C6_PRODUCTION_STORE_NOT_PROVEN",
+        "severity": "P1"
+      },
+      {
+        "blocking_for_local_only": false,
+        "blocking_scopes": [
+          "P5_EXACT_CANDIDATE"
+        ],
+        "detail": "C2.1->C2.2 durable chaining local-only, not live",
+        "finding_id": "P3_C2_CHAIN_REHYDRATION_LOCAL_ONLY",
+        "severity": "P1"
+      },
+      {
+        "blocking_for_local_only": false,
+        "detail": "C8/C9 declared scope reviews record the aggregate gate as BLOCK_DEPENDENT_SCOPE with promotion_allowed=false; this is the standing pre-promotion state (aggregate status REVIEW_COMPLETE_DECISION_PENDING_NOT_PROMOTED) and is not lifted by this review.",
+        "finding_id": "REVIEW_FILES_STANDING_GATE_NOTE",
+        "severity": "P1"
+      }
+    ],
+    "p2": [
+      {
+        "blocking_for_local_only": false,
+        "detail": "Scoped ruff check reports 2 pre-existing I001 import-sort findings in tests/successor_runtime/test_p5_c1_legacy_dsl_parity.py and tests/successor_runtime/test_p5_c1_slice_programs.py; both fixable, not introduced by this review, non-blocking for P3 aggregate local-only decision.",
+        "finding_id": "RUFF_I001_P5_C1_TESTS",
+        "severity": "P2"
+      },
+      {
+        "blocking_for_local_only": false,
+        "detail": "C8 predecessor review records ruff format-only diffs on shared P0C files; C9 declared/predecessor reviews record pre-existing ruff I001 findings in C9 test files. Ruff format --check for the 20 scoped files in this review passed.",
+        "finding_id": "CARRIED_RUFF_P2_NOTES",
+        "severity": "P2"
+      },
+      {
+        "blocking_for_local_only": false,
+        "detail": "git diff --check passed but the migration evidence subtree is untracked in this worktree; the check covers tracked diffs only and does not scan the untracked evidence files.",
+        "finding_id": "GIT_DIFF_CHECK_UNTRAKED_SURFACE",
+        "severity": "P2"
+      }
+    ]
+  },
+  "promotion_scope": {
+    "candidate_created": false,
+    "live_or_authority_change": false,
+    "local_only": true,
+    "p4_not_started": true,
+    "promotion_claim": false,
+    "scope_note": "ALLOW_P3_AGGREGATE_LOCAL_ONLY_PROMOTION is a decision input for the aggregate only; it does not create a P4/candidate, does not start P4, and does not authorize live/provider/production/cutover/authority transfer. Aggregate remains REVIEW_COMPLETE_DECISION_PENDING_NOT_PROMOTED until the root supervisor promotion record exists."
+  },
+  "review_gate": "P3_AGGREGATE_EXACT_REVIEW_LOCAL_ONLY",
+  "review_id": "p3-aggregate-exact-review-current-2026-09-02-v2",
+  "reviewed_date": "2026-09-02",
+  "reviewer_task": "/root/p3_aggregate_exact_review_v2_ds",
+  "reviewer_task_identity": "independent P3 aggregate exact reviewer v2 (stable fixed point; no subagents, no PG, no writes except this file)",
+  "risks": [
+    "No PostgreSQL tests were run in this review; PG-dependent acceptance evidence is out of scope and unverified here.",
+    "Route decision tests were intentionally excluded; updating the route decision P3 anchor after ALLOW is pilot closure and would create an anchor loop.",
+    "Ruff check exits 1 on two pre-existing I001 findings in P5 C1 test files; clean them before P5/candidate gates.",
+    "git diff --check does not scan the untracked migration evidence subtree; whitespace hygiene of these files is not covered by that check.",
+    "This verdict does not change aggregate status, does not create a candidate, and does not authorize P4/live/production/authority transfer."
+  ],
+  "schema": "mrw.functorial_successor.p3_aggregate_exact_review.v1",
+  "scope": {
+    "aggregate_relative": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/P3CapabilityMigration.v1.json",
+    "bundle_authoritative": {
+      "gate_content_digest": "97439a8b3b85158fd797e8a998e1fe7719f8b26fb399234acf691652c23a08bd",
+      "gate_file_sha256": "f70e1fbebf31bd44cef85a2517d69ceb816b6ac1d6892a2b3ffe40c937ad5913",
+      "inventory_content_digest": "4a328bf2f5d7d29959c10240dacb3e7201143f37f3c0b693ecaec1c9ebf4b5ef",
+      "inventory_file_sha256": "31e59601a7fef35afc5cf2a3e784fc1692d40ad3a53b816e3439eeb4f27990cc",
+      "matrix_content_digest": "13b04acf95f37470389b815360dfe5b2e5097e80be2a7a6cf058335f741d85f7",
+      "matrix_file_sha256": "9dc614c73f6ce48202f7087a8971e812c5eae44844e9453267e6550bb0f8712e",
+      "spec_canonical_content_digest": "431488dab5f24066dd52895d338c70e9222f449761f0e70d2f47fdf24b9782ba",
+      "spec_file_sha256": "2a96bb63d0e3b548173558959da9fc4421024f300d9c39daf6dda5f7b79e53d2"
+    },
+    "bundle_relative": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement",
+    "postgres": false,
+    "route_decision_tests": "EXCLUDED: P3 anchor update is pilot closure after P3 ALLOW and would create an anchor loop",
+    "worktree": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0",
+    "writes": [
+      "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/reviews/P3AggregateExactReview.current.json"
+    ]
+  },
+  "validation": {
+    "aggregate_check_only": {
+      "artifact_content_digest": "83e56d32cf6d025fdbfc84c0132755f4b5fc859134bb51f1a70f2fd52953faf8",
+      "command": "/Users/wangyiliang/.local/bin/python3.11 main/backend/scripts/generate_successor_p3_aggregate.py --repo-root /Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0 --check-only",
+      "cwd": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0",
+      "exit_code": 0,
+      "expected": "VALID_READY, artifact_content_digest 83e56d32..., unsatisfied=[]",
+      "status": "VALID_READY",
+      "unsatisfied": []
+    },
+    "binding_resolution": {
+      "bad": 0,
+      "cells": "15 unique cell_ids with owner_capability_id and p1_cell_digest",
+      "external_family_reviews_consistent": "5/5",
+      "fragment_content_digests_recompute": "5/5",
+      "note": "independent recursive check over fragment_bindings/predecessor_bindings/external_family_reviews/cell_bindings and worktree bindings",
+      "p2_ledger_slice_digest": "matches",
+      "path_sha_objects": 160,
+      "resolved": 160
+    },
+    "git_diff_check": {
+      "command": "git diff --check (repo root)",
+      "cwd": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0",
+      "exit_code": 0,
+      "note": "migration evidence subtree is untracked; check covers tracked diffs only",
+      "result": "PASS"
+    },
+    "pytest_non_postgres": {
+      "command": "/Users/wangyiliang/.local/bin/python3.11 -m pytest tests/successor_runtime/test_successor_migration_batch_validation.py tests/successor_runtime/test_semantic_movement_contract.py tests/successor_runtime/test_semantic_movement_generator.py tests/successor_runtime/test_semantic_movement_p1_p3_evidence.py tests/successor_runtime/test_semantic_movement_review_gate.py tests/successor_runtime/test_p5_c1_evidence_generator.py tests/successor_runtime/test_p5_c1_slice_programs.py tests/successor_runtime/test_p5_c1_legacy_dsl_parity.py tests/successor_runtime/test_capability_spec_pilot_c7_1.py tests/successor_runtime/test_capability_spec_pilot_c8_2.py tests/successor_runtime/test_capability_spec_pilot_c9_1.py",
+      "cwd": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0/main/backend",
+      "exit_code": 0,
+      "failed": 0,
+      "note": "11 requested non-PG files all green; 2 pydantic deprecation warnings only",
+      "passed": 94
+    },
+    "ruff_check": {
+      "command": "/opt/homebrew/bin/ruff check <20 scoped P1-P3 scripts and tests>",
+      "cwd": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0",
+      "exit_code": 1,
+      "result": "2 pre-existing I001 import-sort findings (test_p5_c1_legacy_dsl_parity.py, test_p5_c1_slice_programs.py); non-blocking, fixable"
+    },
+    "ruff_format_check": {
+      "command": "/opt/homebrew/bin/ruff format --check <20 scoped P1-P3 scripts and tests>",
+      "cwd": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0",
+      "exit_code": 0,
+      "result": "20 files already formatted"
+    },
+    "semantic_movement_generator_check": {
+      "command": "/Users/wangyiliang/.local/bin/python3.11 main/backend/scripts/generate_successor_p1_p3_semantic_movement.py --repo-root /Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0 --output-root /Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0 --check",
+      "cwd": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0",
+      "exact_blockers": 0,
+      "exit_code": 0,
+      "expected": "CHECK_OK, exact_blockers 0",
+      "external_c7_movements": 20,
+      "inline_movements": 40,
+      "status": "CHECK_OK",
+      "total_movements": 60
+    },
+    "semantic_movement_validator": {
+      "checks": [
+        "artifacts_exist",
+        "canonical_rebuild_matches",
+        "content_digests_recompute",
+        "movement_record_required_fields",
+        "allowed_dispositions",
+        "movement_counts_and_unique_identity",
+        "family_partitions",
+        "c7_external_exact_binding",
+        "spec_exact_binding",
+        "evidence_refs_resolve",
+        "promotion_and_scoped_blocker_gate",
+        "projections_bijective",
+        "trace_and_loss_account",
+        "gate_consistency"
+      ],
+      "command": "/Users/wangyiliang/.local/bin/python3.11 main/backend/scripts/validate_successor_semantic_movement.py --repo-root /Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0 --output-root /Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0",
+      "cwd": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0",
+      "exit_code": 0,
+      "expected": "PASS",
+      "status": "PASS"
+    }
+  },
+  "verdict": "ALLOW_P3_AGGREGATE_LOCAL_ONLY_PROMOTION"
+}

@@ -1,0 +1,832 @@
+[
+  {
+    "cell": "C2.1",
+    "boundary": "source normalize taxonomy mode selection",
+    "locator_paths": [
+      "main/backend/app/services/source_library/item_resolver.py",
+      "main/backend/app/services/source_library/resolver.py",
+      "main/backend/tests/unit/test_source_library_item_resolver_unittest.py",
+      "main/backend/tests/unit/test_source_library_resolver_unittest.py"
+    ],
+    "locator_status": "VERIFIED_EXISTS; FROZEN_ELIGIBILITY_PENDING; STATIC_READ_ONLY_NO_TEST_EXECUTION",
+    "observed_symbols": [
+      "SourceMode",
+      "ExecutionRequest",
+      "execution_request_to_dict",
+      "normalize_item_taxonomy",
+      "ItemResolver.resolve",
+      "_resolve_channel_family",
+      "_is_site_search_authoritative",
+      "_resolve_item_type",
+      "_resolve_managed_by",
+      "_normalize_search_params",
+      "_build_frontdoor_protocol",
+      "run_item_payload"
+    ],
+    "object_types": [
+      "SourceItemDefinition.v1 (candidate, not frozen)",
+      "SourceTaxonomy.v1 (candidate, not frozen)",
+      "SourceMode.v1 (candidate, not frozen)",
+      "SourceExecutionRequest.v1 (candidate, not frozen)",
+      "FrontDoorExecutionProtocol (legacy dataclass)"
+    ],
+    "atom_kind": "source_library.resolve_execution_request.v1 (candidate, not registered)",
+    "payload_schema": {
+      "status": "CANDIDATE_NOT_FROZEN",
+      "input": {
+        "item": "typed SourceItemDefinition replacing Dict[str,Any]",
+        "params": "typed normalized search parameters",
+        "project_ref": "project identity/ref, not a trusted free string",
+        "channel_catalog_ref": "immutable effective channel catalog snapshot"
+      },
+      "output": {
+        "source_mode": "protocol_search|provider_harvest|site_search|url_execution",
+        "item_key": "string",
+        "item_channel_key": "string",
+        "project_ref": "nullable project ref",
+        "params": "normalized parameter snapshot",
+        "protocol": "front-door protocol snapshot",
+        "warnings": "ordered warning codes",
+        "taxonomy": "channel_family/item_type/managed_by/expected_entry_type/internal_adapter_only/site_search_authoritative"
+      }
+    },
+    "program_combinators": [
+      "Identity",
+      "Atom",
+      "Then",
+      "MapOutput",
+      "Decide"
+    ],
+    "failure_return_union": {
+      "observed": [
+        "ExecutionRequest",
+        "ExecutionRequest with ordered warnings for invalid or coerced mode",
+        "ValueError outside the pure resolver for disabled item or forbidden generic_web direct execution"
+      ],
+      "required_successor_union": [
+        "Resolved(SourceExecutionRequest)",
+        "Rejected(INVALID_ITEM|DISABLED_ITEM|INVALID_MODE|FORBIDDEN_INTERNAL_ADAPTER)",
+        "ResolutionWarning(MODE_IGNORED|MODE_COERCED|HANDLER_CLUSTER_FORCED)"
+      ]
+    },
+    "canonical_owner": "Source-library capability owner owns source item/config taxonomy and final handler-mode selection in the project schema; runtime may record the selected execution request but gains no source-config write authority.",
+    "effect_profile": {
+      "classification": "PURE_SEMANTIC_CORE_WITH_EFFECTFUL_LEGACY_ENVELOPE",
+      "observed": "normalize_item_taxonomy and ItemResolver.resolve are deterministic over supplied dictionaries and callbacks; run_item_payload additionally reads effective channels and ingest configuration before dispatch.",
+      "required_boundary": "Extract normalization and precedence rules into a successor-native pure algebra; keep catalog/config reads in ports and provider execution outside this atom."
+    },
+    "authority_profile": {
+      "observed": "Mode precedence is implemented in source-library code; project_key is passed as an unverified nullable string and explicit source_mode may be overridden by URL, site-search, or generic-web rules.",
+      "required": "Bind the request to an authenticated project/catalog revision and preserve source-library ownership; no runtime or caller override may bypass generic_web internal-only and site-search-authoritative rules."
+    },
+    "resource_profile": {
+      "classification": "CPU_ONLY_BOUNDED_BY_INPUT_SIZE",
+      "requirements": [
+        "bounded query-term and parameter sizes",
+        "immutable channel-catalog snapshot",
+        "no network, credential, filesystem, database, or provider reservation in this atom"
+      ]
+    },
+    "legacy_interpreter": {
+      "id": "legacy.source_library.c2_1.resolve.v1",
+      "status": "CALLABLE_COMPOSITION_EXISTS; SIBLING_ADAPTER_FILE_ABSENT",
+      "binding": "run_item_payload -> _normalize_search_params -> ItemResolver.resolve"
+    },
+    "successor_interpreter_candidate": {
+      "id": "successor.source_library.c2_1.resolve.v1",
+      "status": "NOT_IMPLEMENTED",
+      "binding": "successor-native pure SourceItemDefinition -> SourceExecutionRequest interpreter; must not import app.services.source_library"
+    },
+    "observation_profile": {
+      "named_observations": [
+        "normalized params snapshot",
+        "selected source_mode",
+        "taxonomy snapshot",
+        "ordered warning codes",
+        "front-door protocol snapshot"
+      ],
+      "missing_or_ambiguous": [
+        "no frozen typed input schema or schema digest",
+        "no direct taxonomy idempotence law fixture",
+        "project/catalog revision is not bound",
+        "warning strings are not a versioned union"
+      ]
+    },
+    "fixture_ids": [
+      "test_resolve_url_execution_when_urls_present",
+      "test_resolve_provider_harvest_for_crawler_channel",
+      "test_generic_web_internal_adapter_is_promoted_to_site_search_taxonomy",
+      "test_normalize_item_taxonomy_marks_handler_cluster_as_service_aggregated",
+      "test_execution_request_dict_contains_taxonomy_snapshot",
+      "test_normalize_search_params_unifies_aliases_and_time_fields",
+      "test_execution_request_contains_normalized_params_snapshot",
+      "test_execution_request_contains_taxonomy_for_site_search_item"
+    ],
+    "rollback_observation": "For an item/capability allowlist rollback, future resolution returns to legacy run_item_payload; record the same item/catalog revision, normalized-parameter digest, selected mode, taxonomy and warnings, while retaining all successor journal observations.",
+    "disposition": "EXTRACT_AND_REWRITE",
+    "rationale": "The semantic precedence is compact, deterministic and well localized, but the boundary is only partially typed, spans item_resolver.py and a large effectful resolver.py, accepts Dict[str,Any] and injected callbacks, and lacks frozen schemas and an idempotence law. Preserve its behavior as parity evidence, then rewrite it as a pure successor algebra instead of importing the legacy module.",
+    "prerequisites": [
+      "Freeze SourceItemDefinition, SourceTaxonomy, SourceMode and SourceExecutionRequest schemas and digests.",
+      "Add taxonomy idempotence and ordered mode-precedence/counterexample fixtures.",
+      "Bind project identity and effective channel-catalog revision/incarnation.",
+      "Version warning and rejection codes.",
+      "Implement a sibling legacy adapter and an independent successor interpreter."
+    ],
+    "risk": "MEDIUM",
+    "source_evidence": [
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/13_functorial-successor-c1-c9-locator-pending-inventory.v1.json",
+        "symbol_or_lines": "lines 3-13",
+        "claim": "The file is locator-only, grants no write authority, and leaves C2.1 ELIGIBILITY_PENDING at the two requested paths."
+      },
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/06_functorial-successor-runtime-architecture-correction.draft.zh-CN.md",
+        "symbol_or_lines": "lines 2310-2317",
+        "claim": "C2 preserves source-library ownership, requires taxonomy idempotence and generic-web internal-only behavior, and permits only a sibling legacy adapter to call ItemResolver."
+      },
+      {
+        "path": "main/backend/app/services/source_library/item_resolver.py",
+        "symbol_or_lines": "ExecutionRequest; normalize_item_taxonomy; ItemResolver.resolve, lines 8-143",
+        "claim": "A frozen ExecutionRequest dataclass and deterministic precedence select four modes, retain warnings and taxonomy, and coerce URL, site-search and generic-web cases."
+      },
+      {
+        "path": "main/backend/app/services/source_library/item_resolver.py",
+        "symbol_or_lines": "_resolve_item_type; _resolve_managed_by, lines 180-215",
+        "claim": "Legacy taxonomy infers service_aggregated/system from handler-cluster, crawler and related markers, otherwise user_defined/user."
+      },
+      {
+        "path": "main/backend/app/services/source_library/resolver.py",
+        "symbol_or_lines": "_normalize_search_params, lines 130-220",
+        "claim": "Alias, limit, paging and time-window normalization is deterministic but represented as mutable dictionaries."
+      },
+      {
+        "path": "main/backend/app/services/source_library/resolver.py",
+        "symbol_or_lines": "run_item_payload, lines 2248-2321",
+        "claim": "The legacy envelope merges configuration, blocks direct generic_web execution, resolves a request, then immediately dispatches an orchestrator."
+      },
+      {
+        "path": "main/backend/tests/unit/test_source_library_item_resolver_unittest.py",
+        "symbol_or_lines": "SourceLibraryItemResolverUnitTestCase, lines 43-123",
+        "claim": "Fixtures cover URL, crawler, generic-web and taxonomy snapshots, but not normalize(normalize(x)) idempotence."
+      },
+      {
+        "path": "main/backend/tests/unit/test_source_library_resolver_unittest.py",
+        "symbol_or_lines": "tests at lines 964-1021",
+        "claim": "Fixtures preserve normalized search aliases and taxonomy in the execution-request snapshot."
+      }
+    ]
+  },
+  {
+    "cell": "C2.2",
+    "boundary": "four source mode orchestration",
+    "locator_paths": [
+      "main/backend/app/services/source_library/orchestrators",
+      "main/backend/app/services/source_library/resolver.py",
+      "main/backend/tests/unit/test_source_library_resolver_unittest.py",
+      "main/backend/tests/unit/test_source_library_terminal_output_unittest.py"
+    ],
+    "locator_status": "VERIFIED_EXISTS; FROZEN_ELIGIBILITY_PENDING; STATIC_READ_ONLY_NO_TEST_EXECUTION",
+    "observed_symbols": [
+      "run_protocol_search_orchestrator",
+      "run_provider_harvest_orchestrator",
+      "run_site_search_orchestrator",
+      "run_url_execution_orchestrator",
+      "run_single_channel_orchestrator",
+      "_run_source_mode_url_execution",
+      "_run_source_mode_site_search",
+      "_run_source_mode_single_channel",
+      "run_item_payload"
+    ],
+    "object_types": [
+      "SourceExecutionRequest.v1 (candidate, not frozen)",
+      "SourceCollectionTerminal.v1 (candidate, not frozen)",
+      "ProviderHandoff.v1 (legacy contract source_library.provider_handoff.v1)",
+      "SourceRecord.v1 (candidate, not frozen)"
+    ],
+    "atom_kind": [
+      "source_library.protocol_search.v1",
+      "source_library.provider_harvest.v1",
+      "source_library.site_search.v1",
+      "source_library.url_execution.v1"
+    ],
+    "payload_schema": {
+      "status": "FOUR_KINDS_NAMED_BY_ARCHITECTURE_BUT_SCHEMAS_NOT_FROZEN",
+      "common_input": "SourceExecutionRequest plus immutable channel catalog and project scope",
+      "common_output": "item_key, selected channel or route, normalized params, records/candidates/by_url, errors, execution_request, protocol/provider handoff and lane metadata",
+      "mode_specific": {
+        "protocol_search": "query_terms plus single-channel protocol-search metadata",
+        "provider_harvest": "provider/crawler request plus provider receipt/handoff",
+        "site_search": "handler.cluster search, ordered candidates, detail-fetch observations",
+        "url_execution": "ordered URLs, route decisions and terminal-output-only per-URL results"
+      }
+    },
+    "program_combinators": [
+      "Identity",
+      "Atom",
+      "Then",
+      "Decide",
+      "MapOutput",
+      "TraverseOrdered",
+      "ZipOrdered only after explicit authority/resource/effect independence proof"
+    ],
+    "failure_return_union": {
+      "observed": [
+        "dict payload with records/candidates/by_url/errors",
+        "ValueError for missing or disabled channel",
+        "per-URL error rows",
+        "accepted provider handoff",
+        "partial result with embedded errors",
+        "timeout isolated to a URL task"
+      ],
+      "required_successor_union": [
+        "Completed(SourceCollectionTerminal)",
+        "PartiallyCompleted(SourceCollectionTerminal, ordered failures)",
+        "ProviderAccepted(ProviderReceipt)",
+        "Rejected(CHANNEL_NOT_FOUND|CHANNEL_DISABLED|INVALID_REQUEST)",
+        "Failed(TRANSPORT|TIMEOUT|PROVIDER_REJECTED)",
+        "Cancelled",
+        "OutcomeUnknown"
+      ]
+    },
+    "canonical_owner": "Source-library capability owner owns mode semantics and final handler selection; source item/config remain in the project schema, external providers own their job state until authoritative readback, and runtime owns only execution attempts/events.",
+    "effect_profile": {
+      "classification": "MIXED_ORCHESTRATION_OVER_INJECTED_EFFECT_CALLBACKS",
+      "observed": "The small orchestrator functions mutate parameter dictionaries, attach metadata and invoke callbacks that bind project context and perform channel/provider effects. URL/site paths delegate into resolver routines with concurrency, routing and fallback.",
+      "required_boundary": "Compile each mode into explicit ordered steps and ports; terminal_output_only must mean collect-only, not absence of network effects or provider dispatch."
+    },
+    "authority_profile": {
+      "observed": "source_mode chooses the orchestrator; site_search forcibly rewrites channel_key to handler.cluster; generic-web handlers are internal; project binding uses a ContextVar-style binder.",
+      "required": "Step authorization must bind project, item, mode, handler catalog revision, credential refs and allowlist epoch. Neither caller-provided source_mode nor fallback may widen provider authority."
+    },
+    "resource_profile": {
+      "observed": [
+        "query batches and URL tasks",
+        "search_parallelism and routing_parallelism from FrontDoorExecutionProtocol",
+        "ThreadPoolExecutor-based bounded concurrency in resolver",
+        "per-task timeouts and fail-fast flags",
+        "provider-specific limits and retries"
+      ],
+      "required": "Freeze batch ceilings, provider/resource classes, concurrency keys, timeouts, retry budgets and deterministic ordered fold; parallel eligibility must not imply effect commutativity."
+    },
+    "legacy_interpreter": {
+      "id": "legacy.source_library.c2_2.four_modes.v1",
+      "status": "CALLABLE_FUNCTIONS_EXIST; SIBLING_ADAPTER_FILE_ABSENT",
+      "binding": "run_item_payload dispatches the four orchestrators; single_channel is a shared helper"
+    },
+    "successor_interpreter_candidate": {
+      "id": "successor.source_library.c2_2.four_modes.v1",
+      "status": "NOT_IMPLEMENTED",
+      "binding": "four independently registered successor-native operation interpreters sharing typed request/terminal contracts"
+    },
+    "observation_profile": {
+      "named_observations": [
+        "selected lane and strategy",
+        "execution_request snapshot",
+        "middle_layer_protocol",
+        "ordered by_url rows",
+        "records/candidates/errors",
+        "provider_handoff",
+        "concurrency diagnostics",
+        "fallback channel and reason"
+      ],
+      "missing_or_ambiguous": [
+        "no durable step/attempt identity",
+        "no exact receipt digest",
+        "no cancellation or OutcomeUnknown observation",
+        "embedded errors and raised exceptions are not one versioned union",
+        "no direct four-orchestrator parity fixture sharing one typed input"
+      ]
+    },
+    "fixture_ids": [
+      "test_resolve_url_execution_when_urls_present",
+      "test_resolve_provider_harvest_for_crawler_channel",
+      "test_run_item_payload_resolves_urls_to_url_execution",
+      "test_run_item_with_url_routing_terminal_layer_executes_without_write_semantics",
+      "test_site_search_mode_forces_handler_cluster_front_door",
+      "test_generic_web_item_direct_execution_is_rejected",
+      "test_url_routing_preserves_input_order_in_aggregated_by_url_rows",
+      "test_url_routing_parallelism_keeps_result_order_stable",
+      "test_url_routing_isolates_single_url_timeout",
+      "test_protocol_search_ok_and_request_normalization",
+      "test_provider_harvest_partial_status",
+      "test_site_search_partial_and_stats",
+      "test_url_execution_error_status"
+    ],
+    "rollback_observation": "Turn off the successor claim owner per item/capability for future dispatch, observe legacy lane/mode plus the same ordered input and result digests, retain successor events, and never redispatch an in-flight or OutcomeUnknown provider effect.",
+    "disposition": "EXTRACT_AND_REWRITE",
+    "rationale": "The four semantic lanes and their order-sensitive observations are identifiable, and the small wrapper functions are useful parity donors. They are nevertheless untyped callback orchestration over a large resolver, mix exceptions with embedded failures, and do not expose durable attempt, cancellation, readback or resource contracts. Extract the four-mode algebra and rewrite successor-native interpreters instead of adapting these callbacks directly.",
+    "prerequisites": [
+      "Freeze common and per-mode request/return schemas.",
+      "Create one parity matrix exercising all four modes from the same catalog-bound typed request family.",
+      "Specify ordered traversal/fold, timeout, retry, cancellation and OutcomeUnknown semantics.",
+      "Freeze handler-catalog and claim-authority bindings.",
+      "Add exact provider-handoff/receipt digests and no-duplicate-effect rollback fixtures.",
+      "Implement sibling legacy and independent successor interpreter registrations."
+    ],
+    "risk": "HIGH",
+    "source_evidence": [
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/13_functorial-successor-c1-c9-locator-pending-inventory.v1.json",
+        "symbol_or_lines": "line 11",
+        "claim": "C2.2 is frozen as a locator-only pending cell for the orchestrators directory."
+      },
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/06_functorial-successor-runtime-architecture-correction.draft.zh-CN.md",
+        "symbol_or_lines": "lines 2310-2317",
+        "claim": "The architecture names four source_library operation kinds, requires independent successor-native implementation, and preserves source-library handler ownership."
+      },
+      {
+        "path": "main/backend/app/services/source_library/orchestrators/protocol_search.py",
+        "symbol_or_lines": "run_protocol_search_orchestrator, lines 29-52",
+        "claim": "Protocol search inserts normalized query terms, delegates to the shared single-channel interpreter and attaches lane metadata."
+      },
+      {
+        "path": "main/backend/app/services/source_library/orchestrators/provider_harvest.py",
+        "symbol_or_lines": "run_provider_harvest_orchestrator, lines 29-53",
+        "claim": "Provider harvest sets crawler preference and terminal-output-only intent before invoking the shared channel effect."
+      },
+      {
+        "path": "main/backend/app/services/source_library/orchestrators/site_search.py",
+        "symbol_or_lines": "run_site_search_orchestrator, lines 6-25",
+        "claim": "Site search rewrites the item channel to handler.cluster and delegates to the handler-cluster pipeline."
+      },
+      {
+        "path": "main/backend/app/services/source_library/orchestrators/url_execution.py",
+        "symbol_or_lines": "run_url_execution_orchestrator, lines 6-30",
+        "claim": "URL execution invokes URL routing with terminal_output_only and returns protocol/request snapshots."
+      },
+      {
+        "path": "main/backend/app/services/source_library/orchestrators/single_channel.py",
+        "symbol_or_lines": "run_single_channel_orchestrator, lines 7-54",
+        "claim": "The common helper validates channel state, injects compatibility flags, binds project context and performs run_channel."
+      },
+      {
+        "path": "main/backend/app/services/source_library/resolver.py",
+        "symbol_or_lines": "_run_source_mode_url_execution; _run_source_mode_site_search; _run_source_mode_single_channel; run_item_payload, lines 2159-2313",
+        "claim": "The legacy dispatcher selects the four lanes and immediately executes them."
+      },
+      {
+        "path": "main/backend/tests/unit/test_source_library_resolver_unittest.py",
+        "symbol_or_lines": "tests at lines 813-943",
+        "claim": "Fixtures preserve ordered URL results, terminal collect-only shape, URL-mode precedence and handler-cluster site-search routing."
+      }
+    ]
+  },
+  {
+    "cell": "C2.3",
+    "boundary": "provider credential handler effects",
+    "locator_paths": [
+      "main/backend/app/services/source_library/adapters",
+      "main/backend/app/services/source_library/resolver.py",
+      "main/backend/app/services/source_library/runner.py",
+      "main/backend/app/services/source_library/handler_registry.py",
+      "main/backend/tests/unit/test_source_library_runner_gray_rollout_unittest.py",
+      "main/backend/tests/unit/test_source_library_official_access_adapter_unittest.py",
+      "main/backend/tests/unit/test_source_library_url_pool_adapter_unittest.py",
+      "main/backend/tests/unit/test_source_library_generic_web_adapter_unittest.py",
+      "main/backend/tests/unit/test_source_library_external_project_adapter_unittest.py"
+    ],
+    "locator_status": "VERIFIED_EXISTS; FROZEN_ELIGIBILITY_PENDING; STATIC_READ_ONLY_NO_LIVE_PROVIDER_OR_TEST_EXECUTION",
+    "observed_symbols": [
+      "resolve_credential",
+      "validate_params",
+      "run_channel",
+      "_run_via_crawler_provider_registry",
+      "_resolve_crawler_provider",
+      "_build_runtime_channel_meta",
+      "handler_registry.register",
+      "handler_registry.get",
+      "_run_single_routed_url",
+      "_build_provider_handoff",
+      "handle_reddit",
+      "handle_google_news",
+      "handle_policy",
+      "handle_market",
+      "handle_url_pool",
+      "handle_handler_cluster",
+      "handle_generic_web_rss",
+      "handle_generic_web_sitemap",
+      "handle_generic_web_search_template",
+      "handle_official_access_api",
+      "handle_external_project_manifest"
+    ],
+    "object_types": [
+      "CredentialRef.v1 (candidate, not frozen)",
+      "ProviderEffectRequest.v1 (candidate, not frozen)",
+      "ProviderReceipt.v1 (candidate, not frozen)",
+      "ProviderHandoff.v1 (legacy source_library.provider_handoff.v1)",
+      "CapturedSourceRecord.v1 (candidate, not frozen)",
+      "ArtifactRef.v1 (candidate, not frozen)"
+    ],
+    "atom_kind": "source_library.execute_provider_effect.v1 (candidate umbrella; provider-specific interpreter bindings required)",
+    "payload_schema": {
+      "status": "UNSTABLE_HETEROGENEOUS_LEGACY_DICTS",
+      "input": {
+        "channel_binding": "provider/kind/provider_type/config/policy/param_schema/credential refs",
+        "project_scope": "project identity and authority binding",
+        "item_ref": "item identity and catalog revision",
+        "effect_params": "provider-specific typed payload",
+        "idempotency": "required successor key, absent from common legacy contract"
+      },
+      "output": {
+        "receipt": "provider job/status/attempt or synchronous fetch receipt",
+        "records": "captured source records and candidate URLs",
+        "errors": "typed provider/transport/validation failures",
+        "artifacts": "content-addressed artifact refs",
+        "readback": "authoritative completion/readback binding",
+        "handoff": "source_library.provider_handoff.v1-compatible projection"
+      }
+    },
+    "program_combinators": [
+      "Atom",
+      "Then(effect, verify/readback)",
+      "Then(readback, admission)",
+      "Decide",
+      "TraverseOrdered",
+      "Reconcile as a named effect/recovery operation",
+      "No parallel reordering without explicit provider/resource/effect independence"
+    ],
+    "failure_return_union": {
+      "observed": [
+        "ValueError(MISSING_CREDENTIALS|MISSING_PARAMS|UNSUPPORTED_HANDLER|PROVIDER_UNAVAILABLE)",
+        "accepted crawler provider receipt",
+        "failed crawler provider status embedded in a dict",
+        "transport_failure embedded in errors",
+        "per-URL success/failure rows",
+        "degraded PDF artifact with download_error",
+        "cached provider result from process-local memory"
+      ],
+      "required_successor_union": [
+        "Completed(ProviderReceipt, CapturedSourceRecords)",
+        "Accepted(ProviderReceipt awaiting readback)",
+        "PartiallyCompleted(records, ordered failures)",
+        "Rejected(MISSING_CREDENTIAL|INVALID_PARAMS|UNAUTHORIZED|UNSUPPORTED_PROVIDER)",
+        "Failed(TRANSPORT|TIMEOUT|RATE_LIMIT|PROVIDER_REJECTED|ARTIFACT_WRITE)",
+        "Cancelled",
+        "OutcomeUnknown",
+        "Reconciled(terminal authoritative receipt)"
+      ]
+    },
+    "canonical_owner": "Source item/config remain source-library project-schema facts; the external provider owns remote job state until authoritative readback; captured source content/artifacts require a capability-owned canonical commit; runtime owns attempts/events only; credentials remain external secret references and must never become runtime payload values.",
+    "effect_profile": {
+      "classification": "HIGH_EFFECT_HETEROGENEOUS_INTERPRETER_CLUSTER",
+      "observed": [
+        "environment credential reads",
+        "import-time and lazy global handler registration",
+        "process-local provider caches",
+        "HTTP/feed/sitemap/search/API fetches",
+        "crawler provider dispatch",
+        "resource-pool reads/writes",
+        "temporary-directory creation and local PDF writes",
+        "project customization callbacks",
+        "fallback among mechanical and crawler handlers"
+      ],
+      "missing": [
+        "uniform idempotency",
+        "durable attempt identity",
+        "cancel protocol",
+        "authoritative readback contract",
+        "OutcomeUnknown and reconciliation",
+        "credential decision receipt",
+        "atomic artifact/canonical commit"
+      ]
+    },
+    "authority_profile": {
+      "observed": "Credentials are resolved by PROJECT_<NORMALIZED_PROJECT>_<NAME> then global environment fallback; rollout allowlists are mutable channel dictionaries; handler selection may come from project customization or a global registry.",
+      "required": "Use opaque credential refs resolved only inside an authorized interpreter; bind grant epoch, project, item, provider, operation, request digest, resource ceiling and expiry; redact credential values; fallback cannot widen authority; provider and canonical commit require separate authorization/readback."
+    },
+    "resource_profile": {
+      "observed": [
+        "HTTP timeouts and retries vary by adapter",
+        "provider rate limits and process-local 15-minute caches",
+        "crawler job/provider capacity",
+        "thread and URL/query batch concurrency",
+        "temporary filesystem bytes for PDFs",
+        "source-pool database writes",
+        "external API and network budgets"
+      ],
+      "required": "Freeze provider/resource class, concurrency key, units, timeout, retry/cost ceilings, artifact byte ceiling, rate-limit policy and reservation/release/reap behavior."
+    },
+    "legacy_interpreter": {
+      "id": "legacy.source_library.c2_3.provider_effect.v1",
+      "status": "EFFECTFUL_IMPLEMENTATIONS_EXIST; SIBLING_ADAPTER_FILE_ABSENT",
+      "binding": "run_channel plus registered adapter and crawler-provider handlers"
+    },
+    "successor_interpreter_candidate": {
+      "id": "successor.source_library.c2_3.provider_effect.v1",
+      "status": "NOT_IMPLEMENTED",
+      "binding": "provider-specific ports/interpreters with durable EffectAttempt, credential capability, receipt, readback and reconciliation"
+    },
+    "observation_profile": {
+      "named_observations": [
+        "provider_type/provider_status/provider_job_id/attempt_count",
+        "provider_handoff and fallback reason",
+        "records/candidates/by_url/errors",
+        "runtime channel/layer boundary",
+        "HTTP status",
+        "artifact digest/path/download status",
+        "cache_hit",
+        "transport error class"
+      ],
+      "missing_or_ambiguous": [
+        "credential presence decision is only an exception and is not a redacted receipt",
+        "provider acceptance is not completion",
+        "process-local cache is not replayable authoritative state",
+        "no request/receipt digest binding",
+        "local artifact write is not staged/admitted atomically",
+        "no durable cancellation or OutcomeUnknown reconciliation"
+      ]
+    },
+    "fixture_ids": [
+      "test_crawler_provider_routes_via_registry_when_whitelisted",
+      "test_crawler_provider_falls_back_to_native_when_not_whitelisted",
+      "test_scrapy_provider_is_lazily_constructed_when_registry_is_empty",
+      "test_scrapy_provider_reports_unavailable_instead_of_unsupported_when_init_fails",
+      "test_arxiv_official_api_falls_back_to_html_search_when_feed_fails",
+      "test_arxiv_official_api_reuses_cached_candidates_after_rate_limit",
+      "test_crossref_official_api_reports_transport_failure",
+      "test_terminal_output_only_mode_fetches_clean_records_without_write_side_effects",
+      "test_rejects_local_urls_before_fetch",
+      "test_materialize_pdf_artifact_downloads_local_file",
+      "test_write_to_pool_uses_traceable_source_ref_shape",
+      "test_http_api_manifest_maps_artifacts_into_record_meta",
+      "test_python_library_manifest_rejects_unknown_runner_id",
+      "test_article_extractor_manifest_reports_metadata_and_fetch_fallback_states"
+    ],
+    "rollback_observation": "Stop future successor claims per item/provider, but reconcile every accepted/running/OutcomeUnknown attempt by exact request and provider receipt before allowing legacy execution. Rollback evidence must show no duplicate provider dispatch, retained successor events, unchanged source-config ownership and either authoritative terminal readback or explicit unresolved OutcomeUnknown.",
+    "disposition": "REIMPLEMENT",
+    "rationale": "This cell is not one stable adapter interface: it combines environment secrets, mutable global registries and caches, provider customization, network calls, crawler dispatch, database/pool writes and local filesystem materialization behind heterogeneous Dict[str,Any] returns. The current code lacks the authority, idempotency, receipt/readback, cancellation and reconciliation contracts required for durable execution. Retain provider behavior fixtures and handoff observations, but implement new provider-specific effect interpreters rather than importing or wrapping the legacy cluster.",
+    "prerequisites": [
+      "Inventory each provider kind and freeze provider-specific request/return schemas.",
+      "Add explicit missing-credential, redaction and no-secret-in-payload fixtures.",
+      "Define opaque credential resolution and StepAuthorizationBinding.",
+      "Define idempotency, cancel, authoritative readback, OutcomeUnknown and reconciliation per provider.",
+      "Replace process-local registry/cache authority with immutable deployment catalog and durable/cache-as-nonauthoritative observations.",
+      "Define staged artifact storage, digest verification and canonical admission.",
+      "Freeze provider/resource policies and no-duplicate-effect rollback fixtures."
+    ],
+    "risk": "HIGH",
+    "source_evidence": [
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/13_functorial-successor-c1-c9-locator-pending-inventory.v1.json",
+        "symbol_or_lines": "line 12",
+        "claim": "C2.3 is frozen only as a pending locator over adapters and resolver."
+      },
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/06_functorial-successor-runtime-architecture-correction.draft.zh-CN.md",
+        "symbol_or_lines": "lines 2310-2317",
+        "claim": "Credential failure and collection-versus-Document-adoption separation are mandatory C2 observations; runtime owns execution only."
+      },
+      {
+        "path": "main/backend/app/services/source_library/runner.py",
+        "symbol_or_lines": "resolve_credential; run_channel, lines 22-39 and 270-333",
+        "claim": "Credential lookup reads project-scoped then global environment values; channel execution validates loosely typed params and selects customization/global handlers."
+      },
+      {
+        "path": "main/backend/app/services/source_library/runner.py",
+        "symbol_or_lines": "_run_via_crawler_provider_registry; _resolve_crawler_provider, lines 125-225",
+        "claim": "Crawler execution dynamically resolves/registers a provider, dispatches an external job and returns accepted/failed status without durable readback or reconciliation."
+      },
+      {
+        "path": "main/backend/app/services/source_library/handler_registry.py",
+        "symbol_or_lines": "lines 7-22",
+        "claim": "Handler authority is a mutable process-local dictionary of untyped callables."
+      },
+      {
+        "path": "main/backend/app/services/source_library/adapters/official_access.py",
+        "symbol_or_lines": "lines 15-18; _read_arxiv_cache; _write_arxiv_cache; _read_crossref_cache; _write_crossref_cache",
+        "claim": "Official-access results use mutable process-local TTL caches around network effects."
+      },
+      {
+        "path": "main/backend/app/services/source_library/adapters/url_pool.py",
+        "symbol_or_lines": "_materialize_pdf_artifact; handle_url_pool, lines 92-245",
+        "claim": "URL execution performs network fetches, creates a temporary directory, writes PDF bytes and returns embedded failures/degraded artifact metadata."
+      },
+      {
+        "path": "main/backend/app/services/source_library/adapters/generic_web.py",
+        "symbol_or_lines": "_maybe_write_to_pool, lines 89-128",
+        "claim": "A provider adapter may write discovered URLs into the resource pool, so collection and canonical writes are not uniformly separated."
+      },
+      {
+        "path": "main/backend/tests/unit/test_source_library_official_access_adapter_unittest.py",
+        "symbol_or_lines": "tests at lines 90-184 and 235-271",
+        "claim": "Fixtures expose transport fallback and process-local cache behavior, including Crossref transport_failure."
+      },
+      {
+        "path": "main/backend/tests/unit/test_source_library_url_pool_adapter_unittest.py",
+        "symbol_or_lines": "tests test_rejects_local_urls_before_fetch and test_materialize_pdf_artifact_downloads_local_file",
+        "claim": "Fixtures cover SSRF-style local URL rejection and observable local artifact writes."
+      }
+    ]
+  },
+  {
+    "cell": "C2.4",
+    "boundary": "terminal compat projection",
+    "locator_paths": [
+      "main/backend/app/services/source_library/terminal_output.py",
+      "main/backend/app/services/collect_runtime/adapters/source_library.py",
+      "main/backend/app/services/collect_runtime/runtime.py",
+      "main/backend/app/api/ingest.py",
+      "main/backend/tests/unit/test_source_library_terminal_output_unittest.py",
+      "main/backend/tests/unit/test_collect_runtime_source_library_adapter_unittest.py",
+      "main/backend/tests/integration/test_external_project_collect_runtime_integration_unittest.py"
+    ],
+    "locator_status": "VERIFIED_EXISTS; FROZEN_ELIGIBILITY_PENDING; STATIC_READ_ONLY_NO_TEST_EXECUTION",
+    "observed_symbols": [
+      "to_terminal_output_dto",
+      "build_terminal_output_dto",
+      "build_source_library_terminal_output",
+      "_resolve_source_mode",
+      "_collect_errors",
+      "_build_stats",
+      "_resolve_status",
+      "_resolve_reason_code",
+      "_build_clean_records",
+      "_resolve_provider_handoff",
+      "SourceLibraryAdapter.run",
+      "to_source_library_response",
+      "build_source_library_authority_output",
+      "build_source_library_compat_projection",
+      "run_source_library_item_compat",
+      "_run_single_source_library_entry._external_terminal_payload"
+    ],
+    "object_types": [
+      "SourceLibraryTerminalOutput.v1",
+      "FrontdoorIngress.v1",
+      "SourceLibraryAuthorityOutput.v1",
+      "SourceLibraryCompatProjection.v1",
+      "CollectResult (legacy dataclass)",
+      "SourceRecord.v1 (candidate, not frozen)"
+    ],
+    "atom_kind": "source_library.project_terminal_compat.v1 (candidate, not registered)",
+    "payload_schema": {
+      "status": "LEGACY_VERSION_STRINGS_EXIST; TYPED_OBJECT_SCHEMAS_NOT_FROZEN",
+      "input": "observed provider/collection payload plus CollectResult compatibility fallback",
+      "output": {
+        "terminal_output": "contract_version/status/source_mode/item/request/results/errors/meta/raw_snapshot",
+        "frontdoor_ingress": "frontdoor.ingress.v1",
+        "postprocess_frontdoor": "ingest admission/dispatch projection currently computed inline",
+        "authority_output": "source_library.authority_output.v1 summary",
+        "compat_projection": "source_library.compat_projection.v1 with deprecated legacy_result",
+        "legacy_result": "retained raw compatibility payload"
+      }
+    },
+    "program_combinators": [
+      "Identity",
+      "MapOutput",
+      "Then(project terminal output, project compatibility view)",
+      "No effect/admission combinator inside a pure projection atom"
+    ],
+    "failure_return_union": {
+      "observed": [
+        "terminal status ok|partial|error",
+        "reason_code ok|empty|partial_records|fetch_errors",
+        "safe empty-payload error DTO",
+        "compat_projection status retained_compat",
+        "raised exception from ingress/postprocess helpers is not normalized here"
+      ],
+      "required_successor_union": [
+        "Projected(SourceLibraryTerminalOutput)",
+        "ProjectedWithLoss(SourceLibraryCompatProjection, declared loss)",
+        "ProjectionRejected(MALFORMED_OBSERVATION|UNSUPPORTED_VERSION)",
+        "ProjectionFailed(PROJECTOR_ERROR)",
+        "ProjectionStale(source revision/digest mismatch)"
+      ]
+    },
+    "canonical_owner": "Terminal output, authority_output and compat_projection are derived read models and must be DECLARED_LOSS_PROJECTION, never canonical business owners. Source item/config remain source-library project-schema facts; provider attempts remain runtime/provider facts; Document adoption remains a separate ingest admission and canonical commit.",
+    "effect_profile": {
+      "classification": "PURE_DTO_PROJECTOR_MIXED_WITH_EFFECTFUL_OR_NONDTERMINISTIC_COMPAT_ENVELOPE",
+      "observed": "terminal_output.py is a deepcopy-based projector. SourceLibraryAdapter.run also executes collection and job logging. to_source_library_response builds ingress, invokes run_postprocess_frontdoor with run_writer=False, and constructs dual-track authority/compat payloads; the imported postprocessor generates a UUID and contains cleanup/extraction/writer-capable logic.",
+      "required_boundary": "Keep the successor projector pure and replayable from admitted journal/canonical facts. Move job logging, collection execution, ingest admission and cleanup/extraction outside this cell."
+    },
+    "authority_profile": {
+      "observed": "build_source_library_authority_output labels a chain of terminal_output -> frontdoor_ingress -> postprocess_frontdoor as authority and derives write effects from legacy_result, while compat_projection retains the raw legacy payload.",
+      "required": "Projection has zero command/admission authority; authority_output must be renamed or typed as a summary projection, and collection success must not imply Document adoption. Only the ingest admission port may create canonical Document facts."
+    },
+    "resource_profile": {
+      "classification": "CPU_MEMORY_PROJECTION",
+      "observed": [
+        "deepcopy of complete payload into raw_snapshot",
+        "duplicate embedding of terminal/frontdoor/postprocess/legacy structures",
+        "record-list normalization and deduplication"
+      ],
+      "required": [
+        "bounded payload and record counts",
+        "content refs/digests instead of unbounded duplicated raw bytes",
+        "projector version and source revision/digest",
+        "rebuild offset and deterministic codec"
+      ]
+    },
+    "legacy_interpreter": {
+      "id": "legacy.source_library.c2_4.terminal_compat.v1",
+      "status": "CALLABLE_PROJECTION_CHAIN_EXISTS; SIBLING_ADAPTER_FILE_ABSENT",
+      "binding": "to_terminal_output_dto plus to_source_library_response and API compatibility reconstruction"
+    },
+    "successor_interpreter_candidate": {
+      "id": "successor.source_library.c2_4.projector.v1",
+      "status": "NOT_IMPLEMENTED",
+      "binding": "pure versioned projector from admitted source observations to terminal/read models, with separate legacy compatibility adapter"
+    },
+    "observation_profile": {
+      "named_observations": [
+        "terminal contract version",
+        "ok/partial/error status",
+        "source_mode",
+        "normalized request window/paging/limits",
+        "records/stats/errors",
+        "provider handoff and route profile",
+        "raw snapshot",
+        "frontdoor ingress",
+        "postprocess admission summary",
+        "deprecated compatibility lifecycle"
+      ],
+      "missing_or_ambiguous": [
+        "source_mode may be inferred from payload shape rather than observed",
+        "status/stats are derived without explicit observed/derived typing",
+        "raw_snapshot and legacy_result duplicate mutable payloads",
+        "postprocess UUID makes replay nondeterministic",
+        "no projector version/source revision/offset binding",
+        "authority_output naming can be mistaken for command or canonical authority"
+      ]
+    },
+    "fixture_ids": [
+      "test_protocol_search_ok_and_request_normalization",
+      "test_provider_harvest_partial_status",
+      "test_site_search_partial_and_stats",
+      "test_url_execution_error_status",
+      "test_empty_payload_is_compatible",
+      "test_protocol_search_retryable_queue_is_normalized",
+      "test_to_source_library_response_keeps_legacy_fields_and_adds_dual_track_when_raw_is_dict",
+      "test_to_source_library_response_builds_complete_terminal_output_on_fallback_path",
+      "test_to_source_library_response_uses_shared_ingress_builders",
+      "test_to_source_library_response_propagates_external_manifest_summary",
+      "test_to_source_library_response_promotes_external_article_body_record_to_document_candidate",
+      "test_to_source_library_response_preserves_provider_handoff_contract"
+    ],
+    "rollback_observation": "Switch future query/read routing to the legacy response adapter while retaining successor journal and projection offsets. Verify the legacy terminal/compat response against the same admitted source revision and digest; rollback must not rewrite terminal state, fabricate events, rerun provider effects or treat a projection as Document adoption.",
+    "disposition": "EXTRACT_AND_REWRITE",
+    "rationale": "The dedicated terminal DTO is a strong deterministic donor with explicit contract versions and broad fixture coverage, but the whole cell crosses its projection boundary: it retains multiple full payload copies, infers observations, invokes ingest postprocessing, synthesizes a nondeterministic UUID and presents a derived dual-track summary as authority_output. Extract the terminal normalization semantics, then rewrite a pure versioned projector and isolate the legacy compatibility adapter.",
+    "prerequisites": [
+      "Freeze typed terminal-output, record, error, provider-handoff and compatibility schemas.",
+      "Separate observed provider facts from derived status/mode and inferred fallback fields.",
+      "Remove ingest admission/postprocess execution from the projection atom.",
+      "Define projector version, source digest/revision, offset, rebuild and stale-source behavior.",
+      "Replace duplicated raw bytes with bounded content refs/digests where required.",
+      "Declare compat_projection loss and ensure authority_output cannot issue commands or admission.",
+      "Add deterministic replay and delete/rebuild parity fixtures."
+    ],
+    "risk": "MEDIUM",
+    "source_evidence": [
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/13_functorial-successor-c1-c9-locator-pending-inventory.v1.json",
+        "symbol_or_lines": "line 13",
+        "claim": "C2.4 is frozen as a pending locator over terminal_output.py and the collect-runtime source-library adapter."
+      },
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/06_functorial-successor-runtime-architecture-correction.draft.zh-CN.md",
+        "symbol_or_lines": "lines 2310-2317",
+        "claim": "Terminal output is mandatory C2 evidence, collection is explicitly not Document adoption, and rollback is per-item/capability."
+      },
+      {
+        "path": "main/backend/app/services/source_library/terminal_output.py",
+        "symbol_or_lines": "to_terminal_output_dto, lines 13-78",
+        "claim": "The projector emits a versioned terminal DTO with normalized request/results/errors/meta and embeds a deepcopy raw_snapshot."
+      },
+      {
+        "path": "main/backend/app/services/source_library/terminal_output.py",
+        "symbol_or_lines": "_resolve_source_mode; _build_stats; _resolve_status; _resolve_reason_code, lines 95-255",
+        "claim": "Mode, statistics, status and reason codes are derived from legacy payload shape and counts."
+      },
+      {
+        "path": "main/backend/app/services/source_library/terminal_output.py",
+        "symbol_or_lines": "_build_clean_records; _resolve_provider_handoff, lines 258-412",
+        "claim": "Records and provider handoff are normalized from several legacy shapes, preserving compatibility but also inferring missing observations."
+      },
+      {
+        "path": "main/backend/app/services/collect_runtime/adapters/source_library.py",
+        "symbol_or_lines": "SourceLibraryAdapter.run, lines 73-140",
+        "claim": "The same locator file also executes source collection and persists job lifecycle observations, so it is not solely a projector."
+      },
+      {
+        "path": "main/backend/app/services/collect_runtime/adapters/source_library.py",
+        "symbol_or_lines": "to_source_library_response, lines 143-194",
+        "claim": "Compatibility response building invokes frontdoor ingress and postprocess code, then retains terminal, authority, compat and legacy payloads together."
+      },
+      {
+        "path": "main/backend/app/services/collect_runtime/adapters/source_library.py",
+        "symbol_or_lines": "build_source_library_authority_output; build_source_library_compat_projection, lines 197-326",
+        "claim": "A derived authority summary mixes terminal statistics, postprocess admission and legacy write counts; compat explicitly retains deprecated legacy_result."
+      },
+      {
+        "path": "main/backend/app/api/ingest.py",
+        "symbol_or_lines": "_run_single_source_library_entry._external_terminal_payload, lines 765-808",
+        "claim": "The API reconstructs and returns terminal, authority, compat, ingress, postprocess and legacy views, confirming active dual-track callers."
+      },
+      {
+        "path": "main/backend/tests/unit/test_collect_runtime_source_library_adapter_unittest.py",
+        "symbol_or_lines": "test_to_source_library_response_keeps_legacy_fields_and_adds_dual_track_when_raw_is_dict; test_to_source_library_response_preserves_provider_handoff_contract",
+        "claim": "Fixtures intentionally preserve the dual-track response and provider-handoff projection."
+      }
+    ]
+  }
+]

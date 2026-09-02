@@ -1,0 +1,38 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "mrw.successor.store.c1-3.surface.v1",
+  "ref_kind": "program_shape",
+  "cell_id": "C1.3",
+  "family_id": "C1",
+  "movement_ids": [
+    "C1-M004"
+  ],
+  "semantics": {
+    "movement_named_transform": "persist exact semantic identities and rehydrate them without hidden cache or global-key drift",
+    "target_object": "Project-scoped Program, Plan, payload and journal rehydration closure with future-owner rollback",
+    "facade_shape": "project-scoped runtime-journal port with immutable sequenced events, one pure total reducer, reducer-derived snapshots, typed result/value references, optimistic concurrency or locked append, exact replay identity, crash reconciliation, and projection rebuild offsets"
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C1.v1.json",
+      "pointer": "#/movements/C1-M004/named_transform",
+      "sha256": "ccbb50ee217882d1640bca7f57430eaea651f8ae83258873449d2c998d30bb0a"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/substrate/postgres/node_adapter.py",
+      "pointer": "PostgresRuntimeNodeAdapter",
+      "sha256": "5cae2d8bb26bd8c3e07a5bd05608764b5ec27768cf9de0b2970f79cb679eace9"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/substrate/postgres/nodes.py",
+      "pointer": "RuntimeNodeRepository",
+      "sha256": "6aed093304d78d1cfc786e35bf7b8d043cc7d3cddb7d07cc7b57cd69f7c87081"
+    }
+  ],
+  "derivation_note": "facade surface derived from C1-M004 named_transform/target_object and eligibility successor store shape; no new Program Atom is declared",
+  "content_digest": "3ad98b4cc789674a22d0462445234576434b49e04217884b1a6777575cd27217"
+}

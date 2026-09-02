@@ -1,0 +1,207 @@
+{
+  "schema": "mrw.functorial_successor.semantic_movement_completeness_amendment.v1",
+  "status": "FROZEN_AUTHORIZED",
+  "authorized_date": "2026-09-01",
+  "authorization": {
+    "source": "direct_user_message",
+    "supervisor_thread_id": "01a05039-0c9c-7873-8d9f-b60ef1af179f",
+    "target_goal_thread_id": "01a0504c-47ef-77e1-9783-454dbcbe3697",
+    "decision": "adopt semantic movement completeness as a development standard for the functorial successor migration and synchronize the target Goal thread; adopt model routing for mechanized development as part of the same standard"
+  },
+  "resolved_blocker": "SEMANTIC_MOVEMENT_COMPLETENESS_NORMATIVE_AMENDMENT_REQUIRED",
+  "base_contract": {
+    "path": "06_functorial-successor-runtime-architecture-correction.draft.zh-CN.md",
+    "sha256": "c93b58e15a3dbaa1e5e1be9bebfbc41143b97b8e91eb9774851d1f5d78fe3a93"
+  },
+  "base_manifest": {
+    "path": "02_functorial-successor-migration-development-contract.freeze.json",
+    "version": "2.2.0",
+    "sha256": "0798933179c1d9a3d0359c2b16debc4e0b6f16f7fbccca485dcd50c54ef9530c"
+  },
+  "affected_clauses": {
+    "additive_to": [
+      "06 phase gates P1 P3 P4 P5",
+      "00 CapabilitySpec and capability-cell protocol",
+      "02 review and next_authorized_stage"
+    ],
+    "constrains": [
+      "CapabilitySpec pilot",
+      "candidate review",
+      "generator and parallel worker consumption",
+      "C7.1 raw-content structuring boundary"
+    ],
+    "topology_unchanged": true,
+    "new_top_level_c7_cells_required": 0,
+    "existing_c7_cell_topology": ["C7.1", "C7.2", "C7.3", "C7.4"]
+  },
+  "mandatory_inputs": [
+    "legacy/donor semantic movement inventory",
+    "successor movement matrix"
+  ],
+  "mandatory_input_consumers": [
+    "P1 facility and capability migration eligibility audit",
+    "P3 C2-C6 migration",
+    "P4 C7-C9 migration",
+    "P5 assembly canary cutover",
+    "CapabilitySpec pilot",
+    "candidate review"
+  ],
+  "movement_record_required_fields": [
+    "source_object",
+    "target_object",
+    "named_transform",
+    "owner",
+    "effect",
+    "failure",
+    "resource",
+    "authority",
+    "recovery",
+    "projection_loss",
+    "source_evidence",
+    "target_realization",
+    "acceptance_trace"
+  ],
+  "allowed_dispositions": [
+    "PRESERVED_AS",
+    "MOVED_TO",
+    "REIMPLEMENTED_AS",
+    "DECLARED_LOSS",
+    "EXPLICITLY_REJECTED",
+    "UNASSIGNED_BLOCKER"
+  ],
+  "disposition_rule": "every movement record has exactly one disposition from allowed_dispositions; free-text disposition is forbidden",
+  "unassigned_blocker_gate": {
+    "promotion_blocked_when": "UNASSIGNED_BLOCKER > 0",
+    "blocked_actions": [
+      "capability or capability-family promotion",
+      "phase or milestone completion",
+      "candidate acceptance into canonical target",
+      "legacy retirement or freeze",
+      "generator or parallel-worker output treated as promotion"
+    ],
+    "closure_rule": "cell/file/test/hash closure cannot replace movement closure; green tests and exact hashes prove declared scope only"
+  },
+  "locator_separation": {
+    "locator_role": "evidence",
+    "locator_is_taxonomy": false,
+    "semantic_inventory_role": "capability inventory",
+    "runtime_authority_inventory_role": "live wiring point inventory",
+    "unwired_rule": "contract-only unwired or disabled semantic capabilities must be placed declared-lost or rejected; they must not be deleted for lacking a live owner"
+  },
+  "independent_review_gates": [
+    {
+      "gate_id": "declared_scope_correctness",
+      "requires": [
+        "every movement record has all required fields",
+        "every disposition is one of the six allowed values",
+        "movement matrix rows are unique and traceable to tests or review notes",
+        "locator counts are labeled as locator evidence not completeness"
+      ]
+    },
+    {
+      "gate_id": "predecessor_to_successor_movement_completeness",
+      "requires": [
+        "every semantic capability in declared scope has a movement record or explicit rejection record",
+        "no capability is dropped because it lacks a live owner",
+        "at least one legacy end-to-end trace maps to a target trace",
+        "at least one failure or reverse-return case is traced end to end",
+        "at least one declared loss or explicit zero-loss declaration",
+        "UNASSIGNED_BLOCKER count reported",
+        "green tests and exact hashes are not presented as proof of capability preservation"
+      ]
+    }
+  ],
+  "review_rule": "both independent review gates must pass; reviewing declared scope without predecessor-to-successor inventory is not a pass",
+  "generator_rules": [
+    "generators and parallel workers may consume only a spec that has passed the completeness gate",
+    "generators must not solidify omissions into schema",
+    "worker completion is evidence a bounded job finished, not that a capability moved or promotion is authorized",
+    "worker output that adds removes or rewrites semantic capabilities must be folded back into the movement inventory before any promotion gate"
+  ],
+  "c7_minimum_semantic_chain": {
+    "c7_1_chain": {
+      "ordered_prefix": ["RawSnapshot", "NormalizedIngestEnvelope", "DigestionDecision"],
+      "decision_alternatives": ["Extract", "Chunk", "Summarize", "PassThrough"],
+      "decision_selector": "DigestionDecision",
+      "one_of": true,
+      "ordered_suffix": ["StructuredMaterialCandidate"]
+    },
+    "decision_rule": "exactly one alternative selected by DigestionDecision is executed; ordered_prefix, the selected alternative, and ordered_suffix keep directed order; alternatives are not serial and are not assumed commutative",
+    "c7_2": "Verify | Admit",
+    "c7_3": "Index | Graph Projection",
+    "c7_4": "Recovery",
+    "boundary_rule": "C7 owns raw-content structuring through admission; C8 starts typed knowledge from structured or admitted material and must not absorb raw-content structuring",
+    "edge_rule": "every chain edge needs a movement record with source evidence and target acceptance trace; a missing edge is UNASSIGNED_BLOCKER even if every cell has a locator",
+    "admission_rule": "C7.2 Verify|Admit is a semantic gate, not a file existence check"
+  },
+  "current_c7_pilot_promotion_gate": {
+    "promotion_allowed": false,
+    "requirements": [
+      "generate legacy/donor semantic movement inventory and successor movement matrix",
+      "complete legacy decision parity for STRUCTURED_JSON long-report derived-report pass-through",
+      "UNASSIGNED_BLOCKER == 0",
+      "independent review double gate passed"
+    ]
+  },
+  "retrospective_backfill": {
+    "required_scope": "P1-P3 completed scope",
+    "required_before": ["P4 family promotion", "P4 aggregate promotion", "candidate acceptance", "authority claim"],
+    "outputs": ["legacy/donor semantic movement inventory backfill", "successor movement matrix backfill"],
+    "blocker_rule": "UNASSIGNED_BLOCKER found by backfill blocks only promotion or candidate acceptance that depends on it; no fabricated global rollback"
+  },
+  "current_stage_semantics": {
+    "v2_3_revokes_p0_p3_local_only_promotion": false,
+    "v2_3_reproves_p0_p3_local_only_promotion": false,
+    "current_state_authority": ["03_functorial-successor-migration-development-progress.md", "04_functorial-successor-capability-ledger.json"],
+    "current_c7_pilot_requirements": ["C7 semantic movement matrix", "legacy decision parity", "UNASSIGNED_BLOCKER == 0", "independent review double gate"],
+    "not_authorized_by_v2_3": ["live provider", "external delivery", "cutover", "authority transfer", "candidate"]
+  },
+  "model_routing": {
+    "default_for_mechanized_development": "deepseek",
+    "deepseek_scope": [
+      "batch code implementation",
+      "mechanical refactoring",
+      "fixtures tests docs sync",
+      "formatting",
+      "deterministic generators and hashes"
+    ],
+    "mainline_exclusive_scope": [
+      "architecture",
+      "semantic movement matrix",
+      "frozen and normative authority",
+      "risk acceptance",
+      "promotion",
+      "integration",
+      "final review"
+    ],
+    "deepseek_work_package_requirements": [
+      "explicit goal",
+      "explicit inputs",
+      "explicit outputs",
+      "explicit allowed read-write scope",
+      "explicit acceptance criteria"
+    ],
+    "deepseek_forbidden": [
+      "expanding semantics",
+      "modifying frozen semantics",
+      "deciding authority cutover or promotion",
+      "reverting changes made by others"
+    ],
+    "deepseek_output_role": "implementation evidence only",
+    "deepseek_output_gate": "output must pass mainline completeness and promotion review before any promotion gate"
+  },
+  "authority_exclusions": [
+    "no live provider",
+    "no external delivery",
+    "no cutover",
+    "no authority transfer",
+    "no production canonical write",
+    "no self-proof of P4 or C7 completion"
+  ],
+  "resume_gate": {
+    "goal_id": "01a0504c-47ef-77e1-9783-454dbcbe3697",
+    "remove_only_blocker": "SEMANTIC_MOVEMENT_COMPLETENESS_NORMATIVE_AMENDMENT_REQUIRED",
+    "resume_boundary": "semantic movement completeness gate before P4 capability-spec pilot",
+    "promotion_authorized_by_this_file": false
+  }
+}

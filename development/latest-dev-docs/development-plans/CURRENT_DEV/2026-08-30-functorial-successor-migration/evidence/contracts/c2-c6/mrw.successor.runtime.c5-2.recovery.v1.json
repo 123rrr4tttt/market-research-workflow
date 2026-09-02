@@ -1,0 +1,39 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "mrw.successor.runtime.c5-2.recovery.v1",
+  "ref_kind": "recovery_policy",
+  "cell_id": "C5.2",
+  "family_id": "C5",
+  "movement_ids": [
+    "C5-M002",
+    "C5-M003"
+  ],
+  "semantics": {
+    "movement_recovery_m002": "Missing result remains outcome unknown and never becomes non-start proof",
+    "movement_recovery_m003": "Adoption is idempotent and prevents duplicate provider dispatch",
+    "recovery_handler_id": "authoritative-readback"
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C5.v1.json",
+      "pointer": "#/movements/C5-M002/recovery",
+      "sha256": "322d24b19dbbb9babcd463f1c5fb652ec22cfc656a5cab9fd848d9f114b9ad65"
+    },
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C5.v1.json",
+      "pointer": "#/movements/C5-M003/recovery",
+      "sha256": "322d24b19dbbb9babcd463f1c5fb652ec22cfc656a5cab9fd848d9f114b9ad65"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/specification/c5_p3.py",
+      "pointer": "_recovery_and_profile/RecoveryBinding.from_content",
+      "sha256": "9cced6aacc7d4dd69fb76cc7d84a90d47a1ef87b539f320947f49da2d370ffad"
+    }
+  ],
+  "derivation_note": "recovery semantics copied verbatim from movements C5-M002/C5-M003 and the RecoveryBinding handler id in c5_p3.py",
+  "content_digest": "bc371cb611b5c9e091f40fcf1b1bad9db3ac957016e47a410d67fd2a90fbaec1"
+}

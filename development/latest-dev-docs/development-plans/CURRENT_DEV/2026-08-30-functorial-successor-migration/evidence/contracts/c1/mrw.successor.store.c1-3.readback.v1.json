@@ -1,0 +1,44 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "mrw.successor.store.c1-3.readback.v1",
+  "ref_kind": "readback_policy",
+  "cell_id": "C1.3",
+  "family_id": "C1",
+  "movement_ids": [
+    "C1-M004"
+  ],
+  "semantics": {
+    "movement_target_object": "Project-scoped Program, Plan, payload and journal rehydration closure with future-owner rollback",
+    "evidence_refs": [
+      "readback:c1:run",
+      "rollback:c1:future-owner"
+    ],
+    "rollback_preserves_readback_refs": true,
+    "acceptance_trace": [
+      "main/backend/tests/successor_runtime/test_p5_c1_slice_acceptance_postgres.py::test_c1_store_aba_and_stale_revision_fail_closed"
+    ]
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C1.v1.json",
+      "pointer": "#/movements/C1-M004/target_object",
+      "sha256": "ccbb50ee217882d1640bca7f57430eaea651f8ae83258873449d2c998d30bb0a"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/capabilities/c1_slice_acceptance.py",
+      "pointer": "C1RollbackBeforeAfter.after_readback_refs",
+      "sha256": "b84257098bf91dc0c2dce91f185df8110bb30c41ffd5520cfe06d4518fc2f6f4"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/substrate/postgres/node_adapter.py",
+      "pointer": "test_c1_store_aba_and_stale_revision_fail_closed",
+      "sha256": "5cae2d8bb26bd8c3e07a5bd05608764b5ec27768cf9de0b2970f79cb679eace9"
+    }
+  ],
+  "derivation_note": "readback semantics derived from C1-M004 rehydration closure and slice evidence; rollback must retain exact readback refs",
+  "content_digest": "24dd6dc357f21b4c114f190540875ce6677b5204f91aab77736157fd16babc62"
+}

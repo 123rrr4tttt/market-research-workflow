@@ -1,0 +1,32 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "mrw.successor.runtime.c5-4.resource.v1",
+  "ref_kind": "resource_policy",
+  "cell_id": "C5.4",
+  "family_id": "C5",
+  "movement_ids": [
+    "C5-M005",
+    "C5-M006"
+  ],
+  "semantics": {
+    "movement_resource_m005": "Bounded observation payload and source count",
+    "movement_resource_m006": "Bounded source count and join memory"
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C5.v1.json",
+      "pointer": "#/movements/C5-M005/resource",
+      "sha256": "322d24b19dbbb9babcd463f1c5fb652ec22cfc656a5cab9fd848d9f114b9ad65"
+    },
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C5.v1.json",
+      "pointer": "#/movements/C5-M006/resource",
+      "sha256": "322d24b19dbbb9babcd463f1c5fb652ec22cfc656a5cab9fd848d9f114b9ad65"
+    }
+  ],
+  "derivation_note": "resource semantics copied verbatim from movements C5-M005/C5-M006; bounded observation payload/source count and join memory",
+  "content_digest": "cd8f9da9a39cdb64d5671893482e4f193dccef7a674132cb804e3404b41a697c"
+}

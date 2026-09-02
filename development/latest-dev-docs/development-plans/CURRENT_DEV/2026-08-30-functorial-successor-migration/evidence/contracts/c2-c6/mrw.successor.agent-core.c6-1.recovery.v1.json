@@ -1,0 +1,42 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "mrw.successor.agent-core.c6-1.recovery.v1",
+  "ref_kind": "recovery_policy",
+  "cell_id": "C6.1",
+  "family_id": "C6",
+  "movement_ids": [
+    "C6-M001"
+  ],
+  "semantics": {
+    "movement_recovery": "Permission pause resumes the same call; journal and future-owner rollback are retained",
+    "rollback_rehearsal": {
+      "claim_owner": "legacy",
+      "dual_claim_authority": false,
+      "rollback_digest": "9eff54c47e17314beb2dc25c7c4720b8574385430955f54a57ab94052b7c29f1",
+      "successor_journal_retained": true
+    }
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C6.v1.json",
+      "pointer": "#/movements/C6-M001/recovery",
+      "sha256": "bdc430a903d6b1823f91fdeab1873e9a2f8482520cc0f85b0ceec43d040c901a"
+    },
+    {
+      "kind": "p3_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C6.json",
+      "pointer": "#/cells/0/rollback_observation",
+      "sha256": "de997e287f8c51d8c984ae37c81c102834a2a64061967d089fd7d3180468796f"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/capabilities/agent_core_c6_common.py",
+      "pointer": "rollback_authority_ceiling",
+      "sha256": "8f2dadd7847e1607f6a7ddf427a9a397bbf6e44895e37a1cf48446dc946a8e30"
+    }
+  ],
+  "derivation_note": "recovery semantics copied verbatim from movement C6-M001.recovery and p3 C6 /cells/0 rollback_observation fields; C6.1 has no literal rollback_rehearsal string, so the rehearsal record is the p3 rollback_observation copied mechanically; common ceiling confirms journal retained and no dual claim",
+  "content_digest": "80ccaf9bbcd6da2ad68fded5ba17e90b1a4787796fc3a894d9ec1e05b7a61e06"
+}

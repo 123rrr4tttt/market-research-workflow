@@ -1,0 +1,26 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "agent_session.c5-1.control_mutability.loss.v1",
+  "ref_kind": "declared_loss",
+  "cell_id": "C5.1",
+  "family_id": "C5",
+  "movement_ids": [
+    "C5-M001"
+  ],
+  "semantics": {
+    "movement_projection_loss": "Legacy control-plane mutability is intentionally not moved into the projection",
+    "fabricated_terminal": false,
+    "no_fabrication_contract": "AgentSessionSnapshot.validate_projection"
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C5.v1.json",
+      "pointer": "#/movements/C5-M001/projection_loss",
+      "sha256": "322d24b19dbbb9babcd463f1c5fb652ec22cfc656a5cab9fd848d9f114b9ad65"
+    }
+  ],
+  "derivation_note": "declared loss copied verbatim from movement projection_loss; control-plane mutability not moved into projection and terminal state never fabricated",
+  "content_digest": "f31b1553abdbae1a0d62b167c1fcf3ef6243b2a97be40981c4dd72ff7e826d85"
+}

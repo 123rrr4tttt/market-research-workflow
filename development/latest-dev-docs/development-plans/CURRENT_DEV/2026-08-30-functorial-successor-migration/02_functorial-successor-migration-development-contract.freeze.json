@@ -1,0 +1,133 @@
+{
+  "schema": "mrw.functorial_successor.freeze_manifest.v2",
+  "version": "2.3.0",
+  "status": "FROZEN_VALIDATED",
+  "hash_algorithm": "sha256",
+  "created_at_utc": "2026-08-30T05:04:14Z",
+  "amended_at_utc": "2026-08-30T08:29:07Z",
+  "amended_v2_2_at_utc": "2026-08-31T10:06:30Z",
+  "amended_v2_3_at_utc": "2026-08-31T21:55:29Z",
+  "repository": "market-research-workflow",
+  "topic": "functorial-successor-migration",
+  "topic_root": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration",
+  "contract_precedence": [
+    "01_functorial-successor-migration-development-contract.md",
+    "18_functorial-successor-effect-failed-state-machine-amendment.v1.md + 19_functorial-successor-effect-failed-state-machine-amendment.v1.json",
+    "20_functorial-successor-semantic-movement-completeness-amendment.v1.md + 21_functorial-successor-semantic-movement-completeness-amendment.v1.json",
+    "06_functorial-successor-runtime-architecture-correction.draft.zh-CN.md",
+    "10_functorial-successor-domain-contract-snapshot.v1.json + 11_functorial-successor-first-specimen-contract.v1.json + 16_functorial-successor-first-specimen-schema-bundle.v1.1.schema.json + 17_functorial-successor-requiredness-correction.freeze-amendment.v1.json + 14_functorial-successor-crash-window-fixtures.v1.json",
+    "09_functorial-successor-f0-semantic-owner-inventory.v1.json + 13_functorial-successor-c1-c9-locator-pending-inventory.v1.json",
+    "08_symmetric-functorial-architecture-diagram-atlas.draft.zh-CN.md",
+    "unoverridden constraints from 00_functorial-successor-migration-development-contract.draft.md"
+  ],
+  "supersedes_clauses": [
+    "07 runtime-relay outbox fixed-worker topology",
+    "07 StepState and synthetic P0-D topology",
+    "00 legacy F0 MIGRATED status",
+    "00 mandatory C1-first migration assumption",
+    "any claim that Celery or Redis owns successor completion authority",
+    "12 v1 schema as machine-validation authority",
+    "any claim that cell/file/test/hash closure alone proves semantic movement completeness"
+  ],
+  "source_drafts": [
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/00_functorial-successor-migration-development-contract.draft.md", "role": "BASE_CONSTRAINT_SOURCE", "sha256": "5c4a886b9d921abde9fc30c00345e995ef355935c1dfc3fcc3d075e279157eb3"},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/00_functorial-successor-migration-development-contract.draft.zh-CN.md", "role": "NON_AUTHORITATIVE_TRANSLATION", "sha256": "3f7551880d98abc94875d3c9d360421ff1b0ba46d903f9dc146da9c75c49c79f"}
+  ],
+  "baseline_inputs": {
+    "branch": "codex/devdocs-supervisor-seed",
+    "commit": "35ca039c59d2efae8038a678995e8a0812032e43",
+    "tree": "d32b888edd1a03ed555f1087f4f97e52a84580e9",
+    "evidence_ref": "09_functorial-successor-f0-semantic-owner-inventory.v1.json"
+  },
+  "freeze_checkout_identity": {
+    "absolute_root": "/Users/wangyiliang/market-research-workflow",
+    "branch": "codex/devdocs-supervisor-seed",
+    "commit": "35ca039c59d2efae8038a678995e8a0812032e43",
+    "tree": "d32b888edd1a03ed555f1087f4f97e52a84580e9"
+  },
+  "dirty_state_boundary": {
+    "observed_counts": {"modified": 115, "deleted": 350, "untracked": 123, "other": 11},
+    "topic_directory_git_state": "UNTRACKED_HASH_FROZEN",
+    "production_dirty_changes_adopted": false,
+    "rule": "only listed frozen files and listed baseline evidence hashes belong to this freeze; unrelated working-tree changes remain user-owned"
+  },
+  "frozen_contract_family": [
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/00_functorial-successor-migration-development-contract.draft.md", "role": "BASE_CONSTRAINT_SOURCE", "sha256": "5c4a886b9d921abde9fc30c00345e995ef355935c1dfc3fcc3d075e279157eb3", "bytes": 33169, "lines": 740},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/01_functorial-successor-migration-development-contract.md", "role": "FROZEN_CONTRACT_INDEX", "sha256": "13aa3b4c6a1affa46bf73f034351ea359b6ec1902746d3a08dc0d6628823fcee", "bytes": 8889, "lines": 60},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/06_functorial-successor-runtime-architecture-correction.draft.zh-CN.md", "role": "NORMATIVE_ARCHITECTURE_CONTRACT", "sha256": "c93b58e15a3dbaa1e5e1be9bebfbc41143b97b8e91eb9774851d1f5d78fe3a93", "bytes": 144411, "lines": 2577},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/08_symmetric-functorial-architecture-diagram-atlas.draft.zh-CN.md", "role": "NORMATIVE_DIAGRAM_ATLAS", "sha256": "bf84d20eba925d58ee36021d2e064af67bc8daef69ac234bc73c6396653931c9", "bytes": 16114, "lines": 225},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/09_functorial-successor-f0-semantic-owner-inventory.v1.json", "role": "F0_OWNER_INVENTORY", "sha256": "c12a948a356184ceae5b58dbc85deb96759ff74d89f3b2dd09a4e719b9033741", "bytes": 5392, "lines": 106},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/10_functorial-successor-domain-contract-snapshot.v1.json", "role": "DOMAIN_CONTRACT_SNAPSHOT", "sha256": "1dd4c2c12c6a8c164b9f5b1464ae9801347b14a6a3ed75bf202c45b255b59959", "bytes": 5662, "lines": 57},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/11_functorial-successor-first-specimen-contract.v1.json", "role": "FIRST_SPECIMEN_CONTRACT", "sha256": "debd744d90e0dbad1d3c0a10c1482b5d2abcbdf54ca2129ddd5ddeafd92579a8", "bytes": 3690, "lines": 73},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/13_functorial-successor-c1-c9-locator-pending-inventory.v1.json", "role": "LOCATOR_PENDING_INVENTORY", "sha256": "dcb1a3f09c54ee787f9ebae698b8b75c707fd5b8b1c23569fcca8ebc29be2c38", "bytes": 6685, "lines": 41},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/14_functorial-successor-crash-window-fixtures.v1.json", "role": "DECLARATIVE_CRASH_FIXTURES", "sha256": "59bd849c02f50a28509f5964a4baacfe6275e2fc4a29ce7f1bed4efcdf855636", "bytes": 2636, "lines": 26},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/15_functorial-successor-old-goal-stop-receipt.v1.json", "role": "OLD_GOAL_STOP_RECEIPT", "sha256": "b75a9a7e408035dd69fd69775a61d9045ba8f52d962278de840e17fdf8ee34c0", "bytes": 1104, "lines": 24},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/16_functorial-successor-first-specimen-schema-bundle.v1.1.schema.json", "role": "NORMATIVE_FIRST_SPECIMEN_SCHEMA_BUNDLE", "sha256": "8be6c2757a091efcd1a34de0e64a2a9804b5629f7a545b784ea674068c25b51e", "bytes": 15288, "lines": 672},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/17_functorial-successor-requiredness-correction.freeze-amendment.v1.json", "role": "REQUIREDNESS_CORRECTION_FREEZE_AMENDMENT", "sha256": "6da23cb1201482599d9759e1b6405f806e4765e71f20ca01e2913cdc844f0544", "bytes": 2798, "lines": 63},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/18_functorial-successor-effect-failed-state-machine-amendment.v1.md", "role": "NORMATIVE_EFFECT_FAILED_STATE_AMENDMENT", "sha256": "057821fe6536988eddd84d75d1f955f0ff1919e37b27812bd259482e6e9a96c9", "bytes": 7289, "lines": 129},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/19_functorial-successor-effect-failed-state-machine-amendment.v1.json", "role": "MACHINE_EFFECT_FAILED_STATE_AMENDMENT", "sha256": "a0ca2e5406fd071d0902e66ebb2b38938ae42c365fe57ff921bfaa8b7ec78e6e", "bytes": 4638, "lines": 99},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/20_functorial-successor-semantic-movement-completeness-amendment.v1.md", "role": "NORMATIVE_SEMANTIC_MOVEMENT_COMPLETENESS_AMENDMENT", "sha256": "dedf28b7712e7f66649fa2f68c66811129abd4777acc7d351765c693765e9278", "bytes": 9962, "lines": 227},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/21_functorial-successor-semantic-movement-completeness-amendment.v1.json", "role": "MACHINE_SEMANTIC_MOVEMENT_COMPLETENESS_AMENDMENT", "sha256": "85da71a5d6d1b0e5a90f2344ba79d79d2934d679cdc331c138bfb023b9cddf90", "bytes": 9195, "lines": 207}
+  ],
+  "domain_contract_snapshot_ref": "10_functorial-successor-domain-contract-snapshot.v1.json",
+  "first_specimen_contract_ref": "11_functorial-successor-first-specimen-contract.v1.json",
+  "first_specimen_schema_ref": "16_functorial-successor-first-specimen-schema-bundle.v1.1.schema.json",
+  "requiredness_correction_ref": "17_functorial-successor-requiredness-correction.freeze-amendment.v1.json",
+  "effect_failed_amendment_refs": ["18_functorial-successor-effect-failed-state-machine-amendment.v1.md", "19_functorial-successor-effect-failed-state-machine-amendment.v1.json"],
+  "semantic_movement_amendment_refs": ["20_functorial-successor-semantic-movement-completeness-amendment.v1.md", "21_functorial-successor-semantic-movement-completeness-amendment.v1.json"],
+  "owner_inventory_ref": "09_functorial-successor-f0-semantic-owner-inventory.v1.json",
+  "locator_pending_inventory_ref": "13_functorial-successor-c1-c9-locator-pending-inventory.v1.json",
+  "crash_fixture_ref": "14_functorial-successor-crash-window-fixtures.v1.json",
+  "diagram_atlas_ref": "08_symmetric-functorial-architecture-diagram-atlas.draft.zh-CN.md",
+  "old_goal_stop_receipt_ref": "15_functorial-successor-old-goal-stop-receipt.v1.json",
+  "legacy_artifact_dispositions": [
+    {"path": "07_functorial-successor-architecture-diagram-atlas.draft.zh-CN.md", "disposition": "SUPERSEDED_NON_NORMATIVE_EVIDENCE", "sha256": "2811b4f5e47921dc4a4222b3829af6a621e077c98508c64173933b8a0e8b3137"},
+    {"path": "12_functorial-successor-first-specimen-schema-bundle.v1.schema.json", "disposition": "SUPERSEDED_NON_NORMATIVE_EVIDENCE", "sha256": "232787dc2493c759cc54182df0576a5256c4f8b20fc4b977c0d54b560addef5c"},
+    {"path": "target worktree prior 01-04 outputs", "disposition": "SUPERSEDED_UNADOPTED_EVIDENCE"},
+    {"path": "legacy F0 and interrupted C1-C9 implementation", "disposition": "INVALIDATED_HISTORICAL_EVIDENCE_ONLY"}
+  ],
+  "authority_exclusions": [
+    "no production canonical write outside successor project tables",
+    "no live provider or external network",
+    "no external delivery",
+    "no cutover or authority transfer",
+    "no legacy and successor double claim or double approval write",
+    "no dashboard projection or broker state as completion authority"
+  ],
+  "next_authorized_stage": "P4 capability-spec pilot after semantic-movement completeness gate",
+  "goal_gate": {
+    "old_target_thread_id": "01a0504c-47ef-77e1-9783-454dbcbe3697",
+    "old_target_thread_observed_state": "INTERRUPTED",
+    "old_goal_stop_receipt_ref": "15_functorial-successor-old-goal-stop-receipt.v1.json",
+    "old_goal_stop_gate_verified": true,
+    "old_goal_reusable": false,
+    "new_goal_id": "01a0504c-47ef-77e1-9783-454dbcbe3697",
+    "new_goal_status": "RESUME_AUTHORIZED_PENDING_TARGET_SYNC_AND_COMPLIANCE_RECHECK",
+    "requires_clean_implementation_worktree": true
+  },
+  "review": {
+    "reviewers": ["neutral_implementation_review", "contract_metalanguage_repair_audit", "freeze_readiness_audit", "root_supervisor"],
+    "disposition": "V2_3_SEMANTIC_MOVEMENT_COMPLETENESS_AMENDMENT_PASS",
+    "open_p0": [],
+    "validated_at_utc": "2026-08-31T21:55:29Z",
+    "validation_scope": "local JSON parse, structural and local-ref closure, 16 frozen-member SHA-256/bytes/lines, authorization binding, EffectFailed edge/guard/owner separation, branch non-authorization, semantic-movement completeness rules, movement record fields, six-disposition closure, UNASSIGNED_BLOCKER gate, dual independent-review gate, C7 minimum semantic chain with one_of decision structure, generator and worker rules, model routing, P1-P3 retrospective movement-matrix backfill and current-stage semantics, baseline git blobs, snapshot digest, locator and crash-fixture invariants",
+    "validation_limit": "external JSON Schema metaschema package unavailable"
+  },
+  "implementation_recheck_required": [
+    "derive RequiredStepFailed only from persisted QualifiedPlan requiredness, CompletionPolicy, and frozen failure policy",
+    "remove caller-supplied failure_is_required as terminal Run authority",
+    "prove failed readback requiredness before RequiredStepFailed",
+    "remove or replace unlisted BranchSelected and BranchUnresolved state edges without using this amendment as authority",
+    "generate legacy/donor semantic movement inventory and successor movement matrix",
+    "complete legacy decision parity for STRUCTURED_JSON long-report derived-report pass-through",
+    "reach UNASSIGNED_BLOCKER == 0",
+    "pass independent declared-scope correctness and predecessor-to-successor movement completeness review",
+    "backfill retrospective movement matrix for P1-P3 completed scope before any P4 family aggregate candidate or authority claim",
+    "treat backfill UNASSIGNED_BLOCKER as blocking only dependent promotion or candidate acceptance without fabricated global rollback"
+  ],
+  "candidate_evidence": null,
+  "mutable_bootstrap_artifacts": [
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/03_functorial-successor-migration-development-progress.md", "v2_2_resume_sha256": "b2d53a745af9a73bb4721f4719f4e6110cf013f68212339781af56a44eb7d705", "mutability": "MUTABLE_CURRENT_STATE"},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/04_functorial-successor-capability-ledger.json", "v2_2_resume_sha256": "abe4c557ea5e52b7ae47d4fa5670dccce8bd31147b109cea4aefcf57139216d2", "mutability": "MUTABLE_CAPABILITY_STATE"}
+  ]
+}

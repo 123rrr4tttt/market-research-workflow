@@ -1,0 +1,697 @@
+[
+  {
+    "cell": "C4.1",
+    "boundary": "batch plan supplementation branching",
+    "locator_paths": [
+      "main/backend/app/services/agent_batch/agent_loop.py",
+      "main/backend/app/services/agent_batch/task_contract.py",
+      "main/backend/app/services/agent_batch/planner.py",
+      "main/backend/tests/unit/test_agent_batch_loop_unittest.py",
+      "main/backend/tests/unit/test_agent_batch_planner_unittest.py"
+    ],
+    "locator_status": "LOCATED_ELIGIBILITY_PENDING",
+    "observed_symbols": [
+      "run_agent_batch_nl_command_loop",
+      "_normalize_tasks",
+      "_augment_tasks_with_source_library",
+      "_resolve_source_collect_limit",
+      "_resolve_source_query_terms",
+      "_expand_tasks_with_limited_branching",
+      "normalize_agent_batch_task"
+    ],
+    "object_types": {
+      "observed": [
+        "dict-based AgentBatchTask",
+        "list[AgentBatchTask]",
+        "search_brief dict",
+        "branching dict",
+        "autonomy_meta dict"
+      ],
+      "candidate": [
+        "AgentBatchTask.v1",
+        "SourceCandidateSet.v1",
+        "SupplementationDecision.v1",
+        "BranchingDecision.v1",
+        "BatchPlan.v1"
+      ]
+    },
+    "atom_kind": "agent_batch.build_batch_plan.v1",
+    "payload_schema": {
+      "input": {
+        "normalized_tasks": "ordered AgentBatchTask.v1 sequence",
+        "retrieval_mode": "hybrid|source_only|web_only",
+        "source_candidates": "bounded C2-owned SourceCandidateSet.v1",
+        "command_context": "goal, language, coverage_axes",
+        "limited_branching_enabled": "boolean"
+      },
+      "output": {
+        "tasks": "ordered AgentBatchTask.v1 sequence",
+        "supplementation": "enabled, item_keys, selection_mode or skip_reason",
+        "branching": "enabled, branch_count, reason, strategy_labels",
+        "search_brief": "SearchBrief.v1"
+      },
+      "invariants": [
+        "supplementation precedes branching",
+        "branch order is broad then precision",
+        "source-library supplementation preserves query_terms and target max_items",
+        "C4 does not select or rewrite final source_mode"
+      ]
+    },
+    "program_combinators": [
+      "Identity",
+      "Then",
+      "MapOutput",
+      "TraverseOrdered(sequential)",
+      "Decide"
+    ],
+    "failure_return_union": {
+      "observed": [
+        "tuple[tasks, branching]",
+        "ValueError(planner produced no executable tasks)",
+        "source discovery exception collapsed to empty candidates/no_source_library_match"
+      ],
+      "required_candidate": [
+        "BatchPlanReady",
+        "SupplementationSkipped(reason)",
+        "SourceCandidateReadFailed(reason, observation)",
+        "InvalidPlan(reason)"
+      ]
+    },
+    "canonical_owner": {
+      "plan_and_branch_order": "agent_batch capability owner",
+      "source_candidate_and_final_source_mode": "C2 source_library capability owner",
+      "runtime_execution": "runtime journal only after a plan is submitted"
+    },
+    "effect_profile": {
+      "pure_candidate_core": "task normalization, supplementation decision over supplied candidates, search-brief construction, bounded branch decision",
+      "legacy_effects_to_isolate": [
+        "project/shared source-library reads",
+        "credential-readiness checks",
+        "exception-swallowing source discovery"
+      ],
+      "scheduling": "ordered planning only; no effect commutativity or parallel-dispatch claim"
+    },
+    "authority_profile": {
+      "write_authority": "none during plan construction",
+      "read_authority": "project-scoped C2 source-candidate snapshot",
+      "forbidden_transfer": [
+        "source_mode authority",
+        "provider credential authority",
+        "dispatch or claim authority"
+      ]
+    },
+    "resource_profile": {
+      "legacy_bounds": {
+        "autonomous_source_max_tasks": 2,
+        "autonomous_source_scan_limit": 200,
+        "realized_branch_count": 2,
+        "max_items": "clamped to 1..100"
+      },
+      "candidate_requirement": "all candidate sets and traversals remain explicitly bounded; ordering is preserved"
+    },
+    "legacy_interpreter": {
+      "id": "legacy.agent_batch.nl_command.plan.v1",
+      "entrypoint": "app.services.agent_batch.agent_loop.run_agent_batch_nl_command_loop",
+      "status": "OBSERVED"
+    },
+    "successor_interpreter_candidate": {
+      "id": "successor.agent_batch.batch_plan.pure.v1",
+      "status": "NOT_IMPLEMENTED_NOT_SELECTED",
+      "boundary": "consume a C2-owned candidate snapshot and emit typed BatchPlan without importing legacy service topology"
+    },
+    "observation_profile": {
+      "selected_observations": [
+        "ordered normalized task payloads",
+        "supplemented item_keys",
+        "query_terms and max_items preservation",
+        "branch enabled/count/reason/labels",
+        "broad-before-precision order",
+        "source_mode absent from C4-owned output",
+        "explicit degraded source-read observation"
+      ],
+      "verification": {
+        "focused": "9 passed, 11 warnings",
+        "broader_slice": "77 passed, 3 failed, 11 warnings",
+        "broader_failures": [
+          "test_nl_command_dispatches_search_market_batch: accepted_count 2 != parsed task_count 4",
+          "test_nl_command_persists_retry_state_when_bounded_retry_is_enabled: one market dispatch observed instead of two",
+          "test_nl_command_rejects_unsupported_override_params_from_loop_tasks: rejected_count 3 != 1"
+        ],
+        "evidence_ceiling": "focused deterministic fixtures pass, but broader unit behavior remains coupled to environment-dependent source discovery"
+      }
+    },
+    "fixture_ids": [
+      "tests/unit/test_agent_batch_loop_unittest.py::AgentBatchLoopUnitTest::test_nl_command_autonomously_adds_source_library_tasks",
+      "tests/unit/test_agent_batch_loop_unittest.py::AgentBatchLoopUnitTest::test_nl_command_can_enable_default_off_limited_branching_for_high_ambiguity_prompt",
+      "tests/unit/test_agent_batch_loop_unittest.py::AgentBatchLoopUnitTest::test_discover_source_items_prefers_goal_relevant_collect_sources",
+      "tests/unit/test_agent_batch_planner_unittest.py::AgentBatchPlannerUnitTest::test_build_source_library_override_params_promotes_top_level_fields"
+    ],
+    "rollback_observation": {
+      "p1": "no migration or cutover occurs",
+      "future": "select the legacy plan interpreter; disable limited branching to observe branch_count=1/reason=disabled; retain recorded successor plans and never transfer C2 source-mode authority"
+    },
+    "disposition": "EXTRACT_AND_REWRITE",
+    "rationale": "The ordered plan semantics and bounded branch decision are recoverable and testable, but they are embedded in a large dict-based loop and source supplementation performs hidden project/store effects while swallowing read failures. Extract typed objects and a pure ordered planner, supply C2-owned source candidates through an explicit read port, and keep branch order fixed.",
+    "prerequisites": [
+      "define AgentBatchTask.v1, SourceCandidateSet.v1 and BatchPlan.v1 schemas",
+      "make source-candidate read failure explicit instead of collapsing it to an empty match",
+      "freeze broad-before-precision ordering and supplementation-before-branching",
+      "add normalization idempotence and ordered-composition tests",
+      "add a fixture proving source_mode remains C2-owned",
+      "do not select P2 or grant successor claim authority"
+    ],
+    "risk": {
+      "level": "HIGH",
+      "items": [
+        "source discovery imports ambient project/shared state into nominal unit behavior",
+        "discovery failures are observationally conflated with no matches",
+        "supplementation changes task cardinality before branching and submit-count assertions",
+        "dict schemas do not establish typed composition",
+        "parallel realization would be unsafe without separate effect/resource proof"
+      ]
+    },
+    "source_evidence": [
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/13_functorial-successor-c1-c9-locator-pending-inventory.v1.json",
+        "symbol_or_lines": "line 16",
+        "claim": "Frozen locator maps C4.1 to agent_loop.py and task_contract.py and leaves it ELIGIBILITY_PENDING."
+      },
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/06_functorial-successor-runtime-architecture-correction.draft.zh-CN.md",
+        "symbol_or_lines": "lines 2327-2334",
+        "claim": "C4 requires restart, duplicate-request, budget, ordered-rewrite, approval, Celery-receipt and API-compatibility evidence; source mode remains C2-owned."
+      },
+      {
+        "path": "main/backend/app/services/agent_batch/agent_loop.py",
+        "symbol_or_lines": "run_agent_batch_nl_command_loop, lines 67-107",
+        "claim": "Legacy order is normalize, source supplementation, pre-branch brief, limited branching, then final brief."
+      },
+      {
+        "path": "main/backend/app/services/agent_batch/agent_loop.py",
+        "symbol_or_lines": "_augment_tasks_with_source_library, lines 274-340",
+        "claim": "Supplementation reads source items, appends ordered source_library tasks and derives the collection target from existing tasks."
+      },
+      {
+        "path": "main/backend/app/services/agent_batch/agent_loop.py",
+        "symbol_or_lines": "_expand_tasks_with_limited_branching, lines 458-531",
+        "claim": "Branching is default-off, guarded, bounded to two tasks and returns broad before precision."
+      },
+      {
+        "path": "main/backend/tests/unit/test_agent_batch_loop_unittest.py",
+        "symbol_or_lines": "AgentBatchLoopUnitTest.test_nl_command_can_enable_default_off_limited_branching_for_high_ambiguity_prompt, lines 711-743",
+        "claim": "Fixture observes two distinct branches with strategy_labels ordered as broad then precision."
+      }
+    ]
+  },
+  {
+    "cell": "C4.2",
+    "boundary": "retry action ordered reducer",
+    "locator_paths": [
+      "main/backend/app/services/agent_batch/agent_loop.py",
+      "main/backend/app/services/agent_batch/task_contract.py",
+      "main/backend/tests/unit/test_agent_batch_loop_unittest.py",
+      "main/backend/tests/unit/test_agent_batch_planner_unittest.py",
+      "main/backend/tests/unit/test_agent_batch_api_unittest.py"
+    ],
+    "locator_status": "LOCATED_ELIGIBILITY_PENDING",
+    "observed_symbols": [
+      "_RETRY_ACTION_SCHEMA",
+      "validate_retry_action_payload",
+      "_normalize_retry_rewrite_value",
+      "_build_search_retry_state",
+      "_build_retry_action_from_critic",
+      "_apply_retry_action",
+      "_build_retry_idempotency_key"
+    ],
+    "object_types": {
+      "observed": [
+        "retry_action dict",
+        "search_critic dict",
+        "search_retry state dict",
+        "ordered list[AgentBatchTask]",
+        "submit receipt dict"
+      ],
+      "candidate": [
+        "RetryAction.v1",
+        "RetryBudget.v1",
+        "RetryReducerInput.v1",
+        "RetryTransition.v1",
+        "RetryAttemptIntent.v1"
+      ]
+    },
+    "atom_kind": "agent_batch.reduce_retry_action.v1",
+    "payload_schema": {
+      "input": {
+        "current_tasks": "ordered AgentBatchTask.v1 sequence",
+        "critic_decision": "score, next_action, reason_codes, optional rewrite",
+        "retry_action": "tagged action, reason, channel, allowed rewrite, target_items",
+        "budget": "remaining_budget, max_retry_rounds, current_round",
+        "prior_attempt_ref": "exact prior attempt identity"
+      },
+      "output": {
+        "transition": "RetryScheduled|RetrySkipped|RetryRejected",
+        "tasks": "ordered rewritten AgentBatchTask.v1 sequence",
+        "new_attempt_intent": "fresh attempt identity and round-scoped idempotency identity",
+        "observations": "used budget, reason, skip_reason, action, task_count"
+      },
+      "invariants": [
+        "retry budget is monotone non-increasing",
+        "at most one retry is currently permitted",
+        "rewrites apply in current task order",
+        "a scheduled retry creates a new attempt",
+        "source_mode is not rewritten by the C4 successor reducer"
+      ]
+    },
+    "program_combinators": [
+      "Identity",
+      "Then",
+      "MapOutput",
+      "Decide"
+    ],
+    "failure_return_union": {
+      "observed": [
+        "tuple[search_retry_state, optional submit_receipt, retried_tasks]",
+        "retry_action_invalid",
+        "retry_action_reason_missing",
+        "retry_action_channel_invalid",
+        "retry_action_rewrite_invalid",
+        "retry_action_rewrite_fields_unsupported",
+        "retry_action_rewrite_fields_missing",
+        "retry_action_no_effect",
+        "retry_budget_exhausted",
+        "critic_stop",
+        "score_above_threshold"
+      ],
+      "required_candidate": [
+        "RetryScheduled(new_attempt_intent, tasks, remaining_budget)",
+        "RetrySkipped(reason, unchanged_tasks)",
+        "RetryRejected(validation_failure, unchanged_tasks)",
+        "RetryEffectFailed(attempt_ref, failure_observation)"
+      ]
+    },
+    "canonical_owner": {
+      "retry_policy_and_ordered_rewrite": "agent_batch capability owner",
+      "attempt_lease_effect_and_reconciliation": "successor runtime journal",
+      "final_source_mode": "C2 source_library capability owner"
+    },
+    "effect_profile": {
+      "pure_candidate_core": "validate tagged action, check budget/guards, reduce ordered tasks, derive a fresh retry-attempt intent",
+      "legacy_mixed_effect": "_build_search_retry_state calls submitter immediately after reduction",
+      "effect_boundary_requirement": "persist/claim the new attempt before interpretation; submit is not part of the pure reducer"
+    },
+    "authority_profile": {
+      "capability_authority": "C4 may decide whether and how to retry within an approved budget",
+      "runtime_authority": "only runtime may create/claim/reconcile the fresh effect attempt",
+      "forbidden_transfer": [
+        "reuse of the original attempt identity",
+        "C4 ownership of source_mode",
+        "generic runtime ownership of RetryAction semantics"
+      ]
+    },
+    "resource_profile": {
+      "legacy_defaults": {
+        "retry_budget": 1,
+        "max_retry_rounds": 1,
+        "retry_score_threshold": 0.72,
+        "source_candidate_selection_limit": 1,
+        "max_items": "clamped to 1..100"
+      },
+      "candidate_requirement": "one durable capacity reservation per fresh attempt; no retry effect may run before reservation and authority checks"
+    },
+    "legacy_interpreter": {
+      "id": "legacy.agent_batch.retry_loop.v1",
+      "entrypoint": "app.services.agent_batch.agent_loop._build_search_retry_state",
+      "reducer": "app.services.agent_batch.agent_loop._apply_retry_action",
+      "status": "OBSERVED"
+    },
+    "successor_interpreter_candidate": {
+      "id": "successor.agent_batch.retry_action.reducer.v1",
+      "status": "NOT_IMPLEMENTED_NOT_SELECTED",
+      "boundary": "pure capability reducer emits RetryAttemptIntent; durable runtime separately creates and interprets a fresh attempt"
+    },
+    "observation_profile": {
+      "selected_observations": [
+        "normalized tagged action",
+        "fail-closed validation reason/details",
+        "ordered before/after task sequence",
+        "budget and used count",
+        "scheduled/skip reason",
+        "fresh round and attempt identity",
+        "round-scoped idempotency identity",
+        "submit receipt or explicit effect failure",
+        "source_mode absent from C4-owned retry output"
+      ],
+      "verification": {
+        "focused": "9 passed, 11 warnings",
+        "broader_slice": "77 passed, 3 failed, 11 warnings",
+        "ceiling": "focused reducer/retry fixtures pass; broader loop tests reveal ambient supplementation can change retry and count observations"
+      }
+    },
+    "fixture_ids": [
+      "tests/unit/test_agent_batch_loop_unittest.py::AgentBatchLoopUnitTest::test_loop_schedules_single_retry_round_when_enabled",
+      "tests/unit/test_agent_batch_loop_unittest.py::AgentBatchLoopUnitTest::test_loop_retries_source_library_when_source_gap_score_is_above_threshold",
+      "tests/unit/test_agent_batch_loop_unittest.py::AgentBatchLoopUnitTest::test_loop_skips_retry_when_critic_recommends_stop",
+      "tests/unit/test_agent_batch_planner_unittest.py::AgentBatchPlannerUnitTest::test_validate_retry_action_payload_normalizes_and_fail_closes",
+      "tests/unit/test_agent_batch_api_unittest.py::AgentBatchApiUnitTest::test_nl_command_retry_can_attach_source_library_and_preserve_runtime_fields"
+    ],
+    "rollback_observation": {
+      "p1": "no migration or attempt-authority transfer occurs",
+      "future": "select legacy retry interpreter or set enable_bounded_retry=false; observe scheduled=false and skip_reason=bounded_retry_disabled; retain all already-recorded attempts and never reinterpret a retry as the original attempt"
+    },
+    "disposition": "EXTRACT_AND_REWRITE",
+    "rationale": "A tagged action vocabulary, fail-closed validator and deterministic ordered task rewrite already exist, but they are untyped dictionaries and the retry state builder mixes policy reduction with the submit effect. Extract the capability-specific RetryAction algebra, rewrite it as a pure reducer, and emit a fresh attempt intent for the durable runtime. Do not migrate source_mode rewrite authority.",
+    "prerequisites": [
+      "freeze RetryAction.v1 and RetryTransition.v1 schemas",
+      "separate reducer output from submitter invocation",
+      "derive and persist a fresh attempt identity for every scheduled retry",
+      "bind the new attempt to project, capability, request digest, authority snapshot and prior-attempt reference",
+      "remove source_mode from the C4 successor rewrite surface while preserving legacy compatibility observations",
+      "add budget monotonicity, ordered rewrite, no-effect, failure-preservation and replay fixtures",
+      "do not select P2 or enable successor claim authority"
+    ],
+    "risk": {
+      "level": "HIGH",
+      "items": [
+        "policy transition and external submit currently occur in one function",
+        "direct attach_source_library reduction falls back to max_items=1 when omitted",
+        "source_mode is currently accepted by the legacy retry schema despite C2 ownership",
+        "budget is reconstructed from defaults instead of durable prior state",
+        "retry idempotency key is a string suffix rather than a durable exact request/attempt binding",
+        "submit failure has no typed transition or reconciliation observation"
+      ]
+    },
+    "source_evidence": [
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/13_functorial-successor-c1-c9-locator-pending-inventory.v1.json",
+        "symbol_or_lines": "line 17",
+        "claim": "Frozen locator maps C4.2 to agent_loop.py and task_contract.py and leaves it ELIGIBILITY_PENDING."
+      },
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/06_functorial-successor-runtime-architecture-correction.draft.zh-CN.md",
+        "symbol_or_lines": "lines 2327-2334",
+        "claim": "RetryAction is capability IR, ordered rewrite and budget monotonicity are mandatory, and source mode remains C2-owned."
+      },
+      {
+        "path": "main/backend/app/services/agent_batch/task_contract.py",
+        "symbol_or_lines": "_RETRY_ACTION_SCHEMA, lines 396-440",
+        "claim": "Legacy declares tagged retry actions, action-specific rewrite fields, fail_closed=true and a one-round retry budget."
+      },
+      {
+        "path": "main/backend/app/services/agent_batch/task_contract.py",
+        "symbol_or_lines": "validate_retry_action_payload, lines 643-711",
+        "claim": "Validator normalizes allowed fields and returns explicit fail-closed reason codes for invalid actions and rewrites."
+      },
+      {
+        "path": "main/backend/app/services/agent_batch/agent_loop.py",
+        "symbol_or_lines": "_build_search_retry_state, lines 615-715",
+        "claim": "Legacy checks budget and critic guards, reduces tasks, then immediately calls submitter using a retry-round idempotency key."
+      },
+      {
+        "path": "main/backend/app/services/agent_batch/agent_loop.py",
+        "symbol_or_lines": "_apply_retry_action and _build_retry_idempotency_key, lines 839-901",
+        "claim": "Rewrites preserve list order, attach_source_library can default max_items to 1, and retry identity is encoded as base:retry:round."
+      },
+      {
+        "path": "main/backend/tests/unit/test_agent_batch_loop_unittest.py",
+        "symbol_or_lines": "lines 494-653",
+        "claim": "Fixtures observe one additional round, changed query terms or attached source task, preserved max_items/query_terms, absent source_mode and a :retry:2 key."
+      }
+    ]
+  },
+  {
+    "cell": "C4.3",
+    "boundary": "submit idempotency API",
+    "locator_paths": [
+      "main/backend/app/services/agent_batch",
+      "main/backend/app/api",
+      "main/backend/app/api/agent_batch.py",
+      "main/backend/app/services/agent_batch/task_contract.py",
+      "main/backend/app/services/agent_batch/approval_binding.py",
+      "main/backend/app/services/agent_batch/routing.py",
+      "main/backend/app/services/agent_sessions/service.py",
+      "main/backend/app/services/agent_sessions/store.py",
+      "main/backend/app/services/agent_runtime/interactive_agent.py",
+      "main/backend/app/successor_runtime/substrate/postgres/idempotency.py",
+      "main/backend/app/successor_runtime/substrate/postgres/work_items.py",
+      "main/backend/app/successor_runtime/substrate/postgres/authority.py",
+      "main/backend/tests/unit/test_agent_batch_api_unittest.py",
+      "main/backend/tests/integration/test_agent_batch_workflow_closure_unittest.py"
+    ],
+    "locator_status": "LOCATED_ELIGIBILITY_PENDING_DURABILITY_GAP",
+    "observed_symbols": [
+      "AgentBatchSubmitRequest",
+      "AgentBatchItemSubmit",
+      "_BatchJobRecord",
+      "_BatchItemRecord",
+      "_BATCH_JOB_REGISTRY",
+      "_IDEMPOTENCY_INDEX",
+      "_submit_jobs_from_loop_tasks",
+      "submit_agent_batch_job",
+      "_submit_batch_item",
+      "_enforce_approval_if_needed",
+      "_CHANNEL_EXECUTION_REGISTRY",
+      "project_agent_batch_job_submission",
+      "IdempotencyRepository",
+      "CapabilityAuthority"
+    ],
+    "object_types": {
+      "observed": [
+        "AgentBatchSubmitRequest",
+        "AgentBatchItemSubmit",
+        "_BatchJobRecord",
+        "_BatchItemRecord",
+        "FastAPI ok envelope",
+        "Celery task id",
+        "AgentSession compatibility projection"
+      ],
+      "candidate": [
+        "AgentBatchSubmission.v1",
+        "AgentBatchSubmissionItem.v1",
+        "AgentBatchSubmissionDigest.v1",
+        "IdempotencyBinding.v1",
+        "BatchRunRef.v1",
+        "DispatchAttempt.v1",
+        "BatchSubmitReceipt.v1"
+      ]
+    },
+    "atom_kind": "agent_batch.submit.v1",
+    "payload_schema": {
+      "input": {
+        "project_scope": "exact project scope reference",
+        "logical_request_id": "project-and-capability-scoped idempotency identity",
+        "request_digest": "canonical digest of batch, rules, priority and authority-relevant inputs",
+        "jobs": "non-empty ordered AgentBatchSubmissionItem.v1 sequence",
+        "authority_snapshot": "exact approval/grant/epoch binding",
+        "resource_request": "bounded batch and per-item capacity requirements"
+      },
+      "output": {
+        "new_submission": "BatchSubmitReceipt(job_id, accepted_items, rejected_items, run_refs, created_at)",
+        "idempotent_replay": "same terminal/open observation for the exact same digest",
+        "conflict": "IdempotencyConflict when the logical key is bound to a different digest",
+        "effect_state": "durable per-item DispatchAttempt refs"
+      },
+      "compat_projection": "existing status/data response fields and links remain an adapter projection, not canonical authority"
+    },
+    "program_combinators": [
+      "Then",
+      "TraverseOrdered(sequential)",
+      "Decide"
+    ],
+    "failure_return_union": {
+      "observed": [
+        "ok(data accepted/rejected counts and item receipts)",
+        "idempotency_reused=true",
+        "per-item rejected reason_code=unsupported_channel|approval_required|dispatch_error|rule failure",
+        "HTTPException INVALID_INPUT|PROJECT_KEY_REQUIRED|NOT_FOUND"
+      ],
+      "required_candidate": [
+        "SubmissionAccepted",
+        "SubmissionPartiallyAccepted",
+        "SubmissionRejected",
+        "SubmissionReplay",
+        "IdempotencyConflict",
+        "AuthorityRejected",
+        "ResourceRejected",
+        "DispatchEffectFailed",
+        "OutcomeUnknown"
+      ]
+    },
+    "canonical_owner": {
+      "current_observed": "app.api.agent_batch process-local registries",
+      "required_successor": "project-scoped PostgreSQL runtime journal for run/work-item/attempt/idempotency facts",
+      "compatibility_projection": "AgentSession store and FastAPI response",
+      "business_output_owner": "downstream capability owner; submit success does not constitute research admission"
+    },
+    "effect_profile": {
+      "legacy_effects": [
+        "approval token lookup",
+        "Celery task enqueue",
+        "process-local registry mutation",
+        "best-effort AgentSession projection",
+        "Celery result readback"
+      ],
+      "required_order": [
+        "validate request and authority",
+        "reserve exact idempotency binding",
+        "create durable run/work-items/attempt intents",
+        "claim resources",
+        "enqueue or interpret effects",
+        "record receipts or OUTCOME_UNKNOWN",
+        "derive API projection"
+      ],
+      "non_commutativity": "dispatch, idempotency reservation and receipt persistence may not be reordered or parallelized without an explicit crash-window protocol"
+    },
+    "authority_profile": {
+      "api": "external adapter only",
+      "successor_claim": "disabled during P1",
+      "future_claim": "CapabilityAuthority must make legacy_claim_enabled and successor_claim_enabled mutually exclusive",
+      "approval": "must bind exact project, operation, request digest, resource ceiling and authority epoch",
+      "idempotency": "scoped by project_key, capability_id and logical_request_id with exact request_digest matching"
+    },
+    "resource_profile": {
+      "legacy": {
+        "batch_cardinality": "non-empty but no explicit upper bound",
+        "lanes": [
+          "main",
+          "subagent",
+          "system"
+        ],
+        "dispatch": "ordered synchronous submission of Celery tasks",
+        "durability": "job/idempotency registries are process-local"
+      },
+      "candidate_requirement": "explicit batch bound, claim-time per-capability/project capacity reservation, deadline, retry and backpressure observations"
+    },
+    "legacy_interpreter": {
+      "id": "legacy.agent_batch.submit_api.v1",
+      "entrypoints": [
+        "POST /api/v1/agent-batch/jobs",
+        "app.api.agent_batch._submit_jobs_from_loop_tasks"
+      ],
+      "transport": "Celery via channel execution registry",
+      "status": "OBSERVED"
+    },
+    "successor_interpreter_candidate": {
+      "id": "successor.agent_batch.postgres_submit.v1",
+      "status": "NOT_IMPLEMENTED_NOT_SELECTED",
+      "candidate_substrate": [
+        "app.successor_runtime.substrate.postgres.idempotency.IdempotencyRepository",
+        "app.successor_runtime.substrate.postgres.work_items",
+        "app.successor_runtime.substrate.postgres.authority.CapabilityAuthority"
+      ],
+      "boundary": "new C4-specific submission interpreter over existing successor substrate; legacy API remains a projection adapter"
+    },
+    "observation_profile": {
+      "selected_observations": [
+        "existing API status/data/error/meta envelope",
+        "job_id and created_at",
+        "ordered accepted and rejected item observations",
+        "task_id, lane, workflow_run_id and trace_id",
+        "request digest and idempotency replay/conflict",
+        "approval and authority rejection",
+        "Celery/effect receipt or OUTCOME_UNKNOWN",
+        "restart recovery",
+        "duplicate concurrent request single-claim behavior",
+        "AgentSession projection explicitly marked noncanonical"
+      ],
+      "verification": {
+        "focused": "9 passed, 11 warnings",
+        "broader_slice": "77 passed, 3 failed, 11 warnings",
+        "current_positive_evidence": "same-process duplicate-key reuse, approval rejection and mocked Celery/workflow-handoff projection",
+        "missing_evidence": [
+          "process restart recovery",
+          "concurrent duplicate request race",
+          "same key with different payload conflict",
+          "project-scoped idempotency isolation",
+          "crash after dispatch before registry/receipt persistence",
+          "single legacy-or-successor claim"
+        ]
+      }
+    },
+    "fixture_ids": [
+      "tests/unit/test_agent_batch_api_unittest.py::AgentBatchApiUnitTest::test_submit_job_accepts_items_and_reuses_idempotency_key",
+      "tests/unit/test_agent_batch_api_unittest.py::AgentBatchApiUnitTest::test_submit_job_requires_approval_when_rule_set_enabled",
+      "tests/unit/test_agent_batch_api_unittest.py::AgentBatchApiUnitTest::test_submit_job_fails_closed_when_channel_submit_handler_missing",
+      "tests/unit/test_agent_batch_api_unittest.py::AgentBatchApiUnitTest::test_submit_job_adds_lane_metadata_for_items",
+      "tests/integration/test_agent_batch_workflow_closure_unittest.py::AgentBatchWorkflowClosureIntegrationTestCase::test_agent_batch_to_workflow_handoff_replay_closure"
+    ],
+    "rollback_observation": {
+      "p1": "no API cutover, authority migration or P2 selection occurs",
+      "future": "capability allowlist selects the legacy write adapter while successor claim authority is disabled; successor journal/idempotency observations are retained; rollback must fail closed rather than permit dual claim"
+    },
+    "disposition": "REIMPLEMENT",
+    "rationale": "The public envelope and channel dispatch behavior are useful compatibility evidence, but canonical job state and idempotency authority are process-local dictionaries. Dispatch occurs before registry/idempotency persistence, keys are not project/capability/request-digest bound, approval authority is also process-local, and AgentSession persistence is only a best-effort projection. Reuse fixtures and API shape, but implement the command on the durable successor substrate without importing the legacy route/service topology.",
+    "prerequisites": [
+      "define canonical AgentBatchSubmission.v1 and BatchSubmitReceipt.v1 schemas",
+      "compute a canonical request digest covering ordered jobs, rules, project scope, priority and authority-relevant fields",
+      "reserve idempotency atomically by project, capability and logical request before any dispatch",
+      "reject the same logical key when request_digest differs",
+      "persist run, work-item and fresh attempt records before interpretation",
+      "add explicit OUTCOME_UNKNOWN and reconciliation for dispatch-before-receipt crash windows",
+      "bind approval/grant/resource ceilings to the exact submission",
+      "enforce mutually exclusive legacy and successor claim authority",
+      "retain the existing API shape only as a compatibility projection",
+      "add restart, concurrency, conflict, crash-window and rollback fixtures",
+      "do not select P2 or enable production successor authority"
+    ],
+    "risk": {
+      "level": "CRITICAL",
+      "items": [
+        "all job and idempotency canonical state is lost on process restart",
+        "check-then-dispatch-then-index ordering permits concurrent duplicate effects",
+        "a bare idempotency key can alias different projects or different request payloads",
+        "partial dispatch can occur before a durable job record exists",
+        "response status remains accepted even when every item is rejected",
+        "AgentSession SQL persistence does not repair missing canonical batch/idempotency authority",
+        "approval token authority is process-local and can disappear independently of its SQL projection",
+        "legacy retry endpoint creates additional effects without durable attempt/reconciliation semantics"
+      ]
+    },
+    "source_evidence": [
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/13_functorial-successor-c1-c9-locator-pending-inventory.v1.json",
+        "symbol_or_lines": "line 18",
+        "claim": "Frozen locator maps C4.3 to services/agent_batch and app/api and leaves it ELIGIBILITY_PENDING."
+      },
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/06_functorial-successor-runtime-architecture-correction.draft.zh-CN.md",
+        "symbol_or_lines": "lines 2327-2334",
+        "claim": "C4 must move process-local batch/idempotency registry to PostgreSQL and rollback must forbid dual claim."
+      },
+      {
+        "path": "main/backend/app/api/agent_batch.py",
+        "symbol_or_lines": "_BatchJobRecord, _BATCH_JOB_REGISTRY and _IDEMPOTENCY_INDEX, lines 81-111",
+        "claim": "Legacy canonical batch job and idempotency lookup state are module-level process-local dictionaries."
+      },
+      {
+        "path": "main/backend/app/api/agent_batch.py",
+        "symbol_or_lines": "submit_agent_batch_job, lines 1074-1203",
+        "claim": "Duplicate lookup is a bare-key dictionary check; new requests dispatch items before storing the job record and idempotency index."
+      },
+      {
+        "path": "main/backend/app/services/agent_batch/approval_binding.py",
+        "symbol_or_lines": "lines 11-13 and request/verify functions, lines 52-116",
+        "claim": "Approval authority is maintained in process-local pending and approved dictionaries."
+      },
+      {
+        "path": "main/backend/app/services/agent_sessions/store.py",
+        "symbol_or_lines": "SqlAgentSessionStore and build_agent_session_store, lines 275-315 and 670-686",
+        "claim": "AgentSession has a SQL projection, but store initialization may fail open to memory and does not own the batch idempotency registry."
+      },
+      {
+        "path": "main/backend/app/successor_runtime/substrate/postgres/idempotency.py",
+        "symbol_or_lines": "IdempotencyBinding and IdempotencyRepository.reserve, lines 27-94",
+        "claim": "Existing successor substrate binds idempotency to capability, logical request, operation kind, request digest and run under a project-scoped PostgreSQL uniqueness boundary."
+      },
+      {
+        "path": "main/backend/app/successor_runtime/substrate/postgres/authority.py",
+        "symbol_or_lines": "CapabilityAuthority, lines 44-60",
+        "claim": "Existing successor authority contract rejects simultaneous legacy and successor claim authority."
+      },
+      {
+        "path": "main/backend/tests/unit/test_agent_batch_api_unittest.py",
+        "symbol_or_lines": "AgentBatchApiUnitTest.test_submit_job_accepts_items_and_reuses_idempotency_key, lines 116-139",
+        "claim": "Current idempotency fixture proves only same-process reuse and verifies no second mocked dispatch."
+      }
+    ]
+  }
+]

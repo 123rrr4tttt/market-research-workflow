@@ -1,0 +1,103 @@
+{
+  "schema": "mrw.functorial_successor.i1_c7_canonical_write_evidence.v1",
+  "version": "1.0.0",
+  "generated_at": "2026-09-02",
+  "status": "C7_2_CANONICAL_WRITE_INSTALLED_C7_3_PROJECTOR_DRIVER_INSTALLED_PG_GREEN",
+  "note": "C7.2 installs a real successor-only canonical commit-write handler over admit_verified_candidate (idempotent exact duplicate, ABA and authority-epoch fail-closed). C7.3 installs the successor-only projector driver, registers search/graph projector contracts in ProjectorRegistry, persists successor_values and advances runtime_projection_offsets with an exact CAS. All writes stay inside successor-owned tables; legacy/provider/export/cutover remain closed.",
+  "worktree": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0",
+  "head": "35ca039c59d2efae8038a678995e8a0812032e43",
+  "cwd": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0/main/backend",
+  "interpreter": "python3.11",
+  "content_sha256_before_self_field": "4f0c72fbad437bee257d01a63a3a87222a0e204536fccb3f1b467bf79ba223de",
+  "files": [
+    {
+      "path": "main/backend/app/successor_runtime/assembly/c7_assembly.py",
+      "sha256": "d9752c76c75f1521f02eca2745b0f73ee89652af647d1b93a531f6899aac9c43",
+      "change": "C7.2 canonical write handler and C7.3 projector driver installation; C7.2/C7.3 rollback PRESENT; C7.1/C7.4 unchanged"
+    },
+    {
+      "path": "main/backend/app/successor_runtime/substrate/postgres/c7_canonical_write.py",
+      "sha256": "3a947496c685f8f47f2714e2a35ef85f5130a8ed2b162f01eaa82e0f9116c3c2",
+      "change": "new successor-only C7.2 canonical write port over admit_verified_candidate"
+    },
+    {
+      "path": "main/backend/app/successor_runtime/substrate/postgres/c7_projector_driver.py",
+      "sha256": "ef2823bc61363019a1c3b861dfcf19382aeb1cf07ab43b8ad505c1d7d9cf934a",
+      "change": "new C7.3 search/graph projector driver: successor_values persistence and runtime_projection_offsets exact CAS rebuild"
+    },
+    {
+      "path": "main/backend/tests/successor_runtime/test_c7_canonical_write_projector_postgres.py",
+      "sha256": "9772492c6e20f1cd0d8485749532ee4d8f5e0421d43e8d2db232ea175089c04a",
+      "change": "disposable PG suite: commit+readback, exact duplicate, ABA/authority-epoch, projector offset/rebuild; teardown drops database"
+    }
+  ],
+  "runs": [
+    {
+      "label": "C7 canonical write + projector driver PG suite",
+      "command": "SUCCESSOR_TEST_DATABASE_URL=postgresql+psycopg2://localhost/postgres python3.11 -m pytest -q -p no:cacheprovider tests/successor_runtime/test_c7_canonical_write_projector_postgres.py",
+      "exit_code": 0,
+      "result": "9 passed; disposable database dropped on teardown"
+    },
+    {
+      "label": "existing C7 movement admission PG regression",
+      "command": "SUCCESSOR_TEST_DATABASE_URL=postgresql+psycopg2://localhost/postgres python3.11 -m pytest -q -p no:cacheprovider tests/successor_runtime/test_c7_movement_admission_postgres.py",
+      "exit_code": 0,
+      "result": "50 passed; disposable database dropped on teardown"
+    },
+    {
+      "label": "existing P4 C7 offset/readback PG regression",
+      "command": "SUCCESSOR_TEST_DATABASE_URL=postgresql+psycopg2://localhost/postgres python3.11 -m pytest -q -p no:cacheprovider tests/successor_runtime/test_p4_c7_6_postgres.py",
+      "exit_code": 0,
+      "result": "4 passed; disposable database dropped on teardown"
+    },
+    {
+      "label": "I1 C7/C8/C9 assembly structure",
+      "command": "python3.11 -m pytest -q -p no:cacheprovider tests/successor_runtime/test_i1_c7_c9_assembly.py tests/successor_runtime/test_i1_assembly_composition_root.py",
+      "exit_code": 0,
+      "result": "20 passed"
+    },
+    {
+      "label": "full non-PostgreSQL tests/successor_runtime",
+      "command": "python3.11 -m pytest -q -p no:cacheprovider tests/successor_runtime",
+      "exit_code": 0,
+      "result": "1394 passed, 117 skipped, 3 pydantic deprecation warnings"
+    },
+    {
+      "label": "successor runtime dependency lint",
+      "command": "python3.11 scripts/check_successor_runtime_dependencies.py",
+      "exit_code": 0,
+      "result": "ok=true, files_checked=209, function_local_imports_scanned=43, violations=0"
+    },
+    {
+      "label": "ruff check",
+      "command": "ruff check app/successor_runtime/assembly/c7_assembly.py app/successor_runtime/substrate/postgres/c7_canonical_write.py app/successor_runtime/substrate/postgres/c7_projector_driver.py tests/successor_runtime/test_c7_canonical_write_projector_postgres.py",
+      "exit_code": 0,
+      "result": "All checks passed"
+    },
+    {
+      "label": "ruff format check",
+      "command": "ruff format --check app/successor_runtime/assembly/c7_assembly.py app/successor_runtime/substrate/postgres/c7_canonical_write.py app/successor_runtime/substrate/postgres/c7_projector_driver.py tests/successor_runtime/test_c7_canonical_write_projector_postgres.py",
+      "exit_code": 0,
+      "result": "4 files already formatted"
+    }
+  ],
+  "not_run": [
+    "app router mounting / run_once / live provider / legacy cutover: NOT_AUTHORIZED",
+    "canonical write outside successor-owned tables: NOT_AUTHORIZED and structurally closed"
+  ],
+  "authority_ceiling": {
+    "canonical_write": "successor_tables_only",
+    "successor_tables": [
+      "public.c7_movement_canonical_documents",
+      "public.runtime_commit_intents",
+      "<project_schema>.successor_values",
+      "public.runtime_projection_offsets"
+    ],
+    "legacy_write": false,
+    "live_provider": false,
+    "external_delivery": false,
+    "cutover": false,
+    "authority_transfer": false,
+    "promotion": false
+  }
+}

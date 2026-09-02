@@ -1,0 +1,73 @@
+{
+  "schema": "mrw.functorial_successor.first_specimen_contract.v1",
+  "status": "FROZEN",
+  "specimen_id": "first-document-ref-to-internal-delivery",
+  "purpose": "prove the program-running metalanguage on one real bounded information-research path without importing legacy control flow",
+  "inputs": {
+    "research_intent": "one project-scoped intent",
+    "inquiry": "one inquiry with acceptance and stop conditions",
+    "sources": "two existing project Document rows addressed by SourceRef",
+    "document_capture": "submission-time exact bytes captured to project successor_values as immutable CapturedMaterialSnapshot"
+  },
+  "ordered_semantic_path": [
+    "ResearchIntent",
+    "Inquiry",
+    "ResearchPlan",
+    "SourceRef",
+    "CapturedMaterialSnapshot",
+    "MaterialRef",
+    "EvidenceQualification",
+    "Claim_or_Gap",
+    "ResearchArtifact_markdown",
+    "DeliveryIntent",
+    "DeliveryAttempt_internal_export",
+    "DeliveryReceiptRef",
+    "optional_successor_Inquiry_from_Gap"
+  ],
+  "program_subset": ["Identity", "Atom", "Then", "MapOutput", "ZipOrdered", "Decide"],
+  "assignment_kinds": ["COMPILE", "QUALIFY", "INTERPRET", "VERIFY_ADMIT", "PROJECT", "RECONCILE", "MATERIALIZE_SUCCESSOR"],
+  "required_exact_bindings": ["CompilerBinding", "QualificationBinding", "InterpreterBinding", "ProjectorBinding", "RecoveryBinding", "MaterializerBinding"],
+  "runtime_shape": {
+    "runtime_nodes": 2,
+    "database": "one PostgreSQL instance",
+    "queue": "runtime_work_items with SKIP LOCKED plus fairness and claim-time reservation",
+    "external_broker_required": false
+  },
+  "owner_rules": {
+    "document_content": "legacy mutable canonical source; no write authority transfer",
+    "captured_material_snapshot": "project successor_values runtime input artifact",
+    "evidence_qualification": "Research Ledger relation only",
+    "claim_gap_artifact_delivery_intent": "Research Ledger canonical-owned",
+    "delivery_attempt": "Execution Journal runtime fact",
+    "delivery_receipt": "project receipt store authoritative immutable record; Ledger stores delivered_as ref"
+  },
+  "authority": {
+    "human_approval_required_for_delivery": true,
+    "legacy_agent_approval_mode": "IMMUTABLE_EXTERNAL_APPROVAL_REF_ONLY",
+    "successor_approval_owner": "runtime_approvals",
+    "double_write_forbidden": true
+  },
+  "effect_limits": {
+    "network": false,
+    "live_provider": false,
+    "external_delivery": false,
+    "production_canonical_write_outside_successor_project_tables": false,
+    "internal_export_only": true
+  },
+  "acceptance": [
+    "two RuntimeNodes cannot hold valid leases for one work item simultaneously",
+    "Document bytes are captured once and replayed by content digest",
+    "Research Ledger does not copy or update legacy Document content",
+    "EvidenceQualification is stored only as a relation",
+    "claim or gap keeps support contradiction uncertainty and provenance visible",
+    "artifact citation closure binds exact material and qualification refs",
+    "approval or authority epoch drift rejects a stale delivery intent",
+    "crash after artifact stage does not repeat upstream effects",
+    "crash after canonical commit before runtime event recovers by readback",
+    "crash after internal delivery before receipt event does not duplicate delivery",
+    "runtime and research projections delete and rebuild from their own authorities",
+    "a gap can materialize a named successor inquiry without mutating the running plan"
+  ],
+  "exit_state": "P0-D_FIRST_SPECIMEN_VERIFIED",
+  "does_not_claim": ["production capacity", "external acquisition", "recurrence", "live cutover", "C1-C9 eligibility", "all providers compatible"]
+}

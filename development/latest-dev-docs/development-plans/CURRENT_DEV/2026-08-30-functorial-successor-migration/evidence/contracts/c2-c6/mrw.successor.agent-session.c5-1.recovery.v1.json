@@ -1,0 +1,39 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "mrw.successor.agent-session.c5-1.recovery.v1",
+  "ref_kind": "recovery_policy",
+  "cell_id": "C5.1",
+  "family_id": "C5",
+  "movement_ids": [
+    "C5-M001"
+  ],
+  "semantics": {
+    "movement_recovery": "Rebuild from exact journal source digest",
+    "source_digest": "ea34708cfa4847ce012727a16419a2ed37c5a4eb6166945216387255bc4aebfb",
+    "projection_digest": "709d28f05ed6449cdbb7f3977fbb97956172c7734e84aa9e24b9085a9966c2d7",
+    "fold_source_binding": "fold_agent_session source_digest=projection.event_chain_digest"
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C5.v1.json",
+      "pointer": "#/movements/C5-M001/recovery",
+      "sha256": "322d24b19dbbb9babcd463f1c5fb652ec22cfc656a5cab9fd848d9f114b9ad65"
+    },
+    {
+      "kind": "p3_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C5.json",
+      "pointer": "#/cells/0/successor_observation/source_digest",
+      "sha256": "38ce21888d0c2780bac3c2b6dbef9fcc42341eb041d281a2a994cbed35215d39"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/substrate/projections/agent_session.py",
+      "pointer": "fold_agent_session",
+      "sha256": "d79950659da58fd5d8cc93f44ccd2e632c5e1a467a92ef48f1ff5b25e074f749"
+    }
+  ],
+  "derivation_note": "recovery semantics copied verbatim from movement C5-M001; rebuild from exact journal source digest realized by fold_agent_session/AgentSessionSnapshot",
+  "content_digest": "4558d9de5c7e115c7c5e346707737963a7238b41d812af6dd40066a8584902cf"
+}

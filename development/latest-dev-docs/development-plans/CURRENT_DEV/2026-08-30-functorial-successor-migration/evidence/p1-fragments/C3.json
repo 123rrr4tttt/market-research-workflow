@@ -1,0 +1,420 @@
+[
+  {
+    "cell": "C3.1",
+    "boundary": "collect batch plan traverse",
+    "locator_paths": [
+      "main/backend/app/services/collect_runtime/runtime.py",
+      "main/backend/app/services/collect_runtime/contracts.py"
+    ],
+    "locator_status": {
+      "freeze_state": "FROZEN_LOCATOR_ONLY",
+      "legacy_paths": "PRESENT",
+      "eligibility_before_audit": "ELIGIBILITY_PENDING",
+      "legacy_interpreter_path": "ABSENT",
+      "successor_traversal_support": "DRAFT_ONLY_COMPILE_REJECTED"
+    },
+    "observed_symbols": [
+      "CollectRequest",
+      "CollectResult",
+      "CollectAdapter.run",
+      "run_collect",
+      "_should_auto_batch",
+      "_split_query_terms",
+      "_run_auto_batch",
+      "_execute_auto_batch",
+      "_run_single_auto_batch",
+      "_resolve_auto_batch_parallelism",
+      "_resolve_auto_batch_fail_fast",
+      "_SKILL_REGISTRY",
+      "WorkflowRoutingAdapter"
+    ],
+    "object_types": {
+      "legacy_input": "CollectRequest@collect.request.v1",
+      "candidate_plan": "CollectBatchPlan.v1",
+      "candidate_element": "CollectBatchElement.v1",
+      "candidate_output": "OrderedCollectElementOutcomeSequence.v1",
+      "shape_rule": "finite ordered query-term batches; STATIC_SHAPE only when request elements are compile-time known, otherwise MATERIALIZED_SHAPE must create a successor plan epoch"
+    },
+    "atom_kind": "CANDIDATE: collect.execute_batch_element.v1",
+    "payload_schema": {
+      "type": "object",
+      "required": [
+        "parent_request_ref",
+        "element_id",
+        "input_index",
+        "query_terms",
+        "per_batch_limit",
+        "traversal_policy",
+        "failure_policy",
+        "resource_policy",
+        "authority_scope_ref"
+      ],
+      "properties": {
+        "parent_request_ref": "CollectRequestRef.v1",
+        "element_id": "stable string derived from plan identity and input index",
+        "input_index": "non-negative integer",
+        "query_terms": "ordered finite string array",
+        "per_batch_limit": "positive integer",
+        "traversal_policy": "STATIC_SHAPE | MATERIALIZED_SHAPE",
+        "failure_policy": "ACCUMULATE | FAIL_FAST_WITH_PARTIAL_OBSERVATION",
+        "resource_policy": "max_parallelism, deadline, cancellation, backpressure, provider concurrency key",
+        "authority_scope_ref": "explicit project/capability authorization reference"
+      },
+      "legacy_mapping": "_split_query_terms preserves cleaned input order; replace() creates child requests with auto_batched_child=true"
+    },
+    "program_combinators": [
+      "Identity for the non-batched/singleton case",
+      "Then for plan -> ordered traversal -> aggregate projection",
+      "TraverseOrdered with explicit stable shape, visit order, failure policy, and bounded realization",
+      "MapOutput for the named result-fold transform",
+      "bounded parallel realization is an interpreter policy, not ZipOrdered and not a commutativity claim"
+    ],
+    "failure_return_union": {
+      "legacy_observed": [
+        "None when auto-batch is inapplicable or produces <=1 batch",
+        "CollectResult with status=completed even when one or more child CollectResult values are failed",
+        "Exception for unsupported channel or when batch_fail_fast propagates a child exception"
+      ],
+      "required_successor": [
+        "BatchBypassed",
+        "SingletonIdentity",
+        "OrderedTraversalCompleted[CollectElementSucceeded | CollectElementFailed]",
+        "OrderedTraversalAborted{partial_outcomes,cause,cancellation_observation}"
+      ]
+    },
+    "canonical_owner": {
+      "batch_plan": "collect capability algebra",
+      "run_step_journal": "successor runtime",
+      "project_source_provider_configuration": "respective project/source/provider capability owners",
+      "non_ownership": "the collect plan does not own Document adoption, evidence qualification, or provider authority"
+    },
+    "effect_profile": {
+      "pure_portion": "eligibility check, term cleaning/splitting, per-batch limit calculation, input-index ordering",
+      "effectful_portion": "adapter execution may perform network, crawler dispatch, database writes, filesystem/process work, and job logging",
+      "concurrency": "ThreadPoolExecutor may interleave effects; results are sorted back to input index",
+      "ordering_rule": "ordered result reconstruction is observed, but parallel effect traces are not asserted equal or commutative"
+    },
+    "authority_profile": {
+      "observed": "CollectRequest carries project_key but no typed authorization; environment mode and global adapter registry influence execution",
+      "required": "compile/plan grants no execution authority; every element must bind the same explicit capability/project authority scope consumed by the interpreter",
+      "migration_limit": "P1 audit does not transfer business authority"
+    },
+    "resource_profile": {
+      "observed": "default parallelism=1; requested parallelism is clamped only by batch count; no typed deadline, cancellation propagation, backpressure, provider concurrency key, or durable replay identity",
+      "required": "finite count ceiling, explicit max parallelism, deadline, cancellation/failure aggregation, concurrency key, and stable element identity",
+      "fail_fast_caveat": "legacy parallel fail-fast propagates future.result() but does not define partial-outcome persistence or cancellation semantics"
+    },
+    "legacy_interpreter": "CANDIDATE_ID: legacy.collect_runtime.batch_traverse.v1 via main/backend/app/successor_migration/legacy_collect_runtime.py; NOT_IMPLEMENTED",
+    "successor_interpreter_candidate": "CANDIDATE_ID: successor.collect_runtime.batch_traverse.v1; NOT_IMPLEMENTED and blocked on production support for TraverseOrdered",
+    "observation_profile": {
+      "id": "collect.batch_traverse.ordered_observation.v1",
+      "must_preserve": [
+        "cleaned query-term batch membership and input index",
+        "singleton/non-batched identity",
+        "per-batch limit",
+        "ordered output reconstruction",
+        "every element success or failure",
+        "fail-fast partial outcomes and cancellation state",
+        "requested/effective parallelism and failure policy"
+      ],
+      "serial_parallel_comparison": "compare ordered element outcomes and declared aggregate projection only; do not require effect trace, timing, provider completion order, or side effects to commute"
+    },
+    "fixture_ids": [
+      "existing::test_collect_runtime_auto_batch_unittest.py::CollectRuntimeAutoBatchUnitTestCase::test_auto_batch_uses_parallelism_from_options_and_emits_diagnostics",
+      "existing::test_collect_runtime_auto_batch_unittest.py::CollectRuntimeAutoBatchUnitTestCase::test_auto_batch_isolates_failures_by_default",
+      "required::c3.1.singleton_identity",
+      "required::c3.1.static_and_materialized_shape_identity",
+      "required::c3.1.serial_parallel_ordered_observation",
+      "required::c3.1.fail_fast_partial_outcomes_and_cancellation",
+      "required::c3.1.resource_backpressure",
+      "verification::python3.11_bounded_relevant_pack::10_passed"
+    ],
+    "rollback_observation": {
+      "required_flag": "SUCCESSOR_RUNTIME_COLLECT=off",
+      "required_observation": "new submissions use the legacy interpreter while already recorded successor journal facts remain readable and no duplicate claim occurs",
+      "current_state": "required flag not found; INGEST_WORKFLOW_ADAPTER only switches direct versus WorkflowRoutingAdapter delegation while reusing the same legacy batching/adapters"
+    },
+    "disposition": "EXTRACT_AND_REWRITE",
+    "rationale": "The finite-shape splitter, singleton bypass, per-batch limit rule, input-index restoration, and failure-policy choices provide a usable semantic baseline. They cannot be adapted in place because plan construction immediately invokes effects, hidden environment/registry state remains authoritative, and resource/authority/cancellation contracts are absent. Extract the pure plan semantics and rewrite execution as a typed ordered traversal; parallel eligibility must remain a separately proven interpreter decision.",
+    "prerequisites": [
+      "freeze CollectBatchPlan.v1, CollectBatchElement.v1, element identity, codecs, and collect.execute_batch_element.v1 contract",
+      "separate pure plan construction from adapter execution and isolate _SKILL_REGISTRY/environment lookup behind injected ports",
+      "implement and compile STATIC_SHAPE plus MATERIALIZED_SHAPE TraverseOrdered without in-place plan mutation",
+      "implement legacy.collect_runtime.batch_traverse.v1 consuming the same typed Program/ExecutionPlan as the successor candidate",
+      "define explicit authority, deadline, cancellation, failure aggregation, backpressure, and concurrency-key semantics",
+      "add singleton, order, partial-failure, fail-fast, serial/parallel observation, resource, replay, and rollback fixtures",
+      "freeze the P1 atomic binding before any migration or P2 selection"
+    ],
+    "risk": {
+      "level": "HIGH",
+      "items": [
+        "parallel adapters may share databases, provider quotas, process state, or global project context even when query terms are value-independent",
+        "default partial failure is surfaced under top-level status=completed",
+        "legacy fail-fast lacks durable partial-outcome and cancellation observations",
+        "dynamic registries and environment switches are hidden execution inputs",
+        "successor compiler currently rejects TraverseOrdered"
+      ],
+      "verification_ceiling": "10 bounded relevant tests passed on Python 3.11; a broader five-file run had 3 unrelated external-project host-resolution failures, so the broader surface is not claimed green"
+    },
+    "source_evidence": [
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/13_functorial-successor-c1-c9-locator-pending-inventory.v1.json",
+        "symbol_or_lines": "lines 3-5,14",
+        "claim": "C3.1 is a frozen locator-only cell and originally grants no eligibility or migration authority."
+      },
+      {
+        "path": "main/backend/app/services/collect_runtime/runtime.py",
+        "symbol_or_lines": "_should_auto_batch/_split_query_terms lines 122-135; _run_auto_batch lines 237-266",
+        "claim": "Legacy planning derives finite ordered term batches, per-batch limits, fail-fast, and effective parallelism, then immediately executes and merges."
+      },
+      {
+        "path": "main/backend/app/services/collect_runtime/runtime.py",
+        "symbol_or_lines": "_execute_auto_batch lines 269-292",
+        "claim": "Serial execution visits input order; parallel completion is collected asynchronously but sorted back by original index. This preserves result order, not effect commutativity."
+      },
+      {
+        "path": "main/backend/app/services/collect_runtime/runtime.py",
+        "symbol_or_lines": "_run_single_auto_batch lines 295-331; resource resolvers lines 334-350",
+        "claim": "Default child exceptions become failed CollectResult values, fail-fast re-raises, and resource policy is limited to parallelism/fail-fast scalars."
+      },
+      {
+        "path": "main/backend/tests/unit/test_collect_runtime_auto_batch_unittest.py",
+        "symbol_or_lines": "tests lines 31-101",
+        "claim": "Existing fixtures verify concurrent activity, ordered query_term_batches diagnostics, and default isolated partial failure."
+      },
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/06_functorial-successor-runtime-architecture-correction.draft.zh-CN.md",
+        "symbol_or_lines": "lines 492-512,621-632,2319-2325",
+        "claim": "Frozen architecture requires ordered finite traversal, explicit failure/resource policy, no inferred commutativity, independent legacy/successor interpreters, and SUCCESSOR_RUNTIME_COLLECT rollback."
+      },
+      {
+        "path": "main/backend/app/successor_runtime/language/compile.py",
+        "symbol_or_lines": "ProgramCompiler._walk lines 339-340",
+        "claim": "Current successor compiler rejects TraverseOrdered as draft-only."
+      },
+      {
+        "path": "main/backend/app/successor_migration/legacy_collect_runtime.py",
+        "symbol_or_lines": "ABSENT in read-only filesystem scan",
+        "claim": "The architecture-mandated legacy collect interpreter has not been implemented."
+      }
+    ]
+  },
+  {
+    "cell": "C3.2",
+    "boundary": "collect result fold receipts",
+    "locator_paths": [
+      "main/backend/app/services/collect_runtime/runtime.py",
+      "main/backend/app/services/collect_runtime/adapters"
+    ],
+    "locator_status": {
+      "freeze_state": "FROZEN_LOCATOR_ONLY",
+      "legacy_paths": "PRESENT",
+      "eligibility_before_audit": "ELIGIBILITY_PENDING",
+      "typed_durable_receipt_contract": "ABSENT",
+      "successor_fold_interpreter": "ABSENT"
+    },
+    "observed_symbols": [
+      "CollectResult",
+      "_merge_collect_results",
+      "SearchMarketAdapter.run",
+      "SearchPolicyAdapter.run",
+      "UrlPoolAdapter.run",
+      "CrawlerScrapyAdapter.run",
+      "SourceLibraryAdapter.run",
+      "to_source_library_response",
+      "build_source_library_authority_output",
+      "build_source_library_compat_projection",
+      "build_display_meta"
+    ],
+    "object_types": {
+      "legacy_element": "CollectResult with dict[str,Any] errors/items/meta",
+      "candidate_element": "CollectElementOutcome.v1 = CollectElementSucceeded | CollectElementFailed",
+      "candidate_receipt": "CollectAttemptReceipt.v1 with explicit receipt_kind distinguishing dispatch acknowledgement from authoritative provider readback",
+      "candidate_input": "OrderedCollectElementOutcomeSequence.v1",
+      "candidate_output": "CollectAggregateOutcome.v1 = CollectAggregateSucceeded | CollectAggregatePartial | CollectAggregateFailed"
+    },
+    "atom_kind": "CANDIDATE: collect.fold_ordered_results.v1",
+    "payload_schema": {
+      "type": "object",
+      "required": [
+        "parent_request_ref",
+        "ordered_outcomes",
+        "aggregation_policy_ref",
+        "observation_profile_ref"
+      ],
+      "element_required": [
+        "element_id",
+        "input_index",
+        "status",
+        "counts",
+        "errors",
+        "receipt",
+        "legacy_observation_ref"
+      ],
+      "receipt_fields": [
+        "receipt_kind",
+        "provider_type",
+        "provider_job_id",
+        "provider_status",
+        "attempt_count",
+        "observed_at",
+        "raw_digest",
+        "authoritative_readback"
+      ],
+      "fold_rules": "left-to-right by input_index; sum inserted/updated/skipped; append errors without dropping successful siblings; stable-first dedupe links/provider_job_ids; retain every element receipt and distinguish partial from full success"
+    },
+    "program_combinators": [
+      "Identity for folding a singleton outcome without semantic loss",
+      "Then after C3.1 TraverseOrdered",
+      "MapOutput with a named/versioned deterministic ordered fold",
+      "no commutative monoid claim: error order, first-seen links, provider status order, and receipts are observable"
+    ],
+    "failure_return_union": {
+      "legacy_observed": [
+        "CollectResult(status=completed) for zero, full-success, and mixed child outcomes",
+        "CollectResult(status=failed) only when a child adapter returns that status and before aggregate top-level normalization",
+        "Exception escaping adapter execution/fail-fast",
+        "errors as heterogeneous dict payloads and provider receipt fields as optional scalars"
+      ],
+      "required_successor": [
+        "CollectAggregateSucceeded{ordered_outcomes,aggregate_counts,receipts}",
+        "CollectAggregatePartial{ordered_outcomes,aggregate_counts,errors,receipts}",
+        "CollectAggregateFailed{ordered_outcomes,errors,receipts}",
+        "FoldContractFailure{reason,unconsumed_outcomes}"
+      ]
+    },
+    "canonical_owner": {
+      "aggregate_observation": "collect capability algebra",
+      "effect_attempt_and_run_step": "successor runtime journal",
+      "external_receipt": "provider or authoritative provider-readback port, referenced rather than re-owned",
+      "source_library_authority_output": "source-library/frontdoor capability projection, not collect-runtime canonical state",
+      "non_ownership": "a collect success or queued provider acknowledgement is not Document adoption, evidence qualification, or delivery success"
+    },
+    "effect_profile": {
+      "fold": "must be a deterministic pure left fold over already observed outcomes",
+      "receipt_acquisition": "adapter effects include crawler dispatch, ingest/database writes, source-library project binding, and job start/complete/fail logging",
+      "projection": "display_meta, terminal_output, frontdoor_ingress, authority_output, and compat_projection are downstream observations with declared ownership/loss",
+      "ordering_rule": "fold order is input-index order; parallel effect completion order and external traces may differ and are not inferred commutative"
+    },
+    "authority_profile": {
+      "observed": "CollectResult has no authority field; SourceLibraryAdapter performs project-bound writes/job logging and later constructs an authority_output projection",
+      "required": "fold may summarize only; it cannot admit Documents, qualify evidence, authorize provider work, or upgrade a queued acknowledgement to completion",
+      "migration_limit": "P1 audit preserves current owners and transfers no business authority"
+    },
+    "resource_profile": {
+      "observed": "fold is O(number of batches plus raw payload/link volume), retains raw batch payloads, and has no declared size ceiling; adapter timeouts/retries/resources are backend-local and not normalized",
+      "required": "bounded outcome count/payload size, stable receipt references or digests, explicit retry/attempt identity, and backpressure before retaining large raw snapshots",
+      "durability_gap": "provider_job_id/provider_status/attempt_count and source-library job IDs are projections or optional fields, not a typed durable per-element receipt ledger"
+    },
+    "legacy_interpreter": "CANDIDATE_ID: legacy.collect_runtime.result_fold.v1 via main/backend/app/successor_migration/legacy_collect_runtime.py; NOT_IMPLEMENTED",
+    "successor_interpreter_candidate": "CANDIDATE_ID: successor.collect_runtime.result_fold.v1; NOT_IMPLEMENTED",
+    "observation_profile": {
+      "id": "collect.result_fold.receipt_preservation.v1",
+      "must_preserve": [
+        "input-index outcome order",
+        "inserted/updated/skipped totals",
+        "all child errors and failed-child identities",
+        "stable-first deduplicated links",
+        "all provider job IDs, types, statuses, attempt counts, and receipt kinds",
+        "raw legacy observation by digest/reference",
+        "full-success versus partial versus all-failed distinction",
+        "display/compat projections as non-authoritative derived views"
+      ],
+      "serial_parallel_comparison": "require the same ordered fold projection only under the same element outcomes; do not equate timing, external completion order, retries, or side-effect traces"
+    },
+    "fixture_ids": [
+      "existing::test_collect_runtime_auto_batch_unittest.py::CollectRuntimeAutoBatchUnitTestCase::test_auto_batch_isolates_failures_by_default",
+      "existing::test_t22_source_library_scrapy_collect_runtime_integration_unittest.py::T22SourceLibraryScrapyCollectRuntimeIntegrationTestCase::test_source_library_scrapy_item_dispatch_chain_surfaces_provider_metadata",
+      "existing::test_collect_runtime_process_fallback_unittest.py::CollectRuntimeProcessFallbackUnitTestCase::test_collect_runtime_build_display_meta_maps_new_provider_fields",
+      "existing::test_collect_runtime_source_library_adapter_unittest.py::CollectRuntimeSourceLibraryAdapterUnitTestCase::test_to_source_library_response_preserves_provider_handoff_contract",
+      "required::c3.2.singleton_fold_identity",
+      "required::c3.2.mixed_outcomes_are_partial",
+      "required::c3.2.all_failed_aggregate",
+      "required::c3.2.error_and_receipt_no_loss",
+      "required::c3.2.queued_ack_not_completion",
+      "required::c3.2.serial_parallel_projection_with_noncommuting_trace",
+      "required::c3.2.rollback_parity",
+      "verification::python3.11_bounded_relevant_pack::10_passed"
+    ],
+    "rollback_observation": {
+      "required_flag": "SUCCESSOR_RUNTIME_COLLECT=off",
+      "required_observation": "legacy APIs/Celery callers regain their legacy raw/meta/compat projections, successor journal and receipts remain readable, and no duplicate provider execution or claim is introduced",
+      "current_state": "required flag not found; current INGEST_WORKFLOW_ADAPTER rollback still uses the same legacy adapters/fold and therefore is not evidence for successor receipt rollback"
+    },
+    "disposition": "REIMPLEMENT",
+    "rationale": "The existing left-to-right aggregation is useful as a replay observation, but CollectResult and nested raw dictionaries are not a sufficient canonical failure/receipt contract. Mixed failures remain top-level completed, errors are heterogeneous, provider acknowledgements are optional scalars, queued is not distinguished from authoritative completion, and per-element receipts are not durable. A wrapper would preserve these ambiguities. Reimplement a typed ordered fold in the successor package and use the legacy fold only for bounded parity/replay comparisons.",
+    "prerequisites": [
+      "freeze CollectElementOutcome.v1, CollectAttemptReceipt.v1, CollectAggregateOutcome.v1, codecs, and collect.fold_ordered_results.v1",
+      "define full-success/partial/all-failed semantics and preserve exceptions, errors, successful siblings, and receipt kinds without loss",
+      "separate pure fold from receipt acquisition, job logging, project binding, frontdoor admission, and compatibility projection effects",
+      "add authoritative provider-readback semantics and forbid queued/accepted dispatch metadata from implying completed effect",
+      "implement legacy and successor interpreters over the same typed Program/ExecutionPlan and named observation profile",
+      "add order-sensitive, duplicate-receipt, mixed/all-failed, exception, serial/parallel projection, size-bound, replay, and rollback fixtures",
+      "freeze the P1 atomic binding before any migration or P2 selection"
+    ],
+    "risk": {
+      "level": "HIGH",
+      "items": [
+        "legacy aggregate status masks partial failure as completed",
+        "heterogeneous raw/errors payloads prevent stable codec and replay without an explicit lossy legacy snapshot boundary",
+        "provider dispatch acknowledgement can be mistaken for authoritative completion",
+        "top-level singular provider fields collapse multiple batch receipts while complete lists survive only in nested raw metadata",
+        "source-library authority and compatibility projections can be mistaken for collect-runtime ownership",
+        "large raw batch payloads are retained without an explicit ceiling"
+      ],
+      "verification_ceiling": "10 bounded relevant tests passed on Python 3.11; a broader five-file run had 3 unrelated external-project host-resolution failures, so the broader surface is not claimed green"
+    },
+    "source_evidence": [
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/13_functorial-successor-c1-c9-locator-pending-inventory.v1.json",
+        "symbol_or_lines": "lines 3-5,15",
+        "claim": "C3.2 is a frozen locator-only cell and originally grants no eligibility or migration authority."
+      },
+      {
+        "path": "main/backend/app/services/collect_runtime/contracts.py",
+        "symbol_or_lines": "CollectResult lines 30-45",
+        "claim": "Legacy results use loose dict/list payloads and optional provider_job_id/provider_type/provider_status/attempt_count fields without typed receipt or authority semantics."
+      },
+      {
+        "path": "main/backend/app/services/collect_runtime/runtime.py",
+        "symbol_or_lines": "_merge_collect_results lines 138-223",
+        "claim": "The fold is input-order left-to-right, sums counts, appends errors, stable-deduplicates links/job IDs, and retains per-batch raw metadata, but initializes top-level status as completed."
+      },
+      {
+        "path": "main/backend/app/services/collect_runtime/adapters/crawler_scrapy.py",
+        "symbol_or_lines": "CrawlerScrapyAdapter.run lines 48-91",
+        "claim": "Crawler dispatch maps provider status/job ID/attempt count into CollectResult; queued/scheduled/running are normalized to completed at the collect layer."
+      },
+      {
+        "path": "main/backend/app/services/collect_runtime/adapters/source_library.py",
+        "symbol_or_lines": "SourceLibraryAdapter.run lines 73-140; to_source_library_response lines 143-194",
+        "claim": "Source-library execution performs project-bound job logging and effects, then separately builds terminal/frontdoor/authority/compat projections."
+      },
+      {
+        "path": "main/backend/tests/integration/test_t22_source_library_scrapy_collect_runtime_integration_unittest.py",
+        "symbol_or_lines": "test lines 55-125",
+        "claim": "Existing integration evidence checks provider_type, queued status, provider_job_id, attempt_count, and empty errors across collect and compatibility surfaces."
+      },
+      {
+        "path": "main/backend/tests/unit/test_collect_runtime_source_library_adapter_unittest.py",
+        "symbol_or_lines": "tests lines 48-151,355-476",
+        "claim": "Existing fixtures preserve legacy fields, fallback errors, authority/compat projections, and provider handoff metadata, but do not establish durable receipt ownership or mixed aggregate status semantics."
+      },
+      {
+        "path": "main/backend/app/services/tasks.py",
+        "symbol_or_lines": "task_ingest_market lines 358-389; task_collect_policy_regulation lines 694-719",
+        "claim": "Celery callers primarily return meta.raw or counter fallbacks, so typed status/error/receipt information can be collapsed at caller boundaries."
+      },
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/06_functorial-successor-runtime-architecture-correction.draft.zh-CN.md",
+        "symbol_or_lines": "lines 595-632,2298,2319-2325,2469-2475",
+        "claim": "The architecture requires named observational compatibility with failure/authority/resource preservation, per-cell receipt fields, independent successor fold implementation, rollback, and no P2 selection during P1 audit."
+      },
+      {
+        "path": "main/backend/app/successor_migration/legacy_collect_runtime.py",
+        "symbol_or_lines": "ABSENT in read-only filesystem scan",
+        "claim": "The architecture-mandated legacy collect interpreter has not been implemented."
+      }
+    ]
+  }
+]

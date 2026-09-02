@@ -1,0 +1,32 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "mrw.successor.agent-batch.c4-3.effect.v1",
+  "ref_kind": "effect_policy",
+  "cell_id": "C4.3",
+  "family_id": "C4",
+  "movement_ids": [
+    "C4-M004",
+    "C4-M005"
+  ],
+  "semantics": {
+    "movement_effect_m004": "Durable idempotency and receipt store writes; reviewed provider calls zero",
+    "movement_effect_m005": "Receipt readback and journal transition only; no duplicate dispatch"
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C4.v1.json",
+      "pointer": "#/movements/C4-M004/effect",
+      "sha256": "e54d9c412f33293b471bbc625533da20b0998c62659189fcdde09abb1ea9e59d"
+    },
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C4.v1.json",
+      "pointer": "#/movements/C4-M005/effect",
+      "sha256": "e54d9c412f33293b471bbc625533da20b0998c62659189fcdde09abb1ea9e59d"
+    }
+  ],
+  "derivation_note": "effect semantics copied verbatim from movements C4-M004/C4-M005; durable idempotency/receipt store writes, provider calls zero, no duplicate dispatch",
+  "content_digest": "64ba8035e591449ec323557052fdc051cfe89225b55b8f23f1765789ab0701ec"
+}

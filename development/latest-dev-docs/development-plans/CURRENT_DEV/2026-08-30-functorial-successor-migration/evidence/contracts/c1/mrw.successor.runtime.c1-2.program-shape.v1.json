@@ -1,0 +1,46 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "mrw.successor.runtime.c1-2.program-shape.v1",
+  "ref_kind": "program_shape",
+  "cell_id": "C1.2",
+  "family_id": "C1",
+  "movement_ids": [
+    "C1-M003"
+  ],
+  "semantics": {
+    "movement_named_transform": "interpret the exact ExecutionPlan under explicit effect, claim and failure boundaries",
+    "target_object": "Successor RuntimeNode execution with typed outcome, cancellation observation and journal facts",
+    "slice_program_plan_sameness": {
+      "A": "plan-74064c6ae0a3b2edbd173520 / program:p4-c7-family",
+      "B": "plan-14a9a5eee8f4182e097ece8f / program:c1:slice-b",
+      "C": "plan-908c3d933a90a0008d8f60f1 / program:c1:slice-c"
+    },
+    "code_contract": {
+      "RuntimeNode": "main/backend/app/successor_runtime/runtime/node.py",
+      "PostgresRuntimeNodeAdapter": "main/backend/app/successor_runtime/substrate/postgres/node_adapter.py"
+    }
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C1.v1.json",
+      "pointer": "#/movements/C1-M003/named_transform",
+      "sha256": "ccbb50ee217882d1640bca7f57430eaea651f8ae83258873449d2c998d30bb0a"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/runtime/node.py",
+      "pointer": "RuntimeNode",
+      "sha256": "142939d2bce9b9e4ec1461039386e403f39a4ebb0cac9d881d75239867ee0735"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/substrate/postgres/node_adapter.py",
+      "pointer": "PostgresRuntimeNodeAdapter",
+      "sha256": "5cae2d8bb26bd8c3e07a5bd05608764b5ec27768cf9de0b2970f79cb679eace9"
+    }
+  ],
+  "derivation_note": "program shape derived from C1-M003 named_transform plus slice program_plan_sameness and RuntimeNode implementation role; no new semantics",
+  "content_digest": "7f4538a031ec7f26db9f022d475cb44064ffe8b0ff578550a80cb23a3db50654"
+}

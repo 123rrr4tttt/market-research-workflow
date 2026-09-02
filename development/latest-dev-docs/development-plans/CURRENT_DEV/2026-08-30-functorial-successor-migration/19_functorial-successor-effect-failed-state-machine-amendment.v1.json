@@ -1,0 +1,99 @@
+{
+  "schema": "mrw.functorial_successor.effect_failed_state_machine_amendment.v1",
+  "status": "FROZEN_AUTHORIZED",
+  "authorized_date": "2026-08-31",
+  "authorization": {
+    "source": "direct_user_message",
+    "supervisor_thread_id": "01a05039-0c9c-7873-8d9f-b60ef1af179f",
+    "decision": "authorize only StepEvent.EFFECT_FAILED, RUNNING to FAILED, and EffectDisposition.FAILED"
+  },
+  "resolved_blocker": "P0C_EFFECT_FAILED_NORMATIVE_AMENDMENT_REQUIRED",
+  "base_contract": {
+    "path": "06_functorial-successor-runtime-architecture-correction.draft.zh-CN.md",
+    "sha256": "c93b58e15a3dbaa1e5e1be9bebfbc41143b97b8e91eb9774851d1f5d78fe3a93"
+  },
+  "base_manifest": {
+    "path": "02_functorial-successor-migration-development-contract.freeze.json",
+    "version": "2.1.0",
+    "sha256": "16d20fad727a2d7ee60598ac27ab5420cce4ed1729566a572b437f0ac9a1588e"
+  },
+  "affected_clauses": {
+    "additive_to": ["06 section 10.5 Step command event guard owner transition table"],
+    "constrains": ["06 section 10.4 RequiredStepFailed derivation guard"],
+    "explicitly_not_resolved": ["06 section 4.7 and section 10.5 branch transition closure"]
+  },
+  "precedence": "this amendment prevails only for EffectFailed and persisted RequiredStepFailed derivation; all other base-contract clauses remain in force",
+  "step_event": {
+    "enum_name": "EFFECT_FAILED",
+    "wire_value": "EffectFailed",
+    "source_state": "RUNNING",
+    "target_state": "FAILED",
+    "effect_disposition_source": "IN_FLIGHT",
+    "effect_disposition_target": "FAILED"
+  },
+  "owners": {
+    "event_emitter": "RuntimeNode/interpreter",
+    "transition_owner": "pure reducer",
+    "atomic_persistence_owner": "RuntimeUnitOfWork"
+  },
+  "required_bindings": [
+    "runtime_assignment_digest",
+    "handler_binding_digest",
+    "attempt_id",
+    "execution_epoch",
+    "incarnation",
+    "expected_step_revision",
+    "active_claim_binding",
+    "unexpired_lease_binding",
+    "authority_digest",
+    "failure_ref",
+    "failure_digest"
+  ],
+  "guards": [
+    "step state is RUNNING",
+    "interpreter outcome is deterministic typed FAILED",
+    "outcome is not OUTCOME_UNKNOWN cancellation branch or admission disposition",
+    "failure body is project scoped and public control stores only bounded ref and digest",
+    "event metadata and ordered payload closure are valid",
+    "current authority and compare-and-swap preconditions are valid",
+    "stale assignment handler attempt epoch incarnation claim lease revision or authority fails closed without EffectFailed"
+  ],
+  "non_equivalent_events": [
+    "EffectReceiptLost",
+    "AuthoritativeReadbackFailed",
+    "BranchSkipped",
+    "BranchNotSelected",
+    "CommitOrDeliveryRejected",
+    "CancellationRequested"
+  ],
+  "branch_transition_authority": {
+    "authorized_by_this_amendment": false,
+    "examples_not_authorized": ["BranchSelected", "BranchUnresolved"],
+    "rule": "unlisted branch edges remain fail closed and require an independent amendment or an already frozen legal edge"
+  },
+  "run_aggregation": {
+    "direct_run_mutation_forbidden": true,
+    "fatal_required_step_event": "RequiredStepFailed",
+    "run_failure_policy_remains_separate": true,
+    "requiredness_sources": ["persisted QualifiedPlan required-step membership", "persisted CompletionPolicy", "frozen failure policy"],
+    "caller_supplied_failure_is_required_forbidden": true,
+    "failed_readback_requires_persisted_requiredness_proof": true
+  },
+  "retry": {
+    "automatic_retry_authorized": false,
+    "requires": ["RetryAuthorized", "retryable typed failure", "remaining budget", "new execution epoch", "new attempt identity"]
+  },
+  "implementation_evidence": [
+    {"path": "main/backend/app/successor_runtime/runtime/transitions.py", "sha256": "953e7c136fdc767493cf0da663b9d2ac46e19b781728fd3c809b072280b1c584"},
+    {"path": "main/backend/app/successor_runtime/runtime/reducer.py", "sha256": "5cc248352d99e0738681df92974e2c50eb77d16234a756073a4877d625a8f388"},
+    {"path": "main/backend/tests/successor_runtime/test_p0c_postgres_lifecycle.py", "sha256": "da4323537aa9b999ce3c7e9a2100a2d058bdbe5ef04c0044f24c673ca0fc7a46"}
+  ],
+  "implementation_evidence_disposition": "PRE_AMENDMENT_TARGET_IDENTITY_ONLY_RECHECK_REQUIRED_NOT_COMPLIANCE_PROOF",
+  "resume_gate": {
+    "goal_id": "01a0504c-47ef-77e1-9783-454dbcbe3697",
+    "remove_only_blocker": "P0C_EFFECT_FAILED_NORMATIVE_AMENDMENT_REQUIRED",
+    "resume_boundary": "P0-C promotion recheck",
+    "p0_d_authorized_by_this_file": false
+  },
+  "authority_exclusions": ["P0-D", "live provider", "external delivery", "candidate", "cutover", "authority transfer"]
+}

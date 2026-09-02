@@ -1,0 +1,41 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "mrw.successor.source-library.c2-4.recovery.v1",
+  "ref_kind": "recovery_policy",
+  "cell_id": "C2.4",
+  "family_id": "C2",
+  "movement_ids": [
+    "C2-M008"
+  ],
+  "semantics": {
+    "movement_rows": {
+      "C2-M008": {
+        "recovery": "Delete and rebuild are digest-equivalent; rollback retains projection rows"
+      }
+    },
+    "p3_fragment": {
+      "rollback_observation": {
+        "claim_owner": "legacy",
+        "projection_rows_retained": true,
+        "rollback_digest": "89dcdf2ea9470b5e7248046cee0d5e229bb6ae1abed091b4c0e9e13970ec48e4"
+      }
+    }
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C2.v1.json",
+      "pointer": "#/movements/C2-M008/recovery",
+      "sha256": "a6608ce0645c3d240c31ab1225ed31559655f2594ccb848f8178a1172e9ad110"
+    },
+    {
+      "kind": "p3_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C2.json",
+      "pointer": "#/cells/2/rollback_observation",
+      "sha256": "5274116a2a083ec1553d05c034f5490f1450851d805fb2590efec21be95c544b"
+    }
+  ],
+  "derivation_note": "recovery from movement row (digest-equivalent delete/rebuild) plus p3 rollback_observation (projection_rows_retained=true).",
+  "content_digest": "8a909fc3e17ad0ecbf9dbb414d502fa4a0d9900d1e5053b4fd235ddff2b0da0c"
+}

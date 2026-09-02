@@ -1,0 +1,32 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "mrw.successor.runtime.c5-2.effect.v1",
+  "ref_kind": "effect_policy",
+  "cell_id": "C5.2",
+  "family_id": "C5",
+  "movement_ids": [
+    "C5-M002",
+    "C5-M003"
+  ],
+  "semantics": {
+    "movement_effect_m002": "Read-only replay with provider calls zero",
+    "movement_effect_m003": "Readback plus durable reconciliation transition"
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C5.v1.json",
+      "pointer": "#/movements/C5-M002/effect",
+      "sha256": "322d24b19dbbb9babcd463f1c5fb652ec22cfc656a5cab9fd848d9f114b9ad65"
+    },
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C5.v1.json",
+      "pointer": "#/movements/C5-M003/effect",
+      "sha256": "322d24b19dbbb9babcd463f1c5fb652ec22cfc656a5cab9fd848d9f114b9ad65"
+    }
+  ],
+  "derivation_note": "effect semantics copied verbatim from movements C5-M002/C5-M003; read-only replay plus durable reconciliation transition, provider calls zero",
+  "content_digest": "91f9e324dafae59189e39d32559354ffe6e20758abd7932c0982cd79250d7630"
+}

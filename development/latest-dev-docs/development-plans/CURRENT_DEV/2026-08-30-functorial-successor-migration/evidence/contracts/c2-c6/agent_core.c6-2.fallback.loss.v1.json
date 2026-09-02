@@ -1,0 +1,24 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "agent_core.c6-2.fallback.loss.v1",
+  "ref_kind": "declared_loss",
+  "cell_id": "C6.2",
+  "family_id": "C6",
+  "movement_ids": [
+    "C6-M002"
+  ],
+  "semantics": {
+    "movement_projection_loss": "Fallback semantic drift is rejected rather than silently projected"
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C6.v1.json",
+      "pointer": "#/movements/C6-M002/projection_loss",
+      "sha256": "bdc430a903d6b1823f91fdeab1873e9a2f8482520cc0f85b0ceec43d040c901a"
+    }
+  ],
+  "derivation_note": "declared loss copied verbatim from movement C6-M002.projection_loss; fallback semantic drift is rejected rather than silently projected",
+  "content_digest": "f0d23d326cdacd4f504100543a6434fdfd8c745dccbc57d4f3a9d9e4b11665f7"
+}

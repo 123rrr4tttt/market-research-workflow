@@ -1,0 +1,52 @@
+{
+  "schema": "mrw.functorial_successor.requiredness_correction_proposal.v1",
+  "status": "PROPOSAL_NOT_FROZEN_NOT_AUTHORITY",
+  "created_for_goal": "01a0504c-47ef-77e1-9783-454dbcbe3697",
+  "blocker": "P0_FROZEN_10_12_REQUIREDNESS_CONTRADICTION",
+  "authority_effect": "NONE",
+  "current_freeze_manifest": {
+    "path": "02_functorial-successor-migration-development-contract.freeze.json",
+    "sha256": "fda2a39e7cbb72be407bcc37e98c4d0f36dc5377eb897b3c7669a4fd72b7e2ac"
+  },
+  "unchanged_semantic_source": {
+    "path": "10_functorial-successor-domain-contract-snapshot.v1.json",
+    "sha256": "1dd4c2c12c6a8c164b9f5b1464ae9801347b14a6a3ed75bf202c45b255b59959"
+  },
+  "superseded_schema_if_approved": {
+    "path": "12_functorial-successor-first-specimen-schema-bundle.v1.schema.json",
+    "sha256": "232787dc2493c759cc54182df0576a5256c4f8b20fc4b977c0d54b560addef5c"
+  },
+  "proposed_schema": {
+    "path": "16_functorial-successor-first-specimen-schema-bundle.v1.1.proposal.schema.json",
+    "sha256": "001061889266c9ce7e6b6da060b7e9b1309197d0cfca100334c79d39bf32624b",
+    "bytes": 15059,
+    "lines": 667
+  },
+  "requiredness_additions": {
+    "researchIntent": ["audience_or_use", "constraints"],
+    "inquiry": ["uncertainty_ceiling"],
+    "sourceRef": ["access_profile_ref"],
+    "evidenceQualification": ["claim_ref", "validity"],
+    "claim": ["scope"],
+    "gap": ["missing_evidence_or_decision"]
+  },
+  "rationale": "Freeze member 10 declares these fields semantically required while freeze member 12 does not enforce them. The proposal preserves member 10 and replaces only the schema member under a new content identity.",
+  "required_approval_action": [
+    "independently review the v1.1 proposed schema against 10 and 11",
+    "rename or copy the approved proposal to a normative frozen member",
+    "issue a new freeze manifest version binding the approved schema SHA-256 bytes and lines",
+    "re-run all source and clean-worktree freeze gates before P0-A promotion"
+  ],
+  "explicit_exclusions": [
+    "does not mutate frozen 10 or 12 in place",
+    "does not authorize P0-A promotion",
+    "does not authorize P0-B schema migration",
+    "does not authorize live provider external delivery cutover or authority transfer"
+  ],
+  "implementation_evidence_at_proposal_time": {
+    "successor_tests": "79 passed",
+    "dependency_lint": "44 files, 26 function-local imports, 0 violations",
+    "candidate_commit": null,
+    "candidate_tree": null
+  }
+}

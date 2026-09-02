@@ -1,0 +1,39 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "mrw.successor.agent-core.c6-3.effect.pure.v1",
+  "ref_kind": "effect_policy",
+  "cell_id": "C6.3",
+  "family_id": "C6",
+  "movement_ids": [
+    "C6-M003"
+  ],
+  "semantics": {
+    "movement_effect": "Pure redaction before the storage boundary",
+    "code_effect_profile": {
+      "effect_profile_id": "observability.redact_evidence.v1.effect",
+      "execution_class": "PURE_TRANSFORM",
+      "external_visibility": "NONE",
+      "network_required": false,
+      "cancellation_points": [
+        "step_boundary"
+      ]
+    }
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C6.v1.json",
+      "pointer": "#/movements/C6-M003/effect",
+      "sha256": "bdc430a903d6b1823f91fdeab1873e9a2f8482520cc0f85b0ceec43d040c901a"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/capabilities/agent_core_c6_3.py",
+      "pointer": "_effect_profile",
+      "sha256": "019b9831eeec80e142fe41604ee740f0f17b104d07c29cd0035b2d06f57b6986"
+    }
+  ],
+  "derivation_note": "effect semantics copied verbatim from movement C6-M003.effect and the existing EffectProfile in agent_core_c6_3.py; pure redaction before storage boundary",
+  "content_digest": "16ab0ba81c3a940d8845d92646a887b1b98a72f18ddabc84c499d5c0d0336ef6"
+}

@@ -1,0 +1,50 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "mrw.successor.agent-session.journal-projection.v1",
+  "ref_kind": "profile",
+  "cell_id": "C5.1",
+  "family_id": "C5",
+  "movement_ids": [
+    "C5-M001"
+  ],
+  "semantics": {
+    "movement_named_transform": "fold exact runtime events into bounded session and task status",
+    "projector_id": "successor.agent_session.journal_projection.v1",
+    "projector_version": "1.0.0",
+    "is_authority": false,
+    "projection_digest": "709d28f05ed6449cdbb7f3977fbb97956172c7734e84aa9e24b9085a9966c2d7",
+    "source_digest": "ea34708cfa4847ce012727a16419a2ed37c5a4eb6166945216387255bc4aebfb",
+    "session_status": "completed",
+    "task_statuses": [
+      "completed"
+    ],
+    "terminal_events": [
+      "RunCompletionDerived"
+    ],
+    "snapshot_schema": "mrw.successor.agent-session-snapshot.v1",
+    "task_snapshot_schema": "mrw.successor.agent-task-snapshot.v1"
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C5.v1.json",
+      "pointer": "#/movements/C5-M001/named_transform",
+      "sha256": "322d24b19dbbb9babcd463f1c5fb652ec22cfc656a5cab9fd848d9f114b9ad65"
+    },
+    {
+      "kind": "p3_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C5.json",
+      "pointer": "#/cells/0/successor_observation",
+      "sha256": "38ce21888d0c2780bac3c2b6dbef9fcc42341eb041d281a2a994cbed35215d39"
+    },
+    {
+      "kind": "family_config",
+      "path": "main/backend/app/successor_runtime/specification/c5_p3.py",
+      "pointer": "_c5_1_observations/projector_id",
+      "sha256": "9cced6aacc7d4dd69fb76cc7d84a90d47a1ef87b539f320947f49da2d370ffad"
+    }
+  ],
+  "derivation_note": "profile surface copied verbatim from p3 successor_observation and family config projector constants; snapshot schema refs from agent_session.py",
+  "content_digest": "68cad51da1f25428856e7a0095c873c8c71db90b0ab3e7a371a8105996caaf25"
+}

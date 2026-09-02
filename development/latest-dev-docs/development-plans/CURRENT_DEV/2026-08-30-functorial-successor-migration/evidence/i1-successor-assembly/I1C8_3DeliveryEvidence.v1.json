@@ -1,0 +1,130 @@
+{
+  "schema": "mrw.functorial_successor.i1_c8_3_delivery_evidence.v1",
+  "version": "1.0.0",
+  "generated_at": "2026-09-02",
+  "status": "C8_3_DELIVERY_INSTALLED_LOCAL_ONLY_NOT_PROMOTED",
+  "assembly_configuration": "local_offline_fixture_closures (build_local_offline_fixture_options)",
+  "composition_root": "app.successor_runtime.assembly.successor_assembly.assemble_successor_runtime -> build_c8_assembly -> build_postgres_c8_delivery_assembly; options=build_local_offline_fixture_options()",
+  "route_mounted": false,
+  "run_once_started": false,
+  "c8_3": {
+    "cell_id": "C8.3",
+    "status": "INSTALLED",
+    "operation_contract_refs": [
+      "c8.report.stage.v1",
+      "c8.report.admission.v1",
+      "c8.report.delivery.v1"
+    ],
+    "handler_binding_digest": "4272d7b43595de7b4cf8d04320e1ee5a4b6defde79e3a4f40bc8361d1c1c0e20",
+    "recovery_binding_ref": "c8.report.admission.recovery.v1#verification-and-receipt-readback-only;no-repeat-export",
+    "bridge": {
+      "activation_catalog_entries": 5,
+      "handlers": 5,
+      "recovery_handlers": 5,
+      "activation_entry_digests": [
+        "b974fb785f3f6b0c4f199c0e9ff9b7810ad6831bf12e643ced0d673c90838351",
+        "f1a77cbfb8a75bfe98f833b0fb1888897c07ddb99178e56028e48a1273882ef8",
+        "a600fdad0b42c70c42a557c9e176f885b7b7166322c7a2a6604edc795b07f463",
+        "64640879869dc7daba66c119e3c916267bf6363e7788a7edcd0751ef56bf12b2",
+        "ae17472f5a7f0317e29ad2074c2620be8f0d7f8715293cadafa822bf9fb06262"
+      ],
+      "interpreter_binding_digests": [
+        "4272d7b43595de7b4cf8d04320e1ee5a4b6defde79e3a4f40bc8361d1c1c0e20",
+        "b56b766b99560e9b1c313e91d77454f892ed1011c749433e6e1ec84b2fafee43",
+        "30506ecffbb40898ba3b216a291d03400ba1a45f6f52d1ec79947200ca49a6b4",
+        "13bf4f77d88701365bec375823edc7d30148e44b7be74f4a51d36b155a51aca4",
+        "068824767f841b54d58d80f7495ea73d406d8eb90932795b821027a0c674d17e"
+      ]
+    },
+    "rollback": {
+      "status": "PRESENT",
+      "binding_refs": [
+        "main/backend/app/successor_migration/legacy_c8_report.py"
+      ]
+    }
+  },
+  "coverage_summary": {
+    "INSTALLED": 29,
+    "DESIGN_ONLY": 1
+  },
+  "authority_ceiling": {
+    "canonical_write": false,
+    "live_provider": false,
+    "external_delivery": false,
+    "cutover": false,
+    "authority_transfer": false,
+    "candidate_created": false
+  },
+  "candidate": null,
+  "files": [
+    {
+      "path": "main/backend/app/successor_runtime/assembly/c8_assembly.py",
+      "sha256": "6fae74d0b39cf6ec32a363bf33afbdd6882d3c55e71fa6d5921936349f18c040",
+      "role": "deterministic C8.3 delivery closure + build_c8_assembly wiring"
+    },
+    {
+      "path": "main/backend/app/successor_runtime/assembly/successor_assembly.py",
+      "sha256": "6276381c38c34bc9fe53bb0cbd0abbb3ea4d2adc0e1b3c713348d1f0038183b2",
+      "role": "closed LOCAL_ONLY fixture options inject bundle/activation_catalog/delivery_interpreter"
+    },
+    {
+      "path": "main/backend/tests/successor_runtime/test_i1_c8_3_delivery_assembly.py",
+      "sha256": "ef7cf397b1b736f46ae978e5e3ae774915ee74cc6832727979b6efbfb1907af3",
+      "role": "focused C8.3 INSTALLED/bridge structure/digest uniqueness/rollback PRESENT/fail-closed tests"
+    },
+    {
+      "path": "main/backend/tests/successor_runtime/test_i1_assembly_composition_root.py",
+      "sha256": "4ad2279674d0ff975e6ab6b09d98fa2785ae8914fb651e42a52663c0214df79f",
+      "role": "closed coverage matrix updated to 29 INSTALLED"
+    },
+    {
+      "path": "main/backend/tests/successor_runtime/test_api_successor_runtime_mount.py",
+      "sha256": "617dd3828a0480ffe0991ae3c97c87da0b650620704be0fd4097c07443bc2630",
+      "role": "app-mount closed options assert C8.3 INSTALLED"
+    },
+    {
+      "path": "main/backend/app/successor_migration/legacy_c8_report.py",
+      "sha256": "f8c2316dca1f677f5a150fb035e13d3f51408c5fce2a628fc060076aff41e0cd",
+      "role": "C8.3 rollback binding (unchanged, verified PRESENT)"
+    }
+  ],
+  "tests": [
+    {
+      "command": [
+        "PYTHONPATH=. /Users/wangyiliang/.local/bin/python3.11 -m pytest -q",
+        "tests/successor_runtime/test_i1_c8_3_delivery_assembly.py",
+        "tests/successor_runtime/test_i1_assembly_composition_root.py",
+        "tests/successor_runtime/test_i1_rollback_rehearsal.py",
+        "tests/successor_runtime/test_i1_c7_c9_assembly.py",
+        "tests/successor_runtime/test_i1_c1_c3_assembly.py",
+        "tests/successor_runtime/test_i1_c4_c6_assembly.py",
+        "tests/successor_runtime/test_i1_legacy_trace_replay.py",
+        "tests/successor_runtime/test_i1_shadow_parity_matrix.py",
+        "tests/successor_runtime/test_i1_micro_specimens.py",
+        "tests/successor_runtime/test_api_successor_runtime_mount.py"
+      ],
+      "exit_code": 0,
+      "passed": 70,
+      "failed": 0,
+      "deselected": 0,
+      "scope": "focused I1 assembly and app-mount regression"
+    },
+    {
+      "command": [
+        "PYTHONPATH=. /Users/wangyiliang/.local/bin/python3.11 -m pytest -q",
+        "tests/successor_runtime -m unit"
+      ],
+      "exit_code": 0,
+      "passed": 339,
+      "failed": 0,
+      "deselected": 1177,
+      "scope": "successor_runtime unit suite"
+    }
+  ],
+  "risks": [
+    "LOCAL_ONLY assembly only; no app route mounted, no run_once started and no delivery/admission/export executed.",
+    "build_postgres_c8_delivery_assembly is installed as handlers; canonical write, live provider, external delivery, cutover and authority transfer remain closed.",
+    "The deterministic closure uses ProjectBlobStore() default root and only stores the root path at assembly time; no filesystem write occurs during assembly or tests.",
+    "PostgreSQL integration rehearsal of the installed bridge remains a separate opt-in surface."
+  ]
+}

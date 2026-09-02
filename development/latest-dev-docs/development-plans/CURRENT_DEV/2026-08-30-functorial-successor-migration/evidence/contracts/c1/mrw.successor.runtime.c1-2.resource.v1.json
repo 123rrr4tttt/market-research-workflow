@@ -1,0 +1,24 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "mrw.successor.runtime.c1-2.resource.v1",
+  "ref_kind": "resource_policy",
+  "cell_id": "C1.2",
+  "family_id": "C1",
+  "movement_ids": [
+    "C1-M003"
+  ],
+  "semantics": {
+    "movement_resource": "Queue, concurrency, timeout, memory and effect budgets require explicit bindings"
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C1.v1.json",
+      "pointer": "#/movements/C1-M003/resource",
+      "sha256": "ccbb50ee217882d1640bca7f57430eaea651f8ae83258873449d2c998d30bb0a"
+    }
+  ],
+  "derivation_note": "resource semantics copied verbatim from movement C1-M003; explicit budget bindings remain required",
+  "content_digest": "e0a9b10e6e28982bee09e13abd6635828c01d45dc74416c13e30145cf5f320f4"
+}

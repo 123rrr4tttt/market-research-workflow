@@ -1,0 +1,165 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "mrw.successor.source-library.c2-2.program-shape.v1",
+  "ref_kind": "program_shape",
+  "cell_id": "C2.2",
+  "family_id": "C2",
+  "movement_ids": [
+    "C2-M003",
+    "C2-M004",
+    "C2-M005",
+    "C2-M006"
+  ],
+  "semantics": {
+    "movement_rows": {
+      "C2-M003": {
+        "effect": "Pure plan construction; execution effect remains downstream",
+        "recovery": "Plan is retained; future owner may roll back without redispatch",
+        "resource": "Bounded task and query-term cardinality",
+        "named_transform": "compile the protocol-search mode into an exact ordered source task plan",
+        "target_object": "source_library.protocol_search.v1 ordered plan",
+        "projection_loss": "Explicit zero loss suggested for exact local planner parity"
+      },
+      "C2-M004": {
+        "effect": "Pure plan construction with credential bytes excluded",
+        "recovery": "Plan may replay; effect retry waits for C2-M007 readback or non-start proof",
+        "resource": "Bounded plan size and provider-task cardinality",
+        "named_transform": "compile provider-harvest selection into tasks with opaque credential refs",
+        "target_object": "source_library.provider_harvest.v1 ordered plan",
+        "projection_loss": "Explicit zero loss suggested for reviewed local planner output"
+      },
+      "C2-M005": {
+        "effect": "Pure plan construction",
+        "recovery": "Plan and journal are retained; rollback changes future claim owner only",
+        "resource": "Bounded site-entry and task cardinality",
+        "named_transform": "compile site-search selection into a handler-cluster task plan",
+        "target_object": "source_library.site_search.v1 ordered plan",
+        "projection_loss": "Explicit zero loss suggested for reviewed local planner parity"
+      },
+      "C2-M006": {
+        "effect": "Pure plan construction",
+        "recovery": "Exact plan may replay; no downstream effect is repeated by planning",
+        "resource": "URL count and payload bytes are bounded by the frozen ceiling",
+        "named_transform": "compile an ordered URL list into exact URL-execution tasks",
+        "target_object": "source_library.url_execution.v1 ordered plan",
+        "projection_loss": "Explicit zero loss suggested for URL order and identity"
+      }
+    },
+    "p3_fragment": {
+      "operation_bindings": [
+        {
+          "contract_digest": "c4236d2f78bfc3bf54955178d0c9617f8d439881382862e48495ee4799b24e21",
+          "operation_kind": "source_library.protocol_search.v1",
+          "role": "planner_atom"
+        },
+        {
+          "contract_digest": "5719283fb24e6f29e922df7d85b1f4807b73dc40636272e88f959febef16ca99",
+          "operation_kind": "source_library.provider_harvest.v1",
+          "role": "planner_atom"
+        },
+        {
+          "contract_digest": "814f7677c6eed8351aa286d04d0cc2b31b3d6cef03f6bb57165db43852e3f4f4",
+          "operation_kind": "source_library.site_search.v1",
+          "role": "planner_atom"
+        },
+        {
+          "contract_digest": "5c57e6ef8c5e292fd34554c1d02bdb32de6fdca1d6420e74c42bf8154245caa2",
+          "operation_kind": "source_library.url_execution.v1",
+          "role": "planner_atom"
+        }
+      ],
+      "program_digest_reason": "single-Atom Program for the exact C2.1-bound planning payload",
+      "plan_digest_reason": "compiled planning plan through the shared compiler",
+      "successor_observation_interpreter_id": "successor.source_library.c2_2.plan.v1"
+    },
+    "family_config": {
+      "orchestration_policy_ref": "mrw.successor.source-library.c2-2.policy.v1"
+    },
+    "code_contract": {
+      "SOURCE_LIBRARY_C2_2_SUCCESSOR_INTERPRETER_ID": "successor.source_library.c2_2.plan.v1",
+      "SOURCE_MODE_PLANNING_OBSERVATION_PROFILE": "mrw.successor.source-library.c2-2.observation.v1",
+      "C2_2_RESOURCE_CEILING_REF": "mrw.successor.source-library.c2-2.resource-ceiling.v1",
+      "SOURCE_LIBRARY_C2_2_PROTOCOL_SEARCH_KIND": "source_library.protocol_search.v1",
+      "SOURCE_LIBRARY_C2_2_PROVIDER_HARVEST_KIND": "source_library.provider_harvest.v1",
+      "SOURCE_LIBRARY_C2_2_SITE_SEARCH_KIND": "source_library.site_search.v1",
+      "SOURCE_LIBRARY_C2_2_URL_EXECUTION_KIND": "source_library.url_execution.v1"
+    }
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C2.v1.json",
+      "pointer": "#/movements/C2-M003",
+      "sha256": "a6608ce0645c3d240c31ab1225ed31559655f2594ccb848f8178a1172e9ad110"
+    },
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C2.v1.json",
+      "pointer": "#/movements/C2-M004",
+      "sha256": "a6608ce0645c3d240c31ab1225ed31559655f2594ccb848f8178a1172e9ad110"
+    },
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C2.v1.json",
+      "pointer": "#/movements/C2-M005",
+      "sha256": "a6608ce0645c3d240c31ab1225ed31559655f2594ccb848f8178a1172e9ad110"
+    },
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C2.v1.json",
+      "pointer": "#/movements/C2-M006",
+      "sha256": "a6608ce0645c3d240c31ab1225ed31559655f2594ccb848f8178a1172e9ad110"
+    },
+    {
+      "kind": "p3_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C2.json",
+      "pointer": "#/cells/0/operation_bindings",
+      "sha256": "5274116a2a083ec1553d05c034f5490f1450851d805fb2590efec21be95c544b"
+    },
+    {
+      "kind": "p3_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C2.json",
+      "pointer": "#/cells/0/program_digest/reason",
+      "sha256": "5274116a2a083ec1553d05c034f5490f1450851d805fb2590efec21be95c544b"
+    },
+    {
+      "kind": "p3_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C2.json",
+      "pointer": "#/cells/0/plan_digest/reason",
+      "sha256": "5274116a2a083ec1553d05c034f5490f1450851d805fb2590efec21be95c544b"
+    },
+    {
+      "kind": "family_config",
+      "path": "main/backend/app/successor_runtime/specification/c2_p3.py",
+      "pointer": "_planning()::orchestration_policy_ref",
+      "sha256": "99d2c8dcc43ad8edc8bae2ce9cf0f19280e47bf8dd4a32e06192dc7d2e118037"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/capabilities/source_library_c2_shared.py",
+      "pointer": "SOURCE_LIBRARY_C2_2_PROTOCOL_SEARCH_KIND",
+      "sha256": "5b366cb7d7e316b59ad57e794a608170a705f4032730a24798e5bb3d967e57c1"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/capabilities/source_library_c2_shared.py",
+      "pointer": "SOURCE_LIBRARY_C2_2_PROVIDER_HARVEST_KIND",
+      "sha256": "5b366cb7d7e316b59ad57e794a608170a705f4032730a24798e5bb3d967e57c1"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/capabilities/source_library_c2_shared.py",
+      "pointer": "SOURCE_LIBRARY_C2_2_SITE_SEARCH_KIND",
+      "sha256": "5b366cb7d7e316b59ad57e794a608170a705f4032730a24798e5bb3d967e57c1"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/capabilities/source_library_c2_shared.py",
+      "pointer": "SOURCE_LIBRARY_C2_2_URL_EXECUTION_KIND",
+      "sha256": "5b366cb7d7e316b59ad57e794a608170a705f4032730a24798e5bb3d967e57c1"
+    }
+  ],
+  "derivation_note": "program shape from four planner movements, p3 operation_bindings order, digest reasons, family orchestration policy and C2.2 mode-kind constants.",
+  "content_digest": "b8a1288de82534cf16f1fbba6b66ccc7a6db680ccbf954ba9191d7f648b7bea7"
+}

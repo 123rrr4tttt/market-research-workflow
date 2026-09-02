@@ -1,0 +1,41 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "mrw.successor.agent-core.c6-2.resource.v1",
+  "ref_kind": "resource_policy",
+  "cell_id": "C6.2",
+  "family_id": "C6",
+  "movement_ids": [
+    "C6-M002"
+  ],
+  "semantics": {
+    "movement_resource": "Cost, timeout, token and concurrency reservations require runtime binding",
+    "code_resource_profile": {
+      "resource_profile_id": "agent.model_step.v1.resource",
+      "resource_classes": [
+        "llm_call"
+      ],
+      "budget_units": "request+token",
+      "default_soft_limit_seconds": 30,
+      "default_hard_limit_seconds": 120,
+      "budget_ref": "mrw.successor.agent-core.c6-2.budget.receipt-only.v1",
+      "deadline_policy_ref": "mrw.successor.agent-core.c6-2.deadline.v1"
+    }
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C6.v1.json",
+      "pointer": "#/movements/C6-M002/resource",
+      "sha256": "bdc430a903d6b1823f91fdeab1873e9a2f8482520cc0f85b0ceec43d040c901a"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/capabilities/agent_core_c6_2.py",
+      "pointer": "_resource_profile",
+      "sha256": "969dd92650eaac4656844b84162a9c48e3a06d4299b731622a149ed7a511360a"
+    }
+  ],
+  "derivation_note": "resource semantics copied verbatim from movement C6-M002.resource and the existing ResourceProfile in agent_core_c6_2.py; runtime reservations required, current paths fixture/scripted",
+  "content_digest": "564861f0520c0d6c3f8000c70929360da6635547d67ce8bb8a34d8e3c0fb84cd"
+}

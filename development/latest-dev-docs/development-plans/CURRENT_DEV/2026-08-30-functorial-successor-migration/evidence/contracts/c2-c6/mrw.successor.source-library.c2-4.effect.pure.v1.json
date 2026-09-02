@@ -1,0 +1,82 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "mrw.successor.source-library.c2-4.effect.pure.v1",
+  "ref_kind": "effect_policy",
+  "cell_id": "C2.4",
+  "family_id": "C2",
+  "movement_ids": [
+    "C2-M008"
+  ],
+  "semantics": {
+    "movement_rows": {
+      "C2-M008": {
+        "effect": "Projection-store apply, delete and rebuild only"
+      }
+    },
+    "p3_fragment": {
+      "operation_bindings": [
+        {
+          "contract_digest": null,
+          "operation_kind": "source_library.project_terminal_compat.v1",
+          "reason": "terminal/compat projection is executed by the projector registry, not registered as a Program Atom",
+          "role": "projector_registry"
+        }
+      ],
+      "program_digest_reason": "projection is a read-model projector, not a Program Atom"
+    },
+    "code_contract": {
+      "effect_profile_id": "mrw.successor.source-library.c2-4.effect.v1",
+      "effect_profile_version": "1.0.0",
+      "execution_class": "PROJECTION",
+      "external_visibility": "NONE",
+      "network_required": false,
+      "irreversible": false,
+      "cancellation_points": [],
+      "internal_export_only": true,
+      "human_approval_required": false,
+      "external_acquisition": false,
+      "idempotency_profile_ref": "source_digest"
+    }
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C2.v1.json",
+      "pointer": "#/movements/C2-M008/effect",
+      "sha256": "a6608ce0645c3d240c31ab1225ed31559655f2594ccb848f8178a1172e9ad110"
+    },
+    {
+      "kind": "p3_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C2.json",
+      "pointer": "#/cells/2/operation_bindings",
+      "sha256": "5274116a2a083ec1553d05c034f5490f1450851d805fb2590efec21be95c544b"
+    },
+    {
+      "kind": "p3_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C2.json",
+      "pointer": "#/cells/2/program_digest/reason",
+      "sha256": "5274116a2a083ec1553d05c034f5490f1450851d805fb2590efec21be95c544b"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/capabilities/source_library_c2_4_projection.py",
+      "pointer": "_effect_profile()",
+      "sha256": "14931d619915b31e7f48cf10d02658fc48eabdec5253421281ac6cd858a023c1"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/capabilities/source_library_c2_4_projection.py",
+      "pointer": "_effect_profile()::execution_class",
+      "sha256": "14931d619915b31e7f48cf10d02658fc48eabdec5253421281ac6cd858a023c1"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/capabilities/source_library_c2_4_projection.py",
+      "pointer": "_effect_profile()::idempotency_profile_ref",
+      "sha256": "14931d619915b31e7f48cf10d02658fc48eabdec5253421281ac6cd858a023c1"
+    }
+  ],
+  "derivation_note": "pure projector naming supported by movement effect (projection-store apply/delete/rebuild) and code EffectProfile execution_class=PROJECTION; no Program Atom.",
+  "content_digest": "ba9b1468875244e6123324b5881e9c2a050834ff533ce439400f566f07225876"
+}

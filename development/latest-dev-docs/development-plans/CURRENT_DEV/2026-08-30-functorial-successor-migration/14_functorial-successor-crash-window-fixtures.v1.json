@@ -1,0 +1,26 @@
+{
+  "schema": "mrw.functorial_successor.crash_window_fixtures.v1",
+  "status": "FROZEN_DECLARATIVE_FIXTURES",
+  "executable_harness_required_in": "P0-B_to_P0-D",
+  "fixtures": [
+    {"id": "CW01", "point": "before Document snapshot commit", "expected": "no run and no MaterialRef; client retries same idempotency key"},
+    {"id": "CW02", "point": "after CapturedMaterialSnapshot before public ProgramRef", "expected": "orphan snapshot is reclaimable; no research object or run is inferred"},
+    {"id": "CW03", "point": "after Program/run/event before COMPILE work item", "expected": "impossible because same PostgreSQL UoW"},
+    {"id": "CW04", "point": "two RuntimeNodes claim one READY work item", "expected": "one valid ClaimBinding and ExecutionReservation; loser observes claim conflict"},
+    {"id": "CW05", "point": "node crashes after claim before effect", "expected": "new attempt only after valid NonStartProof; lease expiry alone is insufficient"},
+    {"id": "CW06", "point": "effect happens before receipt commit", "expected": "OUTCOME_UNKNOWN and authoritative readback; no automatic redispatch"},
+    {"id": "CW07", "point": "EvidenceQualification relation committed before snapshot event", "expected": "same-DB UoW is atomic or relation remains absent; no duplicate research_object row"},
+    {"id": "CW08", "point": "artifact staged before verification admission", "expected": "resume from exact staged digest without recomposing upstream steps"},
+    {"id": "CW09", "point": "Research Ledger canonical commit before runtime event", "expected": "CommitIntent readback restores receipt and event without duplicate commit"},
+    {"id": "CW10", "point": "internal delivery effect before DeliveryReceiptRef event", "expected": "read back by idempotency key or provider locator; no duplicate export"},
+    {"id": "CW11", "point": "projector crashes after write before offset", "expected": "idempotent replay or full rebuild from source authority; projection never controls runtime"},
+    {"id": "CW12", "point": "rolling deploy removes old interpreter while bound backlog exists", "expected": "old profile remains available or work items become WAITING INTERPRETER_UNAVAILABLE; no new compiler reinterpretation"}
+  ],
+  "global_invariants": [
+    "no lease or broker observation proves effect success",
+    "runtime completion does not prove research admission or delivery",
+    "public control rows contain no tenant business payload bytes",
+    "legacy and successor never hold simultaneous claim or canonical write authority",
+    "event order payload authority and content digests remain bound through recovery"
+  ]
+}

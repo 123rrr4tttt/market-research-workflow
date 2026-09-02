@@ -1,0 +1,65 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "mrw.successor.source-library.c2-4.resource.v1",
+  "ref_kind": "resource_policy",
+  "cell_id": "C2.4",
+  "family_id": "C2",
+  "movement_ids": [
+    "C2-M008"
+  ],
+  "semantics": {
+    "movement_rows": {
+      "C2-M008": {
+        "resource": "Projection row, rebuild and PostgreSQL transaction cost"
+      }
+    },
+    "code_contract": {
+      "resource_profile_id": "mrw.successor.source-library.c2-4.resource.v1",
+      "resource_profile_version": "1.0.0",
+      "resource_classes": [
+        "cpu"
+      ],
+      "concurrency_key": "project",
+      "budget_units": "projection",
+      "default_soft_limit_seconds": 5,
+      "default_hard_limit_seconds": 30,
+      "node_profile_selector": "any",
+      "budget_ref": "mrw.functorial-successor.budget.c2-4.v1",
+      "deadline_policy_ref": "mrw.functorial-successor.deadline.c2-4.v1",
+      "node_profile_requirements": [
+        "bounded_record_refs",
+        "no_raw_bytes"
+      ],
+      "units": 1
+    }
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C2.v1.json",
+      "pointer": "#/movements/C2-M008/resource",
+      "sha256": "a6608ce0645c3d240c31ab1225ed31559655f2594ccb848f8178a1172e9ad110"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/capabilities/source_library_c2_4_projection.py",
+      "pointer": "_resource_profile()",
+      "sha256": "14931d619915b31e7f48cf10d02658fc48eabdec5253421281ac6cd858a023c1"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/capabilities/source_library_c2_4_projection.py",
+      "pointer": "_resource_profile()::deadline_policy_ref",
+      "sha256": "14931d619915b31e7f48cf10d02658fc48eabdec5253421281ac6cd858a023c1"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/capabilities/source_library_c2_4_projection.py",
+      "pointer": "_resource_profile()::budget_ref",
+      "sha256": "14931d619915b31e7f48cf10d02658fc48eabdec5253421281ac6cd858a023c1"
+    }
+  ],
+  "derivation_note": "resource policy from movement row plus code ResourceProfile and deadline/budget constants.",
+  "content_digest": "3de5992c874cf549b2f6684f61d521db48f15017784f855e421a217dd69411b4"
+}

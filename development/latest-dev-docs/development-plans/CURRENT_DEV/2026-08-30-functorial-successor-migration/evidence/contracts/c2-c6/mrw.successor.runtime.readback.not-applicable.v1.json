@@ -1,0 +1,48 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "mrw.successor.runtime.readback.not-applicable.v1",
+  "ref_kind": "readback_policy",
+  "cell_id": "C2-C6",
+  "family_id": "C2-C6",
+  "movement_ids": [],
+  "semantics": {
+    "applicability_scope": [
+      "C2.1",
+      "C2.2",
+      "C2.4",
+      "C3.1",
+      "C3.2",
+      "C4.1",
+      "C4.2",
+      "C5.1",
+      "C5.3",
+      "C6.1"
+    ],
+    "verdict": "APPROVE_READBACK_NOT_APPLICABLE_SENTINEL_FOR_10_CELLS",
+    "conditions": [
+      "sentinel is valid ONLY for readback_policy_ref",
+      "movement-level recovery/recovery_policy_ref remains mandatory and concrete",
+      "each spec must keep authority_ceiling all false and candidate null"
+    ],
+    "contract_entries": [
+      "lines 130,195,324,390,455,521,586,716,845,976: readback not applicable or delegated to owning cell"
+    ]
+  },
+  "derivation_sources": [
+    {
+      "kind": "adjudication_record",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/reviews/ReadbackNotApplicableSentinel.adjudication.v1.json",
+      "pointer": "/verdict",
+      "sha256": "f3820865020735987883cea96babb103d5cc11abc60b2548b9ff2f8da62d7390"
+    },
+    {
+      "kind": "semantic_contract",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movements/C2C6CapabilitySpecContract.v1.md",
+      "pointer": "# section 19 readback MISSING_REF rows",
+      "sha256": "975a0559f2f1b16d5601583a3f527bab15c7a516b91539e7840d59f5c003d0bc"
+    }
+  ],
+  "derivation_note": "sentinel authorized by ReadbackNotApplicableSentinel.adjudication.v1 for the ten C2-C6 cells whose contract rows mark readback not applicable or delegated; valid only for readback_policy_ref",
+  "content_digest": "f4056cee137f578c3dce45e4d18a24ed3350705c277cea7d68309bb286b5a5d3"
+}

@@ -1,0 +1,26 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "mrw.successor.agent-session.c5-1.resource.v1",
+  "ref_kind": "resource_policy",
+  "cell_id": "C5.1",
+  "family_id": "C5",
+  "movement_ids": [
+    "C5-M001"
+  ],
+  "semantics": {
+    "movement_resource": "Event count, replay and projection row ceilings",
+    "adapter_source_kind": "runtime_journal",
+    "adapter_class": "PostgresAgentSessionReadAdapter"
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C5.v1.json",
+      "pointer": "#/movements/C5-M001/resource",
+      "sha256": "322d24b19dbbb9babcd463f1c5fb652ec22cfc656a5cab9fd848d9f114b9ad65"
+    }
+  ],
+  "derivation_note": "resource semantics copied verbatim from movement C5-M001; bounded replay/projection row ceilings via PostgresAgentSessionReadAdapter",
+  "content_digest": "03fc12cb4de5e1b08a47774fc71579fb8663210351f4538d540130e7ab1dcbf9"
+}

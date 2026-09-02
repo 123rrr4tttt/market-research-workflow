@@ -1,0 +1,989 @@
+{
+  "schema": "mrw.functorial_successor.i1_assembly_coverage.v1",
+  "version": "1.0.0",
+  "generated_at": "2026-09-02",
+  "status": "I1_ASSEMBLY_LOCAL_ONLY_CLOSED_30_INSTALLED_NOT_PROMOTED",
+  "assembly_configuration": "local_offline_fixture_closures (build_local_offline_fixture_options)",
+  "composition_root": "app.successor_runtime.assembly.successor_assembly.assemble_successor_runtime -> compose_postgres_first_specimen_runtime (additional_handlers); options=build_local_offline_fixture_options()",
+  "route_mounted": false,
+  "run_once_started": false,
+  "authority_ceiling": {
+    "canonical_write": false,
+    "live_provider": false,
+    "external_delivery": false,
+    "cutover": false,
+    "authority_transfer": false,
+    "candidate_created": false
+  },
+  "coverage_summary": {
+    "INSTALLED": 30,
+    "UNWIRED_DECLARED": 0,
+    "PROJECTOR_WIRING_DECLARED": 0,
+    "DESIGN_ONLY": 0
+  },
+  "cells": [
+    {
+      "cell_id": "C1.1",
+      "family_id": "C1",
+      "status": "INSTALLED",
+      "operation_contract_refs": [
+        "workflow.vector_search.v1",
+        "workflow.llm_call.v1",
+        "workflow.join.v1"
+      ],
+      "handler_binding_digest": "583524c5279ed7089dd48c54e6984436451bd8e8b79bc97dab7053a7cb7dede8",
+      "recovery_binding_ref": "mrw.successor.c1.c1-1.recovery.v1",
+      "rollback_binding_refs": [
+        "main/backend/app/successor_migration/legacy_workflow_graph.py",
+        "main/backend/app/successor_runtime/capabilities/c1_legacy_dsl.py",
+        "main/backend/app/successor_runtime/capabilities/c1_slice_acceptance.py"
+      ],
+      "required_wiring": [],
+      "note": "C1.1 deterministic pure compile/validate route handler installed; binds c1_legacy_dsl.py / c1_slice_acceptance.py / legacy_workflow_graph.py (real interpreter/movement files); no effect/DB/provider/canonical write",
+      "owner": "i1-assembly-c1 owner (route handler installed; WP-I1-06 route mounting remains closed)"
+    },
+    {
+      "cell_id": "C1.2",
+      "family_id": "C1",
+      "status": "INSTALLED",
+      "operation_contract_refs": [
+        "ingest_index.stage_candidate.v1",
+        "c8.writing.compose.v1",
+        "c8.writing.stage.v1",
+        "c8.report.stage.v1",
+        "c8.report.verify.v1",
+        "c8.report.admission.v1",
+        "c8.delivery_intent_prepare.v1",
+        "delivery.internal_export.v1"
+      ],
+      "handler_binding_digest": "bf818dcd0f0ea50d3a8630c90056f8c2e30d980182d518f54f372f0526712404",
+      "recovery_binding_ref": "mrw.successor.runtime.c1-2.recovery.v1",
+      "rollback_binding_refs": [],
+      "required_wiring": [
+        "显式 C1.2 RuntimeNode kernel wiring (mrw.successor.runtime.c1-2.node.v1)",
+        "无独立 RuntimeHandler；RuntimeNode 内核机制由组合根承担"
+      ],
+      "note": "显式 C1.2 node-wiring：RuntimeNode 内核机制由组合根安装，无独立 RuntimeHandler；handler_binding_digest 承载 kernel digest",
+      "owner": "assembly family C1"
+    },
+    {
+      "cell_id": "C1.3",
+      "family_id": "C1",
+      "status": "INSTALLED",
+      "operation_contract_refs": [
+        "runtime.store.rehydrate.v1"
+      ],
+      "handler_binding_digest": "c0b30c8ddd5227038c924a3feb3d564519f469a53bd24ce42147dc8f1b185469",
+      "recovery_binding_ref": "mrw.successor.store.c1-3.recovery.v1",
+      "rollback_binding_refs": [],
+      "required_wiring": [
+        "显式 C1.3 store-rehydrate/replay kernel wiring (mrw.successor.store.c1-3.replay.v1)",
+        "无独立 RuntimeHandler；store-rehydrate/replay 由组合根内核机制承担"
+      ],
+      "note": "显式 C1.3 kernel-wiring：store-rehydrate/replay 内核机制由组合根安装，无独立 RuntimeHandler；handler_binding_digest 承载 kernel digest",
+      "owner": "assembly family C1"
+    },
+    {
+      "cell_id": "C2.1",
+      "family_id": "C2",
+      "status": "INSTALLED",
+      "operation_contract_refs": [
+        "source_library.resolve_execution_request.v1"
+      ],
+      "handler_binding_digest": "6a088315f3314e588f2c557d3e3776ea9740c11ece8712c81a82f92d7fd2d59e",
+      "recovery_binding_ref": "mrw.successor.source-library.c2-1.recovery.v1",
+      "rollback_binding_refs": [
+        "main/backend/app/successor_migration/legacy_source_library.py"
+      ],
+      "required_wiring": [],
+      "note": "store-rehydrated successor handler installed; exact persisted project scope supplied by the caller",
+      "owner": "assembly family C2"
+    },
+    {
+      "cell_id": "C2.2",
+      "family_id": "C2",
+      "status": "INSTALLED",
+      "operation_contract_refs": [
+        "source_library.protocol_search.v1",
+        "source_library.provider_harvest.v1",
+        "source_library.site_search.v1",
+        "source_library.url_execution.v1"
+      ],
+      "handler_binding_digest": "6130e5388ea59c245b47d933abdb179ac84ef3f789c6d033d9ad5cc8a9913b0a",
+      "recovery_binding_ref": "mrw.successor.source-library.c2-2.recovery.v1",
+      "rollback_binding_refs": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C2.json",
+        "main/backend/app/successor_migration/legacy_source_library_c2_2.py"
+      ],
+      "required_wiring": [],
+      "note": "store-rehydrated planner handler installed; binding pins the existing protocol_search contract digest from the family bundle/catalog, matching the canary binding",
+      "owner": "assembly family C2"
+    },
+    {
+      "cell_id": "C2.3",
+      "family_id": "C2",
+      "status": "INSTALLED",
+      "operation_contract_refs": [
+        "source_library.execute_provider_effect.v1"
+      ],
+      "handler_binding_digest": "3cf6ba6ce75f04e473d22a24704e4156dacd1a630c0d4a36b6fc0a178ffa8e98",
+      "recovery_binding_ref": "mrw.successor.source-library.c2-3.recovery.v1",
+      "rollback_binding_refs": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C2.json",
+        "main/backend/app/successor_migration/legacy_source_library_c2_3.py"
+      ],
+      "required_wiring": [],
+      "note": "LIVE_PROVIDER_DIMENSION_UNRESOLVED: C2_3StoreRehydratedHandler uses the existing deterministic FixtureProviderEffectGateway; the fixture path does not constitute production provider wiring",
+      "owner": "assembly family C2"
+    },
+    {
+      "cell_id": "C2.4",
+      "family_id": "C2",
+      "status": "INSTALLED",
+      "operation_contract_refs": [
+        "source_library.project_terminal_compat.v1"
+      ],
+      "handler_binding_digest": "b0ed3e48f8b8de75eb1c38b14f02dfc9e313a8358b2390ddb3ca79046b5c0e2d",
+      "recovery_binding_ref": "mrw.successor.source-library.c2-4.recovery.v1",
+      "rollback_binding_refs": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C2.json",
+        "main/backend/app/successor_runtime/substrate/projections/source_library_terminal.py",
+        "main/backend/app/successor_migration/legacy_source_library_c2_4.py"
+      ],
+      "required_wiring": [],
+      "note": "REGISTRY_REGISTRATION_ONLY_NO_PG_WRITE_AUTHORITY_CLOSED: per-run source_ref=run:i1-local:C2.4:001, source_incarnation=incarnation:i1-local:C2.4:001 bound; no PostgreSQL write adopted; registration only represents assembly/validation capability",
+      "owner": "run owner (per-run source key) + assembly registry wiring"
+    },
+    {
+      "cell_id": "C3.1",
+      "family_id": "C3",
+      "status": "INSTALLED",
+      "operation_contract_refs": [
+        "collect.execute_batch_element.v1",
+        "mrw.traverse_ordered.materialize"
+      ],
+      "handler_binding_digest": "270623d17f8f95dc95505d3a6a8d068a330e62a55f86d654cc4b106108ae2b6e",
+      "recovery_binding_ref": "mrw.successor.collect.c3-1.recovery.v1",
+      "rollback_binding_refs": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C3.json",
+        "main/backend/app/successor_migration/legacy_collect_runtime.py"
+      ],
+      "required_wiring": [],
+      "note": "LOCAL_OFFLINE deterministic no-provider fixture closure; C3.1/C3.2 share the composed TraverseOrdered->FoldAtom handler; exact persisted registry revision/scope must be supplied by the run",
+      "owner": "assembly family C3"
+    },
+    {
+      "cell_id": "C3.2",
+      "family_id": "C3",
+      "status": "INSTALLED",
+      "operation_contract_refs": [
+        "collect.fold_ordered_results.v1"
+      ],
+      "handler_binding_digest": "270623d17f8f95dc95505d3a6a8d068a330e62a55f86d654cc4b106108ae2b6e",
+      "recovery_binding_ref": "mrw.successor.collect.c3-2.recovery.v1",
+      "rollback_binding_refs": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C3.json",
+        "main/backend/app/successor_migration/legacy_collect_runtime.py"
+      ],
+      "required_wiring": [],
+      "note": "LOCAL_OFFLINE deterministic no-provider fixture closure; C3.1/C3.2 share the composed TraverseOrdered->FoldAtom handler; exact persisted registry revision/scope must be supplied by the run",
+      "owner": "assembly family C3"
+    },
+    {
+      "cell_id": "C4.1",
+      "family_id": "C4",
+      "status": "INSTALLED",
+      "operation_contract_refs": [
+        "agent_batch.build_batch_plan.v1"
+      ],
+      "handler_binding_digest": "1c38e7cefc1db656a0ddbcaa76b3b4ff567499229cbb51f7e0eea7eeeecad9ee",
+      "recovery_binding_ref": "mrw.successor.agent-batch.c4-1.recovery.v1",
+      "rollback_binding_refs": [],
+      "required_wiring": [
+        "plan handler installation",
+        "recovery binding"
+      ],
+      "note": "LOCAL_OFFLINE deterministic fixture closure only",
+      "owner": "assembly family C4"
+    },
+    {
+      "cell_id": "C4.2",
+      "family_id": "C4",
+      "status": "INSTALLED",
+      "operation_contract_refs": [
+        "agent_batch.reduce_retry_action.v1"
+      ],
+      "handler_binding_digest": "19d29beba8f66239682e5e1f6b22a6cc4fff9b167be244ea68210b0c5ae58801",
+      "recovery_binding_ref": "mrw.successor.agent-batch.c4-2.recovery.v1",
+      "rollback_binding_refs": [],
+      "required_wiring": [
+        "retry reducer handler installation",
+        "recovery binding"
+      ],
+      "note": "LOCAL_OFFLINE deterministic fixture closure only",
+      "owner": "assembly family C4"
+    },
+    {
+      "cell_id": "C4.3",
+      "family_id": "C4",
+      "status": "INSTALLED",
+      "operation_contract_refs": [
+        "agent_batch.submit.v1"
+      ],
+      "handler_binding_digest": "100c275ca34c2b52d2a1fb2ff2574b298f287364c52be7f0a41eaa43b5d3235a",
+      "recovery_binding_ref": "mrw.successor.agent-batch.c4-3.recovery.v1",
+      "rollback_binding_refs": [],
+      "required_wiring": [
+        "submission handler installation",
+        "readback + recovery binding"
+      ],
+      "note": "LOCAL_OFFLINE store-rehydrated handler; digest from build_successor_agent_batch_c4_submission_binding",
+      "owner": "assembly family C4"
+    },
+    {
+      "cell_id": "C5.1",
+      "family_id": "C5",
+      "status": "INSTALLED",
+      "operation_contract_refs": [
+        "agent_session.task_transition.v1"
+      ],
+      "handler_binding_digest": "18fe86aaaaf490a6b252188b596840ba885f4fd2ea152f18840664f0b6361bb8",
+      "recovery_binding_ref": "mrw.successor.agent-session.c5-1.recovery.v1",
+      "rollback_binding_refs": [],
+      "required_wiring": [],
+      "note": "REGISTRY_REGISTRATION_ONLY_NO_PG_WRITE_AUTHORITY_CLOSED: per-run source_ref=run:i1-local:C5.1:001, source_incarnation=incarnation:i1-local:C5.1:001 bound; no PostgreSQL write adopted; registration only represents assembly/validation capability",
+      "owner": "run owner (per-run source key) + assembly registry wiring"
+    },
+    {
+      "cell_id": "C5.2",
+      "family_id": "C5",
+      "status": "INSTALLED",
+      "operation_contract_refs": [
+        "runtime.effect.reconcile.v1"
+      ],
+      "handler_binding_digest": "2ecf562da21e44d4508624938e9976d521fa0e405924a38d84d2b07f9fad734c",
+      "recovery_binding_ref": "mrw.successor.runtime.c5-2.recovery.v1",
+      "rollback_binding_refs": [],
+      "required_wiring": [
+        "C5.2 reconcile handler 绑定 legacy attempt kinds",
+        "readback policy 接线"
+      ],
+      "note": "INSTALLED: C5.2 explicit reconciliation route binding; LOCAL_OFFLINE deterministic readback-only fixture; EffectReconciler.reconcile called; no DB write/adopt/authority change; C5_2_DURABLE_ATTEMPT_NODE_NOT_PROVEN",
+      "owner": "assembly family C5"
+    },
+    {
+      "cell_id": "C5.3",
+      "family_id": "C5",
+      "status": "INSTALLED",
+      "operation_contract_refs": [
+        "runtime.event.project.v1"
+      ],
+      "handler_binding_digest": "814bdb6ef3935e44ef6aee93642fd80441b6f8f026ad2991240318555c611711",
+      "recovery_binding_ref": "mrw.successor.runtime.c5-3.recovery.v1",
+      "rollback_binding_refs": [],
+      "required_wiring": [],
+      "note": "REGISTRY_REGISTRATION_ONLY_NO_PG_WRITE_AUTHORITY_CLOSED: per-run source_ref=run:i1-local:C5.3:001, source_incarnation=incarnation:i1-local:C5.3:001 bound; no PostgreSQL write adopted; registration only represents assembly/validation capability",
+      "owner": "run owner (per-run source key) + assembly registry wiring"
+    },
+    {
+      "cell_id": "C5.4",
+      "family_id": "C5",
+      "status": "INSTALLED",
+      "operation_contract_refs": [
+        "legacy.runtime_observation.project.v1"
+      ],
+      "handler_binding_digest": "b5f4a9a74053492c6741d1e9375a04d6cb6fd5f3d9604d44af614cf660dec15c",
+      "recovery_binding_ref": "mrw.successor.runtime.c5-4.recovery.v1",
+      "rollback_binding_refs": [],
+      "required_wiring": [],
+      "note": "REGISTRY_REGISTRATION_ONLY_NO_PG_WRITE_AUTHORITY_CLOSED: per-run source_ref=run:i1-local:C5.4:001, source_incarnation=incarnation:i1-local:C5.4:001 bound; no PostgreSQL write adopted; registration only represents assembly/validation capability",
+      "owner": "run owner (per-run source key) + assembly registry wiring"
+    },
+    {
+      "cell_id": "C6.1",
+      "family_id": "C6",
+      "status": "INSTALLED",
+      "operation_contract_refs": [
+        "agent_core.episode_interpret.v1"
+      ],
+      "handler_binding_digest": "172bf6a5f458c5784e903d0961122291711bd463870e20c9848eee4873f78198",
+      "recovery_binding_ref": "mrw.successor.agent-core.c6-1.recovery.v1",
+      "rollback_binding_refs": [],
+      "required_wiring": [
+        "episode handler installation",
+        "worker store wiring"
+      ],
+      "note": "LOCAL_OFFLINE deterministic no-provider fixture closure; AgentCoreC6StoreRehydratedHandler installed with scripted model source and pure tool specimen",
+      "owner": "assembly family C6"
+    },
+    {
+      "cell_id": "C6.2",
+      "family_id": "C6",
+      "status": "INSTALLED",
+      "operation_contract_refs": [
+        "agent.model_step.v1"
+      ],
+      "handler_binding_digest": "d829472da8cbff37a2164db57b5ec655f7016c530c2aa29df32dfe7bed44e34d",
+      "recovery_binding_ref": "mrw.successor.agent-core.c6-2.recovery.v1",
+      "rollback_binding_refs": [],
+      "required_wiring": [
+        "provider handler installation",
+        "生产 provider port（live 维度未冻结）"
+      ],
+      "note": "LOCAL_OFFLINE deterministic fixture closure; LIVE_PROVIDER_DIMENSION_UNRESOLVED: fixture provider port is not a production provider",
+      "owner": "assembly family C6"
+    },
+    {
+      "cell_id": "C6.3",
+      "family_id": "C6",
+      "status": "INSTALLED",
+      "operation_contract_refs": [
+        "observability.redact_evidence.v1"
+      ],
+      "handler_binding_digest": "d9fc6d3316971771f28bed6cf09cca4e88875506ec350cea36ee7cf20ce62605",
+      "recovery_binding_ref": "mrw.successor.agent-core.c6-3.recovery.v1",
+      "rollback_binding_refs": [],
+      "required_wiring": [
+        "redaction handler installation",
+        "redaction persistence wiring"
+      ],
+      "note": "LOCAL_OFFLINE deterministic redaction closure; ephemeral raw observation never persisted",
+      "owner": "assembly family C6"
+    },
+    {
+      "cell_id": "C7.1",
+      "family_id": "C7",
+      "status": "INSTALLED",
+      "operation_contract_refs": [
+        "ingest_index.stage_candidate.v1"
+      ],
+      "handler_binding_digest": "c2dcc332e04f2ba2d46dfe810c52b93eb93130353af462d395678def8ecfc1f2",
+      "recovery_binding_ref": "ingest_index.c7.stage.recovery.v1#retain-staged-candidate-and-runtime-receipt;no-repeat-effect",
+      "rollback_binding_refs": [],
+      "required_wiring": [
+        "C7 assembly 与 AdmissionCoordinator 注册",
+        "legacy writer 保持 zero 的适配边界",
+        "document admission/canonical write 需单独 authority review"
+      ],
+      "note": "C7.1 staged-candidate rollback route installed; pure interpret_staged_candidate plus return_for_cleanup reverse return; no DB/admission/canonical write",
+      "owner": "assembly family C7"
+    },
+    {
+      "cell_id": "C7.2",
+      "family_id": "C7",
+      "status": "INSTALLED",
+      "operation_contract_refs": [
+        "ingest_index.commit_intent.readback.v1",
+        "ingest_index.admission.readback.v1"
+      ],
+      "handler_binding_digest": "9b16f1393ff8ff08aa5504b57de7ecc65c371157ce7999054ee4ed610f78157a",
+      "recovery_binding_ref": "ingest_index.commit_intent.readback.v1#prepare-then-readback;no-repeat-commit;outcome-unknown-waits-for-readback",
+      "rollback_binding_refs": [],
+      "required_wiring": [
+        "C7 admission 注册",
+        "readback resource policy"
+      ],
+      "note": "C7.2 commit-readback rollback route installed; pure interpret_commit_readback; canonical commit write NOT executed (authority closed); owner: WP-I1-06 canonical write authority",
+      "owner": "assembly family C7"
+    },
+    {
+      "cell_id": "C7.3",
+      "family_id": "C7",
+      "status": "INSTALLED",
+      "operation_contract_refs": [
+        "ingest_index.projection_declared_loss.v1"
+      ],
+      "handler_binding_digest": "d77f2d8564cdc8626c2bc516ab01ff33e8828c104073ec76186b965281192fe3",
+      "recovery_binding_ref": "ingest_index.projection_declared_loss.v1#rebuild-from-bound-document;resume-offset-or-full-rebuild;no-canonical-mutation",
+      "rollback_binding_refs": [],
+      "required_wiring": [
+        "C7 projector 注册",
+        "projection offset 驱动"
+      ],
+      "note": "C7.3 projection-diff rollback route installed; pure interpret_projection_diff; projector driver NOT executed (authority closed); owner: projector driver milestone / canonical write authority",
+      "owner": "assembly family C7"
+    },
+    {
+      "cell_id": "C7.4",
+      "family_id": "C7",
+      "status": "INSTALLED",
+      "operation_contract_refs": [
+        "ingest_index.reconcile.readback.v1",
+        "ingest_index.reconcile.nonstart.v1"
+      ],
+      "handler_binding_digest": "5f85ccf535aa516751e1ff9df01bdc07f6c9df2880f01e8b9f96d60ea068115d",
+      "recovery_binding_ref": "ingest_index.reconcile.nonstart.v1#exact-nonstart-proof-plus-current-authority;new-attempt-epoch-only;rollback-changes-future-routing-not-events",
+      "rollback_binding_refs": [],
+      "required_wiring": [
+        "C7 reconcile handler installation",
+        "recovery binding"
+      ],
+      "note": "C7.4 reconciliation-decision rollback route installed; pure interpret_reconciliation over READBACK_RECONCILIATION_CONTRACT_ID; no adopt/authority change",
+      "owner": "assembly family C7"
+    },
+    {
+      "cell_id": "C8.1",
+      "family_id": "C8",
+      "status": "INSTALLED",
+      "operation_contract_refs": [
+        "c8.typed_knowledge.demand_read.v1"
+      ],
+      "handler_binding_digest": "8605439c219a4dadec9200e384e2a58bb530f782ada6d71a3728b26ee5b7969c",
+      "recovery_binding_ref": "c8.typed_knowledge.recovery.v1#route-back-to-legacy-repository-read-handle-retained;no-dual-write",
+      "rollback_binding_refs": [],
+      "required_wiring": [
+        "admission_not_called/export_not_executed 保持"
+      ],
+      "note": "LOCAL_OFFLINE C8.1 demand_read pure route handler installed; read-only; no PostgreSQL write adopted",
+      "owner": "assembly family C8"
+    },
+    {
+      "cell_id": "C8.2",
+      "family_id": "C8",
+      "status": "INSTALLED",
+      "operation_contract_refs": [
+        "c8.writing.compose.v1",
+        "c8.writing.stage.v1"
+      ],
+      "handler_binding_digest": "e01970eb803c79897876c736fcb7a9f7da17f19e2cb255cfb80a853e0df95665",
+      "recovery_binding_ref": "c8.writing.recovery.v1#retained-staged-values-no-authority-reversal",
+      "rollback_binding_refs": [],
+      "required_wiring": [
+        "admission_not_called/export_not_executed 保持"
+      ],
+      "note": "LOCAL_OFFLINE C8.2 compose+stage pure route handler installed; no PostgreSQL write adopted",
+      "owner": "assembly family C8"
+    },
+    {
+      "cell_id": "C8.3",
+      "family_id": "C8",
+      "status": "INSTALLED",
+      "operation_contract_refs": [
+        "c8.report.stage.v1",
+        "c8.report.admission.v1",
+        "c8.report.delivery.v1"
+      ],
+      "handler_binding_digest": "4272d7b43595de7b4cf8d04320e1ee5a4b6defde79e3a4f40bc8361d1c1c0e20",
+      "recovery_binding_ref": "c8.report.admission.recovery.v1#verification-and-receipt-readback-only;no-repeat-export",
+      "rollback_binding_refs": [
+        "main/backend/app/successor_migration/legacy_c8_report.py"
+      ],
+      "required_wiring": [
+        "app 层调用方/挂载",
+        "admission/export authority gate 保持关闭"
+      ],
+      "note": "C8_3_DELIVERY_INSTALLED_LOCAL_ONLY_NOT_PROMOTED: evidence I1C8_3DeliveryEvidence.v1.json; exact C8.3 handler binding digest from the installed bridge; admission/export authority gate stays closed",
+      "owner": "assembly family C8 (delivery closure; WP-I1-06 route mounting remains closed)"
+    },
+    {
+      "cell_id": "C8.4",
+      "family_id": "C8",
+      "status": "INSTALLED",
+      "operation_contract_refs": [
+        "c8.graph.project.v1"
+      ],
+      "handler_binding_digest": "2ef982acf13fb92fb458b5c582225d5f2db0dc811f7d475683c59f500728c5b8",
+      "recovery_binding_ref": "c8.graph.recovery.v1#offset-cas-keeps-old-active-generation;rebuild-from-source-closure",
+      "rollback_binding_refs": [],
+      "required_wiring": [],
+      "note": "REGISTRY_REGISTRATION_ONLY_NO_PG_WRITE_AUTHORITY_CLOSED: per-run source_ref=run:i1-local:C8.4:001, source_incarnation=incarnation:i1-local:C8.4:001 bound; no PostgreSQL write adopted; registration only represents assembly/validation capability",
+      "owner": "run owner (per-run source key) + assembly registry wiring"
+    },
+    {
+      "cell_id": "C9.1",
+      "family_id": "C9",
+      "status": "INSTALLED",
+      "operation_contract_refs": [
+        "facade.command.description-validation.execute-false.v1",
+        "facade.query.read-only.v1",
+        "api.envelope.status-data-error-meta.v1",
+        "api.status.ok-error-unavailable-blocked-waiting.v1",
+        "facade.sse.after-seq-exclusive.v1",
+        "facade.response.control-feedback-forbidden.v1",
+        "api.external.dto.forbid-scope-schema-actor-authority-control.v1",
+        "api.internal.server.inject-scope-actor-idempotency-revision-approval.v1"
+      ],
+      "handler_binding_digest": "05f65cd92de58e030dcb8363fc53689e5726f99a5d1b1f5dea3deee3bb0be165",
+      "recovery_binding_ref": null,
+      "rollback_binding_refs": [],
+      "required_wiring": [
+        "NO_ROUTE_OR_CONTROL_EFFECT 保持"
+      ],
+      "note": "LOCAL_OFFLINE facade validation route handler installed; read-only query path only; router 挂载属于 WP-I1-06，本 assembly 不装路由",
+      "owner": "assembly family C9"
+    },
+    {
+      "cell_id": "C9.2",
+      "family_id": "C9",
+      "status": "INSTALLED",
+      "operation_contract_refs": [
+        "frontend.observation.six-states.v1",
+        "frontend.interaction.command_submit.v1",
+        "frontend.no_control_feedback.v1",
+        "frontend.design_only_typed_contract.v1"
+      ],
+      "handler_binding_digest": "3436da473c0128ff5931930e934577891d077d85df6141daa779632957606025",
+      "recovery_binding_ref": "mrw.successor.frontend.c9-2.recovery.v1",
+      "rollback_binding_refs": [
+        "main/frontend-modern/src/lib/api/domains/successor-runtime.ts",
+        "main/frontend-modern/src/components/SuccessorRuntimeObservation.tsx",
+        "main/frontend-modern/tests/e2e/successor-runtime-observation.spec.ts",
+        "main/frontend-modern/tests/e2e/successor-runtime-client.spec.ts",
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/i1-successor-assembly/C9_2FrontendMilestone.v1.json"
+      ],
+      "required_wiring": [
+        "explicit C9.2 frontend typed-contract kernel wiring (mrw.successor.frontend.c9-2.typed-contract.v1)",
+        "no independent RuntimeHandler; frontend-modern sources and e2e specs carry the implementation"
+      ],
+      "note": "C9.2 frontend typed contract INSTALLED via explicit KernelWiring; implementation evidence: C9_2FrontendMilestone.v1.json; no route, provider, network, canonical write or control feedback adopted",
+      "owner": "frontend milestone (typed contract adoption)"
+    },
+    {
+      "cell_id": "C9.3",
+      "family_id": "C9",
+      "status": "INSTALLED",
+      "operation_contract_refs": [
+        "projector.registry.exact_key.v1",
+        "projector.offset.cas_advance.v1",
+        "projector.offset.aba_stale.v1",
+        "projector.rebuild.plan_only.v1",
+        "projector.source_offsets.snapshot.v1"
+      ],
+      "handler_binding_digest": "d74d61e96ec877b7e368473bb31a70d3f6a3c8deba19bd71eb77fc0c999c28a4",
+      "recovery_binding_ref": null,
+      "rollback_binding_refs": [],
+      "required_wiring": [],
+      "note": "REGISTRY_REGISTRATION_ONLY_NO_PG_WRITE_AUTHORITY_CLOSED: per-run source_ref=run:i1-local:C9.3:001, source_incarnation=incarnation:i1-local:C9.3:001 bound; no PostgreSQL write adopted; registration only represents assembly/validation capability",
+      "owner": "run owner (per-run source key) + assembly registry wiring"
+    }
+  ],
+  "kernel_wiring": [
+    {
+      "cell_id": "C1.2",
+      "kernel_id": "mrw.successor.runtime.c1-2.node.v1",
+      "kernel_version": "1.0.0",
+      "binding_digest": "bf818dcd0f0ea50d3a8630c90056f8c2e30d980182d518f54f372f0526712404",
+      "binding_refs": [
+        "main/backend/app/successor_runtime/runtime/node.py",
+        "main/backend/app/successor_runtime/substrate/postgres/node_adapter.py",
+        "main/backend/app/successor_runtime/substrate/postgres/composition_root.py",
+        "main/backend/app/successor_runtime/capabilities/c1_slice_acceptance.py"
+      ],
+      "note": "RuntimeNode 内核机制由组合根安装；这是显式 C1.2 node-wiring 声明，不是独立 RuntimeHandler 绑定"
+    },
+    {
+      "cell_id": "C1.3",
+      "kernel_id": "mrw.successor.store.c1-3.replay.v1",
+      "kernel_version": "1.0.0",
+      "binding_digest": "c0b30c8ddd5227038c924a3feb3d564519f469a53bd24ce42147dc8f1b185469",
+      "binding_refs": [
+        "main/backend/app/successor_runtime/substrate/postgres/captured_values.py",
+        "main/backend/app/successor_runtime/runtime/replay.py",
+        "main/backend/app/successor_runtime/substrate/postgres/nodes.py"
+      ],
+      "note": "store-rehydrate/replay 内核机制由组合根安装；这是显式 C1.3 kernel-wiring 声明，不是独立 RuntimeHandler 绑定"
+    },
+    {
+      "cell_id": "C9.2",
+      "kernel_id": "mrw.successor.frontend.c9-2.typed-contract.v1",
+      "kernel_version": "1.0.0",
+      "binding_digest": "3436da473c0128ff5931930e934577891d077d85df6141daa779632957606025",
+      "binding_refs": [
+        "main/frontend-modern/src/lib/api/domains/successor-runtime.ts",
+        "main/frontend-modern/src/components/SuccessorRuntimeObservation.tsx",
+        "main/frontend-modern/tests/e2e/successor-runtime-observation.spec.ts",
+        "main/frontend-modern/tests/e2e/successor-runtime-client.spec.ts"
+      ],
+      "note": "C9.2 frontend typed contract implemented by frontend-modern; digest is sha256 over kernel id plus sorted path:file-sha pairs (successor-runtime.ts, SuccessorRuntimeObservation.tsx, observation and client e2e specs); milestone evidence: C9_2FrontendMilestone.v1.json"
+    }
+  ],
+  "projector_wiring": [
+    {
+      "cell_id": "C2.4",
+      "projector_id": "successor.source_library.c2_4.terminal_compat.v1",
+      "projector_version": "1.0.0",
+      "source_kind": "RUNTIME_JOURNAL",
+      "projection_id": "source_library.terminal_output.v2",
+      "projection_schema_ref": "source_library.terminal_output.v2",
+      "declared_loss": [
+        "source_library.c2_4.compat.loss.v1"
+      ],
+      "note": "REGISTRY_REGISTRATION_ONLY_NO_PG_WRITE_AUTHORITY_CLOSED: registration only; no PostgreSQL write adopted; exact per-run source key bound",
+      "status": "INSTALLED",
+      "handler_binding_digest": "b0ed3e48f8b8de75eb1c38b14f02dfc9e313a8358b2390ddb3ca79046b5c0e2d",
+      "source_ref": "run:i1-local:C2.4:001",
+      "source_incarnation": "incarnation:i1-local:C2.4:001"
+    },
+    {
+      "cell_id": "C5.1",
+      "projector_id": "successor.agent_session.journal_projection.v1",
+      "projector_version": "1.0.0",
+      "source_kind": "runtime_journal",
+      "projection_id": "projection.agent-session.v1",
+      "projection_schema_ref": "mrw.successor.agent-session-snapshot.v1",
+      "declared_loss": [],
+      "note": "REGISTRY_REGISTRATION_ONLY_NO_PG_WRITE_AUTHORITY_CLOSED: registration only; no PostgreSQL write adopted; exact per-run source key bound",
+      "status": "INSTALLED",
+      "handler_binding_digest": "18fe86aaaaf490a6b252188b596840ba885f4fd2ea152f18840664f0b6361bb8",
+      "source_ref": "run:i1-local:C5.1:001",
+      "source_incarnation": "incarnation:i1-local:C5.1:001"
+    },
+    {
+      "cell_id": "C5.3",
+      "projector_id": "successor-runtime-run-projector",
+      "projector_version": "1.1.0",
+      "source_kind": "runtime_journal",
+      "projection_id": "projection.runtime-run.v1",
+      "projection_schema_ref": "mrw.runtime.run-projection.v1",
+      "declared_loss": [],
+      "note": "REGISTRY_REGISTRATION_ONLY_NO_PG_WRITE_AUTHORITY_CLOSED: registration only; no PostgreSQL write adopted; exact per-run source key bound",
+      "status": "INSTALLED",
+      "handler_binding_digest": "814bdb6ef3935e44ef6aee93642fd80441b6f8f026ad2991240318555c611711",
+      "source_ref": "run:i1-local:C5.3:001",
+      "source_incarnation": "incarnation:i1-local:C5.3:001"
+    },
+    {
+      "cell_id": "C5.4",
+      "projector_id": "successor.legacy_process_observation_join.v1",
+      "projector_version": "1.0.0",
+      "source_kind": "legacy_process_observations",
+      "projection_id": "projection.legacy-process-observation.v1",
+      "projection_schema_ref": "mrw.runtime.legacy-process-projection.v1",
+      "declared_loss": [],
+      "note": "REGISTRY_REGISTRATION_ONLY_NO_PG_WRITE_AUTHORITY_CLOSED: registration only; no PostgreSQL write adopted; exact per-run source key bound",
+      "status": "INSTALLED",
+      "handler_binding_digest": "b5f4a9a74053492c6741d1e9375a04d6cb6fd5f3d9604d44af614cf660dec15c",
+      "source_ref": "run:i1-local:C5.4:001",
+      "source_incarnation": "incarnation:i1-local:C5.4:001"
+    },
+    {
+      "cell_id": "C8.4",
+      "projector_id": "c8.graph.projector",
+      "projector_version": "1",
+      "source_kind": "successor_value",
+      "projection_id": "graph.context_adapter",
+      "projection_schema_ref": "mrw.successor.c8.graph-projection.v1",
+      "declared_loss": [
+        "c8.graph.node-edge-filtering.v1",
+        "c8.graph.text-truncation.v1",
+        "c8.graph.redaction.v1",
+        "c8.graph.casefold-and-duplicate-collapse.v1",
+        "c8.graph.omitted-fields.v1"
+      ],
+      "note": "REGISTRY_REGISTRATION_ONLY_NO_PG_WRITE_AUTHORITY_CLOSED: registration only; no PostgreSQL write adopted; exact per-run source key bound",
+      "status": "INSTALLED",
+      "handler_binding_digest": "2ef982acf13fb92fb458b5c582225d5f2db0dc811f7d475683c59f500728c5b8",
+      "source_ref": "run:i1-local:C8.4:001",
+      "source_incarnation": "incarnation:i1-local:C8.4:001"
+    },
+    {
+      "cell_id": "C9.3",
+      "projector_id": "projection.c9-typed-source-identity.v1",
+      "projector_version": "1.0.0",
+      "source_kind": "c9_semantic_source",
+      "projection_id": "mrw.successor.c9.semantic-source-closure-manifest.v1",
+      "projection_schema_ref": "mrw.successor.c9.semantic-source-closure-manifest.v1",
+      "declared_loss": [
+        "c9.external-sink-elasticsearch-qdrant-graph-provider-declared-loss-no-call.v1",
+        "c9.agent-session-bounded-fields-not-full-journal.v1",
+        "c9.local-graph-search-bounded-fields-not-canonical-knowledge.v1"
+      ],
+      "note": "REGISTRY_REGISTRATION_ONLY_NO_PG_WRITE_AUTHORITY_CLOSED: registration only; no PostgreSQL write adopted; exact per-run source key bound",
+      "status": "INSTALLED",
+      "handler_binding_digest": "d74d61e96ec877b7e368473bb31a70d3f6a3c8deba19bd71eb77fc0c999c28a4",
+      "source_ref": "run:i1-local:C9.3:001",
+      "source_incarnation": "incarnation:i1-local:C9.3:001"
+    }
+  ],
+  "rollback_bindings": [
+    {
+      "cell_id": "C1.1",
+      "status": "PRESENT",
+      "binding_refs": [
+        "main/backend/app/successor_migration/legacy_workflow_graph.py",
+        "main/backend/app/successor_runtime/capabilities/c1_legacy_dsl.py",
+        "main/backend/app/successor_runtime/capabilities/c1_slice_acceptance.py"
+      ],
+      "note": "C1.1 rollback binding present: legacy rollback route plus the real successor compiler and slice-acceptance implementation files"
+    },
+    {
+      "cell_id": "C1.2",
+      "status": "PRESENT",
+      "binding_refs": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p5-c1-slices/C1SliceA.v1.json",
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p5-c1-slices/C1SliceB.v1.json",
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p5-c1-slices/C1SliceC.v1.json",
+        "main/backend/app/successor_migration/legacy_workflow_graph.py"
+      ],
+      "note": "显式 C1.2 kernel wiring 已安装；rollback 绑定到 C1SliceA/B/C 证据与 legacy_workflow_graph.py（spec 真实 rollback 绑定）"
+    },
+    {
+      "cell_id": "C1.3",
+      "status": "PRESENT",
+      "binding_refs": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p5-c1-slices/C1SliceA.v1.json",
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p5-c1-slices/C1SliceB.v1.json",
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p5-c1-slices/C1SliceC.v1.json",
+        "main/backend/app/successor_migration/legacy_workflow_graph.py"
+      ],
+      "note": "显式 C1.3 kernel wiring 已安装；rollback 绑定到 C1SliceA/B/C 证据与 legacy_workflow_graph.py（spec 真实 rollback 绑定）"
+    },
+    {
+      "cell_id": "C2.1",
+      "status": "PRESENT",
+      "binding_refs": [
+        "main/backend/app/successor_migration/legacy_source_library.py"
+      ],
+      "note": "spec rollback binding present"
+    },
+    {
+      "cell_id": "C2.2",
+      "status": "PRESENT",
+      "binding_refs": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C2.json",
+        "main/backend/app/successor_migration/legacy_source_library_c2_2.py"
+      ],
+      "note": "spec rollback binding present"
+    },
+    {
+      "cell_id": "C2.3",
+      "status": "PRESENT",
+      "binding_refs": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C2.json",
+        "main/backend/app/successor_migration/legacy_source_library_c2_3.py"
+      ],
+      "note": "spec rollback binding present"
+    },
+    {
+      "cell_id": "C2.4",
+      "status": "PRESENT",
+      "binding_refs": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C2.json",
+        "main/backend/app/successor_runtime/substrate/projections/source_library_terminal.py",
+        "main/backend/app/successor_migration/legacy_source_library_c2_4.py"
+      ],
+      "note": "spec rollback binding present"
+    },
+    {
+      "cell_id": "C3.1",
+      "status": "PRESENT",
+      "binding_refs": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C3.json",
+        "main/backend/app/successor_migration/legacy_collect_runtime.py"
+      ],
+      "note": "spec rollback binding present"
+    },
+    {
+      "cell_id": "C3.2",
+      "status": "PRESENT",
+      "binding_refs": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C3.json",
+        "main/backend/app/successor_migration/legacy_collect_runtime.py"
+      ],
+      "note": "spec rollback binding present"
+    },
+    {
+      "cell_id": "C4.1",
+      "status": "PRESENT",
+      "binding_refs": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C4.json",
+        "main/backend/app/successor_migration/legacy_agent_batch.py"
+      ],
+      "note": ""
+    },
+    {
+      "cell_id": "C4.2",
+      "status": "PRESENT",
+      "binding_refs": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C4.json",
+        "main/backend/app/successor_migration/legacy_agent_batch.py"
+      ],
+      "note": ""
+    },
+    {
+      "cell_id": "C4.3",
+      "status": "PRESENT",
+      "binding_refs": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C4.json",
+        "main/backend/app/successor_migration/legacy_agent_batch.py",
+        "main/backend/app/successor_runtime/substrate/postgres/agent_batch_c4_3_handler.py"
+      ],
+      "note": ""
+    },
+    {
+      "cell_id": "C5.1",
+      "status": "PRESENT",
+      "binding_refs": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C5.json",
+        "main/backend/app/successor_migration/legacy_agent_sessions.py"
+      ],
+      "note": ""
+    },
+    {
+      "cell_id": "C5.2",
+      "status": "PRESENT",
+      "binding_refs": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C5.json",
+        "main/backend/app/successor_migration/legacy_effect_attempts.py"
+      ],
+      "note": ""
+    },
+    {
+      "cell_id": "C5.3",
+      "status": "PRESENT",
+      "binding_refs": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C5.json",
+        "main/backend/app/successor_migration/legacy_agent_sessions.py"
+      ],
+      "note": ""
+    },
+    {
+      "cell_id": "C5.4",
+      "status": "PRESENT",
+      "binding_refs": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C5.json",
+        "main/backend/app/successor_migration/legacy_process_observations.py"
+      ],
+      "note": ""
+    },
+    {
+      "cell_id": "C6.1",
+      "status": "PRESENT",
+      "binding_refs": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C6.json",
+        "main/backend/app/successor_migration/legacy_agent_core.py"
+      ],
+      "note": ""
+    },
+    {
+      "cell_id": "C6.2",
+      "status": "PRESENT",
+      "binding_refs": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C6.json",
+        "main/backend/app/successor_migration/legacy_agent_core.py"
+      ],
+      "note": ""
+    },
+    {
+      "cell_id": "C6.3",
+      "status": "PRESENT",
+      "binding_refs": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C6.json",
+        "main/backend/app/successor_migration/legacy_agent_core.py"
+      ],
+      "note": ""
+    },
+    {
+      "cell_id": "C7.1",
+      "status": "PRESENT",
+      "binding_refs": [
+        "main/backend/app/successor_runtime/capabilities/ingest_c7_interpreters.py",
+        "main/backend/app/successor_runtime/capabilities/ingest_c7_movements.py"
+      ],
+      "note": "纯 route 装配：真实 successor_runtime 实现模块绑定；非 p4-fragments 观察绑定"
+    },
+    {
+      "cell_id": "C7.2",
+      "status": "PRESENT",
+      "binding_refs": [
+        "main/backend/app/successor_runtime/capabilities/ingest_c7_interpreters.py",
+        "main/backend/app/successor_runtime/capabilities/ingest_c7_common.py"
+      ],
+      "note": "纯 route 装配：真实 successor_runtime 实现模块绑定；非 p4-fragments 观察绑定"
+    },
+    {
+      "cell_id": "C7.3",
+      "status": "PRESENT",
+      "binding_refs": [
+        "main/backend/app/successor_runtime/capabilities/ingest_c7_interpreters.py",
+        "main/backend/app/successor_runtime/capabilities/ingest_c7_common.py"
+      ],
+      "note": "纯 route 装配：真实 successor_runtime 实现模块绑定；非 p4-fragments 观察绑定"
+    },
+    {
+      "cell_id": "C7.4",
+      "status": "PRESENT",
+      "binding_refs": [
+        "main/backend/app/successor_runtime/capabilities/ingest_c7_interpreters.py",
+        "main/backend/app/successor_runtime/capabilities/ingest_c7_common.py",
+        "main/backend/app/successor_runtime/runtime/reconciliation.py"
+      ],
+      "note": "纯 route 装配：真实 successor_runtime 实现模块绑定；非 p4-fragments 观察绑定"
+    },
+    {
+      "cell_id": "C8.1",
+      "status": "PRESENT",
+      "binding_refs": [
+        "main/backend/app/successor_migration/legacy_c8_typed_knowledge.py",
+        "main/backend/app/successor_runtime/assembly/c8_assembly.py"
+      ],
+      "note": ""
+    },
+    {
+      "cell_id": "C8.2",
+      "status": "PRESENT",
+      "binding_refs": [
+        "main/backend/app/successor_migration/legacy_c8_writing.py",
+        "main/backend/app/successor_runtime/assembly/c8_assembly.py"
+      ],
+      "note": ""
+    },
+    {
+      "cell_id": "C8.3",
+      "status": "PRESENT",
+      "binding_refs": [
+        "main/backend/app/successor_migration/legacy_c8_report.py"
+      ],
+      "note": ""
+    },
+    {
+      "cell_id": "C8.4",
+      "status": "PRESENT",
+      "binding_refs": [
+        "main/backend/app/successor_migration/legacy_c8_graph.py"
+      ],
+      "note": ""
+    },
+    {
+      "cell_id": "C9.1",
+      "status": "PRESENT",
+      "binding_refs": [
+        "main/backend/tests/successor_runtime/test_p4_c9_5_p1_consistency_and_public_payload.py"
+      ],
+      "note": ""
+    },
+    {
+      "cell_id": "C9.2",
+      "status": "PRESENT",
+      "binding_refs": [
+        "main/frontend-modern/src/lib/api/domains/successor-runtime.ts",
+        "main/frontend-modern/src/components/SuccessorRuntimeObservation.tsx",
+        "main/frontend-modern/tests/e2e/successor-runtime-observation.spec.ts",
+        "main/frontend-modern/tests/e2e/successor-runtime-client.spec.ts",
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/i1-successor-assembly/C9_2FrontendMilestone.v1.json"
+      ],
+      "note": "C9.2 frontend typed contract rollback binding present: frontend-modern implementation, e2e specs and frontend milestone evidence"
+    },
+    {
+      "cell_id": "C9.3",
+      "status": "PRESENT",
+      "binding_refs": [
+        "main/backend/tests/successor_runtime/test_p4_c9_5_p1_consistency_and_public_payload.py"
+      ],
+      "note": ""
+    }
+  ],
+  "unresolved_dimensions": [
+    "C2.3/C3.1/C3.2/C6.2 LIVE_PROVIDER_DIMENSION_UNRESOLVED: fixture ports are LOCAL_OFFLINE, not production providers",
+    "C7.2 canonical commit write authority-closed; owner=WP-I1-06 canonical write authority",
+    "C7.3 projector driver authority-closed; owner=projector driver milestone / canonical write authority",
+    "C9.API_UI_REPORT_PROJECTION unknown cell reference (not in 30-cell inventory)"
+  ],
+  "projector_registry": {
+    "revision": 0,
+    "incarnation": "mrw.successor.assembly.projector-registry.v1",
+    "registered_projectors": 6,
+    "registry_digest": "9dfc73a3b1bbbc46fb98773197146fa3ab5d32a97a54443505aef215524e19b9",
+    "note": "REGISTRY_REGISTRATION_ONLY_NO_PG_WRITE_AUTHORITY_CLOSED: in-memory assembly registry; no PostgreSQL write adopted"
+  }
+}

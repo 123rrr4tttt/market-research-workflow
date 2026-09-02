@@ -1,0 +1,178 @@
+{
+  "adoption_prerequisites": [
+    "P3_AGGREGATE_PROMOTED_LOCAL_ONLY",
+    "C8_READY_FOR_P4_ADOPTION_REVIEW",
+    "PILOT_CORE_ALLOWED",
+    "NO_ADMISSION_OR_EXPORT"
+  ],
+  "authority_ceiling": {
+    "authority_transfer": false,
+    "canonical_write": false,
+    "cutover": false,
+    "external_delivery": false,
+    "live_provider": false
+  },
+  "cell_id": "C8.1",
+  "commutativity_claim": "NOT_CLAIMED",
+  "declared_lossy_projection_refs": [
+    "c8.typed-knowledge.not-demand-read-fields.v1"
+  ],
+  "deployment_binding_refs": [
+    "deployment.local-fixture.c8.typed-knowledge.v1"
+  ],
+  "effect_policy_ref": "c8.c8-1.effect@1.0.0#execution_class=EFFECTFUL;external_visibility=NONE;network_required=false;canonical_write=false",
+  "entrypoint_kind": "PROGRAM",
+  "failure_union_refs": [
+    "DEMAND_READ_UNAVAILABLE",
+    "DEMAND_READ_AMBIGUOUS",
+    "CANONICAL_REF_VALIDATION_FAILED"
+  ],
+  "family_id": "C8",
+  "generated_ownership_refs": [
+    "generated:operation-descriptors",
+    "generated:ordered-program-skeleton",
+    "generated:handler-binding-closure",
+    "generated:evidence-binding-manifest",
+    "generated:rollback-harness-descriptor"
+  ],
+  "handwritten_ownership_refs": [
+    "handwritten:c8.typed-knowledge-domain-semantics",
+    "handwritten:c8.demand-read-dataflow",
+    "handwritten:c8.failure-owner",
+    "handwritten:c8.recovery-readback",
+    "handwritten:c8.no-write-read-boundary"
+  ],
+  "input_contract_refs": [
+    "mrw.object.typed-knowledge-read-request.v1"
+  ],
+  "interpreter_refs": [
+    "successor.c8.demand_read.v1",
+    "successor.c8.c8-1.v1",
+    "legacy.c8.shared_program_trace.v1"
+  ],
+  "legacy_oracle_ref": "legacy.c8.typed_knowledge.same-program-ordered-donor.v1",
+  "object_contract_refs": [
+    "mrw.object.typed-knowledge-read-request.v1",
+    "mrw.object.typed-knowledge-read-handle.v1",
+    "mrw.object.canonical-ref.v1",
+    "mrw.object.value-ref.v1"
+  ],
+  "operation_contract_refs": [
+    "c8.typed_knowledge.demand_read.v1"
+  ],
+  "ordered_composition_refs": [
+    "c8.typed_knowledge.demand_read.v1"
+  ],
+  "output_contract_refs": [
+    "mrw.object.typed-knowledge-read-handle.v1",
+    "mrw.object.canonical-ref.v1",
+    "mrw.object.value-ref.v1"
+  ],
+  "owner_capability_id": "typed_knowledge.c8.1.v1",
+  "profile_refs": [
+    "c8.c8-1.effect@1.0.0#execution_class=EFFECTFUL",
+    "mrw.successor.execution-plan.v1#expected_step_shape=EFFECT",
+    "c8.c8-1.semantic@1.0.0",
+    "c8.c8-1.failure@1.0.0",
+    "c8.c8-1.resource@1.0.0",
+    "c8.c8-1.authority@1.0.0"
+  ],
+  "program_shape_ref": "mrw.successor.program.atom.demand-read.v1",
+  "readback_policy_ref": "c8.typed_knowledge.readback.v1#read-handle-revision-incarnation-content-digest;no-write-on-read",
+  "recovery_policy_ref": "c8.typed_knowledge.recovery.v1#route-back-to-legacy-repository-read-handle-retained;no-dual-write",
+  "resource_policy_ref": "c8.c8-1.resource@1.0.0#CPU_LIGHT",
+  "rollback_bindings": [
+    {
+      "file_sha256": "3cdc0c18862429f6d20747041c0867f63246d21c86a9f7b5766e794648e5021f",
+      "path": "main/backend/app/successor_migration/legacy_c8_typed_knowledge.py",
+      "role": "legacy-future-routing-rollback-oracle"
+    }
+  ],
+  "schema": "mrw.functorial_successor.capability_cell_spec.v1",
+  "shadow_observation_ref": "c8.c8-1.demand-read-step-parity.v1",
+  "source_bindings": [
+    {
+      "file_sha256": "1dd4c2c12c6a8c164b9f5b1464ae9801347b14a6a3ed75bf202c45b255b59959",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/10_functorial-successor-domain-contract-snapshot.v1.json",
+      "role": "frozen10_strict_domain_semantics"
+    },
+    {
+      "file_sha256": "16dac2d34f2cdcaeffa4718fe2e63733f48b29ad0ba64daab32ed011527d4642",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/P1FunctorizationEligibility.v1.json",
+      "role": "p1_functorization_eligibility"
+    },
+    {
+      "file_sha256": "206e69ad34ab60948c8310c6012f15fc66a03386eb3d2b60ae9e88328c8316a6",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p4-fragments/C8.json",
+      "role": "p4_fragment_observations"
+    },
+    {
+      "file_sha256": "33290b1ddae2e48df452bf495cb8fc33add311ae958d2844189709fb51f1cf3c",
+      "path": "main/backend/app/successor_runtime/capabilities/c8_common.py",
+      "role": "handwritten-contracts-profiles"
+    },
+    {
+      "file_sha256": "b29320d1d90b5bd3c07a12d4895553d92ca62df880bb9f8c75dbebf5eeabba4e",
+      "path": "main/backend/app/successor_runtime/capabilities/c8_program.py",
+      "role": "handwritten-program-construction"
+    },
+    {
+      "file_sha256": "ab3677d91a4430d0eac678665ec2d22abfe96a2ee1c7192ed0b6e3f6a8d4f7af",
+      "path": "main/backend/app/successor_runtime/capabilities/c8_typed_knowledge.py",
+      "role": "handwritten-demand-read-semantics"
+    },
+    {
+      "file_sha256": "386dbc2c00e2079103e68771100d0860a334eed1e8c86cd0bb12e957050daabc",
+      "path": "main/backend/app/services/typed_knowledge/contracts.py",
+      "role": "legacy-donor-typed-knowledge-contracts"
+    },
+    {
+      "file_sha256": "e92f06a62d77a93aed2ea92e8dce582a7573be78891cda89a15de1efcf372a5c",
+      "path": "main/backend/app/successor_migration/legacy_c8_interpreter.py",
+      "role": "legacy-same-program-trace-oracle"
+    },
+    {
+      "file_sha256": "a471f9ffa18a2d42651b71e1be3ffe65af81159c7f0ddadc5082ba59d2183afb",
+      "path": "main/backend/app/successor_runtime/specification/c8_p4.py",
+      "role": "family-thin-config-operation-bindings"
+    }
+  ],
+  "test_bindings": [
+    {
+      "file_sha256": "450bcf0cc28d1fe4d2d9dcfe21d3fd51b51ca0ae6f2bb21d9c16fa7f261b99c7",
+      "path": "main/backend/tests/successor_runtime/p4_c8_fixture.py",
+      "role": "captured-fixture"
+    },
+    {
+      "file_sha256": "7b29bbb9b9f0256b6d8f53977b44514de8c607c6a19f8e2aa068d3999fa911f7",
+      "path": "main/backend/tests/successor_runtime/test_p4_c8_1_typed_knowledge.py",
+      "role": "demand-read-parity"
+    },
+    {
+      "file_sha256": "6dd9160e893a14ecaec64bb0028b640c13396a217bda53d2a62c5908b334bc49",
+      "path": "main/backend/tests/successor_runtime/test_p4_c8_5_program.py",
+      "role": "shared-program-plan-order"
+    },
+    {
+      "file_sha256": "240c088c26ef199c7d55bc16ba3cd5aa5c9a6603cddb826c3942d6b0bbd95385",
+      "path": "main/backend/tests/successor_runtime/test_p4_c8_legacy_adapters.py",
+      "role": "legacy-adapter-parity"
+    },
+    {
+      "file_sha256": "3e590913053f7f6c0340ed579a52134dd4081d517c535cc855dc6349116e874d",
+      "path": "main/backend/tests/successor_runtime/test_c8_movement_closure_pure.py",
+      "role": "movement-closure-pure"
+    },
+    {
+      "file_sha256": "97150df2e28234eb2cfc2f1069ecf575c4fab697fdd77239f0b599bfb06aae2e",
+      "path": "main/backend/tests/successor_runtime/test_c8_movement_closure_postgres.py",
+      "role": "movement-closure-postgres"
+    },
+    {
+      "file_sha256": "b1a3f4d0277f5176d30cadad9a22dc2ff9eb53b0c9196e6348883e9b861f4ce7",
+      "path": "main/backend/tests/successor_runtime/test_p4_c8_evidence_generator.py",
+      "role": "evidence-generator"
+    }
+  ],
+  "version": "1.0.0"
+}

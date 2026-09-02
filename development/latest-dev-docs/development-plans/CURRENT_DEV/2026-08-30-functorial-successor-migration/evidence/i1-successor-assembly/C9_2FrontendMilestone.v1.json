@@ -1,0 +1,166 @@
+{
+  "authority_ceiling": {
+    "authority_transfer": false,
+    "canonical_write": false,
+    "cutover": false,
+    "external_delivery": false,
+    "live_provider": false
+  },
+  "candidate": null,
+  "cell_id": "C9.2",
+  "contract_coverage": {
+    "no_control_feedback": {
+      "envelope_decode": "control_feedback must be false; data and candidate payloads reject control fields",
+      "operation_contract_ref": "frontend.no_control_feedback.v1",
+      "ui": "observation component renders state only; no completion/approval/receipt claim, no command dispatch from query refetch"
+    },
+    "server_resolved_scope_projection_query": {
+      "input_contract_ref": "frontend.query.server-resolved-scope-projection.v1",
+      "query_path": "fetchSuccessorQuery binds request query_id/projectLocator/trace/source key to server meta",
+      "scope_projection": "resolveSuccessorServerResolvedScope/projectSuccessorServerScope return the server-returned ProjectScopeRef and snapshot, fail-closed on mismatch or UNRESOLVED meta"
+    },
+    "six_state_observation": {
+      "derivation": {
+        "in_flight": "IN_FLIGHT",
+        "not_started": "NOT_STARTED",
+        "settled_blocked_unavailable_or_untyped_error": "OUTCOME_UNKNOWN",
+        "settled_ok_envelope": "SUCCEEDED",
+        "settled_typed_rejection_envelope": "REJECTED_TYPED",
+        "settled_waiting_envelope": "IN_FLIGHT",
+        "settled_with_client_error": "FAILED"
+      },
+      "operation_contract_ref": "frontend.observation.six-states.v1",
+      "output_contract_ref": "frontend.observation.six-state.v1",
+      "states": [
+        "NOT_STARTED",
+        "IN_FLIGHT",
+        "SUCCEEDED",
+        "FAILED",
+        "OUTCOME_UNKNOWN",
+        "REJECTED_TYPED"
+      ]
+    },
+    "typed_command_submit": {
+      "actor": "actorRef required typed option; client-identified only, never serialized to the wire; server injects authoritative actor",
+      "idempotency": "commandId plus payload/kind/binding fingerprint; pending store rejects changed intent; in-flight dedupe collapses duplicates",
+      "input_contract_ref": "frontend.command.typed-submit.scope-actor-idempotency.v1",
+      "scope": "projectLocator typed option; server-resolved scope is read back from response meta and exact-bound",
+      "wire_fields": [
+        "command_id",
+        "command_kind",
+        "project_locator",
+        "trace_id",
+        "payload"
+      ]
+    },
+    "typed_rejection_reason": {
+      "codes": [
+        "INVALID_INPUT",
+        "NOT_FOUND",
+        "CONFLICT",
+        "UNAUTHORIZED",
+        "FORBIDDEN",
+        "RATE_LIMITED",
+        "SCOPE_RESOLUTION_FAILED"
+      ],
+      "fail_closed": "unknown or non-rejection error codes decode to null and derive OUTCOME_UNKNOWN; no fabricated rejection reason",
+      "output_contract_ref": "frontend.command.rejected-typed-reason.v1"
+    }
+  },
+  "cwd": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0/main/frontend-modern",
+  "fail_closed_notes": [
+    "Unknown error codes are never decoded as typed rejections; the UI observes OUTCOME_UNKNOWN instead.",
+    "actorRef is validated but never serialized; external wire body remains command_id/command_kind/project_locator/trace_id/payload only.",
+    "localStorage stores only project preference and pending command identity; it is never treated as canonical project identity or authority.",
+    "No route, backend production code, provider, network, canonical write, or control feedback was added or claimed.",
+    "C9.2 spec was mechanically rebound on 2026-09-02 to the current frontend and regenerated P1P3 bundle SHAs; no authority, verdict, scope, or other spec field changed."
+  ],
+  "generated_at": "2026-09-02",
+  "implementation_files": [
+    {
+      "additions": [
+        "six-state observation vocabulary and deriveSuccessorUiObservation",
+        "typed rejection code set and decodeSuccessorTypedRejection",
+        "resolveSuccessorServerResolvedScope and projectSuccessorServerScope",
+        "SuccessorCommandOptions.actorRef typed submit validation (wire-excluded)",
+        "existing envelope decode keeps control_feedback=false enforcement"
+      ],
+      "file_sha256": "cfd390ee67a183e9052a802e79ed0e33da492c3bafb7bdbf27c757a500901436",
+      "path": "main/frontend-modern/src/lib/api/domains/successor-runtime.ts",
+      "role": "successor_typed_command_client_realization"
+    },
+    {
+      "file_sha256": "c88c30aa6ddbef9135d6cb720bb95a9f7bfbe5d59541be10dce157f952c1a533",
+      "path": "main/frontend-modern/src/components/SuccessorRuntimeObservation.tsx",
+      "role": "successor_ui_six_state_observation_component"
+    }
+  ],
+  "risks": [
+    "FRONTEND_IMPLEMENTED_LOCAL_ONLY: green local build and tests are bounded evidence; they do not establish route adoption, provider attestation, live integration, or canonical write.",
+    "Spec rebind recorded successor-runtime.ts cfd390ee67a183e9052a802e79ed0e33da492c3bafb7bdbf27c757a500901436, SuccessorRuntimeObservation.tsx c88c30aa6ddbef9135d6cb720bb95a9f7bfbe5d59541be10dce157f952c1a533, observation/client e2e specs 0c822a1b1e6f5cee6cd87bd3e3bc51f7170cf8a32de41b649a67544d1322810d/f3d423b6be77b4578682c224d04d27f4d82b44bc0c2dc0fa94295f6bbd7c7065, and regenerated P1P3 bundle hashes.",
+    "The observation component is a thin renderer and is not browser-rendered in tests; its logic is covered by the node-env observation spec.",
+    "pnpm wrapper is blocked by the project's esbuild approve-builds gate; equivalent local npm/node_modules binaries passed."
+  ],
+  "schema": "mrw.functorial_successor.c9_2_frontend_milestone.v1",
+  "spec_ref": {
+    "file_sha256": "c70f7c38e5f7c2c61fc09980da20eb7afab600dfb42ae99c73fed641fa5207da",
+    "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C9.2.v1.json",
+    "unchanged": false
+  },
+  "status": "FRONTEND_IMPLEMENTED_LOCAL_ONLY",
+  "test_files": [
+    {
+      "file_sha256": "0c822a1b1e6f5cee6cd87bd3e3bc51f7170cf8a32de41b649a67544d1322810d",
+      "path": "main/frontend-modern/tests/e2e/successor-runtime-observation.spec.ts",
+      "role": "frontend_six_state_typed_rejection_scope_observation_tests",
+      "test_count": 16
+    },
+    {
+      "change_summary": "all submitSuccessorCommand call sites now pass the required actorRef; wire-body no-actor assertions retained",
+      "file_sha256": "f3d423b6be77b4578682c224d04d27f4d82b44bc0c2dc0fa94295f6bbd7c7065",
+      "path": "main/frontend-modern/tests/e2e/successor-runtime-client.spec.ts",
+      "role": "frontend_design_only_typed_observation_interaction_e2e"
+    }
+  ],
+  "verification": [
+    {
+      "command": "pnpm exec tsc -b --pretty false",
+      "exit_code": 1,
+      "label": "pnpm wrapper typecheck attempt",
+      "notes": "project pnpm-workspace.yaml requires pnpm approve-builds; modifying that workspace file is outside the milestone write scope, so verification used the project's existing node_modules binaries",
+      "result": "ERR_PNPM_IGNORED_BUILDS: esbuild@0.28.2 build script not approved; pnpm install aborted"
+    },
+    {
+      "command": "./node_modules/.bin/tsc -b --pretty false",
+      "exit_code": 0,
+      "label": "typecheck",
+      "result": "PASS"
+    },
+    {
+      "command": "./node_modules/.bin/eslint src/lib/api/domains/successor-runtime.ts src/components/SuccessorRuntimeObservation.tsx src/components/SuccessorRuntimeStatus.tsx tests/e2e/successor-runtime-client.spec.ts tests/e2e/successor-runtime-observation.spec.ts",
+      "exit_code": 0,
+      "label": "lint focused",
+      "result": "PASS"
+    },
+    {
+      "command": "npm run build",
+      "exit_code": 0,
+      "label": "build",
+      "result": "tsc -b && vite build; built in 3.69s (chunk-size warnings only, pre-existing)"
+    },
+    {
+      "command": "./node_modules/.bin/playwright test tests/e2e/successor-runtime-observation.spec.ts tests/e2e/successor-runtime-client.spec.ts --reporter=line --workers=1",
+      "exit_code": 0,
+      "label": "focused frontend tests",
+      "result": "60 passed (44 existing successor-runtime-client + 16 new successor-runtime-observation), 0 failed"
+    },
+    {
+      "command": "git diff --check -- main/frontend-modern",
+      "exit_code": 0,
+      "label": "git diff whitespace check",
+      "result": "PASS"
+    }
+  ],
+  "version": "1.0.0",
+  "worktree": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0"
+}

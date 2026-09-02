@@ -1,0 +1,583 @@
+[
+  {
+    "cell": "C9.1",
+    "boundary": "API command query envelope",
+    "locator_paths": [
+      "main/backend/app/api",
+      "main/backend/app/contracts/responses.py"
+    ],
+    "locator_status": "LOCATED",
+    "observed_symbols": [
+      "ApiEnvelope",
+      "ApiErrorModel",
+      "ApiMetaModel",
+      "ok",
+      "fail",
+      "ok_page",
+      "_maybe_wrap_success_json_response",
+      "_resolve_request_project_context",
+      "create_agent_session",
+      "stream_agent_session_events"
+    ],
+    "object_types": [
+      "ApiCommandRequest",
+      "ApiQueryRequest",
+      "ApiSuccess<T>",
+      "ApiFailure",
+      "ApiMeta",
+      "RuntimeCommandReceipt",
+      "RuntimeReadModel",
+      "SseProjectionEvent"
+    ],
+    "atom_kind": "c9.api.command.v1 | c9.api.query.v1; these are outer-adapter protocol kinds, and projection queries are not successor Program atoms",
+    "payload_schema": {
+      "command": {
+        "required": [
+          "project_scope_ref",
+          "actor_ref",
+          "command_kind",
+          "command_payload",
+          "idempotency_key",
+          "expected_revision_or_incarnation"
+        ],
+        "optional": [
+          "approval_ref",
+          "trace_id"
+        ]
+      },
+      "query": {
+        "required": [
+          "project_scope_ref",
+          "projection_kind"
+        ],
+        "optional": [
+          "source_ref",
+          "after_seq",
+          "page",
+          "page_size"
+        ]
+      },
+      "envelope": {
+        "required": [
+          "status",
+          "data",
+          "error",
+          "meta"
+        ],
+        "meta_required": [
+          "trace_id",
+          "project_key"
+        ],
+        "typed_statuses": [
+          "ok",
+          "error",
+          "unavailable",
+          "blocked",
+          "waiting"
+        ]
+      }
+    },
+    "program_combinators": [],
+    "failure_return_union": "ApiSuccess<T> | ApiFailure<InvalidInput|NotFound|Conflict|Unauthorized|Forbidden|RateLimited|Unavailable|UpstreamFailure|InternalFailure> | SseProjectionEvent | SseStreamUnavailable",
+    "canonical_owner": "Commands are owned by the successor RuntimeUnitOfWork/reducer and the applicable authority/approval owner; query facts are owned by Runtime Journal, Research Ledger, or the capability canonical store. FastAPI owns only HTTP/SSE transport and envelope serialization.",
+    "effect_profile": {
+      "legacy": "FastAPI request handling, middleware context binding, service invocation, JSON serialization, SSE polling, and optional governance snapshot filesystem writes",
+      "successor_limit": "Route maps a validated request to one runtime facade command/query and serializes its typed result; it must not select providers, mutate runtime tables directly, execute capability effects, or manufacture terminal facts"
+    },
+    "authority_profile": {
+      "project_identity": "Must be resolved server-side to ProjectScopeRef; header/query/local fallback text is not canonical identity",
+      "command_authority": "Must bind authenticated actor, grant epoch/scope, expected revision/incarnation, and approval where required",
+      "prohibited": [
+        "route-created authority grants",
+        "API-owned completion",
+        "API-owned approval",
+        "dashboard control feedback"
+      ]
+    },
+    "resource_profile": {
+      "bounds": [
+        "request body limit",
+        "pagination limit",
+        "SSE after_seq",
+        "bounded polling duration",
+        "rate limit",
+        "timeout"
+      ],
+      "allocation_owner": "Runtime resource qualification and claim-time reservation, not the HTTP route"
+    },
+    "legacy_interpreter": "legacy.fastapi-command-query-envelope.v1",
+    "successor_interpreter_candidate": "successor.c9.runtime-facade-http-sse-adapter.v1; candidate is not implemented or located in successor_runtime",
+    "observation_profile": {
+      "compare": [
+        "HTTP status",
+        "status/data/error/meta shape",
+        "error code and details",
+        "trace_id",
+        "resolved project identity",
+        "command receipt identity",
+        "SSE event sequence after after_seq",
+        "unavailable/blocked/waiting distinctions"
+      ],
+      "shadow_rule": "Observation may compare serialized responses and ordered projection events but cannot submit a second command or feed projection state back into runtime control"
+    },
+    "fixture_ids": [
+      "main/backend/tests/contract/test_contracts_unittest.py::ContractTestCase::test_ok_envelope_helper_shape",
+      "main/backend/tests/contract/test_contracts_unittest.py::ContractTestCase::test_fail_envelope_helper_shape",
+      "main/backend/tests/e2e/test_request_context_headers_e2e.py::test_header_takes_precedence_over_query_project_key",
+      "main/backend/tests/e2e/test_request_context_headers_e2e.py::test_traceparent_trace_id_is_echoed_when_trace_header_absent",
+      "main/backend/tests/integration/test_agent_sessions_api_unittest.py::AgentSessionsApiIntegrationTestCase::test_agent_session_stream_route"
+    ],
+    "rollback_observation": "The legacy HTTP route/envelope adapter may remain available behind routing or feature selection, but rollback may only change transport presentation. It must not revert, overwrite, or dual-own successor runtime or research canonical state; replayed command identity and projection after_seq must remain unchanged.",
+    "disposition": "EXTRACT_AND_REWRITE",
+    "rationale": "The four-field envelope, typed Pydantic requests, trace handling, pagination helper, and SSE surface provide usable compatibility evidence. The current boundary is not directly adaptable because many successful routes call ok() without trace/project meta and middleware skips already-enveloped payloads; project context can fall back to mutable active-project state; HTTPException compatibility adds a second detail.error shape; and routes invoke legacy services directly. Preserve the external envelope behavior and fixtures, but rewrite command/query DTOs and routes around a successor runtime facade. The API remains a bounded adapter and cannot become canonical or control truth.",
+    "prerequisites": [
+      "Define a successor runtime facade with separate typed command and query ports",
+      "Resolve ProjectScopeRef only on the server and bind revision/incarnation",
+      "Define typed unavailable, blocked, waiting, conflict, and authorization returns",
+      "Populate trace_id and project_key meta for both already-enveloped and middleware-wrapped responses",
+      "Expose incremental event queries and SSE with after_seq rather than since_seq-only legacy semantics",
+      "Prohibit direct provider selection, runtime-table writes, effect execution, and completion claims in routes",
+      "Add replay-safe idempotency and no-double-command shadow fixtures"
+    ],
+    "risk": {
+      "level": "HIGH",
+      "items": [
+        "empty meta on already-enveloped success responses",
+        "mutable active-project fallback can misbind scope",
+        "dual error shapes preserve contract drift",
+        "route-to-legacy-service coupling can bypass successor authority and recovery",
+        "shadowing a command could duplicate effects"
+      ]
+    },
+    "source_evidence": [
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/13_functorial-successor-c1-c9-locator-pending-inventory.v1.json",
+        "symbol_or_lines": "line 34",
+        "claim": "Frozen locator maps C9.1 to app/api and contracts/responses.py and leaves eligibility pending."
+      },
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/06_functorial-successor-runtime-architecture-correction.draft.zh-CN.md",
+        "symbol_or_lines": "lines 2366-2372",
+        "claim": "Frozen C9 contract requires API-only runtime facade access, envelope and trace/project identity tests, typed unavailable/blocked/waiting, SSE after_seq, no control feedback, and rollback that does not revert canonical runtime state."
+      },
+      {
+        "path": "main/backend/app/contracts/responses.py",
+        "symbol_or_lines": "ApiErrorModel, ApiMetaModel, ApiEnvelope, ok, fail, ok_page; lines 14-100",
+        "claim": "A reusable four-field envelope and pagination contract exists, but meta fields are optional and helpers default them to empty."
+      },
+      {
+        "path": "main/backend/app/main.py",
+        "symbol_or_lines": "_build_error_payload, _maybe_wrap_success_json_response, _resolve_request_project_context; lines 148-244 and 266-275",
+        "claim": "Middleware adds trace/project meta only when wrapping a non-envelope response, preserves a legacy detail.error alias, and permits active-project fallback."
+      },
+      {
+        "path": "main/backend/app/api/agent_sessions.py",
+        "symbol_or_lines": "create_agent_session and stream_agent_session_events; lines 110-127 and 204-235",
+        "claim": "Representative command/query routes call a legacy service directly; SSE uses since_seq and bypasses ApiEnvelope."
+      },
+      {
+        "path": "main/backend/tests/contract/test_contracts_unittest.py",
+        "symbol_or_lines": "ContractTestCase; lines 33-91",
+        "claim": "Tests verify the envelope shape and helper behavior but do not prove successor facade routing, mandatory trace/project meta, or no-control-feedback."
+      }
+    ]
+  },
+  {
+    "cell": "C9.2",
+    "boundary": "frontend projections interactions",
+    "locator_paths": [
+      "main/frontend-modern/src/pages",
+      "main/frontend-modern/src/app"
+    ],
+    "locator_status": "LOCATED",
+    "observed_symbols": [
+      "FrontendKernelApp",
+      "useKernelRuntime",
+      "ModuleRenderer",
+      "GraphPage",
+      "ResourcePage",
+      "useQuery",
+      "useMutation",
+      "queryKeys",
+      "apiClient",
+      "unwrapEnvelope",
+      "ApiClientError"
+    ],
+    "object_types": [
+      "FrontendProjectPreference",
+      "ProjectionQuery",
+      "RuntimeReadModel",
+      "InteractionCommand",
+      "CommandReceipt",
+      "UiObservationState",
+      "ApiClientError",
+      "ProjectionCursor"
+    ],
+    "atom_kind": "none; frontend interactions are not Program atoms and may only consume projections or submit typed commands through the API adapter",
+    "payload_schema": {
+      "query": {
+        "required": [
+          "server_resolved_project_scope_ref",
+          "projection_kind",
+          "query_key"
+        ],
+        "optional": [
+          "after_seq",
+          "filters",
+          "page"
+        ]
+      },
+      "command": {
+        "required": [
+          "command_kind",
+          "actor_ref",
+          "idempotency_key",
+          "expected_revision_or_incarnation",
+          "payload"
+        ],
+        "optional": [
+          "approval_ref"
+        ]
+      },
+      "ui_state": {
+        "required": [
+          "loading_state",
+          "observation_state"
+        ],
+        "observation_states": [
+          "ready",
+          "waiting",
+          "blocked",
+          "unavailable",
+          "conflict",
+          "failed"
+        ],
+        "noncanonical": [
+          "selected module",
+          "filters",
+          "panel layout",
+          "local project preference",
+          "query cache"
+        ]
+      }
+    },
+    "program_combinators": [],
+    "failure_return_union": "UiReady<T> | UiLoading | UiWaiting | UiBlocked | UiUnavailable | UiConflict | UiFailure<ApiClientError> | CommandAccepted<Receipt> | CommandRejected<TypedReason>",
+    "canonical_owner": "Runtime Journal, Research Ledger, capability canonical stores, and authority/approval records remain canonical. React components, TanStack Query cache, URL hash, and localStorage own only disposable UI state and client preference.",
+    "effect_profile": {
+      "legacy": "Axios HTTP calls, TanStack Query caching/refetch/invalidation, browser localStorage, hash navigation, dialogs, and user-triggered mutations",
+      "successor_limit": "Queries consume bounded read models and commands submit typed intents; UI state may never update scheduler, approval, completion, or research adoption directly"
+    },
+    "authority_profile": {
+      "project_selection": "localStorage market_project_key is a preference only; the server must resolve and return the canonical project scope",
+      "command_actor": "UI may identify the requesting actor but cannot self-authorize",
+      "prohibited": [
+        "UI-derived completion",
+        "UI-derived approval",
+        "cache-to-control feedback",
+        "localStorage as canonical project identity",
+        "silent destructive retry"
+      ]
+    },
+    "resource_profile": {
+      "bounds": [
+        "query-key scoped cache",
+        "bounded pagination and graph limits",
+        "bounded refetch intervals",
+        "single user-triggered mutation",
+        "explicit cancellation or stale-response suppression"
+      ],
+      "parallelism": "Parallel queries are allowed only for independent read models; command ordering and destructive effects are not inferred commutative"
+    },
+    "legacy_interpreter": "legacy.react19-tanstack-axios-projection-ui.v1",
+    "successor_interpreter_candidate": "successor.c9.frontend-read-model-command-client.v1; candidate is not implemented or located",
+    "observation_profile": {
+      "compare": [
+        "rendered ready/waiting/blocked/unavailable/conflict states",
+        "query request identity",
+        "server-returned project scope",
+        "trace_id",
+        "projection revision and source digest",
+        "command receipt",
+        "no automatic destructive retry",
+        "ordered SSE event rendering"
+      ],
+      "shadow_rule": "Read-model comparison may run in parallel; mutations must be single-path and receipt-observed, never duplicated for parity"
+    },
+    "fixture_ids": [
+      "main/frontend-modern/tests/e2e/runtime-smoke.spec.ts::homepage runtime smoke uses live backend",
+      "main/frontend-modern/tests/e2e/runtime-smoke.spec.ts::graph runtime smoke loads against live graph endpoints",
+      "main/frontend-modern/tests/e2e/graph-clue-chain.spec.ts::graph page surfaces blocked provider hops and evidence drawer details",
+      "main/frontend-modern/tests/e2e/graphpage.spec.ts::graph builder submits local draft to curated workflow graph API",
+      "main/frontend-modern/tests/e2e/graphpage.spec.ts::graph builder surfaces curated submit conflict without retrying destructively"
+    ],
+    "rollback_observation": "Legacy pages, route hashes, and client adapters may be restored, and disposable caches may be cleared. Rollback must continue reading successor projections and submitting through the successor command facade; it cannot restore frontend-owned project, approval, completion, scheduler, or canonical graph authority.",
+    "disposition": "EXTRACT_AND_REWRITE",
+    "rationale": "The frontend already separates many queries through TanStack Query, uses typed service callers, exposes blocked/conflict observations, and has browser fixtures for read and command interactions. It is not directly adaptable as a whole: the Axios interceptor copies localStorage project text into both header and query string, unwrapEnvelope discards success meta, useKernelRuntime mixes client preference with backend activation and initialization commands, and pages contain direct mutation workflows. Preserve visual components, query keys, and interaction fixtures, but extract typed read-model and command clients, preserve projection metadata, and rewrite authority-sensitive interactions. The frontend remains a bounded projection consumer rather than canonical or control truth.",
+    "prerequisites": [
+      "Complete C9.1 typed successor query and command API contracts",
+      "Migrate query/read-model consumers before commands",
+      "Preserve trace_id, server-resolved project scope, projection revision, source digest, and after_seq instead of discarding success meta",
+      "Replace localStorage identity injection with an explicit preference resolved by the server",
+      "Represent waiting, blocked, unavailable, and conflict as typed UI states",
+      "Require expected revision/incarnation and idempotency keys on commands",
+      "Prove no cache, dashboard, or page status can drive runtime completion, approval, or scheduler state",
+      "Retain no-destructive-retry and blocked-provider browser fixtures"
+    ],
+    "risk": {
+      "level": "HIGH",
+      "items": [
+        "success metadata is discarded by unwrapEnvelope",
+        "localStorage preference is propagated as if it were request identity",
+        "project activation and bootstrap mutations are mixed into shell state",
+        "page-local command orchestration can bypass a uniform facade",
+        "query invalidation can be mistaken for canonical completion",
+        "mocked browser green does not prove live projection or authority correctness"
+      ]
+    },
+    "source_evidence": [
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/13_functorial-successor-c1-c9-locator-pending-inventory.v1.json",
+        "symbol_or_lines": "line 35",
+        "claim": "Frozen locator maps C9.2 to frontend-modern/src/pages and src/app and leaves eligibility pending."
+      },
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/06_functorial-successor-runtime-architecture-correction.draft.zh-CN.md",
+        "symbol_or_lines": "lines 2189-2200 and 2366-2372",
+        "claim": "Frozen architecture makes frontend a bounded read-model consumer, treats localStorage project selection as preference only, prohibits UI control authority, and requires query-first migration."
+      },
+      {
+        "path": "main/frontend-modern/src/lib/api/client.ts",
+        "symbol_or_lines": "getProjectKey, setProjectKey, request interceptor, unwrapEnvelope; lines 4-25 and 90-143",
+        "claim": "The client reads project selection from localStorage, injects it into header and query, and returns only envelope data on success, dropping meta."
+      },
+      {
+        "path": "main/frontend-modern/src/app/kernel/useKernelRuntime.ts",
+        "symbol_or_lines": "useKernelRuntime; lines 19-104",
+        "claim": "The shell combines health/project queries, client project preference, backend activation, bootstrap injection, and cache invalidation."
+      },
+      {
+        "path": "main/frontend-modern/src/pages/GraphPage.tsx",
+        "symbol_or_lines": "graphData query and handleSubmitCuratedGraph; lines 1419-1503 and 2371-2414",
+        "claim": "A representative page consumes project-scoped graph projections but also performs ordered draft-save and submit commands with page-local status handling."
+      },
+      {
+        "path": "main/frontend-modern/tests/e2e/graphpage.spec.ts",
+        "symbol_or_lines": "graph builder fixtures; lines 568-663",
+        "claim": "Browser fixtures preserve actor/base revision and prove conflict is surfaced without destructive retry, but use mocked API responses and do not establish canonical ownership."
+      }
+    ]
+  },
+  {
+    "cell": "C9.3",
+    "boundary": "projection rebuild offset",
+    "locator_paths": [
+      "main/backend/app/services/agent_sessions",
+      "main/backend/app/services/graph",
+      "main/backend/app/services/indexer"
+    ],
+    "locator_status": "LOCATED",
+    "observed_symbols": [
+      "AgentSessionService",
+      "InMemoryAgentSessionStore",
+      "SqlAgentSessionStore",
+      "project_agent_batch_job_state",
+      "project_workflow_graph_run",
+      "project_graph_by_node_types",
+      "GraphProjectionDryRunReport",
+      "run_graph_node_backfill",
+      "BackfillResult.next_resume_token",
+      "GraphNodeWriter",
+      "index_policy_documents",
+      "PostgresRuntimeRunProjector",
+      "PostgresResearchLedgerProjector",
+      "ProjectionOffsetRepository"
+    ],
+    "object_types": [
+      "ProjectionSource",
+      "ProjectionOffsetKey",
+      "ProjectionOffset",
+      "ProjectionGeneration",
+      "AgentSessionReadModel",
+      "GraphReadModel",
+      "IndexReadModel",
+      "ProjectionReceipt",
+      "RebuildReceipt",
+      "SourceDigest",
+      "ProjectScopeRef"
+    ],
+    "atom_kind": "none; projector apply/rebuild belongs to the independent projector registry and must not enter ordinary Program algebra",
+    "payload_schema": {
+      "source": {
+        "required": [
+          "project_scope_ref",
+          "source_kind",
+          "source_ref",
+          "source_incarnation",
+          "source_revision",
+          "source_digest"
+        ]
+      },
+      "projector": {
+        "required": [
+          "projector_id",
+          "projector_version",
+          "projection_schema_ref",
+          "declared_loss_profile"
+        ]
+      },
+      "offset": {
+        "required": [
+          "projection_generation",
+          "offset_ref",
+          "expected_offset_revision",
+          "expected_source_revision",
+          "expected_source_digest"
+        ]
+      },
+      "receipt": {
+        "required": [
+          "projection_digest",
+          "source_digest",
+          "source_revision",
+          "projection_generation",
+          "observation_time"
+        ]
+      }
+    },
+    "program_combinators": [],
+    "failure_return_union": "ProjectionApplied | ProjectionRebuilt | ProjectionNoChange | SourceUnavailable | SourceDrift | SourceIncarnationStale | OffsetStale | ProjectionOffsetClosureDrift | ExternalIndexEffectFailed | RebuildFailed",
+    "canonical_owner": "Runtime Journal owns run/step/attempt/event facts; Research Ledger and capability canonical stores own research and admitted domain facts. Each projector owns only its disposable read model plus exact offset. AgentSession, graph, Elasticsearch, Qdrant, and UI-facing indexes never own completion, approval, scheduler, adoption, or canonical source facts.",
+    "effect_profile": {
+      "legacy": "AgentSession uses SQL or process-memory stores and writes derived events; graph backfill reads Documents and commits graph rows; indexer calls embedding provider, deletes and rewrites SQL embeddings and Elasticsearch documents, then performs best-effort asynchronous Qdrant upsert",
+      "successor_limit": "PostgreSQL projection and offset share one caller-owned UnitOfWork; external indexes use staged/versioned rebuild plus authoritative readback/receipt and can always be deleted and reconstructed from canonical sources"
+    },
+    "authority_profile": {
+      "read_only": true,
+      "prohibited": [
+        "projection-to-runtime transition",
+        "projection-created approval",
+        "projection-created completion",
+        "projection-created research adoption",
+        "in-memory fallback as durable truth",
+        "index success as canonical commit"
+      ],
+      "source_binding": "Projector version, source kind/ref/incarnation/revision/digest, and project scope must be exact and fail closed"
+    },
+    "resource_profile": {
+      "bounds": [
+        "batch limit",
+        "resume or offset cursor",
+        "project scope",
+        "projector version",
+        "source revision",
+        "embedding/token budget",
+        "external bulk size",
+        "rebuild concurrency ceiling"
+      ],
+      "recovery": "Projection write and durable offset must be atomic where co-located; external sinks require versioned alias or generation cutover and a resumable receipt"
+    },
+    "legacy_interpreter": "legacy.agent-session-graph-indexer-projection-cluster.v1",
+    "successor_interpreter_candidate": "successor.c9.projector-registry.v1 built on the existing PostgresRuntimeRunProjector, PostgresResearchLedgerProjector, and ProjectionOffsetRepository patterns; AgentSession, graph, and index-specific projectors are not implemented",
+    "observation_profile": {
+      "compare": [
+        "source identity and digest",
+        "source revision",
+        "projection generation",
+        "offset revision",
+        "projection digest",
+        "row or document counts",
+        "declared loss",
+        "delete/rebuild digest equivalence",
+        "absence of canonical-state mutation",
+        "external sink readback"
+      ],
+      "shadow_rule": "Legacy projections may be compared read-only. Rebuild writes only a disposable candidate generation and cannot dual-write or dual-claim canonical sources."
+    },
+    "fixture_ids": [
+      "main/backend/tests/unit/test_agent_sessions_service_unittest.py::AgentSessionServiceUnitTest::test_project_agent_batch_compat_creates_session_bundle",
+      "main/backend/tests/unit/test_graph_projection_unittest.py::GraphProjectionUnitTestCase::test_project_graph_by_node_types_filters_nodes_and_edges",
+      "main/backend/tests/unit/test_graph_backfill_readiness_unittest.py::GraphBackfillReadinessUnitTestCase::test_backfill_dry_run_does_not_instantiate_writer_or_commit",
+      "main/backend/tests/unit/test_graph_backfill_readiness_unittest.py::GraphBackfillReadinessUnitTestCase::test_backfill_apply_rolls_back_and_reraises_writer_failure",
+      "main/backend/tests/unit/test_policy_indexer_vector_contract_unittest.py::PolicyIndexerVectorContractUnitTestCase::test_validate_vector_contract_payload_rejects_missing_fields",
+      "main/backend/tests/successor_runtime/test_p0d_runtime_projection_postgres.py::test_delete_rebuild_is_digest_equivalent_and_never_controls_runtime",
+      "main/backend/tests/successor_runtime/test_p0d_runtime_projection_postgres.py::test_incremental_projector_replays_and_rejects_changed_source_prefix",
+      "main/backend/tests/successor_runtime/test_p0d_cw11_postgres.py::test_cw11_crash_after_projection_write_before_offset_rolls_back_both",
+      "main/backend/tests/successor_runtime/test_p0d_research_projection_postgres.py::test_delete_disposable_artifact_and_rebuild_is_digest_equivalent"
+    ],
+    "rollback_observation": "Delete the candidate projection generation and its offset or abandon the external index generation/alias, then rebuild from the unchanged Runtime Journal, Research Ledger, or capability canonical source. Rollback must not rewind source revisions, restore in-memory session truth, reinterpret an old projector version, or treat an index rollback as a runtime rollback.",
+    "disposition": "REIMPLEMENT",
+    "rationale": "Useful behavioral evidence exists: graph filtering is deterministic, graph backfill has a resume token and transactional rollback, index payload fields are validated, and AgentSession compatibility functions expose projection shapes. The legacy cluster has no shared durable projector identity, source digest, generation, or exact offset protocol. AgentSession can silently fall back to process memory and appends derived events while updating projections; graph resume_token is only a document-ID batch cursor; indexer deletes existing SQL/Elasticsearch state before or across non-atomic external effects, commits SQL before bulk Elasticsearch, marks the job complete before best-effort Qdrant, and lacks rebuild generation/readback closure. Reuse fixtures and isolated pure normalizers only; reimplement the projection family on the successor projector registry. No projection may become canonical or control truth.",
+    "prerequisites": [
+      "Define separate AgentSession, graph, and index projection schemas with declared loss",
+      "Bind every projector to project scope, projector ID/version, source kind/ref/incarnation/revision/digest",
+      "Use ProjectionOffsetRepository-style exact CAS and generation semantics",
+      "Make co-located projection write and offset atomic in one UnitOfWork",
+      "Provide full delete/rebuild and incremental apply with digest equivalence",
+      "Fail closed on changed source prefix, stale incarnation, or projection/offset closure drift",
+      "Replace production in-memory AgentSession fallback with an explicitly non-durable test adapter",
+      "Stage Elasticsearch/Qdrant generations and require external authoritative readback before cutover",
+      "Keep runtime, approval, scheduler, completion, and research-adoption tables unreachable from projectors",
+      "Add bounded batch, resource, crash-window, and rollback fixtures for all three projection families"
+    ],
+    "risk": {
+      "level": "CRITICAL",
+      "items": [
+        "process-memory fallback creates a second truth source",
+        "derived AgentSession events can duplicate or fabricate history during repeated projection",
+        "graph document-ID cursor is not a source-digest-bound offset",
+        "SQL, Elasticsearch, and Qdrant effects are not one atomic closure",
+        "job completion precedes optional Qdrant convergence",
+        "delete-before-rewrite can expose partial index generations",
+        "legacy projections lack exact version/incarnation drift rejection"
+      ]
+    },
+    "source_evidence": [
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/13_functorial-successor-c1-c9-locator-pending-inventory.v1.json",
+        "symbol_or_lines": "line 36",
+        "claim": "Frozen locator maps C9.3 to agent_sessions, graph, and indexer and leaves eligibility pending."
+      },
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/06_functorial-successor-runtime-architecture-correction.draft.zh-CN.md",
+        "symbol_or_lines": "lines 1365-1377 and 2189-2200",
+        "claim": "Frozen architecture requires versioned source-bound apply/rebuild, projection offsets, rebuildability from canonical facts, and no reverse control authority."
+      },
+      {
+        "path": "main/backend/app/services/agent_sessions/store.py",
+        "symbol_or_lines": "InMemoryAgentSessionStore and build_agent_session_store; lines 46-227 and 670-686",
+        "claim": "AgentSession has a process-memory store and can fall back to it when SQL initialization fails unless fail-closed configuration is enabled."
+      },
+      {
+        "path": "main/backend/app/services/agent_sessions/service.py",
+        "symbol_or_lines": "project_agent_batch_job_state; lines 758-877",
+        "claim": "Repeated compatibility projection updates tasks, session metadata, and appends derived events without a durable source-bound projection offset."
+      },
+      {
+        "path": "main/backend/app/services/graph/backfill_graph_nodes.py",
+        "symbol_or_lines": "BackfillResult and run_graph_node_backfill; lines 15-74",
+        "claim": "Graph backfill provides a bounded document-ID resume token and transaction rollback, but no projector version, source digest, generation, or projection offset."
+      },
+      {
+        "path": "main/backend/app/services/indexer/policy.py",
+        "symbol_or_lines": "index_policy_documents; lines 112-275",
+        "claim": "Indexer deletes prior SQL and Elasticsearch entries, commits SQL before Elasticsearch bulk, completes the job, then attempts best-effort asynchronous Qdrant upsert."
+      },
+      {
+        "path": "main/backend/app/successor_runtime/substrate/projections/runtime_run.py",
+        "symbol_or_lines": "PostgresRuntimeRunProjector; lines 1-5 and 64-181",
+        "claim": "An existing successor pattern keeps projection non-authoritative, binds projector/source identity, supports incremental apply and full rebuild, and writes the projection and offset in one caller-owned transaction."
+      },
+      {
+        "path": "main/backend/app/successor_runtime/substrate/postgres/projection_offsets.py",
+        "symbol_or_lines": "ProjectionOffsetKey and ProjectionOffsetRepository; lines 26-188",
+        "claim": "Successor offset storage provides exact source identity, generation, revision, digest, and CAS advance/delete semantics suitable as the C9.3 substrate pattern."
+      },
+      {
+        "path": "main/backend/tests/successor_runtime/test_p0d_cw11_postgres.py",
+        "symbol_or_lines": "test_cw11_crash_after_projection_write_before_offset_rolls_back_both; lines 84-138",
+        "claim": "PostgreSQL fixture proves a crash between projection write and offset rolls back both and leaves runtime state unchanged."
+      }
+    ]
+  }
+]

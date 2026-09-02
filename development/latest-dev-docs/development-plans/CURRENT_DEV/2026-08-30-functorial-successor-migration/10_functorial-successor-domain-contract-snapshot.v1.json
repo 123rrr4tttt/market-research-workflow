@@ -1,0 +1,57 @@
+{
+  "schema": "mrw.functorial_successor.domain_contract_snapshot.v1",
+  "status": "FROZEN",
+  "snapshot_id": "mrw.functorial-successor.first-specimen.domain",
+  "snapshot_version": "1.0.0",
+  "object_contract_refs": ["ResearchIntent.v1", "Inquiry.v1", "ResearchPlan.v1", "SourceRef.v1", "MaterialRef.v1", "Claim.v1", "Gap.v1", "ResearchArtifact.v1", "DeliveryIntent.v1", "DeliveryAttempt.v1", "DeliveryReceiptRef.v1"],
+  "relation_contract_refs": ["EvidenceQualification.v1", "derived_from.v1", "answers.v1", "opens.v1", "cites.v1", "supersedes.v1", "delivered_as.v1"],
+  "operation_contract_refs": ["material.capture_document_snapshot.v1", "material.read_canonical_ref.v1", "evidence.qualify.v1", "claim.form_or_open_gap.v1", "artifact.compose_markdown.v1", "delivery.internal_export.v1"],
+  "first_specimen_contract_ref": "11_functorial-successor-first-specimen-contract.v1.json",
+  "control_language": {
+    "closed_core": ["Identity", "Atom", "Then", "MapOutput", "ZipOrdered", "Decide"],
+    "draft_extensions_not_production_supported": ["TraverseOrdered", "MaterializeSuccessor", "RecurrenceSpec"],
+    "required_laws": ["identity", "ordered_composition", "associativity_after_normalization", "failure_preservation", "authority_preservation"],
+    "commutativity_assumed": false
+  },
+  "object_contracts": [
+    {"type_id": "ResearchIntent.v1", "owner_mode": "CANONICAL_OWNED", "owner": "ResearchLedger", "required": ["purpose", "audience_or_use", "scope", "as_of", "constraints", "expected_delivery"]},
+    {"type_id": "Inquiry.v1", "owner_mode": "CANONICAL_OWNED", "owner": "ResearchLedger", "required": ["question_or_hypothesis", "acceptance_conditions", "stop_conditions", "uncertainty_ceiling"]},
+    {"type_id": "ResearchPlan.v1", "owner_mode": "CANONICAL_OWNED", "owner": "ResearchLedger", "required": ["inquiry_ref", "ordered_or_partial_order_work", "budget", "deadline", "replan_policy"]},
+    {"type_id": "SourceRef.v1", "owner_mode": "IMMUTABLE_EXTERNAL_REF", "owner": "legacy_source_or_document_locator", "required": ["owner_id", "locator", "source_class", "access_profile", "observed_at"]},
+    {"type_id": "MaterialRef.v1", "owner_mode": "IMMUTABLE_EXTERNAL_REF", "owner": "CapturedMaterialSnapshot", "required": ["source_ref", "snapshot_value_ref", "content_digest", "source_observed_hash", "source_observed_updated_at"]},
+    {"type_id": "Claim.v1", "owner_mode": "CANONICAL_OWNED", "owner": "ResearchLedger", "required": ["statement_ref", "scope", "support_relation_refs", "contradiction_relation_refs", "uncertainty_profile_ref", "lifecycle_state"]},
+    {"type_id": "Gap.v1", "owner_mode": "CANONICAL_OWNED", "owner": "ResearchLedger", "required": ["inquiry_ref", "requirement", "reason", "missing_evidence_or_decision", "reopen_policy", "closure_condition"]},
+    {"type_id": "ResearchArtifact.v1", "owner_mode": "CANONICAL_OWNED", "owner": "ResearchLedger_plus_project_artifact_store", "required": ["content_ref", "content_digest", "claim_closure", "evidence_relation_closure", "citation_closure", "format", "revision", "lifecycle_state"]},
+    {"type_id": "DeliveryIntent.v1", "owner_mode": "CANONICAL_OWNED", "owner": "ResearchLedger", "required": ["artifact_ref", "audience", "channel", "format", "approval_refs", "authority_digest", "idempotency_key", "irreversibility_profile"]},
+    {"type_id": "DeliveryAttempt.v1", "owner_mode": "RUNTIME_FACT", "owner": "ExecutionJournal", "required": ["attempt_id", "intent_ref", "handler_binding_digest", "effect_disposition"]},
+    {"type_id": "DeliveryReceiptRef.v1", "owner_mode": "IMMUTABLE_EXTERNAL_REF", "owner": "project_receipt_store", "required": ["intent_ref", "attempt_ref", "provider_locator", "receipt_digest", "outcome_time"]}
+  ],
+  "relation_contracts": [
+    {
+      "type_id": "EvidenceQualification.v1",
+      "storage": "research_relations_only",
+      "directions": ["SUPPORTS", "CONTRADICTS", "CONTEXT", "INSUFFICIENT"],
+      "required": ["qualification_id", "material_ref", "inquiry_ref", "optional_claim_ref", "direction", "scope_statement_ref", "uncertainty_profile_ref", "validity", "verifier_profile_ref", "provenance_closure_digest"],
+      "duplicate_research_object_forbidden": true
+    },
+    {"type_id": "derived_from.v1", "storage": "research_relations_only"},
+    {"type_id": "answers.v1", "storage": "research_relations_only"},
+    {"type_id": "opens.v1", "storage": "research_relations_only"},
+    {"type_id": "cites.v1", "storage": "research_relations_only"},
+    {"type_id": "supersedes.v1", "storage": "research_relations_only"},
+    {"type_id": "delivered_as.v1", "storage": "research_relations_only", "requires_authoritative_receipt": true}
+  ],
+  "first_specimen_operation_contracts": [
+    "material.capture_document_snapshot.v1",
+    "material.read_canonical_ref.v1",
+    "evidence.qualify.v1",
+    "claim.form_or_open_gap.v1",
+    "artifact.compose_markdown.v1",
+    "delivery.internal_export.v1"
+  ],
+  "profile_families": ["SemanticProfile", "EffectProfile", "ResourceProfile", "FailureProfile", "AuthorityProfile", "InterpreterProfile", "RuntimeNodeProfile"],
+  "extension_locality_gate": "a new heterogeneous task may add object or operation contracts, codecs, interpreter profiles and tests but must not modify the shared Program AST, compiler fold, RuntimeAssignment root union, reducer or runtime_work_items root schema",
+  "domain_projection_only_names": ["Finding", "Insight", "CounterEvidence"],
+  "snapshot_digest_scope": "RFC8785-style canonical JSON of this document with snapshot_digest removed; jq -cS is the freeze checker approximation",
+  "snapshot_digest": "d1c8689fcc49a7a3b19c3261d02be756f279360a8917f55f1cfa51198adb6f58"
+}

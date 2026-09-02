@@ -1,0 +1,32 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "mrw.successor.runtime.c5-4.effect.pure.v1",
+  "ref_kind": "effect_policy",
+  "cell_id": "C5.4",
+  "family_id": "C5",
+  "movement_ids": [
+    "C5-M005",
+    "C5-M006"
+  ],
+  "semantics": {
+    "movement_effect_m005": "Offline read-only capture; provider calls and control writes zero",
+    "movement_effect_m006": "Pure deterministic join and read-model projection"
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C5.v1.json",
+      "pointer": "#/movements/C5-M005/effect",
+      "sha256": "322d24b19dbbb9babcd463f1c5fb652ec22cfc656a5cab9fd848d9f114b9ad65"
+    },
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C5.v1.json",
+      "pointer": "#/movements/C5-M006/effect",
+      "sha256": "322d24b19dbbb9babcd463f1c5fb652ec22cfc656a5cab9fd848d9f114b9ad65"
+    }
+  ],
+  "derivation_note": "effect semantics copied verbatim from movements C5-M005/C5-M006; offline read-only capture and pure join projection, provider calls and control writes zero",
+  "content_digest": "0020de6203119614d3c39ecc5218d405e6670eebbd8d57ef43b66bd7f2e2db98"
+}

@@ -1,0 +1,667 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mrw.functorial-successor.first-specimen.schema-bundle.v1.1-proposal",
+  "title": "MRW Functorial Successor First Specimen Schema Bundle v1.1 Proposal",
+  "type": "object",
+  "required": [
+    "research_intent",
+    "inquiry",
+    "research_plan",
+    "source_refs",
+    "material_refs",
+    "evidence_qualifications",
+    "outcome",
+    "artifact",
+    "delivery_intent",
+    "delivery_attempt",
+    "delivery_receipt_ref"
+  ],
+  "properties": {
+    "research_intent": {
+      "$ref": "#/$defs/researchIntent"
+    },
+    "inquiry": {
+      "$ref": "#/$defs/inquiry"
+    },
+    "research_plan": {
+      "$ref": "#/$defs/researchPlan"
+    },
+    "source_refs": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "$ref": "#/$defs/sourceRef"
+      }
+    },
+    "material_refs": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "$ref": "#/$defs/materialRef"
+      }
+    },
+    "evidence_qualifications": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "$ref": "#/$defs/evidenceQualification"
+      }
+    },
+    "outcome": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/claim"
+        },
+        {
+          "$ref": "#/$defs/gap"
+        }
+      ]
+    },
+    "artifact": {
+      "$ref": "#/$defs/researchArtifact"
+    },
+    "delivery_intent": {
+      "$ref": "#/$defs/deliveryIntent"
+    },
+    "delivery_attempt": {
+      "$ref": "#/$defs/deliveryAttempt"
+    },
+    "delivery_receipt_ref": {
+      "$ref": "#/$defs/deliveryReceiptRef"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "researchIntent": {
+      "type": "object",
+      "required": [
+        "intent_id",
+        "project_key",
+        "purpose",
+        "scope",
+        "as_of",
+        "expected_delivery",
+        "content_digest",
+        "audience_or_use",
+        "constraints"
+      ],
+      "properties": {
+        "intent_id": {
+          "$ref": "#/$defs/ref"
+        },
+        "project_key": {
+          "$ref": "#/$defs/ref"
+        },
+        "purpose": {
+          "type": "string",
+          "minLength": 1
+        },
+        "audience_or_use": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "object"
+        },
+        "as_of": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "constraints": {
+          "type": "object"
+        },
+        "expected_delivery": {
+          "type": "object"
+        },
+        "content_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      },
+      "additionalProperties": false
+    },
+    "inquiry": {
+      "type": "object",
+      "required": [
+        "inquiry_id",
+        "intent_ref",
+        "question_or_hypothesis",
+        "acceptance_conditions",
+        "stop_conditions",
+        "content_digest",
+        "uncertainty_ceiling"
+      ],
+      "properties": {
+        "inquiry_id": {
+          "$ref": "#/$defs/ref"
+        },
+        "intent_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "question_or_hypothesis": {
+          "type": "string",
+          "minLength": 1
+        },
+        "acceptance_conditions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "stop_conditions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "uncertainty_ceiling": {
+          "type": "string"
+        },
+        "content_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      },
+      "additionalProperties": false
+    },
+    "researchPlan": {
+      "type": "object",
+      "required": [
+        "plan_id",
+        "inquiry_ref",
+        "work_items",
+        "budget",
+        "deadline",
+        "replan_policy",
+        "content_digest"
+      ],
+      "properties": {
+        "plan_id": {
+          "$ref": "#/$defs/ref"
+        },
+        "inquiry_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "work_items": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "work_id",
+              "operator"
+            ],
+            "properties": {
+              "work_id": {
+                "$ref": "#/$defs/ref"
+              },
+              "operator": {
+                "type": "string"
+              },
+              "depends_on": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/ref"
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "budget": {
+          "type": "object"
+        },
+        "deadline": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "replan_policy": {
+          "type": "object"
+        },
+        "content_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      },
+      "additionalProperties": false
+    },
+    "sourceRef": {
+      "type": "object",
+      "required": [
+        "source_ref_id",
+        "owner_id",
+        "locator",
+        "source_class",
+        "observed_at",
+        "access_profile_ref"
+      ],
+      "properties": {
+        "source_ref_id": {
+          "$ref": "#/$defs/ref"
+        },
+        "owner_id": {
+          "$ref": "#/$defs/ref"
+        },
+        "locator": {
+          "$ref": "#/$defs/ref"
+        },
+        "source_class": {
+          "type": "string"
+        },
+        "access_profile_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
+    },
+    "capturedMaterialSnapshot": {
+      "type": "object",
+      "required": [
+        "value_ref",
+        "document_id",
+        "observed_text_hash",
+        "observed_updated_at",
+        "content_digest",
+        "byte_size"
+      ],
+      "properties": {
+        "value_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "document_id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "observed_text_hash": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "observed_updated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "content_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "byte_size": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "materialRef": {
+      "type": "object",
+      "required": [
+        "material_ref_id",
+        "source_ref",
+        "snapshot",
+        "content_digest",
+        "provenance_digest"
+      ],
+      "properties": {
+        "material_ref_id": {
+          "$ref": "#/$defs/ref"
+        },
+        "source_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "snapshot": {
+          "$ref": "#/$defs/capturedMaterialSnapshot"
+        },
+        "content_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "provenance_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      },
+      "additionalProperties": false
+    },
+    "evidenceQualification": {
+      "type": "object",
+      "required": [
+        "qualification_id",
+        "material_ref",
+        "inquiry_ref",
+        "claim_ref",
+        "direction",
+        "scope_statement_ref",
+        "uncertainty_profile_ref",
+        "verifier_profile_ref",
+        "provenance_closure_digest",
+        "qualification_digest",
+        "validity"
+      ],
+      "properties": {
+        "qualification_id": {
+          "$ref": "#/$defs/ref"
+        },
+        "material_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "inquiry_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "claim_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "direction": {
+          "enum": [
+            "SUPPORTS",
+            "CONTRADICTS",
+            "CONTEXT",
+            "INSUFFICIENT"
+          ]
+        },
+        "scope_statement_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "uncertainty_profile_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "verifier_profile_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "provenance_closure_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "qualification_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "validity": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "claim": {
+      "type": "object",
+      "required": [
+        "claim_id",
+        "statement_ref",
+        "support_relation_refs",
+        "contradiction_relation_refs",
+        "uncertainty_profile_ref",
+        "lifecycle_state",
+        "content_digest",
+        "scope"
+      ],
+      "properties": {
+        "claim_id": {
+          "$ref": "#/$defs/ref"
+        },
+        "statement_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "scope": {
+          "type": "object"
+        },
+        "support_relation_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ref"
+          }
+        },
+        "contradiction_relation_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ref"
+          }
+        },
+        "uncertainty_profile_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "lifecycle_state": {
+          "enum": [
+            "DRAFT",
+            "ADMITTED",
+            "SUPERSEDED",
+            "RETRACTED"
+          ]
+        },
+        "content_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      },
+      "additionalProperties": false
+    },
+    "gap": {
+      "type": "object",
+      "required": [
+        "gap_id",
+        "inquiry_ref",
+        "requirement",
+        "reason",
+        "reopen_policy",
+        "closure_condition",
+        "content_digest",
+        "missing_evidence_or_decision"
+      ],
+      "properties": {
+        "gap_id": {
+          "$ref": "#/$defs/ref"
+        },
+        "inquiry_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "requirement": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "missing_evidence_or_decision": {
+          "type": "string"
+        },
+        "reopen_policy": {
+          "type": "object"
+        },
+        "closure_condition": {
+          "type": "string"
+        },
+        "content_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      },
+      "additionalProperties": false
+    },
+    "researchArtifact": {
+      "type": "object",
+      "required": [
+        "artifact_id",
+        "content_ref",
+        "content_digest",
+        "claim_closure",
+        "evidence_relation_closure",
+        "citation_closure",
+        "format",
+        "revision",
+        "lifecycle_state"
+      ],
+      "properties": {
+        "artifact_id": {
+          "$ref": "#/$defs/ref"
+        },
+        "content_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "content_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "claim_closure": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ref"
+          }
+        },
+        "evidence_relation_closure": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ref"
+          }
+        },
+        "citation_closure": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ref"
+          }
+        },
+        "format": {
+          "const": "markdown"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "lifecycle_state": {
+          "enum": [
+            "DRAFT",
+            "ADMITTED",
+            "SUPERSEDED",
+            "RETRACTED"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "deliveryIntent": {
+      "type": "object",
+      "required": [
+        "delivery_intent_id",
+        "artifact_ref",
+        "audience",
+        "channel",
+        "format",
+        "approval_refs",
+        "authority_digest",
+        "idempotency_key",
+        "irreversibility_profile"
+      ],
+      "properties": {
+        "delivery_intent_id": {
+          "$ref": "#/$defs/ref"
+        },
+        "artifact_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "audience": {
+          "type": "string"
+        },
+        "channel": {
+          "const": "internal_export"
+        },
+        "format": {
+          "const": "markdown"
+        },
+        "approval_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/ref"
+          }
+        },
+        "authority_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "idempotency_key": {
+          "$ref": "#/$defs/ref"
+        },
+        "irreversibility_profile": {
+          "const": "internal_content_addressed_export"
+        }
+      },
+      "additionalProperties": false
+    },
+    "deliveryAttempt": {
+      "type": "object",
+      "required": [
+        "attempt_id",
+        "delivery_intent_ref",
+        "assignment_digest",
+        "handler_binding_digest",
+        "effect_disposition"
+      ],
+      "properties": {
+        "attempt_id": {
+          "$ref": "#/$defs/ref"
+        },
+        "delivery_intent_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "assignment_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "handler_binding_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "effect_disposition": {
+          "enum": [
+            "NOT_STARTED",
+            "IN_FLIGHT",
+            "SUCCEEDED",
+            "FAILED",
+            "OUTCOME_UNKNOWN"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "deliveryReceiptRef": {
+      "type": "object",
+      "required": [
+        "receipt_ref",
+        "delivery_intent_ref",
+        "attempt_ref",
+        "provider_locator",
+        "receipt_digest",
+        "outcome_time"
+      ],
+      "properties": {
+        "receipt_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "delivery_intent_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "attempt_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "provider_locator": {
+          "$ref": "#/$defs/ref"
+        },
+        "receipt_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "outcome_time": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "x-status": "PROPOSAL_NOT_FROZEN_NOT_AUTHORITY",
+  "x-supersedes-sha256": "232787dc2493c759cc54182df0576a5256c4f8b20fc4b977c0d54b560addef5c"
+}

@@ -1,0 +1,71 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "mrw.successor.source-library.c2-1.effect.pure.v1",
+  "ref_kind": "effect_policy",
+  "cell_id": "C2.1",
+  "family_id": "C2",
+  "movement_ids": [
+    "C2-M001",
+    "C2-M002"
+  ],
+  "semantics": {
+    "movement_rows": {
+      "C2-M001": {
+        "effect": "Pure deterministic normalization with zero provider and credential effects"
+      },
+      "C2-M002": {
+        "effect": "Pure decision with zero provider calls"
+      }
+    },
+    "code_contract": {
+      "effect_profile_id": "source_library.resolve_execution_request.v1.effect",
+      "effect_profile_version": "1.0.0",
+      "execution_class": "PURE_TRANSFORM",
+      "external_visibility": "NONE",
+      "network_required": false,
+      "irreversible": false,
+      "cancellation_points": [
+        "step_boundary"
+      ],
+      "internal_export_only": false,
+      "human_approval_required": false,
+      "external_acquisition": false,
+      "idempotency_profile_ref": "logical_request_id"
+    }
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C2.v1.json",
+      "pointer": "#/movements/C2-M001/effect",
+      "sha256": "a6608ce0645c3d240c31ab1225ed31559655f2594ccb848f8178a1172e9ad110"
+    },
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C2.v1.json",
+      "pointer": "#/movements/C2-M002/effect",
+      "sha256": "a6608ce0645c3d240c31ab1225ed31559655f2594ccb848f8178a1172e9ad110"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/capabilities/source_library_c2_1.py",
+      "pointer": "_effect_profile()",
+      "sha256": "e6b3fc246c39013597a8b68d116a5725548178ac70910d141b1b2769af0358c6"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/capabilities/source_library_c2_1.py",
+      "pointer": "_effect_profile()::execution_class",
+      "sha256": "e6b3fc246c39013597a8b68d116a5725548178ac70910d141b1b2769af0358c6"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/capabilities/source_library_c2_1.py",
+      "pointer": "_effect_profile()::idempotency_profile_ref",
+      "sha256": "e6b3fc246c39013597a8b68d116a5725548178ac70910d141b1b2769af0358c6"
+    }
+  ],
+  "derivation_note": "pure naming supported by movement effect rows and code EffectProfile execution_class=PURE_TRANSFORM with zero provider/credential effects.",
+  "content_digest": "a5898bb74d9c2e3e9228760533114b75ae0ed9d55db5aaa7a5b0d1625616ca83"
+}

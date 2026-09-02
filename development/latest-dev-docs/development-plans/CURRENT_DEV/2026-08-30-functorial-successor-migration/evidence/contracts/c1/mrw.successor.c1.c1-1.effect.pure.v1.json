@@ -1,0 +1,44 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "mrw.successor.c1.c1-1.effect.pure.v1",
+  "ref_kind": "effect_policy",
+  "cell_id": "C1.1",
+  "family_id": "C1",
+  "movement_ids": [
+    "C1-M001",
+    "C1-M002"
+  ],
+  "semantics": {
+    "movement_effect_m001": "Pure CPU and memory validation only",
+    "movement_effect_m002": "Pure deterministic compilation and hashing",
+    "code_contract": {
+      "provider_calls": 0,
+      "store_writes": 0,
+      "canonical_effect_calls": 0,
+      "receipt_schema": "mrw.functorial-successor.c1.legacy-dsl-receipt.v1"
+    }
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C1.v1.json",
+      "pointer": "#/movements/C1-M001/effect",
+      "sha256": "ccbb50ee217882d1640bca7f57430eaea651f8ae83258873449d2c998d30bb0a"
+    },
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C1.v1.json",
+      "pointer": "#/movements/C1-M002/effect",
+      "sha256": "ccbb50ee217882d1640bca7f57430eaea651f8ae83258873449d2c998d30bb0a"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/capabilities/c1_legacy_dsl.py",
+      "pointer": "C1LegacyDSLReceipt/provider_calls",
+      "sha256": "0e7997d42913a5cc27605f841a6d2abab42feb49e6d3e48cc97ede6a6e046155"
+    }
+  ],
+  "derivation_note": "effect semantics copied verbatim from movements C1-M001/C1-M002; compiler receipt carries zero provider/store/canonical-effect counters",
+  "content_digest": "aadd7dfd8bb66d94eb3a7aed3fd09e0681532f3db0ac48f9e97c9caad17ea969"
+}

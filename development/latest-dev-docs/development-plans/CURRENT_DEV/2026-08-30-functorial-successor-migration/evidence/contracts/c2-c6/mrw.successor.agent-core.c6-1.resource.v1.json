@@ -1,0 +1,41 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "mrw.successor.agent-core.c6-1.resource.v1",
+  "ref_kind": "resource_policy",
+  "cell_id": "C6.1",
+  "family_id": "C6",
+  "movement_ids": [
+    "C6-M001"
+  ],
+  "semantics": {
+    "movement_resource": "Tool-call, iteration, timeout, result and concurrency ceilings",
+    "code_resource_profile": {
+      "resource_profile_id": "agent_core.episode_interpret.v1.resource",
+      "resource_classes": [
+        "cpu"
+      ],
+      "budget_units": "episode",
+      "default_soft_limit_seconds": 30,
+      "default_hard_limit_seconds": 120,
+      "budget_ref": "mrw.successor.agent-core.c6-1.budget.v1",
+      "deadline_policy_ref": "mrw.successor.agent-core.c6-1.deadline.v1"
+    }
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C6.v1.json",
+      "pointer": "#/movements/C6-M001/resource",
+      "sha256": "bdc430a903d6b1823f91fdeab1873e9a2f8482520cc0f85b0ceec43d040c901a"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/capabilities/agent_core_c6_1.py",
+      "pointer": "_resource_profile",
+      "sha256": "eaf2b1e5e02b512626595e3418a0f1ccda73f4812442818e5631e298f24e8d21"
+    }
+  ],
+  "derivation_note": "resource semantics copied verbatim from movement C6-M001.resource and the existing ResourceProfile in agent_core_c6_1.py; tool-call/iteration ceilings are request fields, deadline 30/120 seconds",
+  "content_digest": "1fbef65cee5bba67d91db6b66b096217e88f8a01e12b2dd1259b821d8e9eb850"
+}

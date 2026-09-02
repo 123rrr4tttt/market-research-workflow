@@ -1,0 +1,32 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "runtime.c5-4.raw_detail.loss.v1",
+  "ref_kind": "declared_loss",
+  "cell_id": "C5.4",
+  "family_id": "C5",
+  "movement_ids": [
+    "C5-M005",
+    "C5-M006"
+  ],
+  "semantics": {
+    "movement_projection_loss_m005": "Raw backend detail is normalized but provenance and contradiction class are retained",
+    "movement_projection_loss_m006": "Source-specific fields may be normalized, but provenance, contradiction and unbound state are mandatory"
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C5.v1.json",
+      "pointer": "#/movements/C5-M005/projection_loss",
+      "sha256": "322d24b19dbbb9babcd463f1c5fb652ec22cfc656a5cab9fd848d9f114b9ad65"
+    },
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C5.v1.json",
+      "pointer": "#/movements/C5-M006/projection_loss",
+      "sha256": "322d24b19dbbb9babcd463f1c5fb652ec22cfc656a5cab9fd848d9f114b9ad65"
+    }
+  ],
+  "derivation_note": "declared loss copied verbatim from movement projection_loss rows; raw backend detail normalized while provenance/contradiction/unbound retained",
+  "content_digest": "80ac323541453bf318c36656edeaadf9dcc98414c921dfc754ff4a1f4897cb30"
+}

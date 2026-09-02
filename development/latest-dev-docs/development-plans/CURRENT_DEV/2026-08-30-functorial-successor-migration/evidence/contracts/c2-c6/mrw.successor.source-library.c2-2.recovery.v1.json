@@ -1,0 +1,71 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "mrw.successor.source-library.c2-2.recovery.v1",
+  "ref_kind": "recovery_policy",
+  "cell_id": "C2.2",
+  "family_id": "C2",
+  "movement_ids": [
+    "C2-M003",
+    "C2-M004",
+    "C2-M005",
+    "C2-M006"
+  ],
+  "semantics": {
+    "movement_rows": {
+      "C2-M003": {
+        "recovery": "Plan is retained; future owner may roll back without redispatch"
+      },
+      "C2-M004": {
+        "recovery": "Plan may replay; effect retry waits for C2-M007 readback or non-start proof"
+      },
+      "C2-M005": {
+        "recovery": "Plan and journal are retained; rollback changes future claim owner only"
+      },
+      "C2-M006": {
+        "recovery": "Exact plan may replay; no downstream effect is repeated by planning"
+      }
+    },
+    "p3_fragment": {
+      "rollback_observation": {
+        "claim_owner": "legacy",
+        "plan_retained": true,
+        "rollback_digest": "b40284aa10c67d6fdd3752af9552b543ad65eed1de3d20d57c11e5a5f1053a92"
+      }
+    }
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C2.v1.json",
+      "pointer": "#/movements/C2-M003/recovery",
+      "sha256": "a6608ce0645c3d240c31ab1225ed31559655f2594ccb848f8178a1172e9ad110"
+    },
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C2.v1.json",
+      "pointer": "#/movements/C2-M004/recovery",
+      "sha256": "a6608ce0645c3d240c31ab1225ed31559655f2594ccb848f8178a1172e9ad110"
+    },
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C2.v1.json",
+      "pointer": "#/movements/C2-M005/recovery",
+      "sha256": "a6608ce0645c3d240c31ab1225ed31559655f2594ccb848f8178a1172e9ad110"
+    },
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C2.v1.json",
+      "pointer": "#/movements/C2-M006/recovery",
+      "sha256": "a6608ce0645c3d240c31ab1225ed31559655f2594ccb848f8178a1172e9ad110"
+    },
+    {
+      "kind": "p3_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C2.json",
+      "pointer": "#/cells/0/rollback_observation",
+      "sha256": "5274116a2a083ec1553d05c034f5490f1450851d805fb2590efec21be95c544b"
+    }
+  ],
+  "derivation_note": "recovery from movement rows plus p3 rollback_observation (plan_retained=true, claim_owner=legacy).",
+  "content_digest": "75044de36dc30792508261476bb3c60055b714fd52def4301ea68c75db820762"
+}

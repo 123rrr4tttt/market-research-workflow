@@ -1,0 +1,2146 @@
+{
+  "aggregate_id": "p3:sha256:965e83f6a22961c8eeea787ad1490d4416c33f816f17eafa951bc6e301cbf3da",
+  "authority_ceiling": {
+    "authority_transfer": false,
+    "candidate_created": false,
+    "cutover": false,
+    "external_delivery": false,
+    "legacy_retired": false,
+    "live_provider": false,
+    "network": false,
+    "production_canonical_write": false,
+    "provider_calls": 0,
+    "scope": "LOCAL_ONLY"
+  },
+  "canonical_ownership": {
+    "business_authority_migrated": false,
+    "cell_semantic_owners": [
+      {
+        "cell_id": "C2.2",
+        "owner_capability_id": "source_library.c2_2.v1"
+      },
+      {
+        "cell_id": "C2.3",
+        "owner_capability_id": "source_library.c2_3.v1"
+      },
+      {
+        "cell_id": "C2.4",
+        "owner_capability_id": "source_library.c2_4.v1"
+      },
+      {
+        "cell_id": "C3.1",
+        "owner_capability_id": "collect.c3_1.v1"
+      },
+      {
+        "cell_id": "C3.2",
+        "owner_capability_id": "collect.c3_2.v1"
+      },
+      {
+        "cell_id": "C4.1",
+        "owner_capability_id": "agent_batch.c4.v1"
+      },
+      {
+        "cell_id": "C4.2",
+        "owner_capability_id": "agent_batch.c4.v1"
+      },
+      {
+        "cell_id": "C4.3",
+        "owner_capability_id": "agent_batch.c4.v1"
+      },
+      {
+        "cell_id": "C5.1",
+        "owner_capability_id": "agent_session.task_transition.v1"
+      },
+      {
+        "cell_id": "C5.2",
+        "owner_capability_id": "runtime.effect.reconcile.v1"
+      },
+      {
+        "cell_id": "C5.3",
+        "owner_capability_id": "runtime.event.project.v1"
+      },
+      {
+        "cell_id": "C5.4",
+        "owner_capability_id": "legacy.runtime_observation.project.v1"
+      },
+      {
+        "cell_id": "C6.1",
+        "owner_capability_id": "agent_core.c6_1.v1"
+      },
+      {
+        "cell_id": "C6.2",
+        "owner_capability_id": "agent_core.c6_2.v1"
+      },
+      {
+        "cell_id": "C6.3",
+        "owner_capability_id": "agent_core.c6_3.v1"
+      }
+    ],
+    "conflicting_contract_identities": [],
+    "live_claim_owner": "legacy",
+    "shared_contract_identities": [
+      {
+        "contract_digest": "fe54ed208d76534581eb165d8e43e81481f77bee04798a6ec9d93960d515c740",
+        "operation_kind": "collect.fold_ordered_results.v1",
+        "references": [
+          {
+            "cell_id": "C3.1",
+            "contract_digest": "fe54ed208d76534581eb165d8e43e81481f77bee04798a6ec9d93960d515c740",
+            "position": 2,
+            "role": "fold_atom"
+          },
+          {
+            "cell_id": "C3.2",
+            "contract_digest": "fe54ed208d76534581eb165d8e43e81481f77bee04798a6ec9d93960d515c740",
+            "position": 0,
+            "role": "ordered_fold_atom"
+          }
+        ]
+      }
+    ]
+  },
+  "cell_bindings": [
+    {
+      "cell_id": "C2.2",
+      "family": "C2",
+      "legacy_observation_digest": "c3722463232c20ad6453dec22e9558795749c9674d08c14c1a05afb26fbb38ef",
+      "operation_bindings": [
+        {
+          "contract_digest": "c4236d2f78bfc3bf54955178d0c9617f8d439881382862e48495ee4799b24e21",
+          "operation_kind": "source_library.protocol_search.v1",
+          "role": "planner_atom"
+        },
+        {
+          "contract_digest": "5719283fb24e6f29e922df7d85b1f4807b73dc40636272e88f959febef16ca99",
+          "operation_kind": "source_library.provider_harvest.v1",
+          "role": "planner_atom"
+        },
+        {
+          "contract_digest": "814f7677c6eed8351aa286d04d0cc2b31b3d6cef03f6bb57165db43852e3f4f4",
+          "operation_kind": "source_library.site_search.v1",
+          "role": "planner_atom"
+        },
+        {
+          "contract_digest": "5c57e6ef8c5e292fd34554c1d02bdb32de6fdca1d6420e74c42bf8154245caa2",
+          "operation_kind": "source_library.url_execution.v1",
+          "role": "planner_atom"
+        }
+      ],
+      "owner_capability_id": "source_library.c2_2.v1",
+      "p1_cell_digest": "fed0cd84a116d0fe4453ffcc5317067432767726f056e6f8f6729088176e661c",
+      "plan_digest": {
+        "reason": "compiled planning plan through the shared compiler",
+        "value": "65a7947b255644b3267dcad3bf263896819e2dd4bb09e7dd3d9a5e9ccd17c371"
+      },
+      "program_digest": {
+        "reason": "single-Atom Program for the exact C2.1-bound planning payload",
+        "value": "e04de866cc5ba84631aa6fae35426c4c0e3655f59f34d2f07cd05e059d607db8"
+      },
+      "provider_calls": 0,
+      "rollback_observation_digest": "fb6bd9eb93a9e9ad0262cfb9888b7c377a71a0d16cf53d409a156d1a3a33c104",
+      "successor_observation_digest": "85b3a937bffb5e413ea5aaeeb5b33588e36f6365904ba536f1588e968de41c77"
+    },
+    {
+      "cell_id": "C2.3",
+      "family": "C2",
+      "legacy_observation_digest": "a0812412a7aa55a6c6d55416ea6a8a8bb156b19d49a8a98c0cd46c6f3acd9fec",
+      "operation_bindings": [
+        {
+          "contract_digest": "730cdd9e27eb96379e53fcce35dadd0f90cc1c5d094704fef76c66574f32580f",
+          "operation_kind": "source_library.execute_provider_effect.v1",
+          "role": "provider_effect_port_contract"
+        }
+      ],
+      "owner_capability_id": "source_library.c2_3.v1",
+      "p1_cell_digest": "0e33c383a0ea4596936dfa861dca3aa49ef735f1e38e9a883fa52e555537455d",
+      "plan_digest": {
+        "reason": "disposable-PG canary compiled plan for the fixture Atom",
+        "value": "eb057bcd5191df4daf88099ee4958b3435035bec93fe5e2e4c26c668fa103907"
+      },
+      "program_digest": {
+        "reason": "disposable-PG canary fixture single-Atom Program; store-rehydrated, not a production composition",
+        "value": "e9b287a359518ccdc125327f8880530cf27b89f2ba197771a5989b1cf066a0f0"
+      },
+      "provider_calls": 0,
+      "rollback_observation_digest": "11f183af6c970537fb0e9ec237bf14a2dbc285f7a0042dfb177e552fe9baaec4",
+      "successor_observation_digest": "135aa975c263b6ad8cd0dc518bca8f0691babb46618eeea1128f85bacf09734e"
+    },
+    {
+      "cell_id": "C2.4",
+      "family": "C2",
+      "legacy_observation_digest": "0d4c96bc5586a6ff03bef7d335a5927268a0b0d6e4b702a55cc887cd6bb1a2ee",
+      "operation_bindings": [
+        {
+          "contract_digest": null,
+          "operation_kind": "source_library.project_terminal_compat.v1",
+          "reason": "terminal/compat projection is executed by the projector registry, not registered as a Program Atom",
+          "role": "projector_registry"
+        }
+      ],
+      "owner_capability_id": "source_library.c2_4.v1",
+      "p1_cell_digest": "f20cea309415a05443289ea36fddb28b10ec49f696c32e4099a5af8873c28adc",
+      "plan_digest": {
+        "reason": "projection consumes an admitted journal closure with offsets",
+        "value": null
+      },
+      "program_digest": {
+        "reason": "projection is a read-model projector, not a Program Atom",
+        "value": null
+      },
+      "provider_calls": 0,
+      "rollback_observation_digest": "5412589599ff5b77b7dfd75de0d3d574446d0cc841b10feda261a3b9ff48f2d9",
+      "successor_observation_digest": "98c61d4bd403c291265b06d81279dc3544a5db32ca084472da4d81f7a3fb5215"
+    },
+    {
+      "cell_id": "C3.1",
+      "family": "C3",
+      "legacy_observation_digest": "73f28edc4d5c07887d62a715d05801b712cf36d4fa3ee9cfee85b07c761255f4",
+      "operation_bindings": [
+        {
+          "contract_digest": "c28caf471395279be6af3f2e49cd25d3065a8dd45a253ddad48f5092a741e61b",
+          "operation_kind": "collect.execute_batch_element.v1",
+          "role": "element_atom"
+        },
+        {
+          "contract_digest": "713810252ea68b764dd2b9d7b379befaff9b7a337ea3ccb4f7952daa2694a9c7",
+          "operation_kind": "mrw.traverse_ordered.materialize",
+          "role": "traversal_materialization"
+        },
+        {
+          "contract_digest": "fe54ed208d76534581eb165d8e43e81481f77bee04798a6ec9d93960d515c740",
+          "operation_kind": "collect.fold_ordered_results.v1",
+          "role": "fold_atom"
+        }
+      ],
+      "owner_capability_id": "collect.c3_1.v1",
+      "p1_cell_digest": "79b94a714475ac0bfba3cf9e1cfed38f768b0459e2741f31b98cfc23c55a4dc0",
+      "plan_digest": {
+        "reason": "compiled ExecutionPlan with SUCCESSOR_PROGRAM_EPOCH traversal materialization and one fold EFFECT step",
+        "value": "88b1d08664edb4f95cdf4b3c0b2b32cd4d1367277a408149f418f727094f76a0"
+      },
+      "program_digest": {
+        "reason": "composed Then(TraverseOrdered, MapOutput(sequence_to_fold_payload), FoldAtom) Program binding the actual traversal epoch",
+        "value": "71edc28643bd713685bda9dc0fcd54b797c61c6e6c1ac3450965862223407070"
+      },
+      "provider_calls": 0,
+      "rollback_observation_digest": "0ee011747b2cf84d6813e5a25e3a9cb29e510e51b054f8fdaf2543f8a386d162",
+      "successor_observation_digest": "d3887b9ef82cae744b3b282f9858182341335116bca543b37a7563f61fad91c5"
+    },
+    {
+      "cell_id": "C3.2",
+      "family": "C3",
+      "legacy_observation_digest": "0648d4fb6b3845132bc691126925c1f9fbd5438ea71577a3ffd641bf8983bc7f",
+      "operation_bindings": [
+        {
+          "contract_digest": "fe54ed208d76534581eb165d8e43e81481f77bee04798a6ec9d93960d515c740",
+          "operation_kind": "collect.fold_ordered_results.v1",
+          "role": "ordered_fold_atom"
+        },
+        {
+          "contract_digest": "be613096b1c78b96923c27702ec766310bfffff3ce3a12c07f538b0758b37aa7",
+          "operation_kind": "collect.fold_ordered_results",
+          "role": "named_pure_fold_transform"
+        }
+      ],
+      "owner_capability_id": "collect.c3_2.v1",
+      "p1_cell_digest": "0a9dbb982d07a0d6f33d7981ab93d39f6c5129ee1dfa6573a97c94403a3f2fe7",
+      "plan_digest": {
+        "reason": "compiled ExecutionPlan with exactly one PURE_TRANSFORM step",
+        "value": "caa0f3c4183c53401e798ba8ff70d9741e87ec622b3c2766b4259dcd9f336f80"
+      },
+      "program_digest": {
+        "reason": "named pure fold Program realized as a registered TRANSFORM",
+        "value": "d08516c54d193b4b87c8a2b8452a9743f213bd36b7b85be43a94a245674bf493"
+      },
+      "provider_calls": 0,
+      "rollback_observation_digest": "0ee011747b2cf84d6813e5a25e3a9cb29e510e51b054f8fdaf2543f8a386d162",
+      "successor_observation_digest": "4260d05af4464b7aec4f284bf352662179bfca2493a1ee2b55ac65be6d8100c0"
+    },
+    {
+      "cell_id": "C4.1",
+      "family": "C4",
+      "legacy_observation_digest": "9808929bd0d6f98d5a8fc35f52396a193ae0d81ab59564ecde0bfac7876b2df2",
+      "operation_bindings": [
+        {
+          "contract_digest": "29800ccf6a89a13888e8569075fb43ea74e8f55efc87cb34cf6912fc3900ea53",
+          "operation_kind": "agent_batch.build_batch_plan.v1",
+          "role": "batch_plan_atom"
+        }
+      ],
+      "owner_capability_id": "agent_batch.c4.v1",
+      "p1_cell_digest": "b9742399d7fbca4a4b74210c28ca6e07dda4fe9bb4e61657f168bbe486031523",
+      "plan_digest": {
+        "reason": "compiled batch-plan plan through the shared compiler; traversal plan digest also bound in successor_observation",
+        "value": "a1563476c3ae48b20410827234192ac73719fb6ba34225e9ee1f56100700b233"
+      },
+      "program_digest": {
+        "reason": "single-Atom Program plus STATIC_SHAPE TraverseOrdered program with exact traversal_shape_digest/element_count metadata",
+        "value": "487e6787551bdad4579d9d4cbfc369b09173bdffecfef129b096d79d4a742d9c"
+      },
+      "provider_calls": 0,
+      "rollback_observation_digest": "62de5e6d3ea1af493448d9bde49f3223c68cbcc5963117383042ea2852024d2d",
+      "successor_observation_digest": "c0afc625ca495f649c35810776d6636d0276374269be8b36c4b34e9e8606885c"
+    },
+    {
+      "cell_id": "C4.2",
+      "family": "C4",
+      "legacy_observation_digest": "31cdabb8e8e1b81ff63cbb931dd4ca1cb46e74afd8aa7e64ac060a3857bb7b35",
+      "operation_bindings": [
+        {
+          "contract_digest": "09a3269a06c6a2124194adee14e9ee4b89075f4ae9d5b7878b8d245eeb92bb5e",
+          "operation_kind": "agent_batch.reduce_retry_action.v1",
+          "role": "retry_reducer_atom"
+        }
+      ],
+      "owner_capability_id": "agent_batch.c4.v1",
+      "p1_cell_digest": "10d5d875a8bddddd1af8ad61762f286050fc02e7043eede8082fd37282fd8087",
+      "plan_digest": {
+        "reason": "compiled retry-reducer plan through the shared compiler",
+        "value": "c863bf9542a6415a9bc0f1c0ba5147be61c271fb94bb64a206091b148c5e3141"
+      },
+      "program_digest": {
+        "reason": "single-Atom Program for the exact retry-reducer payload",
+        "value": "80bc00bb19ffbce8983a14a5dcdf17130ad48140d111efdfeca407186e55ad94"
+      },
+      "provider_calls": 0,
+      "rollback_observation_digest": "10300886098b2986ab57cac6397a54fb774b715b6ddd6f9dfee7e62b73e883e1",
+      "successor_observation_digest": "2bdbd2404b4b9f8b5c1853261debaa45cffb3739648d80920e7c984884cf7c5e"
+    },
+    {
+      "cell_id": "C4.3",
+      "family": "C4",
+      "legacy_observation_digest": "3270f2ff3d21500c877c89a4b6d0347d79076827b95ece409935c0d532554957",
+      "operation_bindings": [
+        {
+          "contract_digest": "a91863b960a4bf4c40748242885562d2e30466f3f0b0a4531f1d7ddccacca204",
+          "operation_kind": "agent_batch.submit.v1",
+          "role": "submission_contract"
+        }
+      ],
+      "owner_capability_id": "agent_batch.c4.v1",
+      "p1_cell_digest": "4063408e433f09c04c9719a4f6fefb03049ef03c04e302c059a442309490f2c5",
+      "plan_digest": {
+        "reason": "compiled submission plan through the shared compiler",
+        "value": "90417c684e2ce1772fc1d5742038be37e7ec0eb98dbec61ba0a7ca1a3764f5a1"
+      },
+      "program_digest": {
+        "reason": "typed single-Atom submission Program compiled through the shared compiler",
+        "value": "084912d66057ebf47389385d9defacfab3db1708e5b75cd43a1fb9ed3a0e6a35"
+      },
+      "provider_calls": 0,
+      "rollback_observation_digest": "11a899b010c48937c1edec62f4b18261badd6a87822c6e95bed4b196b5508dd2",
+      "successor_observation_digest": "25453d1eda5bca2b6f6e5216b1c3cfe2d232cbe8511ac868f0a8052bd885c557"
+    },
+    {
+      "cell_id": "C5.1",
+      "family": "C5",
+      "legacy_observation_digest": "39592fb0843b60a8b2206cdf487366fb00e281cc3e8a3af3ba572b52753cadc5",
+      "operation_bindings": [
+        {
+          "contract_digest": null,
+          "operation_kind": "agent_session.task_transition.v1",
+          "reason": "candidate atom from P1 C5.1; journal-derived read-only session/task projection in this family line",
+          "role": "projector_registry"
+        }
+      ],
+      "owner_capability_id": "agent_session.task_transition.v1",
+      "p1_cell_digest": "3ee95ed7f7c77b3a8929c95e4ba01e62fb87ead13240aad472e1165584532be4",
+      "plan_digest": {
+        "reason": "no compiled plan is produced by a read-only projection",
+        "value": null
+      },
+      "program_digest": {
+        "reason": "session/task projection is a journal read model, not a Program Atom",
+        "value": null
+      },
+      "provider_calls": 0,
+      "rollback_observation_digest": "d29df1a02edfb1a1fdf60155287ba7c6789d072117d3a8927f8fcf2b9baf2f97",
+      "successor_observation_digest": "4040f632a2afbb28f969ad42aaac59e03bd27d576bc9312a6f8d3dde2bd52028"
+    },
+    {
+      "cell_id": "C5.2",
+      "family": "C5",
+      "legacy_observation_digest": "00a1e477d8476d211a1f11e3466d13ef3591ee06da4947fce3f8be6aa5ecf8b0",
+      "operation_bindings": [
+        {
+          "contract_digest": null,
+          "operation_kind": "runtime.effect.reconcile.v1",
+          "reason": "candidate atom from P1 C5.2; replayed attempt observations feed the existing EffectReconciler/PostgresReconciliationOwner",
+          "role": "reconciliation_owner"
+        }
+      ],
+      "owner_capability_id": "runtime.effect.reconcile.v1",
+      "p1_cell_digest": "2227904ebe7f1ae2a9a7c58755569b94fc38c649d3f2f88e84494cd55b5731b2",
+      "plan_digest": {
+        "reason": "attempt replay is an observation adapter, not a compiled plan",
+        "value": null
+      },
+      "program_digest": {
+        "reason": "reconciliation reuses existing EffectReconciler/PostgresReconciliationOwner; no new Program Atom",
+        "value": null
+      },
+      "provider_calls": 0,
+      "rollback_observation_digest": "aa2221923cafce17ec0ec198c0bf67ce76e3332808facdce98d9b5ef6c16936b",
+      "successor_observation_digest": "95cdd326f9bad46d61a0363f5ff9fd8a8dafe78665ed50e74fdb21db654336ae"
+    },
+    {
+      "cell_id": "C5.3",
+      "family": "C5",
+      "legacy_observation_digest": "6bf88c570696d0e7a3f62dd246e53983a183e775467470a07697bd1f7fbeac5b",
+      "operation_bindings": [
+        {
+          "contract_digest": null,
+          "operation_kind": "runtime.event.project.v1",
+          "reason": "candidate atom from P1 C5.3; acceptance only over the existing replay/projector",
+          "role": "projector_registry"
+        }
+      ],
+      "owner_capability_id": "runtime.event.project.v1",
+      "p1_cell_digest": "df8a22aeb84af9206a18180db7256044f9c51b6e6bb10093b619993f8f2bcf87",
+      "plan_digest": {
+        "reason": "no new plan is introduced by the acceptance line",
+        "value": null
+      },
+      "program_digest": {
+        "reason": "fold/snapshot acceptance runs over existing replay/projector",
+        "value": null
+      },
+      "provider_calls": 0,
+      "rollback_observation_digest": "4323eea4d8207f0b3875f6f928e89f63055b6e1ee06dbd8d9e973fce045f5b54",
+      "successor_observation_digest": "ebdfda9503a6e05afa424cbdce6694bc0265320ae64ea7300e2675f370620749"
+    },
+    {
+      "cell_id": "C5.4",
+      "family": "C5",
+      "legacy_observation_digest": "01fd80143bdff0e79900439879c0575149543b0cd2e6ac885aaa986da955d715",
+      "operation_bindings": [
+        {
+          "contract_digest": null,
+          "operation_kind": "legacy.runtime_observation.project.v1",
+          "reason": "candidate atom from P1 C5.4; offline captured typed observations and join projection",
+          "role": "projector_registry"
+        }
+      ],
+      "owner_capability_id": "legacy.runtime_observation.project.v1",
+      "p1_cell_digest": "630cf8d03669a302d10bdc0747c4f15fb34a469fa5840d8b6f99a646819682cf",
+      "plan_digest": {
+        "reason": "no compiled plan is required for offline observation capture",
+        "value": null
+      },
+      "program_digest": {
+        "reason": "typed observations and join projection are pure read models",
+        "value": null
+      },
+      "provider_calls": 0,
+      "rollback_observation_digest": "376c901905e3405c2b7ea323b29b92432dbb229865465757add9eaae165095ba",
+      "successor_observation_digest": "ba6299935e10b25f065849bb6d56169fb95ccf88fc0eef2d542b91429475d22c"
+    },
+    {
+      "cell_id": "C6.1",
+      "family": "C6",
+      "legacy_observation_digest": "307ec8151124d41eb2a731261020bad53c362bb8768b82b75e9b14d14b801fd8",
+      "operation_bindings": [
+        {
+          "contract_digest": "04a3ea6c79e4e968c3e04a1c4f40d3bd244e85279b2dba96a364e236e1192df0",
+          "operation_kind": "agent_core.episode_interpret.v1",
+          "role": "episode_interpreter_atom"
+        }
+      ],
+      "owner_capability_id": "agent_core.c6_1.v1",
+      "p1_cell_digest": "e220c7cff4063bed08ba333ab9e55a8a269cc8884fee6716972dcb6eb58dcf48",
+      "plan_digest": {
+        "reason": "compiled episode program through the shared compiler",
+        "value": "3a8dad0148dda36e2ae1ddcf7c7d8ee18dc912014997bf70deb9b976cdd00103"
+      },
+      "program_digest": {
+        "reason": "single-Atom Program for the bounded C6.1 episode request",
+        "value": "aa9174d1023cc7bb5d1973a97c83fec5c639d4f18d169e47676cd9dcd82cead5"
+      },
+      "provider_calls": 0,
+      "rollback_observation_digest": "09e9715d62d4c94d597ee30883d38a33131841a80086fbe7c612c550d2fcf3d8",
+      "successor_observation_digest": "9f37e7238d0a20568a25cc45724bb5203e3767e3df80223109dbf9b08fe48ff6"
+    },
+    {
+      "cell_id": "C6.2",
+      "family": "C6",
+      "legacy_observation_digest": "304346ac93e99ca51cf0d353df979ce34265c49289f1a09b3c7c37ab259cadba",
+      "operation_bindings": [
+        {
+          "contract_digest": "7fb0d63ef2504c9dd1b71de83c51d38d4cb46f1e76d6a000153fc86967e06df0",
+          "operation_kind": "agent.model_step.v1",
+          "role": "provider_step_atom"
+        }
+      ],
+      "owner_capability_id": "agent_core.c6_2.v1",
+      "p1_cell_digest": "9e10204a48ce7f17c0e1a041a1156ee37c825a39e716b3e8d157e890a70d7441",
+      "plan_digest": {
+        "reason": "compiled provider-step program through the shared compiler",
+        "value": "b784116ed5c0a033a6725f3b18436616ffd2fa8bdf6022c49444dc545eb31759"
+      },
+      "program_digest": {
+        "reason": "single-Atom Program for the exact C6.2 provider-step request",
+        "value": "423c84b2aa16c6506eccde75ef756790ea5e053e3e6d56798a4ca3849057a370"
+      },
+      "provider_calls": 0,
+      "rollback_observation_digest": "e2c074968ffb4ef03e4f63497cccf84e7bfd2f0f5532e5c6532d7bb0670885f4",
+      "successor_observation_digest": "c0263020f47417d0092096f6bb1a4db35d7554421279d919904c94d3914f2ade"
+    },
+    {
+      "cell_id": "C6.3",
+      "family": "C6",
+      "legacy_observation_digest": "878585d545c9c58810e9f511271abacb40bfbdca055e8a9b7a1050303887de63",
+      "operation_bindings": [
+        {
+          "contract_digest": "261b884c91c6f99a66009f0e22a4cb4de9070f9fed07691b5a41885ab7bebc8d",
+          "operation_kind": "observability.redact_evidence.v1",
+          "role": "redaction_atom"
+        }
+      ],
+      "owner_capability_id": "agent_core.c6_3.v1",
+      "p1_cell_digest": "599a1e8c8dcd591f3c11f512b366a3f22f7fea0441a35413b7346d9be820103d",
+      "plan_digest": {
+        "reason": "compiled redaction program through the shared compiler",
+        "value": "392214208fc1857ae3bbeaace50ced818206fc238490dc4c15d0e57b3cb22e13"
+      },
+      "program_digest": {
+        "reason": "single-Atom Program for the exact C6.3 redaction payload",
+        "value": "993ec2e60869ac14bcbec65f1008cc77a3aaad1ba375527b7e1165a0afbdf67e"
+      },
+      "provider_calls": 0,
+      "rollback_observation_digest": "dcf3f19db59a9b59d355dc0ccb290aa3770148fe03e101c8b481f2592b0cbb81",
+      "successor_observation_digest": "5ac49ee81d9420b82513d387ceb7268837087cb13cd53b94000770d6d2020395"
+    }
+  ],
+  "cell_ids": [
+    "C2.2",
+    "C2.3",
+    "C2.4",
+    "C3.1",
+    "C3.2",
+    "C4.1",
+    "C4.2",
+    "C4.3",
+    "C5.1",
+    "C5.2",
+    "C5.3",
+    "C5.4",
+    "C6.1",
+    "C6.2",
+    "C6.3"
+  ],
+  "content_digest": "83e56d32cf6d025fdbfc84c0132755f4b5fc859134bb51f1a70f2fd52953faf8",
+  "external_family_reviews": [
+    {
+      "authority_ceiling": "LOCAL_OFFLINE_RUNTIME_NODE_AND_PROJECTION_ONLY_NOT_LIVE",
+      "disposition": "ALLOW_C2_LOCAL_ONLY_PROMOTION",
+      "family": "C2",
+      "family_manifest_digest": "864a3ecd3facc57aa8958e9386f841f713fc2e542943add61b1e38a9d7e04311",
+      "fragment_content_digest": "eb643bcfb4f20bb613baedb0a1a88979e951a0b6f17e5dccfc69c8d5313b6b30",
+      "fragment_file_sha256": "5274116a2a083ec1553d05c034f5490f1450851d805fb2590efec21be95c544b",
+      "open_blocking_p0": [],
+      "open_blocking_p1": [],
+      "progress_exact_binding": {
+        "anchor": {
+          "label": "P3_C2_EXACT_PROMOTION",
+          "required_tokens": [
+            "P3 C2",
+            "/root/p3_c2_review",
+            "eb643bcfb4f20bb613baedb0a1a88979e951a0b6f17e5dccfc69c8d5313b6b30"
+          ],
+          "text": "- P3 C2 family promotion boundary: independent review `/root/p3_c2_review` disposition `ALLOW_C2_LOCAL_ONLY_PROMOTION`; open internal P0/P1 empty. Exact v5-bound fragment file SHA-256 `5274116a2a083ec1553d05c034f5490f1450851d805fb2590efec21be95c544b`, content digest `eb643bcfb4f20bb613baedb0a1a88979e951a0b6f17e5dccfc69c8d5313b6b30`; bindings exact. The mixed-valid Program A + Plan B counterexample now fails closed in pure, direct store-rehydrated and PostgreSQL RuntimeNode paths before effect/attempt/event/terminal mutation; provider calls remain zero and work remains READY without lease. Focused P2/C2 `73 passed`; PostgreSQL rehydration `13 passed`, RuntimeNode `1 passed`, projector `2 passed`; teardown databases absent. Generic-web bypass, secret-like credentials, failed readback non-replay, source-bound projection rebuild and legacy rollback remain closed. Authority remains local-only/no-live.",
+          "text_sha256": "4d00563df97b6e35bc8c580490d74ee06953b1542244f6b5a49f249cd3bfad5c"
+        },
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/03_functorial-successor-migration-development-progress.md"
+      },
+      "record_source": {
+        "canonical_slice_digest": "e495c9b8bf6600df8a1c201229d8d6b5c1236aa67791263626b64e8e439f8330",
+        "json_pointer": "/phases/P3/family_dispositions/C2",
+        "kind": "mutable_external_disposition",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/04_functorial-successor-capability-ledger.json"
+      },
+      "task_ref": "/root/p3_c2_review",
+      "validation_evidence": {
+        "focused_p2_c2": "73 passed",
+        "mixed_valid_program_plan": "pure and PostgreSQL paths fail closed before effect/terminal",
+        "postgres_projector": "2 passed",
+        "postgres_rehydration": "13 passed",
+        "postgres_runtime_node": "1 passed",
+        "teardown": "review and worker databases absent"
+      }
+    },
+    {
+      "authority_ceiling": "LOCAL_OFFLINE_RUNTIME_NODE_AND_REPLAY_ONLY_NOT_LIVE",
+      "disposition": "ALLOW_C3_LOCAL_ONLY_PROMOTION",
+      "family": "C3",
+      "family_manifest_digest": "982736ef520ae5e21f55fb761438dd99e22cba9384360e8d7645dc044adfa8da",
+      "fragment_content_digest": "dab5bbf53abf85b1d665e99baf98d50783399a4af813758f28c9d2f92ffa37f7",
+      "fragment_file_sha256": "915aee69e65f2020fec859aa65a2f49be14325e4eff077f3881b025a89ef0133",
+      "open_blocking_p0": [],
+      "open_blocking_p1": [],
+      "progress_exact_binding": {
+        "anchor": {
+          "label": "P3_C3_EXACT_PROMOTION",
+          "required_tokens": [
+            "P3 C3",
+            "/root/p3_c3_review",
+            "dab5bbf53abf85b1d665e99baf98d50783399a4af813758f28c9d2f92ffa37f7"
+          ],
+          "text": "- P3 C3 family promotion boundary: independent review `/root/p3_c3_review` disposition `ALLOW C3 LOCAL_ONLY PROMOTION`; C3.1/C3.2 have no open P0/P1. Exact fragment SHA-256 `915aee69e65f2020fec859aa65a2f49be14325e4eff077f3881b025a89ef0133`, content digest `dab5bbf53abf85b1d665e99baf98d50783399a4af813758f28c9d2f92ffa37f7`; source/implementation/test bindings `16/6/6` match. Non-PostgreSQL focused `53 passed, 1 deselected`; disposable PostgreSQL RuntimeNode/restart/rollback `7 passed`, database absence before/after `0/0`; owned Ruff/format/freeze/diff passed. The exact ordered `TraverseOrdered -> MapOutput -> FoldAtom` Program/Plan, project-store payload closure, fail-fast completed outcomes plus typed cancellation receipt, duplicate-receipt policy, same-Program legacy shadow and future-owner-only rollback are verified. Authority remains local-only and offline.",
+          "text_sha256": "8025f2f83c5af74bac392eeece7c258c5956ab2b245837e95f175e8921961c9e"
+        },
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/03_functorial-successor-migration-development-progress.md"
+      },
+      "record_source": {
+        "canonical_slice_digest": "e7a7c0f9d3a6c7fcec0347ee451de78c016353c838918ab489860cb510e77403",
+        "json_pointer": "/phases/P3/family_dispositions/C3",
+        "kind": "mutable_external_disposition",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/04_functorial-successor-capability-ledger.json"
+      },
+      "task_ref": "/root/p3_c3_review",
+      "validation_evidence": {
+        "bindings": "source 16/16; implementation 6/6; tests 6/6",
+        "focused_non_postgres": "53 passed, 1 deselected, 2 warnings",
+        "real_postgres_runtime_node_restart_rollback": "7 passed",
+        "teardown": "database absent before/after 0/0"
+      }
+    },
+    {
+      "authority_ceiling": "LOCAL_OFFLINE_RUNTIME_NODE_AND_REPLAY_ONLY_NOT_LIVE",
+      "disposition": "ALLOW_P3_C4_LOCAL_ONLY",
+      "family": "C4",
+      "family_manifest_digest": "0985b1225a2784fe860a18a74b98b906616a960da34678680425f9c447714947",
+      "fragment_content_digest": "a8c6ecaf1a3cada4729036b7ff12ee84fbf0353291f85f82f3b5e50dad0160ad",
+      "fragment_file_sha256": "058b02345b9d67c1e7ff51006afb4c28e2c8ce4dadf7a505fac6bbac781bd188",
+      "open_blocking_p0": [],
+      "open_blocking_p1": [],
+      "progress_exact_binding": {
+        "anchor": {
+          "label": "P3_C4_EXACT_PROMOTION",
+          "required_tokens": [
+            "P3 C4",
+            "/root/p3_c4_review",
+            "a8c6ecaf1a3cada4729036b7ff12ee84fbf0353291f85f82f3b5e50dad0160ad"
+          ],
+          "text": "- P3 C4 family promotion boundary: independent review `/root/p3_c4_review` disposition `ALLOW P3 C4 LOCAL-ONLY`; no blocking internal P0/P1. Exact fragment file SHA-256 `058b02345b9d67c1e7ff51006afb4c28e2c8ce4dadf7a505fac6bbac781bd188`, content digest `a8c6ecaf1a3cada4729036b7ff12ee84fbf0353291f85f82f3b5e50dad0160ad`; C4.3 store-rehydrated handler is exact-bound. Focused/real PostgreSQL `52 passed`; review database teardown `0`; dependency `165/35/0`; owned Ruff/format/diff passed. RuntimeNode idempotency reaches STARTED→TERMINAL, orphan receipt is adopted without duplication, terminal replay returns canonical DB binding, capability-scoped logical requests remain isolated, and rollback rehearsal executes a distinct legacy capability through claim→attempt→terminal while the disabled successor cannot double-claim and its prior attempt/receipt/idempotency are retained. Generator `--check` match/drift/unknown gates are read-only. Production/Celery/live findings remain nonblocking for this local-only scope.",
+          "text_sha256": "acc4c266c491b9ff5bda851530ed01a7b98a5fc0619b14212e91a5f9b6de09b6"
+        },
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/03_functorial-successor-migration-development-progress.md"
+      },
+      "record_source": {
+        "canonical_slice_digest": "299fca6303606925fc8358d371d42eefc5e7d6dc8d922548ad741258439651d6",
+        "json_pointer": "/phases/P3/family_dispositions/C4",
+        "kind": "mutable_external_disposition",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/04_functorial-successor-capability-ledger.json"
+      },
+      "task_ref": "/root/p3_c4_review",
+      "validation_evidence": {
+        "dependency_lint": "165 files, 35 function-local imports, 0 violations",
+        "focused_and_real_postgres": "52 passed",
+        "generator_check": "match exit 0; drift exit 1; unknown exit 2; no bytes or mtime mutation",
+        "rollback_rehearsal": "legacy capability claim/attempt/terminal succeeded; successor restart claimed 0",
+        "runtime_idempotency": "STARTED to TERMINAL",
+        "teardown": "review database absent"
+      }
+    },
+    {
+      "authority_ceiling": "LOCAL_OFFLINE_OBSERVATION_AND_REPLAY_ONLY_NOT_LIVE",
+      "disposition": "ALLOW_C5_FAMILY_LOCAL_ONLY_PROMOTION",
+      "family": "C5",
+      "family_manifest_digest": "1752d9e7f20bc15b080bdc7b6dddf8782ee0f5f6f8fcaa498dbe7122b4f1a02b",
+      "fragment_content_digest": "49ffc797bb88f7d362e98d197fe6d5b2e2630d62aab1d7d21c491a01be283e13",
+      "fragment_file_sha256": "38ce21888d0c2780bac3c2b6dbef9fcc42341eb041d281a2a994cbed35215d39",
+      "open_blocking_p0": [],
+      "open_blocking_p1": [],
+      "progress_exact_binding": {
+        "anchor": {
+          "label": "P3_C5_EXACT_PROMOTION",
+          "required_tokens": [
+            "P3 C5",
+            "/root/p3_c5_review",
+            "49ffc797bb88f7d362e98d197fe6d5b2e2630d62aab1d7d21c491a01be283e13"
+          ],
+          "text": "- P3 C5 exact re-promotion closure: `/root/p3_c5_review` re-reviewed the current bytes and returned `ALLOW C5 FAMILY LOCAL-ONLY PROMOTION`; fragment file SHA-256 `38ce21888d0c2780bac3c2b6dbef9fcc42341eb041d281a2a994cbed35215d39`, content digest `49ffc797bb88f7d362e98d197fe6d5b2e2630d62aab1d7d21c491a01be283e13`, bindings `27/27` exact. C5 family `49 passed`, including five C5.2 and four C5.3 real PostgreSQL cases; review database teardown `0`; dependency lint `165/35/0`; Ruff/format/diff passed. The true `--check` match/drift/unknown gates preserve bytes and mtime. Blocking P0/P1 for local-only promotion are empty; locator adjudication and all authority ceilings remain unchanged.",
+          "text_sha256": "ab4626080bf8887b12dba9a37b63d00363597e9caac7ab109a88f65f12e96d8c"
+        },
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/03_functorial-successor-migration-development-progress.md"
+      },
+      "record_source": {
+        "canonical_slice_digest": "2d52b6093c02d84f331f2a5beb69561c7fc3b1a3661625a1f7efdb65e0e0d3c8",
+        "json_pointer": "/phases/P3/family_dispositions/C5",
+        "kind": "mutable_external_disposition",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/04_functorial-successor-capability-ledger.json"
+      },
+      "task_ref": "/root/p3_c5_review",
+      "validation_evidence": {
+        "bindings": "27/27 exact",
+        "focused_family": "49 passed",
+        "generator_check": "match exit 0; drift exit 1; unknown exit 2; no bytes or mtime mutation",
+        "real_postgres_c5_2": "5 cases",
+        "real_postgres_c5_3": "4 cases",
+        "teardown": "review database absent"
+      }
+    },
+    {
+      "authority_ceiling": "LOCAL_OFFLINE_RUNTIME_NODE_AND_REPLAY_ONLY_NOT_LIVE",
+      "disposition": "ALLOW_P3_C6_LOCAL_ONLY_PROMOTION",
+      "family": "C6",
+      "family_manifest_digest": "ad5527a8e6056ef3e540fe613786b176536a97a93241ade017dcf42cdfaf5a9e",
+      "fragment_content_digest": "95de7f38c4f93eafa05c10b130fd559019ecd6e1191dee9ddcfd008cceba1fbf",
+      "fragment_file_sha256": "de997e287f8c51d8c984ae37c81c102834a2a64061967d089fd7d3180468796f",
+      "open_blocking_p0": [],
+      "open_blocking_p1": [],
+      "progress_exact_binding": {
+        "anchor": {
+          "label": "P3_C6_EXACT_PROMOTION",
+          "required_tokens": [
+            "P3 C6",
+            "/root/p3_c6_exact_rereview",
+            "95de7f38c4f93eafa05c10b130fd559019ecd6e1191dee9ddcfd008cceba1fbf"
+          ],
+          "text": "- P3 C6 family promotion boundary: independent review `/root/p3_c6_exact_rereview` disposition `ALLOW P3 C6 LOCAL-ONLY PROMOTION`; open P0 is empty. Exact fragment file SHA-256 `de997e287f8c51d8c984ae37c81c102834a2a64061967d089fd7d3180468796f`, content digest `95de7f38c4f93eafa05c10b130fd559019ecd6e1191dee9ddcfd008cceba1fbf`; all 31 bindings match. Focused non-PostgreSQL `40 passed, 2 warnings`; disposable PostgreSQL `10 passed, 2 warnings`, database teardown observed absent; dependency lint `163/35/0`; owned Ruff/format passed. The generator now has a real read-only `--check`: matching bytes exit 0 without mtime change, drift exits 1 without writes, unknown arguments exit 2. Verified semantics include recursive thaw, PEP 604 codec, project-store resume, exact readback attempt identity, exact receipt store, C6.3 same-Program shadow, three real RuntimeNode canaries and future-owner rollback. Production/live findings remain nonblocking for this local-only scope.",
+          "text_sha256": "4806584d0297f94e85ca5b4bfac0d75a638500adf0589ae6bbf3d62fcf21a1c4"
+        },
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/03_functorial-successor-migration-development-progress.md"
+      },
+      "record_source": {
+        "canonical_slice_digest": "b0f094457af3834aa37f6fcf3c014dc30362e98d5bca8dd0b76183b8a899bf03",
+        "json_pointer": "/phases/P3/family_dispositions/C6",
+        "kind": "mutable_external_disposition",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/04_functorial-successor-capability-ledger.json"
+      },
+      "task_ref": "/root/p3_c6_exact_rereview",
+      "validation_evidence": {
+        "bindings": "31/31 exact",
+        "focused_non_postgres": "40 passed, 2 warnings",
+        "generator_check": "match exit 0 no mtime change; drift exit 1 no write; unknown exit 2",
+        "real_postgres_runtime_node": "10 passed, 2 warnings",
+        "teardown": "temporary database absent"
+      }
+    }
+  ],
+  "families": [
+    "C2",
+    "C3",
+    "C4",
+    "C5",
+    "C6"
+  ],
+  "findings": {
+    "open_blocking_for_p3_local_only": [],
+    "open_nonblocking_for_p3_local_only": [
+      {
+        "blocking_scopes": [
+          "P5_EXACT_CANDIDATE"
+        ],
+        "description": "disposable-PG RuntimeNode canary verified locally for one materialized C2.3 attempt; production/live promotion remains not authorized",
+        "description_variants": [
+          "disposable-PG RuntimeNode canary verified locally for one materialized C2.3 attempt; production/live promotion remains not authorized"
+        ],
+        "finding_id": "C2_2_DURABLE_RUNTIME_NODE_LOCAL_ONLY",
+        "reported_by": [
+          "C2"
+        ],
+        "review_state": "OPEN_NONBLOCKING",
+        "severity": "P1"
+      },
+      {
+        "blocking_scopes": [
+          "LIVE_PROVIDER"
+        ],
+        "description": "live provider/credential authority, authoritative readback and idempotency/non-start proof are not frozen",
+        "description_variants": [
+          "live provider/credential authority, authoritative readback and idempotency/non-start proof are not frozen"
+        ],
+        "finding_id": "C2_3_LIVE_PROVIDER_AUTHORITY_NOT_FROZEN",
+        "reported_by": [
+          "C2"
+        ],
+        "review_state": "OPEN_NONBLOCKING",
+        "severity": "P0"
+      },
+      {
+        "blocking_scopes": [
+          "LIVE_PROVIDER"
+        ],
+        "description": "source closure, declared-loss profile and offset/rebuild are fixture-verified only; no live compat read routing",
+        "description_variants": [
+          "source closure, declared-loss profile and offset/rebuild are fixture-verified only; no live compat read routing"
+        ],
+        "finding_id": "C2_4_SOURCE_CLOSURE_AND_OFFSET_NOT_LIVE",
+        "reported_by": [
+          "C2"
+        ],
+        "review_state": "OPEN_NONBLOCKING",
+        "severity": "P1"
+      },
+      {
+        "blocking_scopes": [
+          "P5_EXACT_CANDIDATE"
+        ],
+        "description": "successor execution is fixture/unit-level only; durable runtime-node journal/replay/rollback is not proven",
+        "description_variants": [
+          "successor execution is fixture/unit-level only; durable runtime-node journal/replay/rollback is not proven"
+        ],
+        "finding_id": "C3_DURABLE_RUNTIME_NODE_NOT_PROVEN",
+        "reported_by": [
+          "C3"
+        ],
+        "review_state": "OPEN_NONBLOCKING",
+        "severity": "P1"
+      },
+      {
+        "blocking_scopes": [
+          "LIVE_PROVIDER"
+        ],
+        "description": "live provider/network, authoritative provider readback and idempotency/non-start proof are not frozen",
+        "description_variants": [
+          "live provider/network, authoritative provider readback and idempotency/non-start proof are not frozen"
+        ],
+        "finding_id": "C3_LIVE_PROVIDER_AUTHORITY_NOT_FROZEN",
+        "reported_by": [
+          "C3"
+        ],
+        "review_state": "OPEN_NONBLOCKING",
+        "severity": "P0"
+      },
+      {
+        "blocking_scopes": [
+          "P5_EXACT_CANDIDATE"
+        ],
+        "description": "PG canary executed on disposable mrw_p3_c3_worker_test with teardown; production database/cutover is not claimed",
+        "description_variants": [
+          "PG canary executed on disposable mrw_p3_c3_worker_test with teardown; production database/cutover is not claimed"
+        ],
+        "finding_id": "C3_POSTGRES_CANARY_DISPOSABLE_ONLY",
+        "reported_by": [
+          "C3"
+        ],
+        "review_state": "OPEN_NONBLOCKING",
+        "severity": "P1"
+      },
+      {
+        "blocking_scopes": [
+          "P5_EXACT_CANDIDATE"
+        ],
+        "description": "real PostgreSQL idempotency reserve/replay/conflict/terminal, crash-before-terminal receipt adoption and rollback rehearsal are verified on the disposable mrw_p3_c4_worker_test database, but submission adoption, restart recovery and concurrent duplicate-request claim remain unpromoted; no promotion claim is made by this fragment",
+        "description_variants": [
+          "real PostgreSQL idempotency reserve/replay/conflict/terminal, crash-before-terminal receipt adoption and rollback rehearsal are verified on the disposable mrw_p3_c4_worker_test database, but submission adoption, restart recovery and concurrent duplicate-request claim remain unpromoted; no promotion claim is made by this fragment"
+        ],
+        "finding_id": "C4_3_DURABLE_ADOPTION_NOT_PROMOTED",
+        "reported_by": [
+          "C4"
+        ],
+        "review_state": "OPEN_NONBLOCKING",
+        "severity": "P1"
+      },
+      {
+        "blocking_scopes": [
+          "PRODUCTION_CANONICAL_WRITE"
+        ],
+        "description": "legacy AgentSession/AgentTask rows remain read-only compat views; no write authority transfer to the runtime journal",
+        "description_variants": [
+          "legacy AgentSession/AgentTask rows remain read-only compat views; no write authority transfer to the runtime journal"
+        ],
+        "finding_id": "C5_1_SESSION_TASK_CONTROL_NOT_MIGRATED",
+        "reported_by": [
+          "C5"
+        ],
+        "review_state": "OPEN_NONBLOCKING",
+        "severity": "P1"
+      },
+      {
+        "blocking_scopes": [
+          "P5_EXACT_CANDIDATE"
+        ],
+        "description": "attempt replay/reconciliation acceptance is fixture/sqlite-level; durable PostgreSQL RuntimeNode path for C5.2 is not proven",
+        "description_variants": [
+          "attempt replay/reconciliation acceptance is fixture/sqlite-level; durable PostgreSQL RuntimeNode path for C5.2 is not proven"
+        ],
+        "finding_id": "C5_2_DURABLE_ATTEMPT_NODE_NOT_PROVEN",
+        "reported_by": [
+          "C5"
+        ],
+        "review_state": "OPEN_NONBLOCKING",
+        "severity": "P1"
+      },
+      {
+        "blocking_scopes": [
+          "P5_EXACT_CANDIDATE"
+        ],
+        "description": "session/task view derives from the existing runtime-run projection; no dedicated session projection table or offset is owned by C5.3",
+        "description_variants": [
+          "session/task view derives from the existing runtime-run projection; no dedicated session projection table or offset is owned by C5.3"
+        ],
+        "finding_id": "C5_3_SESSION_PROJECTION_OFFSET_NOT_OWNED",
+        "reported_by": [
+          "C5"
+        ],
+        "review_state": "OPEN_NONBLOCKING",
+        "severity": "P1"
+      },
+      {
+        "blocking_scopes": [
+          "LIVE_PROVIDER"
+        ],
+        "description": "live provider/credential authority, authoritative readback and idempotency/non-start proof are not frozen; this fragment makes no live-provider claim",
+        "description_variants": [
+          "live provider/credential authority, authoritative readback and idempotency/non-start proof are not frozen; this fragment makes no live-provider claim"
+        ],
+        "finding_id": "C6_2_LIVE_PROVIDER_AUTHORITY_NOT_FROZEN",
+        "reported_by": [
+          "C6"
+        ],
+        "review_state": "OPEN_NONBLOCKING",
+        "severity": "P1"
+      },
+      {
+        "blocking_scopes": [
+          "LIVE_PROVIDER"
+        ],
+        "description": "C6.1 model-step source is a scripted deterministic fixture; live model/provider integration is not frozen",
+        "description_variants": [
+          "C6.1 model-step source is a scripted deterministic fixture; live model/provider integration is not frozen"
+        ],
+        "finding_id": "P3C6_LOOP_LIVE_MODEL_NOT_PROVEN",
+        "reported_by": [
+          "C6"
+        ],
+        "review_state": "OPEN_NONBLOCKING",
+        "severity": "P1"
+      },
+      {
+        "blocking_scopes": [
+          "PRODUCTION_CANONICAL_WRITE"
+        ],
+        "description": "pre-persistence redaction is verified on a disposable PostgreSQL worker schema; production AgentCore/agent_runtime emitters are still legacy",
+        "description_variants": [
+          "pre-persistence redaction is verified on a disposable PostgreSQL worker schema; production AgentCore/agent_runtime emitters are still legacy"
+        ],
+        "finding_id": "P3C6_PRODUCTION_REDACTION_PERSISTENCE_NOT_PROVEN",
+        "reported_by": [
+          "C6"
+        ],
+        "review_state": "OPEN_NONBLOCKING",
+        "severity": "P1"
+      },
+      {
+        "blocking_scopes": [
+          "PRODUCTION_CANONICAL_WRITE"
+        ],
+        "description": "disposable local RuntimeNode canary is proven for all C6 cells; production RuntimeNode/cutover remains pending",
+        "description_variants": [
+          "disposable local RuntimeNode canary is proven for all C6 cells; production RuntimeNode/cutover remains pending"
+        ],
+        "finding_id": "P3C6_PRODUCTION_RUNTIME_NODE_NOT_PROVEN",
+        "reported_by": [
+          "C6"
+        ],
+        "review_state": "OPEN_NONBLOCKING",
+        "severity": "P1"
+      },
+      {
+        "blocking_scopes": [
+          "PRODUCTION_CANONICAL_WRITE"
+        ],
+        "description": "project-store rehydration is proven in the disposable mrw_p3_c6_worker_test schema; production store/cutover is not proven",
+        "description_variants": [
+          "project-store rehydration is proven in the disposable mrw_p3_c6_worker_test schema; production store/cutover is not proven"
+        ],
+        "finding_id": "P3C6_PRODUCTION_STORE_NOT_PROVEN",
+        "reported_by": [
+          "C6"
+        ],
+        "review_state": "OPEN_NONBLOCKING",
+        "severity": "P1"
+      },
+      {
+        "blocking_scopes": [
+          "P5_EXACT_CANDIDATE"
+        ],
+        "description": "frozen 01/02 still bound P0-C; mutable ledger claims P3 authorized; promotion requires root/supervisor authority record",
+        "description_variants": [
+          "frozen 01/02 still bound P0-C; mutable ledger claims P3 authorized; promotion requires root/supervisor authority record",
+          "frozen contract and mutable ledger authority still diverge; promotion requires root/supervisor authority record"
+        ],
+        "finding_id": "P3_AUTHORITY_RECORD_DIVERGENCE",
+        "reported_by": [
+          "C2",
+          "C3",
+          "C4",
+          "C5"
+        ],
+        "review_state": "OPEN_NONBLOCKING",
+        "severity": "P0"
+      },
+      {
+        "blocking_scopes": [
+          "P5_EXACT_CANDIDATE"
+        ],
+        "description": "C2.1 project-store rehydration is bound by P2C21CapabilityPacket.v5 (content_digest af98e967ce22...); v4 remains superseded/invalidated read-only history; C2.1->C2.2 durable chaining remains local-only, not live",
+        "description_variants": [
+          "C2.1 project-store rehydration is bound by P2C21CapabilityPacket.v5 (content_digest af98e967ce22...); v4 remains superseded/invalidated read-only history; C2.1->C2.2 durable chaining remains local-only, not live"
+        ],
+        "finding_id": "P3_C2_CHAIN_REHYDRATION_LOCAL_ONLY",
+        "reported_by": [
+          "C2"
+        ],
+        "review_state": "OPEN_NONBLOCKING",
+        "severity": "P1"
+      },
+      {
+        "blocking_scopes": [
+          "P5_EXACT_CANDIDATE"
+        ],
+        "description": "capability surface remains untracked; exact review tree pending",
+        "description_variants": [
+          "capability surface remains untracked; exact review tree pending"
+        ],
+        "finding_id": "P3_REVIEW_SURFACE_NOT_GIT_IDENTIFIED",
+        "reported_by": [
+          "C2",
+          "C3",
+          "C4",
+          "C5",
+          "C6"
+        ],
+        "review_state": "OPEN_NONBLOCKING",
+        "severity": "P1"
+      }
+    ],
+    "resolved": [
+      {
+        "disposition": "NO_ADDITIVE_AMENDMENT_REQUIRED",
+        "evidence_ref": {
+          "content_digest": "1b2209a7cc55be719a4470575579a66b744171aadea52eae9e30e075e81b9b0d",
+          "file_sha256": "81a64ec01988d7dd02034f689d8c70e0d7d58dbc6c39eb6306fe029a14b34f77",
+          "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/C5_4LocatorAdjudication.v1.json"
+        },
+        "id": "C5_4_FROZEN_LOCATOR_CLARIFICATION_REQUIRED",
+        "normative_donor_locators": [
+          "main/backend/app/services/tasks.py",
+          "main/backend/app/services/agent_sessions",
+          "main/backend/app/celery_app.py"
+        ],
+        "reported_by": [
+          "C5"
+        ],
+        "severity": "P0",
+        "source_dirty_excluded": {
+          "adopted": false,
+          "path": "main/backend/app/services/task_readback_metadata.py"
+        },
+        "state": "RESOLVED_BY_EXISTING_FREEZE_PRECEDENCE",
+        "supplementary_read_only_evidence": [
+          "main/backend/app/api/process.py",
+          "main/backend/app/api/agent_batch.py"
+        ]
+      }
+    ],
+    "superseded_or_historical": []
+  },
+  "fragment_bindings": [
+    {
+      "bytes": 14856,
+      "content_digest": "eb643bcfb4f20bb613baedb0a1a88979e951a0b6f17e5dccfc69c8d5313b6b30",
+      "family": "C2",
+      "family_manifest_digest": "864a3ecd3facc57aa8958e9386f841f713fc2e542943add61b1e38a9d7e04311",
+      "file_sha256": "5274116a2a083ec1553d05c034f5490f1450851d805fb2590efec21be95c544b",
+      "lines": 1,
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C2.json",
+      "status": "IMPLEMENTED_CANDIDATE_NOT_PROMOTED"
+    },
+    {
+      "bytes": 14366,
+      "content_digest": "dab5bbf53abf85b1d665e99baf98d50783399a4af813758f28c9d2f92ffa37f7",
+      "family": "C3",
+      "family_manifest_digest": "982736ef520ae5e21f55fb761438dd99e22cba9384360e8d7645dc044adfa8da",
+      "file_sha256": "915aee69e65f2020fec859aa65a2f49be14325e4eff077f3881b025a89ef0133",
+      "lines": 362,
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C3.json",
+      "status": "IMPLEMENTED_CANDIDATE_NOT_PROMOTED"
+    },
+    {
+      "bytes": 11856,
+      "content_digest": "a8c6ecaf1a3cada4729036b7ff12ee84fbf0353291f85f82f3b5e50dad0160ad",
+      "family": "C4",
+      "family_manifest_digest": "0985b1225a2784fe860a18a74b98b906616a960da34678680425f9c447714947",
+      "file_sha256": "058b02345b9d67c1e7ff51006afb4c28e2c8ce4dadf7a505fac6bbac781bd188",
+      "lines": 1,
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C4.json",
+      "status": "IMPLEMENTED_CANDIDATE_NOT_PROMOTED"
+    },
+    {
+      "bytes": 15630,
+      "content_digest": "49ffc797bb88f7d362e98d197fe6d5b2e2630d62aab1d7d21c491a01be283e13",
+      "family": "C5",
+      "family_manifest_digest": "1752d9e7f20bc15b080bdc7b6dddf8782ee0f5f6f8fcaa498dbe7122b4f1a02b",
+      "file_sha256": "38ce21888d0c2780bac3c2b6dbef9fcc42341eb041d281a2a994cbed35215d39",
+      "lines": 1,
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C5.json",
+      "status": "IMPLEMENTED_CANDIDATE_NOT_PROMOTED"
+    },
+    {
+      "bytes": 13745,
+      "content_digest": "95de7f38c4f93eafa05c10b130fd559019ecd6e1191dee9ddcfd008cceba1fbf",
+      "family": "C6",
+      "family_manifest_digest": "ad5527a8e6056ef3e540fe613786b176536a97a93241ade017dcf42cdfaf5a9e",
+      "file_sha256": "de997e287f8c51d8c984ae37c81c102834a2a64061967d089fd7d3180468796f",
+      "lines": 1,
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C6.json",
+      "status": "IMPLEMENTED_CANDIDATE_NOT_PROMOTED"
+    }
+  ],
+  "ordered_composition": {
+    "cell_order": [
+      "C2.2",
+      "C2.3",
+      "C2.4",
+      "C3.1",
+      "C3.2",
+      "C4.1",
+      "C4.2",
+      "C4.3",
+      "C5.1",
+      "C5.2",
+      "C5.3",
+      "C5.4",
+      "C6.1",
+      "C6.2",
+      "C6.3"
+    ],
+    "commutativity_claim": false,
+    "cross_family_execution_order_claim": false,
+    "family_order": [
+      "C2",
+      "C3",
+      "C4",
+      "C5",
+      "C6"
+    ],
+    "order_meaning": "canonical serialization and serial adoption order"
+  },
+  "phase": "P3",
+  "predecessor_bindings": {
+    "p1_artifact": {
+      "bytes": 408332,
+      "content_digest": "f474818f7a7db5f68d93721234dfde2961c7e4588b26e78eea4345dc25e52b52",
+      "file_sha256": "16dac2d34f2cdcaeffa4718fe2e63733f48b29ad0ba64daab32ed011527d4642",
+      "lines": 7164,
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/P1FunctorizationEligibility.v1.json"
+    },
+    "p2_current_packet": {
+      "bytes": 13079,
+      "content_digest": "af98e967ce220cea3a4fc37ce067a95d83ecc075baa044877711cf7036bee1e0",
+      "file_sha256": "81051ed22585b72e07f0e773ceebe70cccad7cbeee08aa7b2106c454517b0b09",
+      "lines": 1,
+      "packet_self_review": null,
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/P2C21CapabilityPacket.v5.json"
+    },
+    "p2_external_disposition": {
+      "binding_state": "BOUND_CURRENT_BYTES",
+      "canonical_slice_digest": "29cbc84f33295f92fba84640ef1e2f67fa7fdb36f1e562fd9f81a305b38d140c",
+      "disposition": "ALLOW_PACKET_V5_BINDING",
+      "exact_for_selected_packet": true,
+      "json_pointer": "/phases/P2",
+      "ledger_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/04_functorial-successor-capability-ledger.json",
+      "open_blocking_p0": [],
+      "progress_exact_binding": {
+        "anchor": {
+          "label": "P2_CURRENT_PACKET_EXACT_PROMOTION",
+          "required_tokens": [
+            "P2 v5 exact closure",
+            "/root/p2_c21_core_review_v2",
+            "af98e967ce220cea3a4fc37ce067a95d83ecc075baa044877711cf7036bee1e0"
+          ],
+          "text": "- P2 v5 exact closure: immutable additive `evidence/P2C21CapabilityPacket.v5.json` file SHA-256 `81051ed22585b72e07f0e773ceebe70cccad7cbeee08aa7b2106c454517b0b09`, content digest `af98e967ce220cea3a4fc37ce067a95d83ecc075baa044877711cf7036bee1e0`; independent disposition `/root/p2_c21_core_review_v2` = `ALLOW_PACKET_V5_BINDING`, open P0 empty. V5 supersedes v4 without modifying v1-v4, binds the corrected current locality test and all 17 exact sources/tests; P2 unit `45 passed`, locality `3 passed`, packet+rehydration `19 passed`, canary+rehydration PostgreSQL `29 passed`, teardown tables/schemas/databases `0/0/0`. Current global dependency lint has one out-of-P2 C8 scaffold violation; it is not a v5 capability blocker but remains a whole-tree P1.",
+          "text_sha256": "922d40b3320e82f79eb89d7fc3f72a6c4f889cfb7977be0773a4b79e096596c5"
+        },
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/03_functorial-successor-migration-development-progress.md"
+      },
+      "record_kind": "mutable_external_disposition",
+      "task_ref": "/root/p2_c21_core_review_v2"
+    },
+    "p2_selection": {
+      "bytes": 2501,
+      "content_digest": "764ffea64b60593205309a1419871c12cd1e81bd00e02058f6fe5176dd609d78",
+      "file_sha256": "82b0ae129a6ed06e65aeed32e279cb7c4a19ef22d393409de23aabf50139be26",
+      "lines": 57,
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/P2C21Selection.v1.json"
+    }
+  },
+  "promotion_prerequisites": {
+    "decision_owner": "root_supervisor",
+    "promotion_claim": false,
+    "satisfied": [
+      "AUTHORITY_CEILING_FALSE",
+      "EXACT_FAMILY_REVIEW:C2",
+      "EXACT_FAMILY_REVIEW:C3",
+      "EXACT_FAMILY_REVIEW:C4",
+      "EXACT_FAMILY_REVIEW:C5",
+      "EXACT_FAMILY_REVIEW:C6",
+      "LEGACY_CLAIM_OWNER_RETAINED",
+      "OPERATION_IDENTITIES_UNIQUE",
+      "P2_CURRENT_PACKET_EXTERNAL_REVIEW_EXACT",
+      "P3_FRAGMENT_BATCH_VALID"
+    ],
+    "unsatisfied": []
+  },
+  "schema": "mrw.functorial_successor.p3_capability_migration.v1",
+  "status": "REVIEW_COMPLETE_DECISION_PENDING_NOT_PROMOTED",
+  "validation": {
+    "aggregate_generator_binding": {
+      "bytes": 38856,
+      "file_sha256": "265200a66e844f69bf7ba5ec22030afea637d16a78a999a210f41db70921062c",
+      "lines": 1061,
+      "path": "main/backend/scripts/generate_successor_p3_aggregate.py"
+    },
+    "batch_report": {
+      "aggregate_phases": [],
+      "batch_id": "p3-capability-migration-pre-aggregate-v1",
+      "batch_schema": "mrw.functorial_successor.migration_batch_validation.v1",
+      "counts": {
+        "aggregates": 0,
+        "cells": 15,
+        "fragments": 5,
+        "issues": 0,
+        "source_bindings": 147,
+        "source_evidence": 0
+      },
+      "exit_code": 0,
+      "families_by_phase": {
+        "P3": [
+          "C2",
+          "C3",
+          "C4",
+          "C5",
+          "C6"
+        ]
+      },
+      "issues": [],
+      "phase_union": [
+        "P3"
+      ],
+      "root": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0",
+      "schema": "mrw.functorial_successor.migration_batch_validation_report.v1",
+      "status": "VALID",
+      "valid": true
+    },
+    "batch_validator_binding": {
+      "bytes": 62277,
+      "file_sha256": "d1b015a2a7dcb5ae38247d966dcd2534ce8b952af0b6fe4bcb6ba90c608bf22d",
+      "lines": 1796,
+      "path": "main/backend/scripts/validate_successor_migration_batch.py"
+    }
+  },
+  "worktree_identity": {
+    "bound_path_manifest_digest": "a92663c49fb32d3e659c54fca0728bf3d0b1208cb1082a1b4653115ee8bb4520",
+    "bound_paths": [
+      {
+        "bytes": 144411,
+        "lines": 2577,
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/06_functorial-successor-runtime-architecture-correction.draft.zh-CN.md",
+        "sha256": "c93b58e15a3dbaa1e5e1be9bebfbc41143b97b8e91eb9774851d1f5d78fe3a93"
+      },
+      {
+        "bytes": 6685,
+        "lines": 41,
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/13_functorial-successor-c1-c9-locator-pending-inventory.v1.json",
+        "sha256": "dcb1a3f09c54ee787f9ebae698b8b75c707fd5b8b1c23569fcca8ebc29be2c38"
+      },
+      {
+        "bytes": 2610,
+        "lines": 1,
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/C5_4LocatorAdjudication.v1.json",
+        "sha256": "81a64ec01988d7dd02034f689d8c70e0d7d58dbc6c39eb6306fe029a14b34f77"
+      },
+      {
+        "bytes": 408332,
+        "lines": 7164,
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/P1FunctorizationEligibility.v1.json",
+        "sha256": "16dac2d34f2cdcaeffa4718fe2e63733f48b29ad0ba64daab32ed011527d4642"
+      },
+      {
+        "bytes": 12612,
+        "lines": 1,
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/P2C21CapabilityPacket.v2.json",
+        "sha256": "50e263aba7d5cea085a0e4142cad41c8e9706237e59bbf8c32b424eb6b08155f"
+      },
+      {
+        "bytes": 12584,
+        "lines": 1,
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/P2C21CapabilityPacket.v3.json",
+        "sha256": "89311e18a20f136609a52c2ca11f6587baab855348028f056df5cefeb92d1832"
+      },
+      {
+        "bytes": 13144,
+        "lines": 1,
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/P2C21CapabilityPacket.v4.json",
+        "sha256": "d0d275be378c11553e595ffc726906275dd7aa9f030af32172c2b8805252ab9a"
+      },
+      {
+        "bytes": 13079,
+        "lines": 1,
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/P2C21CapabilityPacket.v5.json",
+        "sha256": "81051ed22585b72e07f0e773ceebe70cccad7cbeee08aa7b2106c454517b0b09"
+      },
+      {
+        "bytes": 2501,
+        "lines": 57,
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/P2C21Selection.v1.json",
+        "sha256": "82b0ae129a6ed06e65aeed32e279cb7c4a19ef22d393409de23aabf50139be26"
+      },
+      {
+        "bytes": 48581,
+        "lines": 832,
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p1-fragments/C2.json",
+        "sha256": "0364d2c7e9c759a8a9dc59fe419a09c55c2dbcef5000dfd2772cb4bec82e4e9c"
+      },
+      {
+        "bytes": 27185,
+        "lines": 420,
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p1-fragments/C3.json",
+        "sha256": "52824449d8d28ec603f7b46128a83f8a27d4e711f1534d621726c748acba861c"
+      },
+      {
+        "bytes": 35550,
+        "lines": 697,
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p1-fragments/C4.json",
+        "sha256": "afd63bec6bfca18c543a94f0b1aebd6c15436f68517b227511d3ef2d22872657"
+      },
+      {
+        "bytes": 37087,
+        "lines": 696,
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p1-fragments/C5.json",
+        "sha256": "a61c3bb6b19bfa384fefb49545c715a0375753bc9fcd1646a333d179ab18c265"
+      },
+      {
+        "bytes": 44888,
+        "lines": 827,
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p1-fragments/C6.json",
+        "sha256": "17cfe8c9a8d8bb208aa20f855db2d0929c755cafb119377c032c5d3f1412a4de"
+      },
+      {
+        "bytes": 14856,
+        "lines": 1,
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C2.json",
+        "sha256": "5274116a2a083ec1553d05c034f5490f1450851d805fb2590efec21be95c544b"
+      },
+      {
+        "bytes": 14366,
+        "lines": 362,
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C3.json",
+        "sha256": "915aee69e65f2020fec859aa65a2f49be14325e4eff077f3881b025a89ef0133"
+      },
+      {
+        "bytes": 11856,
+        "lines": 1,
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C4.json",
+        "sha256": "058b02345b9d67c1e7ff51006afb4c28e2c8ce4dadf7a505fac6bbac781bd188"
+      },
+      {
+        "bytes": 15630,
+        "lines": 1,
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C5.json",
+        "sha256": "38ce21888d0c2780bac3c2b6dbef9fcc42341eb041d281a2a994cbed35215d39"
+      },
+      {
+        "bytes": 13745,
+        "lines": 1,
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C6.json",
+        "sha256": "de997e287f8c51d8c984ae37c81c102834a2a64061967d089fd7d3180468796f"
+      },
+      {
+        "bytes": 68656,
+        "lines": 1753,
+        "path": "main/backend/app/api/agent_batch.py",
+        "sha256": "696b84b1640578af56a8e5d6f10f6329f7ef7374e25f8c76e3e47999220c794a"
+      },
+      {
+        "bytes": 38313,
+        "lines": 985,
+        "path": "main/backend/app/api/process.py",
+        "sha256": "d3eab110965741ed8c44e2eac31b607675f4102b26679c3ac68b72b8d7addbdc"
+      },
+      {
+        "bytes": 267,
+        "lines": 16,
+        "path": "main/backend/app/celery_app.py",
+        "sha256": "5f28badfb562179370c4042e2a9a7ef5a8f84933c961755aa86d6c6b8be1b380"
+      },
+      {
+        "bytes": 38224,
+        "lines": 889,
+        "path": "main/backend/app/models/entities.py",
+        "sha256": "fbbc6c71b6fdad027de2d0556d81d164df0851c661039254667d8cb5ed435adf"
+      },
+      {
+        "bytes": 54723,
+        "lines": 1418,
+        "path": "main/backend/app/services/agent_batch/agent_loop.py",
+        "sha256": "49094cc2f6f3297082ac10df60001429b734bb0e0a85ee14041d47a915f882c8"
+      },
+      {
+        "bytes": 39449,
+        "lines": 1130,
+        "path": "main/backend/app/services/agent_batch/task_contract.py",
+        "sha256": "ab47bab386fc2388f510c8d67f183da8b27b0854f9dfbc51ccfbb1aa71312122"
+      },
+      {
+        "bytes": 10576,
+        "lines": 318,
+        "path": "main/backend/app/services/agent_core/contracts.py",
+        "sha256": "769c14a267306d4488108f3efa4a6704d1f2f9ebab84de8f6a4440ced8ebde41"
+      },
+      {
+        "bytes": 51729,
+        "lines": 1071,
+        "path": "main/backend/app/services/agent_core/core.py",
+        "sha256": "e961a4ac80437a9fd247654e50b2c5500c2d65cf95b93532151a94413ffdd93e"
+      },
+      {
+        "bytes": 1167,
+        "lines": 35,
+        "path": "main/backend/app/services/agent_core/fake_provider.py",
+        "sha256": "f170aabb475a1d038cb01359de2f87c3d2401e4db2ea0cb176262577fabb98d9"
+      },
+      {
+        "bytes": 44031,
+        "lines": 729,
+        "path": "main/backend/app/services/agent_core/json_provider.py",
+        "sha256": "f1249960173974373850dc10f421e4a185b2a85fcc7c06d5f1cb6f10761eac33"
+      },
+      {
+        "bytes": 17739,
+        "lines": 312,
+        "path": "main/backend/app/services/agent_core/native_provider.py",
+        "sha256": "5cff4695fa1aa9455d3090ae7e8ca51d414a3e7e93599243ccefccd35331b566"
+      },
+      {
+        "bytes": 32856,
+        "lines": 703,
+        "path": "main/backend/app/services/agent_core/provider_trace.py",
+        "sha256": "d4cdd38d3d568c885946affe92f20826c5244d949b36484a4d27ce300c938b39"
+      },
+      {
+        "bytes": 97290,
+        "lines": 2070,
+        "path": "main/backend/app/services/agent_runtime/interactive_agent.py",
+        "sha256": "cf6505a2ebf0d1bb19dc22cba0e5b7ed34e2d04db5142b1276ee04949e1072a6"
+      },
+      {
+        "bytes": 31165,
+        "lines": 682,
+        "path": "main/backend/app/services/agent_runtime/run_loop.py",
+        "sha256": "9c11c49cf985d9e5d5563e6111a6084def841875e584c80f7ffd5c7a5ff934c5"
+      },
+      {
+        "bytes": 80117,
+        "lines": 1771,
+        "path": "main/backend/app/services/agent_sessions/service.py",
+        "sha256": "56e5f4cf696bcdd1ceb31883e88b2829597dcc8f25d9a23287073c85cde21852"
+      },
+      {
+        "bytes": 35135,
+        "lines": 805,
+        "path": "main/backend/app/services/agent_sessions/store.py",
+        "sha256": "098d70798d7b719dcb50f42492175159a14adca2ff930adbbc3cc824a11ff0b4"
+      },
+      {
+        "bytes": 3741,
+        "lines": 92,
+        "path": "main/backend/app/services/collect_runtime/adapters/crawler_scrapy.py",
+        "sha256": "d9bf07661df0c9c15c4489f8b73197c0e38979b22b47bacaa760c247622b4fa2"
+      },
+      {
+        "bytes": 15396,
+        "lines": 326,
+        "path": "main/backend/app/services/collect_runtime/adapters/source_library.py",
+        "sha256": "e4f2d2652361fc98834d53a0f1f2c923c4b88f2493d94cef2fc6842970b13393"
+      },
+      {
+        "bytes": 1552,
+        "lines": 50,
+        "path": "main/backend/app/services/collect_runtime/contracts.py",
+        "sha256": "847ac17742818979200fbbdee006646c02a96ca3a54056dc699d6046fdca83e0"
+      },
+      {
+        "bytes": 4306,
+        "lines": 100,
+        "path": "main/backend/app/services/collect_runtime/display_meta.py",
+        "sha256": "ab538c3dace7eab1ed29289b2ac32ad32846e631914106bc46e30db05ee23145"
+      },
+      {
+        "bytes": 18188,
+        "lines": 471,
+        "path": "main/backend/app/services/collect_runtime/runtime.py",
+        "sha256": "c7591aee60b1ed6966a67fd88044356bc2a618890bddc2da0e60714989eea482"
+      },
+      {
+        "bytes": 8772,
+        "lines": 221,
+        "path": "main/backend/app/services/source_library/item_resolver.py",
+        "sha256": "50762f4b27d85ea4bd1f9e98f05f9930cc637b770ac55dc12aac7a115e595b12"
+      },
+      {
+        "bytes": 1792,
+        "lines": 52,
+        "path": "main/backend/app/services/source_library/orchestrators/protocol_search.py",
+        "sha256": "828def07b41a11e032a438c75806e443aa6b9c75334166afc8d9b0bf3026868e"
+      },
+      {
+        "bytes": 1835,
+        "lines": 53,
+        "path": "main/backend/app/services/source_library/orchestrators/provider_harvest.py",
+        "sha256": "c0cd172d3dd6e91633a58f1857e9a26baf5eed372a46775f2df279b5830fd393"
+      },
+      {
+        "bytes": 2079,
+        "lines": 54,
+        "path": "main/backend/app/services/source_library/orchestrators/single_channel.py",
+        "sha256": "f803a916d8ad0d70ce2e736afee334f65cc52cf82333bb8d3d5f62678bebb52c"
+      },
+      {
+        "bytes": 767,
+        "lines": 25,
+        "path": "main/backend/app/services/source_library/orchestrators/site_search.py",
+        "sha256": "8dcd39502b616f129fae01692dcf58bf0f3ca224691490f85603e32b06ceea5f"
+      },
+      {
+        "bytes": 971,
+        "lines": 30,
+        "path": "main/backend/app/services/source_library/orchestrators/url_execution.py",
+        "sha256": "f18b4563430ff5617dd9ab332b55b3994daebbc43652982e87d098c0ebadd93c"
+      },
+      {
+        "bytes": 96622,
+        "lines": 2321,
+        "path": "main/backend/app/services/source_library/resolver.py",
+        "sha256": "27245d6bef47495d0f20f0d4a219994e2765c7210606af0318f39903404e6aea"
+      },
+      {
+        "bytes": 13483,
+        "lines": 336,
+        "path": "main/backend/app/services/source_library/runner.py",
+        "sha256": "dde002488abbcc19ba27f50513b4ac3a043499c815d5dd416c3089951f2a4aa7"
+      },
+      {
+        "bytes": 19970,
+        "lines": 501,
+        "path": "main/backend/app/services/source_library/terminal_output.py",
+        "sha256": "035f6a4c085f57df944efd39850cd884311ea688dd25eec6fdc7336902ef36d5"
+      },
+      {
+        "bytes": 46185,
+        "lines": 1266,
+        "path": "main/backend/app/services/tasks.py",
+        "sha256": "a0e5a7facb70cfaf7a5cc0f5ad4fc53ef8434d5694345a517537898b3531f063"
+      },
+      {
+        "bytes": 20332,
+        "lines": 532,
+        "path": "main/backend/app/successor_migration/legacy_agent_batch.py",
+        "sha256": "83fb7158bdadc595ad5c66d44d6897a9ff5780ab2ebcf9f07b3af05f2f32b0c7"
+      },
+      {
+        "bytes": 32972,
+        "lines": 904,
+        "path": "main/backend/app/successor_migration/legacy_agent_core.py",
+        "sha256": "d0b20aacb92a7cb9b15909c46522110ccdd771297bd82686f38755423d3718bc"
+      },
+      {
+        "bytes": 12498,
+        "lines": 350,
+        "path": "main/backend/app/successor_migration/legacy_agent_sessions.py",
+        "sha256": "e8380617568e00c6bb7486f7fbbdb8850854d49dc31c05f28f4d671c2071c38d"
+      },
+      {
+        "bytes": 34946,
+        "lines": 921,
+        "path": "main/backend/app/successor_migration/legacy_collect_runtime.py",
+        "sha256": "93993dcd0165047c6b4cf2101a86f3aeda49b963f30f2081f4ca773616d8de62"
+      },
+      {
+        "bytes": 19555,
+        "lines": 491,
+        "path": "main/backend/app/successor_migration/legacy_effect_attempts.py",
+        "sha256": "8370fbc2bb599951c6f9a7f7f3182a608ef93f6bfdc7ad8c576bc8033c8f594f"
+      },
+      {
+        "bytes": 9856,
+        "lines": 271,
+        "path": "main/backend/app/successor_migration/legacy_process_observations.py",
+        "sha256": "33d7787d766d377364a8176033f41be6565b6e0513e83136b84d30faf4f76a7d"
+      },
+      {
+        "bytes": 13625,
+        "lines": 396,
+        "path": "main/backend/app/successor_migration/legacy_source_library_c2_2.py",
+        "sha256": "dca1734841d4c9155ce2cf106ceb8c61c4cfb674ae60cacd438d03d34cc524bc"
+      },
+      {
+        "bytes": 5441,
+        "lines": 160,
+        "path": "main/backend/app/successor_migration/legacy_source_library_c2_3.py",
+        "sha256": "e946e70394dc4c9669264450d3d129323094f0fc6a4e8e9951ac51d1ae392f81"
+      },
+      {
+        "bytes": 2285,
+        "lines": 73,
+        "path": "main/backend/app/successor_migration/legacy_source_library_c2_4.py",
+        "sha256": "59e2b7f4a6c1b4e35cdf9d811c00e87c32f8677c0ae088108bc40e0a2185bffc"
+      },
+      {
+        "bytes": 64679,
+        "lines": 1808,
+        "path": "main/backend/app/successor_runtime/capabilities/agent_batch_c4.py",
+        "sha256": "3e8906729700409953f665201b171b55a87e6d0001d2d27c24df5afc9eaafcf5"
+      },
+      {
+        "bytes": 19555,
+        "lines": 561,
+        "path": "main/backend/app/successor_runtime/capabilities/agent_batch_c4_interpreters.py",
+        "sha256": "a35390bafbd32e03331713a013fb4cd2ead68a8b72dee46d44146969b0cd72e2"
+      },
+      {
+        "bytes": 13097,
+        "lines": 380,
+        "path": "main/backend/app/successor_runtime/capabilities/agent_batch_c4_program.py",
+        "sha256": "51c65b3479cf85a22e5ee7331983467899cd9a9991c9be48fde3b8e1d3bc42c5"
+      },
+      {
+        "bytes": 42136,
+        "lines": 1201,
+        "path": "main/backend/app/successor_runtime/capabilities/agent_core_c6_1.py",
+        "sha256": "eaf2b1e5e02b512626595e3418a0f1ccda73f4812442818e5631e298f24e8d21"
+      },
+      {
+        "bytes": 11724,
+        "lines": 318,
+        "path": "main/backend/app/successor_runtime/capabilities/agent_core_c6_1_interpreters.py",
+        "sha256": "ebc9eacca01fbc6ddd7fe5a5a509b9f545e2e9670f60c1b3f35a672d369c2952"
+      },
+      {
+        "bytes": 7451,
+        "lines": 202,
+        "path": "main/backend/app/successor_runtime/capabilities/agent_core_c6_1_program.py",
+        "sha256": "94d0795454d173246cb96f9bda68df97292bb017bcaeed778c1016c57cca98be"
+      },
+      {
+        "bytes": 31631,
+        "lines": 860,
+        "path": "main/backend/app/successor_runtime/capabilities/agent_core_c6_2.py",
+        "sha256": "969dd92650eaac4656844b84162a9c48e3a06d4299b731622a149ed7a511360a"
+      },
+      {
+        "bytes": 11523,
+        "lines": 315,
+        "path": "main/backend/app/successor_runtime/capabilities/agent_core_c6_2_interpreters.py",
+        "sha256": "6a1d2257e4042d5cf21b46dec27246eb4dd1c305de0694a4c57dcc55c88ad016"
+      },
+      {
+        "bytes": 7428,
+        "lines": 201,
+        "path": "main/backend/app/successor_runtime/capabilities/agent_core_c6_2_program.py",
+        "sha256": "c3dda2eea164dbf8804601993bbc89d16995f2f8005506baa4b817479d62b2d6"
+      },
+      {
+        "bytes": 38029,
+        "lines": 1039,
+        "path": "main/backend/app/successor_runtime/capabilities/agent_core_c6_3.py",
+        "sha256": "019b9831eeec80e142fe41604ee740f0f17b104d07c29cd0035b2d06f57b6986"
+      },
+      {
+        "bytes": 12079,
+        "lines": 328,
+        "path": "main/backend/app/successor_runtime/capabilities/agent_core_c6_3_interpreters.py",
+        "sha256": "495a636700c501696ccf6308d838b9470725bd1e01dda134d8e07821cfadca97"
+      },
+      {
+        "bytes": 7937,
+        "lines": 210,
+        "path": "main/backend/app/successor_runtime/capabilities/agent_core_c6_3_program.py",
+        "sha256": "e6a683e392c6167afaa55d51de70531b02e484a749de08261ada7db205c0497a"
+      },
+      {
+        "bytes": 23574,
+        "lines": 674,
+        "path": "main/backend/app/successor_runtime/capabilities/agent_core_c6_common.py",
+        "sha256": "8f2dadd7847e1607f6a7ddf427a9a397bbf6e44895e37a1cf48446dc946a8e30"
+      },
+      {
+        "bytes": 107547,
+        "lines": 2870,
+        "path": "main/backend/app/successor_runtime/capabilities/collect_c3.py",
+        "sha256": "3d02a978725278ace760d5af0bc9ade34072cbe0098c201402214afd3c7ed56f"
+      },
+      {
+        "bytes": 35949,
+        "lines": 962,
+        "path": "main/backend/app/successor_runtime/capabilities/collect_c3_interpreters.py",
+        "sha256": "a62bcbf3e1b33d574da991bd44366d80b060828ffdf276edf726c4efa287809d"
+      },
+      {
+        "bytes": 30871,
+        "lines": 871,
+        "path": "main/backend/app/successor_runtime/capabilities/collect_c3_program.py",
+        "sha256": "3391c98bd285ca35e6536a8dbf396c13231540566be5ab1cc6f8e08a196e0950"
+      },
+      {
+        "bytes": 17361,
+        "lines": 459,
+        "path": "main/backend/app/successor_runtime/capabilities/source_library_c2_2.py",
+        "sha256": "b5d7f24a2514358652eee9ce47cdaa49be970a41b75542d77df3b4408bc567ce"
+      },
+      {
+        "bytes": 23891,
+        "lines": 671,
+        "path": "main/backend/app/successor_runtime/capabilities/source_library_c2_2_interpreters.py",
+        "sha256": "1559ce33e095f44ca5f746e31c727a8a8d88ecfdc25efd693b26d7c938a25bd2"
+      },
+      {
+        "bytes": 9182,
+        "lines": 248,
+        "path": "main/backend/app/successor_runtime/capabilities/source_library_c2_2_program.py",
+        "sha256": "7bc4455fb4919048011c89af69b54c57092bc76565a8c73a41b725beddd51bc1"
+      },
+      {
+        "bytes": 21308,
+        "lines": 545,
+        "path": "main/backend/app/successor_runtime/capabilities/source_library_c2_3.py",
+        "sha256": "faabdd4d82d867f68aa3158dab8a90c3d7e7273cb674ac4f2b32a1437abd27da"
+      },
+      {
+        "bytes": 1044,
+        "lines": 29,
+        "path": "main/backend/app/successor_runtime/capabilities/source_library_c2_3_ports.py",
+        "sha256": "db3a08c2876a52643c483300b74e53355bda771a7e603af189e313588963bc4f"
+      },
+      {
+        "bytes": 12335,
+        "lines": 354,
+        "path": "main/backend/app/successor_runtime/capabilities/source_library_c2_3_test_interpreters.py",
+        "sha256": "7f97776ba9aeca25bda81f412fa5e52e61969ded30dadfe048535abbcf1746dd"
+      },
+      {
+        "bytes": 27257,
+        "lines": 761,
+        "path": "main/backend/app/successor_runtime/capabilities/source_library_c2_4_projection.py",
+        "sha256": "14931d619915b31e7f48cf10d02658fc48eabdec5253421281ac6cd858a023c1"
+      },
+      {
+        "bytes": 125837,
+        "lines": 3501,
+        "path": "main/backend/app/successor_runtime/capabilities/source_library_c2_shared.py",
+        "sha256": "5b366cb7d7e316b59ad57e794a608170a705f4032730a24798e5bb3d967e57c1"
+      },
+      {
+        "bytes": 34898,
+        "lines": 940,
+        "path": "main/backend/app/successor_runtime/language/compile.py",
+        "sha256": "91b06329b8476d06193e8030746288be5550f065b6f471b81dce650608d61dd5"
+      },
+      {
+        "bytes": 4761,
+        "lines": 150,
+        "path": "main/backend/app/successor_runtime/language/normalize.py",
+        "sha256": "888feb73ab4ad6ffadf4846be033a4f2edb1afd692b261092343a9b28ad18f48"
+      },
+      {
+        "bytes": 16973,
+        "lines": 482,
+        "path": "main/backend/app/successor_runtime/language/plan.py",
+        "sha256": "a8f5ab8ccc38c56ebfb67b6b7a1b36132bf45e132014f6d2a2ed0ee3ba7cfb82"
+      },
+      {
+        "bytes": 30968,
+        "lines": 946,
+        "path": "main/backend/app/successor_runtime/language/program.py",
+        "sha256": "eba5147e44ada7ee264606cb64347132b902d86beebba14b9b9a1c3bb6f01e02"
+      },
+      {
+        "bytes": 11355,
+        "lines": 360,
+        "path": "main/backend/app/successor_runtime/language/transforms.py",
+        "sha256": "1fd0a9543967bdec8ed7d1387dbf9d34e9859b92632567667c37224f03de55b5"
+      },
+      {
+        "bytes": 14649,
+        "lines": 385,
+        "path": "main/backend/app/successor_runtime/language/validate.py",
+        "sha256": "2222d867491cde7cfd4772c4e31c06101e0faf12eee1e9209189d2202638abdc"
+      },
+      {
+        "bytes": 5846,
+        "lines": 163,
+        "path": "main/backend/app/successor_runtime/runtime/observations.py",
+        "sha256": "b5adf1043e04c903d25ebae1945cec73ba0939ea44de13bb707477b4562d88a4"
+      },
+      {
+        "bytes": 7762,
+        "lines": 220,
+        "path": "main/backend/app/successor_runtime/substrate/postgres/agent_batch_c4.py",
+        "sha256": "30247879e6eefc942f4ece5f6fad8b54ad0c152fbcd59589fdc7e35638e729f7"
+      },
+      {
+        "bytes": 25219,
+        "lines": 615,
+        "path": "main/backend/app/successor_runtime/substrate/postgres/agent_batch_c4_3_handler.py",
+        "sha256": "c5b276219af73efc1353568fe8430aa64c96ed5aac0c569857b1c5a2d7298d69"
+      },
+      {
+        "bytes": 4931,
+        "lines": 136,
+        "path": "main/backend/app/successor_runtime/substrate/postgres/agent_batch_c4_canary.py",
+        "sha256": "78eb9c3e0508972998670aa6c3499592f8b358fd4e108174f0d1f4f7503d4f8d"
+      },
+      {
+        "bytes": 18693,
+        "lines": 525,
+        "path": "main/backend/app/successor_runtime/substrate/postgres/agent_core_c6_canary.py",
+        "sha256": "e10223acc41334d659efe092f3fc28058cfbb1463f527248781f9651cb129b32"
+      },
+      {
+        "bytes": 27223,
+        "lines": 723,
+        "path": "main/backend/app/successor_runtime/substrate/postgres/agent_core_c6_handler.py",
+        "sha256": "1fb4498f97702d20cea7209b2a068b8de6be57d089682f7912f1b0457c6f968c"
+      },
+      {
+        "bytes": 11415,
+        "lines": 303,
+        "path": "main/backend/app/successor_runtime/substrate/postgres/agent_core_c6_worker.py",
+        "sha256": "ad9ddbcd3537581164d72c638cc9dd60df0e8c9dbe8382ddb60f5540ebbfc3c9"
+      },
+      {
+        "bytes": 23455,
+        "lines": 599,
+        "path": "main/backend/app/successor_runtime/substrate/postgres/collect_c3_canary.py",
+        "sha256": "e88fc1cc8439451ec13fca72d25b29fa1b84900a7defbe7ed9ec76d351e22c16"
+      },
+      {
+        "bytes": 4683,
+        "lines": 148,
+        "path": "main/backend/app/successor_runtime/substrate/postgres/idempotency.py",
+        "sha256": "b51c21cf86f0709c9fda9450b8c6997a7dc90deb1b6bfb965547c979a972343b"
+      },
+      {
+        "bytes": 33392,
+        "lines": 862,
+        "path": "main/backend/app/successor_runtime/substrate/postgres/source_library_c2_23_canary.py",
+        "sha256": "01553dc67d416c199582141586d4ca07f2811aa4ba67b13a2e7b2070ec8798e9"
+      },
+      {
+        "bytes": 13987,
+        "lines": 407,
+        "path": "main/backend/app/successor_runtime/substrate/projections/agent_session.py",
+        "sha256": "d79950659da58fd5d8cc93f44ccd2e632c5e1a467a92ef48f1ff5b25e074f749"
+      },
+      {
+        "bytes": 9572,
+        "lines": 280,
+        "path": "main/backend/app/successor_runtime/substrate/projections/legacy_process.py",
+        "sha256": "5d56b94887cc6be6e214650e83587ea57422361942123e65cd9007da965703bc"
+      },
+      {
+        "bytes": 18497,
+        "lines": 472,
+        "path": "main/backend/app/successor_runtime/substrate/projections/source_library_terminal.py",
+        "sha256": "7f6b498f20a6240658c69effb601d8f256efe7df921a93fb4b3f2c888967c15a"
+      },
+      {
+        "bytes": 38856,
+        "lines": 1061,
+        "path": "main/backend/scripts/generate_successor_p3_aggregate.py",
+        "sha256": "265200a66e844f69bf7ba5ec22030afea637d16a78a999a210f41db70921062c"
+      },
+      {
+        "bytes": 31146,
+        "lines": 868,
+        "path": "main/backend/scripts/generate_successor_p3_c2_fragment.py",
+        "sha256": "b4ca73d125271a5b7129087e34311a8b4e0249582dc7cbbfb12105b45f5d7e52"
+      },
+      {
+        "bytes": 28160,
+        "lines": 809,
+        "path": "main/backend/scripts/generate_successor_p3_c3_fragment.py",
+        "sha256": "cb3789b28fb0811936eaf898c93f2efa4b1e97cb1eea06cb0b042e1031490b0f"
+      },
+      {
+        "bytes": 30176,
+        "lines": 806,
+        "path": "main/backend/scripts/generate_successor_p3_c4_fragment.py",
+        "sha256": "b7f50d24bc465f7c4b176b81ea3ba22031ecfda6059ae010918fc8ab2bf0699f"
+      },
+      {
+        "bytes": 42584,
+        "lines": 1141,
+        "path": "main/backend/scripts/generate_successor_p3_c5_fragment.py",
+        "sha256": "2188cc9041fbc8003f7ef8af6d305e40f962d1dd1f28261f5c49ea8f8c56d3ce"
+      },
+      {
+        "bytes": 34713,
+        "lines": 937,
+        "path": "main/backend/scripts/generate_successor_p3_c6_fragment.py",
+        "sha256": "8067ff385eb0c11dd2a6fea6d13ff227500c48c99607ba573870ecc34b84e810"
+      },
+      {
+        "bytes": 62277,
+        "lines": 1796,
+        "path": "main/backend/scripts/validate_successor_migration_batch.py",
+        "sha256": "d1b015a2a7dcb5ae38247d966dcd2534ce8b952af0b6fe4bcb6ba90c608bf22d"
+      },
+      {
+        "bytes": 14880,
+        "lines": 431,
+        "path": "main/backend/tests/successor_runtime/test_p3_aggregate_evidence.py",
+        "sha256": "ce55a3977581de403df408e20c4a04b3e9608f7185e1ab4e1e0e247f295dbb5f"
+      },
+      {
+        "bytes": 30932,
+        "lines": 812,
+        "path": "main/backend/tests/successor_runtime/test_p3_c2_1_rehydration_postgres.py",
+        "sha256": "4aafef6647b5a469d0946b4249a3cf9e0d6155c6ef89034fc8fb464365381d63"
+      },
+      {
+        "bytes": 64977,
+        "lines": 1636,
+        "path": "main/backend/tests/successor_runtime/test_p3_c2_23_runtime_canary_postgres.py",
+        "sha256": "2a65bd1144144a4738055d5d65a869402427e4a8d598b3fc913182a93b2a2a4f"
+      },
+      {
+        "bytes": 20515,
+        "lines": 563,
+        "path": "main/backend/tests/successor_runtime/test_p3_c2_2_contracts.py",
+        "sha256": "051115e3cbc8a74543e29be94f2810e96643c15338ef17a06e74b6fe772366e4"
+      },
+      {
+        "bytes": 7503,
+        "lines": 210,
+        "path": "main/backend/tests/successor_runtime/test_p3_c2_2_parity.py",
+        "sha256": "ccd981ed267772d997027b034ed6a00afdad7051a6e634fbd374b08f292e85eb"
+      },
+      {
+        "bytes": 9279,
+        "lines": 220,
+        "path": "main/backend/tests/successor_runtime/test_p3_c2_3_contracts.py",
+        "sha256": "21cf15f5c423ff57edd50dbdb1353008989ff5dc3bfe219dc04b9557c490eabc"
+      },
+      {
+        "bytes": 3363,
+        "lines": 77,
+        "path": "main/backend/tests/successor_runtime/test_p3_c2_3_parity.py",
+        "sha256": "9d0d80a181cfea5a3ca7d992fffa9eefb359697eee33acb7bec699fba909c9e8"
+      },
+      {
+        "bytes": 6391,
+        "lines": 147,
+        "path": "main/backend/tests/successor_runtime/test_p3_c2_3_recovery.py",
+        "sha256": "232a5d934cad28810869a6cd162e5c01657df5ced89865c898e18734559cd04a"
+      },
+      {
+        "bytes": 5727,
+        "lines": 173,
+        "path": "main/backend/tests/successor_runtime/test_p3_c2_4_postgres.py",
+        "sha256": "5c50aad999765bdd761408c1276bd1982b064e4096d7967af68b2025e96006f9"
+      },
+      {
+        "bytes": 8768,
+        "lines": 240,
+        "path": "main/backend/tests/successor_runtime/test_p3_c2_4_projection.py",
+        "sha256": "d9046e6dd22c7bf2706f98f4730fce4bc4cb2e361c1d8a66ea6d4c06e42dc743"
+      },
+      {
+        "bytes": 4912,
+        "lines": 153,
+        "path": "main/backend/tests/successor_runtime/test_p3_c2_evidence_generator.py",
+        "sha256": "45cb3a7c20388f1f727bd0086e4f27fbeffb2ea3d9fc0fdea9a8ce4028fcdf7a"
+      },
+      {
+        "bytes": 62331,
+        "lines": 1665,
+        "path": "main/backend/tests/successor_runtime/test_p3_c3_canary_postgres.py",
+        "sha256": "2f9c7a22a7f015554cbbda52d6429ca840072eb7e39d955c02ca9d2e9943ce1c"
+      },
+      {
+        "bytes": 22470,
+        "lines": 618,
+        "path": "main/backend/tests/successor_runtime/test_p3_c3_contracts.py",
+        "sha256": "b7b9e8bec3b9818695f78d0500af0806f27e2134bb0b10ab323d7e9659e8e3a4"
+      },
+      {
+        "bytes": 6005,
+        "lines": 176,
+        "path": "main/backend/tests/successor_runtime/test_p3_c3_fragment.py",
+        "sha256": "38e105746983ca2692de73785ce758750a103953729ad5c52e3f3db28bb37b8d"
+      },
+      {
+        "bytes": 12712,
+        "lines": 360,
+        "path": "main/backend/tests/successor_runtime/test_p3_c3_micro.py",
+        "sha256": "baf41189b4d16b710a27d8411edf9f335ec2f8873aabdac56befa9d85b4db2be"
+      },
+      {
+        "bytes": 19208,
+        "lines": 530,
+        "path": "main/backend/tests/successor_runtime/test_p3_c3_replay_shadow.py",
+        "sha256": "2a35294b9b75e89e69247ee7d5acbf25f1c65645712497b4170b503be599bfb5"
+      },
+      {
+        "bytes": 4947,
+        "lines": 129,
+        "path": "main/backend/tests/successor_runtime/test_p3_c3_rollback.py",
+        "sha256": "2da862764b8ea87ef98b3eab6761c5d937140a2c8d9e7122432130e1bc5fa8ae"
+      },
+      {
+        "bytes": 12806,
+        "lines": 357,
+        "path": "main/backend/tests/successor_runtime/test_p3_c4_1_parity.py",
+        "sha256": "29a8bdfd006e151223d6c1ef796021b0903050d8a1e31c853c5569dfd287c3ee"
+      },
+      {
+        "bytes": 6151,
+        "lines": 171,
+        "path": "main/backend/tests/successor_runtime/test_p3_c4_1_plan.py",
+        "sha256": "b654b1764efcda8a373e426ec24d4304b865a1f8c7b22234edb002844fda1941"
+      },
+      {
+        "bytes": 6337,
+        "lines": 162,
+        "path": "main/backend/tests/successor_runtime/test_p3_c4_1_program.py",
+        "sha256": "a7eb28946ebd6b20071a603a9245bd91d190ecc775125ef8a18ce6d767d9fbaf"
+      },
+      {
+        "bytes": 7092,
+        "lines": 204,
+        "path": "main/backend/tests/successor_runtime/test_p3_c4_2_retry_reducer.py",
+        "sha256": "71ca07a2bde5df8bb93e86aacfe3b8665c0e59c0ce3eda424a757b84a637ff23"
+      },
+      {
+        "bytes": 9644,
+        "lines": 279,
+        "path": "main/backend/tests/successor_runtime/test_p3_c4_3_submission.py",
+        "sha256": "2428d9473c076b633b77dd016d9d649b5f003f02f45047d0875694eaf90d1b93"
+      },
+      {
+        "bytes": 9863,
+        "lines": 275,
+        "path": "main/backend/tests/successor_runtime/test_p3_c4_4_postgres.py",
+        "sha256": "4c20ac9b442db89e2acf478337246f947e1e690d8056d655ee34f113cd93aff4"
+      },
+      {
+        "bytes": 63469,
+        "lines": 1578,
+        "path": "main/backend/tests/successor_runtime/test_p3_c4_5_runtime_postgres.py",
+        "sha256": "4a92a835f8e3335d5c31ea6c34e8a76c2f0ea336c94b210c796d9b1b19246db3"
+      },
+      {
+        "bytes": 7177,
+        "lines": 207,
+        "path": "main/backend/tests/successor_runtime/test_p3_c4_canary.py",
+        "sha256": "063a1b3ce8edb5e3034f9b6ed7403228f71b01715a3c275f700e2fcf19d0f4d6"
+      },
+      {
+        "bytes": 6432,
+        "lines": 181,
+        "path": "main/backend/tests/successor_runtime/test_p3_c4_evidence_generator.py",
+        "sha256": "ae6ab6130db1b65e12e739ee369ce3610e350d0d1c402b000369fe964e30e059"
+      },
+      {
+        "bytes": 9150,
+        "lines": 251,
+        "path": "main/backend/tests/successor_runtime/test_p3_c5_0_evidence_generator.py",
+        "sha256": "c6a3c1fe2314e10a73aca59ce211633ce635f8ecc1e06cc4b12319168901851e"
+      },
+      {
+        "bytes": 4701,
+        "lines": 133,
+        "path": "main/backend/tests/successor_runtime/test_p3_c5_1_session_projection.py",
+        "sha256": "443cc0ea4d80dcc60848da6664a0941591ae0dd9d15c4bfa29ec4128bc559014"
+      },
+      {
+        "bytes": 17149,
+        "lines": 511,
+        "path": "main/backend/tests/successor_runtime/test_p3_c5_2_attempt_replay_reconciliation.py",
+        "sha256": "5ab2d33109faffface843b8f54c7c9809b90911e7cbc2cb80ebf167e3b9bfe62"
+      },
+      {
+        "bytes": 18805,
+        "lines": 522,
+        "path": "main/backend/tests/successor_runtime/test_p3_c5_2_reconciliation_postgres.py",
+        "sha256": "ddaadb2e3213236466dcde6bf700a99eac3f430e28809e370247f42b23c76acc"
+      },
+      {
+        "bytes": 18365,
+        "lines": 567,
+        "path": "main/backend/tests/successor_runtime/test_p3_c5_3_projection_postgres.py",
+        "sha256": "299be44b4612bc75cd482d763c65afd7d342129349706bad4cc823e7ce3503a8"
+      },
+      {
+        "bytes": 9676,
+        "lines": 284,
+        "path": "main/backend/tests/successor_runtime/test_p3_c5_4_process_observations.py",
+        "sha256": "121f42bda9f716b87b251e8993442facb290927944870c151c84fc46202df865"
+      },
+      {
+        "bytes": 16340,
+        "lines": 491,
+        "path": "main/backend/tests/successor_runtime/test_p3_c6_1_episode.py",
+        "sha256": "9016d8996cac5a71dbbd58d5fd0fff8c52a01fa8634e1d2590733324e7c96b66"
+      },
+      {
+        "bytes": 12297,
+        "lines": 360,
+        "path": "main/backend/tests/successor_runtime/test_p3_c6_2_provider.py",
+        "sha256": "02f2a81416738331c452a5b65b5a4838dc4f06db627116ef6907845f357deae9"
+      },
+      {
+        "bytes": 10074,
+        "lines": 294,
+        "path": "main/backend/tests/successor_runtime/test_p3_c6_3_redaction.py",
+        "sha256": "c201682a28e09fd43584d37dc30ca5febcff8f929c2e1fa579196b761ff9e00e"
+      },
+      {
+        "bytes": 7450,
+        "lines": 206,
+        "path": "main/backend/tests/successor_runtime/test_p3_c6_evidence.py",
+        "sha256": "a75cb6d2b139532d107041e5041b7051af52fe39adbfd792269e3acba2aa80d2"
+      },
+      {
+        "bytes": 22077,
+        "lines": 605,
+        "path": "main/backend/tests/successor_runtime/test_p3_c6_legacy_shadow.py",
+        "sha256": "7287429fb7e650b131f0b0ae602a937fbf2fdf7cc669ae583977d2cb67a41000"
+      },
+      {
+        "bytes": 61684,
+        "lines": 1611,
+        "path": "main/backend/tests/successor_runtime/test_p3_c6_runtime_canary_postgres.py",
+        "sha256": "1d2f9e76187e2e09c2330ee18bd9d5a0c437bb53431180fbb6d653d8a5dd80ee"
+      },
+      {
+        "bytes": 11624,
+        "lines": 312,
+        "path": "main/backend/tests/successor_runtime/test_p3_c6_worker_postgres.py",
+        "sha256": "56b14546292e9653880b78ebbd0f5e28062aa879664b90718541c924c23a1dc8"
+      },
+      {
+        "bytes": 26659,
+        "lines": 739,
+        "path": "main/backend/tests/successor_runtime/test_successor_migration_batch_validation.py",
+        "sha256": "13f1e1915300df60b20d0a8b9b328367b159a0aba6b6b760ff498a14117857e3"
+      }
+    ],
+    "branch": "codex/functorial-successor-p0",
+    "candidate_commit": null,
+    "candidate_tree": null,
+    "git_status_exclusions": [
+      "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/03_functorial-successor-migration-development-progress.md",
+      "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/04_functorial-successor-capability-ledger.json",
+      "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/P3CapabilityMigration.v1.json"
+    ],
+    "git_status_porcelain_v1_z_sha256": "5e2e537255e604abb4d8d6faac1e5a555d941df5ce597b2c9323df42aaf4eb74",
+    "head": "35ca039c59d2efae8038a678995e8a0812032e43",
+    "head_tree": "d32b888edd1a03ed555f1087f4f97e52a84580e9",
+    "review_surface_kind": "WORKING_TREE_EXACT_BOUND_PATHS"
+  }
+}

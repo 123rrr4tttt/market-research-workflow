@@ -1,0 +1,113 @@
+{
+  "schema": "mrw.functorial_successor.i1_route_mount_evidence.v1",
+  "version": "1.0.0",
+  "generated_at": "2026-09-02",
+  "status": "MOUNTED_LOCAL_ONLY_NOT_PROMOTED",
+  "worktree": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0",
+  "branch": "codex/functorial-successor-p0",
+  "head": "35ca039c59d2efae8038a678995e8a0812032e43",
+  "mount": {
+    "final_prefix": "/api/v1/successor-runtime/v2",
+    "router_factory": "app.api.successor_runtime.create_successor_runtime_router",
+    "mount_location": "app.api.__init__.py -> router.include_router(...); app.main.py includes app.api.router under /api/v1",
+    "assembly_configuration": "local_only_closed_fixture_options",
+    "assembly_options": "build_local_offline_fixture_options() (closed LOCAL_ONLY fixture closures)",
+    "facade": "build_deterministic_facade_closure() (in-memory CommandSubmissionPort + QueryReadPort; no PostgreSQL/provider)",
+    "resolver": "LocalOnlyProjectScopeResolver (deterministic local-only scope; resolve_expected production path closed)",
+    "actor_provider": "actor:local-only-app-mount (server-injected constant; wire DTOs never carry actor)",
+    "production_scope": "closed; explicit production resolver/registry path not reachable from this mount"
+  },
+  "routes": [
+    {
+      "method": "POST",
+      "path": "/api/v1/successor-runtime/v2/commands",
+      "handler": "app.api.successor_runtime.submit_command",
+      "port": "SuccessorRuntimeFacade.submit -> CommandSubmissionPort",
+      "response_model": "SuccessorRuntimeEnvelopeV2DTO"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/successor-runtime/v2/queries",
+      "handler": "app.api.successor_runtime.run_query",
+      "port": "SuccessorRuntimeFacade.query -> QueryReadPort",
+      "response_model": "SuccessorRuntimeEnvelopeV2DTO"
+    }
+  ],
+  "legacy_routes": {
+    "preserved": true,
+    "total_routes": 310,
+    "unique_paths": 277,
+    "health_paths_present": ["/api/v1/health", "/api/v1/health/deep"],
+    "note": "No existing endpoint replaced; successor routes are additive only"
+  },
+  "files": [
+    {
+      "path": "main/backend/app/api/__init__.py",
+      "sha256": "aa164ad37bbe13fee08cb15492453f24f5144de4318fdea0e6818ca86b6b297b",
+      "change": "mount successor runtime router via build_successor_runtime_app_dependencies + create_successor_runtime_router"
+    },
+    {
+      "path": "main/backend/app/successor_runtime/assembly/app_assembly.py",
+      "sha256": "580db478eec89e6a9d56b44e3ae2f07343862914a9dc96974197760a9994b989",
+      "change": "new LOCAL_ONLY app-mount dependency assembly: resolver/facade/actor_provider + authority ceiling"
+    },
+    {
+      "path": "main/backend/tests/successor_runtime/test_api_successor_runtime_mount.py",
+      "sha256": "4baba7f89feeb29c3420d577053dd8320d89c157fca8e9ea4627bafa5c15b71c",
+      "change": "new route/assembly tests: typed envelope, six v2 states, typed rejection, no control feedback, authority all false, legacy preserved"
+    }
+  ],
+  "runs": [
+    {
+      "label": "focused route-mount + C9 movement closure tests",
+      "cwd": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0/main/backend",
+      "command": "python3.11 -m pytest -q -p no:cacheprovider tests/successor_runtime/test_api_successor_runtime_mount.py tests/successor_runtime/test_c9_movement_closure_backend.py",
+      "exit_code": 0,
+      "result": "35 passed, 0 failed, 3 pydantic deprecation warnings"
+    },
+    {
+      "label": "I1 / API-mount / C9 focused suite",
+      "cwd": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0/main/backend",
+      "command": "python3.11 -m pytest -q -p no:cacheprovider tests/successor_runtime -k \"i1 or api_successor_runtime or c9_movement_closure\"",
+      "exit_code": 0,
+      "result": "123 passed, 1388 deselected, 0 failed, 3 warnings"
+    },
+    {
+      "label": "app import smoke + final route table",
+      "cwd": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0/main/backend",
+      "command": "python3.11 -c \"import app.main; ...; assert successor routes and /api/v1/health present\"",
+      "exit_code": 0,
+      "result": "total_routes=310 unique_paths=277; /api/v1/successor-runtime/v2/commands and /queries present; /api/v1/health preserved"
+    },
+    {
+      "label": "ruff check",
+      "cwd": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0/main/backend",
+      "command": "ruff check app/successor_runtime/assembly/app_assembly.py app/api/__init__.py tests/successor_runtime/test_api_successor_runtime_mount.py",
+      "exit_code": 0,
+      "result": "All checks passed"
+    },
+    {
+      "label": "ruff format check",
+      "cwd": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0/main/backend",
+      "command": "ruff format --check app/successor_runtime/assembly/app_assembly.py tests/successor_runtime/test_api_successor_runtime_mount.py",
+      "exit_code": 0,
+      "result": "2 files already formatted"
+    }
+  ],
+  "authority_ceiling": {
+    "canonical_write": false,
+    "live_provider": false,
+    "external_delivery": false,
+    "cutover": false,
+    "authority_transfer": false,
+    "candidate_created": false
+  },
+  "candidate": null,
+  "fail_closed": [
+    "MOUNTED_LOCAL_ONLY_NOT_PROMOTED: mount uses in-memory facade/resolver only; no PostgreSQL write, live provider, external delivery, cutover or authority transfer",
+    "C8.3 app-caller authority stays closed; the mounted facade only exposes the deterministic C9 facade validation surface",
+    "resolve_expected (production registry path) is closed in LocalOnlyProjectScopeResolver",
+    "Existing API_SCHEMA_INVENTORY_2026-05-22.md drift is pre-existing at HEAD (5 operations from typed-knowledge/source_library commits); this mount adds exactly 2 successor operations and the inventory doc is outside this work package's allowed writes",
+    "Verification ran while the WP-I1-05 C7 lane files (c7_canonical_write.py / c7_projector_driver.py) were being written concurrently; final focused runs passed with all files present"
+  ]
+}

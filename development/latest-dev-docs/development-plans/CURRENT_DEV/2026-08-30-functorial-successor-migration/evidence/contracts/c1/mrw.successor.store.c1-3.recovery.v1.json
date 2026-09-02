@@ -1,0 +1,34 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "mrw.successor.store.c1-3.recovery.v1",
+  "ref_kind": "recovery_policy",
+  "cell_id": "C1.3",
+  "family_id": "C1",
+  "movement_ids": [
+    "C1-M004"
+  ],
+  "semantics": {
+    "movement_recovery": "Deterministic reload and replay from exact content; rollback changes future owner without deleting journal facts",
+    "acceptance_trace": [
+      "main/backend/tests/successor_runtime/test_p5_c1_slice_acceptance_postgres.py::test_c1_slice_runtime_node_replay_restart_and_rollback",
+      "main/backend/tests/successor_runtime/test_p5_c1_slice_acceptance_postgres.py::test_c1_rollback_retains_journal_and_changes_future_owner_epoch"
+    ]
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C1.v1.json",
+      "pointer": "#/movements/C1-M004/recovery",
+      "sha256": "ccbb50ee217882d1640bca7f57430eaea651f8ae83258873449d2c998d30bb0a"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/substrate/postgres/node_adapter.py",
+      "pointer": "test_c1_rollback_retains_journal_and_changes_future_owner_epoch",
+      "sha256": "5cae2d8bb26bd8c3e07a5bd05608764b5ec27768cf9de0b2970f79cb679eace9"
+    }
+  ],
+  "derivation_note": "recovery semantics copied verbatim from movement C1-M004 and bound to slice PG rollback traces",
+  "content_digest": "474845069abc82907dbb4bc17a40a5a50e8019855499ac067cafca55d1c85b75"
+}

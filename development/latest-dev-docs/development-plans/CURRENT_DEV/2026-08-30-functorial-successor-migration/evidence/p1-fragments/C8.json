@@ -1,0 +1,1276 @@
+[
+  {
+    "cell": "C8.1",
+    "boundary": "typed knowledge read handles",
+    "locator_paths": [
+      "main/backend/app/services/typed_knowledge",
+      "main/backend/app/models/typed_knowledge_entities.py"
+    ],
+    "locator_status": {
+      "state": "RESOLVED",
+      "inventory_state": "ELIGIBILITY_PENDING",
+      "resolved_paths": [
+        "main/backend/app/services/typed_knowledge/contracts.py",
+        "main/backend/app/services/typed_knowledge/persistence_boundary.py",
+        "main/backend/app/models/typed_knowledge_entities.py"
+      ],
+      "missing_paths": []
+    },
+    "observed_symbols": [
+      "TypeNode",
+      "KnowledgeItem",
+      "TopicCluster",
+      "Booklet",
+      "DownstreamKnowledgeContractDraft",
+      "WritingKnowledgeHandoff",
+      "PersistenceBoundaryRecord",
+      "PersistenceWriteResult",
+      "InMemoryTypedKnowledgeRepository",
+      "JsonlTypedKnowledgeRepository",
+      "SqlAlchemyTypedKnowledgeRepository",
+      "build_identity_ref",
+      "build_writing_knowledge_handoff",
+      "parse_writing_knowledge_context_envelope",
+      "build_live_writing_context_from_repository",
+      "apply_review_state_transition",
+      "get_typed_knowledge_persistence_boundary",
+      "get_typed_knowledge_writing_context"
+    ],
+    "object_types": {
+      "legacy": [
+        "TypeNode",
+        "KnowledgeItem",
+        "TopicCluster",
+        "Booklet",
+        "WritingKnowledgeHandoff",
+        "PersistenceBoundaryRecord",
+        "TypedKnowledgeObject"
+      ],
+      "successor_candidate": [
+        "TypedKnowledgeReadRequest.v1",
+        "TypedKnowledgeReadHandle.v1",
+        "CanonicalRef.v1",
+        "ValueRef.v1"
+      ],
+      "owner_mode": "IMMUTABLE_EXTERNAL_REF_TO_LEGACY_CANONICAL"
+    },
+    "atom_kind": {
+      "candidate": "typed_knowledge.read_handle.v1",
+      "freeze_status": "NOT_FROZEN",
+      "semantic_operator": "demand-read",
+      "execution_class": "EFFECTFUL_READ"
+    },
+    "payload_schema": {
+      "input": {
+        "required": [
+          "project_key",
+          "object_type",
+          "object_key_or_identity_ref",
+          "expected_owner_binding_ref",
+          "requested_facets"
+        ],
+        "optional": [
+          "expected_revision",
+          "expected_incarnation",
+          "expected_content_digest",
+          "selection_context"
+        ]
+      },
+      "output": {
+        "required": [
+          "identity_ref",
+          "project_key",
+          "object_type",
+          "object_key",
+          "canonical_owner_ref",
+          "owner_revision_or_observed_version",
+          "content_ref",
+          "content_digest",
+          "provenance_refs",
+          "review_state",
+          "visibility_scope",
+          "readback_observed_at"
+        ],
+        "rule": "The handle references canonical typed knowledge; it must not copy authority or manufacture adoption facts."
+      },
+      "legacy_gap": [
+        "evidence_refs are opaque strings rather than typed source handles",
+        "TypedKnowledgeObject has no content_digest, revision, or incarnation",
+        "GET read paths can seed and commit sample data"
+      ]
+    },
+    "program_combinators": {
+      "allowed": [
+        "Atom",
+        "Then",
+        "MapOutput"
+      ],
+      "constraints": [
+        "Then preserves demand-read before synthesis order",
+        "MapOutput may serialize or select facets but may not erase identity, provenance, owner revision, or failure",
+        "Batch traversal remains unsupported until TraverseOrdered receives its own production freeze",
+        "No commutativity is assumed"
+      ]
+    },
+    "failure_return_union": {
+      "observed": [
+        "PersistenceBoundaryRecord",
+        "tuple[PersistenceBoundaryRecord,...]",
+        "None",
+        "TypedKnowledgeContractError",
+        "TypedKnowledgePersistenceBoundaryError",
+        "database/filesystem exception translated by API to HTTP 400"
+      ],
+      "required_successor": [
+        "TypedKnowledgeReadSucceeded",
+        "TypedKnowledgeNotFound",
+        "TypedKnowledgeInvalidRef",
+        "TypedKnowledgeProjectScopeStale",
+        "TypedKnowledgeOwnerRevisionStale",
+        "TypedKnowledgeNotDownstreamReady",
+        "TypedKnowledgeAuthorityDenied",
+        "TypedKnowledgeReadbackUnavailable",
+        "TypedKnowledgeOutcomeUnknown"
+      ]
+    },
+    "canonical_owner": {
+      "current": "project typed knowledge repository",
+      "successor_runtime_role": "read-only external-reference consumer and execution observer",
+      "write_authority_transferred": false,
+      "forbidden": [
+        "runtime journal becoming typed-knowledge content owner",
+        "read handle becoming a second canonical object",
+        "projection or writing consumer changing review/adoption state"
+      ]
+    },
+    "effect_profile": {
+      "observed": [
+        "in-memory mutation",
+        "JSONL filesystem append/readback",
+        "SQLAlchemy database read/write",
+        "API route transaction commit"
+      ],
+      "required_boundary": "The successor interpreter is an explicit database read/readback effect; fixture seeding and governance mutation are separate commands and cannot occur during demand-read.",
+      "cancellation": "before database read or between bounded readback attempts",
+      "irreversible": false
+    },
+    "authority_profile": {
+      "required_grants": [
+        "project.read",
+        "typed_knowledge.read"
+      ],
+      "human_gate": "human confirmation remains owned by the typed-knowledge governance authority",
+      "revalidation_points": [
+        "claim",
+        "read",
+        "downstream handoff materialization"
+      ],
+      "observed_risk": "apply_live_governance_review_state performs direct enum-checked mutation without invoking apply_review_state_transition, while GET writing-context and persistence-boundary live modes may seed and commit records."
+    },
+    "resource_profile": {
+      "class": "bounded_project_database_read",
+      "concurrency_key": "project_key:typed_knowledge",
+      "limits": [
+        "explicit result-count ceiling",
+        "bounded payload bytes",
+        "bounded provenance-ref count",
+        "deadline and database timeout"
+      ],
+      "parallel_policy": "No default parallel read reordering; only independent identities with non-conflicting project/resource scopes may be marked eligible."
+    },
+    "legacy_interpreter": {
+      "id": "legacy.typed_knowledge.persistence_boundary.v1",
+      "entrypoints": [
+        "SqlAlchemyTypedKnowledgeRepository.get_record",
+        "SqlAlchemyTypedKnowledgeRepository.list_records",
+        "build_live_writing_context_from_repository",
+        "get_typed_knowledge_writing_context"
+      ],
+      "reuse_scope": "behavioral fixtures and readback adapter only"
+    },
+    "successor_interpreter_candidate": {
+      "id": "successor.typed_knowledge.read_handle.sqlalchemy.v1",
+      "status": "UNIMPLEMENTED_P1_CANDIDATE",
+      "package_boundary": "successor migration sibling adapter; successor core must not import legacy service topology",
+      "readback": "re-read exact identity and owner version/content digest from the project typed-knowledge repository"
+    },
+    "observation_profile": {
+      "id": "c8.1.typed_knowledge_read_handle_observation.v1",
+      "observes": [
+        "project-scoped identity round-trip",
+        "content and provenance digest preservation",
+        "review-state and visibility preservation",
+        "no write during read",
+        "not-found and stale-owner distinction",
+        "demand-read ordering before writing synthesis"
+      ],
+      "verification_mode": "SOURCE_AND_TEST_READ_ONLY",
+      "tests_executed": false,
+      "execution_status": "UNEXECUTED_READ_ONLY_AUDIT"
+    },
+    "fixture_ids": [
+      "main/backend/tests/unit/test_typed_knowledge_contracts_unittest.py::TypedKnowledgeK1K2ContractsTests::test_writing_handoff_payload_and_context_envelope_round_trip",
+      "main/backend/tests/unit/test_typed_knowledge_contracts_unittest.py::TypedKnowledgeK1K2ContractsTests::test_apply_review_state_transition_enforces_manual_gate",
+      "main/backend/tests/unit/test_typed_knowledge_persistence_boundary_unittest.py::TypedKnowledgePersistenceBoundaryTests::test_jsonl_repository_survives_reopen_without_claiming_live_db",
+      "main/backend/tests/unit/test_typed_knowledge_persistence_boundary_unittest.py::TypedKnowledgePersistenceBoundaryTests::test_persisted_card_request_response_readback_preserves_ui_api_boundary_without_live_claims",
+      "main/backend/tests/integration/test_typed_knowledge_api_route_unittest.py::TypedKnowledgeApiRouteIntegrationTest::test_public_route_keeps_project_scoped_identity_in_contract_readback"
+    ],
+    "rollback_observation": {
+      "trigger": "read-handle parity, provenance, owner-version, or no-write invariant fails",
+      "action": "route demand-read back to the legacy typed-knowledge API/repository without deleting successor observations",
+      "must_hold": [
+        "legacy repository remains sole canonical writer",
+        "no dual governance write",
+        "successor runtime records rollback and failed observation only",
+        "no fixture seeding is performed by the successor read path"
+      ]
+    },
+    "disposition": "EXTRACT_AND_REWRITE",
+    "rationale": "The immutable dataclasses, validation rules, project identity, visibility gate, repository variants, and round-trip fixtures are useful semantic donors. The current boundary is not directly adaptable because read and seed/write behavior are mixed, provenance is represented by opaque strings, owner revision/content digest are absent, and the live governance mutation does not consistently reuse the human-transition guard. Extract the object and validation algebra, then rewrite demand-read and readback behind an explicit effect port.",
+    "prerequisites": [
+      "Freeze TypedKnowledgeReadRequest.v1 and TypedKnowledgeReadHandle.v1 codecs and digests",
+      "Define owner revision/incarnation fallback for legacy TypedKnowledgeObject",
+      "Replace opaque evidence_refs with typed source/read handles or a loss-declared adapter",
+      "Separate fixture seed, governance command, and read endpoints",
+      "Bind the human governance transition guard to every mutation path",
+      "Add no-write-on-read, stale-owner, missing-ref, and digest round-trip fixtures",
+      "Freeze rollback and claim-owner epoch without transferring production write authority"
+    ],
+    "risk": {
+      "level": "HIGH",
+      "drivers": [
+        "read path can mutate canonical storage",
+        "authority guard divergence",
+        "opaque provenance refs",
+        "no version/incarnation/content-digest binding",
+        "multiple legacy repository realizations"
+      ]
+    },
+    "source_evidence": [
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/13_functorial-successor-c1-c9-locator-pending-inventory.v1.json",
+        "symbol_or_lines": "C8.1 locator entry",
+        "claim": "The frozen locator names typed-knowledge services and typed_knowledge_entities.py and leaves disposition ELIGIBILITY_PENDING."
+      },
+      {
+        "path": "main/backend/app/services/typed_knowledge/contracts.py",
+        "symbol_or_lines": "KnowledgeItem; WritingKnowledgeHandoff; validate_knowledge_item; build_writing_knowledge_handoff",
+        "claim": "Typed objects retain project identity, evidence_refs, review state, visibility, and a writing handoff contract."
+      },
+      {
+        "path": "main/backend/app/services/typed_knowledge/contracts.py",
+        "symbol_or_lines": "apply_review_state_transition",
+        "claim": "The pure transition guard prohibits automation from setting human_confirmed or deprecated."
+      },
+      {
+        "path": "main/backend/app/services/typed_knowledge/persistence_boundary.py",
+        "symbol_or_lines": "PersistenceBoundaryRecord; InMemoryTypedKnowledgeRepository; JsonlTypedKnowledgeRepository; SqlAlchemyTypedKnowledgeRepository",
+        "claim": "The legacy service exposes multiple repository realizations and stable identity_ref readback, but also combines contract fixtures, filesystem effects, and live database effects."
+      },
+      {
+        "path": "main/backend/app/models/typed_knowledge_entities.py",
+        "symbol_or_lines": "TypedKnowledgeObject",
+        "claim": "The canonical row has project/type/key identity and governance payloads but no revision, incarnation, or content digest."
+      },
+      {
+        "path": "main/backend/app/api/typed_knowledge.py",
+        "symbol_or_lines": "get_typed_knowledge_persistence_boundary; get_typed_knowledge_writing_context",
+        "claim": "Live GET paths call seed_sample=True and commit the session, so the observed read boundary is not read-only."
+      },
+      {
+        "path": "main/backend/app/services/typed_knowledge/persistence_boundary.py",
+        "symbol_or_lines": "apply_live_governance_review_state",
+        "claim": "The live mutation checks enum membership and writes row state directly; it does not call the pure apply_review_state_transition human gate."
+      },
+      {
+        "path": "main/backend/tests/unit/test_typed_knowledge_contracts_unittest.py",
+        "symbol_or_lines": "test_writing_handoff_payload_and_context_envelope_round_trip; test_apply_review_state_transition_enforces_manual_gate",
+        "claim": "Fixtures cover handoff serialization and the isolated manual gate but do not prove that every live mutation path applies that gate."
+      }
+    ]
+  },
+  {
+    "cell": "C8.2",
+    "boundary": "writing composition artifacts",
+    "locator_paths": [
+      "main/backend/app/services/writing",
+      "main/backend/app/models/writing_entities.py"
+    ],
+    "locator_status": {
+      "state": "RESOLVED",
+      "inventory_state": "ELIGIBILITY_PENDING",
+      "resolved_paths": [
+        "main/backend/app/services/writing/document_service.py",
+        "main/backend/app/services/writing/citation_service.py",
+        "main/backend/app/services/writing/keyword_card_service.py",
+        "main/backend/app/services/writing/primary_loop_service.py",
+        "main/backend/app/models/writing_entities.py"
+      ],
+      "missing_paths": []
+    },
+    "observed_symbols": [
+      "WritingDocument",
+      "WritingDocumentDraft",
+      "WritingDocumentCitation",
+      "WritingVersionConflictError",
+      "create_document",
+      "save_document_with_conflict",
+      "save_draft_autosave",
+      "export_document_markdown",
+      "upsert_citations",
+      "rebuild_markdown_with_citations",
+      "KeywordCardItem",
+      "WritingContextEnvelope",
+      "aggregate_cards",
+      "evaluate_primary_loop_state",
+      "_CARD_CACHE",
+      "_SELECTION_CACHE"
+    ],
+    "object_types": {
+      "legacy": [
+        "WritingDocument",
+        "WritingDocumentDraft",
+        "WritingDocumentCitation",
+        "KeywordCardItem",
+        "WritingPrimaryLoopCheckpoint"
+      ],
+      "successor": [
+        "ResearchArtifact.v1",
+        "ValueRef.v1",
+        "CanonicalRef.v1"
+      ],
+      "candidate_inputs": [
+        "WritingCompositionInput.v1",
+        "CitationClosure.v1"
+      ],
+      "owner_mode": "LEGACY_CANONICAL_UNTIL_EXPLICIT_OWNER_EPOCH_TRANSFER"
+    },
+    "atom_kind": {
+      "candidate": "artifact.compose_markdown.v1",
+      "freeze_status": "FROZEN_FOR_FIRST_SPECIMEN_ONLY",
+      "semantic_operator": "compose",
+      "execution_class": "PURE_TRANSFORM_TO_STAGED_ARTIFACT"
+    },
+    "payload_schema": {
+      "input": {
+        "required": [
+          "project_key",
+          "artifact_id",
+          "expected_base_revision",
+          "ordered_claim_refs",
+          "ordered_evidence_qualification_refs",
+          "ordered_citation_refs",
+          "composition_spec_ref"
+        ],
+        "optional": [
+          "legacy_writing_document_ref",
+          "selection_snapshot_ref",
+          "template_ref"
+        ]
+      },
+      "output": {
+        "required": [
+          "staged_artifact_id",
+          "content_ref",
+          "content_digest",
+          "format",
+          "claim_closure_digest",
+          "evidence_relation_closure_digest",
+          "citation_closure_digest",
+          "base_revision",
+          "loss_profile_ref"
+        ],
+        "rule": "Composition returns a staged ResearchArtifact candidate; it does not imply canonical admission or delivery."
+      },
+      "legacy_gap": [
+        "document and citation DTOs allow generic metadata_json",
+        "citation replacement is delete-all then insert from untyped dictionaries",
+        "keyword-card provenance and selection caches are process-local",
+        "artifact content has etag but no canonical citation/provenance closure digest"
+      ]
+    },
+    "program_combinators": {
+      "allowed": [
+        "Atom",
+        "Then",
+        "MapOutput"
+      ],
+      "constraints": [
+        "Then orders exact input readback before composition and composition before admission",
+        "MapOutput is limited to registered deterministic formatting transforms",
+        "Citation ordering and duplicate handling must be deterministic",
+        "Composition failure cannot be converted into an admitted artifact",
+        "No implicit workflow-stage completion or commutativity"
+      ]
+    },
+    "failure_return_union": {
+      "observed": [
+        "dict document/draft/export payload",
+        "list[dict] citation payload",
+        "WritingVersionConflictError",
+        "KeyError",
+        "database exception",
+        "process-local card cache miss"
+      ],
+      "required_successor": [
+        "ArtifactCompositionStaged",
+        "ArtifactInputRefMissing",
+        "ArtifactBaseRevisionConflict",
+        "CitationClosureInvalid",
+        "ProvenanceClosureInvalid",
+        "CompositionCodecFailure",
+        "ArtifactStoreWriteFailed",
+        "ArtifactOutcomeUnknown"
+      ]
+    },
+    "canonical_owner": {
+      "current": "project writing repository for WritingDocument and WritingDocumentCitation",
+      "successor_artifact_owner": "Research Ledger plus project-scoped artifact store only after explicit admission and owner-epoch binding",
+      "runtime_owner": "Execution Journal owns attempts and staged-value observations only",
+      "write_authority_transferred": false
+    },
+    "effect_profile": {
+      "semantic_core": "deterministic ordered composition and citation rendering",
+      "observed_effects": [
+        "SQLAlchemy document/draft/citation reads and writes",
+        "process-global keyword-card caches",
+        "clock reads",
+        "LLM action/job effects in sibling writing service"
+      ],
+      "required_boundary": "Read exact inputs and stage content through explicit ports; keep database mutation, model invocation, artifact storage, admission, and delivery as separate effects.",
+      "irreversible": false
+    },
+    "authority_profile": {
+      "required_grants": [
+        "project.read",
+        "writing.read",
+        "artifact.stage"
+      ],
+      "admission_grant": "artifact.admit is separate and is not held by the compose interpreter",
+      "human_or_domain_judgment": "citation acceptance and semantic adequacy remain explicit user/domain facts",
+      "forbidden": [
+        "keyword-card score becoming evidence qualification",
+        "successful markdown rendering becoming admission",
+        "writing service becoming delivery authority"
+      ]
+    },
+    "resource_profile": {
+      "class": "bounded_cpu_memory_plus_project_database",
+      "observed_limits": [
+        "body_md API ceiling 50000 characters",
+        "keyword-card limit at most 50",
+        "process cache TTL metadata 10000 ms"
+      ],
+      "required_limits": [
+        "artifact byte ceiling",
+        "citation-count ceiling",
+        "deterministic ordering",
+        "deadline",
+        "artifact-store quota"
+      ],
+      "parallel_policy": "Composition remains ordered; independent source reads may only be parallelized under an explicit resource and observation policy."
+    },
+    "legacy_interpreter": {
+      "id": "legacy.writing.document_and_citation_services.v1",
+      "entrypoints": [
+        "save_document_with_conflict",
+        "save_draft_autosave",
+        "upsert_citations",
+        "rebuild_markdown_with_citations",
+        "aggregate_cards"
+      ],
+      "reuse_scope": "behavioral replay, API compatibility, and fixture donor"
+    },
+    "successor_interpreter_candidate": {
+      "id": "successor.artifact.compose_markdown.deterministic.v1",
+      "status": "UNIMPLEMENTED_P1_CANDIDATE",
+      "input_policy": "read immutable refs and ordered citation closure",
+      "output_policy": "stage content-addressed artifact; never write canonical artifact state directly"
+    },
+    "observation_profile": {
+      "id": "c8.2.writing_composition_artifact_observation.v1",
+      "observes": [
+        "same ordered inputs produce the same content and closure digests",
+        "base-version conflict is preserved",
+        "citation identity and order survive rendering",
+        "typed-knowledge and graph refs remain read handles rather than copied truth",
+        "cache state does not change semantic output",
+        "staged artifact is distinguishable from admitted artifact"
+      ],
+      "verification_mode": "SOURCE_AND_TEST_READ_ONLY",
+      "tests_executed": false,
+      "execution_status": "UNEXECUTED_READ_ONLY_AUDIT"
+    },
+    "fixture_ids": [
+      "main/backend/tests/unit/test_writing_document_service_unittest.py::WritingDocumentServiceUnitTestCase::test_compute_etag_changes_with_version",
+      "main/backend/tests/unit/test_writing_document_service_unittest.py::WritingDocumentServiceUnitTestCase::test_version_conflict_error_carries_snapshot",
+      "main/backend/tests/unit/test_writing_keyword_card_service_unittest.py::WritingKeywordCardServiceUnitTestCase::test_typed_knowledge_handoff_builds_stable_writing_card_selection_contract",
+      "main/backend/tests/unit/test_writing_keyword_card_service_unittest.py::WritingKeywordCardServiceUnitTestCase::test_typed_knowledge_card_preview_and_detail_readback_after_consumer_fetch",
+      "main/backend/tests/unit/test_writing_primary_loop_service_unittest.py::WritingPrimaryLoopServiceUnitTestCase::test_missing_citation_is_detected_even_if_action_already_invoked"
+    ],
+    "rollback_observation": {
+      "trigger": "composition parity, citation closure, base revision, or staged/admitted separation fails",
+      "action": "route writing commands and export preparation back to legacy writing services while leaving successor staged artifacts non-canonical",
+      "must_hold": [
+        "legacy writing repository remains canonical",
+        "no dual document or citation write",
+        "orphan staged artifacts are reconciled without deleting legacy content",
+        "rollback does not convert runtime observations into writing facts"
+      ]
+    },
+    "disposition": "EXTRACT_AND_REWRITE",
+    "rationale": "The legacy models provide useful document identity, optimistic versioning, autosave idempotency, citation fields, and compatibility fixtures. Direct adaptation would retain process-global selection/card caches, generic dictionaries, replace-all citation semantics, and a workflow-like Boolean stage checklist. Extract deterministic composition and version-conflict behavior, then rewrite it around exact read handles, typed citation closure, content-addressed staged artifacts, and independent admission.",
+    "prerequisites": [
+      "Bind artifact.compose_markdown.v1 to a C8-owned operation/profile digest rather than only the first specimen",
+      "Freeze WritingCompositionInput.v1 and CitationClosure.v1",
+      "Define legacy WritingDocument owner revision/incarnation readback",
+      "Replace process-global semantic caches with bounded non-authoritative cache adapters",
+      "Define deterministic citation identity, ordering, duplicate, and removal semantics",
+      "Separate compose, artifact-store stage, admission, and export delivery",
+      "Add replay fixtures proving cache independence and closure-digest stability",
+      "Freeze rollback without transferring legacy writing write authority"
+    ],
+    "risk": {
+      "level": "HIGH",
+      "drivers": [
+        "process-local cache as readback source",
+        "generic citation/provenance payloads",
+        "replace-all citation writes",
+        "artifact/admission/export conflation",
+        "derived workflow checklist can be mistaken for semantic completion"
+      ]
+    },
+    "source_evidence": [
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/13_functorial-successor-c1-c9-locator-pending-inventory.v1.json",
+        "symbol_or_lines": "C8.2 locator entry",
+        "claim": "The frozen locator binds writing services and writing_entities.py while leaving eligibility pending."
+      },
+      {
+        "path": "main/backend/app/models/writing_entities.py",
+        "symbol_or_lines": "WritingDocument; WritingDocumentDraft; WritingDocumentCitation",
+        "claim": "Legacy storage provides project-scoped documents, head_version/etag, autosave token uniqueness, and citation rows."
+      },
+      {
+        "path": "main/backend/app/services/writing/document_service.py",
+        "symbol_or_lines": "save_document_with_conflict; save_draft_autosave; export_document_markdown",
+        "claim": "The service preserves optimistic conflicts and autosave identity, but markdown export returns an immediate transient dictionary rather than a staged/admitted artifact."
+      },
+      {
+        "path": "main/backend/app/services/writing/citation_service.py",
+        "symbol_or_lines": "upsert_citations; rebuild_markdown_with_citations",
+        "claim": "Citation update deletes all existing rows and reconstructs them from generic dictionaries; rendering appends a References section without a closure digest."
+      },
+      {
+        "path": "main/backend/app/services/writing/keyword_card_service.py",
+        "symbol_or_lines": "_CARD_CACHE; _SELECTION_CACHE; dedupe_and_score; get_card_detail",
+        "claim": "Card and selection readback are process-global caches, and detail provenance records raw key names rather than a canonical provenance closure."
+      },
+      {
+        "path": "main/backend/app/services/writing/primary_loop_service.py",
+        "symbol_or_lines": "evaluate_primary_loop_state",
+        "claim": "The primary-loop state is derived from Boolean checkpoints and ordering checks; it is not canonical artifact admission or runtime completion evidence."
+      },
+      {
+        "path": "main/backend/app/services/document_views/writing_card_view.py",
+        "symbol_or_lines": "build_keyword_card_from_typed_knowledge_handoff",
+        "claim": "Typed-knowledge evidence_refs and handoff identity are retained in card extra fields, providing a useful compatibility fixture."
+      },
+      {
+        "path": "main/backend/tests/unit/test_writing_primary_loop_service_unittest.py",
+        "symbol_or_lines": "test_missing_citation_is_detected_even_if_action_already_invoked",
+        "claim": "The fixture demonstrates ordered citation-before-action detection but does not establish artifact admission."
+      }
+    ]
+  },
+  {
+    "cell": "C8.3",
+    "boundary": "report export admission",
+    "locator_paths": [
+      "main/backend/app/services/report.py",
+      "main/backend/app/services/llm_report_export_token_state.py",
+      "main/backend/app/services/writing"
+    ],
+    "locator_status": {
+      "state": "PARTIAL_MISSING",
+      "inventory_state": "ELIGIBILITY_PENDING",
+      "resolved_paths": [
+        "main/backend/app/services/report.py",
+        "main/backend/app/services/writing"
+      ],
+      "missing_paths": [
+        "main/backend/app/services/llm_report_export_token_state.py"
+      ],
+      "supporting_implementations_found": [
+        "main/backend/app/services/llm_report_generator.py",
+        "main/backend/app/services/llm_report_source_enrichment.py",
+        "main/backend/app/api/llm_report.py",
+        "main/backend/app/api/reports.py"
+      ]
+    },
+    "observed_symbols": [
+      "generate_html_report",
+      "generate_csv_report",
+      "create_report",
+      "ReportSection",
+      "StructuredReport",
+      "build_structured_report",
+      "validate_report_structure",
+      "evaluate_report_gate",
+      "export_quality_gate_metrics",
+      "render_markdown",
+      "generate_llm_report",
+      "export_document_markdown",
+      "post_writing_export_markdown"
+    ],
+    "object_types": {
+      "legacy": [
+        "ReportRequest",
+        "ReportSection",
+        "StructuredReport",
+        "WritingDocument"
+      ],
+      "successor": [
+        "ResearchArtifact.v1",
+        "DeliveryIntent.v1",
+        "DeliveryAttempt.v1",
+        "DeliveryReceiptRef.v1",
+        "CommitIntent.v1"
+      ],
+      "candidate": [
+        "ReportCompositionSpec.v1",
+        "ReportAdmissionEvidence.v1"
+      ]
+    },
+    "atom_kind": {
+      "candidates": [
+        "artifact.compose_report.v1",
+        "delivery.internal_export.v1"
+      ],
+      "freeze_status": {
+        "artifact.compose_report.v1": "NOT_FROZEN",
+        "delivery.internal_export.v1": "FROZEN_FOR_FIRST_SPECIMEN_ONLY"
+      },
+      "semantic_order": "compose report -> stage ResearchArtifact -> verify/admit -> create DeliveryIntent -> internal export attempt -> authoritative receipt readback"
+    },
+    "payload_schema": {
+      "compose_input": {
+        "required": [
+          "project_key",
+          "report_spec_ref",
+          "ordered_claim_refs",
+          "ordered_evidence_qualification_refs",
+          "ordered_source_read_handles",
+          "citation_policy_ref",
+          "format"
+        ]
+      },
+      "staged_artifact_output": {
+        "required": [
+          "artifact_id",
+          "content_ref",
+          "content_digest",
+          "format",
+          "claim_closure_digest",
+          "evidence_relation_closure_digest",
+          "citation_closure_digest",
+          "structural_validation_ref",
+          "base_owner_revisions"
+        ]
+      },
+      "delivery_input": {
+        "required": [
+          "admitted_artifact_ref",
+          "artifact_revision",
+          "audience",
+          "channel",
+          "format",
+          "approval_refs",
+          "authority_digest",
+          "idempotency_key",
+          "irreversibility_profile"
+        ]
+      },
+      "legacy_gap": [
+        "the frozen export-token-state locator is absent",
+        "report outputs are returned as inline strings or bytes",
+        "source dictionaries lack canonical source/read-handle digest binding",
+        "quality gate modes warn and off allow failed reports to be returned",
+        "no durable admission token, CommitIntent, DeliveryIntent, attempt, or receipt owner is present"
+      ]
+    },
+    "program_combinators": {
+      "allowed": [
+        "Atom",
+        "Then",
+        "MapOutput",
+        "Decide"
+      ],
+      "constraints": [
+        "Then enforces compose before admission and admission before delivery",
+        "Decide may branch on deterministic structure/citation-closure validation but not generic semantic quality scoring",
+        "MapOutput may render a registered format with declared loss",
+        "Compiler-generated VERIFY_ADMIT remains a distinct step",
+        "Delivery cannot consume a merely staged artifact",
+        "No commutativity between admission and delivery"
+      ]
+    },
+    "failure_return_union": {
+      "observed": [
+        "HTML string",
+        "CSV bytes",
+        "StructuredReport plus markdown and quality-gate dictionaries",
+        "HTTP 400 invalid date/format",
+        "HTTP 422 strict quality-gate block",
+        "HTTP 503 feature disabled",
+        "HTTP 500 LLM_REPORT_INTERNAL_ERROR",
+        "silent summary fallback after model exception"
+      ],
+      "required_successor": [
+        "ReportArtifactStaged",
+        "ReportInputRefMissing",
+        "ReportSourceReadbackStale",
+        "ReportStructureInvalid",
+        "CitationClosureInvalid",
+        "ArtifactAdmissionRejected",
+        "ArtifactAdmissionOutcomeUnknown",
+        "DeliveryApprovalRequired",
+        "DeliveryAuthorityStale",
+        "InternalExportSucceeded",
+        "InternalExportRejected",
+        "InternalExportOutcomeUnknown"
+      ]
+    },
+    "canonical_owner": {
+      "report_artifact": "Research Ledger plus project-scoped artifact store after admission",
+      "admission": "capability canonical owner through AdmissionPort and CommitIntent",
+      "delivery_intent": "Research Ledger",
+      "delivery_attempt": "Execution Journal",
+      "delivery_receipt": "project receipt store with authoritative readback",
+      "legacy_report_strings": "no durable canonical artifact owner observed",
+      "write_authority_transferred": false
+    },
+    "effect_profile": {
+      "observed": [
+        "SQLAlchemy policy and market reads",
+        "LLM summarization call with broad exception fallback",
+        "hybrid-search, graph-row, and web source enrichment",
+        "job logger writes",
+        "inline HTTP response export"
+      ],
+      "required_boundary": [
+        "source/read-handle acquisition",
+        "pure report composition",
+        "artifact-store staging",
+        "canonical admission",
+        "internal delivery effect",
+        "authoritative receipt readback"
+      ],
+      "irreversible": "internal export is bounded and reversible only according to its frozen storage/retention contract; external delivery remains unauthorized"
+    },
+    "authority_profile": {
+      "compose_grants": [
+        "project.read",
+        "report.compose",
+        "artifact.stage"
+      ],
+      "admission_grants": [
+        "artifact.verify",
+        "artifact.admit"
+      ],
+      "delivery_grants": [
+        "delivery.internal_export",
+        "approved exact artifact revision"
+      ],
+      "semantic_quality_rule": "Structural and citation-closure checks may gate admission; semantic/source quality remains reasoned user/domain judgment.",
+      "forbidden": [
+        "quality score alone authorizing admission",
+        "artifact admission authorizing delivery",
+        "job completion becoming artifact or delivery success",
+        "warn/off mode bypassing export authority"
+      ]
+    },
+    "resource_profile": {
+      "class": "database_network_model_cpu_artifact_store",
+      "observed_bounds": [
+        "at most 12 section titles",
+        "at most 100 caller sources",
+        "report source target capped at 20",
+        "policy query limited to 50 rows",
+        "market query limited to 200 rows"
+      ],
+      "required_limits": [
+        "model token and timeout budget",
+        "network/source count budget",
+        "artifact byte ceiling",
+        "delivery idempotency key",
+        "per-project concurrency and quota",
+        "readback deadline"
+      ],
+      "parallel_policy": "Source acquisition may only be parallelized after effect, credential, failure, and stable merge-order policies are frozen."
+    },
+    "legacy_interpreter": {
+      "id": "legacy.report_and_llm_report_routes.v1",
+      "entrypoints": [
+        "generate_html_report",
+        "generate_csv_report",
+        "generate_llm_report",
+        "post_writing_export_markdown"
+      ],
+      "reuse_scope": "API parity, rendering examples, source-enrichment fixtures, and failure observations only"
+    },
+    "successor_interpreter_candidate": {
+      "compose_id": "successor.artifact.compose_report.v1",
+      "admission_id": "successor.artifact.report_admission.v1",
+      "delivery_id": "successor.delivery.internal_export.v1",
+      "recovery_id": "successor.delivery.internal_export_readback.v1",
+      "status": "UNIMPLEMENTED_P1_CANDIDATE",
+      "rule": "Each interpreter has a distinct binding, authority profile, failure owner, and authoritative readback."
+    },
+    "observation_profile": {
+      "id": "c8.3.report_export_admission_observation.v1",
+      "observes": [
+        "source handle and citation closure preservation",
+        "deterministic content digest for identical ordered inputs",
+        "staged versus admitted artifact distinction",
+        "strict structural rejection",
+        "approval and authority epoch revalidation",
+        "delivery idempotency",
+        "receipt readback after crash",
+        "no external delivery"
+      ],
+      "verification_mode": "SOURCE_AND_TEST_READ_ONLY",
+      "tests_executed": false,
+      "execution_status": "UNEXECUTED_READ_ONLY_AUDIT"
+    },
+    "fixture_ids": [
+      "main/backend/tests/unit/test_llm_report_generator_unittest.py::LlmReportGeneratorUnitTest::test_generate_structured_report_with_sources",
+      "main/backend/tests/unit/test_llm_report_generator_unittest.py::LlmReportGeneratorUnitTest::test_validate_report_structure_rejects_missing_source_citation",
+      "main/backend/tests/unit/test_llm_report_generator_unittest.py::LlmReportGeneratorUnitTest::test_gate_hard_reject_when_sections_below_min",
+      "main/backend/tests/unit/test_llm_report_api_unittest.py::LlmReportApiUnitTest::test_generate_llm_report_strict_mode_blocks_failed_gate",
+      "main/backend/tests/unit/test_llm_report_api_unittest.py::LlmReportApiUnitTest::test_generate_llm_report_off_mode_does_not_block_failed_gate",
+      "main/backend/tests/integration/test_llm_report_api_unittest.py::LlmReportApiIntegrationTestCase::test_generate_topic_only_auto_source_disabled_strict_blocks",
+      "main/backend/tests/successor_runtime/test_p0c_admission_recovery.py"
+    ],
+    "rollback_observation": {
+      "trigger": "artifact admission, exact-source binding, authority revalidation, delivery idempotency, or receipt readback fails",
+      "action": "disable the successor C8.3 capability and route user-facing report generation/export to legacy endpoints without treating their response as successor admission evidence",
+      "must_hold": [
+        "no external delivery",
+        "legacy report endpoints retain their existing authority ceiling",
+        "successor staged artifacts and attempts remain auditable",
+        "an unknown delivery outcome is reconciled by readback rather than repeated",
+        "rollback does not delete admitted artifacts or receipts"
+      ]
+    },
+    "disposition": "REIMPLEMENT",
+    "rationale": "The exact frozen export-token-state module is absent. Existing report paths combine source lookup, model fallback, structural scoring, job logging, rendering, and immediate HTTP export; they have no durable artifact identity, admission token, exact owner/base binding, DeliveryIntent, attempt, or authoritative receipt. The generator and tests remain valuable behavioral evidence, but the successor path must be implemented around the already frozen ResearchArtifact/Delivery owner separation rather than adapting the legacy topology.",
+    "prerequisites": [
+      "Resolve or formally supersede the missing llm_report_export_token_state.py locator",
+      "Freeze artifact.compose_report.v1 and ReportCompositionSpec.v1",
+      "Bind every source to a stable read handle, owner revision/incarnation, and content digest",
+      "Define citation and provenance closure for report artifacts",
+      "Implement content-addressed staging and independent AdmissionPort/CommitIntent",
+      "Implement DeliveryIntent, DeliveryAttempt, idempotency, receipt store, and recovery readback",
+      "Prevent warn/off structural gate modes from granting admission or export authority",
+      "Add crash fixtures for stage-before-admission, commit-before-event, and export-before-receipt",
+      "Keep external delivery and production authority transfer out of P1"
+    ],
+    "risk": {
+      "level": "CRITICAL",
+      "drivers": [
+        "missing frozen locator implementation",
+        "artifact/admission/delivery owner conflation",
+        "inline unversioned outputs",
+        "broad model fallback hides failure",
+        "graph/web projections can be promoted into report sources without exact canonical binding",
+        "gate modes can return structurally failed reports"
+      ]
+    },
+    "source_evidence": [
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/13_functorial-successor-c1-c9-locator-pending-inventory.v1.json",
+        "symbol_or_lines": "C8.3 locator entry",
+        "claim": "The frozen locator requires report.py, llm_report_export_token_state.py, and writing services; the export-token-state path is absent in the inspected worktree."
+      },
+      {
+        "path": "main/backend/app/services/report.py",
+        "symbol_or_lines": "generate_html_report; generate_csv_report",
+        "claim": "Report generation performs database reads and returns inline HTML or CSV; HTML summary generation catches any model exception and substitutes truncated document content."
+      },
+      {
+        "path": "main/backend/app/api/reports.py",
+        "symbol_or_lines": "create_report",
+        "claim": "The route immediately returns an envelope or binary download without durable artifact admission or delivery state."
+      },
+      {
+        "path": "main/backend/app/services/llm_report_generator.py",
+        "symbol_or_lines": "StructuredReport; build_structured_report; evaluate_report_gate; render_markdown",
+        "claim": "The supporting generator has typed section structure and citation checks, but sources remain generic dictionaries and the gate is metric/structure based."
+      },
+      {
+        "path": "main/backend/app/api/llm_report.py",
+        "symbol_or_lines": "generate_llm_report",
+        "claim": "The API composes, renders, gates, logs a job, and immediately returns report and markdown; strict blocks only fail decisions, while warn/off can return a failed gate."
+      },
+      {
+        "path": "main/backend/app/services/llm_report_source_enrichment.py",
+        "symbol_or_lines": "resolve_report_sources",
+        "claim": "Source resolution merges RAG documents, graph projections, and web results without a successor canonical read-handle/content-digest contract."
+      },
+      {
+        "path": "main/backend/app/api/writing.py",
+        "symbol_or_lines": "post_writing_export_markdown",
+        "claim": "Writing export directly rebuilds citations and sends a response attachment, so composition, admission, and delivery are not independently owned."
+      },
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/09_functorial-successor-f0-semantic-owner-inventory.v1.json",
+        "symbol_or_lines": "owner_bindings for ResearchArtifact, DeliveryIntent, DeliveryAttempt, and DeliveryReceiptRef",
+        "claim": "The frozen owner model separates canonical artifact, runtime attempt, and authoritative delivery receipt ownership."
+      }
+    ]
+  },
+  {
+    "cell": "C8.4",
+    "boundary": "graph consumer provenance loss",
+    "locator_paths": [
+      "main/backend/app/services/graph",
+      "main/backend/app/models/entities.py"
+    ],
+    "locator_status": {
+      "state": "RESOLVED",
+      "inventory_state": "ELIGIBILITY_PENDING",
+      "resolved_paths": [
+        "main/backend/app/services/graph/models.py",
+        "main/backend/app/services/graph/adapters",
+        "main/backend/app/services/graph/builder.py",
+        "main/backend/app/services/graph/mapping.py",
+        "main/backend/app/services/graph/projection.py",
+        "main/backend/app/services/graph/exporter.py",
+        "main/backend/app/services/graph/persistence",
+        "main/backend/app/models/entities.py"
+      ],
+      "missing_paths": []
+    },
+    "observed_symbols": [
+      "Document",
+      "GraphNodeRecord",
+      "GraphEdgeRecord",
+      "NormalizedSocialPost",
+      "NormalizedMarketData",
+      "NormalizedPolicyData",
+      "GraphNode",
+      "GraphEdge",
+      "Graph",
+      "build_graph",
+      "build_market_graph",
+      "build_policy_graph",
+      "project_graph_by_node_types",
+      "map_node_for_interface",
+      "map_edge_for_interface",
+      "GraphNodeWriter",
+      "GraphNodeReader",
+      "build_graph_projection_dry_run",
+      "build_keyword_card_from_graph_node",
+      "resolve_report_sources"
+    ],
+    "object_types": {
+      "legacy_canonical_inputs": [
+        "Document",
+        "Source"
+      ],
+      "legacy_projections": [
+        "GraphNode",
+        "GraphEdge",
+        "GraphNodeRecord",
+        "GraphEdgeRecord"
+      ],
+      "successor_candidate": [
+        "GraphCanonicalReadHandle.v1",
+        "GraphContextProjection.v1",
+        "DeclaredLossProfile.v1",
+        "SourceRef.v1",
+        "MaterialRef.v1"
+      ],
+      "owner_mode": "DECLARED_LOSS_PROJECTION"
+    },
+    "atom_kind": {
+      "candidates": [
+        "graph.read_context.v1",
+        "graph.project_context.v1"
+      ],
+      "freeze_status": "NOT_FROZEN",
+      "semantic_order": "read canonical graph/source handles -> apply registered declared-loss projection -> expose bounded consumer context"
+    },
+    "payload_schema": {
+      "read_input": {
+        "required": [
+          "project_key",
+          "graph_owner_binding_ref",
+          "graph_revision_or_snapshot_ref",
+          "selection_spec_ref",
+          "consumer_id"
+        ]
+      },
+      "projection_output": {
+        "required": [
+          "projection_id",
+          "source_graph_ref",
+          "source_graph_digest",
+          "node_refs",
+          "edge_refs",
+          "source_read_handles",
+          "projection_content_digest",
+          "declared_loss_profile_ref",
+          "dropped_node_types",
+          "dropped_edge_types",
+          "truncation_observations",
+          "redaction_observations",
+          "generated_at"
+        ],
+        "rule": "A graph projection may summarize or omit content but cannot manufacture SourceRef, MaterialRef, evidence qualification, adoption, or canonical graph facts."
+      },
+      "legacy_gap": [
+        "Graph/GraphNode/GraphEdge have no first-class provenance or loss profile",
+        "social post text is truncated to 500 characters",
+        "node-type filtering drops nodes and incident edges without a loss record",
+        "storage casefolds canonical IDs and overwrites properties",
+        "edge uniqueness collapses repeated same-type endpoints",
+        "reader omits source_doc_id and quality_flags on rehydration",
+        "writing/report consumers synthesize evidence text when graph evidence is absent"
+      ]
+    },
+    "program_combinators": {
+      "allowed": [
+        "Atom",
+        "Then",
+        "MapOutput"
+      ],
+      "constraints": [
+        "graph.read_context.v1 is an explicit read effect",
+        "graph.project_context.v1 or MapOutput must bind a registered declared-loss profile",
+        "Then preserves canonical read before projection and projection before consumer synthesis",
+        "MapOutput cannot convert graph relevance into evidence qualification or source adoption",
+        "Empty projection and missing provenance remain typed outcomes",
+        "No commutativity or backend naturality is claimed"
+      ]
+    },
+    "failure_return_union": {
+      "observed": [
+        "Graph",
+        "empty Graph",
+        "Optional normalized record",
+        "GraphWriteSummary with skipped counts",
+        "GraphProjectionDryRunReport with unresolved or duplicate edges",
+        "dictionary export",
+        "database/filesystem exception",
+        "silent adapter skip or synthetic consumer evidence"
+      ],
+      "required_successor": [
+        "GraphContextProjectionSucceeded",
+        "GraphCanonicalReadUnavailable",
+        "GraphOwnerRevisionStale",
+        "GraphNodeRefUnresolved",
+        "GraphEdgeRefUnresolved",
+        "GraphProvenanceMissing",
+        "GraphLossProfileMissing",
+        "GraphLossExceeded",
+        "GraphProjectionEmpty",
+        "GraphProjectionCodecFailure"
+      ]
+    },
+    "canonical_owner": {
+      "source_content": "project Document/source repository",
+      "legacy_graph_projection": "project graph repository",
+      "successor_projection": "non-canonical declared-loss projection owned by its projector profile",
+      "runtime_role": "execution and projection observations only",
+      "consumer_role": "read-only bounded view",
+      "forbidden": [
+        "projection manufacturing source or adoption facts",
+        "writing/report card becoming canonical source",
+        "runtime journal becoming graph business owner",
+        "projection overwrite erasing canonical provenance history"
+      ]
+    },
+    "effect_profile": {
+      "pure_components": [
+        "normalization",
+        "node/edge construction",
+        "node-type projection",
+        "interface mapping"
+      ],
+      "observed_effects": [
+        "SQLAlchemy graph node/edge read and upsert",
+        "Document/source lazy reads",
+        "filesystem JSON export",
+        "clock-dependent time decay",
+        "consumer cache and report enrichment"
+      ],
+      "required_boundary": "Canonical graph read, pure declared-loss transform, projection persistence, and consumer materialization are separate interpreters.",
+      "irreversible": false
+    },
+    "authority_profile": {
+      "required_grants": [
+        "project.read",
+        "graph.read",
+        "projection.materialize"
+      ],
+      "write_grant": "graph canonical writes remain with the graph capability owner; consumer projections have no canonical write authority",
+      "semantic_rule": "Graph relevance, fixed scores, topology, and layout proximity do not constitute source adoption or evidence qualification.",
+      "revalidation_points": [
+        "canonical read",
+        "projection materialization",
+        "consumer handoff"
+      ]
+    },
+    "resource_profile": {
+      "class": "database_cpu_memory_projection",
+      "observed_bounds": [
+        "GraphNodeReader default limit 5000",
+        "projection readiness dry-run limit",
+        "MAX_KEYWORDS_PER_POST",
+        "social text truncation to 500 characters"
+      ],
+      "required_limits": [
+        "node and edge ceilings",
+        "per-node property-byte ceiling",
+        "provenance-handle ceiling",
+        "declared truncation/redaction budget",
+        "database deadline",
+        "consumer payload ceiling"
+      ],
+      "parallel_policy": "Graph builders may only parallelize independent partitions when stable merge identity, duplicate handling, provenance aggregation, and resource ceilings are frozen."
+    },
+    "legacy_interpreter": {
+      "id": "legacy.graph.consumer_projection.v1",
+      "entrypoints": [
+        "build_graph",
+        "build_market_graph",
+        "build_policy_graph",
+        "project_graph_by_node_types",
+        "GraphNodeWriter.persist_graph_nodes",
+        "GraphNodeReader.load_graph",
+        "export_to_json",
+        "build_keyword_card_from_graph_node"
+      ],
+      "reuse_scope": "behavioral fixtures and legacy API adapter only"
+    },
+    "successor_interpreter_candidate": {
+      "read_id": "successor.graph.read_context.sqlalchemy.v1",
+      "projection_id": "successor.graph.project_context.declared_loss.v1",
+      "status": "UNIMPLEMENTED_P1_CANDIDATE",
+      "rule": "The output is a content-addressed declared-loss projection carrying canonical node/edge/source handles; it is never a second graph or source authority."
+    },
+    "observation_profile": {
+      "id": "c8.4.graph_consumer_provenance_loss_observation.v1",
+      "observes": [
+        "canonical graph/source identity preserved",
+        "all retained nodes and edges carry provenance handles",
+        "dropped nodes, edges, fields, truncation, and redaction are declared",
+        "casefold and duplicate collapse are observable",
+        "projection deletion/rebuild does not affect canonical owners",
+        "consumer does not synthesize source/adoption facts",
+        "missing evidence remains missing"
+      ],
+      "verification_mode": "SOURCE_AND_TEST_READ_ONLY",
+      "tests_executed": false,
+      "execution_status": "UNEXECUTED_READ_ONLY_AUDIT"
+    },
+    "fixture_ids": [
+      "main/backend/tests/unit/test_graph_projection_unittest.py::GraphProjectionUnitTestCase::test_project_graph_by_node_types_filters_nodes_and_edges",
+      "main/backend/tests/unit/test_graph_persistence_writer_unittest.py::GraphPersistenceWriterUnitTestCase::test_projection_writer_casefolds_storage_canonical_id_without_changing_interface_id",
+      "main/backend/tests/unit/test_graph_persistence_writer_unittest.py::GraphPersistenceWriterUnitTestCase::test_projection_dry_run_resolves_canonical_edge_endpoints_without_db",
+      "main/backend/tests/unit/test_graph_persistence_writer_unittest.py::GraphPersistenceWriterUnitTestCase::test_projection_dry_run_marks_missing_edge_endpoint_as_rollout_signal",
+      "main/backend/tests/unit/test_graph_exporter_interface_unittest.py::GraphExporterInterfaceUnitTestCase::test_export_to_json_keeps_interface_shape",
+      "main/backend/tests/unit/test_writing_keyword_card_service_unittest.py::WritingKeywordCardServiceUnitTestCase::test_graph_context_is_consumed_as_optional_adapter",
+      "main/backend/tests/unit/test_llm_report_source_enrichment_unittest.py::LlmReportSourceEnrichmentUnitTest::test_topic_only_falls_back_to_graph_then_web"
+    ],
+    "rollback_observation": {
+      "trigger": "provenance coverage, declared-loss, identity, duplicate-collapse, or no-manufactured-source invariant fails",
+      "action": "return consumers to the legacy graph context/export path and discard or rebuild only the successor projection",
+      "must_hold": [
+        "Document/source and legacy graph repositories remain untouched",
+        "projection offsets and loss records remain auditable",
+        "no canonical graph dual write",
+        "consumer rollback cannot create evidence or adoption facts",
+        "projection deletion does not delete canonical nodes, documents, or source handles"
+      ]
+    },
+    "disposition": "REIMPLEMENT",
+    "rationale": "The legacy graph code is a useful behavioral and compatibility corpus, but its core DTOs lack provenance and declared-loss contracts. Builders truncate and merge content, node-type projections silently remove graph structure, storage casefolds identities and overwrites properties, same-endpoint edges collapse, and consumer adapters can synthesize evidence when none exists. These are intrinsic to the current projection representation, so the successor consumer boundary should be reimplemented as a content-addressed declared-loss projection over canonical read handles rather than importing the legacy graph topology.",
+    "prerequisites": [
+      "Freeze GraphCanonicalReadHandle.v1, GraphContextProjection.v1, and DeclaredLossProfile.v1",
+      "Define graph owner revision/snapshot and content-digest readback",
+      "Attach typed source/provenance handles to retained nodes and edges",
+      "Declare truncation, redaction, node filtering, edge filtering, casefolding, and duplicate-collapse semantics",
+      "Prohibit synthetic evidence/source facts in writing and report graph adapters",
+      "Define edge occurrence identity when multiple source observations support the same endpoints",
+      "Add projection round-trip, rebuild, deletion, missing-provenance, and loss-budget fixtures",
+      "Keep graph canonical write authority with the legacy owner until a separate owner-epoch migration"
+    ],
+    "risk": {
+      "level": "CRITICAL",
+      "drivers": [
+        "silent provenance loss",
+        "undeclared lossy compression",
+        "identity casefold/collision risk",
+        "edge occurrence collapse",
+        "projection overwrite semantics",
+        "consumer synthesis of evidence from graph relevance",
+        "projection may be mistaken for canonical source or adoption"
+      ]
+    },
+    "source_evidence": [
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/13_functorial-successor-c1-c9-locator-pending-inventory.v1.json",
+        "symbol_or_lines": "C8.4 locator entry",
+        "claim": "The frozen locator binds graph services and entities.py while leaving eligibility pending."
+      },
+      {
+        "path": "main/backend/app/services/graph/models.py",
+        "symbol_or_lines": "GraphNode; GraphEdge; Graph",
+        "claim": "Core graph DTOs contain type, id, properties, and schema version but no canonical owner, provenance closure, source handle, or declared-loss profile."
+      },
+      {
+        "path": "main/backend/app/services/graph/builder.py",
+        "symbol_or_lines": "build_graph",
+        "claim": "Social Post properties truncate text to 500 characters and cap/normalize keyword processing without emitting a loss record."
+      },
+      {
+        "path": "main/backend/app/services/graph/projection.py",
+        "symbol_or_lines": "project_graph_by_node_types",
+        "claim": "Node-type projection removes excluded nodes and incident edges but returns only another Graph with no declaration of what was lost."
+      },
+      {
+        "path": "main/backend/app/services/graph/mapping.py",
+        "symbol_or_lines": "normalize_canonical_node_id; normalize_node_properties",
+        "claim": "Storage canonicalization casefolds IDs and drops reserved property keys, both of which are loss-bearing transformations."
+      },
+      {
+        "path": "main/backend/app/models/entities.py",
+        "symbol_or_lines": "GraphNodeRecord; GraphEdgeRecord",
+        "claim": "Graph rows store one source_doc_id only on nodes and uniquely identify edges by type/from/to, so repeated provenance occurrences have no first-class identity."
+      },
+      {
+        "path": "main/backend/app/services/graph/persistence/graph_node_writer.py",
+        "symbol_or_lines": "GraphNodeWriter._source_doc_id; _upsert_node; _upsert_edges",
+        "claim": "Only Post, MarketData, and Policy numeric nodes receive source_doc_id; upserts overwrite node/edge properties and collapse same-type endpoint edges."
+      },
+      {
+        "path": "main/backend/app/services/graph/persistence/graph_node_reader.py",
+        "symbol_or_lines": "GraphNodeReader.load_graph",
+        "claim": "Readback reconstructs GraphNode from row properties but does not restore source_doc_id or quality_flags into the graph DTO."
+      },
+      {
+        "path": "main/backend/app/services/document_views/writing_card_view.py",
+        "symbol_or_lines": "build_keyword_card_from_graph_node",
+        "claim": "A graph card uses a fixed score and substitutes synthetic evidence text when node summary/evidence is absent."
+      },
+      {
+        "path": "main/backend/app/services/llm_report_source_enrichment.py",
+        "symbol_or_lines": "_collect_from_graph_nodes",
+        "claim": "Report enrichment promotes graph-node properties into source dictionaries and synthesizes evidence text when graph summary/text is absent."
+      }
+    ]
+  }
+]

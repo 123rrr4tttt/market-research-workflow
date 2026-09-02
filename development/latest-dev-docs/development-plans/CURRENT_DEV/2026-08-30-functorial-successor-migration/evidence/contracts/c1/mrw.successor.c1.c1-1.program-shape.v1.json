@@ -1,0 +1,58 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "mrw.successor.c1.c1-1.program-shape.v1",
+  "ref_kind": "program_shape",
+  "cell_id": "C1.1",
+  "family_id": "C1",
+  "movement_ids": [
+    "C1-M001",
+    "C1-M002"
+  ],
+  "semantics": {
+    "movement_rows": {
+      "C1-M001": {
+        "named_transform": "parse and validate the legacy graph DSL into a typed successor Program",
+        "target_object": "Typed successor Program acceptance object via c1_legacy_dsl parse/validate/compile"
+      },
+      "C1-M002": {
+        "named_transform": "compile a validated Program into an ordered ExecutionPlan whose digest covers kind, payload, dependencies, catalog and policy inputs",
+        "target_object": "Typed ExecutionPlan with complete semantic digest over kind, config, payload, dependencies, catalog and policy"
+      }
+    },
+    "code_contract": {
+      "C1_SEMANTIC_IDENTITY": "c1.legacy-graph.parse-validate-compile",
+      "C1_OPERATION_CATALOG_ID": "mrw.functorial-successor.c1.operations",
+      "C1_OBSERVATION_PROFILE": "mrw.successor.c1.legacy-dsl.observation.v1",
+      "C1_PROGRAM_CONTRACT_VERSION": "mrw.functorial-successor.program-spec.v1"
+    }
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C1.v1.json",
+      "pointer": "#/movements/C1-M001/named_transform",
+      "sha256": "ccbb50ee217882d1640bca7f57430eaea651f8ae83258873449d2c998d30bb0a"
+    },
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C1.v1.json",
+      "pointer": "#/movements/C1-M002/named_transform",
+      "sha256": "ccbb50ee217882d1640bca7f57430eaea651f8ae83258873449d2c998d30bb0a"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/capabilities/c1_legacy_dsl.py",
+      "pointer": "C1_SEMANTIC_IDENTITY",
+      "sha256": "0e7997d42913a5cc27605f841a6d2abab42feb49e6d3e48cc97ede6a6e046155"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/capabilities/c1_legacy_dsl.py",
+      "pointer": "C1_OPERATION_CATALOG_ID",
+      "sha256": "0e7997d42913a5cc27605f841a6d2abab42feb49e6d3e48cc97ede6a6e046155"
+    }
+  ],
+  "derivation_note": "program shape derived from C1-M001/C1-M002 named_transform/target_object and C1.1 code identity constants; no new semantics",
+  "content_digest": "951dbf2bebcc84ef0ec395e27dd24b2d9c5ecd7a62c471ae1b8c402df0d6b624"
+}

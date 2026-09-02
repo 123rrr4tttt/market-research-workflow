@@ -1,0 +1,31 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "agent_batch.c4.generic_enum.loss.v1",
+  "ref_kind": "declared_loss",
+  "cell_id": "C4.3",
+  "family_id": "C4",
+  "movement_ids": [
+    "C4-M004"
+  ],
+  "semantics": {
+    "movement_target_object": "Typed agent_batch.submit.v1 request, durable idempotency record and receipt",
+    "loss_statement": "acceptance status exists only in the typed receipt and is not projected from the generic DB enum"
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C4.v1.json",
+      "pointer": "#/movements/C4-M004/target_object",
+      "sha256": "e54d9c412f33293b471bbc625533da20b0998c62659189fcdde09abb1ea9e59d"
+    },
+    {
+      "kind": "p3_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C4.json",
+      "pointer": "#/cells/2/successor_observation/acceptance_status_location",
+      "sha256": "058b02345b9d67c1e7ff51006afb4c28e2c8ce4dadf7a505fac6bbac781bd188"
+    }
+  ],
+  "derivation_note": "declared loss copied from contract C4.3 section 11.6 and corroborated by fragment acceptance_status_location=typed_receipt_only",
+  "content_digest": "6e243380cc430433d46c439d68f09e5ca4d479f186e8ae06d4c072766ec3a35d"
+}

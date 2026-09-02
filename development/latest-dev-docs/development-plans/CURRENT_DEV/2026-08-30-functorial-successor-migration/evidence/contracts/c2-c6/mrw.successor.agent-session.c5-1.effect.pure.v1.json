@@ -1,0 +1,45 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "mrw.successor.agent-session.c5-1.effect.pure.v1",
+  "ref_kind": "effect_policy",
+  "cell_id": "C5.1",
+  "family_id": "C5",
+  "movement_ids": [
+    "C5-M001"
+  ],
+  "semantics": {
+    "movement_effect": "Pure fold and projection-store write; legacy rows remain read-only",
+    "replay_pure_fold": "Pure, fail-closed replay of the successor runtime journal",
+    "legacy_rows_read_only": "legacy rows remain read-only",
+    "authority_projection_only": "PROJECTION_ONLY"
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C5.v1.json",
+      "pointer": "#/movements/C5-M001/effect",
+      "sha256": "322d24b19dbbb9babcd463f1c5fb652ec22cfc656a5cab9fd848d9f114b9ad65"
+    },
+    {
+      "kind": "p3_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C5.json",
+      "pointer": "#/cells/0/legacy_observation/authority",
+      "sha256": "38ce21888d0c2780bac3c2b6dbef9fcc42341eb041d281a2a994cbed35215d39"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/runtime/replay.py",
+      "pointer": "replay_runtime_events",
+      "sha256": "e4574f64fb8f5d4b10e22532ddb1a368b59684c023fe78bf59c993cd0e5e2bc8"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/substrate/projections/agent_session.py",
+      "pointer": "PostgresAgentSessionReadAdapter",
+      "sha256": "d79950659da58fd5d8cc93f44ccd2e632c5e1a467a92ef48f1ff5b25e074f749"
+    }
+  ],
+  "derivation_note": "effect semantics copied verbatim from C5-M001; replay.py module docstring and agent_session read-only adapter as code constants",
+  "content_digest": "312f066db914211768a3fabd7e6105531d4f6f3da491ca3485313c60eb72f4c9"
+}

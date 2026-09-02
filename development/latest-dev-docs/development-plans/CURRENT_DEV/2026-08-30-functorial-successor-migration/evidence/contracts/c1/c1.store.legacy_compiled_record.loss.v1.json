@@ -1,0 +1,25 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "c1.store.legacy_compiled_record.loss.v1",
+  "ref_kind": "declared_loss",
+  "cell_id": "C1.3",
+  "family_id": "C1",
+  "movement_ids": [
+    "C1-M004"
+  ],
+  "semantics": {
+    "movement_target_object": "Project-scoped Program, Plan, payload and journal rehydration closure with future-owner rollback",
+    "loss_statement": "Declared loss: legacy globally keyed compiled records are not migrated as a second graph store; successor replaces them with project-scoped exact Program/Plan/journal rehydration"
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C1.v1.json",
+      "pointer": "#/movements/C1-M004/projection_loss",
+      "sha256": "ccbb50ee217882d1640bca7f57430eaea651f8ae83258873449d2c998d30bb0a"
+    }
+  ],
+  "derivation_note": "declared loss copied verbatim from movement C1-M004 projection_loss",
+  "content_digest": "387d66341d55418e83efaef8353dff32a565024598f3d7a58c71c81571602158"
+}

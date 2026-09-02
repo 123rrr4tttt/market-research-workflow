@@ -1,0 +1,38 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "mrw.successor.agent-batch.c4-3.program-shape.v1",
+  "ref_kind": "program_shape",
+  "cell_id": "C4.3",
+  "family_id": "C4",
+  "movement_ids": [
+    "C4-M004",
+    "C4-M005"
+  ],
+  "semantics": {
+    "shape": "typed single-Atom submission Program compiled through the shared compiler",
+    "fragment_reason": "typed single-Atom submission Program compiled through the shared compiler"
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C4.v1.json",
+      "pointer": "#/movements/C4-M004/target_object",
+      "sha256": "e54d9c412f33293b471bbc625533da20b0998c62659189fcdde09abb1ea9e59d"
+    },
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C4.v1.json",
+      "pointer": "#/movements/C4-M005/target_object",
+      "sha256": "e54d9c412f33293b471bbc625533da20b0998c62659189fcdde09abb1ea9e59d"
+    },
+    {
+      "kind": "p3_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C4.json",
+      "pointer": "#/cells/2/program_digest/reason",
+      "sha256": "058b02345b9d67c1e7ff51006afb4c28e2c8ce4dadf7a505fac6bbac781bd188"
+    }
+  ],
+  "derivation_note": "shape copied from fragment C4 /cells/2 program_digest.reason and movement target objects; no new semantics added",
+  "content_digest": "9b8775038af98d4092a51aabd39a7f52e95b6868ebc110b979981baf747ac27e"
+}

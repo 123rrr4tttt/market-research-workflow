@@ -1,0 +1,89 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "mrw.successor.collect.c3-1.program-shape.v1",
+  "ref_kind": "program_shape",
+  "cell_id": "C3.1",
+  "family_id": "C3",
+  "movement_ids": [
+    "C3-M001",
+    "C3-M002"
+  ],
+  "semantics": {
+    "shape": "composed Then+MapOutput+Fold",
+    "composition": "Then(TraverseOrdered, MapOutput(sequence_to_fold_payload), FoldAtom)",
+    "target_object": "Then(TraverseOrdered, MapOutput, FoldAtom) Program and exact ExecutionPlan",
+    "named_transform": "materialize ordered batch elements with exact occurrence and payload closure; execute ordered elements under explicit resource policy while preserving every executed outcome",
+    "traversal_materializer": "mrw.traverse_ordered.materialize",
+    "traversal_materializer_version": "1.0.0",
+    "traversal_compiled_code": "COMPILED_TRAVERSE_ORDERED",
+    "fold_transform": "collect.fold_ordered_results",
+    "sequence_to_fold_payload_transform": "collect.sequence_to_fold_payload",
+    "program_digest_reason": "composed Then(TraverseOrdered, MapOutput(sequence_to_fold_payload), FoldAtom) Program binding the actual traversal epoch",
+    "plan_digest_reason": "compiled ExecutionPlan with SUCCESSOR_PROGRAM_EPOCH traversal materialization and one fold EFFECT step"
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C3.v1.json",
+      "pointer": "/movements/0/target_object",
+      "sha256": "20fd31deb9357aa5e50541b3d60d3c819e7bf90b103d0d3ec36e4713a3d17b72"
+    },
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C3.v1.json",
+      "pointer": "/movements/0/named_transform",
+      "sha256": "20fd31deb9357aa5e50541b3d60d3c819e7bf90b103d0d3ec36e4713a3d17b72"
+    },
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C3.v1.json",
+      "pointer": "/movements/1/named_transform",
+      "sha256": "20fd31deb9357aa5e50541b3d60d3c819e7bf90b103d0d3ec36e4713a3d17b72"
+    },
+    {
+      "kind": "p3_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C3.json",
+      "pointer": "/cells/0/program_digest/reason",
+      "sha256": "915aee69e65f2020fec859aa65a2f49be14325e4eff077f3881b025a89ef0133"
+    },
+    {
+      "kind": "p3_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C3.json",
+      "pointer": "/cells/0/plan_digest/reason",
+      "sha256": "915aee69e65f2020fec859aa65a2f49be14325e4eff077f3881b025a89ef0133"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/language/compile.py",
+      "pointer": "TRAVERSAL_MATERIALIZER_TRANSFORM",
+      "sha256": "91b06329b8476d06193e8030746288be5550f065b6f471b81dce650608d61dd5"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/language/compile.py",
+      "pointer": "TRAVERSAL_MATERIALIZER_VERSION",
+      "sha256": "91b06329b8476d06193e8030746288be5550f065b6f471b81dce650608d61dd5"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/capabilities/collect_c3_program.py",
+      "pointer": "TRAVERSAL_COMPILED_CODE",
+      "sha256": "3391c98bd285ca35e6536a8dbf396c13231540566be5ab1cc6f8e08a196e0950"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/capabilities/collect_c3_program.py",
+      "pointer": "COLLECT_FOLD_TRANSFORM_NAME",
+      "sha256": "3391c98bd285ca35e6536a8dbf396c13231540566be5ab1cc6f8e08a196e0950"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/capabilities/collect_c3_program.py",
+      "pointer": "COLLECT_SEQUENCE_TO_FOLD_PAYLOAD_TRANSFORM_NAME",
+      "sha256": "3391c98bd285ca35e6536a8dbf396c13231540566be5ab1cc6f8e08a196e0950"
+    }
+  ],
+  "derivation_note": "program_shape derived from P1P3 movement rows, p3 fragments, family config and code constants; no new semantics added",
+  "content_digest": "a67ba94a687902a01ed9e14e44daaa9817b8ed063c730c372705b37c4041c99e"
+}

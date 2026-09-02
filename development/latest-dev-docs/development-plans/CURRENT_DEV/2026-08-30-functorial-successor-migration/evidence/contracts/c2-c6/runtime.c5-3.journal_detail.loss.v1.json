@@ -1,0 +1,38 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "runtime.c5-3.journal_detail.loss.v1",
+  "ref_kind": "declared_loss",
+  "cell_id": "C5.3",
+  "family_id": "C5",
+  "movement_ids": [
+    "C5-M004"
+  ],
+  "semantics": {
+    "movement_projection_loss": "Projection contains bounded session/task status and not the full journal",
+    "bounded_snapshot_fields": "session status/task status only; full journal not included",
+    "snapshot_contract": "AgentSessionSnapshot"
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C5.v1.json",
+      "pointer": "#/movements/C5-M004/projection_loss",
+      "sha256": "322d24b19dbbb9babcd463f1c5fb652ec22cfc656a5cab9fd848d9f114b9ad65"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/substrate/projections/agent_session.py",
+      "pointer": "AgentSessionSnapshot",
+      "sha256": "d79950659da58fd5d8cc93f44ccd2e632c5e1a467a92ef48f1ff5b25e074f749"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/substrate/projections/agent_session.py",
+      "pointer": "_session_status",
+      "sha256": "d79950659da58fd5d8cc93f44ccd2e632c5e1a467a92ef48f1ff5b25e074f749"
+    }
+  ],
+  "derivation_note": "declared loss copied verbatim from movement projection_loss; projection contains bounded session/task status and not the full journal",
+  "content_digest": "cde4af12a5d773c9a5c7233c7efa3fca4c6815e578709b0dc08ff12e98e91b4a"
+}

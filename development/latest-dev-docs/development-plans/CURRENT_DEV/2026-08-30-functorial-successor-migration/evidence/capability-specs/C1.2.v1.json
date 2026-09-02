@@ -1,0 +1,192 @@
+{
+  "schema": "mrw.functorial_successor.capability_cell_spec.v1",
+  "version": "1.0.0",
+  "cell_id": "C1.2",
+  "family_id": "C1",
+  "owner_capability_id": "runtime.c1.2.node.v1",
+  "entrypoint_kind": "PROGRAM",
+  "commutativity_claim": "NOT_CLAIMED",
+  "input_contract_refs": [
+    "mrw.successor.runtime-assignment.v1",
+    "mrw.successor.execution-plan.v1",
+    "mrw.successor.program.v1",
+    "mrw.runtime.work_item.v1"
+  ],
+  "output_contract_refs": [
+    "mrw.runtime.run-projection.v1",
+    "mrw.runtime.ordered-event-closure.v1",
+    "mrw.runtime.event.authoritative_readback.v1",
+    "mrw.successor.runtime-work-item.v1"
+  ],
+  "object_contract_refs": [
+    "C1NamedStepObservation.v1",
+    "C1RuntimeEvidenceRefs.v1",
+    "C1RollbackBeforeAfter.v1",
+    "C1SliceAcceptance.v1",
+    "RuntimeNode.v1",
+    "RuntimeAssignment.v1"
+  ],
+  "operation_contract_refs": [
+    "ingest_index.stage_candidate.v1",
+    "c8.writing.compose.v1",
+    "c8.writing.stage.v1",
+    "c8.report.stage.v1",
+    "c8.report.verify.v1",
+    "c8.report.admission.v1",
+    "c8.delivery_intent_prepare.v1",
+    "delivery.internal_export.v1"
+  ],
+  "program_shape_ref": "mrw.successor.runtime.c1-2.program-shape.v1",
+  "ordered_composition_refs": [
+    "ingest_index.stage_candidate.v1",
+    "c8.writing.compose.v1",
+    "c8.writing.stage.v1",
+    "c8.report.stage.v1",
+    "c8.report.verify.v1",
+    "c8.report.admission.v1",
+    "c8.delivery_intent_prepare.v1",
+    "delivery.internal_export.v1"
+  ],
+  "interpreter_refs": [
+    "successor.c1.runtime-node.v1",
+    "legacy.workflow-graph.named-observation-oracle.v1"
+  ],
+  "profile_refs": [
+    "mrw.successor.ingest-c7.c7-1.observation.v1",
+    "mrw.successor.c8.observation.v1",
+    "mrw.successor.runtime.c1-2.effect.v1",
+    "mrw.successor.runtime.c1-2.resource.v1"
+  ],
+  "deployment_binding_refs": [
+    "deployment.local-only.no-network.no-provider.no-canonical-write.v1"
+  ],
+  "legacy_oracle_ref": "legacy.workflow-graph.named-observation-oracle.v1",
+  "shadow_observation_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p5-c1-slices/C1SliceA.v1.json#/cell_coverage/C1.2",
+  "failure_union_refs": [
+    "EFFECT_FAILED",
+    "OUTCOME_UNKNOWN",
+    "CANCELED",
+    "REQUIRED_STEP_FAILED",
+    "LEASE_LOST",
+    "EXACT_HANDLER_MISMATCH",
+    "CLAIM_BINDING_MISMATCH"
+  ],
+  "declared_lossy_projection_refs": [],
+  "effect_policy_ref": "mrw.successor.runtime.c1-2.effect.v1",
+  "resource_policy_ref": "mrw.successor.runtime.c1-2.resource.v1",
+  "recovery_policy_ref": "mrw.successor.runtime.c1-2.recovery.v1",
+  "readback_policy_ref": "mrw.successor.runtime.c1-2.readback.v1",
+  "authority_ceiling": {
+    "canonical_write": false,
+    "live_provider": false,
+    "external_delivery": false,
+    "cutover": false,
+    "authority_transfer": false
+  },
+  "adoption_prerequisites": [
+    "C1_M003_TIMEOUT_FAILURE_NOT_EXERCISED",
+    "C1_SOURCE_PATH_UNDER_CURRENT_DEV_TREE",
+    "P3_REVIEW_SURFACE_NOT_GIT_IDENTIFIED"
+  ],
+  "source_bindings": [
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/P1FunctorizationEligibility.v1.json",
+      "file_sha256": "16dac2d34f2cdcaeffa4718fe2e63733f48b29ad0ba64daab32ed011527d4642",
+      "role": "p1_eligibility"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p1-fragments/C1.json",
+      "file_sha256": "e6c2947a513e72f72b0bf655721cde4997c9ff58150d129f0b57166be588526c",
+      "role": "p1_fragment"
+    },
+        {
+            "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/P1P3SuccessorMovementMatrix.v1.json",
+            "file_sha256": "9dc614c73f6ce48202f7087a8971e812c5eae44844e9453267e6550bb0f8712e",
+            "role": "movement_matrix"
+        },
+        {
+            "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/P1P3LegacyDonorSemanticMovementInventory.v1.json",
+            "file_sha256": "31e59601a7fef35afc5cf2a3e784fc1692d40ad3a53b816e3439eeb4f27990cc",
+            "role": "donor_inventory"
+        },
+        {
+            "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C1.v1.json",
+            "file_sha256": "924f121290c88d46ac2a4b17017b897fcfd98cdb85900696fa898c34f86d1277",
+            "role": "movement_fragment"
+        },
+    {
+      "path": "main/backend/app/successor_runtime/capabilities/c1_slice_acceptance.py",
+      "file_sha256": "b84257098bf91dc0c2dce91f185df8110bb30c41ffd5520cfe06d4518fc2f6f4",
+      "role": "c1_acceptance_pure_api"
+    },
+    {
+      "path": "main/backend/app/successor_runtime/runtime/node.py",
+      "file_sha256": "142939d2bce9b9e4ec1461039386e403f39a4ebb0cac9d881d75239867ee0735",
+      "role": "successor_runtime_node"
+    },
+    {
+      "path": "main/backend/app/successor_runtime/substrate/postgres/node_adapter.py",
+      "file_sha256": "5cae2d8bb26bd8c3e07a5bd05608764b5ec27768cf9de0b2970f79cb679eace9",
+      "role": "successor_postgres_node_adapter"
+    },
+    {
+      "path": "main/backend/app/successor_runtime/substrate/postgres/nodes.py",
+      "file_sha256": "6aed093304d78d1cfc786e35bf7b8d043cc7d3cddb7d07cc7b57cd69f7c87081",
+      "role": "successor_postgres_node_store"
+    }
+  ],
+  "test_bindings": [
+    {
+      "path": "main/backend/tests/successor_runtime/test_p5_c1_slice_acceptance_postgres.py",
+      "file_sha256": "1bea9f4f44714f625153d8f661335e01996fd965272b75208bd32534f544aa54",
+      "role": "c1_2_postgres_gate"
+    },
+    {
+      "path": "main/backend/tests/successor_runtime/c1_slice_postgres_fixture.py",
+      "file_sha256": "b2411e5439045b58edd0ac523db1021dd2f36af9af0a9230d99673e6d4943a56",
+      "role": "c1_2_postgres_fixture"
+    },
+    {
+      "path": "main/backend/tests/successor_runtime/test_p5_c1_legacy_oracle.py",
+      "file_sha256": "630419e312c81d281ba9857edcb04f9c59f0aa6a5e5e3ad0b68b780f22cafcf8",
+      "role": "c1_legacy_oracle"
+    },
+    {
+      "path": "main/backend/tests/successor_runtime/test_p5_c1_slice_programs.py",
+      "file_sha256": "773d74053e4906303d01420352749e457a918644cce4c94033b7ed94b110c67f",
+      "role": "c1_slice_programs"
+    }
+  ],
+  "rollback_bindings": [
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p5-c1-slices/C1SliceA.v1.json",
+      "file_sha256": "ad4bfc92eade8e7bd190f276ad44f306da056f859e910dd5c7d224773386170f",
+      "role": "c1_2_rollback_slice_a"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p5-c1-slices/C1SliceB.v1.json",
+      "file_sha256": "8950c1fe7728422ec1b6a2357c83af6e219c919fcb1a0802f2ade1aa41dfb8ce",
+      "role": "c1_2_rollback_slice_b"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p5-c1-slices/C1SliceC.v1.json",
+      "file_sha256": "38e2cf14dbdfcfaa10d2f6640c8bfa7c6d9949117a1905375054c4423cbf1ac6",
+      "role": "c1_2_rollback_slice_c"
+    },
+    {
+      "path": "main/backend/app/successor_migration/legacy_workflow_graph.py",
+      "file_sha256": "6d0810264fb2d13ab336eb1b0edf2112842dc2b61625aaa4f8a113c85ac01217",
+      "role": "legacy_rollback_route"
+    }
+  ],
+  "generated_ownership_refs": [
+    "capability-spec.contract-ref-scaffolding.C1.2.v1",
+    "capability-spec.build-manifest.C1.2.v1"
+  ],
+  "handwritten_ownership_refs": [
+    "main/backend/app/successor_runtime/runtime/node.py",
+    "main/backend/app/successor_runtime/substrate/postgres/node_adapter.py",
+    "main/backend/app/successor_runtime/capabilities/c1_slice_acceptance.py",
+    "main/backend/app/successor_migration/legacy_workflow_graph.py"
+  ]
+}

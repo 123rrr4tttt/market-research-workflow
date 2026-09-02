@@ -1,0 +1,32 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "mrw.successor.c1.c1-1.recovery.v1",
+  "ref_kind": "recovery_policy",
+  "cell_id": "C1.1",
+  "family_id": "C1",
+  "movement_ids": [
+    "C1-M001",
+    "C1-M002"
+  ],
+  "semantics": {
+    "movement_recovery_m001": "Validation failure leaves no artifact or runtime fact and is safe to retry with corrected input",
+    "movement_recovery_m002": "Recompile from exact Program and catalog snapshot; stale digests are rejected rather than repaired silently"
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C1.v1.json",
+      "pointer": "#/movements/C1-M001/recovery",
+      "sha256": "ccbb50ee217882d1640bca7f57430eaea651f8ae83258873449d2c998d30bb0a"
+    },
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C1.v1.json",
+      "pointer": "#/movements/C1-M002/recovery",
+      "sha256": "ccbb50ee217882d1640bca7f57430eaea651f8ae83258873449d2c998d30bb0a"
+    }
+  ],
+  "derivation_note": "recovery semantics copied verbatim from movements C1-M001/C1-M002",
+  "content_digest": "c0580f899c588ae1508891bc962416ce8e1cc8dcb199eb8dfb1feae4d63e21d0"
+}

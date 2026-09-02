@@ -1,0 +1,25 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "c1.legacy-dsl.graph-json.loss.v1",
+  "ref_kind": "declared_loss",
+  "cell_id": "C1.1",
+  "family_id": "C1",
+  "movement_ids": [
+    "C1-M001"
+  ],
+  "semantics": {
+    "movement_target_object": "Typed successor Program acceptance object via c1_legacy_dsl parse/validate/compile",
+    "loss_statement": "Declared loss: legacy DSL is not rehydrated as a second graph JSON; successor Program/Plan is the only execution description and the oracle records this declared difference"
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C1.v1.json",
+      "pointer": "#/movements/C1-M001/projection_loss",
+      "sha256": "ccbb50ee217882d1640bca7f57430eaea651f8ae83258873449d2c998d30bb0a"
+    }
+  ],
+  "derivation_note": "declared loss copied verbatim from movement C1-M001 projection_loss",
+  "content_digest": "e477250cabc91efa290fe5b96bec91f34494532e083199d903046a7adfc43c12"
+}

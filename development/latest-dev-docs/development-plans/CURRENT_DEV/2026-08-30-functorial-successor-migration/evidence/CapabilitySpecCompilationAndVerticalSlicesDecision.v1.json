@@ -1,0 +1,315 @@
+{
+  "authority_ceiling": {
+    "authority_transfer": false,
+    "cutover": false,
+    "external_delivery": false,
+    "live_provider": false
+  },
+  "c1_cross_cutting_surface": {
+    "cells": [
+      "C1.1",
+      "C1.2",
+      "C1.3"
+    ],
+    "isolated_serial_stage": false,
+    "required_evidence": [
+      "coverage",
+      "legacy_replay",
+      "rollback",
+      "final_disposition"
+    ],
+    "role": "PROGRAM_GRAPH_COMPILE_REPLAY_COMPOSITION_INTERFACE"
+  },
+  "candidate_state": "NO_CANDIDATE",
+  "capability_cell_spec": {
+    "does_not_infer_domain_semantics_or_authority": true,
+    "minimum_fields": [
+      "cell_family_owner_identity",
+      "input_output_object_operation_contract_refs",
+      "program_shape_and_ordered_composition_refs",
+      "interpreter_profile_deployment_binding_refs",
+      "legacy_oracle_and_shadow_observation",
+      "failure_union_and_declared_lossy_projections",
+      "effect_resource_recovery_readback_policy_refs",
+      "authority_ceiling_and_adoption_prerequisites",
+      "source_test_rollback_bindings"
+    ],
+    "purpose": "MECHANICAL_STRUCTURE_ONLY"
+  },
+  "content_digest": "c103952f0b61c756e10f2455ee96340f997c7103c8de210886018bfa91dbf7ee",
+  "current_readiness_inputs": [
+    {
+      "adoption": "UNADOPTED_INPUT_ONLY",
+      "bytes": 16771,
+      "content_digest": "aae195bcb652ea0ae075c13a22886fd227617e41926fced3faa69b94fbb86388",
+      "family": "C7",
+      "file_sha256": "d3a7aaf1916d2a01c1ed6e7004a06d6cd6ed24840a7403fd10e2ffdc53559a83",
+      "lines": 1,
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p4-fragments/C7.json",
+      "role": "current_c7_readiness_fragment",
+      "schema": "mrw.functorial_successor.p4_fragment.v1",
+      "status": "AHEAD_OF_TIME_SCAFFOLDING_UNADOPTED"
+    },
+    {
+      "adoption": "UNADOPTED_INPUT_ONLY",
+      "bytes": 27399,
+      "content_digest": "6598efa581511f429535d11321fa14c4cea4a15bd1168bebc1f461eb4d1e0cdb",
+      "family": "C8",
+      "file_sha256": "206e69ad34ab60948c8310c6012f15fc66a03386eb3d2b60ae9e88328c8316a6",
+      "lines": 1,
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p4-fragments/C8.json",
+      "role": "current_c8_readiness_fragment",
+      "schema": "mrw.functorial_successor.p4_fragment.v1",
+      "status": "AHEAD_OF_TIME_SCAFFOLDING_UNADOPTED"
+    },
+    {
+      "adoption": "UNADOPTED_INPUT_ONLY",
+      "bytes": 16124,
+      "content_digest": "fc201a163214b9e17c917b803d15dd4e152487e972012cedc51dc24df62ab9c0",
+      "family": "C9",
+      "file_sha256": "fdc4b2ab2616431b2d20ec41e207b41e978df833c94a1c92561360708bc89be1",
+      "lines": 1,
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p4-fragments/C9.json",
+      "role": "current_c9_readiness_fragment",
+      "schema": "mrw.functorial_successor.p4_fragment.v1",
+      "status": "AHEAD_OF_TIME_SCAFFOLDING_UNADOPTED"
+    }
+  ],
+  "decision_id": "capability-spec-compilation-and-vertical-slices-v1",
+  "generator_contract": {
+    "authority_truth_source": false,
+    "canonical": true,
+    "complex_serialization_normalization_aggregation_hashing": "DETERMINISTIC_PROGRAM_OWNED",
+    "content_digested": true,
+    "deterministic": true,
+    "generated_files_manual_edit": "PROHIBITED",
+    "read_only_check_required": true,
+    "runtime_truth_source": false,
+    "scope": "REPETITIVE_CONTRACT_CATALOG_BINDING_EVIDENCE_TEST_SCAFFOLDING",
+    "semantic_truth_source": false,
+    "versioned": true
+  },
+  "goal_id": "01a0504c-47ef-77e1-9783-454dbcbe3697",
+  "identity_model": {
+    "artifact_identity": {
+      "name": "exact artifact/build digest",
+      "purpose": "EXACT_CANDIDATE_BYTE_IDENTITY",
+      "required_in_addition_to_semantic_identity": true
+    },
+    "freeze_or_packet_binding_bypass": false,
+    "semantic_identity": {
+      "name": "RuntimeKernelABI/CapabilitySpec semantic digest",
+      "purpose": "SEMANTIC_CHANGE_AND_REVIEW_INVALIDATION",
+      "semantic_change_requires_review": true
+    },
+    "semantic_review_triggers": [
+      "owner",
+      "effect",
+      "failure",
+      "resource",
+      "authority",
+      "recovery",
+      "observable_contract"
+    ]
+  },
+  "normative_conflict_policy": {
+    "mode": "FAIL_CLOSED",
+    "on_conflict": "STOP_DEPENDENT_ADOPTION_AND_REPORT_EXACT_BLOCKER",
+    "silent_frozen_contract_change": false
+  },
+  "normative_inputs": [
+    {
+      "bytes": 8889,
+      "file_sha256": "13aa3b4c6a1affa46bf73f034351ea359b6ec1902746d3a08dc0d6628823fcee",
+      "lines": 60,
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/01_functorial-successor-migration-development-contract.md",
+      "role": "frozen_development_contract"
+    },
+    {
+      "bytes": 14480,
+      "file_sha256": "895de0a699d472a84cd1f6661e5257e01bdbaed0da6cb3af9ddd3e0d04f07524",
+      "lines": 133,
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/02_functorial-successor-migration-development-contract.freeze.json",
+      "role": "frozen_manifest"
+    },
+    {
+      "bytes": 144411,
+      "file_sha256": "c93b58e15a3dbaa1e5e1be9bebfbc41143b97b8e91eb9774851d1f5d78fe3a93",
+      "lines": 2577,
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/06_functorial-successor-runtime-architecture-correction.draft.zh-CN.md",
+      "role": "frozen_runtime_architecture_authority"
+    }
+  ],
+  "p3_prerequisite": {
+    "aggregate": {
+      "bytes": 94852,
+      "content_digest": "83e56d32cf6d025fdbfc84c0132755f4b5fc859134bb51f1a70f2fd52953faf8",
+      "file_sha256": "a80c4f2af17f80b7ebf0399ddcbcb80a64a99a09f26b15512d46c585cfec3609",
+      "lines": 2146,
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/P3CapabilityMigration.v1.json",
+      "role": "promoted_p3_aggregate_exact_candidate",
+      "schema": "mrw.functorial_successor.p3_capability_migration.v1",
+      "status": "REVIEW_COMPLETE_DECISION_PENDING_NOT_PROMOTED"
+    },
+    "independent_review": {
+      "binding_kind": "unique_record_slice_not_whole_file",
+      "disposition": "ALLOW_P3_AGGREGATE_LOCAL_ONLY_PROMOTION",
+      "line_number_observed": 178,
+      "p3_content_digest": "83e56d32cf6d025fdbfc84c0132755f4b5fc859134bb51f1a70f2fd52953faf8",
+      "p3_file_sha256": "a80c4f2af17f80b7ebf0399ddcbcb80a64a99a09f26b15512d46c585cfec3609",
+      "record_sha256": "3501fb3297ed9b6143117f7d65d85d82de51a439ad514b205a9dd12511a72c70",
+      "review_task_identity": "/root/p3_aggregate_exact_review_v2_ds",
+      "source_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/03_functorial-successor-migration-development-progress.md"
+    },
+    "passed": true
+  },
+  "pilot": {
+    "failure_fallback": "RETAIN_EXISTING_HANDWRITTEN_SCAFFOLD",
+    "representative_cells": [
+      "C7.1",
+      "C8.2",
+      "C9.1"
+    ],
+    "required_gates": [
+      "deterministic_generation",
+      "read_only_check",
+      "exact_binding",
+      "focused_test",
+      "no_authority_expansion"
+    ],
+    "status": "AUTHORIZED_PENDING_EXECUTION"
+  },
+  "route": {
+    "activation_boundary": "AFTER_P3_AGGREGATE_PROMOTION",
+    "authorization": "USER_AUTHORIZED_DEVELOPMENT_DECISION",
+    "name": "CAPABILITY_SPEC_COMPILATION_AND_VERTICAL_PRODUCT_SLICES",
+    "normative_class": "NOT_A_FROZEN_AMENDMENT",
+    "p3_reference_implementations": "IMMUTABLE_ORACLE_INPUTS_NOT_REWRITTEN",
+    "p4_adoption": "NOT_STARTED_BY_THIS_DECISION"
+  },
+  "schema": "mrw.functorial_successor.capability_spec_route_decision.v1",
+  "slice_gate_policy": {
+    "each_cell_retains_independent_evidence": [
+      "owner",
+      "effect",
+      "failure",
+      "resource",
+      "authority",
+      "readback",
+      "rollback"
+    ],
+    "each_slice_requires": [
+      "focused_tests",
+      "applicable_disposable_postgresql_gate",
+      "legacy_shadow_gate",
+      "rollback_gate",
+      "assembly_fixture",
+      "rollback_receipt",
+      "authority_ceiling",
+      "candidate_ready_binding"
+    ],
+    "final_p5_scope": "CROSS_SLICE_COMPOSITION_FULL_MATRIX_EXACT_GIT_IDENTITY_INDEPENDENT_REVIEW",
+    "happy_path_is_not_cell_closure": true
+  },
+  "user_authorization_record": {
+    "binding_kind": "CANONICAL_SEMANTIC_CAPTURE_OF_USER_AUTHORIZATION",
+    "payload": {
+      "authority_ceiling": {
+        "authority_transfer": false,
+        "cutover": false,
+        "external_delivery": false,
+        "live_provider": false
+      },
+      "c1_cross_cutting_cells": [
+        "C1.1",
+        "C1.2",
+        "C1.3"
+      ],
+      "candidate_state": "NO_CANDIDATE",
+      "core_generation_form": [
+        "CapabilityCellSpec",
+        "OperationContract_ProgramSkeleton_ProfileRefs",
+        "CatalogRegistration_HandlerBindingClosure",
+        "EvidenceFragment_BindingManifest",
+        "ParameterizedFocusedGates_RollbackHarness",
+        "ExactBuildArtifacts"
+      ],
+      "decision_class": "USER_AUTHORIZED_DEVELOPMENT_DECISION_NOT_FROZEN_AMENDMENT",
+      "dual_identity": [
+        "SEMANTIC_ABI_DIGEST",
+        "EXACT_ARTIFACT_BUILD_DIGEST"
+      ],
+      "generator_scope": "MECHANICAL_SCAFFOLDING_ONLY",
+      "normative_conflict": "FAIL_CLOSED",
+      "pilot_cells": [
+        "C7.1",
+        "C8.2",
+        "C9.1"
+      ],
+      "route_name": "CAPABILITY_SPEC_COMPILATION_AND_VERTICAL_PRODUCT_SLICES",
+      "switch_boundary": [
+        "P3_AGGREGATE_PROMOTED_FIRST",
+        "C2_C6_REMAIN_PROMOTED_REFERENCE_ORACLES",
+        "ROUTE_STARTS_WITH_P4_C7_C8_C9",
+        "P5_PREFLIGHT_MOVES_INTO_EACH_VERTICAL_SLICE"
+      ],
+      "vertical_slices": [
+        "A_INTAKE_RECOVERY",
+        "B_KNOWLEDGE_COMPOSITION",
+        "C_REPORT_DELIVERY"
+      ]
+    },
+    "semantic_digest": "1e644b5deeee1f70859a582f973ccfff32db0ce6731cec2c8f069ca049d508ab"
+  },
+  "version": "1.0.0",
+  "vertical_slices": [
+    {
+      "cells": [
+        "C7.1",
+        "C7.2",
+        "C7.3",
+        "C7.4",
+        "C9.1",
+        "C9.3"
+      ],
+      "name": "intake_recovery",
+      "ordered_path": [
+        "ingest",
+        "canonical_material",
+        "recovery",
+        "read_projection"
+      ],
+      "slice": "A"
+    },
+    {
+      "cells": [
+        "C8.1",
+        "C8.2",
+        "C8.4",
+        "C9.2"
+      ],
+      "name": "knowledge_composition",
+      "ordered_path": [
+        "canonical_material",
+        "typed_knowledge",
+        "composition",
+        "graph_ui_observation"
+      ],
+      "slice": "B"
+    },
+    {
+      "cells": [
+        "C8.3",
+        "C9.API_UI_REPORT_PROJECTION"
+      ],
+      "name": "report_delivery",
+      "ordered_path": [
+        "artifact",
+        "report",
+        "verification_admission",
+        "bounded_delivery_readback"
+      ],
+      "slice": "C"
+    }
+  ]
+}

@@ -1,0 +1,756 @@
+{
+  "authority_ceiling": {
+    "authority_transfer": false,
+    "canonical_write": false,
+    "cutover": false,
+    "external_delivery": false,
+    "live_provider": false
+  },
+  "blocking_summary": {
+    "p0": 0,
+    "p1_blocking_for_this_gate": 0,
+    "unassigned_blockers": 0,
+    "verdict_consistent": true
+  },
+  "candidate_state": {
+    "adoption_claim": false,
+    "candidate_created": false,
+    "lifecycle_state": "P4_NOT_STARTED",
+    "p4_adoption_readiness": "PASS_READY_FOR_ADOPTION_DECISION",
+    "promotion_allowed": false,
+    "status": "AHEAD_OF_TIME_SCAFFOLDING_UNADOPTED"
+  },
+  "cell_coverage": {
+    "covered_movements": 30,
+    "movements": [
+      {
+        "coverage_basis": "C7 design v3 topology RawSnapshot->StructuredMaterialCandidate; p1 fragment C7.1 ingest submission staging; p4 fragment C7.1 contract ingest_index.stage_candidate.v1",
+        "covered": true,
+        "covered_by": [
+          "C7.1"
+        ],
+        "disposition": "REIMPLEMENTED_AS",
+        "family": "C7",
+        "movement_id": "C7-MOV-001"
+      },
+      {
+        "coverage_basis": "C7 design v3 topology RawSnapshot->StructuredMaterialCandidate; p1 fragment C7.1 ingest submission staging; p4 fragment C7.1 contract ingest_index.stage_candidate.v1",
+        "covered": true,
+        "covered_by": [
+          "C7.1"
+        ],
+        "disposition": "DECLARED_LOSS",
+        "family": "C7",
+        "movement_id": "C7-MOV-002"
+      },
+      {
+        "coverage_basis": "C7 design v3 topology RawSnapshot->StructuredMaterialCandidate; p1 fragment C7.1 ingest submission staging; p4 fragment C7.1 contract ingest_index.stage_candidate.v1",
+        "covered": true,
+        "covered_by": [
+          "C7.1"
+        ],
+        "disposition": "REIMPLEMENTED_AS",
+        "family": "C7",
+        "movement_id": "C7-MOV-003"
+      },
+      {
+        "coverage_basis": "C7 design v3 topology RawSnapshot->StructuredMaterialCandidate; p1 fragment C7.1 ingest submission staging; p4 fragment C7.1 contract ingest_index.stage_candidate.v1",
+        "covered": true,
+        "covered_by": [
+          "C7.1"
+        ],
+        "disposition": "REIMPLEMENTED_AS",
+        "family": "C7",
+        "movement_id": "C7-MOV-010"
+      },
+      {
+        "coverage_basis": "C7 design v3 topology RawSnapshot->StructuredMaterialCandidate; p1 fragment C7.1 ingest submission staging; p4 fragment C7.1 contract ingest_index.stage_candidate.v1",
+        "covered": true,
+        "covered_by": [
+          "C7.1"
+        ],
+        "disposition": "DECLARED_LOSS",
+        "family": "C7",
+        "movement_id": "C7-MOV-011"
+      },
+      {
+        "coverage_basis": "C7 design v3 topology RawSnapshot->StructuredMaterialCandidate; p1 fragment C7.1 ingest submission staging; p4 fragment C7.1 contract ingest_index.stage_candidate.v1",
+        "covered": true,
+        "covered_by": [
+          "C7.1"
+        ],
+        "disposition": "REIMPLEMENTED_AS",
+        "family": "C7",
+        "movement_id": "C7-MOV-020"
+      },
+      {
+        "coverage_basis": "C7 design v3 topology RawSnapshot->StructuredMaterialCandidate; p1 fragment C7.1 ingest submission staging; p4 fragment C7.1 contract ingest_index.stage_candidate.v1",
+        "covered": true,
+        "covered_by": [
+          "C7.1"
+        ],
+        "disposition": "DECLARED_LOSS",
+        "family": "C7",
+        "movement_id": "C7-MOV-021"
+      },
+      {
+        "coverage_basis": "C7 design v3 topology RawSnapshot->StructuredMaterialCandidate; p1 fragment C7.1 ingest submission staging; p4 fragment C7.1 contract ingest_index.stage_candidate.v1",
+        "covered": true,
+        "covered_by": [
+          "C7.1"
+        ],
+        "disposition": "REIMPLEMENTED_AS",
+        "family": "C7",
+        "movement_id": "C7-MOV-030"
+      },
+      {
+        "coverage_basis": "C7 design v3 topology RawSnapshot->StructuredMaterialCandidate; p1 fragment C7.1 ingest submission staging; p4 fragment C7.1 contract ingest_index.stage_candidate.v1",
+        "covered": true,
+        "covered_by": [
+          "C7.1"
+        ],
+        "disposition": "DECLARED_LOSS",
+        "family": "C7",
+        "movement_id": "C7-MOV-031"
+      },
+      {
+        "coverage_basis": "C7 design v3 topology RawSnapshot->StructuredMaterialCandidate; p1 fragment C7.1 ingest submission staging; p4 fragment C7.1 contract ingest_index.stage_candidate.v1",
+        "covered": true,
+        "covered_by": [
+          "C7.1"
+        ],
+        "disposition": "REIMPLEMENTED_AS",
+        "family": "C7",
+        "movement_id": "C7-MOV-040"
+      },
+      {
+        "coverage_basis": "C7 design v3 topology RawSnapshot->StructuredMaterialCandidate; p1 fragment C7.1 ingest submission staging; p4 fragment C7.1 contract ingest_index.stage_candidate.v1",
+        "covered": true,
+        "covered_by": [
+          "C7.1"
+        ],
+        "disposition": "DECLARED_LOSS",
+        "family": "C7",
+        "movement_id": "C7-MOV-041"
+      },
+      {
+        "coverage_basis": "C7 design v3 row owner backend-core/C7.2; p4 fragment C7.2 contract ingest_index.admission.readback.v1",
+        "covered": true,
+        "covered_by": [
+          "C7.2"
+        ],
+        "disposition": "REIMPLEMENTED_AS",
+        "family": "C7",
+        "movement_id": "C7-MOV-050"
+      },
+      {
+        "coverage_basis": "C7 design v3 row owner document.canonical/C7.2; p4 fragment C7.2 contract ingest_index.commit_intent.readback.v1 + admission.readback.v1",
+        "covered": true,
+        "covered_by": [
+          "C7.2"
+        ],
+        "disposition": "REIMPLEMENTED_AS",
+        "family": "C7",
+        "movement_id": "C7-MOV-051"
+      },
+      {
+        "coverage_basis": "C7 design v3 row owner backend-core/C7.3; p4 fragment C7.3 contract ingest_index.projection_declared_loss.v1 (search)",
+        "covered": true,
+        "covered_by": [
+          "C7.3"
+        ],
+        "disposition": "REIMPLEMENTED_AS",
+        "family": "C7",
+        "movement_id": "C7-MOV-060"
+      },
+      {
+        "coverage_basis": "C7 design v3 row owner backend-core/C7.3; p4 fragment C7.3 contract ingest_index.projection_declared_loss.v1 (graph)",
+        "covered": true,
+        "covered_by": [
+          "C7.3"
+        ],
+        "disposition": "REIMPLEMENTED_AS",
+        "family": "C7",
+        "movement_id": "C7-MOV-061"
+      },
+      {
+        "coverage_basis": "C7 design v3 row owner backend-core/C7.4; p4 fragment C7.4 recovery/reconcile readback",
+        "covered": true,
+        "covered_by": [
+          "C7.4"
+        ],
+        "disposition": "DECLARED_LOSS",
+        "family": "C7",
+        "movement_id": "C7-MOV-070"
+      },
+      {
+        "coverage_basis": "C7 design v3 row owner backend-core/C7.4; p4 fragment C7.4 contract ingest_index.reconcile.readback.v1",
+        "covered": true,
+        "covered_by": [
+          "C7.4"
+        ],
+        "disposition": "REIMPLEMENTED_AS",
+        "family": "C7",
+        "movement_id": "C7-MOV-071"
+      },
+      {
+        "coverage_basis": "C7 design v3 row owner backend-core/C7.4; p4 fragment C7.4 recovery view projection rebuild",
+        "covered": true,
+        "covered_by": [
+          "C7.4"
+        ],
+        "disposition": "REIMPLEMENTED_AS",
+        "family": "C7",
+        "movement_id": "C7-MOV-072"
+      },
+      {
+        "coverage_basis": "C7 design v3 row owner backend-core/C7.4; p4 fragment C7.4 contract ingest_index.reconcile.nonstart.v1",
+        "covered": true,
+        "covered_by": [
+          "C7.4"
+        ],
+        "disposition": "REIMPLEMENTED_AS",
+        "family": "C7",
+        "movement_id": "C7-MOV-073"
+      },
+      {
+        "coverage_basis": "C7 design v3 row owner backend-core/C7.1/C7.2; C7.1 failure union STAGED_CANDIDATE_FAILED and C7.2 AdmissionRejected cover short-circuit",
+        "covered": true,
+        "covered_by": [
+          "C7.1",
+          "C7.2"
+        ],
+        "disposition": "REIMPLEMENTED_AS",
+        "family": "C7",
+        "movement_id": "C7-MOV-074"
+      },
+      {
+        "coverage_basis": "P1P3 matrix row p1_cells=[C8.1]; p4 fragment C8.1 operation bindings and successor observation",
+        "covered": true,
+        "covered_by": [
+          "C8.1"
+        ],
+        "disposition": "REIMPLEMENTED_AS",
+        "family": "C8",
+        "movement_id": "C8-M001"
+      },
+      {
+        "coverage_basis": "P1P3 matrix row p1_cells=[C8.2]; p4 fragment C8.2 operation bindings and successor observation",
+        "covered": true,
+        "covered_by": [
+          "C8.2"
+        ],
+        "disposition": "REIMPLEMENTED_AS",
+        "family": "C8",
+        "movement_id": "C8-M002"
+      },
+      {
+        "coverage_basis": "P1P3 matrix row p1_cells=[C8.3]; p4 fragment C8.3 operation bindings and successor observation",
+        "covered": true,
+        "covered_by": [
+          "C8.3"
+        ],
+        "disposition": "REIMPLEMENTED_AS",
+        "family": "C8",
+        "movement_id": "C8-M003"
+      },
+      {
+        "coverage_basis": "P1P3 matrix row p1_cells=[C8.4]; p4 fragment C8.4 operation bindings and successor observation",
+        "covered": true,
+        "covered_by": [
+          "C8.4"
+        ],
+        "disposition": "REIMPLEMENTED_AS",
+        "family": "C8",
+        "movement_id": "C8-M004"
+      },
+      {
+        "coverage_basis": "P1P3 matrix row p1_cells=[C8.4]; p4 fragment C8.4 operation bindings and successor observation",
+        "covered": true,
+        "covered_by": [
+          "C8.4"
+        ],
+        "disposition": "REIMPLEMENTED_AS",
+        "family": "C8",
+        "movement_id": "C8-M005"
+      },
+      {
+        "coverage_basis": "P1P3 matrix row p1_cells=[C9.1]; p4 fragment C9.1 operation bindings and successor observation",
+        "covered": true,
+        "covered_by": [
+          "C9.1"
+        ],
+        "disposition": "REIMPLEMENTED_AS",
+        "family": "C9",
+        "movement_id": "C9-M001"
+      },
+      {
+        "coverage_basis": "P1P3 matrix row p1_cells=[C9.2]; p4 fragment C9.2 operation bindings and successor observation",
+        "covered": true,
+        "covered_by": [
+          "C9.2"
+        ],
+        "disposition": "REIMPLEMENTED_AS",
+        "family": "C9",
+        "movement_id": "C9-M002"
+      },
+      {
+        "coverage_basis": "P1P3 matrix row p1_cells=[C9.2]; p4 fragment C9.2 operation bindings and successor observation",
+        "covered": true,
+        "covered_by": [
+          "C9.2"
+        ],
+        "disposition": "REIMPLEMENTED_AS",
+        "family": "C9",
+        "movement_id": "C9-M003"
+      },
+      {
+        "coverage_basis": "P1P3 matrix row p1_cells=[C9.3]; p4 fragment C9.3 operation bindings and successor observation",
+        "covered": true,
+        "covered_by": [
+          "C9.3"
+        ],
+        "disposition": "REIMPLEMENTED_AS",
+        "family": "C9",
+        "movement_id": "C9-M004"
+      },
+      {
+        "coverage_basis": "P1P3 matrix row p1_cells=[C9.3]; p4 fragment C9.3 operation bindings and successor observation",
+        "covered": true,
+        "covered_by": [
+          "C9.3"
+        ],
+        "disposition": "REIMPLEMENTED_AS",
+        "family": "C9",
+        "movement_id": "C9-M005"
+      }
+    ],
+    "total_movements": 30,
+    "unassigned_blocker_count": 0,
+    "uncovered_movements": []
+  },
+  "content_digest": "d527f2d0eb8fda4f868ebc1039afc5b647ef1005f9bc282644228813bc16c275",
+  "content_digest_basis": "recursive content_digest removal; sort_keys=True; ensure_ascii=True; separators=(`,`,`:`); no trailing newline",
+  "date": "2026-09-02",
+  "declared_scope_gate": {
+    "authority_ceiling_all_false": true,
+    "commutativity_claim": "NOT_CLAIMED for all 11 cells",
+    "entrypoint_kinds": {
+      "FACADE_VALIDATION": 3,
+      "PROGRAM": 8
+    },
+    "exact_bindings_resolved_and_hash_verified": 143,
+    "fragment_consistency": "effect/resource/recovery/readback/failure-union and entrypoint semantics match the p4 fragment cell observations for all 11 cells",
+    "manifest_spec_binding": "cell_id, family_id, authority_ceiling, adoption_prerequisites, ownership refs, generated payload, exact_file_hashes and semantic_identity all match the deterministic compiler output",
+    "manifests_byte_recompile_match": 11,
+    "postgres_executed_this_review": false,
+    "provider_or_runtime_executed_this_review": false,
+    "specs_validated_via_capability_cell_spec": 11
+  },
+  "exact_bindings": {
+    "abi_semantic_digest": "870aa856d153119093242b949be709586db0eb08779809feee0ad1b466e1baaa",
+    "cells": {
+      "C7.1": {
+        "all_binding_hashes_verified": true,
+        "artifact_digest": "dd8e1f1bfeca442954bcdb5c673f6ad7618946bbf25e434b0d10967a25f4bae8",
+        "authority_ceiling": {
+          "authority_transfer": false,
+          "canonical_write": false,
+          "cutover": false,
+          "external_delivery": false,
+          "live_provider": false
+        },
+        "capability_spec_semantic_digest": "af67a51565f9229f30d9f914035a2c13c8f4aa185e87b6dbd7bf947e9c62ed0e",
+        "composite_semantic_digest": "5f8b1d78154adb31311ae62481e501d420b7345bdcdb5ed07493e699fe21ab6a",
+        "manifest_bytes": 8640,
+        "manifest_bytes_match": true,
+        "manifest_sha256": "87ef60432176edc6aa137a269e75af7547010dbf89375a447d5c07b0e1c2e181",
+        "rollback_bindings": 1,
+        "source_bindings": 8,
+        "spec_bytes": 6255,
+        "spec_sha256": "80d4fea15508a30537155acf7e0fd4e19a6a38404d222d7f0b3744312b718df5",
+        "test_bindings": 5,
+        "total_exact_bindings": 14
+      },
+      "C7.2": {
+        "all_binding_hashes_verified": true,
+        "artifact_digest": "ed4acea903f37c1b9caa70bf7a7457b6aa6a95b387c37eb4a71abb8084974920",
+        "authority_ceiling": {
+          "authority_transfer": false,
+          "canonical_write": false,
+          "cutover": false,
+          "external_delivery": false,
+          "live_provider": false
+        },
+        "capability_spec_semantic_digest": "781898da8a90e5bfb11de6fc6629dce35183a8c9e3bcc26328274e3b1685cb03",
+        "composite_semantic_digest": "c8c1b52cef89193ed6563bfdfe64c98b31dc09f290715f684ba5d92216d38a82",
+        "manifest_bytes": 8757,
+        "manifest_bytes_match": true,
+        "manifest_sha256": "55c7fc65e396a4ff1382f51fde1ada5095d1333d0eec2113e65c497214bb5969",
+        "rollback_bindings": 1,
+        "source_bindings": 6,
+        "spec_bytes": 6199,
+        "spec_sha256": "51f3a1f0210721749f103085d97433826d0cb046a0f5f7964cb757d2c4ba3dd4",
+        "test_bindings": 5,
+        "total_exact_bindings": 12
+      },
+      "C7.3": {
+        "all_binding_hashes_verified": true,
+        "artifact_digest": "4b7a33bc7f128b61beb09e4bac1c3461e0c499e4736ab5d5e4d119c91446f84a",
+        "authority_ceiling": {
+          "authority_transfer": false,
+          "canonical_write": false,
+          "cutover": false,
+          "external_delivery": false,
+          "live_provider": false
+        },
+        "capability_spec_semantic_digest": "7cfaa6134767bad557d9bcda29ad9dedc303b68002c744b797bdee5b91c318fd",
+        "composite_semantic_digest": "f8822adb13a267e5dcac879d84eca00a0fb8a1e584090b4261c50da1f90194d9",
+        "manifest_bytes": 8551,
+        "manifest_bytes_match": true,
+        "manifest_sha256": "ac111f737be10bd6139987e46018abab913d7aa6b4a605299cf8c667c566b14c",
+        "rollback_bindings": 1,
+        "source_bindings": 8,
+        "spec_bytes": 6244,
+        "spec_sha256": "dfd2cfb4adde74e138da6747249acf2b0bee6d7770b4dcb5651ed1ee42484799",
+        "test_bindings": 3,
+        "total_exact_bindings": 12
+      },
+      "C7.4": {
+        "all_binding_hashes_verified": true,
+        "artifact_digest": "e922fd82ff772fbb07d39b0444aa72c484e5d2aa2f9d46d04bc010a4de1456c3",
+        "authority_ceiling": {
+          "authority_transfer": false,
+          "canonical_write": false,
+          "cutover": false,
+          "external_delivery": false,
+          "live_provider": false
+        },
+        "capability_spec_semantic_digest": "06e1d1cdb83339be90fe9ee817a2ee31d7aafb1812acbb1e6056bbc5fd83043c",
+        "composite_semantic_digest": "a2310eb68d393eb765ebf9e88c435cb6ec146005ac753e272659be94d2a5c700",
+        "manifest_bytes": 9340,
+        "manifest_bytes_match": true,
+        "manifest_sha256": "d0cf0ca659d147e698d92d7efd5250087f99291aff4746ae43a46f253c4f33ad",
+        "rollback_bindings": 1,
+        "source_bindings": 10,
+        "spec_bytes": 6811,
+        "spec_sha256": "0daacb5c806705a740a7d14048a5b40cade26a6f16efbdf9f728da0adb147878",
+        "test_bindings": 4,
+        "total_exact_bindings": 15
+      },
+      "C8.1": {
+        "all_binding_hashes_verified": true,
+        "artifact_digest": "e7457a93378cb0fbb4354b9dc92bade0a42ffc8b48dc8f29a50fcf574811becf",
+        "authority_ceiling": {
+          "authority_transfer": false,
+          "canonical_write": false,
+          "cutover": false,
+          "external_delivery": false,
+          "live_provider": false
+        },
+        "capability_spec_semantic_digest": "2503570fd00438698ca834ce1d1c1ca4ad476ea3b814d690cc08e203c5ad8139",
+        "composite_semantic_digest": "7fc2394b109a2055f8f4356ff9fb56acd6cfef4c7af781a0b8a56311b384eae6",
+        "manifest_bytes": 8613,
+        "manifest_bytes_match": true,
+        "manifest_sha256": "75a8e71fed28d7f0c69c5f30d85bbb3c922c5e9f7aae8c96078f2dbd0ced4045",
+        "rollback_bindings": 1,
+        "source_bindings": 9,
+        "spec_bytes": 7249,
+        "spec_sha256": "539c9684bfb13c803563b407cf1bb3f8ac9d21c5936e7e2e126bc378de3f7dd3",
+        "test_bindings": 7,
+        "total_exact_bindings": 17
+      },
+      "C8.2": {
+        "all_binding_hashes_verified": true,
+        "artifact_digest": "f277966023a0e5ed4be1314ad96f3732a7a70f52b95765f61e1cb08d6e98920b",
+        "authority_ceiling": {
+          "authority_transfer": false,
+          "canonical_write": false,
+          "cutover": false,
+          "external_delivery": false,
+          "live_provider": false
+        },
+        "capability_spec_semantic_digest": "80fe02573c4cf5b29043c1e173cc922f8c39ea06616ae09cbeff1afaf79030ff",
+        "composite_semantic_digest": "7f7b1b197a08b66029216a814be45d16c723b53c6b1a6aa871daffbcba90967a",
+        "manifest_bytes": 6407,
+        "manifest_bytes_match": true,
+        "manifest_sha256": "5cdd54ca336dcbb77612b2cf44fce1c78047e95b3ebc347949d5c49480807877",
+        "rollback_bindings": 1,
+        "source_bindings": 4,
+        "spec_bytes": 4049,
+        "spec_sha256": "38acc21ee86934121249e4561ea4880c9af69d1fea94d2d40ed8df220c2613d2",
+        "test_bindings": 2,
+        "total_exact_bindings": 7
+      },
+      "C8.3": {
+        "all_binding_hashes_verified": true,
+        "artifact_digest": "a16778bb8d4fe54d09fe12b9318379709d745cce231ad94c256f7060e7b6f8af",
+        "authority_ceiling": {
+          "authority_transfer": false,
+          "canonical_write": false,
+          "cutover": false,
+          "external_delivery": false,
+          "live_provider": false
+        },
+        "capability_spec_semantic_digest": "fbad346137a55bb66ce35e99a8c3a0ff1ecca7f20583b25128e461b5fb7e0005",
+        "composite_semantic_digest": "d1f03a2f52282cbed05f5e1b3ac0179679235bdda48d11c46641174b2fdd103f",
+        "manifest_bytes": 9542,
+        "manifest_bytes_match": true,
+        "manifest_sha256": "3b9c294cb769d2df829a2a9bbec82c214fbe95699c99e3c260e17706f5d8d420",
+        "rollback_bindings": 1,
+        "source_bindings": 11,
+        "spec_bytes": 8025,
+        "spec_sha256": "ac29e8fd2557969c859f1166e14f4a77dc80d554f95b260e4d984f38bc9c2705",
+        "test_bindings": 7,
+        "total_exact_bindings": 19
+      },
+      "C8.4": {
+        "all_binding_hashes_verified": true,
+        "artifact_digest": "17a673035c7c176c38cf3bba8cd03659c1f3e4143aa0320f097a87174d4c713e",
+        "authority_ceiling": {
+          "authority_transfer": false,
+          "canonical_write": false,
+          "cutover": false,
+          "external_delivery": false,
+          "live_provider": false
+        },
+        "capability_spec_semantic_digest": "5cf4ed90f56b6c75a85b5d967894925fc9ccce497e5ce6e55548885937d08bb5",
+        "composite_semantic_digest": "87b96c7e989200084e4d234cad15fc56bcd45962c16291b13e4395348d584df3",
+        "manifest_bytes": 8775,
+        "manifest_bytes_match": true,
+        "manifest_sha256": "b7d8245c7c1991f08874dd383a6a05518a600e945521e8eb1fd1a4d8a6456492",
+        "rollback_bindings": 1,
+        "source_bindings": 10,
+        "spec_bytes": 7488,
+        "spec_sha256": "932f1c67d2a13135b6f6b2f8770232553a04f2f4e060d0e92fba2ee4715f1d9d",
+        "test_bindings": 7,
+        "total_exact_bindings": 18
+      },
+      "C9.1": {
+        "all_binding_hashes_verified": true,
+        "artifact_digest": "7de7c4686e0dc423a5a48a625b85111e6658ca87100154d1262eeef1617e848e",
+        "authority_ceiling": {
+          "authority_transfer": false,
+          "canonical_write": false,
+          "cutover": false,
+          "external_delivery": false,
+          "live_provider": false
+        },
+        "capability_spec_semantic_digest": "d43214ffe8e29acb501f0d084097f7b822936e7d804df4c4cea0f8787ab57ef6",
+        "composite_semantic_digest": "18d0a6f10d3ae56cd4408d61ea8e22e1d04312a38bc22a59b51bfdaad7d9faab",
+        "manifest_bytes": 8698,
+        "manifest_bytes_match": true,
+        "manifest_sha256": "66b33dffcb73a49386fa60a54d76c1ff8b9a81e4632ad0f05416b591896a2b35",
+        "rollback_bindings": 1,
+        "source_bindings": 4,
+        "spec_bytes": 5655,
+        "spec_sha256": "008a4ea359a962108172ef8d939d16cf4655a7ea62982924d705c769613edda7",
+        "test_bindings": 2,
+        "total_exact_bindings": 7
+      },
+      "C9.2": {
+        "all_binding_hashes_verified": true,
+        "artifact_digest": "f8e652106d443274dc9f5cd9ddfd376876774c658a2b99ff383ebbf997d2efac",
+        "authority_ceiling": {
+          "authority_transfer": false,
+          "canonical_write": false,
+          "cutover": false,
+          "external_delivery": false,
+          "live_provider": false
+        },
+        "capability_spec_semantic_digest": "f7cd4c63edc79932310516834c9fcde1ee3c50ea38a56c83cc2124e6c71c3171",
+        "composite_semantic_digest": "e07bd8d411ef64fe118321500158f2a61f1cf60212ea16080c9f9da55b7856bc",
+        "manifest_bytes": 10667,
+        "manifest_bytes_match": true,
+        "manifest_sha256": "428e514a4be6285d43299b5613da8401ced3332140680ee960f34181e00547d0",
+        "rollback_bindings": 1,
+        "source_bindings": 13,
+        "spec_bytes": 8820,
+        "spec_sha256": "c70f7c38e5f7c2c61fc09980da20eb7afab600dfb42ae99c73fed641fa5207da",
+        "test_bindings": 3,
+        "total_exact_bindings": 17
+      },
+      "C9.3": {
+        "all_binding_hashes_verified": true,
+        "artifact_digest": "65403153254a53f7e70dadf491bf1cd13ac451d279928095fb716f2534c78514",
+        "authority_ceiling": {
+          "authority_transfer": false,
+          "canonical_write": false,
+          "cutover": false,
+          "external_delivery": false,
+          "live_provider": false
+        },
+        "capability_spec_semantic_digest": "b8c0c20f178725d856290b40db8f37a5050b34313c4728c5e08be5590fbdf692",
+        "composite_semantic_digest": "b07ea4671f2f6e2f800f21ccabbe883a4568c70f836ab61c700b265dbeaf5d30",
+        "manifest_bytes": 11921,
+        "manifest_bytes_match": true,
+        "manifest_sha256": "9501ab9b57551b358cce7842a203c585ae22e1219f11768485601147fdae57e4",
+        "rollback_bindings": 1,
+        "source_bindings": 16,
+        "spec_bytes": 10062,
+        "spec_sha256": "18e03720a8fe3ad2733f36fc1adad0314ee23e11855e3d95a2e74c9b409fda1f",
+        "test_bindings": 4,
+        "total_exact_bindings": 21
+      }
+    }
+  },
+  "fragment_identity": {
+    "C7": {
+      "content_digest": "aae195bcb652ea0ae075c13a22886fd227617e41926fced3faa69b94fbb86388",
+      "file_sha256": "d3a7aaf1916d2a01c1ed6e7004a06d6cd6ed24840a7403fd10e2ffdc53559a83"
+    },
+    "C8": {
+      "content_digest": "6598efa581511f429535d11321fa14c4cea4a15bd1168bebc1f461eb4d1e0cdb",
+      "file_sha256": "206e69ad34ab60948c8310c6012f15fc66a03386eb3d2b60ae9e88328c8316a6"
+    },
+    "C9": {
+      "content_digest": "fc201a163214b9e17c917b803d15dd4e152487e972012cedc51dc24df62ab9c0",
+      "file_sha256": "fdc4b2ab2616431b2d20ec41e207b41e978df833c94a1c92561360708bc89be1"
+    }
+  },
+  "mainline_rebind": {
+    "authority": "NO_PROMOTION_NO_CANDIDATE_NO_LIVE_NO_PROVIDER_NO_CUTOVER",
+    "current_bundle_hashes": {
+      "c9_2_build_manifest_file_sha256": "f16ceac72fc1f13253cd65b6e6d817548289fa59a4e091854ce610a6d70c3620",
+      "c9_2_spec_file_sha256": "c70f7c38e5f7c2c61fc09980da20eb7afab600dfb42ae99c73fed641fa5207da"
+    },
+    "date": "2026-09-02",
+    "kind": "MAINLINE_MECHANICAL_REBIND",
+    "no_semantic_rereview": true,
+    "review_path": "reviews/P4C7C9AdoptionReview.v1.json",
+    "semantics": "independent review verdict and findings carried over; only exact artifact byte bindings updated",
+    "supersedes_binding": "review previously bound the C9.2 spec SHA 8b67f3b3...; mechanically rebound to the current C9.2 spec c70f7c38... and regenerated build manifest f16ceac7... after I1 evidence regeneration",
+    "worktree": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0"
+  },
+  "open_findings": {
+    "p0": [],
+    "p1": [
+      {
+        "blocking_for_p4_adoption_readiness": false,
+        "blocking_scopes": [
+          "P5_EXACT_CANDIDATE",
+          "PRODUCTION_CANONICAL_WRITE",
+          "LIVE_PROVIDER",
+          "CUTOVER"
+        ],
+        "detail": "All 11 cell specs and manifests remain AHEAD_OF_TIME_SCAFFOLDING_UNADOPTED with lifecycle P4_NOT_STARTED; the review approves readiness of the evidence layer only, and no cell, route, runtime or canonical effect is adopted.",
+        "finding_id": "P4_AHEAD_OF_TIME_SCAFFOLDING_UNADOPTED",
+        "severity": "P1"
+      },
+      {
+        "blocking_for_p4_adoption_readiness": false,
+        "blocking_scopes": [
+          "REPORT_ADMISSION_DELIVERY_ADOPTION"
+        ],
+        "detail": "C8.3 fragment preserves the legacy locator as PARTIAL_MISSING/UNBOUND and the spec correctly declares admission interface-only with admission_not_called=true and export_not_executed=true; locator absence is preserved, not guessed, and blocks only report admission/delivery adoption claims.",
+        "finding_id": "C8_3_REPORT_ADMISSION_DELIVERY_LOCATOR_UNBOUND",
+        "severity": "P1"
+      },
+      {
+        "blocking_for_p4_adoption_readiness": false,
+        "blocking_scopes": [
+          "P5_EXACT_CANDIDATE"
+        ],
+        "detail": "The migration evidence subtree, including these 22 spec/manifest files, is untracked in the checkout; exact candidate acceptance still requires a git-identified review surface.",
+        "finding_id": "P4_REVIEW_SURFACE_NOT_GIT_IDENTIFIED",
+        "severity": "P1"
+      }
+    ],
+    "p2": [
+      {
+        "detail": "SSE after_seq exclusivity and reconnect semantics are validated as pure contracts only; no live stream observation exists.",
+        "finding_id": "C9_SSE_LIVE_RECONNECT_NOT_OBSERVED",
+        "severity": "P2"
+      },
+      {
+        "detail": "C9.2 is a design-only typed UI observation/interaction contract; zero frontend bytes were written.",
+        "finding_id": "C9_FRONTEND_DESIGN_ONLY_NO_BYTES",
+        "severity": "P2"
+      },
+      {
+        "detail": "C9.3 aligns to projection offset/registry semantics as a pure contract; no PostgreSQL offset or projection write is executed.",
+        "finding_id": "C9_PROJECTOR_REGISTRY_PURE_NO_POSTGRES",
+        "severity": "P2"
+      },
+      {
+        "detail": "This review ran byte-level compile and binding verification only; PG-dependent acceptance tests were not rerun, so disposable-PG behavior remains historical/declared evidence.",
+        "finding_id": "POSTGRES_TESTS_NOT_RERUN_THIS_REVIEW",
+        "severity": "P2"
+      },
+      {
+        "detail": "C7-MOV-002/011/021/031/041/070 declared losses are accounted in the movement matrix/design rows; C7.1/C7.4 spec declared_lossy_projection_refs remain empty because these are transformation/reverse-return losses, not projection losses, and C7.3 carries the projection loss refs.",
+        "finding_id": "C7_TRANSFORM_LOSS_OWNED_BY_MOVEMENT_MATRIX",
+        "severity": "P2"
+      }
+    ]
+  },
+  "predecessor_completeness_gate": {
+    "covered_movements": 30,
+    "dispositions_observed": [
+      "REIMPLEMENTED_AS",
+      "DECLARED_LOSS"
+    ],
+    "loss_account": "explicit per-row projection_loss in movement matrices; C7 fragment declares search/graph projection losses; C8/C9 fragments declare bounded loss profiles",
+    "movement_records_required_fields": "all 30 rows carry source_object, target_object, named_transform, owner, effect, failure, resource, authority, recovery, projection_loss, source_evidence, target_realization, acceptance_trace and an allowed disposition",
+    "p1p3_generator_check": {
+      "exact_blockers": 0,
+      "external_c7_movements": 20,
+      "inline_movements": 40,
+      "status": "CHECK_OK",
+      "total_movements": 60
+    },
+    "total_movements_in_scope": 30,
+    "unassigned_blocker_count": 0,
+    "uncovered_movements": [],
+    "zero_loss_declared": false
+  },
+  "review_id": "P4C7C9AdoptionReview.v1",
+  "review_kind": "P4_CELL_ADOPTION_DOUBLE_GATE",
+  "reviewer": "/root/p4_adoption_review",
+  "schema": "mrw.functorial_successor.p4_c7_c9_adoption_review.v1",
+  "scope": {
+    "build_manifests": "evidence/capability-spec-builds/ 11 BuildManifest v1.json",
+    "capability_specs": "evidence/capability-specs/C7.1-C7.4,C8.1-C8.4,C9.1-C9.3 v1.json",
+    "cell_spec_implementation": "main/backend/app/successor_runtime/specification/capability_cell_spec.py",
+    "cells": [
+      "C7.1",
+      "C7.2",
+      "C7.3",
+      "C7.4",
+      "C8.1",
+      "C8.2",
+      "C8.3",
+      "C8.4",
+      "C9.1",
+      "C9.2",
+      "C9.3"
+    ],
+    "does_not_authorize": [
+      "P4 adoption decision",
+      "candidate acceptance",
+      "live provider",
+      "external delivery",
+      "production canonical write",
+      "cutover",
+      "authority transfer",
+      "legacy retirement"
+    ],
+    "gate_standard": "docs/governance/semantic-movement-completeness-standard.md",
+    "movements": 30,
+    "semantic_basis": [
+      "P1P3SuccessorMovementMatrix.v1.json",
+      "P1P3LegacyDonorSemanticMovementInventory.v1.json",
+      "C7.SuccessorMovementMatrix.v1.json",
+      "C7.LegacyDonorSemanticMovementInventory.v1.json",
+      "p4-fragments/C7.json",
+      "p4-fragments/C8.json",
+      "p4-fragments/C9.json"
+    ]
+  },
+  "verdict": "PASS_P4_ADOPTION_READY",
+  "verdict_rationale": "Declared-scope gate and predecessor-to-successor completeness gate both pass: all 11 CapabilityCellSpec v1 files validate through the repository capability_cell_spec implementation; all 11 build manifests are byte-identical to deterministic recompilation from their spec plus RuntimeKernelABI; all 143 exact source/test/rollback bindings resolve to matching SHA-256 bytes; every spec authority ceiling is all-false; all 30 C7-C9 movements are covered by at least one of the 11 cells; UNASSIGNED_BLOCKER equals zero in the P1P3 matrix, C7 matrix and reviewed records. PASS means the spec/manifest evidence layer is ready for a P4 adoption decision; it does not adopt, promote or wire anything.",
+  "worktree": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0",
+  "write_scope": [
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/reviews/P4C7C9AdoptionReview.v1.json"
+  ]
+}

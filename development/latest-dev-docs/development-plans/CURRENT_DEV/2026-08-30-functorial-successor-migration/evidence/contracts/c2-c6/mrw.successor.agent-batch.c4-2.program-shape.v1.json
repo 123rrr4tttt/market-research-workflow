@@ -1,0 +1,32 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "mrw.successor.agent-batch.c4-2.program-shape.v1",
+  "ref_kind": "program_shape",
+  "cell_id": "C4.2",
+  "family_id": "C4",
+  "movement_ids": [
+    "C4-M003"
+  ],
+  "semantics": {
+    "shape": "single-Atom Program for the exact retry-reducer payload",
+    "fragment_reason": "single-Atom Program for the exact retry-reducer payload",
+    "movement_target_object_m003": "Typed retry reducer with durable budget and fresh AttemptIntent"
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C4.v1.json",
+      "pointer": "#/movements/C4-M003/target_object",
+      "sha256": "e54d9c412f33293b471bbc625533da20b0998c62659189fcdde09abb1ea9e59d"
+    },
+    {
+      "kind": "p3_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C4.json",
+      "pointer": "#/cells/1/program_digest/reason",
+      "sha256": "058b02345b9d67c1e7ff51006afb4c28e2c8ce4dadf7a505fac6bbac781bd188"
+    }
+  ],
+  "derivation_note": "shape/fragment_reason copied from fragment C4 /cells/1 program_digest.reason; movement C4-M003 target_object corroborates typed retry reducer with durable budget and fresh AttemptIntent; no new semantics added",
+  "content_digest": "541efc65f7dd3e1c4b4669791c863e625e1de10eb9bef033edd0fcceafe96507"
+}

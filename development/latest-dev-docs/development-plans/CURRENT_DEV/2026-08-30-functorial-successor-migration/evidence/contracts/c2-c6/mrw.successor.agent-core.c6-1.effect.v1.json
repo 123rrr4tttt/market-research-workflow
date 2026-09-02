@@ -1,0 +1,40 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "mrw.successor.agent-core.c6-1.effect.v1",
+  "ref_kind": "effect_policy",
+  "cell_id": "C6.1",
+  "family_id": "C6",
+  "movement_ids": [
+    "C6-M001"
+  ],
+  "semantics": {
+    "movement_effect": "Explicit model-step and tool-call boundaries with raw-value persistence forbidden",
+    "code_effect_profile": {
+      "effect_profile_id": "agent_core.episode_interpret.v1.effect",
+      "execution_class": "PURE_TRANSFORM",
+      "external_visibility": "NONE",
+      "network_required": false,
+      "cancellation_points": [
+        "loop_boundary"
+      ],
+      "idempotency_profile_ref": "logical_request_id"
+    }
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C6.v1.json",
+      "pointer": "#/movements/C6-M001/effect",
+      "sha256": "bdc430a903d6b1823f91fdeab1873e9a2f8482520cc0f85b0ceec43d040c901a"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/capabilities/agent_core_c6_1.py",
+      "pointer": "_effect_profile",
+      "sha256": "eaf2b1e5e02b512626595e3418a0f1ccda73f4812442818e5631e298f24e8d21"
+    }
+  ],
+  "derivation_note": "effect semantics copied verbatim from movement C6-M001.effect and the existing EffectProfile in agent_core_c6_1.py; pure transform, raw-value persistence forbidden",
+  "content_digest": "a8db1df275e6e8c2686cce093c8d4953fcb1312fed9e4e94c92bcb01df6678da"
+}

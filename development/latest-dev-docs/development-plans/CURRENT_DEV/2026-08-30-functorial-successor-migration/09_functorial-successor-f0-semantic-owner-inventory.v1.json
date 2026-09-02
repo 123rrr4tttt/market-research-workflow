@@ -1,0 +1,106 @@
+{
+  "schema": "mrw.functorial_successor.f0_owner_inventory.v1",
+  "status": "FROZEN",
+  "repository": "market-research-workflow",
+  "baseline": {
+    "branch": "codex/devdocs-supervisor-seed",
+    "commit": "35ca039c59d2efae8038a678995e8a0812032e43",
+    "tree": "d32b888edd1a03ed555f1087f4f97e52a84580e9"
+  },
+  "inventory_scope": "first-specimen owner and readback boundary plus legacy locator seeds",
+  "owner_bindings": [
+    {
+      "object_or_fact": "legacy Document content",
+      "owner_mode": "LEGACY_MUTABLE_CANONICAL_SOURCE",
+      "canonical_owner": "project Document repository",
+      "model_path": "main/backend/app/models/entities.py",
+      "identity_fields": ["project_schema", "documents.id"],
+      "observed_version_fields": ["text_hash", "updated_at"],
+      "missing_fields": ["revision", "incarnation", "history"],
+      "write_evidence": "main/backend/app/services/ingest/raw_import.py",
+      "first_specimen_disposition": "CAPTURE_EXACT_BYTES_TO_PROJECT_SUCCESSOR_VALUES",
+      "readback_contract": "DocumentCanonicalReadPort",
+      "write_authority_transferred": false
+    },
+    {
+      "object_or_fact": "CapturedMaterialSnapshot",
+      "owner_mode": "RUNTIME_INPUT_ARTIFACT",
+      "canonical_owner": "project successor_values",
+      "identity_fields": ["value_id", "project_key", "content_digest"],
+      "provenance_binding": ["document_id", "observed_text_hash", "observed_updated_at"],
+      "research_ledger_content_owner": false
+    },
+    {
+      "object_or_fact": "Inquiry ResearchPlan Claim Gap ResearchArtifact DeliveryIntent",
+      "owner_mode": "CANONICAL_OWNED",
+      "canonical_owner": "project Research Ledger",
+      "write_entrypoint": "AdmissionPort",
+      "projection_write_authority": false
+    },
+    {
+      "object_or_fact": "EvidenceQualification",
+      "owner_mode": "CANONICAL_RELATION",
+      "canonical_owner": "project Research Ledger research_relations",
+      "duplicate_object_row_forbidden": true
+    },
+    {
+      "object_or_fact": "DeliveryAttempt",
+      "owner_mode": "RUNTIME_FACT",
+      "canonical_owner": "Execution Journal runtime_effect_attempts",
+      "research_object": false
+    },
+    {
+      "object_or_fact": "DeliveryReceiptRef",
+      "owner_mode": "IMMUTABLE_EXTERNAL_REF",
+      "canonical_owner": "project receipt store with provider authoritative readback",
+      "research_ledger_relation": "delivered_as"
+    },
+    {
+      "object_or_fact": "legacy AgentApproval",
+      "owner_mode": "IMMUTABLE_EXTERNAL_APPROVAL_REF",
+      "canonical_owner": "public agent_approvals until per-operation cutover",
+      "model_path": "main/backend/app/models/entities.py",
+      "double_write_forbidden": true,
+      "successor_owner_after_cutover": "runtime_approvals"
+    },
+    {
+      "object_or_fact": "WritingDocument and citation",
+      "owner_mode": "LEGACY_CANONICAL_SOURCE_OR_PROJECTION_INPUT",
+      "canonical_owner": "project writing repository",
+      "model_path": "main/backend/app/models/writing_entities.py",
+      "version_fields": ["head_version", "etag"],
+      "first_specimen_write_authority": false
+    },
+    {
+      "object_or_fact": "TypedKnowledgeObject",
+      "owner_mode": "LEGACY_CANONICAL_SOURCE_OR_MIGRATION_CANDIDATE",
+      "canonical_owner": "project typed knowledge repository",
+      "model_path": "main/backend/app/models/typed_knowledge_entities.py",
+      "identity_fields": ["project_key", "object_type", "object_key", "identity_ref"],
+      "first_specimen_write_authority": false
+    },
+    {
+      "object_or_fact": "runtime lifecycle",
+      "owner_mode": "RUNTIME_FACT",
+      "canonical_owner": "public Execution Journal",
+      "business_content_owner": false
+    }
+  ],
+  "evidence_inputs": [
+    {"path": "main/backend/app/models/entities.py", "sha256": "fbbc6c71b6fdad027de2d0556d81d164df0851c661039254667d8cb5ed435adf"},
+    {"path": "main/backend/app/models/typed_knowledge_entities.py", "sha256": "4b6a065432f6e484a0c521910223e74c0150307d8c7b7a87730166eb744bc0bd"},
+    {"path": "main/backend/app/models/writing_entities.py", "sha256": "0e1b377aa00b484c85cfcdd23733ce826b3edf0e7ceb130d6f60867a47c7402f"},
+    {"path": "main/backend/app/services/ingest/raw_import.py", "sha256": "53bbbd84493a936b232cda4b847f0330ccb9cac762e08cb2dbcb8489286b7a8a"},
+    {"path": "main/backend/app/services/workflow_graph/contracts.py", "sha256": "3ad2da252b31ec17cc52e3532bc3aa7dde638e488cde2b5979863b1eb6b45919"},
+    {"path": "main/backend/app/services/workflow_graph/compiler.py", "sha256": "8decdac5a5d165e8b0769105981b89852a16667aa38fd069aabf736a9fea1911"},
+    {"path": "main/backend/app/services/source_library/item_resolver.py", "sha256": "50762f4b27d85ea4bd1f9e98f05f9930cc637b770ac55dc12aac7a115e595b12"},
+    {"path": "main/backend/app/services/collect_runtime/adapters/source_library.py", "sha256": "e4f2d2652361fc98834d53a0f1f2c923c4b88f2493d94cef2fc6842970b13393", "hash_scope": "baseline_git_blob_at_35ca039c59d2efae8038a678995e8a0812032e43", "working_tree_sha256": "731d8b0beb56d7207f33df485aa63aad489aadadd663df2ac61b2206c78e351c", "working_tree_disposition": "UNADOPTED_DIRTY_OBSERVATION"}
+  ],
+  "authority_exclusions": [
+    "no production write authority transfer",
+    "no live provider invocation",
+    "no external delivery",
+    "no legacy approval and successor approval double-write",
+    "no dashboard or projection control authority"
+  ]
+}

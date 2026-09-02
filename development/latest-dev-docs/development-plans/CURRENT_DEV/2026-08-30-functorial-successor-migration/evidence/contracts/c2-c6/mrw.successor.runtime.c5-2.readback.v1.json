@@ -1,0 +1,31 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "mrw.successor.runtime.c5-2.readback.v1",
+  "ref_kind": "readback_policy",
+  "cell_id": "C5.2",
+  "family_id": "C5",
+  "movement_ids": [
+    "C5-M003"
+  ],
+  "semantics": {
+    "movement_named_transform": "reconcile exact readback and adopt the attempt outcome once",
+    "readback_profile_ref": "readback-profile:p3-c5"
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C5.v1.json",
+      "pointer": "#/movements/C5-M003/named_transform",
+      "sha256": "322d24b19dbbb9babcd463f1c5fb652ec22cfc656a5cab9fd848d9f114b9ad65"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/specification/c5_p3.py",
+      "pointer": "_recovery_and_profile/authoritative_readback_profile_ref",
+      "sha256": "9cced6aacc7d4dd69fb76cc7d84a90d47a1ef87b539f320947f49da2d370ffad"
+    }
+  ],
+  "derivation_note": "readback semantics derived from movement C5-M003 (exact authoritative readback adopts outcome once) and the existing readback profile ref",
+  "content_digest": "8858ae24b5847aca6e209653d23fcc706fddecc6a6260f6a4cbeb92cd38c116b"
+}

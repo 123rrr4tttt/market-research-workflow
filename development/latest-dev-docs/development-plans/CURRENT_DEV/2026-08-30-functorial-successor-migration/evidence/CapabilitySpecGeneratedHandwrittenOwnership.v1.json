@@ -1,0 +1,96 @@
+{
+  "authority_ceiling": {
+    "authority_transfer": false,
+    "cutover": false,
+    "external_delivery": false,
+    "live_provider": false
+  },
+  "candidate_state": "NO_CANDIDATE",
+  "change_policy": {
+    "artifact_only_change": "REFRESH_EXACT_BUILD_EVIDENCE",
+    "authority_adoption": "SERIAL_MAINLINE_ONLY",
+    "new_capability_may_not_normally_modify": [
+      "shared_ast",
+      "compiler_fold",
+      "runtime_assignment_root_union",
+      "generic_reducer",
+      "work_item_root_schema"
+    ],
+    "semantic_abi_change": "SERIAL_MAINLINE_REVIEW_REQUIRED"
+  },
+  "content_digest": "d4fb43ddc1972cdce573f6f578c5741384b9cd0ab087f3c87efac9cf7d4a065d",
+  "decision_binding": {
+    "content_digest": "c103952f0b61c756e10f2455ee96340f997c7103c8de210886018bfa91dbf7ee",
+    "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/CapabilitySpecCompilationAndVerticalSlicesDecision.v1.json",
+    "schema": "mrw.functorial_successor.capability_spec_route_decision.v1"
+  },
+  "generated_ownership": {
+    "manual_edit": "PROHIBITED",
+    "owner": "DETERMINISTIC_GENERATOR",
+    "read_only_check": "REQUIRED",
+    "responsibilities": [
+      "mechanical_contract_scaffolding",
+      "catalog_registration_scaffolding",
+      "handler_binding_scaffolding",
+      "evidence_fragment_scaffolding",
+      "binding_manifest_scaffolding",
+      "parameterized_focused_gate_scaffolding",
+      "rollback_harness_scaffolding",
+      "exact_build_artifacts"
+    ],
+    "truth_source_exclusions": [
+      "runtime",
+      "semantics",
+      "authority"
+    ]
+  },
+  "generator_binding": {
+    "bytes": 24257,
+    "file_sha256": "456deafd03d0bd918e55ec77c11428e3a5fa17c3fe609f6061cdab246fed53a4",
+    "lines": 639,
+    "path": "main/backend/scripts/generate_capability_spec_route_decision.py",
+    "role": "deterministic_evidence_generator"
+  },
+  "goal_id": "01a0504c-47ef-77e1-9783-454dbcbe3697",
+  "handwritten_ownership": {
+    "exact_binding": "REQUIRED",
+    "manual_edit": "ALLOWED_WITH_SEMANTIC_REVIEW",
+    "owner": "DOMAIN_INTERPRETER_OR_EXPLICIT_POLICY",
+    "responsibilities": [
+      "domain_transformation_semantics",
+      "failure_ownership",
+      "effect_execution_and_ordering",
+      "resource_behavior",
+      "cancellation_behavior",
+      "retry_behavior",
+      "verification_and_admission",
+      "recovery_and_readback",
+      "projection_information_loss",
+      "authority_adoption"
+    ]
+  },
+  "ownership_map_id": "capability-spec-generated-handwritten-ownership-v1",
+  "reference_oracles": {
+    "families": [
+      "C3",
+      "C5",
+      "C6"
+    ],
+    "p3_may_be_invalidated_by_pilot": false,
+    "promoted_bytes_may_change": false,
+    "shapes": [
+      "traversal",
+      "observation_projection",
+      "effect_receipt"
+    ],
+    "use": "GENERATOR_AND_HARNESS_REVERSE_VALIDATION"
+  },
+  "route_name": "CAPABILITY_SPEC_COMPILATION_AND_VERTICAL_PRODUCT_SLICES",
+  "schema": "mrw.functorial_successor.generated_handwritten_ownership.v1",
+  "specification_ownership": {
+    "automatic_semantic_inference": false,
+    "owner": "HANDWRITTEN_REVIEWED_CAPABILITY_CELL_SPEC",
+    "role": "DECLARE_EXACT_REFS_POLICIES_AND_ADOPTION_PREREQUISITES"
+  },
+  "version": "1.0.0"
+}

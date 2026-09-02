@@ -1,0 +1,148 @@
+{
+  "schema": "mrw.functorial_successor.capability_cell_spec.v1",
+  "version": "1.0.0",
+  "cell_id": "C6.2",
+  "family_id": "C6",
+  "owner_capability_id": "agent_core.c6_2.v1",
+  "entrypoint_kind": "PROGRAM",
+  "commutativity_claim": "NOT_CLAIMED",
+  "input_contract_refs": [
+    "mrw.successor.agent-core.c6-2.payload.v1",
+    "mrw.successor.agent-core.c6-2.model-step-request.v1",
+    "tool_contract_refs",
+    "provider_profile_ref",
+    "credential_ref"
+  ],
+  "output_contract_refs": [
+    "mrw.successor.agent-core.c6-2.model-step-result.v1",
+    "mrw.successor.agent-core.c6-2.attempt-receipt.v1",
+    "mrw.successor.agent-core.c6-2.readback.v1"
+  ],
+  "object_contract_refs": [
+    "ProviderAttemptReceipt.v1",
+    "ProviderReadback.v1",
+    "AgentModelStepRequest.v1",
+    "AgentModelStepResult.v1"
+  ],
+  "operation_contract_refs": [
+    "agent.model_step.v1"
+  ],
+  "program_shape_ref": "mrw.successor.agent-core.c6-2.program-shape.v1",
+  "ordered_composition_refs": [
+    "agent.model_step.v1"
+  ],
+  "interpreter_refs": [
+    "successor.agent_core.c6_2.provider.v1",
+    "legacy.agent_core.c6_2.provider.v1"
+  ],
+  "profile_refs": [
+    "mrw.successor.agent-core.c6-2.observation.v1",
+    "mrw.successor.agent-core.c6-2.readback.v1"
+  ],
+  "deployment_binding_refs": [
+    "deployment.local-only.no-network.no-provider.no-canonical-write.v1"
+  ],
+  "legacy_oracle_ref": "legacy.agent_core.c6_2.provider.v1",
+  "shadow_observation_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C6.json#/cells/1/successor_observation",
+  "failure_union_refs": [
+    "ProviderUnavailable",
+    "ProviderInvocationFailed",
+    "ProviderProtocolInvalid",
+    "ProviderTimeout",
+    "ProviderRateLimited",
+    "ProviderCredentialRejected",
+    "ProviderFallbackSelected",
+    "ProviderOutcomeUnknown"
+  ],
+  "declared_lossy_projection_refs": [
+    "agent_core.c6-2.fallback.loss.v1"
+  ],
+  "effect_policy_ref": "mrw.successor.agent-core.c6-2.effect.v1",
+  "resource_policy_ref": "mrw.successor.agent-core.c6-2.resource.v1",
+  "recovery_policy_ref": "mrw.successor.agent-core.c6-2.recovery.v1",
+  "readback_policy_ref": "mrw.successor.agent-core.c6-2.readback.v1",
+  "authority_ceiling": {
+    "canonical_write": false,
+    "live_provider": false,
+    "external_delivery": false,
+    "cutover": false,
+    "authority_transfer": false
+  },
+  "adoption_prerequisites": [
+    "P3_AUTHORITY_RECORD_DIVERGENCE",
+    "C6_2_LIVE_PROVIDER_AUTHORITY_NOT_FROZEN",
+    "P3C6_LOOP_LIVE_MODEL_NOT_PROVEN",
+    "P3_REVIEW_SURFACE_NOT_GIT_IDENTIFIED"
+  ],
+  "source_bindings": [
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/P1FunctorizationEligibility.v1.json",
+      "file_sha256": "16dac2d34f2cdcaeffa4718fe2e63733f48b29ad0ba64daab32ed011527d4642",
+      "role": "p1_eligibility"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p1-fragments/C6.json",
+      "file_sha256": "17cfe8c9a8d8bb208aa20f855db2d0929c755cafb119377c032c5d3f1412a4de",
+      "role": "p1_fragment"
+    },
+    {
+      "path": "main/backend/app/services/agent_core/contracts.py",
+      "file_sha256": "769c14a267306d4488108f3efa4a6704d1f2f9ebab84de8f6a4440ced8ebde41",
+      "role": "legacy_donor_c6_1_c6_2"
+    },
+    {
+      "path": "main/backend/app/services/agent_core/fake_provider.py",
+      "file_sha256": "f170aabb475a1d038cb01359de2f87c3d2401e4db2ea0cb176262577fabb98d9",
+      "role": "legacy_donor_c6_2"
+    },
+    {
+      "path": "main/backend/app/services/agent_core/native_provider.py",
+      "file_sha256": "5cff4695fa1aa9455d3090ae7e8ca51d414a3e7e93599243ccefccd35331b566",
+      "role": "legacy_donor_c6_2"
+    },
+    {
+      "path": "main/backend/app/services/agent_core/json_provider.py",
+      "file_sha256": "f1249960173974373850dc10f421e4a185b2a85fcc7c06d5f1cb6f10761eac33",
+      "role": "legacy_donor_c6_2"
+    }
+  ],
+  "test_bindings": [
+    {
+      "path": "main/backend/tests/successor_runtime/test_p3_c6_2_provider.py",
+      "file_sha256": "02f2a81416738331c452a5b65b5a4838dc4f06db627116ef6907845f357deae9",
+      "role": "c6_2_provider"
+    },
+    {
+      "path": "main/backend/tests/successor_runtime/test_p3_c6_legacy_shadow.py",
+      "file_sha256": "7287429fb7e650b131f0b0ae602a937fbf2fdf7cc669ae583977d2cb67a41000",
+      "role": "c6_legacy_shadow"
+    }
+  ],
+  "rollback_bindings": [
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C6.json",
+      "file_sha256": "de997e287f8c51d8c984ae37c81c102834a2a64061967d089fd7d3180468796f",
+      "role": "rollback_observation"
+    },
+    {
+      "path": "main/backend/app/successor_migration/legacy_agent_core.py",
+      "file_sha256": "d0b20aacb92a7cb9b15909c46522110ccdd771297bd82686f38755423d3718bc",
+      "role": "legacy_rollback_route"
+    }
+  ],
+  "generated_ownership_refs": [
+    "capability-spec.contract-ref-scaffolding.C6.2.v1",
+    "capability-spec.build-manifest.C6.2.v1"
+  ],
+  "handwritten_ownership_refs": [
+    "main/backend/app/successor_runtime/capabilities/agent_core_c6_2.py",
+    "main/backend/app/successor_runtime/capabilities/agent_core_c6_2_program.py",
+    "main/backend/app/successor_runtime/capabilities/agent_core_c6_2_interpreters.py",
+    "main/backend/app/successor_runtime/capabilities/agent_core_c6_common.py",
+    "main/backend/app/successor_migration/legacy_agent_core.py",
+    "main/backend/app/successor_runtime/substrate/postgres/agent_core_c6_worker.py",
+    "main/backend/app/successor_runtime/substrate/postgres/agent_core_c6_handler.py",
+    "main/backend/app/successor_runtime/substrate/postgres/agent_core_c6_canary.py",
+    "main/backend/app/successor_runtime/specification/c6_p3.py"
+  ]
+}

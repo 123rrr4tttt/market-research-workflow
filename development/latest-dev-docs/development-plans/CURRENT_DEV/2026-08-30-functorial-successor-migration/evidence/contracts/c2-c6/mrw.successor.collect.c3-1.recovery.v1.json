@@ -1,0 +1,51 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "mrw.successor.collect.c3-1.recovery.v1",
+  "ref_kind": "recovery_policy",
+  "cell_id": "C3.1",
+  "family_id": "C3",
+  "movement_ids": [
+    "C3-M001",
+    "C3-M002"
+  ],
+  "semantics": {
+    "recovery": "Journal and payload closure rehydrate after restart; rollback changes only future owner; Executed outcomes remain replayable; unexecuted siblings are explicit and not fabricated",
+    "rollback_observation": {
+      "claim_owner": "legacy",
+      "dual_claim": false,
+      "journal_readable": true,
+      "mode": "SUCCESSOR_RUNTIME_COLLECT=off",
+      "rollback_digest": "07a6466365214b3c30ab87cc66e63438dbffef3a21e1cc085b6067d40edbd31c",
+      "route": "legacy"
+    }
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C3.v1.json",
+      "pointer": "/movements/0/recovery",
+      "sha256": "20fd31deb9357aa5e50541b3d60d3c819e7bf90b103d0d3ec36e4713a3d17b72"
+    },
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C3.v1.json",
+      "pointer": "/movements/1/recovery",
+      "sha256": "20fd31deb9357aa5e50541b3d60d3c819e7bf90b103d0d3ec36e4713a3d17b72"
+    },
+    {
+      "kind": "p3_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C3.json",
+      "pointer": "/cells/0/rollback_observation",
+      "sha256": "915aee69e65f2020fec859aa65a2f49be14325e4eff077f3881b025a89ef0133"
+    },
+    {
+      "kind": "family_config",
+      "path": "main/backend/app/successor_runtime/specification/c3_p3.py",
+      "pointer": "_rollback_digest",
+      "sha256": "dda2ffa2a0f61d7f6f998f1e9c19a771417299eecc273c7627ed9b00327caece"
+    }
+  ],
+  "derivation_note": "recovery_policy derived from P1P3 movement rows, p3 fragments, family config and code constants; no new semantics added",
+  "content_digest": "e06b56794805e26b33db97edee8b3b8b71a64d73e8ddabc5fb4f65658dda2f1e"
+}

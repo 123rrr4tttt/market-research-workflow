@@ -1,0 +1,55 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "mrw.successor.runtime.c5-3.resource.v1",
+  "ref_kind": "resource_policy",
+  "cell_id": "C5.3",
+  "family_id": "C5",
+  "movement_ids": [
+    "C5-M004"
+  ],
+  "semantics": {
+    "movement_resource": "Replay event and projection rebuild ceilings",
+    "observed_event_count": 9,
+    "observed_event_types": [
+      "ProgramAccepted",
+      "CompileSucceeded",
+      "PlanCompiled",
+      "QualificationActivated",
+      "StepActivated",
+      "StepClaimed",
+      "EffectStarted",
+      "RuntimeValueProduced",
+      "RunCompletionDerived"
+    ],
+    "replay_digest": "540eeadc219dfbf4fb2edccb12c6e9850ac8eb01f790b8ffcc9e056e25c5b4f8"
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C5.v1.json",
+      "pointer": "#/movements/C5-M004/resource",
+      "sha256": "322d24b19dbbb9babcd463f1c5fb652ec22cfc656a5cab9fd848d9f114b9ad65"
+    },
+    {
+      "kind": "p3_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C5.json",
+      "pointer": "#/cells/2/legacy_observation/event_count",
+      "sha256": "38ce21888d0c2780bac3c2b6dbef9fcc42341eb041d281a2a994cbed35215d39"
+    },
+    {
+      "kind": "p3_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C5.json",
+      "pointer": "#/cells/2/legacy_observation/observed_event_types",
+      "sha256": "38ce21888d0c2780bac3c2b6dbef9fcc42341eb041d281a2a994cbed35215d39"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/runtime/replay.py",
+      "pointer": "_EVENT_SCHEMAS",
+      "sha256": "e4574f64fb8f5d4b10e22532ddb1a368b59684c023fe78bf59c993cd0e5e2bc8"
+    }
+  ],
+  "derivation_note": "resource semantics copied verbatim from movement C5-M004; replay event ceilings and observed event types from p3 fragment and replay registry",
+  "content_digest": "ce5d15cd2f5ecdbd7384bbaca592fa49edba4261274724880b5491681a6d2fab"
+}

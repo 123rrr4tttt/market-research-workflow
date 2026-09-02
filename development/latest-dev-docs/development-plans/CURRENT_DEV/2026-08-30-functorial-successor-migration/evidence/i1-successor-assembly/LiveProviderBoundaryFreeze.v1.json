@@ -1,0 +1,298 @@
+{
+  "schema": "mrw.functorial_successor.live_provider_boundary_freeze.v1",
+  "version": "1.0.0",
+  "status": "LIVE_PROVIDER_DIMENSION_FROZEN_AS_BLOCKED",
+  "generated_at": "2026-09-02",
+  "agent": "live_provider_boundary_freeze_agent",
+  "evidence_class": "CONTRACT_ADJUDICATION_ONLY",
+  "scope": "C2.3/C3.1/C3.2/C6.2 successor live provider boundary; contract and adjudication evidence only; no live provider, no network, no canonical write performed",
+  "worktree": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0",
+  "authority": {
+    "canonical_write": false,
+    "live_provider": false,
+    "external_delivery": false,
+    "cutover": false,
+    "authority_transfer": false
+  },
+  "candidate": null,
+  "normative_inputs": [
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C2.3.v1.json",
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C3.1.v1.json",
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C3.2.v1.json",
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C6.2.v1.json",
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C2.3.BuildManifest.v1.json",
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C3.1.BuildManifest.v1.json",
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C3.2.BuildManifest.v1.json",
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C6.2.BuildManifest.v1.json",
+    "main/backend/app/successor_runtime/assembly/c2_assembly.py",
+    "main/backend/app/successor_runtime/assembly/c3_assembly.py",
+    "main/backend/app/successor_runtime/assembly/c6_assembly.py",
+    "main/backend/app/successor_runtime/capabilities/source_library_c2_3_test_interpreters.py",
+    "main/backend/app/successor_runtime/capabilities/agent_core_c6_2.py",
+    "main/backend/app/successor_runtime/capabilities/source_library_c2_shared.py",
+    "docs/governance/semantic-movement-completeness-standard.md",
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/02_functorial-successor-migration-development-contract.freeze.json",
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/i1-successor-assembly/I1AssemblyCoverage.v1.json",
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C2.json",
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C3.json",
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C6.json"
+  ],
+  "boundary_terms": [
+    "LIVE_PROVIDER_GATE_CLOSED: every provider port, credential resolution, provider invocation, readback, cancellation, and provider fallback must remain closed until an explicit live-provider gate is opened.",
+    "FIXTURE_IS_NOT_PROVIDER: FixtureProviderEffectGateway, composed no-provider C3 closure, and ReceiptOnlyProviderPort are LOCAL_OFFLINE fixtures and do not constitute production provider wiring.",
+    "TYPED_RECEIPT_REQUIRED: every provider attempt must produce a typed receipt with frozen schema and digest; receipt shape and digest semantics are part of the fixture/live equivalence contract.",
+    "OUTCOME_UNKNOWN_PRESERVED: unknown outcomes remain typed OUTCOME_UNKNOWN / ProviderOutcomeUnknown; completion is never inferred from an absent receipt and readback must be attempted.",
+    "NON_START_PROOF_REQUIRED: an unattempted provider job requires a typed NonStartProof with evidence locator and digest; an unprovable non-start remains NonStartUnprovable and OUTCOME_UNKNOWN.",
+    "AUTHORITY_VALIDATION_REQUIRED: authority profile/binding digest, grant scope, credential decision receipt, lease expiry, and redaction semantics must be validated identically by fixture and live paths.",
+    "NO_SECRET_BYTES: fixtures and successor receipts carry no secret bytes; live credential wiring must resolve through redacted refs and ephemeral leases only.",
+    "ZERO_PROVIDER_CALLS_UNTIL_GATE: the successor line currently proves provider_calls == 0 and real_provider_calls == 0; any live invocation requires this freeze status to change.",
+    "NO_CANDIDATE: candidate creation remains null and is not authorized by this evidence.",
+    "NO_NETWORK: deployment binding remains deployment.local-only.no-network.no-provider.no-canonical-write.v1.",
+    "NO_PROMOTION_BY_THIS_EVIDENCE: this freeze is a contract/adjudication artifact, not promotion, cutover, authority transfer, external delivery, or canonical write evidence."
+  ],
+  "fixture_vs_live_equivalence_conditions": [
+    {
+      "condition": "TYPED_RECEIPT",
+      "rule": "Fixture and live provider paths must emit the same typed receipt contract with matching digest semantics (C2.3 ProviderReceipt/ProviderAttemptRef; C6.2 ProviderAttemptReceipt) for equivalent observable provider behavior; no collapsed metadata, no untyped strings, no secret bytes."
+    },
+    {
+      "condition": "OUTCOME_UNKNOWN",
+      "rule": "When the provider outcome is not terminal, both paths must return typed OUTCOME_UNKNOWN (C2.3 OutcomeUnknownProviderEffect / failure union OUTCOME_UNKNOWN; C6.2 ProviderFailure ProviderOutcomeUnknown) and keep attempt identity; terminal reconciliation requires an authoritative readback."
+    },
+    {
+      "condition": "NON_START_PROOF",
+      "rule": "For an attempt that never started, both paths must produce a typed NonStartProof with evidence locator and digest (C2.3 NonStartProof; C6.2 ProviderReadback NON_START_PROOF); if non-start cannot be proven, both paths must return NonStartUnprovable / no proof and stay OUTCOME_UNKNOWN."
+    },
+    {
+      "condition": "AUTHORITY_VALIDATION",
+      "rule": "Both paths must validate the same authority profile/binding digest (C2.3 mrw.successor.source-library.c2-3.authority.v1; C6.2 authority_requirement_digest), resolve credentials through redacted refs and ephemeral leases with CredentialDecisionReceipt, check grant scope and expiry, and reject MISSING_CREDENTIAL/UNAUTHORIZED identically."
+    }
+  ],
+  "live_gate_prerequisites": [
+    "Explicit live-provider authority record: a freeze amendment or supervisor/owner authority record that opens the live provider dimension and names each permitted provider and grant scope; the current 02 freeze and amendments 19/21 still exclude live provider.",
+    "Per-cell provider adapter review covering transport, credential handling, timeout/retry budget, rate limiting, fallback, cancellation, and recovery semantics.",
+    "Fixture-to-live parity evidence for typed receipt, OUTCOME_UNKNOWN, non-start proof, and authority validation per cell.",
+    "Provider credential policy review: redacted refs only, ephemeral leases, expiry checks, decision receipts, and zero secret bytes in receipts.",
+    "Candidate creation gate: candidate stays null until the live gate is opened and reviewed; this evidence does not create a candidate.",
+    "Separate promotion/cutover/authority-transfer review remains required after the live gate; opening live provider does not by itself authorize cutover or canonical adoption."
+  ],
+  "cells": [
+    {
+      "cell_id": "C2.3",
+      "family_id": "C2",
+      "owner_capability_id": "source_library.c2_3.v1",
+      "status": "LIVE_PROVIDER_DIMENSION_FROZEN_AS_BLOCKED",
+      "candidate": null,
+      "authority_ceiling": {
+        "canonical_write": false,
+        "live_provider": false,
+        "external_delivery": false,
+        "cutover": false,
+        "authority_transfer": false
+      },
+      "deployment_binding_refs": [
+        "deployment.local-only.no-network.no-provider.no-canonical-write.v1"
+      ],
+      "current_wiring": "C2_3StoreRehydratedHandler with FixtureProviderEffectGateway (FixtureCredentialResolverPort + FixtureProviderEffectPort + FixtureProviderReadbackPort)",
+      "provider_ports_requiring_live_gate": [
+        "credential resolver port (real secret resolution and lease issuance)",
+        "provider effect execution port",
+        "provider readback port",
+        "provider cancel port",
+        "provider fallback wiring"
+      ],
+      "fixture_evidence": {
+        "provider_calls": 0,
+        "real_provider_calls": 0,
+        "outcome_kind": "completed",
+        "outcome_digest": "96a21638b0a9f2cf90577b0c01584989d49e14148870d05f60c7a75dbd69bb84",
+        "receipt_digest": "5fad7e437372d667dfc8ab85d8d83666ab4d391fc3f1183eb40a96059e5751e1",
+        "secret_bytes_present": false,
+        "outcome_unknown_reconcile": "COMMITTED_SUCCEEDED"
+      },
+      "boundary_terms": [
+        "ProviderEffectRequest, CredentialRef, ProviderReceipt, CapturedSourceRecordRef, and StagedArtifactRef remain fixture-only until the live gate opens.",
+        "OUTCOME_UNKNOWN in the failure union must be produced whenever readback is waiting or unavailable; reconcile_provider_effect never re-executes the provider and never infers completion from an absent receipt.",
+        "NonStartProof only for scripted attempts in the fixture; live path must supply authoritative evidence or return NonStartUnprovable.",
+        "Authority profile mrw.successor.source-library.c2-3.authority.v1 and binding authority digest must validate before any credential lease is issued."
+      ],
+      "equivalence_conditions": [
+        "TYPED_RECEIPT: same ProviderReceipt schema and digest semantics for completed/accepted/failed/outcome_unknown/cancelled/reconciled outcomes.",
+        "OUTCOME_UNKNOWN: typed OutcomeUnknownProviderEffect with attempt_ref and reason; no terminal state without authoritative readback.",
+        "NON_START_PROOF: typed NonStartProof with evidence_locator and proof_digest, else NonStartUnprovable and OUTCOME_UNKNOWN.",
+        "AUTHORITY_VALIDATION: credential resolution uses redacted refs, ephemeral leases, CredentialDecisionReceipt, grant scope, and expiry; rejection codes MISSING_CREDENTIAL/UNAUTHORIZED are preserved."
+      ],
+      "live_gate_prerequisites": [
+        "C2_3_LIVE_PROVIDER_AUTHORITY_NOT_FROZEN cleared by an explicit authority record/amendment naming real providers and scopes.",
+        "Provider adapter review and typed parity tests for each real provider (transport, credential, timeout/retry, rate limit, fallback, recovery).",
+        "Readback and non-start proof parity evidence against the real provider API.",
+        "Durable runtime and review-surface prerequisites remain independent blockers: C2_2_DURABLE_RUNTIME_NODE_LOCAL_ONLY, P3_AUTHORITY_RECORD_DIVERGENCE, P3_REVIEW_SURFACE_NOT_GIT_IDENTIFIED.",
+        "Candidate creation allowed only after this gate; candidate remains null."
+      ]
+    },
+    {
+      "cell_id": "C3.1",
+      "family_id": "C3",
+      "owner_capability_id": "collect.c3_1.v1",
+      "status": "LIVE_PROVIDER_DIMENSION_FROZEN_AS_BLOCKED",
+      "candidate": null,
+      "authority_ceiling": {
+        "canonical_write": false,
+        "live_provider": false,
+        "external_delivery": false,
+        "cutover": false,
+        "authority_transfer": false
+      },
+      "deployment_binding_refs": [
+        "deployment.local-only.no-network.no-provider.no-canonical-write.v1"
+      ],
+      "current_wiring": "C3CollectComposedRuntimeHandler over deterministic C3 element payloads; LOCAL_OFFLINE deterministic no-provider fixture closure shared with C3.2",
+      "provider_ports_requiring_live_gate": [
+        "batch element execution path that may call provider effects (source_library provider harness, crawler/network adapters, or C2.3 gateway)",
+        "provider concurrency/resource policy enforcement",
+        "element outcome reconciliation and cancellation"
+      ],
+      "fixture_evidence": {
+        "provider_calls": 0,
+        "payload_element_count": 2,
+        "payload_closure_digest": "aeb92b8b7d7822c591fcdf4658c324d6eca382ebc1e1e92c58743eff5d8b4637",
+        "observation_digest": "042fba59b65aa00960d0cdd2944e69ea1ee104b848bd383bce400ca4960e5918",
+        "interpreter_id": "successor.collect_runtime.batch_traverse.v1"
+      },
+      "boundary_terms": [
+        "Element execution remains fixture-only; no network, crawler, or provider call is permitted before the C3 live-provider gate opens.",
+        "Ordered traversal must preserve typed element outcomes; provider failures inside an element stay typed and do not collapse into aggregate metadata.",
+        "Resource policy (max_parallelism, deadline, cancellation, backpressure, provider_concurrency_key) must be enforced identically by a live execution path.",
+        "OUTCOME_UNKNOWN elements must remain OUTCOME_UNKNOWN through traversal and reconciliation; no completion inference from absence of element outcome."
+      ],
+      "equivalence_conditions": [
+        "TYPED_RECEIPT: element outcomes and attempt receipts use the frozen collect contracts; live provider element outcomes must match fixture typed shape.",
+        "OUTCOME_UNKNOWN: element-level unknown outcomes propagate as typed failures and remain recoverable.",
+        "NON_START_PROOF: element-level non-start must carry provider-side proof; unprovable non-start stays OUTCOME_UNKNOWN.",
+        "AUTHORITY_VALIDATION: authority_scope_ref project key and resource policy are validated for every element; no credential bypass."
+      ],
+      "live_gate_prerequisites": [
+        "C3_LIVE_PROVIDER_AUTHORITY_NOT_FROZEN cleared by an explicit authority record.",
+        "Upstream provider boundary opened for the element execution path (dedicated C3 adapter or C2.3 live gateway) with parity evidence.",
+        "Typed element outcome parity: success, failure union, OUTCOME_UNKNOWN, cancellation, resource ceiling.",
+        "Independent blockers remain: C3_POSTGRES_CANARY_DISPOSABLE_ONLY, C3_DURABLE_RUNTIME_NODE_NOT_PROVEN, P3_AUTHORITY_RECORD_DIVERGENCE, P3_REVIEW_SURFACE_NOT_GIT_IDENTIFIED.",
+        "Candidate remains null until this gate passes."
+      ]
+    },
+    {
+      "cell_id": "C3.2",
+      "family_id": "C3",
+      "owner_capability_id": "collect.c3_2.v1",
+      "status": "LIVE_PROVIDER_DIMENSION_FROZEN_AS_BLOCKED",
+      "candidate": null,
+      "authority_ceiling": {
+        "canonical_write": false,
+        "live_provider": false,
+        "external_delivery": false,
+        "cutover": false,
+        "authority_transfer": false
+      },
+      "deployment_binding_refs": [
+        "deployment.local-only.no-network.no-provider.no-canonical-write.v1"
+      ],
+      "current_wiring": "C3CollectComposedRuntimeHandler FoldAtom; PURE_TRANSFORM over typed element receipts; LOCAL_OFFLINE deterministic no-provider fixture closure",
+      "provider_ports_requiring_live_gate": [
+        "none owned directly (fold is pure), but the fold consumes live element outcomes; therefore live-provider readiness is inherited from the element execution path (C3.1 / C2.3 / C6.2 provider boundary)"
+      ],
+      "fixture_evidence": {
+        "provider_calls": 0,
+        "aggregate_digest": "1f7360b77bacd26819a762984dbb656eadff05c4cc2be9b6dc736095b5ea5856",
+        "fold_realization": "PURE_TRANSFORM",
+        "interpreter_id": "successor.collect_runtime.result_fold.v1"
+      },
+      "boundary_terms": [
+        "Fold remains a pure typed transform and must preserve receipts; it may not call a provider itself.",
+        "Aggregate outcomes must preserve typed failures and OUTCOME_UNKNOWN per element; QUEUED_ACK_NOT_COMPLETION remains a failure union member.",
+        "Live element outcomes are not admitted into the fold until the upstream provider boundary and C3 live gate are open.",
+        "Receipt preservation (collect.result_fold.receipt_preservation.v1) is a required parity condition for fixture and live inputs."
+      ],
+      "equivalence_conditions": [
+        "TYPED_RECEIPT: aggregate outcome is derived from typed element receipts; digest agreement must hold for equivalent inputs.",
+        "OUTCOME_UNKNOWN: unknown elements stay unknown in the aggregate; aggregate all-failed and queued-ack-not-completion semantics are preserved.",
+        "NON_START_PROOF: non-start element evidence is carried into the aggregate observation without conversion to success.",
+        "AUTHORITY_VALIDATION: fold validates project scope/authority scope refs from element payloads; no authority widening."
+      ],
+      "live_gate_prerequisites": [
+        "C3_LIVE_PROVIDER_AUTHORITY_NOT_FROZEN cleared (same C3 gate as C3.1).",
+        "Element execution live parity accepted before live element outcomes may enter the fold.",
+        "Aggregate parity tests over live-derived receipts including OUTCOME_UNKNOWN and non-start cases.",
+        "Independent blockers remain: C3_POSTGRES_CANARY_DISPOSABLE_ONLY, C3_DURABLE_RUNTIME_NODE_NOT_PROVEN, P3_AUTHORITY_RECORD_DIVERGENCE, P3_REVIEW_SURFACE_NOT_GIT_IDENTIFIED.",
+        "Candidate remains null until this gate passes."
+      ]
+    },
+    {
+      "cell_id": "C6.2",
+      "family_id": "C6",
+      "owner_capability_id": "agent_core.c6_2.v1",
+      "status": "LIVE_PROVIDER_DIMENSION_FROZEN_AS_BLOCKED",
+      "candidate": null,
+      "authority_ceiling": {
+        "canonical_write": false,
+        "live_provider": false,
+        "external_delivery": false,
+        "cutover": false,
+        "authority_transfer": false
+      },
+      "deployment_binding_refs": [
+        "deployment.local-only.no-network.no-provider.no-canonical-write.v1"
+      ],
+      "current_wiring": "AgentCoreC6StoreRehydratedHandler with ReceiptOnlyProviderPort; ProviderOutcomeUnknown + NON_START_PROOF; provider_calls == 0",
+      "provider_ports_requiring_live_gate": [
+        "production provider port (model provider / agent model step source)",
+        "provider credential resolution",
+        "provider readback port",
+        "provider fallback selection",
+        "provider handler installation and loop wiring"
+      ],
+      "fixture_evidence": {
+        "provider_calls": 0,
+        "outcome_code": "ProviderOutcomeUnknown",
+        "readback_status": "NON_START_PROOF",
+        "receipt_digest": "aa592aa3c9fe5280404d3228b0fa098977f41cea2676df40ebde184de1e01a31",
+        "result_digest": "db2167f0f579aee03a300915687331b5f41659eee557c6a4268ec8c6effb4ca1",
+        "runtime_node_canary": "COMMITTED",
+        "network_required": false,
+        "live_provider_claim": false
+      },
+      "boundary_terms": [
+        "agent.model_step.v1 must remain on the receipt-only provider port until C6_2_LIVE_PROVIDER_AUTHORITY_NOT_FROZEN and P3C6_LOOP_LIVE_MODEL_NOT_PROVEN are cleared.",
+        "Every model step must emit ProviderAttemptReceipt with outcome_code, provider_calls, readback_status, readback_digest, and receipt_digest.",
+        "ProviderOutcomeUnknown must not be collapsed; readback status must be AUTHORITATIVE_READBACK_SUCCEEDED/AUTHORITATIVE_READBACK_FAILED/NON_START_PROOF/NOT_APPLICABLE only.",
+        "ProviderFallbackSelected is a typed failure, not silent success; fallback requires explicit authorization.",
+        "No global config or secret bytes may enter the receipt; provider_calls counts only explicit port invocations.",
+        "Declared loss agent_core.c6-2.fallback.loss.v1 remains a loss account; live fallback must be re-reviewed."
+      ],
+      "equivalence_conditions": [
+        "TYPED_RECEIPT: fixture ReceiptOnlyProviderPort and real provider port emit the same ProviderAttemptReceipt schema and digest semantics for equivalent outcomes.",
+        "OUTCOME_UNKNOWN: ProviderOutcomeUnknown always triggers readback; authoritative readback requires a canonical observation digest; no completion inferred from absence.",
+        "NON_START_PROOF: readback returns NON_START_PROOF for unattempted steps; fixture default and live evidence must agree on attempt identity.",
+        "AUTHORITY_VALIDATION: authority_requirement_digest and interpreter profile are bound in the successor binding; credential and fallback decisions are validated identically."
+      ],
+      "live_gate_prerequisites": [
+        "C6_2_LIVE_PROVIDER_AUTHORITY_NOT_FROZEN cleared by an explicit authority record naming the real model provider(s).",
+        "P3C6_LOOP_LIVE_MODEL_NOT_PROVEN cleared by a live loop proof (provider handler installation, model step, readback, and recovery).",
+        "Production provider port parity review: typed attempt receipt, ProviderOutcomeUnknown, NON_START_PROOF, fallback, timeout/rate limit/credential rejection.",
+        "Provider handler installation and loop wiring review; provider_calls accounting preserved.",
+        "Independent blockers remain: P3_AUTHORITY_RECORD_DIVERGENCE, P3_REVIEW_SURFACE_NOT_GIT_IDENTIFIED.",
+        "Candidate remains null until this gate passes."
+      ]
+    }
+  ],
+  "unresolved_dimensions": [
+    "C2_3_LIVE_PROVIDER_AUTHORITY_NOT_FROZEN",
+    "C3_LIVE_PROVIDER_AUTHORITY_NOT_FROZEN",
+    "C6_2_LIVE_PROVIDER_AUTHORITY_NOT_FROZEN",
+    "P3C6_LOOP_LIVE_MODEL_NOT_PROVEN"
+  ],
+  "declared_limits": [
+    "This artifact freezes the live provider dimension as blocked; it does not open any gate, approve any provider, or create a candidate.",
+    "I1AssemblyCoverage remains I1_ASSEMBLY_LOCAL_ONLY_CLOSED_28_INSTALLED_NOT_PROMOTED and I1SuccessorAssembly remains DESIGN_EVIDENCE_ONLY_NOT_IMPLEMENTED_NOT_PROMOTION.",
+    "Semantic movement completeness requires movement records, runtime authority inventory, and live trace evidence; green tests and exact hashes are not promotion evidence.",
+    "Authority exclusions from the 02 freeze remain in force: no production canonical write, no live provider or external network, no external delivery, no cutover or authority transfer, no double claim/double approval write, and no dashboard/broker state as completion authority."
+  ]
+}

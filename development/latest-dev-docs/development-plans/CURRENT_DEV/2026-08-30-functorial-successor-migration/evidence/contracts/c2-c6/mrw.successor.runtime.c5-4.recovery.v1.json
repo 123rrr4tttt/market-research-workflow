@@ -1,0 +1,32 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "mrw.successor.runtime.c5-4.recovery.v1",
+  "ref_kind": "recovery_policy",
+  "cell_id": "C5.4",
+  "family_id": "C5",
+  "movement_ids": [
+    "C5-M005",
+    "C5-M006"
+  ],
+  "semantics": {
+    "movement_recovery_m005": "Recapture from exact source; stale observations remain marked stale",
+    "movement_recovery_m006": "Rejoin from captured observations; rollback retains successor journal and legacy claim owner"
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C5.v1.json",
+      "pointer": "#/movements/C5-M005/recovery",
+      "sha256": "322d24b19dbbb9babcd463f1c5fb652ec22cfc656a5cab9fd848d9f114b9ad65"
+    },
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C5.v1.json",
+      "pointer": "#/movements/C5-M006/recovery",
+      "sha256": "322d24b19dbbb9babcd463f1c5fb652ec22cfc656a5cab9fd848d9f114b9ad65"
+    }
+  ],
+  "derivation_note": "recovery semantics copied verbatim from movements C5-M005/C5-M006; recapture/rejoin from captured observations, rollback retains successor journal and legacy claim owner",
+  "content_digest": "a6a03717ee6c9516ddc5e6891df40fad87c6b1af39d54b5c781c495cdc82f9e5"
+}

@@ -1,0 +1,31 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "mrw.successor.agent-batch.c4-3.recovery.v1",
+  "ref_kind": "recovery_policy",
+  "cell_id": "C4.3",
+  "family_id": "C4",
+  "movement_ids": [
+    "C4-M005"
+  ],
+  "semantics": {
+    "movement_recovery": "Crash before terminal commit replays persisted receipt; legacy rollback uses a distinct capability binding",
+    "rollback_rehearsal": "successor_disabled_legacy_enabled_no_dual_claim"
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C4.v1.json",
+      "pointer": "#/movements/C4-M005/recovery",
+      "sha256": "e54d9c412f33293b471bbc625533da20b0998c62659189fcdde09abb1ea9e59d"
+    },
+    {
+      "kind": "p3_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C4.json",
+      "pointer": "#/cells/2/successor_observation/rollback_rehearsal",
+      "sha256": "058b02345b9d67c1e7ff51006afb4c28e2c8ce4dadf7a505fac6bbac781bd188"
+    }
+  ],
+  "derivation_note": "recovery semantics copied verbatim from movement C4-M005.recovery and fragment rollback rehearsal value",
+  "content_digest": "95c49e37146da0c6bdc9e7915bb665e6e6b2dbaf942b083f4f488b28962ca769"
+}

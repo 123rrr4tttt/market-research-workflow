@@ -1,0 +1,815 @@
+[
+  {
+    "cell": "C7.1",
+    "boundary": "ingest submission staging",
+    "locator_paths": [
+      "main/backend/app/services/ingest/frontdoor_orchestrator.py",
+      "main/backend/app/services/ingest/terminal_writer.py"
+    ],
+    "locator_status": "FROZEN_LOCATORS_PRESENT; frozen hashes for 06 and 13 match manifest; FrontDoorOrchestrator is repository-observed only in its unit test, while the live postprocess path calls terminal_writer directly",
+    "observed_symbols": [
+      "FrontDoorOrchestrator.run",
+      "FRONTDOOR_STAGES",
+      "apply_stage_update",
+      "build_frontdoor_ingress_envelope",
+      "run_postprocess_frontdoor",
+      "persist_terminal_document"
+    ],
+    "object_types": [
+      "SourceRef",
+      "FrontdoorIngressEnvelope",
+      "DocumentCandidate",
+      "CapturedMaterialSnapshot",
+      "StagedArtifact",
+      "NormalizedTerminalPayload"
+    ],
+    "atom_kind": "material.observe_external.v1 candidate; EFFECTFUL with admission_required=true; not frozen or implemented",
+    "payload_schema": {
+      "status": "PARTIAL_DICT_CONTRACT_OBSERVED_TYPED_SCHEMA_MISSING",
+      "input_required": [
+        "project_scope_ref",
+        "ingress_type",
+        "entrypoint",
+        "source_mode",
+        "source_ref",
+        "raw_snapshot_ref",
+        "collection_payload_ref",
+        "request_id",
+        "idempotency_key"
+      ],
+      "staged_output_required": [
+        "candidate_id",
+        "content_digest",
+        "byte_size",
+        "mime_type",
+        "provenance_digest",
+        "effect_receipt_digest",
+        "staging_store_ref"
+      ],
+      "legacy_observed": [
+        "contract_version",
+        "project_key",
+        "entrypoint",
+        "source_mode",
+        "source_ref",
+        "collection_payload",
+        "raw_snapshot",
+        "meta.payload_hash"
+      ]
+    },
+    "program_combinators": [
+      "Then",
+      "MapOutput",
+      "TraverseOrdered",
+      "Decide"
+    ],
+    "failure_return_union": {
+      "observed": [
+        "success",
+        "failed",
+        "accept",
+        "defer",
+        "reject",
+        "return_for_cleanup",
+        "unexpected_exception"
+      ],
+      "required_successor": [
+        "Staged",
+        "Deferred",
+        "Rejected",
+        "EffectFailed",
+        "Cancelled",
+        "OutcomeUnknown"
+      ]
+    },
+    "canonical_owner": {
+      "staging": "project-scoped successor value/blob store; staging has no Document write authority",
+      "canonical_document": "existing project Document repository",
+      "runtime_fact": "successor runtime journal",
+      "constraint": "staged collection must not imply Document adoption and must not dual-write canonical content"
+    },
+    "effect_profile": {
+      "effects": [
+        "provider/network fetch",
+        "content extraction",
+        "filesystem-or-project-value staging",
+        "legacy DB write when terminal_writer is enabled"
+      ],
+      "observed_boundary": "callbacks receive mutable dict context; run_postprocess_frontdoor performs extraction, cleanup, qualification-like checks and invokes the canonical writer in one call",
+      "required_boundary": "observe/fetch must produce a digest-bound staged artifact and receipt only; canonical commit is a separate admission step"
+    },
+    "authority_profile": {
+      "observed": "project_key is nullable in the ingress envelope and terminal_writer relies on ambient SessionLocal project context; no per-step grant or authority epoch is carried",
+      "required": "authenticated ProjectScopeRef plus acquisition/staging grant; no canonical Document grant in C7.1"
+    },
+    "resource_profile": {
+      "required": [
+        "bounded fetch timeout",
+        "content byte ceiling",
+        "staging storage quota",
+        "network/provider concurrency",
+        "cancellation",
+        "backpressure"
+      ],
+      "observed": "FrontDoorOrchestrator has ordered stages but no resource declaration; cleanup refetch hard-codes timeout=12 and retries=1"
+    },
+    "legacy_interpreter": {
+      "id": "legacy.c7.frontdoor_postprocess.v1",
+      "realization": "run_postprocess_frontdoor plus persist_terminal_document behind a sibling migration adapter",
+      "status": "NOT_ADAPTER_READY"
+    },
+    "successor_interpreter_candidate": {
+      "id": "successor.c7.observe_and_stage.v1",
+      "status": "NOT_IMPLEMENTED",
+      "boundary": "stage exact bytes and provenance, emit receipt and StagedArtifact, never write Document"
+    },
+    "observation_profile": {
+      "name": "c7.1.submission_stage_order_and_staged_identity.v1",
+      "compare": [
+        "project/source identity",
+        "stage order",
+        "candidate content digest",
+        "raw snapshot digest",
+        "accept/defer/reject decision",
+        "failure family",
+        "no Document mutation before admission"
+      ],
+      "exclude": [
+        "diagnostic string formatting",
+        "generated ingest_id"
+      ]
+    },
+    "fixture_ids": [
+      "FrontdoorStageDiagnosticsUnitTestCase.test_orchestrator_injects_stage_status_when_handler_omits_diagnostics",
+      "PostprocessFrontdoorUnitTestCase.test_source_library_terminal_output_is_deferred_without_writer",
+      "PostprocessFrontdoorUnitTestCase.test_frontdoor_returns_video_shell_for_cleanup",
+      "MISSING_REQUIRED_FIXTURE::c7.1_staged_bytes_replay_without_document_write"
+    ],
+    "rollback_observation": {
+      "observed": "return_for_cleanup exposes raw_snapshot_ref as rollback_token and avoids the writer; rollout mode 'rollback' only aliases to frontdoor off",
+      "missing": "no durable staging intent, orphan cleanup protocol, or proof that replay does not repeat fetch/write effects",
+      "required": "discard or retain the staged artifact by reference while preserving the runtime receipt; rollback changes future routing only"
+    },
+    "disposition": "EXTRACT_AND_REWRITE",
+    "rationale": "Ordered stage and ingress-envelope behavior provide useful semantic and fixture evidence, but the interfaces are mutable dict callbacks, absent handlers silently skip, the generic orchestrator is not production-wired, and the production postprocess path crosses staging, quality and canonical persistence. Extract the ordered observe/stage algebra and rewrite it as a typed successor interpreter; do not adapt terminal_writer as staging.",
+    "prerequisites": [
+      "freeze ObjectContract and canonical codec for SourceRef, CapturedMaterialSnapshot and StagedArtifact",
+      "define canonical idempotency key and content digest serialization",
+      "bind authenticated project scope and acquisition/staging authority",
+      "add durable staging receipt, cancellation and orphan reconciliation fixtures",
+      "prove the legacy adapter cannot call terminal_writer before CompiledAdmission"
+    ],
+    "risk": {
+      "level": "HIGH",
+      "items": [
+        "staging and canonical adoption are conflated in the live postprocess path",
+        "ambient project scope can diverge from nullable payload project_key",
+        "repr-based payload_hash is not a declared canonical serialization",
+        "missing handlers are reported as skipped rather than a typed capability failure"
+      ]
+    },
+    "source_evidence": [
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/13_functorial-successor-c1-c9-locator-pending-inventory.v1.json",
+        "symbol_or_lines": "line 26",
+        "claim": "Frozen C7.1 locator and ELIGIBILITY_PENDING state."
+      },
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/06_functorial-successor-runtime-architecture-correction.draft.zh-CN.md",
+        "symbol_or_lines": "lines 1030-1046, 2242-2259, 2352-2357",
+        "claim": "Staged effect and canonical admission are separate ordered boundaries; C7 requires collect/stage before verify and commit."
+      },
+      {
+        "path": "main/backend/app/services/ingest/frontdoor_orchestrator.py",
+        "symbol_or_lines": "FrontDoorOrchestrator.run, lines 39-136",
+        "claim": "Runs mutable dict handlers in fixed stage order, converts arbitrary exceptions to retryable failure, and skips unconfigured stages."
+      },
+      {
+        "path": "main/backend/app/services/ingest/postprocess_frontdoor.py",
+        "symbol_or_lines": "run_postprocess_frontdoor, lines 78-275",
+        "claim": "The live path decides admission, extracts, cleans, normalizes and directly calls persist_terminal_document."
+      },
+      {
+        "path": "main/backend/app/services/ingest/terminal_writer.py",
+        "symbol_or_lines": "persist_terminal_document, lines 10-57",
+        "claim": "Opens ambient SessionLocal and commits Source/Document directly instead of returning a staged artifact."
+      }
+    ]
+  },
+  {
+    "cell": "C7.2",
+    "boundary": "persistence verification admission",
+    "locator_paths": [
+      "main/backend/app/services/ingest",
+      "main/backend/app/models/entities.py"
+    ],
+    "locator_status": "FROZEN_LOCATORS_PRESENT; live persistence exists, but quality admission, canonical verification and commit are not separate contracts",
+    "observed_symbols": [
+      "run_postprocess_frontdoor",
+      "persist_terminal_document",
+      "_get_or_create_source",
+      "ingest_policy_documents",
+      "Source",
+      "Document",
+      "SessionLocal"
+    ],
+    "object_types": [
+      "AdoptionCandidate",
+      "VerificationBinding",
+      "CommitIntent",
+      "CanonicalDocumentRef",
+      "AdmissionRejected",
+      "CommitOutcomeUnknown"
+    ],
+    "atom_kind": "material.adopt_document.v1 candidate; ADMISSION composite; not frozen or implemented",
+    "payload_schema": {
+      "status": "MISSING",
+      "required": [
+        "commit_intent_id",
+        "idempotency_key",
+        "project_scope_digest",
+        "canonical_owner",
+        "object_identity",
+        "expected_base_revision",
+        "expected_incarnation",
+        "exact_candidate_content_digest",
+        "ordered_event_digest",
+        "verification_digest",
+        "authority_digest",
+        "provenance_digest"
+      ],
+      "legacy_writer_input": [
+        "source_name",
+        "source_kind",
+        "source_base_url",
+        "doc_type",
+        "title",
+        "content",
+        "summary",
+        "text_hash",
+        "uri",
+        "extracted_data"
+      ]
+    },
+    "program_combinators": [
+      "Then through CompiledAdmission terminal barrier",
+      "Decide for admitted, rejected or outcome-unknown return"
+    ],
+    "failure_return_union": {
+      "observed": [
+        "inserted",
+        "skipped_exists",
+        "uncaught database exception"
+      ],
+      "required_successor": [
+        "CanonicalCommit",
+        "AdmissionRejected",
+        "CommitOutcomeUnknown",
+        "BaseRevisionStale",
+        "IncarnationStale",
+        "AuthorityRevoked",
+        "VerificationFailed"
+      ]
+    },
+    "canonical_owner": {
+      "canonical_source": "existing project Source repository",
+      "canonical_document": "existing project Document repository",
+      "runtime": "runtime journal owns only attempt, intent and receipt facts",
+      "write_entry": "AdmissionPort is the only permitted successor-to-legacy canonical write boundary"
+    },
+    "effect_profile": {
+      "observed": "terminal_writer performs query, possible Source insert, Document insert and commit inside a private SessionLocal; caller transactions cannot enlist or roll it back",
+      "required": "prepare CommitIntent, verify exact bytes/event/order/base/authority, perform one idempotent canonical commit, authoritative readback, then record receipt"
+    },
+    "authority_profile": {
+      "observed": "no explicit actor, grant, authority epoch, approval, expected revision or incarnation",
+      "required": "current document-admission grant and project scope must be revalidated at prepare, commit and terminal receipt recording"
+    },
+    "resource_profile": {
+      "required": [
+        "single project-schema transaction",
+        "bounded candidate bytes",
+        "unique idempotency key",
+        "CAS on base revision/incarnation",
+        "database retry restricted to proven non-start or idempotent commit"
+      ],
+      "observed": "Document.text_hash is unique but uri is not; Source has no name/kind uniqueness constraint; check-then-insert races are possible"
+    },
+    "legacy_interpreter": {
+      "id": "legacy.c7.document_repository_admission.v1",
+      "realization": "persist_terminal_document behind a new sibling AdmissionPort adapter",
+      "status": "UNSAFE_UNTIL_COMMIT_INTENT_AND_READBACK_ARE_ADDED"
+    },
+    "successor_interpreter_candidate": {
+      "id": "successor.c7.document_admission.v1",
+      "status": "NOT_IMPLEMENTED",
+      "boundary": "generic successor admission coordinator plus capability-owned Document adapter with authoritative readback"
+    },
+    "observation_profile": {
+      "name": "c7.2.document_commit_identity_and_readback.v1",
+      "compare": [
+        "project scope",
+        "Source identity",
+        "Document identity",
+        "exact content digest",
+        "canonical revision/incarnation",
+        "insert-versus-existing outcome",
+        "commit intent/idempotency identity",
+        "failure family"
+      ],
+      "forbid": [
+        "two canonical Documents for one idempotency key",
+        "runtime success before authoritative Document readback",
+        "Source or Document writes from both legacy and successor owners"
+      ]
+    },
+    "fixture_ids": [
+      "PostprocessFrontdoorUnitTestCase.test_raw_import_ingress_can_be_normalized_and_written",
+      "PostprocessFrontdoorUnitTestCase.test_discovery_ingress_can_be_normalized_and_written",
+      "MISSING_REQUIRED_FIXTURE::terminal_writer_real_db_duplicate_uri_and_text_hash_race",
+      "MISSING_REQUIRED_FIXTURE::document_commit_after_crash_authoritative_readback",
+      "MISSING_REQUIRED_FIXTURE::outer_caller_rollback_cannot_undo_private_terminal_writer_commit"
+    ],
+    "rollback_observation": {
+      "observed": "terminal_writer commits before returning; ingest_policy_documents has a separate outer rollback that cannot undo the private writer commit",
+      "missing": "CommitIntent state, base CAS, canonical readback and OUTCOME_UNKNOWN reconciliation",
+      "required": "before commit, rollback the admission UoW; after possible commit, never delete or re-commit speculatively and reconcile by commit_intent_id/idempotency_key"
+    },
+    "disposition": "REIMPLEMENT",
+    "rationale": "The canonical repository is clear, but the current writer cannot be safely wrapped: it owns a hidden session, performs check-then-insert, commits internally, carries no exact verification or authority binding, and exposes no authoritative commit readback. The policy caller also creates a Source in one transaction before invoking the private writer transaction, creating a duplicate-Source risk. Preserve behavior fixtures and repository ownership only; reimplement the admission protocol.",
+    "prerequisites": [
+      "define Document canonical identity, revision and incarnation semantics",
+      "add commit_intent_id/idempotency_key authoritative lookup to the Document repository",
+      "freeze exact candidate and VerificationBinding codecs",
+      "remove private commit from the adapter and enlist writes in the admission UoW",
+      "add database constraints for the chosen Source and Document identity rules",
+      "test crash before commit, commit-after-crash, duplicate submission and authority/base drift"
+    ],
+    "risk": {
+      "level": "CRITICAL",
+      "items": [
+        "private commit escapes caller rollback",
+        "quality acceptance is currently mistaken for canonical admission",
+        "no authoritative readback prevents safe commit-after-crash recovery",
+        "check-then-insert can race",
+        "nested policy-ingest and terminal-writer sessions can create duplicate Source rows",
+        "no explicit project/actor authority is bound to the commit"
+      ]
+    },
+    "source_evidence": [
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/06_functorial-successor-runtime-architecture-correction.draft.zh-CN.md",
+        "symbol_or_lines": "lines 2116-2137",
+        "claim": "Canonical business facts remain capability-owned; admission requires CommitIntent and authoritative readback."
+      },
+      {
+        "path": "main/backend/app/services/ingest/terminal_writer.py",
+        "symbol_or_lines": "persist_terminal_document, lines 10-57",
+        "claim": "Queries by uri then text_hash and directly commits Source/Document in a private session."
+      },
+      {
+        "path": "main/backend/app/services/ingest/policy.py",
+        "symbol_or_lines": "ingest_policy_documents, lines 67-162",
+        "claim": "Creates Source in an outer session, invokes postprocess writer, commits or rolls back that outer session, and indexes only afterward."
+      },
+      {
+        "path": "main/backend/app/models/entities.py",
+        "symbol_or_lines": "Source and Document, lines 25-63",
+        "claim": "Document.text_hash is unique; uri and Source name/kind are not uniquely constrained; no revision, incarnation or commit-intent fields exist."
+      },
+      {
+        "path": "main/backend/tests/unit/test_postprocess_frontdoor_unittest.py",
+        "symbol_or_lines": "lines 522-627",
+        "claim": "Writer behavior is mocked; tests do not exercise real transaction, idempotency, crash or readback semantics."
+      }
+    ]
+  },
+  {
+    "cell": "C7.3",
+    "boundary": "index graph handoff",
+    "locator_paths": [
+      "main/backend/app/services/indexer",
+      "main/backend/app/services/graph"
+    ],
+    "locator_status": "FROZEN_LOCATORS_PRESENT; index and graph implementations are live but independent; no durable index-to-graph handoff, shared source binding or projection offset contract is observed",
+    "observed_symbols": [
+      "IndexingApplicationService.index_policy",
+      "index_policy_documents",
+      "_build_vector_contract_payload",
+      "_validate_vector_contract_payload",
+      "Graph",
+      "GraphNodeWriter.persist_graph_nodes",
+      "build_graph_projection_dry_run",
+      "run_graph_node_backfill",
+      "_finalize_graph_response"
+    ],
+    "object_types": [
+      "CanonicalDocumentRef",
+      "PolicyChunkRef",
+      "EmbeddingProjection",
+      "SearchProjection",
+      "GraphProjection",
+      "ProjectionSource",
+      "ProjectionOffset"
+    ],
+    "atom_kind": "PROJECTION_ONLY; index and graph handoff must use projector registry and must not become an ordinary Program Atom or canonical admission",
+    "payload_schema": {
+      "status": "PARTIAL",
+      "observed_vector_contract": [
+        "project_key",
+        "object_type",
+        "object_id",
+        "vector_version",
+        "clean_text",
+        "language",
+        "source_domain",
+        "effective_time",
+        "keep_for_vectorization"
+      ],
+      "required_projection_binding": [
+        "project_scope_digest",
+        "source_kind",
+        "source_canonical_id",
+        "source_revision",
+        "source_incarnation",
+        "source_content_digest",
+        "projector_id",
+        "projector_version",
+        "projection_offset",
+        "declared_loss_profile"
+      ]
+    },
+    "program_combinators": [],
+    "failure_return_union": {
+      "observed": [
+        "indexed",
+        "deleted",
+        "ValueError",
+        "RuntimeError",
+        "Qdrant warning and continue",
+        "graph shadow-write warning and A-path fallback"
+      ],
+      "required_successor": [
+        "ProjectionApplied",
+        "ProjectionNoop",
+        "ProjectionPartial",
+        "ProjectionFailed",
+        "ProjectionSourceStale",
+        "ProjectionRebuildRequired"
+      ]
+    },
+    "canonical_owner": {
+      "source": "existing project Document repository",
+      "search_graph_targets": "DECLARED_LOSS_PROJECTION with no canonical write authority",
+      "offset": "projector-owned projection offset bound to projector version and source digest",
+      "constraint": "deleting Elasticsearch, Qdrant, Embedding or graph projection rows must not delete or reinterpret Document facts"
+    },
+    "effect_profile": {
+      "observed_index_order": [
+        "delete existing PostgreSQL Embedding rows",
+        "call embedding provider",
+        "delete Elasticsearch documents",
+        "insert and commit PostgreSQL Embedding rows",
+        "bulk write Elasticsearch",
+        "best-effort asynchronous Qdrant upsert"
+      ],
+      "observed_graph": "builds typed in-memory Graph and upserts tenant graph tables; admin shadow-write failure rolls back the local DB session and returns the A path",
+      "required": "each projector consumes a digest/revision-bound canonical source and advances a durable offset only after its target write/readback contract; rebuild is explicit"
+    },
+    "authority_profile": {
+      "observed": "project scope is ambient; API, Celery task and discovery callers invoke the indexer directly; graph mode comes from settings",
+      "required": "read-only canonical Document grant plus projector-specific target-write grant; projection has no Document or Research Ledger admission authority"
+    },
+    "resource_profile": {
+      "observed": [
+        "fixed chunk_size=800 and overlap=120",
+        "OpenAI embedding dependency",
+        "PostgreSQL session",
+        "Elasticsearch bulk/delete_by_query",
+        "optional Qdrant collection/upsert",
+        "graph backfill batch_size and limit"
+      ],
+      "required": [
+        "bounded document/chunk batch",
+        "embedding quota and timeout",
+        "target-specific concurrency",
+        "backpressure",
+        "projection-offset persistence",
+        "rebuild rate limit"
+      ]
+    },
+    "legacy_interpreter": {
+      "id": "legacy.c7.search_graph_projection.v1",
+      "realization": "index_policy_documents plus GraphNodeWriter/build_graph projection adapters",
+      "status": "BEHAVIOR_FIXTURES_REUSABLE_IMPLEMENTATION_NOT_ADAPTER_READY"
+    },
+    "successor_interpreter_candidate": {
+      "id": "successor.c7.search_graph_projector.v1",
+      "status": "NOT_IMPLEMENTED",
+      "boundary": "separate search and graph Projector implementations sharing only canonical Document source identity, not a second truth store"
+    },
+    "observation_profile": {
+      "name": "c7.3.rebuildable_search_graph_projection.v1",
+      "compare": [
+        "source Document identity/revision/incarnation/content digest",
+        "stable chunk order",
+        "vector-contract required fields",
+        "normalized graph node/edge identity",
+        "projector version",
+        "projection offset",
+        "partial-failure target set",
+        "delete-and-rebuild equivalence"
+      ],
+      "declared_loss": [
+        "embedding backend-specific IDs",
+        "search ranking internals",
+        "graph display ordering",
+        "best-effort target diagnostics"
+      ]
+    },
+    "fixture_ids": [
+      "PolicyIndexerVectorContractUnitTestCase.test_build_vector_contract_payload_derives_required_fields",
+      "PolicyIndexerVectorContractUnitTestCase.test_validate_vector_contract_payload_rejects_missing_fields",
+      "GraphPersistenceWriterUnitTestCase.test_projection_dry_run_resolves_canonical_edge_endpoints_without_db",
+      "GraphPersistenceWriterUnitTestCase.test_projection_dry_run_marks_missing_edge_endpoint_as_rollout_signal",
+      "AdminGraphStandardizationIntegrationTestCase.test_admin_graph_shadow_write_failure_keeps_a_path_response",
+      "GraphBackfillReadinessUnitTestCase.test_backfill_dry_run_does_not_instantiate_writer_or_commit",
+      "MISSING_REQUIRED_FIXTURE::index_postgres_commit_then_elasticsearch_bulk_failure_rebuild",
+      "MISSING_REQUIRED_FIXTURE::projection_offset_restart_and_full_rebuild"
+    ],
+    "rollback_observation": {
+      "observed": "graph shadow/backfill DB writes can roll back locally and fall back to the A path; the indexer cannot roll back Elasticsearch deletion after a later failure, cannot roll back committed Embedding rows after bulk failure, and ignores Qdrant failure",
+      "required": "rollback disables future projection dispatch only; existing projection rows remain rebuildable, and durable offsets plus source bindings drive repair without canonical mutation"
+    },
+    "disposition": "EXTRACT_AND_REWRITE",
+    "rationale": "There is reusable typed semantic material: the vector contract, deterministic graph normalization, dry-run reports, graph dataclasses and bounded shadow-failure behavior. The execution topology is not reusable as an adapter because PostgreSQL, Elasticsearch and Qdrant effects are ordered inconsistently, partial failures are untyped, and graph/index paths have no common durable handoff or offset. Extract the schemas and observations, then rewrite as independent rebuildable projectors.",
+    "prerequisites": [
+      "freeze CanonicalDocumentRef and ProjectionSource codecs with revision/incarnation/content digest",
+      "declare search and graph loss profiles",
+      "define stable chunk identity independent of backend row IDs",
+      "implement per-projector durable offsets and full rebuild",
+      "type partial target failures and target readback",
+      "remove direct caller control over provider/target routing",
+      "prove projection deletion leaves canonical Document facts unchanged"
+    ],
+    "risk": {
+      "level": "CRITICAL",
+      "items": [
+        "Elasticsearch deletion can succeed before PostgreSQL rollback",
+        "PostgreSQL Embedding commit can succeed before Elasticsearch bulk failure",
+        "Qdrant is best-effort and absent from the returned result",
+        "discovery suppresses index failure and still returns a successful store result",
+        "graph and search projections lack source revision/incarnation and durable offsets",
+        "ambient settings and project context act as hidden routing state"
+      ]
+    },
+    "source_evidence": [
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/06_functorial-successor-runtime-architecture-correction.draft.zh-CN.md",
+        "symbol_or_lines": "lines 1518-1520, 2181-2199, 2352-2357",
+        "claim": "Search/graph are declared-loss projections with no canonical authority and must be rebuildable from bound sources."
+      },
+      {
+        "path": "main/backend/app/services/indexer/policy.py",
+        "symbol_or_lines": "index_policy_documents, lines 112-265",
+        "claim": "Combines provider, PostgreSQL, Elasticsearch and best-effort Qdrant effects without a durable offset or cross-target recovery contract."
+      },
+      {
+        "path": "main/backend/app/services/graph/persistence/graph_node_writer.py",
+        "symbol_or_lines": "GraphNodeWriter.persist_graph_nodes, lines 151-181",
+        "claim": "Provides deterministic normalized node/edge upserts but no source revision, incarnation or projector offset."
+      },
+      {
+        "path": "main/backend/app/services/graph/persistence/graph_projection_contract.py",
+        "symbol_or_lines": "build_graph_projection_dry_run, lines 187-293",
+        "claim": "Provides deterministic no-DB projection evidence and explicitly retains live DB/parity gaps."
+      },
+      {
+        "path": "main/backend/app/services/discovery/store.py",
+        "symbol_or_lines": "lines 939-945",
+        "claim": "Index failure is logged and suppressed after Document persistence."
+      },
+      {
+        "path": "main/backend/app/api/admin.py",
+        "symbol_or_lines": "_finalize_graph_response, lines 183-219",
+        "claim": "Graph shadow write uses a local commit/rollback and read failure falls back to the A path."
+      }
+    ]
+  },
+  {
+    "cell": "C7.4",
+    "boundary": "retry recovery rollback",
+    "locator_paths": [
+      "main/backend/app/services/ingest",
+      "main/backend/app/services/indexer",
+      "main/backend/app/services/graph"
+    ],
+    "locator_status": "FROZEN_LOCATORS_PRESENT; retry classification, cleanup retry and local transaction rollback fragments exist, but no family-wide durable attempt, authoritative readback or crash-reconciliation path is observed",
+    "observed_symbols": [
+      "classify_retry_reason",
+      "build_retry_observability",
+      "execute_frontdoor_cleanup",
+      "_maybe_execute_cleanup",
+      "run_with_session_retry",
+      "index_policy_documents",
+      "_rollback_quietly",
+      "run_graph_node_backfill",
+      "is_ingest_frontdoor_enabled"
+    ],
+    "object_types": [
+      "EffectAttempt",
+      "TypedFailure",
+      "RetryAuthorization",
+      "NonStartProof",
+      "AuthoritativeReadback",
+      "CommitIntent",
+      "ProjectionOffset",
+      "RecoveryReceipt"
+    ],
+    "atom_kind": "CONTROL_ONLY; retry/reconcile must preserve the original Program and create an explicit successor attempt/epoch rather than becoming a new business Atom",
+    "payload_schema": {
+      "status": "MISSING",
+      "required": [
+        "run_id",
+        "step_id",
+        "attempt_id",
+        "attempt_epoch",
+        "interpreter_binding_digest",
+        "idempotency_key",
+        "external_locator",
+        "effect_disposition",
+        "typed_failure",
+        "retry_budget",
+        "next_attempt_at",
+        "authoritative_readback_ref",
+        "non_start_proof_ref",
+        "commit_intent_ref",
+        "projection_offset_ref",
+        "current_authority_epoch"
+      ],
+      "legacy_observed": [
+        "reason_code",
+        "retryable",
+        "retry_count_by_reason",
+        "retry_count_by_class",
+        "rollback_token",
+        "rollout_mode"
+      ]
+    },
+    "program_combinators": [
+      "Decide for retry, wait, fail or reconcile",
+      "MaterializeSuccessor for a new authorized attempt/epoch only"
+    ],
+    "failure_return_union": {
+      "observed": [
+        "transient",
+        "permanent",
+        "recovered",
+        "failed exception",
+        "warning and continue",
+        "local transaction rollback"
+      ],
+      "required_successor": [
+        "RetryScheduled",
+        "WaitingForReadback",
+        "RecoveredSucceeded",
+        "RecoveredFailed",
+        "OutcomeUnknown",
+        "NonStartUnprovable",
+        "RetryBudgetExhausted",
+        "AuthorityRevoked",
+        "ProjectionRebuildRequired"
+      ]
+    },
+    "canonical_owner": {
+      "attempt_and_recovery": "successor runtime journal",
+      "document_commit": "existing project Document repository via AdmissionPort",
+      "projection_repair": "projector offset owner",
+      "constraint": "reconciler has readback and journal authority only; it cannot repeat effects or canonical-write business facts"
+    },
+    "effect_profile": {
+      "observed": "retry_policy classifies reasons only; cleanup may refetch immediately; database retry can replay an arbitrary operation judged retriable; index and graph rollback cover only their local SQL transaction",
+      "required": "effect-before-retry classification, authoritative readback, NonStartProof, explicit retry authorization/budget, new attempt epoch, idempotent commit reconciliation and projector rebuild"
+    },
+    "authority_profile": {
+      "observed": "rollout settings choose future frontdoor mode, but no claim-authority CAS, grant epoch or retry approval is bound to legacy retries",
+      "required": "current capability claim authority, project scope, retry budget and any human approval must be revalidated before creating a successor attempt; stale owners cannot admit"
+    },
+    "resource_profile": {
+      "required": [
+        "per-operation retry budget",
+        "exponential backoff with durable next_attempt_at",
+        "lease and attempt epoch",
+        "network/provider readback quota",
+        "reconciliation work-item capacity",
+        "bounded projection rebuild",
+        "manual-review queue for unresolvable outcomes"
+      ],
+      "observed": "cleanup uses one immediate refetch; database helper sleeps in process; no durable family-wide backoff or recovery work item exists"
+    },
+    "legacy_interpreter": {
+      "id": "legacy.c7.retry_rollback_observation.v1",
+      "realization": "retry_policy plus cleanup_executor plus local SQL rollback wrappers",
+      "status": "OBSERVATION_ONLY_NOT_A_RECOVERY_INTERPRETER"
+    },
+    "successor_interpreter_candidate": {
+      "id": "successor.c7.reconciliation.v1",
+      "status": "NOT_IMPLEMENTED_FOR_C7",
+      "boundary": "reuse generic successor recovery ports only after binding C7 authoritative readback, non-start proof and capability-owned commit/projector adapters"
+    },
+    "observation_profile": {
+      "name": "c7.4.no_duplicate_effect_and_exact_recovery.v1",
+      "compare": [
+        "original run/step/attempt identity",
+        "ordered event prefix",
+        "typed failure family",
+        "retry budget and attempt epoch",
+        "authoritative readback result",
+        "canonical commit identity",
+        "projection offset",
+        "effect invocation count"
+      ],
+      "invariants": [
+        "absence of receipt never proves NOT_STARTED",
+        "commit-after-crash is read back rather than repeated",
+        "staged result recovery does not repeat fetch/extraction",
+        "projector recovery resumes or rebuilds without canonical mutation",
+        "rollback switches only future routing and does not erase receipts/events"
+      ]
+    },
+    "fixture_ids": [
+      "PostprocessFrontdoorUnitTestCase.test_frontdoor_can_recover_after_cleanup_execution",
+      "GraphBackfillReadinessUnitTestCase.test_backfill_apply_rolls_back_and_reraises_writer_failure",
+      "AdminGraphStandardizationIntegrationTestCase.test_admin_graph_shadow_write_failure_keeps_a_path_response",
+      "MISSING_REQUIRED_FIXTURE::c7.4_effect_after_execution_before_receipt_crash",
+      "MISSING_REQUIRED_FIXTURE::c7.4_document_commit_after_crash_readback_no_duplicate",
+      "MISSING_REQUIRED_FIXTURE::c7.4_index_partial_target_failure_restart",
+      "MISSING_REQUIRED_FIXTURE::c7.4_authority_revoked_before_recovery_admission"
+    ],
+    "rollback_observation": {
+      "observed": "frontdoor rollout maps 'rollback' to off; graph local SQL failures roll back; indexer rolls back PostgreSQL only inside its try block; cleanup rollback_token is a raw snapshot digest",
+      "missing": "durable attempt journal, outcome-unknown state, authoritative readback, non-start proof, retry authorization, commit-intent recovery and projection offsets",
+      "required": "future dispatch/read routing may return to legacy, but existing successor events, receipts and canonical commits remain; unresolved effects stay waiting or require human adjudication"
+    },
+    "disposition": "REIMPLEMENT",
+    "rationale": "The existing code supplies useful failure labels and bounded local rollback fixtures but not a recovery capability. Immediate cleanup refetch, in-process database retry, swallowed projection failures and cross-store index effects cannot satisfy exact replay or no-duplicate-effect invariants. Reimplement recovery around durable attempts, authoritative readback, NonStartProof, CommitIntent and projection offsets; retain legacy reason taxonomy only as input evidence.",
+    "prerequisites": [
+      "define C7 interpreter-specific authoritative readback and NonStartProof contracts",
+      "bind every external and DB mutation to durable attempt/idempotency identity",
+      "define typed retryable failures and immutable retry budgets",
+      "implement CommitIntent readback in the Document repository",
+      "implement target-specific projection offsets and rebuild",
+      "add authority-epoch revalidation before retry and admission",
+      "add crash-window fixtures for stage, commit, index and graph effects",
+      "prove rollback does not create dual claim or canonical write authority"
+    ],
+    "risk": {
+      "level": "CRITICAL",
+      "items": [
+        "database retry may repeat an operation whose external side effects already occurred",
+        "cleanup refetch is not tied to durable attempt identity",
+        "missing receipt is not distinguished from effect-not-started",
+        "cross-store index failure cannot be transactionally rolled back",
+        "legacy rollout flags are routing hints rather than claim authority",
+        "partial failures can be logged or swallowed without a repair work item"
+      ]
+    },
+    "source_evidence": [
+      {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/06_functorial-successor-runtime-architecture-correction.draft.zh-CN.md",
+        "symbol_or_lines": "lines 2150-2179, 2352-2357, 2386-2395",
+        "claim": "Recovery requires authoritative readback and NonStartProof; rollback changes future routing without deleting events or receipts."
+      },
+      {
+        "path": "main/backend/app/services/ingest/retry_policy.py",
+        "symbol_or_lines": "classify_retry_reason and build_retry_observability, lines 51-126",
+        "claim": "Classifies and counts retry reasons but does not schedule, persist or reconcile attempts."
+      },
+      {
+        "path": "main/backend/app/services/ingest/cleanup_executor.py",
+        "symbol_or_lines": "execute_frontdoor_cleanup, lines 11-65",
+        "claim": "May refetch immediately with timeout and one retry, without durable attempt or idempotency binding."
+      },
+      {
+        "path": "main/backend/app/models/base.py",
+        "symbol_or_lines": "run_with_session_retry, lines 161-205",
+        "claim": "Retries retriable database operations in process after rollback and sleep; the helper has no external-effect or authoritative-readback contract."
+      },
+      {
+        "path": "main/backend/app/services/indexer/policy.py",
+        "symbol_or_lines": "lines 160-265",
+        "claim": "PostgreSQL rollback does not reverse prior Elasticsearch deletion or later committed-DB/bulk/Qdrant partial outcomes."
+      },
+      {
+        "path": "main/backend/app/services/graph/backfill_graph_nodes.py",
+        "symbol_or_lines": "run_graph_node_backfill, lines 61-73",
+        "claim": "Provides a bounded local SQL rollback on writer failure, not durable replay or crash reconciliation."
+      },
+      {
+        "path": "main/backend/app/services/ingest/frontdoor_rollout.py",
+        "symbol_or_lines": "lines 11-44",
+        "claim": "The 'rollback' mode is normalized to off and acts as a settings-based routing switch, not canonical claim authority."
+      }
+    ]
+  }
+]

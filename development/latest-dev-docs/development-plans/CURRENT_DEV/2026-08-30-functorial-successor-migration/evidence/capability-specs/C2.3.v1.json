@@ -1,0 +1,151 @@
+{
+  "schema": "mrw.functorial_successor.capability_cell_spec.v1",
+  "version": "1.0.0",
+  "cell_id": "C2.3",
+  "family_id": "C2",
+  "owner_capability_id": "source_library.c2_3.v1",
+  "entrypoint_kind": "PROGRAM",
+  "commutativity_claim": "NOT_CLAIMED",
+  "input_contract_refs": [
+    "mrw.successor.source-library.c2-3.credential-ref.v1",
+    "mrw.successor.source-library.c2-3.provider-effect-request.v1",
+    "mrw.successor.source-library.c2-3.resource-policy.v1"
+  ],
+  "output_contract_refs": [
+    "mrw.successor.source-library.c2-3.provider-receipt.v1",
+    "mrw.successor.source-library.c2-3.captured-source-record-ref.v1",
+    "mrw.successor.source-library.c2-3.staged-artifact-ref.v1"
+  ],
+  "object_contract_refs": [
+    "ProviderEffectRequest.v1",
+    "ProviderEffectOutcome.v1",
+    "CredentialRef.v1",
+    "ProviderReceipt.v1",
+    "CapturedSourceRecordRef.v1",
+    "StagedArtifactRef.v1"
+  ],
+  "operation_contract_refs": [
+    "source_library.execute_provider_effect.v1"
+  ],
+  "program_shape_ref": "mrw.successor.source-library.c2-3.program-shape.v1",
+  "ordered_composition_refs": [
+    "source_library.execute_provider_effect.v1"
+  ],
+  "interpreter_refs": [
+    "successor.source_library.c2_3.provider_effect.v1",
+    "legacy.source_library.c2_3.provider_effect.v1"
+  ],
+  "profile_refs": [
+    "mrw.successor.source-library.c2-3.observation.v1",
+    "mrw.successor.source-library.c2-3.effect.v1",
+    "mrw.successor.source-library.c2-3.resource.v1",
+    "mrw.successor.source-library.c2-3.readback.v1"
+  ],
+  "deployment_binding_refs": [
+    "deployment.local-only.no-network.no-provider.no-canonical-write.v1"
+  ],
+  "legacy_oracle_ref": "legacy.source_library.c2_3.provider_effect.v1",
+  "shadow_observation_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C2.json#/cells/1/successor_observation",
+  "failure_union_refs": [
+    "MISSING_CREDENTIAL",
+    "INVALID_PARAMS",
+    "UNAUTHORIZED",
+    "UNSUPPORTED_PROVIDER",
+    "REQUEST_BINDING_MISMATCH",
+    "TRANSPORT",
+    "TIMEOUT",
+    "RATE_LIMIT",
+    "PROVIDER_REJECTED",
+    "ARTIFACT_WRITE",
+    "OUTCOME_UNKNOWN",
+    "CANCELLED",
+    "RESOURCE_CEILING_EXCEEDED"
+  ],
+  "declared_lossy_projection_refs": [],
+  "effect_policy_ref": "mrw.successor.source-library.c2-3.effect.v1",
+  "resource_policy_ref": "mrw.successor.source-library.c2-3.resource-policy.v1",
+  "recovery_policy_ref": "mrw.successor.source-library.c2-3.recovery.v1",
+  "readback_policy_ref": "mrw.successor.source-library.c2-3.readback.v1",
+  "authority_ceiling": {
+    "canonical_write": false,
+    "live_provider": false,
+    "external_delivery": false,
+    "cutover": false,
+    "authority_transfer": false
+  },
+  "adoption_prerequisites": [
+    "P3_AUTHORITY_RECORD_DIVERGENCE",
+    "C2_3_LIVE_PROVIDER_AUTHORITY_NOT_FROZEN",
+    "C2_2_DURABLE_RUNTIME_NODE_LOCAL_ONLY",
+    "P3_REVIEW_SURFACE_NOT_GIT_IDENTIFIED"
+  ],
+  "source_bindings": [
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/P1FunctorizationEligibility.v1.json",
+      "file_sha256": "16dac2d34f2cdcaeffa4718fe2e63733f48b29ad0ba64daab32ed011527d4642",
+      "role": "p1_eligibility"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p1-fragments/C2.json",
+      "file_sha256": "0364d2c7e9c759a8a9dc59fe419a09c55c2dbcef5000dfd2772cb4bec82e4e9c",
+      "role": "p1_fragment"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/P2C21CapabilityPacket.v5.json",
+      "file_sha256": "81051ed22585b72e07f0e773ceebe70cccad7cbeee08aa7b2106c454517b0b09",
+      "role": "p2_packet"
+    },
+    {
+      "path": "main/backend/app/services/source_library/runner.py",
+      "file_sha256": "dde002488abbcc19ba27f50513b4ac3a043499c815d5dd416c3089951f2a4aa7",
+      "role": "legacy_donor_c2_3"
+    }
+  ],
+  "test_bindings": [
+    {
+      "path": "main/backend/tests/successor_runtime/test_p3_c2_3_contracts.py",
+      "file_sha256": "21cf15f5c423ff57edd50dbdb1353008989ff5dc3bfe219dc04b9557c490eabc",
+      "role": "c2_3_contracts"
+    },
+    {
+      "path": "main/backend/tests/successor_runtime/test_p3_c2_3_recovery.py",
+      "file_sha256": "232a5d934cad28810869a6cd162e5c01657df5ced89865c898e18734559cd04a",
+      "role": "c2_3_recovery"
+    },
+    {
+      "path": "main/backend/tests/successor_runtime/test_p3_c2_3_parity.py",
+      "file_sha256": "9d0d80a181cfea5a3ca7d992fffa9eefb359697eee33acb7bec699fba909c9e8",
+      "role": "c2_3_parity"
+    },
+    {
+      "path": "main/backend/tests/successor_runtime/test_p3_c2_23_runtime_canary_postgres.py",
+      "file_sha256": "2a65bd1144144a4738055d5d65a869402427e4a8d598b3fc913182a93b2a2a4f",
+      "role": "c2_23_runtime_canary"
+    }
+  ],
+  "rollback_bindings": [
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C2.json",
+      "file_sha256": "5274116a2a083ec1553d05c034f5490f1450851d805fb2590efec21be95c544b",
+      "role": "rollback_observation"
+    },
+    {
+      "path": "main/backend/app/successor_migration/legacy_source_library_c2_3.py",
+      "file_sha256": "e946e70394dc4c9669264450d3d129323094f0fc6a4e8e9951ac51d1ae392f81",
+      "role": "legacy_rollback_route"
+    }
+  ],
+  "generated_ownership_refs": [
+    "capability-spec.contract-ref-scaffolding.C2.3.v1",
+    "capability-spec.build-manifest.C2.3.v1"
+  ],
+  "handwritten_ownership_refs": [
+    "main/backend/app/successor_runtime/capabilities/source_library_c2_3.py",
+    "main/backend/app/successor_runtime/capabilities/source_library_c2_3_ports.py",
+    "main/backend/app/successor_runtime/capabilities/source_library_c2_3_test_interpreters.py",
+    "main/backend/app/successor_runtime/capabilities/source_library_c2_shared.py",
+    "main/backend/app/successor_migration/legacy_source_library_c2_3.py",
+    "main/backend/app/successor_runtime/substrate/postgres/source_library_c2_23_canary.py",
+    "main/backend/app/successor_runtime/specification/c2_p3.py"
+  ]
+}

@@ -1,0 +1,780 @@
+{
+  "authority_ceiling": {
+    "authority_transfer": false,
+    "canonical_write": false,
+    "cutover": false,
+    "external_delivery": false,
+    "live_provider": false
+  },
+  "blocking_summary": {
+    "p0": 0,
+    "p1_blocking_for_this_gate": 0,
+    "unassigned_blockers": 0,
+    "verdict_consistent": true
+  },
+  "candidate_state": {
+    "adoption_claim": false,
+    "c2_c6_adoption_readiness": "PASS_READY_FOR_ADOPTION_DECISION",
+    "candidate": null,
+    "candidate_created": false,
+    "lifecycle_state": "P3_PILOT_UNADOPTED",
+    "promotion_allowed": false,
+    "status": "UNADOPTED_BUILD_GREEN_16_CELLS_SPEC_AND_MANIFEST_MATCH"
+  },
+  "cell_coverage": {
+    "covered_movements": 26,
+    "movements": [
+      {
+        "coverage_basis": "fragment C2.v1.json p1_cells and matrix row",
+        "covered": true,
+        "covered_by": [
+          "C2.1"
+        ],
+        "disposition": "REIMPLEMENTED_AS",
+        "family": "C2",
+        "movement_id": "C2-M001"
+      },
+      {
+        "coverage_basis": "fragment C2.v1.json p1_cells and matrix row",
+        "covered": true,
+        "covered_by": [
+          "C2.1"
+        ],
+        "disposition": "REIMPLEMENTED_AS",
+        "family": "C2",
+        "movement_id": "C2-M002"
+      },
+      {
+        "coverage_basis": "fragment C2.v1.json p1_cells and matrix row",
+        "covered": true,
+        "covered_by": [
+          "C2.2"
+        ],
+        "disposition": "REIMPLEMENTED_AS",
+        "family": "C2",
+        "movement_id": "C2-M003"
+      },
+      {
+        "coverage_basis": "fragment C2.v1.json p1_cells and matrix row",
+        "covered": true,
+        "covered_by": [
+          "C2.2"
+        ],
+        "disposition": "REIMPLEMENTED_AS",
+        "family": "C2",
+        "movement_id": "C2-M004"
+      },
+      {
+        "coverage_basis": "fragment C2.v1.json p1_cells and matrix row",
+        "covered": true,
+        "covered_by": [
+          "C2.2"
+        ],
+        "disposition": "REIMPLEMENTED_AS",
+        "family": "C2",
+        "movement_id": "C2-M005"
+      },
+      {
+        "coverage_basis": "fragment C2.v1.json p1_cells and matrix row",
+        "covered": true,
+        "covered_by": [
+          "C2.2"
+        ],
+        "disposition": "REIMPLEMENTED_AS",
+        "family": "C2",
+        "movement_id": "C2-M006"
+      },
+      {
+        "coverage_basis": "fragment C2.v1.json p1_cells and matrix row",
+        "covered": true,
+        "covered_by": [
+          "C2.3"
+        ],
+        "disposition": "REIMPLEMENTED_AS",
+        "family": "C2",
+        "movement_id": "C2-M007"
+      },
+      {
+        "coverage_basis": "fragment C2.v1.json p1_cells and matrix row",
+        "covered": true,
+        "covered_by": [
+          "C2.4"
+        ],
+        "disposition": "DECLARED_LOSS",
+        "family": "C2",
+        "movement_id": "C2-M008"
+      },
+      {
+        "coverage_basis": "fragment C3.v1.json p1_cells and matrix row",
+        "covered": true,
+        "covered_by": [
+          "C3.1"
+        ],
+        "disposition": "REIMPLEMENTED_AS",
+        "family": "C3",
+        "movement_id": "C3-M001"
+      },
+      {
+        "coverage_basis": "fragment C3.v1.json p1_cells and matrix row",
+        "covered": true,
+        "covered_by": [
+          "C3.1"
+        ],
+        "disposition": "REIMPLEMENTED_AS",
+        "family": "C3",
+        "movement_id": "C3-M002"
+      },
+      {
+        "coverage_basis": "fragment C3.v1.json p1_cells and matrix row",
+        "covered": true,
+        "covered_by": [
+          "C3.2"
+        ],
+        "disposition": "REIMPLEMENTED_AS",
+        "family": "C3",
+        "movement_id": "C3-M003"
+      },
+      {
+        "coverage_basis": "fragment C4.v1.json p1_cells and matrix row",
+        "covered": true,
+        "covered_by": [
+          "C4.1"
+        ],
+        "disposition": "REIMPLEMENTED_AS",
+        "family": "C4",
+        "movement_id": "C4-M001"
+      },
+      {
+        "coverage_basis": "fragment C4.v1.json p1_cells and matrix row",
+        "covered": true,
+        "covered_by": [
+          "C4.1"
+        ],
+        "disposition": "REIMPLEMENTED_AS",
+        "family": "C4",
+        "movement_id": "C4-M002"
+      },
+      {
+        "coverage_basis": "fragment C4.v1.json p1_cells and matrix row",
+        "covered": true,
+        "covered_by": [
+          "C4.2"
+        ],
+        "disposition": "REIMPLEMENTED_AS",
+        "family": "C4",
+        "movement_id": "C4-M003"
+      },
+      {
+        "coverage_basis": "fragment C4.v1.json p1_cells and matrix row",
+        "covered": true,
+        "covered_by": [
+          "C4.3"
+        ],
+        "disposition": "REIMPLEMENTED_AS",
+        "family": "C4",
+        "movement_id": "C4-M004"
+      },
+      {
+        "coverage_basis": "fragment C4.v1.json p1_cells and matrix row",
+        "covered": true,
+        "covered_by": [
+          "C4.3"
+        ],
+        "disposition": "REIMPLEMENTED_AS",
+        "family": "C4",
+        "movement_id": "C4-M005"
+      },
+      {
+        "coverage_basis": "fragment C5.v1.json p1_cells and matrix row",
+        "covered": true,
+        "covered_by": [
+          "C5.1"
+        ],
+        "disposition": "MOVED_TO",
+        "family": "C5",
+        "movement_id": "C5-M001"
+      },
+      {
+        "coverage_basis": "fragment C5.v1.json p1_cells and matrix row",
+        "covered": true,
+        "covered_by": [
+          "C5.2"
+        ],
+        "disposition": "REIMPLEMENTED_AS",
+        "family": "C5",
+        "movement_id": "C5-M002"
+      },
+      {
+        "coverage_basis": "fragment C5.v1.json p1_cells and matrix row",
+        "covered": true,
+        "covered_by": [
+          "C5.2"
+        ],
+        "disposition": "REIMPLEMENTED_AS",
+        "family": "C5",
+        "movement_id": "C5-M003"
+      },
+      {
+        "coverage_basis": "fragment C5.v1.json p1_cells and matrix row",
+        "covered": true,
+        "covered_by": [
+          "C5.3"
+        ],
+        "disposition": "MOVED_TO",
+        "family": "C5",
+        "movement_id": "C5-M004"
+      },
+      {
+        "coverage_basis": "fragment C5.v1.json p1_cells and matrix row",
+        "covered": true,
+        "covered_by": [
+          "C5.4"
+        ],
+        "disposition": "REIMPLEMENTED_AS",
+        "family": "C5",
+        "movement_id": "C5-M005"
+      },
+      {
+        "coverage_basis": "fragment C5.v1.json p1_cells and matrix row",
+        "covered": true,
+        "covered_by": [
+          "C5.4"
+        ],
+        "disposition": "REIMPLEMENTED_AS",
+        "family": "C5",
+        "movement_id": "C5-M006"
+      },
+      {
+        "coverage_basis": "fragment C6.v1.json p1_cells and matrix row",
+        "covered": true,
+        "covered_by": [
+          "C6.1"
+        ],
+        "disposition": "REIMPLEMENTED_AS",
+        "family": "C6",
+        "movement_id": "C6-M001"
+      },
+      {
+        "coverage_basis": "fragment C6.v1.json p1_cells and matrix row",
+        "covered": true,
+        "covered_by": [
+          "C6.2"
+        ],
+        "disposition": "REIMPLEMENTED_AS",
+        "family": "C6",
+        "movement_id": "C6-M002"
+      },
+      {
+        "coverage_basis": "fragment C6.v1.json p1_cells and matrix row",
+        "covered": true,
+        "covered_by": [
+          "C6.3"
+        ],
+        "disposition": "REIMPLEMENTED_AS",
+        "family": "C6",
+        "movement_id": "C6-M003"
+      },
+      {
+        "coverage_basis": "fragment C6.v1.json p1_cells and matrix row",
+        "covered": true,
+        "covered_by": [
+          "C6.3"
+        ],
+        "disposition": "REIMPLEMENTED_AS",
+        "family": "C6",
+        "movement_id": "C6-M004"
+      }
+    ],
+    "total_movements": 26,
+    "unassigned_blocker_count": 0,
+    "uncovered_movements": []
+  },
+  "content_digest": "e14c04761c67023f1d6829a2a98a30f0448bf5936b8eb43bf9152dd7b2ef2b6b",
+  "content_digest_basis": "canonical_json_excluding_content_digest_recursive_ensure_ascii_true_sort_keys_compact_no_trailing_newline",
+  "date": "2026-09-02",
+  "declared_scope_gate": {
+    "authority_ceiling_all_false": true,
+    "commutativity_claim": "NOT_CLAIMED for all 16 cells",
+    "contract_ref_content_digest_consistent": "69/69",
+    "entrypoint_kinds": {
+      "FACADE_VALIDATION": 5,
+      "PROGRAM": 11
+    },
+    "exact_bindings_resolved_and_hash_verified": 185,
+    "fragment_consistency": "owner_capability_id, interpreter/projector ids, operation bindings, program/plan digest claims, shadow observation pointers and entrypoint kind match fragment cells or P2 packet for all 16 cells",
+    "manifest_spec_binding": "cell_id, family_id, authority_ceiling, adoption_prerequisites, ownership refs, generated payload, exact_file_hashes and semantic identity all match deterministic compiler output",
+    "manifests_byte_recompile_match": 16,
+    "postgres_executed_this_review": false,
+    "provider_or_runtime_executed_this_review": false,
+    "sentinel_readback_scope": "10/10 cells use sentinel; 6 concrete non-sentinel readback refs (C2.3, C4.3, C5.2, C5.4, C6.2, C6.3)",
+    "specs_validated_via_capability_cell_spec": 16
+  },
+  "exact_bindings": {
+    "all_resolved_and_hash_verified": true,
+    "cells": {
+      "C2.1": {
+        "all_binding_hashes_verified": true,
+        "artifact_digest": "ff4c98bbe4755e453ed7e7a299e827fc377d5354ac6fd1fb58cd85de25ca48df",
+        "capability_spec_semantic_digest": "6310fb2c6bacf9305046a009da0b71234f3556f4df28651e2f6d6b5e34285cae",
+        "composite_semantic_digest": "92fcb8a0c0a92e52720056a544fba81cad09bf5eb62b5ae2a51c46200e8ece8c",
+        "manifest_bytes": 7020,
+        "manifest_bytes_match": true,
+        "manifest_sha256": "db055063937837952a06ac98121a72fd03746529c5fb1fc44ee8fe499badf25b",
+        "rollback_bindings": 1,
+        "source_bindings": 5,
+        "spec_bytes": 5473,
+        "spec_sha256": "ad30df5b4041642fa55f9ca7578e4c57cfacb313ec2b85fb14ee8626ac831fda",
+        "test_bindings": 3,
+        "total_exact_bindings": 9
+      },
+      "C2.2": {
+        "all_binding_hashes_verified": true,
+        "artifact_digest": "ab5e26baf97e8b338c2583fdbf742fb982c0b908c3a722f56d4ea0ed9fcec2d7",
+        "capability_spec_semantic_digest": "a588a003016b8a5fd1d49f7633902fab1aa44484447d1f201532866d1e0d4911",
+        "composite_semantic_digest": "c63353e6b98b6017029791aec3bd65a6a8a4cfdfd9de70e7731c391ddd6d85a9",
+        "manifest_bytes": 8901,
+        "manifest_bytes_match": true,
+        "manifest_sha256": "cce82fc4e4f3778d401a4dd0b0144d7388bdfdab57fff723b25a8b3038b3a2fb",
+        "rollback_bindings": 2,
+        "source_bindings": 9,
+        "spec_bytes": 7023,
+        "spec_sha256": "436e22d265a982f3b4d7e978d882b29cbbae8892d261b817f7065efdaf95fac4",
+        "test_bindings": 3,
+        "total_exact_bindings": 14
+      },
+      "C2.3": {
+        "all_binding_hashes_verified": true,
+        "artifact_digest": "6858df5a7e6548e5901f55bcf644e52ec5930b92c3647c5c1d846255c576a0f5",
+        "capability_spec_semantic_digest": "9740bb6525746d556f4f41ed822397044594ba1983b09e7436897527a71a08b5",
+        "composite_semantic_digest": "cacfd0e41ba697c4c3525b5da1e4316ff396a9b00c42cfae0939281d9eee8e11",
+        "manifest_bytes": 7701,
+        "manifest_bytes_match": true,
+        "manifest_sha256": "2c66a030279d516160e485413121d7393b65cfb3bd552f2a0fac7892fd7fb2a9",
+        "rollback_bindings": 2,
+        "source_bindings": 4,
+        "spec_bytes": 6213,
+        "spec_sha256": "b3ef0494387257ebe418e12193ac1fc55457a610deacfe06d4b433bee442f659",
+        "test_bindings": 4,
+        "total_exact_bindings": 10
+      },
+      "C2.4": {
+        "all_binding_hashes_verified": true,
+        "artifact_digest": "cb183c5edcdba9c86b2adcf606fc47b223723d18622347c5375a62392273c997",
+        "capability_spec_semantic_digest": "b962eb5bbbd26fdc42e693327ad9ba1f9e1c1d980d31ad8a388e4fa1c97c791e",
+        "composite_semantic_digest": "2f22623bdb6160b9c69e6fcc3525a363c11253ac3029af42760e773600b8eb64",
+        "manifest_bytes": 7019,
+        "manifest_bytes_match": true,
+        "manifest_sha256": "0c2160554277c7fad70c0f3bb9500f522e3490c9d0e65fffce0f85bad0f085d8",
+        "rollback_bindings": 3,
+        "source_bindings": 4,
+        "spec_bytes": 5370,
+        "spec_sha256": "d89391fce7810e7a77d32090151cc4a3eabd3d30dbed406efb09df191e317cf9",
+        "test_bindings": 2,
+        "total_exact_bindings": 9
+      },
+      "C3.1": {
+        "all_binding_hashes_verified": true,
+        "artifact_digest": "e725ab66a4f8da22060809c96ed0fc6dceb59faa3a4e6ea61f10cda1dae928bf",
+        "capability_spec_semantic_digest": "e199f9c1fa7ea81f33c0bde456c3b7734e15c47502fb6593e80828141f40cefe",
+        "composite_semantic_digest": "66bada9aa4e3a925a2847a18a0b0c1febf6a095326daf2108fc6bd9fcced5bd0",
+        "manifest_bytes": 10021,
+        "manifest_bytes_match": true,
+        "manifest_sha256": "349c38ff1b52d5a2275f619a2e44984ae440b56fb1631280d3cb813cdec4470b",
+        "rollback_bindings": 2,
+        "source_bindings": 14,
+        "spec_bytes": 8717,
+        "spec_sha256": "4ac02b5fb9661a28f22702358ad6d9bde507f49f2e8b615861ccd1cfd65fe1cf",
+        "test_bindings": 6,
+        "total_exact_bindings": 22
+      },
+      "C3.2": {
+        "all_binding_hashes_verified": true,
+        "artifact_digest": "6daaeb3d2f23256463b036b7048660c9ec74a1cd9d57ec43879882a05164e674",
+        "capability_spec_semantic_digest": "fabb17e1c2bfde710eb432c236cdbd1bcbb5f76df223e149bbb4ae1f788b7ebd",
+        "composite_semantic_digest": "ee0918cfbc1ac99bd6811312f9a819546d7c36c625f80d57969136ff4c62c97d",
+        "manifest_bytes": 9218,
+        "manifest_bytes_match": true,
+        "manifest_sha256": "06d7b30fccb62fe3a2d4cb1e48d0e7e53713a233df17156fe83ac1256383f715",
+        "rollback_bindings": 2,
+        "source_bindings": 14,
+        "spec_bytes": 8003,
+        "spec_sha256": "041d4eca48b7a5a62f1557a19c06f9a5242f42d7ac5276c594e6feaabeeeb438",
+        "test_bindings": 6,
+        "total_exact_bindings": 22
+      },
+      "C4.1": {
+        "all_binding_hashes_verified": true,
+        "artifact_digest": "04543905266e0fa895f2968009f821fb6f8fa96132b3ae0a5fc063cb0690b1bf",
+        "capability_spec_semantic_digest": "d1203e4e20feffc3a42cda6352d94339634a26b8ece68883e8e66484e50951b6",
+        "composite_semantic_digest": "dbdd4eb4aa6b5d10f426ea3a6c5054d78944a8e3d1b573a70f7a2f063431c667",
+        "manifest_bytes": 6758,
+        "manifest_bytes_match": true,
+        "manifest_sha256": "8fb75c1e2a0e563e767b00d5d324763a4b2b2d099c6384f0963bd64281d31009",
+        "rollback_bindings": 2,
+        "source_bindings": 5,
+        "spec_bytes": 5242,
+        "spec_sha256": "9266e29619f25d396e768e80fdb31aa2ccab4aa8eb17f25cdde53de7a081ea29",
+        "test_bindings": 3,
+        "total_exact_bindings": 10
+      },
+      "C4.2": {
+        "all_binding_hashes_verified": true,
+        "artifact_digest": "b7e590851611b26029f7ffc49bc90825c28b72718ed5acc071145d92513063d1",
+        "capability_spec_semantic_digest": "62603bb7631e85fc067d2810b15e8f4e6604b0729c1a0e42fb0d30ce11445995",
+        "composite_semantic_digest": "ed4b872ba1a74ff7e9e149fda4c951bed6f9bb4e17a56e8fcd9baa000716513a",
+        "manifest_bytes": 6454,
+        "manifest_bytes_match": true,
+        "manifest_sha256": "b3e5c6f509b38efca52cf5a831d604f40b25b51395a0bbcdc976043e0ac5cb4e",
+        "rollback_bindings": 2,
+        "source_bindings": 5,
+        "spec_bytes": 4884,
+        "spec_sha256": "9f27cb966eadecdc4f88481acd60b3749d6555c96b00cf0b053f6d5d3e095b18",
+        "test_bindings": 2,
+        "total_exact_bindings": 9
+      },
+      "C4.3": {
+        "all_binding_hashes_verified": true,
+        "artifact_digest": "fd0a3022d718e337ff9a78ec9efa2215230f1556f7b487e6e4df34fe6fd6020d",
+        "capability_spec_semantic_digest": "8f69e7e0292fd021a9cd596b9844abc35e258a0d79b9aa2522afa7c792c3e4cb",
+        "composite_semantic_digest": "5deb295a972594a200895001d520c83c54d6e18eaef1954170015d001d35bc45",
+        "manifest_bytes": 7437,
+        "manifest_bytes_match": true,
+        "manifest_sha256": "ddc4e704b84fdeef601a7a101a24880ddce426fe823572f16f92aa201252d545",
+        "rollback_bindings": 3,
+        "source_bindings": 4,
+        "spec_bytes": 5947,
+        "spec_sha256": "def2f1c9c4bfe12b5736bfd941cf1129a52a90cf2745364f8b14015d5b5df1e0",
+        "test_bindings": 4,
+        "total_exact_bindings": 11
+      },
+      "C5.1": {
+        "all_binding_hashes_verified": true,
+        "artifact_digest": "703915927b708cfbfb7d03f70e1cc45bd1360d8a7a7d49b1b20103ff3cd92139",
+        "capability_spec_semantic_digest": "1578448f56c40c598ae15f0b1bf3f95e87313a92f8bbd9396a60a9ac2ec432f5",
+        "composite_semantic_digest": "22df937c3410520c676df58104554692d1113475762b2e2626b06480192a6d55",
+        "manifest_bytes": 6669,
+        "manifest_bytes_match": true,
+        "manifest_sha256": "6f0afdfc7b35f5de77bdac314705e950d81cc449ccec8d3d2db3bafc2ceabe77",
+        "rollback_bindings": 2,
+        "source_bindings": 5,
+        "spec_bytes": 5071,
+        "spec_sha256": "b61817e932700a3e3045f50e3ef0e32ba61f0f0c53f6d048f27303c68aca8dda",
+        "test_bindings": 1,
+        "total_exact_bindings": 8
+      },
+      "C5.2": {
+        "all_binding_hashes_verified": true,
+        "artifact_digest": "50a8351af558db56bf289ecd7e340c42aaedc6e964085aebe74a406c8e6d664f",
+        "capability_spec_semantic_digest": "5fd75b2cd895c91096d2889c623a2e16af6172f82015c08e7392ab60458f5517",
+        "composite_semantic_digest": "f323834d5493d5fdedcd6af78f9ffaf82a797ebcd59e655b91fad7ce10e5edf6",
+        "manifest_bytes": 6499,
+        "manifest_bytes_match": true,
+        "manifest_sha256": "a117291f0b010ea8dc7ebd0773d35f1455ad45a7834209f8964709e9916a1831",
+        "rollback_bindings": 2,
+        "source_bindings": 4,
+        "spec_bytes": 4846,
+        "spec_sha256": "19a1129bf7cee379642dd0d28d14741270c80127cb41fbe27ebbc6c6b7b2977f",
+        "test_bindings": 2,
+        "total_exact_bindings": 8
+      },
+      "C5.3": {
+        "all_binding_hashes_verified": true,
+        "artifact_digest": "a64d09aad7e4833dff817138dddbaaac77b901b91cd98c372f5ee5239448c422",
+        "capability_spec_semantic_digest": "73a4f05ecdc37951548b38e5aabd3844e6a0ac67733f44cea4ae51280eb47a13",
+        "composite_semantic_digest": "a7f37c06ca86ae4801bf38dee2d34ec10cd18dc4cb84ee74cdcf36b700882f1a",
+        "manifest_bytes": 6316,
+        "manifest_bytes_match": true,
+        "manifest_sha256": "d272c5df4ab89ecfd5645dc2b80b7f439f7c72ea47891a27df5d9958b8b2be94",
+        "rollback_bindings": 2,
+        "source_bindings": 4,
+        "spec_bytes": 4694,
+        "spec_sha256": "d4b94cc07ea121389d46b225058836afb8712f6af8d0637eb6a10ccdca7554d5",
+        "test_bindings": 1,
+        "total_exact_bindings": 7
+      },
+      "C5.4": {
+        "all_binding_hashes_verified": true,
+        "artifact_digest": "13edee29c227ecfcb4a94033580aa08181da5d2131309cb62a5f7e1332a147ba",
+        "capability_spec_semantic_digest": "faa30e823e623ed615b3cc0374f2a010de0e4f0222ac93be7ea22fcb3e3dcd50",
+        "composite_semantic_digest": "23e845074285bb05888d96190e6215d299d034823d7e9b5268e0aec67945f90a",
+        "manifest_bytes": 7226,
+        "manifest_bytes_match": true,
+        "manifest_sha256": "2cb4f6f632fa85127e91b74b32d25660b45640b44e427f6b06318d83429da928",
+        "rollback_bindings": 2,
+        "source_bindings": 8,
+        "spec_bytes": 5701,
+        "spec_sha256": "2ac7d7057528782dcc72fa810c3da65f82c016d886c449a60d382565c27b30a3",
+        "test_bindings": 2,
+        "total_exact_bindings": 12
+      },
+      "C6.1": {
+        "all_binding_hashes_verified": true,
+        "artifact_digest": "b7983365fda33e971ec6f3fb54cdb8460c9669eba6975bf439ac6f5b339f73f2",
+        "capability_spec_semantic_digest": "c7c70c1680d7345693ab05eb39b8063f9a79dcbe97fb8618351cc3c3398ef793",
+        "composite_semantic_digest": "af5a2ed8b05ebd06ec46dbaac0dce50d4d1613da09137d2a3b42ba75a1a455c7",
+        "manifest_bytes": 8064,
+        "manifest_bytes_match": true,
+        "manifest_sha256": "ce29ab1be4ead992a7a7324fe4f0014f98cf1727a917135cb47077eae3188870",
+        "rollback_bindings": 2,
+        "source_bindings": 9,
+        "spec_bytes": 6739,
+        "spec_sha256": "a7da8f3ad74f1bdd0b7aa9900d45f7556811e3968698346ca2a3bf955acafbd4",
+        "test_bindings": 3,
+        "total_exact_bindings": 14
+      },
+      "C6.2": {
+        "all_binding_hashes_verified": true,
+        "artifact_digest": "21553e14014af9167f8f8312acf83282ac5c61e659f727486cc044b780e0f1aa",
+        "capability_spec_semantic_digest": "e60738fa0bd36fbb6565091c2ec1bac739d67e8f3ddaee4b344da7e6c599f42e",
+        "composite_semantic_digest": "18a36233162c8780762225e8e110591ed98e769c95c8830377582ea847af9230",
+        "manifest_bytes": 7337,
+        "manifest_bytes_match": true,
+        "manifest_sha256": "b59f3fd7fb013c9b1676631633dc76af5abb9588ea789453e9e87f79a78d65c4",
+        "rollback_bindings": 2,
+        "source_bindings": 6,
+        "spec_bytes": 5911,
+        "spec_sha256": "73bdfadc766b005c6459135ddb8169c1f024d9fcda72e0aa89ed202d5b7437fe",
+        "test_bindings": 2,
+        "total_exact_bindings": 10
+      },
+      "C6.3": {
+        "all_binding_hashes_verified": true,
+        "artifact_digest": "9d7bd61197e1e70f533cc40cabeaf32adc6a176b0e3f75c93d10c5dad5cd7926",
+        "capability_spec_semantic_digest": "ec2ed37a2e4c9bdeb10865ed9cff87655f59fcd24c234d026ea5f9c35117a777",
+        "composite_semantic_digest": "f43a087b9a683a2972e9a1a9ded69d31f8551269d642710d30dfe6deafd6bd6b",
+        "manifest_bytes": 7393,
+        "manifest_bytes_match": true,
+        "manifest_sha256": "1bfce9d8593974fa4ac0f31dd70bed162aa63cea1ce2c10e0c2a89c3cee474a5",
+        "rollback_bindings": 2,
+        "source_bindings": 4,
+        "spec_bytes": 5879,
+        "spec_sha256": "c7e1f89b4e717ff67e4e11ec9939352d13eaf30fa2407fb7dedf198e90217ad5",
+        "test_bindings": 4,
+        "total_exact_bindings": 10
+      }
+    },
+    "total": 185
+  },
+  "fragment_identity": {
+    "C2_fragment": {
+      "content_digest": "3ae015e04c5a32881a713ffd02a8e0bc707974ec36d3665c4e6c71d2909e9e48",
+      "file_sha256": "0efbc9693655bbad729054e262b779b169bf8ad0d8e6d9a68ec258630206ab8e"
+    },
+    "C2_p3": {
+      "content_digest": "eb643bcfb4f20bb613baedb0a1a88979e951a0b6f17e5dccfc69c8d5313b6b30",
+      "file_sha256": "5274116a2a083ec1553d05c034f5490f1450851d805fb2590efec21be95c544b"
+    },
+    "C3_fragment": {
+      "content_digest": "8fc5d182540c3963dcb192eff495b7a9412cd3add015025a7bc843ecf346406c",
+      "file_sha256": "609715c3301b2269e98039f462eab284990ad83a41e9ca41d49bc393279df385"
+    },
+    "C3_p3": {
+      "content_digest": "dab5bbf53abf85b1d665e99baf98d50783399a4af813758f28c9d2f92ffa37f7",
+      "file_sha256": "915aee69e65f2020fec859aa65a2f49be14325e4eff077f3881b025a89ef0133"
+    },
+    "C4_fragment": {
+      "content_digest": "e8e2ec3813e07be32165fd14072a3200560976f3caad73e6560736dd54e7dca2",
+      "file_sha256": "3647433225c07fa6baef83ec41d8104b5fc487dadf05aa2eaaf63b9e28680ecc"
+    },
+    "C4_p3": {
+      "content_digest": "a8c6ecaf1a3cada4729036b7ff12ee84fbf0353291f85f82f3b5e50dad0160ad",
+      "file_sha256": "058b02345b9d67c1e7ff51006afb4c28e2c8ce4dadf7a505fac6bbac781bd188"
+    },
+    "C5_fragment": {
+      "content_digest": "cf6bcd9d6593574d01f78fc52af119d05ecc9205e457319a147e3396030fbec1",
+      "file_sha256": "42225281ee4891dfcfbec1706017f39ebd8b1964a9da886d10d9536940a1bd79"
+    },
+    "C5_p3": {
+      "content_digest": "49ffc797bb88f7d362e98d197fe6d5b2e2630d62aab1d7d21c491a01be283e13",
+      "file_sha256": "38ce21888d0c2780bac3c2b6dbef9fcc42341eb041d281a2a994cbed35215d39"
+    },
+    "C6_fragment": {
+      "content_digest": "e029fa70c83f7332124c006211d9000c401ebe43cd54b662cad6b5a0dd410521",
+      "file_sha256": "6a064e8fbd2cb46ab7c530ded44993eb4deda9e853cf05a1b046363545b2bbca"
+    },
+    "C6_p3": {
+      "content_digest": "95de7f38c4f93eafa05c10b130fd559019ecd6e1191dee9ddcfd008cceba1fbf",
+      "file_sha256": "de997e287f8c51d8c984ae37c81c102834a2a64061967d089fd7d3180468796f"
+    }
+  },
+  "mainline_rebind": {
+    "authority": "NO_PROMOTION_NO_CANDIDATE_NO_LIVE_NO_PROVIDER_NO_CUTOVER",
+    "current_bundle_hashes": {
+      "c2_fragment_file_sha256": "0efbc9693655bbad729054e262b779b169bf8ad0d8e6d9a68ec258630206ab8e",
+      "c3_fragment_file_sha256": "609715c3301b2269e98039f462eab284990ad83a41e9ca41d49bc393279df385",
+      "c4_fragment_file_sha256": "3647433225c07fa6baef83ec41d8104b5fc487dadf05aa2eaaf63b9e28680ecc",
+      "c5_fragment_file_sha256": "42225281ee4891dfcfbec1706017f39ebd8b1964a9da886d10d9536940a1bd79",
+      "c6_fragment_file_sha256": "6a064e8fbd2cb46ab7c530ded44993eb4deda9e853cf05a1b046363545b2bbca"
+    },
+    "date": "2026-09-02",
+    "kind": "MAINLINE_MECHANICAL_REBIND",
+    "no_semantic_rereview": true,
+    "review_path": "reviews/C2C6AdoptionReview.v1.json",
+    "semantics": "independent review verdict and findings carried over; only exact artifact byte bindings updated",
+    "supersedes_binding": "review previously bound the M3 bundle generated before I1 evidence regeneration (20fd31de...->609715c3..., 2bcdaea2...->8fc5d182..., 322d24b1...->42225281..., 5729e30c...->e8e2ec38..., 785b9095...->cf6bcd9d..., 9009c05b...->3ae015e0..., a6608ce0...->0efbc969..., bdc430a9...->6a064e8f..., e54d9c41...->36474332..., feaef76e...->e029fa70...)",
+    "worktree": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0"
+  },
+  "open_findings": {
+    "p0": [],
+    "p1": [
+      {
+        "blocking_for_c2c6_adoption_readiness": false,
+        "blocking_scopes": [
+          "C2C6_ADOPTION_DECISION",
+          "P5_EXACT_CANDIDATE",
+          "PRODUCTION_CANONICAL_WRITE",
+          "LIVE_PROVIDER",
+          "CUTOVER"
+        ],
+        "detail": "All 16 cell specs and manifests remain UNADOPTED_BUILD_GREEN with candidate_created=false; this review approves readiness of the evidence layer only, and no cell, route, runtime or canonical effect is adopted.",
+        "finding_id": "C2C6_AHEAD_OF_TIME_SCAFFOLDING_UNADOPTED",
+        "severity": "P1"
+      },
+      {
+        "blocking_for_c2c6_adoption_readiness": false,
+        "blocking_scopes": [
+          "P5_EXACT_CANDIDATE"
+        ],
+        "detail": "The migration evidence subtree, including these 32 spec/manifest files, is untracked in the checkout; exact candidate acceptance still requires a git-identified review surface.",
+        "finding_id": "P3_REVIEW_SURFACE_NOT_GIT_IDENTIFIED",
+        "severity": "P1"
+      },
+      {
+        "blocking_for_c2c6_adoption_readiness": false,
+        "blocking_scopes": [
+          "AUTHORITY_RECORD_ADOPTION",
+          "LIVE_OR_CANONICAL_CLAIMS"
+        ],
+        "detail": "Standing prerequisite inherited by all 16 specs; it constrains authority/record claims and does not invalidate declared-scope readiness.",
+        "finding_id": "P3_AUTHORITY_RECORD_DIVERGENCE",
+        "severity": "P1"
+      }
+    ],
+    "p2": [
+      {
+        "detail": "Specs carry no movement_id field; movement binding is derived from contract-file movement_ids and fragment p1_cells. The derivation covers 26/26 with no gap, but an explicit mapping field would remove inference.",
+        "finding_id": "MOVEMENT_SPEC_BINDING_IMPLICIT",
+        "severity": "P2"
+      },
+      {
+        "detail": "C2C6CapabilitySpecContract.v1.md remains DRAFT_CONTRACT_NOT_GENERATED; its MISSING_REF rows and several rollback tables are superseded by evidence/contracts/c2-c6 scaffolding and current spec bytes.",
+        "finding_id": "CONTRACT_MD_STALE_VS_SPEC",
+        "severity": "P2"
+      },
+      {
+        "detail": "Several cells' rollback_bindings omit tests listed in contract rollback tables (C5.1/C5.3/C5.4/C6.1/C6.2/C6.3 and C5.2 reconciliation postgres test); those files remain exact test_bindings, and C2.1 binds only the legacy rollback route. No dangling reference; role semantics differ from contract tables.",
+        "finding_id": "ROLLBACK_ROLE_SEMANTIC_DEVIATION",
+        "severity": "P2"
+      },
+      {
+        "detail": "Movement rows C5-M002/C5-M003/C6-M001 write 'Explicit zero loss suggested', not an explicit zero-loss declaration; corresponding specs keep declared_lossy_projection_refs empty and depend on those rows.",
+        "finding_id": "ZERO_LOSS_WORDING_NOT_EXPLICIT",
+        "severity": "P2"
+      },
+      {
+        "detail": "C5.2 failure_union_refs is a failure-only subset of the contract 13.4 union and C6.1 adds loop_configuration_invalid while omitting terminal outcome names from contract 16.4; movement failure semantics remain consistent.",
+        "finding_id": "FAILURE_UNION_WORDING_VARIANCE",
+        "severity": "P2"
+      },
+      {
+        "detail": "C4.1-C4.3 p3 successor_observation lacks direct observation_profile/interpreter_id fields mirroring spec profile_refs and interpreter_refs (C4.3 interpreter confirmed only via legacy side and ownership); evidence gap, not binding break.",
+        "finding_id": "C4_FRAGMENT_OBSERVATION_FIELDS_ABSENT",
+        "severity": "P2"
+      },
+      {
+        "detail": "C2.1/C2.2/C2.3/C3.2/C6.3 resource refs and C2.4/C6.3 loss/policy refs resolve to code constants (source_library_c2_shared.py, collect_c3.py, agent_core_c6_3.py, source_library_c2_4_projection.py) or fragment fields rather than standalone contract JSON; verified resolved, not file-backed.",
+        "finding_id": "CODE_CONSTANT_RESOLVED_POLICY_REFS",
+        "severity": "P2"
+      },
+      {
+        "detail": "p3 C3.2 operation_bindings includes unversioned collect.fold_ordered_results alongside the versioned atom; spec/contract use collect.fold_ordered_results.v1.",
+        "finding_id": "C3_2_FRAGMENT_OPERATION_NAME_UNVERSIONED",
+        "severity": "P2"
+      },
+      {
+        "detail": "This review ran byte-level compile, digest and binding verification only; PG/provider-dependent acceptance tests were not re-executed, so disposable-runtime behavior remains historical/declared evidence.",
+        "finding_id": "POSTGRES_PROVIDER_TESTS_NOT_RERUN_THIS_REVIEW",
+        "severity": "P2"
+      },
+      {
+        "detail": "Fragment, p3-fragment and review artifact families use different canonical digest conventions (recursive vs top-level content_digest removal, ensure_ascii and trailing-newline differences); all recomputed values matched their declared digest under each family convention, but cross-family recomputation can misjudge.",
+        "finding_id": "DIGEST_BASIS_NOT_UNIFIED",
+        "severity": "P2"
+      }
+    ]
+  },
+  "predecessor_completeness_gate": {
+    "covered_movements": 26,
+    "disposition_counts": {
+      "DECLARED_LOSS": 1,
+      "MOVED_TO": 2,
+      "REIMPLEMENTED_AS": 23
+    },
+    "dispositions_observed": [
+      "REIMPLEMENTED_AS",
+      "MOVED_TO",
+      "DECLARED_LOSS"
+    ],
+    "inventory_unassigned_blocker_account": "0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 + 0 = 0; inline_by_family C2-C6 all 0",
+    "loss_account": "C2-M008 is DECLARED_LOSS under source_library.c2_4.compat.loss.v1; C5-M001/C5-M004 are MOVED_TO with bounded projection text; C5-M002/C5-M003/C6-M001 rows say 'Explicit zero loss suggested' rather than an explicit zero-loss declaration and remain a wording gap (P2); C6-M003/C6-M004 declare intentional redaction/omission loss bound to policy.",
+    "matrix_unassigned_blocker_rows": 0,
+    "total_movements_in_scope": 26,
+    "unassigned_blocker_count": 0,
+    "uncovered_movements": [],
+    "zero_loss_declared": false
+  },
+  "review_id": "C2C6AdoptionReview.v1",
+  "review_kind": "C2C6_CELL_ADOPTION_DOUBLE_GATE",
+  "reviewer": "/root/c2c6_adoption_review",
+  "schema": "mrw.functorial_successor.c2_c6_adoption_review.v1",
+  "scope": {
+    "build_manifests": "evidence/capability-spec-builds/ 16 BuildManifest v1.json",
+    "capability_specs": "evidence/capability-specs/C2.1-C2.4,C3.1-C3.2,C4.1-C4.3,C5.1-C5.4,C6.1-C6.3 v1.json",
+    "cell_spec_implementation": "main/backend/app/successor_runtime/specification/capability_cell_spec.py",
+    "cells": [
+      "C2.1",
+      "C2.2",
+      "C2.3",
+      "C2.4",
+      "C3.1",
+      "C3.2",
+      "C4.1",
+      "C4.2",
+      "C4.3",
+      "C5.1",
+      "C5.2",
+      "C5.3",
+      "C5.4",
+      "C6.1",
+      "C6.2",
+      "C6.3"
+    ],
+    "does_not_authorize": [
+      "C2-C6 adoption decision",
+      "candidate acceptance",
+      "live provider",
+      "external delivery",
+      "production canonical write",
+      "cutover",
+      "authority transfer",
+      "legacy retirement"
+    ],
+    "gate_standard": "docs/governance/semantic-movement-completeness-standard.md",
+    "movements": 26,
+    "semantic_basis": [
+      "P1P3SuccessorMovementMatrix.v1.json",
+      "P1P3LegacyDonorSemanticMovementInventory.v1.json",
+      "semantic-movement/fragments/C2.v1.json-C6.v1.json",
+      "p3-fragments/C2.json-C6.json",
+      "C2C6CapabilitySpecContract.v1.md",
+      "ReadbackNotApplicableSentinel.adjudication.v1.json",
+      "evidence/contracts/c2-c6/"
+    ]
+  },
+  "verdict": "PASS_C2C6_ADOPTION_READY",
+  "verdict_rationale": "Both gates pass for the declared scope. All 16 CapabilityCellSpec v1 files validate through the repository capability_cell_spec implementation; all 16 build manifests are byte-identical to deterministic recompilation from spec plus RuntimeKernelABI; all 185 exact source/test/rollback bindings resolve to matching SHA-256 bytes; every authority ceiling is all-false; the sentinel readback ref is used by exactly the 10 adjudicated cells; 69/69 contract ref JSON files under evidence/contracts/c2-c6 are content-digest self-consistent; all 26 C2-C6 movement rows are covered by the 16 cells and UNASSIGNED_BLOCKER equals zero in matrix, inventory and fragments. Policy/loss refs without standalone contract files resolve to verified code constants or fragment fields. PASS means the spec/manifest evidence layer is ready for a C2-C6 adoption decision; it does not adopt, promote or wire anything.",
+  "worktree": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0",
+  "write_scope": [
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/reviews/C2C6AdoptionReview.v1.json"
+  ]
+}

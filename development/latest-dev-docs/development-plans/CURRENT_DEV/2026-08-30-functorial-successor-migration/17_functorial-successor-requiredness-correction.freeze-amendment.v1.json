@@ -1,0 +1,63 @@
+{
+  "schema": "mrw.functorial_successor.requiredness_correction_freeze_amendment.v1",
+  "status": "FROZEN_AUTHORIZED",
+  "authorized_at_utc": "2026-08-30T08:27:56Z",
+  "authority": {
+    "source": "user selection in supervisor thread",
+    "decision": "USE_STRICT_DOMAIN_REQUIREDNESS",
+    "target_thread": "01a0504c-47ef-77e1-9783-454dbcbe3697"
+  },
+  "resolved_blocker": "P0_FROZEN_10_12_REQUIREDNESS_CONTRADICTION",
+  "semantic_authority": {
+    "path": "10_functorial-successor-domain-contract-snapshot.v1.json",
+    "sha256": "1dd4c2c12c6a8c164b9f5b1464ae9801347b14a6a3ed75bf202c45b255b59959",
+    "changed": false
+  },
+  "superseded_schema": {
+    "path": "12_functorial-successor-first-specimen-schema-bundle.v1.schema.json",
+    "sha256": "232787dc2493c759cc54182df0576a5256c4f8b20fc4b977c0d54b560addef5c",
+    "disposition": "SUPERSEDED_NON_NORMATIVE_EVIDENCE"
+  },
+  "replacement_schema": {
+    "path": "16_functorial-successor-first-specimen-schema-bundle.v1.1.schema.json",
+    "sha256": "8be6c2757a091efcd1a34de0e64a2a9804b5629f7a545b784ea674068c25b51e",
+    "bytes": 15288,
+    "lines": 672,
+    "role": "NORMATIVE_FIRST_SPECIMEN_SCHEMA"
+  },
+  "requiredness_additions": {
+    "researchIntent": ["audience_or_use", "constraints"],
+    "inquiry": ["uncertainty_ceiling"],
+    "sourceRef": ["access_profile_ref"],
+    "evidenceQualification": ["claim_ref", "validity"],
+    "claim": ["scope"],
+    "gap": ["missing_evidence_or_decision"]
+  },
+  "representation_mappings": {
+    "SourceRef.access_profile": "sourceRef.access_profile_ref",
+    "EvidenceQualification.optional_claim_ref": "evidenceQualification.claim_ref required but nullable",
+    "EvidenceQualification.validity": "evidenceQualification.validity object",
+    "ResearchPlan.ordered_or_partial_order_work": "researchPlan.work_items with depends_on edges",
+    "MaterialRef.snapshot_value_ref": "materialRef.snapshot.value_ref",
+    "MaterialRef.source_observed_hash": "materialRef.snapshot.observed_text_hash",
+    "MaterialRef.source_observed_updated_at": "materialRef.snapshot.observed_updated_at",
+    "DeliveryAttempt.intent_ref": "deliveryAttempt.delivery_intent_ref",
+    "DeliveryReceiptRef.intent_ref": "deliveryReceiptRef.delivery_intent_ref"
+  },
+  "precedence": [
+    "10 remains the semantic authority",
+    "16 replaces 12 as the machine validation authority",
+    "17 resolves field-name representation mappings without relaxing semantics"
+  ],
+  "resume_authority": {
+    "goal_may_resume": true,
+    "resume_from": "P0-A promotion boundary",
+    "p0_b_may_start_only_after": "v2.1 manifest validation and target worktree schema-copy verification"
+  },
+  "authority_exclusions_unchanged": [
+    "no live provider",
+    "no external delivery",
+    "no production cutover",
+    "no authority transfer"
+  ]
+}

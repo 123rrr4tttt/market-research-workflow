@@ -1,0 +1,211 @@
+{
+  "adoption_prerequisites": [
+    "P3_AGGREGATE_PROMOTED_LOCAL_ONLY",
+    "C9_READY_FOR_P4_ADOPTION_REVIEW",
+    "PILOT_CORE_ALLOWED",
+    "C9_2_FRONTEND_DESIGN_ONLY_TYPED_CONTRACT_VALIDATION",
+    "C9_FRONTEND_ZERO_BYTES_UNADOPTED",
+    "NO_ROUTE_OR_CONTROL_EFFECT",
+    "NO_PROVIDER_OR_NETWORK_EFFECT"
+  ],
+  "authority_ceiling": {
+    "authority_transfer": false,
+    "canonical_write": false,
+    "cutover": false,
+    "external_delivery": false,
+    "live_provider": false
+  },
+  "cell_id": "C9.2",
+  "commutativity_claim": "NOT_CLAIMED",
+  "declared_lossy_projection_refs": [
+    "c9.legacy-implicit-shell-bootstrap-and-automatic-activation-excluded.v1",
+    "c9.legacy-page-local-mutation-side-effects-excluded.v1",
+    "c9.disposable-browser-layout-cache-state-not-reproduced.v1",
+    "c9.raw-response-fallback-and-success-data-only-unwrap-rejected.v1"
+  ],
+  "deployment_binding_refs": [
+    "deployment.local-fixture.c9.frontend-design-only.no-route.no-provider.v1"
+  ],
+  "effect_policy_ref": "effect.policy.frontend.validation-only.design-only.execute-false.fetch-disabled.no-control.no-provider.v1",
+  "entrypoint_kind": "FACADE_VALIDATION",
+  "failure_union_refs": [
+    "UI_READY",
+    "UI_LOADING",
+    "UI_WAITING",
+    "UI_BLOCKED",
+    "UI_UNAVAILABLE",
+    "UI_CONFLICT",
+    "UI_FAILURE_API_CLIENT_ERROR",
+    "COMMAND_ACCEPTED_RECEIPT",
+    "COMMAND_REJECTED_TYPED_REASON"
+  ],
+  "family_id": "C9",
+  "generated_ownership_refs": [
+    "generated:facade-contract-descriptors",
+    "generated:validation-surface",
+    "generated:evidence-binding-manifest",
+    "generated:focused-gates",
+    "generated:rollback-harness-descriptor"
+  ],
+  "handwritten_ownership_refs": [
+    "handwritten:c9.frontend.typed-command-submit-client",
+    "handwritten:c9.frontend.six-state-observation-decode",
+    "handwritten:c9.frontend.no-control-feedback",
+    "handwritten:c9.frontend.project-preference-non-canonical",
+    "handwritten:c9.frontend.design-only-typed-contract-status"
+  ],
+  "input_contract_refs": [
+    "frontend.command.typed-submit.scope-actor-idempotency.v1",
+    "frontend.query.server-resolved-scope-projection.v1"
+  ],
+  "interpreter_refs": [
+    "successor.c9.frontend-read-model-command-client.validation-only.v1",
+    "legacy.c9.react19-tanstack-axios-projection-ui.v1",
+    "legacy.c9.envelope-shape-oracle.v1"
+  ],
+  "legacy_oracle_ref": "legacy.react19-tanstack-axios-projection-ui.v1",
+  "object_contract_refs": [
+    "mrw.transport.ui-observation-dto.v1",
+    "mrw.transport.command-envelope.v1",
+    "mrw.transport.query-envelope.v1",
+    "mrw.projection.response-meta.v1",
+    "frontend.project-preference.non-canonical.v1",
+    "frontend.api-client-error.v1"
+  ],
+  "operation_contract_refs": [
+    "frontend.observation.six-states.v1",
+    "frontend.interaction.command_submit.v1",
+    "frontend.no_control_feedback.v1",
+    "frontend.design_only_typed_contract.v1"
+  ],
+  "ordered_composition_refs": [
+    "frontend.interaction.command_submit.v1",
+    "frontend.observation.six-states.v1",
+    "frontend.no_control_feedback.v1"
+  ],
+  "output_contract_refs": [
+    "frontend.observation.six-state.v1",
+    "frontend.command.receipt.v1",
+    "frontend.command.rejected-typed-reason.v1",
+    "ui.observation.six-state-independent.v1"
+  ],
+  "owner_capability_id": "api_frontend.c9.v1",
+  "profile_refs": [
+    "c9.frontend.semantic.design-only.v1",
+    "c9.effect.validation-only.no-frontend-bytes.v1",
+    "c9.resource.no-runtime-resource.v1",
+    "c9.failure.typed.v1",
+    "c9.authority.ui-observation-server-scope-only.v1",
+    "c9.interpreter.route-free.v1",
+    "c9.observation.frontend-six-state.v1",
+    "projection.profile.api-five-state-ui-six-state-independent.v1"
+  ],
+  "program_shape_ref": "facade.command-submit-observation-design-only-validation.v1",
+  "readback_policy_ref": "c9.frontend.read-only-typed-observation.no-effect.v1",
+  "recovery_policy_ref": "NONE",
+  "resource_policy_ref": "c9.frontend.design-only.no-runtime-resource.v1",
+  "rollback_bindings": [
+    {
+      "file_sha256": "2cf1a4959c2ad80a53224b6ec8a513a21b9d29b88b5792c2a73f0bca18dfd35f",
+      "path": "main/backend/tests/successor_runtime/test_p4_c9_5_p1_consistency_and_public_payload.py",
+      "role": "no-frontend-bytes-design-only-rollback-gate"
+    }
+  ],
+  "schema": "mrw.functorial_successor.capability_cell_spec.v1",
+  "shadow_observation_ref": "c9.frontend.typed-observation-command-submit.validation-only-shadow.dispatch-false.v1",
+  "source_bindings": [
+    {
+      "file_sha256": "fdc4b2ab2616431b2d20ec41e207b41e978df833c94a1c92561360708bc89be1",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p4-fragments/C9.json",
+      "role": "p4_c9_family_scaffold_observation"
+    },
+    {
+      "file_sha256": "4f285b7d938ef3c63a0efb816ddf0877db3bbdb942afd8fec1a4ac0f14f90568",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p1-fragments/C9.json",
+      "role": "p1_c9_cell_fragment"
+    },
+    {
+      "file_sha256": "f4f2407f1ebf39d27423127d4795db6f70dd94c24fa3864ecd9d405b3cf98192",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C9.v1.json",
+      "role": "c9_semantic_movement_fragment"
+    },
+    {
+      "file_sha256": "16dac2d34f2cdcaeffa4718fe2e63733f48b29ad0ba64daab32ed011527d4642",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/P1FunctorizationEligibility.v1.json",
+      "role": "p1_eligibility_record"
+    },
+    {
+      "file_sha256": "9dc614c73f6ce48202f7087a8971e812c5eae44844e9453267e6550bb0f8712e",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/P1P3SuccessorMovementMatrix.v1.json",
+      "role": "successor_movement_matrix_c9_rows"
+    },
+    {
+      "file_sha256": "31e59601a7fef35afc5cf2a3e784fc1692d40ad3a53b816e3439eeb4f27990cc",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/P1P3LegacyDonorSemanticMovementInventory.v1.json",
+      "role": "legacy_donor_movement_inventory_c9_rows"
+    },
+    {
+      "file_sha256": "f70e1fbebf31bd44cef85a2517d69ceb816b6ac1d6892a2b3ffe40c937ad5913",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/P1P3SemanticMovementGate.v1.json",
+      "role": "semantic_movement_gate"
+    },
+    {
+      "file_sha256": "cfd390ee67a183e9052a802e79ed0e33da492c3bafb7bdbf27c757a500901436",
+      "path": "main/frontend-modern/src/lib/api/domains/successor-runtime.ts",
+      "role": "successor_typed_command_client_realization"
+    },
+    {
+      "file_sha256": "31b6a2abd43bc263c6add5a67c0ca7d7582117083e025ca96552151dde11b893",
+      "path": "main/frontend-modern/src/components/SuccessorRuntimeStatus.tsx",
+      "role": "successor_ui_observation_component_realization"
+    },
+    {
+      "file_sha256": "4d4ae7a2a676fbcf8319610bf494c336365d6490b99025296bf7ba2b24351f45",
+      "path": "main/frontend-modern/src/lib/types.ts",
+      "role": "frontend_typed_read_model_types"
+    },
+    {
+      "file_sha256": "d65ad6875b3334e6149c28daa201188b341c4d123cc8ffa4f1d397794bdfe6f7",
+      "path": "main/frontend-modern/src/lib/api/client.ts",
+      "role": "legacy_frontend_client_donor"
+    },
+    {
+      "file_sha256": "519a37e4e5b3498ee872a1713af1517a146e4e2f60c80e70b76eb0833b08d2b7",
+      "path": "main/frontend-modern/src/pages/GraphPage.tsx",
+      "role": "legacy_frontend_page_donor"
+    },
+    {
+      "file_sha256": "25c09c29864d167c3dc15ffbd1ea6695f9f37910485b5a0c72427c614291c879",
+      "path": "main/frontend-modern/src/app/kernel/useKernelRuntime.ts",
+      "role": "legacy_shell_bootstrap_donor"
+    },
+    {
+      "file_sha256": "c88c30aa6ddbef9135d6cb720bb95a9f7bfbe5d59541be10dce157f952c1a533",
+      "path": "main/frontend-modern/src/components/SuccessorRuntimeObservation.tsx",
+      "role": "successor_ui_six_state_observation_component"
+    }
+  ],
+  "test_bindings": [
+    {
+      "file_sha256": "f3d423b6be77b4578682c224d04d27f4d82b44bc0c2dc0fa94295f6bbd7c7065",
+      "path": "main/frontend-modern/tests/e2e/successor-runtime-client.spec.ts",
+      "role": "frontend_design_only_typed_observation_interaction_e2e"
+    },
+    {
+      "file_sha256": "c308ab311bec8679042f727cf94491943b3b5c0f924f8d07427f9d095b947f5f",
+      "path": "main/backend/tests/successor_runtime/test_p4_c9_2_projector_registry.py",
+      "role": "projector_registry_family_shared_focused_gate"
+    },
+    {
+      "file_sha256": "2bf88d20238b3fe0693440bc34ac7c8b4f19b5a2431099ad55327101c7b2ee03",
+      "path": "main/backend/tests/successor_runtime/test_p4_c9_3_transport_dto.py",
+      "role": "transport_ui_observation_negative_gate"
+    },
+    {
+      "file_sha256": "0c822a1b1e6f5cee6cd87bd3e3bc51f7170cf8a32de41b649a67544d1322810d",
+      "path": "main/frontend-modern/tests/e2e/successor-runtime-observation.spec.ts",
+      "role": "frontend_six_state_typed_rejection_scope_observation_tests"
+    }
+  ],
+  "version": "1.0.0"
+}

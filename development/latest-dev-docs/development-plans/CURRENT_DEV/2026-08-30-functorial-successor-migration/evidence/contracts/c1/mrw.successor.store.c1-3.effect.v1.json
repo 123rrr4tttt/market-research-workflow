@@ -1,0 +1,34 @@
+{
+  "schema": "mrw.functorial_successor.contract_ref.v1",
+  "version": "1.0.0",
+  "contract_ref": "mrw.successor.store.c1-3.effect.v1",
+  "ref_kind": "effect_policy",
+  "cell_id": "C1.3",
+  "family_id": "C1",
+  "movement_ids": [
+    "C1-M004"
+  ],
+  "semantics": {
+    "movement_effect": "Project-scoped durable store reads and writes",
+    "typed_refs": [
+      "mrw.runtime.event-chain.v1",
+      "mrw.runtime.ordered-event-closure.v1"
+    ]
+  },
+  "derivation_sources": [
+    {
+      "kind": "movement_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C1.v1.json",
+      "pointer": "#/movements/C1-M004/effect",
+      "sha256": "ccbb50ee217882d1640bca7f57430eaea651f8ae83258873449d2c998d30bb0a"
+    },
+    {
+      "kind": "code_contract",
+      "path": "main/backend/app/successor_runtime/substrate/postgres/nodes.py",
+      "pointer": "RuntimeNodeRepository",
+      "sha256": "6aed093304d78d1cfc786e35bf7b8d043cc7d3cddb7d07cc7b57cd69f7c87081"
+    }
+  ],
+  "derivation_note": "effect semantics copied verbatim from movement C1-M004; project-scoped store reads/writes only",
+  "content_digest": "a65d57fdec772a9945e0a8c3b70f0b1b40cddfd8cefaea7de5020b1aa924acea"
+}
