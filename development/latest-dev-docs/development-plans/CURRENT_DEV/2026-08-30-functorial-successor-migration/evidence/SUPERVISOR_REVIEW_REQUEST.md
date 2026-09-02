@@ -425,3 +425,9 @@ SUPERVISOR_REVIEW_REQUEST
 - 用户指令聚焦业务链：S1/S2/S2b/S2c 能力链 17 文件 `140/0`；C8/C4 非 PG `21/0`；C7/C8/C9 canonical PG disposable `111/0`；真实 postgres 只读 production_registry smoke 401/401/200 + 计数不变。
 - 证据：`AllLinesBusinessChainTestEvidence.v1.json`（SHA `d873d5db…`），状态 `PASS_BUSINESS_CHAIN_TEST_BATCH`；零残留。
 - 边界：局部绿链不建立 canonical production write/cutover/authority transfer/legacy retirement；registry-backed DB 投影读取仍待专门证据。
+
+## C7 production admission PASS (2026-09-03)
+
+- BLOCK 探针已解封：迁移 `20260903_000003`（c7_movement_canonical_documents）+ 生产 runner + parity/runner 测试；真实库 upgrade 至 `20260903_000003`，runner 0→1/replay 1→1/readback 一致，legacy 计数不变。
+- focused `62 passed`；全量非 PG `1583/119/0`；备份 `postgres-20260903-024913.dump`（SHA `bf44b11e…`）。
+- 证据：`AllLinesC7ProductionAdmissionEvidence.v1.json`（SHA `fe4c0ef6…`）。authority：c7 canonical write（本链 bounded）true；cutover/authority_transfer/legacy_retired false。

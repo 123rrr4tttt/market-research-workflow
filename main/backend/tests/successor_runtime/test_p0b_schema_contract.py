@@ -300,7 +300,10 @@ def test_alembic_revision_is_self_contained_and_has_explicit_downgrade() -> None
     revision = _load_revision()
 
     assert revision.revision == "20260830_000001"
-    assert revision.down_revision == "20260402_000004"
+    # Migration bridge (commit b416c723) added the six donor legacy revisions
+    # between 20260402_000004 and 20260525_000001, so the successor P0-B
+    # revision must start from the bridged head.
+    assert revision.down_revision == "20260525_000001"
     assert callable(revision.upgrade)
     assert callable(revision.downgrade)
 

@@ -732,3 +732,12 @@ When the target task reaches a review boundary, it must return a message beginni
 - 真实 postgres 只读 smoke（production_registry+auth，临时 token）：无/错 token 401、有效 Bearer 200 typed envelope（registry_revision=1、project_key 匹配、no_postgres_write=true）；计数 projects 9→9、agent_sessions 2409→2409、ACTIVE registry 1→1。
 - 证据：`AllLinesBusinessChainTestEvidence.v1.json`（SHA-256 `d873d5db…`），状态 `PASS_BUSINESS_CHAIN_TEST_BATCH`；teardown 零残留。
 - 边界：绿链是局部证据，不建立 canonical production write/cutover/authority transfer/legacy retirement；evidence-matrix/ingest-registry 的 registry-backed DB 投影读取未在 smoke 中证明（closed-fixture 查询口 + scope 解析）。
+
+## C7 production admission lane (2026-09-03)
+
+- 业务链验收探针曾 BLOCK（真实库缺 `c7_movement_canonical_documents` 迁移 + 缺生产执行控制器 + runtime 前置空）。
+- 已补齐：迁移 `20260903_000003_add_c7_canonical_documents.py`（public 表、显式 downgrade、列 parity 守卫）；生产 runner `substrate/postgres/c7_production_admission.py`（registry ACTIVE 读取、幂等 seed、真实 admit_verified_candidate + readback）；测试 `test_c7_canonical_migration_parity_postgres.py`、`test_c7_production_admission_runner_postgres.py`。
+- 真实 postgres 已 upgrade 至 `20260903_000003`；runner trace `production-cutover-acceptance-2026-09-03` 0→1、replay 1→1、readback 一致；legacy 计数不变（projects 9、agent_sessions 2409、registry 1）。
+- 测试：focused 62 passed（50+9+2+1）+ runner parity；全量非 PG `1583/119/0`；新备份 `postgres-20260903-024913.dump`（SHA `bf44b11e…`）。
+- 证据：`AllLinesC7ProductionAdmissionEvidence.v1.json`（SHA-256 `fe4c0ef6…`）；authority：c7_canonical_write_production=true（本链 bounded），cutover/authority_transfer/legacy_retired=false。
+- 附注：`test_p0b_schema_contract.py` 断言随迁移桥接修正（20260402_000004 → 20260525_000001），为必要维护。
