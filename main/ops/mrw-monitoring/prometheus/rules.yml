@@ -1,0 +1,45 @@
+groups:
+  - name: mrw-backend
+    rules:
+      - alert: MRWBackendDown
+        expr: up{job="mrw-backend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: MRW backend is down
+          description: "Prometheus cannot scrape http://host.docker.internal:8000/metrics for 1m (up={{ $labels.instance }})."
+
+      # Deep-health HTTP probe: detects network/HTTP-level failure of /health/deep.
+      # NOTE: /health/deep currently returns HTTP 200 even when body status=degraded,
+      # so probe_success only proves the endpoint is reachable. A semantic
+      # deep_health_degraded rule requires a backend metric (e.g. deep_health_status)
+      # which is NOT yet implemented - tracked as an infra gap.
+      - alert: MRWDeepHealthProbeDown
+        expr: probe_success{job="mrw-deep-health"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: MRW deep health endpoint is unreachable
+          description: "HTTP probe of {{ $labels.instance }} failed for 2m."
+
+      # Real 5xx rule backed by the existing per-request metric
+      # market_api_requests_total{endpoint,method,status}.
+      - alert: MRWSuccessor5xxRate
+        expr: sum by(endpoint)(rate(market_api_requests_total{endpoint=~"/api/v1/successor-runtime.*",status=~"5.."}[5m])) > 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Successor endpoint returned 5xx
+          description: "endpoint={{ $labels.endpoint }} has 5xx rate > 0 over 5m."
+
+      - alert: MRWApi5xxRate
+        expr: sum by(endpoint)(rate(market_api_requests_total{status=~"5.."}[5m])) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: MRW API returned 5xx
+          description: "endpoint={{ $labels.endpoint }} has 5xx rate > 0 over 5m."
