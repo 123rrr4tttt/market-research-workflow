@@ -193,3 +193,76 @@ teardown：删除 drill 库；残留 0
 
 - 三项 drill 在本机 disposable/local 范围通过并零残留；这是 local 演练证据，不是生产 cutover/authority 证据。
 - 尚未满足的生产环境项（如实保留为缺口）：TLS 终结、镜像 digest/registry tag、Prometheus/Alertmanager 在线告警、secret/依赖漏洞扫描、生产 successor registry resolver + 端点认证、successor 前端页面接线、计划备份/RPO 自动化、生产 owner/ACL 与 volume 级恢复 drill。
+
+## 7. 2026-09-03 最终字节复跑记录（commit `6f5f5900`）
+
+> 执行范围：最终提交 `6f5f5900` / tree `28b64ad6` 的干净快照（`git archive 6f5f5900` 生成，`.env` 由 `.env.example` 复制，无真实密钥）。三项 drill 与 production_registry smoke 均在该字节上执行，产出证据见 `../evidence/all-lines-runnable/AllLinesFinalRunnableEvidence.v1.json`。本轮只做本地 disposable 复跑与记录，不 commit/push，不改 donor。
+
+### 7.1 rollback drill（project `mrw-final-runnable`，等价 compose）
+
+`docker-deploy.sh rollback-drill --skip-preflight` 仍因宿主端口 5432（Homebrew PostgreSQL）被占用返回 `rc=1`，未启动任何容器；本轮用 `main/ops/docker-compose.yml` + db/es/redis 内部端口 override（backend 8000、frontend-modern 5174 暴露宿主）执行等价 rollback drill：
+
+```text
+config -q                                                       -> exit 0
+up -d db es redis backend celery-worker frontend-modern         -> exit 0（cycle 1，含 --build）
+backend/celery/db/es: Up (healthy)；redis/frontend-modern: Up
+GET /api/v1/health                                               -> 200
+GET /api/v1/health/deep                                          -> 200（database/database_pool/elasticsearch ok）
+POST /api/v1/successor-runtime/v2/queries                        -> 200（typed envelope，status=ok，no_postgres_write=true）
+GET /api/v1/agent-batch/executor/health（legacy）                -> 200
+GET http://localhost:5174/                                       -> 200
+ES cluster health（docker exec）                                  -> green
+down --remove-orphans（卷保留）                                   -> exit 0；容器/网络残留 0
+up -d ...                                                        -> exit 0（cycle 2，全 healthy）
+GET /api/v1/health、/health/deep、successor query、:5174/         -> 全部 200
+down -v --remove-orphans                                         -> exit 0；残留 0/0/0
+```
+
+镜像按 project 名保留未删除：`mrw-final-runnable-backend:latest (3e01f63b99b3)`、`mrw-final-runnable-celery-worker:latest (5129a464d5bd)`、`mrw-final-runnable-frontend-modern:latest (8dc65e724970)`。
+
+### 7.2 DB 备份/恢复 drill（disposable local PG）
+
+```text
+库名：mrw_final_drill_backup_20260903
+alembic upgrade head                                            -> exit 0；version=20260831_000002
+seed：public.project_scope_registry 一行 ACTIVE（digest 2242a8d1…，pre_dump_count=1）
+pg_dump --format=custom                                         -> sha256 7136b4a8f9174412a826242deb4f037d7ef1252f149e773037b52b5dbbed05c8
+DROP → CREATE → pg_restore（--no-owner --no-privileges --exit-on-error）
+                                                                -> exit 0；version=20260831_000002；seed row count=1
+C7 focused PG：test_c7_canonical_write_projector_postgres.py      -> 9 passed / 0 failed（1.27s，自建自删专用库）
+teardown：删除 drill 库；pg_database/pg_roles 回到基线
+```
+
+### 7.3 DB 迁移 downgrade/upgrade drill（disposable local PG）
+
+```text
+库名：mrw_final_drill_downgrade_20260903
+alembic upgrade head                                            -> exit 0；version=20260831_000002
+alembic downgrade 20260402_000004                               -> exit 0；version=20260402_000004；public successor 表 0
+alembic upgrade head（再次）                                     -> exit 0；version=20260831_000002；public successor 表 23
+teardown：删除 drill 库；残留 0
+```
+
+### 7.4 production_registry runnable smoke（关键新证据）
+
+disposable 库 `mrw_final_runnable_prod_20260903` upgrade head 后 seed 一行 ACTIVE registry（key `final-runnable-prod`），以 `SUCCESSOR_MOUNT_MODE=production_registry`、`SUCCESSOR_PRODUCTION_REQUIRES_AUTH=true`、`CODEX_AUTH_ENABLED=true`、`CODEX_AUTH_TOKENS=dev-final-runnable-token` 启动 app：
+
+```text
+（隔离 ambient 会话后，禁用 token-sink/CLI auth/oauth）
+无 Authorization                          -> HTTP 401
+错误 Bearer                               -> HTTP 401
+Authorization: Bearer dev-final-runnable-token -> HTTP 200
+  status=ok；meta.project_key=final-runnable-prod
+  project_scope_ref.scope_digest=e7bd7d36…；registry_revision=1
+  data.no_postgres_write=true；无 503
+负例：production_registry + requires_auth=true + codex_auth_enabled=false
+  -> 进程退出 1（ValidationError：requires codex_auth_enabled=true），fail-closed 生效
+```
+
+说明：本机若保留真实 Codex token-sink/CLI 登录且 `codex_oauth_token_sink_enabled=true`，中间件会把宿主机会话视为已认证 OAuth 会话，无 token 请求也会放行（首轮实测 200）。因此上述 401 语义是在禁用 ambient 会话源的隔离进程中验证的；真实生产 ingress 的认证边界仍应以部署环境配置复测。
+
+### 7.5 本轮未满足项（与 6.4 相比已收口/保留）
+
+- 已收口：生产 successor registry resolver + 端点认证接线、successor 前端页面接线在最终字节已存在并通过本机 smoke；这两项不再属于剩余缺口。
+- 仍保留为环境边界缺口：TLS 终结、镜像 digest/registry tag、Prometheus/Alertmanager 在线告警、secret/依赖漏洞扫描、计划备份/RPO 自动化、生产 owner/ACL 与 volume 级恢复 drill、真实网络级（非 TestClient）ingress 认证复测。
+- 本轮全部结果仅对 disposable/local 快照成立；`production_canonical_write=false`、`legacy_retired=false`、`authority_transfer=false`、正式 `cutover=false`。

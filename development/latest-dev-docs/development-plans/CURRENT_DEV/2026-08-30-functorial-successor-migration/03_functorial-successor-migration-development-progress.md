@@ -707,3 +707,11 @@ When the target task reaches a review boundary, it must return a message beginni
 - 已推送：`codex/functorial-successor-p0:codex/functorial-successor-p0`（origin 新分支，commit `ec29ced6`，非 force，未覆盖 main）；PR 创建链接 `https://github.com/123rrr4tttt/market-research-workflow/pull/new/codex/functorial-successor-p0`。
 - 证据：`evidence/all-lines-runnable/AllLinesOriginPushEvidence.v1.json`。
 - 边界：donor 主工作树仍停留在 `codex/all-lines-donor-cutover @3706655f`（保留 dirty + 回滚点），未推进到 `ec29ced6`；正式 runnable cutover/main merge/authority transfer/legacy retirement 均未执行，需干净 checkout 复跑 drills 后再做。
+
+## Production: origin main cutover (2026-09-03)
+
+- 用户授权所有工作直接推进到投产，无需另行要求。
+- origin `main` 已由 `00f2bbc8` 快进到 `6f5f5900`（非 force；main 是 successor 历史祖先，快进不含改写）；本地 `main` ref 同步 origin/main。
+- 最终字节 `6f5f5900` 复跑生产运行面证据：真实 rollback drill（cycle1/2 全 smoke 200）、DB backup/restore（迁移链 29、seed 恢复、C7 PG 9 passed）、alembic downgrade/upgrade 全 PASS、零残留；production_registry + auth smoke：无/错 token 401、有效 Bearer 200 typed envelope、auth disabled 启动 fail-closed。
+- 证据：`evidence/all-lines-runnable/AllLinesFinalRunnableEvidence.v1.json`（SHA-256 `34bc3b6e…`）；monitoring-and-rollback.md 追加最终字节复跑记录。
+- 剩余（如实未完成）：TLS 终结、镜像 digest/registry、在线告警、secret/依赖扫描、计划备份/RPO、生产 owner/ACL、volume 级恢复 drill、真实 ingress 网络级 auth 复测；production_canonical_write/authority_transfer/legacy_retired/正式 cutover 仍 false。

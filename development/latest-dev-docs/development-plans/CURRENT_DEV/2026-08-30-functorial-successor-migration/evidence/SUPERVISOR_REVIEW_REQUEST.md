@@ -405,3 +405,9 @@ SUPERVISOR_REVIEW_REQUEST
 - 已 push origin 新分支：`codex/functorial-successor-p0`（commit `ec29ced6`；非 force；未覆盖 main）；PR 链接 `https://github.com/123rrr4tttt/market-research-workflow/pull/new/codex/functorial-successor-p0`。
 - 证据：`evidence/all-lines-runnable/AllLinesGapBackendProductionWiring.v1.json`、`AllLinesGapFrontendWiring.v1.json`、`AllLinesItem04CutoverDrillsEvidence.v1.json`、`AllLinesGapEvidenceRebind.v1.json`、`AllLinesOriginPushEvidence.v1.json`。
 - 边界：正式 runnable cutover/main merge/authority transfer/legacy retirement 未执行；donor 仍停 `@3706655f` 保留 dirty 与回滚点；部署环境项（TLS/digest/告警/扫描/RPO）如实保留待部署环境处理。
+
+## Production: origin main cutover + final runnable evidence (2026-09-03)
+
+- 用户授权所有工作推进到投产；origin `main` 已快进到 `6f5f5900`（本地 main 同步）。
+- 最终字节复跑（`AllLinesFinalRunnableEvidence.v1.json`，SHA `34bc3b6e…`）：rollback drill、backup/restore、downgrade/upgrade 全 PASS 零残留；production_registry+auth smoke 401/200/fail-closed 验证通过。
+- 边界：production_canonical_write/authority_transfer/legacy_retired/正式 cutover 仍 false；TLS/镜像固定/在线告警/secret 扫描/RPO/ingress auth 为部署环境待办，未假完成。

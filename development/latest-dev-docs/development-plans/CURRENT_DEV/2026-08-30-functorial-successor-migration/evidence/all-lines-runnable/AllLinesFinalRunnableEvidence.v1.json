@@ -1,0 +1,278 @@
+{
+  "schema": "mrw.functorial_successor.all_lines.final_runnable_evidence.v1",
+  "version": "1.0.0",
+  "record_id": "all-lines-final-runnable-2026-09-03",
+  "date": "2026-09-03",
+  "generated_at": "2026-09-03T01:36:00+08:00",
+  "generated_by": "production_final_runnable_agent",
+  "status": "PASS_FINAL_RUNNABLE_LOCAL_DISPOSABLE_ONLY",
+  "final_commit": {
+    "commit": "6f5f5900ea9618a02ac45704bf4eb5d95ca9974c",
+    "tree_sha": "28b64ad6447dc8082959ec1c091fba215b2eb948",
+    "branch": "codex/functorial-successor-p0",
+    "origin_main_matches": true,
+    "live_worktree_was_clean": true,
+    "untracked_noise_before": [
+      "main/frontend-modern/pnpm-lock.yaml",
+      "main/frontend-modern/pnpm-workspace.yaml",
+      "main/ops/.rollback_snapshots/"
+    ]
+  },
+  "snapshot": {
+    "directory": "/tmp/mrw-final-runnable-snapshot-B4sM6u",
+    "source": "git archive 6f5f5900 extracted to mktemp directory",
+    "env_source": "main/backend/.env.example copied to main/backend/.env in snapshot only (no real secrets)",
+    "untracked_noise_excluded_count": 0,
+    "bind_mount_dirs_created": [
+      "/tmp/mrw-final-runnable-snapshot-B4sM6u/信息源库",
+      "/tmp/mrw-final-runnable-snapshot-B4sM6u/repo/main/logs"
+    ]
+  },
+  "drill1_rollback": {
+    "wrapper_attempt": {
+      "command": "COMPOSE_PROJECT_NAME=mrw-final-runnable ./scripts/docker-deploy.sh rollback-drill --skip-preflight --profile modern-ui",
+      "exit_code": 1,
+      "reason": "start-all non-interactive host-port check fails on 5432 (Homebrew PostgreSQL) before any container starts; containers_started=0",
+      "limitation_recorded": true
+    },
+    "equivalent_compose_steps": {
+      "project": "mrw-final-runnable",
+      "compose_file": "main/ops/docker-compose.yml",
+      "override_file": "/tmp/mrw-final-runnable-ports-override.yml",
+      "override_meaning": "db/es/redis host ports removed (!override []); backend 8000 and frontend-modern 5174 remain host-exposed",
+      "profile": "modern-ui",
+      "services": [
+        "db",
+        "es",
+        "redis",
+        "backend",
+        "celery-worker",
+        "frontend-modern"
+      ],
+      "preflight_equivalent": {
+        "command": "COMPOSE_PROJECT_NAME=mrw-final-runnable docker compose -f main/ops/docker-compose.yml -f /tmp/mrw-final-runnable-ports-override.yml --profile modern-ui config -q",
+        "exit_code": 0
+      }
+    },
+    "cycle1": {
+      "start_command": "docker compose ... up -d --build db es redis backend celery-worker frontend-modern",
+      "start_exit_code": 0,
+      "containers": [
+        {"name": "mrw-final-runnable-db-1", "status": "Up (healthy)"},
+        {"name": "mrw-final-runnable-es-1", "status": "Up (healthy)"},
+        {"name": "mrw-final-runnable-redis-1", "status": "Up"},
+        {"name": "mrw-final-runnable-backend-1", "status": "Up (healthy)"},
+        {"name": "mrw-final-runnable-celery-worker-1", "status": "Up (healthy)"},
+        {"name": "mrw-final-runnable-frontend-modern-1", "status": "Up"}
+      ],
+      "smoke": [
+        {"label": "GET /api/v1/health", "http_code": 200, "summary": "status=ok provider=openai env=dev"},
+        {"label": "GET /api/v1/health/deep", "http_code": 200, "summary": "status=ok database=ok database_pool=ok elasticsearch=ok"},
+        {"label": "POST /api/v1/successor-runtime/v2/queries", "http_code": 200, "summary": "status=ok cells C9.1/C9.2 INSTALLED no_postgres_write=true"},
+        {"label": "GET /api/v1/agent-batch/executor/health (legacy)", "http_code": 200, "summary": "status=ok"},
+        {"label": "GET http://localhost:5174/", "http_code": 200, "summary": "HTML index 878 bytes"},
+        {"label": "ES cluster health via docker exec", "http_code": 200, "summary": "cluster_status=green 1 node"}
+      ]
+    },
+    "stop_between_cycles": {
+      "command": "docker compose ... down --remove-orphans (volumes retained)",
+      "exit_code": 0,
+      "containers_residual": 0,
+      "networks_residual": 0,
+      "volumes_retained": 3
+    },
+    "cycle2": {
+      "start_command": "docker compose ... up -d db es redis backend celery-worker frontend-modern",
+      "start_exit_code": 0,
+      "ready_note": "all healthy/up observed within approximately 15 seconds after start",
+      "containers": [
+        {"name": "mrw-final-runnable-db-1", "status": "Up (healthy)"},
+        {"name": "mrw-final-runnable-es-1", "status": "Up (healthy)"},
+        {"name": "mrw-final-runnable-redis-1", "status": "Up"},
+        {"name": "mrw-final-runnable-backend-1", "status": "Up (healthy)"},
+        {"name": "mrw-final-runnable-celery-worker-1", "status": "Up (healthy)"},
+        {"name": "mrw-final-runnable-frontend-modern-1", "status": "Up"}
+      ],
+      "smoke": [
+        {"label": "GET /api/v1/health", "http_code": 200},
+        {"label": "GET /api/v1/health/deep", "http_code": 200, "summary": "status=ok database=ok elasticsearch=ok"},
+        {"label": "POST /api/v1/successor-runtime/v2/queries", "http_code": 200},
+        {"label": "GET http://localhost:5174/", "http_code": 200}
+      ]
+    },
+    "teardown": {
+      "command": "docker compose ... down -v --remove-orphans",
+      "exit_code": 0,
+      "containers_residual": 0,
+      "networks_residual": 0,
+      "volumes_residual": 0,
+      "images_retained": [
+        "mrw-final-runnable-backend:latest 3e01f63b99b3",
+        "mrw-final-runnable-celery-worker:latest 5129a464d5bd",
+        "mrw-final-runnable-frontend-modern:latest 8dc65e724970"
+      ]
+    }
+  },
+  "drill2_backup_restore": {
+    "database": "mrw_final_drill_backup_20260903",
+    "alembic_upgrade_head": {"exit_code": 0, "version_num": "20260831_000002"},
+    "seed_row": {
+      "table": "public.project_scope_registry",
+      "project_key": "final-runnable-drill",
+      "resolved_schema": "mrw_p_final_runnable_drill",
+      "registry_revision": 1,
+      "incarnation": "scope-inc-final-drill",
+      "state": "ACTIVE",
+      "scope_digest": "2242a8d154d9ec12ffd04d86e0979a779627c7814bfe16ce7355662895b5c800",
+      "pre_dump_count": 1
+    },
+    "dump": {
+      "format": "custom",
+      "file": "/tmp/mrw_final_drill_backup_20260903.pgc",
+      "sha256": "7136b4a8f9174412a826242deb4f037d7ef1252f149e773037b52b5dbbed05c8"
+    },
+    "restore": {
+      "database_dropped_and_recreated": true,
+      "command": "pg_restore -h localhost -d <db> --no-owner --no-privileges --exit-on-error <dump>",
+      "exit_code": 0,
+      "restored_version_num": "20260831_000002",
+      "restored_seed_count": 1,
+      "restored_row": "final-runnable-drill|mrw_p_final_runnable_drill|ACTIVE"
+    },
+    "c7_focused_test": {
+      "file": "tests/successor_runtime/test_c7_canonical_write_projector_postgres.py",
+      "exit_code": 0,
+      "passed": 9,
+      "skipped": 0,
+      "failed": 0,
+      "seconds": 1.27,
+      "notes": "test owns and drops its disposable database; post-run pg_database snapshot equals baseline"
+    },
+    "teardown": {"database_dropped": true, "zero_residual": true}
+  },
+  "drill3_downgrade": {
+    "database": "mrw_final_drill_downgrade_20260903",
+    "upgrade_head": {"exit_code": 0, "version_num": "20260831_000002", "public_successor_tables": 23},
+    "downgrade_to_pre_candidate": {
+      "command": "alembic downgrade 20260402_000004",
+      "exit_code": 0,
+      "version_num": "20260402_000004",
+      "public_successor_tables": 0
+    },
+    "re_upgrade_head": {"exit_code": 0, "version_num": "20260831_000002", "public_successor_tables": 23},
+    "teardown": {"database_dropped": true, "zero_residual": true}
+  },
+  "production_registry_smoke": {
+    "database": "mrw_final_runnable_prod_20260903",
+    "setup": {
+      "alembic_upgrade_head": {"exit_code": 0, "version_num": "20260831_000002"},
+      "seed_row": {
+        "table": "public.project_scope_registry",
+        "project_key": "final-runnable-prod",
+        "resolved_schema": "mrw_p_final_runnable_prod",
+        "registry_revision": 1,
+        "incarnation": "scope-inc-final-prod",
+        "state": "ACTIVE",
+        "scope_digest": "e7bd7d36589438a8602b7f00e27b4751b64bba045c45ca1e7c335d8860ddee87"
+      }
+    },
+    "env_used": {
+      "SUCCESSOR_MOUNT_MODE": "production_registry",
+      "SUCCESSOR_PRODUCTION_REQUIRES_AUTH": "true",
+      "CODEX_AUTH_ENABLED": "true",
+      "CODEX_AUTH_TOKENS": "dev-final-runnable-token (test value only, no real secret)",
+      "CODEX_AUTH_PROTECTED_PREFIXES": "/api/v1/successor-runtime",
+      "ACTIVE_PROJECT_KEY": "final-runnable-prod",
+      "DATABASE_URL": "postgresql+psycopg2://localhost/mrw_final_runnable_prod_20260903"
+    },
+    "scenario_1_ambient_host_session": {
+      "note": "With the host Codex token-sink/CLI session left enabled, the middleware treats the ambient session as authenticated; an unauthenticated request returned HTTP 200. Recorded for accuracy, not used as the bearer-auth evidence.",
+      "no_token_http": 200
+    },
+    "scenario_2_bearer_auth_isolation": {
+      "env_additions": {
+        "CODEX_OAUTH_ENABLED": "false",
+        "CODEX_OAUTH_TOKEN_SINK_ENABLED": "false",
+        "CODEX_CLI_AUTH_PATH": "/tmp/does-not-exist-final-runnable-auth.json"
+      },
+      "no_token_http": 401,
+      "wrong_token_http": 401,
+      "valid_token_http": 200,
+      "valid_token_body": {
+        "status": "ok",
+        "error_code": null,
+        "meta_project_key": "final-runnable-prod",
+        "scope_digest": "e7bd7d36589438a8602b7f00e27b4751b64bba045c45ca1e7c335d8860ddee87",
+        "registry_revision": 1,
+        "no_postgres_write": true
+      },
+      "no_503_observed": true
+    },
+    "scenario_3_fail_closed_negative": {
+      "env": {
+        "SUCCESSOR_MOUNT_MODE": "production_registry",
+        "SUCCESSOR_PRODUCTION_REQUIRES_AUTH": "true",
+        "CODEX_AUTH_ENABLED": "false"
+      },
+      "process_exit_code": 1,
+      "error_class": "pydantic_core._pydantic_core.ValidationError",
+      "error_snippet": "successor_mount_mode=production_registry requires codex_auth_enabled=true when successor_production_requires_auth=true",
+      "fail_closed_effective": true
+    },
+    "teardown": {"database_dropped": true, "zero_residual": true}
+  },
+  "verification": {
+    "final_bytes": "All drills and smoke executed from git archive of 6f5f5900; snapshot contained zero untracked pnpm files",
+    "no_commit_no_push": true,
+    "donor_worktree_untouched": true,
+    "docs_updated": "production-readiness/monitoring-and-rollback.md section 7 (final-byte rerun record only; unresolved environment gaps kept unresolved)",
+    "exit_codes": {
+      "drill1_wrapper": 1,
+      "drill1_compose_config": 0,
+      "drill1_cycle1_start": 0,
+      "drill1_stop_between_cycles": 0,
+      "drill1_cycle2_start": 0,
+      "drill1_teardown_down_v": 0,
+      "drill2_alembic_upgrade": 0,
+      "drill2_pg_dump": 0,
+      "drill2_pg_restore": 0,
+      "drill2_c7_focused_test": 0,
+      "drill3_alembic_upgrade": 0,
+      "drill3_alembic_downgrade": 0,
+      "drill3_alembic_reupgrade": 0,
+      "production_smoke_valid_token": 200,
+      "production_fail_closed_process": 1
+    }
+  },
+  "teardown": {
+    "pg_databases_equal_baseline": true,
+    "pg_roles_equal_baseline": true,
+    "docker_containers_networks_volumes_residual": "0/0/0",
+    "disposable_residual": 0
+  },
+  "authority_ceiling": {
+    "cutover_runnable": "local_and_disposable_only",
+    "production_canonical_write": false,
+    "legacy_retired": false,
+    "authority_transfer": false,
+    "cutover": false,
+    "live_provider": false,
+    "candidate_promotion": false
+  },
+  "remaining_env_bound_gaps": [
+    "TLS termination at production ingress not present (drill compose serves container-internal HTTP)",
+    "Image tags are latest/non-digest; local builds have no registry tag/push path or digest pinning",
+    "Prometheus/Alertmanager online deployment and alert rules not present; /metrics is only a scrape endpoint",
+    "Repository-level secret scanning and dependency vulnerability gates not implemented as blocking production gates",
+    "Scheduled backup/RPO automation and monitoring baseline ownership not established",
+    "DB restore used --no-owner/--no-privileges on disposable local databases; production owner/ACL and volume-level restore drill remain unexecuted",
+    "Bearer 401 semantics verified in an isolated process with ambient Codex sessions disabled; real network-level ingress auth retest remains environment-bound",
+    "docker-deploy.sh rollback-drill remains unusable on this host while 5432 is occupied; equivalent compose sequence is the documented local rehearsal path"
+  ],
+  "risks": [
+    "All evidence is local/disposable only and was produced on a git-archive snapshot of the final bytes, not on production infrastructure",
+    "No provider calls, production canonical writes, authority transfer, legacy retirement, origin push, or production cutover were performed",
+    "First smoke run recorded that an ambient host Codex session is treated as authenticated when token-sink/CLI auth is enabled; production ingress must decide whether that semantic is acceptable",
+    "Drill cycles retained compose volumes between cycles and deleted them only at final down -v; this rehearses stop/start and volume recreation, not live production data migration"
+  ]
+}
