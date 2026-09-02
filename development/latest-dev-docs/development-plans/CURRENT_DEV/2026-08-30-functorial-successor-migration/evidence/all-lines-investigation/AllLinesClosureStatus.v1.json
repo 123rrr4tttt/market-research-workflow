@@ -1,0 +1,120 @@
+{
+  "schema": "mrw.functorial_successor.all_lines_closure_status.v1",
+  "version": "1.0.0",
+  "record_id": "AllLinesClosureStatus.v1",
+  "date": "2026-09-02",
+  "generated_at_utc": "2026-09-02T15:36:14Z",
+  "status": "ALL_LINES_HISTORICAL_STATE_SUPERSEDED_BY_0_UB_CLOSURE_CHAIN_LOCAL_ONLY_NOT_PROMOTED",
+  "method": "Records an inline amendment-level supersede marker so the historical 16 UNASSIGNED_BLOCKER freeze state, 15 UNMAPPED LegacyVsMovementGap state and 16 UNASSIGNED_BLOCKER dispositions recommendation are not mistaken for current all-lines movement state. Current-state authority is carried by AllLinesSuccessorMovementInventory.v1.json plus the S2/S2b/S2c/FinalRebind directed closure chain.",
+  "scope": "Additive status evidence in evidence/all-lines-investigation. No frozen source, LegacyVsMovementGap, dispositions amendment, inventory disposition, production code, spec/manifest or 03/04/SUPERVISOR file was changed.",
+  "worktree": {
+    "root": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0",
+    "branch": "codex/functorial-successor-p0",
+    "head_sha": "38acdee8862af0971ca063507b8355812894fbce",
+    "committed": false,
+    "dirty_worktree_ownership_preserved": true
+  },
+  "authority_ceiling": {
+    "authority_transfer": false,
+    "business_authority_migrated": false,
+    "canonical_write": false,
+    "candidate_created": false,
+    "credential_read": false,
+    "cutover": false,
+    "executor": false,
+    "external_delivery": false,
+    "legacy_retired": false,
+    "live_provider": false,
+    "promotion": false,
+    "scheduler": false,
+    "successor_claim_enabled_for_all_lines": false
+  },
+  "historical_state_records": [
+    {
+      "artifact": "AllLinesMigrationScope.freeze.v1.json",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesMigrationScope.freeze.v1.json",
+      "sha256": "d983a922e5c9724922506141c1d25d08a8aec278359bdc4f85ceb6dbf717e756",
+      "historical_state": "freeze_scope.line_disposition_counts.UNASSIGNED_BLOCKER = 16 for 18 frozen business-line records",
+      "role": "frozen scope baseline; its line-state counter is historical and is superseded for current-state reading"
+    },
+    {
+      "artifact": "LegacyVsMovementGap.v1.json",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/LegacyVsMovementGap.v1.json",
+      "sha256": "401699e5237f776a72dc736c127e5d9d6ad4911d30fb381b583805ddc02c7af7",
+      "historical_state": "summary_counts.unmapped_gap = 15",
+      "role": "legacy-vs-movement cross-check observation baseline; unmapped-gap rows now have successor movement/gap disposition coverage in the inventory and S2b/S2c closure records"
+    },
+    {
+      "artifact": "AllLinesDispositions.amendment.v1.json",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesDispositions.amendment.v1.json",
+      "sha256": "e9f674e056cd4834dcd5c5c9f3b2fb0e28f2305b67f3a860bc7d8b48238fff78",
+      "historical_state": "summary.disposition_counts_after_recommendation.UNASSIGNED_BLOCKER = 16",
+      "role": "supervisor-adjudication baseline; the named owners and successor targets remain binding while the UNASSIGNED_BLOCKER line state is superseded by later closure records"
+    }
+  ],
+  "superseding_closure_chain": [
+    {
+      "artifact": "AllLinesSuccessorMovementInventory.v1.json",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesSuccessorMovementInventory.v1.json",
+      "sha256": "08fad9f59a5c588ca86085410efc792d33114903d4723038f50f46c0f858510d",
+      "role": "current 20-row movement inventory: 18 business-line movements and 2 supplementary gap movements, all REIMPLEMENTED_AS, 0 UNASSIGNED_BLOCKER, 2 NON_BLOCKER_RECORD rows"
+    },
+    {
+      "artifact": "AllLinesS2Closure.amendment.v1.json",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesS2Closure.amendment.v1.json",
+      "sha256": "4e55bf96f482d56217b2142a492f0bab4c545149702b3e7c325dec20bd1e31bf",
+      "role": "directed closure of ALL-SM-010/011/012/013 from UNASSIGNED_BLOCKER to REIMPLEMENTED_AS"
+    },
+    {
+      "artifact": "AllLinesS2bClosure.amendment.v1.json",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesS2bClosure.amendment.v1.json",
+      "sha256": "1c9e92156579c7cf857bf08cddefa2cb124f3c20b72de4f7b1ded35eff1a6f77",
+      "role": "directed closure of ALL-SM-001/002/009 from UNASSIGNED_BLOCKER to REIMPLEMENTED_AS"
+    },
+    {
+      "artifact": "AllLinesS2cClosure.amendment.v1.json",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesS2cClosure.amendment.v1.json",
+      "sha256": "1244e285dda1ca9bdfa9b0eafe5cf95c134dcc03d09e3688bcd60d7501fd9d70",
+      "role": "directed closure of ALL-SM-003/004/005/006/008/014/016/017/018 and ALL-GAP-001/002 to REIMPLEMENTED_AS, reaching 0 UNASSIGNED_BLOCKER"
+    },
+    {
+      "artifact": "AllLinesFinalRebind.amendment.v1.json",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesFinalRebind.amendment.v1.json",
+      "sha256": "92e69d9ad206a05a195005de52131612ec0f7ef1d5ada13549380f72282cb295",
+      "role": "exact P1P3/capability-spec/manifest binding SHA rebind after S2c; final link of the directed current-state closure chain"
+    }
+  ],
+  "supporting_records": [
+    {
+      "artifact": "AllLinesP1Closure.addendum.v1.json",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesP1Closure.addendum.v1.json",
+      "sha256": "c7bc77eeaca3e88e338c4381344dfd23fce3fe96c4088cad6f3fa3bc1f4fe24c",
+      "role": "machine-readable decision owner/reason/normative refs for S2c EXPLICITLY_REJECTED and DECLARED_LOSS components"
+    },
+    {
+      "artifact": "AllLinesClosureStatus.v1.json",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesClosureStatus.v1.json",
+      "sha256": null,
+      "role": "this supersede marker; self SHA is sealed by the receiving supervisor pass"
+    }
+  ],
+  "closure_counts": {
+    "frozen_historical_unassigned_blockers": 16,
+    "current_business_line_unassigned_blockers": 0,
+    "current_supplementary_gap_unassigned_blockers": 0,
+    "current_non_blocker_business_line_records": 2,
+    "closed_business_line_records_from_frozen_blockers": 16,
+    "closed_supplementary_gap_records": 2,
+    "s2_closed_movement_records": 4,
+    "s2b_closed_movement_records": 3,
+    "s2c_closed_movement_records": 11
+  },
+  "non_claims": [
+    "Supersession is a current-state marker only; it does not alter or unfreeze the byte-frozen freeze JSON/MD/receipt, LegacyVsMovementGap, or the dispositions amendment.",
+    "0 UNASSIGNED_BLOCKER is local movement-inventory evidence and does not grant promotion, candidate acceptance, canonical write, authority transfer, live-provider, cutover or legacy-retirement authority."
+  ],
+  "risks": [
+    "All historical state documents remain byte-identical; consumers must read this status marker before using their line-state counters as current state.",
+    "The P1 addendum and this status file are new evidence, not reviewed by the independent all-lines double-gate review that recorded the original P1 findings."
+  ]
+}

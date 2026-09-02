@@ -1,0 +1,130 @@
+{
+  "schema": "mrw.functorial_successor.all_lines.s2b_closure.amendment.v1",
+  "version": "1.0.0",
+  "record_id": "AllLinesS2bClosure.amendment.v1",
+  "date": "2026-09-02",
+  "generated_at_utc": "2026-09-02T14:52:00Z",
+  "status": "S2B_CELL_EXTENSIONS_CLOSED_LOCAL_ONLY_NOT_PROMOTED",
+  "method": "Three successor cell extensions were implemented and wired into the C7/C8/C9 family assemblies: C7.2 ingest-submission registry typed port/readback, C9.1/C9.3 seven-line evidence-matrix read-only projection and C8.3 report-export/token-state typed capability. Focused S2b tests plus assembly regressions were run, and inventory rows ALL-SM-001/002/009 were reclassified from UNASSIGNED_BLOCKER to REIMPLEMENTED_AS with code and test acceptance traces. No canonical/live/provider/cutover authority is granted and no commit was created.",
+  "scope": "Additive S2b closure record for ALL-SM-001, ALL-SM-002 and ALL-SM-009. It updates only evidence/all-lines-investigation/AllLinesSuccessorMovementInventory.v1.json and adds this amendment. Frozen scope bytes, capability specs, manifests, 03/04/SUPERVISOR and the source checkout are unchanged.",
+  "worktree": {
+    "root": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0",
+    "branch": "codex/functorial-successor-p0",
+    "head_sha": "38acdee8862af0971ca063507b8355812894fbce",
+    "committed": false,
+    "dirty_worktree_ownership_preserved": true
+  },
+  "authority_ceiling": {
+    "canonical_write": false,
+    "live_provider": false,
+    "external_delivery": false,
+    "cutover": false,
+    "authority_transfer": false,
+    "scheduler": false,
+    "executor": false,
+    "credential_read": false,
+    "candidate_created": false,
+    "legacy_retired": false
+  },
+  "summary": {
+    "closure_count": 3,
+    "previous_business_line_blockers": 12,
+    "remaining_business_line_blockers": 9,
+    "reimplemented_business_lines": 9,
+    "unassigned_movement_records": 11,
+    "s2b_focused_tests": "48 passed",
+    "s2b_and_assembly_regression_tests": "93 passed",
+    "dependency_lint_ok": true,
+    "collection_ok": true
+  },
+  "closure_records": [
+    {
+      "movement_id": "ALL-SM-001",
+      "business_line_id": "BL-business-lines-worker-readback",
+      "owner_cells": ["C9.1", "C9.3"],
+      "previous_disposition": "UNASSIGNED_BLOCKER",
+      "disposition": "REIMPLEMENTED_AS",
+      "closing_status": "CLOSED",
+      "target_realization": [
+        "main/backend/app/successor_runtime/capabilities/c9_evidence_matrix.py",
+        "main/backend/app/successor_runtime/substrate/projections/evidence_matrix.py",
+        "main/backend/app/successor_runtime/assembly/c9_assembly.py"
+      ],
+      "acceptance_trace": [
+        "main/backend/app/successor_runtime/substrate/projections/evidence_matrix.py::C9EvidenceMatrixRouteHandler.execute",
+        "main/backend/tests/successor_runtime/test_s2b_c9_evidence_matrix.py::test_s2b_c9_canonical_keys_status_and_terminal_mapping",
+        "main/backend/tests/successor_runtime/test_s2b_c9_evidence_matrix.py::test_s2b_c9_passed_requires_decidable_worker_readback",
+        "main/backend/tests/successor_runtime/test_s2b_c9_evidence_matrix.py::test_s2b_c9_route_handler_binding_drift_and_success",
+        "main/backend/tests/successor_runtime/test_s2b_cell_extension_wiring.py::test_s2b_c9_evidence_matrix_route_wired_in_c9_assembly"
+      ],
+      "authority_note": "Seven-line matrix is a read-only typed projection with completion_claim=False; no DB/scheduler/executor/canonical-write authority is granted"
+    },
+    {
+      "movement_id": "ALL-SM-002",
+      "business_line_id": "BL-ingest-submission-worker-readback",
+      "owner_cells": ["C7.2"],
+      "previous_disposition": "UNASSIGNED_BLOCKER",
+      "disposition": "REIMPLEMENTED_AS",
+      "closing_status": "CLOSED",
+      "target_realization": [
+        "main/backend/app/successor_runtime/capabilities/ingest_c7_registry.py",
+        "main/backend/app/successor_runtime/substrate/postgres/ingest_c7_registry_handler.py",
+        "main/backend/app/successor_runtime/assembly/c7_assembly.py"
+      ],
+      "acceptance_trace": [
+        "main/backend/app/successor_runtime/substrate/postgres/ingest_c7_registry_handler.py::C7IngestRegistryRuntimeHandler.execute",
+        "main/backend/tests/successor_runtime/test_s2b_c7_ingest_registry.py::test_s2b_c7_reserve_first_duplicate_and_hash_conflict",
+        "main/backend/tests/successor_runtime/test_s2b_c7_ingest_registry.py::test_s2b_c7_store_only_uses_successor_registry_table",
+        "main/backend/tests/successor_runtime/test_s2b_c7_ingest_registry.py::test_s2b_c7_handler_executes_reserve_command",
+        "main/backend/tests/successor_runtime/test_s2b_cell_extension_wiring.py::test_s2b_c7_2_ingest_registry_handler_wired_in_c7_assembly"
+      ],
+      "authority_note": "Registry reserve/complete/forget is successor-only typed readback; same-key different-request conflict is fail-closed and no canonical/live/legacy write authority is granted"
+    },
+    {
+      "movement_id": "ALL-SM-009",
+      "business_line_id": "BL-llm-report-export-token-state",
+      "owner_cells": ["C8.3"],
+      "previous_disposition": "UNASSIGNED_BLOCKER",
+      "disposition": "REIMPLEMENTED_AS",
+      "closing_status": "CLOSED",
+      "target_realization": [
+        "main/backend/app/successor_runtime/capabilities/c8_report_export.py",
+        "main/backend/app/successor_runtime/capabilities/c8_report_export_token_state.py",
+        "main/backend/app/successor_runtime/substrate/postgres/c8_export_token_state_handler.py",
+        "main/backend/app/successor_runtime/assembly/c8_assembly.py"
+      ],
+      "acceptance_trace": [
+        "main/backend/app/successor_runtime/substrate/postgres/c8_export_token_state_handler.py::C8_3ExportTokenStateRuntimeHandler.execute",
+        "main/backend/tests/successor_runtime/test_s2b_c8_export_token_state.py::test_s2b_c8_claim_is_exactly_once_and_crash_recovery_is_plan_only",
+        "main/backend/tests/successor_runtime/test_s2b_c8_export_token_state.py::test_s2b_c8_degraded_store_fails_closed_without_claim",
+        "main/backend/tests/successor_runtime/test_s2b_c8_export_token_state.py::test_s2b_c8_records_never_contain_credentials_or_full_tokens",
+        "main/backend/tests/successor_runtime/test_s2b_c8_export_token_state.py::test_s2b_c8_handler_executes_token_state_command_with_exact_binding",
+        "main/backend/tests/successor_runtime/test_s2b_cell_extension_wiring.py::test_s2b_c8_3_export_token_state_handler_wired_in_c8_assembly"
+      ],
+      "authority_note": "Export/token state stores actor digest and metadata only; raw secrets/full tokens never enter records and every authority flag stays false"
+    }
+  ],
+  "inventory_sha256": "cfadcea14f5bdc923cff84459d1e440ed31c6adbed4bddc1d911664dadad2cc7",
+  "changed_files_sha256": {
+    "main/backend/app/successor_runtime/capabilities/ingest_c7_registry.py": "8bde399a7cc5fda883f8312c29de8236fed26b9727c4d9154290b0910344a19a",
+    "main/backend/app/successor_runtime/substrate/postgres/ingest_c7_registry_handler.py": "b7fbf9c8bfda35a8c1cb724594a6e43ab023c58f38371f784f6c932adaffcf78",
+    "main/backend/app/successor_runtime/capabilities/c9_evidence_matrix.py": "90a81d9b828c50c69683d7b87269996542fc89f405206b1edd37acae46845354",
+    "main/backend/app/successor_runtime/substrate/projections/evidence_matrix.py": "1946227bcd2f5d18482b8c53d6e8bf93e47cc1d5ab4a5b70518566d7f923f642",
+    "main/backend/app/successor_runtime/capabilities/c8_report_export.py": "d90864020b1d47c5f8260f2334619c96cab998b30cb3e4e7a994b98b2a3eed30",
+    "main/backend/app/successor_runtime/capabilities/c8_report_export_token_state.py": "3aba3b6779e410eb7d1e0ca4f3fcff0955a257ce8008a320a9da65c3c91999c1",
+    "main/backend/app/successor_runtime/substrate/postgres/c8_export_token_state_handler.py": "8ff971933c94a874b83df4501e06296b37dd23b742748eb8abc81eb1524f4462",
+    "main/backend/app/successor_runtime/assembly/base.py": "aa7903cbad9c3a1359b4b92f48bc56b059c6bc341659eadaed37cf2e12ada7ed",
+    "main/backend/app/successor_runtime/assembly/c7_assembly.py": "4d69f161215f81ed90190613284ea10209add8816b1a767554cb73efb7b08769",
+    "main/backend/app/successor_runtime/assembly/c8_assembly.py": "44d7681042bb898427dfe87dd7e4bd71304ba084cb0ce47b38470eba7fa2442b",
+    "main/backend/app/successor_runtime/assembly/c9_assembly.py": "d772820073f938be1bb6819f505d6bb77284c2e03ebb08da5d1a25b1f2821bd7",
+    "main/backend/tests/successor_runtime/test_s2b_c7_ingest_registry.py": "5eefd9423f04350f8c05dfc49b025e4fc35b8bdef18c5c57c63df187b923022b",
+    "main/backend/tests/successor_runtime/test_s2b_c9_evidence_matrix.py": "e04d352f3fa6108bfdbd79eb5e30d316c0db966452672bd6829f069e9e107fa0",
+    "main/backend/tests/successor_runtime/test_s2b_c8_export_token_state.py": "748fa00df0d8218c5ffafa304b931d268213edd9ed55dd622499b44267319175",
+    "main/backend/tests/successor_runtime/test_s2b_cell_extension_wiring.py": "5faa544a9dd95639ae43b2e30502ab7ecd0f1dc3dbb9452e5c4338fe75552ed9"
+  },
+  "risks": [
+    "S2b closure is local-only implementation evidence; no promotion, canonical/live provider, cutover or legacy-retirement claim is made",
+    "Successor stores are typed in-process models of successor-only tables; real PostgreSQL handler execution and live export delivery remain later authority milestones",
+    "C9 evidence matrix reads typed runtime/readback records only; real scheduled artifacts or real-backend e2e runs were not executed"
+  ]
+}

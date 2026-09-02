@@ -1,0 +1,180 @@
+{
+  "schema": "mrw.functorial_successor.i2_exact_candidate_final_review.v1",
+  "version": "3.0.0",
+  "generated_at": "2026-09-02",
+  "reviewer": "independent-i2-exact-candidate-final-review-v3",
+  "verdict": "BLOCK",
+  "verdict_scope": "candidate bytes acceptance only; does not authorize live provider, external delivery, cutover, authority transfer, or production canonical write",
+  "candidate": {
+    "commit": "a48acbee37cec9783d36158458894c2b0a05ba4d",
+    "tree": "6315e00286ed201962b03ebfe63b1117cd835d43",
+    "branch": "codex/functorial-successor-p0"
+  },
+  "review_worktrees": [
+    {"path": "/tmp/i2_candidate_v3_3470000", "mode": "detached-read-only-review", "role": "primary candidate worktree: commit/tree/evidence inspection and combined pytest reruns"},
+    {"path": "/tmp/i2_v3_freeze_9304000", "mode": "detached-read-only-review", "role": "freeze SHA lane"},
+    {"path": "/tmp/i2_v3_pytest_2971000", "mode": "detached-read-only-review", "role": "pytest suite lane"},
+    {"path": "/tmp/i2_v3_semcap_7061000", "mode": "detached-read-only-review", "role": "semantic movement + capability spec lane"},
+    {"path": "/tmp/i2_v3_c7pg_20260902_01", "mode": "detached-read-only-review", "role": "C7 canonical write/admission PostgreSQL lane"},
+    {"path": "/tmp/i2_v3_frontend_1788312711_18496", "mode": "detached-read-only-review", "role": "frontend tsc/playwright lane"}
+  ],
+  "checks": [
+    {
+      "id": "freeze_members_immutable",
+      "status": "PASS",
+      "detail": "16/16 frozen_contract_family members matched sha256/bytes/lines against 02 manifest; ALL_MATCH"
+    },
+    {
+      "id": "i1_suite_official",
+      "status": "PASS",
+      "detail": "env -u SUCCESSOR_TEST_DATABASE_URL -u SUCCESSOR_DATABASE_URL python3.11 -m pytest -q -p no:cacheprovider tests/successor_runtime -k i1 = 55 passed / 1461 deselected / 0 failed; exit 0; no collection error"
+    },
+    {
+      "id": "successor_router_mount_test",
+      "status": "PASS",
+      "detail": "test_api_successor_runtime_mount.py = 15 passed; mount+c9 closure = 35 passed; -k 'i1 or api_successor_runtime or c9_movement_closure' = 128 passed / 1388 deselected; app/api/__init__.py sha aa164ad37bbe13fee08cb15492453f24f5144de4318fdea0e6818ca86b6b297b matches I1RouteMountEvidence claim"
+    },
+    {
+      "id": "p0b_schema_contract",
+      "status": "PASS",
+      "detail": "test_p0b_schema_contract.py = 6 passed, exit 0; candidate includes migrations/versions/_snapshots/20260830_000001_successor_schema.py"
+    },
+    {
+      "id": "full_non_pg_successor_runtime_official",
+      "status": "PASS",
+      "detail": "env -u SUCCESSOR_TEST_DATABASE_URL -u SUCCESSOR_DATABASE_URL python3.11 -m pytest -q -p no:cacheprovider tests/successor_runtime = 1399 passed / 117 skipped / 0 failed; exit 0; no SUCCESSOR_* env vars were set in the environment"
+    },
+    {
+      "id": "semantic_movement_generator_check",
+      "status": "PASS",
+      "detail": "CHECK_OK 60/0 (inline 40, external_c7 20, exact_blockers 0); exit 0"
+    },
+    {
+      "id": "semantic_movement_validator",
+      "status": "PASS",
+      "detail": "PASS 14/14; evidence_refs resolved 323/323, unresolved 0, unassigned_blocker_count 0; exit 0"
+    },
+    {
+      "id": "capability_spec_cli_30_of_30",
+      "status": "PASS",
+      "detail": "generate_capability_spec_pilots.py --check MATCH 30/30; exit 0 each"
+    },
+    {
+      "id": "c7_canonical_write_projector_pg",
+      "status": "PASS",
+      "detail": "59 passed (9 canonical-write/projector + 50 movement admission) on disposable databases; exit 0; before/after database lists identical; teardown no leftovers"
+    },
+    {
+      "id": "c9_2_frontend_tests",
+      "status": "PASS",
+      "detail": "./node_modules/.bin/tsc -b --pretty false exit 0; playwright focused 60 passed (44 + 16), exit 0; frontend sha fallback NOT_EXECUTED (not needed)"
+    },
+    {
+      "id": "dependency_lint",
+      "status": "PASS",
+      "detail": "check_successor_runtime_dependencies.py ok=true, files_checked=209, function_local_imports_scanned=43, violations=0; exit 0"
+    },
+    {
+      "id": "prior_p0_fix_confirmation",
+      "status": "PARTIAL",
+      "detail": "v1 P0-1/2/3 fixed and byte-confirmed (generator script present, router mounted, alembic snapshot present). v2 P0-1/P0-2 partially fixed: evidence sha claims and run counts now match candidate bytes, route_mounted=true in AssemblyCoverage/RouteMount, I1SuccessorAssembly status updated; but all 7 evidence files still bind parent 1825870a/63bcc270 and I1C8_3 remains route_mounted=false"
+    },
+    {
+      "id": "authority_evidence_consistency",
+      "status": "FAIL",
+      "detail": "All 7 I1 evidence files record head/commit/tree/candidate = 1825870a9623dd256fa075053ab89d786c84b6bd / 63bcc270edf9e880ef04dfeb9413b9c634956bbb, not candidate a48acbee37cec9783d36158458894c2b0a05ba4d / 6315e00286ed201962b03ebfe63b1117cd835d43; I1C8_3DeliveryEvidence route_mounted=false and risks text contradict the mounted candidate; file sha256 claims match candidate bytes; run counts match measured (55/1399/15/6/35/128/59/60/209)"
+    },
+    {
+      "id": "live_provider_boundary_freeze",
+      "status": "PASS",
+      "detail": "LiveProviderBoundaryFreeze.v1.json present; status LIVE_PROVIDER_DIMENSION_FROZEN_AS_BLOCKED; authority all false; candidate null; NO_NETWORK declared"
+    }
+  ],
+  "coverage": {
+    "semantic_movements": {
+      "total": 60,
+      "inline": 40,
+      "external_c7": 20,
+      "unassigned_blocker": 0
+    },
+    "capability_specs": {
+      "total": 30,
+      "cli_check_match": 30
+    },
+    "i1_assembly": {
+      "cells": 30,
+      "installed": 30,
+      "declared_status": "I1_ASSEMBLY_LOCAL_ONLY_CLOSED_30_INSTALLED_NOT_PROMOTED",
+      "route_mounted_flag": true,
+      "note": "I1AssemblyCoverage/I1RouteMountEvidence route_mounted=true, but I1C8_3DeliveryEvidence still false; evidence family internally inconsistent"
+    }
+  },
+  "open_findings": [
+    {
+      "priority": "P0",
+      "id": "P0-1",
+      "title": "7 I1 evidence files bind parent commit, not review candidate",
+      "detail": "I1AssemblyCoverage/I1RollbackEvidence/I1TestEvidence/I1RouteMountEvidence/I1C8_3DeliveryEvidence/I1C7CanonicalWriteEvidence/I1SuccessorAssembly all record head/commit/tree/candidate = 1825870a9623dd256fa075053ab89d786c84b6bd / 63bcc270edf9e880ef04dfeb9413b9c634956bbb, while the review candidate is a48acbee37cec9783d36158458894c2b0a05ba4d / 6315e00286ed201962b03ebfe63b1117cd835d43. Structural note: a file inside the candidate tree cannot contain its own commit/tree hash (self-reference fixed point), so the contract needs an explicit binding convention: evidence generated outside the candidate tree bound to the candidate commit, or a documented source-bound convention. Neither is currently accepted by the contract.",
+      "evidence": "jq scan of the 7 evidence files in the candidate worktree i1-successor-assembly directory; candidate commit/tree from git rev-parse"
+    },
+    {
+      "priority": "P0",
+      "id": "P0-2",
+      "title": "I1C8_3DeliveryEvidence route_mounted=false contradicts candidate",
+      "detail": "Top-level route_mounted=false and risks text 'no app route mounted, no run_once started' contradict the mounted candidate (app/api/__init__.py includes the successor router; mount tests 15/35/128 passed) and I1AssemblyCoverage/I1RouteMountEvidence route_mounted=true. The review rule requires route_mounted=true.",
+      "evidence": "I1C8_3DeliveryEvidence.v1.json route_mounted and risks fields vs candidate mount state"
+    },
+    {
+      "priority": "P1",
+      "id": "P1-1",
+      "title": "I1AssemblyCoverage internal drift",
+      "detail": "Top-level route_mounted=true, but cell owner notes still say 'WP-I1-06 route mounting remains closed' and unresolved_dimensions still lists C9.API_UI_REPORT_PROJECTION unknown cell reference.",
+      "evidence": "I1AssemblyCoverage.v1.json cell owner notes and unresolved_dimensions"
+    },
+    {
+      "priority": "P2",
+      "id": "P2-1",
+      "title": "registry smoke command not self-contained",
+      "detail": "I1TestEvidence.v1.json runs[0] command lacks imports/engine argument as written; carried from v2.",
+      "evidence": "evidence/i1-successor-assembly/I1TestEvidence.v1.json runs[0]"
+    },
+    {
+      "priority": "P2",
+      "id": "P2-2",
+      "title": "unknown C9.API_UI_REPORT_PROJECTION cell reference",
+      "detail": "I1AssemblyCoverage.v1.json unresolved_dimensions lists C9.API_UI_REPORT_PROJECTION not present in the 30-cell inventory; carried from v2.",
+      "evidence": "evidence/i1-successor-assembly/I1AssemblyCoverage.v1.json unresolved_dimensions"
+    },
+    {
+      "priority": "P2",
+      "id": "P2-3",
+      "title": "P2C21 capability packet source bindings stale",
+      "detail": "P2C21CapabilityPacket.v1-v4 source_bindings do not match candidate bytes; candidate diff contains only the 7 I1 evidence files; carried from v2.",
+      "evidence": "candidate diff 1825870a..a48acbee and evidence/P2C21CapabilityPacket.v1.json..v4.json"
+    },
+    {
+      "priority": "P2",
+      "id": "P2-4",
+      "title": "candidate-embedded review/supervisor records behind",
+      "detail": "Candidate-embedded 05_functorial-successor-final-review.md is still the v1 record (9fa8aefa); evidence/SUPERVISOR_REVIEW_REQUEST.md lacks I2 v1/v2 BLOCK and fix-stage records. v3 review is written only to the main worktree.",
+      "evidence": "candidate tree 05 file and evidence/SUPERVISOR_REVIEW_REQUEST.md"
+    },
+    {
+      "priority": "P2",
+      "id": "P2-5",
+      "title": "content_sha256_before_self_field unverifiable",
+      "detail": "I1C7CanonicalWriteEvidence.v1.json content_sha256_before_self_field was not recomputed after the head field changed and no in-repo verifier exists.",
+      "evidence": "evidence/i1-successor-assembly/I1C7CanonicalWriteEvidence.v1.json; rg found no verifier"
+    }
+  ],
+  "authority_status": {
+    "canonical_write": "bounded successor-owned tables only (PG 59 passed on disposable DBs); production canonical write not authorized",
+    "live_provider": false,
+    "external_delivery": false,
+    "cutover": false,
+    "authority_transfer": false,
+    "candidate_created": true,
+    "promotion": false,
+    "note": "candidate commit exists but acceptance is BLOCKED on authority/evidence consistency (P0-1/P0-2); LiveProviderBoundaryFreeze.v1.json and 02 authority exclusions remain in force"
+  }
+}

@@ -45,11 +45,11 @@ from app.successor_runtime.capabilities.c8_program import (
     C8_3_KIND,
     C8_DELIVERY_INTENT_TYPE,
     C8_RESEARCH_ARTIFACT_TYPE,
-    C8ReportStageInput,
+    DELIVERY_INTERNAL_EXPORT_KIND,
     C8CapabilityBundle,
     C8DemandReadInput,
+    C8ReportStageInput,
     C8WritingComposeInput,
-    DELIVERY_INTERNAL_EXPORT_KIND,
     build_c8_bundle,
     build_c8_catalog,
     build_c8_delivery_bridge_bundle,
@@ -74,14 +74,6 @@ from app.successor_runtime.research.object_types import (
     CANONICAL_CODEC_ID,
     ObjectType,
 )
-from app.successor_runtime.runtime.resources import QueueEligibility, ResourceClass
-from app.successor_runtime.substrate.blob.internal_export import (
-    InternalExportInterpreter,
-)
-from app.successor_runtime.substrate.blob.store import ProjectBlobStore
-from app.successor_runtime.substrate.projections.c8_handler_bindings import (
-    build_c8_delivery_activation_catalog,
-)
 from app.successor_runtime.runtime.assignments import RuntimeAssignment
 from app.successor_runtime.runtime.claims import ClaimBinding
 from app.successor_runtime.runtime.node import (
@@ -89,6 +81,14 @@ from app.successor_runtime.runtime.node import (
     InterpreterOutcome,
     RuntimeExecutionContext,
     RuntimeHandler,
+)
+from app.successor_runtime.runtime.resources import QueueEligibility, ResourceClass
+from app.successor_runtime.substrate.blob.internal_export import (
+    InternalExportInterpreter,
+)
+from app.successor_runtime.substrate.blob.store import ProjectBlobStore
+from app.successor_runtime.substrate.postgres.c8_export_token_state_handler import (
+    C8_3ExportTokenStateRuntimeHandler,
 )
 from app.successor_runtime.substrate.postgres.c8_graph_projector import (
     C8_GRAPH_PROJECTOR_ID,
@@ -98,6 +98,9 @@ from app.successor_runtime.substrate.postgres.c8_graph_projector import (
 )
 from app.successor_runtime.substrate.postgres.c8_production import (
     build_postgres_c8_delivery_assembly,
+)
+from app.successor_runtime.substrate.projections.c8_handler_bindings import (
+    build_c8_delivery_activation_catalog,
 )
 
 C8_FAMILY_ID = "C8"
@@ -115,6 +118,20 @@ C8_AUTHORITY_REQUIREMENT_DIGEST = sha256_hex("mrw.successor.c8.authority.v1")
 C8_1_INTERPRETER_PROFILE_DIGEST = sha256_hex("successor.c8.c8-1.v1")
 C8_2_INTERPRETER_PROFILE_DIGEST = sha256_hex("successor.c8.c8-2.v1")
 C8_2_ROUTE_OPERATION_KINDS = (C8_2_COMPOSE_KIND, C8_2_STAGE_KIND)
+_C8_3_EXPORT_TOKEN_OPERATION_REF = "c8.report.export_token_state.v1"
+_C8_3_EXPORT_TOKEN_OPERATION_DIGEST = sha256_hex(
+    "mrw.successor.c8-3.report-export-token-state.operation.v1"
+)
+_C8_3_EXPORT_TOKEN_INTERPRETER_DIGEST = sha256_hex(
+    "successor.c8.report-export-token-state.v1"
+)
+_C8_3_EXPORT_TOKEN_AUTHORITY_DIGEST = sha256_hex(
+    "mrw.successor.c8-3.report-export-token-state.authority.v1"
+)
+_C8_3_EXPORT_TOKEN_HANDLER_MODULE = (
+    "main/backend/app/successor_runtime/substrate/postgres/"
+    "c8_export_token_state_handler.py"
+)
 
 C8_REHEARSAL_PROJECT_KEY = "mrw-successor-c8-local"
 C8_REHEARSAL_ITEM_KEY = "ki:successor-c8-demand-read"
@@ -129,15 +146,11 @@ C8_3_DELIVERY_PROJECT_KEY = "mrw-successor-c8-3-local"
 C8_3_DELIVERY_PROGRAM_ID = "program:successor-c8-3-local"
 C8_3_DELIVERY_REPORT_ID = "report:successor-c8-3-local"
 C8_3_DELIVERY_TOPIC = "LOCAL_OFFLINE C8.3 delivery bridge closure"
-C8_3_DELIVERY_AUTHORITY_DIGEST = sha256_hex(
-    "mrw.successor.c8-3.delivery-authority.v1"
-)
+C8_3_DELIVERY_AUTHORITY_DIGEST = sha256_hex("mrw.successor.c8-3.delivery-authority.v1")
 C8_3_DELIVERY_RESOURCE_POLICY_DIGEST = sha256_hex(
     "mrw.successor.c8-3.resource-policy.v1"
 )
-C8_3_DELIVERY_NODE_PROFILE_SELECTOR = sha256_hex(
-    "mrw.successor.c8-3.node-profile.v1"
-)
+C8_3_DELIVERY_NODE_PROFILE_SELECTOR = sha256_hex("mrw.successor.c8-3.node-profile.v1")
 
 C8_4_DECLARED_LOSS = (
     "c8.graph.node-edge-filtering.v1",
@@ -442,6 +455,38 @@ def _installed_c8_3_cell(
     )
 
 
+def _installed_c8_3_export_token_cell(
+    handler: C8_3ExportTokenStateRuntimeHandler,
+) -> CellBinding:
+    """Install C8.3 through the typed export/token-state successor route."""
+
+    return CellBinding(
+        cell_id="C8.3",
+        family_id=C8_FAMILY_ID,
+        status="INSTALLED",
+        operation_contract_refs=(
+            "c8.report.stage.v1",
+            "c8.report.admission.v1",
+            "c8.report.delivery.v1",
+            _C8_3_EXPORT_TOKEN_OPERATION_REF,
+        ),
+        handler_binding_digest=handler.handler_binding_digest,
+        recovery_binding_ref=(
+            "c8.report.admission.recovery.v1#verification-and-receipt-readback-only;"
+            "no-repeat-export"
+        ),
+        required_wiring=(
+            "successor export/token-state store command closure",
+            "admission/export authority gate 保持关闭",
+        ),
+        note=(
+            "C8.3 typed report-export/token-state successor route installed; "
+            "one-time claim/revoke/expiry/recovery with actor digest; "
+            "no credential value stored; no live export/canonical authority"
+        ),
+    )
+
+
 def _c8_operation_contract_digest(kind: str) -> str:
     return exact_contract_ref(
         build_c8_catalog(build_c8_bundle()),
@@ -729,6 +774,45 @@ def build_c8_assembly(
         handlers.extend(delivery_assembly.handlers)
         recovery_handlers.extend(delivery_assembly.recovery_handlers)
 
+    export_store = c8_options.export_token_store
+    export_command = c8_options.export_token_command
+    if (export_store is None) != (export_command is None):
+        raise ValueError(
+            "C8.3 export/token-state wiring requires both export_token_store "
+            "and export_token_command"
+        )
+    export_token_installed = export_store is not None
+    if export_token_installed:
+        export_binding = successor_binding(
+            operation_contract_digest=_C8_3_EXPORT_TOKEN_OPERATION_DIGEST,
+            interpreter_profile_digest=_C8_3_EXPORT_TOKEN_INTERPRETER_DIGEST,
+            deployment_catalog_digest=C8_DEPLOYMENT_CATALOG_DIGEST,
+            project_scope_digest=project_scope_digest,
+            authority_requirement_digest=_C8_3_EXPORT_TOKEN_AUTHORITY_DIGEST,
+        )
+        export_handler = C8_3ExportTokenStateRuntimeHandler(
+            store=export_store,
+            command=export_command,
+            handler_binding_digest=export_binding.binding_digest,
+            interpreter_profile_digest=export_binding.interpreter_profile_digest,
+            operation_contract_digest=export_binding.operation_contract_digest,
+            deployment_catalog_digest=export_binding.deployment_catalog_digest,
+        )
+        if c8_3_cell.status == "UNWIRED_DECLARED":
+            c8_3_cell = _installed_c8_3_export_token_cell(export_handler)
+        else:
+            c8_3_cell = dataclasses.replace(
+                c8_3_cell,
+                operation_contract_refs=c8_3_cell.operation_contract_refs
+                + (_C8_3_EXPORT_TOKEN_OPERATION_REF,),
+                note=(
+                    c8_3_cell.note
+                    + "; C8.3 typed report-export/token-state successor route "
+                    "additionally installed; no credential value stored"
+                ),
+            )
+        handlers.append(export_handler)
+
     c8_1_cell = _unwired_c8_1_cell()
     if c8_options.c81_payload is not None:
         if not isinstance(c8_options.c81_payload, Mapping):
@@ -819,6 +903,9 @@ def build_c8_assembly(
         ),
     )
     c8_4_wiring_tuple = (c8_4_wiring,)
+    c8_3_rollback_refs = (C8_3_ROLLBACK_REF,)
+    if export_token_installed:
+        c8_3_rollback_refs += (_C8_3_EXPORT_TOKEN_HANDLER_MODULE,)
     rollback_bindings = (
         RollbackBindingDeclaration(
             cell_id="C8.1",
@@ -833,7 +920,7 @@ def build_c8_assembly(
         RollbackBindingDeclaration(
             cell_id="C8.3",
             status="PRESENT",
-            binding_refs=(C8_3_ROLLBACK_REF,),
+            binding_refs=c8_3_rollback_refs,
         ),
         RollbackBindingDeclaration(
             cell_id="C8.4",

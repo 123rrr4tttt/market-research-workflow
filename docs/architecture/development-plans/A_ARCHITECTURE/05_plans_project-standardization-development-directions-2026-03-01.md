@@ -25,6 +25,11 @@
 3. Test before refactor: no large structural migration without layer-based test protection.
 4. Incremental rollout: enforce standards by stage (`warn -> require`) where possible.
 5. Evidence-driven merge: every standardization PR must include test and gate evidence.
+6. Semantic movement completeness: migration/refactor/successor/backend
+   replacement/code generation must account for every semantic capability in
+   the legacy/donor scope; locator counts and green tests are not completeness
+   proof. See
+   [semantic-movement-completeness-standard.md](../../../governance/semantic-movement-completeness-standard.md).
 
 ## Workstream A: Architecture Standardization
 ### Direction
@@ -39,10 +44,21 @@
    - adapters: external systems and providers
    - models/repositories: persistence access
 3. Introduce static checks (or review checklist) to block cross-layer direct calls.
+4. Apply the semantic movement completeness standard to every structural
+   migration, refactor, successor, backend replacement, and code generation:
+   - legacy/donor semantic movement inventory before execution
+   - movement matrix with source/target object, named transformation, owner,
+     effect/failure/resource/authority/recovery/projection-loss, source
+     evidence, target realization, and acceptance trace
+   - standard dispositions; `UNASSIGNED_BLOCKER > 0` blocks promotion and
+     retirement
 
 ### Acceptance
 - New backend code follows layer path.
 - PR review template includes architecture check item.
+- Architecture/standardization reviews verify both declared-scope correctness
+  and predecessor-to-successor completeness per the semantic movement
+  standard.
 
 ## Workstream B: API/Contract Standardization
 ### Direction
@@ -147,6 +163,30 @@
 ### Acceptance
 - Every merged standardization PR has complete evidence fields.
 
+## Workstream H: Mechanical Implementation Routing
+### Direction
+- Route mechanical development to DeepSeek once the IO contract is fixed;
+  keep architectural and authority decisions on the mainline/high-reasoning
+  model.
+
+### Actions
+1. Define the DeepSeek package contract for fixed-boundary work:
+   - target / input / output / allowed read-write scope / acceptance
+2. Require every mechanical package to return result, changed files,
+   verification, and risk, and to avoid expanding semantics or reverting other
+   executors' changes.
+3. Keep frozen semantics, authority/cutover/promotion decisions, risk
+   acceptance, integration, and final review on the mainline.
+4. Require the semantic movement completeness gate before mechanical
+   generation output is consumed as canonical input.
+
+### Acceptance
+- Fixed-IO mechanical work is routed to DeepSeek by default.
+- No mechanical worker decides authority/cutover/promotion or treats green
+  tests as completion.
+- PR template records the mechanical worker/model route and the mainline
+  reviewer.
+
 ## Milestones
 1. M1 (Week 1): baseline freeze
    - architecture/API/testing/config standards document finalized
@@ -170,3 +210,9 @@
 - Core routes follow unified contract and logging fields.
 - Migration/config behavior is predictable across local and docker.
 - Team can onboard and deliver changes without hidden conventions.
+- Migration/refactor/successor/replacement/generation work carries a complete
+  semantic movement inventory with zero `UNASSIGNED_BLOCKER` before any
+  promotion or legacy retirement.
+- Fixed-boundary mechanical implementation follows the Mechanical
+  Implementation Routing rules of
+  [semantic-movement-completeness-standard.md](../../../governance/semantic-movement-completeness-standard.md).

@@ -1,0 +1,794 @@
+{
+  "schema": "mrw.functorial_successor.legacy_vs_movement_gap.v1",
+  "evidence_kind": "DONOR_LEGACY_SURFACE_VS_EXISTING_MOVEMENT_COVERAGE",
+  "status": "CROSS_CHECK_OBSERVED_NOT_PROMOTION",
+  "generated_at_utc": "2026-09-02T13:17:02Z",
+  "source_checkout": {
+    "root": "/Users/wangyiliang/market-research-workflow",
+    "branch": "codex/devdocs-supervisor-seed",
+    "head": "35ca039c59d2efae8038a678995e8a0812032e43",
+    "dirty_change_count": 606,
+    "note": "Business_lines, llm_report_export family, request_identity, task_readback_metadata and single_source_guard files are untracked working-tree donor files; they are absent from a clean HEAD checkout and from the migration worktree."
+  },
+  "migration_worktree": {
+    "root": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0",
+    "branch": "codex/functorial-successor-p0",
+    "head": "38acdee8862af0971ca063507b8355812894fbce"
+  },
+  "reviewed_evidence": {
+    "p1_eligibility": "evidence/P1FunctorizationEligibility.v1.json",
+    "p1_cell_count": 30,
+    "p1_cells": [
+      "C1.1",
+      "C1.2",
+      "C1.3",
+      "C2.1",
+      "C2.2",
+      "C2.3",
+      "C2.4",
+      "C3.1",
+      "C3.2",
+      "C4.1",
+      "C4.2",
+      "C4.3",
+      "C5.1",
+      "C5.2",
+      "C5.3",
+      "C5.4",
+      "C6.1",
+      "C6.2",
+      "C6.3",
+      "C7.1",
+      "C7.2",
+      "C7.3",
+      "C7.4",
+      "C8.1",
+      "C8.2",
+      "C8.3",
+      "C8.4",
+      "C9.1",
+      "C9.2",
+      "C9.3"
+    ],
+    "inline_movements": "evidence/semantic-movement/p1-p3-semantic-movement-spec.v1.json (40 rows, families C1-C6/C8/C9)",
+    "external_c7_movements": "evidence/semantic-movements/C7.SuccessorMovementMatrix.v1.json (20 rows)",
+    "p3_fragments": [
+      "evidence/p3-fragments/C2.json",
+      "evidence/p3-fragments/C3.json",
+      "evidence/p3-fragments/C4.json",
+      "evidence/p3-fragments/C5.json",
+      "evidence/p3-fragments/C6.json"
+    ],
+    "ledger": "04_functorial-successor-capability-ledger.json (no per-movement/cell detail arrays; scalar counts 30 cells, 40 inline, 20 C7)",
+    "c5_4_adjudication": "evidence/C5_4LocatorAdjudication.v1.json (dirty source task_readback_metadata.py excluded, adopted=false)"
+  },
+  "summary_counts": {
+    "mapped": 14,
+    "declared_loss_or_rejected": 14,
+    "unmapped_gap": 15,
+    "p1_cells_reviewed": 30,
+    "inline_movements_reviewed": 40,
+    "external_c7_movements_reviewed": 20
+  },
+  "mapped": [
+    {
+      "source_capability_id": "MAP-C1",
+      "source_capability": "legacy workflow graph parse/validate/compile, runtime execution and store replay",
+      "donor_paths": [
+        "main/backend/app/services/workflow_graph/contracts.py",
+        "main/backend/app/services/workflow_graph/compiler.py",
+        "main/backend/app/services/workflow_graph/runtime.py",
+        "main/backend/app/services/workflow_graph/store.py"
+      ],
+      "cells": [
+        "C1.1",
+        "C1.2",
+        "C1.3"
+      ],
+      "movements": [
+        "C1-M001",
+        "C1-M002",
+        "C1-M003",
+        "C1-M004"
+      ],
+      "successor_owner": "backend-core/C1",
+      "mapping_basis": "P1 locator_paths C1.1-C1.3 and p1-p3 movement p1_cells"
+    },
+    {
+      "source_capability_id": "MAP-C2",
+      "source_capability": "source-library item taxonomy, four-mode planning, provider effects and terminal compatibility projection",
+      "donor_paths": [
+        "main/backend/app/services/source_library/item_resolver.py",
+        "main/backend/app/services/source_library/resolver.py",
+        "main/backend/app/services/source_library/runner.py",
+        "main/backend/app/services/source_library/terminal_output.py",
+        "main/backend/app/services/collect_runtime/runtime.py"
+      ],
+      "cells": [
+        "C2.1",
+        "C2.2",
+        "C2.3",
+        "C2.4"
+      ],
+      "movements": [
+        "C2-M001",
+        "C2-M002",
+        "C2-M003",
+        "C2-M004",
+        "C2-M005",
+        "C2-M006",
+        "C2-M007",
+        "C2-M008"
+      ],
+      "successor_owner": "backend-core/C2",
+      "mapping_basis": "P1 C2.1-C2.4 locators plus p1-p3 movement rows; single_source_guard.py is not among the mapped donor paths and is recorded as a gap"
+    },
+    {
+      "source_capability_id": "MAP-C3",
+      "source_capability": "collect batch plan traversal and ordered result fold",
+      "donor_paths": [
+        "main/backend/app/services/collect_runtime/runtime.py",
+        "main/backend/app/services/collect_runtime/contracts.py",
+        "main/backend/app/services/collect_runtime/adapters"
+      ],
+      "cells": [
+        "C3.1",
+        "C3.2"
+      ],
+      "movements": [
+        "C3-M001",
+        "C3-M002",
+        "C3-M003"
+      ],
+      "successor_owner": "collect-runtime/C3",
+      "mapping_basis": "P1 C3.1-C3.2 locators and p1-p3 movement rows"
+    },
+    {
+      "source_capability_id": "MAP-C4",
+      "source_capability": "agent batch natural-language planning, supplementation, retry action and submit idempotency",
+      "donor_paths": [
+        "main/backend/app/services/agent_batch/agent_loop.py",
+        "main/backend/app/services/agent_batch/planner.py",
+        "main/backend/app/services/agent_batch/task_contract.py",
+        "main/backend/app/api/agent_batch.py"
+      ],
+      "cells": [
+        "C4.1",
+        "C4.2",
+        "C4.3"
+      ],
+      "movements": [
+        "C4-M001",
+        "C4-M002",
+        "C4-M003",
+        "C4-M004",
+        "C4-M005"
+      ],
+      "successor_owner": "agent-batch/C4",
+      "mapping_basis": "P1 C4.1-C4.3 locators and p1-p3 movement rows"
+    },
+    {
+      "source_capability_id": "MAP-C5",
+      "source_capability": "agent session/task state machine, effect attempts, event projection and Celery/DB process readback",
+      "donor_paths": [
+        "main/backend/app/services/agent_sessions/service.py",
+        "main/backend/app/services/agent_sessions/store.py",
+        "main/backend/app/services/agent_runtime/run_loop.py",
+        "main/backend/app/services/agent_runtime/interactive_agent.py",
+        "main/backend/app/services/tasks.py",
+        "main/backend/app/celery_app.py"
+      ],
+      "cells": [
+        "C5.1",
+        "C5.2",
+        "C5.3",
+        "C5.4"
+      ],
+      "movements": [
+        "C5-M001",
+        "C5-M002",
+        "C5-M003",
+        "C5-M004",
+        "C5-M005",
+        "C5-M006"
+      ],
+      "successor_owner": "runtime-projection/C5, runtime-reconciliation/C5, runtime-observation/C5",
+      "mapping_basis": "P1 C5.1-C5.4 locators and p1-p3 movement rows; task_readback_metadata.py remains dirty-excluded by C5_4LocatorAdjudication"
+    },
+    {
+      "source_capability_id": "MAP-C6",
+      "source_capability": "AgentCore ordered model/tool loop, provider interpretation and redaction evidence",
+      "donor_paths": [
+        "main/backend/app/services/agent_core/core.py",
+        "main/backend/app/services/agent_core/contracts.py",
+        "main/backend/app/services/agent_core/provider_trace.py",
+        "main/backend/app/services/llm/provider.py",
+        "main/backend/app/services/agent_runtime/run_loop.py"
+      ],
+      "cells": [
+        "C6.1",
+        "C6.2",
+        "C6.3"
+      ],
+      "movements": [
+        "C6-M001",
+        "C6-M002",
+        "C6-M003",
+        "C6-M004"
+      ],
+      "successor_owner": "agent-core/C6",
+      "mapping_basis": "P1 C6.1-C6.3 locators and p1-p3 movement rows"
+    },
+    {
+      "source_capability_id": "MAP-C7",
+      "source_capability": "ingest raw snapshot/staging/admission, digestion decisions, canonical document admission, search/graph projection and recovery",
+      "donor_paths": [
+        "main/backend/app/services/ingest/frontdoor_ingress.py",
+        "main/backend/app/services/ingest/digestion_scaffold.py",
+        "main/backend/app/services/ingest/postprocess_frontdoor.py",
+        "main/backend/app/services/ingest/terminal_writer.py",
+        "main/backend/app/services/indexer",
+        "main/backend/app/services/graph"
+      ],
+      "cells": [
+        "C7.1",
+        "C7.2",
+        "C7.3",
+        "C7.4"
+      ],
+      "movements": "C7-MOV-001,C7-MOV-002,C7-MOV-003,C7-MOV-010,C7-MOV-011,C7-MOV-020,C7-MOV-021,C7-MOV-030,C7-MOV-031,C7-MOV-040,C7-MOV-041,C7-MOV-050,C7-MOV-051,C7-MOV-060,C7-MOV-061,C7-MOV-070,C7-MOV-071,C7-MOV-072,C7-MOV-073,C7-MOV-074",
+      "successor_owner": "backend-core/C7, document.canonical/C7.2",
+      "mapping_basis": "C7 external movement matrix/inventory plus P1 C7.1-C7.4 locators; C7 matrix does not carry p1_cells, so cell ownership is by owner/source_evidence"
+    },
+    {
+      "source_capability_id": "MAP-C8.1",
+      "source_capability": "typed-knowledge object read handles and governance handoff",
+      "donor_paths": [
+        "main/backend/app/services/typed_knowledge/contracts.py",
+        "main/backend/app/models/typed_knowledge_entities.py"
+      ],
+      "cells": [
+        "C8.1"
+      ],
+      "movements": [
+        "C8-M001"
+      ],
+      "successor_owner": "knowledge-core/C8",
+      "mapping_basis": "P1 C8.1 locator and p1-p3 movement row"
+    },
+    {
+      "source_capability_id": "MAP-C8.2",
+      "source_capability": "writing composition documents, citations, version conflict and staged artifacts",
+      "donor_paths": [
+        "main/backend/app/services/writing/document_service.py",
+        "main/backend/app/services/writing/citation_service.py",
+        "main/backend/app/models/writing_entities.py"
+      ],
+      "cells": [
+        "C8.2"
+      ],
+      "movements": [
+        "C8-M002"
+      ],
+      "successor_owner": "writing-core/C8",
+      "mapping_basis": "P1 C8.2 locator and p1-p3 movement row"
+    },
+    {
+      "source_capability_id": "MAP-C8.3",
+      "source_capability": "report composition/gate/export admission for report.py and llm_report_generator paths only",
+      "donor_paths": [
+        "main/backend/app/services/report.py",
+        "main/backend/app/services/llm_report_generator.py",
+        "main/backend/app/services/llm_report_source_enrichment.py",
+        "main/backend/app/api/llm_report.py",
+        "main/backend/app/api/reports.py"
+      ],
+      "cells": [
+        "C8.3"
+      ],
+      "movements": [
+        "C8-M003"
+      ],
+      "successor_owner": "report-admission/C8",
+      "mapping_basis": "P1 C8.3 supporting_implementations_found and p1-p3 movement row; llm_report_export/_audit/_token_state/_trends files were absent from the audited worktree and remain unmapped"
+    },
+    {
+      "source_capability_id": "MAP-C8.4",
+      "source_capability": "graph projection/consumer provenance and declared-loss occurrence handling",
+      "donor_paths": [
+        "main/backend/app/services/graph/models.py",
+        "main/backend/app/services/graph/projection.py",
+        "main/backend/app/services/document_views/writing_card_view.py"
+      ],
+      "cells": [
+        "C8.4"
+      ],
+      "movements": [
+        "C8-M004",
+        "C8-M005"
+      ],
+      "successor_owner": "graph-projection/C8, knowledge-consumer/C8",
+      "mapping_basis": "P1 C8.4 source_evidence and p1-p3 movement rows"
+    },
+    {
+      "source_capability_id": "MAP-C9.1",
+      "source_capability": "API command/query envelope and route result compatibility",
+      "donor_paths": [
+        "main/backend/app/api/__init__.py",
+        "main/backend/app/api/agent_sessions.py",
+        "main/backend/app/api/process.py",
+        "main/backend/app/contracts/responses.py"
+      ],
+      "cells": [
+        "C9.1"
+      ],
+      "movements": [
+        "C9-M001"
+      ],
+      "successor_owner": "api-facade/C9",
+      "mapping_basis": "P1 C9.1 directory locator plus p1-p3 movement row; structural envelope mapping does not imply every API capability has its own movement"
+    },
+    {
+      "source_capability_id": "MAP-C9.2",
+      "source_capability": "frontend projections, TanStack query interactions and client envelope handling",
+      "donor_paths": [
+        "main/frontend-modern/src/lib/api/client.ts",
+        "main/frontend-modern/src/lib/types.ts",
+        "main/frontend-modern/src/pages/GraphPage.tsx"
+      ],
+      "cells": [
+        "C9.2"
+      ],
+      "movements": [
+        "C9-M002",
+        "C9-M003"
+      ],
+      "successor_owner": "frontend-platform/C9",
+      "mapping_basis": "P1 C9.2 locator plus p1-p3 movement source_evidence"
+    },
+    {
+      "source_capability_id": "MAP-C9.3",
+      "source_capability": "projection rebuild/offset sources over AgentSession, graph backfill and indexer policy",
+      "donor_paths": [
+        "main/backend/app/services/agent_sessions/store.py",
+        "main/backend/app/services/graph/backfill_graph_nodes.py",
+        "main/backend/app/services/indexer/policy.py"
+      ],
+      "cells": [
+        "C9.3"
+      ],
+      "movements": [
+        "C9-M004",
+        "C9-M005"
+      ],
+      "successor_owner": "projection-platform/C9",
+      "mapping_basis": "P1 C9.3 source_evidence and p1-p3 movement rows"
+    }
+  ],
+  "declared_loss_or_rejected": [
+    {
+      "source_capability_id": "LOSS-C2.4",
+      "source_capability": "legacy terminal output and dual-track compatibility status",
+      "donor_paths": [
+        "main/backend/app/services/source_library/terminal_output.py",
+        "main/backend/app/services/collect_runtime/adapters/source_library.py"
+      ],
+      "movements": [
+        "C2-M008"
+      ],
+      "declaration": "DECLARED_LOSS under source_library.c2_4.compat.loss.v1"
+    },
+    {
+      "source_capability_id": "LOSS-C4.source-mode-rewrite",
+      "source_capability": "legacy source_mode natural-language rewrite inside agent batch",
+      "donor_paths": [
+        "main/backend/app/services/agent_batch/agent_loop.py",
+        "main/backend/app/services/agent_batch/task_contract.py"
+      ],
+      "movements": [
+        "C4-M001",
+        "C4-M003"
+      ],
+      "declaration": "counted but not projected into C4 vocabulary; source-mode rewriting explicitly rejected at the C4 boundary"
+    },
+    {
+      "source_capability_id": "LOSS-C4.generic-enum",
+      "source_capability": "generic DB enum acceptance status projection",
+      "donor_paths": [
+        "main/backend/app/models/entities.py"
+      ],
+      "movements": [
+        "C4-M004"
+      ],
+      "declaration": "acceptance status exists only in typed receipt and is intentionally absent from generic DB enum"
+    },
+    {
+      "source_capability_id": "LOSS-C5.1-control-mutability",
+      "source_capability": "legacy AgentSession/AgentTask control-plane mutability",
+      "donor_paths": [
+        "main/backend/app/services/agent_sessions/service.py",
+        "main/backend/app/services/agent_sessions/store.py"
+      ],
+      "movements": [
+        "C5-M001"
+      ],
+      "declaration": "legacy control-plane mutability intentionally not moved into projection"
+    },
+    {
+      "source_capability_id": "LOSS-C5.3-journal-detail",
+      "source_capability": "full legacy session event journal detail in projection",
+      "donor_paths": [
+        "main/backend/app/services/agent_sessions/store.py"
+      ],
+      "movements": [
+        "C5-M004"
+      ],
+      "declaration": "projection contains bounded session/task status and not the full journal"
+    },
+    {
+      "source_capability_id": "LOSS-C5.4-dirty-source-exclusion",
+      "source_capability": "dirty source task_readback_metadata.py as canonical donor",
+      "donor_paths": [
+        "main/backend/app/services/task_readback_metadata.py"
+      ],
+      "movements": [
+        "C5-M005",
+        "C5-M006"
+      ],
+      "declaration": "RESOLVED_INTENTIONAL_ABSENT under C5_4LocatorAdjudication; source-dirty file excluded, adopted=false, prohibited from binding"
+    },
+    {
+      "source_capability_id": "LOSS-C6-fallback-redaction",
+      "source_capability": "provider fallback semantic drift and post-hoc redaction/raw evidence convenience",
+      "donor_paths": [
+        "main/backend/app/services/agent_core/core.py",
+        "main/backend/app/services/agent_core/provider_trace.py",
+        "main/backend/app/services/agent_runtime/run_loop.py"
+      ],
+      "movements": [
+        "C6-M002",
+        "C6-M003",
+        "C6-M004"
+      ],
+      "declaration": "fallback drift rejected; intentional field redaction/omission declared loss"
+    },
+    {
+      "source_capability_id": "LOSS-C7-normalization",
+      "source_capability": "legacy ingest whitespace normalization choices",
+      "donor_paths": [
+        "main/backend/app/services/ingest/digestion_scaffold.py"
+      ],
+      "movements": [
+        "C7-MOV-002",
+        "C7-MOV-041"
+      ],
+      "declaration": "DECLARED_LOSS whitespace normalization only; exact raw bytes retained"
+    },
+    {
+      "source_capability_id": "LOSS-C7-provider-enrichment",
+      "source_capability": "legacy per-branch provider/model enrichment and summarization",
+      "donor_paths": [
+        "main/backend/app/services/ingest/postprocess_frontdoor.py",
+        "main/backend/app/services/ingest/digestion_scaffold.py"
+      ],
+      "movements": [
+        "C7-MOV-011",
+        "C7-MOV-021",
+        "C7-MOV-031"
+      ],
+      "declaration": "DECLARED_LOSS provider/model enrichment not executed in local target"
+    },
+    {
+      "source_capability_id": "LOSS-C7-projection-fields",
+      "source_capability": "legacy search/graph projection raw fields",
+      "donor_paths": [
+        "main/backend/app/services/indexer",
+        "main/backend/app/services/graph"
+      ],
+      "movements": [
+        "C7-MOV-060",
+        "C7-MOV-061"
+      ],
+      "declaration": "DECLARED_LOSS full_text/raw_payload for search and text/raw_payload for graph"
+    },
+    {
+      "source_capability_id": "LOSS-C7-rollback-token",
+      "source_capability": "legacy opaque return_for_cleanup rollback token",
+      "donor_paths": [
+        "main/backend/app/services/ingest/postprocess_frontdoor.py"
+      ],
+      "movements": [
+        "C7-MOV-070"
+      ],
+      "declaration": "DECLARED_LOSS opaque rollback token replaced by content-addressed failure/snapshot closure"
+    },
+    {
+      "source_capability_id": "LOSS-C8-writing-report-convenience",
+      "source_capability": "legacy writing card/cache/score/wall-clock/UI convenience and inline report identity/export convenience",
+      "donor_paths": [
+        "main/backend/app/services/writing",
+        "main/backend/app/services/report.py",
+        "main/backend/app/services/llm_report_generator.py"
+      ],
+      "movements": [
+        "C8-M002",
+        "C8-M003"
+      ],
+      "declaration": "explicit legacy card/cache/score/wall-clock/UI loss; no legacy report identity migration, inline HTML/CSV/fallback and transient job metadata declared loss"
+    },
+    {
+      "source_capability_id": "LOSS-C8-graph-provenance",
+      "source_capability": "legacy graph filtering/truncation/redaction/casefold/duplicate/omitted-field behavior and synthetic evidence fallback",
+      "donor_paths": [
+        "main/backend/app/services/graph/models.py",
+        "main/backend/app/services/graph/projection.py",
+        "main/backend/app/services/document_views/writing_card_view.py"
+      ],
+      "movements": [
+        "C8-M004",
+        "C8-M005"
+      ],
+      "declaration": "fixed loss profile; synthetic-evidence fallback explicitly rejected, not replaced"
+    },
+    {
+      "source_capability_id": "LOSS-C9-route-frontend-external-sinks",
+      "source_capability": "legacy route/header actor fallback, frontend bootstrap/page-local side effects and raw external projection sinks",
+      "donor_paths": [
+        "main/backend/app/api/__init__.py",
+        "main/frontend-modern/src/lib/api/client.ts",
+        "main/frontend-modern/src/pages/GraphPage.tsx"
+      ],
+      "movements": [
+        "C9-M001",
+        "C9-M002",
+        "C9-M003",
+        "C9-M005"
+      ],
+      "declaration": "active-project/actor fallback, shell bootstrap, unwrap metadata and page-local side effects not reproduced; Elasticsearch/Qdrant/graph_provider are DECLARED_LOSS_NO_CALL"
+    }
+  ],
+  "unmapped_gap": [
+    {
+      "gap_id": "GAP-business-lines-evidence-matrix",
+      "business_line_id": "business_line_worker_readback_project_matrix_nightly",
+      "business_line_key": "business_lines_evidence_matrix",
+      "semantic_object": "Seven canonical business-line evidence matrix, scheduled artifact summary/drilldown and async task readback readiness surfaces; no business-line entity/model and no C1-C9 movement owns this meta capability",
+      "donor_paths": [
+        "main/backend/app/api/business_lines.py"
+      ],
+      "donor_sha256": "0ac9103472c86bbdeb742969a4213296820595d0d3c429444f593f421cc1d4bd",
+      "donor_git_tracked": false,
+      "target_worktree_present": false,
+      "suggested_successor_owner": "UNKNOWN; nearest structural cells C9.1/C9.3 apply only to envelope/readback projection"
+    },
+    {
+      "gap_id": "GAP-projects-config-workflow",
+      "business_line_id": "BL-projects-config-workflow",
+      "business_line_key": "projects_config_workflow",
+      "semantic_object": "Project CRUD/archive/activate, config/env/LLM-service configuration, customization workflow and project-scoped process history",
+      "donor_paths": [
+        "main/backend/app/api/projects.py",
+        "main/backend/app/api/config.py",
+        "main/backend/app/api/llm_config.py",
+        "main/backend/app/api/project_customization.py",
+        "main/backend/app/services/projects/context.py",
+        "main/backend/app/services/projects/workflow.py"
+      ],
+      "donor_git_tracked": true,
+      "target_worktree_present": true,
+      "suggested_successor_owner": "UNKNOWN; no dedicated C1-C9 locator cell exists for project/config/workflow semantics"
+    },
+    {
+      "gap_id": "GAP-dashboard-admin-governance",
+      "business_line_id": "BL-dashboard-admin-governance",
+      "business_line_key": "dashboard_admin_governance",
+      "semantic_object": "Dashboard stats/detail/report-from-filter read models, admin/governance actions, cleanup/aggregator sync, policy/market/product/topic/report read projections",
+      "donor_paths": [
+        "main/backend/app/api/dashboard.py",
+        "main/backend/app/api/admin.py",
+        "main/backend/app/api/policies.py",
+        "main/backend/app/api/market.py",
+        "main/backend/app/api/products.py",
+        "main/backend/app/api/topics.py",
+        "main/backend/app/api/reports.py",
+        "main/backend/app/services/governance/retention.py",
+        "main/backend/app/services/aggregator/sync.py"
+      ],
+      "donor_git_tracked": true,
+      "target_worktree_present": true,
+      "suggested_successor_owner": "UNKNOWN; C9.1/C9.3 are structural only, not dashboard/admin/governance capability cells"
+    },
+    {
+      "gap_id": "GAP-runtime-ops",
+      "business_line_id": "BL-runtime-ops",
+      "business_line_key": "runtime_ops",
+      "semantic_object": "Backend health/deep-health, metrics, process stats/list/history/logs/retry/cancel and runtime health matrix scripts",
+      "donor_paths": [
+        "main/backend/app/main.py",
+        "main/backend/app/api/process.py",
+        "scripts/runtime_health_matrix.py"
+      ],
+      "donor_git_tracked": true,
+      "target_worktree_present": true,
+      "suggested_successor_owner": "UNKNOWN; runtime ops not represented by a dedicated C1-C9 locator cell"
+    },
+    {
+      "gap_id": "GAP-llm-report-export",
+      "business_line_id": "BL-llm-report-export-token-state",
+      "business_line_key": "llm_report_export",
+      "semantic_object": "Signed one-time artifact token and synchronous PDF/DOCX export with quality-gate admission, integrity and markdown/export endpoints",
+      "donor_paths": [
+        "main/backend/app/services/llm_report_export.py",
+        "main/backend/app/api/llm_report.py",
+        "main/frontend-modern/src/pages/DashboardPage.tsx"
+      ],
+      "donor_sha256": "ef82463edabcefa7ac9342244fe0df21192f3c33b264e6f707767be628920df8",
+      "donor_git_tracked": false,
+      "target_worktree_present": false,
+      "suggested_successor_owner": "report-admission/C8 candidate; C8-M003 maps report staging/admission but does not bind this export/token implementation"
+    },
+    {
+      "gap_id": "GAP-llm-report-token-state",
+      "business_line_id": "BL-llm-report-export-token-state",
+      "business_line_key": "llm_report_export_token_state",
+      "semantic_object": "Persistent export-token use/revoke/last-seen state with DB plus memory mirrors and retention path",
+      "donor_paths": [
+        "main/backend/app/services/llm_report_export_token_state.py",
+        "main/backend/app/models/llm_report_export_token_state.py",
+        "main/backend/migrations/versions/20260524_000004_add_llm_report_export_token_state.py"
+      ],
+      "donor_sha256": "eae757a96842db1e6dd8d6f8b27d5d2ae0b702dfbf494b82320dd6b1ec4782a7",
+      "donor_git_tracked": false,
+      "target_worktree_present": false,
+      "suggested_successor_owner": "report-admission/C8 candidate; C8-M003 names the locator but only records it as missing/UNBOUND"
+    },
+    {
+      "gap_id": "GAP-llm-report-export-audit",
+      "business_line_id": "BL-dashboard-llm-report-detail-export-audit",
+      "business_line_key": "llm_report_export_audit",
+      "semantic_object": "Durable LLM report export audit events and dashboard trace-level audit readback; no successor audit movement/cell exists",
+      "donor_paths": [
+        "main/backend/app/services/llm_report_export_audit.py",
+        "main/backend/app/models/llm_report_export_audit.py",
+        "main/backend/migrations/versions/20260524_000003_add_llm_report_export_audit_events.py"
+      ],
+      "donor_sha256": "6c441d460ecabbbfbd2c3eea82bfe45582523f6ff2e8ad65505e63a05e0b1fc3",
+      "donor_git_tracked": false,
+      "target_worktree_present": false,
+      "suggested_successor_owner": "UNKNOWN; audit trail ownership must be adjudicated with report-admission/C8 and runtime observability"
+    },
+    {
+      "gap_id": "GAP-llm-report-quality-trends",
+      "business_line_id": "BL-llm-report-trend-quality-records",
+      "business_line_key": "llm_report_quality_trends",
+      "semantic_object": "Persistent LLM report quality/export trend records and summary/detail consumers",
+      "donor_paths": [
+        "main/backend/app/services/llm_report_trends.py",
+        "main/backend/app/models/llm_report_trends.py",
+        "main/backend/migrations/versions/20260524_000002_add_llm_report_quality_trends.py",
+        "main/backend/app/api/llm_report.py",
+        "main/backend/app/api/dashboard.py"
+      ],
+      "donor_sha256": "953a85aa7babff7854c52f3975d1f79790af9672484bed757a8a023825eed548",
+      "donor_git_tracked": false,
+      "target_worktree_present": false,
+      "suggested_successor_owner": "UNKNOWN; trend record is evidence-trace material, not a movement/cell in current C1-C9 map"
+    },
+    {
+      "gap_id": "GAP-request-identity",
+      "business_line_id": "BL-request-identity",
+      "business_line_key": "request_identity",
+      "semantic_object": "Request actor identity normalization, legacy header recognition, observability context and middleware propagation",
+      "donor_paths": [
+        "main/backend/app/services/request_identity.py",
+        "main/backend/app/main.py",
+        "main/backend/app/services/llm/platformization.py"
+      ],
+      "donor_sha256": "d9a2f5a125a335d3fcd3ac6e65d83a0a99f5daaabc24d04b1d04f757c5c8cc1d",
+      "donor_git_tracked": false,
+      "target_worktree_present": false,
+      "suggested_successor_owner": "UNKNOWN; C9-M001 handles caller actor scope but no unified request-identity capability cell exists"
+    },
+    {
+      "gap_id": "GAP-task-readback-metadata-line-events",
+      "business_line_id": "BL-task-readback-metadata",
+      "business_line_key": "task_readback_metadata",
+      "semantic_object": "line_key runtime readback metadata builder, canonical line event chains and contract event insertion used by worker-required lanes",
+      "donor_paths": [
+        "main/backend/app/services/task_readback_metadata.py",
+        "main/backend/app/services/tasks.py",
+        "main/backend/app/api/process.py"
+      ],
+      "donor_sha256": "981c970ea1610450f681a1dfe1a6a22288c33363b38d827ca7f39052072072e9",
+      "donor_git_tracked": false,
+      "target_worktree_present": false,
+      "suggested_successor_owner": "runtime-observation/C5 candidate; source file itself is declared dirty-excluded while its line-event semantics remain without a successor movement"
+    },
+    {
+      "gap_id": "GAP-dashboard-report-closure",
+      "business_line_id": "BL-dashboard-admin-governance",
+      "business_line_key": "dashboard_report_closure",
+      "semantic_object": "Dashboard/report closure, completion, finalization or terminal state domain semantics; no dedicated donor model/route/field was found beyond job status, document draft/archive and export-token used/revoked states",
+      "donor_paths": [
+        "main/backend/app/api/dashboard.py",
+        "main/backend/app/api/llm_report.py",
+        "main/backend/app/api/business_lines.py",
+        "main/backend/app/services/writing/document_service.py"
+      ],
+      "donor_git_tracked": true,
+      "target_worktree_present": true,
+      "suggested_successor_owner": "UNKNOWN; requested closure category has no separately implemented legacy surface and no movement/cell"
+    },
+    {
+      "gap_id": "GAP-single-source-guard",
+      "business_line_id": "BL-single-source-guard",
+      "business_line_key": "resource_source_library",
+      "semantic_object": "Strict single-URL source execution guard with site-entry equality, blocked/error classification and execution fact before dispatch",
+      "donor_paths": [
+        "main/backend/app/services/source_library/single_source_guard.py",
+        "main/backend/app/services/source_library/resolver.py",
+        "main/backend/app/api/ingest.py",
+        "main/backend/app/api/resource_pool.py"
+      ],
+      "donor_sha256": "e41d1b35afdd9183d5629a82bd1972555ada743422dd8f11ee0deb2344afaef6",
+      "donor_git_tracked": false,
+      "target_worktree_present": false,
+      "suggested_successor_owner": "backend-core/C2 candidate under C2.3 execution boundary; not an explicit P1 locator/movement path"
+    },
+    {
+      "gap_id": "GAP-ingest-submission-registry",
+      "business_line_id": "BL-ingest-submission-worker-readback",
+      "business_line_key": "ingest",
+      "semantic_object": "Ingest submission registry model and migration used by submission lifecycle/readback paths",
+      "donor_paths": [
+        "main/backend/app/models/ingest_registry.py",
+        "main/backend/migrations/versions/20260524_000001_add_ingest_submission_registry.py"
+      ],
+      "donor_sha256": "77806877fe129fcfc39c8652490ac1fb10b9285e2a2439eae15ebbd4bbc81173",
+      "donor_git_tracked": false,
+      "target_worktree_present": false,
+      "suggested_successor_owner": "document.canonical/C7.2 candidate; C7-MOV-051 admission path is nearest, but this untracked registry was not a locator/movement source"
+    },
+    {
+      "gap_id": "GAP-remaining-backend-surfaces",
+      "business_line_id": "BL-admin-crawler-cluechain-codexauth-keyword-stats",
+      "business_line_key": "admin_crawler_cluechains_auth_keywords_stats_skills",
+      "semantic_object": "Remaining tracked backend capability groups without dedicated successor cells: admin raw data, crawler management, clue chains, codex OAuth, keywords, stats/prompt-time density, skills and related service families",
+      "donor_paths": [
+        "main/backend/app/api/admin.py",
+        "main/backend/app/api/crawler.py",
+        "main/backend/app/api/clue_chains.py",
+        "main/backend/app/api/codex_auth.py",
+        "main/backend/app/api/keywords.py",
+        "main/backend/app/api/stats.py",
+        "main/backend/app/api/skills.py",
+        "main/backend/app/services/crawlers",
+        "main/backend/app/services/clue_chains",
+        "main/backend/app/services/extraction",
+        "main/backend/app/services/streamplus"
+      ],
+      "donor_git_tracked": true,
+      "target_worktree_present": true,
+      "suggested_successor_owner": "UNKNOWN; only C9.1 envelope/structural alignment can be claimed today"
+    },
+    {
+      "gap_id": "GAP-untracked-frontend-dashboard-panel",
+      "business_line_id": "BL-search-discovery-index-worker-readback",
+      "business_line_key": "search_discovery_index",
+      "semantic_object": "Untracked DashboardSearchRetrievalRunPanel component consumed by DashboardPage search/retrieval readback",
+      "donor_paths": [
+        "main/frontend-modern/src/pages/dashboard/DashboardSearchRetrievalRunPanel.tsx"
+      ],
+      "donor_sha256": "4a672312833df2dd2fc0ae230d4a0579673c9055d4ac47209f26f522d85d881d",
+      "donor_git_tracked": false,
+      "target_worktree_present": false,
+      "suggested_successor_owner": "frontend-platform/C9.2 candidate; absent from P1 evidence locators"
+    }
+  ],
+  "notes": [
+    "All 30 P1 cells and all 60 movement rows were reviewed. MAPPED/DECLARED/UNMAPPED counts count evidence entries in this file, not movement rows.",
+    "business_lines.py, llm_report_export/audit/token_state/trends, request_identity.py, task_readback_metadata.py and single_source_guard.py are untracked donor working-tree files, absent from the migration worktree. Their absence is the main reason they have no source path in P1 locators.",
+    "task_readback_metadata.py appears once as dirty-excluded source under declared_loss_or_rejected and once as unmapped line-event semantics because exclusion of the donor file does not realize the capability.",
+    "04 ledger and C7 matrix statuses contain internal pending/review wording; this file does not promote C7/C8/C9 or any movement and reports only observed coverage."
+  ]
+}

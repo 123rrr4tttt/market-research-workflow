@@ -199,3 +199,54 @@ Status note (2026-03-14 PDT):
   - reject if binary signatures hit (`%PDF-1.` without successful parsed text extraction).
 7. Add domain/path denylist for low-value endpoints:
   - examples: `/search`, `/login`, `/home`, `/showcase`, `/topics/*`, `/stargazers` (unless parser explicitly supports target value).
+
+## 7. Additive Standard (2026-09-01): Semantic Movement Completeness
+
+This section is an additive governance standard dated 2026-09-01. It does not
+change the historical workflow facts or verification snapshots above; it adds
+the capability-lossless gate that ingest migration, refactor, successor,
+backend replacement, and code-generation work must pass.
+
+### Canonical ingest capability chain
+
+```text
+RawSnapshot
+  -> NormalizedIngestEnvelope
+  -> DigestionDecision
+  -> Extract | Chunk | Summarize | PassThrough
+  -> StructuredMaterialCandidate
+  -> Verify | Admit
+  -> Index | Graph Projection
+```
+
+- C7 owns the format/structure chain: RawSnapshot capture, envelope
+  normalization, DigestionDecision routing, Extract/Chunk/Summarize/PassThrough
+  processing, StructuredMaterialCandidate formation, and Verify/Admit
+  structural admission, up to Index/Graph Projection handoff.
+- C8 owns post-admission typed knowledge, argumentation, and writing:
+  typed knowledge, writing composition, report/export admission, and graph
+  consumers.
+- Every edge in the chain must be covered by a semantic movement record with
+  source evidence, target realization, and acceptance trace. A missing edge is
+  an `UNASSIGNED_BLOCKER` even if every cell has a file locator.
+
+### Capability-lossless gate for ingest work
+
+- Migration/refactor/successor/backend replacement/code generation on any
+  WF-1/WF-1R/WF-2/WF-3/WF-4 stage first establishes a legacy/donor semantic
+  movement inventory. Locator/file/module/cell/test counts are not capability
+  completeness.
+- Each movement record carries source object, target object, named
+  transformation, owner, effect/failure/resource/authority/recovery/
+  projection-loss, source evidence, target realization, and acceptance trace.
+- Disposition uses only `PRESERVED_AS`, `MOVED_TO`, `REIMPLEMENTED_AS`,
+  `DECLARED_LOSS`, `EXPLICITLY_REJECTED`, `UNASSIGNED_BLOCKER`.
+- `UNASSIGNED_BLOCKER > 0` forbids capability/family/phase/candidate promotion
+  and legacy retirement. Unwired or contract-only capabilities must be placed
+  or rejected, never deleted for lacking a live owner.
+- `Verify/Admit` is a semantic admission gate; a green suite that exercises
+  only weakened new contracts does not prove predecessor-to-successor
+  completeness.
+
+Authoritative requirements:
+[semantic-movement-completeness-standard.md](../../../../docs/governance/semantic-movement-completeness-standard.md).

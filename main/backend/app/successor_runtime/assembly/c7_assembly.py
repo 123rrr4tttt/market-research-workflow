@@ -100,12 +100,23 @@ from app.successor_runtime.substrate.postgres.c7_projector_driver import (
 from app.successor_runtime.substrate.postgres.ingest_c7_movement_admission import (
     C7AdmissionConfig,
 )
+from app.successor_runtime.substrate.postgres.ingest_c7_registry_handler import (
+    C7IngestRegistryRuntimeHandler,
+)
 from app.successor_runtime.substrate.projections.registry import RebuildMode
 
 C7_FAMILY_ID = "C7"
 
 C7_DEPLOYMENT_CATALOG_DIGEST = sha256_hex("mrw.successor.deployment-catalog.c7.v1")
 C7_AUTHORITY_REQUIREMENT_DIGEST = sha256_hex("mrw.successor.c7.authority.v1")
+_C7_INGEST_REGISTRY_OPERATION_REF = "ingest_index.ingest_registry.lifecycle.v1"
+_C7_INGEST_REGISTRY_OPERATION_DIGEST = sha256_hex(
+    "mrw.successor.ingest-c7.registry.operation.v1"
+)
+_C7_INGEST_REGISTRY_INTERPRETER_DIGEST = sha256_hex("successor.ingest-c7.registry.v1")
+_C7_INGEST_REGISTRY_AUTHORITY_DIGEST = sha256_hex(
+    "mrw.successor.ingest-c7.registry.authority.v1"
+)
 
 _C7_INTERPRETERS_MODULE = (
     "main/backend/app/successor_runtime/capabilities/ingest_c7_interpreters.py"
@@ -134,6 +145,13 @@ _C7_PROJECTION_OFFSETS_MODULE = (
 )
 _C7_DOCUMENT_READBACK_MODULE = (
     "main/backend/app/successor_runtime/substrate/postgres/c7_document_readback.py"
+)
+_C7_INGEST_REGISTRY_CAPABILITY_MODULE = (
+    "main/backend/app/successor_runtime/capabilities/ingest_c7_registry.py"
+)
+_C7_INGEST_REGISTRY_HANDLER_MODULE = (
+    "main/backend/app/successor_runtime/substrate/postgres/"
+    "ingest_c7_registry_handler.py"
 )
 
 _C7_ROUTE_OPTION_FIELDS = {
@@ -868,6 +886,77 @@ def build_c7_assembly(
                 binding_refs=_C7_ROLLBACK_REFS[cell_id],
                 note=_C7_PURE_ROUTE_NOTE,
             )
+        )
+
+    registry_store = opts.registry_store
+    registry_command = opts.registry_command
+    if (registry_store is None) != (registry_command is None):
+        raise ValueError(
+            "C7.2 ingest registry wiring requires both registry_store and "
+            "registry_command"
+        )
+    if registry_store is not None:
+        binding = successor_binding(
+            operation_contract_digest=_C7_INGEST_REGISTRY_OPERATION_DIGEST,
+            interpreter_profile_digest=_C7_INGEST_REGISTRY_INTERPRETER_DIGEST,
+            deployment_catalog_digest=C7_DEPLOYMENT_CATALOG_DIGEST,
+            project_scope_digest=scope,
+            authority_requirement_digest=_C7_INGEST_REGISTRY_AUTHORITY_DIGEST,
+        )
+        handler = C7IngestRegistryRuntimeHandler(
+            store=registry_store,
+            command=registry_command,
+            handler_binding_digest=binding.binding_digest,
+            interpreter_profile_digest=binding.interpreter_profile_digest,
+            operation_contract_digest=binding.operation_contract_digest,
+            deployment_catalog_digest=binding.deployment_catalog_digest,
+        )
+        handlers.append(handler)
+        c72_index = next(
+            index for index, cell in enumerate(cells) if cell.cell_id == "C7.2"
+        )
+        previous = cells[c72_index]
+        previous_rollback = rollback_bindings[c72_index]
+        registry_note = (
+            "; C7.2 ingest-submission registry typed route handler installed "
+            "over the successor-only registry port/readback; exact/idempotent "
+            "duplicate handling; legacy/provider/canonical-write authority closed"
+        )
+        operation_refs = previous.operation_contract_refs + (
+            _C7_INGEST_REGISTRY_OPERATION_REF,
+        )
+        if previous.status == "UNWIRED_DECLARED":
+            cells[c72_index] = CellBinding(
+                cell_id="C7.2",
+                family_id=C7_FAMILY_ID,
+                status="INSTALLED",
+                operation_contract_refs=operation_refs,
+                handler_binding_digest=handler.handler_binding_digest,
+                recovery_binding_ref=previous.recovery_binding_ref,
+                required_wiring=previous.required_wiring,
+                note=previous.note + registry_note,
+            )
+        else:
+            cells[c72_index] = CellBinding(
+                cell_id="C7.2",
+                family_id=C7_FAMILY_ID,
+                status=previous.status,
+                operation_contract_refs=operation_refs,
+                handler_binding_digest=previous.handler_binding_digest,
+                recovery_binding_ref=previous.recovery_binding_ref,
+                required_wiring=previous.required_wiring,
+                rollback_binding_refs=previous.rollback_binding_refs,
+                note=previous.note + registry_note,
+            )
+        rollback_bindings[c72_index] = RollbackBindingDeclaration(
+            cell_id="C7.2",
+            status="PRESENT",
+            binding_refs=previous_rollback.binding_refs
+            + (
+                _C7_INGEST_REGISTRY_CAPABILITY_MODULE,
+                _C7_INGEST_REGISTRY_HANDLER_MODULE,
+            ),
+            note=previous_rollback.note + registry_note,
         )
 
     return FamilyAssembly(

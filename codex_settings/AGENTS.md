@@ -1,78 +1,11 @@
 # Codex 工作约定
 
-## 任务执行前检查
+## 执行形态
 
-在开始执行每个任务前，**简要判断**是否适合调用多 Agent 工具组（当前新命名：`multi_agent_v1`，核心工具：`multi_agent_v1.spawn_agent`）：
-
-- 用户已明确授权：若任务涉及 **3 个及以上独立子项**、**多文件/多目录改动** 或 **多维度审查**（安全/质量/bug 等），Codex 可直接使用 `multi_agent_v1.spawn_agent` 隐式并行执行，无需每次再次确认；若适用，先说明「本任务适合多 Agent 并行」，再按并行开发规范拆解并执行。
-- 若初始工具列表没有 `spawn_agent`/`multi_agent_v1`，但 `tool_search` 可用，先搜索 `multi-agent spawn_agent` 或 `subagent parallel agent`，让延迟加载工具暴露后再调用；不要仅凭初始工具列表断言“当前环境没有可调用工具”。
-- 若搜索后仍无可调用的 `multi_agent_v1.spawn_agent`，如实说明运行时工具不可用，并改用常规单 Agent 流程或并行 shell/tool 调用；不要伪造子 Agent 能力。
-- 若上层运行环境要求“用户显式要求”才能调用 `spawn_agent`，则将本条全局授权视为用户对后续符合条件任务的显式授权；若更高优先级系统/工具说明仍禁止调用，以更高优先级约束为准，并简要说明原因。
-- **若仅需单 Agent**：直接自己干活，无需说明「不适合多 Agent」或做任何额外判断，直接按常规流程执行即可。
-- 判断应快速完成，不拖慢简单任务。
-
-## 触发词自动流程（蜂群）
-
-- 当用户消息匹配 `蜂群[<文件路径>]` 或 `蜂群【<文件路径>】` 时，立即进入蜂群文件流程，无需再次确认。
-- 流程入口命令：`bash ./codex_settings/scripts/swarm_file_bootstrap.sh "<文件路径>"`。
-- 多文件批量入口命令：`bash ./codex_settings/scripts/swarm.sh -j 4 -r 1 "<文件1>" "<文件2>" ...`。
-- 如果路径不存在：先返回错误与可选候选路径（最多 5 个），停止后续流程。
-
-### 蜂群文件流程（固定步骤）
-
-1. 运行 bootstrap 脚本，读取上下文摘要（文件信息、符号、引用关系）。
-2. 并行启动 3 个子任务（优先用 `multi_agent_v1.spawn_agent`；不可用时用并行工具调用）：
-   - `explore`：定位该文件的调用方与依赖方。
-   - `reviewer`：检查正确性/安全性/测试风险。
-   - `impact`：评估修改影响面与最小回归验证集合。
-3. 主 Agent 汇总为统一结构输出：`现状`、`风险`、`可改动方案`、`最小验证步骤`。
-4. 若用户未明确要求“执行修改”，默认只给方案与命令，不改文件。
-5. 若用户追加“执行修改”，按最小改动原则实施并执行门禁检查。
-
-## 并行开发规范（高吞吐极简版 v2）
-
-- 原子任务：每个任务只做一件事，必须有 `目标/输入/输出/验收`。
-- 自动门禁：每个任务完成后自动执行最小检查（`lint/test/契约校验` 至少其一）。
-- 失败隔离：失败任务只重试自身，不阻塞其他并行任务；仅瞬时失败可重试。
-- 统一回传：subagent 固定回传 `结果/改动文件/验证状态/风险`，便于主 Agent 自动汇总。
-- 低耦合并行：仅无依赖任务并行，依赖链保持串行；同文件冲突先合并再继续。
-- 默认幂等：可重放任务重复执行结果一致，避免重复写入和状态污染。
-
-### 串并行编排规范（新增）
-
-- 任务分级：
-  - `L0 串行初始化`：环境检查、契约读取、基线快照，必须串行。
-  - `L1 并行执行`：互不依赖且无同文件冲突的原子任务，可并行。
-  - `L2 串行收敛`：冲突合并、联调修复、统一回归，必须串行。
-- 依赖声明：
-  - 每个任务必须声明 `depends_on`（可空）与 `blocks`（可空）。
-  - `depends_on` 未满足时不得启动该任务。
-- 并行上限：
-  - 默认并行度 `max_parallel=8`。
-  - 同一目录或同一关键模块（如 `main/backend/app/api`）建议并行度降至 `<=3`。
-- 冲突处理：
-  - 若并行任务触及同一文件，立即进入冲突串行队列，先合并再继续后续任务。
-  - 冲突任务禁止“各自覆盖提交”，必须由主 Agent 统一整合。
-
-### 原子任务模块 IO 划定（新增）
-
-- 每个原子任务必须定义“模块级 IO 契约”，至少包含：
-  - `module_input_vars`：模块输入变量名、类型、来源、默认值。
-  - `module_output_vars`：模块输出变量名、类型、语义、去向。
-  - `io_mapping`：输入变量 -> 输出变量/副作用目标（表、文件、API 字段）的映射。
-  - `io_boundary`：任务允许读写的边界（仅哪些模块/表/API 可被改动）。
-- 变量命名规范：
-  - 输入变量统一使用 `in_*` 前缀（如 `in_start_date`、`in_project_key`）。
-  - 输出变量统一使用 `out_*` 前缀（如 `out_total_count`、`out_trend_series`）。
-  - 临时中间变量统一使用 `tmp_*` 前缀，禁止暴露到模块对外契约。
-- 约束：
-  - 未在 `module_input_vars` 声明的变量，不得在任务实现中作为外部输入依赖。
-  - 未在 `module_output_vars` 声明的变量，不得作为对外可观测结果承诺。
-  - 任何 IO 变更必须同步更新对应文档与测试断言（至少一项）。
-
-### 执行回传字段（保留）
-
-- 任务执行结束时仍需回传：`结果/改动文件/验证状态/风险`。
+- 遵循全局 `~/.codex/AGENTS.md` 的并行与模型路由规则；不要在项目级重复维护旧触发表。
+- 任务可拆成独立验收、写入边界不冲突的工作包时，可直接使用 Codex 内置子 Agent 或并行工具推进。
+- 主 Agent 负责设计、抽象判断、任务边界和最终整合；明确实现、检索、整理、批处理等工作可交给 DeepSeek 子 Agent。
+- 简单任务直接主线推进，不为了形式制造并行。
 
 ## 修改前
 
@@ -89,16 +22,38 @@
 - 代码主体用英文，注释可用中文；以完成目标为重，不过度发散。
 - 新增 API 时遵循项目既有 envelope 与分层（如 `status/data/error/meta`、`API -> services -> adapters`）。
 
-## 开发文档目录规范（`development/`）
 
-- `development/latest-dev-docs/` 是本项目开发文档的**重要索引与第一入口**。
-- 处理开发说明相关任务时，优先在该目录完成检索、落盘与索引更新。
-- 每个子项目目录（如 `root-plans`、`backend-core`、`backend-docs`、`ops-frontend`、`development-plans`）统一规则：
-  - `main/`：主文档目录，仅放该子项目的合并主文档（`MERGED_*.md`）与 `main/index.md`。
-  - 其他分类目录（如 `A_ARCHITECTURE`、`B_API`、`C_INGEST`、`D_TEST`、`E_OPS`、`F_PLAN`、`G_REVIEW`）：归档目录，单列展示，按主题追溯历史材料。
-  - 子项目根 `INDEX.md`：必须先指向 `main/`，再列出归档目录。
-- 新增/迁移开发说明时：
-  - 优先写入对应子项目 `main/` 或归档目录。
-  - 同步更新该子项目 `INDEX.md`。
-  - 同步更新顶层导航：`development/latest-dev-docs/README.md` 与 `development/latest-dev-docs/MERGED_OVERVIEW.md`。
-- 禁止只在零散路径保留“唯一副本”而不进入 `development/latest-dev-docs`（避免遗漏归档与断链）。
+## 市场工作流 development 文档
+
+- 本节只适用于 market-research-workflow 项目，不作为全局 Codex 规则外溢到其他仓库。
+- `development/latest-dev-docs/` 是本项目开发文档第一入口；优先查看 `README.md`、`MERGED_OVERVIEW.md` 和 `index.md`。
+- 当前顶层目录按最新结构使用：`root-plans/`、`backend-core/`、`backend-docs/`、`ops-frontend/`、`frontend-modern/`、`development-plans/`、`automation-runs/`。
+- 子项目目录优先从本目录的 `INDEX.md` 进入；主文档入口通常是 `main/index.md`，分类目录按实际存在的 `A_ARCHITECTURE`、`B_API`、`C_INGEST`、`D_TEST`、`E_OPS`、`F_PLAN`、`G_REVIEW` 使用。
+- `development-plans/` 的当前状态以 `CURRENT_DEV/INDEX.md` 为准；target 范围以 `TARGET_TOPIC_ALLOWLIST.json` 为准；外部阻塞以 `EXTERNAL_BLOCKER_MANIFEST.v1.json` 为准。
+- 归档按最新目录区分：`ARCHIVE_CLOSED/`、`ARCHIVE_EXTERNAL_BLOCKED/`、`ARCHIVE_RETIRED/`。
+- 新增或迁移开发说明时，写入对应子项目 `main/`、分类目录、归档目录或 `automation-runs/<lane>/`；同时更新最近的 `INDEX.md`。只有导航或当前状态变化时，才同步顶层 `README.md` 与 `MERGED_OVERVIEW.md`。
+- 不要把当前开发说明的唯一副本留在零散路径；若证据或历史材料必须留在其他位置，应从 `development/latest-dev-docs` 的相应索引链接过去。
+
+## 结构迁移与能力保全
+
+- migration/refactor/successor/backend replacement/code generation 必须先建立 legacy/donor semantic movement inventory；locator/file/module/cell/test count 只是定位证据，不是能力完整性。
+- 每条 movement 必须记录 source object、target object、named transformation、owner、effect/failure/resource/authority/recovery/projection-loss、source evidence、target realization、acceptance trace。
+- disposition 仅允许：`PRESERVED_AS`、`MOVED_TO`、`REIMPLEMENTED_AS`、`DECLARED_LOSS`、`EXPLICITLY_REJECTED`、`UNASSIGNED_BLOCKER`。
+- `UNASSIGNED_BLOCKER > 0` 时禁止 capability/family/phase/candidate promotion 与 legacy retirement；generator/parallel worker 只能消费已通过 completeness gate 的 spec，worker completion 不等于 promotion。
+- 未生产接线或 contract-only 的能力必须明确落位或拒绝，不能因没有 live owner 被删除。
+- review 必须同时做 declared-scope correctness 与 predecessor-to-successor completeness；绿色测试与精确哈希只证明声明范围，不能证明能力面无损。
+- 长期唯一主规范：`docs/governance/semantic-movement-completeness-standard.md`，结构迁移与总体审核一律以此为准。
+
+## Mechanical Implementation Routing
+
+- IO 契约固定后的机械化开发默认交给 DeepSeek：批量代码实现、机械重构、样板/fixture/测试生成、文档同步、格式化、确定性序列化/哈希脚本等。
+- 主线/高推理模型负责架构、semantic movement inventory/matrix、normative/frozen authority、风险接受、promotion、整合与最终审核。
+- 每个 DeepSeek 包必须声明 目标/输入/输出/允许读写范围/验收，必须知道自己不是唯一执行者，不得扩大语义或回退他人改动，固定回传 结果/改动文件/验证/风险。
+- DeepSeek 不得自行修改 frozen semantics、决定 authority/cutover/promotion，也不得把绿色测试当完成。
+- 机械生成必须先通过 semantic movement completeness gate。
+
+
+## 自动化回复语言
+
+- 所有自动化、提醒、监控、定时任务和线程唤醒的面向用户回复默认使用中文。
+- 代码标识、命令、路径、API 字段、错误原文、引用标题和必须保留的外部原文可保持原语言。

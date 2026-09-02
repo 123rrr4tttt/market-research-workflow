@@ -83,17 +83,17 @@
     },
         {
             "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/P1P3SuccessorMovementMatrix.v1.json",
-            "file_sha256": "9dc614c73f6ce48202f7087a8971e812c5eae44844e9453267e6550bb0f8712e",
+            "file_sha256": "482ae2934fbe8ffd19a2e8d43365d4f910ff8cb82398cfd885086f07bb2740db",
             "role": "movement_matrix"
         },
         {
             "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/P1P3LegacyDonorSemanticMovementInventory.v1.json",
-            "file_sha256": "31e59601a7fef35afc5cf2a3e784fc1692d40ad3a53b816e3439eeb4f27990cc",
+            "file_sha256": "c032207f0070424b83fc81a8d49167dbb8f5624f08aaa97853e34f7a6f296be9",
             "role": "donor_inventory"
         },
         {
             "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C1.v1.json",
-            "file_sha256": "924f121290c88d46ac2a4b17017b897fcfd98cdb85900696fa898c34f86d1277",
+            "file_sha256": "0ffd28226ff542f7f4d011ccf612bad8a84b35fd390be59c7694318e4b5ef138",
             "role": "movement_fragment"
         },
     {

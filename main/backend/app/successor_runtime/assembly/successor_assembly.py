@@ -69,6 +69,14 @@ from .c8_assembly import (
     build_deterministic_c8_payloads,
 )
 from .c9_assembly import build_c9_assembly, build_deterministic_facade_closure
+from .s1_horizontal_port_assembly import (
+    S1HorizontalPortContract,
+    build_s1_horizontal_port_registry,
+)
+from .s2c_ops_domain_surface_assembly import (
+    S2cOpsDomainSurfaceContract,
+    build_s2c_ops_domain_surface_registry,
+)
 
 ALL_I1_CELLS = frozenset(
     {
@@ -120,6 +128,8 @@ class SuccessorAssembly:
     projector_wiring: tuple[ProjectorWiring, ...]
     rollback_bindings: tuple[RollbackBindingDeclaration, ...]
     projector_registry: ProjectorRegistry
+    horizontal_ports: tuple[S1HorizontalPortContract, ...]
+    domain_surfaces: tuple[S2cOpsDomainSurfaceContract, ...]
 
     def by_cell(self, cell_id: str) -> CellBinding:
         matches = tuple(item for item in self.cells if item.cell_id == cell_id)
@@ -247,6 +257,8 @@ def assemble_successor_runtime(
         projector_wiring=projector_wiring,
         rollback_bindings=rollback_bindings,
         projector_registry=projector_registry,
+        horizontal_ports=build_s1_horizontal_port_registry(),
+        domain_surfaces=build_s2c_ops_domain_surface_registry(),
     )
 
 

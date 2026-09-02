@@ -502,3 +502,124 @@ When the target task reaches a review boundary, it must return a message beginni
 - 监督复核实测：`pytest -k i1` = `55 passed`；全量非 PG `tests/successor_runtime` = `1399 passed / 117 skipped / 0 failed`；全量 PG 专用库（变更前 38 文件）`344/0/0`，C7 canonical write PG `9 passed` 与 C7 admission `50 passed` 回归通过。
 - 裁决：`SUPERVISOR_ACCEPT_I1_CLOSED_CONFIG_30_30_INSTALLED_LOCAL_ONLY`。I1 local-only 装配证据层完成；仍不构成 live/cutover/authority transfer/candidate 完成证据。
 - 下一步：创建候选 commit/tree（git 化 review surface）并执行 I2 exact-candidate independent final review。
+
+## I2 exact-candidate: candidate created (2026-09-02)
+
+- 候选 commit：`9fa8aefaae8f30a080f3d2dcac6dfb6ff9f773e0`；tree：`709719ca27e5c8c88b0de00e862d2996bb850a82`；branch `codex/functorial-successor-p0`；仅暂存迁移范围路径（700 文件，0 个无关文件）。
+- 候选内容：冻结族 01/02/20/21 等、semantic movement 证据、30 份 capability spec/manifest、共享生成器、I1 assembly（30/30 INSTALLED）、C7 canonical write/projector driver、successor router 挂载、C9.2 frontend、tests。
+- 状态：候选为 local-only exact-candidate；live/cutover/authority transfer 未授权；I2 independent final review 待执行。
+
+## I2 exact-candidate: first review BLOCK and candidate fix (2026-09-02)
+
+- I2 独立终审对候选 `9fa8aefa…` 返回 `BLOCK`：P0-1 候选缺 `generate_runtime_kernel_abi_pilot.py`；P0-2 候选 `app/api/__init__.py` 未挂 successor router（挂载改动未暂存）；P0-3 候选缺 alembic `_snapshots/20260830_000001_successor_schema.py`。终审产物 `05_functorial-successor-final-review.md` 与 `I2ExactCandidateFinalReview.v1.json` 已移回工作树并保留为历史证据。
+- 修复候选 `1825870a9623dd256fa075053ab89d786c84b6bd`（tree `63bcc270…`）：补入 router 挂载、runtime kernel ABI pilot 脚本、migrations snapshot；I2 终审将在新候选上重跑。
+
+## I2 exact-candidate: evidence-bound candidate (2026-09-02)
+
+- I2 复评对 `1825870a…` 仍 `BLOCK`：功能全绿，但 I1 evidence 未绑定候选字节（head 旧、route_mounted=false、计数/SHA 过期）。
+- 修复：7 份 I1 evidence 按候选字节重生成（head/commit/tree 绑定、route_mounted=true、30/30、55/1399/209/35/128/59/60）；提交候选 `a48acbee37cec9783d36158458894c2b0a05ba4d`（tree `6315e002…`）。
+- I2 终审将在 `a48acbee…` 上重跑。
+
+## I2 exact-candidate: binding convention candidate (2026-09-02)
+
+- I2 第三轮对 `a48acbee…` BLOCK：功能全绿，剩 P0-1 evidence 自引用绑定约定未定义、P0-2 `I1C8_3DeliveryEvidence` route_mounted=false。
+- 修复：监督裁决 `evidence/reviews/I1EvidenceCandidateBindingConvention.v1.json`（SHA `2afc006e…`）确立 source-identical commit 绑定约定；`I1C8_3DeliveryEvidence` route_mounted=true。
+- 当前候选：commit `452611fccb69188477f277550a7f8b6c98b4724c`，tree `94a40383…`；I2 终审待重跑。
+
+## I2 exact-candidate: PASS and final acceptance (2026-09-02)
+
+- I2 第 4 轮独立终审 `evidence/reviews/I2ExactCandidateFinalReview.v4.json`（file SHA `1da3aeb1…`）verdict `PASS_EXACT_CANDIDATE`，候选 `452611fc…`/`94a40383…`；无 P0；功能验收在候选字节复跑全绿（I1 55、全量非 PG 1399/117/0、semantic 60/0、30/30 MATCH、C7 PG 59、frontend 60、deps 209/43/0）。
+- 监督最终接受：`SUPERVISOR_FINAL_ACCEPT_EXACT_CANDIDATE_LOCAL_ONLY`。候选被接受为 exact-candidate；live provider、external delivery、cutover/legacy retirement、authority transfer 与 production canonical write 仍不授权。
+- 冻结文档目标里程碑（P4 采用、P5、I1 successor assembly、I2 exact-candidate final review）已全部真实完成并验证；05 final review 已更新。
+
+## Production readiness authorization and final steps (2026-09-02)
+
+- 用户再次明确「我都授权」：允许完成生产就绪收尾（cutover rehearsal、production canonical write 的 successor 表范围、真实部署/健康检查、安全与运行文档、CI 门禁）。
+- 保留边界：legacy 保持可用且不退休；live provider 实际调用只有在真实凭据/环境存在并通过 fixture-live parity 后才执行；无凭据则如实标 BLOCK，不伪造。
+- 本授权记录为 production readiness gate 输入；完成后给出可部署性结论与真实剩余环境 blocker。
+
+## Production readiness final steps (2026-09-02)
+
+- 本地生产门禁 `evidence/i1-successor-assembly/ProductionLocalGateEvidence.v1.json`（SHA `858d8d11…`）：前端生产构建 OK（vite build exit 0）；后端 smoke OK（277 路由，successor v2 commands/queries 返回 typed envelope，注入 authority/execute 被 422 拒绝）；本地离线套件 1226 passed / 290 skipped / 0 failed；`docker_available=false`。
+- 真实 provider 凭据审计 `evidence/i1-successor-assembly/LiveProviderCredentialAudit.v1.json`（SHA `9438c277…`）：C2.3/C3.1/C3.2/C6.2 全部 `BLOCKED_IF_ABSENT`；43 个凭据 env 变量 ABSENT，`~/.codex/auth.json` 存在但有效性未验证；真实 live 调用当前不可执行。
+- 生产就绪文档 `production-readiness/`：production-runbook.md（SHA `b6e09c0e…`）、monitoring-and-rollback.md（`5d6b4ed4…`）、security-checklist.md（`96afc7e7…`）。
+- 可部署性结论：本地 exact-candidate 与生产就绪文档已完成；真实投产仍被外部环境阻断——Docker daemon 未运行、真实 provider 凭据缺失、successor 默认无认证保护且生产 resolver 未实现、容器化/DB 形态生产验收未执行。
+- legacy 保持可用且不退休；live/cutover/authority transfer 未实际执行。
+
+## Containerized cutover rehearsal PASS (2026-09-02)
+
+- production-ready 基线 commit `38acdee8862af0971ca063507b8355812894fbce`（tree `3f06e081…`）：live provider parity、runbook/monitoring/security、local gate 与 credential audit 证据。
+- 容器化 rehearsal 证据 `evidence/i1-successor-assembly/ProductionCutoverRehearsalEvidence.v1.json`（SHA `0be9b65e…`）：Docker 全栈（db/es/redis/backend/celery-worker/frontend-modern）Up/healthy；`/api/v1/health` 与 successor v2 command/query typed envelope HTTP 200；Serper 与 OpenAI 各 1 次 bounded live call、无重复 effect；PG 专用库 39 文件 `353 passed / 0 failed`、teardown 0；非 PG `1425/119/0`；容器与网络已清理。
+- 已知小项：`docker-deploy.sh start-all` 对 `--force` 的宿主机 ES 探活 exit 1（容器内 ES 正常，属脚本缺陷）；successor 路由默认仍无认证保护；真实生产 cutover/canonical production write/authority transfer 未执行。
+
+## All-lines migration investigation and freeze (2026-09-02)
+
+- 调查产物：`evidence/all-lines-investigation/BackendDonorSurfaceInventory.v1.json`（18 条业务条线、130 donor sources）、`LegacyVsMovementGap.v1.json`（MAPPED 14、DECLARED_LOSS_OR_REJECTED 14、UNMAPPED_GAP 15）。
+- 冻结范围：`AllLinesMigrationScope.freeze.v1.md`（SHA `5fedb0cb…`）与 `AllLinesMigrationScope.freeze.v1.json`（SHA `d983a922…`），status `FROZEN_VALIDATED`，freeze receipt `AllLinesMigrationScope.freeze-receipt.v1.json`（SHA `99b9a1c1…`）。
+- 当前范围状态：18 条业务条线，line-level `UNASSIGNED_BLOCKER` 16、`REIMPLEMENTED_AS` 2；35 个 donor 未跟踪文件依赖工作树字节冻结。
+- 下一步：逐条裁决 16 个 UNASSIGNED_BLOCKER（owner/successor 归属），再按冻结管线迁移。
+
+## All-lines disposition adjudication basis (2026-09-02)
+
+- `evidence/all-lines-investigation/AllLinesDispositions.amendment.v1.json`（SHA `e9f674e0…`）：16/16 条线保留 UNASSIGNED_BLOCKER，逐条给出 owner 与建议 successor 归属（C7.2 ingest registry、C2.3 single-source guard、C5.4 readback metadata、C8.3 export token-state、新 horizontal ports/cells 等）；并补两个证据遗漏行（agent-batch quality-promotion、runtime-health-matrix）。
+- 监督接受该 amendment 为裁决基准：16 个 blocker 是真实未闭合项（缺 donor SHA-256 byte closure / named target + acceptance trace），不 promotion/candidate/authority。
+- 下一波：WP-1 donor byte closure + 逐线 movement inventory。
+
+## WP-1 all-lines donor closure and movement inventory (2026-09-02)
+
+- `AllLinesDonorByteClosure.v1.json`（SHA `fc1009c1…`）：237 个 donor 文件字节闭合（130 registry + 30 supplementary 展开 72 + 28 frontend），0 missing。
+- `AllLinesSuccessorMovementInventory.v1.json`（SHA `c172c869…`）：20 条 movement 记录全含 governance 13 字段；18 UNASSIGNED_BLOCKER（16 frozen + 2 新增 gap）、2 REIMPLEMENTED_AS；未伪造闭合。
+- 下一步：WP-2 逐 blocker 闭合实现计划（模块/cell/spec/test/验收），随后按波实现。
+
+## WP-2 all-lines closure plan (2026-09-02)
+
+- `evidence/all-lines-investigation/AllLinesSuccessorClosurePlan.v1.json`（SHA `8eca87a2…`）：20 个闭合/核验包，16 个实现型 blocker 包 + 2 个证据行包 + 2 个 REIMPLEMENTED 核验包；11 个为既有 cell 扩展，5 个 `NEW_SURFACE_PENDING_TOPOLOGY_DECISION`。
+- 顺序 S0-S5：S0 冻结/字节闭包/新 surface 拓扑决策；S1 四个横向 port（request-identity、line-event、single-source-guard、quality-promotion）；S2 C7.2 registry、C3/C9.2 search、C8.3 export、C9 evidence matrix；S3 C8 export→audit→trend 与 C2.3 guard 串行收敛；S4 新 surface 实施；S5 `UNASSIGNED_BLOCKER == 0` 门。
+- 监督待决项：新增 cell 会改变 30-cell 不变量，必须 additive milestone 而非静默扩 cell；重复 gap 行用共享 closure binding 避免重复计数。
+
+## S1 horizontal ports implemented (2026-09-02)
+
+- `evidence/all-lines-investigation/S1PortImplementationEvidence.v1.json`（SHA `bd6fee9f…`）：request-identity（ALL-SM-010）、line-event readback（ALL-SM-011）、single-source guard（ALL-SM-012）、quality promotion（ALL-SM-013）四个横向 successor port 已实现；每个 port 纯 stdlib/typed、authority 全 false、fail-closed。
+- 监督复核：S1 focused `51 passed`；`-k 's1 or i1'` `118 passed / 2 skipped`；collection 1595；deps 216/0；ruff/diff PASS。
+- 边界：assembly 状态为 `DECLARED_PURE_PORT_NO_RUNTIME_BINDING`；C9.1 facade、C5.4 projection、C2.3 dispatch、C4 handler 接入属于 S2；inventory 对应 4 条仍为 UNASSIGNED_BLOCKER，不 promotion。
+
+## S2 cell runtime binding and closure (2026-09-02)
+
+- ALL-SM-010..013 从 UNASSIGNED_BLOCKER 转 REIMPLEMENTED_AS/CLOSED：request-identity 接入 C9.1 facade（trusted actor 强制）；line-event readback 接入 C5.4 projection/assembly；single-source guard 接入 C2.3 dispatch gateway；quality promotion 接入 C4 handler。authority 全 false，无 live/canonical write。
+- `AllLinesSuccessorMovementInventory.v1.json`（SHA `f11b0e69…`）：blockers 18→14，REIMPLEMENTED_AS 2→6；`AllLinesS2Closure.amendment.v1.json`（SHA `4e55bf96…`）记录闭合。
+- 监督复核：S1+S2 focused `71 passed`；`-k 's1 or s2 or i1'` `145 passed / 2 skipped`；collection 1615；deps 218/0；ruff/diff PASS。
+- 剩余：inventory 仍 14 UNASSIGNED_BLOCKER（C7.2 registry、llm-report export/token-state/audit/trend、evidence matrix、projects/config、dashboard/admin、runtime-ops、request/health/remaining surfaces 等），继续 S2b/S3/S4。
+
+## S2b cell extensions closure (2026-09-02)
+
+- ALL-SM-001（C9 evidence matrix）、ALL-SM-002（C7.2 ingest submission registry）、ALL-SM-009（C8.3 llm-report export/token-state）转 REIMPLEMENTED_AS/CLOSED；实现 + assembly INSTALLED + typed acceptance。
+- `AllLinesSuccessorMovementInventory.v1.json`（SHA `cfadcea1…`）：business-line UB 9、supplementary UB 2、total UB 11，REIMPLEMENTED_AS 9；`AllLinesS2bClosure.amendment.v1.json`（SHA `1c9e9215…`）。
+- 监督复核：S2b focused `48 passed` + 回归 `45 passed`；deps 225/0；ruff/diff PASS；domain-contract 禁词失败已修（`26 passed`）。
+- 残留：全量非 PG 仍有 9 个 p3-fragments/semantic-movement generator drift 失败（既有证据状态差异，下轮重生成收敛）；真实 PostgreSQL handler 与 live delivery 属后续 authority milestone。
+
+## S2c closure, drift regen and final rebind (2026-09-02)
+
+- S2c 闭合剩余 11 条（ALL-SM-003/004/005/006/008/014/016/017/018 + ALL-GAP-001/002）为 successor_runtime ops-domain typed surface（5 组）与 C8 evidence/worker readback 面；30-cell 拓扑与 ALL_I1_CELLS 未改；`AllLinesS2cClosure.amendment.v1.json`（SHA `1244e285…`）、inventory `758a9569…`（movement records 20/20 REIMPLEMENTED_AS，unassigned_movement_records=0）。
+- Drift 重生成：p3 C2/C5 与 P1P3 工件重生成后 generator/validator 绿；全量曾 12 failed，随后 spec/manifest 重绑（`AllLinesFinalRebind.amendment.v1.json`，SHA `92e69d9a…`；12 spec + 12 manifest）。
+- 监督复核实测：全量非 PG `1565 passed / 119 skipped / 0 failed`；30/30 spec `--check` MATCH；deps 237/0；S1/S2/S2b/S2c focused 全绿。
+- 剩余门禁：all-lines movement matrix 独立双门 review 未执行；全量 PG 与真实 handler/delivery 属后续 authority milestone；candidate/live/cutover 未授权。
+
+## All-lines movement gate and PG evidence (2026-09-02)
+
+- 独立双门 `AllLinesMovementDeclaredScopeReview.v1.json`（SHA `d169f356…`）与 `AllLinesMovementPredecessorReview.v1.json`（SHA `e4ed8cf7…`）：verdict `PASS_ALL_LINES_MOVEMENT_GATE`，P0 空；P1 5 项（007/015 行级精确节点、component decision reason 机器化、supersede marker、summary 残留计数、read-only/no-call 标签误读风险）。
+- 全量 PG 专用库 `PgEvidence.AllLines.2026-09-02.md`（SHA `96bd9d24…`）：39 文件 `353/0/0`、teardown 0；非 PG `1565/119/0`。
+- 下一步：收敛 5 项 P1；随后才评估 candidate/authority 门。
+
+## All-lines P1 closure (2026-09-02)
+
+- `AllLinesSuccessorMovementInventory.v1.json`（SHA `08fad9f5…`）：summary 残留计数修正（NON_BLOCKER 2），ALL-SM-007/015 acceptance 收紧为精确 file::test 节点。
+- `AllLinesP1Closure.addendum.v1.json`（SHA `c7bc77ee…`）：14 条 component decision reason 机器化（owner/reason/normative ref）。
+- `AllLinesClosureStatus.v1.json`（SHA `8c371ef2…`）：supersede marker，历史 16/15/16 状态由 0 UB 闭合链取代。
+- 复核：`-k 'i1 or rollback_rehearsal'` `61 passed / 2 skipped`；文件/SHA/节点引用校验通过。
+- 状态：all-lines movement 证据阶段闭合（0 UB、双门 PASS、P1 收敛）；authority/candidate/live/cutover 仍未授权。
+
+## All-lines P1 closure independent review PASS (2026-09-02)
+
+- `evidence/all-lines-investigation/reviews/AllLinesP1ClosureIndependentReview.v1.json`（SHA `76502214…`）verdict `PASS_P1_CLOSURE_REVIEWED`，无阻断 finding：14 条 decision 配对/owner/reason/normative ref 全校验；supersede 链 5/5；inventory summary 与行级一致；007/015 引用全解析。
+- 复核命令：semantic generator/validator PASS、30/30 spec --check、S1-S2c focused `140 passed`。
+- 下一步：把 all-lines 本地闭合作为 local closure baseline 提交并记录；authority/live/cutover 门待用户决策。

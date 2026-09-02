@@ -28,6 +28,7 @@ from app.successor_runtime.assembly.base import (
     sha256_hex,
     successor_binding,
 )
+from app.successor_runtime.capabilities import request_identity_port
 from app.successor_runtime.capabilities.checksum import content_digest
 from app.successor_runtime.runtime.assignments import RuntimeAssignment
 from app.successor_runtime.runtime.claims import ClaimBinding
@@ -59,6 +60,9 @@ from app.successor_runtime.substrate.postgres.c9_projection_sources import (
     C9_SEMANTIC_SOURCE_KIND,
     C9_TYPED_SOURCE_PROJECTOR_ID,
     C9_TYPED_SOURCE_PROJECTOR_VERSION,
+)
+from app.successor_runtime.substrate.projections.evidence_matrix import (
+    C9EvidenceMatrixRouteHandler,
 )
 from app.successor_runtime.substrate.projections.registry import (
     ProjectorRegistry,
@@ -148,6 +152,17 @@ C9_3_OPERATION_CONTRACT_REFS = (
     "projector.offset.aba_stale.v1",
     "projector.rebuild.plan_only.v1",
     "projector.source_offsets.snapshot.v1",
+)
+C9_EVIDENCE_MATRIX_OPERATION_REF = "c9.evidence_matrix.read.v1"
+C9_EVIDENCE_MATRIX_OPERATION_DIGEST = sha256_hex(
+    "mrw.successor.c9-1.evidence-matrix.operation.v1"
+)
+C9_EVIDENCE_MATRIX_INTERPRETER_DIGEST = sha256_hex("successor.c9.evidence-matrix.v1")
+C9_EVIDENCE_MATRIX_AUTHORITY_DIGEST = sha256_hex(
+    "mrw.successor.c9-1.evidence-matrix.authority.v1"
+)
+C9_EVIDENCE_MATRIX_HANDLER_MODULE = (
+    "main/backend/app/successor_runtime/substrate/projections/evidence_matrix.py"
 )
 
 
@@ -324,6 +339,9 @@ class C9_1FacadeValidationRouteHandler(RuntimeHandler):
         facade: SuccessorRuntimeFacade,
         query: FacadeQueryV2 | FacadeCommandV2,
         binding: Any,
+        request_identity_observation: request_identity_port.RequestIdentityObservation
+        | None = None,
+        request_identity_require_trusted: bool = True,
     ) -> None:
         if facade is None or query is None:
             raise ValueError("C9.1 route handler requires facade and query closure")
@@ -333,6 +351,33 @@ class C9_1FacadeValidationRouteHandler(RuntimeHandler):
         self.interpreter_profile_digest = binding.interpreter_profile_digest
         self.operation_contract_digest = binding.operation_contract_digest
         self.deployment_catalog_digest = binding.deployment_catalog_digest
+        self.request_identity_observation = (
+            request_identity_observation
+            if request_identity_observation is not None
+            else request_identity_port.RequestIdentityObservation(
+                actor_id="local-offline-validation",
+                actor_source="local_offline_validation",
+                actor_trusted=True,
+            )
+        )
+        self.request_identity_require_trusted = request_identity_require_trusted
+        self.request_identity_calls = 0
+        self.last_actor_context: request_identity_port.RequestActorContext | None = None
+
+    def _resolve_request_actor(self) -> request_identity_port.RequestActorContext:
+        """Consume the horizontal request-identity port before facade handling."""
+
+        try:
+            context = request_identity_port.resolve_request_actor_context(
+                self.request_identity_observation
+            )
+            self.request_identity_calls += 1
+            if self.request_identity_require_trusted:
+                context = request_identity_port.require_trusted_actor_context(context)
+        except request_identity_port.TrustedActorRequired as exc:
+            raise DefiniteInterpreterFailure("C9_1_TRUSTED_ACTOR_REQUIRED") from exc
+        self.last_actor_context = context
+        return context
 
     def execute(
         self,
@@ -341,6 +386,10 @@ class C9_1FacadeValidationRouteHandler(RuntimeHandler):
         context: RuntimeExecutionContext,
     ) -> InterpreterOutcome:
         _validate_exact_facade_binding(assignment, claim, self)
+        actor_context = self._resolve_request_actor()
+        expected_actor_ref = getattr(self.query, "actor_ref", "")
+        if actor_context.actor_id != expected_actor_ref:
+            raise DefiniteInterpreterFailure("C9_1_REQUEST_ACTOR_BINDING_MISMATCH")
         if isinstance(self.query, FacadeCommandV2):
             envelope = _reject_command(self.query)
         elif isinstance(self.query, FacadeQueryV2):
@@ -353,6 +402,9 @@ class C9_1FacadeValidationRouteHandler(RuntimeHandler):
 def _build_c9_1_route_handler(
     *,
     facade: SuccessorRuntimeFacade,
+    request_identity_observation: request_identity_port.RequestIdentityObservation
+    | None = None,
+    request_identity_require_trusted: bool = True,
 ) -> C9_1FacadeValidationRouteHandler:
     binding = successor_binding(
         operation_contract_digest=C9_1_OPERATION_CONTRACT_DIGEST,
@@ -367,6 +419,8 @@ def _build_c9_1_route_handler(
         facade=facade,
         query=build_deterministic_facade_validation_query(),
         binding=binding,
+        request_identity_observation=request_identity_observation,
+        request_identity_require_trusted=request_identity_require_trusted,
     )
 
 
@@ -398,7 +452,9 @@ def _installed_c9_1_cell(handler: C9_1FacadeValidationRouteHandler) -> CellBindi
         required_wiring=("NO_ROUTE_OR_CONTROL_EFFECT 保持",),
         note=(
             "LOCAL_OFFLINE facade validation route handler installed; read-only "
-            "query path only; router 挂载属于 WP-I1-06，本 assembly 不装路由"
+            "query path only; C9.1 request-identity port consumed before facade "
+            "handling with trusted-actor fail-closed binding; router 挂载属于 "
+            "WP-I1-06，本 assembly 不装路由"
         ),
     )
 
@@ -424,6 +480,29 @@ def build_c9_assembly(
         handler = _build_c9_1_route_handler(facade=opts.facade)
         c9_1_cell = _installed_c9_1_cell(handler)
         handlers.append(handler)
+
+    evidence_matrix_note = ""
+    if opts.evidence_records is not None:
+        evidence_binding = successor_binding(
+            operation_contract_digest=C9_EVIDENCE_MATRIX_OPERATION_DIGEST,
+            interpreter_profile_digest=C9_EVIDENCE_MATRIX_INTERPRETER_DIGEST,
+            deployment_catalog_digest=C9_DEPLOYMENT_CATALOG_DIGEST,
+            project_scope_digest=C9_LOCAL_ONLY_SCOPE_DIGEST,
+            authority_requirement_digest=C9_EVIDENCE_MATRIX_AUTHORITY_DIGEST,
+        )
+        evidence_handler = C9EvidenceMatrixRouteHandler(
+            records=tuple(opts.evidence_records),
+            handler_binding_digest=evidence_binding.binding_digest,
+            interpreter_profile_digest=evidence_binding.interpreter_profile_digest,
+            operation_contract_digest=evidence_binding.operation_contract_digest,
+            deployment_catalog_digest=evidence_binding.deployment_catalog_digest,
+        )
+        handlers.append(evidence_handler)
+        evidence_matrix_note = (
+            "; S2b C9.1 evidence-matrix read-only route handler carried by "
+            "the family; seven-line projection over typed runtime/readback "
+            "records; no DB/scheduler/executor/canonical write adopted"
+        )
 
     c9_3_wiring = ProjectorWiring(
         cell_id="C9.3",
@@ -498,10 +577,13 @@ def build_c9_assembly(
             operation_contract_refs=C9_3_OPERATION_CONTRACT_REFS,
             handler_binding_digest=c9_3_binding_digest,
             required_wiring=c9_3_required_wiring,
-            note=c9_3_note,
+            note=c9_3_note + evidence_matrix_note,
         ),
     )
     c9_3_wiring_tuple = (c9_3_wiring,)
+    c9_3_rollback_refs = (C9_ROLLBACK_REF,)
+    if evidence_matrix_note:
+        c9_3_rollback_refs += (C9_EVIDENCE_MATRIX_HANDLER_MODULE,)
     rollback_bindings = (
         RollbackBindingDeclaration(
             cell_id="C9.1",
@@ -521,7 +603,7 @@ def build_c9_assembly(
         RollbackBindingDeclaration(
             cell_id="C9.3",
             status="PRESENT",
-            binding_refs=(C9_ROLLBACK_REF,),
+            binding_refs=c9_3_rollback_refs,
         ),
     )
     return FamilyAssembly(
@@ -537,14 +619,15 @@ def build_c9_assembly(
 
 __all__ = [
     "C9_1_OPERATION_CONTRACT_REFS",
-    "C9_2_OPERATION_CONTRACT_REFS",
     "C9_2_KERNEL_ID",
     "C9_2_KERNEL_VERSION",
     "C9_2_KERNEL_WIRING",
+    "C9_2_OPERATION_CONTRACT_REFS",
     "C9_2_REQUIRED_WIRING",
     "C9_2_ROLLBACK_PATHS",
     "C9_3_DECLARED_LOSS",
     "C9_3_OPERATION_CONTRACT_REFS",
+    "C9_EVIDENCE_MATRIX_OPERATION_REF",
     "C9_FAMILY_ID",
     "C9_ROLLBACK_REF",
     "C9_1FacadeValidationRouteHandler",

@@ -15,6 +15,10 @@ from typing import Literal
 
 from pydantic import Field, model_validator
 
+from app.successor_runtime.capabilities.line_event_readback_port import (
+    LineEventReadbackPort,
+    LineEventReadbackRecord,
+)
 from app.successor_runtime.runtime.assignments import (
     Digest,
     FrozenContract,
@@ -33,6 +37,10 @@ class ProcessProjectionError(ValueError):
 
 class SourceBindingMismatch(ProcessProjectionError):
     """One task identity binds multiple run/step/attempt identities."""
+
+
+class LineEventProjectionError(ProcessProjectionError):
+    """Line-event readback records cannot form a trustworthy projection."""
 
 
 _ACTIVE_STATES = frozenset(
@@ -270,11 +278,57 @@ def _distinct_linked(
     return distinct
 
 
+def project_line_event_readbacks(
+    records: Iterable[LineEventReadbackRecord],
+) -> tuple[dict[str, object], ...]:
+    """Project typed line-event records through the successor readback port.
+
+    The returned rows are read-only projections.  Each record is
+    digest-verified and projected through ``LineEventReadbackPort.readback``
+    and ``build_payload``; no terminal persistence is fabricated and no
+    canonical/scheduler/executor authority is claimed.
+    """
+
+    typed = tuple(records)
+    if not typed:
+        raise LineEventProjectionError(
+            "line-event readback projection requires at least one record"
+        )
+    for record in typed:
+        if not isinstance(record, LineEventReadbackRecord):
+            raise LineEventProjectionError(
+                "line-event projection requires typed readback records"
+            )
+        record.verify_digest()
+    ordered = tuple(sorted(typed, key=lambda record: record.line_key))
+    if len({record.line_key for record in ordered}) != len(ordered):
+        raise LineEventProjectionError(
+            "line-event projection cannot carry duplicate line keys"
+        )
+    rows: list[dict[str, object]] = []
+    for record in ordered:
+        readback = LineEventReadbackPort.readback(record)
+        payload = LineEventReadbackPort.build_payload(record)
+        rows.append(
+            {
+                "line_key": record.line_key,
+                "record_digest": record.digest,
+                "persistence_decidable": readback.persistence_decidable,
+                "persistence_observed": readback.persistence_observed,
+                "readback_reason": readback.reason,
+                "payload": payload,
+            }
+        )
+    return tuple(rows)
+
+
 __all__ = [
     "LegacyProcessObservationProjection",
     "LegacyProcessTaskProjection",
+    "LineEventProjectionError",
     "ProcessProjectionError",
     "SourceBindingMismatch",
     "join_process_observations",
     "normalize_observed_status",
+    "project_line_event_readbacks",
 ]

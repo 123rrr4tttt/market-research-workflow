@@ -1,0 +1,305 @@
+{
+  "schema": "mrw.functorial_successor.all_lines.final_rebind.amendment.v1",
+  "version": "1.0.0",
+  "record_id": "AllLinesFinalRebind.amendment.v1",
+  "date": "2026-09-02",
+  "generated_at_utc": "2026-09-02T15:18:42Z",
+  "status": "P1P3_BINDING_SHA_REBOUND_LOCAL_ONLY_NOT_PROMOTED",
+  "method": "Mechanically rebound file_sha256 entries in twelve capability cell specs that reference P1P3 semantic-movement matrix/inventory/gate/fragments and p3-fragments C2/C5 artifacts to the current on-disk SHA-256, then regenerated the twelve affected BuildManifest artifacts with generate_capability_spec_pilots.py. No semantic field, authority ceiling, schema, verdict, source checkout, frozen member, production code, capability_cell_spec.py/compiler/runtime_kernel_abi/shared_family_generator or 30-cell topology was changed.",
+  "scope": "Writes are limited to evidence/capability-specs/*.v1.json binding SHA updates, evidence/capability-spec-builds/*.BuildManifest.v1.json regeneration, and this evidence/all-lines-investigation amendment. 03/04/SUPERVISOR integration is handled by the main thread; no commit or push was created.",
+  "worktree": {
+    "root": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0",
+    "branch": "codex/functorial-successor-p0",
+    "head_sha": "38acdee8862af0971ca063507b8355812894fbce",
+    "committed": false,
+    "dirty_worktree_ownership_preserved": true
+  },
+  "authority_ceiling": {
+    "canonical_write": false,
+    "live_provider": false,
+    "external_delivery": false,
+    "cutover": false,
+    "authority_transfer": false,
+    "scheduler": false,
+    "executor": false,
+    "credential_read": false,
+    "candidate_created": false,
+    "legacy_retired": false
+  },
+  "summary": {
+    "rebound_binding_entries": 24,
+    "affected_cell_specs": [
+      "C1.1",
+      "C1.2",
+      "C1.3",
+      "C2.2",
+      "C2.3",
+      "C2.4",
+      "C5.1",
+      "C5.2",
+      "C5.3",
+      "C5.4",
+      "C9.2",
+      "C9.3"
+    ],
+    "rebound_spec_count": 12,
+    "regenerated_manifest_count": 12,
+    "all_spec_binding_drift_after_rebind": 0,
+    "capability_cell_spec_from_dict": "12 passed",
+    "generator_check": "30/30 MATCH exit 0",
+    "focused_tests": "7 passed exit 0",
+    "full_non_pg_successor_runtime": "1565 passed, 119 skipped, 0 failed, 3 warnings, exit 0",
+    "semantic_fields_changed": false,
+    "authority_changed": false,
+    "schema_or_version_changed": false,
+    "previous_spec_sha256": {
+      "C1.1": "26301d5867375e936802fdc8bd6990e96643a28d67d8875fa209013f7dcef5d0",
+      "C1.2": "d2e1feecc793ae00683bf22a46fe8a39b86c3a593696741babca629150d1bbdd",
+      "C1.3": "f9541632927303b3d1e4a7b975f26f263a58f99326c28127c32cd683694b5dce",
+      "C2.2": "436e22d265a982f3b4d7e978d882b29cbbae8892d261b817f7065efdaf95fac4",
+      "C2.3": "b3ef0494387257ebe418e12193ac1fc55457a610deacfe06d4b433bee442f659",
+      "C2.4": "d89391fce7810e7a77d32090151cc4a3eabd3d30dbed406efb09df191e317cf9",
+      "C5.1": "b61817e932700a3e3045f50e3ef0e32ba61f0f0c53f6d048f27303c68aca8dda",
+      "C5.2": "19a1129bf7cee379642dd0d28d14741270c80127cb41fbe27ebbc6c6b7b2977f",
+      "C5.3": "d4b94cc07ea121389d46b225058836afb8712f6af8d0637eb6a10ccdca7554d5",
+      "C5.4": "2ac7d7057528782dcc72fa810c3da65f82c016d886c449a60d382565c27b30a3",
+      "C9.2": "c70f7c38e5f7c2c61fc09980da20eb7afab600dfb42ae99c73fed641fa5207da",
+      "C9.3": "7ec64dfffebf331a55b268d5e4fcebc00d10527e7b9e3b547db9e1d016266b2b"
+    }
+  },
+  "current_artifact_sha256": {
+    "semantic-movement/P1P3SuccessorMovementMatrix.v1.json": "482ae2934fbe8ffd19a2e8d43365d4f910ff8cb82398cfd885086f07bb2740db",
+    "semantic-movement/P1P3LegacyDonorSemanticMovementInventory.v1.json": "c032207f0070424b83fc81a8d49167dbb8f5624f08aaa97853e34f7a6f296be9",
+    "semantic-movement/P1P3SemanticMovementGate.v1.json": "74ade16f3113d68ff1642e5bf0a87aac7cc91dac868f5f3e9bcbbe06b0ca3ce0",
+    "semantic-movement/fragments/C1.v1.json": "0ffd28226ff542f7f4d011ccf612bad8a84b35fd390be59c7694318e4b5ef138",
+    "semantic-movement/fragments/C9.v1.json": "88a63d5293f827b46bb97d4269aada2c539dac494b2e2e117f19521a022f4230",
+    "p3-fragments/C2.json": "31d32ce3d29eb2ed82063ba8c67d881ed3589cfdf23a616be520acabab1c9922",
+    "p3-fragments/C5.json": "3706a5f5ddeea24c4fbfbe88f31f622a95769db6fe3bda1686ca56702553c14c"
+  },
+  "binding_updates": [
+    {
+      "cell_id": "C1.1",
+      "binding_section": "source_bindings",
+      "artifact_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/P1P3LegacyDonorSemanticMovementInventory.v1.json",
+      "role": "donor_inventory",
+      "previous_file_sha256": "31e59601a7fef35afc5cf2a3e784fc1692d40ad3a53b816e3439eeb4f27990cc",
+      "current_file_sha256": "c032207f0070424b83fc81a8d49167dbb8f5624f08aaa97853e34f7a6f296be9"
+    },
+    {
+      "cell_id": "C1.1",
+      "binding_section": "source_bindings",
+      "artifact_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/P1P3SuccessorMovementMatrix.v1.json",
+      "role": "movement_matrix",
+      "previous_file_sha256": "9dc614c73f6ce48202f7087a8971e812c5eae44844e9453267e6550bb0f8712e",
+      "current_file_sha256": "482ae2934fbe8ffd19a2e8d43365d4f910ff8cb82398cfd885086f07bb2740db"
+    },
+    {
+      "cell_id": "C1.1",
+      "binding_section": "source_bindings",
+      "artifact_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C1.v1.json",
+      "role": "movement_fragment",
+      "previous_file_sha256": "924f121290c88d46ac2a4b17017b897fcfd98cdb85900696fa898c34f86d1277",
+      "current_file_sha256": "0ffd28226ff542f7f4d011ccf612bad8a84b35fd390be59c7694318e4b5ef138"
+    },
+    {
+      "cell_id": "C1.2",
+      "binding_section": "source_bindings",
+      "artifact_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/P1P3LegacyDonorSemanticMovementInventory.v1.json",
+      "role": "donor_inventory",
+      "previous_file_sha256": "31e59601a7fef35afc5cf2a3e784fc1692d40ad3a53b816e3439eeb4f27990cc",
+      "current_file_sha256": "c032207f0070424b83fc81a8d49167dbb8f5624f08aaa97853e34f7a6f296be9"
+    },
+    {
+      "cell_id": "C1.2",
+      "binding_section": "source_bindings",
+      "artifact_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/P1P3SuccessorMovementMatrix.v1.json",
+      "role": "movement_matrix",
+      "previous_file_sha256": "9dc614c73f6ce48202f7087a8971e812c5eae44844e9453267e6550bb0f8712e",
+      "current_file_sha256": "482ae2934fbe8ffd19a2e8d43365d4f910ff8cb82398cfd885086f07bb2740db"
+    },
+    {
+      "cell_id": "C1.2",
+      "binding_section": "source_bindings",
+      "artifact_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C1.v1.json",
+      "role": "movement_fragment",
+      "previous_file_sha256": "924f121290c88d46ac2a4b17017b897fcfd98cdb85900696fa898c34f86d1277",
+      "current_file_sha256": "0ffd28226ff542f7f4d011ccf612bad8a84b35fd390be59c7694318e4b5ef138"
+    },
+    {
+      "cell_id": "C1.3",
+      "binding_section": "source_bindings",
+      "artifact_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/P1P3LegacyDonorSemanticMovementInventory.v1.json",
+      "role": "donor_inventory",
+      "previous_file_sha256": "31e59601a7fef35afc5cf2a3e784fc1692d40ad3a53b816e3439eeb4f27990cc",
+      "current_file_sha256": "c032207f0070424b83fc81a8d49167dbb8f5624f08aaa97853e34f7a6f296be9"
+    },
+    {
+      "cell_id": "C1.3",
+      "binding_section": "source_bindings",
+      "artifact_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/P1P3SuccessorMovementMatrix.v1.json",
+      "role": "movement_matrix",
+      "previous_file_sha256": "9dc614c73f6ce48202f7087a8971e812c5eae44844e9453267e6550bb0f8712e",
+      "current_file_sha256": "482ae2934fbe8ffd19a2e8d43365d4f910ff8cb82398cfd885086f07bb2740db"
+    },
+    {
+      "cell_id": "C1.3",
+      "binding_section": "source_bindings",
+      "artifact_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C1.v1.json",
+      "role": "movement_fragment",
+      "previous_file_sha256": "924f121290c88d46ac2a4b17017b897fcfd98cdb85900696fa898c34f86d1277",
+      "current_file_sha256": "0ffd28226ff542f7f4d011ccf612bad8a84b35fd390be59c7694318e4b5ef138"
+    },
+    {
+      "cell_id": "C2.2",
+      "binding_section": "rollback_bindings",
+      "artifact_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C2.json",
+      "role": "rollback_observation",
+      "previous_file_sha256": "5274116a2a083ec1553d05c034f5490f1450851d805fb2590efec21be95c544b",
+      "current_file_sha256": "31d32ce3d29eb2ed82063ba8c67d881ed3589cfdf23a616be520acabab1c9922"
+    },
+    {
+      "cell_id": "C2.3",
+      "binding_section": "rollback_bindings",
+      "artifact_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C2.json",
+      "role": "rollback_observation",
+      "previous_file_sha256": "5274116a2a083ec1553d05c034f5490f1450851d805fb2590efec21be95c544b",
+      "current_file_sha256": "31d32ce3d29eb2ed82063ba8c67d881ed3589cfdf23a616be520acabab1c9922"
+    },
+    {
+      "cell_id": "C2.4",
+      "binding_section": "rollback_bindings",
+      "artifact_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C2.json",
+      "role": "rollback_observation",
+      "previous_file_sha256": "5274116a2a083ec1553d05c034f5490f1450851d805fb2590efec21be95c544b",
+      "current_file_sha256": "31d32ce3d29eb2ed82063ba8c67d881ed3589cfdf23a616be520acabab1c9922"
+    },
+    {
+      "cell_id": "C5.1",
+      "binding_section": "rollback_bindings",
+      "artifact_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C5.json",
+      "role": "rollback_observation",
+      "previous_file_sha256": "38ce21888d0c2780bac3c2b6dbef9fcc42341eb041d281a2a994cbed35215d39",
+      "current_file_sha256": "3706a5f5ddeea24c4fbfbe88f31f622a95769db6fe3bda1686ca56702553c14c"
+    },
+    {
+      "cell_id": "C5.2",
+      "binding_section": "rollback_bindings",
+      "artifact_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C5.json",
+      "role": "rollback_observation",
+      "previous_file_sha256": "38ce21888d0c2780bac3c2b6dbef9fcc42341eb041d281a2a994cbed35215d39",
+      "current_file_sha256": "3706a5f5ddeea24c4fbfbe88f31f622a95769db6fe3bda1686ca56702553c14c"
+    },
+    {
+      "cell_id": "C5.3",
+      "binding_section": "rollback_bindings",
+      "artifact_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C5.json",
+      "role": "rollback_observation",
+      "previous_file_sha256": "38ce21888d0c2780bac3c2b6dbef9fcc42341eb041d281a2a994cbed35215d39",
+      "current_file_sha256": "3706a5f5ddeea24c4fbfbe88f31f622a95769db6fe3bda1686ca56702553c14c"
+    },
+    {
+      "cell_id": "C5.4",
+      "binding_section": "rollback_bindings",
+      "artifact_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C5.json",
+      "role": "rollback_observation",
+      "previous_file_sha256": "38ce21888d0c2780bac3c2b6dbef9fcc42341eb041d281a2a994cbed35215d39",
+      "current_file_sha256": "3706a5f5ddeea24c4fbfbe88f31f622a95769db6fe3bda1686ca56702553c14c"
+    },
+    {
+      "cell_id": "C9.2",
+      "binding_section": "source_bindings",
+      "artifact_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/P1P3LegacyDonorSemanticMovementInventory.v1.json",
+      "role": "legacy_donor_movement_inventory_c9_rows",
+      "previous_file_sha256": "31e59601a7fef35afc5cf2a3e784fc1692d40ad3a53b816e3439eeb4f27990cc",
+      "current_file_sha256": "c032207f0070424b83fc81a8d49167dbb8f5624f08aaa97853e34f7a6f296be9"
+    },
+    {
+      "cell_id": "C9.2",
+      "binding_section": "source_bindings",
+      "artifact_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/P1P3SemanticMovementGate.v1.json",
+      "role": "semantic_movement_gate",
+      "previous_file_sha256": "f70e1fbebf31bd44cef85a2517d69ceb816b6ac1d6892a2b3ffe40c937ad5913",
+      "current_file_sha256": "74ade16f3113d68ff1642e5bf0a87aac7cc91dac868f5f3e9bcbbe06b0ca3ce0"
+    },
+    {
+      "cell_id": "C9.2",
+      "binding_section": "source_bindings",
+      "artifact_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/P1P3SuccessorMovementMatrix.v1.json",
+      "role": "successor_movement_matrix_c9_rows",
+      "previous_file_sha256": "9dc614c73f6ce48202f7087a8971e812c5eae44844e9453267e6550bb0f8712e",
+      "current_file_sha256": "482ae2934fbe8ffd19a2e8d43365d4f910ff8cb82398cfd885086f07bb2740db"
+    },
+    {
+      "cell_id": "C9.2",
+      "binding_section": "source_bindings",
+      "artifact_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C9.v1.json",
+      "role": "c9_semantic_movement_fragment",
+      "previous_file_sha256": "f4f2407f1ebf39d27423127d4795db6f70dd94c24fa3864ecd9d405b3cf98192",
+      "current_file_sha256": "88a63d5293f827b46bb97d4269aada2c539dac494b2e2e117f19521a022f4230"
+    },
+    {
+      "cell_id": "C9.3",
+      "binding_section": "source_bindings",
+      "artifact_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/P1P3LegacyDonorSemanticMovementInventory.v1.json",
+      "role": "legacy_donor_movement_inventory_c9_rows",
+      "previous_file_sha256": "31e59601a7fef35afc5cf2a3e784fc1692d40ad3a53b816e3439eeb4f27990cc",
+      "current_file_sha256": "c032207f0070424b83fc81a8d49167dbb8f5624f08aaa97853e34f7a6f296be9"
+    },
+    {
+      "cell_id": "C9.3",
+      "binding_section": "source_bindings",
+      "artifact_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/P1P3SemanticMovementGate.v1.json",
+      "role": "semantic_movement_gate",
+      "previous_file_sha256": "f70e1fbebf31bd44cef85a2517d69ceb816b6ac1d6892a2b3ffe40c937ad5913",
+      "current_file_sha256": "74ade16f3113d68ff1642e5bf0a87aac7cc91dac868f5f3e9bcbbe06b0ca3ce0"
+    },
+    {
+      "cell_id": "C9.3",
+      "binding_section": "source_bindings",
+      "artifact_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/P1P3SuccessorMovementMatrix.v1.json",
+      "role": "successor_movement_matrix_c9_rows",
+      "previous_file_sha256": "9dc614c73f6ce48202f7087a8971e812c5eae44844e9453267e6550bb0f8712e",
+      "current_file_sha256": "482ae2934fbe8ffd19a2e8d43365d4f910ff8cb82398cfd885086f07bb2740db"
+    },
+    {
+      "cell_id": "C9.3",
+      "binding_section": "source_bindings",
+      "artifact_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C9.v1.json",
+      "role": "c9_semantic_movement_fragment",
+      "previous_file_sha256": "f4f2407f1ebf39d27423127d4795db6f70dd94c24fa3864ecd9d405b3cf98192",
+      "current_file_sha256": "88a63d5293f827b46bb97d4269aada2c539dac494b2e2e117f19521a022f4230"
+    }
+  ],
+  "changed_files_sha256": {
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C1.1.v1.json": "a1b7cda2aa0fb051664d184c12d7a6308d2af91b703995e4ec7c6ba3f1291470",
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C1.1.BuildManifest.v1.json": "425d7c4727a85806a6d8b4a14530ee1870756a94705d37046cbbb4855ee9a139",
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C1.2.v1.json": "67a215a0deddf8406a6307c4ce36a323180cf4908669cf247e76808ec977c8ba",
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C1.2.BuildManifest.v1.json": "5611ed241d78a0e6f46b2326b65086bc6e4f59e802b9a18734f12d146ca839ec",
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C1.3.v1.json": "5dc5070a874a86dc678fc8dd28587573a3bb3b33fdbc28b3a45fe1f99ca2bfb1",
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C1.3.BuildManifest.v1.json": "be7880281c37d78d711468ab2c0fb4274b638968b4bd95f6fdb5abfdd756f2b2",
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C2.2.v1.json": "ede0128b9a39011358222839c8973e75f817b55334224b728060992258076baf",
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C2.2.BuildManifest.v1.json": "ddeb68f04e67546f1af347117fb8892dee090a10dd9cd93dd5cd03ce6858a785",
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C2.3.v1.json": "4faeae616df44f066e723868145d0be74e96b28e5c9ee8069a86e48a9624a2b7",
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C2.3.BuildManifest.v1.json": "992dfcf259a5c92be61524aa5920ef6089efdf22275e93621541da2a2dc742e5",
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C2.4.v1.json": "8dfdc90bfb8f2e7ea740eeb74f4f9947d4ece463eca4bd0bd33b7c8d2de327f9",
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C2.4.BuildManifest.v1.json": "207974808d898970bc52f429f830412633a6e29270375bd00746bdd393ea2ede",
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C5.1.v1.json": "95d89862c2caae37f0f549894b444f82b28f5cccc1bd9ddbe089f38b521e50fb",
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C5.1.BuildManifest.v1.json": "a50d9d14b5f3e70c9d1f10a794e2949be9c927573bcb321ae45e897ef86e7ba5",
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C5.2.v1.json": "797be2f9801e2722599e2e2c9fd9ae16c42a40fbdef1a5c43afec9a3e9caff96",
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C5.2.BuildManifest.v1.json": "aac96d0e2214eae2671032fea4f81de97332230eca59b7c86c771c2153192143",
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C5.3.v1.json": "dc30062093443cf0af7c7fbbf8431e3f752169c7604f30d91667a6c83451e7ad",
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C5.3.BuildManifest.v1.json": "e2d2c9ce12885faec42023ba13ed9e8c59806c9e459a18efcc968644de3584c8",
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C5.4.v1.json": "2ed59f58d051d74a76cd38a7721f2c484465f841b4d6646eb95277d3a34f13dd",
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C5.4.BuildManifest.v1.json": "e9e416aab9a12dda3fe544a8dc5aa232a5ec393e7e906926baa2deab859470fe",
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C9.2.v1.json": "73fcd6be12776dced5b393e3d6e5179e9007765f20dd8240834f3a69cc148787",
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C9.2.BuildManifest.v1.json": "c14038c11d480713b51708f1f904a1629ebcabd2fb7fd4beea2f10b4935f8d5f",
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C9.3.v1.json": "f393a5f1aec75608c5b5945f824f960acb0f922ec04c3f82d4b9fc6e0a74cebd",
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C9.3.BuildManifest.v1.json": "6722c196479d01c6412a6289294d24b2367669855a3fc75b508efbcb5d78f1d5"
+  },
+  "risks": [
+    "Rebinding is local-only evidence repair; no canonical write, provider/live realization, cutover, candidate creation or legacy retirement is claimed",
+    "Current P1P3 semantic-movement and p3-fragment bytes were authored by other checkout lanes and were not modified here",
+    "Build manifests are generated artifacts; exact binding green does not establish runtime authority or semantic completion",
+    "A wider non-PG regression passed, but PostgreSQL, provider, delivery and production acceptance were outside this task and remain unexecuted"
+  ]
+}

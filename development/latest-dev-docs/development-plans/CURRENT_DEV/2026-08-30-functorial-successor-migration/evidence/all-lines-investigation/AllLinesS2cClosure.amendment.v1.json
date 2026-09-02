@@ -1,0 +1,454 @@
+{
+  "schema": "mrw.functorial_successor.all_lines.s2c_closure.amendment.v1",
+  "version": "1.0.0",
+  "record_id": "AllLinesS2cClosure.amendment.v1",
+  "date": "2026-09-02",
+  "generated_at_utc": "2026-09-02T15:12:51Z",
+  "status": "S2C_REMAINING_LINES_CLOSED_LOCAL_ONLY_NOT_PROMOTED",
+  "method": "Implemented five ops-domain typed surfaces, four C8/search/source-library evidence/readback surfaces and an S2c horizontal/domain surface registry carried by the serial successor assembly. Eleven remaining movement/gap rows were reclassified REIMPLEMENTED_AS with typed read-only/control semantics and explicit no-call/rejected/loss component decisions. No 30-cell topology, capability spec, compiler, manifest, frozen scope member or source checkout was changed.",
+  "scope": "Additive S2c closure for ALL-SM-003/004/005/006/008/014/016/017/018 and ALL-GAP-001/002. Updates only evidence/all-lines-investigation/AllLinesSuccessorMovementInventory.v1.json and adds AllLinesS2cClosure.amendment.v1.json plus successor_runtime ops-domain/capability/assembly/test files listed in changed_files_sha256. Frozen scope bytes, spec/manifest, 03/04/SUPERVISOR and donor checkout are unchanged.",
+  "worktree": {
+    "root": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0",
+    "branch": "codex/functorial-successor-p0",
+    "head_sha": "38acdee8862af0971ca063507b8355812894fbce",
+    "committed": false,
+    "dirty_worktree_ownership_preserved": true
+  },
+  "authority_ceiling": {
+    "canonical_write": false,
+    "live_provider": false,
+    "external_delivery": false,
+    "cutover": false,
+    "authority_transfer": false,
+    "scheduler": false,
+    "executor": false,
+    "credential_read": false,
+    "candidate_created": false,
+    "legacy_retired": false
+  },
+  "summary": {
+    "previous_unassigned_movement_records": 11,
+    "closed_movement_records": 11,
+    "remaining_unassigned_movement_records": 0,
+    "reimplemented_movement_records": 11,
+    "s2c_focused_tests": "21 passed",
+    "successor_runtime_collection": "1684 tests collected",
+    "dependency_lint_ok": true,
+    "ruff_ok": true,
+    "diff_check_ok": true,
+    "full_successor_runtime_regression": "1560 passed, 119 skipped, 5 failed (pre-existing exact-binding drift outside S2c write scope)"
+  },
+  "closure_records": [
+    {
+      "movement_id": "ALL-SM-003",
+      "business_line_id": "BL-search-discovery-index-worker-readback",
+      "owner_cells": [
+        "C9.1"
+      ],
+      "previous_disposition": "UNASSIGNED_BLOCKER",
+      "disposition": "REIMPLEMENTED_AS",
+      "closing_status": "CLOSED",
+      "decision_owner": "MRW search/discovery worker lane owner (B-recheck); S2c decision owner",
+      "component_decisions": [
+        {
+          "kind": "retrieval_panel_contract",
+          "decision": "REIMPLEMENTED_AS"
+        },
+        {
+          "kind": "untracked_panel_ui",
+          "decision": "DECLARED_LOSS"
+        },
+        {
+          "kind": "search_index_write",
+          "decision": "EXPLICITLY_REJECTED"
+        }
+      ],
+      "target_realization": [
+        "main/backend/app/successor_runtime/capabilities/c9_2_search_retrieval_panel.py",
+        "main/backend/app/successor_runtime/assembly/s2c_ops_domain_surface_assembly.py"
+      ],
+      "acceptance_trace": [
+        "main/backend/app/successor_runtime/capabilities/c9_2_search_retrieval_panel.py::project_search_retrieval_panel",
+        "main/backend/tests/successor_runtime/test_s2c_worker_and_retrieval_surfaces.py::test_search_panel_empty_is_no_panel_and_readiness_is_not_faked",
+        "main/backend/tests/successor_runtime/test_s2c_worker_and_retrieval_surfaces.py::test_search_panel_terminal_fresh_is_ready",
+        "main/backend/tests/successor_runtime/test_s2c_surface_assembly_wiring.py::test_serial_assembly_carries_s2c_surfaces_without_cell_change"
+      ],
+      "authority_note": "C9.2 panel contract is a read-only typed projection; no index/search/provider/canonical-write authority"
+    },
+    {
+      "movement_id": "ALL-SM-004",
+      "business_line_id": "BL-source-library-resource-worker-readback",
+      "owner_cells": [
+        "C9.1"
+      ],
+      "previous_disposition": "UNASSIGNED_BLOCKER",
+      "disposition": "REIMPLEMENTED_AS",
+      "closing_status": "CLOSED",
+      "decision_owner": "MRW source-library/resource lane owner (B-recheck); S2c decision owner",
+      "component_decisions": [
+        {
+          "kind": "worker_readback",
+          "decision": "REIMPLEMENTED_AS"
+        },
+        {
+          "kind": "provider_dispatch",
+          "decision": "EXPLICITLY_REJECTED"
+        }
+      ],
+      "target_realization": [
+        "main/backend/app/successor_runtime/capabilities/source_library_worker_readback.py",
+        "main/backend/app/successor_runtime/assembly/s2c_ops_domain_surface_assembly.py"
+      ],
+      "acceptance_trace": [
+        "main/backend/app/successor_runtime/capabilities/source_library_worker_readback.py::project_source_library_worker_readback",
+        "main/backend/tests/successor_runtime/test_s2c_worker_and_retrieval_surfaces.py::test_source_library_admitted_boundary_consumes_fact_but_never_dispatches",
+        "main/backend/tests/successor_runtime/test_s2c_worker_and_retrieval_surfaces.py::test_source_library_rejected_or_missing_fails_closed",
+        "main/backend/tests/successor_runtime/test_s2c_surface_assembly_wiring.py::test_serial_assembly_carries_s2c_surfaces_without_cell_change"
+      ],
+      "authority_note": "Readback and matrix projection only; provider dispatch count stays zero and guard boundary never executes"
+    },
+    {
+      "movement_id": "ALL-SM-005",
+      "business_line_id": "BL-projects-config-workflow",
+      "owner_cells": [
+        "C9.1"
+      ],
+      "previous_disposition": "UNASSIGNED_BLOCKER",
+      "disposition": "REIMPLEMENTED_AS",
+      "closing_status": "CLOSED",
+      "decision_owner": "MRW project/config workflow owner (B-recheck); S2c decision owner",
+      "component_decisions": [
+        {
+          "kind": "project_readback",
+          "decision": "REIMPLEMENTED_AS"
+        },
+        {
+          "kind": "mutation_workflow_execution",
+          "decision": "EXPLICITLY_REJECTED"
+        }
+      ],
+      "target_realization": [
+        "main/backend/app/successor_runtime/ops_domain/projects_config_surface.py",
+        "main/backend/app/successor_runtime/assembly/s2c_ops_domain_surface_assembly.py"
+      ],
+      "acceptance_trace": [
+        "main/backend/app/successor_runtime/ops_domain/projects_config_surface.py::project_projects_config_surface",
+        "main/backend/tests/successor_runtime/test_s2c_ops_domain_surfaces.py::test_projects_config_surface_records_readback_and_explicit_no_call",
+        "main/backend/tests/successor_runtime/test_s2c_surface_assembly_wiring.py::test_s2c_registry_covers_all_eleven_remaining_movements"
+      ],
+      "authority_note": "Typed read-only/control surface with no mutation authority; all authority flags false"
+    },
+    {
+      "movement_id": "ALL-SM-006",
+      "business_line_id": "BL-dashboard-admin-governance",
+      "owner_cells": [
+        "C9.1"
+      ],
+      "previous_disposition": "UNASSIGNED_BLOCKER",
+      "disposition": "REIMPLEMENTED_AS",
+      "closing_status": "CLOSED",
+      "decision_owner": "MRW dashboard/admin/governance owner (B-recheck); S2c decision owner",
+      "component_decisions": [
+        {
+          "kind": "dashboard_readback",
+          "decision": "REIMPLEMENTED_AS"
+        },
+        {
+          "kind": "report_from_filter_synthesis",
+          "decision": "EXPLICITLY_REJECTED"
+        },
+        {
+          "kind": "admin_governance_mutation",
+          "decision": "EXPLICITLY_REJECTED"
+        }
+      ],
+      "target_realization": [
+        "main/backend/app/successor_runtime/ops_domain/dashboard_admin_surface.py",
+        "main/backend/app/successor_runtime/assembly/s2c_ops_domain_surface_assembly.py"
+      ],
+      "acceptance_trace": [
+        "main/backend/app/successor_runtime/ops_domain/dashboard_admin_surface.py::project_dashboard_admin_surface",
+        "main/backend/tests/successor_runtime/test_s2c_ops_domain_surfaces.py::test_dashboard_surface_always_carries_report_closure_decision",
+        "main/backend/tests/successor_runtime/test_s2c_surface_assembly_wiring.py::test_s2c_registry_covers_all_eleven_remaining_movements"
+      ],
+      "authority_note": "Dashboard readback is read-only; report closure and admin/governance actions are explicit no-call decisions"
+    },
+    {
+      "movement_id": "ALL-SM-008",
+      "business_line_id": "BL-runtime-ops",
+      "owner_cells": [
+        "C9.1"
+      ],
+      "previous_disposition": "UNASSIGNED_BLOCKER",
+      "disposition": "REIMPLEMENTED_AS",
+      "closing_status": "CLOSED",
+      "decision_owner": "MRW runtime ops owner (B-recheck); S2c decision owner",
+      "component_decisions": [
+        {
+          "kind": "runtime_readback",
+          "decision": "REIMPLEMENTED_AS"
+        },
+        {
+          "kind": "retry_cancel_service_probe_execution",
+          "decision": "EXPLICITLY_REJECTED"
+        }
+      ],
+      "target_realization": [
+        "main/backend/app/successor_runtime/ops_domain/runtime_ops_surface.py",
+        "main/backend/app/successor_runtime/assembly/s2c_ops_domain_surface_assembly.py"
+      ],
+      "acceptance_trace": [
+        "main/backend/app/successor_runtime/ops_domain/runtime_ops_surface.py::project_runtime_ops_surface",
+        "main/backend/tests/successor_runtime/test_s2c_ops_domain_surfaces.py::test_runtime_ops_surface_defaults_never_execute_control_actions",
+        "main/backend/tests/successor_runtime/test_s2c_surface_assembly_wiring.py::test_s2c_registry_covers_all_eleven_remaining_movements"
+      ],
+      "authority_note": "Runtime readback/control surface only; no executor/scheduler/provider/service-start authority"
+    },
+    {
+      "movement_id": "ALL-SM-014",
+      "business_line_id": "BL-dashboard-llm-report-detail-export-audit",
+      "owner_cells": [
+        "C9.1"
+      ],
+      "previous_disposition": "UNASSIGNED_BLOCKER",
+      "disposition": "REIMPLEMENTED_AS",
+      "closing_status": "CLOSED",
+      "decision_owner": "MRW dashboard/report owner (B-recheck); S2c decision owner",
+      "component_decisions": [
+        {
+          "kind": "audit_evidence_consumption",
+          "decision": "REIMPLEMENTED_AS"
+        },
+        {
+          "kind": "durable_audit_write",
+          "decision": "EXPLICITLY_REJECTED"
+        }
+      ],
+      "target_realization": [
+        "main/backend/app/successor_runtime/capabilities/c8_report_export_audit_evidence_surface.py",
+        "main/backend/app/successor_runtime/assembly/s2c_ops_domain_surface_assembly.py"
+      ],
+      "acceptance_trace": [
+        "main/backend/app/successor_runtime/capabilities/c8_report_export_audit_evidence_surface.py::consume_export_audit_evidence",
+        "main/backend/tests/successor_runtime/test_s2c_evidence_consumption.py::test_export_audit_durable_rows_are_available_but_write_stays_no_call",
+        "main/backend/tests/successor_runtime/test_s2c_evidence_consumption.py::test_export_audit_degraded_or_local_is_never_durable_proof",
+        "main/backend/tests/successor_runtime/test_s2c_surface_assembly_wiring.py::test_serial_assembly_carries_s2c_surfaces_without_cell_change"
+      ],
+      "authority_note": "Evidence consumption/no-call surface; no durable audit write or export delivery"
+    },
+    {
+      "movement_id": "ALL-SM-016",
+      "business_line_id": "BL-llm-report-trend-quality-records",
+      "owner_cells": [
+        "C9.1"
+      ],
+      "previous_disposition": "UNASSIGNED_BLOCKER",
+      "disposition": "REIMPLEMENTED_AS",
+      "closing_status": "CLOSED",
+      "decision_owner": "MRW report trend owner (B-recheck); S2c decision owner",
+      "component_decisions": [
+        {
+          "kind": "trend_evidence_consumption",
+          "decision": "REIMPLEMENTED_AS"
+        },
+        {
+          "kind": "durable_trend_aggregation",
+          "decision": "EXPLICITLY_REJECTED"
+        }
+      ],
+      "target_realization": [
+        "main/backend/app/successor_runtime/capabilities/c8_report_quality_trend_evidence_surface.py",
+        "main/backend/app/successor_runtime/assembly/s2c_ops_domain_surface_assembly.py"
+      ],
+      "acceptance_trace": [
+        "main/backend/app/successor_runtime/capabilities/c8_report_quality_trend_evidence_surface.py::consume_report_quality_trend_evidence",
+        "main/backend/tests/successor_runtime/test_s2c_evidence_consumption.py::test_trend_evidence_marks_degraded_readback_and_never_aggregates",
+        "main/backend/tests/successor_runtime/test_s2c_surface_assembly_wiring.py::test_serial_assembly_carries_s2c_surfaces_without_cell_change"
+      ],
+      "authority_note": "Evidence consumption/no-call surface; no durable trend aggregation"
+    },
+    {
+      "movement_id": "ALL-SM-017",
+      "business_line_id": "BL-runtime-health-matrix",
+      "owner_cells": [
+        "C9.1"
+      ],
+      "previous_disposition": "UNASSIGNED_BLOCKER",
+      "disposition": "REIMPLEMENTED_AS",
+      "closing_status": "CLOSED",
+      "decision_owner": "MRW runtime ops owner (B-recheck); S2c decision owner",
+      "component_decisions": [
+        {
+          "kind": "health_matrix_classification",
+          "decision": "REIMPLEMENTED_AS"
+        },
+        {
+          "kind": "probe_execution",
+          "decision": "EXPLICITLY_REJECTED"
+        }
+      ],
+      "target_realization": [
+        "main/backend/app/successor_runtime/ops_domain/health_matrix_surface.py",
+        "main/backend/app/successor_runtime/assembly/s2c_ops_domain_surface_assembly.py"
+      ],
+      "acceptance_trace": [
+        "main/backend/app/successor_runtime/ops_domain/health_matrix_surface.py::project_runtime_health_matrix",
+        "main/backend/tests/successor_runtime/test_s2c_ops_domain_surfaces.py::test_health_matrix_classification_is_passive_and_status_taxonomy",
+        "main/backend/tests/successor_runtime/test_s2c_surface_assembly_wiring.py::test_serial_assembly_carries_s2c_surfaces_without_cell_change"
+      ],
+      "authority_note": "Passive health-matrix classification only; no probe execution or artifact write"
+    },
+    {
+      "movement_id": "ALL-SM-018",
+      "business_line_id": "BL-admin-crawler-cluechain-codexauth-keyword-stats",
+      "owner_cells": [
+        "C9.1"
+      ],
+      "previous_disposition": "UNASSIGNED_BLOCKER",
+      "disposition": "REIMPLEMENTED_AS",
+      "closing_status": "CLOSED",
+      "decision_owner": "MRW admin/ops owner (B-recheck); S2c decision owner",
+      "component_decisions": [
+        {
+          "kind": "admin_raw_data",
+          "decision": "REIMPLEMENTED_AS"
+        },
+        {
+          "kind": "admin_graphs",
+          "decision": "REIMPLEMENTED_AS"
+        },
+        {
+          "kind": "crawler_readback",
+          "decision": "REIMPLEMENTED_AS"
+        },
+        {
+          "kind": "clue_chains_readback",
+          "decision": "REIMPLEMENTED_AS"
+        },
+        {
+          "kind": "codex_auth_structural_status",
+          "decision": "REIMPLEMENTED_AS"
+        },
+        {
+          "kind": "keywords",
+          "decision": "REIMPLEMENTED_AS"
+        },
+        {
+          "kind": "stats",
+          "decision": "REIMPLEMENTED_AS"
+        },
+        {
+          "kind": "skills_invocation",
+          "decision": "EXPLICITLY_REJECTED"
+        },
+        {
+          "kind": "project_customization_execution",
+          "decision": "DECLARED_LOSS"
+        }
+      ],
+      "target_realization": [
+        "main/backend/app/successor_runtime/ops_domain/ops_misc_surface.py",
+        "main/backend/app/successor_runtime/assembly/s2c_ops_domain_surface_assembly.py"
+      ],
+      "acceptance_trace": [
+        "main/backend/app/successor_runtime/ops_domain/ops_misc_surface.py::project_ops_misc_surface",
+        "main/backend/tests/successor_runtime/test_s2c_ops_domain_surfaces.py::test_ops_misc_surface_covers_all_nine_groups_and_accepts_override",
+        "main/backend/tests/successor_runtime/test_s2c_surface_assembly_wiring.py::test_s2c_registry_covers_all_eleven_remaining_movements"
+      ],
+      "authority_note": "Per-group typed read-only/rejected/loss record; credential_read and all other authority flags false"
+    },
+    {
+      "movement_id": "ALL-GAP-001",
+      "business_line_id": "BL-agent-batch-quality-promotion-readback",
+      "owner_cells": [
+        "C9.1"
+      ],
+      "previous_disposition": "UNASSIGNED_BLOCKER",
+      "disposition": "REIMPLEMENTED_AS",
+      "closing_status": "CLOSED",
+      "decision_owner": "MRW agent-batch owner (B-recheck); S2c decision owner",
+      "component_decisions": [
+        {
+          "kind": "separate_surface",
+          "decision": "EXPLICITLY_REJECTED"
+        },
+        {
+          "kind": "folded_into_all_sm_013",
+          "decision": "REIMPLEMENTED_AS"
+        }
+      ],
+      "target_realization": [
+        "main/backend/app/successor_runtime/capabilities/quality_promotion_port.py",
+        "main/backend/app/successor_runtime/assembly/s2c_ops_domain_surface_assembly.py"
+      ],
+      "acceptance_trace": [
+        "main/backend/tests/successor_runtime/test_s1_quality_promotion.py::test_no_live_readback_evidence_means_no_promotion",
+        "main/backend/tests/successor_runtime/test_s1_quality_promotion.py::test_health_anomaly_fails_closed_despite_live_closure",
+        "main/backend/tests/successor_runtime/test_s2_quality_promotion.py::test_c4_quality_handler_invokes_gate_without_authority_or_effects",
+        "main/backend/tests/successor_runtime/test_s2_quality_promotion.py::test_health_anomaly_fails_closed",
+        "main/backend/tests/successor_runtime/test_s2c_surface_assembly_wiring.py::test_serial_assembly_carries_s2c_surfaces_without_cell_change"
+      ],
+      "authority_note": "Fold record binds the existing ALL-SM-013 port; no new authority surface"
+    },
+    {
+      "movement_id": "ALL-GAP-002",
+      "business_line_id": "BL-runtime-health-matrix",
+      "owner_cells": [
+        "C9.1"
+      ],
+      "previous_disposition": "UNASSIGNED_BLOCKER",
+      "disposition": "REIMPLEMENTED_AS",
+      "closing_status": "CLOSED",
+      "decision_owner": "MRW runtime ops owner (B-recheck); S2c decision owner",
+      "component_decisions": [
+        {
+          "kind": "separate_surface",
+          "decision": "EXPLICITLY_REJECTED"
+        },
+        {
+          "kind": "folded_into_all_sm_008_017",
+          "decision": "REIMPLEMENTED_AS"
+        }
+      ],
+      "target_realization": [
+        "main/backend/app/successor_runtime/ops_domain/health_matrix_surface.py",
+        "main/backend/app/successor_runtime/assembly/s2c_ops_domain_surface_assembly.py"
+      ],
+      "acceptance_trace": [
+        "main/backend/app/successor_runtime/ops_domain/health_matrix_surface.py::project_runtime_health_matrix",
+        "main/backend/tests/successor_runtime/test_s2c_ops_domain_surfaces.py::test_health_matrix_classification_is_passive_and_status_taxonomy",
+        "main/backend/tests/successor_runtime/test_s2c_surface_assembly_wiring.py::test_s2c_registry_covers_all_eleven_remaining_movements"
+      ],
+      "authority_note": "Fold record binds the ALL-SM-008/ALL-SM-017 health-matrix lane; no new authority surface"
+    }
+  ],
+  "inventory_sha256": "758a95695818ef0684e4514df212bd48089b0d3c47c16c3d680eee5ff3cc31b2",
+  "changed_files_sha256": {
+    "main/backend/app/successor_runtime/ops_domain/__init__.py": "9730762b67166ab17e65221801b1ad8d81add418d5d54f8d556c2c91274d68a3",
+    "main/backend/app/successor_runtime/ops_domain/base.py": "5bcacb45076fe034428949f1305eb8c7aecb17d96df823125ac42b6ceca18de5",
+    "main/backend/app/successor_runtime/ops_domain/projects_config_surface.py": "f0d5f043933acab1e3f081adfb51efd0ed862674d280b3f1b98eb90056b4bb2e",
+    "main/backend/app/successor_runtime/ops_domain/dashboard_admin_surface.py": "f2fd39070adaf96987185d3583bbb78ea84bf8cab7bee2d2b1398bf7a85debc6",
+    "main/backend/app/successor_runtime/ops_domain/runtime_ops_surface.py": "68e0209aeffd33b9b8db427ddd8701776ae205a4a60b3469b4699c2f0845f69f",
+    "main/backend/app/successor_runtime/ops_domain/health_matrix_surface.py": "bed804f03206527a8355c0c40e945a33aa99a3e8b38772f179e24ebd4d05cc9f",
+    "main/backend/app/successor_runtime/ops_domain/ops_misc_surface.py": "1c8b3b6afe98ad9cf25356532bcbd39c2faea0e1ac9eff974d41e1e6754e3d2a",
+    "main/backend/app/successor_runtime/capabilities/c8_report_export_audit_evidence_surface.py": "de96e32ea2b5053b1d2a530d49978cc962eb7bf9658eac2a70d5af9bbcbc5c06",
+    "main/backend/app/successor_runtime/capabilities/c8_report_quality_trend_evidence_surface.py": "220cc92fcb86e1829abe5a1fcd3c1935b5055f195e75d3a1538b5bf199090640",
+    "main/backend/app/successor_runtime/capabilities/c9_2_search_retrieval_panel.py": "59c391ed5c47bc66f6d6d18d45cd28e8eea57f074325c62936cd603f486d9904",
+    "main/backend/app/successor_runtime/capabilities/source_library_worker_readback.py": "094b5caf3501fcce05cb154eaaa1f61a43c57fe3dd094ce18fad96e81b12b576",
+    "main/backend/app/successor_runtime/assembly/s2c_ops_domain_surface_assembly.py": "cea508490097c556728b827aeb4b77ef37878e05d28b66391d34d946f488e729",
+    "main/backend/app/successor_runtime/assembly/successor_assembly.py": "f2ff7ee6c9d3884c6ee69642eabb716079f623f777209c2047c44644945c0139",
+    "main/backend/app/successor_runtime/assembly/__init__.py": "ffb0102952e9b89990058cf78d3bd4458f08a2a90eee721106537861cdb16226",
+    "main/backend/tests/successor_runtime/test_s2c_ops_domain_surfaces.py": "eac60b308250786defc8ee0a8c7bb913fb35e97a0b7b3c0592ac4c6dfd5ebffa",
+    "main/backend/tests/successor_runtime/test_s2c_evidence_consumption.py": "e720dbb89a0df48ddb41489b249bf9be42b162a068362ded15fb7002a8ce015b",
+    "main/backend/tests/successor_runtime/test_s2c_worker_and_retrieval_surfaces.py": "3dce89e2467172c87abc8a9ca7964a4900b392bfaecf0909104b5a739d4ea676",
+    "main/backend/tests/successor_runtime/test_s2c_surface_assembly_wiring.py": "05122f940ec83e63bf7be9fcbd8c8bae87df0ec5785893fc2346a2b46b1cf943"
+  },
+  "risks": [
+    "S2c closure is local-only implementation evidence; no promotion, canonical/live provider, cutover, candidate or legacy-retirement claim is made",
+    "Ops-domain surfaces are typed read-only/control records exposed through the C9.1 horizontal namespace and do not alter ALL_I1_CELLS or the 30-cell topology",
+    "ALL-SM-018 skills invocation and project customization execution remain explicit rejection/loss; other mutation/action groups carry no-call component decisions",
+    "ALL-GAP-001/002 are fold records over existing or newly shared lanes, not separate implementations",
+    "Full successor_runtime regression reports five failures from exact-binding SHA drift in P1P3 matrix/C2 fragment files that are outside the S2c allowed write scope and were not touched",
+    "No credential value was read or copied; codex-auth handling remains structural"
+  ]
+}

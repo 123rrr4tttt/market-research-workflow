@@ -1,0 +1,1104 @@
+{
+  "schema": "mrw.functorial_successor.all_lines_successor_closure_plan.v1",
+  "version": "1.0.0",
+  "record_id": "AllLinesSuccessorClosurePlan.v1",
+  "status": "PLAN_DRAFT_NOT_EXECUTED",
+  "generated_at_utc": "2026-09-02T13:56:49Z",
+  "generated_by": "wp2_all_lines_plan",
+  "evidence_ceiling": "All 20 inventory movement records observed: 18 UNASSIGNED_BLOCKER plus 2 REIMPLEMENTED_AS. Candidate, authority transfer, cutover and live-provider claims stay false. This plan file is not execution authority.",
+  "scope": {
+    "successor_worktree": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0",
+    "donor_read_only": "/Users/wangyiliang/market-research-workflow",
+    "only_write_artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesSuccessorClosurePlan.v1.json"
+  },
+  "path_aliases": {
+    "SR": "main/backend/app/successor_runtime",
+    "SRT": "main/backend/tests/successor_runtime",
+    "CAPSPEC": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs",
+    "ALI": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation"
+  },
+  "evidence_sources": [
+    "ALI:AllLinesSuccessorMovementInventory.v1.json",
+    "ALI:AllLinesDonorByteClosure.v1.json",
+    "ALI:AllLinesDispositions.amendment.v1.json",
+    "ALI:AllLinesMigrationScope.freeze.v1.json",
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/30 cell specs",
+    "main/backend/app/successor_runtime/assembly/successor_assembly.py",
+    "docs/governance/semantic-movement-completeness-standard.md",
+    "donor business-line sources observed read-only at /Users/wangyiliang/market-research-workflow"
+  ],
+  "summary_counts": {
+    "movement_records": 20,
+    "unassigned_blocker_records": 18,
+    "reimplemented_as_records": 2,
+    "blocker_closure_packages": 18,
+    "reimplemented_verification_packages": 2,
+    "implementation_closure_packages": 16,
+    "evidence_row_closure_packages": 2,
+    "existing_cell_extension_packages": 11,
+    "new_surface_pending_topology_packages": 5
+  },
+  "packages": [
+    {
+      "package_id": "PKG-ALL-SM-001",
+      "movement_id": "ALL-SM-001",
+      "business_line_id": "BL-business-lines-worker-readback",
+      "package_type": "IMPLEMENTATION_CLOSURE",
+      "surface_type": "EXISTING_CELL_EXTENSION",
+      "placement": {
+        "decision": "Existing-cell extension: C5.4 typed line-event/process observation input, C9.3 evidence-matrix readback projection, C9.1 read-only facade query. No new 30-cell count is required.",
+        "target_cells": ["C5.4", "C9.1", "C9.3"],
+        "new_modules": ["SR:capabilities/c9_evidence_matrix.py", "SR:substrate/projections/evidence_matrix.py"]
+      },
+      "goal": "Implement a successor seven-line evidence-matrix and readback meta capability with fail-closed passed/blocked_by_environment/failed classification, scheduled source absence handling, artifact summary/drilldown and recovery traces, all read-only.",
+      "input": [
+        "donor main/backend/app/api/business_lines.py",
+        "donor main/backend/app/services/task_readback_metadata.py",
+        "donor scripts/run_business_line_worker_readback_project_matrix.py",
+        "donor scripts/run_business_line_worker_readback_evidence_chain.py",
+        "donor scripts/run_business_line_async_task_readback_live_samples.py",
+        "donor scripts/build_business_line_async_readiness_artifact.py",
+        "donor main/frontend-modern/tests/e2e/real-backend-business-lines.spec.ts"
+      ],
+      "output": [
+        "successor evidence-matrix projection over typed line events",
+        "readback artifact schema and facade read ops",
+        "line-row parity and recovery traces",
+        "line-level closure record for ALL-SM-001"
+      ],
+      "allowed_read_write": [
+        "proposed future writes: SR C5/C9 capability, runtime, projection and assembly modules; SRT tests; ALI evidence amendment",
+        "donor read-only",
+        "no executor, scheduler, provider or write authority"
+      ],
+      "files_add": [
+        "SR:capabilities/c9_evidence_matrix.py",
+        "SR:substrate/projections/evidence_matrix.py",
+        "SRT/test_p4_c9_evidence_matrix_contracts.py",
+        "SRT/test_p4_c9_evidence_matrix_postgres.py",
+        "SRT/test_p4_c9_evidence_matrix_parity.py"
+      ],
+      "files_modify": [
+        "SR:runtime/facade_contracts.py (C9.1 read query after PKG-ALL-SM-010)",
+        "SR:substrate/projections/registry.py (C9.3 projector registration)",
+        "SR:assembly/c9_assembly.py",
+        "CAPSPEC:C5.4.v1.json",
+        "CAPSPEC:C9.1.v1.json",
+        "CAPSPEC:C9.3.v1.json"
+      ],
+      "capability_spec_or_kernel_port_boundary": "Adds evidence-matrix operation/object contracts to C9.1/C9.3 and typed line-event consumption contract to C5.4; no change to shared AST, work-item root schema or generic reducer unless WP-2 substrate review approves.",
+      "test_boundary": "Focused successor tests for matrix schema, seven required line keys, fail-closed statuses, missing source and artifact rebuild/recovery; assembly coverage tests must stay green.",
+      "legacy_trace_parity_plan": "Map donor API routes, task_readback_metadata helpers and each matrix/readiness script to successor objects; reuse donor e2e scenario as a successor parity spec but never treat real-backend e2e as green without backend evidence.",
+      "acceptance_criteria": [
+        "Successor matrix projection and readback tests pass with seven line keys and no fake terminal status.",
+        "Legacy-to-target trace covers every donor file in ALL-SM-001 byte closure refs.",
+        "Movement inventory row ALL-SM-001 has a non-REQUIRED_UNASSIGNED acceptance_trace, valid disposition and closing_status=CLOSED; dispositions amendment records the closure.",
+        "No candidate/authority/cutover/live-provider claim is added."
+      ],
+      "dependencies": {
+        "after": ["PKG-ALL-SM-010", "PKG-ALL-SM-011"],
+        "parallel_with": ["PKG-ALL-SM-002", "PKG-ALL-SM-003", "PKG-ALL-SM-012"],
+        "same_file_conflicts": ["runtime/facade_contracts.py with PKG-ALL-SM-010", "C5.4 spec with PKG-ALL-SM-011"]
+      }
+    },
+    {
+      "package_id": "PKG-ALL-SM-002",
+      "movement_id": "ALL-SM-002",
+      "business_line_id": "BL-ingest-submission-worker-readback",
+      "package_type": "IMPLEMENTATION_CLOSURE",
+      "surface_type": "EXISTING_CELL_EXTENSION",
+      "placement": {
+        "decision": "Existing-cell extension: add submission-registry typed port and durable readback under C7.2, bound by C7.1-C7.4 movement rows.",
+        "target_cells": ["C7.1", "C7.2", "C7.3", "C7.4"],
+        "new_modules": ["SR:capabilities/ingest_c7_registry.py", "SR:substrate/postgres/ingest_c7_registry_handler.py"]
+      },
+      "goal": "Implement successor ingest submission registry semantics: reserve -> complete/forget, registry_key/submission_id/task_id/request_hash idempotency, task linkage and admission readback with recovery.",
+      "input": [
+        "donor main/backend/app/models/ingest_registry.py",
+        "donor main/backend/migrations/versions/20260524_000001_add_ingest_submission_registry.py",
+        "donor main/backend/app/services/ingest/*",
+        "donor main/backend/app/services/tasks.py ingest tasks",
+        "donor main/backend/app/api/ingest.py"
+      ],
+      "output": [
+        "successor typed submission-registry program/port",
+        "durable postgres handler and pure recovery model",
+        "registry parity and idempotency traces"
+      ],
+      "allowed_read_write": [
+        "proposed future writes: SR C7 capability/substrate modules and SRT tests; ALI evidence",
+        "donor read-only",
+        "no canonical DB migration execution without separate authority"
+      ],
+      "files_add": [
+        "SR:capabilities/ingest_c7_registry.py",
+        "SR:substrate/postgres/ingest_c7_registry_handler.py",
+        "SRT/test_p4_c7_registry_pure.py",
+        "SRT/test_p4_c7_registry_postgres.py",
+        "SRT/test_p4_c7_registry_parity.py"
+      ],
+      "files_modify": [
+        "SR:capabilities/ingest_c7_common.py",
+        "SR:capabilities/ingest_c7_program.py",
+        "SR:capabilities/ingest_c7_interpreters.py",
+        "SR:assembly/c7_assembly.py",
+        "CAPSPEC:C7.1.v1.json",
+        "CAPSPEC:C7.2.v1.json"
+      ],
+      "capability_spec_or_kernel_port_boundary": "C7 family only: registry operation contracts, durable admission readback port and recovery; no rewrite of existing C7.3 projection loss or C7.4 rollback behavior.",
+      "test_boundary": "Pure contract tests plus postgres fixture tests for reserve/complete/forget, duplicate request_hash rejection and recovery from partial admission; focused C7 assembly tests.",
+      "legacy_trace_parity_plan": "Requires WP-1 to bind the donor registry migration into the byte closure and movement inventory first; then parity maps registry model/API behavior to successor handler with donor core-contract scenarios.",
+      "acceptance_criteria": [
+        "Registry idempotency, submission/task linkage and admission readback tests pass.",
+        "Inventory ALL-SM-002 acceptance_trace names the registry successor realization and migration byte closure ref.",
+        "Ingest line matrix row is traceable when PKG-ALL-SM-001 matrix is present.",
+        "Disposition row closed only via additive amendment; no authority claim."
+      ],
+      "dependencies": {
+        "after": ["WP-1 ingest migration byte closure", "PKG-ALL-SM-011 typed line-event contract"],
+        "parallel_with": ["PKG-ALL-SM-003", "PKG-ALL-SM-012"],
+        "same_file_conflicts": ["C7 family files owned by this package; no other package writes them"]
+      }
+    },
+    {
+      "package_id": "PKG-ALL-SM-003",
+      "movement_id": "ALL-SM-003",
+      "business_line_id": "BL-search-discovery-index-worker-readback",
+      "package_type": "IMPLEMENTATION_CLOSURE",
+      "surface_type": "EXISTING_CELL_EXTENSION",
+      "placement": {
+        "decision": "Existing-cell extension: C3 collect-runtime retrieval-run typed readback plus C9.2 frontend projection binding for the search/discovery line.",
+        "target_cells": ["C3.1", "C3.2", "C9.2"],
+        "new_modules": ["SR:capabilities/collect_c3_retrieval_readback.py", "SR:substrate/projections/search_retrieval_run.py"]
+      },
+      "goal": "Bind search/discovery retrieval-run readback semantics, index policy projection and dashboard retrieval panel status into successor C3/C9.2 with explicit loss handling for the untracked donor panel.",
+      "input": [
+        "donor main/backend/app/services/search/history.py",
+        "donor main/backend/app/services/search/retrieval_runs.py",
+        "donor main/backend/app/services/collect_runtime/*",
+        "donor main/backend/app/api/search.py",
+        "donor main/backend/app/api/discovery.py",
+        "donor untracked frontend DashboardSearchRetrievalRunPanel reference"
+      ],
+      "output": [
+        "successor retrieval-run readback program/projection",
+        "C9.2 panel data contract",
+        "search line parity/loss trace"
+      ],
+      "allowed_read_write": [
+        "proposed future writes: SR C3/C9.2 modules and SRT tests; successor frontend-modern typed domain if topology accepts",
+        "donor read-only",
+        "untracked donor panel file is not adopted byte-for-byte unless separately decided"
+      ],
+      "files_add": [
+        "SR:capabilities/collect_c3_retrieval_readback.py",
+        "SR:substrate/projections/search_retrieval_run.py",
+        "SRT/test_p3_c3_retrieval_readback.py",
+        "SRT/test_p3_c3_search_line_parity.py"
+      ],
+      "files_modify": [
+        "SR:assembly/c3_assembly.py",
+        "CAPSPEC:C3.1.v1.json",
+        "CAPSPEC:C3.2.v1.json",
+        "CAPSPEC:C9.2.v1.json",
+        "main/frontend-modern/src/lib/api/domains/successor-runtime.ts"
+      ],
+      "capability_spec_or_kernel_port_boundary": "Adds typed retrieval-run/readback operations to C3.1/C3.2 and a dashboard projection op to C9.2; does not change C2 or shared runtime root schemas.",
+      "test_boundary": "Focused C3 readback tests, C9.2 projection tests and parity tests against donor retrieval_runs contract; frontend e2e only as bounded scenario evidence.",
+      "legacy_trace_parity_plan": "Trace search_retrieval_run_readback.v1, index history and panel status semantics to successor projection; record untracked panel UI loss/no-call explicitly in the loss manifest.",
+      "acceptance_criteria": [
+        "Retrieval-run readback and dashboard projection tests pass with no fake panel success.",
+        "ALL-SM-003 inventory row receives search-line legacy-to-target trace and a loss account for the untracked panel.",
+        "Disposition closed by amendment; no C9.2 transport-only claim is used as capability proof."
+      ],
+      "dependencies": {
+        "after": ["PKG-ALL-SM-011"],
+        "parallel_with": ["PKG-ALL-SM-002", "PKG-ALL-SM-012"],
+        "same_file_conflicts": ["C9.2 spec with PKG-ALL-SM-001 if matrix touches C9.2; otherwise none"]
+      }
+    },
+    {
+      "package_id": "PKG-ALL-SM-004",
+      "movement_id": "ALL-SM-004",
+      "business_line_id": "BL-source-library-resource-worker-readback",
+      "package_type": "IMPLEMENTATION_CLOSURE",
+      "surface_type": "EXISTING_CELL_EXTENSION",
+      "placement": {
+        "decision": "Existing-cell extension: bind resource_source_library line readback to the C2.3 single-source guard execution-fact port and the C9 evidence matrix; do not duplicate guard implementation owned by PKG-ALL-SM-012.",
+        "target_cells": ["C2.1", "C2.2", "C2.3", "C2.4"],
+        "new_modules": ["SR:capabilities/source_library_c2_line_events.py", "SR:capabilities/evidence_matrix_source_library_row.py"]
+      },
+      "goal": "Close the resource_source_library line row with successor line-event/readback traces around source-library planning, guard execution-fact and provider dispatch.",
+      "input": [
+        "donor source_library api/services listed in inventory refs",
+        "donor main/backend/app/services/source_library/single_source_guard.py",
+        "donor tests/core_business/test_source_library_core_contract.py",
+        "donor tests/unit/test_source_library_runner_gray_rollout_unittest.py"
+      ],
+      "output": [
+        "source-library line event/readback adapters",
+        "evidence-matrix row trace",
+        "guard execution-fact consumption trace"
+      ],
+      "allowed_read_write": [
+        "proposed future writes: SR C2/line-event adapter modules and SRT tests; ALI evidence",
+        "donor read-only",
+        "C2.3 guard code itself owned by PKG-ALL-SM-012"
+      ],
+      "files_add": [
+        "SR:capabilities/source_library_c2_line_events.py",
+        "SR:capabilities/evidence_matrix_source_library_row.py",
+        "SRT/test_p2_c2_source_library_line_events.py",
+        "SRT/test_p2_c2_guard_execution_fact_trace.py"
+      ],
+      "files_modify": [
+        "CAPSPEC:C2.3.v1.json",
+        "CAPSPEC:C2.4.v1.json"
+      ],
+      "capability_spec_or_kernel_port_boundary": "Row adapter and trace only; the guard port is declared in PKG-ALL-SM-012. Spec updates register the line readback op without altering provider effect boundaries.",
+      "test_boundary": "Focused tests for source-library line event chain, guard blocked/mismatch/pass trace and line matrix row; no real provider dispatch.",
+      "legacy_trace_parity_plan": "Parity covers the 13 donor byte-closure refs of ALL-SM-004 and reuses ALL-SM-012 guard acceptance; the GAP-single-source-guard duplicate is recorded as one shared closure binding.",
+      "acceptance_criteria": [
+        "resource_source_library matrix row traces every mapped C2 movement and guard outcome.",
+        "ALL-SM-004 and ALL-SM-012 both reference the same shared guard acceptance trace family, avoiding duplicate closure rows.",
+        "Inventory row closed by amendment with valid disposition and no authority claim."
+      ],
+      "dependencies": {
+        "after": ["PKG-ALL-SM-001", "PKG-ALL-SM-012"],
+        "parallel_with": ["PKG-ALL-SM-002", "PKG-ALL-SM-003"],
+        "same_file_conflicts": ["C2.3 spec with PKG-ALL-SM-012", "C5.4/C9 evidence matrix files with PKG-ALL-SM-001"]
+      }
+    },
+    {
+      "package_id": "PKG-ALL-SM-005",
+      "movement_id": "ALL-SM-005",
+      "business_line_id": "BL-projects-config-workflow",
+      "package_type": "IMPLEMENTATION_CLOSURE",
+      "surface_type": "NEW_SURFACE_PENDING_TOPOLOGY_DECISION",
+      "placement": {
+        "decision": "NEW_SURFACE_PENDING_TOPOLOGY_DECISION: no existing C1-C9 cell owns project/config/workflow semantics. Topology decision must choose a new successor-domain cell, an explicit loss/no-call record, or an accepted split of config vs workflow surfaces before code closure.",
+        "target_cells": [],
+        "new_modules": []
+      },
+      "goal": "Decide and implement the successor project-config-workflow surface covering CRUD/archive/activate/delete, config env/reload, project customization workflow dry-run/rollback/promote and history, or record explicit disposition.",
+      "input": [
+        "donor api/projects.py",
+        "donor api/config.py",
+        "donor api/llm_config.py",
+        "donor api/project_customization.py",
+        "donor api/process.py",
+        "donor services/projects/context.py and workflow.py",
+        "ALI:AllLinesDispositions.amendment.v1.json#/movements/4"
+      ],
+      "output": [
+        "topology decision record",
+        "new successor surface spec/program/ports or reviewed loss/no-call manifest",
+        "project line parity/failure/recovery traces"
+      ],
+      "allowed_read_write": [
+        "topology decision: ALI evidence only",
+        "after decision: new successor capability modules/spec/tests plus ALI evidence",
+        "donor read-only"
+      ],
+      "files_add": [],
+      "files_modify": [],
+      "capability_spec_or_kernel_port_boundary": "TBD by topology decision. If a new cell is accepted, it changes the 30-cell assembly invariant and requires ALL_I1_CELLS, family assembly, spec manifest, generator and coverage updates in one additive milestone.",
+      "test_boundary": "After decision: workflow dry-run/rollback, archive constraints, env reload failure/recovery and history readback tests.",
+      "legacy_trace_parity_plan": "Trace each donor project/config/customization route and workflow function to the chosen successor surface or disposition; presence of donor files in worktree is not mapping.",
+      "acceptance_criteria": [
+        "Topology decision names the successor owner or explicit loss/no-call for each project/config/workflow donor object.",
+        "If implemented, successor tests and legacy trace pass; if rejected, EXPLICITLY_REJECTED/DECLARED_LOSS record is complete.",
+        "ALL-SM-005 line disposition closed by amendment; no C9.1 envelope claim used as capability proof."
+      ],
+      "dependencies": {
+        "after": ["WP-0 freeze/adjudication", "WP-1 directory byte closure"],
+        "parallel_with": ["PKG-ALL-SM-006", "PKG-ALL-SM-008", "PKG-ALL-SM-018"],
+        "same_file_conflicts": ["assembly root and ALL_I1_CELLS only if a new cell is accepted; no current package files"
+        ]
+      }
+    },
+    {
+      "package_id": "PKG-ALL-SM-006",
+      "movement_id": "ALL-SM-006",
+      "business_line_id": "BL-dashboard-admin-governance",
+      "package_type": "IMPLEMENTATION_CLOSURE",
+      "surface_type": "NEW_SURFACE_PENDING_TOPOLOGY_DECISION",
+      "placement": {
+        "decision": "NEW_SURFACE_PENDING_TOPOLOGY_DECISION: dashboard/admin/governance semantics have no dedicated C1-C9 owner. Report closure category additionally requires EXPLICITLY_REJECTED or DECLARED_LOSS decision separate from a successor dashboard-admin-governance cell.",
+        "target_cells": [],
+        "new_modules": []
+      },
+      "goal": "Adjudicate and implement dashboard/admin/governance successor surface (dashboard read projections, admin document/graph actions, retention cleanup, aggregator sync) and record a separate report-closure loss decision.",
+      "input": [
+        "donor api/dashboard.py",
+        "donor api/admin.py",
+        "donor api/governance.py",
+        "donor services/governance/retention.py",
+        "donor services/aggregator/sync.py",
+        "donor core/contract tests"
+      ],
+      "output": [
+        "topology decision",
+        "new dashboard-admin-governance cell or loss/no-call manifest",
+        "report-closure disposition"
+      ],
+      "allowed_read_write": [
+        "topology/loss decisions: ALI evidence only",
+        "after decision: new successor modules/spec/tests and evidence",
+        "donor read-only"
+      ],
+      "files_add": [],
+      "files_modify": [],
+      "capability_spec_or_kernel_port_boundary": "TBD by topology decision; any new cell changes assembly invariants and must be an additive milestone. C9.1/C9.3 remain transport/projection only.",
+      "test_boundary": "After decision: retention cleanup boundaries, aggregator sync failure, dashboard consumer read-only contract and report-closure loss manifest tests.",
+      "legacy_trace_parity_plan": "Per-group trace for dashboard/admin/governance donor sources; report-from-filter and other rejected synthesis paths must have explicit rejection records, not silent absence.",
+      "acceptance_criteria": [
+        "Topology and loss decisions cover every ALL-SM-006 donor byte-closure ref.",
+        "Implementations pass successor tests or rejection/loss records are complete and reviewed.",
+        "ALL-SM-006 disposition closed by amendment with authority unchanged."
+      ],
+      "dependencies": {
+        "after": ["WP-0 freeze/adjudication", "WP-1 directory byte closure"],
+        "parallel_with": ["PKG-ALL-SM-005", "PKG-ALL-SM-008", "PKG-ALL-SM-018"],
+        "same_file_conflicts": ["assembly root only if new cell accepted; C9.2/C9.3 specs if dashboard projections are reused"
+        ]
+      }
+    },
+    {
+      "package_id": "PKG-ALL-SM-007",
+      "movement_id": "ALL-SM-007",
+      "business_line_id": "BL-writing-knowledge-graph-agent",
+      "package_type": "REIMPLEMENTED_AS_VERIFICATION",
+      "surface_type": "VERIFICATION_ONLY",
+      "placement": {
+        "decision": "No closure package needed. Keep REIMPLEMENTED_AS with local-only evidence ceiling; C1/C4/C5/C6/C8 successor movement families are the declared target.",
+        "target_cells": ["C1.1", "C1.2", "C1.3", "C4.1", "C4.2", "C4.3", "C5.1", "C5.2", "C5.3", "C5.4", "C6.1", "C6.2", "C6.3", "C8.1", "C8.2", "C8.3", "C8.4"],
+        "new_modules": []
+      },
+      "goal": "Verify the existing REIMPLEMENTED_AS acceptance remains green and line-level authority stays local; no new implementation.",
+      "input": ["P1P3 successor movement matrix", "existing successor_runtime tests", "ALL-SM-007 inventory row"],
+      "output": ["verification run record", "unchanged REIMPLEMENTED_AS row"],
+      "allowed_read_write": ["read successor_runtime and tests; write ALI verification evidence only"],
+      "files_add": ["ALI:AllLinesReimplementedVerification.v1.json"],
+      "files_modify": [],
+      "capability_spec_or_kernel_port_boundary": "None.",
+      "test_boundary": "Rerun focused C1/C4/C5/C6/C8 movement-closure and assembly tests at a stage boundary.",
+      "legacy_trace_parity_plan": "Existing 19 donor refs all tracked; verification rechecks byte closure and green tests without claiming promotion.",
+      "acceptance_criteria": [
+        "ALL-SM-007 remains NON_BLOCKER_RECORD/REIMPLEMENTED_AS and is not counted in UNASSIGNED_BLOCKER.",
+        "Verification record states local-only evidence ceiling and no authority transfer."
+      ],
+      "dependencies": {
+        "after": ["final all-lines gate"],
+        "parallel_with": ["PKG-ALL-SM-015"],
+        "same_file_conflicts": ["none"
+        ]
+      }
+    },
+    {
+      "package_id": "PKG-ALL-SM-008",
+      "movement_id": "ALL-SM-008",
+      "business_line_id": "BL-runtime-ops",
+      "package_type": "IMPLEMENTATION_CLOSURE",
+      "surface_type": "NEW_SURFACE_PENDING_TOPOLOGY_DECISION",
+      "placement": {
+        "decision": "NEW_SURFACE_PENDING_TOPOLOGY_DECISION: runtime ops has no dedicated C1-C9 cell. Decision is to create a runtime-ops/health successor control cell that owns health/deep/metrics, process retry/cancel and health-matrix surfaces, with C5.4/C9.1 remaining structural inputs only.",
+        "target_cells": [],
+        "new_modules": []
+      },
+      "goal": "Create the runtime-ops successor control cell (or explicit disposition) covering health, deep health, metrics, process lifecycle readback, retry/cancel and health-matrix artifact semantics with passive control-plane authority.",
+      "input": [
+        "donor main/backend/app/main.py",
+        "donor api/process.py",
+        "donor services/tasks.py",
+        "donor scripts/runtime_health_matrix.py",
+        "donor scripts/build_business_line_async_readiness_artifact.py",
+        "donor core/integration runtime ops tests"
+      ],
+      "output": [
+        "runtime-ops topology decision",
+        "new control cell spec/ports/tests",
+        "runtime health matrix port shared with PKG-ALL-SM-017"
+      ],
+      "allowed_read_write": [
+        "topology decision: ALI evidence only",
+        "after decision: new successor runtime-ops modules/spec/tests and evidence",
+        "donor read-only"
+      ],
+      "files_add": [],
+      "files_modify": [],
+      "capability_spec_or_kernel_port_boundary": "TBD by topology decision; new cell changes assembly invariants and must be an additive milestone. No executor/scheduler/provider/write authority.",
+      "test_boundary": "After decision: process retry/cancel readback, health/deep probe failure classification, Docker/local mode, matrix regeneration and bounded probe cadence tests.",
+      "legacy_trace_parity_plan": "Trace process APIs, health endpoints, health-matrix script modes and readiness artifact builder to the new control cell; fold ALL-SM-017 and ALL-GAP-002 into the same ownership record.",
+      "acceptance_criteria": [
+        "Topology decision names the runtime-ops cell owner and its source/target/loss rows.",
+        "Successor control-plane tests pass with authority false.",
+        "ALL-SM-008, ALL-SM-017 and ALL-GAP-002 can all close against the shared runtime-ops acceptance trace without duplicate implementation."
+      ],
+      "dependencies": {
+        "after": ["WP-0 freeze/adjudication", "WP-1 directory byte closure"],
+        "parallel_with": ["PKG-ALL-SM-005", "PKG-ALL-SM-006", "PKG-ALL-SM-018"],
+        "same_file_conflicts": ["new runtime-ops surface owns PKG-ALL-SM-017 and ALL-GAP-002 closure files; no existing cell files"
+        ]
+      }
+    },
+    {
+      "package_id": "PKG-ALL-SM-009",
+      "movement_id": "ALL-SM-009",
+      "business_line_id": "BL-llm-report-export-token-state",
+      "package_type": "IMPLEMENTATION_CLOSURE",
+      "surface_type": "EXISTING_CELL_EXTENSION",
+      "placement": {
+        "decision": "Existing-cell extension under C8.3 report admission plus C6.2 provider interpretation boundary: durable signed-export/token-state port consuming the horizontal request-identity port from PKG-ALL-SM-010.",
+        "target_cells": ["C8.3", "C6.2"],
+        "new_modules": ["SR:capabilities/c8_report_export.py", "SR:capabilities/c8_report_export_token_state.py", "SR:substrate/postgres/c8_export_token_state_handler.py"]
+      },
+      "goal": "Implement durable report export signing and one-time token claim/revoke semantics with actor digest, crash-between-claim-and-delivery recovery and revocation race handling, no credential values stored.",
+      "input": [
+        "donor services/llm_report_export.py",
+        "donor services/llm_report_export_token_state.py",
+        "donor models/llm_report_export_token_state.py",
+        "donor migrations 20260524_000002/000003/000004",
+        "donor services/request_identity.py",
+        "C8-M003 successor movement records"
+      ],
+      "output": [
+        "successor C8.3 export/token capability",
+        "durable token-state postgres handler",
+        "one-time token and recovery traces"
+      ],
+      "allowed_read_write": [
+        "proposed future writes: SR C8 capability/substrate modules and SRT tests; ALI evidence",
+        "donor read-only",
+        "credential values are never written or retained"
+      ],
+      "files_add": [
+        "SR:capabilities/c8_report_export.py",
+        "SR:capabilities/c8_report_export_token_state.py",
+        "SR:substrate/postgres/c8_export_token_state_handler.py",
+        "SRT/test_p4_c8_export_pure.py",
+        "SRT/test_p4_c8_export_token_state_postgres.py",
+        "SRT/test_p4_c8_export_parity.py"
+      ],
+      "files_modify": [
+        "SR:capabilities/c8_report.py",
+        "SR:capabilities/c8_program.py",
+        "SR:capabilities/c8_common.py",
+        "SR:assembly/c8_assembly.py",
+        "CAPSPEC:C8.3.v1.json",
+        "CAPSPEC:C6.2.v1.json"
+      ],
+      "capability_spec_or_kernel_port_boundary": "C8.3 delivery cluster only: export/token operation contracts and admission digest; C6.2 provider interpretation is read-only for provider boundary and no live provider claim.",
+      "test_boundary": "Focused pure/postgres tests for token signature, expiry, already-used, revoked, actor mismatch, crash recovery and binary export failure; assembly tests stay green.",
+      "legacy_trace_parity_plan": "WP-1 must freeze untracked export/token donor files first; parity maps donor sign/verify/claim/prune/revoke semantics and DDL to successor handlers with no legacy DB writes.",
+      "acceptance_criteria": [
+        "Token state tests cover one-time claim, revocation race, crash recovery and actor digest.",
+        "Inventory ALL-SM-009 acceptance_trace no longer contains REQUIRED_UNASSIGNED#llm-report-export-target.",
+        "Closure record is additive; no live provider or cutover claim."
+      ],
+      "dependencies": {
+        "after": ["PKG-ALL-SM-010"],
+        "parallel_with": ["PKG-ALL-SM-011", "PKG-ALL-SM-012", "PKG-ALL-SM-013"],
+        "same_file_conflicts": ["C8 report files serialized: PKG-ALL-SM-009 -> PKG-ALL-SM-014 -> PKG-ALL-SM-016"
+        ]
+      }
+    },
+    {
+      "package_id": "PKG-ALL-SM-010",
+      "movement_id": "ALL-SM-010",
+      "business_line_id": "BL-request-identity",
+      "package_type": "IMPLEMENTATION_CLOSURE",
+      "surface_type": "EXISTING_CELL_EXTENSION",
+      "placement": {
+        "decision": "Existing-cell extension: C9.1 horizontal request-identity/authn-actor port consumed by C8.3, C9.1 facade and C9.3 consumers.",
+        "target_cells": ["C9.1"],
+        "new_modules": ["SR:runtime/request_identity_port.py", "SR:capabilities/c9_request_identity.py"]
+      },
+      "goal": "Implement a successor horizontal request identity/actor port with typed authenticated/legacy/anonymous resolution, actor digest, observability propagation and failure/recovery handling.",
+      "input": [
+        "donor services/request_identity.py",
+        "donor api/llm_report.py",
+        "donor api/dashboard.py",
+        "donor services/llm/platformization.py",
+        "donor tests/unit/test_request_identity_boundary_unittest.py"
+      ],
+      "output": [
+        "horizontal identity port contract",
+        "typed actor resolver/interpreter",
+        "C9.1 facade binding",
+        "request identity parity trace"
+      ],
+      "allowed_read_write": [
+        "proposed future writes: SR runtime/capability modules and SRT tests; ALI evidence",
+        "donor read-only",
+        "no credential value read, storage or echo"
+      ],
+      "files_add": [
+        "SR:runtime/request_identity_port.py",
+        "SR:capabilities/c9_request_identity.py",
+        "SRT/test_p4_c9_request_identity_contracts.py",
+        "SRT/test_p4_c9_request_identity_parity.py"
+      ],
+      "files_modify": [
+        "SR:runtime/ports.py (shared protocol only if WP-2 review agrees)",
+        "SR:runtime/facade_contracts.py",
+        "CAPSPEC:C9.1.v1.json"
+      ],
+      "capability_spec_or_kernel_port_boundary": "Horizontal port over shared runtime ports; no change to DTO envelope semantics or approval ownership. Facade binding is additive and read-only after resolution.",
+      "test_boundary": "Focused tests for trusted/legacy/anonymous ordering, missing identity, observability actor context, secret digest prefix and actor mismatch on export.",
+      "legacy_trace_parity_plan": "Parity covers donor RequestActorContext, LEGACY_ACTOR_HEADERS and resolve/require helpers; donor secret handling remains digest-only and never copied as a credential.",
+      "acceptance_criteria": [
+        "Identity resolution tests pass and facade consumes the typed actor port.",
+        "Inventory ALL-SM-010 acceptance_trace names the successor port and consumers.",
+        "Disposition closed by amendment with no authn authority grant beyond typed actor context."
+      ],
+      "dependencies": {
+        "after": [],
+        "parallel_with": ["PKG-ALL-SM-011", "PKG-ALL-SM-012", "PKG-ALL-SM-013"],
+        "same_file_conflicts": ["runtime/facade_contracts.py with PKG-ALL-SM-001; PKG-ALL-SM-010 must land first"
+        ]
+      }
+    },
+    {
+      "package_id": "PKG-ALL-SM-011",
+      "movement_id": "ALL-SM-011",
+      "business_line_id": "BL-task-readback-metadata",
+      "package_type": "IMPLEMENTATION_CLOSURE",
+      "surface_type": "EXISTING_CELL_EXTENSION",
+      "placement": {
+        "decision": "Existing-cell extension: C5.4 typed line-event/readback port; legacy task_readback_metadata.py is intentionally not adopted as dirty source, but its normalize/ensure/merge semantics are re-expressed as successor line-event objects.",
+        "target_cells": ["C5.4"],
+        "new_modules": ["SR:runtime/line_event_port.py", "SR:runtime/line_event_interpreter.py"]
+      },
+      "goal": "Implement successor canonical line_key event-chain construction, normalization, idempotent insertion and readback payload merge for worker-required lanes, with typed unknown/failure/recovery traces.",
+      "input": [
+        "donor services/task_readback_metadata.py",
+        "donor services/tasks.py",
+        "donor services/writing/llm_action_service.py",
+        "donor api/business_lines.py",
+        "donor tests/unit/test_task_readback_metadata_unittest.py"
+      ],
+      "output": [
+        "typed line-event port and interpreter",
+        "C5.4 projection extension",
+        "line event parity/readback traces"
+      ],
+      "allowed_read_write": [
+        "proposed future writes: SR runtime/C5 modules and SRT tests; ALI evidence",
+        "donor read-only",
+        "donor dirty file stays excluded; no direct adoption"
+      ],
+      "files_add": [
+        "SR:runtime/line_event_port.py",
+        "SR:runtime/line_event_interpreter.py",
+        "SRT/test_p3_c5_line_event_contracts.py",
+        "SRT/test_p3_c5_line_event_parity.py"
+      ],
+      "files_modify": [
+        "SR:substrate/projections/legacy_process.py",
+        "SR:assembly/c5_assembly.py",
+        "CAPSPEC:C5.4.v1.json"
+      ],
+      "capability_spec_or_kernel_port_boundary": "Adds typed line-event/readback operations to C5.4 and consumes shared runtime event primitives; no change to C5.2 reconciliation or C5.3 snapshot rules.",
+      "test_boundary": "Focused tests for normalize_line_key, required/accepted events, terminal statuses, duplicate idempotency and readback merge; no real task execution.",
+      "legacy_trace_parity_plan": "Movement-level parity for each donor helper; C5_4LocatorAdjudication dirty-source exclusion is recorded as superseded by typed successor semantics with loss account for un-reused legacy behavior.",
+      "acceptance_criteria": [
+        "Line event and readback tests pass; unknown line_key and contradiction paths are typed failures.",
+        "Inventory ALL-SM-011 acceptance_trace names the successor line-event port and no longer contains REQUIRED_UNASSIGNED#no-line-event-chain-trace.",
+        "Disposition closed by amendment; no scheduler/executor authority."
+      ],
+      "dependencies": {
+        "after": [],
+        "parallel_with": ["PKG-ALL-SM-010", "PKG-ALL-SM-012", "PKG-ALL-SM-013"],
+        "same_file_conflicts": ["C5.4 spec and legacy_process projection with PKG-ALL-SM-001; PKG-ALL-SM-011 must land first"
+        ]
+      }
+    },
+    {
+      "package_id": "PKG-ALL-SM-012",
+      "movement_id": "ALL-SM-012",
+      "business_line_id": "BL-single-source-guard",
+      "package_type": "IMPLEMENTATION_CLOSURE",
+      "surface_type": "EXISTING_CELL_EXTENSION",
+      "placement": {
+        "decision": "Existing-cell extension: C2.3 execution-boundary guard port with source_library.execution_fact.v1 payload; shared with ALL-SM-004 line row. GAP-single-source-guard duplicate is one closure binding, not two implementations.",
+        "target_cells": ["C2.3"],
+        "new_modules": ["SR:capabilities/source_library_c2_3_single_source_guard.py"]
+      },
+      "goal": "Implement successor single-source guard: exactly one allowed URL, strict_source/guarantee true, site_entries equality, pre-dispatch blocking on failure and execution-fact emission on pass.",
+      "input": [
+        "donor services/source_library/single_source_guard.py",
+        "donor services/source_library/resolver.py",
+        "donor services/source_library/runner.py",
+        "donor api/source_library.py",
+        "donor source_library/resource_pool tests"
+      ],
+      "output": [
+        "C2.3 guard port and interpreter",
+        "execution-fact contract and failure taxonomy",
+        "guard parity/recovery trace"
+      ],
+      "allowed_read_write": [
+        "proposed future writes: SR C2.3 modules and SRT tests; ALI evidence",
+        "donor read-only",
+        "no credential value access; provider dispatch stays behind the guard"
+      ],
+      "files_add": [
+        "SR:capabilities/source_library_c2_3_single_source_guard.py",
+        "SRT/test_p3_c2_3_single_source_guard_contracts.py",
+        "SRT/test_p3_c2_3_single_source_guard_recovery.py",
+        "SRT/test_p3_c2_3_single_source_guard_parity.py"
+      ],
+      "files_modify": [
+        "SR:capabilities/source_library_c2_shared.py",
+        "SR:capabilities/source_library_c2_3_interpreters.py",
+        "CAPSPEC:C2.3.v1.json"
+      ],
+      "capability_spec_or_kernel_port_boundary": "Adds guard/execution-fact operations to C2.3 as pre-dispatch effect boundary; does not grant provider/live authority and does not alter C2.1/C2.2 normalization.",
+      "test_boundary": "Focused tests for invalid shape, blocked, allowed-url invalid and site-entry mismatch; pass case emits execution_fact; recovery tests for retry eligibility after block.",
+      "legacy_trace_parity_plan": "Map donor guard error codes and execution-fact contract to successor port; parity reuses source_library core contract and gray-rollout dispatch-block scenarios without provider execution.",
+      "acceptance_criteria": [
+        "Guard tests pass and failed guards always block dispatch.",
+        "ALL-SM-012 and ALL-SM-004 reference the same guard closure trace family in inventory.",
+        "Disposition closed by amendment; no provider authority change."
+      ],
+      "dependencies": {
+        "after": [],
+        "parallel_with": ["PKG-ALL-SM-010", "PKG-ALL-SM-011", "PKG-ALL-SM-013"],
+        "same_file_conflicts": ["C2.3 spec/shared module with PKG-ALL-SM-004; PKG-ALL-SM-012 must land first"
+        ]
+      }
+    },
+    {
+      "package_id": "PKG-ALL-SM-013",
+      "movement_id": "ALL-SM-013",
+      "business_line_id": "BL-agent-batch-quality-promotion-readback",
+      "package_type": "IMPLEMENTATION_CLOSURE",
+      "surface_type": "EXISTING_CELL_EXTENSION",
+      "placement": {
+        "decision": "Existing-cell extension plus horizontal port: C4.1/C4.2 quality gate and C4.3 submit/rollback bind provider-independent search-quality promotion readback and executor health; no self-promotion.",
+        "target_cells": ["C4.1", "C4.2", "C4.3"],
+        "new_modules": ["SR:capabilities/agent_batch_c4_quality_promotion.py", "SR:capabilities/agent_batch_c4_executor_health.py"]
+      },
+      "goal": "Implement successor agent-batch quality-promotion readback and executor health: critic-score source binding, bounded retry replay, promotion only when live replay is closed and rollout policy approved, health masking broker URL credentials.",
+      "input": [
+        "donor api/agent_batch.py",
+        "donor services/agent_batch/search_quality_replay.py",
+        "donor services/agent_batch/task_contract.py",
+        "donor services/agent_batch/executor_health.py",
+        "donor agent_batch quality tests and checkers"
+      ],
+      "output": [
+        "quality promotion readback port",
+        "executor health port",
+        "C4 row traces and evidence-omission closure"
+      ],
+      "allowed_read_write": [
+        "proposed future writes: SR C4 capability modules and SRT tests; ALI evidence",
+        "donor read-only",
+        "provider replay is test-fixture/local only; no live provider claims"
+      ],
+      "files_add": [
+        "SR:capabilities/agent_batch_c4_quality_promotion.py",
+        "SR:capabilities/agent_batch_c4_executor_health.py",
+        "SRT/test_p3_c4_quality_promotion.py",
+        "SRT/test_p3_c4_executor_health.py",
+        "SRT/test_p3_c4_quality_promotion_parity.py"
+      ],
+      "files_modify": [
+        "SR:capabilities/agent_batch_c4_common.py",
+        "SR:capabilities/agent_batch_c4_program.py",
+        "SR:assembly/c4_assembly.py",
+        "CAPSPEC:C4.1.v1.json",
+        "CAPSPEC:C4.2.v1.json",
+        "CAPSPEC:C4.3.v1.json"
+      ],
+      "capability_spec_or_kernel_port_boundary": "Adds provider-independent quality-gate/promotion-readback and executor-health ports to C4; no live provider auto-rollout or credential read authority.",
+      "test_boundary": "Focused tests for critic score source, retry boundary, promotion preconditions, threshold states and health URL masking; replay parity via donor checkers where applicable.",
+      "legacy_trace_parity_plan": "Parity covers all four donor refs plus the LegacyVsMovementGap evidence omission row ALL-GAP-001; freeze amendment must add the missing row before line closure.",
+      "acceptance_criteria": [
+        "Quality promotion and executor health tests pass with bounded replay and no self-promotion.",
+        "ALL-SM-013 acceptance_trace names successor ports; ALL-GAP-001 evidence row is amended and closed.",
+        "Disposition closed by amendment; no provider or rollout authority."
+      ],
+      "dependencies": {
+        "after": [],
+        "parallel_with": ["PKG-ALL-SM-010", "PKG-ALL-SM-011", "PKG-ALL-SM-012"],
+        "same_file_conflicts": ["C4 files owned by this package; PKG-ALL-SM-019 is evidence-only after this package"
+        ]
+      }
+    },
+    {
+      "package_id": "PKG-ALL-SM-014",
+      "movement_id": "ALL-SM-014",
+      "business_line_id": "BL-dashboard-llm-report-detail-export-audit",
+      "package_type": "IMPLEMENTATION_CLOSURE",
+      "surface_type": "EXISTING_CELL_EXTENSION",
+      "placement": {
+        "decision": "Existing-cell extension under C8.3 report admission plus runtime observability readback: durable export-audit events for trace_id with outcome/quality/integrity/actor/artifact metadata.",
+        "target_cells": ["C8.3", "C5.4"],
+        "new_modules": ["SR:capabilities/c8_report_export_audit.py", "SR:substrate/postgres/c8_report_export_audit_handler.py"]
+      },
+      "goal": "Implement successor durable report export-audit event records and dashboard readback join, including degraded-memory fallback that is never presented as durable proof.",
+      "input": [
+        "donor services/llm_report_export_audit.py",
+        "donor models/llm_report_export_audit.py",
+        "donor api/dashboard.py",
+        "donor migration 20260524_000003",
+        "donor audit service tests"
+      ],
+      "output": [
+        "export audit successor port/handler",
+        "trace_id readback contract",
+        "audit parity/recovery trace"
+      ],
+      "allowed_read_write": [
+        "proposed future writes: SR C8 audit modules and SRT tests; ALI evidence",
+        "donor read-only",
+        "degraded fallback never becomes official report evidence"
+      ],
+      "files_add": [
+        "SR:capabilities/c8_report_export_audit.py",
+        "SR:substrate/postgres/c8_report_export_audit_handler.py",
+        "SRT/test_p4_c8_export_audit_pure.py",
+        "SRT/test_p4_c8_export_audit_postgres.py",
+        "SRT/test_p4_c8_export_audit_parity.py"
+      ],
+      "files_modify": [
+        "SR:capabilities/c8_report.py",
+        "SR:capabilities/c8_program.py",
+        "SR:assembly/c8_assembly.py",
+        "CAPSPEC:C8.3.v1.json"
+      ],
+      "capability_spec_or_kernel_port_boundary": "C8.3 audit operations and readback contract only; no new C5.4 surface is introduced, C5.4 is used as observability readback input where declared.",
+      "test_boundary": "Focused tests for unique trace_id persistence, degraded memory fallback limit, dashboard readback and retention/recovery.",
+      "legacy_trace_parity_plan": "WP-1 freezes untracked audit model/service/migration first; parity maps audit DDL and service semantics to successor handler and dashboard readback projection.",
+      "acceptance_criteria": [
+        "Audit tests pass and degraded mode is distinguishable from durable records.",
+        "ALL-SM-014 acceptance_trace no longer contains REQUIRED_UNASSIGNED#no-export-audit-trace.",
+        "Disposition closed by amendment; no authority claim."
+      ],
+      "dependencies": {
+        "after": ["PKG-ALL-SM-009"],
+        "parallel_with": ["PKG-ALL-SM-016 not in same files; serialized to avoid C8 spec conflicts"],
+        "same_file_conflicts": ["C8 report files with PKG-ALL-SM-009 and PKG-ALL-SM-016; run after PKG-ALL-SM-009 and before PKG-ALL-SM-016"
+        ]
+      }
+    },
+    {
+      "package_id": "PKG-ALL-SM-015",
+      "movement_id": "ALL-SM-015",
+      "business_line_id": "BL-typed-knowledge-writing-composition",
+      "package_type": "REIMPLEMENTED_AS_VERIFICATION",
+      "surface_type": "VERIFICATION_ONLY",
+      "placement": {
+        "decision": "No closure package needed. Keep REIMPLEMENTED_AS with local-only evidence ceiling; C8 typed-knowledge/writing/graph cells are the declared target.",
+        "target_cells": ["C8.1", "C8.2", "C8.4"],
+        "new_modules": []
+      },
+      "goal": "Verify existing REIMPLEMENTED_AS acceptance remains green and local-only; no new implementation.",
+      "input": ["P1P3 movement matrix C8 rows", "c8_movement_closure tests", "ALL-SM-015 inventory row"],
+      "output": ["verification run record", "unchanged REIMPLEMENTED_AS row"],
+      "allowed_read_write": ["read successor_runtime C8 modules/tests; write ALI verification evidence only"],
+      "files_add": ["ALI:AllLinesReimplementedVerification.v1.json"],
+      "files_modify": [],
+      "capability_spec_or_kernel_port_boundary": "None.",
+      "test_boundary": "Rerun C8 movement closure pure/postgres, writing and graph tests at a stage boundary.",
+      "legacy_trace_parity_plan": "Existing 8 donor refs all tracked; verification rechecks closure tests and declared-loss boundaries without promotion claims.",
+      "acceptance_criteria": [
+        "ALL-SM-015 remains NON_BLOCKER_RECORD/REIMPLEMENTED_AS and is not counted in UNASSIGNED_BLOCKER.",
+        "Verification record states local-only ceiling and no authority transfer."
+      ],
+      "dependencies": {
+        "after": ["final all-lines gate"],
+        "parallel_with": ["PKG-ALL-SM-007"],
+        "same_file_conflicts": ["none"
+        ]
+      }
+    },
+    {
+      "package_id": "PKG-ALL-SM-016",
+      "movement_id": "ALL-SM-016",
+      "business_line_id": "BL-llm-report-trend-quality-records",
+      "package_type": "IMPLEMENTATION_CLOSURE",
+      "surface_type": "EXISTING_CELL_EXTENSION",
+      "placement": {
+        "decision": "Existing-cell extension under C8.3 report admission evidence consumer: typed quality/export trend records consumed by report/dashboard projections; no new cell.",
+        "target_cells": ["C8.3"],
+        "new_modules": ["SR:capabilities/c8_report_quality_trends.py", "SR:substrate/postgres/c8_report_quality_trends_handler.py"]
+      },
+      "goal": "Implement successor report quality/export trend records with allowed outcomes, decision/passed, gate mode/fallback, coverage counts and next_action; degraded readback is not report proof.",
+      "input": [
+        "donor services/llm_report_trends.py",
+        "donor models/llm_report_trends.py",
+        "donor api/llm_report.py",
+        "donor api/dashboard.py",
+        "donor migration 20260524_000002",
+        "donor trend service tests"
+      ],
+      "output": [
+        "trend record successor port/handler",
+        "aggregation summary contract",
+        "trend parity/recovery trace"
+      ],
+      "allowed_read_write": [
+        "proposed future writes: SR C8 trend modules and SRT tests; ALI evidence",
+        "donor read-only"
+      ],
+      "files_add": [
+        "SR:capabilities/c8_report_quality_trends.py",
+        "SR:substrate/postgres/c8_report_quality_trends_handler.py",
+        "SRT/test_p4_c8_quality_trends_pure.py",
+        "SRT/test_p4_c8_quality_trends_postgres.py",
+        "SRT/test_p4_c8_quality_trends_parity.py"
+      ],
+      "files_modify": [
+        "SR:capabilities/c8_report.py",
+        "SR:capabilities/c8_program.py",
+        "SR:assembly/c8_assembly.py",
+        "CAPSPEC:C8.3.v1.json"
+      ],
+      "capability_spec_or_kernel_port_boundary": "Adds trend evidence-consumer operations to C8.3; no change to report admission digest semantics or C6 provider calls.",
+      "test_boundary": "Focused tests for outcome taxonomy, trace uniqueness, aggregation budget, degraded fallback limit and rebuild/recovery.",
+      "legacy_trace_parity_plan": "WP-1 freezes untracked trend model/service/migration; parity maps trend records and dashboard/llm_report consumers to successor handler with explicit no-call decision option if topology rejects trend.",
+      "acceptance_criteria": [
+        "Trend tests pass and degraded readback is never presented as formal proof.",
+        "ALL-SM-016 acceptance_trace names the successor trend consumer or reviewed no-call decision.",
+        "Disposition closed by amendment with authority false."
+      ],
+      "dependencies": {
+        "after": ["PKG-ALL-SM-014"],
+        "parallel_with": ["PKG-ALL-SM-019"],
+        "same_file_conflicts": ["C8 report files serialized after PKG-ALL-SM-014"
+        ]
+      }
+    },
+    {
+      "package_id": "PKG-ALL-SM-017",
+      "movement_id": "ALL-SM-017",
+      "business_line_id": "BL-runtime-health-matrix",
+      "package_type": "IMPLEMENTATION_CLOSURE",
+      "surface_type": "NEW_SURFACE_PENDING_TOPOLOGY_DECISION",
+      "placement": {
+        "decision": "NEW_SURFACE_PENDING_TOPOLOGY_DECISION: runtime health matrix may be folded into the PKG-ALL-SM-008 runtime-ops control cell as a shared health-matrix port; no dedicated C1-C9 cell exists.",
+        "target_cells": [],
+        "new_modules": ["SR:capabilities/runtime_ops_health_matrix.py"]
+      },
+      "goal": "Decide the runtime-ops fold and implement shared health-matrix control-plane port with Docker/local/mixed modes, endpoint/port/worker readiness probes, status taxonomy and exit semantics.",
+      "input": [
+        "donor scripts/runtime_health_matrix.py",
+        "donor scripts/build_business_line_async_readiness_artifact.py",
+        "donor main/backend/app/main.py",
+        "donor checkers tests"
+      ],
+      "output": [
+        "runtime-ops fold/topology decision",
+        "health-matrix port and tests",
+        "ALL-GAP-002 evidence closure"
+      ],
+      "allowed_read_write": [
+        "topology decision: ALI evidence only",
+        "after decision: SR runtime-ops modules and SRT tests; ALI evidence",
+        "donor read-only"
+      ],
+      "files_add": [
+        "SR:capabilities/runtime_ops_health_matrix.py",
+        "SRT/test_runtime_ops_health_matrix_contracts.py",
+        "SRT/test_runtime_ops_health_matrix_modes.py"
+      ],
+      "files_modify": [
+        "CAPSPEC:new runtime-ops cell spec after topology decision"
+      ],
+      "capability_spec_or_kernel_port_boundary": "Runtime-ops control surface only; passive probes never start services; --allow-blocked semantics stay limited to environment-blocked mode.",
+      "test_boundary": "Focused tests for local/docker/mixed probes, overall status taxonomy, exit 0/1/3 and readiness artifact line-key mapping.",
+      "legacy_trace_parity_plan": "Parity covers health-matrix script modes and readiness builder; fold record must bind ALL-SM-017 and ALL-GAP-002 to the same runtime-ops acceptance trace.",
+      "acceptance_criteria": [
+        "Health-matrix port tests pass with passive probe discipline.",
+        "ALL-SM-017 and ALL-GAP-002 inventory rows share one runtime-ops closure trace.",
+        "Disposition closed by amendment; no service-start or executor authority."
+      ],
+      "dependencies": {
+        "after": ["PKG-ALL-SM-008"],
+        "parallel_with": ["PKG-ALL-SM-005", "PKG-ALL-SM-006", "PKG-ALL-SM-018"],
+        "same_file_conflicts": ["runtime-ops cell files with PKG-ALL-SM-008 and ALL-GAP-002"
+        ]
+      }
+    },
+    {
+      "package_id": "PKG-ALL-SM-018",
+      "movement_id": "ALL-SM-018",
+      "business_line_id": "BL-admin-crawler-cluechain-codexauth-keyword-stats",
+      "package_type": "IMPLEMENTATION_CLOSURE",
+      "surface_type": "NEW_SURFACE_PENDING_TOPOLOGY_DECISION",
+      "placement": {
+        "decision": "NEW_SURFACE_PENDING_TOPOLOGY_DECISION: C9.1 facade structure does not own admin/crawler/clue-chain/codex-auth/keyword/stats semantics. Each capability group needs its own successor cell, DECLARED_LOSS or EXPLICITLY_REJECTED record under WP-6.",
+        "target_cells": [],
+        "new_modules": []
+      },
+      "goal": "Adjudicate and implement remaining backend capability groups as new ops-domain successor surfaces or explicit reviewed dispositions, with one owner per group and no silent no-call.",
+      "input": [
+        "donor api/admin.py",
+        "donor api/crawler.py",
+        "donor api/clue_chains.py",
+        "donor api/codex_auth.py",
+        "donor api/keywords.py",
+        "donor api/stats.py",
+        "donor api/skills.py",
+        "donor api/project_customization.py",
+        "donor services/crawlers, crawlers_mgmt, clue_chains, extraction, stats, streamplus directories"
+      ],
+      "output": [
+        "per-group topology/loss decision manifest",
+        "new successor surface specs/ports or disposition rows",
+        "directory-level byte closure evidence"
+      ],
+      "allowed_read_write": [
+        "topology/loss decisions and WP-1 directory closure: ALI evidence only",
+        "after decisions: new successor modules/spec/tests and evidence",
+        "donor read-only",
+        "codex_auth credential flows are structural only; no credential value read or copy"
+      ],
+      "files_add": [],
+      "files_modify": [],
+      "capability_spec_or_kernel_port_boundary": "TBD per group; directory refs must be expanded by WP-1 before ownership decisions. Any accepted new cell changes assembly invariants and requires additive milestone.",
+      "test_boundary": "Per group after decision: contract tests for authority/failure/resource/recovery and group-specific core contract scenarios; loss groups get manifest validation.",
+      "legacy_trace_parity_plan": "Expand directory donor refs into byte closure rows; then per-group trace or disposition. Structural C9-M001 facade alignment is explicitly not capability ownership.",
+      "acceptance_criteria": [
+        "WP-1 expands every directory ref and per-group owner/loss decision exists.",
+        "ALL-SM-018 line disposition closed by amendment with all subgroups accounted.",
+        "No C9.1 envelope-only claim is used to close any group."
+      ],
+      "dependencies": {
+        "after": ["WP-0 freeze/adjudication", "WP-1 directory byte closure"],
+        "parallel_with": ["PKG-ALL-SM-005", "PKG-ALL-SM-006", "PKG-ALL-SM-008"],
+        "same_file_conflicts": ["new surface modules only; no existing 30-cell files are modified"
+        ]
+      }
+    },
+    {
+      "package_id": "PKG-ALL-GAP-001",
+      "movement_id": "ALL-GAP-001",
+      "business_line_id": "BL-agent-batch-quality-promotion-readback",
+      "package_type": "EVIDENCE_ROW_CLOSURE",
+      "surface_type": "EXISTING_LANE_FOLD",
+      "placement": {
+        "decision": "No separate successor surface. ALL-GAP-001 is a supplementary evidence-omission row over the same four donor refs as ALL-SM-013; it closes by amending the freeze/LegacyVsMovementGap row and binding the PKG-ALL-SM-013 successor ports.",
+        "target_cells": ["C4.1", "C4.2", "C4.3"],
+        "new_modules": []
+      },
+      "goal": "Close the evidence-omission gap for search_quality_replay.py and executor_health.py by adding the missing freeze/LegacyVsMovementGap row and binding the successor quality promotion/executor health acceptance trace.",
+      "input": [
+        "donor api/agent_batch.py",
+        "donor services/agent_batch/search_quality_replay.py",
+        "donor services/agent_batch/task_contract.py",
+        "donor services/agent_batch/executor_health.py",
+        "ALI:AllLinesMigrationScope.freeze.v1.json supplementary gap section"
+      ],
+      "output": ["additive freeze/gap row amendment", "ALL-GAP-001 closure record"],
+      "allowed_read_write": ["ALI evidence only; no production code writes"],
+      "files_add": ["ALI:AllLinesMigrationScope.freeze.amendment.v2.json (proposed)"],
+      "files_modify": [],
+      "capability_spec_or_kernel_port_boundary": "None; evidence record binds the PKG-ALL-SM-013 implementation lane.",
+      "test_boundary": "Re-run PKG-ALL-SM-013 quality/health tests and validate the amended gap row references resolve to donor byte closure entries.",
+      "legacy_trace_parity_plan": "Copy the PKG-ALL-SM-013 parity trace as the shared closure evidence; no duplicate tests or implementation.",
+      "acceptance_criteria": [
+        "Freeze/LegacyVsMovementGap amendment adds the two donor paths as a named gap row.",
+        "ALL-GAP-001 disposition closed and no longer counted as UNASSIGNED_BLOCKER.",
+        "Record explicitly folds into ALL-SM-013 closure."
+      ],
+      "dependencies": {
+        "after": ["PKG-ALL-SM-013"],
+        "parallel_with": ["PKG-ALL-SM-016"],
+        "same_file_conflicts": ["ALI freeze amendment with PKG-ALL-GAP-002; serialized"
+        ]
+      }
+    },
+    {
+      "package_id": "PKG-ALL-GAP-002",
+      "movement_id": "ALL-GAP-002",
+      "business_line_id": "BL-runtime-health-matrix",
+      "package_type": "EVIDENCE_ROW_CLOSURE",
+      "surface_type": "EXISTING_LANE_FOLD",
+      "placement": {
+        "decision": "No separate successor surface. ALL-GAP-002 folds into the PKG-ALL-SM-008/PKG-ALL-SM-017 runtime-ops health-matrix ownership record and closes via additive freeze amendment.",
+        "target_cells": [],
+        "new_modules": []
+      },
+      "goal": "Close the supplementary runtime-health-matrix gap row by adding it to the freeze amendment and binding the runtime-ops health-matrix port acceptance trace.",
+      "input": [
+        "donor scripts/runtime_health_matrix.py",
+        "donor scripts/build_business_line_async_readiness_artifact.py",
+        "donor main/backend/app/main.py",
+        "ALI:AllLinesMigrationScope.freeze.v1.json#/business_lines/16"
+      ],
+      "output": ["freeze amendment gap row", "ALL-GAP-002 closure record"],
+      "allowed_read_write": ["ALI evidence only; no production code writes"],
+      "files_add": ["ALI:AllLinesMigrationScope.freeze.amendment.v2.json (proposed)"],
+      "files_modify": [],
+      "capability_spec_or_kernel_port_boundary": "None; evidence record folds into runtime-ops lane.",
+      "test_boundary": "Re-run PKG-ALL-SM-017 health-matrix tests and validate amended row references.",
+      "legacy_trace_parity_plan": "Copy PKG-ALL-SM-008/PKG-ALL-SM-017 runtime health parity trace; no duplicate implementation.",
+      "acceptance_criteria": [
+        "Freeze amendment adds GAP-runtime-health-matrix and binds it to the runtime-ops closure trace.",
+        "ALL-GAP-002 disposition closed and no longer counted as UNASSIGNED_BLOCKER.",
+        "Record explicitly folds into ALL-SM-008/ALL-SM-017 closure."
+      ],
+      "dependencies": {
+        "after": ["PKG-ALL-SM-017"],
+        "parallel_with": ["PKG-ALL-SM-019 not in same files; serialized for shared freeze amendment"],
+        "same_file_conflicts": ["ALI freeze amendment with PKG-ALL-GAP-001; serialized"
+        ]
+      }
+    }
+  ],
+  "dependency_order": {
+    "global_prerequisites": [
+      "WP-0 freeze and dispositions amendment accepted as line-level binding for 16 business-line rows",
+      "Supplementary ALL-GAP-001/ALL-GAP-002 rows added to freeze by additive amendment",
+      "WP-1 byte closure expanded for untracked models/migrations/directory refs used by each package",
+      "WP-2 shared substrate/spec-generator convergence gates shared kernel and port edits",
+      "Topology decisions for NEW_SURFACE_PENDING_TOPOLOGY_DECISION packages before their code stages"
+    ],
+    "stage_order": [
+      "S0 baseline: freeze/adjudication, WP-1 byte closure, topology decisions",
+      "S1 horizontal ports, parallel: PKG-ALL-SM-010, PKG-ALL-SM-011, PKG-ALL-SM-012, PKG-ALL-SM-013",
+      "S2 worker verticals/extensions, parallel: PKG-ALL-SM-002, PKG-ALL-SM-003; PKG-ALL-SM-009 and PKG-ALL-SM-001 after their S1 prerequisites",
+      "S3 downstream lanes: PKG-ALL-SM-014 after PKG-ALL-SM-009, PKG-ALL-SM-016 after PKG-ALL-SM-014, PKG-ALL-SM-004 after PKG-ALL-SM-001/PKG-ALL-SM-012, PKG-ALL-SM-019 after PKG-ALL-SM-013",
+      "S4 new surfaces, parallel after topology: PKG-ALL-SM-005, PKG-ALL-SM-006, PKG-ALL-SM-008, PKG-ALL-SM-018; PKG-ALL-SM-017 after PKG-ALL-SM-008; PKG-ALL-GAP-002 after PKG-ALL-SM-017",
+      "S5 final gate: PKG-ALL-SM-007/PKG-ALL-SM-015 verification, all-lines inventory rerun, UNASSIGNED_BLOCKER == 0, amendment receipt; candidate/authority/cutover stay false"
+    ],
+    "must_be_serial": [
+      "C8 cluster: PKG-ALL-SM-009 -> PKG-ALL-SM-014 -> PKG-ALL-SM-016",
+      "C9.1 facade files: PKG-ALL-SM-010 -> PKG-ALL-SM-001",
+      "C5.4 projection/spec: PKG-ALL-SM-011 -> PKG-ALL-SM-001 -> PKG-ALL-SM-004",
+      "C2.3 guard files: PKG-ALL-SM-012 -> PKG-ALL-SM-004",
+      "Runtime-ops new surface: PKG-ALL-SM-008 -> PKG-ALL-SM-017 -> PKG-ALL-GAP-002",
+      "Agent-batch lane: PKG-ALL-SM-013 -> PKG-ALL-GAP-001",
+      "Freeze amendment file: PKG-ALL-GAP-001 and PKG-ALL-GAP-002 serialized"
+    ],
+    "parallel_opportunity": [
+      "S1 horizontal ports are file-disjoint and can run concurrently",
+      "S2 PKG-ALL-SM-002/PKG-ALL-SM-003 and C8 export are file-disjoint except shared spec-build gates",
+      "S4 new-surface packages are independent after topology and can run concurrently",
+      "Only WP-2/main-agent integration and final all-lines gate are strictly serial"
+    ]
+  },
+  "ambiguities_and_decisions_required": [
+    "GAP-single-source-guard is referenced by both ALL-SM-004 and ALL-SM-012; plan binds both rows to one shared C2.3 guard closure trace and requires the inventory/disposition amendment to record that binding.",
+    "ALL-SM-002 donor migration is not referenced by any movement byte-closure ref; WP-1 must add the migration path before registry parity closure.",
+    "AllLinesMigrationScope.freeze.v1 predates the inventory supplementary gap rows; ALL-GAP-001 and ALL-GAP-002 require additive freeze amendments.",
+    "REIMPLEMENTED_AS rows ALL-SM-007 and ALL-SM-015 are not blockers; they remain local-only records and receive verification-only packages.",
+    "C2-C6 capability specs bind donor/legacy source paths while successor assembly imports successor modules; new blocker work must close this spec/evidence drift before claiming exact source binding.",
+    "Projects/config, dashboard/admin/governance, runtime-ops and remaining backend surfaces are not owned by any existing C1-C9 cell; their topologies must be decided before implementation packages execute."
+  ],
+  "risks": [
+    "New cells beyond the current 30-cell map change ALL_I1_CELLS, family assembly and coverage invariants; any accepted new surface requires an additive milestone, not a silent 31st-cell edit.",
+    "Duplicate gap rows can double-count closures unless one shared acceptance trace family is recorded for ALL-SM-004/ALL-SM-012, ALL-SM-013/ALL-GAP-001 and ALL-SM-008/ALL-SM-017/ALL-GAP-002.",
+    "Untracked donor files are byte-evidence only at donor working-tree HEAD; parity claims become stale if WP-1 does not freeze their bytes before implementation.",
+    "C8 report files (caps/c8_report.py, c8_program.py, c8_common.py, assembly/c8_assembly.py, C8.3 spec) are shared by three blocker packages and must run serially.",
+    "No package may claim provider attestation, live delivery, canonical mutation, cutover or authority transfer; such claims remain separate milestones.",
+    "Implementation packages must never read, store or echo credential values; request identity and executor health only emit digest/typed metadata.",
+    "The current dirty worktree contains user-owned modifications to 03/04/SUPERVISOR files; execution lanes must not revert or rewrite them.",
+    "This plan is draft evidence only; executing any package requires separate human approval and exact-file authorization."
+  ]
+}

@@ -126,7 +126,7 @@
   "rollback_bindings": [
     {
       "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p3-fragments/C2.json",
-      "file_sha256": "5274116a2a083ec1553d05c034f5490f1450851d805fb2590efec21be95c544b",
+      "file_sha256": "31d32ce3d29eb2ed82063ba8c67d881ed3589cfdf23a616be520acabab1c9922",
       "role": "rollback_observation"
     },
     {

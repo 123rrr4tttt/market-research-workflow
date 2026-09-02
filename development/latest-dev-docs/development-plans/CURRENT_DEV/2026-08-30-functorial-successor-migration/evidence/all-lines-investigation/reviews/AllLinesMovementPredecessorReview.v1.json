@@ -1,0 +1,270 @@
+{
+  "review_id": "AllLinesMovementPredecessorReview.v1",
+  "schema": "mrw.functorial_successor.all_lines_predecessor_completeness_review.v1",
+  "review_gate": "predecessor_to_successor_movement_completeness",
+  "review_kind": "independent_all_lines_double_gate_review",
+  "reviewed_date": "2026-09-02",
+  "reviewer_task": "/root/all_lines_double_gate_review",
+  "status": "REVIEW_COMPLETE",
+  "verdict": "PASS_ALL_LINES_MOVEMENT_GATE",
+  "authority_ceiling": {
+    "authority_transfer": false,
+    "business_authority_migrated": false,
+    "canonical_write": false,
+    "candidate_created": false,
+    "credential_read": false,
+    "cutover": false,
+    "executor": false,
+    "external_delivery": false,
+    "legacy_retired": false,
+    "live_provider": false,
+    "promotion": false,
+    "scheduler": false,
+    "successor_claim_enabled_for_all_lines": false
+  },
+  "scope": "Predecessor-to-successor completeness of the 18 frozen BackendDonorSurfaceInventory business lines, LegacyVsMovementGap mapped/declared/unmapped evidence, AllLinesDonorByteClosure 237-file closure, and the 20 current successor movement rows (18 business lines + 2 supplementary gaps) in AllLinesSuccessorMovementInventory.v1.json.",
+  "reviewed_artifacts_sha256": {
+    "AllLinesSuccessorMovementInventory.v1.json": "758a95695818ef0684e4514df212bd48089b0d3c47c16c3d680eee5ff3cc31b2",
+    "AllLinesMigrationScope.freeze.v1.json": "d983a922e5c9724922506141c1d25d08a8aec278359bdc4f85ceb6dbf717e756",
+    "AllLinesMigrationScope.freeze-receipt.v1.json": "99b9a1c1999925d8b54ce8880468e893bf59237c174ae6c705e00e8e4aa58ef3",
+    "BackendDonorSurfaceInventory.v1.json": "1328969a9d05a2d583f0ff0862c30de166b932c3ed3df3446ddc9ee5520492bd",
+    "LegacyVsMovementGap.v1.json": "401699e5237f776a72dc736c127e5d9d6ad4911d30fb381b583805ddc02c7af7",
+    "AllLinesDonorByteClosure.v1.json": "fc1009c172d3880795dbdaebb90d8de41a6359161d5b86a89315ed4abc4077ed",
+    "AllLinesS2Closure.amendment.v1.json": "4e55bf96f482d56217b2142a492f0bab4c545149702b3e7c325dec20bd1e31bf",
+    "AllLinesS2bClosure.amendment.v1.json": "1c9e92156579c7cf857bf08cddefa2cb124f3c20b72de4f7b1ded35eff1a6f77",
+    "AllLinesS2cClosure.amendment.v1.json": "1244e285dda1ca9bdfa9b0eafe5cf95c134dcc03d09e3688bcd60d7501fd9d70",
+    "AllLinesFinalRebind.amendment.v1.json": "92e69d9ad206a05a195005de52131612ec0f7ef1d5ada13549380f72282cb295"
+  },
+  "predecessor_accounting": {
+    "freeze_business_line_count": 18,
+    "business_line_movement_count": 18,
+    "supplementary_gap_movement_count": 2,
+    "business_lines_with_successor_destination": 18,
+    "missing_line_destinations": [],
+    "current_unassigned_movement_records": 0,
+    "current_disposition_counts": {
+      "business_lines_REIMPLEMENTED_AS": 18,
+      "supplementary_gaps_REIMPLEMENTED_AS": 2,
+      "UNASSIGNED_BLOCKER": 0
+    },
+    "legacy_vs_movement_gap_observation": {
+      "mapped_rows": 14,
+      "declared_loss_or_rejected_rows": 14,
+      "unmapped_gap_rows": 15,
+      "freeze_unique_gap_ids": 15,
+      "freeze_gap_references": 16,
+      "gap_ids_referenced_by_current_movements": 15,
+      "supplementary_gap_fold_rows": [
+        "ALL-GAP-001",
+        "ALL-GAP-002"
+      ],
+      "note": "LegacyVsMovementGap remains a frozen observation artifact with 15 UNMAPPED gap rows; all 15 gap IDs are now referenced by current movement rows, and two additional evidence-omission gaps are folded by ALL-GAP-001/ALL-GAP-002. The old artifact has no inline supersede marker; 03 records the amendment progression."
+    },
+    "legacy_retirement": {
+      "legacy_retired_false_declared": true,
+      "donor_byte_closure_files_present": "237/237",
+      "donor_sha256_match": "237/237",
+      "no_delete_or_disable_evidence": true,
+      "note": "Legacy remains usable in the donor checkout; 35 files are untracked dirty working-tree bytes and are absent from clean HEAD, which is a documented bounded risk, not retirement."
+    },
+    "locator_only_closure_check": {
+      "result": "PASS_WITH_CAVEAT",
+      "donor_byte_closure_is_not_the_only_evidence": true,
+      "successor_acceptance_is_code_test_or_matrix_bound": true,
+      "aggregate_row_exactness_caveat": "ALL-SM-007 and ALL-SM-015 rely on family/matrix-level acceptance refs and glob/whole-file patterns; underlying family movement rows carry exact 323/323 resolving refs.",
+      "test_rerun_note": "Amendment test counts are self-reported; this review reran read-only generators/validators only."
+    }
+  },
+  "donor_line_map": [
+    {
+      "freeze_line": "BL-business-lines-worker-readback",
+      "movement": "ALL-SM-001",
+      "current_disposition": "REIMPLEMENTED_AS",
+      "closing_status": "CLOSED"
+    },
+    {
+      "freeze_line": "BL-ingest-submission-worker-readback",
+      "movement": "ALL-SM-002",
+      "current_disposition": "REIMPLEMENTED_AS",
+      "closing_status": "CLOSED"
+    },
+    {
+      "freeze_line": "BL-search-discovery-index-worker-readback",
+      "movement": "ALL-SM-003",
+      "current_disposition": "REIMPLEMENTED_AS",
+      "closing_status": "CLOSED"
+    },
+    {
+      "freeze_line": "BL-source-library-resource-worker-readback",
+      "movement": "ALL-SM-004",
+      "current_disposition": "REIMPLEMENTED_AS",
+      "closing_status": "CLOSED"
+    },
+    {
+      "freeze_line": "BL-projects-config-workflow",
+      "movement": "ALL-SM-005",
+      "current_disposition": "REIMPLEMENTED_AS",
+      "closing_status": "CLOSED"
+    },
+    {
+      "freeze_line": "BL-dashboard-admin-governance",
+      "movement": "ALL-SM-006",
+      "current_disposition": "REIMPLEMENTED_AS",
+      "closing_status": "CLOSED"
+    },
+    {
+      "freeze_line": "BL-writing-knowledge-graph-agent",
+      "movement": "ALL-SM-007",
+      "current_disposition": "REIMPLEMENTED_AS",
+      "closing_status": "NON_BLOCKER_RECORD"
+    },
+    {
+      "freeze_line": "BL-runtime-ops",
+      "movement": "ALL-SM-008",
+      "current_disposition": "REIMPLEMENTED_AS",
+      "closing_status": "CLOSED"
+    },
+    {
+      "freeze_line": "BL-llm-report-export-token-state",
+      "movement": "ALL-SM-009",
+      "current_disposition": "REIMPLEMENTED_AS",
+      "closing_status": "CLOSED"
+    },
+    {
+      "freeze_line": "BL-request-identity",
+      "movement": "ALL-SM-010",
+      "current_disposition": "REIMPLEMENTED_AS",
+      "closing_status": "CLOSED"
+    },
+    {
+      "freeze_line": "BL-task-readback-metadata",
+      "movement": "ALL-SM-011",
+      "current_disposition": "REIMPLEMENTED_AS",
+      "closing_status": "CLOSED"
+    },
+    {
+      "freeze_line": "BL-single-source-guard",
+      "movement": "ALL-SM-012",
+      "current_disposition": "REIMPLEMENTED_AS",
+      "closing_status": "CLOSED"
+    },
+    {
+      "freeze_line": "BL-agent-batch-quality-promotion-readback",
+      "movement": "ALL-SM-013",
+      "current_disposition": "REIMPLEMENTED_AS",
+      "closing_status": "CLOSED"
+    },
+    {
+      "freeze_line": "BL-dashboard-llm-report-detail-export-audit",
+      "movement": "ALL-SM-014",
+      "current_disposition": "REIMPLEMENTED_AS",
+      "closing_status": "CLOSED"
+    },
+    {
+      "freeze_line": "BL-typed-knowledge-writing-composition",
+      "movement": "ALL-SM-015",
+      "current_disposition": "REIMPLEMENTED_AS",
+      "closing_status": "NON_BLOCKER_RECORD"
+    },
+    {
+      "freeze_line": "BL-llm-report-trend-quality-records",
+      "movement": "ALL-SM-016",
+      "current_disposition": "REIMPLEMENTED_AS",
+      "closing_status": "CLOSED"
+    },
+    {
+      "freeze_line": "BL-runtime-health-matrix",
+      "movement": "ALL-SM-017",
+      "current_disposition": "REIMPLEMENTED_AS",
+      "closing_status": "CLOSED"
+    },
+    {
+      "freeze_line": "BL-admin-crawler-cluechain-codexauth-keyword-stats",
+      "movement": "ALL-SM-018",
+      "current_disposition": "REIMPLEMENTED_AS",
+      "closing_status": "CLOSED"
+    }
+  ],
+  "open_findings": {
+    "p0": [],
+    "p1": [
+      {
+        "id": "PRIOR_STATE_DOCUMENTS_NOT_SUPERSEDED_INLINE",
+        "detail": "AllLinesMigrationScope.freeze.v1.json, LegacyVsMovementGap.v1.json and AllLinesDispositions.amendment.v1.json still report the 16 UNASSIGNED_BLOCKER / 15 UNMAPPED prior state. The current 0-UB state is carried by the inventory and S2/S2b/S2c/FinalRebind amendments and is documented in 03; there is no explicit in-directory supersede marker.",
+        "resolution_required": "Add an explicit amendment-level supersession record or a reviewed current-state snapshot before any aggregate promotion-style claim."
+      },
+      {
+        "id": "DISPOSITION_LABEL_OBSCURES_NO_CALL_SURFACES",
+        "detail": "Multiple lines are row-level REIMPLEMENTED_AS while their donor mutation/provider/scheduler/durable-write semantics are component-level EXPLICITLY_REJECTED or DECLARED_LOSS (for example ALL-SM-003/004/005/006/008/014/016/018). S2c records the components, but the inventory row label can be misread as full capability reconstruction.",
+        "resolution_required": "Keep row dispositions as-is only with explicit component decision surfaces; do not use these rows as promotion authority."
+      },
+      {
+        "id": "ALL_LINES_EXACT_REFERENCE_GAP",
+        "detail": "ALL-SM-007 and ALL-SM-015 acceptance traces are aggregate matrix/glob/whole-file refs rather than exact per-line SHA-bound test nodes; the underlying family movement matrix resolves exactly.",
+        "resolution_required": "Bind the two aggregate rows to exact family review records or explicit SHA test-node lists."
+      }
+    ],
+    "p2": [
+      {
+        "id": "SHARED_DONOR_PATH_OWNERSHIP",
+        "detail": "29 donor paths are shared across multiple movements and GAP-single-source-guard is referenced by two business-line movements; byte closure is not additive across movements and no per-path canonical owner table exists."
+      },
+      {
+        "id": "UNTRACKED_DONOR_BYTES",
+        "detail": "35 of the 237 donor closure files are untracked dirty working-tree bytes; the closure remains bound to the current donor working tree and cannot be reproduced from clean HEAD."
+      },
+      {
+        "id": "TEST_EVIDENCE_NOT_RERUN",
+        "detail": "S2/S2b/S2c reported pytest counts are self-reported; this review executed only read-only generator/validator commands and file/SHA checks."
+      }
+    ]
+  },
+  "commands": [
+    {
+      "command": "read-only Python freeze/inventory/gap reconciliation",
+      "exit_code": 0,
+      "result": "18 freeze business lines map 1:1 to 18 business-line movements; movement_id unique; 15/15 freeze gap IDs referenced; current UNASSIGNED_BLOCKER=0."
+    },
+    {
+      "command": "read-only Python donor byte closure audit against /Users/wangyiliang/market-research-workflow",
+      "exit_code": 0,
+      "result": "237/237 files exist; SHA-256 237/237 match; tracked flag 237/237 match; duplicates 0."
+    },
+    {
+      "command": "read-only Python target/acceptance file presence scan",
+      "exit_code": 0,
+      "result": "Concrete target/trace files present; glob/matrix-only refs confined to ALL-SM-007/ALL-SM-015."
+    },
+    {
+      "command": "cd main/backend && PYTHONDONTWRITEBYTECODE=1 /Users/wangyiliang/.local/bin/python3.11 -B scripts/generate_successor_p1_p3_semantic_movement.py --repo-root /Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0 --output-root /Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0 --check",
+      "exit_code": 0,
+      "result": "CHECK_OK total=60 inline=40 external_c7=20 exact_blockers=0."
+    },
+    {
+      "command": "cd main/backend && PYTHONDONTWRITEBYTECODE=1 /Users/wangyiliang/.local/bin/python3.11 -B scripts/validate_successor_semantic_movement.py --repo-root /Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0 --output-root /Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0",
+      "exit_code": 0,
+      "result": "PASS 14 checks; evidence_refs_resolve 323/323; exact_blockers 0."
+    },
+    {
+      "command": "read-only freeze receipt member and content-digest recompute",
+      "exit_code": 0,
+      "result": "Freeze md/json member SHA/bytes/lines match; receipt self content-digest 0b8c3e64... recomputes."
+    }
+  ],
+  "risks": [
+    "PASS_ALL_LINES_MOVEMENT_GATE covers the current inventory/amendment state; the frozen donor artifacts retain prior blocker wording and require an explicit supersession trail before aggregate promotion.",
+    "No dedicated all-lines validator exists; green P1-P3 generator/validator evidence is supporting, not a substitute for all-lines schema validation.",
+    "Legacy remains usable; nothing in this review authorizes retirement, cutover, candidate creation, live provider, canonical write or authority transfer.",
+    "Shared donor paths make byte closure non-additive; semantic ownership still needs per-path review at authority milestones."
+  ],
+  "non_claims": [
+    "This predecessor review does not issue a declared-scope verdict.",
+    "No promotion, candidate acceptance, live provider, external delivery, cutover, authority transfer, production canonical write or legacy retirement is claimed.",
+    "Freeze, donor, LegacyVsMovementGap, capability-spec, manifest and 03/04 bytes were not modified by this review."
+  ],
+  "write_scope": {
+    "directory": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/reviews",
+    "only_modified_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/reviews/AllLinesMovementPredecessorReview.v1.json"
+  },
+  "content_digest": "ce87fa050a8c01cef05173a593cddcb2cc1587678b5d2d6efeb702f9e36c43c7"
+}

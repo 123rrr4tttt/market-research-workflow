@@ -1,0 +1,232 @@
+{
+  "review_id": "AllLinesMovementDeclaredScopeReview.v1",
+  "schema": "mrw.functorial_successor.all_lines_declared_scope_review.v1",
+  "review_gate": "declared_scope_correctness",
+  "review_kind": "independent_all_lines_double_gate_review",
+  "reviewed_date": "2026-09-02",
+  "reviewer_task": "/root/all_lines_double_gate_review",
+  "status": "REVIEW_COMPLETE",
+  "verdict": "PASS_ALL_LINES_MOVEMENT_GATE",
+  "authority_ceiling": {
+    "authority_transfer": false,
+    "business_authority_migrated": false,
+    "canonical_write": false,
+    "candidate_created": false,
+    "credential_read": false,
+    "cutover": false,
+    "executor": false,
+    "external_delivery": false,
+    "legacy_retired": false,
+    "live_provider": false,
+    "promotion": false,
+    "scheduler": false,
+    "successor_claim_enabled_for_all_lines": false
+  },
+  "scope": "Declared-scope review of AllLinesSuccessorMovementInventory.v1.json (20/20 REIMPLEMENTED_AS, 0 UNASSIGNED_BLOCKER), S2/S2b/S2c/FinalRebind closure amendments, BackendDonorSurfaceInventory (18 donor lines), LegacyVsMovementGap, AllLinesDonorByteClosure (237 donor files), AllLinesMigrationScope.freeze.v1 + receipt, and docs/governance/semantic-movement-completeness-standard.md in /Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0.",
+  "reviewed_artifacts_sha256": {
+    "AllLinesSuccessorMovementInventory.v1.json": "758a95695818ef0684e4514df212bd48089b0d3c47c16c3d680eee5ff3cc31b2",
+    "AllLinesMigrationScope.freeze.v1.json": "d983a922e5c9724922506141c1d25d08a8aec278359bdc4f85ceb6dbf717e756",
+    "AllLinesMigrationScope.freeze.v1.md": "5fedb0cb2c30db493349f94fc12519cd68cad49426567a6fca12eb7419960bda",
+    "AllLinesMigrationScope.freeze-receipt.v1.json": "99b9a1c1999925d8b54ce8880468e893bf59237c174ae6c705e00e8e4aa58ef3",
+    "AllLinesS2Closure.amendment.v1.json": "4e55bf96f482d56217b2142a492f0bab4c545149702b3e7c325dec20bd1e31bf",
+    "AllLinesS2bClosure.amendment.v1.json": "1c9e92156579c7cf857bf08cddefa2cb124f3c20b72de4f7b1ded35eff1a6f77",
+    "AllLinesS2cClosure.amendment.v1.json": "1244e285dda1ca9bdfa9b0eafe5cf95c134dcc03d09e3688bcd60d7501fd9d70",
+    "AllLinesFinalRebind.amendment.v1.json": "92e69d9ad206a05a195005de52131612ec0f7ef1d5ada13549380f72282cb295",
+    "BackendDonorSurfaceInventory.v1.json": "1328969a9d05a2d583f0ff0862c30de166b932c3ed3df3446ddc9ee5520492bd",
+    "LegacyVsMovementGap.v1.json": "401699e5237f776a72dc736c127e5d9d6ad4911d30fb381b583805ddc02c7af7",
+    "AllLinesDonorByteClosure.v1.json": "fc1009c172d3880795dbdaebb90d8de41a6359161d5b86a89315ed4abc4077ed",
+    "semantic-movement-completeness-standard.md": "a032443596d26ba1b033d6dde564bf736670129bde4232aef7ac7ab6781d256e"
+  },
+  "declared_scope_checks": {
+    "movement_record_count": 20,
+    "business_line_movement_count": 18,
+    "supplementary_gap_movement_count": 2,
+    "required_fields_per_row": 13,
+    "all_required_fields_nonempty": true,
+    "missing_field_rows": 0,
+    "empty_field_rows": 0,
+    "allowed_dispositions": [
+      "PRESERVED_AS",
+      "MOVED_TO",
+      "REIMPLEMENTED_AS",
+      "DECLARED_LOSS",
+      "EXPLICITLY_REJECTED",
+      "UNASSIGNED_BLOCKER"
+    ],
+    "disposition_counts": {
+      "REIMPLEMENTED_AS": 20,
+      "UNASSIGNED_BLOCKER": 0
+    },
+    "unassigned_blockers": 0,
+    "placeholder_refs_remaining": 0,
+    "target_realization_resolution": {
+      "concrete_paths_present": true,
+      "glob_refs": {
+        "movement_ids": [
+          "ALL-SM-007"
+        ],
+        "note": "Glob patterns resolve to existing successor_runtime files, but they are aggregate locator refs, not exact SHA-bound file refs. Recorded as P1."
+      },
+      "matrix_or_json_pointer_refs": {
+        "movement_ids": [
+          "ALL-SM-007",
+          "ALL-SM-015"
+        ],
+        "resolved_movement_ids_present": true,
+        "note": "P1P3SuccessorMovementMatrix row ranges resolve to the exact 60-row matrix; they are family-level acceptance pointers."
+      }
+    },
+    "acceptance_trace_resolution": {
+      "symbol_checked_refs": 74,
+      "unresolved_symbols": 0,
+      "missing_trace_files": 0,
+      "note": "ALL-SM-007 uses test globs for C4/C5/C6/C8 family tests; the globs match existing files. Exactness gap recorded as P1."
+    },
+    "donor_byte_closure": {
+      "inventory_donor_refs": 143,
+      "unique_inventory_donor_paths": 101,
+      "byte_closure_entries": 237,
+      "missing_donor_files": 0,
+      "sha_mismatches": 0,
+      "tracked_flag_mismatches": 0
+    },
+    "amendment_sha_consistency": {
+      "current_inventory_sha256": "758a95695818ef0684e4514df212bd48089b0d3c47c16c3d680eee5ff3cc31b2",
+      "s2c_inventory_sha256_match": true,
+      "s2_inventory_sha256_recorded_in_03": "f11b0e697b67b5a7da125179bc8bd61ce50ad7f15ac686c64fcb56dbc62c9815",
+      "s2b_inventory_sha256_recorded_in_03": "cfadcea14f5bdc923cff84459d1e440ed31c6adbed4bddc1d911664dadad2cc7",
+      "s2c_changed_files_match": "18/18",
+      "s2b_changed_files_match": "15/15",
+      "final_rebind_changed_files_match": "24/24",
+      "final_rebind_current_artifact_sha_match": "7/7",
+      "final_rebind_binding_updates_match": "24/24",
+      "s2_changed_files_current_match": "11/13",
+      "s2_changed_file_drift_note": "assembly/base.py and assembly/c9_assembly.py were intentionally superseded by S2b; S2 remains a valid historical closure record."
+    },
+    "freeze_receipt_consistency": {
+      "freeze_json_member_match": true,
+      "freeze_md_member_match": true,
+      "receipt_self_content_digest_recomputes": true,
+      "receipt_content_digest": "0b8c3e6423dd29bed571cd55894e547d592829a4252a0b2cc8d17319cba31905",
+      "freeze_list_referenced_evidence_match": "5/5",
+      "note": "The receipt content_digest is a self-digest of the receipt JSON and recomputes exactly; it is not a digest of the freeze JSON."
+    },
+    "decision_owner_reason": {
+      "top_level_dispositions_requiring_owner": 0,
+      "s2c_component_decisions": 31,
+      "s2c_closure_records_with_decision_owner": true,
+      "component_level_reason_gap": true,
+      "note": "All 11 S2c closure records carry decision_owner and inventory projection_loss text, but component_decisions entries do not carry a per-kind machine-readable reason. Recorded as P1."
+    }
+  },
+  "open_findings": {
+    "p0": [],
+    "p1": [
+      {
+        "id": "ALL_LINES_EXACT_REFERENCE_GAP",
+        "check": "declared-scope target_realization/acceptance_trace exactness",
+        "detail": "ALL-SM-007 uses glob target/acceptance refs and ALL-SM-015 uses P1P3 matrix row-range refs plus whole-file test refs. The refs resolve and underlying matrix/family evidence is exact, but these two rows are not exact SHA-bound file/node refs at the all-lines row level.",
+        "resolution_required": "Expand globs to exact file/test-node lists or bind the all-lines row to exact family review records with SHA."
+      },
+      {
+        "id": "COMPONENT_DECISION_REASON_GAP",
+        "check": "EXPLICITLY_REJECTED/DECLARED_LOSS owner and reason",
+        "detail": "S2c component_decisions record 12 EXPLICITLY_REJECTED and 2 DECLARED_LOSS entries without a per-component decision_reason; LegacyVsMovementGap declared_loss_or_rejected rows also lack decision_owner/decision_reason fields and carry only prose declarations.",
+        "resolution_required": "Add per-component decision_owner/decision_reason, or make LegacyVsMovementGap an observation file that references formal decision records."
+      },
+      {
+        "id": "SUPERSEDE_CHAIN_NOT_INLINE",
+        "check": "inventory/amendments vs freeze, LegacyVsMovementGap, AllLinesDispositions",
+        "detail": "Current inventory and S2/S2b/S2c supersede the 16 frozen UNASSIGNED_BLOCKER lines, but the frozen files, LegacyVsMovementGap, and AllLinesDispositions still carry the prior UNMAPPED/UNASSIGNED state and no inline supersede marker. The authoritative progression is recorded in 03_functorial-successor-migration-development-progress.md.",
+        "resolution_required": "Record explicit amendment-level supersede/binding references in the all-lines evidence set before promotion-style aggregation."
+      },
+      {
+        "id": "INVENTORY_SUMMARY_STALE_COUNTER",
+        "check": "inventory summary metadata consistency",
+        "detail": "AllLinesSuccessorMovementInventory.v1.json#/summary/non_blocker_business_line_records is 9, while the same summary reports 18 business-line movements with 0 UNASSIGNED_BLOCKER and only ALL-SM-007/ALL-SM-015 carry NON_BLOCKER_RECORD.",
+        "resolution_required": "Correct the counter or document its historical S2b point-in-time meaning."
+      }
+    ],
+    "p2": [
+      {
+        "id": "NO_LOCAL_JSON_SCHEMA",
+        "detail": "Inventory and amendments name schema strings but no local JSON Schema file exists in the evidence directory; structural validation is standard-based, not schema-based."
+      },
+      {
+        "id": "S2_GENERATED_AT_TIMESTAMP_ANOMALY",
+        "detail": "AllLinesS2Closure.amendment.v1.json declares generated_at_utc 2026-09-02T15:20:00Z, later than S2b/S2c/FinalRebind timestamps, while file mtime and 03 record place S2 first."
+      },
+      {
+        "id": "FREEZE_STATUS_WORDING",
+        "detail": "Freeze JSON/MD retain DRAFT_FOR_SUPERVISOR_FREEZE wording while the receipt says FROZEN_VALIDATED; member hashes and receipt digest verify, but wording should be sealed in a later milestone."
+      },
+      {
+        "id": "SHARED_DONOR_PATH_OVERLAP",
+        "detail": "29 donor paths are shared by multiple movements, and GAP-single-source-guard is referenced by both ALL-SM-004 and ALL-SM-012. No per-path canonical owner table exists; overlapping coverage requires semantic confirmation, not additive byte counts."
+      }
+    ]
+  },
+  "commands": [
+    {
+      "command": "cd /Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0 && shasum -a 256 <all-lines review-object files>",
+      "exit_code": 0,
+      "result": "All listed artifact SHAs match the file values in reviewed_artifacts_sha256."
+    },
+    {
+      "command": "cd main/backend && PYTHONDONTWRITEBYTECODE=1 /Users/wangyiliang/.local/bin/python3.11 -B scripts/generate_successor_p1_p3_semantic_movement.py --repo-root /Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0 --output-root /Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0 --check",
+      "exit_code": 0,
+      "result": "CHECK_OK total=60 inline=40 external_c7=20 exact_blockers=0."
+    },
+    {
+      "command": "cd main/backend && PYTHONDONTWRITEBYTECODE=1 /Users/wangyiliang/.local/bin/python3.11 -B scripts/validate_successor_semantic_movement.py --repo-root /Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0 --output-root /Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0",
+      "exit_code": 0,
+      "result": "PASS 14 checks; evidence_refs_resolve 323/323; exact_blockers 0."
+    },
+    {
+      "command": "cd main/backend && PYTHONDONTWRITEBYTECODE=1 /Users/wangyiliang/.local/bin/python3.11 -B scripts/check_successor_c7_semantic_movements.py --repo-root /Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0 --design-root /Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0 --check",
+      "exit_code": 0,
+      "result": "CHECK_OK unassigned_blockers=0."
+    },
+    {
+      "command": "read-only Python scan: inventory 13-field completeness, dispositions, placeholder refs",
+      "exit_code": 0,
+      "result": "20/20 rows complete; missing=0 empty=0 disallowed=0 placeholder rows=0."
+    },
+    {
+      "command": "read-only Python resolution of target_realization and acceptance_trace files/symbols",
+      "exit_code": 0,
+      "result": "Missing files 0; 74 symbol refs checked, unresolved 0; glob/matrix refs limited to ALL-SM-007/ALL-SM-015."
+    },
+    {
+      "command": "read-only Python donor byte closure audit against /Users/wangyiliang/market-research-workflow",
+      "exit_code": 0,
+      "result": "237/237 entries exist; SHA-256 237/237 match; tracked flags 237/237 match."
+    },
+    {
+      "command": "read-only Python changed-files SHA audit for S2/S2b/S2c/FinalRebind",
+      "exit_code": 0,
+      "result": "S2 11/13 current (2 superseded by S2b), S2b 15/15, S2c 18/18, FinalRebind 24/24 + 24 binding updates + 7 current artifacts."
+    },
+    {
+      "command": "read-only Python freeze receipt member and content-digest recompute",
+      "exit_code": 0,
+      "result": "Members 2/2 SHA/bytes/lines match; receipt self content-digest recomputes to 0b8c3e64..."
+    }
+  ],
+  "risks": [
+    "PASS_ALL_LINES_MOVEMENT_GATE is a bounded movement-gate result; it does not authorize live/cutover/candidate/canonical-write/authority-transfer or legacy retirement.",
+    "No all-lines-specific generator/validator script exists in the evidence directory; the repository P1-P3 generator and semantic validator are green but bound to the 60-row P1P3/C7 bundle, not to this 20-row all-lines JSON schema.",
+    "The 35 untracked donor files are dirty donor working-tree bytes; byte closure remains bounded to that working tree.",
+    "Amendment test counts (71/48/21/1565 etc.) are self-reported and were not re-executed by this review."
+  ],
+  "non_claims": [
+    "This declared-scope review does not issue a predecessor-to-successor completeness verdict.",
+    "No promotion, candidate acceptance, live provider, external delivery, cutover, authority transfer, production canonical write or legacy retirement is claimed.",
+    "The freeze JSON/MD and LegacyVsMovementGap bytes were not modified; this review is additive evidence in the reviews directory only."
+  ],
+  "write_scope": {
+    "directory": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/reviews",
+    "only_modified_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/reviews/AllLinesMovementDeclaredScopeReview.v1.json"
+  },
+  "content_digest": "6b771f67f24c2ea012650ae3e175e2fbc6595bc10ca6bbd830c79d0330b98476"
+}

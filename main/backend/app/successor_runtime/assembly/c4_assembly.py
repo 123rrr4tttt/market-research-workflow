@@ -45,6 +45,9 @@ from app.successor_runtime.substrate.postgres.agent_batch_c4_canary import (
     C4_1_BatchPlanRuntimeHandler,
     C4_2_RetryRuntimeHandler,
 )
+from app.successor_runtime.substrate.postgres.agent_batch_c4_quality_promotion_handler import (
+    C4QualityPromotionRuntimeHandler,
+)
 from app.successor_runtime.substrate.postgres.unit_of_work import RuntimeUnitOfWork
 
 from .base import (
@@ -58,6 +61,15 @@ from .base import (
 )
 
 _C4_DEPLOYMENT_CATALOG_DIGEST = sha256_hex("mrw.successor.deployment-catalog.c4.v1")
+_C4_QUALITY_PROMOTION_OPERATION_DIGEST = sha256_hex(
+    "mrw.successor.agent-batch.quality-promotion.operation.v1"
+)
+_C4_QUALITY_PROMOTION_INTERPRETER_DIGEST = sha256_hex(
+    "successor.agent-batch.quality-promotion.v1"
+)
+_C4_QUALITY_PROMOTION_AUTHORITY_DIGEST = sha256_hex(
+    "mrw.successor.agent-batch.quality-promotion.authority.v1"
+)
 _C4_PROGRAM_ID = "program:i1-c4-family"
 _C4_FRAGMENT = (
     "development/latest-dev-docs/development-plans/CURRENT_DEV/"
@@ -396,6 +408,23 @@ def build_c4_assembly(
         deployment_catalog_digest=_C4_DEPLOYMENT_CATALOG_DIGEST,
     )
     handlers.append(submission_handler)
+    quality_installed = opts.quality_evidence is not None
+    if quality_installed:
+        quality_binding = successor_binding(
+            operation_contract_digest=_C4_QUALITY_PROMOTION_OPERATION_DIGEST,
+            interpreter_profile_digest=_C4_QUALITY_PROMOTION_INTERPRETER_DIGEST,
+            deployment_catalog_digest=_C4_DEPLOYMENT_CATALOG_DIGEST,
+            project_scope_digest=project_scope_digest,
+            authority_requirement_digest=_C4_QUALITY_PROMOTION_AUTHORITY_DIGEST,
+        )
+        quality_handler = C4QualityPromotionRuntimeHandler(
+            evidence=opts.quality_evidence,
+            handler_binding_digest=quality_binding.binding_digest,
+            interpreter_profile_digest=quality_binding.interpreter_profile_digest,
+            operation_contract_digest=quality_binding.operation_contract_digest,
+            deployment_catalog_digest=quality_binding.deployment_catalog_digest,
+        )
+        handlers.append(quality_handler)
     cells.append(
         CellBinding(
             cell_id="C4.3",
@@ -411,6 +440,11 @@ def build_c4_assembly(
             note=(
                 "LOCAL_OFFLINE store-rehydrated handler; digest from "
                 "build_successor_agent_batch_c4_submission_binding"
+                + (
+                    "; QUALITY_PROMOTION_HANDLER_INSTALLED_READBACK_ONLY"
+                    if quality_installed
+                    else ""
+                )
             ),
         )
     )

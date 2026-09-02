@@ -249,3 +249,92 @@ SUPERVISOR_REVIEW_REQUEST
 - I1 闭合配置 30/30 INSTALLED；I1 子集 `55 passed`；全量非 PG `1399/117/0`；全量 PG 专用库 `344/0/0` + C7 canonical write PG `9 passed`。
 - 监督裁决：`SUPERVISOR_ACCEPT_I1_CLOSED_CONFIG_30_30_INSTALLED_LOCAL_ONLY`。
 - 候选阶段：创建候选 commit/tree 后执行 I2 exact-candidate independent final review；live/cutover/authority transfer 仍不授权。
+
+## I2 exact-candidate (2026-09-02)
+
+- candidate commit：`9fa8aefaae8f30a080f3d2dcac6dfb6ff9f773e0`；tree：`709719ca27e5c8c88b0de00e862d2996bb850a82`。
+- I2 independent exact-candidate final review 待执行；候选为 local-only，live/cutover/authority transfer 不授权。
+
+## I2 exact-candidate: BLOCK and candidate fix (2026-09-02)
+
+- 候选 `9fa8aefa…` I2 终审 `BLOCK`（缺 router 挂载、runtime kernel ABI pilot、alembic snapshot）；终审产物已记录。
+- 修复候选：commit `1825870a9623dd256fa075053ab89d786c84b6bd`，tree `63bcc270edf9e880ef04dfeb9413b9c634956bbb`；I2 终审待重跑。
+
+## I2 exact-candidate: evidence-bound candidate (2026-09-02)
+
+- 复评 `1825870a…` BLOCK（I1 evidence 未候选绑定）；7 份 I1 evidence 已按候选字节重生成并提交。
+- 当前候选：commit `a48acbee37cec9783d36158458894c2b0a05ba4d`，tree `6315e00286ed201962b03ebfe63b1117cd835d43`；I2 终审待重跑。
+
+## I2 exact-candidate: binding convention candidate (2026-09-02)
+
+- I2 第三轮 BLOCK 已修复：`I1C8_3DeliveryEvidence` route_mounted=true；监督裁决 `I1EvidenceCandidateBindingConvention.v1.json` 确立 evidence 绑定约定。
+- 当前候选：commit `452611fccb69188477f277550a7f8b6c98b4724c`，tree `94a4038390ea8aeb70864ea67720d225576129d8`；I2 终审待重跑。
+
+## I2 exact-candidate: PASS and final acceptance (2026-09-02)
+
+- `I2ExactCandidateFinalReview.v4.json` verdict `PASS_EXACT_CANDIDATE`（候选 `452611fc…`，无 P0）；监督最终接受 `SUPERVISOR_FINAL_ACCEPT_EXACT_CANDIDATE_LOCAL_ONLY`。
+- live/cutover/authority transfer/production canonical write 保持不授权；legacy 保持可用。
+
+## Production readiness authorization (2026-09-02)
+
+- 用户授权生产就绪收尾：cutover rehearsal、production canonical write（successor 表）、部署/健康检查、runbook/监控/安全文档与 CI 门禁。
+- legacy 不退休；live provider 仅在有真实凭据且 parity 通过后执行，否则如实标 BLOCK。
+
+## Production readiness final steps (2026-09-02)
+
+- 本地生产门禁与凭据审计证据已落盘（ProductionLocalGateEvidence、LiveProviderCredentialAudit）；runbook/monitoring/security 三份文档完成。
+- 可部署性：本地候选可部署验证通过；真实投产被外部环境阻断（Docker down、provider 凭据 ABSENT、默认无认证/生产 resolver 未实现）。
+
+## Containerized cutover rehearsal PASS (2026-09-02)
+
+- Docker 全栈 rehearsal 通过（ProductionCutoverRehearsalEvidence.v1.json，SHA `0be9b65e…`）；live Serper/OpenAI bounded parity 通过；PG 专用库 353/0/0。
+- production-ready 基线 commit `38acdee8…`；真实生产 cutover/canonical production write/authority transfer 仍未执行；successor 路由默认无认证（投产前需选认证方案）。
+
+## All-lines migration investigation and freeze (2026-09-02)
+
+- 全线调查完成并冻结：18 条业务条线、130 donor sources、16 UNASSIGNED_BLOCKER 待裁决。
+- 冻结成员：AllLinesMigrationScope.freeze.v1.md/.json + freeze-receipt（SHA 见 03）；legacy 保持可用。
+
+## All-lines disposition adjudication basis (2026-09-02)
+
+- AllLinesDispositions.amendment.v1.json（SHA `e9f674e0…`）：16 条线全部保留 UNASSIGNED_BLOCKER，含 owner/successor 建议；监督已接受为裁决基准，开始 WP-1 movement inventory。
+
+## WP-1 closure (2026-09-02)
+
+- Donor byte closure 237 文件 + 20 条 movement inventory 已落盘（SHA 见 03）；18 blocker 保留；进入 WP-2 逐线闭合实现计划。
+
+## WP-2 closure plan (2026-09-02)
+
+- AllLinesSuccessorClosurePlan.v1.json（SHA `8eca87a2…`）：20 包 S0-S5 顺序；16 个实现型 blocker 包 + 2 证据行包；5 个 NEW_SURFACE 待拓扑决策。
+- 下一阶段执行 S1 横向 port；新增 cell 需 additive milestone。
+
+## S1 horizontal ports implemented (2026-09-02)
+
+- 四个横向 port 已实现并验证（S1PortImplementationEvidence，SHA `bd6fee9f…`）；对应 4 条 inventory blocker 仍保留，等待 S2 cell 运行面接入后再关闭。
+
+## S2 cell runtime binding closure (2026-09-02)
+
+- ALL-SM-010..013 已闭合（C9.1/C5.4/C2.3/C4 运行面接入），inventory blockers 18→14；amendment SHA `4e55bf96…`；S1+S2 71 passed。
+
+## S2b cell extensions closure (2026-09-02)
+
+- ALL-SM-001/002/009 已闭合（C9 evidence matrix、C7.2 ingest registry、C8.3 export/token-state）；inventory blockers 14→11；amendment SHA `1c9e9215…`；S2b focused 48 passed。
+
+## S2c + drift regen + final rebind (2026-09-02)
+
+- All-lines movement blockers 归零（20/20 REIMPLEMENTED_AS）；全量非 PG `1565/119/0`；amendment SHA：S2c `1244e285…`、final rebind `92e69d9a…`。
+- 待办：all-lines 独立双门 review、全量 PG、authority 门。
+
+## All-lines movement gate PASS (2026-09-02)
+
+- 独立双门 verdict `PASS_ALL_LINES_MOVEMENT_GATE`（P0 空）；全量 PG 专用库 353/0/0。
+- P1 收敛与 authority/candidate 门为下一步。
+
+## All-lines P1 closure (2026-09-02)
+
+- P1 收敛完成（addendum `c7bc77ee…`、closure status `8c371ef2…`、inventory `08fad9f5…`）；0 UB、双门 PASS。
+- 剩余：authority/candidate/live/cutover 决策。
+
+## All-lines P1 independent review PASS (2026-09-02)
+
+- `AllLinesP1ClosureIndependentReview.v1.json`（SHA `76502214…`）verdict `PASS_P1_CLOSURE_REVIEWED`，无阻断 finding。

@@ -1,0 +1,308 @@
+{
+  "schema": "mrw.functorial_successor.all_lines.s1_port_implementation_evidence.v1",
+  "version": "1.0.0",
+  "generated_at_utc": "2026-09-02T14:11:59Z",
+  "status": "S1_HORIZONTAL_PORTS_IMPLEMENTED_LOCAL_ONLY_NOT_PROMOTED",
+  "candidate": null,
+  "governance_standard_ref": "docs/governance/semantic-movement-completeness-standard.md",
+  "worktree": {
+    "root": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0",
+    "branch": "codex/functorial-successor-p0",
+    "head_short_sha": "38acdee8",
+    "dirty_worktree_ownership_preserved": true
+  },
+  "authority_ceiling": {
+    "canonical_write": false,
+    "live_provider": false,
+    "external_delivery": false,
+    "cutover": false,
+    "authority_transfer": false,
+    "scheduler": false,
+    "executor": false,
+    "credential_read": false,
+    "candidate_created": false,
+    "legacy_retired": false
+  },
+  "assembly_registry": {
+    "module": "main/backend/app/successor_runtime/assembly/s1_horizontal_port_assembly.py",
+    "schema": "mrw.functorial_successor.all_lines.s1_horizontal_port_registry.v1",
+    "status": "DECLARED_PURE_PORT_NO_RUNTIME_BINDING",
+    "registry_digest": "2da12879a166147231b559ea2dd032155b80a8a4bcb74dc1994a3c107fd94349",
+    "carried_by": "main/backend/app/successor_runtime/assembly/successor_assembly.py -> SuccessorAssembly.horizontal_ports",
+    "note": "Additive assembly registration only; no RuntimeHandler installation, no route mounting, no provider call and no canonical write."
+  },
+  "ports": [
+    {
+      "movement_id": "ALL-SM-010",
+      "package_id": "PKG-ALL-SM-010",
+      "business_line_id": "BL-request-identity",
+      "gap_ids": ["GAP-request-identity"],
+      "owner_cells": ["C9.1"],
+      "donor_sources": [
+        {
+          "path": "main/backend/app/services/request_identity.py",
+          "sha256": "d9a2f5a125a335d3fcd3ac6e65d83a0a99f5daaabc24d04b1d04f757c5c8cc1d",
+          "git_blob_sha1_working_tree": "dfe68e9ea44637a56ffc560fd455e2cef0628318",
+          "byte_closure_entry": "AllLinesDonorByteClosure.v1.json#/entries/147"
+        }
+      ],
+      "source_object": "donor request_identity actor/identity normalization: authenticated state precedence over legacy spoof headers, untrusted legacy/anonymous fallback, observability context and digest-only secret refs",
+      "target_object": "successor horizontal request-identity typed port in capabilities/request_identity_port.py",
+      "assembly_binding": {
+        "port_id": "s1.ALL-SM-010.request_identity.v1",
+        "status": "DECLARED_PURE_PORT_NO_RUNTIME_BINDING",
+        "test_ref": "main/backend/tests/successor_runtime/test_s1_request_identity.py"
+      },
+      "typed_contract_summary": {
+        "schema_ref": "mrw.successor.request-identity.horizontal-port.v1",
+        "inputs": "RequestIdentityObservation (framework-neutral headers/state signals)",
+        "outputs": "RequestActorContext identity_kind=authenticated|legacy_header|anonymous plus actor_id/actor_source/actor_auth_mode/actor_trusted/legacy_actor_id/actor_metadata/authority",
+        "resolution_order": "authenticated state -> normalized request-state actor -> legacy header -> anonymous",
+        "legacy_and_anonymous_trusted": false,
+        "authority_default": "all false by construction"
+      },
+      "fail_closed_rules": [
+        "legacy/anonymous actor fails require_trusted_actor_context with typed 403-equivalent TrustedActorRequired",
+        "authenticated state never grants runtime authority; RequestIdentityAuthority rejects any True flag",
+        "secret-like value only converted to SHA-256 16-hex digest ref; raw value never stored or emitted",
+        "resolution is pure and immutable; input state/headers are never mutated"
+      ],
+      "acceptance_trace": [
+        "test_s1_acceptance_trace_authenticated_legacy_anonymous",
+        "test_authenticated_state_actor_overrides_legacy_spoof_header_and_aliases",
+        "test_authority_defaults_false_for_all_three_identity_kinds"
+      ],
+      "declared_differences_or_loss": [
+        "no live request.state writer adapter is included; state writes remain an outer adapter milestone",
+        "no facade_contracts.py/C9.1 envelope code is modified in this S1 scope; the registry records C9.1 as the consumer cell"
+      ]
+    },
+    {
+      "movement_id": "ALL-SM-011",
+      "package_id": "PKG-ALL-SM-011",
+      "business_line_id": "BL-task-readback-metadata",
+      "gap_ids": ["GAP-task-readback-metadata-line-events"],
+      "owner_cells": ["C5.4"],
+      "donor_sources": [
+        {
+          "path": "main/backend/app/services/task_readback_metadata.py",
+          "sha256": "981c970ea1610450f681a1dfe1a6a22288c33363b38d827ca7f39052072072e9",
+          "git_blob_sha1_working_tree": "701eec5a0739fec7349c963d985749dfab0602e1",
+          "byte_closure_entry": "AllLinesDonorByteClosure.v1.json#/entries/164"
+        }
+      ],
+      "source_object": "donor task_readback_metadata line_key normalization, required event chains, worker_started context merge and readback payload construction",
+      "target_object": "successor typed line-event/readback port in capabilities/line_event_readback_port.py",
+      "assembly_binding": {
+        "port_id": "s1.ALL-SM-011.line_event_readback.v1",
+        "status": "DECLARED_PURE_PORT_NO_RUNTIME_BINDING",
+        "test_ref": "main/backend/tests/successor_runtime/test_s1_line_event_readback.py"
+      },
+      "typed_contract_summary": {
+        "schema_ref": "mrw.successor.runtime.c5-4.line-event-readback.v1",
+        "known_lanes": ["ingest", "search_discovery_index", "resource_source_library", "writing_knowledge_graph_agent"],
+        "canonical_chain_length": 6,
+        "terminal_events": ["readback_persisted", "results_readback_persisted", "artifact_readback_persisted"],
+        "transitions": "immutable LineEventReadbackPort.observe returns new records only",
+        "authority_default": "canonical_write/live_provider/external_delivery/scheduler/executor/cutover all false"
+      },
+      "fail_closed_rules": [
+        "unknown line key or event is rejected",
+        "gapped or out-of-order canonical prefix is rejected",
+        "success status never fabricates terminal readback; persistence is undecidable until the terminal event is observed",
+        "failure status rejects further terminal observation",
+        "content digest mismatch fails closed"
+      ],
+      "acceptance_trace": [
+        "test_success_trace_marks_persistence_only_after_explicit_readback",
+        "test_four_worker_required_lanes_share_canonical_chain_contract",
+        "test_acceptance_trace_payload_matches_legacy_shaped_fixture"
+      ],
+      "declared_differences_or_loss": [
+        "donor status-derived terminal event synthesis is intentionally not preserved; terminal persistence requires explicit observation",
+        "free-form non-canonical donor events are typed failures rather than untyped events"
+      ]
+    },
+    {
+      "movement_id": "ALL-SM-012",
+      "package_id": "PKG-ALL-SM-012",
+      "business_line_id": "BL-single-source-guard",
+      "gap_ids": ["GAP-single-source-guard"],
+      "owner_cells": ["C2.3"],
+      "donor_sources": [
+        {
+          "path": "main/backend/app/services/source_library/single_source_guard.py",
+          "sha256": "e41d1b35afdd9183d5629a82bd1972555ada743422dd8f11ee0deb2344afaef6",
+          "git_blob_sha1_working_tree": "513330bc053f4234457aa1ec066efa913ed522b1",
+          "byte_closure_entry": "AllLinesDonorByteClosure.v1.json#/entries/159"
+        }
+      ],
+      "source_object": "donor validate_single_source_guard/build_single_source_execution_fact strict one-URL guard before source-library dispatch",
+      "target_object": "successor typed execution-boundary guard port in capabilities/single_source_guard_port.py",
+      "assembly_binding": {
+        "port_id": "s1.ALL-SM-012.single_source_guard.v1",
+        "status": "DECLARED_PURE_PORT_NO_RUNTIME_BINDING",
+        "test_ref": "main/backend/tests/successor_runtime/test_s1_single_source_guard.py"
+      },
+      "typed_contract_summary": {
+        "schema_ref": "mrw.successor.source-library.single-source-guard.decision.v1",
+        "inputs": "SingleSourceGuardDeclaration + SourceDispatchClaims (raw facade entry guard_override_decision)",
+        "outputs": "GuardAdmitted with source_library.execution_fact.v1 | GuardRejected with donor reason codes",
+        "reason_codes": ["single_source_guard_missing", "single_source_guard_invalid_shape", "single_source_guard_strict_source_required", "single_source_guard_blocked", "single_source_guard_allowed_urls_invalid", "single_source_guard_site_entries_mismatch"],
+        "dispatch_allowed_on_reject": false,
+        "authority_default": "granted=false and live_provider_allowed=false by construction"
+      },
+      "fail_closed_rules": [
+        "strict_source/guarantee must be true and blocked_reason must be absent",
+        "allowed_urls must contain exactly one URL and allowed_count must equal one",
+        "claimed source set must equal the single allowed URL; duplicates, conflicts and sibling URL-bearing overrides reject",
+        "unknown/absent guard declarations reject this guard entrypoint",
+        "execution fact is emitted only after admission"
+      ],
+      "acceptance_trace": [
+        "test_acceptance_trace_maps_decision_to_fact_and_zero_dispatch",
+        "test_donor_decision_code_parity_matrix",
+        "test_unique_site_entry_is_admitted_and_emits_execution_fact"
+      ],
+      "declared_differences_or_loss": [
+        "the typed guard entrypoint treats an absent guard as fail-closed instead of the donor no-op path; callers without a single-source requirement must not enter this guard port",
+        "duplicate claims and URL-bearing sibling fields that donor does not compare are intentionally rejected as stricter conflicts"
+      ]
+    },
+    {
+      "movement_id": "ALL-SM-013",
+      "package_id": "PKG-ALL-SM-013",
+      "business_line_id": "BL-agent-batch-quality-promotion-readback",
+      "gap_ids": ["GAP-agent-batch-quality-promotion-readback-evidence-omission"],
+      "owner_cells": ["C4.1", "C4.2", "C4.3"],
+      "donor_sources": [
+        {
+          "path": "main/backend/app/services/agent_batch/search_quality_replay.py",
+          "sha256": "b4578d39edeaebe75658fb380c04303a828a972ba53231a11fa160c2f0b4436a",
+          "git_blob_sha1_working_tree": "d4e36c50e79a920c5553340bb3efa3af0720da75",
+          "byte_closure_entry": "AllLinesDonorByteClosure.v1.json#/entries/50"
+        },
+        {
+          "path": "main/backend/app/services/agent_batch/executor_health.py",
+          "sha256": "1d29268d691552987b8fdc3ca4b47547750805c37b3577a59fe2ad8af30e0c32",
+          "git_blob_sha1_working_tree": "784725ee3ad0b68b6926444835b39e3aa9d8b2c9",
+          "byte_closure_entry": "AllLinesDonorByteClosure.v1.json#/entries/48"
+        }
+      ],
+      "source_object": "donor search-quality replay/promotion readback gate plus executor health broker-URL masking",
+      "target_object": "successor provider-independent quality-gate + promotion-readback and health redaction port in capabilities/quality_promotion_port.py",
+      "assembly_binding": {
+        "port_id": "s1.ALL-SM-013.quality_promotion.v1",
+        "status": "DECLARED_PURE_PORT_NO_RUNTIME_BINDING",
+        "test_ref": "main/backend/tests/successor_runtime/test_s1_quality_promotion.py"
+      },
+      "typed_contract_summary": {
+        "schema_ref": "mrw.successor.agent-batch.quality-promotion-port.v1",
+        "inputs": "QualityGateEvidence (fixture replay, executor health, live provider replay rows, rollout policy, input promotion claim)",
+        "outputs": "QualityGateResult with QualityLayerVerdict/HealthLayerVerdict/PromotionDecision/PromotionDecisionReadback",
+        "promotion_requires": ["fixture quality pass", "executor health observed", "live provider replay closed", "operator review approved", "rollout policy approved"],
+        "health_redaction": "redact_broker_url masks userinfo password and sensitive query keys",
+        "authority_default": "PromotionAuthorityState and EffectCounters are all false/zero by construction"
+      },
+      "fail_closed_rules": [
+        "missing fixture/health/live/policy evidence holds promotion",
+        "caller-supplied promotion claim is recomputed and rejected when evidence is not closed",
+        "provider threshold failures keep the live gap open",
+        "executor health anomaly fails the gate even with live closure",
+        "promotion decision carries no authority or effect count"
+      ],
+      "acceptance_trace": [
+        "test_acceptance_trace_holds_until_explicit_readback_closes_gate",
+        "test_live_readback_and_approved_policy_reach_decision_without_authority",
+        "test_health_anomaly_fails_closed_despite_live_closure"
+      ],
+      "declared_differences_or_loss": [
+        "only typed health evidence consumption and broker URL redaction are implemented; a live Celery inspect executor remains an outer adapter milestone",
+        "donor byte-level output parity was not run because donor code is intentionally never imported"
+      ]
+    }
+  ],
+  "file_hashes": [
+    {
+      "path": "main/backend/app/successor_runtime/capabilities/request_identity_port.py",
+      "sha256": "227975355f3711dd9c46c24313735238718a8be0c18d132d36be3856f43b38c3"
+    },
+    {
+      "path": "main/backend/app/successor_runtime/capabilities/line_event_readback_port.py",
+      "sha256": "aa6cc3ca8a2c87d2d3f0e2b4225919d07ae078588b53993c0e915f884d6c3080"
+    },
+    {
+      "path": "main/backend/app/successor_runtime/capabilities/single_source_guard_port.py",
+      "sha256": "bcb36ec5a7b9c5303f142cf3a7304af3a93074896cb97863f4ff27633924dc5c"
+    },
+    {
+      "path": "main/backend/app/successor_runtime/capabilities/quality_promotion_port.py",
+      "sha256": "ec50b6e406bfeca6fdf55841f936e6d7fd3336e6572cce053b7699c2c5414757"
+    },
+    {
+      "path": "main/backend/app/successor_runtime/assembly/s1_horizontal_port_assembly.py",
+      "sha256": "c0e0655d46607fc3b9c05a86159c1c30d5806a8b715bc9bd0e1165359cc5e243"
+    },
+    {
+      "path": "main/backend/app/successor_runtime/assembly/successor_assembly.py",
+      "sha256": "847853a1482d369cdade8902b3842f999a9623a7f7ead0ab3f008fb7da54710e"
+    },
+    {
+      "path": "main/backend/tests/successor_runtime/test_s1_request_identity.py",
+      "sha256": "d37fa6bf37eb302666a6fdc497441243346bd1312dbdbb3a1087cee5007bb7c6"
+    },
+    {
+      "path": "main/backend/tests/successor_runtime/test_s1_line_event_readback.py",
+      "sha256": "cf6f02a7fef390ccc22e2b38542ae1c31187bc4d6d211e4658935f00cab5b88c"
+    },
+    {
+      "path": "main/backend/tests/successor_runtime/test_s1_single_source_guard.py",
+      "sha256": "ff037834cfd4bb88596812fd00b4e9dd0a6193ad1c500b45547f2e0a1ff0f52f"
+    },
+    {
+      "path": "main/backend/tests/successor_runtime/test_s1_quality_promotion.py",
+      "sha256": "ca844d815178435110e18712e23573e92ea75dea20b1a3febe5ca506536b6a04"
+    },
+    {
+      "path": "main/backend/tests/successor_runtime/test_s1_assembly_wiring.py",
+      "sha256": "b517997aa2d2f08fd48197bd1ace8bfe3a82f97bc489d47fd0312b7ed5c688d5"
+    }
+  ],
+  "verification": {
+    "focused_s1_tests": {
+      "command": "python3.11 -m pytest tests/successor_runtime/test_s1_assembly_wiring.py tests/successor_runtime/test_s1_request_identity.py tests/successor_runtime/test_s1_line_event_readback.py tests/successor_runtime/test_s1_single_source_guard.py tests/successor_runtime/test_s1_quality_promotion.py -q",
+      "cwd": "main/backend",
+      "interpreter": "/Users/wangyiliang/.local/bin/python3.11",
+      "exit_code": 0,
+      "result": "51 passed"
+    },
+    "i1_assembly_regression_tests": {
+      "command": "python3.11 -m pytest tests/successor_runtime/test_i1_assembly_composition_root.py tests/successor_runtime/test_i1_c1_c3_assembly.py tests/successor_runtime/test_i1_c4_c6_assembly.py tests/successor_runtime/test_i1_c7_c9_assembly.py -q",
+      "exit_code": 0,
+      "result": "39 passed"
+    },
+    "full_successor_runtime_collection": {
+      "command": "python3.11 -m pytest tests/successor_runtime --collect-only -q",
+      "exit_code": 0,
+      "result": "1595 tests collected"
+    },
+    "dependency_lint": {
+      "command": "python3.11 scripts/check_successor_runtime_dependencies.py",
+      "exit_code": 0,
+      "result": "ok=True files_checked=216 violations=0"
+    },
+    "ruff": {
+      "command": "ruff check <all new/modified S1 files>",
+      "exit_code": 0,
+      "result": "All checks passed"
+    }
+  },
+  "risks": [
+    "AllLinesSuccessorMovementInventory rows ALL-SM-010..013 remain UNASSIGNED_BLOCKER; this evidence does not close inventory rows, promote capability families or authorize cutover/candidate creation.",
+    "Assembly status is DECLARED_PURE_PORT_NO_RUNTIME_BINDING; C9.1 facade consumption, C5.4 projection, C2.3 dispatch boundary and C4 handler wiring remain downstream shared writes owned by later packages.",
+    "Line-event port intentionally does not reproduce donor status-derived terminal event synthesis; terminal persistence is only decided by explicit readback observation.",
+    "Single-source guard port is stricter than the donor for absent guard declarations and duplicate/sibling URL claims; the difference is documented as an intentional fail-closed tightening.",
+    "Parity evidence is fixture/named-observation based because donor code is never imported or executed; no in-process byte-level donor comparison was run.",
+    "Full PostgreSQL opt-in suite and live provider/canonical-write evidence were not run and are not claimed."
+  ]
+}

@@ -1,0 +1,225 @@
+{
+  "schema": "mrw.functorial_successor.all_lines.p1_closure.addendum.v1",
+  "version": "1.0.0",
+  "record_id": "AllLinesP1Closure.addendum.v1",
+  "date": "2026-09-02",
+  "generated_at_utc": "2026-09-02T15:35:49Z",
+  "status": "P1_COMPONENT_DECISION_REASONS_SUPPLEMENTED_LOCAL_ONLY_NOT_PROMOTED",
+  "method": "Adds machine-readable per-component decision_owner, reason and normative_ref for every EXPLICITLY_REJECTED or DECLARED_LOSS component recorded in AllLinesS2cClosure.amendment.v1.json. The addendum is additive evidence; no disposition, row, source file, frozen member, production code or authority ceiling was changed.",
+  "scope": "S2c component decisions in AllLinesS2cClosure.amendment.v1.json only: 12 EXPLICITLY_REJECTED entries and 2 DECLARED_LOSS entries across ALL-SM-003/004/005/006/008/014/016/017/018 and ALL-GAP-001/002.",
+  "supplemented_record": {
+    "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesS2cClosure.amendment.v1.json",
+    "sha256": "1244e285dda1ca9bdfa9b0eafe5cf95c134dcc03d09e3688bcd60d7501fd9d70"
+  },
+  "authority_ceiling": {
+    "authority_transfer": false,
+    "business_authority_migrated": false,
+    "canonical_write": false,
+    "candidate_created": false,
+    "credential_read": false,
+    "cutover": false,
+    "executor": false,
+    "external_delivery": false,
+    "legacy_retired": false,
+    "live_provider": false,
+    "promotion": false,
+    "scheduler": false,
+    "successor_claim_enabled_for_all_lines": false
+  },
+  "summary": {
+    "component_decision_reasons_added": 14,
+    "explicitly_rejected_component_count": 12,
+    "declared_loss_component_count": 2,
+    "row_dispositions_changed": false,
+    "frozen_members_changed": false,
+    "production_code_changed": false
+  },
+  "component_decision_reasons": [
+    {
+      "movement_id": "ALL-SM-003",
+      "component_kind": "untracked_panel_ui",
+      "component_decision": "DECLARED_LOSS",
+      "decision_owner": "MRW search/discovery worker lane owner (B-recheck); S2c decision owner",
+      "reason": "The untracked DashboardSearchRetrievalRunPanel.tsx donor UI is absent from the target successor scope and clean source track; the line realizes only the typed read-only retrieval panel contract. The untracked UI bytes are a bounded intentional loss, not a reconstructed panel.",
+      "normative_ref": [
+        "docs/governance/semantic-movement-completeness-standard.md:106-107",
+        "AllLinesS2cClosure.amendment.v1.json#/closure_records/0/component_decisions/1",
+        "AllLinesMigrationScope.freeze.v1.json#/business_lines/2",
+        "AllLinesSuccessorMovementInventory.v1.json#/movements/2/projection_loss"
+      ]
+    },
+    {
+      "movement_id": "ALL-SM-003",
+      "component_kind": "search_index_write",
+      "component_decision": "EXPLICITLY_REJECTED",
+      "decision_owner": "MRW search/discovery worker lane owner (B-recheck); S2c decision owner",
+      "reason": "Search index writes are canonical/provider mutation effects outside the S2c read-only retrieval projection; the successor surface keeps index/search/provider/canonical-write authority false and dispatch count zero.",
+      "normative_ref": [
+        "docs/governance/semantic-movement-completeness-standard.md:108-109",
+        "AllLinesS2cClosure.amendment.v1.json#/closure_records/0/component_decisions/2",
+        "AllLinesMigrationScope.freeze.v1.json#/business_lines/2",
+        "AllLinesSuccessorMovementInventory.v1.json#/movements/2/authority"
+      ]
+    },
+    {
+      "movement_id": "ALL-SM-004",
+      "component_kind": "provider_dispatch",
+      "component_decision": "EXPLICITLY_REJECTED",
+      "decision_owner": "MRW source-library/resource lane owner (B-recheck); S2c decision owner",
+      "reason": "Provider dispatch is an external runtime effect and guard-boundary execution is not part of the readback/matrix projection; the successor surface keeps provider dispatch count zero and never executes the guard boundary.",
+      "normative_ref": [
+        "docs/governance/semantic-movement-completeness-standard.md:108-109",
+        "AllLinesS2cClosure.amendment.v1.json#/closure_records/1/component_decisions/1",
+        "AllLinesMigrationScope.freeze.v1.json#/business_lines/3",
+        "AllLinesSuccessorMovementInventory.v1.json#/movements/3/authority"
+      ]
+    },
+    {
+      "movement_id": "ALL-SM-005",
+      "component_kind": "mutation_workflow_execution",
+      "component_decision": "EXPLICITLY_REJECTED",
+      "decision_owner": "MRW project/config workflow owner (B-recheck); S2c decision owner",
+      "reason": "Project/config/env CRUD and customization workflow execution are canonical write or executor effects; only the typed read-only project/config surface was implemented with all mutation authority flags false.",
+      "normative_ref": [
+        "docs/governance/semantic-movement-completeness-standard.md:108-109",
+        "AllLinesS2cClosure.amendment.v1.json#/closure_records/2/component_decisions/1",
+        "AllLinesMigrationScope.freeze.v1.json#/business_lines/4",
+        "AllLinesSuccessorMovementInventory.v1.json#/movements/4/authority"
+      ]
+    },
+    {
+      "movement_id": "ALL-SM-006",
+      "component_kind": "report_from_filter_synthesis",
+      "component_decision": "EXPLICITLY_REJECTED",
+      "decision_owner": "MRW dashboard/admin/governance owner (B-recheck); S2c decision owner",
+      "reason": "Report synthesis from dashboard filters would require canonical report generation or durable admission effects; the row realizes dashboard readback only and carries no report/write/export authority.",
+      "normative_ref": [
+        "docs/governance/semantic-movement-completeness-standard.md:108-109",
+        "AllLinesS2cClosure.amendment.v1.json#/closure_records/3/component_decisions/1",
+        "AllLinesMigrationScope.freeze.v1.json#/business_lines/5",
+        "AllLinesSuccessorMovementInventory.v1.json#/movements/5/authority"
+      ]
+    },
+    {
+      "movement_id": "ALL-SM-006",
+      "component_kind": "admin_governance_mutation",
+      "component_decision": "EXPLICITLY_REJECTED",
+      "decision_owner": "MRW dashboard/admin/governance owner (B-recheck); S2c decision owner",
+      "reason": "Admin/governance cleanup, aggregator sync and related mutations are canonical write or executor effects; the S2c dashboard/admin surface records explicit no-call decisions instead of reconstructing mutation authority.",
+      "normative_ref": [
+        "docs/governance/semantic-movement-completeness-standard.md:108-109",
+        "AllLinesS2cClosure.amendment.v1.json#/closure_records/3/component_decisions/2",
+        "AllLinesMigrationScope.freeze.v1.json#/business_lines/5",
+        "AllLinesSuccessorMovementInventory.v1.json#/movements/5/authority"
+      ]
+    },
+    {
+      "movement_id": "ALL-SM-008",
+      "component_kind": "retry_cancel_service_probe_execution",
+      "component_decision": "EXPLICITLY_REJECTED",
+      "decision_owner": "MRW runtime ops owner (B-recheck); S2c decision owner",
+      "reason": "Retry, cancel, service-start and probe execution are executor/scheduler effects; the typed runtime-ops surface defaults control actions to never-execute and exposes runtime readback only.",
+      "normative_ref": [
+        "docs/governance/semantic-movement-completeness-standard.md:108-109",
+        "AllLinesS2cClosure.amendment.v1.json#/closure_records/4/component_decisions/1",
+        "AllLinesMigrationScope.freeze.v1.json#/business_lines/7",
+        "AllLinesSuccessorMovementInventory.v1.json#/movements/7/authority"
+      ]
+    },
+    {
+      "movement_id": "ALL-SM-014",
+      "component_kind": "durable_audit_write",
+      "component_decision": "EXPLICITLY_REJECTED",
+      "decision_owner": "MRW dashboard/report owner (B-recheck); S2c decision owner",
+      "reason": "Durable export-audit write requires canonical database write authority; the successor surface only consumes already-available export-audit evidence and records the write as an explicit no-call.",
+      "normative_ref": [
+        "docs/governance/semantic-movement-completeness-standard.md:108-109",
+        "AllLinesS2cClosure.amendment.v1.json#/closure_records/5/component_decisions/1",
+        "AllLinesMigrationScope.freeze.v1.json#/business_lines/13",
+        "AllLinesSuccessorMovementInventory.v1.json#/movements/13/authority"
+      ]
+    },
+    {
+      "movement_id": "ALL-SM-016",
+      "component_kind": "durable_trend_aggregation",
+      "component_decision": "EXPLICITLY_REJECTED",
+      "decision_owner": "MRW report trend owner (B-recheck); S2c decision owner",
+      "reason": "Durable report-trend aggregation is a database mutation; the successor surface consumes trend evidence, marks degraded readback and never performs durable aggregation.",
+      "normative_ref": [
+        "docs/governance/semantic-movement-completeness-standard.md:108-109",
+        "AllLinesS2cClosure.amendment.v1.json#/closure_records/6/component_decisions/1",
+        "AllLinesMigrationScope.freeze.v1.json#/business_lines/15",
+        "AllLinesSuccessorMovementInventory.v1.json#/movements/15/authority"
+      ]
+    },
+    {
+      "movement_id": "ALL-SM-017",
+      "component_kind": "probe_execution",
+      "component_decision": "EXPLICITLY_REJECTED",
+      "decision_owner": "MRW runtime ops owner (B-recheck); S2c decision owner",
+      "reason": "Health probe execution is an executor/network/service-start effect; the health-matrix surface classifies status passively and never runs probes or writes artifacts.",
+      "normative_ref": [
+        "docs/governance/semantic-movement-completeness-standard.md:108-109",
+        "AllLinesS2cClosure.amendment.v1.json#/closure_records/7/component_decisions/1",
+        "AllLinesMigrationScope.freeze.v1.json#/business_lines/16",
+        "AllLinesSuccessorMovementInventory.v1.json#/movements/16/authority"
+      ]
+    },
+    {
+      "movement_id": "ALL-SM-018",
+      "component_kind": "skills_invocation",
+      "component_decision": "EXPLICITLY_REJECTED",
+      "decision_owner": "MRW admin/ops owner (B-recheck); S2c decision owner",
+      "reason": "Skills invocation executes external agents/tools and would cross credential and execution boundaries; codex-auth handling stays structural with credential_read false and no invocation call.",
+      "normative_ref": [
+        "docs/governance/semantic-movement-completeness-standard.md:108-109",
+        "AllLinesS2cClosure.amendment.v1.json#/closure_records/8/component_decisions/7",
+        "AllLinesMigrationScope.freeze.v1.json#/business_lines/17",
+        "AllLinesSuccessorMovementInventory.v1.json#/movements/17/authority"
+      ]
+    },
+    {
+      "movement_id": "ALL-SM-018",
+      "component_kind": "project_customization_execution",
+      "component_decision": "DECLARED_LOSS",
+      "decision_owner": "MRW admin/ops owner (B-recheck); S2c decision owner",
+      "reason": "Project customization execution is not reproduced because no successor mutation/execution cell was authorized for this line; the per-group ops-misc surface records it as an explicit, reviewed loss rather than a silent no-call.",
+      "normative_ref": [
+        "docs/governance/semantic-movement-completeness-standard.md:106-107",
+        "AllLinesS2cClosure.amendment.v1.json#/closure_records/8/component_decisions/8",
+        "AllLinesMigrationScope.freeze.v1.json#/business_lines/17",
+        "AllLinesSuccessorMovementInventory.v1.json#/movements/17/projection_loss"
+      ]
+    },
+    {
+      "movement_id": "ALL-GAP-001",
+      "component_kind": "separate_surface",
+      "component_decision": "EXPLICITLY_REJECTED",
+      "decision_owner": "MRW agent-batch owner (B-recheck); S2c decision owner",
+      "reason": "A separate quality-promotion surface would duplicate the existing ALL-SM-013 readback/quality-promotion port; the supplementary gap is folded into that existing binding instead of creating a new authority surface.",
+      "normative_ref": [
+        "docs/governance/semantic-movement-completeness-standard.md:108-109",
+        "AllLinesS2cClosure.amendment.v1.json#/closure_records/9/component_decisions/0",
+        "AllLinesMigrationScope.freeze.v1.json#/business_lines/12",
+        "AllLinesSuccessorMovementInventory.v1.json#/movements/18/authority"
+      ]
+    },
+    {
+      "movement_id": "ALL-GAP-002",
+      "component_kind": "separate_surface",
+      "component_decision": "EXPLICITLY_REJECTED",
+      "decision_owner": "MRW runtime ops owner (B-recheck); S2c decision owner",
+      "reason": "A separate runtime-health surface would duplicate the ALL-SM-008/ALL-SM-017 health-matrix lane; the supplementary gap is folded into that shared lane without adding a new authority surface.",
+      "normative_ref": [
+        "docs/governance/semantic-movement-completeness-standard.md:108-109",
+        "AllLinesS2cClosure.amendment.v1.json#/closure_records/10/component_decisions/0",
+        "AllLinesMigrationScope.freeze.v1.json#/business_lines/16",
+        "AllLinesSuccessorMovementInventory.v1.json#/movements/19/authority"
+      ]
+    }
+  ],
+  "risks": [
+    "This addendum adds decision reasons only; row-level REIMPLEMENTED_AS labels still do not claim reconstruction of rejected provider/mutation/durable-write components.",
+    "The referenced frozen scope and LegacyVsMovementGap bytes are historical states; current-state closure authority remains local-only with no promotion, candidate, cutover or live-provider claim."
+  ]
+}

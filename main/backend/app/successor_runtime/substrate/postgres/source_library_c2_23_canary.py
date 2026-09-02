@@ -14,6 +14,7 @@ from typing import Any
 
 import sqlalchemy as sa
 
+from app.successor_runtime.capabilities import single_source_guard_port as c23_guard
 from app.successor_runtime.capabilities import source_library_c2_2 as c22
 from app.successor_runtime.capabilities import source_library_c2_2_interpreters as c22i
 from app.successor_runtime.capabilities import source_library_c2_2_program as c22p
@@ -26,6 +27,9 @@ from app.successor_runtime.capabilities.checksum import (
     content_digest,
     require_hex64,
     sha256_hex,
+)
+from app.successor_runtime.capabilities.source_library_c2_3_guard_runtime import (
+    SingleSourceGuardedProviderGateway,
 )
 from app.successor_runtime.language.algebra import (
     AlgebraRef,
@@ -352,12 +356,22 @@ class C2_3FixtureProviderEffectHandler(_ExactBindingHandler, RuntimeHandler):
         operation_contract_digest: str,
         deployment_catalog_digest: str,
         gateway: c23_fixtures.FixtureProviderEffectGateway,
+        single_source_guard_port: c23_guard.SingleSourceGuardPort | None = None,
     ) -> None:
         self.requests_by_run = requests_by_run
         self.binding = binding
         self.operation_contract_digest = operation_contract_digest
         self.deployment_catalog_digest = deployment_catalog_digest
         self.gateway = gateway
+        self.single_source_guard_port = single_source_guard_port
+        self.guarded_gateway = (
+            SingleSourceGuardedProviderGateway(
+                delegate=gateway,
+                guard_port=single_source_guard_port,
+            )
+            if single_source_guard_port is not None
+            else None
+        )
         self.handler_binding_digest = binding.binding_digest
         self.interpreter_profile_digest = binding.interpreter_profile_digest
         self.fixture_calls: list[str] = []
@@ -371,7 +385,13 @@ class C2_3FixtureProviderEffectHandler(_ExactBindingHandler, RuntimeHandler):
     ) -> InterpreterOutcome:
         self._require_exact(assignment, claim)
         request = self.requests_by_run[assignment.run_id]
-        outcome = self.gateway.execute(request, {"authority": "c2-3-canary"})
+        dispatch_gateway = self.guarded_gateway or self.gateway
+        try:
+            outcome = dispatch_gateway.execute(request, {"authority": "c2-3-canary"})
+        except c23_guard.SourceLibrarySingleSourceGuardError as exc:
+            raise DefiniteInterpreterFailure(
+                "C2_3_SINGLE_SOURCE_GUARD_REJECTED:" + str(exc.details.reason_code)
+            ) from exc
         self.fixture_calls.append(request.request_id)
         if isinstance(
             outcome, (c23.CompletedProviderEffect, c23.AcceptedProviderEffect)
@@ -796,6 +816,7 @@ class C2_3StoreRehydratedHandler(_StoreRehydratedBase, RuntimeHandler):
         operation_contract_digest: str,
         deployment_catalog_digest: str,
         gateway: c23_fixtures.FixtureProviderEffectGateway,
+        single_source_guard_port: c23_guard.SingleSourceGuardPort | None = None,
     ) -> None:
         super().__init__(
             uow_factory=uow_factory,
@@ -805,6 +826,15 @@ class C2_3StoreRehydratedHandler(_StoreRehydratedBase, RuntimeHandler):
             deployment_catalog_digest=deployment_catalog_digest,
         )
         self.gateway = gateway
+        self.single_source_guard_port = single_source_guard_port
+        self.guarded_gateway = (
+            SingleSourceGuardedProviderGateway(
+                delegate=gateway,
+                guard_port=single_source_guard_port,
+            )
+            if single_source_guard_port is not None
+            else None
+        )
         self.fixture_calls: list[str] = []
         self.real_provider_calls = 0
 
@@ -846,7 +876,13 @@ class C2_3StoreRehydratedHandler(_StoreRehydratedBase, RuntimeHandler):
             ) from exc
         if request.request_digest != assignment.payload_digest:
             raise DefiniteInterpreterFailure("C2_3_REQUEST_DIGEST_DRIFT")
-        outcome = self.gateway.execute(request, {"authority": "c2-3-canary"})
+        dispatch_gateway = self.guarded_gateway or self.gateway
+        try:
+            outcome = dispatch_gateway.execute(request, {"authority": "c2-3-canary"})
+        except c23_guard.SourceLibrarySingleSourceGuardError as exc:
+            raise DefiniteInterpreterFailure(
+                "C2_3_SINGLE_SOURCE_GUARD_REJECTED:" + str(exc.details.reason_code)
+            ) from exc
         self.fixture_calls.append(request.request_id)
         if isinstance(
             outcome, (c23.CompletedProviderEffect, c23.AcceptedProviderEffect)

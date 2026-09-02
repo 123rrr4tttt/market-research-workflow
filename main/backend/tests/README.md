@@ -148,3 +148,26 @@ Reason: these scripts rely on unstable third-party dependencies, credentials, or
   - `./scripts/test-standardize.sh integration -n auto`
   - `./scripts/test-standardize.sh core-business -n auto`
 - For CI reproduction and gate parity, run profiles without `-n auto` (default serialized pytest execution).
+
+## Migration Semantic Preservation Tests
+
+Any PR that migrates, refactors, replaces, or regenerates an existing
+capability must include migration semantic preservation tests, in addition to
+normal unit/integration/contract coverage:
+
+- Movement matrix: each test must reference the movement record
+  (`source object -> target object -> named transformation -> disposition ->
+  acceptance trace`) it verifies.
+- Legacy trace: at least one reproducible test replays a legacy end-to-end
+  behavior and asserts the same observable outcome on the target path.
+- Failure trace: at least one failure or reverse-return case must be asserted
+  on both legacy and target paths (or explicitly mapped to a `DECLARED_LOSS` /
+  `EXPLICITLY_REJECTED` disposition).
+- Loss account: the test suite must include a declared-loss or zero-loss
+  assertion for the migration scope.
+- A green suite that only exercises weakened new contracts is not sufficient:
+  tests must prove predecessor-to-successor completeness, not just
+  declared-scope correctness.
+
+Full governance requirements live in
+[semantic-movement-completeness-standard.md](../../../docs/governance/semantic-movement-completeness-standard.md).

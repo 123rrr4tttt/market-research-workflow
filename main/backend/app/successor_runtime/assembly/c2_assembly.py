@@ -21,6 +21,7 @@ from app.successor_runtime.assembly.base import (
     RollbackBindingDeclaration,
     successor_binding,
 )
+from app.successor_runtime.capabilities import single_source_guard_port as c23_guard
 from app.successor_runtime.capabilities import source_library_c2_1 as c21
 from app.successor_runtime.capabilities import source_library_c2_2 as c22
 from app.successor_runtime.capabilities import source_library_c2_3 as c23
@@ -127,31 +128,38 @@ def _c2_3_gateway(
     """Choose the C2.3 gateway without invoking any provider."""
 
     if provider_gateway is not None:
-        return provider_gateway, (
+        delegate = provider_gateway
+        note = (
             "LIVE_PROVIDER_DIMENSION_RESOLVED_SERPER_EXPLICIT: "
             "caller supplied the live Serper gateway; no provider invocation "
             "occurs during assembly construction"
         )
-    live_gateway = c23_live.build_serper_live_gateway()
-    if live_gateway is not None:
-        return live_gateway, (
-            "LIVE_PROVIDER_DIMENSION_RESOLVED_SERPER: "
-            "C2_3StoreRehydratedHandler uses the env-backed live Serper "
-            "gateway; no provider invocation occurs during assembly "
-            "construction and receipts stay redacted"
-        )
+    else:
+        live_gateway = c23_live.build_serper_live_gateway()
+        if live_gateway is not None:
+            delegate = live_gateway
+            note = (
+                "LIVE_PROVIDER_DIMENSION_RESOLVED_SERPER: "
+                "C2_3StoreRehydratedHandler uses the env-backed live Serper "
+                "gateway; no provider invocation occurs during assembly "
+                "construction and receipts stay redacted"
+            )
+        else:
+            delegate = c23_fixtures.FixtureProviderEffectGateway(
+                credentials=c23_fixtures.FixtureCredentialResolverPort(),
+                effect=c23_fixtures.FixtureProviderEffectPort(),
+                readback=c23_fixtures.FixtureProviderReadbackPort(),
+            )
+            note = (
+                "LIVE_PROVIDER_DIMENSION_UNRESOLVED: "
+                "C2_3StoreRehydratedHandler uses the existing deterministic "
+                "FixtureProviderEffectGateway; the fixture path does not "
+                "constitute production provider wiring"
+            )
     return (
-        c23_fixtures.FixtureProviderEffectGateway(
-            credentials=c23_fixtures.FixtureCredentialResolverPort(),
-            effect=c23_fixtures.FixtureProviderEffectPort(),
-            readback=c23_fixtures.FixtureProviderReadbackPort(),
-        ),
-        (
-            "LIVE_PROVIDER_DIMENSION_UNRESOLVED: "
-            "C2_3StoreRehydratedHandler uses the existing deterministic "
-            "FixtureProviderEffectGateway; the fixture path does not "
-            "constitute production provider wiring"
-        ),
+        delegate,
+        note + "; SINGLE_SOURCE_GUARD_PORT_CONSUMED_BEFORE_DISPATCH; no provider "
+        "invocation occurs during assembly construction",
     )
 
 
@@ -208,6 +216,7 @@ def build_c2_assembly(
         project_scope_digest=project_scope_digest,
     )
     c2_3_gateway, c2_3_gateway_note = _c2_3_gateway(provider_gateway)
+    c2_3_guard_port = c23_guard.DefaultSingleSourceGuardPort()
     c2_3_handler = C2_3StoreRehydratedHandler(
         uow_factory=uow_factory,
         handler_binding_digest=c2_3_binding.binding_digest,
@@ -215,6 +224,7 @@ def build_c2_assembly(
         operation_contract_digest=c2_3_ref.contract_digest,
         deployment_catalog_digest=deployment_catalog_digest,
         gateway=c2_3_gateway,
+        single_source_guard_port=c2_3_guard_port,
     )
 
     c2_4_wiring = ProjectorWiring(

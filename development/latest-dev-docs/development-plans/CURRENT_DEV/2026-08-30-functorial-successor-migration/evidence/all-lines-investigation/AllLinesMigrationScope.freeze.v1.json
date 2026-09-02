@@ -1,0 +1,3064 @@
+{
+  "schema": "mrw.functorial_successor.all_lines_migration_scope.freeze.v1",
+  "version": "1.0.0",
+  "status": "DRAFT_FOR_SUPERVISOR_FREEZE",
+  "generated_at_utc": "2026-09-02T13:23:29Z",
+  "candidate": null,
+  "authority": {
+    "authority_transfer": false,
+    "business_authority_migrated": false,
+    "cutover": false,
+    "external_delivery": false,
+    "live_provider": false,
+    "successor_claim_enabled_for_all_lines": false
+  },
+  "scope": {
+    "donor_checkout": {
+      "donor_checkout_root": "/Users/wangyiliang/market-research-workflow",
+      "branch": "codex/devdocs-supervisor-seed",
+      "head": "35ca039c59d2efae8038a678995e8a0812032e43",
+      "dirty_working_tree_change_count": 606,
+      "note": "Source is intentionally dirty; canonical evidence surfaces are a mixture of tracked-at-HEAD and untracked working-tree files. Blob hashes are SHA-1 git blob IDs of current working-tree bytes; git_tracked_at_head=false means the file is untracked, not committed at HEAD.",
+      "read_scope": [
+        "main/backend/app/api/*.py",
+        "main/backend/app/services/**",
+        "main/backend/app/models/**",
+        "main/backend/migrations/versions/**",
+        "scripts/run_business_line_* and scripts/check_business_line_*",
+        "main/frontend-modern/src pages/domain clients"
+      ],
+      "forbidden": [
+        "credential values",
+        "any file modification in donor"
+      ]
+    },
+    "migration_worktree": {
+      "root": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0",
+      "branch": "codex/functorial-successor-p0",
+      "head": "38acdee8862af0971ca063507b8355812894fbce"
+    },
+    "allowed_write_directory": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/",
+    "read_only_boundaries": [
+      "source checkout /Users/wangyiliang/market-research-workflow",
+      "production code",
+      "03/04/SUPERVISOR documents"
+    ],
+    "credential_boundary": "credential values intentionally not read"
+  },
+  "freeze_scope": {
+    "business_line_records": 18,
+    "business_line_kinds": {
+      "canonical_business_line_evidence_matrix": 8,
+      "service_surface": 10
+    },
+    "canonical_evidence_matrix_line_keys": [
+      "ingest",
+      "search_discovery_index",
+      "resource_source_library",
+      "projects_config_workflow",
+      "dashboard_admin_governance",
+      "writing_knowledge_graph_agent",
+      "runtime_ops"
+    ],
+    "worker_required_line_keys": [
+      "ingest",
+      "search_discovery_index",
+      "resource_source_library",
+      "writing_knowledge_graph_agent"
+    ],
+    "source_file_registry_count": 130,
+    "source_file_registry_tracked_count": 95,
+    "source_file_registry_untracked_count": 35,
+    "supplementary_legacy_gap_path_count": 30,
+    "mapped_capability_row_count": 14,
+    "declared_loss_or_rejected_row_count": 14,
+    "unmapped_gap_count": 15,
+    "line_disposition_counts": {
+      "UNASSIGNED_BLOCKER": 16,
+      "REIMPLEMENTED_AS": 2
+    },
+    "line_gap_reference_count": 16,
+    "unmapped_gap_unique_count": 15
+  },
+  "source_registry": [
+    {
+      "path": "main/backend/app/api/__init__.py",
+      "byte_hash": "2e9d56997fd79d62c49e6f2a766f568c241f3f69",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/api/admin.py",
+      "byte_hash": "59905edd01ab42bc29861e584619bb8d6f7eef6f",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/api/agent_batch.py",
+      "byte_hash": "1a516ca73c8b36c77c248851cb2c68acb0873fa2",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/api/agent_chat.py",
+      "byte_hash": "61e25d0e4a8caf8cd9acf1d332389adb03464c86",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/api/agent_sessions.py",
+      "byte_hash": "36fdd65f97f0cdcdb3c9f4a5bce290a0d888484f",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/api/business_lines.py",
+      "byte_hash": "2d030feb52c0a8a2e6c63dd821cc02a6ff96283f",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": false
+    },
+    {
+      "path": "main/backend/app/api/clue_chains.py",
+      "byte_hash": "cf3e3fce4af21cbac5b064586328f6cb194c5333",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/api/codex_auth.py",
+      "byte_hash": "7ae76b65ff70709855e22657f20e875775d19480",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/api/config.py",
+      "byte_hash": "03fcbd49b49aaa16f89aa59e815939b5221e6b5a",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/api/crawler.py",
+      "byte_hash": "f5a766d6dee595713103ee5dce0427c5197ed209",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/api/dashboard.py",
+      "byte_hash": "51b03a13cec438039593bc1b74ad071db7563a36",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/api/discovery.py",
+      "byte_hash": "48aa0383b40679a89d62ef052477b9057a3c1be1",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/api/governance.py",
+      "byte_hash": "09f40989865f530ce126fc3d4cc5b4797a023cc3",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/api/indexer.py",
+      "byte_hash": "9e6e9754a37f4889ae69b057777ffe80eb6004f3",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/api/ingest.py",
+      "byte_hash": "7f2eaeb622e323b937c1867f6e6bea38aa0892c6",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/api/keywords.py",
+      "byte_hash": "c84e68cd69d376725f12822b2352abf2c6e5f8fc",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/api/llm_config.py",
+      "byte_hash": "9daf2423e058d84c35206598ab32f80717c641ed",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/api/llm_report.py",
+      "byte_hash": "54746f68e02dc1ebbaefe77936a2175cf4b1575d",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/api/market.py",
+      "byte_hash": "4095bb696742080e71868fc73ad3bb72f23cb48f",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/api/policies.py",
+      "byte_hash": "fa7133509b09c27c050ff981888a1297380cd05e",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/api/process.py",
+      "byte_hash": "efe10dca82dae8c2830a48feb256388e6ec02b52",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/api/products.py",
+      "byte_hash": "c19bbf72b7f87a1fb080e1518830eb9bc33ff93c",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/api/project_customization.py",
+      "byte_hash": "d1e83f5ee7d50de78afb4ec986250582cb3eaeec",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/api/projects.py",
+      "byte_hash": "f45f604fbd9ac83ffd3420c7d54fbeaab01b5a5e",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/api/reports.py",
+      "byte_hash": "f570a5ca848ec1649341f38ac2ba6256fd372c32",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/api/resource_pool.py",
+      "byte_hash": "95976d19cf678e87f5d984016552631039f81886",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/api/search.py",
+      "byte_hash": "dd87f6c54e7ff9d72b680569a790e6c2acf9c15d",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/api/skills.py",
+      "byte_hash": "b7f89bfd78ed97bb89e90b46671bcdfd6c43af24",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/api/source_library.py",
+      "byte_hash": "9b77a5505978d852f331a934252689d25493fc82",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/api/stats.py",
+      "byte_hash": "9434a4aa89d37ec164f865feafbb2bae38fd4a29",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/api/topics.py",
+      "byte_hash": "f68d33a5f631548751b905035501eff0a3aeddc4",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/api/typed_knowledge.py",
+      "byte_hash": "86f6b73f41f50f91fc17b742e02c1762e11783a4",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/api/workflow_graph.py",
+      "byte_hash": "64f7ee81ab6c64c699e5e77981be6f0949736d20",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/api/writing.py",
+      "byte_hash": "a274a516f975de0d8f0e86a219b2bdd4a022c40d",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/main.py",
+      "byte_hash": "87d92c465b7cb411bd8e6e352e8b6dcb1447c595",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/models/base.py",
+      "byte_hash": "3565f629a704125302ad315df68133406adc3f00",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/models/entities.py",
+      "byte_hash": "41c0670a58cf44ff61b89481490e16fdb41937cb",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/models/ingest_registry.py",
+      "byte_hash": "3d0161ec5890c22b0156f651c4fea7abc79c7cb0",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": false
+    },
+    {
+      "path": "main/backend/app/models/llm_report_export_audit.py",
+      "byte_hash": "5dff1ed285edc94ca8f7ff8773e020f063c9f98d",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": false
+    },
+    {
+      "path": "main/backend/app/models/llm_report_export_token_state.py",
+      "byte_hash": "73cab5deee62e2c491c60237ba1f7a97b50921f3",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": false
+    },
+    {
+      "path": "main/backend/app/models/llm_report_trends.py",
+      "byte_hash": "f1e0e3b0d214396da7813361fe5e41963b3fdc93",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": false
+    },
+    {
+      "path": "main/backend/app/models/long_cycle_entities.py",
+      "byte_hash": "273889e47c5beeb0e34441690448425b930316da",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/models/typed_knowledge_entities.py",
+      "byte_hash": "b3e5de4900ee68820cb334a3d0d6707c258fa7d9",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/models/writing_entities.py",
+      "byte_hash": "e80d53a8e149f99e54eac5054e70964469ac70fb",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/agent_batch/agent_loop.py",
+      "byte_hash": "63fce87994532688fc7f9a1a97cbf580c71cc644",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/agent_batch/approval_binding.py",
+      "byte_hash": "67ec76f4cd1294efc1292893150d5441f55d5776",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/agent_batch/executor_health.py",
+      "byte_hash": "784725ee3ad0b68b6926444835b39e3aa9d8b2c9",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/agent_batch/planner.py",
+      "byte_hash": "cfc9e3316792935960a7b14c2ae23cd1fe228563",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/agent_batch/search_quality_replay.py",
+      "byte_hash": "d4e36c50e79a920c5553340bb3efa3af0720da75",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/agent_batch/task_contract.py",
+      "byte_hash": "8ab4204a0fa5b8f99b5ce2ceabc0d20feb836444",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/agent_core/core.py",
+      "byte_hash": "9a52404d6f28fa341106bd75c700494e16b3858f",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/agent_runtime/coordinator.py",
+      "byte_hash": "f71a7fdc2609961b82dc69f1f15c1378cbd0a825",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/agent_sessions/service.py",
+      "byte_hash": "996bc5ea7f6bfa9a7b4f44b64747921f0c9989f8",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/agent_sessions/store.py",
+      "byte_hash": "7817e74ac38e42e23089b2b61778313ba1d8b784",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/aggregator/sync.py",
+      "byte_hash": "8787142f6b01b7bcbc3021004469794c3ee70558",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/collect_runtime/adapters/search_market.py",
+      "byte_hash": "c6a90203b761b0a94d6b9c42d445dcc8279a4954",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/collect_runtime/adapters/source_library.py",
+      "byte_hash": "f9f277652a15971836cb78a4275aa22b4f5ecf5a",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/collect_runtime/contracts.py",
+      "byte_hash": "47b4b410dfca480ed2e074f8eeaa7658132f668f",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/collect_runtime/runtime.py",
+      "byte_hash": "8c77b7699c6c8d21d7a0704150d3a1f56a784e50",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/governance/retention.py",
+      "byte_hash": "bab62fc73aeb47c505e5df3b21ce9210d80d74ea",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/graph/builder.py",
+      "byte_hash": "aeaf4869021a1b0625e15789ef95055b58d10ca2",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/graph/exporter.py",
+      "byte_hash": "e525d47f0428832ac301a7fe4ad1dd5fa9b09eb2",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/graph/projection.py",
+      "byte_hash": "4c7ffd260a95e0b996d43a4489929c52333539cb",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/indexer/application.py",
+      "byte_hash": "54398fd437c2395827951d13dfcde7db577c649c",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/ingest/frontdoor_contract.py",
+      "byte_hash": "78f1594721fda2de9b0681f69a55106983ddb939",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/ingest/frontdoor_orchestrator.py",
+      "byte_hash": "77afd39e084641724e32301d2fa9e361311446db",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/ingest/long_cycle_live_runtime.py",
+      "byte_hash": "8562ff23228a205885d4159af69d90659d45d922",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/ingest/meaningful_gate.py",
+      "byte_hash": "d410dc55c7a61170aebd0d3c713cb790e64fad77",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/ingest/retry_policy.py",
+      "byte_hash": "29061f9313947293144cf898451eabf78f672359",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/ingest/terminal_writer.py",
+      "byte_hash": "f32c9139943ee541f95f236e2083bf6315f77509",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/llm_report_export.py",
+      "byte_hash": "8e0e198b68d6800e8db31c3de6c3d3a800858191",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": false
+    },
+    {
+      "path": "main/backend/app/services/llm_report_export_audit.py",
+      "byte_hash": "4799746e4f9a4b7ea3a032dc24eec5376ac68640",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": false
+    },
+    {
+      "path": "main/backend/app/services/llm_report_export_token_state.py",
+      "byte_hash": "c311dc50acc8923d1e42b3109d174bf81005ff13",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": false
+    },
+    {
+      "path": "main/backend/app/services/llm_report_generator.py",
+      "byte_hash": "540448baa9064432eef74808ee0eb021c8ac5d8c",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/llm_report_source_enrichment.py",
+      "byte_hash": "d4f664becf873b0fd00e898a59a8cc3a2d378a0a",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/llm_report_trends.py",
+      "byte_hash": "79deed264cdcb3f92e349efe3689a0631cc39db9",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": false
+    },
+    {
+      "path": "main/backend/app/services/projects/context.py",
+      "byte_hash": "dd6ad1ca39f783cc81f737b82f8836870a11b65c",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/projects/workflow.py",
+      "byte_hash": "9b6ce960bba199ac2f3dc529228a2cde9ae73971",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/report.py",
+      "byte_hash": "8e5cfd80ce8344c373a8ff2f3a12025860842ff1",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/request_identity.py",
+      "byte_hash": "dfe68e9ea44637a56ffc560fd455e2cef0628318",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": false
+    },
+    {
+      "path": "main/backend/app/services/resource_pool/resolver.py",
+      "byte_hash": "05f04017860a911865250a92219dbfe7450e6c2f",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/resource_pool/site_entries.py",
+      "byte_hash": "09021cd0873f414cc3c81c3da76b7f5960197380",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/resource_pool/unified_search.py",
+      "byte_hash": "01f8096a6c59f66a9802f17ce799efe8f65e70e4",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/search/history.py",
+      "byte_hash": "ce692dd0023719250c260bbb7ca1ee6324004d2a",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/search/retrieval_runs.py",
+      "byte_hash": "9a7594211d13fb484a426197a8c42f7a58f4440d",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/source_library/external_project_registration.py",
+      "byte_hash": "10c68636ff8d13c41d3d668e47648b8c67c57045",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/source_library/item_plan.py",
+      "byte_hash": "c67a17e67511f38280b9671f2da9399e02d8d1b9",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/source_library/item_resolver.py",
+      "byte_hash": "21264723f7bd6d1c32a4b26f36fda406a09c7738",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/source_library/relevance_review.py",
+      "byte_hash": "f7b5452c56570b91b0f3d1d72f1a44719bcabf20",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/source_library/resolver.py",
+      "byte_hash": "522891818c17f8f7e99ddaf43b8ab9bcc9bd4025",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/source_library/runner.py",
+      "byte_hash": "e39234f9c71382a143400ed1c88c08e0f7611895",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/source_library/single_source_guard.py",
+      "byte_hash": "513330bc053f4234457aa1ec066efa913ed522b1",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": false
+    },
+    {
+      "path": "main/backend/app/services/source_library/sync.py",
+      "byte_hash": "ad4d98e17148a6618a402b231799ad14c7f2cbf6",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/task_readback_metadata.py",
+      "byte_hash": "701eec5a0739fec7349c963d985749dfab0602e1",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": false
+    },
+    {
+      "path": "main/backend/app/services/tasks.py",
+      "byte_hash": "c432f1058da53b913225cbe6b36dae97b2910be6",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/typed_knowledge/baseline.py",
+      "byte_hash": "ae8d50ef8490ad6ed9b12731fd20192dc64b4c62",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/typed_knowledge/contracts.py",
+      "byte_hash": "d079128873cd9220338c6dbaacc991bcc5864b0d",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/typed_knowledge/persistence_boundary.py",
+      "byte_hash": "3f071ab778e4b3ecacf2fc6b7209126725b92d66",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/workflow_graph/compiler.py",
+      "byte_hash": "65a9f73fd8a22037f98f2fbab83fbc90c6f57e00",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/workflow_graph/contracts.py",
+      "byte_hash": "36d97d0726300639998eab3deaf9ea7319944647",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/workflow_graph/curated_service.py",
+      "byte_hash": "1398fdf5bd3bcb6526d4cd5115511d5b9b347ebf",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/workflow_graph/runtime.py",
+      "byte_hash": "3a900dab2264c6b0474172ce3c718c10a5a9f566",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/workflow_graph/store.py",
+      "byte_hash": "111fe4245728111f1b9daf7020017fe27f14d21d",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/workflow_graph/templates.py",
+      "byte_hash": "53d9aa25340535bf0d7db2d43de31a0dbc4516c7",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/writing/document_service.py",
+      "byte_hash": "388de2a092faf09bd373db9a31d75991b9101040",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/writing/llm_action_service.py",
+      "byte_hash": "cbf60522dacc7af2d475c39db238c52fbcd8263e",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/app/services/writing/template_service.py",
+      "byte_hash": "24d9e8f869a88fb78ff6146b067430ad41244967",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": true
+    },
+    {
+      "path": "main/backend/migrations/versions/20260524_000001_add_ingest_submission_registry.py",
+      "byte_hash": "a011e93d2d3f1a5e6c357cde2064ea09d7f82120",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": false
+    },
+    {
+      "path": "main/backend/migrations/versions/20260524_000002_add_llm_report_quality_trends.py",
+      "byte_hash": "875dd0caf723735b1d89896ea27d867490de3a6f",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": false
+    },
+    {
+      "path": "main/backend/migrations/versions/20260524_000003_add_llm_report_export_audit_events.py",
+      "byte_hash": "03a9996a8dc56169a6490115ea139bfd72ccd6ab",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": false
+    },
+    {
+      "path": "main/backend/migrations/versions/20260524_000004_add_llm_report_export_token_state.py",
+      "byte_hash": "b072d16caa78a93ec21c51b99da11d5d084e652e",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": false
+    },
+    {
+      "path": "main/frontend-modern/tests/e2e/business-line-browser-actions.spec.ts",
+      "byte_hash": "b63af26ebadb552fedc74b60825e7d9fc4b64cab",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": false
+    },
+    {
+      "path": "main/frontend-modern/tests/e2e/real-backend-business-lines.spec.ts",
+      "byte_hash": "d760aa67d9ba0592e4ec96f886ae3ca451df29e0",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": false
+    },
+    {
+      "path": "scripts/build_business_line_async_readiness_artifact.py",
+      "byte_hash": "87a45149ff10ff30eea516a9f9a594f83899f219",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": false
+    },
+    {
+      "path": "scripts/build_business_line_async_task_readback_artifact.py",
+      "byte_hash": "039092613b05a3f43dc65e8444cf89d252974a75",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": false
+    },
+    {
+      "path": "scripts/build_business_line_real_backend_browser_artifact.py",
+      "byte_hash": "78d5ae83d9c403f7c10f94b54e44e96133245989",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": false
+    },
+    {
+      "path": "scripts/build_business_line_task_readback_manifest_from_runtime.py",
+      "byte_hash": "fe72e86d2080f3efab15d7741e9c6f31ab874861",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": false
+    },
+    {
+      "path": "scripts/check_business_line_async_readiness_artifact.py",
+      "byte_hash": "c7f00c9b99f72b9e4fc0ad6fd388349f6773c788",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": false
+    },
+    {
+      "path": "scripts/check_business_line_async_task_readback_artifact.py",
+      "byte_hash": "0d5b360720cc7d2d73c06b5a630a7f155477ed90",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": false
+    },
+    {
+      "path": "scripts/check_business_line_batch_coverage.py",
+      "byte_hash": "c204b7e928cdc8c367ad4deb83290a15b38c576b",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": false
+    },
+    {
+      "path": "scripts/check_business_line_real_backend_browser_artifact.py",
+      "byte_hash": "6a82194f386eec090b34f01f273cb7cbddc62ffc",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": false
+    },
+    {
+      "path": "scripts/check_business_line_task_readback_manifest.py",
+      "byte_hash": "60b604c9795f5d8b9474f91ea1617f283f4d6b72",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": false
+    },
+    {
+      "path": "scripts/check_business_line_trace_baseline_artifact.py",
+      "byte_hash": "0359a63d04351d7c3e841f6b261368083d1853d4",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": false
+    },
+    {
+      "path": "scripts/run_business_line_async_task_readback_live_samples.py",
+      "byte_hash": "bdd8c0f6bfbb64ce74280f4ee01d90872da06984",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": false
+    },
+    {
+      "path": "scripts/run_business_line_trace_baseline_live.py",
+      "byte_hash": "85f62ad681de1f99c47d652d3f3dcbbb0ea6ba30",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": false
+    },
+    {
+      "path": "scripts/run_business_line_user_flow_smoke.py",
+      "byte_hash": "9041eba60cd4e82fb2ac996b3f4071cfcb2dfded",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": false
+    },
+    {
+      "path": "scripts/run_business_line_worker_readback_evidence_chain.py",
+      "byte_hash": "7388ed956c5ce5b4eb42ef46ad4342c1468a2094",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": false
+    },
+    {
+      "path": "scripts/run_business_line_worker_readback_project_matrix.py",
+      "byte_hash": "cb77107058565b0e4ceed62e8f5f5488bee985ff",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": false
+    },
+    {
+      "path": "scripts/run_business_line_worker_readback_smoke_triggers.py",
+      "byte_hash": "8cc389595f084099f49656d8a4cf7d64788e8f97",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": false
+    },
+    {
+      "path": "scripts/runtime_health_matrix.py",
+      "byte_hash": "7517d6d45771830a19cfb0684d74e26d5ef9eb8c",
+      "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+      "tracked_at_donor_head": false
+    }
+  ],
+  "supplementary_gap_paths": [
+    {
+      "path": "main/backend/app/celery_app.py",
+      "kind": "file",
+      "sha256": "5f28badfb562179370c4042e2a9a7ef5a8f84933c961755aa86d6c6b8be1b380",
+      "git_blob_sha1_working_tree": "f551f59cae36bca41596b3b42ccf69391f185e20"
+    },
+    {
+      "path": "main/backend/app/contracts/responses.py",
+      "kind": "file",
+      "sha256": "c8dd8dfde25c3be60322ed00ed070aac1f9c9d53a40f97d71fcb517a86f461a2",
+      "git_blob_sha1_working_tree": "5318d5c1d86cb7961bdc93ed76f4338568133570"
+    },
+    {
+      "path": "main/backend/app/services/agent_core/contracts.py",
+      "kind": "file",
+      "sha256": "769c14a267306d4488108f3efa4a6704d1f2f9ebab84de8f6a4440ced8ebde41",
+      "git_blob_sha1_working_tree": "22bcce677819fbcd732fb5249add4f3093d2d278"
+    },
+    {
+      "path": "main/backend/app/services/agent_core/provider_trace.py",
+      "kind": "file",
+      "sha256": "d4cdd38d3d568c885946affe92f20826c5244d949b36484a4d27ce300c938b39",
+      "git_blob_sha1_working_tree": "e33c4f269823f192c92234058a8e96ed7bdeeb34"
+    },
+    {
+      "path": "main/backend/app/services/agent_runtime/interactive_agent.py",
+      "kind": "file",
+      "sha256": "cf6505a2ebf0d1bb19dc22cba0e5b7ed34e2d04db5142b1276ee04949e1072a6",
+      "git_blob_sha1_working_tree": "a8ef5ceac7fd4a5d7f47b39a1a53d2757e873591"
+    },
+    {
+      "path": "main/backend/app/services/agent_runtime/run_loop.py",
+      "kind": "file",
+      "sha256": "9c11c49cf985d9e5d5563e6111a6084def841875e584c80f7ffd5c7a5ff934c5",
+      "git_blob_sha1_working_tree": "6f43e2caf2058edcbcada15667ec865be6ade683"
+    },
+    {
+      "path": "main/backend/app/services/clue_chains",
+      "kind": "directory_reference",
+      "sha256": null,
+      "git_blob_sha1_working_tree": null,
+      "note": "directory donor path from LegacyVsMovementGap; per-file expansion belongs to WP-1"
+    },
+    {
+      "path": "main/backend/app/services/collect_runtime/adapters",
+      "kind": "directory_reference",
+      "sha256": null,
+      "git_blob_sha1_working_tree": null,
+      "note": "directory donor path from LegacyVsMovementGap; per-file expansion belongs to WP-1"
+    },
+    {
+      "path": "main/backend/app/services/crawlers",
+      "kind": "directory_reference",
+      "sha256": null,
+      "git_blob_sha1_working_tree": null,
+      "note": "directory donor path from LegacyVsMovementGap; per-file expansion belongs to WP-1"
+    },
+    {
+      "path": "main/backend/app/services/document_views/writing_card_view.py",
+      "kind": "file",
+      "sha256": "6366af1de0e0108174d7d208c225f8290d31c39a8cb667b97ada4f470068aada",
+      "git_blob_sha1_working_tree": "647b4b10709cf0095a2ecd7da365757beae3fd5f"
+    },
+    {
+      "path": "main/backend/app/services/extraction",
+      "kind": "directory_reference",
+      "sha256": null,
+      "git_blob_sha1_working_tree": null,
+      "note": "directory donor path from LegacyVsMovementGap; per-file expansion belongs to WP-1"
+    },
+    {
+      "path": "main/backend/app/services/graph",
+      "kind": "directory_reference",
+      "sha256": null,
+      "git_blob_sha1_working_tree": null,
+      "note": "directory donor path from LegacyVsMovementGap; per-file expansion belongs to WP-1"
+    },
+    {
+      "path": "main/backend/app/services/graph/backfill_graph_nodes.py",
+      "kind": "file",
+      "sha256": "9bb609882ed2dd55fa8e5815cf6b29ceca532bd7570af9ff5e131935b4980f6d",
+      "git_blob_sha1_working_tree": "c9e6cd46e5609671aad5b19e7467a2f7c9dd0aa0"
+    },
+    {
+      "path": "main/backend/app/services/graph/models.py",
+      "kind": "file",
+      "sha256": "d4408a15bf981020a8652d500bb989a00bf3d34f73dac884a2facb1332816a8f",
+      "git_blob_sha1_working_tree": "893aff58ff9e8d67c480684d1bf331b702015161"
+    },
+    {
+      "path": "main/backend/app/services/indexer",
+      "kind": "directory_reference",
+      "sha256": null,
+      "git_blob_sha1_working_tree": null,
+      "note": "directory donor path from LegacyVsMovementGap; per-file expansion belongs to WP-1"
+    },
+    {
+      "path": "main/backend/app/services/indexer/policy.py",
+      "kind": "file",
+      "sha256": "ca58531efe5f4d4074d30eaeb3d679c26b38b36e11c8019039b27608b9dec011",
+      "git_blob_sha1_working_tree": "2d3abe9d3eb9c5011101d6bd29db37379dfa8e7d"
+    },
+    {
+      "path": "main/backend/app/services/ingest/digestion_scaffold.py",
+      "kind": "file",
+      "sha256": "99af7ffac3fa39f461fc2bdbe50b937e6298fcce2c013b336b106780671d2c3d",
+      "git_blob_sha1_working_tree": "ad3fef4b7b8efea32b6602b380891f7fbdf99e50"
+    },
+    {
+      "path": "main/backend/app/services/ingest/frontdoor_ingress.py",
+      "kind": "file",
+      "sha256": "ccebc219cf0dca5bb22fddba6752822a9853e9eb91430936e669c0a234f08d15",
+      "git_blob_sha1_working_tree": "03f23acf23af5ca13cbef8bd12cceffef01c0843"
+    },
+    {
+      "path": "main/backend/app/services/ingest/postprocess_frontdoor.py",
+      "kind": "file",
+      "sha256": "f63de8161d9f56289ed8c93e7eb3a5536e8fe391e311dad4a7853cfaf4c2b830",
+      "git_blob_sha1_working_tree": "1eaa7990f4a51870fb8f8d7842c75047c9a7568c"
+    },
+    {
+      "path": "main/backend/app/services/llm/platformization.py",
+      "kind": "file",
+      "sha256": "e3577c53191d79e02256fccc586a63d251e610268236cf971b2492b956861b4a",
+      "git_blob_sha1_working_tree": "708e0a0a1c159a03e0fb790df2e304d6a6575f5f"
+    },
+    {
+      "path": "main/backend/app/services/llm/provider.py",
+      "kind": "file",
+      "sha256": "07074030655cf55520ed222f1dcb7b92b83d22b3322b65c9061c268f16edd0f0",
+      "git_blob_sha1_working_tree": "35d0ec590df271a447a8f279960d5c3322d4f946"
+    },
+    {
+      "path": "main/backend/app/services/source_library/terminal_output.py",
+      "kind": "file",
+      "sha256": "035f6a4c085f57df944efd39850cd884311ea688dd25eec6fdc7336902ef36d5",
+      "git_blob_sha1_working_tree": "81fb5820281bbdc9bc0fa0abecf7efdab59fcc7e"
+    },
+    {
+      "path": "main/backend/app/services/streamplus",
+      "kind": "directory_reference",
+      "sha256": null,
+      "git_blob_sha1_working_tree": null,
+      "note": "directory donor path from LegacyVsMovementGap; per-file expansion belongs to WP-1"
+    },
+    {
+      "path": "main/backend/app/services/writing",
+      "kind": "directory_reference",
+      "sha256": null,
+      "git_blob_sha1_working_tree": null,
+      "note": "directory donor path from LegacyVsMovementGap; per-file expansion belongs to WP-1"
+    },
+    {
+      "path": "main/backend/app/services/writing/citation_service.py",
+      "kind": "file",
+      "sha256": "808d6024e18cae5dc74ade6b8ceb5169b80579ad3473debce01d42e730be6cc3",
+      "git_blob_sha1_working_tree": "074b87eada446d89e83c66a1ccd19dbf35f21a7f"
+    },
+    {
+      "path": "main/frontend-modern/src/lib/api/client.ts",
+      "kind": "file",
+      "sha256": "d65ad6875b3334e6149c28daa201188b341c4d123cc8ffa4f1d397794bdfe6f7",
+      "git_blob_sha1_working_tree": "ed5385d20d9539eff45409ec0e74464220859ff8"
+    },
+    {
+      "path": "main/frontend-modern/src/lib/types.ts",
+      "kind": "file",
+      "sha256": "7ca907bb6083c2dbac90d27b3c2638b923f87f63df9a01149edafcb827cc1c47",
+      "git_blob_sha1_working_tree": "e176ee7d3e9647321ee60bafd10836a07392ed74"
+    },
+    {
+      "path": "main/frontend-modern/src/pages/DashboardPage.tsx",
+      "kind": "file",
+      "sha256": "17e6af0e06abfe62aad82b60dbdb227c58cf58769d5f9b20e75e9cd76643473c",
+      "git_blob_sha1_working_tree": "17873fc2de0cd5f4bbe0477188eb7951bc7022d8"
+    },
+    {
+      "path": "main/frontend-modern/src/pages/GraphPage.tsx",
+      "kind": "file",
+      "sha256": "6cc0cb4a3974e472ede0fde7bc605c22630f1e2a8415ac538ac7732e2e7ad014",
+      "git_blob_sha1_working_tree": "94b6890f402a86527d46e6b2d251aeeb18b05f51"
+    },
+    {
+      "path": "main/frontend-modern/src/pages/dashboard/DashboardSearchRetrievalRunPanel.tsx",
+      "kind": "file",
+      "sha256": "4a672312833df2dd2fc0ae230d4a0579673c9055d4ac47209f26f522d85d881d",
+      "git_blob_sha1_working_tree": "8753624fa2ba3ad4973c8809de37bfbea9841ab4"
+    }
+  ],
+  "business_lines": [
+    {
+      "business_line_id": "BL-business-lines-worker-readback",
+      "business_line_key": "business_line_worker_readback_project_matrix_nightly",
+      "kind": "canonical_business_line_evidence_matrix",
+      "owner": "B-recheck / OpsPage owner; legacy matrix owner team",
+      "donor_status": "DONOR_READ_ONLY_DESCRIBED",
+      "worker_required": false,
+      "async_task_readback_required": true,
+      "semantic_object": "Seven canonical legacy business-line evidence matrix plus async task readback contract (worker-required event chains for ingest/search_discovery_index/resource_source_library/writing_knowledge_graph_agent and config/dashboard/runtime readback probes); fail-closed classification passed/blocked_by_environment/failed.",
+      "user_task": "Run all seven business-line smoke and async task readback checks against a real backend and scheduled artifacts.",
+      "donor_sources": [
+        {
+          "path": "main/backend/app/api/business_lines.py",
+          "byte_hash": "2d030feb52c0a8a2e6c63dd821cc02a6ff96283f",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": false
+        },
+        {
+          "path": "main/backend/app/services/task_readback_metadata.py",
+          "byte_hash": "701eec5a0739fec7349c963d985749dfab0602e1",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": false
+        },
+        {
+          "path": "scripts/run_business_line_worker_readback_project_matrix.py",
+          "byte_hash": "cb77107058565b0e4ceed62e8f5f5488bee985ff",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": false
+        },
+        {
+          "path": "scripts/run_business_line_worker_readback_evidence_chain.py",
+          "byte_hash": "7388ed956c5ce5b4eb42ef46ad4342c1468a2094",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": false
+        },
+        {
+          "path": "scripts/run_business_line_async_task_readback_live_samples.py",
+          "byte_hash": "bdd8c0f6bfbb64ce74280f4ee01d90872da06984",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": false
+        },
+        {
+          "path": "scripts/build_business_line_async_readiness_artifact.py",
+          "byte_hash": "87a45149ff10ff30eea516a9f9a594f83899f219",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": false
+        },
+        {
+          "path": "scripts/runtime_health_matrix.py",
+          "byte_hash": "7517d6d45771830a19cfb0684d74e26d5ef9eb8c",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": false
+        },
+        {
+          "path": "main/frontend-modern/tests/e2e/real-backend-business-lines.spec.ts",
+          "byte_hash": "d760aa67d9ba0592e4ec96f886ae3ca451df29e0",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": false
+        }
+      ],
+      "frontend_entrypoints": [
+        "OpsPage",
+        "ProcessPage"
+      ],
+      "api_groups": [
+        "/api/v1/business-lines/*",
+        "/api/v1/process/*",
+        "/api/v1/health/deep",
+        "/metrics"
+      ],
+      "authority_surface": [
+        "read-only evidence surfaces: /api/v1/business-lines/*; scheduled artifact checker and scripts are control-plane evidence, not executor authority; cannot claim Celery/scheduler/provider completion"
+      ],
+      "existing_cell_semantics": [
+        "C9.1 API command-query envelope (in scope, partial)",
+        "C9.3 projection rebuild offset (runtime/process/dashboard readback, partial)",
+        "UNKNOWN for all canonical line keys as business semantics"
+      ],
+      "movement_ids": [
+        "C9-M001",
+        "C9-M004",
+        "C9-M005"
+      ],
+      "gap_ids": [
+        "GAP-business-lines-evidence-matrix"
+      ],
+      "gaps": [
+        {
+          "gap_id": "GAP-business-lines-evidence-matrix",
+          "semantic_object": "Seven canonical business-line evidence matrix, scheduled artifact summary/drilldown and async task readback readiness surfaces; no business-line entity/model and no C1-C9 movement owns this meta capability",
+          "donor_paths": [
+            "main/backend/app/api/business_lines.py"
+          ],
+          "target_worktree_present": false,
+          "suggested_successor_owner": "UNKNOWN; nearest structural cells C9.1/C9.3 apply only to envelope/readback projection",
+          "adjudication": "UNASSIGNED_BLOCKER",
+          "owner": "B-recheck / OpsPage owner; legacy matrix owner team"
+        }
+      ],
+      "line_disposition": "UNASSIGNED_BLOCKER",
+      "successor_target": "UNKNOWN; candidate C9.1/C9.3 structural envelope plus a new evidence-matrix/readback meta capability owner",
+      "disposition_note": "Meta business-line evidence matrix is not owned by any C1-C9 movement; key donor files are untracked at donor HEAD.",
+      "blocker_owner_when_unassigned": "B-recheck / OpsPage owner; legacy matrix owner team"
+    },
+    {
+      "business_line_id": "BL-ingest-submission-worker-readback",
+      "business_line_key": "ingest",
+      "kind": "canonical_business_line_evidence_matrix",
+      "owner": "B-recheck; legacy worker lane owner",
+      "donor_status": "DONOR_READ_ONLY_DESCRIBED",
+      "worker_required": true,
+      "async_task_readback_required": true,
+      "semantic_object": "URL/market/social/news/report/data ingestion submission, frontdoor admission registry, Celery task dispatch/status/history/log readback, ingestion history and meaningful-gate/retry controls.",
+      "user_task": "Submit source materials and inspect ingestion history, task state, failures and logs.",
+      "donor_sources": [
+        {
+          "path": "main/backend/app/api/ingest.py",
+          "byte_hash": "7f2eaeb622e323b937c1867f6e6bea38aa0892c6",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/ingest/frontdoor_orchestrator.py",
+          "byte_hash": "77afd39e084641724e32301d2fa9e361311446db",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/ingest/frontdoor_contract.py",
+          "byte_hash": "78f1594721fda2de9b0681f69a55106983ddb939",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/ingest/terminal_writer.py",
+          "byte_hash": "f32c9139943ee541f95f236e2083bf6315f77509",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/ingest/long_cycle_live_runtime.py",
+          "byte_hash": "8562ff23228a205885d4159af69d90659d45d922",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/ingest/meaningful_gate.py",
+          "byte_hash": "d410dc55c7a61170aebd0d3c713cb790e64fad77",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/ingest/retry_policy.py",
+          "byte_hash": "29061f9313947293144cf898451eabf78f672359",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/tasks.py",
+          "byte_hash": "c432f1058da53b913225cbe6b36dae97b2910be6",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/models/ingest_registry.py",
+          "byte_hash": "3d0161ec5890c22b0156f651c4fea7abc79c7cb0",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": false
+        },
+        {
+          "path": "main/backend/app/models/long_cycle_entities.py",
+          "byte_hash": "273889e47c5beeb0e34441690448425b930316da",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        }
+      ],
+      "frontend_entrypoints": [
+        "IngestPage",
+        "CrawlerManagePage"
+      ],
+      "api_groups": [
+        "/api/v1/ingest/*",
+        "/api/v1/process/*",
+        "/api/v1/crawler/*"
+      ],
+      "authority_surface": [
+        "submission/staging writer authority at API+registry; live scheduler and DB readback separate; worker task id real-readback gate"
+      ],
+      "existing_cell_semantics": [
+        "C7.1 ingest submission staging",
+        "C7.2 persistence verification admission",
+        "C7.3 index graph handoff",
+        "C7.4 retry recovery rollback"
+      ],
+      "movement_ids": [
+        "C7-MOV-001",
+        "C7-MOV-002",
+        "C7-MOV-003",
+        "C7-MOV-010",
+        "C7-MOV-011",
+        "C7-MOV-020",
+        "C7-MOV-021",
+        "C7-MOV-030",
+        "C7-MOV-031",
+        "C7-MOV-040",
+        "C7-MOV-041",
+        "C7-MOV-050",
+        "C7-MOV-051",
+        "C7-MOV-060",
+        "C7-MOV-061",
+        "C7-MOV-070",
+        "C7-MOV-071",
+        "C7-MOV-072",
+        "C7-MOV-073",
+        "C7-MOV-074"
+      ],
+      "gap_ids": [
+        "GAP-ingest-submission-registry"
+      ],
+      "gaps": [
+        {
+          "gap_id": "GAP-ingest-submission-registry",
+          "semantic_object": "Ingest submission registry model and migration used by submission lifecycle/readback paths",
+          "donor_paths": [
+            "main/backend/app/models/ingest_registry.py",
+            "main/backend/migrations/versions/20260524_000001_add_ingest_submission_registry.py"
+          ],
+          "target_worktree_present": false,
+          "suggested_successor_owner": "document.canonical/C7.2 candidate; C7-MOV-051 admission path is nearest, but this untracked registry was not a locator/movement source",
+          "adjudication": "UNASSIGNED_BLOCKER",
+          "owner": "B-recheck; legacy worker lane owner"
+        }
+      ],
+      "line_disposition": "UNASSIGNED_BLOCKER",
+      "successor_target": "backend-core/C7 and document.canonical/C7.2 candidates",
+      "disposition_note": "C7.1-C7.4 mapped and external C7 movement matrix exists, but untracked ingest_registry model+migration are not a locator/movement source and target worktree has no copy.",
+      "blocker_owner_when_unassigned": "B-recheck; legacy worker lane owner"
+    },
+    {
+      "business_line_id": "BL-search-discovery-index-worker-readback",
+      "business_line_key": "search_discovery_index",
+      "kind": "canonical_business_line_evidence_matrix",
+      "owner": "B-recheck; legacy search/discovery worker lane owner",
+      "donor_status": "DONOR_READ_ONLY_DESCRIBED",
+      "worker_required": true,
+      "async_task_readback_required": true,
+      "semantic_object": "Search stored content, discovery runs, index initialization/policy, dashboard search analytics, retrieval run persistence and index freshness.",
+      "user_task": "Search stored content, run discovery, initialize indexes, inspect search analytics.",
+      "donor_sources": [
+        {
+          "path": "main/backend/app/api/search.py",
+          "byte_hash": "dd87f6c54e7ff9d72b680569a790e6c2acf9c15d",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/api/discovery.py",
+          "byte_hash": "48aa0383b40679a89d62ef052477b9057a3c1be1",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/api/indexer.py",
+          "byte_hash": "9e6e9754a37f4889ae69b057777ffe80eb6004f3",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/search/history.py",
+          "byte_hash": "ce692dd0023719250c260bbb7ca1ee6324004d2a",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/search/retrieval_runs.py",
+          "byte_hash": "9a7594211d13fb484a426197a8c42f7a58f4440d",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/collect_runtime/runtime.py",
+          "byte_hash": "8c77b7699c6c8d21d7a0704150d3a1f56a784e50",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/collect_runtime/contracts.py",
+          "byte_hash": "47b4b410dfca480ed2e074f8eeaa7658132f668f",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/indexer/application.py",
+          "byte_hash": "54398fd437c2395827951d13dfcde7db577c649c",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/tasks.py",
+          "byte_hash": "c432f1058da53b913225cbe6b36dae97b2910be6",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        }
+      ],
+      "frontend_entrypoints": [
+        "DashboardPage",
+        "CatalogPage",
+        "RawDataPage"
+      ],
+      "api_groups": [
+        "/api/v1/search",
+        "/api/v1/discovery/*",
+        "/api/v1/indexer/policy",
+        "/api/v1/dashboard/search-analytics"
+      ],
+      "authority_surface": [
+        "search API reads plus discovery submission; index mutation and provider results require separate runtime authority"
+      ],
+      "existing_cell_semantics": [
+        "C2.4 collect-runtime terminal compatibility projection (partial)",
+        "C3.1 collect batch plan traverse",
+        "C3.2 collect result fold receipts"
+      ],
+      "movement_ids": [
+        "C2-M001",
+        "C2-M002",
+        "C2-M003",
+        "C2-M004",
+        "C2-M005",
+        "C2-M006",
+        "C2-M007",
+        "C2-M008",
+        "C3-M001",
+        "C3-M002",
+        "C3-M003"
+      ],
+      "gap_ids": [
+        "GAP-untracked-frontend-dashboard-panel"
+      ],
+      "gaps": [
+        {
+          "gap_id": "GAP-untracked-frontend-dashboard-panel",
+          "semantic_object": "Untracked DashboardSearchRetrievalRunPanel component consumed by DashboardPage search/retrieval readback",
+          "donor_paths": [
+            "main/frontend-modern/src/pages/dashboard/DashboardSearchRetrievalRunPanel.tsx"
+          ],
+          "target_worktree_present": false,
+          "suggested_successor_owner": "frontend-platform/C9.2 candidate; absent from P1 evidence locators",
+          "adjudication": "UNASSIGNED_BLOCKER",
+          "owner": "B-recheck; legacy search/discovery worker lane owner"
+        }
+      ],
+      "line_disposition": "UNASSIGNED_BLOCKER",
+      "successor_target": "collect-runtime/C3 and frontend-platform/C9.2 candidates",
+      "disposition_note": "C2.4 partial, C3.1-C3.2 mapped; untracked DashboardSearchRetrievalRunPanel has no P1 locator or successor cell.",
+      "blocker_owner_when_unassigned": "B-recheck; legacy search/discovery worker lane owner"
+    },
+    {
+      "business_line_id": "BL-source-library-resource-worker-readback",
+      "business_line_key": "resource_source_library",
+      "kind": "canonical_business_line_evidence_matrix",
+      "owner": "B-recheck; source-library/resource lane owner",
+      "donor_status": "DONOR_READ_ONLY_DESCRIBED",
+      "worker_required": true,
+      "async_task_readback_required": true,
+      "semantic_object": "Source-library items/channels/handler clusters, external project registration, item run/refresh, resource pool URLs/site entries/capture config, single-source guard execution facts, recommendations and review lifecycle.",
+      "user_task": "Manage site entries, URL pools, source-library items, recommendations, candidate recovery.",
+      "donor_sources": [
+        {
+          "path": "main/backend/app/api/source_library.py",
+          "byte_hash": "9b77a5505978d852f331a934252689d25493fc82",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/api/resource_pool.py",
+          "byte_hash": "95976d19cf678e87f5d984016552631039f81886",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/source_library/resolver.py",
+          "byte_hash": "522891818c17f8f7e99ddaf43b8ab9bcc9bd4025",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/source_library/item_resolver.py",
+          "byte_hash": "21264723f7bd6d1c32a4b26f36fda406a09c7738",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/source_library/runner.py",
+          "byte_hash": "e39234f9c71382a143400ed1c88c08e0f7611895",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/source_library/item_plan.py",
+          "byte_hash": "c67a17e67511f38280b9671f2da9399e02d8d1b9",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/source_library/single_source_guard.py",
+          "byte_hash": "513330bc053f4234457aa1ec066efa913ed522b1",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": false
+        },
+        {
+          "path": "main/backend/app/services/source_library/sync.py",
+          "byte_hash": "ad4d98e17148a6618a402b231799ad14c7f2cbf6",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/source_library/relevance_review.py",
+          "byte_hash": "f7b5452c56570b91b0f3d1d72f1a44719bcabf20",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/resource_pool/site_entries.py",
+          "byte_hash": "09021cd0873f414cc3c81c3da76b7f5960197380",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/resource_pool/resolver.py",
+          "byte_hash": "05f04017860a911865250a92219dbfe7450e6c2f",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/resource_pool/unified_search.py",
+          "byte_hash": "01f8096a6c59f66a9802f17ce799efe8f65e70e4",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/tasks.py",
+          "byte_hash": "c432f1058da53b913225cbe6b36dae97b2910be6",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        }
+      ],
+      "frontend_entrypoints": [
+        "ResourcePage",
+        "CatalogPage"
+      ],
+      "api_groups": [
+        "/api/v1/resource_pool/*",
+        "/api/v1/source_library/*"
+      ],
+      "authority_surface": [
+        "item/resource mutation and provider credential handling authority in API/services; live adapter/provider/DB verification must remain separate"
+      ],
+      "existing_cell_semantics": [
+        "C2.1 source normalize/taxonomy/mode selection",
+        "C2.2 four source-mode orchestration",
+        "C2.3 provider credential handler effects",
+        "C2.4 terminal compatibility projection"
+      ],
+      "movement_ids": [
+        "C2-M001",
+        "C2-M002",
+        "C2-M003",
+        "C2-M004",
+        "C2-M005",
+        "C2-M006",
+        "C2-M007",
+        "C2-M008"
+      ],
+      "gap_ids": [
+        "GAP-single-source-guard"
+      ],
+      "gaps": [
+        {
+          "gap_id": "GAP-single-source-guard",
+          "semantic_object": "Strict single-URL source execution guard with site-entry equality, blocked/error classification and execution fact before dispatch",
+          "donor_paths": [
+            "main/backend/app/services/source_library/single_source_guard.py",
+            "main/backend/app/services/source_library/resolver.py",
+            "main/backend/app/api/ingest.py",
+            "main/backend/app/api/resource_pool.py"
+          ],
+          "target_worktree_present": false,
+          "suggested_successor_owner": "backend-core/C2 candidate under C2.3 execution boundary; not an explicit P1 locator/movement path",
+          "adjudication": "UNASSIGNED_BLOCKER",
+          "owner": "B-recheck; source-library/resource lane owner"
+        }
+      ],
+      "line_disposition": "UNASSIGNED_BLOCKER",
+      "successor_target": "backend-core/C2, C2.3 execution-boundary candidate",
+      "disposition_note": "C2.1-C2.4 mapped, but single_source_guard.py is untracked, absent from migration worktree, and not named in P1 locators.",
+      "blocker_owner_when_unassigned": "B-recheck; source-library/resource lane owner"
+    },
+    {
+      "business_line_id": "BL-projects-config-workflow",
+      "business_line_key": "projects_config_workflow",
+      "kind": "canonical_business_line_evidence_matrix",
+      "owner": "B-recheck; project/config workflow owner",
+      "donor_status": "DONOR_READ_ONLY_DESCRIBED",
+      "worker_required": false,
+      "async_task_readback_required": true,
+      "semantic_object": "Project CRUD/archive/activate, config/env/LLM service configuration, project customization workflows/templates, process history readback for project-scoped configuration actions.",
+      "user_task": "Create or switch projects, configure runtime settings and LLM providers, inspect workflow history.",
+      "donor_sources": [
+        {
+          "path": "main/backend/app/api/projects.py",
+          "byte_hash": "f45f604fbd9ac83ffd3420c7d54fbeaab01b5a5e",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/api/config.py",
+          "byte_hash": "03fcbd49b49aaa16f89aa59e815939b5221e6b5a",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/api/llm_config.py",
+          "byte_hash": "9daf2423e058d84c35206598ab32f80717c641ed",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/api/project_customization.py",
+          "byte_hash": "d1e83f5ee7d50de78afb4ec986250582cb3eaeec",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/api/process.py",
+          "byte_hash": "efe10dca82dae8c2830a48feb256388e6ec02b52",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/projects/context.py",
+          "byte_hash": "dd6ad1ca39f783cc81f737b82f8836870a11b65c",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/projects/workflow.py",
+          "byte_hash": "9b6ce960bba199ac2f3dc529228a2cde9ae73971",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        }
+      ],
+      "frontend_entrypoints": [
+        "ProjectsPage",
+        "SettingsPage",
+        "ProcessPage"
+      ],
+      "api_groups": [
+        "/api/v1/projects/*",
+        "/api/v1/config/*",
+        "/api/v1/project-customization/*",
+        "/api/v1/llm-config/*",
+        "/api/v1/process/*"
+      ],
+      "authority_surface": [
+        "project/config mutation authority in API; config version/rollback/dry-run evidence remains incomplete per source gaps"
+      ],
+      "existing_cell_semantics": [
+        "UNKNOWN (project/config/workflow has no dedicated locator cell in C1-C9 map; C9.1 envelope applies structurally)"
+      ],
+      "movement_ids": [
+        "C9-M001"
+      ],
+      "gap_ids": [
+        "GAP-projects-config-workflow"
+      ],
+      "gaps": [
+        {
+          "gap_id": "GAP-projects-config-workflow",
+          "semantic_object": "Project CRUD/archive/activate, config/env/LLM-service configuration, customization workflow and project-scoped process history",
+          "donor_paths": [
+            "main/backend/app/api/projects.py",
+            "main/backend/app/api/config.py",
+            "main/backend/app/api/llm_config.py",
+            "main/backend/app/api/project_customization.py",
+            "main/backend/app/services/projects/context.py",
+            "main/backend/app/services/projects/workflow.py"
+          ],
+          "target_worktree_present": true,
+          "suggested_successor_owner": "UNKNOWN; no dedicated C1-C9 locator cell exists for project/config/workflow semantics",
+          "adjudication": "UNASSIGNED_BLOCKER",
+          "owner": "B-recheck; project/config workflow owner"
+        }
+      ],
+      "line_disposition": "UNASSIGNED_BLOCKER",
+      "successor_target": "UNKNOWN; no dedicated C1-C9 locator cell",
+      "disposition_note": "Project/config/workflow semantics have only structural C9.1 alignment; no movement owns the line.",
+      "blocker_owner_when_unassigned": "B-recheck; project/config workflow owner"
+    },
+    {
+      "business_line_id": "BL-dashboard-admin-governance",
+      "business_line_key": "dashboard_admin_governance",
+      "kind": "canonical_business_line_evidence_matrix",
+      "owner": "B-recheck; dashboard/admin/governance owner",
+      "donor_status": "DONOR_READ_ONLY_DESCRIBED",
+      "worker_required": false,
+      "async_task_readback_required": true,
+      "semantic_object": "Dashboard stats/global stats/llm-report-detail/drilldown/report-from-filter/trends, admin raw data/graph/search history, policy/market/product/topic/report read models, cleanup and aggregator sync governance actions.",
+      "user_task": "Inspect metrics, reports, policy/market state, product/topic views, governance actions.",
+      "donor_sources": [
+        {
+          "path": "main/backend/app/api/dashboard.py",
+          "byte_hash": "51b03a13cec438039593bc1b74ad071db7563a36",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/api/admin.py",
+          "byte_hash": "59905edd01ab42bc29861e584619bb8d6f7eef6f",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/api/policies.py",
+          "byte_hash": "fa7133509b09c27c050ff981888a1297380cd05e",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/api/market.py",
+          "byte_hash": "4095bb696742080e71868fc73ad3bb72f23cb48f",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/api/products.py",
+          "byte_hash": "c19bbf72b7f87a1fb080e1518830eb9bc33ff93c",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/api/topics.py",
+          "byte_hash": "f68d33a5f631548751b905035501eff0a3aeddc4",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/api/reports.py",
+          "byte_hash": "f570a5ca848ec1649341f38ac2ba6256fd372c32",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/api/governance.py",
+          "byte_hash": "09f40989865f530ce126fc3d4cc5b4797a023cc3",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/governance/retention.py",
+          "byte_hash": "bab62fc73aeb47c505e5df3b21ce9210d80d74ea",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/aggregator/sync.py",
+          "byte_hash": "8787142f6b01b7bcbc3021004469794c3ee70558",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        }
+      ],
+      "frontend_entrypoints": [
+        "DashboardPage",
+        "PolicyPage",
+        "OpsPage"
+      ],
+      "api_groups": [
+        "/api/v1/dashboard/*",
+        "/api/v1/admin/*",
+        "/api/v1/policies/*",
+        "/api/v1/market/*",
+        "/api/v1/products",
+        "/api/v1/topics",
+        "/api/v1/reports"
+      ],
+      "authority_surface": [
+        "admin/dashboard read projections and governance cleanup/sync mutation authority; no dashboard metric provenance unification yet"
+      ],
+      "existing_cell_semantics": [
+        "UNKNOWN (dashboard/admin/governance cells not present in frozen locator; C9.1/C9.3 structural alignment only)"
+      ],
+      "movement_ids": [
+        "C9-M001",
+        "C9-M004",
+        "C9-M005"
+      ],
+      "gap_ids": [
+        "GAP-dashboard-admin-governance",
+        "GAP-dashboard-report-closure"
+      ],
+      "gaps": [
+        {
+          "gap_id": "GAP-dashboard-admin-governance",
+          "semantic_object": "Dashboard stats/detail/report-from-filter read models, admin/governance actions, cleanup/aggregator sync, policy/market/product/topic/report read projections",
+          "donor_paths": [
+            "main/backend/app/api/dashboard.py",
+            "main/backend/app/api/admin.py",
+            "main/backend/app/api/policies.py",
+            "main/backend/app/api/market.py",
+            "main/backend/app/api/products.py",
+            "main/backend/app/api/topics.py",
+            "main/backend/app/api/reports.py",
+            "main/backend/app/services/governance/retention.py",
+            "main/backend/app/services/aggregator/sync.py"
+          ],
+          "target_worktree_present": true,
+          "suggested_successor_owner": "UNKNOWN; C9.1/C9.3 are structural only, not dashboard/admin/governance capability cells",
+          "adjudication": "UNASSIGNED_BLOCKER",
+          "owner": "B-recheck; dashboard/admin/governance owner"
+        },
+        {
+          "gap_id": "GAP-dashboard-report-closure",
+          "semantic_object": "Dashboard/report closure, completion, finalization or terminal state domain semantics; no dedicated donor model/route/field was found beyond job status, document draft/archive and export-token used/revoked states",
+          "donor_paths": [
+            "main/backend/app/api/dashboard.py",
+            "main/backend/app/api/llm_report.py",
+            "main/backend/app/api/business_lines.py",
+            "main/backend/app/services/writing/document_service.py"
+          ],
+          "target_worktree_present": true,
+          "suggested_successor_owner": "UNKNOWN; requested closure category has no separately implemented legacy surface and no movement/cell",
+          "adjudication": "UNASSIGNED_BLOCKER",
+          "owner": "B-recheck; dashboard/admin/governance owner"
+        }
+      ],
+      "line_disposition": "UNASSIGNED_BLOCKER",
+      "successor_target": "UNKNOWN; C9.1/C9.3 structural only",
+      "disposition_note": "Dashboard/admin/governance and report closure semantics have no dedicated successor cell.",
+      "blocker_owner_when_unassigned": "B-recheck; dashboard/admin/governance owner"
+    },
+    {
+      "business_line_id": "BL-writing-knowledge-graph-agent",
+      "business_line_key": "writing_knowledge_graph_agent",
+      "kind": "canonical_business_line_evidence_matrix",
+      "owner": "B-recheck; writing/knowledge/graph/agent owner",
+      "donor_status": "DONOR_READ_ONLY_DESCRIBED",
+      "worker_required": true,
+      "async_task_readback_required": true,
+      "semantic_object": "Writing artifact lifecycle (documents/drafts/citations/templates/LLM actions), typed-knowledge persistence boundary/governance, graph workflow compile/run/replay/templates, agent chat/session/batch lifecycle and approval readback.",
+      "user_task": "Edit writing artifacts, use knowledge cards and graphs, chat with agents, run agent batches.",
+      "donor_sources": [
+        {
+          "path": "main/backend/app/api/writing.py",
+          "byte_hash": "a274a516f975de0d8f0e86a219b2bdd4a022c40d",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/api/typed_knowledge.py",
+          "byte_hash": "86f6b73f41f50f91fc17b742e02c1762e11783a4",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/api/workflow_graph.py",
+          "byte_hash": "64f7ee81ab6c64c699e5e77981be6f0949736d20",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/api/agent_chat.py",
+          "byte_hash": "61e25d0e4a8caf8cd9acf1d332389adb03464c86",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/api/agent_sessions.py",
+          "byte_hash": "36fdd65f97f0cdcdb3c9f4a5bce290a0d888484f",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/api/agent_batch.py",
+          "byte_hash": "1a516ca73c8b36c77c248851cb2c68acb0873fa2",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/writing/llm_action_service.py",
+          "byte_hash": "cbf60522dacc7af2d475c39db238c52fbcd8263e",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/writing/document_service.py",
+          "byte_hash": "388de2a092faf09bd373db9a31d75991b9101040",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/writing/template_service.py",
+          "byte_hash": "24d9e8f869a88fb78ff6146b067430ad41244967",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/typed_knowledge/persistence_boundary.py",
+          "byte_hash": "3f071ab778e4b3ecacf2fc6b7209126725b92d66",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/workflow_graph/contracts.py",
+          "byte_hash": "36d97d0726300639998eab3deaf9ea7319944647",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/workflow_graph/compiler.py",
+          "byte_hash": "65a9f73fd8a22037f98f2fbab83fbc90c6f57e00",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/workflow_graph/runtime.py",
+          "byte_hash": "3a900dab2264c6b0474172ce3c718c10a5a9f566",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/workflow_graph/store.py",
+          "byte_hash": "111fe4245728111f1b9daf7020017fe27f14d21d",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/agent_core/core.py",
+          "byte_hash": "9a52404d6f28fa341106bd75c700494e16b3858f",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/agent_runtime/coordinator.py",
+          "byte_hash": "f71a7fdc2609961b82dc69f1f15c1378cbd0a825",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/agent_batch/agent_loop.py",
+          "byte_hash": "63fce87994532688fc7f9a1a97cbf580c71cc644",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/agent_batch/task_contract.py",
+          "byte_hash": "8ab4204a0fa5b8f99b5ce2ceabc0d20feb836444",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/agent_sessions/service.py",
+          "byte_hash": "996bc5ea7f6bfa9a7b4f44b64747921f0c9989f8",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        }
+      ],
+      "frontend_entrypoints": [
+        "WritingWorkbenchPage",
+        "GraphPage",
+        "AgentChatPage",
+        "LlmDesignerPage"
+      ],
+      "api_groups": [
+        "/api/v1/writing/*",
+        "/api/v1/typed_knowledge/*",
+        "/api/v1/workflow_graph/*",
+        "/api/v1/agent-chat/*",
+        "/api/v1/agent-sessions/*",
+        "/api/v1/agent-batch/*"
+      ],
+      "authority_surface": [
+        "writing/knowledge/graph/agent mutation authority distributed across APIs, services and stores; agent batch approval and event persistence must keep real-task gate"
+      ],
+      "existing_cell_semantics": [
+        "C1.1 graph parse/validate/compile",
+        "C1.2 graph runtime executor/failure",
+        "C1.3 graph store/replay",
+        "C4.1 batch plan supplementation/branching",
+        "C4.2 retry action ordered reducer",
+        "C4.3 submit idempotency API",
+        "C5.1 session task state machine",
+        "C5.2 effect attempt reconciliation",
+        "C5.3 event fold snapshot",
+        "C5.4 Celery/DB process readback",
+        "C6.1 AgentCore program tool loop",
+        "C6.2 provider interpretation",
+        "C6.3 redaction evidence",
+        "C8.1 typed knowledge read handles",
+        "C8.2 writing composition artifacts",
+        "C8.3 report export admission",
+        "C8.4 graph consumer provenance loss"
+      ],
+      "movement_ids": [
+        "C1-M001",
+        "C1-M002",
+        "C1-M003",
+        "C1-M004",
+        "C4-M001",
+        "C4-M002",
+        "C4-M003",
+        "C4-M004",
+        "C4-M005",
+        "C5-M001",
+        "C5-M002",
+        "C5-M003",
+        "C5-M004",
+        "C5-M005",
+        "C5-M006",
+        "C6-M001",
+        "C6-M002",
+        "C6-M003",
+        "C6-M004",
+        "C8-M001",
+        "C8-M002",
+        "C8-M003",
+        "C8-M004",
+        "C8-M005"
+      ],
+      "gap_ids": [],
+      "gaps": [],
+      "line_disposition": "REIMPLEMENTED_AS",
+      "successor_target": "backend-core/C1/C4/C5/C6, knowledge-core/C8, writing-core/C8, report-admission/C8, graph-projection/C8",
+      "disposition_note": "Mapped to C1/C4/C5/C6/C8.1-C8.4 movement family; declared-loss/rejected component rows remain binding obligations. Local-only, no authority.",
+      "blocker_owner_when_unassigned": null
+    },
+    {
+      "business_line_id": "BL-runtime-ops",
+      "business_line_key": "runtime_ops",
+      "kind": "canonical_business_line_evidence_matrix",
+      "owner": "B-recheck; runtime ops owner",
+      "donor_status": "DONOR_READ_ONLY_DESCRIBED",
+      "worker_required": false,
+      "async_task_readback_required": true,
+      "semantic_object": "Backend shallow/deep health, dependency reachability, database/ES checks, process stats/list/history/logs/retry/cancel, runtime health matrix scripts.",
+      "user_task": "Start, stop, inspect, diagnose Docker or local runtime stack.",
+      "donor_sources": [
+        {
+          "path": "main/backend/app/main.py",
+          "byte_hash": "87d92c465b7cb411bd8e6e352e8b6dcb1447c595",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/api/process.py",
+          "byte_hash": "efe10dca82dae8c2830a48feb256388e6ec02b52",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/tasks.py",
+          "byte_hash": "c432f1058da53b913225cbe6b36dae97b2910be6",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "scripts/runtime_health_matrix.py",
+          "byte_hash": "7517d6d45771830a19cfb0684d74e26d5ef9eb8c",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": false
+        },
+        {
+          "path": "scripts/check_business_line_trace_baseline_artifact.py",
+          "byte_hash": "0359a63d04351d7c3e841f6b261368083d1853d4",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": false
+        }
+      ],
+      "frontend_entrypoints": [
+        "OpsPage"
+      ],
+      "api_groups": [
+        "/api/v1/health",
+        "/api/v1/health/deep",
+        "/metrics",
+        "/api/v1/process/*"
+      ],
+      "authority_surface": [
+        "runtime diagnostic/health read authority only; no production/scheduler completion claim"
+      ],
+      "existing_cell_semantics": [
+        "UNKNOWN (runtime ops not in C1-C9 locator; C9.1 envelope exempt for health/deep)"
+      ],
+      "movement_ids": [
+        "C9-M001"
+      ],
+      "gap_ids": [
+        "GAP-runtime-ops"
+      ],
+      "gaps": [
+        {
+          "gap_id": "GAP-runtime-ops",
+          "semantic_object": "Backend health/deep-health, metrics, process stats/list/history/logs/retry/cancel and runtime health matrix scripts",
+          "donor_paths": [
+            "main/backend/app/main.py",
+            "main/backend/app/api/process.py",
+            "scripts/runtime_health_matrix.py"
+          ],
+          "target_worktree_present": true,
+          "suggested_successor_owner": "UNKNOWN; runtime ops not represented by a dedicated C1-C9 locator cell",
+          "adjudication": "UNASSIGNED_BLOCKER",
+          "owner": "B-recheck; runtime ops owner"
+        }
+      ],
+      "line_disposition": "UNASSIGNED_BLOCKER",
+      "successor_target": "UNKNOWN; no dedicated locator cell",
+      "disposition_note": "Runtime ops not represented in C1-C9 locator; C9.1 health/deep exemption is envelope-only.",
+      "blocker_owner_when_unassigned": "B-recheck; runtime ops owner"
+    },
+    {
+      "business_line_id": "BL-llm-report-export-token-state",
+      "business_line_key": null,
+      "kind": "service_surface",
+      "owner": "B-recheck; report-export/audit owner",
+      "donor_status": "DONOR_READ_ONLY_DESCRIBED",
+      "worker_required": null,
+      "async_task_readback_required": null,
+      "semantic_object": "LLM report generate + strict/off/warn quality gate + markdown/PDF/DOCX export with signed one-time-use/revocable artifact tokens, durable token-state rows, export audit events, quality-trend records, request identity.",
+      "user_task": null,
+      "donor_sources": [
+        {
+          "path": "main/backend/app/api/llm_report.py",
+          "byte_hash": "54746f68e02dc1ebbaefe77936a2175cf4b1575d",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/llm_report_export.py",
+          "byte_hash": "8e0e198b68d6800e8db31c3de6c3d3a800858191",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": false
+        },
+        {
+          "path": "main/backend/app/services/llm_report_export_token_state.py",
+          "byte_hash": "c311dc50acc8923d1e42b3109d174bf81005ff13",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": false
+        },
+        {
+          "path": "main/backend/app/services/llm_report_export_audit.py",
+          "byte_hash": "4799746e4f9a4b7ea3a032dc24eec5376ac68640",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": false
+        },
+        {
+          "path": "main/backend/app/services/llm_report_trends.py",
+          "byte_hash": "79deed264cdcb3f92e349efe3689a0631cc39db9",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": false
+        },
+        {
+          "path": "main/backend/app/services/llm_report_generator.py",
+          "byte_hash": "540448baa9064432eef74808ee0eb021c8ac5d8c",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/llm_report_source_enrichment.py",
+          "byte_hash": "d4f664becf873b0fd00e898a59a8cc3a2d378a0a",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/models/llm_report_export_token_state.py",
+          "byte_hash": "73cab5deee62e2c491c60237ba1f7a97b50921f3",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": false
+        },
+        {
+          "path": "main/backend/app/models/llm_report_export_audit.py",
+          "byte_hash": "5dff1ed285edc94ca8f7ff8773e020f063c9f98d",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": false
+        },
+        {
+          "path": "main/backend/app/models/llm_report_trends.py",
+          "byte_hash": "f1e0e3b0d214396da7813361fe5e41963b3fdc93",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": false
+        },
+        {
+          "path": "main/backend/migrations/versions/20260524_000002_add_llm_report_quality_trends.py",
+          "byte_hash": "875dd0caf723735b1d89896ea27d867490de3a6f",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": false
+        },
+        {
+          "path": "main/backend/migrations/versions/20260524_000003_add_llm_report_export_audit_events.py",
+          "byte_hash": "03a9996a8dc56169a6490115ea139bfd72ccd6ab",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": false
+        },
+        {
+          "path": "main/backend/migrations/versions/20260524_000004_add_llm_report_export_token_state.py",
+          "byte_hash": "b072d16caa78a93ec21c51b99da11d5d084e652e",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": false
+        },
+        {
+          "path": "main/backend/app/services/request_identity.py",
+          "byte_hash": "dfe68e9ea44637a56ffc560fd455e2cef0628318",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": false
+        }
+      ],
+      "frontend_entrypoints": null,
+      "api_groups": null,
+      "authority_surface": "signed-token issuance/revocation, one-time-use claim, audit persistence and export binary generation authority; export only on strict quality gate admission",
+      "existing_cell_semantics": [
+        "C8.3 report export admission (existing, focused on llm_report_export_token_state/report/writing)",
+        "C6.2 provider interpretation (generate path)",
+        "UNKNOWN for export audit/token/trend full business semantics"
+      ],
+      "movement_ids": [
+        "C6-M001",
+        "C6-M002",
+        "C6-M003",
+        "C6-M004",
+        "C8-M003"
+      ],
+      "gap_ids": [
+        "GAP-llm-report-export",
+        "GAP-llm-report-token-state"
+      ],
+      "gaps": [
+        {
+          "gap_id": "GAP-llm-report-export",
+          "semantic_object": "Signed one-time artifact token and synchronous PDF/DOCX export with quality-gate admission, integrity and markdown/export endpoints",
+          "donor_paths": [
+            "main/backend/app/services/llm_report_export.py",
+            "main/backend/app/api/llm_report.py",
+            "main/frontend-modern/src/pages/DashboardPage.tsx"
+          ],
+          "target_worktree_present": false,
+          "suggested_successor_owner": "report-admission/C8 candidate; C8-M003 maps report staging/admission but does not bind this export/token implementation",
+          "adjudication": "UNASSIGNED_BLOCKER",
+          "owner": "B-recheck; report-export/audit owner"
+        },
+        {
+          "gap_id": "GAP-llm-report-token-state",
+          "semantic_object": "Persistent export-token use/revoke/last-seen state with DB plus memory mirrors and retention path",
+          "donor_paths": [
+            "main/backend/app/services/llm_report_export_token_state.py",
+            "main/backend/app/models/llm_report_export_token_state.py",
+            "main/backend/migrations/versions/20260524_000004_add_llm_report_export_token_state.py"
+          ],
+          "target_worktree_present": false,
+          "suggested_successor_owner": "report-admission/C8 candidate; C8-M003 names the locator but only records it as missing/UNBOUND",
+          "adjudication": "UNASSIGNED_BLOCKER",
+          "owner": "B-recheck; report-export/audit owner"
+        }
+      ],
+      "line_disposition": "UNASSIGNED_BLOCKER",
+      "successor_target": "report-admission/C8 candidate",
+      "disposition_note": "C8-M003 does not bind export/token implementation; untracked llm_report_export family absent from target worktree.",
+      "blocker_owner_when_unassigned": "B-recheck; report-export/audit owner"
+    },
+    {
+      "business_line_id": "BL-request-identity",
+      "business_line_key": null,
+      "kind": "service_surface",
+      "owner": "B-recheck; authn identity owner",
+      "donor_status": "DONOR_READ_ONLY_DESCRIBED",
+      "worker_required": null,
+      "async_task_readback_required": null,
+      "semantic_object": "Request actor identity resolution from authenticated state/legacy/anonymous fallback, actor_id/context observability used by report generation/export and dashboard readback surfaces.",
+      "user_task": null,
+      "donor_sources": [
+        {
+          "path": "main/backend/app/services/request_identity.py",
+          "byte_hash": "dfe68e9ea44637a56ffc560fd455e2cef0628318",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": false
+        },
+        {
+          "path": "main/backend/app/api/llm_report.py",
+          "byte_hash": "54746f68e02dc1ebbaefe77936a2175cf4b1575d",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/api/dashboard.py",
+          "byte_hash": "51b03a13cec438039593bc1b74ad071db7563a36",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        }
+      ],
+      "frontend_entrypoints": null,
+      "api_groups": null,
+      "authority_surface": "identity/actor metadata authority; no credential value reads (not inventoried)",
+      "existing_cell_semantics": [
+        "UNKNOWN (shared horizontal service, no C1-C9 locator cell)"
+      ],
+      "movement_ids": [],
+      "gap_ids": [
+        "GAP-request-identity"
+      ],
+      "gaps": [
+        {
+          "gap_id": "GAP-request-identity",
+          "semantic_object": "Request actor identity normalization, legacy header recognition, observability context and middleware propagation",
+          "donor_paths": [
+            "main/backend/app/services/request_identity.py",
+            "main/backend/app/main.py",
+            "main/backend/app/services/llm/platformization.py"
+          ],
+          "target_worktree_present": false,
+          "suggested_successor_owner": "UNKNOWN; C9-M001 handles caller actor scope but no unified request-identity capability cell exists",
+          "adjudication": "UNASSIGNED_BLOCKER",
+          "owner": "B-recheck; authn identity owner"
+        }
+      ],
+      "line_disposition": "UNASSIGNED_BLOCKER",
+      "successor_target": "UNKNOWN; C9.1 caller-actor scope is nearest structural match",
+      "disposition_note": "Request identity has no unified successor cell; C9-M001 scope is not a binding.",
+      "blocker_owner_when_unassigned": "B-recheck; authn identity owner"
+    },
+    {
+      "business_line_id": "BL-task-readback-metadata",
+      "business_line_key": null,
+      "kind": "service_surface",
+      "owner": "B-recheck; worker readback metadata owner",
+      "donor_status": "DONOR_READ_ONLY_DESCRIBED",
+      "worker_required": null,
+      "async_task_readback_required": null,
+      "semantic_object": "Runtime readback metadata builder/normalizer: canonical line event chains, contract event insertion, task/runtime readback merge for ingest/search/source/writing worker lanes.",
+      "user_task": null,
+      "donor_sources": [
+        {
+          "path": "main/backend/app/services/task_readback_metadata.py",
+          "byte_hash": "701eec5a0739fec7349c963d985749dfab0602e1",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": false
+        },
+        {
+          "path": "main/backend/app/services/tasks.py",
+          "byte_hash": "c432f1058da53b913225cbe6b36dae97b2910be6",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/writing/llm_action_service.py",
+          "byte_hash": "cbf60522dacc7af2d475c39db238c52fbcd8263e",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/api/business_lines.py",
+          "byte_hash": "2d030feb52c0a8a2e6c63dd821cc02a6ff96283f",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": false
+        }
+      ],
+      "frontend_entrypoints": null,
+      "api_groups": null,
+      "authority_surface": "metadata construction only; no execution authority",
+      "existing_cell_semantics": [
+        "C5.4 Celery/DB process readback projection (existing)",
+        "UNKNOWN for cross-line worker readback semantics"
+      ],
+      "movement_ids": [
+        "C5-M001",
+        "C5-M002",
+        "C5-M003",
+        "C5-M004",
+        "C5-M005",
+        "C5-M006"
+      ],
+      "gap_ids": [
+        "GAP-task-readback-metadata-line-events"
+      ],
+      "gaps": [
+        {
+          "gap_id": "GAP-task-readback-metadata-line-events",
+          "semantic_object": "line_key runtime readback metadata builder, canonical line event chains and contract event insertion used by worker-required lanes",
+          "donor_paths": [
+            "main/backend/app/services/task_readback_metadata.py",
+            "main/backend/app/services/tasks.py",
+            "main/backend/app/api/process.py"
+          ],
+          "target_worktree_present": false,
+          "suggested_successor_owner": "runtime-observation/C5 candidate; source file itself is declared dirty-excluded while its line-event semantics remain without a successor movement",
+          "adjudication": "UNASSIGNED_BLOCKER",
+          "owner": "B-recheck; worker readback metadata owner"
+        }
+      ],
+      "line_disposition": "UNASSIGNED_BLOCKER",
+      "successor_target": "runtime-observation/C5 candidate",
+      "disposition_note": "Dirty source file is intentionally excluded (adopted=false), but line-event semantics have no successor movement; exclusion does not realize the capability.",
+      "blocker_owner_when_unassigned": "B-recheck; worker readback metadata owner"
+    },
+    {
+      "business_line_id": "BL-single-source-guard",
+      "business_line_key": null,
+      "kind": "service_surface",
+      "owner": "B-recheck; source-library boundary owner",
+      "donor_status": "DONOR_READ_ONLY_DESCRIBED",
+      "worker_required": null,
+      "async_task_readback_required": null,
+      "semantic_object": "Source-library single-source execution guard validation: strict one-URL site-entry guard, execution fact, blocked/error classification before adapter dispatch and resolver override application.",
+      "user_task": null,
+      "donor_sources": [
+        {
+          "path": "main/backend/app/services/source_library/single_source_guard.py",
+          "byte_hash": "513330bc053f4234457aa1ec066efa913ed522b1",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": false
+        },
+        {
+          "path": "main/backend/app/services/source_library/resolver.py",
+          "byte_hash": "522891818c17f8f7e99ddaf43b8ab9bcc9bd4025",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/api/source_library.py",
+          "byte_hash": "9b77a5505978d852f331a934252689d25493fc82",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        }
+      ],
+      "frontend_entrypoints": null,
+      "api_groups": null,
+      "authority_surface": "guard validation/blocking authority inside source-library execution path; cannot dispatch blocked override",
+      "existing_cell_semantics": [
+        "C2.3 provider credential handler effects (guard is part of source mode selection/execution authority)"
+      ],
+      "movement_ids": [
+        "C2-M001",
+        "C2-M002",
+        "C2-M003",
+        "C2-M004",
+        "C2-M005",
+        "C2-M006",
+        "C2-M007",
+        "C2-M008"
+      ],
+      "gap_ids": [
+        "GAP-single-source-guard"
+      ],
+      "gaps": [
+        {
+          "gap_id": "GAP-single-source-guard",
+          "semantic_object": "Strict single-URL source execution guard with site-entry equality, blocked/error classification and execution fact before dispatch",
+          "donor_paths": [
+            "main/backend/app/services/source_library/single_source_guard.py",
+            "main/backend/app/services/source_library/resolver.py",
+            "main/backend/app/api/ingest.py",
+            "main/backend/app/api/resource_pool.py"
+          ],
+          "target_worktree_present": false,
+          "suggested_successor_owner": "backend-core/C2 candidate under C2.3 execution boundary; not an explicit P1 locator/movement path",
+          "adjudication": "UNASSIGNED_BLOCKER",
+          "owner": "B-recheck; source-library boundary owner"
+        }
+      ],
+      "line_disposition": "UNASSIGNED_BLOCKER",
+      "successor_target": "backend-core/C2, C2.3 candidate",
+      "disposition_note": "Guard validation/blocking authority has no explicit P1 locator/movement source path.",
+      "blocker_owner_when_unassigned": "B-recheck; source-library boundary owner"
+    },
+    {
+      "business_line_id": "BL-agent-batch-quality-promotion-readback",
+      "business_line_key": null,
+      "kind": "service_surface",
+      "owner": "B-recheck; agent-batch owner",
+      "donor_status": "DONOR_READ_ONLY_DESCRIBED",
+      "worker_required": null,
+      "async_task_readback_required": null,
+      "semantic_object": "Agent-batch search-quality replay and symbolic quality-promotion readback gate (critic score, bounded retry, threshold, promotion decision digest) with executor health API.",
+      "user_task": null,
+      "donor_sources": [
+        {
+          "path": "main/backend/app/api/agent_batch.py",
+          "byte_hash": "1a516ca73c8b36c77c248851cb2c68acb0873fa2",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/agent_batch/search_quality_replay.py",
+          "byte_hash": "d4e36c50e79a920c5553340bb3efa3af0720da75",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/agent_batch/task_contract.py",
+          "byte_hash": "8ab4204a0fa5b8f99b5ce2ceabc0d20feb836444",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/agent_batch/executor_health.py",
+          "byte_hash": "784725ee3ad0b68b6926444835b39e3aa9d8b2c9",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        }
+      ],
+      "frontend_entrypoints": null,
+      "api_groups": null,
+      "authority_surface": "promotion decision readback is evidence-only; provider auto-promotion remains blocked unless live quality replay closed",
+      "existing_cell_semantics": [
+        "C4.1/C4.2 supplementation/retry boundaries (promotion readback hangs off provider-independent quality gate)"
+      ],
+      "movement_ids": [
+        "C4-M001",
+        "C4-M002",
+        "C4-M003",
+        "C4-M004",
+        "C4-M005"
+      ],
+      "gap_ids": [],
+      "gaps": [],
+      "line_disposition": "UNASSIGNED_BLOCKER",
+      "successor_target": "UNKNOWN; C4.1/C4.2 structural plus provider-independent quality-gate owner",
+      "disposition_note": "No LegacyVsMovementGap row names search_quality_replay.py/executor_health.py; C4 movement rows cover agent_loop/planner/task_contract/API only. Evidence omission to be resolved by supervisor. Promotion readback files are not bound by C4 movement rows; freeze must decide whether C4.3 directory scope covers them or an additional gap/owner is required.",
+      "blocker_owner_when_unassigned": "B-recheck; agent-batch owner"
+    },
+    {
+      "business_line_id": "BL-dashboard-llm-report-detail-export-audit",
+      "business_line_key": null,
+      "kind": "service_surface",
+      "owner": "B-recheck; dashboard/report owner",
+      "donor_status": "DONOR_READ_ONLY_DESCRIBED",
+      "worker_required": null,
+      "async_task_readback_required": null,
+      "semantic_object": "Dashboard llm-report-detail readback of quality/export/audit/token records by trace/project/job plus dashboard report-from-filter synthesis and quality gate reconstruction.",
+      "user_task": null,
+      "donor_sources": [
+        {
+          "path": "main/backend/app/api/dashboard.py",
+          "byte_hash": "51b03a13cec438039593bc1b74ad071db7563a36",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/llm_report_export_audit.py",
+          "byte_hash": "4799746e4f9a4b7ea3a032dc24eec5376ac68640",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": false
+        },
+        {
+          "path": "main/backend/app/services/llm_report_export_token_state.py",
+          "byte_hash": "c311dc50acc8923d1e42b3109d174bf81005ff13",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": false
+        },
+        {
+          "path": "main/backend/app/services/llm_report_trends.py",
+          "byte_hash": "79deed264cdcb3f92e349efe3689a0631cc39db9",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": false
+        }
+      ],
+      "frontend_entrypoints": null,
+      "api_groups": null,
+      "authority_surface": "dashboard/report projection read authority only; UI/read model cannot become canonical source",
+      "existing_cell_semantics": [
+        "C8.3 report export admission (detail consumers)",
+        "UNKNOWN for dashboard report read-model lineage"
+      ],
+      "movement_ids": [
+        "C8-M003"
+      ],
+      "gap_ids": [
+        "GAP-llm-report-export-audit"
+      ],
+      "gaps": [
+        {
+          "gap_id": "GAP-llm-report-export-audit",
+          "semantic_object": "Durable LLM report export audit events and dashboard trace-level audit readback; no successor audit movement/cell exists",
+          "donor_paths": [
+            "main/backend/app/services/llm_report_export_audit.py",
+            "main/backend/app/models/llm_report_export_audit.py",
+            "main/backend/migrations/versions/20260524_000003_add_llm_report_export_audit_events.py"
+          ],
+          "target_worktree_present": false,
+          "suggested_successor_owner": "UNKNOWN; audit trail ownership must be adjudicated with report-admission/C8 and runtime observability",
+          "adjudication": "UNASSIGNED_BLOCKER",
+          "owner": "B-recheck; dashboard/report owner"
+        }
+      ],
+      "line_disposition": "UNASSIGNED_BLOCKER",
+      "successor_target": "UNKNOWN; report-admission/C8 and runtime observability adjudication required",
+      "disposition_note": "Durable export-audit events and dashboard trace readback have no successor audit movement/cell.",
+      "blocker_owner_when_unassigned": "B-recheck; dashboard/report owner"
+    },
+    {
+      "business_line_id": "BL-typed-knowledge-writing-composition",
+      "business_line_key": null,
+      "kind": "service_surface",
+      "owner": "B-recheck; typed-knowledge/writing owner",
+      "donor_status": "DONOR_READ_ONLY_DESCRIBED",
+      "worker_required": null,
+      "async_task_readback_required": null,
+      "semantic_object": "Typed knowledge objects, writing handoff boundary records, persistence-boundary/repository readback, governance review state, writing documents/drafts/citations/templates composition.",
+      "user_task": null,
+      "donor_sources": [
+        {
+          "path": "main/backend/app/api/typed_knowledge.py",
+          "byte_hash": "86f6b73f41f50f91fc17b742e02c1762e11783a4",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/api/writing.py",
+          "byte_hash": "a274a516f975de0d8f0e86a219b2bdd4a022c40d",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/typed_knowledge/persistence_boundary.py",
+          "byte_hash": "3f071ab778e4b3ecacf2fc6b7209126725b92d66",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/typed_knowledge/contracts.py",
+          "byte_hash": "d079128873cd9220338c6dbaacc991bcc5864b0d",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/models/typed_knowledge_entities.py",
+          "byte_hash": "b3e5de4900ee68820cb334a3d0d6707c258fa7d9",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/models/writing_entities.py",
+          "byte_hash": "e80d53a8e149f99e54eac5054e70964469ac70fb",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/writing/document_service.py",
+          "byte_hash": "388de2a092faf09bd373db9a31d75991b9101040",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/services/writing/template_service.py",
+          "byte_hash": "24d9e8f869a88fb78ff6146b067430ad41244967",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        }
+      ],
+      "frontend_entrypoints": null,
+      "api_groups": null,
+      "authority_surface": "typed-knowledge/writing artifact write authority; live DB-backed persistence remains a separate boundary",
+      "existing_cell_semantics": [
+        "C8.1 typed knowledge read handles",
+        "C8.2 writing composition artifacts",
+        "C8.4 graph consumer provenance loss"
+      ],
+      "movement_ids": [
+        "C8-M001",
+        "C8-M002",
+        "C8-M004",
+        "C8-M005"
+      ],
+      "gap_ids": [],
+      "gaps": [],
+      "line_disposition": "REIMPLEMENTED_AS",
+      "successor_target": "knowledge-core/C8, writing-core/C8, graph-projection/C8",
+      "disposition_note": "C8.1/C8.2/C8.4 movements map the typed-knowledge/writing composition surface; declared legacy convenience loss applies. Local-only, no authority.",
+      "blocker_owner_when_unassigned": null
+    },
+    {
+      "business_line_id": "BL-llm-report-trend-quality-records",
+      "business_line_key": null,
+      "kind": "service_surface",
+      "owner": "B-recheck; report trend owner",
+      "donor_status": "DONOR_READ_ONLY_DESCRIBED",
+      "worker_required": null,
+      "async_task_readback_required": null,
+      "semantic_object": "Persistent LLM report quality-trend/export-trend records and summary consumers across generate/export/dashboard detail.",
+      "user_task": null,
+      "donor_sources": [
+        {
+          "path": "main/backend/app/services/llm_report_trends.py",
+          "byte_hash": "79deed264cdcb3f92e349efe3689a0631cc39db9",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": false
+        },
+        {
+          "path": "main/backend/app/models/llm_report_trends.py",
+          "byte_hash": "f1e0e3b0d214396da7813361fe5e41963b3fdc93",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": false
+        },
+        {
+          "path": "main/backend/app/api/dashboard.py",
+          "byte_hash": "51b03a13cec438039593bc1b74ad071db7563a36",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/api/llm_report.py",
+          "byte_hash": "54746f68e02dc1ebbaefe77936a2175cf4b1575d",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        }
+      ],
+      "frontend_entrypoints": null,
+      "api_groups": null,
+      "authority_surface": "quality/export trend persistence and read authority; records are evidence traces, not proof of live provider quality",
+      "existing_cell_semantics": [
+        "UNKNOWN (no dedicated locator cell; trend record relates to C8.3 admission consumers)"
+      ],
+      "movement_ids": [
+        "C8-M003"
+      ],
+      "gap_ids": [
+        "GAP-llm-report-quality-trends"
+      ],
+      "gaps": [
+        {
+          "gap_id": "GAP-llm-report-quality-trends",
+          "semantic_object": "Persistent LLM report quality/export trend records and summary/detail consumers",
+          "donor_paths": [
+            "main/backend/app/services/llm_report_trends.py",
+            "main/backend/app/models/llm_report_trends.py",
+            "main/backend/migrations/versions/20260524_000002_add_llm_report_quality_trends.py",
+            "main/backend/app/api/llm_report.py",
+            "main/backend/app/api/dashboard.py"
+          ],
+          "target_worktree_present": false,
+          "suggested_successor_owner": "UNKNOWN; trend record is evidence-trace material, not a movement/cell in current C1-C9 map",
+          "adjudication": "UNASSIGNED_BLOCKER",
+          "owner": "B-recheck; report trend owner"
+        }
+      ],
+      "line_disposition": "UNASSIGNED_BLOCKER",
+      "successor_target": "UNKNOWN; report-admission/C8 consumer candidate",
+      "disposition_note": "Trend records are evidence-trace material with no movement/cell in the current C1-C9 map.",
+      "blocker_owner_when_unassigned": "B-recheck; report trend owner"
+    },
+    {
+      "business_line_id": "BL-runtime-health-matrix",
+      "business_line_key": null,
+      "kind": "service_surface",
+      "owner": "B-recheck; runtime ops owner",
+      "donor_status": "DONOR_READ_ONLY_DESCRIBED",
+      "worker_required": null,
+      "async_task_readback_required": null,
+      "semantic_object": "Passive full-stack runtime health matrix script producing latest-runtime-health-matrix.json with Docker/local modes, dependency health and process probes.",
+      "user_task": null,
+      "donor_sources": [
+        {
+          "path": "scripts/runtime_health_matrix.py",
+          "byte_hash": "7517d6d45771830a19cfb0684d74e26d5ef9eb8c",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": false
+        },
+        {
+          "path": "main/backend/app/main.py",
+          "byte_hash": "87d92c465b7cb411bd8e6e352e8b6dcb1447c595",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "scripts/build_business_line_async_readiness_artifact.py",
+          "byte_hash": "87a45149ff10ff30eea516a9f9a594f83899f219",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": false
+        }
+      ],
+      "frontend_entrypoints": null,
+      "api_groups": null,
+      "authority_surface": "passive health matrix generation authority; must not claim worker readiness or production closure",
+      "existing_cell_semantics": [
+        "UNKNOWN (ops-side runtime surface outside C1-C9 locator)"
+      ],
+      "movement_ids": [],
+      "gap_ids": [],
+      "gaps": [],
+      "line_disposition": "UNASSIGNED_BLOCKER",
+      "successor_target": "UNKNOWN; runtime ops shared surface",
+      "disposition_note": "No dedicated locator cell or gap row; shares runtime_health_matrix.py donor path with GAP-runtime-ops. No dedicated cell; runtime_health_matrix.py is donor path of GAP-runtime-ops.",
+      "blocker_owner_when_unassigned": "B-recheck; runtime ops owner"
+    },
+    {
+      "business_line_id": "BL-admin-crawler-cluechain-codexauth-keyword-stats",
+      "business_line_key": null,
+      "kind": "service_surface",
+      "owner": "B-recheck; admin/ops owner",
+      "donor_status": "DONOR_READ_ONLY_DESCRIBED",
+      "worker_required": null,
+      "async_task_readback_required": null,
+      "semantic_object": "Remaining backend surfaces not represented by the seven canonical lines: admin raw data/graphs, crawler management, clue chains, codex OAuth bootstrap/status, keyword/stats/prompt-time-density, skills invocation, project customization menu and run.",
+      "user_task": null,
+      "donor_sources": [
+        {
+          "path": "main/backend/app/api/admin.py",
+          "byte_hash": "59905edd01ab42bc29861e584619bb8d6f7eef6f",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/api/crawler.py",
+          "byte_hash": "f5a766d6dee595713103ee5dce0427c5197ed209",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/api/clue_chains.py",
+          "byte_hash": "cf3e3fce4af21cbac5b064586328f6cb194c5333",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/api/codex_auth.py",
+          "byte_hash": "7ae76b65ff70709855e22657f20e875775d19480",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/api/keywords.py",
+          "byte_hash": "c84e68cd69d376725f12822b2352abf2c6e5f8fc",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/api/stats.py",
+          "byte_hash": "9434a4aa89d37ec164f865feafbb2bae38fd4a29",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/api/skills.py",
+          "byte_hash": "b7f89bfd78ed97bb89e90b46671bcdfd6c43af24",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        },
+        {
+          "path": "main/backend/app/api/project_customization.py",
+          "byte_hash": "d1e83f5ee7d50de78afb4ec986250582cb3eaeec",
+          "byte_hash_kind": "git_blob_sha1_of_working_tree_bytes",
+          "tracked_at_donor_head": true
+        }
+      ],
+      "frontend_entrypoints": null,
+      "api_groups": null,
+      "authority_surface": "admin/crawler/auth/keyword/skill mutation and read authority as defined per API; no credential value inventory",
+      "existing_cell_semantics": [
+        "UNKNOWN (mixed legacy surfaces; C9.1 envelope applies structurally)"
+      ],
+      "movement_ids": [
+        "C9-M001"
+      ],
+      "gap_ids": [
+        "GAP-remaining-backend-surfaces"
+      ],
+      "gaps": [
+        {
+          "gap_id": "GAP-remaining-backend-surfaces",
+          "semantic_object": "Remaining tracked backend capability groups without dedicated successor cells: admin raw data, crawler management, clue chains, codex OAuth, keywords, stats/prompt-time density, skills and related service families",
+          "donor_paths": [
+            "main/backend/app/api/admin.py",
+            "main/backend/app/api/crawler.py",
+            "main/backend/app/api/clue_chains.py",
+            "main/backend/app/api/codex_auth.py",
+            "main/backend/app/api/keywords.py",
+            "main/backend/app/api/stats.py",
+            "main/backend/app/api/skills.py",
+            "main/backend/app/services/crawlers",
+            "main/backend/app/services/clue_chains",
+            "main/backend/app/services/extraction",
+            "main/backend/app/services/streamplus"
+          ],
+          "target_worktree_present": true,
+          "suggested_successor_owner": "UNKNOWN; only C9.1 envelope/structural alignment can be claimed today",
+          "adjudication": "UNASSIGNED_BLOCKER",
+          "owner": "B-recheck; admin/ops owner"
+        }
+      ],
+      "line_disposition": "UNASSIGNED_BLOCKER",
+      "successor_target": "UNKNOWN; C9.1 envelope only",
+      "disposition_note": "Remaining tracked backend groups have no dedicated successor cells; structural envelope is not capability ownership.",
+      "blocker_owner_when_unassigned": "B-recheck; admin/ops owner"
+    }
+  ],
+  "work_packages": [
+    {
+      "id": "WP-0",
+      "name": "supervisor scope freeze and blocker adjudication",
+      "target": "Resolve every UNASSIGNED_BLOCKER owner/successor and accept or amend this freeze draft; leave authority false.",
+      "inputs": [
+        "AllLinesMigrationScope.freeze.v1.json",
+        "AllLinesMigrationScope.freeze.v1.md",
+        "BackendDonorSurfaceInventory.v1.json",
+        "LegacyVsMovementGap.v1.json"
+      ],
+      "outputs": [
+        "supervisor freeze record",
+        "amended line adjudication if required"
+      ],
+      "allowed_read_write": [
+        "same all-lines-investigation evidence directory",
+        "supervisor-controlled freeze manifests"
+      ],
+      "acceptance": [
+        "line-level UNASSIGNED_BLOCKER count and every gap owner are explicit",
+        "candidate/authority remain null/false or a separately authorized milestone records change"
+      ]
+    },
+    {
+      "id": "WP-1",
+      "name": "donor byte closure and parity evidence binding",
+      "target": "Expand donor registry closure to every business-line and untracked family path (35 untracked registry files plus supplementary LegacyVsMovementGap paths), with byte and line closure and old-to-new movement parity.",
+      "inputs": [
+        "BackendDonorSurfaceInventory.v1.json",
+        "LegacyVsMovementGap.v1.json",
+        "p1-p3-semantic-movement-spec.v1.json"
+      ],
+      "outputs": [
+        "expanded donor path/byte registry",
+        "old-to-new movement matrix",
+        "parity/digestion checkers"
+      ],
+      "allowed_read_write": [
+        "evidence/all-lines-investigation and semantic-movement evidence directories only",
+        "no legacy donor or production writes"
+      ],
+      "acceptance": [
+        "every BL donor source and untracked family path resolves to a byte hash",
+        "parity counts match and UNASSIGNED gaps are reduced without changing authority"
+      ]
+    },
+    {
+      "id": "WP-2",
+      "name": "shared substrate and capability-spec generator convergence",
+      "target": "Freeze one shared typed substrate/program/capability-spec generator consumed by every successor family; do not duplicate per-lane stacks.",
+      "inputs": [
+        "P1FunctorizationEligibility.v1.json",
+        "p1-p3-semantic-movement-spec.v1.json",
+        "04 ledger phase P4 pilot tooling"
+      ],
+      "outputs": [
+        "shared substrate contracts",
+        "generator/matched artifacts and law tests"
+      ],
+      "allowed_read_write": [
+        "main/backend/app/successor_runtime and evidence/capability-spec* directories"
+      ],
+      "acceptance": [
+        "generator match/read-only check exit contract",
+        "law tests for identity/ordered composition",
+        "all families reuse shared substrate"
+      ]
+    },
+    {
+      "id": "WP-3",
+      "name": "worker-required canonical vertical slices",
+      "target": "Complete C7/C2/C3/C4/C5/C6/C8 vertical slices for ingest, search/discovery, source-library and writing worker-required lanes with readback and recovery; bind ingest registry and guard gaps after WP-0.",
+      "inputs": [
+        "WP-1 registry",
+        "WP-2 shared substrate",
+        "LegacyVsMovementGap mapped/loss rows"
+      ],
+      "outputs": [
+        "capability packets",
+        "vertical slice tests",
+        "lane readback evidence"
+      ],
+      "allowed_read_write": [
+        "successor_runtime packages and per-family test directories",
+        "legacy donor read-only"
+      ],
+      "acceptance": [
+        "per-lane parity/readback/recovery gates pass",
+        "line-level blocker count drops only with a supervisor record"
+      ]
+    },
+    {
+      "id": "WP-4",
+      "name": "horizontal service ports",
+      "target": "Adjudicate and implement request identity, task-readback metadata, single-source guard, agent-batch quality promotion and runtime health matrix as shared ports/effects over substrate.",
+      "inputs": [
+        "WP-0 dispositions",
+        "BackendDonorSurfaceInventory service_surface records"
+      ],
+      "outputs": [
+        "typed port contracts and effect interpreters",
+        "authority/recovery tests"
+      ],
+      "allowed_read_write": [
+        "successor_runtime horizontal ports and tests"
+      ],
+      "acceptance": [
+        "effect/failure/authority/recovery explicit",
+        "no credential value binding required for scope freeze"
+      ]
+    },
+    {
+      "id": "WP-5",
+      "name": "report export/audit/token/trend family",
+      "target": "Bind llm_report_export/audit/token_state/trends under C8.3 admission with durable one-time token, audit events and trend records.",
+      "inputs": [
+        "untracked donor family paths",
+        "C8-M003 movement record"
+      ],
+      "outputs": [
+        "C8.3 successor export/audit realization",
+        "token/audit/trend tests"
+      ],
+      "allowed_read_write": [
+        "successor_runtime C8/delivery packages and tests"
+      ],
+      "acceptance": [
+        "revocation/crash/recovery/admission digest closure",
+        "no live provider claim without separate authority milestone"
+      ]
+    },
+    {
+      "id": "WP-6",
+      "name": "remaining ops/governance/meta surfaces and loss profile",
+      "target": "Create successor cells or explicit declared-loss/no-call records for projects/config, dashboard/admin/governance, runtime ops, business-line evidence matrix and remaining backend surface; close the line-level UNASSIGNED_BLOCKER count.",
+      "inputs": [
+        "WP-0 freeze",
+        "BackendDonorSurfaceInventory uncovered_items",
+        "14 declared-loss/rejected rows"
+      ],
+      "outputs": [
+        "line-level disposition closure record",
+        "loss/no-call manifest"
+      ],
+      "allowed_read_write": [
+        "migration evidence and successor capability specs"
+      ],
+      "acceptance": [
+        "UNASSIGNED_BLOCKER == 0 at all-lines level",
+        "authority/cutover still false and separate"
+      ]
+    }
+  ],
+  "freeze_list": [
+    {
+      "kind": "referenced_evidence",
+      "path": "evidence/all-lines-investigation/BackendDonorSurfaceInventory.v1.json",
+      "sha256": "1328969a9d05a2d583f0ff0862c30de166b932c3ed3df3446ddc9ee5520492bd",
+      "bytes": 78549,
+      "lines": 1804
+    },
+    {
+      "kind": "referenced_evidence",
+      "path": "evidence/all-lines-investigation/LegacyVsMovementGap.v1.json",
+      "sha256": "401699e5237f776a72dc736c127e5d9d6ad4911d30fb381b583805ddc02c7af7",
+      "bytes": 33764,
+      "lines": 795
+    },
+    {
+      "kind": "referenced_evidence",
+      "path": "evidence/P1FunctorizationEligibility.v1.json",
+      "sha256": "16dac2d34f2cdcaeffa4718fe2e63733f48b29ad0ba64daab32ed011527d4642",
+      "bytes": 408332,
+      "lines": 7165
+    },
+    {
+      "kind": "referenced_evidence",
+      "path": "evidence/semantic-movement/p1-p3-semantic-movement-spec.v1.json",
+      "sha256": "2a96bb63d0e3b548173558959da9fc4421024f300d9c39daf6dda5f7b79e53d2",
+      "bytes": 99846,
+      "lines": 1065
+    },
+    {
+      "kind": "referenced_evidence",
+      "path": "04_functorial-successor-capability-ledger.json",
+      "sha256": "f6fb3748ea30522712ed510f52c5163e9d67fae8b6a162ad7af5acbbefc6d36e",
+      "bytes": 85163,
+      "lines": 1535
+    },
+    {
+      "kind": "this_scope_document",
+      "path": "evidence/all-lines-investigation/AllLinesMigrationScope.freeze.v1.json",
+      "sha256": null,
+      "bytes": null,
+      "lines": null,
+      "binding": "EXTERNAL_POST_DRAFT",
+      "note": "Self hash/bytes/lines are bound externally on this draft; supervisor freeze pass replaces with a frozen receipt."
+    },
+    {
+      "kind": "this_scope_document",
+      "path": "evidence/all-lines-investigation/AllLinesMigrationScope.freeze.v1.md",
+      "sha256": null,
+      "bytes": null,
+      "lines": null,
+      "binding": "EXTERNAL_POST_DRAFT",
+      "note": "Self hash/bytes/lines are bound externally on this draft; supervisor freeze pass replaces with a frozen receipt."
+    }
+  ],
+  "risk_summary": [
+    "16 of 18 business-line records remain UNASSIGNED_BLOCKER at line level; 15 unmapped-gap rows and an evidence omission for agent-batch quality promotion require supervisor adjudication.",
+    "35 donor registry files and the named untracked families are absent from clean donor HEAD and the migration worktree; byte freeze depends on working-tree snapshots, not git commits.",
+    "C7 movement matrix is external and not promoted; 04 ledger wording is internal/pending and grants no promotion.",
+    "No live provider, external delivery, business authority transfer or cutover authority is claimed.",
+    "Directory-level donor paths in LegacyVsMovementGap (crawlers, graph, indexer, writing and related families) are not expanded in BackendDonorSurfaceInventory; WP-1 must expand them before a byte-closure freeze.",
+    "This draft does not bind its own byte hash (self-reference); actual SHA-256/bytes/lines are reported externally in the handoff and must be sealed by the supervisor freeze pass."
+  ]
+}

@@ -1,0 +1,144 @@
+{
+  "schema": "mrw.functorial_successor.all_lines.s2_closure.amendment.v1",
+  "version": "1.0.0",
+  "record_id": "AllLinesS2Closure.amendment.v1",
+  "date": "2026-09-02",
+  "generated_at_utc": "2026-09-02T15:20:00Z",
+  "status": "S2_CELL_RUNTIME_BINDINGS_CLOSED_LOCAL_ONLY_NOT_PROMOTED",
+  "method": "Each S1 horizontal port was wired into its owner-cell runtime surface, focused S2 tests plus S1/I1 regressions were run, and inventory rows ALL-SM-010..013 were reclassified from UNASSIGNED_BLOCKER to REIMPLEMENTED_AS with code and test acceptance traces. No canonical/live/provider/cutover authority is granted and no commit was created.",
+  "scope": "Additive S2 closure record for ALL-SM-010..013. It updates only evidence/all-lines-investigation/AllLinesSuccessorMovementInventory.v1.json and adds this amendment. Frozen scope bytes, capability specs, manifests, 03/04/SUPERVISOR and the source checkout are unchanged.",
+  "worktree": {
+    "root": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0",
+    "branch": "codex/functorial-successor-p0",
+    "head_sha": "38acdee8862af0971ca063507b8355812894fbce",
+    "committed": false,
+    "dirty_worktree_ownership_preserved": true
+  },
+  "authority_ceiling": {
+    "canonical_write": false,
+    "live_provider": false,
+    "external_delivery": false,
+    "cutover": false,
+    "authority_transfer": false,
+    "scheduler": false,
+    "executor": false,
+    "credential_read": false,
+    "candidate_created": false,
+    "legacy_retired": false
+  },
+  "summary": {
+    "closure_count": 4,
+    "previous_business_line_blockers": 16,
+    "remaining_business_line_blockers": 12,
+    "reimplemented_business_lines": 6,
+    "unassigned_movement_records": 14,
+    "s2_focused_tests": "71 passed",
+    "s1_or_s2_or_i1_tests": "145 passed, 2 skipped",
+    "dependency_lint_ok": true,
+    "collection_ok": true
+  },
+  "closure_records": [
+    {
+      "movement_id": "ALL-SM-010",
+      "business_line_id": "BL-request-identity",
+      "port_id": "s1.ALL-SM-010.request_identity.v1",
+      "owner_cells": ["C9.1"],
+      "previous_disposition": "UNASSIGNED_BLOCKER",
+      "disposition": "REIMPLEMENTED_AS",
+      "closing_status": "CLOSED",
+      "s1_status_superseded": "S1 DECLARED_PURE_PORT_NO_RUNTIME_BINDING is superseded by C9_1FacadeValidationRouteHandler.execute consuming resolve_request_actor_context/require_trusted_actor_context before facade read",
+      "target_realization": [
+        "main/backend/app/successor_runtime/assembly/c9_assembly.py"
+      ],
+      "acceptance_trace": [
+        "main/backend/tests/successor_runtime/test_s2_request_identity.py::test_c9_1_route_execute_consumes_request_identity_port",
+        "main/backend/tests/successor_runtime/test_s2_request_identity.py::test_untrusted_request_actor_fails_closed_before_facade",
+        "main/backend/tests/successor_runtime/test_s2_request_identity.py::test_request_actor_mismatch_fails_closed_before_facade"
+      ],
+      "authority_note": "Trusted-actor resolution only; all runtime authority flags remain false"
+    },
+    {
+      "movement_id": "ALL-SM-011",
+      "business_line_id": "BL-task-readback-metadata",
+      "port_id": "s1.ALL-SM-011.line_event_readback.v1",
+      "owner_cells": ["C5.4"],
+      "previous_disposition": "UNASSIGNED_BLOCKER",
+      "disposition": "REIMPLEMENTED_AS",
+      "closing_status": "CLOSED",
+      "s1_status_superseded": "S1 pure port is superseded by project_line_event_readbacks and C5_4LineEventReadbackRouteHandler.execute calling LineEventReadbackPort.readback/build_payload",
+      "target_realization": [
+        "main/backend/app/successor_runtime/substrate/projections/legacy_process.py",
+        "main/backend/app/successor_runtime/assembly/c5_assembly.py"
+      ],
+      "acceptance_trace": [
+        "main/backend/tests/successor_runtime/test_s2_line_event_readback.py::test_projection_calls_readback_port_and_builds_payload",
+        "main/backend/tests/successor_runtime/test_s2_line_event_readback.py::test_undecidable_readback_is_projected_without_terminal_fabrication",
+        "main/backend/tests/successor_runtime/test_s2_line_event_readback.py::test_c5_assembly_route_handler_executes_readback_projection"
+      ],
+      "authority_note": "Readback projection only; terminal persistence requires explicit terminal event and no authority flag is true"
+    },
+    {
+      "movement_id": "ALL-SM-012",
+      "business_line_id": "BL-single-source-guard",
+      "port_id": "s1.ALL-SM-012.single_source_guard.v1",
+      "owner_cells": ["C2.3"],
+      "previous_disposition": "UNASSIGNED_BLOCKER",
+      "disposition": "REIMPLEMENTED_AS",
+      "closing_status": "CLOSED",
+      "s1_status_superseded": "S1 pure port is superseded by SingleSourceGuardedProviderGateway and C2_3StoreRehydratedHandler.single_source_guard_port before gateway.execute",
+      "target_realization": [
+        "main/backend/app/successor_runtime/capabilities/source_library_c2_3_guard_runtime.py",
+        "main/backend/app/successor_runtime/substrate/postgres/source_library_c2_23_canary.py",
+        "main/backend/app/successor_runtime/assembly/c2_assembly.py"
+      ],
+      "acceptance_trace": [
+        "main/backend/tests/successor_runtime/test_s2_single_source_guard.py::test_admitted_guard_runs_port_then_dispatch",
+        "main/backend/tests/successor_runtime/test_s2_single_source_guard.py::test_rejected_guard_never_dispatches",
+        "main/backend/tests/successor_runtime/test_s2_single_source_guard.py::test_c2_assembly_installs_guarded_gateway_around_c23_dispatch"
+      ],
+      "authority_note": "Guard admission never grants dispatch authority; rejected guards keep provider_calls zero"
+    },
+    {
+      "movement_id": "ALL-SM-013",
+      "business_line_id": "BL-agent-batch-quality-promotion-readback",
+      "port_id": "s1.ALL-SM-013.quality_promotion.v1",
+      "owner_cells": ["C4.1", "C4.2", "C4.3"],
+      "previous_disposition": "UNASSIGNED_BLOCKER",
+      "disposition": "REIMPLEMENTED_AS",
+      "closing_status": "CLOSED",
+      "s1_status_superseded": "S1 pure port is superseded by C4QualityPromotionRuntimeHandler.execute calling evaluate_quality_promotion_gate",
+      "target_realization": [
+        "main/backend/app/successor_runtime/substrate/postgres/agent_batch_c4_quality_promotion_handler.py",
+        "main/backend/app/successor_runtime/assembly/c4_assembly.py",
+        "main/backend/app/successor_runtime/assembly/base.py"
+      ],
+      "acceptance_trace": [
+        "main/backend/tests/successor_runtime/test_s2_quality_promotion.py::test_c4_quality_handler_invokes_gate_without_authority_or_effects",
+        "main/backend/tests/successor_runtime/test_s2_quality_promotion.py::test_missing_live_evidence_holds_and_rejects_input_promotion_claim",
+        "main/backend/tests/successor_runtime/test_s2_quality_promotion.py::test_c4_assembly_installs_quality_promotion_handler_with_evidence"
+      ],
+      "authority_note": "Promotion decision is readback-only; authority and effect counters stay false/zero"
+    }
+  ],
+  "inventory_sha256": "f11b0e697b67b5a7da125179bc8bd61ce50ad7f15ac686c64fcb56dbc62c9815",
+  "changed_files_sha256": {
+    "main/backend/app/successor_runtime/assembly/base.py": "61cf813e4e7c8c0e7b1857957e4c8903fd795d08091a0ca0f35b62c3c9541b0f",
+    "main/backend/app/successor_runtime/assembly/c2_assembly.py": "3f1453d1810589489642a60f7a4548b8e9267c82bcd3d3c39b792e1a1979d6f9",
+    "main/backend/app/successor_runtime/assembly/c4_assembly.py": "d9be23d0a49e0c3757375714a197a595ef5e3be53cb587b96d86930751fe5cd0",
+    "main/backend/app/successor_runtime/assembly/c5_assembly.py": "c03bbff8121a702e96af07a68043fa7c462641f5d37c4ddbddef1b4b44e71e55",
+    "main/backend/app/successor_runtime/assembly/c9_assembly.py": "445833595ee3b3e3a4d43f5aea4a40e55f077fbe188aa7f100abe4ebd0736432",
+    "main/backend/app/successor_runtime/capabilities/source_library_c2_3_guard_runtime.py": "ff9e1de5626e1c18953b9e25fc559882a43716b225cf7df75ba3128b8b242879",
+    "main/backend/app/successor_runtime/substrate/postgres/agent_batch_c4_quality_promotion_handler.py": "121e55ce4476a729381d796fa791a8de20501e049d5adf471cfd6f4af7dcf162",
+    "main/backend/app/successor_runtime/substrate/postgres/source_library_c2_23_canary.py": "31c38b7348df4d08a92f3ebc0673da5b4c41a8b56859f704f31f7a2706238a8c",
+    "main/backend/app/successor_runtime/substrate/projections/legacy_process.py": "003bcfb9837554b4c609778841452387959f97890c39fa6c8787b004bd8c41b3",
+    "main/backend/tests/successor_runtime/test_s2_line_event_readback.py": "9b11c9bc362ac10b517ee1dd3577ef88f8fdea3aab0134b24dc9d4af5f2130a3",
+    "main/backend/tests/successor_runtime/test_s2_quality_promotion.py": "6bc387a5d27907ff9202dddc329426aee0b52f08e01b3af016b97b81c23e1e70",
+    "main/backend/tests/successor_runtime/test_s2_request_identity.py": "6196391f50edf996535196a0e8c0976daa04c8e5a6cfcd6d60635794298038e7",
+    "main/backend/tests/successor_runtime/test_s2_single_source_guard.py": "a52b16a8715fa327d67f164689212f52abb235bd96fb7d1e3f16cba459968c1b"
+  },
+  "risks": [
+    "S2 closure is local-only implementation evidence; no promotion, canonical/live provider, cutover or legacy-retirement claim is made",
+    "S1 registry file remains a historical pure-port record; this amendment supersedes its no-runtime-binding status at evidence level only",
+    "C4 quality evidence is an assembly-supplied deterministic closure; no live provider replay or executor health collection is performed"
+  ]
+}

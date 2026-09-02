@@ -1,0 +1,169 @@
+{
+  "schema": "mrw.functorial_successor.i2_exact_candidate_final_review.v1",
+  "verdict": "PASS_EXACT_CANDIDATE",
+  "candidate": {
+    "commit": "452611fccb69188477f277550a7f8b6c98b4724c",
+    "tree": "94a4038390ea8aeb70864ea67720d225576129d8",
+    "branch": "codex/functorial-successor-p0"
+  },
+  "tree": "94a4038390ea8aeb70864ea67720d225576129d8",
+  "date": "2026-09-02",
+  "reviewer": "independent-i2-exact-candidate-final-review-v4",
+  "candidate_created": true,
+  "promotion": false,
+  "binding": {
+    "convention_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/reviews/I1EvidenceCandidateBindingConvention.v1.json",
+    "convention_sha256": "2afc006edc1d527548c0fbd0438091dcac111a442273a6bcf316130157ec08b6",
+    "convention_blob": "0c841451025908518ffa2b1346a3e7a34145d023",
+    "content_digest_recomputed": "ff3a969c663397ba70b3389754504a0724f55802e37dbc2c9725901f2c155202",
+    "source_identical_commit": "1825870a9623dd256fa075053ab89d786c84b6bd",
+    "source_identical_tree": "63bcc270edf9e880ef04dfeb9413b9c634956bbb",
+    "diff_only_evidence_files": true
+  },
+  "items": [
+    {
+      "id": "freeze_members_immutable",
+      "status": "PASS",
+      "detail": "SHA-256/bytes/lines vs 02 manifest: ALL_MATCH 16/16; exit 0"
+    },
+    {
+      "id": "i1_suite_official",
+      "status": "PASS",
+      "detail": "env -u SUCCESSOR_TEST_DATABASE_URL -u SUCCESSOR_DATABASE_URL python3.11 -m pytest -q -p no:cacheprovider tests/successor_runtime -k i1 = 55 passed / 1461 deselected / 0 failed; exit 0; no collection error"
+    },
+    {
+      "id": "successor_router_mount_test",
+      "status": "PASS",
+      "detail": "test_api_successor_runtime_mount.py = 15 passed; exit 0"
+    },
+    {
+      "id": "successor_router_mount_c9_closure",
+      "status": "PASS",
+      "detail": "test_api_successor_runtime_mount.py + test_c9_movement_closure_backend.py = 35 passed; exit 0"
+    },
+    {
+      "id": "i1_mount_c9_combined",
+      "status": "PASS",
+      "detail": "-k 'i1 or api_successor_runtime or c9_movement_closure' = 128 passed / 1388 deselected / 0 failed; exit 0"
+    },
+    {
+      "id": "p0b_schema_contract",
+      "status": "PASS",
+      "detail": "test_p0b_schema_contract.py = 6 passed; exit 0; candidate includes migrations/versions/_snapshots/20260830_000001_successor_schema.py"
+    },
+    {
+      "id": "full_non_pg_successor_runtime_official",
+      "status": "PASS",
+      "detail": "env -u SUCCESSOR_TEST_DATABASE_URL -u SUCCESSOR_DATABASE_URL python3.11 -m pytest -q -p no:cacheprovider tests/successor_runtime = 1399 passed / 117 skipped / 0 failed; exit 0; no SUCCESSOR_* env vars set"
+    },
+    {
+      "id": "semantic_movement_generator_check",
+      "status": "PASS",
+      "detail": "CHECK_OK 60/0 (inline 40 + external_c7 20, exact_blockers 0); exit 0"
+    },
+    {
+      "id": "semantic_movement_validator",
+      "status": "PASS",
+      "detail": "PASS 14/14; evidence_refs resolved 323/323, unresolved 0, unassigned_blocker_count 0; exit 0"
+    },
+    {
+      "id": "capability_spec_cli_30_of_30",
+      "status": "PASS",
+      "detail": "30 x generate_capability_spec_pilots.py --spec <cell> --runtime-kernel-abi RuntimeKernelABI.v1.json --output <cell>.BuildManifest.v1.json --check = MATCH 30/30; exit 0 each"
+    },
+    {
+      "id": "c7_canonical_write_projector_pg",
+      "status": "PASS",
+      "detail": "59 passed (9 canonical-write/projector + 50 movement admission) on disposable databases; exit 0; before/after pg_database lists identical; no leftover databases"
+    },
+    {
+      "id": "c9_2_frontend_tsc",
+      "status": "PASS",
+      "detail": "./node_modules/.bin/tsc -b --pretty false; exit 0"
+    },
+    {
+      "id": "c9_2_frontend_playwright",
+      "status": "PASS",
+      "detail": "./node_modules/.bin/playwright test tests/e2e/successor-runtime-observation.spec.ts tests/e2e/successor-runtime-client.spec.ts --reporter=line --workers=1 = 60 passed (44 + 16); exit 0"
+    },
+    {
+      "id": "dependency_lint",
+      "status": "PASS",
+      "detail": "check_successor_runtime_dependencies.py ok=true, files_checked=209, function_local_imports_scanned=43, violations=0; exit 0"
+    },
+    {
+      "id": "candidate_worktree_clean",
+      "status": "PASS",
+      "detail": "detached HEAD=452611fccb69188477f277550a7f8b6c98b4724c; tree=94a4038390ea8aeb70864ea67720d225576129d8; tracked git status clean"
+    },
+    {
+      "id": "evidence_binding_and_counts",
+      "status": "PASS",
+      "detail": "7 I1 evidence head/commit/tree = 1825870a9623dd256fa075053ab89d786c84b6bd / 63bcc270edf9e880ef04dfeb9413b9c634956bbb; I1C8_3DeliveryEvidence route_mounted=true; run counts match actuals (55/1399/117/0, 35/128, 59, 60, 209/43/0); file SHA claims match candidate bytes; binding convention digest self-consistent; candidate diff vs source-identical commit contains only evidence files"
+    },
+    {
+      "id": "live_provider_boundary_freeze",
+      "status": "PASS",
+      "detail": "LiveProviderBoundaryFreeze.v1.json present; status LIVE_PROVIDER_DIMENSION_FROZEN_AS_BLOCKED; authority all false; candidate null"
+    }
+  ],
+  "open_findings": [
+    {
+      "priority": "P1",
+      "id": "P1-1",
+      "title": "I1AssemblyCoverage internal drift",
+      "detail": "Top-level route_mounted=true and coverage 30 INSTALLED, but cell owner notes still say 'WP-I1-06 route mounting remains closed' and unresolved_dimensions still lists C9.API_UI_REPORT_PROJECTION unknown cell reference. Carried from v3; does not block exact-candidate byte acceptance.",
+      "evidence": "evidence/i1-successor-assembly/I1AssemblyCoverage.v1.json owner notes and unresolved_dimensions"
+    },
+    {
+      "priority": "P2",
+      "id": "P2-1",
+      "title": "registry smoke command not self-contained",
+      "detail": "I1TestEvidence.v1.json runs[0] command lacks imports/engine argument as written; cannot reproduce verbatim. Carried from v2/v3.",
+      "evidence": "evidence/i1-successor-assembly/I1TestEvidence.v1.json runs[0]"
+    },
+    {
+      "priority": "P2",
+      "id": "P2-2",
+      "title": "unknown C9.API_UI_REPORT_PROJECTION cell reference",
+      "detail": "I1AssemblyCoverage.v1.json unresolved_dimensions lists C9.API_UI_REPORT_PROJECTION not present in the 30-cell inventory. Carried from v2/v3.",
+      "evidence": "evidence/i1-successor-assembly/I1AssemblyCoverage.v1.json unresolved_dimensions"
+    },
+    {
+      "priority": "P2",
+      "id": "P2-3",
+      "title": "P2C21 capability packet source bindings stale",
+      "detail": "P2C21CapabilityPacket.v1-v4 source_bindings still mismatch candidate bytes (v1 2 mismatches, v2/v3 3, v4 1); v5 has 17/17 matching bindings. Carried from v2/v3 with updated v5 status.",
+      "evidence": "evidence/P2C21CapabilityPacket.v1.json through v5 vs candidate bytes"
+    },
+    {
+      "priority": "P2",
+      "id": "P2-4",
+      "title": "candidate-embedded review/supervisor records behind",
+      "detail": "Candidate-embedded 05_functorial-successor-final-review.md is still the v1 record; evidence/SUPERVISOR_REVIEW_REQUEST.md lacks I2 v1/v2/v3 BLOCK and fix-stage records. v4 review is written only to the main worktree per this round's instructions.",
+      "evidence": "candidate tree 05 file and evidence/SUPERVISOR_REVIEW_REQUEST.md"
+    },
+    {
+      "priority": "P2",
+      "id": "P2-5",
+      "title": "content_sha256_before_self_field unverifiable",
+      "detail": "I1C7CanonicalWriteEvidence.v1.json content_sha256_before_self_field was not recomputed after head field changes and no in-repo verifier exists. Carried from v3.",
+      "evidence": "evidence/i1-successor-assembly/I1C7CanonicalWriteEvidence.v1.json"
+    }
+  ],
+  "authority": {
+    "canonical_write": false,
+    "live_provider": false,
+    "external_delivery": false,
+    "cutover": false,
+    "authority_transfer": false,
+    "production_canonical_write": false
+  },
+  "risks": [
+    "Frontend tsc and Playwright used a node_modules symlink from the main worktree; pnpm install was not rerun.",
+    "PG coverage limited to the two C7 files (59 passed); other PG opt-in files were not rerun this round.",
+    "Historical I1PgEvidence.*.md and I1SuccessorAssembly.v1.md records still contain earlier head/counts (35ca039c, 50/1370 etc.); they are dated historical evidence, not part of the 7-file JSON binding set.",
+    "Binding convention instance records previous candidate a48acbee/6315e002; the actual candidate 452611fc/94a40383 is bound externally by this review artifact.",
+    "PASS_EXACT_CANDIDATE does not authorize live/cutover/provider/canonical production write."
+  ]
+}

@@ -1,0 +1,172 @@
+{
+  "schema": "mrw.functorial_successor.all_lines.p1_closure_independent_review.v1",
+  "record_id": "AllLinesP1ClosureIndependentReview.v1",
+  "version": "1.0.0",
+  "date": "2026-09-02",
+  "generated_at_utc": "2026-09-02T15:41:10Z",
+  "review_kind": "independent_all_lines_p1_closure_review",
+  "review_gate": "P1 component-decision reasons, closure supersede marker and all-lines successor movement inventory acceptance",
+  "reviewer_task": "/root/all_lines_p1_review",
+  "verdict": "PASS_P1_CLOSURE_REVIEWED",
+  "status": "REVIEW_COMPLETE",
+  "worktree": {
+    "root": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0",
+    "branch": "codex/functorial-successor-p0",
+    "head_sha": "38acdee8862af0971ca063507b8355812894fbce",
+    "committed": false
+  },
+  "reviewed_artifacts": [
+    {
+      "artifact": "AllLinesP1Closure.addendum.v1.json",
+      "sha256": "c7bc77eeaca3e88e338c4381344dfd23fce3fe96c4088cad6f3fa3bc1f4fe24c"
+    },
+    {
+      "artifact": "AllLinesClosureStatus.v1.json",
+      "sha256": "8c371ef212adf2d4b8df6aa45f01f49dc070c2c3bc8baaba8ea2ce6c5dc6fcc2"
+    },
+    {
+      "artifact": "AllLinesSuccessorMovementInventory.v1.json",
+      "sha256": "08fad9f59a5c588ca86085410efc792d33114903d4723038f50f46c0f858510d"
+    },
+    {
+      "artifact": "AllLinesS2Closure.amendment.v1.json",
+      "sha256": "4e55bf96f482d56217b2142a492f0bab4c545149702b3e7c325dec20bd1e31bf"
+    },
+    {
+      "artifact": "AllLinesS2bClosure.amendment.v1.json",
+      "sha256": "1c9e92156579c7cf857bf08cddefa2cb124f3c20b72de4f7b1ded35eff1a6f77"
+    },
+    {
+      "artifact": "AllLinesS2cClosure.amendment.v1.json",
+      "sha256": "1244e285dda1ca9bdfa9b0eafe5cf95c134dcc03d09e3688bcd60d7501fd9d70"
+    },
+    {
+      "artifact": "AllLinesFinalRebind.amendment.v1.json",
+      "sha256": "92e69d9ad206a05a195005de52131612ec0f7ef1d5ada13549380f72282cb295"
+    },
+    {
+      "artifact": "AllLinesMigrationScope.freeze.v1.json",
+      "sha256": "d983a922e5c9724922506141c1d25d08a8aec278359bdc4f85ceb6dbf717e756"
+    },
+    {
+      "artifact": "AllLinesDispositions.amendment.v1.json",
+      "sha256": "e9f674e056cd4834dcd5c5c9f3b2fb0e28f2305b67f3a860bc7d8b48238fff78"
+    },
+    {
+      "artifact": "LegacyVsMovementGap.v1.json",
+      "sha256": "401699e5237f776a72dc736c127e5d9d6ad4911d30fb381b583805ddc02c7af7"
+    }
+  ],
+  "blocking_findings": [],
+  "open_findings": [
+    {
+      "id": "P1_ADDENDUM_AND_STATUS_POSTDATED_REVIEW",
+      "severity": "NOTE",
+      "detail": "AllLinesP1Closure.addendum.v1.json and AllLinesClosureStatus.v1.json are newer than the original all-lines double-gate reviews; this independent review closes that gap for the addendum and supersede marker only, and records its own recomputed SHA for the status file whose self-SHA field is intentionally null.",
+      "resolution_required": "None for this closure review."
+    },
+    {
+      "id": "NO_DEDICATED_ALL_LINES_SCHEMA_VALIDATOR",
+      "severity": "NOTE",
+      "detail": "The repository P1P3 semantic generator/validator is bound to the 60-row P1P3/C7 bundle, not the 20-row all-lines JSON schema; all-lines row-level consistency was verified by read-only structured checks in this review.",
+      "resolution_required": "None for this local-only P1 closure review."
+    },
+    {
+      "id": "FULL_NON_PG_AND_PG_NOT_RERUN",
+      "severity": "NOTE",
+      "detail": "Full non-PG (1565 passed / 119 skipped / 0 failed / 3 warnings) and 39-file PG dedicated-library results (353 passed / 0 failed) are cited from PgEvidence.AllLines.2026-09-02.md, not re-executed in this review.",
+      "resolution_required": "None; evidence report date and worktree HEAD match the reviewed objects."
+    }
+  ],
+  "non_claims": [
+    "PASS_P1_CLOSURE_REVIEWED is a bounded evidence review; it does not grant promotion, candidate acceptance, canonical write, authority transfer, live-provider, cutover, scheduler, executor or legacy-retirement authority.",
+    "0 UNASSIGNED_BLOCKER is current local movement-inventory evidence and does not supersede frozen bytes, production code or spec/manifest authority ceilings.",
+    "This review wrote only the review JSON under evidence/all-lines-investigation/reviews."
+  ],
+  "authority_ceiling": {
+    "authority_transfer": false,
+    "business_authority_migrated": false,
+    "canonical_write": false,
+    "candidate_created": false,
+    "credential_read": false,
+    "cutover": false,
+    "executor": false,
+    "external_delivery": false,
+    "legacy_retired": false,
+    "live_provider": false,
+    "promotion": false,
+    "scheduler": false,
+    "successor_claim_enabled_for_all_lines": false
+  },
+  "checks": [
+    {
+      "command": "shasum -a 256 on the ten reviewed artifacts",
+      "exit_code": 0,
+      "result": "All disk SHA-256 values match the reviewed_artifacts list, the AllLinesClosureStatus superseding_closure_chain/historical_state_records values, and the task-provided prefixes."
+    },
+    {
+      "command": "read-only structured diff of 14 addendum entries against S2c component decisions",
+      "exit_code": 0,
+      "result": "Exact set match: 14 = 12 EXPLICITLY_REJECTED + 2 DECLARED_LOSS; movement_id/component_kind/decision pairing is unique and matches AllLinesS2cClosure.amendment.v1.json."
+    },
+    {
+      "command": "read-only structured check of decision_owner, reason and normative_ref",
+      "exit_code": 0,
+      "result": "14/14 entries have non-empty owner and reason; governance refs land on DECLARED_LOSS (106-107) or EXPLICITLY_REJECTED (108-109) lines; S2c/freeze/inventory JSON pointers resolve and match row/business-line/component content; 0 problems."
+    },
+    {
+      "command": "read-only authority scan across P1/status/inventory/S2/S2b/S2c/FinalRebind/dispositions/freeze",
+      "exit_code": 0,
+      "result": "No truthy authority_ceiling field in any reviewed object; statuses carry LOCAL_ONLY_NOT_PROMOTED or equivalent wording."
+    },
+    {
+      "command": "read-only supersede chain audit for AllLinesClosureStatus.v1.json",
+      "exit_code": 0,
+      "result": "5/5 superseding_closure_chain SHAs and 3/3 historical_state_records SHAs match disk; no live/cutover/authority/promotion field is true."
+    },
+    {
+      "command": "read-only inventory summary versus row-level reconciliation",
+      "exit_code": 0,
+      "result": "20 rows = 18 business lines + 2 supplementary gaps; dispositions 18+2 REIMPLEMENTED_AS; closing_status 18 CLOSED + 2 NON_BLOCKER_RECORD; freeze-row business_line_id mapping 18/18 correct; summary counters match rows."
+    },
+    {
+      "command": "read-only acceptance-trace resolution for ALL-SM-007 and ALL-SM-015",
+      "exit_code": 0,
+      "result": "53 + 4 trace entries checked; every file::symbol resolves to an existing file and def; 0 unresolved."
+    },
+    {
+      "command": "python3.11 -B scripts/generate_successor_p1_p3_semantic_movement.py --repo-root <worktree> --output-root <worktree> --check",
+      "cwd": "main/backend",
+      "exit_code": 0,
+      "result": "CHECK_OK exact_blockers=0 total_movements=60 inline=40 external_c7=20."
+    },
+    {
+      "command": "python3.11 -B scripts/validate_successor_semantic_movement.py --repo-root <worktree> --output-root <worktree>",
+      "cwd": "main/backend",
+      "exit_code": 0,
+      "result": "PASS 14 checks; evidence_refs_resolve 323/323; exact_blockers 0."
+    },
+    {
+      "command": "30 x python3.11 -B scripts/generate_capability_spec_pilots.py --spec <cell>.v1.json --runtime-kernel-abi RuntimeKernelABI.v1.json --output <cell>.BuildManifest.v1.json --check",
+      "exit_code": 0,
+      "result": "SPEC_CHECK OK=30 FAIL=0."
+    },
+    {
+      "command": "python3.11 -m pytest -q --assert=plain -p no:cacheprovider on 17 current S1/S2/S2b/S2c focused test files",
+      "cwd": "main/backend",
+      "exit_code": 0,
+      "result": "140 passed in 0.65s."
+    },
+    {
+      "command": "read-only freeze/dispositions counter audit",
+      "exit_code": 0,
+      "result": "Freeze UNASSIGNED_BLOCKER 16 / REIMPLEMENTED_AS 2; dispositions after-recommendation UNASSIGNED_BLOCKER 16 / REIMPLEMENTED_AS 2; all blocker owners and successor targets named."
+    }
+  ],
+  "risks": [
+    "All historical freeze/gap/disposition documents remain byte-identical; consumers must read AllLinesClosureStatus.v1.json before using their line-state counters as current state.",
+    "The 20-row all-lines inventory is evidence-level closure, not a substitute for an all-lines schema validator or a promotion/cutover milestone.",
+    "Amendment test counts in historical records are self-reported except for the focused S1/S2/S2b/S2c files re-executed in this review; full non-PG and PG evidence are cited from PgEvidence.AllLines.2026-09-02.md."
+  ],
+  "write_scope": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/reviews/AllLinesP1ClosureIndependentReview.v1.json"
+}

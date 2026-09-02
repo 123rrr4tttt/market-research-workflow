@@ -1,0 +1,3410 @@
+{
+  "schema": "mrw.functorial_successor.all_lines_donor_byte_closure.v1",
+  "evidence_kind": "donor_file_level_byte_closure",
+  "status": "OBSERVED_BYTE_CLOSURE_NOT_PROMOTION",
+  "generated_at_utc": "2026-09-02T13:45:26Z",
+  "scope": {
+    "donor_checkout": {
+      "root": "/Users/wangyiliang/market-research-workflow",
+      "branch": "codex/devdocs-supervisor-seed",
+      "head": "35ca039c59d2efae8038a678995e8a0812032e43",
+      "dirty_working_tree_change_count": 606,
+      "read_only": true
+    },
+    "migration_worktree": {
+      "root": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0",
+      "branch": "codex/functorial-successor-p0",
+      "head": "38acdee8862af0971ca063507b8355812894fbce"
+    },
+    "write_boundary": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation",
+    "credential_boundary": "credential values intentionally not read; byte hashes cover file content only"
+  },
+  "inputs": [
+    "AllLinesMigrationScope.freeze.v1.json",
+    "BackendDonorSurfaceInventory.v1.json",
+    "LegacyVsMovementGap.v1.json"
+  ],
+  "method": {
+    "byte_source": "donor working tree bytes",
+    "hash_algorithm": "sha256",
+    "blob_hash_algorithm": "git blob sha1 of working tree bytes",
+    "tracked_source": "git ls-files index of donor checkout",
+    "directory_expansion_rule": "recursive regular files under each directory reference, excluding __pycache__, .git, node_modules and *.pyc/*.pyo",
+    "notes": [
+      "AllLinesMigrationScope.source_registry and BackendDonorSurfaceInventory.source_file_registry are the same 130 paths.",
+      "Every file-level entry has sha256, bytes and lines read from current donor working tree.",
+      "Directory references are expanded to files; the original directory reference is retained in reference_origins."
+    ]
+  },
+  "summary_counts": {
+    "source_registry_count": 130,
+    "source_registry_tracked_count": 95,
+    "source_registry_untracked_count": 35,
+    "supplementary_gap_path_count": 30,
+    "supplementary_directory_reference_count": 8,
+    "supplementary_file_reference_count": 22,
+    "directory_expanded_file_count": 72,
+    "frontend_consumer_page_file_count": 21,
+    "frontend_consumer_domain_client_count": 7,
+    "unique_file_entry_count": 237,
+    "tracked_entry_count": 200,
+    "untracked_entry_count": 37,
+    "missing_referenced_file_count": 0,
+    "sha1_mismatch_count": 0,
+    "tracked_flag_mismatch_count": 0,
+    "all_referenced_paths_resolve": true
+  },
+  "cross_checks": {
+    "freeze_blob_sha1_mismatches": [],
+    "tracked_flag_mismatches": [],
+    "missing_paths": []
+  },
+  "entries": [
+    {
+      "path": "main/backend/app/api/__init__.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "2a14e057a526fe2df84d471b06af2a1867705a313ac9647ffade8fb8bd080da1",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "2e9d56997fd79d62c49e6f2a766f568c241f3f69",
+      "bytes": 3057,
+      "lines": 71,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/declared_loss_or_rejected/donor_paths",
+        "LegacyVsMovementGap#/mapped/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/api/admin.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "434bf370096b20e8438a3f9c7851daebdbf0c43a7d11bf7558b0b446444160fc",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "59905edd01ab42bc29861e584619bb8d6f7eef6f",
+      "bytes": 114946,
+      "lines": 2717,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/unmapped_gap/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/api/agent_batch.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "f880ae86e92fd121fe62da842ac6e558bd60d250a83e0387887bcae5ce7306fd",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "1a516ca73c8b36c77c248851cb2c68acb0873fa2",
+      "bytes": 71650,
+      "lines": 1832,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/mapped/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/api/agent_chat.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "4a904fc1387feac870cdb204bc86f99fa40e0f996ec589390cba10cca884f16c",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "61e25d0e4a8caf8cd9acf1d332389adb03464c86",
+      "bytes": 67596,
+      "lines": 1489,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "main/backend/app/api/agent_sessions.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "9c185595c6990055877f3dee47c615070ca3ff8b89b592e4991ab4c49fbefacd",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "36fdd65f97f0cdcdb3c9f4a5bce290a0d888484f",
+      "bytes": 12569,
+      "lines": 327,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/mapped/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/api/business_lines.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "0ac9103472c86bbdeb742969a4213296820595d0d3c429444f593f421cc1d4bd",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "2d030feb52c0a8a2e6c63dd821cc02a6ff96283f",
+      "bytes": 254182,
+      "lines": 4340,
+      "tracked_at_donor_head": false,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/unmapped_gap/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/api/clue_chains.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "c46b5cd672501404e5cd9fa017beb04171448dc82f923f40b0d3e22394e4af4f",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "cf3e3fce4af21cbac5b064586328f6cb194c5333",
+      "bytes": 27612,
+      "lines": 652,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/unmapped_gap/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/api/codex_auth.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "d5017dbb0bd934c6f71fa947c05f08068b603d20b3c4e14269da3a526a75aadf",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "7ae76b65ff70709855e22657f20e875775d19480",
+      "bytes": 18336,
+      "lines": 504,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/unmapped_gap/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/api/config.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "c6ecf8cbca80a9b035e32276e7a73e553395b23e841012adb4f85e669317be35",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "03fcbd49b49aaa16f89aa59e815939b5221e6b5a",
+      "bytes": 4576,
+      "lines": 137,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/unmapped_gap/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/api/crawler.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "39370e6ebff9d6c23664460e7a6d7fe92ee853e4ce8aeacf1e4712982078a74b",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "f5a766d6dee595713103ee5dce0427c5197ed209",
+      "bytes": 9305,
+      "lines": 272,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/unmapped_gap/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/api/dashboard.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "786beacb2fb637ced6edc0f25d5642a6d94594da0b8e37e857131e30fd7fbb3f",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "51b03a13cec438039593bc1b74ad071db7563a36",
+      "bytes": 108026,
+      "lines": 2758,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/unmapped_gap/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/api/discovery.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "d41ada77c70639ff60a1a950b63ca1fb253d971587a41ef86bb5b4588874f365",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "48aa0383b40679a89d62ef052477b9057a3c1be1",
+      "bytes": 15939,
+      "lines": 354,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "main/backend/app/api/governance.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "b1dd5bce218477f7a065b0103c4119b4461926662793901a67ec31341c7845b9",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "09f40989865f530ce126fc3d4cc5b4797a023cc3",
+      "bytes": 1868,
+      "lines": 53,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "main/backend/app/api/indexer.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "ad8803ef1d41abe3660eb5d8b20f16258316a1e559199a1db88056b32c205c79",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "9e6e9754a37f4889ae69b057777ffe80eb6004f3",
+      "bytes": 2016,
+      "lines": 68,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "main/backend/app/api/ingest.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "d7b76e979f35b59e6d296eec2deddaa88ced506ba3411d7af7b31d8ae4d766d6",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "7f2eaeb622e323b937c1867f6e6bea38aa0892c6",
+      "bytes": 117329,
+      "lines": 2708,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/unmapped_gap/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/api/keywords.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "c34f0e73d309c79ebc0045db565b4eef319b016b997294c6c40ce60233501ffe",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "c84e68cd69d376725f12822b2352abf2c6e5f8fc",
+      "bytes": 7566,
+      "lines": 231,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/unmapped_gap/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/api/llm_config.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "433557fe74ccafca378acc4ad09c6a566212272998fa262c00d66a91818d5167",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "9daf2423e058d84c35206598ab32f80717c641ed",
+      "bytes": 14059,
+      "lines": 367,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/unmapped_gap/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/api/llm_report.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "34eeb7c33a454a91aa169e488b46f25b5cd37831dd2aef4f28685ff118abc913",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "54746f68e02dc1ebbaefe77936a2175cf4b1575d",
+      "bytes": 44077,
+      "lines": 1099,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/mapped/donor_paths",
+        "LegacyVsMovementGap#/unmapped_gap/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/api/market.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "784692991c403d56c93fddfc823545327ebaae3e404081b335b5a21c550ec862",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "4095bb696742080e71868fc73ad3bb72f23cb48f",
+      "bytes": 6122,
+      "lines": 153,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/unmapped_gap/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/api/policies.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "561cc10fbba1d27581b3d00a364493c30e2fa33e8026ba5951f1b981fffcb251",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "fa7133509b09c27c050ff981888a1297380cd05e",
+      "bytes": 17839,
+      "lines": 404,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/unmapped_gap/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/api/process.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "790b6cb90086d6ba1171309e572b7e7be4c906db3705170dbd4a12ca7ea16c63",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "efe10dca82dae8c2830a48feb256388e6ec02b52",
+      "bytes": 56769,
+      "lines": 1506,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/mapped/donor_paths",
+        "LegacyVsMovementGap#/unmapped_gap/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/api/products.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "ff2fb75a4bf9a86eb16b35002c69d8c7d9b043fceb921bb997c50e855913d6b2",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "c19bbf72b7f87a1fb080e1518830eb9bc33ff93c",
+      "bytes": 3315,
+      "lines": 105,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/unmapped_gap/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/api/project_customization.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "8a6c643e549dd7b0a18351bdcabdd7775787deb1d66d19b015e7422c79729144",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "d1e83f5ee7d50de78afb4ec986250582cb3eaeec",
+      "bytes": 72584,
+      "lines": 1789,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/unmapped_gap/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/api/projects.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "f53a6659cab82ea545272bc9d48484c6329bb88d144f509862cd0bcc50145fe1",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "f45f604fbd9ac83ffd3420c7d54fbeaab01b5a5e",
+      "bytes": 40054,
+      "lines": 1067,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/unmapped_gap/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/api/reports.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "2a052bdca291cb2e6814382dc86fd993f9b3565e5dd4298fcac2263c6f1fabe5",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "f570a5ca848ec1649341f38ac2ba6256fd372c32",
+      "bytes": 1879,
+      "lines": 54,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/mapped/donor_paths",
+        "LegacyVsMovementGap#/unmapped_gap/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/api/resource_pool.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "a28d589738a8eadd3d5ea56cb2bd3c6cb9da7a3395c8b49f4e08592d4d9c0afe",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "95976d19cf678e87f5d984016552631039f81886",
+      "bytes": 69201,
+      "lines": 1642,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/unmapped_gap/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/api/search.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "3b3708c55609c54aade9e3d7484a41dffe97cfeb11b7fb4e1b16b53d3db5bf4e",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "dd87f6c54e7ff9d72b680569a790e6c2acf9c15d",
+      "bytes": 29699,
+      "lines": 768,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "main/backend/app/api/skills.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "eb97afcc6beb51f5285d0432fbd79ac583bb7b61ccacaef42370e1773b682d15",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "b7f89bfd78ed97bb89e90b46671bcdfd6c43af24",
+      "bytes": 4297,
+      "lines": 106,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/unmapped_gap/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/api/source_library.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "369754600bad0686f9a01f5949c59da58037ea11374752cfee1b61e738475075",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "9b77a5505978d852f331a934252689d25493fc82",
+      "bytes": 37010,
+      "lines": 906,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "main/backend/app/api/stats.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "578676409bcc9b2b19c70ca7f974fe40ad311cb19ec40b1d464d7052a32bcb20",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "9434a4aa89d37ec164f865feafbb2bae38fd4a29",
+      "bytes": 14231,
+      "lines": 352,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/unmapped_gap/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/api/topics.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "08d12dadeb4b0efe1796d96c32aa4591fccdceb968fed3e829e00fbd35940ebf",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "f68d33a5f631548751b905035501eff0a3aeddc4",
+      "bytes": 4248,
+      "lines": 130,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/unmapped_gap/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/api/typed_knowledge.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "f014591430b720ae0337e86e8e7dc9af519d08dfb89394940fa12d4ce942e3d4",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "86f6b73f41f50f91fc17b742e02c1762e11783a4",
+      "bytes": 7818,
+      "lines": 214,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "main/backend/app/api/workflow_graph.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "a2c059c2c451d3723f385b8017583b10084060bd45babff91075b318006f3ca7",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "64f7ee81ab6c64c699e5e77981be6f0949736d20",
+      "bytes": 35764,
+      "lines": 862,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "main/backend/app/api/writing.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "40c1e9079868f2dd81798c0fc6fc6f8a13fad3801e312d4f6860679ad30cfc9b",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "a274a516f975de0d8f0e86a219b2bdd4a022c40d",
+      "bytes": 18462,
+      "lines": 482,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "main/backend/app/celery_app.py",
+      "kind": "supplementary_file",
+      "byte_hash_sha256": "5f28badfb562179370c4042e2a9a7ef5a8f84933c961755aa86d6c6b8be1b380",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "f551f59cae36bca41596b3b42ccf69391f185e20",
+      "bytes": 267,
+      "lines": 16,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths",
+        "LegacyVsMovementGap#/mapped/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/contracts/responses.py",
+      "kind": "supplementary_file",
+      "byte_hash_sha256": "c8dd8dfde25c3be60322ed00ed070aac1f9c9d53a40f97d71fcb517a86f461a2",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "5318d5c1d86cb7961bdc93ed76f4338568133570",
+      "bytes": 4897,
+      "lines": 167,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths",
+        "LegacyVsMovementGap#/mapped/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/main.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "74cb26a5fe29ab60229764b4c7aff9bfbd00050998658ed7112e7f7a445c12cf",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "87d92c465b7cb411bd8e6e352e8b6dcb1447c595",
+      "bytes": 36739,
+      "lines": 965,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/unmapped_gap/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/models/base.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "80e9683f8de422956eef020d4a657b7cc41b8843aaa4e8825ab87c4e3f8c32cd",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "3565f629a704125302ad315df68133406adc3f00",
+      "bytes": 8995,
+      "lines": 241,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "main/backend/app/models/entities.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "fbbc6c71b6fdad027de2d0556d81d164df0851c661039254667d8cb5ed435adf",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "41c0670a58cf44ff61b89481490e16fdb41937cb",
+      "bytes": 38224,
+      "lines": 889,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/declared_loss_or_rejected/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/models/ingest_registry.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "77806877fe129fcfc39c8652490ac1fb10b9285e2a2439eae15ebbd4bbc81173",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "3d0161ec5890c22b0156f651c4fea7abc79c7cb0",
+      "bytes": 1552,
+      "lines": 34,
+      "tracked_at_donor_head": false,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/unmapped_gap/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/models/llm_report_export_audit.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "2ff6180079a36382eb52dce5e6bfb4a3f0f2f0e9fda2ca6635f42c74cec825e1",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "5dff1ed285edc94ca8f7ff8773e020f063c9f98d",
+      "bytes": 1829,
+      "lines": 32,
+      "tracked_at_donor_head": false,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/unmapped_gap/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/models/llm_report_export_token_state.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "5468579255d20f8ce1991ebe85d8ff7ba38854f7ad27532cca0ea2209a3ceb79",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "73cab5deee62e2c491c60237ba1f7a97b50921f3",
+      "bytes": 1370,
+      "lines": 27,
+      "tracked_at_donor_head": false,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/unmapped_gap/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/models/llm_report_trends.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "80b728f5bec48525f0aa4a66218b75583603c816c140c769910530b38eb90ffa",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "f1e0e3b0d214396da7813361fe5e41963b3fdc93",
+      "bytes": 2328,
+      "lines": 38,
+      "tracked_at_donor_head": false,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/unmapped_gap/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/models/long_cycle_entities.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "e9cca3304e413972abdf6fffe77b4381505eaee76c4ff13e677859f22afeef38",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "273889e47c5beeb0e34441690448425b930316da",
+      "bytes": 2244,
+      "lines": 41,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "main/backend/app/models/typed_knowledge_entities.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "4b6a065432f6e484a0c521910223e74c0150307d8c7b7a87730166eb744bc0bd",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "b3e5de4900ee68820cb334a3d0d6707c258fa7d9",
+      "bytes": 1350,
+      "lines": 28,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/mapped/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/models/writing_entities.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "0e1b377aa00b484c85cfcdd23733ce826b3edf0e7ceb130d6f60867a47c7402f",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "e80d53a8e149f99e54eac5054e70964469ac70fb",
+      "bytes": 3401,
+      "lines": 66,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/mapped/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/agent_batch/agent_loop.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "fe3b616be686a6889f6c9a30c745b8d58af2abcfbb78c632748c780e1e27aa1f",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "63fce87994532688fc7f9a1a97cbf580c71cc644",
+      "bytes": 56299,
+      "lines": 1457,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/declared_loss_or_rejected/donor_paths",
+        "LegacyVsMovementGap#/mapped/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/agent_batch/approval_binding.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "4b482f122e0bd937d10d6dbce94219162f08d824f2c5b08dd61ad0c47dd98aa4",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "67ec76f4cd1294efc1292893150d5441f55d5776",
+      "bytes": 4123,
+      "lines": 126,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/agent_batch/executor_health.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "1d29268d691552987b8fdc3ca4b47547750805c37b3577a59fe2ad8af30e0c32",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "784725ee3ad0b68b6926444835b39e3aa9d8b2c9",
+      "bytes": 3117,
+      "lines": 95,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/agent_batch/planner.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "a4e198f021438a550f9dbc5487abf98c296b606ca0ad4502969c5003954359c4",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "cfc9e3316792935960a7b14c2ae23cd1fe228563",
+      "bytes": 12358,
+      "lines": 339,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/mapped/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/agent_batch/search_quality_replay.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "b4578d39edeaebe75658fb380c04303a828a972ba53231a11fa160c2f0b4436a",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "d4e36c50e79a920c5553340bb3efa3af0720da75",
+      "bytes": 78919,
+      "lines": 1707,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/agent_batch/task_contract.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "11e020d9ede5f0994a3d73da193c0caa02aaaa5d320f4a61877b8db5fdf4e245",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "8ab4204a0fa5b8f99b5ce2ceabc0d20feb836444",
+      "bytes": 39316,
+      "lines": 1130,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/declared_loss_or_rejected/donor_paths",
+        "LegacyVsMovementGap#/mapped/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/agent_core/contracts.py",
+      "kind": "supplementary_file",
+      "byte_hash_sha256": "769c14a267306d4488108f3efa4a6704d1f2f9ebab84de8f6a4440ced8ebde41",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "22bcce677819fbcd732fb5249add4f3093d2d278",
+      "bytes": 10576,
+      "lines": 318,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths",
+        "LegacyVsMovementGap#/mapped/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/agent_core/core.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "e961a4ac80437a9fd247654e50b2c5500c2d65cf95b93532151a94413ffdd93e",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "9a52404d6f28fa341106bd75c700494e16b3858f",
+      "bytes": 51729,
+      "lines": 1071,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/declared_loss_or_rejected/donor_paths",
+        "LegacyVsMovementGap#/mapped/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/agent_core/provider_trace.py",
+      "kind": "supplementary_file",
+      "byte_hash_sha256": "d4cdd38d3d568c885946affe92f20826c5244d949b36484a4d27ce300c938b39",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "e33c4f269823f192c92234058a8e96ed7bdeeb34",
+      "bytes": 32856,
+      "lines": 703,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths",
+        "LegacyVsMovementGap#/declared_loss_or_rejected/donor_paths",
+        "LegacyVsMovementGap#/mapped/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/agent_runtime/coordinator.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "40d9019e6f0346dbf6607772679b10a782983e43de94a7166558845155914c8a",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "f71a7fdc2609961b82dc69f1f15c1378cbd0a825",
+      "bytes": 10667,
+      "lines": 249,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/agent_runtime/interactive_agent.py",
+      "kind": "supplementary_file",
+      "byte_hash_sha256": "cf6505a2ebf0d1bb19dc22cba0e5b7ed34e2d04db5142b1276ee04949e1072a6",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "a8ef5ceac7fd4a5d7f47b39a1a53d2757e873591",
+      "bytes": 97290,
+      "lines": 2070,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths",
+        "LegacyVsMovementGap#/mapped/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/agent_runtime/run_loop.py",
+      "kind": "supplementary_file",
+      "byte_hash_sha256": "9c11c49cf985d9e5d5563e6111a6084def841875e584c80f7ffd5c7a5ff934c5",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "6f43e2caf2058edcbcada15667ec865be6ade683",
+      "bytes": 31165,
+      "lines": 682,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths",
+        "LegacyVsMovementGap#/declared_loss_or_rejected/donor_paths",
+        "LegacyVsMovementGap#/mapped/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/agent_sessions/service.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "19944b0c1f1a923be004c0c944ff56926db9003d075a37e742d0e3e48d122651",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "996bc5ea7f6bfa9a7b4f44b64747921f0c9989f8",
+      "bytes": 94004,
+      "lines": 2105,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/declared_loss_or_rejected/donor_paths",
+        "LegacyVsMovementGap#/mapped/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/agent_sessions/store.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "098d70798d7b719dcb50f42492175159a14adca2ff930adbbc3cc824a11ff0b4",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "7817e74ac38e42e23089b2b61778313ba1d8b784",
+      "bytes": 35135,
+      "lines": 805,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/declared_loss_or_rejected/donor_paths",
+        "LegacyVsMovementGap#/mapped/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/aggregator/sync.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "18c2d479c93d1861bb4626e843223a1bf357499e83b4e5210d70b268b9708631",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "8787142f6b01b7bcbc3021004469794c3ee70558",
+      "bytes": 7737,
+      "lines": 183,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/unmapped_gap/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/clue_chains/__init__.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "df4e087d382f9d50ad4415bce91566d6288c72ff303eab328705ee7e821176c8",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "c6742c97f7a94d24b68b37ca5e4e66dc9d6e563e",
+      "bytes": 2714,
+      "lines": 95,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/clue_chains (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/clue_chains/contracts.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "14484094597e5770214da12640464d470d41b5242ca22a81db07c4227fe06a8d",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "87c008573699f29feb1efd0acd37d81ab69ff384",
+      "bytes": 4105,
+      "lines": 146,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/clue_chains (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/clue_chains/external_search_expansion.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "8909cd47ee197abd4dee038d7b44e620b47da588f581eea79e3c84ee7f71d026",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "782f962a82bbff0c26152835d05785736b01018b",
+      "bytes": 21815,
+      "lines": 607,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/clue_chains (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/clue_chains/graph_integration.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "a11417ddb3903ea9b7f21556f32fe0f8c29b7f22609ee3df1665ddf8eec773b0",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "05a5f3151757eaba1b32813a2e1c79e44b8eaacf",
+      "bytes": 22154,
+      "lines": 578,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/clue_chains (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/clue_chains/service.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "cff35dd2bc384c55deabbf78a91fab9a2785345e426a43fc34e8133f2a625fb8",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "21d2c832e527d03501669d3f9699669a48d49de7",
+      "bytes": 41958,
+      "lines": 929,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/clue_chains (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/clue_chains/source_library_expansion.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "f411d40be37d27f223222b217989c14567c2de9257def1c8ed0ed199a0e08e6c",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "b7558ce4eb548586115c36cf249077cb41ee43be",
+      "bytes": 16473,
+      "lines": 442,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/clue_chains (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/clue_chains/store.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "2e2caf428d6cda30cca19e842acb2777a2be54e802a405f8be2fb6166417db39",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "ffb8e33bbc2044665d5d06fe3885908e1d891172",
+      "bytes": 5077,
+      "lines": 139,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/clue_chains (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/collect_runtime/adapters/base.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "26d9394f89436415824af824f6d19e27b1444dd1b26265c9c7efaca63864b259",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "a2b767b4d5dfa37ae874d47d1334bac11d83d9f5",
+      "bytes": 171,
+      "lines": 5,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/collect_runtime/adapters (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/collect_runtime/adapters/crawler_scrapy.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "d9bf07661df0c9c15c4489f8b73197c0e38979b22b47bacaa760c247622b4fa2",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "bf84e30899ba935b42506661aea5bb869b4baf16",
+      "bytes": 3741,
+      "lines": 92,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/collect_runtime/adapters (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/collect_runtime/adapters/search_market.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "2b2e691d47e4ae615e1bb03986d05ba9d818c558250cf67369cab6348fa1569f",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "c6a90203b761b0a94d6b9c42d445dcc8279a4954",
+      "bytes": 1324,
+      "lines": 31,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/collect_runtime/adapters (directory expansion)",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/collect_runtime/adapters/search_policy.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "b4ae7c970c27dda8031a992c3e446b96ce7bc493c1d83e580d11e343acfd02e8",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "1f9bd5cd7a94997b01e7336ff52ecc51cf9e3d75",
+      "bytes": 1135,
+      "lines": 28,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/collect_runtime/adapters (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/collect_runtime/adapters/source_library.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "731d8b0beb56d7207f33df485aa63aad489aadadd663df2ac61b2206c78e351c",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "f9f277652a15971836cb78a4275aa22b4f5ecf5a",
+      "bytes": 16270,
+      "lines": 342,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/collect_runtime/adapters (directory expansion)",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/declared_loss_or_rejected/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/collect_runtime/adapters/url_pool.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "5ef2d40efe2342cff09146292fbf656ecc588653c0113a301747b3290e5e4dca",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "f9412fe188e12b637b2fab59d9c8a0b98d85a0d4",
+      "bytes": 1681,
+      "lines": 39,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/collect_runtime/adapters (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/collect_runtime/contracts.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "847ac17742818979200fbbdee006646c02a96ca3a54056dc699d6046fdca83e0",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "47b4b410dfca480ed2e074f8eeaa7658132f668f",
+      "bytes": 1552,
+      "lines": 50,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/mapped/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/collect_runtime/runtime.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "c7591aee60b1ed6966a67fd88044356bc2a618890bddc2da0e60714989eea482",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "8c77b7699c6c8d21d7a0704150d3a1f56a784e50",
+      "bytes": 18188,
+      "lines": 471,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/mapped/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/crawlers/__init__.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "67eb3eaed66baa5480ccad4e7ef3d0ce8a701aed28338066d48956868e902dbe",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "8b2647ad26c57b326e4af15c5588d7b6eec14872",
+      "bytes": 702,
+      "lines": 26,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/crawlers (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/crawlers/base.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "d707274ecb49d118ef49b3a56495815590a5cffd3960bf8f8ce226c3a6a8b290",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "a7ac06f81ac71ca6a6e3452ac5a16f3858e53246",
+      "bytes": 911,
+      "lines": 39,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/crawlers (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/crawlers/bridge.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "507309d5d7ff045f730783ab7eab4dfd715e4a4c97cd539cb7e6f436ca353f59",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "b7dbbb41f8aaaf3f890e16314a28b30e00cbca07",
+      "bytes": 2252,
+      "lines": 78,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/crawlers (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/crawlers/providers/__init__.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "3127cf0b04c792b0b7b4562d5975695eae0ec58795eebf7143d5e74102d82b1a",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "92d41d511acb5f73aa2d043ef0fa5c8548098f57",
+      "bytes": 204,
+      "lines": 4,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/crawlers (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/crawlers/providers/base.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "ef94807a27db1baba0b01bddc7f7e34cacdd64db0d14a80b3dadba009a246550",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "33b624b3dc120eb00a43202ae249af0ebdecb167",
+      "bytes": 200,
+      "lines": 5,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/crawlers (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/crawlers/providers/registry.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "0603b39f11e81b1fec90153f4e4024bec56431ec4977f24962f0c4715d46c9a3",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "9a63393cbfa87fcf71f4598ba6599513e8c448c4",
+      "bytes": 303,
+      "lines": 11,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/crawlers (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/crawlers/providers/scrapy.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "c12f50d38854675965853924dc41e99dae6327303ddb247a99055b9bd62045dd",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "d1810bac8f38598106ac68bd824e3fa12e1435d6",
+      "bytes": 4388,
+      "lines": 112,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/crawlers (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/crawlers/providers/scrapy_provider.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "4dd81d8d6e34b477051729b85e7fd2196d843c98c2af688c5323599211e2f730",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "642c5b23f64ea2e255d8d78594c8a65d11da0ff3",
+      "bytes": 115,
+      "lines": 5,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/crawlers (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/crawlers/registry.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "cfaff91b0d7263a2520cff1c228abaf5def7943e018934aff77006e972eb25b8",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "72a9a4b4dd6e2b37cb068d1b6e816ad774e94e13",
+      "bytes": 668,
+      "lines": 28,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/crawlers (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/crawlers/scrapyd_bootstrap.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "8a8c581e54a47df1e974539498a907b50854bb536c435f85b4402df64740dca7",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "56d0e8faa22f6d74d2676926e63a674c68cf031f",
+      "bytes": 8201,
+      "lines": 236,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/crawlers (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/crawlers/scrapyd_client.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "8017f652b24da722b26492f4a01e9e96482278afa4c1b8b27020794a33c779b7",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "539ea0ed808081631d675b8111a5672e6111824a",
+      "bytes": 3677,
+      "lines": 99,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/crawlers (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/crawlers/scrapyd_result_ingest.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "0722cde51fef38fb1864ffbe3fdb209ea6fd16ba28ed33cdc64cd33c1fc9bf92",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "d0b2ae6bfd1b8d8e102b800b8f3c1e7fbef7afd7",
+      "bytes": 6689,
+      "lines": 207,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/crawlers (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/crawlers/scrapyd_runtime.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "f6e5d97884a083f35e632057de0ef4e0397cce7c895bf3c0ba2b7b9afb0870c9",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "7576749bdeaf4dd193b9987b547d0f5b5799b749",
+      "bytes": 4243,
+      "lines": 131,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/crawlers (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/document_views/writing_card_view.py",
+      "kind": "supplementary_file",
+      "byte_hash_sha256": "6366af1de0e0108174d7d208c225f8290d31c39a8cb667b97ada4f470068aada",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "647b4b10709cf0095a2ecd7da365757beae3fd5f",
+      "bytes": 7056,
+      "lines": 179,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths",
+        "LegacyVsMovementGap#/declared_loss_or_rejected/donor_paths",
+        "LegacyVsMovementGap#/mapped/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/extraction/__init__.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "25ab3f46e2cd45884feeb9603d7f17f02ca82f68171e7e64fbe542075f8d541f",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "83f2ebd040f417a48b2363959c6c81252bdd2efd",
+      "bytes": 750,
+      "lines": 21,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/extraction (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/extraction/application.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "657276ace9166cb3945ddaa0ead10c6b44e8b35565381710f16baf70a97d613d",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "ca762df4392f69f9c462620bc6d70f229600bf82",
+      "bytes": 5161,
+      "lines": 142,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/extraction (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/extraction/extract.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "9f15b0039367562d939160b039b413d88db6c01247ed1641a637a5c6b5bc689b",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "f54e519a3376e147289f71ae70c4163e2d4fadd5",
+      "bytes": 13717,
+      "lines": 307,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/extraction (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/extraction/json_utils.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "42d82080d84a877cf11b226920f2fb5899f01a37ea54f5fc68c9aa735ded314b",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "9e16b5ee5552fa55f8b9ddb2eb6c2c5dccedb71f",
+      "bytes": 685,
+      "lines": 24,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/extraction (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/extraction/models.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "8014c2146a0499ed70aafd801da5841a8e35fba0f2e5256bcc280e63c84d108e",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "e7d96ea332a3c902cfbdac0593edae50e8df26d6",
+      "bytes": 1788,
+      "lines": 53,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/extraction (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/extraction/numeric.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "325e54d21b2821405e777046b5a5204d32e4e3200d6b70b50d2f51bed83c1e71",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "44a945e2e1b9c91175171f510a6bf1950ca5c203",
+      "bytes": 6869,
+      "lines": 235,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/extraction (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/extraction/numeric_general.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "3c9432b11fae8eb1a3e061abd5cf730446af8670af3b43b5262ca8869e2d974a",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "2218af9a1027bb501fae712bd119ec849225ef75",
+      "bytes": 5473,
+      "lines": 187,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/extraction (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/extraction/service.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "d1309595eaa70fe8ed668224fce85af1abce1f71e12eb05b3489c82864e49af4",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "3d9c60d331ec1f15b2b3cee6f5f2a97e36dddc4c",
+      "bytes": 4638,
+      "lines": 111,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/extraction (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/extraction/topic_extract.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "25b1dc88e8ff73bae988d808c4361fd4169819eecdc4b017c4acf115dd4298af",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "55a01400b0df175dc2ec1118608e938fc660e40c",
+      "bytes": 5041,
+      "lines": 116,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/extraction (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/extraction/topic_workflow.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "c55c351e979127786db64b20ee552d4ba17e219aefe6705052cd91025d562949",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "7c9a95cbcf9e6ef3906c467dc840e06b2f2f04e1",
+      "bytes": 13603,
+      "lines": 351,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/extraction (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/governance/retention.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "a1e77f7034ea62fd41231b61c9fa86ee7844bbd43281ae3765d7755c8c2a5c08",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "bab62fc73aeb47c505e5df3b21ce9210d80d74ea",
+      "bytes": 1217,
+      "lines": 35,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/unmapped_gap/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/graph/__init__.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "7b8ab27fcdf52decc9a8caf6a4e5c0f5b1abc2f200ae25c9ec18207cddc11ffe",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "887f7d7442444104caf0172599014739f33e340b",
+      "bytes": 79,
+      "lines": 3,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/graph (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/graph/adapters/__init__.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "0028ed86aefc2dbd4920e9c44895ee652212e5e489949b5aa1fd6e07195979bb",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "abe3928771d9b4c7f073c2691b0944739f8d7563",
+      "bytes": 1713,
+      "lines": 54,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/graph (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/graph/adapters/generic.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "b75b0eb182fa3a80f4889c84ec4a7c78e3ea96cf03e90d8622133b3d2699d69e",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "b34d77bebc6e569e6228f3a429217922a19b0b77",
+      "bytes": 2449,
+      "lines": 74,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/graph (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/graph/adapters/market.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "10f5c6fbae326b582e239c95621f9c748dbd2ab966e58673c219ca8299667f41",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "98e7dada749236409f6adae0a366a8a45fef0cc1",
+      "bytes": 3606,
+      "lines": 102,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/graph (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/graph/adapters/policy.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "5939a489eaeb70c7c69e216af61821c1c446b3f17404689c71887153b2865b2c",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "b44eb6a84b3f0b757343020fb320c60477efed5d",
+      "bytes": 2820,
+      "lines": 88,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/graph (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/graph/adapters/reddit.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "3c6b093fc4015994773daee28a03115024ffceba623f5bd3342488638c071ee3",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "107452edea14468d3a8c28de58161d42bb680592",
+      "bytes": 2943,
+      "lines": 91,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/graph (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/graph/backfill_graph_nodes.py",
+      "kind": "supplementary_file",
+      "byte_hash_sha256": "9bb609882ed2dd55fa8e5815cf6b29ceca532bd7570af9ff5e131935b4980f6d",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "c9e6cd46e5609671aad5b19e7467a2f7c9dd0aa0",
+      "bytes": 2017,
+      "lines": 74,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths",
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/graph (directory expansion)",
+        "LegacyVsMovementGap#/mapped/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/graph/builder.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "e86ac4862f1e622a2380fbb69131572ab0711d94c614e331ff760051d254431a",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "aeaf4869021a1b0625e15789ef95055b58d10ca2",
+      "bytes": 31373,
+      "lines": 861,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/graph (directory expansion)",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/graph/compat.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "d9bace2956583ba42a2f0544a6113fcce3a7a31d2e5e7a190732836f67f97593",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "b8ac61edce210d64d6f8d67ded6941a7872aaca0",
+      "bytes": 740,
+      "lines": 25,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/graph (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/graph/doc_types.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "f5ecf2d0a80da0fbfa7a70109acdea2a978d4e53839e81f1481c5644bc2eb7a9",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "86acc806418cd27cec91f457b4b758cbb2b283d5",
+      "bytes": 11187,
+      "lines": 327,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/graph (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/graph/exporter.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "f014deaa107d39ad284d2f960d792e54ccc1ee4f81b71ff90ebe489eee649e2c",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "e525d47f0428832ac301a7fe4ad1dd5fa9b09eb2",
+      "bytes": 4812,
+      "lines": 148,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/graph (directory expansion)",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/graph/mapping.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "6393af6c3e02cee04c7b64549ec04af96daa6a979d44516e0e38ec86e25f93fe",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "82b97eb3776b7d6c5c060871444f580886e8182d",
+      "bytes": 2130,
+      "lines": 75,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/graph (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/graph/models.py",
+      "kind": "supplementary_file",
+      "byte_hash_sha256": "d4408a15bf981020a8652d500bb989a00bf3d34f73dac884a2facb1332816a8f",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "893aff58ff9e8d67c480684d1bf331b702015161",
+      "bytes": 2989,
+      "lines": 88,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths",
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/graph (directory expansion)",
+        "LegacyVsMovementGap#/declared_loss_or_rejected/donor_paths",
+        "LegacyVsMovementGap#/mapped/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/graph/persistence/__init__.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "61fbee50c947d3d7dd8e2355f7897520ac59b392540f4f98412ea6d752aa46ff",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "9f3a26360263751458d4ba2d041fc9e3d72d4e36",
+      "bytes": 528,
+      "lines": 15,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/graph (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/graph/persistence/graph_live_smoke_readiness.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "3704ea554bfb4b348da51cb15247a0499aca8b9c782c895622e1991d1a588da4",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "f1da4011e553d7c187adc1fcd4cb05d5af623b7f",
+      "bytes": 11307,
+      "lines": 296,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/graph (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/graph/persistence/graph_node_alias_resolver.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "381b1c4eb2df6209194bbbcb654d0cca27ef9d73c5d4a6b870da284702e03d25",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "2c388a5105e131902b397f0aff7f00abb59d46e4",
+      "bytes": 1695,
+      "lines": 52,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/graph (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/graph/persistence/graph_node_live_db_rollout_gate.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "2fe38ea6874f4885eab8e915937a07e251595f0eff074415e0f3f028e705c5e5",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "5c108917461a566910f41f589abea085bcd242c5",
+      "bytes": 9502,
+      "lines": 266,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/graph (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/graph/persistence/graph_node_reader.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "c4b08e7d07764d6b66b567a4f03f5423d8eaaee00e6e2e6af185117d113c2311",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "be6c09144d2868f64cf233090891777de5be1fa1",
+      "bytes": 1869,
+      "lines": 52,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/graph (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/graph/persistence/graph_node_rollout_manifest.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "9f8e6605fa5afd112a6371e1afe0f1f9ac10c3243fc47014fac0d0636e9b57b3",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "21b37bb9d66f47c9c8ceee3c39c82ce69e64bcb0",
+      "bytes": 9477,
+      "lines": 240,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/graph (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/graph/persistence/graph_node_writer.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "5fba30c40d59f675b1ed6b918af40b36e78ed79ac6706b522b8a909173221bb5",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "3ff9cd4ed598ccd549bb8d9d1d818123ff185373",
+      "bytes": 7505,
+      "lines": 181,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/graph (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/graph/persistence/graph_projection_contract.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "69b0812d6bb6eee4b1cfa86dbac6080354de72a49dcb3d1a940ff7f5b0fc30a5",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "26d29e5702a432b61de4b4d45f4e2d192322d3bb",
+      "bytes": 10768,
+      "lines": 293,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/graph (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/graph/projection.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "5528e1b1c2e56cbeec5567df69f22797a167015dee0efa628de3a0455a1eb63b",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "4c7ffd260a95e0b996d43a4489929c52333539cb",
+      "bytes": 1193,
+      "lines": 38,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/graph (directory expansion)",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/declared_loss_or_rejected/donor_paths",
+        "LegacyVsMovementGap#/mapped/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/graph/relation_ontology.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "f6fc24b888f9fdd32225fd59e9f69d3c907f273eed06fd3fbc159d700e169afc",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "3f81936c3f033c137340c1d853c0711073bd7e3c",
+      "bytes": 3589,
+      "lines": 119,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/graph (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/indexer/__init__.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "ec85c2d2173f4126204ef60ef9986b454bde710f8f4a85310f37cece4c31c007",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "62adbd94ea0b2a318d363cd6e5f19c48420c9404",
+      "bytes": 83,
+      "lines": 5,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/indexer (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/indexer/application.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "b340903d194633a853e1374da1fd75e61ee1564a02a11119b2896e9e393072e4",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "54398fd437c2395827951d13dfcde7db577c649c",
+      "bytes": 372,
+      "lines": 12,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/indexer (directory expansion)",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/indexer/policy.py",
+      "kind": "supplementary_file",
+      "byte_hash_sha256": "ca58531efe5f4d4074d30eaeb3d679c26b38b36e11c8019039b27608b9dec011",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "2d3abe9d3eb9c5011101d6bd29db37379dfa8e7d",
+      "bytes": 12470,
+      "lines": 315,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths",
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/indexer (directory expansion)",
+        "LegacyVsMovementGap#/mapped/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/ingest/digestion_scaffold.py",
+      "kind": "supplementary_file",
+      "byte_hash_sha256": "99af7ffac3fa39f461fc2bdbe50b937e6298fcce2c013b336b106780671d2c3d",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "ad3fef4b7b8efea32b6602b380891f7fbdf99e50",
+      "bytes": 107754,
+      "lines": 2485,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths",
+        "LegacyVsMovementGap#/declared_loss_or_rejected/donor_paths",
+        "LegacyVsMovementGap#/mapped/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/ingest/frontdoor_contract.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "7cfec99da961a0c5beb2a6bd25064b7dd0189bf4952d6322668f0d520c0eae30",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "78f1594721fda2de9b0681f69a55106983ddb939",
+      "bytes": 4197,
+      "lines": 130,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/ingest/frontdoor_ingress.py",
+      "kind": "supplementary_file",
+      "byte_hash_sha256": "ccebc219cf0dca5bb22fddba6752822a9853e9eb91430936e669c0a234f08d15",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "03f23acf23af5ca13cbef8bd12cceffef01c0843",
+      "bytes": 14056,
+      "lines": 317,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths",
+        "LegacyVsMovementGap#/mapped/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/ingest/frontdoor_orchestrator.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "b5e6dc8a3fd8fefd74f39e32be6b2c4b22100f8fae05690b6ebf52242d58a4e0",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "77afd39e084641724e32301d2fa9e361311446db",
+      "bytes": 5314,
+      "lines": 143,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/ingest/long_cycle_live_runtime.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "13f34203d6115fe12c9d32bfcded1c6965faa5bdd73c8ebc4105742545e4bc50",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "8562ff23228a205885d4159af69d90659d45d922",
+      "bytes": 13164,
+      "lines": 313,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/ingest/meaningful_gate.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "932bf23ef7e2008f507db44637676c987a84bd2452ccb7031964f5c9fe929fd1",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "d410dc55c7a61170aebd0d3c713cb790e64fad77",
+      "bytes": 16471,
+      "lines": 440,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/ingest/postprocess_frontdoor.py",
+      "kind": "supplementary_file",
+      "byte_hash_sha256": "f63de8161d9f56289ed8c93e7eb3a5536e8fe391e311dad4a7853cfaf4c2b830",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "1eaa7990f4a51870fb8f8d7842c75047c9a7568c",
+      "bytes": 35002,
+      "lines": 808,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths",
+        "LegacyVsMovementGap#/declared_loss_or_rejected/donor_paths",
+        "LegacyVsMovementGap#/mapped/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/ingest/retry_policy.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "d6fa045c97e1fdc6887516f753b2fe7667b1ebe0a9a72819ff100268e21bb6e0",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "29061f9313947293144cf898451eabf78f672359",
+      "bytes": 4917,
+      "lines": 134,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/ingest/terminal_writer.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "822fbfd6efbab3f8593796d3595a190183c0ca283d5028c0010ad08b4da55f87",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "f32c9139943ee541f95f236e2083bf6315f77509",
+      "bytes": 2527,
+      "lines": 70,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/mapped/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/llm/platformization.py",
+      "kind": "supplementary_file",
+      "byte_hash_sha256": "e3577c53191d79e02256fccc586a63d251e610268236cf971b2492b956861b4a",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "708e0a0a1c159a03e0fb790df2e304d6a6575f5f",
+      "bytes": 15728,
+      "lines": 466,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths",
+        "LegacyVsMovementGap#/unmapped_gap/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/llm/provider.py",
+      "kind": "supplementary_file",
+      "byte_hash_sha256": "07074030655cf55520ed222f1dcb7b92b83d22b3322b65c9061c268f16edd0f0",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "35d0ec590df271a447a8f279960d5c3322d4f946",
+      "bytes": 4927,
+      "lines": 140,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths",
+        "LegacyVsMovementGap#/mapped/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/llm_report_export.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "ef82463edabcefa7ac9342244fe0df21192f3c33b264e6f707767be628920df8",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "8e0e198b68d6800e8db31c3de6c3d3a800858191",
+      "bytes": 39449,
+      "lines": 917,
+      "tracked_at_donor_head": false,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/unmapped_gap/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/llm_report_export_audit.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "6c441d460ecabbbfbd2c3eea82bfe45582523f6ff2e8ad65505e63a05e0b1fc3",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "4799746e4f9a4b7ea3a032dc24eec5376ac68640",
+      "bytes": 26948,
+      "lines": 641,
+      "tracked_at_donor_head": false,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/unmapped_gap/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/llm_report_export_token_state.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "eae757a96842db1e6dd8d6f8b27d5d2ae0b702dfbf494b82320dd6b1ec4782a7",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "c311dc50acc8923d1e42b3109d174bf81005ff13",
+      "bytes": 18967,
+      "lines": 491,
+      "tracked_at_donor_head": false,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/unmapped_gap/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/llm_report_generator.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "5909f2c65b07a1b9a3b95e335369b058bb1a5864604a8974330d1eceb3843156",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "540448baa9064432eef74808ee0eb021c8ac5d8c",
+      "bytes": 16889,
+      "lines": 437,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/declared_loss_or_rejected/donor_paths",
+        "LegacyVsMovementGap#/mapped/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/llm_report_source_enrichment.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "eae4ad54839ea60092b771e59d88b215459386fb9f96b64624a4da17aec1aeef",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "d4f664becf873b0fd00e898a59a8cc3a2d378a0a",
+      "bytes": 9680,
+      "lines": 260,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/mapped/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/llm_report_trends.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "953a85aa7babff7854c52f3975d1f79790af9672484bed757a8a023825eed548",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "79deed264cdcb3f92e349efe3689a0631cc39db9",
+      "bytes": 34644,
+      "lines": 845,
+      "tracked_at_donor_head": false,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/unmapped_gap/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/projects/context.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "5043710e9f0eacba9eef82c969df8c8a09618b006816d6aaed52353d8dedf203",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "dd6ad1ca39f783cc81f737b82f8836870a11b65c",
+      "bytes": 5152,
+      "lines": 145,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/unmapped_gap/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/projects/workflow.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "93ff01651c824ec74826fb09f21db64be12fbd43f2836d0aa25ad769e38fa878",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "9b6ce960bba199ac2f3dc529228a2cde9ae73971",
+      "bytes": 9371,
+      "lines": 250,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/unmapped_gap/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/report.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "78b1532b2361685d6ca259883421f93dfacd7cfe25a8f8af0a757e5666d3897d",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "8e5cfd80ce8344c373a8ff2f3a12025860842ff1",
+      "bytes": 5799,
+      "lines": 168,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/declared_loss_or_rejected/donor_paths",
+        "LegacyVsMovementGap#/mapped/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/request_identity.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "d9a2f5a125a335d3fcd3ac6e65d83a0a99f5daaabc24d04b1d04f757c5c8cc1d",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "dfe68e9ea44637a56ffc560fd455e2cef0628318",
+      "bytes": 8198,
+      "lines": 226,
+      "tracked_at_donor_head": false,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/unmapped_gap/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/resource_pool/resolver.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "0594f0def73ff693de8ab277382cc1d38467b1616ab8440fae7bfab07e63e783",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "05f04017860a911865250a92219dbfe7450e6c2f",
+      "bytes": 4723,
+      "lines": 110,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/resource_pool/site_entries.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "50289ade71abae9ac95229e07e6d10281c1e99c465bb22163ec36c742bff7799",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "09021cd0873f414cc3c81c3da76b7f5960197380",
+      "bytes": 14605,
+      "lines": 380,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/resource_pool/unified_search.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "f5fa1d42ce4ebd391e791fdfa32a7cfe00fcb39cc3405477f0478cd309883e50",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "01f8096a6c59f66a9802f17ce799efe8f65e70e4",
+      "bytes": 66712,
+      "lines": 1545,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/search/history.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "301cb19491fc4aaed7bb9a61de1f614d907dbaf0b93f84c0ee349adf1935bc31",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "ce692dd0023719250c260bbb7ca1ee6324004d2a",
+      "bytes": 1257,
+      "lines": 40,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/search/retrieval_runs.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "e837b34df9da16fa8282e03b9c0dcd0415a6f5ad7d14cb08f9e058dfbc2850b1",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "9a7594211d13fb484a426197a8c42f7a58f4440d",
+      "bytes": 5543,
+      "lines": 147,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/source_library/external_project_registration.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "410919461e548a376134dc7ff28a119a55d54bf806ad659bb4c836c235366fd3",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "10c68636ff8d13c41d3d668e47648b8c67c57045",
+      "bytes": 25497,
+      "lines": 721,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/source_library/item_plan.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "8ef8fea7d6ad99bdd465efd7da3cb0050a34d9ad148e356c2c9685790f9544ca",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "c67a17e67511f38280b9671f2da9399e02d8d1b9",
+      "bytes": 9111,
+      "lines": 247,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/source_library/item_resolver.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "50762f4b27d85ea4bd1f9e98f05f9930cc637b770ac55dc12aac7a115e595b12",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "21264723f7bd6d1c32a4b26f36fda406a09c7738",
+      "bytes": 8772,
+      "lines": 221,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/mapped/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/source_library/relevance_review.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "bd5b99fa1844e0019a293a673178dd4d51dfd83deea2578218e4f6ef7a7d93a9",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "f7b5452c56570b91b0f3d1d72f1a44719bcabf20",
+      "bytes": 23119,
+      "lines": 617,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/source_library/resolver.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "6560a619dec521ef6fec65eba492c59f10158c09d8871af41012159d9a234734",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "522891818c17f8f7e99ddaf43b8ab9bcc9bd4025",
+      "bytes": 99383,
+      "lines": 2396,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/mapped/donor_paths",
+        "LegacyVsMovementGap#/unmapped_gap/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/source_library/runner.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "3954f3d1f7c1b05219d3e2b785b78061946baf774f6f817d63aedc85b4c21f3b",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "e39234f9c71382a143400ed1c88c08e0f7611895",
+      "bytes": 13586,
+      "lines": 338,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/mapped/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/source_library/single_source_guard.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "e41d1b35afdd9183d5629a82bd1972555ada743422dd8f11ee0deb2344afaef6",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "513330bc053f4234457aa1ec066efa913ed522b1",
+      "bytes": 5237,
+      "lines": 143,
+      "tracked_at_donor_head": false,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/unmapped_gap/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/source_library/sync.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "0daa1dc0c59171cda197aa82b707bd56940b8c092232fe6bef5dc175649d192c",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "ad4d98e17148a6618a402b231799ad14c7f2cbf6",
+      "bytes": 4744,
+      "lines": 112,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/source_library/terminal_output.py",
+      "kind": "supplementary_file",
+      "byte_hash_sha256": "035f6a4c085f57df944efd39850cd884311ea688dd25eec6fdc7336902ef36d5",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "81fb5820281bbdc9bc0fa0abecf7efdab59fcc7e",
+      "bytes": 19970,
+      "lines": 501,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths",
+        "LegacyVsMovementGap#/declared_loss_or_rejected/donor_paths",
+        "LegacyVsMovementGap#/mapped/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/streamplus/__init__.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "0a855377d530c69ef72b474bc9a1da77a3fc17cc538db0b69aeccacca7b9743a",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "fee6c3b61ef499bf27b2124b6afda2293a1326d9",
+      "bytes": 235,
+      "lines": 9,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/streamplus (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/streamplus/contracts.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "4f9fcc9ea65e5e533afd2d17c7c72c11c4b7bcf78bfc22a87739644145ad0bc5",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "e1ccbb4c66f961527d736fecea77de925bf212bf",
+      "bytes": 2522,
+      "lines": 102,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/streamplus (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/task_readback_metadata.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "981c970ea1610450f681a1dfe1a6a22288c33363b38d827ca7f39052072072e9",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "701eec5a0739fec7349c963d985749dfab0602e1",
+      "bytes": 9320,
+      "lines": 279,
+      "tracked_at_donor_head": false,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/declared_loss_or_rejected/donor_paths",
+        "LegacyVsMovementGap#/unmapped_gap/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/tasks.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "0379922d25ee97cf56a9fdda24e3faf1aab0db8c26067f880bdceb0008b26632",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "c432f1058da53b913225cbe6b36dae97b2910be6",
+      "bytes": 50300,
+      "lines": 1377,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/mapped/donor_paths",
+        "LegacyVsMovementGap#/unmapped_gap/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/typed_knowledge/baseline.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "d7a44ac86e41aa7540ebd06d9305608f2371ec0ab817127e9f98cf6060d9a817",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "ae8d50ef8490ad6ed9b12731fd20192dc64b4c62",
+      "bytes": 1653,
+      "lines": 25,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/typed_knowledge/contracts.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "386dbc2c00e2079103e68771100d0860a334eed1e8c86cd0bb12e957050daabc",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "d079128873cd9220338c6dbaacc991bcc5864b0d",
+      "bytes": 28080,
+      "lines": 654,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/mapped/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/typed_knowledge/persistence_boundary.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "96f2f9d5ae17cf87d51c704e47badc6b8ea3d8ea3209f48cdd1ae2740c0dea2a",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "3f071ab778e4b3ecacf2fc6b7209126725b92d66",
+      "bytes": 74551,
+      "lines": 1623,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/workflow_graph/compiler.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "8decdac5a5d165e8b0769105981b89852a16667aa38fd069aabf736a9fea1911",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "65a9f73fd8a22037f98f2fbab83fbc90c6f57e00",
+      "bytes": 2951,
+      "lines": 79,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/mapped/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/workflow_graph/contracts.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "3ad2da252b31ec17cc52e3532bc3aa7dde638e488cde2b5979863b1eb6b45919",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "36d97d0726300639998eab3deaf9ea7319944647",
+      "bytes": 6698,
+      "lines": 198,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/mapped/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/workflow_graph/curated_service.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "34dd8621b4cba8a15c3e7347ebefa87f486312505bc14609d83e424050b28e02",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "1398fdf5bd3bcb6526d4cd5115511d5b9b347ebf",
+      "bytes": 29500,
+      "lines": 661,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/workflow_graph/runtime.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "cb4ae041aef79ce9b8d68a14615c4a85f1b9182319380a5462133534eeca67fc",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "3a900dab2264c6b0474172ce3c718c10a5a9f566",
+      "bytes": 14117,
+      "lines": 407,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/mapped/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/workflow_graph/store.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "bda33b9bb91364a77de33de1fc388e426ba0ad703e6e57a71452adc247b234b1",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "111fe4245728111f1b9daf7020017fe27f14d21d",
+      "bytes": 19487,
+      "lines": 523,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/mapped/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/workflow_graph/templates.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "f4386f0c48fffe5b6016b74fbdcd531f333d8899a81cfcfeaa8d5daf8e170941",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "53d9aa25340535bf0d7db2d43de31a0dbc4516c7",
+      "bytes": 15627,
+      "lines": 360,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/writing/__init__.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "6784f967577e94f782320b25a966131c67e4bb1cf698c86765cd7880bc798b0c",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "b913a241cdcb20d2e1019c9bbcf93ac76431fa8a",
+      "bytes": 1313,
+      "lines": 41,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/writing (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/writing/citation_service.py",
+      "kind": "supplementary_file",
+      "byte_hash_sha256": "808d6024e18cae5dc74ade6b8ceb5169b80579ad3473debce01d42e730be6cc3",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "074b87eada446d89e83c66a1ccd19dbf35f21a7f",
+      "bytes": 3230,
+      "lines": 74,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths",
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/writing (directory expansion)",
+        "LegacyVsMovementGap#/mapped/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/writing/document_service.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "6647a075ecbd66bc5027e8dd85a12433c6fa1fcdea10b5065ad9bf17ae234725",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "388de2a092faf09bd373db9a31d75991b9101040",
+      "bytes": 8348,
+      "lines": 221,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/writing (directory expansion)",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/mapped/donor_paths",
+        "LegacyVsMovementGap#/unmapped_gap/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/writing/keyword_card_service.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "91e2a0ee59b093e26408adef6df81a577b3889d3f73217d04784f5dca71f7806",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "60669b2a071ed0232f96f4e1958f4e7ce1cfd00a",
+      "bytes": 13225,
+      "lines": 320,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/writing (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/writing/llm_action_service.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "dbbd3530fee08236b32903860625c48b0708970ebd9962055efc13bcc6fa7e20",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "cbf60522dacc7af2d475c39db238c52fbcd8263e",
+      "bytes": 13955,
+      "lines": 334,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/writing (directory expansion)",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/writing/primary_loop_service.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "677883db1f36188d3ab0252b5f98b4f2ffabcd2a0fe9fa3c91412825b80976fb",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "a31036a99628bbe433a90feade747abeea32db4d",
+      "bytes": 7470,
+      "lines": 163,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/writing (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/writing/search_suggest_service.py",
+      "kind": "directory_expanded_file",
+      "byte_hash_sha256": "47800542317dec02fa160d2417294c98b7149d176ee0f7a2c1e495aaddcc0b1d",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "5a4e172df03bc7140f1e32a9c8a1143e4a6ecc38",
+      "bytes": 4865,
+      "lines": 143,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/writing (directory expansion)"
+      ]
+    },
+    {
+      "path": "main/backend/app/services/writing/template_service.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "e1a999975024b4b5e5fb571812ac22a316128250c004c09437b35dbdd9d28989",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "24d9e8f869a88fb78ff6146b067430ad41244967",
+      "bytes": 2788,
+      "lines": 80,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "AllLinesMigrationScope#/supplementary_gap_paths:main/backend/app/services/writing (directory expansion)",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "main/backend/migrations/versions/20260524_000001_add_ingest_submission_registry.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "3cb23c78cee53a4d4b30e0e6e20062ca98ed9f2633e3b86f880344148fce239b",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "a011e93d2d3f1a5e6c357cde2064ea09d7f82120",
+      "bytes": 3027,
+      "lines": 94,
+      "tracked_at_donor_head": false,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/unmapped_gap/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/migrations/versions/20260524_000002_add_llm_report_quality_trends.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "ca1ef05ce4561e17f350bd2346d67ede7e42db8d8672b0ea67dec42a9a137805",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "875dd0caf723735b1d89896ea27d867490de3a6f",
+      "bytes": 3752,
+      "lines": 111,
+      "tracked_at_donor_head": false,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/unmapped_gap/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/migrations/versions/20260524_000003_add_llm_report_export_audit_events.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "1abb852275edb5ede89f9e59c1b56d51ad96b290801d6be5fc85e2e88cf594d7",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "03a9996a8dc56169a6490115ea139bfd72ccd6ab",
+      "bytes": 4083,
+      "lines": 126,
+      "tracked_at_donor_head": false,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/unmapped_gap/donor_paths"
+      ]
+    },
+    {
+      "path": "main/backend/migrations/versions/20260524_000004_add_llm_report_export_token_state.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "06b9ef2973d5a90188a156686d2c595c6495fe8f345db004d1915b38faeba842",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "b072d16caa78a93ec21c51b99da11d5d084e652e",
+      "bytes": 3213,
+      "lines": 103,
+      "tracked_at_donor_head": false,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/unmapped_gap/donor_paths"
+      ]
+    },
+    {
+      "path": "main/frontend-modern/src/lib/api/client.ts",
+      "kind": "supplementary_file",
+      "byte_hash_sha256": "d65ad6875b3334e6149c28daa201188b341c4d123cc8ffa4f1d397794bdfe6f7",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "ed5385d20d9539eff45409ec0e74464220859ff8",
+      "bytes": 5308,
+      "lines": 178,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths",
+        "LegacyVsMovementGap#/declared_loss_or_rejected/donor_paths",
+        "LegacyVsMovementGap#/mapped/donor_paths"
+      ]
+    },
+    {
+      "path": "main/frontend-modern/src/lib/api/domains/clue-chains.ts",
+      "kind": "frontend_consumer_domain_client",
+      "byte_hash_sha256": "e8239af8ea8c812ad79f958cfe6e4a313d64c97824e907cd7978017faa427cdf",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "96db0db04630999533f4ee89dd16a66e861b908e",
+      "bytes": 12180,
+      "lines": 422,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "BackendDonorSurfaceInventory#/frontend_consumers/domain_api_clients"
+      ]
+    },
+    {
+      "path": "main/frontend-modern/src/lib/api/domains/codex-auth.ts",
+      "kind": "frontend_consumer_domain_client",
+      "byte_hash_sha256": "384460c77b641cc22c818a98c8a0117ccedf9185e7f074d8f6d4c80d1b59b00c",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "422a83e4eaadf15ea4dec94fc1a3063d662cdd25",
+      "bytes": 1534,
+      "lines": 47,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "BackendDonorSurfaceInventory#/frontend_consumers/domain_api_clients"
+      ]
+    },
+    {
+      "path": "main/frontend-modern/src/lib/api/domains/graph-workflow.ts",
+      "kind": "frontend_consumer_domain_client",
+      "byte_hash_sha256": "145e3ae65f655011a8861f1774c0e862f863cec700823423c780a0c22ee584d6",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "681f710195026c74af6fcde4a0fe43dc68b06d18",
+      "bytes": 18101,
+      "lines": 518,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "BackendDonorSurfaceInventory#/frontend_consumers/domain_api_clients"
+      ]
+    },
+    {
+      "path": "main/frontend-modern/src/lib/api/domains/llm-report.ts",
+      "kind": "frontend_consumer_domain_client",
+      "byte_hash_sha256": "d259ea29dd890d7173b344fa7399018e92f383776ca425ed260adfb292dbe4e7",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "304d45f2e8f2af880c09deccdd8a7ca20b6b2867",
+      "bytes": 1450,
+      "lines": 42,
+      "tracked_at_donor_head": false,
+      "reference_origins": [
+        "BackendDonorSurfaceInventory#/frontend_consumers/domain_api_clients"
+      ]
+    },
+    {
+      "path": "main/frontend-modern/src/lib/api/domains/project-admin.ts",
+      "kind": "frontend_consumer_domain_client",
+      "byte_hash_sha256": "cf6f8c8c9999402148b86b4d86c4819beb67220c34aafa6c07ae0acd75787cf7",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "46753e619d87d935c44542dac73c08b30d616728",
+      "bytes": 4699,
+      "lines": 137,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "BackendDonorSurfaceInventory#/frontend_consumers/domain_api_clients"
+      ]
+    },
+    {
+      "path": "main/frontend-modern/src/lib/api/domains/resource-source.ts",
+      "kind": "frontend_consumer_domain_client",
+      "byte_hash_sha256": "327084bd1a866b82779c3ab09fb030bfc3a8f1bd6626ac0feb885eb15f9ce455",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "424e61ed50567cca9beadba8a3e8df7421791bad",
+      "bytes": 13112,
+      "lines": 355,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "BackendDonorSurfaceInventory#/frontend_consumers/domain_api_clients"
+      ]
+    },
+    {
+      "path": "main/frontend-modern/src/lib/api/domains/writing.ts",
+      "kind": "frontend_consumer_domain_client",
+      "byte_hash_sha256": "7f8940fd48481136ba3d4a9dcae65f16ca5daba805091d8a2ea4ee173e281097",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "54ddf8d3189ff1b0e482bafe9cdcd976324937da",
+      "bytes": 20087,
+      "lines": 633,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "BackendDonorSurfaceInventory#/frontend_consumers/domain_api_clients"
+      ]
+    },
+    {
+      "path": "main/frontend-modern/src/lib/types.ts",
+      "kind": "supplementary_file",
+      "byte_hash_sha256": "7ca907bb6083c2dbac90d27b3c2638b923f87f63df9a01149edafcb827cc1c47",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "e176ee7d3e9647321ee60bafd10836a07392ed74",
+      "bytes": 65851,
+      "lines": 2506,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths",
+        "LegacyVsMovementGap#/mapped/donor_paths"
+      ]
+    },
+    {
+      "path": "main/frontend-modern/src/pages/AgentChatPage.tsx",
+      "kind": "frontend_consumer_page_file",
+      "byte_hash_sha256": "45ccdbe53a29bfa1350cce3878244759158c6d15906bd2a3650769054d3901f9",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "10526b24f0d0fed2dee1ce39cebcb431d2c44656",
+      "bytes": 137214,
+      "lines": 2846,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "BackendDonorSurfaceInventory#/frontend_consumers/page_files"
+      ]
+    },
+    {
+      "path": "main/frontend-modern/src/pages/CatalogPage.tsx",
+      "kind": "frontend_consumer_page_file",
+      "byte_hash_sha256": "3f2641b303a3724f0a242b564e24c445849c53c0428ef5b437f9d0562cc9a9bc",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "bb16ce5f74c90ae614d387e2f92e98570cc26390",
+      "bytes": 7053,
+      "lines": 140,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "BackendDonorSurfaceInventory#/frontend_consumers/page_files"
+      ]
+    },
+    {
+      "path": "main/frontend-modern/src/pages/ConceptLabIndexPage.tsx",
+      "kind": "frontend_consumer_page_file",
+      "byte_hash_sha256": "254230045d863a96550e26f46a7de7c5e508c0c83a48b9ea005dcbbd15691a92",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "17bc61cdb20806c82b504c74853a07b654acb1a4",
+      "bytes": 1244,
+      "lines": 43,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "BackendDonorSurfaceInventory#/frontend_consumers/page_files"
+      ]
+    },
+    {
+      "path": "main/frontend-modern/src/pages/ConceptMonolithPage.tsx",
+      "kind": "frontend_consumer_page_file",
+      "byte_hash_sha256": "8e3b6661604f6ec4d2eca86958d4964c6535f5821a97e7167330340eee3cee0f",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "a5dae1eca4c26774faa43eb5be9a1fe214d70a09",
+      "bytes": 1561,
+      "lines": 56,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "BackendDonorSurfaceInventory#/frontend_consumers/page_files"
+      ]
+    },
+    {
+      "path": "main/frontend-modern/src/pages/ConceptOrbitalPage.tsx",
+      "kind": "frontend_consumer_page_file",
+      "byte_hash_sha256": "2be5fe4edcbd88e4aa83bc66c19da47d2f06a031f4b87966ec8f475381f1c5eb",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "04ad9f3343c3b69e804acce11612243e866f78de",
+      "bytes": 1309,
+      "lines": 44,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "BackendDonorSurfaceInventory#/frontend_consumers/page_files"
+      ]
+    },
+    {
+      "path": "main/frontend-modern/src/pages/ConceptQuietPage.tsx",
+      "kind": "frontend_consumer_page_file",
+      "byte_hash_sha256": "66f2be28d1d20ec64177f24ecbb7195ff03e1a35e866019416745495f1475e82",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "01796098e0d12625a861f499881ca365290d49dc",
+      "bytes": 2086,
+      "lines": 62,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "BackendDonorSurfaceInventory#/frontend_consumers/page_files"
+      ]
+    },
+    {
+      "path": "main/frontend-modern/src/pages/CrawlerManagePage.tsx",
+      "kind": "frontend_consumer_page_file",
+      "byte_hash_sha256": "9f4db72eae10783dd46d347198ee7c0b4bc6d70a8060d00c8c7ece3178c64455",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "276430e3b8bcb66538e5867df9dc8709ad57fb61",
+      "bytes": 20943,
+      "lines": 491,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "BackendDonorSurfaceInventory#/frontend_consumers/page_files"
+      ]
+    },
+    {
+      "path": "main/frontend-modern/src/pages/DashboardPage.tsx",
+      "kind": "supplementary_file",
+      "byte_hash_sha256": "17e6af0e06abfe62aad82b60dbdb227c58cf58769d5f9b20e75e9cd76643473c",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "17873fc2de0cd5f4bbe0477188eb7951bc7022d8",
+      "bytes": 45877,
+      "lines": 1077,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths",
+        "BackendDonorSurfaceInventory#/frontend_consumers/page_files",
+        "LegacyVsMovementGap#/unmapped_gap/donor_paths"
+      ]
+    },
+    {
+      "path": "main/frontend-modern/src/pages/GraphPage.tsx",
+      "kind": "supplementary_file",
+      "byte_hash_sha256": "6cc0cb4a3974e472ede0fde7bc605c22630f1e2a8415ac538ac7732e2e7ad014",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "94b6890f402a86527d46e6b2d251aeeb18b05f51",
+      "bytes": 314630,
+      "lines": 7033,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths",
+        "BackendDonorSurfaceInventory#/frontend_consumers/page_files",
+        "LegacyVsMovementGap#/declared_loss_or_rejected/donor_paths",
+        "LegacyVsMovementGap#/mapped/donor_paths"
+      ]
+    },
+    {
+      "path": "main/frontend-modern/src/pages/IngestPage.tsx",
+      "kind": "frontend_consumer_page_file",
+      "byte_hash_sha256": "edb01f79026e84571e1867b129f87fdc7000f1b7f03cec86fd0dda03137e6b3d",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "a02b3d2bc3ecbf346a8ae20d0b19d110aee8e25d",
+      "bytes": 64526,
+      "lines": 1484,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "BackendDonorSurfaceInventory#/frontend_consumers/page_files"
+      ]
+    },
+    {
+      "path": "main/frontend-modern/src/pages/LlmDesignerPage.tsx",
+      "kind": "frontend_consumer_page_file",
+      "byte_hash_sha256": "f797029bac143bbb7d36ae4e2fb1e08b3c162eb3673b02333171a305e72bb25a",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "5536967e4eb8639add88748491bfdf5c46f80c44",
+      "bytes": 84160,
+      "lines": 1974,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "BackendDonorSurfaceInventory#/frontend_consumers/page_files"
+      ]
+    },
+    {
+      "path": "main/frontend-modern/src/pages/OpsPage.tsx",
+      "kind": "frontend_consumer_page_file",
+      "byte_hash_sha256": "fbddc4f7cef0b4c8c79d4cd65975a3acf5a748a7f7622881f97e012f0646e39e",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "102bd0b3dd5ff273a5ecc135ff4611d1ba55bbf1",
+      "bytes": 123955,
+      "lines": 2679,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "BackendDonorSurfaceInventory#/frontend_consumers/page_files"
+      ]
+    },
+    {
+      "path": "main/frontend-modern/src/pages/PolicyPage.tsx",
+      "kind": "frontend_consumer_page_file",
+      "byte_hash_sha256": "ae4d98b0599575422d371f3eac74f5e32488b833789585606b84063d25570761",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "30a1794dec57b06cb5b2e9c0c17f88728b640533",
+      "bytes": 15316,
+      "lines": 385,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "BackendDonorSurfaceInventory#/frontend_consumers/page_files"
+      ]
+    },
+    {
+      "path": "main/frontend-modern/src/pages/ProcessPage.tsx",
+      "kind": "frontend_consumer_page_file",
+      "byte_hash_sha256": "62fb14c2438320cb7be9243ed53c5a5984fd3558f1265b18818dfd64f41f2c16",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "12686235533209fd848d5248d8a0310e98678ca3",
+      "bytes": 35224,
+      "lines": 791,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "BackendDonorSurfaceInventory#/frontend_consumers/page_files"
+      ]
+    },
+    {
+      "path": "main/frontend-modern/src/pages/ProjectsPage.tsx",
+      "kind": "frontend_consumer_page_file",
+      "byte_hash_sha256": "7058148832afbf6058adff970356465acaf2a032a79763d7222e457e655bb4ef",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "67859c3412f1b19a03e5a74c03eb178f1abaf015",
+      "bytes": 15337,
+      "lines": 287,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "BackendDonorSurfaceInventory#/frontend_consumers/page_files"
+      ]
+    },
+    {
+      "path": "main/frontend-modern/src/pages/RawDataPage.tsx",
+      "kind": "frontend_consumer_page_file",
+      "byte_hash_sha256": "7a9bf9bccf9b7d61e43b3a4240330e1f06c31cc87e4b617fd2168de118f1f746",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "2db1661b7a90a54e7c725009bdfed32e7c6e0fdb",
+      "bytes": 8921,
+      "lines": 213,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "BackendDonorSurfaceInventory#/frontend_consumers/page_files"
+      ]
+    },
+    {
+      "path": "main/frontend-modern/src/pages/ResourcePage.tsx",
+      "kind": "frontend_consumer_page_file",
+      "byte_hash_sha256": "c0d8746d9c125afa70896256977e426eed0b331133205b3640d02ad6a9c76c5f",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "75eca9f716e66c9cf91ac633ed6f8cc8ddd5bcb5",
+      "bytes": 77761,
+      "lines": 1804,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "BackendDonorSurfaceInventory#/frontend_consumers/page_files"
+      ]
+    },
+    {
+      "path": "main/frontend-modern/src/pages/SettingsPage.tsx",
+      "kind": "frontend_consumer_page_file",
+      "byte_hash_sha256": "f8604d7a83d0921489bd53671a4f1cc48d66c5771433443ec1ca37b7b6e7ba35",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "420fba78a911dbad22ab58a98adead5815e84a89",
+      "bytes": 29813,
+      "lines": 734,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "BackendDonorSurfaceInventory#/frontend_consumers/page_files"
+      ]
+    },
+    {
+      "path": "main/frontend-modern/src/pages/WritingWorkbenchPage.tsx",
+      "kind": "frontend_consumer_page_file",
+      "byte_hash_sha256": "016e996e819ff04e1f4b59677772965ecab9976b1c25ef518cecedd8df110862",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "df43565e89b6b8898e695390e38d07109c953f0d",
+      "bytes": 124234,
+      "lines": 2853,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "BackendDonorSurfaceInventory#/frontend_consumers/page_files"
+      ]
+    },
+    {
+      "path": "main/frontend-modern/src/pages/dashboard/DashboardSearchRetrievalRunPanel.tsx",
+      "kind": "supplementary_file",
+      "byte_hash_sha256": "4a672312833df2dd2fc0ae230d4a0579673c9055d4ac47209f26f522d85d881d",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "8753624fa2ba3ad4973c8809de37bfbea9841ab4",
+      "bytes": 5456,
+      "lines": 119,
+      "tracked_at_donor_head": false,
+      "reference_origins": [
+        "AllLinesMigrationScope#/supplementary_gap_paths",
+        "LegacyVsMovementGap#/unmapped_gap/donor_paths"
+      ]
+    },
+    {
+      "path": "main/frontend-modern/src/pages/storybookKernelUtils.tsx",
+      "kind": "frontend_consumer_page_file",
+      "byte_hash_sha256": "e793aa650b29d64cd02535bf9432b9b49f84a7947451908e1d60eac3b62ba7a6",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "e0e36023d108e9b57a70336e600a2f5e12bfac6f",
+      "bytes": 4435,
+      "lines": 142,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "BackendDonorSurfaceInventory#/frontend_consumers/page_files"
+      ]
+    },
+    {
+      "path": "main/frontend-modern/src/pages/storybookPageUtils.tsx",
+      "kind": "frontend_consumer_page_file",
+      "byte_hash_sha256": "f2a5c64ca34e69014105c714aa8f488c7c44435e425d3c4d52eff7135aeeafb4",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "b40213f00a5cfafb4ba486cccf0669485c25d10e",
+      "bytes": 408,
+      "lines": 16,
+      "tracked_at_donor_head": true,
+      "reference_origins": [
+        "BackendDonorSurfaceInventory#/frontend_consumers/page_files"
+      ]
+    },
+    {
+      "path": "main/frontend-modern/tests/e2e/business-line-browser-actions.spec.ts",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "c4c69ca1234d30f53f20bf71ba5dd18da0017861d9913235ee26af6b90d8c43b",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "b63af26ebadb552fedc74b60825e7d9fc4b64cab",
+      "bytes": 108547,
+      "lines": 2424,
+      "tracked_at_donor_head": false,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "main/frontend-modern/tests/e2e/real-backend-business-lines.spec.ts",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "a4422dfe0efac41778900e99d76641edde2384d9e81081d8e27dea1f26bfacbd",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "d760aa67d9ba0592e4ec96f886ae3ca451df29e0",
+      "bytes": 13280,
+      "lines": 342,
+      "tracked_at_donor_head": false,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "scripts/build_business_line_async_readiness_artifact.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "af622184eece9133a5c8bee182b6b81d8c2b144ccf3c40e90833cda5b80988af",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "87a45149ff10ff30eea516a9f9a594f83899f219",
+      "bytes": 11318,
+      "lines": 311,
+      "tracked_at_donor_head": false,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "scripts/build_business_line_async_task_readback_artifact.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "d7a668877ab7d30c834cf382c5c8496c76c9f99d26b2bbab114a42b0e5a90bb3",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "039092613b05a3f43dc65e8444cf89d252974a75",
+      "bytes": 19842,
+      "lines": 513,
+      "tracked_at_donor_head": false,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "scripts/build_business_line_real_backend_browser_artifact.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "4ba714ebb8ec75198faca52323c8d09b243f370b58dcad3a1e512fa059230db5",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "78d5ae83d9c403f7c10f94b54e44e96133245989",
+      "bytes": 8388,
+      "lines": 244,
+      "tracked_at_donor_head": false,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "scripts/build_business_line_task_readback_manifest_from_runtime.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "1df9759a116efdee8334ee573eb180b3370951833497fb675374b8695487d61c",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "fe72e86d2080f3efab15d7741e9c6f31ab874861",
+      "bytes": 32857,
+      "lines": 916,
+      "tracked_at_donor_head": false,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "scripts/check_business_line_async_readiness_artifact.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "c6edd9aa75ef3a7f5044be6f3823b77c3bb24699f44e5625f8520f41d0eeed10",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "c7f00c9b99f72b9e4fc0ad6fd388349f6773c788",
+      "bytes": 13270,
+      "lines": 367,
+      "tracked_at_donor_head": false,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "scripts/check_business_line_async_task_readback_artifact.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "3d67f797838ec84d6e846b21ace24fd50e0db90c76ffd639686dbb453ab4dabf",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "0d5b360720cc7d2d73c06b5a630a7f155477ed90",
+      "bytes": 41764,
+      "lines": 1049,
+      "tracked_at_donor_head": false,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "scripts/check_business_line_batch_coverage.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "475c877698d54988e1b134b64c8f12f8a88b591bd3480acc5b5fccf24d327dce",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "c204b7e928cdc8c367ad4deb83290a15b38c576b",
+      "bytes": 8942,
+      "lines": 258,
+      "tracked_at_donor_head": false,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "scripts/check_business_line_real_backend_browser_artifact.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "2714034eaa0367fda9504403806fb7346c8e0ad03e7dd627697d8b09be037ae7",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "6a82194f386eec090b34f01f273cb7cbddc62ffc",
+      "bytes": 14257,
+      "lines": 400,
+      "tracked_at_donor_head": false,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "scripts/check_business_line_task_readback_manifest.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "b5a133f2cc1328ad65e91d0be28237d518625bd6847678affabaab1ac2c529f6",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "60b604c9795f5d8b9474f91ea1617f283f4d6b72",
+      "bytes": 17091,
+      "lines": 504,
+      "tracked_at_donor_head": false,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "scripts/check_business_line_trace_baseline_artifact.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "c925ed340d0fd3264531b396ead8121940f646d1b1c802a5b05c36c959d91f65",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "0359a63d04351d7c3e841f6b261368083d1853d4",
+      "bytes": 10674,
+      "lines": 286,
+      "tracked_at_donor_head": false,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "scripts/run_business_line_async_task_readback_live_samples.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "02086c050ab39f5beea4460719e56f30433d12ff3f2aeec5a4bc50d08ee76e70",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "bdd8c0f6bfbb64ce74280f4ee01d90872da06984",
+      "bytes": 47741,
+      "lines": 1310,
+      "tracked_at_donor_head": false,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "scripts/run_business_line_trace_baseline_live.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "1cf0eaa399f877c959a9f648fb6eb388f4c30683cbc3af046d6a62e060f3673a",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "85f62ad681de1f99c47d652d3f3dcbbb0ea6ba30",
+      "bytes": 17293,
+      "lines": 480,
+      "tracked_at_donor_head": false,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "scripts/run_business_line_user_flow_smoke.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "2a5d80980994787e96073165c63f37d1b5c666adfed5930c761b424291fa3a7e",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "9041eba60cd4e82fb2ac996b3f4071cfcb2dfded",
+      "bytes": 35740,
+      "lines": 928,
+      "tracked_at_donor_head": false,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "scripts/run_business_line_worker_readback_evidence_chain.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "96657dcc1484080600e4e6ae293c7366ad4dd6990c0215da5acff24c49600803",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "7388ed956c5ce5b4eb42ef46ad4342c1468a2094",
+      "bytes": 19828,
+      "lines": 537,
+      "tracked_at_donor_head": false,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "scripts/run_business_line_worker_readback_project_matrix.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "9378ff9bc941535d36ef45a9e63c07783aeb1355a0a271faa63182916e9d6f43",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "cb77107058565b0e4ceed62e8f5f5488bee985ff",
+      "bytes": 22036,
+      "lines": 577,
+      "tracked_at_donor_head": false,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "scripts/run_business_line_worker_readback_smoke_triggers.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "8bf241a123c8af6b376a3f56b35dd1e4e5438c6f24212b4476512d5031a92f65",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "8cc389595f084099f49656d8a4cf7d64788e8f97",
+      "bytes": 18255,
+      "lines": 521,
+      "tracked_at_donor_head": false,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry"
+      ]
+    },
+    {
+      "path": "scripts/runtime_health_matrix.py",
+      "kind": "source_registry_file",
+      "byte_hash_sha256": "002e8f205737a57cfd8c6ecef9740b3583ac49b163894a1648f54456d29e7dda",
+      "byte_hash_kind": "sha256_of_donor_working_tree_bytes",
+      "git_blob_sha1_working_tree": "7517d6d45771830a19cfb0684d74e26d5ef9eb8c",
+      "bytes": 22661,
+      "lines": 568,
+      "tracked_at_donor_head": false,
+      "reference_origins": [
+        "AllLinesMigrationScope#/source_registry",
+        "BackendDonorSurfaceInventory#/source_file_registry",
+        "LegacyVsMovementGap#/unmapped_gap/donor_paths"
+      ]
+    }
+  ]
+}

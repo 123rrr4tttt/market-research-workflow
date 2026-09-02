@@ -467,6 +467,7 @@ class C5AssemblyOptions:
     """Optional run-bound C5.2 reconciliation route closure."""
 
     reconciliation_binding: Any | None = None
+    line_event_readback_records: Any | None = None
     note: str = "LOCAL_OFFLINE deterministic reconciliation route closure"
 
 
@@ -484,6 +485,7 @@ class C4AssemblyOptions:
 
     plan_payload: Any | None = None
     retry_payload: Any | None = None
+    quality_evidence: Any | None = None
     note: str = "LOCAL_OFFLINE deterministic fixture closure"
 
 
@@ -513,6 +515,8 @@ class C7AssemblyOptions:
     commit_readback: Any | None = None
     projection_diff: Any | None = None
     reconciliation_decision: Any | None = None
+    registry_store: Any | None = None
+    registry_command: Any | None = None
     note: str = "LOCAL_OFFLINE deterministic rollback-route fixture closure"
 
 
@@ -525,6 +529,8 @@ class C8AssemblyOptions:
     delivery_interpreter: Any | None = None
     c81_payload: Any | None = None
     c82_payload: Any | None = None
+    export_token_store: Any | None = None
+    export_token_command: Any | None = None
     note: str = "reuses build_postgres_c8_delivery_assembly unchanged"
 
 
@@ -533,6 +539,7 @@ class C9AssemblyOptions:
     """Optional run-bound C9 facade validation closure."""
 
     facade: Any | None = None
+    evidence_records: Any | None = None
     note: str = "LOCAL_OFFLINE deterministic facade validation closure"
 
 

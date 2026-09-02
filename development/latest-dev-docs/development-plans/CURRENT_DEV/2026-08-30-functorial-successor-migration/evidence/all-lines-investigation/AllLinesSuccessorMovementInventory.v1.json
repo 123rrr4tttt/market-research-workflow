@@ -1,0 +1,2130 @@
+{
+  "schema": "mrw.functorial_successor.all_lines_successor_movement_inventory.v1",
+  "evidence_kind": "line_and_gap_successor_movement_inventory",
+  "status": "OBSERVED_INVENTORY_NOT_PROMOTION",
+  "generated_at_utc": "2026-09-02T14:27:09Z",
+  "governance_standard": "docs/governance/semantic-movement-completeness-standard.md",
+  "base_scope": "All 18 frozen business-line records in AllLinesMigrationScope.freeze.v1 plus 2 supplementary gap rows proposed by the freeze/amendment review",
+  "scope": {
+    "business_line_records": 18,
+    "frozen_business_line_unassigned_blockers": 16,
+    "additional_gap_rows": [
+      "GAP-agent-batch-quality-promotion-readback-evidence-omission",
+      "GAP-runtime-health-matrix"
+    ],
+    "byte_closure_document": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json",
+    "write_boundary": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation"
+  },
+  "summary": {
+    "schema_version": "1.0.0",
+    "movement_record_count": 20,
+    "business_line_movement_record_count": 18,
+    "supplementary_gap_movement_record_count": 2,
+    "business_line_disposition_counts": {
+      "UNASSIGNED_BLOCKER": 0,
+      "REIMPLEMENTED_AS": 18
+    },
+    "supplementary_gap_disposition_counts": {
+      "REIMPLEMENTED_AS": 2,
+      "UNASSIGNED_BLOCKER": 0
+    },
+    "frozen_business_line_unassigned_blockers": 16,
+    "non_blocker_business_line_records": 2,
+    "new_closures_from_frozen_blockers": 16,
+    "new_gap_rows_added": 2,
+    "unassigned_movement_records": 0,
+    "authority_ceiling": {
+      "authority_transfer": false,
+      "business_authority_migrated": false,
+      "cutover": false,
+      "external_delivery": false,
+      "live_provider": false,
+      "successor_claim_enabled_for_all_lines": false
+    },
+    "s2c_closed_movement_records": 11
+  },
+  "movements": [
+    {
+      "movement_id": "ALL-SM-001",
+      "business_line_id": "BL-business-lines-worker-readback",
+      "amendment_ref": "ALL-AD-001",
+      "record_role": "business_line_movement",
+      "freeze_row_ref": "AllLinesMigrationScope.freeze.v1.json#/business_lines/0",
+      "business_line_key": "business_line_worker_readback_project_matrix_nightly",
+      "kind": "canonical_business_line_evidence_matrix",
+      "movement_ids": [
+        "C9-M001",
+        "C9-M004",
+        "C9-M005"
+      ],
+      "gap_ids": [
+        "GAP-business-lines-evidence-matrix"
+      ],
+      "donor_byte_closure_refs": [
+        {
+          "path": "main/backend/app/api/business_lines.py",
+          "sha256": "0ac9103472c86bbdeb742969a4213296820595d0d3c429444f593f421cc1d4bd",
+          "git_blob_sha1": "2d030feb52c0a8a2e6c63dd821cc02a6ff96283f",
+          "tracked_at_donor_head": false,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/5"
+        },
+        {
+          "path": "main/backend/app/services/task_readback_metadata.py",
+          "sha256": "981c970ea1610450f681a1dfe1a6a22288c33363b38d827ca7f39052072072e9",
+          "git_blob_sha1": "701eec5a0739fec7349c963d985749dfab0602e1",
+          "tracked_at_donor_head": false,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/164"
+        },
+        {
+          "path": "scripts/run_business_line_worker_readback_project_matrix.py",
+          "sha256": "9378ff9bc941535d36ef45a9e63c07783aeb1355a0a271faa63182916e9d6f43",
+          "git_blob_sha1": "cb77107058565b0e4ceed62e8f5f5488bee985ff",
+          "tracked_at_donor_head": false,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/234"
+        },
+        {
+          "path": "scripts/run_business_line_worker_readback_evidence_chain.py",
+          "sha256": "96657dcc1484080600e4e6ae293c7366ad4dd6990c0215da5acff24c49600803",
+          "git_blob_sha1": "7388ed956c5ce5b4eb42ef46ad4342c1468a2094",
+          "tracked_at_donor_head": false,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/233"
+        },
+        {
+          "path": "scripts/run_business_line_async_task_readback_live_samples.py",
+          "sha256": "02086c050ab39f5beea4460719e56f30433d12ff3f2aeec5a4bc50d08ee76e70",
+          "git_blob_sha1": "bdd8c0f6bfbb64ce74280f4ee01d90872da06984",
+          "tracked_at_donor_head": false,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/230"
+        },
+        {
+          "path": "scripts/build_business_line_async_readiness_artifact.py",
+          "sha256": "af622184eece9133a5c8bee182b6b81d8c2b144ccf3c40e90833cda5b80988af",
+          "git_blob_sha1": "87a45149ff10ff30eea516a9f9a594f83899f219",
+          "tracked_at_donor_head": false,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/220"
+        },
+        {
+          "path": "scripts/runtime_health_matrix.py",
+          "sha256": "002e8f205737a57cfd8c6ecef9740b3583ac49b163894a1648f54456d29e7dda",
+          "git_blob_sha1": "7517d6d45771830a19cfb0684d74e26d5ef9eb8c",
+          "tracked_at_donor_head": false,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/236"
+        },
+        {
+          "path": "main/frontend-modern/tests/e2e/real-backend-business-lines.spec.ts",
+          "sha256": "a4422dfe0efac41778900e99d76641edde2384d9e81081d8e27dea1f26bfacbd",
+          "git_blob_sha1": "d760aa67d9ba0592e4ec96f886ae3ca451df29e0",
+          "tracked_at_donor_head": false,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/219"
+        }
+      ],
+      "source_object": "business-lines evidence matrix API, task_readback_metadata builder, scheduled project-matrix/evidence-chain/live-sample/readiness scripts and real-backend e2e checks",
+      "target_object": "C9.1/C9.3 structural envelope plus a successor seven-line evidence-matrix/readback projection over typed line-event/runtime readback records",
+      "named_transform": "Successor C9.1/C9.3 evidence-matrix projection: canonical seven line keys, fail-closed passed/blocked_by_environment/failed classification and plan_only recovery records",
+      "owner": "B-recheck / OpsPage owner; legacy matrix owner team",
+      "effect": "Read-only runtime evidence matrix, scheduled artifact summary/drilldown and async task readback readiness with fail-closed passed/blocked_by_environment/failed classification",
+      "failure": "Missing line/source, contradictory readback, line-set drift and undecidable worker terminal evidence are typed projection failures or blocked rows",
+      "resource": "Pure in-memory typed readback records; no DB, scheduler/executor/provider, artifact storage or scheduled capacity adopted",
+      "authority": "Read-only evidence projection; all authority flags false, completion_claim=False and no executor/scheduler/provider/canonical write",
+      "recovery": "Plan_only recovery/rebuild records only; no rebuild, retry or scheduled side effect is executed",
+      "projection_loss": "Donor extension metadata and real-backend live smoke are not replicated as runtime state; the canonical seven-line subset is rebuilt as successor typed records",
+      "source_evidence": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesMigrationScope.freeze.v1.json#/business_lines/0",
+        "main/backend/app/api/business_lines.py@2d030feb52c0a8a2e6c63dd821cc02a6ff96283f (donor working tree, untracked at donor HEAD)"
+      ],
+      "target_realization": [
+        "main/backend/app/successor_runtime/capabilities/c9_evidence_matrix.py",
+        "main/backend/app/successor_runtime/substrate/projections/evidence_matrix.py",
+        "main/backend/app/successor_runtime/assembly/c9_assembly.py"
+      ],
+      "acceptance_trace": [
+        "main/backend/app/successor_runtime/substrate/projections/evidence_matrix.py::C9EvidenceMatrixRouteHandler.execute",
+        "main/backend/tests/successor_runtime/test_s2b_c9_evidence_matrix.py::test_s2b_c9_canonical_keys_status_and_terminal_mapping",
+        "main/backend/tests/successor_runtime/test_s2b_c9_evidence_matrix.py::test_s2b_c9_worker_requirement_mismatch_fails_closed",
+        "main/backend/tests/successor_runtime/test_s2b_c9_evidence_matrix.py::test_s2b_c9_passed_requires_decidable_worker_readback",
+        "main/backend/tests/successor_runtime/test_s2b_c9_evidence_matrix.py::test_s2b_c9_route_handler_binding_drift_and_success",
+        "main/backend/tests/successor_runtime/test_s2b_cell_extension_wiring.py::test_s2b_c9_evidence_matrix_route_wired_in_c9_assembly"
+      ],
+      "disposition": "REIMPLEMENTED_AS",
+      "successor_target": "C9 evidence-matrix read-only projection carried by the C9 family assembly over typed runtime/readback evidence",
+      "required_closure": "S2b cell-extension closure: typed seven-line matrix handler wired in the C9 assembly; focused S2b tests green; authority all false",
+      "recommendation_note": "S2b cell-extension closure; still local-only and not promotion/cutover/live-ready",
+      "closing_status": "CLOSED"
+    },
+    {
+      "movement_id": "ALL-SM-002",
+      "business_line_id": "BL-ingest-submission-worker-readback",
+      "amendment_ref": "ALL-AD-002",
+      "record_role": "business_line_movement",
+      "freeze_row_ref": "AllLinesMigrationScope.freeze.v1.json#/business_lines/1",
+      "business_line_key": "ingest",
+      "kind": "canonical_business_line_evidence_matrix",
+      "movement_ids": [
+        "C7-MOV-001",
+        "C7-MOV-002",
+        "C7-MOV-003",
+        "C7-MOV-010",
+        "C7-MOV-011",
+        "C7-MOV-020",
+        "C7-MOV-021",
+        "C7-MOV-030",
+        "C7-MOV-031",
+        "C7-MOV-040",
+        "C7-MOV-041",
+        "C7-MOV-050",
+        "C7-MOV-051",
+        "C7-MOV-060",
+        "C7-MOV-061",
+        "C7-MOV-070",
+        "C7-MOV-071",
+        "C7-MOV-072",
+        "C7-MOV-073",
+        "C7-MOV-074"
+      ],
+      "gap_ids": [
+        "GAP-ingest-submission-registry"
+      ],
+      "donor_byte_closure_refs": [
+        {
+          "path": "main/backend/app/api/ingest.py",
+          "sha256": "d7b76e979f35b59e6d296eec2deddaa88ced506ba3411d7af7b31d8ae4d766d6",
+          "git_blob_sha1": "7f2eaeb622e323b937c1867f6e6bea38aa0892c6",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/14"
+        },
+        {
+          "path": "main/backend/app/services/ingest/frontdoor_orchestrator.py",
+          "sha256": "b5e6dc8a3fd8fefd74f39e32be6b2c4b22100f8fae05690b6ebf52242d58a4e0",
+          "git_blob_sha1": "77afd39e084641724e32301d2fa9e361311446db",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/130"
+        },
+        {
+          "path": "main/backend/app/services/ingest/frontdoor_contract.py",
+          "sha256": "7cfec99da961a0c5beb2a6bd25064b7dd0189bf4952d6322668f0d520c0eae30",
+          "git_blob_sha1": "78f1594721fda2de9b0681f69a55106983ddb939",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/128"
+        },
+        {
+          "path": "main/backend/app/services/ingest/terminal_writer.py",
+          "sha256": "822fbfd6efbab3f8593796d3595a190183c0ca283d5028c0010ad08b4da55f87",
+          "git_blob_sha1": "f32c9139943ee541f95f236e2083bf6315f77509",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/135"
+        },
+        {
+          "path": "main/backend/app/services/ingest/long_cycle_live_runtime.py",
+          "sha256": "13f34203d6115fe12c9d32bfcded1c6965faa5bdd73c8ebc4105742545e4bc50",
+          "git_blob_sha1": "8562ff23228a205885d4159af69d90659d45d922",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/131"
+        },
+        {
+          "path": "main/backend/app/services/ingest/meaningful_gate.py",
+          "sha256": "932bf23ef7e2008f507db44637676c987a84bd2452ccb7031964f5c9fe929fd1",
+          "git_blob_sha1": "d410dc55c7a61170aebd0d3c713cb790e64fad77",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/132"
+        },
+        {
+          "path": "main/backend/app/services/ingest/retry_policy.py",
+          "sha256": "d6fa045c97e1fdc6887516f753b2fe7667b1ebe0a9a72819ff100268e21bb6e0",
+          "git_blob_sha1": "29061f9313947293144cf898451eabf78f672359",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/134"
+        },
+        {
+          "path": "main/backend/app/services/tasks.py",
+          "sha256": "0379922d25ee97cf56a9fdda24e3faf1aab0db8c26067f880bdceb0008b26632",
+          "git_blob_sha1": "c432f1058da53b913225cbe6b36dae97b2910be6",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/165"
+        },
+        {
+          "path": "main/backend/app/models/ingest_registry.py",
+          "sha256": "77806877fe129fcfc39c8652490ac1fb10b9285e2a2439eae15ebbd4bbc81173",
+          "git_blob_sha1": "3d0161ec5890c22b0156f651c4fea7abc79c7cb0",
+          "tracked_at_donor_head": false,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/39"
+        },
+        {
+          "path": "main/backend/app/models/long_cycle_entities.py",
+          "sha256": "e9cca3304e413972abdf6fffe77b4381505eaee76c4ff13e677859f22afeef38",
+          "git_blob_sha1": "273889e47c5beeb0e34441690448425b930316da",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/43"
+        }
+      ],
+      "source_object": "ingest API/frontdoor orchestration/terminal writer/long-cycle runtime/meaningful gate/retry policy/tasks plus untracked ingest submission registry model and migration",
+      "target_object": "C7.2 ingest submission registry typed successor port plus successor-only readback store",
+      "named_transform": "Successor C7.2 registry lifecycle: derive registry_key/submission_id/request_hash, reserve/complete/forget exact/idempotent transitions and successor-only readback",
+      "owner": "B-recheck; legacy worker lane owner",
+      "effect": "Ingest submission lifecycle, frontdoor admission, task dispatch/readback, meaningful-gate/retry and submission registry persistence",
+      "failure": "Typed conflict/not-found/integrity/credential and backend-unavailable failures; no speculative retry or memory fallback claim",
+      "resource": "Successor-only registry rows with exact digest readback; no legacy ingest_submission_registry or donor JSONB history write",
+      "authority": "Registry typed port/readback only; all authority flags false and canonical/live/legacy write authority closed",
+      "recovery": "Exact duplicate replay, idempotent complete and forget-then-re-reserve are typed recovery paths; outcome-unknown never repeats",
+      "projection_loss": "Donor JSONB request/subject/response history is not adopted; successor typed payload/digest fields are the preserved projection and same-key different-request conflict is an intentional stronger invariant",
+      "source_evidence": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/LegacyVsMovementGap.v1.json#/unmapped_gap/12",
+        "main/backend/app/models/ingest_registry.py@3d0161ec5890c22b0156f651c4fea7abc79c7cb0 (donor working tree, untracked at donor HEAD)"
+      ],
+      "target_realization": [
+        "main/backend/app/successor_runtime/capabilities/ingest_c7_registry.py",
+        "main/backend/app/successor_runtime/substrate/postgres/ingest_c7_registry_handler.py",
+        "main/backend/app/successor_runtime/assembly/c7_assembly.py"
+      ],
+      "acceptance_trace": [
+        "main/backend/app/successor_runtime/substrate/postgres/ingest_c7_registry_handler.py::C7IngestRegistryRuntimeHandler.execute",
+        "main/backend/tests/successor_runtime/test_s2b_c7_ingest_registry.py::test_s2b_c7_reserve_first_duplicate_and_hash_conflict",
+        "main/backend/tests/successor_runtime/test_s2b_c7_ingest_registry.py::test_s2b_c7_complete_terminal_replay_and_terminal_conflict",
+        "main/backend/tests/successor_runtime/test_s2b_c7_ingest_registry.py::test_s2b_c7_forget_missing_noop_and_allows_re_reserve",
+        "main/backend/tests/successor_runtime/test_s2b_c7_ingest_registry.py::test_s2b_c7_store_only_uses_successor_registry_table",
+        "main/backend/tests/successor_runtime/test_s2b_c7_ingest_registry.py::test_s2b_c7_handler_executes_reserve_command",
+        "main/backend/tests/successor_runtime/test_s2b_cell_extension_wiring.py::test_s2b_c7_2_ingest_registry_handler_wired_in_c7_assembly"
+      ],
+      "disposition": "REIMPLEMENTED_AS",
+      "successor_target": "backend-core/C7.2 ingest submission registry typed port and successor-only readback carried by the C7 family assembly",
+      "required_closure": "S2b cell-extension closure: registry reserve/complete/forget typed handler wired in the C7 assembly; focused S2b tests green; authority all false",
+      "recommendation_note": "S2b cell-extension closure; still local-only and not promotion/cutover/live-ready",
+      "closing_status": "CLOSED"
+    },
+    {
+      "movement_id": "ALL-SM-003",
+      "business_line_id": "BL-search-discovery-index-worker-readback",
+      "amendment_ref": "ALL-AD-003",
+      "record_role": "business_line_movement",
+      "freeze_row_ref": "AllLinesMigrationScope.freeze.v1.json#/business_lines/2",
+      "business_line_key": "search_discovery_index",
+      "kind": "canonical_business_line_evidence_matrix",
+      "movement_ids": [
+        "C2-M001",
+        "C2-M002",
+        "C2-M003",
+        "C2-M004",
+        "C2-M005",
+        "C2-M006",
+        "C2-M007",
+        "C2-M008",
+        "C3-M001",
+        "C3-M002",
+        "C3-M003"
+      ],
+      "gap_ids": [
+        "GAP-untracked-frontend-dashboard-panel"
+      ],
+      "donor_byte_closure_refs": [
+        {
+          "path": "main/backend/app/api/search.py",
+          "sha256": "3b3708c55609c54aade9e3d7484a41dffe97cfeb11b7fb4e1b16b53d3db5bf4e",
+          "git_blob_sha1": "dd87f6c54e7ff9d72b680569a790e6c2acf9c15d",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/26"
+        },
+        {
+          "path": "main/backend/app/api/discovery.py",
+          "sha256": "d41ada77c70639ff60a1a950b63ca1fb253d971587a41ef86bb5b4588874f365",
+          "git_blob_sha1": "48aa0383b40679a89d62ef052477b9057a3c1be1",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/11"
+        },
+        {
+          "path": "main/backend/app/api/indexer.py",
+          "sha256": "ad8803ef1d41abe3660eb5d8b20f16258316a1e559199a1db88056b32c205c79",
+          "git_blob_sha1": "9e6e9754a37f4889ae69b057777ffe80eb6004f3",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/13"
+        },
+        {
+          "path": "main/backend/app/services/search/history.py",
+          "sha256": "301cb19491fc4aaed7bb9a61de1f614d907dbaf0b93f84c0ee349adf1935bc31",
+          "git_blob_sha1": "ce692dd0023719250c260bbb7ca1ee6324004d2a",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/151"
+        },
+        {
+          "path": "main/backend/app/services/search/retrieval_runs.py",
+          "sha256": "e837b34df9da16fa8282e03b9c0dcd0415a6f5ad7d14cb08f9e058dfbc2850b1",
+          "git_blob_sha1": "9a7594211d13fb484a426197a8c42f7a58f4440d",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/152"
+        },
+        {
+          "path": "main/backend/app/services/collect_runtime/runtime.py",
+          "sha256": "c7591aee60b1ed6966a67fd88044356bc2a618890bddc2da0e60714989eea482",
+          "git_blob_sha1": "8c77b7699c6c8d21d7a0704150d3a1f56a784e50",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/75"
+        },
+        {
+          "path": "main/backend/app/services/collect_runtime/contracts.py",
+          "sha256": "847ac17742818979200fbbdee006646c02a96ca3a54056dc699d6046fdca83e0",
+          "git_blob_sha1": "47b4b410dfca480ed2e074f8eeaa7658132f668f",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/74"
+        },
+        {
+          "path": "main/backend/app/services/indexer/application.py",
+          "sha256": "b340903d194633a853e1374da1fd75e61ee1564a02a11119b2896e9e393072e4",
+          "git_blob_sha1": "54398fd437c2395827951d13dfcde7db577c649c",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/125"
+        },
+        {
+          "path": "main/backend/app/services/tasks.py",
+          "sha256": "0379922d25ee97cf56a9fdda24e3faf1aab0db8c26067f880bdceb0008b26632",
+          "git_blob_sha1": "c432f1058da53b913225cbe6b36dae97b2910be6",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/165"
+        }
+      ],
+      "source_object": "search/discovery/indexer APIs, search history/retrieval-run persistence, collect-runtime planning, indexer application, tasks and untracked DashboardSearchRetrievalRunPanel",
+      "target_object": "C9.2 typed retrieval-run panel contract over caller-supplied observations",
+      "named_transform": "C9.2 typed retrieval-run panel contract over caller-supplied observations",
+      "owner": "B-recheck; legacy search/discovery worker lane owner",
+      "effect": "Search/discovery/index freshness readback, dashboard analytics and retrieval-run projection",
+      "failure": "Typed surface validation/coverage failures raise ValueError/TypeError or render blocked/unknown rows; no runtime effect failure is carried",
+      "resource": "Pure in-memory typed records; no DB/scheduler/executor/provider/credential read or runtime effect adopted",
+      "authority": "Read-only search/discovery/index evidence surface; no canonical index write authority is claimed",
+      "recovery": "Plan_only typed readback; no rebuild/retry/scheduled side effect is executed",
+      "projection_loss": "Untracked donor DashboardSearchRetrievalRunPanel UI bytes are not adopted and search index writes remain no-call",
+      "source_evidence": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/LegacyVsMovementGap.v1.json#/unmapped_gap/14",
+        "main/frontend-modern/src/pages/dashboard/DashboardSearchRetrievalRunPanel.tsx@8753624fa2ba3ad4973c8809de37bfbea9841ab4 (donor working tree, untracked at donor HEAD)"
+      ],
+      "target_realization": [
+        "main/backend/app/successor_runtime/capabilities/c9_2_search_retrieval_panel.py",
+        "main/backend/app/successor_runtime/assembly/s2c_ops_domain_surface_assembly.py"
+      ],
+      "acceptance_trace": [
+        "main/backend/app/successor_runtime/capabilities/c9_2_search_retrieval_panel.py::project_search_retrieval_panel",
+        "main/backend/tests/successor_runtime/test_s2c_worker_and_retrieval_surfaces.py::test_search_panel_empty_is_no_panel_and_readiness_is_not_faked",
+        "main/backend/tests/successor_runtime/test_s2c_worker_and_retrieval_surfaces.py::test_search_panel_terminal_fresh_is_ready",
+        "main/backend/tests/successor_runtime/test_s2c_surface_assembly_wiring.py::test_serial_assembly_carries_s2c_surfaces_without_cell_change"
+      ],
+      "disposition": "REIMPLEMENTED_AS",
+      "successor_target": "C9.2 typed search retrieval-run panel contract; no donor panel byte adoption",
+      "required_closure": "S2c typed read-only/control surface closure; local-only and not promotion/cutover/live-ready",
+      "recommendation_note": "S2c closed as a typed C9.2 search retrieval-run panel successor; search index writes and the untracked donor panel are explicit no-call/loss",
+      "closing_status": "CLOSED"
+    },
+    {
+      "movement_id": "ALL-SM-004",
+      "business_line_id": "BL-source-library-resource-worker-readback",
+      "amendment_ref": "ALL-AD-004",
+      "record_role": "business_line_movement",
+      "freeze_row_ref": "AllLinesMigrationScope.freeze.v1.json#/business_lines/3",
+      "business_line_key": "resource_source_library",
+      "kind": "canonical_business_line_evidence_matrix",
+      "movement_ids": [
+        "C2-M001",
+        "C2-M002",
+        "C2-M003",
+        "C2-M004",
+        "C2-M005",
+        "C2-M006",
+        "C2-M007",
+        "C2-M008"
+      ],
+      "gap_ids": [
+        "GAP-single-source-guard"
+      ],
+      "donor_byte_closure_refs": [
+        {
+          "path": "main/backend/app/api/source_library.py",
+          "sha256": "369754600bad0686f9a01f5949c59da58037ea11374752cfee1b61e738475075",
+          "git_blob_sha1": "9b77a5505978d852f331a934252689d25493fc82",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/28"
+        },
+        {
+          "path": "main/backend/app/api/resource_pool.py",
+          "sha256": "a28d589738a8eadd3d5ea56cb2bd3c6cb9da7a3395c8b49f4e08592d4d9c0afe",
+          "git_blob_sha1": "95976d19cf678e87f5d984016552631039f81886",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/25"
+        },
+        {
+          "path": "main/backend/app/services/source_library/resolver.py",
+          "sha256": "6560a619dec521ef6fec65eba492c59f10158c09d8871af41012159d9a234734",
+          "git_blob_sha1": "522891818c17f8f7e99ddaf43b8ab9bcc9bd4025",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/157"
+        },
+        {
+          "path": "main/backend/app/services/source_library/item_resolver.py",
+          "sha256": "50762f4b27d85ea4bd1f9e98f05f9930cc637b770ac55dc12aac7a115e595b12",
+          "git_blob_sha1": "21264723f7bd6d1c32a4b26f36fda406a09c7738",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/155"
+        },
+        {
+          "path": "main/backend/app/services/source_library/runner.py",
+          "sha256": "3954f3d1f7c1b05219d3e2b785b78061946baf774f6f817d63aedc85b4c21f3b",
+          "git_blob_sha1": "e39234f9c71382a143400ed1c88c08e0f7611895",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/158"
+        },
+        {
+          "path": "main/backend/app/services/source_library/item_plan.py",
+          "sha256": "8ef8fea7d6ad99bdd465efd7da3cb0050a34d9ad148e356c2c9685790f9544ca",
+          "git_blob_sha1": "c67a17e67511f38280b9671f2da9399e02d8d1b9",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/154"
+        },
+        {
+          "path": "main/backend/app/services/source_library/single_source_guard.py",
+          "sha256": "e41d1b35afdd9183d5629a82bd1972555ada743422dd8f11ee0deb2344afaef6",
+          "git_blob_sha1": "513330bc053f4234457aa1ec066efa913ed522b1",
+          "tracked_at_donor_head": false,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/159"
+        },
+        {
+          "path": "main/backend/app/services/source_library/sync.py",
+          "sha256": "0daa1dc0c59171cda197aa82b707bd56940b8c092232fe6bef5dc175649d192c",
+          "git_blob_sha1": "ad4d98e17148a6618a402b231799ad14c7f2cbf6",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/160"
+        },
+        {
+          "path": "main/backend/app/services/source_library/relevance_review.py",
+          "sha256": "bd5b99fa1844e0019a293a673178dd4d51dfd83deea2578218e4f6ef7a7d93a9",
+          "git_blob_sha1": "f7b5452c56570b91b0f3d1d72f1a44719bcabf20",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/156"
+        },
+        {
+          "path": "main/backend/app/services/resource_pool/site_entries.py",
+          "sha256": "50289ade71abae9ac95229e07e6d10281c1e99c465bb22163ec36c742bff7799",
+          "git_blob_sha1": "09021cd0873f414cc3c81c3da76b7f5960197380",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/149"
+        },
+        {
+          "path": "main/backend/app/services/resource_pool/resolver.py",
+          "sha256": "0594f0def73ff693de8ab277382cc1d38467b1616ab8440fae7bfab07e63e783",
+          "git_blob_sha1": "05f04017860a911865250a92219dbfe7450e6c2f",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/148"
+        },
+        {
+          "path": "main/backend/app/services/resource_pool/unified_search.py",
+          "sha256": "f5fa1d42ce4ebd391e791fdfa32a7cfe00fcb39cc3405477f0478cd309883e50",
+          "git_blob_sha1": "01f8096a6c59f66a9802f17ce799efe8f65e70e4",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/150"
+        },
+        {
+          "path": "main/backend/app/services/tasks.py",
+          "sha256": "0379922d25ee97cf56a9fdda24e3faf1aab0db8c26067f880bdceb0008b26632",
+          "git_blob_sha1": "c432f1058da53b913225cbe6b36dae97b2910be6",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/165"
+        }
+      ],
+      "source_object": "source_library/resource_pool APIs, resolver/runner/item plans/sync/relevance review, site entries/unified search and untracked single_source_guard",
+      "target_object": "source_library worker line readback consuming guard decision observations",
+      "named_transform": "source_library worker line readback consuming guard decision observations",
+      "owner": "B-recheck; source-library/resource lane owner",
+      "effect": "Source-library item/resource lifecycle, four-mode planning, provider effects and strict single-source guard validation before dispatch",
+      "failure": "Typed surface validation/coverage failures raise ValueError/TypeError or render blocked/unknown rows; no runtime effect failure is carried",
+      "resource": "Pure in-memory typed records; no DB/scheduler/executor/provider/credential read or runtime effect adopted",
+      "authority": "C2 local-only movement dispositions grant no provider/live execution or credential authority",
+      "recovery": "Plan_only typed readback; no rebuild/retry/scheduled side effect is executed",
+      "projection_loss": "Legacy provider dispatch execution is not replicated; admitted guard boundaries are readback records only",
+      "source_evidence": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/LegacyVsMovementGap.v1.json#/unmapped_gap/11",
+        "main/backend/app/services/source_library/single_source_guard.py@513330bc053f4234457aa1ec066efa913ed522b1 (donor working tree, untracked at donor HEAD)"
+      ],
+      "target_realization": [
+        "main/backend/app/successor_runtime/capabilities/source_library_worker_readback.py",
+        "main/backend/app/successor_runtime/assembly/s2c_ops_domain_surface_assembly.py"
+      ],
+      "acceptance_trace": [
+        "main/backend/app/successor_runtime/capabilities/source_library_worker_readback.py::project_source_library_worker_readback",
+        "main/backend/tests/successor_runtime/test_s2c_worker_and_retrieval_surfaces.py::test_source_library_admitted_boundary_consumes_fact_but_never_dispatches",
+        "main/backend/tests/successor_runtime/test_s2c_worker_and_retrieval_surfaces.py::test_source_library_rejected_or_missing_fails_closed",
+        "main/backend/tests/successor_runtime/test_s2c_surface_assembly_wiring.py::test_serial_assembly_carries_s2c_surfaces_without_cell_change"
+      ],
+      "disposition": "REIMPLEMENTED_AS",
+      "successor_target": "source-library resource worker readback typed surface; no provider dispatch",
+      "required_closure": "S2c typed read-only/control surface closure; local-only and not promotion/cutover/live-ready",
+      "recommendation_note": "S2c closed as a typed source-library worker readback surface; admitted provider-dispatch boundary stays readback-only and dispatch count is zero",
+      "closing_status": "CLOSED"
+    },
+    {
+      "movement_id": "ALL-SM-005",
+      "business_line_id": "BL-projects-config-workflow",
+      "amendment_ref": "ALL-AD-005",
+      "record_role": "business_line_movement",
+      "freeze_row_ref": "AllLinesMigrationScope.freeze.v1.json#/business_lines/4",
+      "business_line_key": "projects_config_workflow",
+      "kind": "canonical_business_line_evidence_matrix",
+      "movement_ids": [
+        "C9-M001"
+      ],
+      "gap_ids": [
+        "GAP-projects-config-workflow"
+      ],
+      "donor_byte_closure_refs": [
+        {
+          "path": "main/backend/app/api/projects.py",
+          "sha256": "f53a6659cab82ea545272bc9d48484c6329bb88d144f509862cd0bcc50145fe1",
+          "git_blob_sha1": "f45f604fbd9ac83ffd3420c7d54fbeaab01b5a5e",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/23"
+        },
+        {
+          "path": "main/backend/app/api/config.py",
+          "sha256": "c6ecf8cbca80a9b035e32276e7a73e553395b23e841012adb4f85e669317be35",
+          "git_blob_sha1": "03fcbd49b49aaa16f89aa59e815939b5221e6b5a",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/8"
+        },
+        {
+          "path": "main/backend/app/api/llm_config.py",
+          "sha256": "433557fe74ccafca378acc4ad09c6a566212272998fa262c00d66a91818d5167",
+          "git_blob_sha1": "9daf2423e058d84c35206598ab32f80717c641ed",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/16"
+        },
+        {
+          "path": "main/backend/app/api/project_customization.py",
+          "sha256": "8a6c643e549dd7b0a18351bdcabdd7775787deb1d66d19b015e7422c79729144",
+          "git_blob_sha1": "d1e83f5ee7d50de78afb4ec986250582cb3eaeec",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/22"
+        },
+        {
+          "path": "main/backend/app/api/process.py",
+          "sha256": "790b6cb90086d6ba1171309e572b7e7be4c906db3705170dbd4a12ca7ea16c63",
+          "git_blob_sha1": "efe10dca82dae8c2830a48feb256388e6ec02b52",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/20"
+        },
+        {
+          "path": "main/backend/app/services/projects/context.py",
+          "sha256": "5043710e9f0eacba9eef82c969df8c8a09618b006816d6aaed52353d8dedf203",
+          "git_blob_sha1": "dd6ad1ca39f783cc81f737b82f8836870a11b65c",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/144"
+        },
+        {
+          "path": "main/backend/app/services/projects/workflow.py",
+          "sha256": "93ff01651c824ec74826fb09f21db64be12fbd43f2836d0aa25ad769e38fa878",
+          "git_blob_sha1": "9b6ce960bba199ac2f3dc529228a2cde9ae73971",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/145"
+        }
+      ],
+      "source_object": "projects/config/llm_config/project_customization APIs, process history API and projects context/workflow services",
+      "target_object": "projects/config/workflow typed readback and mutation no-call manifest",
+      "named_transform": "projects/config/workflow typed readback and mutation no-call manifest",
+      "owner": "B-recheck; project/config workflow owner",
+      "effect": "Project CRUD/archive/activate, env/LLM-service config, customization workflow and project-scoped process history",
+      "failure": "Typed surface validation/coverage failures raise ValueError/TypeError or render blocked/unknown rows; no runtime effect failure is carried",
+      "resource": "Pure in-memory typed records; no DB/scheduler/executor/provider/credential read or runtime effect adopted",
+      "authority": "Legacy API mutation authority exists in donor; successor facade/domain port has no accepted write authority",
+      "recovery": "Plan_only typed readback; no rebuild/retry/scheduled side effect is executed",
+      "projection_loss": "Project/config/customization mutation execution is not carried by the typed read-only surface",
+      "source_evidence": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/LegacyVsMovementGap.v1.json#/unmapped_gap/1",
+        "main/backend/app/api/projects.py@f45f604fbd9ac83ffd3420c7d54fbeaab01b5a5e"
+      ],
+      "target_realization": [
+        "main/backend/app/successor_runtime/ops_domain/projects_config_surface.py",
+        "main/backend/app/successor_runtime/assembly/s2c_ops_domain_surface_assembly.py"
+      ],
+      "acceptance_trace": [
+        "main/backend/app/successor_runtime/ops_domain/projects_config_surface.py::project_projects_config_surface",
+        "main/backend/tests/successor_runtime/test_s2c_ops_domain_surfaces.py::test_projects_config_surface_records_readback_and_explicit_no_call",
+        "main/backend/tests/successor_runtime/test_s2c_surface_assembly_wiring.py::test_s2c_registry_covers_all_eleven_remaining_movements"
+      ],
+      "disposition": "REIMPLEMENTED_AS",
+      "successor_target": "ops-domain projects/config/workflow typed read-only surface with no-call mutation manifest",
+      "required_closure": "S2c typed read-only/control surface closure; local-only and not promotion/cutover/live-ready",
+      "recommendation_note": "S2c closed as an ops-domain typed read-only/control surface; project/config/workflow mutation execution carries explicit no-call decisions",
+      "closing_status": "CLOSED"
+    },
+    {
+      "movement_id": "ALL-SM-006",
+      "business_line_id": "BL-dashboard-admin-governance",
+      "amendment_ref": "ALL-AD-006",
+      "record_role": "business_line_movement",
+      "freeze_row_ref": "AllLinesMigrationScope.freeze.v1.json#/business_lines/5",
+      "business_line_key": "dashboard_admin_governance",
+      "kind": "canonical_business_line_evidence_matrix",
+      "movement_ids": [
+        "C9-M001",
+        "C9-M004",
+        "C9-M005"
+      ],
+      "gap_ids": [
+        "GAP-dashboard-admin-governance",
+        "GAP-dashboard-report-closure"
+      ],
+      "donor_byte_closure_refs": [
+        {
+          "path": "main/backend/app/api/dashboard.py",
+          "sha256": "786beacb2fb637ced6edc0f25d5642a6d94594da0b8e37e857131e30fd7fbb3f",
+          "git_blob_sha1": "51b03a13cec438039593bc1b74ad071db7563a36",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/10"
+        },
+        {
+          "path": "main/backend/app/api/admin.py",
+          "sha256": "434bf370096b20e8438a3f9c7851daebdbf0c43a7d11bf7558b0b446444160fc",
+          "git_blob_sha1": "59905edd01ab42bc29861e584619bb8d6f7eef6f",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/1"
+        },
+        {
+          "path": "main/backend/app/api/policies.py",
+          "sha256": "561cc10fbba1d27581b3d00a364493c30e2fa33e8026ba5951f1b981fffcb251",
+          "git_blob_sha1": "fa7133509b09c27c050ff981888a1297380cd05e",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/19"
+        },
+        {
+          "path": "main/backend/app/api/market.py",
+          "sha256": "784692991c403d56c93fddfc823545327ebaae3e404081b335b5a21c550ec862",
+          "git_blob_sha1": "4095bb696742080e71868fc73ad3bb72f23cb48f",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/18"
+        },
+        {
+          "path": "main/backend/app/api/products.py",
+          "sha256": "ff2fb75a4bf9a86eb16b35002c69d8c7d9b043fceb921bb997c50e855913d6b2",
+          "git_blob_sha1": "c19bbf72b7f87a1fb080e1518830eb9bc33ff93c",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/21"
+        },
+        {
+          "path": "main/backend/app/api/topics.py",
+          "sha256": "08d12dadeb4b0efe1796d96c32aa4591fccdceb968fed3e829e00fbd35940ebf",
+          "git_blob_sha1": "f68d33a5f631548751b905035501eff0a3aeddc4",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/30"
+        },
+        {
+          "path": "main/backend/app/api/reports.py",
+          "sha256": "2a052bdca291cb2e6814382dc86fd993f9b3565e5dd4298fcac2263c6f1fabe5",
+          "git_blob_sha1": "f570a5ca848ec1649341f38ac2ba6256fd372c32",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/24"
+        },
+        {
+          "path": "main/backend/app/api/governance.py",
+          "sha256": "b1dd5bce218477f7a065b0103c4119b4461926662793901a67ec31341c7845b9",
+          "git_blob_sha1": "09f40989865f530ce126fc3d4cc5b4797a023cc3",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/12"
+        },
+        {
+          "path": "main/backend/app/services/governance/retention.py",
+          "sha256": "a1e77f7034ea62fd41231b61c9fa86ee7844bbd43281ae3765d7755c8c2a5c08",
+          "git_blob_sha1": "bab62fc73aeb47c505e5df3b21ce9210d80d74ea",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/100"
+        },
+        {
+          "path": "main/backend/app/services/aggregator/sync.py",
+          "sha256": "18c2d479c93d1861bb4626e843223a1bf357499e83b4e5210d70b268b9708631",
+          "git_blob_sha1": "8787142f6b01b7bcbc3021004469794c3ee70558",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/60"
+        }
+      ],
+      "source_object": "dashboard/admin/policies/market/products/topics/reports/governance APIs, governance retention and aggregator sync services",
+      "target_object": "dashboard/admin/governance typed readback plus explicit rejection/loss decisions",
+      "named_transform": "dashboard/admin/governance typed readback plus explicit rejection/loss decisions",
+      "owner": "B-recheck; dashboard/admin/governance owner",
+      "effect": "Dashboard read projections, admin/governance actions, cleanup/aggregator sync and report-from-filter synthesis",
+      "failure": "Typed surface validation/coverage failures raise ValueError/TypeError or render blocked/unknown rows; no runtime effect failure is carried",
+      "resource": "Pure in-memory typed records; no DB/scheduler/executor/provider/credential read or runtime effect adopted",
+      "authority": "Admin/governance mutation authority is legacy-only; successor facade/read projection grants no governance mutation authority",
+      "recovery": "Plan_only typed readback; no rebuild/retry/scheduled side effect is executed",
+      "projection_loss": "Report-from-filter synthesis and admin/governance action execution are not carried by successor",
+      "source_evidence": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/LegacyVsMovementGap.v1.json#/unmapped_gap/2",
+        "main/backend/app/api/dashboard.py@51b03a13cec438039593bc1b74ad071db7563a36"
+      ],
+      "target_realization": [
+        "main/backend/app/successor_runtime/ops_domain/dashboard_admin_surface.py",
+        "main/backend/app/successor_runtime/assembly/s2c_ops_domain_surface_assembly.py"
+      ],
+      "acceptance_trace": [
+        "main/backend/app/successor_runtime/ops_domain/dashboard_admin_surface.py::project_dashboard_admin_surface",
+        "main/backend/tests/successor_runtime/test_s2c_ops_domain_surfaces.py::test_dashboard_surface_always_carries_report_closure_decision",
+        "main/backend/tests/successor_runtime/test_s2c_surface_assembly_wiring.py::test_s2c_registry_covers_all_eleven_remaining_movements"
+      ],
+      "disposition": "REIMPLEMENTED_AS",
+      "successor_target": "ops-domain dashboard/admin/governance typed read-only surface with explicit report-closure rejection",
+      "required_closure": "S2c typed read-only/control surface closure; local-only and not promotion/cutover/live-ready",
+      "recommendation_note": "S2c closed as an ops-domain typed read-only/control surface; report-from-filter synthesis is EXPLICITLY_REJECTED with a named decision owner",
+      "closing_status": "CLOSED"
+    },
+    {
+      "movement_id": "ALL-SM-007",
+      "business_line_id": "BL-writing-knowledge-graph-agent",
+      "amendment_ref": null,
+      "record_role": "business_line_movement",
+      "freeze_row_ref": "AllLinesMigrationScope.freeze.v1.json#/business_lines/6",
+      "business_line_key": "writing_knowledge_graph_agent",
+      "kind": "canonical_business_line_evidence_matrix",
+      "movement_ids": [
+        "C1-M001",
+        "C1-M002",
+        "C1-M003",
+        "C1-M004",
+        "C4-M001",
+        "C4-M002",
+        "C4-M003",
+        "C4-M004",
+        "C4-M005",
+        "C5-M001",
+        "C5-M002",
+        "C5-M003",
+        "C5-M004",
+        "C5-M005",
+        "C5-M006",
+        "C6-M001",
+        "C6-M002",
+        "C6-M003",
+        "C6-M004",
+        "C8-M001",
+        "C8-M002",
+        "C8-M003",
+        "C8-M004",
+        "C8-M005"
+      ],
+      "gap_ids": [],
+      "donor_byte_closure_refs": [
+        {
+          "path": "main/backend/app/api/writing.py",
+          "sha256": "40c1e9079868f2dd81798c0fc6fc6f8a13fad3801e312d4f6860679ad30cfc9b",
+          "git_blob_sha1": "a274a516f975de0d8f0e86a219b2bdd4a022c40d",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/33"
+        },
+        {
+          "path": "main/backend/app/api/typed_knowledge.py",
+          "sha256": "f014591430b720ae0337e86e8e7dc9af519d08dfb89394940fa12d4ce942e3d4",
+          "git_blob_sha1": "86f6b73f41f50f91fc17b742e02c1762e11783a4",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/31"
+        },
+        {
+          "path": "main/backend/app/api/workflow_graph.py",
+          "sha256": "a2c059c2c451d3723f385b8017583b10084060bd45babff91075b318006f3ca7",
+          "git_blob_sha1": "64f7ee81ab6c64c699e5e77981be6f0949736d20",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/32"
+        },
+        {
+          "path": "main/backend/app/api/agent_chat.py",
+          "sha256": "4a904fc1387feac870cdb204bc86f99fa40e0f996ec589390cba10cca884f16c",
+          "git_blob_sha1": "61e25d0e4a8caf8cd9acf1d332389adb03464c86",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/3"
+        },
+        {
+          "path": "main/backend/app/api/agent_sessions.py",
+          "sha256": "9c185595c6990055877f3dee47c615070ca3ff8b89b592e4991ab4c49fbefacd",
+          "git_blob_sha1": "36fdd65f97f0cdcdb3c9f4a5bce290a0d888484f",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/4"
+        },
+        {
+          "path": "main/backend/app/api/agent_batch.py",
+          "sha256": "f880ae86e92fd121fe62da842ac6e558bd60d250a83e0387887bcae5ce7306fd",
+          "git_blob_sha1": "1a516ca73c8b36c77c248851cb2c68acb0873fa2",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/2"
+        },
+        {
+          "path": "main/backend/app/services/writing/llm_action_service.py",
+          "sha256": "dbbd3530fee08236b32903860625c48b0708970ebd9962055efc13bcc6fa7e20",
+          "git_blob_sha1": "cbf60522dacc7af2d475c39db238c52fbcd8263e",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/179"
+        },
+        {
+          "path": "main/backend/app/services/writing/document_service.py",
+          "sha256": "6647a075ecbd66bc5027e8dd85a12433c6fa1fcdea10b5065ad9bf17ae234725",
+          "git_blob_sha1": "388de2a092faf09bd373db9a31d75991b9101040",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/177"
+        },
+        {
+          "path": "main/backend/app/services/writing/template_service.py",
+          "sha256": "e1a999975024b4b5e5fb571812ac22a316128250c004c09437b35dbdd9d28989",
+          "git_blob_sha1": "24d9e8f869a88fb78ff6146b067430ad41244967",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/182"
+        },
+        {
+          "path": "main/backend/app/services/typed_knowledge/persistence_boundary.py",
+          "sha256": "96f2f9d5ae17cf87d51c704e47badc6b8ea3d8ea3209f48cdd1ae2740c0dea2a",
+          "git_blob_sha1": "3f071ab778e4b3ecacf2fc6b7209126725b92d66",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/168"
+        },
+        {
+          "path": "main/backend/app/services/workflow_graph/contracts.py",
+          "sha256": "3ad2da252b31ec17cc52e3532bc3aa7dde638e488cde2b5979863b1eb6b45919",
+          "git_blob_sha1": "36d97d0726300639998eab3deaf9ea7319944647",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/170"
+        },
+        {
+          "path": "main/backend/app/services/workflow_graph/compiler.py",
+          "sha256": "8decdac5a5d165e8b0769105981b89852a16667aa38fd069aabf736a9fea1911",
+          "git_blob_sha1": "65a9f73fd8a22037f98f2fbab83fbc90c6f57e00",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/169"
+        },
+        {
+          "path": "main/backend/app/services/workflow_graph/runtime.py",
+          "sha256": "cb4ae041aef79ce9b8d68a14615c4a85f1b9182319380a5462133534eeca67fc",
+          "git_blob_sha1": "3a900dab2264c6b0474172ce3c718c10a5a9f566",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/172"
+        },
+        {
+          "path": "main/backend/app/services/workflow_graph/store.py",
+          "sha256": "bda33b9bb91364a77de33de1fc388e426ba0ad703e6e57a71452adc247b234b1",
+          "git_blob_sha1": "111fe4245728111f1b9daf7020017fe27f14d21d",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/173"
+        },
+        {
+          "path": "main/backend/app/services/agent_core/core.py",
+          "sha256": "e961a4ac80437a9fd247654e50b2c5500c2d65cf95b93532151a94413ffdd93e",
+          "git_blob_sha1": "9a52404d6f28fa341106bd75c700494e16b3858f",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/53"
+        },
+        {
+          "path": "main/backend/app/services/agent_runtime/coordinator.py",
+          "sha256": "40d9019e6f0346dbf6607772679b10a782983e43de94a7166558845155914c8a",
+          "git_blob_sha1": "f71a7fdc2609961b82dc69f1f15c1378cbd0a825",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/55"
+        },
+        {
+          "path": "main/backend/app/services/agent_batch/agent_loop.py",
+          "sha256": "fe3b616be686a6889f6c9a30c745b8d58af2abcfbb78c632748c780e1e27aa1f",
+          "git_blob_sha1": "63fce87994532688fc7f9a1a97cbf580c71cc644",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/46"
+        },
+        {
+          "path": "main/backend/app/services/agent_batch/task_contract.py",
+          "sha256": "11e020d9ede5f0994a3d73da193c0caa02aaaa5d320f4a61877b8db5fdf4e245",
+          "git_blob_sha1": "8ab4204a0fa5b8f99b5ce2ceabc0d20feb836444",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/51"
+        },
+        {
+          "path": "main/backend/app/services/agent_sessions/service.py",
+          "sha256": "19944b0c1f1a923be004c0c944ff56926db9003d075a37e742d0e3e48d122651",
+          "git_blob_sha1": "996bc5ea7f6bfa9a7b4f44b64747921f0c9989f8",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/58"
+        }
+      ],
+      "source_object": "Writing artifact lifecycle (documents/drafts/citations/templates/LLM actions), typed-knowledge persistence/governance handoff, graph workflow compile/run/replay/templates, agent chat/session/batch lifecycle and approval readback",
+      "target_object": "successor_runtime C1/C4/C5/C6/C8 family: c1_legacy_dsl/c1_slice_acceptance, agent_batch_c4*, agent_core_c6*, agent-session/runtime projections, c8_common/c8_typed_knowledge/c8_writing/c8_report/c8_graph/c8_consumer and artifact/projection stores",
+      "named_transform": "movement family C1-M001..C1-M004, C4-M001..C4-M005, C5-M001..C5-M006, C6-M001..C6-M004, C8-M001..C8-M005 as recorded in P1P3SuccessorMovementMatrix",
+      "owner": "writing/knowledge/graph/agent owner; backend-core/C1/C4/C5/C6 and C8 family owners",
+      "effect": "Documents/drafts/citations/templates/LLM actions, typed-knowledge objects and persistence-boundary records, graph workflow compile/run/replay, agent session/task/batch lifecycle and approval readback",
+      "failure": "Typed failures are covered per movement family: DSL parse/compile rejection, effect retry/reconciliation, outcome-unknown recovery, redaction raw-sentinel rejection and C8 graph loss profiles",
+      "resource": "Local successor_runtime test/substrate implementations with disposable PostgreSQL project fixtures; no live provider or production resource claims",
+      "authority": "Local-only spec/manifest adoption; no authority transfer, cutover, live provider, canonical production write or external delivery",
+      "recovery": "C1 replay/restart/rollback, C4 receipt replay/rollback rehearsal, C5 reconciliation/rebuild, C6 outcome-unknown readback and C8 artifact recovery traces",
+      "projection_loss": "C4 source-mode rewrite and generic DB enum not projected; C5 raw journal/control mutability and C6 fallback/redaction convenience are bounded losses; C8 graph/writing convenience losses apply",
+      "source_evidence": [
+        "AllLinesMigrationScope.freeze.v1.json#/business_lines/6",
+        "main/backend/app/api/writing.py",
+        "main/backend/app/api/typed_knowledge.py",
+        "main/backend/app/api/workflow_graph.py",
+        "main/backend/app/api/agent_chat.py",
+        "main/backend/app/api/agent_sessions.py",
+        "main/backend/app/api/agent_batch.py",
+        "main/backend/app/services/writing/llm_action_service.py",
+        "main/backend/app/services/writing/document_service.py",
+        "main/backend/app/services/writing/template_service.py",
+        "main/backend/app/services/typed_knowledge/persistence_boundary.py",
+        "main/backend/app/services/workflow_graph/contracts.py",
+        "main/backend/app/services/workflow_graph/compiler.py",
+        "main/backend/app/services/workflow_graph/runtime.py",
+        "main/backend/app/services/workflow_graph/store.py",
+        "main/backend/app/services/agent_core/core.py",
+        "main/backend/app/services/agent_runtime/coordinator.py",
+        "main/backend/app/services/agent_batch/agent_loop.py",
+        "main/backend/app/services/agent_batch/task_contract.py",
+        "main/backend/app/services/agent_sessions/service.py"
+      ],
+      "target_realization": [
+        "main/backend/app/successor_runtime/capabilities/*",
+        "main/backend/app/successor_runtime/substrate/**",
+        "main/backend/tests/successor_runtime/**"
+      ],
+      "acceptance_trace": [
+        "main/backend/tests/successor_runtime/test_c8_movement_closure_postgres.py",
+        "main/backend/tests/successor_runtime/test_c8_movement_closure_pure.py",
+        "main/backend/tests/successor_runtime/test_c8_research_artifact_delivery_bridge_postgres.py",
+        "main/backend/tests/successor_runtime/test_p3_c4_1_parity.py::test_same_program_plan_legacy_and_successor_c4_1_agree",
+        "main/backend/tests/successor_runtime/test_p3_c4_1_parity.py::test_same_program_plan_legacy_and_successor_c4_2_agree",
+        "main/backend/tests/successor_runtime/test_p3_c4_1_plan.py::test_branching_is_broad_before_precision_and_default_off",
+        "main/backend/tests/successor_runtime/test_p3_c4_1_plan.py::test_supplementation_preserves_query_terms_and_target_max_items",
+        "main/backend/tests/successor_runtime/test_p3_c4_1_program.py::test_c4_1_static_shape_traversal_program_compiles_with_exact_metadata",
+        "main/backend/tests/successor_runtime/test_p3_c4_2_retry_reducer.py::test_budget_is_monotone_non_increasing_and_at_most_one_retry",
+        "main/backend/tests/successor_runtime/test_p3_c4_4_postgres.py::test_postgres_idempotency_reserve_replay_conflict_terminal",
+        "main/backend/tests/successor_runtime/test_p3_c4_5_runtime_postgres.py::test_crash_before_terminal_commit_replays_persisted_receipt",
+        "main/backend/tests/successor_runtime/test_p3_c4_5_runtime_postgres.py::test_rollback_rehearsal_legacy_claim_no_dual_and_receipt_retained",
+        "main/backend/tests/successor_runtime/test_p3_c4_5_runtime_postgres.py::test_runtime_node_claims_c4_3_work_item_and_commits_terminal",
+        "main/backend/tests/successor_runtime/test_p3_c5_1_session_projection.py::test_happy_journal_folds_to_completed_session_with_digest_binding",
+        "main/backend/tests/successor_runtime/test_p3_c5_1_session_projection.py::test_terminal_control_snapshot_without_terminal_event_cannot_fabricate",
+        "main/backend/tests/successor_runtime/test_p3_c5_2_attempt_replay_reconciliation.py::test_legacy_record_replays_to_exact_attempt_observation",
+        "main/backend/tests/successor_runtime/test_p3_c5_2_attempt_replay_reconciliation.py::test_missing_result_never_becomes_not_started",
+        "main/backend/tests/successor_runtime/test_p3_c5_2_reconciliation_postgres.py::test_durable_binding_mismatch_writes_nothing_over_postgres",
+        "main/backend/tests/successor_runtime/test_p3_c5_2_reconciliation_postgres.py::test_exact_binding_adoption_is_accepted_once_over_postgres",
+        "main/backend/tests/successor_runtime/test_p3_c5_3_projection_postgres.py::test_rebuild_is_digest_equivalent_for_session_projection",
+        "main/backend/tests/successor_runtime/test_p3_c5_3_projection_postgres.py::test_session_projection_agrees_with_existing_runtime_projection",
+        "main/backend/tests/successor_runtime/test_p3_c5_4_process_observations.py::test_join_projection_keeps_contradiction_and_unbound_explicit",
+        "main/backend/tests/successor_runtime/test_p3_c5_4_process_observations.py::test_multiple_runtime_bindings_for_one_task_raise_source_binding_mismatch",
+        "main/backend/tests/successor_runtime/test_p3_c5_4_process_observations.py::test_offline_celery_inspect_and_db_rows_capture_typed_observations",
+        "main/backend/tests/successor_runtime/test_p3_c5_4_process_observations.py::test_process_log_level_is_normalized_and_unsupported_level_fails_closed",
+        "main/backend/tests/successor_runtime/test_p3_c6_1_episode.py::test_permission_pause_and_resume_executes_same_call",
+        "main/backend/tests/successor_runtime/test_p3_c6_2_provider.py::test_outcome_unknown_readback_success_and_failure",
+        "main/backend/tests/successor_runtime/test_p3_c6_3_redaction.py::test_redaction_receipt_omits_raw_values_and_binds_policy",
+        "main/backend/tests/successor_runtime/test_p3_c6_legacy_shadow.py::test_c6_1_same_program_legacy_and_successor_shadow_parity",
+        "main/backend/tests/successor_runtime/test_p3_c6_legacy_shadow.py::test_c6_2_same_program_legacy_and_successor_provider_parity",
+        "main/backend/tests/successor_runtime/test_p3_c6_legacy_shadow.py::test_c6_3_same_program_legacy_and_successor_redaction_parity",
+        "main/backend/tests/successor_runtime/test_p3_c6_worker_postgres.py::test_same_id_divergent_columns_exact_conflict",
+        "main/backend/tests/successor_runtime/test_p3_c6_worker_postgres.py::test_store_rejects_raw_sentinel_at_persistence_boundary",
+        "main/backend/tests/successor_runtime/test_p4_c8_2_writing.py",
+        "main/backend/tests/successor_runtime/test_p4_c8_4_graph.py",
+        "main/backend/tests/successor_runtime/test_p4_c8_5_program.py",
+        "main/backend/tests/successor_runtime/test_p5_c1_legacy_dsl_parity.py::test_cycle_is_rejected_with_typed_code",
+        "main/backend/tests/successor_runtime/test_p5_c1_legacy_dsl_parity.py::test_duplicate_node_id_is_rejected_with_typed_code",
+        "main/backend/tests/successor_runtime/test_p5_c1_legacy_dsl_parity.py::test_edge_referencing_missing_node_is_rejected_with_typed_code",
+        "main/backend/tests/successor_runtime/test_p5_c1_legacy_dsl_parity.py::test_malformed_payload_is_rejected_with_typed_code",
+        "main/backend/tests/successor_runtime/test_p5_c1_legacy_dsl_parity.py::test_missing_catalog_contract_surfaces_typed_compile_failure",
+        "main/backend/tests/successor_runtime/test_p5_c1_legacy_dsl_parity.py::test_node_config_change_alters_program_and_plan_digests",
+        "main/backend/tests/successor_runtime/test_p5_c1_legacy_dsl_parity.py::test_node_kind_change_alters_plan_digest",
+        "main/backend/tests/successor_runtime/test_p5_c1_legacy_dsl_parity.py::test_swapped_node_order_alters_plan_digest_ordered_not_commutative",
+        "main/backend/tests/successor_runtime/test_p5_c1_legacy_dsl_parity.py::test_unsupported_node_type_is_rejected_with_typed_code",
+        "main/backend/tests/successor_runtime/test_p5_c1_legacy_dsl_parity.py::test_valid_legacy_dsl_parse_and_compile_is_deterministic",
+        "main/backend/tests/successor_runtime/test_p5_c1_slice_acceptance_postgres.py::test_c1_cancellation_is_observed_without_duplicate_effect",
+        "main/backend/tests/successor_runtime/test_p5_c1_slice_acceptance_postgres.py::test_c1_cross_slice_no_duplicate_effects_and_project_isolation",
+        "main/backend/tests/successor_runtime/test_p5_c1_slice_acceptance_postgres.py::test_c1_outcome_unknown_reconciles_without_duplicate_effect",
+        "main/backend/tests/successor_runtime/test_p5_c1_slice_acceptance_postgres.py::test_c1_rollback_retains_journal_and_changes_future_owner_epoch",
+        "main/backend/tests/successor_runtime/test_p5_c1_slice_acceptance_postgres.py::test_c1_slice_runtime_node_replay_restart_and_rollback",
+        "main/backend/tests/successor_runtime/test_p5_c1_slice_acceptance_postgres.py::test_c1_store_aba_and_stale_revision_fail_closed",
+        "main/backend/tests/successor_runtime/test_p5_c1_slice_acceptance_postgres.py::test_c1_typed_effect_failure_is_recorded_and_blocks_duplicate"
+      ],
+      "disposition": "REIMPLEMENTED_AS",
+      "successor_target": "backend-core/C1/C4/C5/C6, knowledge-core/C8, writing-core/C8, report-admission/C8, graph-projection/C8",
+      "required_closure": "Existing movement-family acceptance records are observed; exact local reviews and byte closure are the current evidence ceiling. No promotion, authority transfer or legacy retirement is claimed.",
+      "recommendation_note": "Non-blocker line disposition retained from freeze as REIMPLEMENTED_AS with local-only authority; line is not promotion-ready.",
+      "closing_status": "NON_BLOCKER_RECORD"
+    },
+    {
+      "movement_id": "ALL-SM-008",
+      "business_line_id": "BL-runtime-ops",
+      "amendment_ref": "ALL-AD-007",
+      "record_role": "business_line_movement",
+      "freeze_row_ref": "AllLinesMigrationScope.freeze.v1.json#/business_lines/7",
+      "business_line_key": "runtime_ops",
+      "kind": "canonical_business_line_evidence_matrix",
+      "movement_ids": [
+        "C9-M001"
+      ],
+      "gap_ids": [
+        "GAP-runtime-ops"
+      ],
+      "donor_byte_closure_refs": [
+        {
+          "path": "main/backend/app/main.py",
+          "sha256": "74cb26a5fe29ab60229764b4c7aff9bfbd00050998658ed7112e7f7a445c12cf",
+          "git_blob_sha1": "87d92c465b7cb411bd8e6e352e8b6dcb1447c595",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/36"
+        },
+        {
+          "path": "main/backend/app/api/process.py",
+          "sha256": "790b6cb90086d6ba1171309e572b7e7be4c906db3705170dbd4a12ca7ea16c63",
+          "git_blob_sha1": "efe10dca82dae8c2830a48feb256388e6ec02b52",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/20"
+        },
+        {
+          "path": "main/backend/app/services/tasks.py",
+          "sha256": "0379922d25ee97cf56a9fdda24e3faf1aab0db8c26067f880bdceb0008b26632",
+          "git_blob_sha1": "c432f1058da53b913225cbe6b36dae97b2910be6",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/165"
+        },
+        {
+          "path": "scripts/runtime_health_matrix.py",
+          "sha256": "002e8f205737a57cfd8c6ecef9740b3583ac49b163894a1648f54456d29e7dda",
+          "git_blob_sha1": "7517d6d45771830a19cfb0684d74e26d5ef9eb8c",
+          "tracked_at_donor_head": false,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/236"
+        },
+        {
+          "path": "scripts/check_business_line_trace_baseline_artifact.py",
+          "sha256": "c925ed340d0fd3264531b396ead8121940f646d1b1c802a5b05c36c959d91f65",
+          "git_blob_sha1": "0359a63d04351d7c3e841f6b261368083d1853d4",
+          "tracked_at_donor_head": false,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/229"
+        }
+      ],
+      "source_object": "app health/deep-health/metrics entrypoints, process lifecycle/readback API, tasks and runtime health matrix scripts",
+      "target_object": "runtime-ops typed readback and control no-call manifest",
+      "named_transform": "runtime-ops typed readback and control no-call manifest",
+      "owner": "B-recheck; runtime ops owner",
+      "effect": "Runtime health/deep health, dependency/DB/ES checks, process stats/list/history/logs/retry/cancel and health-matrix artifact generation",
+      "failure": "Typed surface validation/coverage failures raise ValueError/TypeError or render blocked/unknown rows; no runtime effect failure is carried",
+      "resource": "Pure in-memory typed records; no DB/scheduler/executor/provider/credential read or runtime effect adopted",
+      "authority": "Runtime diagnostics are read/control surfaces; no executor/scheduler/provider authority is granted by this record",
+      "recovery": "Plan_only typed readback; no rebuild/retry/scheduled side effect is executed",
+      "projection_loss": "Process retry/cancel, service lifecycle and real probe execution are not carried by successor",
+      "source_evidence": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/LegacyVsMovementGap.v1.json#/unmapped_gap/3",
+        "scripts/runtime_health_matrix.py@7517d6d45771830a19cfb0684d74e26d5ef9eb8c (donor working tree, untracked at donor HEAD)"
+      ],
+      "target_realization": [
+        "main/backend/app/successor_runtime/ops_domain/runtime_ops_surface.py",
+        "main/backend/app/successor_runtime/assembly/s2c_ops_domain_surface_assembly.py"
+      ],
+      "acceptance_trace": [
+        "main/backend/app/successor_runtime/ops_domain/runtime_ops_surface.py::project_runtime_ops_surface",
+        "main/backend/tests/successor_runtime/test_s2c_ops_domain_surfaces.py::test_runtime_ops_surface_defaults_never_execute_control_actions",
+        "main/backend/tests/successor_runtime/test_s2c_surface_assembly_wiring.py::test_s2c_registry_covers_all_eleven_remaining_movements"
+      ],
+      "disposition": "REIMPLEMENTED_AS",
+      "successor_target": "ops-domain runtime-ops typed read-only/control surface; executor actions are no-call",
+      "required_closure": "S2c typed read-only/control surface closure; local-only and not promotion/cutover/live-ready",
+      "recommendation_note": "S2c closed as an ops-domain typed read-only/control surface; retry/cancel/service/probe execution is EXPLICITLY_REJECTED",
+      "closing_status": "CLOSED"
+    },
+    {
+      "movement_id": "ALL-SM-009",
+      "business_line_id": "BL-llm-report-export-token-state",
+      "amendment_ref": "ALL-AD-008",
+      "record_role": "business_line_movement",
+      "freeze_row_ref": "AllLinesMigrationScope.freeze.v1.json#/business_lines/8",
+      "business_line_key": null,
+      "kind": "service_surface",
+      "movement_ids": [
+        "C6-M001",
+        "C6-M002",
+        "C6-M003",
+        "C6-M004",
+        "C8-M003"
+      ],
+      "gap_ids": [
+        "GAP-llm-report-export",
+        "GAP-llm-report-token-state"
+      ],
+      "donor_byte_closure_refs": [
+        {
+          "path": "main/backend/app/api/llm_report.py",
+          "sha256": "34eeb7c33a454a91aa169e488b46f25b5cd37831dd2aef4f28685ff118abc913",
+          "git_blob_sha1": "54746f68e02dc1ebbaefe77936a2175cf4b1575d",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/17"
+        },
+        {
+          "path": "main/backend/app/services/llm_report_export.py",
+          "sha256": "ef82463edabcefa7ac9342244fe0df21192f3c33b264e6f707767be628920df8",
+          "git_blob_sha1": "8e0e198b68d6800e8db31c3de6c3d3a800858191",
+          "tracked_at_donor_head": false,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/138"
+        },
+        {
+          "path": "main/backend/app/services/llm_report_export_token_state.py",
+          "sha256": "eae757a96842db1e6dd8d6f8b27d5d2ae0b702dfbf494b82320dd6b1ec4782a7",
+          "git_blob_sha1": "c311dc50acc8923d1e42b3109d174bf81005ff13",
+          "tracked_at_donor_head": false,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/140"
+        },
+        {
+          "path": "main/backend/app/services/llm_report_export_audit.py",
+          "sha256": "6c441d460ecabbbfbd2c3eea82bfe45582523f6ff2e8ad65505e63a05e0b1fc3",
+          "git_blob_sha1": "4799746e4f9a4b7ea3a032dc24eec5376ac68640",
+          "tracked_at_donor_head": false,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/139"
+        },
+        {
+          "path": "main/backend/app/services/llm_report_trends.py",
+          "sha256": "953a85aa7babff7854c52f3975d1f79790af9672484bed757a8a023825eed548",
+          "git_blob_sha1": "79deed264cdcb3f92e349efe3689a0631cc39db9",
+          "tracked_at_donor_head": false,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/143"
+        },
+        {
+          "path": "main/backend/app/services/llm_report_generator.py",
+          "sha256": "5909f2c65b07a1b9a3b95e335369b058bb1a5864604a8974330d1eceb3843156",
+          "git_blob_sha1": "540448baa9064432eef74808ee0eb021c8ac5d8c",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/141"
+        },
+        {
+          "path": "main/backend/app/services/llm_report_source_enrichment.py",
+          "sha256": "eae4ad54839ea60092b771e59d88b215459386fb9f96b64624a4da17aec1aeef",
+          "git_blob_sha1": "d4f664becf873b0fd00e898a59a8cc3a2d378a0a",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/142"
+        },
+        {
+          "path": "main/backend/app/models/llm_report_export_token_state.py",
+          "sha256": "5468579255d20f8ce1991ebe85d8ff7ba38854f7ad27532cca0ea2209a3ceb79",
+          "git_blob_sha1": "73cab5deee62e2c491c60237ba1f7a97b50921f3",
+          "tracked_at_donor_head": false,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/41"
+        },
+        {
+          "path": "main/backend/app/models/llm_report_export_audit.py",
+          "sha256": "2ff6180079a36382eb52dce5e6bfb4a3f0f2f0e9fda2ca6635f42c74cec825e1",
+          "git_blob_sha1": "5dff1ed285edc94ca8f7ff8773e020f063c9f98d",
+          "tracked_at_donor_head": false,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/40"
+        },
+        {
+          "path": "main/backend/app/models/llm_report_trends.py",
+          "sha256": "80b728f5bec48525f0aa4a66218b75583603c816c140c769910530b38eb90ffa",
+          "git_blob_sha1": "f1e0e3b0d214396da7813361fe5e41963b3fdc93",
+          "tracked_at_donor_head": false,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/42"
+        },
+        {
+          "path": "main/backend/migrations/versions/20260524_000002_add_llm_report_quality_trends.py",
+          "sha256": "ca1ef05ce4561e17f350bd2346d67ede7e42db8d8672b0ea67dec42a9a137805",
+          "git_blob_sha1": "875dd0caf723735b1d89896ea27d867490de3a6f",
+          "tracked_at_donor_head": false,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/184"
+        },
+        {
+          "path": "main/backend/migrations/versions/20260524_000003_add_llm_report_export_audit_events.py",
+          "sha256": "1abb852275edb5ede89f9e59c1b56d51ad96b290801d6be5fc85e2e88cf594d7",
+          "git_blob_sha1": "03a9996a8dc56169a6490115ea139bfd72ccd6ab",
+          "tracked_at_donor_head": false,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/185"
+        },
+        {
+          "path": "main/backend/migrations/versions/20260524_000004_add_llm_report_export_token_state.py",
+          "sha256": "06b9ef2973d5a90188a156686d2c595c6495fe8f345db004d1915b38faeba842",
+          "git_blob_sha1": "b072d16caa78a93ec21c51b99da11d5d084e652e",
+          "tracked_at_donor_head": false,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/186"
+        },
+        {
+          "path": "main/backend/app/services/request_identity.py",
+          "sha256": "d9a2f5a125a335d3fcd3ac6e65d83a0a99f5daaabc24d04b1d04f757c5c8cc1d",
+          "git_blob_sha1": "dfe68e9ea44637a56ffc560fd455e2cef0628318",
+          "tracked_at_donor_head": false,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/147"
+        }
+      ],
+      "source_object": "llm_report API, export/token_state/audit/trends services and models, migrations, generator/source enrichment, request identity and DashboardPage export UI",
+      "target_object": "C8.3 typed report-export/token-state successor capability and successor-only token-state readback",
+      "named_transform": "Successor C8.3 export/token transform: deterministic HMAC sign/verify, actor-digest binding, one-time claim/revoke/expiry and plan_only crash recovery",
+      "owner": "B-recheck; report-export/audit owner",
+      "effect": "Strict quality-gate report admission, signed one-time artifact token use/revoke, PDF/DOCX/markdown export, durable audit events and trend records",
+      "failure": "Typed verify/claim/revoke/expiry/degraded failures; token reuse, revocation race and actor mismatch are fail-closed",
+      "resource": "Successor-only token-state rows carrying digests/metadata only; no credential value or full signed token stored",
+      "authority": "Signed-token capability is local typed evidence; all authority flags false, no live provider/canonical/legacy write/export delivery",
+      "recovery": "Crash-between-claim-and-delivery readback proves claimed state and forbids repeat claim; recovery records are plan_only/outcome_unknown",
+      "projection_loss": "Donor export binary, audit/trend tables and raw actor history are not adopted in this line; successor stores actor digest and typed receipt metadata",
+      "source_evidence": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/LegacyVsMovementGap.v1.json#/unmapped_gap/4",
+        "main/backend/app/services/llm_report_export.py@8e0e198b68d6800e8db31c3de6c3d3a800858191 (donor working tree, untracked at donor HEAD)"
+      ],
+      "target_realization": [
+        "main/backend/app/successor_runtime/capabilities/c8_report_export.py",
+        "main/backend/app/successor_runtime/capabilities/c8_report_export_token_state.py",
+        "main/backend/app/successor_runtime/substrate/postgres/c8_export_token_state_handler.py",
+        "main/backend/app/successor_runtime/assembly/c8_assembly.py"
+      ],
+      "acceptance_trace": [
+        "main/backend/app/successor_runtime/substrate/postgres/c8_export_token_state_handler.py::C8_3ExportTokenStateRuntimeHandler.execute",
+        "main/backend/tests/successor_runtime/test_s2b_c8_export_token_state.py::test_s2b_c8_claim_is_exactly_once_and_crash_recovery_is_plan_only",
+        "main/backend/tests/successor_runtime/test_s2b_c8_export_token_state.py::test_s2b_c8_revoked_token_cannot_be_claimed",
+        "main/backend/tests/successor_runtime/test_s2b_c8_export_token_state.py::test_s2b_c8_degraded_store_fails_closed_without_claim",
+        "main/backend/tests/successor_runtime/test_s2b_c8_export_token_state.py::test_s2b_c8_records_never_contain_credentials_or_full_tokens",
+        "main/backend/tests/successor_runtime/test_s2b_c8_export_token_state.py::test_s2b_c8_handler_executes_token_state_command_with_exact_binding",
+        "main/backend/tests/successor_runtime/test_s2b_cell_extension_wiring.py::test_s2b_c8_3_export_token_state_handler_wired_in_c8_assembly"
+      ],
+      "disposition": "REIMPLEMENTED_AS",
+      "successor_target": "report-admission/C8.3 export/token-state typed successor capability carried by the C8 family assembly",
+      "required_closure": "S2b cell-extension closure: typed export/token-state handler wired in the C8 assembly; focused S2b tests green; authority all false and no credential value stored",
+      "recommendation_note": "S2b cell-extension closure; still local-only and not promotion/cutover/live-ready",
+      "closing_status": "CLOSED"
+    },
+    {
+      "movement_id": "ALL-SM-010",
+      "business_line_id": "BL-request-identity",
+      "amendment_ref": "ALL-AD-009",
+      "record_role": "business_line_movement",
+      "freeze_row_ref": "AllLinesMigrationScope.freeze.v1.json#/business_lines/9",
+      "business_line_key": null,
+      "kind": "service_surface",
+      "movement_ids": [],
+      "gap_ids": [
+        "GAP-request-identity"
+      ],
+      "donor_byte_closure_refs": [
+        {
+          "path": "main/backend/app/services/request_identity.py",
+          "sha256": "d9a2f5a125a335d3fcd3ac6e65d83a0a99f5daaabc24d04b1d04f757c5c8cc1d",
+          "git_blob_sha1": "dfe68e9ea44637a56ffc560fd455e2cef0628318",
+          "tracked_at_donor_head": false,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/147"
+        },
+        {
+          "path": "main/backend/app/api/llm_report.py",
+          "sha256": "34eeb7c33a454a91aa169e488b46f25b5cd37831dd2aef4f28685ff118abc913",
+          "git_blob_sha1": "54746f68e02dc1ebbaefe77936a2175cf4b1575d",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/17"
+        },
+        {
+          "path": "main/backend/app/api/dashboard.py",
+          "sha256": "786beacb2fb637ced6edc0f25d5642a6d94594da0b8e37e857131e30fd7fbb3f",
+          "git_blob_sha1": "51b03a13cec438039593bc1b74ad071db7563a36",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/10"
+        }
+      ],
+      "source_object": "request_identity normalization service, llm_report/dashboard callers and observability context propagation",
+      "target_object": "C9.1 facade validation route handler consumes request_identity_port.resolve_request_actor_context/require_trusted_actor_context before read-only facade handling",
+      "named_transform": "Resolve/normalize request actor identity on facade entry and bind the facade actor_ref; trusted actor required",
+      "owner": "B-recheck; authn identity owner",
+      "effect": "Resolve request actor identity and propagate actor_id/context into report generation/export and dashboard readback",
+      "failure": "untrusted/legacy/anonymous or actor_ref mismatch raises typed DefiniteInterpreterFailure before facade read",
+      "resource": "Pure CPU/memory actor normalization; no live request state writer, credential read or observability sink",
+      "authority": "Identity/actor metadata normalization only; no credential value reads and no authn/authz authority is granted",
+      "recovery": "deny stays typed and read-only; no retry or side effect is started",
+      "projection_loss": "no live request.state writer adapter is included; no authn/authz authority transfer is claimed",
+      "source_evidence": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/LegacyVsMovementGap.v1.json#/unmapped_gap/8",
+        "main/backend/app/services/request_identity.py@dfe68e9ea44637a56ffc560fd455e2cef0628318 (donor working tree, untracked at donor HEAD)"
+      ],
+      "target_realization": [
+        "main/backend/app/successor_runtime/assembly/c9_assembly.py"
+      ],
+      "acceptance_trace": [
+        "main/backend/app/successor_runtime/assembly/c9_assembly.py::C9_1FacadeValidationRouteHandler.execute::request_identity_port.resolve_request_actor_context",
+        "main/backend/tests/successor_runtime/test_s2_request_identity.py::test_c9_1_route_execute_consumes_request_identity_port",
+        "main/backend/tests/successor_runtime/test_s2_request_identity.py::test_untrusted_request_actor_fails_closed_before_facade",
+        "main/backend/tests/successor_runtime/test_s2_request_identity.py::test_request_actor_mismatch_fails_closed_before_facade"
+      ],
+      "disposition": "REIMPLEMENTED_AS",
+      "successor_target": "C9.1 request-identity horizontal port consumed by the C9 facade validation route",
+      "required_closure": "C9.1 route consumes the typed port in execute; S2 tests green; authority all false; no route mount/live identity",
+      "recommendation_note": "S1 pure-port declaration superseded by S2 cell runtime binding; still local-only and not promotion-ready",
+      "closing_status": "CLOSED"
+    },
+    {
+      "movement_id": "ALL-SM-011",
+      "business_line_id": "BL-task-readback-metadata",
+      "amendment_ref": "ALL-AD-010",
+      "record_role": "business_line_movement",
+      "freeze_row_ref": "AllLinesMigrationScope.freeze.v1.json#/business_lines/10",
+      "business_line_key": null,
+      "kind": "service_surface",
+      "movement_ids": [
+        "C5-M001",
+        "C5-M002",
+        "C5-M003",
+        "C5-M004",
+        "C5-M005",
+        "C5-M006"
+      ],
+      "gap_ids": [
+        "GAP-task-readback-metadata-line-events"
+      ],
+      "donor_byte_closure_refs": [
+        {
+          "path": "main/backend/app/services/task_readback_metadata.py",
+          "sha256": "981c970ea1610450f681a1dfe1a6a22288c33363b38d827ca7f39052072072e9",
+          "git_blob_sha1": "701eec5a0739fec7349c963d985749dfab0602e1",
+          "tracked_at_donor_head": false,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/164"
+        },
+        {
+          "path": "main/backend/app/services/tasks.py",
+          "sha256": "0379922d25ee97cf56a9fdda24e3faf1aab0db8c26067f880bdceb0008b26632",
+          "git_blob_sha1": "c432f1058da53b913225cbe6b36dae97b2910be6",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/165"
+        },
+        {
+          "path": "main/backend/app/services/writing/llm_action_service.py",
+          "sha256": "dbbd3530fee08236b32903860625c48b0708970ebd9962055efc13bcc6fa7e20",
+          "git_blob_sha1": "cbf60522dacc7af2d475c39db238c52fbcd8263e",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/179"
+        },
+        {
+          "path": "main/backend/app/api/business_lines.py",
+          "sha256": "0ac9103472c86bbdeb742969a4213296820595d0d3c429444f593f421cc1d4bd",
+          "git_blob_sha1": "2d030feb52c0a8a2e6c63dd821cc02a6ff96283f",
+          "tracked_at_donor_head": false,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/5"
+        }
+      ],
+      "source_object": "task_readback_metadata builder, tasks.py runtime context, llm_action_service and business_lines API usage",
+      "target_object": "C5.4 line-event/readback projection project_line_event_readbacks plus C5_4LineEventReadbackRouteHandler in c5_assembly",
+      "named_transform": "Project canonical line-event chains through LineEventReadbackPort.readback/build_payload with digest-bound fail-closed rows",
+      "owner": "B-recheck; worker readback metadata owner",
+      "effect": "Build/merge canonical line event chains and runtime readback metadata for worker-required lanes",
+      "failure": "unknown line key/event, gap/order violations, tampered digests and duplicate line keys are typed failures",
+      "resource": "Pure read-only projection; no I/O, store or persistence effect",
+      "authority": "Readback metadata is observation/evidence material; no executor or scheduler authority",
+      "recovery": "records are immutable and digest-verified; no terminal persistence is fabricated",
+      "projection_loss": "free-form donor non-canonical events are typed failures rather than untyped events",
+      "source_evidence": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/LegacyVsMovementGap.v1.json#/unmapped_gap/9",
+        "main/backend/app/services/task_readback_metadata.py@701eec5a0739fec7349c963d985749dfab0602e1 (donor working tree, untracked at donor HEAD; declared intentional absent by C5_4LocatorAdjudication)"
+      ],
+      "target_realization": [
+        "main/backend/app/successor_runtime/substrate/projections/legacy_process.py",
+        "main/backend/app/successor_runtime/assembly/c5_assembly.py"
+      ],
+      "acceptance_trace": [
+        "main/backend/app/successor_runtime/substrate/projections/legacy_process.py::project_line_event_readbacks::LineEventReadbackPort.readback",
+        "main/backend/app/successor_runtime/assembly/c5_assembly.py::C5_4LineEventReadbackRouteHandler.execute",
+        "main/backend/tests/successor_runtime/test_s2_line_event_readback.py::test_projection_calls_readback_port_and_builds_payload",
+        "main/backend/tests/successor_runtime/test_s2_line_event_readback.py::test_c5_assembly_route_handler_executes_readback_projection"
+      ],
+      "disposition": "REIMPLEMENTED_AS",
+      "successor_target": "C5.4 line-event readback projection carried by the C5 family assembly",
+      "required_closure": "C5.4 projection and assembly route call the port; terminal readback only after explicit event; authority all false",
+      "recommendation_note": "S1 pure-port declaration superseded by S2 C5.4 runtime/projection binding; still local-only and not promotion-ready",
+      "closing_status": "CLOSED"
+    },
+    {
+      "movement_id": "ALL-SM-012",
+      "business_line_id": "BL-single-source-guard",
+      "amendment_ref": "ALL-AD-011",
+      "record_role": "business_line_movement",
+      "freeze_row_ref": "AllLinesMigrationScope.freeze.v1.json#/business_lines/11",
+      "business_line_key": null,
+      "kind": "service_surface",
+      "movement_ids": [
+        "C2-M001",
+        "C2-M002",
+        "C2-M003",
+        "C2-M004",
+        "C2-M005",
+        "C2-M006",
+        "C2-M007",
+        "C2-M008"
+      ],
+      "gap_ids": [
+        "GAP-single-source-guard"
+      ],
+      "donor_byte_closure_refs": [
+        {
+          "path": "main/backend/app/services/source_library/single_source_guard.py",
+          "sha256": "e41d1b35afdd9183d5629a82bd1972555ada743422dd8f11ee0deb2344afaef6",
+          "git_blob_sha1": "513330bc053f4234457aa1ec066efa913ed522b1",
+          "tracked_at_donor_head": false,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/159"
+        },
+        {
+          "path": "main/backend/app/services/source_library/resolver.py",
+          "sha256": "6560a619dec521ef6fec65eba492c59f10158c09d8871af41012159d9a234734",
+          "git_blob_sha1": "522891818c17f8f7e99ddaf43b8ab9bcc9bd4025",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/157"
+        },
+        {
+          "path": "main/backend/app/api/source_library.py",
+          "sha256": "369754600bad0686f9a01f5949c59da58037ea11374752cfee1b61e738475075",
+          "git_blob_sha1": "9b77a5505978d852f331a934252689d25493fc82",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/28"
+        }
+      ],
+      "source_object": "single_source_guard validation, source_library resolver and API/source dispatch integration",
+      "target_object": "C2.3 SingleSourceGuardedProviderGateway installed by c2_assembly before provider gateway.execute",
+      "named_transform": "Evaluate single-source guard port on declared effect payloads before C2.3 dispatch; admit emits execution fact, reject blocks",
+      "owner": "B-recheck; source-library boundary owner",
+      "effect": "Strictly allow one site entry, block mismatched site entries and emit execution fact/blocked classification before adapter dispatch",
+      "failure": "missing/malformed/blocked/allowed-urls-invalid/site-entry-mismatch guards are typed fail-closed before provider execution",
+      "resource": "Pure guard evaluation CPU/memory only; no credential value read or provider network",
+      "authority": "Guard is an execution authority boundary; successor must preserve exact single-source dispatch authority semantics",
+      "recovery": "no dispatch on rejection; admitted request may dispatch only after guard execution fact",
+      "projection_loss": "guard is strict single-source successor semantics; donor no-op paths without a declared guard remain outside the guarded entrypoint",
+      "source_evidence": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/LegacyVsMovementGap.v1.json#/unmapped_gap/11",
+        "main/backend/app/services/source_library/single_source_guard.py@513330bc053f4234457aa1ec066efa913ed522b1 (donor working tree, untracked at donor HEAD)"
+      ],
+      "target_realization": [
+        "main/backend/app/successor_runtime/capabilities/source_library_c2_3_guard_runtime.py",
+        "main/backend/app/successor_runtime/substrate/postgres/source_library_c2_23_canary.py",
+        "main/backend/app/successor_runtime/assembly/c2_assembly.py"
+      ],
+      "acceptance_trace": [
+        "main/backend/app/successor_runtime/capabilities/source_library_c2_3_guard_runtime.py::SingleSourceGuardedProviderGateway.execute::single_source_guard_port",
+        "main/backend/tests/successor_runtime/test_s2_single_source_guard.py::test_admitted_guard_runs_port_then_dispatch",
+        "main/backend/tests/successor_runtime/test_s2_single_source_guard.py::test_rejected_guard_never_dispatches",
+        "main/backend/tests/successor_runtime/test_s2_single_source_guard.py::test_c2_assembly_installs_guarded_gateway_around_c23_dispatch"
+      ],
+      "disposition": "REIMPLEMENTED_AS",
+      "successor_target": "C2.3 provider-dispatch boundary guard port",
+      "required_closure": "C2.3 handler path uses guarded gateway; provider_calls zero on every rejection; authority all false",
+      "recommendation_note": "S1 pure-port declaration superseded by S2 C2.3 dispatch-boundary binding; still local-only and not promotion-ready",
+      "closing_status": "CLOSED"
+    },
+    {
+      "movement_id": "ALL-SM-013",
+      "business_line_id": "BL-agent-batch-quality-promotion-readback",
+      "amendment_ref": "ALL-AD-012",
+      "record_role": "business_line_movement",
+      "freeze_row_ref": "AllLinesMigrationScope.freeze.v1.json#/business_lines/12",
+      "business_line_key": null,
+      "kind": "service_surface",
+      "movement_ids": [
+        "C4-M001",
+        "C4-M002",
+        "C4-M003",
+        "C4-M004",
+        "C4-M005"
+      ],
+      "gap_ids": [],
+      "donor_byte_closure_refs": [
+        {
+          "path": "main/backend/app/api/agent_batch.py",
+          "sha256": "f880ae86e92fd121fe62da842ac6e558bd60d250a83e0387887bcae5ce7306fd",
+          "git_blob_sha1": "1a516ca73c8b36c77c248851cb2c68acb0873fa2",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/2"
+        },
+        {
+          "path": "main/backend/app/services/agent_batch/search_quality_replay.py",
+          "sha256": "b4578d39edeaebe75658fb380c04303a828a972ba53231a11fa160c2f0b4436a",
+          "git_blob_sha1": "d4e36c50e79a920c5553340bb3efa3af0720da75",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/50"
+        },
+        {
+          "path": "main/backend/app/services/agent_batch/task_contract.py",
+          "sha256": "11e020d9ede5f0994a3d73da193c0caa02aaaa5d320f4a61877b8db5fdf4e245",
+          "git_blob_sha1": "8ab4204a0fa5b8f99b5ce2ceabc0d20feb836444",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/51"
+        },
+        {
+          "path": "main/backend/app/services/agent_batch/executor_health.py",
+          "sha256": "1d29268d691552987b8fdc3ca4b47547750805c37b3577a59fe2ad8af30e0c32",
+          "git_blob_sha1": "784725ee3ad0b68b6926444835b39e3aa9d8b2c9",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/48"
+        }
+      ],
+      "source_object": "agent_batch API, search_quality_replay, task_contract and executor_health",
+      "target_object": "C4 quality-promotion readback handler C4QualityPromotionRuntimeHandler installed by c4_assembly options",
+      "named_transform": "Invoke evaluate_quality_promotion_gate on explicit typed evidence and return deterministic readback digest",
+      "owner": "B-recheck; agent-batch owner",
+      "effect": "Search-quality replay, critic-score/retry/threshold quality gate, promotion decision digest and executor health API",
+      "failure": "missing fixture/health/live/policy evidence holds promotion; unsupported promotion claims are rejected",
+      "resource": "Deterministic in-memory evidence evaluation; no provider/replay/store/rollout effect",
+      "authority": "Quality promotion is a qualification gate; successor must remain provider-independent and must not self-promote",
+      "recovery": "decision readback is recomputed from evidence; no provider/store/rollout effect is started",
+      "projection_loss": "health masking and promotion remain provider-independent readback only; live Celery inspect remains an outer adapter milestone",
+      "source_evidence": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesMigrationScope.freeze.v1.json#/business_lines/12",
+        "main/backend/app/services/agent_batch/search_quality_replay.py@d4e36c50e79a920c5553340bb3efa3af0720da75"
+      ],
+      "target_realization": [
+        "main/backend/app/successor_runtime/substrate/postgres/agent_batch_c4_quality_promotion_handler.py",
+        "main/backend/app/successor_runtime/assembly/c4_assembly.py",
+        "main/backend/app/successor_runtime/assembly/base.py"
+      ],
+      "acceptance_trace": [
+        "main/backend/app/successor_runtime/substrate/postgres/agent_batch_c4_quality_promotion_handler.py::C4QualityPromotionRuntimeHandler.execute::evaluate_quality_promotion_gate",
+        "main/backend/tests/successor_runtime/test_s2_quality_promotion.py::test_c4_quality_handler_invokes_gate_without_authority_or_effects",
+        "main/backend/tests/successor_runtime/test_s2_quality_promotion.py::test_missing_live_evidence_holds_and_rejects_input_promotion_claim",
+        "main/backend/tests/successor_runtime/test_s2_quality_promotion.py::test_c4_assembly_installs_quality_promotion_handler_with_evidence"
+      ],
+      "disposition": "REIMPLEMENTED_AS",
+      "successor_target": "C4 provider-independent quality-gate/promotion-readback port handler",
+      "required_closure": "C4 assembly carries quality handler; authority/effect counters all false/zero; no self-promotion",
+      "recommendation_note": "S1 pure-port declaration superseded by S2 C4 handler wiring; still local-only and not promotion-ready",
+      "closing_status": "CLOSED"
+    },
+    {
+      "movement_id": "ALL-SM-014",
+      "business_line_id": "BL-dashboard-llm-report-detail-export-audit",
+      "amendment_ref": "ALL-AD-013",
+      "record_role": "business_line_movement",
+      "freeze_row_ref": "AllLinesMigrationScope.freeze.v1.json#/business_lines/13",
+      "business_line_key": null,
+      "kind": "service_surface",
+      "movement_ids": [
+        "C8-M003"
+      ],
+      "gap_ids": [
+        "GAP-llm-report-export-audit"
+      ],
+      "donor_byte_closure_refs": [
+        {
+          "path": "main/backend/app/api/dashboard.py",
+          "sha256": "786beacb2fb637ced6edc0f25d5642a6d94594da0b8e37e857131e30fd7fbb3f",
+          "git_blob_sha1": "51b03a13cec438039593bc1b74ad071db7563a36",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/10"
+        },
+        {
+          "path": "main/backend/app/services/llm_report_export_audit.py",
+          "sha256": "6c441d460ecabbbfbd2c3eea82bfe45582523f6ff2e8ad65505e63a05e0b1fc3",
+          "git_blob_sha1": "4799746e4f9a4b7ea3a032dc24eec5376ac68640",
+          "tracked_at_donor_head": false,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/139"
+        },
+        {
+          "path": "main/backend/app/services/llm_report_export_token_state.py",
+          "sha256": "eae757a96842db1e6dd8d6f8b27d5d2ae0b702dfbf494b82320dd6b1ec4782a7",
+          "git_blob_sha1": "c311dc50acc8923d1e42b3109d174bf81005ff13",
+          "tracked_at_donor_head": false,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/140"
+        },
+        {
+          "path": "main/backend/app/services/llm_report_trends.py",
+          "sha256": "953a85aa7babff7854c52f3975d1f79790af9672484bed757a8a023825eed548",
+          "git_blob_sha1": "79deed264cdcb3f92e349efe3689a0631cc39db9",
+          "tracked_at_donor_head": false,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/143"
+        }
+      ],
+      "source_object": "dashboard llm-report-detail readback plus export audit service/model/migration and token/trend callers",
+      "target_object": "C8 export-audit evidence consumption and no-call decision surface",
+      "named_transform": "C8 export-audit evidence consumption and no-call decision surface",
+      "owner": "B-recheck; dashboard/report owner",
+      "effect": "Persist export audit events and expose dashboard llm-report-detail audit/quality readback",
+      "failure": "Typed surface validation/coverage failures raise ValueError/TypeError or render blocked/unknown rows; no runtime effect failure is carried",
+      "resource": "Pure in-memory typed records; no DB/scheduler/executor/provider/credential read or runtime effect adopted",
+      "authority": "Audit records are evidence material; dashboard readback has no canonical write or delivery authority",
+      "recovery": "Plan_only typed readback; no rebuild/retry/scheduled side effect is executed",
+      "projection_loss": "Durable export-audit persistence and export delivery are no-call in this evidence-consumption surface",
+      "source_evidence": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/LegacyVsMovementGap.v1.json#/unmapped_gap/6",
+        "main/backend/app/services/llm_report_export_audit.py@4799746e4f9a4b7ea3a032dc24eec5376ac68640 (donor working tree, untracked at donor HEAD)"
+      ],
+      "target_realization": [
+        "main/backend/app/successor_runtime/capabilities/c8_report_export_audit_evidence_surface.py",
+        "main/backend/app/successor_runtime/assembly/s2c_ops_domain_surface_assembly.py"
+      ],
+      "acceptance_trace": [
+        "main/backend/app/successor_runtime/capabilities/c8_report_export_audit_evidence_surface.py::consume_export_audit_evidence",
+        "main/backend/tests/successor_runtime/test_s2c_evidence_consumption.py::test_export_audit_durable_rows_are_available_but_write_stays_no_call",
+        "main/backend/tests/successor_runtime/test_s2c_evidence_consumption.py::test_export_audit_degraded_or_local_is_never_durable_proof",
+        "main/backend/tests/successor_runtime/test_s2c_surface_assembly_wiring.py::test_serial_assembly_carries_s2c_surfaces_without_cell_change"
+      ],
+      "disposition": "REIMPLEMENTED_AS",
+      "successor_target": "C8 report export-audit evidence consumption and no-call decision surface",
+      "required_closure": "S2c typed read-only/control surface closure; local-only and not promotion/cutover/live-ready",
+      "recommendation_note": "S2c closed as a C8 export-audit evidence-consumption surface; durable audit write/export remains no-call",
+      "closing_status": "CLOSED"
+    },
+    {
+      "movement_id": "ALL-SM-015",
+      "business_line_id": "BL-typed-knowledge-writing-composition",
+      "amendment_ref": null,
+      "record_role": "business_line_movement",
+      "freeze_row_ref": "AllLinesMigrationScope.freeze.v1.json#/business_lines/14",
+      "business_line_key": null,
+      "kind": "service_surface",
+      "movement_ids": [
+        "C8-M001",
+        "C8-M002",
+        "C8-M004",
+        "C8-M005"
+      ],
+      "gap_ids": [],
+      "donor_byte_closure_refs": [
+        {
+          "path": "main/backend/app/api/typed_knowledge.py",
+          "sha256": "f014591430b720ae0337e86e8e7dc9af519d08dfb89394940fa12d4ce942e3d4",
+          "git_blob_sha1": "86f6b73f41f50f91fc17b742e02c1762e11783a4",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/31"
+        },
+        {
+          "path": "main/backend/app/api/writing.py",
+          "sha256": "40c1e9079868f2dd81798c0fc6fc6f8a13fad3801e312d4f6860679ad30cfc9b",
+          "git_blob_sha1": "a274a516f975de0d8f0e86a219b2bdd4a022c40d",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/33"
+        },
+        {
+          "path": "main/backend/app/services/typed_knowledge/persistence_boundary.py",
+          "sha256": "96f2f9d5ae17cf87d51c704e47badc6b8ea3d8ea3209f48cdd1ae2740c0dea2a",
+          "git_blob_sha1": "3f071ab778e4b3ecacf2fc6b7209126725b92d66",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/168"
+        },
+        {
+          "path": "main/backend/app/services/typed_knowledge/contracts.py",
+          "sha256": "386dbc2c00e2079103e68771100d0860a334eed1e8c86cd0bb12e957050daabc",
+          "git_blob_sha1": "d079128873cd9220338c6dbaacc991bcc5864b0d",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/167"
+        },
+        {
+          "path": "main/backend/app/models/typed_knowledge_entities.py",
+          "sha256": "4b6a065432f6e484a0c521910223e74c0150307d8c7b7a87730166eb744bc0bd",
+          "git_blob_sha1": "b3e5de4900ee68820cb334a3d0d6707c258fa7d9",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/44"
+        },
+        {
+          "path": "main/backend/app/models/writing_entities.py",
+          "sha256": "0e1b377aa00b484c85cfcdd23733ce826b3edf0e7ceb130d6f60867a47c7402f",
+          "git_blob_sha1": "e80d53a8e149f99e54eac5054e70964469ac70fb",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/45"
+        },
+        {
+          "path": "main/backend/app/services/writing/document_service.py",
+          "sha256": "6647a075ecbd66bc5027e8dd85a12433c6fa1fcdea10b5065ad9bf17ae234725",
+          "git_blob_sha1": "388de2a092faf09bd373db9a31d75991b9101040",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/177"
+        },
+        {
+          "path": "main/backend/app/services/writing/template_service.py",
+          "sha256": "e1a999975024b4b5e5fb571812ac22a316128250c004c09437b35dbdd9d28989",
+          "git_blob_sha1": "24d9e8f869a88fb78ff6146b067430ad41244967",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/182"
+        }
+      ],
+      "source_object": "Typed knowledge objects, writing handoff boundary records, persistence-boundary/repository readback, governance review state, writing documents/drafts/citations/templates composition",
+      "target_object": "knowledge-core/C8 and writing-core/C8 successor realization: c8_common, c8_typed_knowledge, c8_writing, c8_graph, c8_consumer and artifact/repository stores",
+      "named_transform": "C8-M001 (typed knowledge handles), C8-M002 (writing composition), C8-M004/C8-M005 (graph projection/consumer) recorded in P1P3SuccessorMovementMatrix",
+      "owner": "typed-knowledge/writing owner; knowledge-core/C8, writing-core/C8, graph-projection/C8",
+      "effect": "Typed-knowledge read handles, writing documents/drafts/citations/templates composition and governance handoff with graph/consumer projections",
+      "failure": "Persistence/repository readback and graph projection failures are typed; declared-loss entries for legacy card/cache/score/wall-clock/UI and synthetic evidence fallback",
+      "resource": "Local successor_runtime pure interpreters plus PostgreSQL artifact handler/projector tests",
+      "authority": "Local-only; no production canonical write or business authority transfer",
+      "recovery": "C8 movement closure and artifact handler/repository recovery traces cover stage/admit and projection rebuild",
+      "projection_loss": "Legacy writing convenience and full graph filtering/truncation/redaction/casefold/duplicate/omitted-field behaviors are declared loss; synthetic-evidence fallback explicitly rejected",
+      "source_evidence": [
+        "AllLinesMigrationScope.freeze.v1.json#/business_lines/14",
+        "main/backend/app/api/typed_knowledge.py",
+        "main/backend/app/api/writing.py",
+        "main/backend/app/services/typed_knowledge/persistence_boundary.py",
+        "main/backend/app/services/typed_knowledge/contracts.py",
+        "main/backend/app/models/typed_knowledge_entities.py",
+        "main/backend/app/models/writing_entities.py",
+        "main/backend/app/services/writing/document_service.py",
+        "main/backend/app/services/writing/template_service.py"
+      ],
+      "target_realization": [
+        "main/backend/app/successor_runtime/capabilities/c8_common.py",
+        "main/backend/app/successor_runtime/capabilities/c8_typed_knowledge.py",
+        "main/backend/app/successor_runtime/capabilities/c8_writing.py",
+        "main/backend/app/successor_runtime/capabilities/c8_graph.py",
+        "main/backend/app/successor_runtime/capabilities/c8_consumer.py"
+      ],
+      "acceptance_trace": [
+        "main/backend/tests/successor_runtime/test_c8_movement_closure_pure.py",
+        "main/backend/tests/successor_runtime/test_c8_movement_closure_postgres.py",
+        "main/backend/tests/successor_runtime/test_p4_c8_2_writing.py",
+        "main/backend/tests/successor_runtime/test_p4_c8_4_graph.py"
+      ],
+      "disposition": "REIMPLEMENTED_AS",
+      "successor_target": "knowledge-core/C8, writing-core/C8, graph-projection/C8",
+      "required_closure": "Existing movement-family acceptance records are observed; exact local reviews and byte closure are the current evidence ceiling. No promotion, authority transfer or legacy retirement is claimed.",
+      "recommendation_note": "Non-blocker line disposition retained from freeze as REIMPLEMENTED_AS with local-only authority; line is not promotion-ready.",
+      "closing_status": "NON_BLOCKER_RECORD"
+    },
+    {
+      "movement_id": "ALL-SM-016",
+      "business_line_id": "BL-llm-report-trend-quality-records",
+      "amendment_ref": "ALL-AD-014",
+      "record_role": "business_line_movement",
+      "freeze_row_ref": "AllLinesMigrationScope.freeze.v1.json#/business_lines/15",
+      "business_line_key": null,
+      "kind": "service_surface",
+      "movement_ids": [
+        "C8-M003"
+      ],
+      "gap_ids": [
+        "GAP-llm-report-quality-trends"
+      ],
+      "donor_byte_closure_refs": [
+        {
+          "path": "main/backend/app/services/llm_report_trends.py",
+          "sha256": "953a85aa7babff7854c52f3975d1f79790af9672484bed757a8a023825eed548",
+          "git_blob_sha1": "79deed264cdcb3f92e349efe3689a0631cc39db9",
+          "tracked_at_donor_head": false,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/143"
+        },
+        {
+          "path": "main/backend/app/models/llm_report_trends.py",
+          "sha256": "80b728f5bec48525f0aa4a66218b75583603c816c140c769910530b38eb90ffa",
+          "git_blob_sha1": "f1e0e3b0d214396da7813361fe5e41963b3fdc93",
+          "tracked_at_donor_head": false,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/42"
+        },
+        {
+          "path": "main/backend/app/api/dashboard.py",
+          "sha256": "786beacb2fb637ced6edc0f25d5642a6d94594da0b8e37e857131e30fd7fbb3f",
+          "git_blob_sha1": "51b03a13cec438039593bc1b74ad071db7563a36",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/10"
+        },
+        {
+          "path": "main/backend/app/api/llm_report.py",
+          "sha256": "34eeb7c33a454a91aa169e488b46f25b5cd37831dd2aef4f28685ff118abc913",
+          "git_blob_sha1": "54746f68e02dc1ebbaefe77936a2175cf4b1575d",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/17"
+        }
+      ],
+      "source_object": "llm_report_trends service/model, quality-trend migration and llm_report/dashboard summary consumers",
+      "target_object": "C8 report quality/export trend evidence consumption and no-call decision surface",
+      "named_transform": "C8 report quality/export trend evidence consumption and no-call decision surface",
+      "owner": "B-recheck; report trend owner",
+      "effect": "Persist report quality/export trend records and serve summary/detail consumers",
+      "failure": "Typed surface validation/coverage failures raise ValueError/TypeError or render blocked/unknown rows; no runtime effect failure is carried",
+      "resource": "Pure in-memory typed records; no DB/scheduler/executor/provider/credential read or runtime effect adopted",
+      "authority": "Trend records are observational/evidence material; no report admission or delivery authority",
+      "recovery": "Plan_only typed readback; no rebuild/retry/scheduled side effect is executed",
+      "projection_loss": "Durable quality/export trend persistence and aggregation are no-call in this evidence-consumption surface",
+      "source_evidence": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/LegacyVsMovementGap.v1.json#/unmapped_gap/7",
+        "main/backend/app/services/llm_report_trends.py@79deed264cdcb3f92e349efe3689a0631cc39db9 (donor working tree, untracked at donor HEAD)"
+      ],
+      "target_realization": [
+        "main/backend/app/successor_runtime/capabilities/c8_report_quality_trend_evidence_surface.py",
+        "main/backend/app/successor_runtime/assembly/s2c_ops_domain_surface_assembly.py"
+      ],
+      "acceptance_trace": [
+        "main/backend/app/successor_runtime/capabilities/c8_report_quality_trend_evidence_surface.py::consume_report_quality_trend_evidence",
+        "main/backend/tests/successor_runtime/test_s2c_evidence_consumption.py::test_trend_evidence_marks_degraded_readback_and_never_aggregates",
+        "main/backend/tests/successor_runtime/test_s2c_surface_assembly_wiring.py::test_serial_assembly_carries_s2c_surfaces_without_cell_change"
+      ],
+      "disposition": "REIMPLEMENTED_AS",
+      "successor_target": "C8 report quality/export trend evidence consumption and no-call decision surface",
+      "required_closure": "S2c typed read-only/control surface closure; local-only and not promotion/cutover/live-ready",
+      "recommendation_note": "S2c closed as a C8 quality/export trend evidence-consumption surface; durable trend aggregation remains no-call",
+      "closing_status": "CLOSED"
+    },
+    {
+      "movement_id": "ALL-SM-017",
+      "business_line_id": "BL-runtime-health-matrix",
+      "amendment_ref": "ALL-AD-015",
+      "record_role": "business_line_movement",
+      "freeze_row_ref": "AllLinesMigrationScope.freeze.v1.json#/business_lines/16",
+      "business_line_key": null,
+      "kind": "service_surface",
+      "movement_ids": [],
+      "gap_ids": [],
+      "donor_byte_closure_refs": [
+        {
+          "path": "scripts/runtime_health_matrix.py",
+          "sha256": "002e8f205737a57cfd8c6ecef9740b3583ac49b163894a1648f54456d29e7dda",
+          "git_blob_sha1": "7517d6d45771830a19cfb0684d74e26d5ef9eb8c",
+          "tracked_at_donor_head": false,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/236"
+        },
+        {
+          "path": "main/backend/app/main.py",
+          "sha256": "74cb26a5fe29ab60229764b4c7aff9bfbd00050998658ed7112e7f7a445c12cf",
+          "git_blob_sha1": "87d92c465b7cb411bd8e6e352e8b6dcb1447c595",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/36"
+        },
+        {
+          "path": "scripts/build_business_line_async_readiness_artifact.py",
+          "sha256": "af622184eece9133a5c8bee182b6b81d8c2b144ccf3c40e90833cda5b80988af",
+          "git_blob_sha1": "87a45149ff10ff30eea516a9f9a594f83899f219",
+          "tracked_at_donor_head": false,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/220"
+        }
+      ],
+      "source_object": "runtime_health_matrix script, app main health entrypoint and business-line async readiness build script",
+      "target_object": "runtime health-matrix typed classification over caller-supplied probe observations",
+      "named_transform": "runtime health-matrix typed classification over caller-supplied probe observations",
+      "owner": "B-recheck; runtime ops owner",
+      "effect": "Produce latest-runtime-health-matrix.json with Docker/local modes, dependency health and process probes",
+      "failure": "Typed surface validation/coverage failures raise ValueError/TypeError or render blocked/unknown rows; no runtime effect failure is carried",
+      "resource": "Pure in-memory typed records; no DB/scheduler/executor/provider/credential read or runtime effect adopted",
+      "authority": "Passive health/diagnostic surface only; no executor, scheduler or provider authority",
+      "recovery": "Plan_only typed readback; no rebuild/retry/scheduled side effect is executed",
+      "projection_loss": "Real runtime health matrix generation/probe execution is not adopted; only typed observation classification is carried",
+      "source_evidence": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesMigrationScope.freeze.v1.json#/business_lines/16",
+        "scripts/runtime_health_matrix.py@7517d6d45771830a19cfb0684d74e26d5ef9eb8c (donor working tree, untracked at donor HEAD)"
+      ],
+      "target_realization": [
+        "main/backend/app/successor_runtime/ops_domain/health_matrix_surface.py",
+        "main/backend/app/successor_runtime/assembly/s2c_ops_domain_surface_assembly.py"
+      ],
+      "acceptance_trace": [
+        "main/backend/app/successor_runtime/ops_domain/health_matrix_surface.py::project_runtime_health_matrix",
+        "main/backend/tests/successor_runtime/test_s2c_ops_domain_surfaces.py::test_health_matrix_classification_is_passive_and_status_taxonomy",
+        "main/backend/tests/successor_runtime/test_s2c_surface_assembly_wiring.py::test_serial_assembly_carries_s2c_surfaces_without_cell_change"
+      ],
+      "disposition": "REIMPLEMENTED_AS",
+      "successor_target": "ops-domain health-matrix typed classification surface; no probe execution",
+      "required_closure": "S2c typed read-only/control surface closure; local-only and not promotion/cutover/live-ready",
+      "recommendation_note": "S2c closed as an ops-domain health-matrix surface with passive probe classification only",
+      "closing_status": "CLOSED"
+    },
+    {
+      "movement_id": "ALL-SM-018",
+      "business_line_id": "BL-admin-crawler-cluechain-codexauth-keyword-stats",
+      "amendment_ref": "ALL-AD-016",
+      "record_role": "business_line_movement",
+      "freeze_row_ref": "AllLinesMigrationScope.freeze.v1.json#/business_lines/17",
+      "business_line_key": null,
+      "kind": "service_surface",
+      "movement_ids": [
+        "C9-M001"
+      ],
+      "gap_ids": [
+        "GAP-remaining-backend-surfaces"
+      ],
+      "donor_byte_closure_refs": [
+        {
+          "path": "main/backend/app/api/admin.py",
+          "sha256": "434bf370096b20e8438a3f9c7851daebdbf0c43a7d11bf7558b0b446444160fc",
+          "git_blob_sha1": "59905edd01ab42bc29861e584619bb8d6f7eef6f",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/1"
+        },
+        {
+          "path": "main/backend/app/api/crawler.py",
+          "sha256": "39370e6ebff9d6c23664460e7a6d7fe92ee853e4ce8aeacf1e4712982078a74b",
+          "git_blob_sha1": "f5a766d6dee595713103ee5dce0427c5197ed209",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/9"
+        },
+        {
+          "path": "main/backend/app/api/clue_chains.py",
+          "sha256": "c46b5cd672501404e5cd9fa017beb04171448dc82f923f40b0d3e22394e4af4f",
+          "git_blob_sha1": "cf3e3fce4af21cbac5b064586328f6cb194c5333",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/6"
+        },
+        {
+          "path": "main/backend/app/api/codex_auth.py",
+          "sha256": "d5017dbb0bd934c6f71fa947c05f08068b603d20b3c4e14269da3a526a75aadf",
+          "git_blob_sha1": "7ae76b65ff70709855e22657f20e875775d19480",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/7"
+        },
+        {
+          "path": "main/backend/app/api/keywords.py",
+          "sha256": "c34f0e73d309c79ebc0045db565b4eef319b016b997294c6c40ce60233501ffe",
+          "git_blob_sha1": "c84e68cd69d376725f12822b2352abf2c6e5f8fc",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/15"
+        },
+        {
+          "path": "main/backend/app/api/stats.py",
+          "sha256": "578676409bcc9b2b19c70ca7f974fe40ad311cb19ec40b1d464d7052a32bcb20",
+          "git_blob_sha1": "9434a4aa89d37ec164f865feafbb2bae38fd4a29",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/29"
+        },
+        {
+          "path": "main/backend/app/api/skills.py",
+          "sha256": "eb97afcc6beb51f5285d0432fbd79ac583bb7b61ccacaef42370e1773b682d15",
+          "git_blob_sha1": "b7f89bfd78ed97bb89e90b46671bcdfd6c43af24",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/27"
+        },
+        {
+          "path": "main/backend/app/api/project_customization.py",
+          "sha256": "8a6c643e549dd7b0a18351bdcabdd7775787deb1d66d19b015e7422c79729144",
+          "git_blob_sha1": "d1e83f5ee7d50de78afb4ec986250582cb3eaeec",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/22"
+        }
+      ],
+      "source_object": "admin/crawler/clue_chains/codex_auth/keywords/stats/skills/project_customization APIs and crawler/clue-chain/extraction/streamplus service directories",
+      "target_object": "admin/crawler/clue-chain/codex-auth/keyword/stats per-group successor dispositions",
+      "named_transform": "admin/crawler/clue-chain/codex-auth/keyword/stats per-group successor dispositions",
+      "owner": "B-recheck; admin/ops owner",
+      "effect": "Admin raw data/graphs, crawler management, clue chains, codex OAuth bootstrap/status, keyword/stats/prompt-time density, skills invocation and customization run",
+      "failure": "Typed surface validation/coverage failures raise ValueError/TypeError or render blocked/unknown rows; no runtime effect failure is carried",
+      "resource": "Pure in-memory typed records; no DB/scheduler/executor/provider/credential read or runtime effect adopted",
+      "authority": "No successor write authority; codex_auth/credentials are structural references only and credential values were not read",
+      "recovery": "Plan_only typed readback; no rebuild/retry/scheduled side effect is executed",
+      "projection_loss": "Skills invocation runtime and project customization execution are explicitly rejected/declared loss; typed readback groups remain",
+      "source_evidence": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/LegacyVsMovementGap.v1.json#/unmapped_gap/13",
+        "main/backend/app/api/admin.py@59905edd01ab42bc29861e584619bb8d6f7eef6f"
+      ],
+      "target_realization": [
+        "main/backend/app/successor_runtime/ops_domain/ops_misc_surface.py",
+        "main/backend/app/successor_runtime/assembly/s2c_ops_domain_surface_assembly.py"
+      ],
+      "acceptance_trace": [
+        "main/backend/app/successor_runtime/ops_domain/ops_misc_surface.py::project_ops_misc_surface",
+        "main/backend/tests/successor_runtime/test_s2c_ops_domain_surfaces.py::test_ops_misc_surface_covers_all_nine_groups_and_accepts_override",
+        "main/backend/tests/successor_runtime/test_s2c_surface_assembly_wiring.py::test_s2c_registry_covers_all_eleven_remaining_movements"
+      ],
+      "disposition": "REIMPLEMENTED_AS",
+      "successor_target": "ops-domain per-group typed read-only/rejected/loss manifest for remaining backend groups",
+      "required_closure": "S2c typed read-only/control surface closure; local-only and not promotion/cutover/live-ready",
+      "recommendation_note": "S2c closed as a per-group ops-misc surface; every remaining backend group has a typed read-only/rejected/loss decision with an explicit owner",
+      "closing_status": "CLOSED"
+    },
+    {
+      "movement_id": "ALL-GAP-001",
+      "record_role": "supplementary_gap_movement",
+      "freeze_row_ref": "AllLinesMigrationScope.freeze.v1.json#/business_lines/12",
+      "business_line_id": "BL-agent-batch-quality-promotion-readback",
+      "business_line_key": null,
+      "kind": "supplementary_gap_row",
+      "movement_ids": [],
+      "gap_ids": [
+        "GAP-agent-batch-quality-promotion-readback-evidence-omission"
+      ],
+      "donor_byte_closure_refs": [
+        {
+          "path": "main/backend/app/api/agent_batch.py",
+          "sha256": "f880ae86e92fd121fe62da842ac6e558bd60d250a83e0387887bcae5ce7306fd",
+          "git_blob_sha1": "1a516ca73c8b36c77c248851cb2c68acb0873fa2",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/2"
+        },
+        {
+          "path": "main/backend/app/services/agent_batch/search_quality_replay.py",
+          "sha256": "b4578d39edeaebe75658fb380c04303a828a972ba53231a11fa160c2f0b4436a",
+          "git_blob_sha1": "d4e36c50e79a920c5553340bb3efa3af0720da75",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/50"
+        },
+        {
+          "path": "main/backend/app/services/agent_batch/task_contract.py",
+          "sha256": "11e020d9ede5f0994a3d73da193c0caa02aaaa5d320f4a61877b8db5fdf4e245",
+          "git_blob_sha1": "8ab4204a0fa5b8f99b5ce2ceabc0d20feb836444",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/51"
+        },
+        {
+          "path": "main/backend/app/services/agent_batch/executor_health.py",
+          "sha256": "1d29268d691552987b8fdc3ca4b47547750805c37b3577a59fe2ad8af30e0c32",
+          "git_blob_sha1": "784725ee3ad0b68b6926444835b39e3aa9d8b2c9",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/48"
+        }
+      ],
+      "source_object": "Agent-batch search-quality replay and symbolic quality-promotion readback gate (critic score, bounded retry, threshold, promotion decision digest) plus executor health API surfaces",
+      "target_object": "ALL-GAP-001 evidence fold into ALL-SM-013",
+      "named_transform": "ALL-GAP-001 evidence fold into ALL-SM-013",
+      "owner": "B-recheck; agent-batch owner",
+      "effect": "Quality replay readback, promotion decision digest, bounded critic/retry and executor health evidence surface",
+      "failure": "Typed surface validation/coverage failures raise ValueError/TypeError or render blocked/unknown rows; no runtime effect failure is carried",
+      "resource": "Pure in-memory typed records; no DB/scheduler/executor/provider/credential read or runtime effect adopted",
+      "authority": "No successor authority claimed; C4.1/C4.2 movement rows are local-only and not promotion authority",
+      "recovery": "Plan_only typed readback; no rebuild/retry/scheduled side effect is executed",
+      "projection_loss": "No separate successor quality-promotion surface; gap evidence folds into the ALL-SM-013 lane",
+      "source_evidence": [
+        "AllLinesMigrationScope.freeze.v1.json#/business_lines/12",
+        "main/backend/app/services/agent_batch/search_quality_replay.py",
+        "main/backend/app/services/agent_batch/executor_health.py",
+        "main/backend/app/api/agent_batch.py"
+      ],
+      "target_realization": [
+        "main/backend/app/successor_runtime/capabilities/quality_promotion_port.py",
+        "main/backend/app/successor_runtime/assembly/s2c_ops_domain_surface_assembly.py"
+      ],
+      "acceptance_trace": [
+        "main/backend/tests/successor_runtime/test_s1_quality_promotion.py::test_no_live_readback_evidence_means_no_promotion",
+        "main/backend/tests/successor_runtime/test_s1_quality_promotion.py::test_health_anomaly_fails_closed_despite_live_closure",
+        "main/backend/tests/successor_runtime/test_s2_quality_promotion.py::test_c4_quality_handler_invokes_gate_without_authority_or_effects",
+        "main/backend/tests/successor_runtime/test_s2_quality_promotion.py::test_health_anomaly_fails_closed",
+        "main/backend/tests/successor_runtime/test_s2c_surface_assembly_wiring.py::test_serial_assembly_carries_s2c_surfaces_without_cell_change"
+      ],
+      "disposition": "REIMPLEMENTED_AS",
+      "successor_target": "ALL-GAP-001 folded into the ALL-SM-013 quality-promotion port closure",
+      "required_closure": "S2c typed read-only/control surface closure; local-only and not promotion/cutover/live-ready",
+      "recommendation_note": "S2c folds the supplementary evidence-omission gap into the ALL-SM-013 quality-promotion port acceptance trace",
+      "closing_status": "CLOSED",
+      "gap_id": "GAP-agent-batch-quality-promotion-readback-evidence-omission"
+    },
+    {
+      "movement_id": "ALL-GAP-002",
+      "record_role": "supplementary_gap_movement",
+      "freeze_row_ref": "AllLinesMigrationScope.freeze.v1.json#/business_lines/16",
+      "business_line_id": "BL-runtime-health-matrix",
+      "business_line_key": null,
+      "kind": "supplementary_gap_row",
+      "movement_ids": [],
+      "gap_ids": [
+        "GAP-runtime-health-matrix"
+      ],
+      "donor_byte_closure_refs": [
+        {
+          "path": "scripts/runtime_health_matrix.py",
+          "sha256": "002e8f205737a57cfd8c6ecef9740b3583ac49b163894a1648f54456d29e7dda",
+          "git_blob_sha1": "7517d6d45771830a19cfb0684d74e26d5ef9eb8c",
+          "tracked_at_donor_head": false,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/236"
+        },
+        {
+          "path": "main/backend/app/main.py",
+          "sha256": "74cb26a5fe29ab60229764b4c7aff9bfbd00050998658ed7112e7f7a445c12cf",
+          "git_blob_sha1": "87d92c465b7cb411bd8e6e352e8b6dcb1447c595",
+          "tracked_at_donor_head": true,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/36"
+        },
+        {
+          "path": "scripts/build_business_line_async_readiness_artifact.py",
+          "sha256": "af622184eece9133a5c8bee182b6b81d8c2b144ccf3c40e90833cda5b80988af",
+          "git_blob_sha1": "87a45149ff10ff30eea516a9f9a594f83899f219",
+          "tracked_at_donor_head": false,
+          "byte_closure_entry": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json#/entries/220"
+        }
+      ],
+      "source_object": "Passive full-stack runtime health matrix script producing latest-runtime-health-matrix.json with Docker/local modes, dependency health and process probes, plus donor app health entrypoint and readiness artifact builder semantics",
+      "target_object": "ALL-GAP-002 evidence fold into ALL-SM-008/ALL-SM-017",
+      "named_transform": "ALL-GAP-002 evidence fold into ALL-SM-008/ALL-SM-017",
+      "owner": "B-recheck; runtime ops owner",
+      "effect": "Runtime dependency/process health matrix output and control-plane qualification surface",
+      "failure": "Typed surface validation/coverage failures raise ValueError/TypeError or render blocked/unknown rows; no runtime effect failure is carried",
+      "resource": "Pure in-memory typed records; no DB/scheduler/executor/provider/credential read or runtime effect adopted",
+      "authority": "No successor authority claimed; health matrix is control-plane evidence only",
+      "recovery": "Plan_only typed readback; no rebuild/retry/scheduled side effect is executed",
+      "projection_loss": "No separate successor health-matrix surface; gap evidence folds into the ALL-SM-008/ALL-SM-017 lane",
+      "source_evidence": [
+        "AllLinesMigrationScope.freeze.v1.json#/business_lines/16",
+        "scripts/runtime_health_matrix.py",
+        "main/backend/app/main.py",
+        "scripts/build_business_line_async_readiness_artifact.py"
+      ],
+      "target_realization": [
+        "main/backend/app/successor_runtime/ops_domain/health_matrix_surface.py",
+        "main/backend/app/successor_runtime/assembly/s2c_ops_domain_surface_assembly.py"
+      ],
+      "acceptance_trace": [
+        "main/backend/app/successor_runtime/ops_domain/health_matrix_surface.py::project_runtime_health_matrix",
+        "main/backend/tests/successor_runtime/test_s2c_ops_domain_surfaces.py::test_health_matrix_classification_is_passive_and_status_taxonomy",
+        "main/backend/tests/successor_runtime/test_s2c_surface_assembly_wiring.py::test_s2c_registry_covers_all_eleven_remaining_movements"
+      ],
+      "disposition": "REIMPLEMENTED_AS",
+      "successor_target": "ALL-GAP-002 folded into ALL-SM-008/ALL-SM-017 health-matrix lane",
+      "required_closure": "S2c typed read-only/control surface closure; local-only and not promotion/cutover/live-ready",
+      "recommendation_note": "S2c folds the supplementary health-matrix gap into the ALL-SM-008/ALL-SM-017 shared health-matrix lane",
+      "closing_status": "CLOSED",
+      "gap_id": "GAP-runtime-health-matrix"
+    }
+  ]
+}

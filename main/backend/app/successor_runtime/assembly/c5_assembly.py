@@ -28,10 +28,15 @@ from app.successor_runtime.assembly.base import (
     ProjectorSourceKey,
     ProjectorWiring,
     RollbackBindingDeclaration,
+    local_assembly_scope_digest,
     require_assembly_digest,
     sha256_hex,
+    successor_binding,
 )
 from app.successor_runtime.capabilities.checksum import content_digest
+from app.successor_runtime.capabilities.line_event_readback_port import (
+    LineEventReadbackRecord,
+)
 from app.successor_runtime.language.object_contracts import OperationContractRef
 from app.successor_runtime.runtime.assignments import (
     AssignmentKind,
@@ -42,6 +47,7 @@ from app.successor_runtime.runtime.assignments import (
 from app.successor_runtime.runtime.claims import ClaimBinding
 from app.successor_runtime.runtime.node import (
     DefiniteInterpreterFailure,
+    InterpreterOutcome,
     RuntimeExecutionContext,
     RuntimeHandler,
 )
@@ -60,6 +66,7 @@ from app.successor_runtime.substrate.projections.agent_session import (
 )
 from app.successor_runtime.substrate.projections.legacy_process import (
     LegacyProcessObservationProjection,
+    project_line_event_readbacks,
 )
 from app.successor_runtime.substrate.projections.registry import (
     ProjectorContract,
@@ -74,6 +81,7 @@ __all__ = [
     "C5_2_DURABLE_ATTEMPT_NODE_NOT_PROVEN",
     "C5_2ReconcileRouteBinding",
     "C5_2ReconcileRouteHandler",
+    "C5_4LineEventReadbackRouteHandler",
     "_registered_projector_cells",
     "build_c5_assembly",
     "build_deterministic_reconciliation_binding",
@@ -131,6 +139,11 @@ _PROJECTOR_CELL_REQUIRED_WIRING: dict[str, tuple[str, ...]] = {
 
 _C5_2_READBACK_INTERPRETER_ID = "successor.c5.reconciliation.readback.v1"
 _C5_2_READBACK_PROVIDER_ID = "provider.c5-2.readback-fixture"
+_C5_4_LINE_EVENT_OPERATION_DIGEST = sha256_hex("legacy.line_event_readback.project.v1")
+_C5_4_LINE_EVENT_INTERPRETER_DIGEST = sha256_hex("successor.c5.line_event_readback.v1")
+_C5_4_LINE_EVENT_AUTHORITY_DIGEST = sha256_hex(
+    "mrw.successor.c5.line-event-readback.authority.v1"
+)
 
 
 def _projector_wirings() -> tuple[ProjectorWiring, ...]:
@@ -436,6 +449,37 @@ class C5_2ReconcileRouteHandler(RuntimeHandler):
         return attempt, assignment
 
 
+@dataclass(frozen=True, slots=True)
+class C5_4LineEventReadbackRouteHandler(RuntimeHandler):
+    """Read-only C5.4 line-event/readback projection route handler."""
+
+    handler_binding_digest: str
+    interpreter_profile_digest: str
+    operation_contract_digest: str
+    deployment_catalog_digest: str
+    records: tuple[LineEventReadbackRecord, ...]
+
+    def execute(
+        self,
+        assignment: RuntimeAssignment,
+        claim: ClaimBinding,
+        context: RuntimeExecutionContext,
+    ) -> InterpreterOutcome:
+        if claim.assignment_digest != assignment.assignment_digest:
+            raise DefiniteInterpreterFailure("C5_4_CLAIM_ASSIGNMENT_BINDING_DRIFT")
+        if (
+            assignment.handler_binding_digest != self.handler_binding_digest
+            or assignment.operation_contract_digest != self.operation_contract_digest
+            or assignment.deployment_catalog_digest != self.deployment_catalog_digest
+        ):
+            raise DefiniteInterpreterFailure("EXACT_C5_4_LINE_EVENT_BINDING_DRIFT")
+        rows = project_line_event_readbacks(self.records)
+        return InterpreterOutcome.succeeded(
+            content_digest(rows),
+            receipt_ref="receipt:line-event-readback:c5-4",
+        )
+
+
 def build_deterministic_reconciliation_binding(
     project_scope_digest: str,
 ) -> C5_2ReconcileRouteBinding:
@@ -503,6 +547,44 @@ def build_c5_assembly(
         )
         handlers = ()
 
+    route_handlers = list(handlers)
+    line_event_handler = None
+    if opts.line_event_readback_records is not None:
+        records = tuple(opts.line_event_readback_records)
+        line_binding = successor_binding(
+            operation_contract_digest=_C5_4_LINE_EVENT_OPERATION_DIGEST,
+            interpreter_profile_digest=_C5_4_LINE_EVENT_INTERPRETER_DIGEST,
+            deployment_catalog_digest=sha256_hex(
+                "mrw.successor.deployment-catalog.c5.v1"
+            ),
+            project_scope_digest=local_assembly_scope_digest(),
+            authority_requirement_digest=_C5_4_LINE_EVENT_AUTHORITY_DIGEST,
+        )
+        line_event_handler = C5_4LineEventReadbackRouteHandler(
+            handler_binding_digest=line_binding.binding_digest,
+            interpreter_profile_digest=line_binding.interpreter_profile_digest,
+            operation_contract_digest=line_binding.operation_contract_digest,
+            deployment_catalog_digest=line_binding.deployment_catalog_digest,
+            records=records,
+        )
+        route_handlers.append(line_event_handler)
+
+    c54_cell = projector_cells["C5.4"]
+    if line_event_handler is not None:
+        c54_cell = CellBinding(
+            cell_id="C5.4",
+            family_id="C5",
+            status="PROJECTOR_WIRING_DECLARED",
+            operation_contract_refs=_PROJECTOR_CELL_OPERATION_CONTRACT_REFS["C5.4"],
+            recovery_binding_ref=_PROJECTOR_CELL_RECOVERY_REFS["C5.4"],
+            required_wiring=_PROJECTOR_CELL_REQUIRED_WIRING["C5.4"],
+            note=(
+                c54_cell.note
+                + "; S2 line-event readback route handler carried by family; "
+                "ProjectorRegistry registration stays per-run"
+            ),
+        )
+
     cells = (
         projector_cells["C5.1"],
         CellBinding(
@@ -519,12 +601,12 @@ def build_c5_assembly(
             note=c52_note,
         ),
         projector_cells["C5.3"],
-        projector_cells["C5.4"],
+        c54_cell,
     )
     return FamilyAssembly(
         family_id="C5",
         cells=cells,
-        handlers=handlers,
+        handlers=tuple(route_handlers),
         projector_wiring=_projector_wirings(),
         projector_registry=projector_registry,
         rollback_bindings=_rollback_bindings(),

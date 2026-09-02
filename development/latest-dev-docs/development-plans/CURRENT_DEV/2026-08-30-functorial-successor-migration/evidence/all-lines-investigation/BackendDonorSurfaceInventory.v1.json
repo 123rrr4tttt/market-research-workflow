@@ -1,0 +1,1803 @@
+{
+  "schema": "mrw.migration.backend_donor_surface_inventory.v1",
+  "evidence_kind": "donor_side_backend_business_line_surface_inventory",
+  "status": "DRAFT_INVENTORY_OBSERVED",
+  "generated_at_utc": "2026-09-02T13:14:00Z",
+  "scope": {
+    "donor_checkout_root": "/Users/wangyiliang/market-research-workflow",
+    "branch": "codex/devdocs-supervisor-seed",
+    "head": "35ca039c59d2efae8038a678995e8a0812032e43",
+    "dirty_working_tree_change_count": 606,
+    "note": "Source is intentionally dirty; canonical evidence surfaces are a mixture of tracked-at-HEAD and untracked working-tree files. Blob hashes are SHA-1 git blob IDs of current working-tree bytes; git_tracked_at_head=false means the file is untracked, not committed at HEAD.",
+    "read_scope": [
+      "main/backend/app/api/*.py",
+      "main/backend/app/services/**",
+      "main/backend/app/models/**",
+      "main/backend/migrations/versions/**",
+      "scripts/run_business_line_* and scripts/check_business_line_*",
+      "main/frontend-modern/src pages/domain clients"
+    ],
+    "forbidden": [
+      "credential values",
+      "any file modification in donor"
+    ]
+  },
+  "summary": {
+    "api_route_decorator_count": 285,
+    "api_module_count": 34,
+    "service_py_files": 318,
+    "model_py_files": 9,
+    "migration_versions_files": 27,
+    "frontend_route_pages": 25,
+    "canonical_evidence_matrix_lines": 7,
+    "business_line_records": 18
+  },
+  "canonical_evidence_matrix": {
+    "contract_version": "business_line.evidence_matrix.v1",
+    "canonical_line_keys": [
+      "ingest",
+      "search_discovery_index",
+      "resource_source_library",
+      "projects_config_workflow",
+      "dashboard_admin_governance",
+      "writing_knowledge_graph_agent",
+      "runtime_ops"
+    ],
+    "worker_required_line_keys": [
+      "ingest",
+      "search_discovery_index",
+      "resource_source_library",
+      "writing_knowledge_graph_agent"
+    ],
+    "matrix_lane": "business_line_worker_readback_project_matrix_nightly",
+    "matrix_consumer": "OpsPage:/api/v1/business-lines/evidence-matrix",
+    "automation_artifacts_observed": [
+      "development/latest-dev-docs/automation-runs/business-line-worker-readback-project-matrix/2026-07-23/nightly-manifest.json",
+      "development/latest-dev-docs/automation-runs/business-line-worker-readback-project-matrix/2026-07-23/business-line-worker-readback-project-matrix-report.json"
+    ],
+    "evidence_boundary": "Evidence matrix and live smoke plans are evidence, not execution proof; Celery worker, scheduler, Docker and production completion are not claimed by these surfaces."
+  },
+  "business_lines": [
+    {
+      "id": "BL-business-lines-worker-readback",
+      "kind": "canonical_business_line_evidence_matrix",
+      "canonical_line_key": "business_line_worker_readback_project_matrix_nightly",
+      "semantic_object": "Seven canonical legacy business-line evidence matrix plus async task readback contract (worker-required event chains for ingest/search_discovery_index/resource_source_library/writing_knowledge_graph_agent and config/dashboard/runtime readback probes); fail-closed classification passed/blocked_by_environment/failed.",
+      "user_task": "Run all seven business-line smoke and async task readback checks against a real backend and scheduled artifacts.",
+      "api_groups": [
+        "/api/v1/business-lines/*",
+        "/api/v1/process/*",
+        "/api/v1/health/deep",
+        "/metrics"
+      ],
+      "frontend_entrypoints": [
+        "OpsPage",
+        "ProcessPage"
+      ],
+      "worker_required": false,
+      "async_task_readback_required": true,
+      "source": [
+        {
+          "path": "main/backend/app/api/business_lines.py",
+          "sha1_blob_working_tree": "2d030feb52c0a8a2e6c63dd821cc02a6ff96283f",
+          "git_tracked_at_head": false
+        },
+        {
+          "path": "main/backend/app/services/task_readback_metadata.py",
+          "sha1_blob_working_tree": "701eec5a0739fec7349c963d985749dfab0602e1",
+          "git_tracked_at_head": false
+        },
+        {
+          "path": "scripts/run_business_line_worker_readback_project_matrix.py",
+          "sha1_blob_working_tree": "cb77107058565b0e4ceed62e8f5f5488bee985ff",
+          "git_tracked_at_head": false
+        },
+        {
+          "path": "scripts/run_business_line_worker_readback_evidence_chain.py",
+          "sha1_blob_working_tree": "7388ed956c5ce5b4eb42ef46ad4342c1468a2094",
+          "git_tracked_at_head": false
+        },
+        {
+          "path": "scripts/run_business_line_async_task_readback_live_samples.py",
+          "sha1_blob_working_tree": "bdd8c0f6bfbb64ce74280f4ee01d90872da06984",
+          "git_tracked_at_head": false
+        },
+        {
+          "path": "scripts/build_business_line_async_readiness_artifact.py",
+          "sha1_blob_working_tree": "87a45149ff10ff30eea516a9f9a594f83899f219",
+          "git_tracked_at_head": false
+        },
+        {
+          "path": "scripts/runtime_health_matrix.py",
+          "sha1_blob_working_tree": "7517d6d45771830a19cfb0684d74e26d5ef9eb8c",
+          "git_tracked_at_head": false
+        },
+        {
+          "path": "main/frontend-modern/tests/e2e/real-backend-business-lines.spec.ts",
+          "sha1_blob_working_tree": "d760aa67d9ba0592e4ec96f886ae3ca451df29e0",
+          "git_tracked_at_head": false
+        }
+      ],
+      "owner": "B-recheck / OpsPage owner; legacy matrix owner team",
+      "existing_c1_c9_semantics": [
+        "C9.1 API command-query envelope (in scope, partial)",
+        "C9.3 projection rebuild offset (runtime/process/dashboard readback, partial)",
+        "UNKNOWN for all canonical line keys as business semantics"
+      ],
+      "authority_surface": [
+        "read-only evidence surfaces: /api/v1/business-lines/*; scheduled artifact checker and scripts are control-plane evidence, not executor authority; cannot claim Celery/scheduler/provider completion"
+      ],
+      "donor_status": "DONOR_READ_ONLY_DESCRIBED"
+    },
+    {
+      "id": "BL-ingest-submission-worker-readback",
+      "kind": "canonical_business_line_evidence_matrix",
+      "canonical_line_key": "ingest",
+      "semantic_object": "URL/market/social/news/report/data ingestion submission, frontdoor admission registry, Celery task dispatch/status/history/log readback, ingestion history and meaningful-gate/retry controls.",
+      "user_task": "Submit source materials and inspect ingestion history, task state, failures and logs.",
+      "api_groups": [
+        "/api/v1/ingest/*",
+        "/api/v1/process/*",
+        "/api/v1/crawler/*"
+      ],
+      "frontend_entrypoints": [
+        "IngestPage",
+        "CrawlerManagePage"
+      ],
+      "worker_required": true,
+      "async_task_readback_required": true,
+      "source": [
+        {
+          "path": "main/backend/app/api/ingest.py",
+          "sha1_blob_working_tree": "7f2eaeb622e323b937c1867f6e6bea38aa0892c6",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/ingest/frontdoor_orchestrator.py",
+          "sha1_blob_working_tree": "77afd39e084641724e32301d2fa9e361311446db",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/ingest/frontdoor_contract.py",
+          "sha1_blob_working_tree": "78f1594721fda2de9b0681f69a55106983ddb939",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/ingest/terminal_writer.py",
+          "sha1_blob_working_tree": "f32c9139943ee541f95f236e2083bf6315f77509",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/ingest/long_cycle_live_runtime.py",
+          "sha1_blob_working_tree": "8562ff23228a205885d4159af69d90659d45d922",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/ingest/meaningful_gate.py",
+          "sha1_blob_working_tree": "d410dc55c7a61170aebd0d3c713cb790e64fad77",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/ingest/retry_policy.py",
+          "sha1_blob_working_tree": "29061f9313947293144cf898451eabf78f672359",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/tasks.py",
+          "sha1_blob_working_tree": "c432f1058da53b913225cbe6b36dae97b2910be6",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/models/ingest_registry.py",
+          "sha1_blob_working_tree": "3d0161ec5890c22b0156f651c4fea7abc79c7cb0",
+          "git_tracked_at_head": false
+        },
+        {
+          "path": "main/backend/app/models/long_cycle_entities.py",
+          "sha1_blob_working_tree": "273889e47c5beeb0e34441690448425b930316da",
+          "git_tracked_at_head": true
+        }
+      ],
+      "owner": "B-recheck; legacy worker lane owner",
+      "existing_c1_c9_semantics": [
+        "C7.1 ingest submission staging",
+        "C7.2 persistence verification admission",
+        "C7.3 index graph handoff",
+        "C7.4 retry recovery rollback"
+      ],
+      "authority_surface": [
+        "submission/staging writer authority at API+registry; live scheduler and DB readback separate; worker task id real-readback gate"
+      ],
+      "donor_status": "DONOR_READ_ONLY_DESCRIBED"
+    },
+    {
+      "id": "BL-search-discovery-index-worker-readback",
+      "kind": "canonical_business_line_evidence_matrix",
+      "canonical_line_key": "search_discovery_index",
+      "semantic_object": "Search stored content, discovery runs, index initialization/policy, dashboard search analytics, retrieval run persistence and index freshness.",
+      "user_task": "Search stored content, run discovery, initialize indexes, inspect search analytics.",
+      "api_groups": [
+        "/api/v1/search",
+        "/api/v1/discovery/*",
+        "/api/v1/indexer/policy",
+        "/api/v1/dashboard/search-analytics"
+      ],
+      "frontend_entrypoints": [
+        "DashboardPage",
+        "CatalogPage",
+        "RawDataPage"
+      ],
+      "worker_required": true,
+      "async_task_readback_required": true,
+      "source": [
+        {
+          "path": "main/backend/app/api/search.py",
+          "sha1_blob_working_tree": "dd87f6c54e7ff9d72b680569a790e6c2acf9c15d",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/api/discovery.py",
+          "sha1_blob_working_tree": "48aa0383b40679a89d62ef052477b9057a3c1be1",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/api/indexer.py",
+          "sha1_blob_working_tree": "9e6e9754a37f4889ae69b057777ffe80eb6004f3",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/search/history.py",
+          "sha1_blob_working_tree": "ce692dd0023719250c260bbb7ca1ee6324004d2a",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/search/retrieval_runs.py",
+          "sha1_blob_working_tree": "9a7594211d13fb484a426197a8c42f7a58f4440d",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/collect_runtime/runtime.py",
+          "sha1_blob_working_tree": "8c77b7699c6c8d21d7a0704150d3a1f56a784e50",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/collect_runtime/contracts.py",
+          "sha1_blob_working_tree": "47b4b410dfca480ed2e074f8eeaa7658132f668f",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/indexer/application.py",
+          "sha1_blob_working_tree": "54398fd437c2395827951d13dfcde7db577c649c",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/tasks.py",
+          "sha1_blob_working_tree": "c432f1058da53b913225cbe6b36dae97b2910be6",
+          "git_tracked_at_head": true
+        }
+      ],
+      "owner": "B-recheck; legacy search/discovery worker lane owner",
+      "existing_c1_c9_semantics": [
+        "C2.4 collect-runtime terminal compatibility projection (partial)",
+        "C3.1 collect batch plan traverse",
+        "C3.2 collect result fold receipts"
+      ],
+      "authority_surface": [
+        "search API reads plus discovery submission; index mutation and provider results require separate runtime authority"
+      ],
+      "donor_status": "DONOR_READ_ONLY_DESCRIBED"
+    },
+    {
+      "id": "BL-source-library-resource-worker-readback",
+      "kind": "canonical_business_line_evidence_matrix",
+      "canonical_line_key": "resource_source_library",
+      "semantic_object": "Source-library items/channels/handler clusters, external project registration, item run/refresh, resource pool URLs/site entries/capture config, single-source guard execution facts, recommendations and review lifecycle.",
+      "user_task": "Manage site entries, URL pools, source-library items, recommendations, candidate recovery.",
+      "api_groups": [
+        "/api/v1/resource_pool/*",
+        "/api/v1/source_library/*"
+      ],
+      "frontend_entrypoints": [
+        "ResourcePage",
+        "CatalogPage"
+      ],
+      "worker_required": true,
+      "async_task_readback_required": true,
+      "source": [
+        {
+          "path": "main/backend/app/api/source_library.py",
+          "sha1_blob_working_tree": "9b77a5505978d852f331a934252689d25493fc82",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/api/resource_pool.py",
+          "sha1_blob_working_tree": "95976d19cf678e87f5d984016552631039f81886",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/source_library/resolver.py",
+          "sha1_blob_working_tree": "522891818c17f8f7e99ddaf43b8ab9bcc9bd4025",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/source_library/item_resolver.py",
+          "sha1_blob_working_tree": "21264723f7bd6d1c32a4b26f36fda406a09c7738",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/source_library/runner.py",
+          "sha1_blob_working_tree": "e39234f9c71382a143400ed1c88c08e0f7611895",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/source_library/item_plan.py",
+          "sha1_blob_working_tree": "c67a17e67511f38280b9671f2da9399e02d8d1b9",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/source_library/single_source_guard.py",
+          "sha1_blob_working_tree": "513330bc053f4234457aa1ec066efa913ed522b1",
+          "git_tracked_at_head": false
+        },
+        {
+          "path": "main/backend/app/services/source_library/sync.py",
+          "sha1_blob_working_tree": "ad4d98e17148a6618a402b231799ad14c7f2cbf6",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/source_library/relevance_review.py",
+          "sha1_blob_working_tree": "f7b5452c56570b91b0f3d1d72f1a44719bcabf20",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/resource_pool/site_entries.py",
+          "sha1_blob_working_tree": "09021cd0873f414cc3c81c3da76b7f5960197380",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/resource_pool/resolver.py",
+          "sha1_blob_working_tree": "05f04017860a911865250a92219dbfe7450e6c2f",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/resource_pool/unified_search.py",
+          "sha1_blob_working_tree": "01f8096a6c59f66a9802f17ce799efe8f65e70e4",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/tasks.py",
+          "sha1_blob_working_tree": "c432f1058da53b913225cbe6b36dae97b2910be6",
+          "git_tracked_at_head": true
+        }
+      ],
+      "owner": "B-recheck; source-library/resource lane owner",
+      "existing_c1_c9_semantics": [
+        "C2.1 source normalize/taxonomy/mode selection",
+        "C2.2 four source-mode orchestration",
+        "C2.3 provider credential handler effects",
+        "C2.4 terminal compatibility projection"
+      ],
+      "authority_surface": [
+        "item/resource mutation and provider credential handling authority in API/services; live adapter/provider/DB verification must remain separate"
+      ],
+      "donor_status": "DONOR_READ_ONLY_DESCRIBED"
+    },
+    {
+      "id": "BL-projects-config-workflow",
+      "kind": "canonical_business_line_evidence_matrix",
+      "canonical_line_key": "projects_config_workflow",
+      "semantic_object": "Project CRUD/archive/activate, config/env/LLM service configuration, project customization workflows/templates, process history readback for project-scoped configuration actions.",
+      "user_task": "Create or switch projects, configure runtime settings and LLM providers, inspect workflow history.",
+      "api_groups": [
+        "/api/v1/projects/*",
+        "/api/v1/config/*",
+        "/api/v1/project-customization/*",
+        "/api/v1/llm-config/*",
+        "/api/v1/process/*"
+      ],
+      "frontend_entrypoints": [
+        "ProjectsPage",
+        "SettingsPage",
+        "ProcessPage"
+      ],
+      "worker_required": false,
+      "async_task_readback_required": true,
+      "source": [
+        {
+          "path": "main/backend/app/api/projects.py",
+          "sha1_blob_working_tree": "f45f604fbd9ac83ffd3420c7d54fbeaab01b5a5e",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/api/config.py",
+          "sha1_blob_working_tree": "03fcbd49b49aaa16f89aa59e815939b5221e6b5a",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/api/llm_config.py",
+          "sha1_blob_working_tree": "9daf2423e058d84c35206598ab32f80717c641ed",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/api/project_customization.py",
+          "sha1_blob_working_tree": "d1e83f5ee7d50de78afb4ec986250582cb3eaeec",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/api/process.py",
+          "sha1_blob_working_tree": "efe10dca82dae8c2830a48feb256388e6ec02b52",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/projects/context.py",
+          "sha1_blob_working_tree": "dd6ad1ca39f783cc81f737b82f8836870a11b65c",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/projects/workflow.py",
+          "sha1_blob_working_tree": "9b6ce960bba199ac2f3dc529228a2cde9ae73971",
+          "git_tracked_at_head": true
+        }
+      ],
+      "owner": "B-recheck; project/config workflow owner",
+      "existing_c1_c9_semantics": [
+        "UNKNOWN (project/config/workflow has no dedicated locator cell in C1-C9 map; C9.1 envelope applies structurally)"
+      ],
+      "authority_surface": [
+        "project/config mutation authority in API; config version/rollback/dry-run evidence remains incomplete per source gaps"
+      ],
+      "donor_status": "DONOR_READ_ONLY_DESCRIBED"
+    },
+    {
+      "id": "BL-dashboard-admin-governance",
+      "kind": "canonical_business_line_evidence_matrix",
+      "canonical_line_key": "dashboard_admin_governance",
+      "semantic_object": "Dashboard stats/global stats/llm-report-detail/drilldown/report-from-filter/trends, admin raw data/graph/search history, policy/market/product/topic/report read models, cleanup and aggregator sync governance actions.",
+      "user_task": "Inspect metrics, reports, policy/market state, product/topic views, governance actions.",
+      "api_groups": [
+        "/api/v1/dashboard/*",
+        "/api/v1/admin/*",
+        "/api/v1/policies/*",
+        "/api/v1/market/*",
+        "/api/v1/products",
+        "/api/v1/topics",
+        "/api/v1/reports"
+      ],
+      "frontend_entrypoints": [
+        "DashboardPage",
+        "PolicyPage",
+        "OpsPage"
+      ],
+      "worker_required": false,
+      "async_task_readback_required": true,
+      "source": [
+        {
+          "path": "main/backend/app/api/dashboard.py",
+          "sha1_blob_working_tree": "51b03a13cec438039593bc1b74ad071db7563a36",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/api/admin.py",
+          "sha1_blob_working_tree": "59905edd01ab42bc29861e584619bb8d6f7eef6f",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/api/policies.py",
+          "sha1_blob_working_tree": "fa7133509b09c27c050ff981888a1297380cd05e",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/api/market.py",
+          "sha1_blob_working_tree": "4095bb696742080e71868fc73ad3bb72f23cb48f",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/api/products.py",
+          "sha1_blob_working_tree": "c19bbf72b7f87a1fb080e1518830eb9bc33ff93c",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/api/topics.py",
+          "sha1_blob_working_tree": "f68d33a5f631548751b905035501eff0a3aeddc4",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/api/reports.py",
+          "sha1_blob_working_tree": "f570a5ca848ec1649341f38ac2ba6256fd372c32",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/api/governance.py",
+          "sha1_blob_working_tree": "09f40989865f530ce126fc3d4cc5b4797a023cc3",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/governance/retention.py",
+          "sha1_blob_working_tree": "bab62fc73aeb47c505e5df3b21ce9210d80d74ea",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/aggregator/sync.py",
+          "sha1_blob_working_tree": "8787142f6b01b7bcbc3021004469794c3ee70558",
+          "git_tracked_at_head": true
+        }
+      ],
+      "owner": "B-recheck; dashboard/admin/governance owner",
+      "existing_c1_c9_semantics": [
+        "UNKNOWN (dashboard/admin/governance cells not present in frozen locator; C9.1/C9.3 structural alignment only)"
+      ],
+      "authority_surface": [
+        "admin/dashboard read projections and governance cleanup/sync mutation authority; no dashboard metric provenance unification yet"
+      ],
+      "donor_status": "DONOR_READ_ONLY_DESCRIBED"
+    },
+    {
+      "id": "BL-writing-knowledge-graph-agent",
+      "kind": "canonical_business_line_evidence_matrix",
+      "canonical_line_key": "writing_knowledge_graph_agent",
+      "semantic_object": "Writing artifact lifecycle (documents/drafts/citations/templates/LLM actions), typed-knowledge persistence boundary/governance, graph workflow compile/run/replay/templates, agent chat/session/batch lifecycle and approval readback.",
+      "user_task": "Edit writing artifacts, use knowledge cards and graphs, chat with agents, run agent batches.",
+      "api_groups": [
+        "/api/v1/writing/*",
+        "/api/v1/typed_knowledge/*",
+        "/api/v1/workflow_graph/*",
+        "/api/v1/agent-chat/*",
+        "/api/v1/agent-sessions/*",
+        "/api/v1/agent-batch/*"
+      ],
+      "frontend_entrypoints": [
+        "WritingWorkbenchPage",
+        "GraphPage",
+        "AgentChatPage",
+        "LlmDesignerPage"
+      ],
+      "worker_required": true,
+      "async_task_readback_required": true,
+      "source": [
+        {
+          "path": "main/backend/app/api/writing.py",
+          "sha1_blob_working_tree": "a274a516f975de0d8f0e86a219b2bdd4a022c40d",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/api/typed_knowledge.py",
+          "sha1_blob_working_tree": "86f6b73f41f50f91fc17b742e02c1762e11783a4",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/api/workflow_graph.py",
+          "sha1_blob_working_tree": "64f7ee81ab6c64c699e5e77981be6f0949736d20",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/api/agent_chat.py",
+          "sha1_blob_working_tree": "61e25d0e4a8caf8cd9acf1d332389adb03464c86",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/api/agent_sessions.py",
+          "sha1_blob_working_tree": "36fdd65f97f0cdcdb3c9f4a5bce290a0d888484f",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/api/agent_batch.py",
+          "sha1_blob_working_tree": "1a516ca73c8b36c77c248851cb2c68acb0873fa2",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/writing/llm_action_service.py",
+          "sha1_blob_working_tree": "cbf60522dacc7af2d475c39db238c52fbcd8263e",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/writing/document_service.py",
+          "sha1_blob_working_tree": "388de2a092faf09bd373db9a31d75991b9101040",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/writing/template_service.py",
+          "sha1_blob_working_tree": "24d9e8f869a88fb78ff6146b067430ad41244967",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/typed_knowledge/persistence_boundary.py",
+          "sha1_blob_working_tree": "3f071ab778e4b3ecacf2fc6b7209126725b92d66",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/workflow_graph/contracts.py",
+          "sha1_blob_working_tree": "36d97d0726300639998eab3deaf9ea7319944647",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/workflow_graph/compiler.py",
+          "sha1_blob_working_tree": "65a9f73fd8a22037f98f2fbab83fbc90c6f57e00",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/workflow_graph/runtime.py",
+          "sha1_blob_working_tree": "3a900dab2264c6b0474172ce3c718c10a5a9f566",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/workflow_graph/store.py",
+          "sha1_blob_working_tree": "111fe4245728111f1b9daf7020017fe27f14d21d",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/agent_core/core.py",
+          "sha1_blob_working_tree": "9a52404d6f28fa341106bd75c700494e16b3858f",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/agent_runtime/coordinator.py",
+          "sha1_blob_working_tree": "f71a7fdc2609961b82dc69f1f15c1378cbd0a825",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/agent_batch/agent_loop.py",
+          "sha1_blob_working_tree": "63fce87994532688fc7f9a1a97cbf580c71cc644",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/agent_batch/task_contract.py",
+          "sha1_blob_working_tree": "8ab4204a0fa5b8f99b5ce2ceabc0d20feb836444",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/agent_sessions/service.py",
+          "sha1_blob_working_tree": "996bc5ea7f6bfa9a7b4f44b64747921f0c9989f8",
+          "git_tracked_at_head": true
+        }
+      ],
+      "owner": "B-recheck; writing/knowledge/graph/agent owner",
+      "existing_c1_c9_semantics": [
+        "C1.1 graph parse/validate/compile",
+        "C1.2 graph runtime executor/failure",
+        "C1.3 graph store/replay",
+        "C4.1 batch plan supplementation/branching",
+        "C4.2 retry action ordered reducer",
+        "C4.3 submit idempotency API",
+        "C5.1 session task state machine",
+        "C5.2 effect attempt reconciliation",
+        "C5.3 event fold snapshot",
+        "C5.4 Celery/DB process readback",
+        "C6.1 AgentCore program tool loop",
+        "C6.2 provider interpretation",
+        "C6.3 redaction evidence",
+        "C8.1 typed knowledge read handles",
+        "C8.2 writing composition artifacts",
+        "C8.3 report export admission",
+        "C8.4 graph consumer provenance loss"
+      ],
+      "authority_surface": [
+        "writing/knowledge/graph/agent mutation authority distributed across APIs, services and stores; agent batch approval and event persistence must keep real-task gate"
+      ],
+      "donor_status": "DONOR_READ_ONLY_DESCRIBED"
+    },
+    {
+      "id": "BL-runtime-ops",
+      "kind": "canonical_business_line_evidence_matrix",
+      "canonical_line_key": "runtime_ops",
+      "semantic_object": "Backend shallow/deep health, dependency reachability, database/ES checks, process stats/list/history/logs/retry/cancel, runtime health matrix scripts.",
+      "user_task": "Start, stop, inspect, diagnose Docker or local runtime stack.",
+      "api_groups": [
+        "/api/v1/health",
+        "/api/v1/health/deep",
+        "/metrics",
+        "/api/v1/process/*"
+      ],
+      "frontend_entrypoints": [
+        "OpsPage"
+      ],
+      "worker_required": false,
+      "async_task_readback_required": true,
+      "source": [
+        {
+          "path": "main/backend/app/main.py",
+          "sha1_blob_working_tree": "87d92c465b7cb411bd8e6e352e8b6dcb1447c595",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/api/process.py",
+          "sha1_blob_working_tree": "efe10dca82dae8c2830a48feb256388e6ec02b52",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/tasks.py",
+          "sha1_blob_working_tree": "c432f1058da53b913225cbe6b36dae97b2910be6",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "scripts/runtime_health_matrix.py",
+          "sha1_blob_working_tree": "7517d6d45771830a19cfb0684d74e26d5ef9eb8c",
+          "git_tracked_at_head": false
+        },
+        {
+          "path": "scripts/check_business_line_trace_baseline_artifact.py",
+          "sha1_blob_working_tree": "0359a63d04351d7c3e841f6b261368083d1853d4",
+          "git_tracked_at_head": false
+        }
+      ],
+      "owner": "B-recheck; runtime ops owner",
+      "existing_c1_c9_semantics": [
+        "UNKNOWN (runtime ops not in C1-C9 locator; C9.1 envelope exempt for health/deep)"
+      ],
+      "authority_surface": [
+        "runtime diagnostic/health read authority only; no production/scheduler completion claim"
+      ],
+      "donor_status": "DONOR_READ_ONLY_DESCRIBED"
+    },
+    {
+      "id": "BL-llm-report-export-token-state",
+      "kind": "service_surface",
+      "canonical_line_key": null,
+      "semantic_object": "LLM report generate + strict/off/warn quality gate + markdown/PDF/DOCX export with signed one-time-use/revocable artifact tokens, durable token-state rows, export audit events, quality-trend records, request identity.",
+      "user_task": null,
+      "api_groups": null,
+      "frontend_entrypoints": null,
+      "worker_required": null,
+      "async_task_readback_required": null,
+      "source": [
+        {
+          "path": "main/backend/app/api/llm_report.py",
+          "sha1_blob_working_tree": "54746f68e02dc1ebbaefe77936a2175cf4b1575d",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/llm_report_export.py",
+          "sha1_blob_working_tree": "8e0e198b68d6800e8db31c3de6c3d3a800858191",
+          "git_tracked_at_head": false
+        },
+        {
+          "path": "main/backend/app/services/llm_report_export_token_state.py",
+          "sha1_blob_working_tree": "c311dc50acc8923d1e42b3109d174bf81005ff13",
+          "git_tracked_at_head": false
+        },
+        {
+          "path": "main/backend/app/services/llm_report_export_audit.py",
+          "sha1_blob_working_tree": "4799746e4f9a4b7ea3a032dc24eec5376ac68640",
+          "git_tracked_at_head": false
+        },
+        {
+          "path": "main/backend/app/services/llm_report_trends.py",
+          "sha1_blob_working_tree": "79deed264cdcb3f92e349efe3689a0631cc39db9",
+          "git_tracked_at_head": false
+        },
+        {
+          "path": "main/backend/app/services/llm_report_generator.py",
+          "sha1_blob_working_tree": "540448baa9064432eef74808ee0eb021c8ac5d8c",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/llm_report_source_enrichment.py",
+          "sha1_blob_working_tree": "d4f664becf873b0fd00e898a59a8cc3a2d378a0a",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/models/llm_report_export_token_state.py",
+          "sha1_blob_working_tree": "73cab5deee62e2c491c60237ba1f7a97b50921f3",
+          "git_tracked_at_head": false
+        },
+        {
+          "path": "main/backend/app/models/llm_report_export_audit.py",
+          "sha1_blob_working_tree": "5dff1ed285edc94ca8f7ff8773e020f063c9f98d",
+          "git_tracked_at_head": false
+        },
+        {
+          "path": "main/backend/app/models/llm_report_trends.py",
+          "sha1_blob_working_tree": "f1e0e3b0d214396da7813361fe5e41963b3fdc93",
+          "git_tracked_at_head": false
+        },
+        {
+          "path": "main/backend/migrations/versions/20260524_000002_add_llm_report_quality_trends.py",
+          "sha1_blob_working_tree": "875dd0caf723735b1d89896ea27d867490de3a6f",
+          "git_tracked_at_head": false
+        },
+        {
+          "path": "main/backend/migrations/versions/20260524_000003_add_llm_report_export_audit_events.py",
+          "sha1_blob_working_tree": "03a9996a8dc56169a6490115ea139bfd72ccd6ab",
+          "git_tracked_at_head": false
+        },
+        {
+          "path": "main/backend/migrations/versions/20260524_000004_add_llm_report_export_token_state.py",
+          "sha1_blob_working_tree": "b072d16caa78a93ec21c51b99da11d5d084e652e",
+          "git_tracked_at_head": false
+        },
+        {
+          "path": "main/backend/app/services/request_identity.py",
+          "sha1_blob_working_tree": "dfe68e9ea44637a56ffc560fd455e2cef0628318",
+          "git_tracked_at_head": false
+        }
+      ],
+      "owner": "B-recheck; report-export/audit owner",
+      "existing_c1_c9_semantics": [
+        "C8.3 report export admission (existing, focused on llm_report_export_token_state/report/writing)",
+        "C6.2 provider interpretation (generate path)",
+        "UNKNOWN for export audit/token/trend full business semantics"
+      ],
+      "authority_surface": "signed-token issuance/revocation, one-time-use claim, audit persistence and export binary generation authority; export only on strict quality gate admission",
+      "donor_status": "DONOR_READ_ONLY_DESCRIBED"
+    },
+    {
+      "id": "BL-request-identity",
+      "kind": "service_surface",
+      "canonical_line_key": null,
+      "semantic_object": "Request actor identity resolution from authenticated state/legacy/anonymous fallback, actor_id/context observability used by report generation/export and dashboard readback surfaces.",
+      "user_task": null,
+      "api_groups": null,
+      "frontend_entrypoints": null,
+      "worker_required": null,
+      "async_task_readback_required": null,
+      "source": [
+        {
+          "path": "main/backend/app/services/request_identity.py",
+          "sha1_blob_working_tree": "dfe68e9ea44637a56ffc560fd455e2cef0628318",
+          "git_tracked_at_head": false
+        },
+        {
+          "path": "main/backend/app/api/llm_report.py",
+          "sha1_blob_working_tree": "54746f68e02dc1ebbaefe77936a2175cf4b1575d",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/api/dashboard.py",
+          "sha1_blob_working_tree": "51b03a13cec438039593bc1b74ad071db7563a36",
+          "git_tracked_at_head": true
+        }
+      ],
+      "owner": "B-recheck; authn identity owner",
+      "existing_c1_c9_semantics": [
+        "UNKNOWN (shared horizontal service, no C1-C9 locator cell)"
+      ],
+      "authority_surface": "identity/actor metadata authority; no credential value reads (not inventoried)",
+      "donor_status": "DONOR_READ_ONLY_DESCRIBED"
+    },
+    {
+      "id": "BL-task-readback-metadata",
+      "kind": "service_surface",
+      "canonical_line_key": null,
+      "semantic_object": "Runtime readback metadata builder/normalizer: canonical line event chains, contract event insertion, task/runtime readback merge for ingest/search/source/writing worker lanes.",
+      "user_task": null,
+      "api_groups": null,
+      "frontend_entrypoints": null,
+      "worker_required": null,
+      "async_task_readback_required": null,
+      "source": [
+        {
+          "path": "main/backend/app/services/task_readback_metadata.py",
+          "sha1_blob_working_tree": "701eec5a0739fec7349c963d985749dfab0602e1",
+          "git_tracked_at_head": false
+        },
+        {
+          "path": "main/backend/app/services/tasks.py",
+          "sha1_blob_working_tree": "c432f1058da53b913225cbe6b36dae97b2910be6",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/writing/llm_action_service.py",
+          "sha1_blob_working_tree": "cbf60522dacc7af2d475c39db238c52fbcd8263e",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/api/business_lines.py",
+          "sha1_blob_working_tree": "2d030feb52c0a8a2e6c63dd821cc02a6ff96283f",
+          "git_tracked_at_head": false
+        }
+      ],
+      "owner": "B-recheck; worker readback metadata owner",
+      "existing_c1_c9_semantics": [
+        "C5.4 Celery/DB process readback projection (existing)",
+        "UNKNOWN for cross-line worker readback semantics"
+      ],
+      "authority_surface": "metadata construction only; no execution authority",
+      "donor_status": "DONOR_READ_ONLY_DESCRIBED"
+    },
+    {
+      "id": "BL-single-source-guard",
+      "kind": "service_surface",
+      "canonical_line_key": null,
+      "semantic_object": "Source-library single-source execution guard validation: strict one-URL site-entry guard, execution fact, blocked/error classification before adapter dispatch and resolver override application.",
+      "user_task": null,
+      "api_groups": null,
+      "frontend_entrypoints": null,
+      "worker_required": null,
+      "async_task_readback_required": null,
+      "source": [
+        {
+          "path": "main/backend/app/services/source_library/single_source_guard.py",
+          "sha1_blob_working_tree": "513330bc053f4234457aa1ec066efa913ed522b1",
+          "git_tracked_at_head": false
+        },
+        {
+          "path": "main/backend/app/services/source_library/resolver.py",
+          "sha1_blob_working_tree": "522891818c17f8f7e99ddaf43b8ab9bcc9bd4025",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/api/source_library.py",
+          "sha1_blob_working_tree": "9b77a5505978d852f331a934252689d25493fc82",
+          "git_tracked_at_head": true
+        }
+      ],
+      "owner": "B-recheck; source-library boundary owner",
+      "existing_c1_c9_semantics": [
+        "C2.3 provider credential handler effects (guard is part of source mode selection/execution authority)"
+      ],
+      "authority_surface": "guard validation/blocking authority inside source-library execution path; cannot dispatch blocked override",
+      "donor_status": "DONOR_READ_ONLY_DESCRIBED"
+    },
+    {
+      "id": "BL-agent-batch-quality-promotion-readback",
+      "kind": "service_surface",
+      "canonical_line_key": null,
+      "semantic_object": "Agent-batch search-quality replay and symbolic quality-promotion readback gate (critic score, bounded retry, threshold, promotion decision digest) with executor health API.",
+      "user_task": null,
+      "api_groups": null,
+      "frontend_entrypoints": null,
+      "worker_required": null,
+      "async_task_readback_required": null,
+      "source": [
+        {
+          "path": "main/backend/app/api/agent_batch.py",
+          "sha1_blob_working_tree": "1a516ca73c8b36c77c248851cb2c68acb0873fa2",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/agent_batch/search_quality_replay.py",
+          "sha1_blob_working_tree": "d4e36c50e79a920c5553340bb3efa3af0720da75",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/agent_batch/task_contract.py",
+          "sha1_blob_working_tree": "8ab4204a0fa5b8f99b5ce2ceabc0d20feb836444",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/agent_batch/executor_health.py",
+          "sha1_blob_working_tree": "784725ee3ad0b68b6926444835b39e3aa9d8b2c9",
+          "git_tracked_at_head": true
+        }
+      ],
+      "owner": "B-recheck; agent-batch owner",
+      "existing_c1_c9_semantics": [
+        "C4.1/C4.2 supplementation/retry boundaries (promotion readback hangs off provider-independent quality gate)"
+      ],
+      "authority_surface": "promotion decision readback is evidence-only; provider auto-promotion remains blocked unless live quality replay closed",
+      "donor_status": "DONOR_READ_ONLY_DESCRIBED"
+    },
+    {
+      "id": "BL-dashboard-llm-report-detail-export-audit",
+      "kind": "service_surface",
+      "canonical_line_key": null,
+      "semantic_object": "Dashboard llm-report-detail readback of quality/export/audit/token records by trace/project/job plus dashboard report-from-filter synthesis and quality gate reconstruction.",
+      "user_task": null,
+      "api_groups": null,
+      "frontend_entrypoints": null,
+      "worker_required": null,
+      "async_task_readback_required": null,
+      "source": [
+        {
+          "path": "main/backend/app/api/dashboard.py",
+          "sha1_blob_working_tree": "51b03a13cec438039593bc1b74ad071db7563a36",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/llm_report_export_audit.py",
+          "sha1_blob_working_tree": "4799746e4f9a4b7ea3a032dc24eec5376ac68640",
+          "git_tracked_at_head": false
+        },
+        {
+          "path": "main/backend/app/services/llm_report_export_token_state.py",
+          "sha1_blob_working_tree": "c311dc50acc8923d1e42b3109d174bf81005ff13",
+          "git_tracked_at_head": false
+        },
+        {
+          "path": "main/backend/app/services/llm_report_trends.py",
+          "sha1_blob_working_tree": "79deed264cdcb3f92e349efe3689a0631cc39db9",
+          "git_tracked_at_head": false
+        }
+      ],
+      "owner": "B-recheck; dashboard/report owner",
+      "existing_c1_c9_semantics": [
+        "C8.3 report export admission (detail consumers)",
+        "UNKNOWN for dashboard report read-model lineage"
+      ],
+      "authority_surface": "dashboard/report projection read authority only; UI/read model cannot become canonical source",
+      "donor_status": "DONOR_READ_ONLY_DESCRIBED"
+    },
+    {
+      "id": "BL-typed-knowledge-writing-composition",
+      "kind": "service_surface",
+      "canonical_line_key": null,
+      "semantic_object": "Typed knowledge objects, writing handoff boundary records, persistence-boundary/repository readback, governance review state, writing documents/drafts/citations/templates composition.",
+      "user_task": null,
+      "api_groups": null,
+      "frontend_entrypoints": null,
+      "worker_required": null,
+      "async_task_readback_required": null,
+      "source": [
+        {
+          "path": "main/backend/app/api/typed_knowledge.py",
+          "sha1_blob_working_tree": "86f6b73f41f50f91fc17b742e02c1762e11783a4",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/api/writing.py",
+          "sha1_blob_working_tree": "a274a516f975de0d8f0e86a219b2bdd4a022c40d",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/typed_knowledge/persistence_boundary.py",
+          "sha1_blob_working_tree": "3f071ab778e4b3ecacf2fc6b7209126725b92d66",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/typed_knowledge/contracts.py",
+          "sha1_blob_working_tree": "d079128873cd9220338c6dbaacc991bcc5864b0d",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/models/typed_knowledge_entities.py",
+          "sha1_blob_working_tree": "b3e5de4900ee68820cb334a3d0d6707c258fa7d9",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/models/writing_entities.py",
+          "sha1_blob_working_tree": "e80d53a8e149f99e54eac5054e70964469ac70fb",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/writing/document_service.py",
+          "sha1_blob_working_tree": "388de2a092faf09bd373db9a31d75991b9101040",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/services/writing/template_service.py",
+          "sha1_blob_working_tree": "24d9e8f869a88fb78ff6146b067430ad41244967",
+          "git_tracked_at_head": true
+        }
+      ],
+      "owner": "B-recheck; typed-knowledge/writing owner",
+      "existing_c1_c9_semantics": [
+        "C8.1 typed knowledge read handles",
+        "C8.2 writing composition artifacts",
+        "C8.4 graph consumer provenance loss"
+      ],
+      "authority_surface": "typed-knowledge/writing artifact write authority; live DB-backed persistence remains a separate boundary",
+      "donor_status": "DONOR_READ_ONLY_DESCRIBED"
+    },
+    {
+      "id": "BL-llm-report-trend-quality-records",
+      "kind": "service_surface",
+      "canonical_line_key": null,
+      "semantic_object": "Persistent LLM report quality-trend/export-trend records and summary consumers across generate/export/dashboard detail.",
+      "user_task": null,
+      "api_groups": null,
+      "frontend_entrypoints": null,
+      "worker_required": null,
+      "async_task_readback_required": null,
+      "source": [
+        {
+          "path": "main/backend/app/services/llm_report_trends.py",
+          "sha1_blob_working_tree": "79deed264cdcb3f92e349efe3689a0631cc39db9",
+          "git_tracked_at_head": false
+        },
+        {
+          "path": "main/backend/app/models/llm_report_trends.py",
+          "sha1_blob_working_tree": "f1e0e3b0d214396da7813361fe5e41963b3fdc93",
+          "git_tracked_at_head": false
+        },
+        {
+          "path": "main/backend/app/api/dashboard.py",
+          "sha1_blob_working_tree": "51b03a13cec438039593bc1b74ad071db7563a36",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/api/llm_report.py",
+          "sha1_blob_working_tree": "54746f68e02dc1ebbaefe77936a2175cf4b1575d",
+          "git_tracked_at_head": true
+        }
+      ],
+      "owner": "B-recheck; report trend owner",
+      "existing_c1_c9_semantics": [
+        "UNKNOWN (no dedicated locator cell; trend record relates to C8.3 admission consumers)"
+      ],
+      "authority_surface": "quality/export trend persistence and read authority; records are evidence traces, not proof of live provider quality",
+      "donor_status": "DONOR_READ_ONLY_DESCRIBED"
+    },
+    {
+      "id": "BL-runtime-health-matrix",
+      "kind": "service_surface",
+      "canonical_line_key": null,
+      "semantic_object": "Passive full-stack runtime health matrix script producing latest-runtime-health-matrix.json with Docker/local modes, dependency health and process probes.",
+      "user_task": null,
+      "api_groups": null,
+      "frontend_entrypoints": null,
+      "worker_required": null,
+      "async_task_readback_required": null,
+      "source": [
+        {
+          "path": "scripts/runtime_health_matrix.py",
+          "sha1_blob_working_tree": "7517d6d45771830a19cfb0684d74e26d5ef9eb8c",
+          "git_tracked_at_head": false
+        },
+        {
+          "path": "main/backend/app/main.py",
+          "sha1_blob_working_tree": "87d92c465b7cb411bd8e6e352e8b6dcb1447c595",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "scripts/build_business_line_async_readiness_artifact.py",
+          "sha1_blob_working_tree": "87a45149ff10ff30eea516a9f9a594f83899f219",
+          "git_tracked_at_head": false
+        }
+      ],
+      "owner": "B-recheck; runtime ops owner",
+      "existing_c1_c9_semantics": [
+        "UNKNOWN (ops-side runtime surface outside C1-C9 locator)"
+      ],
+      "authority_surface": "passive health matrix generation authority; must not claim worker readiness or production closure",
+      "donor_status": "DONOR_READ_ONLY_DESCRIBED"
+    },
+    {
+      "id": "BL-admin-crawler-cluechain-codexauth-keyword-stats",
+      "kind": "service_surface",
+      "canonical_line_key": null,
+      "semantic_object": "Remaining backend surfaces not represented by the seven canonical lines: admin raw data/graphs, crawler management, clue chains, codex OAuth bootstrap/status, keyword/stats/prompt-time-density, skills invocation, project customization menu and run.",
+      "user_task": null,
+      "api_groups": null,
+      "frontend_entrypoints": null,
+      "worker_required": null,
+      "async_task_readback_required": null,
+      "source": [
+        {
+          "path": "main/backend/app/api/admin.py",
+          "sha1_blob_working_tree": "59905edd01ab42bc29861e584619bb8d6f7eef6f",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/api/crawler.py",
+          "sha1_blob_working_tree": "f5a766d6dee595713103ee5dce0427c5197ed209",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/api/clue_chains.py",
+          "sha1_blob_working_tree": "cf3e3fce4af21cbac5b064586328f6cb194c5333",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/api/codex_auth.py",
+          "sha1_blob_working_tree": "7ae76b65ff70709855e22657f20e875775d19480",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/api/keywords.py",
+          "sha1_blob_working_tree": "c84e68cd69d376725f12822b2352abf2c6e5f8fc",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/api/stats.py",
+          "sha1_blob_working_tree": "9434a4aa89d37ec164f865feafbb2bae38fd4a29",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/api/skills.py",
+          "sha1_blob_working_tree": "b7f89bfd78ed97bb89e90b46671bcdfd6c43af24",
+          "git_tracked_at_head": true
+        },
+        {
+          "path": "main/backend/app/api/project_customization.py",
+          "sha1_blob_working_tree": "d1e83f5ee7d50de78afb4ec986250582cb3eaeec",
+          "git_tracked_at_head": true
+        }
+      ],
+      "owner": "B-recheck; admin/ops owner",
+      "existing_c1_c9_semantics": [
+        "UNKNOWN (mixed legacy surfaces; C9.1 envelope applies structurally)"
+      ],
+      "authority_surface": "admin/crawler/auth/keyword/skill mutation and read authority as defined per API; no credential value inventory",
+      "donor_status": "DONOR_READ_ONLY_DESCRIBED"
+    }
+  ],
+  "source_file_registry": {
+    "main/backend/app/api/__init__.py": {
+      "sha1_blob_working_tree": "2e9d56997fd79d62c49e6f2a766f568c241f3f69",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/api/business_lines.py": {
+      "sha1_blob_working_tree": "2d030feb52c0a8a2e6c63dd821cc02a6ff96283f",
+      "git_tracked_at_head": false
+    },
+    "main/backend/app/api/ingest.py": {
+      "sha1_blob_working_tree": "7f2eaeb622e323b937c1867f6e6bea38aa0892c6",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/api/source_library.py": {
+      "sha1_blob_working_tree": "9b77a5505978d852f331a934252689d25493fc82",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/api/resource_pool.py": {
+      "sha1_blob_working_tree": "95976d19cf678e87f5d984016552631039f81886",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/api/search.py": {
+      "sha1_blob_working_tree": "dd87f6c54e7ff9d72b680569a790e6c2acf9c15d",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/api/discovery.py": {
+      "sha1_blob_working_tree": "48aa0383b40679a89d62ef052477b9057a3c1be1",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/api/indexer.py": {
+      "sha1_blob_working_tree": "9e6e9754a37f4889ae69b057777ffe80eb6004f3",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/api/projects.py": {
+      "sha1_blob_working_tree": "f45f604fbd9ac83ffd3420c7d54fbeaab01b5a5e",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/api/config.py": {
+      "sha1_blob_working_tree": "03fcbd49b49aaa16f89aa59e815939b5221e6b5a",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/api/llm_config.py": {
+      "sha1_blob_working_tree": "9daf2423e058d84c35206598ab32f80717c641ed",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/api/project_customization.py": {
+      "sha1_blob_working_tree": "d1e83f5ee7d50de78afb4ec986250582cb3eaeec",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/api/process.py": {
+      "sha1_blob_working_tree": "efe10dca82dae8c2830a48feb256388e6ec02b52",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/api/dashboard.py": {
+      "sha1_blob_working_tree": "51b03a13cec438039593bc1b74ad071db7563a36",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/api/admin.py": {
+      "sha1_blob_working_tree": "59905edd01ab42bc29861e584619bb8d6f7eef6f",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/api/policies.py": {
+      "sha1_blob_working_tree": "fa7133509b09c27c050ff981888a1297380cd05e",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/api/market.py": {
+      "sha1_blob_working_tree": "4095bb696742080e71868fc73ad3bb72f23cb48f",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/api/products.py": {
+      "sha1_blob_working_tree": "c19bbf72b7f87a1fb080e1518830eb9bc33ff93c",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/api/topics.py": {
+      "sha1_blob_working_tree": "f68d33a5f631548751b905035501eff0a3aeddc4",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/api/reports.py": {
+      "sha1_blob_working_tree": "f570a5ca848ec1649341f38ac2ba6256fd372c32",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/api/governance.py": {
+      "sha1_blob_working_tree": "09f40989865f530ce126fc3d4cc5b4797a023cc3",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/api/writing.py": {
+      "sha1_blob_working_tree": "a274a516f975de0d8f0e86a219b2bdd4a022c40d",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/api/typed_knowledge.py": {
+      "sha1_blob_working_tree": "86f6b73f41f50f91fc17b742e02c1762e11783a4",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/api/workflow_graph.py": {
+      "sha1_blob_working_tree": "64f7ee81ab6c64c699e5e77981be6f0949736d20",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/api/agent_chat.py": {
+      "sha1_blob_working_tree": "61e25d0e4a8caf8cd9acf1d332389adb03464c86",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/api/agent_sessions.py": {
+      "sha1_blob_working_tree": "36fdd65f97f0cdcdb3c9f4a5bce290a0d888484f",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/api/agent_batch.py": {
+      "sha1_blob_working_tree": "1a516ca73c8b36c77c248851cb2c68acb0873fa2",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/api/llm_report.py": {
+      "sha1_blob_working_tree": "54746f68e02dc1ebbaefe77936a2175cf4b1575d",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/api/codex_auth.py": {
+      "sha1_blob_working_tree": "7ae76b65ff70709855e22657f20e875775d19480",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/api/crawler.py": {
+      "sha1_blob_working_tree": "f5a766d6dee595713103ee5dce0427c5197ed209",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/api/keywords.py": {
+      "sha1_blob_working_tree": "c84e68cd69d376725f12822b2352abf2c6e5f8fc",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/api/skills.py": {
+      "sha1_blob_working_tree": "b7f89bfd78ed97bb89e90b46671bcdfd6c43af24",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/api/stats.py": {
+      "sha1_blob_working_tree": "9434a4aa89d37ec164f865feafbb2bae38fd4a29",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/api/clue_chains.py": {
+      "sha1_blob_working_tree": "cf3e3fce4af21cbac5b064586328f6cb194c5333",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/main.py": {
+      "sha1_blob_working_tree": "87d92c465b7cb411bd8e6e352e8b6dcb1447c595",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/models/base.py": {
+      "sha1_blob_working_tree": "3565f629a704125302ad315df68133406adc3f00",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/models/entities.py": {
+      "sha1_blob_working_tree": "41c0670a58cf44ff61b89481490e16fdb41937cb",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/models/ingest_registry.py": {
+      "sha1_blob_working_tree": "3d0161ec5890c22b0156f651c4fea7abc79c7cb0",
+      "git_tracked_at_head": false
+    },
+    "main/backend/app/models/llm_report_export_audit.py": {
+      "sha1_blob_working_tree": "5dff1ed285edc94ca8f7ff8773e020f063c9f98d",
+      "git_tracked_at_head": false
+    },
+    "main/backend/app/models/llm_report_export_token_state.py": {
+      "sha1_blob_working_tree": "73cab5deee62e2c491c60237ba1f7a97b50921f3",
+      "git_tracked_at_head": false
+    },
+    "main/backend/app/models/llm_report_trends.py": {
+      "sha1_blob_working_tree": "f1e0e3b0d214396da7813361fe5e41963b3fdc93",
+      "git_tracked_at_head": false
+    },
+    "main/backend/app/models/long_cycle_entities.py": {
+      "sha1_blob_working_tree": "273889e47c5beeb0e34441690448425b930316da",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/models/typed_knowledge_entities.py": {
+      "sha1_blob_working_tree": "b3e5de4900ee68820cb334a3d0d6707c258fa7d9",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/models/writing_entities.py": {
+      "sha1_blob_working_tree": "e80d53a8e149f99e54eac5054e70964469ac70fb",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/task_readback_metadata.py": {
+      "sha1_blob_working_tree": "701eec5a0739fec7349c963d985749dfab0602e1",
+      "git_tracked_at_head": false
+    },
+    "main/backend/app/services/request_identity.py": {
+      "sha1_blob_working_tree": "dfe68e9ea44637a56ffc560fd455e2cef0628318",
+      "git_tracked_at_head": false
+    },
+    "main/backend/app/services/tasks.py": {
+      "sha1_blob_working_tree": "c432f1058da53b913225cbe6b36dae97b2910be6",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/llm_report_export.py": {
+      "sha1_blob_working_tree": "8e0e198b68d6800e8db31c3de6c3d3a800858191",
+      "git_tracked_at_head": false
+    },
+    "main/backend/app/services/llm_report_export_audit.py": {
+      "sha1_blob_working_tree": "4799746e4f9a4b7ea3a032dc24eec5376ac68640",
+      "git_tracked_at_head": false
+    },
+    "main/backend/app/services/llm_report_export_token_state.py": {
+      "sha1_blob_working_tree": "c311dc50acc8923d1e42b3109d174bf81005ff13",
+      "git_tracked_at_head": false
+    },
+    "main/backend/app/services/llm_report_trends.py": {
+      "sha1_blob_working_tree": "79deed264cdcb3f92e349efe3689a0631cc39db9",
+      "git_tracked_at_head": false
+    },
+    "main/backend/app/services/llm_report_generator.py": {
+      "sha1_blob_working_tree": "540448baa9064432eef74808ee0eb021c8ac5d8c",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/llm_report_source_enrichment.py": {
+      "sha1_blob_working_tree": "d4f664becf873b0fd00e898a59a8cc3a2d378a0a",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/report.py": {
+      "sha1_blob_working_tree": "8e5cfd80ce8344c373a8ff2f3a12025860842ff1",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/source_library/single_source_guard.py": {
+      "sha1_blob_working_tree": "513330bc053f4234457aa1ec066efa913ed522b1",
+      "git_tracked_at_head": false
+    },
+    "main/backend/app/services/source_library/resolver.py": {
+      "sha1_blob_working_tree": "522891818c17f8f7e99ddaf43b8ab9bcc9bd4025",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/source_library/item_resolver.py": {
+      "sha1_blob_working_tree": "21264723f7bd6d1c32a4b26f36fda406a09c7738",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/source_library/runner.py": {
+      "sha1_blob_working_tree": "e39234f9c71382a143400ed1c88c08e0f7611895",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/source_library/item_plan.py": {
+      "sha1_blob_working_tree": "c67a17e67511f38280b9671f2da9399e02d8d1b9",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/source_library/sync.py": {
+      "sha1_blob_working_tree": "ad4d98e17148a6618a402b231799ad14c7f2cbf6",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/source_library/relevance_review.py": {
+      "sha1_blob_working_tree": "f7b5452c56570b91b0f3d1d72f1a44719bcabf20",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/source_library/external_project_registration.py": {
+      "sha1_blob_working_tree": "10c68636ff8d13c41d3d668e47648b8c67c57045",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/ingest/frontdoor_orchestrator.py": {
+      "sha1_blob_working_tree": "77afd39e084641724e32301d2fa9e361311446db",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/ingest/frontdoor_contract.py": {
+      "sha1_blob_working_tree": "78f1594721fda2de9b0681f69a55106983ddb939",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/ingest/terminal_writer.py": {
+      "sha1_blob_working_tree": "f32c9139943ee541f95f236e2083bf6315f77509",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/ingest/long_cycle_live_runtime.py": {
+      "sha1_blob_working_tree": "8562ff23228a205885d4159af69d90659d45d922",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/ingest/meaningful_gate.py": {
+      "sha1_blob_working_tree": "d410dc55c7a61170aebd0d3c713cb790e64fad77",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/ingest/retry_policy.py": {
+      "sha1_blob_working_tree": "29061f9313947293144cf898451eabf78f672359",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/collect_runtime/contracts.py": {
+      "sha1_blob_working_tree": "47b4b410dfca480ed2e074f8eeaa7658132f668f",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/collect_runtime/runtime.py": {
+      "sha1_blob_working_tree": "8c77b7699c6c8d21d7a0704150d3a1f56a784e50",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/collect_runtime/adapters/source_library.py": {
+      "sha1_blob_working_tree": "f9f277652a15971836cb78a4275aa22b4f5ecf5a",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/collect_runtime/adapters/search_market.py": {
+      "sha1_blob_working_tree": "c6a90203b761b0a94d6b9c42d445dcc8279a4954",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/agent_batch/agent_loop.py": {
+      "sha1_blob_working_tree": "63fce87994532688fc7f9a1a97cbf580c71cc644",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/agent_batch/task_contract.py": {
+      "sha1_blob_working_tree": "8ab4204a0fa5b8f99b5ce2ceabc0d20feb836444",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/agent_batch/planner.py": {
+      "sha1_blob_working_tree": "cfc9e3316792935960a7b14c2ae23cd1fe228563",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/agent_batch/approval_binding.py": {
+      "sha1_blob_working_tree": "67ec76f4cd1294efc1292893150d5441f55d5776",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/agent_batch/executor_health.py": {
+      "sha1_blob_working_tree": "784725ee3ad0b68b6926444835b39e3aa9d8b2c9",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/agent_batch/search_quality_replay.py": {
+      "sha1_blob_working_tree": "d4e36c50e79a920c5553340bb3efa3af0720da75",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/agent_sessions/service.py": {
+      "sha1_blob_working_tree": "996bc5ea7f6bfa9a7b4f44b64747921f0c9989f8",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/agent_sessions/store.py": {
+      "sha1_blob_working_tree": "7817e74ac38e42e23089b2b61778313ba1d8b784",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/agent_core/core.py": {
+      "sha1_blob_working_tree": "9a52404d6f28fa341106bd75c700494e16b3858f",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/agent_runtime/coordinator.py": {
+      "sha1_blob_working_tree": "f71a7fdc2609961b82dc69f1f15c1378cbd0a825",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/writing/llm_action_service.py": {
+      "sha1_blob_working_tree": "cbf60522dacc7af2d475c39db238c52fbcd8263e",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/writing/document_service.py": {
+      "sha1_blob_working_tree": "388de2a092faf09bd373db9a31d75991b9101040",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/writing/template_service.py": {
+      "sha1_blob_working_tree": "24d9e8f869a88fb78ff6146b067430ad41244967",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/workflow_graph/contracts.py": {
+      "sha1_blob_working_tree": "36d97d0726300639998eab3deaf9ea7319944647",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/workflow_graph/compiler.py": {
+      "sha1_blob_working_tree": "65a9f73fd8a22037f98f2fbab83fbc90c6f57e00",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/workflow_graph/runtime.py": {
+      "sha1_blob_working_tree": "3a900dab2264c6b0474172ce3c718c10a5a9f566",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/workflow_graph/store.py": {
+      "sha1_blob_working_tree": "111fe4245728111f1b9daf7020017fe27f14d21d",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/workflow_graph/templates.py": {
+      "sha1_blob_working_tree": "53d9aa25340535bf0d7db2d43de31a0dbc4516c7",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/workflow_graph/curated_service.py": {
+      "sha1_blob_working_tree": "1398fdf5bd3bcb6526d4cd5115511d5b9b347ebf",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/typed_knowledge/contracts.py": {
+      "sha1_blob_working_tree": "d079128873cd9220338c6dbaacc991bcc5864b0d",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/typed_knowledge/persistence_boundary.py": {
+      "sha1_blob_working_tree": "3f071ab778e4b3ecacf2fc6b7209126725b92d66",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/typed_knowledge/baseline.py": {
+      "sha1_blob_working_tree": "ae8d50ef8490ad6ed9b12731fd20192dc64b4c62",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/governance/retention.py": {
+      "sha1_blob_working_tree": "bab62fc73aeb47c505e5df3b21ce9210d80d74ea",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/aggregator/sync.py": {
+      "sha1_blob_working_tree": "8787142f6b01b7bcbc3021004469794c3ee70558",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/search/history.py": {
+      "sha1_blob_working_tree": "ce692dd0023719250c260bbb7ca1ee6324004d2a",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/search/retrieval_runs.py": {
+      "sha1_blob_working_tree": "9a7594211d13fb484a426197a8c42f7a58f4440d",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/resource_pool/site_entries.py": {
+      "sha1_blob_working_tree": "09021cd0873f414cc3c81c3da76b7f5960197380",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/resource_pool/resolver.py": {
+      "sha1_blob_working_tree": "05f04017860a911865250a92219dbfe7450e6c2f",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/resource_pool/unified_search.py": {
+      "sha1_blob_working_tree": "01f8096a6c59f66a9802f17ce799efe8f65e70e4",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/indexer/application.py": {
+      "sha1_blob_working_tree": "54398fd437c2395827951d13dfcde7db577c649c",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/graph/projection.py": {
+      "sha1_blob_working_tree": "4c7ffd260a95e0b996d43a4489929c52333539cb",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/graph/builder.py": {
+      "sha1_blob_working_tree": "aeaf4869021a1b0625e15789ef95055b58d10ca2",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/graph/exporter.py": {
+      "sha1_blob_working_tree": "e525d47f0428832ac301a7fe4ad1dd5fa9b09eb2",
+      "git_tracked_at_head": true
+    },
+    "scripts/runtime_health_matrix.py": {
+      "sha1_blob_working_tree": "7517d6d45771830a19cfb0684d74e26d5ef9eb8c",
+      "git_tracked_at_head": false
+    },
+    "scripts/run_business_line_worker_readback_project_matrix.py": {
+      "sha1_blob_working_tree": "cb77107058565b0e4ceed62e8f5f5488bee985ff",
+      "git_tracked_at_head": false
+    },
+    "scripts/run_business_line_worker_readback_evidence_chain.py": {
+      "sha1_blob_working_tree": "7388ed956c5ce5b4eb42ef46ad4342c1468a2094",
+      "git_tracked_at_head": false
+    },
+    "scripts/run_business_line_async_task_readback_live_samples.py": {
+      "sha1_blob_working_tree": "bdd8c0f6bfbb64ce74280f4ee01d90872da06984",
+      "git_tracked_at_head": false
+    },
+    "scripts/build_business_line_async_readiness_artifact.py": {
+      "sha1_blob_working_tree": "87a45149ff10ff30eea516a9f9a594f83899f219",
+      "git_tracked_at_head": false
+    },
+    "scripts/check_business_line_task_readback_manifest.py": {
+      "sha1_blob_working_tree": "60b604c9795f5d8b9474f91ea1617f283f4d6b72",
+      "git_tracked_at_head": false
+    },
+    "scripts/run_business_line_worker_readback_smoke_triggers.py": {
+      "sha1_blob_working_tree": "8cc389595f084099f49656d8a4cf7d64788e8f97",
+      "git_tracked_at_head": false
+    },
+    "scripts/run_business_line_trace_baseline_live.py": {
+      "sha1_blob_working_tree": "85f62ad681de1f99c47d652d3f3dcbbb0ea6ba30",
+      "git_tracked_at_head": false
+    },
+    "scripts/run_business_line_user_flow_smoke.py": {
+      "sha1_blob_working_tree": "9041eba60cd4e82fb2ac996b3f4071cfcb2dfded",
+      "git_tracked_at_head": false
+    },
+    "scripts/check_business_line_async_readiness_artifact.py": {
+      "sha1_blob_working_tree": "c7f00c9b99f72b9e4fc0ad6fd388349f6773c788",
+      "git_tracked_at_head": false
+    },
+    "scripts/check_business_line_batch_coverage.py": {
+      "sha1_blob_working_tree": "c204b7e928cdc8c367ad4deb83290a15b38c576b",
+      "git_tracked_at_head": false
+    },
+    "scripts/check_business_line_real_backend_browser_artifact.py": {
+      "sha1_blob_working_tree": "6a82194f386eec090b34f01f273cb7cbddc62ffc",
+      "git_tracked_at_head": false
+    },
+    "scripts/build_business_line_task_readback_manifest_from_runtime.py": {
+      "sha1_blob_working_tree": "fe72e86d2080f3efab15d7741e9c6f31ab874861",
+      "git_tracked_at_head": false
+    },
+    "scripts/check_business_line_async_task_readback_artifact.py": {
+      "sha1_blob_working_tree": "0d5b360720cc7d2d73c06b5a630a7f155477ed90",
+      "git_tracked_at_head": false
+    },
+    "scripts/check_business_line_trace_baseline_artifact.py": {
+      "sha1_blob_working_tree": "0359a63d04351d7c3e841f6b261368083d1853d4",
+      "git_tracked_at_head": false
+    },
+    "scripts/build_business_line_async_task_readback_artifact.py": {
+      "sha1_blob_working_tree": "039092613b05a3f43dc65e8444cf89d252974a75",
+      "git_tracked_at_head": false
+    },
+    "scripts/build_business_line_real_backend_browser_artifact.py": {
+      "sha1_blob_working_tree": "78d5ae83d9c403f7c10f94b54e44e96133245989",
+      "git_tracked_at_head": false
+    },
+    "main/frontend-modern/tests/e2e/real-backend-business-lines.spec.ts": {
+      "sha1_blob_working_tree": "d760aa67d9ba0592e4ec96f886ae3ca451df29e0",
+      "git_tracked_at_head": false
+    },
+    "main/frontend-modern/tests/e2e/business-line-browser-actions.spec.ts": {
+      "sha1_blob_working_tree": "b63af26ebadb552fedc74b60825e7d9fc4b64cab",
+      "git_tracked_at_head": false
+    },
+    "main/backend/migrations/versions/20260524_000001_add_ingest_submission_registry.py": {
+      "sha1_blob_working_tree": "a011e93d2d3f1a5e6c357cde2064ea09d7f82120",
+      "git_tracked_at_head": false
+    },
+    "main/backend/migrations/versions/20260524_000002_add_llm_report_quality_trends.py": {
+      "sha1_blob_working_tree": "875dd0caf723735b1d89896ea27d867490de3a6f",
+      "git_tracked_at_head": false
+    },
+    "main/backend/migrations/versions/20260524_000003_add_llm_report_export_audit_events.py": {
+      "sha1_blob_working_tree": "03a9996a8dc56169a6490115ea139bfd72ccd6ab",
+      "git_tracked_at_head": false
+    },
+    "main/backend/migrations/versions/20260524_000004_add_llm_report_export_token_state.py": {
+      "sha1_blob_working_tree": "b072d16caa78a93ec21c51b99da11d5d084e652e",
+      "git_tracked_at_head": false
+    },
+    "main/backend/app/services/projects/context.py": {
+      "sha1_blob_working_tree": "dd6ad1ca39f783cc81f737b82f8836870a11b65c",
+      "git_tracked_at_head": true
+    },
+    "main/backend/app/services/projects/workflow.py": {
+      "sha1_blob_working_tree": "9b6ce960bba199ac2f3dc529228a2cde9ae73971",
+      "git_tracked_at_head": true
+    }
+  },
+  "frontend_consumers": {
+    "page_domains_by_business_line": {
+      "ingest": [
+        "IngestPage",
+        "CrawlerManagePage"
+      ],
+      "search_discovery_index": [
+        "DashboardPage",
+        "CatalogPage",
+        "RawDataPage"
+      ],
+      "resource_source_library": [
+        "ResourcePage",
+        "CatalogPage"
+      ],
+      "projects_config_workflow": [
+        "ProjectsPage",
+        "SettingsPage",
+        "ProcessPage"
+      ],
+      "dashboard_admin_governance": [
+        "DashboardPage",
+        "PolicyPage",
+        "OpsPage"
+      ],
+      "writing_knowledge_graph_agent": [
+        "WritingWorkbenchPage",
+        "GraphPage",
+        "AgentChatPage",
+        "LlmDesignerPage"
+      ],
+      "runtime_ops": [
+        "OpsPage",
+        "ProcessPage"
+      ]
+    },
+    "page_files": [
+      "main/frontend-modern/src/pages/AgentChatPage.tsx",
+      "main/frontend-modern/src/pages/CatalogPage.tsx",
+      "main/frontend-modern/src/pages/ConceptLabIndexPage.tsx",
+      "main/frontend-modern/src/pages/ConceptMonolithPage.tsx",
+      "main/frontend-modern/src/pages/ConceptOrbitalPage.tsx",
+      "main/frontend-modern/src/pages/ConceptQuietPage.tsx",
+      "main/frontend-modern/src/pages/CrawlerManagePage.tsx",
+      "main/frontend-modern/src/pages/DashboardPage.tsx",
+      "main/frontend-modern/src/pages/GraphPage.tsx",
+      "main/frontend-modern/src/pages/IngestPage.tsx",
+      "main/frontend-modern/src/pages/LlmDesignerPage.tsx",
+      "main/frontend-modern/src/pages/OpsPage.tsx",
+      "main/frontend-modern/src/pages/PolicyPage.tsx",
+      "main/frontend-modern/src/pages/ProcessPage.tsx",
+      "main/frontend-modern/src/pages/ProjectsPage.tsx",
+      "main/frontend-modern/src/pages/RawDataPage.tsx",
+      "main/frontend-modern/src/pages/ResourcePage.tsx",
+      "main/frontend-modern/src/pages/SettingsPage.tsx",
+      "main/frontend-modern/src/pages/WritingWorkbenchPage.tsx",
+      "main/frontend-modern/src/pages/storybookKernelUtils.tsx",
+      "main/frontend-modern/src/pages/storybookPageUtils.tsx"
+    ],
+    "domain_api_clients": [
+      "main/frontend-modern/src/lib/api/domains/clue-chains.ts",
+      "main/frontend-modern/src/lib/api/domains/codex-auth.ts",
+      "main/frontend-modern/src/lib/api/domains/graph-workflow.ts",
+      "main/frontend-modern/src/lib/api/domains/llm-report.ts",
+      "main/frontend-modern/src/lib/api/domains/project-admin.ts",
+      "main/frontend-modern/src/lib/api/domains/resource-source.ts",
+      "main/frontend-modern/src/lib/api/domains/writing.ts"
+    ],
+    "note": "C9.2 owns frontend projections/interactions in the successor locator; this inventory lists donor consumers only, no frontend byte mapping."
+  },
+  "uncovered_items": [
+    "Canonical seven business lines are evidence-matrix/readback constructs; only worker-required lanes map onto C1-C8 cells, and projects_config_workflow/dashboard_admin_governance/runtime_ops have no dedicated successor cell.",
+    "LLM report export/token-state/audit/trend and request-identity/task-readback-metadata/single-source-guard service surfaces are visible donor business lines with no direct successor cell in the C1-C9 locator; B must adjudicate.",
+    "main/backend/app/api/business_lines.py and the entire llm_report_export/audit/token_state/trends + task_readback_metadata + request_identity + single_source_guard family are untracked working-tree files at donor HEAD (git_tracked_at_head=false); a clean checkout of HEAD would not contain them.",
+    "The evidence-matrix source_report path development/latest-dev-docs/automation-runs/business-line-user-flow-audit/2026-05-23/README.md was not found in the current donor tree; only business-line-worker-readback-project-matrix/2026-07-23 artifacts exist locally.",
+    "Credential values and live provider secrets were intentionally not read; codex_oauth.py/llm service configs are listed structurally only.",
+    "Migrations/versions and models cover business persistence, but the successor surface itself (main/backend/app/successor_runtime, capability specs, i1 assembly) lives in the manual worktree and was not inventoried as donor code."
+  ]
+}

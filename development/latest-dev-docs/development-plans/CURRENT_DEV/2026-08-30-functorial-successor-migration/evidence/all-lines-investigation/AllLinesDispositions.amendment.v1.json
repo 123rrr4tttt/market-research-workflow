@@ -1,0 +1,748 @@
+{
+  "schema": "mrw.functorial_successor.all_lines_dispositions.amendment.v1",
+  "version": "1.0.0",
+  "record_id": "all-lines-dispositions-amendment-v1",
+  "status": "RECOMMENDATION_DRAFT_SUPERVISOR_PENDING",
+  "date": "2026-09-02",
+  "generated_at_utc": "2026-09-02T14:30:00Z",
+  "scope": "All 18 frozen business-line records in AllLinesMigrationScope.freeze.v1; this additive amendment covers the 16 UNASSIGNED_BLOCKER lines and records owner, successor target, gap, and required closure. It does not alter freeze bytes and does not grant promotion or authority.",
+  "base_freezes": [
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesMigrationScope.freeze.v1.json",
+      "sha256": "d983a922e5c9724922506141c1d25d08a8aec278359bdc4f85ceb6dbf717e756",
+      "role": "line-level freeze scope"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesMigrationScope.freeze.v1.md",
+      "sha256": "5fedb0cb2c30db493349f94fc12519cd68cad49426567a6fca12eb7419960bda",
+      "role": "freeze narrative"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesMigrationScope.freeze-receipt.v1.json",
+      "sha256": "99b9a1c1999925d8b54ce8880468e893bf59237c174ae6c705e00e8e4aa58ef3",
+      "role": "supervisor freeze receipt"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/BackendDonorSurfaceInventory.v1.json",
+      "sha256": "1328969a9d05a2d583f0ff0862c30de166b932c3ed3df3446ddc9ee5520492bd",
+      "role": "donor surface inventory"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/LegacyVsMovementGap.v1.json",
+      "sha256": "401699e5237f776a72dc736c127e5d9d6ad4911d30fb381b583805ddc02c7af7",
+      "role": "legacy-vs-movement gap cross-check"
+    },
+    {
+      "path": "docs/governance/semantic-movement-completeness-standard.md",
+      "sha256": "a032443596d26ba1b033d6dde564bf736670129bde4232aef7ac7ab6781d256e",
+      "role": "movement-record field and disposition authority"
+    }
+  ],
+  "authority_ceiling": {
+    "authority_transfer": false,
+    "business_authority_migrated": false,
+    "cutover": false,
+    "external_delivery": false,
+    "live_provider": false,
+    "successor_claim_enabled_for_all_lines": false,
+    "promotion_allowed": false,
+    "candidate": null
+  },
+  "method": "Each record keeps the frozen line-level semantic object as source_object and fills the governance movement-record fields. A non-blocker disposition is recommended only where a named successor realization and an acceptance trace already resolve every frozen donor source of the line. No such trace exists for any of the 16 lines after cross-checking freeze records, LegacyVsMovementGap mapped/declared rows, C1-C9 movement matrices, capability specs, successor_runtime realizations, and donor working-tree file status. All 16 therefore remain UNASSIGNED_BLOCKER; this amendment names the accountable owner, nearest existing cell or new successor ownership, and the closure required before reclassification.",
+  "summary": {
+    "freeze_row_count": 18,
+    "amendment_blocker_record_count": 16,
+    "disposition_counts_before_recommendation": {
+      "UNASSIGNED_BLOCKER": 16,
+      "REIMPLEMENTED_AS": 2
+    },
+    "disposition_counts_after_recommendation": {
+      "UNASSIGNED_BLOCKER": 16,
+      "REIMPLEMENTED_AS": 2
+    },
+    "all_blocker_owners_named": true,
+    "all_blocker_successor_targets_named": true,
+    "unmapped_gap_rows_referenced": 15,
+    "additional_gap_or_decision_rows_proposed": [
+      "GAP-agent-batch-quality-promotion-readback-evidence-omission",
+      "GAP-runtime-health-matrix"
+    ],
+    "current_authority_changed": false,
+    "promotion_or_candidate_claim": false
+  },
+  "movements": [
+    {
+      "movement_id": "ALL-AD-001",
+      "business_line_id": "BL-business-lines-worker-readback",
+      "business_line_key": "business_line_worker_readback_project_matrix_nightly",
+      "kind": "canonical_business_line_evidence_matrix",
+      "freeze_row_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesMigrationScope.freeze.v1.json#/business_lines/0",
+      "current_disposition": "UNASSIGNED_BLOCKER",
+      "disposition": "UNASSIGNED_BLOCKER",
+      "semantic_object": "Seven canonical legacy business-line evidence matrix plus async task readback contract; worker-required event chains for ingest/search_discovery_index/resource_source_library/writing_knowledge_graph_agent and config/dashboard/runtime readback probes; fail-closed classification passed/blocked_by_environment/failed.",
+      "donor_path": "main/backend/app/api/business_lines.py",
+      "donor_sha1_blob_working_tree": "2d030feb52c0a8a2e6c63dd821cc02a6ff96283f",
+      "donor_git_tracked_at_head": false,
+      "full_donor_sources_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesMigrationScope.freeze.v1.json#/business_lines/0/donor_sources",
+      "source_object": "business-lines evidence matrix API, task_readback_metadata builder, scheduled project-matrix/evidence-chain/live-sample/readiness scripts and real-backend e2e checks",
+      "target_object": "REQUIRED_UNASSIGNED: C9.1/C9.3 structural envelope is partial only; no successor movement owns the seven-line evidence matrix or line_key event-chain readback",
+      "named_transform": "REQUIRED_UNASSIGNED: candidate transform is successor evidence-matrix/readback projection over typed process observations (C5.4) and facade/projector readback (C9.1/C9.3)",
+      "owner": "B-recheck / OpsPage owner; legacy matrix owner team",
+      "effect": "Read-only runtime evidence matrix, scheduled artifact summary/drilldown and async task readback readiness with fail-closed passed/blocked_by_environment/failed classification",
+      "failure": "REQUIRED_UNASSIGNED: successor has no typed failure trace for matrix source absence, scheduler/provider unavailability, or contradictory line readback",
+      "resource": "REQUIRED_UNASSIGNED: artifact/DB/process observation budget and scheduled job capacity must be bounded by the successor control plane",
+      "authority": "Read-only evidence and control-plane qualification only; no executor, scheduler, provider or business write authority",
+      "recovery": "REQUIRED_UNASSIGNED: no successor retry/reconciliation trace covers readback artifact rebuild or partial matrix recovery",
+      "projection_loss": "REQUIRED_UNASSIGNED: donor scripts and evidence-matrix semantics are not yet declared preserved, rebuilt, or explicitly lost",
+      "source_evidence": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesMigrationScope.freeze.v1.json#/business_lines/0",
+        "main/backend/app/api/business_lines.py@2d030feb52c0a8a2e6c63dd821cc02a6ff96283f (donor working tree, untracked at donor HEAD)"
+      ],
+      "target_realization": [
+        "REQUIRED_UNASSIGNED#no-successor-evidence-matrix-cell; nearest candidates are C9.1/C9.3 structural cells and C5.4 process observation"
+      ],
+      "acceptance_trace": [
+        "REQUIRED_UNASSIGNED#no-legacy-to-target-readback-matrix-trace"
+      ],
+      "gap_ids": [
+        "GAP-business-lines-evidence-matrix"
+      ],
+      "successor_target": "C9.1/C9.3 structural envelope candidates plus new evidence-matrix/readback meta-capability ownership under WP-6",
+      "mapping_rationale": "C9.1/C9.3 cover envelope/projection mechanics only; neither C1-C9 movement nor capability cell owns the business-line evidence matrix or line_key event-chain contract. Eight of eight donor files are untracked at donor HEAD and absent from target worktree, so no non-blocker disposition is supported.",
+      "required_closure": "WP-1 byte closure for business_lines.py, task_readback_metadata.py, matrix/evidence scripts and e2e tests; WP-6 successor cell or C5.4/C9.3 binding with readback, failure, recovery and acceptance traces",
+      "recommendation_note": "Keep UNASSIGNED_BLOCKER until a named successor realization and acceptance trace exist."
+    },
+    {
+      "movement_id": "ALL-AD-002",
+      "business_line_id": "BL-ingest-submission-worker-readback",
+      "business_line_key": "ingest",
+      "kind": "canonical_business_line_evidence_matrix",
+      "freeze_row_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesMigrationScope.freeze.v1.json#/business_lines/1",
+      "current_disposition": "UNASSIGNED_BLOCKER",
+      "disposition": "UNASSIGNED_BLOCKER",
+      "semantic_object": "URL/market/social/news/report/data ingestion submission, frontdoor admission registry, Celery task dispatch/status/history/log readback, ingestion history and meaningful-gate/retry controls.",
+      "donor_path": "main/backend/app/models/ingest_registry.py",
+      "donor_sha1_blob_working_tree": "3d0161ec5890c22b0156f651c4fea7abc79c7cb0",
+      "donor_git_tracked_at_head": false,
+      "full_donor_sources_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesMigrationScope.freeze.v1.json#/business_lines/1/donor_sources",
+      "source_object": "ingest API/frontdoor orchestration/terminal writer/long-cycle runtime/meaningful gate/retry policy/tasks plus untracked ingest submission registry model and migration",
+      "target_object": "REQUIRED_UNASSIGNED: backend-core/C7 and document.canonical/C7.2 candidates; C7.1-C7.4 movement rows exist but do not bind the untracked ingest_submission_registry model/migration",
+      "named_transform": "REQUIRED_UNASSIGNED: nearest named transform is C7-MOV-051 admit_via_commit_intent_and_authoritative_readback plus a successor registry lifecycle transform yet to be named",
+      "owner": "B-recheck; legacy worker lane owner",
+      "effect": "Ingest submission lifecycle, frontdoor admission, task dispatch/readback, meaningful-gate/retry and submission registry persistence",
+      "failure": "REQUIRED_UNASSIGNED: registry row/task linkage, admission readback and terminal retry failure semantics are not bound by an accepted successor movement",
+      "resource": "REQUIRED_UNASSIGNED: registry storage, task queue and retry budget must be bounded in the successor C7/C5 realization",
+      "authority": "Local C7 movement dispositions do not grant live Celery/provider/canonical-write authority",
+      "recovery": "C7-MOV-071/072/073 cover terminal readback/projection/epoch recovery; registry-specific recovery is not bound",
+      "projection_loss": "REQUIRED_UNASSIGNED: no loss account covers replacement of ingest_submission_registry rows or their JSONB request/subject/response payload history",
+      "source_evidence": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/LegacyVsMovementGap.v1.json#/unmapped_gap/12",
+        "main/backend/app/models/ingest_registry.py@3d0161ec5890c22b0156f651c4fea7abc79c7cb0 (donor working tree, untracked at donor HEAD)"
+      ],
+      "target_realization": [
+        "REQUIRED_UNASSIGNED#ingest-registry-target; existing C7 movement target files cover raw snapshot/admission/projection/recovery only"
+      ],
+      "acceptance_trace": [
+        "REQUIRED_UNASSIGNED#no-registry-parity-trace; C7 movement traces do not name ingest_registry.py or its migration"
+      ],
+      "gap_ids": [
+        "GAP-ingest-submission-registry"
+      ],
+      "successor_target": "backend-core/C7.1-C7.4 plus document.canonical/C7.2 for the submission registry",
+      "mapping_rationale": "C7.1-C7.4 movement family and C7-MOV-051 are semantically nearest to frontdoor admission/readback, but the untracked registry model/migration is absent from target worktree and is not a locator/movement source, so full-line mapping is not evidence-complete.",
+      "required_closure": "WP-1 donor byte closure and WP-3 C7.2 registry/admission parity with submission lifecycle, readback and retry acceptance traces",
+      "recommendation_note": "Conditional reclassification to REIMPLEMENTED_AS only after ingest registry binding and C7 movement acceptance complete."
+    },
+    {
+      "movement_id": "ALL-AD-003",
+      "business_line_id": "BL-search-discovery-index-worker-readback",
+      "business_line_key": "search_discovery_index",
+      "kind": "canonical_business_line_evidence_matrix",
+      "freeze_row_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesMigrationScope.freeze.v1.json#/business_lines/2",
+      "current_disposition": "UNASSIGNED_BLOCKER",
+      "disposition": "UNASSIGNED_BLOCKER",
+      "semantic_object": "Search stored content, discovery runs, index initialization/policy, dashboard search analytics, retrieval run persistence and index freshness.",
+      "donor_path": "main/frontend-modern/src/pages/dashboard/DashboardSearchRetrievalRunPanel.tsx",
+      "donor_sha256": "4a672312833df2dd2fc0ae230d4a0579673c9055d4ac47209f26f522d85d881d",
+      "donor_git_tracked_at_head": false,
+      "full_donor_sources_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesMigrationScope.freeze.v1.json#/business_lines/2/donor_sources",
+      "source_object": "search/discovery/indexer APIs, search history/retrieval-run persistence, collect-runtime planning, indexer application, tasks and untracked DashboardSearchRetrievalRunPanel",
+      "target_object": "REQUIRED_UNASSIGNED: collect-runtime/C3 and frontend-platform/C9.2 candidates; C2.4 partial and C3.1-C3.2 mapped rows do not bind the untracked retrieval panel",
+      "named_transform": "REQUIRED_UNASSIGNED: candidate is C3-M00x ordered collect fold plus C9.2 frontend read-only typed observation for search retrieval runs",
+      "owner": "B-recheck; legacy search/discovery worker lane owner",
+      "effect": "Search/discovery/index freshness readback, dashboard analytics and retrieval-run projection",
+      "failure": "REQUIRED_UNASSIGNED: no successor trace covers index policy failure, retrieval-run persistence failure, or untracked panel absence",
+      "resource": "REQUIRED_UNASSIGNED: search projection/index rebuild resource bounds are not bound to this line",
+      "authority": "Read-only search/discovery/index evidence surface; no canonical index write authority is claimed",
+      "recovery": "REQUIRED_UNASSIGNED: no line-level retry/rebuild trace exists for retrieval-run/index freshness",
+      "projection_loss": "REQUIRED_UNASSIGNED: dashboard search analytics and retrieval-run panel semantics have no loss account or zero-loss declaration",
+      "source_evidence": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/LegacyVsMovementGap.v1.json#/unmapped_gap/14",
+        "main/frontend-modern/src/pages/dashboard/DashboardSearchRetrievalRunPanel.tsx@8753624fa2ba3ad4973c8809de37bfbea9841ab4 (donor working tree, untracked at donor HEAD)"
+      ],
+      "target_realization": [
+        "REQUIRED_UNASSIGNED#search-retrieval-panel-target; C3/C9.2 candidates are structural, not binding"
+      ],
+      "acceptance_trace": [
+        "REQUIRED_UNASSIGNED#no-search-line-legacy-to-target-trace"
+      ],
+      "gap_ids": [
+        "GAP-untracked-frontend-dashboard-panel"
+      ],
+      "successor_target": "collect-runtime/C3 and frontend-platform/C9.2 candidates; untracked panel requires C9.2 binding",
+      "mapping_rationale": "C3.1/C3.2 movement rows have acceptance traces for collect plan/result fold, and C2.4 is a partial compatibility projection, but search/discovery/index API semantics and the untracked DashboardSearchRetrievalRunPanel have no successor movement or cell.",
+      "required_closure": "WP-1 panel byte closure; WP-3 vertical search/discovery/index slice with readback and recovery; C9.2 typed observation binding for the panel",
+      "recommendation_note": "Keep UNASSIGNED_BLOCKER until a named search/discovery/index successor cell or movement is added."
+    },
+    {
+      "movement_id": "ALL-AD-004",
+      "business_line_id": "BL-source-library-resource-worker-readback",
+      "business_line_key": "resource_source_library",
+      "kind": "canonical_business_line_evidence_matrix",
+      "freeze_row_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesMigrationScope.freeze.v1.json#/business_lines/3",
+      "current_disposition": "UNASSIGNED_BLOCKER",
+      "disposition": "UNASSIGNED_BLOCKER",
+      "semantic_object": "Source-library items/channels/handler clusters, external project registration, item run/refresh, resource pool URLs/site entries/capture config, single-source guard execution facts, recommendations and review lifecycle.",
+      "donor_path": "main/backend/app/services/source_library/single_source_guard.py",
+      "donor_sha1_blob_working_tree": "513330bc053f4234457aa1ec066efa913ed522b1",
+      "donor_git_tracked_at_head": false,
+      "full_donor_sources_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesMigrationScope.freeze.v1.json#/business_lines/3/donor_sources",
+      "source_object": "source_library/resource_pool APIs, resolver/runner/item plans/sync/relevance review, site entries/unified search and untracked single_source_guard",
+      "target_object": "REQUIRED_UNASSIGNED: backend-core/C2.1-C2.4 mapped rows plus a C2.3 execution-boundary guard realization that does not yet exist",
+      "named_transform": "REQUIRED_UNASSIGNED: C2-M00x normalization/mode/effect transforms cover tracked sources; single-source guard validation must be added as an explicit execution-boundary port",
+      "owner": "B-recheck; source-library/resource lane owner",
+      "effect": "Source-library item/resource lifecycle, four-mode planning, provider effects and strict single-source guard validation before dispatch",
+      "failure": "REQUIRED_UNASSIGNED: successor has no typed trace for single_source_guard strict_source/guarantee/site-entry mismatch failures",
+      "resource": "REQUIRED_UNASSIGNED: guard validation and source/resource pool ceilings require explicit successor policy",
+      "authority": "C2 local-only movement dispositions grant no provider/live execution or credential authority",
+      "recovery": "REQUIRED_UNASSIGNED: guard is a pre-dispatch authority boundary; its blocked/error behavior and retry eligibility have no successor trace",
+      "projection_loss": "REQUIRED_UNASSIGNED: no loss account names the legacy execution-fact payload or guard error details as preserved/rebuilt/lost",
+      "source_evidence": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/LegacyVsMovementGap.v1.json#/unmapped_gap/11",
+        "main/backend/app/services/source_library/single_source_guard.py@513330bc053f4234457aa1ec066efa913ed522b1 (donor working tree, untracked at donor HEAD)"
+      ],
+      "target_realization": [
+        "REQUIRED_UNASSIGNED#single-source-guard-target; successor C2.3 files contain no single_source_guard/execution_fact implementation"
+      ],
+      "acceptance_trace": [
+        "REQUIRED_UNASSIGNED#no-guard-parity-trace"
+      ],
+      "gap_ids": [
+        "GAP-single-source-guard"
+      ],
+      "successor_target": "backend-core/C2.3 execution-boundary guard port over the C2 movement family",
+      "mapping_rationale": "C2.1-C2.4 semantically cover source mode/effect boundaries and the freeze already names C2.3 as the nearest cell, but single_source_guard.py is untracked, absent from target worktree, and not named in any P1 locator or movement row.",
+      "required_closure": "WP-1 guard byte closure; WP-3/WP-4 shared source-execution guard port with failure/authority/recovery tests and C2.3 binding",
+      "recommendation_note": "Keep UNASSIGNED_BLOCKER until guard port realization and acceptance trace exist."
+    },
+    {
+      "movement_id": "ALL-AD-005",
+      "business_line_id": "BL-projects-config-workflow",
+      "business_line_key": "projects_config_workflow",
+      "kind": "canonical_business_line_evidence_matrix",
+      "freeze_row_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesMigrationScope.freeze.v1.json#/business_lines/4",
+      "current_disposition": "UNASSIGNED_BLOCKER",
+      "disposition": "UNASSIGNED_BLOCKER",
+      "semantic_object": "Project CRUD/archive/activate, config/env/LLM-service configuration, project customization workflows/templates, process history readback for project-scoped configuration actions.",
+      "donor_path": "main/backend/app/api/projects.py",
+      "donor_sha1_blob_working_tree": "f45f604fbd9ac83ffd3420c7d54fbeaab01b5a5e",
+      "donor_git_tracked_at_head": true,
+      "full_donor_sources_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesMigrationScope.freeze.v1.json#/business_lines/4/donor_sources",
+      "source_object": "projects/config/llm_config/project_customization APIs, process history API and projects context/workflow services",
+      "target_object": "REQUIRED_UNASSIGNED: no dedicated C1-C9 cell or movement owns project/config/workflow semantics; only C9.1 envelope structure aligns",
+      "named_transform": "REQUIRED_UNASSIGNED: new successor-domain transform such as project_config_workflow_port; no implementation exists",
+      "owner": "B-recheck; project/config workflow owner",
+      "effect": "Project CRUD/archive/activate, env/LLM-service config, customization workflow and project-scoped process history",
+      "failure": "REQUIRED_UNASSIGNED: config validation, project archive constraints and workflow history failure modes have no successor trace",
+      "resource": "REQUIRED_UNASSIGNED: project/config storage and process-history readback budgets are unbound in successor scope",
+      "authority": "Legacy API mutation authority exists in donor; successor facade/domain port has no accepted write authority",
+      "recovery": "REQUIRED_UNASSIGNED: config rollback/dry-run and workflow retry behavior are incomplete in donor evidence and absent in successor",
+      "projection_loss": "REQUIRED_UNASSIGNED: no line-level loss account exists for project/config convenience or legacy process history projections",
+      "source_evidence": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/LegacyVsMovementGap.v1.json#/unmapped_gap/1",
+        "main/backend/app/api/projects.py@f45f604fbd9ac83ffd3420c7d54fbeaab01b5a5e"
+      ],
+      "target_realization": [
+        "REQUIRED_UNASSIGNED#project-config-workflow-cell"
+      ],
+      "acceptance_trace": [
+        "REQUIRED_UNASSIGNED#no-project-config-workflow-trace"
+      ],
+      "gap_ids": [
+        "GAP-projects-config-workflow"
+      ],
+      "successor_target": "New successor-domain project-config-workflow cell under WP-6 (outside current C1-C9 cell map)",
+      "mapping_rationale": "Donor sources are tracked and present in target worktree, but presence is not mapping. No C1-C9 movement or 30-cell spec owns project/config/workflow semantics, so no existing acceptance trace can be cited.",
+      "required_closure": "WP-6 successor cell plus movement records for project CRUD/archive/activate, config/env/LLM-service config, customization workflows and process-history readback; then legacy-to-target acceptance traces",
+      "recommendation_note": "Keep UNASSIGNED_BLOCKER; this line cannot be declared loss or rejection without a new owner decision."
+    },
+    {
+      "movement_id": "ALL-AD-006",
+      "business_line_id": "BL-dashboard-admin-governance",
+      "business_line_key": "dashboard_admin_governance",
+      "kind": "canonical_business_line_evidence_matrix",
+      "freeze_row_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesMigrationScope.freeze.v1.json#/business_lines/5",
+      "current_disposition": "UNASSIGNED_BLOCKER",
+      "disposition": "UNASSIGNED_BLOCKER",
+      "semantic_object": "Dashboard stats/global stats/llm-report-detail/drilldown/report-from-filter/trends, admin raw data/graph/search history, policy/market/product/topic/report read models, cleanup and aggregator sync governance actions.",
+      "donor_path": "main/backend/app/api/dashboard.py",
+      "donor_sha1_blob_working_tree": "51b03a13cec438039593bc1b74ad071db7563a36",
+      "donor_git_tracked_at_head": true,
+      "full_donor_sources_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesMigrationScope.freeze.v1.json#/business_lines/5/donor_sources",
+      "source_object": "dashboard/admin/policies/market/products/topics/reports/governance APIs, governance retention and aggregator sync services",
+      "target_object": "REQUIRED_UNASSIGNED: no dedicated C1-C9 successor cell owns dashboard/admin/governance semantics; C9.1/C9.3 are structural facade/projection only",
+      "named_transform": "REQUIRED_UNASSIGNED: new dashboard-admin-governance read-model/action port; no successor implementation exists",
+      "owner": "B-recheck; dashboard/admin/governance owner",
+      "effect": "Dashboard read projections, admin/governance actions, cleanup/aggregator sync and report-from-filter synthesis",
+      "failure": "REQUIRED_UNASSIGNED: retention/sync failure, projection drift and governance action failure have no successor trace",
+      "resource": "REQUIRED_UNASSIGNED: aggregator/retention budgets and dashboard projection resource bounds are not successor-bound",
+      "authority": "Admin/governance mutation authority is legacy-only; successor facade/read projection grants no governance mutation authority",
+      "recovery": "REQUIRED_UNASSIGNED: cleanup/aggregator sync recovery and dashboard projection rebuild are not movement-bound",
+      "projection_loss": "REQUIRED_UNASSIGNED: GAP-dashboard-report-closure has no separately implemented donor surface and needs an explicit rejection/loss decision",
+      "source_evidence": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/LegacyVsMovementGap.v1.json#/unmapped_gap/2",
+        "main/backend/app/api/dashboard.py@51b03a13cec438039593bc1b74ad071db7563a36"
+      ],
+      "target_realization": [
+        "REQUIRED_UNASSIGNED#dashboard-admin-governance-cell"
+      ],
+      "acceptance_trace": [
+        "REQUIRED_UNASSIGNED#no-dashboard-admin-governance-trace"
+      ],
+      "gap_ids": [
+        "GAP-dashboard-admin-governance",
+        "GAP-dashboard-report-closure"
+      ],
+      "successor_target": "New dashboard-admin-governance successor cell under WP-6; report closure category requires a separate EXPLICITLY_REJECTED/DECLARED_LOSS decision",
+      "mapping_rationale": "C9.1/C9.3 envelope/projection rows have acceptance traces but cover transport/projection mechanics, not dashboard/admin/governance domain semantics. GAP-dashboard-report-closure records that no dedicated donor model/route/field was found, which is a candidate rejection/loss decision rather than a movement.",
+      "required_closure": "WP-6 dashboard/admin/governance successor cell and loss/no-call manifest; named decision owner for report-closure category",
+      "recommendation_note": "Keep UNASSIGNED_BLOCKER until successor cell or explicit line-level rejection/loss is reviewed."
+    },
+    {
+      "movement_id": "ALL-AD-007",
+      "business_line_id": "BL-runtime-ops",
+      "business_line_key": "runtime_ops",
+      "kind": "canonical_business_line_evidence_matrix",
+      "freeze_row_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesMigrationScope.freeze.v1.json#/business_lines/7",
+      "current_disposition": "UNASSIGNED_BLOCKER",
+      "disposition": "UNASSIGNED_BLOCKER",
+      "semantic_object": "Backend shallow/deep health, dependency reachability, database/ES checks, process stats/list/history/logs/retry/cancel, runtime health matrix scripts.",
+      "donor_path": "scripts/runtime_health_matrix.py",
+      "donor_sha1_blob_working_tree": "7517d6d45771830a19cfb0684d74e26d5ef9eb8c",
+      "donor_git_tracked_at_head": false,
+      "full_donor_sources_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesMigrationScope.freeze.v1.json#/business_lines/7/donor_sources",
+      "source_object": "app health/deep-health/metrics entrypoints, process lifecycle/readback API, tasks and runtime health matrix scripts",
+      "target_object": "REQUIRED_UNASSIGNED: no dedicated C1-C9 locator cell owns runtime ops; C9.1 health/deep exemption is envelope-only",
+      "named_transform": "REQUIRED_UNASSIGNED: new runtime-ops/health control-plane port; C5.4 process observation is a candidate for readback components only",
+      "owner": "B-recheck; runtime ops owner",
+      "effect": "Runtime health/deep health, dependency/DB/ES checks, process stats/list/history/logs/retry/cancel and health-matrix artifact generation",
+      "failure": "REQUIRED_UNASSIGNED: process retry/cancel failure, health probe failure and matrix artifact failure have no successor trace",
+      "resource": "REQUIRED_UNASSIGNED: probe frequency, process log retention and health-matrix artifact size are unbounded in successor scope",
+      "authority": "Runtime diagnostics are read/control surfaces; no executor/scheduler/provider authority is granted by this record",
+      "recovery": "REQUIRED_UNASSIGNED: retry/cancel/rebuild semantics are absent from successor movement inventory",
+      "projection_loss": "REQUIRED_UNASSIGNED: untracked runtime_health_matrix.py and trace-baseline script are not declared preserved/rebuilt/lost",
+      "source_evidence": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/LegacyVsMovementGap.v1.json#/unmapped_gap/3",
+        "scripts/runtime_health_matrix.py@7517d6d45771830a19cfb0684d74e26d5ef9eb8c (donor working tree, untracked at donor HEAD)"
+      ],
+      "target_realization": [
+        "REQUIRED_UNASSIGNED#runtime-ops-health-cell"
+      ],
+      "acceptance_trace": [
+        "REQUIRED_UNASSIGNED#no-runtime-ops-trace"
+      ],
+      "gap_ids": [
+        "GAP-runtime-ops"
+      ],
+      "successor_target": "New runtime-ops/health successor control cell under WP-6; C5.4/C9.1 are structural candidates only",
+      "mapping_rationale": "Process readback has a C5.4 nearest cell and C9.1 exempts health/deep envelopes, but no movement or capability cell owns the full runtime-ops line including retry/cancel and the untracked health-matrix scripts.",
+      "required_closure": "WP-1 byte closure for untracked scripts; WP-6 runtime-ops successor cell or explicit ops control-plane port; C5.4/C9.1 binding for readback components",
+      "recommendation_note": "Keep UNASSIGNED_BLOCKER until runtime-ops successor ownership is realized or explicitly rejected."
+    },
+    {
+      "movement_id": "ALL-AD-008",
+      "business_line_id": "BL-llm-report-export-token-state",
+      "business_line_key": "service_surface",
+      "kind": "service_surface",
+      "freeze_row_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesMigrationScope.freeze.v1.json#/business_lines/8",
+      "current_disposition": "UNASSIGNED_BLOCKER",
+      "disposition": "UNASSIGNED_BLOCKER",
+      "semantic_object": "LLM report generate + strict/off/warn quality gate + markdown/PDF/DOCX export with signed one-time-use/revocable artifact tokens, durable token-state rows, export audit events, quality-trend records, request identity.",
+      "donor_path": "main/backend/app/services/llm_report_export.py",
+      "donor_sha1_blob_working_tree": "8e0e198b68d6800e8db31c3de6c3d3a800858191",
+      "donor_git_tracked_at_head": false,
+      "full_donor_sources_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesMigrationScope.freeze.v1.json#/business_lines/8/donor_sources",
+      "source_object": "llm_report API, export/token_state/audit/trends services and models, migrations, generator/source enrichment, request identity and DashboardPage export UI",
+      "target_object": "REQUIRED_UNASSIGNED: report-admission/C8.3 candidate plus C6.2 provider interpretation; C8-M003 does not bind the export/token/audit/trend implementation",
+      "named_transform": "REQUIRED_UNASSIGNED: C8-M003 stage/verify/admit/deliver is nearest; signed-token issuance/claim/revocation transform must be named in WP-5",
+      "owner": "B-recheck; report-export/audit owner",
+      "effect": "Strict quality-gate report admission, signed one-time artifact token use/revoke, PDF/DOCX/markdown export, durable audit events and trend records",
+      "failure": "REQUIRED_UNASSIGNED: token reuse/revocation race, export binary failure and quality-gate rejection have no successor trace",
+      "resource": "REQUIRED_UNASSIGNED: export binary storage, token-state rows and audit/trend retention budgets are unbound",
+      "authority": "Signed-token issuance/revocation and export delivery authority is legacy-only; successor C8.3 is local-only and not live",
+      "recovery": "REQUIRED_UNASSIGNED: crash between token claim and export delivery, revocation and readback recovery are not implemented in successor",
+      "projection_loss": "REQUIRED_UNASSIGNED: no loss account covers the untracked llm_report_export/audit/token/trend family or legacy report identity",
+      "source_evidence": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/LegacyVsMovementGap.v1.json#/unmapped_gap/4",
+        "main/backend/app/services/llm_report_export.py@8e0e198b68d6800e8db31c3de6c3d3a800858191 (donor working tree, untracked at donor HEAD)"
+      ],
+      "target_realization": [
+        "REQUIRED_UNASSIGNED#llm-report-export-target; C8-M003 target files do not bind llm_report_export or llm_report_export_token_state"
+      ],
+      "acceptance_trace": [
+        "REQUIRED_UNASSIGNED#no-report-export-token-trace"
+      ],
+      "gap_ids": [
+        "GAP-llm-report-export",
+        "GAP-llm-report-token-state"
+      ],
+      "successor_target": "report-admission/C8.3 plus a new durable signed-export/token/audit delivery cell under WP-5",
+      "mapping_rationale": "C8-M003 names report admission/delivery and C6.2 covers provider interpretation, but MAP-C8.3 donor paths explicitly exclude the untracked export/token/audit/trend files. Eleven of fourteen donor sources are untracked and absent from target worktree, so structural similarity is not binding.",
+      "required_closure": "WP-1 byte closure for the untracked llm_report_export family; WP-5 successor implementation with one-time token, revocation, crash/recovery, audit and trend tests",
+      "recommendation_note": "Keep UNASSIGNED_BLOCKER until WP-5 realization and C8.3 binding are accepted."
+    },
+    {
+      "movement_id": "ALL-AD-009",
+      "business_line_id": "BL-request-identity",
+      "business_line_key": "service_surface",
+      "kind": "service_surface",
+      "freeze_row_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesMigrationScope.freeze.v1.json#/business_lines/9",
+      "current_disposition": "UNASSIGNED_BLOCKER",
+      "disposition": "UNASSIGNED_BLOCKER",
+      "semantic_object": "Request actor identity resolution from authenticated state/legacy/anonymous fallback, actor_id/context observability used by report generation/export and dashboard readback surfaces.",
+      "donor_path": "main/backend/app/services/request_identity.py",
+      "donor_sha1_blob_working_tree": "dfe68e9ea44637a56ffc560fd455e2cef0628318",
+      "donor_git_tracked_at_head": false,
+      "full_donor_sources_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesMigrationScope.freeze.v1.json#/business_lines/9/donor_sources",
+      "source_object": "request_identity normalization service, llm_report/dashboard callers and observability context propagation",
+      "target_object": "REQUIRED_UNASSIGNED: C9.1 caller-actor scope is the nearest structural match; no unified request-identity successor cell exists",
+      "named_transform": "REQUIRED_UNASSIGNED: new horizontal request-identity/actor port shared by C9 facade, C8 report and C9 dashboard readbacks",
+      "owner": "B-recheck; authn identity owner",
+      "effect": "Resolve request actor identity and propagate actor_id/context into report generation/export and dashboard readback",
+      "failure": "REQUIRED_UNASSIGNED: authenticated/legacy/anonymous fallback ambiguity has no successor typed failure",
+      "resource": "REQUIRED_UNASSIGNED: per-request identity resolution and observability context overhead are not successor-bound",
+      "authority": "Identity/actor metadata normalization only; no credential value reads and no authn/authz authority is granted",
+      "recovery": "REQUIRED_UNASSIGNED: no successor trace covers missing/invalid identity fallback or propagation failure",
+      "projection_loss": "REQUIRED_UNASSIGNED: C9-M001 loss rows note legacy actor fallback not reproduced; line-level loss decision is absent",
+      "source_evidence": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/LegacyVsMovementGap.v1.json#/unmapped_gap/8",
+        "main/backend/app/services/request_identity.py@dfe68e9ea44637a56ffc560fd455e2cef0628318 (donor working tree, untracked at donor HEAD)"
+      ],
+      "target_realization": [
+        "REQUIRED_UNASSIGNED#request-identity-port"
+      ],
+      "acceptance_trace": [
+        "REQUIRED_UNASSIGNED#no-request-identity-trace"
+      ],
+      "gap_ids": [
+        "GAP-request-identity"
+      ],
+      "successor_target": "New horizontal request-identity/authn actor port under WP-4, consumed by C9.1/C8/C9.3 surfaces",
+      "mapping_rationale": "C9-M001 derives an authenticated actor in the successor envelope, but its source evidence does not include request_identity.py and the line's authenticated/legacy/anonymous fallback contract has no dedicated movement or cell.",
+      "required_closure": "WP-4 shared request-identity port plus decision on legacy/anonymous fallback (preserve/reject/loss), with actor/context propagation and failure tests",
+      "recommendation_note": "Keep UNASSIGNED_BLOCKER until a successor request-identity port and acceptance trace exist."
+    },
+    {
+      "movement_id": "ALL-AD-010",
+      "business_line_id": "BL-task-readback-metadata",
+      "business_line_key": "service_surface",
+      "kind": "service_surface",
+      "freeze_row_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesMigrationScope.freeze.v1.json#/business_lines/10",
+      "current_disposition": "UNASSIGNED_BLOCKER",
+      "disposition": "UNASSIGNED_BLOCKER",
+      "semantic_object": "Runtime readback metadata builder/normalizer: canonical line event chains, contract event insertion, task/runtime readback merge for ingest/search/source/writing worker lanes.",
+      "donor_path": "main/backend/app/services/task_readback_metadata.py",
+      "donor_sha1_blob_working_tree": "701eec5a0739fec7349c963d985749dfab0602e1",
+      "donor_git_tracked_at_head": false,
+      "full_donor_sources_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesMigrationScope.freeze.v1.json#/business_lines/10/donor_sources",
+      "source_object": "task_readback_metadata builder, tasks.py runtime context, llm_action_service and business_lines API usage",
+      "target_object": "REQUIRED_UNASSIGNED: runtime-observation/C5 typed process observation is the nearest candidate; C5-M005/M006 do not bind line_key event-chain/insertion semantics",
+      "named_transform": "REQUIRED_UNASSIGNED: successor typed line-event observation transform; legacy functions normalize_line_key, ensure_contract_events, build_runtime_readback_payload and merge_runtime_readback_payload have no successor equivalent",
+      "owner": "B-recheck; worker readback metadata owner",
+      "effect": "Build/merge canonical line event chains and runtime readback metadata for worker-required lanes",
+      "failure": "REQUIRED_UNASSIGNED: unknown line_key, event status normalization and readback contradiction handling have no successor trace",
+      "resource": "REQUIRED_UNASSIGNED: per-run event chain and readback payload size budgets are not successor-bound",
+      "authority": "Readback metadata is observation/evidence material; no executor or scheduler authority",
+      "recovery": "REQUIRED_UNASSIGNED: C5_4LocatorAdjudication adopted=false for the dirty donor file; exclusion does not realize the line-event capability",
+      "projection_loss": "REQUIRED_UNASSIGNED: no movement or loss row covers line_key canonical event chains if C5 typed observations replace them",
+      "source_evidence": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/LegacyVsMovementGap.v1.json#/unmapped_gap/9",
+        "main/backend/app/services/task_readback_metadata.py@701eec5a0739fec7349c963d985749dfab0602e1 (donor working tree, untracked at donor HEAD; declared intentional absent by C5_4LocatorAdjudication)"
+      ],
+      "target_realization": [
+        "REQUIRED_UNASSIGNED#task-readback-metadata-line-events-target; C5.4 typed process observations are present but do not emit line_key canonical event chains"
+      ],
+      "acceptance_trace": [
+        "REQUIRED_UNASSIGNED#no-line-event-chain-trace"
+      ],
+      "gap_ids": [
+        "GAP-task-readback-metadata-line-events"
+      ],
+      "successor_target": "runtime-observation/C5 typed line-event/readback port under WP-4",
+      "mapping_rationale": "C5-M005/M006 reimplement Celery/DB/process observation typing and contradiction-preserving joins, and C5.4 is the nearest cell; however successor code contains no line_key, worker_started, or readback_persisted event-chain contract, and the donor file is excluded rather than adopted.",
+      "required_closure": "WP-4 line-event/readback port or an explicit decision that canonical line event chains are replaced by typed C5 observations with loss account; acceptance traces for all donor helper functions",
+      "recommendation_note": "Keep UNASSIGNED_BLOCKER; dirty-source exclusion is not capability realization."
+    },
+    {
+      "movement_id": "ALL-AD-011",
+      "business_line_id": "BL-single-source-guard",
+      "business_line_key": "service_surface",
+      "kind": "service_surface",
+      "freeze_row_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesMigrationScope.freeze.v1.json#/business_lines/11",
+      "current_disposition": "UNASSIGNED_BLOCKER",
+      "disposition": "UNASSIGNED_BLOCKER",
+      "semantic_object": "Source-library single-source execution guard validation: strict one-URL site-entry guard, execution fact, blocked/error classification before adapter dispatch and resolver override application.",
+      "donor_path": "main/backend/app/services/source_library/single_source_guard.py",
+      "donor_sha1_blob_working_tree": "513330bc053f4234457aa1ec066efa913ed522b1",
+      "donor_git_tracked_at_head": false,
+      "full_donor_sources_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesMigrationScope.freeze.v1.json#/business_lines/11/donor_sources",
+      "source_object": "single_source_guard validation, source_library resolver and API/source dispatch integration",
+      "target_object": "REQUIRED_UNASSIGNED: C2.3 provider-credential/execution boundary is the nearest cell; no successor guard/execution-fact implementation exists",
+      "named_transform": "REQUIRED_UNASSIGNED: successor source-execution guard port equivalent to validate_single_source_guard/build_single_source_execution_fact before C2 provider dispatch",
+      "owner": "B-recheck; source-library boundary owner",
+      "effect": "Strictly allow one site entry, block mismatched site entries and emit execution fact/blocked classification before adapter dispatch",
+      "failure": "REQUIRED_UNASSIGNED: guard shape/blocked/site-entry-mismatch typed failures are not reproduced in successor",
+      "resource": "REQUIRED_UNASSIGNED: guard validation is CPU/memory only; no successor resource policy is bound",
+      "authority": "Guard is an execution authority boundary; successor must preserve exact single-source dispatch authority semantics",
+      "recovery": "REQUIRED_UNASSIGNED: blocked guard must prevent dispatch and retry semantics are absent in successor",
+      "projection_loss": "REQUIRED_UNASSIGNED: execution-fact payload version and guard error details have no loss account",
+      "source_evidence": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/LegacyVsMovementGap.v1.json#/unmapped_gap/11",
+        "main/backend/app/services/source_library/single_source_guard.py@513330bc053f4234457aa1ec066efa913ed522b1 (donor working tree, untracked at donor HEAD)"
+      ],
+      "target_realization": [
+        "REQUIRED_UNASSIGNED#single-source-guard-port"
+      ],
+      "acceptance_trace": [
+        "REQUIRED_UNASSIGNED#no-guard-port-trace"
+      ],
+      "gap_ids": [
+        "GAP-single-source-guard"
+      ],
+      "successor_target": "backend-core/C2.3 execution-boundary guard port under WP-3/WP-4",
+      "mapping_rationale": "C2.3 is semantically the provider-credential/execution effect boundary and C2 movement rows cover dispatch/recovery, but none of the C2 rows or successor source files name single_source_guard or its execution-fact contract, and the donor file is untracked.",
+      "required_closure": "WP-1 byte closure; WP-3/WP-4 guard port with strict one-URL, site-entry equality, blocked/error classification and execution-fact tests",
+      "recommendation_note": "Keep UNASSIGNED_BLOCKER until guard realization is bound to C2.3."
+    },
+    {
+      "movement_id": "ALL-AD-012",
+      "business_line_id": "BL-agent-batch-quality-promotion-readback",
+      "business_line_key": "service_surface",
+      "kind": "service_surface",
+      "freeze_row_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesMigrationScope.freeze.v1.json#/business_lines/12",
+      "current_disposition": "UNASSIGNED_BLOCKER",
+      "disposition": "UNASSIGNED_BLOCKER",
+      "semantic_object": "Agent-batch search-quality replay and symbolic quality-promotion readback gate (critic score, bounded retry, threshold, promotion decision digest) with executor health API.",
+      "donor_path": "main/backend/app/services/agent_batch/search_quality_replay.py",
+      "donor_sha1_blob_working_tree": "d4e36c50e79a920c5553340bb3efa3af0720da75",
+      "donor_git_tracked_at_head": true,
+      "full_donor_sources_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesMigrationScope.freeze.v1.json#/business_lines/12/donor_sources",
+      "source_object": "agent_batch API, search_quality_replay, task_contract and executor_health",
+      "target_object": "REQUIRED_UNASSIGNED: C4.1/C4.2 structural supplement/retry boundaries and C4.3 submit/rollback are nearest; search-quality promotion readback and executor health are not movement-bound",
+      "named_transform": "REQUIRED_UNASSIGNED: successor provider-independent quality-gate/promotion-readback transform; no implementation exists",
+      "owner": "B-recheck; agent-batch owner",
+      "effect": "Search-quality replay, critic-score/retry/threshold quality gate, promotion decision digest and executor health API",
+      "failure": "REQUIRED_UNASSIGNED: quality-threshold failure, bounded-retry exhaustion and promotion digest failure have no successor trace",
+      "resource": "REQUIRED_UNASSIGNED: replay budget, critic/model call budget and executor health polling are unbound",
+      "authority": "Quality promotion is a qualification gate; successor must remain provider-independent and must not self-promote",
+      "recovery": "REQUIRED_UNASSIGNED: quality-replay retry and promotion readback recovery are not implemented",
+      "projection_loss": "REQUIRED_UNASSIGNED: no loss/rejection account covers legacy critic score/threshold/promotion digest semantics",
+      "source_evidence": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesMigrationScope.freeze.v1.json#/business_lines/12",
+        "main/backend/app/services/agent_batch/search_quality_replay.py@d4e36c50e79a920c5553340bb3efa3af0720da75"
+      ],
+      "target_realization": [
+        "REQUIRED_UNASSIGNED#agent-batch-quality-promotion-target; C4 movement rows name agent_loop/planner/task_contract/API only"
+      ],
+      "acceptance_trace": [
+        "REQUIRED_UNASSIGNED#agent-batch-quality-promotion-evidence-omission"
+      ],
+      "gap_ids": [],
+      "successor_target": "C4.1/C4.2 provider-independent quality-gate plus new promotion-readback/executor-health port under WP-4",
+      "mapping_rationale": "All four donor files are tracked, but LegacyVsMovementGap has no row naming search_quality_replay.py/executor_health.py and the freeze records the omission explicitly; C4 movement rows cover only agent_loop/planner/task_contract/API.",
+      "required_closure": "Supervisor adjudication whether C4.3 directory scope covers these files; if not, add GAP-agent-batch-quality-promotion-readback-evidence-omission and implement under WP-4",
+      "recommendation_note": "Keep UNASSIGNED_BLOCKER; evidence omission must be resolved before C4 mapping can be evaluated."
+    },
+    {
+      "movement_id": "ALL-AD-013",
+      "business_line_id": "BL-dashboard-llm-report-detail-export-audit",
+      "business_line_key": "service_surface",
+      "kind": "service_surface",
+      "freeze_row_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesMigrationScope.freeze.v1.json#/business_lines/13",
+      "current_disposition": "UNASSIGNED_BLOCKER",
+      "disposition": "UNASSIGNED_BLOCKER",
+      "semantic_object": "Dashboard llm-report-detail readback of quality/export/audit/token records by trace/project/job plus dashboard report-from-filter synthesis and quality gate reconstruction.",
+      "donor_path": "main/backend/app/services/llm_report_export_audit.py",
+      "donor_sha1_blob_working_tree": "4799746e4f9a4b7ea3a032dc24eec5376ac68640",
+      "donor_git_tracked_at_head": false,
+      "full_donor_sources_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesMigrationScope.freeze.v1.json#/business_lines/13/donor_sources",
+      "source_object": "dashboard llm-report-detail readback plus export audit service/model/migration and token/trend callers",
+      "target_object": "REQUIRED_UNASSIGNED: report-admission/C8.3 consumer side is nearest; no successor audit movement/cell exists",
+      "named_transform": "REQUIRED_UNASSIGNED: successor durable export-audit event and dashboard trace-level readback transform; no implementation exists",
+      "owner": "B-recheck; dashboard/report owner",
+      "effect": "Persist export audit events and expose dashboard llm-report-detail audit/quality readback",
+      "failure": "REQUIRED_UNASSIGNED: audit persistence failure, readback trace mismatch and token/trend join failure have no successor trace",
+      "resource": "REQUIRED_UNASSIGNED: audit event retention and dashboard detail query resource bounds are unbound",
+      "authority": "Audit records are evidence material; dashboard readback has no canonical write or delivery authority",
+      "recovery": "REQUIRED_UNASSIGNED: audit event retry/rollback and dashboard readback rebuild are not implemented",
+      "projection_loss": "REQUIRED_UNASSIGNED: no loss account covers audit/export event history if successor C8 admission replaces it",
+      "source_evidence": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/LegacyVsMovementGap.v1.json#/unmapped_gap/6",
+        "main/backend/app/services/llm_report_export_audit.py@4799746e4f9a4b7ea3a032dc24eec5376ac68640 (donor working tree, untracked at donor HEAD)"
+      ],
+      "target_realization": [
+        "REQUIRED_UNASSIGNED#export-audit-target"
+      ],
+      "acceptance_trace": [
+        "REQUIRED_UNASSIGNED#no-export-audit-trace"
+      ],
+      "gap_ids": [
+        "GAP-llm-report-export-audit"
+      ],
+      "successor_target": "report-admission/C8.3 and runtime observability audit cell under WP-5",
+      "mapping_rationale": "C8-M003 covers report admission/delivery but does not bind durable export-audit events or dashboard trace-level audit readback; three of four donor files are untracked and absent from target worktree.",
+      "required_closure": "WP-1 byte closure; WP-5 successor audit events with dashboard readback, trace binding and retention/recovery tests",
+      "recommendation_note": "Keep UNASSIGNED_BLOCKER until successor audit cell or explicit loss decision is accepted."
+    },
+    {
+      "movement_id": "ALL-AD-014",
+      "business_line_id": "BL-llm-report-trend-quality-records",
+      "business_line_key": "service_surface",
+      "kind": "service_surface",
+      "freeze_row_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesMigrationScope.freeze.v1.json#/business_lines/15",
+      "current_disposition": "UNASSIGNED_BLOCKER",
+      "disposition": "UNASSIGNED_BLOCKER",
+      "semantic_object": "Persistent LLM report quality-trend/export-trend records and summary consumers across generate/export/dashboard detail.",
+      "donor_path": "main/backend/app/services/llm_report_trends.py",
+      "donor_sha1_blob_working_tree": "79deed264cdcb3f92e349efe3689a0631cc39db9",
+      "donor_git_tracked_at_head": false,
+      "full_donor_sources_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesMigrationScope.freeze.v1.json#/business_lines/15/donor_sources",
+      "source_object": "llm_report_trends service/model, quality-trend migration and llm_report/dashboard summary consumers",
+      "target_object": "REQUIRED_UNASSIGNED: report-admission/C8 consumer is a candidate; trend records are evidence-trace material with no movement/cell",
+      "named_transform": "REQUIRED_UNASSIGNED: successor trend-record/consumer transform must be named under WP-5 or rejected as no-call",
+      "owner": "B-recheck; report trend owner",
+      "effect": "Persist report quality/export trend records and serve summary/detail consumers",
+      "failure": "REQUIRED_UNASSIGNED: trend record write/update and summary aggregation failure have no successor trace",
+      "resource": "REQUIRED_UNASSIGNED: trend retention and aggregation query budgets are unbound",
+      "authority": "Trend records are observational/evidence material; no report admission or delivery authority",
+      "recovery": "REQUIRED_UNASSIGNED: trend record rebuild/recovery is not implemented in successor",
+      "projection_loss": "REQUIRED_UNASSIGNED: no line-level loss/rejection account exists for trend history if successor evidence ledger replaces it",
+      "source_evidence": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/LegacyVsMovementGap.v1.json#/unmapped_gap/7",
+        "main/backend/app/services/llm_report_trends.py@79deed264cdcb3f92e349efe3689a0631cc39db9 (donor working tree, untracked at donor HEAD)"
+      ],
+      "target_realization": [
+        "REQUIRED_UNASSIGNED#llm-report-trends-target"
+      ],
+      "acceptance_trace": [
+        "REQUIRED_UNASSIGNED#no-report-trend-trace"
+      ],
+      "gap_ids": [
+        "GAP-llm-report-quality-trends"
+      ],
+      "successor_target": "report-admission/C8 evidence consumer or explicit trend no-call decision under WP-5/WP-6",
+      "mapping_rationale": "C8-M003 admission consumers are structurally related, but the donor trend service/model/migration are untracked and the freeze records no movement/cell for trend records; absence of a successor cannot be treated as loss without a reviewed decision.",
+      "required_closure": "WP-1 byte closure; WP-5 successor trend records or named DECLARED_LOSS/EXPLICITLY_REJECTED record with owner",
+      "recommendation_note": "Keep UNASSIGNED_BLOCKER until trend-material ownership is decided."
+    },
+    {
+      "movement_id": "ALL-AD-015",
+      "business_line_id": "BL-runtime-health-matrix",
+      "business_line_key": "service_surface",
+      "kind": "service_surface",
+      "freeze_row_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesMigrationScope.freeze.v1.json#/business_lines/16",
+      "current_disposition": "UNASSIGNED_BLOCKER",
+      "disposition": "UNASSIGNED_BLOCKER",
+      "semantic_object": "Passive full-stack runtime health matrix script producing latest-runtime-health-matrix.json with Docker/local modes, dependency health and process probes.",
+      "donor_path": "scripts/runtime_health_matrix.py",
+      "donor_sha1_blob_working_tree": "7517d6d45771830a19cfb0684d74e26d5ef9eb8c",
+      "donor_git_tracked_at_head": false,
+      "full_donor_sources_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesMigrationScope.freeze.v1.json#/business_lines/16/donor_sources",
+      "source_object": "runtime_health_matrix script, app main health entrypoint and business-line async readiness build script",
+      "target_object": "REQUIRED_UNASSIGNED: no dedicated C1-C9 locator cell or movement owns the health-matrix surface; runtime-ops shared surface is the only candidate",
+      "named_transform": "REQUIRED_UNASSIGNED: successor runtime-health-matrix control-plane port; no implementation exists",
+      "owner": "B-recheck; runtime ops owner",
+      "effect": "Produce latest-runtime-health-matrix.json with Docker/local modes, dependency health and process probes",
+      "failure": "REQUIRED_UNASSIGNED: probe failure, Docker/local mode divergence and matrix artifact failure have no successor trace",
+      "resource": "REQUIRED_UNASSIGNED: probe cost and artifact retention are unbound in successor",
+      "authority": "Passive health/diagnostic surface only; no executor, scheduler or provider authority",
+      "recovery": "REQUIRED_UNASSIGNED: health-matrix artifact rebuild/recovery is not implemented",
+      "projection_loss": "REQUIRED_UNASSIGNED: runtime_health_matrix.py shares a donor path with GAP-runtime-ops and has no separate loss account",
+      "source_evidence": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesMigrationScope.freeze.v1.json#/business_lines/16",
+        "scripts/runtime_health_matrix.py@7517d6d45771830a19cfb0684d74e26d5ef9eb8c (donor working tree, untracked at donor HEAD)"
+      ],
+      "target_realization": [
+        "REQUIRED_UNASSIGNED#runtime-health-matrix-target"
+      ],
+      "acceptance_trace": [
+        "REQUIRED_UNASSIGNED#no-runtime-health-matrix-trace"
+      ],
+      "gap_ids": [],
+      "successor_target": "Runtime-ops shared health-matrix port under WP-6; may be folded into GAP-runtime-ops successor ownership",
+      "mapping_rationale": "The service surface overlaps BL-runtime-ops through the same untracked runtime_health_matrix.py, but no gap row or C1-C9 cell names it separately. Presence of an overlap does not establish a successor realization.",
+      "required_closure": "Add GAP-runtime-health-matrix or fold into GAP-runtime-ops; WP-1 byte closure and WP-6 health-matrix successor port with Docker/local and probe tests",
+      "recommendation_note": "Keep UNASSIGNED_BLOCKER until runtime health-matrix ownership is explicitly merged, reimplemented, or rejected."
+    },
+    {
+      "movement_id": "ALL-AD-016",
+      "business_line_id": "BL-admin-crawler-cluechain-codexauth-keyword-stats",
+      "business_line_key": "service_surface",
+      "kind": "service_surface",
+      "freeze_row_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesMigrationScope.freeze.v1.json#/business_lines/17",
+      "current_disposition": "UNASSIGNED_BLOCKER",
+      "disposition": "UNASSIGNED_BLOCKER",
+      "semantic_object": "Remaining backend surfaces not represented by the seven canonical lines: admin raw data/graphs, crawler management, clue chains, codex OAuth bootstrap/status, keyword/stats/prompt-time-density, skills invocation, project customization menu and run.",
+      "donor_path": "main/backend/app/api/admin.py",
+      "donor_sha1_blob_working_tree": "59905edd01ab42bc29861e584619bb8d6f7eef6f",
+      "donor_git_tracked_at_head": true,
+      "full_donor_sources_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesMigrationScope.freeze.v1.json#/business_lines/17/donor_sources",
+      "source_object": "admin/crawler/clue_chains/codex_auth/keywords/stats/skills/project_customization APIs and crawler/clue-chain/extraction/streamplus service directories",
+      "target_object": "REQUIRED_UNASSIGNED: C9.1 envelope is structural only; no successor cell owns these remaining backend capability groups",
+      "named_transform": "REQUIRED_UNASSIGNED: one or more successor domain cells/ports must be named per capability group under WP-6",
+      "owner": "B-recheck; admin/ops owner",
+      "effect": "Admin raw data/graphs, crawler management, clue chains, codex OAuth bootstrap/status, keyword/stats/prompt-time density, skills invocation and customization run",
+      "failure": "REQUIRED_UNASSIGNED: each group has distinct failure/authority semantics with no successor trace",
+      "resource": "REQUIRED_UNASSIGNED: directory-level donor references are not byte-expanded and successor budgets are unbound",
+      "authority": "No successor write authority; codex_auth/credentials are structural references only and credential values were not read",
+      "recovery": "REQUIRED_UNASSIGNED: crawler/clue-chain/extraction retry and admin action recovery have no successor records",
+      "projection_loss": "REQUIRED_UNASSIGNED: no per-group loss/no-call manifest exists for admin/crawler/clue-chain/OAuth/keyword/stats/skills surfaces",
+      "source_evidence": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/LegacyVsMovementGap.v1.json#/unmapped_gap/13",
+        "main/backend/app/api/admin.py@59905edd01ab42bc29861e584619bb8d6f7eef6f"
+      ],
+      "target_realization": [
+        "REQUIRED_UNASSIGNED#remaining-backend-surface-cells"
+      ],
+      "acceptance_trace": [
+        "REQUIRED_UNASSIGNED#no-remaining-surface-trace"
+      ],
+      "gap_ids": [
+        "GAP-remaining-backend-surfaces"
+      ],
+      "successor_target": "C9.1 facade structure plus new ops-domain successor cells or explicit loss/no-call decisions under WP-6",
+      "mapping_rationale": "C9-M001 has an acceptance trace for API envelope mechanics, but the remaining backend groups have no dedicated cells and directory donor refs are not expanded; structural envelope alignment is explicitly not capability ownership.",
+      "required_closure": "WP-1 directory-to-file byte closure; WP-6 per-group successor cell or reviewed EXPLICITLY_REJECTED/DECLARED_LOSS record with named decision owner",
+      "recommendation_note": "Keep UNASSIGNED_BLOCKER until per-group closure is decided."
+    }
+  ],
+  "approval_order": [
+    "Approve this amendment as an owner/successor/gap binding for the 16 UNASSIGNED_BLOCKER lines without changing line-level disposition counts and without granting authority.",
+    "WP-1: donor byte closure for 35 untracked registry files and supplementary LegacyVsMovementGap paths, including directory-level crawlers/graph/indexer/writing/collect/extraction/streamplus references.",
+    "WP-3: worker-required vertical slices bind ingest registry, source-library single-source guard, search/discovery retrieval readback and task line-event semantics with parity/readback/recovery traces.",
+    "WP-4: horizontal service ports for request identity, task-readback metadata, single-source guard, agent-batch quality promotion and runtime health matrix with explicit effect/failure/authority/recovery tests.",
+    "WP-5: llm report export/audit/token/trend family under C8.3 admission with durable token/audit/trend realization.",
+    "WP-6: successor cells or explicit loss/no-call records for projects/config, dashboard/admin/governance, runtime ops, business-line evidence matrix and remaining backend surfaces.",
+    "Rerun the movement inventory with all required fields and line-level UNASSIGNED_BLOCKER == 0 before any candidate/authority/cutover milestone; keep live/provider/cutover authority separate."
+  ],
+  "risks": [
+    "All 16 line-level blockers remain UNASSIGNED_BLOCKER after this recommendation because no line has a complete named successor realization plus acceptance trace for every frozen donor source; this blocks promotion/candidate/authority as required by governance.",
+    "35 donor registry files and named untracked families are absent from clean donor HEAD and the migration worktree; byte freeze depends on dirty working-tree snapshots until WP-1 closure.",
+    "Agent-batch quality promotion has an evidence omission (no gap row for search_quality_replay.py/executor_health.py) and runtime-health-matrix has no dedicated gap row; both require additive records before closure.",
+    "C1-C9 movement-level UNASSIGNED_BLOCKER == 0 does not imply all-lines coverage: 15 unmapped gaps and these 16 line records are outside that P1-P3 declared scope.",
+    "C7 matrix, capability specs and adoption reviews remain local-only inputs; none are promoted and candidate remains null.",
+    "Directory-level donor paths in LegacyVsMovementGap are not expanded in BackendDonorSurfaceInventory; WP-1 must expand them before byte-closure claims.",
+    "Credential values and codex_auth/llm configs were treated structurally only; no credential reads are claimed.",
+    "This amendment is a recommendation draft, not a supervisor acceptance record; it does not change freeze bytes or authority."
+  ]
+}

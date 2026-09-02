@@ -1,0 +1,311 @@
+{
+  "schema": "mrw.functorial_successor.production_cutover_rehearsal_evidence.v1",
+  "version": "1.0.0",
+  "record_id": "production-cutover-rehearsal-v1",
+  "date": "2026-09-02",
+  "generated_at": "2026-09-02T20:09:20+0800",
+  "agent": "production_cutover_rehearsal",
+  "status": "PASS_PRODUCTION_READY_REHEARSAL_LOCAL_ONLY_ROUTES_BOUNDED_LIVE_PROVIDER",
+  "docker_available": true,
+  "candidate": null,
+  "worktree": {
+    "path": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0",
+    "branch": "codex/functorial-successor-p0",
+    "head_sha": "38acdee8862af0971ca063507b8355812894fbce",
+    "head_subject": "production-ready: live provider parity, runbook/monitoring/security, local gate evidence",
+    "dirty_state_observed": true,
+    "pre_existing_dirty_preserved": true,
+    "commit_pushed_reset_clean": false
+  },
+  "services": {
+    "compose_project": "mrw-cutover-rehearsal",
+    "host_port_mode": "backend 8000 and frontend 5174 exposed; db/es/redis kept on internal network because local 5432 and 6379 were occupied",
+    "containers": [
+      {
+        "name": "mrw-cutover-rehearsal-db-1",
+        "container_id": "367ea87da7be",
+        "image": "ankane/pgvector:latest",
+        "status": "Up (healthy)",
+        "ports": "5432 internal only"
+      },
+      {
+        "name": "mrw-cutover-rehearsal-es-1",
+        "container_id": "520b6a01ac9b",
+        "image": "docker.elastic.co/elasticsearch/elasticsearch:8.15.3",
+        "status": "Up (healthy)",
+        "ports": "9200 internal only"
+      },
+      {
+        "name": "mrw-cutover-rehearsal-redis-1",
+        "container_id": "c1184b6e47c4",
+        "image": "redis:7.4",
+        "status": "Up",
+        "ports": "6379 internal only"
+      },
+      {
+        "name": "mrw-cutover-rehearsal-backend-1",
+        "container_id": "0daf8dea2cd9",
+        "image": "mrw-cutover-rehearsal-backend:latest",
+        "status": "Up (healthy)",
+        "ports": "0.0.0.0:8000->8000/tcp"
+      },
+      {
+        "name": "mrw-cutover-rehearsal-celery-worker-1",
+        "container_id": "15a89ce03580",
+        "image": "mrw-cutover-rehearsal-celery-worker:latest",
+        "status": "Up (healthy)",
+        "ports": "8000 internal only"
+      },
+      {
+        "name": "mrw-cutover-rehearsal-frontend-modern-1",
+        "container_id": "fea3671f1f92",
+        "image": "mrw-cutover-rehearsal-frontend-modern:latest",
+        "status": "Up",
+        "ports": "0.0.0.0:5174->80/tcp"
+      }
+    ]
+  },
+  "endpoint_results": [
+    {
+      "method": "GET",
+      "path": "/api/v1/health",
+      "http_status": 200,
+      "latency_ms": 3.9,
+      "body_summary": "{\"status\":\"ok\",\"provider\":\"openai\",\"env\":\"dev\"}",
+      "assertion": "healthy"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/health/deep",
+      "http_status": 200,
+      "assertion": "healthy"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/successor-runtime/v2/commands",
+      "http_status": 200,
+      "latency_ms": 4.5,
+      "body_summary": "envelope status=ok; error=null; receipt state=TERMINAL; command_id=cmd-cutover-rehearsal-001; scope=local-only-app-mount; no run_id/authority/grants; control_feedback=false; no actor/authority/execute top-level fields",
+      "assertion": "typed envelope ok; control_feedback false; deterministic local-only command no PostgreSQL write or provider effect"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/successor-runtime/v2/queries",
+      "http_status": 200,
+      "latency_ms": 2.2,
+      "body_summary": "envelope status=ok; error=null; cells C9.1=INSTALLED C9.2=INSTALLED C9.3=PROJECTOR_WIRING_DECLARED; no_postgres_write=true; control_feedback=false",
+      "assertion": "typed envelope ok; control_feedback false; read-only projection"
+    },
+    {
+      "method": "GET",
+      "path": "/ (frontend-modern nginx)",
+      "http_status": 200,
+      "assertion": "frontend served"
+    }
+  ],
+  "real_call_summary": {
+    "count": 2,
+    "no_secret_values_recorded": true,
+    "duplicate_effect_assertion": "each provider call count equals exactly 1 and real_provider_calls equals 1; tests assert gateway.provider_calls==[request_id] and port.provider_calls==1",
+    "calls": [
+      {
+        "cell_id": "C2.3",
+        "provider": "serper",
+        "endpoint": "https://google.serper.dev/search",
+        "outcome_kind": "completed",
+        "provider_status": "COMPLETED",
+        "record_ref_count": 5,
+        "provider_calls": 1,
+        "real_provider_calls": 1,
+        "receipt_digest": "9661b3bd21e96c8493044cabb3572e3850aae042bc9a65e384b88569f108d2a3",
+        "outcome_digest": "f463dc2c1e4f383765e6d66fa66d052be14ef0677346ea97b4c9f347b8ce7651",
+        "latency_ms": 2486.368
+      },
+      {
+        "cell_id": "C6.2",
+        "provider": "openai",
+        "model": "gpt-4o-mini",
+        "endpoint": "https://api.openai.com/v1/chat/completions",
+        "outcome_code": "ProviderStepSucceeded",
+        "readback_status": "NOT_APPLICABLE",
+        "provider_calls": 1,
+        "receipt_digest": "40c8e6620943cd2446052686bfe51335cc11430df5ed210d88e4f9f16434344e",
+        "result_digest": "ac65a1937c5c6dbf6c6dde49eb3679e0c135e7e56686719f88eff8b4b5d17711",
+        "latency_ms": 3848.844
+      }
+    ]
+  },
+  "suites": {
+    "non_pg_control": {
+      "command": "env -u SUCCESSOR_TEST_DATABASE_URL -u SUCCESSOR_P3_C5_DATABASE_URL -u SUCCESSOR_DATABASE_URL PYTHONDONTWRITEBYTECODE=1 python3.11 -m pytest tests/successor_runtime -q -p no:cacheprovider",
+      "interpreter": "/opt/homebrew/bin/python3.11 (Python 3.11.15, pytest 8.4.2)",
+      "exit_code": 0,
+      "passed": 1425,
+      "skipped": 119,
+      "failed": 0,
+      "errors": 0,
+      "warnings": 3,
+      "duration_seconds": 63.24
+    },
+    "pg_dedicated_opt_in": {
+      "file_count": 39,
+      "files_all_exit_zero": true,
+      "files_all_teardown_zero": true,
+      "passed": 353,
+      "skipped": 0,
+      "failed": 0,
+      "errors": 0,
+      "warnings": 2,
+      "database_naming": "mrw_i1_<file_basename>_test, one dedicated database per file, serial execution",
+      "p0d_capacity_note": "test_p0d_capacity_postgres.py uses postgresql+psycopg2:///<db>?host=/tmp Unix socket as its fixture guard requires",
+      "files": [
+        {"file": "test_c7_canonical_write_projector_postgres.py", "exit_code": 0, "passed": 9, "skipped": 0, "failed": 0, "errors": 0, "teardown_zero": true},
+        {"file": "test_c7_movement_admission_postgres.py", "exit_code": 0, "passed": 50, "skipped": 0, "failed": 0, "errors": 0, "teardown_zero": true},
+        {"file": "test_c8_movement_closure_postgres.py", "exit_code": 0, "passed": 23, "skipped": 0, "failed": 0, "errors": 0, "teardown_zero": true},
+        {"file": "test_c8_research_artifact_delivery_bridge_postgres.py", "exit_code": 0, "passed": 2, "skipped": 0, "failed": 0, "errors": 0, "teardown_zero": true},
+        {"file": "test_c9_movement_closure_backend_postgres.py", "exit_code": 0, "passed": 38, "skipped": 0, "failed": 0, "errors": 0, "teardown_zero": true},
+        {"file": "test_c9_projection_sources_postgres.py", "exit_code": 0, "passed": 17, "skipped": 0, "failed": 0, "errors": 0, "teardown_zero": true},
+        {"file": "test_c9_typed_source_evolution_postgres.py", "exit_code": 0, "passed": 5, "skipped": 0, "failed": 0, "errors": 0, "teardown_zero": true},
+        {"file": "test_p0b_postgres_integration.py", "exit_code": 0, "passed": 18, "skipped": 0, "failed": 0, "errors": 0, "teardown_zero": true},
+        {"file": "test_p0c_delivery_recovery_postgres.py", "exit_code": 0, "passed": 4, "skipped": 0, "failed": 0, "errors": 0, "teardown_zero": true},
+        {"file": "test_p0c_full_runtime_chain_postgres.py", "exit_code": 0, "passed": 12, "skipped": 0, "failed": 0, "errors": 0, "teardown_zero": true},
+        {"file": "test_p0c_postgres_activation.py", "exit_code": 0, "passed": 4, "skipped": 0, "failed": 0, "errors": 0, "teardown_zero": true},
+        {"file": "test_p0c_postgres_lifecycle.py", "exit_code": 0, "passed": 9, "skipped": 0, "failed": 0, "errors": 0, "teardown_zero": true},
+        {"file": "test_p0c_postgres_reconciliation.py", "exit_code": 0, "passed": 4, "skipped": 0, "failed": 0, "errors": 0, "teardown_zero": true},
+        {"file": "test_p0c_submission_postgres.py", "exit_code": 0, "passed": 7, "skipped": 0, "failed": 0, "errors": 0, "teardown_zero": true},
+        {"file": "test_p0c_two_nodes_postgres.py", "exit_code": 0, "passed": 5, "skipped": 0, "failed": 0, "errors": 0, "teardown_zero": true},
+        {"file": "test_p0c_vertical_specimen_postgres.py", "exit_code": 0, "passed": 3, "skipped": 0, "failed": 0, "errors": 0, "teardown_zero": true},
+        {"file": "test_p0d_capacity_postgres.py", "exit_code": 0, "passed": 5, "skipped": 0, "failed": 0, "errors": 0, "teardown_zero": true, "note": "socket dedicated database"},
+        {"file": "test_p0d_cw11_postgres.py", "exit_code": 0, "passed": 1, "skipped": 0, "failed": 0, "errors": 0, "teardown_zero": true},
+        {"file": "test_p0d_gap_successor_postgres.py", "exit_code": 0, "passed": 8, "skipped": 0, "failed": 0, "errors": 0, "teardown_zero": true},
+        {"file": "test_p0d_research_projection_postgres.py", "exit_code": 0, "passed": 2, "skipped": 0, "failed": 0, "errors": 0, "teardown_zero": true},
+        {"file": "test_p0d_runtime_projection_postgres.py", "exit_code": 0, "passed": 4, "skipped": 0, "failed": 0, "errors": 0, "teardown_zero": true},
+        {"file": "test_p2_c2_1_canary_postgres.py", "exit_code": 0, "passed": 16, "skipped": 0, "failed": 0, "errors": 0, "teardown_zero": true},
+        {"file": "test_p3_c2_1_rehydration_postgres.py", "exit_code": 0, "passed": 13, "skipped": 0, "failed": 0, "errors": 0, "teardown_zero": true},
+        {"file": "test_p3_c2_23_runtime_canary_postgres.py", "exit_code": 0, "passed": 1, "skipped": 0, "failed": 0, "errors": 0, "teardown_zero": true},
+        {"file": "test_p3_c2_4_postgres.py", "exit_code": 0, "passed": 2, "skipped": 0, "failed": 0, "errors": 0, "teardown_zero": true},
+        {"file": "test_p3_c3_canary_postgres.py", "exit_code": 0, "passed": 7, "skipped": 0, "failed": 0, "errors": 0, "teardown_zero": true},
+        {"file": "test_p3_c4_4_postgres.py", "exit_code": 0, "passed": 3, "skipped": 0, "failed": 0, "errors": 0, "teardown_zero": true},
+        {"file": "test_p3_c4_5_runtime_postgres.py", "exit_code": 0, "passed": 3, "skipped": 0, "failed": 0, "errors": 0, "teardown_zero": true},
+        {"file": "test_p3_c5_2_reconciliation_postgres.py", "exit_code": 0, "passed": 5, "skipped": 0, "failed": 0, "errors": 0, "teardown_zero": true},
+        {"file": "test_p3_c5_3_projection_postgres.py", "exit_code": 0, "passed": 4, "skipped": 0, "failed": 0, "errors": 0, "teardown_zero": true},
+        {"file": "test_p3_c6_runtime_canary_postgres.py", "exit_code": 0, "passed": 4, "skipped": 0, "failed": 0, "errors": 0, "warnings": 2, "teardown_zero": true},
+        {"file": "test_p3_c6_worker_postgres.py", "exit_code": 0, "passed": 6, "skipped": 0, "failed": 0, "errors": 0, "teardown_zero": true},
+        {"file": "test_p3_shared_idempotency_postgres.py", "exit_code": 0, "passed": 2, "skipped": 0, "failed": 0, "errors": 0, "teardown_zero": true},
+        {"file": "test_p4_c7_6_postgres.py", "exit_code": 0, "passed": 4, "skipped": 0, "failed": 0, "errors": 0, "teardown_zero": true},
+        {"file": "test_p5_c1_slice_acceptance_postgres.py", "exit_code": 0, "passed": 9, "skipped": 0, "failed": 0, "errors": 0, "teardown_zero": true},
+        {"file": "test_p0b_uow_blob.py", "exit_code": 0, "passed": 36, "skipped": 0, "failed": 0, "errors": 0, "teardown_zero": true, "note": "non-_postgres PG opt-in file"},
+        {"file": "test_p0c_production_composition_root.py", "exit_code": 0, "passed": 3, "skipped": 0, "failed": 0, "errors": 0, "teardown_zero": true, "note": "non-_postgres PG opt-in file"},
+        {"file": "test_p0c_typed_submission_payloads.py", "exit_code": 0, "passed": 3, "skipped": 0, "failed": 0, "errors": 0, "teardown_zero": true, "note": "non-_postgres PG opt-in file"},
+        {"file": "test_p0d_cw12_rolling_deploy.py", "exit_code": 0, "passed": 2, "skipped": 0, "failed": 0, "errors": 0, "teardown_zero": true, "note": "non-_postgres PG opt-in file"}
+      ]
+    }
+  },
+  "teardown": {
+    "baseline_databases_before": "codex_p0c_full_chain_test,mrw_p0b_rereview_test_01a0504c",
+    "baseline_databases_after": "codex_p0c_full_chain_test,mrw_p0b_rereview_test_01a0504c",
+    "baseline_roles_before": "",
+    "baseline_roles_after": "",
+    "pg_file_runs_with_pre_post_equal_baseline": "39/39",
+    "new_residual_databases": 0,
+    "new_residual_roles": 0,
+    "per_run_method": "pre-check baseline -> create unique test-named database -> run one file -> drop database -> post-check baseline"
+  },
+  "authority": {
+    "live_provider": {
+      "C2.3": true,
+      "C6.2": true
+    },
+    "live_provider_all_other_successor_cells": false,
+    "canonical_write": false,
+    "external_delivery": false,
+    "cutover": false,
+    "authority_transfer": false,
+    "candidate": null,
+    "boundary": "Live provider authority is bounded to the two real calls above; no canonical write, external delivery, cutover, authority transfer or candidate creation is claimed."
+  },
+  "cleanup": {
+    "stop_rc": 0,
+    "profile_frontend_down_rc": 0,
+    "containers_removed": [
+      "mrw-cutover-rehearsal-celery-worker-1",
+      "mrw-cutover-rehearsal-backend-1",
+      "mrw-cutover-rehearsal-redis-1",
+      "mrw-cutover-rehearsal-es-1",
+      "mrw-cutover-rehearsal-db-1",
+      "mrw-cutover-rehearsal-frontend-modern-1"
+    ],
+    "network_removed": "mrw-cutover-rehearsal_default",
+    "volumes_retained_not_deleted": [
+      "mrw-cutover-rehearsal_codex_auth",
+      "mrw-cutover-rehearsal_db_data",
+      "mrw-cutover-rehearsal_es_data"
+    ],
+    "runtime_log_side_effect_removed": {
+      "path": "main/logs/worker.log",
+      "created_by_compose_mount_during_this_run": true,
+      "worker_log_removed": true,
+      "empty_directory_removed": true
+    },
+    "remaining_project_containers": 0
+  },
+  "commands": [
+    {
+      "label": "Docker full-stack start (backend + frontend with internal db/es/redis)",
+      "cwd": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0",
+      "command": "COMPOSE_PROJECT_NAME=mrw-cutover-rehearsal ./scripts/docker-deploy.sh start --services db,es,redis,backend,celery-worker,frontend-modern --non-interactive --force --build",
+      "exit_code": 1,
+      "result": "All six containers Up and healthy; start-all exits 1 only because its host ES probe uses localhost:9200 while --force kept ES on the internal network. Internal ES health probe rc=0."
+    },
+    {
+      "label": "Internal and host health checks",
+      "cwd": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0",
+      "command": "docker exec mrw-cutover-rehearsal-es-1 curl -sf http://localhost:9200/_cluster/health; docker exec mrw-cutover-rehearsal-db-1 pg_isready -U postgres; curl -sS http://localhost:8000/api/v1/health; curl -sS http://localhost:5174/",
+      "exit_code": 0,
+      "result": "es_internal_health_rc=0; db_internal_health_rc=0; backend_health_http=200; frontend_http=200"
+    },
+    {
+      "label": "POST successor-runtime command and query typed envelopes",
+      "cwd": "host",
+      "command": "curl -X POST http://localhost:8000/api/v1/successor-runtime/v2/commands; curl -X POST http://localhost:8000/api/v1/successor-runtime/v2/queries",
+      "exit_code": 0,
+      "result": "command_http=200 latency_ms=4.5; query_http=200 latency_ms=2.2; both control_feedback=false and status=ok"
+    },
+    {
+      "label": "Bounded real live-provider parity (one call per provider)",
+      "cwd": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0/main/backend",
+      "command": "set -a; source .env; set +a; MRW_LIVE_PROVIDER_PARITY=1 PYTHONDONTWRITEBYTECODE=1 python3.11 -m pytest tests/successor_runtime/test_i1_live_provider_parity.py -q -s -p no:cacheprovider",
+      "exit_code": 0,
+      "result": "2 passed; C2.3 provider_calls=1 real_provider_calls=1; C6.2 provider_calls=1; no secret bytes in printed receipts"
+    },
+    {
+      "label": "Non-PostgreSQL full successor_runtime control",
+      "cwd": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0/main/backend",
+      "command": "env -u SUCCESSOR_TEST_DATABASE_URL -u SUCCESSOR_P3_C5_DATABASE_URL -u SUCCESSOR_DATABASE_URL PYTHONDONTWRITEBYTECODE=1 python3.11 -m pytest tests/successor_runtime -q -p no:cacheprovider",
+      "exit_code": 0,
+      "result": "1425 passed, 119 skipped, 0 failed, 3 warnings in 63.24s"
+    },
+    {
+      "label": "PostgreSQL dedicated opt-in suite, 39 files serial",
+      "cwd": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0/main/backend",
+      "command": "per file: create mrw_i1_<basename>_test; SUCCESSOR_TEST_DATABASE_URL=postgresql+psycopg2://localhost/<db> python3.11 -m pytest <file> -q -p no:cacheprovider; drop database",
+      "exit_code": 0,
+      "result": "39/39 exit 0; 353 passed, 0 skipped, 0 failed, 0 errors; teardown zero for 39/39"
+    },
+    {
+      "label": "Docker stop and profile-aware cleanup",
+      "cwd": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0",
+      "command": "COMPOSE_PROJECT_NAME=mrw-cutover-rehearsal ./scripts/docker-deploy.sh stop --services db,es,redis,backend,celery-worker,frontend-modern; COMPOSE_PROJECT_NAME=mrw-cutover-rehearsal docker compose -f main/ops/docker-compose.yml --profile modern-ui down --remove-orphans",
+      "exit_code": 0,
+      "result": "all six project containers removed; network removed; three project volumes retained"
+    }
+  ],
+  "risks": [
+    "start-all exits 1 in the --force/internal-dependency mode because its readiness probe curls localhost:9200 even though ES host port is intentionally absent; container health is independently verified. This is an orchestration-script limitation, not a service failure.",
+    "Docker db/es/redis were started on the internal compose network only, so this rehearsal did not test their host-bound port paths; the PG dedicated suite ran against the pre-existing local Homebrew PostgreSQL 18.3 on localhost:5432.",
+    "This evidence is a local Docker cutover rehearsal with bounded live provider calls. It does not establish production canonical write, external delivery, cutover, authority transfer, candidate creation, provider availability over time, or production adoption.",
+    "The dirty worktree was preserved; only the evidence file was written. No commit, push, reset or clean was performed.",
+    "Project volumes created by this rehearsal (db_data, es_data, codex_auth) were retained and not deleted.",
+    "Live calls were one Serper and one OpenAI request each, executed once and asserted non-duplicated; future provider behavior, rate limits and cost are not covered."
+  ]
+}

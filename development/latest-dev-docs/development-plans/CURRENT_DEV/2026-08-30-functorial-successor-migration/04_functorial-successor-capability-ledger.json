@@ -1084,7 +1084,13 @@
       "capability_spec_cells": {
         "state": "11_OF_30_CELLS_SPEC_AND_MANIFEST_ADOPTED_LOCAL_ONLY_PILOT_INPUT",
         "p4_adoption": "ADOPTED_LOCAL_ONLY_PILOT_INPUT",
-        "candidate": null,
+        "candidate": {
+          "commit": "452611fccb69188477f277550a7f8b6c98b4724c",
+          "tree": "94a4038390ea8aeb70864ea67720d225576129d8",
+          "branch": "codex/functorial-successor-p0",
+          "scope": "migration-owned paths only; local-only candidate",
+          "supersedes": "9fa8aefa… (staging omissions); 1825870a… (evidence not candidate-bound); a48acbee… (C8.3 route_mounted + binding convention)"
+        },
         "authority_ceiling": "ALL_FALSE",
         "adoption_review_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/reviews/P4C7C9AdoptionReview.v1.json",
         "adoption_review_sha256": "16b78b1d71176b03209a8150dcbd1637af863b26daf90caef167f7bea0097876",
@@ -1435,7 +1441,7 @@
       "objective_reused_without_scope_change": true
     }
   },
-  "completion_claim": "NOT_CODE_COMPLETE",
+  "completion_claim": "I2_EXACT_CANDIDATE_PASS_NO_OPEN_P0_LOCAL_ONLY_NOT_LIVE",
   "i1_evidence_regen": {
     "date": "2026-09-02",
     "worktree": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0",
