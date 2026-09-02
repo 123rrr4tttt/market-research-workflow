@@ -5,7 +5,7 @@
   "status": "C8_3_DELIVERY_INSTALLED_LOCAL_ONLY_NOT_PROMOTED",
   "assembly_configuration": "local_offline_fixture_closures (build_local_offline_fixture_options)",
   "composition_root": "app.successor_runtime.assembly.successor_assembly.assemble_successor_runtime -> build_c8_assembly -> build_postgres_c8_delivery_assembly; options=build_local_offline_fixture_options()",
-  "route_mounted": false,
+  "route_mounted": true,
   "run_once_started": false,
   "c8_3": {
     "cell_id": "C8.3",
@@ -126,7 +126,7 @@
     }
   ],
   "risks": [
-    "LOCAL_ONLY assembly only; no app route mounted, no run_once started and no delivery/admission/export executed.",
+    "LOCAL_ONLY assembly only; app route mounted (WP-I1-06) but no run_once started and no delivery/admission/export executed.",
     "build_postgres_c8_delivery_assembly is installed as handlers; canonical write, live provider, external delivery, cutover and authority transfer remain closed.",
     "The deterministic closure uses ProjectBlobStore() default root and only stores the root path at assembly time; no filesystem write occurs during assembly or tests.",
     "PostgreSQL integration rehearsal of the installed bridge remains a separate opt-in surface."
