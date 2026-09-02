@@ -1,0 +1,111 @@
+{
+  "schema": "mrw.functorial_successor.production_local_gate_evidence.v1",
+  "version": "1.0.0",
+  "generated_at": "2026-09-02T18:53:00+08:00",
+  "worktree": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0",
+  "branch": "codex/functorial-successor-p0",
+  "head": "452611fccb69188477f277550a7f8b6c98b4724c",
+  "commit": "452611fccb69188477f277550a7f8b6c98b4724c",
+  "tree": "94a4038390ea8aeb70864ea67720d225576129d8",
+  "candidate": null,
+  "docker_available": false,
+  "docker_probe": {
+    "command": "docker info --format '{{.ServerVersion}}'",
+    "exit_code": 1,
+    "result": "failed to connect to the docker API at unix:///Users/wangyiliang/.docker/run/docker.sock; dial unix ... no such file or directory",
+    "note": "Docker daemon is not running; no containerized backend/frontend run was attempted."
+  },
+  "authority_ceiling": {
+    "canonical_write": false,
+    "live_provider": false,
+    "external_delivery": false,
+    "cutover": false,
+    "authority_transfer": false,
+    "candidate_created": false,
+    "postgres_write": false
+  },
+  "status": "LOCAL_PRODUCTION_GATE_PASS_BOUNDED_NOT_AUTHORIZED",
+  "runs": [
+    {
+      "label": "frontend production build",
+      "cwd": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0/main/frontend-modern",
+      "command": "./node_modules/.bin/tsc -b --pretty false && ./node_modules/.bin/vite build",
+      "exit_code": 0,
+      "result": "tsc project build PASS; vite v7.3.6 production build PASS: 2955 modules transformed, dist/assets emitted, built in 4.17s",
+      "output_summary": [
+        "tsc -b produced no diagnostics.",
+        "vite emitted dist/index.html plus hashed CSS and JS assets.",
+        "One non-failing warning: react-force-graph-3d chunk is 1367.54 kB (366.78 kB gzip), above the 1200 kB chunk-size warning threshold."
+      ],
+      "note": "Frontend build is local bounded evidence only; it does not run, deploy, or prove browser E2E behavior."
+    },
+    {
+      "label": "backend local TestClient smoke",
+      "cwd": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0/main/backend",
+      "command": "WORKFLOW_GRAPH_DB_STORE_ENABLED=false AGENT_SESSION_DB_STORE_ENABLED=false /Users/wangyiliang/.local/bin/python3.11 inline TestClient script importing app.main",
+      "exit_code": 0,
+      "result": "PASS: 277 app routes; required routes present; health 200; command 200 typed envelope with TERMINAL local-offline receipt; query 200 typed projection envelope; execute=true on commands rejected with 422; authority={execute:true} on queries rejected with 422",
+      "checks": {
+        "routes_present": true,
+        "health_ok": true,
+        "command_typed_envelope": true,
+        "query_typed_envelope": true,
+        "command_execute_field_rejected": true,
+        "query_authority_field_rejected": true,
+        "control_feedback": false
+      },
+      "route_table": {
+        "/api/v1/health": ["GET"],
+        "/api/v1/successor-runtime/v2/commands": ["POST"],
+        "/api/v1/successor-runtime/v2/queries": ["POST"]
+      },
+      "note": "app.main import stays open without PostgreSQL because workflow-graph and agent-session stores use their configured in-memory paths. Startup logs only DB-bootstrap warnings (PostgreSQL not running). No provider, canonical write, external delivery, or cutover was exercised."
+    },
+    {
+      "label": "full non-PostgreSQL tests/successor_runtime",
+      "cwd": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0/main/backend",
+      "command": "env -u SUCCESSOR_TEST_DATABASE_URL -u SUCCESSOR_DATABASE_URL WORKFLOW_GRAPH_DB_STORE_ENABLED=false AGENT_SESSION_DB_STORE_ENABLED=false /Users/wangyiliang/.local/bin/python3.11 -m pytest -q -p no:cacheprovider tests/successor_runtime",
+      "exit_code": 0,
+      "result": "1226 passed, 290 skipped, 0 failed, 3 pydantic deprecation warnings in 35.30s",
+      "note": "No SUCCESSOR_* variables were present before the run and both SUCCESSOR_TEST_DATABASE_URL and SUCCESSOR_DATABASE_URL were explicitly unset. WORKFLOW_GRAPH_DB_STORE_ENABLED=false and AGENT_SESSION_DB_STORE_ENABLED=false keep the suite offline because the local PostgreSQL/Docker daemon is unavailable."
+    }
+  ],
+  "smoke": {
+    "command": "python3.11 TestClient import of app.main; GET /api/v1/health; POST /api/v1/successor-runtime/v2/commands and /queries with LOCAL_ONLY payloads; POST extra execute/authority fields",
+    "exit_code": 0,
+    "route_count": 277,
+    "results": {
+      "health": {
+        "status_code": 200,
+        "body_summary": {"status": "ok", "provider": "openai", "env": "dev"}
+      },
+      "command": {
+        "status_code": 200,
+        "envelope_status": "ok",
+        "receipt_state": "TERMINAL",
+        "receipt_ref": "receipt:local-offline:c9-validation",
+        "no_control_fields": true
+      },
+      "query": {
+        "status_code": 200,
+        "envelope_status": "ok",
+        "data_cells": {"C9.1": "INSTALLED", "C9.2": "INSTALLED", "C9.3": "PROJECTOR_WIRING_DECLARED"},
+        "no_control_fields": true
+      },
+      "execute_field_rejected": {"status_code": 422, "error_code": "INVALID_INPUT"},
+      "authority_field_rejected": {"status_code": 422, "error_code": "INVALID_INPUT"}
+    }
+  },
+  "suite": {
+    "command": "env -u SUCCESSOR_TEST_DATABASE_URL -u SUCCESSOR_DATABASE_URL WORKFLOW_GRAPH_DB_STORE_ENABLED=false AGENT_SESSION_DB_STORE_ENABLED=false /Users/wangyiliang/.local/bin/python3.11 -m pytest -q -p no:cacheprovider tests/successor_runtime",
+    "exit_code": 0,
+    "result": "1226 passed, 290 skipped, 0 failed, 3 pydantic deprecation warnings in 35.30s"
+  },
+  "risks": [
+    "A green local build/smoke/suite is bounded evidence; it does not prove route adoption, provider attestation, live integration, production cutover, or canonical write.",
+    "Docker daemon is not running, so no containerized production-shape run was attempted.",
+    "The smoke/suite import path required WORKFLOW_GRAPH_DB_STORE_ENABLED=false and AGENT_SESSION_DB_STORE_ENABLED=false because local PostgreSQL is unavailable; DB-backed behavior was not exercised.",
+    "The frontend vite build reports one chunk above 1200 kB; this is a warning only and did not change exit code.",
+    "The suite skipped 290 tests and emitted 3 pydantic deprecation warnings; skips and warnings are not failures but mark residual non-PG/coverage boundaries."
+  ]
+}

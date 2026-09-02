@@ -1,0 +1,177 @@
+{
+  "schema": "mrw.functorial_successor.live_provider_parity_evidence.v1",
+  "version": "1.0.0",
+  "record_id": "live-provider-parity-evidence-v1-c2.3-c6.2",
+  "date": "2026-09-02",
+  "generated_at": "2026-09-02T19:53:01+0800",
+  "agent": "live_provider_wiring",
+  "evidence_class": "REAL_CALL_PARITY_BOUNDED_1_PER_PROVIDER_NO_SECRET_VALUES",
+  "status": "PASS_LIVE_PROVIDER_PARITY_BOUNDED_1_REAL_CALL_EACH",
+  "worktree": {
+    "path": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0",
+    "branch": "codex/functorial-successor-p0",
+    "head_sha": "452611fccb69188477f277550a7f8b6c98b4724c",
+    "dirty_state_observed": true
+  },
+  "candidate": null,
+  "real_call_count": 2,
+  "authority_by_cell": {
+    "C2.3": {
+      "provider": "serper",
+      "live_provider": true,
+      "canonical_write": false,
+      "external_delivery": false,
+      "cutover": false,
+      "authority_transfer": false,
+      "candidate": null
+    },
+    "C6.2": {
+      "provider": "openai",
+      "live_provider": true,
+      "canonical_write": false,
+      "external_delivery": false,
+      "cutover": false,
+      "authority_transfer": false,
+      "candidate": null
+    },
+    "all_other_successor_cells": {
+      "live_provider": false,
+      "canonical_write": false,
+      "external_delivery": false,
+      "cutover": false,
+      "authority_transfer": false,
+      "candidate": null
+    }
+  },
+  "adapter_files": [
+    {
+      "cell_id": "C2.3",
+      "path": "main/backend/app/successor_runtime/capabilities/source_library_c2_3_live_provider.py",
+      "sha256": "6e63e9383f7cffa03acff0852942a080b3a92a1541384e67e5f59a5e9f617fff"
+    },
+    {
+      "cell_id": "C6.2",
+      "path": "main/backend/app/successor_runtime/capabilities/agent_core_c6_2_live_model_port.py",
+      "sha256": "1db9d3f6ba9173d4672aad34a874a8f65319dacd3ab82f7f5d84a6db64f8279f"
+    },
+    {
+      "cell_id": "assembly-C2",
+      "path": "main/backend/app/successor_runtime/assembly/c2_assembly.py",
+      "sha256": "4978bef1d9d3bc69bfb19cb062a83a2c2895dcd6bd07045ea59e23660d651d08"
+    },
+    {
+      "cell_id": "assembly-C6",
+      "path": "main/backend/app/successor_runtime/assembly/c6_assembly.py",
+      "sha256": "b3137db13836b5590ae5e68a70e6a7df38c0ab34571f3a8e0ef0f38ad277f98f"
+    },
+    {
+      "cell_id": "C2.3-test",
+      "path": "main/backend/tests/successor_runtime/test_p3_c2_3_live_parity.py",
+      "sha256": "cf45e32468c63571d206c7d1b6e629b2f58a4d84974910a35cb8bb74d7e8f258"
+    },
+    {
+      "cell_id": "C6.2-test",
+      "path": "main/backend/tests/successor_runtime/test_p3_c6_2_live_parity.py",
+      "sha256": "fc385da268f676d949f791f16af601f4c1f583e155bad16ad7f8ad84bc402b98"
+    },
+    {
+      "cell_id": "assembly-wiring-test",
+      "path": "main/backend/tests/successor_runtime/test_i1_live_provider_wiring.py",
+      "sha256": "9c970a97ab0aa96344ced848d5372bdea6fecee4857026dfa762a2ec3273eb7e"
+    },
+    {
+      "cell_id": "real-parity-test",
+      "path": "main/backend/tests/successor_runtime/test_i1_live_provider_parity.py",
+      "sha256": "f698abfea16c2f0b8c2916ec8fe587f561f555ad95710b894a7bc45d0d10bd75"
+    }
+  ],
+  "parity_tests": [
+    {
+      "label": "C2.3 fake-transport parity",
+      "command": "python3.11 -m pytest tests/successor_runtime/test_p3_c2_3_live_parity.py -q -p no:cacheprovider",
+      "exit_code": 0,
+      "result": "8 passed, 0 failed"
+    },
+    {
+      "label": "C6.2 fake-transport parity",
+      "command": "python3.11 -m pytest tests/successor_runtime/test_p3_c6_2_live_parity.py -q -p no:cacheprovider",
+      "exit_code": 0,
+      "result": "13 passed, 0 failed"
+    },
+    {
+      "label": "assembly live wiring",
+      "command": "python3.11 -m pytest tests/successor_runtime/test_i1_live_provider_wiring.py -q -p no:cacheprovider",
+      "exit_code": 0,
+      "result": "5 passed, 0 failed"
+    },
+    {
+      "label": "real-call parity",
+      "command": "source main/backend/.env then MRW_LIVE_PROVIDER_PARITY=1 python3.11 -m pytest tests/successor_runtime/test_i1_live_provider_parity.py -q -s -p no:cacheprovider",
+      "exit_code": 0,
+      "result": "2 passed, 0 failed; exactly one real call per provider"
+    }
+  ],
+  "real_calls": [
+    {
+      "cell_id": "C2.3",
+      "provider": "serper",
+      "endpoint": "https://google.serper.dev/search",
+      "outcome_kind": "completed",
+      "provider_status": "COMPLETED",
+      "record_ref_count": 5,
+      "receipt_digest": "f6304005ca21a720057a67b75ebae200cef9516722288d6f61936b0c86470e60",
+      "outcome_digest": "29cfc7a0bbdab7aa15df03dac7d470b7ce3c417223367274b894855c0299db20",
+      "provider_calls": 1,
+      "real_provider_calls": 1,
+      "latency_ms": 2359.277
+    },
+    {
+      "cell_id": "C6.2",
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "endpoint": "https://api.openai.com/v1/chat/completions",
+      "outcome_code": "ProviderStepSucceeded",
+      "readback_status": "NOT_APPLICABLE",
+      "receipt_digest": "40c8e6620943cd2446052686bfe51335cc11430df5ed210d88e4f9f16434344e",
+      "result_digest": "ac65a1937c5c6dbf6c6dde49eb3679e0c135e7e56686719f88eff8b4b5d17711",
+      "provider_calls": 1,
+      "latency_ms": 4781.643
+    }
+  ],
+  "verification": [
+    {
+      "label": "full non-PostgreSQL successor_runtime suite",
+      "command": "env -u SUCCESSOR_TEST_DATABASE_URL -u SUCCESSOR_DATABASE_URL WORKFLOW_GRAPH_DB_STORE_ENABLED=false AGENT_SESSION_DB_STORE_ENABLED=false python3.11 -m pytest -q -p no:cacheprovider tests/successor_runtime",
+      "exit_code": 0,
+      "result": "1425 passed, 119 skipped, 0 failed, 3 pydantic deprecation warnings"
+    },
+    {
+      "label": "successor runtime dependency lint",
+      "command": "python3.11 scripts/check_successor_runtime_dependencies.py",
+      "exit_code": 0,
+      "result": "ok=true; 211 files; 43 function-local imports; 0 violations"
+    },
+    {
+      "label": "ruff check and format on changed files",
+      "command": "ruff check ... && ruff format --check ...",
+      "exit_code": 0,
+      "result": "all checks passed; 8 files formatted"
+    },
+    {
+      "label": "git whitespace check",
+      "command": "git diff --check",
+      "exit_code": 0,
+      "result": "PASS"
+    }
+  ],
+  "risks": [
+    "Authority status in this evidence is per-cell and bounded to C2.3/C6.2 live provider calls; it does not authorize canonical write, external delivery, cutover, authority transfer, candidate, or production adoption.",
+    "C2.3 live Serper is synchronous and exposes no provider job readback; readback is ReadbackUnavailable and non-start is NonStartUnprovable by design.",
+    "C6.2 live OpenAI is synchronous chat completions; the port returns NON_START_PROOF only for pre-send unknown paths and does not claim a provider-side authoritative readback API.",
+    "Live assembly selection reads process environment (SERPER_API_KEY/OPENAI_API_KEY), not pydantic .env state; the default app mount remains LOCAL_ONLY unless the caller explicitly supplies live options or exports credentials.",
+    "Real-call result is a successful snapshot at the recorded time and does not prove future provider availability, rate, model retention, or cost behavior.",
+    "candidate remains null; no commit/push/reset/clean was performed and pre-existing dirty-worktree changes were preserved."
+  ],
+  "content_digest_basis": "canonical_json_excluding_content_digest_recursive_ensure_ascii_true_sort_keys_compact_no_trailing_newline",
+  "content_digest": "c411099368af1556c6bb4fc2d75f9782cb627b87f44674146659147956740b82"
+}

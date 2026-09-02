@@ -9,6 +9,7 @@ network, database or canonical write is performed by assembly construction.
 
 from __future__ import annotations
 
+import dataclasses
 from collections.abc import Callable
 from typing import Any
 
@@ -32,6 +33,9 @@ from app.successor_runtime.capabilities import (
     agent_core_c6_2_interpreters as c6_2i,
 )
 from app.successor_runtime.capabilities import (
+    agent_core_c6_2_live_model_port as c6_2_live,
+)
+from app.successor_runtime.capabilities import (
     agent_core_c6_3 as c6_3,
 )
 from app.successor_runtime.capabilities import (
@@ -51,7 +55,11 @@ from app.successor_runtime.substrate.postgres.agent_core_c6_handler import (
     AgentCoreC6StoreRehydratedHandler,
 )
 
-__all__ = ["build_c6_assembly", "build_deterministic_fixtures"]
+__all__ = [
+    "build_c6_assembly",
+    "build_deterministic_fixtures",
+    "build_openai_live_fixture_options",
+]
 
 _C6_FRAGMENT = (
     "development/latest-dev-docs/development-plans/CURRENT_DEV/"
@@ -178,6 +186,51 @@ def build_deterministic_fixtures() -> dict[str, Any]:
     }
 
 
+def _is_live_provider_port(port: Any) -> bool:
+    """Recognize the live OpenAI provider port without importing it by name."""
+
+    if port is None:
+        return False
+    return bool(getattr(port, "live_provider", False)) or str(
+        getattr(port, "interpreter_id", "")
+    ).startswith("live.")
+
+
+def build_openai_live_fixture_options(
+    *,
+    api_key_provider: Callable[[], str | None] | None = None,
+    transport: Any | None = None,
+    model: str | None = None,
+    base_url: str | None = None,
+    timeout_seconds: float = 30.0,
+) -> C6AssemblyOptions | None:
+    """Return the full deterministic C6 closure with a live OpenAI port.
+
+    Assembly construction never calls the provider.  Missing ``OPENAI_API_KEY``
+    keeps the caller on the deterministic receipt-only fixture closure.
+    """
+
+    port = c6_2_live.build_openai_live_provider_port(
+        api_key_provider=api_key_provider,
+        transport=transport,
+        model=model,
+        base_url=base_url,
+        timeout_seconds=timeout_seconds,
+    )
+    if port is None:
+        return None
+    fixtures = build_deterministic_fixtures()
+    fixtures["provider_port"] = port
+    return C6AssemblyOptions(
+        **fixtures,
+        note=(
+            "LIVE_PROVIDER_DIMENSION_RESOLVED_OPENAI deterministic fixture "
+            "closure with the env-backed live provider port; no provider "
+            "invocation occurs during assembly construction"
+        ),
+    )
+
+
 def _missing_fixtures(
     cell: dict[str, object],
     options: C6AssemblyOptions,
@@ -268,6 +321,18 @@ def build_c6_assembly(
     """Install each C6 store handler when its fixture closure is complete."""
 
     opts = options or C6AssemblyOptions()
+    if opts.provider_port is None:
+        live_port = c6_2_live.build_openai_live_provider_port()
+        if live_port is not None:
+            opts = dataclasses.replace(
+                opts,
+                provider_port=live_port,
+                note=(
+                    "LIVE_PROVIDER_DIMENSION_RESOLVED_OPENAI env-backed "
+                    "provider port; no provider invocation occurs during "
+                    "assembly construction"
+                ),
+            )
     cells: list[CellBinding] = []
     handlers: list[Any] = []
     for spec in _CELLS:
@@ -323,11 +388,20 @@ def build_c6_assembly(
                 deployment_catalog_digest=binding.deployment_catalog_digest,
                 provider_port=opts.provider_port,
             )
-            note = (
-                "LOCAL_OFFLINE deterministic fixture closure; "
-                "LIVE_PROVIDER_DIMENSION_UNRESOLVED: fixture provider port "
-                "is not a production provider"
-            )
+            if _is_live_provider_port(opts.provider_port):
+                note = (
+                    "LIVE_PROVIDER_DIMENSION_RESOLVED_OPENAI: "
+                    "AgentCoreC6StoreRehydratedHandler uses the env-backed "
+                    "live OpenAI provider port; no provider invocation "
+                    "occurs during assembly construction and receipts stay "
+                    "redacted"
+                )
+            else:
+                note = (
+                    "LOCAL_OFFLINE deterministic fixture closure; "
+                    "LIVE_PROVIDER_DIMENSION_UNRESOLVED: fixture provider port "
+                    "is not a production provider"
+                )
         else:
             handler = AgentCoreC6StoreRehydratedHandler(
                 uow_factory=uow_factory,
