@@ -4,7 +4,7 @@
   "record_id": "AllLinesAuthorityDecisionRequest.v1",
   "date": "2026-09-02",
   "generated_at_utc": "2026-09-02T16:30:00Z",
-  "status": "AWAITING_USER_AUTHORITY_DECISION_NOT_GRANTED",
+  "status": "OPT_B_SELECTED_EXACT_CANDIDATE_PASS_AWAITING_ITEMIZED_RUNNABLE_AUTHORITY",
   "generated_by": "root-supervisor-01a06230",
   "goal_ref": "MRW 全线迁移（调查/冻结/逐条线迁移/双门 review/授权后运行面验收）",
   "precondition_evidence": {
@@ -69,5 +69,19 @@
     }
   ],
   "decision_not_granted_note": "本记录只表达等待中的授权请求，不构成任何 authority/candidate/live/cutover 授权，也不改变 legacy 可用状态。",
-  "supervisor_boundary_note": "候选创建、运行面验收与 authority transfer 仅在用户对上述 scope 明确批准后执行；批准应以本记录或其后续监督记录为准。"
+  "supervisor_boundary_note": "候选创建、运行面验收与 authority transfer 仅在用户对上述 scope 明确批准后执行；批准应以本记录或其后续监督记录为准。",
+  "opt_a_result": {
+    "verdict": "PASS_EXACT_CANDIDATE",
+    "review_artifact": "evidence/reviews/AllLinesExactCandidateFinalReview.v1.json",
+    "review_sha256": "84bca5dc826b64d47c66631330badd79a0325a29a647dde6dfdeb4cb09b5ed62",
+    "candidate_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+    "candidate_tree": "5840bf9ba906c49f70020d226c54446f4ba5aa33",
+    "granted": "OPT-A (local-only exact-candidate creation and I2-style final review)"
+  },
+  "next_authorization_items": [
+    "ITEM-01: all-lines 生产 canonical write（仅 successor 表，disposable/local 库先行，限已 PASS 的 exact-candidate 字节）",
+    "ITEM-02: all-lines live provider bounded parity（真实凭据存在且 parity 通过才执行；否则如实 BLOCK）",
+    "ITEM-03: Docker 全栈 all-lines cutover rehearsal（容器化、legacy 保持可用、不替换生产路由）",
+    "ITEM-04: 生产 cutover / authority transfer / legacy retirement（不在 OPT-B 默认解锁内，需另行逐项批准）"
+  ]
 }

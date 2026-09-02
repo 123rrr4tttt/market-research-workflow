@@ -637,3 +637,16 @@ When the target task reaches a review boundary, it must return a message beginni
 - `evidence/all-lines-investigation/AllLinesAuthorityDecisionRequest.v1.json`（commit `02afce68`）落盘：状态 `AWAITING_USER_AUTHORITY_DECISION_NOT_GRANTED`，authority 全 false。
 - 预条件已闭合：0 UB、双门 PASS、P1 独立评审 PASS、非 PG `1565/119/0`、PG `353/0/0`、spec `30/30 MATCH`、语义 generator/validator PASS。
 - 等待用户对候选/运行面验收 scope 明确批准；本记录不构成任何授权。
+
+## User authorization: OPT-B (2026-09-02)
+
+- 用户批准 `OPT-B`：先执行 all-lines local-only exact-candidate + I2 式候选终审；PASS 后再逐项评估 runnable/authority 门。
+- 授权边界：OPT-B 不预设 live/cutover/authority transfer/promotion；后续每个 runnable/authority 门仍需逐项明确批准。
+
+## All-lines exact-candidate I2 review PASS (2026-09-02)
+
+- 独立 I2 终审 `evidence/reviews/AllLinesExactCandidateFinalReview.v1.json`（SHA-256 `84bca5dc…`）verdict `PASS_EXACT_CANDIDATE`，candidate commit `3706655f` / tree `5840bf9b…`，10/10 items PASS。
+- 实测：freeze 16/16 ALL_MATCH；semantic generator `CHECK_OK 60/0`；validator `PASS` 323/323；spec 30/30 MATCH；非 PG `1565/119/0`（69.53s）；PG canary canonical-write `9 passed` + movement-admission `50 passed`、零残留；dependency ok=true（237/0）；候选 detached tree porcelain 0。
+- Open findings 非阻断：P1 `ALL_LINES_EXACT_REFERENCE_GAP`（007/015 引用非最大化精确，继承）、P1 `PRIOR_STATE_DOCUMENTS_NOT_SUPERSEDED_INLINE`（继承）；P2 `P1_ADDENDUM_AND_STATUS_POSTDATED_REVIEW`、P2 `PG_CANARY_37_OF_39_NOT_RERUN`、P2 `PG_EVIDENCE_HEAD_IS_GENERATION_CONTEXT`。
+- 状态：`ALL_LINES_EXACT_CANDIDATE_PASS_LOCAL_ONLY`；authority 仍全 false；未 push、未 promotion。
+- 下一步：按 OPT-B 进入 runnable/authority 门逐项评估；每项待用户明确批准。

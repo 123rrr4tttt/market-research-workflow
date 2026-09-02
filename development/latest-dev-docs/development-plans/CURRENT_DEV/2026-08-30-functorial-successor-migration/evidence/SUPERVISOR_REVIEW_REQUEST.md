@@ -352,3 +352,15 @@ SUPERVISOR_REVIEW_REQUEST
 - `AllLinesAuthorityDecisionRequest.v1.json`（commit `02afce68`）状态 `AWAITING_USER_AUTHORITY_DECISION_NOT_GRANTED`；authority 六项全 false。
 - 决策选项已结构化：OPT-A = 仅 local-only exact-candidate + I2 式候选终审；OPT-B = OPT-A 通过后再逐项评估 runnable/authority 门。live/cutover/authority transfer 不在任何选项的默认解锁范围内。
 - 等待用户批准；批准前不创建候选、不做运行面验收。
+
+## User authorization: OPT-B selected (2026-09-02)
+
+- 用户选择 `OPT-B`：执行 all-lines local-only exact-candidate + I2 式终审；PASS 后逐项评估 runnable/authority 门（每项仍需明确批准）。
+
+## All-lines exact-candidate I2 review PASS (2026-09-02)
+
+- `evidence/reviews/AllLinesExactCandidateFinalReview.v1.json`（SHA-256 `84bca5dc…`）verdict `PASS_EXACT_CANDIDATE`；candidate commit `3706655f` / tree `5840bf9b…`；10/10 PASS。
+- 实测：freeze 16/16、generator `CHECK_OK 60/0`、validator PASS、spec 30/30 MATCH、非 PG `1565/119/0`、PG canary `9+50 passed`、dependency 237/0、candidate tree clean。
+- 非阻断 open findings：P1 x2（精确引用 gap / 历史状态未行内 supersede，继承），P2 x3（postdate、37/39 PG 未复跑、PG head 为生成上下文）。
+- 监督接受：`SUPERVISOR_ACCEPT_ALL_LINES_EXACT_CANDIDATE_LOCAL_ONLY`；authority 全 false；live/cutover/authority transfer 未解锁。
+- 下一步：按 OPT-B 把 runnable/authority 门逐项列出供用户批准；每项批准后才执行。
