@@ -677,3 +677,17 @@ When the target task reaches a review boundary, it must return a message beginni
 - 未执行原因（如实）：生产 registry resolver 关闭（resolve_expected 抛错）、successor 端点默认无认证、前端 successor 组件未接入页面/路由、真实 rollback/备份/DB 降级 drill 未跑、donor/origin 写入未获目标授权；且 ITEM-04 的 legacy retirement 与目标条款“legacy 保持可用且不退休”冲突，未获显式覆盖前不执行。
 - authority：cutover/authority_transfer/legacy_retired/production_canonical_write 全 false。
 - 下一步：需用户在「本地栈 cutover（不动 donor/origin，legacy 保留可逆停用）」与「donor/origin cutover（需备份/回滚与 push 授权）」之间明确目标；或先批准补齐生产 resolver/认证/前端接线/回滚 drill 后，再按 stop/go 执行正式 cutover。
+
+## User authorization: donor/origin cutover with rollback (2026-09-03)
+
+- 用户指令：选择 donor/origin cutover，并要求“给出明确回滚点并执行 donor”。
+- 授权边界：允许切换 donor 主工作树（`/Users/wangyiliang/market-research-workflow`）到 exact-candidate 字节；保留 legacy 代码/路由/页面与既有 dirty 所有权；未授权 push/merge origin、未授权删除 legacy 代码。
+- 已建立回滚点：git tag `rollback/all-lines-donor-pre-cutover-2026-09-03` → `35ca039c`；旧分支 `codex/devdocs-supervisor-seed` 保留；回滚包 `/Users/wangyiliang/.codex/rollback/all-lines-donor-cutover-2026-09-03/`（606 项 dirty 快照 + tracked binary patch + 删除/untracked 清单 + 29 个 overlap 原件 + ROLLBACK.md）。
+
+## Donor code cutover executed (2026-09-03)
+
+- donor 主工作树已从 `codex/devdocs-supervisor-seed`（35ca039c）切换到新分支 `codex/all-lines-donor-cutover`（HEAD/tree = `3706655f` / `5840bf9b`，即 I2 PASS exact-candidate）。
+- 证据：`evidence/all-lines-runnable/AllLinesItem04DonorCutoverEvidence.v1.json`，状态 `DONOR_CODE_CUTOVER_EXECUTED_ROLLBACK_POINT_ESTABLISHED`。
+- dirty 处理：606 → 598 项延续；8 个 tracked-modified overlap 与 21 个 untracked-overlap 由候选字节替代，原件全部保存于 rollback 包；未 commit/push donor。
+- 状态：cutover（code-level donor branch）= true；origin_push/authority_transfer/legacy_retired/production_canonical_write/candidate_promotion 全 false。
+- 下一步：由用户决定是否 (a) 以干净 checkout 启动 donor 服务（避免 598 dirty 影响运行时字节），(b) 授权 origin push/merge，或 (c) 先补齐生产 resolver/认证/前端接线后做正式 runnable cutover。

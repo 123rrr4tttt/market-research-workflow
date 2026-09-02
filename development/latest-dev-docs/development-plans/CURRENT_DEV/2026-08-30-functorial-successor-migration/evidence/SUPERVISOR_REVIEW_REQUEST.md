@@ -389,3 +389,11 @@ SUPERVISOR_REVIEW_REQUEST
 - 状态：`ITEM_04_MILESTONE_PREPARED_CUTOVER_BLOCKED_BY_PRODUCTION_GAPS_AND_UNADDRESSED_SCOPE`。
 - 未执行字面 cutover/retirement 的原因（证据化）：successor production resolver 关闭、端点默认无认证、前端 successor 未接线、真实回滚/备份/降级 drill 未跑；donor/origin 目标未获授权；ITEM-04 的 legacy retirement 与“legacy 保持可用且不退休”条款冲突。
 - 等待用户明确目标（本地栈 cutover vs donor/origin cutover）或批准补足生产缺口后再执行 stop/go cutover。
+
+## Donor cutover executed with rollback point (2026-09-03)
+
+- 用户批准 donor/origin cutover 并要求“给出明确回滚点并执行 donor”。
+- 回滚点：tag `rollback/all-lines-donor-pre-cutover-2026-09-03` → `35ca039c`；旧分支 `codex/devdocs-supervisor-seed` 保留；rollback 包 `/Users/wangyiliang/.codex/rollback/all-lines-donor-cutover-2026-09-03/`。
+- donor 主工作树已切换：`codex/all-lines-donor-cutover` → HEAD/tree `3706655f`/`5840bf9b`（exact candidate）；证据 `evidence/all-lines-runnable/AllLinesItem04DonorCutoverEvidence.v1.json`。
+- 边界：未 push/merge origin、未删除 legacy 代码、未做 runnable cutover；598 项既有 dirty 延续并留痕。authority：code-level cutover only。
+- 待决：是否干净 checkout 启动 donor 服务 / 授权 origin / 补齐生产缺口后正式 runnable cutover。
