@@ -5,7 +5,7 @@
   "status": "I1_ASSEMBLY_LOCAL_ONLY_CLOSED_30_INSTALLED_NOT_PROMOTED",
   "assembly_configuration": "local_offline_fixture_closures (build_local_offline_fixture_options)",
   "composition_root": "app.successor_runtime.assembly.successor_assembly.assemble_successor_runtime -> compose_postgres_first_specimen_runtime (additional_handlers); options=build_local_offline_fixture_options()",
-  "route_mounted": false,
+  "route_mounted": true,
   "run_once_started": false,
   "authority_ceiling": {
     "canonical_write": false,
@@ -985,5 +985,13 @@
     "registered_projectors": 6,
     "registry_digest": "9dfc73a3b1bbbc46fb98773197146fa3ab5d32a97a54443505aef215524e19b9",
     "note": "REGISTRY_REGISTRATION_ONLY_NO_PG_WRITE_AUTHORITY_CLOSED: in-memory assembly registry; no PostgreSQL write adopted"
+  },
+  "head": "1825870a9623dd256fa075053ab89d786c84b6bd",
+  "commit": "1825870a9623dd256fa075053ab89d786c84b6bd",
+  "tree": "63bcc270edf9e880ef04dfeb9413b9c634956bbb",
+  "candidate": {
+    "commit": "1825870a9623dd256fa075053ab89d786c84b6bd",
+    "tree": "63bcc270edf9e880ef04dfeb9413b9c634956bbb",
+    "branch": "codex/functorial-successor-p0"
   }
 }

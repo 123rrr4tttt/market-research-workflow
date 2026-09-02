@@ -55,7 +55,11 @@
     "authority_transfer": false,
     "candidate_created": false
   },
-  "candidate": null,
+  "candidate": {
+    "commit": "1825870a9623dd256fa075053ab89d786c84b6bd",
+    "tree": "63bcc270edf9e880ef04dfeb9413b9c634956bbb",
+    "branch": "codex/functorial-successor-p0"
+  },
   "files": [
     {
       "path": "main/backend/app/successor_runtime/assembly/c8_assembly.py",
@@ -74,12 +78,12 @@
     },
     {
       "path": "main/backend/tests/successor_runtime/test_i1_assembly_composition_root.py",
-      "sha256": "4ad2279674d0ff975e6ab6b09d98fa2785ae8914fb651e42a52663c0214df79f",
+      "sha256": "df5c420e7ac93d0c713cd7e10696c4bf6b5429019ad4904b4be7d3bfcbba2d4a",
       "role": "closed coverage matrix updated to 29 INSTALLED"
     },
     {
       "path": "main/backend/tests/successor_runtime/test_api_successor_runtime_mount.py",
-      "sha256": "617dd3828a0480ffe0991ae3c97c87da0b650620704be0fd4097c07443bc2630",
+      "sha256": "f0e75561cd164783b3e8b76a3c9fbec40527a3a316d51f3c5668c799a9b85dec",
       "role": "app-mount closed options assert C8.3 INSTALLED"
     },
     {

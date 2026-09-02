@@ -5,7 +5,7 @@
   "status": "C7_2_CANONICAL_WRITE_INSTALLED_C7_3_PROJECTOR_DRIVER_INSTALLED_PG_GREEN",
   "note": "C7.2 installs a real successor-only canonical commit-write handler over admit_verified_candidate (idempotent exact duplicate, ABA and authority-epoch fail-closed). C7.3 installs the successor-only projector driver, registers search/graph projector contracts in ProjectorRegistry, persists successor_values and advances runtime_projection_offsets with an exact CAS. All writes stay inside successor-owned tables; legacy/provider/export/cutover remain closed.",
   "worktree": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0",
-  "head": "35ca039c59d2efae8038a678995e8a0812032e43",
+  "head": "1825870a9623dd256fa075053ab89d786c84b6bd",
   "cwd": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0/main/backend",
   "interpreter": "python3.11",
   "content_sha256_before_self_field": "4f0c72fbad437bee257d01a63a3a87222a0e204536fccb3f1b467bf79ba223de",
@@ -32,6 +32,13 @@
     }
   ],
   "runs": [
+    {
+      "label": "candidate rerun: C7 canonical write + movement admission PG combined",
+      "command": "SUCCESSOR_TEST_DATABASE_URL=postgresql+psycopg2://localhost/postgres python3.11 -m pytest -q -p no:cacheprovider tests/successor_runtime/test_c7_canonical_write_projector_postgres.py tests/successor_runtime/test_c7_movement_admission_postgres.py",
+      "exit_code": 0,
+      "result": "59 passed (9 canonical-write/projector + 50 movement admission); disposable databases dropped on teardown",
+      "notes": "candidate-byte rerun 2026-09-02 in temporary checkout at 1825870a9623dd256fa075053ab89d786c84b6bd"
+    },
     {
       "label": "C7 canonical write + projector driver PG suite",
       "command": "SUCCESSOR_TEST_DATABASE_URL=postgresql+psycopg2://localhost/postgres python3.11 -m pytest -q -p no:cacheprovider tests/successor_runtime/test_c7_canonical_write_projector_postgres.py",
@@ -60,7 +67,8 @@
       "label": "full non-PostgreSQL tests/successor_runtime",
       "command": "python3.11 -m pytest -q -p no:cacheprovider tests/successor_runtime",
       "exit_code": 0,
-      "result": "1394 passed, 117 skipped, 3 pydantic deprecation warnings"
+      "result": "1399 passed, 117 skipped, 3 pydantic deprecation warnings",
+      "notes": "candidate-byte rerun 2026-09-02 in temporary checkout at 1825870a9623dd256fa075053ab89d786c84b6bd"
     },
     {
       "label": "successor runtime dependency lint",
@@ -99,5 +107,12 @@
     "cutover": false,
     "authority_transfer": false,
     "promotion": false
+  },
+  "commit": "1825870a9623dd256fa075053ab89d786c84b6bd",
+  "tree": "63bcc270edf9e880ef04dfeb9413b9c634956bbb",
+  "candidate": {
+    "commit": "1825870a9623dd256fa075053ab89d786c84b6bd",
+    "tree": "63bcc270edf9e880ef04dfeb9413b9c634956bbb",
+    "branch": "codex/functorial-successor-p0"
   }
 }

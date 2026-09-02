@@ -14,23 +14,24 @@
     },
     {
       "label": "I1 focused suite",
-      "command": "python3.11 -m pytest tests/successor_runtime -q -k i1",
+      "command": "env -u SUCCESSOR_TEST_DATABASE_URL -u SUCCESSOR_DATABASE_URL python3.11 -m pytest -q -p no:cacheprovider tests/successor_runtime -k i1",
       "exit_code": 0,
-      "result": "50 passed, 1437 deselected, 0 failed, 3 pydantic deprecation warnings",
-      "notes": "previous recorded count 42 passed; +8 I1 tests after C1.1 route and six projector registrations"
+      "result": "55 passed, 1461 deselected, 0 failed, 3 pydantic deprecation warnings",
+      "notes": "candidate-byte rerun 2026-09-02 in temporary checkout at 1825870a9623dd256fa075053ab89d786c84b6bd"
     },
     {
       "label": "full non-PostgreSQL tests/successor_runtime",
-      "command": "python3.11 -m pytest tests/successor_runtime -q",
+      "command": "env -u SUCCESSOR_TEST_DATABASE_URL -u SUCCESSOR_DATABASE_URL python3.11 -m pytest -q -p no:cacheprovider tests/successor_runtime",
       "exit_code": 0,
-      "result": "1370 passed, 117 skipped, 0 failed, 3 pydantic deprecation warnings",
-      "notes": "previous recorded count 1362 passed; +8 I1 tests"
+      "result": "1399 passed, 117 skipped, 0 failed, 3 pydantic deprecation warnings",
+      "notes": "candidate-byte rerun 2026-09-02 in temporary checkout at 1825870a9623dd256fa075053ab89d786c84b6bd"
     },
     {
       "label": "successor runtime dependency lint",
       "command": "python3.11 scripts/check_successor_runtime_dependencies.py",
       "exit_code": 0,
-      "result": "ok=true, files_checked=206, function_local_imports_scanned=43, violations=0"
+      "result": "ok=true, files_checked=209, function_local_imports_scanned=43, violations=0",
+      "notes": "candidate-byte rerun 2026-09-02 at 1825870a9623dd256fa075053ab89d786c84b6bd"
     },
     {
       "label": "ruff check",
@@ -73,11 +74,48 @@
       "command": "SUCCESSOR_TEST_DATABASE_URL=postgresql+psycopg2://localhost/postgres python3.11 -m pytest -q -p no:cacheprovider tests/successor_runtime/test_p3_c4_4_postgres.py tests/successor_runtime/test_p3_c4_5_runtime_postgres.py",
       "exit_code": 0,
       "result": "3 passed + 3 passed; disposable databases dropped on teardown"
+    },
+    {
+      "label": "candidate rerun: route-mount + C9 movement closure focused",
+      "command": "python3.11 -m pytest -q -p no:cacheprovider tests/successor_runtime/test_api_successor_runtime_mount.py tests/successor_runtime/test_c9_movement_closure_backend.py",
+      "exit_code": 0,
+      "result": "35 passed, 0 failed, 3 pydantic deprecation warnings",
+      "notes": "candidate-byte rerun 2026-09-02 in temporary checkout at 1825870a9623dd256fa075053ab89d786c84b6bd"
+    },
+    {
+      "label": "candidate rerun: I1 / API-mount / C9 focused suite",
+      "command": "python3.11 -m pytest -q -p no:cacheprovider tests/successor_runtime -k \"i1 or api_successor_runtime or c9_movement_closure\"",
+      "exit_code": 0,
+      "result": "128 passed, 1388 deselected, 0 failed, 3 pydantic deprecation warnings",
+      "notes": "candidate-byte rerun 2026-09-02 in temporary checkout at 1825870a9623dd256fa075053ab89d786c84b6bd"
+    },
+    {
+      "label": "candidate rerun: C7 canonical write + movement admission PG",
+      "command": "SUCCESSOR_TEST_DATABASE_URL=postgresql+psycopg2://localhost/postgres python3.11 -m pytest -q -p no:cacheprovider tests/successor_runtime/test_c7_canonical_write_projector_postgres.py tests/successor_runtime/test_c7_movement_admission_postgres.py",
+      "exit_code": 0,
+      "result": "59 passed; disposable databases dropped on teardown",
+      "notes": "candidate-byte rerun 2026-09-02 in temporary checkout at 1825870a9623dd256fa075053ab89d786c84b6bd"
+    },
+    {
+      "label": "candidate rerun: frontend typecheck",
+      "cwd": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0/main/frontend-modern",
+      "command": "./node_modules/.bin/tsc -b --pretty false",
+      "exit_code": 0,
+      "result": "PASS",
+      "notes": "candidate-byte rerun 2026-09-02 in temporary checkout at 1825870a9623dd256fa075053ab89d786c84b6bd"
+    },
+    {
+      "label": "candidate rerun: C9.2 frontend focused e2e",
+      "cwd": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0/main/frontend-modern",
+      "command": "./node_modules/.bin/playwright test tests/e2e/successor-runtime-observation.spec.ts tests/e2e/successor-runtime-client.spec.ts --reporter=line --workers=1",
+      "exit_code": 0,
+      "result": "60 passed (44 existing successor-runtime-client + 16 new successor-runtime-observation), 0 failed",
+      "notes": "candidate-byte rerun 2026-09-02 in temporary checkout at 1825870a9623dd256fa075053ab89d786c84b6bd"
     }
   ],
   "not_run": [
-    "SUCCESSOR_TEST_DATABASE_URL full PostgreSQL opt-in suites beyond the installed-family canaries: not executed; non-PG green does not prove PG coverage",
-    "WP-I1-06 app router mounting / run_once: NOT_AUTHORIZED"
+    "run_once / live provider / external delivery / legacy cutover: NOT_AUTHORIZED; candidate mounts the app router locally only",
+    "full PostgreSQL opt-in suites beyond C7 canonical write + movement admission (59 passed) and installed-family canaries: not executed this pass"
   ],
   "authority_ceiling": {
     "canonical_write": false,
@@ -86,5 +124,13 @@
     "cutover": false,
     "authority_transfer": false,
     "candidate_created": false
+  },
+  "head": "1825870a9623dd256fa075053ab89d786c84b6bd",
+  "commit": "1825870a9623dd256fa075053ab89d786c84b6bd",
+  "tree": "63bcc270edf9e880ef04dfeb9413b9c634956bbb",
+  "candidate": {
+    "commit": "1825870a9623dd256fa075053ab89d786c84b6bd",
+    "tree": "63bcc270edf9e880ef04dfeb9413b9c634956bbb",
+    "branch": "codex/functorial-successor-p0"
   }
 }

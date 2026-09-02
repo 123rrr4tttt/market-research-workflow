@@ -5,7 +5,7 @@
   "status": "MOUNTED_LOCAL_ONLY_NOT_PROMOTED",
   "worktree": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0",
   "branch": "codex/functorial-successor-p0",
-  "head": "35ca039c59d2efae8038a678995e8a0812032e43",
+  "head": "1825870a9623dd256fa075053ab89d786c84b6bd",
   "mount": {
     "final_prefix": "/api/v1/successor-runtime/v2",
     "router_factory": "app.api.successor_runtime.create_successor_runtime_router",
@@ -37,7 +37,10 @@
     "preserved": true,
     "total_routes": 310,
     "unique_paths": 277,
-    "health_paths_present": ["/api/v1/health", "/api/v1/health/deep"],
+    "health_paths_present": [
+      "/api/v1/health",
+      "/api/v1/health/deep"
+    ],
     "note": "No existing endpoint replaced; successor routes are additive only"
   },
   "files": [
@@ -53,7 +56,7 @@
     },
     {
       "path": "main/backend/tests/successor_runtime/test_api_successor_runtime_mount.py",
-      "sha256": "4baba7f89feeb29c3420d577053dd8320d89c157fca8e9ea4627bafa5c15b71c",
+      "sha256": "f0e75561cd164783b3e8b76a3c9fbec40527a3a316d51f3c5668c799a9b85dec",
       "change": "new route/assembly tests: typed envelope, six v2 states, typed rejection, no control feedback, authority all false, legacy preserved"
     }
   ],
@@ -63,14 +66,16 @@
       "cwd": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0/main/backend",
       "command": "python3.11 -m pytest -q -p no:cacheprovider tests/successor_runtime/test_api_successor_runtime_mount.py tests/successor_runtime/test_c9_movement_closure_backend.py",
       "exit_code": 0,
-      "result": "35 passed, 0 failed, 3 pydantic deprecation warnings"
+      "result": "35 passed, 0 failed, 3 pydantic deprecation warnings",
+      "notes": "candidate-byte rerun 2026-09-02 in temporary checkout at 1825870a9623dd256fa075053ab89d786c84b6bd"
     },
     {
       "label": "I1 / API-mount / C9 focused suite",
       "cwd": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0/main/backend",
       "command": "python3.11 -m pytest -q -p no:cacheprovider tests/successor_runtime -k \"i1 or api_successor_runtime or c9_movement_closure\"",
       "exit_code": 0,
-      "result": "123 passed, 1388 deselected, 0 failed, 3 warnings"
+      "result": "128 passed, 1388 deselected, 0 failed, 3 warnings",
+      "notes": "candidate-byte rerun 2026-09-02 in temporary checkout at 1825870a9623dd256fa075053ab89d786c84b6bd"
     },
     {
       "label": "app import smoke + final route table",
@@ -102,12 +107,19 @@
     "authority_transfer": false,
     "candidate_created": false
   },
-  "candidate": null,
+  "candidate": {
+    "commit": "1825870a9623dd256fa075053ab89d786c84b6bd",
+    "tree": "63bcc270edf9e880ef04dfeb9413b9c634956bbb",
+    "branch": "codex/functorial-successor-p0"
+  },
   "fail_closed": [
     "MOUNTED_LOCAL_ONLY_NOT_PROMOTED: mount uses in-memory facade/resolver only; no PostgreSQL write, live provider, external delivery, cutover or authority transfer",
     "C8.3 app-caller authority stays closed; the mounted facade only exposes the deterministic C9 facade validation surface",
     "resolve_expected (production registry path) is closed in LocalOnlyProjectScopeResolver",
     "Existing API_SCHEMA_INVENTORY_2026-05-22.md drift is pre-existing at HEAD (5 operations from typed-knowledge/source_library commits); this mount adds exactly 2 successor operations and the inventory doc is outside this work package's allowed writes",
     "Verification ran while the WP-I1-05 C7 lane files (c7_canonical_write.py / c7_projector_driver.py) were being written concurrently; final focused runs passed with all files present"
-  ]
+  ],
+  "commit": "1825870a9623dd256fa075053ab89d786c84b6bd",
+  "tree": "63bcc270edf9e880ef04dfeb9413b9c634956bbb",
+  "route_mounted": true
 }

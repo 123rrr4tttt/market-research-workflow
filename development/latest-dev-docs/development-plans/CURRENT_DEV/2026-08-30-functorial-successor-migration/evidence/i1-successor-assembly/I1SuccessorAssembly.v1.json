@@ -2,12 +2,15 @@
   "evidence_id": "I1SuccessorAssembly.v1",
   "schema": "mrw.functorial_successor.i1_successor_assembly_evidence.v1",
   "version": "1.0.0",
-  "status": "DESIGN_EVIDENCE_ONLY_NOT_IMPLEMENTED_NOT_PROMOTION",
+  "status": "IMPLEMENTED_LOCAL_ONLY_CANDIDATE_BOUND_NOT_PROMOTED",
   "generated_at": "2026-09-02",
   "worktree": {
     "path": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0",
     "branch": "codex/functorial-successor-p0",
-    "head_short_sha256": "35ca039c"
+    "head_short_sha256": "1825870a",
+    "head": "1825870a9623dd256fa075053ab89d786c84b6bd",
+    "commit": "1825870a9623dd256fa075053ab89d786c84b6bd",
+    "tree": "63bcc270edf9e880ef04dfeb9413b9c634956bbb"
   },
   "scope": {
     "read_only": true,
@@ -101,12 +104,22 @@
           "rollback binding: legacy_workflow_graph.py (spec 已绑定)"
         ],
         "acceptance_evidence": {
-          "micro": ["test_p5_c1_legacy_dsl_parity.py"],
-          "legacy_trace_replay": ["test_p5_c1_legacy_oracle.py"],
-          "shadow_parity": ["test_p5_c1_legacy_dsl_parity.py"],
-          "rollback": ["test_p5_c1_legacy_dsl_parity.py (rollback 部分)"],
+          "micro": [
+            "test_p5_c1_legacy_dsl_parity.py"
+          ],
+          "legacy_trace_replay": [
+            "test_p5_c1_legacy_oracle.py"
+          ],
+          "shadow_parity": [
+            "test_p5_c1_legacy_dsl_parity.py"
+          ],
+          "rollback": [
+            "test_p5_c1_legacy_dsl_parity.py (rollback 部分)"
+          ],
           "canary": [],
-          "postgres": ["test_p5_c1_slice_acceptance_postgres.py"]
+          "postgres": [
+            "test_p5_c1_slice_acceptance_postgres.py"
+          ]
         },
         "gaps": [
           "candidate 未创建",
@@ -150,7 +163,9 @@
           "shadow_parity": [],
           "rollback": [],
           "canary": [],
-          "postgres": ["test_p5_c1_slice_acceptance_postgres.py (slice 间接覆盖)"]
+          "postgres": [
+            "test_p5_c1_slice_acceptance_postgres.py (slice 间接覆盖)"
+          ]
         },
         "gaps": [
           "无独立 cell 测试文件；仅 slice A/B/C 与 evidence generator 间接覆盖",
@@ -196,7 +211,9 @@
           "shadow_parity": [],
           "rollback": [],
           "canary": [],
-          "postgres": ["test_p5_c1_slice_acceptance_postgres.py (slice 间接覆盖)"]
+          "postgres": [
+            "test_p5_c1_slice_acceptance_postgres.py (slice 间接覆盖)"
+          ]
         },
         "gaps": [
           "facade 只生成验证面，program_atom_generated=false",
@@ -240,12 +257,26 @@
           "canary 选择门"
         ],
         "acceptance_evidence": {
-          "micro": ["test_p2_c2_1_contracts.py", "test_p2_c2_1_packet.py", "test_p2_c2_1_selection.py"],
-          "legacy_trace_replay": ["test_p2_c2_1_parity.py"],
-          "shadow_parity": ["test_p2_c2_1_parity.py"],
-          "rollback": ["test_p2_c2_1_canary_postgres.py"],
-          "canary": ["test_p2_c2_1_canary_postgres.py"],
-          "postgres": ["test_p3_c2_1_rehydration_postgres.py"]
+          "micro": [
+            "test_p2_c2_1_contracts.py",
+            "test_p2_c2_1_packet.py",
+            "test_p2_c2_1_selection.py"
+          ],
+          "legacy_trace_replay": [
+            "test_p2_c2_1_parity.py"
+          ],
+          "shadow_parity": [
+            "test_p2_c2_1_parity.py"
+          ],
+          "rollback": [
+            "test_p2_c2_1_canary_postgres.py"
+          ],
+          "canary": [
+            "test_p2_c2_1_canary_postgres.py"
+          ],
+          "postgres": [
+            "test_p3_c2_1_rehydration_postgres.py"
+          ]
         },
         "gaps": [
           "P3_AUTHORITY_RECORD_DIVERGENCE",
@@ -283,12 +314,24 @@
           "recovery binding (legacy_source_library_c2_2.py)"
         ],
         "acceptance_evidence": {
-          "micro": ["test_p3_c2_2_contracts.py"],
-          "legacy_trace_replay": ["test_p3_c2_2_parity.py"],
-          "shadow_parity": ["test_p3_c2_2_parity.py"],
-          "rollback": ["test_p3_c2_2_parity.py"],
-          "canary": ["test_p3_c2_23_runtime_canary_postgres.py"],
-          "postgres": ["test_p3_c2_23_runtime_canary_postgres.py"]
+          "micro": [
+            "test_p3_c2_2_contracts.py"
+          ],
+          "legacy_trace_replay": [
+            "test_p3_c2_2_parity.py"
+          ],
+          "shadow_parity": [
+            "test_p3_c2_2_parity.py"
+          ],
+          "rollback": [
+            "test_p3_c2_2_parity.py"
+          ],
+          "canary": [
+            "test_p3_c2_23_runtime_canary_postgres.py"
+          ],
+          "postgres": [
+            "test_p3_c2_23_runtime_canary_postgres.py"
+          ]
         },
         "gaps": [
           "C2_2_DURABLE_RUNTIME_NODE_LOCAL_ONLY",
@@ -327,12 +370,24 @@
           "handler installation + recovery binding"
         ],
         "acceptance_evidence": {
-          "micro": ["test_p3_c2_3_contracts.py"],
-          "legacy_trace_replay": ["test_p3_c2_3_parity.py"],
-          "shadow_parity": ["test_p3_c2_3_parity.py"],
-          "rollback": ["test_p3_c2_3_recovery.py"],
-          "canary": ["test_p3_c2_23_runtime_canary_postgres.py"],
-          "postgres": ["test_p3_c2_23_runtime_canary_postgres.py"]
+          "micro": [
+            "test_p3_c2_3_contracts.py"
+          ],
+          "legacy_trace_replay": [
+            "test_p3_c2_3_parity.py"
+          ],
+          "shadow_parity": [
+            "test_p3_c2_3_parity.py"
+          ],
+          "rollback": [
+            "test_p3_c2_3_recovery.py"
+          ],
+          "canary": [
+            "test_p3_c2_23_runtime_canary_postgres.py"
+          ],
+          "postgres": [
+            "test_p3_c2_23_runtime_canary_postgres.py"
+          ]
         },
         "gaps": [
           "C2_3_LIVE_PROVIDER_AUTHORITY_NOT_FROZEN",
@@ -374,12 +429,20 @@
           "facade query 接线"
         ],
         "acceptance_evidence": {
-          "micro": ["test_p3_c2_4_projection.py"],
+          "micro": [
+            "test_p3_c2_4_projection.py"
+          ],
           "legacy_trace_replay": [],
           "shadow_parity": [],
-          "rollback": ["test_p3_c2_4_projection.py"],
-          "canary": ["test_p3_c2_23_runtime_canary_postgres.py"],
-          "postgres": ["test_p3_c2_4_postgres.py"]
+          "rollback": [
+            "test_p3_c2_4_projection.py"
+          ],
+          "canary": [
+            "test_p3_c2_23_runtime_canary_postgres.py"
+          ],
+          "postgres": [
+            "test_p3_c2_4_postgres.py"
+          ]
         },
         "gaps": [
           "C2_4_SOURCE_CLOSURE_AND_OFFSET_NOT_LIVE",
@@ -419,12 +482,25 @@
           "recovery binding"
         ],
         "acceptance_evidence": {
-          "micro": ["test_p3_c3_contracts.py", "test_p3_c3_micro.py"],
-          "legacy_trace_replay": ["test_p3_c3_replay_shadow.py"],
-          "shadow_parity": ["test_p3_c3_replay_shadow.py"],
-          "rollback": ["test_p3_c3_rollback.py"],
-          "canary": ["test_p3_c3_canary_postgres.py"],
-          "postgres": ["test_p3_c3_canary_postgres.py"]
+          "micro": [
+            "test_p3_c3_contracts.py",
+            "test_p3_c3_micro.py"
+          ],
+          "legacy_trace_replay": [
+            "test_p3_c3_replay_shadow.py"
+          ],
+          "shadow_parity": [
+            "test_p3_c3_replay_shadow.py"
+          ],
+          "rollback": [
+            "test_p3_c3_rollback.py"
+          ],
+          "canary": [
+            "test_p3_c3_canary_postgres.py"
+          ],
+          "postgres": [
+            "test_p3_c3_canary_postgres.py"
+          ]
         },
         "gaps": [
           "C3_POSTGRES_CANARY_DISPOSABLE_ONLY",
@@ -467,12 +543,25 @@
           "recovery binding"
         ],
         "acceptance_evidence": {
-          "micro": ["test_p3_c3_contracts.py", "test_p3_c3_micro.py"],
-          "legacy_trace_replay": ["test_p3_c3_replay_shadow.py"],
-          "shadow_parity": ["test_p3_c3_replay_shadow.py"],
-          "rollback": ["test_p3_c3_rollback.py"],
-          "canary": ["test_p3_c3_canary_postgres.py"],
-          "postgres": ["test_p3_c3_canary_postgres.py"]
+          "micro": [
+            "test_p3_c3_contracts.py",
+            "test_p3_c3_micro.py"
+          ],
+          "legacy_trace_replay": [
+            "test_p3_c3_replay_shadow.py"
+          ],
+          "shadow_parity": [
+            "test_p3_c3_replay_shadow.py"
+          ],
+          "rollback": [
+            "test_p3_c3_rollback.py"
+          ],
+          "canary": [
+            "test_p3_c3_canary_postgres.py"
+          ],
+          "postgres": [
+            "test_p3_c3_canary_postgres.py"
+          ]
         },
         "gaps": [
           "C3_POSTGRES_CANARY_DISPOSABLE_ONLY",
@@ -516,12 +605,25 @@
           "recovery binding"
         ],
         "acceptance_evidence": {
-          "micro": ["test_p3_c4_1_plan.py", "test_p3_c4_1_program.py"],
-          "legacy_trace_replay": ["test_p3_c4_1_parity.py"],
-          "shadow_parity": ["test_p3_c4_1_parity.py"],
-          "rollback": ["test_p3_c4_5_runtime_postgres.py"],
-          "canary": ["test_p3_c4_canary.py"],
-          "postgres": ["test_p3_c4_5_runtime_postgres.py"]
+          "micro": [
+            "test_p3_c4_1_plan.py",
+            "test_p3_c4_1_program.py"
+          ],
+          "legacy_trace_replay": [
+            "test_p3_c4_1_parity.py"
+          ],
+          "shadow_parity": [
+            "test_p3_c4_1_parity.py"
+          ],
+          "rollback": [
+            "test_p3_c4_5_runtime_postgres.py"
+          ],
+          "canary": [
+            "test_p3_c4_canary.py"
+          ],
+          "postgres": [
+            "test_p3_c4_5_runtime_postgres.py"
+          ]
         },
         "gaps": [
           "P3_AUTHORITY_RECORD_DIVERGENCE",
@@ -559,12 +661,24 @@
           "recovery binding"
         ],
         "acceptance_evidence": {
-          "micro": ["test_p3_c4_2_retry_reducer.py"],
-          "legacy_trace_replay": ["test_p3_c4_1_parity.py"],
-          "shadow_parity": ["test_p3_c4_1_parity.py"],
-          "rollback": ["test_p3_c4_5_runtime_postgres.py"],
-          "canary": ["test_p3_c4_canary.py"],
-          "postgres": ["test_p3_c4_5_runtime_postgres.py"]
+          "micro": [
+            "test_p3_c4_2_retry_reducer.py"
+          ],
+          "legacy_trace_replay": [
+            "test_p3_c4_1_parity.py"
+          ],
+          "shadow_parity": [
+            "test_p3_c4_1_parity.py"
+          ],
+          "rollback": [
+            "test_p3_c4_5_runtime_postgres.py"
+          ],
+          "canary": [
+            "test_p3_c4_canary.py"
+          ],
+          "postgres": [
+            "test_p3_c4_5_runtime_postgres.py"
+          ]
         },
         "gaps": [
           "P3_AUTHORITY_RECORD_DIVERGENCE",
@@ -603,12 +717,21 @@
           "readback + recovery binding"
         ],
         "acceptance_evidence": {
-          "micro": ["test_p3_c4_3_submission.py"],
+          "micro": [
+            "test_p3_c4_3_submission.py"
+          ],
           "legacy_trace_replay": [],
           "shadow_parity": [],
-          "rollback": ["test_p3_c4_5_runtime_postgres.py"],
-          "canary": ["test_p3_c4_canary.py"],
-          "postgres": ["test_p3_c4_4_postgres.py", "test_p3_c4_5_runtime_postgres.py"]
+          "rollback": [
+            "test_p3_c4_5_runtime_postgres.py"
+          ],
+          "canary": [
+            "test_p3_c4_canary.py"
+          ],
+          "postgres": [
+            "test_p3_c4_4_postgres.py",
+            "test_p3_c4_5_runtime_postgres.py"
+          ]
         },
         "gaps": [
           "C4_3_DURABLE_ADOPTION_NOT_PROMOTED",
@@ -648,10 +771,18 @@
           "legacy session/task replay binding"
         ],
         "acceptance_evidence": {
-          "micro": ["test_p3_c5_1_session_projection.py"],
-          "legacy_trace_replay": ["test_p3_c5_1_session_projection.py"],
-          "shadow_parity": ["test_p3_c5_1_session_projection.py"],
-          "rollback": ["test_p3_c5_1_session_projection.py"],
+          "micro": [
+            "test_p3_c5_1_session_projection.py"
+          ],
+          "legacy_trace_replay": [
+            "test_p3_c5_1_session_projection.py"
+          ],
+          "shadow_parity": [
+            "test_p3_c5_1_session_projection.py"
+          ],
+          "rollback": [
+            "test_p3_c5_1_session_projection.py"
+          ],
           "canary": [],
           "postgres": []
         },
@@ -693,12 +824,22 @@
           "readback policy 接线"
         ],
         "acceptance_evidence": {
-          "micro": ["test_p3_c5_2_attempt_replay_reconciliation.py"],
-          "legacy_trace_replay": ["test_p3_c5_2_attempt_replay_reconciliation.py"],
-          "shadow_parity": ["test_p3_c5_2_attempt_replay_reconciliation.py"],
-          "rollback": ["test_p3_c5_2_attempt_replay_reconciliation.py"],
+          "micro": [
+            "test_p3_c5_2_attempt_replay_reconciliation.py"
+          ],
+          "legacy_trace_replay": [
+            "test_p3_c5_2_attempt_replay_reconciliation.py"
+          ],
+          "shadow_parity": [
+            "test_p3_c5_2_attempt_replay_reconciliation.py"
+          ],
+          "rollback": [
+            "test_p3_c5_2_attempt_replay_reconciliation.py"
+          ],
           "canary": [],
-          "postgres": ["test_p3_c5_2_reconciliation_postgres.py"]
+          "postgres": [
+            "test_p3_c5_2_reconciliation_postgres.py"
+          ]
         },
         "gaps": [
           "C5_2_DURABLE_ATTEMPT_NODE_NOT_PROVEN",
@@ -738,12 +879,18 @@
           "projection offset owner 绑定"
         ],
         "acceptance_evidence": {
-          "micro": ["test_p3_c5_3_projection_postgres.py"],
+          "micro": [
+            "test_p3_c5_3_projection_postgres.py"
+          ],
           "legacy_trace_replay": [],
           "shadow_parity": [],
-          "rollback": ["test_p3_c5_3_projection_postgres.py"],
+          "rollback": [
+            "test_p3_c5_3_projection_postgres.py"
+          ],
           "canary": [],
-          "postgres": ["test_p3_c5_3_projection_postgres.py"]
+          "postgres": [
+            "test_p3_c5_3_projection_postgres.py"
+          ]
         },
         "gaps": [
           "C5_3_SESSION_PROJECTION_OFFSET_NOT_OWNED",
@@ -783,10 +930,18 @@
           "observation source binding"
         ],
         "acceptance_evidence": {
-          "micro": ["test_p3_c5_4_process_observations.py"],
-          "legacy_trace_replay": ["test_p3_c5_4_process_observations.py"],
-          "shadow_parity": ["test_p3_c5_4_process_observations.py"],
-          "rollback": ["test_p3_c5_4_process_observations.py"],
+          "micro": [
+            "test_p3_c5_4_process_observations.py"
+          ],
+          "legacy_trace_replay": [
+            "test_p3_c5_4_process_observations.py"
+          ],
+          "shadow_parity": [
+            "test_p3_c5_4_process_observations.py"
+          ],
+          "rollback": [
+            "test_p3_c5_4_process_observations.py"
+          ],
           "canary": [],
           "postgres": []
         },
@@ -828,12 +983,25 @@
           "worker store wiring"
         ],
         "acceptance_evidence": {
-          "micro": ["test_p3_c6_1_episode.py"],
-          "legacy_trace_replay": ["test_p3_c6_legacy_shadow.py"],
-          "shadow_parity": ["test_p3_c6_legacy_shadow.py"],
-          "rollback": ["test_p3_c6_runtime_canary_postgres.py"],
-          "canary": ["test_p3_c6_runtime_canary_postgres.py"],
-          "postgres": ["test_p3_c6_worker_postgres.py", "test_p3_c6_runtime_canary_postgres.py"]
+          "micro": [
+            "test_p3_c6_1_episode.py"
+          ],
+          "legacy_trace_replay": [
+            "test_p3_c6_legacy_shadow.py"
+          ],
+          "shadow_parity": [
+            "test_p3_c6_legacy_shadow.py"
+          ],
+          "rollback": [
+            "test_p3_c6_runtime_canary_postgres.py"
+          ],
+          "canary": [
+            "test_p3_c6_runtime_canary_postgres.py"
+          ],
+          "postgres": [
+            "test_p3_c6_worker_postgres.py",
+            "test_p3_c6_runtime_canary_postgres.py"
+          ]
         },
         "gaps": [
           "P3C6_PRODUCTION_RUNTIME_NODE_NOT_PROVEN",
@@ -874,12 +1042,24 @@
           "生产 provider port（live 维度未冻结）"
         ],
         "acceptance_evidence": {
-          "micro": ["test_p3_c6_2_provider.py"],
-          "legacy_trace_replay": ["test_p3_c6_legacy_shadow.py"],
-          "shadow_parity": ["test_p3_c6_legacy_shadow.py"],
-          "rollback": ["test_p3_c6_runtime_canary_postgres.py"],
-          "canary": ["test_p3_c6_runtime_canary_postgres.py"],
-          "postgres": ["test_p3_c6_runtime_canary_postgres.py"]
+          "micro": [
+            "test_p3_c6_2_provider.py"
+          ],
+          "legacy_trace_replay": [
+            "test_p3_c6_legacy_shadow.py"
+          ],
+          "shadow_parity": [
+            "test_p3_c6_legacy_shadow.py"
+          ],
+          "rollback": [
+            "test_p3_c6_runtime_canary_postgres.py"
+          ],
+          "canary": [
+            "test_p3_c6_runtime_canary_postgres.py"
+          ],
+          "postgres": [
+            "test_p3_c6_runtime_canary_postgres.py"
+          ]
         },
         "gaps": [
           "C6_2_LIVE_PROVIDER_AUTHORITY_NOT_FROZEN",
@@ -921,12 +1101,25 @@
           "redaction persistence wiring"
         ],
         "acceptance_evidence": {
-          "micro": ["test_p3_c6_3_redaction.py"],
-          "legacy_trace_replay": ["test_p3_c6_legacy_shadow.py"],
-          "shadow_parity": ["test_p3_c6_legacy_shadow.py"],
-          "rollback": ["test_p3_c6_runtime_canary_postgres.py"],
-          "canary": ["test_p3_c6_runtime_canary_postgres.py"],
-          "postgres": ["test_p3_c6_worker_postgres.py", "test_p3_c6_runtime_canary_postgres.py"]
+          "micro": [
+            "test_p3_c6_3_redaction.py"
+          ],
+          "legacy_trace_replay": [
+            "test_p3_c6_legacy_shadow.py"
+          ],
+          "shadow_parity": [
+            "test_p3_c6_legacy_shadow.py"
+          ],
+          "rollback": [
+            "test_p3_c6_runtime_canary_postgres.py"
+          ],
+          "canary": [
+            "test_p3_c6_runtime_canary_postgres.py"
+          ],
+          "postgres": [
+            "test_p3_c6_worker_postgres.py",
+            "test_p3_c6_runtime_canary_postgres.py"
+          ]
         },
         "gaps": [
           "P3C6_PRODUCTION_REDACTION_PERSISTENCE_NOT_PROVEN",
@@ -970,12 +1163,26 @@
           "document admission/canonical write 需单独 authority review"
         ],
         "acceptance_evidence": {
-          "micro": ["test_capability_spec_pilot_c7_1.py", "test_p4_c7_1_staged_candidate.py", "test_p4_c7_1_program.py"],
-          "legacy_trace_replay": ["test_p4_c7_legacy_writer_spy.py", "test_c7_movement_decision_parity.py"],
-          "shadow_parity": ["test_c7_movement_decision_parity.py"],
-          "rollback": ["test_c7_movement_failure_reverse.py"],
+          "micro": [
+            "test_capability_spec_pilot_c7_1.py",
+            "test_p4_c7_1_staged_candidate.py",
+            "test_p4_c7_1_program.py"
+          ],
+          "legacy_trace_replay": [
+            "test_p4_c7_legacy_writer_spy.py",
+            "test_c7_movement_decision_parity.py"
+          ],
+          "shadow_parity": [
+            "test_c7_movement_decision_parity.py"
+          ],
+          "rollback": [
+            "test_c7_movement_failure_reverse.py"
+          ],
           "canary": [],
-          "postgres": ["test_c7_movement_admission_postgres.py", "test_p4_c7_6_postgres.py"]
+          "postgres": [
+            "test_c7_movement_admission_postgres.py",
+            "test_p4_c7_6_postgres.py"
+          ]
         },
         "gaps": [
           "C7_AHEAD_OF_TIME_SCAFFOLD_REMAINS_UNADOPTED",
@@ -1019,12 +1226,23 @@
           "readback resource policy"
         ],
         "acceptance_evidence": {
-          "micro": ["test_p4_c7_2_commit_readback.py", "test_p4_c7_0_return_registry.py"],
-          "legacy_trace_replay": ["test_p4_c7_legacy_writer_spy.py"],
-          "shadow_parity": ["test_c7_movement_decision_parity.py"],
-          "rollback": ["test_c7_movement_failure_reverse.py"],
+          "micro": [
+            "test_p4_c7_2_commit_readback.py",
+            "test_p4_c7_0_return_registry.py"
+          ],
+          "legacy_trace_replay": [
+            "test_p4_c7_legacy_writer_spy.py"
+          ],
+          "shadow_parity": [
+            "test_c7_movement_decision_parity.py"
+          ],
+          "rollback": [
+            "test_c7_movement_failure_reverse.py"
+          ],
           "canary": [],
-          "postgres": ["test_p4_c7_6_postgres.py"]
+          "postgres": [
+            "test_p4_c7_6_postgres.py"
+          ]
         },
         "gaps": [
           "C7_AHEAD_OF_TIME_SCAFFOLD_REMAINS_UNADOPTED",
@@ -1065,12 +1283,20 @@
           "projection offset 驱动"
         ],
         "acceptance_evidence": {
-          "micro": ["test_p4_c7_3_projection_diff.py"],
+          "micro": [
+            "test_p4_c7_3_projection_diff.py"
+          ],
           "legacy_trace_replay": [],
-          "shadow_parity": ["test_c7_movement_decision_parity.py"],
-          "rollback": ["test_c7_movement_failure_reverse.py"],
+          "shadow_parity": [
+            "test_c7_movement_decision_parity.py"
+          ],
+          "rollback": [
+            "test_c7_movement_failure_reverse.py"
+          ],
           "canary": [],
-          "postgres": ["test_p4_c7_6_postgres.py"]
+          "postgres": [
+            "test_p4_c7_6_postgres.py"
+          ]
         },
         "gaps": [
           "PROJECTION_ONLY_NO_CANONICAL_WRITE_AUTHORITY",
@@ -1112,12 +1338,22 @@
           "recovery binding"
         ],
         "acceptance_evidence": {
-          "micro": ["test_p4_c7_4_reconciliation.py"],
-          "legacy_trace_replay": ["test_p4_c7_legacy_writer_spy.py"],
-          "shadow_parity": ["test_c7_movement_decision_parity.py"],
-          "rollback": ["test_c7_movement_failure_reverse.py"],
+          "micro": [
+            "test_p4_c7_4_reconciliation.py"
+          ],
+          "legacy_trace_replay": [
+            "test_p4_c7_legacy_writer_spy.py"
+          ],
+          "shadow_parity": [
+            "test_c7_movement_decision_parity.py"
+          ],
+          "rollback": [
+            "test_c7_movement_failure_reverse.py"
+          ],
           "canary": [],
-          "postgres": ["test_p4_c7_6_postgres.py"]
+          "postgres": [
+            "test_p4_c7_6_postgres.py"
+          ]
         },
         "gaps": [
           "RECOVERY_JOURNAL_ONLY_NO_CANONICAL_WRITE_AUTHORITY",
@@ -1158,12 +1394,24 @@
           "admission_not_called/export_not_executed 保持"
         ],
         "acceptance_evidence": {
-          "micro": ["test_p4_c8_1_typed_knowledge.py", "test_p4_c8_5_program.py"],
-          "legacy_trace_replay": ["test_p4_c8_legacy_adapters.py"],
-          "shadow_parity": ["test_p4_c8_legacy_adapters.py"],
-          "rollback": ["test_p4_c8_5_program.py"],
+          "micro": [
+            "test_p4_c8_1_typed_knowledge.py",
+            "test_p4_c8_5_program.py"
+          ],
+          "legacy_trace_replay": [
+            "test_p4_c8_legacy_adapters.py"
+          ],
+          "shadow_parity": [
+            "test_p4_c8_legacy_adapters.py"
+          ],
+          "rollback": [
+            "test_p4_c8_5_program.py"
+          ],
           "canary": [],
-          "postgres": ["test_c8_movement_closure_postgres.py", "test_c8_research_artifact_delivery_bridge_postgres.py"]
+          "postgres": [
+            "test_c8_movement_closure_postgres.py",
+            "test_c8_research_artifact_delivery_bridge_postgres.py"
+          ]
         },
         "gaps": [
           "NO_ADMISSION_OR_EXPORT authority"
@@ -1199,12 +1447,25 @@
           "C8.2 RuntimeHandler 化"
         ],
         "acceptance_evidence": {
-          "micro": ["test_p4_c8_2_writing.py", "test_p4_c8_5_program.py"],
-          "legacy_trace_replay": ["test_p4_c8_legacy_adapters.py"],
-          "shadow_parity": ["test_p4_c8_legacy_adapters.py"],
-          "rollback": ["test_p4_c8_5_program.py"],
-          "canary": ["test_p4_c8_5_program.py"],
-          "postgres": ["test_c8_movement_closure_postgres.py"]
+          "micro": [
+            "test_p4_c8_2_writing.py",
+            "test_p4_c8_5_program.py"
+          ],
+          "legacy_trace_replay": [
+            "test_p4_c8_legacy_adapters.py"
+          ],
+          "shadow_parity": [
+            "test_p4_c8_legacy_adapters.py"
+          ],
+          "rollback": [
+            "test_p4_c8_5_program.py"
+          ],
+          "canary": [
+            "test_p4_c8_5_program.py"
+          ],
+          "postgres": [
+            "test_c8_movement_closure_postgres.py"
+          ]
         },
         "gaps": [
           "NO_ADMISSION_OR_EXPORT authority"
@@ -1241,12 +1502,24 @@
           "admission/export authority gate 保持关闭"
         ],
         "acceptance_evidence": {
-          "micro": ["test_p4_c8_3_report.py", "test_p4_c8_5_program.py"],
-          "legacy_trace_replay": ["test_p4_c8_legacy_adapters.py"],
-          "shadow_parity": ["test_p4_c8_legacy_adapters.py"],
-          "rollback": ["test_p4_c8_5_program.py"],
+          "micro": [
+            "test_p4_c8_3_report.py",
+            "test_p4_c8_5_program.py"
+          ],
+          "legacy_trace_replay": [
+            "test_p4_c8_legacy_adapters.py"
+          ],
+          "shadow_parity": [
+            "test_p4_c8_legacy_adapters.py"
+          ],
+          "rollback": [
+            "test_p4_c8_5_program.py"
+          ],
           "canary": [],
-          "postgres": ["test_c8_research_artifact_delivery_bridge_postgres.py", "test_c8_movement_closure_postgres.py"]
+          "postgres": [
+            "test_c8_research_artifact_delivery_bridge_postgres.py",
+            "test_c8_movement_closure_postgres.py"
+          ]
         },
         "gaps": [
           "无 app 调用方",
@@ -1284,12 +1557,23 @@
           "declared-loss projection 记账"
         ],
         "acceptance_evidence": {
-          "micro": ["test_p4_c8_4_graph.py", "test_p4_c8_5_program.py"],
-          "legacy_trace_replay": ["test_p4_c8_legacy_adapters.py"],
-          "shadow_parity": ["test_p4_c8_legacy_adapters.py"],
-          "rollback": ["test_p4_c8_5_program.py"],
+          "micro": [
+            "test_p4_c8_4_graph.py",
+            "test_p4_c8_5_program.py"
+          ],
+          "legacy_trace_replay": [
+            "test_p4_c8_legacy_adapters.py"
+          ],
+          "shadow_parity": [
+            "test_p4_c8_legacy_adapters.py"
+          ],
+          "rollback": [
+            "test_p4_c8_5_program.py"
+          ],
           "canary": [],
-          "postgres": ["test_c8_movement_closure_postgres.py"]
+          "postgres": [
+            "test_c8_movement_closure_postgres.py"
+          ]
         },
         "gaps": [
           "NO_ADMISSION_OR_EXPORT authority"
@@ -1329,10 +1613,19 @@
           "NO_ROUTE_OR_CONTROL_EFFECT 保持"
         ],
         "acceptance_evidence": {
-          "micro": ["test_p4_c9_1_facade_contracts.py", "test_p4_c9_3_transport_dto.py"],
-          "legacy_trace_replay": ["test_p4_c9_5_p1_consistency_and_public_payload.py"],
-          "shadow_parity": ["test_p4_c9_5_p1_consistency_and_public_payload.py"],
-          "rollback": ["test_p4_c9_5_p1_consistency_and_public_payload.py"],
+          "micro": [
+            "test_p4_c9_1_facade_contracts.py",
+            "test_p4_c9_3_transport_dto.py"
+          ],
+          "legacy_trace_replay": [
+            "test_p4_c9_5_p1_consistency_and_public_payload.py"
+          ],
+          "shadow_parity": [
+            "test_p4_c9_5_p1_consistency_and_public_payload.py"
+          ],
+          "rollback": [
+            "test_p4_c9_5_p1_consistency_and_public_payload.py"
+          ],
           "canary": [],
           "postgres": []
         },
@@ -1371,10 +1664,14 @@
           "no provider/network effect 保持"
         ],
         "acceptance_evidence": {
-          "micro": ["main/frontend-modern/tests/e2e/successor-runtime-client.spec.ts"],
+          "micro": [
+            "main/frontend-modern/tests/e2e/successor-runtime-client.spec.ts"
+          ],
           "legacy_trace_replay": [],
           "shadow_parity": [],
-          "rollback": ["test_p4_c9_5_p1_consistency_and_public_payload.py"],
+          "rollback": [
+            "test_p4_c9_5_p1_consistency_and_public_payload.py"
+          ],
           "canary": [],
           "postgres": []
         },
@@ -1417,12 +1714,25 @@
           "C9_NO_POSTGRES_WRITE_UNADOPTED 保持"
         ],
         "acceptance_evidence": {
-          "micro": ["test_p4_c9_2_projector_registry.py"],
-          "legacy_trace_replay": ["test_c9_legacy_named_observations.py"],
-          "shadow_parity": ["test_c9_movement_closure_backend.py"],
-          "rollback": ["test_c9_generalized_rollback_identity.py", "test_c9_movement_closure_backend_postgres.py"],
+          "micro": [
+            "test_p4_c9_2_projector_registry.py"
+          ],
+          "legacy_trace_replay": [
+            "test_c9_legacy_named_observations.py"
+          ],
+          "shadow_parity": [
+            "test_c9_movement_closure_backend.py"
+          ],
+          "rollback": [
+            "test_c9_generalized_rollback_identity.py",
+            "test_c9_movement_closure_backend_postgres.py"
+          ],
           "canary": [],
-          "postgres": ["test_c9_projection_sources_postgres.py", "test_c9_typed_source_evolution_postgres.py", "test_c9_movement_closure_backend_postgres.py"]
+          "postgres": [
+            "test_c9_projection_sources_postgres.py",
+            "test_c9_typed_source_evolution_postgres.py",
+            "test_c9_movement_closure_backend_postgres.py"
+          ]
         },
         "gaps": [
           "validation-only、offset CAS plan-only、无 Postgres 写"
@@ -1434,26 +1744,62 @@
       "total_cells": 30,
       "strict_direct_composition_root_registration": 0,
       "kernel_mechanism_inferred": 2,
-      "kernel_mechanism_inferred_cells": ["C1.2", "C1.3"],
+      "kernel_mechanism_inferred_cells": [
+        "C1.2",
+        "C1.3"
+      ],
       "assembly_defined_no_app_caller": 1,
-      "assembly_defined_no_app_caller_cells": ["C8.3"],
+      "assembly_defined_no_app_caller_cells": [
+        "C8.3"
+      ],
       "unwired_with_modules": 26,
       "unwired_with_modules_cells": [
-        "C1.1", "C2.1", "C2.2", "C2.3", "C2.4",
-        "C3.1", "C3.2", "C4.1", "C4.2", "C4.3",
-        "C5.1", "C5.2", "C5.3", "C5.4", "C6.1", "C6.2", "C6.3",
-        "C7.1", "C7.2", "C7.3", "C7.4", "C8.1", "C8.2", "C8.4",
-        "C9.1", "C9.3"
+        "C1.1",
+        "C2.1",
+        "C2.2",
+        "C2.3",
+        "C2.4",
+        "C3.1",
+        "C3.2",
+        "C4.1",
+        "C4.2",
+        "C4.3",
+        "C5.1",
+        "C5.2",
+        "C5.3",
+        "C5.4",
+        "C6.1",
+        "C6.2",
+        "C6.3",
+        "C7.1",
+        "C7.2",
+        "C7.3",
+        "C7.4",
+        "C8.1",
+        "C8.2",
+        "C8.4",
+        "C9.1",
+        "C9.3"
       ],
       "spec_fragment_only": 1,
-      "spec_fragment_only_cells": ["C9.2"],
-      "unresolved_wiring_cells": ["C1.2", "C1.3"],
+      "spec_fragment_only_cells": [
+        "C9.2"
+      ],
+      "unresolved_wiring_cells": [
+        "C1.2",
+        "C1.3"
+      ],
       "unresolved_wiring_dimensions": [
         "LIVE_PROVIDER_DIMENSION_UNRESOLVED: C2.3/C3.1/C3.2/C6.2",
         "ROLLBACK_BINDING_MISSING: C7.1/C7.2/C7.3/C7.4",
         "UNKNOWN_CELL_REFERENCE: C9.API_UI_REPORT_PROJECTION"
       ],
-      "rollback_binding_absent_cells": ["C7.1", "C7.2", "C7.3", "C7.4"]
+      "rollback_binding_absent_cells": [
+        "C7.1",
+        "C7.2",
+        "C7.3",
+        "C7.4"
+      ]
     }
   },
   "composition_root_coverage": {
@@ -1489,69 +1835,170 @@
     "summary": "现有组合根只接收 additional_handlers 注入；C2-C9 各家族模块存在但未组装，C1.1 为纯 compile facade，C9.2 为 frontend design-only。",
     "by_cell": [
       {
-        "cells": ["C1.1"],
-        "required": ["RuntimeHandler/Program 接线", "activation catalog 条目或 slice acceptance 装配"]
+        "cells": [
+          "C1.1"
+        ],
+        "required": [
+          "RuntimeHandler/Program 接线",
+          "activation catalog 条目或 slice acceptance 装配"
+        ]
       },
       {
-        "cells": ["C1.2", "C1.3"],
-        "required": ["显式 cell 绑定", "store-rehydrate facade/replay projection 注册"],
+        "cells": [
+          "C1.2",
+          "C1.3"
+        ],
+        "required": [
+          "显式 cell 绑定",
+          "store-rehydrate facade/replay projection 注册"
+        ],
         "note": "UNRESOLVED_WIRING"
       },
       {
-        "cells": ["C2.1"],
-        "required": ["activation catalog 条目", "handler installation (additional_handlers)", "recovery binding"]
+        "cells": [
+          "C2.1"
+        ],
+        "required": [
+          "activation catalog 条目",
+          "handler installation (additional_handlers)",
+          "recovery binding"
+        ]
       },
       {
-        "cells": ["C2.2"],
-        "required": ["planner handler installation", "recovery binding"]
+        "cells": [
+          "C2.2"
+        ],
+        "required": [
+          "planner handler installation",
+          "recovery binding"
+        ]
       },
       {
-        "cells": ["C2.3"],
-        "required": ["生产 provider/readback port", "handler installation", "recovery binding"]
+        "cells": [
+          "C2.3"
+        ],
+        "required": [
+          "生产 provider/readback port",
+          "handler installation",
+          "recovery binding"
+        ]
       },
       {
-        "cells": ["C2.4"],
-        "required": ["ProjectorRegistry 注册", "ProjectionOffsetRepository 驱动", "facade query"]
+        "cells": [
+          "C2.4"
+        ],
+        "required": [
+          "ProjectorRegistry 注册",
+          "ProjectionOffsetRepository 驱动",
+          "facade query"
+        ]
       },
       {
-        "cells": ["C3.1", "C3.2"],
-        "required": ["traversal/fold handler installation", "recovery binding"]
+        "cells": [
+          "C3.1",
+          "C3.2"
+        ],
+        "required": [
+          "traversal/fold handler installation",
+          "recovery binding"
+        ]
       },
       {
-        "cells": ["C4.1", "C4.2", "C4.3"],
-        "required": ["plan/retry/submission handler installation", "C4.3 readback + recovery binding"]
+        "cells": [
+          "C4.1",
+          "C4.2",
+          "C4.3"
+        ],
+        "required": [
+          "plan/retry/submission handler installation",
+          "C4.3 readback + recovery binding"
+        ]
       },
       {
-        "cells": ["C5.1", "C5.3", "C5.4"],
-        "required": ["ProjectorRegistry 注册", "offset owner", "legacy replay binding"]
+        "cells": [
+          "C5.1",
+          "C5.3",
+          "C5.4"
+        ],
+        "required": [
+          "ProjectorRegistry 注册",
+          "offset owner",
+          "legacy replay binding"
+        ]
       },
       {
-        "cells": ["C5.2"],
-        "required": ["C5.2 legacy-effect reconcile handler", "readback policy 接线"]
+        "cells": [
+          "C5.2"
+        ],
+        "required": [
+          "C5.2 legacy-effect reconcile handler",
+          "readback policy 接线"
+        ]
       },
       {
-        "cells": ["C6.1", "C6.2", "C6.3"],
-        "required": ["episode/provider/redaction handler installation", "worker store wiring", "C6.2 生产 provider port"]
+        "cells": [
+          "C6.1",
+          "C6.2",
+          "C6.3"
+        ],
+        "required": [
+          "episode/provider/redaction handler installation",
+          "worker store wiring",
+          "C6.2 生产 provider port"
+        ]
       },
       {
-        "cells": ["C7.1", "C7.2", "C7.3", "C7.4"],
-        "required": ["C7 assembly", "AdmissionCoordinator 注册", "projector/reconcile handler", "rollback_bindings 补齐"]
+        "cells": [
+          "C7.1",
+          "C7.2",
+          "C7.3",
+          "C7.4"
+        ],
+        "required": [
+          "C7 assembly",
+          "AdmissionCoordinator 注册",
+          "projector/reconcile handler",
+          "rollback_bindings 补齐"
+        ]
       },
       {
-        "cells": ["C8.1", "C8.2", "C8.4"],
-        "required": ["RuntimeHandler 化", "C8.4 projector 注册"]
+        "cells": [
+          "C8.1",
+          "C8.2",
+          "C8.4"
+        ],
+        "required": [
+          "RuntimeHandler 化",
+          "C8.4 projector 注册"
+        ]
       },
       {
-        "cells": ["C8.3"],
-        "required": ["app 层调用方/挂载"]
+        "cells": [
+          "C8.3"
+        ],
+        "required": [
+          "app 层调用方/挂载"
+        ]
       },
       {
-        "cells": ["C9.1", "C9.3"],
-        "required": ["router 挂载", "facade repository 接线", "默认 projector 注册", "offset CAS 生产接线"]
+        "cells": [
+          "C9.1",
+          "C9.3"
+        ],
+        "required": [
+          "router 挂载",
+          "facade repository 接线",
+          "默认 projector 注册",
+          "offset CAS 生产接线"
+        ]
       },
       {
-        "cells": ["C9.2"],
-        "required": ["frontend typed contract 实现"]
+        "cells": [
+          "C9.2"
+        ],
+        "required": [
+          "frontend typed contract 实现"
+        ]
       }
     ]
   },
@@ -1690,7 +2137,9 @@
       "name": "家族 assembly builder（C2/C3/C4/C5/C6/C7/C8/C9 八条并行 lane）",
       "kind": "production",
       "parallel_group": "B",
-      "depends_on": ["WP-I1-01 (契约固定后流水线并行)"],
+      "depends_on": [
+        "WP-I1-01 (契约固定后流水线并行)"
+      ],
       "goal": "每家族新增 build_*_assembly 函数，把已有 handler/store/projection/canary 包装成组合根可注入的装配件。",
       "inputs": [
         "每家族 capability spec/build 的绑定",
@@ -1719,7 +2168,9 @@
       "name": "successor assembly 串行整合",
       "kind": "production",
       "parallel_group": "C (serial)",
-      "depends_on": ["WP-I1-02 全部 lane"],
+      "depends_on": [
+        "WP-I1-02 全部 lane"
+      ],
       "goal": "在组合根上新增 assemble_successor_runtime，注册全部家族装配件与 handler binding，缺失 cell fail-closed。",
       "inputs": [
         "WP-I1-02 输出的各家族 assembly builder",
@@ -1774,7 +2225,9 @@
       "name": "rollback rehearsal harness + C7 rollback binding 闭合",
       "kind": "evidence_only",
       "parallel_group": "C (serial)",
-      "depends_on": ["WP-I1-03"],
+      "depends_on": [
+        "WP-I1-03"
+      ],
       "goal": "per-family rollback 排练并补齐 C7 缺失的 rollback_bindings。",
       "inputs": [
         "各 cell spec 的 rollback bindings（C7 为空）",
@@ -1803,7 +2256,9 @@
       "name": "app 入口挂载（router + run_once）",
       "kind": "production",
       "parallel_group": "D (blocked)",
-      "depends_on": ["WP-I1-03"],
+      "depends_on": [
+        "WP-I1-03"
+      ],
       "goal": "把 successor router 挂入 app 并启动离线/本地 run_once；live 运行另立里程碑。",
       "inputs": [
         "WP-I1-03 整合后的 assembly",
@@ -1835,7 +2290,10 @@
     {
       "id": "FC-02",
       "severity": "UNRESOLVED_WIRING",
-      "cells": ["C1.2", "C1.3"],
+      "cells": [
+        "C1.2",
+        "C1.3"
+      ],
       "message": "C1.2/C1.3 的 cell 接线语义无法从现有产物确定（仅内核机制推断），未臆造接线。"
     },
     {
@@ -1846,13 +2304,23 @@
     {
       "id": "FC-04",
       "severity": "ROLLBACK_GAP",
-      "cells": ["C7.1", "C7.2", "C7.3", "C7.4"],
+      "cells": [
+        "C7.1",
+        "C7.2",
+        "C7.3",
+        "C7.4"
+      ],
       "message": "C7 四 cell 的 rollback_bindings 均为空；rollback rehearsal 与 assembly rollback 验收在补齐前阻断。"
     },
     {
       "id": "FC-05",
       "severity": "LIVE_PROVIDER_UNRESOLVED",
-      "cells": ["C2.3", "C3.1", "C3.2", "C6.2"],
+      "cells": [
+        "C2.3",
+        "C3.1",
+        "C3.2",
+        "C6.2"
+      ],
       "message": "live provider authority 未冻结；fixture 端口路径不构成生产 provider wiring。"
     },
     {
@@ -1870,5 +2338,10 @@
       "severity": "ASSEMBLY_CALLER_GAP",
       "message": "PostgresFirstSpecimenAssembly 与 C8PostgresDeliveryAssembly 均无 app 层调用方；组合根覆盖只到 factory 层，不能表述为运行中。"
     }
-  ]
+  ],
+  "candidate": {
+    "commit": "1825870a9623dd256fa075053ab89d786c84b6bd",
+    "tree": "63bcc270edf9e880ef04dfeb9413b9c634956bbb",
+    "branch": "codex/functorial-successor-p0"
+  }
 }

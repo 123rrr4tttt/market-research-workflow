@@ -312,5 +312,13 @@
       ],
       "note": "path + sha256 verified; REGISTRY_REGISTRATION_ONLY_NO_PG_WRITE_AUTHORITY_CLOSED: in-memory assembly registration only, no PostgreSQL write adopted"
     }
-  ]
+  ],
+  "head": "1825870a9623dd256fa075053ab89d786c84b6bd",
+  "commit": "1825870a9623dd256fa075053ab89d786c84b6bd",
+  "tree": "63bcc270edf9e880ef04dfeb9413b9c634956bbb",
+  "candidate": {
+    "commit": "1825870a9623dd256fa075053ab89d786c84b6bd",
+    "tree": "63bcc270edf9e880ef04dfeb9413b9c634956bbb",
+    "branch": "codex/functorial-successor-p0"
+  }
 }
