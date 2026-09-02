@@ -419,3 +419,9 @@ SUPERVISOR_REVIEW_REQUEST
 - legacy 保留核验通过；teardown 零残留；备份 `postgres-full.dump`（SHA `c3161d0a…`）+ ROLLBACK.md。
 - 证据：`AllLinesProductionLocalGoLiveEvidence.v1.json`（SHA `e4427f21…`），状态 `PASS_PRODUCTION_LOCAL_GO_LIVE`。
 - 边界：cutover/authority_transfer/legacy_retired 仍 false；正式常驻启动与真实业务 canonical write 面、TLS/镜像/告警/扫描/RPO/ingress auth 为下一部署步骤，未假完成。
+
+## Business-chain test batch PASS (2026-09-03)
+
+- 用户指令聚焦业务链：S1/S2/S2b/S2c 能力链 17 文件 `140/0`；C8/C4 非 PG `21/0`；C7/C8/C9 canonical PG disposable `111/0`；真实 postgres 只读 production_registry smoke 401/401/200 + 计数不变。
+- 证据：`AllLinesBusinessChainTestEvidence.v1.json`（SHA `d873d5db…`），状态 `PASS_BUSINESS_CHAIN_TEST_BATCH`；零残留。
+- 边界：局部绿链不建立 canonical production write/cutover/authority transfer/legacy retirement；registry-backed DB 投影读取仍待专门证据。

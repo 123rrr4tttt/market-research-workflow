@@ -725,3 +725,10 @@ When the target task reaches a review boundary, it must return a message beginni
 - 备份/回滚：`/Users/wangyiliang/.codex/rollback/production-postgres-go-live-2026-09-03/postgres-full.dump`（SHA `c3161d0a…`）+ ROLLBACK.md。
 - 证据：`AllLinesProductionLocalGoLiveEvidence.v1.json`（SHA-256 `e4427f21…`）；状态 `PASS_PRODUCTION_LOCAL_GO_LIVE`。
 - 边界：production_canonical_write=true 仅指 schema+ACTIVE registry 就绪；cutover/authority_transfer/legacy_retired 仍 false；正式常驻启动需复验 legacy startup hooks 与真实业务写面；部署环境项（TLS/镜像固定/告警/扫描/RPO/ingress auth）仍未假完成。
+
+## Business-chain test batch (2026-09-03)
+
+- 用户指令：主要做业务链测试即可。执行组：S1/S2/S2b/S2c 横向能力链 17 文件 `140 passed / 0 failed`；C8/C4 非 PG 业务链 `21 passed / 0 failed`；C7/C8/C9 canonical 业务链 PG disposable `50+23+38=111 passed / 0 failed`。
+- 真实 postgres 只读 smoke（production_registry+auth，临时 token）：无/错 token 401、有效 Bearer 200 typed envelope（registry_revision=1、project_key 匹配、no_postgres_write=true）；计数 projects 9→9、agent_sessions 2409→2409、ACTIVE registry 1→1。
+- 证据：`AllLinesBusinessChainTestEvidence.v1.json`（SHA-256 `d873d5db…`），状态 `PASS_BUSINESS_CHAIN_TEST_BATCH`；teardown 零残留。
+- 边界：绿链是局部证据，不建立 canonical production write/cutover/authority transfer/legacy retirement；evidence-matrix/ingest-registry 的 registry-backed DB 投影读取未在 smoke 中证明（closed-fixture 查询口 + scope 解析）。
