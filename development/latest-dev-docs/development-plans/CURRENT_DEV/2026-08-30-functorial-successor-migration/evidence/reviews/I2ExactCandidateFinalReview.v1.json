@@ -1,0 +1,181 @@
+{
+  "schema": "mrw.functorial_successor.i2_exact_candidate_final_review.v1",
+  "version": "1.0.0",
+  "generated_at": "2026-09-02",
+  "reviewer": "independent-i2-exact-candidate-final-review",
+  "verdict": "BLOCK",
+  "verdict_scope": "candidate bytes acceptance only; does not authorize live provider, external delivery, cutover, authority transfer, or production canonical write",
+  "candidate": {
+    "commit": "9fa8aefaae8f30a080f3d2dcac6dfb6ff9f773e0",
+    "tree": "709719ca27e5c8c88b0de00e862d2996bb850a82",
+    "branch": "codex/functorial-successor-p0"
+  },
+  "review_worktree": {
+    "path": "/tmp/i2_candidate_903f248b",
+    "mode": "detached-read-only-review",
+    "python": "/Users/wangyiliang/.local/bin/python3.11",
+    "postgres": "localhost:5432 disposable databases only"
+  },
+  "checks": [
+    {
+      "id": "freeze_members_immutable",
+      "status": "PASS",
+      "detail": "16/16 frozen_contract_family members matched sha256/bytes/lines; 01/02/20/21 present in candidate"
+    },
+    {
+      "id": "manifest_sha_matches_02",
+      "status": "PASS",
+      "detail": "02 self sha256 895de0a699d472a84cd1f6661e5257e01bdbaed0da6cb3af9ddd3e0d04f07524 matches 03 declaration"
+    },
+    {
+      "id": "semantic_movement_generator_check",
+      "status": "PASS",
+      "detail": "CHECK_OK 60/0 (inline 40, external_c7 20, exact_blockers 0); exit 0"
+    },
+    {
+      "id": "semantic_movement_validator",
+      "status": "PASS",
+      "detail": "PASS 14/14; evidence_refs resolved 323, typed_absence 0, unresolved 0; exit 0"
+    },
+    {
+      "id": "capability_spec_cli_30_of_30",
+      "status": "PASS",
+      "detail": "generate_capability_spec_pilots.py --check MATCH 30/30; exit 0 each"
+    },
+    {
+      "id": "capability_spec_from_dict_30_of_30",
+      "status": "PASS",
+      "detail": "test_i1_micro_specimens.py matrix passed; CapabilityCellSpec.from_dict 30/30"
+    },
+    {
+      "id": "i1_suite_official",
+      "status": "FAIL",
+      "detail": "pytest -k i1 collection error exit 2: missing main/backend/scripts/generate_runtime_kernel_abi_pilot.py (P0-1)"
+    },
+    {
+      "id": "i1_suite_without_broken_module",
+      "status": "INFO",
+      "detail": "55 passed / 1458 deselected after ignoring test_capability_spec_runtime_kernel_abi_artifact.py"
+    },
+    {
+      "id": "i1_assembly_coverage_30_30",
+      "status": "PASS",
+      "detail": "test_i1_assembly_composition_root.py 11 passed; I1AssemblyCoverage.v1.json INSTALLED 30, authority all false"
+    },
+    {
+      "id": "c7_canonical_write_projector_pg",
+      "status": "PASS",
+      "detail": "59 passed (9 canonical-write/projector + 50 movement admission) on disposable databases; exit 0"
+    },
+    {
+      "id": "successor_router_mount_test",
+      "status": "FAIL",
+      "detail": "1 failed / 34 passed; /successor-runtime/v2/commands absent because app/api/__init__.py in candidate does not mount router (P0-2)"
+    },
+    {
+      "id": "c9_2_frontend_tests",
+      "status": "NOT_EXECUTED",
+      "detail": "detached candidate worktree has no frontend node_modules; candidate file sha256s match C9_2FrontendMilestone.v1.json (cfd390ee..., c88c30aa..., 0c822a1b..., f3d423b6...)"
+    },
+    {
+      "id": "full_non_pg_successor_runtime_official",
+      "status": "FAIL",
+      "detail": "env -u SUCCESSOR_* pytest tests/successor_runtime exit 2: collection error (P0-1)"
+    },
+    {
+      "id": "full_non_pg_successor_runtime_without_broken_module",
+      "status": "FAIL",
+      "detail": "3 failed / 1393 passed / 117 skipped: router mount (P0-2), two p0b schema snapshot tests (P0-3)"
+    },
+    {
+      "id": "authority_evidence_consistency",
+      "status": "FAIL",
+      "detail": "I1RouteMountEvidence.v1.json file sha aa164ad37bbe... does not match candidate app/api/__init__.py sha 25c68af353dec...; I1TestEvidence.v1.json run counts not reproducible on candidate bytes"
+    },
+    {
+      "id": "live_provider_boundary_freeze",
+      "status": "PASS",
+      "detail": "LiveProviderBoundaryFreeze.v1.json present; authority all false; provider_calls 0"
+    }
+  ],
+  "coverage": {
+    "semantic_movements": {
+      "total": 60,
+      "inline": 40,
+      "external_c7": 20,
+      "unassigned_blocker": 0
+    },
+    "capability_specs": {
+      "total": 30,
+      "cli_check_match": 30,
+      "from_dict_pass": 30,
+      "build_manifest_exact": 30
+    },
+    "i1_assembly": {
+      "cells": 30,
+      "installed": 30,
+      "status_declared": "I1_ASSEMBLY_LOCAL_ONLY_CLOSED_30_INSTALLED_NOT_PROMOTED"
+    }
+  },
+  "open_findings": [
+    {
+      "priority": "P0",
+      "id": "P0-1",
+      "title": "candidate missing scripts/generate_runtime_kernel_abi_pilot.py",
+      "detail": "tracked test imports the module; official I1 and full non-PG suites fail at collection",
+      "evidence": "git ls-tree HEAD has no such path; pytest collection ModuleNotFoundError"
+    },
+    {
+      "priority": "P0",
+      "id": "P0-2",
+      "title": "candidate does not mount successor router",
+      "detail": "test_api_successor_runtime_mount.py fails; I1RouteMountEvidence.v1.json records uncommitted worktree state",
+      "evidence": "candidate app/api/__init__.py sha 25c68af353dec9b10899fef32252d82490a4910db1872fc099cc0e0e3acb56ac vs evidence aa164ad37bbe13fee08cb15492453f24f5144de4318fdea0e6818ca86b6b297b"
+    },
+    {
+      "priority": "P0",
+      "id": "P0-3",
+      "title": "candidate missing migrations/versions/_snapshots/20260830_000001_successor_schema.py",
+      "detail": "test_p0b_schema_contract.py two tests fail with FileNotFoundError; directory is untracked in source worktree",
+      "evidence": "git ls-tree HEAD main/backend/migrations/versions/_snapshots = 0 files"
+    },
+    {
+      "priority": "P1",
+      "id": "P1-1",
+      "title": "I1 evidence runs not reproducible from candidate bytes",
+      "detail": "I1TestEvidence.v1.json 50 passed / 1370 passed and I1RouteMountEvidence.v1.json MOUNTED claims cannot be reproduced on candidate commit",
+      "evidence": "official pytest -k i1 and full non-PG runs fail on candidate"
+    },
+    {
+      "priority": "P2",
+      "id": "P2-1",
+      "title": "stale I1SuccessorAssembly evidence",
+      "detail": "I1SuccessorAssembly.v1.json records NOT_STARTED and head 35ca039c alongside 30/30 local-only closure evidence",
+      "evidence": "evidence/i1-successor-assembly/I1SuccessorAssembly.v1.json"
+    },
+    {
+      "priority": "P2",
+      "id": "P2-2",
+      "title": "registry smoke command not self-contained",
+      "detail": "I1TestEvidence.v1.json smoke command lacks imports/engine argument as written",
+      "evidence": "evidence/i1-successor-assembly/I1TestEvidence.v1.json runs[0]"
+    },
+    {
+      "priority": "P2",
+      "id": "P2-3",
+      "title": "C9.2 frontend tests not executed on candidate",
+      "detail": "detached worktree lacks node_modules; file shas match milestone evidence but test run not repeated",
+      "evidence": "evidence/i1-successor-assembly/C9_2FrontendMilestone.v1.json"
+    }
+  ],
+  "authority_status": {
+    "canonical_write": "bounded successor-owned tables only (PG evidence 59 passed); production canonical write not authorized",
+    "live_provider": false,
+    "external_delivery": false,
+    "cutover": false,
+    "authority_transfer": false,
+    "candidate_created": false,
+    "promotion": false,
+    "note": "evidence authority ceilings are uniformly false, but I1RouteMountEvidence.v1.json describes uncommitted worktree state and does not match candidate bytes"
+  }
+}
