@@ -39,7 +39,7 @@ PUBLIC_METADATA = _SNAPSHOT.PUBLIC_METADATA
 project_tables = _SNAPSHOT.project_tables
 
 revision = "20260830_000001"
-down_revision = "20260402_000004"
+down_revision = "20260525_000001"
 branch_labels = None
 depends_on = None
 
