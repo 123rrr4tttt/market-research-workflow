@@ -741,3 +741,12 @@ When the target task reaches a review boundary, it must return a message beginni
 - 测试：focused 62 passed（50+9+2+1）+ runner parity；全量非 PG `1583/119/0`；新备份 `postgres-20260903-024913.dump`（SHA `bf44b11e…`）。
 - 证据：`AllLinesC7ProductionAdmissionEvidence.v1.json`（SHA-256 `fe4c0ef6…`）；authority：c7_canonical_write_production=true（本链 bounded），cutover/authority_transfer/legacy_retired=false。
 - 附注：`test_p0b_schema_contract.py` 断言随迁移桥接修正（20260402_000004 → 20260525_000001），为必要维护。
+
+## HTTP projection + browser OAuth go-live (2026-09-03)
+
+- registry-backed HTTP 只读投影接线：`projection_query_read_port.py`（C7 canonical projector 走 C7ProjectorDriver，其它委托 PostgresC9QueryRepository，一次性短连接、零写入）；production_registry facade 改绑真实 DB query port + no-write command port；LOCAL_ONLY 未动。
+- 真实库 HTTP smoke：有效查询 200 且 `source_digest=d2495d61…` 与 committed 文档一致；无 token（隔离进程）401；全量非 PG `1585/119/0`。
+- 前端映射：`successorRuntimeConfig.ts` 源键改为真实 C7 投影（`projection.c7-production-document.v1` / search projector / `ingest_canonical` / acceptance 文档）；Playwright wiring 5 passed。
+- 用户选择“启用 OAuth 登录”：launchd 恢复 CODEX_OAUTH_ENABLED/sink/CLI auth 路径；浏览器路径 no-token 200（本机 Codex 会话）、login 302、auth status 200、UI/api 200。
+- 证据：`AllLinesProjectionReadEvidence.v1.json`（SHA `70b3bc10…`）、`AllLinesHttpProjectionEvidence.v1.json`（SHA `3e59d3a8…`）、`AllLinesBrowserAuthEvidence.v1.json`。
+- 状态：c7_canonical_write_production=true（bounded）；cutover/authority_transfer/legacy_retired 仍 false；正式公网证书/OAuth client 为外部部署项。

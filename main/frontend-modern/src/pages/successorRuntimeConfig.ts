@@ -3,22 +3,23 @@ import type { SuccessorProjectSourceKey, SuccessorQueryOptions } from '../lib/ap
 /**
  * Read-only projection identity for the successor runtime kernel module.
  *
- * The values mirror the C9 local-offline projector contract in
- * `main/backend/app/successor_runtime/assembly/c9_assembly.py` so the page can
- * be exercised against the closed LOCAL_ONLY mount before any per-run
- * projection key is supplied by the backend registry.  The page never
- * constructs a v2 URL itself and never submits a command; it only passes this
- * projection locator through the successor query client.
+ * The source key names the real committed C7 canonical document that the
+ * production-registry HTTP read facade answers from PostgreSQL
+ * (c7_movement_canonical_documents) through the deterministic search
+ * projector.  In a LOCAL_ONLY mount the query fails closed as unavailable,
+ * which is the intended production semantics: the page only displays real
+ * committed data once the registry-backed backend is serving it.  The page
+ * never constructs a v2 URL itself and never submits a command.
  */
 export const SUCCESSOR_RUNTIME_OBSERVATION_PROJECTION_ID =
-  'projection.sys-successor-runtime.v1'
+  'projection.c7-production-document.v1'
 
 export const SUCCESSOR_RUNTIME_OBSERVATION_SOURCE_KEY: SuccessorProjectSourceKey = {
-  projector_id: 'c9.local-offline.validation.projector.v1',
+  projector_id: 'successor.ingest_index.search.projector',
   projector_version: '1.0.0',
-  source_kind: 'CANONICAL_OWNER',
-  source_ref: 'local-offline:facade-validation',
-  source_incarnation: 'local-offline:facade-validation-inc-1',
+  source_kind: 'ingest_canonical',
+  source_ref: 'document:ingest-doc:c7-production-cutover-acceptance-2026-09-03',
+  source_incarnation: 'incarnation:production-go-live:v1',
 }
 
 export function buildSuccessorRuntimeObservationQueryOptions(

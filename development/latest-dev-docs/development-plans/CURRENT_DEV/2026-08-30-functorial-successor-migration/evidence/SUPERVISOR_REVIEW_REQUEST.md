@@ -431,3 +431,10 @@ SUPERVISOR_REVIEW_REQUEST
 - BLOCK 探针已解封：迁移 `20260903_000003`（c7_movement_canonical_documents）+ 生产 runner + parity/runner 测试；真实库 upgrade 至 `20260903_000003`，runner 0→1/replay 1→1/readback 一致，legacy 计数不变。
 - focused `62 passed`；全量非 PG `1583/119/0`；备份 `postgres-20260903-024913.dump`（SHA `bf44b11e…`）。
 - 证据：`AllLinesC7ProductionAdmissionEvidence.v1.json`（SHA `fe4c0ef6…`）。authority：c7 canonical write（本链 bounded）true；cutover/authority_transfer/legacy_retired false。
+
+## HTTP projection + browser OAuth go-live PASS (2026-09-03)
+
+- HTTP 只读投影接线到真实 DB（C7ProjectorDriver + PostgresC9QueryRepository 分发），production_registry facade 返回真实 committed digest；全量非 PG `1585/119/0`。
+- 前端源键切到真实 C7 投影（successorRuntimeConfig.ts），wiring e2e 5 passed。
+- 用户选择 OAuth 登录；launchd 恢复 OAuth/sink/CLI auth；浏览器 no-token 200（本机会话）、login 302、UI/api 200。
+- 证据：ProjectionRead `70b3bc10…`、HttpProjection `3e59d3a8…`、BrowserAuth 新记录。authority：c7 write bounded true；cutover/authority_transfer/legacy_retired false；公网证书/OAuth client 为外部部署项。
