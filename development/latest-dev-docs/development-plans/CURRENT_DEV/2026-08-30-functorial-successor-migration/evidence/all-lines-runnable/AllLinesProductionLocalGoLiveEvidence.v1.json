@@ -1,0 +1,147 @@
+{
+  "schema": "mrw.functorial_successor.all_lines.production_local_go_live_evidence.v1",
+  "version": "1.0.0",
+  "record_id": "all-lines-production-local-go-live-2026-09-03",
+  "date": "2026-09-03",
+  "generated_at": "2026-09-03T01:55:00+08:00",
+  "generated_by": "production_local_go_live_agent",
+  "status": "PASS_PRODUCTION_LOCAL_GO_LIVE",
+  "target_database": {
+    "host": "localhost",
+    "dbname": "postgres",
+    "server_version": "PostgreSQL 18.3 (Homebrew)"
+  },
+  "code_checkout": {
+    "commit": "b416c723542fca124a07b26a41ea7c364c6476ca",
+    "branch": "codex/functorial-successor-p0",
+    "migration_scripts": 35,
+    "migration_bridge_commit": "b416c723542fca124a07b26a41ea7c364c6476ca",
+    "bridge_note": "6 donor legacy migrations 20260524_000001..20260525_000001 are now tracked; 20260830_000001 down_revision=20260525_000001",
+    "donor_file_hashes_match_freezed_inventory": true
+  },
+  "backup": {
+    "path": "/Users/wangyiliang/.codex/rollback/production-postgres-go-live-2026-09-03/postgres-full.dump",
+    "format": "pg_dump -Fc",
+    "size_bytes": 65844763,
+    "sha256": "c3161d0a2dce426b1039ffbc69fc08bbda22a4c1e8c743a70d75a3288d25da8f",
+    "alembic_version_before": "20260525_000001",
+    "registry_table_before": null,
+    "registry_rows_before": 0,
+    "projects_rows_before": 9,
+    "agent_sessions_rows_before": 2409
+  },
+  "preflight_summary": {
+    "frozen_tree_29_scripts": {
+      "exit_code": 255,
+      "error": "Can't locate revision identified by '20260525_000001'"
+    },
+    "bridge_commit_35_scripts": "previously validated on disposable copy mrw_golive_preflight_20260903 (upgrade/downgrade/re-upgrade exit 0); committed donor hashes verified identical before real execution",
+    "real_database_was_untouched_during_preflight": true
+  },
+  "migration": {
+    "command": "/Users/wangyiliang/.local/bin/python3.11 -m alembic upgrade head (cwd=main/backend, DATABASE_URL from backend .env)",
+    "exit_code": 0,
+    "alembic_before": "20260525_000001",
+    "alembic_after": "20260831_000002",
+    "applied_revisions": [
+      "20260525_000001 -> 20260830_000001",
+      "20260830_000001 -> 20260831_000002"
+    ],
+    "public_successor_tables_after": 23,
+    "project_schemas_with_successor_tables": 11,
+    "project_tables_per_schema": 7
+  },
+  "registry_seed": {
+    "command": "INSERT ... ON CONFLICT (project_key, registry_revision) DO UPDATE (psql, ON_ERROR_STOP)",
+    "exit_code": 0,
+    "inserted": [
+      "demo_proj_compare_0303_121137"
+    ],
+    "updated": [],
+    "project_keys": [
+      "demo_proj_compare_0303_121137"
+    ],
+    "row": {
+      "registry_revision": 1,
+      "resolved_schema": "project_demo_proj_compare_0303_121137",
+      "scope_digest": "88fe54420b357e5a5a932d280d008badf940c35629753c6cefda5b3172b17b67",
+      "incarnation": "incarnation:production-go-live:v1",
+      "state": "ACTIVE",
+      "updated_by": "actor:production-local-go-live:2026-09-03 (non-secret identity)"
+    },
+    "active_rows_after": 1
+  },
+  "smoke": {
+    "method": "isolated python subprocess, TestClient against app.main, production_registry mount initialized manually into app.state; legacy startup hooks NOT triggered so smoke remained read-only; ambient token-sink/CLI/oauth disabled",
+    "env_used": {
+      "SUCCESSOR_MOUNT_MODE": "production_registry",
+      "SUCCESSOR_PRODUCTION_REQUIRES_AUTH": "true",
+      "CODEX_AUTH_ENABLED": "true",
+      "CODEX_AUTH_TOKENS": "go-live-smoke-token-20260903 (temporary process-local value only)",
+      "CODEX_AUTH_PROTECTED_PREFIXES": "/api/v1/successor-runtime",
+      "ACTIVE_PROJECT_KEY": "demo_proj_compare_0303_121137",
+      "CODEX_OAUTH_ENABLED": "false",
+      "CODEX_OAUTH_TOKEN_SINK_ENABLED": "false",
+      "CODEX_OAUTH_TOKEN_SINK_PATH": "/tmp/mrw-golive-nonexistent-token-sink.json",
+      "CODEX_CLI_AUTH_PATH": "/tmp/mrw-golive-nonexistent-cli-auth.json",
+      "DATABASE_URL": "inherited from backend .env (db=postgres Unix socket); no connection string printed"
+    },
+    "process_exit_code": 0,
+    "no_token_http_code": 401,
+    "wrong_token_http_code": 401,
+    "bearer_http_code": 200,
+    "health_http_code": 200,
+    "envelope": {
+      "status": "ok",
+      "control_feedback": false,
+      "meta_project_key": "demo_proj_compare_0303_121137",
+      "scope_digest": "88fe54420b357e5a5a932d280d008badf940c35629753c6cefda5b3172b17b67",
+      "registry_revision": 1,
+      "no_postgres_write": true,
+      "query_ok": true,
+      "error": null
+    },
+    "no_secret_printed": true
+  },
+  "legacy_preserved": {
+    "checked_tables": [
+      "public.projects",
+      "public.agent_sessions",
+      "project_demo_proj_compare_0303_121137.documents",
+      "project_demo_proj_compare_0303_121137.llm_report_export_token_states",
+      "project_demo_proj_compare_0303_121137.llm_report_quality_trends"
+    ],
+    "projects_count_before": 9,
+    "projects_count_after": 9,
+    "agent_sessions_count_before": 2409,
+    "agent_sessions_count_after": 2409,
+    "legacy_tables_still_present": true,
+    "ok": true
+  },
+  "teardown": {
+    "residual_databases": [],
+    "residual_roles": [],
+    "residual_temp_smoke_files": [],
+    "residual_processes": [],
+    "worktree_dirty": [
+      "AllLinesProductionLocalGoLiveEvidence.v1.json (intended evidence, supervisor will commit)",
+      "pre-existing frontend-modern untracked x2",
+      "pre-existing main/ops/.rollback_snapshots/"
+    ],
+    "real_database_intentional_state": "alembic head 20260831_000002 + 1 ACTIVE project_scope_registry row + successor tables (migration/seed are the go-live objective, not residue)"
+  },
+  "authority_ceiling": {
+    "production_canonical_write": true,
+    "canonical_business_write_executed": false,
+    "cutover": false,
+    "authority_transfer": false,
+    "legacy_retired": false
+  },
+  "risks": [
+    "Real DB has been structurally upgraded and seeded; point-in-time rollback to pre-go-live uses postgres-full.dump (restore steps in ROLLBACK.md).",
+    "Smoke intentionally did not run legacy app startup hooks (project schema CREATE IF NOT EXISTS, LLM prompt sync, shared table ensure); a real service start will run them against the same DB and is idempotent-by-design but was not exercised here.",
+    "No production canonical business write was executed; successor scope resolution and read-only query were verified only.",
+    "origin/main and codex/functorial-successor-p0 bridge commit b416c723 are the executing bytes; evidence JSON is uncommitted and will be committed by the supervisor.",
+    "Ambient host Codex sessions were explicitly disabled for 401 semantics; production ingress must retain the same auth boundary."
+  ]
+}

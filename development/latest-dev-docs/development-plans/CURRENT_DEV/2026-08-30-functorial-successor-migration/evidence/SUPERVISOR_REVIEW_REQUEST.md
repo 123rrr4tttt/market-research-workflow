@@ -411,3 +411,11 @@ SUPERVISOR_REVIEW_REQUEST
 - 用户授权所有工作推进到投产；origin `main` 已快进到 `6f5f5900`（本地 main 同步）。
 - 最终字节复跑（`AllLinesFinalRunnableEvidence.v1.json`，SHA `34bc3b6e…`）：rollback drill、backup/restore、downgrade/upgrade 全 PASS 零残留；production_registry+auth smoke 401/200/fail-closed 验证通过。
 - 边界：production_canonical_write/authority_transfer/legacy_retired/正式 cutover 仍 false；TLS/镜像固定/在线告警/secret 扫描/RPO/ingress auth 为部署环境待办，未假完成。
+
+## Production local go-live PASS (2026-09-03)
+
+- 目标库确认：本地 `postgres`。桥接 commit `b416c723`（6 donor 迁移 + 起点 `20260525_000001`）已推 origin/main 与功能分支。
+- 真实库 upgrade head 成功至 `20260831_000002`；ACTIVE registry seed `demo_proj_compare_0303_121137`/`project_demo_proj_compare_0303_121137`（digest `88fe5442…`）；production_registry+auth smoke 401/401/200/health 200。
+- legacy 保留核验通过；teardown 零残留；备份 `postgres-full.dump`（SHA `c3161d0a…`）+ ROLLBACK.md。
+- 证据：`AllLinesProductionLocalGoLiveEvidence.v1.json`（SHA `e4427f21…`），状态 `PASS_PRODUCTION_LOCAL_GO_LIVE`。
+- 边界：cutover/authority_transfer/legacy_retired 仍 false；正式常驻启动与真实业务 canonical write 面、TLS/镜像/告警/扫描/RPO/ingress auth 为下一部署步骤，未假完成。

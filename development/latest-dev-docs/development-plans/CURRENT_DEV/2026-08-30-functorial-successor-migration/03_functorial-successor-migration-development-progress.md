@@ -715,3 +715,13 @@ When the target task reaches a review boundary, it must return a message beginni
 - 最终字节 `6f5f5900` 复跑生产运行面证据：真实 rollback drill（cycle1/2 全 smoke 200）、DB backup/restore（迁移链 29、seed 恢复、C7 PG 9 passed）、alembic downgrade/upgrade 全 PASS、零残留；production_registry + auth smoke：无/错 token 401、有效 Bearer 200 typed envelope、auth disabled 启动 fail-closed。
 - 证据：`evidence/all-lines-runnable/AllLinesFinalRunnableEvidence.v1.json`（SHA-256 `34bc3b6e…`）；monitoring-and-rollback.md 追加最终字节复跑记录。
 - 剩余（如实未完成）：TLS 终结、镜像 digest/registry、在线告警、secret/依赖扫描、计划备份/RPO、生产 owner/ACL、volume 级恢复 drill、真实 ingress 网络级 auth 复测；production_canonical_write/authority_transfer/legacy_retired/正式 cutover 仍 false。
+
+## Production local go-live on real postgres (2026-09-03)
+
+- 用户确认目标数据库为本地 `postgres`；桥接 commit `b416c723` 将 6 个 donor legacy 迁移纳入发布链并把 successor 起点接到 `20260525_000001`（已推 origin/main 与 codex/functorial-successor-p0）。
+- 真实库 `alembic upgrade head` 成功：`20260525_000001 → 20260831_000002`；23 张 public successor 表 + 11 个 legacy project schema 各 7 张项目表。
+- Registry seed：`demo_proj_compare_0303_121137` ACTIVE（resolved_schema=`project_demo_proj_compare_0303_121137`，revision 1，digest `88fe5442…`）。
+- production_registry+auth smoke：401/401/200/health 200，control_feedback=false、no_postgres_write=true；legacy 保留核验通过（projects 9→9、agent_sessions 2409→2409）。
+- 备份/回滚：`/Users/wangyiliang/.codex/rollback/production-postgres-go-live-2026-09-03/postgres-full.dump`（SHA `c3161d0a…`）+ ROLLBACK.md。
+- 证据：`AllLinesProductionLocalGoLiveEvidence.v1.json`（SHA-256 `e4427f21…`）；状态 `PASS_PRODUCTION_LOCAL_GO_LIVE`。
+- 边界：production_canonical_write=true 仅指 schema+ACTIVE registry 就绪；cutover/authority_transfer/legacy_retired 仍 false；正式常驻启动需复验 legacy startup hooks 与真实业务写面；部署环境项（TLS/镜像固定/告警/扫描/RPO/ingress auth）仍未假完成。
