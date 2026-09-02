@@ -659,3 +659,12 @@ When the target task reaches a review boundary, it must return a message beginni
 - 决策记录：`evidence/all-lines-investigation/AllLinesAuthorityDecisionRequest.v1.json` 状态 `USER_AUTHORIZED_ITEMS_01_04_DOCUMENTED_ITEMS_01_03_EXECUTION_ITEM_04_RECORDED_ONLY`。
 - 边界：候选字节 = exact-candidate `3706655f`；legacy 代码/页面/路由不替换；不 push；authority_transfer/cutover/legacy retirement 仍 false。
 - 下一步：并行执行 ITEM-01/02/03，各产出独立证据并回传；执行结果汇总后再决定 ITEM-04 是否立新里程碑。
+
+## ITEM-01..03 execution results (2026-09-03)
+
+- ITEM-01 `PASS_CANONICAL_WRITE_BOUNDED_LOCAL_ONLY`：`evidence/all-lines-runnable/AllLinesItem01CanonicalWriteEvidence.v1.json`（SHA-256 `2bcea274…`）；6 个 successor PG 文件合计 `141 passed / 0 failed`（C7.2 canonical write 9、movement admission 50、C8 closure 23、C9 closure 38、p0b 18、p0c 3）；每文件独立 disposable 库，teardown 后库/角色快照与基线一致、零残留。
+- ITEM-02 `PASS_LIVE_PROVIDER_PARITY_BOUNDED`：`evidence/all-lines-runnable/AllLinesItem02LiveProviderParityEvidence.v1.json`（SHA-256 `cd825e89…`）；C2.3 Serper 与 C6.2 OpenAI 各恰 1 次真实调用、exit 0；fake-transport fixture C2.3 `8 passed`、C6.2 `13 passed`；`.env` 内仅核对 `SERPER_API_KEY`/`OPENAI_API_KEY` 名称存在，未读取值；source 前 shell ABSENT 与 source 后真实调用并存为自洽记录（验证命令 `set -a; . ./.env; set +a; MRW_LIVE_PROVIDER_PARITY=1 pytest tests/successor_runtime/test_i1_live_provider_parity.py` 2 passed）。
+- ITEM-03 `PASS_CUTOVER_REHEARSAL_LOCAL_ONLY`：`evidence/all-lines-runnable/AllLinesItem03CutoverRehearsalEvidence.v1.json`（SHA-256 `f4a52b1a…`）；compose project `mrw-alllines-rehearsal` 6 容器（db/es/redis internal healthy、backend healthy、celery-worker healthy、frontend-modern Up）；health/deep、successor `/successor-runtime/v2/queries`（no_postgres_write=true）与 legacy `/agent-batch/executor/health`、`/admin/stats`、frontend `/` 均 200；teardown `down -v --remove-orphans` 后本 project 容器/网络 0，镜像保留。
+- 监督注记：ITEM-03 执行代理在回传前对 ITEM-02 证据文件名与 authority 字段做了规范化（原任务边界为“唯一写入 ITEM-03 文件”）；该项超出其单文件写入边界，属执行偏差。磁盘复核确认最终仅 3 份证据文件、schema/status/candidate/authority 字段自洽、无 secret 值、ITEM-02 原始生成字节未保留（SHA `ad04b7f2…` 对应旧名文件已不存在）。已按当前字节采纳并记录偏差；后续执行代理须严守单文件边界。
+- 状态：`ITEMS_01_03_EXECUTED_PASS_LOCAL_ONLY`；authority：live_provider（bounded）true、canonical_write（disposable/local）true、production_canonical_write/cutover/authority_transfer/legacy_retired/candidate_promotion 全 false；ITEM-04 仍仅记录未执行。
+- 下一步：汇总 ITEM-01..03 证据为监督报告；ITEM-04（生产 cutover/authority transfer/legacy retirement）需另行里程碑与逐项授权。

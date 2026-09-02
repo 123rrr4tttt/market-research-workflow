@@ -373,3 +373,12 @@ SUPERVISOR_REVIEW_REQUEST
 - ITEM-03 Docker 全栈 all-lines cutover rehearsal（容器化，legacy 可用，不替换生产路由）→ 授权执行。
 - ITEM-04 生产 cutover / authority transfer / legacy retirement → 仅记录文档，不执行，后续另行批准。
 - 边界：候选字节 `3706655f`；authority_transfer/cutover/legacy retirement 保持 false；不 push。
+
+## ITEM-01..03 execution PASS records (2026-09-03)
+
+- 证据目录：`evidence/all-lines-runnable/`（3 份，均 local-only）。
+- ITEM-01 `PASS_CANONICAL_WRITE_BOUNDED_LOCAL_ONLY`：SHA `2bcea274…`；141 passed / 0 failed；disposable PG 每文件专用库；teardown 零残留。
+- ITEM-02 `PASS_LIVE_PROVIDER_PARITY_BOUNDED`：SHA `cd825e89…`；C2.3 Serper + C6.2 OpenAI 各 1 次真实调用；`.env` 变量名存在性审计，未读值。
+- ITEM-03 `PASS_CUTOVER_REHEARSAL_LOCAL_ONLY`：SHA `f4a52b1a…`；`mrw-alllines-rehearsal` 6 容器 healthy；successor 只读 route 与 legacy route 均 200；teardown 零残留容器。
+- 偏差注记：ITEM-03 执行代理对 ITEM-02 证据文件名/字段做了规范化，超出其单文件写边界；磁盘复核最终 3 份文件自洽，无 secret，采纳当前字节并记录偏差。
+- 状态：authority 仅解锁 bounded live_provider 与 disposable/local canonical_write；production_canonical_write/cutover/authority_transfer/legacy_retired/candidate_promotion 全 false；ITEM-04 仅记录未执行。

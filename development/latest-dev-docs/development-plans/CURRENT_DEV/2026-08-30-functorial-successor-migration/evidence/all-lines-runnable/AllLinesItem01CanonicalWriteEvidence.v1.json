@@ -1,0 +1,121 @@
+{
+  "schema": "mrw.functorial_successor.all_lines.item01_canonical_write_evidence.v1",
+  "version": 1,
+  "record_id": "all-lines-item01-canonical-write-2026-09-03",
+  "date": "2026-09-03",
+  "status": "PASS_CANONICAL_WRITE_BOUNDED_LOCAL_ONLY",
+  "candidate": {
+    "commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+    "tree": "5840bf9ba906c49f70020d226c54446f4ba5aa33",
+    "branch": "codex/functorial-successor-p0"
+  },
+  "worktree": {
+    "path": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0",
+    "head": "8a99b68ef90c3214a92b65f36a6dc2dd8ab0ba60",
+    "commit_delta_verified": true,
+    "diff_main_empty": true
+  },
+  "authority_ceiling": {
+    "canonical_write": "disposable/local-only",
+    "production_canonical_write": false,
+    "legacy_retired": false,
+    "authority_transfer": false
+  },
+  "db_baseline": {
+    "databases": [
+      "codex_p0c_full_chain_test",
+      "mrw_p0b_rereview_test_01a0504c"
+    ],
+    "roles": []
+  },
+  "runs": [
+    {
+      "file": "tests/successor_runtime/test_c7_canonical_write_projector_postgres.py",
+      "db": "mrw_item01_test_c7_canonical_write_projector_postgres_test",
+      "exit_code": 0,
+      "passed": 9,
+      "skipped": 0,
+      "failed": 0,
+      "errors": 0,
+      "seconds": 1.18
+    },
+    {
+      "file": "tests/successor_runtime/test_c7_movement_admission_postgres.py",
+      "db": "mrw_item01_test_c7_movement_admission_postgres_test",
+      "exit_code": 0,
+      "passed": 50,
+      "skipped": 0,
+      "failed": 0,
+      "errors": 0,
+      "seconds": 4.44
+    },
+    {
+      "file": "tests/successor_runtime/test_c8_movement_closure_postgres.py",
+      "db": "mrw_item01_test_c8_movement_closure_postgres_test",
+      "exit_code": 0,
+      "passed": 23,
+      "skipped": 0,
+      "failed": 0,
+      "errors": 0,
+      "seconds": 2.95
+    },
+    {
+      "file": "tests/successor_runtime/test_c9_movement_closure_backend_postgres.py",
+      "db": "mrw_item01_test_c9_movement_closure_backend_postgres_test",
+      "exit_code": 0,
+      "passed": 38,
+      "skipped": 0,
+      "failed": 0,
+      "errors": 0,
+      "seconds": 4.99
+    },
+    {
+      "file": "tests/successor_runtime/test_p0b_postgres_integration.py",
+      "db": "mrw_item01_test_p0b_postgres_integration_test",
+      "exit_code": 0,
+      "passed": 18,
+      "skipped": 0,
+      "failed": 0,
+      "errors": 0,
+      "seconds": 1.61
+    },
+    {
+      "file": "tests/successor_runtime/test_p0c_production_composition_root.py",
+      "db": "mrw_item01_test_p0c_production_composition_root_test",
+      "exit_code": 0,
+      "passed": 3,
+      "skipped": 0,
+      "failed": 0,
+      "errors": 0,
+      "seconds": 1.33
+    }
+  ],
+  "totals": {
+    "passed": 141,
+    "skipped": 0,
+    "failed": 0,
+    "errors": 0
+  },
+  "teardown": {
+    "zero_residual": true,
+    "databases": [
+      "codex_p0c_full_chain_test",
+      "mrw_p0b_rereview_test_01a0504c"
+    ],
+    "roles": []
+  },
+  "verification_commands": [
+    "git -C <worktree> rev-parse HEAD -> 8a99b68e",
+    "git -C <worktree> rev-parse 3706655f^{tree} -> 5840bf9b",
+    "git -C <worktree> diff --name-only 3706655f HEAD -- main/ -> empty",
+    "psql pg_database snapshot (filter ^(mrw_|codex_)) before and after -> equal",
+    "psql pg_roles snapshot (filter ^(mrw_|codex_)) before and after -> empty",
+    "pytest per file with SUCCESSOR_TEST_DATABASE_URL=postgresql+psycopg2://localhost/<db>"
+  ],
+  "risks": [
+    "Two pre-existing disposable databases (codex_p0c_full_chain_test, mrw_p0b_rereview_test_01a0504c) existed before this run and were left untouched; they are baseline, not this item's residue.",
+    "Optional full 39-file PG rerun was not executed in this item; prior PgEvidence.AllLines.2026-09-02.md records 353/0/0 for that set.",
+    "Result proves bounded canonical-write behavior on disposable/local databases only; it does not attest production canonical write, live providers, cutover, or authority transfer.",
+    "No legacy code/table/route was written; legacy remains available and unretired."
+  ]
+}
