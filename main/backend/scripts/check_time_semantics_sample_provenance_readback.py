@@ -6,7 +6,7 @@ import importlib.util
 import json
 from pathlib import Path
 import sys
-from typing import Any
+from typing import Annotated, Any
 
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
@@ -254,7 +254,10 @@ def build_check(
     repo_root: Path | str | None = None,
     source_readiness: dict[str, Any] | None = None,
     include_doc_checks: bool = True,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=generated_evidence fact_source=deterministic_sample_readback+topic_docs witness=test:test_c13_cli_graph_workflow_metadata_preserves_abi",
+]:
     root = Path(repo_root) if repo_root is not None else REPO_ROOT
     root = root.resolve()
     readiness = source_readiness if source_readiness is not None else _build_source_readiness()

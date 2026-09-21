@@ -1,0 +1,30 @@
+services:
+  backend:
+    environment:
+      FORWARDED_ALLOW_IPS: "172.30.44.10"
+    networks:
+      default:
+        ipv4_address: 172.30.44.11
+
+  tls-edge:
+    image: "${FRONTEND_IMAGE_DIGEST:?required retained frontend image}"
+    pull_policy: never
+    platform: linux/amd64
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:15442:443"
+    volumes:
+      - "${STAGE4_TLS_CERT_PATH:?required task-local TLS certificate}:/run/stage4-tls/tls.crt:ro"
+      - "${STAGE4_TLS_KEY_PATH:?required task-local TLS private key}:/run/stage4-tls/tls.key:ro"
+      - "${STAGE4_TLS_NGINX_PATH:?required task-local TLS nginx config}:/etc/nginx/conf.d/default.conf:ro"
+    networks:
+      default:
+        ipv4_address: 172.30.44.10
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.30.44.0/28

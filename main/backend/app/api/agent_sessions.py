@@ -4,6 +4,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
+from functorial_kit import Failure
 from pydantic import BaseModel, Field
 
 from ..contracts import ApiEnvelope, ErrorCode, error_response
@@ -33,6 +34,32 @@ def _raise_not_found(message: str) -> None:
             ErrorCode.NOT_FOUND,
             message,
         ),
+    )
+
+
+def _unwrap_agent_session_failure(value: Any, *, not_found_message: str) -> Any:
+    if not isinstance(value, Failure):
+        return value
+    if value.family != "agent.session.failure":
+        raise TypeError("unexpected agent session failure family")  # noqa: TRY003
+
+    details = {
+        "reason_code": value.code,
+        "failure_family": value.family,
+    }
+    if value.code in {"session_not_found", "task_not_found", "approval_not_found"}:
+        raise HTTPException(
+            status_code=404,
+            detail=error_response(ErrorCode.NOT_FOUND, not_found_message, details=details),
+        )
+    if value.code == "backend_unavailable":
+        raise HTTPException(
+            status_code=502,
+            detail=error_response(ErrorCode.UPSTREAM_ERROR, value.message, details=details),
+        )
+    raise HTTPException(
+        status_code=400,
+        detail=error_response(ErrorCode.INVALID_INPUT, value.message, details=details),
     )
 
 
@@ -137,9 +164,10 @@ def list_agent_sessions(limit: int = 50) -> dict[str, Any]:
 def get_agent_session(session_id: str) -> dict[str, Any]:
     service = get_agent_session_service()
     try:
-        return ok(service.get_session_bundle(session_id))
+        out = service.get_session_bundle(session_id)
     except KeyError:
         _raise_not_found("session not found")
+    return ok(_unwrap_agent_session_failure(out, not_found_message="session not found"))
 
 
 @router.get("/agent-sessions/{session_id}/tasks", response_model=AgentSessionEnvelope)
@@ -192,6 +220,26 @@ def create_agent_session_message(session_id: str, payload: AgentMessageCreateReq
         )
     except KeyError:
         _raise_not_found("session not found")
+    return ok(out)
+
+
+@router.get("/agent-sessions/{session_id}/failure-package", response_model=AgentSessionEnvelope)
+def export_agent_session_failure_package(
+    session_id: str,
+    task_id: str | None = None,
+    run_id: str | None = None,
+) -> dict[str, Any]:
+    service = get_agent_session_service()
+    out = service.export_failure_package(session_id, task_id=task_id, run_id=run_id)
+    if out.get("export_status") == "not_found":
+        reason_code = str(out.get("reason_code") or "")
+        if reason_code == "session_not_found":
+            _raise_not_found("session not found")
+        if reason_code == "task_not_found":
+            _raise_not_found("task not found")
+        if reason_code == "run_not_found":
+            _raise_not_found("run not found")
+        _raise_not_found("failure package target not found")
     return ok(out)
 
 
@@ -304,4 +352,4 @@ def resolve_agent_approval(approval_id: str, payload: AgentApprovalResolveReques
         )
     except KeyError:
         _raise_not_found("approval not found")
-    return ok(out)
+    return ok(_unwrap_agent_session_failure(out, not_found_message="approval not found"))

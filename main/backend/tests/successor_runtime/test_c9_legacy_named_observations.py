@@ -449,7 +449,11 @@ def _observe_legacy_graph() -> Any:
     posts = [normalize_document(doc) for doc in docs]
     assert all(post is not None for post in posts), "captured graph docs must normalize"
     graph = build_graph(posts)
-    result = run_graph_node_backfill(_FakeBackfillSession(docs), dry_run=True)
+    result = run_graph_node_backfill(
+        _FakeBackfillSession(docs),
+        normalizer=normalize_document,
+        dry_run=True,
+    )
     assert result.scanned_docs == len(docs)
     assert result.skipped_docs == 0
     assert result.written_nodes == len(graph.nodes)

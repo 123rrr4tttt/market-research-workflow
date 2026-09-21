@@ -62,12 +62,14 @@ class OpsMiscGroupDecision:
 
     def __post_init__(self) -> None:
         if self.group not in GROUP_COVERAGE:
+            # kit:boundary owner=successor_runtime.ops_domain.ops_misc_surface class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_ops_surface_programmer_defect_boundaries
             raise ValueError(f"unknown group: {self.group}")
         if self.disposition not in (
             "REIMPLEMENTED_AS_TYPED_READONLY_SURFACE",
             "EXPLICITLY_REJECTED",
             "DECLARED_LOSS",
         ):
+            # kit:boundary owner=successor_runtime.ops_domain.ops_misc_surface class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_ops_surface_programmer_defect_boundaries
             raise ValueError(f"unknown disposition: {self.disposition}")
         object.__setattr__(
             self,
@@ -179,8 +181,10 @@ class OpsMiscSurfaceManifest:
 
     def __post_init__(self) -> None:
         if self.schema != SURFACE_SCHEMA:
+            # kit:boundary owner=successor_runtime.ops_domain.ops_misc_surface class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_ops_surface_programmer_defect_boundaries
             raise ValueError("OpsMiscSurfaceManifest.schema is not frozen")
         if self.movement_ids != MOVEMENT_IDS:
+            # kit:boundary owner=successor_runtime.ops_domain.ops_misc_surface class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_ops_surface_programmer_defect_boundaries
             raise ValueError("OpsMiscSurfaceManifest.movement_ids drift")
         require_authority_false(self.authority)
         object.__setattr__(self, "group_decisions", tuple(self.group_decisions))
@@ -220,10 +224,12 @@ def project_ops_misc_surface(
         merged[item.group] = item
     missing = tuple(group for group in GROUP_COVERAGE if group not in merged)
     if missing:
+        # kit:boundary owner=successor_runtime.ops_domain.ops_misc_surface class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_ops_surface_programmer_defect_boundaries
         raise ValueError("ops-misc surface requires groups: " + ",".join(missing))
     decisions = tuple(merged[group] for group in GROUP_COVERAGE)
     for decision in decisions:
         if not decision.decision_owner:
+            # kit:boundary owner=successor_runtime.ops_domain.ops_misc_surface class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_ops_surface_programmer_defect_boundaries
             raise ValueError("group decision requires an explicit decision_owner")
     return OpsMiscSurfaceManifest(
         schema=SURFACE_SCHEMA,

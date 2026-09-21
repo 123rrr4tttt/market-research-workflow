@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any
 
 from .common_view import get_entities, get_extracted_data, get_platform
 
@@ -67,7 +67,16 @@ def get_social_entities(doc: Any) -> list[dict[str, Any]]:
     return get_entities(doc)
 
 
-def build_social_data_item(doc: Any, *, include_extracted_data: bool = True) -> dict[str, Any]:
+def build_social_data_item(
+    doc: Any,
+    *,
+    include_extracted_data: bool = True,
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view "
+    "fact_source=social_document_extracted_data "
+    "witness=test:test_w04_authority_metadata",
+]:
     extracted = get_extracted_data(doc)
     sentiment = get_social_sentiment(doc)
     publish_date = getattr(doc, "publish_date", None)

@@ -29,6 +29,7 @@ from app.successor_runtime.capabilities.c8_common import (
     c8_canonical_digest,
     research_draft_artifact_digest,
     validate_citation_closure,
+    reject_c8_unavailable,
 )
 
 __all__ = [
@@ -126,7 +127,7 @@ def compose_writing_handoff(
         name for name in WRITING_SYNTHESIS_REQUIRED_FIELDS if name not in read.fields
     ]
     if missing:
-        raise UnavailableProjection(
+        reject_c8_unavailable(
             "writing synthesis requires demand-read fields: " + ",".join(missing)
         )
     facets = {
@@ -231,7 +232,7 @@ def compose_markdown_draft(
 ) -> ResearchDraftArtifact:
     for read in reads:
         if isinstance(read.witness_marker, TestOnlySealedValue):
-            raise UnavailableProjection(
+            reject_c8_unavailable(
                 "production writing rejects TEST_ONLY read witness"
             )
     return _compose_markdown_draft(
@@ -270,37 +271,37 @@ def _compose_markdown_draft(
         ceiling=spec.citation_ceiling,
     )
     if not reads:
-        raise UnavailableProjection("markdown draft requires issued knowledge reads")
+        reject_c8_unavailable("markdown draft requires issued knowledge reads")
     for read in reads:
         if read.handle.project_key != spec.project_key:
-            raise UnavailableProjection("issued read project scope mismatch")
+            reject_c8_unavailable("issued read project scope mismatch")
         if (
             read.handle.revision != spec.base_revision
             or read.handle.incarnation != spec.base_incarnation
         ):
-            raise UnavailableProjection(
+            reject_c8_unavailable(
                 "markdown base revision/incarnation must equal every issued source"
             )
         if "canonical_statement" not in read.fields:
-            raise UnavailableProjection(
+            reject_c8_unavailable(
                 "markdown draft requires demand-read canonical_statement"
             )
         evidence_refs = read.fields.get("evidence_refs")
         if not evidence_refs:
-            raise UnavailableProjection(
+            reject_c8_unavailable(
                 "markdown draft requires non-empty evidence_refs"
             )
         citation_ids = {ref.citation_id for ref in citation_closure.refs}
         missing = [ref for ref in evidence_refs if ref not in citation_ids]
         if missing:
-            raise UnavailableProjection(
+            reject_c8_unavailable(
                 "evidence_refs require ordered citations: " + ",".join(sorted(missing))
             )
     read_by_identity = {read.handle.canonical_identity: read for read in reads}
     for ref in citation_closure.refs:
         bound_read = read_by_identity.get(ref.source_identity)
         if bound_read is None:
-            raise UnavailableProjection(
+            reject_c8_unavailable(
                 f"citation source is not an issued read: {ref.source_identity}"
             )
         if (
@@ -310,7 +311,7 @@ def _compose_markdown_draft(
             or ref.handle_id != bound_read.handle.handle_id
             or ref.fields_digest != bound_read.handle.fields_digest
         ):
-            raise UnavailableProjection(
+            reject_c8_unavailable(
                 "citation is not bound to the exact issued read"
             )
     lines = [f"# {artifact_id}", ""]
@@ -322,7 +323,7 @@ def _compose_markdown_draft(
         lines.append(f"{ref.position}. {ref.citation_id} ({ref.source_identity})")
     markdown_bytes = ("\n".join(lines) + "\n").encode("utf-8")
     if len(markdown_bytes) > spec.byte_ceiling:
-        raise UnavailableProjection("markdown draft exceeds byte ceiling")
+        reject_c8_unavailable("markdown draft exceeds byte ceiling")
     artifact = ResearchDraftArtifact(
         artifact_id=artifact_id,
         project_key=spec.project_key,

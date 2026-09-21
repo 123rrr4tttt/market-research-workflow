@@ -12,10 +12,21 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import sys
 from typing import Any
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+BACKEND_ROOT = REPO_ROOT / "main" / "backend"
+if str(BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(BACKEND_ROOT))
+
+from scripts.evidence_source_contract import (  # noqa: E402
+    EVIDENCE_SOURCE_UNAVAILABLE,
+    apply_evidence_source_contract,
+    evidence_source,
+)
+
 DEFAULT_OUT_DIR = "development/latest-dev-docs/automation-runs/wave27-vectorization-closure/2026-05-23"
 
 ARTIFACTS = {
@@ -80,7 +91,7 @@ TARGET_TOPICS = [
     {
         "slug": "2026-05-14-global-vectorization-general-foundation",
         "title": "2026-05-14 Global Vectorization General Foundation",
-        "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-global-vectorization-general-foundation",
+        "path": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation",
         "existing_docs": [
             "07_wave19-vectorization-provider-manifest-2026-05-22.md",
             "08_wave22-vectorization-provider-external-blocked-decision-2026-05-22.md",
@@ -106,7 +117,7 @@ TARGET_TOPICS = [
     {
         "slug": "2026-03-05-oss-node-platform-io-plan",
         "title": "2026-03-05 OSS Node Platform IO Plan",
-        "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-05-oss-node-platform-io-plan",
+        "path": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-05-oss-node-platform-io-plan",
         "existing_docs": [
             "06_wave19-vectorization-provider-manifest-2026-05-22.md",
         ],
@@ -345,7 +356,7 @@ def build_contract(*, artifact_overrides: dict[str, Path] | None = None) -> dict
     retained_topics = [row for row in topic_decisions if row["decision"] == "retain_current_dev"]
     archive_candidates = [row for row in topic_decisions if row["archive_external_blocked_eligible"]]
 
-    return {
+    contract = {
         "contract_version": "wave27-vectorization-closure-gate.v1",
         "generated_by": "ops/search-lab/scripts/wave27_vectorization_closure_gate.py",
         "status": "passed" if not failures else "failed",
@@ -378,6 +389,25 @@ def build_contract(*, artifact_overrides: dict[str, Path] | None = None) -> dict
         },
         "failures": failures,
     }
+    contract = apply_evidence_source_contract(
+        contract,
+        [
+            evidence_source(
+                _resolve_artifact_path(name, artifact_overrides),
+                repo_root=REPO_ROOT,
+                label=name,
+            )
+            for name in ARTIFACTS
+        ],
+        clear_fields=("closed_conditions",),
+    )
+    if EVIDENCE_SOURCE_UNAVAILABLE in contract["failure_codes"]:
+        contract["summary"]["archive_external_blocked_patch_prepared"] = False
+        contract["summary"]["provider_slice_repo_local_closed_count"] = 0
+        for decision in contract["topic_decisions"]:
+            decision["provider_slice_repo_local_closed"] = False
+            decision["archive_external_blocked_eligible"] = False
+    return contract
 
 
 def write_outputs(out_dir: Path, contract: dict[str, Any]) -> None:

@@ -24,7 +24,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Literal
+from typing import Annotated, Literal
 
 import sqlalchemy as sa
 from sqlalchemy.engine import Connection
@@ -1017,7 +1017,11 @@ def build_commit_binding(
     *,
     config: C7AdmissionConfig,
     binding: VerificationBinding,
-) -> CommitIntentBinding:
+) -> Annotated[
+    CommitIntentBinding,
+    "kit:prepared-command effect_boundary=postgres.c7_commit_intent_binding "
+    "witness=test:test_w08c_postgres_builder_metadata_preserves_return_types",
+]:
     return CommitIntentBinding(
         commit_intent_id=config.commit_intent_id,
         run_id=config.run_id,
@@ -1041,7 +1045,11 @@ def build_commit_intent(
     config: C7AdmissionConfig,
     scope: RuntimeScope,
     binding: VerificationBinding,
-) -> CommitIntent:
+) -> Annotated[
+    CommitIntent,
+    "kit:prepared-command effect_boundary=postgres.c7_commit_intent "
+    "witness=test:test_w08c_postgres_builder_metadata_preserves_return_types",
+]:
     return CommitIntent(
         commit_intent_id=config.commit_intent_id,
         canonical_owner=DOCUMENT_CANONICAL_OWNER,

@@ -1,0 +1,1 @@
+uvx --python /opt/homebrew/bin/python3.11 --from pip-audit==2.9.0 pip-audit -r public-pypi-requirements.txt --strict --format json --output pip-audit.report.json

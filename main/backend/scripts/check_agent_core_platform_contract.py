@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 from app.services.agent_core import (
     AgentCore,
@@ -18,7 +18,12 @@ from app.services.agent_core import (
 )
 
 
-def build_contract_snapshot() -> dict[str, Any]:
+def build_contract_snapshot() -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=generated_evidence "
+    "fact_source=AgentCoreFakeProviderDispatch "
+    "witness=test:test_c11_cli_agent_authority_metadata",
+]:
     registry = CoreToolRegistry()
     spec = CoreToolSpec(
         name="agent.platform_contract.echo",

@@ -1,0 +1,50 @@
+{
+  "schema_version": "mrw.stage3.final-requirement-matrix.r13x.v1",
+  "generated_at": "2026-09-13T00:34:02+08:00",
+  "authoritative": false,
+  "candidate": {
+    "commit": "8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+    "tree": "ce7c67c831b51f9d64b4c2f1a470a724a50b19df",
+    "base": "88ffcc3dab2e6cbdc1f389e16c4226df5a2e51c6"
+  },
+  "status": "AWAITING_HUMAN_AUTHORITY",
+  "stage3_pass_established": false,
+  "stage4_admitted": false,
+  "supersedes_for_final_status": [
+    "requirement-matrix.r13x.json",
+    "work-package-result.r13x.json",
+    "../r2/r2-release-manifest-gap-map.r13x.json"
+  ],
+  "requirements": [
+    {"id": "candidate_identity", "status": "PASS", "evidence": "Stage1/2 SHA256SUMS.r13x plus candidate and replay Git readback"},
+    {"id": "local_tests", "status": "PASS", "evidence": "../tests/local-test-gate-aggregation.r13x.json and ../tests/nonpass-inventory.r13x.json"},
+    {"id": "source_security", "status": "PASS_LOCAL_NOT_AUTHORITY", "evidence": "../security/security-gate-aggregation.r13x.json"},
+    {"id": "artifact_build_and_reproducibility", "status": "PASS", "evidence": "../artifacts/result.json"},
+    {"id": "artifact_attestation_subject_binding", "status": "PASS", "evidence": "../artifacts/result.json"},
+    {"id": "artifact_vulnerability_threshold", "status": "PASS_HIGH_0_CRITICAL_0", "evidence": "../artifacts/execution-record.json and ../artifacts/artifact-audit-supplement.r13x.json"},
+    {"id": "runtime_migration_full_stack", "status": "PASS_SCOPED", "evidence": "../runtime/summary.json"},
+    {"id": "live_provider_deep_health", "status": "AWAITING_HUMAN_AUTHORITY", "evidence": "OPENAI_API_KEY absent"},
+    {"id": "exact_sha_ci_and_required_check_enforcement", "status": "AWAITING_HUMAN_AUTHORITY", "evidence": "../remote/remote-readback.r13x.json"},
+    {"id": "registry_publish_and_immutability", "status": "AWAITING_HUMAN_AUTHORITY", "evidence": "No selected registry target, publish credential, or immutability readback"},
+    {"id": "signing_and_transparency", "status": "AWAITING_HUMAN_AUTHORITY", "evidence": "No signing identity, signature verification receipt, or transparency-log entry"},
+    {"id": "actual_release_manifest_and_r2", "status": "AWAITING_HUMAN_AUTHORITY_AND_CONTRACT_RULING", "evidence": "Actual release manifest is absent and was not fabricated; stock R2 was not run"}
+  ],
+  "r2_final_reconciliation": {
+    "early_gap_map_status": "SUPERSEDED_EARLY_SCOPED_EVIDENCE",
+    "actual_release_manifest": "ABSENT_NOT_FABRICATED",
+    "stock_r2_executed": false,
+    "blocked_inputs": [
+      "exact-SHA CI conclusions and non-bypassable required-check enforcement",
+      "registry target, publish/read scope, published exact digests, and immutability readback",
+      "signing identity, signatures, verification receipts, and transparency-log evidence",
+      "bounded live-provider deep-health evidence"
+    ],
+    "contract_order_cycle": {
+      "status": "HUMAN_CONTRACT_RULING_REQUIRED",
+      "description": "The ten-family R2 input contract includes runtime_staging, observability_canary, backup_recovery, independent_review, promotion, and later Stage 4/5/6 evidence while the stage order admits Stage 4 only after Stage 3 PASS. Those later-stage inputs cannot honestly be prerequisites for the Stage 3-to-Stage 4 transition without an explicit contract ruling.",
+      "prohibited_resolution": "Do not fabricate later-stage family PASS, do not admit Stage 4, and do not treat local evidence as promotion authority."
+    }
+  },
+  "local_completion": "ALL_INDEPENDENTLY_EXECUTABLE_LOCAL_STAGE3_WORK_COMPLETE",
+  "authority_ceiling": "PRODUCTION_RELEASE_NOT_AUTHORIZED"
+}

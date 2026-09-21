@@ -1,0 +1,37 @@
+{
+  "version": "kit-registry.codecs.v1",
+  "entries": [
+    {
+      "name": "c7.digestion.alternative",
+      "discriminant": "c7.digestion.alternative.v1"
+    },
+    {
+      "name": "c7.ingest.content_format",
+      "discriminant": "c7.ingest.content_format.v1"
+    },
+    {
+      "name": "c7.ingest.input_kind",
+      "discriminant": "c7.ingest.input_kind.v1"
+    },
+    {
+      "name": "c7.movement.disposition",
+      "discriminant": "c7.movement.disposition.v1"
+    },
+    {
+      "name": "c7.movement.terminal_outcome",
+      "discriminant": "c7.movement.terminal_outcome.v1"
+    },
+    {
+      "name": "shared.family.generator.p3_fragment",
+      "discriminant": "mrw.functorial_successor.p3_fragment.v1"
+    },
+    {
+      "name": "shared.family.generator.p4_fragment",
+      "discriminant": "mrw.functorial_successor.p4_fragment.v1"
+    },
+    {
+      "name": "scheduled.automation.evidence.report",
+      "discriminant": "scheduled_automation_artifact_evidence.v1"
+    }
+  ]
+}

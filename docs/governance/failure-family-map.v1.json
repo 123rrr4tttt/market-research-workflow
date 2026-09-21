@@ -1,0 +1,254 @@
+{
+  "schema": "mrw.functorial.failure_family_map.v1",
+  "status": "ACTIVE_MUTABLE_MAP",
+  "priority_order": [
+    {
+      "surface": "C7 pure movement contract",
+      "path": "main/backend/app/successor_runtime/capabilities/ingest_c7_movements.py",
+      "classification": "PURE_CORE",
+      "registered_family": "c7.movement.terminal_failure",
+      "action": "Keep the 41-code terminal family closed, preserve the rejected/deferred partition, and keep constructor defects separate from typed terminal outcomes.",
+      "state": "RUNTIME_CLOSURE_ACCEPTED_IN_ADDITIVE_CANDIDATE_NOT_AUTHORITY",
+      "candidate": "stage-b19-2026-09-05",
+      "candidate_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/C7/candidate.v2.json",
+      "candidate_id": "8c3266e0a4e4f589463ed154c92ec288452445a49d6680c953b2d84cbad0a127",
+      "candidate_content_digest": "d51cdfd7643dd5e964890d8967e76524532c5ec29ecd377fb976a32e13cb59d2",
+      "candidate_file_sha256": "630e2bb6d77b5f6de24357e331c5dd8fcb31cf9135d400187ce71f01058e1c6b",
+      "candidate_status": "CANDIDATE_VALID_NOT_AUTHORITY",
+      "closure_scope": "C7Rejected and C7Deferred accept only their disjoint registered subsets; unknown and cross-disposition codes fail closed. Reverse-return diagnostic text remains open by design.",
+      "witness": "tests/test_c7_runtime_failure_closure.py, tests/test_c7_semantic_registration.py, and main/backend/tests/successor_runtime/test_family_fragment_rebind_candidates.py",
+      "authority_ceiling": "Independent acceptance does not promote the candidate, rewrite frozen movement evidence, or authorize canonical write/cutover."
+    },
+    {
+      "surface": "C2 shared contract",
+      "path": "main/backend/app/successor_runtime/capabilities/source_library_c2_shared.py",
+      "classification": "PURE_CORE_WITH_LEGACY_COMPATIBILITY",
+      "proposed_family": "c2.shared.contract_failure",
+      "registered_family": "c2.shared.contract_failure",
+      "registered_codes": [
+        "schema_contract_invalid",
+        "digest_contract_invalid",
+        "scope_contract_invalid",
+        "catalog_contract_invalid",
+        "mode_contract_invalid",
+        "provider_effect_contract_invalid",
+        "terminal_contract_invalid",
+        "legacy_input_union_invalid"
+      ],
+      "action": "Keep constructor failure ownership separate from planning/provider business outcomes and close the warning, rejection, execution, credential, operation, and source-mode vocabularies at construction.",
+      "state": "RUNTIME_CLOSURE_ACCEPTED_IN_ADDITIVE_CANDIDATE_NOT_AUTHORITY",
+      "candidate": "stage-b19-2026-09-05",
+      "candidate_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/C2/candidate.v2.json",
+      "candidate_id": "a18b51121d31cde2db566f7d438e0941a81bd68474c9b6dd4f466244ea89153e",
+      "candidate_content_digest": "1f43390a53185566de9db236bf5a6d32d916ed6bed904e7c5fbb2c4144475051",
+      "candidate_file_sha256": "4ccc431f4eb7caebbdb91acd8146960c5a6e400c498a31a50f80251cfdfa4045",
+      "candidate_status": "CANDIDATE_VALID_NOT_AUTHORITY",
+      "closure_scope": "Typed aliases and constructor guards reject unknown or cross-family values; the eight c2.shared.contract_failure codes remain distinct from planning/provider outcome families.",
+      "witness": "tests/test_c2_runtime_failure_closure.py and tests/test_c2_failure_registration.py",
+      "authority_ceiling": "Independent acceptance does not promote the candidate, rewrite the frozen P3 fragment, or authorize canonical write/cutover."
+    },
+    {
+      "surface": "FirstSpecimen PostgreSQL handlers",
+      "path": "main/backend/app/successor_runtime/substrate/postgres/first_specimen_handlers.py",
+      "classification": "SHELL_BOUNDARY",
+      "proposed_family": "first_specimen.handler_failure",
+      "registered_family": "first_specimen.handler_failure",
+      "registered_codes": [
+        "first_specimen_handler_contract_invalid",
+        "first_specimen_operation_unsupported",
+        "first_specimen_semantic_product_invalid",
+        "first_specimen_replay_projection_invalid",
+        "first_specimen_activation_binding_invalid",
+        "first_specimen_handler_binding_invalid",
+        "first_specimen_output_write_invalid",
+        "first_specimen_output_readback_invalid"
+      ],
+      "state": "REGISTERED_LOCAL_SHELL_CLOSURE",
+      "closure_scope": "Class-level failure_code members of local FirstSpecimen error classes only; this is not a global runtime failure closure.",
+      "passthrough_family": "capability-owned InterpreterFailure codes are forwarded unchanged as a separate family",
+      "witness": "tests/test_first_specimen_failure_registration.py and main/backend/tests/successor_runtime/test_s5_first_specimen_failure_family.py::test_capability_interpreter_failure_is_passed_through",
+      "action": "Keep the eight stable local shell codes and preserve capability-owned InterpreterFailure passthrough without message-derived reclassification."
+    },
+    {
+      "surface": "Typed Knowledge persistence boundary",
+      "path": "main/backend/app/services/typed_knowledge/persistence_boundary.py",
+      "classification": "TYPED_INTERFACE_EXCEPTION",
+      "proposed_family": "typed_knowledge.persistence_boundary_failure",
+      "action": "Preserve typed exception at the boundary and expose its stable failure_code in API error details.",
+      "registered_family": "typed_knowledge.persistence_boundary_failure",
+      "registered_codes": [
+        "typed_knowledge_persistence_boundary_violation"
+      ],
+      "state": "COMPLETE_BOUNDARY_LEVEL_CLOSURE",
+      "granularity": "The public boundary exposes one stable family member; specific internal validation diagnostics remain in the message and are not claimed as individually closed API codes."
+    },
+    {
+      "surface": "Ingest market provider boundary",
+      "path": "main/backend/app/services/ingest/provider_ports.py",
+      "classification": "PROVIDER_PORT_REGISTRATION_PROJECTION",
+      "registered_family": "ingest.market.failure",
+      "registered_codes": [
+        "market_adapter_not_configured",
+        "market_provider_iteration_failed"
+      ],
+      "state": "REGISTERED_CONFIGURATION_CLOSED_ITERATION_OBSERVABLE",
+      "closure_scope": "Resolver configuration failure is fail-closed; lazy provider iteration failures remain observable before persistence but are not converted into a new runtime failure value.",
+      "witness": "tests/test_provider_port_failure_registration.py::test_FAILURE_PRESERVED__ingest_provider_adapters_fail_closed_by_boundary and ::test_FAILURE_PRESERVED__market_iteration_failure_precedes_job_and_persistence"
+    },
+    {
+      "surface": "Ingest policy provider boundary",
+      "path": "main/backend/app/services/ingest/provider_ports.py",
+      "classification": "PROVIDER_PORT_REGISTRATION_PROJECTION",
+      "registered_family": "ingest.policy.failure",
+      "registered_codes": [
+        "policy_adapter_not_configured",
+        "policy_provider_iteration_failed"
+      ],
+      "state": "REGISTERED_CONFIGURATION_CLOSED_ITERATION_OBSERVABLE",
+      "closure_scope": "Resolver configuration failure is fail-closed; lazy provider iteration failures remain observable before persistence but are not converted into a new runtime failure value.",
+      "witness": "tests/test_provider_port_failure_registration.py::test_FAILURE_PRESERVED__ingest_provider_adapters_fail_closed_by_boundary and ::test_FAILURE_PRESERVED__policy_iteration_failure_precedes_job_and_persistence"
+    },
+    {
+      "surface": "Ingest Reddit provider boundary",
+      "path": "main/backend/app/services/ingest/provider_ports.py",
+      "classification": "BEST_EFFORT_PROVIDER_PORT",
+      "registered_family": "ingest.reddit.failure",
+      "registered_codes": [
+        "reddit_adapter_not_configured"
+      ],
+      "state": "REGISTERED_CONFIGURATION_CLOSURE",
+      "closure_scope": "Only port configuration failure is closed. Business methods intentionally remain best-effort total for external fetch failures.",
+      "witness": "tests/test_provider_port_failure_registration.py::test_FAILURE_PRESERVED__reddit_business_methods_are_best_effort_total"
+    },
+    {
+      "surface": "Ingest Google News provider boundary",
+      "path": "main/backend/app/services/ingest/provider_ports.py",
+      "classification": "BEST_EFFORT_PROVIDER_PORT",
+      "registered_family": "ingest.google_news.failure",
+      "registered_codes": [
+        "google_news_adapter_not_configured"
+      ],
+      "state": "REGISTERED_CONFIGURATION_CLOSURE",
+      "closure_scope": "Only port configuration failure is closed. Business methods intentionally remain best-effort total for external fetch failures.",
+      "witness": "tests/test_provider_port_failure_registration.py::test_FAILURE_PRESERVED__google_news_business_methods_are_best_effort_total"
+    },
+    {
+      "surface": "Resource-pool HTTP fetch boundary",
+      "path": "main/backend/app/services/resource_pool/http_port.py",
+      "classification": "TYPED_EFFECT_PORT",
+      "registered_family": "resource_pool.http_fetch.failure",
+      "registered_codes": [
+        "port_not_configured",
+        "transport",
+        "http_status"
+      ],
+      "state": "REGISTERED_TYPED_FAILURE_CLOSURE",
+      "closure_scope": "The shared HTTP interpreter preserves transport versus HTTP-status classification; exhausted 5xx retries remain http_status with status_code and retryability metadata.",
+      "witness": "main/backend/tests/unit/test_resource_pool_http_port_unittest.py::test_FAILURE_PRESERVED__http_retry_exhaustion_preserves_status_failure"
+    },
+    {
+      "surface": "Resource-pool official-access boundary",
+      "path": "main/backend/app/services/resource_pool/http_port.py",
+      "classification": "EFFECT_PORT_REGISTRATION_PROJECTION",
+      "registered_family": "resource_pool.official_access.failure",
+      "registered_codes": [
+        "official_access_port_not_configured"
+      ],
+      "state": "REGISTERED_CONFIGURATION_CLOSURE",
+      "closure_scope": "The registered family covers only the absent composition binding; provider-specific operational outcomes remain owned by the existing interpreter.",
+      "witness": "main/backend/tests/unit/test_resource_pool_http_port_unittest.py::test_FAILURE_PRESERVED__official_access_port_not_configured_fails_closed"
+    },
+    {
+      "surface": "Collect runtime registration boundary",
+      "path": "main/backend/app/services/collect_runtime/runtime.py",
+      "classification": "REGISTRATION_CONTRACT_PROJECTION",
+      "registered_family": "collect.runtime.failure",
+      "registered_codes": [
+        "skill_id_required",
+        "collect_adapter_contract_invalid",
+        "compat_projector_contract_invalid"
+      ],
+      "state": "REGISTERED_REGISTRATION_CONTRACT_CLOSURE",
+      "closure_scope": "Only adapter/projector registration contracts are classified; collect execution, routing, compatibility projection, and auto-batch failures are not claimed closed by this family.",
+      "witness": "tests/test_provider_port_failure_registration.py::test_FAILURE_PRESERVED__collect_registration_contracts_fail_closed"
+    },
+    {
+      "surface": "Crawler/Scrapyd effect family",
+      "paths": [
+        "main/backend/app/services/crawlers/base.py",
+        "main/backend/app/services/crawlers/providers/scrapy.py",
+        "main/backend/app/services/crawlers/scrapyd_client.py",
+        "main/backend/app/services/crawlers/scrapyd_runtime.py"
+      ],
+      "classification": "TYPED_EFFECT_PORT_WITH_DURABLE_C2_3_BRIDGE",
+      "registered_family": "crawler.runtime.failure",
+      "registered_codes": [
+        "provider_not_registered",
+        "provider_poll_unsupported",
+        "poll_project_required",
+        "scrapyd_base_url_required",
+        "scrapyd_compose_file_missing",
+        "scrapyd_compose_unavailable",
+        "scrapyd_module_unavailable",
+        "scrapyd_unavailable",
+        "scrapyd_lazy_start_failed",
+        "scrapyd_readiness_timeout",
+        "scrapyd_transport",
+        "scrapyd_http_status",
+        "scrapyd_response_invalid",
+        "bootstrap_project_name_invalid",
+        "bootstrap_build_failed",
+        "bootstrap_artifact_missing",
+        "bootstrap_project_required",
+        "bootstrap_deploy_failed"
+      ],
+      "state": "REGISTERED_TYPED_EFFECT_BOUNDARY_CANDIDATE_NOT_AUTHORITY",
+      "candidate": "stage-b19-2026-09-05",
+      "candidate_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/C2/candidate.v2.json",
+      "candidate_id": "a18b51121d31cde2db566f7d438e0941a81bd68474c9b6dd4f466244ea89153e",
+      "candidate_content_digest": "1f43390a53185566de9db236bf5a6d32d916ed6bed904e7c5fbb2c4144475051",
+      "candidate_file_sha256": "4ccc431f4eb7caebbdb91acd8146960c5a6e400c498a31a50f80251cfdfa4045",
+      "candidate_status": "CANDIDATE_VALID_NOT_AUTHORITY",
+      "paths": [
+        "main/backend/app/services/crawlers/base.py",
+        "main/backend/app/services/crawlers/providers/scrapy.py",
+        "main/backend/app/services/crawlers/scrapyd_client.py",
+        "main/backend/app/services/crawlers/scrapyd_runtime.py",
+        "main/backend/app/services/crawlers/durable_effect_bridge.py"
+      ],
+      "typed_port": "main/backend/app/services/crawlers/scrapyd_runtime.py::ScrapydTransportPort",
+      "durable_bridge": "main/backend/app/services/crawlers/durable_effect_bridge.py::DurableCrawlerEffectBridge",
+      "durable_c2_3_closure": "Injected CrawlerAttemptStore owns idempotency, dispatch, typed readback and cancellation receipts; queued/accepted/scheduled/running are non-terminal observations.",
+      "not_configured_semantics": "Without an injected durable store, reconciliation metadata is derived_as=none and durability=not_configured; it is not authoritative and cannot claim idempotent replay.",
+      "witness": [
+        "main/backend/tests/unit/test_crawler_durable_effect_bridge.py",
+        "main/backend/tests/unit/test_crawler_provider_effect_remediation_unittest.py",
+        "tests/test_w03_failure_semantics.py",
+        "tests/test_provider_port_failure_registration.py"
+      ],
+      "declared_loss_evidence": [
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage0-evidence/declared-loss-collect.v1.json",
+        "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage0-evidence/declared-loss-ingest.v1.json"
+      ],
+      "closure_scope": "Scrapyd health, transport, bootstrap, dispatch and poll failures lift into crawler.runtime.failure. Provider labels queued/accepted/scheduled/running are never terminal; typed terminal readback or cancellation receipt is required.",
+      "authority_ceiling": "Candidate evidence is a mutable projection only; it does not authorize live provider credentials, canonical write, promotion, cutover or authority transfer."
+    },
+    {
+      "surface": "Source-library crawler provider resolution",
+      "paths": [
+        "main/backend/app/services/source_library/provider_ports.py",
+        "main/backend/app/composition/source_library.py"
+      ],
+      "classification": "PROVIDER_RESOLUTION_PORT_PROJECTION",
+      "registered_family": "source_library.crawler_provider_resolution.failure",
+      "registered_codes": [
+        "resolver_not_configured",
+        "provider_unavailable",
+        "provider_unsupported"
+      ],
+      "state": "REGISTERED_RESOLUTION_CLOSURE",
+      "closure_scope": "Only the unconfigured resolver, unavailable configured scrapy provider, and unsupported provider_type paths are classified. Scrapyd transport, health, bootstrap, dispatch, and poll failures remain outside this family.",
+      "witness": "main/backend/tests/unit/test_source_library_provider_ports_unittest.py and tests/test_provider_port_failure_registration.py"
+    }
+  ]
+}

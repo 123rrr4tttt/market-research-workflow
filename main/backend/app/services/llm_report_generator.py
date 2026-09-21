@@ -3,7 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import re
-from typing import Any
+from typing import Annotated, Any
+from functorial_kit import Failure
+from mrw_functorial_kit.core.application_failure_semantics import llm_report_request_failures
 
 
 GATE_VERSION = "r2.3"
@@ -17,6 +19,10 @@ SHORT_SECTION_LEN_SOFT = 20
 MAX_SECTION_TITLE_LEN = 120
 MAX_SECTION_TITLE_COUNT = 12
 _PLACEHOLDER_SIGNATURES = ("本节由模板生成", "后续流程补充")
+_FAILURE_WITNESS = "test:test_w01_request_failures"
+_FAILURE_CONTEXT_KEYS = frozenset(
+    {"owner", "operation", "failure_family", "public_exception", "public_message", "witness"}
+)
 
 
 DEFAULT_SECTION_TITLES = [
@@ -28,7 +34,35 @@ DEFAULT_SECTION_TITLES = [
 ]
 
 
-def build_report_capability_truth(*, route_kind: str, auto_source_enabled: bool) -> dict[str, Any]:
+def _request_failure(code: str, message: str, *, operation: str, **details: Any) -> Failure:
+    return llm_report_request_failures.fail(
+        code,
+        message,
+        {
+            "owner": "llm_report_generator",
+            "operation": operation,
+            "failure_family": llm_report_request_failures.name,
+            "public_exception": "ValueError",
+            "public_message": message,
+            "witness": _FAILURE_WITNESS,
+            **details,
+        },
+    )
+
+
+def _raise_request_failure(failure: Failure) -> None:
+    context = failure.context or {}
+    if not llm_report_request_failures.matches(failure) or _FAILURE_CONTEXT_KEYS - set(context):
+        # kit:boundary owner=llm_report_generator.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w01_request_failures
+        raise TypeError("llm report request failure lift context is incomplete or inconsistent")
+    # kit:boundary owner=llm_report_generator.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=llm.report.request.failure witness=test:test_w01_request_failures
+    raise ValueError(str(context["public_message"]))
+
+
+def build_report_capability_truth(*, route_kind: str, auto_source_enabled: bool) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=external_claim fact_source=llm.report_contract witness=test:test_w01_meta",
+]:
     resolved_route_kind = str(route_kind or "").strip().lower() or "unknown"
     return {
         "contract_version": "llm_report.capability_truth.v1",
@@ -135,10 +169,15 @@ def build_structured_report(
     topic: str,
     sources: list[dict[str, Any]],
     section_titles: list[str] | None = None,
-) -> StructuredReport:
+) -> Annotated[
+    StructuredReport,
+    "kit:non-authoritative derived_as=generated_evidence fact_source=llm.report_template witness=test:test_w01_meta",
+]:
     cleaned_topic = topic.strip()
     if not cleaned_topic:
-        raise ValueError("topic cannot be empty")
+        _raise_request_failure(
+            _request_failure("topic_required", "topic cannot be empty", operation="build_structured_report")
+        )
 
     normalized_sources = _normalize_sources(sources)
     source_ids = [s["id"] for s in normalized_sources]

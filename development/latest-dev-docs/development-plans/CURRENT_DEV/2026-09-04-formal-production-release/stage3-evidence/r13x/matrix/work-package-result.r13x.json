@@ -1,0 +1,53 @@
+{
+  "schema_version": "mrw.stage3.read-only-work-package-result.r13x.v1",
+  "authoritative": false,
+  "observed_at": "2026-09-12T15:13:16Z",
+  "result": "COMPLETE_WITH_EXTERNAL_BLOCKERS",
+  "stage3_result": "NOT_CLAIMED",
+  "candidate": {
+    "commit": "8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+    "tree": "ce7c67c831b51f9d64b4c2f1a470a724a50b19df",
+    "base": "88ffcc3dab2e6cbdc1f389e16c4226df5a2e51c6",
+    "candidate_clean": true,
+    "replay_clean": true
+  },
+  "outputs": [
+    "remote/remote-readback.r13x.json",
+    "remote/credential-capability-inventory.r13x.json",
+    "r2/r2-release-manifest-gap-map.r13x.json",
+    "r2/validator-commands.r13x.json",
+    "matrix/requirement-matrix.r13x.json",
+    "matrix/SHA256SUMS.r13x-readonly"
+  ],
+  "verification": {
+    "json_parse": "PASS",
+    "checksum": "PASS",
+    "candidate_identity": "PASS",
+    "candidate_evidence_index": "PASS",
+    "external_effects_read_only": true,
+    "unauthorized_writes": 0
+  },
+  "blockers": [
+    "exact r13x commit absent from GitHub remote",
+    "zero exact-SHA workflow and check runs",
+    "main has no branch protection or rulesets",
+    "backend-tests workflow disabled_inactivity",
+    "registry target/authentication/immutability not established and GitHub Packages readback lacks read:packages",
+    "signing identity and real signature verification receipt not established",
+    "live-provider credentials absent and live-provider execution not authorized",
+    "actual r13x release manifest cannot truthfully be assembled yet"
+  ],
+  "external_effects": ["read-only GitHub REST API requests"],
+  "writes": {
+    "allowed_evidence_root_only": true,
+    "candidate": 0,
+    "replay": 0,
+    "product": 0,
+    "workflow": 0,
+    "remote": 0,
+    "registry": 0,
+    "signing": 0,
+    "unauthorized": 0
+  },
+  "ceiling": "READ_ONLY_EVIDENCE_COMPLETE_STAGE3_PASS_NOT_ESTABLISHED"
+}

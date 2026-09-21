@@ -1,0 +1,221 @@
+# Review-only focused patch extracted from the shared dirty checkout.
+# It intentionally excludes unrelated failure-semantics and metadata changes
+# that share these files. Exact current file hashes are recorded in the JSON
+# receipt; the two repository test additions are exact-bound there separately.
+
+diff --git a/main/backend/app/models/base.py b/main/backend/app/models/base.py
+--- a/main/backend/app/models/base.py
++++ b/main/backend/app/models/base.py
+@@
+-from ..services.projects.context import current_project_schema, project_schema_name
++from ..services.projects.context import current_project_schema
+@@
+-# Ensure default project schema exists. If DB is temporarily unavailable in local dev,
+-# allow process startup and let health/deep checks report degraded state.
+-try:
+-    with engine.begin() as _conn:
+-        _conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{project_schema_name(settings.active_project_key)}"'))
+-except Exception as exc:  # noqa: BLE001
+-    logger.warning("db bootstrap skipped: %s", exc)
+-
+
+diff --git a/main/backend/app/startup_hooks.py b/main/backend/app/startup_hooks.py
+--- a/main/backend/app/startup_hooks.py
++++ b/main/backend/app/startup_hooks.py
+@@
+ import logging
+ from pathlib import Path
++from typing import Any
+@@
++from .composition.production import is_production_environment
+-from .models.base import Base, engine
++from .models.base import Base, classify_db_exception, engine
+ from .settings.config import settings
++from .services.projects.context import project_schema_name
+@@
++def initialize_default_project_schema(
++    *,
++    database_engine: Any | None = None,
++    settings_obj: Any | None = None,
++    logger_obj: logging.Logger | None = None,
++) -> None:
++    """Create the configured default project schema at an explicit runtime boundary."""
++    target_engine = engine if database_engine is None else database_engine
++    target_settings = settings if settings_obj is None else settings_obj
++    target_logger = logger_obj or logging.getLogger("app")
++    schema_name = project_schema_name(target_settings.active_project_key)
++
++    try:
++        with target_engine.begin() as conn:
++            conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{schema_name}"'))
++    except Exception as exc:  # noqa: BLE001
++        classification = classify_db_exception(exc)
++        production = is_production_environment(target_settings)
++        target_logger.warning(
++            "db bootstrap skipped: %s "
++            "(schema=%s production=%s category=%s retriable=%s sqlstate=%s exception_type=%s)",
++            exc,
++            schema_name,
++            production,
++            classification["category"],
++            classification["retriable"],
++            classification["sqlstate"],
++            classification["exception_type"],
++        )
++        if production:
++            raise
++
++
+ def register_startup_hooks(app: FastAPI) -> None:
+     logger = logging.getLogger("app")
++
++    @app.on_event("startup")
++    def _ensure_default_project_schema() -> None:
++        initialize_default_project_schema(logger_obj=logger)
+
+diff --git a/main/backend/app/services/workflow_graph/__init__.py b/main/backend/app/services/workflow_graph/__init__.py
+--- a/main/backend/app/services/workflow_graph/__init__.py
++++ b/main/backend/app/services/workflow_graph/__init__.py
+@@
+         self._compiled: dict[str, dict[str, Any]] = {}
+         self._lock = RLock()
+-        self._store = store or build_compiled_graph_store()
++        self._store = store
+         self._templates = WorkflowGraphTemplateService()
++
++    def _resolved_store(self) -> InMemoryCompiledGraphStore | SqlCompiledGraphStore:
++        with self._lock:
++            if self._store is None:
++                self._store = build_compiled_graph_store()
++            return self._store
+@@
++        store = self._resolved_store()
+         with self._lock:
+             self._compiled[graph_id] = compiled_record
+-        self._store.save_compiled(compiled_record)
++        store.save_compiled(compiled_record)
+@@
+-            row = self._store.get_compiled(str(graph_id))
++            row = self._resolved_store().get_compiled(str(graph_id))
+@@
+-            for row in self._store.list_compiled(limit=limit):
++            for row in self._resolved_store().list_compiled(limit=limit):
+@@
+ class WorkflowGraphRuntimeService:
+@@
+     def __init__(self) -> None:
+-        self._engine = WorkflowGraphRuntime(store=build_run_store())
++        self._engine: WorkflowGraphRuntime | None = None
++        self._lock = RLock()
++
++    def _resolved_engine(self) -> WorkflowGraphRuntime:
++        with self._lock:
++            if self._engine is None:
++                self._engine = WorkflowGraphRuntime(store=build_run_store())
++            return self._engine
+@@
+-        snapshot = self._engine.run(
++        snapshot = self._resolved_engine().run(
+@@
+-        out = dict(self._engine.store.get_run(str(run_id)))
++        out = dict(self._resolved_engine().store.get_run(str(run_id)))
+@@
+-        items = list(self._engine.store.get_events(str(run_id)))
++        items = list(self._resolved_engine().store.get_events(str(run_id)))
+@@
+-        snapshot = self._engine.store.snapshot(str(run_id))
++        snapshot = self._resolved_engine().store.snapshot(str(run_id))
+@@
+-        events = list(self._engine.store.get_events(str(run_id)))
++        events = list(self._resolved_engine().store.get_events(str(run_id)))
+
+diff --git a/main/backend/app/services/workflow_graph/runtime.py b/main/backend/app/services/workflow_graph/runtime.py
+--- a/main/backend/app/services/workflow_graph/runtime.py
++++ b/main/backend/app/services/workflow_graph/runtime.py
+@@
+ from .executors.base import BaseNodeExecutor, NodeExecutionContext
+ from .executors.join import JoinExecutor
+-from .executors.llm_call import LLMCallExecutor
+ from .executors.vector_search import VectorSearchExecutor
+@@
+         self.store = store or InMemoryRunStore()
+         self._executors: dict[str, BaseNodeExecutor] = {}
+-        for executor in (executors or [VectorSearchExecutor(), LLMCallExecutor(), JoinExecutor()]):
++        resolved_executors = executors
++        if resolved_executors is None:
++            from .executors.llm_call import LLMCallExecutor
++
++            resolved_executors = [VectorSearchExecutor(), LLMCallExecutor(), JoinExecutor()]
++        for executor in resolved_executors:
+             self.register_executor(executor)
+
+diff --git a/main/backend/app/services/workflow_graph/executors/__init__.py b/main/backend/app/services/workflow_graph/executors/__init__.py
+--- a/main/backend/app/services/workflow_graph/executors/__init__.py
++++ b/main/backend/app/services/workflow_graph/executors/__init__.py
+@@
++from __future__ import annotations
++
++from typing import Any
++
+ from .base import BaseNodeExecutor, NodeExecutionContext
+-from .join import JoinExecutor
+-from .llm_call import LLMCallExecutor
+-from .vector_search import VectorSearchExecutor
+@@
++
++def __getattr__(name: str) -> Any:
++    if name == "JoinExecutor":
++        from .join import JoinExecutor
++
++        return JoinExecutor
++    if name == "LLMCallExecutor":
++        from .llm_call import LLMCallExecutor
++
++        return LLMCallExecutor
++    if name == "VectorSearchExecutor":
++        from .vector_search import VectorSearchExecutor
++
++        return VectorSearchExecutor
++    raise AttributeError(name)
+
+diff --git a/main/backend/app/services/workflow_graph/handoff_store.py b/main/backend/app/services/workflow_graph/handoff_store.py
+--- a/main/backend/app/services/workflow_graph/handoff_store.py
++++ b/main/backend/app/services/workflow_graph/handoff_store.py
+@@
+ from dataclasses import dataclass
++from threading import RLock
+ from typing import Any, Mapping
+@@
+ class WorkflowGraphHandoffStore:
+     def __init__(self, *, store: InMemoryRunStore | SqlRunStore | None = None) -> None:
+-        self._store = store or build_run_store()
++        self._store = store
++        self._lock = RLock()
++
++    def _resolved_store(self) -> InMemoryRunStore | SqlRunStore:
++        with self._lock:
++            if self._store is None:
++                self._store = build_run_store()
++            return self._store
+@@
+-        event = self._store.append_event(
++        event = self._resolved_store().append_event(
+@@
+-        events = self._store.get_events(str(run_id))
++        events = self._resolved_store().get_events(str(run_id))
+@@
+-        events = self._store.get_events(resolved_run_id)
++        store = self._resolved_store()
++        events = store.get_events(resolved_run_id)
+@@
+-        replay_event = self._store.append_event(
++        replay_event = store.append_event(
+@@
+     def _ensure_run_exists(self, run_id: str, graph_id: str) -> None:
++        store = self._resolved_store()
+         try:
+-            self._store.get_run(run_id)
++            store.get_run(run_id)
+         except KeyError:
+-            self._store.create_run(run_id=run_id, topo_order=[], metadata={"workflow_id": graph_id, "source": "handoff"})
++            store.create_run(run_id=run_id, topo_order=[], metadata={"workflow_id": graph_id, "source": "handoff"})

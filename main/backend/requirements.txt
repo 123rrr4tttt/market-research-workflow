@@ -1,14 +1,14 @@
-fastapi==0.120.4
-starlette==0.49.1
+fastapi==0.133.0
+starlette==1.3.1
 uvicorn[standard]==0.30.6
 sqlalchemy==2.0.35
 psycopg2-binary==2.9.9
 pgvector==0.3.4
 pydantic==2.9.2
-pydantic-settings==2.14.0
+pydantic-settings==2.14.2
 alembic==1.13.2
-langchain==1.2.17
-langchain-core==1.3.3
+langchain==1.3.9
+langchain-core==1.4.6
 langchain-openai==1.2.1
 langchain-community==0.4.1
 langchain-text-splitters==1.1.2
@@ -28,5 +28,6 @@ duckduckgo-search==8.1.1
 google-auth>=2.0.0
 azure-search-documents==11.6.0b1
 azure-identity==1.19.0
-psutil==5.9.8
+psutil==6.0.0
 tweepy>=4.16.0
+functorial-kit @ git+https://github.com/123rrr4tttt/functorial-kit.git@785ff25e201c9eae84c862e68e786bc975e7a800#subdirectory=python

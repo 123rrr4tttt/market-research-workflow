@@ -3,19 +3,77 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
+from typing import Annotated, Any, Literal, NoReturn, TypeVar
 
-from app.successor_runtime.language.object_contracts import OperationContractRef
+from functorial_kit import Failure
+
+from app.successor_runtime.language.object_contracts import (
+    OperationContractRef,
+    _failure as _language_failure,
+    _raise_failure as _lift_language_failure,
+)
 from app.successor_runtime.research.codec import (
     dataclass_to_json,
     is_sha256_hex,
     sha256_hex,
 )
 
+TProfile = TypeVar("TProfile")
+
+
+def _profile_failure(message: object, *, site: str, exception_type: type[Exception]) -> Failure:
+    return _language_failure("PROFILE_INVALID", message, exception_type, site=site)
+
+
+def raise_profile_failure(failure: Failure, exception_type: type[Exception] = ValueError) -> NoReturn:
+    _lift_language_failure(failure, exception_type)
+
+
+def try_build_profile(profile_type: type[TProfile], /, **values: Any) -> TProfile | Failure:
+    """Construct any immutable language profile without leaking validation throws."""
+
+    try:
+        return profile_type(**values)
+    except (TypeError, ValueError) as exc:
+        return _profile_failure(
+            str(exc),
+            site=f"{getattr(profile_type, '__name__', 'profile')}.constructor",
+            exception_type=type(exc),
+        )
+
+
+def build_profile(
+    profile_type: type[TProfile], /, **values: Any
+) -> Annotated[
+    TProfile,
+    "kit:non-authoritative derived_as=view fact_source=profile_type+values witness=test:test_profiles_have_unified_refs_and_content_digests",
+]:
+    result = try_build_profile(profile_type, **values)
+    if isinstance(result, Failure):
+        context = result.context or {}
+        exception_type = TypeError if context.get("public_exception") == "TypeError" else ValueError
+        raise_profile_failure(result, exception_type)
+    return result
+
+
+def try_profile(profile_type: type[TProfile], /, **values: Any) -> TProfile | Failure:
+    return try_build_profile(profile_type, **values)
+
 
 def require_hex64(value: str, field_name: str) -> str:
+    result = try_require_hex64(value, field_name)
+    if isinstance(result, Failure):
+        raise_profile_failure(result, ValueError)
+    return result
+
+
+def try_require_hex64(value: str, field_name: str) -> str | Failure:
     if not isinstance(value, str) or not is_sha256_hex(value):
-        raise ValueError(f"{field_name} must be a 64-char lowercase hex digest")
+        return _profile_failure(
+            f"{field_name} must be a 64-char lowercase hex digest",
+            site=f"{field_name}.digest",
+            exception_type=ValueError,
+        )
     return value
 
 
@@ -97,6 +155,7 @@ class SemanticProfile(_ProfileRefMixin):
     def __post_init__(self) -> None:
         recomputed = content_digest(self, omit_fields=("profile_digest",))
         if recomputed != self.profile_digest:
+            # kit:boundary owner=successor.language.profiles.invariant class=PROGRAMMER_DEFECT failure_family=none witness=test:test_profiles_have_unified_refs_and_content_digests
             raise ValueError("SemanticProfile.profile_digest does not match content")
 
 
@@ -126,14 +185,19 @@ class EffectProfile(_ProfileRefMixin):
     def __post_init__(self) -> None:
         recomputed = content_digest(self, omit_fields=("profile_digest",))
         if recomputed != self.profile_digest:
+            # kit:boundary owner=successor.language.profiles.invariant class=PROGRAMMER_DEFECT failure_family=none witness=test:test_profiles_have_unified_refs_and_content_digests
             raise ValueError("EffectProfile.profile_digest does not match content")
         if self.network_required and self.external_visibility == "NONE":
+            # kit:boundary owner=successor.language.profiles.invariant class=PROGRAMMER_DEFECT failure_family=none witness=test:test_profiles_have_unified_refs_and_content_digests
             raise ValueError("network_required is incompatible with external_visibility=NONE")
         if self.external_acquisition:
+            # kit:boundary owner=successor.language.profiles.invariant class=PROGRAMMER_DEFECT failure_family=none witness=test:test_profiles_have_unified_refs_and_content_digests
             raise ValueError("P0-A first specimen forbids external acquisition")
         if self.external_visibility == "EXTERNAL" and not self.internal_export_only:
+            # kit:boundary owner=successor.language.profiles.invariant class=PROGRAMMER_DEFECT failure_family=none witness=test:test_profiles_have_unified_refs_and_content_digests
             raise ValueError("P0-A first specimen allows internal export only")
         if self.human_approval_required and not self.irreversible:
+            # kit:boundary owner=successor.language.profiles.invariant class=PROGRAMMER_DEFECT failure_family=none witness=test:test_profiles_have_unified_refs_and_content_digests
             raise ValueError("human_approval_required implies an irreversible effect boundary")
 
 
@@ -164,8 +228,10 @@ class ResourceProfile(_ProfileRefMixin):
     def __post_init__(self) -> None:
         recomputed = content_digest(self, omit_fields=("profile_digest",))
         if recomputed != self.profile_digest:
+            # kit:boundary owner=successor.language.profiles.invariant class=PROGRAMMER_DEFECT failure_family=none witness=test:test_profiles_have_unified_refs_and_content_digests
             raise ValueError("ResourceProfile.profile_digest does not match content")
         if self.default_hard_limit_seconds > 1800:
+            # kit:boundary owner=successor.language.profiles.invariant class=PROGRAMMER_DEFECT failure_family=none witness=test:test_profiles_have_unified_refs_and_content_digests
             raise ValueError("maximum operation hard limit is 1800s")
 
 
@@ -195,6 +261,7 @@ class FailureProfile(_ProfileRefMixin):
     def __post_init__(self) -> None:
         recomputed = content_digest(self, omit_fields=("profile_digest",))
         if recomputed != self.profile_digest:
+            # kit:boundary owner=successor.language.profiles.invariant class=PROGRAMMER_DEFECT failure_family=none witness=test:test_profiles_have_unified_refs_and_content_digests
             raise ValueError("FailureProfile.profile_digest does not match content")
 
 
@@ -222,6 +289,7 @@ class AuthorityProfile(_ProfileRefMixin):
     def __post_init__(self) -> None:
         recomputed = content_digest(self, omit_fields=("profile_digest",))
         if recomputed != self.profile_digest:
+            # kit:boundary owner=successor.language.profiles.invariant class=PROGRAMMER_DEFECT failure_family=none witness=test:test_profiles_have_unified_refs_and_content_digests
             raise ValueError("AuthorityProfile.profile_digest does not match content")
 
 
@@ -261,6 +329,7 @@ class InterpreterProfile(_ProfileRefMixin):
         require_hex64(self.dependency_digest, "InterpreterProfile.dependency_digest")
         recomputed = content_digest(self, omit_fields=("profile_digest",))
         if recomputed != self.profile_digest:
+            # kit:boundary owner=successor.language.profiles.invariant class=PROGRAMMER_DEFECT failure_family=none witness=test:test_profiles_have_unified_refs_and_content_digests
             raise ValueError("InterpreterProfile.profile_digest does not match content")
 
 
@@ -284,4 +353,5 @@ class ObservationProfile(_ProfileRefMixin):
     def __post_init__(self) -> None:
         recomputed = content_digest(self, omit_fields=("profile_digest",))
         if recomputed != self.profile_digest:
+            # kit:boundary owner=successor.language.profiles.invariant class=PROGRAMMER_DEFECT failure_family=none witness=test:test_profiles_have_unified_refs_and_content_digests
             raise ValueError("ObservationProfile.profile_digest does not match content")

@@ -13,11 +13,13 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Annotated, Literal, TypeAlias
 
-from pydantic import Field, model_validator
+from functorial_kit import Failure
+from pydantic import Field, TypeAdapter, model_validator
 
 from .assignments import AssignmentKind, FrozenContract, RuntimeAssignment
 
 WORK_ITEM_SCHEMA_VERSION = "mrw.runtime.work_item.v1"
+_RUNTIME_CONTRACT_WITNESS = "test:test_w07_runtime_non_start_proof_negative"
 
 
 class WorkItemState(StrEnum):
@@ -68,16 +70,22 @@ class WorkItemRoot(FrozenContract):
     @model_validator(mode="after")
     def validate_assignment_identity(self) -> "WorkItemRoot":
         if self.work_item_id != self.assignment.work_item_id:
+            # kit:boundary owner=successor.runtime.work_items.identity class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
             raise ValueError("work item id does not match assignment")
         if self.project_key != self.assignment.project_key:
+            # kit:boundary owner=successor.runtime.work_items.identity class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
             raise ValueError("work item project scope does not match assignment")
         if self.run_id != self.assignment.run_id:
+            # kit:boundary owner=successor.runtime.work_items.identity class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
             raise ValueError("work item run does not match assignment")
         if self.step_id != self.assignment.step_id:
+            # kit:boundary owner=successor.runtime.work_items.identity class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
             raise ValueError("work item step does not match assignment")
         if self.assignment_kind != self.assignment.assignment_kind:
+            # kit:boundary owner=successor.runtime.work_items.identity class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
             raise ValueError("work item kind does not match assignment")
         if self.state is WorkItemState.WAITING and self.wait_reason is None:
+            # kit:boundary owner=successor.runtime.work_items.waiting_state class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
             raise ValueError("WAITING work item requires wait_reason")
         return self
 
@@ -148,6 +156,47 @@ WorkItemRootUnion: TypeAlias = Annotated[
 # Port-facing name used by ``runtime.ports.WorkItemPort``.
 WorkItemRecord: TypeAlias = WorkItemRootUnion
 
+_WORK_ITEM_ADAPTER = TypeAdapter(WorkItemRootUnion)
+
+
+def _public_exception_type(exc: Exception) -> type[Exception]:
+    candidate = type(exc)
+    try:
+        candidate(str(exc))
+    except Exception:
+        return ValueError
+    return candidate
+
+
+def _work_item_failure(message: object, *, site: str, exception_type: type[Exception] = ValueError) -> Failure:
+    from .failure_policy import runtime_failure
+
+    return runtime_failure(
+        "WORK_ITEM_INVALID",
+        message,
+        exception_type,
+        site=site,
+        context={"owner": "successor_runtime.runtime.work_items", "operation": site},
+    )
+
+
+def try_validate_work_item(value: object) -> WorkItemRecord | Failure:
+    try:
+        return _WORK_ITEM_ADAPTER.validate_python(value)
+    except (TypeError, ValueError, OverflowError, KeyError, AttributeError) as exc:
+        return _work_item_failure(str(exc), site="work_items.validate", exception_type=_public_exception_type(exc))
+
+
+def try_work_item_root(**content: object) -> WorkItemRoot | Failure:
+    try:
+        return WorkItemRoot(**content)
+    except (TypeError, ValueError, OverflowError, KeyError, AttributeError) as exc:
+        return _work_item_failure(str(exc), site="work_items.root", exception_type=_public_exception_type(exc))
+
+
+def try_build_work_item(**content: object) -> WorkItemRoot | Failure:
+    return try_work_item_root(**content)
+
 
 __all__ = [
     "CompileWorkItemRoot",
@@ -165,4 +214,7 @@ __all__ = [
     "WorkItemRootUnion",
     "WorkItemState",
     "WorkItemWaitReason",
+    "try_validate_work_item",
+    "try_work_item_root",
+    "try_build_work_item",
 ]

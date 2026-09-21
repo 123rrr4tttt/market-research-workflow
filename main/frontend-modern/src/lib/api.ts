@@ -41,6 +41,7 @@ import type {
   AgentChatApprovalContinuePayload,
   AgentChatApprovalContinueResult,
   AgentChatCapabilitiesResult,
+  CodexModelCatalog,
   AgentSessionTaskRetryPayload,
   AgentChatTurnPayload,
   AgentChatTurnResult,
@@ -60,6 +61,10 @@ import type {
   AgentBatchSubmitResult,
   AutoCreateProjectPayload,
   AutoCreateProjectResult,
+  BusinessLineScheduledArtifactDrilldown,
+  BusinessLineEvidenceMatrix,
+  BusinessLineScheduledArtifactSummaries,
+  BusinessLineScheduledMatrixArtifactSummary,
   CrawlerDeployRunItem,
   CrawlerProjectDeployPayload,
   CrawlerProjectImportPayload,
@@ -82,6 +87,7 @@ import type {
   ProcessTaskLogsResponse,
   ProcessTaskStats,
   ProductItem,
+  SearchRetrievalRunReadback,
   TopicItem,
 } from './types'
 
@@ -109,13 +115,21 @@ export async function getDeepHealth() {
 export {
   activateProject,
   archiveProject,
+  createDashboardReportFromFilter,
   createProject,
   deleteProject,
+  getDashboardLlmReportDetail,
   getDashboardStats,
   listProjects,
   restoreProject,
   updateProject,
 } from './api/domains/project-admin'
+export {
+  exportLlmReportFile,
+} from './api/domains/llm-report'
+export type LlmReportExportFormat = import('./api/domains/llm-report').LlmReportExportFormat
+export type LlmReportFileExportPayload = import('./api/domains/llm-report').LlmReportFileExportPayload
+export type LlmReportFileExportResult = import('./api/domains/llm-report').LlmReportFileExportResult
 export {
   bootstrapCodexCliLogin,
   getCodexAuthStatus,
@@ -188,6 +202,7 @@ export type ClueChainListResponse = import('./api/domains/clue-chains').ClueChai
 export type ClueChainMutationResponse = import('./api/domains/clue-chains').ClueChainMutationResponse
 export type ClueChainStatus = import('./api/domains/clue-chains').ClueChainStatus
 export {
+  applyWorkflowTemplateRollback,
   activateWorkflowGraphTemplateVersion,
   buildWorkflowGraphEvidencePack,
   buildWorkflowGraphReportingHandoff,
@@ -197,6 +212,7 @@ export {
   createWorkflowGraphTemplateVersion,
   deleteWorkflowGraphTemplate,
   deleteWorkflowTemplate,
+  diffWorkflowTemplate,
   exportGraph,
   getCompiledWorkflowGraph,
   getGraphConfig,
@@ -212,6 +228,9 @@ export {
   listWorkflowGraphCuratedAudits,
   listWorkflowGraphTemplates,
   listWorkflowGraphTemplateVersions,
+  listWorkflowTemplateVersions,
+  previewWorkflowTemplateRollback,
+  promoteWorkflowTemplate,
   replayWorkflowGraphHandoff,
   replayWorkflowGraphRun,
   getWorkflowTemplate,
@@ -220,6 +239,7 @@ export {
   runWorkflow,
   runWorkflowGraph,
   saveWorkflowGraphCuratedDraft,
+  stageWorkflowTemplate,
   submitGraphStructuredSearchTasks,
   submitWorkflowGraphCuratedDraft,
   syncWorkflowGraphCuratedState,
@@ -258,6 +278,20 @@ export type WorkflowGraphTemplateVersionItem = import('./types').WorkflowGraphTe
 export type WorkflowGraphTemplateVersionListResponse = import('./types').WorkflowGraphTemplateVersionListResponse
 export type WorkflowGraphTemplateVersionMutationResponse = import('./types').WorkflowGraphTemplateVersionMutationResponse
 export type WorkflowGraphTemplateVersionPayload = import('./types').WorkflowGraphTemplateVersionPayload
+export type DashboardReportFromFilterPayload = import('./types').DashboardReportFromFilterPayload
+export type DashboardReportFromFilterResponse = import('./types').DashboardReportFromFilterResponse
+export type DashboardLlmReportDetailParams = import('./types').DashboardLlmReportDetailParams
+export type DashboardLlmReportDetailResponse = import('./types').DashboardLlmReportDetailResponse
+export type WorkflowTemplatePromotePayload = import('./types').WorkflowTemplatePromotePayload
+export type WorkflowTemplateStageMutationResponse = import('./types').WorkflowTemplateStageMutationResponse
+export type WorkflowTemplateStageName = import('./types').WorkflowTemplateStageName
+export type WorkflowTemplateStagePayload = import('./types').WorkflowTemplateStagePayload
+export type WorkflowTemplateStageRecord = import('./types').WorkflowTemplateStageRecord
+export type WorkflowTemplateStageSummary = import('./types').WorkflowTemplateStageSummary
+export type WorkflowTemplateRollbackPayload = import('./types').WorkflowTemplateRollbackPayload
+export type WorkflowTemplateRollbackPlan = import('./types').WorkflowTemplateRollbackPlan
+export type WorkflowTemplateRollbackResponse = import('./types').WorkflowTemplateRollbackResponse
+export type WorkflowTemplateVersionListResponse = import('./types').WorkflowTemplateVersionListResponse
 export {
   autosaveWritingDraft,
   buildPersistedTypedKnowledgeKeywordCardRequest,
@@ -438,6 +472,26 @@ export async function ingestSingleUrl(payload: IngestSingleUrlPayload) {
   return post<Record<string, unknown>>(endpoints.ingest.urlSingle, payload)
 }
 
+export async function getSearchRetrievalRun(retrievalRunId: string) {
+  return get<SearchRetrievalRunReadback>(endpoints.search.retrievalRun(retrievalRunId))
+}
+
+export async function getBusinessLineEvidenceMatrix() {
+  return get<BusinessLineEvidenceMatrix>(endpoints.businessLines.evidenceMatrix)
+}
+
+export async function getBusinessLineScheduledMatrixArtifactSummary() {
+  return get<BusinessLineScheduledMatrixArtifactSummary>(endpoints.businessLines.scheduledMatrixArtifactSummary)
+}
+
+export async function getBusinessLineScheduledArtifactSummaries() {
+  return get<BusinessLineScheduledArtifactSummaries>(endpoints.businessLines.scheduledArtifactSummaries)
+}
+
+export async function getBusinessLineScheduledArtifactDrilldown() {
+  return get<BusinessLineScheduledArtifactDrilldown>(endpoints.businessLines.scheduledArtifactDrilldown)
+}
+
 export async function ingestDataApi(payload: Record<string, unknown>) {
   return post<Record<string, unknown>>(endpoints.ingest.dataApi, payload)
 }
@@ -590,6 +644,10 @@ export async function listAgentChatCapabilities(projectKey?: string | null) {
   if (projectKey) query.set('project_key', projectKey)
   const suffix = query.toString()
   return get<AgentChatCapabilitiesResult>(suffix ? `${endpoints.agentChat.capabilities}?${suffix}` : endpoints.agentChat.capabilities)
+}
+
+export async function listAgentChatModels() {
+  return get<CodexModelCatalog>(endpoints.agentChat.models)
 }
 
 export async function continueAgentChatApproval(approvalId: string, payload: AgentChatApprovalContinuePayload = {}) {

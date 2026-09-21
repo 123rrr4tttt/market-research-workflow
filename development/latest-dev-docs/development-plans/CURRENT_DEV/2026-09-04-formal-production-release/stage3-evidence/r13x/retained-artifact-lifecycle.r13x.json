@@ -1,0 +1,53 @@
+{
+  "schema_version": "mrw.stage3.retained-artifact-lifecycle.r13x.v1",
+  "authoritative": false,
+  "status": "PASS_RETAINED_INPUT_LIFECYCLE_RECORDED_NOT_AUTHORITY",
+  "owner": {
+    "role": "Stage 3 executor",
+    "task_id": "01a087e8-26ad-71d1-b701-cde619801bd9"
+  },
+  "candidate": {
+    "commit": "8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+    "tree": "ce7c67c831b51f9d64b4c2f1a470a724a50b19df"
+  },
+  "retained": {
+    "docker_tags": [
+      "mrw-local/r13x-candidate-backend:8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+      "mrw-local/r13x-candidate-frontend:8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+      "mrw-local/r13x-candidate-migration-runner:8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2"
+    ],
+    "canonical_archives": [
+      "artifacts/candidate/backend/image.oci.tar",
+      "artifacts/candidate/frontend/image.oci.tar",
+      "artifacts/candidate/migration-runner/image.oci.tar"
+    ],
+    "replay_archives": [
+      "artifacts/replay/backend/image.oci.tar",
+      "artifacts/replay/frontend/image.oci.tar",
+      "artifacts/replay/migration-runner/image.oci.tar"
+    ],
+    "canonical_layouts": [
+      "artifacts/layouts/backend",
+      "artifacts/layouts/frontend",
+      "artifacts/layouts/migration-runner"
+    ]
+  },
+  "purpose": "Preserve exact local release inputs, reproducibility evidence, and recovery inputs while Stage 3 awaits external authority.",
+  "recovery": {
+    "docker_tag_restore": "Load the corresponding canonical OCI archive with docker load and verify the loaded image ID against artifacts/execution-record.json before use.",
+    "evidence_restore": "Archives and layouts are checksum-bound by artifacts/SHA256SUMS; restore only from a byte-identical retained evidence copy.",
+    "network_rebuild_is_not_recovery": true
+  },
+  "removal": {
+    "docker_tags": "After Supervisor acceptance, explicit supersession, or abandonment, remove only the three exact tags listed above with docker image rm; do not prune.",
+    "archives_and_layouts": "Retain through Stage 3 disposition. Any later cleanup must target the listed paths explicitly and preserve the checksum index and final result first.",
+    "automatic_cleanup_authorized": false
+  },
+  "current_state": {
+    "task_builders_removed": true,
+    "task_runtime_containers_networks_volumes_removed": true,
+    "docker_prune_run": false,
+    "release_inputs_retained": true
+  },
+  "authority_ceiling": "LOCAL_EVIDENCE_LIFECYCLE_ONLY_NOT_RELEASE_AUTHORITY"
+}

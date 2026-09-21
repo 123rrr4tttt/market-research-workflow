@@ -1,285 +1,158 @@
 #!/usr/bin/env python3
-"""Check graph/typed/writing/consumer status semantics after migration.
+"""Check current graph/typed/writing/consumer closure authority.
 
-This gate is intentionally about status ownership, not new product evidence.
-It verifies that the four Wave27 topics have one canonical current state
-(`external_blocked`) while older `partial` / `needs_update` lines remain only
-legacy snapshots.
+Wave27 external-blocked decisions remain useful history, but the current
+authority is the later Wave45/46/54 closure record in canonical
+``docs/development`` ARCHIVE_CLOSED directories.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
-import shutil
-import sys
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = BACKEND_ROOT.parents[1]
-SCRIPTS_ROOT = BACKEND_ROOT / "scripts"
-if sys.version_info < (3, 10):
-    candidates = (
-        os.environ.get("PYTHON311"),
-        shutil.which("python3.11"),
-        "/Users/wangyiliang/.local/bin/python3.11",
-    )
-    for candidate in candidates:
-        if candidate and Path(candidate).is_file() and Path(candidate) != Path(sys.executable):
-            os.execv(candidate, [candidate, *sys.argv])
 
-for path in (BACKEND_ROOT, SCRIPTS_ROOT):
-    if str(path) not in sys.path:
-        sys.path.insert(0, str(path))
+CONTRACT_VERSION = "graph_typed_writing_consumer.status_boundary.v2"
+CANONICAL_ROOT = Path("docs/development/development-plans/ARCHIVE_CLOSED")
+CLOSED_INDEX = CANONICAL_ROOT / "INDEX.md"
+TARGET_STATUS = "closed"
 
-from check_graph_editing_audit_durability import (  # noqa: E402
-    build_gate_snapshot as build_graph_gate_snapshot,
-    validate_gate_snapshot as validate_graph_gate_snapshot,
-)
-from check_typed_writing_live_boundary import build_inventory as build_typed_writing_inventory  # noqa: E402
-from check_wave27_structured_consumer_closure import build_check as build_consumer_closure_check  # noqa: E402
-
-
-CONTRACT_VERSION = "graph_typed_writing_consumer.status_boundary.v1"
-CURRENT_DEV_INDEX = Path("development/latest-dev-docs/development-plans/CURRENT_DEV/INDEX.md")
-EXTERNAL_BLOCKED_INDEX = Path("development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/INDEX.md")
-TARGET_STATUS = "external_blocked"
-
-TOPICS: tuple[dict[str, str], ...] = (
+TOPICS: tuple[dict[str, Any], ...] = (
     {
         "id": "2026-03-07-graph-editing-and-reporting",
         "label": "graph_editing_and_reporting",
-        "decision": (
-            "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
-            "2026-03-07-graph-editing-and-reporting/11_wave27-external-blocked-decision-2026-05-23.md"
-        ),
-        "dir": (
-            "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
-            "2026-03-07-graph-editing-and-reporting"
+        "closure_wave": 46,
+        "closure_doc": "12_wave46-manual-live-audit-closure-2026-05-23.md",
+        "historical_decision": "11_wave27-external-blocked-decision-2026-05-23.md",
+        "required_closure_tokens": (
+            "Status: `closed`",
+            "closure_claim=true",
+            "live_tenant_db_audit_open=false",
         ),
     },
     {
         "id": "2026-03-07-typed-knowledge-organization",
         "label": "typed_knowledge_organization",
-        "decision": (
-            "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
-            "2026-03-07-typed-knowledge-organization/10_wave27-external-blocked-decision-2026-05-23.md"
-        ),
-        "dir": (
-            "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
-            "2026-03-07-typed-knowledge-organization"
+        "closure_wave": 54,
+        "closure_doc": "07_wave54-typed-writing-live-closure-2026-05-23.md",
+        "historical_decision": "10_wave27-external-blocked-decision-2026-05-23.md",
+        "required_closure_tokens": (
+            "status: `closed`",
+            "archive: `ARCHIVE_CLOSED`",
+            "closure_claim_allowed: true",
+            "remaining_live_gaps empty",
         ),
     },
     {
         "id": "2026-03-07-writing-workbench-evolution",
         "label": "writing_workbench_evolution",
-        "decision": (
-            "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
-            "2026-03-07-writing-workbench-evolution/11_wave27-external-blocked-decision-2026-05-23.md"
-        ),
-        "dir": (
-            "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
-            "2026-03-07-writing-workbench-evolution"
+        "closure_wave": 54,
+        "closure_doc": "08_wave54-typed-writing-live-closure-2026-05-23.md",
+        "historical_decision": "11_wave27-external-blocked-decision-2026-05-23.md",
+        "required_closure_tokens": (
+            "status: `closed`",
+            "archive: `ARCHIVE_CLOSED`",
+            "closure_claim_allowed: true",
+            "remaining_live_gaps empty",
         ),
     },
     {
         "id": "2026-03-14-consumer-side-modularization",
         "label": "consumer_side_modularization",
-        "decision": (
-            "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
-            "2026-03-14-consumer-side-modularization/08_wave27-external-blocked-decision-2026-05-23.md"
-        ),
-        "dir": (
-            "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
-            "2026-03-14-consumer-side-modularization"
+        "closure_wave": 45,
+        "closure_doc": "09_wave45-manual-live-api-closure-2026-05-23.md",
+        "historical_decision": "08_wave27-external-blocked-decision-2026-05-23.md",
+        "required_closure_tokens": (
+            "Status: `closed`",
+            "status=passed",
+            "decision.status=closed",
+            "external_blocker_count=0",
         ),
     },
 )
 
-STATUS_COUNT_RE = re.compile(r"^- `(?P<status>[^`]+)`: (?P<count>\d+)\s*$", re.MULTILINE)
-LEGACY_STATUS_RE = re.compile(
-    r"(?:partial\s*/\s*needs\s+update|needs[_ -]?update|still\s+partial|status:\s*partial\b|"
-    r"partial_narrow|retained_partial|external_blocked_candidate)",
-    re.IGNORECASE,
-)
+HISTORICAL_STATUS_RE = re.compile(r"external[_ -]?blocked|closure_claim(?:_allowed)?[=:]false", re.IGNORECASE)
 
 
-def _read_text(root: Path, rel_path: Path | str) -> str:
-    path = root / rel_path
+def _read_text(root: Path, rel_path: Path) -> str:
     try:
-        return path.read_text(encoding="utf-8")
+        return (root / rel_path).read_text(encoding="utf-8")
     except OSError:
         return ""
 
 
-def _status_counts(index_text: str) -> dict[str, int]:
-    return {match.group("status"): int(match.group("count")) for match in STATUS_COUNT_RE.finditer(index_text)}
-
-
-def _topic_row(index_text: str, topic_id: str) -> dict[str, Any]:
-    lines = index_text.splitlines()
-    for line_no, line in enumerate(lines, start=1):
-        if topic_id not in line:
-            continue
-        following = ""
-        for candidate in lines[line_no:]:
-            if candidate.strip():
-                following = candidate
-                break
-        combined = f"{line}\n{following}"
-        return {
-            "line_no": line_no,
-            "text": combined,
-            "has_external_blocked": f"`{TARGET_STATUS}`" in combined,
-        }
-    return {"line_no": None, "text": "", "has_external_blocked": False}
-
-
-def _decision_status(root: Path, topic: dict[str, str]) -> dict[str, Any]:
-    decision_path = Path(topic["decision"])
-    text = _read_text(root, decision_path)
-    legacy_hits = _legacy_hits_for_text(decision_path, text)
+def _topic_result(root: Path, closed_index_text: str, topic: Mapping[str, Any]) -> dict[str, Any]:
+    topic_dir = CANONICAL_ROOT / str(topic["id"])
+    topic_index = topic_dir / "INDEX.md"
+    closure_doc = topic_dir / str(topic["closure_doc"])
+    historical_doc = topic_dir / str(topic["historical_decision"])
+    topic_index_text = _read_text(root, topic_index)
+    closure_text = _read_text(root, closure_doc)
+    historical_text = _read_text(root, historical_doc)
+    required_tokens = list(topic["required_closure_tokens"])
+    missing_tokens = [token for token in required_tokens if token not in closure_text]
+    closed_index_row = next((line for line in closed_index_text.splitlines() if str(topic["id"]) in line), "")
     return {
         "topic_id": topic["id"],
-        "decision_file": decision_path.as_posix(),
-        "exists": (root / decision_path).is_file(),
-        "canonical_status": TARGET_STATUS if f"`{TARGET_STATUS}`" in text else "missing",
-        "has_external_blocked": f"`{TARGET_STATUS}`" in text,
-        "legacy_status_hits": legacy_hits,
-        "current_status_problem_count": len(legacy_hits),
-    }
-
-
-def _legacy_hits_for_text(rel_path: Path, text: str) -> list[dict[str, Any]]:
-    hits: list[dict[str, Any]] = []
-    for line_no, line in enumerate(text.splitlines(), start=1):
-        if LEGACY_STATUS_RE.search(line):
-            hits.append({"path": rel_path.as_posix(), "line": line_no, "text": line.strip()})
-    return hits
-
-
-def _legacy_status_inventory(root: Path, topics: tuple[dict[str, str], ...]) -> dict[str, Any]:
-    decision_paths = {Path(topic["decision"]) for topic in topics}
-    current_problem_hits: list[dict[str, Any]] = []
-    legacy_hits: list[dict[str, Any]] = []
-
-    for topic in topics:
-        topic_dir = root / topic["dir"]
-        if not topic_dir.is_dir():
-            current_problem_hits.append(
-                {"path": topic["dir"], "line": None, "text": "topic directory missing"}
-            )
-            continue
-        for path in sorted(topic_dir.glob("*.md")):
-            rel_path = path.relative_to(root)
-            hits = _legacy_hits_for_text(rel_path, _read_text(root, rel_path))
-            if not hits:
-                continue
-            if rel_path in decision_paths or path.name == "README.md":
-                current_problem_hits.extend(hits)
-            else:
-                legacy_hits.extend(hits)
-
-    by_file: dict[str, int] = {}
-    for hit in legacy_hits:
-        by_file[hit["path"]] = by_file.get(hit["path"], 0) + 1
-
-    return {
-        "current_status_problem_count": len(current_problem_hits),
-        "current_status_problem_hits": current_problem_hits,
-        "legacy_status_mention_count": len(legacy_hits),
-        "legacy_status_mentions_by_file": [
-            {"path": path, "count": count} for path, count in sorted(by_file.items())
-        ],
-        "meaning": (
-            "legacy mentions are pre-Wave27 snapshots only; current topic status is owned by "
-            "Wave27 decision files plus ARCHIVE_EXTERNAL_BLOCKED/INDEX.md"
+        "label": topic["label"],
+        "canonical_status": TARGET_STATUS if not missing_tokens and (root / closure_doc).is_file() else "missing",
+        "closure_wave": topic["closure_wave"],
+        "canonical_directory": topic_dir.as_posix(),
+        "canonical_directory_exists": (root / topic_dir).is_dir(),
+        "canonical_closure_doc": closure_doc.as_posix(),
+        "canonical_closure_doc_exists": (root / closure_doc).is_file(),
+        "required_closure_tokens": required_tokens,
+        "missing_closure_tokens": missing_tokens,
+        "topic_index": topic_index.as_posix(),
+        "topic_index_has_current_authority": (
+            TARGET_STATUS in topic_index_text.lower()
+            and str(topic["closure_doc"]) in topic_index_text
+            and "canonical" in topic_index_text.lower()
         ),
-    }
-
-
-def _build_graph_gate(root: Path) -> dict[str, Any]:
-    snapshot = build_graph_gate_snapshot(repo_root=root)
-    failures = validate_graph_gate_snapshot(snapshot)
-    return {
-        "name": "graph_editing_audit_durability",
-        "status": snapshot.get("status"),
-        "passed": snapshot.get("status") == "passed" and not failures,
-        "readiness_state": snapshot.get("readiness_state"),
-        "closure_claim": snapshot.get("closure_claim"),
-        "repo_local_audit_readback_validated": snapshot.get("repo_local_audit_readback_validated"),
-        "graphpage_audit_controls_validated": snapshot.get("graphpage_audit_controls_validated"),
-        "live_db_audit_durability_validated": snapshot.get("live_db_audit_durability_validated"),
-        "live_tenant_db_audit_open": snapshot.get("live_tenant_db_audit_open"),
-        "validation_failures": failures,
-    }
-
-
-def _build_typed_writing_gate(root: Path) -> dict[str, Any]:
-    inventory = build_typed_writing_inventory(root)
-    return {
-        "name": "typed_writing_live_boundary",
-        "status": inventory.get("status"),
-        "passed": inventory.get("status") == "passed" and not inventory.get("failures"),
-        "readiness_state": inventory.get("readiness_state"),
-        "closure_claim_allowed": inventory.get("closure_claim_allowed"),
-        "deterministic_coverage_count": len(inventory.get("deterministic_coverage") or []),
-        "remaining_live_gaps": list(inventory.get("remaining_live_gaps") or []),
-        "failures": list(inventory.get("failures") or []),
-    }
-
-
-def _build_consumer_gate(root: Path) -> dict[str, Any]:
-    result = build_consumer_closure_check(root)
-    consumer_topic = result.get("decision", {}).get("topics", {}).get("2026-03-14-consumer-side-modularization", {})
-    return {
-        "name": "consumer_side_wave27_closure",
-        "status": result.get("status"),
-        "passed": result.get("status") == "passed" and not result.get("repo_local_blockers"),
-        "gate_count": result.get("validation", {}).get("gate_count"),
-        "passed_gate_count": result.get("validation", {}).get("passed_gate_count"),
-        "repo_local_blockers": list(result.get("repo_local_blockers") or []),
-        "external_blockers": list(result.get("external_blockers") or []),
-        "pre_migration_decision_status": consumer_topic.get("status"),
-    }
-
-
-def build_check(repo_root: Path | str = REPO_ROOT) -> dict[str, Any]:
-    root = Path(repo_root).resolve()
-    current_dev_text = _read_text(root, CURRENT_DEV_INDEX)
-    external_index_text = _read_text(root, EXTERNAL_BLOCKED_INDEX)
-    counts = _status_counts(current_dev_text)
-
-    topic_statuses = []
-    for topic in TOPICS:
-        decision = _decision_status(root, topic)
-        external_row = _topic_row(external_index_text, topic["id"])
-        topic_statuses.append(
-            {
-                **decision,
-                "external_blocked_index_row": external_row,
-                "current_dev_active_status": "absent_from_active_partial"
-                if counts.get("partial", 0) == 0
-                else "current_dev_partial_count_open",
-            }
-        )
-
-    report = {
-        "contract_version": CONTRACT_VERSION,
-        "scope": "graph_typed_writing_consumer_external_blocked_status_semantics",
-        "status": "passed",
-        "topics": topic_statuses,
-        "current_dev_status_counts": counts,
-        "repo_local_gates": {
-            "graph": _build_graph_gate(root),
-            "typed_writing": _build_typed_writing_gate(root),
-            "consumer": _build_consumer_gate(root),
+        "closed_index_row": closed_index_row,
+        "closed_index_points_to_closure": str(topic["closure_doc"]) in closed_index_row,
+        "historical_wave27": {
+            "path": historical_doc.as_posix(),
+            "exists": (root / historical_doc).is_file(),
+            "classification": "historical_pre_closure_snapshot",
+            "contains_pre_closure_status": bool(HISTORICAL_STATUS_RE.search(historical_text)),
+            "is_current_authority": False,
         },
-        "legacy_status_semantics": _legacy_status_inventory(root, TOPICS),
+    }
+
+
+def build_check(repo_root: Path | str = REPO_ROOT) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=generated_evidence "
+    "fact_source=docs/development/development-plans/ARCHIVE_CLOSED/topic_INDEX+closure_doc "
+    "witness=test:test_c13_cli_graph_workflow_metadata_preserves_abi",
+]:
+    root = Path(repo_root).resolve()
+    closed_index_text = _read_text(root, CLOSED_INDEX)
+    topics = [_topic_result(root, closed_index_text, topic) for topic in TOPICS]
+    report: dict[str, Any] = {
+        "contract_version": CONTRACT_VERSION,
+        "scope": "graph_typed_writing_consumer_canonical_closure_authority",
+        "status": "passed",
+        "authority": {
+            "root": CANONICAL_ROOT.as_posix(),
+            "index": CLOSED_INDEX.as_posix(),
+            "status": TARGET_STATUS,
+            "historical_wave27_is_current_authority": False,
+        },
+        "topics": topics,
+        "history_semantics": {
+            "classification": "pre_closure_snapshots",
+            "current_authority": "topic INDEX.md plus Wave45/46/54 closure document",
+            "deleted_json_or_jsonl_used_as_evidence": False,
+        },
     }
     failures = validate_report(report)
     report["validation"] = {"passed": not failures, "failures": failures}
@@ -287,89 +160,65 @@ def build_check(repo_root: Path | str = REPO_ROOT) -> dict[str, Any]:
     return report
 
 
-def validate_report(report: dict[str, Any]) -> list[str]:
+def validate_report(report: Mapping[str, Any]) -> list[str]:
     failures: list[str] = []
     if report.get("contract_version") != CONTRACT_VERSION:
         failures.append("contract_version_mismatch")
-
-    if report.get("current_dev_status_counts", {}).get("partial") != 0:
-        failures.append("current_dev_partial_count_must_remain_zero")
-
-    for topic in report.get("topics") or []:
-        topic_id = topic.get("topic_id")
-        if topic.get("exists") is not True:
-            failures.append(f"missing_decision_file:{topic_id}")
+    authority = report.get("authority") if isinstance(report.get("authority"), Mapping) else {}
+    if authority.get("root") != CANONICAL_ROOT.as_posix():
+        failures.append("canonical_authority_root_mismatch")
+    if authority.get("historical_wave27_is_current_authority") is not False:
+        failures.append("wave27_history_must_not_be_current_authority")
+    topics = report.get("topics") if isinstance(report.get("topics"), list) else []
+    if len(topics) != len(TOPICS):
+        failures.append(f"expected_{len(TOPICS)}_topics")
+    for topic in topics:
+        if not isinstance(topic, Mapping):
+            failures.append("topic_result_must_be_object")
+            continue
+        topic_id = topic.get("topic_id", "<missing>")
         if topic.get("canonical_status") != TARGET_STATUS:
-            failures.append(f"missing_external_blocked_decision:{topic_id}")
-        if topic.get("external_blocked_index_row", {}).get("has_external_blocked") is not True:
-            failures.append(f"external_blocked_index_missing_status:{topic_id}")
-        if topic.get("current_status_problem_count") != 0:
-            failures.append(f"decision_file_contains_legacy_status_terms:{topic_id}")
-
-    gates = report.get("repo_local_gates") or {}
-    graph = gates.get("graph") or {}
-    if graph.get("passed") is not True:
-        failures.append("graph_repo_local_gate_failed")
-    if graph.get("closure_claim") is not False or graph.get("live_tenant_db_audit_open") is not True:
-        failures.append("graph_gate_must_keep_live_db_external_boundary")
-
-    typed_writing = gates.get("typed_writing") or {}
-    if typed_writing.get("passed") is not True:
-        failures.append("typed_writing_repo_local_gate_failed")
-    if typed_writing.get("closure_claim_allowed") is not False:
-        failures.append("typed_writing_gate_must_not_allow_closure_claim")
-    if not typed_writing.get("remaining_live_gaps"):
-        failures.append("typed_writing_gate_must_preserve_external_live_gaps")
-
-    consumer = gates.get("consumer") or {}
-    if consumer.get("passed") is not True:
-        failures.append("consumer_repo_local_gate_failed")
-    if consumer.get("repo_local_blockers"):
-        failures.append("consumer_gate_must_have_no_repo_local_blockers")
-    if not consumer.get("external_blockers"):
-        failures.append("consumer_gate_must_preserve_live_external_blocker")
-
-    semantics = report.get("legacy_status_semantics") or {}
-    if semantics.get("current_status_problem_count") != 0:
-        failures.append("legacy_partial_needs_update_terms_leaked_into_current_status_files")
-
+            failures.append(f"canonical_closure_missing:{topic_id}")
+        if topic.get("canonical_directory_exists") is not True:
+            failures.append(f"canonical_directory_missing:{topic_id}")
+        if topic.get("canonical_closure_doc_exists") is not True:
+            failures.append(f"canonical_closure_doc_missing:{topic_id}")
+        if topic.get("missing_closure_tokens") != []:
+            failures.append(f"canonical_closure_tokens_missing:{topic_id}")
+        if topic.get("topic_index_has_current_authority") is not True:
+            failures.append(f"topic_index_authority_missing:{topic_id}")
+        if topic.get("closed_index_points_to_closure") is not True:
+            failures.append(f"closed_index_closure_link_missing:{topic_id}")
+        history = topic.get("historical_wave27") if isinstance(topic.get("historical_wave27"), Mapping) else {}
+        if history.get("is_current_authority") is not False:
+            failures.append(f"historical_decision_promoted_to_current:{topic_id}")
+    history_semantics = report.get("history_semantics") or {}
+    if history_semantics.get("deleted_json_or_jsonl_used_as_evidence") is not False:
+        failures.append("deleted_runtime_evidence_must_not_be_used")
     return failures
 
 
-def _print_text(report: dict[str, Any]) -> None:
-    print(
-        "OK graph_typed_writing_consumer_status_boundary=passed"
-        if report.get("status") == "passed"
-        else "FAIL graph_typed_writing_consumer_status_boundary=failed"
-    )
-    print(f"contract_version={report['contract_version']}")
-    print(f"current_dev_partial={report['current_dev_status_counts'].get('partial')}")
-    for topic in report["topics"]:
-        print(f"{topic['topic_id']}={topic['canonical_status']}")
-    print("repo_local_gates:")
-    for key, gate in report["repo_local_gates"].items():
-        print(f"- {key}: {'passed' if gate['passed'] else 'failed'}")
-    semantics = report["legacy_status_semantics"]
-    print(f"legacy_status_mentions={semantics['legacy_status_mention_count']}")
-    print(f"current_status_problem_count={semantics['current_status_problem_count']}")
-    if report["validation"]["failures"]:
-        print("failures:")
-        for failure in report["validation"]["failures"]:
-            print(f"- {failure}")
+def _print_text(report: Mapping[str, Any]) -> None:
+    print(f"{str(report.get('status')).upper()} {CONTRACT_VERSION}")
+    for topic in report.get("topics") or []:
+        print(f"{topic['topic_id']}={topic['canonical_status']} wave={topic['closure_wave']}")
+    for failure in report.get("validation", {}).get("failures") or []:
+        print(f"- {failure}")
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Check graph/typed/writing/consumer status boundary semantics.")
+    parser = argparse.ArgumentParser(description="Check canonical graph/typed/writing/consumer closure authority.")
     parser.add_argument("--root", default=str(REPO_ROOT), help="repository root")
     parser.add_argument("--format", choices=("json", "text"), default="json")
     parser.add_argument("--output", type=Path, default=None)
     args = parser.parse_args(argv)
-
     report = build_check(args.root)
     if args.output is not None:
         args.output.parent.mkdir(parents=True, exist_ok=True)
-        args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-
+        args.output.write_text(
+            json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
     if args.format == "json":
         print(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True))
     else:

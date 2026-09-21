@@ -19,6 +19,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from typing import Annotated
 
 from app.successor_runtime.assembly.base import (
     PROJECTOR_REGISTRY_INCARNATION,
@@ -482,7 +483,11 @@ class C5_4LineEventReadbackRouteHandler(RuntimeHandler):
 
 def build_deterministic_reconciliation_binding(
     project_scope_digest: str,
-) -> C5_2ReconcileRouteBinding:
+) -> Annotated[
+    C5_2ReconcileRouteBinding,
+    "kit:prepared-command effect_boundary=successor_runtime.c5_assembly "
+    "witness=test:test_w08a_remaining_assembly_bindings_are_prepared_commands",
+]:
     """Build the deterministic C5.2 reconciliation route binding."""
 
     require_assembly_digest(
@@ -502,7 +507,11 @@ def build_c5_assembly(
     *,
     options: C5AssemblyOptions | None = None,
     projector_source_keys: Mapping[str, ProjectorSourceKey] | None = None,
-) -> FamilyAssembly:
+) -> Annotated[
+    FamilyAssembly,
+    "kit:prepared-command effect_boundary=successor_runtime.c5_assembly "
+    "witness=test:test_w08a_remaining_assembly_bindings_are_prepared_commands",
+]:
     """Build C5 with optional registry registration and the C5.2 route."""
 
     opts = options or C5AssemblyOptions()

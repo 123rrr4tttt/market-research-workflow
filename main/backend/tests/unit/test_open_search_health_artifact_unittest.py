@@ -2,13 +2,16 @@ from __future__ import annotations
 
 import json
 import unittest
+from typing import Annotated, get_args, get_origin, get_type_hints
 
 import pytest
 
 from scripts.check_open_search_health_artifact import (
+    build_compose_expectations,
     build_health_artifact,
     validate_health_artifact,
 )
+from tests.unit._evidence_source_assertions import assert_typed_evidence_unavailable
 
 
 pytestmark = pytest.mark.unit
@@ -75,8 +78,15 @@ class OpenSearchHealthArtifactTest(unittest.TestCase):
             command_runner=_stopped_runner,
         )
 
-        self.assertEqual(validate_health_artifact(artifact), [])
-        self.assertEqual(artifact["status"], "passed")
+        self.assertIn("Wave12 provider readiness input must be passed", validate_health_artifact(artifact))
+        assert_typed_evidence_unavailable(
+            self,
+            artifact,
+            expected_missing_paths=(
+                "development/latest-dev-docs/automation-runs/wave12-provider-readiness/"
+                "2026-05-22/provider_readiness_summary.json",
+            ),
+        )
         self.assertFalse(artifact["closure_claim_allowed"])
         self.assertTrue(artifact["live_probe"]["open"])
         for provider, row in artifact["provider_health"].items():
@@ -92,8 +102,8 @@ class OpenSearchHealthArtifactTest(unittest.TestCase):
             command_runner=_running_runner,
         )
 
-        self.assertEqual(validate_health_artifact(artifact), [])
-        self.assertEqual(artifact["status"], "passed")
+        self.assertIn("Wave12 provider readiness input must be passed", validate_health_artifact(artifact))
+        assert_typed_evidence_unavailable(self, artifact)
         for provider, row in artifact["provider_health"].items():
             self.assertTrue(row["facts"]["current_service_running"], provider)
             self.assertTrue(row["facts"]["live_query_unsealed"], provider)
@@ -113,6 +123,26 @@ class OpenSearchHealthArtifactTest(unittest.TestCase):
         failures = validate_health_artifact(artifact)
 
         self.assertTrue(any("stopped service must not have live closure claim" in item for item in failures))
+
+    def test_open_search_compose_expectations_authority_metadata(self) -> None:
+        return_hint = get_type_hints(build_compose_expectations, include_extras=True)["return"]
+        self.assertIs(get_origin(return_hint), Annotated)
+        _, metadata = get_args(return_hint)
+        self.assertEqual(
+            metadata,
+            "kit:non-authoritative derived_as=view fact_source=repository.search_lab_and_main_ops_compose "
+            "witness=test:test_open_search_compose_expectations_authority_metadata",
+        )
+
+    def test_open_search_health_artifact_authority_metadata(self) -> None:
+        return_hint = get_type_hints(build_health_artifact, include_extras=True)["return"]
+        self.assertIs(get_origin(return_hint), Annotated)
+        _, metadata = get_args(return_hint)
+        self.assertEqual(
+            metadata,
+            "kit:non-authoritative derived_as=preflight fact_source=repository.wave12_boundary_and_runtime_probe_results "
+            "witness=test:test_open_search_health_artifact_authority_metadata",
+        )
 
 
 if __name__ == "__main__":

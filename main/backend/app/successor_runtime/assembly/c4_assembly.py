@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import dataclasses
 from collections.abc import Callable
-from typing import Any
+from typing import Annotated, Any
 
 from app.successor_runtime.capabilities import agent_batch_c4 as c4
 from app.successor_runtime.capabilities import source_library_c2_shared as c2_shared
@@ -147,7 +147,11 @@ def _i1_c4_task() -> AgentBatchTask:
     )
 
 
-def build_deterministic_plan_payload(scope_digest: str) -> BatchPlanPayload:
+def build_deterministic_plan_payload(scope_digest: str) -> Annotated[
+    BatchPlanPayload,
+    "kit:prepared-command effect_boundary=successor_runtime.c4_assembly "
+    "witness=test:test_c4_assembly_installs_with_production_fixture_builder",
+]:
     """Build the deterministic I1 C4.1 plan payload for one exact scope."""
 
     payload = BatchPlanPayload(
@@ -174,7 +178,11 @@ def build_deterministic_plan_payload(scope_digest: str) -> BatchPlanPayload:
     return payload
 
 
-def build_deterministic_retry_payload(scope_digest: str) -> RetryReducerInput:
+def build_deterministic_retry_payload(scope_digest: str) -> Annotated[
+    RetryReducerInput,
+    "kit:prepared-command effect_boundary=successor_runtime.c4_assembly "
+    "witness=test:test_c4_assembly_installs_with_production_fixture_builder",
+]:
     """Build the deterministic I1 C4.2 retry payload for one exact scope."""
 
     payload = RetryReducerInput(
@@ -298,7 +306,11 @@ def build_c4_assembly(
     uow_factory: Callable[[], RuntimeUnitOfWork],
     project_scope_digest: str,
     options: C4AssemblyOptions | None = None,
-) -> FamilyAssembly:
+) -> Annotated[
+    FamilyAssembly,
+    "kit:prepared-command effect_boundary=successor_runtime.c4_assembly "
+    "witness=test:test_c4_assembly_installs_with_production_fixture_builder",
+]:
     """Install the C4.3 store handler and, when payloads are supplied, the canaries."""
 
     require_assembly_digest(project_scope_digest, "C4 assembly project scope digest")

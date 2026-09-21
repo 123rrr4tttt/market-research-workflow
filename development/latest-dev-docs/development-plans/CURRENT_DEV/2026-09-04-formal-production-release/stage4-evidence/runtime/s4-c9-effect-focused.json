@@ -1,0 +1,61 @@
+{
+  "authoritative": false,
+  "schema_version": "mrw.stage4.s4-c9-effect-focused.v1",
+  "status": "PASS_LOCAL_FOCUSED_NOT_AUTHORITY",
+  "executed_at": "2026-09-13T08:06:48Z",
+  "scope": {
+    "source": "current shared worktree main/backend/tests/successor_runtime/test_c9_movement_closure_backend_postgres.py",
+    "source_sha256": "41140c7e1b2f8e4bd87990771b3ef72aab3f0b12fe4ed204a2eb872c9d592aba",
+    "database": "disposable Docker PostgreSQL mrw_c9_movement_closure_test",
+    "test_dependency_image": "mrw-stage3-r13o-tests:local",
+    "test_dependency_image_id": "sha256:061eaef70efb0f00044d4eb7986eb67cee159243a5c977e5497bdfea5114bfe4",
+    "source_mount": "read-only",
+    "product_code_changed": false,
+    "external_model_calls": 0
+  },
+  "command": "docker run --rm --entrypoint /bin/sh --network container:mrw-s4-c9-focused-db -v $PWD/main/backend:/app -v $PWD/src:/opt/mrw/src -w /app -e SUCCESSOR_TEST_DATABASE_URL=postgresql+psycopg2://postgres:<redacted>@127.0.0.1/postgres mrw-stage3-r13o-tests:local -lc 'python -m pytest -q -p no:cacheprovider --junitxml=/evidence/s4-c9-effect-focused.junit.xml tests/successor_runtime/test_c9_movement_closure_backend_postgres.py::test_command_repository_effect_boundary_rejects_scope_actor_approval_grant tests/successor_runtime/test_c9_movement_closure_backend_postgres.py::test_receipt_failure_inside_savepoint_commits_zero_partial tests/successor_runtime/test_c9_movement_closure_backend_postgres.py::test_commit_failure_before_durable_is_error_and_zero_residue tests/successor_runtime/test_c9_movement_closure_backend_postgres.py::test_inconsistent_partial_commit_fatal_escapes_facade_and_outer_rolls_back'",
+  "exit_code": 0,
+  "result": {
+    "tests": 4,
+    "passed": 4,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "duration_seconds": 1.112
+  },
+  "required_coverage": {
+    "missing_approval_rejected": "test_command_repository_effect_boundary_rejects_scope_actor_approval_grant",
+    "removed_grant_rejected": "test_command_repository_effect_boundary_rejects_scope_actor_approval_grant",
+    "receipt_failure_zero_partial": "test_receipt_failure_inside_savepoint_commits_zero_partial",
+    "commit_failure_zero_residue": "test_commit_failure_before_durable_is_error_and_zero_residue",
+    "inconsistent_partial_commit_outer_rollback": "test_inconsistent_partial_commit_fatal_escapes_facade_and_outer_rolls_back"
+  },
+  "artifacts": {
+    "junit": {
+      "path": "s4-c9-effect-focused.junit.xml",
+      "sha256": "2f919047b79b6db61e0d9363b0028a46e6e70b57560efdfdaf6be87cedd50d94"
+    },
+    "console_log": {
+      "path": "s4-c9-effect-focused.log",
+      "sha256": "323b6e8172ca85efc11359fec1f99e703d6458693dde26df64789abeced1489f"
+    },
+    "host_environment_failure_log": {
+      "path": "s4-c9-effect-focused.host-env-failure.log",
+      "sha256": "a97f5e7413a44eeb67f9a9e762882ff3b7cc606e3b5e246570525c8fa7ad85fb"
+    },
+    "test_image_environment_failure_log": {
+      "path": "s4-c9-effect-focused.test-image-env-failure.log",
+      "sha256": "818ddb61849332e9c7fd5fdd998e4fc3e49f4dea3c24b22a88d8ca9eff22578e"
+    },
+    "skip_diagnosis_log": {
+      "path": "s4-c9-effect-focused.skip-reason.log",
+      "sha256": "425ed3a941fb5139d52d78d71903bacc22387518f97fe588f72ecd0743ad090b"
+    }
+  },
+  "environment_notes": [
+    "The host virtualenv lacked SQLAlchemy; the retained test image supplied Python test dependencies and mrw_functorial_kit while the current backend source stayed read-only.",
+    "The first database hostname was not a Docker network alias and resolved externally, causing fixture skips; rerunning with the exact container network namespace executed all four tests.",
+    "The disposable PostgreSQL container and task network are removed after evidence capture; retained r13x and Stage4 images are not removed."
+  ],
+  "authority_ceiling": "LOCAL_STAGE4_RUNTIME_ONLY / NOT_AUTHORITY / PRODUCTION_RELEASE_NOT_AUTHORIZED"
+}

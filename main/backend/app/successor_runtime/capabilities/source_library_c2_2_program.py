@@ -15,7 +15,9 @@ successor C2.2 program.
 from __future__ import annotations
 
 import dataclasses
-from typing import Any
+from typing import Annotated, Any, Literal
+
+from functorial_kit import Failure
 
 from app.successor_runtime.capabilities import source_library_c2_shared as c2_2
 from app.successor_runtime.capabilities.checksum import (
@@ -50,34 +52,78 @@ __all__ = [
     "compile_source_library_c2_2_program",
     "exact_contract_ref",
     "planning_payload_value_ref",
+    "try_build_source_library_c2_2_program",
+    "try_exact_contract_ref",
+    "try_planning_payload_value_ref",
 ]
+
+
+def _lift_program_failure(result: Any) -> Any:
+    if isinstance(result, Failure):
+        c2_2.raise_c2_contract_failure(result, ValueError)
+    return result
+
+
+def try_exact_contract_ref(
+    catalog: OperationContractCatalogSnapshot,
+    kind: str,
+) -> OperationContractRef | Failure:
+    try:
+        ref = catalog.lookup(kind)
+    except (AttributeError, TypeError, ValueError) as exc:
+        return c2_2.c2_contract_failure(
+            "catalog_contract_invalid",
+            str(exc),
+            operation="source_library.c2_2.exact_contract_ref",
+            site="exact_contract_ref",
+            owner=c2_2.SOURCE_LIBRARY_C2_2_OWNER,
+        )
+    if ref is None:
+        return c2_2.c2_contract_failure(
+            "catalog_contract_invalid",
+            f"contract {kind} missing from catalog {catalog.catalog_id}",
+            operation="source_library.c2_2.exact_contract_ref",
+            site="exact_contract_ref",
+            owner=c2_2.SOURCE_LIBRARY_C2_2_OWNER,
+        )
+    return ref
 
 
 def exact_contract_ref(
     catalog: OperationContractCatalogSnapshot,
     kind: str,
 ) -> OperationContractRef:
-    ref = catalog.lookup(kind)
-    if ref is None:
-        raise ValueError(f"contract {kind} missing from catalog {catalog.catalog_id}")
-    return ref
+    return _lift_program_failure(try_exact_contract_ref(catalog, kind))
 
 
-def planning_payload_value_ref(
+def try_planning_payload_value_ref(
     payload: c2_2.SourceModePlanningPayload,
     *,
     program_id: str,
     project_key: str,
-) -> ValueRef:
-    """Build the exact content-addressed ValueRef for one C2.2 payload."""
-
-    if payload.project_scope.project_key != project_key:
-        raise ValueError("payload project scope drift")
-    require_hex64(payload.payload_digest, "SourceModePlanningPayload.payload_digest")
-    plain = dataclasses.asdict(payload)
-    exact_text = canonical_json(plain)
-    exact_bytes = exact_text.encode("utf-8")
-    content_digest_hex = sha256_hex(exact_bytes)
+) -> ValueRef | Failure:
+    try:
+        if payload.project_scope.project_key != project_key:
+            return c2_2.c2_contract_failure(
+                "scope_contract_invalid",
+                "payload project scope drift",
+                operation="source_library.c2_2.planning_payload_value_ref",
+                site="planning_payload_value_ref/project_scope",
+                owner=c2_2.SOURCE_LIBRARY_C2_2_OWNER,
+            )
+        require_hex64(payload.payload_digest, "SourceModePlanningPayload.payload_digest")
+        plain = dataclasses.asdict(payload)
+        exact_text = canonical_json(plain)
+        exact_bytes = exact_text.encode("utf-8")
+        content_digest_hex = sha256_hex(exact_bytes)
+    except (TypeError, ValueError, AttributeError, KeyError) as exc:
+        return c2_2.c2_contract_failure(
+            "digest_contract_invalid" if "digest" in str(exc).lower() else "schema_contract_invalid",
+            str(exc),
+            operation="source_library.c2_2.planning_payload_value_ref",
+            site="planning_payload_value_ref",
+            owner=c2_2.SOURCE_LIBRARY_C2_2_OWNER,
+        )
     value_id = f"{program_id}:payload:c2-2"
     provenance_digest = content_digest(
         {
@@ -110,6 +156,21 @@ def planning_payload_value_ref(
     )
 
 
+def planning_payload_value_ref(
+    payload: c2_2.SourceModePlanningPayload,
+    *,
+    program_id: str,
+    project_key: str,
+) -> Annotated[ValueRef, Literal["kit:non-authoritative derived_as=view fact_source=SourceModePlanningPayload witness=test:test_w06_successor_authority_metadata"]]:
+    return _lift_program_failure(
+        try_planning_payload_value_ref(
+            payload,
+            program_id=program_id,
+            project_key=project_key,
+        )
+    )
+
+
 def _codec_id_for(kind: str) -> str:
     mode = c2_2.mode_for_kind(kind)
     return f"mrw.successor.source-library.c2-2.{mode}.codec.v1"
@@ -126,19 +187,63 @@ def build_source_library_c2_2_program(
     semantic_identity: str | None = None,
     observation_profile: str = c2_2.SOURCE_MODE_PLANNING_OBSERVATION_PROFILE,
     contract_version: str = "mrw.functorial-successor.program-spec.v1",
-) -> ProgramSpec:
-    """Build the exact-bound single-Atom Program for one C2.2 payload."""
+) -> Annotated[ProgramSpec, Literal["kit:non-authoritative derived_as=view fact_source=payload+catalog+program_inputs witness=test:test_w06_successor_authority_metadata"]]:
+    return _lift_program_failure(
+        try_build_source_library_c2_2_program(
+            payload=payload,
+            catalog=catalog,
+            program_id=program_id,
+            project_key=project_key,
+            project_registry_revision=project_registry_revision,
+            project_scope_digest=project_scope_digest,
+            semantic_identity=semantic_identity,
+            observation_profile=observation_profile,
+            contract_version=contract_version,
+        )
+    )
 
+
+def try_build_source_library_c2_2_program(
+    *,
+    payload: c2_2.SourceModePlanningPayload,
+    catalog: OperationContractCatalogSnapshot,
+    program_id: str,
+    project_key: str,
+    project_registry_revision: int,
+    project_scope_digest: str,
+    semantic_identity: str | None = None,
+    observation_profile: str = c2_2.SOURCE_MODE_PLANNING_OBSERVATION_PROFILE,
+    contract_version: str = "mrw.functorial-successor.program-spec.v1",
+) -> Annotated[ProgramSpec, Literal["kit:non-authoritative derived_as=view fact_source=payload+catalog+program_inputs witness=test:test_w06_successor_authority_metadata"]] | Failure:
+    """Total exact-bound Program construction; legacy entry lifts failures."""
     if payload.project_scope.project_key != project_key:
-        raise ValueError("payload project_key does not match Program project_key")
+        return c2_2.c2_contract_failure(
+            "scope_contract_invalid",
+            "payload project_key does not match Program project_key",
+            operation="source_library.c2_2.build_program",
+            site="build_program/project_key",
+            owner=c2_2.SOURCE_LIBRARY_C2_2_OWNER,
+        )
     if payload.project_scope.scope_digest != project_scope_digest:
-        raise ValueError("payload scope digest does not match Program scope digest")
-    ref = exact_contract_ref(catalog, payload.operation_kind)
-    value_ref = planning_payload_value_ref(
+        return c2_2.c2_contract_failure(
+            "scope_contract_invalid",
+            "payload scope digest does not match Program scope digest",
+            operation="source_library.c2_2.build_program",
+            site="build_program/scope_digest",
+            owner=c2_2.SOURCE_LIBRARY_C2_2_OWNER,
+        )
+    ref_result = try_exact_contract_ref(catalog, payload.operation_kind)
+    if isinstance(ref_result, Failure):
+        return ref_result
+    value_result = try_planning_payload_value_ref(
         payload,
         program_id=program_id,
         project_key=project_key,
     )
+    if isinstance(value_result, Failure):
+        return value_result
+    ref = ref_result
+    value_ref = value_result
     operation = OperationSpec(
         operation_id=payload.operation_kind,
         contract_ref=ref,
@@ -151,7 +256,10 @@ def build_source_library_c2_2_program(
         input_type=c2_2.SOURCE_MODE_PLANNING_PAYLOAD_TYPE,
         output_type=c2_2.SOURCE_MODE_PLANNING_RESULT_TYPE,
     )
-    mode = c2_2.mode_for_kind(payload.operation_kind)
+    mode_result = c2_2.try_mode_for_kind(payload.operation_kind)
+    if isinstance(mode_result, Failure):
+        return mode_result
+    mode = mode_result
     metadata = freeze_json_object(
         {
             "schema": "mrw.successor.source-library.c2-2.program-metadata.v1",
@@ -224,7 +332,7 @@ def build_c2_1_to_c2_2_materialization(
     idempotency_key: str,
     successor_program: ProgramSpec,
     state: str = "MATERIALIZED",
-) -> SuccessorMaterialization:
+) -> Annotated[SuccessorMaterialization, Literal["kit:non-authoritative derived_as=view fact_source=C2.1_successor_chain_inputs witness=test:test_w06_successor_authority_metadata"]]:
     """Record the exact C2.1 -> C2.2 language-level chain.
 
     The record proves the successor C2.2 program consumes a materialized value

@@ -1,14 +1,29 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from threading import RLock
 from typing import Any, Mapping
 
 from .governance_contract import build_handoff_audit_record
 from .store import InMemoryRunStore, SqlRunStore, build_run_store
+from .contracts import raise_workflow_graph_legacy, workflow_graph_failure
 
 HANDOFF_CONTRACT_VERSION = "workflow_graph.handoff.v1"
 _ALLOWED_HANDOFF_MODES = {"pull_prepared_evidence", "push_payload"}
 _ALLOWED_EVENT_TYPES = {"handoff.persisted", "handoff.replayed"}
+
+
+def _raise_handoff_failure(code: str, message: str, *, exception_type: type[Exception] = ValueError) -> None:
+    failure = workflow_graph_failure(
+        code,
+        message,
+        owner="workflow_graph.handoff_store",
+        public_exception=exception_type,
+        public_message=message,
+        field="handoff",
+        index=-1,
+    )
+    raise_workflow_graph_legacy(failure, exception_type=exception_type)
 
 
 @dataclass(frozen=True)
@@ -39,7 +54,14 @@ class HandoffEnvelope:
 
 class WorkflowGraphHandoffStore:
     def __init__(self, *, store: InMemoryRunStore | SqlRunStore | None = None) -> None:
-        self._store = store or build_run_store()
+        self._store = store
+        self._lock = RLock()
+
+    def _resolved_store(self) -> InMemoryRunStore | SqlRunStore:
+        with self._lock:
+            if self._store is None:
+                self._store = build_run_store()
+            return self._store
 
     def persist(self, *, graph_id: str, payload: Mapping[str, Any]) -> dict[str, Any]:
         envelope = _normalize_handoff_payload(graph_id=graph_id, payload=payload)
@@ -55,7 +77,7 @@ class WorkflowGraphHandoffStore:
             consumer=envelope.consumer,
             evidence_pack=envelope.evidence_pack,
         )
-        event = self._store.append_event(
+        event = self._resolved_store().append_event(
             envelope.run_id,
             event_type="handoff.persisted",
             payload=event_payload,
@@ -72,14 +94,14 @@ class WorkflowGraphHandoffStore:
         }
 
     def list_handoffs(self, *, run_id: str, handoff_mode: str | None = None) -> dict[str, Any]:
-        events = self._store.get_events(str(run_id))
+        events = self._resolved_store().get_events(str(run_id))
         items: list[dict[str, Any]] = []
         for event in events:
             event_type = str(event.get("type") or "")
             if not event_type.startswith("handoff."):
                 continue
             if event_type not in _ALLOWED_EVENT_TYPES:
-                raise ValueError(f"unknown handoff event type: {event_type}")
+                _raise_handoff_failure("contract_invalid", f"unknown handoff event type: {event_type}")
             payload = event.get("payload") if isinstance(event.get("payload"), Mapping) else {}
             if event_type != "handoff.persisted":
                 continue
@@ -108,8 +130,9 @@ class WorkflowGraphHandoffStore:
         resolved_run_id = str(run_id)
         resolved_handoff_id = str(handoff_id or "").strip()
         if not resolved_handoff_id:
-            raise ValueError("handoff_id is required")
-        events = self._store.get_events(resolved_run_id)
+            _raise_handoff_failure("contract_invalid", "handoff_id is required")
+        store = self._resolved_store()
+        events = store.get_events(resolved_run_id)
         matched: list[dict[str, Any]] = []
         current_payload: dict[str, Any] | None = None
         for event in events:
@@ -117,7 +140,7 @@ class WorkflowGraphHandoffStore:
             if not event_type.startswith("handoff."):
                 continue
             if event_type not in _ALLOWED_EVENT_TYPES:
-                raise ValueError(f"unknown handoff event type: {event_type}")
+                _raise_handoff_failure("contract_invalid", f"unknown handoff event type: {event_type}")
             payload = event.get("payload") if isinstance(event.get("payload"), Mapping) else {}
             if str(payload.get("handoff_id") or "") != resolved_handoff_id:
                 continue
@@ -125,9 +148,9 @@ class WorkflowGraphHandoffStore:
             if event_type == "handoff.persisted":
                 current_payload = dict(payload)
         if current_payload is None:
-            raise KeyError(f"handoff not found: {resolved_handoff_id}")
+            _raise_handoff_failure("object_not_found", f"handoff not found: {resolved_handoff_id}", exception_type=KeyError)
 
-        replay_event = self._store.append_event(
+        replay_event = store.append_event(
             resolved_run_id,
             event_type="handoff.replayed",
             payload={
@@ -164,15 +187,16 @@ class WorkflowGraphHandoffStore:
         }
 
     def _ensure_run_exists(self, run_id: str, graph_id: str) -> None:
+        store = self._resolved_store()
         try:
-            self._store.get_run(run_id)
+            store.get_run(run_id)
         except KeyError:
-            self._store.create_run(run_id=run_id, topo_order=[], metadata={"workflow_id": graph_id, "source": "handoff"})
+            store.create_run(run_id=run_id, topo_order=[], metadata={"workflow_id": graph_id, "source": "handoff"})
 
 
 def _normalize_handoff_payload(*, graph_id: str, payload: Mapping[str, Any]) -> HandoffEnvelope:
     if not isinstance(payload, Mapping):
-        raise ValueError("handoff payload must be a mapping")
+        _raise_handoff_failure("contract_invalid", "handoff payload must be a mapping")
 
     run_id = str(payload.get("run_id") or "").strip()
     handoff_id = str(payload.get("handoff_id") or "").strip()
@@ -185,15 +209,15 @@ def _normalize_handoff_payload(*, graph_id: str, payload: Mapping[str, Any]) -> 
         fallback_graph = str(graph_id or "graph").strip() or "graph"
         run_id = f"handoff-{fallback_graph}"
     if not handoff_id:
-        raise ValueError("handoff_id is required")
+        _raise_handoff_failure("contract_invalid", "handoff_id is required")
     if not contract_version:
-        raise ValueError("contract_version is required")
+        _raise_handoff_failure("contract_invalid", "contract_version is required")
     if handoff_mode not in _ALLOWED_HANDOFF_MODES:
-        raise ValueError(f"unsupported handoff_mode: {handoff_mode}")
+        _raise_handoff_failure("contract_invalid", f"unsupported handoff_mode: {handoff_mode}")
     if not consumer:
-        raise ValueError("consumer is required")
+        _raise_handoff_failure("contract_invalid", "consumer is required")
     if not producer:
-        raise ValueError("producer is required")
+        _raise_handoff_failure("contract_invalid", "producer is required")
 
     evidence_pack = payload.get("evidence_pack")
     if evidence_pack is None:

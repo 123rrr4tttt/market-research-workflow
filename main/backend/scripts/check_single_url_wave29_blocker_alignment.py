@@ -7,7 +7,11 @@ import argparse
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
+try:
+    from ._cli_runtime import repo_root as _repo_root
+except ImportError:  # direct script execution
+    from _cli_runtime import repo_root as _repo_root
 
 
 CONTRACT_VERSION = "single_url.wave29_blocker_alignment.v1"
@@ -150,10 +154,6 @@ EXTERNAL_RETAINED_BOUNDARIES = (
 )
 
 
-def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[3]
-
-
 def _read_text(path: Path) -> str:
     try:
         return path.read_text(encoding="utf-8")
@@ -187,7 +187,14 @@ def _blocker_result(root: Path, code: str, anchors: tuple[Anchor, ...]) -> dict[
     }
 
 
-def build_report(repo_root: Path | str | None = None) -> dict[str, Any]:
+def build_report(
+    repo_root: Path | str | None = None,
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=preflight "
+    "fact_source=repository_source_files "
+    "witness=test:test_c11_cli_agent_authority_metadata",
+]:
     root = Path(repo_root) if repo_root is not None else _repo_root()
     root = root.resolve()
     blockers = [

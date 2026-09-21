@@ -1,0 +1,71 @@
+[
+    {
+        "Id": "sha256:8792353c7222206fc260a894ff3581e71fe85e348801e26ff032968bd2836450",
+        "RepoTags": [
+            "mrw-r13r-amd64-frontend-canonical:local"
+        ],
+        "RepoDigests": [
+            "mrw-r13r-amd64-frontend-canonical@sha256:8792353c7222206fc260a894ff3581e71fe85e348801e26ff032968bd2836450"
+        ],
+        "Comment": "buildkit.dockerfile.v0",
+        "Created": "1970-01-01T00:00:00Z",
+        "Config": {
+            "ExposedPorts": {
+                "80/tcp": {}
+            },
+            "Env": [
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "NGINX_VERSION=1.30.4",
+                "PKG_RELEASE=1",
+                "DYNPKG_RELEASE=1",
+                "NJS_VERSION=1.0.1",
+                "NJS_RELEASE=1",
+                "ACME_VERSION=0.4.1"
+            ],
+            "Entrypoint": [
+                "/docker-entrypoint.sh"
+            ],
+            "Cmd": [
+                "nginx",
+                "-g",
+                "daemon off;"
+            ],
+            "WorkingDir": "/",
+            "Labels": {
+                "maintainer": "NGINX Docker Maintainers <docker-maint@nginx.com>"
+            },
+            "StopSignal": "SIGQUIT",
+            "ArgsEscaped": true
+        },
+        "Architecture": "amd64",
+        "Os": "linux",
+        "Size": 38574158,
+        "RootFS": {
+            "Type": "layers",
+            "Layers": [
+                "sha256:34884abbe92863fce933ed7c39c0e045631af0ed86d5cc0dfbdf9fdca426ce3c",
+                "sha256:84cbdb555a82aa30be7379831c3b42f9e47ce6b5e9252366058cda8366aac407",
+                "sha256:bcfe61bf39042c8e0db3138c3734a674184cb2b1ea15ef058ca019500008666b",
+                "sha256:9cc2a427511c2b0faf863976585ec18a9328e6eb837c87a61a4f10df6355d6ce",
+                "sha256:52071f7f756a6f9465c3aed773d057e828624898ea580ad04b449c4a495ee34f",
+                "sha256:f0696cdb71fe6a6572049d909d1f88c3e0f4e7e4d4b3fc96f8955c75876fa63d",
+                "sha256:04c07f9c0de8bd4fa8167e8de635b1fdc3fe3fb0cfcda6bb2fb2977ccf0b1283",
+                "sha256:85bb3570019b196fb23076fbd5adad3920191ce2e05291b2e2f7e47217a5e916",
+                "sha256:6de5d5f59778ac03c23d5573cd40b16753815435c4565600e9fb260399775dc8",
+                "sha256:f77c1f53f6f033bb2d763e27e2dbccb40941e4996e0d42e18271c141a9a43570",
+                "sha256:52195f914330b7ef2cca7dd0bb9a2894585a0509dd47b8b5eb3072887c6004a3"
+            ]
+        },
+        "Metadata": {
+            "LastTagTime": "2026-09-10T03:23:04.980448594Z"
+        },
+        "Descriptor": {
+            "mediaType": "application/vnd.oci.image.index.v1+json",
+            "digest": "sha256:8792353c7222206fc260a894ff3581e71fe85e348801e26ff032968bd2836450",
+            "size": 857,
+            "annotations": {
+                "org.opencontainers.image.created": "1970-01-01T00:00:00Z"
+            }
+        }
+    }
+]

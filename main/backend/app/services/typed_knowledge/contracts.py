@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from types import MappingProxyType
-from typing import Any, Final, Mapping
+from typing import Annotated, Any, Final, Mapping, NoReturn
+
+from functorial_kit import Failure
+from mrw_functorial_kit.core.w04_service_semantics import typed_knowledge_contract_failures
 
 REVIEW_STATE_DRAFT_CANDIDATE = "draft_candidate"
 REVIEW_STATE_HUMAN_CONFIRMED = "human_confirmed"
@@ -198,6 +201,53 @@ class TypedKnowledgeContractError(ValueError):
     """Raised when typed knowledge boundary contracts are violated."""
 
 
+_FAILURE_CONTEXT_KEYS = frozenset({"owner", "public_exception", "public_message"})
+
+
+def typed_knowledge_failure(
+    code: str,
+    message: str,
+    *,
+    owner: str,
+    public_exception: type[Exception] | str = TypedKnowledgeContractError,
+    public_message: str | None = None,
+    **details: Any,
+) -> Failure:
+    """Create a closed typed-knowledge contract failure before ABI lifting."""
+    context = {
+        "owner": owner,
+        "public_exception": (
+            public_exception.__name__ if isinstance(public_exception, type) else str(public_exception)
+        ),
+        "public_message": str(public_message if public_message is not None else message),
+        **details,
+    }
+    return typed_knowledge_contract_failures.fail(code, message, context)
+
+
+def raise_typed_knowledge_legacy(
+    failure: Failure,
+    exception_type: type[Exception] = TypedKnowledgeContractError,
+    *,
+    cause: BaseException | None = None,
+) -> NoReturn:
+    """Lift one closed failure into the established public exception ABI."""
+    context = failure.context or {}
+    if (
+        not typed_knowledge_contract_failures.matches(failure)
+        or not _FAILURE_CONTEXT_KEYS <= set(context)
+        or context.get("public_exception") != exception_type.__name__
+    ):
+        # kit:boundary owner=typed_knowledge.contracts.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_typed_knowledge_failure_lift_rejects_invalid_context
+        raise TypeError("typed knowledge failure lift context is incomplete or inconsistent")
+    message = str(context["public_message"])
+    if cause is None:
+        # kit:boundary owner=typed_knowledge.contracts.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=typed_knowledge.contract_failure witness=test:test_typed_knowledge_legacy_contract_abi_is_preserved
+        raise exception_type(message)
+    # kit:boundary owner=typed_knowledge.contracts.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=typed_knowledge.contract_failure witness=test:test_typed_knowledge_failure_lift_preserves_cause
+    raise exception_type(message) from cause
+
+
 @dataclass(frozen=True, slots=True)
 class TypeNode:
     key: str
@@ -282,81 +332,130 @@ class WritingKnowledgeHandoff:
     facets: Mapping[str, Any] = field(default_factory=dict)
 
 
-def _validate_review_state(review_state: str, *, object_name: str) -> None:
+def _contract_failure(code: str, message: str, *, owner: str, **details: Any) -> Failure:
+    return typed_knowledge_failure(
+        code,
+        message,
+        owner=owner,
+        public_exception=TypedKnowledgeContractError,
+        public_message=message,
+        **details,
+    )
+
+
+def _validate_review_state(review_state: str, *, object_name: str) -> Failure | None:
     if review_state not in ALLOWED_REVIEW_STATES:
-        raise TypedKnowledgeContractError(f"{object_name}_invalid_review_state:{review_state}")
+        return _contract_failure(
+            "object_contract_invalid",
+            f"{object_name}_invalid_review_state:{review_state}",
+            owner="typed_knowledge.contracts.review_state",
+            field="review_state",
+        )
+    return None
 
 
-def _validate_quality_grade(quality_grade: str | None) -> None:
-    if quality_grade is None:
-        return
-    if quality_grade not in ALLOWED_QUALITY_GRADES:
-        raise TypedKnowledgeContractError(f"knowledge_item_invalid_quality_grade:{quality_grade}")
+def _validate_quality_grade(quality_grade: str | None) -> Failure | None:
+    if quality_grade is not None and quality_grade not in ALLOWED_QUALITY_GRADES:
+        return _contract_failure(
+            "object_contract_invalid",
+            f"knowledge_item_invalid_quality_grade:{quality_grade}",
+            owner="typed_knowledge.contracts.knowledge_item",
+            field="quality_grade",
+        )
+    return None
 
 
-def _validate_locale(locale: str | None, locale_variants: Mapping[str, str]) -> None:
+def _validate_locale(locale: str | None, locale_variants: Mapping[str, str]) -> Failure | None:
     if locale is not None and not locale.strip():
-        raise TypedKnowledgeContractError("knowledge_item_invalid_locale")
-    if not locale_variants:
-        return
-    if locale is None:
-        raise TypedKnowledgeContractError("knowledge_item_locale_variants_require_locale")
-    for key, value in locale_variants.items():
-        if not key.strip() or not str(value).strip():
-            raise TypedKnowledgeContractError("knowledge_item_invalid_locale_variants")
+        return _contract_failure("object_contract_invalid", "knowledge_item_invalid_locale", owner="typed_knowledge.contracts.knowledge_item", field="locale")
+    if locale_variants and locale is None:
+        return _contract_failure("object_contract_invalid", "knowledge_item_locale_variants_require_locale", owner="typed_knowledge.contracts.knowledge_item", field="locale_variants")
+    if any(not str(key).strip() or not str(value).strip() for key, value in locale_variants.items()):
+        return _contract_failure("object_contract_invalid", "knowledge_item_invalid_locale_variants", owner="typed_knowledge.contracts.knowledge_item", field="locale_variants")
+    return None
 
 
-def _validate_updated_at(updated_at: str | None, *, object_name: str) -> None:
+def _validate_updated_at(updated_at: str | None, *, object_name: str) -> Failure | None:
     if updated_at is not None and not updated_at.strip():
-        raise TypedKnowledgeContractError(f"{object_name}_invalid_updated_at")
+        return _contract_failure("object_contract_invalid", f"{object_name}_invalid_updated_at", owner="typed_knowledge.contracts.updated_at", field="updated_at")
+    return None
+
+
+def try_validate_type_node(node: TypeNode) -> Failure | None:
+    if not node.key or not node.project_key:
+        return _contract_failure("object_contract_invalid", "type_node_missing_identity", owner="typed_knowledge.contracts.type_node", field="identity")
+    if not node.label.strip():
+        return _contract_failure("object_contract_invalid", "type_node_missing_label", owner="typed_knowledge.contracts.type_node", field="label")
+    return _validate_review_state(node.review_state, object_name="type_node")
 
 
 def validate_type_node(node: TypeNode) -> None:
-    if not node.key or not node.project_key:
-        raise TypedKnowledgeContractError("type_node_missing_identity")
-    if not node.label.strip():
-        raise TypedKnowledgeContractError("type_node_missing_label")
-    _validate_review_state(node.review_state, object_name="type_node")
+    failure = try_validate_type_node(node)
+    if isinstance(failure, Failure):
+        raise_typed_knowledge_legacy(failure)
+
+
+def try_validate_knowledge_item(item: KnowledgeItem) -> Failure | None:
+    if not item.key or not item.project_key:
+        return _contract_failure("object_contract_invalid", "knowledge_item_missing_identity", owner="typed_knowledge.contracts.knowledge_item", field="identity")
+    if not item.canonical_statement.strip():
+        return _contract_failure("object_contract_invalid", "knowledge_item_missing_statement", owner="typed_knowledge.contracts.knowledge_item", field="canonical_statement")
+    if not item.primary_type_node_key.strip():
+        return _contract_failure("object_contract_invalid", "knowledge_item_missing_primary_type", owner="typed_knowledge.contracts.knowledge_item", field="primary_type_node_key")
+    if not item.evidence_refs:
+        return _contract_failure("object_contract_invalid", "knowledge_item_missing_provenance", owner="typed_knowledge.contracts.knowledge_item", field="evidence_refs")
+    for failure in (
+        _validate_quality_grade(item.quality_grade),
+        _validate_locale(item.locale, item.locale_variants),
+        _validate_updated_at(item.updated_at, object_name="knowledge_item"),
+        _validate_review_state(item.review_state, object_name="knowledge_item"),
+    ):
+        if isinstance(failure, Failure):
+            return failure
+    return None
 
 
 def validate_knowledge_item(item: KnowledgeItem) -> None:
-    if not item.key or not item.project_key:
-        raise TypedKnowledgeContractError("knowledge_item_missing_identity")
-    if not item.canonical_statement.strip():
-        raise TypedKnowledgeContractError("knowledge_item_missing_statement")
-    if not item.primary_type_node_key.strip():
-        raise TypedKnowledgeContractError("knowledge_item_missing_primary_type")
-    if not item.evidence_refs:
-        raise TypedKnowledgeContractError("knowledge_item_missing_provenance")
-    _validate_quality_grade(item.quality_grade)
-    _validate_locale(item.locale, item.locale_variants)
-    _validate_updated_at(item.updated_at, object_name="knowledge_item")
-    _validate_review_state(item.review_state, object_name="knowledge_item")
+    failure = try_validate_knowledge_item(item)
+    if isinstance(failure, Failure):
+        raise_typed_knowledge_legacy(failure)
+
+
+def try_validate_topic_cluster(cluster: TopicCluster) -> Failure | None:
+    if not cluster.key or not cluster.project_key:
+        return _contract_failure("object_contract_invalid", "topic_cluster_missing_identity", owner="typed_knowledge.contracts.topic_cluster", field="identity")
+    if not cluster.label.strip():
+        return _contract_failure("object_contract_invalid", "topic_cluster_missing_label", owner="typed_knowledge.contracts.topic_cluster", field="label")
+    return _validate_review_state(cluster.review_state, object_name="topic_cluster")
 
 
 def validate_topic_cluster(cluster: TopicCluster) -> None:
-    if not cluster.key or not cluster.project_key:
-        raise TypedKnowledgeContractError("topic_cluster_missing_identity")
-    if not cluster.label.strip():
-        raise TypedKnowledgeContractError("topic_cluster_missing_label")
-    _validate_review_state(cluster.review_state, object_name="topic_cluster")
+    failure = try_validate_topic_cluster(cluster)
+    if isinstance(failure, Failure):
+        raise_typed_knowledge_legacy(failure)
+
+
+def try_validate_booklet(booklet: Booklet) -> Failure | None:
+    if not booklet.key or not booklet.project_key:
+        return _contract_failure("object_contract_invalid", "booklet_missing_identity", owner="typed_knowledge.contracts.booklet", field="identity")
+    if not booklet.title.strip():
+        return _contract_failure("object_contract_invalid", "booklet_missing_title", owner="typed_knowledge.contracts.booklet", field="title")
+    return _validate_review_state(booklet.review_state, object_name="booklet")
 
 
 def validate_booklet(booklet: Booklet) -> None:
-    if not booklet.key or not booklet.project_key:
-        raise TypedKnowledgeContractError("booklet_missing_identity")
-    if not booklet.title.strip():
-        raise TypedKnowledgeContractError("booklet_missing_title")
-    _validate_review_state(booklet.review_state, object_name="booklet")
+    failure = try_validate_booklet(booklet)
+    if isinstance(failure, Failure):
+        raise_typed_knowledge_legacy(failure)
 
 
-def validate_relationships(
+def try_validate_relationships(
     *,
     type_nodes: tuple[TypeNode, ...],
     knowledge_items: tuple[KnowledgeItem, ...],
     topic_clusters: tuple[TopicCluster, ...],
     booklets: tuple[Booklet, ...],
-) -> None:
+) -> Failure | None:
     type_node_keys = {item.key for item in type_nodes}
     knowledge_item_keys = {item.key for item in knowledge_items}
     topic_cluster_keys = {item.key for item in topic_clusters}
@@ -367,81 +466,113 @@ def validate_relationships(
     knowledge_items_by_key = {item.key: item for item in knowledge_items}
 
     for node in type_nodes:
-        validate_type_node(node)
+        failure = try_validate_type_node(node)
+        if isinstance(failure, Failure):
+            return failure
         if node.primary_parent_key and node.primary_parent_key not in type_node_keys:
-            raise TypedKnowledgeContractError(f"type_node_unknown_parent:{node.primary_parent_key}")
+            return _contract_failure("relationship_contract_invalid", f"type_node_unknown_parent:{node.primary_parent_key}", owner="typed_knowledge.contracts.relationships", relation="primary_parent")
         if node.primary_parent_key:
             parent = type_nodes_by_key[node.primary_parent_key]
             if parent.project_key != node.project_key:
-                raise TypedKnowledgeContractError(f"type_node_cross_project_parent:{node.primary_parent_key}")
+                return _contract_failure("relationship_contract_invalid", f"type_node_cross_project_parent:{node.primary_parent_key}", owner="typed_knowledge.contracts.relationships", relation="primary_parent")
 
     for item in knowledge_items:
-        validate_knowledge_item(item)
+        failure = try_validate_knowledge_item(item)
+        if isinstance(failure, Failure):
+            return failure
         if item.primary_type_node_key not in type_node_keys:
-            raise TypedKnowledgeContractError(f"knowledge_item_unknown_primary_type:{item.primary_type_node_key}")
+            return _contract_failure("relationship_contract_invalid", f"knowledge_item_unknown_primary_type:{item.primary_type_node_key}", owner="typed_knowledge.contracts.relationships", relation="primary_type")
         if type_nodes_by_key[item.primary_type_node_key].project_key != item.project_key:
-            raise TypedKnowledgeContractError(
-                f"knowledge_item_cross_project_primary_type:{item.primary_type_node_key}"
-            )
+            return _contract_failure("relationship_contract_invalid", f"knowledge_item_cross_project_primary_type:{item.primary_type_node_key}", owner="typed_knowledge.contracts.relationships", relation="primary_type")
         unknown_topic_keys = set(item.topic_cluster_keys) - topic_cluster_keys
         if unknown_topic_keys:
-            raise TypedKnowledgeContractError(f"knowledge_item_unknown_topic_clusters:{sorted(unknown_topic_keys)}")
+            return _contract_failure("relationship_contract_invalid", f"knowledge_item_unknown_topic_clusters:{sorted(unknown_topic_keys)}", owner="typed_knowledge.contracts.relationships", relation="topic_clusters")
         cross_project_topics = sorted(
             key for key in item.topic_cluster_keys if topic_clusters_by_key[key].project_key != item.project_key
         )
         if cross_project_topics:
-            raise TypedKnowledgeContractError(f"knowledge_item_cross_project_topic_clusters:{cross_project_topics}")
+            return _contract_failure("relationship_contract_invalid", f"knowledge_item_cross_project_topic_clusters:{cross_project_topics}", owner="typed_knowledge.contracts.relationships", relation="topic_clusters")
         unknown_booklet_keys = set(item.booklet_keys) - booklet_keys
         if unknown_booklet_keys:
-            raise TypedKnowledgeContractError(f"knowledge_item_unknown_booklets:{sorted(unknown_booklet_keys)}")
+            return _contract_failure("relationship_contract_invalid", f"knowledge_item_unknown_booklets:{sorted(unknown_booklet_keys)}", owner="typed_knowledge.contracts.relationships", relation="booklets")
         cross_project_booklets = sorted(key for key in item.booklet_keys if booklets_by_key[key].project_key != item.project_key)
         if cross_project_booklets:
-            raise TypedKnowledgeContractError(f"knowledge_item_cross_project_booklets:{cross_project_booklets}")
+            return _contract_failure("relationship_contract_invalid", f"knowledge_item_cross_project_booklets:{cross_project_booklets}", owner="typed_knowledge.contracts.relationships", relation="booklets")
 
     for cluster in topic_clusters:
-        validate_topic_cluster(cluster)
+        failure = try_validate_topic_cluster(cluster)
+        if isinstance(failure, Failure):
+            return failure
         unknown_item_keys = set(cluster.knowledge_item_keys) - knowledge_item_keys
         if unknown_item_keys:
-            raise TypedKnowledgeContractError(f"topic_cluster_unknown_knowledge_items:{sorted(unknown_item_keys)}")
+            return _contract_failure("relationship_contract_invalid", f"topic_cluster_unknown_knowledge_items:{sorted(unknown_item_keys)}", owner="typed_knowledge.contracts.relationships", relation="knowledge_items")
         cross_project_items = sorted(
             key for key in cluster.knowledge_item_keys if knowledge_items_by_key[key].project_key != cluster.project_key
         )
         if cross_project_items:
-            raise TypedKnowledgeContractError(f"topic_cluster_cross_project_knowledge_items:{cross_project_items}")
+            return _contract_failure("relationship_contract_invalid", f"topic_cluster_cross_project_knowledge_items:{cross_project_items}", owner="typed_knowledge.contracts.relationships", relation="knowledge_items")
 
     for booklet in booklets:
-        validate_booklet(booklet)
+        failure = try_validate_booklet(booklet)
+        if isinstance(failure, Failure):
+            return failure
         unknown_type_keys = set(booklet.included_type_node_keys) - type_node_keys
         if unknown_type_keys:
-            raise TypedKnowledgeContractError(f"booklet_unknown_type_nodes:{sorted(unknown_type_keys)}")
+            return _contract_failure("relationship_contract_invalid", f"booklet_unknown_type_nodes:{sorted(unknown_type_keys)}", owner="typed_knowledge.contracts.relationships", relation="type_nodes")
         cross_project_types = sorted(
             key for key in booklet.included_type_node_keys if type_nodes_by_key[key].project_key != booklet.project_key
         )
         if cross_project_types:
-            raise TypedKnowledgeContractError(f"booklet_cross_project_type_nodes:{cross_project_types}")
+            return _contract_failure("relationship_contract_invalid", f"booklet_cross_project_type_nodes:{cross_project_types}", owner="typed_knowledge.contracts.relationships", relation="type_nodes")
         unknown_topic_keys = set(booklet.included_topic_cluster_keys) - topic_cluster_keys
         if unknown_topic_keys:
-            raise TypedKnowledgeContractError(f"booklet_unknown_topic_clusters:{sorted(unknown_topic_keys)}")
+            return _contract_failure("relationship_contract_invalid", f"booklet_unknown_topic_clusters:{sorted(unknown_topic_keys)}", owner="typed_knowledge.contracts.relationships", relation="topic_clusters")
         cross_project_topics = sorted(
             key
             for key in booklet.included_topic_cluster_keys
             if topic_clusters_by_key[key].project_key != booklet.project_key
         )
         if cross_project_topics:
-            raise TypedKnowledgeContractError(f"booklet_cross_project_topic_clusters:{cross_project_topics}")
+            return _contract_failure("relationship_contract_invalid", f"booklet_cross_project_topic_clusters:{cross_project_topics}", owner="typed_knowledge.contracts.relationships", relation="topic_clusters")
         unknown_item_keys = set(booklet.included_knowledge_item_keys) - knowledge_item_keys
         if unknown_item_keys:
-            raise TypedKnowledgeContractError(f"booklet_unknown_knowledge_items:{sorted(unknown_item_keys)}")
+            return _contract_failure("relationship_contract_invalid", f"booklet_unknown_knowledge_items:{sorted(unknown_item_keys)}", owner="typed_knowledge.contracts.relationships", relation="knowledge_items")
         cross_project_items = sorted(
             key
             for key in booklet.included_knowledge_item_keys
             if knowledge_items_by_key[key].project_key != booklet.project_key
         )
         if cross_project_items:
-            raise TypedKnowledgeContractError(f"booklet_cross_project_knowledge_items:{cross_project_items}")
+            return _contract_failure("relationship_contract_invalid", f"booklet_cross_project_knowledge_items:{cross_project_items}", owner="typed_knowledge.contracts.relationships", relation="knowledge_items")
+
+    return None
 
 
-def build_downstream_contract_draft(item: KnowledgeItem) -> DownstreamKnowledgeContractDraft:
+def validate_relationships(
+    *,
+    type_nodes: tuple[TypeNode, ...],
+    knowledge_items: tuple[KnowledgeItem, ...],
+    topic_clusters: tuple[TopicCluster, ...],
+    booklets: tuple[Booklet, ...],
+) -> None:
+    failure = try_validate_relationships(
+        type_nodes=type_nodes,
+        knowledge_items=knowledge_items,
+        topic_clusters=topic_clusters,
+        booklets=booklets,
+    )
+    if isinstance(failure, Failure):
+        raise_typed_knowledge_legacy(failure)
+
+
+def build_downstream_contract_draft(
+    item: KnowledgeItem,
+) -> Annotated[
+    DownstreamKnowledgeContractDraft,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=validated_knowledge_item "
+    "witness=test:test_w04_authority_metadata",
+]:
     validate_knowledge_item(item)
     visibility_scope = REVIEW_STATE_VISIBILITY_SCOPE[item.review_state]
     return DownstreamKnowledgeContractDraft(
@@ -461,22 +592,28 @@ def build_downstream_contract_draft(item: KnowledgeItem) -> DownstreamKnowledgeC
     )
 
 
-def validate_downstream_contract_draft(contract: DownstreamKnowledgeContractDraft) -> None:
+def try_validate_downstream_contract_draft(contract: DownstreamKnowledgeContractDraft) -> Failure | None:
     if not contract.knowledge_item_key or not contract.project_key:
-        raise TypedKnowledgeContractError("downstream_contract_missing_identity")
+        return _contract_failure("downstream_contract_invalid", "downstream_contract_missing_identity", owner="typed_knowledge.contracts.downstream", field="identity")
     if not contract.canonical_statement.strip():
-        raise TypedKnowledgeContractError("downstream_contract_missing_statement")
+        return _contract_failure("downstream_contract_invalid", "downstream_contract_missing_statement", owner="typed_knowledge.contracts.downstream", field="canonical_statement")
     if not contract.primary_type_node_key.strip():
-        raise TypedKnowledgeContractError("downstream_contract_missing_primary_type")
+        return _contract_failure("downstream_contract_invalid", "downstream_contract_missing_primary_type", owner="typed_knowledge.contracts.downstream", field="primary_type_node_key")
     if not contract.evidence_refs:
-        raise TypedKnowledgeContractError("downstream_contract_missing_provenance")
-    _validate_quality_grade(contract.quality_grade)
-    _validate_locale(contract.locale, contract.locale_variants)
-    _validate_updated_at(contract.updated_at, object_name="downstream_contract")
-    _validate_review_state(contract.review_state, object_name="downstream_contract")
+        return _contract_failure("downstream_contract_invalid", "downstream_contract_missing_provenance", owner="typed_knowledge.contracts.downstream", field="evidence_refs")
+    for failure in (_validate_quality_grade(contract.quality_grade), _validate_locale(contract.locale, contract.locale_variants), _validate_updated_at(contract.updated_at, object_name="downstream_contract"), _validate_review_state(contract.review_state, object_name="downstream_contract")):
+        if isinstance(failure, Failure):
+            return _contract_failure("downstream_contract_invalid", failure.message, owner="typed_knowledge.contracts.downstream", field=(failure.context or {}).get("field", "contract"))
     expected_scope = REVIEW_STATE_VISIBILITY_SCOPE[contract.review_state]
     if contract.visibility_scope != expected_scope:
-        raise TypedKnowledgeContractError("downstream_contract_visibility_scope_mismatch")
+        return _contract_failure("downstream_contract_invalid", "downstream_contract_visibility_scope_mismatch", owner="typed_knowledge.contracts.downstream", field="visibility_scope")
+    return None
+
+
+def validate_downstream_contract_draft(contract: DownstreamKnowledgeContractDraft) -> None:
+    failure = try_validate_downstream_contract_draft(contract)
+    if isinstance(failure, Failure):
+        raise_typed_knowledge_legacy(failure)
 
 
 def build_writing_knowledge_handoff(
@@ -484,10 +621,15 @@ def build_writing_knowledge_handoff(
     *,
     selection_hash: str | None = None,
     selection_text: str | None = None,
-) -> WritingKnowledgeHandoff:
+) -> Annotated[
+    WritingKnowledgeHandoff,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=validated_downstream_contract+selection_inputs "
+    "witness=test:test_w04_authority_metadata",
+]:
     validate_downstream_contract_draft(contract)
     if contract.visibility_scope != VISIBILITY_SCOPE_DOWNSTREAM_READY:
-        raise TypedKnowledgeContractError("writing_handoff_requires_downstream_ready")
+        raise_typed_knowledge_legacy(_contract_failure("writing_handoff_contract_invalid", "writing_handoff_requires_downstream_ready", owner="typed_knowledge.contracts.writing_handoff", field="visibility_scope"))
     normalized_selection_hash = str(selection_hash or "").strip() or None
     normalized_selection_text = str(selection_text or "").strip() or None
     facets = MappingProxyType(
@@ -523,24 +665,31 @@ def build_writing_knowledge_handoff(
     return handoff
 
 
-def validate_writing_knowledge_handoff(handoff: WritingKnowledgeHandoff) -> None:
+def try_validate_writing_knowledge_handoff(handoff: WritingKnowledgeHandoff) -> Failure | None:
     if handoff.contract_version != WRITING_KNOWLEDGE_HANDOFF_CONTRACT_VERSION:
-        raise TypedKnowledgeContractError("writing_handoff_contract_version_mismatch")
+        return _contract_failure("writing_handoff_contract_invalid", "writing_handoff_contract_version_mismatch", owner="typed_knowledge.contracts.writing_handoff", field="contract_version")
     if not handoff.knowledge_item_key or not handoff.project_key:
-        raise TypedKnowledgeContractError("writing_handoff_missing_identity")
+        return _contract_failure("writing_handoff_contract_invalid", "writing_handoff_missing_identity", owner="typed_knowledge.contracts.writing_handoff", field="identity")
     if not handoff.canonical_statement.strip():
-        raise TypedKnowledgeContractError("writing_handoff_missing_statement")
+        return _contract_failure("writing_handoff_contract_invalid", "writing_handoff_missing_statement", owner="typed_knowledge.contracts.writing_handoff", field="canonical_statement")
     if not handoff.primary_type_node_key.strip():
-        raise TypedKnowledgeContractError("writing_handoff_missing_primary_type")
+        return _contract_failure("writing_handoff_contract_invalid", "writing_handoff_missing_primary_type", owner="typed_knowledge.contracts.writing_handoff", field="primary_type_node_key")
     if not handoff.evidence_refs:
-        raise TypedKnowledgeContractError("writing_handoff_missing_provenance")
+        return _contract_failure("writing_handoff_contract_invalid", "writing_handoff_missing_provenance", owner="typed_knowledge.contracts.writing_handoff", field="evidence_refs")
     if handoff.visibility_scope != VISIBILITY_SCOPE_DOWNSTREAM_READY:
-        raise TypedKnowledgeContractError("writing_handoff_requires_downstream_ready")
+        return _contract_failure("writing_handoff_contract_invalid", "writing_handoff_requires_downstream_ready", owner="typed_knowledge.contracts.writing_handoff", field="visibility_scope")
     if handoff.selection_hash is not None and not handoff.selection_hash.strip():
-        raise TypedKnowledgeContractError("writing_handoff_invalid_selection_hash")
-    _validate_quality_grade(handoff.quality_grade)
-    _validate_locale(handoff.locale, {})
-    _validate_review_state(handoff.review_state, object_name="writing_handoff")
+        return _contract_failure("writing_handoff_contract_invalid", "writing_handoff_invalid_selection_hash", owner="typed_knowledge.contracts.writing_handoff", field="selection_hash")
+    for failure in (_validate_quality_grade(handoff.quality_grade), _validate_locale(handoff.locale, {}), _validate_review_state(handoff.review_state, object_name="writing_handoff")):
+        if isinstance(failure, Failure):
+            return _contract_failure("writing_handoff_contract_invalid", failure.message, owner="typed_knowledge.contracts.writing_handoff", field=(failure.context or {}).get("field", "handoff"))
+    return None
+
+
+def validate_writing_knowledge_handoff(handoff: WritingKnowledgeHandoff) -> None:
+    failure = try_validate_writing_knowledge_handoff(handoff)
+    if isinstance(failure, Failure):
+        raise_typed_knowledge_legacy(failure)
 
 
 def serialize_writing_knowledge_handoff(handoff: WritingKnowledgeHandoff) -> dict[str, Any]:
@@ -550,7 +699,7 @@ def serialize_writing_knowledge_handoff(handoff: WritingKnowledgeHandoff) -> dic
 
 def parse_writing_knowledge_handoff_payload(payload: Mapping[str, Any]) -> WritingKnowledgeHandoff:
     if not isinstance(payload, Mapping):
-        raise TypedKnowledgeContractError("writing_handoff_payload_not_mapping")
+        raise_typed_knowledge_legacy(_contract_failure("writing_handoff_contract_invalid", "writing_handoff_payload_not_mapping", owner="typed_knowledge.contracts.writing_handoff", field="payload"))
     handoff = WritingKnowledgeHandoff(
         contract_version=str(payload.get("contract_version") or ""),
         knowledge_item_key=str(payload.get("knowledge_item_key") or ""),
@@ -572,9 +721,30 @@ def parse_writing_knowledge_handoff_payload(payload: Mapping[str, Any]) -> Writi
     return handoff
 
 
-def build_writing_knowledge_context_envelope(handoffs: tuple[WritingKnowledgeHandoff, ...]) -> dict[str, Any]:
+def try_parse_writing_knowledge_handoff_payload(
+    payload: Mapping[str, Any],
+) -> WritingKnowledgeHandoff | Failure:
+    try:
+        return parse_writing_knowledge_handoff_payload(payload)
+    except TypedKnowledgeContractError as exc:
+        return _contract_failure(
+            "writing_handoff_contract_invalid",
+            str(exc),
+            owner="typed_knowledge.contracts.writing_handoff",
+            field="payload",
+        )
+
+
+def build_writing_knowledge_context_envelope(
+    handoffs: tuple[WritingKnowledgeHandoff, ...],
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view "
+    "fact_source=validated_writing_handoffs "
+    "witness=test:test_w04_authority_metadata",
+]:
     if not handoffs:
-        raise TypedKnowledgeContractError("writing_context_envelope_missing_handoffs")
+        raise_typed_knowledge_legacy(_contract_failure("writing_context_contract_invalid", "writing_context_envelope_missing_handoffs", owner="typed_knowledge.contracts.writing_context", field="handoffs"))
     envelope = {
         "contract_version": WRITING_KNOWLEDGE_CONTEXT_ENVELOPE_VERSION,
         "source": "typed_knowledge",
@@ -590,27 +760,54 @@ def validate_writing_knowledge_context_envelope(envelope: Mapping[str, Any]) -> 
     _parse_writing_knowledge_context_envelope(envelope)
 
 
+def try_validate_writing_knowledge_context_envelope(envelope: Mapping[str, Any]) -> Failure | None:
+    try:
+        _parse_writing_knowledge_context_envelope(envelope)
+    except TypedKnowledgeContractError as exc:
+        return _contract_failure(
+            "writing_context_contract_invalid",
+            str(exc),
+            owner="typed_knowledge.contracts.writing_context",
+            field="envelope",
+        )
+    return None
+
+
 def parse_writing_knowledge_context_envelope(envelope: Mapping[str, Any]) -> tuple[WritingKnowledgeHandoff, ...]:
     return _parse_writing_knowledge_context_envelope(envelope)
 
 
+def try_parse_writing_knowledge_context_envelope(
+    envelope: Mapping[str, Any],
+) -> tuple[WritingKnowledgeHandoff, ...] | Failure:
+    try:
+        return _parse_writing_knowledge_context_envelope(envelope)
+    except TypedKnowledgeContractError as exc:
+        return _contract_failure(
+            "writing_context_contract_invalid",
+            str(exc),
+            owner="typed_knowledge.contracts.writing_context",
+            field="envelope",
+        )
+
+
 def _parse_writing_knowledge_context_envelope(envelope: Mapping[str, Any]) -> tuple[WritingKnowledgeHandoff, ...]:
     if not isinstance(envelope, Mapping):
-        raise TypedKnowledgeContractError("writing_context_envelope_not_mapping")
+        raise_typed_knowledge_legacy(_contract_failure("writing_context_contract_invalid", "writing_context_envelope_not_mapping", owner="typed_knowledge.contracts.writing_context", field="envelope"))
     if envelope.get("contract_version") != WRITING_KNOWLEDGE_CONTEXT_ENVELOPE_VERSION:
-        raise TypedKnowledgeContractError("writing_context_envelope_version_mismatch")
+        raise_typed_knowledge_legacy(_contract_failure("writing_context_contract_invalid", "writing_context_envelope_version_mismatch", owner="typed_knowledge.contracts.writing_context", field="contract_version"))
     if envelope.get("source") != "typed_knowledge":
-        raise TypedKnowledgeContractError("writing_context_envelope_source_mismatch")
+        raise_typed_knowledge_legacy(_contract_failure("writing_context_contract_invalid", "writing_context_envelope_source_mismatch", owner="typed_knowledge.contracts.writing_context", field="source"))
     if envelope.get("consumer") != "writing.keyword_card":
-        raise TypedKnowledgeContractError("writing_context_envelope_consumer_mismatch")
+        raise_typed_knowledge_legacy(_contract_failure("writing_context_contract_invalid", "writing_context_envelope_consumer_mismatch", owner="typed_knowledge.contracts.writing_context", field="consumer"))
     boundary = envelope.get("boundary")
     if not isinstance(boundary, Mapping):
-        raise TypedKnowledgeContractError("writing_context_envelope_missing_boundary")
+        raise_typed_knowledge_legacy(_contract_failure("writing_context_contract_invalid", "writing_context_envelope_missing_boundary", owner="typed_knowledge.contracts.writing_context", field="boundary"))
     if boundary.get("card_source_type") != "resource":
-        raise TypedKnowledgeContractError("writing_context_envelope_card_source_type_mismatch")
+        raise_typed_knowledge_legacy(_contract_failure("writing_context_contract_invalid", "writing_context_envelope_card_source_type_mismatch", owner="typed_knowledge.contracts.writing_context", field="card_source_type"))
     raw_handoffs = envelope.get("handoffs")
     if not isinstance(raw_handoffs, list) or not raw_handoffs:
-        raise TypedKnowledgeContractError("writing_context_envelope_missing_handoffs")
+        raise_typed_knowledge_legacy(_contract_failure("writing_context_contract_invalid", "writing_context_envelope_missing_handoffs", owner="typed_knowledge.contracts.writing_context", field="handoffs"))
     return tuple(parse_writing_knowledge_handoff_payload(item) for item in raw_handoffs)
 
 
@@ -625,11 +822,11 @@ def _tuple_of_nonblank_strings(value: Any, field_name: str) -> tuple[str, ...]:
     if value is None:
         return ()
     if isinstance(value, str) or not isinstance(value, (list, tuple)):
-        raise TypedKnowledgeContractError(f"writing_handoff_invalid_{field_name}")
+        raise_typed_knowledge_legacy(_contract_failure("writing_handoff_contract_invalid", f"writing_handoff_invalid_{field_name}", owner="typed_knowledge.contracts.writing_handoff", field=field_name))
     normalized: list[str] = []
     for item in value:
         if not isinstance(item, str) or not item.strip():
-            raise TypedKnowledgeContractError(f"writing_handoff_invalid_{field_name}")
+            raise_typed_knowledge_legacy(_contract_failure("writing_handoff_contract_invalid", f"writing_handoff_invalid_{field_name}", owner="typed_knowledge.contracts.writing_handoff", field=field_name))
         normalized.append(item.strip())
     return tuple(normalized)
 
@@ -642,13 +839,21 @@ def _json_safe(value: Any) -> Any:
     return value
 
 
-def apply_review_state_transition(*, current_state: str, target_state: str, actor: str) -> str:
-    _validate_review_state(current_state, object_name="governance_current")
-    _validate_review_state(target_state, object_name="governance_target")
+def try_apply_review_state_transition(*, current_state: str, target_state: str, actor: str) -> str | Failure:
+    for failure in (_validate_review_state(current_state, object_name="governance_current"), _validate_review_state(target_state, object_name="governance_target")):
+        if isinstance(failure, Failure):
+            return _contract_failure("governance_transition_invalid", failure.message, owner="typed_knowledge.contracts.governance", field="review_state")
     if actor not in ALLOWED_GOVERNANCE_ACTORS:
-        raise TypedKnowledgeContractError(f"governance_unknown_actor:{actor}")
+        return _contract_failure("governance_transition_invalid", f"governance_unknown_actor:{actor}", owner="typed_knowledge.contracts.governance", field="actor")
     if current_state == REVIEW_STATE_DEPRECATED and target_state != REVIEW_STATE_DEPRECATED:
-        raise TypedKnowledgeContractError("governance_transition_from_deprecated_forbidden")
+        return _contract_failure("governance_transition_invalid", "governance_transition_from_deprecated_forbidden", owner="typed_knowledge.contracts.governance", field="transition")
     if actor == ACTOR_AUTOMATION and target_state in {REVIEW_STATE_HUMAN_CONFIRMED, REVIEW_STATE_DEPRECATED}:
-        raise TypedKnowledgeContractError("governance_transition_requires_human")
+        return _contract_failure("governance_transition_invalid", "governance_transition_requires_human", owner="typed_knowledge.contracts.governance", field="actor")
     return target_state
+
+
+def apply_review_state_transition(*, current_state: str, target_state: str, actor: str) -> str:
+    result = try_apply_review_state_transition(current_state=current_state, target_state=target_state, actor=actor)
+    if isinstance(result, Failure):
+        raise_typed_knowledge_legacy(result)
+    return result

@@ -15,5 +15,15 @@ class DiscoverySearchPort(Protocol):
 
 
 class DiscoveryStorePort(Protocol):
-    def store(self, results: list[dict[str, Any]]) -> dict[str, Any]:
+    def store(
+        self,
+        results: list[dict[str, Any]],
+        *,
+        project_key: str | None = None,
+        job_type: str | None = None,
+    ) -> dict[str, Any]:
         ...
+
+
+class DiscoveryAdapterPort(DiscoverySearchPort, DiscoveryStorePort, Protocol):
+    """Complete discovery capability required by the application service."""

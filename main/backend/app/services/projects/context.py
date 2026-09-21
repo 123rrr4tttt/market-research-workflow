@@ -4,6 +4,10 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 import logging
 import re
+from typing import Any, NoReturn
+
+from functorial_kit import Failure
+from mrw_functorial_kit.core.application_failure_semantics import project_operation_failures
 
 from ...settings.config import get_effective_project_key_enforcement_mode, settings
 
@@ -13,6 +17,70 @@ _SCHEMA_VAR: ContextVar[str | None] = ContextVar("project_schema", default=None)
 
 
 logger = logging.getLogger(__name__)
+
+
+_PROJECT_FAILURE_WITNESS = "test:test_w01_project_identity_failures"
+_PROJECT_FAILURE_CONTEXT_KEYS = frozenset(
+    {
+        "boundary_class",
+        "failure_family",
+        "operation",
+        "owner",
+        "public_exception",
+        "public_message",
+        "site",
+        "witness",
+    }
+)
+
+
+def _project_failure(
+    code: str,
+    message: str,
+    *,
+    operation: str,
+    site: str,
+    public_exception: str,
+    **details: Any,
+) -> Failure:
+    """Construct a closed project-operation failure before the ABI lift."""
+
+    context: dict[str, Any] = {
+        "boundary_class": "PURE_CONTRACT_FAILURE",
+        "failure_family": project_operation_failures.name,
+        "operation": operation,
+        "owner": site,
+        "public_exception": public_exception,
+        "public_message": message,
+        "site": site,
+        "witness": _PROJECT_FAILURE_WITNESS,
+    }
+    context.update(details)
+    return project_operation_failures.fail(code, message, context)
+
+
+def _raise_project_failure(
+    failure: Failure,
+    exception_type: type[Exception] = ValueError,
+    *,
+    cause: BaseException | None = None,
+) -> NoReturn:
+    """Restore the established public exception at one explicit boundary."""
+
+    context = failure.context or {}
+    if (
+        not project_operation_failures.matches(failure)
+        or _PROJECT_FAILURE_CONTEXT_KEYS - set(context)
+        or context.get("public_exception") != exception_type.__name__
+    ):
+        # kit:boundary owner=projects.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w01_project_context_and_workflow_lifts_preserve_public_messages
+        raise TypeError("project operation failure lift context is incomplete")
+    message = str(context["public_message"])
+    if cause is None:
+        # kit:boundary owner=projects.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=project.operation.failure witness=test:test_w01_project_context_and_workflow_lifts_preserve_public_messages
+        raise exception_type(message)
+    # kit:boundary owner=projects.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=project.operation.failure witness=test:test_w01_project_context_and_workflow_lifts_preserve_public_messages
+    raise exception_type(message) from cause
 
 
 def _normalize_project_key(project_key: str) -> str:
@@ -87,7 +155,16 @@ def current_project_key() -> str:
     mode = get_effective_project_key_enforcement_mode()
     fallback = settings.active_project_key
     if mode == "require":
-        raise RuntimeError("project key required but missing (enforcement=require)")
+        _raise_project_failure(
+            _project_failure(
+                "project_key_required",
+                "project key required but missing (enforcement=require)",
+                operation="current_project_key",
+                site="app.services.projects.context.current_project_key",
+                public_exception="RuntimeError",
+            ),
+            RuntimeError,
+        )
     logger.warning(
         "project key missing; fallback to active_project_key=%r (mode=%s)",
         fallback,
@@ -111,7 +188,16 @@ def bind_project(project_key: str):
         mode = get_effective_project_key_enforcement_mode()
         msg = "attempt to bind_project to reserved key public is not allowed"
         if mode == "require":
-            raise ValueError(msg)
+            _raise_project_failure(
+                _project_failure(
+                    "project_binding_conflict",
+                    msg,
+                    operation="bind_project",
+                    site="app.services.projects.context.bind_project",
+                    public_exception="ValueError",
+                    project_key=raw,
+                )
+            )
         logger.warning(msg)
         # fallback to active project in warn mode
         normalized = settings.active_project_key
@@ -130,7 +216,16 @@ def bind_schema(schema_name: str):
     if not _is_allowed_schema(schema_name):
         msg = f"disallowed schema binding: {schema_name!r}"
         if mode == "require":
-            raise ValueError(msg)
+            _raise_project_failure(
+                _project_failure(
+                    "schema_binding_conflict",
+                    msg,
+                    operation="bind_schema",
+                    site="app.services.projects.context.bind_schema",
+                    public_exception="ValueError",
+                    schema_name=schema_name,
+                )
+            )
         logger.warning(msg)
         # In warn mode, normalize to closest safe schema when possible
         if schema_name and schema_name != "public":

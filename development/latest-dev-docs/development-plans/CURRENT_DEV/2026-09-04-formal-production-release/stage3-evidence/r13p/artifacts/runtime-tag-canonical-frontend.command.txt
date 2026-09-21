@@ -1,0 +1,1 @@
+docker tag sha256:4d5bc00f6e17a808ced8ae7bd1b30ec6df12570c9cdb0615f9ca540f35f3a25b mrw-r13p-runtime-frontend-canonical:local 

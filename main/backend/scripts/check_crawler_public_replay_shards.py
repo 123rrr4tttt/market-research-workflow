@@ -4,7 +4,11 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Annotated, Any, Mapping
+try:
+    from ._cli_runtime import repo_root as _repo_root
+except ImportError:  # direct script execution
+    from _cli_runtime import repo_root as _repo_root
 
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
@@ -12,6 +16,9 @@ if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
 from scripts.check_crawler_public_replay_gate import build_check as build_public_gate_check
+from scripts.check_evidence_source_availability import EVIDENCE_SOURCE_UNAVAILABLE
+from scripts.check_evidence_source_availability import classify_required_evidence
+from scripts.check_evidence_source_availability import unavailable_error
 from scripts.check_llm_crawler_replay_fixture import build_check as build_browser_fixture_check
 from scripts.source_library_replay_scaleout import DEFAULT_HISTORICAL_TARGETS
 from scripts.source_library_replay_scaleout import validate_manifest_targets
@@ -74,10 +81,6 @@ PUBLIC_OUTPUT_READBACK_SCOPE = "crawler_public_replay_shards_public_output_readb
 MISSING_OUTPUT_RUNTIME_MODE = "repo_local_public_replay_shard_readback"
 PUBLIC_OUTPUT_RUNTIME_MODE = "public_replay_shard_output_readback"
 PUBLIC_OUTPUT_STATUS = "real_evidence_present_review_required"
-
-
-def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[3]
 
 
 def _require(condition: bool, errors: list[str], message: str) -> None:
@@ -753,12 +756,18 @@ def build_check(
     repo_root: Path | str | None = None,
     manifest_path: Path | str | None = None,
     readback_path: Path | str | None = None,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=preflight fact_source=repository.public_replay_shards_and_readback witness=test:test_crawler_public_replay_shards_authority_metadata",
+]:
     root = Path(repo_root) if repo_root is not None else _repo_root()
     root = root.resolve()
     manifest_rel = Path(manifest_path) if manifest_path is not None else DEFAULT_MANIFEST_PATH
     manifest_abs = _resolve_path(root, manifest_rel).resolve()
     errors: list[str] = []
+    evidence_source = classify_required_evidence(root, {"shard_manifest": manifest_abs})
+    if evidence_source["status"] == EVIDENCE_SOURCE_UNAVAILABLE:
+        errors.append(unavailable_error(evidence_source))
 
     manifest = _load_json_file(manifest_abs, errors, "crawler public replay shard manifest")
     _require(
@@ -772,6 +781,17 @@ def build_check(
 
     readback_rel = Path(readback_path) if readback_path is not None else artifacts.get("shard_readback", DEFAULT_READBACK_PATH)
     readback_abs = _resolve_path(root, readback_rel).resolve()
+    required_evidence: dict[str, Path | str] = {
+        "shard_manifest": manifest_abs,
+        "shard_readback": readback_abs,
+        **{f"manifest_artifact.{key}": value for key, value in artifacts.items()},
+    }
+    for index, raw_shard in enumerate(manifest.get("shards") or []):
+        if isinstance(raw_shard, Mapping) and isinstance(raw_shard.get("public_output"), str):
+            required_evidence[f"shard_output.{index + 1}"] = _resolve_path(root, raw_shard["public_output"])
+    evidence_source = classify_required_evidence(root, required_evidence)
+    if evidence_source["status"] == EVIDENCE_SOURCE_UNAVAILABLE:
+        errors.append(unavailable_error(evidence_source))
     if readback_path is not None:
         expected_readback = artifacts.get("shard_readback")
         if expected_readback is not None:
@@ -845,6 +865,7 @@ def build_check(
         "readback_path": _relative_path(readback_abs, root),
         "status": status,
         "scope": "crawler_public_replay_shard_manifest_readback",
+        "evidence_source": evidence_source,
         "evidence_docs": {
             "crawler_source_expansion": str(CRAWLER_TOPIC_DOC),
             "llm_crawler_unified_frontdoor": str(LLM_TOPIC_DOC),

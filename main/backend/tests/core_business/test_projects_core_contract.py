@@ -18,7 +18,12 @@ try:
 
     from app.contracts.errors import ErrorCode
     from app.main import app as backend_app
-    from app.api.projects import _execute_seed_sql, _filter_seed_sql_text, _resolve_inject_target_key
+    from app.api.projects import (
+        _build_initial_project_copy_insert_sql,
+        _execute_seed_sql,
+        _filter_seed_sql_text,
+        _resolve_inject_target_key,
+    )
 
     _IMPORT_ERROR = None
 except Exception as exc:  # noqa: BLE001
@@ -57,6 +62,14 @@ class ProjectsCoreContractTestCase(unittest.TestCase):
                 project_key="alpha_proj",
                 name="Alpha",
                 schema_name="tenant_alpha_proj",
+                enabled=False,
+                is_active=False,
+            ),
+            SimpleNamespace(
+                id=3,
+                project_key="missing_schema_proj",
+                name="Missing Schema",
+                schema_name="",
                 enabled=True,
                 is_active=False,
             ),
@@ -74,9 +87,25 @@ class ProjectsCoreContractTestCase(unittest.TestCase):
         payload = response.json()
         self.assertEqual(payload["status"], "ok")
         self.assertIsNone(payload["error"])
-        self.assertEqual(len(payload["data"]["items"]), 2)
-        self.assertEqual(payload["data"]["items"][0]["project_key"], "demo_proj")
-        self.assertEqual(payload["data"]["items"][1]["project_key"], "alpha_proj")
+        items = payload["data"]["items"]
+        self.assertEqual(len(items), 3)
+        self.assertEqual(items[0]["project_key"], "demo_proj")
+        self.assertFalse(items[0]["archived"])
+        self.assertTrue(items[0]["schema_ready"])
+        self.assertTrue(items[0]["has_worker_fixture"])
+        self.assertTrue(items[0]["nightly_matrix_eligible"])
+
+        self.assertEqual(items[1]["project_key"], "alpha_proj")
+        self.assertTrue(items[1]["archived"])
+        self.assertTrue(items[1]["schema_ready"])
+        self.assertFalse(items[1]["has_worker_fixture"])
+        self.assertFalse(items[1]["nightly_matrix_eligible"])
+
+        self.assertEqual(items[2]["project_key"], "missing_schema_proj")
+        self.assertFalse(items[2]["archived"])
+        self.assertFalse(items[2]["schema_ready"])
+        self.assertFalse(items[2]["has_worker_fixture"])
+        self.assertFalse(items[2]["nightly_matrix_eligible"])
 
     def test_project_detail_path_not_found_maps_to_not_found_error_code(self):
         result = Mock()
@@ -99,7 +128,7 @@ class ProjectsCoreContractTestCase(unittest.TestCase):
         response = self.client.post(
             "/api/v1/projects/inject-initial",
             headers=self.headers,
-            json={"source_project_key": "   "},
+            json={"project_key": "target_proj", "source_project_key": "   "},
         )
 
         self.assertEqual(response.status_code, 400)
@@ -109,6 +138,23 @@ class ProjectsCoreContractTestCase(unittest.TestCase):
         self.assertEqual(payload["detail"]["error"]["code"], ErrorCode.INVALID_INPUT.value)
         self.assertEqual(response.headers.get("x-error-code"), ErrorCode.INVALID_INPUT.value)
 
+    def test_inject_initial_requires_explicit_target(self):
+        with self.assertRaises(Exception) as ctx:
+            _resolve_inject_target_key("   ", source_key="demo_proj", overwrite=True)
+        self.assertEqual(getattr(ctx.exception, "status_code", None), 400)
+
+    def test_inject_initial_missing_target_is_rejected_before_project_creation(self):
+        response = self.client.post(
+            "/api/v1/projects/inject-initial",
+            headers=self.headers,
+            json={"source_project_key": "demo_proj"},
+        )
+
+        self.assertEqual(response.status_code, 422)
+        payload = response.json()
+        self.assertEqual(payload["status"], "error")
+        self.assertEqual(payload["error"]["code"], ErrorCode.INVALID_INPUT.value)
+
     def test_inject_target_allows_default_only_in_overwrite_mode(self):
         self.assertEqual(
             _resolve_inject_target_key("default", source_key="demo_proj", overwrite=True),
@@ -117,6 +163,61 @@ class ProjectsCoreContractTestCase(unittest.TestCase):
         with self.assertRaises(Exception) as ctx:
             _resolve_inject_target_key("default", source_key="demo_proj", overwrite=False)
         self.assertEqual(getattr(ctx.exception, "status_code", None), 409)
+
+    def test_inject_initial_copy_sql_uses_common_columns_and_jsonb_conversion(self):
+        sql = _build_initial_project_copy_insert_sql(
+            source_schema="tenant_demo_proj",
+            target_schema="tenant_batch84_matrix_proj",
+            table_name="resource_pool_site_entries",
+            source_columns=[
+                {"column_name": "id", "udt_name": "int4"},
+                {"column_name": "site_url", "udt_name": "varchar"},
+                {"column_name": "capabilities", "udt_name": "varchar"},
+                {"column_name": "source_only_legacy", "udt_name": "text"},
+            ],
+            target_columns=[
+                {"column_name": "id", "udt_name": "int4"},
+                {"column_name": "site_url", "udt_name": "varchar"},
+                {"column_name": "capabilities", "udt_name": "jsonb"},
+                {"column_name": "target_only_new", "udt_name": "text"},
+            ],
+        )
+
+        self.assertIsNotNone(sql)
+        assert sql is not None
+        self.assertIn('INSERT INTO "tenant_batch84_matrix_proj"."resource_pool_site_entries"', sql)
+        self.assertIn('("id", "site_url", "capabilities")', sql)
+        self.assertIn('SELECT "id", "site_url", "capabilities"::jsonb', sql)
+        self.assertIn('FROM "tenant_demo_proj"."resource_pool_site_entries"', sql)
+        self.assertNotIn("SELECT *", sql)
+        self.assertNotIn("target_only_new", sql)
+        self.assertNotIn("source_only_legacy", sql)
+
+    def test_inject_initial_copy_sql_casts_json_source_to_jsonb_target(self):
+        sql = _build_initial_project_copy_insert_sql(
+            source_schema="tenant_demo_proj",
+            target_schema="tenant_batch84_matrix_proj",
+            table_name="resource_pool_site_entries",
+            source_columns=[{"column_name": "capabilities", "udt_name": "json"}],
+            target_columns=[{"column_name": "capabilities", "udt_name": "jsonb"}],
+        )
+
+        self.assertEqual(
+            sql,
+            'INSERT INTO "tenant_batch84_matrix_proj"."resource_pool_site_entries" ("capabilities") '
+            'SELECT "capabilities"::jsonb FROM "tenant_demo_proj"."resource_pool_site_entries"',
+        )
+
+    def test_inject_initial_copy_sql_skips_when_no_common_columns(self):
+        sql = _build_initial_project_copy_insert_sql(
+            source_schema="tenant_demo_proj",
+            target_schema="tenant_batch84_matrix_proj",
+            table_name="resource_pool_site_entries",
+            source_columns=[{"column_name": "legacy_name", "udt_name": "text"}],
+            target_columns=[{"column_name": "site_url", "udt_name": "varchar"}],
+        )
+
+        self.assertIsNone(sql)
 
     def test_seed_sql_executes_via_driver_cursor_without_parameter_mapping(self):
         cursor = Mock()

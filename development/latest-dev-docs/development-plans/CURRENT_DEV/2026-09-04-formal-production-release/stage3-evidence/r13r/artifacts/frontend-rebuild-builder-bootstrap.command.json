@@ -1,0 +1,10 @@
+{
+  "argv": [
+    "docker",
+    "buildx",
+    "inspect",
+    "--bootstrap",
+    "mrw-r13r-amd64-frontend-b-13419-1789010241"
+  ],
+  "cwd": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13r/artifacts"
+}

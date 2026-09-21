@@ -1,0 +1,65 @@
+{
+  "schema": "mrw.stage5.observability.cleanup.v1",
+  "authoritative": false,
+  "compose_project": "mrw-stage5-observability",
+  "down_command": "docker compose -f stage5-evidence/observability/compose.yaml --env-file /private/tmp/mrw-stage5-observability-gap.env -p mrw-stage5-observability down -v --remove-orphans",
+  "down_exit_code": 0,
+  "removed_task_resources": [
+    "mrw-stage5-observability-backend-1",
+    "mrw-stage5-observability-celery-worker-1",
+    "mrw-stage5-observability-db-1",
+    "mrw-stage5-observability-es-1",
+    "mrw-stage5-observability-prometheus-1",
+    "mrw-stage5-observability-redis-1",
+    "mrw-stage5-observability_default",
+    "mrw-stage5-observability_stage5_observability_db_data",
+    "mrw-stage5-observability_stage5_observability_es_data",
+    "mrw-stage5-observability_stage5_observability_prometheus_data"
+  ],
+  "residue_check": {
+    "containers": [],
+    "volumes": [],
+    "networks": [],
+    "global_prune_executed": false
+  },
+  "latest_cleanup_evidence": {
+    "compose_ps_before": "stage5-evidence/observability/logs/74-gap-closure4-compose-ps-before-cleanup.json",
+    "down_log": "stage5-evidence/observability/logs/75-gap-closure4-compose-down.log",
+    "compose_ps_after": "stage5-evidence/observability/logs/76-gap-closure4-compose-ps-after-cleanup.json",
+    "residue_logs": [
+      "stage5-evidence/observability/logs/77-gap-closure4-volume-residue.txt",
+      "stage5-evidence/observability/logs/78-gap-closure4-network-residue.txt",
+      "stage5-evidence/observability/logs/79-gap-closure4-container-residue.txt"
+    ],
+    "worker_overlay_project": "mrw-stage5-worker-telemetry",
+    "worker_overlay_compose_ps_before": "stage5-evidence/observability/logs/88-worker-compose-ps-before-cleanup.json",
+    "worker_overlay_down_log": "stage5-evidence/observability/logs/89-worker-compose-down.log",
+    "worker_overlay_compose_ps_after": "stage5-evidence/observability/logs/90-worker-compose-ps-after-cleanup.json",
+    "worker_overlay_down_exit_code": 0
+  },
+  "docker_desktop_usage": {
+    "before": {
+      "containers": {"count": 7, "size": "466.9kB"},
+      "volumes": {"count": 32, "size": "999.7MB"}
+    },
+    "after": {
+      "containers": {"count": 1, "size": "20.48kB"},
+      "volumes": {"count": 28, "size": "946.2MB"}
+    },
+    "caveat": "Docker reported-byte deltas are not asserted as host Docker.raw space release."
+  },
+  "retained": {
+    "stage4_backend_image": "mrw-local/stage4-business001@sha256:f247a1492400311e032710df01f84365c7e700f61c122b7243ae58eda982af19",
+    "evidence_directory": "stage5-evidence/observability/"
+  },
+  "temporary_secrets": {
+    "paths": [
+      "/private/tmp/mrw-stage5-observability-gap.env",
+      "/private/tmp/mrw-stage5-observability-gap.metrics-token"
+    ],
+    "final_mode": "0600_truncated_and_moved_to_recoverable_trash",
+    "final_content_bytes": 0,
+    "trash_path": "/Users/wangyiliang/.Trash/mrw-stage5-observability-gap-secrets-20260913-final",
+    "persisted_in_evidence": false
+  }
+}

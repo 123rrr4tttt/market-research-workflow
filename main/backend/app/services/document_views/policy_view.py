@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any
 
 from .common_view import get_entities, get_extracted_data, get_relations
 
@@ -48,7 +48,14 @@ def get_policy_relations(doc: Any) -> list[dict[str, Any]]:
     return get_relations(doc)
 
 
-def build_policy_summary(doc: Any) -> dict[str, Any]:
+def build_policy_summary(
+    doc: Any,
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view "
+    "fact_source=policy_document_extractors "
+    "witness=test:test_w04_authority_metadata",
+]:
     policy = get_policy_data(doc)
     publish_date = getattr(doc, "publish_date", None)
     created_at = getattr(doc, "created_at", None)
@@ -67,7 +74,14 @@ def build_policy_summary(doc: Any) -> dict[str, Any]:
     }
 
 
-def build_policy_detail(doc: Any) -> dict[str, Any]:
+def build_policy_detail(
+    doc: Any,
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view "
+    "fact_source=policy_summary+document_detail_extractors "
+    "witness=test:test_w04_authority_metadata",
+]:
     updated_at = getattr(doc, "updated_at", None)
     return {
         **build_policy_summary(doc),

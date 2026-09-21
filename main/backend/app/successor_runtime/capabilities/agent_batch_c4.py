@@ -18,13 +18,18 @@ from __future__ import annotations
 import dataclasses
 import re
 from dataclasses import dataclass, field
-from typing import Any, Literal, Protocol, runtime_checkable
+from typing import Annotated, Any, Literal, NoReturn, Protocol, runtime_checkable
+
+from functorial_kit import Failure
+
+from mrw_functorial_kit.core.w05_capability_semantics import (
+    successor_capability_contract_failures,
+)
 
 from app.successor_runtime.capabilities import source_library_c2_shared as c2_shared
 from app.successor_runtime.capabilities.checksum import (
     canonical_json,
     content_digest,
-    require_hex64,
     sha256_hex,
 )
 from app.successor_runtime.capabilities.codecs import (
@@ -98,6 +103,97 @@ __all__ = [
 
 AGENT_BATCH_C4_OWNER = "agent_batch.c4.v1"
 SUBMISSION_OWNER = AGENT_BATCH_C4_OWNER
+
+_C4_CONTRACT_WITNESS = (
+    "test:test_w05_n1_c4_public_compatibility_preserves_type_and_message"
+)
+_C4_CONTRACT_CONTEXT_KEYS = frozenset(
+    {
+        "capability",
+        "public_exception",
+        "public_message",
+        "site",
+        "witness",
+    }
+)
+
+
+def _failure(
+    code: str,
+    message: str,
+    *,
+    site: str = "agent_batch.c4",
+    public_exception: str = "ValueError",
+    public_message: str | None = None,
+) -> Failure:
+    return successor_capability_contract_failures.fail(
+        code,
+        message,
+        {
+            "capability": AGENT_BATCH_C4_OWNER,
+            "public_exception": public_exception,
+            "public_message": message if public_message is None else public_message,
+            "site": site,
+            "witness": _C4_CONTRACT_WITNESS,
+        },
+    )
+
+
+def _raise_contract_failure(
+    failure: Failure,
+    exception_type: type[Exception] = ValueError,
+) -> NoReturn:
+    """Lift one complete typed failure at the retained public ABI boundary."""
+
+    context = failure.context or {}
+    if (
+        failure.family != successor_capability_contract_failures.name
+        or _C4_CONTRACT_CONTEXT_KEYS - set(context)
+        or context.get("public_exception") != exception_type.__name__
+    ):
+        # kit:boundary owner=agent_batch.c4.v1 class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w05_n1_c4_programmer_defect_lift
+        raise TypeError("contract lift context is incomplete or inconsistent")
+    # kit:boundary owner=agent_batch.c4.v1 class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.capability.contract_failure witness=test:test_w05_n1_c4_public_compatibility_preserves_type_and_message
+    raise exception_type(str(context["public_message"]))
+
+
+_HEX64 = re.compile(r"^[0-9a-f]{64}$")
+
+
+def _hex64_failure(value: str, field_name: str) -> Failure | None:
+    if not isinstance(value, str) or _HEX64.fullmatch(value) is None:
+        return _failure(
+            "digest_contract_invalid",
+            f"{field_name} must be a 64-char lowercase hex digest",
+            site=f"digest/{field_name}",
+        )
+    return None
+
+
+def _source_mode_failure(value: Any, *, path: str = "payload") -> Failure | None:
+    if isinstance(value, dict):
+        if "source_mode" in value:
+            return _failure(
+                "schema_contract_invalid",
+                "C4 surface must not carry source_mode",
+            )
+        for key, item in value.items():
+            failure = _source_mode_failure(item, path=f"{path}.{key}")
+            if failure is not None:
+                return failure
+    elif isinstance(value, (list, tuple)):
+        for index, item in enumerate(value):
+            failure = _source_mode_failure(item, path=f"{path}[{index}]")
+            if failure is not None:
+                return failure
+    elif dataclasses.is_dataclass(value):
+        for field_def in dataclasses.fields(value):
+            failure = _source_mode_failure(
+                getattr(value, field_def.name), path=f"{path}.{field_def.name}"
+            )
+            if failure is not None:
+                return failure
+    return None
 
 BATCH_PLAN_KIND = "agent_batch.build_batch_plan.v1"
 BATCH_PLAN_OPERATION_ID = "agent_batch.build_batch_plan"
@@ -281,6 +377,282 @@ def _freeze_object(value: dict[str, Any]) -> tuple[tuple[str, Any], ...]:
     return tuple(sorted((str(key), item) for key, item in value.items()))
 
 
+def _batch_plan_payload_identity_failure(payload: BatchPlanPayload) -> Failure | None:
+    if payload.schema_version != BATCH_PLAN_PAYLOAD_SCHEMA:
+        return _failure(
+            "schema_contract_invalid",
+            f"unsupported payload schema {payload.schema_version!r}",
+        )
+    if payload.operation_kind != BATCH_PLAN_KIND:
+        return _failure(
+            "schema_contract_invalid",
+            f"unsupported operation kind {payload.operation_kind!r}",
+        )
+    if payload.retrieval_mode not in RETRIEVAL_MODES:
+        return _failure(
+            "schema_contract_invalid",
+            f"unsupported retrieval mode {payload.retrieval_mode!r}",
+        )
+    if not payload.project_key:
+        return _failure(
+            "scope_contract_invalid", "BatchPlanPayload.project_key is required"
+        )
+    return _hex64_failure(payload.scope_digest, "BatchPlanPayload.scope_digest")
+
+
+def _batch_plan_payload_digest_failure(payload: BatchPlanPayload) -> Failure | None:
+    if payload.payload_digest == "":
+        return None
+    failure = _hex64_failure(
+        payload.payload_digest, "BatchPlanPayload.payload_digest"
+    )
+    if failure is not None:
+        return failure
+    expected = content_digest(payload, omit_fields=("payload_digest",))
+    if payload.payload_digest != expected:
+        return _failure(
+            "digest_contract_invalid",
+            "BatchPlanPayload.payload_digest does not match content",
+        )
+    return None
+
+
+def _batch_plan_result_failure(result: BatchPlanResult) -> Failure | None:
+    if any(
+        getattr(task, "item_key", None) is not None
+        and "source_mode" in dataclasses.asdict(task)
+        for task in result.tasks
+    ):
+        return _failure(
+            "schema_contract_invalid", "C4 output must not carry source_mode"
+        )
+    if result.result_digest != "":
+        return _hex64_failure(
+            result.result_digest,
+            "BatchPlanResult.result_digest",
+        )
+    return None
+
+
+def _retry_action_failure(action: RetryAction) -> Failure | None:
+    normalized_action = str(action.action or "").strip().lower()
+    if normalized_action not in RETRY_ACTIONS:
+        return _failure(
+            "schema_contract_invalid",
+            f"unsupported retry action {normalized_action!r}",
+        )
+    if not str(action.reason or "").strip():
+        return _failure(
+            "schema_contract_invalid", "retry action reason is required"
+        )
+    return None
+
+
+def _retry_budget_failure(budget: RetryBudget) -> Failure | None:
+    for name in ("remaining", "used", "max_rounds"):
+        value = getattr(budget, name)
+        if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+            return _failure(
+                "schema_contract_invalid",
+                f"RetryBudget.{name} must be a non-negative int",
+            )
+    return None
+
+
+def _retry_reducer_payload_identity_failure(
+    payload: RetryReducerInput,
+) -> Failure | None:
+    if payload.schema_version != RETRY_REDUCER_PAYLOAD_SCHEMA:
+        return _failure(
+            "schema_contract_invalid",
+            f"unsupported payload schema {payload.schema_version!r}",
+        )
+    if payload.operation_kind != RETRY_REDUCE_KIND:
+        return _failure(
+            "schema_contract_invalid",
+            f"unsupported operation kind {payload.operation_kind!r}",
+        )
+    return _hex64_failure(payload.scope_digest, "RetryReducerInput.scope_digest")
+
+
+def _retry_reducer_payload_digest_failure(
+    payload: RetryReducerInput,
+) -> Failure | None:
+    if not payload.prior_attempt_ref:
+        return _failure(
+            "schema_contract_invalid",
+            "RetryReducerInput.prior_attempt_ref is required",
+        )
+    if payload.payload_digest == "":
+        return None
+    failure = _hex64_failure(
+        payload.payload_digest, "RetryReducerInput.payload_digest"
+    )
+    if failure is not None:
+        return failure
+    expected = content_digest(payload, omit_fields=("payload_digest",))
+    if payload.payload_digest != expected:
+        return _failure(
+            "digest_contract_invalid",
+            "RetryReducerInput.payload_digest does not match content",
+        )
+    return None
+
+
+def _retry_attempt_intent_failure(intent: RetryAttemptIntent) -> Failure | None:
+    if (
+        not intent.attempt_id
+        or not intent.prior_attempt_ref
+        or not intent.idempotency_key
+    ):
+        return _failure(
+            "schema_contract_invalid",
+            "RetryAttemptIntent requires attempt/prior/idempotency identity",
+        )
+    if (
+        not isinstance(intent.round_index, int)
+        or isinstance(intent.round_index, bool)
+        or intent.round_index < 1
+    ):
+        return _failure(
+            "schema_contract_invalid",
+            "RetryAttemptIntent.round_index must be a positive int",
+        )
+    if intent.attempt_intent_digest == "":
+        return None
+    return _hex64_failure(
+        intent.attempt_intent_digest,
+        "RetryAttemptIntent.attempt_intent_digest",
+    )
+
+
+def _retry_transition_failure(transition: RetryTransition) -> Failure | None:
+    if transition.kind not in {
+        "RETRY_SCHEDULED",
+        "RETRY_SKIPPED",
+        "RETRY_REJECTED",
+    }:
+        return _failure(
+            "schema_contract_invalid",
+            f"unsupported retry transition {transition.kind!r}",
+        )
+    if transition.kind == "RETRY_SCHEDULED" and transition.attempt_intent is None:
+        return _failure(
+            "schema_contract_invalid",
+            "RETRY_SCHEDULED requires a fresh attempt intent",
+        )
+    if transition.kind != "RETRY_SCHEDULED" and transition.attempt_intent is not None:
+        return _failure(
+            "schema_contract_invalid",
+            "only RETRY_SCHEDULED may carry an attempt intent",
+        )
+    if transition.transition_digest == "":
+        return None
+    return _hex64_failure(
+        transition.transition_digest, "RetryTransition.transition_digest"
+    )
+
+
+def _submission_item_failure(item: AgentBatchSubmissionItem) -> Failure | None:
+    if not str(item.job_id or "").strip():
+        return _failure(
+            "schema_contract_invalid", "AgentBatchSubmissionItem.job_id is required"
+        )
+    return None
+
+
+def _submission_payload_identity_failure(
+    submission: AgentBatchSubmission,
+) -> Failure | None:
+    if submission.schema_version != "mrw.successor.agent-batch.c4-3.payload.v1":
+        return _failure("schema_contract_invalid", "unsupported submission schema")
+    if submission.operation_kind != SUBMISSION_KIND:
+        return _failure(
+            "schema_contract_invalid", "unsupported submission operation kind"
+        )
+    if (
+        not submission.submission_id
+        or not submission.project_key
+        or not submission.capability_id
+    ):
+        return _failure(
+            "schema_contract_invalid",
+            "submission requires id/project/capability identity",
+        )
+    if not submission.logical_request_id:
+        return _failure(
+            "schema_contract_invalid", "logical_request_id is required"
+        )
+    if not submission.jobs:
+        return _failure(
+            "schema_contract_invalid", "submission requires at least one job"
+        )
+    failure = _hex64_failure(
+        submission.scope_digest, "AgentBatchSubmission.scope_digest"
+    )
+    if failure is not None:
+        return failure
+    return _hex64_failure(
+        submission.request_digest, "AgentBatchSubmission.request_digest"
+    )
+
+
+def _submission_digest_failure(
+    submission: AgentBatchSubmission, field_name: str, digest_name: str
+) -> Failure | None:
+    value = getattr(submission, field_name)
+    failure = _hex64_failure(value, f"AgentBatchSubmission.{digest_name}")
+    if failure is not None:
+        return failure
+    expected = content_digest(
+        submission,
+        omit_fields=("submission_digest", "payload_digest")
+        if field_name == "submission_digest"
+        else ("payload_digest",),
+    )
+    if value != expected:
+        return _failure(
+            "digest_contract_invalid",
+            f"AgentBatchSubmission.{digest_name} mismatch"
+            if field_name == "submission_digest"
+            else f"AgentBatchSubmission.{digest_name} does not match content",
+        )
+    return None
+
+
+def _submission_receipt_failure(receipt: AgentBatchSubmissionReceipt) -> Failure | None:
+    if not receipt.submission_id or not receipt.job_id:
+        return _failure(
+            "schema_contract_invalid",
+            "receipt requires submission and job identity",
+        )
+    if not receipt.run_ref:
+        return _failure("schema_contract_invalid", "receipt requires run_ref")
+    if receipt.receipt_digest == "":
+        return None
+    return _hex64_failure(
+        receipt.receipt_digest,
+        "AgentBatchSubmissionReceipt.receipt_digest",
+    )
+
+
+def _agent_batch_task_failure(task: AgentBatchTask) -> Failure | None:
+    channel = str(task.channel or "").strip().lower()
+    if channel not in {"search.market", "source_library"}:
+        return _failure(
+            "schema_contract_invalid", f"unsupported agent-batch channel {channel!r}"
+        )
+    if channel == "search.market" and not task.query_terms:
+        return _failure(
+            "schema_contract_invalid", "search.market task requires query_terms"
+        )
+    if channel == "source_library" and not str(task.item_key or "").strip():
+        return _failure(
+            "schema_contract_invalid", "source_library task requires item_key"
+        )
+    return None
+
+
 @dataclass(frozen=True, slots=True)
 class AgentBatchTask:
     """Ordered, normalized task payload owned by the agent-batch capability.
@@ -304,13 +676,10 @@ class AgentBatchTask:
     override_params: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
+        failure = _agent_batch_task_failure(self)
+        if failure is not None:
+            _raise_contract_failure(failure)
         channel = str(self.channel or "").strip().lower()
-        if channel not in {"search.market", "source_library"}:
-            raise ValueError(f"unsupported agent-batch channel {channel!r}")
-        if channel == "search.market" and not self.query_terms:
-            raise ValueError("search.market task requires query_terms")
-        if channel == "source_library" and not str(self.item_key or "").strip():
-            raise ValueError("source_library task requires item_key")
         object.__setattr__(self, "channel", channel)
         object.__setattr__(
             self, "query_terms", tuple(_normalize_terms(self.query_terms))
@@ -360,17 +729,9 @@ class C2SourceCandidateView(Protocol):
 def reject_source_mode(value: Any) -> None:
     """Recursively reject ``source_mode`` anywhere in C4-owned task/override data."""
 
-    if isinstance(value, dict):
-        if "source_mode" in value:
-            raise ValueError("C4 surface must not carry source_mode")
-        for item in value.values():
-            reject_source_mode(item)
-    elif isinstance(value, (list, tuple)):
-        for item in value:
-            reject_source_mode(item)
-    elif dataclasses.is_dataclass(value):
-        for field_def in dataclasses.fields(value):
-            reject_source_mode(getattr(value, field_def.name))
+    failure = _source_mode_failure(value)
+    if failure is not None:
+        _raise_contract_failure(failure)
 
 
 def normalize_batch_task_from_plain(
@@ -465,15 +826,9 @@ class BatchPlanPayload:
     payload_digest: str = ""
 
     def __post_init__(self) -> None:
-        if self.schema_version != BATCH_PLAN_PAYLOAD_SCHEMA:
-            raise ValueError(f"unsupported payload schema {self.schema_version!r}")
-        if self.operation_kind != BATCH_PLAN_KIND:
-            raise ValueError(f"unsupported operation kind {self.operation_kind!r}")
-        if self.retrieval_mode not in RETRIEVAL_MODES:
-            raise ValueError(f"unsupported retrieval mode {self.retrieval_mode!r}")
-        if not self.project_key:
-            raise ValueError("BatchPlanPayload.project_key is required")
-        require_hex64(self.scope_digest, "BatchPlanPayload.scope_digest")
+        failure = _batch_plan_payload_identity_failure(self)
+        if failure is not None:
+            _raise_contract_failure(failure)
         object.__setattr__(
             self,
             "tasks",
@@ -487,15 +842,16 @@ class BatchPlanPayload:
             "max_source_tasks",
             _normalize_int(self.max_source_tasks, 2, min_value=0, max_value=8),
         )
-        expected = content_digest(self, omit_fields=("payload_digest",))
         if self.payload_digest == "":
-            object.__setattr__(self, "payload_digest", expected)
-        else:
-            require_hex64(self.payload_digest, "BatchPlanPayload.payload_digest")
-            if self.payload_digest != expected:
-                raise ValueError(
-                    "BatchPlanPayload.payload_digest does not match content"
-                )
+            object.__setattr__(
+                self,
+                "payload_digest",
+                content_digest(self, omit_fields=("payload_digest",)),
+            )
+            return
+        failure = _batch_plan_payload_digest_failure(self)
+        if failure is not None:
+            _raise_contract_failure(failure)
 
     def to_plain(self) -> dict[str, Any]:
         return dataclasses.asdict(self)
@@ -555,20 +911,15 @@ class BatchPlanResult:
     result_digest: str = ""
 
     def __post_init__(self) -> None:
-        if any(
-            getattr(task, "item_key", None) is not None
-            and "source_mode" in dataclasses.asdict(task)
-            for task in self.tasks
-        ):
-            raise ValueError("C4 output must not carry source_mode")
+        failure = _batch_plan_result_failure(self)
+        if failure is not None:
+            _raise_contract_failure(failure)
         if self.result_digest == "":
             object.__setattr__(
                 self,
                 "result_digest",
                 content_digest(self, omit_fields=("result_digest",)),
             )
-        else:
-            require_hex64(self.result_digest, "BatchPlanResult.result_digest")
 
 
 def _detect_language(command: str) -> str:
@@ -654,7 +1005,12 @@ def build_search_brief(
     retrieval_mode: str,
     candidate_keys: tuple[str, ...],
     supplementation_enabled: bool,
-) -> SearchBrief:
+) -> Annotated[  # NonAuthoritative
+    SearchBrief,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=normalized_batch_tasks+candidate_keys "
+    "witness=test:test_w05_agent_batch_authority_metadata",
+]:
     source_keys = tuple(
         task.item_key
         for task in tasks
@@ -824,7 +1180,14 @@ def _expand_tasks_with_limited_branching(
     )
 
 
-def build_batch_plan(payload: BatchPlanPayload) -> BatchPlanResult:
+def try_build_batch_plan(
+    payload: BatchPlanPayload,
+) -> Annotated[  # NonAuthoritative
+    BatchPlanResult | Failure,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=BatchPlanPayload+ordered_task_policy "
+    "witness=test:test_w05_agent_batch_authority_metadata",
+]:
     """Deterministic ordered pure batch-plan construction (C4.1).
 
     The planner consumes the exact C2-owned candidate snapshot without any
@@ -833,10 +1196,14 @@ def build_batch_plan(payload: BatchPlanPayload) -> BatchPlanResult:
     order.
     """
 
-    reject_source_mode(payload)
+    failure = _source_mode_failure(payload)
+    if failure is not None:
+        return failure
     tasks = normalize_batch_tasks(payload.tasks, default_language=payload.language)
     if not tasks and payload.retrieval_mode != RETRIEVAL_MODE_SOURCE_ONLY:
-        raise ValueError("planner produced no executable tasks")
+        return _failure(
+            "schema_contract_invalid", "planner produced no executable tasks"
+        )
     tasks, supplementation = _supplement_with_source_candidates(
         tasks,
         retrieval_mode=payload.retrieval_mode,
@@ -859,7 +1226,9 @@ def build_batch_plan(payload: BatchPlanPayload) -> BatchPlanResult:
         command=payload.command,
     )
     if not tasks:
-        raise ValueError("planner produced no executable tasks")
+        return _failure(
+            "schema_contract_invalid", "planner produced no executable tasks"
+        )
     search_brief = build_search_brief(
         command=payload.command,
         intent=payload.command,
@@ -875,6 +1244,22 @@ def build_batch_plan(payload: BatchPlanPayload) -> BatchPlanResult:
         branching=branching,
         search_brief=search_brief,
     )
+
+
+def build_batch_plan(
+    payload: BatchPlanPayload,
+) -> Annotated[  # NonAuthoritative
+    BatchPlanResult,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=BatchPlanPayload+ordered_task_policy "
+    "witness=test:test_w05_agent_batch_authority_metadata",
+]:
+    """Deterministic ordered pure batch-plan construction (C4.1)."""
+
+    result = try_build_batch_plan(payload)
+    if isinstance(result, Failure):
+        _raise_contract_failure(result)
+    return result
 
 
 @dataclass(frozen=True, slots=True)
@@ -900,11 +1285,10 @@ class RetryAction:
     target_items: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
+        failure = _retry_action_failure(self)
+        if failure is not None:
+            _raise_contract_failure(failure)
         action = str(self.action or "").strip().lower()
-        if action not in RETRY_ACTIONS:
-            raise ValueError(f"unsupported retry action {action!r}")
-        if not str(self.reason or "").strip():
-            raise ValueError("retry action reason is required")
         object.__setattr__(self, "action", action)
         object.__setattr__(
             self, "channel", str(self.channel or "").strip().lower() or None
@@ -922,10 +1306,9 @@ class RetryBudget:
     max_rounds: int = 1
 
     def __post_init__(self) -> None:
-        for name in ("remaining", "used", "max_rounds"):
-            value = getattr(self, name)
-            if not isinstance(value, int) or isinstance(value, bool) or value < 0:
-                raise ValueError(f"RetryBudget.{name} must be a non-negative int")
+        failure = _retry_budget_failure(self)
+        if failure is not None:
+            _raise_contract_failure(failure)
 
 
 @dataclass(frozen=True, slots=True)
@@ -950,23 +1333,20 @@ class RetryReducerInput:
     payload_digest: str = ""
 
     def __post_init__(self) -> None:
-        if self.schema_version != RETRY_REDUCER_PAYLOAD_SCHEMA:
-            raise ValueError(f"unsupported payload schema {self.schema_version!r}")
-        if self.operation_kind != RETRY_REDUCE_KIND:
-            raise ValueError(f"unsupported operation kind {self.operation_kind!r}")
-        require_hex64(self.scope_digest, "RetryReducerInput.scope_digest")
+        failure = _retry_reducer_payload_identity_failure(self)
+        if failure is not None:
+            _raise_contract_failure(failure)
         object.__setattr__(self, "tasks", tuple(normalize_batch_tasks(self.tasks)))
-        if not self.prior_attempt_ref:
-            raise ValueError("RetryReducerInput.prior_attempt_ref is required")
-        expected = content_digest(self, omit_fields=("payload_digest",))
         if self.payload_digest == "":
-            object.__setattr__(self, "payload_digest", expected)
-        else:
-            require_hex64(self.payload_digest, "RetryReducerInput.payload_digest")
-            if self.payload_digest != expected:
-                raise ValueError(
-                    "RetryReducerInput.payload_digest does not match content"
-                )
+            object.__setattr__(
+                self,
+                "payload_digest",
+                content_digest(self, omit_fields=("payload_digest",)),
+            )
+            return
+        failure = _retry_reducer_payload_digest_failure(self)
+        if failure is not None:
+            _raise_contract_failure(failure)
 
 
 def validate_retry_action(
@@ -1117,29 +1497,14 @@ class RetryAttemptIntent:
     attempt_intent_digest: str = ""
 
     def __post_init__(self) -> None:
-        if (
-            not self.attempt_id
-            or not self.prior_attempt_ref
-            or not self.idempotency_key
-        ):
-            raise ValueError(
-                "RetryAttemptIntent requires attempt/prior/idempotency identity"
-            )
-        if (
-            not isinstance(self.round_index, int)
-            or isinstance(self.round_index, bool)
-            or self.round_index < 1
-        ):
-            raise ValueError("RetryAttemptIntent.round_index must be a positive int")
+        failure = _retry_attempt_intent_failure(self)
+        if failure is not None:
+            _raise_contract_failure(failure)
         if self.attempt_intent_digest == "":
             object.__setattr__(
                 self,
                 "attempt_intent_digest",
                 content_digest(self, omit_fields=("attempt_intent_digest",)),
-            )
-        else:
-            require_hex64(
-                self.attempt_intent_digest, "RetryAttemptIntent.attempt_intent_digest"
             )
 
 
@@ -1152,23 +1517,18 @@ class RetryTransition:
     transition_digest: str = ""
 
     def __post_init__(self) -> None:
-        if self.kind not in {"RETRY_SCHEDULED", "RETRY_SKIPPED", "RETRY_REJECTED"}:
-            raise ValueError(f"unsupported retry transition {self.kind!r}")
         object.__setattr__(
             self, "observations", _normalize_override_params(self.observations)
         )
-        if self.kind == "RETRY_SCHEDULED" and self.attempt_intent is None:
-            raise ValueError("RETRY_SCHEDULED requires a fresh attempt intent")
-        if self.kind != "RETRY_SCHEDULED" and self.attempt_intent is not None:
-            raise ValueError("only RETRY_SCHEDULED may carry an attempt intent")
+        failure = _retry_transition_failure(self)
+        if failure is not None:
+            _raise_contract_failure(failure)
         if self.transition_digest == "":
             object.__setattr__(
                 self,
                 "transition_digest",
                 content_digest(self, omit_fields=("transition_digest",)),
             )
-        else:
-            require_hex64(self.transition_digest, "RetryTransition.transition_digest")
 
 
 def reduce_retry_action(payload: RetryReducerInput) -> RetryTransition:
@@ -1287,8 +1647,9 @@ class AgentBatchSubmissionItem:
     trace_id: str | None = None
 
     def __post_init__(self) -> None:
-        if not str(self.job_id or "").strip():
-            raise ValueError("AgentBatchSubmissionItem.job_id is required")
+        failure = _submission_item_failure(self)
+        if failure is not None:
+            _raise_contract_failure(failure)
         object.__setattr__(
             self, "query_terms", tuple(_normalize_terms(self.query_terms))
         )
@@ -1335,38 +1696,35 @@ class AgentBatchSubmission:
     payload_digest: str = ""
 
     def __post_init__(self) -> None:
-        if self.schema_version != "mrw.successor.agent-batch.c4-3.payload.v1":
-            raise ValueError("unsupported submission schema")
-        if self.operation_kind != SUBMISSION_KIND:
-            raise ValueError("unsupported submission operation kind")
-        if not self.submission_id or not self.project_key or not self.capability_id:
-            raise ValueError("submission requires id/project/capability identity")
-        if not self.logical_request_id:
-            raise ValueError("logical_request_id is required")
-        if not self.jobs:
-            raise ValueError("submission requires at least one job")
-        require_hex64(self.scope_digest, "AgentBatchSubmission.scope_digest")
-        require_hex64(self.request_digest, "AgentBatchSubmission.request_digest")
-        expected = content_digest(
-            self, omit_fields=("submission_digest", "payload_digest")
-        )
+        failure = _submission_payload_identity_failure(self)
+        if failure is not None:
+            _raise_contract_failure(failure)
         if self.submission_digest == "":
-            object.__setattr__(self, "submission_digest", expected)
-        else:
-            require_hex64(
-                self.submission_digest, "AgentBatchSubmission.submission_digest"
+            object.__setattr__(
+                self,
+                "submission_digest",
+                content_digest(
+                    self, omit_fields=("submission_digest", "payload_digest")
+                ),
             )
-            if self.submission_digest != expected:
-                raise ValueError("AgentBatchSubmission.submission_digest mismatch")
-        payload_expected = content_digest(self, omit_fields=("payload_digest",))
-        if self.payload_digest == "":
-            object.__setattr__(self, "payload_digest", payload_expected)
         else:
-            require_hex64(self.payload_digest, "AgentBatchSubmission.payload_digest")
-            if self.payload_digest != payload_expected:
-                raise ValueError(
-                    "AgentBatchSubmission.payload_digest does not match content"
-                )
+            failure = _submission_digest_failure(
+                self, "submission_digest", "submission_digest"
+            )
+            if failure is not None:
+                _raise_contract_failure(failure)
+        if self.payload_digest == "":
+            object.__setattr__(
+                self,
+                "payload_digest",
+                content_digest(self, omit_fields=("payload_digest",)),
+            )
+        else:
+            failure = _submission_digest_failure(
+                self, "payload_digest", "payload_digest"
+            )
+            if failure is not None:
+                _raise_contract_failure(failure)
 
 
 # Family-specific acceptance status lives in the typed submission receipt.
@@ -1392,23 +1750,25 @@ class AgentBatchSubmissionReceipt:
     receipt_digest: str = ""
 
     def __post_init__(self) -> None:
-        if not self.submission_id or not self.job_id:
-            raise ValueError("receipt requires submission and job identity")
-        if not self.run_ref:
-            raise ValueError("receipt requires run_ref")
+        failure = _submission_receipt_failure(self)
+        if failure is not None:
+            _raise_contract_failure(failure)
         if self.receipt_digest == "":
             object.__setattr__(
                 self,
                 "receipt_digest",
                 content_digest(self, omit_fields=("receipt_digest",)),
             )
-        else:
-            require_hex64(
-                self.receipt_digest, "AgentBatchSubmissionReceipt.receipt_digest"
-            )
 
 
-def build_agent_batch_submission_digest(submission: Any) -> str:
+def build_agent_batch_submission_digest(
+    submission: Any,
+) -> Annotated[  # NonAuthoritative
+    str,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=AgentBatchSubmission+canonical_json "
+    "witness=test:test_w05_agent_batch_authority_metadata",
+]:
     """Canonical request digest over batch, rules and authority inputs."""
 
     plain = (
@@ -1616,7 +1976,13 @@ class AgentBatchC4CapabilityBundle:
         for codec in self.codecs:
             if codec.contract_ref.kind == kind:
                 return codec
-        raise KeyError(f"no C4 payload codec for kind {kind}")
+        failure = _failure(
+            "codec_contract_invalid",
+            f"no C4 payload codec for kind {kind}",
+            site="capability_bundle/codec_by_kind",
+            public_exception="KeyError",
+        )
+        _raise_contract_failure(failure, KeyError)
 
 
 SUBMISSION_PAYLOAD_CODEC_ID = "mrw.successor.agent-batch.c4-3.payload.codec.v1"
@@ -1668,13 +2034,25 @@ def _decode_nested(
 
 def _payload_codec(contract_ref: Any, dto_cls: type) -> PayloadCodec:
     kind = contract_ref.kind
-    if kind == BATCH_PLAN_KIND:
-        codec_id = BATCH_PLAN_PAYLOAD_CODEC_ID
-        payload_type = BATCH_PLAN_PAYLOAD_TYPE
-    elif kind == RETRY_REDUCE_KIND:
-        codec_id = RETRY_REDUCER_PAYLOAD_CODEC_ID
-        payload_type = RETRY_REDUCER_PAYLOAD_TYPE
-    elif kind == SUBMISSION_KIND:
+    if kind in {BATCH_PLAN_KIND, RETRY_REDUCE_KIND}:
+        codec_id = (
+            BATCH_PLAN_PAYLOAD_CODEC_ID
+            if kind == BATCH_PLAN_KIND
+            else RETRY_REDUCER_PAYLOAD_CODEC_ID
+        )
+        payload_type = (
+            BATCH_PLAN_PAYLOAD_TYPE
+            if kind == BATCH_PLAN_KIND
+            else RETRY_REDUCER_PAYLOAD_TYPE
+        )
+        return dataclass_codec(
+            codec_id=codec_id,
+            codec_version="1",
+            contract_ref=contract_ref,
+            payload_type_id=payload_type.type_id,
+            dto_cls=dto_cls,
+        )
+    if kind == SUBMISSION_KIND:
         codec_id = SUBMISSION_PAYLOAD_CODEC_ID
         payload_type = SUBMISSION_TYPE
         from app.successor_runtime.capabilities.codecs import (
@@ -1684,7 +2062,15 @@ def _payload_codec(contract_ref: Any, dto_cls: type) -> PayloadCodec:
 
         def encode(value: Any) -> dict[str, Any]:
             if not isinstance(value, dto_cls):
-                raise TypeError("submission codec expected AgentBatchSubmission")
+                _raise_contract_failure(
+                    _failure(
+                        "codec_contract_invalid",
+                        "submission codec expected AgentBatchSubmission",
+                        site="submission_codec/encode",
+                        public_exception="TypeError",
+                    ),
+                    TypeError,
+                )
             return dataclasses.asdict(value)
 
         def decode(value: dict[str, Any]) -> Any:
@@ -1704,18 +2090,20 @@ def _payload_codec(contract_ref: Any, dto_cls: type) -> PayloadCodec:
                 payload_type_id=payload_type.type_id,
             ),
         )
-    else:
-        raise ValueError(f"no C4 payload codec for kind {kind}")
-    return dataclass_codec(
-        codec_id=codec_id,
-        codec_version="1",
-        contract_ref=contract_ref,
-        payload_type_id=payload_type.type_id,
-        dto_cls=dto_cls,
+    failure = _failure(
+        "codec_contract_invalid",
+        f"no C4 payload codec for kind {kind}",
+        site="payload_codec/kind",
     )
+    _raise_contract_failure(failure)
 
 
-def build_agent_batch_c4_bundle() -> AgentBatchC4CapabilityBundle:
+def build_agent_batch_c4_bundle() -> Annotated[  # NonAuthoritative
+    AgentBatchC4CapabilityBundle,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=AGENT_BATCH_C4_OWNER+capability_contract_constants "
+    "witness=test:test_w05_agent_batch_authority_metadata",
+]:
     semantic = _semantic_profile()
     effect = _effect_profile()
     resource = _resource_profile()
@@ -1783,7 +2171,12 @@ def build_agent_batch_c4_bundle() -> AgentBatchC4CapabilityBundle:
 
 def build_agent_batch_c4_catalog(
     bundle: AgentBatchC4CapabilityBundle,
-) -> OperationContractCatalogSnapshot:
+) -> Annotated[  # NonAuthoritative
+    OperationContractCatalogSnapshot,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=AgentBatchC4CapabilityBundle.operations "
+    "witness=test:test_w05_agent_batch_authority_metadata",
+]:
     return OperationContractCatalogSnapshot(
         catalog_id=BATCH_PLAN_CATALOG_ID,
         catalog_version=BATCH_PLAN_CATALOG_VERSION,
@@ -1801,7 +2194,12 @@ def build_agent_batch_c4_catalog(
 
 def build_agent_batch_c4_registry(
     bundle: AgentBatchC4CapabilityBundle,
-) -> OperationContractRegistry:
+) -> Annotated[  # NonAuthoritative
+    OperationContractRegistry,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=AgentBatchC4CapabilityBundle+catalog_snapshot "
+    "witness=test:test_w05_agent_batch_authority_metadata",
+]:
     return OperationContractRegistry(
         build_agent_batch_c4_catalog(bundle),
         bundle.operations,

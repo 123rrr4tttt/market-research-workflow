@@ -1,0 +1,29 @@
+{
+  "id": "core-business-src-path",
+  "command": [
+    "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/bin/python",
+    "-m",
+    "pytest",
+    "tests/core_business",
+    "-m",
+    "(unit or integration or contract or e2e) and not external",
+    "-q",
+    "-ra",
+    "--junitxml=/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-backend/core-business-src-path.xml"
+  ],
+  "cwd": "/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend",
+  "started_at": "2026-09-06T21:59:18.084922+00:00",
+  "exit_code": 1,
+  "environment": {
+    "PATH": "/Users/wangyiliang/Library/TinyTeX/bin/universal-darwin:/opt/homebrew/bin:/opt/homebrew/sbin:/Users/wangyiliang/Library/Python/3.9/bin:/Users/wangyiliang/bin:/Users/wangyiliang/.elan/bin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/opt/pmk/env/global/bin:/Users/wangyiliang/.codex/tmp/arg0/codex-arg0NI7CKX:/Users/wangyiliang/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override:/Users/wangyiliang/Library/TinyTeX/bin/universal-darwin:/Users/wangyiliang/.local/bin:/opt/homebrew/opt/postgresql/bin:/opt/homebrew/opt/postgresql@18/bin:/Users/wangyiliang/.cargo/bin:/Users/wangyiliang/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback:/Applications/ChatGPT.app/Contents/Resources",
+    "HOME": "/private/tmp/mrw-stage3-v6-backend-recovery-20260907",
+    "TMPDIR": "/private/tmp",
+    "PYTHONHASHSEED": "0",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "PYTHONPATH": "/private/tmp/mrw-stage3-v6-backend-recovery-guard:/private/tmp/mrw-stage3-v6-backend-recovery-20260907:/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend:/private/tmp/mrw-stage3-v6-backend-recovery-20260907/src",
+    "TOKENIZERS_PARALLELISM": "false",
+    "HF_HUB_OFFLINE": "1",
+    "TRANSFORMERS_OFFLINE": "1"
+  },
+  "reason": "Initial backend pytest config did not inherit root pyproject pythonpath=src; add candidate-local src"
+}

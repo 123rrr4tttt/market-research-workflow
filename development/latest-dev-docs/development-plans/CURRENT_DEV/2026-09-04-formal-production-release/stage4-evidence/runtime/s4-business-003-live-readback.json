@@ -1,0 +1,105 @@
+{
+  "authenticated_projection_snapshot": {
+    "candidate_sinks": [
+      "agent_session",
+      "graph",
+      "search"
+    ],
+    "control_feedback": false,
+    "cursor": 7,
+    "envelope_status": "ok",
+    "http_status": 200,
+    "offset_revision": 0,
+    "projection_generation": 1,
+    "scope_exact_match": true
+  },
+  "authoritative": false,
+  "cleanup": {
+    "resources_after": {
+      "containers": [],
+      "networks": [],
+      "volumes": []
+    },
+    "status": "PASS"
+  },
+  "command_writes": 0,
+  "compose_project": "mrw-stage4-local",
+  "ended_at": "2026-09-13T06:57:15Z",
+  "fixture": {
+    "actor_identity_sha256": "0563d1d6e0cf06d368701ac0999de52bf16520ee3a962044830b3ca0bef30fd0",
+    "candidate_count": 3,
+    "project_scope_ref": {
+      "incarnation": "incarnation:stage4-tls-probe:v1",
+      "project_key": "stage4_s4_20260913",
+      "project_registry_revision": 1,
+      "resolved_schema": "project_stage4_s4_20260913",
+      "scope_digest": "b4208272a1816e519addc85c1ef0046fce254e0b7efd1efec8fa353078c73c1e"
+    },
+    "projection_generation": 1,
+    "source_digest": "fcd7ff29bc1d7a9905393910e9733b83e48660610e5349decda994ea44e5c15f",
+    "source_revision": 7
+  },
+  "foreign_tenant_rejection": {
+    "foreign_header_and_locator": {
+      "http_status": 503,
+      "rejected": true
+    },
+    "same_header_foreign_locator": {
+      "error_code": "SCOPE_RESOLUTION_FAILED",
+      "http_status": 200,
+      "rejected": true
+    }
+  },
+  "frozen_r13x_modified": false,
+  "images": {
+    "backend_and_celery": {
+      "image_id": "sha256:24f875d73a7efc0f2b4023393b27c6f0a50045c502e70c96b29c925691c6d901",
+      "reference": "mrw-local/stage4-business003:f0e694fa35a8227e"
+    },
+    "r13x_base": {
+      "image_id": "sha256:d72688f24fb867ae2e0e9310cfc9ec25aac649a8da69130ee26469c0bd37c2ef",
+      "reference": "mrw-local/r13x-candidate-backend:8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2"
+    }
+  },
+  "migration_matrix_rerun": false,
+  "observed_response_summary": {
+    "candidate_sinks": [
+      "agent_session",
+      "graph",
+      "search"
+    ],
+    "envelope_status": "ok",
+    "error_code": null,
+    "error_message": null,
+    "http_status": 200,
+    "scope": {
+      "incarnation": "incarnation:stage4-tls-probe:v1",
+      "project_key": "stage4_s4_20260913",
+      "project_registry_revision": 1,
+      "resolved_schema": "project_stage4_s4_20260913",
+      "scope_digest": "b4208272a1816e519addc85c1ef0046fce254e0b7efd1efec8fa353078c73c1e"
+    }
+  },
+  "project_resources_before": {
+    "containers": [],
+    "networks": [],
+    "volumes": []
+  },
+  "provider_calls": 0,
+  "request_summary": {
+    "body_sha256": "844354d3b6effd759632471d392cce3dc8abc58558c50fd87debe2031acb2aee",
+    "method": "POST",
+    "query_id": "stage4-business003-query-001",
+    "query_kind": "projection_snapshot",
+    "route": "/api/v1/successor-runtime/v2/queries"
+  },
+  "reused_evidence": {
+    "migration_or_tls_matrix_rerun": false,
+    "snapshot": "snapshot-restore.json",
+    "tls_and_upgrade": "tls-upgrade-probe.json"
+  },
+  "schema_version": "mrw.stage4.business003-live-readback.v1",
+  "snapshot_reused": "synthetic-production-like.snapshot.dump",
+  "started_at": "2026-09-13T06:55:18Z",
+  "status": "PASS_LOCAL_STAGE4_BUSINESS003_NOT_AUTHORITY"
+}

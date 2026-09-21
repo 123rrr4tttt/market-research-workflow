@@ -1,0 +1,44 @@
+{
+  "schema_version": "mrw.stage4.s4-business-003-scope-recheck.v1",
+  "authoritative": false,
+  "status": "PASS_LOCAL_STAGE4_BUSINESS003_NOT_AUTHORITY",
+  "authority_ceiling": "LOCAL_STAGE4_RUNTIME_ONLY / NOT_AUTHORITY / PRODUCTION_RELEASE_NOT_AUTHORIZED",
+  "candidate": {
+    "label": "r13x",
+    "commit": "8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+    "tree": "ce7c67c831b51f9d64b4c2f1a470a724a50b19df"
+  },
+  "implementation": {
+    "production_scope_resolver": "EngineProjectScopeResolver",
+    "production_query_port": "EngineC9QueryReadPort",
+    "actor_source": "trusted_authenticated_request_context",
+    "command_submission_port": "deterministic_no_write",
+    "effect_admission_changed": false,
+    "canonical_writer_changed": false
+  },
+  "focused_verification": {
+    "production_runtime_bindings": "31 passed",
+    "postgres_scope_and_projection_readback": "1 passed",
+    "functorial_witness": "1 passed",
+    "production_cold_import": "EngineProjectScopeResolver + EngineC9QueryReadPort",
+    "cross_tenant_scope_rejection": "PASS",
+    "ruff": "PASS",
+    "git_diff_check": "PASS",
+    "temporary_database_resources": "CLEAN"
+  },
+  "live_verification": {
+    "production_image_rebuilt": true,
+    "derived_backend_celery_image": "mrw-local/stage4-business003:f0e694fa35a8227e",
+    "derived_backend_celery_image_id": "sha256:24f875d73a7efc0f2b4023393b27c6f0a50045c502e70c96b29c925691c6d901",
+    "exact_projection_snapshot_query": "PASS",
+    "scope_identity_readback": "PASS",
+    "cross_tenant_rejection": "PASS",
+    "evidence": "../runtime/s4-business-003-live-readback.json"
+  },
+  "blocker": {
+    "owner": "stage4 production runtime live scope/readback",
+    "reason": "Focused code, PostgreSQL adapter checks, and the rebuilt derived runtime live readback now pass; the prior authenticated smoke record remains historical evidence of the pre-fix local-only scope and is not used as current production scope evidence.",
+    "next_action": "No further S4-BUSINESS-003 action; preserve the exact live readback and keep effect admission separate.",
+    "effect_boundary": "No command write, canonical mutation, archive, ingest, provider call, or route admission change performed."
+  }
+}

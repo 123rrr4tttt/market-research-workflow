@@ -1,7 +1,6 @@
 import { expect, test, type Page, type Route } from '@playwright/test'
 import fs from 'node:fs'
 import path from 'node:path'
-import process from 'node:process'
 
 type Box = {
   x: number
@@ -18,11 +17,6 @@ type LayoutProbe = {
   surfaceToken: string
   activeLayer: string
 }
-
-const evidenceDir = path.resolve(
-  process.cwd(),
-  '../../development/latest-dev-docs/automation-runs/frontend-runtime-visual/2026-05-22',
-)
 
 function apiEnvelope(data: unknown) {
   return {
@@ -198,7 +192,8 @@ function assertStageDoesNotOverlapNav(probe: LayoutProbe, navKey: string, stageK
   expect(overlap / stageArea, `${stageKey} overlap with ${navKey}`).toBeLessThan(0.05)
 }
 
-test('frontend runtime visual shell contract covers theme, locale, and A/B/C topology', async ({ page }) => {
+test('frontend runtime visual shell contract covers theme, locale, and A/B/C topology', async ({ page }, testInfo) => {
+  const evidenceDir = testInfo.outputPath('runtime-visual')
   fs.mkdirSync(evidenceDir, { recursive: true })
   await bootstrapPage(page)
   await page.setViewportSize({ width: 1440, height: 960 })

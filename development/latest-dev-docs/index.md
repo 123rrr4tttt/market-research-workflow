@@ -1,6 +1,7 @@
 # Snapshot Source Ledger
 
 Generated: 2026-03-01 PST
+Updated: 2026-06-09 EDT
 
 ## Root Entries
 
@@ -10,6 +11,8 @@ Generated: 2026-03-01 PST
 | `development/latest-dev-docs/MERGED_OVERVIEW.md` | `multiple` | merged outputs navigator |
 | `development/latest-dev-docs/SYNC_STATUS.md` | `multiple` | sync check summary |
 | `development/latest-dev-docs/index.md` | `N/A` | this ledger |
+| `development/latest-dev-docs/automation-runs/branch-hygiene-2026-06-09.md` | `git refs / git remote / GitHub PR metadata` | branch hygiene report |
+| `development/latest-dev-docs/development-plans/G_REVIEW/current-platformization-gap-2026-05-26.md` | `current devdocs / external blocker manifest / automation evidence` | current platformization gap review |
 
 ## Directory Indices
 

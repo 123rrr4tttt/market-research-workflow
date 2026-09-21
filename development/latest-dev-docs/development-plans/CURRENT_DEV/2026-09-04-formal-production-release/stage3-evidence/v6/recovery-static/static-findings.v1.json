@@ -1,0 +1,221 @@
+{
+  "schema_version": "mrw.stage3.recovery-static.v1",
+  "record_id": "stage3-v6-recovery-static-20260907",
+  "authoritative": false,
+  "status": "STATIC_GAPS_CONFIRMED",
+  "candidate_root": "/Users/wangyiliang/.codex/release-candidates/mrw-stage2-20260906-v6",
+  "candidate_commit": "909eb608e538b6427bcbacca974f1efb05fef611",
+  "candidate_tree": "a60b795e509aa5dc479904a321fba32ed0ab9ab2",
+  "candidate_status_porcelain": "",
+  "contract_refs": [
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/09_production-deployment-stage3-successor-contract.v1.md",
+      "sha256": "61d5b99ce8966b1bdb4eadf754ae03b7651026098b38da09dd46a69e773237be"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/15_production-deployment-stage3-v6-contract.v1.md",
+      "sha256": "f7d3637c5cc48eaf7396331c3657cc6cff42269dbf4ffab17af4f7a7a3170d5a"
+    }
+  ],
+  "source_files": [
+    {
+      "path": "main/backend/Dockerfile",
+      "sha256": "837b30116e81235c40e809a7ea0b9d0049bdf52a763b2262ed74f3cecc79c655"
+    },
+    {
+      "path": "main/frontend-modern/Dockerfile",
+      "sha256": "ae4132f1587973c4eeafbbda4f6c64be74563e968193b9b05d197f83c3a16e6b"
+    },
+    {
+      "path": "main/frontend-modern/pnpm-lock.yaml",
+      "sha256": "b39911bade7c4968ff9d0c1c7206a1d820a8d73365b53bee10469234aae25137"
+    },
+    {
+      "path": "main/frontend-modern/package-lock.json",
+      "sha256": "3ab6fd954cef736a8aa8f67cd85c5b1bf60957c0969ae84f8862a797cf6d33b8"
+    },
+    {
+      "path": ".github/workflows/backend-tests.yml",
+      "sha256": "6c108b0842c600fe100ad560732740f347a5d357625fa753a1e052f0b33a7cc6"
+    },
+    {
+      "path": "main/ops/docker-compose.production.yml",
+      "sha256": "20e019b75b1272e7dcd977158776ab1376f0bdd43f4709eb311f78bc5c1ecfc7"
+    },
+    {
+      "path": "scripts/formal_release/check_release_evidence.py",
+      "sha256": "cecb9a08b6ef23c1ee25d5e6955f35e2539ceead3e5e2568076482aa6dd34c35"
+    }
+  ],
+  "findings": [
+    {
+      "id": "STATIC-BASE-PIN",
+      "evidence": [
+        {
+          "file": "main/backend/Dockerfile",
+          "lines": [
+            1,
+            1
+          ]
+        },
+        {
+          "file": "main/frontend-modern/Dockerfile",
+          "lines": [
+            1,
+            13
+          ]
+        }
+      ],
+      "fact": "External FROM references python:3.11-slim, node:22-alpine, nginx:1.27-alpine lack sha256 digests. Internal backend-shared-base references are not external floating image references.",
+      "inference": "Candidate Dockerfile base selection does not satisfy inherited contract 09 section 6 item 9 digest pinning. This is a candidate-byte remediation gap; no build outcome is claimed.",
+      "requirement": "09 section 6 item 9",
+      "repair_owner": "Original Stage 1/2 task 01a074e1-da0d-7a70-9c45-daff7b8bc9ad",
+      "repair_path": "Pin external base references in additive successor, with exact resolved digest evidence. Supervisor acceptance required before replacing v6."
+    },
+    {
+      "id": "STATIC-FRONTEND-LOCK",
+      "evidence": [
+        {
+          "file": ".github/workflows/backend-tests.yml",
+          "lines": [
+            79,
+            97
+          ]
+        },
+        {
+          "file": ".github/workflows/backend-tests.yml",
+          "lines": [
+            135,
+            153
+          ]
+        },
+        {
+          "file": "main/frontend-modern/Dockerfile",
+          "lines": [
+            7,
+            11
+          ]
+        }
+      ],
+      "fact": "Workflow frozen install/build uses pnpm-lock.yaml with pnpm install --frozen-lockfile; Docker artifact copies package*.json and runs npm ci then npm run build. Both lockfiles exist.",
+      "inference": "Two different dependency resolution inputs are confirmed; differing installed dependency graphs have NOT been demonstrated. A single package manager is a remediation recommendation, not an explicit contract requirement.",
+      "requirement": "09 section 6 items 5,11 require frozen install and reproducibility, not specifically pnpm-only.",
+      "repair_owner": "Original Stage 1/2 task if changing Docker/lock/workflow; Stage 3 executor if supplying measured equivalence evidence",
+      "repair_path": "Unify frozen dependency input in successor or demonstrate and bind dependency/build equivalence; preserve historical inputs."
+    },
+    {
+      "id": "STATIC-SCAN-ARTIFACT-JOIN",
+      "evidence": [
+        {
+          "file": ".github/workflows/backend-tests.yml",
+          "lines": [
+            1011,
+            1072
+          ]
+        },
+        {
+          "file": ".github/workflows/backend-tests.yml",
+          "lines": [
+            1111,
+            1151
+          ]
+        },
+        {
+          "file": ".github/workflows/backend-tests.yml",
+          "lines": [
+            1242,
+            1265
+          ]
+        }
+      ],
+      "fact": "Scan job builds three images into localhost:5001 and scans scan-build-*.outputs.digest. Metadata job independently builds into localhost:5000 using build-*.outputs.digest. Metadata required_evidence enumerates digest-inspection, cosign-verification, attestations; it does not join scan digests/results to artifact digests.",
+      "inference": "Static workflow does not establish that published metadata's artifact digest is the digest scanned. Actual digest inequality is not established. Local Stage 3 scans of actual built digests can independently supply binding evidence; changing workflow requires successor.",
+      "requirement": "09 section 6 item 12 requires vulnerability results bound to artifact digest and candidate.",
+      "repair_owner": "Original Stage 1/2 task for workflow; Stage 3 executor for independent actual-artifact scan evidence",
+      "repair_path": "Bind scan result to each final artifact digest, using shared build outputs or explicit equality verification."
+    },
+    {
+      "id": "STATIC-CONVERGENCE-COVERAGE",
+      "evidence": [
+        {
+          "file": ".github/workflows/backend-tests.yml",
+          "lines": [
+            339,
+            369
+          ]
+        },
+        {
+          "file": ".github/workflows/backend-tests.yml",
+          "lines": [
+            793,
+            821
+          ]
+        },
+        {
+          "file": ".github/workflows/backend-tests.yml",
+          "lines": [
+            1301,
+            1314
+          ]
+        },
+        {
+          "file": ".github/workflows/backend-tests.yml",
+          "lines": [
+            1328,
+            1356
+          ]
+        }
+      ],
+      "fact": "required-convergence-check has 13 dependencies and requires success for those 13. core-business-check and e2e-check exist but are not in that list. evidence-validation-check is included.",
+      "inference": "Workflow's convergence job alone does not prove all Stage 3 gates required remotely. Whether omitted jobs are directly required by remote branch protection/rulesets is unknown; omission alone does not prove remotely bypassable gates. Contract does not mandate every job in a single convergence job.",
+      "requirement": "09 section 6 items 2,8 and 15 section 4 require prescribed gates plus exact-SHA remote non-bypassable checks.",
+      "repair_owner": "Stage 3 remote-readback owner; original Stage 1/2 task only if workflow change is necessary",
+      "repair_path": "Read actual required checks/rulesets and map each required gate to enforcement; add convergence dependencies only if needed."
+    },
+    {
+      "id": "STATIC-R2-NO-FUTURE-CYCLE",
+      "evidence": [
+        {
+          "file": ".github/workflows/backend-tests.yml",
+          "lines": [
+            53,
+            69
+          ]
+        },
+        {
+          "file": "scripts/formal_release/check_release_evidence.py",
+          "lines": [
+            24,
+            36
+          ]
+        },
+        {
+          "file": "scripts/formal_release/check_release_evidence.py",
+          "lines": [
+            299,
+            315
+          ]
+        }
+      ],
+      "fact": "Workflow evidence-validation-check executes validator conformance tests. Validator allows UNEXECUTED vocabulary. formal_rc_ready requires all non-promotion records PASS and formal_production_ready requires every record PASS, including later-stage families.",
+      "inference": "Future-stage UNEXECUTED can make readiness booleans false without alone demonstrating malformed evidence or a Stage 3 circular dependency. Stage 3 actual-manifest validation remains required; conformance tests do not replace it.",
+      "requirement": "15 section 4 and 09 section 6 item 15",
+      "repair_owner": "Stage 3 manifest owner",
+      "repair_path": "Report validator structural result, actual Stage 3 evidence completion and later-stage readiness separately; do not fabricate future-stage PASS."
+    }
+  ],
+  "limitations": [
+    "Read-only static inspection, no build/test execution or remote verification.",
+    "Production compose requires image digest environment variables (lines 5,23,46,63,121,193); actual resolved values were not inspected.",
+    "No dependency graph comparison, actual digest comparison or runtime behavior claim.",
+    "No candidate or product changes; recommendations are not additional contract requirements."
+  ],
+  "external_effects": [],
+  "validation": {
+    "contract_full_read": true,
+    "head_tree_match": true,
+    "clean": true,
+    "source_hashes_collected": true
+  },
+  "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE"
+}

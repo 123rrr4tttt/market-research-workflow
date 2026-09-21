@@ -1,0 +1,25 @@
+{
+  "name": "e2e-01",
+  "command": [
+    "pnpm",
+    "test:e2e",
+    "--reporter=json",
+    "--workers=1",
+    "--retries=0",
+    "--max-failures=10"
+  ],
+  "cwd": "/private/tmp/mrw-stage3-v6-frontend-recovery-20260907/main/frontend-modern",
+  "candidate_commit": "909eb608e538b6427bcbacca974f1efb05fef611",
+  "candidate_tree": "a60b795e509aa5dc479904a321fba32ed0ab9ab2",
+  "started": "2026-09-06T21:54:42.815085+00:00",
+  "exit_code": 1,
+  "environment_overrides": {
+    "CI": "true",
+    "STORYBOOK_DISABLE_TELEMETRY": "1",
+    "VITE_API_PROXY_TARGET": "http://127.0.0.1:1",
+    "npm_config_cache": "/private/tmp/mrw-stage3-v6-frontend-recovery-20260907/npm-cache"
+  },
+  "log": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-frontend/e2e-01.log",
+  "log_sha256": "6d4a39af0399311ce4acdbbb347a7f4cfd14bb1b8914dd7ec33fc17c4bf5d5ec",
+  "authoritative": false
+}

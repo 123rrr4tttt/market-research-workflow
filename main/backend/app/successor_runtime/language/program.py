@@ -7,7 +7,9 @@ are never a substitute for the full tree.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Literal, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Literal, NoReturn, Protocol, TypeAlias, runtime_checkable
+
+from functorial_kit import Failure
 
 from app.successor_runtime.research.object_types import ObjectType
 
@@ -24,6 +26,7 @@ from .algebra import (
     freeze_json_value,
     sha256_digest_bytes,
 )
+from .object_contracts import _failure, _raise_failure
 
 if TYPE_CHECKING:
     from .algebra import AlgebraRef
@@ -40,6 +43,41 @@ ALLOWED_NODE_KINDS = (
     "decide",
 )
 PROGRAM_AST_CODEC_ID = "mrw.functorial-successor.program-ast.codec.v1"
+
+ProgramResult: TypeAlias = "ProgramNode | Failure"
+ProgramSpecResult: TypeAlias = "ProgramSpec | Failure"
+
+
+def _program_failure(
+    code: str,
+    message: object,
+    exception_type: type[Exception],
+    *,
+    site: str,
+) -> Failure:
+    return _failure(code, message, exception_type, site=site)
+
+
+def _lift_program_failure(
+    failure: Failure,
+    exception_type: type[Exception],
+    *,
+    cause: BaseException | None = None,
+) -> NoReturn:
+    _raise_failure(failure, exception_type, cause=cause)
+
+
+def _exception_type_from_failure(
+    failure: Failure,
+    default: type[Exception] = ValueError,
+) -> type[Exception]:
+    name = (failure.context or {}).get("public_exception")
+    return {
+        "TypeError": TypeError,
+        "KeyError": KeyError,
+        "ProgramTypeError": ProgramTypeError,
+        "ProgramCodecError": ProgramCodecError,
+    }.get(name, default)
 
 
 class ProgramTypeError(ValueError):
@@ -398,8 +436,10 @@ def _metadata_plain(value: "FrozenJsonObject") -> "dict[str, Any]":
 
 def _check_then_types(first: "ProgramNode", second: "ProgramNode") -> None:
     if first is None or second is None:
+        # kit:boundary owner=successor.language.program class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_program_try_failures_and_legacy_lift
         raise ProgramTypeError("Then requires first and second programs")
     if canonical_digest(first.output_type) != canonical_digest(second.input_type):
+        # kit:boundary owner=successor.language.program class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_program_try_failures_and_legacy_lift
         raise ProgramTypeError(
             f"Then type mismatch: {first.output_type.type_id} -> "
             f"{second.input_type.type_id}"
@@ -408,26 +448,33 @@ def _check_then_types(first: "ProgramNode", second: "ProgramNode") -> None:
 
 def _check_zip_types(left: "ProgramNode", right: "ProgramNode") -> None:
     if left is None or right is None:
+        # kit:boundary owner=successor.language.program class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_program_try_failures_and_legacy_lift
         raise ProgramTypeError("ZipOrdered requires left and right programs")
     if canonical_digest(left.input_type) != canonical_digest(right.input_type):
+        # kit:boundary owner=successor.language.program class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_program_try_failures_and_legacy_lift
         raise ProgramTypeError("ZipOrdered requires equal input types")
 
 
 def _check_decide_branches(branches: "tuple[DecisionBranch, ...]") -> None:
     if not branches:
+        # kit:boundary owner=successor.language.program class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_program_try_failures_and_legacy_lift
         raise ProgramTypeError("Decide requires at least one branch")
     input_digest = canonical_digest(branches[0].program.input_type)
     output_digest = canonical_digest(branches[0].program.output_type)
     branch_ids: "set[str]" = set()
     for branch in branches:
         if not branch.branch_id:
+            # kit:boundary owner=successor.language.program class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_program_try_failures_and_legacy_lift
             raise ProgramTypeError("Decide branch requires a branch_id")
         if branch.branch_id in branch_ids:
+            # kit:boundary owner=successor.language.program class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_program_try_failures_and_legacy_lift
             raise ProgramTypeError(f"duplicate branch_id {branch.branch_id!r}")
         branch_ids.add(branch.branch_id)
         if canonical_digest(branch.program.input_type) != input_digest:
+            # kit:boundary owner=successor.language.program class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_program_try_failures_and_legacy_lift
             raise ProgramTypeError("Decide branch input types must agree")
         if canonical_digest(branch.program.output_type) != output_digest:
+            # kit:boundary owner=successor.language.program class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_program_try_failures_and_legacy_lift
             raise ProgramTypeError("Decide branch output types must agree")
 
 
@@ -449,8 +496,37 @@ def _sequence_object_type(element_type: ObjectType) -> ObjectType:
     )
 
 
-def identity_node(object_type: ObjectType) -> Identity:
+def try_identity_node(object_type: ObjectType) -> Identity:
     return Identity(node_kind="identity", object_type=object_type)
+
+
+def identity_node(object_type: ObjectType) -> Identity:
+    result = try_identity_node(object_type)
+    if isinstance(result, Failure):
+        _lift_program_failure(result, ValueError)
+    return result
+
+
+def try_pure_node(
+    input_type: ObjectType,
+    output_type: ObjectType,
+    literal_value: FrozenJsonValue,
+    literal_codec: str,
+) -> Pure | Failure:
+    try:
+        frozen_literal = freeze_json_value(literal_value)
+        return Pure(
+            node_kind="pure",
+            input_type_ref=input_type,
+            output_type_ref=output_type,
+            literal_codec=literal_codec,
+            literal_digest=canonical_digest(frozen_literal),
+            literal_value=frozen_literal,
+        )
+    except (AttributeError, TypeError, ValueError) as exc:
+        return _program_failure(
+            "PROGRAM_CODEC_INVALID", str(exc), type(exc), site="pure_node.literal"
+        )
 
 
 def pure_node(
@@ -459,15 +535,10 @@ def pure_node(
     literal_value: FrozenJsonValue,
     literal_codec: str,
 ) -> Pure:
-    frozen_literal = freeze_json_value(literal_value)
-    return Pure(
-        node_kind="pure",
-        input_type_ref=input_type,
-        output_type_ref=output_type,
-        literal_codec=literal_codec,
-        literal_digest=canonical_digest(frozen_literal),
-        literal_value=frozen_literal,
-    )
+    result = try_pure_node(input_type, output_type, literal_value, literal_codec)
+    if isinstance(result, Failure):
+        _lift_program_failure(result, _exception_type_from_failure(result))
+    return result
 
 
 def content_addressed_literal(value: "dict[str, Any]") -> "dict[str, Any]":
@@ -482,12 +553,12 @@ def content_addressed_literal(value: "dict[str, Any]") -> "dict[str, Any]":
     return {**content, "content_digest": canonical_digest(content)}
 
 
-def atom_node(
+def try_atom_node(
     operation: OperationSpec,
     input_type: "ObjectType | None" = None,
     output_type: "ObjectType | None" = None,
     return_contract: "ReturnContract | None" = None,
-) -> Atom:
+) -> Atom | Failure:
     return Atom(
         node_kind="atom",
         operation=operation,
@@ -497,16 +568,40 @@ def atom_node(
     )
 
 
+def atom_node(
+    operation: OperationSpec,
+    input_type: "ObjectType | None" = None,
+    output_type: "ObjectType | None" = None,
+    return_contract: "ReturnContract | None" = None,
+) -> Atom:
+    result = try_atom_node(operation, input_type, output_type, return_contract)
+    if isinstance(result, Failure):
+        _lift_program_failure(result, ValueError)
+    return result
+
+
+def try_then_node(first: "ProgramNode", second: "ProgramNode") -> Then | Failure:
+    try:
+        _check_then_types(first, second)
+        return Then(node_kind="then", first=first, second=second)
+    except (AttributeError, TypeError, ValueError) as exc:
+        return _program_failure(
+            "PROGRAM_TYPE_INVALID", str(exc), type(exc), site="then_node"
+        )
+
+
 def then_node(first: "ProgramNode", second: "ProgramNode") -> Then:
-    _check_then_types(first, second)
-    return Then(node_kind="then", first=first, second=second)
+    result = try_then_node(first, second)
+    if isinstance(result, Failure):
+        _lift_program_failure(result, ProgramTypeError)
+    return result
 
 
-def map_output_node(
+def try_map_output_node(
     source: "ProgramNode",
     transform_ref: "TransformRef",
     target_type: ObjectType,
-) -> MapOutput:
+) -> MapOutput | Failure:
     return MapOutput(
         node_kind="map_output",
         source=source,
@@ -515,28 +610,56 @@ def map_output_node(
     )
 
 
+def map_output_node(
+    source: "ProgramNode",
+    transform_ref: "TransformRef",
+    target_type: ObjectType,
+) -> MapOutput:
+    result = try_map_output_node(source, transform_ref, target_type)
+    if isinstance(result, Failure):
+        _lift_program_failure(result, ValueError)
+    return result
+
+
+def try_zip_ordered_node(
+    left: "ProgramNode",
+    right: "ProgramNode",
+    merge_ref: "MergeRef",
+    output_type: "ObjectType | None" = None,
+) -> ZipOrdered | Failure:
+    try:
+        _check_zip_types(left, right)
+        if output_type is None:
+            output_type = _tuple_object_type((left.output_type, right.output_type))
+        return ZipOrdered(
+            node_kind="zip_ordered",
+            left=left,
+            right=right,
+            merge_ref=merge_ref,
+            output_type=output_type,
+        )
+    except (AttributeError, TypeError, ValueError) as exc:
+        return _program_failure(
+            "PROGRAM_TYPE_INVALID", str(exc), type(exc), site="zip_ordered_node"
+        )
+
+
 def zip_ordered_node(
     left: "ProgramNode",
     right: "ProgramNode",
     merge_ref: "MergeRef",
     output_type: "ObjectType | None" = None,
 ) -> ZipOrdered:
-    _check_zip_types(left, right)
-    if output_type is None:
-        output_type = _tuple_object_type((left.output_type, right.output_type))
-    return ZipOrdered(
-        node_kind="zip_ordered",
-        left=left,
-        right=right,
-        merge_ref=merge_ref,
-        output_type=output_type,
-    )
+    result = try_zip_ordered_node(left, right, merge_ref, output_type)
+    if isinstance(result, Failure):
+        _lift_program_failure(result, ProgramTypeError)
+    return result
 
 
-def traverse_ordered_node(
+def try_traverse_ordered_node(
     element_program: "ProgramNode",
     traversal_policy: str,
-) -> TraverseOrdered:
+) -> TraverseOrdered | Failure:
     return TraverseOrdered(
         node_kind="traverse_ordered",
         element_program=element_program,
@@ -544,16 +667,41 @@ def traverse_ordered_node(
     )
 
 
+def traverse_ordered_node(
+    element_program: "ProgramNode",
+    traversal_policy: str,
+) -> TraverseOrdered:
+    result = try_traverse_ordered_node(element_program, traversal_policy)
+    if isinstance(result, Failure):
+        _lift_program_failure(result, ValueError)
+    return result
+
+
+def try_decide_node(
+    discriminator_ref: "DiscriminatorRef",
+    branches: "tuple[DecisionBranch, ...]",
+) -> Decide | Failure:
+    try:
+        _check_decide_branches(branches)
+        return Decide(
+            node_kind="decide",
+            discriminator_ref=discriminator_ref,
+            branches=branches,
+        )
+    except (AttributeError, TypeError, ValueError) as exc:
+        return _program_failure(
+            "PROGRAM_TYPE_INVALID", str(exc), type(exc), site="decide_node"
+        )
+
+
 def decide_node(
     discriminator_ref: "DiscriminatorRef",
     branches: "tuple[DecisionBranch, ...]",
 ) -> Decide:
-    _check_decide_branches(branches)
-    return Decide(
-        node_kind="decide",
-        discriminator_ref=discriminator_ref,
-        branches=branches,
-    )
+    result = try_decide_node(discriminator_ref, branches)
+    if isinstance(result, Failure):
+        _lift_program_failure(result, ProgramTypeError)
+    return result
 
 
 def _placeholder_type(type_id: str) -> ObjectType:
@@ -664,14 +812,32 @@ class SuccessorMaterialization:
             self.successor_program_digest,
         )
         if any(not value for value in required):
+            # kit:boundary owner=successor.language.materialization class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_program_try_failures_and_legacy_lift
             raise ValueError("successor materialization identities must be non-empty")
         if self.state not in {"PREPARED", "MATERIALIZED", "REJECTED"}:
+            # kit:boundary owner=successor.language.materialization class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_program_try_failures_and_legacy_lift
             raise ValueError(f"unsupported successor materialization state {self.state!r}")
         expected_digest = self.successor_program.digest()
         if self.successor_program.program_digest != expected_digest:
+            # kit:boundary owner=successor.language.materialization class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_program_try_failures_and_legacy_lift
             raise ValueError("successor ProgramSpec carries a stale program_digest")
         if self.successor_program_digest != expected_digest:
+            # kit:boundary owner=successor.language.materialization class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_program_try_failures_and_legacy_lift
             raise ValueError("successor_program_digest does not match successor ProgramSpec")
+
+
+def try_successor_materialization(**kwargs: Any) -> SuccessorMaterialization | Failure:
+    try:
+        return SuccessorMaterialization(**kwargs)
+    except (TypeError, ValueError) as exc:
+        message = str(exc)
+        code = (
+            "PROGRAM_DIGEST_MISMATCH"
+            if "stale program_digest" in message
+            or "successor_program_digest does not match" in message
+            else "PROGRAM_MATERIALIZATION_INVALID"
+        )
+        return _program_failure(code, message, type(exc), site="SuccessorMaterialization")
 
 
 def encode_program_spec(spec: ProgramSpec) -> "dict[str, Any]":
@@ -687,7 +853,7 @@ def program_digest(spec: ProgramSpec) -> str:
     return spec.digest()
 
 
-def decode_program_spec(payload: "dict[str, Any]") -> ProgramSpec:
+def _decode_program_spec_impl(payload: "dict[str, Any]") -> ProgramSpec:
     from .algebra import AlgebraRef
     from .transforms import TransformRef
 
@@ -695,12 +861,14 @@ def decode_program_spec(payload: "dict[str, Any]") -> ProgramSpec:
         program = payload["program"]
         codec = program["codec"]
         if codec != PROGRAM_AST_CODEC_ID:
+            # kit:boundary owner=successor.language.program class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_program_try_failures_and_legacy_lift
             raise ProgramCodecError(f"unsupported AST codec {codec!r}")
-        root = decode_ast(program["root"])
+        root = _decode_ast_impl(program["root"])
         input_type = _decode_type(program["input_type"])
         output_type = _decode_type(program["output_type"])
         metadata_value = _unwrap_tags(program["metadata"])
         if not isinstance(metadata_value, dict):
+            # kit:boundary owner=successor.language.program class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_program_try_failures_and_legacy_lift
             raise ProgramCodecError("Program metadata must decode to an object")
         metadata = freeze_json_object(metadata_value)
         algebra_refs = tuple(
@@ -739,7 +907,29 @@ def decode_program_spec(payload: "dict[str, Any]") -> ProgramSpec:
         )
         return spec.with_digest()
     except KeyError as exc:
+        # kit:boundary owner=successor.language.program class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_program_try_failures_and_legacy_lift
         raise ProgramCodecError(f"malformed program spec payload: {exc}") from exc
+
+
+def try_decode_program_spec(payload: "dict[str, Any]") -> ProgramSpec | Failure:
+    try:
+        return _decode_program_spec_impl(payload)
+    except ProgramCodecError as exc:
+        code = "UNKNOWN_NODE_KIND" if "node_kind" in str(exc) else "PROGRAM_CODEC_INVALID"
+        return _program_failure(
+            code, str(exc), ProgramCodecError, site="decode_program_spec"
+        )
+    except (TypeError, ValueError, KeyError) as exc:
+        return _program_failure(
+            "PROGRAM_CODEC_INVALID", str(exc), type(exc), site="decode_program_spec"
+        )
+
+
+def decode_program_spec(payload: "dict[str, Any]") -> ProgramSpec:
+    result = try_decode_program_spec(payload)
+    if isinstance(result, Failure):
+        _lift_program_failure(result, _exception_type_from_failure(result))
+    return result
 
 
 def _decode_type(value: Any) -> ObjectType:
@@ -750,6 +940,7 @@ def _decode_type(value: Any) -> ObjectType:
     elif isinstance(value, dict) and "type_id" in value:
         fields = value
     else:
+        # kit:boundary owner=successor.language.program class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_program_try_failures_and_legacy_lift
         raise ProgramCodecError("expected object_type value")
     return _ObjectType(
         type_id=fields["type_id"],
@@ -763,6 +954,7 @@ def _decode_tagged(value: Any, tag: str) -> Any:
     import json
 
     if not isinstance(value, dict) or value.get("$tag") != tag:
+        # kit:boundary owner=successor.language.program class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_program_try_failures_and_legacy_lift
         raise ProgramCodecError(f"expected tagged value {tag!r}")
     decoded = _unwrap_tags(json.loads(value["$json"]))
     if isinstance(decoded, dict) and set(decoded) == {tag}:
@@ -789,6 +981,7 @@ def _decode_array(value: Any) -> "list[Any]":
         return list(value[1])
     if isinstance(value, list):
         return value
+    # kit:boundary owner=successor.language.program class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_program_try_failures_and_legacy_lift
     raise ProgramCodecError("expected encoded array")
 
 
@@ -799,17 +992,20 @@ def _decode_json_object(value: Any) -> "dict[str, Any]":
         return {}
     if isinstance(value, dict):
         return value
+    # kit:boundary owner=successor.language.program class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_program_try_failures_and_legacy_lift
     raise ProgramCodecError("expected encoded object")
 
 
-def decode_ast(value: Any) -> "ProgramNode":
+def _decode_ast_impl(value: Any) -> "ProgramNode":
     from .algebra import OperationContractRef
     from .transforms import DiscriminatorRef, MergeRef, TransformRef
 
     if not isinstance(value, dict):
+        # kit:boundary owner=successor.language.program class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_program_try_failures_and_legacy_lift
         raise ProgramCodecError("AST node must be an object")
     node_kind = value.get("node_kind")
     if node_kind not in ALLOWED_NODE_KINDS:
+        # kit:boundary owner=successor.language.program class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_program_try_failures_and_legacy_lift
         raise ProgramCodecError(f"unknown node_kind {node_kind!r}")
     if node_kind == "identity":
         return Identity(
@@ -864,14 +1060,14 @@ def decode_ast(value: Any) -> "ProgramNode":
     if node_kind == "then":
         return Then(
             node_kind="then",
-            first=decode_ast(value["first"]),
-            second=decode_ast(value["second"]),
+            first=_decode_ast_impl(value["first"]),
+            second=_decode_ast_impl(value["second"]),
         )
     if node_kind == "map_output":
         tf = _decode_tagged(value["transform_ref"], "transform_ref")
         return MapOutput(
             node_kind="map_output",
-            source=decode_ast(value["source"]),
+            source=_decode_ast_impl(value["source"]),
             transform_ref=TransformRef(
                 name=tf["name"],
                 version=tf["version"],
@@ -884,8 +1080,8 @@ def decode_ast(value: Any) -> "ProgramNode":
         mf = _decode_tagged(value["merge_ref"], "merge_ref")
         return ZipOrdered(
             node_kind="zip_ordered",
-            left=decode_ast(value["left"]),
-            right=decode_ast(value["right"]),
+            left=_decode_ast_impl(value["left"]),
+            right=_decode_ast_impl(value["right"]),
             merge_ref=MergeRef(
                 name=mf["name"],
                 version=mf["version"],
@@ -897,7 +1093,7 @@ def decode_ast(value: Any) -> "ProgramNode":
     if node_kind == "traverse_ordered":
         return TraverseOrdered(
             node_kind="traverse_ordered",
-            element_program=decode_ast(value["element_program"]),
+            element_program=_decode_ast_impl(value["element_program"]),
             traversal_policy=value["traversal_policy"],
         )
     if node_kind == "decide":
@@ -906,7 +1102,7 @@ def decode_ast(value: Any) -> "ProgramNode":
             DecisionBranch(
                 branch_id=item["branch_id"],
                 guard=item["guard"],
-                program=decode_ast(item["program"]),
+                program=_decode_ast_impl(item["program"]),
             )
             for item in _decode_array(value["branches"])
         )
@@ -920,7 +1116,28 @@ def decode_ast(value: Any) -> "ProgramNode":
             ),
             branches=branches,
         )
+    # kit:boundary owner=successor.language.program class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_program_try_failures_and_legacy_lift
     raise ProgramCodecError(f"unsupported node_kind {node_kind!r}")
+
+
+def try_decode_ast(value: Any) -> ProgramNode | Failure:
+    try:
+        return _decode_ast_impl(value)
+    except ProgramCodecError as exc:
+        message = str(exc)
+        code = "UNKNOWN_NODE_KIND" if "node_kind" in message else "PROGRAM_CODEC_INVALID"
+        return _program_failure(code, message, ProgramCodecError, site="decode_ast")
+    except (TypeError, ValueError, KeyError) as exc:
+        return _program_failure(
+            "PROGRAM_CODEC_INVALID", str(exc), type(exc), site="decode_ast"
+        )
+
+
+def decode_ast(value: Any) -> "ProgramNode":
+    result = try_decode_ast(value)
+    if isinstance(result, Failure):
+        _lift_program_failure(result, _exception_type_from_failure(result))
+    return result
 
 
 def _decode_value_ref(value: Any) -> Any:

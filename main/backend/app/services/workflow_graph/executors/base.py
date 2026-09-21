@@ -24,4 +24,4 @@ class BaseNodeExecutor(ABC):
 
     @abstractmethod
     def execute(self, node: dict[str, Any], context: NodeExecutionContext) -> Any:
-        raise NotImplementedError
+        raise NotImplementedError  # kit:boundary owner=workflow_graph.executors.base class=PROGRAMMER_DEFECT failure_family=none witness=test:test_base_node_executor_abstract_execute_is_not_implemented

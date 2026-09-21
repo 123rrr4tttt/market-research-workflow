@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from threading import RLock
-from typing import Any, Mapping, Protocol
+from typing import Annotated, Any, Mapping, Protocol
 
 from app.services.ingest_config.service import get_config as get_ingest_config
 from app.services.ingest_config.service import upsert_config as upsert_ingest_config
@@ -60,7 +60,13 @@ class IngestConfigClueChainStore:
         return normalize_state(payload)
 
 
-def build_clue_chain_store(*, project_key: str | None = None) -> IngestConfigClueChainStore:
+def build_clue_chain_store(
+    *, project_key: str | None = None
+) -> Annotated[
+    IngestConfigClueChainStore,
+    "kit:prepared-command effect_boundary=ingest_config_clue_chain_store "
+    "witness=test:test_w04_authority_metadata",
+]:
     return IngestConfigClueChainStore(project_key=project_key)
 
 

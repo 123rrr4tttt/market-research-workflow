@@ -1,0 +1,1 @@
+"""MRW explicit contribution catalogs."""

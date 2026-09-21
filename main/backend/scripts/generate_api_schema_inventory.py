@@ -3,7 +3,7 @@ from __future__ import annotations
 import sys
 from collections import Counter, defaultdict
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi.routing import APIRoute
 
@@ -122,7 +122,11 @@ def _status_codes(operation: dict[str, Any]) -> str:
     return ", ".join(sorted(str(code) for code in responses))
 
 
-def build_inventory(app: Any) -> dict[str, Any]:
+def build_inventory(app: Any) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=generated_evidence "
+    "fact_source=fastapi.openapi.routes witness=test:test_w10_cli_generator_derived_metadata_preserves_abi",
+]:
     schema = app.openapi()
     routes = _route_index(app)
     operations: list[dict[str, Any]] = []

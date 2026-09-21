@@ -1,0 +1,31 @@
+{
+  "authoritative": false,
+  "authority_ceiling": "LOCAL_UNSIGNED_EVIDENCE_NOT_RELEASE_AUTHORITY",
+  "candidate": {
+    "clean": true,
+    "commit": "9b95d1c6c515b3013d6be7fd39ffb54801310c1c",
+    "path": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260910-v4-r13r/candidate",
+    "tree": "040f2ed5b223607c63404c709e413f8898c2b504"
+  },
+  "candidate_manifest": {
+    "path": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260910-v4-r13r/evidence/candidate-manifest.v5.json",
+    "sha256": "ee6d13fe269c7177f0eb2b5df1aca1d50e05299b43aeeb4759093b6d1d61d439"
+  },
+  "frontend_r13q_reuse_check": {
+    "equal": true,
+    "r13q_tree": "ecd89555d90743f33d605423e5e5d0feb049ce7d",
+    "r13r_tree": "ecd89555d90743f33d605423e5e5d0feb049ce7d",
+    "reuse_scope": "Input identity record only; both r13r-bound amd64 builds and attestations are newly executed."
+  },
+  "platform": "linux/amd64",
+  "replay": {
+    "binding_evidence": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260910-v4-r13r/evidence/replay-r1-candidate-identity.r13r.json",
+    "path": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260910-v4-r13r/replay"
+  },
+  "role_input_trees": {
+    "main/backend": "e9511474c0ae03693a45fa818c2603fba0ffb050",
+    "main/frontend-modern": "ecd89555d90743f33d605423e5e5d0feb049ce7d",
+    "src": "0dfa137c2c9aba658d8b1f39281412ff69c3d67c"
+  },
+  "schema": "mrw.stage3.r13r.amd64-artifact-input.v1"
+}

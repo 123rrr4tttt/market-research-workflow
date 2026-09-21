@@ -11,7 +11,13 @@ from __future__ import annotations
 import dataclasses
 from typing import Any, Protocol, runtime_checkable
 
+from functorial_kit import Failure
+
 from app.successor_runtime.capabilities import agent_core_c6_3 as c6_3
+from app.successor_runtime.capabilities.agent_core_c6_3 import (
+    _contract_failure,
+    _raise_contract_failure,
+)
 from app.successor_runtime.capabilities.agent_core_c6_common import (
     InterpreterFailure,
     InterpreterOutcome,
@@ -88,7 +94,7 @@ def _is_hex64(value: Any) -> bool:
     return isinstance(value, str) and is_sha256_hex(value)
 
 
-def require_exact_redaction_binding(
+def _require_exact_redaction_binding(
     *,
     program: Any,
     plan: Any,
@@ -100,7 +106,7 @@ def require_exact_redaction_binding(
     deployment_catalog_digest: str,
     binding: Any,
     expected_interpreter_profile_digest: str | None = None,
-) -> dict[str, str]:
+) -> dict[str, str] | Failure:
     """Fail closed unless the complete C6.3 closure is exact."""
 
     failures: list[str] = []
@@ -155,21 +161,13 @@ def require_exact_redaction_binding(
         failures.append("plan digest")
     if with_plan_digest(plan).plan_digest != plan.plan_digest:
         failures.append("plan digest forged")
-    if (
-        getattr(plan.input_type, "type_id", None)
-        != c6_3.AGENT_CORE_C6_3_PAYLOAD_TYPE.type_id
-    ):
+    if getattr(plan.input_type, "type_id", None) != c6_3.AGENT_CORE_C6_3_PAYLOAD_TYPE.type_id:
         failures.append("plan input type")
-    if (
-        getattr(plan.output_type, "type_id", None)
-        != c6_3.AGENT_CORE_C6_3_RESULT_TYPE.type_id
-    ):
+    if getattr(plan.output_type, "type_id", None) != c6_3.AGENT_CORE_C6_3_RESULT_TYPE.type_id:
         failures.append("plan output type")
 
     effect_steps = tuple(
-        step
-        for step in plan.ordered_steps
-        if step.step_kind == "EFFECT" and step.operation_contract_ref is not None
+        step for step in plan.ordered_steps if step.step_kind == "EFFECT" and step.operation_contract_ref is not None
     )
     if len(effect_steps) != 1:
         failures.append("plan effect steps")
@@ -189,10 +187,7 @@ def require_exact_redaction_binding(
     if not _is_hex64(contract_ref.contract_digest):
         failures.append("contract digest")
     catalog_ref = catalog.lookup(contract_ref)
-    if (
-        catalog_ref is None
-        or catalog_ref.contract_digest != contract_ref.contract_digest
-    ):
+    if catalog_ref is None or catalog_ref.contract_digest != contract_ref.contract_digest:
         failures.append("catalog/contract ref")
 
     plain = dataclasses.asdict(payload)
@@ -201,20 +196,14 @@ def require_exact_redaction_binding(
         failures.append("payload ref content digest")
     if payload_ref.project_key != project_scope.project_key:
         failures.append("payload ref project key")
-    if (
-        getattr(payload_ref.object_type, "type_id", None)
-        != c6_3.AGENT_CORE_C6_3_PAYLOAD_TYPE.type_id
-    ):
+    if getattr(payload_ref.object_type, "type_id", None) != c6_3.AGENT_CORE_C6_3_PAYLOAD_TYPE.type_id:
         failures.append("payload ref object type")
     if not _is_hex64(payload_ref.provenance_digest):
         failures.append("payload ref provenance digest")
 
     if not _is_hex64(binding.binding_digest):
         failures.append("binding digest")
-    if (
-        getattr(binding, "operation_contract_digest", None)
-        != contract_ref.contract_digest
-    ):
+    if getattr(binding, "operation_contract_digest", None) != contract_ref.contract_digest:
         failures.append("binding/contract digest")
     if getattr(binding, "project_scope_digest", None) != project_scope.scope_digest:
         failures.append("binding/scope digest")
@@ -224,14 +213,16 @@ def require_exact_redaction_binding(
         failures.append("binding/deployment catalog digest")
     if (
         expected_interpreter_profile_digest is not None
-        and getattr(binding, "interpreter_profile_digest", None)
-        != expected_interpreter_profile_digest
+        and getattr(binding, "interpreter_profile_digest", None) != expected_interpreter_profile_digest
     ):
         failures.append("binding/interpreter profile")
 
     if failures:
-        raise RedactionBindingMismatch(
-            "C6.3 redaction binding drift: " + ", ".join(sorted(set(failures)))
+        return _contract_failure(
+            "program_binding_invalid",
+            "C6.3 redaction binding drift: " + ", ".join(sorted(set(failures))),
+            drifts=sorted(set(failures)),
+            public_exception="RedactionBindingMismatch",
         )
     return {
         "program_digest": program.program_digest,
@@ -240,6 +231,38 @@ def require_exact_redaction_binding(
         "payload_content_digest": payload_ref.content_digest,
         "binding_digest": binding.binding_digest,
     }
+
+
+def require_exact_redaction_binding(
+    *,
+    program: Any,
+    plan: Any,
+    contract_ref: OperationContractRef,
+    payload_ref: Any,
+    payload: PayloadView,
+    project_scope: ProjectScopeView,
+    catalog: OperationContractCatalogSnapshot,
+    deployment_catalog_digest: str,
+    binding: Any,
+    expected_interpreter_profile_digest: str | None = None,
+) -> dict[str, str]:
+    """Public C6.3 ABI preserving the historical typed binding exception."""
+
+    outcome = _require_exact_redaction_binding(
+        program=program,
+        plan=plan,
+        contract_ref=contract_ref,
+        payload_ref=payload_ref,
+        payload=payload,
+        project_scope=project_scope,
+        catalog=catalog,
+        deployment_catalog_digest=deployment_catalog_digest,
+        binding=binding,
+        expected_interpreter_profile_digest=(expected_interpreter_profile_digest),
+    )
+    if isinstance(outcome, Failure):
+        _raise_contract_failure(outcome, RedactionBindingMismatch)
+    return outcome
 
 
 def legacy_interpreter_profile_digest() -> str:
@@ -296,25 +319,22 @@ class VersionedRedactionEvidenceInterpreter:
         binding: Any,
         raw_observation: Any,
     ) -> InterpreterOutcome[c6_3.RedactionReceipt]:
-        try:
-            require_exact_redaction_binding(
-                program=program,
-                plan=plan,
-                contract_ref=contract_ref,
-                payload_ref=payload_ref,
-                payload=payload,
-                project_scope=project_scope,
-                catalog=catalog,
-                deployment_catalog_digest=deployment_catalog_digest,
-                binding=binding,
-                expected_interpreter_profile_digest=(
-                    successor_interpreter_profile_digest()
-                ),
-            )
-        except RedactionBindingMismatch as exc:
+        binding_failure = _require_exact_redaction_binding(
+            program=program,
+            plan=plan,
+            contract_ref=contract_ref,
+            payload_ref=payload_ref,
+            payload=payload,
+            project_scope=project_scope,
+            catalog=catalog,
+            deployment_catalog_digest=deployment_catalog_digest,
+            binding=binding,
+            expected_interpreter_profile_digest=(successor_interpreter_profile_digest()),
+        )
+        if isinstance(binding_failure, Failure):
             return InterpreterFailure(
                 code="ASSIGNMENT_BINDING_MISMATCH",
-                message=str(exc),
+                message=binding_failure.message,
                 retryable=False,
             )
 

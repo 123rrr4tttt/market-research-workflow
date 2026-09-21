@@ -8,7 +8,7 @@ import json
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Annotated, Any, Mapping
 
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
@@ -127,7 +127,10 @@ def _fixture_events() -> list[dict[str, Any]]:
     ]
 
 
-def build_24h_metrics_artifact(*, project_key: str = "demo_proj") -> dict[str, Any]:
+def build_24h_metrics_artifact(*, project_key: str = "demo_proj") -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=generated_evidence fact_source=repo_local.ingest_canary_fixture_events witness=test:test_ingest_canary_24h_metrics_authority_metadata",
+]:
     normalized_project = str(project_key or "demo_proj").strip() or "demo_proj"
     events = _fixture_events()
     total_attempts = len(events)

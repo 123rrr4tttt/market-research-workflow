@@ -30,6 +30,7 @@ class ApiExceptionEnvelopeIntegrationTestCase(unittest.TestCase):
         if _IMPORT_ERROR is not None:
             raise unittest.SkipTest(f"exception envelope tests require backend dependencies: {_IMPORT_ERROR}")
         cls.client = TestClient(backend_app)
+        cls.added_error_route = None
         cls.headers = {"X-Project-Key": "demo_proj", "X-Request-Id": "exception-envelope-it"}
         cls.error_path = "/api/v1/test/exception-envelope"
         has_route = any(
@@ -41,6 +42,20 @@ class ApiExceptionEnvelopeIntegrationTestCase(unittest.TestCase):
                 raise HTTPException(status_code=400, detail="invalid input in test")
 
             backend_app.add_api_route(cls.error_path, _raise_http_exception_for_test, methods=["GET"])
+            cls.added_error_route = next(
+                route
+                for route in backend_app.routes
+                if isinstance(route, APIRoute)
+                and route.path == cls.error_path
+                and route.endpoint is _raise_http_exception_for_test
+            )
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.client.close()
+        if cls.added_error_route is not None:
+            backend_app.router.routes.remove(cls.added_error_route)
+            backend_app.openapi_schema = None
 
     def test_http_exception_path_returns_envelope_with_legacy_detail_alias(self):
         resp = self.client.get(self.error_path, headers=self.headers)
@@ -79,7 +94,7 @@ class ApiExceptionEnvelopeIntegrationTestCase(unittest.TestCase):
 
         self.assertIsNotNone(health_route)
 
-        def _raise_http_exception() -> None:
+        def _raise_http_exception(*, request) -> None:
             raise HTTPException(status_code=503, detail="health unavailable")
 
         with patch.object(health_route.dependant, "call", _raise_http_exception):

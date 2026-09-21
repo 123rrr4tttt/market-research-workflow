@@ -1,0 +1,130 @@
+HTTP/2 200 
+date: Sun, 06 Sep 2026 22:40:38 GMT
+content-type: application/json; charset=utf-8
+cache-control: public, max-age=60, s-maxage=60
+vary: Accept,Accept-Encoding, Accept, X-Requested-With
+etag: W/"56e949deeba0f585d295cc42c67f1dde83ad41b5a60fc298d91b2ed3c4acb125"
+x-github-media-type: github.v3; format=json
+x-github-api-version-selected: 2022-11-28
+access-control-expose-headers: ETag, Link, Location, Retry-After, X-GitHub-OTP, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Used, X-RateLimit-Resource, X-RateLimit-Reset, X-OAuth-Scopes, X-Accepted-OAuth-Scopes, X-Poll-Interval, X-GitHub-Media-Type, X-GitHub-SSO, X-GitHub-Request-Id, Deprecation, Sunset, Warning
+access-control-allow-origin: *
+strict-transport-security: max-age=31536000; includeSubdomains; preload
+x-frame-options: deny
+x-content-type-options: nosniff
+x-xss-protection: 0
+referrer-policy: origin-when-cross-origin, strict-origin-when-cross-origin
+content-security-policy: default-src 'none'
+server: github.com
+accept-ranges: bytes
+x-ratelimit-limit: 60
+x-ratelimit-remaining: 57
+x-ratelimit-used: 3
+x-ratelimit-resource: core
+x-ratelimit-reset: 1788738037
+content-length: 5029
+x-github-request-id: 49E9:1E069C:BD73C6:1167726:6A9DEBE6
+x-github-edge-region: koreacentral
+
+{
+  "name": "main",
+  "commit": {
+    "sha": "88ffcc3dab2e6cbdc1f389e16c4226df5a2e51c6",
+    "node_id": "C_kwDORYt_fNoAKDg4ZmZjYzNkYWIyZTZjYmRjMWYzODllMTZjNDIyNmRmNWEyZTUxYzY",
+    "commit": {
+      "author": {
+        "name": "Yiliang Wang",
+        "email": "shiyuwang894@berkeley.edu",
+        "date": "2026-09-02T19:21:00Z"
+      },
+      "committer": {
+        "name": "Yiliang Wang",
+        "email": "shiyuwang894@berkeley.edu",
+        "date": "2026-09-02T19:21:00Z"
+      },
+      "message": "agent: local Codex bridge provider mode + read-only business-chain snapshot context\n\n- AGENT_CORE_MODEL_PROVIDER auto|openai|codex_cli (default auto unchanged)\n- codex_cli drives agent-core model steps via local codex exec (read-only sandbox)\n- business_chain_context module: s1/s2c registry + real-DB table counts + ACTIVE scope rows, fail-closed, no secrets\n- focused 3 passed, agent-chat regression 26 passed, ruff clean",
+      "tree": {
+        "sha": "81612df97fca9742113d155717078ef399409667",
+        "url": "https://api.github.com/repos/123rrr4tttt/market-research-workflow/git/trees/81612df97fca9742113d155717078ef399409667"
+      },
+      "url": "https://api.github.com/repos/123rrr4tttt/market-research-workflow/git/commits/88ffcc3dab2e6cbdc1f389e16c4226df5a2e51c6",
+      "comment_count": 0,
+      "verification": {
+        "verified": false,
+        "reason": "unsigned",
+        "signature": null,
+        "payload": null,
+        "verified_at": null
+      }
+    },
+    "url": "https://api.github.com/repos/123rrr4tttt/market-research-workflow/commits/88ffcc3dab2e6cbdc1f389e16c4226df5a2e51c6",
+    "html_url": "https://github.com/123rrr4tttt/market-research-workflow/commit/88ffcc3dab2e6cbdc1f389e16c4226df5a2e51c6",
+    "comments_url": "https://api.github.com/repos/123rrr4tttt/market-research-workflow/commits/88ffcc3dab2e6cbdc1f389e16c4226df5a2e51c6/comments",
+    "author": {
+      "login": "123rrr4tttt",
+      "id": 101017191,
+      "node_id": "U_kgDOBgVmZw",
+      "avatar_url": "https://avatars.githubusercontent.com/u/101017191?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/123rrr4tttt",
+      "html_url": "https://github.com/123rrr4tttt",
+      "followers_url": "https://api.github.com/users/123rrr4tttt/followers",
+      "following_url": "https://api.github.com/users/123rrr4tttt/following{/other_user}",
+      "gists_url": "https://api.github.com/users/123rrr4tttt/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/123rrr4tttt/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/123rrr4tttt/subscriptions",
+      "organizations_url": "https://api.github.com/users/123rrr4tttt/orgs",
+      "repos_url": "https://api.github.com/users/123rrr4tttt/repos",
+      "events_url": "https://api.github.com/users/123rrr4tttt/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/123rrr4tttt/received_events",
+      "type": "User",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "committer": {
+      "login": "123rrr4tttt",
+      "id": 101017191,
+      "node_id": "U_kgDOBgVmZw",
+      "avatar_url": "https://avatars.githubusercontent.com/u/101017191?v=4",
+      "gravatar_id": "",
+      "url": "https://api.github.com/users/123rrr4tttt",
+      "html_url": "https://github.com/123rrr4tttt",
+      "followers_url": "https://api.github.com/users/123rrr4tttt/followers",
+      "following_url": "https://api.github.com/users/123rrr4tttt/following{/other_user}",
+      "gists_url": "https://api.github.com/users/123rrr4tttt/gists{/gist_id}",
+      "starred_url": "https://api.github.com/users/123rrr4tttt/starred{/owner}{/repo}",
+      "subscriptions_url": "https://api.github.com/users/123rrr4tttt/subscriptions",
+      "organizations_url": "https://api.github.com/users/123rrr4tttt/orgs",
+      "repos_url": "https://api.github.com/users/123rrr4tttt/repos",
+      "events_url": "https://api.github.com/users/123rrr4tttt/events{/privacy}",
+      "received_events_url": "https://api.github.com/users/123rrr4tttt/received_events",
+      "type": "User",
+      "user_view_type": "public",
+      "site_admin": false
+    },
+    "parents": [
+      {
+        "sha": "c7580d46816d2809a83b1d449f2f3f247b76f188",
+        "url": "https://api.github.com/repos/123rrr4tttt/market-research-workflow/commits/c7580d46816d2809a83b1d449f2f3f247b76f188",
+        "html_url": "https://github.com/123rrr4tttt/market-research-workflow/commit/c7580d46816d2809a83b1d449f2f3f247b76f188"
+      }
+    ]
+  },
+  "_links": {
+    "self": "https://api.github.com/repos/123rrr4tttt/market-research-workflow/branches/main",
+    "html": "https://github.com/123rrr4tttt/market-research-workflow/tree/main"
+  },
+  "protected": false,
+  "protection": {
+    "enabled": false,
+    "required_status_checks": {
+      "enforcement_level": "off",
+      "contexts": [
+
+      ],
+      "checks": [
+
+      ]
+    }
+  },
+  "protection_url": "https://api.github.com/repos/123rrr4tttt/market-research-workflow/branches/main/protection"
+}

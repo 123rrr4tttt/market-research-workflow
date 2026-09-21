@@ -5,6 +5,8 @@ import re
 from datetime import datetime, timezone
 from typing import Any
 
+from functorial_kit import Failure
+
 from ...contracts.schemas.writing import (
     KeywordCardDetailRequest,
     KeywordCardDetailResponse,
@@ -28,6 +30,7 @@ from ..document_views import (
 )
 from ..search.hybrid import get_last_used_backends
 from ..typed_knowledge.contracts import parse_writing_knowledge_context_envelope
+from .document_service import _raise_writing_legacy, _writing_failure
 
 _CARD_CACHE: dict[str, dict[str, Any]] = {}
 _SELECTION_CACHE: dict[str, KeywordCardListResponse] = {}
@@ -275,10 +278,15 @@ def aggregate_cards(payload: KeywordCardRequest) -> KeywordCardListResponse:
     )
 
 
-def get_card_preview(payload: KeywordCardPreviewRequest) -> KeywordCardPreviewResponse:
+def try_get_card_preview(payload: KeywordCardPreviewRequest) -> KeywordCardPreviewResponse | Failure:
     cached = _CARD_CACHE.get(payload.card_id)
     if cached is None:
-        raise KeyError(f"card not found: {payload.card_id}")
+        return _writing_failure(
+            "card_not_found",
+            f"card not found: {payload.card_id}",
+            owner="writing.keyword_card_service.get_card_preview",
+            public_exception=KeyError,
+        )
     item = cached["item"]
     return KeywordCardPreviewResponse(
         card_id=item["card_id"],
@@ -292,10 +300,22 @@ def get_card_preview(payload: KeywordCardPreviewRequest) -> KeywordCardPreviewRe
     )
 
 
-def get_card_detail(payload: KeywordCardDetailRequest) -> KeywordCardDetailResponse:
+def get_card_preview(payload: KeywordCardPreviewRequest) -> KeywordCardPreviewResponse:
+    outcome = try_get_card_preview(payload)
+    if isinstance(outcome, Failure):
+        _raise_writing_legacy(outcome)
+    return outcome
+
+
+def try_get_card_detail(payload: KeywordCardDetailRequest) -> KeywordCardDetailResponse | Failure:
     cached = _CARD_CACHE.get(payload.card_id)
     if cached is None:
-        raise KeyError(f"card not found: {payload.card_id}")
+        return _writing_failure(
+            "card_not_found",
+            f"card not found: {payload.card_id}",
+            owner="writing.keyword_card_service.get_card_detail",
+            public_exception=KeyError,
+        )
     item = cached["item"]
     raw = cached["raw"] if isinstance(cached.get("raw"), dict) else {}
     provenance = {
@@ -318,3 +338,10 @@ def get_card_detail(payload: KeywordCardDetailRequest) -> KeywordCardDetailRespo
         selection_matches={"query": cached.get("normalized_query"), "request_id": payload.request_id},
         source_type=item["source_type"],
     )
+
+
+def get_card_detail(payload: KeywordCardDetailRequest) -> KeywordCardDetailResponse:
+    outcome = try_get_card_detail(payload)
+    if isinstance(outcome, Failure):
+        _raise_writing_legacy(outcome)
+    return outcome

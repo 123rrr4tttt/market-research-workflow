@@ -17,7 +17,9 @@ try:
         run_collect,
         run_source_library_item_compat,
     )
+    from app.composition.collect_runtime import configure_default_collect_adapters
     from app.services.crawlers.base import CrawlerDispatchResult
+    from app.services.source_library import provider_ports
 
     _IMPORT_ERROR = None
 except Exception as exc:  # noqa: BLE001
@@ -46,11 +48,22 @@ class _FakeScrapyProvider:
         )
 
 
+class _FakeCrawlerProviderResolver:
+    def __init__(self, provider: _FakeScrapyProvider) -> None:
+        self.provider = provider
+        self.calls: list[tuple[str, dict, dict]] = []
+
+    def resolve(self, provider_type, *, channel, params):  # noqa: ANN001
+        self.calls.append((provider_type, channel, params))
+        return self.provider
+
+
 class T22SourceLibraryScrapyCollectRuntimeIntegrationTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         if _IMPORT_ERROR is not None:
             raise unittest.SkipTest(f"T22 integration test requires backend dependencies: {_IMPORT_ERROR}")
+        configure_default_collect_adapters(force=True)
 
     def test_source_library_scrapy_item_dispatch_chain_surfaces_provider_metadata(self):
         item_key = "t22-item"
@@ -80,29 +93,36 @@ class T22SourceLibraryScrapyCollectRuntimeIntegrationTestCase(unittest.TestCase)
             }
         ]
         fake_provider = _FakeScrapyProvider()
+        fake_resolver = _FakeCrawlerProviderResolver(fake_provider)
+        original_resolver = provider_ports._CRAWLER_PROVIDER_RESOLVER
+        provider_ports.set_crawler_provider_resolver(fake_resolver)
 
-        with (
-            patch("app.services.collect_runtime.adapters.source_library.start_job", return_value="job-local-1"),
-            patch("app.services.collect_runtime.adapters.source_library.complete_job"),
-            patch("app.services.collect_runtime.adapters.source_library.fail_job"),
-            patch("app.services.source_library.resolver.list_effective_items", return_value=fake_items),
-            patch("app.services.source_library.resolver.list_effective_channels", return_value=fake_channels),
-            patch("app.services.source_library.runner._ensure_handlers_registered", return_value=None),
-            patch("app.services.crawlers.registry.get_provider", return_value=fake_provider),
-        ):
-            request = collect_request_from_source_library_api(
-                item_key=item_key,
-                project_key=None,
-                override_params={"arguments": {"keyword": "ai"}},
-            )
-            collect_result = run_collect(request)
-            compat_result = run_source_library_item_compat(
-                item_key=item_key,
-                project_key=None,
-                override_params={"arguments": {"keyword": "ai"}},
-            )
+        try:
+            with (
+                patch("app.services.collect_runtime.adapters.source_library.start_job", return_value="job-local-1"),
+                patch("app.services.collect_runtime.adapters.source_library.complete_job"),
+                patch("app.services.collect_runtime.adapters.source_library.fail_job"),
+                patch("app.services.source_library.resolver.list_effective_items", return_value=fake_items),
+                patch("app.services.source_library.resolver.list_effective_channels", return_value=fake_channels),
+                patch("app.services.source_library.runner._ensure_handlers_registered", return_value=None),
+            ):
+                request = collect_request_from_source_library_api(
+                    item_key=item_key,
+                    project_key=None,
+                    override_params={"arguments": {"keyword": "ai"}},
+                )
+                collect_result = run_collect(request)
+                compat_result = run_source_library_item_compat(
+                    item_key=item_key,
+                    project_key=None,
+                    override_params={"arguments": {"keyword": "ai"}},
+                )
+        finally:
+            provider_ports.set_crawler_provider_resolver(original_resolver)
 
         self.assertEqual(len(fake_provider.calls), 2)
+        self.assertEqual([call[0] for call in fake_resolver.calls], ["scrapy", "scrapy"])
+        self.assertEqual([call[1] for call in fake_resolver.calls], [fake_channels[0], fake_channels[0]])
         self.assertEqual(fake_provider.calls[0]["provider"], "scrapy")
         self.assertEqual(fake_provider.calls[0]["project"], "demo_proj")
         self.assertEqual(fake_provider.calls[0]["spider"], "news_spider")

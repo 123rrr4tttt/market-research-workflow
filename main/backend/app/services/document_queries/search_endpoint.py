@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Iterable, Mapping
+from typing import Annotated, Any, Iterable, Mapping
 
 from .contracts import (
     DOCUMENT_QUERY_CONTRACT_VERSION,
@@ -34,7 +34,11 @@ def build_search_endpoint_document_query(
     state: str | None = None,
     project_key: str | None = None,
     limit: int,
-) -> DocumentQuery:
+) -> Annotated[
+    DocumentQuery,
+    "kit:prepared-command effect_boundary=app.services.document_queries.statement_builder "
+    "witness=test:test_w04_authority_metadata",
+]:
     filters: list[dict[str, Any]] = []
     state_filter = _clean_optional_text(state)
     if state_filter:
@@ -61,7 +65,11 @@ def build_search_endpoint_document_query_envelope(
     results: Iterable[Any],
     project_key: str | None = None,
     used_backends: Iterable[str] = (),
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=api.search.hybrid "
+    "witness=test:test_search_endpoint_envelope_exposes_document_query_contract",
+]:
     query_object = build_search_endpoint_document_query(
         query=query,
         state=state,

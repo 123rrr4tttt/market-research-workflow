@@ -30,6 +30,7 @@ def collect_weekly_market_reports(limit: int = 10) -> dict:
     except Exception as exc:  # noqa: BLE001
         logger.exception("collect_weekly_market_reports failed")
         fail_job(job_id, str(exc))
+        # kit:boundary owner=ingest.weekly_report class=SHELL_BOUNDARY_EXCEPTION failure_family=ingest.operation.failure witness=test:test_latest_service_a_ingest_shell_boundaries_reraise_original_errors
         raise
 
 
@@ -50,6 +51,7 @@ def collect_monthly_financial_reports(limit: int = 8) -> dict:
     except Exception as exc:  # noqa: BLE001
         logger.exception("collect_monthly_financial_reports failed")
         fail_job(job_id, str(exc))
+        # kit:boundary owner=ingest.monthly_report class=SHELL_BOUNDARY_EXCEPTION failure_family=ingest.operation.failure witness=test:test_latest_service_a_ingest_shell_boundaries_reraise_original_errors
         raise
 
 
@@ -115,5 +117,3 @@ def _ensure_source(session, name: str | None, base_url: str | None) -> Source:
     session.add(source)
     session.flush()
     return source
-
-

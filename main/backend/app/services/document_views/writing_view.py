@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any
 
 
 def _iso_or_none(value: Any) -> str | None:
@@ -64,7 +64,16 @@ def serialize_writing_citation(row: Any) -> dict[str, Any]:
     }
 
 
-def build_writing_conflict_details(row: Any, *, expected_version: int | None) -> dict[str, Any]:
+def build_writing_conflict_details(
+    row: Any,
+    *,
+    expected_version: int | None,
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view "
+    "fact_source=writing_document_row+expected_version "
+    "witness=test:test_w04_authority_metadata",
+]:
     serialized = serialize_writing_document(row)
     return {
         "conflict_code": "VERSION_CONFLICT",

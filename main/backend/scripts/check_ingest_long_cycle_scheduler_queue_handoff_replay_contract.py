@@ -42,7 +42,10 @@ REQUIRED_TOPIC_MARKERS = (
 )
 
 
-def build_check() -> dict[str, object]:
+def build_check() -> Annotated[
+    dict[str, object],
+    "kit:prepared-command effect_boundary=temporary_sqlite.long_cycle_repository witness=test:test_ingest_long_cycle_scheduler_queue_handoff_authority_metadata",
+]:
     with tempfile.TemporaryDirectory(prefix="ingest-lc-queue-replay-") as tmp_dir:
         repository = SqliteLongCycleTaskRepository(
             db_path=Path(tmp_dir) / "long_cycle_live.db",
@@ -204,3 +207,4 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+from typing import Annotated

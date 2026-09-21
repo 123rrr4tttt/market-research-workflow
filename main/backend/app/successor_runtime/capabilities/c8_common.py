@@ -16,7 +16,10 @@ import math
 from collections.abc import Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
-from typing import Any
+from typing import Annotated, Any, NoReturn
+
+from functorial_kit import Failure
+from mrw_functorial_kit.core.w06_semantics import c8_contract_failures
 
 __all__ = [
     "AHEAD_OF_TIME_SCAFFOLDING_UNADOPTED",
@@ -67,6 +70,7 @@ __all__ = [
     "UnavailableProjection",
     "WritingCompositionSpec",
     "build_read_handle",
+    "c8_contract_failure",
     "c8_canonical_digest",
     "candidate_fields_digest",
     "canonical_identity_for",
@@ -80,6 +84,14 @@ __all__ = [
     "recover_unknown_outcome",
     "research_draft_artifact_digest",
     "rollback_transition",
+    "raise_c8_contract_failure",
+    "reject_c8_contract",
+    "reject_c8_ambiguous",
+    "reject_c8_projection",
+    "reject_c8_key",
+    "reject_c8_type",
+    "reject_c8_unavailable",
+    "reject_c8_value",
     "source_closure_entry",
     "validate_canonical_material",
     "validate_canonical_ref",
@@ -88,6 +100,7 @@ __all__ = [
 ]
 
 C8_CAPABILITY_OWNER = "knowledge-consumers.c8.v1"
+C8_CONTRACT_WITNESS = "test:test_w06_c2_total_core_failure_lifts"
 AHEAD_OF_TIME_SCAFFOLDING_UNADOPTED = "AHEAD_OF_TIME_SCAFFOLDING_UNADOPTED"
 KNOWLEDGE_ITEM_SCHEMA = "mrw.successor.c8.typed-knowledge-item.v1"
 READ_HANDLE_SCHEMA = "mrw.successor.c8.read-handle.v1"
@@ -120,6 +133,100 @@ class AmbiguousProjection(C8ProjectionError):
     """Raised when a read handle binds more than one canonical fact."""
 
 
+def c8_contract_failure(
+    code: str,
+    message: str,
+    *,
+    operation: str = "c8.contract",
+    site: str = "c8",
+    public_exception: str = "ValueError",
+    public_message: str | None = None,
+    **details: Any,
+) -> Failure:
+    """Construct a closed C8 failure without throwing from the core path."""
+
+    return c8_contract_failures.fail(
+        code,
+        message,
+        {
+            "capability": C8_CAPABILITY_OWNER,
+            "operation": operation,
+            "site": site,
+            "public_exception": public_exception,
+            "public_message": message if public_message is None else public_message,
+            "witness": C8_CONTRACT_WITNESS,
+            **details,
+        },
+    )
+
+
+def raise_c8_contract_failure(
+    failure: Failure,
+    exception_type: type[Exception] = ValueError,
+) -> NoReturn:
+    """Lift one complete typed failure at a legacy/public ABI boundary."""
+
+    if not isinstance(failure, Failure):
+        # kit:boundary owner=c8_common.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w06_c2_total_core_failure_lifts
+        raise TypeError("C8 contract lift requires a Failure")
+    context = failure.context or {}
+    if (
+        failure.family != c8_contract_failures.name
+        or context.get("public_exception") != exception_type.__name__
+        or not context.get("public_message")
+    ):
+        # kit:boundary owner=c8_common.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w06_c2_total_core_failure_lifts
+        raise TypeError("C8 contract lift context is incomplete or inconsistent")
+    # kit:boundary owner=c8_common.py class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=c8.contract.failure witness=test:test_w06_c2_total_core_failure_lifts
+    raise exception_type(str(context["public_message"]))
+
+
+def reject_c8_contract(
+    message: str,
+    *,
+    code: str = "input_contract_invalid",
+    exception_type: type[Exception] = C8ProjectionError,
+    operation: str = "c8.contract",
+    site: str = "c8",
+) -> NoReturn:
+    """Compatibility lift used by public constructors after typed validation."""
+
+    raise_c8_contract_failure(
+        c8_contract_failure(
+            code,
+            message,
+            operation=operation,
+            site=site,
+            public_exception=exception_type.__name__,
+        ),
+        exception_type,
+    )
+
+
+def reject_c8_projection(message: str) -> NoReturn:
+    reject_c8_contract(message, exception_type=C8ProjectionError)
+
+
+def reject_c8_unavailable(message: str) -> NoReturn:
+    reject_c8_contract(message, exception_type=UnavailableProjection)
+
+
+def reject_c8_ambiguous(message: str) -> NoReturn:
+    reject_c8_contract(message, exception_type=AmbiguousProjection)
+
+
+def reject_c8_type(message: str) -> NoReturn:
+    reject_c8_contract(message, exception_type=TypeError)
+
+
+def reject_c8_value(message: str) -> NoReturn:
+    reject_c8_contract(message, exception_type=ValueError)
+
+
+def reject_c8_key(message: str) -> NoReturn:
+    reject_c8_contract(message, exception_type=KeyError)
+
+
 def _canonical_json(value: Any) -> str:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
 
@@ -134,7 +241,7 @@ def _to_plain(value: Any) -> Any:
         normalized: dict[str, Any] = {}
         for key, item in value.items():
             if not isinstance(key, str):
-                raise TypeError("canonical JSON requires string mapping keys")
+                reject_c8_type("canonical JSON requires string mapping keys")
             normalized[key] = _to_plain(item)
         return normalized
     if isinstance(value, (list, tuple)):
@@ -145,9 +252,9 @@ def _to_plain(value: Any) -> Any:
         return value
     if isinstance(value, float):
         if not math.isfinite(value):
-            raise TypeError("canonical JSON requires finite numbers")
+            reject_c8_type("canonical JSON requires finite numbers")
         return value
-    raise TypeError(f"unsupported canonical JSON value type: {type(value).__name__}")
+    reject_c8_type(f"unsupported canonical JSON value type: {type(value).__name__}")
 
 
 def deep_freeze_json(value: Any) -> Any:
@@ -157,7 +264,7 @@ def deep_freeze_json(value: Any) -> Any:
         frozen: dict[str, Any] = {}
         for key, item in value.items():
             if not isinstance(key, str):
-                raise TypeError("canonical JSON requires string mapping keys")
+                reject_c8_type("canonical JSON requires string mapping keys")
             frozen[key] = deep_freeze_json(item)
         return MappingProxyType(frozen)
     if isinstance(value, (list, tuple)):
@@ -168,9 +275,9 @@ def deep_freeze_json(value: Any) -> Any:
         return value
     if isinstance(value, float):
         if not math.isfinite(value):
-            raise TypeError("canonical JSON requires finite numbers")
+            reject_c8_type("canonical JSON requires finite numbers")
         return value
-    raise TypeError(f"unsupported canonical JSON value type: {type(value).__name__}")
+    reject_c8_type(f"unsupported canonical JSON value type: {type(value).__name__}")
 
 
 def c8_canonical_digest(value: Any) -> str:
@@ -257,23 +364,23 @@ def validate_canonical_ref(
 
     ref = item.canonical_ref
     if ref is None:
-        raise C8ProjectionError("canonical_ref missing; validation requires one")
+        reject_c8_projection("canonical_ref missing; validation requires one")
     expected_identity = canonical_identity_for(item)
     if ref.identity != expected_identity:
-        raise C8ProjectionError(
+        reject_c8_projection(
             f"canonical identity mismatch: {ref.identity} != {expected_identity}"
         )
     if project_key is not None and item.project_key != project_key:
-        raise C8ProjectionError(
+        reject_c8_projection(
             f"canonical project scope mismatch: {item.project_key} != {project_key}"
         )
     body_digest = item_digest(item)
     if ref.content_digest != body_digest:
-        raise C8ProjectionError("canonical body digest mismatch")
+        reject_c8_projection("canonical body digest mismatch")
     if ref.revision < 1:
-        raise C8ProjectionError("canonical revision must be >= 1")
+        reject_c8_projection("canonical revision must be >= 1")
     if not str(ref.incarnation or "").strip():
-        raise C8ProjectionError("canonical incarnation is required")
+        reject_c8_projection("canonical incarnation is required")
     return ref
 
 
@@ -423,9 +530,9 @@ def rollback_transition(
     """Production typed rollback transition over retained staged values."""
 
     if not retained_digests:
-        raise C8ProjectionError("rollback requires non-empty retained staged digests")
+        reject_c8_projection("rollback requires non-empty retained staged digests")
     if authority_reversed:
-        raise C8ProjectionError("rollback must not reverse canonical authority")
+        reject_c8_projection("rollback must not reverse canonical authority")
     return C8RollbackResult(
         cell_id=cell_id,
         rollback_kind="staged_values_retained",
@@ -466,21 +573,21 @@ class CanonicalMaterialRead:
             deep_freeze_json(self.structured_payload),
         )
         if self.issuer_id != C8_MATERIAL_ISSUER_KIND:
-            raise C8ProjectionError("canonical material issuer kind mismatch")
+            reject_c8_projection("canonical material issuer kind mismatch")
         if self.value_digest != canonical_material_digest(self):
-            raise C8ProjectionError("canonical material value digest mismatch")
+            reject_c8_projection("canonical material value digest mismatch")
         if self.value_revision < 1 or self.head_revision < 1:
-            raise C8ProjectionError("canonical material revision must be >= 1")
+            reject_c8_projection("canonical material revision must be >= 1")
         if (
             not str(self.value_incarnation or "").strip()
             or not str(self.head_incarnation or "").strip()
         ):
-            raise C8ProjectionError("canonical material incarnation is required")
+            reject_c8_projection("canonical material incarnation is required")
         expected_attestation = material_attestation_digest(self)
         if self.attestation_digest == "":
             object.__setattr__(self, "attestation_digest", expected_attestation)
         elif self.attestation_digest != expected_attestation:
-            raise C8ProjectionError("canonical material attestation digest mismatch")
+            reject_c8_projection("canonical material attestation digest mismatch")
 
 
 def canonical_material_digest(material: CanonicalMaterialRead) -> str:
@@ -529,13 +636,13 @@ def validate_canonical_material(
     project_key: str | None = None,
 ) -> CanonicalMaterialRead:
     if project_key is not None and material.project_key != project_key:
-        raise C8ProjectionError("canonical material project scope mismatch")
+        reject_c8_projection("canonical material project scope mismatch")
     if material.issuer_id != C8_MATERIAL_ISSUER_KIND:
-        raise C8ProjectionError("canonical material issuer kind mismatch")
+        reject_c8_projection("canonical material issuer kind mismatch")
     if material.attestation_digest != material_attestation_digest(material):
-        raise C8ProjectionError("canonical material attestation digest mismatch")
+        reject_c8_projection("canonical material attestation digest mismatch")
     if material.value_digest != canonical_material_digest(material):
-        raise C8ProjectionError("canonical material value digest mismatch")
+        reject_c8_projection("canonical material value digest mismatch")
     return material
 
 
@@ -578,9 +685,9 @@ def form_typed_knowledge_candidate(
 ) -> TypedKnowledgeCandidate:
     validate_canonical_material(material)
     if not canonical_statement.strip() or not primary_type_node_key.strip():
-        raise C8ProjectionError("knowledge candidate requires statement and type")
+        reject_c8_projection("knowledge candidate requires statement and type")
     if not evidence_refs:
-        raise C8ProjectionError("knowledge candidate requires evidence refs")
+        reject_c8_projection("knowledge candidate requires evidence refs")
     candidate = TypedKnowledgeCandidate(
         candidate_id=candidate_id,
         project_key=material.project_key,
@@ -606,9 +713,9 @@ def validate_typed_knowledge_candidate(
     project_key: str | None = None,
 ) -> TypedKnowledgeCandidate:
     if project_key is not None and candidate.project_key != project_key:
-        raise C8ProjectionError("knowledge candidate project scope mismatch")
+        reject_c8_projection("knowledge candidate project scope mismatch")
     if candidate.candidate_digest != typed_knowledge_candidate_digest(candidate):
-        raise C8ProjectionError("knowledge candidate digest mismatch")
+        reject_c8_projection("knowledge candidate digest mismatch")
     if material is not None:
         validate_canonical_material(material, project_key=candidate.project_key)
         if (
@@ -617,7 +724,7 @@ def validate_typed_knowledge_candidate(
             or candidate.revision != material.value_revision
             or candidate.incarnation != material.value_incarnation
         ):
-            raise C8ProjectionError(
+            reject_c8_projection(
                 "knowledge candidate is not closed under issued material"
             )
     return candidate
@@ -675,7 +782,7 @@ class KnowledgeReadHandle:
             }
         )
         if self.handle_id != expected:
-            raise C8ProjectionError("read handle digest mismatch (tamper detected)")
+            reject_c8_projection("read handle digest mismatch (tamper detected)")
 
 
 @dataclass(frozen=True, slots=True)
@@ -698,7 +805,7 @@ class IssuedKnowledgeRead:
         if self.read_digest == "":
             object.__setattr__(self, "read_digest", expected)
         elif self.read_digest != expected:
-            raise C8ProjectionError("issued read digest mismatch (tamper detected)")
+            reject_c8_projection("issued read digest mismatch (tamper detected)")
 
 
 @dataclass(frozen=True, slots=True)
@@ -735,10 +842,10 @@ def validate_citation_closure(
     ceiling: int | None = None,
 ) -> CitationClosure:
     if ceiling is not None and len(closure.refs) > ceiling:
-        raise C8ProjectionError("citation closure exceeds ceiling")
+        reject_c8_projection("citation closure exceeds ceiling")
     for index, ref in enumerate(closure.refs, start=1):
         if ref.position != index:
-            raise C8ProjectionError("citation order is not contiguous")
+            reject_c8_projection("citation order is not contiguous")
     seen: dict[str, tuple[str, str]] = {}
     for ref in closure.refs:
         bound = (
@@ -752,14 +859,14 @@ def validate_citation_closure(
         prior = seen.get(ref.citation_id)
         if prior is not None:
             if prior != bound:
-                raise C8ProjectionError(
+                reject_c8_projection(
                     f"conflicting citation identity: {ref.citation_id}"
                 )
             if duplicate_policy == "reject":
-                raise C8ProjectionError(
+                reject_c8_projection(
                     f"duplicate citation rejected: {ref.citation_id}"
                 )
-            raise C8ProjectionError(
+            reject_c8_projection(
                 "duplicate citation policy must be reject or collapse"
             )
         seen[ref.citation_id] = bound
@@ -850,7 +957,7 @@ class C8ResearchArtifactCandidate:
         if self.payload_digest == "":
             object.__setattr__(self, "payload_digest", expected_payload)
         elif self.payload_digest != expected_payload:
-            raise C8ProjectionError(
+            reject_c8_projection(
                 "research artifact candidate payload digest mismatch"
             )
         object_body = {
@@ -865,7 +972,7 @@ class C8ResearchArtifactCandidate:
         if self.object_digest == "":
             object.__setattr__(self, "object_digest", expected_object)
         elif self.object_digest != expected_object:
-            raise C8ProjectionError(
+            reject_c8_projection(
                 "research artifact candidate object digest mismatch"
             )
 
@@ -953,7 +1060,7 @@ class ReportStage:
         if self.object_digest == "":
             object.__setattr__(self, "object_digest", expected)
         elif self.object_digest != expected:
-            raise C8ProjectionError("report stage digest mismatch (tamper detected)")
+            reject_c8_projection("report stage digest mismatch (tamper detected)")
 
 
 @dataclass(frozen=True, slots=True)
@@ -990,7 +1097,7 @@ class ReportVerification:
         if self.object_digest == "":
             object.__setattr__(self, "object_digest", expected)
         elif self.object_digest != expected:
-            raise C8ProjectionError(
+            reject_c8_projection(
                 "report verification digest mismatch (tamper detected)"
             )
 
@@ -1019,7 +1126,7 @@ class ReportAdmissionIntent:
         if self.object_digest == "":
             object.__setattr__(self, "object_digest", expected)
         elif self.object_digest != expected:
-            raise C8ProjectionError(
+            reject_c8_projection(
                 "report admission intent digest mismatch (tamper detected)"
             )
 
@@ -1058,7 +1165,7 @@ class ReportAdmissionReadback:
         if self.object_digest == "":
             object.__setattr__(self, "object_digest", expected)
         elif self.object_digest != expected:
-            raise C8ProjectionError(
+            reject_c8_projection(
                 "report admission readback digest mismatch (tamper detected)"
             )
 
@@ -1087,7 +1194,7 @@ class ReportExportPreparation:
         if self.object_digest == "":
             object.__setattr__(self, "object_digest", expected)
         elif self.object_digest != expected:
-            raise C8ProjectionError(
+            reject_c8_projection(
                 "report export preparation digest mismatch (tamper detected)"
             )
 
@@ -1120,7 +1227,7 @@ class ReportDeliveryIntent:
         if self.object_digest == "":
             object.__setattr__(self, "object_digest", expected)
         elif self.object_digest != expected:
-            raise C8ProjectionError(
+            reject_c8_projection(
                 "report delivery intent digest mismatch (tamper detected)"
             )
 
@@ -1172,7 +1279,7 @@ class GraphLossProfile:
         if self.profile_digest == "":
             object.__setattr__(self, "profile_digest", expected)
         elif self.profile_digest != expected:
-            raise C8ProjectionError("graph loss profile digest mismatch")
+            reject_c8_projection("graph loss profile digest mismatch")
 
 
 def graph_projection_generation_digest(
@@ -1221,12 +1328,12 @@ class GraphProjectionGeneration:
     def __post_init__(self) -> None:
         for occurrence in self.occurrences:
             if occurrence.occurrence_digest != graph_occurrence_digest(occurrence):
-                raise C8ProjectionError("graph occurrence digest mismatch")
+                reject_c8_projection("graph occurrence digest mismatch")
         expected = graph_projection_generation_digest(self)
         if self.projection_digest == "":
             object.__setattr__(self, "projection_digest", expected)
         elif self.projection_digest != expected:
-            raise C8ProjectionError(
+            reject_c8_projection(
                 "graph projection digest mismatch (tamper detected)"
             )
 
@@ -1253,7 +1360,11 @@ def build_read_handle(
     field_mask: tuple[str, ...],
     declared_loss: tuple[str, ...] = (),
     source_label: str = "canonical",
-) -> ReadHandle:
+) -> Annotated[  # NonAuthoritative
+    ReadHandle,
+    "kit:canonical-read canonical_owner=c8_common.CanonicalRef "
+    "witness=test:test_read_handle_canonical_read_metadata",
+]:
     normalized_fields = tuple(sorted(set(field_mask)))
     payload = {
         "domain": domain,

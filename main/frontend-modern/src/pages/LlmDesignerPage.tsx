@@ -10,6 +10,7 @@ import {
   type Connection,
   type Edge,
   type Node,
+  type NodeChange,
   type OnConnect,
   type ReactFlowInstance,
   type Viewport,
@@ -774,8 +775,8 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
       formatLlmDesignerTemplate(t(key, fallback), values),
     [t],
   )
-  const isStorybookCanvas = useMemo(isStorybookIframe, [])
-  const linkParams = useMemo(readDesignerLinkParams, [])
+  const isStorybookCanvas = useMemo(() => isStorybookIframe(), [])
+  const linkParams = useMemo(() => readDesignerLinkParams(), [])
   const boundaryConfig = useMemo<BoundaryNodeConfig>(
     () => ({
       frontendPayload: linkParams.frontendPayload,
@@ -904,13 +905,6 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
   }, [availableNodeOutputs, runInputText])
 
   useEffect(() => {
-    if (!editingNodeId) return
-    if (nodes.some((item) => item.id === editingNodeId)) return
-    setEditingNodeId('')
-    setNodeInfoCard((prev) => ({ ...prev, open: false }))
-  }, [editingNodeId, nodes])
-
-  useEffect(() => {
     if (isStorybookCanvas) return
     const rect = canvasRef.current?.getBoundingClientRect()
     if (!rect) return
@@ -983,6 +977,19 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
       setStatus(t('llmDesignerPage.status.connected'))
     },
     [setEdges, setNodes, t],
+  )
+
+  const onNodesChangeWithEditingSync = useCallback(
+    (changes: NodeChange[]) => {
+      onNodesChange(changes)
+      const removedEditingNode = changes.some(
+        (change) => change.type === 'remove' && change.id === editingNodeId,
+      )
+      if (!removedEditingNode) return
+      setEditingNodeId('')
+      setNodeInfoCard((prev) => ({ ...prev, open: false }))
+    },
+    [editingNodeId, onNodesChange, setEditingNodeId, setNodeInfoCard],
   )
 
   const addTemplateNode = useCallback((templateItem?: NodeTemplatePaletteItem<UnknownRecord>) => {
@@ -1752,7 +1759,7 @@ function DesignerCanvas({ onExportDsl }: LlmDesignerPageProps) {
         <ReactFlow
           nodes={nodes}
           edges={allEdges}
-          onNodesChange={onNodesChange}
+          onNodesChange={onNodesChangeWithEditingSync}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
           onInit={(instance) => {

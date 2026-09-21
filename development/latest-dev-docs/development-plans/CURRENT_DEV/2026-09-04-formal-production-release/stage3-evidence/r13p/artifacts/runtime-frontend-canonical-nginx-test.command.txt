@@ -1,0 +1,1 @@
+docker run --rm mrw-r13p-runtime-frontend-canonical:local nginx -t 

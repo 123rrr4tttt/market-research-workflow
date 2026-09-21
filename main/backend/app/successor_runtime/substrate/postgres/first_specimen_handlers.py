@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
@@ -122,13 +121,65 @@ SUPPORTED_SEMANTIC_OPERATIONS = frozenset(
 class FirstSpecimenHandlerError(RuntimeError):
     """An exact semantic handler cannot safely adopt or create its output."""
 
+    failure_code = "first_specimen_handler_contract_invalid"
+
+
+class FirstSpecimenOperationUnsupported(FirstSpecimenHandlerError):
+    """The installed semantic operation is outside this exact handler shell."""
+
+    failure_code = "first_specimen_operation_unsupported"
+
+
+class FirstSpecimenSemanticProductInvalid(FirstSpecimenHandlerError):
+    """An interpreter product cannot be adopted as canonical semantic output."""
+
+    failure_code = "first_specimen_semantic_product_invalid"
+
+
+class FirstSpecimenInterpreterFailure(FirstSpecimenHandlerError):
+    """A definite capability-owned interpreter failure wrapped without rewrite."""
+
+    failure_code = "first_specimen_handler_contract_invalid"
+
+    def __init__(self, *, code: str, message: str) -> None:
+        super().__init__(message)
+        self.failure_code = code
+
 
 class FirstSpecimenReplayDrift(FirstSpecimenHandlerError):
     """Program, Plan, typed payload, ordered inputs, or scope drifted."""
 
+    failure_code = "first_specimen_replay_projection_invalid"
+
+
+class FirstSpecimenActivationBindingInvalid(FirstSpecimenReplayDrift):
+    """A dynamic execution input is not bound by the exact activation."""
+
+    failure_code = "first_specimen_activation_binding_invalid"
+
+
+class FirstSpecimenHandlerBindingInvalid(FirstSpecimenReplayDrift):
+    """The claimed assignment is not bound to this exact handler."""
+
+    failure_code = "first_specimen_handler_binding_invalid"
+
 
 class FirstSpecimenOutputDrift(FirstSpecimenHandlerError):
     """An existing output does not bind the exact assignment and attempt."""
+
+    failure_code = "first_specimen_output_write_invalid"
+
+
+class FirstSpecimenOutputReadbackInvalid(FirstSpecimenOutputDrift):
+    """An existing output cannot be replayed from its exact owners."""
+
+    failure_code = "first_specimen_output_readback_invalid"
+
+
+class FirstSpecimenOutputWriteInvalid(FirstSpecimenOutputDrift):
+    """A new output cannot be written and read back exactly."""
+
+    failure_code = "first_specimen_output_write_invalid"
 
 
 @dataclass(frozen=True, slots=True)
@@ -585,16 +636,20 @@ def require_exact_activation_binding(
     """
 
     if assignment.step_id is None:
-        raise FirstSpecimenReplayDrift("activation binding requires step_id")
+        raise FirstSpecimenActivationBindingInvalid(
+            "activation binding requires step_id"
+        )
     static_locators = tuple(ref.storage_ref for ref in static_refs)
     if not static_locators or assignment.input_refs[-len(static_locators) :] != (
         static_locators
     ):
-        raise FirstSpecimenReplayDrift("activation static input suffix drift")
+        raise FirstSpecimenActivationBindingInvalid(
+            "activation static input suffix drift"
+        )
     dynamic_locators = assignment.input_refs[: -len(static_locators)]
     if dynamic_locators:
         if descriptor is None:
-            raise FirstSpecimenReplayDrift(
+            raise FirstSpecimenActivationBindingInvalid(
                 "dynamic inputs require exact ReadyActivation descriptor"
             )
         if (
@@ -608,11 +663,15 @@ def require_exact_activation_binding(
             or descriptor.ordered_input_refs
             != descriptor.ordered_dependency_refs + static_refs
         ):
-            raise FirstSpecimenReplayDrift("ReadyActivation exact binding drift")
+            raise FirstSpecimenActivationBindingInvalid(
+                "ReadyActivation exact binding drift"
+            )
         dynamic_refs = descriptor.ordered_dependency_refs
     else:
         if descriptor is not None and descriptor.ordered_dependency_refs:
-            raise FirstSpecimenReplayDrift("static assignment received dynamic descriptor")
+            raise FirstSpecimenActivationBindingInvalid(
+                "static assignment received dynamic descriptor"
+            )
         dynamic_refs = ()
     closure = _activation_closure(
         plan_digest=plan_digest,
@@ -624,7 +683,9 @@ def require_exact_activation_binding(
     )
     closure_digest = sha256_hex(closure)
     if assignment.input_closure_digest != closure_digest:
-        raise FirstSpecimenReplayDrift("activation input closure digest drift")
+        raise FirstSpecimenActivationBindingInvalid(
+            "activation input closure digest drift"
+        )
     if descriptor is not None:
         descriptor_payload = {
             **closure,
@@ -636,7 +697,9 @@ def require_exact_activation_binding(
             descriptor.input_closure_digest != closure_digest
             or descriptor.activation_digest != sha256_hex(descriptor_payload)
         ):
-            raise FirstSpecimenReplayDrift("ReadyActivation descriptor digest drift")
+            raise FirstSpecimenActivationBindingInvalid(
+                "ReadyActivation descriptor digest drift"
+            )
     return dynamic_refs + static_refs
 
 
@@ -817,7 +880,9 @@ class FirstSpecimenEffectOutputStore:
         if not isinstance(project_ref, str) or not project_ref.startswith(
             "project-value:"
         ):
-            raise FirstSpecimenOutputDrift("runtime output owner ref drift")
+            raise FirstSpecimenOutputReadbackInvalid(
+                "runtime output owner ref drift"
+            )
         project_value_id = project_ref.removeprefix("project-value:")
         row = one_mapping(
             connection.execute(
@@ -828,7 +893,9 @@ class FirstSpecimenEffectOutputStore:
             )
         )
         if row is None or row["state"] != "AVAILABLE":
-            raise FirstSpecimenOutputDrift("project output readback is absent/unavailable")
+            raise FirstSpecimenOutputReadbackInvalid(
+                "project output readback is absent/unavailable"
+            )
         provenance = dict(row["provenance_json"])
         if installation.operation_kind != CAPTURE_OPERATION:
             expected_provenance = _output_binding_provenance(
@@ -838,15 +905,21 @@ class FirstSpecimenEffectOutputStore:
                 provenance.get(key) != value
                 for key, value in expected_provenance.items()
             ):
-                raise FirstSpecimenOutputDrift("project output attempt/assignment drift")
+                raise FirstSpecimenOutputReadbackInvalid(
+                    "project output attempt/assignment drift"
+                )
         if sha256_hex(provenance) != row["provenance_digest"]:
-            raise FirstSpecimenOutputDrift("project output provenance digest drift")
+            raise FirstSpecimenOutputReadbackInvalid(
+                "project output provenance digest drift"
+            )
         artifact_bytes_ref = provenance.get("artifact_exact_bytes_ref")
         if artifact_bytes_ref is not None:
             if not isinstance(artifact_bytes_ref, str) or not artifact_bytes_ref.startswith(
                 "project-value:"
             ):
-                raise FirstSpecimenOutputDrift("artifact exact bytes ref drift")
+                raise FirstSpecimenOutputReadbackInvalid(
+                    "artifact exact bytes ref drift"
+                )
             content_row = one_mapping(
                 connection.execute(
                     select(tables.successor_values).where(
@@ -858,19 +931,25 @@ class FirstSpecimenEffectOutputStore:
                 )
             )
             if content_row is None or content_row["content_bytes"] is None:
-                raise FirstSpecimenOutputDrift("artifact exact bytes are absent")
+                raise FirstSpecimenOutputReadbackInvalid(
+                    "artifact exact bytes are absent"
+                )
             content_bytes = bytes(content_row["content_bytes"])
             if hashlib.sha256(content_bytes).hexdigest() != provenance.get(
                 "artifact_exact_bytes_digest"
             ):
-                raise FirstSpecimenOutputDrift("artifact exact bytes readback drift")
+                raise FirstSpecimenOutputReadbackInvalid(
+                    "artifact exact bytes readback drift"
+                )
         exact = (
             bytes(row["content_bytes"])
             if row["content_bytes"] is not None
             else canonical_bytes(row["content_json"])
         )
         if hashlib.sha256(exact).hexdigest() != row["content_digest"]:
-            raise FirstSpecimenOutputDrift("project output content readback drift")
+            raise FirstSpecimenOutputReadbackInvalid(
+                "project output content readback drift"
+            )
         binding = RuntimeValueBinding(
             value_id=value_id,
             object_type=str(public["object_type"]),
@@ -893,9 +972,13 @@ class FirstSpecimenEffectOutputStore:
             codec_id=str(public["codec_id"]),
         )
         if public["storage_digest"] != expected_storage_digest:
-            raise FirstSpecimenOutputDrift("runtime output attempt storage binding drift")
+            raise FirstSpecimenOutputReadbackInvalid(
+                "runtime output attempt storage binding drift"
+            )
         if row["content_digest"] != public["content_digest"]:
-            raise FirstSpecimenOutputDrift("public/project output digest drift")
+            raise FirstSpecimenOutputReadbackInvalid(
+                "public/project output digest drift"
+            )
         if installation.admission_required:
             staged = StagedArtifactRepository(connection, scope).load(
                 _stage_id(assignment)
@@ -912,7 +995,9 @@ class FirstSpecimenEffectOutputStore:
                 staged[field] != value
                 for field, value in expected_stage.values().items()
             ):
-                raise FirstSpecimenOutputDrift("admission staging readback drift")
+                raise FirstSpecimenOutputReadbackInvalid(
+                    "admission staging readback drift"
+                )
         return str(row["content_digest"])
 
     def _interpret(
@@ -931,7 +1016,7 @@ class FirstSpecimenEffectOutputStore:
             return self._artifact(connection, assignment, claim, replay)
         if installation.operation_kind == CAPTURE_OPERATION:
             return self._capture(connection, assignment, claim, replay)
-        raise FirstSpecimenHandlerError("unsupported semantic operation")
+        raise FirstSpecimenOperationUnsupported("unsupported semantic operation")
 
     def _qualify(
         self,
@@ -1006,7 +1091,9 @@ class FirstSpecimenEffectOutputStore:
         )
         digest = hashlib.sha256(exact).hexdigest()
         if digest != value.qualification_digest:
-            raise FirstSpecimenHandlerError("qualification canonical digest drift")
+            raise FirstSpecimenSemanticProductInvalid(
+                "qualification canonical digest drift"
+            )
         provenance.update(
             {
                 "semantic_object_id": value.qualification_id,
@@ -1116,11 +1203,15 @@ class FirstSpecimenEffectOutputStore:
             object_type = GAP_TYPE
             object_id = value.gap_id
         else:  # pragma: no cover - guarded by the capability interpreter
-            raise FirstSpecimenHandlerError("claim interpreter returned unknown union arm")
+            raise FirstSpecimenSemanticProductInvalid(
+                "claim interpreter returned unknown union arm"
+            )
         exact = canonical_bytes(dataclass_to_json(value, ("content_digest",)))
         digest = hashlib.sha256(exact).hexdigest()
         if digest != value.content_digest:
-            raise FirstSpecimenHandlerError("claim/gap canonical digest drift")
+            raise FirstSpecimenSemanticProductInvalid(
+                "claim/gap canonical digest drift"
+            )
         installation = InstalledFirstSpecimenEffectHandler.bind(
             operation_kind=CLAIM_OPERATION,
             handler_binding_digest=assignment.handler_binding_digest,
@@ -1199,7 +1290,9 @@ class FirstSpecimenEffectOutputStore:
         exact = canonical_bytes(dataclass_to_json(artifact, ("content_digest",)))
         digest = hashlib.sha256(exact).hexdigest()
         if digest != artifact.content_digest:
-            raise FirstSpecimenHandlerError("artifact canonical metadata digest drift")
+            raise FirstSpecimenSemanticProductInvalid(
+                "artifact canonical metadata digest drift"
+            )
         installation = InstalledFirstSpecimenEffectHandler.bind(
             operation_kind=ARTIFACT_OPERATION,
             handler_binding_digest=assignment.handler_binding_digest,
@@ -1337,7 +1430,9 @@ class FirstSpecimenEffectOutputStore:
             content_value_id = f"{_result_value_id(assignment)}:content"
             content_digest = hashlib.sha256(product.artifact_exact_bytes).hexdigest()
             if product.provenance.get("artifact_exact_bytes_digest") != content_digest:
-                raise FirstSpecimenOutputDrift("artifact exact bytes digest drift")
+                raise FirstSpecimenSemanticProductInvalid(
+                    "artifact exact bytes digest drift"
+                )
             content_provenance = {
                 **_output_binding_provenance(installation, assignment, claim),
                 "contract": "ResearchArtifactExactBytes.v1",
@@ -1359,7 +1454,9 @@ class FirstSpecimenEffectOutputStore:
                 provenance=content_provenance,
             )
             if content_stored.content_digest != content_digest:
-                raise FirstSpecimenOutputDrift("artifact exact bytes write drift")
+                raise FirstSpecimenOutputWriteInvalid(
+                    "artifact exact bytes write drift"
+                )
         if product.existing_project_value_id is not None:
             existing = one_mapping(
                 connection.execute(
@@ -1370,7 +1467,9 @@ class FirstSpecimenEffectOutputStore:
                 )
             )
             if existing is None:
-                raise FirstSpecimenOutputDrift("captured project output disappeared")
+                raise FirstSpecimenOutputReadbackInvalid(
+                    "captured project output disappeared"
+                )
             # Re-adopt the exact immutable project bytes without changing their
             # submission provenance; the execution binding is held by the
             # deterministic public alias below.
@@ -1390,7 +1489,9 @@ class FirstSpecimenEffectOutputStore:
                 provenance=product.provenance,
             )
             if stored.content_digest != product.content_digest:
-                raise FirstSpecimenOutputDrift("project output write/readback drift")
+                raise FirstSpecimenOutputWriteInvalid(
+                    "project output write/readback drift"
+                )
             existing = one_mapping(
                 connection.execute(
                     select(tables.successor_values).where(
@@ -1467,11 +1568,7 @@ class PostgresFirstSpecimenEffectHandler(RuntimeHandler):
                 context,
             )
         except FirstSpecimenHandlerError as exc:
-            detail = re.sub(r"[^A-Z0-9]+", "_", str(exc).upper()).strip("_")
-            code = type(exc).__name__.upper()
-            if detail:
-                code = f"{code}:{detail[:96]}"
-            raise DefiniteInterpreterFailure(code) from exc
+            raise DefiniteInterpreterFailure(exc.failure_code) from exc
 
 
 def _require_exact_handler(
@@ -1481,7 +1578,9 @@ def _require_exact_handler(
 ) -> None:
     claim.validate_against(assignment)
     if assignment.assignment_kind is not AssignmentKind.INTERPRET:
-        raise FirstSpecimenReplayDrift("semantic handler accepts INTERPRET only")
+        raise FirstSpecimenHandlerBindingInvalid(
+            "semantic handler accepts INTERPRET only"
+        )
     ref = assignment.operation_contract_ref
     binding = assignment.handler_binding
     if (
@@ -1500,7 +1599,9 @@ def _require_exact_handler(
         or assignment.return_contract_binding.admission_required
         != installation.admission_required
     ):
-        raise FirstSpecimenReplayDrift("exact semantic handler binding drift")
+        raise FirstSpecimenHandlerBindingInvalid(
+            "exact semantic handler binding drift"
+        )
 
 
 def _qualifier_ref(installation: InstalledFirstSpecimenEffectHandler) -> str:
@@ -1512,9 +1613,15 @@ def _qualifier_ref(installation: InstalledFirstSpecimenEffectHandler) -> str:
 
 def _require_success(outcome: object) -> object:
     if isinstance(outcome, InterpreterFailure):
-        raise FirstSpecimenHandlerError(outcome.code)
+        raise FirstSpecimenInterpreterFailure(
+            code=outcome.code,
+            message=outcome.message,
+        ) from None
     if not isinstance(outcome, InterpreterSuccess):
-        raise FirstSpecimenHandlerError("semantic interpreter returned no exact success")
+        raise FirstSpecimenInterpreterFailure(
+            code=FirstSpecimenHandlerError.failure_code,
+            message="semantic interpreter returned no exact success",
+        )
     return outcome.value
 
 

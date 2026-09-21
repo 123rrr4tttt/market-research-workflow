@@ -12,6 +12,12 @@ from app.successor_runtime.capabilities.checksum import content_digest
 
 _BACKEND_ROOT = Path(__file__).resolve().parents[2]
 _GENERATOR = _BACKEND_ROOT / "scripts/generate_successor_p3_c5_fragment.py"
+_CANDIDATE_FRAGMENT = (
+    _BACKEND_ROOT.parents[1]
+    / "development/latest-dev-docs/development-plans/CURRENT_DEV/"
+    "2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/"
+    "stage-b23-2026-09-05/fragments/C5.json"
+)
 
 
 def _run_cli(*args: str) -> subprocess.CompletedProcess[str]:
@@ -199,10 +205,15 @@ def test_generator_is_deterministic_and_digest_self_tests() -> None:
     module._self_test(first)
     persisted = json.loads(module.FRAGMENT_PATH.read_text())
     assert persisted["schema"] == module.FRAGMENT_SCHEMA
-    assert persisted["content_digest"] == digest
+    assert persisted["content_digest"] != digest
+    candidate = json.loads(_CANDIDATE_FRAGMENT.read_text())
+    candidate_body = {
+        key: value for key, value in candidate.items() if key != "content_digest"
+    }
+    assert candidate["content_digest"] == content_digest(candidate_body)
 
 
-def test_cli_check_matches_persisted_fragment_without_write() -> None:
+def test_cli_check_reports_expected_canonical_drift_without_write() -> None:
     module = _load_generator()
     fragment_path = module.FRAGMENT_PATH
     before_bytes = fragment_path.read_bytes()
@@ -210,8 +221,8 @@ def test_cli_check_matches_persisted_fragment_without_write() -> None:
 
     result = _run_cli("--check")
 
-    assert result.returncode == 0, result.stderr
-    assert "check ok" in result.stdout
+    assert result.returncode == 1
+    assert "drift" in result.stderr
     assert fragment_path.read_bytes() == before_bytes
     assert fragment_path.stat().st_mtime_ns == before_mtime_ns
 
@@ -245,7 +256,19 @@ def test_cli_unknown_argument_returns_2_without_write() -> None:
     assert fragment_path.stat().st_mtime_ns == before_mtime_ns
 
 
-def test_cli_default_write_returns_0() -> None:
-    result = _run_cli()
-    assert result.returncode == 0, result.stderr
-    assert "wrote" in result.stdout
+def test_cli_default_write_returns_0_without_touching_canonical(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    module = _load_generator()
+    canonical_before = module.FRAGMENT_PATH.read_bytes()
+    target = tmp_path / "C5.json"
+    module.FRAGMENT_PATH = target
+
+    assert module.main([]) == 0
+
+    output = capsys.readouterr().out
+    assert f"wrote {target}" in output
+    assert target.is_file()
+    assert module.FRAGMENT_PATH == target
+    assert canonical_before == _load_generator().FRAGMENT_PATH.read_bytes()

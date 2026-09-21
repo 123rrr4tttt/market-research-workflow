@@ -5,6 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+from typing import Annotated, get_args, get_origin, get_type_hints
 
 import pytest
 
@@ -370,6 +371,16 @@ class IngestCanaryStrictPromotionReadinessUnitTestCase(unittest.TestCase):
                 item["name"] == "24h_metric_shape_validated" and item["passed"] is True
                 for item in result["runtime_results"]
             )
+        )
+
+    def test_ingest_canary_strict_promotion_authority_metadata(self) -> None:
+        return_hint = get_type_hints(build_strict_promotion_check, include_extras=True)["return"]
+        self.assertIs(get_origin(return_hint), Annotated)
+        _, metadata = get_args(return_hint)
+        self.assertEqual(
+            metadata,
+            "kit:non-authoritative derived_as=preflight fact_source=repo_local.canary_execution_and_promotion_artifacts "
+            "witness=test:test_ingest_canary_strict_promotion_authority_metadata",
         )
 
 

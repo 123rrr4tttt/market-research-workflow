@@ -6,7 +6,10 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any, Final, Mapping
+from typing import Annotated, Any, Final, Mapping, NoReturn
+
+from functorial_kit import Failure
+from mrw_functorial_kit.core.typed_knowledge_semantics import typed_knowledge_persistence_boundary_failures
 
 from ...models.typed_knowledge_entities import TypedKnowledgeObject
 from . import contracts
@@ -104,6 +107,12 @@ PUBLIC_API_ROUTE_REMAINING_LIVE_GAPS: Final[tuple[str, ...]] = (
     "migration_and_backfill_not_executed",
     "live_db_backed_typed_knowledge_readback_not_verified",
 )
+PUBLIC_API_ROUTE_UNVERIFIED_LIVE_GAPS: Final[tuple[str, ...]] = (
+    "live_api_request_response_closure_not_verified",
+    "live_browser_ui_readback_not_verified",
+    "governance_ui_not_implemented",
+    "migration_and_backfill_not_executed",
+)
 PERSISTED_CARD_READBACK_CLOSED_SLICE: Final[tuple[str, ...]] = (
     "typed_knowledge_api_boundary_persisted_context",
     "persisted_document_metadata_request_payload",
@@ -119,10 +128,67 @@ PERSISTED_CARD_READBACK_REMAINING_LIVE_GAPS: Final[tuple[str, ...]] = (
     "governance_ui_not_implemented",
     "migration_and_backfill_not_executed",
 )
+PERSISTED_CARD_READBACK_UNVERIFIED_LIVE_GAPS: Final[tuple[str, ...]] = (
+    "live_api_request_response_closure_not_verified",
+    "live_browser_ui_readback_not_verified",
+    "governance_ui_not_implemented",
+    "migration_and_backfill_not_executed",
+)
+
+
+TYPED_KNOWLEDGE_PERSISTENCE_BOUNDARY_FAILURE = (
+    "typed_knowledge_persistence_boundary_violation"
+)
 
 
 class TypedKnowledgePersistenceBoundaryError(contracts.TypedKnowledgeContractError):
     """Raised when the typed-knowledge persistence/API boundary is violated."""
+
+    failure_code = TYPED_KNOWLEDGE_PERSISTENCE_BOUNDARY_FAILURE
+
+
+_BOUNDARY_FAILURE_CONTEXT_KEYS = frozenset({"owner", "public_exception", "public_message"})
+
+
+def typed_knowledge_persistence_failure(
+    message: str,
+    *,
+    owner: str = "typed_knowledge.persistence_boundary",
+    public_message: str | None = None,
+    **details: Any,
+) -> Failure:
+    return typed_knowledge_persistence_boundary_failures.fail(
+        TYPED_KNOWLEDGE_PERSISTENCE_BOUNDARY_FAILURE,
+        message,
+        {
+            "owner": owner,
+            "public_exception": TypedKnowledgePersistenceBoundaryError.__name__,
+            "public_message": str(public_message if public_message is not None else message),
+            **details,
+        },
+    )
+
+
+def raise_typed_knowledge_persistence_legacy(
+    failure: Failure,
+    *,
+    cause: BaseException | None = None,
+) -> NoReturn:
+    """Lift the registered shell failure once into the stable exception ABI."""
+    context = failure.context or {}
+    if (
+        not typed_knowledge_persistence_boundary_failures.matches(failure)
+        or not _BOUNDARY_FAILURE_CONTEXT_KEYS <= set(context)
+        or context.get("public_exception") != TypedKnowledgePersistenceBoundaryError.__name__
+    ):
+        # kit:boundary owner=typed_knowledge.persistence_boundary.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_typed_knowledge_persistence_failure_lift_rejects_invalid_context
+        raise TypeError("typed knowledge persistence failure lift context is incomplete or inconsistent")
+    message = str(context["public_message"])
+    if cause is None:
+        # kit:boundary owner=typed_knowledge.persistence_boundary.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=typed_knowledge.persistence_boundary_failure witness=test:test_persistence_shell_legacy_error_keeps_stable_failure_code
+        raise TypedKnowledgePersistenceBoundaryError(message)
+    # kit:boundary owner=typed_knowledge.persistence_boundary.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=typed_knowledge.persistence_boundary_failure witness=test:test_typed_knowledge_persistence_failure_lift_preserves_cause
+    raise TypedKnowledgePersistenceBoundaryError(message) from cause
 
 
 @dataclass(frozen=True, slots=True)
@@ -368,11 +434,18 @@ class SqlAlchemyTypedKnowledgeRepository:
         return tuple(self._writes)
 
 
-def build_writing_handoff_ref(handoff: contracts.WritingKnowledgeHandoff) -> WritingHandoffRef:
+def build_writing_handoff_ref(
+    handoff: contracts.WritingKnowledgeHandoff,
+) -> Annotated[
+    WritingHandoffRef,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=validated_writing_knowledge_handoff "
+    "witness=test:test_w04_authority_metadata",
+]:
     contracts.validate_writing_knowledge_handoff(handoff)
     consumer_boundary = handoff.facets.get("consumer_boundary") if isinstance(handoff.facets, Mapping) else None
     if not isinstance(consumer_boundary, Mapping):
-        raise TypedKnowledgePersistenceBoundaryError("writing_handoff_ref_missing_consumer_boundary")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("writing_handoff_ref_missing_consumer_boundary"))
     return WritingHandoffRef(
         contract_version=handoff.contract_version,
         knowledge_item_key=handoff.knowledge_item_key,
@@ -387,7 +460,12 @@ def build_persistence_boundary_record(
     obj: contracts.TypeNode | contracts.KnowledgeItem | contracts.TopicCluster | contracts.Booklet,
     *,
     writing_handoffs: tuple[contracts.WritingKnowledgeHandoff, ...] = (),
-) -> PersistenceBoundaryRecord:
+) -> Annotated[
+    PersistenceBoundaryRecord,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=typed_knowledge_canonical_inputs "
+    "witness=test:test_persistence_boundary_record_view_metadata",
+]:
     object_type, object_key, project_key, review_state, payload, updated_at = _object_parts(obj)
     visibility_scope = contracts.REVIEW_STATE_VISIBILITY_SCOPE[review_state]
     lifecycle_state = REVIEW_STATE_LIFECYCLE_STATE[review_state]
@@ -421,12 +499,22 @@ def build_persistence_boundary_record(
     return record
 
 
-def build_identity_ref(*, project_key: str, object_type: str, object_key: str) -> str:
+def build_identity_ref(
+    *,
+    project_key: str,
+    object_type: str,
+    object_key: str,
+) -> Annotated[
+    str,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=project_key+object_type+object_key "
+    "witness=test:test_w04_authority_metadata",
+]:
     normalized_project = str(project_key or "").strip()
     normalized_type = str(object_type or "").strip()
     normalized_key = str(object_key or "").strip()
     if not normalized_project or not normalized_type or not normalized_key:
-        raise TypedKnowledgePersistenceBoundaryError("persistence_boundary_missing_identity_ref_part")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persistence_boundary_missing_identity_ref_part"))
     return f"{normalized_project}:{normalized_type}:{normalized_key}"
 
 
@@ -461,7 +549,12 @@ def build_persistence_api_envelope(
     repository: InMemoryTypedKnowledgeRepository | SqlAlchemyTypedKnowledgeRepository,
     project_key: str | None = None,
     writes: tuple[PersistenceWriteResult, ...] = (),
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view "
+    "fact_source=typed_knowledge_repository_records "
+    "witness=test:test_persistence_api_envelope_view_metadata",
+]:
     records = repository.list_records(project_key=project_key)
     record_payloads = [serialize_persistence_boundary_record(record) for record in records]
     writing_refs = [
@@ -516,61 +609,61 @@ def build_persistence_api_envelope(
 
 def validate_persistence_boundary_record(record: PersistenceBoundaryRecord) -> None:
     if record.contract_version != PERSISTENCE_API_BOUNDARY_CONTRACT_VERSION:
-        raise TypedKnowledgePersistenceBoundaryError("persistence_boundary_contract_version_mismatch")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persistence_boundary_contract_version_mismatch"))
     if record.object_type not in ALLOWED_OBJECT_TYPES:
-        raise TypedKnowledgePersistenceBoundaryError(f"persistence_boundary_unknown_object_type:{record.object_type}")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure(f"persistence_boundary_unknown_object_type:{record.object_type}"))
     expected_identity_ref = build_identity_ref(
         project_key=record.project_key,
         object_type=record.object_type,
         object_key=record.object_key,
     )
     if record.identity_ref != expected_identity_ref:
-        raise TypedKnowledgePersistenceBoundaryError("persistence_boundary_identity_ref_mismatch")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persistence_boundary_identity_ref_mismatch"))
     if record.visibility_scope not in {
         contracts.VISIBILITY_SCOPE_INTERNAL_ONLY,
         contracts.VISIBILITY_SCOPE_DOWNSTREAM_READY,
     }:
-        raise TypedKnowledgePersistenceBoundaryError("persistence_boundary_invalid_visibility_scope")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persistence_boundary_invalid_visibility_scope"))
     if record.lifecycle_state not in ALLOWED_LIFECYCLE_STATES:
-        raise TypedKnowledgePersistenceBoundaryError("persistence_boundary_invalid_lifecycle_state")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persistence_boundary_invalid_lifecycle_state"))
     review_state = str(record.governance.get("review_state") or "")
     if review_state not in contracts.ALLOWED_REVIEW_STATES:
-        raise TypedKnowledgePersistenceBoundaryError("persistence_boundary_invalid_review_state")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persistence_boundary_invalid_review_state"))
     if contracts.REVIEW_STATE_VISIBILITY_SCOPE[review_state] != record.visibility_scope:
-        raise TypedKnowledgePersistenceBoundaryError("persistence_boundary_visibility_scope_mismatch")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persistence_boundary_visibility_scope_mismatch"))
     if REVIEW_STATE_LIFECYCLE_STATE[review_state] != record.lifecycle_state:
-        raise TypedKnowledgePersistenceBoundaryError("persistence_boundary_lifecycle_state_mismatch")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persistence_boundary_lifecycle_state_mismatch"))
     if record.writing_handoff_refs and record.object_type != OBJECT_TYPE_KNOWLEDGE_ITEM:
-        raise TypedKnowledgePersistenceBoundaryError("persistence_boundary_handoff_refs_only_for_knowledge_items")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persistence_boundary_handoff_refs_only_for_knowledge_items"))
     for ref in record.writing_handoff_refs:
         _validate_writing_handoff_ref(ref, expected_knowledge_item_key=record.object_key)
 
 
 def validate_persistence_api_envelope(envelope: Mapping[str, Any]) -> None:
     if not isinstance(envelope, Mapping):
-        raise TypedKnowledgePersistenceBoundaryError("persistence_api_envelope_not_mapping")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persistence_api_envelope_not_mapping"))
     if envelope.get("status") != "ok":
-        raise TypedKnowledgePersistenceBoundaryError("persistence_api_envelope_status_not_ok")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persistence_api_envelope_status_not_ok"))
     data = envelope.get("data")
     meta = envelope.get("meta")
     if not isinstance(data, Mapping) or not isinstance(meta, Mapping):
-        raise TypedKnowledgePersistenceBoundaryError("persistence_api_envelope_missing_data_or_meta")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persistence_api_envelope_missing_data_or_meta"))
     if data.get("contract_version") != PERSISTENCE_API_BOUNDARY_CONTRACT_VERSION:
-        raise TypedKnowledgePersistenceBoundaryError("persistence_api_envelope_contract_version_mismatch")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persistence_api_envelope_contract_version_mismatch"))
     repository = data.get("repository")
     if not isinstance(repository, Mapping):
-        raise TypedKnowledgePersistenceBoundaryError("persistence_api_envelope_missing_repository")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persistence_api_envelope_missing_repository"))
     persistence_mode = repository.get("persistence_mode")
     if persistence_mode not in ALLOWED_CONTRACT_PERSISTENCE_MODES:
-        raise TypedKnowledgePersistenceBoundaryError("persistence_api_envelope_unknown_persistence_mode")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persistence_api_envelope_unknown_persistence_mode"))
     live_mode = persistence_mode == LIVE_DB_PERSISTENCE_MODE
     if repository.get("live_db_write") is not live_mode:
-        raise TypedKnowledgePersistenceBoundaryError("persistence_api_envelope_live_db_claim_mismatch")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persistence_api_envelope_live_db_claim_mismatch"))
     readiness = meta.get("readiness")
     if not isinstance(readiness, Mapping):
-        raise TypedKnowledgePersistenceBoundaryError("persistence_api_envelope_missing_readiness")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persistence_api_envelope_missing_readiness"))
     if readiness.get("repository_contract") is not True or readiness.get("api_envelope") is not True:
-        raise TypedKnowledgePersistenceBoundaryError("persistence_api_envelope_contract_not_ready")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persistence_api_envelope_contract_not_ready"))
     if live_mode:
         if (
             readiness.get("live_db_persistence") is not True
@@ -578,45 +671,41 @@ def validate_persistence_api_envelope(envelope: Mapping[str, Any]) -> None:
             or readiness.get("governance_ui") is not True
             or readiness.get("migration_backfill") is not True
         ):
-            raise TypedKnowledgePersistenceBoundaryError("persistence_api_envelope_live_completion_missing")
+            raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persistence_api_envelope_live_completion_missing"))
         if tuple(meta.get("remaining_live_gaps") or ()):
-            raise TypedKnowledgePersistenceBoundaryError("persistence_api_envelope_live_gaps_must_be_closed")
+            raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persistence_api_envelope_live_gaps_must_be_closed"))
     elif (
         readiness.get("live_db_persistence") is not False
         or readiness.get("public_api_route") is not False
         or readiness.get("governance_ui") is not False
     ):
-        raise TypedKnowledgePersistenceBoundaryError("persistence_api_envelope_overclaims_live_completion")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persistence_api_envelope_overclaims_live_completion"))
     remaining_gaps = tuple(meta.get("remaining_live_gaps") or ())
     if not live_mode:
         for required_gap in PERSISTENCE_API_BOUNDARY_REMAINING_LIVE_GAPS:
             if required_gap not in remaining_gaps:
-                raise TypedKnowledgePersistenceBoundaryError(
-                    f"persistence_api_envelope_missing_remaining_gap:{required_gap}"
-                )
+                raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure(f"persistence_api_envelope_missing_remaining_gap:{required_gap}"))
     records = data.get("records")
     if not isinstance(records, list) or not records:
-        raise TypedKnowledgePersistenceBoundaryError("persistence_api_envelope_missing_records")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persistence_api_envelope_missing_records"))
     for record in records:
         if not isinstance(record, Mapping):
-            raise TypedKnowledgePersistenceBoundaryError("persistence_api_envelope_invalid_record")
+            raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persistence_api_envelope_invalid_record"))
         for field_name in PERSISTENCE_API_BOUNDARY_FIELDS:
             if field_name not in record:
-                raise TypedKnowledgePersistenceBoundaryError(
-                    f"persistence_api_envelope_record_missing_field:{field_name}"
-                )
+                raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure(f"persistence_api_envelope_record_missing_field:{field_name}"))
         if record.get("contract_version") != PERSISTENCE_API_BOUNDARY_CONTRACT_VERSION:
-            raise TypedKnowledgePersistenceBoundaryError("persistence_api_envelope_record_version_mismatch")
+            raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persistence_api_envelope_record_version_mismatch"))
     writes = data.get("writes")
     if not isinstance(writes, list):
-        raise TypedKnowledgePersistenceBoundaryError("persistence_api_envelope_invalid_writes")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persistence_api_envelope_invalid_writes"))
     for write in writes:
         if not isinstance(write, Mapping):
-            raise TypedKnowledgePersistenceBoundaryError("persistence_api_envelope_live_write_claim_mismatch")
+            raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persistence_api_envelope_live_write_claim_mismatch"))
         if not live_mode and write.get("live_db_write") is True:
-            raise TypedKnowledgePersistenceBoundaryError("persistence_api_envelope_live_write_claim_forbidden")
+            raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persistence_api_envelope_live_write_claim_forbidden"))
         if write.get("live_db_write") is not live_mode:
-            raise TypedKnowledgePersistenceBoundaryError("persistence_api_envelope_live_write_claim_mismatch")
+            raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persistence_api_envelope_live_write_claim_mismatch"))
 
 
 def serialize_persistence_boundary_record(record: PersistenceBoundaryRecord) -> dict[str, Any]:
@@ -702,15 +791,23 @@ def deserialize_persistence_write_result(payload: Mapping[str, Any]) -> Persiste
         live_db_write=bool(payload.get("live_db_write")),
     )
     if result.contract_version != PERSISTENCE_WRITE_RESULT_CONTRACT_VERSION:
-        raise TypedKnowledgePersistenceBoundaryError("persistence_write_result_contract_version_mismatch")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persistence_write_result_contract_version_mismatch"))
     if result.live_db_write and result.repository_ref != LIVE_DB_REPOSITORY_REF:
-        raise TypedKnowledgePersistenceBoundaryError("persistence_write_result_live_db_claim_forbidden")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persistence_write_result_live_db_claim_forbidden"))
     if result.status_after not in ALLOWED_LIFECYCLE_STATES:
-        raise TypedKnowledgePersistenceBoundaryError("persistence_write_result_invalid_status_after")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persistence_write_result_invalid_status_after"))
     return result
 
 
-def build_sample_boundary_envelope(*, project_key: str = "demo_proj") -> dict[str, Any]:
+def build_sample_boundary_envelope(
+    *,
+    project_key: str = "demo_proj",
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=generated_evidence "
+    "fact_source=typed_knowledge_fixture_inputs "
+    "witness=test:test_w04_authority_metadata",
+]:
     normalized_project_key = str(project_key or "").strip() or "demo_proj"
     type_node = contracts.TypeNode(
         key="type:market_signal",
@@ -769,7 +866,11 @@ def build_live_db_boundary_envelope(
     project_key: str = "demo_proj",
     seed_sample: bool = True,
     write_time: str | None = None,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:authoritative-write canonical_writer=SqlAlchemyTypedKnowledgeRepository "
+    "witness=test:test_w04_authority_metadata",
+]:
     repository = SqlAlchemyTypedKnowledgeRepository(session=session)
     writes: tuple[PersistenceWriteResult, ...] = ()
     normalized_project_key = str(project_key or "").strip() or "demo_proj"
@@ -791,12 +892,18 @@ def build_live_writing_context_from_repository(
     *,
     session: Any,
     project_key: str = "demo_proj",
-    seed_sample: bool = True,
-) -> dict[str, Any]:
+    seed_sample: bool = False,
+) -> Annotated[
+    dict[str, Any],
+    "kit:canonical-read canonical_owner=SqlAlchemyTypedKnowledgeRepository "
+    "witness=test:test_w04_authority_metadata",
+]:
+    # Keep this repository projection read-only.  seed_sample remains accepted
+    # for callers using the old keyword, but cannot trigger a write here.
     boundary_envelope = build_live_db_boundary_envelope(
         session=session,
         project_key=project_key,
-        seed_sample=seed_sample,
+        seed_sample=False,
     )
     handoffs = _build_writing_handoffs_from_boundary_envelope(boundary_envelope)
     return contracts.build_writing_knowledge_context_envelope(handoffs)
@@ -819,11 +926,11 @@ def apply_live_governance_review_state(
     normalized_review_state = str(review_state or "").strip()
     normalized_actor_type = str(actor_type or "").strip() or contracts.ACTOR_HUMAN
     if normalized_object_type not in ALLOWED_OBJECT_TYPES:
-        raise TypedKnowledgePersistenceBoundaryError(f"governance_review_invalid_object_type:{normalized_object_type}")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure(f"governance_review_invalid_object_type:{normalized_object_type}"))
     if normalized_review_state not in contracts.ALLOWED_REVIEW_STATES:
-        raise TypedKnowledgePersistenceBoundaryError(f"governance_review_invalid_review_state:{normalized_review_state}")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure(f"governance_review_invalid_review_state:{normalized_review_state}"))
     if normalized_actor_type not in contracts.ALLOWED_GOVERNANCE_ACTORS:
-        raise TypedKnowledgePersistenceBoundaryError(f"governance_review_invalid_actor_type:{normalized_actor_type}")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure(f"governance_review_invalid_actor_type:{normalized_actor_type}"))
 
     repository = SqlAlchemyTypedKnowledgeRepository(session=session)
     if not repository.list_records(project_key=normalized_project_key):
@@ -840,7 +947,7 @@ def apply_live_governance_review_state(
         .one_or_none()
     )
     if row is None:
-        raise TypedKnowledgePersistenceBoundaryError(f"governance_review_record_not_found:{identity_ref}")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure(f"governance_review_record_not_found:{identity_ref}"))
 
     previous = {
         "review_state": row.review_state,
@@ -898,7 +1005,12 @@ def build_public_api_route_contract_envelope(
     project_key: str = "demo_proj",
     boundary_envelope: Mapping[str, Any] | None = None,
     live_db_backed: bool | None = None,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=generated_evidence "
+    "fact_source=boundary_envelope+live_db_flag "
+    "witness=test:test_w04_authority_metadata",
+]:
     boundary_envelope = boundary_envelope or build_sample_boundary_envelope(project_key=project_key)
     boundary_repo = boundary_envelope["data"]["repository"]
     is_live = bool(live_db_backed if live_db_backed is not None else boundary_repo.get("live_db_write"))
@@ -907,11 +1019,17 @@ def build_public_api_route_contract_envelope(
         boundary_envelope=boundary_envelope,
         live_db_backed=is_live,
     )
-    remaining_gaps = [] if is_live else list(PUBLIC_API_ROUTE_REMAINING_LIVE_GAPS)
+    remaining_gaps = (
+        list(PUBLIC_API_ROUTE_UNVERIFIED_LIVE_GAPS)
+        if is_live
+        else list(PUBLIC_API_ROUTE_REMAINING_LIVE_GAPS)
+    )
     envelope = {
         "status": "ok",
         "data": {
             "contract_version": PUBLIC_API_ROUTE_CONTRACT_VERSION,
+            "authoritative": False,
+            "derived_as": "view",
             "route": {
                 "method": "GET",
                 "path": PUBLIC_API_ROUTE_PATH,
@@ -935,12 +1053,16 @@ def build_public_api_route_contract_envelope(
                 "repository_contract": True,
                 "persisted_card_request_response_readback": True,
                 "live_db_persistence": is_live,
-                "live_api_closure": is_live,
-                "live_ui_closure": is_live,
-                "governance_ui": is_live,
+                "live_api_closure": False,
+                "live_ui_closure": False,
+                "governance_ui": False,
             },
             "remaining_live_gaps": remaining_gaps,
-            "non_goal": "live_db_api_ui_closed" if is_live else "no_live_db_write_no_product_ui",
+            "non_goal": (
+                "live_db_readback_without_live_api_ui_governance_closure"
+                if is_live
+                else "no_live_db_write_no_product_ui"
+            ),
         },
     }
     validate_public_api_route_contract_envelope(envelope)
@@ -952,7 +1074,12 @@ def build_persisted_card_request_response_readback(
     project_key: str = "demo_proj",
     boundary_envelope: Mapping[str, Any] | None = None,
     live_db_backed: bool = False,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=generated_evidence "
+    "fact_source=boundary_envelope+live_db_flag "
+    "witness=test:test_w04_authority_metadata",
+]:
     """Build a repo-local persisted-card request/response readback contract.
 
     The returned payload mirrors the persisted Writing Workbench card request path
@@ -980,8 +1107,8 @@ def build_persisted_card_request_response_readback(
         "metadata_json": {
             "typed_knowledge_context": typed_context,
         },
-        "source": "typed_knowledge_live_db_readback" if is_live else "typed_knowledge_api_boundary_fixture",
-        "live_db_document": is_live,
+        "source": "typed_knowledge_local_expected_document",
+        "live_db_document": False,
     }
     request_body = {
         "project_key": normalized_project_key,
@@ -1052,6 +1179,8 @@ def build_persisted_card_request_response_readback(
     }
     readback = {
         "contract_version": PERSISTED_CARD_REQUEST_RESPONSE_READBACK_CONTRACT_VERSION,
+        "authoritative": False,
+        "derived_as": "simulation",
         "typed_knowledge_api_boundary": {
             "route_path": PUBLIC_API_ROUTE_PATH,
             "contract_version": PUBLIC_API_ROUTE_CONTRACT_VERSION,
@@ -1067,7 +1196,9 @@ def build_persisted_card_request_response_readback(
         },
         "keyword_card_response": {
             "response_contract": "KeywordCardListResponse",
-            "source": "repo_local_expected_response_shape",
+            "source": "repo_local_simulated_response_shape",
+            "authoritative": False,
+            "derived_as": "simulation",
             "body": response_body,
         },
         "readback": {
@@ -1089,12 +1220,20 @@ def build_persisted_card_request_response_readback(
                 "typed_knowledge_api_boundary": True,
                 "writing_keyword_card_request_shape": True,
                 "live_db_persistence": is_live,
-                "live_api_closure": is_live,
-                "live_ui_closure": is_live,
-                "governance_ui": is_live,
+                "live_api_closure": False,
+                "live_ui_closure": False,
+                "governance_ui": False,
             },
-            "remaining_live_gaps": [] if is_live else list(PERSISTED_CARD_READBACK_REMAINING_LIVE_GAPS),
-            "non_goal": "live_db_api_ui_card_readback_closed" if is_live else "no_live_db_no_live_api_no_live_ui_closure",
+            "remaining_live_gaps": (
+                list(PERSISTED_CARD_READBACK_UNVERIFIED_LIVE_GAPS)
+                if is_live
+                else list(PERSISTED_CARD_READBACK_REMAINING_LIVE_GAPS)
+            ),
+            "non_goal": (
+                "live_db_readback_with_simulated_card_response"
+                if is_live
+                else "no_live_db_no_live_api_no_live_ui_closure"
+            ),
         },
     }
     validate_persisted_card_request_response_readback(readback)
@@ -1166,156 +1305,154 @@ def check_durable_repository_readback_contract(
 
 def validate_public_api_route_contract_envelope(envelope: Mapping[str, Any]) -> None:
     if not isinstance(envelope, Mapping):
-        raise TypedKnowledgePersistenceBoundaryError("public_api_route_envelope_not_mapping")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("public_api_route_envelope_not_mapping"))
     if envelope.get("status") != "ok":
-        raise TypedKnowledgePersistenceBoundaryError("public_api_route_envelope_status_not_ok")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("public_api_route_envelope_status_not_ok"))
     data = envelope.get("data")
     meta = envelope.get("meta")
     if not isinstance(data, Mapping) or not isinstance(meta, Mapping):
-        raise TypedKnowledgePersistenceBoundaryError("public_api_route_envelope_missing_data_or_meta")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("public_api_route_envelope_missing_data_or_meta"))
     if data.get("contract_version") != PUBLIC_API_ROUTE_CONTRACT_VERSION:
-        raise TypedKnowledgePersistenceBoundaryError("public_api_route_contract_version_mismatch")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("public_api_route_contract_version_mismatch"))
+    if data.get("authoritative") is not False or data.get("derived_as") != "view":
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("public_api_route_authority_overclaim"))
     route = data.get("route")
     if not isinstance(route, Mapping):
-        raise TypedKnowledgePersistenceBoundaryError("public_api_route_missing_route")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("public_api_route_missing_route"))
     if route.get("method") != "GET" or route.get("path") != PUBLIC_API_ROUTE_PATH:
-        raise TypedKnowledgePersistenceBoundaryError("public_api_route_path_mismatch")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("public_api_route_path_mismatch"))
     if route.get("public_api_route") is not True or not isinstance(route.get("live_db_backed"), bool):
-        raise TypedKnowledgePersistenceBoundaryError("public_api_route_readiness_mismatch")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("public_api_route_readiness_mismatch"))
     is_live = bool(route.get("live_db_backed"))
 
     persistence_boundary = data.get("persistence_boundary")
     if not isinstance(persistence_boundary, Mapping):
-        raise TypedKnowledgePersistenceBoundaryError("public_api_route_missing_persistence_boundary")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("public_api_route_missing_persistence_boundary"))
     repository = persistence_boundary.get("repository")
     if not isinstance(repository, Mapping) or repository.get("live_db_write") is not is_live:
-        raise TypedKnowledgePersistenceBoundaryError("public_api_route_live_db_overclaim")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("public_api_route_live_db_overclaim"))
     records = persistence_boundary.get("records")
     if not isinstance(records, list) or not records:
-        raise TypedKnowledgePersistenceBoundaryError("public_api_route_missing_records")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("public_api_route_missing_records"))
     readback = data.get("persisted_card_request_response_readback")
     if not isinstance(readback, Mapping):
-        raise TypedKnowledgePersistenceBoundaryError("public_api_route_missing_persisted_card_readback")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("public_api_route_missing_persisted_card_readback"))
     validate_persisted_card_request_response_readback(readback)
 
     readiness = meta.get("readiness")
     if not isinstance(readiness, Mapping):
-        raise TypedKnowledgePersistenceBoundaryError("public_api_route_missing_readiness")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("public_api_route_missing_readiness"))
     if readiness.get("public_api_route") is not True or readiness.get("api_contract") is not True:
-        raise TypedKnowledgePersistenceBoundaryError("public_api_route_contract_not_ready")
-    if is_live:
-        if (
-            readiness.get("live_db_persistence") is not True
-            or readiness.get("governance_ui") is not True
-            or readiness.get("live_api_closure") is not True
-            or readiness.get("live_ui_closure") is not True
-        ):
-            raise TypedKnowledgePersistenceBoundaryError("public_api_route_live_completion_missing")
-    elif (
-        readiness.get("live_db_persistence") is not False
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("public_api_route_contract_not_ready"))
+    if (
+        readiness.get("live_db_persistence") is not is_live
         or readiness.get("governance_ui") is not False
         or readiness.get("live_api_closure") is not False
         or readiness.get("live_ui_closure") is not False
     ):
-        raise TypedKnowledgePersistenceBoundaryError("public_api_route_live_completion_overclaim")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("public_api_route_live_completion_overclaim"))
 
     remaining_gaps = tuple(meta.get("remaining_live_gaps") or ())
-    if is_live and remaining_gaps:
-        raise TypedKnowledgePersistenceBoundaryError("public_api_route_live_gaps_must_be_closed")
-    for required_gap in (() if is_live else PUBLIC_API_ROUTE_REMAINING_LIVE_GAPS):
+    required_gaps = (
+        PUBLIC_API_ROUTE_UNVERIFIED_LIVE_GAPS
+        if is_live
+        else PUBLIC_API_ROUTE_REMAINING_LIVE_GAPS
+    )
+    for required_gap in required_gaps:
         if required_gap not in remaining_gaps:
-            raise TypedKnowledgePersistenceBoundaryError(f"public_api_route_missing_remaining_gap:{required_gap}")
+            raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure(f"public_api_route_missing_remaining_gap:{required_gap}"))
     if "public_typed_knowledge_api_route_not_implemented" in remaining_gaps:
-        raise TypedKnowledgePersistenceBoundaryError("public_api_route_keeps_closed_gap_open")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("public_api_route_keeps_closed_gap_open"))
 
 
 def validate_persisted_card_request_response_readback(payload: Mapping[str, Any]) -> None:
     if not isinstance(payload, Mapping):
-        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_not_mapping")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persisted_card_readback_not_mapping"))
     if payload.get("contract_version") != PERSISTED_CARD_REQUEST_RESPONSE_READBACK_CONTRACT_VERSION:
-        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_contract_version_mismatch")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persisted_card_readback_contract_version_mismatch"))
+    if payload.get("authoritative") is not False or payload.get("derived_as") != "simulation":
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persisted_card_readback_authority_overclaim"))
 
     api_boundary = payload.get("typed_knowledge_api_boundary")
     if not isinstance(api_boundary, Mapping):
-        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_missing_api_boundary")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persisted_card_readback_missing_api_boundary"))
     if api_boundary.get("route_path") != PUBLIC_API_ROUTE_PATH or not isinstance(api_boundary.get("live_db_backed"), bool):
-        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_api_boundary_overclaim")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persisted_card_readback_api_boundary_overclaim"))
     is_live = bool(api_boundary.get("live_db_backed"))
 
     persisted_document = payload.get("persisted_document")
     if not isinstance(persisted_document, Mapping):
-        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_missing_document")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persisted_card_readback_missing_document"))
     metadata_json = persisted_document.get("metadata_json")
-    if not isinstance(metadata_json, Mapping) or persisted_document.get("live_db_document") is not is_live:
-        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_invalid_persisted_document")
+    if not isinstance(metadata_json, Mapping) or persisted_document.get("live_db_document") is not False:
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persisted_card_readback_invalid_persisted_document"))
+    if persisted_document.get("source") != "typed_knowledge_local_expected_document":
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persisted_card_readback_invalid_persisted_document"))
     typed_context = metadata_json.get("typed_knowledge_context")
     if not isinstance(typed_context, Mapping):
-        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_missing_typed_context")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persisted_card_readback_missing_typed_context"))
     contracts.validate_writing_knowledge_context_envelope(typed_context)
 
     request = payload.get("keyword_card_request")
     if not isinstance(request, Mapping) or request.get("path") != WRITING_KEYWORD_CARD_ROUTE_PATH:
-        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_invalid_request_route")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persisted_card_readback_invalid_request_route"))
     request_body = request.get("body")
     if not isinstance(request_body, Mapping):
-        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_missing_request_body")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persisted_card_readback_missing_request_body"))
     request_context = request_body.get("context")
     if not isinstance(request_context, Mapping):
-        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_missing_request_context")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persisted_card_readback_missing_request_context"))
     if request_context.get("typed_knowledge_context") != typed_context:
-        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_context_mismatch")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persisted_card_readback_context_mismatch"))
     if "resource" not in tuple(request_body.get("sources") or ()):
-        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_request_missing_resource_source")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persisted_card_readback_request_missing_resource_source"))
 
     response = payload.get("keyword_card_response")
     if not isinstance(response, Mapping):
-        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_missing_response")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persisted_card_readback_missing_response"))
     response_body = response.get("body")
     if not isinstance(response_body, Mapping):
-        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_missing_response_body")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persisted_card_readback_missing_response_body"))
+    if response.get("authoritative") is not False or response.get("derived_as") != "simulation":
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persisted_card_readback_response_authority_overclaim"))
     cards = response_body.get("cards")
     if not isinstance(cards, list) or len(cards) != 1:
-        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_expected_one_card")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persisted_card_readback_expected_one_card"))
     card = cards[0]
     if not isinstance(card, Mapping):
-        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_invalid_card")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persisted_card_readback_invalid_card"))
     if card.get("source_type") != "resource" or card.get("publisher") != "typed_knowledge":
-        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_card_boundary_mismatch")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persisted_card_readback_card_boundary_mismatch"))
     extra = card.get("extra")
     if not isinstance(extra, Mapping):
-        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_missing_card_extra")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persisted_card_readback_missing_card_extra"))
     if extra.get("handoff_source") != "typed_knowledge" or extra.get("visibility_scope") != "downstream_ready":
-        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_card_extra_mismatch")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persisted_card_readback_card_extra_mismatch"))
 
     meta = payload.get("meta")
     if not isinstance(meta, Mapping):
-        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_missing_meta")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persisted_card_readback_missing_meta"))
     readiness = meta.get("readiness")
     if not isinstance(readiness, Mapping):
-        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_missing_readiness")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persisted_card_readback_missing_readiness"))
     if readiness.get("repo_local_persisted_card_readback") is not True:
-        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_not_ready")
-    if is_live:
-        if (
-            readiness.get("live_db_persistence") is not True
-            or readiness.get("live_api_closure") is not True
-            or readiness.get("live_ui_closure") is not True
-            or readiness.get("governance_ui") is not True
-        ):
-            raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_live_completion_missing")
-    elif (
-        readiness.get("live_db_persistence") is not False
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persisted_card_readback_not_ready"))
+    if (
+        readiness.get("live_db_persistence") is not is_live
         or readiness.get("live_api_closure") is not False
         or readiness.get("live_ui_closure") is not False
         or readiness.get("governance_ui") is not False
     ):
-        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_live_completion_overclaim")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persisted_card_readback_live_completion_overclaim"))
     remaining_gaps = tuple(meta.get("remaining_live_gaps") or ())
-    if is_live and remaining_gaps:
-        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_live_gaps_must_be_closed")
-    for required_gap in (() if is_live else PERSISTED_CARD_READBACK_REMAINING_LIVE_GAPS):
+    required_gaps = (
+        PERSISTED_CARD_READBACK_UNVERIFIED_LIVE_GAPS
+        if is_live
+        else PERSISTED_CARD_READBACK_REMAINING_LIVE_GAPS
+    )
+    for required_gap in required_gaps:
         if required_gap not in remaining_gaps:
-            raise TypedKnowledgePersistenceBoundaryError(f"persisted_card_readback_missing_remaining_gap:{required_gap}")
+            raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure(f"persisted_card_readback_missing_remaining_gap:{required_gap}"))
 
 
 def _remaining_persistence_live_gaps(
@@ -1446,20 +1583,20 @@ def _object_parts(
             },
             None,
         )
-    raise TypedKnowledgePersistenceBoundaryError("persistence_boundary_unsupported_object")
+    raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persistence_boundary_unsupported_object"))
 
 
 def _validate_writing_handoff_ref(ref: WritingHandoffRef, *, expected_knowledge_item_key: str) -> None:
     if ref.contract_version != contracts.WRITING_KNOWLEDGE_HANDOFF_CONTRACT_VERSION:
-        raise TypedKnowledgePersistenceBoundaryError("writing_handoff_ref_contract_version_mismatch")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("writing_handoff_ref_contract_version_mismatch"))
     if ref.knowledge_item_key != expected_knowledge_item_key:
-        raise TypedKnowledgePersistenceBoundaryError("writing_handoff_ref_knowledge_item_mismatch")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("writing_handoff_ref_knowledge_item_mismatch"))
     if ref.consumer != "writing.keyword_card":
-        raise TypedKnowledgePersistenceBoundaryError("writing_handoff_ref_consumer_mismatch")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("writing_handoff_ref_consumer_mismatch"))
     if ref.card_source_type != "resource":
-        raise TypedKnowledgePersistenceBoundaryError("writing_handoff_ref_card_source_type_mismatch")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("writing_handoff_ref_card_source_type_mismatch"))
     if ref.selection_hash is not None and not ref.selection_hash.strip():
-        raise TypedKnowledgePersistenceBoundaryError("writing_handoff_ref_invalid_selection_hash")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("writing_handoff_ref_invalid_selection_hash"))
 
 
 def _serialize_writing_handoff_ref(ref: WritingHandoffRef) -> dict[str, Any]:
@@ -1483,7 +1620,7 @@ def _normalize_write_time(write_time: str | None, updated_at: str | None) -> str
 def _build_writing_handoff_from_boundary_envelope(envelope: Mapping[str, Any]) -> contracts.WritingKnowledgeHandoff:
     handoffs = _build_writing_handoffs_from_boundary_envelope(envelope)
     if not handoffs:
-        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_source_missing_handoff")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persisted_card_readback_source_missing_handoff"))
     return handoffs[0]
 
 
@@ -1492,10 +1629,10 @@ def _build_writing_handoffs_from_boundary_envelope(
 ) -> tuple[contracts.WritingKnowledgeHandoff, ...]:
     data = envelope.get("data")
     if not isinstance(data, Mapping):
-        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_source_missing_data")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persisted_card_readback_source_missing_data"))
     records = data.get("records")
     if not isinstance(records, list):
-        raise TypedKnowledgePersistenceBoundaryError("persisted_card_readback_source_missing_records")
+        raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure("persisted_card_readback_source_missing_records"))
     handoffs: list[contracts.WritingKnowledgeHandoff] = []
     for record in records:
         if not isinstance(record, Mapping) or record.get("object_type") != OBJECT_TYPE_KNOWLEDGE_ITEM:
@@ -1585,13 +1722,9 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
             try:
                 payload = json.loads(stripped)
             except json.JSONDecodeError as exc:
-                raise TypedKnowledgePersistenceBoundaryError(
-                    f"typed_knowledge_jsonl_invalid_json:{path}:{line_number}"
-                ) from exc
+                raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure(f"typed_knowledge_jsonl_invalid_json:{path}:{line_number}"), cause=exc)
             if not isinstance(payload, dict):
-                raise TypedKnowledgePersistenceBoundaryError(
-                    f"typed_knowledge_jsonl_row_not_mapping:{path}:{line_number}"
-                )
+                raise_typed_knowledge_persistence_legacy(typed_knowledge_persistence_failure(f"typed_knowledge_jsonl_row_not_mapping:{path}:{line_number}"))
             rows.append(payload)
     return rows
 
@@ -1621,3 +1754,31 @@ def boundary_fingerprint(envelope: Mapping[str, Any]) -> str:
         sort_keys=True,
     ).encode("utf-8", errors="ignore")
     return hashlib.sha1(serialized, usedforsecurity=False).hexdigest()[:16]
+
+
+def _typed_persistence_failure_from_exception(exc: BaseException, *, owner: str) -> Failure:
+    return typed_knowledge_persistence_failure(str(exc), owner=owner, public_message=str(exc))
+
+
+def try_validate_persistence_boundary_record(record: PersistenceBoundaryRecord) -> Failure | None:
+    try:
+        validate_persistence_boundary_record(record)
+    except (TypedKnowledgePersistenceBoundaryError, contracts.TypedKnowledgeContractError) as exc:
+        return _typed_persistence_failure_from_exception(exc, owner="typed_knowledge.persistence_boundary.record")
+    return None
+
+
+def try_validate_persistence_api_envelope(envelope: Mapping[str, Any]) -> Failure | None:
+    try:
+        validate_persistence_api_envelope(envelope)
+    except (TypedKnowledgePersistenceBoundaryError, contracts.TypedKnowledgeContractError) as exc:
+        return _typed_persistence_failure_from_exception(exc, owner="typed_knowledge.persistence_boundary.envelope")
+    return None
+
+
+def try_validate_persisted_card_request_response_readback(payload: Mapping[str, Any]) -> Failure | None:
+    try:
+        validate_persisted_card_request_response_readback(payload)
+    except (TypedKnowledgePersistenceBoundaryError, contracts.TypedKnowledgeContractError) as exc:
+        return _typed_persistence_failure_from_exception(exc, owner="typed_knowledge.persistence_boundary.readback")
+    return None

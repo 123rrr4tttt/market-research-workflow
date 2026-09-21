@@ -3,6 +3,9 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
+from functorial_kit import Failure
+from mrw_functorial_kit.core.agent_service_semantics import agent_runtime_failures
+
 from .contracts import AgentCoreRequest, CoreEvent, CoreToolCall, CoreToolExecutor, CoreToolResult, CoreToolSpec
 
 
@@ -22,12 +25,13 @@ class CoreToolRegistry(CoreToolExecutor):
         self._specs: dict[str, CoreToolSpec] = {}
         self._handlers: dict[str, ToolHandler] = {}
 
-    def register(self, spec: CoreToolSpec, handler: ToolHandler) -> None:
-        name = str(spec.name or "").strip()
-        if not name:
-            raise ValueError("tool spec name is required")
+    def register(self, spec: CoreToolSpec, handler: ToolHandler) -> Failure | None:
+        name = _validate_tool_name(spec.name)
+        if isinstance(name, Failure):
+            return name
         self._specs[name] = spec
         self._handlers[name] = handler
+        return None
 
     def get(self, tool_name: str) -> CoreToolSpec | None:
         return self._specs.get(str(tool_name or "").strip())
@@ -76,16 +80,39 @@ class CoreToolRegistry(CoreToolExecutor):
         status: str = "completed",
         model_summary: str,
         structured_content: dict[str, Any] | None = None,
-    ) -> CoreToolResult:
-        if status not in {"completed", "failed", "canceled", "needs_approval", "deferred"}:
-            raise ValueError(f"unsupported tool status: {status}")
+    ) -> CoreToolResult | Failure:
+        normalized_status = _validate_tool_status(status)
+        if isinstance(normalized_status, Failure):
+            return normalized_status
         return CoreToolResult(
             call_id=call.call_id,
             tool_name=call.tool_name,
-            status=status,  # type: ignore[arg-type]
+            status=normalized_status,
             model_summary=model_summary,
             structured_content=dict(structured_content or {}),
         )
+
+
+def _validate_tool_name(value: Any) -> str | Failure:
+    name = str(value or "").strip()
+    if not name:
+        return agent_runtime_failures.fail(
+            "tool_name_required",
+            "tool spec name is required",
+            {"field": "name"},
+        )
+    return name
+
+
+def _validate_tool_status(value: Any) -> str | Failure:
+    status = str(value or "").strip()
+    if status not in {"completed", "failed", "canceled", "needs_approval", "deferred"}:
+        return agent_runtime_failures.fail(
+            "tool_status_unsupported",
+            f"unsupported tool status: {status}",
+            {"field": "status", "value": value},
+        )
+    return status
 
 
 def _count_by(items: list[dict[str, Any]], key: str) -> dict[str, int]:

@@ -16,6 +16,7 @@ from ..job_logger import complete_job, fail_job, start_job
 from ..collect_runtime.display_meta import build_display_meta
 from ..collect_runtime.contracts import CollectRequest, CollectResult
 from ..resource_pool import list_urls
+from ..task_readback_metadata import extract_runtime_readback_payload
 from .frontdoor_rollout import is_ingest_frontdoor_enabled
 from .postprocess_frontdoor import run_frontdoor_extraction
 from .metrics_payload import (
@@ -32,7 +33,7 @@ from .frontdoor_slo import (
 from .gate_reason_codes import normalize_reason_code
 from .frontdoor_router_contract import build_frontdoor_fetch_router_contract, router_contract_from_profile
 from .content_cleaner import normalize_content_for_ingest
-from .adapters.http_utils import make_html_parser
+from ..resource_pool.http_port import make_html_parser
 from .source_search_contract import build_query_url_from_contract, normalize_source_search_contract
 from .url_unwrap import unwrap_url
 
@@ -94,6 +95,30 @@ def _safe_exc(exc: Exception) -> str:
     if exc.__class__.__name__ in msg:
         return msg
     return f"{exc.__class__.__name__}: {msg}"
+
+
+def _runtime_readback_for_url_pool(extra_params: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    runtime_readback = extract_runtime_readback_payload(extra_params or {})
+    if not runtime_readback:
+        return {}
+    return {
+        **runtime_readback,
+        "line_key": "ingest",
+    }
+
+
+def _attach_url_pool_runtime_readback(
+    search_options: Optional[Dict[str, Any]],
+    *,
+    extra_params: Optional[Dict[str, Any]],
+) -> Dict[str, Any] | None:
+    runtime_readback = _runtime_readback_for_url_pool(extra_params)
+    if not runtime_readback:
+        return search_options
+    return {
+        **(search_options or {}),
+        "runtime_readback": runtime_readback,
+    }
 
 
 def _detail(url: str, **extra: Any) -> Dict[str, Any]:
@@ -343,7 +368,7 @@ def _collect_urls_from_list_with_runtime_targets(
     frontdoor_options: Dict[str, Any],
     url_batch_path_mode: str,
 ) -> Dict[str, Any]:
-    from ..tasks import task_ingest_url_via_source_library
+    from ..tasks import task_ingest_url_via_source_library  # kit:boundary owner=ingest.url_pool.dispatch class=SHELL_BOUNDARY_EXCEPTION failure_family=ingest.operation.failure witness=test:test_url_pool_async_dispatch_forces_legacy_batch_path
 
     inserted = 0
     inserted_valid = 0
@@ -486,6 +511,10 @@ def _collect_urls_from_list_with_runtime_targets(
                 search_options=search_options,
                 frontdoor_options=frontdoor_options,
                 target_url=target_url,
+            )
+            search_options = _attach_url_pool_runtime_readback(
+                search_options,
+                extra_params=extra_params,
             )
             async_result = task_ingest_url_via_source_library.delay(
                 target_url,
@@ -1676,6 +1705,9 @@ def collect_urls_from_list(
                 job_params[key] = extra_params.get(key)
         if "url_batch_path_mode" in extra_params:
             job_params["url_batch_path_mode"] = extra_params.get("url_batch_path_mode")
+    runtime_readback = _runtime_readback_for_url_pool(extra_params)
+    if runtime_readback:
+        job_params["runtime_readback"] = runtime_readback
     job_id = start_job("url_pool_fetch", job_params)
     targets, target_mode = _resolve_runtime_targets(urls, extra_params=extra_params)
     dispatch_mode = _resolve_dispatch_mode(extra_params)
@@ -1733,9 +1765,12 @@ def collect_urls_from_pool(
         for key in ("keywords", "search_keywords", "base_keywords", "topic_keywords", "provider", "language"):
             if key in extra_params and key not in job_params:
                 job_params[key] = extra_params.get(key)
+    runtime_readback = _runtime_readback_for_url_pool(extra_params)
+    if runtime_readback:
+        job_params["runtime_readback"] = runtime_readback
     job_id = start_job("url_pool_fetch", job_params)
     try:
-        from ..tasks import task_ingest_url_via_source_library
+        from ..tasks import task_ingest_url_via_source_library  # kit:boundary owner=ingest.url_pool.dispatch class=SHELL_BOUNDARY_EXCEPTION failure_family=ingest.operation.failure witness=test:test_collect_urls_from_pool_preserves_target_specific_search_contracts
 
         items, total = list_urls(
             scope=scope,
@@ -1941,6 +1976,10 @@ def collect_urls_from_pool(
                     frontdoor_options=frontdoor_options,
                     target_url=target_url,
                 )
+                search_options = _attach_url_pool_runtime_readback(
+                    search_options,
+                    extra_params=extra_params,
+                )
                 async_result = task_ingest_url_via_source_library.delay(
                     target_url,
                     normalized_terms,
@@ -2078,4 +2117,5 @@ def collect_urls_from_pool(
         return result
     except Exception as exc:  # noqa: BLE001
         fail_job(job_id, _safe_exc(exc))
+        # kit:boundary owner=ingest.url_pool class=SHELL_BOUNDARY_EXCEPTION failure_family=ingest.operation.failure witness=test:test_latest_service_a_ingest_shell_boundaries_reraise_original_errors
         raise

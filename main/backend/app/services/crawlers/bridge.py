@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from .base import CrawlerDispatchRequest
-from .registry import get_provider
+from .registry import _failure, _raise_contract_failure, get_provider
 
 
 def _normalize(payload: Any) -> dict[str, Any]:
@@ -26,7 +26,13 @@ def submit_crawler_job(
 ) -> dict[str, Any]:
     p = get_provider(provider)
     if p is None:
-        raise ValueError(f"crawler provider is not registered: {provider}")
+        failure = _failure(
+            "provider_not_registered",
+            f"crawler provider is not registered: {provider}",
+            operation="submit_crawler_job",
+            site="app.services.crawlers.bridge.submit_crawler_job",
+        )
+        _raise_contract_failure(failure)
     result = p.dispatch(
         CrawlerDispatchRequest(
             provider=provider,
@@ -58,10 +64,22 @@ def poll_crawler_job(
 ) -> dict[str, Any]:
     p = get_provider(external_provider)
     if p is None:
-        raise ValueError(f"crawler provider is not registered: {external_provider}")
+        failure = _failure(
+            "provider_not_registered",
+            f"crawler provider is not registered: {external_provider}",
+            operation="poll_crawler_job",
+            site="app.services.crawlers.bridge.poll_crawler_job",
+        )
+        _raise_contract_failure(failure)
     poll_fn = getattr(p, "poll", None)
     if not callable(poll_fn):
-        raise ValueError(f"crawler provider does not support poll(): {external_provider}")
+        failure = _failure(
+            "provider_poll_unsupported",
+            f"crawler provider does not support poll(): {external_provider}",
+            operation="poll_crawler_job",
+            site="app.services.crawlers.bridge.poll_crawler_job",
+        )
+        _raise_contract_failure(failure)
     payload = _normalize(
         poll_fn(
             external_job_id=external_job_id,

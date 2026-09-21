@@ -13,6 +13,7 @@ pytestmark = pytest.mark.integration
 
 try:
     from app.services.collect_runtime.runtime import run_source_library_item_compat
+    from app.composition.collect_runtime import configure_default_collect_adapters
 
     _IMPORT_ERROR = None
 except Exception as exc:  # noqa: BLE001
@@ -67,6 +68,7 @@ class ExternalProjectCollectRuntimeIntegrationTestCase(unittest.TestCase):
     def setUpClass(cls):
         if _IMPORT_ERROR is not None:
             raise unittest.SkipTest(f"external project runtime integration requires backend dependencies: {_IMPORT_ERROR}")
+        configure_default_collect_adapters(force=True)
 
     def test_run_source_library_item_compat_preserves_external_manifest_across_frontdoor_bridge(self):
         fake_item = {

@@ -1,0 +1,45 @@
+{
+  "authoritative": false,
+  "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+  "changed_paths": [
+    {
+      "path": "scripts/formal_release/stage2_candidate_intake.py",
+      "predecessor_sha256": "ad56ca01cf5e878613303f198bf34086f6b8ed2f431d2fdd69097f8fbc3ff1a8",
+      "reason": "CORRECTED_V2_CURRENT_INTAKE_BINDING",
+      "successor_sha256": "dbcd2f11f134cf2bf47da3b88830062318fe910ae957655f92c103f2b98c6709"
+    },
+    {
+      "path": "tests/formal_release/test_stage2_candidate_intake.py",
+      "predecessor_sha256": "de3841abfeb96aa844a831f1eedc4dad48e784e667fac2cc466da82d19f3ac81",
+      "reason": "CORRECTED_V2_CURRENT_INTAKE_BINDING",
+      "successor_sha256": "de3841abfeb96aa844a831f1eedc4dad48e784e667fac2cc466da82d19f3ac81"
+    }
+  ],
+  "external_effects": "NONE_LOCAL_DETERMINISTIC_VALIDATION_ONLY",
+  "focused_verification": {
+    "intake_tests_failed": 0,
+    "intake_tests_passed": 102,
+    "successor_package_tests_failed": 0,
+    "successor_package_tests_passed": 3
+  },
+  "manifest_contract": {
+    "candidate_specific_successor_resolutions": 6,
+    "contract14_history_allowlist": "stage1-successor-evidence/contract14-local-execution-v1/history/",
+    "current_byte_registry_direct_binding": true,
+    "historical_stage1_record_preserved": true,
+    "legacy_behavior_preserved": true,
+    "legacy_schema": "mrw.stage2.exact-candidate-manifest.v2",
+    "remediation_successor_chain_preserved": true,
+    "successor_schema": "mrw.stage2.exact-candidate-manifest.v3"
+  },
+  "predecessor": {
+    "path": "stage1-successor-evidence/stage2-v5-intake-remediation-v1/stage2-v5-intake-remediation-record.v1.json",
+    "relation": "ADDITIVE_CORRECTION_NO_REWRITE",
+    "sha256": "1fb8fc2e950a26a76877f9a0bb5053fe10e147064511ea0e5811a079ece85644",
+    "validation_path": "stage1-successor-evidence/stage2-v5-intake-remediation-v1/validation-receipt.v1.json",
+    "validation_sha256": "2d5d77c886b224eaa6ff15ffb2bf1da4a6b344bb1dde28f020d1b54b07b71c9c"
+  },
+  "production_release_authorized": false,
+  "schema_version": "mrw.stage1.stage2_v5_intake_remediation_record.v2",
+  "status": "PASS_STAGE2_V5_INTAKE_REMEDIATION_NOT_AUTHORITY"
+}

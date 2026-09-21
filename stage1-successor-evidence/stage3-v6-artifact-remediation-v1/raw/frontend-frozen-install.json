@@ -1,0 +1,21 @@
+{
+  "artifacts": [
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/frontend-frozen-install.log",
+      "sha256": "82d1448e824b26164f10b36f5b4c7dd8898ef757679156959c1e5c5abe7439dd"
+    }
+  ],
+  "authoritative": false,
+  "command": [
+    "pnpm",
+    "install",
+    "--frozen-lockfile"
+  ],
+  "cwd": "/Users/wangyiliang/market-research-workflow/main/frontend-modern",
+  "elapsed_seconds": 0.24008917808532715,
+  "environment": {
+    "DO_NOT_TRACK": "1",
+    "STORYBOOK_DISABLE_TELEMETRY": "1"
+  },
+  "exit_code": 0
+}

@@ -9,12 +9,19 @@ import {
   getMarketGraph,
   getPolicyGraph,
   getSocialGraph,
+  applyWorkflowTemplateRollback,
+  diffWorkflowTemplate,
+  listWorkflowTemplateVersions,
   listSourceItems,
   buildWorkflowGraphReportingHandoff,
   listWorkflowGraphCuratedAudits,
+  previewWorkflowTemplateRollback,
+  promoteWorkflowTemplate,
   replayWorkflowGraphHandoff,
   rollbackWorkflowGraphCuratedState,
+  runWorkflow,
   saveWorkflowGraphCuratedDraft,
+  stageWorkflowTemplate,
   submitGraphStructuredSearchTasks,
   submitWorkflowGraphCuratedDraft,
   syncWorkflowGraphCuratedState,
@@ -27,6 +34,15 @@ import type {
   GraphStructuredDashboardParams,
   GraphStructuredSearchResponse,
   SourceLibraryItem,
+  WorkflowTemplateDiffResponse,
+  WorkflowTemplateDiffStep,
+  WorkflowTemplatePayload,
+  WorkflowTemplateRollbackResponse,
+  WorkflowRunResult,
+  WorkflowTemplateStageMutationResponse,
+  WorkflowTemplateStageName,
+  WorkflowTemplateStageRecord,
+  WorkflowTemplateVersionListResponse,
 } from '../lib/types'
 import { queryKeys } from '../lib/queryKeys'
 import { GRAPH_COLOR_THEMES, assignLegendColors, type PaletteKey } from '../lib/graph-colors'
@@ -1147,6 +1163,18 @@ type GraphTemplateVersionRecord = {
   activated?: boolean
 }
 
+type TemplateStageAuditSummary = {
+  currentVersion?: number | null
+  nextVersion?: number | null
+  stage?: string | null
+  activeVersion?: number | null
+  draftVersion?: number | null
+  stagingVersion?: number | null
+  requiresPublish?: boolean
+}
+
+const WORKFLOW_TEMPLATE_STAGE_ORDER: WorkflowTemplateStageName[] = ['draft', 'staging', 'active']
+
 type ApiMethod = (...args: unknown[]) => Promise<unknown> | unknown
 
 function readCandidateApiMethod(...names: string[]) {
@@ -1184,6 +1212,265 @@ function asVersionRecord(raw: unknown): GraphTemplateVersionRecord | null {
   }
 }
 
+function asNumberOrNull(value: unknown): number | null {
+  const n = Number(value)
+  return Number.isFinite(n) ? n : null
+}
+
+function normalizeWorkflowTemplateStageRecords(items: unknown[]): WorkflowTemplateStageRecord[] {
+  return items
+    .map((item) => (isPlainRecord(item) ? item as WorkflowTemplateStageRecord : null))
+    .filter((item): item is WorkflowTemplateStageRecord => Boolean(item && String(item.stage || '').trim()))
+    .sort((a, b) => {
+      const aIndex = WORKFLOW_TEMPLATE_STAGE_ORDER.indexOf(String(a.stage) as WorkflowTemplateStageName)
+      const bIndex = WORKFLOW_TEMPLATE_STAGE_ORDER.indexOf(String(b.stage) as WorkflowTemplateStageName)
+      return (aIndex === -1 ? 99 : aIndex) - (bIndex === -1 ? 99 : bIndex)
+    })
+}
+
+function buildTemplateStageAuditSummary(
+  payload: WorkflowTemplateVersionListResponse | WorkflowTemplateStageMutationResponse,
+): TemplateStageAuditSummary {
+  const record = payload as Record<string, unknown>
+  const versionSummary = isPlainRecord(record.version_summary) ? record.version_summary : {}
+  const stageSummary = isPlainRecord(record.stage_summary) ? record.stage_summary : {}
+  const currentVersion = asNumberOrNull(record.current_version)
+  const nextVersion = asNumberOrNull(record.next_version) ?? (currentVersion !== null ? currentVersion + 1 : null)
+  const draftVersion = asNumberOrNull(versionSummary.draft_version ?? stageSummary.draft_version)
+  const stagingVersion = asNumberOrNull(versionSummary.staging_version ?? stageSummary.staging_version)
+  const activeVersion = asNumberOrNull(versionSummary.active_version ?? stageSummary.active_version)
+  const stage = String(versionSummary.stage || record.stage || record.to_stage || (stagingVersion ? 'staging' : draftVersion ? 'draft' : 'active'))
+  const explicitRequiresPublish = versionSummary.requires_publish
+  const requiresPublish = typeof explicitRequiresPublish === 'boolean'
+    ? explicitRequiresPublish
+    : Boolean(draftVersion || stagingVersion)
+  return {
+    currentVersion,
+    nextVersion,
+    stage,
+    activeVersion,
+    draftVersion,
+    stagingVersion,
+    requiresPublish,
+  }
+}
+
+function buildTemplateRollbackTraceId(workflowName: string, targetStage: string, targetVersion: number | null) {
+  const versionPart = targetVersion === null ? 'latest' : String(targetVersion)
+  return `graph-ui-rollback-${workflowName}-${targetStage}-${versionPart}`
+}
+
+function parseTemplateRollbackVersion(value: string) {
+  const text = value.trim()
+  if (!text) return null
+  const n = Number(text)
+  return Number.isInteger(n) && n > 0 ? n : null
+}
+
+function describeTemplateRollbackPlan(response: WorkflowTemplateRollbackResponse | null) {
+  const plan = response?.rollback_plan || {}
+  const canExecute = Boolean(plan.can_execute ?? plan.executable)
+  const willMutate = Boolean(plan.will_mutate)
+  const targetRecord = isPlainRecord(plan.target_stage_record) ? plan.target_stage_record : {}
+  const targetStepCount = Array.isArray(targetRecord.steps) ? targetRecord.steps.length : 0
+  return {
+    mode: String(plan.mode || (response?.rollback_preview ? 'preview_only' : '-')),
+    canExecute,
+    willMutate,
+    targetVersion: plan.target_version ?? response?.version_summary?.target_version ?? '-',
+    fromStage: plan.from_stage || '-',
+    toStage: plan.to_stage || response?.version_summary?.stage || '-',
+    targetStepCount,
+    blockedReason: String(plan.blocked_reason || plan.reason || '-'),
+    applyEndpoint: String(plan.apply_endpoint || '-'),
+    requiresExplicitApply: Boolean(plan.requires_explicit_apply),
+  }
+}
+
+function describeTemplateRollbackAudit(response: WorkflowTemplateRollbackResponse | null) {
+  const audit = response?.audit || {}
+  return {
+    action: audit.action || '-',
+    actor: audit.actor || audit.requested_by || '-',
+    appliedBy: audit.applied_by || '-',
+    traceId: audit.trace_id || '-',
+    createdAt: audit.created_at || '-',
+    fromStage: audit.from_stage || '-',
+    toStage: audit.to_stage || '-',
+  }
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value))
+}
+
+function formatWorkflowRunScalar(value: unknown) {
+  if (value === undefined || value === null || value === '') return '-'
+  if (typeof value === 'boolean') return String(value)
+  if (typeof value === 'number' || typeof value === 'string') return String(value)
+  try {
+    return JSON.stringify(value)
+  } catch {
+    return String(value)
+  }
+}
+
+function getWorkflowRunField(result: WorkflowRunResult | null, key: string) {
+  if (!result) return undefined
+  const row = result as Record<string, unknown>
+  return row[key]
+}
+
+function summarizeWorkflowDryRunResult(result: WorkflowRunResult | null) {
+  const versionSummary = isPlainRecord(getWorkflowRunField(result, 'version_summary'))
+    ? getWorkflowRunField(result, 'version_summary') as Record<string, unknown>
+    : {}
+  const readiness = getWorkflowRunField(result, 'readiness')
+    ?? getWorkflowRunField(result, 'ready')
+    ?? versionSummary.readiness
+    ?? versionSummary.ready
+  return {
+    configVersion: getWorkflowRunField(result, 'config_version')
+      ?? getWorkflowRunField(result, 'configVersion')
+      ?? versionSummary.config_version
+      ?? versionSummary.active_version
+      ?? versionSummary.current_version,
+    readiness,
+    willExecute: getWorkflowRunField(result, 'will_execute') ?? getWorkflowRunField(result, 'willExecute'),
+    writesBlocked: getWorkflowRunField(result, 'writes_blocked') ?? getWorkflowRunField(result, 'writesBlocked'),
+    requiresPublish: getWorkflowRunField(result, 'requires_publish') ?? getWorkflowRunField(result, 'requiresPublish') ?? versionSummary.requires_publish,
+  }
+}
+
+function normalizeWorkflowDryRunSteps(result: WorkflowRunResult | null) {
+  const raw = result?.steps
+  const rows = Array.isArray(raw)
+    ? raw
+    : (isPlainRecord(raw) ? Object.entries(raw).map(([key, value]) => ({ key, ...(isPlainRecord(value) ? value : { status: value }) })) : [])
+  return rows
+    .map((step, index) => {
+      const row: Record<string, unknown> = isPlainRecord(step) ? step : {}
+      const name = row.name ?? row.step ?? row.step_name ?? row.key ?? row.id ?? index + 1
+      return {
+        index: index + 1,
+        name: String(name),
+        status: row.status ?? row.readiness ?? row.state ?? '-',
+        willExecute: row.will_execute ?? row.willExecute ?? '-',
+        writesBlocked: row.writes_blocked ?? row.writesBlocked ?? '-',
+      }
+    })
+}
+
+function inferWorkflowHandlerFromNode(node: GraphNodeItem) {
+  const row = node as Record<string, unknown>
+  return String(
+    row.handler ||
+    row.module_key ||
+    row.moduleKey ||
+    row.task_key ||
+    row.type ||
+    row.id ||
+    'custom',
+  ).trim() || 'custom'
+}
+
+function buildWorkflowTemplatePayloadFromDraft({
+  projectKey,
+  nodes,
+  edges,
+  graphKind,
+}: {
+  projectKey: string
+  nodes: GraphNodeItem[]
+  edges: GraphEdgeItem[]
+  graphKind: GraphKind
+}): WorkflowTemplatePayload {
+  const workflowNodes = nodes.map((node) => {
+    const row = node as Record<string, unknown>
+    const params = isPlainRecord(row.params) ? row.params : {}
+    return {
+      id: nodeKey(node),
+      name: nodeName(node),
+      title: nodeName(node),
+      type: String(node.type || 'Entity'),
+      module_key: String(row.module_key || row.moduleKey || inferWorkflowHandlerFromNode(node)),
+      handler: inferWorkflowHandlerFromNode(node),
+      params,
+      data_type: String(row.data_type || row.dataType || graphKind),
+    }
+  })
+
+  const workflowEdges = edges.map((edge, index) => {
+    const sourceType = String(edge.from?.type || '').trim()
+    const sourceId = String(curatedRefId(edge.from) || '').trim()
+    const targetType = String(edge.to?.type || '').trim()
+    const targetId = String(curatedRefId(edge.to) || '').trim()
+    return {
+      id: String(edge.id || `e${index + 1}`),
+      source: sourceType || sourceId ? `${normalizeNodeType(sourceType)}:${sourceId}` : '',
+      target: targetType || targetId ? `${normalizeNodeType(targetType)}:${targetId}` : '',
+      mapping: isPlainRecord(edge.mapping) ? edge.mapping : { relation: String(edge.predicate || edge.type || 'RELATED_TO') },
+    }
+  }).filter((edge) => edge.source && edge.target)
+
+  return {
+    project_key: projectKey,
+    steps: workflowNodes.map((node) => ({
+      handler: node.handler,
+      params: node.params,
+      enabled: true,
+      name: node.name,
+    })),
+    board_layout: {
+      layout: graphKind,
+      graph: {
+        nodes: workflowNodes,
+        edges: workflowEdges,
+      },
+      auto_interface: true,
+      design: {
+        global_data_type: graphKind,
+        visualization_module: graphKind,
+        llm_policy: 'auto',
+      },
+      data_flow: ['documents', 'extracted_data', 'visualization'],
+    },
+  }
+}
+
+function formatDiffValue(value: unknown) {
+  if (value == null) return '-'
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value)
+  try {
+    return JSON.stringify(value)
+  } catch {
+    return String(value)
+  }
+}
+
+function formatWorkflowDiffStepSide(
+  step: WorkflowTemplateDiffStep['before'] | WorkflowTemplateDiffStep['after'],
+  formatMessage: (key: MessageKey, params: GraphMessageParams) => string,
+) {
+  if (!step) return '-'
+  const handler = formatDiffValue(step.handler)
+  const parts = [
+    handler,
+    step.name ? String(step.name) : '',
+    typeof step.enabled === 'boolean'
+      ? formatMessage('graphPage.status.configDiffStepEnabled', { value: String(step.enabled) })
+      : '',
+    step.params && Object.keys(step.params).length
+      ? formatMessage('graphPage.status.configDiffStepParams', { value: formatDiffValue(step.params) })
+      : '',
+  ].filter(Boolean)
+  return parts.join(' ')
+}
+
+function formatContractList(value: unknown) {
+  return Array.isArray(value) && value.length ? value.map((item) => String(item)).join(', ') : '-'
+}
+
 const SPECIAL_PREFIX_BY_KIND: Partial<Record<GraphKind, string>> = {
   company: 'Company',
   product: 'Product',
@@ -1209,6 +1496,11 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
   const cardFieldLabel = useCallback((field: keyof typeof GRAPH_CARD_FIELD_LABEL_KEY) => t(GRAPH_CARD_FIELD_LABEL_KEY[field]), [t])
   const defaultCuratedHandoffTopic = graphVariantLabel
   const defaultCuratedGraphId = useMemo(() => buildDefaultCuratedGraphId(projectKey, graphKind), [projectKey, graphKind])
+  const previousCuratedGraphIdDefaultRef = useRef(defaultCuratedGraphId)
+  const previousCuratedHandoffTopicDefaultRef = useRef(defaultCuratedHandoffTopic)
+  const previousGraphKindRef = useRef(graphKind)
+  const previousTemplateBuilderRef = useRef(templateBuilder)
+  const previousProjectionResetKeyRef = useRef<string | null>(null)
   const chartRef = useRef<HTMLDivElement | null>(null)
   const forceChartRef = useRef<HTMLDivElement | null>(null)
   const fullscreenWrapRef = useRef<HTMLDivElement | null>(null)
@@ -1249,7 +1541,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
   })
   const [selectedNode, setSelectedNode] = useState<GraphNodeItem | null>(null)
   const [nodeCardAnchor, setNodeCardAnchor] = useState<NodeCardAnchor | null>(null)
-  const [chartReady, setChartReady] = useState(false)
+  const [chartReadyRaw, setChartReady] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isCompactViewport, setIsCompactViewport] = useState(false)
   const [showOverlay, setShowOverlay] = useState(true)
@@ -1270,6 +1562,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
   const [projectionRotateY] = useState(18)
   const [projectionRotateZ] = useState(0)
   const [physicsFrame, setPhysicsFrame] = useState(0)
+  const [projectionFrameEpoch, setProjectionFrameEpoch] = useState(0)
   const [controlPanelWidth, setControlPanelWidth] = useState(430)
   const [controlPanelHeight, setControlPanelHeight] = useState(620)
   const [projectionPanelWidth, setProjectionPanelWidth] = useState(430)
@@ -1283,7 +1576,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     filter: true,
     edit: true,
   })
-  const [editMode, setEditMode] = useState(false)
+  const [editMode, setEditMode] = useState(templateBuilder)
   const [graphEditStatus, setGraphEditStatus] = useState('')
   const [curatedGraphId, setCuratedGraphId] = useState(defaultCuratedGraphId)
   const [curatedBusy, setCuratedBusy] = useState(false)
@@ -1299,12 +1592,27 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
   const [edgeDraft, setEdgeDraft] = useState({ sourceKey: '', targetKey: '', relation: '' })
   const [templateItems, setTemplateItems] = useState<GraphTemplateRecord[]>([])
   const [versionItems, setVersionItems] = useState<GraphTemplateVersionRecord[]>([])
+  const [templateStageItems, setTemplateStageItems] = useState<WorkflowTemplateStageRecord[]>([])
+  const [templateStageAuditSummary, setTemplateStageAuditSummary] = useState<TemplateStageAuditSummary | null>(null)
+  const [templateRollbackDraft, setTemplateRollbackDraft] = useState({
+    targetStage: 'staging' as WorkflowTemplateStageName,
+    targetVersion: '',
+    reason: '',
+  })
+  const [templateRollbackPreview, setTemplateRollbackPreview] = useState<WorkflowTemplateRollbackResponse | null>(null)
+  const [templateRollbackError, setTemplateRollbackError] = useState('')
   const [templateNameDraft, setTemplateNameDraft] = useState('')
   const [renameTemplateDraft, setRenameTemplateDraft] = useState('')
   const [versionNameDraft, setVersionNameDraft] = useState('')
   const [activeTemplateKey, setActiveTemplateKey] = useState('')
   const [activeVersionKey, setActiveVersionKey] = useState('')
   const [templateBusy, setTemplateBusy] = useState(false)
+  const [templateStageBusy, setTemplateStageBusy] = useState(false)
+  const [templateRollbackBusy, setTemplateRollbackBusy] = useState(false)
+  const [templateDiffBusy, setTemplateDiffBusy] = useState(false)
+  const [templateDiffPreview, setTemplateDiffPreview] = useState<WorkflowTemplateDiffResponse | null>(null)
+  const [templateDryRunBusy, setTemplateDryRunBusy] = useState(false)
+  const [templateDryRunResult, setTemplateDryRunResult] = useState<WorkflowRunResult | null>(null)
   const [nodeEditDraft, setNodeEditDraft] = useState({
     key: '',
     id: '',
@@ -1583,13 +1891,25 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
   }, [nodeTypes, graphGroupLabel, locale])
 
   const defaultNodeTypesForCompute = useMemo(() => {
-    if (!templateBuilder) return DEFAULT_NODE_TYPES_BY_KIND
-    const allTypes = Array.from(new Set((effectiveGraphData.nodes || []).map((n) => normalizeNodeType(n.type)).filter(Boolean)))
+    const cfg = graphConfig.data?.graph_node_types || {}
+    const cfgKey = graphKind === 'market_deep_entities' || graphKind === 'company' || graphKind === 'product' || graphKind === 'operation'
+      ? 'market'
+      : graphKind
+    const configuredTypes = Array.isArray(cfg[cfgKey])
+      ? cfg[cfgKey].map((item) => normalizeNodeType(item)).filter(Boolean)
+      : []
+    const allTypes = Array.from(new Set([
+      ...DEFAULT_NODE_TYPES_BY_KIND[graphKind],
+      ...configuredTypes,
+      ...(templateBuilder
+        ? (effectiveGraphData.nodes || []).map((n) => normalizeNodeType(n.type)).filter(Boolean)
+        : []),
+    ]))
     return {
       ...DEFAULT_NODE_TYPES_BY_KIND,
-      [graphKind]: allTypes.length ? allTypes : DEFAULT_NODE_TYPES_BY_KIND[graphKind],
+      [graphKind]: allTypes,
     }
-  }, [templateBuilder, effectiveGraphData.nodes, graphKind])
+  }, [templateBuilder, effectiveGraphData.nodes, graphConfig.data?.graph_node_types, graphKind])
 
   const docNodeTypeSetForBuilder = useMemo(() => {
     if (!templateBuilder) return new Set<string>()
@@ -1785,6 +2105,15 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     docNodeTypeSetForBuilder,
   ])
 
+  // Derived-state repair happens during render, before topology consumers read
+  // a stale mask or selected node.  The setters make the next render idempotent.
+  if (topology.connectedNodes.length > 0 && topology.visibleNodes.length === 0) {
+    if (Object.values(hiddenTypes).some(Boolean)) setHiddenTypes({})
+  }
+  if (selectedNode && !topology.connectedNodeKeys.has(nodeKey(selectedNode))) {
+    setSelectedNode(null)
+  }
+
   const symbolDebug = useMemo(() => {
     if (!showSymbolDebug) {
       return { total: 0, unique: 0, forcedCircle: 0, items: [] as Array<{ raw: string; normalized: string; rawSymbol: string; graphSymbol: BuiltinGraphSymbol; count: number }> }
@@ -1875,7 +2204,14 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
   const forceViewport = useForceGraphViewport(renderMode === 'projection3d', fullscreenWrapRef)
   const synced3DRepulsionPercent = Math.max(0, Math.min(400, visualApplied.repulsion / 1.8))
   const synced3DGravity = Math.max(0, Math.min(0.6, 0.1 * (visualApplied.gravityPercent / 100)))
+  const chartReady = chartReadyRaw && !useForceGraph3D && Boolean(chartInstRef.current)
   const showForceGraphCanvas = renderMode === 'projection3d' && useForceGraph3D && Boolean(ForceGraph3DComp) && !forceGraphLoadError
+
+  const projectionResetKey = useLegacyProjection3D ? graphKind : null
+  if (projectionResetKey !== previousProjectionResetKeyRef.current) {
+    previousProjectionResetKeyRef.current = projectionResetKey
+    setProjectionFrameEpoch((epoch) => epoch + 1)
+  }
 
   useEffect(() => {
     if (projectionEngine !== 'force3d') {
@@ -1958,8 +2294,8 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     }
   }, [connectedNodeMap, setManualSelectedNodeKeys, setManualDeselectedNodeKeys, setSelectionEnabled])
 
-  useEffect(() => {
-    // Avoid carrying hidden type masks across graph variants.
+  if (previousGraphKindRef.current !== graphKind) {
+    previousGraphKindRef.current = graphKind
     setHiddenTypes({})
     setHiddenEdgeKinds({})
     setExpandedGroup(null)
@@ -1969,21 +2305,15 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     setRadiationSelectionByCenter({})
     setSelectionPinned(false)
     setHoverNodeKey(null)
+  }
+
+  useEffect(() => {
     projectionPhysicsRef.current = { positions: {}, velocities: {} }
     projectionInteractionQuatRef.current = { x: 0, y: 0, z: 0, w: 1 }
     projectionAngularVelRef.current = { x: 0, y: 0 }
     projectionDragStateRef.current = { active: false, x: 0, y: 0 }
   }, [
     graphKind,
-    setHiddenTypes,
-    setHiddenEdgeKinds,
-    setExpandedGroup,
-    setExpandedEdgeGroup,
-    setManualSelectedNodeKeys,
-    setManualDeselectedNodeKeys,
-    setRadiationSelectionByCenter,
-    setSelectionPinned,
-    setHoverNodeKey,
   ])
 
   useEffect(() => {
@@ -1996,17 +2326,6 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     }
   }, [selectionEnabled])
 
-
-  useEffect(() => {
-    // Safety net: if a graph has connected nodes but all become hidden by type mask,
-    // auto restore visibility to avoid "empty graph" dead-end state.
-    if (topology.connectedNodes.length > 0 && topology.visibleNodes.length === 0) {
-      const hasAnyHidden = Object.values(hiddenTypes).some(Boolean)
-      if (hasAnyHidden) {
-        setHiddenTypes({})
-      }
-    }
-  }, [topology.connectedNodes.length, topology.visibleNodes.length, hiddenTypes])
 
   useEffect(() => {
     setManualSelectedNodeKeys((prev) => {
@@ -2025,10 +2344,6 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       const nextEntries = Object.entries(prev).filter(([key]) => topology.connectedNodeKeys.has(key))
       if (nextEntries.length === Object.keys(prev).length) return prev
       return Object.fromEntries(nextEntries)
-    })
-    setSelectedNode((prev) => {
-      if (!prev) return prev
-      return topology.connectedNodeKeys.has(nodeKey(prev)) ? prev : null
     })
   }, [
     topology.connectedNodeKeys,
@@ -2075,6 +2390,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
   }, [sourceItemsQuery.data, sourceItemKeyword])
 
   const selectedNodeKeyList = useMemo(() => Array.from(selectedNodeKeys), [selectedNodeKeys])
+  const previousNodeEditSourceRef = useRef<{ firstKey: string; map: typeof draftNodeMap } | null>(null)
   const editableNodeItems = useMemo(
     () => draftNodes.map((node) => ({ key: nodeKey(node), label: `${nodeName(node)} (${node.type}:${String(node.id)})` })),
     [draftNodes],
@@ -2095,6 +2411,13 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     if (!nodeEditDraft.key) return null
     return draftNodeMap.get(nodeEditDraft.key) || null
   }, [nodeEditDraft.key, draftNodeMap])
+
+  if (templateBuilder && !editMode && previousTemplateBuilderRef.current !== templateBuilder) {
+    previousTemplateBuilderRef.current = templateBuilder
+    setEditMode(true)
+  } else if (!templateBuilder) {
+    previousTemplateBuilderRef.current = templateBuilder
+  }
 
   const callApiByCandidates = useCallback(async (methodNames: string[], ...args: unknown[]) => {
     const candidate = readCandidateApiMethod(...methodNames)
@@ -2146,6 +2469,19 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     return parsed
   }, [callApiByCandidates, activeVersionKey])
 
+  const loadWorkflowTemplateStageAudit = useCallback(async (workflowName: string) => {
+    if (!workflowName) {
+      setTemplateStageItems([])
+      setTemplateStageAuditSummary(null)
+      return []
+    }
+    const raw = await listWorkflowTemplateVersions(workflowName, projectKey)
+    const items = normalizeWorkflowTemplateStageRecords(Array.isArray(raw.items) ? raw.items : [])
+    setTemplateStageItems(items)
+    setTemplateStageAuditSummary(buildTemplateStageAuditSummary(raw))
+    return items
+  }, [projectKey])
+
   useEffect(() => {
     if (!editMode) return
     let canceled = false
@@ -2154,7 +2490,10 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       try {
         const list = await loadTemplateList()
         const key = activeTemplateKey || list[0]?.key || ''
-        if (!canceled && key) await loadVersionList(key)
+        if (!canceled && key) {
+          await loadVersionList(key)
+          await loadWorkflowTemplateStageAudit(key)
+        }
       } catch (error) {
         if (canceled) return
         const message = error instanceof Error ? error.message : t('graphPage.error.templateListLoadFailed')
@@ -2167,37 +2506,45 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     return () => {
       canceled = true
     }
-  }, [editMode, loadTemplateList, loadVersionList, activeTemplateKey, t, tf])
+  }, [editMode, loadTemplateList, loadVersionList, loadWorkflowTemplateStageAudit, activeTemplateKey, t, tf])
 
-  useEffect(() => {
-    if (!editMode) return
+  if (editMode) {
     const firstKey = selectedNodeKeyList[0] || ''
-    if (!firstKey) return
-    const node = draftNodeMap.get(firstKey)
-    if (!node) return
-    setNodeEditDraft({
-      key: firstKey,
-      id: String(node.id ?? ''),
-      type: String(node.type || ''),
-      name: String(node.name || ''),
-      title: String(node.title || ''),
-      x: String(node.x ?? ''),
-      y: String(node.y ?? ''),
-      z: String(node.z ?? ''),
-    })
-  }, [editMode, selectedNodeKeyList, draftNodeMap])
+    const editSource = { firstKey, map: draftNodeMap }
+    const previousEditSource = previousNodeEditSourceRef.current
+    if (
+      firstKey
+      && (!previousEditSource
+        || previousEditSource.firstKey !== firstKey
+        || previousEditSource.map !== draftNodeMap)
+    ) {
+      previousNodeEditSourceRef.current = editSource
+      const node = draftNodeMap.get(firstKey)
+      if (node) {
+        setNodeEditDraft({
+          key: firstKey,
+          id: String(node.id ?? ''),
+          type: String(node.type || ''),
+          name: String(node.name || ''),
+          title: String(node.title || ''),
+          x: String(node.x ?? ''),
+          y: String(node.y ?? ''),
+          z: String(node.z ?? ''),
+        })
+      }
+    }
+  } else {
+    previousNodeEditSourceRef.current = null
+  }
 
-  useEffect(() => {
-    if (templateBuilder) setEditMode(true)
-  }, [templateBuilder])
-
-  useEffect(() => {
+  if (previousCuratedGraphIdDefaultRef.current !== defaultCuratedGraphId) {
+    previousCuratedGraphIdDefaultRef.current = defaultCuratedGraphId
     setCuratedGraphId((prev) => (prev.trim() ? prev : defaultCuratedGraphId))
-  }, [defaultCuratedGraphId])
-
-  useEffect(() => {
+  }
+  if (previousCuratedHandoffTopicDefaultRef.current !== defaultCuratedHandoffTopic) {
+    previousCuratedHandoffTopicDefaultRef.current = defaultCuratedHandoffTopic
     setCuratedHandoffTopic((prev) => (prev.trim() ? prev : defaultCuratedHandoffTopic))
-  }, [defaultCuratedHandoffTopic])
+  }
 
   const applyCuratedState = useCallback((state: WorkflowGraphCuratedStateResponse, fallbackLabel: string) => {
     if (typeof state.revision === 'number') setCuratedRevision(state.revision)
@@ -3163,7 +3510,6 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     const sliderQuat = quatFromEulerDeg(projectionRotateX, projectionRotateY, projectionRotateZ)
     projectionInteractionQuatRef.current = quatMul(sliderQuat, basisQuat)
     projectionAngularVelRef.current = { x: 0, y: 0 }
-    setPhysicsFrame((prev) => (prev >= 1000000 ? 0 : prev + 1))
   }, [useLegacyProjection3D, graphKind, projectionRotateX, projectionRotateY, projectionRotateZ])
 
   const nodeAllElements = useMemo(() => buildNodeElements(selectedNode), [selectedNode])
@@ -3404,7 +3750,6 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
         chartInstRef.current.dispose()
         chartInstRef.current = null
       }
-      setChartReady(false)
       return
     }
     if (!chartRef.current) return
@@ -4059,7 +4404,7 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       })
       nodePositionRef.current = mergedPositions
     }
-  }, [topology, visibleEdges, edgeLegendItemByKey, visualApplied, nodeTypeColor, graphKind, chartReady, isFullscreen, selectedNodeKeys, selectionPinned, adjacencyConnectedMap, hoverNodeKey, autoFocusEnabled, selectedNode, selectedNodeKey, renderMode, selectionEnabled, projectionRotateX, projectionRotateY, projectionRotateZ, synced3DRepulsionPercent, physicsFrame, useLegacyProjection3D, useForceGraph3D, t, relationClassLabel, edgeStrokeLabel])
+  }, [topology, visibleEdges, edgeLegendItemByKey, visualApplied, nodeTypeColor, graphKind, chartReady, isFullscreen, selectedNodeKeys, selectionPinned, adjacencyConnectedMap, hoverNodeKey, autoFocusEnabled, selectedNode, selectedNodeKey, renderMode, selectionEnabled, projectionRotateX, projectionRotateY, projectionRotateZ, synced3DRepulsionPercent, physicsFrame, projectionFrameEpoch, useLegacyProjection3D, useForceGraph3D, t, relationClassLabel, edgeStrokeLabel])
 
   const onControlResizeStart = (event: ReactMouseEvent<HTMLDivElement>) => {
     if (isCompactViewport) return
@@ -4535,6 +4880,228 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     }
   }, [activeTemplateKey, loadVersionList, t, tf])
 
+  const handlePreviewWorkflowTemplateDiff = useCallback(async () => {
+    const workflowName = activeTemplateKey.trim()
+    if (!workflowName) {
+      window.alert(t('graphPage.error.selectTemplate'))
+      return
+    }
+    if (!draftNodes.length) {
+      window.alert(t('graphPage.error.noSubmittableDraftNodes'))
+      return
+    }
+    setTemplateDiffBusy(true)
+    try {
+      const preview = await diffWorkflowTemplate(workflowName, buildWorkflowTemplatePayloadFromDraft({
+        projectKey,
+        nodes: draftNodes,
+        edges: draftEdges,
+        graphKind,
+      }))
+      setTemplateDiffPreview(preview)
+      setGraphEditStatus(tf('graphPage.status.configDiffLoaded', {
+        workflowName,
+        current: preview.current_version ?? '-',
+        next: preview.next_version ?? '-',
+      }))
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t('graphPage.error.configDiffFailed')
+      setGraphEditStatus(tf('graphPage.error.configDiffFailedWithMessage', { message }))
+      window.alert(tf('graphPage.error.configDiffFailedWithMessage', { message }))
+    } finally {
+      setTemplateDiffBusy(false)
+    }
+  }, [activeTemplateKey, draftNodes, draftEdges, projectKey, graphKind, t, tf])
+
+  const handleWorkflowTemplateDryRun = useCallback(async () => {
+    const workflowName = activeTemplateKey.trim()
+    if (!workflowName) {
+      window.alert(t('graphPage.error.selectTemplate'))
+      return
+    }
+    setTemplateDryRunBusy(true)
+    try {
+      const result = await runWorkflow(workflowName, {}, { dryRun: true })
+      const summary = summarizeWorkflowDryRunResult(result)
+      setTemplateDryRunResult(result)
+      setGraphEditStatus(tf('graphPage.status.workflowDryRunLoaded', {
+        workflowName,
+        configVersion: formatWorkflowRunScalar(summary.configVersion),
+        readiness: formatWorkflowRunScalar(summary.readiness),
+        writesBlocked: formatWorkflowRunScalar(summary.writesBlocked),
+      }))
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t('graphPage.error.workflowDryRunFailed')
+      setGraphEditStatus(tf('graphPage.error.workflowDryRunFailedWithMessage', { message }))
+      window.alert(tf('graphPage.error.workflowDryRunFailedWithMessage', { message }))
+    } finally {
+      setTemplateDryRunBusy(false)
+    }
+  }, [activeTemplateKey, t, tf])
+
+  const handleRefreshWorkflowTemplateStages = useCallback(async () => {
+    if (!activeTemplateKey) return
+    setTemplateStageBusy(true)
+    try {
+      await loadWorkflowTemplateStageAudit(activeTemplateKey)
+      setGraphEditStatus(tf('graphPage.status.templateStageAuditLoaded', { templateKey: activeTemplateKey }))
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t('graphPage.error.templateStageAuditLoadFailed')
+      setGraphEditStatus(tf('graphPage.error.templateStageAuditLoadFailedWithMessage', { message }))
+      window.alert(tf('graphPage.error.templateStageAuditLoadFailedWithMessage', { message }))
+    } finally {
+      setTemplateStageBusy(false)
+    }
+  }, [activeTemplateKey, loadWorkflowTemplateStageAudit, t, tf])
+
+  const handleSaveWorkflowTemplateDraftStage = useCallback(async () => {
+    const workflowName = activeTemplateKey.trim()
+    if (!workflowName) {
+      window.alert(t('graphPage.error.selectTemplate'))
+      return
+    }
+    if (!draftNodes.length) {
+      window.alert(t('graphPage.error.noSubmittableDraftNodes'))
+      return
+    }
+    setTemplateStageBusy(true)
+    try {
+      const response = await stageWorkflowTemplate(workflowName, {
+        ...buildWorkflowTemplatePayloadFromDraft({
+          projectKey,
+          nodes: draftNodes,
+          edges: draftEdges,
+          graphKind,
+        }),
+        stage: 'draft',
+      })
+      setTemplateStageAuditSummary(buildTemplateStageAuditSummary(response))
+      await loadWorkflowTemplateStageAudit(workflowName)
+      setGraphEditStatus(tf('graphPage.status.templateStageDraftSaved', {
+        next: response.next_version ?? '-',
+        requiresPublish: String(Boolean(response.version_summary?.requires_publish)),
+      }))
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t('graphPage.error.templateStageSaveFailed')
+      setGraphEditStatus(tf('graphPage.error.templateStageSaveFailedWithMessage', { message }))
+      window.alert(tf('graphPage.error.templateStageSaveFailedWithMessage', { message }))
+    } finally {
+      setTemplateStageBusy(false)
+    }
+  }, [activeTemplateKey, draftNodes, draftEdges, projectKey, graphKind, loadWorkflowTemplateStageAudit, t, tf])
+
+  const handlePromoteWorkflowTemplateStage = useCallback(async (
+    fromStage: Extract<WorkflowTemplateStageName, 'draft' | 'staging'>,
+    toStage: Extract<WorkflowTemplateStageName, 'staging' | 'active'>,
+  ) => {
+    const workflowName = activeTemplateKey.trim()
+    if (!workflowName) {
+      window.alert(t('graphPage.error.selectTemplate'))
+      return
+    }
+    setTemplateStageBusy(true)
+    try {
+      const response = await promoteWorkflowTemplate(workflowName, {
+        project_key: projectKey,
+        from_stage: fromStage,
+        to_stage: toStage,
+      })
+      setTemplateStageAuditSummary(buildTemplateStageAuditSummary(response))
+      await loadWorkflowTemplateStageAudit(workflowName)
+      setGraphEditStatus(tf('graphPage.status.templateStagePromoted', {
+        fromStage,
+        toStage,
+        next: response.next_version ?? '-',
+        requiresPublish: String(Boolean(response.version_summary?.requires_publish)),
+      }))
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t('graphPage.error.templateStagePromoteFailed')
+      setGraphEditStatus(tf('graphPage.error.templateStagePromoteFailedWithMessage', { message }))
+      window.alert(tf('graphPage.error.templateStagePromoteFailedWithMessage', { message }))
+    } finally {
+      setTemplateStageBusy(false)
+    }
+  }, [activeTemplateKey, projectKey, loadWorkflowTemplateStageAudit, t, tf])
+
+  const handlePreviewWorkflowTemplateRollback = useCallback(async () => {
+    const workflowName = activeTemplateKey.trim()
+    if (!workflowName) {
+      window.alert(t('graphPage.error.selectTemplate'))
+      return
+    }
+    const targetVersion = parseTemplateRollbackVersion(templateRollbackDraft.targetVersion)
+    if (targetVersion === null) {
+      window.alert(t('graphPage.error.templateRollbackVersionRequired'))
+      return
+    }
+    setTemplateRollbackBusy(true)
+    setTemplateRollbackError('')
+    try {
+      const response = await previewWorkflowTemplateRollback(workflowName, {
+        project_key: projectKey,
+        target_stage: templateRollbackDraft.targetStage,
+        target_version: targetVersion,
+        reason: templateRollbackDraft.reason.trim() || undefined,
+        actor: 'graph-ui',
+        requested_by: 'graph-ui',
+        trace_id: buildTemplateRollbackTraceId(workflowName, templateRollbackDraft.targetStage, targetVersion),
+      })
+      setTemplateRollbackPreview(response)
+      setGraphEditStatus(tf('graphPage.status.templateRollbackPreviewLoaded', {
+        targetStage: templateRollbackDraft.targetStage,
+        targetVersion,
+        canExecute: String(Boolean(response.rollback_plan?.can_execute ?? response.rollback_plan?.executable)),
+        willMutate: String(Boolean(response.rollback_plan?.will_mutate)),
+      }))
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t('graphPage.error.templateRollbackPreviewFailed')
+      setTemplateRollbackError(message)
+      setGraphEditStatus(tf('graphPage.error.templateRollbackPreviewFailedWithMessage', { message }))
+    } finally {
+      setTemplateRollbackBusy(false)
+    }
+  }, [activeTemplateKey, projectKey, templateRollbackDraft, t, tf])
+
+  const handleApplyWorkflowTemplateRollback = useCallback(async () => {
+    const workflowName = activeTemplateKey.trim()
+    if (!workflowName) {
+      window.alert(t('graphPage.error.selectTemplate'))
+      return
+    }
+    const targetVersion = parseTemplateRollbackVersion(templateRollbackDraft.targetVersion)
+    if (targetVersion === null) {
+      window.alert(t('graphPage.error.templateRollbackVersionRequired'))
+      return
+    }
+    setTemplateRollbackBusy(true)
+    setTemplateRollbackError('')
+    try {
+      const response = await applyWorkflowTemplateRollback(workflowName, {
+        project_key: projectKey,
+        target_stage: templateRollbackDraft.targetStage,
+        target_version: targetVersion,
+        reason: templateRollbackDraft.reason.trim() || undefined,
+        actor: 'graph-ui',
+        requested_by: 'graph-ui',
+        trace_id: buildTemplateRollbackTraceId(workflowName, templateRollbackDraft.targetStage, targetVersion),
+      })
+      setTemplateRollbackPreview(response)
+      setTemplateStageAuditSummary(buildTemplateStageAuditSummary(response))
+      await loadWorkflowTemplateStageAudit(workflowName)
+      setGraphEditStatus(tf('graphPage.status.templateRollbackApplied', {
+        targetStage: templateRollbackDraft.targetStage,
+        targetVersion,
+        next: response.next_version ?? '-',
+      }))
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t('graphPage.error.templateRollbackApplyFailed')
+      setTemplateRollbackError(message)
+      setGraphEditStatus(tf('graphPage.error.templateRollbackApplyFailedWithMessage', { message }))
+    } finally {
+      setTemplateRollbackBusy(false)
+    }
+  }, [activeTemplateKey, projectKey, templateRollbackDraft, loadWorkflowTemplateStageAudit, t, tf])
+
   const handleCreateTemplate = useCallback(async () => {
     const name = templateNameDraft.trim()
     if (!name) return
@@ -4596,6 +5163,11 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       setActiveTemplateKey('')
       setActiveVersionKey('')
       setVersionItems([])
+      setTemplateStageItems([])
+      setTemplateStageAuditSummary(null)
+      setTemplateDryRunResult(null)
+      setTemplateRollbackPreview(null)
+      setTemplateRollbackError('')
       await loadTemplateList()
     } catch (error) {
       const message = error instanceof Error ? error.message : t('graphPage.error.templateDeleteFailed')
@@ -4815,6 +5387,24 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
       </select>
     </label>
   ) : null
+  const templateDiffSummary = templateDiffPreview?.version_summary || {}
+  const templateDiff = templateDiffPreview?.diff || {}
+  const templateDiffSteps = templateDiff.steps || []
+  const templateDiffContract = isPlainRecord(templateDiffPreview) ? templateDiffPreview : {}
+  const templateDiffImpact = isPlainRecord(templateDiffContract.impact_summary) ? templateDiffContract.impact_summary : {}
+  const templateDiffPolicy = isPlainRecord(templateDiffContract.policy_change) ? templateDiffContract.policy_change : {}
+  const templateDiffAffectedAreas = Array.isArray(templateDiffContract.affected_areas)
+    ? templateDiffContract.affected_areas
+    : templateDiffImpact.affected_areas
+  const templateDiffReasonCode = String(templateDiffContract.reason_code || templateDiffImpact.reason_code || '-')
+  const templateDiffRiskLevel = String(templateDiffContract.risk_level || templateDiffImpact.risk_level || '-')
+  const templateDryRunSummary = summarizeWorkflowDryRunResult(templateDryRunResult)
+  const templateDryRunSteps = normalizeWorkflowDryRunSteps(templateDryRunResult)
+  const hasDraftTemplateStage = templateStageItems.some((item) => item.stage === 'draft')
+  const hasStagingTemplateStage = templateStageItems.some((item) => item.stage === 'staging')
+  const templateRollbackPlan = describeTemplateRollbackPlan(templateRollbackPreview)
+  const templateRollbackAudit = describeTemplateRollbackAudit(templateRollbackPreview)
+  const templateRollbackHistoryCount = Array.isArray(templateRollbackPreview?.history) ? templateRollbackPreview.history.length : 0
 
   return (
     <div className="content-stack gv2-root">
@@ -5400,7 +5990,12 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                         onChange={(e) => {
                           const key = e.target.value
                           setActiveTemplateKey(key)
+                          setTemplateDiffPreview(null)
+                          setTemplateDryRunResult(null)
+                          setTemplateRollbackPreview(null)
+                          setTemplateRollbackError('')
                           void loadVersionList(key)
+                          void loadWorkflowTemplateStageAudit(key)
                         }}
                         disabled={!editMode || templateBusy}
                       >
@@ -5440,6 +6035,138 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                     <div className="gv2-control-chip">
                       <button type="button" className="secondary" onClick={() => void handleLoadTemplateVersions()} disabled={!editMode || !activeTemplateKey || templateBusy}>{t('graphPage.action.refreshVersions')}</button>
                     </div>
+                    <div className="gv2-control-chip">
+                      <strong>{t('graphPage.field.templateStageAudit')}</strong>
+                      <button type="button" className="secondary" onClick={() => void handleRefreshWorkflowTemplateStages()} disabled={!editMode || !activeTemplateKey || templateStageBusy}>{t('graphPage.action.refreshStageAudit')}</button>
+                    </div>
+                    <div className="gv2-control-chip">
+                      <button type="button" onClick={() => void handleSaveWorkflowTemplateDraftStage()} disabled={!editMode || !activeTemplateKey || templateStageBusy || !draftNodes.length}>{t('graphPage.action.saveDraftStage')}</button>
+                      <button type="button" className="secondary" onClick={() => void handlePromoteWorkflowTemplateStage('draft', 'staging')} disabled={!editMode || !activeTemplateKey || templateStageBusy || !hasDraftTemplateStage}>{t('graphPage.action.promoteDraftToStaging')}</button>
+                      <button type="button" className="secondary" onClick={() => void handlePromoteWorkflowTemplateStage('staging', 'active')} disabled={!editMode || !activeTemplateKey || templateStageBusy || !hasStagingTemplateStage}>{t('graphPage.action.applyStaging')}</button>
+                    </div>
+                    {templateStageAuditSummary ? (
+                      <div className="status-line">
+                        {tf('graphPage.status.templateStageSummary', {
+                          stage: templateStageAuditSummary.stage || '-',
+                          active: templateStageAuditSummary.activeVersion ?? '-',
+                          draft: templateStageAuditSummary.draftVersion ?? '-',
+                          staging: templateStageAuditSummary.stagingVersion ?? '-',
+                          current: templateStageAuditSummary.currentVersion ?? '-',
+                          next: templateStageAuditSummary.nextVersion ?? '-',
+                          requiresPublish: String(Boolean(templateStageAuditSummary.requiresPublish)),
+                        })}
+                      </div>
+                    ) : null}
+                    {templateStageItems.length ? templateStageItems.map((item) => (
+                      <div key={`${String(item.stage)}:${String(item.version ?? '')}`} className="gv2-control-chip">
+                        <strong>{String(item.stage)}</strong>
+                        <span>
+                          {tf('graphPage.status.templateStageRecord', {
+                            version: item.version ?? '-',
+                            stepCount: Array.isArray(item.steps) ? item.steps.length : 0,
+                            requiresPublish: String(Boolean(item.requires_publish)),
+                            promotedFrom: item.promoted_from || '-',
+                          })}
+                        </span>
+                      </div>
+                    )) : (
+                      <div className="status-line">{t('graphPage.status.templateStageAuditEmpty')}</div>
+                    )}
+                    <div className="gv2-control-chip" data-testid="graph-template-rollback-controls">
+                      <strong>{t('graphPage.field.templateRollback')}</strong>
+                      <label>
+                        {t('graphPage.field.rollbackTargetStage')}
+                        <select
+                          value={templateRollbackDraft.targetStage}
+                          onChange={(e) => setTemplateRollbackDraft((prev) => ({
+                            ...prev,
+                            targetStage: e.target.value as WorkflowTemplateStageName,
+                          }))}
+                          disabled={!editMode || templateRollbackBusy}
+                        >
+                          <option value="draft">draft</option>
+                          <option value="staging">staging</option>
+                          <option value="active">active</option>
+                        </select>
+                      </label>
+                      <label>
+                        {t('graphPage.field.rollbackTargetVersion')}
+                        <input
+                          type="number"
+                          min="1"
+                          value={templateRollbackDraft.targetVersion}
+                          onChange={(e) => setTemplateRollbackDraft((prev) => ({ ...prev, targetVersion: e.target.value }))}
+                          placeholder={t('graphPage.placeholder.rollbackTargetVersion')}
+                          disabled={!editMode || templateRollbackBusy}
+                        />
+                      </label>
+                      <label>
+                        {t('graphPage.field.rollbackReason')}
+                        <input
+                          value={templateRollbackDraft.reason}
+                          onChange={(e) => setTemplateRollbackDraft((prev) => ({ ...prev, reason: e.target.value }))}
+                          placeholder={t('graphPage.placeholder.rollbackReason')}
+                          disabled={!editMode || templateRollbackBusy}
+                        />
+                      </label>
+                    </div>
+                    <div className="gv2-control-chip">
+                      <button
+                        type="button"
+                        className="secondary"
+                        onClick={() => void handlePreviewWorkflowTemplateRollback()}
+                        disabled={!editMode || !activeTemplateKey || templateRollbackBusy || !templateRollbackDraft.targetVersion.trim()}
+                      >
+                        {templateRollbackBusy ? t('graphPage.status.templateRollbackBusy') : t('graphPage.action.previewRollback')}
+                      </button>
+                      <button
+                        type="button"
+                        className="secondary"
+                        onClick={() => void handleApplyWorkflowTemplateRollback()}
+                        disabled={!editMode || !activeTemplateKey || templateRollbackBusy || !templateRollbackDraft.targetVersion.trim()}
+                      >
+                        {t('graphPage.action.applyRollback')}
+                      </button>
+                    </div>
+                    {templateRollbackPreview ? (
+                      <div data-testid="graph-template-rollback-preview">
+                        <div className="status-line">
+                          {tf('graphPage.status.templateRollbackPlan', {
+                            mode: templateRollbackPlan.mode,
+                            canExecute: String(templateRollbackPlan.canExecute),
+                            willMutate: String(templateRollbackPlan.willMutate),
+                            fromStage: templateRollbackPlan.fromStage,
+                            toStage: templateRollbackPlan.toStage,
+                            targetVersion: String(templateRollbackPlan.targetVersion),
+                            targetStepCount: templateRollbackPlan.targetStepCount,
+                          })}
+                        </div>
+                        <div className="status-line">
+                          {tf('graphPage.status.templateRollbackAudit', {
+                            action: templateRollbackAudit.action,
+                            actor: templateRollbackAudit.actor,
+                            appliedBy: templateRollbackAudit.appliedBy,
+                            traceId: templateRollbackAudit.traceId,
+                            fromStage: templateRollbackAudit.fromStage,
+                            toStage: templateRollbackAudit.toStage,
+                            createdAt: templateRollbackAudit.createdAt,
+                          })}
+                        </div>
+                        <div className="status-line">
+                          {tf('graphPage.status.templateRollbackRisk', {
+                            blockedReason: templateRollbackPlan.blockedReason,
+                            applyEndpoint: templateRollbackPlan.applyEndpoint,
+                            requiresExplicitApply: String(templateRollbackPlan.requiresExplicitApply),
+                            historyCount: templateRollbackHistoryCount,
+                          })}
+                        </div>
+                      </div>
+                    ) : null}
+                    {templateRollbackError ? (
+                      <div className="status-line" data-testid="graph-template-rollback-error">
+                        {tf('graphPage.error.templateRollbackRecoverableError', { message: templateRollbackError })}
+                      </div>
+                    ) : null}
                     <label className="gv2-control-chip">
                       {t('graphPage.field.versionName')}
                       <input value={versionNameDraft} onChange={(e) => setVersionNameDraft(e.target.value)} placeholder={t('graphPage.placeholder.versionName')} disabled={!editMode || templateBusy} />
@@ -5449,8 +6176,115 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                       <button type="button" className="secondary" onClick={() => void handleLoadVersion()} disabled={!editMode || !activeTemplateKey || !activeVersionKey || templateBusy}>{t('graphPage.action.loadVersion')}</button>
                       <button type="button" className="secondary" onClick={() => void handleActivateVersion()} disabled={!editMode || !activeTemplateKey || !activeVersionKey || templateBusy}>{t('graphPage.action.activateVersion')}</button>
                     </div>
+                    <div className="gv2-control-chip">
+                      <strong>{t('graphPage.field.configDiff')}</strong>
+                      <button
+                        type="button"
+                        className="secondary"
+                        onClick={() => void handlePreviewWorkflowTemplateDiff()}
+                        disabled={!editMode || !activeTemplateKey || templateDiffBusy || !draftNodes.length}
+                      >
+                        {templateDiffBusy ? t('graphPage.status.configDiffLoading') : t('graphPage.action.previewConfigDiff')}
+                      </button>
+                      <button
+                        type="button"
+                        className="secondary"
+                        data-testid="graph-template-dry-run"
+                        onClick={() => void handleWorkflowTemplateDryRun()}
+                        disabled={!editMode || !activeTemplateKey || templateDryRunBusy}
+                      >
+                        {templateDryRunBusy ? t('graphPage.status.workflowDryRunLoading') : t('graphPage.action.previewWorkflowDryRun')}
+                      </button>
+                    </div>
+                    {templateDryRunResult ? (
+                      <div data-testid="graph-template-dry-run-result">
+                        <div className="status-line">
+                          {tf('graphPage.status.workflowDryRunSummary', {
+                            configVersion: formatWorkflowRunScalar(templateDryRunSummary.configVersion),
+                            readiness: formatWorkflowRunScalar(templateDryRunSummary.readiness),
+                            willExecute: formatWorkflowRunScalar(templateDryRunSummary.willExecute),
+                            writesBlocked: formatWorkflowRunScalar(templateDryRunSummary.writesBlocked),
+                            requiresPublish: formatWorkflowRunScalar(templateDryRunSummary.requiresPublish),
+                          })}
+                        </div>
+                        {templateDryRunSteps.length ? templateDryRunSteps.slice(0, 8).map((step) => (
+                          <div key={`${step.index}:${step.name}`} className="gv2-control-chip">
+                            <span>
+                              {tf('graphPage.status.workflowDryRunStep', {
+                                index: step.index,
+                                step: step.name,
+                                status: formatWorkflowRunScalar(step.status),
+                                willExecute: formatWorkflowRunScalar(step.willExecute),
+                                writesBlocked: formatWorkflowRunScalar(step.writesBlocked),
+                              })}
+                            </span>
+                          </div>
+                        )) : (
+                          <div className="status-line">{t('graphPage.status.workflowDryRunNoSteps')}</div>
+                        )}
+                      </div>
+                    ) : null}
+                    {templateDiffPreview ? (
+                      <>
+                        <div className="status-line">
+                          {tf('graphPage.status.configDiffVersions', {
+                            stage: String(templateDiffSummary.stage || '-'),
+                            active: templateDiffSummary.active_version ?? '-',
+                            draft: templateDiffSummary.draft_version ?? '-',
+                            current: templateDiffPreview.current_version ?? '-',
+                            next: templateDiffPreview.next_version ?? '-',
+                          })}
+                        </div>
+                        <div className="status-line">
+                          {tf('graphPage.status.configDiffMutation', {
+                            willMutate: String(Boolean(templateDiffSummary.will_mutate)),
+                            requiresPublish: String(Boolean(templateDiffSummary.requires_publish)),
+                            boardChanged: String(Boolean(templateDiff.board_layout_changed)),
+                          })}
+                        </div>
+                        <div className="status-line">
+                          {tf('graphPage.status.configDiffStepCounts', {
+                            before: templateDiff.step_count_before ?? 0,
+                            after: templateDiff.step_count_after ?? 0,
+                            changes: templateDiffSteps.length,
+                          })}
+                        </div>
+                        <div className="status-line">
+                          {tf('graphPage.status.configDiffReason', {
+                            reasonCode: templateDiffReasonCode,
+                            riskLevel: templateDiffRiskLevel,
+                          })}
+                        </div>
+                        <div className="status-line">
+                          {tf('graphPage.status.configDiffAffectedAreas', {
+                            areas: formatContractList(templateDiffAffectedAreas),
+                          })}
+                        </div>
+                        <div className="status-line">
+                          {tf('graphPage.status.configDiffPolicyImpact', {
+                            changed: String(Boolean(templateDiffPolicy.changed)),
+                            requiresPublish: String(Boolean(templateDiffPolicy.requires_publish)),
+                            stage: String(templateDiffPolicy.stage || templateDiffSummary.stage || '-'),
+                          })}
+                        </div>
+                        {templateDiffSteps.length ? templateDiffSteps.slice(0, 8).map((step) => (
+                          <div key={`${step.index}:${step.change_type}`} className="gv2-control-chip">
+                            <span>
+                              {tf('graphPage.status.configDiffStep', {
+                                index: step.index,
+                                changeType: String(step.change_type || 'changed'),
+                                before: formatWorkflowDiffStepSide(step.before, tf),
+                                after: formatWorkflowDiffStepSide(step.after, tf),
+                              })}
+                            </span>
+                          </div>
+                        )) : (
+                          <div className="status-line">{t('graphPage.status.configDiffNoStepChanges')}</div>
+                        )}
+                      </>
+                    ) : null}
                     <div className="status-line">
-                      {templateBusy ? t('graphPage.status.templateBusy') : (graphEditStatus || t('graphPage.status.editReady'))}
+                      {(templateBusy || templateStageBusy || templateRollbackBusy || templateDryRunBusy) ? t('graphPage.status.templateBusy') : (graphEditStatus || t('graphPage.status.editReady'))}
                     </div>
                     <div className="gv2-control-chip">
                       <span>{tf('graphPage.status.draftEdgeCount', { count: editableEdges.length })}</span>

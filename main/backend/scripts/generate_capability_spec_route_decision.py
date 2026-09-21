@@ -5,6 +5,8 @@ This generator records a user-authorized development decision.  It does not
 amend the frozen contract, start a pilot, adopt P4 scaffolding, or authorize a
 candidate/live boundary.  ``--check`` is a strictly read-only exact-byte gate:
 matching outputs exit 0, drift exits 1, and argparse usage errors exit 2.
+``--output-mode decision-v1`` limits either operation to the current decision
+and leaves the historical predecessor ownership artifact untouched.
 """
 
 from __future__ import annotations
@@ -17,7 +19,7 @@ import tempfile
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 TOPIC_REL = Path(
@@ -507,7 +509,12 @@ def _build_ownership(
 
 def build_documents(
     root: Path = REPOSITORY_ROOT,
-) -> tuple[dict[str, Any], dict[str, Any]]:
+) -> Annotated[
+    tuple[dict[str, Any], dict[str, Any]],
+    "kit:non-authoritative derived_as=generated_evidence "
+    "fact_source=frozen_development_contract+P3_aggregate+P4_fragments "
+    "witness=test:test_w10_cli_generator_derived_metadata_preserves_abi",
+]:
     root = root.resolve()
     frozen_bindings = [
         _snapshot(root, relative).binding(role=role) for relative, role in FROZEN_INPUTS
@@ -583,6 +590,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--repo-root", default=str(REPOSITORY_ROOT))
     parser.add_argument("--decision-output")
     parser.add_argument("--ownership-output")
+    parser.add_argument(
+        "--output-mode",
+        choices=("all", "decision-v1"),
+        default="all",
+        help=(
+            "select generated outputs; decision-v1 never checks or writes the "
+            "historical ownership artifact"
+        ),
+    )
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args(argv)
 
@@ -593,8 +609,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         decision, ownership = build_documents(root)
         outputs = {
             decision_path: _serialized(decision),
-            ownership_path: _serialized(ownership),
         }
+        if args.output_mode == "all":
+            outputs[ownership_path] = _serialized(ownership)
         if args.check:
             drift = [
                 str(path)
@@ -604,31 +621,31 @@ def main(argv: Sequence[str] | None = None) -> int:
             if drift:
                 print(json.dumps({"status": "DRIFT", "paths": drift}, sort_keys=True))
                 return 1
-            print(
-                json.dumps(
-                    {
-                        "status": "CHECK_OK",
-                        "decision_content_digest": decision["content_digest"],
-                        "ownership_content_digest": ownership["content_digest"],
-                    },
-                    sort_keys=True,
-                )
-            )
+            report = {
+                "status": "CHECK_OK",
+                "output_mode": args.output_mode,
+                "decision_content_digest": decision["content_digest"],
+            }
+            if args.output_mode == "all":
+                report["ownership_content_digest"] = ownership["content_digest"]
+            print(json.dumps(report, sort_keys=True))
             return 0
         for path, data in outputs.items():
             _write_atomic_if_changed(path, data)
-        print(
-            json.dumps(
+        report = {
+            "status": "GENERATED",
+            "output_mode": args.output_mode,
+            "decision": str(decision_path),
+            "decision_content_digest": decision["content_digest"],
+        }
+        if args.output_mode == "all":
+            report.update(
                 {
-                    "status": "GENERATED",
-                    "decision": str(decision_path),
-                    "decision_content_digest": decision["content_digest"],
                     "ownership": str(ownership_path),
                     "ownership_content_digest": ownership["content_digest"],
-                },
-                sort_keys=True,
+                }
             )
-        )
+        print(json.dumps(report, sort_keys=True))
         return 0
     except (DecisionBuildError, OSError) as exc:
         print(json.dumps({"status": "INVALID", "error": str(exc)}, sort_keys=True))

@@ -1,0 +1,2107 @@
+{
+  "authoritative": false,
+  "authority_ceiling": "STAGE1_UNACCEPTED; NOT_LIVE; NON_AUTHORITATIVE; PRODUCTION_RELEASE_NOT_AUTHORIZED; NO_DEPLOY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_PUSH_NO_REMOTE_MUTATION",
+  "claims": [
+    {
+      "authority_ceiling": "STAGE1_UNACCEPTED; NOT_LIVE; NON_AUTHORITATIVE; PRODUCTION_RELEASE_NOT_AUTHORIZED; NO_DEPLOY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_PUSH_NO_REMOTE_MUTATION",
+      "canonical_anchors": [],
+      "claim_fingerprint_sha256": "4c102a760c5dba6a47438ee5c166784d9cbfbd12fb30841f86dfa7d24c2a7fdc",
+      "claim_id": "claim-001",
+      "claim_key": "crawler-public-replay-gate-recorded-run",
+      "decision": "ACTUAL_HISTORICAL_RECEIPT_REQUIRED",
+      "dependent_nodeid_count": 1,
+      "dependent_nodeids": [
+        "tests.unit.test_crawler_public_replay_gate_unittest.CrawlerPublicReplayGateUnitTestCase::test_gate_validates_deterministic_artifacts_and_detects_real_public_replay"
+      ],
+      "factual_claim": "The recorded crawler public replay used the exact manifest and passed the reviewed real-public-replay gate.",
+      "missing_specific_evidence": "The historical manifest, public replay output/transcript, checker result, and review receipt bound to the same run identity.",
+      "recovery_authority_boundary": "A designated historical-evidence custodian must verify the tracked historical objects and issue a new read-only receipt. This task may cite history-only identity but may not restore or copy the deleted files into their old paths.",
+      "source_cause_groups": [
+        "crawler-public-replay-gate"
+      ],
+      "source_requirements": [
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 1927,
+            "git_blob_oid": "e6c1df76b8cbb23d3b331eb13539055dc0e39e1a",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "827364747762e7fb09bbad5f277acb458995109ba98b1efb89243e11a8fd93d8",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/crawler-public-replay-gate/2026-05-22/README.md",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/crawler-public-replay-gate/2026-05-22/README.md",
+          "provenance_entry_id": "crawler-source-missing-008",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Recorded run scope and qualification note associated with the missing evidence package."
+        },
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 3249,
+            "git_blob_oid": "b59d4fe9d1823ab497f0a1b869f9de4ea2e8cbe6",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "ea65c48df4c7554ec6d68b85e02b96371d9c7e26c032caf5aed1da606f7d4565",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/crawler-public-replay-gate/2026-05-22/crawler_public_replay_gate_check.json",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/crawler-public-replay-gate/2026-05-22/crawler_public_replay_gate_check.json",
+          "provenance_entry_id": "crawler-source-missing-009",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Recorded checker or runtime output needed to validate the claimed crawler/source-library evidence state."
+        },
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 1665,
+            "git_blob_oid": "a20838c0a1216bdaf40ae427cf0d1153e24e8548",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "f36b9f49c07231734a164adb65a2b8cd8198fa636408e2bfa398d960c30175cd",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/crawler-public-replay-gate/2026-05-22/manifest.json",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/crawler-public-replay-gate/2026-05-22/manifest.json",
+          "provenance_entry_id": "crawler-source-missing-010",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Exact recorded target/input identity and execution policy for the historical crawler or source-library run."
+        },
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 3713,
+            "git_blob_oid": "af8d3677cfc5ba42056ddb8f546a4033b148527f",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "920bcaf2592f420bb49b43bef94013d36a5b9c32949eb6ef4bb2851a957430ff",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22/README.md",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22/README.md",
+          "provenance_entry_id": "crawler-source-missing-037",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Recorded run scope and qualification note associated with the missing evidence package."
+        },
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 1496,
+            "git_blob_oid": "769c353c8e84fb156522dd35939da3c74edd9f24",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "f10521e3fda9ec83acb5555af4c995c934e78567e27059fff57fdd7d9e92b58c",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22/input.json",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22/input.json",
+          "provenance_entry_id": "crawler-source-missing-038",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Exact recorded target/input identity and execution policy for the historical crawler or source-library run."
+        },
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 1158,
+            "git_blob_oid": "16ad2e240bb6e92df9f56928ba7c3acfa98b997a",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "e5df9ea3591fdb2ef42c9203fce4e43b0b911f7cb717078d00750aa26076f180",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22/logs/live-probe.log",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22/logs/live-probe.log",
+          "provenance_entry_id": "crawler-source-missing-039",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Recorded execution transcript supporting the corresponding run result; transcript identity alone does not establish current authority."
+        },
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 18793,
+            "git_blob_oid": "fea2ea37c91627973c13fd199ba2b2901df01216",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "2850148ca49c254d8ce47cbc6b2bb53201a4bc7627a8947b3ae447a909dba5a1",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22/output.json",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22/output.json",
+          "provenance_entry_id": "crawler-source-missing-040",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Recorded checker or runtime output needed to validate the claimed crawler/source-library evidence state."
+        },
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 2034,
+            "git_blob_oid": "04731a5f00206cf18403d01fad33f24df60b77a8",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "34cec7c032577a3964572aceb1d217e344d9297893d132debc054069d82f079f",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/source-library-real-probes/2026-05-22/README.md",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/source-library-real-probes/2026-05-22/README.md",
+          "provenance_entry_id": "crawler-source-missing-041",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Recorded run scope and qualification note associated with the missing evidence package."
+        },
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 1402,
+            "git_blob_oid": "1abad1c760b5307c5d2ccc0335ac3da6a855a93d",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "09411829977c415bf8e3390f4ed648c50988eb7e2012c6b30e3aedeacba7c4f9",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/source-library-real-probes/2026-05-22/input.json",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/source-library-real-probes/2026-05-22/input.json",
+          "provenance_entry_id": "crawler-source-missing-042",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Exact recorded target/input identity and execution policy for the historical crawler or source-library run."
+        },
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 9921,
+            "git_blob_oid": "d0253aa49f7e545e3b39ce556e408a855c398fad",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "303a8ce31952e540f9719eaeb42653476721073820f005286a8452b3ca5e4791",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/source-library-real-probes/2026-05-22/output.json",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/source-library-real-probes/2026-05-22/output.json",
+          "provenance_entry_id": "crawler-source-missing-043",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Recorded checker or runtime output needed to validate the claimed crawler/source-library evidence state."
+        },
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 3811,
+            "git_blob_oid": "585fe84ddd9a10adb67a37c6420f8c3847b8d2de",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "90d6e65e80aeaeeab5b46cbb38062f56f3750797bcf1ba119f573c92f6791687",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/README.md",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/README.md",
+          "provenance_entry_id": "crawler-source-missing-044",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Recorded run scope and qualification note associated with the missing evidence package."
+        },
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 31566,
+            "git_blob_oid": "fd471b040e350a00e253b22031940f5e1f9487de",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "b797c2747abe4732ed60647741625b7e96ffad021895aa8574a5815cedc8cf3f",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/input.json",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/input.json",
+          "provenance_entry_id": "crawler-source-missing-045",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Exact recorded target/input identity and execution policy for the historical crawler or source-library run."
+        },
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 12739,
+            "git_blob_oid": "1d81c3582a657b8f7d41043c5de0066e38cbd90f",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "611653e4ac63151e7f367b57626778edd0fdff760b4f0dd6e94f2d0e3243add1",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/logs/output.public.log",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/logs/output.public.log",
+          "provenance_entry_id": "crawler-source-missing-046",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Recorded execution transcript supporting the corresponding run result; transcript identity alone does not establish current authority."
+        },
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 12153,
+            "git_blob_oid": "134d014c1c13a9034bc7774e9d33e33fd2dfafb7",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "845c2ef355b7a80d7aef3876e261655d2a1a81a13bf5e24e61d51c8240b7b264",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/logs/replay.log",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/logs/replay.log",
+          "provenance_entry_id": "crawler-source-missing-047",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Recorded execution transcript supporting the corresponding run result; transcript identity alone does not establish current authority."
+        },
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 97976,
+            "git_blob_oid": "0dab4c2cbd958dcfc4fa9bb9c4a217307bd6398e",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "80c654cf8fa310fcd6d0f73f80b2f654cd1bffc85ffa4e0881f2fa253b2f469d",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/output.json",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/output.json",
+          "provenance_entry_id": "crawler-source-missing-048",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Recorded checker or runtime output needed to validate the claimed crawler/source-library evidence state."
+        },
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 231902,
+            "git_blob_oid": "d2c782a7aef195c23b984187efbe65f373c1fecc",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "280b44ef519139314e82864ff786dd313c1fb15ecc3f048bcb1c35ca9a6186a7",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/output.public.json",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/output.public.json",
+          "provenance_entry_id": "crawler-source-missing-049",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Recorded checker or runtime output needed to validate the claimed crawler/source-library evidence state."
+        }
+      ]
+    },
+    {
+      "authority_ceiling": "STAGE1_UNACCEPTED; NOT_LIVE; NON_AUTHORITATIVE; PRODUCTION_RELEASE_NOT_AUTHORIZED; NO_DEPLOY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_PUSH_NO_REMOTE_MUTATION",
+      "canonical_anchors": [],
+      "claim_fingerprint_sha256": "0bfcebcffad6ece78ca7dc37442ad634148efc2bc2c6e108d04f992ba6913e0d",
+      "claim_id": "claim-002",
+      "claim_key": "crawler-source-expansion-recorded-closure",
+      "decision": "ACTUAL_HISTORICAL_RECEIPT_REQUIRED",
+      "dependent_nodeid_count": 2,
+      "dependent_nodeids": [
+        "tests.unit.test_crawler_source_expansion_closure_check_unittest.CrawlerSourceExpansionClosureCheckUnitTest::test_closure_check_maps_plan_tasks_to_current_code_and_evidence",
+        "tests.unit.test_crawler_source_expansion_closure_check_unittest.CrawlerSourceExpansionClosureCheckUnitTest::test_overall_status_closes_after_public_replay_review"
+      ],
+      "factual_claim": "The recorded crawler source-expansion closure mapped plan tasks to code/evidence and closed only after public-replay review.",
+      "missing_specific_evidence": "The historical closure decision, provider-handoff check, validation-pack output, and public-replay review references for one run lineage.",
+      "recovery_authority_boundary": "Historical-object readback and semantic acceptance require supervisor/evidence-custodian authorization. No current closure status may be inferred from the HEAD blobs and no deleted package may be restored.",
+      "source_cause_groups": [
+        "crawler-source-expansion-closure"
+      ],
+      "source_requirements": [
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 4852,
+            "git_blob_oid": "8dbcf59d5e50f16642076b928e248bf6d0554539",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "2e93ddba241aa7187b221771b8f47afb042b354eca063e5cccbebf5c3ab3fa13",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/crawler-provider-handoff/2026-05-22/README.md",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/crawler-provider-handoff/2026-05-22/README.md",
+          "provenance_entry_id": "crawler-source-missing-005",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Recorded run scope and qualification note associated with the missing evidence package."
+        },
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 17101,
+            "git_blob_oid": "430380d00a55d4ef92f64bc2b6a714a1c9e5b761",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "4b1d1635e5acb98e635041dd340a0395b6767be3f9063f2cd629236967d421f3",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/crawler-provider-handoff/2026-05-22/crawler_source_expansion_closure_check.json",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/crawler-provider-handoff/2026-05-22/crawler_source_expansion_closure_check.json",
+          "provenance_entry_id": "crawler-source-missing-006",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Recorded closure decision and its factual evidence references for the identified crawler/source-library scope."
+        },
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 2505,
+            "git_blob_oid": "a5b1657a4af16680e4bdefce958820baba3f7080",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "8873b74a66af4d706472d2e10ec604283fcfb7b77ce11fe09fdbc1f97180ad35",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/crawler-provider-handoff/2026-05-22/provider_handoff_check.json",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/crawler-provider-handoff/2026-05-22/provider_handoff_check.json",
+          "provenance_entry_id": "crawler-source-missing-007",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Recorded checker or runtime output needed to validate the claimed crawler/source-library evidence state."
+        },
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 1927,
+            "git_blob_oid": "e6c1df76b8cbb23d3b331eb13539055dc0e39e1a",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "827364747762e7fb09bbad5f277acb458995109ba98b1efb89243e11a8fd93d8",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/crawler-public-replay-gate/2026-05-22/README.md",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/crawler-public-replay-gate/2026-05-22/README.md",
+          "provenance_entry_id": "crawler-source-missing-008",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Recorded run scope and qualification note associated with the missing evidence package."
+        },
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 3249,
+            "git_blob_oid": "b59d4fe9d1823ab497f0a1b869f9de4ea2e8cbe6",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "ea65c48df4c7554ec6d68b85e02b96371d9c7e26c032caf5aed1da606f7d4565",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/crawler-public-replay-gate/2026-05-22/crawler_public_replay_gate_check.json",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/crawler-public-replay-gate/2026-05-22/crawler_public_replay_gate_check.json",
+          "provenance_entry_id": "crawler-source-missing-009",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Recorded checker or runtime output needed to validate the claimed crawler/source-library evidence state."
+        },
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 1665,
+            "git_blob_oid": "a20838c0a1216bdaf40ae427cf0d1153e24e8548",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "f36b9f49c07231734a164adb65a2b8cd8198fa636408e2bfa398d960c30175cd",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/crawler-public-replay-gate/2026-05-22/manifest.json",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/crawler-public-replay-gate/2026-05-22/manifest.json",
+          "provenance_entry_id": "crawler-source-missing-010",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Exact recorded target/input identity and execution policy for the historical crawler or source-library run."
+        },
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 2731,
+            "git_blob_oid": "73b91ad622bf251a59daf0709c3e76be6f3f7eff",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "1343e892a806f6878e9a3ab2c5d5f374f0a05d89409ef48a2d92c7aa1d8f58ef",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/crawler-source-expansion-wave8-a7-validation-pack/2026-05-22/README.md",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/crawler-source-expansion-wave8-a7-validation-pack/2026-05-22/README.md",
+          "provenance_entry_id": "crawler-source-missing-021",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Recorded run scope and qualification note associated with the missing evidence package."
+        },
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 3634,
+            "git_blob_oid": "95a53efcf67177f55e8d684eb5071faa798e3750",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "019808e757078cb9e941238eb3915f0ac89bfc46277ab2e4ec72b1d481dd4807",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/crawler-source-expansion-wave8-a7-validation-pack/2026-05-22/a5_public_replay_gate_check.json",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/crawler-source-expansion-wave8-a7-validation-pack/2026-05-22/a5_public_replay_gate_check.json",
+          "provenance_entry_id": "crawler-source-missing-022",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Recorded checker or runtime output needed to validate the claimed crawler/source-library evidence state."
+        },
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 23015,
+            "git_blob_oid": "d5faeab84c5e80932b4a456c6d8f4ecc33c76646",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "f036a55be8e512fe7bae2e97b62cdf03c591940ef5e762df659abf79d5a64c12",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/crawler-source-expansion-wave8-a7-validation-pack/2026-05-22/crawler_source_expansion_closure_check.json",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/crawler-source-expansion-wave8-a7-validation-pack/2026-05-22/crawler_source_expansion_closure_check.json",
+          "provenance_entry_id": "crawler-source-missing-023",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Recorded closure decision and its factual evidence references for the identified crawler/source-library scope."
+        },
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 3713,
+            "git_blob_oid": "af8d3677cfc5ba42056ddb8f546a4033b148527f",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "920bcaf2592f420bb49b43bef94013d36a5b9c32949eb6ef4bb2851a957430ff",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22/README.md",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22/README.md",
+          "provenance_entry_id": "crawler-source-missing-037",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Recorded run scope and qualification note associated with the missing evidence package."
+        },
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 1496,
+            "git_blob_oid": "769c353c8e84fb156522dd35939da3c74edd9f24",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "f10521e3fda9ec83acb5555af4c995c934e78567e27059fff57fdd7d9e92b58c",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22/input.json",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22/input.json",
+          "provenance_entry_id": "crawler-source-missing-038",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Exact recorded target/input identity and execution policy for the historical crawler or source-library run."
+        },
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 1158,
+            "git_blob_oid": "16ad2e240bb6e92df9f56928ba7c3acfa98b997a",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "e5df9ea3591fdb2ef42c9203fce4e43b0b911f7cb717078d00750aa26076f180",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22/logs/live-probe.log",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22/logs/live-probe.log",
+          "provenance_entry_id": "crawler-source-missing-039",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Recorded execution transcript supporting the corresponding run result; transcript identity alone does not establish current authority."
+        },
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 18793,
+            "git_blob_oid": "fea2ea37c91627973c13fd199ba2b2901df01216",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "2850148ca49c254d8ce47cbc6b2bb53201a4bc7627a8947b3ae447a909dba5a1",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22/output.json",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22/output.json",
+          "provenance_entry_id": "crawler-source-missing-040",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Recorded checker or runtime output needed to validate the claimed crawler/source-library evidence state."
+        },
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 2034,
+            "git_blob_oid": "04731a5f00206cf18403d01fad33f24df60b77a8",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "34cec7c032577a3964572aceb1d217e344d9297893d132debc054069d82f079f",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/source-library-real-probes/2026-05-22/README.md",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/source-library-real-probes/2026-05-22/README.md",
+          "provenance_entry_id": "crawler-source-missing-041",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Recorded run scope and qualification note associated with the missing evidence package."
+        },
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 1402,
+            "git_blob_oid": "1abad1c760b5307c5d2ccc0335ac3da6a855a93d",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "09411829977c415bf8e3390f4ed648c50988eb7e2012c6b30e3aedeacba7c4f9",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/source-library-real-probes/2026-05-22/input.json",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/source-library-real-probes/2026-05-22/input.json",
+          "provenance_entry_id": "crawler-source-missing-042",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Exact recorded target/input identity and execution policy for the historical crawler or source-library run."
+        },
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 9921,
+            "git_blob_oid": "d0253aa49f7e545e3b39ce556e408a855c398fad",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "303a8ce31952e540f9719eaeb42653476721073820f005286a8452b3ca5e4791",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/source-library-real-probes/2026-05-22/output.json",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/source-library-real-probes/2026-05-22/output.json",
+          "provenance_entry_id": "crawler-source-missing-043",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Recorded checker or runtime output needed to validate the claimed crawler/source-library evidence state."
+        },
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 3811,
+            "git_blob_oid": "585fe84ddd9a10adb67a37c6420f8c3847b8d2de",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "90d6e65e80aeaeeab5b46cbb38062f56f3750797bcf1ba119f573c92f6791687",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/README.md",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/README.md",
+          "provenance_entry_id": "crawler-source-missing-044",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Recorded run scope and qualification note associated with the missing evidence package."
+        },
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 31566,
+            "git_blob_oid": "fd471b040e350a00e253b22031940f5e1f9487de",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "b797c2747abe4732ed60647741625b7e96ffad021895aa8574a5815cedc8cf3f",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/input.json",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/input.json",
+          "provenance_entry_id": "crawler-source-missing-045",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Exact recorded target/input identity and execution policy for the historical crawler or source-library run."
+        },
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 12739,
+            "git_blob_oid": "1d81c3582a657b8f7d41043c5de0066e38cbd90f",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "611653e4ac63151e7f367b57626778edd0fdff760b4f0dd6e94f2d0e3243add1",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/logs/output.public.log",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/logs/output.public.log",
+          "provenance_entry_id": "crawler-source-missing-046",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Recorded execution transcript supporting the corresponding run result; transcript identity alone does not establish current authority."
+        },
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 12153,
+            "git_blob_oid": "134d014c1c13a9034bc7774e9d33e33fd2dfafb7",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "845c2ef355b7a80d7aef3876e261655d2a1a81a13bf5e24e61d51c8240b7b264",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/logs/replay.log",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/logs/replay.log",
+          "provenance_entry_id": "crawler-source-missing-047",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Recorded execution transcript supporting the corresponding run result; transcript identity alone does not establish current authority."
+        },
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 97976,
+            "git_blob_oid": "0dab4c2cbd958dcfc4fa9bb9c4a217307bd6398e",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "80c654cf8fa310fcd6d0f73f80b2f654cd1bffc85ffa4e0881f2fa253b2f469d",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/output.json",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/output.json",
+          "provenance_entry_id": "crawler-source-missing-048",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Recorded checker or runtime output needed to validate the claimed crawler/source-library evidence state."
+        },
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 231902,
+            "git_blob_oid": "d2c782a7aef195c23b984187efbe65f373c1fecc",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "280b44ef519139314e82864ff786dd313c1fb15ecc3f048bcb1c35ca9a6186a7",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/output.public.json",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/output.public.json",
+          "provenance_entry_id": "crawler-source-missing-049",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Recorded checker or runtime output needed to validate the claimed crawler/source-library evidence state."
+        }
+      ]
+    },
+    {
+      "authority_ceiling": "STAGE1_UNACCEPTED; NOT_LIVE; NON_AUTHORITATIVE; PRODUCTION_RELEASE_NOT_AUTHORIZED; NO_DEPLOY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_PUSH_NO_REMOTE_MUTATION",
+      "canonical_anchors": [
+        {
+          "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/INDEX.md",
+          "role": "existing canonical projection consumed read-only; not runtime evidence and not a new status",
+          "sha256": "7c9e761b9bcb6e314b7f2907a75adc5c2caf404fe4fa1ae2252e8474d1e525f6"
+        },
+        {
+          "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/INDEX.md",
+          "role": "existing canonical projection consumed read-only; not runtime evidence and not a new status",
+          "sha256": "0563941ec3ccd96a9d3cb133727f97d2de47d75ace7cf68bf86d9d4bd3dc31bc"
+        },
+        {
+          "path": "development/latest-dev-docs/development-plans/TARGET_TOPIC_ALLOWLIST.json",
+          "role": "existing canonical projection consumed read-only; not runtime evidence and not a new status",
+          "sha256": "ce35b86f548c64dd1d2dc8d84aad898b58245dcba737ce9dfb700b340681599b"
+        },
+        {
+          "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-ingest-platformization-assessment/10_wave51-non-target-assessment-wrapper-reclassification-2026-05-23.md",
+          "role": "existing canonical projection consumed read-only; not runtime evidence and not a new status",
+          "sha256": "44f724b61793bb3b9fa4b4288887fc9860bbbbd1390bf753c6211b6a37ce7582"
+        },
+        {
+          "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-meaningful-ingest-guardrails-plan/13_wave56-strict-promotion-final-gate-2026-05-24.md",
+          "role": "existing canonical projection consumed read-only; not runtime evidence and not a new status",
+          "sha256": "305b03d206308722bf316224c0a43b56883e3b6e0ae50cf4aca75191a4d277e6"
+        },
+        {
+          "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-single-url-first-ingest-allocation-plan/13_wave57-single-url-external-blocker-closure-2026-05-24.md",
+          "role": "existing canonical projection consumed read-only; not runtime evidence and not a new status",
+          "sha256": "32f1f4e43b760852b578f2c498b386ed335c77efcd1d3b1201e999a758c42a44"
+        }
+      ],
+      "claim_fingerprint_sha256": "2b70a9263622c17f85c786088115eb815923fcbb4a62a84d04222978a1618352",
+      "claim_id": "claim-003",
+      "claim_key": "ingest-canary-current-authority-projection",
+      "decision": "FRESH_LOCAL_DETERMINISTIC_EVIDENCE_POSSIBLE",
+      "dependent_nodeid_count": 2,
+      "dependent_nodeids": [
+        "tests.unit.test_ingest_canary_closure_readiness_unittest.IngestCanaryClosureReadinessTest::test_retains_current_dev_when_repo_local_blockers_remain",
+        "tests.unit.test_ingest_canary_closure_readiness_unittest.IngestCanaryClosureReadinessTest::test_write_output_round_trips_report_file"
+      ],
+      "factual_claim": "The current Wave51/56/57 authority documents and indexes preserve the three ingest-canary topic dispositions without treating Wave27 history as current authority.",
+      "fresh_proposal": {
+        "allowed_inputs": [
+          {
+            "kind": "current_repo_code",
+            "value": "Current checker/runtime source at the hashes captured in this table; no historical artifact substitution."
+          },
+          {
+            "kind": "canonical_current_documents",
+            "value": "Only the exact current authority/index documents listed in canonical_anchors."
+          },
+          {
+            "kind": "execution_policy",
+            "value": "no network, no container start, no production write, deterministic local fixtures only"
+          }
+        ],
+        "dependent_nodeids": [
+          "tests.unit.test_ingest_canary_closure_readiness_unittest.IngestCanaryClosureReadinessTest::test_retains_current_dev_when_repo_local_blockers_remain",
+          "tests.unit.test_ingest_canary_closure_readiness_unittest.IngestCanaryClosureReadinessTest::test_write_output_round_trips_report_file"
+        ],
+        "existing_generator_refs": [
+          {
+            "path": "main/backend/scripts/check_ingest_canary_closure_readiness.py",
+            "sha256": "e3a37b27ae9f440ce5fc35b3713d6f40fc2632f8674b5312e4b43c2f38adcab5"
+          }
+        ],
+        "existing_generators": [
+          "main/backend/scripts/check_ingest_canary_closure_readiness.py"
+        ],
+        "expected_artifacts": [
+          "stage1-successor-evidence/contract13-bounded-corrections-v2/claim-decisions/proposed-artifacts/ingest-canary-current-authority-readback.v2.json"
+        ],
+        "status_authority_ceiling": "Current repo documentation/authority projection only; not a canary, runtime, deployment, or release receipt.",
+        "write_boundary": "Create a new bounded receipt only. Do not write any deleted 2026-05-22/23 automation-run path and do not update canonical topic status."
+      },
+      "source_cause_groups": [
+        "ingest-canary-authority-docs"
+      ],
+      "source_requirements": []
+    },
+    {
+      "authority_ceiling": "STAGE1_UNACCEPTED; NOT_LIVE; NON_AUTHORITATIVE; PRODUCTION_RELEASE_NOT_AUTHORIZED; NO_DEPLOY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_PUSH_NO_REMOTE_MUTATION",
+      "canonical_anchors": [],
+      "claim_fingerprint_sha256": "1cb632166974a6cbb7e1b450fd9248b42fed39f4172e18c19cd71882703903f8",
+      "claim_id": "claim-004",
+      "claim_key": "source-library-a5-recorded-public-replay",
+      "decision": "ACTUAL_HISTORICAL_RECEIPT_REQUIRED",
+      "dependent_nodeid_count": 2,
+      "dependent_nodeids": [
+        "tests.unit.test_source_library_public_replay_a5_gate_unittest.SourceLibraryPublicReplayA5GateUnitTestCase::test_a5_gate_freezes_manifest_fixture_and_reviewed_public_replay",
+        "tests.unit.test_source_library_public_replay_a5_gate_unittest.SourceLibraryPublicReplayA5GateUnitTestCase::test_term_fallback_public_fixture_remains_relevance_review"
+      ],
+      "factual_claim": "The recorded A5 source-library public replay used the frozen input and received the recorded relevance review.",
+      "missing_specific_evidence": "The historical input, real/public probe or replay outputs and logs, A5 gate result, and human relevance-review receipt bound to one execution.",
+      "recovery_authority_boundary": "Only an authorized historical evidence readback can establish the past run. A new public replay would be a new live observation, not a replacement for the historical claim; synthetic fixtures cannot close it.",
+      "source_cause_groups": [
+        "source-library-a5-replay"
+      ],
+      "source_requirements": [
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 3713,
+            "git_blob_oid": "af8d3677cfc5ba42056ddb8f546a4033b148527f",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "920bcaf2592f420bb49b43bef94013d36a5b9c32949eb6ef4bb2851a957430ff",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22/README.md",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22/README.md",
+          "provenance_entry_id": "crawler-source-missing-037",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Recorded run scope and qualification note associated with the missing evidence package."
+        },
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 1496,
+            "git_blob_oid": "769c353c8e84fb156522dd35939da3c74edd9f24",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "f10521e3fda9ec83acb5555af4c995c934e78567e27059fff57fdd7d9e92b58c",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22/input.json",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22/input.json",
+          "provenance_entry_id": "crawler-source-missing-038",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Exact recorded target/input identity and execution policy for the historical crawler or source-library run."
+        },
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 1158,
+            "git_blob_oid": "16ad2e240bb6e92df9f56928ba7c3acfa98b997a",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "e5df9ea3591fdb2ef42c9203fce4e43b0b911f7cb717078d00750aa26076f180",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22/logs/live-probe.log",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22/logs/live-probe.log",
+          "provenance_entry_id": "crawler-source-missing-039",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Recorded execution transcript supporting the corresponding run result; transcript identity alone does not establish current authority."
+        },
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 18793,
+            "git_blob_oid": "fea2ea37c91627973c13fd199ba2b2901df01216",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "2850148ca49c254d8ce47cbc6b2bb53201a4bc7627a8947b3ae447a909dba5a1",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22/output.json",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22/output.json",
+          "provenance_entry_id": "crawler-source-missing-040",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Recorded checker or runtime output needed to validate the claimed crawler/source-library evidence state."
+        },
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 2034,
+            "git_blob_oid": "04731a5f00206cf18403d01fad33f24df60b77a8",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "34cec7c032577a3964572aceb1d217e344d9297893d132debc054069d82f079f",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/source-library-real-probes/2026-05-22/README.md",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/source-library-real-probes/2026-05-22/README.md",
+          "provenance_entry_id": "crawler-source-missing-041",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Recorded run scope and qualification note associated with the missing evidence package."
+        },
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 1402,
+            "git_blob_oid": "1abad1c760b5307c5d2ccc0335ac3da6a855a93d",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "09411829977c415bf8e3390f4ed648c50988eb7e2012c6b30e3aedeacba7c4f9",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/source-library-real-probes/2026-05-22/input.json",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/source-library-real-probes/2026-05-22/input.json",
+          "provenance_entry_id": "crawler-source-missing-042",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Exact recorded target/input identity and execution policy for the historical crawler or source-library run."
+        },
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 9921,
+            "git_blob_oid": "d0253aa49f7e545e3b39ce556e408a855c398fad",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "303a8ce31952e540f9719eaeb42653476721073820f005286a8452b3ca5e4791",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/source-library-real-probes/2026-05-22/output.json",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/source-library-real-probes/2026-05-22/output.json",
+          "provenance_entry_id": "crawler-source-missing-043",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Recorded checker or runtime output needed to validate the claimed crawler/source-library evidence state."
+        },
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 3811,
+            "git_blob_oid": "585fe84ddd9a10adb67a37c6420f8c3847b8d2de",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "90d6e65e80aeaeeab5b46cbb38062f56f3750797bcf1ba119f573c92f6791687",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/README.md",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/README.md",
+          "provenance_entry_id": "crawler-source-missing-044",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Recorded run scope and qualification note associated with the missing evidence package."
+        },
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 31566,
+            "git_blob_oid": "fd471b040e350a00e253b22031940f5e1f9487de",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "b797c2747abe4732ed60647741625b7e96ffad021895aa8574a5815cedc8cf3f",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/input.json",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/input.json",
+          "provenance_entry_id": "crawler-source-missing-045",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Exact recorded target/input identity and execution policy for the historical crawler or source-library run."
+        },
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 12739,
+            "git_blob_oid": "1d81c3582a657b8f7d41043c5de0066e38cbd90f",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "611653e4ac63151e7f367b57626778edd0fdff760b4f0dd6e94f2d0e3243add1",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/logs/output.public.log",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/logs/output.public.log",
+          "provenance_entry_id": "crawler-source-missing-046",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Recorded execution transcript supporting the corresponding run result; transcript identity alone does not establish current authority."
+        },
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 12153,
+            "git_blob_oid": "134d014c1c13a9034bc7774e9d33e33fd2dfafb7",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "845c2ef355b7a80d7aef3876e261655d2a1a81a13bf5e24e61d51c8240b7b264",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/logs/replay.log",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/logs/replay.log",
+          "provenance_entry_id": "crawler-source-missing-047",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Recorded execution transcript supporting the corresponding run result; transcript identity alone does not establish current authority."
+        },
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 97976,
+            "git_blob_oid": "0dab4c2cbd958dcfc4fa9bb9c4a217307bd6398e",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "80c654cf8fa310fcd6d0f73f80b2f654cd1bffc85ffa4e0881f2fa253b2f469d",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/output.json",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/output.json",
+          "provenance_entry_id": "crawler-source-missing-048",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Recorded checker or runtime output needed to validate the claimed crawler/source-library evidence state."
+        },
+        {
+          "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+          "historical_object": {
+            "bytes": 231902,
+            "git_blob_oid": "d2c782a7aef195c23b984187efbe65f373c1fecc",
+            "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+            "history_only": true,
+            "sha256": "280b44ef519139314e82864ff786dd313c1fb15ecc3f048bcb1c35ca9a6186a7",
+            "source": "HEAD:development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/output.public.json",
+            "usable_as_current_or_live_evidence": false
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/output.public.json",
+          "provenance_entry_id": "crawler-source-missing-049",
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+          "required_factual_claim": "Recorded checker or runtime output needed to validate the claimed crawler/source-library evidence state."
+        }
+      ]
+    },
+    {
+      "authority_ceiling": "STAGE1_UNACCEPTED; NOT_LIVE; NON_AUTHORITATIVE; PRODUCTION_RELEASE_NOT_AUTHORIZED; NO_DEPLOY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_PUSH_NO_REMOTE_MUTATION",
+      "canonical_anchors": [],
+      "claim_fingerprint_sha256": "6e3acb2fcab2dac9daa79be83ffa7297b1e3c5c342bbcec4237886953553191f",
+      "claim_id": "claim-005",
+      "claim_key": "wave10-fresh-deterministic-vector-quality",
+      "decision": "FRESH_LOCAL_DETERMINISTIC_EVIDENCE_POSSIBLE",
+      "dependent_nodeid_count": 1,
+      "dependent_nodeids": [
+        "tests.unit.test_wave10_vectorization_quality_gate_unittest.Wave10VectorizationQualityGateTest::test_gate_checks_provider_trace_modes_thresholds_and_fallback_reason"
+      ],
+      "factual_claim": "Current repo-local keyword/vector/hybrid runtime and deterministic benchmark behavior can be recomputed and aggregated without live-provider authority.",
+      "fresh_proposal": {
+        "allowed_inputs": [
+          {
+            "kind": "current_repo_code",
+            "value": "Current checker/runtime source at the hashes captured in this table; no historical artifact substitution."
+          },
+          {
+            "kind": "execution_policy",
+            "value": "no network, no container start, no production write, deterministic local fixtures only"
+          },
+          {
+            "kind": "fresh_chain_outputs",
+            "value": "Fresh outputs from the first three listed generators, all emitted to a new bounded evidence directory and explicitly injected into the aggregate checker."
+          }
+        ],
+        "dependent_nodeids": [
+          "tests.unit.test_wave10_vectorization_quality_gate_unittest.Wave10VectorizationQualityGateTest::test_gate_checks_provider_trace_modes_thresholds_and_fallback_reason"
+        ],
+        "existing_generator_refs": [
+          {
+            "path": "ops/search-lab/scripts/search_provider_trace_contract.py",
+            "sha256": "6b49b9fedd44386556f84a1a2f58ea8f1d2919463c832ad9f139f417a2a14343"
+          },
+          {
+            "path": "ops/search-lab/scripts/local_index_lancedb_runtime_smoke.py",
+            "sha256": "3744e2c4923792a725e3ca51574a372dab81f6847a6e1229505a712cdcab96e8"
+          },
+          {
+            "path": "ops/search-lab/scripts/local_index_lancedb_benchmark_quality.py",
+            "sha256": "4380536a71d8aaf0a018edf3031128a2d283b2e69c03fe91973e57852096271c"
+          },
+          {
+            "path": "ops/search-lab/scripts/wave10_vectorization_quality_gate.py",
+            "sha256": "14659ba8a69215139f4aaf80687153d59f3980ed39cd14aab2a0e0d1e4690e4d"
+          }
+        ],
+        "existing_generators": [
+          "ops/search-lab/scripts/search_provider_trace_contract.py",
+          "ops/search-lab/scripts/local_index_lancedb_runtime_smoke.py",
+          "ops/search-lab/scripts/local_index_lancedb_benchmark_quality.py",
+          "ops/search-lab/scripts/wave10_vectorization_quality_gate.py"
+        ],
+        "expected_artifacts": [
+          "stage1-successor-evidence/contract13-bounded-corrections-v2/claim-decisions/proposed-artifacts/wave10-vector-quality-fresh-local.v2.json"
+        ],
+        "status_authority_ceiling": "Repo-local deterministic quality only; provider-live, production-semantic-quality, promotion and release claims remain forbidden.",
+        "write_boundary": "Create a new bounded receipt only. Do not write any deleted 2026-05-22/23 automation-run path and do not update canonical topic status."
+      },
+      "source_cause_groups": [
+        "wave10-vector-quality"
+      ],
+      "source_requirements": [
+        {
+          "classification_at_source": "tracked_deleted_no_current_equivalent",
+          "historical_object": {
+            "content_read": false,
+            "git_object_sha1": "a0ea8067f6355165a81c027e6b0763a89645b50a"
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/local-index-lancedb-benchmark/2026-05-22/benchmark_quality_results.json",
+          "provenance_entry_id": null,
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/opensearch-vector/opensearch-vector-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "a2d74d92f6144dd8e913b7f286af4cff0d772715c14c024bfeec3d670dc4f435",
+          "required_factual_claim": "Recorded deterministic ranking and filter benchmark met thresholds."
+        },
+        {
+          "classification_at_source": "tracked_deleted_no_current_equivalent",
+          "historical_object": {
+            "content_read": false,
+            "git_object_sha1": "925bb9cb2e1d5bf6389bdba120e61812814e22ff"
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/local-index-lancedb-runtime-smoke/2026-05-22/runtime_smoke_results.json",
+          "provenance_entry_id": null,
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/opensearch-vector/opensearch-vector-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "a2d74d92f6144dd8e913b7f286af4cff0d772715c14c024bfeec3d670dc4f435",
+          "required_factual_claim": "Recorded LanceDB keyword, vector, and hybrid runtime smoke passed without fallback."
+        },
+        {
+          "classification_at_source": "tracked_deleted_no_current_equivalent",
+          "historical_object": {
+            "content_read": false,
+            "git_object_sha1": "a2845e5483da46741e4e8954adc3a2a8255581a4"
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/search-provider-trace-artifacts/2026-05-22/search_provider_trace_contract.json",
+          "provenance_entry_id": null,
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/opensearch-vector/opensearch-vector-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "a2d74d92f6144dd8e913b7f286af4cff0d772715c14c024bfeec3d670dc4f435",
+          "required_factual_claim": "Recorded explicit SearXNG and YaCy trace excludes local providers from provider=auto."
+        }
+      ]
+    },
+    {
+      "authority_ceiling": "STAGE1_UNACCEPTED; NOT_LIVE; NON_AUTHORITATIVE; PRODUCTION_RELEASE_NOT_AUTHORIZED; NO_DEPLOY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_PUSH_NO_REMOTE_MUTATION",
+      "canonical_anchors": [],
+      "claim_fingerprint_sha256": "9c3d772f92f0f4a244faaec9e5a9019f419e25a0a1fd5b6742f861c290ba550c",
+      "claim_id": "claim-006",
+      "claim_key": "wave12-current-open-search-runtime-readiness",
+      "decision": "LIVE_OBSERVATION_REQUIRED",
+      "dependent_nodeid_count": 6,
+      "dependent_nodeids": [
+        "tests.unit.test_open_search_health_artifact_schema_readback_unittest.OpenSearchHealthArtifactSchemaReadbackTest::test_schema_readback_distinguishes_compose_config_from_stopped_connect_error",
+        "tests.unit.test_open_search_health_artifact_schema_readback_unittest.OpenSearchHealthArtifactSchemaReadbackTest::test_schema_readback_records_real_live_probe_response_without_closure",
+        "tests.unit.test_open_search_health_artifact_unittest.OpenSearchHealthArtifactTest::test_running_live_probe_remains_unsealed_and_explicit_only",
+        "tests.unit.test_open_search_health_artifact_unittest.OpenSearchHealthArtifactTest::test_stopped_services_record_connect_error_without_live_closure",
+        "tests.unit.test_open_search_runtime_boundary_unittest.OpenSearchRuntimeBoundaryTest::test_connect_error_is_reported_as_service_not_started_without_failing_boundary_gate",
+        "tests.unit.test_open_search_runtime_boundary_unittest.OpenSearchRuntimeBoundaryTest::test_live_query_success_remains_unsealed_and_explicit_only"
+      ],
+      "factual_claim": "Current configured OpenSearch/SearXNG/YaCy endpoints have an observed runtime state distinguishable from configuration-only or connect-error state.",
+      "missing_specific_evidence": "A fresh service-identity/config snapshot plus actual connection/query responses, timestamps, endpoint identity, failures, and an unsealed readback receipt.",
+      "rerun_authority_boundary": "Requires explicit authorization to probe the named local services/containers and permission to record the responses. Do not start services, use network, or infer live state from mocks under this contract.",
+      "source_cause_groups": [
+        "wave12-open-search-readiness"
+      ],
+      "source_requirements": [
+        {
+          "classification_at_source": "tracked_deleted_no_current_equivalent",
+          "historical_object": {
+            "content_read": false,
+            "git_object_sha1": "f1206f568c612c3bb184e5bb6f5aaea8b5323ae5"
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/search-provider-container-replay/2026-05-22/provider_trace_replay_summary.json",
+          "provenance_entry_id": null,
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/opensearch-vector/opensearch-vector-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "a2d74d92f6144dd8e913b7f286af4cff0d772715c14c024bfeec3d670dc4f435",
+          "required_factual_claim": "Recorded container replay preserved explicit provider trace."
+        },
+        {
+          "classification_at_source": "tracked_deleted_no_current_equivalent",
+          "historical_object": {
+            "content_read": false,
+            "git_object_sha1": "a2845e5483da46741e4e8954adc3a2a8255581a4"
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/search-provider-trace-artifacts/2026-05-22/search_provider_trace_contract.json",
+          "provenance_entry_id": null,
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/opensearch-vector/opensearch-vector-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "a2d74d92f6144dd8e913b7f286af4cff0d772715c14c024bfeec3d670dc4f435",
+          "required_factual_claim": "Recorded explicit SearXNG and YaCy trace excludes local providers from provider=auto."
+        },
+        {
+          "classification_at_source": "tracked_deleted_no_current_equivalent",
+          "historical_object": {
+            "content_read": false,
+            "git_object_sha1": "d18985f3584878f6332ef426b6c55ab4c367b14a"
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/wave12-provider-readiness/2026-05-22/provider_readiness_summary.json",
+          "provenance_entry_id": null,
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/opensearch-vector/opensearch-vector-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "a2d74d92f6144dd8e913b7f286af4cff0d772715c14c024bfeec3d670dc4f435",
+          "required_factual_claim": "Recorded Wave12 provider readiness and explicit-only provider boundary passed."
+        }
+      ]
+    },
+    {
+      "authority_ceiling": "STAGE1_UNACCEPTED; NOT_LIVE; NON_AUTHORITATIVE; PRODUCTION_RELEASE_NOT_AUTHORIZED; NO_DEPLOY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_PUSH_NO_REMOTE_MUTATION",
+      "canonical_anchors": [],
+      "claim_fingerprint_sha256": "038ebc04d0708e0a167be29dc75422417e45b9bb4a64d525b84ed558c9d4210c",
+      "claim_id": "claim-007",
+      "claim_key": "wave12-current-provider-readiness",
+      "decision": "LIVE_OBSERVATION_REQUIRED",
+      "dependent_nodeid_count": 2,
+      "dependent_nodeids": [
+        "tests.unit.test_wave12_provider_readiness_gate_unittest.Wave12ProviderReadinessGateTest::test_gate_reports_live_probe_status_fallbacks_and_unsupported_claims",
+        "tests.unit.test_wave12_provider_readiness_gate_unittest.Wave12ProviderReadinessGateTest::test_skip_live_probes_keeps_gate_passed_with_not_run_visibility"
+      ],
+      "factual_claim": "Current local-index modes and explicit SearXNG/YaCy provider routes have observed readiness while unsupported claims remain visible.",
+      "missing_specific_evidence": "Fresh local-index mode probes and real explicit-provider responses with route/family/auto-inclusion trace, timestamp, environment identity, and unsupported-claim propagation.",
+      "rerun_authority_boundary": "The existing Wave12 generator may be used only after live-probe authorization and after fresh non-live prerequisites are supplied. A --skip-live-probes output is useful but cannot satisfy this claim.",
+      "source_cause_groups": [
+        "wave12-provider-readiness"
+      ],
+      "source_requirements": [
+        {
+          "classification_at_source": "tracked_deleted_no_current_equivalent",
+          "historical_object": {
+            "content_read": false,
+            "git_object_sha1": "a0ea8067f6355165a81c027e6b0763a89645b50a"
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/local-index-lancedb-benchmark/2026-05-22/benchmark_quality_results.json",
+          "provenance_entry_id": null,
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/opensearch-vector/opensearch-vector-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "a2d74d92f6144dd8e913b7f286af4cff0d772715c14c024bfeec3d670dc4f435",
+          "required_factual_claim": "Recorded deterministic ranking and filter benchmark met thresholds."
+        },
+        {
+          "classification_at_source": "tracked_deleted_no_current_equivalent",
+          "historical_object": {
+            "content_read": false,
+            "git_object_sha1": "925bb9cb2e1d5bf6389bdba120e61812814e22ff"
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/local-index-lancedb-runtime-smoke/2026-05-22/runtime_smoke_results.json",
+          "provenance_entry_id": null,
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/opensearch-vector/opensearch-vector-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "a2d74d92f6144dd8e913b7f286af4cff0d772715c14c024bfeec3d670dc4f435",
+          "required_factual_claim": "Recorded LanceDB keyword, vector, and hybrid runtime smoke passed without fallback."
+        },
+        {
+          "classification_at_source": "tracked_deleted_no_current_equivalent",
+          "historical_object": {
+            "content_read": false,
+            "git_object_sha1": "a2845e5483da46741e4e8954adc3a2a8255581a4"
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/search-provider-trace-artifacts/2026-05-22/search_provider_trace_contract.json",
+          "provenance_entry_id": null,
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/opensearch-vector/opensearch-vector-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "a2d74d92f6144dd8e913b7f286af4cff0d772715c14c024bfeec3d670dc4f435",
+          "required_factual_claim": "Recorded explicit SearXNG and YaCy trace excludes local providers from provider=auto."
+        }
+      ]
+    },
+    {
+      "authority_ceiling": "STAGE1_UNACCEPTED; NOT_LIVE; NON_AUTHORITATIVE; PRODUCTION_RELEASE_NOT_AUTHORIZED; NO_DEPLOY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_PUSH_NO_REMOTE_MUTATION",
+      "canonical_anchors": [],
+      "claim_fingerprint_sha256": "d3951a0efdddf44f86eacfadfee7a4092786e6579468acc2be5ed90a5a687c25",
+      "claim_id": "claim-008",
+      "claim_key": "wave14-fresh-local-provider-capability",
+      "decision": "FRESH_LOCAL_DETERMINISTIC_EVIDENCE_POSSIBLE",
+      "dependent_nodeid_count": 1,
+      "dependent_nodeids": [
+        "tests.unit.test_wave14_vectorization_provider_capability_unittest.Wave14VectorizationProviderCapabilityTest::test_gate_reports_local_capability_external_gap_and_no_closure_claim"
+      ],
+      "factual_claim": "Current repo-controlled mode capability and the retained external-provider gap can be recomputed from fresh non-live evidence.",
+      "fresh_proposal": {
+        "allowed_inputs": [
+          {
+            "kind": "current_repo_code",
+            "value": "Current checker/runtime source at the hashes captured in this table; no historical artifact substitution."
+          },
+          {
+            "kind": "execution_policy",
+            "value": "no network, no container start, no production write, deterministic local fixtures only"
+          },
+          {
+            "kind": "fresh_prerequisites",
+            "value": "Fresh Wave10 deterministic output and fresh Wave12 --skip-live-probes output, injected by explicit path rather than written at deleted paths."
+          }
+        ],
+        "dependent_nodeids": [
+          "tests.unit.test_wave14_vectorization_provider_capability_unittest.Wave14VectorizationProviderCapabilityTest::test_gate_reports_local_capability_external_gap_and_no_closure_claim"
+        ],
+        "existing_generator_refs": [
+          {
+            "path": "main/backend/scripts/check_wave14_vectorization_provider_capability.py",
+            "sha256": "3fbce21722f0d560a3446e6135c2af497d19a52c0971ce236b7755506c446abb"
+          },
+          {
+            "path": "ops/search-lab/scripts/wave10_vectorization_quality_gate.py",
+            "sha256": "14659ba8a69215139f4aaf80687153d59f3980ed39cd14aab2a0e0d1e4690e4d"
+          },
+          {
+            "path": "ops/search-lab/scripts/wave12_provider_readiness_gate.py",
+            "sha256": "f08ee676c7e17611340acb9b0918f504722140b1d206c8cbee0db90862331c94"
+          }
+        ],
+        "existing_generators": [
+          "main/backend/scripts/check_wave14_vectorization_provider_capability.py",
+          "ops/search-lab/scripts/wave10_vectorization_quality_gate.py",
+          "ops/search-lab/scripts/wave12_provider_readiness_gate.py"
+        ],
+        "expected_artifacts": [
+          "stage1-successor-evidence/contract13-bounded-corrections-v2/claim-decisions/proposed-artifacts/wave14-provider-capability-fresh-local.v2.json"
+        ],
+        "status_authority_ceiling": "Local capability and explicit retained-gap report only; no external-provider/live-quality or closure authority.",
+        "write_boundary": "Create a new bounded receipt only. Do not write any deleted 2026-05-22/23 automation-run path and do not update canonical topic status."
+      },
+      "source_cause_groups": [
+        "wave14-provider-capability"
+      ],
+      "source_requirements": [
+        {
+          "classification_at_source": "tracked_deleted_no_current_equivalent",
+          "historical_object": {
+            "content_read": false,
+            "git_object_sha1": "7570526001f3a3980c904c0827f84f8cc352549c"
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/wave10-vectorization-quality-gate/2026-05-22/contract_summary.json",
+          "provenance_entry_id": null,
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/opensearch-vector/opensearch-vector-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "a2d74d92f6144dd8e913b7f286af4cff0d772715c14c024bfeec3d670dc4f435",
+          "required_factual_claim": "Recorded Wave10 aggregate quality contract passed."
+        },
+        {
+          "classification_at_source": "tracked_deleted_no_current_equivalent",
+          "historical_object": {
+            "content_read": false,
+            "git_object_sha1": "d18985f3584878f6332ef426b6c55ab4c367b14a"
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/wave12-provider-readiness/2026-05-22/provider_readiness_summary.json",
+          "provenance_entry_id": null,
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/opensearch-vector/opensearch-vector-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "a2d74d92f6144dd8e913b7f286af4cff0d772715c14c024bfeec3d670dc4f435",
+          "required_factual_claim": "Recorded Wave12 provider readiness and explicit-only provider boundary passed."
+        }
+      ]
+    },
+    {
+      "authority_ceiling": "STAGE1_UNACCEPTED; NOT_LIVE; NON_AUTHORITATIVE; PRODUCTION_RELEASE_NOT_AUTHORIZED; NO_DEPLOY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_PUSH_NO_REMOTE_MUTATION",
+      "canonical_anchors": [],
+      "claim_fingerprint_sha256": "22406b25efc7426d78fc02d771ca667ec0e898e1e28833c4d929858c63f54d98",
+      "claim_id": "claim-009",
+      "claim_key": "wave18-fresh-deterministic-hybrid-readback",
+      "decision": "FRESH_LOCAL_DETERMINISTIC_EVIDENCE_POSSIBLE",
+      "dependent_nodeid_count": 1,
+      "dependent_nodeids": [
+        "tests.unit.test_wave18_vectorization_hybrid_readback_unittest.Wave18VectorizationHybridReadbackTest::test_checker_proves_mode_identity_quality_trace_and_readback_without_live_closure"
+      ],
+      "factual_claim": "Current repo-local deterministic adapter preserves keyword/vector/hybrid mode identity and readback without a live-provider closure claim.",
+      "fresh_proposal": {
+        "allowed_inputs": [
+          {
+            "kind": "current_repo_code",
+            "value": "Current checker/runtime source at the hashes captured in this table; no historical artifact substitution."
+          },
+          {
+            "kind": "execution_policy",
+            "value": "no network, no container start, no production write, deterministic local fixtures only"
+          },
+          {
+            "kind": "fresh_prerequisites",
+            "value": "Fresh non-live Wave8/Wave10/Wave12/Wave14 receipts, injected from a new bounded directory."
+          }
+        ],
+        "dependent_nodeids": [
+          "tests.unit.test_wave18_vectorization_hybrid_readback_unittest.Wave18VectorizationHybridReadbackTest::test_checker_proves_mode_identity_quality_trace_and_readback_without_live_closure"
+        ],
+        "existing_generator_refs": [
+          {
+            "path": "ops/search-lab/scripts/wave18_vectorization_hybrid_readback.py",
+            "sha256": "aa3be28bd3646e01130ba2b519daf785e5052e38f3494a2145ba4be3f20fa314"
+          }
+        ],
+        "existing_generators": [
+          "ops/search-lab/scripts/wave18_vectorization_hybrid_readback.py"
+        ],
+        "expected_artifacts": [
+          "stage1-successor-evidence/contract13-bounded-corrections-v2/claim-decisions/proposed-artifacts/wave18-hybrid-readback-fresh-local.v2.json"
+        ],
+        "status_authority_ceiling": "Deterministic adapter/readback behavior only; semantic quality, provider-live closure and production authority remain false.",
+        "write_boundary": "Create a new bounded receipt only. Do not write any deleted 2026-05-22/23 automation-run path and do not update canonical topic status."
+      },
+      "source_cause_groups": [
+        "wave18-hybrid-readback"
+      ],
+      "source_requirements": [
+        {
+          "classification_at_source": "tracked_deleted_no_current_equivalent",
+          "historical_object": {
+            "content_read": false,
+            "git_object_sha1": "7570526001f3a3980c904c0827f84f8cc352549c"
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/wave10-vectorization-quality-gate/2026-05-22/contract_summary.json",
+          "provenance_entry_id": null,
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/opensearch-vector/opensearch-vector-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "a2d74d92f6144dd8e913b7f286af4cff0d772715c14c024bfeec3d670dc4f435",
+          "required_factual_claim": "Recorded Wave10 aggregate quality contract passed."
+        },
+        {
+          "classification_at_source": "tracked_deleted_no_current_equivalent",
+          "historical_object": {
+            "content_read": false,
+            "git_object_sha1": "d18985f3584878f6332ef426b6c55ab4c367b14a"
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/wave12-provider-readiness/2026-05-22/provider_readiness_summary.json",
+          "provenance_entry_id": null,
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/opensearch-vector/opensearch-vector-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "a2d74d92f6144dd8e913b7f286af4cff0d772715c14c024bfeec3d670dc4f435",
+          "required_factual_claim": "Recorded Wave12 provider readiness and explicit-only provider boundary passed."
+        },
+        {
+          "classification_at_source": "tracked_deleted_no_current_equivalent",
+          "historical_object": {
+            "content_read": false,
+            "git_object_sha1": "40088c9b084702fcf15a7fbbdef6d62269344d2d"
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/wave14-vectorization-provider-capability/2026-05-22/provider_capability_summary.json",
+          "provenance_entry_id": null,
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/opensearch-vector/opensearch-vector-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "a2d74d92f6144dd8e913b7f286af4cff0d772715c14c024bfeec3d670dc4f435",
+          "required_factual_claim": "Recorded Wave14 provider capability and retained gap contract passed."
+        },
+        {
+          "classification_at_source": "tracked_deleted_no_current_equivalent",
+          "historical_object": {
+            "content_read": false,
+            "git_object_sha1": "c2cf7b5e117a93b483039ad91593df6e8fda8a7b"
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/wave8-search-vectorization-contract/2026-05-22/contract_summary.json",
+          "provenance_entry_id": null,
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/opensearch-vector/opensearch-vector-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "a2d74d92f6144dd8e913b7f286af4cff0d772715c14c024bfeec3d670dc4f435",
+          "required_factual_claim": "Recorded Wave8 search-vectorization aggregate passed."
+        }
+      ]
+    },
+    {
+      "authority_ceiling": "STAGE1_UNACCEPTED; NOT_LIVE; NON_AUTHORITATIVE; PRODUCTION_RELEASE_NOT_AUTHORIZED; NO_DEPLOY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_PUSH_NO_REMOTE_MUTATION",
+      "canonical_anchors": [],
+      "claim_fingerprint_sha256": "8297f829a6bf0e47dd2fb8ae37204656cbc5cf624be54426465f749ea6d69408",
+      "claim_id": "claim-010",
+      "claim_key": "wave19-fresh-derived-provider-manifest",
+      "decision": "FRESH_LOCAL_DETERMINISTIC_EVIDENCE_POSSIBLE",
+      "dependent_nodeid_count": 2,
+      "dependent_nodeids": [
+        "tests.unit.test_wave19_vectorization_provider_manifest_readback_unittest.Wave19VectorizationProviderManifestReadbackTest::test_manifest_fails_if_source_trace_claims_live_provider_verification",
+        "tests.unit.test_wave19_vectorization_provider_manifest_readback_unittest.Wave19VectorizationProviderManifestReadbackTest::test_manifest_records_modes_fallback_trace_quality_and_no_live_closure"
+      ],
+      "factual_claim": "A current non-live provider manifest can be deterministically derived from fresh Wave14 capability and Wave18 readback receipts.",
+      "fresh_proposal": {
+        "allowed_inputs": [
+          {
+            "kind": "current_repo_code",
+            "value": "Current checker/runtime source at the hashes captured in this table; no historical artifact substitution."
+          },
+          {
+            "kind": "execution_policy",
+            "value": "no network, no container start, no production write, deterministic local fixtures only"
+          },
+          {
+            "kind": "fresh_prerequisites",
+            "value": "Fresh Wave14 and Wave18 bounded receipts with explicit injected paths; no historical manifest reuse."
+          }
+        ],
+        "dependent_nodeids": [
+          "tests.unit.test_wave19_vectorization_provider_manifest_readback_unittest.Wave19VectorizationProviderManifestReadbackTest::test_manifest_fails_if_source_trace_claims_live_provider_verification",
+          "tests.unit.test_wave19_vectorization_provider_manifest_readback_unittest.Wave19VectorizationProviderManifestReadbackTest::test_manifest_records_modes_fallback_trace_quality_and_no_live_closure"
+        ],
+        "existing_generator_refs": [
+          {
+            "path": "ops/search-lab/scripts/wave19_vectorization_provider_manifest_readback.py",
+            "sha256": "f5e6d56e5e3ef41436aeb9ec91b787843ef6a16ac10f83820681bbdac2686d94"
+          }
+        ],
+        "existing_generators": [
+          "ops/search-lab/scripts/wave19_vectorization_provider_manifest_readback.py"
+        ],
+        "expected_artifacts": [
+          "stage1-successor-evidence/contract13-bounded-corrections-v2/claim-decisions/proposed-artifacts/wave19-provider-manifest-fresh-local.v2.json"
+        ],
+        "status_authority_ceiling": "Derived non-live manifest only; it must retain all external/live/semantic gaps and cannot authorize topic status changes.",
+        "write_boundary": "Create a new bounded receipt only. Do not write any deleted 2026-05-22/23 automation-run path and do not update canonical topic status."
+      },
+      "source_cause_groups": [
+        "wave19-provider-manifest"
+      ],
+      "source_requirements": [
+        {
+          "classification_at_source": "tracked_deleted_no_current_equivalent",
+          "historical_object": {
+            "content_read": false,
+            "git_object_sha1": "40088c9b084702fcf15a7fbbdef6d62269344d2d"
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/wave14-vectorization-provider-capability/2026-05-22/provider_capability_summary.json",
+          "provenance_entry_id": null,
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/opensearch-vector/opensearch-vector-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "a2d74d92f6144dd8e913b7f286af4cff0d772715c14c024bfeec3d670dc4f435",
+          "required_factual_claim": "Recorded Wave14 provider capability and retained gap contract passed."
+        },
+        {
+          "classification_at_source": "tracked_deleted_no_current_equivalent",
+          "historical_object": {
+            "content_read": false,
+            "git_object_sha1": "41b55c291b5b55383b5755140c052616f144bee8"
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/wave18-vectorization-hybrid-readback/2026-05-22/hybrid_readback_contract.json",
+          "provenance_entry_id": null,
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/opensearch-vector/opensearch-vector-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "a2d74d92f6144dd8e913b7f286af4cff0d772715c14c024bfeec3d670dc4f435",
+          "required_factual_claim": "Recorded hybrid readback preserved mode identity and prohibited live closure."
+        }
+      ]
+    },
+    {
+      "authority_ceiling": "STAGE1_UNACCEPTED; NOT_LIVE; NON_AUTHORITATIVE; PRODUCTION_RELEASE_NOT_AUTHORIZED; NO_DEPLOY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_PUSH_NO_REMOTE_MUTATION",
+      "canonical_anchors": [
+        {
+          "path": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-05-oss-node-platform-io-plan/INDEX.md",
+          "role": "existing canonical projection consumed read-only; not runtime evidence and not a new status",
+          "sha256": "b1377fd42a6b049428b941a60de7f3472ac4d451e3e8ad9e394d1c9ccb19b00d"
+        },
+        {
+          "path": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-05-oss-node-platform-io-plan/07_wave27-vectorization-closure-decision-2026-05-23.md",
+          "role": "existing canonical projection consumed read-only; not runtime evidence and not a new status",
+          "sha256": "3c5818809d0f512dd3b961f6b3477714c89ee6b5752df9a97f457b6bd953ccc8"
+        },
+        {
+          "path": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-05-oss-node-platform-io-plan/08_wave29-oss-node-vector-manifest-replay-2026-05-23.md",
+          "role": "existing canonical projection consumed read-only; not runtime evidence and not a new status",
+          "sha256": "9ff6233de1ff5313bbed3e86031e55a8c9e7544661c2e2029c365d037aa96e25"
+        },
+        {
+          "path": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/INDEX.md",
+          "role": "existing canonical projection consumed read-only; not runtime evidence and not a new status",
+          "sha256": "09255aa414a279bf06ebadf46a36374e778e132f38c65803abdc21c6a4706c10"
+        },
+        {
+          "path": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/09_wave27-vectorization-closure-decision-2026-05-23.md",
+          "role": "existing canonical projection consumed read-only; not runtime evidence and not a new status",
+          "sha256": "0a0117c5329dd7360a21eae4dab1beccfe86deb0e0f6f5e152c0cedfb7e2a613"
+        }
+      ],
+      "claim_fingerprint_sha256": "652e8b65fe137f20aae36de6102567182748dbbfaa9e46fd529dded1a3dc8719",
+      "claim_id": "claim-011",
+      "claim_key": "wave27-wave29-fresh-manifest-and-topic-readback",
+      "decision": "FRESH_LOCAL_DETERMINISTIC_EVIDENCE_POSSIBLE",
+      "dependent_nodeid_count": 4,
+      "dependent_nodeids": [
+        "tests.unit.test_wave27_vectorization_closure_gate_unittest.Wave27VectorizationClosureGateTest::test_gate_fails_if_provider_manifest_claims_closure",
+        "tests.unit.test_wave27_vectorization_closure_gate_unittest.Wave27VectorizationClosureGateTest::test_gate_retains_all_three_topics_and_preserves_provider_external_boundary",
+        "tests.unit.test_wave29_oss_node_vector_manifest_replay_unittest.Wave29OssNodeVectorManifestReplayTest::test_gate_fails_if_manifest_mode_claims_live_provider",
+        "tests.unit.test_wave29_oss_node_vector_manifest_replay_unittest.Wave29OssNodeVectorManifestReplayTest::test_node_manifest_replay_closes_repo_local_oss_node_blockers"
+      ],
+      "factual_claim": "Current canonical topic projections and a fresh non-live Wave19 manifest can be deterministically replayed without claiming live platform SLA.",
+      "fresh_proposal": {
+        "allowed_inputs": [
+          {
+            "kind": "current_repo_code",
+            "value": "Current checker/runtime source at the hashes captured in this table; no historical artifact substitution."
+          },
+          {
+            "kind": "execution_policy",
+            "value": "no network, no container start, no production write, deterministic local fixtures only"
+          },
+          {
+            "kind": "fresh_prerequisite",
+            "value": "Fresh Wave19 non-live manifest passed by --provider-manifest; live API/UI bases must be empty."
+          },
+          {
+            "kind": "canonical_topic_projection",
+            "value": "Only the exact relocated topic INDEX/decision documents listed in canonical_anchors; they are topic/status projections, not runtime receipts."
+          }
+        ],
+        "dependent_nodeids": [
+          "tests.unit.test_wave27_vectorization_closure_gate_unittest.Wave27VectorizationClosureGateTest::test_gate_fails_if_provider_manifest_claims_closure",
+          "tests.unit.test_wave27_vectorization_closure_gate_unittest.Wave27VectorizationClosureGateTest::test_gate_retains_all_three_topics_and_preserves_provider_external_boundary",
+          "tests.unit.test_wave29_oss_node_vector_manifest_replay_unittest.Wave29OssNodeVectorManifestReplayTest::test_gate_fails_if_manifest_mode_claims_live_provider",
+          "tests.unit.test_wave29_oss_node_vector_manifest_replay_unittest.Wave29OssNodeVectorManifestReplayTest::test_node_manifest_replay_closes_repo_local_oss_node_blockers"
+        ],
+        "existing_generator_refs": [
+          {
+            "path": "ops/search-lab/scripts/wave27_vectorization_closure_gate.py",
+            "sha256": "2a5ca4cf7ecb488951c27607eb6feca1c4539d97878f05861cef63c8b5f9db8a"
+          },
+          {
+            "path": "ops/search-lab/scripts/wave29_oss_node_vector_manifest_replay.py",
+            "sha256": "23905d0174444ad3eef13ac86acae96ebcde2248add0360039c03531bf9c5b16"
+          }
+        ],
+        "existing_generators": [
+          "ops/search-lab/scripts/wave27_vectorization_closure_gate.py",
+          "ops/search-lab/scripts/wave29_oss_node_vector_manifest_replay.py"
+        ],
+        "expected_artifacts": [
+          "stage1-successor-evidence/contract13-bounded-corrections-v2/claim-decisions/proposed-artifacts/wave27-wave29-manifest-replay-fresh-local.v2.json"
+        ],
+        "status_authority_ceiling": "Non-live manifest/topic readback only; platform SLA remains open and no new canonical status or migration is authorized.",
+        "write_boundary": "Create a new bounded receipt only. Do not write any deleted 2026-05-22/23 automation-run path and do not update canonical topic status."
+      },
+      "source_cause_groups": [
+        "wave27-29-provider-manifest"
+      ],
+      "source_requirements": [
+        {
+          "classification_at_source": "tracked_deleted_no_current_equivalent",
+          "historical_object": {
+            "content_read": false,
+            "git_object_sha1": "a0ea8067f6355165a81c027e6b0763a89645b50a"
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/local-index-lancedb-benchmark/2026-05-22/benchmark_quality_results.json",
+          "provenance_entry_id": null,
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/opensearch-vector/opensearch-vector-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "a2d74d92f6144dd8e913b7f286af4cff0d772715c14c024bfeec3d670dc4f435",
+          "required_factual_claim": "Recorded deterministic ranking and filter benchmark met thresholds."
+        },
+        {
+          "classification_at_source": "tracked_deleted_no_current_equivalent",
+          "historical_object": {
+            "content_read": false,
+            "git_object_sha1": "925bb9cb2e1d5bf6389bdba120e61812814e22ff"
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/local-index-lancedb-runtime-smoke/2026-05-22/runtime_smoke_results.json",
+          "provenance_entry_id": null,
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/opensearch-vector/opensearch-vector-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "a2d74d92f6144dd8e913b7f286af4cff0d772715c14c024bfeec3d670dc4f435",
+          "required_factual_claim": "Recorded LanceDB keyword, vector, and hybrid runtime smoke passed without fallback."
+        },
+        {
+          "classification_at_source": "tracked_deleted_no_current_equivalent",
+          "historical_object": {
+            "content_read": false,
+            "git_object_sha1": "7570526001f3a3980c904c0827f84f8cc352549c"
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/wave10-vectorization-quality-gate/2026-05-22/contract_summary.json",
+          "provenance_entry_id": null,
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/opensearch-vector/opensearch-vector-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "a2d74d92f6144dd8e913b7f286af4cff0d772715c14c024bfeec3d670dc4f435",
+          "required_factual_claim": "Recorded Wave10 aggregate quality contract passed."
+        },
+        {
+          "classification_at_source": "tracked_deleted_no_current_equivalent",
+          "historical_object": {
+            "content_read": false,
+            "git_object_sha1": "40088c9b084702fcf15a7fbbdef6d62269344d2d"
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/wave14-vectorization-provider-capability/2026-05-22/provider_capability_summary.json",
+          "provenance_entry_id": null,
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/opensearch-vector/opensearch-vector-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "a2d74d92f6144dd8e913b7f286af4cff0d772715c14c024bfeec3d670dc4f435",
+          "required_factual_claim": "Recorded Wave14 provider capability and retained gap contract passed."
+        },
+        {
+          "classification_at_source": "tracked_deleted_no_current_equivalent",
+          "historical_object": {
+            "content_read": false,
+            "git_object_sha1": "41b55c291b5b55383b5755140c052616f144bee8"
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/wave18-vectorization-hybrid-readback/2026-05-22/hybrid_readback_contract.json",
+          "provenance_entry_id": null,
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/opensearch-vector/opensearch-vector-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "a2d74d92f6144dd8e913b7f286af4cff0d772715c14c024bfeec3d670dc4f435",
+          "required_factual_claim": "Recorded hybrid readback preserved mode identity and prohibited live closure."
+        },
+        {
+          "classification_at_source": "tracked_deleted_no_current_equivalent",
+          "historical_object": {
+            "content_read": false,
+            "git_object_sha1": "8e5f2a586456666b7efe5471e63d4bc34202cea2"
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/wave19-vectorization-provider-manifest/2026-05-22/provider_manifest_readback.json",
+          "provenance_entry_id": null,
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/opensearch-vector/opensearch-vector-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "a2d74d92f6144dd8e913b7f286af4cff0d772715c14c024bfeec3d670dc4f435",
+          "required_factual_claim": "Recorded provider manifest was present and safe for downstream replay."
+        }
+      ]
+    },
+    {
+      "authority_ceiling": "STAGE1_UNACCEPTED; NOT_LIVE; NON_AUTHORITATIVE; PRODUCTION_RELEASE_NOT_AUTHORIZED; NO_DEPLOY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_PUSH_NO_REMOTE_MUTATION",
+      "canonical_anchors": [],
+      "claim_fingerprint_sha256": "6928a7298ff0fc71c461cdec512a1cc57007a45e8266fba6bfbb8ecbdd83625d",
+      "claim_id": "claim-012",
+      "claim_key": "wave29-current-platform-api-ui-sla",
+      "decision": "LIVE_OBSERVATION_REQUIRED",
+      "dependent_nodeid_count": 1,
+      "dependent_nodeids": [
+        "tests.unit.test_wave29_oss_node_vector_manifest_replay_unittest.Wave29OssNodeVectorManifestReplayTest::test_live_platform_probe_can_close_scheduler_tenant_ui_condition"
+      ],
+      "factual_claim": "The current scheduler/tenant/API/UI platform condition has been observed live for the Wave29 OSS-node route.",
+      "missing_specific_evidence": "A fresh Wave29 probe receipt with actual API and UI base identities, request/response timestamps, scheduler/tenant readback, failure details, and environment identity.",
+      "rerun_authority_boundary": "Requires explicit permission to access the local API/UI runtime and record live responses. This contract neither starts those services nor authorizes a live probe.",
+      "source_cause_groups": [
+        "wave27-29-provider-manifest"
+      ],
+      "source_requirements": [
+        {
+          "classification_at_source": "tracked_deleted_no_current_equivalent",
+          "historical_object": {
+            "content_read": false,
+            "git_object_sha1": "8e5f2a586456666b7efe5471e63d4bc34202cea2"
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/wave19-vectorization-provider-manifest/2026-05-22/provider_manifest_readback.json",
+          "provenance_entry_id": null,
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/opensearch-vector/opensearch-vector-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "a2d74d92f6144dd8e913b7f286af4cff0d772715c14c024bfeec3d670dc4f435",
+          "required_factual_claim": "Recorded provider manifest was present and safe for downstream replay."
+        }
+      ]
+    },
+    {
+      "authority_ceiling": "STAGE1_UNACCEPTED; NOT_LIVE; NON_AUTHORITATIVE; PRODUCTION_RELEASE_NOT_AUTHORIZED; NO_DEPLOY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_PUSH_NO_REMOTE_MUTATION",
+      "canonical_anchors": [
+        {
+          "path": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-05-oss-node-platform-io-plan/INDEX.md",
+          "role": "existing canonical projection consumed read-only; not runtime evidence and not a new status",
+          "sha256": "b1377fd42a6b049428b941a60de7f3472ac4d451e3e8ad9e394d1c9ccb19b00d"
+        },
+        {
+          "path": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-05-oss-node-platform-io-plan/10_wave55-oss-node-search-quality-gate-2026-05-23.md",
+          "role": "existing canonical projection consumed read-only; not runtime evidence and not a new status",
+          "sha256": "2bb3c453d321486040fe04c56dc60029de1f602810b2b7aa461516e1449ce20b"
+        }
+      ],
+      "claim_fingerprint_sha256": "a4b49aa97ccbb7d3656eb3989b027bd22440f976795da9dba6ddde942bf05e0e",
+      "claim_id": "claim-013",
+      "claim_key": "wave55-fresh-controlled-search-quality",
+      "decision": "FRESH_LOCAL_DETERMINISTIC_EVIDENCE_POSSIBLE",
+      "dependent_nodeid_count": 1,
+      "dependent_nodeids": [
+        "tests.unit.test_wave55_oss_node_search_quality_gate_unittest.Wave55OssNodeSearchQualityGateTest::test_gate_closes_repo_local_open_search_quality_and_reduces_semantic_scope"
+      ],
+      "factual_claim": "Current controlled repo-local open-search ranking and local embedding quality can be recomputed without network or live-container claims.",
+      "fresh_proposal": {
+        "allowed_inputs": [
+          {
+            "kind": "current_repo_code",
+            "value": "Current checker/runtime source at the hashes captured in this table; no historical artifact substitution."
+          },
+          {
+            "kind": "execution_policy",
+            "value": "no network, no container start, no production write, deterministic local fixtures only"
+          },
+          {
+            "kind": "fresh_prerequisites",
+            "value": "Fresh deterministic explicit-route trace and Wave55 local embedding receipt, injected from a new bounded directory."
+          }
+        ],
+        "dependent_nodeids": [
+          "tests.unit.test_wave55_oss_node_search_quality_gate_unittest.Wave55OssNodeSearchQualityGateTest::test_gate_closes_repo_local_open_search_quality_and_reduces_semantic_scope"
+        ],
+        "existing_generator_refs": [
+          {
+            "path": "ops/search-lab/scripts/search_provider_trace_contract.py",
+            "sha256": "6b49b9fedd44386556f84a1a2f58ea8f1d2919463c832ad9f139f417a2a14343"
+          },
+          {
+            "path": "ops/search-lab/scripts/wave55_live_embedding_provider_gate.py",
+            "sha256": "35d17b9fc61226790aeb079b53e5695f0f13bec403c05b8bca98d6d57f4cfb71"
+          },
+          {
+            "path": "ops/search-lab/scripts/wave55_oss_node_search_quality_gate.py",
+            "sha256": "9c92092498ddaa16559b5117177e41dc90fe65868771d91d4ee51cf8c481fe4b"
+          }
+        ],
+        "existing_generators": [
+          "ops/search-lab/scripts/search_provider_trace_contract.py",
+          "ops/search-lab/scripts/wave55_live_embedding_provider_gate.py",
+          "ops/search-lab/scripts/wave55_oss_node_search_quality_gate.py"
+        ],
+        "expected_artifacts": [
+          "stage1-successor-evidence/contract13-bounded-corrections-v2/claim-decisions/proposed-artifacts/wave55-oss-search-quality-fresh-local.v2.json"
+        ],
+        "status_authority_ceiling": "Controlled repo-local ranking only; live-container and production semantic quality remain unproven.",
+        "write_boundary": "Create a new bounded receipt only. Do not write any deleted 2026-05-22/23 automation-run path and do not update canonical topic status."
+      },
+      "source_cause_groups": [
+        "wave55-oss-search-quality"
+      ],
+      "source_requirements": [
+        {
+          "classification_at_source": "tracked_deleted_no_current_equivalent",
+          "historical_object": {
+            "content_read": false,
+            "git_object_sha1": "a2845e5483da46741e4e8954adc3a2a8255581a4"
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/search-provider-trace-artifacts/2026-05-22/search_provider_trace_contract.json",
+          "provenance_entry_id": null,
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/opensearch-vector/opensearch-vector-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "a2d74d92f6144dd8e913b7f286af4cff0d772715c14c024bfeec3d670dc4f435",
+          "required_factual_claim": "Recorded explicit SearXNG and YaCy trace excludes local providers from provider=auto."
+        },
+        {
+          "classification_at_source": "tracked_deleted_no_current_equivalent",
+          "historical_object": {
+            "content_read": false,
+            "git_object_sha1": "f8134d2fed02bf243466cc5df82881f563c1882e"
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/wave55-live-embedding-provider/2026-05-23/live_embedding_provider_gate.json",
+          "provenance_entry_id": null,
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/opensearch-vector/opensearch-vector-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "a2d74d92f6144dd8e913b7f286af4cff0d772715c14c024bfeec3d670dc4f435",
+          "required_factual_claim": "Recorded repo-local live embedding provider gate passed within its bounded scope."
+        }
+      ]
+    },
+    {
+      "authority_ceiling": "STAGE1_UNACCEPTED; NOT_LIVE; NON_AUTHORITATIVE; PRODUCTION_RELEASE_NOT_AUTHORIZED; NO_DEPLOY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_PUSH_NO_REMOTE_MUTATION",
+      "canonical_anchors": [],
+      "claim_fingerprint_sha256": "f3a8e5ad734d1b3a2ca4923ec159b6ec4f11e4387d9163ad2e7fa6212a3850d4",
+      "claim_id": "claim-014",
+      "claim_key": "wave57-recorded-production-like-corpus-lineage",
+      "decision": "ACTUAL_HISTORICAL_RECEIPT_REQUIRED",
+      "dependent_nodeid_count": 2,
+      "dependent_nodeids": [
+        "tests.unit.test_wave57_production_vector_quality_gate_unittest.Wave57ProductionVectorQualityGateTest::test_gate_replays_production_like_corpus_and_closes_when_vector_store_is_available",
+        "tests.unit.test_wave57_production_vector_quality_gate_unittest.Wave57ProductionVectorQualityGateTest::test_require_vector_store_passes_in_optional_lancedb_environment"
+      ],
+      "factual_claim": "The recorded Wave57 production-like vector replay used the historical corpus lineage and prerequisite Wave56/provider artifacts claimed by that run.",
+      "missing_specific_evidence": "The historical Wave56 gate, both recorded LanceDB JSONL corpora, four narrative inputs, and the Wave57 vector-store execution receipt bound to one corpus manifest.",
+      "recovery_authority_boundary": "Historical corpus objects must be verified by an authorized evidence custodian. Rebuilding a different current corpus would be a successor experiment, not proof of the recorded claim; no deleted source may be restored by this task.",
+      "source_cause_groups": [
+        "wave57-production-vector"
+      ],
+      "source_requirements": [
+        {
+          "classification_at_source": "tracked_deleted_no_current_equivalent",
+          "historical_object": {
+            "content_read": false,
+            "git_object_sha1": "d2b764417dbda3da1594805d65a6d9459beefe3c"
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/deisolation-project-coherence/2026-05-14/local_index_lancedb_project_prototype.jsonl",
+          "provenance_entry_id": null,
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/opensearch-vector/opensearch-vector-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "a2d74d92f6144dd8e913b7f286af4cff0d772715c14c024bfeec3d670dc4f435",
+          "required_factual_claim": "Historical production-like corpus includes the recorded de-isolation LanceDB rows."
+        },
+        {
+          "classification_at_source": "tracked_deleted_no_current_equivalent",
+          "historical_object": {
+            "content_read": false,
+            "git_object_sha1": "d2b764417dbda3da1594805d65a6d9459beefe3c"
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/frontend-coherence-and-searxng-gate/2026-05-14/local_index_lancedb_project_prototype.jsonl",
+          "provenance_entry_id": null,
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/opensearch-vector/opensearch-vector-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "a2d74d92f6144dd8e913b7f286af4cff0d772715c14c024bfeec3d670dc4f435",
+          "required_factual_claim": "Historical production-like corpus includes the recorded frontend-coherence LanceDB rows."
+        },
+        {
+          "classification_at_source": "tracked_deleted_no_current_equivalent",
+          "historical_object": {
+            "content_read": false,
+            "git_object_sha1": "f2c01a6f884f13af11c70c25e8a785f02d33950d"
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md",
+          "provenance_entry_id": null,
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/opensearch-vector/opensearch-vector-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "a2d74d92f6144dd8e913b7f286af4cff0d772715c14c024bfeec3d670dc4f435",
+          "required_factual_claim": "Production-like corpus includes the recorded LanceDB benchmark narrative input."
+        },
+        {
+          "classification_at_source": "tracked_deleted_no_current_equivalent",
+          "historical_object": {
+            "content_read": false,
+            "git_object_sha1": "d02e49c4e4d24731b28d29ce50f6ba9673585b93"
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/wave30-vector-closure-gate/2026-05-23/README.md",
+          "provenance_entry_id": null,
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/opensearch-vector/opensearch-vector-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "a2d74d92f6144dd8e913b7f286af4cff0d772715c14c024bfeec3d670dc4f435",
+          "required_factual_claim": "Production-like corpus includes the recorded Wave30 closure narrative input."
+        },
+        {
+          "classification_at_source": "tracked_deleted_no_current_equivalent",
+          "historical_object": {
+            "content_read": false,
+            "git_object_sha1": "9d0d506159ae891a291add62fee80d1a56bc0203"
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/wave55-live-embedding-provider/2026-05-23/README.md",
+          "provenance_entry_id": null,
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/opensearch-vector/opensearch-vector-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "a2d74d92f6144dd8e913b7f286af4cff0d772715c14c024bfeec3d670dc4f435",
+          "required_factual_claim": "Production-like corpus includes the recorded Wave55 provider narrative input."
+        },
+        {
+          "classification_at_source": "tracked_deleted_no_current_equivalent",
+          "historical_object": {
+            "content_read": false,
+            "git_object_sha1": "37a8956332265da5963c9e2959481a0677d6062f"
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/wave56-semantic-vector-quality-gate/2026-05-23/README.md",
+          "provenance_entry_id": null,
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/opensearch-vector/opensearch-vector-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "a2d74d92f6144dd8e913b7f286af4cff0d772715c14c024bfeec3d670dc4f435",
+          "required_factual_claim": "Production-like corpus includes the recorded Wave56 narrative input."
+        },
+        {
+          "classification_at_source": "tracked_deleted_no_current_equivalent",
+          "historical_object": {
+            "content_read": false,
+            "git_object_sha1": "49c48019f751873f6b9c317b516229437f3c4466"
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/wave56-semantic-vector-quality-gate/2026-05-23/semantic_vector_quality_gate.json",
+          "provenance_entry_id": null,
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/opensearch-vector/opensearch-vector-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "a2d74d92f6144dd8e913b7f286af4cff0d772715c14c024bfeec3d670dc4f435",
+          "required_factual_claim": "Recorded Wave56 semantic vector quality gate passed before production-like replay."
+        }
+      ]
+    },
+    {
+      "authority_ceiling": "STAGE1_UNACCEPTED; NOT_LIVE; NON_AUTHORITATIVE; PRODUCTION_RELEASE_NOT_AUTHORIZED; NO_DEPLOY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_PUSH_NO_REMOTE_MUTATION",
+      "canonical_anchors": [
+        {
+          "path": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-05-oss-node-platform-io-plan/INDEX.md",
+          "role": "existing canonical projection consumed read-only; not runtime evidence and not a new status",
+          "sha256": "b1377fd42a6b049428b941a60de7f3472ac4d451e3e8ad9e394d1c9ccb19b00d"
+        },
+        {
+          "path": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-05-oss-node-platform-io-plan/11_wave57-oss-node-public-corpus-semantic-relevance-2026-05-23.md",
+          "role": "existing canonical projection consumed read-only; not runtime evidence and not a new status",
+          "sha256": "9f7cea64c2392e92d3421347cde24cdf0454889ee99ebc093f787036e63fdebf"
+        }
+      ],
+      "claim_fingerprint_sha256": "d2829bd920e2e3717871dea375132d1725e5bb30e9921678575ff2b95261035d",
+      "claim_id": "claim-015",
+      "claim_key": "wave57-fresh-public-oss-corpus-relevance",
+      "decision": "FRESH_LOCAL_DETERMINISTIC_EVIDENCE_POSSIBLE",
+      "dependent_nodeid_count": 1,
+      "dependent_nodeids": [
+        "tests.unit.test_wave57_oss_node_public_corpus_semantic_relevance_gate_unittest.Wave57OssNodePublicCorpusSemanticRelevanceGateTest::test_gate_closes_target_local_public_corpus_provider_quality_route"
+      ],
+      "factual_claim": "Current checked-in public OSS corpus excerpts can be deterministically ranked by the repo-local embedding route for the bounded OSS-node topic.",
+      "fresh_proposal": {
+        "allowed_inputs": [
+          {
+            "kind": "current_repo_code",
+            "value": "Current checker/runtime source at the hashes captured in this table; no historical artifact substitution."
+          },
+          {
+            "kind": "execution_policy",
+            "value": "no network, no container start, no production write, deterministic local fixtures only"
+          },
+          {
+            "kind": "checked_in_corpus",
+            "value": "reference-pool/oss/INDEX.md and the exact checked-in excerpts selected by the Wave57 generator"
+          },
+          {
+            "kind": "fresh_prerequisite",
+            "value": "Fresh bounded Wave55 deterministic quality receipt, not the deleted historical artifact."
+          }
+        ],
+        "dependent_nodeids": [
+          "tests.unit.test_wave57_oss_node_public_corpus_semantic_relevance_gate_unittest.Wave57OssNodePublicCorpusSemanticRelevanceGateTest::test_gate_closes_target_local_public_corpus_provider_quality_route"
+        ],
+        "existing_generator_refs": [
+          {
+            "path": "ops/search-lab/scripts/wave55_live_embedding_provider_gate.py",
+            "sha256": "35d17b9fc61226790aeb079b53e5695f0f13bec403c05b8bca98d6d57f4cfb71"
+          },
+          {
+            "path": "ops/search-lab/scripts/wave55_oss_node_search_quality_gate.py",
+            "sha256": "9c92092498ddaa16559b5117177e41dc90fe65868771d91d4ee51cf8c481fe4b"
+          },
+          {
+            "path": "ops/search-lab/scripts/wave57_oss_node_public_corpus_semantic_relevance_gate.py",
+            "sha256": "48346e3ff952910dede974706f0bd9b779c35f13ca0967538eaea26a0a8cd0b9"
+          }
+        ],
+        "existing_generators": [
+          "ops/search-lab/scripts/wave55_live_embedding_provider_gate.py",
+          "ops/search-lab/scripts/wave55_oss_node_search_quality_gate.py",
+          "ops/search-lab/scripts/wave57_oss_node_public_corpus_semantic_relevance_gate.py"
+        ],
+        "expected_artifacts": [
+          "stage1-successor-evidence/contract13-bounded-corrections-v2/claim-decisions/proposed-artifacts/wave57-public-corpus-relevance-fresh-local.v2.json"
+        ],
+        "status_authority_ceiling": "Bounded checked-in-corpus relevance only; no generic public-web, live provider, production traffic, or release authority.",
+        "write_boundary": "Create a new bounded receipt only. Do not write any deleted 2026-05-22/23 automation-run path and do not update canonical topic status."
+      },
+      "source_cause_groups": [
+        "wave57-public-corpus"
+      ],
+      "source_requirements": [
+        {
+          "classification_at_source": "tracked_deleted_no_current_equivalent",
+          "historical_object": {
+            "content_read": false,
+            "git_object_sha1": "ddcb497c992bc7fb954a05961c5e469c24a55647"
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/wave55-oss-node-search-quality-gate/2026-05-23/oss_node_search_quality_gate.json",
+          "provenance_entry_id": null,
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/opensearch-vector/opensearch-vector-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "a2d74d92f6144dd8e913b7f286af4cff0d772715c14c024bfeec3d670dc4f435",
+          "required_factual_claim": "Recorded OSS-node search quality gate passed before public-corpus promotion."
+        }
+      ]
+    },
+    {
+      "authority_ceiling": "STAGE1_UNACCEPTED; NOT_LIVE; NON_AUTHORITATIVE; PRODUCTION_RELEASE_NOT_AUTHORIZED; NO_DEPLOY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_PUSH_NO_REMOTE_MUTATION",
+      "canonical_anchors": [],
+      "claim_fingerprint_sha256": "b0e25d5ec197dfd7341e4f3bf243ef388fb71ffbd36e3caf9ad91471e9d78ecd",
+      "claim_id": "claim-016",
+      "claim_key": "wave8-recorded-evidence-reuse",
+      "decision": "ACTUAL_HISTORICAL_RECEIPT_REQUIRED",
+      "dependent_nodeid_count": 1,
+      "dependent_nodeids": [
+        "tests.unit.test_wave8_search_vectorization_contract_unittest.Wave8SearchVectorizationContractTest::test_wave8_contract_reuses_recorded_evidence_without_claiming_live_services"
+      ],
+      "factual_claim": "The Wave8 aggregate reused the recorded provider trace, container replay, LanceDB runtime and benchmark evidence without claiming live services.",
+      "missing_specific_evidence": "The four historical source receipts and their aggregate Wave8 contract with matching run/object identities.",
+      "recovery_authority_boundary": "Because the claim is explicitly about recorded reuse, fresh outputs cannot prove it. Authorized read-only historical verification is required; no old path restoration is allowed.",
+      "source_cause_groups": [
+        "wave8-search-vectorization"
+      ],
+      "source_requirements": [
+        {
+          "classification_at_source": "tracked_deleted_no_current_equivalent",
+          "historical_object": {
+            "content_read": false,
+            "git_object_sha1": "a0ea8067f6355165a81c027e6b0763a89645b50a"
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/local-index-lancedb-benchmark/2026-05-22/benchmark_quality_results.json",
+          "provenance_entry_id": null,
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/opensearch-vector/opensearch-vector-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "a2d74d92f6144dd8e913b7f286af4cff0d772715c14c024bfeec3d670dc4f435",
+          "required_factual_claim": "Recorded deterministic ranking and filter benchmark met thresholds."
+        },
+        {
+          "classification_at_source": "tracked_deleted_no_current_equivalent",
+          "historical_object": {
+            "content_read": false,
+            "git_object_sha1": "925bb9cb2e1d5bf6389bdba120e61812814e22ff"
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/local-index-lancedb-runtime-smoke/2026-05-22/runtime_smoke_results.json",
+          "provenance_entry_id": null,
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/opensearch-vector/opensearch-vector-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "a2d74d92f6144dd8e913b7f286af4cff0d772715c14c024bfeec3d670dc4f435",
+          "required_factual_claim": "Recorded LanceDB keyword, vector, and hybrid runtime smoke passed without fallback."
+        },
+        {
+          "classification_at_source": "tracked_deleted_no_current_equivalent",
+          "historical_object": {
+            "content_read": false,
+            "git_object_sha1": "f1206f568c612c3bb184e5bb6f5aaea8b5323ae5"
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/search-provider-container-replay/2026-05-22/provider_trace_replay_summary.json",
+          "provenance_entry_id": null,
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/opensearch-vector/opensearch-vector-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "a2d74d92f6144dd8e913b7f286af4cff0d772715c14c024bfeec3d670dc4f435",
+          "required_factual_claim": "Recorded container replay preserved explicit provider trace."
+        },
+        {
+          "classification_at_source": "tracked_deleted_no_current_equivalent",
+          "historical_object": {
+            "content_read": false,
+            "git_object_sha1": "a2845e5483da46741e4e8954adc3a2a8255581a4"
+          },
+          "missing_path": "development/latest-dev-docs/automation-runs/search-provider-trace-artifacts/2026-05-22/search_provider_trace_contract.json",
+          "provenance_entry_id": null,
+          "provenance_file": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/opensearch-vector/opensearch-vector-missing-evidence-provenance.v1.json",
+          "provenance_file_sha256": "a2d74d92f6144dd8e913b7f286af4cff0d772715c14c024bfeec3d670dc4f435",
+          "required_factual_claim": "Recorded explicit SearXNG and YaCy trace excludes local providers from provider=auto."
+        }
+      ]
+    }
+  ],
+  "classification_contract": {
+    "allowed_decisions": [
+      "ACTUAL_HISTORICAL_RECEIPT_REQUIRED",
+      "FRESH_LOCAL_DETERMINISTIC_EVIDENCE_POSSIBLE",
+      "LIVE_OBSERVATION_REQUIRED"
+    ],
+    "canonical_projection_may_create_new_status": false,
+    "historical_blob_may_be_restored_or_substituted": false,
+    "mutually_exclusive": true,
+    "synthetic_fixture_may_close_factual_claim": false,
+    "synthetic_fixture_may_test_validator_behavior": true
+  },
+  "closure_claim_allowed": false,
+  "contract_13": {
+    "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/13_contract12-supervisor-review-and-return.v1.md",
+    "sha256": "ac1629315b3ae91aa9de59b7ae87da04a5f10c54d643e406d8785a0783071717"
+  },
+  "execution_status": "NOT_LIVE",
+  "inputs": [
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/13_contract12-supervisor-review-and-return.v1.md",
+      "sha256": "ac1629315b3ae91aa9de59b7ae87da04a5f10c54d643e406d8785a0783071717"
+    },
+    {
+      "path": "stage1-successor-evidence/residual-disposition-v1/inventory/backend_failure_inventory.root-input.v1.json",
+      "sha256": "4f01f15464582c7b465af79397e1297510ad95e9170d199564aea72a2c0e34d1"
+    },
+    {
+      "path": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+      "sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453"
+    },
+    {
+      "path": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/opensearch-vector/opensearch-vector-missing-evidence-provenance.v1.json",
+      "sha256": "a2d74d92f6144dd8e913b7f286af4cff0d772715c14c024bfeec3d670dc4f435"
+    }
+  ],
+  "production_release_authorized": false,
+  "record_id": "contract13-bounded-claim-decisions-2026-09-06",
+  "schema_version": "mrw.contract13.claim_decisions.v2",
+  "status": "DECISION_TABLE_COMPLETE_ACCEPTANCE_NOT_CLAIMED",
+  "summary": {
+    "decision_claim_counts": {
+      "ACTUAL_HISTORICAL_RECEIPT_REQUIRED": 5,
+      "FRESH_LOCAL_DETERMINISTIC_EVIDENCE_POSSIBLE": 8,
+      "LIVE_OBSERVATION_REQUIRED": 3
+    },
+    "decision_nodeid_counts": {
+      "ACTUAL_HISTORICAL_RECEIPT_REQUIRED": 8,
+      "FRESH_LOCAL_DETERMINISTIC_EVIDENCE_POSSIBLE": 13,
+      "LIVE_OBSERVATION_REQUIRED": 9
+    },
+    "inventory_missing_evidence_nodeid_count": 30,
+    "nodeids_covered_exactly_once": true,
+    "unique_claim_count": 16
+  }
+}

@@ -5,6 +5,7 @@ import unittest
 from unittest.mock import patch
 
 import pytest
+from functorial_kit import Failure
 
 from app.services.agent_runtime.interactive_agent import InteractiveAgentRuntime
 from app.services.agent_runtime.tool_contract import build_capability_call
@@ -97,8 +98,24 @@ class InteractiveAgentRuntimeUnitTest(unittest.TestCase):
 
     def test_run_turn_project_mismatch_is_rejected(self):
         first = self._run_turn(project_key="demo_proj")
-        with self.assertRaises(ValueError):
-            self._run_turn(session_id=first["session"]["session_id"], project_key="other_proj")
+        session_id = first["session"]["session_id"]
+        before = self.service.get_session_bundle(session_id)
+
+        outcome = self._run_turn(session_id=session_id, project_key="other_proj")
+
+        self.assertIsInstance(outcome, Failure)
+        self.assertEqual(outcome.family, "agent.runtime.failure")
+        self.assertEqual(outcome.code, "session_project_mismatch")
+        self.assertEqual(outcome.message, "session project_key does not match request project_key")
+        self.assertEqual(
+            dict(outcome.context or {}),
+            {
+                "session_id": session_id,
+                "session_project_key": "demo_proj",
+                "request_project_key": "other_proj",
+            },
+        )
+        self.assertEqual(self.service.get_session_bundle(session_id), before)
 
     def test_run_turn_failure_is_projected_to_session(self):
         def fail_runner(**kwargs):

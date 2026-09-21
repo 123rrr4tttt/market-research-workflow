@@ -20,7 +20,9 @@ try:
 
     from app.contracts.errors import ErrorCode
     from app.main import app as backend_app
+    from app.release_identity import RELEASE_VERSION
     from app.main import _maybe_wrap_success_json_response
+    from app.contracts.responses import ApiMetaModel, ok, reset_api_context_meta, set_api_context_meta
 
     _IMPORT_ERROR = None
 except Exception as exc:  # noqa: BLE001
@@ -45,7 +47,7 @@ def test_app_initialization_core_contract() -> None:
     paths = {route.path for route in backend_app.routes if isinstance(route, APIRoute)}
 
     assert backend_app.title == "Market Intel API"
-    assert backend_app.version == "0.1.0-rc.1"
+    assert backend_app.version == RELEASE_VERSION
     assert "/api/v1/health" in paths
     assert "/api/v1/health/deep" in paths
     assert "/metrics" in paths
@@ -79,6 +81,7 @@ def test_success_json_response_is_wrapped_with_contract_envelope():
         request,
         response,
         request_id="main-core-contract",
+        trace_id="trace-main-core-contract",
         project_key="demo_proj",
     )
 
@@ -87,10 +90,111 @@ def test_success_json_response_is_wrapped_with_contract_envelope():
     assert payload["status"] == "ok"
     assert payload["data"] == {"message": "ok"}
     assert payload["error"] is None
-    assert payload["meta"]["trace_id"] == "main-core-contract"
+    assert payload["meta"]["trace_id"] == "trace-main-core-contract"
     assert payload["meta"]["project_key"] == "demo_proj"
     assert wrapped.headers.get("cache-control") == "no-store"
     assert wrapped.headers.get("x-custom") == "preserve"
+
+
+def test_existing_success_envelope_meta_is_enriched_with_trace_and_project():
+    request = Request(
+        {
+            "type": "http",
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/api/v1/test/main-core/enveloped-success",
+            "raw_path": b"/api/v1/test/main-core/enveloped-success",
+            "query_string": b"",
+            "headers": [],
+            "client": ("testclient", 50000),
+            "server": ("testserver", 80),
+            "root_path": "",
+        }
+    )
+    response = JSONResponse(
+        status_code=200,
+        content={"status": "ok", "data": {"message": "ok"}, "error": None, "meta": {"trace_id": None}},
+        headers={"X-Custom": "preserve"},
+    )
+
+    wrapped = _maybe_wrap_success_json_response(
+        request,
+        response,
+        request_id="main-core-contract",
+        trace_id="trace-existing-envelope",
+        project_key="demo_proj",
+    )
+
+    assert wrapped.status_code == 200
+    payload = json.loads(wrapped.body.decode("utf-8"))
+    assert payload["status"] == "ok"
+    assert payload["data"] == {"message": "ok"}
+    assert payload["meta"]["trace_id"] == "trace-existing-envelope"
+    assert payload["meta"]["project_key"] == "demo_proj"
+    assert wrapped.headers.get("x-custom") == "preserve"
+
+
+def test_existing_success_envelope_keeps_explicit_trace_and_project():
+    request = Request(
+        {
+            "type": "http",
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/api/v1/test/main-core/enveloped-success",
+            "raw_path": b"/api/v1/test/main-core/enveloped-success",
+            "query_string": b"",
+            "headers": [],
+            "client": ("testclient", 50000),
+            "server": ("testserver", 80),
+            "root_path": "",
+        }
+    )
+    response = JSONResponse(
+        status_code=200,
+        content={
+            "status": "ok",
+            "data": {"message": "ok"},
+            "error": None,
+            "meta": {"trace_id": "trace-explicit", "project_key": "project-explicit"},
+        },
+    )
+
+    wrapped = _maybe_wrap_success_json_response(
+        request,
+        response,
+        request_id="main-core-contract",
+        trace_id="trace-new",
+        project_key="project-new",
+    )
+
+    payload = json.loads(wrapped.body.decode("utf-8"))
+    assert payload["meta"]["trace_id"] == "trace-explicit"
+    assert payload["meta"]["project_key"] == "project-explicit"
+
+
+def test_ok_uses_request_context_meta_by_default():
+    tokens = set_api_context_meta(trace_id="trace-context", project_key="project-context")
+    try:
+        payload = ok({"message": "ok"})
+    finally:
+        reset_api_context_meta(tokens)
+
+    assert payload["meta"]["trace_id"] == "trace-context"
+    assert payload["meta"]["project_key"] == "project-context"
+
+
+def test_ok_fills_missing_explicit_meta_from_request_context():
+    tokens = set_api_context_meta(trace_id="trace-context", project_key="project-context")
+    try:
+        payload = ok({"message": "ok"}, meta=ApiMetaModel(deprecated="legacy-field"))
+    finally:
+        reset_api_context_meta(tokens)
+
+    assert payload["meta"]["trace_id"] == "trace-context"
+    assert payload["meta"]["project_key"] == "project-context"
+    assert payload["meta"]["deprecated"] == "legacy-field"
 
 
 def test_project_key_fallback_headers_and_warning(core_business_client):

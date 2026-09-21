@@ -1,0 +1,110 @@
+{
+  "schema_version": "mrw.stage3.remote-readback.r13s.v1",
+  "status": "BLOCKED_REQUIRED_REMOTE_FACTS",
+  "authoritative": false,
+  "observed_at": "2026-09-10T03:44:38Z",
+  "observation_window": {
+    "started_at": "2026-09-10T03:44:31Z",
+    "ended_at": "2026-09-10T03:44:38Z"
+  },
+  "repository": {
+    "full_name": "123rrr4tttt/market-research-workflow",
+    "html_url": "https://github.com/123rrr4tttt/market-research-workflow",
+    "default_branch": "main"
+  },
+  "candidate": {
+    "commit": "9224f3627fa81d03e7963450891e822f6177be38",
+    "tree": "9f9f3579df66b468373d6bb3a508d9bc3e7ef7d4",
+    "base": "88ffcc3dab2e6cbdc1f389e16c4226df5a2e51c6",
+    "local_checkout_clean": true,
+    "remote_exact_head_or_tag_matches": 0
+  },
+  "exact_sha_requests": [
+    {
+      "method": "GET",
+      "target_url": "https://api.github.com/repos/123rrr4tttt/market-research-workflow/commits/9224f3627fa81d03e7963450891e822f6177be38",
+      "http_status": 422,
+      "body_summary": {
+        "message": "No commit found for SHA: 9224f3627fa81d03e7963450891e822f6177be38",
+        "status": "422"
+      }
+    },
+    {
+      "method": "GET",
+      "target_url": "https://api.github.com/repos/123rrr4tttt/market-research-workflow/actions/runs?head_sha=9224f3627fa81d03e7963450891e822f6177be38&per_page=100",
+      "http_status": 200,
+      "body_summary": {
+        "total_count": 0,
+        "workflow_runs": []
+      }
+    },
+    {
+      "method": "GET",
+      "target_url": "https://api.github.com/repos/123rrr4tttt/market-research-workflow/commits/9224f3627fa81d03e7963450891e822f6177be38/check-runs?per_page=100",
+      "http_status": 422,
+      "body_summary": {
+        "message": "No commit found for SHA: 9224f3627fa81d03e7963450891e822f6177be38",
+        "status": "422"
+      }
+    },
+    {
+      "method": "GET",
+      "target_url": "https://api.github.com/repos/123rrr4tttt/market-research-workflow/commits/9224f3627fa81d03e7963450891e822f6177be38/status",
+      "http_status": 200,
+      "body_summary": {
+        "sha": "9224f3627fa81d03e7963450891e822f6177be38",
+        "state": "pending",
+        "status_count": 0,
+        "statuses": []
+      },
+      "interpretation": "The empty combined-status projection is not evidence that the commit exists remotely or that any required check ran."
+    }
+  ],
+  "sha_independent_remote_facts_reused": {
+    "source": {
+      "path": "/Users/wangyiliang/market-research-workflow/stage3-evidence/r13r/remote/github-readback.r13r.json",
+      "sha256": "ea3eee874b734f8edbdd8c9224a212e95c9549225b69195cca4553af0266dec2",
+      "observed_at": "2026-09-10T02:45:22Z"
+    },
+    "scope": "Repository identity, main branch head, protection, repository rulesets, and applicable main rules are reused because they do not depend on the candidate SHA. Exact-r13s reachability and execution endpoints were queried fresh.",
+    "facts": {
+      "main_commit_sha": "88ffcc3dab2e6cbdc1f389e16c4226df5a2e51c6",
+      "main_protected": false,
+      "branch_protection_http_status": 404,
+      "repository_ruleset_count": 0,
+      "applicable_main_rule_count": 0,
+      "required_checks_unbypassable": false
+    }
+  },
+  "required_checks": {
+    "declaration_ref": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260910-v4-r13s/candidate/.github/branch-protection-required-checks.json",
+    "declaration_sha256": "696195d3a8ca59a23da069d56147732ea42b991299d088b3c78d3776612f6fff",
+    "declared_context_count": 13,
+    "exact_sha_workflow_run_count": 0,
+    "exact_sha_job_conclusions": [],
+    "conclusion": "UNOBSERVABLE_EXACT_SHA_ABSENT"
+  },
+  "blocked_by": [
+    {
+      "id": "REMOTE_EXACT_SHA_ABSENT",
+      "fact": "The r13s candidate commit is absent from remote heads/tags and the GitHub commit/check-runs endpoints return 422.",
+      "required_human_authority": "Authorize pushing the exact r13s candidate commit to a specifically named remote ref."
+    },
+    {
+      "id": "REQUIRED_WORKFLOW_NOT_RUN",
+      "fact": "The exact-r13s Actions query returned total_count=0.",
+      "required_human_authority": "After the exact SHA exists remotely, authorize its existing workflow trigger or dispatch path."
+    },
+    {
+      "id": "REQUIRED_CHECK_ENFORCEMENT_ABSENT",
+      "fact": "The latest SHA-independent readback shows main unprotected, branch protection absent, and zero repository/applicable rules.",
+      "required_human_authority": "Authorize a reviewed branch-protection or ruleset mutation that binds the declared required checks without unauthorized bypass."
+    }
+  ],
+  "external_effects": [
+    "Read-only git ls-remote against origin",
+    "Read-only exact-r13s GitHub REST requests listed in this record",
+    "Read-only reuse of the sealed r13r SHA-independent remote readback"
+  ],
+  "remote_writes_performed": []
+}

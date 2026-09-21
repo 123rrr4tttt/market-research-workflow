@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, NoReturn
 
 from sqlalchemy import delete, func, select
+
+from functorial_kit import Failure
+from mrw_functorial_kit.core.provider_port_failures import resource_pool_contract_failures
 
 from ...models.base import SessionLocal
 from ...models.entities import ResourcePoolSiteEntry, SharedResourcePoolSiteEntry
@@ -12,6 +15,53 @@ from ..projects import bind_project, bind_schema
 from .url_utils import domain_from_url, normalize_url
 
 ScopeType = str
+
+_RESOURCE_POOL_FAILURE_WITNESS = "test:test_latest_service_b_resource_pool_failure_lifts"
+_RESOURCE_POOL_FAILURE_CONTEXT_KEYS = frozenset(
+    {
+        "boundary_class",
+        "failure_family",
+        "operation",
+        "owner",
+        "public_exception",
+        "public_message",
+        "site",
+        "witness",
+    }
+)
+
+
+def _contract_failure(code: str, message: str, *, operation: str, site: str) -> Failure:
+    return resource_pool_contract_failures.fail(
+        code,
+        message,
+        {
+            "boundary_class": "PURE_CONTRACT_FAILURE",
+            "failure_family": resource_pool_contract_failures.name,
+            "operation": operation,
+            "owner": site,
+            "public_exception": "ValueError",
+            "public_message": message,
+            "site": site,
+            "witness": _RESOURCE_POOL_FAILURE_WITNESS,
+        },
+    )
+
+
+def _raise_contract_failure(
+    failure: Failure,
+    exception_type: type[Exception] = ValueError,
+) -> NoReturn:
+    context = failure.context or {}
+    if (
+        not resource_pool_contract_failures.matches(failure)
+        or _RESOURCE_POOL_FAILURE_CONTEXT_KEYS - set(context)
+        or context.get("public_exception") != exception_type.__name__
+    ):
+        # kit:boundary owner=resource_pool.site_entries.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_latest_service_b_resource_pool_failure_lifts
+        raise TypeError("resource pool failure lift context is incomplete or inconsistent")
+    # kit:boundary owner=resource_pool.site_entries.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=resource_pool.contract.failure witness=test:test_latest_service_b_resource_pool_failure_lifts
+    raise exception_type(str(context["public_message"]))
 
 
 def _row_to_item(
@@ -148,11 +198,25 @@ def upsert_site_entry(
 ) -> dict[str, Any]:
     scope = (scope or "").strip()
     if scope not in {"shared", "project"}:
-        raise ValueError("scope must be 'shared' or 'project'")
+        _raise_contract_failure(
+            _contract_failure(
+                "scope_invalid",
+                "scope must be 'shared' or 'project'",
+                operation="upsert_site_entry",
+                site="resource_pool.site_entries.upsert_site_entry.scope",
+            )
+        )
 
     normalized_url = normalize_url(site_url)
     if not normalized_url:
-        raise ValueError("site_url is required")
+        _raise_contract_failure(
+            _contract_failure(
+                "site_url_required",
+                "site_url is required",
+                operation="upsert_site_entry",
+                site="resource_pool.site_entries.upsert_site_entry.site_url",
+            )
+        )
     site_url = normalized_url
 
     if not domain:
@@ -182,7 +246,14 @@ def upsert_site_entry(
                 return _row_to_item(row, "shared")
 
     if not project_key:
-        raise ValueError("project_key is required for project scope")
+        _raise_contract_failure(
+            _contract_failure(
+                "project_key_required",
+                "project_key is required for project scope",
+                operation="upsert_site_entry",
+                site="resource_pool.site_entries.upsert_site_entry.project_key",
+            )
+        )
 
     with bind_project(project_key):
         with SessionLocal() as session:
@@ -270,9 +341,23 @@ def simplify_site_entries(
     - search_template / official_api merge only when template matches
     """
     if scope not in {"shared", "project"}:
-        raise ValueError("scope must be 'shared' or 'project'")
+        _raise_contract_failure(
+            _contract_failure(
+                "scope_invalid",
+                "scope must be 'shared' or 'project'",
+                operation="simplify_site_entries",
+                site="resource_pool.site_entries.simplify_site_entries.scope",
+            )
+        )
     if scope == "project" and not project_key:
-        raise ValueError("project_key is required for project scope")
+        _raise_contract_failure(
+            _contract_failure(
+                "project_key_required",
+                "project_key is required for project scope",
+                operation="simplify_site_entries",
+                site="resource_pool.site_entries.simplify_site_entries.project_key",
+            )
+        )
 
     model = SharedResourcePoolSiteEntry if scope == "shared" else ResourcePoolSiteEntry
     ctx = bind_schema("public") if scope == "shared" else bind_project(project_key)

@@ -4,7 +4,11 @@ import importlib
 import pkgutil
 from typing import Dict, Type
 
-from ..services.projects.context import current_project_key
+from ..services.projects.context import (
+    _project_failure,
+    _raise_project_failure,
+    current_project_key,
+)
 from .base import SubprojectExtractionAdapter
 from .default_adapter import DefaultExtractionAdapter
 
@@ -18,14 +22,30 @@ _BOOTSTRAPPED = False
 def register_extraction_adapter(project_key: str, adapter_cls: AdapterType) -> None:
     key = (project_key or "").strip().lower()
     if not key:
-        raise ValueError("project_key is required")
+        _raise_project_failure(
+            _project_failure(
+                "project_key_required",
+                "project_key is required",
+                operation="register_extraction_adapter",
+                site="app.subprojects.registry.register_extraction_adapter",
+                public_exception="ValueError",
+            )
+        )
     _EXACT_REGISTRY[key] = adapter_cls
 
 
 def register_extraction_adapter_prefix(prefix: str, adapter_cls: AdapterType) -> None:
     key = (prefix or "").strip().lower()
     if not key:
-        raise ValueError("prefix is required")
+        _raise_project_failure(
+            _project_failure(
+                "prefix_required",
+                "prefix is required",
+                operation="register_extraction_adapter_prefix",
+                site="app.subprojects.registry.register_extraction_adapter_prefix",
+                public_exception="ValueError",
+            )
+        )
     _PREFIX_REGISTRY[key] = adapter_cls
 
 

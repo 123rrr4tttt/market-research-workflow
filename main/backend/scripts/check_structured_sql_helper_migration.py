@@ -8,7 +8,11 @@ import ast
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
+try:
+    from ._cli_runtime import repo_root as _repo_root
+except ImportError:  # direct script execution
+    from _cli_runtime import repo_root as _repo_root
 
 
 CONTRACT_VERSION = "structured-sql-helper-migration.wave15.v1"
@@ -199,10 +203,6 @@ DEFERRED_BOUNDARIES: tuple[DeferredBoundary, ...] = (
 )
 
 
-def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[3]
-
-
 def _read_text(path: Path) -> str:
     try:
         return path.read_text(encoding="utf-8")
@@ -348,7 +348,10 @@ def _check_deferred_boundary(root: Path, boundary: DeferredBoundary) -> dict[str
     }
 
 
-def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
+def build_check(repo_root: Path | str | None = None) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=generated_evidence fact_source=structured_sql_backend_ast+helper_migration_contract+deferred_boundaries witness=test:test_c13_cli_graph_workflow_metadata_preserves_abi",
+]:
     root = Path(repo_root).resolve() if repo_root is not None else _repo_root().resolve()
     covered = [_check_covered_surface(root, surface) for surface in COVERED_SURFACES]
     deferred = [_check_deferred_boundary(root, boundary) for boundary in DEFERRED_BOUNDARIES]

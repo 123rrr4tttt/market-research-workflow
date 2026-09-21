@@ -1,0 +1,109 @@
+{
+  "readiness": {
+    "candidate_identity_exact": true,
+    "formal_production_ready": false,
+    "formal_rc_ready": false,
+    "promotion_authority_exact": false
+  },
+  "report": {
+    "authoritative": false,
+    "checker": "formal-production-release-evidence",
+    "derived_as": "preflight",
+    "findings": [
+      {
+        "check_id": "semantic_closure.gate",
+        "evidence": [
+          "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/test-gates.rebuild-required.v2.json",
+          "d5f6329eae1f05f6be4e94bdd51dc0042af5f093bc43594e60b842c479a1125a"
+        ],
+        "status": "FAIL",
+        "summary": "semantic_closure:semantic-closure-stage3-v4-v2"
+      },
+      {
+        "check_id": "candidate_identity.gate",
+        "evidence": [
+          "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/preconditions.static.v1.json",
+          "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/fresh-r1-r2-r3.v1.json",
+          "341aad887b8b1c81b0c0b409e83ace29e6fc772103e592d504290af1b9eced6f",
+          "db5dd0b7b1f01a88de997a39495702df0735df16f5650598fed5e03dcb4a69ec"
+        ],
+        "status": "PASS",
+        "summary": "candidate_identity:candidate-identity-stage3-v4-v2"
+      },
+      {
+        "check_id": "artifact_build.gate",
+        "evidence": [
+          "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/test-gates.rebuild-required.v2.json",
+          "d5f6329eae1f05f6be4e94bdd51dc0042af5f093bc43594e60b842c479a1125a"
+        ],
+        "status": "UNEXECUTED",
+        "summary": "artifact_build:artifact-build-stage3-v4-v2"
+      },
+      {
+        "check_id": "business_validation.gate",
+        "evidence": [
+          "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/test-gates.rebuild-required.v2.json",
+          "d5f6329eae1f05f6be4e94bdd51dc0042af5f093bc43594e60b842c479a1125a"
+        ],
+        "status": "FAIL",
+        "summary": "business_validation:business-validation-stage3-v4-v2"
+      },
+      {
+        "check_id": "security_supply_chain.gate",
+        "evidence": [
+          "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/test-gates.rebuild-required.v2.json",
+          "d5f6329eae1f05f6be4e94bdd51dc0042af5f093bc43594e60b842c479a1125a"
+        ],
+        "status": "UNEXECUTED",
+        "summary": "security_supply_chain:security-supply-chain-stage3-v4-v2"
+      },
+      {
+        "check_id": "runtime_staging.gate",
+        "evidence": [
+          "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/test-gates.rebuild-required.v2.json",
+          "d5f6329eae1f05f6be4e94bdd51dc0042af5f093bc43594e60b842c479a1125a"
+        ],
+        "status": "UNEXECUTED",
+        "summary": "runtime_staging:runtime-staging-stage3-v4-v2"
+      },
+      {
+        "check_id": "observability_canary.gate",
+        "evidence": [
+          "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/test-gates.rebuild-required.v2.json",
+          "d5f6329eae1f05f6be4e94bdd51dc0042af5f093bc43594e60b842c479a1125a"
+        ],
+        "status": "UNEXECUTED",
+        "summary": "observability_canary:observability-canary-stage3-v4-v2"
+      },
+      {
+        "check_id": "backup_recovery.gate",
+        "evidence": [
+          "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/test-gates.rebuild-required.v2.json",
+          "d5f6329eae1f05f6be4e94bdd51dc0042af5f093bc43594e60b842c479a1125a"
+        ],
+        "status": "UNEXECUTED",
+        "summary": "backup_recovery:backup-recovery-stage3-v4-v2"
+      },
+      {
+        "check_id": "independent_review.gate",
+        "evidence": [
+          "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/test-gates.rebuild-required.v2.json",
+          "d5f6329eae1f05f6be4e94bdd51dc0042af5f093bc43594e60b842c479a1125a"
+        ],
+        "status": "UNEXECUTED",
+        "summary": "independent_review:independent-review-stage3-v4-v2"
+      },
+      {
+        "check_id": "promotion_authority.gate",
+        "evidence": [
+          "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/test-gates.rebuild-required.v2.json",
+          "d5f6329eae1f05f6be4e94bdd51dc0042af5f093bc43594e60b842c479a1125a"
+        ],
+        "status": "BLOCKED",
+        "summary": "promotion_authority:promotion-authority-stage3-v4-v2"
+      }
+    ],
+    "schema_version": "mrw.formal-release-preflight.v1",
+    "status": "FAIL"
+  }
+}

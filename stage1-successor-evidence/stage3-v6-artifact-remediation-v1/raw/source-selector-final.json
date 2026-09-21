@@ -1,0 +1,37 @@
+{
+  "artifacts": [
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/source-selector-final.log",
+      "sha256": "2859f97c7e42c3a1f341c9419e620cdead847f9a2a9d0a5228447725d0c76e56"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/source-selector-final.xml",
+      "sha256": "156a31c495ccc4bdecdce239c8b17c73ec272d0ed656698ddd2b8c1506177f4a"
+    }
+  ],
+  "authoritative": false,
+  "command": [
+    "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/bin/python",
+    "-c",
+    "import socket,pytest,sys; socket.getaddrinfo=lambda *a,**k: (_ for _ in ()).throw(socket.gaierror(socket.EAI_NONAME,\"MRW candidate unit gate forbids DNS\")); sys.exit(pytest.main(sys.argv[1:]))",
+    "-p",
+    "no:cacheprovider",
+    "-q",
+    "--junitxml=/Users/wangyiliang/market-research-workflow/stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/source-selector-final.xml",
+    "-m",
+    "unit and not external and not flaky"
+  ],
+  "cwd": "/Users/wangyiliang/market-research-workflow/main/backend",
+  "elapsed_seconds": 71.32446575164795,
+  "environment": {
+    "MRW_STORE_AUTO_CREATE": "false",
+    "MRW_VECTOR_ENABLE_IVFFLAT": "false",
+    "MRW_VECTOR_REQUIRE_PGVECTOR": "false",
+    "MRW_VECTOR_STORE_AUTO_CREATE": "false",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "PYTHONHASHSEED": "0",
+    "PYTHONPATH": "/Users/wangyiliang/market-research-workflow:/Users/wangyiliang/market-research-workflow/src"
+  },
+  "exit_code": 1,
+  "isolation": "getaddrinfo fail-fast injection only"
+}

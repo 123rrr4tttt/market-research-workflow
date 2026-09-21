@@ -10,11 +10,22 @@ from __future__ import annotations
 
 import argparse
 import json
+import shlex
 from pathlib import Path
+import sys
 from typing import Any
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+BACKEND_ROOT = REPO_ROOT / "main" / "backend"
+if str(BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(BACKEND_ROOT))
+
+from scripts.evidence_source_contract import (  # noqa: E402
+    apply_evidence_source_contract,
+    evidence_source,
+)
+
 DEFAULT_OUT_DIR = "development/latest-dev-docs/automation-runs/wave19-vectorization-provider-manifest/2026-05-22"
 WAVE14_PROVIDER_CAPABILITY = (
     REPO_ROOT
@@ -27,8 +38,8 @@ WAVE18_HYBRID_READBACK = (
 
 TARGET_TOPICS = [
     "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-01-open-source-platform-integration",
-    "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-global-vectorization-general-foundation",
-    "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-05-oss-node-platform-io-plan",
+    "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation",
+    "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-05-oss-node-platform-io-plan",
 ]
 LOCAL_INDEX_MODES = ["keyword", "vector", "hybrid"]
 MODE_CAPABILITY_FLAGS = {
@@ -319,7 +330,7 @@ def build_contract(
     external_boundary, external_failures = _build_external_boundary(wave14_contract)
     failures.extend(f"external_provider_boundary: {failure}" for failure in external_failures)
 
-    return {
+    contract = {
         "contract_version": "wave19-vectorization-provider-manifest.v1",
         "generated_by": "ops/search-lab/scripts/wave19_vectorization_provider_manifest_readback.py",
         "status": "passed" if not failures else "failed",
@@ -393,6 +404,14 @@ def build_contract(
         ],
         "failures": failures,
     }
+    return apply_evidence_source_contract(
+        contract,
+        [
+            evidence_source(resolved_wave14_path, repo_root=REPO_ROOT, label="wave14_provider_capability"),
+            evidence_source(resolved_wave18_path, repo_root=REPO_ROOT, label="wave18_hybrid_readback"),
+        ],
+        claim_fields=("provider_live_closure_claim_allowed", "semantic_quality_claim_allowed"),
+    )
 
 
 def write_outputs(out_dir: Path, contract: dict[str, Any]) -> None:
@@ -400,6 +419,13 @@ def write_outputs(out_dir: Path, contract: dict[str, Any]) -> None:
     (out_dir / "provider_manifest_readback.json").write_text(
         json.dumps(contract, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
+    )
+    rerun_command = (
+        "PYTHONPATH=main/backend python3 "
+        "ops/search-lab/scripts/wave19_vectorization_provider_manifest_readback.py "
+        f"--wave14-provider-capability {shlex.quote(contract['inputs']['wave14']['path'])} "
+        f"--wave18-hybrid-readback {shlex.quote(contract['inputs']['wave18']['path'])} "
+        f"--out-dir {shlex.quote(display_path(out_dir))}"
     )
 
     manifest_rows = []
@@ -456,7 +482,7 @@ def write_outputs(out_dir: Path, contract: dict[str, Any]) -> None:
         "## Rerun",
         "",
         "```bash",
-        f"PYTHONPATH=main/backend python3 ops/search-lab/scripts/wave19_vectorization_provider_manifest_readback.py --out-dir {display_path(out_dir)}",
+        rerun_command,
         "```",
         "",
         "Full deterministic output is in `provider_manifest_readback.json`.",
@@ -465,15 +491,29 @@ def write_outputs(out_dir: Path, contract: dict[str, Any]) -> None:
     (out_dir / "README.md").write_text("\n".join(readme), encoding="utf-8")
 
 
-def main() -> int:
+def _resolve_cli_path(value: str) -> Path:
+    path = Path(value)
+    return path if path.is_absolute() else REPO_ROOT / path
+
+
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--out-dir", default=DEFAULT_OUT_DIR)
-    args = parser.parse_args()
+    parser.add_argument("--wave14-provider-capability", default=str(WAVE14_PROVIDER_CAPABILITY))
+    parser.add_argument("--wave18-hybrid-readback", default=str(WAVE18_HYBRID_READBACK))
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = _parse_args(argv)
 
     out_dir = Path(args.out_dir)
     if not out_dir.is_absolute():
         out_dir = REPO_ROOT / out_dir
-    contract = build_contract()
+    contract = build_contract(
+        wave14_path=_resolve_cli_path(args.wave14_provider_capability),
+        wave18_path=_resolve_cli_path(args.wave18_hybrid_readback),
+    )
     write_outputs(out_dir, contract)
     print(
         json.dumps(

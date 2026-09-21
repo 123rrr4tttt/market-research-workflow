@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any
 from urllib.parse import urlparse
 
 _STATIC_ASSET_SUFFIXES = (
@@ -64,7 +64,10 @@ def normalize_light_filter_options(raw: dict[str, Any] | None) -> dict[str, Any]
     }
 
 
-def build_light_filter_not_run(reason: str = "not_evaluated") -> dict[str, Any]:
+def build_light_filter_not_run(reason: str = "not_evaluated") -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=filter_reason_input+light_filter_defaults witness=test:test_w03_ingest_ports_authority_metadata",
+]:
     return {
         "filter_decision": "not_run",
         "filter_reason_code": str(reason or "not_evaluated"),

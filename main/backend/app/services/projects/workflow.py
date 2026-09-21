@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Callable, Dict
+from typing import Any, Callable, Dict, NoReturn
 
 from ...project_customization import get_project_customization
 from ...project_customization.interfaces import WorkflowDefinition, WorkflowStep
+from functorial_kit import Failure
+from mrw_functorial_kit.core.application_failure_semantics import project_operation_failures
 from ..ingest_config import get_config
 from ..ingest.market_web import collect_market_info
 from ..ingest.news import collect_google_news, collect_reddit_discussions
@@ -13,6 +15,51 @@ from ..ingest.social import collect_user_social_sentiment
 from .context import bind_project
 
 logger = logging.getLogger(__name__)
+
+
+_PROJECT_WORKFLOW_FAILURE_WITNESS = "test:test_w01_project_identity_failures"
+_PROJECT_WORKFLOW_FAILURE_CONTEXT_KEYS = frozenset(
+    {
+        "boundary_class",
+        "failure_family",
+        "operation",
+        "owner",
+        "public_exception",
+        "public_message",
+        "site",
+        "witness",
+    }
+)
+
+
+def _workflow_failure(code: str, message: str, *, operation: str, site: str) -> Failure:
+    return project_operation_failures.fail(
+        code,
+        message,
+        {
+            "boundary_class": "PURE_CONTRACT_FAILURE",
+            "failure_family": project_operation_failures.name,
+            "operation": operation,
+            "owner": site,
+            "public_exception": "ValueError",
+            "public_message": message,
+            "site": site,
+            "witness": _PROJECT_WORKFLOW_FAILURE_WITNESS,
+        },
+    )
+
+
+def _raise_workflow_failure(failure: Failure) -> NoReturn:
+    context = failure.context or {}
+    if (
+        not project_operation_failures.matches(failure)
+        or _PROJECT_WORKFLOW_FAILURE_CONTEXT_KEYS - set(context)
+        or context.get("public_exception") != "ValueError"
+    ):
+        # kit:boundary owner=projects.workflow.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w01_project_context_and_workflow_lifts_preserve_public_messages
+        raise TypeError("project workflow failure lift context is incomplete")
+    # kit:boundary owner=projects.workflow.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=project.operation.failure witness=test:test_w01_project_context_and_workflow_lifts_preserve_public_messages
+    raise ValueError(str(context["public_message"]))
 
 WorkflowHandler = Callable[[Dict[str, Any]], Dict[str, Any]]
 
@@ -149,7 +196,14 @@ def _resolve_workflow(project_key: str | None, workflow_name: str) -> tuple[str,
     mapping = customization.get_workflow_mapping()
     workflow = mapping.get(workflow_name)
     if workflow is None:
-        raise ValueError(f"workflow not found: {workflow_name}")
+        _raise_workflow_failure(
+            _workflow_failure(
+                "workflow_not_found",
+                f"workflow not found: {workflow_name}",
+                operation="resolve_workflow",
+                site="app.services.projects.workflow._resolve_workflow",
+            )
+        )
     return customization.project_key, workflow
 
 
@@ -188,7 +242,14 @@ def execute_project_workflow(
                         "message": f"workflow handler not found: {step.handler}",
                     }
                 )
-                raise ValueError(f"workflow handler not found: {step.handler}")
+                _raise_workflow_failure(
+                    _workflow_failure(
+                        "workflow_handler_not_found",
+                        f"workflow handler not found: {step.handler}",
+                        operation="execute_project_workflow",
+                        site="app.services.projects.workflow.execute_project_workflow",
+                    )
+                )
 
             merged_params = _merge_dict(step.params, runtime_params)
             started = time.perf_counter()

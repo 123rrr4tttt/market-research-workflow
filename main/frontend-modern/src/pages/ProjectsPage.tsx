@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Archive, CopyPlus, Edit3, HardDriveDownload, RefreshCw, Trash2 } from 'lucide-react'
+import { Archive, ClipboardCopy, CopyPlus, Edit3, ExternalLink, HardDriveDownload, RefreshCw, ShieldCheck, Trash2 } from 'lucide-react'
 import { activateProject, archiveProject, autoCreateProject, createProject, deleteProject, listProjects, restoreProject, setProjectKey, updateProject } from '../lib/api'
 import { translate, useAppLocale } from '../app/platform/i18n'
 import { queryKeys } from '../lib/queryKeys'
+import { buildProjectReadiness, READINESS_STATUS_LABEL_KEY_BY_STATUS } from '../lib/projectReadiness'
 
 type ProjectsPageProps = {
   projectKey: string
@@ -23,6 +24,7 @@ export default function ProjectsPage({ projectKey, onProjectChange }: ProjectsPa
   const [llmServiceName, setLlmServiceName] = useState('keyword_generation')
   const [llmPromptTemplate, setLlmPromptTemplate] = useState('')
   const [editingProject, setEditingProject] = useState<{ key: string; name: string } | null>(null)
+  const [readinessActionMessage, setReadinessActionMessage] = useState('')
   const llmServiceOptions = [
     'prompt_factory',
     'keyword_generation',
@@ -38,6 +40,54 @@ export default function ProjectsPage({ projectKey, onProjectChange }: ProjectsPa
   const currentProjectMarker = formatProjectTemplate(translate(locale, 'projects.status.currentMarker'), {
     status: translate(locale, 'projects.status.current'),
   })
+  const readiness = buildProjectReadiness({
+    rows: projects.data,
+    projectKey,
+    loading: projects.isLoading,
+    error: projects.isError,
+  })
+
+  const buildReadinessActionContext = () => ({
+    schema_version: 'projects.readiness.quick_action.v1',
+    project_key: projectKey || 'unknown',
+    readiness: readiness.status,
+    action_priority: readiness.nextAction.actionPriority,
+    target_hash: readiness.nextAction.targetHash,
+    next_action: {
+      label_key: readiness.nextAction.labelKey,
+      detail_key: readiness.nextAction.detailKey,
+      detail_values: readiness.nextAction.detailValues,
+      target_key: readiness.nextAction.targetKey,
+    },
+    checks: readiness.checks.map((check) => ({
+      label_key: check.labelKey,
+      status: check.status,
+      evidence_key: check.evidenceKey,
+      evidence_values: check.evidenceValues || {},
+    })),
+  })
+
+  const copyReadinessActionContext = async () => {
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(buildReadinessActionContext(), null, 2))
+      setReadinessActionMessage(translate(locale, 'projects.readiness.message.contextCopied'))
+    } catch {
+      setReadinessActionMessage(translate(locale, 'projects.readiness.message.contextCopyFailed'))
+    }
+  }
+
+  const openReadinessActionTarget = () => {
+    const selector = readiness.nextAction.targetHash === '#projects-list'
+      ? '[data-testid="projects-list"]'
+      : '[data-testid="projects-readiness-panel"]'
+    globalThis.document?.querySelector(selector)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    setReadinessActionMessage(translate(locale, 'projects.readiness.message.targetOpened'))
+  }
+
+  const refreshReadinessActionStatus = async () => {
+    await queryClient.invalidateQueries({ queryKey: queryKeys.projects.all() })
+    setReadinessActionMessage(translate(locale, 'projects.readiness.message.statusRefreshed'))
+  }
 
   const actionMutation = useMutation({
     mutationFn: async (payload: { kind: 'create' | 'archive' | 'restore' | 'delete' | 'update' | 'activateProject'; key?: string; name?: string }) => {
@@ -135,7 +185,62 @@ export default function ProjectsPage({ projectKey, onProjectChange }: ProjectsPa
         </div>
       </section>
 
-      <section className="panel">
+      <section className="panel" aria-label={translate(locale, 'projects.readiness.title')} data-testid="projects-readiness-panel">
+        <div className="panel-header">
+          <h2><ShieldCheck size={15} />{translate(locale, 'projects.readiness.title')}</h2>
+          <span className="status-line">
+            {translate(locale, READINESS_STATUS_LABEL_KEY_BY_STATUS[readiness.status])}
+          </span>
+        </div>
+        <p className="status-line">
+          {formatProjectTemplate(translate(locale, readiness.summaryKey), readiness.summaryValues)}
+        </p>
+        <div className="status-line" data-testid="projects-readiness-action-card">
+          <strong>{translate(locale, 'projects.readiness.field.nextAction')}: </strong>
+          <span data-testid="projects-readiness-action-label">{translate(locale, readiness.nextAction.labelKey)}</span>
+          <span> - {formatProjectTemplate(translate(locale, readiness.nextAction.detailKey), readiness.nextAction.detailValues)}</span>
+          <span className="status-line">
+            {translate(locale, 'projects.readiness.field.actionPriority')}: {readiness.nextAction.actionPriority}
+          </span>
+          <span>{translate(locale, readiness.nextAction.targetKey)}</span>
+          <div className="inline-actions">
+            <button type="button" data-testid="projects-readiness-copy-action" onClick={() => void copyReadinessActionContext()}>
+              <ClipboardCopy size={12} />{translate(locale, 'projects.readiness.action.copyContext')}
+            </button>
+            <button type="button" data-testid="projects-readiness-open-target" onClick={openReadinessActionTarget}>
+              <ExternalLink size={12} />{translate(locale, 'projects.readiness.action.openTarget')}
+            </button>
+            <button type="button" data-testid="projects-readiness-refresh-status" onClick={() => void refreshReadinessActionStatus()}>
+              <RefreshCw size={12} />{translate(locale, 'projects.readiness.action.refreshStatus')}
+            </button>
+          </div>
+          {readinessActionMessage && (
+            <span data-testid="projects-readiness-action-status">{readinessActionMessage}</span>
+          )}
+        </div>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>{translate(locale, 'projects.readiness.field.check')}</th>
+                <th>{translate(locale, 'projects.readiness.field.status')}</th>
+                <th>{translate(locale, 'projects.readiness.field.evidence')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {readiness.checks.map((check) => (
+                <tr key={check.labelKey}>
+                  <td>{translate(locale, check.labelKey)}</td>
+                  <td>{translate(locale, READINESS_STATUS_LABEL_KEY_BY_STATUS[check.status])}</td>
+                  <td>{formatProjectTemplate(translate(locale, check.evidenceKey), check.evidenceValues || {})}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="panel" data-testid="projects-list">
         <div className="panel-header"><h2><HardDriveDownload size={15} />{translate(locale, 'projects.list.title')}</h2><button onClick={() => queryClient.invalidateQueries({ queryKey: queryKeys.projects.all() })}><RefreshCw size={14} />{translate(locale, 'projects.action.refresh')}</button></div>
         <div className="table-wrap">
           <table>

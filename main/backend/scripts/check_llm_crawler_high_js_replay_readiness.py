@@ -5,7 +5,11 @@ import json
 import re
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
+try:
+    from ._cli_runtime import repo_root as _repo_root
+except ImportError:  # direct script execution
+    from _cli_runtime import repo_root as _repo_root
 
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
@@ -71,10 +75,6 @@ SENSITIVE_DIAGNOSTIC_PATTERNS = (
     re.compile(r"[A-Za-z]:\\Users\\", re.IGNORECASE),
     re.compile(r"%APPDATA%", re.IGNORECASE),
 )
-
-
-def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[3]
 
 
 def _require(condition: bool, errors: list[str], message: str) -> None:
@@ -509,7 +509,10 @@ def _public_artifact_summary(root: Path, public_artifact: Path | str | None, err
 def build_check(
     repo_root: Path | str | None = None,
     public_artifact: Path | str | None = None,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=preflight fact_source=repo_local.high_js_replay_targets_and_artifacts witness=test:test_llm_crawler_high_js_replay_authority_metadata",
+]:
     root = Path(repo_root) if repo_root is not None else _repo_root()
     root = root.resolve()
     errors: list[str] = []

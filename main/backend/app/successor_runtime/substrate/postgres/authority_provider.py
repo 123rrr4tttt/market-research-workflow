@@ -16,6 +16,10 @@ from sqlalchemy import MetaData, or_, select
 from sqlalchemy.engine import Connection
 
 from app.successor_runtime.runtime.assignments import canonical_digest
+from app.successor_runtime.runtime.authority_grants import (
+    AuthorityGrantUnavailable,
+    AuthorityOperationScope,
+)
 from app.successor_runtime.runtime.ports import RuntimeScope
 from app.successor_runtime.runtime.qualification import (
     AuthorityContext,
@@ -36,6 +40,10 @@ from .runtime_journal import (
     _utcnow,
     validate_authorization_row,
 )
+
+
+class CurrentAuthorityGrantUnavailable(AuthorityGrantUnavailable, ExactBindingConflict):
+    """Missing current grant that remains an exact control-repository conflict."""
 
 
 def _digestable(value: Any) -> Any:
@@ -133,7 +141,7 @@ class PostgresAuthorityProvider:
             )
         )
         if not grants:
-            raise ExactBindingConflict("no current authority grant")
+            raise CurrentAuthorityGrantUnavailable("no current authority grant")
 
         approvals_table = _table("runtime_approvals")
         approvals: list[Mapping[str, Any]] = []
@@ -302,6 +310,203 @@ class PostgresAuthorityProvider:
             canonical_incarnation=canonical_incarnation,
             approval_refs=approval_refs,
         )
+
+    def require_exact_effect_authority(
+        self,
+        *,
+        actor_id: str,
+        capability_id: str,
+        operation_kind: str,
+        payload_digest: str,
+        approval_ref: str | None,
+        canonical_base_revision: int,
+        canonical_incarnation: str,
+        now: datetime | None = None,
+    ) -> StepAuthorizationBinding:
+        """Require one current persisted authorization before a real effect.
+
+        The approval locates the run/step authority row, while every value that
+        the command can influence is then checked against the validated typed
+        binding.  All control rows are read under the caller's transaction, so
+        a rejection occurs before the effect owner performs any write.
+        """
+
+        if actor_id != self.scope.actor_id:
+            raise ExactBindingConflict("effect actor differs from RuntimeScope")
+        if not approval_ref:
+            raise ExactBindingConflict("real effect requires an exact approval")
+        observed_at = now or _utcnow()
+        project_key = _scope_key(self.scope)
+
+        approvals = _table("runtime_approvals")
+        approval = _one_mapping(
+            self.connection.execute(
+                select(approvals)
+                .where(
+                    approvals.c.project_key == project_key,
+                    approvals.c.approval_id == approval_ref,
+                )
+                .with_for_update(read=True)
+            )
+        )
+        if approval is None:
+            raise RecordNotFound(f"approval not found: {approval_ref}")
+        if (
+            approval["decision"] != "APPROVED"
+            or approval["actor_id"] != actor_id
+            or approval["payload_digest"] != payload_digest
+            or (
+                approval["expires_at"] is not None
+                and approval["expires_at"] <= observed_at
+            )
+        ):
+            raise ExactBindingConflict(
+                "effect approval actor/payload/decision/expiry binding is stale"
+            )
+        if approval["step_id"] is None:
+            raise ExactBindingConflict("effect approval is not step-scoped")
+
+        capabilities = _table("runtime_capability_authority")
+        capability = _one_mapping(
+            self.connection.execute(
+                select(capabilities)
+                .where(
+                    capabilities.c.project_key == project_key,
+                    capabilities.c.capability_id == capability_id,
+                )
+                .with_for_update(read=True)
+            )
+        )
+        if capability is None:
+            raise RecordNotFound(f"capability authority not found: {capability_id}")
+        if (
+            capability["mode"] != "on"
+            or capability["effective_at"] > observed_at
+            or not capability["successor_claim_enabled"]
+            or capability["legacy_claim_enabled"]
+        ):
+            raise ExactBindingConflict(
+                "effect capability mode/effective-time/claim-owner binding is stale"
+            )
+
+        authorizations = _table("runtime_step_authorizations")
+        rows = _mapping_rows(
+            self.connection.execute(
+                select(authorizations)
+                .where(
+                    authorizations.c.project_key == project_key,
+                    authorizations.c.run_id == approval["run_id"],
+                    authorizations.c.step_id == approval["step_id"],
+                    authorizations.c.capability_id == capability_id,
+                    authorizations.c.claim_authority_epoch
+                    == capability["authority_epoch"],
+                )
+                .with_for_update(read=True)
+            )
+        )
+        if len(rows) != 1:
+            raise ExactBindingConflict(
+                "real effect requires one exact persisted step authorization"
+            )
+        stored = validate_authorization_row(rows[0])
+
+        context = self.current_context(
+            actor_id,
+            capability_id=capability_id,
+            approval_refs=(approval_ref,),
+            canonical_base_revision=canonical_base_revision,
+            canonical_incarnation=canonical_incarnation,
+            now=observed_at,
+        )
+        capability_sources = tuple(
+            source
+            for source in context.authority_source_bindings
+            if source.source_kind == "CAPABILITY_AUTHORITY"
+        )
+        if len(capability_sources) != 1:
+            raise ExactBindingConflict("current capability authority is ambiguous")
+
+        expected = {
+            "run_id": approval["run_id"],
+            "step_id": approval["step_id"],
+            "operation_kind": operation_kind,
+            "capability_id": capability_id,
+            "claim_owner": "successor",
+            "claim_authority_epoch": int(capability["authority_epoch"]),
+            "payload_digest": payload_digest,
+            "actor_id": actor_id,
+            "project_key": project_key,
+            "project_registry_revision": self.scope.project_scope.project_registry_revision,
+            "project_scope_digest": self.scope.project_scope.scope_digest,
+            "canonical_base_revision": canonical_base_revision,
+            "canonical_incarnation": canonical_incarnation,
+        }
+        drift = tuple(
+            name for name, value in expected.items() if getattr(stored, name) != value
+        )
+        if (
+            rows[0]["approval_ref"] != approval_ref
+            or tuple(stored.approval_refs) != (approval_ref,)
+        ):
+            drift += ("approval_refs",)
+        if stored.expires_at <= observed_at:
+            drift += ("expires_at",)
+        if drift:
+            raise ExactBindingConflict(
+                "effect step authorization drift: " + ", ".join(drift)
+            )
+
+        grants = _table("runtime_authority_grants")
+        grant_rows = _mapping_rows(
+            self.connection.execute(
+                select(grants)
+                .where(
+                    grants.c.project_key == project_key,
+                    grants.c.actor_id == actor_id,
+                    grants.c.capability_id == capability_id,
+                    grants.c.grant_epoch == stored.grant_epoch,
+                    grants.c.revoked_at.is_(None),
+                    or_(grants.c.expires_at.is_(None), grants.c.expires_at > observed_at),
+                )
+                .with_for_update(read=True)
+            )
+        )
+        operation_covered = False
+        for grant in grant_rows:
+            try:
+                operation_scope = AuthorityOperationScope.model_validate(
+                    grant["operation_scope_json"]
+                )
+            except Exception as exc:
+                raise ExactBindingConflict(
+                    "effect grant operation scope is invalid"
+                ) from exc
+            if (
+                operation_scope.project_scope_digest
+                == self.scope.project_scope.scope_digest
+                and operation_kind in operation_scope.operation_kinds
+            ):
+                operation_covered = True
+        if not operation_covered:
+            raise ExactBindingConflict(
+                "effect grant epoch does not cover the exact operation and scope"
+            )
+
+        current = StepAuthorizationBinding.from_content(
+            **{
+                **stored.model_dump(mode="python", exclude={"binding_digest"}),
+                "authority_source_bindings": context.authority_source_bindings,
+                "grants_digest": context.grants_digest,
+                "resource_ceiling_digest": context.resource_ceiling_digest,
+                "grant_epoch": context.grant_epoch,
+                "expires_at": context.expires_at,
+            }
+        )
+        try:
+            require_current_authority(stored, current, now=observed_at)
+        except ValueError as exc:
+            raise ExactBindingConflict("effect current authority drift") from exc
+        return stored
 
     def current_delivery_authority(
         self,

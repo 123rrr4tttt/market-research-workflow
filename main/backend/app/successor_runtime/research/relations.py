@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .codec import finalize_digest
+from .codec import _failure, _raise_failure, finalize_digest
 from .evidence import QUALIFICATION_DIRECTIONS
 from .identities import ResearchObjectRef
 
@@ -73,5 +73,13 @@ class ResearchRelation:
 
     def __post_init__(self) -> None:
         if self.relation_type not in RELATION_KINDS:
-            raise ValueError(f"invalid relation type: {self.relation_type}")
+            _raise_failure(
+                _failure(
+                    "RELATION_INVALID",
+                    f"invalid relation type: {self.relation_type}",
+                    ValueError,
+                    site="ResearchRelation.relation_type",
+                ),
+                ValueError,
+            )
         finalize_digest(self, "relation_digest")

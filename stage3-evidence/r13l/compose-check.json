@@ -1,0 +1,20 @@
+{
+  "authoritative": false,
+  "checker": "production-compose-config-render",
+  "derived_as": "preflight",
+  "findings": [
+    {
+      "check_id": "production.compose_config",
+      "evidence": [
+        "mode=config_render_only",
+        "synthetic_inputs=true",
+        "service_start=false",
+        "temp_env_cleanup=true"
+      ],
+      "status": "PASS",
+      "summary": "production compose config rendered successfully"
+    }
+  ],
+  "schema_version": "mrw.formal-release-preflight.v1",
+  "status": "PASS"
+}

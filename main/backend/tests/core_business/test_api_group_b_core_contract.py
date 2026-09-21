@@ -184,6 +184,15 @@ class ApiGroupBCoreContractTestCase(unittest.TestCase):
         self.assertIsNone(body["error"])
         self.assertEqual(body["data"]["documents"]["total"], 12)
         self.assertEqual(body["data"]["documents"]["extraction_rate"], 50.0)
+        self.assertIsInstance(body["data"]["pending_actions"], list)
+        pending_action_types = {item["type"] for item in body["data"]["pending_actions"]}
+        self.assertIn("source_invalid", pending_action_types)
+        self.assertIn("report_reference_gap", pending_action_types)
+        self.assertTrue(
+            {"id", "type", "severity", "status", "source_metric", "source_refs"}.issubset(
+                body["data"]["pending_actions"][0].keys()
+            )
+        )
 
     def test_dashboard_stats_db_failure_maps_to_upstream_error(self):
         with patch("app.api.dashboard.SessionLocal", return_value=_FakeSessionLocalOperationalError()):

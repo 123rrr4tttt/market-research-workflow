@@ -1,0 +1,102 @@
+{
+  "artifact_count": 18,
+  "artifacts": [
+    {
+      "bytes": 29473,
+      "path": "stage1-successor-evidence/residual-disposition-v1/build_contract12_return.py",
+      "sha256": "07cb2522cd324ea02340a653a8571dfc0210562afb414925e8f3072ecb39ffeb"
+    },
+    {
+      "bytes": 67157,
+      "path": "stage1-successor-evidence/residual-disposition-v1/changed-paths.v1.json",
+      "sha256": "d946cf88b022d21cc71c0a1ea424b9cb8f7d2c5a7975fe31c66c67f741790d9b"
+    },
+    {
+      "bytes": 12437,
+      "path": "stage1-successor-evidence/residual-disposition-v1/effects/import-time-db-effects.v1.json",
+      "sha256": "280d22ccdcc8850c68f14cb42e03182fba89419d859001707b9cdc1fad24c24f"
+    },
+    {
+      "bytes": 148396,
+      "path": "stage1-successor-evidence/residual-disposition-v1/inventory/backend_failure_inventory.root-input.v1.json",
+      "sha256": "4f01f15464582c7b465af79397e1297510ad95e9170d199564aea72a2c0e34d1"
+    },
+    {
+      "bytes": 1349,
+      "path": "stage1-successor-evidence/residual-disposition-v1/inventory/backend_failure_inventory.root-input.validation.v1.json",
+      "sha256": "cadcae2183d64802f6a3fc837692c66bbba82cbfcece6c52943db13c1ee81f67"
+    },
+    {
+      "bytes": 148288,
+      "path": "stage1-successor-evidence/residual-disposition-v1/inventory/backend_failure_inventory.v1.json",
+      "sha256": "d6d4a68e92274a94a10df214ae0e8011029246048c93f30ca50dbba91f5f813b"
+    },
+    {
+      "bytes": 1362,
+      "path": "stage1-successor-evidence/residual-disposition-v1/inventory/backend_failure_inventory.validation.v1.json",
+      "sha256": "d3a440588cf3fa55f3023383be7753554e4c1530d53011b8ac94432257c48dc9"
+    },
+    {
+      "bytes": 2257,
+      "path": "stage1-successor-evidence/residual-disposition-v1/inventory/check_backend_failure_inventory.py",
+      "sha256": "030e1aca56fdc2731107c9d8ab247bee6ba4406620246ec1dbf64f41b2ad524e"
+    },
+    {
+      "bytes": 2058,
+      "path": "stage1-successor-evidence/residual-disposition-v1/inventory/generate_backend_failure_inventory.py",
+      "sha256": "494c480f9528feb156d18ac0f7a8d02c93639578b06c26197b8ac9edc3ad7707"
+    },
+    {
+      "bytes": 246420,
+      "path": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+      "sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453"
+    },
+    {
+      "bytes": 16749,
+      "path": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/opensearch-vector/opensearch-vector-missing-evidence-provenance.v1.json",
+      "sha256": "a2d74d92f6144dd8e913b7f286af4cff0d772715c14c024bfeec3d670dc4f435"
+    },
+    {
+      "bytes": 8775,
+      "path": "stage1-successor-evidence/residual-disposition-v1/process-api/process-task-id-fallback-disposition.v1.json",
+      "sha256": "ddd371725fb25602563aecac248dda5be5de79de3d4ca39729079c67b1c76b91"
+    },
+    {
+      "bytes": 4004,
+      "path": "stage1-successor-evidence/residual-disposition-v1/process-api/process-task-id-fallback-disposition.v1.md",
+      "sha256": "b055090b89fe1d95f3a21452753e85ac0647236eb088ab4034d51b4f3bd131d6"
+    },
+    {
+      "bytes": 384,
+      "path": "stage1-successor-evidence/residual-disposition-v1/process-api/process-task-id-fallback.patch",
+      "sha256": "5ea2bc4389717be260bfb25588776a728e89157166c32e767f92fc612aacdf78"
+    },
+    {
+      "bytes": 98078,
+      "path": "stage1-successor-evidence/residual-disposition-v1/raw-gate/backend-unit-final.log",
+      "sha256": "33d48a566619950f40125467c5a5a53f728b2bb76f9e28b44a5eb14894c10397"
+    },
+    {
+      "bytes": 412667,
+      "path": "stage1-successor-evidence/residual-disposition-v1/raw-gate/backend-unit-final.xml",
+      "sha256": "e07c7ae3322bfd3c77e18b47fefce67f82db8e0517640a81b6db22ac2272bb94"
+    },
+    {
+      "bytes": 2031,
+      "path": "stage1-successor-evidence/residual-disposition-v1/raw-gate/receipt.v1.json",
+      "sha256": "f20c13ac08bc4f23fbb14a1bb21b7a2446f7e5f9d23fb1cad5c32313180e03f7"
+    },
+    {
+      "bytes": 7029,
+      "path": "stage1-successor-evidence/residual-disposition-v1/semantic-decisions/stale-status-checkers-v2-disposition.md",
+      "sha256": "8debfde5886019a046c631848665989a7dba99c6e82d62d4e858bce89c049ecc"
+    }
+  ],
+  "authoritative": false,
+  "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+  "excluded_non_evidence": [
+    "__pycache__",
+    "*.pyc"
+  ],
+  "schema_version": "mrw.stage1.contract12.artifact-manifest.v1"
+}

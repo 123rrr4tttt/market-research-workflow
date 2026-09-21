@@ -1,0 +1,32 @@
+services:
+  db:
+    ports: !reset []
+  es:
+    ports: !reset []
+  redis:
+    ports: !reset []
+  backend:
+    image: mrw-r13r-amd64-backend-canonical:local
+    platform: linux/amd64
+    env_file: !reset []
+    environment:
+      RUN_MIGRATIONS: "false"
+      OPENAI_API_KEY: ""
+    ports: !override
+      - "127.0.0.1:18001:8000"
+    volumes: !reset []
+  frontend-modern:
+    image: mrw-r13r-amd64-frontend-canonical:local
+    platform: linux/amd64
+    ports: !override
+      - "127.0.0.1:15175:80"
+  migration-r13r:
+    image: mrw-r13r-amd64-migration-runner-canonical:local
+    platform: linux/amd64
+    environment:
+      DATABASE_URL: postgresql+psycopg2://postgres:postgres@db:5432/postgres
+    depends_on:
+      db:
+        condition: service_healthy
+    profiles:
+      - r13r-tests

@@ -1,0 +1,45 @@
+{
+  "build_attempts": [
+    {
+      "attempt": 1,
+      "exit_code": 0
+    }
+  ],
+  "build_contract": "candidate source, --no-cache, linux/amd64, provenance=false, sbom=false, SOURCE_DATE_EPOCH=0, OCI rewrite-timestamp=true",
+  "cleanup": {
+    "archive_residue": false,
+    "builder_residue": false,
+    "docker_prune_run": false,
+    "events": [
+      {
+        "exit_code": 0,
+        "kind": "builder",
+        "name": "mrw-r13v-trivy-backend-1789212961"
+      },
+      {
+        "bytes_reclaimed": 309707776,
+        "kind": "temporary_oci_archive",
+        "removed": true,
+        "sha256_before_removal": "e1f26e935a500dc234260bd899ddc78f796edad97057c04c0ab348b8ea3bf034"
+      }
+    ],
+    "free_bytes_after": 6928343040,
+    "tag_residue": false
+  },
+  "digest_binding": {
+    "config_equal_to_ab_candidate": false,
+    "layers_equal_to_ab_candidate": false,
+    "manifest_equal_to_ab_candidate": false,
+    "observed_image_config_digest": "sha256:5208550405ac54049dafb82810a8a12676ed926c9a54a0afbd9a91b80744adf0",
+    "observed_image_manifest_digest": "sha256:feeb2366f247f5f731ce6651c85a98d9b1655bd559ab060b0d50396260a4c93e",
+    "status": "MISMATCH"
+  },
+  "error": "RuntimeError: DIGEST_MISMATCH",
+  "expected_image_config_digest": "sha256:bceec10bc727ce6b73165a5f80bd6c7a5c44e5859d95ec489ec0c6727dfdf4bc",
+  "expected_image_manifest_digest": "sha256:889b93d5350793223f841f6c81cdeeed7b069ced331217b8c07ef3284d80fc90",
+  "free_bytes_before": 8324141056,
+  "fresh_scan_tag": "mrw-r13v-trivy-backend:local",
+  "role": "backend",
+  "status": "FAILED_OR_INCOMPLETE",
+  "target": "backend-runtime"
+}

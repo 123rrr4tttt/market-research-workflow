@@ -1,0 +1,14 @@
+{
+  "authoritative": false,
+  "current_contains_head": true,
+  "database_scope": "dedicated disposable mrw_stage4 database in mrw-stage4-local",
+  "expected_head": "20260905_000001",
+  "fresh_upgrade_exit_code": 0,
+  "public_tables_after": 67,
+  "public_tables_before": 0,
+  "repeat_schema_fingerprint_sha256": "2313f0cda2ad26b3a8d4804fce8f96aec1a275154aae6fcbbe77ad757fc7cb82",
+  "repeat_upgrade_exit_code": 0,
+  "repeat_upgrade_schema_stable": true,
+  "schema_fingerprint_sha256": "2313f0cda2ad26b3a8d4804fce8f96aec1a275154aae6fcbbe77ad757fc7cb82",
+  "status": "PASS"
+}

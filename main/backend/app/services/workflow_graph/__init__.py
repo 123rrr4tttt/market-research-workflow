@@ -17,6 +17,12 @@ from .store import (
     build_run_store,
 )
 from .templates import WorkflowGraphTemplateService
+from .contracts import raise_workflow_graph_legacy, workflow_graph_failure
+
+
+def _raise_facade_failure(code: str, message: str, *, exception_type: type[Exception] = ValueError) -> None:
+    failure = workflow_graph_failure(code, message, owner="workflow_graph.facade", public_exception=exception_type, public_message=message, field="facade", index=-1)
+    raise_workflow_graph_legacy(failure, exception_type=exception_type)
 
 
 class WorkflowGraphCompilerService:
@@ -29,12 +35,18 @@ class WorkflowGraphCompilerService:
     ) -> None:
         self._compiled: dict[str, dict[str, Any]] = {}
         self._lock = RLock()
-        self._store = store or build_compiled_graph_store()
+        self._store = store
         self._templates = WorkflowGraphTemplateService()
+
+    def _resolved_store(self) -> InMemoryCompiledGraphStore | SqlCompiledGraphStore:
+        with self._lock:
+            if self._store is None:
+                self._store = build_compiled_graph_store()
+            return self._store
 
     def compile(self, payload: Mapping[str, Any]) -> dict[str, Any]:
         if not isinstance(payload, Mapping):
-            raise ValueError("compile payload must be a mapping")
+            _raise_facade_failure("contract_invalid", "compile payload must be a mapping")
         dsl_payload = payload.get("dsl")
         template_id = str(payload.get("template_id") or "").strip()
         requested_version_id = str(payload.get("version_id") or "").strip() or None
@@ -47,7 +59,7 @@ class WorkflowGraphCompilerService:
         elif not isinstance(dsl_payload, Mapping):
             dsl_payload = payload
         if not isinstance(dsl_payload, Mapping):
-            raise ValueError("dsl payload must be a mapping")
+            _raise_facade_failure("contract_invalid", "dsl payload must be a mapping")
 
         compiled = compile_workflow_graph(dsl_payload)
         raw_graph_id = payload.get("graph_id")
@@ -87,9 +99,10 @@ class WorkflowGraphCompilerService:
             "dsl": dict(dsl_payload),
             "compiled": asdict(compiled),
         }
+        store = self._resolved_store()
         with self._lock:
             self._compiled[graph_id] = compiled_record
-        self._store.save_compiled(compiled_record)
+        store.save_compiled(compiled_record)
         response = {
             "graph_id": graph_id,
             "version": compiled.version,
@@ -106,7 +119,7 @@ class WorkflowGraphCompilerService:
         with self._lock:
             row = self._compiled.get(str(graph_id))
         if row is None:
-            row = self._store.get_compiled(str(graph_id))
+            row = self._resolved_store().get_compiled(str(graph_id))
             with self._lock:
                 self._compiled[str(graph_id)] = row
         return row
@@ -114,7 +127,7 @@ class WorkflowGraphCompilerService:
     def list_compiled(self, limit: int = 20) -> list[dict[str, Any]]:
         merged: dict[str, dict[str, Any]] = {}
         try:
-            for row in self._store.list_compiled(limit=limit):
+            for row in self._resolved_store().list_compiled(limit=limit):
                 graph_id = str(row.get("graph_id") or "").strip()
                 if graph_id:
                     merged[graph_id] = dict(row)
@@ -164,33 +177,54 @@ class WorkflowGraphRuntimeService:
     """Runtime facade that executes compiled workflow graphs."""
 
     def __init__(self) -> None:
-        self._engine = WorkflowGraphRuntime(store=build_run_store())
+        self._engine: WorkflowGraphRuntime | None = None
+        self._lock = RLock()
+
+    def _resolved_engine(self) -> WorkflowGraphRuntime:
+        with self._lock:
+            if self._engine is None:
+                self._engine = WorkflowGraphRuntime(store=build_run_store())
+            return self._engine
 
     def run(self, payload: Mapping[str, Any]) -> dict[str, Any]:
         graph_id = str(payload.get("graph_id") or "").strip()
         if not graph_id:
-            raise ValueError("graph_id is required")
+            _raise_facade_failure("contract_invalid", "graph_id is required")
 
         compiled = compiler.get_compiled(graph_id)
         run_input = payload.get("input") or payload.get("inputs") or {}
         if not isinstance(run_input, Mapping):
-            raise ValueError("input must be a mapping")
+            _raise_facade_failure("contract_invalid", "input must be a mapping")
+        project_key = str(payload.get("project_key") or "").strip()
+        trace_id = str(payload.get("trace_id") or "").strip() or None
 
         workflow = {
             "workflow_id": graph_id,
+            "project_key": project_key or None,
             "topo_order": list(compiled.get("topo_order") or []),
             "nodes": dict(compiled.get("nodes") or {}),
         }
+        resolved_run_input = dict(run_input)
+        if project_key:
+            resolved_run_input.setdefault("project_key", project_key)
+        if trace_id:
+            resolved_run_input.setdefault("trace_id", trace_id)
         run_id = str(payload.get("run_id") or "").strip() or None
-        snapshot = self._engine.run(workflow, inputs=dict(run_input), run_id=run_id)
+        snapshot = self._resolved_engine().run(
+            workflow,
+            inputs=resolved_run_input,
+            run_id=run_id,
+            project_key=project_key or None,
+            trace_id=trace_id,
+        )
         run = snapshot.get("run") or {}
         session_bundle = get_agent_session_service().project_workflow_graph_run(
             graph_id=graph_id,
             run_id=str(run.get("run_id") or ""),
             workflow=workflow,
-            inputs=dict(run_input),
+            inputs=resolved_run_input,
             snapshot=snapshot,
-            project_key=str(payload.get("project_key") or "").strip() or None,
+            project_key=project_key or None,
         )
         session = dict(session_bundle.get("session") or {})
         return {
@@ -204,7 +238,7 @@ class WorkflowGraphRuntimeService:
         }
 
     def get_run(self, run_id: str) -> dict[str, Any]:
-        out = dict(self._engine.store.get_run(str(run_id)))
+        out = dict(self._resolved_engine().store.get_run(str(run_id)))
         session = get_agent_session_service().find_session_by_logical_task_list_key(str(run_id))
         if session:
             out["session_id"] = session.get("session_id")
@@ -213,7 +247,7 @@ class WorkflowGraphRuntimeService:
         return out
 
     def get_run_events(self, run_id: str) -> dict[str, Any]:
-        items = list(self._engine.store.get_events(str(run_id)))
+        items = list(self._resolved_engine().store.get_events(str(run_id)))
         session = get_agent_session_service().find_session_by_logical_task_list_key(str(run_id))
         if session:
             session_events = get_agent_session_service().list_events(str(session.get("session_id") or ""))
@@ -231,15 +265,15 @@ class WorkflowGraphRuntimeService:
     def get_run_agent_session(self, run_id: str) -> dict[str, Any]:
         session = get_agent_session_service().find_session_by_logical_task_list_key(str(run_id))
         if session is None:
-            raise KeyError(f"agent session not found for run: {run_id}")
+            _raise_facade_failure("object_not_found", f"agent session not found for run: {run_id}", exception_type=KeyError)
         return get_agent_session_service().get_session_bundle(str(session.get("session_id") or ""))
 
     def replay_run(self, run_id: str, replay_mode: str = "events_only") -> dict[str, Any]:
         resolved_mode = str(replay_mode or "events_only").strip().lower() or "events_only"
         if resolved_mode not in {"events_only", "stateful"}:
-            raise ValueError("replay_mode must be events_only or stateful")
+            _raise_facade_failure("contract_invalid", "replay_mode must be events_only or stateful")
 
-        snapshot = self._engine.store.snapshot(str(run_id))
+        snapshot = self._resolved_engine().store.snapshot(str(run_id))
         replay_consistency = _build_replay_consistency_report(snapshot)
 
         if resolved_mode == "stateful":
@@ -256,7 +290,7 @@ class WorkflowGraphRuntimeService:
                 "replay_consistency": replay_consistency,
             }
 
-        events = list(self._engine.store.get_events(str(run_id)))
+        events = list(self._resolved_engine().store.get_events(str(run_id)))
         node_statuses: dict[str, str] = {}
         run_status = "queued"
         for event in events:

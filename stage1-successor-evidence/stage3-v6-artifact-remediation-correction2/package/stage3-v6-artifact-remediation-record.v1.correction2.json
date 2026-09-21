@@ -1,0 +1,83 @@
+{
+  "authoritative": false,
+  "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+  "closure": {
+    "command_receipt_count": 5,
+    "correction1_artifact_path_count": 88,
+    "correction1_manifest_member_count": 23,
+    "direct_predecessor_paths_rebound_to_current_bytes": true,
+    "member_count": 139,
+    "nested_declared_hashes_and_bytes_verified": true,
+    "predecessor_declaration_drift_count": 2,
+    "predecessor_declaration_drifts": [
+      {
+        "changed": true,
+        "correction1_artifact_path_sha256": "40b520a33519b51852e9e50a8600c93f586fed3d043aeffcdb7671bcdd99dbf0",
+        "correction1_manifest_bytes": 106363,
+        "correction1_manifest_sha256": "40b520a33519b51852e9e50a8600c93f586fed3d043aeffcdb7671bcdd99dbf0",
+        "current_bytes": 124340,
+        "current_sha256": "c9c3a7ebf88b4793ce22c6f7dbbfe1336cc2cb3cd450af73d3d20609ff39609b",
+        "path": "scripts/formal_release/stage2_candidate_intake.py"
+      },
+      {
+        "changed": true,
+        "correction1_artifact_path_sha256": "77bd50056b93c9a9c133d5187684b024d6ea0438a9daca1c4a9b91215c61dca7",
+        "correction1_manifest_bytes": 84885,
+        "correction1_manifest_sha256": "77bd50056b93c9a9c133d5187684b024d6ea0438a9daca1c4a9b91215c61dca7",
+        "current_bytes": 95663,
+        "current_sha256": "d5080eba442b2cd0041b25c43a1906cbdada616e357490f50361a4ad4bef45db",
+        "path": "tests/formal_release/test_stage2_candidate_intake.py"
+      }
+    ],
+    "recursive_artifact_manifests": [
+      "stage1-successor-evidence/current-byte-remediation-v2/bindings/artifact-manifest.v2.json",
+      "stage1-successor-evidence/current-byte-remediation-v3/bindings/artifact-manifest.v3.json",
+      "stage1-successor-evidence/current-byte-remediation-v3/semantic-bindings/artifact-manifest.v3.json"
+    ],
+    "test_receipt_count": 1
+  },
+  "correction": {
+    "attempt": 2,
+    "historical_predecessor_status": "CORRECTION1_PASS_RETAINED_AS_HISTORICAL_ONLY_AND_LIMITED_BY_THIS_SUCCESSOR",
+    "policy": "CORRECTION1_ARTIFACT_PATHS_PLUS_MANIFEST_MEMBERS_PLUS_RECEIPT_ARTIFACTS_PLUS_RECURSIVE_ARTIFACT_MANIFEST_MEMBERS",
+    "reason": "CORRECTION1_MANIFEST_INCOMPLETE_STRUCTURAL_CLOSURE"
+  },
+  "current_bindings": {
+    "builder": "stage1-successor-evidence/stage3-v6-artifact-remediation-correction2/build_stage3_v6_artifact_remediation_correction2.py",
+    "checker": "stage1-successor-evidence/stage3-v6-artifact-remediation-correction2/check_stage3_v6_artifact_remediation_correction2.py",
+    "manifest": "stage1-successor-evidence/stage3-v6-artifact-remediation-correction2/package/artifact-manifest.v1.correction2.json",
+    "record": "stage1-successor-evidence/stage3-v6-artifact-remediation-correction2/package/stage3-v6-artifact-remediation-record.v1.correction2.json",
+    "test": "stage1-successor-evidence/stage3-v6-artifact-remediation-correction2/test_stage3_v6_artifact_remediation_correction2.py",
+    "validation": "stage1-successor-evidence/stage3-v6-artifact-remediation-correction2/package/validation-receipt.v1.correction2.json"
+  },
+  "external_effects": "NONE_LOCAL_DETERMINISTIC_VALIDATION_ONLY",
+  "isolated_pytest_receipt": {
+    "expected_count": 200,
+    "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/current-byte-selector-intake-package-isolated-v2-stage2-v4-final-20260908/receipt.json",
+    "run_id": "stage2-v4-final-20260908",
+    "runner": {
+      "path": "stage1-successor-evidence/stage-convergence-batch-v1/run-current-pytest-receipt-v2.py",
+      "sha256": "03970a37104d652bf29f5a07e156bb7c61103a1ef716d917aeb360b00f3f6286"
+    },
+    "sha256": "5d66502101d66bc1cfc4c25cdcdc412b386de7d5ca15a3662ac49686a9131ac5",
+    "status": "PASS_COMPLETE_EXACT_200"
+  },
+  "predecessor_correction1": [
+    {
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/stage3-v6-artifact-remediation-record.v1.correction1.json",
+      "sha256": "1f2eb55570ade210db34078f449215df235afcb99ffcf00e2e8238f5688567fc"
+    },
+    {
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/artifact-manifest.v1.correction1.json",
+      "sha256": "6cb08c46f6579a553c4a26cd458eab49817896504375d3e009921dbd1cd492b6"
+    },
+    {
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/validation-receipt.v1.correction1.json",
+      "sha256": "1e77a1211ce73f5dc8f0291477489a1cdbb9cf29c6aefdb37e0856cf13f52bcd"
+    }
+  ],
+  "production_release_authorized": false,
+  "production_release_status": "PRODUCTION_RELEASE_NOT_AUTHORIZED",
+  "schema_version": "mrw.stage1.stage3_v6_artifact_remediation_correction2_record.v1",
+  "status": "PASS_COMPLETE_MEMBER_CLOSURE_NOT_AUTHORITY"
+}

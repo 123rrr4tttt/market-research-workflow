@@ -4,11 +4,12 @@ import logging
 from typing import Any, Dict, Literal
 
 from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from ..contracts import ErrorCode, error_response, map_exception_to_error
-from ..contracts.responses import ok
+from ..contracts.responses import ApiMetaModel, ok
 from ..models.base import SessionLocal
 from ..models.entities import SourceLibraryItem
 from ..services.projects import bind_project, current_project_key
@@ -31,6 +32,7 @@ from ..services.source_library.external_project_registration import synthesize_e
 from ..services.source_library.item_plan import build_item_execution_plan
 from ..services.streamplus.contracts import SOURCE_ITEM_CAPABILITY_DEFAULT
 from ..settings.config import get_effective_project_key_enforcement_mode, settings
+from ._error_responses import error_json_response as _error_json
 
 ScopeType = Literal["shared", "project", "effective"]
 ItemType = Literal["user_defined", "service_aggregated"]
@@ -97,6 +99,40 @@ class ExternalProjectRegistrationPayload(BaseModel):
     enabled: bool = True
     persist: bool = True
     hints: Dict[str, Any] = Field(default_factory=dict)
+
+
+class LegacySourceLibraryRunReplacementPayload(BaseModel):
+    item_key: str
+    project_key: Literal["<project_key>"]
+    override_params: dict[str, Any]
+
+
+class LegacySourceLibraryRunErrorDetails(BaseModel):
+    item_key: str
+    deprecated_endpoint: Literal["/api/v1/source_library/items/{item_key}/run"]
+    replacement_endpoint: Literal["/api/v1/ingest/source-library/run"]
+    replacement_payload: LegacySourceLibraryRunReplacementPayload
+    legacy_status: Literal["410_gone"]
+    runs_source_library_item: Literal[False]
+
+
+class LegacySourceLibraryRunError(BaseModel):
+    code: Literal["INVALID_INPUT"]
+    message: str
+    details: LegacySourceLibraryRunErrorDetails
+
+
+class LegacySourceLibraryRunDetail(BaseModel):
+    error: LegacySourceLibraryRunError
+    message: str
+
+
+class LegacySourceLibraryRunErrorEnvelope(BaseModel):
+    status: Literal["error"]
+    data: None = None
+    error: LegacySourceLibraryRunError
+    meta: ApiMetaModel
+    detail: LegacySourceLibraryRunDetail
 
 
 def _normalize_source_item_capability(extra: dict[str, Any] | None) -> dict[str, Any]:
@@ -565,6 +601,16 @@ def upsert_project_item(
 ) -> dict:
     try:
         resolved_project_key = _resolve_write_project_key(project_key, request=request)
+        return _upsert_project_item_internal(payload=payload, project_key=resolved_project_key)
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        _raise_mapped_error(exc)
+
+
+def _upsert_project_item_internal(*, payload: SourceLibraryItemUpsertPayload, project_key: str) -> dict:
+    try:
+        resolved_project_key = _require_project_key(project_key)
         norm_params, _ = _normalize_item_site_entries(payload.params or {})
         normalized_extra = _normalize_source_item_capability(payload.extra or {})
         normalized_extra = normalize_external_project_extra(
@@ -681,7 +727,7 @@ def register_external_project(
             item_type=ITEM_TYPE_USER_DEFINED,
             extra=dict(item_payload.get("extra") or {}),
         )
-        upsert_project_item(payload=upsert_payload, project_key=resolved_project_key)
+        _upsert_project_item_internal(payload=upsert_payload, project_key=resolved_project_key)
         return ok(
             {
                 "ok": True,
@@ -717,23 +763,25 @@ def update_project_item(
     return upsert_project_item(payload=payload, request=request, project_key=project_key)
 
 
-@router.post("/items/{item_key}/run")
-def run_project_item_legacy_endpoint(item_key: str) -> None:
-    raise HTTPException(
-        status_code=410,
-        detail=error_response(
-            ErrorCode.INVALID_INPUT,
-            "POST /api/v1/source_library/items/{item_key}/run is deprecated; use POST /api/v1/ingest/source-library/run.",
-            details={
-                "item_key": item_key,
-                "deprecated_endpoint": "/api/v1/source_library/items/{item_key}/run",
-                "replacement_endpoint": "/api/v1/ingest/source-library/run",
-                "replacement_payload": {"item_key": item_key, "project_key": "<project_key>", "override_params": {}},
-                "legacy_status": "410_gone",
-                "runs_source_library_item": False,
-            },
-            meta={"deprecated": "source_library.legacy_item_run.v1"},
-        ),
+@router.post(
+    "/items/{item_key}/run",
+    response_model=LegacySourceLibraryRunErrorEnvelope,
+    responses={410: {"model": LegacySourceLibraryRunErrorEnvelope}},
+)
+def run_project_item_legacy_endpoint(item_key: str) -> JSONResponse:
+    return _error_json(
+        410,
+        ErrorCode.INVALID_INPUT,
+        "POST /api/v1/source_library/items/{item_key}/run is deprecated; use POST /api/v1/ingest/source-library/run.",
+        details={
+            "item_key": item_key,
+            "deprecated_endpoint": "/api/v1/source_library/items/{item_key}/run",
+            "replacement_endpoint": "/api/v1/ingest/source-library/run",
+            "replacement_payload": {"item_key": item_key, "project_key": "<project_key>", "override_params": {}},
+            "legacy_status": "410_gone",
+            "runs_source_library_item": False,
+        },
+        meta={"deprecated": "source_library.legacy_item_run.v1"},
     )
 
 

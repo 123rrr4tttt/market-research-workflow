@@ -6,12 +6,20 @@ from urllib.parse import urlencode
 
 import httpx
 
+from .registry import _failure, _raise_contract_failure
+
 
 class ScrapydClient:
     def __init__(self, *, base_url: str, timeout: float = 10.0) -> None:
         base = str(base_url or "").strip()
         if not base:
-            raise ValueError("scrapyd base_url is required")
+            failure = _failure(
+                "scrapyd_base_url_required",
+                "scrapyd base_url is required",
+                operation="scrapyd_client.__init__",
+                site="app.services.crawlers.scrapyd_client.ScrapydClient.__init__",
+            )
+            _raise_contract_failure(failure)
         self.base_url = base.rstrip("/")
         self.timeout = float(timeout)
 

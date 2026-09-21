@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from typing import Annotated
+
 from app.successor_runtime.language.algebra import (
     OperationContractCatalogSnapshot,
     ValueRef,
@@ -44,9 +46,10 @@ from app.successor_runtime.research.object_types import (
 )
 from app.successor_runtime.research.relations import ResearchRelation
 
+from .first_specimen import _capability_failure, _raise_capability_failure
+
 GAP_SUCCESSOR_CAPABILITY_ID = "mrw.first-specimen.gap-successor"
 GAP_SUCCESSOR_VALUE_CODEC = CANONICAL_CODEC_ID
-
 
 class GapSuccessorRejected(ValueError):
     """The supplied predecessor/materializer closure is not exact."""
@@ -54,7 +57,7 @@ class GapSuccessorRejected(ValueError):
 
 @dataclass(frozen=True, slots=True)
 class GapSuccessorClosure:
-    """Complete pure closure written by the PostgreSQL interpreter."""
+    """Deterministic successor materialization plan, not a persisted fact."""
 
     request_digest: str
     materializer_binding_digest: str
@@ -79,18 +82,18 @@ class GapSuccessorClosure:
             "successor_run_incarnation",
         ):
             if not getattr(self, name):
-                raise ValueError(f"{name} is required")
+                _raise_capability_failure(_capability_failure("GAP_SUCCESSOR_REJECTED", f"{name} is required"), GapSuccessorRejected)
         if not is_sha256_hex(self.request_digest):
-            raise ValueError("request_digest must be canonical sha256 hex")
+            _raise_capability_failure(_capability_failure("GAP_SUCCESSOR_REJECTED", "request_digest must be canonical sha256 hex"), GapSuccessorRejected)
         if (
             self.successor_plan.program_digest
             != self.materialization.successor_program_digest
         ):
-            raise ValueError("successor Plan/Program digest drift")
+            _raise_capability_failure(_capability_failure("GAP_SUCCESSOR_REJECTED", "successor Plan/Program digest drift"), GapSuccessorRejected)
         if self.opens_relation.source_ref.object_type != GAP_TYPE:
-            raise ValueError("opens source must remain the admitted Gap")
+            _raise_capability_failure(_capability_failure("GAP_SUCCESSOR_REJECTED", "opens source must remain the admitted Gap"), GapSuccessorRejected)
         if self.opens_relation.target_ref != self.inquiry_ref:
-            raise ValueError("opens target must be the exact successor Inquiry")
+            _raise_capability_failure(_capability_failure("GAP_SUCCESSOR_REJECTED", "opens target must be the exact successor Inquiry"), GapSuccessorRejected)
 
 
 def build_gap_successor_closure(
@@ -111,7 +114,12 @@ def build_gap_successor_closure(
     authority_digest: str,
     catalog: OperationContractCatalogSnapshot,
     operation_contracts: OperationContractResolver,
-) -> GapSuccessorClosure:
+) -> Annotated[
+    GapSuccessorClosure,
+    "kit:non-authoritative derived_as=generated_evidence "
+    "fact_source=predecessor_materialization_inputs "
+    "witness=test:test_gap_successor_closure_non_authoritative_plan_metadata",
+]:
     """Derive one deterministic, schema-valid successor closure.
 
     Identity closes over the exact predecessor Program/Plan/run/step, admitted
@@ -133,7 +141,7 @@ def build_gap_successor_closure(
     )
     _require_intent(successor_intent_ref, predecessor_program.project_key)
     if not is_sha256_hex(authority_digest) or authority_digest == "0" * 64:
-        raise GapSuccessorRejected("current materialization authority is required")
+        _raise_capability_failure(_capability_failure("GAP_SUCCESSOR_REJECTED", "current materialization authority is required"), GapSuccessorRejected)
     if (
         predecessor_plan_digest != predecessor_plan.plan_digest
         or source_value_digest != source_value_ref.content_digest
@@ -141,7 +149,7 @@ def build_gap_successor_closure(
         or not materializer_id
         or not materializer_version
     ):
-        raise GapSuccessorRejected("MaterializerBinding predecessor/source drift")
+        _raise_capability_failure(_capability_failure("GAP_SUCCESSOR_REJECTED", "MaterializerBinding predecessor/source drift"), GapSuccessorRejected)
 
     materialization = materialize_first_specimen_gap_successor(
         predecessor_program=predecessor_program,
@@ -263,13 +271,13 @@ def _require_predecessor(
     predecessor_step_id: str,
 ) -> None:
     if not predecessor_run_id or not predecessor_step_id:
-        raise GapSuccessorRejected("predecessor run/step identity is required")
+        _raise_capability_failure(_capability_failure("GAP_SUCCESSOR_REJECTED", "predecessor run/step identity is required"), GapSuccessorRejected)
     if (
         predecessor_plan.program_id != predecessor_program.program_id
         or predecessor_plan.program_digest != predecessor_program.program_digest
         or predecessor_program.program_digest != predecessor_program.digest()
     ):
-        raise GapSuccessorRejected("predecessor Program/Plan closure drift")
+        _raise_capability_failure(_capability_failure("GAP_SUCCESSOR_REJECTED", "predecessor Program/Plan closure drift"), GapSuccessorRejected)
 
 
 def _require_gap(
@@ -280,7 +288,7 @@ def _require_gap(
     predecessor_program: ProgramSpec,
 ) -> None:
     if gap.content_digest is None:
-        raise GapSuccessorRejected("Gap has no canonical content digest")
+        _raise_capability_failure(_capability_failure("GAP_SUCCESSOR_REJECTED", "Gap has no canonical content digest"), GapSuccessorRejected)
     if (
         gap_ref.object_type != GAP_TYPE
         or source_value_ref.object_type != GAP_TYPE
@@ -293,7 +301,7 @@ def _require_gap(
         or source_value_ref.content_digest != gap.content_digest
         or gap_ref.provenance_closure_digest != source_value_ref.provenance_digest
     ):
-        raise GapSuccessorRejected("admitted Gap/value exact binding drift")
+        _raise_capability_failure(_capability_failure("GAP_SUCCESSOR_REJECTED", "admitted Gap/value exact binding drift"), GapSuccessorRejected)
 
 
 def _require_intent(ref: ResearchObjectRef, project_key: str) -> None:
@@ -302,9 +310,7 @@ def _require_intent(ref: ResearchObjectRef, project_key: str) -> None:
         or ref.project_key != project_key
         or ref.lifecycle_state != "ADMITTED"
     ):
-        raise GapSuccessorRejected(
-            "successor intent must be an admitted ResearchIntent"
-        )
+        _raise_capability_failure(_capability_failure("GAP_SUCCESSOR_REJECTED", "successor intent must be an admitted ResearchIntent"), GapSuccessorRejected)
 
 
 def _decode_materialized_literals(
@@ -316,9 +322,7 @@ def _decode_materialized_literals(
         or not isinstance(root.first, Pure)
         or not isinstance(root.second, Pure)
     ):
-        raise GapSuccessorRejected(
-            "successor Program is not the frozen Inquiry/Plan shape"
-        )
+        _raise_capability_failure(_capability_failure("GAP_SUCCESSOR_REJECTED", "successor Program is not the frozen Inquiry/Plan shape"), GapSuccessorRejected)
     inquiry_raw = dict(root.first.literal_value)
     plan_raw = dict(root.second.literal_value)
     inquiry = Inquiry(

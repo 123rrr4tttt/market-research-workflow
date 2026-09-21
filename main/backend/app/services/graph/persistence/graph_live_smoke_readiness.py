@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from typing import Any
+from typing import Annotated, Any
 
 from .graph_projection_contract import GraphProjectionDryRunReport, GraphProjectionRolloutReadinessReport
 
@@ -240,7 +240,12 @@ def build_graph_live_smoke_readiness(
     backend_data_contract_checks: dict[str, bool],
     live_db_evidence: dict[str, Any] | None = None,
     frontend_backend_evidence: dict[str, Any] | None = None,
-) -> GraphLiveSmokeReadinessReport:
+) -> Annotated[
+    GraphLiveSmokeReadinessReport,
+    "kit:non-authoritative derived_as=generated_evidence "
+    "fact_source=dry_run+readiness+database+smoke_evidence_inputs "
+    "witness=test:test_w04_authority_metadata",
+]:
     """Classify Wave12 graph smoke readiness without pretending live closure.
 
     The gate succeeds when deterministic no-DB checks and static run

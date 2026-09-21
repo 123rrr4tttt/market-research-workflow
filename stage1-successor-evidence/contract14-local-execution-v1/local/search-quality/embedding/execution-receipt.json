@@ -1,0 +1,32 @@
+{
+  "claim_ids": ["claim-013", "claim-015"],
+  "contract": "14_stage1-local-evidence-execution-contract.v1",
+  "generator": {
+    "path": "ops/search-lab/scripts/wave55_live_embedding_provider_gate.py",
+    "sha256": "35d17b9fc61226790aeb079b53e5695f0f13bec403c05b8bca98d6d57f4cfb71",
+    "effect_boundary": "pure in-process RepoLocalHashingEmbeddingProvider and deterministic fixture ranking; explicit JSON/README writes; no network/DNS/provider/container/service/user DB/model download"
+  },
+  "wrapper": {
+    "path": "stage1-successor-evidence/contract14-local-execution-v1/local/search-quality/run_search_quality_generators.py",
+    "sha256": "e7bdd220cbae9fea603912e5ea7dcb3b9400941028f98806ea2b64d63be8b33f"
+  },
+  "command": "PYTHONPATH=main/backend:src main/backend/.venv311/bin/python stage1-successor-evidence/contract14-local-execution-v1/local/search-quality/run_search_quality_generators.py --stage embedding --out-dir /Users/wangyiliang/market-research-workflow/stage1-successor-evidence/contract14-local-execution-v1/local/search-quality/embedding",
+  "options": {"stage": "embedding", "out_dir": "local/search-quality/embedding", "provider": "repo_local_token_hashing", "network_guard": "socket/DNS denied"},
+  "exit_status": 0,
+  "raw_output": {
+    "stdout": {"path": "local/search-quality/embedding.stdout", "sha256": "4bd5b034c04a7f280ea8a53e81703f98ddb80d083633b3e250f918baf7e85e4e"},
+    "stderr": {"path": "local/search-quality/embedding.stderr", "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}
+  },
+  "output": {"path": "local/search-quality/embedding/live_embedding_provider_gate.json", "sha256": "e18c240a74e06b260770002006ac5e4b0f7f1d037b7c4b9e21ed15b67cb673e9", "status": "passed"},
+  "input_anchors": [
+    ["docs/development/development-plans/ARCHIVE_CLOSED/2026-03-05-oss-node-platform-io-plan/INDEX.md", "b1377fd42a6b049428b941a60de7f3472ac4d451e3e8ad9e394d1c9ccb19b00d"],
+    ["docs/development/development-plans/ARCHIVE_CLOSED/2026-03-05-oss-node-platform-io-plan/10_wave55-oss-node-search-quality-gate-2026-05-23.md", "2bb3c453d321486040fe04c56dc60029de1f602810b2b7aa461516e1449ce20b"],
+    ["docs/development/development-plans/ARCHIVE_CLOSED/2026-03-05-oss-node-platform-io-plan/11_wave57-oss-node-public-corpus-semantic-relevance-2026-05-23.md", "9f7cea64c2392e92d3421347cde24cdf0454889ee99ebc093f787036e63fdebf"]
+  ],
+  "scope": "repo-local hashing embedding provider readback and controlled quality/retrieval contracts; live_provider_verified is local terminology only",
+  "dependent_nodeids": [
+    "tests.unit.test_wave55_oss_node_search_quality_gate_unittest.Wave55OssNodeSearchQualityGateTest::test_gate_closes_repo_local_open_search_quality_and_reduces_semantic_scope",
+    "tests.unit.test_wave57_oss_node_public_corpus_semantic_relevance_gate_unittest.Wave57OssNodePublicCorpusSemanticRelevanceGateTest::test_gate_closes_target_local_public_corpus_provider_quality_route"
+  ],
+  "authority_ceiling": "authoritative=false; NOT_LIVE; NON_AUTHORITATIVE; production semantic/vector quality unproven; PRODUCTION_RELEASE_NOT_AUTHORIZED; no deploy/canary/cutover/authority transfer/push/remote mutation"
+}

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shlex
 import sys
 from pathlib import Path
 from typing import Any
@@ -15,6 +16,10 @@ if str(BACKEND_ROOT) not in sys.path:
 
 from app.services.local_index import LOCAL_INDEX_QUERY_MODES, LocalIndexQuery
 from app.services.local_index.adapters.lancedb_adapter import LanceDBLocalIndexAdapter
+from scripts.evidence_source_contract import (  # noqa: E402
+    apply_evidence_source_contract,
+    evidence_source,
+)
 
 
 DEFAULT_OUT_DIR = "development/latest-dev-docs/automation-runs/wave10-vectorization-quality-gate/2026-05-22"
@@ -33,8 +38,8 @@ LOCAL_INDEX_BENCHMARK = (
 
 TARGET_TOPICS = [
     "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-01-open-source-platform-integration",
-    "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-05-oss-node-platform-io-plan",
-    "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-global-vectorization-general-foundation",
+    "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-05-oss-node-platform-io-plan",
+    "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation",
 ]
 LOCAL_OPEN_SEARCH_PROVIDERS = ["searxng", "yacy"]
 LOCAL_INDEX_MODES = ["keyword", "vector", "hybrid"]
@@ -388,11 +393,19 @@ def check_local_index_fallback_contract() -> dict[str, Any]:
     }
 
 
-def build_contract() -> dict[str, Any]:
+def build_contract(
+    *,
+    search_provider_trace_path: Path | None = None,
+    local_index_runtime_path: Path | None = None,
+    local_index_benchmark_path: Path | None = None,
+) -> dict[str, Any]:
+    resolved_search_provider_trace_path = search_provider_trace_path or SEARCH_PROVIDER_TRACE
+    resolved_local_index_runtime_path = local_index_runtime_path or LOCAL_INDEX_RUNTIME
+    resolved_local_index_benchmark_path = local_index_benchmark_path or LOCAL_INDEX_BENCHMARK
     evidence = {
-        "search_provider_trace": check_search_provider_trace(SEARCH_PROVIDER_TRACE),
-        "local_index_runtime_smoke": check_runtime_smoke(LOCAL_INDEX_RUNTIME),
-        "local_index_benchmark_quality": check_benchmark_quality(LOCAL_INDEX_BENCHMARK),
+        "search_provider_trace": check_search_provider_trace(resolved_search_provider_trace_path),
+        "local_index_runtime_smoke": check_runtime_smoke(resolved_local_index_runtime_path),
+        "local_index_benchmark_quality": check_benchmark_quality(resolved_local_index_benchmark_path),
         "local_index_fallback_contract": check_local_index_fallback_contract(),
     }
     target_topics = [{"path": topic, "exists": (REPO_ROOT / topic).exists()} for topic in TARGET_TOPICS]
@@ -402,7 +415,7 @@ def build_contract() -> dict[str, Any]:
         for failure in row.get("failures", [])
     ]
     failures.extend(f"target topic missing: {row['path']}" for row in target_topics if not row["exists"])
-    return {
+    contract = {
         "contract_version": "wave10-vectorization-quality-gate.v1",
         "scope": "deterministic_local_fixture_no_network_no_container_start",
         "generated_by": "ops/search-lab/scripts/wave10_vectorization_quality_gate.py",
@@ -434,6 +447,27 @@ def build_contract() -> dict[str, Any]:
         ],
         "failures": failures,
     }
+    return apply_evidence_source_contract(
+        contract,
+        [
+            evidence_source(
+                resolved_search_provider_trace_path,
+                repo_root=REPO_ROOT,
+                label="search_provider_trace",
+            ),
+            evidence_source(
+                resolved_local_index_runtime_path,
+                repo_root=REPO_ROOT,
+                label="local_index_runtime_smoke",
+            ),
+            evidence_source(
+                resolved_local_index_benchmark_path,
+                repo_root=REPO_ROOT,
+                label="local_index_benchmark",
+            ),
+        ],
+        claim_fields=("semantic_quality_claim_allowed",),
+    )
 
 
 def write_outputs(out_dir: Path, contract: dict[str, Any]) -> None:
@@ -443,6 +477,13 @@ def write_outputs(out_dir: Path, contract: dict[str, Any]) -> None:
         encoding="utf-8",
     )
     evidence = contract["evidence"]
+    rerun_command = (
+        f"{sys.executable} ops/search-lab/scripts/wave10_vectorization_quality_gate.py "
+        f"--search-provider-trace {shlex.quote(evidence['search_provider_trace']['path'])} "
+        f"--local-index-runtime {shlex.quote(evidence['local_index_runtime_smoke']['path'])} "
+        f"--local-index-benchmark {shlex.quote(evidence['local_index_benchmark_quality']['path'])} "
+        f"--out-dir {shlex.quote(display_path(out_dir))}"
+    )
     readme = [
         "# Wave10 Vectorization Quality Gate",
         "",
@@ -475,7 +516,7 @@ def write_outputs(out_dir: Path, contract: dict[str, Any]) -> None:
         "## Rerun",
         "",
         "```bash",
-        f"{sys.executable} ops/search-lab/scripts/wave10_vectorization_quality_gate.py --out-dir {display_path(out_dir)}",
+        rerun_command,
         "```",
         "",
         "Full deterministic output is in `contract_summary.json`.",
@@ -484,15 +525,31 @@ def write_outputs(out_dir: Path, contract: dict[str, Any]) -> None:
     (out_dir / "README.md").write_text("\n".join(readme), encoding="utf-8")
 
 
-def main() -> int:
+def _resolve_cli_path(value: str) -> Path:
+    path = Path(value)
+    return path if path.is_absolute() else REPO_ROOT / path
+
+
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--out-dir", default=DEFAULT_OUT_DIR)
-    args = parser.parse_args()
+    parser.add_argument("--search-provider-trace", default=str(SEARCH_PROVIDER_TRACE))
+    parser.add_argument("--local-index-runtime", default=str(LOCAL_INDEX_RUNTIME))
+    parser.add_argument("--local-index-benchmark", default=str(LOCAL_INDEX_BENCHMARK))
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = _parse_args(argv)
 
     out_dir = Path(args.out_dir)
     if not out_dir.is_absolute():
         out_dir = REPO_ROOT / out_dir
-    contract = build_contract()
+    contract = build_contract(
+        search_provider_trace_path=_resolve_cli_path(args.search_provider_trace),
+        local_index_runtime_path=_resolve_cli_path(args.local_index_runtime),
+        local_index_benchmark_path=_resolve_cli_path(args.local_index_benchmark),
+    )
     write_outputs(out_dir, contract)
     print(
         json.dumps(

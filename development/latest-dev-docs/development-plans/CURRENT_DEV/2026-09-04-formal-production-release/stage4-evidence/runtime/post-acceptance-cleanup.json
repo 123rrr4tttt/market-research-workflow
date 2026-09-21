@@ -1,0 +1,129 @@
+{
+  "schema_version": "mrw.stage4.post-acceptance-cleanup.v1",
+  "stage_id": "S4",
+  "executed_at": "2026-09-13T08:55:34Z",
+  "authoritative": false,
+  "status": "CLEANUP_RESULT",
+  "authorization": "Supervisor acceptance of PASS_LOCAL_STAGE4_NOT_AUTHORITY",
+  "scope": "Stage4 task-owned superseded images and generated cache only",
+  "before": {
+    "docker_system_df": {
+      "images_total": 34,
+      "images_size": "18.29GB",
+      "images_reclaimable": "9.041GB (49%)",
+      "containers_total": 1,
+      "containers_size": "20.48kB",
+      "local_volumes_total": 28,
+      "local_volumes_size": "946.2MB",
+      "build_cache_total": 208,
+      "build_cache_size": "10.39GB",
+      "build_cache_reclaimable": "6.22GB"
+    },
+    "host_filesystem": {
+      "data_volume": "/System/Volumes/Data",
+      "available": "55Gi",
+      "used": "364Gi",
+      "capacity": "87%"
+    },
+    "stage4_tags": [
+      {
+        "reference": "mrw-local/stage4-business001:stage4-c9-effect",
+        "id": "sha256:f247a1492400311e032710df01f84365c7e700f61c122b7243ae58eda982af19",
+        "size_bytes": 147410112,
+        "disposition": "retain_final_stage5_input"
+      },
+      {
+        "reference": "mrw-local/stage4-business003:f0e694fa35a8227e",
+        "id": "sha256:24f875d73a7efc0f2b4023393b27c6f0a50045c502e70c96b29c925691c6d901",
+        "size_bytes": 147386486,
+        "disposition": "delete_superseded_no_container_reference"
+      },
+      {
+        "reference": "mrw-local/stage4-r13x-backend-config:8652d653f740735f",
+        "id": "sha256:f99f900e5b420cf7e1c9513598a87251cc6c8124e6ec8461c564ed4d7ca76c20",
+        "size_bytes": 147379042,
+        "disposition": "delete_superseded_no_container_reference"
+      },
+      {
+        "reference": "mrw-local/stage4-r13x-backend-entrypoint:f5215bda79994b29",
+        "id": "sha256:1a2ee37931818b38bad29b06040459921f82932257b523dbf1c57edf5ac3355f",
+        "size_bytes": 147369351,
+        "disposition": "delete_superseded_no_container_reference"
+      }
+    ],
+    "generated_runtime_pycache_bytes": 159744
+  },
+  "deleted": {
+    "images": [
+      "mrw-local/stage4-business003:f0e694fa35a8227e",
+      "mrw-local/stage4-r13x-backend-config:8652d653f740735f",
+      "mrw-local/stage4-r13x-backend-entrypoint:f5215bda79994b29"
+    ],
+    "image_logical_bytes": 442134879,
+    "generated_runtime_pycache": "stage4-evidence/runtime/__pycache__ (6 generated .pyc files)"
+  },
+  "after": {
+    "docker_system_df": {
+      "images_total": 31,
+      "images_size": "18.29GB",
+      "images_reclaimable": "9.483GB (51%)",
+      "containers_total": 1,
+      "containers_size": "20.48kB",
+      "local_volumes_total": 28,
+      "local_volumes_size": "946.2MB",
+      "build_cache_total": 208,
+      "build_cache_size": "10.39GB",
+      "build_cache_reclaimable": "6.22GB"
+    },
+    "host_filesystem": {
+      "data_volume": "/System/Volumes/Data",
+      "available": "55Gi",
+      "used": "364Gi",
+      "capacity": "87%"
+    },
+    "remaining_stage4_tags": [
+      "mrw-local/stage4-business001:stage4-c9-effect"
+    ],
+    "scoped_stage4_containers_networks_volumes": [],
+    "confirmed_host_space_freed": "not measurable at df -h precision; Docker image aggregate remained 18.29GB because layers/cache are shared"
+  },
+  "retained": {
+    "final_stage4_image": "mrw-local/stage4-business001:stage4-c9-effect@sha256:f247a1492400311e032710df01f84365c7e700f61c122b7243ae58eda982af19",
+    "r13x_backend_base": "mrw-local/r13x-candidate-backend:8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2@sha256:d72688f24fb867ae2e0e9310cfc9ec25aac649a8da69130ee26469c0bd37c2ef",
+    "r13x_frontend": "mrw-local/r13x-candidate-frontend:8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2@sha256:f5641ba6d2b50135da1c9c9c3edfd067ed90ecfb37bcb8f0c7580b2e00aaa915",
+    "r13x_migration_runner": "mrw-local/r13x-candidate-migration-runner:8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2@sha256:3b409669bb8248f738c1133f9458d73725951140c0eae938064d469045960509",
+    "stage5_test_runtime": "mrw-stage3-r13o-tests:local@sha256:061eaef70efb0f00044d4eb7986eb67cee159243a5c977e5497bdfea5114bfe4",
+    "synthetic_snapshot": "runtime/synthetic-production-like.snapshot.dump",
+    "seed_and_build_inputs": [
+      "runtime/seed-c9-effect.py",
+      "runtime/Dockerfile.business003",
+      "runtime/c9-effect-build.json"
+    ],
+    "evidence": [
+      "runtime/s4-c9-effect-live.json",
+      "runtime/s4-c9-effect-rework-focused.json",
+      "runtime/SHA256SUMS"
+    ]
+  },
+  "not_deleted": {
+    "shared_buildkit_cache": {
+      "count": 208,
+      "size": "10.39GB",
+      "reason": "shared/default builder records cannot be attributed to Stage4 without risking unrelated Stage3/other-task inputs; no broad prune performed"
+    },
+    "volumes_and_unknown_resources": "retained; no safe task ownership established",
+    "frozen_candidates_and_archives": "retained",
+    "ops_scrapyd_and_host_backups": "untouched"
+  },
+  "recoverability": {
+    "deleted_images": "exact bytes not retained; reproducible from retained r13x base, source and recorded Dockerfile/build inputs, while final accepted image remains retained",
+    "deleted_pycache": "rebuildable interpreter cache",
+    "retained_inputs": "recoverable from retained local tags, snapshot, seed, Dockerfile and evidence index"
+  },
+  "docker_prune_executed": false,
+  "authority_ceiling": [
+    "LOCAL_STAGE4_RUNTIME_ONLY",
+    "NOT_AUTHORITY",
+    "PRODUCTION_RELEASE_NOT_AUTHORIZED"
+  ]
+}

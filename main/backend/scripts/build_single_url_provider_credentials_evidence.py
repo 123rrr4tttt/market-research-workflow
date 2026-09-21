@@ -11,7 +11,7 @@ import json
 import os
 from pathlib import Path
 import sys
-from typing import Any
+from typing import Annotated, Any
 from urllib import error, parse, request
 
 
@@ -146,7 +146,12 @@ def build_provider_credentials_evidence(
     allow_live_api: bool = False,
     timeout_seconds: float = 10.0,
     generated_by: str = "build_single_url_provider_credentials_evidence.py",
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=generated_evidence "
+    "fact_source=env_file+env+live_probe "
+    "witness=test:test_c15_backend_misc_cli_report_metadata_preserves_abi",
+]:
     values = _merged_env(env_file, env=env)
     providers: list[dict[str, Any]] = []
     for spec in PROVIDER_SPECS:

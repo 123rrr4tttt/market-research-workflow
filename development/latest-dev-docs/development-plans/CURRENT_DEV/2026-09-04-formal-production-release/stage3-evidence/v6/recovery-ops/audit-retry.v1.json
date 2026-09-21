@@ -1,0 +1,55 @@
+{
+  "authoritative": false,
+  "candidate_commit": "909eb608e538b6427bcbacca974f1efb05fef611",
+  "candidate_tree": "a60b795e509aa5dc479904a321fba32ed0ab9ab2",
+  "records": [
+    {
+      "id": "scanner-venv",
+      "command": [
+        "uv",
+        "venv",
+        "--python",
+        "/opt/homebrew/bin/python3.11",
+        "/private/tmp/mrw-stage3-v6-ops-1yM6UC/audit-venv"
+      ],
+      "cwd": "/private/tmp/mrw-stage3-v6-ops-1yM6UC/candidate",
+      "exit_code": 0,
+      "log": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-ops/scanner-venv.raw.log",
+      "sha256": "d023b7d27fb481ffb9b6b565a934bad3ada6017717ebf3d226594587b8c1b667"
+    },
+    {
+      "id": "scanner-install",
+      "command": [
+        "uv",
+        "pip",
+        "install",
+        "--python",
+        "/private/tmp/mrw-stage3-v6-ops-1yM6UC/audit-venv/bin/python",
+        "pip-audit==2.9.0"
+      ],
+      "cwd": "/private/tmp/mrw-stage3-v6-ops-1yM6UC/candidate",
+      "exit_code": 0,
+      "log": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-ops/scanner-install.raw.log",
+      "sha256": "bf86d1e8344a5e9bc596c0686c63c4a57ba36de8b07161d6c9d42306327ded1d"
+    },
+    {
+      "id": "pip-audit-py311",
+      "command": [
+        "/private/tmp/mrw-stage3-v6-ops-1yM6UC/audit-venv/bin/pip-audit",
+        "-r",
+        "main/backend/requirements.txt",
+        "--strict",
+        "--progress-spinner",
+        "off"
+      ],
+      "cwd": "/private/tmp/mrw-stage3-v6-ops-1yM6UC/candidate",
+      "exit_code": 1,
+      "log": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-ops/pip-audit-py311.raw.log",
+      "sha256": "8a6d492bc4b35a412b3dd7f634bbe6b741c4b42705d2d5d93314500d1841da33"
+    }
+  ],
+  "environment_differences": [
+    "Temporary Python3.11 scanner venv; caches and TMPDIR isolated",
+    "Network dependency retrieval enabled; no socket guard"
+  ]
+}

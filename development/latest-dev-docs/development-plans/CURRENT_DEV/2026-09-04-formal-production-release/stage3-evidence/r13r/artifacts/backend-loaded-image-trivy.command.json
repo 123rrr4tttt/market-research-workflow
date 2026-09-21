@@ -1,0 +1,20 @@
+{
+  "argv": [
+    "trivy",
+    "image",
+    "--scanners",
+    "vuln",
+    "--pkg-types",
+    "os,library",
+    "--severity",
+    "HIGH,CRITICAL",
+    "--exit-code",
+    "1",
+    "--format",
+    "json",
+    "--output",
+    "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13r/artifacts/canonical/backend.trivy.loaded-image.json",
+    "mrw-r13r-amd64-backend-canonical:local"
+  ],
+  "cwd": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13r/artifacts"
+}

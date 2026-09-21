@@ -15,7 +15,7 @@ import json
 import sys
 from pathlib import Path
 from types import ModuleType
-from typing import Any
+from typing import Annotated, Any
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -245,7 +245,12 @@ def status_counts(rows: list[dict[str, Any]]) -> dict[str, int]:
     return counts
 
 
-def build_contract(*, root: Path | None = None, topic: Path | None = None) -> dict[str, Any]:
+def build_contract(*, root: Path | None = None, topic: Path | None = None) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=generated_evidence "
+    "fact_source=repo_local_openclaw_mirror_manifest+runtime_handoff_checker "
+    "witness=test:test_w11_non_authoritative_metadata",
+]:
     root = (root or REPO_ROOT).resolve()
     runtime_checker = load_runtime_handoff_checker(root)
     topic = resolve_topic_path(root, topic).resolve()

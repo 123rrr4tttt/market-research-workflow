@@ -1,0 +1,57 @@
+/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/pydantic/_internal/_fields.py:132: UserWarning: Field "model_name" in ColPaliEmbeddings has conflict with protected namespace "model_".
+
+You may be able to resolve this warning by setting `model_config['protected_namespaces'] = ()`.
+  warnings.warn(
+Traceback (most recent call last):
+  File "/Users/wangyiliang/market-research-workflow/ops/search-lab/scripts/local_index_lancedb_runtime_smoke.py", line 274, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/Users/wangyiliang/market-research-workflow/ops/search-lab/scripts/local_index_lancedb_runtime_smoke.py", line 268, in main
+    code, report = run_smoke(out_dir)
+                   ^^^^^^^^^^^^^^^^^^
+  File "/Users/wangyiliang/market-research-workflow/ops/search-lab/scripts/local_index_lancedb_runtime_smoke.py", line 129, in run_smoke
+    report["upsert"] = service.upsert_chunks(chunks)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/wangyiliang/market-research-workflow/main/backend/app/services/local_index/service.py", line 30, in upsert_chunks
+    return self._adapter.upsert_chunks(valid_chunks)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/wangyiliang/market-research-workflow/main/backend/app/services/local_index/adapters/lancedb_adapter.py", line 67, in upsert_chunks
+    self._table = self._db.create_table(self.table_name, data=rows, mode="overwrite")
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/lancedb/db.py", line 452, in create_table
+    tbl = LanceTable.create(
+          ^^^^^^^^^^^^^^^^^^
+  File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/lancedb/table.py", line 2489, in create
+    self._table = LOOP.run(
+                  ^^^^^^^^^
+  File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/lancedb/background_loop.py", line 25, in run
+    return asyncio.run_coroutine_threadsafe(future, self.loop).result()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/concurrent/futures/_base.py", line 456, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/concurrent/futures/_base.py", line 401, in __get_result
+    raise self._exception
+  File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/lancedb/db.py", line 793, in create_table
+    data, schema = sanitize_create_table(
+                   ^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/lancedb/table.py", line 409, in sanitize_create_table
+    data = _sanitize_data(
+           ^^^^^^^^^^^^^^^
+  File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/lancedb/table.py", line 260, in _sanitize_data
+    target_schema, reader = _infer_target_schema(reader)
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/lancedb/table.py", line 2942, in _infer_target_schema
+    peeked, reader = peek_reader(reader)
+                     ^^^^^^^^^^^^^^^^^^^
+  File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/lancedb/arrow.py", line 76, in peek_reader
+    batch = reader.read_next_batch()
+            ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "pyarrow/ipc.pxi", line 791, in pyarrow.lib.RecordBatchReader.read_next_batch
+  File "pyarrow/error.pxi", line 89, in pyarrow.lib.check_status
+  File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/lancedb/table.py", line 2825, in gen
+    batch = _handle_bad_vector_column(
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/lancedb/table.py", line 2873, in _handle_bad_vector_column
+    raise ValueError(
+ValueError: Vector column 'vector' has variable length vectors. Set on_bad_vectors='drop' to remove them, set on_bad_vectors='fill' and fill_value=<value> to replace them, or set on_bad_vectors='null' to replace them with null.

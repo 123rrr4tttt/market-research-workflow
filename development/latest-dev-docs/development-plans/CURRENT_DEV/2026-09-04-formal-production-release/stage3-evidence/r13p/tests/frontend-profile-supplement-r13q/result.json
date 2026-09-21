@@ -1,0 +1,80 @@
+{
+  "schema_version": "mrw.stage3.frontend-profile-supplement.v1",
+  "candidate": {
+    "name": "r13q",
+    "root": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260910-v4-r13q/candidate",
+    "commit": "bdd765316d80efdef243927d81e2daa9de20f81c",
+    "tree": "2734ad57714d270fa79561d0bf2ee0a3a922e34c",
+    "manifest_sha256": "4da75d49384e03243d6702afff9b8acdde875ac4f448affbaa92e588ad0db68d"
+  },
+  "scope": "frontend-modern compose profile supplemental validation only",
+  "status": "PASS_SCOPED_WITH_LIVE_PROVIDER_LIMITATION",
+  "authority_ceiling": "PRODUCTION_RELEASE_NOT_AUTHORIZED",
+  "candidate_modified": false,
+  "aggregate_or_e2e_rerun": false,
+  "remote_or_publish_action": false,
+  "images": {
+    "frontend_built_image_id": "sha256:ba4371babe064c5409d69a85e131a0aae48abb58a09ee0c2a4a21288c0c8ca77",
+    "frontend_runtime_libuuid": "2.42.3-r1",
+    "backend_reused_image_id": "sha256:66807fd419c59ebe7cac87756c1106ba1145908c2c1d9454622063fd462f0d9d",
+    "backend_input_identity": "unchanged from r13p to r13q"
+  },
+  "observations": {
+    "initial_up": {
+      "status": "ENVIRONMENT_COLLISION",
+      "cause": "host-local redis-server PID 1418 occupied 127.0.0.1:6379",
+      "frontend_started": false,
+      "resolution": "removed nonessential dependency host publishes and bound task endpoints to 127.0.0.1:18000 and 127.0.0.1:15174",
+      "host_redis_action": "NOT_STOPPED"
+    },
+    "corrected_compose_config": "PASS",
+    "corrected_profile_up_wait": "PASS",
+    "frontend_root_http_status": 200,
+    "frontend_static_asset_http_status": 200,
+    "backend_direct_health_http_status": 200,
+    "frontend_proxy_health_http_status": 200,
+    "backend_direct_deep_health_http_status": 200,
+    "frontend_proxy_deep_health_http_status": 200,
+    "deep_health_body_status": "degraded",
+    "live_provider": {
+      "status": "NOT_PASS_MISSING_OPENAI_API_KEY",
+      "missing_dependencies": [
+        "OPENAI_API_KEY"
+      ],
+      "database": "ok",
+      "database_pool": "ok",
+      "elasticsearch": "ok",
+      "redis_dependency_ping": "ok"
+    },
+    "build_log_postcheck_note": "01-frontend-image-build.log contains a non-gating docker inspect template typo (jsonjson); build exit was 0 and image identity was independently verified in 02-frontend-profile-up.log and 07-frontend-runtime-package.log"
+  },
+  "cleanup": {
+    "compose_project_containers": 0,
+    "compose_project_volumes": 0,
+    "compose_project_networks": 0,
+    "task_frontend_image_removed": true,
+    "reused_backend_image_preserved": true,
+    "host_ports_15174_and_18000_closed": true,
+    "host_local_redis_preserved": true,
+    "ops_scrapyd_container_id_before_after": "94d3ee03d0ba",
+    "ops_scrapyd_action": "NOT_TOUCHED"
+  },
+  "evidence_files": [
+    "compose.override.yml",
+    "00-identity-compose-config.log",
+    "01-frontend-image-build.log",
+    "02-frontend-profile-up.log",
+    "03-first-attempt-cleanup.log",
+    "04-compose-config-corrected.log",
+    "05-frontend-profile-up-corrected.log",
+    "06-frontend-profile-http-probes.log",
+    "07-frontend-runtime-package.log",
+    "08-cleanup-and-residue.log",
+    "09-structure-and-preservation-check.log"
+  ],
+  "hash_index": "SHA256SUMS.frontend-profile-supplement-r13q",
+  "preserved_prior_artifacts": [
+    "../summary.json",
+    "../SHA256SUMS"
+  ]
+}

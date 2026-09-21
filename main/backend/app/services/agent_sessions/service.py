@@ -6,6 +6,9 @@ import json
 from typing import Any
 from uuid import uuid4
 
+from functorial_kit import Failure
+from mrw_functorial_kit.core.agent_service_semantics import agent_session_failures
+
 from app.services.agent_runtime import (
     CoordinatorRuntime,
     SessionMemoryRuntime,
@@ -24,6 +27,7 @@ TASK_STATUSES = frozenset({"pending", "claimed", "in_progress", "blocked", "comp
 TASK_PHASES = frozenset({"conversation", "research", "synthesis", "implementation", "verification", "maintenance"})
 EXECUTION_MODES = frozenset({"coordinator", "worker", "system"})
 FINAL_TASK_STATUSES = frozenset({"completed", "failed", "canceled", "expired"})
+FAILURE_PACKAGE_SCHEMA_VERSION = "agent_failure_package.v1"
 
 
 def _utcnow() -> datetime:
@@ -34,26 +38,30 @@ def _new_id(prefix: str) -> str:
     return f"{prefix}-{uuid4().hex[:16]}"
 
 
-def _normalize_status(value: str, *, allowed: frozenset[str], default: str) -> str:
+def _failure(code: str, message: str, **context: Any) -> Failure:
+    return agent_session_failures.fail(code, message, context or None)
+
+
+def _normalize_status(value: str, *, allowed: frozenset[str], default: str) -> str | Failure:
     candidate = str(value or "").strip().lower()
     if not candidate:
         return default
     if candidate not in allowed:
-        raise ValueError(f"unsupported status: {candidate}")
+        return _failure("status_invalid", f"unsupported status: {candidate}", value=candidate)
     return candidate
 
 
-def _normalize_phase(value: str | None) -> str:
+def _normalize_phase(value: str | None) -> str | Failure:
     candidate = str(value or "").strip().lower() or "research"
     if candidate not in TASK_PHASES:
-        raise ValueError(f"unsupported phase: {candidate}")
+        return _failure("phase_invalid", f"unsupported phase: {candidate}", value=candidate)
     return candidate
 
 
-def _normalize_execution_mode(value: str | None) -> str:
+def _normalize_execution_mode(value: str | None) -> str | Failure:
     candidate = str(value or "").strip().lower() or "worker"
     if candidate not in EXECUTION_MODES:
-        raise ValueError(f"unsupported execution_mode: {candidate}")
+        return _failure("execution_mode_invalid", f"unsupported execution_mode: {candidate}", value=candidate)
     return candidate
 
 
@@ -104,12 +112,20 @@ class AgentSessionService:
             )
         return out
 
-    def get_session(self, session_id: str) -> dict[str, Any]:
+    def get_session(self, session_id: str) -> dict[str, Any] | Failure:
         tasks = self.store.list_tasks(session_id)
-        return self._decorate_session(self.store.get_session(session_id), tasks=tasks, task_count=len(tasks))
+        if isinstance(tasks, Failure):
+            return tasks
+        session = self.store.get_session(session_id)
+        if isinstance(session, Failure):
+            return session
+        return self._decorate_session(session, tasks=tasks, task_count=len(tasks))
 
-    def list_tasks(self, session_id: str) -> list[dict[str, Any]]:
-        tasks = [self._decorate_task(task) for task in self.store.list_tasks(session_id)]
+    def list_tasks(self, session_id: str) -> list[dict[str, Any]] | Failure:
+        rows = self.store.list_tasks(session_id)
+        if isinstance(rows, Failure):
+            return rows
+        tasks = [self._decorate_task(task) for task in rows]
         return tasks
 
     def list_events(self, session_id: str) -> list[dict[str, Any]]:
@@ -123,6 +139,132 @@ class AgentSessionService:
 
     def list_approvals(self, *, session_id: str | None = None) -> list[dict[str, Any]]:
         return list(self.store.list_approvals(session_id=session_id))
+
+    def export_failure_package(
+        self,
+        session_id: str,
+        *,
+        task_id: str | None = None,
+        run_id: str | None = None,
+    ) -> dict[str, Any] | Failure:
+        session_id = str(session_id or "").strip()
+        task_id = str(task_id or "").strip() or None
+        run_id = str(run_id or "").strip() or None
+        try:
+            session = self.store.get_session(session_id)
+            tasks = self.store.list_tasks(session_id)
+            events = self.store.list_events(session_id)
+        except KeyError:
+            return self._empty_failure_package(
+                session_id=session_id,
+                task_id=task_id,
+                run_id=run_id,
+                export_status="not_found",
+                reason_code="session_not_found",
+            )
+        if isinstance(session, Failure):
+            return self._empty_failure_package(
+                session_id=session_id,
+                task_id=task_id,
+                run_id=run_id,
+                export_status="not_found",
+                reason_code=session.code,
+            )
+        if isinstance(tasks, Failure) or isinstance(events, Failure):
+            return self._empty_failure_package(
+                session_id=session_id,
+                task_id=task_id,
+                run_id=run_id,
+                export_status="not_found",
+                reason_code=(tasks.code if isinstance(tasks, Failure) else events.code),
+            )
+
+        selected_task = self._select_failure_package_task(tasks, task_id=task_id, run_id=run_id)
+        if selected_task is None and task_id:
+            return self._empty_failure_package(
+                session_id=session_id,
+                task_id=task_id,
+                run_id=run_id,
+                export_status="not_found",
+                reason_code="task_not_found",
+                project_key=session.get("project_key"),
+            )
+        if selected_task is None and run_id and self._session_run_id(session) != run_id:
+            return self._empty_failure_package(
+                session_id=session_id,
+                task_id=task_id,
+                run_id=run_id,
+                export_status="not_found",
+                reason_code="run_not_found",
+                project_key=session.get("project_key"),
+            )
+
+        failed_tasks = [task for task in tasks if str(task.get("status") or "") == "failed"]
+        package_tasks = [selected_task] if selected_task is not None else failed_tasks
+        session_failed = str(session.get("status") or "") == "failed"
+        if selected_task is not None and str(selected_task.get("status") or "") != "failed":
+            return self._empty_failure_package(
+                session_id=session_id,
+                task_id=str(selected_task.get("task_id") or task_id or ""),
+                run_id=run_id or self._task_run_id(selected_task) or self._session_run_id(session),
+                export_status="not_failed",
+                reason_code="task_not_failed",
+                project_key=session.get("project_key"),
+            )
+        if not package_tasks and not session_failed:
+            return self._empty_failure_package(
+                session_id=session_id,
+                task_id=task_id,
+                run_id=run_id or self._session_run_id(session),
+                export_status="not_failed",
+                reason_code="session_not_failed",
+                project_key=session.get("project_key"),
+            )
+
+        scoped_events = self._scope_failure_events(events, tasks=package_tasks)
+        last_event = scoped_events[-1] if scoped_events else (events[-1] if events else None)
+        resolved_run_id = (
+            run_id
+            or self._first_non_empty([self._task_run_id(task) for task in package_tasks])
+            or self._session_run_id(session)
+        )
+        resolved_task_id = str(package_tasks[0].get("task_id") or "") if len(package_tasks) == 1 else task_id
+        trace_id = self._first_non_empty(
+            [self._task_trace_id(task) for task in package_tasks]
+            + [self._event_trace_id(event) for event in reversed(scoped_events)]
+            + [self._session_trace_id(session)]
+        )
+        errors = self._collect_failure_errors(package_tasks, scoped_events=scoped_events, session=session)
+        failed_steps = [self._failure_step_from_task(task) for task in package_tasks]
+        if not failed_steps and session_failed:
+            failed_steps.append(
+                {
+                    "scope": "session",
+                    "status": str(session.get("status") or ""),
+                    "summary": str(session.get("final_summary") or "").strip() or None,
+                }
+            )
+
+        failure_package = {
+            "session_id": session_id,
+            "run_id": resolved_run_id,
+            "task_id": resolved_task_id,
+            "project_key": session.get("project_key"),
+            "trace_id": trace_id,
+            "failed_steps": failed_steps,
+            "errors": errors,
+            "retry_hint": self._build_failure_retry_hint(
+                session_id=session_id,
+                task=package_tasks[0] if len(package_tasks) == 1 else None,
+            ),
+            "last_event": last_event,
+            "export_schema_version": FAILURE_PACKAGE_SCHEMA_VERSION,
+        }
+        return {
+            "export_status": "ok",
+            "reason_code": None,
+            "failure_package": failure_package,
+        }
 
     def find_session_by_compat_job_id(self, compat_job_id: str) -> dict[str, Any] | None:
         item = self.store.find_session_by_compat_job_id(compat_job_id)
@@ -151,13 +293,15 @@ class AgentSessionService:
         logical_task_list_key: str | None = None,
         metadata: dict[str, Any] | None = None,
         task_blueprints: list[dict[str, Any]] | None = None,
-    ) -> dict[str, Any]:
+    ) -> dict[str, Any] | Failure:
         session_id = _new_id("as")
         session_metadata = dict(metadata or {})
         if initial_context:
             session_metadata.setdefault("initial_context", dict(initial_context))
         blueprints = list(task_blueprints or self._build_default_task_blueprints(goal))
         normalized_blueprints = self._materialize_blueprints(goal=goal, blueprints=blueprints)
+        if isinstance(normalized_blueprints, Failure):
+            return normalized_blueprints
         root_task_id = str(normalized_blueprints[0]["task_id"] or "")
         session = self.store.create_session(
             {
@@ -176,9 +320,13 @@ class AgentSessionService:
                 "final_result": {},
             }
         )
+        if isinstance(session, Failure):
+            return session
         for blueprint in normalized_blueprints:
-            self.store.create_task({"session_id": session_id, **blueprint})
-        self.store.create_message(
+            created_task = self.store.create_task({"session_id": session_id, **blueprint})
+            if isinstance(created_task, Failure):
+                return created_task
+        message = self.store.create_message(
             {
                 "session_id": session_id,
                 "role": "user",
@@ -187,8 +335,10 @@ class AgentSessionService:
                 "metadata": {"entrypoint_type": entrypoint_type, "source": source},
             }
         )
+        if isinstance(message, Failure):
+            return message
         self._bootstrap_memory_artifacts(session)
-        self.store.append_event(
+        created_event = self.store.append_event(
             session_id,
             event_type="session.created",
             payload={
@@ -198,8 +348,10 @@ class AgentSessionService:
                 "root_task_id": session["root_task_id"],
             },
         )
+        if isinstance(created_event, Failure):
+            return created_event
         for task in self.store.list_tasks(session_id):
-            self.store.append_event(
+            created_event = self.store.append_event(
                 session_id,
                 event_type="task.created",
                 task_id=task["task_id"],
@@ -210,11 +362,15 @@ class AgentSessionService:
                     "write_set": list(task["write_set"] or []),
                 },
             )
+            if isinstance(created_event, Failure):
+                return created_event
         self._refresh_memory_artifacts(session_id, force=True)
         return self.get_session_bundle(session_id)
 
-    def get_session_bundle(self, session_id: str) -> dict[str, Any]:
+    def get_session_bundle(self, session_id: str) -> dict[str, Any] | Failure:
         session = self.get_session(session_id)
+        if isinstance(session, Failure):
+            return session
         return {
             "session": session,
             "tasks": self.list_tasks(session_id),
@@ -233,8 +389,10 @@ class AgentSessionService:
         actor: str | None = None,
         task_id: str | None = None,
         metadata: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        self.store.get_session(session_id)
+    ) -> dict[str, Any] | Failure:
+        session = self.store.get_session(session_id)
+        if isinstance(session, Failure):
+            return session
         row = self.store.create_message(
             {
                 "session_id": session_id,
@@ -245,6 +403,8 @@ class AgentSessionService:
                 "metadata": dict(metadata or {}),
             }
         )
+        if isinstance(row, Failure):
+            return row
         self.store.append_event(
             session_id,
             event_type="message.created",
@@ -260,15 +420,21 @@ class AgentSessionService:
         *,
         goal: str | None = None,
         task_blueprints: list[dict[str, Any]],
-    ) -> list[dict[str, Any]]:
+    ) -> list[dict[str, Any]] | Failure:
         session = self.store.get_session(session_id)
+        if isinstance(session, Failure):
+            return session
         materialized = self._materialize_blueprints(
             goal=str(goal or session.get("goal") or "").strip(),
             blueprints=list(task_blueprints or []),
         )
+        if isinstance(materialized, Failure):
+            return materialized
         created: list[dict[str, Any]] = []
         for blueprint in materialized:
             task = self.store.create_task({"session_id": session_id, **blueprint})
+            if isinstance(task, Failure):
+                return task
             self.store.append_event(
                 session_id,
                 event_type="task.created",
@@ -285,16 +451,36 @@ class AgentSessionService:
         self._refresh_memory_artifacts(session_id, force=True)
         return created
 
-    def claim_task(self, session_id: str, task_id: str, *, owner: str, lease_seconds: int = 300) -> dict[str, Any]:
-        self.reclaim_expired_tasks(session_id)
+    def claim_task(self, session_id: str, task_id: str, *, owner: str, lease_seconds: int = 300) -> dict[str, Any] | Failure:
+        reclaimed = self.reclaim_expired_tasks(session_id)
+        if isinstance(reclaimed, Failure):
+            return reclaimed
         task = self.store.get_task(session_id, task_id)
+        if isinstance(task, Failure):
+            return task
         tasks = self.store.list_tasks(session_id)
+        if isinstance(tasks, Failure):
+            return tasks
         if task["status"] not in {"pending", "blocked"}:
-            raise ValueError(f"task not claimable from status={task['status']}")
+            return _failure(
+                "task_not_claimable",
+                f"task not claimable from status={task['status']}",
+                session_id=session_id,
+                task_id=task_id,
+                status=task["status"],
+            )
         unresolved = find_unresolved_dependencies(task, tasks)
         if unresolved:
-            raise ValueError("task dependencies are not completed")
-        assert_no_write_conflict(tasks, task_id, list(task.get("write_set") or []))
+            return _failure(
+                "task_dependencies_incomplete",
+                "task dependencies are not completed",
+                session_id=session_id,
+                task_id=task_id,
+                dependencies=list(unresolved),
+            )
+        conflict = assert_no_write_conflict(tasks, task_id, list(task.get("write_set") or []))
+        if isinstance(conflict, Failure):
+            return conflict
         now = _utcnow()
         updated = self.store.update_task(
             session_id,
@@ -308,7 +494,11 @@ class AgentSessionService:
                 "last_activity": "task claimed",
             },
         )
+        if isinstance(updated, Failure):
+            return updated
         updated = self.store.update_task(session_id, task_id, {"summary_label": build_summary_label(updated)})
+        if isinstance(updated, Failure):
+            return updated
         self._sync_session_state(session_id)
         self.store.append_event(
             session_id,
@@ -327,8 +517,10 @@ class AgentSessionService:
         activity: str | None = None,
         tool_use_count: int | None = None,
         token_usage: int | None = None,
-    ) -> dict[str, Any]:
+    ) -> dict[str, Any] | Failure:
         task = self.store.get_task(session_id, task_id)
+        if isinstance(task, Failure):
+            return task
         now = _utcnow()
         recent_activities = list(task.get("recent_activities") or [])
         if activity:
@@ -347,7 +539,11 @@ class AgentSessionService:
                 "token_usage": int(token_usage) if token_usage is not None else int(task.get("token_usage") or 0),
             },
         )
+        if isinstance(updated, Failure):
+            return updated
         updated = self.store.update_task(session_id, task_id, {"summary_label": build_summary_label(updated)})
+        if isinstance(updated, Failure):
+            return updated
         self.store.append_event(
             session_id,
             event_type="task.heartbeat",
@@ -373,9 +569,13 @@ class AgentSessionService:
         tool_use_count: int | None = None,
         token_usage: int | None = None,
         activity: str | None = None,
-    ) -> dict[str, Any]:
+    ) -> dict[str, Any] | Failure:
         normalized_status = _normalize_status(status, allowed=TASK_STATUSES, default="completed")
+        if isinstance(normalized_status, Failure):
+            return normalized_status
         task = self.store.get_task(session_id, task_id)
+        if isinstance(task, Failure):
+            return task
         recent_activities = list(task.get("recent_activities") or [])
         if activity:
             recent_activities.append(str(activity))
@@ -393,7 +593,11 @@ class AgentSessionService:
         if normalized_status in FINAL_TASK_STATUSES:
             changes["completed_at"] = _utcnow()
         updated = self.store.update_task(session_id, task_id, changes)
+        if isinstance(updated, Failure):
+            return updated
         updated = self.store.update_task(session_id, task_id, {"summary_label": build_summary_label(updated)})
+        if isinstance(updated, Failure):
+            return updated
         if normalized_status == "completed":
             self._unblock_dependents(session_id, task_id)
         self._sync_session_state(session_id)
@@ -410,8 +614,15 @@ class AgentSessionService:
         self._maybe_refresh_memory(session_id)
         return self._decorate_task(updated)
 
-    def retry_task(self, session_id: str, task_id: str) -> dict[str, Any]:
+    def retry_task(self, session_id: str, task_id: str) -> dict[str, Any] | Failure:
         task = self.store.get_task(session_id, task_id)
+        if isinstance(task, Failure):
+            return task
+        if str(task.get("status") or "") == "pending":
+            out = self._decorate_task(task)
+            out["action_status"] = "already_pending"
+            out["retry_status"] = "already_pending"
+            return out
         updated = self.store.update_task(
             session_id,
             task_id,
@@ -426,7 +637,12 @@ class AgentSessionService:
                 "summary_label": f"{task['subject']} [pending]",
             },
         )
-        for item in self.store.list_tasks(session_id):
+        if isinstance(updated, Failure):
+            return updated
+        items = self.store.list_tasks(session_id)
+        if isinstance(items, Failure):
+            return items
+        for item in items:
             if task_id in list(item.get("blocked_by") or []):
                 self.store.update_task(
                     session_id,
@@ -439,10 +655,15 @@ class AgentSessionService:
                 )
         self._sync_session_state(session_id)
         self.store.append_event(session_id, event_type="task.retried", task_id=task_id, payload={"task_id": task_id})
-        return self._decorate_task(updated)
+        out = self._decorate_task(updated)
+        out["action_status"] = "retried"
+        out["retry_status"] = "retried"
+        return out
 
-    def reclaim_expired_tasks(self, session_id: str) -> list[dict[str, Any]]:
+    def reclaim_expired_tasks(self, session_id: str) -> list[dict[str, Any]] | Failure:
         tasks = self.store.list_tasks(session_id)
+        if isinstance(tasks, Failure):
+            return tasks
         expired_task_ids = collect_expired_task_ids(tasks)
         reclaimed: list[dict[str, Any]] = []
         for task_id in expired_task_ids:
@@ -457,7 +678,11 @@ class AgentSessionService:
                     "completed_at": _utcnow(),
                 },
             )
+            if isinstance(updated, Failure):
+                return updated
             updated = self.store.update_task(session_id, task_id, {"summary_label": build_summary_label(updated)})
+            if isinstance(updated, Failure):
+                return updated
             self.store.append_event(
                 session_id,
                 event_type="task.expired",
@@ -502,7 +727,10 @@ class AgentSessionService:
         approved_at: datetime | None = None,
         metadata: dict[str, Any] | None = None,
         audit_log: list[dict[str, Any]] | None = None,
-    ) -> dict[str, Any]:
+    ) -> dict[str, Any] | Failure:
+        normalized_status = _normalize_status(status, allowed=SESSION_STATUSES | {"approved", "pending"}, default="pending")
+        if isinstance(normalized_status, Failure):
+            return normalized_status
         row = self.store.create_or_update_approval(
             {
                 "approval_id": str(approval_id or "").strip(),
@@ -514,11 +742,13 @@ class AgentSessionService:
                 "approved_by": approved_by,
                 "approved_at": approved_at,
                 "expires_at": expires_at,
-                "status": _normalize_status(status, allowed=SESSION_STATUSES | {"approved", "pending"}, default="pending"),
+                "status": normalized_status,
                 "metadata": dict(metadata or {}),
                 "audit_log": list(audit_log or []),
             }
         )
+        if isinstance(row, Failure):
+            return row
         if requester_session_id:
             self._ensure_approval_wait_task(
                 requester_session_id=requester_session_id,
@@ -542,8 +772,10 @@ class AgentSessionService:
         requester_actor: str,
         expires_at: datetime | None = None,
         metadata: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
+    ) -> dict[str, Any] | Failure:
         task = self.store.get_task(session_id, task_id)
+        if isinstance(task, Failure):
+            return task
         approval_id = str((metadata or {}).get("approval_id") or _new_id("approval")).strip()
         if not requires_approval_for_task(task):
             task_metadata = dict(task.get("metadata") or {})
@@ -570,8 +802,25 @@ class AgentSessionService:
         self._sync_session_state(session_id)
         return row
 
-    def resolve_approval(self, approval_id: str, *, approved_by: str, approved: bool = True) -> dict[str, Any]:
+    def resolve_approval(
+        self,
+        approval_id: str,
+        *,
+        approved_by: str,
+        approved: bool = True,
+    ) -> dict[str, Any] | Failure:
         current = self.store.get_approval(approval_id)
+        if isinstance(current, Failure):
+            return current
+        requested_status = "approved" if approved else "failed"
+        current_status = str(current.get("status") or "").strip().lower()
+        if current_status in {"approved", "failed"}:
+            out = dict(current)
+            out["requested_status"] = requested_status
+            out["final_status"] = current_status
+            out["action_status"] = "already_final" if current_status == requested_status else "conflict"
+            out["resolution_status"] = out["action_status"]
+            return out
         audit_log = list(current.get("audit_log") or [])
         audit_log.append(
             {
@@ -583,7 +832,7 @@ class AgentSessionService:
         row = self.store.create_or_update_approval(
             {
                 **current,
-                "status": "approved" if approved else "failed",
+                "status": requested_status,
                 "approved_by": str(approved_by or "unknown").strip() or "unknown",
                 "approved_at": _utcnow(),
                 "audit_log": audit_log,
@@ -604,6 +853,11 @@ class AgentSessionService:
                 task_id=row.get("requester_task_id"),
                 payload={"approval_id": approval_id, "approved_by": row.get("approved_by")},
             )
+        row = dict(row)
+        row["requested_status"] = requested_status
+        row["final_status"] = str(row.get("status") or "")
+        row["action_status"] = "resolved"
+        row["resolution_status"] = "resolved"
         return row
 
     def run_coordinator_pass(self, session_id: str) -> dict[str, Any]:
@@ -985,6 +1239,207 @@ class AgentSessionService:
         self._refresh_memory_artifacts(session_id, force=True)
         return self.get_session_bundle(session_id)
 
+    @staticmethod
+    def _empty_failure_package(
+        *,
+        session_id: str,
+        task_id: str | None = None,
+        run_id: str | None = None,
+        export_status: str,
+        reason_code: str,
+        project_key: str | None = None,
+    ) -> dict[str, Any]:
+        return {
+            "export_status": export_status,
+            "reason_code": reason_code,
+            "failure_package": None,
+            "empty_package": {
+                "session_id": session_id,
+                "run_id": run_id,
+                "task_id": task_id,
+                "project_key": project_key,
+                "export_schema_version": FAILURE_PACKAGE_SCHEMA_VERSION,
+            },
+        }
+
+    def _select_failure_package_task(
+        self,
+        tasks: list[dict[str, Any]],
+        *,
+        task_id: str | None,
+        run_id: str | None,
+    ) -> dict[str, Any] | None:
+        if task_id:
+            return next(
+                (
+                    task
+                    for task in tasks
+                    if str(task.get("task_id") or "") == task_id
+                    or str(dict(task.get("metadata") or {}).get("task_id") or "") == task_id
+                ),
+                None,
+            )
+        if run_id:
+            return next((task for task in tasks if self._task_matches_run_id(task, run_id)), None)
+        return None
+
+    @classmethod
+    def _task_matches_run_id(cls, task: dict[str, Any], run_id: str) -> bool:
+        return run_id in {
+            str(value or "").strip()
+            for value in (
+                cls._task_run_id(task),
+                dict(task.get("metadata") or {}).get("workflow_run_id"),
+                dict(task.get("metadata") or {}).get("run_id"),
+                dict(task.get("result_payload") or {}).get("workflow_run_id"),
+                dict(task.get("result_payload") or {}).get("run_id"),
+            )
+            if str(value or "").strip()
+        }
+
+    @staticmethod
+    def _first_non_empty(values: list[Any]) -> str | None:
+        for value in values:
+            candidate = str(value or "").strip()
+            if candidate:
+                return candidate
+        return None
+
+    @classmethod
+    def _session_run_id(cls, session: dict[str, Any]) -> str | None:
+        metadata = dict(session.get("metadata") or {})
+        workflow_graph = dict(metadata.get("workflow_graph") or {})
+        agent_batch = dict(metadata.get("agent_batch") or {})
+        return cls._first_non_empty(
+            [
+                workflow_graph.get("run_id"),
+                agent_batch.get("run_id"),
+                session.get("logical_task_list_key"),
+                session.get("compat_job_id"),
+            ]
+        )
+
+    @classmethod
+    def _session_trace_id(cls, session: dict[str, Any]) -> str | None:
+        metadata = dict(session.get("metadata") or {})
+        initial_context = dict(metadata.get("initial_context") or {})
+        return cls._first_non_empty([metadata.get("trace_id"), initial_context.get("trace_id")])
+
+    @classmethod
+    def _task_run_id(cls, task: dict[str, Any]) -> str | None:
+        metadata = dict(task.get("metadata") or {})
+        result_payload = dict(task.get("result_payload") or {})
+        task_spec = dict(task.get("task_spec") or {})
+        context = dict(task_spec.get("context") or {})
+        workflow_node = dict(metadata.get("workflow_graph_node") or {})
+        return cls._first_non_empty(
+            [
+                metadata.get("run_id"),
+                metadata.get("workflow_run_id"),
+                workflow_node.get("run_id"),
+                result_payload.get("run_id"),
+                result_payload.get("workflow_run_id"),
+                context.get("run_id"),
+            ]
+        )
+
+    @classmethod
+    def _task_trace_id(cls, task: dict[str, Any]) -> str | None:
+        metadata = dict(task.get("metadata") or {})
+        result_payload = dict(task.get("result_payload") or {})
+        task_spec = dict(task.get("task_spec") or {})
+        context = dict(task_spec.get("context") or {})
+        return cls._first_non_empty(
+            [
+                metadata.get("trace_id"),
+                result_payload.get("trace_id"),
+                context.get("trace_id"),
+            ]
+        )
+
+    @staticmethod
+    def _event_trace_id(event: dict[str, Any]) -> str | None:
+        payload = dict(event.get("payload") or {})
+        return str(payload.get("trace_id") or "").strip() or None
+
+    @staticmethod
+    def _scope_failure_events(events: list[dict[str, Any]], *, tasks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        task_ids = {str(task.get("task_id") or "") for task in tasks if str(task.get("task_id") or "")}
+        if not task_ids:
+            return list(events)
+        return [event for event in events if str(event.get("task_id") or "") in task_ids]
+
+    def _collect_failure_errors(
+        self,
+        tasks: list[dict[str, Any]],
+        *,
+        scoped_events: list[dict[str, Any]],
+        session: dict[str, Any],
+    ) -> list[dict[str, Any]]:
+        errors: list[dict[str, Any]] = []
+        for task in tasks:
+            task_id = str(task.get("task_id") or "")
+            result_payload = dict(task.get("result_payload") or {})
+            for key in ("error", "errors", "exception", "error_code", "reason", "reason_code"):
+                if key not in result_payload:
+                    continue
+                value = result_payload.get(key)
+                if isinstance(value, list):
+                    for item in value:
+                        errors.append({"source": f"task.result_payload.{key}", "task_id": task_id, "detail": item})
+                else:
+                    errors.append({"source": f"task.result_payload.{key}", "task_id": task_id, "detail": value})
+            result_summary = str(task.get("result_summary") or "").strip()
+            if result_summary:
+                errors.append({"source": "task.result_summary", "task_id": task_id, "message": result_summary})
+        for event in scoped_events:
+            payload = dict(event.get("payload") or {})
+            for key in ("error", "errors", "exception", "reason", "reason_code"):
+                if key in payload:
+                    errors.append(
+                        {
+                            "source": f"event.payload.{key}",
+                            "task_id": event.get("task_id"),
+                            "event_type": event.get("event_type"),
+                            "detail": payload.get(key),
+                        }
+                    )
+        final_result = dict(session.get("final_result") or {})
+        if not errors and final_result:
+            errors.append({"source": "session.final_result", "detail": final_result})
+        return errors
+
+    @classmethod
+    def _failure_step_from_task(cls, task: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "task_id": task.get("task_id"),
+            "subject": task.get("subject"),
+            "phase": task.get("phase"),
+            "status": task.get("status"),
+            "summary": task.get("result_summary"),
+            "last_activity": task.get("last_activity"),
+            "completed_at": task.get("completed_at"),
+            "run_id": cls._task_run_id(task),
+            "trace_id": cls._task_trace_id(task),
+        }
+
+    @staticmethod
+    def _build_failure_retry_hint(*, session_id: str, task: dict[str, Any] | None) -> dict[str, Any]:
+        if task is None:
+            return {
+                "retryable": False,
+                "reason": "session_level_failure",
+                "next_action": "inspect_failed_steps",
+            }
+        task_id = str(task.get("task_id") or "")
+        return {
+            "retryable": True,
+            "next_action": "retry_task",
+            "method": "POST",
+            "endpoint": f"/api/v1/agent-sessions/{session_id}/actions/retry-task",
+            "payload": {"task_id": task_id},
+        }
+
     def _ensure_approval_wait_task(
         self,
         *,
@@ -997,10 +1452,13 @@ class AgentSessionService:
         approval_id = str(approval.get("approval_id") or "").strip()
         if not approval_id:
             return None
+        session_tasks = self.store.list_tasks(requester_session_id)
+        if isinstance(session_tasks, Failure):
+            return None
         existing = next(
             (
                 task
-                for task in self.store.list_tasks(requester_session_id)
+                for task in session_tasks
                 if str(task.get("task_type") or "") == "approval_wait"
                 and str(dict(task.get("metadata") or {}).get("approval_id") or "") == approval_id
             ),
@@ -1011,6 +1469,8 @@ class AgentSessionService:
         try:
             gated_task = self.store.get_task(requester_session_id, requester_task_id)
         except KeyError:
+            return None
+        if isinstance(gated_task, Failure):
             return None
         if str(gated_task.get("status") or "") not in FINAL_TASK_STATUSES:
             self.store.update_task(
@@ -1058,6 +1518,8 @@ class AgentSessionService:
                 "summary_label": f"Approval wait: {approval_id}",
             }
         )
+        if isinstance(task, Failure):
+            return None
         self.store.append_event(
             requester_session_id,
             event_type="approval.waiting",
@@ -1210,7 +1672,7 @@ class AgentSessionService:
             },
         ]
 
-    def _materialize_blueprints(self, *, goal: str, blueprints: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    def _materialize_blueprints(self, *, goal: str, blueprints: list[dict[str, Any]]) -> list[dict[str, Any]] | Failure:
         materialized: list[dict[str, Any]] = []
         prev_task_id: str | None = None
         for blueprint in blueprints:
@@ -1220,7 +1682,11 @@ class AgentSessionService:
             if "prev" in blocked_refs and prev_task_id:
                 blocked_by.append(prev_task_id)
             phase = _normalize_phase(blueprint.get("phase"))
+            if isinstance(phase, Failure):
+                return phase
             status = _normalize_status(str(blueprint.get("status") or ("blocked" if blocked_by else "pending")), allowed=TASK_STATUSES, default="pending")
+            if isinstance(status, Failure):
+                return status
             if blocked_by and status == "pending":
                 status = "blocked"
             task = {
@@ -1257,6 +1723,8 @@ class AgentSessionService:
                 "recent_activities": list(blueprint.get("recent_activities") or []),
                 "summary_label": blueprint.get("summary_label"),
             }
+            if isinstance(task["execution_mode"], Failure):
+                return task["execution_mode"]
             task["summary_label"] = task["summary_label"] or build_summary_label(task)
             materialized.append(task)
             prev_task_id = task_id

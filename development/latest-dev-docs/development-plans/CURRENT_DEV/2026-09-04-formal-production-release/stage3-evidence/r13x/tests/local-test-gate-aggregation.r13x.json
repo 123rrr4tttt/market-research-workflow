@@ -1,0 +1,98 @@
+{
+  "schema_version": "mrw.stage3.local-test-gate-aggregation.v1",
+  "authoritative": false,
+  "candidate": {
+    "name": "r13x",
+    "commit": "8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+    "tree": "ce7c67c831b51f9d64b4c2f1a470a724a50b19df",
+    "candidate_clean": true,
+    "replay_clean": true
+  },
+  "status": {
+    "local_test_gate": "PASS_SCOPED_WITH_BYTE_IDENTITY_REUSE",
+    "runtime_evidence": "PASS_SCOPED",
+    "stage3": "NOT_ASSERTED_BY_THIS_LOCAL_TEST_LEDGER",
+    "authority_ceiling": "PRODUCTION_RELEASE_NOT_AUTHORIZED"
+  },
+  "fresh_gates": [
+    {
+      "gate": "affected_formal_release",
+      "status": "PASS",
+      "result": "84 passed",
+      "exit_code": 0,
+      "log": "01-affected-formal-release.r13x.log",
+      "junit": "01-affected-formal-release.r13x.junit.xml"
+    },
+    {
+      "gate": "p0d_postgresql_opt_in",
+      "status": "PASS",
+      "result": "3 passed (one guard plus two capacity-behavior tests)",
+      "exit_code": 0,
+      "transport": "task-owned PostgreSQL Unix socket",
+      "log": "02-postgresql-opt-in.r13x.log",
+      "junit": "02-postgresql-opt-in.r13x.junit.xml"
+    },
+    {
+      "gate": "architecture",
+      "status": "PASS",
+      "result": "304 passed",
+      "exit_code": 0,
+      "python": "3.11.15",
+      "tool": "functorial-kit base 785ff25e201c9eae84c862e68e786bc975e7a800 plus manifest-verified patch f6145cafe16db0805ded7d93f752189ed4849353a1a10033c405310ed11dee03",
+      "log": "03c-architecture-exact-patched-kit-py311.r13x.log",
+      "junit": "03c-architecture-exact-patched-kit-py311.r13x.junit.xml"
+    }
+  ],
+  "invocation_defects": [
+    {
+      "attempt": "03",
+      "result": "3 failed, 301 passed",
+      "classification": "NON_CONTRACT_RUNNER_ENVIRONMENT",
+      "cause": "workspace Python 3.13 imported its installed unpatched functorial_kit instead of the candidate's manifest-defined consumer-gate tool",
+      "superseded_by": "03c",
+      "candidate_blocker": false,
+      "log": "03-architecture.r13x.log",
+      "junit": "03-architecture.r13x.junit.xml"
+    },
+    {
+      "attempt": "03b",
+      "result": "no tests ran; pytest exit 4",
+      "classification": "INVOCATION_PATH_DEFECT",
+      "cause": "the command ran outside the candidate repository root and could not find tests/test_architecture.py",
+      "superseded_by": "03c",
+      "candidate_blocker": false,
+      "log": "03b-architecture-exact-vendored-kit.r13x.log",
+      "junit": "03b-architecture-exact-vendored-kit.r13x.junit.xml"
+    }
+  ],
+  "reused_gates": {
+    "map": "dependency-reuse-map.r13x.json",
+    "status": "PASS_WITH_SOURCE_ATTRIBUTION",
+    "covered": [
+      "backend unit",
+      "backend integration",
+      "core business",
+      "schema guard",
+      "migration schema contracts",
+      "successor runtime non-PostgreSQL",
+      "frontend frozen install, lint, typecheck and build",
+      "frontend full E2E, focused fixture E2E and scripted-provider E2E"
+    ]
+  },
+  "runtime_reference": {
+    "summary": "../runtime/summary.json",
+    "result": "candidate identity PASS; migrations and full-stack smoke PASS within recorded scope",
+    "limitation": "OPENAI_API_KEY was absent, so deep health remained degraded for the live-provider dependency; this ledger does not grant live-provider or release authority"
+  },
+  "not_proved_or_not_rerun_here": [
+    "No Docker image build was rerun by the tests lane.",
+    "No live-provider test with OPENAI_API_KEY was run.",
+    "No remote required-check, registry, signing, publish, deploy, canary or cutover authority is established.",
+    "This local ledger does not independently prove the separate security or artifact gates."
+  ],
+  "cleanup": {
+    "record": "cleanup.r13x.json",
+    "status": "PASS"
+  },
+  "evidence_index": "SHA256SUMS"
+}

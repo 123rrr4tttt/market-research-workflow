@@ -1,0 +1,62 @@
+{
+  "assertions": {
+    "after_missing_payload_identity_consistent": true,
+    "before_info_logs_mismatch": true,
+    "correct_direct_fixture_still_exposes_defect": true,
+    "direct_default_is_query_object": true,
+    "explicit_provider_task_id_precedes_fallback": true,
+    "fastapi_http_default_is_none": true
+  },
+  "database_contacted": false,
+  "identity_overlay": {
+    "before": {
+      "explicit_payload_info_task_id": "provider-task-9",
+      "missing_payload_info_task_id": null,
+      "missing_payload_logs_task_id": "db-job-7",
+      "missing_payload_projection_task_id": null
+    },
+    "fixture_conclusion": "Passing project_key=None repairs the direct-call fixture boundary but leaves current production projection task_id=None; it cannot remove the overlay defect.",
+    "merge_order": "{**task_info, **runtime_projection}; runtime_projection is later and overwrites task_info.task_id.",
+    "precedence_rule": "first_non_empty(payload task_id, db-job-{job.id})",
+    "proposed_after": {
+      "explicit_payload_info_task_id": "provider-task-9",
+      "missing_payload_info_task_id": "db-job-7",
+      "missing_payload_logs_task_id": "db-job-7",
+      "missing_payload_projection_task_id": "db-job-7"
+    }
+  },
+  "isolated": true,
+  "network_contacted": false,
+  "query_default": {
+    "direct_explicit_none_converter_project_key_is_none": true,
+    "direct_explicit_none_info_task_id": null,
+    "direct_omitted_bind_argument_is_declared_default": true,
+    "direct_omitted_converter_project_key_type": "fastapi.params.Query",
+    "direct_omitted_info_task_id": null,
+    "field_default_repr": "None",
+    "field_default_type": "builtins.NoneType",
+    "http_omitted_query_converter_project_key_is_none": true,
+    "http_omitted_query_info_task_id": null,
+    "interpretation": {
+      "direct_python_explicit_none": "Receives None and does not call bind_project; this is the correct isolated fixture invocation.",
+      "direct_python_omitted": "Receives the declared fastapi.params.Query object and, because it is truthy, passes that object to bind_project.",
+      "fastapi_http_omitted": "FastAPI request parsing resolves the missing query parameter to the Query field default None before invoking the endpoint."
+    },
+    "is_none": false,
+    "repr": "Query(None)",
+    "str": "annotation=Union[str, NoneType] required=False default=None alias='project_key' description='项目标识（用于查询对应项目 schema 的 DB job）' json_schema_extra={}",
+    "truthy": true,
+    "type": "fastapi.params.Query"
+  },
+  "runtime": {
+    "fastapi_version": "0.120.4",
+    "python_function": "app.api.process.get_task_info"
+  },
+  "schema_version": "mrw.stage1.contract13.process_api_witness.v2",
+  "source_binding": {
+    "before_sha256": "790b6cb90086d6ba1171309e572b7e7be4c906db3705170dbd4a12ca7ea16c63",
+    "path": "main/backend/app/api/process.py",
+    "proposed_after_sha256": "5687389bdad57881a0f96543ba32ac4eaaaeef0f7939f8f7e36e16316ed7ee61",
+    "replacement_occurrences": 1
+  }
+}

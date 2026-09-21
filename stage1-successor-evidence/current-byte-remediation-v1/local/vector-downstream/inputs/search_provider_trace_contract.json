@@ -1,0 +1,73 @@
+{
+  "auto_route": {
+    "local_open_search_called": false,
+    "result_sources": [
+      "serper"
+    ],
+    "searxng_called": false,
+    "yacy_called": false
+  },
+  "contract_version": "search-provider-trace-artifacts.v1",
+  "explicit_results": {
+    "searxng": {
+      "backend_trace": {
+        "auto_included": false,
+        "pageno": 1,
+        "provider": "searxng",
+        "provider_family": "local_open_search",
+        "provider_route": "explicit:searxng"
+      },
+      "canonical_link": "https://example.com/robotics?keep=1",
+      "link": "https://example.com/robotics?keep=1",
+      "provider_auto_included": false,
+      "provider_family": "local_open_search",
+      "provider_route": "explicit:searxng",
+      "raw": {
+        "category": "general",
+        "engine": "bing",
+        "engines": null,
+        "pageno": 1,
+        "publishedDate": null
+      },
+      "source": "searxng",
+      "title": "Robotics policy"
+    },
+    "yacy": {
+      "backend_trace": {
+        "auto_included": false,
+        "provider": "yacy",
+        "provider_family": "local_open_search",
+        "provider_route": "explicit:yacy",
+        "resource": "local"
+      },
+      "canonical_link": "https://example.org/local",
+      "link": "https://example.org/local",
+      "provider_auto_included": false,
+      "provider_family": "local_open_search",
+      "provider_route": "explicit:yacy",
+      "raw": {
+        "origin": "example.org",
+        "pubDate": null,
+        "resource": "local",
+        "size": null
+      },
+      "source": "yacy",
+      "title": "Local robotics note"
+    }
+  },
+  "generated_by": "ops/search-lab/scripts/search_provider_trace_contract.py",
+  "provider_auto_policy": {
+    "excluded_local_open_search_providers": [
+      "searxng",
+      "yacy"
+    ],
+    "reason": "local open-search providers remain explicit-only until replay, quality, timeout, and approval-gate evidence is separately accepted"
+  },
+  "required_result_fields": [
+    "provider_route",
+    "provider_family",
+    "provider_auto_included",
+    "backend_trace"
+  ],
+  "scope": "offline_unit_contract_no_containers"
+}

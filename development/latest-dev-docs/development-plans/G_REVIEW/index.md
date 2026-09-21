@@ -1,6 +1,6 @@
 # Development Plans Review Index
 
-更新时间：2026-05-22（PST）
+更新时间：2026-05-26（PST）
 
 历史字母分层结构说明：`A_INDEX`（导航索引）-> `B_MERGED`（合并正文）-> `C_REVIEW`（复核结论）-> `D_SOURCE`（来源拆分文档）。
 
@@ -11,8 +11,12 @@ Generated: 2026-03-01 07:31:19 PST
 Quick Links:
 - [main/MERGED_DEVELOPMENT_PLANS.md](../main/MERGED_DEVELOPMENT_PLANS.md)
 - [G_REVIEW/MERGED_DEVELOPMENT_PLANS_REVIEW.md](./MERGED_DEVELOPMENT_PLANS_REVIEW.md)
+- [G_REVIEW/current-platformization-gap-2026-05-26.md](./current-platformization-gap-2026-05-26.md)
 - [development-plans INDEX](../INDEX.md)
 - Current category indexes: [A_ARCHITECTURE](../A_ARCHITECTURE/INDEX.md), [B_API](../B_API/INDEX.md), [C_INGEST](../C_INGEST/INDEX.md), [D_TEST](../D_TEST/INDEX.md), [E_OPS](../E_OPS/INDEX.md), [F_PLAN](../F_PLAN/INDEX.md)
+
+Current Reviews:
+- [2026-05-26 当前平台化差距复核](./current-platformization-gap-2026-05-26.md)
 
 Merged Draft:
 - `../main/MERGED_DEVELOPMENT_PLANS.md` (merged from `01`-`11`, organized by phase/milestone/dependencies)

@@ -1,0 +1,387 @@
+{
+  "authoritative": false,
+  "authority": {
+    "candidate_promotion": false,
+    "cutover": false,
+    "deployment": false,
+    "external_delivery": false,
+    "legacy_retirement": false,
+    "live_provider": false,
+    "production_canonical_write": false,
+    "production_release": false
+  },
+  "authority_ceiling": "EXACT_BYTE_CORRESPONDENCE_ONLY_NO_CANDIDATE_PROMOTION_NO_STAGE0_REWRITE_NO_PRODUCTION_AUTHORITY",
+  "content_digest": "35397d992289ed7e70154102217b3e9337478cf586ac5fc3c62ecf25ce90c52c",
+  "extends": {
+    "candidate_sha256": "bb4fc787fbc0d1959f04797e45a99b3da1d00a544501ab30abcc5ff017af0e7e",
+    "mutation": false,
+    "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/fragments/I1.json",
+    "sha256": "8c99a91c0891589073318c9b872d977ec95e37e8e206e66255c88f72578d9110"
+  },
+  "inherited_successor_count": 0,
+  "limits": [
+    "Five I1-owned semantic-movement artifacts and one C5 historical-stage selector update are bound additively.",
+    "The B23 I1 fragment remains immutable and is not rewritten.",
+    "Exact-byte correspondence grants no candidate promotion or production authority.",
+    "PRODUCTION_RELEASE_NOT_AUTHORIZED"
+  ],
+  "record_id": "current-byte-semantic-binding-successors-v3",
+  "schema": "mrw.current_byte_semantic_binding_successors.v3",
+  "status": "CURRENT_BYTES_BOUND_BY_ADDITIVE_SUCCESSORS_NOT_AUTHORITY",
+  "successors": [
+    {
+      "binding_group": "source_bindings",
+      "bytes": 25944,
+      "cell_ids": [
+        "C1.1",
+        "C1.2",
+        "C1.3"
+      ],
+      "change_class": "SEMANTIC_MOVEMENT_DERIVED_ARTIFACT_REBUILD",
+      "lines": 1,
+      "predecessor_sha256": "b4ae38c055ee2135daca0f276d30336483b920692d5c5b9d5c03dfa499c5db25",
+      "preservation_scope": {
+        "artifact_group_validator_passed": true,
+        "source_code_changed": false,
+        "taxonomy_semantics_changed": false
+      },
+      "prior_spec_predecessor_sha256": "c032207f0070424b83fc81a8d49167dbb8f5624f08aaa97853e34f7a6f296be9",
+      "qualification": "EXACT_BYTES_ONLY_NOT_AUTHORITY",
+      "relation": "I1_SHARED_EXACT_BINDING_SUCCESSOR",
+      "role": "donor_inventory",
+      "snapshot_path": "snapshots/40fea5ab8d9526ec1c085ab353e9acf12564c5c348dcb826cc46557ea6b81bd0",
+      "source_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/P1P3LegacyDonorSemanticMovementInventory.v1.json",
+      "spec_bindings": [
+        {
+          "cell_id": "C1.1",
+          "json_pointer": "/source_bindings/3",
+          "prior_spec_predecessor_sha256": "c032207f0070424b83fc81a8d49167dbb8f5624f08aaa97853e34f7a6f296be9",
+          "role": "donor_inventory",
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C1.1.v1.json",
+          "spec_sha256": "a1b7cda2aa0fb051664d184c12d7a6308d2af91b703995e4ec7c6ba3f1291470"
+        },
+        {
+          "cell_id": "C1.2",
+          "json_pointer": "/source_bindings/3",
+          "prior_spec_predecessor_sha256": "c032207f0070424b83fc81a8d49167dbb8f5624f08aaa97853e34f7a6f296be9",
+          "role": "donor_inventory",
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C1.2.v1.json",
+          "spec_sha256": "67a215a0deddf8406a6307c4ce36a323180cf4908669cf247e76808ec977c8ba"
+        },
+        {
+          "cell_id": "C1.3",
+          "json_pointer": "/source_bindings/3",
+          "prior_spec_predecessor_sha256": "c032207f0070424b83fc81a8d49167dbb8f5624f08aaa97853e34f7a6f296be9",
+          "role": "donor_inventory",
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C1.3.v1.json",
+          "spec_sha256": "5dc5070a874a86dc678fc8dd28587573a3bb3b33fdbc28b3a45fe1f99ca2bfb1"
+        }
+      ],
+      "successor_id": "i1-semantic-movement-inventory-v3-donor_inventory",
+      "successor_sha256": "40fea5ab8d9526ec1c085ab353e9acf12564c5c348dcb826cc46557ea6b81bd0"
+    },
+    {
+      "binding_group": "source_bindings",
+      "bytes": 25944,
+      "cell_ids": [
+        "C9.2",
+        "C9.3"
+      ],
+      "change_class": "SEMANTIC_MOVEMENT_DERIVED_ARTIFACT_REBUILD",
+      "lines": 1,
+      "predecessor_sha256": "b4ae38c055ee2135daca0f276d30336483b920692d5c5b9d5c03dfa499c5db25",
+      "preservation_scope": {
+        "artifact_group_validator_passed": true,
+        "source_code_changed": false,
+        "taxonomy_semantics_changed": false
+      },
+      "prior_spec_predecessor_sha256": "c032207f0070424b83fc81a8d49167dbb8f5624f08aaa97853e34f7a6f296be9",
+      "qualification": "EXACT_BYTES_ONLY_NOT_AUTHORITY",
+      "relation": "I1_SHARED_EXACT_BINDING_SUCCESSOR",
+      "role": "legacy_donor_movement_inventory_c9_rows",
+      "snapshot_path": "snapshots/40fea5ab8d9526ec1c085ab353e9acf12564c5c348dcb826cc46557ea6b81bd0",
+      "source_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/P1P3LegacyDonorSemanticMovementInventory.v1.json",
+      "spec_bindings": [
+        {
+          "cell_id": "C9.2",
+          "json_pointer": "/source_bindings/5",
+          "prior_spec_predecessor_sha256": "c032207f0070424b83fc81a8d49167dbb8f5624f08aaa97853e34f7a6f296be9",
+          "role": "legacy_donor_movement_inventory_c9_rows",
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C9.2.v1.json",
+          "spec_sha256": "73fcd6be12776dced5b393e3d6e5179e9007765f20dd8240834f3a69cc148787"
+        },
+        {
+          "cell_id": "C9.3",
+          "json_pointer": "/source_bindings/5",
+          "prior_spec_predecessor_sha256": "c032207f0070424b83fc81a8d49167dbb8f5624f08aaa97853e34f7a6f296be9",
+          "role": "legacy_donor_movement_inventory_c9_rows",
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C9.3.v1.json",
+          "spec_sha256": "f393a5f1aec75608c5b5945f824f960acb0f922ec04c3f82d4b9fc6e0a74cebd"
+        }
+      ],
+      "successor_id": "i1-semantic-movement-inventory-v3-legacy_donor_movement_inventory_c9_rows",
+      "successor_sha256": "40fea5ab8d9526ec1c085ab353e9acf12564c5c348dcb826cc46557ea6b81bd0"
+    },
+    {
+      "binding_group": "source_bindings",
+      "bytes": 250677,
+      "cell_ids": [
+        "C1.1",
+        "C1.2",
+        "C1.3"
+      ],
+      "change_class": "SEMANTIC_MOVEMENT_DERIVED_ARTIFACT_REBUILD",
+      "lines": 1,
+      "predecessor_sha256": "a292ebfec63457d04a0671f15095ca4f371059c977f45146c3945919e046e523",
+      "preservation_scope": {
+        "artifact_group_validator_passed": true,
+        "source_code_changed": false,
+        "taxonomy_semantics_changed": false
+      },
+      "prior_spec_predecessor_sha256": "482ae2934fbe8ffd19a2e8d43365d4f910ff8cb82398cfd885086f07bb2740db",
+      "qualification": "EXACT_BYTES_ONLY_NOT_AUTHORITY",
+      "relation": "I1_SHARED_EXACT_BINDING_SUCCESSOR",
+      "role": "movement_matrix",
+      "snapshot_path": "snapshots/776ae30af7d5224bbff17006909e52efcd8384cd041fef01e2d169a3dc1fe440",
+      "source_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/P1P3SuccessorMovementMatrix.v1.json",
+      "spec_bindings": [
+        {
+          "cell_id": "C1.1",
+          "json_pointer": "/source_bindings/2",
+          "prior_spec_predecessor_sha256": "482ae2934fbe8ffd19a2e8d43365d4f910ff8cb82398cfd885086f07bb2740db",
+          "role": "movement_matrix",
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C1.1.v1.json",
+          "spec_sha256": "a1b7cda2aa0fb051664d184c12d7a6308d2af91b703995e4ec7c6ba3f1291470"
+        },
+        {
+          "cell_id": "C1.2",
+          "json_pointer": "/source_bindings/2",
+          "prior_spec_predecessor_sha256": "482ae2934fbe8ffd19a2e8d43365d4f910ff8cb82398cfd885086f07bb2740db",
+          "role": "movement_matrix",
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C1.2.v1.json",
+          "spec_sha256": "67a215a0deddf8406a6307c4ce36a323180cf4908669cf247e76808ec977c8ba"
+        },
+        {
+          "cell_id": "C1.3",
+          "json_pointer": "/source_bindings/2",
+          "prior_spec_predecessor_sha256": "482ae2934fbe8ffd19a2e8d43365d4f910ff8cb82398cfd885086f07bb2740db",
+          "role": "movement_matrix",
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C1.3.v1.json",
+          "spec_sha256": "5dc5070a874a86dc678fc8dd28587573a3bb3b33fdbc28b3a45fe1f99ca2bfb1"
+        }
+      ],
+      "successor_id": "i1-semantic-movement-matrix-v3-movement_matrix",
+      "successor_sha256": "776ae30af7d5224bbff17006909e52efcd8384cd041fef01e2d169a3dc1fe440"
+    },
+    {
+      "binding_group": "source_bindings",
+      "bytes": 250677,
+      "cell_ids": [
+        "C9.2",
+        "C9.3"
+      ],
+      "change_class": "SEMANTIC_MOVEMENT_DERIVED_ARTIFACT_REBUILD",
+      "lines": 1,
+      "predecessor_sha256": "a292ebfec63457d04a0671f15095ca4f371059c977f45146c3945919e046e523",
+      "preservation_scope": {
+        "artifact_group_validator_passed": true,
+        "source_code_changed": false,
+        "taxonomy_semantics_changed": false
+      },
+      "prior_spec_predecessor_sha256": "482ae2934fbe8ffd19a2e8d43365d4f910ff8cb82398cfd885086f07bb2740db",
+      "qualification": "EXACT_BYTES_ONLY_NOT_AUTHORITY",
+      "relation": "I1_SHARED_EXACT_BINDING_SUCCESSOR",
+      "role": "successor_movement_matrix_c9_rows",
+      "snapshot_path": "snapshots/776ae30af7d5224bbff17006909e52efcd8384cd041fef01e2d169a3dc1fe440",
+      "source_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/P1P3SuccessorMovementMatrix.v1.json",
+      "spec_bindings": [
+        {
+          "cell_id": "C9.2",
+          "json_pointer": "/source_bindings/4",
+          "prior_spec_predecessor_sha256": "482ae2934fbe8ffd19a2e8d43365d4f910ff8cb82398cfd885086f07bb2740db",
+          "role": "successor_movement_matrix_c9_rows",
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C9.2.v1.json",
+          "spec_sha256": "73fcd6be12776dced5b393e3d6e5179e9007765f20dd8240834f3a69cc148787"
+        },
+        {
+          "cell_id": "C9.3",
+          "json_pointer": "/source_bindings/4",
+          "prior_spec_predecessor_sha256": "482ae2934fbe8ffd19a2e8d43365d4f910ff8cb82398cfd885086f07bb2740db",
+          "role": "successor_movement_matrix_c9_rows",
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C9.3.v1.json",
+          "spec_sha256": "f393a5f1aec75608c5b5945f824f960acb0f922ec04c3f82d4b9fc6e0a74cebd"
+        }
+      ],
+      "successor_id": "i1-semantic-movement-matrix-v3-successor_movement_matrix_c9_rows",
+      "successor_sha256": "776ae30af7d5224bbff17006909e52efcd8384cd041fef01e2d169a3dc1fe440"
+    },
+    {
+      "binding_group": "source_bindings",
+      "bytes": 23291,
+      "cell_ids": [
+        "C1.1",
+        "C1.2",
+        "C1.3"
+      ],
+      "change_class": "SEMANTIC_MOVEMENT_DERIVED_ARTIFACT_REBUILD",
+      "lines": 1,
+      "predecessor_sha256": "fc26123aea12acf8705e600170620c247309f035378cb6146962d6ddfd682c15",
+      "preservation_scope": {
+        "artifact_group_validator_passed": true,
+        "source_code_changed": false,
+        "taxonomy_semantics_changed": false
+      },
+      "prior_spec_predecessor_sha256": "0ffd28226ff542f7f4d011ccf612bad8a84b35fd390be59c7694318e4b5ef138",
+      "qualification": "EXACT_BYTES_ONLY_NOT_AUTHORITY",
+      "relation": "I1_SHARED_EXACT_BINDING_SUCCESSOR",
+      "role": "movement_fragment",
+      "snapshot_path": "snapshots/8c6814d0c21e7957bfc3d84a1fcf47d0598e81959768adcd5be5662a32af460f",
+      "source_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C1.v1.json",
+      "spec_bindings": [
+        {
+          "cell_id": "C1.1",
+          "json_pointer": "/source_bindings/4",
+          "prior_spec_predecessor_sha256": "0ffd28226ff542f7f4d011ccf612bad8a84b35fd390be59c7694318e4b5ef138",
+          "role": "movement_fragment",
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C1.1.v1.json",
+          "spec_sha256": "a1b7cda2aa0fb051664d184c12d7a6308d2af91b703995e4ec7c6ba3f1291470"
+        },
+        {
+          "cell_id": "C1.2",
+          "json_pointer": "/source_bindings/4",
+          "prior_spec_predecessor_sha256": "0ffd28226ff542f7f4d011ccf612bad8a84b35fd390be59c7694318e4b5ef138",
+          "role": "movement_fragment",
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C1.2.v1.json",
+          "spec_sha256": "67a215a0deddf8406a6307c4ce36a323180cf4908669cf247e76808ec977c8ba"
+        },
+        {
+          "cell_id": "C1.3",
+          "json_pointer": "/source_bindings/4",
+          "prior_spec_predecessor_sha256": "0ffd28226ff542f7f4d011ccf612bad8a84b35fd390be59c7694318e4b5ef138",
+          "role": "movement_fragment",
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C1.3.v1.json",
+          "spec_sha256": "5dc5070a874a86dc678fc8dd28587573a3bb3b33fdbc28b3a45fe1f99ca2bfb1"
+        }
+      ],
+      "successor_id": "i1-semantic-movement-c1-fragment-v3",
+      "successor_sha256": "8c6814d0c21e7957bfc3d84a1fcf47d0598e81959768adcd5be5662a32af460f"
+    },
+    {
+      "binding_group": "source_bindings",
+      "bytes": 7597,
+      "cell_ids": [
+        "C9.2",
+        "C9.3"
+      ],
+      "change_class": "SEMANTIC_MOVEMENT_DERIVED_ARTIFACT_REBUILD",
+      "lines": 1,
+      "predecessor_sha256": "9d54a449aba89bf04197737764568984b0f9cc9aeb823445bbd17ae515f9e35e",
+      "preservation_scope": {
+        "artifact_group_validator_passed": true,
+        "source_code_changed": false,
+        "taxonomy_semantics_changed": false
+      },
+      "prior_spec_predecessor_sha256": "74ade16f3113d68ff1642e5bf0a87aac7cc91dac868f5f3e9bcbbe06b0ca3ce0",
+      "qualification": "EXACT_BYTES_ONLY_NOT_AUTHORITY",
+      "relation": "I1_SHARED_EXACT_BINDING_SUCCESSOR",
+      "role": "semantic_movement_gate",
+      "snapshot_path": "snapshots/7936419d8fe94475640ec133198dec2db8c24af00e1d75d716425a8696d93514",
+      "source_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/P1P3SemanticMovementGate.v1.json",
+      "spec_bindings": [
+        {
+          "cell_id": "C9.2",
+          "json_pointer": "/source_bindings/6",
+          "prior_spec_predecessor_sha256": "74ade16f3113d68ff1642e5bf0a87aac7cc91dac868f5f3e9bcbbe06b0ca3ce0",
+          "role": "semantic_movement_gate",
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C9.2.v1.json",
+          "spec_sha256": "73fcd6be12776dced5b393e3d6e5179e9007765f20dd8240834f3a69cc148787"
+        },
+        {
+          "cell_id": "C9.3",
+          "json_pointer": "/source_bindings/6",
+          "prior_spec_predecessor_sha256": "74ade16f3113d68ff1642e5bf0a87aac7cc91dac868f5f3e9bcbbe06b0ca3ce0",
+          "role": "semantic_movement_gate",
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C9.3.v1.json",
+          "spec_sha256": "f393a5f1aec75608c5b5945f824f960acb0f922ec04c3f82d4b9fc6e0a74cebd"
+        }
+      ],
+      "successor_id": "i1-semantic-movement-gate-v3",
+      "successor_sha256": "7936419d8fe94475640ec133198dec2db8c24af00e1d75d716425a8696d93514"
+    },
+    {
+      "binding_group": "source_bindings",
+      "bytes": 32274,
+      "cell_ids": [
+        "C9.2",
+        "C9.3"
+      ],
+      "change_class": "SEMANTIC_MOVEMENT_DERIVED_ARTIFACT_REBUILD",
+      "lines": 1,
+      "predecessor_sha256": "b918073cb449c11511392b7ee799f119a702e24d319331b8f8cd7e8d1b6cfc89",
+      "preservation_scope": {
+        "artifact_group_validator_passed": true,
+        "source_code_changed": false,
+        "taxonomy_semantics_changed": false
+      },
+      "prior_spec_predecessor_sha256": "88a63d5293f827b46bb97d4269aada2c539dac494b2e2e117f19521a022f4230",
+      "qualification": "EXACT_BYTES_ONLY_NOT_AUTHORITY",
+      "relation": "I1_SHARED_EXACT_BINDING_SUCCESSOR",
+      "role": "c9_semantic_movement_fragment",
+      "snapshot_path": "snapshots/0b9ba3f993c8577902052243bda4dfc6b382abdf53d5ed6e84b6cb78c95512e8",
+      "source_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C9.v1.json",
+      "spec_bindings": [
+        {
+          "cell_id": "C9.2",
+          "json_pointer": "/source_bindings/2",
+          "prior_spec_predecessor_sha256": "88a63d5293f827b46bb97d4269aada2c539dac494b2e2e117f19521a022f4230",
+          "role": "c9_semantic_movement_fragment",
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C9.2.v1.json",
+          "spec_sha256": "73fcd6be12776dced5b393e3d6e5179e9007765f20dd8240834f3a69cc148787"
+        },
+        {
+          "cell_id": "C9.3",
+          "json_pointer": "/source_bindings/2",
+          "prior_spec_predecessor_sha256": "88a63d5293f827b46bb97d4269aada2c539dac494b2e2e117f19521a022f4230",
+          "role": "c9_semantic_movement_fragment",
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C9.3.v1.json",
+          "spec_sha256": "f393a5f1aec75608c5b5945f824f960acb0f922ec04c3f82d4b9fc6e0a74cebd"
+        }
+      ],
+      "successor_id": "i1-semantic-movement-c9-fragment-v3",
+      "successor_sha256": "0b9ba3f993c8577902052243bda4dfc6b382abdf53d5ed6e84b6cb78c95512e8"
+    },
+    {
+      "binding_group": "test_bindings",
+      "bytes": 9988,
+      "cell_ids": [
+        "C5.4"
+      ],
+      "change_class": "SEMANTIC_MOVEMENT_DERIVED_ARTIFACT_REBUILD",
+      "lines": 274,
+      "predecessor_sha256": "284fb952da78d28d03b6f8dc16b9cfb8cbe500f6d8a14a9ef92aa6ad63906319",
+      "preservation_scope": {
+        "artifact_group_validator_passed": true,
+        "source_code_changed": false,
+        "taxonomy_semantics_changed": false
+      },
+      "prior_spec_predecessor_sha256": "c6a3c1fe2314e10a73aca59ce211633ce635f8ecc1e06cc4b12319168901851e",
+      "qualification": "EXACT_BYTES_ONLY_NOT_AUTHORITY",
+      "relation": "I1_SHARED_EXACT_BINDING_SUCCESSOR",
+      "role": "evidence_generator",
+      "snapshot_path": "snapshots/dea6b74abfdb2b70fabfbe3f598fa5bc87c3d655617085875ad5fc7c3bd6c387",
+      "source_path": "main/backend/tests/successor_runtime/test_p3_c5_0_evidence_generator.py",
+      "spec_bindings": [
+        {
+          "cell_id": "C5.4",
+          "json_pointer": "/test_bindings/1",
+          "prior_spec_predecessor_sha256": "c6a3c1fe2314e10a73aca59ce211633ce635f8ecc1e06cc4b12319168901851e",
+          "role": "evidence_generator",
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C5.4.v1.json",
+          "spec_sha256": "2ed59f58d051d74a76cd38a7721f2c484465f841b4d6646eb95277d3a34f13dd"
+        }
+      ],
+      "successor_id": "i1-c5-historical-stage-selector-v3",
+      "successor_sha256": "dea6b74abfdb2b70fabfbe3f598fa5bc87c3d655617085875ad5fc7c3bd6c387"
+    }
+  ]
+}

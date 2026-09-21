@@ -1,0 +1,90 @@
+{
+  "schema_version": "mrw.formal_release.stage3.preconditions.v2",
+  "record_id": "stage3-v4-static-preconditions-20260906t032859z",
+  "stage_id": "STAGE_3",
+  "candidate_generation": "V4_ADDITIVE_SUCCESSOR",
+  "status": "PASS",
+  "authoritative": false,
+  "derived_as": "candidate_validation_evidence",
+  "observed_at": "2026-09-06T03:28:59Z",
+  "contract": {
+    "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/09_production-deployment-stage3-successor-contract.v1.md",
+    "sha256": "61d5b99ce8966b1bdb4eadf754ae03b7651026098b38da09dd46a69e773237be"
+  },
+  "candidate": {
+    "root": "/Users/wangyiliang/.codex/release-candidates/mrw-stage2-20260906-v4",
+    "strategy": "REMEDIATION_INCLUSIVE_RELEASE",
+    "commit_expected": "e1aa59708a22e4238c4d9beaf7b7bd2d2095d483",
+    "commit_observed": "e1aa59708a22e4238c4d9beaf7b7bd2d2095d483",
+    "tree_expected": "d2003fbb8e54c8dd743fa4e84907a8a978ef5107",
+    "tree_observed": "d2003fbb8e54c8dd743fa4e84907a8a978ef5107",
+    "parent_expected": "88ffcc3dab2e6cbdc1f389e16c4226df5a2e51c6",
+    "parent_observed": "88ffcc3dab2e6cbdc1f389e16c4226df5a2e51c6",
+    "tracked_status_entries": 0,
+    "untracked_status_entries": 0,
+    "detached_head": true,
+    "shallow": false,
+    "alternates": false,
+    "shared_object_inodes": 0,
+    "git_fsck": "PASS",
+    "git_lock_paths": [],
+    "active_candidate_writer_observation": "NONE_OBSERVED_POINT_IN_TIME",
+    "active_candidate_writer_command": "ps -axo pid,ppid,lstart,command | rg 'mrw-stage3|mrw-stage2-20260906-v4' (excluding inspection commands)"
+  },
+  "input_refs_and_sha256": [
+    {"path": "/Users/wangyiliang/.codex/release-evidence/mrw-stage2-20260906-v4/candidate-manifest.v4.json", "sha256": "abc012b5c114d2d280db5bc5fc24c5591caa5bacc76840b154ec848dca5ae8b0", "entries": 6147},
+    {"path": "/Users/wangyiliang/.codex/release-evidence/mrw-stage2-20260906-v4/closure.final.v4.json", "sha256": "6e3cf6dfd3ac7c336e81ab5c9b2e310373de7b981edce88109261ac031575c18"},
+    {"path": "/Users/wangyiliang/.codex/release-evidence/mrw-stage2-20260906-v4/r1.final.v4.json", "sha256": "79f7301e0c1e08553982ccc5c88f5854113825c81019ef6244da6bbd025260f0"},
+    {"path": "/Users/wangyiliang/.codex/release-evidence/mrw-stage2-20260906-v4/r2.pass.v4.json", "sha256": "8e37eee14ea2eb865a048f57fec7ca55346da642509dc65ac99899b3d69a87ce", "qualification": "SYNTHETIC_VALIDATOR_CONFORMANCE_ONLY"},
+    {"path": "/Users/wangyiliang/.codex/release-evidence/mrw-stage2-20260906-v4/r3.pass.v4.json", "sha256": "86c67a4532a5a125f65c8f7405bd2b4b775472112e1577d85355fe6001ff5383"},
+    {"path": "/Users/wangyiliang/.codex/release-evidence/mrw-stage2-20260906-v4/stage2-record.final.v4.json", "sha256": "e2797d157c0a97f70b382d6ee6197bbcb073f6e55ac6ced5abe6946318345891"},
+    {"path": "/Users/wangyiliang/.codex/release-evidence/mrw-stage2-20260906-v4/candidate-primary.materialization.v4.json", "sha256": "76256addd9668a7d3a466fff2b2c98ab76be9e87ad9236878c8d483c5de0161b"},
+    {"path": "/Users/wangyiliang/.codex/release-evidence/mrw-stage2-20260906-v4/candidate-replay.materialization.v4.json", "sha256": "53aada9354d0c4410b7b359cd05b76e03899225f116107862e8fadd730beb6e6"},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/00_formal-production-release-development-plan.v1.md", "sha256": "97801ddbe46233429309f218cfcb183ade785ffd1a2d0872223907851ca95087"},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/01_formal-production-release-gap-ledger.v1.json", "sha256": "21df93d7c9dc1ac3cc77a9a449f3c37527001f0716551ce34db032c7c93754a0"},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/02_formal-production-release-development.freeze.v1.json", "sha256": "65e5b4a759d5ea2c815541bd8c4a864ab4130fccbe39d50214787edff5082c2a"},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/04_production-deployment-stage-plan.v1.md", "sha256": "d04ae870b5d2a13afacdc7a07e9d5a89b7ab77e7b6c2d6cdd4bd2101151f76fa"},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/05_production-deployment-stage-plan.freeze.v1.json", "sha256": "06d2ec76f7c59973997311ac7ae416005ae0b9c7784598b11127e436dcf8a2aa"},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage0-evidence/functorial-refactor-completion.v4.json", "sha256": "4911df1c6450d9802ac7bd6b0669ef3a7343e3ce308d33f0a46dde2c4cb62dda"},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage1-evidence/production-contract-implementation.v1.json", "sha256": "3f5c745ce8253522fa7e3728ba112ed41c80f3b6aa7409ddf028621c6ae07f31"},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage1-evidence/independent-review.v1.md", "sha256": "10117a7c8c4eec19c33e3ad841c99fb301c43fcda71f8d7addbde4070646f72c"},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage1-successor-evidence/r2-remediation.v1/stage1-r2-remediation-record.v1.json", "sha256": "97203433ca9dcf7f36e98f4dca2461d60f0159515f002127c153a5e061f74efe"},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/08_stage1-stage2-additive-successor-return-contract.v1.md", "sha256": "77db632919118f7a37924634453f38eae260261de78ac4f063743db818325dc5"}
+  ],
+  "static_checks": [
+    {"check_id": "candidate.identity_cleanliness_and_object_store", "result": "PASS", "exact_result": "commit/tree/parent exact; tracked=0; untracked=0; shallow=false; alternates=false; shared object inodes=0 per two exact-bound materialization receipts; git fsck PASS"},
+    {"check_id": "required_r2_paths", "result": "PASS", "exact_result": "scripts/formal_release/check_release_evidence.py and tests/formal_release/test_check_release_evidence.py are tracked by candidate HEAD"},
+    {"check_id": "required_workflow_fail_closed_shape", "result": "PASS", "exact_result": "backend-tests.yml defines evidence-validation-check; artifact-metadata-check and required-convergence-check depend on it"},
+    {"check_id": "frozen_input_hashes", "result": "PASS", "exact_result": "all contract-listed candidate evidence, materialization, Stage 0/1 lineage, frozen plan, return contract, and Stage 3 contract hashes match"},
+    {"check_id": "write_authority_boundary", "result": "PASS", "exact_result": "remote, registry, signing, workflow, deploy, live, production, delivery, canary and cutover writes remain unauthorized"}
+  ],
+  "deferred_to_disposable_clone": [
+    "fresh R1",
+    "fresh R2 focused and conformance",
+    "fresh R3",
+    "historical Stage 1 checker",
+    "R2 remediation checker",
+    "all long tests, builds, scans, artifacts and reproducibility work"
+  ],
+  "external_effects": [],
+  "cleanup": {
+    "candidate_modified": false,
+    "standalone_clone_created": false,
+    "container_or_image_created": false,
+    "retained_resources": []
+  },
+  "authority_ceiling": [
+    "NO_DEPLOY",
+    "NO_LIVE",
+    "NO_PRODUCTION_WRITE",
+    "NO_EXTERNAL_DELIVERY",
+    "NO_CANARY",
+    "NO_CUTOVER",
+    "NO_AUTHORITY_TRANSFER",
+    "NO_LEGACY_RETIREMENT",
+    "NO_PUSH",
+    "NO_REMOTE_MUTATION",
+    "NO_REGISTRY_WRITE",
+    "NO_SIGNING_WRITE"
+  ]
+}

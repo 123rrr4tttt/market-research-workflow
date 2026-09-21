@@ -1,0 +1,252 @@
+{
+  "schema": "mrw.formal_release.stage0.declared_loss_ingest.v1",
+  "version": "1.0.0",
+  "evidence_id": "stage0b-ingest-loss-2026-09-05",
+  "stage": "STAGE_0B",
+  "scope": [
+    "market provider iteration",
+    "policy provider iteration",
+    "ingest provider-specific operational conversion"
+  ],
+  "authoritative": false,
+  "derived_as": "stage0_declared_loss_adjudication",
+  "items": [
+    {
+      "id": "S0B-INGEST-LOSS-MARKET-ITERATION-001",
+      "area": "market_iteration",
+      "source_object": {
+        "name": "MarketAdapterPort.fetch_records iterable",
+        "path": "main/backend/app/services/ingest/provider_ports.py",
+        "symbol": "MarketAdapterPort.fetch_records"
+      },
+      "morphism": {
+        "name": "provider iterable to persisted MarketStat batch",
+        "path": "main/backend/app/services/ingest/market.py",
+        "symbol": "ingest_market_data",
+        "ordered_steps": ["get_market_adapters", "materialize_market_records", "start_job", "persist MarketStat"]
+      },
+      "retained": [
+        "adapter order and each yielded MarketRecord value",
+        "per-record state/date/game and numeric fields after normalization",
+        "provider iteration failure before job start"
+      ],
+      "lost": [
+        "streaming and backpressure during provider iteration",
+        "typed per-adapter attempt, cancellation and provider receipt",
+        "incremental persistence or replay identity for a partially consumed iterable"
+      ],
+      "affected_callers": [
+        {"path": "main/backend/app/services/ingest/market.py", "symbol": "ingest_market_data"},
+        {"path": "main/backend/app/services/tasks.py", "symbol": "task_ingest_market"},
+        {"path": "main/backend/app/subprojects/online_lottery/services/lottery_stats.py", "symbol": "ingest_lottery_stats"}
+      ],
+      "alternative_path": "successor typed ordered traversal with per-adapter EffectAttempt/receipt and bounded materialization",
+      "witness": [
+        {"path": "main/backend/tests/unit/test_market_materialization_unittest.py", "test": "test_market_materialization_preserves_adapter_and_record_order_with_bound"},
+        {"path": "main/backend/tests/unit/test_market_materialization_unittest.py", "test": "test_market_materialization_records_iteration_failure_and_continues"},
+        {"path": "main/backend/tests/unit/test_market_materialization_unittest.py", "test": "test_market_materialization_cancellation_returns_typed_abort_and_closes_iterator"},
+        {"path": "main/backend/tests/unit/test_market_materialization_unittest.py", "test": "test_ingest_market_data_dedupes_same_replay_identity_before_persistence"}
+      ],
+      "decision": "IMPLEMENTED",
+      "decision_basis": "Bounded market materialization now emits ordered C3 observations, retains iteration failures, returns a typed cancellation result, and deduplicates replay identity before persistence."
+    },
+    {
+      "id": "S0B-INGEST-LOSS-POLICY-ITERATION-001",
+      "area": "policy_iteration",
+      "source_object": {
+        "name": "PolicyAdapterPort.fetch_documents iterable",
+        "path": "main/backend/app/services/ingest/provider_ports.py",
+        "symbol": "PolicyAdapterPort.fetch_documents"
+      },
+      "morphism": {
+        "name": "provider iterable to frontdoor Document candidate batch",
+        "path": "main/backend/app/services/ingest/policy.py",
+        "symbol": "ingest_policy_documents",
+        "ordered_steps": ["get_policy_adapter", "materialize_policy_documents", "start_job", "frontdoor writer"]
+      },
+      "retained": [
+        "adapter document order and PolicyDocument values",
+        "content hash deduplication and source/document candidate fields",
+        "provider iteration failure before job start"
+      ],
+      "lost": [
+        "streaming, backpressure and cancellation while fetching documents",
+        "typed per-document provider attempt/readback receipt",
+        "durable replay boundary for a partially consumed iterable"
+      ],
+      "affected_callers": [
+        {"path": "main/backend/app/services/ingest/policy.py", "symbol": "ingest_policy_documents"},
+        {"path": "main/backend/app/services/tasks.py", "symbol": "task_collect_policy_regulation"},
+        {"path": "main/backend/app/services/source_library/adapters/policy.py", "symbol": "handle_policy"}
+      ],
+      "alternative_path": "successor typed ordered provider traversal with bounded document receipts and explicit OutcomeUnknown reconciliation",
+      "witness": [
+        {"path": "main/backend/tests/unit/test_policy_materialization_unittest.py", "test": "test_policy_materialization_is_bounded_ordered_and_replayable"},
+        {"path": "main/backend/tests/unit/test_policy_materialization_unittest.py", "test": "test_policy_materialization_records_provider_next_failure_after_partial_prefix"}
+      ],
+      "decision": "IMPLEMENTED",
+      "decision_basis": "Policy materialization now produces bounded ordered C3 observations and records a provider next() failure after its partial prefix without concealing the legacy pre-job exception boundary."
+    },
+    {
+      "id": "S0B-INGEST-LOSS-MARKET-CONVERSION-001",
+      "area": "market_provider_specific_conversion",
+      "source_object": {
+        "name": "Search provider result mapping",
+        "path": "main/backend/app/services/ingest/market_web.py",
+        "symbol": "collect_market_info"
+      },
+      "morphism": {
+        "name": "provider result dict to market Document candidate",
+        "path": "main/backend/app/services/ingest/market_web.py",
+        "symbol": "collect_market_info",
+        "ordered_steps": ["search_sources", "fetch_html", "build document_candidate", "run_postprocess_frontdoor"]
+      },
+      "retained": [
+        "link/title/snippet and fetched body content",
+        "provider/platform and keyword in extracted_data_base",
+        "complete provider item in raw_snapshot for replay inspection"
+      ],
+      "lost": [
+        "provider-specific ranking, score and unrecognized result fields from the canonical candidate",
+        "snippet-only items without a body are routed rather than admitted immediately"
+      ],
+      "affected_callers": [
+        {"path": "main/backend/app/services/collect_runtime/adapters/search_market.py", "symbol": "SearchMarketAdapter.run"},
+        {"path": "main/backend/app/services/tasks.py", "symbol": "task_ingest_market"}
+      ],
+      "alternative_path": "retain the bounded canonical candidate plus content-addressed raw_snapshot; expose provider-only fields through a non-authoritative projection",
+      "witness": [
+        {"path": "main/backend/tests/unit/test_task_runtime_readback_ingest_boundary_unittest.py", "test": "test_search_market_adapter_passes_runtime_readback_to_market_job"},
+        {"path": "main/backend/tests/functorial_debt/test_latest_service_a_ingest_failure_lifts.py", "test": "test_ingest_service_a_failure_lifts"}
+      ],
+      "decision": "ACCEPTED_EXPLICIT_LOSS",
+      "decision_basis": "The loss is a bounded canonical projection; the complete provider item remains in raw_snapshot and no provider-only field is promoted to canonical authority."
+    },
+    {
+      "id": "S0B-INGEST-LOSS-POLICY-CONVERSION-001",
+      "area": "policy_provider_specific_conversion",
+      "source_object": {
+        "name": "PolicyDocument provider record",
+        "path": "main/backend/app/services/ingest/provider_ports.py",
+        "symbol": "PolicyDocument"
+      },
+      "morphism": {
+        "name": "PolicyDocument to frontdoor document_candidate",
+        "path": "main/backend/app/services/ingest/policy.py",
+        "symbol": "ingest_policy_documents",
+        "ordered_steps": ["hash content", "build document_candidate", "run_postprocess_frontdoor", "index inserted ids"]
+      },
+      "retained": [
+        "state/title/status/publish_date/summary/content/uri/source_name in document_candidate",
+        "content hash deduplication and source identity",
+        "source/title/uri marker in raw_snapshot"
+      ],
+      "lost": [
+        "structured policy extraction is explicitly skipped with reason policy_ingest_no_structured_extraction",
+        "provider-specific fields not represented by PolicyDocument are not admitted"
+      ],
+      "affected_callers": [
+        {"path": "main/backend/app/services/collect_runtime/adapters/search_policy.py", "symbol": "SearchPolicyAdapter.run"},
+        {"path": "main/backend/app/services/source_library/adapters/policy.py", "symbol": "handle_policy"},
+        {"path": "main/backend/app/services/tasks.py", "symbol": "task_collect_policy_regulation"}
+      ],
+      "alternative_path": "keep raw PolicyDocument fields as canonical source evidence and run a separately authorized structured-extraction operation before qualification",
+      "witness": [
+        {"path": "main/backend/tests/unit/test_policy_materialization_unittest.py", "test": "test_policy_extraction_readback_distinguishes_skip_success_and_failure"},
+        {"path": "main/backend/tests/unit/test_source_library_policy_adapter_unittest.py", "test": "test_policy_adapter_does_not_downgrade_explicit_extraction_request"}
+      ],
+      "decision": "IMPLEMENTED",
+      "decision_basis": "An explicit extraction request now reaches the frontdoor operation and returns a typed success, skip, or failure readback; the source-library adapter retains that request instead of downgrading it."
+    },
+    {
+      "id": "S0B-INGEST-LOSS-PROVIDER-EFFECT-001",
+      "area": "provider_specific_operational_conversion",
+      "source_object": {
+        "name": "source-library provider handlers and crawler registry",
+        "path": "main/backend/app/services/source_library/runner.py",
+        "symbol": "run_channel"
+      },
+      "morphism": {
+        "name": "heterogeneous provider effect to operational result",
+        "path": "main/backend/app/services/source_library/runner.py",
+        "symbol": "_run_via_crawler_provider_registry",
+        "ordered_steps": ["resolve credential", "select handler", "dispatch provider", "return dict/handoff"]
+      },
+      "retained": [
+        "provider type/status/job id/attempt count where supplied",
+        "records/candidates/by_url/errors and provider_handoff compatibility projection",
+        "provider-specific fallback and transport observations"
+      ],
+      "lost": [
+        "uniform idempotency and durable attempt identity",
+        "authoritative readback, cancellation and OutcomeUnknown reconciliation",
+        "atomic artifact-to-canonical admission and replayable credential decision receipt"
+      ],
+      "affected_callers": [
+        {"path": "main/backend/app/services/source_library/runner.py", "symbol": "run_channel"},
+        {"path": "main/backend/app/services/collect_runtime/adapters/crawler_scrapy.py", "symbol": "CrawlerScrapyAdapter.run"},
+        {"path": "main/backend/app/services/collect_runtime/adapters/source_library.py", "symbol": "to_source_library_response"}
+      ],
+      "alternative_path": "successor.source_library.c2_3.provider_effect.v1 with opaque credential refs, durable EffectAttempt, typed receipt/readback and reconciliation",
+      "witness": [
+        {"path": "main/backend/tests/unit/test_crawler_provider_effect_remediation_unittest.py", "test": "test_handoff_states_never_map_to_completed"},
+        {"path": "main/backend/tests/unit/test_crawler_provider_effect_remediation_unittest.py", "test": "test_terminal_completion_requires_typed_readback"},
+        {"path": "main/backend/tests/unit/test_crawler_durable_effect_bridge.py", "test": "test_durable_bridge_replays_across_instances_and_persists_terminal_readback"},
+        {"path": "main/backend/tests/unit/test_crawler_durable_effect_bridge.py", "test": "test_provider_completed_label_without_typed_readback_is_not_terminal"},
+        {"path": "main/backend/tests/unit/test_crawler_durable_effect_bridge.py", "test": "test_poll_exception_is_persisted_as_typed_unavailable_readback"}
+      ],
+      "decision": "IMPLEMENTED",
+      "decision_basis": "The crawler effect bridge now distinguishes dispatch acknowledgement from terminal readback, persists typed unavailable readback, and replays through an injected durable attempt store rather than process-local cache."
+    },
+    {
+      "id": "S0B-INGEST-LOSS-COLLECT-FOLD-001",
+      "area": "collect_provider_result_conversion",
+      "source_object": {
+        "name": "CollectResult provider metadata and raw payload",
+        "path": "main/backend/app/services/collect_runtime/contracts.py",
+        "symbol": "CollectResult"
+      },
+      "morphism": {
+        "name": "provider-specific result to aggregate compatibility projection",
+        "path": "main/backend/app/services/collect_runtime/runtime.py",
+        "symbol": "_merge_collect_results",
+        "ordered_steps": ["collect child result", "sum counters", "dedupe links/job ids", "emit aggregate status"]
+      },
+      "retained": [
+        "input-order counters, links and nested raw metadata",
+        "provider_job_id/provider_type/provider_status/attempt_count when present",
+        "source-library provider_handoff in downstream compatibility projection"
+      ],
+      "lost": [
+        "typed distinction between queued/accepted dispatch and authoritative completion",
+        "durable per-element receipt ownership and mixed partial aggregate status",
+        "provider effect trace ordering under parallel execution"
+      ],
+      "affected_callers": [
+        {"path": "main/backend/app/services/collect_runtime/runtime.py", "symbol": "_merge_collect_results"},
+        {"path": "main/backend/app/services/collect_runtime/adapters/search_market.py", "symbol": "SearchMarketAdapter.run"},
+        {"path": "main/backend/app/services/collect_runtime/adapters/search_policy.py", "symbol": "SearchPolicyAdapter.run"},
+        {"path": "main/backend/app/services/tasks.py", "symbol": "task_ingest_market"}
+      ],
+      "alternative_path": "successor.collect_runtime.result_fold.v1 with ordered typed outcomes, explicit receipt_kind and partial/all-failed aggregate states",
+      "witness": [
+        {"path": "main/backend/tests/unit/test_collect_runtime_auto_batch_unittest.py", "test": "test_successor_route_calls_typed_c3_interpreter_and_orders_outcomes"},
+        {"path": "main/backend/tests/unit/test_collect_runtime_auto_batch_unittest.py", "test": "test_successor_partial_projection_is_not_completed"},
+        {"path": "main/backend/tests/unit/test_collect_runtime_auto_batch_unittest.py", "test": "test_successor_fail_fast_projection_is_cancelled_and_keeps_receipts"}
+      ],
+      "decision": "IMPLEMENTED",
+      "decision_basis": "The successor C3 interpreter retains ordered typed outcomes and folds them to Succeeded, Partial, or Failed; partial and fail-fast projections no longer claim completed collection."
+    }
+  ],
+  "decision_counts": {
+    "ACCEPTED_EXPLICIT_LOSS": 1,
+    "IMPLEMENTED": 5,
+    "IMPLEMENTATION_REQUIRED": 0,
+    "NOT_APPLICABLE": 0
+  },
+  "non_claims": [
+    "This evidence is non-authoritative and does not authorize live providers, canonical writes, promotion or cutover.",
+    "A retained raw snapshot or compatibility field is not semantic parity with the provider operation.",
+    "Implemented items remain non-authoritative and do not authorize live providers, canonical writes, promotion, or cutover."
+  ]
+}

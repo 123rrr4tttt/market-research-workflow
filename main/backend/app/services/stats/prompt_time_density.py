@@ -5,10 +5,12 @@ from datetime import date, datetime, timedelta
 import logging
 import math
 import statistics
-from typing import Any
+from typing import Annotated, Any
 from uuid import uuid4
 
 from sqlalchemy import select
+from functorial_kit import Failure
+from mrw_functorial_kit.core.application_failure_semantics import prompt_time_density_request_failures
 
 from ...models.base import SessionLocal
 from ...models.entities import Document, PromptTimePolicyDecisionLog
@@ -30,6 +32,129 @@ _TIME_DENSITY_TIME_FALLBACK_CHAIN = [
     "created_at",
 ]
 _LOG = logging.getLogger(__name__)
+_FAILURE_WITNESS = "test:test_w01_request_failures"
+_FAILURE_CONTEXT_KEYS = frozenset(
+    {"owner", "operation", "failure_family", "public_exception", "public_message", "witness"}
+)
+
+
+def _request_failure(code: str, message: str, *, operation: str, **details: Any) -> Failure:
+    return prompt_time_density_request_failures.fail(
+        code,
+        message,
+        {
+            "owner": "prompt_time_density",
+            "operation": operation,
+            "failure_family": prompt_time_density_request_failures.name,
+            "public_exception": "ValueError",
+            "public_message": message,
+            "witness": _FAILURE_WITNESS,
+            **details,
+        },
+    )
+
+
+def _raise_request_failure(failure: Failure) -> None:
+    context = failure.context or {}
+    if not prompt_time_density_request_failures.matches(failure) or _FAILURE_CONTEXT_KEYS - set(context):
+        # kit:boundary owner=prompt_time_density.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w01_request_failures
+        raise TypeError("prompt time density failure lift context is incomplete or inconsistent")
+    # kit:boundary owner=prompt_time_density.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=prompt_time_density.request.failure witness=test:test_w01_request_failures
+    raise ValueError(str(context["public_message"]))
+
+
+def _bucket_outcome(day: date, bucket: str) -> date | Failure:
+    if bucket == "day":
+        return day
+    if bucket == "week":
+        return day - timedelta(days=day.weekday())
+    if bucket == "month":
+        return date(day.year, day.month, 1)
+    return _request_failure(
+        "bucket_invalid",
+        "bucket must be one of: day, week, month",
+        operation="prompt_time_density.bucket",
+    )
+
+
+def _window_days_outcome(window: str) -> int | Failure:
+    raw = str(window or "").strip().lower()
+    if not raw.endswith("d") or not raw[:-1].isdigit():
+        return _request_failure(
+            "candidate_window_format_invalid",
+            "candidate_windows must use Nd format, e.g. 7d",
+            operation="prompt_time_density.candidate_window",
+        )
+    return max(1, int(raw[:-1]))
+
+
+def _smoothing_outcome(values: list[float], method: str) -> list[float] | Failure:
+    if method not in {"ema", "gaussian", "none"}:
+        return _request_failure(
+            "smoothing_invalid",
+            "smoothing must be one of: ema, gaussian, none",
+            operation="prompt_time_density.smoothing",
+        )
+    if len(values) <= 2 or method == "none":
+        return values
+    if method == "ema":
+        alpha = 0.35
+        out = [values[0]]
+        for value in values[1:]:
+            out.append(alpha * value + (1.0 - alpha) * out[-1])
+        return out
+    if method == "gaussian":
+        kernel = [0.25, 0.5, 0.25]
+        out: list[float] = []
+        for index in range(len(values)):
+            left = values[max(0, index - 1)]
+            mid = values[index]
+            right = values[min(len(values) - 1, index + 1)]
+            out.append((left * kernel[0]) + (mid * kernel[1]) + (right * kernel[2]))
+        return out
+    return values
+
+
+def _validate_query_request(*, start: date, end: date, bucket: str) -> None | Failure:
+    if start > end:
+        return _request_failure("date_range_invalid", "start must be <= end", operation="query_prompt_time_density")
+    if bucket not in {"day", "week", "month"}:
+        return _request_failure(
+            "bucket_invalid",
+            "bucket must be one of: day, week, month",
+            operation="query_prompt_time_density",
+        )
+    return None
+
+
+def _validate_priority_request(
+    *,
+    candidate_windows: list[str],
+    min_overlap: float,
+    target_overlap: float,
+    eta: float,
+    delta_max: float,
+    tau: float,
+) -> None | Failure:
+    if not candidate_windows:
+        return _request_failure(
+            "candidate_windows_required", "candidate_windows must not be empty", operation="query_prompt_time_density_priority"
+        )
+    if eta < 0:
+        return _request_failure("eta_negative", "eta must be >= 0", operation="query_prompt_time_density_priority")
+    if not (0 <= delta_max <= 1):
+        return _request_failure("delta_max_out_of_range", "delta_max must be in [0, 1]", operation="query_prompt_time_density_priority")
+    if tau < 0:
+        return _request_failure("tau_negative", "tau must be >= 0", operation="query_prompt_time_density_priority")
+    if not (0 <= min_overlap <= 1):
+        return _request_failure("min_overlap_out_of_range", "min_overlap must be in [0, 1]", operation="query_prompt_time_density_priority")
+    if not (0 <= target_overlap <= 1):
+        return _request_failure("target_overlap_out_of_range", "target_overlap must be in [0, 1]", operation="query_prompt_time_density_priority")
+    for window in candidate_windows:
+        parsed = _window_days_outcome(window)
+        if isinstance(parsed, Failure):
+            return parsed
+    return None
 
 
 def _parse_iso_day(value: Any) -> date | None:
@@ -124,13 +249,10 @@ def _source_domain_of(doc: Document) -> str:
 
 
 def _bucket_of(day: date, bucket: str) -> date:
-    if bucket == "day":
-        return day
-    if bucket == "week":
-        return day - timedelta(days=day.weekday())
-    if bucket == "month":
-        return date(day.year, day.month, 1)
-    raise ValueError("bucket must be one of: day, week, month")
+    outcome = _bucket_outcome(day, bucket)
+    if isinstance(outcome, Failure):
+        _raise_request_failure(outcome)
+    return outcome
 
 
 def _window_days(start: date, end: date) -> int:
@@ -138,10 +260,10 @@ def _window_days(start: date, end: date) -> int:
 
 
 def _parse_window_days(window: str) -> int:
-    raw = str(window or "").strip().lower()
-    if not raw.endswith("d") or not raw[:-1].isdigit():
-        raise ValueError("candidate_windows must use Nd format, e.g. 7d")
-    return max(1, int(raw[:-1]))
+    outcome = _window_days_outcome(window)
+    if isinstance(outcome, Failure):
+        _raise_request_failure(outcome)
+    return outcome
 
 
 def _resolve_group_filters(
@@ -273,7 +395,10 @@ def build_time_density_live_gap_markers(
     effective_time_provenance: dict[str, Any] | None = None,
     feedback_observed: bool = False,
     production_data_verified: bool = False,
-) -> list[str]:
+) -> Annotated[
+    list[str],
+    "kit:non-authoritative derived_as=view fact_source=prompt_time_density.trace witness=test:test_w01_meta",
+]:
     markers: set[str] = set()
     if not feedback_observed:
         markers.add("prompt_time_window_feedback_pending")
@@ -309,7 +434,10 @@ def _build_ope_freshness_inputs(row: dict[str, Any], *, chosen_window: str) -> d
 def build_time_density_decision_log_features(
     row: dict[str, Any],
     trace: dict[str, Any] | None = None,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=prompt_time_density.decision_log witness=test:test_w01_meta",
+]:
     trace = trace or row.get("policy_decision_trace") or {}
     effective_time_provenance = (
         trace.get("effective_time_provenance")
@@ -394,24 +522,10 @@ def _project_to_bounded_simplex(
 
 
 def _smooth(values: list[float], method: str) -> list[float]:
-    if len(values) <= 2 or method == "none":
-        return values
-    if method == "ema":
-        alpha = 0.35
-        out = [values[0]]
-        for v in values[1:]:
-            out.append(alpha * v + (1.0 - alpha) * out[-1])
-        return out
-    if method == "gaussian":
-        kernel = [0.25, 0.5, 0.25]
-        out: list[float] = []
-        for i in range(len(values)):
-            left = values[max(0, i - 1)]
-            mid = values[i]
-            right = values[min(len(values) - 1, i + 1)]
-            out.append((left * kernel[0]) + (mid * kernel[1]) + (right * kernel[2]))
-        return out
-    raise ValueError("smoothing must be one of: ema, gaussian, none")
+    outcome = _smoothing_outcome(values, method)
+    if isinstance(outcome, Failure):
+        _raise_request_failure(outcome)
+    return outcome
 
 
 def _percentile(values: list[float], q: float) -> float:
@@ -541,7 +655,10 @@ def build_policy_decision_trace(
     priority_decision_trace: dict[str, Any] | None = None,
     ope_freshness_inputs: dict[str, Any] | None = None,
     live_data_gap_markers: list[str] | None = None,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=prompt_time_density.decision_log witness=test:test_w01_meta",
+]:
     effective_time_provenance = effective_time_provenance or {}
     return {
         "contract_version": TIME_DENSITY_DECISION_LOG_CONTRACT_VERSION,
@@ -579,10 +696,9 @@ def query_prompt_time_density(
     prompt_group_ids: list[str] | None = None,
     normalize: bool = True,
 ) -> list[dict[str, Any]]:
-    if start > end:
-        raise ValueError("start must be <= end")
-    if bucket not in {"day", "week", "month"}:
-        raise ValueError("bucket must be one of: day, week, month")
+    validation = _validate_query_request(start=start, end=end, bucket=bucket)
+    if isinstance(validation, Failure):
+        _raise_request_failure(validation)
 
     normalized_domains = {x.strip().lower() for x in (source_domains or []) if str(x).strip()}
     normalized_groups = _resolve_group_filters(noun_group_ids=noun_group_ids, prompt_group_ids=prompt_group_ids)
@@ -690,11 +806,25 @@ def query_prompt_time_density_cloud(
 ) -> dict[str, Any]:
     keyword_norm = str(keyword or "").strip().lower()
     if not keyword_norm:
-        raise ValueError("keyword is required")
+        _raise_request_failure(
+            _request_failure("keyword_required", "keyword is required", operation="query_prompt_time_density_cloud")
+        )
     if not (0.0 <= peak_percentile <= 1.0):
-        raise ValueError("peak_percentile must be in [0, 1]")
+        _raise_request_failure(
+            _request_failure(
+                "peak_percentile_out_of_range",
+                "peak_percentile must be in [0, 1]",
+                operation="query_prompt_time_density_cloud",
+            )
+        )
     if not (0.0 <= uncertainty <= 1.0):
-        raise ValueError("uncertainty must be in [0, 1]")
+        _raise_request_failure(
+            _request_failure(
+                "uncertainty_out_of_range",
+                "uncertainty must be in [0, 1]",
+                operation="query_prompt_time_density_cloud",
+            )
+        )
 
     rows = query_prompt_time_density(
         start=start,
@@ -806,18 +936,16 @@ def query_prompt_time_density_priority(
     avoid_peak: bool = True,
     project_key: str | None = None,
 ) -> list[dict[str, Any]]:
-    if not candidate_windows:
-        raise ValueError("candidate_windows must not be empty")
-    if eta < 0:
-        raise ValueError("eta must be >= 0")
-    if not (0 <= delta_max <= 1):
-        raise ValueError("delta_max must be in [0, 1]")
-    if tau < 0:
-        raise ValueError("tau must be >= 0")
-    if not (0 <= min_overlap <= 1):
-        raise ValueError("min_overlap must be in [0, 1]")
-    if not (0 <= target_overlap <= 1):
-        raise ValueError("target_overlap must be in [0, 1]")
+    validation = _validate_priority_request(
+        candidate_windows=candidate_windows,
+        min_overlap=min_overlap,
+        target_overlap=target_overlap,
+        eta=eta,
+        delta_max=delta_max,
+        tau=tau,
+    )
+    if isinstance(validation, Failure):
+        _raise_request_failure(validation)
 
     per_window_rows: dict[str, list[dict[str, Any]]] = {}
     for window in candidate_windows:
@@ -1019,7 +1147,9 @@ def select_priority_windows(
     max_windows: int = 3,
 ) -> list[dict[str, Any]]:
     if max_windows <= 0:
-        raise ValueError("max_windows must be > 0")
+        _raise_request_failure(
+            _request_failure("max_windows_not_positive", "max_windows must be > 0", operation="select_priority_windows")
+        )
     selected: list[dict[str, Any]] = []
     seen: set[str] = set()
     for row in rows:

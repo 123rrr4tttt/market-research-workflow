@@ -1,0 +1,12 @@
+{
+  "authoritative": false,
+  "docker_image_id": "sha256:f5641ba6d2b50135da1c9c9c3edfd067ed90ecfb37bcb8f0c7580b2e00aaa915",
+  "expected_config_digest": "sha256:15371cfe42b4783b38268ee7c5f7eb59a6bbc933d0544212384482905c8ee730",
+  "expected_oci_index_digest": "sha256:f5641ba6d2b50135da1c9c9c3edfd067ed90ecfb37bcb8f0c7580b2e00aaa915",
+  "index_identity_match": true,
+  "load_exit_code": 0,
+  "load_source": "candidate/frontend/image.oci.tar",
+  "role": "frontend",
+  "status": "PASS",
+  "tag": "mrw-local/r13x-candidate-frontend:8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2"
+}

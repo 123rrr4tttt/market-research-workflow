@@ -7,7 +7,7 @@ we make the per-entry execution path explicit instead of scattering chain metada
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Annotated, Any
 
 
 @dataclass(frozen=True)
@@ -34,7 +34,10 @@ def build_candidate_source_plan(
     policy_category: str,
     allow_deprioritized: bool,
     external_search_enabled: bool,
-) -> CandidateSourcePlan:
+) -> Annotated[
+    CandidateSourcePlan,
+    "kit:non-authoritative derived_as=view fact_source=entry_type+policy_category+search_feature_flags witness=test:test_w03_ingest_ports_authority_metadata",
+]:
     etype = str(entry_type or "").strip().lower()
     policy = str(policy_category or "").strip().lower()
     if policy == "api_preferred":
@@ -89,7 +92,10 @@ def build_candidate_source_plan(
     )
 
 
-def plan_to_metadata(plan: CandidateSourcePlan) -> dict[str, Any]:
+def plan_to_metadata(plan: CandidateSourcePlan) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=candidate_source_plan witness=test:test_w03_ingest_ports_authority_metadata",
+]:
     return {
         "entry_type": plan.entry_type,
         "policy_category": plan.policy_category,

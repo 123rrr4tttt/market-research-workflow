@@ -5,11 +5,21 @@ import argparse
 import glob
 import json
 import xml.etree.ElementTree as ET
+from typing import Annotated
 from collections import Counter
 from pathlib import Path
 
 
-def build_summary(*, junit_glob: str, threshold: float, top_n: int) -> dict:
+def build_summary(
+    *,
+    junit_glob: str,
+    threshold: float,
+    top_n: int,
+) -> Annotated[
+    dict,
+    "kit:non-authoritative derived_as=view fact_source=junit_xml_history "
+    "witness=test:test_c15_backend_misc_cli_report_metadata_preserves_abi",
+]:
     files = [Path(path) for path in glob.glob(junit_glob)]
     totals: Counter[str] = Counter()
     failures: Counter[str] = Counter()

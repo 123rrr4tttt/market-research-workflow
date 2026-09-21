@@ -5,12 +5,14 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 import json
 from time import monotonic
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from .capability_registry import is_read_only_capability_id
-from .read_only_tools import ReadOnlyAgentToolRuntime
 from .tool_contract import RUN_LOOP_CONTRACT_VERSION
 from .tool_execution import ToolCallExecutionRecord, ToolExecutionHooks, ToolExecutionPolicy, is_abort_requested
+
+if TYPE_CHECKING:
+    from .read_only_tools import ReadOnlyAgentToolRuntime
 
 
 AgentRunLoopEventSink = Callable[[dict[str, Any]], None]

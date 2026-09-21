@@ -1,0 +1,114 @@
+{
+  "schema_version": "mrw.stage3.test-nonpass-inventory.r13x.v1",
+  "authoritative": false,
+  "status": "PASS_ACCOUNTING_COMPLETE_NOT_AUTHORITY",
+  "candidate": {
+    "commit": "8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+    "tree": "ce7c67c831b51f9d64b4c2f1a470a724a50b19df"
+  },
+  "scope": "Non-failure outcomes in dependency-safe reused receipts. Execution ownership remains with the source candidate and environment; this inventory does not relabel them as fresh r13x runs.",
+  "items": [
+    {
+      "suite": "backend_unit",
+      "source_candidate": "r13n",
+      "owner": "r13n test execution",
+      "receipt": "../../r13n/backend-unit-final.log",
+      "deselected": 2337,
+      "deselection_reason": "Pytest selection excluded tests outside the unit work package; the receipt did not preserve the exact selector command, so finer attribution is UNKNOWN_NOT_EMITTED_BY_RECEIPT.",
+      "warnings": 25,
+      "warning_categories_observed": [
+        "FastAPI on_event deprecation",
+        "Pydantic class-based config deprecation"
+      ],
+      "warning_count_by_category": "UNKNOWN_NOT_EMITTED_BY_RECEIPT",
+      "classification": "EXPECTED_SELECTOR_AND_DEPRECATION_INVENTORY_NOT_TEST_FAILURE"
+    },
+    {
+      "suite": "backend_integration",
+      "source_candidate": "r13o",
+      "owner": "r13o test execution",
+      "receipt": "../../r13o/tests/01c-backend-integration-dns-fixture.log",
+      "skipped": 291,
+      "skip_reason": "Individual skip reasons were not emitted because the receipt used quiet output without -rs; exact finer attribution is UNKNOWN_NOT_EMITTED_BY_RECEIPT.",
+      "deselected": 3483,
+      "deselection_reason": "The recorded marker expression selected integration and excluded external and flaky tests: -m 'integration and not external and not flaky'.",
+      "warnings": 20,
+      "warning_categories_observed": [
+        "Pydantic max_items deprecation",
+        "FastAPI on_event deprecation",
+        "Pydantic class-based config deprecation",
+        "Starlette BlockingPortal alias deprecation",
+        "Starlette per-request cookies deprecation"
+      ],
+      "warning_count_by_category": "UNKNOWN_NOT_EMITTED_BY_RECEIPT",
+      "classification": "RECORDED_SKIP_SELECTOR_AND_DEPRECATION_INVENTORY_NOT_TEST_FAILURE"
+    },
+    {
+      "suite": "core_business",
+      "source_candidate": "r13o",
+      "owner": "r13o test execution",
+      "receipt": "../../r13o/tests/02c-core-business-dns-fixture.log",
+      "warnings": 16,
+      "warning_categories_observed": [
+        "Starlette BlockingPortal alias deprecation",
+        "Pydantic max_items deprecation",
+        "FastAPI on_event deprecation",
+        "Pydantic class-based config deprecation"
+      ],
+      "warning_count_by_category": "UNKNOWN_NOT_EMITTED_BY_RECEIPT",
+      "classification": "DEPRECATION_INVENTORY_NOT_TEST_FAILURE"
+    },
+    {
+      "suite": "schema_guard",
+      "source_candidate": "r13o",
+      "owner": "r13o test execution",
+      "receipt": "../../r13o/tests/04-schema-guard.log",
+      "warnings": 16,
+      "warning_categories_observed": [
+        "Starlette BlockingPortal alias deprecation",
+        "Pydantic max_items deprecation",
+        "FastAPI on_event deprecation",
+        "Pydantic class-based config deprecation"
+      ],
+      "warning_count_by_category": "UNKNOWN_NOT_EMITTED_BY_RECEIPT",
+      "classification": "DEPRECATION_INVENTORY_NOT_TEST_FAILURE"
+    },
+    {
+      "suite": "successor_runtime_non_postgresql",
+      "source_candidate": "r13q",
+      "owner": "r13q successor-preview execution",
+      "receipt": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260910-v4-r13q/evidence/successor-preview/full-nonpg.log",
+      "skipped": 292,
+      "skip_reason": "The suite was intentionally run with WORKFLOW_GRAPH_DB_STORE_ENABLED=false as the non-PostgreSQL profile. Individual skip reasons were not emitted because the quiet receipt omitted -rs; finer attribution is UNKNOWN_NOT_EMITTED_BY_RECEIPT.",
+      "warnings": 4,
+      "warning_categories_observed": [
+        "Starlette BlockingPortal alias deprecation",
+        "Pydantic max_items deprecation",
+        "Pydantic class-based config deprecation"
+      ],
+      "warning_count_by_category": "UNKNOWN_NOT_EMITTED_BY_RECEIPT",
+      "classification": "PROFILE_SKIP_AND_DEPRECATION_INVENTORY_NOT_TEST_FAILURE"
+    },
+    {
+      "suite": "frontend_e2e_full",
+      "source_candidate": "r13o",
+      "owner": "r13o frontend E2E execution",
+      "receipt": "../../r13o/frontend-e2e-full-backend-ready.log",
+      "skipped": 4,
+      "skip_reason": "Four cases require AGENT_CORE_REAL_BACKEND_E2E=1 with AGENT_CORE_E2E_SCRIPTED_PROVIDER_ENABLED=true; the full profile intentionally omitted that scripted-provider mode.",
+      "closure_receipt": "../../r13o/frontend-e2e-scripted-provider.log",
+      "closure_result": "8 passed",
+      "classification": "EXPLICIT_PROFILE_SKIP_SEPARATELY_COVERED"
+    }
+  ],
+  "fresh_r13x_nonpass": {
+    "affected_formal_release": {"failed": 0},
+    "postgresql_opt_in": {"failed": 0},
+    "architecture_exact_patched_kit_py311": {"failed": 0}
+  },
+  "limitations": [
+    "UNKNOWN_NOT_EMITTED_BY_RECEIPT is retained instead of fabricating per-test reasons.",
+    "Warning totals are exact; category names are observed in the warning summaries, while per-category counts were not emitted."
+  ],
+  "authority_ceiling": "TEST_ACCOUNTING_ONLY_NOT_RELEASE_AUTHORITY"
+}

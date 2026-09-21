@@ -1,0 +1,175 @@
+{
+  "schema_version": "mrw.stage3.r2-release-manifest-gap-map.r13x.v1",
+  "authoritative": false,
+  "observed_at": "2026-09-12T15:13:16Z",
+  "candidate": {
+    "commit": "8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+    "tree": "ce7c67c831b51f9d64b4c2f1a470a724a50b19df",
+    "base": "88ffcc3dab2e6cbdc1f389e16c4226df5a2e51c6"
+  },
+  "checker": {
+    "path": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260912-v4-r13x/candidate/scripts/formal_release/check_release_evidence.py",
+    "manifest_schema": "mrw.formal-production-release-evidence.v1",
+    "derived_as": "preflight",
+    "required_family_count": 10,
+    "valid_record_statuses": ["PASS", "FAIL", "BLOCKED", "UNEXECUTED"],
+    "checker_limitations": [
+      "candidate_commit and candidate_tree are not required or compared by the checker",
+      "evidence_refs are not opened by the checker and evidence_sha256 values are syntax-checked but not recomputed",
+      "artifact digests, build run identifiers, tool versions, registry immutability and signature verification are not top-level typed fields in this schema",
+      "a FAIL, BLOCKED or UNEXECUTED family makes the preflight report non-PASS according to status precedence"
+    ],
+    "supplemental_checks_required_before_acceptance": [
+      "compare candidate_commit and candidate_tree to the frozen r13x identity",
+      "recompute every positional evidence_refs/evidence_sha256 pair",
+      "inspect referenced artifact evidence for three role digests, build run, tool versions, SBOM, provenance, vulnerability reports, signature verification and registry immutability",
+      "record the validator exit code and output without converting a non-PASS result into a PASS claim"
+    ]
+  },
+  "actual_release_manifest": {
+    "status": "ABSENT_NOT_FABRICATED",
+    "expected_owner": "Stage3 integrator after all real evidence inputs exist",
+    "required_candidate_bindings": {
+      "candidate_commit": "8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+      "candidate_tree": "ce7c67c831b51f9d64b4c2f1a470a724a50b19df"
+    },
+    "blocked_by": [
+      "final r13x Stage3 aggregate evidence is not yet available in this read-only work package",
+      "exact SHA has no remote workflow/check run and is absent from the GitHub remote",
+      "three-role registry identities and registry immutability readback are not established",
+      "real signature verification inputs and receipts are not established",
+      "future-stage R2 families cannot truthfully be marked PASS during Stage3 without a contract decision"
+    ]
+  },
+  "families": [
+    {
+      "family": "semantic_closure",
+      "required_real_inputs": [
+        "exact-candidate architecture, registry, law, exact-byte and negative/failure gate results",
+        "final Stage3 requirement-to-evidence aggregation"
+      ],
+      "available_now": [
+        "exact r13x R3 static production contract evidence",
+        "exact r13x Stage1/2 binding evidence"
+      ],
+      "status": "PARTIAL",
+      "blocked_by": ["final r13x Stage3 semantic gate aggregate"]
+    },
+    {
+      "family": "candidate_identity",
+      "required_real_inputs": [
+        "candidate and replay commit/tree/base",
+        "clean status",
+        "candidate manifest and evidence-index digests"
+      ],
+      "available_now": [
+        "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260912-v4-r13x/evidence/r1-candidate-identity.r13x.json",
+        "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260912-v4-r13x/evidence/replay-r1-candidate-identity.r13x.json",
+        "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260912-v4-r13x/evidence/SHA256SUMS.r13x"
+      ],
+      "status": "AVAILABLE_EXACT_R13X",
+      "blocked_by": []
+    },
+    {
+      "family": "artifact_build",
+      "required_real_inputs": [
+        "backend immutable digest and metadata",
+        "frontend immutable digest and metadata",
+        "migration-runner immutable digest and metadata",
+        "second clean build comparison",
+        "SBOM and provenance per role",
+        "build run identifiers and tool versions",
+        "fixed base and compose image digests",
+        "no production source bind mount evidence"
+      ],
+      "available_now": [],
+      "status": "BLOCKED",
+      "blocked_by": ["r13x artifact work package outputs"]
+    },
+    {
+      "family": "business_validation",
+      "required_real_inputs": [
+        "backend unit, integration, core-business, schema/migration and successor runtime results",
+        "PostgreSQL opt-in evidence with teardown residue zero",
+        "frontend install, lint, typecheck, build and component/e2e results",
+        "Docker and full-stack smoke results"
+      ],
+      "available_now": [],
+      "status": "BLOCKED",
+      "blocked_by": ["r13x test and runtime work package outputs"]
+    },
+    {
+      "family": "security_supply_chain",
+      "required_real_inputs": [
+        "Bandit and pip-audit reports",
+        "exact r13x gitleaks disposition",
+        "frontend dependency audit",
+        "fresh vulnerability scan for each exact artifact digest",
+        "signature verification receipts",
+        "registry immutability readback"
+      ],
+      "available_now": [],
+      "status": "BLOCKED",
+      "blocked_by": [
+        "r13x security and artifact scan outputs",
+        "registry read scope and exact registry targets",
+        "signature verification inputs"
+      ]
+    },
+    {
+      "family": "runtime_staging",
+      "required_real_inputs": ["Stage4 isolated staging runtime evidence"],
+      "available_now": [],
+      "status": "UNEXECUTED_BY_STAGE_ORDER",
+      "blocked_by": ["Stage4 authority and execution"]
+    },
+    {
+      "family": "observability_canary",
+      "required_real_inputs": ["Stage6 canary and observation evidence"],
+      "available_now": [],
+      "status": "UNEXECUTED_BY_STAGE_ORDER",
+      "blocked_by": ["Stage6 authority and observation window"]
+    },
+    {
+      "family": "backup_recovery",
+      "required_real_inputs": ["Stage5 backup, restore, migration and rollback rehearsal evidence"],
+      "available_now": [],
+      "status": "UNEXECUTED_BY_STAGE_ORDER",
+      "blocked_by": ["Stage5 authority and execution"]
+    },
+    {
+      "family": "independent_review",
+      "required_real_inputs": ["independent review record bound to the final release candidate and artifacts"],
+      "available_now": [],
+      "status": "UNEXECUTED_BY_STAGE_ORDER",
+      "blocked_by": ["final candidate/artifact bundle and independent reviewer"]
+    },
+    {
+      "family": "promotion_authority",
+      "required_real_inputs": ["human authority record bound to candidate, artifacts, scope and rollback owner"],
+      "available_now": [],
+      "status": "BLOCKED",
+      "blocked_by": ["explicit human production-promotion authority"]
+    }
+  ],
+  "historical_reuse": {
+    "r13v": {
+      "commit": "8427e3d626cd12f41e45d38e00223f2ef86d692f",
+      "tree": "4146bcab51e437920a006875e06ed8cdcc32470a",
+      "policy": "reference only for historical method/failure context; not exact r13x evidence"
+    },
+    "r13w": {
+      "commit": "6aa7518750f2c29229a443f73248c8133f192e4d",
+      "tree": "9853f36db67a5b62c297f6266bc4d0861a28c396",
+      "policy": "reference only for historical method/failure context; artifact digests are not reusable for r13x"
+    },
+    "r13t": {
+      "commit": "17e824ab2de3de450bd5215f84bacca428d90218e",
+      "tree": "6e2c8524c7cbd436bf58bc08b37fa2b2bdbc0d92",
+      "policy": "reference only for historical method/failure context; not exact r13x evidence"
+    }
+  },
+  "external_effects": [],
+  "unauthorized_writes": 0,
+  "ceiling": "GAP_MAP_ONLY_NO_ACTUAL_RELEASE_MANIFEST_NO_STAGE3_PASS"
+}

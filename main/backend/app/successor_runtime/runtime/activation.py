@@ -12,6 +12,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Literal
 
+from functorial_kit import Failure
+
 from app.successor_runtime.language.algebra import ValueRef, sha256_digest_bytes
 from app.successor_runtime.language.checksum import canonical_bytes, sha256_hex
 from app.successor_runtime.language.normalize import normalize_program
@@ -38,21 +40,39 @@ from app.successor_runtime.language.program import (
 )
 from app.successor_runtime.language.transforms import (
     MergeRef,
+    RegistryError,
     TransformRef,
     TransformRegistry,
 )
 
 from .reducer import (
     BranchDecisionReduction,
+    BranchDecisionUnresolved,
+    GuardExpressionError,
     RunSnapshot,
     StepSnapshot,
-    reduce_branch_decision,
+    reduce_branch_decision_result,
 )
 from .transitions import RunState, StepState
+from .failure_policy import raise_runtime_failure, runtime_failure
 
 
 class ActivationError(ValueError):
     """The exact Program/Plan/value closure cannot be activated safely."""
+
+
+def _activation_failure(
+    message: object,
+    *,
+    code: str = "ACTIVATION_INVALID",
+    exception_type: type[Exception] = ActivationError,
+) -> Failure:
+    return runtime_failure(
+        code,
+        message,
+        exception_type,
+        site="successor_runtime.runtime.activation.activate_plan",
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -145,7 +165,7 @@ class ActivationResult:
     traversal_materializations: tuple[TraversalMaterialization, ...] = ()
 
 
-def activate_plan(
+def _activate_plan_impl(
     *,
     run_id: str,
     program: ProgramSpec,
@@ -157,7 +177,7 @@ def activate_plan(
     merge_registry: TransformRegistry,
     discriminator_registry: TransformRegistry,
     already_activated_step_ids: frozenset[str] = frozenset(),
-) -> ActivationResult:
+) -> ActivationResult | Failure:
     """Interpret pure steps and discover ready effect/admission work.
 
     The fold is ordered and reaches a fixed point.  It preserves dependency
@@ -168,21 +188,34 @@ def activate_plan(
     """
 
     if not run_id:
-        raise ActivationError("activation requires a run_id")
-    normalized = normalize_program(program)
-    _require_exact_plan(normalized, plan)
+        return _activation_failure("activation requires a run_id")
+    try:
+        normalized = normalize_program(program)
+    except (TypeError, ValueError) as exc:
+        return _activation_failure(str(exc))
+    exact_plan = _require_exact_plan(normalized, plan)
+    if isinstance(exact_plan, Failure):
+        return exact_plan
 
     nodes = _nodes_by_path(normalized.root)
+    if isinstance(nodes, Failure):
+        return nodes
     steps = {step.step_id: step for step in plan.ordered_steps}
     if len(steps) != len(plan.ordered_steps):
-        raise ActivationError("ExecutionPlan step IDs must be unique")
+        return _activation_failure("ExecutionPlan step IDs must be unique")
 
     values = _completed_values(completed_outputs, steps, program.project_key)
+    if isinstance(values, Failure):
+        return values
     materializations: dict[str, ValueMaterialization] = {}
     activations: dict[str, ReadyActivation] = {}
     traversal_materializations: dict[str, TraversalMaterialization] = {}
     controls = _controls_by_id(plan.control_root)
+    if isinstance(controls, Failure):
+        return controls
     decisions = _completed_decisions(completed_branch_decisions, controls)
+    if isinstance(decisions, Failure):
+        return decisions
 
     progress = True
     while progress:
@@ -190,7 +223,10 @@ def activate_plan(
         for step in plan.ordered_steps:
             if step.step_id in values:
                 continue
-            if not _branch_is_released(step, decisions):
+            released = _branch_is_released(step, decisions)
+            if isinstance(released, Failure):
+                return released
+            if not released:
                 continue
 
             dependencies = _dependency_values(
@@ -204,12 +240,16 @@ def activate_plan(
 
             if step.step_kind == "PURE":
                 node = _require_node(nodes, step, Pure)
+                if isinstance(node, Failure):
+                    return node
                 value = _thaw(node.literal_value)
                 embedded_ref = _unique_embedded_value_ref(
                     value, project_key=program.project_key
                 )
+                if isinstance(embedded_ref, Failure):
+                    return embedded_ref
                 if embedded_ref is None:
-                    bound, materialization = _derive_value(
+                    derived = _derive_value(
                         program=program,
                         plan=plan,
                         step=step,
@@ -217,6 +257,9 @@ def activate_plan(
                         dependency_refs=tuple(item.value_ref for item in dependencies),
                         codec_id=node.literal_codec,
                     )
+                    if isinstance(derived, Failure):
+                        return derived
+                    bound, materialization = derived
                     materializations[step.step_id] = materialization
                 else:
                     bound = BoundStepValue(step.step_id, embedded_ref, value)
@@ -235,13 +278,15 @@ def activate_plan(
                         dependencies=dependencies,
                         program_input=program_input,
                     )
+                    if isinstance(descriptor, Failure):
+                        return descriptor
                     traversal_materializations.setdefault(
                         step.step_id,
                         descriptor,
                     )
                     continue
                 if len(dependencies) != 1 or step.transform_ref is None:
-                    raise ActivationError(
+                    return _activation_failure(
                         f"TRANSFORM {step.step_id} requires one dependency and exact ref"
                     )
                 ref = TransformRef(
@@ -250,18 +295,35 @@ def activate_plan(
                     step.transform_ref.digest,
                     "transform",
                 )
-                entry = transform_registry.resolve_transform(ref)
-                _require_transform_types(step, entry.input_type, entry.output_type)
-                value = entry.callable(dependencies[0].value)
+                entry = transform_registry.try_resolve_transform(ref)
+                if isinstance(entry, Failure):
+                    return _activation_failure(
+                        entry.message,
+                        code=entry.code,
+                        exception_type=RegistryError,
+                    )
+                type_check = _require_transform_types(step, entry.input_type, entry.output_type)
+                if isinstance(type_check, Failure):
+                    return type_check
+                try:
+                    value = entry.callable(dependencies[0].value)
+                except Exception as exc:
+                    return _activation_failure(f"TRANSFORM {step.step_id} failed: {exc}")
                 if entry.preserves_value_ref:
-                    if canonical_bytes(value) != canonical_bytes(dependencies[0].value):
-                        raise ActivationError(
+                    try:
+                        bytes_equal = canonical_bytes(value) == canonical_bytes(
+                            dependencies[0].value
+                        )
+                    except (TypeError, ValueError, OverflowError) as exc:
+                        return _activation_failure(str(exc))
+                    if not bytes_equal:
+                        return _activation_failure(
                             f"TRANSFORM {step.step_id} changed bytes despite ValueRef-preserving binding"
                         )
                     if not _output_type_compatible(
                         step.output_type, dependencies[0].value_ref.object_type
                     ):
-                        raise ActivationError(
+                        return _activation_failure(
                             f"TRANSFORM {step.step_id} cannot preserve an incompatible ValueRef type"
                         )
                     # A representation-preserving transform, including the
@@ -276,13 +338,16 @@ def activate_plan(
                     )
                     progress = True
                     continue
-                bound, materialization = _derive_value(
+                derived = _derive_value(
                     program=program,
                     plan=plan,
                     step=step,
                     value=value,
                     dependency_refs=(dependencies[0].value_ref,),
                 )
+                if isinstance(derived, Failure):
+                    return derived
+                bound, materialization = derived
                 values[step.step_id] = bound
                 materializations[step.step_id] = materialization
                 progress = True
@@ -290,7 +355,7 @@ def activate_plan(
 
             if step.step_kind == "MERGE":
                 if len(dependencies) != 2 or step.transform_ref is None:
-                    raise ActivationError(
+                    return _activation_failure(
                         f"MERGE {step.step_id} requires exact ordered left/right outputs"
                     )
                 ref = MergeRef(
@@ -299,23 +364,35 @@ def activate_plan(
                     step.transform_ref.digest,
                     "merge",
                 )
-                entry = merge_registry.resolve_merge(ref)
+                entry = merge_registry.try_resolve_merge(ref)
+                if isinstance(entry, Failure):
+                    return _activation_failure(
+                        entry.message,
+                        code=entry.code,
+                        exception_type=RegistryError,
+                    )
                 if object_type_digest(entry.output_type) != object_type_digest(
                     step.output_type
                 ):
-                    raise ActivationError(
+                    return _activation_failure(
                         "MERGE output type does not match compiled step"
                     )
                 # This order is semantic.  It is not normalized or commuted.
-                value = entry.callable(dependencies[0].value, dependencies[1].value)
+                try:
+                    value = entry.callable(dependencies[0].value, dependencies[1].value)
+                except Exception as exc:
+                    return _activation_failure(f"MERGE {step.step_id} failed: {exc}")
                 dependency_refs = tuple(item.value_ref for item in dependencies)
-                bound, materialization = _derive_value(
+                derived = _derive_value(
                     program=program,
                     plan=plan,
                     step=step,
                     value=value,
                     dependency_refs=dependency_refs,
                 )
+                if isinstance(derived, Failure):
+                    return derived
+                bound, materialization = derived
                 values[step.step_id] = bound
                 materializations[step.step_id] = materialization
                 progress = True
@@ -324,15 +401,15 @@ def activate_plan(
             if step.step_kind == "DECIDE":
                 control_id = step.branch_control_id
                 if control_id is None or control_id not in controls:
-                    raise ActivationError(
-                        "DECIDE step lacks its exact compiled control"
-                    )
+                    return _activation_failure("DECIDE step lacks its exact compiled control")
                 decision_input = _control_input(
                     dependencies, program_input, step.step_id
                 )
+                if isinstance(decision_input, Failure):
+                    return decision_input
                 decision = decisions.get(control_id)
                 if decision is None:
-                    reduction = reduce_branch_decision(
+                    reduction = reduce_branch_decision_result(
                         RunSnapshot(run_id, RunState.RUNNING),
                         tuple(
                             StepSnapshot(step_id, StepState.PENDING)
@@ -343,13 +420,17 @@ def activate_plan(
                         discriminator_registry=discriminator_registry,
                         input_value=decision_input.value,
                     )
+                    if isinstance(reduction, Failure):
+                        return reduction
                     decision = CompletedBranchDecision(control_id, reduction)
                     decisions[control_id] = decision
-                _require_decision_matches_input(
+                decision_check = _require_decision_matches_input(
                     decision,
                     controls[control_id],
                     decision_input.value,
                 )
+                if isinstance(decision_check, Failure):
+                    return decision_check
                 if decision.reduction.selected_branch_id is None:
                     # No branch is released from an unresolved decision.
                     continue
@@ -363,6 +444,8 @@ def activate_plan(
                 if step.step_id in already_activated_step_ids:
                     continue
                 atom = _require_atom(nodes, step)
+                if isinstance(atom, Failure):
+                    return atom
                 descriptor = _activation_descriptor(
                     project_key=program.project_key,
                     plan=plan,
@@ -370,10 +453,12 @@ def activate_plan(
                     atom=atom,
                     dependencies=dependencies,
                 )
+                if isinstance(descriptor, Failure):
+                    return descriptor
                 activations.setdefault(step.step_id, descriptor)
                 continue
 
-            raise ActivationError(f"unsupported compiled step kind {step.step_kind!r}")
+            return _activation_failure(f"unsupported compiled step kind {step.step_kind!r}")
 
     ordered_value_ids = tuple(
         step.step_id for step in plan.ordered_steps if step.step_id in values
@@ -402,6 +487,76 @@ def activate_plan(
     )
 
 
+def activate_plan_result(
+    *,
+    run_id: str,
+    program: ProgramSpec,
+    plan: ExecutionPlan,
+    completed_outputs: tuple[BoundStepValue, ...] = (),
+    completed_branch_decisions: tuple[CompletedBranchDecision, ...] = (),
+    program_input: ProgramInput | None = None,
+    transform_registry: TransformRegistry,
+    merge_registry: TransformRegistry,
+    discriminator_registry: TransformRegistry,
+    already_activated_step_ids: frozenset[str] = frozenset(),
+) -> ActivationResult | Failure:
+    """Return activation observations or a closed runtime failure value."""
+
+    return _activate_plan_impl(
+        run_id=run_id,
+        program=program,
+        plan=plan,
+        completed_outputs=completed_outputs,
+        completed_branch_decisions=completed_branch_decisions,
+        program_input=program_input,
+        transform_registry=transform_registry,
+        merge_registry=merge_registry,
+        discriminator_registry=discriminator_registry,
+        already_activated_step_ids=already_activated_step_ids,
+    )
+
+
+def activate_plan(
+    *,
+    run_id: str,
+    program: ProgramSpec,
+    plan: ExecutionPlan,
+    completed_outputs: tuple[BoundStepValue, ...] = (),
+    completed_branch_decisions: tuple[CompletedBranchDecision, ...] = (),
+    program_input: ProgramInput | None = None,
+    transform_registry: TransformRegistry,
+    merge_registry: TransformRegistry,
+    discriminator_registry: TransformRegistry,
+    already_activated_step_ids: frozenset[str] = frozenset(),
+) -> ActivationResult:
+    """Legacy exception ABI over :func:`activate_plan_result`."""
+
+    result = activate_plan_result(
+        run_id=run_id,
+        program=program,
+        plan=plan,
+        completed_outputs=completed_outputs,
+        completed_branch_decisions=completed_branch_decisions,
+        program_input=program_input,
+        transform_registry=transform_registry,
+        merge_registry=merge_registry,
+        discriminator_registry=discriminator_registry,
+        already_activated_step_ids=already_activated_step_ids,
+    )
+    if isinstance(result, Failure):
+        exception_type = {
+            "ACTIVATION_INVALID": ActivationError,
+            "TRANSFORM_BINDING_MISSING": RegistryError,
+            "TRANSFORM_REGISTRY_INVALID": RegistryError,
+            "TRANSFORM_CALLABLE_INVALID": RegistryError,
+            "BRANCH_DECISION_UNRESOLVED": BranchDecisionUnresolved,
+            "BRANCH_CONTROL_INVALID": ValueError,
+            "GUARD_EXPRESSION_INVALID": GuardExpressionError,
+        }.get(result.code, ActivationError)
+        raise_runtime_failure(result, exception_type)
+    return result
+
+
 def _traversal_materialization_descriptor(
     *,
     program: ProgramSpec,
@@ -410,12 +565,12 @@ def _traversal_materialization_descriptor(
     node: TraverseOrdered,
     dependencies: tuple[BoundStepValue, ...],
     program_input: ProgramInput | None,
-) -> TraversalMaterialization:
+) -> TraversalMaterialization | Failure:
     if step.transform_ref is None or (
         step.transform_ref.name != "mrw.traverse_ordered.materialize"
         or step.transform_ref.version != "1.0.0"
     ):
-        raise ActivationError("TraverseOrdered step lacks exact materializer binding")
+        return _activation_failure("TraverseOrdered step lacks exact materializer binding")
     if len(dependencies) == 1:
         traversal_input = ProgramInput(
             dependencies[0].value_ref,
@@ -424,29 +579,37 @@ def _traversal_materialization_descriptor(
     elif not dependencies and program_input is not None:
         traversal_input = program_input
     else:
-        raise ActivationError(
+        return _activation_failure(
             f"TraverseOrdered {step.step_id} requires exactly one sequence input"
         )
-    _require_value_ref(traversal_input.value_ref, program.project_key)
+    value_ref_check = _require_value_ref(traversal_input.value_ref, program.project_key)
+    if isinstance(value_ref_check, Failure):
+        return value_ref_check
     if not _output_type_compatible(
         step.input_type,
         traversal_input.value_ref.object_type,
     ):
-        raise ActivationError("TraverseOrdered input ValueRef type mismatch")
+        return _activation_failure("TraverseOrdered input ValueRef type mismatch")
     if not isinstance(traversal_input.value, (tuple, list)):
-        raise ActivationError("TraverseOrdered input must be a finite sequence")
+        return _activation_failure("TraverseOrdered input must be a finite sequence")
 
     elements = tuple(traversal_input.value)
-    exact_input_bytes = canonical_bytes(list(elements))
+    try:
+        exact_input_bytes = canonical_bytes(list(elements))
+    except (TypeError, ValueError, OverflowError) as exc:
+        return _activation_failure(str(exc))
     if traversal_input.value_ref.codec_id != step.input_type.codec_id:
-        raise ActivationError("TraverseOrdered input codec drift")
+        return _activation_failure("TraverseOrdered input codec drift")
     if traversal_input.value_ref.byte_size != len(exact_input_bytes):
-        raise ActivationError("TraverseOrdered input byte-size drift")
-    element_digests = traversal_element_digests(elements)
-    input_sequence_digest = sha256_digest_bytes(exact_input_bytes)
+        return _activation_failure("TraverseOrdered input byte-size drift")
+    try:
+        element_digests = traversal_element_digests(elements)
+        input_sequence_digest = sha256_digest_bytes(exact_input_bytes)
+        shape_digest = traversal_shape_digest(elements)
+    except (TypeError, ValueError, OverflowError) as exc:
+        return _activation_failure(str(exc))
     if traversal_input.value_ref.content_digest != input_sequence_digest:
-        raise ActivationError("TraverseOrdered input content digest mismatch")
-    shape_digest = traversal_shape_digest(elements)
+        return _activation_failure("TraverseOrdered input content digest mismatch")
 
     metadata = dict(program.metadata)
     static_shape_digest: str | None = None
@@ -455,9 +618,9 @@ def _traversal_materialization_descriptor(
         static_shape_digest = metadata.get("traversal_shape_digest")
         static_element_count = metadata.get("traversal_element_count")
         if static_shape_digest != shape_digest or static_element_count != len(elements):
-            raise ActivationError("STATIC_SHAPE traversal input drift")
+            return _activation_failure("STATIC_SHAPE traversal input drift")
     elif node.traversal_policy != "MATERIALIZED_SHAPE":
-        raise ActivationError("unsupported traversal policy")
+        return _activation_failure("unsupported traversal policy")
 
     binding = {
         "schema": "mrw.traverse-ordered.materialization-binding.v1",
@@ -470,7 +633,7 @@ def _traversal_materialization_descriptor(
     }
     binding_digest = sha256_hex(binding)
     if step.transform_ref.digest != binding_digest:
-        raise ActivationError("TraverseOrdered materializer binding drift")
+        return _activation_failure("TraverseOrdered materializer binding drift")
     materialization_digest = sha256_hex(
         {
             "schema": "mrw.traverse-ordered.materialization.v1",
@@ -497,63 +660,83 @@ def _traversal_materialization_descriptor(
     )
 
 
-def _require_exact_plan(program: ProgramSpec, plan: ExecutionPlan) -> None:
-    if program.program_id != plan.program_id:
-        raise ActivationError("Program/ExecutionPlan program_id mismatch")
-    if program.program_digest != program.digest():
-        raise ActivationError("ProgramSpec carries a stale program_digest")
-    if plan.program_digest != program.program_digest:
-        raise ActivationError("ExecutionPlan does not bind the normalized ProgramSpec")
-    if plan.plan_digest != with_plan_digest(plan).plan_digest:
-        raise ActivationError("ExecutionPlan carries a stale plan_digest")
-    _require_control_digests(plan.control_root)
+def _require_exact_plan(program: ProgramSpec, plan: ExecutionPlan) -> None | Failure:
+    try:
+        if program.program_id != plan.program_id:
+            return _activation_failure("Program/ExecutionPlan program_id mismatch")
+        if program.program_digest != program.digest():
+            return _activation_failure("ProgramSpec carries a stale program_digest")
+        if plan.program_digest != program.program_digest:
+            return _activation_failure("ExecutionPlan does not bind the normalized ProgramSpec")
+        if plan.plan_digest != with_plan_digest(plan).plan_digest:
+            return _activation_failure("ExecutionPlan carries a stale plan_digest")
+        return _require_control_digests(plan.control_root)
+    except (AttributeError, TypeError, ValueError) as exc:
+        return _activation_failure(str(exc))
 
 
-def _require_control_digests(control: CompiledControlNode) -> None:
+def _require_control_digests(control: CompiledControlNode) -> None | Failure:
     for child in control.children:
-        _require_control_digests(child)
+        result = _require_control_digests(child)
+        if isinstance(result, Failure):
+            return result
     try:
         control.require_valid_control_digest()
     except ValueError as exc:
-        raise ActivationError(str(exc)) from exc
+        return _activation_failure(str(exc))
+    return None
 
 
-def _nodes_by_path(root: ProgramNode) -> dict[tuple[str, ...], ProgramNode]:
+def _nodes_by_path(root: ProgramNode) -> dict[tuple[str, ...], ProgramNode] | Failure:
     result: dict[tuple[str, ...], ProgramNode] = {}
 
-    def visit(node: ProgramNode, path: tuple[str, ...]) -> None:
+    def visit(node: ProgramNode, path: tuple[str, ...]) -> Failure | None:
         result[path] = node
         if isinstance(node, Then):
-            visit(node.first, path + ("first",))
-            visit(node.second, path + ("second",))
+            child_result = visit(node.first, path + ("first",))
+            if isinstance(child_result, Failure):
+                return child_result
+            return visit(node.second, path + ("second",))
         elif isinstance(node, MapOutput):
-            visit(node.source, path + ("source",))
+            return visit(node.source, path + ("source",))
         elif isinstance(node, ZipOrdered):
-            visit(node.left, path + ("left",))
-            visit(node.right, path + ("right",))
+            child_result = visit(node.left, path + ("left",))
+            if isinstance(child_result, Failure):
+                return child_result
+            return visit(node.right, path + ("right",))
         elif isinstance(node, TraverseOrdered):
-            visit(node.element_program, path + ("element",))
+            return visit(node.element_program, path + ("element",))
         elif isinstance(node, Decide):
             for branch in node.branches:
-                visit(branch.program, path + ("branch", branch.branch_id))
+                child_result = visit(branch.program, path + ("branch", branch.branch_id))
+                if isinstance(child_result, Failure):
+                    return child_result
         elif not isinstance(node, (Identity, Pure, Atom)):
-            raise ActivationError(f"unsupported Program node {type(node).__name__}")
+            return _activation_failure(f"unsupported Program node {type(node).__name__}")
+        return None
 
-    visit(root, ("root",))
+    visit_result = visit(root, ("root",))
+    if isinstance(visit_result, Failure):
+        return visit_result
     return result
 
 
-def _controls_by_id(root: CompiledControlNode) -> dict[str, CompiledControlNode]:
+def _controls_by_id(root: CompiledControlNode) -> dict[str, CompiledControlNode] | Failure:
     result: dict[str, CompiledControlNode] = {}
 
-    def visit(control: CompiledControlNode) -> None:
+    def visit(control: CompiledControlNode) -> Failure | None:
         if control.control_id in result:
-            raise ActivationError("compiled control IDs must be unique")
+            return _activation_failure("compiled control IDs must be unique")
         result[control.control_id] = control
         for child in control.children:
-            visit(child)
+            child_result = visit(child)
+            if isinstance(child_result, Failure):
+                return child_result
+        return None
 
-    visit(root)
+    result_value = visit(root)
+    if isinstance(result_value, Failure):
+        return result_value
     return result
 
 
@@ -561,21 +744,23 @@ def _completed_values(
     outputs: tuple[BoundStepValue, ...],
     steps: dict[str, CompiledStep],
     project_key: str,
-) -> dict[str, BoundStepValue]:
+) -> dict[str, BoundStepValue] | Failure:
     result: dict[str, BoundStepValue] = {}
     for output in outputs:
         step = steps.get(output.step_id)
         if step is None or step.step_kind not in {"EFFECT", "ADMISSION"}:
-            raise ActivationError("completed output must bind an EFFECT/ADMISSION step")
-        _require_value_ref(output.value_ref, project_key)
+            return _activation_failure("completed output must bind an EFFECT/ADMISSION step")
+        value_ref_check = _require_value_ref(output.value_ref, project_key)
+        if isinstance(value_ref_check, Failure):
+            return value_ref_check
         if not _output_type_compatible(
             step.output_type,
             output.value_ref.object_type,
         ):
-            raise ActivationError("completed output ValueRef type mismatch")
+            return _activation_failure("completed output ValueRef type mismatch")
         existing = result.get(output.step_id)
         if existing is not None and existing != output:
-            raise ActivationError("conflicting duplicate completed step output")
+            return _activation_failure("conflicting duplicate completed step output")
         result[output.step_id] = output
     return result
 
@@ -591,25 +776,25 @@ def _output_type_compatible(expected: object, actual: object) -> bool:
 def _completed_decisions(
     inputs: tuple[CompletedBranchDecision, ...],
     controls: dict[str, CompiledControlNode],
-) -> dict[str, CompletedBranchDecision]:
+) -> dict[str, CompletedBranchDecision] | Failure:
     result: dict[str, CompletedBranchDecision] = {}
     for item in inputs:
         control = controls.get(item.control_id)
         if control is None or control.node_kind != "decide":
-            raise ActivationError("completed branch decision has no exact control")
+            return _activation_failure("completed branch decision has no exact control")
         if item.reduction.selected_branch_id not in {
             branch.branch_id for branch in control.decision_branches
         }:
-            raise ActivationError("completed branch decision is unresolved or unknown")
+            return _activation_failure("completed branch decision is unresolved or unknown")
         if not item.reduction.events or any(
             event.control_id != item.control_id
             or event.control_digest != control.control_digest
             for event in item.reduction.events
         ):
-            raise ActivationError("completed branch decision lineage mismatch")
+            return _activation_failure("completed branch decision lineage mismatch")
         existing = result.get(item.control_id)
         if existing is not None and existing != item:
-            raise ActivationError("conflicting duplicate branch decision")
+            return _activation_failure("conflicting duplicate branch decision")
         result[item.control_id] = item
     return result
 
@@ -617,11 +802,11 @@ def _completed_decisions(
 def _branch_is_released(
     step: CompiledStep,
     decisions: dict[str, CompletedBranchDecision],
-) -> bool:
+) -> bool | Failure:
     if step.branch_id is None:
         return True
     if step.branch_control_id is None:
-        raise ActivationError("branch step lacks branch_control_id")
+        return _activation_failure("branch step lacks branch_control_id")
     decision = decisions.get(step.branch_control_id)
     return (
         decision is not None and decision.reduction.selected_branch_id == step.branch_id
@@ -662,10 +847,10 @@ def _require_node(
     nodes: dict[tuple[str, ...], ProgramNode],
     step: CompiledStep,
     expected: type[ProgramNode],
-) -> Any:
+) -> Any | Failure:
     node = nodes.get(step.source_path)
     if node is None or not isinstance(node, expected):
-        raise ActivationError(
+        return _activation_failure(
             f"compiled {step.step_kind} source path does not bind exact Program node"
         )
     return node
@@ -673,45 +858,46 @@ def _require_node(
 
 def _require_atom(
     nodes: dict[tuple[str, ...], ProgramNode], step: CompiledStep
-) -> Atom:
+) -> Atom | Failure:
     path = step.source_path[:-1] if step.step_kind == "ADMISSION" else step.source_path
     node = nodes.get(path)
     if not isinstance(node, Atom):
-        raise ActivationError("compiled effect/admission does not bind an exact Atom")
+        return _activation_failure("compiled effect/admission does not bind an exact Atom")
     if (
         step.operation_id != node.operation.operation_id
         or step.operation_contract_ref != node.operation.contract_ref
     ):
-        raise ActivationError("compiled step/Atom operation binding mismatch")
+        return _activation_failure("compiled step/Atom operation binding mismatch")
     return node
 
 
 def _require_transform_types(
     step: CompiledStep, input_type: Any, output_type: Any
-) -> None:
+) -> None | Failure:
     if object_type_digest(input_type) != object_type_digest(
         step.input_type
     ) or object_type_digest(output_type) != object_type_digest(step.output_type):
-        raise ActivationError("TRANSFORM registry types do not match compiled step")
+        return _activation_failure("TRANSFORM registry types do not match compiled step")
+    return None
 
 
 def _control_input(
     dependencies: tuple[BoundStepValue, ...],
     program_input: ProgramInput | None,
     step_id: str,
-) -> ProgramInput:
+) -> ProgramInput | Failure:
     if len(dependencies) == 1:
         return ProgramInput(dependencies[0].value_ref, dependencies[0].value)
     if not dependencies and program_input is not None:
         return program_input
-    raise ActivationError(f"DECIDE {step_id} requires exactly one control input")
+    return _activation_failure(f"DECIDE {step_id} requires exactly one control input")
 
 
 def _require_decision_matches_input(
     decision: CompletedBranchDecision,
     control: CompiledControlNode,
     input_value: object,
-) -> None:
+) -> None | Failure:
     expected_input_digest = sha256_hex(input_value)
     if not decision.reduction.events or any(
         event.control_id != control.control_id
@@ -725,7 +911,8 @@ def _require_decision_matches_input(
         )
         for event in decision.reduction.events
     ):
-        raise ActivationError("branch decision does not bind the exact control input")
+        return _activation_failure("branch decision does not bind the exact control input")
+    return None
 
 
 def _derive_value(
@@ -736,8 +923,11 @@ def _derive_value(
     value: object,
     dependency_refs: tuple[ValueRef, ...],
     codec_id: str | None = None,
-) -> tuple[BoundStepValue, ValueMaterialization]:
-    exact_bytes = canonical_bytes(value)
+) -> tuple[BoundStepValue, ValueMaterialization] | Failure:
+    try:
+        exact_bytes = canonical_bytes(value)
+    except (TypeError, ValueError, OverflowError) as exc:
+        return _activation_failure(str(exc))
     content_digest = sha256_digest_bytes(exact_bytes)
     provenance_digest = sha256_hex(
         {
@@ -802,14 +992,16 @@ def _activation_descriptor(
     step: CompiledStep,
     atom: Atom,
     dependencies: tuple[BoundStepValue, ...],
-) -> ReadyActivation:
+) -> ReadyActivation | Failure:
     if step.operation_id is None:
-        raise ActivationError("effect/admission step lacks operation_id")
+        return _activation_failure("effect/admission step lacks operation_id")
     dependency_refs = tuple(item.value_ref for item in dependencies)
     static_refs = atom.operation.input_refs
     payload_ref = atom.operation.payload_ref
     for ref in dependency_refs + static_refs + (payload_ref,):
-        _require_value_ref(ref, project_key)
+        value_ref_check = _require_value_ref(ref, project_key)
+        if isinstance(value_ref_check, Failure):
+            return value_ref_check
     closure = {
         "schema_version": "mrw.activation-input-closure.v1",
         "plan_digest": plan.plan_digest,
@@ -872,62 +1064,78 @@ _VALUE_REF_FIELDS = frozenset(
 )
 
 
-def _unique_embedded_value_ref(value: object, *, project_key: str) -> ValueRef | None:
+def _unique_embedded_value_ref(value: object, *, project_key: str) -> ValueRef | None | Failure:
     found: list[ValueRef] = []
 
-    def visit(item: object) -> None:
+    def visit(item: object) -> Failure | None:
         if isinstance(item, dict):
             if _VALUE_REF_FIELDS <= item.keys():
                 object_value = item["object_type"]
                 if not isinstance(object_value, dict):
-                    raise ActivationError("embedded ValueRef object_type is malformed")
+                    return _activation_failure("embedded ValueRef object_type is malformed")
                 from app.successor_runtime.research.object_types import ObjectType
 
-                ref = ValueRef(
-                    value_id=str(item["value_id"]),
-                    project_key=str(item["project_key"]),
-                    object_type=ObjectType(
-                        type_id=str(object_value["type_id"]),
-                        schema_version=str(object_value["schema_version"]),
-                        codec_id=str(object_value["codec_id"]),
-                        canonical_codec_version=str(
-                            object_value["canonical_codec_version"]
+                try:
+                    ref = ValueRef(
+                        value_id=str(item["value_id"]),
+                        project_key=str(item["project_key"]),
+                        object_type=ObjectType(
+                            type_id=str(object_value["type_id"]),
+                            schema_version=str(object_value["schema_version"]),
+                            codec_id=str(object_value["codec_id"]),
+                            canonical_codec_version=str(
+                                object_value["canonical_codec_version"]
+                            ),
                         ),
-                    ),
-                    codec_id=str(item["codec_id"]),
-                    content_digest=str(item["content_digest"]),
-                    storage_kind=item["storage_kind"],  # type: ignore[arg-type]
-                    store_id=str(item["store_id"]),
-                    store_version=str(item["store_version"]),
-                    storage_ref=str(item["storage_ref"]),
-                    byte_size=int(item["byte_size"]),
-                    provenance_digest=str(item["provenance_digest"]),
-                )
-                _require_value_ref(ref, project_key)
+                        codec_id=str(item["codec_id"]),
+                        content_digest=str(item["content_digest"]),
+                        storage_kind=item["storage_kind"],  # type: ignore[arg-type]
+                        store_id=str(item["store_id"]),
+                        store_version=str(item["store_version"]),
+                        storage_ref=str(item["storage_ref"]),
+                        byte_size=int(item["byte_size"]),
+                        provenance_digest=str(item["provenance_digest"]),
+                    )
+                except (KeyError, TypeError, ValueError, OverflowError) as exc:
+                    return _activation_failure(str(exc))
+                value_ref_check = _require_value_ref(ref, project_key)
+                if isinstance(value_ref_check, Failure):
+                    return value_ref_check
                 found.append(ref)
-                return
+                return None
             for child in item.values():
-                visit(child)
+                result = visit(child)
+                if isinstance(result, Failure):
+                    return result
         elif isinstance(item, list):
             for child in item:
-                visit(child)
+                result = visit(child)
+                if isinstance(result, Failure):
+                    return result
+        return None
 
-    visit(value)
+    visit_result = visit(value)
+    if isinstance(visit_result, Failure):
+        return visit_result
     unique = tuple(dict.fromkeys(found))
     if len(unique) > 1:
-        raise ActivationError("PURE literal contains multiple distinct ValueRefs")
+        return _activation_failure("PURE literal contains multiple distinct ValueRefs")
     return unique[0] if unique else None
 
 
-def _require_value_ref(ref: ValueRef, project_key: str) -> None:
-    if ref.project_key != project_key:
-        raise ActivationError("ValueRef project scope drift")
-    for name in ("content_digest", "provenance_digest"):
-        digest = getattr(ref, name)
-        if len(digest) != 64 or any(char not in "0123456789abcdef" for char in digest):
-            raise ActivationError(f"ValueRef.{name} must be canonical sha256 hex")
-    if not ref.value_id or not ref.storage_ref or ref.byte_size < 0:
-        raise ActivationError("ValueRef identity/storage binding is incomplete")
+def _require_value_ref(ref: ValueRef, project_key: str) -> None | Failure:
+    try:
+        if ref.project_key != project_key:
+            return _activation_failure("ValueRef project scope drift")
+        for name in ("content_digest", "provenance_digest"):
+            digest = getattr(ref, name)
+            if len(digest) != 64 or any(char not in "0123456789abcdef" for char in digest):
+                return _activation_failure(f"ValueRef.{name} must be canonical sha256 hex")
+        if not ref.value_id or not ref.storage_ref or ref.byte_size < 0:
+            return _activation_failure("ValueRef identity/storage binding is incomplete")
+        return None
+    except (AttributeError, TypeError, ValueError) as exc:
+        return _activation_failure(str(exc))
 
 
 def _value_ref_payload(ref: ValueRef) -> dict[str, object]:
@@ -943,4 +1151,5 @@ __all__ = [
     "ReadyActivation",
     "ValueMaterialization",
     "activate_plan",
+    "activate_plan_result",
 ]

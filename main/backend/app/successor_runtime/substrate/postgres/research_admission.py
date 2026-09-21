@@ -12,7 +12,7 @@ import hashlib
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Any, Protocol
+from typing import Annotated, Any, Protocol
 
 from sqlalchemy import select
 from sqlalchemy.engine import Connection
@@ -691,7 +691,11 @@ def build_first_specimen_admission_registry(
     connection: Connection,
     tables: Any,
     bundle: FirstSpecimenCapabilityBundle,
-) -> ExactAdmissionRegistry:
+) -> Annotated[
+    ExactAdmissionRegistry,
+    "kit:prepared-command effect_boundary=postgres.first_specimen_admission_registry "
+    "witness=test:test_w08c_postgres_builder_metadata_preserves_return_types",
+]:
     modes = {
         "evidence.qualify.v1": ResearchAdmissionMode.EVIDENCE_RELATION,
         "claim.form_or_open_gap.v1": ResearchAdmissionMode.CLAIM_OR_GAP_OBJECT,

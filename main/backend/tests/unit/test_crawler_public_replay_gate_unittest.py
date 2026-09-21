@@ -5,6 +5,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from typing import Annotated, get_args, get_origin, get_type_hints
 
 import pytest
 
@@ -15,6 +16,7 @@ pytestmark = pytest.mark.unit
 from scripts.check_crawler_public_replay_gate import CONTRACT_VERSION
 from scripts.check_crawler_public_replay_gate import MANIFEST_CONTRACT_VERSION
 from scripts.check_crawler_public_replay_gate import build_check
+from scripts.check_evidence_source_availability import EVIDENCE_SOURCE_UNAVAILABLE
 
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -66,37 +68,17 @@ def _manifest_with_public_output(public_output_path: str) -> dict:
 
 
 class CrawlerPublicReplayGateUnitTestCase(unittest.TestCase):
-    def test_gate_validates_deterministic_artifacts_and_detects_real_public_replay(self) -> None:
+    def test_gate_fails_closed_when_tracked_evidence_is_unavailable(self) -> None:
         result = build_check(REPO_ROOT)
 
         self.assertEqual(result["contract_version"], CONTRACT_VERSION)
-        self.assertTrue(result["validation"]["passed"], result["validation"]["errors"])
+        self.assertEqual(result["evidence_source"]["status"], EVIDENCE_SOURCE_UNAVAILABLE)
+        self.assertFalse(result["validation"]["passed"])
         self.assertFalse(result["validation"]["public_network_attempted"])
         self.assertFalse(result["validation"]["shared_indexes_edited"])
-        self.assertEqual(
-            result["overall_status"],
-            "deterministic_artifacts_valid_live_public_replay_evidence_present_review_required",
-        )
-
-        manifest = result["deterministic_artifacts"]["source_replay_manifest"]
-        self.assertEqual(manifest["target_count"], 45)
-        self.assertEqual(manifest["enabled_public_target_count"], 40)
-        self.assertEqual(manifest["policy_disabled_target_count"], 5)
-        self.assertTrue(manifest["target_ids_match_embedded_snapshot"])
-
-        deterministic = result["deterministic_artifacts"]["deterministic_replay_output"]
-        self.assertTrue(deterministic["validation_passed"])
-        self.assertEqual(deterministic["status_counts"], {"skipped_public_network_disabled": 45})
-        self.assertEqual(deterministic["public_targets_attempted"], 0)
-
-        live = result["live_public_replay"]
-        self.assertEqual(live["status"], "real_evidence_present_review_required")
-        self.assertEqual(live["closure_claim"], "review_required")
-        self.assertTrue(live["evidence_present"])
-        self.assertEqual(live["target_result_count"], 45)
-        self.assertEqual(live["public_targets_attempted"], 40)
-        self.assertEqual(live["policy_skipped_status_count"], 5)
-        self.assertEqual(live["operator_gate_skip_count"], 0)
+        self.assertEqual(result["overall_status"], EVIDENCE_SOURCE_UNAVAILABLE)
+        self.assertTrue(result["evidence_source"]["missing_paths"])
+        self.assertTrue(all(value is False for value in result["evidence_source"]["authority_ceiling"].values()))
 
     def test_public_artifact_presence_is_not_enough_without_real_attempts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -146,6 +128,16 @@ class CrawlerPublicReplayGateUnitTestCase(unittest.TestCase):
         self.assertIn(
             "live public replay evidence must not contain operator-gate public-network skips",
             result["validation"]["errors"],
+        )
+
+    def test_crawler_public_replay_gate_authority_metadata(self) -> None:
+        return_hint = get_type_hints(build_check, include_extras=True)["return"]
+        self.assertIs(get_origin(return_hint), Annotated)
+        _, metadata = get_args(return_hint)
+        self.assertEqual(
+            metadata,
+            "kit:non-authoritative derived_as=preflight fact_source=repository.public_replay_manifest_and_shard_outputs "
+            "witness=test:test_crawler_public_replay_gate_authority_metadata",
         )
 
 

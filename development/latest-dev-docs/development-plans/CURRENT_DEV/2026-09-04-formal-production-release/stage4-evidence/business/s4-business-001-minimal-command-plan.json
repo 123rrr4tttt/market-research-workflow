@@ -1,0 +1,214 @@
+{
+  "schema": "mrw.stage4.s4-business-001-minimal-command-plan.v1",
+  "observed_at": "2026-09-13T06:14:53Z",
+  "status": "READ_ONLY_DESIGN_COMPLETE_BLOCKER_REMAINS",
+  "authority_ceiling": [
+    "LOCAL_STAGE4_RUNTIME_ONLY",
+    "NOT_AUTHORITY",
+    "PRODUCTION_RELEASE_NOT_AUTHORIZED"
+  ],
+  "constraints_observed": {
+    "production_route_admission_changed": false,
+    "effect_binding_changed": false,
+    "production_or_external_business_write_performed": false,
+    "frozen_r13x_changed": false
+  },
+  "current_route_inventory": {
+    "admitted": {
+      "read": 125,
+      "pure_compute": 3,
+      "external_auth": 3,
+      "write": 0
+    },
+    "blocked_relevant_to_s4_business_001": {
+      "legacy_write": 80,
+      "conditional": 77,
+      "provider_call": 2
+    },
+    "other_blocked_effect_classes_outside_this_write_plan": {
+      "filesystem_subprocess": 5,
+      "external_auth": 3
+    },
+    "source": "business/live-auth-smoke.json#/alternative_admitted_path_scan"
+  },
+  "selected_existing_command": {
+    "route": "POST /api/v1/successor-runtime/v2/commands",
+    "production_operation": "successor-runtime.submit_command",
+    "command_kind": "rebuild_projection",
+    "transport_type": "SuccessorRuntimeCommandV2DTO",
+    "typed_payload": "SuccessorRuntimeRebuildProjectionV2Payload",
+    "domain_command": "FacadeCommandV2",
+    "semantics": "Server-resolved, validation-safe durable command submission. The selected existing repository writes an idempotency binding and command receipt; it does not itself execute the projection rebuild.",
+    "why_minimal": "The route, typed request, server binding, facade port, PostgreSQL repository, authority checks, approval lookup and idempotency/readback behavior already exist. It requires no provider or external business system.",
+    "code_locations": [
+      "main/backend/app/contracts/successor_runtime.py:336",
+      "main/backend/app/contracts/successor_runtime.py:382",
+      "main/backend/app/contracts/successor_runtime.py:390",
+      "main/backend/app/api/successor_runtime.py:48",
+      "main/backend/app/api/successor_runtime.py:199",
+      "main/backend/app/successor_runtime/runtime/facade_contracts.py:693",
+      "main/backend/app/successor_runtime/runtime/facade_contracts.py:765"
+    ]
+  },
+  "existing_effect_implementation": {
+    "port": "CommandSubmissionPort.submit(FacadeCommandV2) -> CommandReceipt",
+    "implementation": "PostgresC9CommandRepository.submit",
+    "writes": [
+      "project-scoped successor idempotency binding",
+      "project-scoped successor command receipt"
+    ],
+    "effect_guards": [
+      "exact server-resolved ProjectScopeRef",
+      "exact actor equality",
+      "current project registry binding",
+      "capability:successor-runtime:c9 authority grant",
+      "command_kind covered by grant operation scope",
+      "optional approval bound to exact request digest",
+      "expected projection base token",
+      "PostgreSQL advisory lock and nested transaction"
+    ],
+    "code_locations": [
+      "main/backend/app/successor_runtime/substrate/postgres/facade_commands.py:87",
+      "main/backend/app/successor_runtime/substrate/postgres/facade_commands.py:107",
+      "main/backend/app/successor_runtime/substrate/postgres/facade_commands.py:145",
+      "main/backend/app/successor_runtime/substrate/postgres/facade_commands.py:257"
+    ]
+  },
+  "reusable_components": {
+    "writer": {
+      "usable": "PostgresC9CommandRepository is the existing durable successor command-submission writer.",
+      "not_interchangeable": "PostgresC7CanonicalWritePort is scoped to ingest_index.c7.v2.canonical_commit_write and must not be relabeled as the C9 writer.",
+      "code_locations": [
+        "main/backend/app/successor_runtime/substrate/postgres/facade_commands.py:257",
+        "main/backend/app/composition/production_runtime.py:418"
+      ]
+    },
+    "actor": {
+      "usable": "Use require_trusted_actor_context(request).actor_id; the current local-only constant actor must not be used in production.",
+      "code_locations": [
+        "main/backend/app/services/request_identity.py:269",
+        "main/backend/app/successor_runtime/assembly/app_assembly.py:88"
+      ]
+    },
+    "scope": {
+      "usable": "EngineProjectScopeResolver resolves the current registered PostgreSQL project scope.",
+      "code_location": "main/backend/app/composition/production_runtime.py:62"
+    },
+    "approval": {
+      "usable_outer_policy": "PostgresProductionApprovals validates actor, project, operation, capability, payload digest, authority epoch and expiry.",
+      "usable_inner_effect": "PostgresC9CommandRepository revalidates approval_locator against the exact command request digest through ApprovalRepository and PostgresAuthorityProvider.",
+      "code_locations": [
+        "main/backend/app/composition/production_runtime.py:122",
+        "main/backend/app/successor_runtime/substrate/postgres/facade_commands.py:145"
+      ]
+    },
+    "idempotency": {
+      "usable": "bind_server_command derives the request digest from scope, actor, command id/kind, typed payload, expected base and approval; PostgresC9CommandRepository reserves and reads back the matching IdempotencyRepository row and returns the persisted receipt on exact replay.",
+      "code_locations": [
+        "main/backend/app/api/successor_runtime.py:48",
+        "main/backend/app/successor_runtime/runtime/facade_contracts.py:882",
+        "main/backend/app/successor_runtime/substrate/postgres/facade_commands.py:107",
+        "main/backend/app/successor_runtime/substrate/postgres/facade_commands.py:297"
+      ]
+    }
+  },
+  "missing_bindings": [
+    {
+      "id": "S4-B001-BIND-APP",
+      "missing": "Production successor app dependencies",
+      "current": "Production query dependencies now use EngineProjectScopeResolver, EngineC9QueryReadPort and the trusted request actor; the command side is intentionally still bound to build_deterministic_command_submission_port (no-write), so no production C9 submission writer is installed.",
+      "needed_after_authority_decision": "A production-only dependency builder using EngineProjectScopeResolver, trusted request actor resolution, and an engine-scoped CommandSubmissionPort adapter that opens one transaction and delegates to PostgresC9CommandRepository.",
+      "code_locations": [
+        "main/backend/app/api/__init__.py:92",
+        "main/backend/app/composition/production_runtime.py:74",
+        "main/backend/app/successor_runtime/assembly/app_assembly.py:107",
+        "main/backend/app/successor_runtime/assembly/c9_assembly.py:205"
+      ]
+    },
+    {
+      "id": "S4-B001-BIND-EFFECT",
+      "missing": "Admitted exact route effect contract",
+      "current": "successor-runtime.submit_command is legacy_write with blocked_until_effect_binding, no capability_id and no canonical writer port.",
+      "needed_after_authority_decision": "Reclassify only this route as an admitted canonical write with capability:successor-runtime:c9 and an exact operation-specific installed writer witness. Do not admit legacy_write and do not reuse the unrelated C7 writer label.",
+      "code_location": "main/backend/app/composition/production_route_bindings.json:5793"
+    },
+    {
+      "id": "S4-B001-BIND-AUTHORITY",
+      "missing": "Task-tenant exact authority records",
+      "current": "The Stage 4 tenant has no admitted write route and the observed generic API grant is not effect authority.",
+      "needed_after_authority_decision": "Seed only the task tenant with the C9 capability authority, actor grant covering rebuild_projection, exact payload-digest approval and matching step authorization; expire/revoke or destroy with the task tenant after the journey.",
+      "code_locations": [
+        "main/backend/app/composition/production_runtime.py:73",
+        "main/backend/app/composition/production_runtime.py:122",
+        "main/backend/app/successor_runtime/substrate/postgres/facade_commands.py:145"
+      ]
+    }
+  ],
+  "configuration_only_assessment": {
+    "can_close_with_task_isolation_configuration_only": false,
+    "reason": "The route registry is a fixed code file, the app mount constructs local-only dependencies at import time, and there is no configured engine-backed C9 submission adapter or matching installed writer witness. A Compose mount or environment trick that changes the effective route admission would still be a permission-semantic change, not mere isolation configuration."
+  },
+  "permission_semantics_assessment": {
+    "would_implementation_change_permission_semantics": true,
+    "change": "A currently blocked public write route would become an admitted successor write for one capability, actor, project, exact request digest and approval.",
+    "non_changes": [
+      "no provider authority",
+      "no external delivery",
+      "no legacy writer claim",
+      "no production data access",
+      "no release, cutover or authority-transfer permission"
+    ],
+    "decision": "Requires an explicit material authority decision before implementation. The present task performs no such change."
+  },
+  "minimum_implementation_plan_after_authority_decision": [
+    "Add one engine-scoped C9 CommandSubmissionPort adapter. For each command, construct RuntimeScope from the already server-resolved ProjectScopeRef and trusted actor, open engine.begin(), delegate exactly once to PostgresC9CommandRepository, then return its CommandReceipt.",
+    "Add a production-only successor dependency builder and select it only in production; keep the existing local-only default unchanged. This builder must reuse EngineProjectScopeResolver and require_trusted_actor_context.",
+    "Install an exact outer writer witness for successor-runtime.submit_command. Its operation, owner, port kind and actual implementation identity must agree; do not alias PostgresC7CanonicalWritePort.",
+    "Only after the authority decision, change the single command route effect contract from blocked legacy_write to admitted canonical_write with capability:successor-runtime:c9 and the exact installed writer port. Leave all other blocked routes unchanged.",
+    "Seed task-owned authority/approval rows only for stage4_s4_20260913, the authenticated task actor, rebuild_projection and the exact request digest; do not grant wildcard scopes.",
+    "Run the controlled HTTP command twice with the identical body and approval. Read back the receipt and idempotency rows, prove the same receipt identity and unchanged row counts, then destroy the task tenant/runtime resources."
+  ],
+  "minimum_verification_plan": [
+    {
+      "case": "unauthorized_or_unapproved",
+      "expected": "HTTP/policy denial before command effect; zero new idempotency and receipt rows."
+    },
+    {
+      "case": "scope_actor_or_approval_drift",
+      "expected": "Typed blocked/conflict result; zero partial rows."
+    },
+    {
+      "case": "first_exact_request",
+      "expected": "One project-scoped idempotency row and one command receipt; response carries the same command and request identity; provider/model/external calls remain zero."
+    },
+    {
+      "case": "exact_replay",
+      "expected": "Same persisted receipt and authority context; idempotency and receipt counts remain one."
+    },
+    {
+      "case": "same_command_id_changed_intent",
+      "expected": "COMMAND_CONFLICT with no additional row."
+    },
+    {
+      "case": "write_failure_and_ack_loss",
+      "expected": "Write failure leaves zero partial state; ACK-loss recovery reads the committed pair and exact replay remains stable."
+    },
+    {
+      "case": "cleanup",
+      "expected": "Task tenant/runtime destruction removes the test write; frozen r13x and unrelated routes remain byte-identical."
+    }
+  ],
+  "existing_verification_references": [
+    "main/backend/tests/successor_runtime/test_c9_movement_closure_backend_postgres.py:1149",
+    "main/backend/tests/successor_runtime/test_c9_movement_closure_backend_postgres.py:1225",
+    "main/backend/tests/successor_runtime/test_c9_movement_closure_backend_postgres.py:1297",
+    "main/backend/tests/successor_runtime/test_c9_movement_closure_backend_postgres.py:1413",
+    "main/backend/tests/successor_runtime/test_c9_movement_closure_backend_postgres.py:1519"
+  ],
+  "acceptance_boundary": {
+    "what_this_plan_can_close": "After authority approval and implementation, it can prove a task-tenant successor command-submission write, exact readback, idempotent replay and transactional failure/recovery without a provider call.",
+    "what_it_does_not_prove": "PostgresC9CommandRepository records a durable command intent/receipt but does not itself execute rebuild_projection. This path therefore does not prove async ingest completion, canonical document mutation, project archive, external provider behavior, release readiness or production authority.",
+    "stage4_implication": "If Stage 4 requires a completed domain mutation rather than a durable command submission, S4-BUSINESS-001 remains open after this path and must choose a separately authorized C7 canonical commit or legacy ingest migration."
+  },
+  "current_conclusion": "Production read-only scope/query wiring is now installed and verified, but no configuration-only, authority-neutral closure exists for S4-BUSINESS-001. The minimum concrete code route remains the existing C9 rebuild_projection command submission; admitting and wiring its writer is a material permission-semantic change and remains outside the present task."
+}

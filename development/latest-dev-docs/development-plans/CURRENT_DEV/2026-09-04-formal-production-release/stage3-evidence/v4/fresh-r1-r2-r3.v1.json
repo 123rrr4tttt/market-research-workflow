@@ -1,0 +1,70 @@
+{
+  "schema_version": "mrw.formal_release.stage3.fresh_preflights.v1",
+  "record_id": "stage3-v4-fresh-preflights-20260906",
+  "stage_id": "STAGE_3",
+  "candidate_generation": "V4_ADDITIVE_SUCCESSOR",
+  "status": "PASS",
+  "authoritative": false,
+  "candidate_commit": "e1aa59708a22e4238c4d9beaf7b7bd2d2095d483",
+  "candidate_tree": "d2003fbb8e54c8dd743fa4e84907a8a978ef5107",
+  "execution_root": "/private/tmp/mrw-stage3-v4-primary-20260906t0329z",
+  "checks": [
+    {
+      "check_id": "fresh_r1",
+      "status": "PASS",
+      "exit_code": 0,
+      "exact_result": "5 PASS findings: strategy, commit, tree, dirty_tracked count=0, untracked count=0",
+      "evidence_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/receipts/fresh-r1.v1.json",
+      "evidence_sha256": "79f7301e0c1e08553982ccc5c88f5854113825c81019ef6244da6bbd025260f0"
+    },
+    {
+      "check_id": "fresh_r2_focused_and_conformance",
+      "status": "PASS",
+      "exit_code": 0,
+      "exact_result": "12 passed in 0.11s; includes candidate-local release-evidence validator and Stage 1 R2 remediation record tests",
+      "evidence_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/receipts/fresh-r2-focused.log",
+      "evidence_sha256": "185fee9ff5fe0f86ce14ba73a8a6f0801271e441c85f8c36f5c8d80abd930bab",
+      "qualification": "VALIDATOR_CONFORMANCE_ONLY_NOT_RELEASE_EVIDENCE"
+    },
+    {
+      "check_id": "fresh_r3",
+      "status": "PASS",
+      "exit_code": 0,
+      "exact_result": "12 PASS findings; includes production compose, release identity, required-check declarations and artifact metadata contract",
+      "evidence_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/receipts/fresh-r3.v1.json",
+      "evidence_sha256": "86c67a4532a5a125f65c8f7405bd2b4b775472112e1577d85355fe6001ff5383"
+    },
+    {
+      "check_id": "historical_stage1_exact_byte_checker",
+      "status": "PASS",
+      "exit_code": 0,
+      "exact_result": "record identity, exact-byte bindings, one-time receipts and create-only ceiling hold",
+      "evidence_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/receipts/stage1-historical-checker.log",
+      "evidence_sha256": "c1477c7730428bf854fb9c662324b85510ed4345fd15eab6975fe92b251ffc9c"
+    },
+    {
+      "check_id": "stage1_r2_remediation_checker",
+      "status": "PASS",
+      "exit_code": 0,
+      "exact_result": "stage1 R2 remediation record PASS",
+      "evidence_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/receipts/stage1-r2-remediation-checker.log",
+      "evidence_sha256": "874c62a1d5f5c8493382dd65e41058d59b864c64638e14ff7dc18ec7dca3e080"
+    },
+    {
+      "check_id": "workflow_fail_closed_contract",
+      "status": "PASS",
+      "exit_code": 0,
+      "exact_result": "10 passed in 0.11s",
+      "evidence_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/receipts/workflow-fail-closed.log",
+      "evidence_sha256": "ac7ee2c43368e57d190c6ac089b2190a1f05864eabdfdc3e6d564b749e85fcc3"
+    }
+  ],
+  "warning_skip_deselect_inventory": {
+    "warnings": [],
+    "skips": [],
+    "deselects": [],
+    "qualification": "The R2 focused PASS is synthetic validator conformance and is not the actual candidate-bound Stage 3 release evidence manifest."
+  },
+  "external_effects": [],
+  "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE"
+}

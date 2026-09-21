@@ -21,7 +21,7 @@ from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 # Direct execution (``python scripts/generate_...py``) puts only the scripts
 # directory on sys.path, whereas module execution already exposes backend.
@@ -527,7 +527,12 @@ def build_p3_aggregate(
     *,
     ledger: str | Path = DEFAULT_LEDGER_REL,
     progress: str | Path = DEFAULT_PROGRESS_REL,
-) -> AggregateBuild:
+) -> Annotated[
+    AggregateBuild,
+    "kit:non-authoritative derived_as=generated_evidence "
+    "fact_source=migration_ledger+P1_selection+P2_packet+P3_fragments "
+    "witness=test:test_w10_cli_generator_derived_metadata_preserves_abi",
+]:
     root = Path(repo_root).resolve()
     if not (root / ".git").exists() and not (root / ".git").is_file():
         raise AggregateBuildError(f"repository root has no .git: {root}")

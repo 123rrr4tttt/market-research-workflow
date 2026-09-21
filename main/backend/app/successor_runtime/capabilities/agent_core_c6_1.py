@@ -12,7 +12,15 @@ the C2.1 pure tool specimen supplied by the sibling migration adapter.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Literal, Protocol, TypeAlias, runtime_checkable
+from functorial_kit import Failure
+from typing import (
+    Annotated,
+    Any,
+    Literal,
+    Protocol,
+    TypeAlias,
+    runtime_checkable,
+)
 
 from app.successor_runtime.capabilities.agent_core_c6_common import (
     AgentModelStepFailure,
@@ -24,11 +32,12 @@ from app.successor_runtime.capabilities.agent_core_c6_common import (
     build_payload_codec,
     freeze_c6_json_object,
     thaw_json_value,
+    _contract_failure,
+    _raise_contract,
 )
 from app.successor_runtime.capabilities.checksum import (
     canonical_json,
     content_digest,
-    require_hex64,
     sha256_hex,
 )
 from app.successor_runtime.capabilities.contracts import (
@@ -104,6 +113,35 @@ AGENT_TURN_EVENT_TYPE = ObjectType("AgentTurnEvent.v1")
 AGENT_TURN_EPISODE_TYPE = ObjectType("AgentTurnEpisode.v1")
 AGENT_CORE_C6_1_PAYLOAD_TYPE = AGENT_TURN_REQUEST_TYPE
 AGENT_CORE_C6_1_RESULT_TYPE = AGENT_TURN_EPISODE_TYPE
+
+_C6_1_CONTRACT_WITNESS = "test:test_w05_n2_c61_public_contract_lifts"
+
+
+def _c6_1_contract_failure(
+    *,
+    code: str,
+    message: str,
+    site: str,
+    public_exception: str,
+    public_message: str,
+) -> Failure:
+    return _contract_failure(
+        code=code,
+        message=message,
+        operation=AGENT_CORE_C6_1_KIND,
+        site=site,
+        public_exception=public_exception,
+        public_message=public_message,
+        owner=AGENT_CORE_C6_1_OWNER,
+    )
+
+
+def _is_c6_1_hex64(value: str) -> bool:
+    return (
+        isinstance(value, str)
+        and len(value) == 64
+        and all(char in "0123456789abcdef" for char in value)
+    )
 
 AGENT_TURN_REQUEST_SCHEMA = SchemaSpec(
     schema_ref=AGENT_TURN_REQUEST_SCHEMA_REF,
@@ -214,46 +252,200 @@ class AgentTurnRequest:
 
     def __post_init__(self) -> None:
         if self.schema_version != AGENT_CORE_C6_1_PAYLOAD_SCHEMA:
-            raise ValueError(f"unsupported payload schema {self.schema_version!r}")
+            _raise_contract(
+                _contract_failure(
+                    code="schema_contract_invalid",
+                    message="payload schema is unsupported",
+                    operation=AGENT_CORE_C6_1_KIND,
+                    site="AgentTurnRequest/schema_version",
+                    public_exception="ValueError",
+                    public_message=(
+                        f"unsupported payload schema {self.schema_version!r}"
+                    ),
+                    owner=AGENT_CORE_C6_1_OWNER,
+                ),
+                ValueError,
+            )
         if self.operation_kind != AGENT_CORE_C6_1_KIND:
-            raise ValueError(f"unsupported operation kind {self.operation_kind!r}")
+            _raise_contract(
+                _contract_failure(
+                    code="schema_contract_invalid",
+                    message="operation kind is unsupported",
+                    operation=AGENT_CORE_C6_1_KIND,
+                    site="AgentTurnRequest/operation_kind",
+                    public_exception="ValueError",
+                    public_message=(
+                        f"unsupported operation kind {self.operation_kind!r}"
+                    ),
+                    owner=AGENT_CORE_C6_1_OWNER,
+                ),
+                ValueError,
+            )
         for name in ("session_id", "turn_id", "message_ref"):
             if not isinstance(getattr(self, name), str) or not getattr(self, name):
-                raise ValueError(f"AgentTurnRequest.{name} is required")
+                _raise_contract(
+                    _contract_failure(
+                        code="schema_contract_invalid",
+                        message=f"request field {name} is required",
+                        operation=AGENT_CORE_C6_1_KIND,
+                        site=f"AgentTurnRequest/{name}",
+                        public_exception="ValueError",
+                        public_message=f"AgentTurnRequest.{name} is required",
+                        owner=AGENT_CORE_C6_1_OWNER,
+                    ),
+                    ValueError,
+                )
         for name in ("max_iterations", "max_tool_calls"):
             value = getattr(self, name)
             if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
-                raise ValueError(f"AgentTurnRequest.{name} must be a positive int")
+                _raise_contract(
+                    _contract_failure(
+                        code="schema_contract_invalid",
+                        message=f"request field {name} is not a positive integer",
+                        operation=AGENT_CORE_C6_1_KIND,
+                        site=f"AgentTurnRequest/{name}",
+                        public_exception="ValueError",
+                        public_message=(
+                            f"AgentTurnRequest.{name} must be a positive int"
+                        ),
+                        owner=AGENT_CORE_C6_1_OWNER,
+                    ),
+                    ValueError,
+                )
         if self.approval_policy not in {"frozen", "enabled"}:
-            raise ValueError(f"unsupported approval_policy {self.approval_policy!r}")
+            _raise_contract(
+                _contract_failure(
+                    code="schema_contract_invalid",
+                    message="approval policy is unsupported",
+                    operation=AGENT_CORE_C6_1_KIND,
+                    site="AgentTurnRequest/approval_policy",
+                    public_exception="ValueError",
+                    public_message=(
+                        f"unsupported approval_policy {self.approval_policy!r}"
+                    ),
+                    owner=AGENT_CORE_C6_1_OWNER,
+                ),
+                ValueError,
+            )
         object.__setattr__(self, "approved_call_ids", tuple(self.approved_call_ids))
         if not all(
             isinstance(call_id, str) and call_id.strip()
             for call_id in self.approved_call_ids
         ):
-            raise ValueError("approved_call_ids must be non-empty strings")
+            _raise_contract(
+                _contract_failure(
+                    code="schema_contract_invalid",
+                    message="approved call id is not a non-empty string",
+                    operation=AGENT_CORE_C6_1_KIND,
+                    site="AgentTurnRequest/approved_call_ids",
+                    public_exception="ValueError",
+                    public_message="approved_call_ids must be non-empty strings",
+                    owner=AGENT_CORE_C6_1_OWNER,
+                ),
+                ValueError,
+            )
         if self.resume_call_id is not None and (
             not isinstance(self.resume_call_id, str) or not self.resume_call_id.strip()
         ):
-            raise ValueError("resume_call_id must be a non-empty string or None")
+            _raise_contract(
+                _contract_failure(
+                    code="schema_contract_invalid",
+                    message="resume call id is not canonical",
+                    operation=AGENT_CORE_C6_1_KIND,
+                    site="AgentTurnRequest/resume_call_id",
+                    public_exception="ValueError",
+                    public_message=(
+                        "resume_call_id must be a non-empty string or None"
+                    ),
+                    owner=AGENT_CORE_C6_1_OWNER,
+                ),
+                ValueError,
+            )
         if self.resume_tool_call is not None and not isinstance(
             self.resume_tool_call, AgentToolCall
         ):
-            raise TypeError("resume_tool_call must be AgentToolCall or None")
+            _raise_contract(
+                _contract_failure(
+                    code="schema_contract_invalid",
+                    message="resume tool call type is invalid",
+                    operation=AGENT_CORE_C6_1_KIND,
+                    site="AgentTurnRequest/resume_tool_call",
+                    public_exception="TypeError",
+                    public_message=(
+                        "resume_tool_call must be AgentToolCall or None"
+                    ),
+                    owner=AGENT_CORE_C6_1_OWNER,
+                ),
+                TypeError,
+            )
         if self.resume_tool_call is not None and (
             self.resume_call_id != self.resume_tool_call.call_id
         ):
-            raise ValueError("resume_call_id must match resume_tool_call.call_id")
+            _raise_contract(
+                _contract_failure(
+                    code="program_binding_invalid",
+                    message="resume call id does not match tool call",
+                    operation=AGENT_CORE_C6_1_KIND,
+                    site="AgentTurnRequest/resume_binding",
+                    public_exception="ValueError",
+                    public_message=(
+                        "resume_call_id must match resume_tool_call.call_id"
+                    ),
+                    owner=AGENT_CORE_C6_1_OWNER,
+                ),
+                ValueError,
+            )
         if not isinstance(self.cancel_requested, bool):
-            raise TypeError("AgentTurnRequest.cancel_requested must be a bool")
+            _raise_contract(
+                _contract_failure(
+                    code="schema_contract_invalid",
+                    message="cancel requested is not boolean",
+                    operation=AGENT_CORE_C6_1_KIND,
+                    site="AgentTurnRequest/cancel_requested",
+                    public_exception="TypeError",
+                    public_message=(
+                        "AgentTurnRequest.cancel_requested must be a bool"
+                    ),
+                    owner=AGENT_CORE_C6_1_OWNER,
+                ),
+                TypeError,
+            )
         expected = content_digest(self, omit_fields=("payload_digest",))
         if self.payload_digest == "":
             object.__setattr__(self, "payload_digest", expected)
         else:
-            require_hex64(self.payload_digest, "AgentTurnRequest.payload_digest")
+            if not isinstance(self.payload_digest, str) or not _is_c6_1_hex64(
+                self.payload_digest
+            ):
+                _raise_contract(
+                    _contract_failure(
+                        code="digest_contract_invalid",
+                        message="payload digest is not canonical hex",
+                        operation=AGENT_CORE_C6_1_KIND,
+                        site="AgentTurnRequest/payload_digest",
+                        public_exception="ValueError",
+                        public_message=(
+                            "AgentTurnRequest.payload_digest must be a 64-char "
+                            "lowercase hex digest"
+                        ),
+                        owner=AGENT_CORE_C6_1_OWNER,
+                    ),
+                    ValueError,
+                )
             if self.payload_digest != expected:
-                raise ValueError(
-                    "AgentTurnRequest.payload_digest does not match content"
+                _raise_contract(
+                    _contract_failure(
+                        code="digest_contract_invalid",
+                        message="payload digest does not match content",
+                        operation=AGENT_CORE_C6_1_KIND,
+                        site="AgentTurnRequest/payload_digest",
+                        public_exception="ValueError",
+                        public_message=(
+                            "AgentTurnRequest.payload_digest does not match content"
+                        ),
+                        owner=AGENT_CORE_C6_1_OWNER,
+                    ),
+                    ValueError,
                 )
 
     def to_plain(self) -> dict[str, Any]:
@@ -305,19 +497,70 @@ class AgentTurnEvent:
 
     def __post_init__(self) -> None:
         if self.schema_version != AGENT_TURN_EVENT_SCHEMA_REF:
-            raise ValueError("AgentTurnEvent.schema_version is not frozen")
+            _raise_contract(
+                _c6_1_contract_failure(
+                    code="schema_contract_invalid",
+                    message="event schema is not frozen",
+                    site="AgentTurnEvent/schema_version",
+                    public_exception="ValueError",
+                    public_message="AgentTurnEvent.schema_version is not frozen",
+                ),
+                ValueError,
+            )
         if self.event_type not in AGENT_TURN_EVENT_TYPES:
-            raise ValueError(f"unsupported event_type {self.event_type!r}")
+            _raise_contract(
+                _c6_1_contract_failure(
+                    code="schema_contract_invalid",
+                    message="event type is unsupported",
+                    site="AgentTurnEvent/event_type",
+                    public_exception="ValueError",
+                    public_message=f"unsupported event_type {self.event_type!r}",
+                ),
+                ValueError,
+            )
         if not isinstance(self.actor, str) or not self.actor:
-            raise ValueError("AgentTurnEvent.actor is required")
+            _raise_contract(
+                _c6_1_contract_failure(
+                    code="schema_contract_invalid",
+                    message="event actor is required",
+                    site="AgentTurnEvent/actor",
+                    public_exception="ValueError",
+                    public_message="AgentTurnEvent.actor is required",
+                ),
+                ValueError,
+            )
         object.__setattr__(self, "payload", freeze_c6_json_object(dict(self.payload)))
         expected = content_digest(self, omit_fields=("event_digest",))
         if self.event_digest == "":
             object.__setattr__(self, "event_digest", expected)
         else:
-            require_hex64(self.event_digest, "AgentTurnEvent.event_digest")
+            if not _is_c6_1_hex64(self.event_digest):
+                _raise_contract(
+                    _c6_1_contract_failure(
+                        code="digest_contract_invalid",
+                        message="event digest is not canonical hex",
+                        site="AgentTurnEvent/event_digest",
+                        public_exception="ValueError",
+                        public_message=(
+                            "AgentTurnEvent.event_digest must be a 64-char "
+                            "lowercase hex digest"
+                        ),
+                    ),
+                    ValueError,
+                )
             if self.event_digest != expected:
-                raise ValueError("AgentTurnEvent.event_digest does not match content")
+                _raise_contract(
+                    _c6_1_contract_failure(
+                        code="digest_contract_invalid",
+                        message="event digest does not match content",
+                        site="AgentTurnEvent/event_digest",
+                        public_exception="ValueError",
+                        public_message=(
+                            "AgentTurnEvent.event_digest does not match content"
+                        ),
+                    ),
+                    ValueError,
+                )
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -358,29 +601,111 @@ class AgentTurnEpisode:
 
     def __post_init__(self) -> None:
         if self.schema_version != AGENT_TURN_EPISODE_SCHEMA_REF:
-            raise ValueError("AgentTurnEpisode.schema_version is not frozen")
+            _raise_contract(
+                _c6_1_contract_failure(
+                    code="schema_contract_invalid",
+                    message="episode schema is not frozen",
+                    site="AgentTurnEpisode/schema_version",
+                    public_exception="ValueError",
+                    public_message="AgentTurnEpisode.schema_version is not frozen",
+                ),
+                ValueError,
+            )
         for name in ("episode_id", "request_digest"):
             if not isinstance(getattr(self, name), str) or not getattr(self, name):
-                raise ValueError(f"AgentTurnEpisode.{name} is required")
-        require_hex64(self.request_digest, "AgentTurnEpisode.request_digest")
+                _raise_contract(
+                    _c6_1_contract_failure(
+                        code="schema_contract_invalid",
+                        message=f"episode field {name} is required",
+                        site=f"AgentTurnEpisode/{name}",
+                        public_exception="ValueError",
+                        public_message=f"AgentTurnEpisode.{name} is required",
+                    ),
+                    ValueError,
+                )
+        if not _is_c6_1_hex64(self.request_digest):
+            _raise_contract(
+                _c6_1_contract_failure(
+                    code="digest_contract_invalid",
+                    message="request digest is not canonical hex",
+                    site="AgentTurnEpisode/request_digest",
+                    public_exception="ValueError",
+                    public_message=(
+                        "AgentTurnEpisode.request_digest must be a 64-char "
+                        "lowercase hex digest"
+                    ),
+                ),
+                ValueError,
+            )
         object.__setattr__(self, "ordered_events", tuple(self.ordered_events))
         object.__setattr__(self, "tool_results", tuple(self.tool_results))
         if not isinstance(self.final_answer, str):
-            raise TypeError("AgentTurnEpisode.final_answer must be a string")
+            _raise_contract(
+                _c6_1_contract_failure(
+                    code="schema_contract_invalid",
+                    message="final answer is not a string",
+                    site="AgentTurnEpisode/final_answer",
+                    public_exception="TypeError",
+                    public_message="AgentTurnEpisode.final_answer must be a string",
+                ),
+                TypeError,
+            )
         if self.stop_reason not in AGENT_TURN_STOP_REASONS:
-            raise ValueError(f"unsupported stop_reason {self.stop_reason!r}")
+            _raise_contract(
+                _c6_1_contract_failure(
+                    code="schema_contract_invalid",
+                    message="stop reason is unsupported",
+                    site="AgentTurnEpisode/stop_reason",
+                    public_exception="ValueError",
+                    public_message=f"unsupported stop_reason {self.stop_reason!r}",
+                ),
+                ValueError,
+            )
         for name in ("tool_call_count", "iteration"):
             value = getattr(self, name)
             if not isinstance(value, int) or isinstance(value, bool) or value < 0:
-                raise ValueError(f"AgentTurnEpisode.{name} must be non-negative int")
+                _raise_contract(
+                    _c6_1_contract_failure(
+                        code="schema_contract_invalid",
+                        message=f"episode field {name} is not a non-negative int",
+                        site=f"AgentTurnEpisode/{name}",
+                        public_exception="ValueError",
+                        public_message=(
+                            f"AgentTurnEpisode.{name} must be non-negative int"
+                        ),
+                    ),
+                    ValueError,
+                )
         expected = content_digest(self, omit_fields=("episode_digest",))
         if self.episode_digest == "":
             object.__setattr__(self, "episode_digest", expected)
         else:
-            require_hex64(self.episode_digest, "AgentTurnEpisode.episode_digest")
+            if not _is_c6_1_hex64(self.episode_digest):
+                _raise_contract(
+                    _c6_1_contract_failure(
+                        code="digest_contract_invalid",
+                        message="episode digest is not canonical hex",
+                        site="AgentTurnEpisode/episode_digest",
+                        public_exception="ValueError",
+                        public_message=(
+                            "AgentTurnEpisode.episode_digest must be a 64-char "
+                            "lowercase hex digest"
+                        ),
+                    ),
+                    ValueError,
+                )
             if self.episode_digest != expected:
-                raise ValueError(
-                    "AgentTurnEpisode.episode_digest does not match content"
+                _raise_contract(
+                    _c6_1_contract_failure(
+                        code="digest_contract_invalid",
+                        message="episode digest does not match content",
+                        site="AgentTurnEpisode/episode_digest",
+                        public_exception="ValueError",
+                        public_message=(
+                            "AgentTurnEpisode.episode_digest does not match content"
+                        ),
+                    ),
+                    ValueError,
                 )
 
     def to_plain(self) -> dict[str, Any]:
@@ -551,11 +876,19 @@ def _emit(
 
 def _tool_specimens_by_name(
     tool_specimens: tuple[ToolSpecimen, ...],
-) -> dict[str, ToolSpecimen]:
+) -> dict[str, ToolSpecimen] | Failure:
     by_name: dict[str, ToolSpecimen] = {}
     for specimen in tool_specimens:
         if specimen.tool_name in by_name:
-            raise ValueError(f"duplicate tool specimen name {specimen.tool_name!r}")
+            return _c6_1_contract_failure(
+                code="program_binding_invalid",
+                message="duplicate tool specimen name",
+                site="tool_specimens/name_index",
+                public_exception="ValueError",
+                public_message=(
+                    f"duplicate tool specimen name {specimen.tool_name!r}"
+                ),
+            )
         by_name[specimen.tool_name] = specimen
     return by_name
 
@@ -576,7 +909,14 @@ def interpret_agent_turn(
             message="request operation_kind is not the frozen C6.1 episode atom",
             stop_reason="error",
         )
-    by_name = _tool_specimens_by_name(tool_specimens)
+    specimen_index = _tool_specimens_by_name(tool_specimens)
+    if isinstance(specimen_index, Failure):
+        return AgentTurnFailure(
+            code="loop_configuration_invalid",
+            message="duplicate tool specimen names in loop configuration",
+            stop_reason="error",
+        )
+    by_name = specimen_index
     events: list[AgentTurnEvent] = []
     tool_results: list[AgentToolResult] = []
     transcript: list[dict[str, Any]] = [
@@ -1100,7 +1440,12 @@ class AgentCoreC6_1CapabilityBundle:
         return self.codecs[0]
 
 
-def build_agent_core_c6_1_bundle() -> AgentCoreC6_1CapabilityBundle:
+def build_agent_core_c6_1_bundle() -> Annotated[
+    AgentCoreC6_1CapabilityBundle,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=AGENT_CORE_C6_1_OWNER+capability_contract_constants "
+    "witness=test:test_w05_agent_core_authority_metadata",
+]:
     semantic = _semantic_profile()
     effect = _effect_profile()
     resource = _resource_profile()
@@ -1177,7 +1522,12 @@ def build_agent_core_c6_1_bundle() -> AgentCoreC6_1CapabilityBundle:
 
 def build_agent_core_c6_1_catalog(
     bundle: AgentCoreC6_1CapabilityBundle,
-) -> OperationContractCatalogSnapshot:
+) -> Annotated[
+    OperationContractCatalogSnapshot,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=AgentCoreC6_1CapabilityBundle.operations "
+    "witness=test:test_w05_agent_core_authority_metadata",
+]:
     return OperationContractCatalogSnapshot(
         catalog_id=AGENT_CORE_C6_1_CATALOG_ID,
         catalog_version=AGENT_CORE_C6_1_CATALOG_VERSION,
@@ -1194,7 +1544,12 @@ def build_agent_core_c6_1_catalog(
 
 def build_agent_core_c6_1_registry(
     bundle: AgentCoreC6_1CapabilityBundle,
-) -> OperationContractRegistry:
+) -> Annotated[
+    OperationContractRegistry,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=AgentCoreC6_1CapabilityBundle+catalog_snapshot "
+    "witness=test:test_w05_agent_core_authority_metadata",
+]:
     return OperationContractRegistry(
         build_agent_core_c6_1_catalog(bundle),
         (bundle.operation,),

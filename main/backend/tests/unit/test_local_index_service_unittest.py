@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import sys
 import unittest
+from types import ModuleType
 from typing import Any
+from unittest.mock import patch
 
 import pytest
 
@@ -109,6 +112,66 @@ class FakeLanceTable:
         if query_type in self.fail_modes:
             raise RuntimeError(f"{query_type} unavailable")
         return FakeLanceQuery(self.rows, call)
+
+
+class RecordingLanceDB:
+    def __init__(self) -> None:
+        self.create_calls: list[dict[str, Any]] = []
+
+    def create_table(self, table_name: str, *, data: Any, mode: str) -> FakeLanceTable:
+        self.create_calls.append({"table_name": table_name, "data": data, "mode": mode})
+        table = FakeLanceTable()
+        table.create_fts_index = lambda *_args, **_kwargs: None  # type: ignore[attr-defined]
+        return table
+
+
+class StubArrowType:
+    def __init__(self, value_type: str, list_size: int) -> None:
+        self.value_type = value_type
+        self.list_size = list_size
+
+
+class StubArrowArray:
+    def __init__(self, values: list[list[float]], arrow_type: StubArrowType) -> None:
+        self.values = values
+        self.type = arrow_type
+
+
+class StubArrowTable:
+    def __init__(self, rows: list[dict[str, Any]]) -> None:
+        self.rows = rows
+        self.set_column_calls: list[dict[str, Any]] = []
+        self.schema = self
+
+    @classmethod
+    def from_pylist(cls, rows: list[dict[str, Any]]) -> StubArrowTable:
+        return cls(rows)
+
+    def get_field_index(self, name: str) -> int:
+        return list(self.rows[0]).index(name)
+
+    def set_column(self, index: int, name: str, values: StubArrowArray) -> StubArrowTable:
+        self.set_column_calls.append({"index": index, "name": name, "values": values})
+        return self
+
+
+class StubPyArrow(ModuleType):
+    def __init__(self) -> None:
+        super().__init__("pyarrow")
+        self.Table = StubArrowTable
+        self.list_calls: list[tuple[str, int]] = []
+
+    @staticmethod
+    def float32() -> str:
+        return "float32"
+
+    def list_(self, value_type: str, list_size: int) -> StubArrowType:
+        self.list_calls.append((value_type, list_size))
+        return StubArrowType(value_type, list_size)
+
+    @staticmethod
+    def array(values: list[list[float]], *, type: StubArrowType) -> StubArrowArray:
+        return StubArrowArray(values, type)
 
 
 class FakeEmbeddingProvider:
@@ -280,6 +343,92 @@ class LocalIndexServiceTest(unittest.TestCase):
         self.assertEqual(results[0].retrieval_mode, "vector")
         self.assertEqual(results[0].trace["embedding_provider"]["provider_id"], "fake_live_provider")
         self.assertTrue(results[0].trace["provider_live_verified"])
+
+    def test_lancedb_adapter_creates_fixed_size_vector_column_without_rewriting_vectors(self) -> None:
+        adapter = object.__new__(LanceDBLocalIndexAdapter)
+        adapter.table_name = "chunks"
+        adapter._embedding_provider = FakeEmbeddingProvider()
+        adapter._db = RecordingLanceDB()
+        supplied_vector = [0.4, 0.6]
+        stub_pyarrow = StubPyArrow()
+
+        with patch.dict(sys.modules, {"pyarrow": stub_pyarrow}):
+            status = adapter.upsert_chunks(
+                [
+                    LocalIndexChunk(
+                        chunk_id="c1",
+                        document_id="d1",
+                        project_id="demo_proj",
+                        source_id="source_a",
+                        title="Vector row",
+                        content="The caller-supplied vector must be preserved.",
+                        vector=supplied_vector,
+                    )
+                ]
+            )
+
+        table_data = adapter._db.create_calls[0]["data"]
+        self.assertEqual(status["embedding_dim"], 2)
+        self.assertEqual(stub_pyarrow.list_calls, [("float32", 2)])
+        self.assertEqual(table_data.set_column_calls[0]["name"], "vector")
+        self.assertEqual(table_data.set_column_calls[0]["values"].type.list_size, 2)
+        self.assertEqual(supplied_vector, [0.4, 0.6])
+        self.assertEqual(table_data.set_column_calls[0]["values"].values, [supplied_vector])
+
+    def test_lancedb_adapter_rejects_vector_dimension_mismatch_before_db_mutation(self) -> None:
+        adapter = object.__new__(LanceDBLocalIndexAdapter)
+        adapter.table_name = "chunks"
+        adapter._embedding_provider = FakeEmbeddingProvider()
+        adapter._db = RecordingLanceDB()
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "vector dimension mismatch for chunk 'c1': expected 2, got 3",
+        ):
+            adapter.upsert_chunks(
+                [
+                    LocalIndexChunk(
+                        chunk_id="c1",
+                        document_id="d1",
+                        project_id="demo_proj",
+                        source_id="source_a",
+                        title="Bad vector row",
+                        content="The database must not be mutated.",
+                        vector=[0.2, 0.3, 0.5],
+                    )
+                ]
+            )
+
+        self.assertEqual(adapter._db.create_calls, [])
+        self.assertIsNone(getattr(adapter, "_table", None))
+
+    def test_lancedb_adapter_rejects_metadata_dimension_mismatch_before_db_mutation(self) -> None:
+        adapter = object.__new__(LanceDBLocalIndexAdapter)
+        adapter.table_name = "chunks"
+        adapter._embedding_provider = FakeEmbeddingProvider()
+        adapter._db = RecordingLanceDB()
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "embedding_dim metadata mismatch for chunk 'c1': declared 3, vector has 2",
+        ):
+            adapter.upsert_chunks(
+                [
+                    LocalIndexChunk(
+                        chunk_id="c1",
+                        document_id="d1",
+                        project_id="demo_proj",
+                        source_id="source_a",
+                        title="Bad metadata row",
+                        content="The database must not be mutated.",
+                        metadata={"embedding_dim": 3},
+                        vector=[0.4, 0.6],
+                    )
+                ]
+            )
+
+        self.assertEqual(adapter._db.create_calls, [])
+        self.assertIsNone(getattr(adapter, "_table", None))
 
     def test_lancedb_adapter_falls_back_to_keyword_when_vector_runtime_is_unavailable(self) -> None:
         adapter = object.__new__(LanceDBLocalIndexAdapter)

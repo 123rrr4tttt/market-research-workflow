@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from typing import Any
+from typing import Annotated, Any
 
 from ...settings.config import settings
 
@@ -150,7 +150,10 @@ def build_ingest_guardrail_rollout_readiness(
     canary_projects: list[str] | tuple[str, ...] | set[str] | None,
     response_visibility_fields: list[str] | tuple[str, ...] | set[str],
     metrics_visibility_fields: list[str] | tuple[str, ...] | set[str],
-) -> IngestGuardrailRolloutReadiness:
+) -> Annotated[
+    IngestGuardrailRolloutReadiness,
+    "kit:non-authoritative derived_as=preflight fact_source=rollout_inputs+visibility_fields+rollout_contract_constants witness=test:test_w03_ingest_ports_authority_metadata",
+]:
     mode = _normalize_rollout_mode(rollout_mode)
     projects = _parse_project_allowlist(canary_projects)
     response_fields = sorted({str(field).strip() for field in response_visibility_fields if str(field or "").strip()})

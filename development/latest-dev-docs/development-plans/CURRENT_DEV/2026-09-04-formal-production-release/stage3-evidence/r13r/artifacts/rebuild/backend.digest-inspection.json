@@ -1,0 +1,62 @@
+{
+  "all_referenced_blobs_validated": true,
+  "archive_bytes": 300960256,
+  "archive_sha256": "87c5e983ddd1546c9aeb2516111c79e0e915e01d3547d0d0bd603199d6ced377",
+  "attestation_manifest_count": 0,
+  "image_config_digest": "sha256:72072cc7298dce26f786329b29d2f0e720aa6e2341c4272b3ae389a1485e02b6",
+  "image_layer_digests": [
+    "sha256:6310eb16bf4251731feab01e8f633bf5e2d75a657ccad97f420b1f83cce457be",
+    "sha256:3678bb828654fcc3752f7a5eb63c5accfa00c97047252f25405285550d74a3fd",
+    "sha256:db840d086b65cf73e0feea3bd0cf11063818114e466846ae3f2b2fb1a8c2b143",
+    "sha256:f9efa1b83d065a7c5a3041582875b75d63c4ab3d4413514de8e413b51f90e91a",
+    "sha256:b67246d5d21a1e5208d87db10a035e60592ce32fc1bd322536cd6248ad3f3ea1",
+    "sha256:80358df27fe38103b756d0846fff11d094b3698db5d2929e496e10ea484894d3",
+    "sha256:8f1652a7c760aea3f19094d7ed22d3bb20fe1a316835ebc83d4e0c44ad84ccd6",
+    "sha256:356ceff5abed824fd3cb45754737f45e7b6a273774bb8f0aeb24df2ab0a52a91",
+    "sha256:5c409d2faca9ec92d7c6c8d8a7b8c2e70b944f3e0d3e9cf75a4f88acd983ef7f",
+    "sha256:a2cbc81ce7adb71654afa83fc14b1448a4598e78a670c58bc0bf01328c1de204",
+    "sha256:253c7c6696d760c59066ee96b4cacce227fa0843e49cf7018453016436f64e6f",
+    "sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1",
+    "sha256:a0afbf42b8618bb4e80a16b3fdc7969883e9fbe5c90857d66597fd11406b517e",
+    "sha256:800071c1f95361e733e105ec6a73c2a9f497357df504bc11f6120edd6810ec74",
+    "sha256:14cb374d157155933b3d151fd4f7e07aadcf81cf046e10feb19397a48ea49574",
+    "sha256:ec0050fb9c316de270f9e5e86252d91d7e5bef1d3d3d242aec7505193fc53e42",
+    "sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1"
+  ],
+  "image_manifest_digest": "sha256:403eb796b0890b0e77aec8755c2638cc4e239341b7f71f30ff4dfa6ba475ffe2",
+  "oci_root_digest": "sha256:403eb796b0890b0e77aec8755c2638cc4e239341b7f71f30ff4dfa6ba475ffe2",
+  "phase": "rebuild",
+  "platform": "linux/amd64",
+  "role": "backend",
+  "runtime_config": {
+    "Cmd": [
+      "uvicorn",
+      "app.main:app",
+      "--host",
+      "0.0.0.0",
+      "--port",
+      "8000"
+    ],
+    "Entrypoint": [
+      "/docker-entrypoint.sh"
+    ],
+    "Env": [
+      "PATH=/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+      "LANG=C.UTF-8",
+      "GPG_KEY=A035C8C19219BA821ECEA86B64E628F8D684696D",
+      "PYTHON_VERSION=3.11.16",
+      "PYTHON_SHA256=91bcdebfdde239a003ae93738a7fce0f9230fee5c4bc2b86f6e6e8c6f98aabe8",
+      "PYTHONDONTWRITEBYTECODE=1",
+      "PYTHONUNBUFFERED=1",
+      "PIP_NO_CACHE_DIR=1",
+      "PYTHONPATH=/opt/mrw/src",
+      "MRW_CONTAINER_ROLE=backend-runtime"
+    ],
+    "ExposedPorts": {
+      "8000/tcp": {}
+    },
+    "Healthcheck": null,
+    "User": null,
+    "WorkingDir": "/app"
+  }
+}

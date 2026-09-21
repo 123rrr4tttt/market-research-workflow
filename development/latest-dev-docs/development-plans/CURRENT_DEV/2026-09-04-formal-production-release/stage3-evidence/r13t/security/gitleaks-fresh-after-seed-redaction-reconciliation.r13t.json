@@ -1,0 +1,180 @@
+{
+  "schema_version": "mrw-stage3-gitleaks-seed-successor-reconciliation.v1",
+  "generated_at_utc": "2026-09-12T10:27:30.812165Z",
+  "status": "PASS_EXACT_MINUS_TWO_NO_NEW_FINDINGS",
+  "authority_ceiling": "Validation evidence only; not a commit, canonical candidate, allowlist approval, Stage 3 acceptance, or release authority.",
+  "inputs": {
+    "prior_redacted_report": {
+      "path": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260910-v4-r13s/evidence/gitleaks-unmodified-policy/report.redacted.json",
+      "sha256": "607cf8b65bdba98681844e5e5e282a1427c6fbe7e6f8c94326543870628f524c"
+    },
+    "prior_semantic_review": {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13t/security/gitleaks-semantic-review.r13t.json",
+      "sha256": "67e6db70cde9d990733bd9f4b678c573c0f508ed8aaee761a4a790ef6c975774"
+    },
+    "fresh_sanitized_report": {
+      "path": "gitleaks-fresh-after-seed-redaction.r13t.json",
+      "sha256": "452822b2dec277c69c6d1807d8873846365885331bbf83776410adda4f9e9561"
+    }
+  },
+  "source_successor": {
+    "root": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage3-20260912-r13t-gitleaks-seed-successor",
+    "base_commit": "17e824ab2de3de450bd5215f84bcca428d90218e",
+    "base_tree": "6e2c8524c7cbd436bf58bc08b37fa2b2bdbc0d92",
+    "worktree_status": [
+      " M main/backend/seed_data/project_demo_proj_v0.9-rc2.0.sql"
+    ],
+    "diff_check": "PASS",
+    "changed_path_count": 1,
+    "seed_before_sha256": "34532a28ca7f292acf93009e191552a0356e7f8df54dda1c14d2a839614bbbcf",
+    "seed_after_sha256": "5551ca2a20bf709b087aeb9f9f14c48b2bda33a5fb78b50edd1511bcc6cb695a",
+    "live_seed_equals_successor_seed": true,
+    "replacement_validation": {
+      "changed_line_ranges": [
+        [
+          855,
+          855
+        ],
+        [
+          1810,
+          1810
+        ]
+      ],
+      "other_seed_lines_changed": 0,
+      "one_redaction_marker_per_changed_line": true
+    }
+  },
+  "verification": {
+    "shell_syntax": {
+      "command": "bash -n main/backend/scripts/load_demo_proj_seed.sh",
+      "status": "PASS"
+    },
+    "capability_test": {
+      "command": "PYTHONPATH=<workspace>/src:<workspace>/main/backend main/backend/.venv311/bin/python -m pytest -q main/backend/tests/successor_runtime/test_first_specimen_capabilities.py",
+      "status": "PASS",
+      "passed": 12,
+      "failed": 0
+    },
+    "disposable_postgresql": {
+      "isolation": "unique task container; loopback random host port; no existing database connection; no ops-scrapyd interaction",
+      "initial_base_image_attempt": {
+        "image": "postgres:16-alpine",
+        "status": "EXPECTED_ENVIRONMENT_MISMATCH",
+        "reason": "project migration requires vector extension; container removed without seed load"
+      },
+      "successful_image": "pgvector/pgvector:pg16",
+      "migration": "alembic upgrade head PASS",
+      "loader": "main/backend/scripts/load_demo_proj_seed.sh PASS",
+      "target_schema": "project_demo_proj_r13t",
+      "target_project_key": "demo_proj_r13t",
+      "readback": {
+        "project_registrations": 1,
+        "sources": 6,
+        "documents": 75,
+        "etl_job_runs": 1,
+        "required_tables": 7
+      },
+      "cleanup": {
+        "task_container_removed": true,
+        "anonymous_data_volume_removed": true,
+        "ops_scrapyd_untouched": true
+      }
+    }
+  },
+  "scan_command": {
+    "argv_template": [
+      "gitleaks",
+      "dir",
+      "--redact=100",
+      "--no-banner",
+      "--no-color",
+      "--report-format",
+      "json",
+      "--report-path",
+      "<ephemeral-redacted-report>",
+      "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage3-20260912-r13t-gitleaks-seed-successor"
+    ],
+    "cwd": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage3-20260912-r13t-gitleaks-seed-successor",
+    "exit_code": 1,
+    "exit_code_meaning": "findings present; report generated",
+    "policy_changed_from_prior": false
+  },
+  "denominator_reconciliation": {
+    "prior_raw_findings": 419,
+    "fresh_raw_findings": 417,
+    "raw_delta": -2,
+    "prior_stable_groups": 405,
+    "fresh_stable_groups": 403,
+    "stable_delta": -2,
+    "unchanged_stable_groups": 403,
+    "removed_stable_groups": 2,
+    "added_stable_groups": 0,
+    "member_count_changed_for_common_groups": 0,
+    "prior_member_count_sum": 419,
+    "fresh_member_count_sum": 417,
+    "by_rule": [
+      {
+        "rule": "aws-access-token",
+        "prior": 42,
+        "fresh": 42,
+        "delta": 0
+      },
+      {
+        "rule": "curl-auth-header",
+        "prior": 6,
+        "fresh": 6,
+        "delta": 0
+      },
+      {
+        "rule": "curl-auth-user",
+        "prior": 1,
+        "fresh": 1,
+        "delta": 0
+      },
+      {
+        "rule": "generic-api-key",
+        "prior": 369,
+        "fresh": 367,
+        "delta": -2
+      },
+      {
+        "rule": "private-key",
+        "prior": 1,
+        "fresh": 1,
+        "delta": 0
+      }
+    ]
+  },
+  "removed_groups": [
+    {
+      "stable_fingerprint": "1608a1039db1623662dff6d302f58dc5c441493fd5f9b001e76963c4775425aa",
+      "rule": "generic-api-key",
+      "relative_path": "main/backend/seed_data/project_demo_proj_v0.9-rc2.0.sql",
+      "location": {
+        "start_line": 855,
+        "end_line": 855,
+        "start_column": 1415,
+        "end_column": 1466
+      },
+      "prior_semantic_status": "ordinary source/fixture/example defect mechanically fixable"
+    },
+    {
+      "stable_fingerprint": "d47e9d3a486c6790f6a2ca81f2d235e2bffa12f21f8cf20467daa1416da40a42",
+      "rule": "generic-api-key",
+      "relative_path": "main/backend/seed_data/project_demo_proj_v0.9-rc2.0.sql",
+      "location": {
+        "start_line": 1810,
+        "end_line": 1810,
+        "start_column": 78,
+        "end_column": 115
+      },
+      "prior_semantic_status": "ordinary source/fixture/example defect mechanically fixable"
+    }
+  ],
+  "added_groups": [],
+  "remaining_risk": [
+    "The successor directory is a task-owned working tree with one uncommitted seed edit; it is not a canonical release candidate.",
+    "The remaining 403 stable groups retain the dispositions and authority limits of the prior semantic review.",
+    "Docker images downloaded for the isolated validation remain in the local image cache; no validation container or data volume remains."
+  ]
+}

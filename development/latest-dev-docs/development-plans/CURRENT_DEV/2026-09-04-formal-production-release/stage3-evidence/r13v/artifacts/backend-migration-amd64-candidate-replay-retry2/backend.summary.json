@@ -1,0 +1,41 @@
+{
+  "builders": {
+    "candidate": "mrw-r13v-amd64-candidate-16010-1789211064",
+    "replay": "mrw-r13v-amd64-replay-16010-1789211064"
+  },
+  "cleanup": {
+    "builder_residue": [],
+    "docker_prune_run": false,
+    "events": [
+      {
+        "environment": "replay",
+        "exit_code": 0,
+        "kind": "builder",
+        "name": "mrw-r13v-amd64-replay-16010-1789211064"
+      },
+      {
+        "environment": "candidate",
+        "exit_code": 0,
+        "kind": "builder",
+        "name": "mrw-r13v-amd64-candidate-16010-1789211064"
+      },
+      {
+        "bytes_reclaimed": 316961280,
+        "environment": "candidate",
+        "kind": "temporary_oci_archive",
+        "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13v/artifacts/backend-migration-amd64-candidate-replay-retry2/candidate/backend.oci.tar",
+        "reason": "Digest/config/layers, attestation statements, Trivy report, and build metadata were retained as compact evidence.",
+        "removed": true,
+        "sha256_before_removal": "1a157c76c3ba82fb30f215d0f8c0f43fad19f7aadac625acdabfa060d37074a8"
+      }
+    ],
+    "free_bytes_after": 6819753984,
+    "temporary_oci_archives_present": []
+  },
+  "error": "RuntimeError: replay build failed with exit 1",
+  "free_bytes_before": 8376631296,
+  "platform": "linux/amd64",
+  "role": "backend",
+  "status": "FAILED_OR_INCOMPLETE",
+  "target": "backend-runtime"
+}

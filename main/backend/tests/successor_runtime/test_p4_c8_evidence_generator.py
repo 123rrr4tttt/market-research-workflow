@@ -3,11 +3,41 @@
 from __future__ import annotations
 
 import importlib.util
+import hashlib
 import json
+import sys
 from pathlib import Path
 
 _BACKEND_ROOT = Path(__file__).resolve().parents[2]
+_REPOSITORY_ROOT = _BACKEND_ROOT.parents[1]
 _GENERATOR = _BACKEND_ROOT / "scripts/generate_successor_p4_c8_fragment.py"
+_FRAGMENT_REL = (
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/"
+    "2026-08-30-functorial-successor-migration/evidence/p4-fragments/C8.json"
+)
+_CANDIDATE_REL = (
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/"
+    "2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/"
+    "stage-b17-2026-09-05/fragments/C8.json"
+)
+_FROZEN_PREDECESSOR_SHA256 = (
+    "206e69ad34ab60948c8310c6012f15fc66a03386eb3d2b60ae9e88328c8316a6"
+)
+_FROZEN_SNAPSHOT_REL = (
+    "development/latest-dev-docs/development-plans/CURRENT_DEV/"
+    "2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/"
+    "stage-b16-2026-09-05/candidates/I1/snapshots/"
+    + _FROZEN_PREDECESSOR_SHA256
+)
+
+if str(_BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(_BACKEND_ROOT))
+
+from app.successor_runtime.specification.c8_p4 import CONFIG
+from app.successor_runtime.specification.shared_family_generator import (
+    build_fragment,
+    fragment_bytes,
+)
 
 
 def _load_generator():
@@ -18,6 +48,11 @@ def _load_generator():
     assert spec.loader is not None
     spec.loader.exec_module(module)
     return module
+
+
+def test_frozen_predecessor_is_checked_from_history_only() -> None:
+    historical = (_REPOSITORY_ROOT / _FROZEN_SNAPSHOT_REL).read_bytes()
+    assert hashlib.sha256(historical).hexdigest() == _FROZEN_PREDECESSOR_SHA256
 
 
 def test_fragment_root_schema_and_cells_are_normalized() -> None:
@@ -177,10 +212,9 @@ def test_legacy_parity_is_execution_based() -> None:
 
 
 def test_persisted_fragment_matches_generated_bytes() -> None:
-    module = _load_generator()
-    persisted = json.loads(module.FRAGMENT_PATH.read_text())
-    rebuilt = module.build_fragment()
-    rebuilt["content_digest"] = module.content_digest(
-        {key: value for key, value in rebuilt.items() if key != "content_digest"}
-    )
-    assert module._canonical_json(rebuilt) == module._canonical_json(persisted)
+    persisted = json.loads((_REPOSITORY_ROOT / _CANDIDATE_REL).read_text())
+    rebuilt = build_fragment(CONFIG, _REPOSITORY_ROOT)
+    assert fragment_bytes(CONFIG, rebuilt) == (
+        _REPOSITORY_ROOT / _CANDIDATE_REL
+    ).read_bytes()
+    assert rebuilt["content_digest"] == persisted["content_digest"]

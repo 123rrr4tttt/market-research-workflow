@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Annotated
 
 from sqlalchemy.engine import Engine
 
@@ -174,7 +175,11 @@ def build_postgres_first_specimen_assembly(
     engine: Engine,
     activation_catalog: FirstSpecimenActivationCatalog,
     delivery_interpreter: InternalExportInterpreter,
-) -> PostgresFirstSpecimenAssembly:
+) -> Annotated[
+    PostgresFirstSpecimenAssembly,
+    "kit:prepared-command effect_boundary=postgres.first_specimen_assembly "
+    "witness=test:test_w08c_postgres_builder_metadata_preserves_return_types",
+]:
     """Build the immutable handler suite and terminal/activation composition."""
 
     bundle = build_first_specimen_bundle()

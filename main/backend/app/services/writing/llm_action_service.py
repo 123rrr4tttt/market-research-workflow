@@ -3,6 +3,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
+from functorial_kit import Failure
+
 from ...contracts.schemas.writing import LlmActionHistoryItem, LlmActionRequest, LlmActionResponse
 from ...settings.config import settings
 from ..llm.platformization import (
@@ -14,6 +16,8 @@ from ..llm.platformization import (
     resolve_routing_decision,
 )
 from ..job_logger import complete_job, fail_job, list_jobs, start_job
+from ..task_readback_metadata import build_runtime_readback_payload, merge_runtime_readback_payload
+from .document_service import _raise_writing_legacy, _writing_failure
 
 _WRITING_JOB_TYPE = "wr_action"
 
@@ -61,7 +65,37 @@ def _build_action_result(payload: LlmActionRequest) -> tuple[str, list[str]]:
     return content, warnings
 
 
-def dispatch_action(payload: LlmActionRequest) -> LlmActionResponse:
+def _build_writing_runtime_readback(*, trace_id: str, status: str = "running", event: str = "worker_started") -> dict[str, Any]:
+    return build_runtime_readback_payload(
+        line_key="writing_knowledge_graph_agent",
+        trace_id=trace_id,
+        worker_name="local.writing_llm_action_service",
+        queue="local.writing_knowledge_graph_agent",
+        status=status,
+        event=event,
+        event_source="writing_llm_action_service",
+    )
+
+
+def _complete_writing_runtime_readback(
+    runtime_readback: dict[str, Any],
+    *,
+    job_id: int,
+    status: str = "completed",
+) -> dict[str, Any]:
+    return merge_runtime_readback_payload(
+        {
+            **dict(runtime_readback or {}),
+            "run_id": str(job_id),
+        },
+        runtime_readback,
+        status=status,
+        event=status if status in {"completed", "succeeded", "applied", "available", "healthy"} else None,
+        event_source="writing_llm_action_service",
+    )
+
+
+def try_dispatch_action(payload: LlmActionRequest) -> LlmActionResponse | Failure:
     identity = resolve_request_identity(
         consumer="writing.llm_action",
         trace_id=payload.trace_id,
@@ -85,6 +119,7 @@ def dispatch_action(payload: LlmActionRequest) -> LlmActionResponse:
         default_model=None,
     )
     trace_id = identity.trace_id
+    runtime_readback = _build_writing_runtime_readback(trace_id=trace_id)
     job_id = start_job(
         _WRITING_JOB_TYPE,
         {
@@ -105,6 +140,7 @@ def dispatch_action(payload: LlmActionRequest) -> LlmActionResponse:
             "requested_async": payload.async_mode,
             "consumer_boundary_capability": boundary.capability,
             "agent_boundary_allowed": agent_boundary.allowed,
+            "runtime_readback": runtime_readback,
         },
     )
     try:
@@ -139,6 +175,11 @@ def dispatch_action(payload: LlmActionRequest) -> LlmActionResponse:
                 "agent_boundary_allowed": False,
                 "capability_truth": capability_truth,
                 "error_code": "AGENT_BOUNDARY_REJECTED",
+                "runtime_readback": _complete_writing_runtime_readback(
+                    runtime_readback,
+                    job_id=job_id,
+                    status=status,
+                ),
             }
             complete_job(job_id, status=status, result=result)
             return LlmActionResponse(
@@ -194,6 +235,11 @@ def dispatch_action(payload: LlmActionRequest) -> LlmActionResponse:
             "route_kind": routing.route_kind,
             "agent_boundary_allowed": True,
             "capability_truth": capability_truth,
+            "runtime_readback": _complete_writing_runtime_readback(
+                runtime_readback,
+                job_id=job_id,
+                status="completed",
+            ),
         }
         complete_job(job_id, result=result)
         return LlmActionResponse(
@@ -231,8 +277,26 @@ def dispatch_action(payload: LlmActionRequest) -> LlmActionResponse:
             dependency_gate={**dependency_gate, "passed": True},
         )
     except Exception as exc:  # noqa: BLE001
-        fail_job(job_id, str(exc))
-        raise
+        return _writing_failure(
+            "action_execution_failed",
+            str(exc),
+            owner="writing.llm_action_service.dispatch_action",
+            public_exception=type(exc).__name__,
+            cause=exc,
+            job_id=job_id,
+        )
+
+
+def dispatch_action(payload: LlmActionRequest) -> LlmActionResponse:
+    outcome = try_dispatch_action(payload)
+    if isinstance(outcome, Failure):
+        context = outcome.context or {}
+        cause = context.get("cause")
+        job_id = context.get("job_id")
+        if outcome.code == "action_execution_failed" and isinstance(job_id, int):
+            fail_job(job_id, str(cause if isinstance(cause, BaseException) else outcome.message))
+        _raise_writing_legacy(outcome, cause=cause if isinstance(cause, BaseException) else None)
+    return outcome
 
 
 def _job_to_history_item(job: dict[str, Any]) -> LlmActionHistoryItem | None:
@@ -284,8 +348,20 @@ def get_action_history(*, limit: int = 20, project_key: str | None = None) -> li
     return items
 
 
-def get_action_detail(job_id: int, *, project_key: str | None = None) -> LlmActionHistoryItem:
+def try_get_action_detail(job_id: int, *, project_key: str | None = None) -> LlmActionHistoryItem | Failure:
     for item in get_action_history(limit=200, project_key=project_key):
         if item.job_id == job_id:
             return item
-    raise KeyError(f"action history not found: {job_id}")
+    return _writing_failure(
+        "action_not_found",
+        f"action history not found: {job_id}",
+        owner="writing.llm_action_service.get_action_detail",
+        public_exception=KeyError,
+    )
+
+
+def get_action_detail(job_id: int, *, project_key: str | None = None) -> LlmActionHistoryItem:
+    outcome = try_get_action_detail(job_id=job_id, project_key=project_key)
+    if isinstance(outcome, Failure):
+        _raise_writing_legacy(outcome)
+    return outcome

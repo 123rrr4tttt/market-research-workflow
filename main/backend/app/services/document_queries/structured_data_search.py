@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Iterable, Mapping
+from typing import Annotated, Any, Iterable, Mapping
 
 from .contracts import (
     DOCUMENT_QUERY_CONTRACT_VERSION,
@@ -43,7 +43,11 @@ def build_structured_data_search_document_query(
     query: str | None,
     datasets_requested: Iterable[str] = (),
     limit: int,
-) -> DocumentQuery:
+) -> Annotated[
+    DocumentQuery,
+    "kit:prepared-command effect_boundary=app.services.document_queries.statement_builder "
+    "witness=test:test_project_structured_data_search_returns_document_query_projection",
+]:
     datasets = _clean_sequence(datasets_requested)
     filters: list[dict[str, Any]] = []
     if datasets:
@@ -71,7 +75,11 @@ def build_structured_data_search_document_query_envelope(
     total_matches: int | None = None,
     total_stored_rows: int | None = None,
     fallback_used: bool = False,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=agent_runtime.structured_data_search "
+    "witness=test:test_helper_builds_document_query_projection_for_structured_search",
+]:
     query_object = build_structured_data_search_document_query(
         project_key=project_key,
         query=query,

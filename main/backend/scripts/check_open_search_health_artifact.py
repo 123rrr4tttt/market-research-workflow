@@ -16,7 +16,7 @@ from pathlib import Path
 import subprocess
 import sys
 import time
-from typing import Any
+from typing import Annotated, Any
 
 import yaml
 
@@ -36,6 +36,10 @@ from scripts.check_open_search_runtime_boundary import (  # noqa: E402
     display_path,
     endpoint_config,
     load_json,
+)
+from scripts.evidence_source_contract import (  # noqa: E402
+    apply_evidence_source_contract,
+    evidence_source,
 )
 
 
@@ -179,7 +183,10 @@ def _service_expectation(compose: dict[str, Any], provider: str, *, compose_name
     }
 
 
-def build_compose_expectations() -> dict[str, Any]:
+def build_compose_expectations() -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=repository.search_lab_and_main_ops_compose witness=test:test_open_search_compose_expectations_authority_metadata",
+]:
     search_lab, search_lab_failures = _load_compose(SEARCH_LAB_COMPOSE)
     main_ops, main_ops_failures = _load_compose(MAIN_OPS_COMPOSE)
     failures = [*search_lab_failures, *main_ops_failures]
@@ -415,7 +422,10 @@ def build_health_artifact(
     env: Mapping[str, str] | None = None,
     command_runner: CommandRunner | None = None,
     runtime_boundary: dict[str, Any] | None = None,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=preflight fact_source=repository.wave12_boundary_and_runtime_probe_results witness=test:test_open_search_health_artifact_authority_metadata",
+]:
     failures: list[str] = []
     wave12, load_failures = load_json(WAVE12_SUMMARY)
     failures.extend(load_failures)
@@ -520,7 +530,23 @@ def build_health_artifact(
     }
     artifact["failures"].extend(validate_health_artifact(artifact))
     artifact["status"] = "passed" if not artifact["failures"] else "failed"
-    return artifact
+    boundary_sources = list(boundary.get("evidence_sources") or [])
+    sources_by_path = {
+        str(row.get("path")): row
+        for row in [
+            evidence_source(
+                WAVE12_SUMMARY,
+                repo_root=REPO_ROOT,
+                label="wave12_provider_readiness",
+            ),
+            *boundary_sources,
+        ]
+    }
+    return apply_evidence_source_contract(
+        artifact,
+        sources_by_path.values(),
+        claim_fields=("provider_auto_promotion_allowed",),
+    )
 
 
 def validate_health_artifact(artifact: dict[str, Any]) -> list[str]:

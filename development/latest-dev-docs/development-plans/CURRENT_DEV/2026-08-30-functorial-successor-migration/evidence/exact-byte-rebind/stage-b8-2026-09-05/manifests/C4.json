@@ -1,0 +1,132 @@
+{
+  "schema": "mrw.family_fragment_rebind.stage_manifest.v2",
+  "family": "C4",
+  "amendment": "STAGE_B8_BOUND_WITNESS_REBIND_CANDIDATE_NOT_AUTHORITY",
+  "fragments": [
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b8-2026-09-05/fragments/C4.json",
+      "file_sha256": "6daf1ba84af268e5b80a469e24c998910b00bc27ee811b9818a2b94a91804486",
+      "content_digest": "59476bd0101212f7e2fec139005aeb5d014f774241d1fe384e329d5fbae2554f"
+    }
+  ],
+  "sources": [
+    {
+      "path": "main/backend/app/successor_runtime/specification/shared_family_generator.py",
+      "file_sha256": "917aa8dc19e35a8f74b2f3f15eff243e4e6327278107324fb7e6615894832800"
+    },
+    {
+      "path": "main/backend/app/successor_runtime/specification/capability_cell_spec.py",
+      "file_sha256": "9edaba9fc23584f9095425233bc1f3bed7ef1b0383d4f4d198ce7c35bde2b724"
+    },
+    {
+      "path": "main/backend/app/successor_runtime/specification/runtime_kernel_abi.py",
+      "file_sha256": "216e28db15d99853b35765ae69a5146d557392a4e8f9f72a299ad7fcb428b573"
+    },
+    {
+      "path": "main/backend/app/successor_runtime/specification/c4_p3.py",
+      "file_sha256": "4f22303d895fe4e12710177533c118ab31e85bfb512e734ab97f25b8086886d8"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/P1FunctorizationEligibility.v1.json",
+      "file_sha256": "16dac2d34f2cdcaeffa4718fe2e63733f48b29ad0ba64daab32ed011527d4642"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p1-fragments/C4.json",
+      "file_sha256": "afd63bec6bfca18c543a94f0b1aebd6c15436f68517b227511d3ef2d22872657"
+    },
+    {
+      "path": "main/backend/app/services/agent_batch/agent_loop.py",
+      "file_sha256": "fe3b616be686a6889f6c9a30c745b8d58af2abcfbb78c632748c780e1e27aa1f"
+    },
+    {
+      "path": "main/backend/app/services/agent_batch/task_contract.py",
+      "file_sha256": "11e020d9ede5f0994a3d73da193c0caa02aaaa5d320f4a61877b8db5fdf4e245"
+    },
+    {
+      "path": "main/backend/app/api/agent_batch.py",
+      "file_sha256": "f880ae86e92fd121fe62da842ac6e558bd60d250a83e0387887bcae5ce7306fd"
+    },
+    {
+      "path": "main/backend/app/successor_runtime/capabilities/agent_batch_c4.py",
+      "file_sha256": "3e8906729700409953f665201b171b55a87e6d0001d2d27c24df5afc9eaafcf5"
+    },
+    {
+      "path": "main/backend/app/successor_runtime/capabilities/agent_batch_c4_program.py",
+      "file_sha256": "51c65b3479cf85a22e5ee7331983467899cd9a9991c9be48fde3b8e1d3bc42c5"
+    },
+    {
+      "path": "main/backend/app/successor_runtime/capabilities/agent_batch_c4_interpreters.py",
+      "file_sha256": "a35390bafbd32e03331713a013fb4cd2ead68a8b72dee46d44146969b0cd72e2"
+    },
+    {
+      "path": "main/backend/app/successor_migration/legacy_agent_batch.py",
+      "file_sha256": "83fb7158bdadc595ad5c66d44d6897a9ff5780ab2ebcf9f07b3af05f2f32b0c7"
+    },
+    {
+      "path": "main/backend/app/successor_runtime/substrate/postgres/agent_batch_c4.py",
+      "file_sha256": "30247879e6eefc942f4ece5f6fad8b54ad0c152fbcd59589fdc7e35638e729f7"
+    },
+    {
+      "path": "main/backend/app/successor_runtime/substrate/postgres/agent_batch_c4_canary.py",
+      "file_sha256": "78eb9c3e0508972998670aa6c3499592f8b358fd4e108174f0d1f4f7503d4f8d"
+    },
+    {
+      "path": "main/backend/app/successor_runtime/substrate/postgres/agent_batch_c4_3_handler.py",
+      "file_sha256": "c5b276219af73efc1353568fe8430aa64c96ed5aac0c569857b1c5a2d7298d69"
+    },
+    {
+      "path": "main/backend/app/successor_runtime/language/compile.py",
+      "file_sha256": "91b06329b8476d06193e8030746288be5550f065b6f471b81dce650608d61dd5"
+    },
+    {
+      "path": "main/backend/app/successor_runtime/language/program.py",
+      "file_sha256": "eba5147e44ada7ee264606cb64347132b902d86beebba14b9b9a1c3bb6f01e02"
+    },
+    {
+      "path": "main/backend/app/successor_runtime/substrate/postgres/idempotency.py",
+      "file_sha256": "b51c21cf86f0709c9fda9450b8c6997a7dc90deb1b6bfb965547c979a972343b"
+    },
+    {
+      "path": "main/backend/scripts/generate_successor_p3_c4_fragment.py",
+      "file_sha256": "b7f50d24bc465f7c4b176b81ea3ba22031ecfda6059ae010918fc8ab2bf0699f"
+    }
+  ],
+  "tests": [
+    {
+      "path": "main/backend/tests/successor_runtime/test_p3_c4_1_plan.py",
+      "file_sha256": "b654b1764efcda8a373e426ec24d4304b865a1f8c7b22234edb002844fda1941"
+    },
+    {
+      "path": "main/backend/tests/successor_runtime/test_p3_c4_1_program.py",
+      "file_sha256": "a7eb28946ebd6b20071a603a9245bd91d190ecc775125ef8a18ce6d767d9fbaf"
+    },
+    {
+      "path": "main/backend/tests/successor_runtime/test_p3_c4_1_parity.py",
+      "file_sha256": "29a8bdfd006e151223d6c1ef796021b0903050d8a1e31c853c5569dfd287c3ee"
+    },
+    {
+      "path": "main/backend/tests/successor_runtime/test_p3_c4_2_retry_reducer.py",
+      "file_sha256": "71ca07a2bde5df8bb93e86aacfe3b8665c0e59c0ce3eda424a757b84a637ff23"
+    },
+    {
+      "path": "main/backend/tests/successor_runtime/test_p3_c4_3_submission.py",
+      "file_sha256": "2428d9473c076b633b77dd016d9d649b5f003f02f45047d0875694eaf90d1b93"
+    },
+    {
+      "path": "main/backend/tests/successor_runtime/test_p3_c4_canary.py",
+      "file_sha256": "063a1b3ce8edb5e3034f9b6ed7403228f71b01715a3c275f700e2fcf19d0f4d6"
+    },
+    {
+      "path": "main/backend/tests/successor_runtime/test_p3_c4_4_postgres.py",
+      "file_sha256": "4c20ac9b442db89e2acf478337246f947e1e690d8056d655ee34f113cd93aff4"
+    },
+    {
+      "path": "main/backend/tests/successor_runtime/test_p3_c4_5_runtime_postgres.py",
+      "file_sha256": "4a92a835f8e3335d5c31ea6c34e8a76c2f0ea336c94b210c796d9b1b19246db3"
+    },
+    {
+      "path": "main/backend/tests/successor_runtime/test_p3_c4_evidence_generator.py",
+      "file_sha256": "c0c5f102498738d2b2bbd75a44d92014f5bfd1367b11530800c496f70795bd50"
+    }
+  ]
+}

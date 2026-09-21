@@ -13,6 +13,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from types import MappingProxyType
+from typing import Annotated
 
 from fastapi import Request
 
@@ -107,7 +108,11 @@ def build_successor_runtime_app_dependencies(
     *,
     options: FamilyAssemblyOptions | None = None,
     scope_digest: str | None = None,
-) -> SuccessorRuntimeAppDependencies:
+) -> Annotated[
+    SuccessorRuntimeAppDependencies,
+    "kit:prepared-command effect_boundary=successor_runtime.app_assembly "
+    "witness=test:test_default_mount_options_keep_assembly_fail_closed",
+]:
     """Build the default LOCAL_ONLY router dependencies.
 
     ``options`` defaults to the closed local-only fixture options; the C9

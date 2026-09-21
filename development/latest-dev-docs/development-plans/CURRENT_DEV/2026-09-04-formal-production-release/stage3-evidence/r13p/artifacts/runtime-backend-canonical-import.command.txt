@@ -1,0 +1,1 @@
+docker run --rm --entrypoint python mrw-r13p-runtime-backend-canonical:local -c from\ app.main\ import\ app\;\ print\(app.title\) 

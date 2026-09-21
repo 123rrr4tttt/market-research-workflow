@@ -56,7 +56,7 @@ class WritingLlmActionServiceUnitTestCase(unittest.TestCase):
         )
         with (
             patch("app.services.writing.llm_action_service.start_job", return_value=102),
-            patch("app.services.writing.llm_action_service.complete_job"),
+            patch("app.services.writing.llm_action_service.complete_job") as mocked_complete,
         ):
             response = dispatch_action(payload)
 
@@ -66,6 +66,20 @@ class WritingLlmActionServiceUnitTestCase(unittest.TestCase):
         self.assertFalse(response.capability_truth["real_model_path"])
         self.assertIn("agent_boundary", response.action_boundary)
         self.assertIn("audit", response.observability)
+        complete_result = mocked_complete.call_args.kwargs["result"]
+        runtime_readback = complete_result["runtime_readback"]
+        self.assertEqual(runtime_readback["line_key"], "writing_knowledge_graph_agent")
+        self.assertEqual(runtime_readback["run_id"], "102")
+        self.assertEqual(runtime_readback["worker_name"], "local.writing_llm_action_service")
+        self.assertEqual(runtime_readback["queue"], "local.writing_knowledge_graph_agent")
+        self.assertEqual(runtime_readback["trace_id"], response.trace_id)
+        self.assertEqual(runtime_readback["status"], "completed")
+        self.assertTrue(
+            any(
+                isinstance(item, dict) and item.get("event") == "completed"
+                for item in runtime_readback["events"]
+            )
+        )
 
 
 if __name__ == "__main__":

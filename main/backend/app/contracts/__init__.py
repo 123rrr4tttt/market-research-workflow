@@ -18,7 +18,18 @@ from .ingest_digestion import (
     LongCycleTaskStatus,
     NormalizedIngestEnvelope,
 )
-from .responses import ApiEnvelope, ApiErrorModel, ApiMetaModel, PaginationMetaModel, TaskResultData, fail, ok, ok_page
+from .responses import (
+    ApiEnvelope,
+    ApiErrorModel,
+    ApiMetaModel,
+    PaginationMetaModel,
+    TaskResultData,
+    fail,
+    ok,
+    ok_page,
+    reset_api_context_meta,
+    set_api_context_meta,
+)
 from .tasks import task_result_response
 
 __all__ = [
@@ -47,6 +58,8 @@ __all__ = [
     "map_exception_to_error",
     "ok",
     "ok_page",
+    "reset_api_context_meta",
+    "set_api_context_meta",
     "success_response",
     "task_result_response",
 ]

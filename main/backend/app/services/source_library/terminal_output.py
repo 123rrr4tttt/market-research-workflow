@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import Any, Dict, List
+from typing import Annotated, Any, Dict, List
 
 from .external_project import build_external_project_summary, get_external_project_manifest
+from ..crawlers.base import is_crawler_dispatch_acknowledged
 
 CONTRACT_VERSION = "source_library.terminal_output.v1"
 PROVIDER_HANDOFF_CONTRACT_VERSION = "source_library.provider_handoff.v1"
@@ -22,7 +23,13 @@ def to_terminal_output_dto(result_payload: Dict[str, Any] | None) -> Dict[str, A
     errors = _collect_errors(result)
     records = _build_clean_records(payload=payload, result=result)
     stats = _build_stats(source_mode=source_mode, result=result, params=normalized_params, errors=errors, records=records)
-    status = _resolve_status(stats)
+    readback = _extract_terminal_readback(payload=payload, result=result)
+    status = _resolve_status(
+        stats,
+        payload=payload,
+        result=result,
+        readback=readback,
+    )
     provider_handoff = _resolve_provider_handoff(payload=payload, result=result)
     frontdoor_route_profile = _resolve_frontdoor_route_profile(
         params=normalized_params,
@@ -38,6 +45,10 @@ def to_terminal_output_dto(result_payload: Dict[str, Any] | None) -> Dict[str, A
     if not payload and not errors:
         errors.append({"source": "payload", "message": "empty payload"})
         stats["errors"] = max(int(stats.get("errors") or 0), 1)
+        status = "error"
+
+    outcome_unknown = _build_outcome_unknown(readback)
+    if outcome_unknown is not None and status in {"ok", "empty", "unknown"}:
         status = "error"
 
     return {
@@ -63,7 +74,13 @@ def to_terminal_output_dto(result_payload: Dict[str, Any] | None) -> Dict[str, A
         },
         "errors": errors,
         "meta": {
-            "reason_code": _resolve_reason_code(stats=stats, errors=errors, records=records),
+            "reason_code": _resolve_reason_code(
+                stats=stats,
+                errors=errors,
+                records=records,
+                status=status,
+                outcome_unknown=outcome_unknown,
+            ),
             "retryable": bool(result.get("retryable")),
             "provider": _nullable_str(result.get("provider") or payload.get("provider")),
             "provider_job_id": _nullable_str(result.get("provider_job_id") or payload.get("provider_job_id")),
@@ -72,13 +89,18 @@ def to_terminal_output_dto(result_payload: Dict[str, Any] | None) -> Dict[str, A
             "provider_handoff": provider_handoff,
             "frontdoor_route_profile": frontdoor_route_profile,
             "frontdoor_router_contract": frontdoor_router_contract,
+            "terminal_readback": readback,
+            "outcome_unknown": outcome_unknown,
             "raw_result_keys": sorted(result.keys()),
         },
         "raw_snapshot": deepcopy(payload),
     }
 
 
-def build_terminal_output_dto(result_payload: Dict[str, Any] | None) -> Dict[str, Any]:
+def build_terminal_output_dto(result_payload: Dict[str, Any] | None) -> Annotated[
+    Dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=source_library.raw_result witness=test:test_w01_meta",
+]:
     return to_terminal_output_dto(result_payload)
 
 
@@ -86,10 +108,20 @@ def build_source_library_terminal_output(
     *,
     result_payload: Dict[str, Any] | None,
     collect_result: Any,
-) -> Dict[str, Any]:
-    # `collect_result` is reserved for compatibility fallback; the main path maps from result payload.
-    _ = collect_result
-    return to_terminal_output_dto(result_payload)
+) -> Annotated[
+    Dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=source_library.raw_result witness=test:test_w01_meta",
+]:
+    dto = to_terminal_output_dto(result_payload)
+    # Preserve an explicit collect-runtime ACK when the legacy payload omitted
+    # its status.  The typed result remains the source of truth for terminality.
+    collect_status = str(getattr(collect_result, "status", "") or "").strip().lower()
+    payload = result_payload if isinstance(result_payload, dict) else {}
+    if collect_status in {"accepted", "cancelled", "failed"} and not any(
+        key in payload for key in ("status", "terminal_readback")
+    ):
+        dto["status"] = collect_status
+    return dto
 
 
 def _resolve_source_mode(*, payload: Dict[str, Any], result: Dict[str, Any], execution_request: Dict[str, Any]) -> str:
@@ -224,7 +256,40 @@ def _build_stats(
     }
 
 
-def _resolve_status(stats: Dict[str, int]) -> str:
+def _resolve_status(
+    stats: Dict[str, int],
+    *,
+    payload: Dict[str, Any],
+    result: Dict[str, Any],
+    readback: Dict[str, Any] | None,
+) -> str:
+    # A typed provider readback is authoritative for crawler terminality.
+    if isinstance(readback, dict):
+        kind = str(readback.get("kind") or "").strip().lower()
+        if kind == "terminal":
+            terminal_status = str((readback.get("readback") or {}).get("terminal_status") or "").strip().lower()
+            if terminal_status in {"completed", "failed", "cancelled"}:
+                return terminal_status
+        if kind in {"waiting", "unavailable"}:
+            if _has_acknowledgement(payload=payload, result=result):
+                return "accepted"
+            return "error"
+
+    explicit = _explicit_statuses(payload=payload, result=result)
+    for candidate in explicit:
+        if candidate == "completed" and _has_provider_signal(payload=payload, result=result):
+            # A provider's dispatch label is an acknowledgement until C2.3
+            # supplies a terminal readback.
+            continue
+        if candidate in {"failed", "cancelled", "completed"}:
+            return candidate
+    if "accepted" in explicit:
+        return "accepted"
+    # Provider status ``completed`` is only an acknowledgement without a
+    # typed readback.  It must not be promoted to terminal completion.
+    if _has_acknowledgement(payload=payload, result=result):
+        return "accepted"
+
     normalized = int(stats.get("normalized") or 0)
     dropped = int(stats.get("dropped") or 0)
     error_count = int(stats.get("errors") or 0)
@@ -240,12 +305,93 @@ def _resolve_status(stats: Dict[str, int]) -> str:
     return "ok"
 
 
+def _explicit_statuses(*, payload: Dict[str, Any], result: Dict[str, Any]) -> List[str]:
+    values: List[str] = []
+    for value in (payload.get("status"), result.get("status")):
+        normalized = str(value or "").strip().lower()
+        if normalized in {"completed", "failed", "cancelled", "accepted"}:
+            values.append(normalized)
+    for value in (payload.get("provider_status"), result.get("provider_status")):
+        normalized = str(value or "").strip().lower()
+        if normalized in {"failed", "cancelled"}:
+            values.append(normalized)
+    for row in _iter_by_url_rows(result):
+        nested = row.get("result") if isinstance(row.get("result"), dict) else {}
+        normalized = str(nested.get("status") or row.get("status") or "").strip().lower()
+        if normalized in {"completed", "failed", "cancelled", "accepted"}:
+            values.append(normalized)
+        normalized_provider = str(nested.get("provider_status") or row.get("provider_status") or "").strip().lower()
+        if normalized_provider in {"failed", "cancelled"}:
+            values.append(normalized_provider)
+    return values
+
+
+def _has_acknowledgement(*, payload: Dict[str, Any], result: Dict[str, Any]) -> bool:
+    provider_signal = _has_provider_signal(payload=payload, result=result)
+    for value in (payload.get("status"), result.get("status"), payload.get("provider_status"), result.get("provider_status")):
+        normalized = str(value or "").strip().lower()
+        if normalized == "accepted" or (provider_signal and is_crawler_dispatch_acknowledged(normalized)):
+            return True
+    for row in _iter_by_url_rows(result):
+        nested = row.get("result") if isinstance(row.get("result"), dict) else {}
+        for value in (row.get("status"), nested.get("status"), row.get("provider_status"), nested.get("provider_status")):
+            normalized = str(value or "").strip().lower()
+            if normalized == "accepted" or (provider_signal and is_crawler_dispatch_acknowledged(normalized)):
+                return True
+    return False
+
+
+def _has_provider_signal(*, payload: Dict[str, Any], result: Dict[str, Any]) -> bool:
+    keys = ("provider_status", "provider_job_id", "provider_type", "provider_handoff", "terminal_readback")
+    if any(payload.get(key) not in (None, "", {}, []) for key in keys):
+        return True
+    if any(result.get(key) not in (None, "", {}, []) for key in keys):
+        return True
+    for row in _iter_by_url_rows(result):
+        nested = row.get("result") if isinstance(row.get("result"), dict) else {}
+        if any(row.get(key) not in (None, "", {}, []) for key in keys):
+            return True
+        if any(nested.get(key) not in (None, "", {}, []) for key in keys):
+            return True
+    return False
+
+
+def _extract_terminal_readback(*, payload: Dict[str, Any], result: Dict[str, Any]) -> Dict[str, Any] | None:
+    candidates: List[Any] = [payload.get("terminal_readback"), result.get("terminal_readback"), result.get("readback")]
+    for row in _iter_by_url_rows(result):
+        candidates.extend([row.get("terminal_readback"), row.get("readback")])
+        nested = row.get("result") if isinstance(row.get("result"), dict) else {}
+        candidates.extend([nested.get("terminal_readback"), nested.get("readback")])
+    return next((dict(candidate) for candidate in candidates if isinstance(candidate, dict) and candidate.get("kind")), None)
+
+
+def _build_outcome_unknown(readback: Dict[str, Any] | None) -> Dict[str, Any] | None:
+    if not isinstance(readback, dict) or str(readback.get("kind") or "").strip().lower() not in {"waiting", "unavailable"}:
+        return None
+    attempt_ref = str(readback.get("attempt_ref") or "attempt:unknown")
+    reason = str(readback.get("reason") or ("readback waiting" if readback.get("kind") == "waiting" else "readback unavailable"))
+    try:
+        from ...successor_runtime.capabilities.source_library_c2_shared import OutcomeUnknownProviderEffect
+
+        return OutcomeUnknownProviderEffect(attempt_ref=attempt_ref, reason=reason).to_plain()
+    except Exception:  # pragma: no cover - optional successor runtime dependency
+        return {"kind": "outcome_unknown", "attempt_ref": attempt_ref, "reason": reason}
+
+
 def _resolve_reason_code(
     *,
     stats: Dict[str, int],
     errors: List[Dict[str, Any]],
     records: List[Dict[str, Any]],
+    status: str | None = None,
+    outcome_unknown: Dict[str, Any] | None = None,
 ) -> str:
+    if outcome_unknown is not None:
+        return "outcome_unknown"
+    if str(status or "").strip().lower() == "accepted":
+        return "accepted_pending_readback"
+    if str(status or "").strip().lower() in {"failed", "cancelled"}:
+        return f"provider_terminal_{str(status).strip().lower()}"
     if errors:
         return "fetch_errors"
     if not records:

@@ -9,7 +9,7 @@ capability contributes values and named transforms, not a new AST node.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Annotated, Any, Literal
 
 from app.successor_runtime.language.algebra import (
     AlgebraRef,
@@ -49,6 +49,7 @@ from app.successor_runtime.research.object_types import (
     SOURCE_REF_TYPE,
     ObjectType,
 )
+from .first_specimen import _capability_failure, _raise_capability_failure
 
 DELIVERY_TEMPLATE_TYPE = ObjectType("DeliveryIntentTemplate.v1")
 EVIDENCE_BUNDLE_TYPE = ObjectType("EvidenceBundle.v1")
@@ -72,17 +73,17 @@ _OPERATION_IDS = (
 
 def _require_real_value_ref(ref: ValueRef, project_key: str) -> None:
     if ref.project_key != project_key:
-        raise ValueError("first-specimen ValueRef project scope drift")
+        _raise_capability_failure(_capability_failure("CAPABILITY_CONTRACT_INVALID", "first-specimen ValueRef project scope drift"))
     for field_name in ("content_digest", "provenance_digest"):
         digest = getattr(ref, field_name)
         if len(digest) != 64 or any(char not in "0123456789abcdef" for char in digest):
-            raise ValueError(f"ValueRef.{field_name} must be canonical sha256 hex")
+            _raise_capability_failure(_capability_failure("CAPABILITY_CONTRACT_INVALID", f"ValueRef.{field_name} must be canonical sha256 hex"))
         if digest == "0" * 64:
-            raise ValueError(f"ValueRef.{field_name} cannot be a placeholder digest")
+            _raise_capability_failure(_capability_failure("CAPABILITY_CONTRACT_INVALID", f"ValueRef.{field_name} cannot be a placeholder digest"))
     if ref.byte_size <= 0:
-        raise ValueError("runtime first-specimen ValueRef must bind non-empty bytes")
+        _raise_capability_failure(_capability_failure("CAPABILITY_CONTRACT_INVALID", "runtime first-specimen ValueRef must bind non-empty bytes"))
     if not ref.storage_ref or ref.storage_ref == ref.value_id:
-        raise ValueError("runtime first-specimen ValueRef requires an opaque storage locator")
+        _raise_capability_failure(_capability_failure("CAPABILITY_CONTRACT_INVALID", "runtime first-specimen ValueRef requires an opaque storage locator"))
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,7 +95,7 @@ class ExactOperationValues:
 
     def validate(self, project_key: str) -> None:
         if not self.input_refs:
-            raise ValueError("Atom requires at least one exact input ValueRef")
+            _raise_capability_failure(_capability_failure("CAPABILITY_CONTRACT_INVALID", "Atom requires at least one exact input ValueRef"))
         for ref in self.input_refs + (self.payload_ref,):
             _require_real_value_ref(ref, project_key)
 
@@ -123,12 +124,10 @@ class FirstSpecimenProgramValues:
         ):
             _require_real_value_ref(ref, project_key)
         if self.delivery_template.object_type != DELIVERY_TEMPLATE_TYPE:
-            raise ValueError("delivery_template must use DeliveryIntentTemplate.v1")
+            _raise_capability_failure(_capability_failure("CAPABILITY_CONTRACT_INVALID", "delivery_template must use DeliveryIntentTemplate.v1"))
         ids = tuple(operation_id for operation_id, _ in self.operations)
         if ids != _OPERATION_IDS:
-            raise ValueError(
-                "runtime first-specimen operation values must use the frozen ordered IDs"
-            )
+            _raise_capability_failure(_capability_failure("CAPABILITY_CONTRACT_INVALID", "runtime first-specimen operation values must use the frozen ordered IDs"))
         for _, binding in self.operations:
             binding.validate(project_key)
 
@@ -136,7 +135,7 @@ class FirstSpecimenProgramValues:
         for candidate, binding in self.operations:
             if candidate == operation_id:
                 return binding
-        raise KeyError(operation_id)
+        _raise_capability_failure(_capability_failure("LOOKUP_NOT_FOUND", f"operation binding not found: {operation_id}"), KeyError, operation_id)
 
 
 def _qualification_pair_merge(left: Any, right: Any) -> dict[str, Any]:
@@ -149,7 +148,7 @@ def _material_to_qualification_input(material: Any) -> dict[str, Any]:
     else:
         material_ref = getattr(material, "material_ref_id", material)
     if not isinstance(material_ref, str) or not material_ref:
-        raise ValueError("qualification transform requires MaterialRef identity")
+        _raise_capability_failure(_capability_failure("INVALID_CAPTURED_MATERIAL", "qualification transform requires MaterialRef identity"))
     return {"material_ref": material_ref}
 
 
@@ -163,14 +162,14 @@ def _artifact_identity(artifact: Any) -> Any:
 
 def _claim_or_gap_discriminator(outcome: Any) -> str:
     if not isinstance(outcome, dict):
-        raise ValueError("claim-or-gap discriminator requires a canonical object")
+        _raise_capability_failure(_capability_failure("INVALID_CLAIM_OR_GAP", "claim-or-gap discriminator requires a canonical object"))
     explicit_kind = outcome.get("kind")
     if explicit_kind in {"claim", "gap"}:
         return str(explicit_kind)
     has_claim_identity = isinstance(outcome.get("claim_id"), str)
     has_gap_identity = isinstance(outcome.get("gap_id"), str)
     if has_claim_identity == has_gap_identity:
-        raise ValueError("claim-or-gap discriminator requires one exact variant identity")
+        _raise_capability_failure(_capability_failure("INVALID_CLAIM_OR_GAP", "claim-or-gap discriminator requires one exact variant identity"))
     return "claim" if has_claim_identity else "gap"
 
 
@@ -191,7 +190,7 @@ def _artifact_and_delivery_template_merge(
         artifact_value = getattr(artifact, "artifact", artifact)
         artifact_ref = getattr(artifact_value, "artifact_id", None)
     if not artifact_ref:
-        raise ValueError("delivery candidate requires an exact artifact identity")
+        _raise_capability_failure(_capability_failure("INVALID_ARTIFACT_CLOSURE", "delivery candidate requires an exact artifact identity"))
     values["artifact_ref"] = artifact_ref
     return values
 
@@ -199,7 +198,7 @@ def _artifact_and_delivery_template_merge(
 def _contract_ref(catalog: OperationContractCatalogSnapshot, kind: str):
     ref = catalog.lookup(kind)
     if ref is None:
-        raise ValueError(f"contract {kind} missing from catalog")
+        _raise_capability_failure(_capability_failure("LOOKUP_NOT_FOUND", f"contract {kind} missing from catalog"))
     return ref
 
 
@@ -288,16 +287,16 @@ def build_runtime_first_specimen_program(
     semantic_identity: str = FIRST_SPECIMEN_SEMANTIC_IDENTITY,
     observation_profile: str = "mrw.successor.first-specimen.observation.v1",
     contract_version: str = PROGRAM_CONTRACT_VERSION,
-) -> ProgramSpec:
+) -> Annotated[ProgramSpec, Literal["kit:non-authoritative derived_as=view fact_source=runtime_observation+program_inputs witness=test:test_w06_successor_authority_metadata"]]:
     """Build the P0-C Program over exact values from the submission UoW."""
 
     if values.intent.project_key != project_key:
-        raise ValueError("Program values do not belong to project_key")
+        _raise_capability_failure(_capability_failure("CAPABILITY_CONTRACT_INVALID", "Program values do not belong to project_key"))
     authority_digest = delivery_template.get("authority_digest")
     if authority_digest == "0" * 64:
-        raise ValueError("delivery template cannot carry placeholder authority")
+        _raise_capability_failure(_capability_failure("DELIVERY_AUTHORITY_OR_APPROVAL_INVALID", "delivery template cannot carry placeholder authority"))
     if delivery_template.get("approval_refs") in (None, (), []):
-        raise ValueError("delivery template requires an explicit human approval ref")
+        _raise_capability_failure(_capability_failure("DELIVERY_AUTHORITY_OR_APPROVAL_INVALID", "delivery template requires an explicit human approval ref"))
 
     qualification_merge = registries.merges.register_merge(
         name="mrw.first_specimen.runtime.qualification_pair_merge",

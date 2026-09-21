@@ -15,7 +15,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
-from typing import Literal, TypeAlias
+from typing import Annotated, Literal, TypeAlias
 
 from app.successor_runtime.capabilities.c8_report_export_audit_evidence_surface import (
     SURFACE_SCHEMA as C8_EXPORT_AUDIT_SURFACE_SCHEMA,
@@ -157,7 +157,11 @@ def _test_ref(path: str) -> str:
     return "main/backend/tests/successor_runtime/" + path
 
 
-def build_s2c_ops_domain_surface_registry() -> tuple[S2cOpsDomainSurfaceContract, ...]:
+def build_s2c_ops_domain_surface_registry() -> Annotated[
+    tuple[S2cOpsDomainSurfaceContract, ...],
+    "kit:prepared-command effect_boundary=successor_runtime.s2c_ops_domain_surface_assembly "
+    "witness=test:test_w08a_remaining_assembly_bindings_are_prepared_commands",
+]:
     """Return the eleven S2c surface contracts in movement order."""
 
     return (

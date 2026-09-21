@@ -1,0 +1,16 @@
+{
+  "observed_at": "2026-09-20T19:45:55.341174+00:00",
+  "git_head": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+  "scope": "current_dirty_checkout_plus_retained_image_not_frozen_replay",
+  "source_sha256": {
+    "main/ops/docker-compose.local-user.yml": "44568f5c4a7497f69899bc34f4d6fa421c87f3a2411d0dc896a53c57fda8994c",
+    "main/backend/app/services/ingest/raw_import.py": "e49958fb68454ee2133800b5481ba61b8b0250835e2e64c6eb42843a9d5fd98a",
+    "main/backend/seed_data/project_demo_proj_v0.9-rc2.0.sql": "5551ca2a20bf709b087aeb9f9f14c48b2bda33a5fb78b50edd1511bcc6cb695a",
+    "main/frontend-modern/src/pages/ResourcePage.tsx": "0482805c2de1cba8a428a9b07422812d65dc9dc9c5feb00a1b348714dd66940a",
+    "main/frontend-modern/src/pages/ProcessPage.tsx": "b0c7ab51bdd2c1cfd6c1ce75023ae6a0b3cf055112283b53d36a4772a26ce86a",
+    "main/frontend-modern/src/app/platform/i18n/catalog.ts": "c71e7d81cb3f65ac7f5f7e73c3e0afa3f7631b2d042954e373dfa78114eef67a"
+  },
+  "kit_root": "/Users/wangyiliang/Desktop/functorial-kit/python",
+  "kit_contributions_sha256": "d707ece0c63c1d5422b061846c51ef66fdc514bf1192b91d7636d427251a25a1",
+  "kit_checkout_dirty": true
+}

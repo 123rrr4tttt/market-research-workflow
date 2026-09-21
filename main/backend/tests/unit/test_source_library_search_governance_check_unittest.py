@@ -12,19 +12,21 @@ pytestmark = pytest.mark.unit
 
 from scripts.check_source_library_search_governance import CONTRACT_VERSION
 from scripts.check_source_library_search_governance import build_check
+from scripts.check_evidence_source_availability import EVIDENCE_SOURCE_UNAVAILABLE
 
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 
 
 class SourceLibrarySearchGovernanceCheckUnitTestCase(unittest.TestCase):
-    def test_governance_checker_keeps_mounting_and_capability_boundaries(self) -> None:
+    def test_governance_checker_keeps_boundaries_but_fails_closed_on_missing_evidence(self) -> None:
         result = build_check(REPO_ROOT)
 
         self.assertEqual(result["contract_version"], CONTRACT_VERSION)
-        self.assertTrue(result["validation"]["passed"], result["validation"]["errors"])
+        self.assertEqual(result["evidence_source"]["status"], EVIDENCE_SOURCE_UNAVAILABLE)
+        self.assertFalse(result["validation"]["passed"])
         self.assertFalse(result["validation"]["public_network_attempted"])
-        self.assertTrue(result["governance_scope"]["claims_full_45_site_public_replay"])
+        self.assertFalse(result["governance_scope"]["claims_full_45_site_public_replay"])
         self.assertFalse(result["governance_scope"]["claims_human_relevance_review_complete"])
 
         routes = {row["route_id"]: row for row in result["mount_routes"]["routes"]}
@@ -58,20 +60,14 @@ class SourceLibrarySearchGovernanceCheckUnitTestCase(unittest.TestCase):
         result = build_check(REPO_ROOT)
 
         replay = result["public_replay_gaps"]
-        self.assertIn(
-            replay["a5_status"],
-            {
-                "deterministic_replay_gate_closed_external_public_replay_blocked",
-                "full_public_replay_artifact_present_review_required",
-                "full_public_replay_reviewed_closed",
-            },
-        )
+        self.assertEqual(replay["a5_status"], EVIDENCE_SOURCE_UNAVAILABLE)
+        self.assertEqual(replay["evidence_source"]["status"], EVIDENCE_SOURCE_UNAVAILABLE)
         self.assertFalse(replay["public_network_attempted"])
-        self.assertTrue(replay["full_public_replay_resolved"])
+        self.assertFalse(replay["full_public_replay_resolved"])
 
         review = replay["term_fallback_relevance_review"]
         self.assertEqual(review["status"], "review_required_not_full_closure")
-        self.assertGreaterEqual(review["review_target_count"], 1)
+        self.assertEqual(review["review_target_count"], 0)
 
         capability_cases = result["adapter_capability"]["cases"]
         self.assertEqual(capability_cases["validated_domain_profile"]["adapter_capability_status"], "allow")

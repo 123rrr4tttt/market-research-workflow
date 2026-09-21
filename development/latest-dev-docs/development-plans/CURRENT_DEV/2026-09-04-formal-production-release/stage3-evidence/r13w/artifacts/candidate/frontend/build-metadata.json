@@ -1,0 +1,64 @@
+{
+  "buildx.build.provenance": {
+    "builder": {
+      "id": ""
+    },
+    "buildType": "https://mobyproject.org/buildkit@v1",
+    "materials": [
+      {
+        "uri": "pkg:docker/docker/buildkit-syft-scanner@stable-1?platform=linux%2Farm64",
+        "digest": {
+          "sha256": "ae4f3b554449e7e25548e7d8ccc029d17357348e30c6e3df01b92bc93654d6a9"
+        }
+      },
+      {
+        "uri": "pkg:docker/nginx@1.30.4-alpine3.24?digest=sha256:dc5069ad14f19660b141b21236140b91656bf89bbc3e2417c70ae650cd66104c\u0026platform=linux%2Famd64",
+        "digest": {
+          "sha256": "dc5069ad14f19660b141b21236140b91656bf89bbc3e2417c70ae650cd66104c"
+        }
+      },
+      {
+        "uri": "pkg:docker/node@22-alpine?digest=sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32\u0026platform=linux%2Famd64",
+        "digest": {
+          "sha256": "c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32"
+        }
+      }
+    ],
+    "invocation": {
+      "configSource": {
+        "entryPoint": "Dockerfile"
+      },
+      "parameters": {
+        "frontend": "dockerfile.v0",
+        "args": {
+          "build-arg:SOURCE_DATE_EPOCH": "0",
+          "no-cache": "",
+          "target": "frontend-runtime"
+        },
+        "locals": [
+          {
+            "name": "context"
+          },
+          {
+            "name": "dockerfile"
+          }
+        ]
+      },
+      "environment": {
+        "dockerfileVersion": "1.26.0",
+        "platform": "linux/arm64"
+      }
+    }
+  },
+  "buildx.build.ref": "mrw-r13w-canonical-amd64/mrw-r13w-canonical-amd640/j6satuu9crfj5tp2xmqnn5yf0",
+  "containerimage.descriptor": {
+    "mediaType": "application/vnd.oci.image.index.v1+json",
+    "digest": "sha256:bcdb5450494292d043e7b104b711d59ad3a3510c1fd89f7de70ee2f32ce9b1ed",
+    "size": 857,
+    "annotations": {
+      "org.opencontainers.image.created": "1970-01-01T00:00:00Z"
+    }
+  },
+  "containerimage.digest": "sha256:bcdb5450494292d043e7b104b711d59ad3a3510c1fd89f7de70ee2f32ce9b1ed",
+  "image.name": "docker.io/mrw-local/r13w-candidate-frontend:6aa7518750f2c29229a443f73248c8133f192e4d"
+}

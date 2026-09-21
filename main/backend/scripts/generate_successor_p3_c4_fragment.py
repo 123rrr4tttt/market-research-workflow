@@ -20,7 +20,7 @@ import hashlib
 import json
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND_ROOT))
@@ -512,7 +512,12 @@ def _bindings() -> tuple[
     )
 
 
-def build_fragment() -> dict[str, object]:
+def build_fragment() -> Annotated[
+    dict[str, object],
+    "kit:non-authoritative derived_as=generated_evidence "
+    "fact_source=C4.1_plan+C4.2_retry+C4.3_submission+repo_bindings "
+    "witness=test:test_w10_cli_generator_derived_metadata_preserves_abi",
+]:
     c4_1_successor, c4_1_legacy = _c4_1_plan_observation()
     c4_2_successor, c4_2_legacy = _c4_2_retry_observation()
     c4_3_successor = _c4_3_submission_observation()

@@ -1,0 +1,45 @@
+{
+  "receipt_version": "current-byte-vector-downstream.v1",
+  "receipt_id": "current-byte-vector-downstream-20260906-wave8-blocked",
+  "generated_at": "2026-09-06",
+  "claims": {
+    "claim-009": {
+      "claim_key": "wave18-fresh-deterministic-hybrid-readback",
+      "status": "blocked",
+      "blockers": [
+        "Fresh Wave8 failed with EVIDENCE_SOURCE_UNAVAILABLE because provider_trace_replay_summary.json is unavailable under the explicit current input root.",
+        "Wave18, Wave19, Wave27, and Wave29 were not executed; no dependent status is inferred."
+      ],
+      "wave8_artifact": "wave8/contract_summary.json",
+      "wave8_artifact_sha256": "70203b37701d598c511f37a7e7578486106d715e421a2d8503d0178a21df0fbe"
+    }
+  },
+  "generator_inputs": [
+    {"path": "ops/search-lab/scripts/wave8_search_vectorization_contract.py", "sha256": "23a479ca10fca00dba974741ad2f35c3f881cd0801f88d9859994036d02a7294"},
+    {"path": "stage1-successor-evidence/current-byte-remediation-v1/local/vector-downstream/run_wave8_fresh.py", "sha256": "ff9b36b5be4a396e89df9a1d9cb508f6805abf7f78df08c81c0fad283e6caa3b"},
+    {"path": "docs/governance/functorial-structural-debt-remediation-progress.v1.md", "sha256": "e653beaccefe35f48f1b99e718dd93ab758e87a2e7829f8f6504430a97cc2dc0"}
+  ],
+  "commands": [
+    {"command": "PYTHONPATH=$PWD/src:$PWD/main/backend main/backend/.venv311/bin/python stage1-successor-evidence/current-byte-remediation-v1/local/vector-downstream/run_wave8_fresh.py", "exit": 1, "stdout": "wave8.raw.stdout", "stderr": "wave8.raw.stderr"},
+    {"command": "PYTHONPATH=$PWD/src:$PWD/main/backend main/backend/.venv311/bin/python -m pytest -q main/backend/tests/unit/test_wave8_search_vectorization_contract_unittest.py", "exit": 0, "result": "1 passed", "stdout": "focused-tests.stdout", "stderr": "focused-tests.stderr"},
+    {"command": "main/backend/.venv311/bin/python -m py_compile local/vector-downstream/run_wave8_fresh.py", "exit": 0},
+    {"command": "ruff check local/vector-downstream/run_wave8_fresh.py", "exit": 0},
+    {"command": "schema/reference/hash/unique-ID deterministic check", "exit": 0, "stdout": "schema-reference-hash.stdout", "stderr": "schema-reference-hash.stderr"}
+  ],
+  "artifacts": [
+    {"path": "wave8/contract_summary.json", "status": "failed", "sha256": "70203b37701d598c511f37a7e7578486106d715e421a2d8503d0178a21df0fbe"},
+    {"path": "inputs/search_provider_trace_contract.json", "status": "available", "sha256": "0a89c450eaa3287c26439e3082bcb4d1e31942b4f43cc91f7be07db08ecb4a7e"},
+    {"path": "inputs/runtime_smoke_results.json", "status": "available", "sha256": "ba486b70a1826302a7784967ef27bd85154f63ad42b3838407d867b54541d450"},
+    {"path": "inputs/benchmark_quality_results.json", "status": "available", "sha256": "5eb240be1e9e40a087e89e26dae7fd3f73c4e1fa04d9659bd9e58a3091fe4302"},
+    {"path": "inputs/provider_trace_replay_summary.json", "status": "missing", "sha256": null}
+  ],
+  "fresh_chain_refs": {
+    "wave8": {"path": "wave8/contract_summary.json", "sha256": "70203b37701d598c511f37a7e7578486106d715e421a2d8503d0178a21df0fbe", "status": "failed", "failure_code": "EVIDENCE_SOURCE_UNAVAILABLE"},
+    "wave18": {"status": "not_run", "blocked_by": "claim-009"},
+    "wave19": {"status": "not_run", "blocked_by": "claim-009"},
+    "wave27": {"status": "not_run", "blocked_by": "claim-009"},
+    "wave29": {"status": "not_run", "blocked_by": "claim-009"}
+  },
+  "resource_cleanup": {"temporary_store_paths_removed": false, "preexisting_upstream_temp_inputs_retained": true, "wrapper_pycache_removed": true, "network": false, "dns": false, "containers_or_services_started": false, "external_provider_calls": false, "production_or_user_db_writes": false, "note": "The preexisting supervisor-owned /tmp/mrw-lancedb-vector-final.l6Kxyp inputs were copied into this evidence root and left untouched; Wave8 itself created no store or cache."},
+  "authority": {"authoritative": false, "production_release_authorized": false, "ceiling": ["NO_LIVE", "NO_NETWORK", "NO_CONTAINER", "NO_PROVIDER", "NO_PRODUCTION_WRITE", "NO_AUTHORITY_TRANSFER"]}
+}

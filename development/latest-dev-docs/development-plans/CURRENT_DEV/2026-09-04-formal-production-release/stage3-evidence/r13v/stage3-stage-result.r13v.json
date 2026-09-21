@@ -1,0 +1,175 @@
+{
+  "schema_version": "mrw.stage3-stage-result.v1",
+  "generated_at": "2026-09-12T11:47:04Z",
+  "status": "REBUILD_REQUIRED",
+  "stage": 3,
+  "authority": {
+    "release_authorized": false,
+    "production_release_authorized": false,
+    "stage4_admitted": false,
+    "ceiling": "PRODUCTION_RELEASE_NOT_AUTHORIZED"
+  },
+  "candidate": {
+    "label": "r13v",
+    "root": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260912-v4-r13v",
+    "commit": "8427e3d626cd12f41e45d38e00223f2ef86d692f",
+    "tree": "4146bcab51e437920a006875e06ed8cdcc32470a",
+    "base": "88ffcc3dab2e6cbdc1f389e16c4226df5a2e51c6",
+    "manifest_sha256": "e182f547008d57d02f833f777aaf1ffa31236860be7d5f9106d4f81f2176e485",
+    "stage1_stage2_result_sha256": "2c927ad198ad5981b0d9dc5a5013491b34590441e56a379745a11e437570c1dd",
+    "evidence_index_sha256": "fef1108b38ebef03d68fcae54f023b08025de104a9d9c577022945c637838712",
+    "candidate_clean": true,
+    "replay_clean": true,
+    "standalone_non_shallow": true
+  },
+  "completed_local_scope": {
+    "candidate_identity": {
+      "status": "PASS",
+      "note": "R1, R3, Stage 1/2 and current binding v1-r12 passed for the exact r13v candidate and replay."
+    },
+    "focused_validation": {
+      "status": "PASS",
+      "tests": 107,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "note": "The exact changed seed, binding generator, and source-closure scope passed."
+    },
+    "gitleaks": {
+      "status": "PASS_ALL_EXACT_CANDIDATE_FINDINGS_DISPOSED_NOT_RELEASE_AUTHORITY",
+      "raw_findings": 417,
+      "stable_groups": 403,
+      "context_false_positive_groups": 369,
+      "exact_location_snapshot_exception_groups": 34,
+      "unresolved_groups": 0,
+      "unknown_groups": 0,
+      "rotation_or_revocation_groups": 0,
+      "broad_allowlist_added": false,
+      "note": "The 34 exceptions are limited to exact fingerprint/rule/path/location tuples in frozen imported README snapshots."
+    },
+    "seed": {
+      "status": "PASS_EXACT_BYTE_REUSE",
+      "sha256": "5551ca2a20bf709b087aeb9f9f14c48b2bda33a5fb78b50edd1511bcc6cb695a",
+      "capability_tests_passed": 12,
+      "disposable_postgresql_load_passed": true,
+      "readback": {
+        "projects": 1,
+        "sources": 6,
+        "documents": 75,
+        "etl_jobs": 1,
+        "required_tables": 7
+      }
+    },
+    "artifact_same_window_reproducibility": {
+      "status": "PASS_SCOPED_NOT_TEMPORALLY_REPRODUCIBLE",
+      "platform": "linux/amd64",
+      "backend_manifest": "sha256:889b93d5350793223f841f6c81cdeeed7b069ced331217b8c07ef3284d80fc90",
+      "backend_config": "sha256:bceec10bc727ce6b73165a5f80bd6c7a5c44e5859d95ec489ec0c6727dfdf4bc",
+      "backend_layers": 17,
+      "migration_runner_manifest": "sha256:f4f8f39c6bddf90cce5f2f8740da3422b1ae2af188b4edf62829966f3caace72",
+      "migration_runner_config": "sha256:c22448639ef17dac25fe640300834f95292326147608d4118d593fba7a22da40",
+      "migration_runner_layers": 15,
+      "candidate_replay_manifest_config_ordered_layers_equal": true,
+      "sbom_packages_per_role": 329,
+      "provenance_and_spdx_content_valid": true,
+      "oci_descriptor_subject_binding": true,
+      "statement_subject_binding": false
+    },
+    "cleanup": {
+      "task_builders": 0,
+      "task_tags_or_images": 0,
+      "temporary_oci_archives": 0,
+      "docker_prune_run": false
+    }
+  },
+  "blocking_gates": [
+    {
+      "id": "artifact.temporal_reproducibility",
+      "status": "REBUILD_REQUIRED",
+      "classification": "CROSS_TIME_FLOATING_APT_PIP_INPUT_DRIFT",
+      "backend_recovery_manifest": "sha256:feeb2366f247f5f731ce6651c85a98d9b1655bd559ab060b0d50396260a4c93e",
+      "migration_runner_recovery_manifest": "sha256:f353aa22f566aa6f49681a7d8f83bb8e3b56d6f8b8ad526a9e3fcd2bf7f014ea",
+      "note": "Recovery rebuilds changed manifests, configs, and ordered layers; mutable apt/pip inputs must be frozen or otherwise identified before a successor candidate is qualified."
+    },
+    {
+      "id": "artifact.attestation_subject",
+      "status": "REBUILD_REQUIRED",
+      "statement_subjects": [],
+      "note": "BuildKit provenance/SPDX contents and OCI descriptor binding are valid, but statement subject arrays are empty."
+    },
+    {
+      "id": "security.backend_and_migration_exact_digest_trivy",
+      "status": "REBUILD_REQUIRED",
+      "fresh_exact_digest_denominator_established": false,
+      "retry4_actual_status": "NOT_RUN",
+      "note": "Trivy 0.74.0 could not consume the OCI-layout tar; later scan recovery images drifted and were correctly not attached to the retry4 exact digests."
+    },
+    {
+      "id": "security.backend_image_threshold",
+      "status": "BLOCKED",
+      "prior_current_baseline_rows_per_role": 148,
+      "prior_current_baseline_cves_per_role": 80,
+      "same_base_upgrade_rows_per_role": 150,
+      "same_base_upgrade_cves_per_role": 82,
+      "note": "The tested same-base apt upgrade worsened both roles and was rejected; a base distribution or image-baseline choice is required."
+    },
+    {
+      "id": "runtime.live_provider",
+      "status": "AWAITING_HUMAN_AUTHORITY",
+      "required_input": "OPENAI_API_KEY",
+      "note": "No credential was recorded or inferred."
+    },
+    {
+      "id": "remote.exact_sha_checks_and_enforcement",
+      "status": "AWAITING_HUMAN_AUTHORITY",
+      "exact_sha_remote_matches": 0,
+      "actions_runs": 0,
+      "commit_and_check_runs_http": 422,
+      "main_commit": "88ffcc3dab2e6cbdc1f389e16c4226df5a2e51c6",
+      "main_protected": false,
+      "rulesets": 0,
+      "applicable_rules": 0
+    },
+    {
+      "id": "registry.signing.transparency",
+      "status": "AWAITING_HUMAN_AUTHORITY",
+      "note": "No registry publish/promotion, immutability proof, signature, signature verification, or transparency-log write was authorized or performed."
+    },
+    {
+      "id": "release_manifest.r2",
+      "status": "BLOCKED",
+      "actual_release_manifest_present": false,
+      "validator_exit_code": 1,
+      "r2_counts": {
+        "PASS": 1,
+        "BLOCKED": 5,
+        "UNEXECUTED": 4,
+        "FAIL": 0
+      },
+      "candidate_identity_exact": true,
+      "formal_rc_ready": false,
+      "formal_production_ready": false
+    }
+  ],
+  "evidence": {
+    "candidate_manifest": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260912-v4-r13v/evidence/candidate-manifest.v5.json",
+    "candidate_result": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260912-v4-r13v/evidence/stage1-stage2-stage-result.r13v.json",
+    "gitleaks_disposition": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13v/security/gitleaks-disposition.r13v.json",
+    "seed_verification": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13v/security/gitleaks-seed-verification.r13v.json",
+    "artifact_reconciliation": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13v/artifacts/backend-migration-amd64-final/result.json",
+    "same_base_preview": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13u/security/backend-same-base-preview/result.json",
+    "remote_readback": "/Users/wangyiliang/market-research-workflow/stage3-evidence/r13v/remote/github-readback.r13v.json",
+    "r2_result": "/Users/wangyiliang/market-research-workflow/manifest/r2-preparation-result.r13v.json",
+    "release_manifest_gap_map": "/Users/wangyiliang/market-research-workflow/manifest/release-manifest-input-gap-map.r13v.json"
+  },
+  "external_effects": {
+    "local_task_owned_docker_resources": true,
+    "github_read_only_requests": true,
+    "remote_writes": [],
+    "registry_writes": [],
+    "signing_writes": [],
+    "deployments": [],
+    "production_writes": []
+  },
+  "conclusion": "All independently executable local Stage 3 work is reconciled. Stage 3 cannot pass until a successor candidate freezes mutable build inputs and repairs attestation subject binding, exact-digest Trivy meets the threshold, live-provider evidence is supplied, exact-SHA required checks and enforcement exist remotely, registry immutability/signing are proven, and the actual release manifest passes R2."
+}

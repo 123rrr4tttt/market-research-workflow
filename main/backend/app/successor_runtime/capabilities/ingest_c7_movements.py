@@ -21,12 +21,15 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import Enum
-from typing import Any, Protocol, TypeAlias
+from typing import Any, Literal, NoReturn, Protocol, TypeAlias, get_args
+
+from functorial_kit import Failure
+from mrw_functorial_kit.core.w06_semantics import c7_ingest_contract_failures
 
 from app.successor_runtime.capabilities.checksum import (
     canonical_json,
     content_digest,
-    require_hex64,
+    require_hex64 as _kit_require_hex64,
     sha256_hex,
 )
 
@@ -36,6 +39,8 @@ __all__ = [
     "C7_CHUNK_MAX_COUNT",
     "C7_DECISION_PROFILE_REF",
     "C7_DEFAULT_DOWNSTREAM_TARGETS",
+    "C7ContentFormat",
+    "C7DeferredFailureCode",
     "C7_LONG_CONTENT_FORMATS",
     "C7_LONG_REPORT_MIN_LENGTH",
     "C7_MAX_STRUCTURED_PAYLOAD_BYTES",
@@ -44,8 +49,12 @@ __all__ = [
     "C7_NORMALIZATION_PROFILE_REF",
     "C7_PROVIDER_ENRICHMENT_DECLARED_LOSS_REF",
     "C7_PURE_SCHEMA",
+    "C7RejectedFailureCode",
+    "C7TerminalFailureCode",
     "C7_STAGING_ONLY_AUTHORITY",
     "C7_VERIFICATION_PROFILE_REF",
+    "C7Alternative",
+    "C7InputKind",
     "C7Deferred",
     "C7MovementTrace",
     "C7PortResult",
@@ -76,28 +85,126 @@ __all__ = [
 
 
 C7_PURE_SCHEMA = "mrw.successor.ingest-c7.pure-movements.v1"
-C7_ALTERNATIVES: tuple[str, ...] = (
+C7Alternative: TypeAlias = Literal[
     "EXTRACT",
     "CHUNK",
     "SUMMARIZE",
     "PASS_THROUGH",
-)
-C7_INPUT_KINDS: tuple[str, ...] = (
+]
+C7_ALTERNATIVES: tuple[str, ...] = get_args(C7Alternative)
+C7InputKind: TypeAlias = Literal[
     "url_driven_external",
     "raw_import",
     "report_shaped",
     "derived_llm_report",
     "derived_writing_markdown",
     "unknown",
-)
-C7_CONTENT_FORMATS: tuple[str, ...] = (
+]
+C7_INPUT_KINDS: tuple[str, ...] = get_args(C7InputKind)
+C7ContentFormat: TypeAlias = Literal[
     "plain_text",
     "markdown",
     "html",
     "pdf",
     "structured_json",
     "other",
+]
+C7_CONTENT_FORMATS: tuple[str, ...] = get_args(C7ContentFormat)
+C7TerminalFailureCode: TypeAlias = Literal[
+    "alternative_mismatch",
+    "authority_digest_invalid",
+    "authority_epoch_revoked",
+    "authority_mismatch",
+    "branch_mismatch",
+    "candidate_digest_mismatch",
+    "candidate_id_mismatch",
+    "candidate_replay_mismatch",
+    "chunk_codepoint_exceeds_ceiling",
+    "chunk_count_ceiling_exceeded",
+    "chunk_mode_mismatch",
+    "chunk_policy_ceiling_exceeded",
+    "chunk_policy_invalid",
+    "decision_digest_mismatch",
+    "derived_mode_mismatch",
+    "empty_chunk_input",
+    "empty_or_insufficient_derived_report",
+    "empty_pass_through_rejected",
+    "empty_structured_output",
+    "envelope_digest_mismatch",
+    "expected_candidate_digest_invalid",
+    "expected_candidate_digest_mismatch",
+    "format_mismatch",
+    "input_closure_mismatch",
+    "malformed_structured_json",
+    "ordered_source_closure_mismatch",
+    "ordered_source_mismatch",
+    "pass_through_resource_limit_exceeded",
+    "payload_content_digest_mismatch",
+    "payload_ref_mismatch",
+    "project_key_mismatch",
+    "provenance_closure_mismatch",
+    "provenance_mismatch",
+    "raw_content_digest_mismatch",
+    "raw_snapshot_limit_exceeded",
+    "replay_terminal",
+    "server_identity_missing",
+    "snapshot_identity_mismatch",
+    "snapshot_ref_mismatch",
+    "structured_payload_limit_exceeded",
+    "unsafe_pass_through_deferred",
+]
+C7DeferredFailureCode: TypeAlias = Literal[
+    "authority_epoch_revoked",
+    "unsafe_pass_through_deferred",
+]
+C7RejectedFailureCode: TypeAlias = Literal[
+    "alternative_mismatch",
+    "authority_digest_invalid",
+    "authority_mismatch",
+    "branch_mismatch",
+    "candidate_digest_mismatch",
+    "candidate_id_mismatch",
+    "candidate_replay_mismatch",
+    "chunk_codepoint_exceeds_ceiling",
+    "chunk_count_ceiling_exceeded",
+    "chunk_mode_mismatch",
+    "chunk_policy_ceiling_exceeded",
+    "chunk_policy_invalid",
+    "decision_digest_mismatch",
+    "derived_mode_mismatch",
+    "empty_chunk_input",
+    "empty_or_insufficient_derived_report",
+    "empty_pass_through_rejected",
+    "empty_structured_output",
+    "envelope_digest_mismatch",
+    "expected_candidate_digest_invalid",
+    "expected_candidate_digest_mismatch",
+    "format_mismatch",
+    "input_closure_mismatch",
+    "malformed_structured_json",
+    "ordered_source_closure_mismatch",
+    "ordered_source_mismatch",
+    "pass_through_resource_limit_exceeded",
+    "payload_content_digest_mismatch",
+    "payload_ref_mismatch",
+    "project_key_mismatch",
+    "provenance_closure_mismatch",
+    "provenance_mismatch",
+    "raw_content_digest_mismatch",
+    "raw_snapshot_limit_exceeded",
+    "replay_terminal",
+    "server_identity_missing",
+    "snapshot_identity_mismatch",
+    "snapshot_ref_mismatch",
+    "structured_payload_limit_exceeded",
+]
+C7_TERMINAL_FAILURE_CODES: tuple[str, ...] = get_args(C7TerminalFailureCode)
+C7_DEFERRED_FAILURE_CODES: tuple[str, ...] = get_args(C7DeferredFailureCode)
+C7_REJECTED_FAILURE_CODES: tuple[str, ...] = tuple(
+    code for code in C7_TERMINAL_FAILURE_CODES if code not in C7_DEFERRED_FAILURE_CODES
 )
+_REJECTED_FAILURE_CODE_SET = frozenset(C7_REJECTED_FAILURE_CODES)
+_DEFERRED_FAILURE_CODE_SET = frozenset(C7_DEFERRED_FAILURE_CODES)
 C7_LONG_CONTENT_FORMATS: tuple[str, ...] = (
     "plain_text",
     "markdown",
@@ -128,6 +235,85 @@ C7_SOURCE_TIME_FUTURE_TOLERANCE_DAYS = 1
 
 _DERIVED_INPUT_KINDS = frozenset({"derived_llm_report", "derived_writing_markdown"})
 _BRANCH_INTERNAL_EXTRACT = ("extract_required",)
+_CONTRACT_FAILURE_WITNESS = "test:test_c7_movement_failure_contract_lifts"
+
+
+def _contract_failure(
+    code: str,
+    message: str,
+    *,
+    public_exception: str = "ValueError",
+    site: str = "ingest_c7_movements",
+    **details: Any,
+) -> Failure:
+    """Build a registered contract failure before crossing the legacy ABI."""
+
+    return c7_ingest_contract_failures.fail(
+        code,
+        message,
+        {
+            "owner": "successor_runtime.capabilities.ingest_c7_movements",
+            "operation": "ingest_c7.movements",
+            "site": site,
+            "public_exception": public_exception,
+            "public_message": message,
+            "witness": _CONTRACT_FAILURE_WITNESS,
+            **details,
+        },
+    )
+
+
+def _raise_contract_failure(
+    failure: Failure,
+    exception_type: type[Exception] = ValueError,
+    *,
+    cause: BaseException | None = None,
+) -> NoReturn:
+    """Lift one complete C7 contract failure while retaining its public ABI."""
+
+    if isinstance(failure, Failure):
+        context = failure.context or {}
+    else:
+        context = {}
+    if (
+        not isinstance(failure, Failure)
+        or failure.family != c7_ingest_contract_failures.name
+        or context.get("public_exception") != exception_type.__name__
+        or not context.get("public_message")
+    ):
+        # kit:boundary owner=ingest_c7_movements.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_c7_movement_failure_contract_lifts
+        raise TypeError("C7 contract lift context is incomplete or inconsistent")
+    # kit:boundary owner=ingest_c7_movements.py class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=c7.ingest.contract_failure witness=test:test_c7_movement_failure_contract_lifts
+    if cause is None:
+        # kit:boundary owner=ingest_c7_movements.py class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=c7.ingest.contract_failure witness=test:test_c7_movement_failure_contract_lifts
+        raise exception_type(str(context["public_message"]))
+    # kit:boundary owner=ingest_c7_movements.py class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=c7.ingest.contract_failure witness=test:test_c7_movement_failure_contract_lifts
+    raise exception_type(str(context["public_message"])) from cause
+
+
+def _reject_contract(
+    message: str,
+    exception_type: type[Exception] = ValueError,
+    *,
+    code: str = "input_contract_invalid",
+    site: str = "ingest_c7_movements",
+    cause: BaseException | None = None,
+) -> NoReturn:
+    _raise_contract_failure(
+        _contract_failure(
+            code,
+            message,
+            public_exception=exception_type.__name__,
+            site=site,
+        ),
+        exception_type,
+        cause=cause,
+    )
+
+
+def _raise_programmer_defect(message: str) -> NoReturn:
+    # kit:boundary owner=ingest_c7_movements.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_c7_movement_failure_contract_lifts
+    raise TypeError(message)
 
 
 class StagingAuthority(str, Enum):
@@ -139,7 +325,7 @@ class StagingAuthority(str, Enum):
 def _strip(value: str, name: str) -> str:
     normalized = str(value or "").strip()
     if not normalized:
-        raise ValueError(f"{name} is required")
+        _reject_contract(f"{name} is required")
     return normalized
 
 
@@ -168,7 +354,7 @@ def _normalize_required_refs(
 ) -> tuple[str, ...]:
     out = _normalize_optional_refs(values, name)
     if not out:
-        raise ValueError(f"{name} must contain at least one ref")
+        _reject_contract(f"{name} must contain at least one ref")
     return out
 
 
@@ -180,13 +366,13 @@ def _normalize_iso_timestamp(
 ) -> str | None:
     if value is None or not str(value).strip():
         if required:
-            raise ValueError(f"{name} is required")
+            _reject_contract(f"{name} is required")
         return None
     raw = str(value).strip().replace("Z", "+00:00")
     try:
         parsed = datetime.fromisoformat(raw)
     except ValueError as exc:
-        raise ValueError(f"{name} is not an ISO timestamp") from exc
+        _reject_contract(f"{name} is not an ISO timestamp", cause=exc)
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=UTC)
     return parsed.isoformat()
@@ -221,19 +407,29 @@ def _assert_pure_effect_flags(
     authority_transfer: bool,
 ) -> None:
     if int(provider_calls or 0) != 0:
-        raise ValueError("pure C7 movement may not count provider calls")
+        _reject_contract("pure C7 movement may not count provider calls")
     if canonical_write is not False:
-        raise ValueError("pure C7 movement may not claim canonical write")
+        _reject_contract("pure C7 movement may not claim canonical write")
     if external_delivery is not False:
-        raise ValueError("pure C7 movement may not claim external delivery")
+        _reject_contract("pure C7 movement may not claim external delivery")
     if cutover is not False:
-        raise ValueError("pure C7 movement may not claim cutover")
+        _reject_contract("pure C7 movement may not claim cutover")
     if authority_transfer is not False:
-        raise ValueError("pure C7 movement may not claim authority transfer")
+        _reject_contract("pure C7 movement may not claim authority transfer")
 
 
 def _require_hex64(value: str, name: str) -> None:
-    require_hex64(str(value or ""), name)
+    try:
+        _kit_require_hex64(str(value or ""), name)
+    except (TypeError, ValueError) as exc:
+        _reject_contract(str(exc), type(exc), cause=exc)
+
+
+def _coerce_int(value: Any, name: str) -> int:
+    try:
+        return int(value)
+    except (OverflowError, TypeError, ValueError) as exc:
+        _reject_contract(str(exc), type(exc), cause=exc, site=name)
 
 
 @dataclass(frozen=True, slots=True)
@@ -255,10 +451,10 @@ class RawSnapshot:
         project_key = _strip(self.project_key, "RawSnapshot.project_key")
         source_locator = _strip(self.source_locator, "RawSnapshot.source_locator")
         if not isinstance(self.raw_bytes, bytes):
-            raise TypeError("RawSnapshot.raw_bytes must be bytes")
-        revision = int(self.revision)
+            _reject_contract("RawSnapshot.raw_bytes must be bytes", TypeError)
+        revision = _coerce_int(self.revision, "RawSnapshot.revision")
         if revision < 1:
-            raise ValueError("RawSnapshot.revision must be >= 1")
+            _reject_contract("RawSnapshot.revision must be >= 1")
         incarnation = _strip(self.incarnation, "RawSnapshot.incarnation")
         mime_type = _strip(
             self.mime_type or "application/octet-stream",
@@ -272,9 +468,9 @@ class RawSnapshot:
         raw_content_digest = _strip(
             raw_content_digest, "RawSnapshot.raw_content_digest"
         )
-        require_hex64(raw_content_digest, "RawSnapshot.raw_content_digest")
+        _require_hex64(raw_content_digest, "RawSnapshot.raw_content_digest")
         if raw_content_digest != computed:
-            raise ValueError("RawSnapshot.raw_content_digest does not match raw bytes")
+            _reject_contract("RawSnapshot.raw_content_digest does not match raw bytes")
         identity = content_digest(
             {
                 "project_key": project_key,
@@ -287,12 +483,12 @@ class RawSnapshot:
             }
         )
         if self.snapshot_identity_digest and self.snapshot_identity_digest != identity:
-            raise ValueError(
+            _reject_contract(
                 "RawSnapshot.snapshot_identity_digest does not match identity fields"
             )
         snapshot_ref = f"raw:c7:sha256:{identity}"
         if self.snapshot_ref and self.snapshot_ref != snapshot_ref:
-            raise ValueError("RawSnapshot.snapshot_ref does not match full identity")
+            _reject_contract("RawSnapshot.snapshot_ref does not match full identity")
         object.__setattr__(self, "project_key", project_key)
         object.__setattr__(self, "source_locator", source_locator)
         object.__setattr__(self, "revision", revision)
@@ -350,8 +546,8 @@ class NormalizedIngestEnvelope:
     source_character_length: int
     project_key: str
     source_locator: str
-    input_kind: str
-    content_format: str
+    input_kind: C7InputKind
+    content_format: C7ContentFormat
     normalized_text: str
     source_time: str | None = None
     processed_time: str = "1970-01-01T00:00:00+00:00"
@@ -368,20 +564,25 @@ class NormalizedIngestEnvelope:
         snapshot_ref = _strip(
             self.snapshot_ref, "NormalizedIngestEnvelope.snapshot_ref"
         )
-        require_hex64(
+        _require_hex64(
             self.snapshot_identity_digest,
             "NormalizedIngestEnvelope.snapshot_identity_digest",
         )
-        require_hex64(
+        _require_hex64(
             self.raw_content_digest,
             "NormalizedIngestEnvelope.raw_content_digest",
         )
-        raw_byte_length = int(self.raw_byte_length)
+        raw_byte_length = _coerce_int(
+            self.raw_byte_length, "NormalizedIngestEnvelope.raw_byte_length"
+        )
         if raw_byte_length < 0:
-            raise ValueError("NormalizedIngestEnvelope.raw_byte_length must be >= 0")
-        source_character_length = int(self.source_character_length)
+            _reject_contract("NormalizedIngestEnvelope.raw_byte_length must be >= 0")
+        source_character_length = _coerce_int(
+            self.source_character_length,
+            "NormalizedIngestEnvelope.source_character_length",
+        )
         if source_character_length < 0:
-            raise ValueError(
+            _reject_contract(
                 "NormalizedIngestEnvelope.source_character_length must be >= 0"
             )
         project_key = _strip(self.project_key, "NormalizedIngestEnvelope.project_key")
@@ -390,13 +591,13 @@ class NormalizedIngestEnvelope:
         )
         input_kind = _strip(self.input_kind, "NormalizedIngestEnvelope.input_kind")
         if input_kind not in C7_INPUT_KINDS:
-            raise ValueError(f"unsupported C7 input kind: {input_kind}")
+            _reject_contract(f"unsupported C7 input kind: {input_kind}")
         content_format = _strip(
             self.content_format,
             "NormalizedIngestEnvelope.content_format",
         )
         if content_format not in C7_CONTENT_FORMATS:
-            raise ValueError(f"unsupported C7 content format: {content_format}")
+            _reject_contract(f"unsupported C7 content format: {content_format}")
         normalized_text = str(self.normalized_text or "")
         source_time = _normalize_iso_timestamp(
             self.source_time, "NormalizedIngestEnvelope.source_time"
@@ -429,7 +630,7 @@ class NormalizedIngestEnvelope:
             required=True,
         )
         if effective_time != derived_effective:
-            raise ValueError(
+            _reject_contract(
                 "NormalizedIngestEnvelope.effective_time must equal the derived "
                 "legacy time value"
             )
@@ -438,7 +639,7 @@ class NormalizedIngestEnvelope:
             "NormalizedIngestEnvelope.time_provenance",
         )
         if time_provenance != derived_provenance:
-            raise ValueError(
+            _reject_contract(
                 "NormalizedIngestEnvelope.time_provenance must equal the derived "
                 "legacy provenance"
             )
@@ -463,7 +664,7 @@ class NormalizedIngestEnvelope:
             "NormalizedIngestEnvelope.normalization_loss",
         )
         if normalization_loss != C7_NORMALIZATION_ONLY_LOSS:
-            raise ValueError(
+            _reject_contract(
                 "NormalizedIngestEnvelope.normalization_loss must be normalization_only"
             )
         object.__setattr__(self, "snapshot_ref", snapshot_ref)
@@ -485,7 +686,7 @@ class NormalizedIngestEnvelope:
         object.__setattr__(self, "normalization_loss", normalization_loss)
         digest = _object_digest(self, "envelope_digest")
         if self.envelope_digest and self.envelope_digest != digest:
-            raise ValueError(
+            _reject_contract(
                 "NormalizedIngestEnvelope.envelope_digest does not match fields"
             )
         object.__setattr__(self, "envelope_digest", digest)
@@ -494,8 +695,8 @@ class NormalizedIngestEnvelope:
 def normalize_ingest_envelope(
     *,
     snapshot: RawSnapshot,
-    input_kind: str,
-    content_format: str,
+    input_kind: C7InputKind,
+    content_format: C7ContentFormat,
     text: str | None = None,
     source_time: str | None = None,
     processed_time: str | None = None,
@@ -508,15 +709,16 @@ def normalize_ingest_envelope(
     """Build one normalized envelope bound to the exact RawSnapshot identity."""
 
     if not isinstance(snapshot, RawSnapshot):
-        raise TypeError("snapshot must be a RawSnapshot")
+        _reject_contract("snapshot must be a RawSnapshot", TypeError)
     try:
         decoded = snapshot.raw_bytes.decode("utf-8")
     except UnicodeDecodeError as exc:
-        raise ValueError(
-            "RawSnapshot bytes must be UTF-8 decodable for envelope normalization"
-        ) from exc
+        _reject_contract(
+            "RawSnapshot bytes must be UTF-8 decodable for envelope normalization",
+            cause=exc,
+        )
     if text is not None and str(text) != decoded:
-        raise ValueError("text override must equal the exact raw UTF-8 decode")
+        _reject_contract("text override must equal the exact raw UTF-8 decode")
     decoded = str(text) if text is not None else decoded
     if processed_time is None and source_time is not None:
         processed_time = source_time
@@ -557,31 +759,35 @@ class DigestionDecision:
     envelope_digest: str
     raw_byte_length: int
     source_character_length: int
-    alternative: str
+    alternative: C7Alternative
     reason: str
     branch_internal_structuring: tuple[str, ...] = ()
     profile_ref: str = C7_DECISION_PROFILE_REF
     decision_digest: str = ""
 
     def __post_init__(self) -> None:
-        require_hex64(self.envelope_digest, "DigestionDecision.envelope_digest")
-        raw_byte_length = int(self.raw_byte_length)
+        _require_hex64(self.envelope_digest, "DigestionDecision.envelope_digest")
+        raw_byte_length = _coerce_int(
+            self.raw_byte_length, "DigestionDecision.raw_byte_length"
+        )
         if raw_byte_length < 0:
-            raise ValueError("DigestionDecision.raw_byte_length must be >= 0")
-        source_character_length = int(self.source_character_length)
+            _reject_contract("DigestionDecision.raw_byte_length must be >= 0")
+        source_character_length = _coerce_int(
+            self.source_character_length, "DigestionDecision.source_character_length"
+        )
         if source_character_length < 0:
-            raise ValueError("DigestionDecision.source_character_length must be >= 0")
+            _reject_contract("DigestionDecision.source_character_length must be >= 0")
         alternative = _strip(self.alternative, "DigestionDecision.alternative")
         if alternative not in C7_ALTERNATIVES:
-            raise ValueError(f"unsupported C7 alternative: {alternative}")
+            _reject_contract(f"unsupported C7 alternative: {alternative}")
         reason = _strip(self.reason, "DigestionDecision.reason")
         structuring = tuple(self.branch_internal_structuring or ())
         if structuring not in ((), _BRANCH_INTERNAL_EXTRACT):
-            raise ValueError(
+            _reject_contract(
                 "DigestionDecision.branch_internal_structuring is out of scope"
             )
         if alternative not in {"CHUNK", "SUMMARIZE"} and structuring:
-            raise ValueError(
+            _reject_contract(
                 "branch-internal extract_required is only valid inside CHUNK/SUMMARIZE"
             )
         profile_ref = _strip(self.profile_ref, "DigestionDecision.profile_ref")
@@ -593,7 +799,7 @@ class DigestionDecision:
         object.__setattr__(self, "profile_ref", profile_ref)
         digest = _object_digest(self, "decision_digest")
         if self.decision_digest and self.decision_digest != digest:
-            raise ValueError("DigestionDecision.decision_digest does not match fields")
+            _reject_contract("DigestionDecision.decision_digest does not match fields")
         object.__setattr__(self, "decision_digest", digest)
 
 
@@ -606,7 +812,7 @@ def _is_chunk_mode(envelope: NormalizedIngestEnvelope) -> bool:
     )
 
 
-def _branch_internal_structuring(alternative: str) -> tuple[str, ...]:
+def _branch_internal_structuring(alternative: C7Alternative) -> tuple[str, ...]:
     if alternative in {"CHUNK", "SUMMARIZE"}:
         return _BRANCH_INTERNAL_EXTRACT
     return ()
@@ -629,7 +835,7 @@ def select_exactly_one_digestion_alternative(
     """Deterministically select exactly one branch, never a boolean mix."""
 
     if not isinstance(envelope, NormalizedIngestEnvelope):
-        raise TypeError("envelope must be a NormalizedIngestEnvelope")
+        _reject_contract("envelope must be a NormalizedIngestEnvelope", TypeError)
     if envelope.content_format == "structured_json":
         alternative = "EXTRACT"
         reason = "structured_json_prefers_direct_extraction"
@@ -664,7 +870,7 @@ class StructuredMaterialCandidate:
     snapshot_identity_digest: str
     raw_content_digest: str
     envelope_digest: str
-    alternative: str
+    alternative: C7Alternative
     decision_digest: str
     ordered_source_refs: tuple[str, ...]
     structured_payload: Mapping[str, Any]
@@ -687,15 +893,15 @@ class StructuredMaterialCandidate:
         snapshot_ref = _strip(
             self.snapshot_ref, "StructuredMaterialCandidate.snapshot_ref"
         )
-        require_hex64(
+        _require_hex64(
             self.snapshot_identity_digest,
             "StructuredMaterialCandidate.snapshot_identity_digest",
         )
-        require_hex64(
+        _require_hex64(
             self.raw_content_digest,
             "StructuredMaterialCandidate.raw_content_digest",
         )
-        require_hex64(
+        _require_hex64(
             self.envelope_digest,
             "StructuredMaterialCandidate.envelope_digest",
         )
@@ -703,8 +909,8 @@ class StructuredMaterialCandidate:
             self.alternative, "StructuredMaterialCandidate.alternative"
         )
         if alternative not in C7_ALTERNATIVES:
-            raise ValueError(f"unsupported C7 alternative: {alternative}")
-        require_hex64(
+            _reject_contract(f"unsupported C7 alternative: {alternative}")
+        _require_hex64(
             self.decision_digest,
             "StructuredMaterialCandidate.decision_digest",
         )
@@ -713,8 +919,9 @@ class StructuredMaterialCandidate:
             "StructuredMaterialCandidate.ordered_source_refs",
         )
         if not isinstance(self.structured_payload, Mapping):
-            raise TypeError(
-                "StructuredMaterialCandidate.structured_payload must be a mapping"
+            _reject_contract(
+                "StructuredMaterialCandidate.structured_payload must be a mapping",
+                TypeError,
             )
         structured_payload = dict(self.structured_payload)
         provenance_closure = _normalize_required_refs(
@@ -724,36 +931,36 @@ class StructuredMaterialCandidate:
         payload_content_digest = self.payload_content_digest or content_digest(
             structured_payload
         )
-        require_hex64(
+        _require_hex64(
             payload_content_digest,
             "StructuredMaterialCandidate.payload_content_digest",
         )
         if payload_content_digest != content_digest(structured_payload):
-            raise ValueError(
+            _reject_contract(
                 "StructuredMaterialCandidate.payload_content_digest does not match "
                 "the structured payload"
             )
         ordered_source_closure_digest = (
             self.ordered_source_closure_digest or content_digest(ordered_source_refs)
         )
-        require_hex64(
+        _require_hex64(
             ordered_source_closure_digest,
             "StructuredMaterialCandidate.ordered_source_closure_digest",
         )
         if ordered_source_closure_digest != content_digest(ordered_source_refs):
-            raise ValueError(
+            _reject_contract(
                 "StructuredMaterialCandidate.ordered_source_closure_digest does not "
                 "match ordered source refs"
             )
         provenance_closure_digest = self.provenance_closure_digest or content_digest(
             provenance_closure
         )
-        require_hex64(
+        _require_hex64(
             provenance_closure_digest,
             "StructuredMaterialCandidate.provenance_closure_digest",
         )
         if provenance_closure_digest != content_digest(provenance_closure):
-            raise ValueError(
+            _reject_contract(
                 "StructuredMaterialCandidate.provenance_closure_digest does not "
                 "match provenance closure"
             )
@@ -762,9 +969,10 @@ class StructuredMaterialCandidate:
             "StructuredMaterialCandidate.failure_loss_profile",
         )
         if not isinstance(self.authority, StagingAuthority):
-            raise TypeError(
+            _reject_contract(
                 "StructuredMaterialCandidate.authority must be the closed "
-                "staging-only enum"
+                "staging-only enum",
+                TypeError,
             )
         authority = self.authority
         payload_ref = self.payload_ref or f"payload:c7:{candidate_id}"
@@ -787,7 +995,7 @@ class StructuredMaterialCandidate:
         object.__setattr__(self, "payload_ref", payload_ref)
         digest = _object_digest(self, "candidate_digest")
         if self.candidate_digest and self.candidate_digest != digest:
-            raise ValueError(
+            _reject_contract(
                 "StructuredMaterialCandidate.candidate_digest does not match fields"
             )
         object.__setattr__(self, "candidate_digest", digest)
@@ -803,7 +1011,7 @@ class StructuredMaterialCandidate:
 class C7Rejected:
     """Typed terminal rejection retaining source/candidate identity."""
 
-    failure_code: str
+    failure_code: C7RejectedFailureCode
     reason: str
     snapshot_ref: str
     candidate_ref: str | None = None
@@ -816,6 +1024,8 @@ class C7Rejected:
 
     def __post_init__(self) -> None:
         failure_code = _strip(self.failure_code, "C7Rejected.failure_code")
+        if failure_code not in _REJECTED_FAILURE_CODE_SET:
+            _reject_contract(f"unsupported C7 rejected failure code: {failure_code}")
         reason = _strip(self.reason, "C7Rejected.reason")
         snapshot_ref = _strip(self.snapshot_ref, "C7Rejected.snapshot_ref")
         candidate_ref = _optional_strip(self.candidate_ref)
@@ -833,7 +1043,7 @@ class C7Rejected:
         object.__setattr__(self, "provider_calls", int(self.provider_calls))
         digest = _object_digest(self, "rejected_digest")
         if self.rejected_digest and self.rejected_digest != digest:
-            raise ValueError("C7Rejected.rejected_digest does not match fields")
+            _reject_contract("C7Rejected.rejected_digest does not match fields")
         object.__setattr__(self, "rejected_digest", digest)
 
 
@@ -841,7 +1051,7 @@ class C7Rejected:
 class C7Deferred:
     """Typed terminal deferral retaining source/candidate identity."""
 
-    failure_code: str
+    failure_code: C7DeferredFailureCode
     reason: str
     snapshot_ref: str
     candidate_ref: str | None = None
@@ -854,6 +1064,8 @@ class C7Deferred:
 
     def __post_init__(self) -> None:
         failure_code = _strip(self.failure_code, "C7Deferred.failure_code")
+        if failure_code not in _DEFERRED_FAILURE_CODE_SET:
+            _reject_contract(f"unsupported C7 deferred failure code: {failure_code}")
         reason = _strip(self.reason, "C7Deferred.reason")
         snapshot_ref = _strip(self.snapshot_ref, "C7Deferred.snapshot_ref")
         candidate_ref = _optional_strip(self.candidate_ref)
@@ -871,7 +1083,7 @@ class C7Deferred:
         object.__setattr__(self, "provider_calls", int(self.provider_calls))
         digest = _object_digest(self, "deferred_digest")
         if self.deferred_digest and self.deferred_digest != digest:
-            raise ValueError("C7Deferred.deferred_digest does not match fields")
+            _reject_contract("C7Deferred.deferred_digest does not match fields")
         object.__setattr__(self, "deferred_digest", digest)
 
 
@@ -892,7 +1104,7 @@ class VerifiedMaterialCandidate:
     ordered_source_closure_digest: str
     provenance_closure_digest: str
     decision_digest: str
-    alternative: str
+    alternative: C7Alternative
     project_key: str
     canonical_object_id: str
     expected_base_revision: int
@@ -910,44 +1122,47 @@ class VerifiedMaterialCandidate:
         candidate_id = _strip(
             self.candidate_id, "VerifiedMaterialCandidate.candidate_id"
         )
-        require_hex64(
+        _require_hex64(
             self.candidate_digest, "VerifiedMaterialCandidate.candidate_digest"
         )
-        require_hex64(self.envelope_digest, "VerifiedMaterialCandidate.envelope_digest")
+        _require_hex64(self.envelope_digest, "VerifiedMaterialCandidate.envelope_digest")
         snapshot_ref = _strip(
             self.snapshot_ref, "VerifiedMaterialCandidate.snapshot_ref"
         )
-        require_hex64(
+        _require_hex64(
             self.snapshot_identity_digest,
             "VerifiedMaterialCandidate.snapshot_identity_digest",
         )
-        require_hex64(
+        _require_hex64(
             self.raw_content_digest,
             "VerifiedMaterialCandidate.raw_content_digest",
         )
-        require_hex64(
+        _require_hex64(
             self.payload_content_digest,
             "VerifiedMaterialCandidate.payload_content_digest",
         )
-        require_hex64(
+        _require_hex64(
             self.ordered_source_closure_digest,
             "VerifiedMaterialCandidate.ordered_source_closure_digest",
         )
-        require_hex64(
+        _require_hex64(
             self.provenance_closure_digest,
             "VerifiedMaterialCandidate.provenance_closure_digest",
         )
-        require_hex64(self.decision_digest, "VerifiedMaterialCandidate.decision_digest")
+        _require_hex64(self.decision_digest, "VerifiedMaterialCandidate.decision_digest")
         alternative = _strip(self.alternative, "VerifiedMaterialCandidate.alternative")
         if alternative not in C7_ALTERNATIVES:
-            raise ValueError(f"unsupported C7 alternative: {alternative}")
+            _reject_contract(f"unsupported C7 alternative: {alternative}")
         project_key = _strip(self.project_key, "VerifiedMaterialCandidate.project_key")
         canonical_object_id = _strip(
             self.canonical_object_id, "VerifiedMaterialCandidate.canonical_object_id"
         )
-        expected_base_revision = int(self.expected_base_revision)
+        expected_base_revision = _coerce_int(
+            self.expected_base_revision,
+            "VerifiedMaterialCandidate.expected_base_revision",
+        )
         if expected_base_revision < 0:
-            raise ValueError(
+            _reject_contract(
                 "VerifiedMaterialCandidate.expected_base_revision must be >= 0"
             )
         expected_base_incarnation = _strip(
@@ -955,12 +1170,14 @@ class VerifiedMaterialCandidate:
             "VerifiedMaterialCandidate.expected_base_incarnation",
         )
         actor = _strip(self.actor, "VerifiedMaterialCandidate.actor")
-        require_hex64(
+        _require_hex64(
             self.authority_digest, "VerifiedMaterialCandidate.authority_digest"
         )
-        authority_epoch = int(self.authority_epoch)
+        authority_epoch = _coerce_int(
+            self.authority_epoch, "VerifiedMaterialCandidate.authority_epoch"
+        )
         if authority_epoch < 1:
-            raise ValueError("VerifiedMaterialCandidate.authority_epoch must be >= 1")
+            _reject_contract("VerifiedMaterialCandidate.authority_epoch must be >= 1")
         verification_profile_ref = _strip(
             self.verification_profile_ref,
             "VerifiedMaterialCandidate.verification_profile_ref",
@@ -969,9 +1186,9 @@ class VerifiedMaterialCandidate:
             f"verify:c7:{candidate_id}:{authority_epoch}"
         )
         if self.provider_calls != 0:
-            raise ValueError("pure C7 verification may not count provider calls")
+            _reject_contract("pure C7 verification may not count provider calls")
         if self.canonical_write_authorized is not False:
-            raise ValueError("C7 verification grants no canonical write")
+            _reject_contract("C7 verification grants no canonical write")
         object.__setattr__(self, "candidate_id", candidate_id)
         object.__setattr__(self, "snapshot_ref", snapshot_ref)
         object.__setattr__(self, "alternative", alternative)
@@ -985,7 +1202,7 @@ class VerifiedMaterialCandidate:
         object.__setattr__(self, "verification_receipt", verification_receipt)
         digest = _object_digest(self, "verification_digest")
         if self.verification_digest and self.verification_digest != digest:
-            raise ValueError(
+            _reject_contract(
                 "VerifiedMaterialCandidate.verification_digest does not match fields"
             )
         object.__setattr__(self, "verification_digest", digest)
@@ -1006,19 +1223,19 @@ def _require_snapshot_identity(snapshot: RawSnapshot) -> None:
             "provenance_refs": snapshot.provenance_refs,
         }
     ):
-        raise ValueError("RawSnapshot.snapshot_identity_digest is not current")
+        _reject_contract("RawSnapshot.snapshot_identity_digest is not current")
     if snapshot.raw_content_digest != sha256_hex(snapshot.raw_bytes):
-        raise ValueError("RawSnapshot.raw_content_digest does not match raw bytes")
+        _reject_contract("RawSnapshot.raw_content_digest does not match raw bytes")
 
 
 def _require_envelope_digest(envelope: NormalizedIngestEnvelope) -> None:
     if envelope.envelope_digest != _object_digest(envelope, "envelope_digest"):
-        raise ValueError("envelope digest does not match its fields")
+        _reject_contract("envelope digest does not match its fields")
 
 
 def _require_decision_digest(decision: DigestionDecision) -> None:
     if decision.decision_digest != _object_digest(decision, "decision_digest"):
-        raise ValueError("decision digest does not match its fields")
+        _reject_contract("decision digest does not match its fields")
 
 
 def _require_exact_input_binding(
@@ -1028,52 +1245,53 @@ def _require_exact_input_binding(
     decision: DigestionDecision,
 ) -> None:
     if not isinstance(snapshot, RawSnapshot):
-        raise TypeError("snapshot must be a RawSnapshot")
+        _reject_contract("snapshot must be a RawSnapshot", TypeError)
     if not isinstance(envelope, NormalizedIngestEnvelope):
-        raise TypeError("envelope must be a NormalizedIngestEnvelope")
+        _reject_contract("envelope must be a NormalizedIngestEnvelope", TypeError)
     if not isinstance(decision, DigestionDecision):
-        raise TypeError("decision must be a DigestionDecision")
+        _reject_contract("decision must be a DigestionDecision", TypeError)
     _require_snapshot_identity(snapshot)
     _require_envelope_digest(envelope)
     _require_decision_digest(decision)
     if envelope.snapshot_ref != snapshot.snapshot_ref:
-        raise ValueError("envelope snapshot ref does not match RawSnapshot")
+        _reject_contract("envelope snapshot ref does not match RawSnapshot")
     if envelope.snapshot_identity_digest != snapshot.snapshot_identity_digest:
-        raise ValueError("envelope snapshot identity does not match RawSnapshot")
+        _reject_contract("envelope snapshot identity does not match RawSnapshot")
     if envelope.raw_content_digest != snapshot.raw_content_digest:
-        raise ValueError("envelope raw content digest does not match RawSnapshot")
+        _reject_contract("envelope raw content digest does not match RawSnapshot")
     if envelope.raw_byte_length != len(snapshot.raw_bytes):
-        raise ValueError("envelope raw byte length does not match RawSnapshot")
+        _reject_contract("envelope raw byte length does not match RawSnapshot")
     try:
         decoded = snapshot.raw_bytes.decode("utf-8")
     except UnicodeDecodeError as exc:
-        raise ValueError(
-            "RawSnapshot bytes are not UTF-8 decodable for envelope binding"
-        ) from exc
+        _reject_contract(
+            "RawSnapshot bytes are not UTF-8 decodable for envelope binding",
+            cause=exc,
+        )
     expected_normalized = (
         decoded.strip()
         if envelope.content_format == "structured_json"
         else _collapse_whitespace(decoded)
     )
     if envelope.normalized_text != expected_normalized:
-        raise ValueError("envelope normalized text does not match RawSnapshot decode")
+        _reject_contract("envelope normalized text does not match RawSnapshot decode")
     if envelope.source_character_length != len(decoded):
-        raise ValueError(
+        _reject_contract(
             "envelope source character length does not match RawSnapshot decode"
         )
     if envelope.project_key != snapshot.project_key:
-        raise ValueError("envelope project key does not match RawSnapshot")
+        _reject_contract("envelope project key does not match RawSnapshot")
     if envelope.source_locator != snapshot.source_locator:
-        raise ValueError("envelope source locator does not match RawSnapshot")
+        _reject_contract("envelope source locator does not match RawSnapshot")
     if decision.envelope_digest != envelope.envelope_digest:
-        raise ValueError("decision does not bind the envelope digest")
+        _reject_contract("decision does not bind the envelope digest")
     if decision.raw_byte_length != envelope.raw_byte_length:
-        raise ValueError("decision raw byte length does not match the envelope")
+        _reject_contract("decision raw byte length does not match the envelope")
     if decision.source_character_length != envelope.source_character_length:
-        raise ValueError("decision source character length does not match the envelope")
+        _reject_contract("decision source character length does not match the envelope")
     selector = select_exactly_one_digestion_alternative(envelope)
     if selector != decision:
-        raise ValueError("decision does not match the exact envelope selector")
+        _reject_contract("decision does not match the exact envelope selector")
 
 
 def _candidate_closure_failure(
@@ -1159,15 +1377,15 @@ def verify_structured_candidate(
         )
 
     if not isinstance(snapshot, RawSnapshot):
-        raise TypeError("snapshot must be a RawSnapshot")
+        _reject_contract("snapshot must be a RawSnapshot", TypeError)
     if not isinstance(envelope, NormalizedIngestEnvelope):
-        raise TypeError("envelope must be a NormalizedIngestEnvelope")
+        _reject_contract("envelope must be a NormalizedIngestEnvelope", TypeError)
     if not isinstance(decision, DigestionDecision):
-        raise TypeError("decision must be a DigestionDecision")
+        _reject_contract("decision must be a DigestionDecision", TypeError)
     if not isinstance(candidate, StructuredMaterialCandidate):
-        raise TypeError("candidate must be a StructuredMaterialCandidate")
+        _reject_contract("candidate must be a StructuredMaterialCandidate", TypeError)
     try:
-        require_hex64(
+        _require_hex64(
             expected_candidate_digest,
             "expected_candidate_digest",
         )
@@ -1255,17 +1473,17 @@ def verify_structured_candidate(
     actor_name = _optional_strip(actor)
     object_id = _optional_strip(canonical_object_id)
     base_incarnation = _optional_strip(canonical_base_incarnation)
-    base_revision = int(canonical_base_revision)
+    base_revision = _coerce_int(canonical_base_revision, "canonical_base_revision")
     if not actor_name or not object_id or not base_incarnation or base_revision < 0:
         return rejected(
             "server_identity_missing",
             "server-resolved actor/object/base identity is incomplete",
         )
     try:
-        require_hex64(authority_digest, "authority_digest")
+        _require_hex64(authority_digest, "authority_digest")
     except ValueError as exc:
         return rejected("authority_digest_invalid", str(exc))
-    epoch = int(authority_epoch)
+    epoch = _coerce_int(authority_epoch, "authority_epoch")
     if epoch < 1 or epoch in revoked_authority_epochs:
         return C7Deferred(
             failure_code="authority_epoch_revoked",
@@ -1320,26 +1538,26 @@ class C7ReverseReturn:
 
     def __post_init__(self) -> None:
         snapshot_ref = _strip(self.snapshot_ref, "C7ReverseReturn.snapshot_ref")
-        require_hex64(
+        _require_hex64(
             self.snapshot_identity_digest,
             "C7ReverseReturn.snapshot_identity_digest",
         )
         reason = _strip(self.reason, "C7ReverseReturn.reason")
         failure = _strip(self.failure, "C7ReverseReturn.failure")
-        require_hex64(self.failure_digest, "C7ReverseReturn.failure_digest")
+        _require_hex64(self.failure_digest, "C7ReverseReturn.failure_digest")
         cleanup_target = _strip(
             self.cleanup_target or "cleanup_staged_candidate_or_snapshot",
             "C7ReverseReturn.cleanup_target",
         )
         if self.new_attempt_policy != C7_NEW_ATTEMPT_POLICY:
-            raise ValueError(
+            _reject_contract(
                 "C7 reverse return must use the exact retry prohibition policy"
             )
         candidate_ref = _optional_strip(self.candidate_ref)
         if self.admission_disabled is not True:
-            raise ValueError("C7 reverse return must disable admission")
+            _reject_contract("C7 reverse return must disable admission")
         if self.projection_disabled is not True:
-            raise ValueError("C7 reverse return must disable projection")
+            _reject_contract("C7 reverse return must disable projection")
         _assert_pure_effect_flags(
             provider_calls=self.provider_calls,
             canonical_write=self.canonical_write,
@@ -1354,7 +1572,7 @@ class C7ReverseReturn:
         object.__setattr__(self, "candidate_ref", candidate_ref)
         digest = _object_digest(self, "reverse_return_digest")
         if self.reverse_return_digest and self.reverse_return_digest != digest:
-            raise ValueError(
+            _reject_contract(
                 "C7ReverseReturn.reverse_return_digest does not match fields"
             )
         object.__setattr__(self, "reverse_return_digest", digest)
@@ -1372,25 +1590,25 @@ def return_for_cleanup(
     """Emit a typed reverse return without extraction, admission or writes."""
 
     if not isinstance(snapshot, RawSnapshot):
-        raise TypeError("snapshot must be a RawSnapshot")
+        _reject_contract("snapshot must be a RawSnapshot", TypeError)
     if outcome is not None and not isinstance(outcome, (C7Rejected, C7Deferred)):
-        raise TypeError("outcome must be a typed C7Rejected or C7Deferred")
+        _reject_contract("outcome must be a typed C7Rejected or C7Deferred", TypeError)
     if candidate is not None:
         if not isinstance(candidate, StructuredMaterialCandidate):
-            raise TypeError("candidate must be a StructuredMaterialCandidate")
+            _reject_contract("candidate must be a StructuredMaterialCandidate", TypeError)
         if outcome is not None:
-            raise ValueError("outcome and candidate are mutually exclusive")
+            _reject_contract("outcome and candidate are mutually exclusive")
         if (
             candidate.snapshot_ref != snapshot.snapshot_ref
             or candidate.snapshot_identity_digest != snapshot.snapshot_identity_digest
             or candidate.raw_content_digest != snapshot.raw_content_digest
         ):
-            raise ValueError(
+            _reject_contract(
                 "candidate is not bound to the returned full snapshot identity"
             )
     if outcome is not None:
         if outcome.snapshot_ref != snapshot.snapshot_ref:
-            raise ValueError("outcome is not bound to the returned snapshot")
+            _reject_contract("outcome is not bound to the returned snapshot")
         failure_digest = (
             outcome.rejected_digest
             if isinstance(outcome, C7Rejected)
@@ -1425,7 +1643,7 @@ class C7MovementTrace:
     """One ordered movement trace with explicit false authority ceiling."""
 
     schema: str
-    alternative: str
+    alternative: C7Alternative
     decision_digest: str
     snapshot_ref: str
     outcome: C7PortResult
@@ -1442,24 +1660,24 @@ class C7MovementTrace:
         schema = _strip(self.schema or C7_PURE_SCHEMA, "C7MovementTrace.schema")
         alternative = _strip(self.alternative, "C7MovementTrace.alternative")
         if alternative not in C7_ALTERNATIVES:
-            raise ValueError(f"unsupported C7 alternative: {alternative}")
-        require_hex64(self.decision_digest, "C7MovementTrace.decision_digest")
+            _reject_contract(f"unsupported C7 alternative: {alternative}")
+        _require_hex64(self.decision_digest, "C7MovementTrace.decision_digest")
         snapshot_ref = _strip(self.snapshot_ref, "C7MovementTrace.snapshot_ref")
         if not isinstance(
             self.outcome,
             (StructuredMaterialCandidate, C7Rejected, C7Deferred),
         ):
-            raise TypeError("unsupported C7 movement outcome")
+            _reject_contract("unsupported C7 movement outcome", TypeError)
         if isinstance(self.outcome, StructuredMaterialCandidate):
             if self.outcome.alternative != alternative:
-                raise ValueError("candidate branch does not match decision")
+                _reject_contract("candidate branch does not match decision")
             if self.outcome.decision_digest != self.decision_digest:
-                raise ValueError("candidate decision digest does not match")
+                _reject_contract("candidate decision digest does not match")
             if self.outcome.snapshot_ref != snapshot_ref:
-                raise ValueError("candidate snapshot ref does not match")
+                _reject_contract("candidate snapshot ref does not match")
         else:
             if self.outcome.snapshot_ref != snapshot_ref:
-                raise ValueError("terminal outcome snapshot ref does not match")
+                _reject_contract("terminal outcome snapshot ref does not match")
         branch_receipt = _strip(self.branch_receipt, "C7MovementTrace.branch_receipt")
         _assert_pure_effect_flags(
             provider_calls=self.provider_calls,
@@ -1469,7 +1687,7 @@ class C7MovementTrace:
             authority_transfer=self.authority_transfer,
         )
         if self.authority is not False:
-            raise ValueError("pure C7 movement may not claim authority")
+            _reject_contract("pure C7 movement may not claim authority")
         object.__setattr__(self, "schema", schema)
         object.__setattr__(self, "alternative", alternative)
         object.__setattr__(self, "snapshot_ref", snapshot_ref)
@@ -1477,7 +1695,7 @@ class C7MovementTrace:
         object.__setattr__(self, "provider_calls", int(self.provider_calls))
         digest = _object_digest(self, "trace_digest")
         if self.trace_digest and self.trace_digest != digest:
-            raise ValueError("C7MovementTrace.trace_digest does not match fields")
+            _reject_contract("C7MovementTrace.trace_digest does not match fields")
         object.__setattr__(self, "trace_digest", digest)
 
 
@@ -1488,7 +1706,7 @@ def _outcome_digest(outcome: C7PortResult) -> str:
         return outcome.rejected_digest
     if isinstance(outcome, C7Deferred):
         return outcome.deferred_digest
-    raise TypeError("unsupported C7 movement outcome")
+    _raise_programmer_defect("unsupported C7 movement outcome")
 
 
 class ExtractPort(Protocol):
@@ -1624,12 +1842,12 @@ class DeterministicExtractPort(_DeterministicPortBase, ExtractPort):
 
     @staticmethod
     def _reject_non_finite_constant(value: str) -> Any:
-        raise ValueError(f"non-finite JSON constant: {value}")
+        _reject_contract(f"non-finite JSON constant: {value}")
 
     @classmethod
     def _require_finite_json_numbers(cls, value: Any) -> None:
         if isinstance(value, float) and not math.isfinite(value):
-            raise ValueError("non-finite JSON number")
+            _reject_contract("non-finite JSON number")
         if isinstance(value, Mapping):
             for item in value.values():
                 cls._require_finite_json_numbers(item)
@@ -1694,12 +1912,12 @@ class DeterministicExtractPort(_DeterministicPortBase, ExtractPort):
 
 def _ordered_chunks(text: str, max_chunk_bytes: int) -> list[str]:
     if int(max_chunk_bytes) <= 0:
-        raise ValueError("max_chunk_bytes must be > 0")
+        _reject_contract("max_chunk_bytes must be > 0")
     chunks: list[str] = []
     current = ""
     for char in text:
         if len(char.encode("utf-8")) > max_chunk_bytes:
-            raise ValueError("single UTF-8 codepoint exceeds the chunk byte ceiling")
+            _reject_contract("single UTF-8 codepoint exceeds the chunk byte ceiling")
         candidate = current + char
         if len(candidate.encode("utf-8")) > max_chunk_bytes and current:
             chunks.append(current)
@@ -1725,14 +1943,14 @@ class DeterministicChunkPort(_DeterministicPortBase, ChunkPort):
         max_chunk_count: int = C7_CHUNK_MAX_COUNT,
     ) -> None:
         super().__init__()
-        self.max_chunk_bytes = int(max_chunk_bytes)
-        self.max_chunk_count = int(max_chunk_count)
+        self.max_chunk_bytes = _coerce_int(max_chunk_bytes, "max_chunk_bytes")
+        self.max_chunk_count = _coerce_int(max_chunk_count, "max_chunk_count")
         if not 1 <= self.max_chunk_bytes <= C7_CHUNK_MAX_BYTES:
-            raise ValueError(
+            _reject_contract(
                 "max_chunk_bytes must be within the global C7 chunk byte ceiling"
             )
         if not 1 <= self.max_chunk_count <= C7_CHUNK_MAX_COUNT:
-            raise ValueError(
+            _reject_contract(
                 "max_chunk_count must be within the global C7 chunk count ceiling"
             )
 
@@ -2013,29 +2231,47 @@ def execute_c7_movement(
     port = ports[decision.alternative]
     exact_class = _EXACT_PORT_CLASSES[decision.alternative]
     if type(port) is not exact_class:
-        raise TypeError(
-            "provider-zero evidence requires the exact built-in C7 port class"
+        _reject_contract(
+            "provider-zero evidence requires the exact built-in C7 port class",
+            TypeError,
+            code="stage_invalid",
         )
     if getattr(port, "calls", None) != 0 or getattr(port, "receipts", None) != []:
-        raise ValueError("selected C7 port must be fresh with zero calls")
+        _reject_contract(
+            "selected C7 port must be fresh with zero calls", code="stage_invalid"
+        )
     execute_method = getattr(port, "execute", None)
     if getattr(execute_method, "__func__", None) is not exact_class.execute:
-        raise TypeError("bound execute must be the exact built-in class implementation")
+        _reject_contract(
+            "bound execute must be the exact built-in class implementation",
+            TypeError,
+            code="stage_invalid",
+        )
     finish_method = getattr(port, "_finish", None)
     if getattr(finish_method, "__func__", None) is not _DeterministicPortBase._finish:
-        raise TypeError("bound _finish must be the exact built-in base implementation")
+        _reject_contract(
+            "bound _finish must be the exact built-in base implementation",
+            TypeError,
+            code="stage_invalid",
+        )
     allowed_state = {"calls", "provider_calls", "receipts"}
     if decision.alternative == "CHUNK":
         allowed_state = allowed_state | {"max_chunk_bytes", "max_chunk_count"}
     if set(vars(port).keys()) != allowed_state:
-        raise ValueError("selected C7 port has forbidden instance state")
+        _reject_contract(
+            "selected C7 port has forbidden instance state", code="stage_invalid"
+        )
     outcome = port.execute(
         snapshot=snapshot,
         envelope=envelope,
         decision=decision,
     )
     if not isinstance(outcome, (StructuredMaterialCandidate, C7Rejected, C7Deferred)):
-        raise TypeError("branch port returned an unsupported outcome")
+        _reject_contract(
+            "branch port returned an unsupported outcome",
+            TypeError,
+            code="stage_invalid",
+        )
     if isinstance(outcome, StructuredMaterialCandidate):
         closure_failure = _candidate_closure_failure(
             snapshot=snapshot,
@@ -2044,24 +2280,28 @@ def execute_c7_movement(
             candidate=outcome,
         )
         if closure_failure is not None:
-            raise ValueError(
+            _reject_contract(
                 f"branch port returned a candidate that fails input closure: "
-                f"{closure_failure}"
+                f"{closure_failure}",
+                code="stage_invalid",
             )
     if getattr(port, "calls", None) != 1:
-        raise ValueError("selected C7 port must record exactly one call")
+        _reject_contract(
+            "selected C7 port must record exactly one call", code="stage_invalid"
+        )
     receipts = getattr(port, "receipts", None)
     if (
         not isinstance(receipts, list)
         or len(receipts) != 1
         or receipts[0] != _outcome_digest(outcome)
     ):
-        raise ValueError(
-            "selected C7 port must record one receipt matching the outcome digest"
+        _reject_contract(
+            "selected C7 port must record one receipt matching the outcome digest",
+            code="stage_invalid",
         )
-    provider_calls = int(getattr(port, "provider_calls", 0))
+    provider_calls = _coerce_int(getattr(port, "provider_calls", 0), "provider_calls")
     if provider_calls != 0:
-        raise ValueError("branch port recorded provider calls")
+        _reject_contract("branch port recorded provider calls", code="stage_invalid")
     branch_receipt = receipts[0]
     return C7MovementTrace(
         schema=C7_PURE_SCHEMA,

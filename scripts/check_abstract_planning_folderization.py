@@ -13,7 +13,7 @@ import json
 import re
 import sys
 from pathlib import Path
-from typing import Iterable
+from typing import Annotated, Iterable
 
 
 EXPECTED_TOPICS = [
@@ -101,7 +101,12 @@ def resolve_topic_dir(root: Path, topic: str) -> tuple[Path, str]:
     return root / first_root / f"2026-03-07-{topic}", first_location
 
 
-def build_report(root: Path) -> dict:
+def build_report(root: Path) -> Annotated[
+    dict,
+    "kit:non-authoritative derived_as=generated_evidence "
+    "fact_source=abstract_planning_directories+markdown_sources "
+    "witness=test:test_w11_non_authoritative_metadata",
+]:
     coordination_dir, coordination_location = resolve_coordination_dir(root)
 
     hard_failures: list[str] = []

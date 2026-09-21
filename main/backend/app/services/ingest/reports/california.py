@@ -72,6 +72,5 @@ def collect_california_sales_reports(limit: int = 3) -> dict:
     except Exception as exc:  # noqa: BLE001
         logger.exception("collect_california_sales_reports failed")
         fail_job(job_id, str(exc))
+        # kit:boundary owner=ingest.california_report class=SHELL_BOUNDARY_EXCEPTION failure_family=ingest.operation.failure witness=test:test_latest_service_a_ingest_shell_boundaries_reraise_original_errors
         raise
-
-

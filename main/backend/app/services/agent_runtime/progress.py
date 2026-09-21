@@ -1,9 +1,13 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any
 
 
-def build_summary_label(task: dict[str, Any]) -> str:
+def build_summary_label(task: dict[str, Any]) -> Annotated[
+    str,
+    "kit:non-authoritative derived_as=view fact_source=progress_status_input "
+    "witness=test:test_w02_agent_authority_metadata"
+]:
     result_summary = str(task.get("result_summary") or "").strip()
     if result_summary:
         compact = " ".join(result_summary.split())
@@ -13,7 +17,11 @@ def build_summary_label(task: dict[str, Any]) -> str:
     return f"{subject} [{status}]"
 
 
-def build_task_progress_summary(task: dict[str, Any]) -> dict[str, Any]:
+def build_task_progress_summary(task: dict[str, Any]) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=progress_item_inputs "
+    "witness=test:test_w02_agent_authority_metadata"
+]:
     return {
         "tool_use_count": int(task.get("tool_use_count") or 0),
         "token_usage": int(task.get("token_usage") or 0),

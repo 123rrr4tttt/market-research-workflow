@@ -1,0 +1,13 @@
+{
+  "attestation_subject_binding": "PASS",
+  "authoritative": false,
+  "blocker": null,
+  "builds": "PASS",
+  "docker_load": "PASS",
+  "reproducibility": "PASS",
+  "schema_version": "mrw.stage3.local-artifacts-result.v1",
+  "source_commit": "8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+  "source_tree": "ce7c67c831b51f9d64b4c2f1a470a724a50b19df",
+  "status": "PASS",
+  "vulnerability_threshold": "PASS"
+}

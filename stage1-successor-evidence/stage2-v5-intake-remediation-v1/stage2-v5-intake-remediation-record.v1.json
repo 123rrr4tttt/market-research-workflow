@@ -1,0 +1,46 @@
+{
+  "authoritative": false,
+  "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+  "changed_paths": [
+    {
+      "path": "scripts/formal_release/stage2_candidate_intake.py",
+      "predecessor_sha256": "977a58ec5a8c854dfc18daffe8f7af3e996118d53b205482ba049ccf697c57db",
+      "reason": "VERSIONED_STAGE2_V5_INTAKE_SUCCESSOR",
+      "successor_sha256": "ad56ca01cf5e878613303f198bf34086f6b8ed2f431d2fdd69097f8fbc3ff1a8"
+    },
+    {
+      "path": "tests/formal_release/test_stage2_candidate_intake.py",
+      "predecessor_sha256": "9b7e2518f8812c0bbf70c471a1c1453bbe9fbab9b52856b1ee8d3704ebd5ca05",
+      "reason": "VERSIONED_STAGE2_V5_INTAKE_SUCCESSOR_TESTS",
+      "successor_sha256": "de3841abfeb96aa844a831f1eedc4dad48e784e667fac2cc466da82d19f3ac81"
+    }
+  ],
+  "external_effects": "NONE_LOCAL_DETERMINISTIC_VALIDATION_ONLY",
+  "focused_verification": {
+    "candidate_resolution_negative": 1,
+    "candidate_resolution_positive": 1,
+    "failed": 0,
+    "passed": 102,
+    "safe_history_negative": 3,
+    "safe_history_positive": 1,
+    "test_file": "tests/formal_release/test_stage2_candidate_intake.py"
+  },
+  "manifest_contract": {
+    "candidate_specific_successor_resolutions": 6,
+    "contract14_history_allowlist": "stage1-successor-evidence/contract14-local-execution-v1/history/",
+    "current_byte_registry_direct_binding": true,
+    "current_stage1_remediation_direct_binding": true,
+    "historical_stage1_record_preserved": true,
+    "legacy_behavior_preserved": true,
+    "legacy_schema": "mrw.stage2.exact-candidate-manifest.v2",
+    "successor_schema": "mrw.stage2.exact-candidate-manifest.v3"
+  },
+  "predecessor": {
+    "path": "stage1-successor-evidence/source-static-remediation-v1/stage1-source-static-remediation-record.v1.json",
+    "relation": "ADDITIVE_SUCCESSOR_NO_REWRITE",
+    "sha256": "82833de8573fd7e1120816999825e4d05677ec06a8d65ba0f88924e33c7ea258"
+  },
+  "production_release_authorized": false,
+  "schema_version": "mrw.stage1.stage2_v5_intake_remediation_record.v1",
+  "status": "PASS_STAGE2_V5_INTAKE_REMEDIATION_NOT_AUTHORITY"
+}

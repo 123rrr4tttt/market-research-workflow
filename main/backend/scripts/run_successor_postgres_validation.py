@@ -12,7 +12,7 @@ Safety invariants:
   there is no production/default target fallback.
 - The URL must use a PostgreSQL driver and a Unix socket host (empty host or
   an absolute socket directory).  TCP hosts and passwords are rejected.
-- Database/role names are always ``mrw_successor_validation_<token>`` where
+- Database/role names are always ``mrw_successor_test_validation_<token>`` where
   the token matches ``^[a-z0-9]{16}$``; every DROP is guarded by the same
   exact regex and never uses a wildcard.
 - A unique token is generated per invocation; an already-existing database or
@@ -43,7 +43,7 @@ from pathlib import Path
 from typing import Any
 
 REPORT_SCHEMA = "mrw.functorial_successor.postgres_validation_report.v1"
-NAME_PREFIX = "mrw_successor_validation_"
+NAME_PREFIX = "mrw_successor_test_validation_"
 TOKEN_RE = re.compile(r"^[a-z0-9]{16}$")
 OWNED_NAME_RE = re.compile(rf"^{NAME_PREFIX}[a-z0-9]{{16}}$")
 FORBIDDEN_ADMIN_DATABASES = frozenset({"postgres", "template0", "template1"})
@@ -362,7 +362,10 @@ def run_validation(
         client.execute(
             "CREATE ROLE "
             + _quote_ident(role_name)
-            + " NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT LOGIN"
+            # PostgreSQL 15+ grants public-schema CREATE to the implicit
+            # pg_database_owner role.  INHERIT is required for the role that
+            # owns this disposable database to exercise that owner privilege.
+            + " NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT LOGIN"
         )
         created_role = True
         client.execute(

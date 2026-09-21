@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 import os
@@ -17,6 +18,22 @@ REPO = Path(
 ).resolve()
 OUTPUT = Path(os.environ.get("P1P3_SEMANTIC_MOVEMENT_OUTPUT_ROOT", str(REPO))).resolve()
 _GENERATOR = _BACKEND / "scripts/generate_successor_p1_p3_semantic_movement.py"
+_FROZEN_PREDECESSOR_COMMIT = "3706655f372f6d34fc62683551b8c3d1f4ff8146"
+
+_FROZEN_SHA256 = {
+    "fragments/C1.v1.json": "0ffd28226ff542f7f4d011ccf612bad8a84b35fd390be59c7694318e4b5ef138",
+    "fragments/C2.v1.json": "92d0824ec35f8d56f3a530ce484139922a08e3c3a7a6a7869dfbc6099a25aa02",
+    "fragments/C3.v1.json": "4d073060363d703a2ecd67368ac7f91ef1c15491e81a8ad696bbd34f04393eca",
+    "fragments/C4.v1.json": "c9db07f3383fdc34cb3343ab392acdfac408eb89efa48e9f4ce3d81908a227a5",
+    "fragments/C5.v1.json": "3ac6b67ebd0ec0b708a0e4d7ff48d8b61686d08db3bce64e1820c86f6164ed2d",
+    "fragments/C6.v1.json": "8f201c3d730d1c3e2429abdb4b7d982abd6eafed361941702e590a82536c31a8",
+    "fragments/C7.v1.json": "3d55cff419f4d926f627e75f7a2058dbfee538ce2cce9a2e722c03b1cd52d3a6",
+    "fragments/C8.v1.json": "82975be377ab3e0da81da5b96623c26624dce36a0edd01cbf2a5afbf94a56e71",
+    "fragments/C9.v1.json": "88a63d5293f827b46bb97d4269aada2c539dac494b2e2e117f19521a022f4230",
+    "P1P3LegacyDonorSemanticMovementInventory.v1.json": "c032207f0070424b83fc81a8d49167dbb8f5624f08aaa97853e34f7a6f296be9",
+    "P1P3SuccessorMovementMatrix.v1.json": "482ae2934fbe8ffd19a2e8d43365d4f910ff8cb82398cfd885086f07bb2740db",
+    "P1P3SemanticMovementGate.v1.json": "74ade16f3113d68ff1642e5bf0a87aac7cc91dac868f5f3e9bcbbe06b0ca3ce0",
+}
 
 
 def _load_generator():
@@ -39,6 +56,13 @@ def _persisted_paths(module) -> list[Path]:
     ]
 
 
+def _historical_bytes(relative: str) -> bytes:
+    return subprocess.check_output(
+        ["git", "show", f"{_FROZEN_PREDECESSOR_COMMIT}:{relative}"],
+        cwd=_DEFAULT_REPO,
+    )
+
+
 def test_generator_is_deterministic_and_digests_self_test() -> None:
     module = _load_generator()
     first = module.build_documents(REPO)
@@ -49,14 +73,18 @@ def test_generator_is_deterministic_and_digests_self_test() -> None:
         assert artifact["content_digest"] == module._content_digest(artifact)
 
 
-def test_persisted_artifacts_match_regenerated_bytes() -> None:
+def test_persisted_artifacts_are_frozen_predecessors() -> None:
     module = _load_generator()
-    documents = module.build_documents(REPO)
-    for relative, expected in documents.items():
-        assert (OUTPUT / relative).read_bytes() == expected
+    persisted = _persisted_paths(module)
+    assert len(persisted) == len(_FROZEN_SHA256)
+    for path in persisted:
+        relative = path.relative_to(OUTPUT / module.FRAGMENT_REL.parent).as_posix()
+        historical_path = path.relative_to(OUTPUT).as_posix()
+        historical = _historical_bytes(historical_path)
+        assert hashlib.sha256(historical).hexdigest() == _FROZEN_SHA256[relative]
 
 
-def test_cli_check_ok_is_read_only(tmp_path: Path) -> None:
+def test_cli_check_accepts_current_projection_and_is_read_only() -> None:
     module = _load_generator()
     paths = _persisted_paths(module)
     snapshot = {path: (path.read_bytes(), path.stat().st_mtime_ns) for path in paths}
@@ -76,7 +104,13 @@ def test_cli_check_ok_is_read_only(tmp_path: Path) -> None:
         check=False,
     )
     assert result.returncode == 0, result.stdout + result.stderr
-    assert '"status": "CHECK_OK"' in result.stdout
+    payload = json.loads(result.stdout)
+    assert payload["status"] == "CHECK_OK"
+    assert payload["inline_movements"] == 40
+    assert payload["external_c7_movements"] == 20
+    assert payload["total_movements"] == 60
+    assert payload["exact_blockers"] == 0
+    assert "paths" not in payload
     after = {path: (path.read_bytes(), path.stat().st_mtime_ns) for path in paths}
     assert after == snapshot
 

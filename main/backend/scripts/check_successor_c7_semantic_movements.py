@@ -27,7 +27,7 @@ import json
 import os
 import tempfile
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 ALLOWED_DISPOSITIONS = {
     "PRESERVED_AS",
@@ -402,7 +402,10 @@ def _build_trace_bundle(
     return bundle
 
 
-def build_documents(design_root: Path) -> dict[Path, bytes]:
+def build_documents(design_root: Path) -> Annotated[
+    dict[Path, bytes],
+    "kit:non-authoritative derived_as=generated_evidence fact_source=design_text+source_bindings+decision_topology+trace_bundle witness=test:test_c13_cli_graph_workflow_metadata_preserves_abi",
+]:
     """Build the three C7 artifacts keyed by repository-relative path."""
 
     design_root = design_root.resolve()

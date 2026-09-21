@@ -1,0 +1,103 @@
+{
+  "check": "llm-report-must-minset",
+  "decision": "pass",
+  "required_gate_keys": [
+    "gate_version",
+    "decision",
+    "hard_failures",
+    "soft_failures",
+    "missing_items",
+    "observability"
+  ],
+  "required_gate_metrics_keys": [
+    "gate_version",
+    "decision",
+    "pass",
+    "hard_failure_count",
+    "soft_failure_count",
+    "citation_coverage",
+    "evidence_coverage",
+    "source_count",
+    "unique_citations",
+    "rules_count",
+    "gate_duration_ms"
+  ],
+  "pytest": {
+    "command": "/Users/wangyiliang/.local/bin/python3.11 -m pytest -q tests/unit/test_llm_report_generator_unittest.py tests/unit/test_llm_report_api_unittest.py",
+    "exit_code": 0
+  },
+  "gate_check": {
+    "stage": "gate_metrics_visibility",
+    "gate": {
+      "gate_version": "r2.3",
+      "citation_coverage": 1.0,
+      "evidence_coverage": 1.0,
+      "source_count": 1,
+      "unique_citations": [
+        "S1"
+      ],
+      "structure_validation": {
+        "pass": true,
+        "errors": [],
+        "warnings": [],
+        "rules": {
+          "topic_required": true,
+          "sections_required": true,
+          "section_title_required": true,
+          "section_content_required": true,
+          "citation_must_exist_in_sources": true,
+          "source_title_required": true,
+          "source_url_required": true,
+          "source_evidence_recommended": true
+        },
+        "observability": {
+          "total_sections": 5,
+          "sections_without_citations": [],
+          "sources_missing_evidence": []
+        }
+      },
+      "hard_failures": [],
+      "soft_failures": [],
+      "missing_items": [],
+      "decision": "pass",
+      "confidence_score": 1.0,
+      "pass": true,
+      "rules": {
+        "min_sections_hard": 3,
+        "citation_coverage_min_hard": 0.8,
+        "source_count_min_hard": 1,
+        "unique_citations_min_hard": 1,
+        "evidence_coverage_min_soft": 0.6,
+        "structure_validation_pass_required": true
+      },
+      "observability": {
+        "total_sections": 5,
+        "cited_sections": 5,
+        "sections_without_citations": [],
+        "sources_missing_evidence": [],
+        "short_section_count": 0,
+        "placeholder_section_count": 0,
+        "report_generated_at": "2026-05-24T20:59:22.230898+00:00",
+        "gate_started_at": "2026-05-24T20:59:22.233840+00:00",
+        "gate_finished_at": "2026-05-24T20:59:22.233949+00:00",
+        "gate_duration_ms": 0.109
+      }
+    }
+  },
+  "metrics_check": {
+    "stage": "quality_gate_metrics_export",
+    "metrics": {
+      "gate_version": "r2.3",
+      "decision": "pass",
+      "pass": true,
+      "hard_failure_count": 0,
+      "soft_failure_count": 0,
+      "citation_coverage": 1.0,
+      "evidence_coverage": 1.0,
+      "source_count": 1,
+      "unique_citations": 1,
+      "rules_count": 6,
+      "gate_duration_ms": 0.055
+    }
+  }
+}

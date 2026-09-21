@@ -1,0 +1,11 @@
+a951aec2386d00a97f670c7e7ca31a1439abea575b658b56530e0adfce3a405e  development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13t/stage3-stage-result.r13t.json
+218ea4487aa890c3b698a43d5b32ba2583b067d981d7a0ebc2ee5cfb0e61bbff  development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13r/artifacts/summary.json
+cd49fe50f9e5e18247cfa067ed5b6a25b5562f79e1885f92f567733928c54959  development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13r/artifacts/SHA256SUMS
+0cc309a74c2d32c30559ba540b31c0e64214f52ea1aafeb8c911125bd5d3535a  development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13t/tests/result.json
+16174b61a19a9a6372bd8b27062438fa1705493b663ca55bf7bd2af9ba500081  development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13t/tests/SHA256SUMS.r13t-tests
+26a39f8c0bc98f53c81d9b58ad45457119c11a65e220618342716e68df0f47f5  development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13t/security/gitleaks-disposition-analysis.r13t.json
+864ba43a5bd89c711966b8f8844bd5e50e43c15481d88aad97ea346268e3c8df  development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13t/security/SHA256SUMS.r13t-security
+bded9c9be08d144939bd30cddaf9126a14777546f907ff14e72335a5ace1e467  stage3-evidence/r13t/remote/github-readback.r13t.json
+c1af954579a91f78541762e6bf1b4443488e65089b04dd23cc2775aa7bf06846  stage3-evidence/r13t/remote/SHA256SUMS.remote.r13t
+72484c84c83c11af8a01468bb7c691c4eb36eb30f6fe89addde6d27d226c5e89  manifest/r2-preparation-result.r13t.json
+752fdfa1098bc5369e1ecf68af1fb59efcb31c97ede465673219a0af0dbf85fd  manifest/SHA256SUMS.r13t

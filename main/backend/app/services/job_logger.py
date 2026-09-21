@@ -10,6 +10,7 @@ from sqlalchemy.exc import ProgrammingError, SQLAlchemyError
 
 from ..models.base import SessionLocal, run_with_session_retry
 from ..models.entities import EtlJobRun
+from .task_readback_metadata import merge_runtime_readback_payload
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +43,13 @@ def start_job(
     payload = dict(params or {})
     if stored_job_type != job_type:
         payload.setdefault("job_type_full", job_type)
+    payload = merge_runtime_readback_payload(
+        payload,
+        None,
+        status="running",
+        event="worker_started",
+        event_source="etl_job_runs",
+    )
 
     def _op(session) -> int:
         job = EtlJobRun(
@@ -91,7 +99,21 @@ def complete_job(
         if result:
             params = dict(job.params or {})
             params.update(result)
-            job.params = params
+            job.params = merge_runtime_readback_payload(
+                params,
+                result,
+                status=status,
+                event=status if status in {"completed", "succeeded", "applied", "available", "healthy"} else None,
+                event_source="etl_job_runs",
+            )
+        else:
+            job.params = merge_runtime_readback_payload(
+                dict(job.params or {}),
+                None,
+                status=status,
+                event=status if status in {"completed", "succeeded", "applied", "available", "healthy"} else None,
+                event_source="etl_job_runs",
+            )
 
     try:
         run_with_session_retry(_op, log_context={"operation": "complete_job", "job_id": job_id})
@@ -120,7 +142,13 @@ def fail_job(
         params = dict(job.params or {})
         # Keep a stable machine-readable fallback for process observability.
         params.setdefault("error_code", "TASK_FAILED")
-        job.params = params
+        job.params = merge_runtime_readback_payload(
+            params,
+            None,
+            status="failed",
+            event="failed",
+            event_source="etl_job_runs",
+        )
         if external_job_id is not None:
             job.external_job_id = external_job_id
         if external_provider is not None:
@@ -162,7 +190,21 @@ def update_job_tracking(
         if result:
             params = dict(job.params or {})
             params.update(result)
-            job.params = params
+            job.params = merge_runtime_readback_payload(
+                params,
+                result,
+                status=status,
+                event=status if status in {"completed", "succeeded", "applied", "available", "healthy"} else None,
+                event_source="etl_job_runs",
+            )
+        elif status is not None:
+            job.params = merge_runtime_readback_payload(
+                dict(job.params or {}),
+                None,
+                status=status,
+                event=status if status in {"completed", "succeeded", "applied", "available", "healthy"} else None,
+                event_source="etl_job_runs",
+            )
         if error is not None:
             job.error = error[:2000]
 
@@ -184,6 +226,7 @@ def list_jobs(limit: int = 20) -> List[dict[str, Any]]:
             msg = str(exc).lower()
             if "does not exist" in msg and "etl_job_runs" in msg:
                 return []
+            # kit:boundary owner=job.history.read class=SHELL_BOUNDARY_EXCEPTION failure_family=job.history.failure witness=test:test_w03_effect_boundaries
             raise
         result: List[dict[str, Any]] = []
         for (job,) in rows:

@@ -1,5 +1,64 @@
 # Docker 启动指南
 
+## 当前工作树的本地用户环境（2026-09-21）
+
+本机可使用保留的 Stage4 backend 镜像与当前源码只读挂载启动用户界面，无需重建镜像。
+这不是冻结候选的 exact-byte replay，也不是生产部署。Compose project 固定为
+`mrw-local-user`；数据保存在该 project 的独立命名卷中，不使用宿主 PostgreSQL/Redis。
+
+在仓库根目录执行：
+
+```bash
+# 首次启动或前端修改后构建；纯重启无需重复。
+npm --prefix main/frontend-modern run build
+
+docker compose -p mrw-local-user \
+  -f main/ops/docker-compose.yml -f main/ops/docker-compose.local-user.yml \
+  --profile modern-ui up -d --no-build --pull never \
+  db es redis backend celery-worker frontend-modern
+```
+
+界面为 <http://127.0.0.1:15132/>，API 为 <http://127.0.0.1:18132/docs>，仅绑定 loopback。
+只有列出的六个服务被启动，不包含 launcher、scrapyd 或搜索增强服务。
+源码依赖使用 `pyproject.toml` 已声明的 sibling `Desktop/functorial-kit/python`；
+可用 `MRW_FUNCTORIAL_KIT_PATH` 指定其他已有 checkout。当前源码需要其中的
+`functorial_kit.contributions`，保留镜像自带旧 wheel 不具备此模块。
+backend 同时挂载当前 `app`、`migrations`、`llm_prompts`、`src` 与 `seed_data`；
+worker 使用同一 `app/src/kit`，前端使用当前 `dist`。修改普通 API Python 后重启 backend；修改 Celery task 定义或注册时重启 backend 和 `celery-worker`，避免 worker 保留旧注册清单：
+
+```bash
+docker compose -p mrw-local-user \
+  -f main/ops/docker-compose.yml -f main/ops/docker-compose.local-user.yml \
+  restart backend celery-worker
+```
+
+此配置不读取宿主 `.env`，不注入 provider key 或 Codex 登录文件。默认 dev 模式没有普通账号登录要求；
+Codex OAuth、模型、外部检索与网页采集未验证。不要把页面显示的 `missing/login` 当成已配置。
+
+停止并保留所有本地数据：
+
+```bash
+docker compose -p mrw-local-user \
+  -f main/ops/docker-compose.yml -f main/ops/docker-compose.local-user.yml \
+  --profile modern-ui stop db es redis backend celery-worker frontend-modern
+```
+
+重新执行上述 `up` 恢复。不要使用 `down -v` 或全局 prune。日志可从
+`docker compose` 同样参数的 `logs backend celery-worker` 读取，worker 文件日志也由任务详情页读取。
+
+已注入的演示项目是 `local_demo_20260921`：通过产品 `POST /api/v1/projects/inject-initial`
+从 `seed_data/project_demo_proj_v0.9-rc2.0.sql` 复制 75 条文档、6 条来源；`overwrite=false`，
+没有复制 seed 内的历史 ETL 任务。当前 URL 池的 267 条链接由本次页面“提取 URL”提交的真实
+Celery 任务产生。用户操作：项目管理切换该项目 → 管理/提取 → 提取 URL → 任务详情查看
+`SUCCESS` 与 result → 返回提取页刷新列表。提取仅扫描已入库文档，不访问链接目标。
+重复提取使用已有去重逻辑，不重复新增相同链接。
+
+原始数据导入接口的 `async_mode=true` 使用 Celery task
+`app.services.tasks.task_raw_import_documents`；可通过 Process 详情读回任务结果，再从文档列表检索新记录。2026-09-21 的有界验证及回执位于下方运行记录目录。
+
+本次运行证据：[`local-user-chain/2026-09-21`](../../development/latest-dev-docs/automation-runs/local-user-chain/2026-09-21/)。
+Stage4–6 历史验收结果保持原义，本环境不启动 Stage7–9 或授予发布权限。
+
 > 最后更新：2026-05-14 | 首次运行请确保 `../backend/.env` 存在（可复制 `.env.example`）
 
 ## ⚠️ 重要提示
@@ -95,6 +154,33 @@ sudo apt-get install -y xdg-utils
 ```bash
 ./scripts/docker-deploy.sh rollback --no-restart
 ```
+
+### 回滚 fixture dry-run
+
+`rollback.sh` 的 `dry-run` 分支只生成或校验 `fixture_recovery_tools.py` 的
+fixture-only plan receipt，不执行 restore、restart、compose、数据库或文件恢复。
+生成的 receipt 固定为 `result=planned_dry_run_fixture`、`authority=false`、
+`executed=false`，不能作为真实回滚凭据。
+
+生成 fixture rollback plan：
+
+```bash
+./rollback.sh dry-run --dry-run --fixture \
+  --fixture-root /path/to/fixture \
+  --operation config_rollback
+```
+
+校验已有 plan receipt：
+
+```bash
+./rollback.sh dry-run --dry-run --fixture \
+  --fixture-root /path/to/fixture \
+  --plan-receipt /path/to/fixture/plan-receipt.json
+```
+
+receipt 文件和全部 planned path 必须位于 `--fixture-root` 内；production/live
+endpoint、secret-like 参数、非 fixture 命令和越界路径都会 fail closed。原有
+`snapshot`、`list`、`rollback` 行为不变。
 
 回滚路径演练（默认执行 preflight + 停启 + 健康检查 + 清理）：
 

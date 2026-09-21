@@ -1,7 +1,10 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-const proxyTarget = process.env.VITE_API_PROXY_TARGET || 'http://localhost:8000'
+const failClosedProxyTarget = 'http://127.0.0.1:1'
+const isolatedE2e = process.env.FRONTEND_E2E_ISOLATED === '1'
+const proxyTarget = process.env.VITE_API_PROXY_TARGET || (isolatedE2e ? failClosedProxyTarget : 'http://localhost:8000')
+const codexProxyTarget = process.env.VITE_CODEX_PROXY_TARGET || (isolatedE2e ? failClosedProxyTarget : 'http://127.0.0.1:8172')
 
 function inDeps(id: string, segments: string[]) {
   return segments.some((segment) => id.includes(segment))
@@ -30,10 +33,20 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: Number(process.env.PORT || 5173),
+    strictPort: isolatedE2e,
     proxy: {
       '/api': {
         target: proxyTarget,
         changeOrigin: true,
+      },
+      '/codex': {
+        target: codexProxyTarget,
+        changeOrigin: true,
+        ws: true,
+        rewrite: (path) => path.replace(/^\/codex(?=\/|$)/, '') || '/',
+        headers: {
+          'X-Forwarded-Prefix': '/codex',
+        },
       },
     },
   },

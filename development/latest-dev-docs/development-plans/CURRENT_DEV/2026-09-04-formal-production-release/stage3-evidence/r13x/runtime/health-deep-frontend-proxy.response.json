@@ -1,0 +1,224 @@
+{
+  "authoritative": false,
+  "response": {
+    "database": "ok",
+    "database_pool": "ok",
+    "dependency_ping": {
+      "service_results": {
+        "api": {
+          "configured": true,
+          "host": null,
+          "missing_dependencies": [],
+          "mode": "docker",
+          "port": 8000,
+          "reachable": true,
+          "reason": "current_process",
+          "status": "ok"
+        },
+        "database": {
+          "configured": true,
+          "host": "db",
+          "latency_ms": 0.23,
+          "missing_dependencies": [],
+          "mode": "docker",
+          "port": 5432,
+          "reachable": true,
+          "status": "ok"
+        },
+        "elasticsearch": {
+          "configured": true,
+          "host": "es",
+          "latency_ms": 0.2,
+          "missing_dependencies": [],
+          "mode": "docker",
+          "port": 9200,
+          "reachable": true,
+          "status": "ok"
+        },
+        "frontend": {
+          "configured": true,
+          "host": null,
+          "missing_dependencies": [],
+          "mode": "local",
+          "port": 5173,
+          "reachable": null,
+          "reason": "not_a_backend_live_dependency",
+          "status": "hint"
+        },
+        "llm": {
+          "configured": false,
+          "host": null,
+          "missing_dependencies": [
+            "OPENAI_API_KEY"
+          ],
+          "mode": "unknown",
+          "port": null,
+          "reachable": false,
+          "status": "missing"
+        },
+        "redis": {
+          "configured": true,
+          "host": "redis",
+          "latency_ms": 0.15,
+          "missing_dependencies": [],
+          "mode": "docker",
+          "port": 6379,
+          "reachable": true,
+          "status": "ok"
+        }
+      },
+      "status": "missing_dependencies",
+      "timeout_seconds": 0.2
+    },
+    "details": {
+      "database_latency_ms": 0.39,
+      "database_pool": {
+        "checkedin": 1,
+        "checkedout": 0,
+        "overflow": -9,
+        "pool_class": "QueuePool",
+        "size": 10,
+        "status": "Pool size: 10  Connections in pool: 1 Current Overflow: -9 Current Checked out connections: 0"
+      },
+      "elasticsearch_latency_ms": 2.47
+    },
+    "elasticsearch": "ok",
+    "health_url": "/api/v1/health",
+    "missing_dependencies": [
+      "OPENAI_API_KEY"
+    ],
+    "mixed_environment": {
+      "detected": false,
+      "message": null,
+      "modes_by_service": {
+        "api": "docker",
+        "database": "docker",
+        "elasticsearch": "docker",
+        "frontend": "local",
+        "redis": "docker"
+      },
+      "runtime_mode": "docker"
+    },
+    "port_hints": {
+      "api": 8000,
+      "database": 5432,
+      "elasticsearch": 9200,
+      "frontend": 5173,
+      "redis": 6379
+    },
+    "runtime_mode": "docker",
+    "service_results": {
+      "api": {
+        "configured": true,
+        "host": null,
+        "missing_dependencies": [],
+        "mode": "docker",
+        "port": 8000,
+        "reachable": true,
+        "reason": "current_process",
+        "status": "ok"
+      },
+      "database": {
+        "configured": true,
+        "host": "db",
+        "latency_ms": 0.23,
+        "missing_dependencies": [],
+        "mode": "docker",
+        "port": 5432,
+        "reachable": true,
+        "status": "ok"
+      },
+      "elasticsearch": {
+        "configured": true,
+        "host": "es",
+        "latency_ms": 0.2,
+        "missing_dependencies": [],
+        "mode": "docker",
+        "port": 9200,
+        "reachable": true,
+        "status": "ok"
+      },
+      "frontend": {
+        "configured": true,
+        "host": null,
+        "missing_dependencies": [],
+        "mode": "local",
+        "port": 5173,
+        "reachable": null,
+        "reason": "not_a_backend_live_dependency",
+        "status": "hint"
+      },
+      "llm": {
+        "configured": false,
+        "host": null,
+        "missing_dependencies": [
+          "OPENAI_API_KEY"
+        ],
+        "mode": "unknown",
+        "port": null,
+        "reachable": false,
+        "status": "missing"
+      },
+      "redis": {
+        "configured": true,
+        "host": "redis",
+        "latency_ms": 0.15,
+        "missing_dependencies": [],
+        "mode": "docker",
+        "port": 6379,
+        "reachable": true,
+        "status": "ok"
+      }
+    },
+    "services": {
+      "api": {
+        "health_url": "/api/v1/health",
+        "missing_dependencies": [],
+        "mode": "docker",
+        "port_hint": 8000,
+        "status": "ok"
+      },
+      "database": {
+        "host": "db",
+        "missing_dependencies": [],
+        "mode": "docker",
+        "port_hint": 5432,
+        "status": "configured"
+      },
+      "elasticsearch": {
+        "health_url": "http://es:9200",
+        "host": "es",
+        "missing_dependencies": [],
+        "mode": "docker",
+        "port_hint": 9200,
+        "status": "configured"
+      },
+      "frontend": {
+        "health_url": "http://localhost:5173",
+        "missing_dependencies": [],
+        "mode": "local",
+        "port_hint": 5173,
+        "status": "hint"
+      },
+      "llm": {
+        "health_url": null,
+        "missing_dependencies": [
+          "OPENAI_API_KEY"
+        ],
+        "mode": "unknown",
+        "port_hint": null,
+        "provider": "openai",
+        "status": "missing"
+      },
+      "redis": {
+        "host": "redis",
+        "missing_dependencies": [],
+        "mode": "docker",
+        "port_hint": 6379,
+        "status": "configured"
+      }
+    },
+    "startup_contract_version": "runtime-startup.v1",
+    "status": "degraded"
+  }
+}

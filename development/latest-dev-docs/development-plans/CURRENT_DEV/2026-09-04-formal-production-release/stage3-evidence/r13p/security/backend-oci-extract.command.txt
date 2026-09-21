@@ -1,0 +1,1 @@
+tar -xf /Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13o/artifacts/canonical/backend.oci.tar -C /private/tmp/mrw-r13p-backend-oci.rEt7lZ 

@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any, Callable, TypeVar
+
+from functorial_kit import Failure
 
 from pydantic import Field, model_validator
 
@@ -13,6 +16,43 @@ from .assignments import (
     canonical_digest,
     require_digest,
 )
+from .failure_policy import raise_runtime_failure, runtime_failure
+
+_T = TypeVar("_T")
+
+
+def _claim_failure(
+    message: object,
+    *,
+    site: str,
+    exception_type: type[Exception] = ValueError,
+) -> Failure:
+    return runtime_failure(
+        "CLAIM_BINDING_INVALID",
+        message,
+        exception_type,
+        site=site,
+        context={"owner": "successor_runtime.runtime.claims", "operation": site},
+    )
+
+
+def _try_claim(call: Callable[[], _T], *, site: str) -> _T | Failure:
+    try:
+        return call()
+    except (TypeError, ValueError, OverflowError, KeyError, AttributeError) as exc:
+        return _claim_failure(str(exc), site=site, exception_type=type(exc))
+
+
+def raise_claim_failure(failure: Failure) -> None:
+    name = (failure.context or {}).get("public_exception")
+    exception_type = {
+        "TypeError": TypeError,
+        "ValueError": ValueError,
+        "OverflowError": OverflowError,
+        "KeyError": KeyError,
+        "AttributeError": AttributeError,
+    }.get(name, ValueError)
+    raise_runtime_failure(failure, exception_type)
 
 
 def derive_attempt_id(
@@ -31,6 +71,7 @@ def derive_attempt_id(
     require_digest(authorization_digest, "authorization_digest")
     require_digest(handler_realization_digest, "handler_realization_digest")
     if handler_realization_digest != assignment.handler_binding_digest:
+        # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
         raise ValueError("handler realization does not match assignment binding")
     parts: tuple[object, ...] = (
         assignment.project_key,
@@ -72,11 +113,14 @@ class ClaimBinding(FrozenContract):
         if (self.execution_reservation_ref is None) != (
             self.execution_reservation_digest is None
         ):
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
             raise ValueError("execution reservation ref and digest are an exact pair")
         if self.handler_binding_digest != self.handler_realization_digest:
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
             raise ValueError("claim handler realization differs from handler binding")
         expected = canonical_digest(self, exclude_fields={"binding_digest"})
         if self.binding_digest != expected:
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
             raise ValueError("binding_digest does not match canonical claim content")
         return self
 
@@ -129,14 +173,19 @@ class ClaimBinding(FrozenContract):
 
     def validate_against(self, assignment: RuntimeAssignment) -> None:
         if self.work_item_id != assignment.work_item_id:
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
             raise ClaimBindingMismatch("work item identity drift")
         if self.assignment_digest != assignment.assignment_digest:
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
             raise ClaimBindingMismatch("assignment content drift")
         if self.handler_binding_digest != assignment.handler_binding_digest:
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
             raise ClaimBindingMismatch("handler binding drift")
         if self.handler_realization_digest != assignment.handler_binding_digest:
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
             raise ClaimBindingMismatch("handler realization drift")
         if self.claim_authority_epoch != assignment.claim_authority_epoch:
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
             raise ClaimBindingMismatch("claim authority epoch drift")
         expected_attempt = derive_attempt_id(
             assignment,
@@ -144,8 +193,47 @@ class ClaimBinding(FrozenContract):
             handler_realization_digest=self.handler_realization_digest,
         )
         if self.attempt_id != expected_attempt:
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
             raise ClaimBindingMismatch("attempt identity drift")
 
 
 class ClaimBindingMismatch(ValueError):
     """Fail-closed mismatch between a live claim and its canonical assignment."""
+
+
+def try_derive_attempt_id(
+    assignment: RuntimeAssignment,
+    *,
+    authorization_digest: str,
+    handler_realization_digest: str,
+) -> str | Failure:
+    return _try_claim(
+        lambda: derive_attempt_id(
+            assignment,
+            authorization_digest=authorization_digest,
+            handler_realization_digest=handler_realization_digest,
+        ),
+        site="claims.derive_attempt_id",
+    )
+
+
+def try_claim_binding(**content: Any) -> ClaimBinding | Failure:
+    return _try_claim(
+        lambda: ClaimBinding(**content), site="claims.claim_binding"
+    )
+
+
+def try_bind_claim(
+    assignment: RuntimeAssignment, **content: Any
+) -> ClaimBinding | Failure:
+    return _try_claim(
+        lambda: ClaimBinding.bind(assignment, **content), site="claims.bind_claim"
+    )
+
+
+def try_validate_claim_binding(
+    claim: ClaimBinding, assignment: RuntimeAssignment
+) -> None | Failure:
+    return _try_claim(
+        lambda: claim.validate_against(assignment), site="claims.validate_against"
+    )

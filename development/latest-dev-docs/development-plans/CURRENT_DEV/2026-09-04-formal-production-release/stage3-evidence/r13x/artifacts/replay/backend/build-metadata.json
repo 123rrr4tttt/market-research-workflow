@@ -1,0 +1,57 @@
+{
+  "buildx.build.provenance": {
+    "builder": {
+      "id": ""
+    },
+    "buildType": "https://mobyproject.org/buildkit@v1",
+    "materials": [
+      {
+        "uri": "pkg:docker/python@3.11-alpine3.23?digest=sha256:6f7ffcbabc08539252eacc4b5f5982dc83f71ce53dff009c29f91ab4f8dd0ecf\u0026platform=linux%2Famd64",
+        "digest": {
+          "sha256": "6f7ffcbabc08539252eacc4b5f5982dc83f71ce53dff009c29f91ab4f8dd0ecf"
+        }
+      }
+    ],
+    "invocation": {
+      "configSource": {
+        "entryPoint": "Dockerfile"
+      },
+      "parameters": {
+        "frontend": "dockerfile.v0",
+        "args": {
+          "build-arg:SOURCE_DATE_EPOCH": "0",
+          "no-cache": "",
+          "target": "backend-runtime"
+        },
+        "locals": [
+          {
+            "name": "context"
+          },
+          {
+            "name": "dockerfile"
+          }
+        ]
+      },
+      "environment": {
+        "dockerfileVersion": "1.26.0",
+        "platform": "linux/arm64"
+      }
+    }
+  },
+  "buildx.build.ref": "mrw-r13x-replay-amd64/mrw-r13x-replay-amd640/ik22921bc0czyy8zjs9n8u1bq",
+  "containerimage.config.digest": "sha256:ddaecbbd6190d8673c52990ee9eab4b75539c69a4168fb543ec99e2ae436ce38",
+  "containerimage.descriptor": {
+    "mediaType": "application/vnd.oci.image.manifest.v1+json",
+    "digest": "sha256:dd4b1f3b512da6d013feb7f5925f343e5a639263b037d5a81445bfa2f8c93c0b",
+    "size": 4246,
+    "annotations": {
+      "org.opencontainers.image.created": "1970-01-01T00:00:00Z"
+    },
+    "platform": {
+      "architecture": "amd64",
+      "os": "linux"
+    }
+  },
+  "containerimage.digest": "sha256:dd4b1f3b512da6d013feb7f5925f343e5a639263b037d5a81445bfa2f8c93c0b",
+  "image.name": "docker.io/mrw-local/r13x-replay-backend:8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2"
+}

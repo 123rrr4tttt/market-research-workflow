@@ -7,6 +7,10 @@ import threading
 import time
 from typing import Any
 
+from mrw_functorial_kit.core.agent_service_semantics import agent_batch_failures
+
+from .task_contract import _raise_legacy_agent_batch_failure
+
 
 _LOCK = threading.RLock()
 _PENDING: dict[str, dict[str, Any]] = {}
@@ -74,16 +78,22 @@ def request_approval(*, binding: dict[str, Any], ttl_seconds: int = 600) -> dict
 def approve_approval(*, approval_token: str) -> dict[str, Any]:
     token = str(approval_token or "").strip()
     if not token:
-        raise ValueError("approval_token is required")
+        _raise_legacy_agent_batch_failure(
+            agent_batch_failures.fail("approval_token_required", "approval_token is required", {"approval_token": token})
+        )
     now = int(time.time())
     with _LOCK:
         payload = _PENDING.get(token)
         if not payload:
             payload = _APPROVED.get(token)
         if not payload:
-            raise KeyError(REASON_APPROVAL_NOT_FOUND)
+            _raise_legacy_agent_batch_failure(
+                agent_batch_failures.fail("approval_not_found", REASON_APPROVAL_NOT_FOUND, {"approval_token": token})
+            )
         if int(payload.get("expires_at") or 0) < now:
-            raise ValueError(REASON_APPROVAL_EXPIRED)
+            _raise_legacy_agent_batch_failure(
+                agent_batch_failures.fail("approval_expired", REASON_APPROVAL_EXPIRED, {"approval_token": token})
+            )
         payload["approved"] = True
         payload["approved_at"] = now
         _APPROVED[token] = payload
@@ -123,4 +133,3 @@ def cleanup_expired() -> None:
             expired = [k for k, v in store.items() if int(v.get("expires_at") or 0) < now]
             for key in expired:
                 store.pop(key, None)
-

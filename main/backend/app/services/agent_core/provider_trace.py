@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import Counter
 import hashlib
 import json
-from typing import Any, Mapping
+from typing import Annotated, Any, Mapping
 
 from .contracts import (
     AGENT_CORE_TOOL_CALL_CONTRACT_VERSION,
@@ -43,7 +43,11 @@ _SENSITIVE_TOOL_QUERY = (
 )
 
 
-def build_agent_core_provider_trace_readback_contract() -> dict[str, Any]:
+def build_agent_core_provider_trace_readback_contract() -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=provider_trace_contract_constants "
+    "witness=test:test_w02_agent_authority_metadata"
+]:
     """Build a deterministic provider-trace readback for the AgentCore live gap.
 
     This checker intentionally uses the fake provider only. It proves that the

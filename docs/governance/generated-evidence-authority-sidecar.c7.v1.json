@@ -1,0 +1,81 @@
+{
+  "schema": "mrw.governance.generated_evidence_authority_sidecar.c7.v1",
+  "sidecar_id": "c7.generated-evidence-authority-sidecar.v1",
+  "mutability": "immutable",
+  "derived_as": "view",
+  "domain_authoritative": false,
+  "artifact_identity_authoritative": true,
+  "authority_direction": "frozen inputs -> generated evidence",
+  "authority": {
+    "reverse_write": false,
+    "promotion": false,
+    "candidate_claim": false
+  },
+  "authority_ceiling": {
+    "canonical_write": false,
+    "live_provider": false,
+    "external_delivery": false,
+    "cutover": false,
+    "authority_transfer": false
+  },
+  "bindings": [
+    {
+      "kind": "current_c7_family_fragment",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p4-fragments/C7.json",
+      "external_sha256": "d3a7aaf1916d2a01c1ed6e7004a06d6cd6ed24840a7403fd10e2ffdc53559a83",
+      "internal_digest": {
+        "field": "content_digest",
+        "algorithm": "sha256:canonical-json-excluding-content-digest",
+        "value": "aae195bcb652ea0ae075c13a22886fd227617e41926fced3faa69b94fbb86388"
+      }
+    },
+    {
+      "kind": "capability_spec_build_manifest",
+      "cell_id": "C7.1",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C7.1.BuildManifest.v1.json",
+      "external_sha256": "87ef60432176edc6aa137a269e75af7547010dbf89375a447d5c07b0e1c2e181",
+      "internal_digest": {
+        "field": "artifact_identity.artifact_digest",
+        "algorithm": "capability-spec-compiler-artifact-identity",
+        "value": "dd8e1f1bfeca442954bcdb5c673f6ad7618946bbf25e434b0d10967a25f4bae8",
+        "generated_payload_digest": "01e66301948bb10afa43d288c246b281d33622a0852d37c31f2ff1ec89eb8986"
+      }
+    },
+    {
+      "kind": "capability_spec_build_manifest",
+      "cell_id": "C7.2",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C7.2.BuildManifest.v1.json",
+      "external_sha256": "55c7fc65e396a4ff1382f51fde1ada5095d1333d0eec2113e65c497214bb5969",
+      "internal_digest": {
+        "field": "artifact_identity.artifact_digest",
+        "algorithm": "capability-spec-compiler-artifact-identity",
+        "value": "ed4acea903f37c1b9caa70bf7a7457b6aa6a95b387c37eb4a71abb8084974920",
+        "generated_payload_digest": "1cab9801c6b722bf74b658b65196a32057c79ef35bd4a52b7939cf5f04107306"
+      }
+    },
+    {
+      "kind": "capability_spec_build_manifest",
+      "cell_id": "C7.3",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C7.3.BuildManifest.v1.json",
+      "external_sha256": "ac111f737be10bd6139987e46018abab913d7aa6b4a605299cf8c667c566b14c",
+      "internal_digest": {
+        "field": "artifact_identity.artifact_digest",
+        "algorithm": "capability-spec-compiler-artifact-identity",
+        "value": "4b7a33bc7f128b61beb09e4bac1c3461e0c499e4736ab5d5e4d119c91446f84a",
+        "generated_payload_digest": "66d5198e7eced19c8a5325027bbb7678c39af3c5681d1e6cbd098d4ab6525fc7"
+      }
+    },
+    {
+      "kind": "capability_spec_build_manifest",
+      "cell_id": "C7.4",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C7.4.BuildManifest.v1.json",
+      "external_sha256": "d0cf0ca659d147e698d92d7efd5250087f99291aff4746ae43a46f253c4f33ad",
+      "internal_digest": {
+        "field": "artifact_identity.artifact_digest",
+        "algorithm": "capability-spec-compiler-artifact-identity",
+        "value": "e922fd82ff772fbb07d39b0444aa72c484e5d2aa2f9d46d04bc010a4de1456c3",
+        "generated_payload_digest": "8f0fcc2f7e050e9ab1da46c1c160a958d0e7e16b02e8b2f39392593a317ead39"
+      }
+    }
+  ]
+}

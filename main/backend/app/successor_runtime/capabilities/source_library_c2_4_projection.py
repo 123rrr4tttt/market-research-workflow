@@ -10,7 +10,7 @@ for successor sources, and no raw payload bytes are copied into the outputs.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Literal, TypeAlias
+from typing import Annotated, Any, Literal, TypeAlias
 
 from app.successor_runtime.capabilities import source_library_c2_shared as c2_shared
 from app.successor_runtime.capabilities.checksum import (
@@ -84,6 +84,13 @@ C2_4_FAILURE_CODES: frozenset[str] = frozenset(
 )
 
 
+def _raise_projection_contract(message: str) -> None:
+    """Lift retained DTO validation ``ValueError``s at one ABI boundary."""
+
+    # kit:boundary owner=source_library.c2_4.v1 class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w06_c2_total_core_failure_lifts
+    raise ValueError(message)
+
+
 @dataclass(frozen=True, slots=True)
 class SourceCollectionProjectionSource:
     """One admitted runtime-journal closure for terminal projection."""
@@ -107,23 +114,25 @@ class SourceCollectionProjectionSource:
 
     def __post_init__(self) -> None:
         if self.source_kind != "RUNTIME_JOURNAL":
-            raise ValueError(
+            _raise_projection_contract(
                 "SourceCollectionProjectionSource.source_kind must be RUNTIME_JOURNAL"
             )
         if self.schema_version != SOURCE_COLLECTION_PROJECTION_SOURCE_SCHEMA:
-            raise ValueError(
+            _raise_projection_contract(
                 "SourceCollectionProjectionSource.schema_version is not frozen"
             )
         if not self.run_id.strip() or not self.run_incarnation.strip():
-            raise ValueError(
+            _raise_projection_contract(
                 "SourceCollectionProjectionSource run identity is required"
             )
         if self.source_ref != f"runtime-run:{self.run_id}":
-            raise ValueError(
+            _raise_projection_contract(
                 "SourceCollectionProjectionSource.source_ref does not bind run_id"
             )
         if self.source_mode not in ALLOWED_SOURCE_MODES:
-            raise ValueError(f"unsupported observed source_mode {self.source_mode!r}")
+            _raise_projection_contract(
+                f"unsupported observed source_mode {self.source_mode!r}"
+            )
         require_hex64(
             self.project_scope_digest,
             "SourceCollectionProjectionSource.project_scope_digest",
@@ -137,7 +146,7 @@ class SourceCollectionProjectionSource:
                 "SourceCollectionProjectionSource.source_digest",
             )
             if self.source_digest != expected:
-                raise ValueError(
+                _raise_projection_contract(
                     "SourceCollectionProjectionSource.source_digest does not match closure"
                 )
 
@@ -333,7 +342,7 @@ class SourceLibraryTerminalOutputV2:
                 "SourceLibraryTerminalOutputV2.projection_digest",
             )
             if self.projection_digest != expected:
-                raise ValueError(
+                _raise_projection_contract(
                     "SourceLibraryTerminalOutputV2.projection_digest does not match"
                 )
 
@@ -381,7 +390,7 @@ class SourceLibraryCompatProjection:
                 self.compat_digest, "SourceLibraryCompatProjection.compat_digest"
             )
             if self.compat_digest != expected:
-                raise ValueError(
+                _raise_projection_contract(
                     "SourceLibraryCompatProjection.compat_digest does not match"
                 )
 
@@ -428,7 +437,7 @@ class SourceLibrarySummaryProjection:
                 "SourceLibrarySummaryProjection.projection_digest",
             )
             if self.projection_digest != expected:
-                raise ValueError(
+                _raise_projection_contract(
                     "SourceLibrarySummaryProjection.projection_digest does not match"
                 )
 
@@ -500,15 +509,23 @@ def project_source_collection(
 ) -> ProjectionResult:
     """Project one admitted journal closure into terminal/compat/summary."""
 
-    if source.schema_version != SOURCE_COLLECTION_PROJECTION_SOURCE_SCHEMA:
-        return ProjectionRejected(
-            code="UNSUPPORTED_VERSION",
-            message=f"unsupported projection source schema {source.schema_version!r}",
-        )
-    if source.source_mode not in ALLOWED_SOURCE_MODES:
+    try:
+        schema_version = source.schema_version
+        source_mode = source.source_mode
+    except (TypeError, ValueError, AttributeError) as exc:
         return ProjectionRejected(
             code="MALFORMED_OBSERVATION",
-            message=f"source mode {source.source_mode!r} is not an observed mode",
+            message=f"projection source shape is invalid: {exc}",
+        )
+    if schema_version != SOURCE_COLLECTION_PROJECTION_SOURCE_SCHEMA:
+        return ProjectionRejected(
+            code="UNSUPPORTED_VERSION",
+            message=f"unsupported projection source schema {schema_version!r}",
+        )
+    if source_mode not in ALLOWED_SOURCE_MODES:
+        return ProjectionRejected(
+            code="MALFORMED_OBSERVATION",
+            message=f"source mode {source_mode!r} is not an observed mode",
         )
     try:
         outcome = source.collection_outcome
@@ -749,7 +766,7 @@ def _observation_profile() -> ObservationProfile:
     return ObservationProfile(**values, profile_digest=content_digest(values))
 
 
-def build_source_library_c2_4_profiles() -> dict[str, object]:
+def build_source_library_c2_4_profiles() -> Annotated[dict[str, object], Literal["kit:non-authoritative derived_as=view fact_source=C2.4_profile_constants witness=test:test_w06_successor_authority_metadata"]]:
     return {
         "semantic": _semantic_profile(),
         "effect": _effect_profile(),

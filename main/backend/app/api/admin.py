@@ -268,6 +268,7 @@ class SocialDataListRequest(BaseModel):
 
 class DeleteDocumentsRequest(BaseModel):
     ids: List[int]
+    preview: bool = Field(default=False, description="仅预览影响范围，不执行删除")
 
 
 def _deep_merge_json(base: Any, incoming: Any) -> Any:
@@ -282,13 +283,445 @@ def _deep_merge_json(base: Any, incoming: Any) -> Any:
     return incoming
 
 
+def _build_document_delete_preview(docs: list[Document], requested_ids: list[int]) -> dict[str, Any]:
+    found_ids = {int(doc.id) for doc in docs if getattr(doc, "id", None) is not None}
+    missing_ids = [int(doc_id) for doc_id in requested_ids if int(doc_id) not in found_ids]
+    risk_tags = ["destructive_write", "bulk_delete"]
+    if len(docs) >= 10:
+        risk_tags.append("large_batch")
+    if missing_ids:
+        risk_tags.append("missing_ids")
+
+    samples = []
+    for doc in docs[:5]:
+        samples.append(
+            {
+                "id": doc.id,
+                "title": doc.title,
+                "doc_type": doc.doc_type,
+                "state": doc.state,
+                "uri": getattr(doc, "uri", None),
+                "source_id": getattr(doc, "source_id", None),
+                "has_extracted_data": doc.extracted_data is not None,
+            }
+        )
+
+    evidence = _build_admin_preview_evidence(
+        action="documents.delete",
+        docs=docs,
+        requested_ids=requested_ids,
+        missing_ids=missing_ids,
+        risk_tags=risk_tags,
+        filters={"ids": [int(doc_id) for doc_id in requested_ids]},
+    )
+
+    return {
+        "preview": True,
+        "action": "documents.delete",
+        "action_kind": "documents.delete",
+        "would_affect_count": len(docs),
+        "samples": samples,
+        "risk_tags": risk_tags,
+        "risk_labels": risk_tags,
+        "requires_confirmation": bool(docs),
+        "requested": len(requested_ids),
+        "missing": missing_ids,
+        **evidence,
+    }
+
+
 class ReExtractRequest(BaseModel):
     doc_ids: Optional[List[int]] = None  # 如果为空，则提取所有政策文档
+    preview: bool = Field(default=False, description="仅预览影响范围，不执行重抽取")
     force: bool = Field(default=False, description="是否强制重新提取已有数据的文档")
     fetch_missing_content: bool = Field(default=False, description="content为空时，尝试抓取正文后再提取")
     batch_size: int = Field(default=20, ge=1, le=200, description="分批提交大小（降低长事务）")
     limit: Optional[int] = Field(default=None, ge=1, le=5000, description="最多处理文档数")
     treat_empty_er_as_missing: bool = Field(default=True, description="entities_relations存在但实体/关系为空时仍视为缺失")
+
+
+def _build_document_preview_samples(docs: list[Document]) -> list[dict[str, Any]]:
+    samples: list[dict[str, Any]] = []
+    for doc in docs[:5]:
+        content = getattr(doc, "content", None)
+        samples.append(
+            {
+                "id": getattr(doc, "id", None),
+                "title": getattr(doc, "title", None),
+                "doc_type": getattr(doc, "doc_type", None),
+                "state": getattr(doc, "state", None),
+                "uri": getattr(doc, "uri", None),
+                "source_id": getattr(doc, "source_id", None),
+                "has_content": bool(str(content or "").strip()),
+                "has_extracted_data": getattr(doc, "extracted_data", None) is not None,
+            }
+        )
+    return samples
+
+
+def _admin_preview_doc_ref(doc: Document, *, action: str) -> dict[str, Any]:
+    doc_id = getattr(doc, "id", None)
+    return {
+        "id": f"admin.preview.{action}.document:{doc_id}",
+        "kind": "document_record",
+        "table": "documents",
+        "document_id": doc_id,
+        "title": getattr(doc, "title", None),
+        "doc_type": getattr(doc, "doc_type", None),
+        "state": getattr(doc, "state", None),
+        "uri": getattr(doc, "uri", None),
+        "source_id": getattr(doc, "source_id", None),
+        "columns": ["id", "title", "doc_type", "state", "uri", "source_id", "extracted_data"],
+    }
+
+
+def _build_admin_preview_evidence(
+    *,
+    action: str,
+    docs: list[Document],
+    requested_ids: list[int],
+    missing_ids: list[int],
+    risk_tags: list[str],
+    filters: dict[str, Any],
+) -> dict[str, Any]:
+    source_refs = [_admin_preview_doc_ref(doc, action=action) for doc in docs[:20]]
+    source_query = {
+        "scope": "admin.preview",
+        "action": action,
+        "table": "documents",
+        "filters": filters,
+        "selection": {
+            "requested_ids": [int(doc_id) for doc_id in requested_ids],
+            "requested_count": len(requested_ids),
+            "matched_count": len(docs),
+            "missing_ids": [int(doc_id) for doc_id in missing_ids],
+            "missing_count": len(missing_ids),
+        },
+    }
+    trace_chain = [
+        {
+            "stage": "admin.preview.request",
+            "status": "received",
+            "action": action,
+            "requested_count": len(requested_ids),
+        },
+        {
+            "stage": "admin.preview.selection",
+            "status": "matched" if docs else "empty",
+            "matched_count": len(docs),
+            "missing_count": len(missing_ids),
+        },
+        {
+            "stage": "admin.preview.confirmation",
+            "status": "required" if docs else "not_required",
+            "requires_confirmation": bool(docs),
+            "risk_tags": list(risk_tags),
+        },
+    ]
+    evidence_preview = {
+        "preview": True,
+        "evidence_kind": "document_selection",
+        "source": "admin_preview",
+        "documents_matched": len(docs),
+        "documents_sampled": len(source_refs),
+        "missing_ids": [int(doc_id) for doc_id in missing_ids],
+        "source_ref_ids": [str(ref["id"]) for ref in source_refs],
+        "fields_are_predicted": False,
+        "execution_result_available": False,
+    }
+    return {
+        "source_query": source_query,
+        "source_refs": source_refs,
+        "trace_chain": trace_chain,
+        "evidence_preview": evidence_preview,
+    }
+
+
+def _admin_doc_value(doc: Any, field: str, default: Any = None) -> Any:
+    if isinstance(doc, dict):
+        return doc.get(field, default)
+    return getattr(doc, field, default)
+
+
+def _snapshot_admin_docs(docs: list[Any]) -> list[dict[str, Any]]:
+    return [
+        {
+            "id": _admin_doc_value(doc, "id"),
+            "title": _admin_doc_value(doc, "title"),
+            "doc_type": _admin_doc_value(doc, "doc_type"),
+            "state": _admin_doc_value(doc, "state"),
+            "uri": _admin_doc_value(doc, "uri"),
+            "source_id": _admin_doc_value(doc, "source_id"),
+        }
+        for doc in docs
+    ]
+
+
+def _admin_after_action_doc_ref(doc: Any, *, action: str) -> dict[str, Any]:
+    doc_id = _admin_doc_value(doc, "id")
+    return {
+        "id": f"admin.after_action.{action}.document:{doc_id}",
+        "kind": "document_record",
+        "table": "documents",
+        "document_id": doc_id,
+        "title": _admin_doc_value(doc, "title"),
+        "doc_type": _admin_doc_value(doc, "doc_type"),
+        "state": _admin_doc_value(doc, "state"),
+        "uri": _admin_doc_value(doc, "uri"),
+        "source_id": _admin_doc_value(doc, "source_id"),
+        "columns": ["id", "title", "doc_type", "state", "uri", "source_id", "extracted_data"],
+    }
+
+
+def _admin_response_project_key() -> str:
+    from ..settings.config import settings
+
+    return str(settings.active_project_key or "default")
+
+
+def _admin_response_trace_id(
+    *,
+    action_kind: str,
+    project_key: str,
+    requested_ids: list[int],
+    affected_count: int,
+    missing_ids: list[int],
+    skipped_count: int,
+    status: str,
+) -> str:
+    seed = {
+        "action_kind": action_kind,
+        "project_key": project_key,
+        "requested_ids": [int(doc_id) for doc_id in requested_ids],
+        "affected_count": int(affected_count),
+        "missing_ids": [int(doc_id) for doc_id in missing_ids],
+        "skipped_count": int(skipped_count),
+        "status": status,
+    }
+    digest = hashlib.sha256(str(seed).encode("utf-8")).hexdigest()[:20]
+    return f"admin-response-readback-{digest}"
+
+
+def _build_admin_after_action_evidence(
+    *,
+    action: str,
+    docs: list[Any],
+    requested_ids: list[int],
+    missing_ids: list[int],
+    affected_count: int,
+    skipped_count: int,
+    status: str,
+    filters: dict[str, Any],
+    rollback_hint: str,
+    execution_summary: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    project_key = _admin_response_project_key()
+    executed_at = datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+    normalized_requested_ids = [int(doc_id) for doc_id in requested_ids]
+    normalized_missing_ids = [int(doc_id) for doc_id in missing_ids]
+    trace_id = _admin_response_trace_id(
+        action_kind=action,
+        project_key=project_key,
+        requested_ids=normalized_requested_ids,
+        affected_count=affected_count,
+        missing_ids=normalized_missing_ids,
+        skipped_count=skipped_count,
+        status=status,
+    )
+    source_refs = [_admin_after_action_doc_ref(doc, action=action) for doc in docs[:20]]
+    source_query = {
+        "scope": "admin.after_action.response_readback",
+        "action": action,
+        "table": "documents",
+        "filters": filters,
+        "selection": {
+            "requested_ids": normalized_requested_ids,
+            "requested_count": len(normalized_requested_ids),
+            "matched_count": len(docs),
+            "affected_count": int(affected_count),
+            "missing_ids": normalized_missing_ids,
+            "missing_count": len(normalized_missing_ids),
+            "skipped_count": int(skipped_count),
+        },
+    }
+    audit_event = {
+        "contract_version": "admin.mutation.response_audit_readback.v1",
+        "audit_scope": "response_level_only",
+        "persistence": "not_persisted",
+        "trace_id": trace_id,
+        "action_kind": action,
+        "project_key": project_key,
+        "requested_count": len(normalized_requested_ids),
+        "affected_count": int(affected_count),
+        "executed_at": executed_at,
+        "status": status,
+    }
+    execution_result = {
+        "execution_result_available": True,
+        "trace_id": trace_id,
+        "action_kind": action,
+        "status": status,
+        "affected_count": int(affected_count),
+        "requested_count": len(normalized_requested_ids),
+        "matched_count": len(docs),
+        "missing_ids": normalized_missing_ids,
+        "missing_count": len(normalized_missing_ids),
+        "skipped_count": int(skipped_count),
+    }
+    if execution_summary:
+        execution_result.update(execution_summary)
+
+    trace_chain = [
+        {
+            "stage": "admin.after_action.request",
+            "status": "received",
+            "action": action,
+            "trace_id": trace_id,
+            "requested_count": len(normalized_requested_ids),
+        },
+        {
+            "stage": "admin.after_action.selection",
+            "status": "matched" if docs else "empty",
+            "trace_id": trace_id,
+            "matched_count": len(docs),
+            "missing_count": len(normalized_missing_ids),
+        },
+        {
+            "stage": "admin.after_action.mutation",
+            "status": status,
+            "trace_id": trace_id,
+            "affected_count": int(affected_count),
+            "skipped_count": int(skipped_count),
+        },
+        {
+            "stage": "admin.after_action.response_readback",
+            "status": "available",
+            "trace_id": trace_id,
+            "execution_result_available": True,
+        },
+    ]
+    response_level_audit_readback = {
+        "contract_version": "admin.mutation.response_audit_readback.v1",
+        "scope": "response_level_only",
+        "persistence": "not_persisted",
+        "audit_event": audit_event,
+        "source_ref_ids": [str(ref["id"]) for ref in source_refs],
+    }
+    return {
+        "action_kind": action,
+        "audit_event": audit_event,
+        "audit_trail": [audit_event],
+        "response_level_audit_readback": response_level_audit_readback,
+        "execution_result": execution_result,
+        "source_query": source_query,
+        "source_refs": source_refs,
+        "trace_chain": trace_chain,
+        "rollback_hint": rollback_hint,
+        "rollback_recommendation": rollback_hint,
+    }
+
+
+def _build_bulk_extracted_data_preview(
+    docs: list[Document],
+    *,
+    payload: "BulkUpdateExtractedDataRequest",
+    missing: list[int],
+) -> dict[str, Any]:
+    risk_tags = ["bulk_write", "extracted_data_update"]
+    if payload.mode == "replace":
+        risk_tags.append("replace_write")
+    if payload.mode == "merge":
+        risk_tags.append("merge_write")
+    if payload.extracted_data is None:
+        risk_tags.append("clears_extracted_data")
+    if len(docs) >= 10:
+        risk_tags.append("large_batch")
+    if missing:
+        risk_tags.append("missing_ids")
+
+    evidence = _build_admin_preview_evidence(
+        action="documents.bulk_extracted_data",
+        docs=docs,
+        requested_ids=payload.doc_ids,
+        missing_ids=missing,
+        risk_tags=risk_tags,
+        filters={
+            "doc_ids": [int(doc_id) for doc_id in payload.doc_ids],
+            "mode": payload.mode,
+            "clears_extracted_data": payload.extracted_data is None,
+        },
+    )
+
+    return {
+        "preview": True,
+        "action": "documents.bulk_extracted_data",
+        "action_kind": "documents.bulk_extracted_data",
+        "would_affect_count": len(docs),
+        "samples": _build_document_preview_samples(docs),
+        "risk_tags": risk_tags,
+        "risk_labels": risk_tags,
+        "requires_confirmation": bool(docs),
+        "requested": len(payload.doc_ids),
+        "missing": missing,
+        "mode": payload.mode,
+        "clears_extracted_data": payload.extracted_data is None,
+        **evidence,
+    }
+
+
+def _build_reextract_preview(docs: list[Document], payload: ReExtractRequest) -> dict[str, Any]:
+    risk_tags = ["bulk_reextract", "extraction_rerun"]
+    if payload.force:
+        risk_tags.append("force_overwrite")
+    if payload.fetch_missing_content:
+        risk_tags.append("may_fetch_missing_content")
+    if not payload.doc_ids:
+        risk_tags.append("implicit_document_selection")
+    if len(docs) >= 10:
+        risk_tags.append("large_batch")
+
+    missing_ids: list[int] = []
+    if payload.doc_ids:
+        found_ids = {int(doc.id) for doc in docs if getattr(doc, "id", None) is not None}
+        missing_ids = [int(doc_id) for doc_id in payload.doc_ids if int(doc_id) not in found_ids]
+        if missing_ids:
+            risk_tags.append("missing_ids")
+
+    evidence = _build_admin_preview_evidence(
+        action="documents.re_extract",
+        docs=docs,
+        requested_ids=payload.doc_ids or [],
+        missing_ids=missing_ids,
+        risk_tags=risk_tags,
+        filters={
+            "doc_ids": payload.doc_ids,
+            "force": bool(payload.force),
+            "fetch_missing_content": bool(payload.fetch_missing_content),
+            "limit": payload.limit,
+            "treat_empty_er_as_missing": bool(payload.treat_empty_er_as_missing),
+        },
+    )
+
+    return {
+        "preview": True,
+        "action": "documents.re_extract",
+        "action_kind": "documents.re_extract",
+        "would_affect_count": len(docs),
+        "samples": _build_document_preview_samples(docs),
+        "risk_tags": risk_tags,
+        "risk_labels": risk_tags,
+        "requires_confirmation": bool(docs),
+        "requested": len(payload.doc_ids or []),
+        "missing": missing_ids,
+        "selection": {
+            "doc_ids": payload.doc_ids,
+            "force": bool(payload.force),
+            "fetch_missing_content": bool(payload.fetch_missing_content),
+            "limit": payload.limit,
+            "treat_empty_er_as_missing": bool(payload.treat_empty_er_as_missing),
+        },
+        **evidence,
+    }
 
 
 def _build_reextract_plan(doc_type: str) -> dict[str, Any]:
@@ -1104,6 +1537,7 @@ class UpdateExtractedDataRequest(BaseModel):
 
 class BulkUpdateExtractedDataRequest(BaseModel):
     doc_ids: List[int] = Field(..., description="要更新的文档ID列表")
+    preview: bool = Field(default=False, description="仅预览影响范围，不执行写入")
     mode: Literal["replace", "merge"] = Field(default="replace", description="replace: 全量替换；merge: 递归合并(对象)")
     extracted_data: Any = Field(default=None, description="要写入的 JSON 值；null 表示清空 extracted_data")
 
@@ -1153,6 +1587,10 @@ def bulk_update_document_extracted_data(payload: BulkUpdateExtractedDataRequest)
         found_ids = {d.id for d in docs}
         missing = [i for i in payload.doc_ids if i not in found_ids]
 
+        if payload.preview:
+            return success_response(_build_bulk_extracted_data_preview(docs, payload=payload, missing=missing))
+
+        readback_docs = _snapshot_admin_docs(docs)
         for doc in docs:
             try:
                 if payload.extracted_data is None:
@@ -1174,6 +1612,33 @@ def bulk_update_document_extracted_data(payload: BulkUpdateExtractedDataRequest)
 
         session.commit()
 
+    status = "completed"
+    if skipped or errors or missing:
+        status = "completed_with_skips"
+    evidence = _build_admin_after_action_evidence(
+        action="documents.bulk_extracted_data",
+        docs=readback_docs,
+        requested_ids=payload.doc_ids,
+        missing_ids=missing,
+        affected_count=updated,
+        skipped_count=skipped,
+        status=status,
+        filters={
+            "doc_ids": [int(doc_id) for doc_id in payload.doc_ids],
+            "mode": payload.mode,
+            "clears_extracted_data": payload.extracted_data is None,
+        },
+        rollback_hint=(
+            "Response-level readback only: no automatic rollback is available for bulk extracted_data writes. "
+            "Restore previous extracted_data values from a backup/export or rerun the write with known prior JSON."
+        ),
+        execution_summary={
+            "updated_count": updated,
+            "errors": errors,
+            "mode": payload.mode,
+            "clears_extracted_data": payload.extracted_data is None,
+        },
+    )
     return success_response(
         {
             "requested": len(payload.doc_ids),
@@ -1181,6 +1646,7 @@ def bulk_update_document_extracted_data(payload: BulkUpdateExtractedDataRequest)
             "skipped": skipped,
             "missing": missing,
             "errors": errors,
+            **evidence,
         }
     )
 
@@ -1188,17 +1654,45 @@ def bulk_update_document_extracted_data(payload: BulkUpdateExtractedDataRequest)
 def delete_documents(payload: DeleteDocumentsRequest):
     """删除文档"""
     with SessionLocal() as session:
+        docs = (
+            session.execute(select(Document).where(Document.id.in_(payload.ids)))
+            .scalars()
+            .all()
+        )
+        found_ids = {int(doc.id) for doc in docs if getattr(doc, "id", None) is not None}
+        missing = [int(doc_id) for doc_id in payload.ids if int(doc_id) not in found_ids]
+        if payload.preview:
+            return success_response(_build_document_delete_preview(docs, payload.ids))
+
+        readback_docs = _snapshot_admin_docs(docs)
         deleted = 0
-        for doc_id in payload.ids:
-            doc = session.execute(
-                select(Document).where(Document.id == doc_id)
-            ).scalar_one_or_none()
-            if doc:
-                session.delete(doc)
-                deleted += 1
+        for doc in docs:
+            session.delete(doc)
+            deleted += 1
         
         session.commit()
-        return success_response({"deleted": deleted})
+
+    status = "completed"
+    if not deleted:
+        status = "no_op"
+    elif missing:
+        status = "completed_with_missing"
+    evidence = _build_admin_after_action_evidence(
+        action="documents.delete",
+        docs=readback_docs,
+        requested_ids=payload.ids,
+        missing_ids=missing,
+        affected_count=deleted,
+        skipped_count=0,
+        status=status,
+        filters={"ids": [int(doc_id) for doc_id in payload.ids]},
+        rollback_hint=(
+            "Response-level readback only: delete is not automatically reversible. "
+            "Restore deleted documents from database backup or source re-ingest using the returned source_refs."
+        ),
+        execution_summary={"deleted_count": deleted},
+    )
+    return success_response({"deleted": deleted, "missing": missing, **evidence})
 
 
 @router.post("/documents/re-extract", response_model=ApiEnvelope[dict[str, Any]])
@@ -1234,6 +1728,12 @@ def re_extract_documents(payload: ReExtractRequest):
                     if not has_er:
                         filtered_docs.append(d)
             docs = filtered_docs
+
+        if payload.preview:
+            return success_response(_build_reextract_preview(docs, payload))
+
+        readback_docs = _snapshot_admin_docs(docs)
+        selected_ids = [int(doc["id"]) for doc in readback_docs if doc.get("id") is not None]
         
         success_count = 0
         error_count = 0
@@ -1300,7 +1800,45 @@ def re_extract_documents(payload: ReExtractRequest):
                 pending = 0
         
         session.commit()
-        
+
+        missing_ids: list[int] = []
+        if payload.doc_ids:
+            selected_id_set = set(selected_ids)
+            missing_ids = [int(doc_id) for doc_id in payload.doc_ids if int(doc_id) not in selected_id_set]
+        requested_ids = [int(doc_id) for doc_id in (payload.doc_ids or selected_ids)]
+        status = "completed"
+        if error_count:
+            status = "completed_with_errors"
+        elif skipped_count or missing_ids:
+            status = "completed_with_skips"
+        evidence = _build_admin_after_action_evidence(
+            action="documents.re_extract",
+            docs=readback_docs,
+            requested_ids=requested_ids,
+            missing_ids=missing_ids,
+            affected_count=success_count,
+            skipped_count=skipped_count,
+            status=status,
+            filters={
+                "doc_ids": payload.doc_ids,
+                "force": bool(payload.force),
+                "fetch_missing_content": bool(payload.fetch_missing_content),
+                "limit": payload.limit,
+                "treat_empty_er_as_missing": bool(payload.treat_empty_er_as_missing),
+            },
+            rollback_hint=(
+                "Response-level readback only: re-extract merges structured fields and is not automatically reversible. "
+                "Restore prior extracted_data from backup/export, or rerun extraction with corrected inputs."
+            ),
+            execution_summary={
+                "success_count": success_count,
+                "error_count": error_count,
+                "total": len(docs),
+                "fetch_missing_content": bool(payload.fetch_missing_content),
+                "batch_size": int(payload.batch_size),
+                "treat_empty_er_as_missing": bool(payload.treat_empty_er_as_missing),
+            },
+        )
         return success_response({
             "total": len(docs),
             "success": success_count,
@@ -1309,6 +1847,7 @@ def re_extract_documents(payload: ReExtractRequest):
             "fetch_missing_content": bool(payload.fetch_missing_content),
             "batch_size": int(payload.batch_size),
             "treat_empty_er_as_missing": bool(payload.treat_empty_er_as_missing),
+            **evidence,
         })
 
 

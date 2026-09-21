@@ -16,13 +16,14 @@ DB enum exists.
 from __future__ import annotations
 
 import dataclasses
-from typing import Any
+from typing import Annotated, Any
+
+from functorial_kit import Failure
 
 from app.successor_runtime.capabilities import agent_batch_c4 as c4
 from app.successor_runtime.capabilities.checksum import (
     canonical_json,
     content_digest,
-    require_hex64,
     sha256_hex,
 )
 from app.successor_runtime.language.algebra import (
@@ -43,7 +44,6 @@ from app.successor_runtime.language.program import (
     atom_node,
     traverse_ordered_node,
 )
-
 __all__ = [
     "build_agent_batch_c4_1_program",
     "build_agent_batch_c4_1_traversal_program",
@@ -61,9 +61,24 @@ def exact_contract_ref(
     *,
     kind: str,
 ) -> OperationContractRef:
+    result = try_exact_contract_ref(catalog, kind=kind)
+    if isinstance(result, Failure):
+        c4._raise_contract_failure(result)
+    return result
+
+
+def try_exact_contract_ref(
+    catalog: OperationContractCatalogSnapshot,
+    *,
+    kind: str,
+) -> OperationContractRef | Failure:
     ref = catalog.lookup(kind)
     if ref is None:
-        raise ValueError(f"contract {kind} missing from catalog {catalog.catalog_id}")
+        return c4._failure(
+            "catalog_contract_invalid",
+            f"contract {kind} missing from catalog {catalog.catalog_id}",
+            site="program/exact_contract_ref",
+        )
     return ref
 
 
@@ -78,14 +93,39 @@ def payload_value_ref(
 ) -> ValueRef:
     """Build the exact content-addressed ValueRef for one C4 payload."""
 
-    if getattr(payload, "project_key", None) != project_key:
-        raise ValueError("payload project scope drift")
+    result = try_payload_value_ref(
+        payload,
+        program_id=program_id,
+        project_key=project_key,
+        object_type=object_type,
+        codec_id=codec_id,
+        value_suffix=value_suffix,
+    )
+    if isinstance(result, Failure):
+        c4._raise_contract_failure(result)
+    return result
+
+
+def try_payload_value_ref(
+    payload: Any,
+    *,
+    program_id: str,
+    project_key: str,
+    object_type: Any,
+    codec_id: str,
+    value_suffix: str,
+) -> ValueRef | Failure:
+    failure = _payload_value_ref_failure(payload, project_key=project_key)
+    if failure is not None:
+        return failure
     plain = dataclasses.asdict(payload)
     exact_text = canonical_json(plain)
     exact_bytes = exact_text.encode("utf-8")
     content_digest_hex = sha256_hex(exact_bytes)
     payload_digest = str(getattr(payload, "payload_digest", "") or "")
-    require_hex64(payload_digest, "payload payload_digest")
+    digest_failure = c4._hex64_failure(payload_digest, "payload payload_digest")
+    if digest_failure is not None:
+        return digest_failure
     value_id = f"{program_id}:payload:{value_suffix}"
     provenance_digest = content_digest(
         {
@@ -114,6 +154,56 @@ def payload_value_ref(
     )
 
 
+def _payload_value_ref_failure(payload: Any, *, project_key: str) -> Failure | None:
+    if getattr(payload, "project_key", None) != project_key:
+        return c4._failure(
+            "scope_contract_invalid",
+            "payload project scope drift",
+            site="program/payload_value_ref/project_key",
+        )
+    return None
+
+
+def _c4_program_scope_failure(
+    payload: Any,
+    *,
+    project_key: str,
+    project_registry_revision: int,
+    project_scope_digest: str,
+) -> Failure | None:
+    if getattr(payload, "project_key", None) != project_key:
+        return c4._failure(
+            "scope_contract_invalid",
+            "payload project_key does not match Program project_key",
+            site="program/scope/project_key",
+        )
+    if getattr(payload, "registry_revision", None) != project_registry_revision:
+        return c4._failure(
+            "scope_contract_invalid",
+            "payload registry revision does not match Program registry revision",
+            site="program/scope/registry_revision",
+        )
+    if getattr(payload, "scope_digest", None) != project_scope_digest:
+        return c4._failure(
+            "scope_contract_invalid",
+            "payload scope digest does not match Program scope digest",
+            site="program/scope/scope_digest",
+        )
+    return None
+
+
+def _traversal_program_payload_failure(
+    payloads: tuple[Any, ...] | list[Any],
+) -> Failure | None:
+    if not payloads:
+        return c4._failure(
+            "schema_contract_invalid",
+            "traversal program requires at least one payload",
+            site="program/traversal/payloads",
+        )
+    return None
+
+
 def _build_c4_program(
     *,
     payload: Any,
@@ -133,14 +223,14 @@ def _build_c4_program(
     codec_id: str,
     value_suffix: str,
 ) -> ProgramSpec:
-    if getattr(payload, "project_key", None) != project_key:
-        raise ValueError("payload project_key does not match Program project_key")
-    if getattr(payload, "registry_revision", None) != project_registry_revision:
-        raise ValueError(
-            "payload registry revision does not match Program registry revision"
-        )
-    if getattr(payload, "scope_digest", None) != project_scope_digest:
-        raise ValueError("payload scope digest does not match Program scope digest")
+    failure = _c4_program_scope_failure(
+        payload,
+        project_key=project_key,
+        project_registry_revision=project_registry_revision,
+        project_scope_digest=project_scope_digest,
+    )
+    if failure is not None:
+        c4._raise_contract_failure(failure)
     ref = exact_contract_ref(catalog, kind=kind)
     value_ref = payload_value_ref(
         payload,
@@ -208,7 +298,11 @@ def build_agent_batch_c4_1_program(
     project_key: str,
     project_registry_revision: int,
     project_scope_digest: str,
-) -> ProgramSpec:
+) -> Annotated[  # NonAuthoritative
+    ProgramSpec,
+    "kit:prepared-command effect_boundary=successor_program_interpreter "
+    "witness=test:test_w05_agent_batch_authority_metadata",
+]:
     """Compilable single-Atom Program for the C4.1 ordered batch plan."""
 
     return _build_c4_program(
@@ -239,7 +333,11 @@ def build_agent_batch_c4_2_program(
     project_key: str,
     project_registry_revision: int,
     project_scope_digest: str,
-) -> ProgramSpec:
+) -> Annotated[  # NonAuthoritative
+    ProgramSpec,
+    "kit:prepared-command effect_boundary=successor_program_interpreter "
+    "witness=test:test_w05_agent_batch_authority_metadata",
+]:
     """Compilable single-Atom Program for the C4.2 retry reducer."""
 
     return _build_c4_program(
@@ -303,7 +401,11 @@ def build_agent_batch_c4_1_traversal_program(
     project_key: str,
     project_registry_revision: int,
     project_scope_digest: str,
-) -> ProgramSpec:
+) -> Annotated[  # NonAuthoritative
+    ProgramSpec,
+    "kit:prepared-command effect_boundary=successor_program_interpreter "
+    "witness=test:test_w05_agent_batch_authority_metadata",
+]:
     """Build the C4.1 ordered traversal Program over batch-plan payloads.
 
     The root is ``TraverseOrdered(STATIC_SHAPE)`` whose input is the ordered
@@ -313,8 +415,9 @@ def build_agent_batch_c4_1_traversal_program(
     ordered materialization step.
     """
 
-    if not payloads:
-        raise ValueError("traversal program requires at least one payload")
+    failure = _traversal_program_payload_failure(payloads)
+    if failure is not None:
+        c4._raise_contract_failure(failure)
     payload = payloads[0]
     atom = build_agent_batch_c4_1_program(
         payload=payload,
@@ -357,7 +460,11 @@ def build_agent_batch_c4_3_program(
     project_key: str,
     project_registry_revision: int,
     project_scope_digest: str,
-) -> ProgramSpec:
+) -> Annotated[  # NonAuthoritative
+    ProgramSpec,
+    "kit:prepared-command effect_boundary=successor_program_interpreter "
+    "witness=test:test_w05_agent_batch_authority_metadata",
+]:
     """Compilable single-Atom Program for the C4.3 submission atom."""
 
     return _build_c4_program(

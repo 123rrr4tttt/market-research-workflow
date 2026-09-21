@@ -171,6 +171,30 @@ cp main/backend/.env.example main/backend/.env
 ./scripts/local-deploy.sh stop
 ```
 
+### 函子贡献开发入口
+
+仓库根目录的薄入口会固定项目根、`src` / `main/backend` 导入路径、当前 C8 catalog 和现有测试环境：
+
+```bash
+# 唯一会安装内容的命令；从 pyproject 的 tool.uv.sources 读取本地 kit，并离线 editable 安装
+python3 scripts/dev.py setup
+
+# 贡献投影检查、同步和只读定位
+python3 scripts/dev.py check
+python3 scripts/dev.py sync
+python3 scripts/dev.py inspect
+python3 scripts/dev.py inspect --id mrw.successor.c8.graph-projection.v1
+
+# 成组修改完成：同步、检查、C8 pilot 测试与完整七项 gate，失败即停止
+python3 scripts/dev.py validate
+
+# 开发中可分别运行已知 C8 pilot 测试与完整 gate
+python3 scripts/dev.py test
+python3 scripts/dev.py gates
+```
+
+`check`、`inspect`、`test` 和 `gates` 不安装依赖，也不访问网络；`sync` 只执行既有贡献投影同步，`validate` 将这些既有步骤按顺序组合。标准 architecture 测试也会检查 contribution 漂移。`inspect` 返回的是词法导航候选和显式依赖关系，不能作为受影响测试选择器。默认优先使用 `main/backend/.venv311`；可用 `MRW_DEV_PYTHON` 指定等价环境。
+
 ### 平台封装脚本
 
 - [`scripts/platform-macos.sh`](./scripts/platform-macos.sh)

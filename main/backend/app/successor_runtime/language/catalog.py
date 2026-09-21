@@ -3,11 +3,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Annotated
+
+from functorial_kit import Failure
 
 from app.successor_runtime.language.object_contracts import (
     OperationContract,
     OperationContractRef,
     OperationContractResolver,
+    _failure as language_failure,
+    _raise_failure as raise_language_failure,
 )
 from app.successor_runtime.research.codec import finalize_digest
 from app.successor_runtime.research.object_types import (
@@ -44,7 +49,23 @@ __all__ = [
     "OperationContractRegistry",
     "build_first_specimen_domain_snapshot",
     "build_first_specimen_object_contracts",
+    "try_build_first_specimen_domain_snapshot",
+    "try_build_first_specimen_object_contracts",
 ]
+
+
+def _failure_argument(error: Exception) -> object:
+    return error.args[0] if len(error.args) == 1 else str(error)
+
+
+def _lift_catalog_failure(failure: Failure) -> None:
+    exception_name = str((failure.context or {}).get("public_exception") or "")
+    exception_type = {"ValueError": ValueError, "TypeError": TypeError, "KeyError": KeyError}.get(
+        exception_name
+    )
+    if exception_type is None:
+        raise_language_failure(failure, ValueError)
+    raise_language_failure(failure, exception_type)
 
 FIRST_SPECIMEN_CAPABILITY_ID = "mrw.first-specimen"
 FIRST_SPECIMEN_CATALOG_ID = "mrw.functorial-successor.first-specimen.operations"
@@ -89,10 +110,28 @@ class OperationContractCatalogSnapshot:
     def __post_init__(self) -> None:
         refs = tuple(entry[:3] for entry in self.entries)
         if len(refs) != len(set(refs)):
+            # kit:boundary owner=successor.language.catalog.constructor class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_language_a
             raise ValueError("duplicate operation contract ref in catalog")
         finalize_digest(self, "catalog_digest")
 
     def lookup(self, ref_or_kind: OperationContractRef | str) -> OperationContractRef | None:
+        outcome = self.try_lookup(ref_or_kind)
+        if isinstance(outcome, Failure):
+            _lift_catalog_failure(outcome)
+        return outcome
+
+    def try_lookup(self, ref_or_kind: OperationContractRef | str) -> OperationContractRef | None | Failure:
+        try:
+            return self._lookup(ref_or_kind)
+        except (TypeError, ValueError) as error:
+            return language_failure(
+                "CONTRACT_REGISTRY_INVALID",
+                _failure_argument(error),
+                type(error),
+                site="language.catalog.lookup",
+            )
+
+    def _lookup(self, ref_or_kind: OperationContractRef | str) -> OperationContractRef | None:
         if isinstance(ref_or_kind, OperationContractRef):
             key = (
                 ref_or_kind.kind,
@@ -103,6 +142,7 @@ class OperationContractCatalogSnapshot:
         else:
             matches = tuple(item for item in self.entries if item[0] == ref_or_kind)
             if len(matches) > 1:
+                # kit:boundary owner=successor.language.catalog.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_language_a
                 raise ValueError(
                     f"ambiguous operation contract kind: {ref_or_kind}; exact ref required"
                 )
@@ -119,9 +159,27 @@ class OperationContractCatalogSnapshot:
         return any(entry[0] == kind for entry in self.entries)
 
     def find(self, kind: str) -> tuple[str, str, str, str] | None:
+        outcome = self.try_find(kind)
+        if isinstance(outcome, Failure):
+            _lift_catalog_failure(outcome)
+        return outcome
+
+    def try_find(self, kind: str) -> tuple[str, str, str, str] | None | Failure:
+        try:
+            return self._find(kind)
+        except (TypeError, ValueError) as error:
+            return language_failure(
+                "CONTRACT_REGISTRY_INVALID",
+                _failure_argument(error),
+                type(error),
+                site="language.catalog.find",
+            )
+
+    def _find(self, kind: str) -> tuple[str, str, str, str] | None:
         """Return the immutable index entry for compatibility with validators."""
         matches = tuple(entry for entry in self.entries if entry[0] == kind)
         if len(matches) > 1:
+            # kit:boundary owner=successor.language.catalog.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_language_a
             raise ValueError(
                 f"ambiguous operation contract kind: {kind}; exact ref required"
             )
@@ -154,11 +212,13 @@ class OperationContractRegistry:
                 contract.ref.contract_digest,
             )
             if key in by_ref:
+                # kit:boundary owner=successor.language.catalog.constructor class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_language_a
                 raise ValueError(
                     f"duplicate operation contract ref: {contract.ref.kind}@{contract.ref.contract_version}"
                 )
             entry = self.catalog.lookup(contract.ref)
             if entry is None:
+                # kit:boundary owner=successor.language.catalog.constructor class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_language_a
                 raise ValueError(
                     f"exact operation contract {contract.ref.kind}@{contract.ref.contract_version} missing from catalog"
                 )
@@ -171,8 +231,26 @@ class OperationContractRegistry:
         )
 
     def resolve_required(self, ref: OperationContractRef) -> OperationContract:
+        outcome = self.try_resolve_required(ref)
+        if isinstance(outcome, Failure):
+            _lift_catalog_failure(outcome)
+        return outcome
+
+    def try_resolve_required(self, ref: OperationContractRef) -> OperationContract | Failure:
         contract = self.resolve(ref)
         if contract is None:
+            return language_failure(
+                "UNRESOLVED_OPERATION_CONTRACT",
+                f"unresolved operation contract: {ref.kind}@{ref.contract_version}",
+                KeyError,
+                site="language.catalog.resolve_required",
+            )
+        return contract
+
+    def _resolve_required(self, ref: OperationContractRef) -> OperationContract:
+        contract = self.resolve(ref)
+        if contract is None:
+            # kit:boundary owner=successor.language.catalog.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_language_a
             raise KeyError(
                 f"unresolved operation contract: {ref.kind}@{ref.contract_version}"
             )
@@ -290,21 +368,41 @@ _OBJECT_CONTRACT_SPEC: tuple[
 )
 
 
-def build_first_specimen_object_contracts() -> tuple[ObjectContract, ...]:
-    return tuple(
-        ObjectContract(
-            object_type=object_type,
-            identity_schema_ref=f"{object_type.type_id}:identity",
-            content_schema_ref=f"{object_type.type_id}:content",
-            lifecycle_schema_ref=f"{object_type.type_id}:lifecycle",
-            owner_mode=owner_mode,
-            owner_binding_ref=owner,
-            provenance_requirement_ref="mrw.provenance.closure.v1",
-            migration_profile_ref="mrw.migration.legacy.v1",
-            required_fields=required_fields,
+def build_first_specimen_object_contracts() -> Annotated[
+    tuple[ObjectContract, ...],
+    "kit:non-authoritative derived_as=view "
+    "fact_source=successor_runtime.language.catalog._OBJECT_CONTRACT_SPEC "
+    "witness=test:test_w07_derived_metadata_is_exact_and_non_authoritative",
+]:
+    outcome = try_build_first_specimen_object_contracts()
+    if isinstance(outcome, Failure):
+        _lift_catalog_failure(outcome)
+    return outcome
+
+
+def try_build_first_specimen_object_contracts() -> tuple[ObjectContract, ...] | Failure:
+    try:
+        return tuple(
+            ObjectContract(
+                object_type=object_type,
+                identity_schema_ref=f"{object_type.type_id}:identity",
+                content_schema_ref=f"{object_type.type_id}:content",
+                lifecycle_schema_ref=f"{object_type.type_id}:lifecycle",
+                owner_mode=owner_mode,
+                owner_binding_ref=owner,
+                provenance_requirement_ref="mrw.provenance.closure.v1",
+                migration_profile_ref="mrw.migration.legacy.v1",
+                required_fields=required_fields,
+            )
+            for object_type, owner_mode, owner, required_fields in _OBJECT_CONTRACT_SPEC
         )
-        for object_type, owner_mode, owner, required_fields in _OBJECT_CONTRACT_SPEC
-    )
+    except (TypeError, ValueError, AttributeError) as error:
+        return language_failure(
+            "CONTRACT_REGISTRY_INVALID",
+            _failure_argument(error),
+            type(error),
+            site="language.catalog.build_first_specimen_object_contracts",
+        )
 
 
 def _catalog_from_contracts(
@@ -324,12 +422,32 @@ def _catalog_from_contracts(
         catalog_version=FIRST_SPECIMEN_CATALOG_VERSION,
         entries=entries,
     )
-def build_first_specimen_domain_snapshot() -> DomainContractSnapshot:
-    return DomainContractSnapshot(
-        snapshot_id=FIRST_SPECIMEN_DOMAIN_SNAPSHOT_ID,
-        snapshot_version=FIRST_SPECIMEN_DOMAIN_SNAPSHOT_VERSION,
-        object_contract_refs=FIRST_SPECIMEN_OBJECT_CONTRACT_REFS,
-        relation_contract_refs=FIRST_SPECIMEN_RELATION_CONTRACT_REFS,
-        operation_contract_refs=FIRST_SPECIMEN_OPERATION_KINDS,
-        first_specimen_contract_ref=FIRST_SPECIMEN_CONTRACT_REF,
-    )
+def build_first_specimen_domain_snapshot() -> Annotated[
+    DomainContractSnapshot,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=successor_runtime.language.catalog.first_specimen_frozen_refs "
+    "witness=test:test_w07_derived_metadata_is_exact_and_non_authoritative",
+]:
+    outcome = try_build_first_specimen_domain_snapshot()
+    if isinstance(outcome, Failure):
+        _lift_catalog_failure(outcome)
+    return outcome
+
+
+def try_build_first_specimen_domain_snapshot() -> DomainContractSnapshot | Failure:
+    try:
+        return DomainContractSnapshot(
+            snapshot_id=FIRST_SPECIMEN_DOMAIN_SNAPSHOT_ID,
+            snapshot_version=FIRST_SPECIMEN_DOMAIN_SNAPSHOT_VERSION,
+            object_contract_refs=FIRST_SPECIMEN_OBJECT_CONTRACT_REFS,
+            relation_contract_refs=FIRST_SPECIMEN_RELATION_CONTRACT_REFS,
+            operation_contract_refs=FIRST_SPECIMEN_OPERATION_KINDS,
+            first_specimen_contract_ref=FIRST_SPECIMEN_CONTRACT_REF,
+        )
+    except (TypeError, ValueError, AttributeError) as error:
+        return language_failure(
+            "CONTRACT_REGISTRY_INVALID",
+            _failure_argument(error),
+            type(error),
+            site="language.catalog.build_first_specimen_domain_snapshot",
+        )

@@ -1,0 +1,113 @@
+{
+  "schema_version": "contract13.startup_current_byte_remediation.v1",
+  "authoritative": false,
+  "status": "LOCAL_IMPLEMENTATION_COMPLETE_LIVE_POSTGRES_VALIDATION_PENDING",
+  "scope": "Explicit FastAPI, Celery-worker, database-CLI, project-schema, and workflow-graph schema initialization boundaries. No service, container, network, provider, configured application database, or PostgreSQL instance was contacted.",
+  "change_classification": "refinement",
+  "semantic_boundary": {
+    "core": "Stable schema lock identity and ordered bootstrap intent.",
+    "effect_shell": "SQLAlchemy transaction, PostgreSQL lock timeout and transaction-scoped advisory lock, DDL execution, rollback, and Celery worker termination.",
+    "ordered_composition": [
+      "begin transaction",
+      "set PostgreSQL lock timeout",
+      "acquire schema-scoped pg_advisory_xact_lock",
+      "execute schema DDL",
+      "commit on success or rollback on failure"
+    ],
+    "failure_observations": [
+      "development FastAPI or worker bootstrap logs and returns false",
+      "production FastAPI bootstrap re-raises",
+      "production Celery child converts the re-raised exception to WorkerTerminate(1)",
+      "database CLI preflight always propagates failure and does not invoke the wrapped command",
+      "a failed DDL transaction publishes no partial transaction and releases the advisory lock through rollback"
+    ]
+  },
+  "checks": [
+    {
+      "check_id": "celery_worker_schema_initialization",
+      "status": "PASS_LOCAL_DETERMINISTIC",
+      "evidence": "worker_process_init has a strong receiver; the receiver calls the explicit initializer without import-time DDL; WorkerTerminate is a BaseException and therefore is not swallowed by Celery Signal.send's Exception handler.",
+      "ceiling": "No worker was started."
+    },
+    {
+      "check_id": "generic_database_cli_schema_initialization",
+      "status": "PASS_LOCAL_DETERMINISTIC",
+      "evidence": "initialize_database_cli and run_database_cli perform the fail-closed full project-schema preflight before invoking a command; a negative test proves a failed preflight prevents command execution.",
+      "ceiling": "This establishes the reusable general boundary. Historical standalone scripts that bypass both this wrapper and ensure_project_schema_ready are not silently claimed as migrated."
+    },
+    {
+      "check_id": "cross_process_postgresql_ddl_serialization_design",
+      "status": "PASS_LOCAL_DETERMINISTIC",
+      "evidence": "FastAPI schema creation, project CLI table creation, shared/public startup DDL, and both workflow-graph SQL store constructors use one schema-scoped transaction advisory-lock interpreter. Unit tests verify lock-before-DDL ordering, common public-schema ownership, bounded lock timeout, rollback-visible failure, and retry.",
+      "ceiling": "PostgreSQL server behavior was not exercised."
+    },
+    {
+      "check_id": "cross_process_postgresql_ddl_race_live_fixture",
+      "status": "NOT_RUN_REQUIRES_SAFE_ISOLATED_LOCAL_POSTGRES",
+      "fixture": "main/backend/tests/integration/test_schema_startup_postgres_concurrency.py",
+      "guard": "MRW_TEST_POSTGRES_URL must be PostgreSQL on localhost and the database name must start with mrw_test_.",
+      "expected_observation": "One process acquires the lock, performs DDL and fails; six waiting processes then initialize successfully; the failed row is absent while all successful rows are present.",
+      "reason": "MRW_TEST_POSTGRES_URL was unset."
+    }
+  ],
+  "verification": {
+    "focused_tests": "PASS: 52 passed, 1 skipped, 28 warnings in 17.78s",
+    "skipped_test": "test_postgresql_cross_process_ddl_race_rolls_back_and_recovers",
+    "ruff_primary": "PASS: All checks passed",
+    "ruff_shared_dirty_files": "PASS with pre-existing E501, UP017 and UP034 excluded",
+    "compileall": "PASS: exit 0",
+    "diff_check": "PASS: exit 0"
+  },
+  "changed_paths": [
+    {
+      "path": "main/backend/app/services/projects/schema_initialization.py",
+      "before_sha256": null,
+      "after_sha256": "256faf88704948e94add6be75f8ccab76c506ad568feabd102f0f490bb574424"
+    },
+    {
+      "path": "main/backend/app/startup_hooks.py",
+      "before_sha256": "a1426fad870f3aefaf98236725d953f65f35e6b059603f9e29b9bdf0c1a98d74",
+      "after_sha256": "b0ece0fc0fd9ca2d775056ab0ecffed1cedb3400a2d249a416af899399176ba2"
+    },
+    {
+      "path": "main/backend/app/celery_app.py",
+      "before_sha256": "6766bc85cb01afd79b8f91793ec2b6020ee45ea0d4797ef0a589076072f2d49d",
+      "after_sha256": "013ddec4e03a28e9f15211a346db9481b624cb395b05cf8b05d741e54281b645"
+    },
+    {
+      "path": "main/backend/app/services/projects/bootstrap.py",
+      "before_sha256": "7d6ff118a0e4b9d552320d18e7122423ed66111d1deda3bcb7b242baca9aba1b",
+      "after_sha256": "7e3189f5ff916480f1243ff805ea2790075d6a187b348fbb2bfa48ee600bd08d"
+    },
+    {
+      "path": "main/backend/app/services/workflow_graph/store.py",
+      "before_sha256": "4264e9f0204f369ade33feb54d4d2f1e8d89801e495c43986ba2bf966814e5",
+      "after_sha256": "462133407d0a4d6f84864b44b3b3c9467a6879199149cd7e73868a02a9feaaed"
+    },
+    {
+      "path": "main/backend/scripts/_cli_runtime.py",
+      "before_sha256": "3cb9e57fec7ccb5614e891fbeea4fe9688fd1f61deacab589ffa66676eb4c397",
+      "after_sha256": "add9fa2d0aca3ab202dccbc313550ae6b04dc91a6e2ab671be5cfb42f412a24c"
+    },
+    {
+      "path": "main/backend/tests/unit/test_schema_startup_boundary_unittest.py",
+      "before_sha256": "6bcdd014f81f1e6d0ebc0ce35dae46b2ae1c57d19ae51aa1a4d904e4602da824",
+      "after_sha256": "86c7dbb952a8ed97e8d55e87c56c2b1ba788405823c7aca6e2ac2491f32fc9fc"
+    },
+    {
+      "path": "main/backend/tests/integration/test_schema_startup_postgres_concurrency.py",
+      "before_sha256": null,
+      "after_sha256": "619d821c18134af506c1cc8807c514f07015b8078cc66d551c0a6c540a717999"
+    }
+  ],
+  "untouched_boundaries": [
+    "contracts 00-14",
+    "prior evidence",
+    "v3/v4 candidates",
+    "current binding artifacts",
+    "process.py",
+    "vector/search scripts",
+    "registries"
+  ],
+  "authority_ceiling": "LOCAL_DETERMINISTIC_IMPLEMENTATION_EVIDENCE_ONLY_NO_LIVE_POSTGRES_NO_CONFIGURED_DATABASE_NO_SERVICE_START_NO_NETWORK_NO_PROVIDER_NO_CONTAINER_NO_DEPLOY_NO_RELEASE_NO_REBIND_NO_AUTHORITY_TRANSFER"
+}

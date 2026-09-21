@@ -1,0 +1,126 @@
+{
+  "schema_version": "mrw.formal_release.stage3.candidate_artifact.v1",
+  "record_id": "stage3-candidate-artifact-v1-rebuild-required",
+  "stage_id": "STAGE_3",
+  "status": "REBUILD_REQUIRED",
+  "authoritative": false,
+  "candidate_commit": "f8d84afc2784cf91784da957e353e2b0c0d6952c",
+  "candidate_tree": "1be3dcbc009332ec225297d1b94430862287d816",
+  "input_digests": {
+    "candidate_manifest": "a95e4103dfa3743c6a603079f838d48a20665b38afe7fa2a9b2623ab443522bf",
+    "candidate_closure": "53497a752a9207b4dc54f8a5ab7e8af23d3f937a82fb71c8e8bc3092fc410808",
+    "candidate_r1": "fdd6053faeada17b62c050207078ff5944a3c759eb5d6183a43ac4f74cc4774e",
+    "candidate_record": "46d0df3f320619508130f87f6f8d60baba6c6080918293f3d021fbe7e26fb312",
+    "stage0_record": "4911df1c6450d9802ac7bd6b0669ef3a7343e3ce308d33f0a46dde2c4cb62dda",
+    "stage1_record": "3f5c745ce8253522fa7e3728ba112ed41c80f3b6aa7409ddf028621c6ae07f31",
+    "stage1_independent_review": "10117a7c8c4eec19c33e3ad841c99fb301c43fcda71f8d7addbde4070646f72c",
+    "stage3_contract": "ce0923704b9e4fa57582e846d41ca9308e5783e03e682bec9dedcfb563e2bf88"
+  },
+  "toolchain_and_platforms": {
+    "os": "macOS 26.3 build 25D125",
+    "kernel": "Darwin 25.3.0 arm64",
+    "git": "2.50.1 Apple Git-155",
+    "system_python": "3.14.7",
+    "validated_python": "3.11.14 from main/backend/.venv311",
+    "note": "The system Python lacked packaging; the candidate R3 checker passed with the existing Python 3.11 toolchain that includes the required dependency. No dependency installation was performed."
+  },
+  "ci_run_head_sha": null,
+  "required_jobs_and_conclusions": [
+    {"job": "formal-release-check", "conclusion": "NOT_EXECUTED_EARLY_STOP"},
+    {"job": "backend-unit-check", "conclusion": "NOT_EXECUTED_EARLY_STOP"},
+    {"job": "backend-integration-check", "conclusion": "NOT_EXECUTED_EARLY_STOP"},
+    {"job": "frontend-lint-check", "conclusion": "NOT_EXECUTED_EARLY_STOP"},
+    {"job": "frontend-typecheck-check", "conclusion": "NOT_EXECUTED_EARLY_STOP"},
+    {"job": "frontend-build-check", "conclusion": "NOT_EXECUTED_EARLY_STOP"},
+    {"job": "migration-single-head-check", "conclusion": "NOT_EXECUTED_EARLY_STOP"},
+    {"job": "security-check", "conclusion": "NOT_EXECUTED_EARLY_STOP"},
+    {"job": "docker-config-check", "conclusion": "NOT_EXECUTED_EARLY_STOP"},
+    {"job": "evidence-validation-check", "conclusion": "FAIL_CANDIDATE_REQUIRED_TEST_ABSENT"},
+    {"job": "artifact-metadata-check", "conclusion": "BLOCKED_BY_EVIDENCE_VALIDATION_CHECK"},
+    {"job": "required-convergence-check", "conclusion": "BLOCKED_BY_EVIDENCE_VALIDATION_CHECK"}
+  ],
+  "remote_enforcement_readback": {
+    "status": "NOT_EXECUTED_EARLY_STOP_REBUILD_REQUIRED",
+    "reason": "Candidate-local deterministic inspection already proves a required CI job references a file absent from candidate HEAD. Remote readback cannot cure the frozen-byte defect."
+  },
+  "test_families_and_exact_results": [
+    {
+      "family": "candidate_identity_r1",
+      "status": "PASS",
+      "exact_result": "5 PASS findings; commit and tree exact; tracked=0; untracked=0"
+    },
+    {
+      "family": "stage1_exact_byte_record",
+      "status": "PASS",
+      "exact_result": "record identity, exact-byte bindings, one-time receipts, and create-only ceiling hold"
+    },
+    {
+      "family": "static_production_contract_r3",
+      "status": "PASS",
+      "exact_result": "12 PASS findings with Python 3.11.14 toolchain"
+    },
+    {
+      "family": "release_evidence_validator_r2",
+      "status": "FAIL",
+      "exact_result": "scripts/formal_release/check_release_evidence.py and tests/formal_release/test_check_release_evidence.py absent from candidate HEAD"
+    }
+  ],
+  "warning_skip_deselect_inventory": {
+    "observed_warnings": [],
+    "observed_skips": [],
+    "observed_deselects": [],
+    "unexecuted_due_to_early_stop": [
+      "backend full gates",
+      "PostgreSQL opt-in suites",
+      "frontend frozen install/lint/typecheck/build/component/e2e",
+      "security and dependency scans",
+      "Docker build and full-stack smoke",
+      "two-environment reproducibility",
+      "SBOM/provenance/signature/attestation",
+      "registry immutability readback"
+    ]
+  },
+  "artifact_names_and_immutable_digests": [],
+  "reproducibility_class": "NOT_ESTABLISHED_EARLY_STOP_REBUILD_REQUIRED",
+  "declared_platform_differences": [],
+  "sbom_refs_and_sha256": [],
+  "provenance_refs_and_sha256": [],
+  "signature_verification": {
+    "status": "NOT_EXECUTED_EARLY_STOP"
+  },
+  "security_scan_results": {
+    "status": "NOT_EXECUTED_EARLY_STOP"
+  },
+  "registry_immutability_readback": {
+    "status": "NOT_EXECUTED_EARLY_STOP"
+  },
+  "evidence_refs_and_sha256": [
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/stage3-preconditions-rebuild-required.v1.json",
+      "sha256": "4f63e5cf764d7aad4fcb3f18f422a7fa2d4195ac8066b1d19196137d0cffcf2a"
+    }
+  ],
+  "external_effects": [],
+  "cleanup_and_retained_resources": {
+    "status": "PASS",
+    "candidate_final_status": "tracked_0:untracked_0",
+    "standalone_clones": [],
+    "containers_or_images": [],
+    "retained_resources": [],
+    "removed_task_temporary_files": [
+      "/private/tmp/mrw-stage3-candidate-tree-paths.58910",
+      "/private/tmp/mrw-stage3-manifest-upserts.58910"
+    ]
+  },
+  "open_failures": [
+    {
+      "failure_id": "stage3.required_r2_bytes_absent",
+      "classification": "REBUILD_REQUIRED",
+      "earliest_return_stage": "STAGE_1",
+      "required_change": "Add the R2 checker and test to the release input, validate the required workflow, then create an additive Stage 2 successor candidate with new commit/tree/manifest/closure/R1/record.",
+      "forbidden_shortcut": "Do not copy or execute the user-owned untracked main-checkout files as candidate-bound evidence."
+    }
+  ],
+  "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_CANARY_NO_CUTOVER_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+  "observed_at": "2026-09-06T02:49:00Z"
+}

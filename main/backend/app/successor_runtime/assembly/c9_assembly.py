@@ -13,7 +13,7 @@ the family registry and becomes INSTALLED without adopting a PostgreSQL write.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any
+from typing import Annotated, Any
 
 from app.successor_runtime.assembly.base import (
     PROJECTOR_REGISTRY_INCARNATION,
@@ -260,7 +260,11 @@ C9_2_KERNEL_WIRING = KernelWiring(
 )
 
 
-def build_deterministic_facade_validation_query() -> FacadeQueryV2:
+def build_deterministic_facade_validation_query() -> Annotated[
+    FacadeQueryV2,
+    "kit:prepared-command effect_boundary=successor_runtime.c9_assembly "
+    "witness=test:test_w08a_remaining_assembly_bindings_are_prepared_commands",
+]:
     """Deterministic read-only query for the LOCAL_OFFLINE validation route."""
 
     scope = _deterministic_local_scope()
@@ -281,13 +285,32 @@ def build_deterministic_facade_validation_query() -> FacadeQueryV2:
     )
 
 
-def build_deterministic_facade_closure() -> SuccessorRuntimeFacade:
+def build_deterministic_facade_closure() -> Annotated[
+    SuccessorRuntimeFacade,
+    "kit:prepared-command effect_boundary=successor_runtime.c9_assembly "
+    "witness=test:test_w08a_remaining_assembly_bindings_are_prepared_commands",
+]:
     """LOCAL_OFFLINE facade bound only to minimal in-memory ports."""
 
     return SuccessorRuntimeFacade(
         submission_port=_MemoryCommandSubmissionPort(),
         query_port=_MemoryQueryReadPort(),
     )
+
+
+def build_deterministic_command_submission_port() -> Annotated[
+    CommandSubmissionPort,
+    "kit:prepared-command effect_boundary=successor_runtime.c9_assembly "
+    "witness=test:test_w08a_remaining_assembly_bindings_are_prepared_commands",
+]:
+    """Return the deterministic no-write command submission port.
+
+    The registry-backed facade reuses this port so the command surface stays
+    validation-only and never performs a write while the HTTP read facade is
+    being wired to real PostgreSQL reads.
+    """
+
+    return _MemoryCommandSubmissionPort()
 
 
 def _validate_exact_facade_binding(
@@ -463,7 +486,11 @@ def build_c9_assembly(
     *,
     options: C9AssemblyOptions | None = None,
     projector_source_keys: Mapping[str, ProjectorSourceKey] | None = None,
-) -> FamilyAssembly:
+) -> Annotated[
+    FamilyAssembly,
+    "kit:prepared-command effect_boundary=successor_runtime.c9_assembly "
+    "witness=test:test_w08a_remaining_assembly_bindings_are_prepared_commands",
+]:
     """Build the C9 family assembly with optional facade route installation.
 
     C9.3 stays ``PROJECTOR_WIRING_DECLARED`` until the run owner supplies a
@@ -634,4 +661,5 @@ __all__ = [
     "build_c9_assembly",
     "build_deterministic_facade_closure",
     "build_deterministic_facade_validation_query",
+    "build_deterministic_command_submission_port",
 ]

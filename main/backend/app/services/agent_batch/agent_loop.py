@@ -5,6 +5,8 @@ import re
 from typing import Any, Callable
 from uuid import uuid4
 
+from mrw_functorial_kit.core.agent_service_semantics import agent_batch_failures
+
 from .planner import (
     AGENT_BATCH_PLANNER_CONTRACT_VERSION,
     AGENT_BATCH_PLANNER_PROMPT_ID,
@@ -18,6 +20,7 @@ from .task_contract import (
     is_agent_batch_task_executable,
     normalize_agent_batch_task,
     validate_retry_action_payload,
+    _raise_legacy_agent_batch_failure,
 )
 from ..skill_runtime import invoke_skill_safe
 
@@ -27,6 +30,7 @@ _AUTONOMOUS_SOURCE_SCAN_LIMIT = 200
 _RETRIEVAL_MODE_HYBRID = "hybrid"
 _RETRIEVAL_MODE_SOURCE_ONLY = "source_only"
 _RETRIEVAL_MODE_WEB_ONLY = "web_only"
+_WEB_FIRST_INTENTS = {"market_news", "regulatory_monitoring"}
 
 StageRecord = dict[str, Any]
 
@@ -71,6 +75,7 @@ def run_agent_batch_nl_command_loop(
         project_key=project_key,
         retrieval_mode=retrieval_mode,
         command=command,
+        plan_payload=plan_payload,
     )
     pre_branch_search_brief = _build_search_brief(
         command=command,
@@ -132,7 +137,13 @@ def run_agent_batch_nl_command_loop(
             }
         )
     if not tasks:
-        raise ValueError("planner produced no executable tasks")
+        _raise_legacy_agent_batch_failure(
+            agent_batch_failures.fail(
+                "planner_no_executable_tasks",
+                "planner produced no executable tasks",
+                {"command": command},
+            )
+        )
 
     submit_data: dict[str, Any] | None = None
     submit_rounds: list[dict[str, Any]] = []
@@ -277,11 +288,18 @@ def _augment_tasks_with_source_library(
     project_key: str | None,
     retrieval_mode: str,
     command: str,
+    plan_payload: dict[str, Any],
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     if not tasks and retrieval_mode != _RETRIEVAL_MODE_SOURCE_ONLY:
         return tasks, {"enabled": False, "reason": "empty_tasks"}
     if retrieval_mode == _RETRIEVAL_MODE_WEB_ONLY:
         return tasks, {"enabled": False, "reason": "web_only_mode"}
+    if (
+        retrieval_mode == _RETRIEVAL_MODE_HYBRID
+        and _is_web_first_plan(plan_payload=plan_payload)
+        and not _explicit_source_library_requested(command=command, plan_payload=plan_payload)
+    ):
+        return tasks, {"enabled": False, "reason": "web_first_intent"}
 
     if any(str(task.get("channel") or "").strip().lower() == "source_library" for task in tasks) and retrieval_mode != _RETRIEVAL_MODE_SOURCE_ONLY:
         return tasks, {"enabled": False, "reason": "source_library_already_planned"}
@@ -321,6 +339,30 @@ def _augment_tasks_with_source_library(
     else:
         merged = tasks + appended
     return merged, {"enabled": True, "item_keys": item_keys, "selection_mode": "goal_relevance"}
+
+
+def _is_web_first_plan(*, plan_payload: dict[str, Any]) -> bool:
+    intent = str(plan_payload.get("intent") or "").strip().lower()
+    return intent in _WEB_FIRST_INTENTS
+
+
+def _explicit_source_library_requested(*, command: str, plan_payload: dict[str, Any]) -> bool:
+    constraints = dict(plan_payload.get("constraints") or {})
+    retrieval_mode = str(constraints.get("retrieval_mode") or "").strip().lower()
+    if retrieval_mode in {_RETRIEVAL_MODE_HYBRID, _RETRIEVAL_MODE_SOURCE_ONLY}:
+        return True
+    text = str(command or "").strip().lower()
+    return any(
+        token in text
+        for token in (
+            "来源库",
+            "素材库",
+            "source library",
+            "source_library",
+            "fixed source",
+            "source only",
+        )
+    )
 
 
 def _resolve_source_collect_limit(*, tasks: list[dict[str, Any]], default: int = 20) -> int:
@@ -863,13 +905,19 @@ def _apply_retry_action(
                 for idx, task in enumerate(tasks, start=1)
             ]
         )
+        requested_max_items = rewrite.get("max_items")
+        if requested_max_items is None:
+            requested_max_items = _resolve_source_collect_limit(tasks=normalized, default=20)
+        requested_query_terms = list(rewrite.get("query_terms") or [])
+        if not requested_query_terms:
+            requested_query_terms = _resolve_source_query_terms(tasks=normalized)
         normalized.append(
             normalize_agent_batch_task(
                 {
                     "channel": "source_library",
                     "item_key": item_key,
-                    "query_terms": list(rewrite.get("query_terms") or []),
-                    "max_items": rewrite.get("max_items") or 1,
+                    "query_terms": requested_query_terms,
+                    "max_items": requested_max_items,
                     "provider": rewrite.get("provider") or "auto",
                     "language": rewrite.get("language"),
                     "scope": rewrite.get("scope"),

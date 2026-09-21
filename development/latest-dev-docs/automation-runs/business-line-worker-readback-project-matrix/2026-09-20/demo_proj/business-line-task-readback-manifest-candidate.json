@@ -1,0 +1,711 @@
+{
+  "api_base": "http://127.0.0.1:8000",
+  "expected_line_keys": [
+    "ingest",
+    "search_discovery_index",
+    "resource_source_library",
+    "writing_knowledge_graph_agent"
+  ],
+  "lines": [
+    {
+      "attempts": [
+        {
+          "error": null,
+          "http_status": 200,
+          "missing_fields": [
+            "events",
+            "queue",
+            "required_event:index_handoff_recorded",
+            "required_event:readback_persisted",
+            "required_event:source_fetch_completed",
+            "required_event:submission_accepted",
+            "required_event:task_queued",
+            "required_event:worker_started",
+            "status",
+            "success_status",
+            "terminal_events",
+            "worker_name"
+          ],
+          "readback_endpoint": "/api/v1/ingest/history?limit=1"
+        },
+        {
+          "error": null,
+          "http_status": 200,
+          "missing_fields": [],
+          "readback_endpoint": "/api/v1/process/tasks?line_key=ingest&limit=5&project_key=demo_proj"
+        }
+      ],
+      "line_key": "ingest",
+      "missing_fields": [],
+      "readback_endpoint": "/api/v1/process/tasks?line_key=ingest&limit=5&project_key=demo_proj",
+      "reason": "runtime_candidate_readback_collected",
+      "sample_count": 1,
+      "status": "passed"
+    },
+    {
+      "attempts": [
+        {
+          "error": null,
+          "http_status": 200,
+          "missing_fields": [
+            "events",
+            "queue",
+            "required_event:index_refresh_completed",
+            "required_event:index_refresh_started",
+            "required_event:results_readback_persisted",
+            "required_event:search_or_discovery_run_accepted",
+            "required_event:task_queued",
+            "required_event:worker_started",
+            "terminal_events",
+            "worker_name"
+          ],
+          "readback_endpoint": "/api/v1/search?q=smoke&limit=1"
+        },
+        {
+          "error": null,
+          "http_status": 200,
+          "missing_fields": [],
+          "readback_endpoint": "/api/v1/process/tasks?line_key=search_discovery_index&limit=5&project_key=demo_proj"
+        }
+      ],
+      "line_key": "search_discovery_index",
+      "missing_fields": [],
+      "readback_endpoint": "/api/v1/process/tasks?line_key=search_discovery_index&limit=5&project_key=demo_proj",
+      "reason": "runtime_candidate_readback_collected",
+      "sample_count": 1,
+      "status": "passed"
+    },
+    {
+      "attempts": [
+        {
+          "error": null,
+          "http_status": 200,
+          "missing_fields": [
+            "events",
+            "queue",
+            "required_event:adapter_capture_completed",
+            "required_event:readback_persisted",
+            "required_event:resource_action_accepted",
+            "required_event:source_lifecycle_updated",
+            "required_event:task_queued",
+            "required_event:worker_started",
+            "status",
+            "success_status",
+            "task_id_or_run_id",
+            "terminal_events",
+            "worker_name"
+          ],
+          "readback_endpoint": "/api/v1/resource_pool/urls?limit=1"
+        },
+        {
+          "error": null,
+          "http_status": 200,
+          "missing_fields": [],
+          "readback_endpoint": "/api/v1/process/tasks?line_key=resource_source_library&limit=5&project_key=demo_proj"
+        }
+      ],
+      "line_key": "resource_source_library",
+      "missing_fields": [],
+      "readback_endpoint": "/api/v1/process/tasks?line_key=resource_source_library&limit=5&project_key=demo_proj",
+      "reason": "runtime_candidate_readback_collected",
+      "sample_count": 1,
+      "status": "passed"
+    },
+    {
+      "attempts": [
+        {
+          "error": null,
+          "http_status": 200,
+          "missing_fields": [
+            "events",
+            "queue",
+            "required_event:agent_batch_submitted",
+            "required_event:agent_event_persisted",
+            "required_event:approval_state_recorded",
+            "required_event:artifact_readback_persisted",
+            "required_event:task_queued",
+            "required_event:worker_started",
+            "status",
+            "success_status",
+            "task_id_or_run_id",
+            "terminal_events",
+            "worker_name"
+          ],
+          "readback_endpoint": "/api/v1/writing/templates"
+        },
+        {
+          "error": null,
+          "http_status": 200,
+          "missing_fields": [],
+          "readback_endpoint": "/api/v1/process/tasks?line_key=writing_knowledge_graph_agent&limit=5&project_key=demo_proj"
+        }
+      ],
+      "line_key": "writing_knowledge_graph_agent",
+      "missing_fields": [],
+      "readback_endpoint": "/api/v1/process/tasks?line_key=writing_knowledge_graph_agent&limit=5&project_key=demo_proj",
+      "reason": "runtime_candidate_readback_collected",
+      "sample_count": 1,
+      "status": "passed"
+    }
+  ],
+  "matrix": {
+    "contract_version": "business_line.evidence_matrix.v1",
+    "error": null,
+    "http_status": 200,
+    "observed_line_count": 7,
+    "reason": "evidence_matrix_reachable",
+    "status": "passed"
+  },
+  "matrix_anomalies": {
+    "duplicate_line_keys": [],
+    "invalid_line_keys": [],
+    "missing_line_keys": [],
+    "unexpected_line_keys": []
+  },
+  "matrix_path": "/api/v1/business-lines/evidence-matrix?project_key=demo_proj",
+  "observed_at": "2026-09-20T08:45:22Z",
+  "project_key": "demo_proj",
+  "recommended_next_commands": [
+    "python3 scripts/check_business_line_task_readback_manifest.py /Users/wangyiliang/market-research-workflow/development/latest-dev-docs/automation-runs/business-line-worker-readback-project-matrix/2026-09-20/demo_proj/business-line-task-readback-manifest-candidate.json --json",
+    "python3 scripts/run_business_line_async_task_readback_live_samples.py --api-base http://127.0.0.1:8000 --output /tmp/business-line-async-task-readback-live-samples.json --task-readback-manifest /Users/wangyiliang/market-research-workflow/development/latest-dev-docs/automation-runs/business-line-worker-readback-project-matrix/2026-09-20/demo_proj/business-line-task-readback-manifest-candidate.json --project-key demo_proj --allow-blocked --json",
+    "python3 scripts/build_business_line_task_readback_manifest_from_runtime.py --api-base http://127.0.0.1:8000 --output /Users/wangyiliang/market-research-workflow/development/latest-dev-docs/automation-runs/business-line-worker-readback-project-matrix/2026-09-20/demo_proj/business-line-task-readback-manifest-candidate.json --project-key demo_proj --allow-blocked --json"
+  ],
+  "samples": [
+    {
+      "events": [
+        {
+          "event": "worker_started",
+          "event_source": "celery_worker",
+          "status": "running",
+          "timestamp": "2026-07-23T16:48:24Z"
+        },
+        {
+          "event": "task_queued",
+          "event_source": "celery_worker",
+          "status": "running",
+          "timestamp": "2026-07-23T16:48:24Z"
+        },
+        {
+          "event": "completed",
+          "event_source": "etl_job_runs",
+          "status": "completed",
+          "timestamp": "2026-07-23T16:48:24Z"
+        },
+        {
+          "event": "submission_accepted",
+          "event_source": "etl_job_runs",
+          "status": "completed",
+          "timestamp": "2026-07-23T16:48:24Z"
+        },
+        {
+          "event": "source_fetch_completed",
+          "event_source": "etl_job_runs",
+          "status": "completed",
+          "timestamp": "2026-07-23T16:48:24Z"
+        },
+        {
+          "event": "index_handoff_recorded",
+          "event_source": "etl_job_runs",
+          "status": "completed",
+          "timestamp": "2026-07-23T16:48:24Z"
+        },
+        {
+          "event": "readback_persisted",
+          "event_source": "etl_job_runs",
+          "status": "completed",
+          "timestamp": "2026-07-23T16:48:24Z"
+        },
+        {
+          "event": "etl_job_started",
+          "event_source": "etl_job_runs",
+          "status": "running",
+          "timestamp": "2026-07-23T09:48:24.538779-07:00"
+        }
+      ],
+      "line_key": "ingest",
+      "mocked": false,
+      "queue": "celery",
+      "readback_endpoint": "/api/v1/process/db-job-167?project_key=demo_proj&project_key=demo_proj",
+      "readback_path": "/api/v1/process/db-job-167?project_key=demo_proj&project_key=demo_proj",
+      "run_id": "sub_029147b6edd7479c8a21",
+      "skipped": false,
+      "status": "completed",
+      "task_id": "b2fbf222-5ce9-477e-82df-4abd989a80d3",
+      "trace_id": "ingest.url.single:sub_029147b6edd7479c8a21",
+      "worker_name": "celery-local-1784281909@MacBook-Air-489.local"
+    },
+    {
+      "events": [
+        {
+          "event": "agent_batch_dispatched",
+          "event_source": "agent_batch_api",
+          "status": "queued",
+          "timestamp": "2026-09-20T08:45:22Z"
+        },
+        {
+          "event": "search_or_discovery_run_accepted",
+          "event_source": "agent_batch_api",
+          "status": "queued",
+          "timestamp": "2026-09-20T08:45:22Z"
+        },
+        {
+          "event": "task_queued",
+          "event_source": "agent_batch_api",
+          "status": "queued",
+          "timestamp": "2026-09-20T08:45:22Z"
+        },
+        {
+          "event": "worker_started",
+          "event_source": "celery_worker",
+          "status": "running",
+          "timestamp": "2026-09-20T08:45:22Z"
+        },
+        {
+          "event": "completed",
+          "event_source": "etl_job_runs",
+          "status": "completed",
+          "timestamp": "2026-09-20T08:45:29Z"
+        },
+        {
+          "event": "index_refresh_started",
+          "event_source": "etl_job_runs",
+          "status": "completed",
+          "timestamp": "2026-09-20T08:45:29Z"
+        },
+        {
+          "event": "index_refresh_completed",
+          "event_source": "etl_job_runs",
+          "status": "completed",
+          "timestamp": "2026-09-20T08:45:29Z"
+        },
+        {
+          "event": "results_readback_persisted",
+          "event_source": "etl_job_runs",
+          "status": "completed",
+          "timestamp": "2026-09-20T08:45:29Z"
+        },
+        {
+          "event": "etl_job_started",
+          "event_source": "etl_job_runs",
+          "status": "running",
+          "timestamp": "2026-09-20T01:45:22.400239-07:00"
+        }
+      ],
+      "line_key": "search_discovery_index",
+      "mocked": false,
+      "queue": "celery",
+      "readback_endpoint": "/api/v1/process/db-job-168?project_key=demo_proj&project_key=demo_proj",
+      "readback_path": "/api/v1/process/db-job-168?project_key=demo_proj&project_key=demo_proj",
+      "run_id": "abj-5c2c45b1ba04467f-smoke-search-market-run",
+      "skipped": false,
+      "status": "completed",
+      "task_id": "ce0a060d-0411-4ac2-a16c-3ad88daa2c3b",
+      "trace_id": "trace-abj-5c2c45b1ba04467f-smoke-search-market",
+      "worker_name": "celery-local-1789893872@MacBook-Air-489.local"
+    },
+    {
+      "events": [
+        {
+          "event": "worker_started",
+          "event_source": "celery_worker",
+          "status": "running",
+          "timestamp": "2026-09-20T08:45:29Z"
+        },
+        {
+          "event": "task_queued",
+          "event_source": "celery_worker",
+          "status": "running",
+          "timestamp": "2026-09-20T08:45:29Z"
+        },
+        {
+          "event": "completed",
+          "event_source": "etl_job_runs",
+          "status": "completed",
+          "timestamp": "2026-09-20T08:45:29Z"
+        },
+        {
+          "event": "resource_action_accepted",
+          "event_source": "etl_job_runs",
+          "status": "completed",
+          "timestamp": "2026-09-20T08:45:29Z"
+        },
+        {
+          "event": "adapter_capture_completed",
+          "event_source": "etl_job_runs",
+          "status": "completed",
+          "timestamp": "2026-09-20T08:45:29Z"
+        },
+        {
+          "event": "source_lifecycle_updated",
+          "event_source": "etl_job_runs",
+          "status": "completed",
+          "timestamp": "2026-09-20T08:45:29Z"
+        },
+        {
+          "event": "readback_persisted",
+          "event_source": "etl_job_runs",
+          "status": "completed",
+          "timestamp": "2026-09-20T08:45:29Z"
+        },
+        {
+          "event": "etl_job_started",
+          "event_source": "etl_job_runs",
+          "status": "running",
+          "timestamp": "2026-09-20T01:45:29.852925-07:00"
+        }
+      ],
+      "line_key": "resource_source_library",
+      "mocked": false,
+      "queue": "celery",
+      "readback_endpoint": "/api/v1/process/db-job-171?project_key=demo_proj&project_key=demo_proj",
+      "readback_path": "/api/v1/process/db-job-171?project_key=demo_proj&project_key=demo_proj",
+      "run_id": "sub_9ddcb0a539a32c42b608",
+      "skipped": false,
+      "status": "completed",
+      "task_id": "8c28a29c-f0aa-46ea-8d46-b09c560b6298",
+      "trace_id": "ingest.source_library.run:sub_9ddcb0a539a32c42b608",
+      "worker_name": "celery-local-1789893872@MacBook-Air-489.local"
+    },
+    {
+      "events": [
+        {
+          "event": "worker_started",
+          "event_source": "writing_llm_action_service",
+          "status": "running",
+          "timestamp": "2026-09-20T08:45:22Z"
+        },
+        {
+          "event": "task_queued",
+          "event_source": "writing_llm_action_service",
+          "status": "running",
+          "timestamp": "2026-09-20T08:45:22Z"
+        },
+        {
+          "event": "completed",
+          "event_source": "etl_job_runs",
+          "status": "completed",
+          "timestamp": "2026-09-20T08:45:22Z"
+        },
+        {
+          "event": "agent_batch_submitted",
+          "event_source": "etl_job_runs",
+          "status": "completed",
+          "timestamp": "2026-09-20T08:45:22Z"
+        },
+        {
+          "event": "agent_event_persisted",
+          "event_source": "etl_job_runs",
+          "status": "completed",
+          "timestamp": "2026-09-20T08:45:22Z"
+        },
+        {
+          "event": "approval_state_recorded",
+          "event_source": "etl_job_runs",
+          "status": "completed",
+          "timestamp": "2026-09-20T08:45:22Z"
+        },
+        {
+          "event": "artifact_readback_persisted",
+          "event_source": "etl_job_runs",
+          "status": "completed",
+          "timestamp": "2026-09-20T08:45:22Z"
+        },
+        {
+          "event": "etl_job_started",
+          "event_source": "etl_job_runs",
+          "status": "running",
+          "timestamp": "2026-09-20T01:45:22.740050-07:00"
+        }
+      ],
+      "line_key": "writing_knowledge_graph_agent",
+      "mocked": false,
+      "queue": "local.writing_knowledge_graph_agent",
+      "readback_endpoint": "/api/v1/process/db-job-169?project_key=demo_proj",
+      "readback_path": "/api/v1/process/db-job-169?project_key=demo_proj",
+      "run_id": "169",
+      "skipped": false,
+      "status": "completed",
+      "task_id": "db-job-169",
+      "trace_id": "writing-outline_generate",
+      "worker_name": "local.writing_llm_action_service"
+    }
+  ],
+  "schema_version": "business_line_task_readback_manifest_candidate.v1",
+  "status": "passed",
+  "summary": {
+    "blocked_line_keys": [],
+    "failed_line_keys": [],
+    "passed_line_keys": [
+      "ingest",
+      "search_discovery_index",
+      "resource_source_library",
+      "writing_knowledge_graph_agent"
+    ],
+    "sample_line_keys": [
+      "ingest",
+      "search_discovery_index",
+      "resource_source_library",
+      "writing_knowledge_graph_agent"
+    ]
+  },
+  "task_readback_manifest": [
+    {
+      "events": [
+        {
+          "event": "worker_started",
+          "event_source": "celery_worker",
+          "status": "running",
+          "timestamp": "2026-07-23T16:48:24Z"
+        },
+        {
+          "event": "task_queued",
+          "event_source": "celery_worker",
+          "status": "running",
+          "timestamp": "2026-07-23T16:48:24Z"
+        },
+        {
+          "event": "completed",
+          "event_source": "etl_job_runs",
+          "status": "completed",
+          "timestamp": "2026-07-23T16:48:24Z"
+        },
+        {
+          "event": "submission_accepted",
+          "event_source": "etl_job_runs",
+          "status": "completed",
+          "timestamp": "2026-07-23T16:48:24Z"
+        },
+        {
+          "event": "source_fetch_completed",
+          "event_source": "etl_job_runs",
+          "status": "completed",
+          "timestamp": "2026-07-23T16:48:24Z"
+        },
+        {
+          "event": "index_handoff_recorded",
+          "event_source": "etl_job_runs",
+          "status": "completed",
+          "timestamp": "2026-07-23T16:48:24Z"
+        },
+        {
+          "event": "readback_persisted",
+          "event_source": "etl_job_runs",
+          "status": "completed",
+          "timestamp": "2026-07-23T16:48:24Z"
+        },
+        {
+          "event": "etl_job_started",
+          "event_source": "etl_job_runs",
+          "status": "running",
+          "timestamp": "2026-07-23T09:48:24.538779-07:00"
+        }
+      ],
+      "line_key": "ingest",
+      "mocked": false,
+      "queue": "celery",
+      "readback_endpoint": "/api/v1/process/db-job-167?project_key=demo_proj&project_key=demo_proj",
+      "readback_path": "/api/v1/process/db-job-167?project_key=demo_proj&project_key=demo_proj",
+      "run_id": "sub_029147b6edd7479c8a21",
+      "skipped": false,
+      "status": "completed",
+      "task_id": "b2fbf222-5ce9-477e-82df-4abd989a80d3",
+      "trace_id": "ingest.url.single:sub_029147b6edd7479c8a21",
+      "worker_name": "celery-local-1784281909@MacBook-Air-489.local"
+    },
+    {
+      "events": [
+        {
+          "event": "agent_batch_dispatched",
+          "event_source": "agent_batch_api",
+          "status": "queued",
+          "timestamp": "2026-09-20T08:45:22Z"
+        },
+        {
+          "event": "search_or_discovery_run_accepted",
+          "event_source": "agent_batch_api",
+          "status": "queued",
+          "timestamp": "2026-09-20T08:45:22Z"
+        },
+        {
+          "event": "task_queued",
+          "event_source": "agent_batch_api",
+          "status": "queued",
+          "timestamp": "2026-09-20T08:45:22Z"
+        },
+        {
+          "event": "worker_started",
+          "event_source": "celery_worker",
+          "status": "running",
+          "timestamp": "2026-09-20T08:45:22Z"
+        },
+        {
+          "event": "completed",
+          "event_source": "etl_job_runs",
+          "status": "completed",
+          "timestamp": "2026-09-20T08:45:29Z"
+        },
+        {
+          "event": "index_refresh_started",
+          "event_source": "etl_job_runs",
+          "status": "completed",
+          "timestamp": "2026-09-20T08:45:29Z"
+        },
+        {
+          "event": "index_refresh_completed",
+          "event_source": "etl_job_runs",
+          "status": "completed",
+          "timestamp": "2026-09-20T08:45:29Z"
+        },
+        {
+          "event": "results_readback_persisted",
+          "event_source": "etl_job_runs",
+          "status": "completed",
+          "timestamp": "2026-09-20T08:45:29Z"
+        },
+        {
+          "event": "etl_job_started",
+          "event_source": "etl_job_runs",
+          "status": "running",
+          "timestamp": "2026-09-20T01:45:22.400239-07:00"
+        }
+      ],
+      "line_key": "search_discovery_index",
+      "mocked": false,
+      "queue": "celery",
+      "readback_endpoint": "/api/v1/process/db-job-168?project_key=demo_proj&project_key=demo_proj",
+      "readback_path": "/api/v1/process/db-job-168?project_key=demo_proj&project_key=demo_proj",
+      "run_id": "abj-5c2c45b1ba04467f-smoke-search-market-run",
+      "skipped": false,
+      "status": "completed",
+      "task_id": "ce0a060d-0411-4ac2-a16c-3ad88daa2c3b",
+      "trace_id": "trace-abj-5c2c45b1ba04467f-smoke-search-market",
+      "worker_name": "celery-local-1789893872@MacBook-Air-489.local"
+    },
+    {
+      "events": [
+        {
+          "event": "worker_started",
+          "event_source": "celery_worker",
+          "status": "running",
+          "timestamp": "2026-09-20T08:45:29Z"
+        },
+        {
+          "event": "task_queued",
+          "event_source": "celery_worker",
+          "status": "running",
+          "timestamp": "2026-09-20T08:45:29Z"
+        },
+        {
+          "event": "completed",
+          "event_source": "etl_job_runs",
+          "status": "completed",
+          "timestamp": "2026-09-20T08:45:29Z"
+        },
+        {
+          "event": "resource_action_accepted",
+          "event_source": "etl_job_runs",
+          "status": "completed",
+          "timestamp": "2026-09-20T08:45:29Z"
+        },
+        {
+          "event": "adapter_capture_completed",
+          "event_source": "etl_job_runs",
+          "status": "completed",
+          "timestamp": "2026-09-20T08:45:29Z"
+        },
+        {
+          "event": "source_lifecycle_updated",
+          "event_source": "etl_job_runs",
+          "status": "completed",
+          "timestamp": "2026-09-20T08:45:29Z"
+        },
+        {
+          "event": "readback_persisted",
+          "event_source": "etl_job_runs",
+          "status": "completed",
+          "timestamp": "2026-09-20T08:45:29Z"
+        },
+        {
+          "event": "etl_job_started",
+          "event_source": "etl_job_runs",
+          "status": "running",
+          "timestamp": "2026-09-20T01:45:29.852925-07:00"
+        }
+      ],
+      "line_key": "resource_source_library",
+      "mocked": false,
+      "queue": "celery",
+      "readback_endpoint": "/api/v1/process/db-job-171?project_key=demo_proj&project_key=demo_proj",
+      "readback_path": "/api/v1/process/db-job-171?project_key=demo_proj&project_key=demo_proj",
+      "run_id": "sub_9ddcb0a539a32c42b608",
+      "skipped": false,
+      "status": "completed",
+      "task_id": "8c28a29c-f0aa-46ea-8d46-b09c560b6298",
+      "trace_id": "ingest.source_library.run:sub_9ddcb0a539a32c42b608",
+      "worker_name": "celery-local-1789893872@MacBook-Air-489.local"
+    },
+    {
+      "events": [
+        {
+          "event": "worker_started",
+          "event_source": "writing_llm_action_service",
+          "status": "running",
+          "timestamp": "2026-09-20T08:45:22Z"
+        },
+        {
+          "event": "task_queued",
+          "event_source": "writing_llm_action_service",
+          "status": "running",
+          "timestamp": "2026-09-20T08:45:22Z"
+        },
+        {
+          "event": "completed",
+          "event_source": "etl_job_runs",
+          "status": "completed",
+          "timestamp": "2026-09-20T08:45:22Z"
+        },
+        {
+          "event": "agent_batch_submitted",
+          "event_source": "etl_job_runs",
+          "status": "completed",
+          "timestamp": "2026-09-20T08:45:22Z"
+        },
+        {
+          "event": "agent_event_persisted",
+          "event_source": "etl_job_runs",
+          "status": "completed",
+          "timestamp": "2026-09-20T08:45:22Z"
+        },
+        {
+          "event": "approval_state_recorded",
+          "event_source": "etl_job_runs",
+          "status": "completed",
+          "timestamp": "2026-09-20T08:45:22Z"
+        },
+        {
+          "event": "artifact_readback_persisted",
+          "event_source": "etl_job_runs",
+          "status": "completed",
+          "timestamp": "2026-09-20T08:45:22Z"
+        },
+        {
+          "event": "etl_job_started",
+          "event_source": "etl_job_runs",
+          "status": "running",
+          "timestamp": "2026-09-20T01:45:22.740050-07:00"
+        }
+      ],
+      "line_key": "writing_knowledge_graph_agent",
+      "mocked": false,
+      "queue": "local.writing_knowledge_graph_agent",
+      "readback_endpoint": "/api/v1/process/db-job-169?project_key=demo_proj",
+      "readback_path": "/api/v1/process/db-job-169?project_key=demo_proj",
+      "run_id": "169",
+      "skipped": false,
+      "status": "completed",
+      "task_id": "db-job-169",
+      "trace_id": "writing-outline_generate",
+      "worker_name": "local.writing_llm_action_service"
+    }
+  ]
+}

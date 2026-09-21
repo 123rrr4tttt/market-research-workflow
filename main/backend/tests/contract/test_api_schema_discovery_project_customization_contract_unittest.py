@@ -12,7 +12,7 @@ pytestmark = pytest.mark.contract
 
 _TARGET_MODULE_COUNTS = {
     "discovery.py": 5,
-    "project_customization.py": 8,
+    "project_customization.py": 14,
 }
 
 try:
@@ -65,7 +65,7 @@ def test_discovery_and_project_customization_have_typed_200_response_schemas():
         counts[operation["source_module"]] += 1
 
     assert counts == _TARGET_MODULE_COUNTS
-    assert sum(counts.values()) == 13
+    assert sum(counts.values()) == 19
     assert [
         f"{operation['method']} {operation['path']}"
         for operation in operations

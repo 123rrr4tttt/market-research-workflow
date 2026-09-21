@@ -1,0 +1,5 @@
+services:
+  backend:
+    image: mrw-local/stage4-business001:stage4-c9-effect
+  celery-worker:
+    image: mrw-local/stage4-business001:stage4-c9-effect

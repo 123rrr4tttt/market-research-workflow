@@ -343,6 +343,33 @@
   font-size: 13px;
 }
 
+.agent-chat-model-selector,
+.agent-chat-effort-selector {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 8px;
+  border: 1px solid color-mix(in srgb, var(--agent-line) 82%, transparent);
+  border-radius: 8px;
+  background: var(--agent-surface-soft);
+  color: var(--agent-muted);
+  font-size: 12px;
+}
+
+.agent-chat-model-selector select,
+.agent-chat-effort-selector {
+  border: 0;
+  background: transparent;
+  color: var(--agent-ink);
+  font: inherit;
+  outline: none;
+}
+
+.agent-chat-model-selector select {
+  max-width: 180px;
+}
+
 .agent-chat-icon-button {
   width: 34px;
   height: 34px;

@@ -16,7 +16,7 @@ surface never rewrites or selects ``source_mode``.
 from __future__ import annotations
 
 import dataclasses
-from typing import Any
+from typing import Annotated, Any
 
 from app.services.agent_batch.agent_loop import (
     _apply_retry_action as _legacy_apply_retry_action,
@@ -444,7 +444,12 @@ def build_legacy_agent_batch_c4_plan_binding(
     project_scope_digest: str,
     resource_policy_epoch: int = 1,
     runtime_protocol_version: str = "mrw.runtime.protocol.v1",
-) -> InterpreterBinding:
+) -> Annotated[
+    InterpreterBinding,
+    "kit:prepared-command effect_boundary=app.successor_migration."
+    "legacy_agent_batch.build_legacy_agent_batch_c4_plan_binding "
+    "witness=test:test_binding_swap_and_mutation_reject_c4_1",
+]:
     return InterpreterBinding.from_content(
         operation_contract_digest=contract_digest,
         interpreter_profile_digest=legacy_plan_interpreter_profile_digest(),
@@ -463,7 +468,12 @@ def build_successor_agent_batch_c4_plan_binding(
     project_scope_digest: str,
     resource_policy_epoch: int = 1,
     runtime_protocol_version: str = "mrw.runtime.protocol.v1",
-) -> InterpreterBinding:
+) -> Annotated[
+    InterpreterBinding,
+    "kit:prepared-command effect_boundary=app.successor_migration."
+    "legacy_agent_batch.build_successor_agent_batch_c4_plan_binding "
+    "witness=test:test_binding_swap_and_mutation_reject_c4_1",
+]:
     return InterpreterBinding.from_content(
         operation_contract_digest=contract_digest,
         interpreter_profile_digest=successor_plan_interpreter_profile_digest(),
@@ -482,7 +492,12 @@ def build_legacy_agent_batch_c4_retry_binding(
     project_scope_digest: str,
     resource_policy_epoch: int = 1,
     runtime_protocol_version: str = "mrw.runtime.protocol.v1",
-) -> InterpreterBinding:
+) -> Annotated[
+    InterpreterBinding,
+    "kit:prepared-command effect_boundary=app.successor_migration."
+    "legacy_agent_batch.build_legacy_agent_batch_c4_retry_binding "
+    "witness=test:test_binding_swap_and_mutation_reject_c4_2",
+]:
     return InterpreterBinding.from_content(
         operation_contract_digest=contract_digest,
         interpreter_profile_digest=legacy_retry_interpreter_profile_digest(),
@@ -501,7 +516,12 @@ def build_successor_agent_batch_c4_retry_binding(
     project_scope_digest: str,
     resource_policy_epoch: int = 1,
     runtime_protocol_version: str = "mrw.runtime.protocol.v1",
-) -> InterpreterBinding:
+) -> Annotated[
+    InterpreterBinding,
+    "kit:prepared-command effect_boundary=app.successor_migration."
+    "legacy_agent_batch.build_successor_agent_batch_c4_retry_binding "
+    "witness=test:test_binding_swap_and_mutation_reject_c4_2",
+]:
     return InterpreterBinding.from_content(
         operation_contract_digest=contract_digest,
         interpreter_profile_digest=successor_retry_interpreter_profile_digest(),
@@ -520,7 +540,12 @@ def build_successor_agent_batch_c4_submission_binding(
     project_scope_digest: str,
     resource_policy_epoch: int = 1,
     runtime_protocol_version: str = "mrw.runtime.protocol.v1",
-) -> InterpreterBinding:
+) -> Annotated[
+    InterpreterBinding,
+    "kit:prepared-command effect_boundary=app.successor_migration."
+    "legacy_agent_batch.build_successor_agent_batch_c4_submission_binding "
+    "witness=test:test_rollback_rehearsal_legacy_claim_no_dual_and_receipt_retained",
+]:
     return InterpreterBinding.from_content(
         operation_contract_digest=contract_digest,
         interpreter_profile_digest=successor_submission_interpreter_profile_digest(),

@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 import hashlib
 import json
-from typing import Any
+from typing import Annotated, Any
 
 from .graph_node_live_db_rollout_gate import GraphNodeLiveDbRolloutGateReport
 from .graph_projection_contract import GraphProjectionDryRunReport, GraphProjectionRolloutReadinessReport
@@ -172,7 +172,12 @@ def build_graph_node_rollout_manifest(
     readiness_report: GraphProjectionRolloutReadinessReport,
     gate_report: GraphNodeLiveDbRolloutGateReport,
     source_docs: list[str] | tuple[str, ...] | None = None,
-) -> GraphNodeRolloutManifestReport:
+) -> Annotated[
+    GraphNodeRolloutManifestReport,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=gate+readiness+manifest_inputs "
+    "witness=test:test_w04_authority_metadata",
+]:
     """Build and read back the deterministic Graph Node rollout manifest.
 
     The manifest is intentionally a pure report over the dry-run/readiness/gate

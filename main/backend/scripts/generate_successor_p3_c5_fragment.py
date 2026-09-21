@@ -22,7 +22,7 @@ import sys
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND_ROOT))
@@ -748,7 +748,12 @@ def _operation_bindings(kind: str, role: str, reason: str) -> list[dict[str, obj
     ]
 
 
-def build_fragment() -> dict[str, object]:
+def build_fragment() -> Annotated[
+    dict[str, object],
+    "kit:non-authoritative derived_as=generated_evidence "
+    "fact_source=C5.1-C5.4_observations+repo_bindings "
+    "witness=test:test_w10_cli_generator_derived_metadata_preserves_abi",
+]:
     c5_1_legacy, c5_1_successor = _c5_1_observations()
     c5_2_legacy, c5_2_successor = _c5_2_observations()
     c5_3_legacy, c5_3_successor = _c5_3_observations()

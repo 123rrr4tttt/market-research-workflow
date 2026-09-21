@@ -9,13 +9,44 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Final, Literal, Protocol, TypeAlias, runtime_checkable
+from typing import Any, Final, Literal, Protocol, TypeAlias, runtime_checkable
+
+from functorial_kit import Failure
 
 from .admission import CommitIntent, VerificationBinding
 from .assignments import RuntimeAssignment
 from .qualification import AuthorityContext, StepAuthorizationBinding
 from .recovery import NonStartProof
 from .work_items import WorkItemRecord
+
+_RUNTIME_CONTRACT_WITNESS = "test:test_w07_runtime_non_start_proof_negative"
+
+
+def _port_failure(code: str, message: object, *, site: str, exception_type: type[Exception] = ValueError) -> Failure:
+    from .failure_policy import runtime_failure
+
+    return runtime_failure(
+        code,
+        message,
+        exception_type,
+        site=site,
+        context={"owner": "successor_runtime.runtime.ports", "operation": site},
+    )
+
+
+def raise_port_failure(
+    failure: Failure, exception_type: type[Exception] = ValueError
+) -> None:
+    from .failure_policy import raise_runtime_failure
+
+    raise_runtime_failure(failure, exception_type)
+
+
+def _try_port(call: Any, *, site: str, code: str) -> object | Failure:
+    try:
+        return call()
+    except (TypeError, ValueError, OverflowError, KeyError, AttributeError) as exc:
+        return _port_failure(code, str(exc), site=site, exception_type=type(exc))
 
 ControlPlanePermission: TypeAlias = Literal["runtime.cross_project_claim"]
 RUNTIME_CROSS_PROJECT_CLAIM_PERMISSION: Final[ControlPlanePermission] = (
@@ -43,14 +74,17 @@ class ProjectScopeRef:
 
     def __post_init__(self) -> None:
         if not self.project_key:
+            # kit:boundary owner=successor.runtime.ports.project_scope class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
             raise ValueError("ProjectScopeRef requires project_key")
         if not self.resolved_schema:
+            # kit:boundary owner=successor.runtime.ports.project_scope class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
             raise ValueError("ProjectScopeRef requires resolved_schema")
         if (
             not isinstance(self.project_registry_revision, int)
             or isinstance(self.project_registry_revision, bool)
             or self.project_registry_revision < 0
         ):
+            # kit:boundary owner=successor.runtime.ports.project_scope class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
             raise ValueError("ProjectScopeRef registry_revision must be >= 0")
         if (
             not isinstance(self.incarnation, str)
@@ -58,12 +92,14 @@ class ProjectScopeRef:
             or self.incarnation != self.incarnation.strip()
             or len(self.incarnation) > 128
         ):
+            # kit:boundary owner=successor.runtime.ports.project_scope class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
             raise ValueError(
                 "ProjectScopeRef incarnation must be a non-empty canonical identity"
             )
         if len(self.scope_digest) != 64 or any(
             character not in "0123456789abcdef" for character in self.scope_digest
         ):
+            # kit:boundary owner=successor.runtime.ports.project_scope class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
             raise ValueError("ProjectScopeRef scope_digest must be canonical sha256 hex")
 
 
@@ -76,6 +112,7 @@ class RuntimeScope:
 
     def __post_init__(self) -> None:
         if not self.actor_id:
+            # kit:boundary owner=successor.runtime.ports.runtime_scope class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
             raise ValueError("RuntimeScope requires actor_id")
 
 
@@ -89,12 +126,15 @@ class ControlPlaneScope:
 
     def __post_init__(self) -> None:
         if not self.system_actor_id:
+            # kit:boundary owner=successor.runtime.ports.control_plane_scope class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
             raise ValueError("ControlPlaneScope requires system_actor_id")
         if self.permission not in CONTROL_PLANE_PERMISSIONS:
+            # kit:boundary owner=successor.runtime.ports.control_plane_scope class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
             raise ValueError(
                 "ControlPlaneScope permission must be an allowed control-plane permission"
             )
         if self.authority_epoch < 0:
+            # kit:boundary owner=successor.runtime.ports.control_plane_scope class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
             raise ValueError("ControlPlaneScope authority_epoch must be >= 0")
 
     def require_permission(self, required: ControlPlanePermission) -> None:
@@ -107,9 +147,59 @@ class ControlPlaneScope:
         """
 
         if required not in CONTROL_PLANE_PERMISSIONS:
-            raise ValueError("required permission is not a known control-plane permission")
+            raise_port_failure(
+                _port_failure(
+                    "CONTROL_PLANE_SCOPE_INVALID",
+                    "required permission is not a known control-plane permission",
+                    site="ports.control_plane_scope.permission",
+                )
+            )
         if self.permission != required:
-            raise PermissionError(f"ControlPlaneScope lacks permission: {required}")
+            raise_port_failure(
+                _port_failure(
+                    "CONTROL_PLANE_PERMISSION_DENIED",
+                    f"ControlPlaneScope lacks permission: {required}",
+                    site="ports.control_plane_scope.permission",
+                    exception_type=PermissionError,
+                ),
+                PermissionError,
+            )
+
+
+def try_project_scope_ref(**content: Any) -> ProjectScopeRef | Failure:
+    return _try_port(lambda: ProjectScopeRef(**content), site="ports.project_scope_ref", code="PROJECT_SCOPE_INVALID")  # type: ignore[return-value]
+
+
+def try_build_project_scope_ref(**content: Any) -> ProjectScopeRef | Failure:
+    return try_project_scope_ref(**content)
+
+
+def try_runtime_scope(**content: Any) -> RuntimeScope | Failure:
+    return _try_port(lambda: RuntimeScope(**content), site="ports.runtime_scope", code="PROJECT_SCOPE_INVALID")  # type: ignore[return-value]
+
+
+def try_build_runtime_scope(**content: Any) -> RuntimeScope | Failure:
+    return try_runtime_scope(**content)
+
+
+def try_control_plane_scope(**content: Any) -> ControlPlaneScope | Failure:
+    return _try_port(lambda: ControlPlaneScope(**content), site="ports.control_plane_scope", code="CONTROL_PLANE_SCOPE_INVALID")  # type: ignore[return-value]
+
+
+def try_build_control_plane_scope(**content: Any) -> ControlPlaneScope | Failure:
+    return try_control_plane_scope(**content)
+
+
+def try_require_control_plane_permission(
+    scope: ControlPlaneScope, required: ControlPlanePermission
+) -> None | Failure:
+    try:
+        scope.require_permission(required)
+    except PermissionError as exc:
+        return _port_failure("CONTROL_PLANE_PERMISSION_DENIED", str(exc), site="ports.control_plane_scope.permission", exception_type=PermissionError)
+    except Exception as exc:
+        return _port_failure("CONTROL_PLANE_SCOPE_INVALID", str(exc), site="ports.control_plane_scope.permission", exception_type=type(exc))
+    return None
 
 
 @dataclass(frozen=True, slots=True)

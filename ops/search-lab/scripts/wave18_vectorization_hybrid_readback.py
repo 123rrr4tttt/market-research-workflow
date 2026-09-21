@@ -5,6 +5,7 @@ import argparse
 import json
 import math
 import re
+import shlex
 import sys
 from pathlib import Path
 from typing import Any
@@ -23,6 +24,10 @@ from app.services.local_index import (  # noqa: E402
     LocalIndexService,
 )
 from app.services.local_index.adapters.lancedb_adapter import _deterministic_vector  # noqa: E402
+from scripts.evidence_source_contract import (  # noqa: E402
+    apply_evidence_source_contract,
+    evidence_source,
+)
 
 
 DEFAULT_OUT_DIR = "development/latest-dev-docs/automation-runs/wave18-vectorization-hybrid-readback/2026-05-22"
@@ -45,8 +50,8 @@ WAVE14_PROVIDER_CAPABILITY = (
 
 TARGET_TOPICS = [
     "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-01-open-source-platform-integration",
-    "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-global-vectorization-general-foundation",
-    "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-05-oss-node-platform-io-plan",
+    "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation",
+    "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-05-oss-node-platform-io-plan",
 ]
 LOCAL_INDEX_MODES = ["keyword", "vector", "hybrid"]
 REQUIRED_TRACE_FIELDS = [
@@ -421,8 +426,6 @@ def run_identity_readback() -> dict[str, Any]:
         "cases": cases,
         "failures": failures,
     }
-
-
 def validate_case(case: dict[str, Any], records: list[dict[str, Any]]) -> list[str]:
     failures: list[str] = []
     expected_order = list(case["expected_order"])
@@ -480,25 +483,35 @@ def validate_record_trace(case: dict[str, Any], record: dict[str, Any]) -> list[
     return failures
 
 
-def build_contract() -> dict[str, Any]:
+def build_contract(
+    *,
+    wave8_path: Path | None = None,
+    wave10_path: Path | None = None,
+    wave12_path: Path | None = None,
+    wave14_path: Path | None = None,
+) -> dict[str, Any]:
+    resolved_wave8_path = wave8_path or WAVE8_CONTRACT
+    resolved_wave10_path = wave10_path or WAVE10_CONTRACT
+    resolved_wave12_path = wave12_path or WAVE12_PROVIDER_READINESS
+    resolved_wave14_path = wave14_path or WAVE14_PROVIDER_CAPABILITY
     inputs = {
         "wave8": check_input_artifact(
-            WAVE8_CONTRACT,
+            resolved_wave8_path,
             label="wave8",
             expected_version="wave8-search-vectorization-runtime-contract.v1",
         ),
         "wave10": check_input_artifact(
-            WAVE10_CONTRACT,
+            resolved_wave10_path,
             label="wave10",
             expected_version="wave10-vectorization-quality-gate.v1",
         ),
         "wave12": check_input_artifact(
-            WAVE12_PROVIDER_READINESS,
+            resolved_wave12_path,
             label="wave12",
             expected_version="wave12-provider-readiness-gate.v1",
         ),
         "wave14": check_input_artifact(
-            WAVE14_PROVIDER_CAPABILITY,
+            resolved_wave14_path,
             label="wave14",
             expected_version="wave14-vectorization-provider-capability.v1",
         ),
@@ -512,7 +525,7 @@ def build_contract() -> dict[str, Any]:
     ]
     failures.extend(identity_readback["failures"])
     failures.extend(f"target topic missing: {row['path']}" for row in target_topics if not row["exists"])
-    return {
+    contract = {
         "contract_version": "wave18-vectorization-hybrid-readback.v1",
         "generated_by": "ops/search-lab/scripts/wave18_vectorization_hybrid_readback.py",
         "status": "passed" if not failures else "failed",
@@ -574,6 +587,24 @@ def build_contract() -> dict[str, Any]:
         ],
         "failures": failures,
     }
+    return apply_evidence_source_contract(
+        contract,
+        [
+            evidence_source(resolved_wave8_path, repo_root=REPO_ROOT, label="wave8_contract"),
+            evidence_source(resolved_wave10_path, repo_root=REPO_ROOT, label="wave10_contract"),
+            evidence_source(
+                resolved_wave12_path,
+                repo_root=REPO_ROOT,
+                label="wave12_provider_readiness",
+            ),
+            evidence_source(
+                resolved_wave14_path,
+                repo_root=REPO_ROOT,
+                label="wave14_provider_capability",
+            ),
+        ],
+        claim_fields=("provider_live_closure_claim_allowed", "semantic_quality_claim_allowed"),
+    )
 
 
 def write_outputs(out_dir: Path, contract: dict[str, Any]) -> None:
@@ -581,6 +612,15 @@ def write_outputs(out_dir: Path, contract: dict[str, Any]) -> None:
     (out_dir / "hybrid_readback_contract.json").write_text(
         json.dumps(contract, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
+    )
+    rerun_command = (
+        "PYTHONPATH=main/backend python3 "
+        "ops/search-lab/scripts/wave18_vectorization_hybrid_readback.py "
+        f"--wave8-contract {shlex.quote(contract['inputs']['wave8']['path'])} "
+        f"--wave10-contract {shlex.quote(contract['inputs']['wave10']['path'])} "
+        f"--wave12-provider-readiness {shlex.quote(contract['inputs']['wave12']['path'])} "
+        f"--wave14-provider-capability {shlex.quote(contract['inputs']['wave14']['path'])} "
+        f"--out-dir {shlex.quote(display_path(out_dir))}"
     )
     case_rows = []
     for case in contract["mode_identity_readback"]["cases"]:
@@ -636,7 +676,7 @@ def write_outputs(out_dir: Path, contract: dict[str, Any]) -> None:
         "## Rerun",
         "",
         "```bash",
-        f"PYTHONPATH=main/backend python3 ops/search-lab/scripts/wave18_vectorization_hybrid_readback.py --out-dir {display_path(out_dir)}",
+        rerun_command,
         "```",
         "",
         "Full deterministic output is in `hybrid_readback_contract.json`.",
@@ -645,15 +685,33 @@ def write_outputs(out_dir: Path, contract: dict[str, Any]) -> None:
     (out_dir / "README.md").write_text("\n".join(readme), encoding="utf-8")
 
 
-def main() -> int:
+def _resolve_cli_path(value: str) -> Path:
+    path = Path(value)
+    return path if path.is_absolute() else REPO_ROOT / path
+
+
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--out-dir", default=DEFAULT_OUT_DIR)
-    args = parser.parse_args()
+    parser.add_argument("--wave8-contract", default=str(WAVE8_CONTRACT))
+    parser.add_argument("--wave10-contract", default=str(WAVE10_CONTRACT))
+    parser.add_argument("--wave12-provider-readiness", default=str(WAVE12_PROVIDER_READINESS))
+    parser.add_argument("--wave14-provider-capability", default=str(WAVE14_PROVIDER_CAPABILITY))
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = _parse_args(argv)
 
     out_dir = Path(args.out_dir)
     if not out_dir.is_absolute():
         out_dir = REPO_ROOT / out_dir
-    contract = build_contract()
+    contract = build_contract(
+        wave8_path=_resolve_cli_path(args.wave8_contract),
+        wave10_path=_resolve_cli_path(args.wave10_contract),
+        wave12_path=_resolve_cli_path(args.wave12_provider_readiness),
+        wave14_path=_resolve_cli_path(args.wave14_provider_capability),
+    )
     write_outputs(out_dir, contract)
     print(
         json.dumps(

@@ -1,0 +1,18 @@
+{
+  "status": "RUN_IN_PROGRESS",
+  "started_at": "2026-09-13T09:35:00+08:00",
+  "work_package": "backup_restore_migration_recovery",
+  "compose_project": "mrw-stage5-recovery",
+  "static_preflight": {
+    "python_compile": "PASS",
+    "compose_config": "PASS"
+  },
+  "inputs": {
+    "backend_and_celery": "mrw-local/stage4-business001:stage4-c9-effect@sha256:f247a1492400311e032710df01f84365c7e700f61c122b7243ae58eda982af19",
+    "migration_runner": "mrw-local/r13x-candidate-migration-runner:8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2@sha256:3b409669bb8248f738c1133f9458d73725951140c0eae938064d469045960509",
+    "snapshot": "stage4-evidence/runtime/synthetic-production-like.snapshot.dump",
+    "seed": "stage4-evidence/runtime/seed-c9-effect.py",
+    "retention_reference": "stage4-evidence/runtime/post-acceptance-cleanup.json"
+  },
+  "authoritative": false
+}

@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "artifact": "functorial-kit-consumer-gate-replay",
+  "base": {
+    "git_commit": "785ff25e201c9eae84c862e68e786bc975e7a800",
+    "git_tree": "40a8019815040ff00c0ce61c0cdca30ac004ec7e",
+    "targets": {
+      "python/functorial_kit/arch/gates.py": "ef1f360627b29018a4829fcc86764b80218d950ca6a46b2318af1536fac84a3c",
+      "python/functorial_kit/arch/scan.py": "9f9fe4fbab66677b774d2729741046f810cf8b8b0866855810a25080f7e4257e",
+      "python/tests/test_arch.py": "7cdce7a24cea1243ec4b12aaebee0c5a4308bd97512a4c7b30d9ec5e7f820556"
+    }
+  },
+  "patch": {
+    "path": "tools/functorial-kit/consumer-gate.patch",
+    "sha256": "f6145cafe16db0805ded7d93f752189ed4849353a1a10033c405310ed11dee03"
+  },
+  "patched_targets": {
+    "python/functorial_kit/arch/gates.py": "93c1789061b39d192eab86e47dfa7fd02102612f3055899c29498e626b4138ba",
+    "python/functorial_kit/arch/scan.py": "0bf55d450c52c73c1a339a31fc129ce3cf411e37cda5f5ad303eb533ad726ef2",
+    "python/tests/test_arch.py": "57638caa82f04d1c368121c7a7c79e6d776a2168fa66ff40218a35783fd58dc2"
+  },
+  "runtime_identity": {
+    "consumer_gate_materialization": "base_git_commit_plus_sha256_verified_patch",
+    "pyproject_runtime_dependency": "functorial-kit @ git+https://github.com/123rrr4tttt/functorial-kit.git@785ff25e201c9eae84c862e68e786bc975e7a800#subdirectory=python",
+    "pyproject_runtime_pin_modified": false
+  },
+  "role": "test_tool_only",
+  "authority": {
+    "authoritative": false,
+    "canonical": false,
+    "production": false,
+    "release": false,
+    "live": false,
+    "cutover": false,
+    "baseline_write": false
+  }
+}

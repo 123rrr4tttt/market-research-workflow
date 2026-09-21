@@ -1,0 +1,103 @@
+{
+  "schema_version": "mrw.formal-production-release-gap-ledger.v1",
+  "status": "FROZEN_GAP_SNAPSHOT_V1",
+  "authoritative": false,
+  "derived_as": "preflight",
+  "source_task": {
+    "thread_id": "01a069dd-d6ad-70d2-af42-72a155b0cc9d",
+    "title": "用函子编程的方法论审视一下项目，可以调用子agent并行调查",
+    "observed_state": "active"
+  },
+  "checkout_snapshot": {
+    "branch": "codex/all-lines-donor-cutover",
+    "head": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+    "tree": "5840bf9ba906c49f70020d226c54446f4ba5aa33",
+    "dirty": true,
+    "status_entry_count": 690,
+    "candidate_identity": false,
+    "note": "Observational drafting snapshot only; not a releasable candidate and expected to change while the source task runs."
+  },
+  "candidate_strategy": {
+    "selected": "REMEDIATION_INCLUSIVE_RELEASE",
+    "alternative_not_selected": "PRODUCTION_MAIN_STABILIZATION",
+    "evidence_rule": "Historical candidate and runtime evidence cannot be transferred across candidate bytes without rerun or independently established exact-byte equivalence."
+  },
+  "current_red_lights": {
+    "origin_main_ahead_by_commits": 21,
+    "arch_baseline_entries": 849,
+    "progress_reported_fail_keys": 850,
+    "fresh_architecture_result": "268 passed, 1 failed",
+    "fresh_architecture_stale_keys": 6,
+    "root_version": "0.0.0",
+    "frontend_version": "0.1.8-rc1",
+    "absolute_local_functorial_kit_dependency": true,
+    "required_check_convergence_complete": false,
+    "floating_compose_images_present": true
+  },
+  "source_task_coverage": [
+    {"surface": "S0 freeze and progress", "state": "COMPLETE"},
+    {"surface": "S1 C7 semantic registration", "state": "COMPLETE"},
+    {"surface": "S2 lightweight projection correction", "state": "COMPLETE"},
+    {"surface": "S3 adapter boundary", "state": "IN_PROGRESS"},
+    {"surface": "S4 derived authority", "state": "IN_PROGRESS"},
+    {"surface": "S5 failure families", "state": "IN_PROGRESS"},
+    {"surface": "S6 shared helper consolidation", "state": "NOT_STARTED"},
+    {"surface": "S7 C8/C9 registration", "state": "NOT_STARTED"},
+    {"surface": "S8 remaining families", "state": "NOT_STARTED"}
+  ],
+  "gaps": [
+    {"gap_id": "G0", "family": "semantic_closure", "state": "IN_PROGRESS", "blocks": ["formal_rc", "production"]},
+    {"gap_id": "G1", "family": "candidate_identity", "state": "BLOCKED_BY_MIXED_DIRTY_WORKTREE", "blocks": ["formal_rc", "production"]},
+    {"gap_id": "G2", "family": "artifact_build", "state": "UNEXECUTED", "blocks": ["formal_rc", "production"]},
+    {"gap_id": "G3", "family": "release_evidence_contract", "state": "MISSING", "blocks": ["formal_rc_review", "production"]},
+    {"gap_id": "G4", "family": "business_validation", "state": "PARTIAL_UNEXECUTED", "blocks": ["formal_rc", "production"]},
+    {"gap_id": "G5", "family": "security_supply_chain", "state": "PARTIAL", "blocks": ["production"]},
+    {"gap_id": "G6", "family": "runtime_staging", "state": "MISSING_OR_LOCAL_ONLY", "blocks": ["live_capability", "production"]},
+    {"gap_id": "G7", "family": "observability_canary", "state": "RECOMMENDATION_NOT_IMPLEMENTED", "blocks": ["canary", "production"]},
+    {"gap_id": "G8", "family": "backup_recovery", "state": "DOCUMENTED_NOT_DRILLED", "blocks": ["production"]},
+    {"gap_id": "G9", "family": "promotion_authority", "state": "NOT_AUTHORIZED", "blocks": ["production"]}
+  ],
+  "first_wave": [
+    {
+      "package": "R0-B",
+      "owner": "release_preflight_substrate",
+      "write_paths": [
+        "scripts/formal_release/model.py",
+        "tests/formal_release/test_model.py"
+      ]
+    },
+    {
+      "package": "R1",
+      "owner": "candidate_identity_lane",
+      "write_paths": [
+        "scripts/formal_release/check_candidate_identity.py",
+        "tests/formal_release/test_check_candidate_identity.py"
+      ]
+    },
+    {
+      "package": "R2",
+      "owner": "release_evidence_lane",
+      "write_paths": [
+        "scripts/formal_release/check_release_evidence.py",
+        "tests/formal_release/test_check_release_evidence.py"
+      ]
+    },
+    {
+      "package": "R3",
+      "owner": "static_production_contract_lane",
+      "write_paths": [
+        "scripts/formal_release/check_static_production_contract.py",
+        "tests/formal_release/test_check_static_production_contract.py"
+      ]
+    }
+  ],
+  "authority_ceiling": {
+    "candidate_promotion": false,
+    "production_canonical_write": false,
+    "live_provider": false,
+    "external_delivery": false,
+    "cutover": false,
+    "authority_transfer": false,
+    "legacy_retirement": false
+  }
+}

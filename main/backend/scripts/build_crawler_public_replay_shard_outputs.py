@@ -5,7 +5,11 @@ import json
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Annotated, Any, Mapping
+try:
+    from ._cli_runtime import repo_root as _repo_root
+except ImportError:  # direct script execution
+    from _cli_runtime import repo_root as _repo_root
 
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
@@ -18,11 +22,10 @@ from scripts.check_crawler_public_replay_shards import PUBLIC_OUTPUT_RUNTIME_MOD
 from scripts.check_crawler_public_replay_shards import PUBLIC_OUTPUT_STATUS
 from scripts.check_crawler_public_replay_shards import READBACK_CONTRACT_VERSION
 from scripts.check_crawler_public_replay_shards import SHARD_OUTPUT_CONTRACT_VERSION
+from scripts.check_evidence_source_availability import EVIDENCE_SOURCE_UNAVAILABLE
+from scripts.check_evidence_source_availability import classify_required_evidence
+from scripts.check_evidence_source_availability import unavailable_error
 from scripts.source_library_replay_scaleout import validate_manifest_targets
-
-
-def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[3]
 
 
 def _utc_now() -> str:
@@ -205,10 +208,30 @@ def build_public_shard_outputs(
     manifest_path: Path | str | None = None,
     source_public_output: Path | str | None = None,
     write: bool = True,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=generated_evidence "
+    "fact_source=manifest+source_output+shard_payloads "
+    "witness=test:test_c15_backend_misc_cli_report_metadata_preserves_abi",
+]:
     root = Path(repo_root) if repo_root is not None else _repo_root()
     root = root.resolve()
     manifest_file = _resolve_path(root, manifest_path or DEFAULT_MANIFEST_PATH).resolve()
+    evidence_source = classify_required_evidence(root, {"shard_manifest": manifest_file})
+    if evidence_source["status"] == EVIDENCE_SOURCE_UNAVAILABLE:
+        return {
+            "manifest_path": _relative_path(manifest_file, root),
+            "source_public_output": None,
+            "readback_path": None,
+            "shards": [],
+            "source_public_replay": {},
+            "evidence_source": evidence_source,
+            "validation": {
+                "passed": False,
+                "errors": [unavailable_error(evidence_source)],
+                "write": False,
+            },
+        }
     manifest = _load_json(manifest_file)
     required_artifacts = manifest.get("required_artifacts") if isinstance(manifest.get("required_artifacts"), Mapping) else {}
     boundary = manifest.get("public_output_boundary") if isinstance(manifest.get("public_output_boundary"), Mapping) else {}
@@ -216,8 +239,30 @@ def build_public_shard_outputs(
     if not source_output_rel:
         raise ValueError("source public output path is required")
     source_output_path = _resolve_path(root, source_output_rel).resolve()
-    source_output = _load_json(source_output_path)
     source_manifest_path = _resolve_path(root, str(required_artifacts.get("source_replay_manifest") or "")).resolve()
+    evidence_source = classify_required_evidence(
+        root,
+        {
+            "shard_manifest": manifest_file,
+            "source_public_output": source_output_path,
+            "source_replay_manifest": source_manifest_path,
+        },
+    )
+    if evidence_source["status"] == EVIDENCE_SOURCE_UNAVAILABLE:
+        return {
+            "manifest_path": _relative_path(manifest_file, root),
+            "source_public_output": _relative_path(source_output_path, root),
+            "readback_path": None,
+            "shards": [],
+            "source_public_replay": {},
+            "evidence_source": evidence_source,
+            "validation": {
+                "passed": False,
+                "errors": [unavailable_error(evidence_source)],
+                "write": False,
+            },
+        }
+    source_output = _load_json(source_output_path)
     source_manifest = _load_json(source_manifest_path)
     source_targets = [dict(row) for row in source_manifest.get("targets") or [] if isinstance(row, Mapping)]
     source_results = _target_results(source_output)
@@ -318,6 +363,7 @@ def build_public_shard_outputs(
         "readback_path": _relative_path(readback_path, root),
         "shards": shard_payloads,
         "source_public_replay": source_summary,
+        "evidence_source": evidence_source,
         "validation": {
             "passed": not validation_errors,
             "errors": validation_errors,

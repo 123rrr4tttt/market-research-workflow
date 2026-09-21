@@ -6,6 +6,8 @@ import unittest
 
 import pytest
 
+from tests.unit._evidence_source_assertions import assert_typed_evidence_unavailable
+
 
 pytestmark = pytest.mark.unit
 
@@ -33,38 +35,15 @@ class Wave8SearchVectorizationContractTest(unittest.TestCase):
 
         self.assertEqual(contract["contract_version"], "wave8-search-vectorization-runtime-contract.v1")
         self.assertEqual(contract["scope"], "deterministic_reuse_no_network_no_container_start")
-        self.assertEqual(contract["status"], "passed")
-        self.assertEqual(contract["failures"], [])
-
-        provider_trace = contract["evidence"]["search_provider_trace"]
-        self.assertEqual(provider_trace["status"], "passed")
-        self.assertEqual(provider_trace["explicit_providers"], ["searxng", "yacy"])
-        self.assertFalse(provider_trace["auto_local_open_search_called"])
-
-        container_replay = contract["evidence"]["search_provider_container_replay"]
-        self.assertEqual(container_replay["status"], "passed")
-        self.assertEqual(container_replay["source"], "preexisting_artifact_only")
-        self.assertFalse(container_replay["current_container_availability_asserted"])
-
-        runtime = contract["evidence"]["local_index_runtime_smoke"]
-        self.assertEqual(runtime["status"], "passed")
-        for mode in ("keyword", "vector", "hybrid"):
-            self.assertEqual(runtime["modes"][mode]["executed_mode"], mode)
-            self.assertEqual(runtime["modes"][mode]["retrieval_mode"], mode)
-            self.assertEqual(runtime["modes"][mode]["top_chunk_id"], runtime["modes"][mode]["expected_chunk_id"])
-            self.assertEqual(runtime["modes"][mode]["failures"], [])
-
-        benchmark = contract["evidence"]["local_index_benchmark"]
-        self.assertEqual(benchmark["status"], "passed")
-        self.assertEqual(benchmark["ranking_modes"], ["hybrid", "keyword", "vector"])
-        self.assertEqual(benchmark["filter_modes"], ["hybrid", "keyword", "vector"])
-        self.assertEqual(
-            sorted(item["code"] for item in contract["remaining_gaps"]),
-            [
-                "current_container_availability_not_replayed",
-                "global_vector_contract_not_closed",
-                "semantic_embedding_quality_not_proven",
-            ],
+        assert_typed_evidence_unavailable(
+            self,
+            contract,
+            expected_missing_paths=(
+                "development/latest-dev-docs/automation-runs/search-provider-trace-artifacts/"
+                "2026-05-22/search_provider_trace_contract.json",
+                "development/latest-dev-docs/automation-runs/local-index-lancedb-runtime-smoke/"
+                "2026-05-22/runtime_smoke_results.json",
+            ),
         )
 
 

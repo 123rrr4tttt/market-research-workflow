@@ -1,14 +1,109 @@
 from __future__ import annotations
 
 import os
-from typing import Any, Dict
+from typing import Any, Dict, NoReturn
+
+from functorial_kit import Failure
+from mrw_functorial_kit.core.application_failure_semantics import source_library_contract_failures
+from mrw_functorial_kit.core.provider_port_failures import crawler_runtime_failures
 
 from ...project_customization import get_project_customization
+from ..crawlers.base import (
+    CrawlerDispatchResult,
+    is_crawler_dispatch_acknowledged,
+    typed_crawler_readback,
+)
+from ..crawlers.durable_effect_bridge import DurableCrawlerEffectBridge
 from .handler_registry import get
+from .provider_ports import resolve_crawler_provider
+from .single_source_guard import validate_single_source_guard
 from .types import default_source_layer_boundary, derive_source_tiering
 
 _REGISTERED = False
 _CRAWLER_PROVIDER_TYPES = {"scrapy", "crawlee", "meltano"}
+_FAILURE_WITNESS = "test:test_w01_source_export_failures"
+_CRAWLER_FAILURE_WITNESS = "test:test_w03_crawler_failure_lifts"
+
+
+def _crawler_effect_failure(code: str, message: str, *, site: str, **details: Any) -> Failure:
+    context: dict[str, Any] = {
+        "boundary_class": "PURE_CONTRACT_FAILURE",
+        "failure_family": crawler_runtime_failures.name,
+        "operation": "source_library.crawler_provider",
+        "owner": site,
+        "public_exception": "RuntimeError",
+        "public_message": message,
+        "site": site,
+        "witness": _CRAWLER_FAILURE_WITNESS,
+    }
+    context.update(details)
+    return crawler_runtime_failures.fail(code, message, context)
+
+
+def _crawler_failure_result(failure: Failure, *, provider_type: str) -> Dict[str, Any]:
+    if not crawler_runtime_failures.matches(failure):
+        failure = _crawler_effect_failure(
+            "scrapyd_transport",
+            f"crawler provider returned an out-of-family failure: {failure.message}",
+            site="app.services.source_library.runner.crawler_dispatch",
+            provider_type=provider_type,
+            observed_family=failure.family,
+            observed_code=failure.code,
+        )
+    return {
+        "status": "failed",
+        "inserted": 0,
+        "updated": 0,
+        "skipped": 0,
+        "errors": [
+            {
+                "code": failure.code,
+                "family": failure.family,
+                "message": failure.message,
+                "context": dict(failure.context or {}),
+            }
+        ],
+        "provider_job_id": None,
+        "provider_type": provider_type,
+        "provider_status": "failed",
+        "attempt_count": None,
+        "execution_policy": {},
+        "provider_config": {},
+        "runtime_channel": {},
+        "output_ingest": None,
+    }
+
+
+def _runner_failure(code: str, message: str, *, site: str, **details: Any) -> Failure:
+    context: dict[str, Any] = {
+        "boundary_class": "PURE_CONTRACT_FAILURE",
+        "failure_family": source_library_contract_failures.name,
+        "operation": "source_library.runner",
+        "owner": "source_library.runner",
+        "public_exception": "ValueError",
+        "public_message": message,
+        "site": site,
+        "witness": _FAILURE_WITNESS,
+    }
+    context.update(details)
+    return source_library_contract_failures.fail(code, message, context)
+
+
+def _raise_runner_failure(failure: Failure) -> NoReturn:
+    context = failure.context or {}
+    required = {"boundary_class", "failure_family", "operation", "owner", "public_exception", "public_message", "site", "witness"}
+    if (
+        not source_library_contract_failures.matches(failure)
+        or required - set(context)
+        or context.get("failure_family") != source_library_contract_failures.name
+        or context.get("boundary_class") != "PURE_CONTRACT_FAILURE"
+        or context.get("public_exception") != "ValueError"
+        or context.get("public_message") != failure.message
+    ):
+        # kit:boundary owner=source_library.runner.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w01_source_export_failures
+        raise TypeError("source-library runner failure lift context is incomplete or inconsistent")
+    # kit:boundary owner=source_library.runner.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=source_library.contract_failure witness=test:test_w01_source_export_failures
+    raise ValueError(str(context["public_message"]))
 
 
 def _ensure_handlers_registered() -> None:
@@ -36,7 +131,14 @@ def validate_params(params: Dict[str, Any], param_schema: Dict[str, Any]) -> Non
         return
     missing = [key for key in required if key not in params]
     if missing:
-        raise ValueError(f"missing required params: {missing}")
+        _raise_runner_failure(
+            _runner_failure(
+                "required_params_missing",
+                f"missing required params: {missing}",
+                site="validate_params.required",
+                missing=missing,
+            )
+        )
 
 
 def _iter_string_values(value: Any) -> list[str]:
@@ -129,10 +231,9 @@ def _run_via_crawler_provider_registry(
     project_key: str | None,
     provider_type: str,
 ) -> Dict[str, Any]:
-    from .. import crawlers as _crawlers  # noqa: F401 - trigger builtin crawler provider registration
     from ..crawlers.base import CrawlerDispatchRequest
 
-    provider = _resolve_crawler_provider(provider_type, channel=channel, params=params)
+    provider = resolve_crawler_provider(provider_type, channel=channel, params=params)
 
     provider_config = channel.get("provider_config")
     if not isinstance(provider_config, dict):
@@ -150,32 +251,149 @@ def _run_via_crawler_provider_registry(
         or ""
     ).strip()
     if not project:
-        raise ValueError(f"{provider_type} channel requires project/project_key")
-    if not spider:
-        raise ValueError(f"{provider_type} channel requires spider/spider_name")
-
-    dispatch = provider.dispatch(
-        CrawlerDispatchRequest(
-            provider=provider_type,
-            project=project,
-            spider=spider,
-            arguments=dict(params.get("arguments") or {}),
-            settings=dict(params.get("settings") or {}),
-            version=params.get("version"),
-            priority=params.get("priority"),
-            job_id=params.get("job_id"),
+        _raise_runner_failure(
+            _runner_failure(
+                "crawler_project_required",
+                f"{provider_type} channel requires project/project_key",
+                site="run_channel.crawler.project",
+                provider_type=provider_type,
+            )
         )
+    if not spider:
+        _raise_runner_failure(
+            _runner_failure(
+                "crawler_spider_required",
+                f"{provider_type} channel requires spider/spider_name",
+                site="run_channel.crawler.spider",
+                provider_type=provider_type,
+            )
+        )
+
+    request = CrawlerDispatchRequest(
+        provider=provider_type,
+        project=project,
+        spider=spider,
+        arguments=dict(params.get("arguments") or {}),
+        settings=dict(params.get("settings") or {}),
+        version=params.get("version"),
+        priority=params.get("priority"),
+        job_id=params.get("job_id"),
+        idempotency_key=params.get("idempotency_key"),
+        attempt_id=params.get("attempt_id"),
     )
-    ok_status = {"ok", "queued", "scheduled", "running", "accepted"}
+    durable_store = params.get("durable_store") or channel.get("durable_store")
+    durable_bridge = (
+        DurableCrawlerEffectBridge(provider=provider, store=durable_store)
+        if durable_store is not None
+        else None
+    )
+    try:
+        dispatch = (
+            durable_bridge.dispatch(request)
+            if durable_bridge is not None
+            else provider.dispatch(request)
+        )
+    except Exception as exc:  # noqa: BLE001 - provider effect boundary
+        failure = _crawler_effect_failure(
+            "scrapyd_transport",
+            f"crawler provider dispatch failed: {exc}",
+            site="app.services.source_library.runner.crawler_dispatch",
+            provider_type=provider_type,
+            cause=exc,
+        )
+        result = _crawler_failure_result(failure, provider_type=provider_type)
+        result["execution_policy"] = execution_policy
+        result["provider_config"] = provider_config
+        result["runtime_channel"] = _build_runtime_channel_meta(channel=channel, project_key=project_key)
+        result["attempt_id"] = request.attempt_id
+        result["idempotency_key"] = request.idempotency_key
+        result["reconciliation"] = {
+            "required": bool(durable_bridge is not None),
+            "state": "unknown",
+            "derived_as": "durable_attempt_store" if durable_bridge is not None else "none",
+            "durability": "injected_repository" if durable_bridge is not None else "not_configured",
+        }
+        return result
+    if isinstance(dispatch, Failure):
+        result = _crawler_failure_result(dispatch, provider_type=provider_type)
+        result["execution_policy"] = execution_policy
+        result["provider_config"] = provider_config
+        result["runtime_channel"] = _build_runtime_channel_meta(channel=channel, project_key=project_key)
+        result["attempt_id"] = request.attempt_id
+        result["idempotency_key"] = request.idempotency_key
+        result["reconciliation"] = {
+            "required": bool(durable_bridge is not None),
+            "state": "unknown",
+            "derived_as": "durable_attempt_store" if durable_bridge is not None else "none",
+            "durability": "injected_repository" if durable_bridge is not None else "not_configured",
+        }
+        return result
+    if not isinstance(dispatch, CrawlerDispatchResult):
+        failure = _crawler_effect_failure(
+            "scrapyd_response_invalid",
+            "crawler provider dispatch returned a non-canonical result",
+            site="app.services.source_library.runner.crawler_dispatch",
+            provider_type=provider_type,
+            result_type=type(dispatch).__name__,
+        )
+        result = _crawler_failure_result(failure, provider_type=provider_type)
+        result["execution_policy"] = execution_policy
+        result["provider_config"] = provider_config
+        result["runtime_channel"] = _build_runtime_channel_meta(channel=channel, project_key=project_key)
+        return result
     status = str(dispatch.provider_status or "").strip().lower()
-    errors: list[str] = [] if status in ok_status else [f"crawler provider status: {status or 'unknown'}"]
+    terminal_readback = dispatch.terminal_readback
+    poll_fn = getattr(provider, "poll", None)
+    if terminal_readback is None and dispatch.provider_job_id and callable(poll_fn):
+        try:
+            poll_payload = poll_fn(
+                external_job_id=dispatch.provider_job_id,
+                project=project,
+                spider=spider,
+                options={"idempotency_key": request.idempotency_key, "attempt_id": request.attempt_id},
+            )
+            terminal_readback = typed_crawler_readback(
+                attempt_id=request.attempt_id or request.request_digest or "unknown",
+                provider_job_id=dispatch.provider_job_id,
+                payload=poll_payload,
+            )
+        except Exception:
+            terminal_readback = None
+    readback_plain = terminal_readback.to_plain() if hasattr(terminal_readback, "to_plain") else terminal_readback
+    readback_kind = str(readback_plain.get("kind") or "") if isinstance(readback_plain, dict) else ""
+    terminal_status = str(
+        ((readback_plain.get("readback") or {}).get("terminal_status"))
+        if isinstance(readback_plain, dict)
+        else ""
+    ).strip().lower()
+    errors: list[str] = []
+    if not is_crawler_dispatch_acknowledged(status) and readback_kind != "terminal":
+        errors = [f"crawler provider status: {status or 'unknown'}"]
     # Source-library boundary stops at collection output; no structured ingest side effects here.
     inserted = 0
     updated = 0
     skipped = 0
     output_ingest: dict[str, Any] | None = None
 
-    overall_status = "accepted" if status in ok_status else "failed"
+    if readback_kind == "terminal":
+        overall_status = "completed" if terminal_status == "completed" else "failed"
+        if overall_status == "failed":
+            errors = [f"crawler provider terminal status: {terminal_status or 'unknown'}"]
+    elif is_crawler_dispatch_acknowledged(status):
+        overall_status = "accepted"
+    else:
+        overall_status = "failed"
+    reconciliation_state = (
+        "terminal_readback"
+        if readback_kind == "terminal"
+        else "waiting"
+        if readback_kind == "waiting"
+        else "unavailable"
+        if readback_kind == "unavailable"
+        else "unknown"
+        if not is_crawler_dispatch_acknowledged(status)
+        else "not_attempted"
+    )
     return {
         "status": overall_status,
         "inserted": inserted,
@@ -190,39 +408,22 @@ def _run_via_crawler_provider_registry(
         "provider_config": provider_config,
         "runtime_channel": _build_runtime_channel_meta(channel=channel, project_key=project_key),
         "output_ingest": output_ingest,
+        "dispatch_acknowledged": is_crawler_dispatch_acknowledged(status),
+        "attempt_id": request.attempt_id,
+        "idempotency_key": request.idempotency_key,
+        "terminal_readback": readback_plain,
+        "readback": readback_plain,
+        "acknowledgement": {
+            "provider_status": dispatch.provider_status,
+            "acknowledged": is_crawler_dispatch_acknowledged(status),
+        },
+        "reconciliation": {
+            "required": bool(durable_bridge is not None),
+            "state": reconciliation_state,
+            "derived_as": "durable_attempt_store" if durable_bridge is not None else "none",
+            "durability": "injected_repository" if durable_bridge is not None else "not_configured",
+        },
     }
-
-
-def _resolve_crawler_provider(provider_type: str, *, channel: Dict[str, Any], params: Dict[str, Any]):
-    from ..crawlers.registry import get_provider, register_provider
-
-    normalized = str(provider_type or "").strip().lower()
-    provider = get_provider(normalized)
-    if provider is not None:
-        return provider
-
-    if normalized == "scrapy":
-        try:
-            from ..crawlers.providers.scrapy import ScrapyCrawlerProvider
-
-            provider_config = channel.get("provider_config")
-            if not isinstance(provider_config, dict):
-                provider_config = {}
-            base_url = (
-                str(params.get("scrapyd_base_url") or "").strip()
-                or str(provider_config.get("scrapyd_base_url") or "").strip()
-                or str(provider_config.get("base_url") or "").strip()
-                or None
-            )
-            timeout_raw = params.get("scrapyd_timeout") or provider_config.get("timeout")
-            timeout = float(timeout_raw) if timeout_raw is not None else None
-            provider = ScrapyCrawlerProvider(base_url=base_url, timeout=timeout)
-            register_provider(normalized, provider)
-            return provider
-        except Exception as exc:  # noqa: BLE001
-            raise ValueError(f"crawler provider '{normalized}' is unavailable: {exc}") from exc
-
-    raise ValueError(f"unsupported crawler provider_type: {normalized}")
 
 
 def _build_runtime_channel_meta(*, channel: Dict[str, Any], project_key: str | None) -> Dict[str, Any]:
@@ -275,13 +476,22 @@ def run_channel(
     item_key: str | None = None,
 ) -> Dict[str, Any]:
     _ensure_handlers_registered()
+    validate_single_source_guard(params)
     credential_refs = channel.get("credential_refs") or []
     if isinstance(credential_refs, list):
         missing_creds = [
             c for c in credential_refs if isinstance(c, str) and resolve_credential(c, project_key) is None
         ]
         if missing_creds:
-            raise ValueError(f"missing credentials for channel {channel.get('channel_key')}: {missing_creds}")
+            _raise_runner_failure(
+                _runner_failure(
+                    "channel_credentials_missing",
+                    f"missing credentials for channel {channel.get('channel_key')}: {missing_creds}",
+                    site="run_channel.credentials",
+                    channel_key=channel.get("channel_key"),
+                    missing_credentials=missing_creds,
+                )
+            )
 
     validate_params(params=params, param_schema=channel.get("param_schema") or {})
 
@@ -313,20 +523,46 @@ def run_channel(
 
     handler = get(provider, kind)
     if handler is None:
-        raise ValueError(f"unsupported channel provider/kind: {provider}/{kind}")
+        _raise_runner_failure(
+            _runner_failure(
+                "channel_provider_unsupported",
+                f"unsupported channel provider/kind: {provider}/{kind}",
+                site="run_channel.provider_kind",
+                provider=provider,
+                kind=kind,
+            )
+        )
     if provider == "policy" and not str(params.get("state") or "").strip():
-        raise ValueError("policy channel requires params.state")
+        _raise_runner_failure(
+            _runner_failure(
+                "policy_state_required",
+                "policy channel requires params.state",
+                site="run_channel.policy.state",
+            )
+        )
     if provider == "market":
         keywords = params.get("keywords") or params.get("query_terms")
         if not isinstance(keywords, list) or not keywords:
-            raise ValueError("market channel requires params.keywords or params.query_terms")
+            _raise_runner_failure(
+                _runner_failure(
+                    "market_keywords_required",
+                    "market channel requires params.keywords or params.query_terms",
+                    site="run_channel.market.keywords",
+                )
+            )
     if provider == "google_news":
         keywords = params.get("keywords")
         if isinstance(keywords, str):
             keywords = [keywords]
             params = {**params, "keywords": keywords}
         if not isinstance(keywords, list) or not keywords:
-            raise ValueError("google_news requires params.keywords list")
+            _raise_runner_failure(
+                _runner_failure(
+                    "google_news_keywords_required",
+                    "google_news requires params.keywords list",
+                    site="run_channel.google_news.keywords",
+                )
+            )
     # Execute native/provider-specific handler and return as-is to keep full backward compatibility.
     # Any status unification for connectors should happen in higher-level adapters to avoid
     # changing existing handler return contracts expected by tests and downstream logic.

@@ -1,0 +1,958 @@
+{
+  "authoritative": false,
+  "authority_ceiling": "LOCAL_UNSIGNED_EVIDENCE_NOT_RELEASE_AUTHORITY",
+  "available_test_images": {
+    "backend": {
+      "cleanup_owner": "/root/stage3_test_gates after all local stack/migration gates complete",
+      "docker_inspect": {
+        "architecture": "amd64",
+        "id": "sha256:d436f3287396cec2b94dcb76c3cb3d555d36feee5016d4b9b024ca57879089f9",
+        "os": "linux",
+        "repo_tags": [
+          "mrw-r13r-amd64-backend-canonical:local"
+        ]
+      },
+      "image_config_digest": "sha256:72072cc7298dce26f786329b29d2f0e720aa6e2341c4272b3ae389a1485e02b6",
+      "image_manifest_digest": "sha256:403eb796b0890b0e77aec8755c2638cc4e239341b7f71f30ff4dfa6ba475ffe2",
+      "load_method": "docker load --input /Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13r/artifacts/canonical/backend.oci.tar (performed before bounded archive cleanup), then docker tag sha256:d436f3287396cec2b94dcb76c3cb3d555d36feee5016d4b9b024ca57879089f9 mrw-r13r-amd64-backend-canonical:local",
+      "loaded_image_id": "sha256:d436f3287396cec2b94dcb76c3cb3d555d36feee5016d4b9b024ca57879089f9",
+      "platform": "linux/amd64",
+      "status": "AVAILABLE_FOR_LOCAL_TEST_GATES",
+      "tag": "mrw-r13r-amd64-backend-canonical:local"
+    },
+    "frontend": {
+      "cleanup_owner": "/root/stage3_test_gates after all local stack/migration gates complete",
+      "docker_inspect": {
+        "architecture": "amd64",
+        "id": "sha256:8792353c7222206fc260a894ff3581e71fe85e348801e26ff032968bd2836450",
+        "os": "linux",
+        "repo_tags": [
+          "mrw-r13r-amd64-frontend-canonical:local"
+        ]
+      },
+      "image_config_digest": "sha256:591af750e53bbc04d57dfd1089c058e825108109f66c48c7524d8e7057fceda1",
+      "image_manifest_digest": "sha256:67891f50676aabf4b34b78fe12a62301be9343a8b3bfb94e689726ee96e86bc5",
+      "load_method": "docker load --input /Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13r/artifacts/canonical/frontend.oci.tar (performed before bounded archive cleanup), then docker tag sha256:8792353c7222206fc260a894ff3581e71fe85e348801e26ff032968bd2836450 mrw-r13r-amd64-frontend-canonical:local",
+      "loaded_image_id": "sha256:8792353c7222206fc260a894ff3581e71fe85e348801e26ff032968bd2836450",
+      "platform": "linux/amd64",
+      "status": "AVAILABLE_FOR_LOCAL_TEST_GATES",
+      "tag": "mrw-r13r-amd64-frontend-canonical:local"
+    },
+    "migration-runner": {
+      "cleanup_owner": "/root/stage3_test_gates after all local stack/migration gates complete",
+      "docker_inspect": {
+        "architecture": "amd64",
+        "id": "sha256:61de723b315ef8d5ad045aad3d0beba0a09eb7c64d27b78d7cf5644e1aec64aa",
+        "os": "linux",
+        "repo_tags": [
+          "mrw-r13r-amd64-migration-runner-canonical:local"
+        ]
+      },
+      "image_config_digest": "sha256:cd7008d1ba46b1232088d077ff52daa31406a87c8414938a11dc5cd3834006d2",
+      "image_manifest_digest": "sha256:727ab5d23c89119fae6872882f1458c30f09467c45d207d29b335589270a179d",
+      "load_method": "docker load --input /Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13r/artifacts/canonical/migration-runner.oci.tar (performed before bounded archive cleanup), then docker tag sha256:61de723b315ef8d5ad045aad3d0beba0a09eb7c64d27b78d7cf5644e1aec64aa mrw-r13r-amd64-migration-runner-canonical:local",
+      "loaded_image_id": "sha256:61de723b315ef8d5ad045aad3d0beba0a09eb7c64d27b78d7cf5644e1aec64aa",
+      "platform": "linux/amd64",
+      "status": "AVAILABLE_FOR_LOCAL_TEST_GATES",
+      "tag": "mrw-r13r-amd64-migration-runner-canonical:local"
+    }
+  },
+  "candidate": {
+    "clean_after": true,
+    "clean_before": true,
+    "commit": "9b95d1c6c515b3013d6be7fd39ffb54801310c1c",
+    "tree": "040f2ed5b223607c63404c709e413f8898c2b504"
+  },
+  "candidate_manifest_sha256": "ee6d13fe269c7177f0eb2b5df1aca1d50e05299b43aeeb4759093b6d1d61d439",
+  "cleanup": {
+    "candidate_clean": true,
+    "free_bytes_after": 9127952384,
+    "ops_scrapyd_observed_unchanged": true,
+    "preexisting_resources_preserved": true,
+    "schema": "mrw.stage3.r13r.amd64-cleanup-residue.v1",
+    "status": "PASS_TASK_BUILD_RESIDUE_CLEAN_TEST_TAGS_HANDOFF_RETAINED",
+    "task_builder_residue": [],
+    "task_test_tags_retained": {
+      "backend": "mrw-r13r-amd64-backend-canonical:local",
+      "frontend": "mrw-r13r-amd64-frontend-canonical:local",
+      "migration-runner": "mrw-r13r-amd64-migration-runner-canonical:local"
+    },
+    "temporary_oci_archive_residue": [],
+    "test_tag_cleanup_owner": "/root/stage3_test_gates after gates complete"
+  },
+  "completed_epoch": 1789011528,
+  "effective_image_scans": {
+    "backend": {
+      "affected_package_version_count": 28,
+      "counts": {
+        "CRITICAL": 13,
+        "HIGH": 135
+      },
+      "exit_code": 1,
+      "gate_status": "FAIL",
+      "observation_count": 148,
+      "observations_with_reported_fixed_version": 0,
+      "package_types": [
+        "os",
+        "library"
+      ],
+      "reachability_exploitability": "NOT_ASSESSED_BY_TRIVY",
+      "report_sha256": "31fbb563a4a9a0011f7b979539300e033a0e22242762d7a47d49448e85661343",
+      "scanner": "vulnerability",
+      "threshold": "HIGH,CRITICAL",
+      "unique_vulnerability_id_count": 80
+    },
+    "frontend": {
+      "affected_package_version_count": 0,
+      "counts": {
+        "CRITICAL": 0,
+        "HIGH": 0
+      },
+      "exit_code": 0,
+      "gate_status": "PASS",
+      "observation_count": 0,
+      "observations_with_reported_fixed_version": 0,
+      "package_types": [
+        "os",
+        "library"
+      ],
+      "reachability_exploitability": "NOT_ASSESSED_BY_TRIVY",
+      "report_sha256": "e695285373e03892ae8ebd79fbf2e683f7a3eeeed9e9ea0cd80dcd67c4f29ca1",
+      "scanner": "vulnerability",
+      "threshold": "HIGH,CRITICAL",
+      "unique_vulnerability_id_count": 0
+    },
+    "migration-runner": {
+      "affected_package_version_count": 28,
+      "counts": {
+        "CRITICAL": 13,
+        "HIGH": 135
+      },
+      "exit_code": 1,
+      "gate_status": "FAIL",
+      "observation_count": 148,
+      "observations_with_reported_fixed_version": 0,
+      "package_types": [
+        "os",
+        "library"
+      ],
+      "reachability_exploitability": "NOT_ASSESSED_BY_TRIVY",
+      "report_sha256": "efb570cd2f2bcaa080b53b345bb7d328ca1dd13971b352e51594a7b2f64c2b17",
+      "scanner": "vulnerability",
+      "threshold": "HIGH,CRITICAL",
+      "unique_vulnerability_id_count": 80
+    }
+  },
+  "failure_reasons": [
+    "Frontend canonical/rebuild image manifests differ because /var/log/apk.log embeds the apk invocation wall-clock timestamp.",
+    "Backend and migration-runner each exceed the Trivy HIGH/CRITICAL threshold (135 HIGH and 13 CRITICAL observations per role)."
+  ],
+  "free_bytes_after": 12070309888,
+  "frontend_apk_log_difference": {
+    "bytes": 9194,
+    "candidate": {
+      "commit": "9b95d1c6c515b3013d6be7fd39ffb54801310c1c",
+      "tree": "040f2ed5b223607c63404c709e413f8898c2b504"
+    },
+    "candidate_mutated": false,
+    "canonical_sha256": "a4a868033094ae8ea77dd07863bd92382fdb50fa52998f79eeb2907028b7f0c4",
+    "cause": "APK_WALL_CLOCK_LOG_TIMESTAMP",
+    "derivation": {
+      "canonical": "Read directly from the loaded canonical image; command/log/exit retained.",
+      "rebuild": "Deterministically recovered by substituting every second in the observed build window into the sole wall-clock field of the canonical 9,194-byte file until the exact recorded rebuild SHA-256 matched. Exactly one value matched: 2026-09-10 03:19:50.",
+      "rootfs_scope": "Both inventories contain 2,214 paths; this is the only path difference; runtime config is equal."
+    },
+    "exact_difference": {
+      "canonical_fragment": "Running `apk add --no-cache libuuid=2.42.3-r1` at 2026-09-10 03:18:28",
+      "only_changed_bytes": "03:18:28 -> 03:19:50",
+      "rebuild_fragment": "Running `apk add --no-cache libuuid=2.42.3-r1` at 2026-09-10 03:19:50"
+    },
+    "minimal_successor_repair": "Change line 19 to `RUN apk add --no-cache libuuid=2.42.3-r1 && rm -f /var/log/apk.log`, then mint a successor candidate and rerun both independent linux/amd64 builds plus SBOM/provenance/Trivy/runtime evidence.",
+    "path": "/var/log/apk.log",
+    "platform": "linux/amd64",
+    "rebuild_sha256": "ff1b953597a8f7119928d1429a3b3248f8605339ca89d2c68e8e6f3b4e30440d",
+    "role": "frontend",
+    "schema": "mrw.stage3.r13r.frontend-apk-log-difference.v1",
+    "source_surface": {
+      "instruction": "RUN apk add --no-cache libuuid=2.42.3-r1",
+      "line": 19,
+      "path": "main/frontend-modern/Dockerfile"
+    },
+    "status": "CONFIRMED_ROOT_CAUSE_REQUIRES_SUCCESSOR"
+  },
+  "platform": "linux/amd64",
+  "roles": {
+    "backend": {
+      "attestation": {
+        "kind": "LOCAL_UNSIGNED_BUILDKIT_ATTESTATIONS",
+        "provenance_statement_count": 1,
+        "registry_or_transparency_log_publication": false,
+        "sbom_statement_count": 1,
+        "signature_present": false
+      },
+      "builders": {
+        "canonical": "mrw-r13r-amd64-backend-a-13419-1789008798",
+        "rebuild": "mrw-r13r-amd64-backend-b-13419-1789008798"
+      },
+      "buildkit_image": "moby/buildkit@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8",
+      "cleanup": {
+        "builder_residue": [],
+        "events": [
+          {
+            "builder": "mrw-r13r-amd64-backend-b-13419-1789008798",
+            "exit_code": 0
+          },
+          {
+            "builder": "mrw-r13r-amd64-backend-a-13419-1789008798",
+            "exit_code": 0
+          },
+          {
+            "archive": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13r/artifacts/canonical/backend.oci.tar",
+            "bytes_reclaimed": 308212736,
+            "phase": "canonical",
+            "reason": "Digest/config/layer/SBOM/provenance/Trivy and any required rootfs evidence already extracted; retain compact final evidence under constrained disk budget.",
+            "removed": true,
+            "sha256_before_removal": "9306f89d99cfb2e1fefc08da4af6302c643a77281cef0298189a3a3c8df0f70e"
+          },
+          {
+            "archive": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13r/artifacts/rebuild/backend.oci.tar",
+            "bytes_reclaimed": 300960256,
+            "phase": "rebuild",
+            "reason": "Digest/config/layer/SBOM/provenance/Trivy and any required rootfs evidence already extracted; retain compact final evidence under constrained disk budget.",
+            "removed": true,
+            "sha256_before_removal": "87c5e983ddd1546c9aeb2516111c79e0e915e01d3547d0d0bd603199d6ced377"
+          }
+        ],
+        "free_bytes_after": 11860049920,
+        "temporary_oci_archives_present": []
+      },
+      "comparison": {
+        "canonical_image_manifest_digest": "sha256:403eb796b0890b0e77aec8755c2638cc4e239341b7f71f30ff4dfa6ba475ffe2",
+        "image_config_equal": true,
+        "image_layers_equal_in_order": true,
+        "image_manifest_equal": true,
+        "platform": "linux/amd64",
+        "rebuild_image_manifest_digest": "sha256:403eb796b0890b0e77aec8755c2638cc4e239341b7f71f30ff4dfa6ba475ffe2",
+        "role": "backend",
+        "rootfs_comparison": "NOT_NEEDED_EXACT_IMAGE_MANIFEST_MATCH",
+        "runtime_scope": "No separate runtime-equivalence smoke was needed: equal OCI image-manifest digest binds the identical config and ordered layer descriptors. This is build reproducibility evidence, not a full dependency-backed application runtime test.",
+        "status": "PASS_EXACT_IMAGE"
+      },
+      "free_bytes_before": 13630652416,
+      "inspections": {
+        "canonical": {
+          "all_referenced_blobs_validated": true,
+          "archive_bytes": 308212736,
+          "archive_sha256": "9306f89d99cfb2e1fefc08da4af6302c643a77281cef0298189a3a3c8df0f70e",
+          "attestation_manifest_count": 1,
+          "image_config_digest": "sha256:72072cc7298dce26f786329b29d2f0e720aa6e2341c4272b3ae389a1485e02b6",
+          "image_layer_digests": [
+            "sha256:6310eb16bf4251731feab01e8f633bf5e2d75a657ccad97f420b1f83cce457be",
+            "sha256:3678bb828654fcc3752f7a5eb63c5accfa00c97047252f25405285550d74a3fd",
+            "sha256:db840d086b65cf73e0feea3bd0cf11063818114e466846ae3f2b2fb1a8c2b143",
+            "sha256:f9efa1b83d065a7c5a3041582875b75d63c4ab3d4413514de8e413b51f90e91a",
+            "sha256:b67246d5d21a1e5208d87db10a035e60592ce32fc1bd322536cd6248ad3f3ea1",
+            "sha256:80358df27fe38103b756d0846fff11d094b3698db5d2929e496e10ea484894d3",
+            "sha256:8f1652a7c760aea3f19094d7ed22d3bb20fe1a316835ebc83d4e0c44ad84ccd6",
+            "sha256:356ceff5abed824fd3cb45754737f45e7b6a273774bb8f0aeb24df2ab0a52a91",
+            "sha256:5c409d2faca9ec92d7c6c8d8a7b8c2e70b944f3e0d3e9cf75a4f88acd983ef7f",
+            "sha256:a2cbc81ce7adb71654afa83fc14b1448a4598e78a670c58bc0bf01328c1de204",
+            "sha256:253c7c6696d760c59066ee96b4cacce227fa0843e49cf7018453016436f64e6f",
+            "sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1",
+            "sha256:a0afbf42b8618bb4e80a16b3fdc7969883e9fbe5c90857d66597fd11406b517e",
+            "sha256:800071c1f95361e733e105ec6a73c2a9f497357df504bc11f6120edd6810ec74",
+            "sha256:14cb374d157155933b3d151fd4f7e07aadcf81cf046e10feb19397a48ea49574",
+            "sha256:ec0050fb9c316de270f9e5e86252d91d7e5bef1d3d3d242aec7505193fc53e42",
+            "sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1"
+          ],
+          "image_manifest_digest": "sha256:403eb796b0890b0e77aec8755c2638cc4e239341b7f71f30ff4dfa6ba475ffe2",
+          "oci_root_digest": "sha256:d436f3287396cec2b94dcb76c3cb3d555d36feee5016d4b9b024ca57879089f9",
+          "phase": "canonical",
+          "platform": "linux/amd64",
+          "provenance_sha256": "d5a4ee5396d2bd4ba3c442db77fb335be1052fc524827359262a52a2372de4d9",
+          "role": "backend",
+          "runtime_config": {
+            "Cmd": [
+              "uvicorn",
+              "app.main:app",
+              "--host",
+              "0.0.0.0",
+              "--port",
+              "8000"
+            ],
+            "Entrypoint": [
+              "/docker-entrypoint.sh"
+            ],
+            "Env": [
+              "PATH=/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+              "LANG=C.UTF-8",
+              "GPG_KEY=A035C8C19219BA821ECEA86B64E628F8D684696D",
+              "PYTHON_VERSION=3.11.16",
+              "PYTHON_SHA256=91bcdebfdde239a003ae93738a7fce0f9230fee5c4bc2b86f6e6e8c6f98aabe8",
+              "PYTHONDONTWRITEBYTECODE=1",
+              "PYTHONUNBUFFERED=1",
+              "PIP_NO_CACHE_DIR=1",
+              "PYTHONPATH=/opt/mrw/src",
+              "MRW_CONTAINER_ROLE=backend-runtime"
+            ],
+            "ExposedPorts": {
+              "8000/tcp": {}
+            },
+            "Healthcheck": null,
+            "User": null,
+            "WorkingDir": "/app"
+          },
+          "sbom_sha256": "fb9670cd92d40622ef40a98290180cb9c1f3d3e6d4e5a7ec348c4887c3b42322",
+          "slsa_provenance_count": 1,
+          "spdx_sbom_count": 1
+        },
+        "rebuild": {
+          "all_referenced_blobs_validated": true,
+          "archive_bytes": 300960256,
+          "archive_sha256": "87c5e983ddd1546c9aeb2516111c79e0e915e01d3547d0d0bd603199d6ced377",
+          "attestation_manifest_count": 0,
+          "image_config_digest": "sha256:72072cc7298dce26f786329b29d2f0e720aa6e2341c4272b3ae389a1485e02b6",
+          "image_layer_digests": [
+            "sha256:6310eb16bf4251731feab01e8f633bf5e2d75a657ccad97f420b1f83cce457be",
+            "sha256:3678bb828654fcc3752f7a5eb63c5accfa00c97047252f25405285550d74a3fd",
+            "sha256:db840d086b65cf73e0feea3bd0cf11063818114e466846ae3f2b2fb1a8c2b143",
+            "sha256:f9efa1b83d065a7c5a3041582875b75d63c4ab3d4413514de8e413b51f90e91a",
+            "sha256:b67246d5d21a1e5208d87db10a035e60592ce32fc1bd322536cd6248ad3f3ea1",
+            "sha256:80358df27fe38103b756d0846fff11d094b3698db5d2929e496e10ea484894d3",
+            "sha256:8f1652a7c760aea3f19094d7ed22d3bb20fe1a316835ebc83d4e0c44ad84ccd6",
+            "sha256:356ceff5abed824fd3cb45754737f45e7b6a273774bb8f0aeb24df2ab0a52a91",
+            "sha256:5c409d2faca9ec92d7c6c8d8a7b8c2e70b944f3e0d3e9cf75a4f88acd983ef7f",
+            "sha256:a2cbc81ce7adb71654afa83fc14b1448a4598e78a670c58bc0bf01328c1de204",
+            "sha256:253c7c6696d760c59066ee96b4cacce227fa0843e49cf7018453016436f64e6f",
+            "sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1",
+            "sha256:a0afbf42b8618bb4e80a16b3fdc7969883e9fbe5c90857d66597fd11406b517e",
+            "sha256:800071c1f95361e733e105ec6a73c2a9f497357df504bc11f6120edd6810ec74",
+            "sha256:14cb374d157155933b3d151fd4f7e07aadcf81cf046e10feb19397a48ea49574",
+            "sha256:ec0050fb9c316de270f9e5e86252d91d7e5bef1d3d3d242aec7505193fc53e42",
+            "sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1"
+          ],
+          "image_manifest_digest": "sha256:403eb796b0890b0e77aec8755c2638cc4e239341b7f71f30ff4dfa6ba475ffe2",
+          "oci_root_digest": "sha256:403eb796b0890b0e77aec8755c2638cc4e239341b7f71f30ff4dfa6ba475ffe2",
+          "phase": "rebuild",
+          "platform": "linux/amd64",
+          "role": "backend",
+          "runtime_config": {
+            "Cmd": [
+              "uvicorn",
+              "app.main:app",
+              "--host",
+              "0.0.0.0",
+              "--port",
+              "8000"
+            ],
+            "Entrypoint": [
+              "/docker-entrypoint.sh"
+            ],
+            "Env": [
+              "PATH=/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+              "LANG=C.UTF-8",
+              "GPG_KEY=A035C8C19219BA821ECEA86B64E628F8D684696D",
+              "PYTHON_VERSION=3.11.16",
+              "PYTHON_SHA256=91bcdebfdde239a003ae93738a7fce0f9230fee5c4bc2b86f6e6e8c6f98aabe8",
+              "PYTHONDONTWRITEBYTECODE=1",
+              "PYTHONUNBUFFERED=1",
+              "PIP_NO_CACHE_DIR=1",
+              "PYTHONPATH=/opt/mrw/src",
+              "MRW_CONTAINER_ROLE=backend-runtime"
+            ],
+            "ExposedPorts": {
+              "8000/tcp": {}
+            },
+            "Healthcheck": null,
+            "User": null,
+            "WorkingDir": "/app"
+          }
+        }
+      },
+      "platform": "linux/amd64",
+      "role": "backend",
+      "status": "PASS_EXACT_IMAGE_SECURITY_THRESHOLD_FAIL",
+      "trivy": {
+        "affected_package_version_count": 28,
+        "counts": {
+          "CRITICAL": 13,
+          "HIGH": 135
+        },
+        "exit_code": 1,
+        "gate_status": "FAIL",
+        "observation_count": 148,
+        "observations_with_reported_fixed_version": 0,
+        "package_types": [
+          "os",
+          "library"
+        ],
+        "reachability_exploitability": "NOT_ASSESSED_BY_TRIVY",
+        "report_sha256": "31fbb563a4a9a0011f7b979539300e033a0e22242762d7a47d49448e85661343",
+        "scanner": "vulnerability",
+        "threshold": "HIGH,CRITICAL",
+        "unique_vulnerability_id_count": 80
+      },
+      "trivy_input_recovery": {
+        "effective_scan_subject": "mrw-r13r-amd64-backend-canonical:local",
+        "identity_binding": {
+          "cleanup_owner": "/root/stage3_test_gates after all local stack/migration gates complete",
+          "docker_inspect": {
+            "architecture": "amd64",
+            "id": "sha256:d436f3287396cec2b94dcb76c3cb3d555d36feee5016d4b9b024ca57879089f9",
+            "os": "linux",
+            "repo_tags": [
+              "mrw-r13r-amd64-backend-canonical:local"
+            ]
+          },
+          "image_config_digest": "sha256:72072cc7298dce26f786329b29d2f0e720aa6e2341c4272b3ae389a1485e02b6",
+          "image_manifest_digest": "sha256:403eb796b0890b0e77aec8755c2638cc4e239341b7f71f30ff4dfa6ba475ffe2",
+          "load_method": "docker load --input /Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13r/artifacts/canonical/backend.oci.tar (performed before bounded archive cleanup), then docker tag sha256:d436f3287396cec2b94dcb76c3cb3d555d36feee5016d4b9b024ca57879089f9 mrw-r13r-amd64-backend-canonical:local",
+          "loaded_image_id": "sha256:d436f3287396cec2b94dcb76c3cb3d555d36feee5016d4b9b024ca57879089f9",
+          "platform": "linux/amd64",
+          "status": "AVAILABLE_FOR_LOCAL_TEST_GATES",
+          "tag": "mrw-r13r-amd64-backend-canonical:local"
+        },
+        "initial_oci_tar_attempt": "UNSUPPORTED_OCI_TAR_INPUT_RETAINED_AS_DIAGNOSTIC"
+      }
+    },
+    "frontend": {
+      "attestation": {
+        "kind": "LOCAL_UNSIGNED_BUILDKIT_ATTESTATIONS",
+        "provenance_statement_count": 1,
+        "registry_or_transparency_log_publication": false,
+        "sbom_statement_count": 1,
+        "signature_present": false
+      },
+      "builders": {
+        "canonical": "mrw-r13r-amd64-frontend-a-13419-1789010241",
+        "rebuild": "mrw-r13r-amd64-frontend-b-13419-1789010241"
+      },
+      "buildkit_image": "moby/buildkit@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8",
+      "cleanup": {
+        "builder_residue": [],
+        "events": [
+          {
+            "builder": "mrw-r13r-amd64-frontend-b-13419-1789010241",
+            "exit_code": 0
+          },
+          {
+            "builder": "mrw-r13r-amd64-frontend-a-13419-1789010241",
+            "exit_code": 0
+          },
+          {
+            "archive": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13r/artifacts/canonical/frontend.oci.tar",
+            "bytes_reclaimed": 39556608,
+            "phase": "canonical",
+            "reason": "Digest/config/layer/SBOM/provenance/Trivy and any required rootfs evidence already extracted; retain compact final evidence under constrained disk budget.",
+            "removed": true,
+            "sha256_before_removal": "a2b360eb7e0f248ab17e10598cbca9cc99846f84342d96c88dbb2496ea66bb11"
+          },
+          {
+            "archive": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13r/artifacts/rebuild/frontend.oci.tar",
+            "bytes_reclaimed": 38586880,
+            "phase": "rebuild",
+            "reason": "Digest/config/layer/SBOM/provenance/Trivy and any required rootfs evidence already extracted; retain compact final evidence under constrained disk budget.",
+            "removed": true,
+            "sha256_before_removal": "333635a7d96a613b602ce11eb22e96f6fc4dc694e54cd0059d7cd6eec26cc6e3"
+          }
+        ],
+        "free_bytes_after": 12070367232,
+        "temporary_oci_archives_present": []
+      },
+      "comparison": {
+        "canonical_image_manifest_digest": "sha256:67891f50676aabf4b34b78fe12a62301be9343a8b3bfb94e689726ee96e86bc5",
+        "image_config_equal": false,
+        "image_layers_equal_in_order": false,
+        "image_manifest_equal": false,
+        "platform": "linux/amd64",
+        "rebuild_image_manifest_digest": "sha256:ffb5f263c1ae498d9f85541f46769477123c1d1799e1ee89bb169eed8dca4066",
+        "role": "frontend",
+        "rootfs_comparison": "PERFORMED",
+        "rootfs_difference": {
+          "canonical_paths": 2214,
+          "difference_count": 1,
+          "differences": [
+            {
+              "canonical": {
+                "content_sha256": "a4a868033094ae8ea77dd07863bd92382fdb50fa52998f79eeb2907028b7f0c4",
+                "gid": 0,
+                "mode": 420,
+                "mtime": 0,
+                "size": 9194,
+                "type": "file",
+                "uid": 0
+              },
+              "canonical_content_sha256": "a4a868033094ae8ea77dd07863bd92382fdb50fa52998f79eeb2907028b7f0c4",
+              "kind": "content_changed",
+              "path": "/var/log/apk.log",
+              "rebuild": {
+                "content_sha256": "ff1b953597a8f7119928d1429a3b3248f8605339ca89d2c68e8e6f3b4e30440d",
+                "gid": 0,
+                "mode": 420,
+                "mtime": 0,
+                "size": 9194,
+                "type": "file",
+                "uid": 0
+              },
+              "rebuild_content_sha256": "ff1b953597a8f7119928d1429a3b3248f8605339ca89d2c68e8e6f3b4e30440d"
+            }
+          ],
+          "rebuild_paths": 2214,
+          "role": "frontend",
+          "runtime_config_equal": true
+        },
+        "runtime_scope": "Image mismatch requires bounded rootfs comparison; no claim of runtime equivalence is made by this lane.",
+        "status": "MISMATCH"
+      },
+      "free_bytes_before": 11179483136,
+      "inspections": {
+        "canonical": {
+          "all_referenced_blobs_validated": true,
+          "archive_bytes": 39556608,
+          "archive_sha256": "a2b360eb7e0f248ab17e10598cbca9cc99846f84342d96c88dbb2496ea66bb11",
+          "attestation_manifest_count": 1,
+          "image_config_digest": "sha256:591af750e53bbc04d57dfd1089c058e825108109f66c48c7524d8e7057fceda1",
+          "image_layer_digests": [
+            "sha256:55afa1ecc21d2bb5e5045f32dafee56272ffd89860bac26f6c32123439af26a4",
+            "sha256:f45fdf63315816ec6bd937d40fb4450c1364e299cf7bdb48c14d19ee26ce32a0",
+            "sha256:67ff5ce9d4e9e840b2a802e06f9db7aa2526032b11972f065750ca6082d06f2c",
+            "sha256:51ec9c021a5aa5f4b4e020396c3080d9434d71d75288c5f4b06bfc78104310fe",
+            "sha256:33e5f432b4d0343ae580ca491ee35e51f51000f5694efd025a8af08e0be7c729",
+            "sha256:6710fa5752a599abf4c9f536edfe5be7952768135b5050ac9afdefc0533834a2",
+            "sha256:0bfd0ed0041486dd19ac2807088044b7b750d7ce008314ef49e75d92f42b9c19",
+            "sha256:c39233542455bfb494d68089ebb1b8eb3f0104ef0f676e7bc78fc637a0bad7bf",
+            "sha256:dc6d96841186b286a8988d02ff1fb456eee9a09c09de487d922e870ba3f0144e",
+            "sha256:d72f2efb1b4657d8e2010785ec413ff9164306de9e190e5bcf8048ad3657da28",
+            "sha256:f771cc6b07bccb882cb479f8d4ca90ab73183a1517e71e355b9928f83e35dbd5"
+          ],
+          "image_manifest_digest": "sha256:67891f50676aabf4b34b78fe12a62301be9343a8b3bfb94e689726ee96e86bc5",
+          "oci_root_digest": "sha256:8792353c7222206fc260a894ff3581e71fe85e348801e26ff032968bd2836450",
+          "phase": "canonical",
+          "platform": "linux/amd64",
+          "provenance_sha256": "5d729a619094eea713bf6cca9ec014d0e1c7765046e31889d6c171bac31a0eaa",
+          "role": "frontend",
+          "runtime_config": {
+            "Cmd": [
+              "nginx",
+              "-g",
+              "daemon off;"
+            ],
+            "Entrypoint": [
+              "/docker-entrypoint.sh"
+            ],
+            "Env": [
+              "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+              "NGINX_VERSION=1.30.4",
+              "PKG_RELEASE=1",
+              "DYNPKG_RELEASE=1",
+              "NJS_VERSION=1.0.1",
+              "NJS_RELEASE=1",
+              "ACME_VERSION=0.4.1"
+            ],
+            "ExposedPorts": {
+              "80/tcp": {}
+            },
+            "Healthcheck": null,
+            "User": null,
+            "WorkingDir": "/"
+          },
+          "sbom_sha256": "181e38f89994c83e57d65be61d9c5c944b3cc562a0cf1b09593e903c4a2c7596",
+          "slsa_provenance_count": 1,
+          "spdx_sbom_count": 1
+        },
+        "rebuild": {
+          "all_referenced_blobs_validated": true,
+          "archive_bytes": 38586880,
+          "archive_sha256": "333635a7d96a613b602ce11eb22e96f6fc4dc694e54cd0059d7cd6eec26cc6e3",
+          "attestation_manifest_count": 0,
+          "image_config_digest": "sha256:d0423addd24d9f9310f47c811e6a1cbc47091e01c98ece67e73db1e756554b54",
+          "image_layer_digests": [
+            "sha256:55afa1ecc21d2bb5e5045f32dafee56272ffd89860bac26f6c32123439af26a4",
+            "sha256:f45fdf63315816ec6bd937d40fb4450c1364e299cf7bdb48c14d19ee26ce32a0",
+            "sha256:67ff5ce9d4e9e840b2a802e06f9db7aa2526032b11972f065750ca6082d06f2c",
+            "sha256:51ec9c021a5aa5f4b4e020396c3080d9434d71d75288c5f4b06bfc78104310fe",
+            "sha256:33e5f432b4d0343ae580ca491ee35e51f51000f5694efd025a8af08e0be7c729",
+            "sha256:6710fa5752a599abf4c9f536edfe5be7952768135b5050ac9afdefc0533834a2",
+            "sha256:0bfd0ed0041486dd19ac2807088044b7b750d7ce008314ef49e75d92f42b9c19",
+            "sha256:c39233542455bfb494d68089ebb1b8eb3f0104ef0f676e7bc78fc637a0bad7bf",
+            "sha256:df820944b98c431951ec6b5bc109b7c6070d6ae17a9edbdbaa1f5ca656b8baa9",
+            "sha256:d72f2efb1b4657d8e2010785ec413ff9164306de9e190e5bcf8048ad3657da28",
+            "sha256:f771cc6b07bccb882cb479f8d4ca90ab73183a1517e71e355b9928f83e35dbd5"
+          ],
+          "image_manifest_digest": "sha256:ffb5f263c1ae498d9f85541f46769477123c1d1799e1ee89bb169eed8dca4066",
+          "oci_root_digest": "sha256:ffb5f263c1ae498d9f85541f46769477123c1d1799e1ee89bb169eed8dca4066",
+          "phase": "rebuild",
+          "platform": "linux/amd64",
+          "role": "frontend",
+          "runtime_config": {
+            "Cmd": [
+              "nginx",
+              "-g",
+              "daemon off;"
+            ],
+            "Entrypoint": [
+              "/docker-entrypoint.sh"
+            ],
+            "Env": [
+              "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+              "NGINX_VERSION=1.30.4",
+              "PKG_RELEASE=1",
+              "DYNPKG_RELEASE=1",
+              "NJS_VERSION=1.0.1",
+              "NJS_RELEASE=1",
+              "ACME_VERSION=0.4.1"
+            ],
+            "ExposedPorts": {
+              "80/tcp": {}
+            },
+            "Healthcheck": null,
+            "User": null,
+            "WorkingDir": "/"
+          }
+        }
+      },
+      "platform": "linux/amd64",
+      "role": "frontend",
+      "status": "MISMATCH",
+      "trivy": {
+        "affected_package_version_count": 0,
+        "counts": {
+          "CRITICAL": 0,
+          "HIGH": 0
+        },
+        "exit_code": 0,
+        "gate_status": "PASS",
+        "observation_count": 0,
+        "observations_with_reported_fixed_version": 0,
+        "package_types": [
+          "os",
+          "library"
+        ],
+        "reachability_exploitability": "NOT_ASSESSED_BY_TRIVY",
+        "report_sha256": "e695285373e03892ae8ebd79fbf2e683f7a3eeeed9e9ea0cd80dcd67c4f29ca1",
+        "scanner": "vulnerability",
+        "threshold": "HIGH,CRITICAL",
+        "unique_vulnerability_id_count": 0
+      },
+      "trivy_input_recovery": {
+        "effective_scan_subject": "mrw-r13r-amd64-frontend-canonical:local",
+        "identity_binding": {
+          "cleanup_owner": "/root/stage3_test_gates after all local stack/migration gates complete",
+          "docker_inspect": {
+            "architecture": "amd64",
+            "id": "sha256:8792353c7222206fc260a894ff3581e71fe85e348801e26ff032968bd2836450",
+            "os": "linux",
+            "repo_tags": [
+              "mrw-r13r-amd64-frontend-canonical:local"
+            ]
+          },
+          "image_config_digest": "sha256:591af750e53bbc04d57dfd1089c058e825108109f66c48c7524d8e7057fceda1",
+          "image_manifest_digest": "sha256:67891f50676aabf4b34b78fe12a62301be9343a8b3bfb94e689726ee96e86bc5",
+          "load_method": "docker load --input /Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13r/artifacts/canonical/frontend.oci.tar (performed before bounded archive cleanup), then docker tag sha256:8792353c7222206fc260a894ff3581e71fe85e348801e26ff032968bd2836450 mrw-r13r-amd64-frontend-canonical:local",
+          "loaded_image_id": "sha256:8792353c7222206fc260a894ff3581e71fe85e348801e26ff032968bd2836450",
+          "platform": "linux/amd64",
+          "status": "AVAILABLE_FOR_LOCAL_TEST_GATES",
+          "tag": "mrw-r13r-amd64-frontend-canonical:local"
+        },
+        "initial_oci_tar_attempt": "UNSUPPORTED_OCI_TAR_INPUT_RETAINED_AS_DIAGNOSTIC"
+      }
+    },
+    "migration-runner": {
+      "attestation": {
+        "kind": "LOCAL_UNSIGNED_BUILDKIT_ATTESTATIONS",
+        "provenance_statement_count": 1,
+        "registry_or_transparency_log_publication": false,
+        "sbom_statement_count": 1,
+        "signature_present": false
+      },
+      "builders": {
+        "canonical": "mrw-r13r-amd64-migration-runner-a-13419-1789009524",
+        "rebuild": "mrw-r13r-amd64-migration-runner-b-13419-1789009524"
+      },
+      "buildkit_image": "moby/buildkit@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8",
+      "cleanup": {
+        "builder_residue": [],
+        "events": [
+          {
+            "builder": "mrw-r13r-amd64-migration-runner-b-13419-1789009524",
+            "exit_code": 0
+          },
+          {
+            "builder": "mrw-r13r-amd64-migration-runner-a-13419-1789009524",
+            "exit_code": 0
+          },
+          {
+            "archive": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13r/artifacts/canonical/migration-runner.oci.tar",
+            "bytes_reclaimed": 308203008,
+            "phase": "canonical",
+            "reason": "Digest/config/layer/SBOM/provenance/Trivy and any required rootfs evidence already extracted; retain compact final evidence under constrained disk budget.",
+            "removed": true,
+            "sha256_before_removal": "ca71f9fd409754aa7d10631bb6af87b0e97a89e218c75bb451528952d8fd3348"
+          },
+          {
+            "archive": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13r/artifacts/rebuild/migration-runner.oci.tar",
+            "bytes_reclaimed": 300957184,
+            "phase": "rebuild",
+            "reason": "Digest/config/layer/SBOM/provenance/Trivy and any required rootfs evidence already extracted; retain compact final evidence under constrained disk budget.",
+            "removed": true,
+            "sha256_before_removal": "6f5191a59b9dbdf17b539dd1ac427508277f858ff7b44aedd5b54f1107333d73"
+          }
+        ],
+        "free_bytes_after": 11179503616,
+        "temporary_oci_archives_present": []
+      },
+      "comparison": {
+        "canonical_image_manifest_digest": "sha256:727ab5d23c89119fae6872882f1458c30f09467c45d207d29b335589270a179d",
+        "image_config_equal": true,
+        "image_layers_equal_in_order": true,
+        "image_manifest_equal": true,
+        "platform": "linux/amd64",
+        "rebuild_image_manifest_digest": "sha256:727ab5d23c89119fae6872882f1458c30f09467c45d207d29b335589270a179d",
+        "role": "migration-runner",
+        "rootfs_comparison": "NOT_NEEDED_EXACT_IMAGE_MANIFEST_MATCH",
+        "runtime_scope": "No separate runtime-equivalence smoke was needed: equal OCI image-manifest digest binds the identical config and ordered layer descriptors. This is build reproducibility evidence, not a full dependency-backed application runtime test.",
+        "status": "PASS_EXACT_IMAGE"
+      },
+      "free_bytes_before": 11860029440,
+      "inspections": {
+        "canonical": {
+          "all_referenced_blobs_validated": true,
+          "archive_bytes": 308203008,
+          "archive_sha256": "ca71f9fd409754aa7d10631bb6af87b0e97a89e218c75bb451528952d8fd3348",
+          "attestation_manifest_count": 1,
+          "image_config_digest": "sha256:cd7008d1ba46b1232088d077ff52daa31406a87c8414938a11dc5cd3834006d2",
+          "image_layer_digests": [
+            "sha256:6310eb16bf4251731feab01e8f633bf5e2d75a657ccad97f420b1f83cce457be",
+            "sha256:3678bb828654fcc3752f7a5eb63c5accfa00c97047252f25405285550d74a3fd",
+            "sha256:db840d086b65cf73e0feea3bd0cf11063818114e466846ae3f2b2fb1a8c2b143",
+            "sha256:f9efa1b83d065a7c5a3041582875b75d63c4ab3d4413514de8e413b51f90e91a",
+            "sha256:b67246d5d21a1e5208d87db10a035e60592ce32fc1bd322536cd6248ad3f3ea1",
+            "sha256:80358df27fe38103b756d0846fff11d094b3698db5d2929e496e10ea484894d3",
+            "sha256:8f1652a7c760aea3f19094d7ed22d3bb20fe1a316835ebc83d4e0c44ad84ccd6",
+            "sha256:356ceff5abed824fd3cb45754737f45e7b6a273774bb8f0aeb24df2ab0a52a91",
+            "sha256:5c409d2faca9ec92d7c6c8d8a7b8c2e70b944f3e0d3e9cf75a4f88acd983ef7f",
+            "sha256:a2cbc81ce7adb71654afa83fc14b1448a4598e78a670c58bc0bf01328c1de204",
+            "sha256:253c7c6696d760c59066ee96b4cacce227fa0843e49cf7018453016436f64e6f",
+            "sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1",
+            "sha256:a0afbf42b8618bb4e80a16b3fdc7969883e9fbe5c90857d66597fd11406b517e",
+            "sha256:800071c1f95361e733e105ec6a73c2a9f497357df504bc11f6120edd6810ec74",
+            "sha256:14cb374d157155933b3d151fd4f7e07aadcf81cf046e10feb19397a48ea49574"
+          ],
+          "image_manifest_digest": "sha256:727ab5d23c89119fae6872882f1458c30f09467c45d207d29b335589270a179d",
+          "oci_root_digest": "sha256:61de723b315ef8d5ad045aad3d0beba0a09eb7c64d27b78d7cf5644e1aec64aa",
+          "phase": "canonical",
+          "platform": "linux/amd64",
+          "provenance_sha256": "611c9ae07bfe241ad715c0a9c6c05eb3ba4a9abdc3230709a202b1551c539265",
+          "role": "migration-runner",
+          "runtime_config": {
+            "Cmd": [
+              "upgrade",
+              "head"
+            ],
+            "Entrypoint": [
+              "alembic"
+            ],
+            "Env": [
+              "PATH=/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+              "LANG=C.UTF-8",
+              "GPG_KEY=A035C8C19219BA821ECEA86B64E628F8D684696D",
+              "PYTHON_VERSION=3.11.16",
+              "PYTHON_SHA256=91bcdebfdde239a003ae93738a7fce0f9230fee5c4bc2b86f6e6e8c6f98aabe8",
+              "PYTHONDONTWRITEBYTECODE=1",
+              "PYTHONUNBUFFERED=1",
+              "PIP_NO_CACHE_DIR=1",
+              "PYTHONPATH=/opt/mrw/src",
+              "MRW_CONTAINER_ROLE=migration-runner"
+            ],
+            "ExposedPorts": null,
+            "Healthcheck": null,
+            "User": null,
+            "WorkingDir": "/app"
+          },
+          "sbom_sha256": "aeb741321c52d6e94eb541356792a7557df629e560c444e7ed5de430d470ebdf",
+          "slsa_provenance_count": 1,
+          "spdx_sbom_count": 1
+        },
+        "rebuild": {
+          "all_referenced_blobs_validated": true,
+          "archive_bytes": 300957184,
+          "archive_sha256": "6f5191a59b9dbdf17b539dd1ac427508277f858ff7b44aedd5b54f1107333d73",
+          "attestation_manifest_count": 0,
+          "image_config_digest": "sha256:cd7008d1ba46b1232088d077ff52daa31406a87c8414938a11dc5cd3834006d2",
+          "image_layer_digests": [
+            "sha256:6310eb16bf4251731feab01e8f633bf5e2d75a657ccad97f420b1f83cce457be",
+            "sha256:3678bb828654fcc3752f7a5eb63c5accfa00c97047252f25405285550d74a3fd",
+            "sha256:db840d086b65cf73e0feea3bd0cf11063818114e466846ae3f2b2fb1a8c2b143",
+            "sha256:f9efa1b83d065a7c5a3041582875b75d63c4ab3d4413514de8e413b51f90e91a",
+            "sha256:b67246d5d21a1e5208d87db10a035e60592ce32fc1bd322536cd6248ad3f3ea1",
+            "sha256:80358df27fe38103b756d0846fff11d094b3698db5d2929e496e10ea484894d3",
+            "sha256:8f1652a7c760aea3f19094d7ed22d3bb20fe1a316835ebc83d4e0c44ad84ccd6",
+            "sha256:356ceff5abed824fd3cb45754737f45e7b6a273774bb8f0aeb24df2ab0a52a91",
+            "sha256:5c409d2faca9ec92d7c6c8d8a7b8c2e70b944f3e0d3e9cf75a4f88acd983ef7f",
+            "sha256:a2cbc81ce7adb71654afa83fc14b1448a4598e78a670c58bc0bf01328c1de204",
+            "sha256:253c7c6696d760c59066ee96b4cacce227fa0843e49cf7018453016436f64e6f",
+            "sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1",
+            "sha256:a0afbf42b8618bb4e80a16b3fdc7969883e9fbe5c90857d66597fd11406b517e",
+            "sha256:800071c1f95361e733e105ec6a73c2a9f497357df504bc11f6120edd6810ec74",
+            "sha256:14cb374d157155933b3d151fd4f7e07aadcf81cf046e10feb19397a48ea49574"
+          ],
+          "image_manifest_digest": "sha256:727ab5d23c89119fae6872882f1458c30f09467c45d207d29b335589270a179d",
+          "oci_root_digest": "sha256:727ab5d23c89119fae6872882f1458c30f09467c45d207d29b335589270a179d",
+          "phase": "rebuild",
+          "platform": "linux/amd64",
+          "role": "migration-runner",
+          "runtime_config": {
+            "Cmd": [
+              "upgrade",
+              "head"
+            ],
+            "Entrypoint": [
+              "alembic"
+            ],
+            "Env": [
+              "PATH=/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+              "LANG=C.UTF-8",
+              "GPG_KEY=A035C8C19219BA821ECEA86B64E628F8D684696D",
+              "PYTHON_VERSION=3.11.16",
+              "PYTHON_SHA256=91bcdebfdde239a003ae93738a7fce0f9230fee5c4bc2b86f6e6e8c6f98aabe8",
+              "PYTHONDONTWRITEBYTECODE=1",
+              "PYTHONUNBUFFERED=1",
+              "PIP_NO_CACHE_DIR=1",
+              "PYTHONPATH=/opt/mrw/src",
+              "MRW_CONTAINER_ROLE=migration-runner"
+            ],
+            "ExposedPorts": null,
+            "Healthcheck": null,
+            "User": null,
+            "WorkingDir": "/app"
+          }
+        }
+      },
+      "platform": "linux/amd64",
+      "role": "migration-runner",
+      "status": "PASS_EXACT_IMAGE_SECURITY_THRESHOLD_FAIL",
+      "trivy": {
+        "affected_package_version_count": 28,
+        "counts": {
+          "CRITICAL": 13,
+          "HIGH": 135
+        },
+        "exit_code": 1,
+        "gate_status": "FAIL",
+        "observation_count": 148,
+        "observations_with_reported_fixed_version": 0,
+        "package_types": [
+          "os",
+          "library"
+        ],
+        "reachability_exploitability": "NOT_ASSESSED_BY_TRIVY",
+        "report_sha256": "efb570cd2f2bcaa080b53b345bb7d328ca1dd13971b352e51594a7b2f64c2b17",
+        "scanner": "vulnerability",
+        "threshold": "HIGH,CRITICAL",
+        "unique_vulnerability_id_count": 80
+      },
+      "trivy_input_recovery": {
+        "effective_scan_subject": "mrw-r13r-amd64-migration-runner-canonical:local",
+        "identity_binding": {
+          "cleanup_owner": "/root/stage3_test_gates after all local stack/migration gates complete",
+          "docker_inspect": {
+            "architecture": "amd64",
+            "id": "sha256:61de723b315ef8d5ad045aad3d0beba0a09eb7c64d27b78d7cf5644e1aec64aa",
+            "os": "linux",
+            "repo_tags": [
+              "mrw-r13r-amd64-migration-runner-canonical:local"
+            ]
+          },
+          "image_config_digest": "sha256:cd7008d1ba46b1232088d077ff52daa31406a87c8414938a11dc5cd3834006d2",
+          "image_manifest_digest": "sha256:727ab5d23c89119fae6872882f1458c30f09467c45d207d29b335589270a179d",
+          "load_method": "docker load --input /Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13r/artifacts/canonical/migration-runner.oci.tar (performed before bounded archive cleanup), then docker tag sha256:61de723b315ef8d5ad045aad3d0beba0a09eb7c64d27b78d7cf5644e1aec64aa mrw-r13r-amd64-migration-runner-canonical:local",
+          "loaded_image_id": "sha256:61de723b315ef8d5ad045aad3d0beba0a09eb7c64d27b78d7cf5644e1aec64aa",
+          "platform": "linux/amd64",
+          "status": "AVAILABLE_FOR_LOCAL_TEST_GATES",
+          "tag": "mrw-r13r-amd64-migration-runner-canonical:local"
+        },
+        "initial_oci_tar_attempt": "UNSUPPORTED_OCI_TAR_INPUT_RETAINED_AS_DIAGNOSTIC"
+      }
+    }
+  },
+  "schema": "mrw.stage3.r13r.local-amd64-artifact-evidence.v1",
+  "scope": {
+    "builds": "Two independent task-owned docker-container BuildKit instances per role; --no-cache; linux/amd64; local OCI output only.",
+    "canonical": "Build A embeds one expected SLSA provenance statement and one expected SPDX SBOM statement; both are local and unsigned.",
+    "excluded": [
+      "registry push",
+      "registry publication",
+      "signing",
+      "transparency log",
+      "deployment",
+      "remote dispatch",
+      "authority transfer"
+    ],
+    "rebuild": "Build B disables attestations so the image manifest/config/layers can be compared without an attestation-root difference.",
+    "runtime": "If image manifests are exact, separate A/B runtime-equivalence testing is unnecessary because identical image manifests bind identical config and ordered layers. This lane does not claim dependency-backed application runtime success.",
+    "security": "Trivy 0.74.0 HIGH/CRITICAL os,library threshold; reachability and exploitability are not assessed."
+  },
+  "security_summary": {
+    "backend": {
+      "affected_package_version_count": 28,
+      "counts": {
+        "CRITICAL": 13,
+        "HIGH": 135
+      },
+      "exit_code": 1,
+      "gate_status": "FAIL",
+      "observation_count": 148,
+      "observations_with_reported_fixed_version": 0,
+      "package_types": [
+        "os",
+        "library"
+      ],
+      "reachability_exploitability": "NOT_ASSESSED_BY_TRIVY",
+      "report_sha256": "31fbb563a4a9a0011f7b979539300e033a0e22242762d7a47d49448e85661343",
+      "scanner": "vulnerability",
+      "threshold": "HIGH,CRITICAL",
+      "unique_vulnerability_id_count": 80
+    },
+    "frontend": {
+      "affected_package_version_count": 0,
+      "counts": {
+        "CRITICAL": 0,
+        "HIGH": 0
+      },
+      "exit_code": 0,
+      "gate_status": "PASS",
+      "observation_count": 0,
+      "observations_with_reported_fixed_version": 0,
+      "package_types": [
+        "os",
+        "library"
+      ],
+      "reachability_exploitability": "NOT_ASSESSED_BY_TRIVY",
+      "report_sha256": "e695285373e03892ae8ebd79fbf2e683f7a3eeeed9e9ea0cd80dcd67c4f29ca1",
+      "scanner": "vulnerability",
+      "threshold": "HIGH,CRITICAL",
+      "unique_vulnerability_id_count": 0
+    },
+    "migration-runner": {
+      "affected_package_version_count": 28,
+      "counts": {
+        "CRITICAL": 13,
+        "HIGH": 135
+      },
+      "exit_code": 1,
+      "gate_status": "FAIL",
+      "observation_count": 148,
+      "observations_with_reported_fixed_version": 0,
+      "package_types": [
+        "os",
+        "library"
+      ],
+      "reachability_exploitability": "NOT_ASSESSED_BY_TRIVY",
+      "report_sha256": "efb570cd2f2bcaa080b53b345bb7d328ca1dd13971b352e51594a7b2f64c2b17",
+      "scanner": "vulnerability",
+      "threshold": "HIGH,CRITICAL",
+      "unique_vulnerability_id_count": 80
+    }
+  },
+  "status": "FAILED_REPRODUCIBILITY_AND_SECURITY_THRESHOLDS"
+}

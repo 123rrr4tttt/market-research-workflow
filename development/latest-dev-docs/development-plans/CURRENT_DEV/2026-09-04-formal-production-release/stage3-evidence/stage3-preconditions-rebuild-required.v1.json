@@ -1,0 +1,118 @@
+{
+  "schema_version": "mrw.formal_release.stage3.preconditions.v1",
+  "stage_id": "STAGE_3",
+  "status": "REBUILD_REQUIRED",
+  "authoritative": false,
+  "derived_as": "candidate_validation_evidence",
+  "observed_at": "2026-09-06T02:49:00Z",
+  "candidate": {
+    "root": "/Users/wangyiliang/.codex/release-candidates/mrw-stage2-20260906-v3",
+    "commit_expected": "f8d84afc2784cf91784da957e353e2b0c0d6952c",
+    "commit_observed": "f8d84afc2784cf91784da957e353e2b0c0d6952c",
+    "tree_expected": "1be3dcbc009332ec225297d1b94430862287d816",
+    "tree_observed": "1be3dcbc009332ec225297d1b94430862287d816",
+    "parent_expected": "88ffcc3dab2e6cbdc1f389e16c4226df5a2e51c6",
+    "parent_observed": "88ffcc3dab2e6cbdc1f389e16c4226df5a2e51c6",
+    "tracked_status_entries": 0,
+    "untracked_status_entries": 0,
+    "detached_head": true,
+    "git_fsck": "PASS",
+    "git_lock_paths": [],
+    "active_candidate_writer_observation": "NONE_OBSERVED_POINT_IN_TIME"
+  },
+  "frozen_input_sha256": {
+    "00_formal-production-release-development-plan.v1.md": "97801ddbe46233429309f218cfcb183ade785ffd1a2d0872223907851ca95087",
+    "01_formal-production-release-gap-ledger.v1.json": "21df93d7c9dc1ac3cc77a9a449f3c37527001f0716551ce34db032c7c93754a0",
+    "02_formal-production-release-development.freeze.v1.json": "65e5b4a759d5ea2c815541bd8c4a864ab4130fccbe39d50214787edff5082c2a",
+    "03_formal-production-release-progress.v1.md": "0191e27c0c7ff28ba0c0cd5c8b5985be3cad3711a794f4fd70d9d76ed08e1d4c",
+    "04_production-deployment-stage-plan.v1.md": "d04ae870b5d2a13afacdc7a07e9d5a89b7ab77e7b6c2d6cdd4bd2101151f76fa",
+    "05_production-deployment-stage-plan.freeze.v1.json": "06d2ec76f7c59973997311ac7ae416005ae0b9c7784598b11127e436dcf8a2aa",
+    "06_production-deployment-stage-progress.v1.md": "39aa9697cded7eaea520bd5b1e9ca80ae9ca530b82f8029a77c308b202d1727a",
+    "07_production-deployment-stage3-supervisor-contract.v1.md": "ce0923704b9e4fa57582e846d41ca9308e5783e03e682bec9dedcfb563e2bf88",
+    "stage0-evidence/functorial-refactor-completion.v4.json": "4911df1c6450d9802ac7bd6b0669ef3a7343e3ce308d33f0a46dde2c4cb62dda",
+    "stage1-evidence/production-contract-implementation.v1.json": "3f5c745ce8253522fa7e3728ba112ed41c80f3b6aa7409ddf028621c6ae07f31",
+    "stage1-evidence/independent-review.v1.md": "10117a7c8c4eec19c33e3ad841c99fb301c43fcda71f8d7addbde4070646f72c",
+    "/Users/wangyiliang/.codex/release-evidence/mrw-stage2-20260906-v3/candidate-manifest.v3.json": "a95e4103dfa3743c6a603079f838d48a20665b38afe7fa2a9b2623ab443522bf",
+    "/Users/wangyiliang/.codex/release-evidence/mrw-stage2-20260906-v3/closure.final.v3.json": "53497a752a9207b4dc54f8a5ab7e8af23d3f937a82fb71c8e8bc3092fc410808",
+    "/Users/wangyiliang/.codex/release-evidence/mrw-stage2-20260906-v3/r1.final.v3.json": "fdd6053faeada17b62c050207078ff5944a3c759eb5d6183a43ac4f74cc4774e",
+    "/Users/wangyiliang/.codex/release-evidence/mrw-stage2-20260906-v3/stage2-record.final.v3.json": "46d0df3f320619508130f87f6f8d60baba6c6080918293f3d021fbe7e26fb312"
+  },
+  "checks": [
+    {
+      "check_id": "candidate.identity_and_cleanliness",
+      "command": "git rev-parse HEAD HEAD^{tree} HEAD^; git status --porcelain=v1 --untracked-files=all; git fsck --full --no-dangling",
+      "exit_code": 0,
+      "result": "PASS",
+      "exact_result": "commit/tree/parent exact; tracked=0; untracked=0; fsck PASS"
+    },
+    {
+      "check_id": "candidate.fresh_r1",
+      "command": "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. python3 scripts/formal_release/check_candidate_identity.py --repo-root <candidate> --expected-commit f8d84afc2784cf91784da957e353e2b0c0d6952c --expected-tree 1be3dcbc009332ec225297d1b94430862287d816 --candidate-strategy REMEDIATION_INCLUSIVE_RELEASE",
+      "exit_code": 0,
+      "result": "PASS",
+      "exact_result": "5 PASS findings: strategy, commit, tree, dirty_tracked count=0, untracked count=0"
+    },
+    {
+      "check_id": "candidate.stage1_exact_byte_record",
+      "command": "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. python3 scripts/formal_release/check_stage1_production_contract_record.py --repo-root <candidate> <stage1-record>",
+      "exit_code": 0,
+      "result": "PASS",
+      "exact_result": "record identity, exact-byte bindings, one-time receipts, and create-only ceiling hold"
+    },
+    {
+      "check_id": "candidate.r3_static_production_contract",
+      "command": "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=<candidate> /Users/wangyiliang/market-research-workflow/main/backend/.venv311/bin/python <candidate>/scripts/formal_release/check_static_production_contract.py --repo-root <candidate>",
+      "exit_code": 0,
+      "result": "PASS",
+      "exact_result": "12 PASS findings; release identity 1.0.0 aligned; production compose digest refs fail-fast; no source bind mounts"
+    },
+    {
+      "check_id": "candidate.r2_required_files",
+      "command": "git ls-tree -r --name-only HEAD -- scripts/formal_release/check_release_evidence.py tests/formal_release/test_check_release_evidence.py",
+      "exit_code": 0,
+      "result": "FAIL",
+      "exact_result": "empty output; both required R2 paths are absent from candidate HEAD"
+    },
+    {
+      "check_id": "candidate.required_ci_evidence_validation",
+      "command": "inspect .github/workflows/backend-tests.yml evidence-validation-check and dependent needs",
+      "exit_code": 0,
+      "result": "FAIL",
+      "exact_result": "evidence-validation-check executes python3 -m pytest -q tests/formal_release/test_check_release_evidence.py, but that path is absent; artifact-metadata-check and required-convergence-check depend on evidence-validation-check"
+    },
+    {
+      "check_id": "main_checkout_r2_nontransferability",
+      "command": "git status --short -- scripts/formal_release/check_release_evidence.py tests/formal_release/test_check_release_evidence.py",
+      "exit_code": 0,
+      "result": "PASS_NEGATIVE_EVIDENCE",
+      "exact_result": "both paths are ?? untracked in the user-owned dirty main checkout and cannot serve as candidate-bound evidence"
+    }
+  ],
+  "failure": {
+    "failure_id": "stage3.required_r2_bytes_absent",
+    "owner": "STAGE_1_PRODUCTION_CONTRACT_AND_STAGE_2_SUCCESSOR_CANDIDATE",
+    "classification": "FROZEN_CANDIDATE_REQUIRED_FILE_AND_REQUIRED_CI_DAG_FAILURE",
+    "reason": "Stage 3 requires fresh R2 against the exact candidate, while the exact candidate omits both the R2 checker and its test. The required workflow calls the missing test and propagates its result into artifact metadata and required convergence.",
+    "repair_surface": [
+      "scripts/formal_release/check_release_evidence.py",
+      "tests/formal_release/test_check_release_evidence.py",
+      "Stage 1 required-file/evidence bindings as applicable",
+      "Stage 2 manifest, closure, R1, record, commit, and tree"
+    ],
+    "earliest_return_stage": "STAGE_1",
+    "successor_rebind_required": true,
+    "in_place_candidate_repair_forbidden": true
+  },
+  "external_effects": [],
+  "cleanup": {
+    "standalone_clone_created": false,
+    "container_or_image_created": false,
+    "candidate_modified": false,
+    "temporary_files_removed": [
+      "/private/tmp/mrw-stage3-candidate-tree-paths.58910",
+      "/private/tmp/mrw-stage3-manifest-upserts.58910"
+    ],
+    "retained_resources": []
+  },
+  "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_CANARY_NO_CUTOVER_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE"
+}

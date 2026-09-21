@@ -1,0 +1,117 @@
+{
+  "authoritative": false,
+  "candidate": {
+    "clean": true,
+    "commit": "8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+    "root": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260912-v4-r13x/candidate",
+    "tree": "ce7c67c831b51f9d64b4c2f1a470a724a50b19df"
+  },
+  "compose_runtime_no_build": true,
+  "derived_backend_boundary": {
+    "base_image": "mrw-local/r13x-candidate-backend:8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+    "base_image_id": "sha256:d72688f24fb867ae2e0e9310cfc9ec25aac649a8da69130ee26469c0bd37c2ef",
+    "derived_image": "mrw-local/stage4-r13x-backend-config:8652d653f740735f",
+    "derived_image_id": "sha256:f99f900e5b420cf7e1c9513598a87251cc6c8124e6ec8461c564ed4d7ca76c20",
+    "identity_classification": "NON_R13X_DERIVED_STAGE4_RUNTIME_IMAGE",
+    "replaced_paths": {
+      "/docker-entrypoint.sh": {
+        "sha256": "f5215bda79994b29c544763f9a88fbdbefd863a0ab3b70f2962f09b62de677c7",
+        "source": "current worktree main/backend/docker-entrypoint.sh"
+      },
+      "/app/app/composition/production.py": {
+        "sha256": "f35a8cc676fd226eacb960f55d4e270ed9174aa664bb18e92189bc0c6593da67",
+        "source": "current worktree main/backend/app/composition/production.py"
+      }
+    }
+  },
+  "expected_image_ids": {
+    "backend": "sha256:f99f900e5b420cf7e1c9513598a87251cc6c8124e6ec8461c564ed4d7ca76c20",
+    "base-backend": "sha256:d72688f24fb867ae2e0e9310cfc9ec25aac649a8da69130ee26469c0bd37c2ef",
+    "db": "sha256:956744bd14e9cbdf639c61c2a2a7c7c2c48a9c8cdd42f7de4ac034f4e96b90f8",
+    "elasticsearch": "sha256:01c1732062b4a846c5ca687b0094b89bad0bfed00c6d71626db32fb8f3131a78",
+    "frontend": "sha256:f5641ba6d2b50135da1c9c9c3edfd067ed90ecfb37bcb8f0c7580b2e00aaa915",
+    "migration-runner": "sha256:3b409669bb8248f738c1133f9458d73725951140c0eae938064d469045960509",
+    "redis": "sha256:71da9275c5f3fcb97d0fa0c8c5b36cc995327265420f17a04bfd544f458059f7"
+  },
+  "images": {
+    "backend": {
+      "id": "sha256:f99f900e5b420cf7e1c9513598a87251cc6c8124e6ec8461c564ed4d7ca76c20",
+      "platform": "linux/amd64",
+      "reference": "mrw-local/stage4-r13x-backend-config:8652d653f740735f",
+      "repo_digests": [
+        "mrw-local/stage4-r13x-backend-config@sha256:f99f900e5b420cf7e1c9513598a87251cc6c8124e6ec8461c564ed4d7ca76c20"
+      ],
+      "repo_tags": [
+        "mrw-local/stage4-r13x-backend-config:8652d653f740735f"
+      ]
+    },
+    "base-backend": {
+      "id": "sha256:d72688f24fb867ae2e0e9310cfc9ec25aac649a8da69130ee26469c0bd37c2ef",
+      "platform": "linux/amd64",
+      "reference": "mrw-local/r13x-candidate-backend:8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+      "repo_digests": [
+        "mrw-local/r13x-candidate-backend@sha256:d72688f24fb867ae2e0e9310cfc9ec25aac649a8da69130ee26469c0bd37c2ef"
+      ],
+      "repo_tags": [
+        "mrw-local/r13x-candidate-backend:8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2"
+      ]
+    },
+    "db": {
+      "id": "sha256:956744bd14e9cbdf639c61c2a2a7c7c2c48a9c8cdd42f7de4ac034f4e96b90f8",
+      "platform": "linux/arm64",
+      "reference": "ankane/pgvector:latest",
+      "repo_digests": [
+        "ankane/pgvector@sha256:956744bd14e9cbdf639c61c2a2a7c7c2c48a9c8cdd42f7de4ac034f4e96b90f8"
+      ],
+      "repo_tags": [
+        "ankane/pgvector:latest"
+      ]
+    },
+    "elasticsearch": {
+      "id": "sha256:01c1732062b4a846c5ca687b0094b89bad0bfed00c6d71626db32fb8f3131a78",
+      "platform": "linux/arm64",
+      "reference": "docker.elastic.co/elasticsearch/elasticsearch:8.15.3",
+      "repo_digests": [
+        "docker.elastic.co/elasticsearch/elasticsearch@sha256:01c1732062b4a846c5ca687b0094b89bad0bfed00c6d71626db32fb8f3131a78"
+      ],
+      "repo_tags": [
+        "docker.elastic.co/elasticsearch/elasticsearch:8.15.3"
+      ]
+    },
+    "frontend": {
+      "id": "sha256:f5641ba6d2b50135da1c9c9c3edfd067ed90ecfb37bcb8f0c7580b2e00aaa915",
+      "platform": "linux/amd64",
+      "reference": "mrw-local/r13x-candidate-frontend:8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+      "repo_digests": [
+        "mrw-local/r13x-candidate-frontend@sha256:f5641ba6d2b50135da1c9c9c3edfd067ed90ecfb37bcb8f0c7580b2e00aaa915"
+      ],
+      "repo_tags": [
+        "mrw-local/r13x-candidate-frontend:8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2"
+      ]
+    },
+    "migration-runner": {
+      "id": "sha256:3b409669bb8248f738c1133f9458d73725951140c0eae938064d469045960509",
+      "platform": "linux/amd64",
+      "reference": "mrw-local/r13x-candidate-migration-runner:8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+      "repo_digests": [
+        "mrw-local/r13x-candidate-migration-runner@sha256:3b409669bb8248f738c1133f9458d73725951140c0eae938064d469045960509"
+      ],
+      "repo_tags": [
+        "mrw-local/r13x-candidate-migration-runner:8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2"
+      ]
+    },
+    "redis": {
+      "id": "sha256:71da9275c5f3fcb97d0fa0c8c5b36cc995327265420f17a04bfd544f458059f7",
+      "platform": "linux/arm64",
+      "reference": "redis:7.4",
+      "repo_digests": [
+        "redis@sha256:71da9275c5f3fcb97d0fa0c8c5b36cc995327265420f17a04bfd544f458059f7"
+      ],
+      "repo_tags": [
+        "redis:7.4"
+      ]
+    }
+  },
+  "pull_policy": "never",
+  "status": "PASS"
+}

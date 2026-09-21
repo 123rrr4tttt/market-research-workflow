@@ -11,7 +11,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Literal
+from typing import Literal, NoReturn, TypeAlias
+
+from functorial_kit import Failure
+from mrw_functorial_kit.core.w06_semantics import c1_capability_failures
 
 from app.successor_runtime.capabilities.checksum import content_digest, require_hex64
 from app.successor_runtime.language.plan import ExecutionPlan, with_plan_digest
@@ -23,16 +26,62 @@ __all__ = [
     "C1RollbackBeforeAfter",
     "C1RuntimeEvidenceRefs",
     "C1SliceAcceptance",
+    "C1SliceResult",
     "C1SliceId",
     "C1StepStatus",
     "accept_c1_slice",
+    "try_accept_c1_slice",
 ]
 
 C1SliceId = Literal["A", "B", "C"]
+C1SliceResult: TypeAlias = "C1SliceAcceptance | Failure"
+C1_FAILURE_OWNER = "successor_runtime.capabilities.c1_slice_acceptance"
+C1_FAILURE_WITNESS = "test:test_w06_c2_total_core_failure_lifts"
 
 
 class C1AcceptanceError(ValueError):
     """The exact Program/Plan or bounded C1 slice shape is invalid."""
+
+    def __init__(self, message: str, failure: Failure | None = None) -> None:
+        super().__init__(message)
+        self.failure = failure
+
+
+def _acceptance_failure(code: str, message: str, *, site: str) -> Failure:
+    return c1_capability_failures.fail(
+        code,
+        message,
+        {
+            "owner": C1_FAILURE_OWNER,
+            "operation": "accept_c1_slice",
+            "site": site,
+            "public_exception": "C1AcceptanceError",
+            "public_message": message,
+            "witness": C1_FAILURE_WITNESS,
+        },
+    )
+
+
+def _raise_acceptance_failure(failure: Failure) -> NoReturn:
+    context = failure.context or {}
+    if (
+        failure.family != c1_capability_failures.name
+        or context.get("public_exception") != C1AcceptanceError.__name__
+        or not context.get("public_message")
+    ):
+        # kit:boundary owner=c1_slice_acceptance.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w06_c2_total_core_failure_lifts
+        raise TypeError("C1 acceptance lift context is incomplete")
+    # kit:boundary owner=c1_slice_acceptance.py class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=c1.capability.failure witness=test:test_w06_c2_total_core_failure_lifts
+    raise C1AcceptanceError(str(context["public_message"]), failure)
+
+
+def _reject(
+    message: str,
+    *,
+    code: str = "C1_ACCEPTANCE_INPUT_INVALID",
+    site: str = "accept_c1_slice",
+) -> NoReturn:
+    _raise_acceptance_failure(_acceptance_failure(code, message, site=site))
 
 
 class C1StepStatus(StrEnum):
@@ -55,7 +104,7 @@ class C1NamedStepObservation:
 
     def __post_init__(self) -> None:
         if not self.name or not self.step_id or not self.evidence_ref:
-            raise C1AcceptanceError(
+            return _reject(
                 "named step observation identities must be non-empty"
             )
         require_hex64(self.result_digest, "C1NamedStepObservation.result_digest")
@@ -78,9 +127,9 @@ class C1RuntimeEvidenceRefs:
             ("replay_refs", self.replay_refs),
         ):
             if not refs or any(not ref for ref in refs):
-                raise C1AcceptanceError(f"{field_name} must contain opaque refs")
+                return _reject(f"{field_name} must contain opaque refs", code="C1_ACCEPTANCE_INPUT_INVALID", site=field_name)
             if len(set(refs)) != len(refs):
-                raise C1AcceptanceError(f"{field_name} must not contain duplicates")
+                return _reject(f"{field_name} must not contain duplicates", code="C1_ACCEPTANCE_INPUT_INVALID", site=field_name)
 
 
 @dataclass(frozen=True, slots=True)
@@ -97,19 +146,19 @@ class C1RollbackBeforeAfter:
 
     def __post_init__(self) -> None:
         if not self.rollback_ref:
-            raise C1AcceptanceError("rollback_ref must be non-empty")
+            return _reject("rollback_ref must be non-empty", code="C1_ROLLBACK_BINDING_INVALID", site="rollback_ref")
         if self.before_authority_epoch < 0:
-            raise C1AcceptanceError("before_authority_epoch must be non-negative")
+            return _reject("before_authority_epoch must be non-negative", code="C1_ROLLBACK_BINDING_INVALID", site="before_authority_epoch")
         if self.after_authority_epoch != self.before_authority_epoch + 1:
-            raise C1AcceptanceError(
+            return _reject(
                 "rollback may only advance the future owner authority epoch once"
             )
         if not self.before_journal_refs or not self.before_readback_refs:
-            raise C1AcceptanceError("rollback requires retained journal/readback refs")
+            return _reject("rollback requires retained journal/readback refs", code="C1_ROLLBACK_BINDING_INVALID", site="rollback_refs")
         if self.after_journal_refs != self.before_journal_refs:
-            raise C1AcceptanceError("rollback must retain exact journal refs")
+            return _reject("rollback must retain exact journal refs", code="C1_ROLLBACK_BINDING_INVALID", site="journal_refs")
         if self.after_readback_refs != self.before_readback_refs:
-            raise C1AcceptanceError("rollback must retain exact readback refs")
+            return _reject("rollback must retain exact readback refs", code="C1_ROLLBACK_BINDING_INVALID", site="readback_refs")
 
 
 @dataclass(frozen=True, slots=True)
@@ -160,7 +209,7 @@ class C1SliceAcceptance:
         if not self.acceptance_digest:
             object.__setattr__(self, "acceptance_digest", expected)
         elif self.acceptance_digest != expected:
-            raise C1AcceptanceError("acceptance_digest does not bind the closure")
+            return _reject("acceptance_digest does not bind the closure", code="C1_ACCEPTANCE_DIGEST_INVALID", site="acceptance_digest")
 
     @property
     def accepted(self) -> bool:
@@ -221,13 +270,13 @@ def _require_exact_program_plan(
         not in_program.program_digest
         or in_program.program_digest != exact_program_digest
     ):
-        raise C1AcceptanceError("ProgramSpec carries a stale program_digest")
+        return _reject("ProgramSpec carries a stale program_digest", code="C1_PROGRAM_PLAN_BINDING_INVALID", site="program_digest")
     if in_plan.program_id != in_program.program_id:
-        raise C1AcceptanceError("Program/ExecutionPlan program_id mismatch")
+        return _reject("Program/ExecutionPlan program_id mismatch", code="C1_PROGRAM_PLAN_BINDING_INVALID", site="program_id")
     if in_plan.program_digest != exact_program_digest:
-        raise C1AcceptanceError("ExecutionPlan does not bind the exact ProgramSpec")
+        return _reject("ExecutionPlan does not bind the exact ProgramSpec", code="C1_PROGRAM_PLAN_BINDING_INVALID", site="plan.program_digest")
     if in_plan.plan_digest != with_plan_digest(in_plan).plan_digest:
-        raise C1AcceptanceError("ExecutionPlan carries a stale plan_digest")
+        return _reject("ExecutionPlan carries a stale plan_digest", code="C1_PROGRAM_PLAN_BINDING_INVALID", site="plan_digest")
 
     def require_control(node: object) -> None:
         node.require_valid_control_digest()
@@ -237,15 +286,15 @@ def _require_exact_program_plan(
     try:
         require_control(in_plan.control_root)
     except ValueError as exc:
-        raise C1AcceptanceError(str(exc)) from exc
+        return _reject(str(exc), code="C1_PROGRAM_PLAN_BINDING_INVALID", site="control_root")
 
     step_ids = tuple(step.step_id for step in in_plan.ordered_steps)
     if len(step_ids) != len(set(step_ids)):
-        raise C1AcceptanceError("ExecutionPlan step IDs must be unique")
+        return _reject("ExecutionPlan step IDs must be unique", code="C1_PROGRAM_PLAN_BINDING_INVALID", site="step_ids")
     if in_plan.dependency_index.entries != tuple(
         (step.step_id, step.dependencies) for step in in_plan.ordered_steps
     ):
-        raise C1AcceptanceError("ExecutionPlan dependency index drift")
+        return _reject("ExecutionPlan dependency index drift", code="C1_PROGRAM_PLAN_BINDING_INVALID", site="dependency_index")
 
 
 def _ordered_operation_refs(in_plan: ExecutionPlan) -> tuple[tuple[str, str, str], ...]:
@@ -264,44 +313,44 @@ def _require_slice_shape(
     in_plan: ExecutionPlan,
 ) -> tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]]:
     if in_slice_id not in _SLICE_OPERATION_KINDS:
-        raise C1AcceptanceError(f"unsupported C1 slice: {in_slice_id!r}")
+        return _reject(f"unsupported C1 slice: {in_slice_id!r}", code="C1_SLICE_SHAPE_INVALID", site="slice_id")
     operation_kinds = tuple(ref[0] for ref in _ordered_operation_refs(in_plan))
     step_kinds = tuple(step.step_kind for step in in_plan.ordered_steps)
     if operation_kinds != _SLICE_OPERATION_KINDS[in_slice_id]:
-        raise C1AcceptanceError(
+        return _reject(
             f"Slice {in_slice_id} operation shape drift: {operation_kinds!r}"
         )
     if step_kinds != _SLICE_STEP_KINDS[in_slice_id]:
-        raise C1AcceptanceError(
+        return _reject(
             f"Slice {in_slice_id} ordered step shape drift: {step_kinds!r}"
         )
     if in_slice_id == "A" and in_program.semantic_identity != (
         "ingest-index.stage-candidate"
     ):
-        raise C1AcceptanceError("Slice A must use the real C7 ingest semantic identity")
+        return _reject("Slice A must use the real C7 ingest semantic identity", code="C1_SLICE_SHAPE_INVALID", site="semantic_identity")
     if in_slice_id == "B" and in_program.semantic_identity != (
         "c8.knowledge-writing-report-graph"
     ):
-        raise C1AcceptanceError("Slice B must use the current C8 composition")
+        return _reject("Slice B must use the current C8 composition", code="C1_SLICE_SHAPE_INVALID", site="semantic_identity")
     if in_slice_id == "C" and in_program.semantic_identity != (
         "c8.report.stage-verify-admission-delivery"
     ):
-        raise C1AcceptanceError("Slice C must use the C8 report-delivery bridge")
+        return _reject("Slice C must use the C8 report-delivery bridge", code="C1_SLICE_SHAPE_INVALID", site="semantic_identity")
 
     forbidden_tokens = (".graph.", ".ui.", ".api.", "projector")
     if in_slice_id in {"B", "C"} and any(
         token in kind for kind in operation_kinds for token in forbidden_tokens
     ):
-        raise C1AcceptanceError(
+        return _reject(
             f"Slice {in_slice_id} Program must exclude graph/API/UI projector atoms"
         )
     if in_slice_id == "C":
         delivery_step = in_plan.ordered_steps[-2]
         admission_step = in_plan.ordered_steps[-1]
         if not delivery_step.return_contract.admission_required:
-            raise C1AcceptanceError("Slice C delivery must require separate admission")
+            return _reject("Slice C delivery must require separate admission", code="C1_SLICE_SHAPE_INVALID", site="delivery_admission")
         if admission_step.dependencies != (delivery_step.step_id,):
-            raise C1AcceptanceError("Slice C delivery admission dependency drift")
+            return _reject("Slice C delivery admission dependency drift", code="C1_SLICE_SHAPE_INVALID", site="delivery_dependency")
     assignment_kinds = tuple(
         _ASSIGNMENT_KIND_BY_STEP_KIND[step_kind] for step_kind in step_kinds
     )
@@ -316,12 +365,12 @@ def _require_observation_shape(
     expected_step_ids = tuple(step.step_id for step in in_plan.ordered_steps)
     observed_step_ids = tuple(observation.step_id for observation in observations)
     if observed_step_ids != expected_step_ids:
-        raise C1AcceptanceError(
+        return _reject(
             f"{side} observations must cover exact ordered ExecutionPlan steps"
         )
     names = tuple(observation.name for observation in observations)
     if len(names) != len(set(names)):
-        raise C1AcceptanceError(f"{side} observation names must be unique")
+        return _reject(f"{side} observation names must be unique", code="C1_OBSERVATION_SHAPE_INVALID", site=f"{side}.names")
 
 
 def _compare_observations(
@@ -393,14 +442,14 @@ def accept_c1_slice(
     _require_observation_shape(in_legacy_step_observations, in_plan, "legacy")
     _require_observation_shape(in_successor_step_observations, in_plan, "successor")
     if in_runtime_evidence.journal_refs != in_rollback_before_after.before_journal_refs:
-        raise C1AcceptanceError(
+        return _reject(
             "rollback journal refs must equal runtime evidence refs"
         )
     if (
         in_runtime_evidence.readback_refs
         != in_rollback_before_after.before_readback_refs
     ):
-        raise C1AcceptanceError(
+        return _reject(
             "rollback readback refs must equal runtime evidence refs"
         )
 
@@ -446,3 +495,36 @@ def accept_c1_slice(
         rollback_after_authority_epoch=(in_rollback_before_after.after_authority_epoch),
         blocking_findings=blockers,
     )
+
+
+def try_accept_c1_slice(
+    *,
+    in_slice_id: C1SliceId,
+    in_program: ProgramSpec,
+    in_plan: ExecutionPlan,
+    in_legacy_step_observations: tuple[C1NamedStepObservation, ...],
+    in_successor_step_observations: tuple[C1NamedStepObservation, ...],
+    in_runtime_evidence: C1RuntimeEvidenceRefs,
+    in_rollback_before_after: C1RollbackBeforeAfter,
+) -> C1SliceResult:
+    """Return the typed C1 failure instead of raising the compatibility exception."""
+
+    try:
+        return accept_c1_slice(
+            in_slice_id=in_slice_id,
+            in_program=in_program,
+            in_plan=in_plan,
+            in_legacy_step_observations=in_legacy_step_observations,
+            in_successor_step_observations=in_successor_step_observations,
+            in_runtime_evidence=in_runtime_evidence,
+            in_rollback_before_after=in_rollback_before_after,
+        )
+    except C1AcceptanceError as exc:
+        if exc.failure is None:
+            # This should only be reachable for an unexpected programmer defect.
+            return _acceptance_failure(
+                "C1_ACCEPTANCE_INPUT_INVALID",
+                str(exc),
+                site="try_accept_c1_slice",
+            )
+        return exc.failure

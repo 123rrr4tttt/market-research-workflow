@@ -1,0 +1,44 @@
+{
+  "schema": "mrw.stage6.post-acceptance-cleanup.v1",
+  "stage_id": "S6",
+  "status": "CLEANUP_RESULT_S6",
+  "authoritative": false,
+  "executed_at": "2026-09-13T12:10:00Z",
+  "basis": "Supervisor ACCEPTANCE_FINAL for Stage6; 19_direct-testing-batch-freeze-amendment.v1.md",
+  "scope": "Stage6 task-owned temporary check outputs and rebuildable py_compile caches only",
+  "moved_to_recoverable_trash": {
+    "trash_path": "/Users/wangyiliang/.Trash/mrw-stage6-postacceptance-cleanup-20260913",
+    "file_count": 25,
+    "byte_count": 371764,
+    "classes": [
+      "18 explicitly generated cpython-311 py_compile cache files for Stage6-focused source checks",
+      "7 task-local /tmp checksum, Docker-inspect and manifest check outputs"
+    ],
+    "recoverable": true,
+    "trash_cleared": false
+  },
+  "retained": [
+    "stage6-evidence/stage6-stage-result.json",
+    "stage6-evidence/INDEX.md",
+    "stage6-evidence/local-delivery-summary.md",
+    "stage6-evidence/SHA256SUMS",
+    "all Stage4/Stage5 evidence, corrected recovery artifacts, dumps, seeds and rollback inputs"
+  ],
+  "docker": {
+    "scoped_stage6_resources": [],
+    "removed_objects": [],
+    "global_prune_executed": false,
+    "note": "No Stage6 Docker resource was created; existing Stage4 image, rollback/test images, volumes, backups and ops-scrapyd were untouched.",
+    "after_snapshot": {
+      "images": "32 total / 1 active / 18.8GB",
+      "containers": "1 active / 20.48kB",
+      "local_volumes": "30 total / 2 active / 1.055GB",
+      "build_cache": "208 total / 0 active / 10.39GB"
+    }
+  },
+  "host_disk": {
+    "after": "52Gi available, 25% used",
+    "measurable_delta": "not asserted; Trash movement is recoverable and does not claim released space"
+  },
+  "conclusion": "Only task-owned rebuildable caches and temporary check outputs were moved to recoverable Trash. Canonical Stage6 delivery and all Stage4/Stage5 recovery inputs remain intact."
+}

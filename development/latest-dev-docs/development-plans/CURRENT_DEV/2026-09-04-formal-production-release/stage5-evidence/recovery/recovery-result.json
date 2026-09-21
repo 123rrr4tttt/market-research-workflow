@@ -1,0 +1,62 @@
+{
+  "authoritative": false,
+  "cleanup": {
+    "docker_prune_executed": false,
+    "down_exit_code": 0,
+    "project_residue": {
+      "containers": [],
+      "networks": [],
+      "volumes": []
+    },
+    "status": "PASS"
+  },
+  "compose_project": "mrw-stage5-recovery",
+  "credentials_persisted": false,
+  "ended_at": "2026-09-13T09:13:05Z",
+  "error": "05-seed-copy failed with exit 1",
+  "image_identity": {
+    "images": {
+      "backend": {
+        "id": "sha256:f247a1492400311e032710df01f84365c7e700f61c122b7243ae58eda982af19",
+        "platform": "linux/amd64",
+        "reference": "mrw-local/stage4-business001:stage4-c9-effect"
+      },
+      "db": {
+        "id": "sha256:956744bd14e9cbdf639c61c2a2a7c7c2c48a9c8cdd42f7de4ac034f4e96b90f8",
+        "platform": "linux/arm64",
+        "reference": "ankane/pgvector:latest"
+      },
+      "elasticsearch": {
+        "id": "sha256:01c1732062b4a846c5ca687b0094b89bad0bfed00c6d71626db32fb8f3131a78",
+        "platform": "linux/arm64",
+        "reference": "docker.elastic.co/elasticsearch/elasticsearch:8.15.3"
+      },
+      "migration": {
+        "id": "sha256:3b409669bb8248f738c1133f9458d73725951140c0eae938064d469045960509",
+        "platform": "linux/amd64",
+        "reference": "mrw-local/r13x-candidate-migration-runner:8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2"
+      },
+      "redis": {
+        "id": "sha256:71da9275c5f3fcb97d0fa0c8c5b36cc995327265420f17a04bfd544f458059f7",
+        "platform": "linux/arm64",
+        "reference": "redis:7.4"
+      }
+    },
+    "status": "PASS"
+  },
+  "input_retention": {
+    "final_image_disposition": "retain_final_stage5_input",
+    "post_acceptance_cleanup": "stage4-evidence/runtime/post-acceptance-cleanup.json"
+  },
+  "port": 18152,
+  "project_key": "stage5_recovery_20260913",
+  "project_resources_before": {
+    "containers": [],
+    "networks": [],
+    "volumes": []
+  },
+  "provider_calls": 0,
+  "schema_version": "mrw.stage5.backup-restore-migration-recovery.v1",
+  "started_at": "2026-09-13T09:12:02Z",
+  "status": "FAIL"
+}

@@ -1,0 +1,25 @@
+{
+  "authoritative": false,
+  "status": "FAIL_RECORDED_SUPERSEDED_BY_ENTRYPOINT_ONLY_DERIVED_IMAGE",
+  "compose_project": "mrw-stage4-local",
+  "input_backend_image": "mrw-local/r13x-candidate-backend:8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+  "observed": {
+    "database": "healthy",
+    "elasticsearch": "healthy_with_authenticated_probe",
+    "redis": "healthy_with_authenticated_probe",
+    "backend": "repeated restart during unauthenticated Elasticsearch readiness loop",
+    "celery_worker": "not started because backend was not healthy",
+    "frontend": "not started because backend was not healthy",
+    "elasticsearch_unauthenticated_http_status": 401,
+    "elasticsearch_authenticated_http_status": 200
+  },
+  "cause": "The exact retained r13x /docker-entrypoint.sh parsed the ES URL only into scheme, host, and port, discarding embedded credentials before its readiness curl. It also omitted the Redis URL password in its Python readiness ping.",
+  "first_execution_disposition": {
+    "runner_interrupted_after_deterministic_cause_confirmed": true,
+    "compose_command_exit_code": "not_available_due_to_operator_interrupt",
+    "task_project_cleanup_confirmed": true,
+    "resources_preserved_outside_task_project": true
+  },
+  "recovery_condition": "Use the same exact r13x backend base with only the corrected /docker-entrypoint.sh, record the derived identity, retain authenticated Elasticsearch and Redis, then rerun the fresh local stack.",
+  "not_counted_as_pass": true
+}

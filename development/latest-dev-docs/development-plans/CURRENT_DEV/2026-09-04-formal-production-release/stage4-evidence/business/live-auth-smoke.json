@@ -1,0 +1,227 @@
+{
+  "schema": "mrw.stage4.live-auth-smoke.v1",
+  "observed_at": "2026-09-13T05:40:27Z",
+  "rework_observed_at": "2026-09-13T05:52:15Z",
+  "status": "BLOCKED",
+  "authority_ceiling": "LOCAL_STAGE4_RUNTIME_ONLY_RELEASE_DEFERRED",
+  "candidate": {
+    "commit": "8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+    "tree": "ce7c67c831b51f9d64b4c2f1a470a724a50b19df",
+    "backend_image_ref": "mrw-local/stage4-r13x-backend-entrypoint:f5215bda79994b29",
+    "backend_image_id": "sha256:1a2ee37931818b38bad29b06040459921f82932257b523dbf1c57edf5ac3355f"
+  },
+  "runtime": {
+    "compose_project": "mrw-stage4-local",
+    "project_key": "stage4_s4_20260913",
+    "resolved_schema": "project_stage4_s4_20260913",
+    "project_registry_revision": 1,
+    "project_scope_digest": "8bfd8960454f1f5aa08a7742b9e5060a3d0bb642700383215473c89e0925ce24",
+    "backend_effect_request_base": "http://127.0.0.1:8000 inside backend container with X-Forwarded-Proto=https",
+    "host_backend_port": 18142,
+    "frontend_port": 15142
+  },
+  "authentication": {
+    "codex_auth_token": "PRESENT_NOT_RECORDED",
+    "production_metrics_token": "PRESENT_NOT_RECORDED",
+    "actor_source": "authenticated_codex_token",
+    "auth_mode": "codex_auth_token",
+    "actor_identity_sha256": "e245cc97cf85d9c5dea7f18680015319440c888a6887bdab6e2cac7df977504c",
+    "bearer_values_persisted": false,
+    "authority_grant_readback": {
+      "active_grant_count": 3,
+      "generic_api_capability_id": "",
+      "successor_claim_enabled": true,
+      "legacy_claim_enabled": false,
+      "mode": "on"
+    }
+  },
+  "journeys": [
+    {
+      "name": "authenticated_project_list",
+      "method": "GET",
+      "path": "/api/v1/projects",
+      "request_id": "stage4-business-projects-003",
+      "http_status": 200,
+      "result": "PASS",
+      "readback": {
+        "project_key": "stage4_s4_20260913",
+        "schema_name": "project_stage4_s4_20260913",
+        "enabled": true,
+        "archived": false,
+        "schema_ready": true,
+        "has_worker_fixture": true,
+        "nightly_matrix_eligible": true
+      }
+    },
+    {
+      "name": "authenticated_ingest_history_initial_read",
+      "method": "GET",
+      "path": "/api/v1/ingest/history?limit=20",
+      "request_id": "stage4-business-history-001",
+      "http_status": 200,
+      "result": "PASS",
+      "item_count": 0
+    },
+    {
+      "name": "authenticated_business_evidence_matrix",
+      "method": "GET",
+      "path": "/api/v1/business-lines/evidence-matrix",
+      "request_id": "stage4-business-business_matrix-001",
+      "http_status": 200,
+      "result": "PASS",
+      "observed_line_count": 7
+    },
+    {
+      "name": "metrics_token_deep_health",
+      "method": "GET",
+      "path": "/api/v1/health/deep",
+      "request_id": "stage4-business-deep-health-001",
+      "http_status": 200,
+      "result": "PASS",
+      "checks": {
+        "database": "ok",
+        "database_pool": "ok",
+        "elasticsearch": "ok",
+        "status": "ok"
+      }
+    },
+    {
+      "name": "successor_query_auth_binding",
+      "method": "POST",
+      "path": "/api/v1/successor-runtime/v2/queries",
+      "request_id": "stage4-successor-query-001",
+      "http_status": 403,
+      "result": "BLOCKED",
+      "reason_code": "actor_unauthenticated",
+      "stage": "actor",
+      "cause": "/api/v1/successor-runtime is absent from CODEX_AUTH_PROTECTED_PREFIXES, so the supplied Bearer token is not resolved into request actor state"
+    },
+    {
+      "name": "successor_query_auth_binding_rework",
+      "method": "POST",
+      "path": "/api/v1/successor-runtime/v2/queries",
+      "request_id": "stage4-successor-auth-rework-002",
+      "http_status": 200,
+      "result": "PASS_AUTH_FIXED_WITH_NAMED_SCOPE_REMAINDER",
+      "status": "ok",
+      "data": {
+        "cells": {
+          "C9.1": "INSTALLED",
+          "C9.2": "INSTALLED",
+          "C9.3": "PROJECTOR_WIRING_DECLARED"
+        },
+        "no_postgres_write": true
+      },
+      "response_scope": {
+        "project_key": "stage4_s4_20260913",
+        "resolved_schema": "mrw_p_06b60d18",
+        "project_registry_revision": 0,
+        "incarnation": "incarnation:local-only-app-mount:v1",
+        "scope_digest": "6223fc680e8ae528d09094ab6f07c14c8d146ef9590647f085a979817b873788"
+      }
+    },
+    {
+      "name": "project_archive",
+      "method": "POST",
+      "path": "/api/v1/projects/{project_key}/archive",
+      "request_id": "stage4-business-archive-denied-001",
+      "http_status": 403,
+      "result": "BLOCKED",
+      "reason_code": "public_effect_route_unadmitted",
+      "effect_class": "legacy_write",
+      "admission": "blocked_until_effect_binding",
+      "postcondition": "project remains enabled and unarchived"
+    },
+    {
+      "name": "async_ingest_submit_and_exact_idempotency_replay",
+      "method": "POST",
+      "path": "/api/v1/ingest/url/single",
+      "result": "NOT_RUN",
+      "reason": "frozen production route binding is conditional/blocked_until_effect_binding; after the archive route proved the same fail-closed boundary, no additional effect request was issued",
+      "model_call_count": 0,
+      "business_write_count": 0
+    }
+  ],
+  "named_blockers": [
+    {
+      "id": "S4-BUSINESS-001",
+      "owner": "production route effect binding",
+      "blocker": "Ingest async submit and project archive are not admitted production effects in the frozen candidate.",
+      "blocked_work": [
+        "async ingest write",
+        "exact idempotency replay",
+        "post-write history identity readback",
+        "task-owned tenant archive cleanup"
+      ],
+      "repair_boundary": "Material authority decision: install and validate exact effect/canonical-writer bindings or retain the fail-closed release blocker. No bypass was used."
+    },
+    {
+      "id": "S4-BUSINESS-002",
+      "owner": "Stage 4 runtime auth configuration",
+      "status": "RESOLVED",
+      "former_blocker": "Successor runtime API prefix was not protected by the configured Codex bearer middleware, leaving its production policy actor anonymous.",
+      "repair": "Added /api/v1/successor-runtime to the task Compose auth prefixes and recreated the isolated backend.",
+      "verification": "stage4-successor-auth-rework-002 returned HTTP 200 with authenticated policy admission."
+    },
+    {
+      "id": "S4-BUSINESS-003",
+      "owner": "successor runtime API assembly",
+      "status": "NAMED_REMAINDER",
+      "blocker": "The authenticated query response is served by the local-only assembly scope rather than the production-policy PostgreSQL scope resolved before route dispatch.",
+      "evidence": "Response schema mrw_p_06b60d18/revision 0/incarnation local-only-app-mount differs from rework PostgreSQL scope project_stage4_s4_20260913/revision 1.",
+      "repair_boundary": "Bind the mounted successor router to EngineProjectScopeResolver and the production query facade without changing write or canonical-writer authority."
+    }
+  ],
+  "incidents": [
+    {
+      "request_id": "stage4-business-projects-001",
+      "result": "403 tls_denied",
+      "cause": "Host port request arrived from Docker bridge, so X-Forwarded-Proto was not trusted by Uvicorn proxy handling.",
+      "correction": "All subsequent policy/effect API calls used loopback inside the backend container."
+    }
+  ],
+  "observability": {
+    "rollback_latched_after_last_denied_effect_request": true,
+    "restart_required_before_additional_api traffic": true,
+    "rework_runtime_rollback_latched": false,
+    "rework_last_request_http_status": 200,
+    "secrets_logged_or_persisted": false
+  },
+  "auth_prefix_rework": {
+    "file": "stage4-evidence/runtime/compose.override.yml",
+    "sha256": "cddd0622e4f9169172642917bacea53f0f414913f4ce183f701dbfabc756c721",
+    "added_prefix": "/api/v1/successor-runtime",
+    "candidate_image_changed": false,
+    "rework_actor_identity_sha256": "b6f746cd990cccadce47dd86550162c1737f14f622ba6cf184156afd518be505",
+    "rework_postgres_scope_digest": "ec875a5d5937e554a00d921b5146249cb7250d407a68f9d4bb6622bbbf685604"
+  },
+  "rework_resource_cleanup": {
+    "status": "PASS",
+    "compose_down_exit_code": 0,
+    "remaining_project_containers": 0,
+    "remaining_project_volumes": 0,
+    "snapshot_source_retained": "stage4-evidence/runtime/synthetic-production-like.snapshot.dump"
+  },
+  "alternative_admitted_path_scan": {
+    "method": "read-only scan of production_route_bindings.json",
+    "admitted_by_effect_class": {
+      "read": 125,
+      "pure_compute": 3,
+      "external_auth": 3
+    },
+    "blocked_effectful_bindings": {
+      "conditional": 77,
+      "legacy_write": 80,
+      "provider_call": 2
+    },
+    "admitted_write_or_idempotent_command_count": 0,
+    "result": "NO_AUTHORIZED_ALTERNATIVE",
+    "finding": "Every admitted non-GET route is classified as read or pure_compute. No admitted canonical_write, legacy_write, provider_call, or conditional effect can cover write plus readback plus idempotency.",
+    "minimum_additional_authority_decision": "Select one concrete command path and install an admitted effect contract with exact capability_id, canonical-writer port and owner where applicable, durable idempotency binding, actor grant, approval requirements, and authoritative readback. This is a material authority expansion and was not performed."
+  },
+  "route_binding_evidence": {
+    "path": "main/backend/app/composition/production_route_bindings.json",
+    "sha256": "99252aeab8bf0d6b444c9b198e964f9d6c1be799a8296e532f009341383b8d0e"
+  },
+  "conclusion": "Authenticated read and observability journeys pass for the task tenant. S4-BUSINESS-002 is repaired and the successor query now returns HTTP 200, with a separately named local-only-scope remainder. No existing admitted route can legally cover the required write/readback/idempotency journey, so S4-BUSINESS-001 remains BLOCKED and Stage 4 is not a limited PASS."
+}

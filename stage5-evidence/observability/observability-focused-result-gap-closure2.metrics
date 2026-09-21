@@ -1,0 +1,160 @@
+# HELP python_gc_objects_collected_total Objects collected during gc
+# TYPE python_gc_objects_collected_total counter
+python_gc_objects_collected_total{generation="0"} 195390.0
+python_gc_objects_collected_total{generation="1"} 30235.0
+python_gc_objects_collected_total{generation="2"} 3358.0
+# HELP python_gc_objects_uncollectable_total Uncollectable objects found during GC
+# TYPE python_gc_objects_uncollectable_total counter
+python_gc_objects_uncollectable_total{generation="0"} 0.0
+python_gc_objects_uncollectable_total{generation="1"} 0.0
+python_gc_objects_uncollectable_total{generation="2"} 0.0
+# HELP python_gc_collections_total Number of times this generation was collected
+# TYPE python_gc_collections_total counter
+python_gc_collections_total{generation="0"} 3279.0
+python_gc_collections_total{generation="1"} 298.0
+python_gc_collections_total{generation="2"} 12.0
+# HELP python_info Python platform information
+# TYPE python_info gauge
+python_info{implementation="CPython",major="3",minor="11",patchlevel="16",version="3.11.16"} 1.0
+# HELP process_virtual_memory_bytes Virtual memory size in bytes.
+# TYPE process_virtual_memory_bytes gauge
+process_virtual_memory_bytes 1.174683648e+09
+# HELP process_resident_memory_bytes Resident memory size in bytes.
+# TYPE process_resident_memory_bytes gauge
+process_resident_memory_bytes 4.58600448e+08
+# HELP process_start_time_seconds Start time of the process since unix epoch in seconds.
+# TYPE process_start_time_seconds gauge
+process_start_time_seconds 1.7892929895e+09
+# HELP process_cpu_seconds_total Total user and system CPU time spent in seconds.
+# TYPE process_cpu_seconds_total counter
+process_cpu_seconds_total 45.24
+# HELP process_open_fds Number of open file descriptors.
+# TYPE process_open_fds gauge
+process_open_fds 24.0
+# HELP process_max_fds Maximum number of open file descriptors.
+# TYPE process_max_fds gauge
+process_max_fds 1.048576e+06
+# HELP market_api_production_observability_runtime_health Current normalized runtime-health observation by metric family
+# TYPE market_api_production_observability_runtime_health gauge
+# HELP market_api_requests_total API request count
+# TYPE market_api_requests_total counter
+market_api_requests_total{endpoint="/api/v1/health",method="GET",status="200"} 41.0
+market_api_requests_total{endpoint="/metrics",method="GET",status="200"} 195.0
+# HELP market_api_requests_created API request count
+# TYPE market_api_requests_created gauge
+market_api_requests_created{endpoint="/api/v1/health",method="GET",status="200"} 1.7892930265927365e+09
+market_api_requests_created{endpoint="/metrics",method="GET",status="200"} 1.78929303387865e+09
+# HELP market_api_request_latency_seconds API request latency
+# TYPE market_api_request_latency_seconds histogram
+market_api_request_latency_seconds_bucket{endpoint="/api/v1/health",le="0.005"} 33.0
+market_api_request_latency_seconds_bucket{endpoint="/api/v1/health",le="0.01"} 39.0
+market_api_request_latency_seconds_bucket{endpoint="/api/v1/health",le="0.025"} 39.0
+market_api_request_latency_seconds_bucket{endpoint="/api/v1/health",le="0.05"} 41.0
+market_api_request_latency_seconds_bucket{endpoint="/api/v1/health",le="0.075"} 41.0
+market_api_request_latency_seconds_bucket{endpoint="/api/v1/health",le="0.1"} 41.0
+market_api_request_latency_seconds_bucket{endpoint="/api/v1/health",le="0.25"} 41.0
+market_api_request_latency_seconds_bucket{endpoint="/api/v1/health",le="0.5"} 41.0
+market_api_request_latency_seconds_bucket{endpoint="/api/v1/health",le="0.75"} 41.0
+market_api_request_latency_seconds_bucket{endpoint="/api/v1/health",le="1.0"} 41.0
+market_api_request_latency_seconds_bucket{endpoint="/api/v1/health",le="2.5"} 41.0
+market_api_request_latency_seconds_bucket{endpoint="/api/v1/health",le="5.0"} 41.0
+market_api_request_latency_seconds_bucket{endpoint="/api/v1/health",le="7.5"} 41.0
+market_api_request_latency_seconds_bucket{endpoint="/api/v1/health",le="10.0"} 41.0
+market_api_request_latency_seconds_bucket{endpoint="/api/v1/health",le="+Inf"} 41.0
+market_api_request_latency_seconds_count{endpoint="/api/v1/health"} 41.0
+market_api_request_latency_seconds_sum{endpoint="/api/v1/health"} 0.18615483000394306
+market_api_request_latency_seconds_bucket{endpoint="/metrics",le="0.005"} 24.0
+market_api_request_latency_seconds_bucket{endpoint="/metrics",le="0.01"} 183.0
+market_api_request_latency_seconds_bucket{endpoint="/metrics",le="0.025"} 193.0
+market_api_request_latency_seconds_bucket{endpoint="/metrics",le="0.05"} 194.0
+market_api_request_latency_seconds_bucket{endpoint="/metrics",le="0.075"} 195.0
+market_api_request_latency_seconds_bucket{endpoint="/metrics",le="0.1"} 195.0
+market_api_request_latency_seconds_bucket{endpoint="/metrics",le="0.25"} 195.0
+market_api_request_latency_seconds_bucket{endpoint="/metrics",le="0.5"} 195.0
+market_api_request_latency_seconds_bucket{endpoint="/metrics",le="0.75"} 195.0
+market_api_request_latency_seconds_bucket{endpoint="/metrics",le="1.0"} 195.0
+market_api_request_latency_seconds_bucket{endpoint="/metrics",le="2.5"} 195.0
+market_api_request_latency_seconds_bucket{endpoint="/metrics",le="5.0"} 195.0
+market_api_request_latency_seconds_bucket{endpoint="/metrics",le="7.5"} 195.0
+market_api_request_latency_seconds_bucket{endpoint="/metrics",le="10.0"} 195.0
+market_api_request_latency_seconds_bucket{endpoint="/metrics",le="+Inf"} 195.0
+market_api_request_latency_seconds_count{endpoint="/metrics"} 195.0
+market_api_request_latency_seconds_sum{endpoint="/metrics"} 1.3793708359880839
+# HELP market_api_request_latency_seconds_created API request latency
+# TYPE market_api_request_latency_seconds_created gauge
+market_api_request_latency_seconds_created{endpoint="/api/v1/health"} 1.7892930265933478e+09
+market_api_request_latency_seconds_created{endpoint="/metrics"} 1.7892930338786829e+09
+# HELP market_api_production_requests_total Production API request count by stable route binding
+# TYPE market_api_production_requests_total counter
+market_api_production_requests_total{domain="exempt",method="GET",release_version="1.0.0",route="/api/v1/health",status="200"} 41.0
+market_api_production_requests_total{domain="exempt",method="GET",release_version="1.0.0",route="/metrics",status="200"} 195.0
+# HELP market_api_production_requests_created Production API request count by stable route binding
+# TYPE market_api_production_requests_created gauge
+market_api_production_requests_created{domain="exempt",method="GET",release_version="1.0.0",route="/api/v1/health",status="200"} 1.7892930265941167e+09
+market_api_production_requests_created{domain="exempt",method="GET",release_version="1.0.0",route="/metrics",status="200"} 1.7892930338787446e+09
+# HELP market_api_production_request_latency_seconds Production API request latency by stable route binding
+# TYPE market_api_production_request_latency_seconds histogram
+market_api_production_request_latency_seconds_bucket{domain="exempt",le="0.005",release_version="1.0.0",route="/api/v1/health"} 33.0
+market_api_production_request_latency_seconds_bucket{domain="exempt",le="0.01",release_version="1.0.0",route="/api/v1/health"} 39.0
+market_api_production_request_latency_seconds_bucket{domain="exempt",le="0.025",release_version="1.0.0",route="/api/v1/health"} 39.0
+market_api_production_request_latency_seconds_bucket{domain="exempt",le="0.05",release_version="1.0.0",route="/api/v1/health"} 41.0
+market_api_production_request_latency_seconds_bucket{domain="exempt",le="0.075",release_version="1.0.0",route="/api/v1/health"} 41.0
+market_api_production_request_latency_seconds_bucket{domain="exempt",le="0.1",release_version="1.0.0",route="/api/v1/health"} 41.0
+market_api_production_request_latency_seconds_bucket{domain="exempt",le="0.25",release_version="1.0.0",route="/api/v1/health"} 41.0
+market_api_production_request_latency_seconds_bucket{domain="exempt",le="0.5",release_version="1.0.0",route="/api/v1/health"} 41.0
+market_api_production_request_latency_seconds_bucket{domain="exempt",le="0.75",release_version="1.0.0",route="/api/v1/health"} 41.0
+market_api_production_request_latency_seconds_bucket{domain="exempt",le="1.0",release_version="1.0.0",route="/api/v1/health"} 41.0
+market_api_production_request_latency_seconds_bucket{domain="exempt",le="2.5",release_version="1.0.0",route="/api/v1/health"} 41.0
+market_api_production_request_latency_seconds_bucket{domain="exempt",le="5.0",release_version="1.0.0",route="/api/v1/health"} 41.0
+market_api_production_request_latency_seconds_bucket{domain="exempt",le="7.5",release_version="1.0.0",route="/api/v1/health"} 41.0
+market_api_production_request_latency_seconds_bucket{domain="exempt",le="10.0",release_version="1.0.0",route="/api/v1/health"} 41.0
+market_api_production_request_latency_seconds_bucket{domain="exempt",le="+Inf",release_version="1.0.0",route="/api/v1/health"} 41.0
+market_api_production_request_latency_seconds_count{domain="exempt",release_version="1.0.0",route="/api/v1/health"} 41.0
+market_api_production_request_latency_seconds_sum{domain="exempt",release_version="1.0.0",route="/api/v1/health"} 0.18615483000394306
+market_api_production_request_latency_seconds_bucket{domain="exempt",le="0.005",release_version="1.0.0",route="/metrics"} 24.0
+market_api_production_request_latency_seconds_bucket{domain="exempt",le="0.01",release_version="1.0.0",route="/metrics"} 183.0
+market_api_production_request_latency_seconds_bucket{domain="exempt",le="0.025",release_version="1.0.0",route="/metrics"} 193.0
+market_api_production_request_latency_seconds_bucket{domain="exempt",le="0.05",release_version="1.0.0",route="/metrics"} 194.0
+market_api_production_request_latency_seconds_bucket{domain="exempt",le="0.075",release_version="1.0.0",route="/metrics"} 195.0
+market_api_production_request_latency_seconds_bucket{domain="exempt",le="0.1",release_version="1.0.0",route="/metrics"} 195.0
+market_api_production_request_latency_seconds_bucket{domain="exempt",le="0.25",release_version="1.0.0",route="/metrics"} 195.0
+market_api_production_request_latency_seconds_bucket{domain="exempt",le="0.5",release_version="1.0.0",route="/metrics"} 195.0
+market_api_production_request_latency_seconds_bucket{domain="exempt",le="0.75",release_version="1.0.0",route="/metrics"} 195.0
+market_api_production_request_latency_seconds_bucket{domain="exempt",le="1.0",release_version="1.0.0",route="/metrics"} 195.0
+market_api_production_request_latency_seconds_bucket{domain="exempt",le="2.5",release_version="1.0.0",route="/metrics"} 195.0
+market_api_production_request_latency_seconds_bucket{domain="exempt",le="5.0",release_version="1.0.0",route="/metrics"} 195.0
+market_api_production_request_latency_seconds_bucket{domain="exempt",le="7.5",release_version="1.0.0",route="/metrics"} 195.0
+market_api_production_request_latency_seconds_bucket{domain="exempt",le="10.0",release_version="1.0.0",route="/metrics"} 195.0
+market_api_production_request_latency_seconds_bucket{domain="exempt",le="+Inf",release_version="1.0.0",route="/metrics"} 195.0
+market_api_production_request_latency_seconds_count{domain="exempt",release_version="1.0.0",route="/metrics"} 195.0
+market_api_production_request_latency_seconds_sum{domain="exempt",release_version="1.0.0",route="/metrics"} 1.3793708359880839
+# HELP market_api_production_request_latency_seconds_created Production API request latency by stable route binding
+# TYPE market_api_production_request_latency_seconds_created gauge
+market_api_production_request_latency_seconds_created{domain="exempt",release_version="1.0.0",route="/api/v1/health"} 1.7892930265941603e+09
+market_api_production_request_latency_seconds_created{domain="exempt",release_version="1.0.0",route="/metrics"} 1.7892930338787577e+09
+# HELP market_api_production_observability_alert_state Current non-authoritative R7 alert state, one-hot by rule and state
+# TYPE market_api_production_observability_alert_state gauge
+market_api_production_observability_alert_state{rule_id="domain-rejection",state="unknown"} 0.0
+market_api_production_observability_alert_state{rule_id="domain-rejection",state="triggered"} 0.0
+market_api_production_observability_alert_state{rule_id="domain-rejection",state="recovered"} 1.0
+market_api_production_observability_alert_state{rule_id="route-error",state="unknown"} 0.0
+market_api_production_observability_alert_state{rule_id="route-error",state="triggered"} 0.0
+market_api_production_observability_alert_state{rule_id="route-error",state="recovered"} 1.0
+market_api_production_observability_alert_state{rule_id="release-error",state="unknown"} 0.0
+market_api_production_observability_alert_state{rule_id="release-error",state="triggered"} 0.0
+market_api_production_observability_alert_state{rule_id="release-error",state="recovered"} 1.0
+market_api_production_observability_alert_state{rule_id="stage5-local-queue",state="unknown"} 1.0
+market_api_production_observability_alert_state{rule_id="stage5-local-queue",state="triggered"} 0.0
+market_api_production_observability_alert_state{rule_id="stage5-local-queue",state="recovered"} 0.0
+market_api_production_observability_alert_state{rule_id="stage5-local-db-connection",state="unknown"} 1.0
+market_api_production_observability_alert_state{rule_id="stage5-local-db-connection",state="triggered"} 0.0
+market_api_production_observability_alert_state{rule_id="stage5-local-db-connection",state="recovered"} 0.0
+market_api_production_observability_alert_state{rule_id="stage5-local-provider-failure",state="unknown"} 1.0
+market_api_production_observability_alert_state{rule_id="stage5-local-provider-failure",state="triggered"} 0.0
+market_api_production_observability_alert_state{rule_id="stage5-local-provider-failure",state="recovered"} 0.0
+market_api_production_observability_alert_state{rule_id="stage5-local-authority-mismatch",state="unknown"} 1.0
+market_api_production_observability_alert_state{rule_id="stage5-local-authority-mismatch",state="triggered"} 0.0
+market_api_production_observability_alert_state{rule_id="stage5-local-authority-mismatch",state="recovered"} 0.0
+market_api_production_observability_alert_state{rule_id="stage5-local-projection-drift",state="unknown"} 1.0
+market_api_production_observability_alert_state{rule_id="stage5-local-projection-drift",state="triggered"} 0.0
+market_api_production_observability_alert_state{rule_id="stage5-local-projection-drift",state="recovered"} 0.0

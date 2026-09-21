@@ -1,0 +1,12 @@
+{
+  "canonical_image_manifest_digest": "sha256:403eb796b0890b0e77aec8755c2638cc4e239341b7f71f30ff4dfa6ba475ffe2",
+  "image_config_equal": true,
+  "image_layers_equal_in_order": true,
+  "image_manifest_equal": true,
+  "platform": "linux/amd64",
+  "rebuild_image_manifest_digest": "sha256:403eb796b0890b0e77aec8755c2638cc4e239341b7f71f30ff4dfa6ba475ffe2",
+  "role": "backend",
+  "rootfs_comparison": "NOT_NEEDED_EXACT_IMAGE_MANIFEST_MATCH",
+  "runtime_scope": "No separate runtime-equivalence smoke was needed: equal OCI image-manifest digest binds the identical config and ordered layer descriptors. This is build reproducibility evidence, not a full dependency-backed application runtime test.",
+  "status": "PASS_EXACT_IMAGE"
+}

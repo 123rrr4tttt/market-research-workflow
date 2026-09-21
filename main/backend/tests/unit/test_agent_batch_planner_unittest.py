@@ -145,6 +145,10 @@ class AgentBatchPlannerUnitTest(unittest.TestCase):
         self.assertIn("source_mode", by_channel["source_library"]["optional_keys"])
         self.assertIn("urls", by_channel["source_library"]["optional_keys"])
         self.assertIn("query_terms", by_channel["source_library"]["optional_keys"])
+        source_example = next(item for item in manifest["examples"] if item["channel"] == "source_library")
+        self.assertEqual(source_example["query_terms"], ["ai terminal product launches"])
+        self.assertEqual(source_example["max_items"], 20)
+        self.assertNotIn("source_mode", source_example)
 
     def test_task_manifest_uses_registered_skill_overrides(self):
         with patch(
@@ -296,7 +300,13 @@ class AgentBatchPlannerUnitTest(unittest.TestCase):
     def test_build_source_library_override_params_promotes_top_level_fields(self):
         override_params = build_source_library_override_params(
             {
-                "override_params": {},
+                "override_params": {
+                    "query_terms": ["stale nested term"],
+                    "max_items": 1,
+                    "limit": 1,
+                    "provider": "stale-provider",
+                    "source_mode": "protocol_search",
+                },
                 "query_terms": ["ai terminal"],
                 "urls": ["https://example.com/a"],
                 "max_items": 3,
@@ -316,7 +326,7 @@ class AgentBatchPlannerUnitTest(unittest.TestCase):
         self.assertEqual(override_params["language"], "zh")
         self.assertEqual(override_params["scope"], "project")
         self.assertEqual(override_params["platforms"], ["web", "rss"])
-        self.assertEqual(override_params["source_mode"], "site_search")
+        self.assertNotIn("source_mode", override_params)
         self.assertEqual(override_params["workflow_run_id"], "run-1")
 
     def test_dispatch_bindings_and_helpers_come_from_shared_contract(self):

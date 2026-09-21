@@ -13,7 +13,7 @@ composition root; they are not family ``RuntimeHandler`` instances.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Annotated, Any
 
 from app.successor_runtime.assembly.base import (
     CellBinding,
@@ -162,7 +162,11 @@ def _c1_slice_observations(
 
 def build_deterministic_c1_slice_closure(
     project_scope_digest: str,
-) -> C1SliceClosure:
+) -> Annotated[
+    C1SliceClosure,
+    "kit:prepared-command effect_boundary=successor_runtime.c1_assembly "
+    "witness=test:test_c1_assembly_installs_kernel_wiring_for_c12_and_c13",
+]:
     """Build the deterministic C1 Slice A closure over the real C7.1 program."""
 
     require_assembly_digest(project_scope_digest, "C1 slice closure scope digest")
@@ -375,7 +379,11 @@ C1_3_KERNEL_WIRING = KernelWiring(
 def build_c1_assembly(
     *,
     project_scope_digest: str | None = None,
-) -> FamilyAssembly:
+) -> Annotated[
+    FamilyAssembly,
+    "kit:prepared-command effect_boundary=successor_runtime.c1_assembly "
+    "witness=test:test_c1_assembly_installs_kernel_wiring_for_c12_and_c13",
+]:
     """Return the C1 assembly with the C1.1 route and explicit kernel wiring."""
 
     scope = project_scope_digest or local_assembly_scope_digest()

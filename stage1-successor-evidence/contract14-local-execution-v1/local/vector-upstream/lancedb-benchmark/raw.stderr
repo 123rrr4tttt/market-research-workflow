@@ -1,0 +1,5 @@
+/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/pydantic/_internal/_fields.py:132: UserWarning: Field "model_name" in ColPaliEmbeddings has conflict with protected namespace "model_".
+
+You may be able to resolve this warning by setting `model_config['protected_namespaces'] = ()`.
+  warnings.warn(
+[2026-09-06T07:15:21Z WARN  lance::dataset::write::insert] No existing dataset at /var/folders/ww/__28yy2d01n97fff8jhw9yxm0000gn/T/mrw-local-index-lancedb-benchmark-wm393azl/chunks.lance, it will be created

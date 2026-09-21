@@ -1,0 +1,54 @@
+{
+  "authoritative": false,
+  "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+  "member_count": 9,
+  "members": [
+    {
+      "bytes": 29023,
+      "path": "stage1-successor-evidence/source-static-remediation-v1/build_source_static_remediation_record.py",
+      "sha256": "01d492626f7d262d62669631421b3c32b88ac6adfa70bbeee6a9c40d2cb1e37d"
+    },
+    {
+      "bytes": 17481,
+      "path": "stage1-successor-evidence/source-static-remediation-v1/check_source_static_remediation_record.py",
+      "sha256": "6929c31e536af8e30ce230ce49ab5e6d300dfd2ffc39df1656b75ed9de3a3d0b"
+    },
+    {
+      "bytes": 1758,
+      "path": "stage1-successor-evidence/source-static-remediation-v1/initial-invalid/artifact-manifest.initial-invalid.v1.json",
+      "sha256": "022c166b509020a754eee6ec437419d31d8b77138f2eb0e670e6b629d02bbc06"
+    },
+    {
+      "bytes": 23303,
+      "path": "stage1-successor-evidence/source-static-remediation-v1/initial-invalid/stage1-source-static-remediation-record.initial-invalid.v1.json",
+      "sha256": "885c132df7b616949623b8f08e5ec6c7a92988a70c6096b88228ac563877858c"
+    },
+    {
+      "bytes": 652,
+      "path": "stage1-successor-evidence/source-static-remediation-v1/initial-invalid/validation.initial-invalid.v1.json",
+      "sha256": "1f925d42532744e4047b19a97d716938e5e2cf8446b08ec55cf3758223517933"
+    },
+    {
+      "bytes": 4810,
+      "path": "stage1-successor-evidence/source-static-remediation-v1/phase-b/static-production-contract.v1.json",
+      "sha256": "9f7bc679db5e6e481090e43c1c4ee9d59cfe29b9efa3d8e9fa470689cda61e03"
+    },
+    {
+      "bytes": 6724,
+      "path": "stage1-successor-evidence/source-static-remediation-v1/raw/backend-unit-final.log",
+      "sha256": "2ab99e647b9be21987e914d153261273c3ab97a485a03e9eda4780600ac3adcc"
+    },
+    {
+      "bytes": 322386,
+      "path": "stage1-successor-evidence/source-static-remediation-v1/raw/backend-unit-final.xml",
+      "sha256": "0d215b2a746db7e65af30625039b6e0a4ed78196a560be76ebdc61eda349c35f"
+    },
+    {
+      "bytes": 23263,
+      "path": "stage1-successor-evidence/source-static-remediation-v1/stage1-source-static-remediation-record.v1.json",
+      "sha256": "82833de8573fd7e1120816999825e4d05677ec06a8d65ba0f88924e33c7ea258"
+    }
+  ],
+  "schema_version": "mrw.stage1.source_static_remediation_manifest.v1",
+  "status": "COMPLETE_NOT_AUTHORITY"
+}

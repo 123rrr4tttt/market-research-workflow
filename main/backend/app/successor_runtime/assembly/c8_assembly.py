@@ -15,28 +15,27 @@ from __future__ import annotations
 
 import dataclasses
 from collections.abc import Mapping
-from typing import Any
+from typing import Annotated, Any
 
 from sqlalchemy.engine import Engine
+from functorial_kit.core.failure import Failure
 
 from app.successor_runtime.assembly.base import (
-    PROJECTOR_REGISTRY_INCARNATION,
     C8AssemblyOptions,
     CellBinding,
     FamilyAssembly,
-    ProjectorRegistry,
     ProjectorSourceKey,
     ProjectorWiring,
     RollbackBindingDeclaration,
     require_assembly_digest,
     sha256_hex,
     successor_binding,
-    validate_projector_contract,
 )
 from app.successor_runtime.capabilities import c8_common as c8
-from app.successor_runtime.capabilities.c8_graph import (
-    GRAPH_CONTEXT_PROJECTION,
-    GRAPH_PROJECTION_SCHEMA,
+from app.successor_runtime.capabilities.c8_graph_projection_contribution import (
+    C8_4_DECLARED_LOSS,
+    C8_4_ROLLBACK_REF,
+    C8GraphProjectionAssemblyContext,
 )
 from app.successor_runtime.capabilities.c8_program import (
     C8_1_KIND,
@@ -55,7 +54,9 @@ from app.successor_runtime.capabilities.c8_program import (
     build_c8_delivery_bridge_bundle,
     build_c8_delivery_bridge_program,
     compile_c8_delivery_bridge_program,
+    compose_default_c8_graph_projection_contributions,
     exact_contract_ref,
+    validate_c8_graph_projection_contributions,
 )
 from app.successor_runtime.capabilities.c8_typed_knowledge import demand_read
 from app.successor_runtime.capabilities.c8_writing import (
@@ -90,12 +91,6 @@ from app.successor_runtime.substrate.blob.store import ProjectBlobStore
 from app.successor_runtime.substrate.postgres.c8_export_token_state_handler import (
     C8_3ExportTokenStateRuntimeHandler,
 )
-from app.successor_runtime.substrate.postgres.c8_graph_projector import (
-    C8_GRAPH_PROJECTOR_ID,
-    C8_GRAPH_PROJECTOR_VERSION,
-    C8_GRAPH_SOURCE_KIND,
-    C8_GRAPH_VALUE_SCHEMA,
-)
 from app.successor_runtime.substrate.postgres.c8_production import (
     build_postgres_c8_delivery_assembly,
 )
@@ -108,7 +103,6 @@ C8_FAMILY_ID = "C8"
 C8_1_ROLLBACK_REF = "main/backend/app/successor_migration/legacy_c8_typed_knowledge.py"
 C8_2_ROLLBACK_REF = "main/backend/app/successor_migration/legacy_c8_writing.py"
 C8_3_ROLLBACK_REF = "main/backend/app/successor_migration/legacy_c8_report.py"
-C8_4_ROLLBACK_REF = "main/backend/app/successor_migration/legacy_c8_graph.py"
 C8_ROUTE_ASSEMBLY_ROLLBACK_REF = (
     "main/backend/app/successor_runtime/assembly/c8_assembly.py"
 )
@@ -151,14 +145,6 @@ C8_3_DELIVERY_RESOURCE_POLICY_DIGEST = sha256_hex(
     "mrw.successor.c8-3.resource-policy.v1"
 )
 C8_3_DELIVERY_NODE_PROFILE_SELECTOR = sha256_hex("mrw.successor.c8-3.node-profile.v1")
-
-C8_4_DECLARED_LOSS = (
-    "c8.graph.node-edge-filtering.v1",
-    "c8.graph.text-truncation.v1",
-    "c8.graph.redaction.v1",
-    "c8.graph.casefold-and-duplicate-collapse.v1",
-    "c8.graph.omitted-fields.v1",
-)
 
 
 def _validate_exact_binding(
@@ -571,7 +557,11 @@ def _c8_3_delivery_value_ref(
 
 def build_deterministic_c8_delivery_closure(
     project_scope_digest: str,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:prepared-command effect_boundary=successor_runtime.c8_assembly "
+    "witness=test:test_w08a_remaining_assembly_bindings_are_prepared_commands",
+]:
     """Build the deterministic LOCAL_OFFLINE C8.3 delivery-bridge closure.
 
     Returns exactly the ``bundle``, ``activation_catalog`` and
@@ -664,7 +654,11 @@ def build_deterministic_c8_delivery_closure(
     }
 
 
-def build_deterministic_c8_payloads(project_scope_digest: str) -> dict[str, Any]:
+def build_deterministic_c8_payloads(project_scope_digest: str) -> Annotated[
+    dict[str, Any],
+    "kit:prepared-command effect_boundary=successor_runtime.c8_assembly "
+    "witness=test:test_w08a_remaining_assembly_bindings_are_prepared_commands",
+]:
     """Build deterministic LOCAL_OFFLINE C8.1/C8.2 payloads.
 
     The payloads carry enough typed values for the pure route handlers to run
@@ -740,7 +734,11 @@ def build_c8_assembly(
     project_scope_digest: str,
     options: C8AssemblyOptions | None = None,
     projector_source_keys: Mapping[str, ProjectorSourceKey] | None = None,
-) -> FamilyAssembly:
+) -> Annotated[
+    FamilyAssembly,
+    "kit:prepared-command effect_boundary=successor_runtime.c8_assembly "
+    "witness=test:test_w08a_remaining_assembly_bindings_are_prepared_commands",
+]:
     """Build the C8 family assembly with optional route/bridge installation.
 
     C8.4 stays ``PROJECTOR_WIRING_DECLARED`` until the run owner supplies a
@@ -835,74 +833,52 @@ def build_c8_assembly(
         c8_2_cell = _installed_c8_2_cell(c8_2_handler)
         handlers.append(c8_2_handler)
 
-    c8_4_wiring = ProjectorWiring(
-        cell_id="C8.4",
-        projector_id=C8_GRAPH_PROJECTOR_ID,
-        projector_version=C8_GRAPH_PROJECTOR_VERSION,
-        source_kind=C8_GRAPH_SOURCE_KIND,
-        projection_id=GRAPH_CONTEXT_PROJECTION,
-        projection_schema_ref=C8_GRAPH_VALUE_SCHEMA,
-        declared_loss=C8_4_DECLARED_LOSS,
-        note=(
-            "capability schema: "
-            f"{GRAPH_PROJECTION_SCHEMA}; exact per-run source key "
-            "is supplied by the runner"
-        ),
+    graph_composition = c8_options.graph_projection_composition
+    native_contributions = (
+        compose_default_c8_graph_projection_contributions()
+        if graph_composition is None
+        else validate_c8_graph_projection_contributions(graph_composition)
     )
-    c8_4_source_key = (projector_source_keys or {}).get("C8.4")
-    if c8_4_source_key is None:
-        c8_4_status = "PROJECTOR_WIRING_DECLARED"
-        c8_4_binding_digest = None
-        c8_4_required_wiring: tuple[str, ...] = (
-            "C8.4 RuntimeHandler/注册",
-            "declared-loss projection 记账",
-        )
-        c8_4_note = (
-            "缺 per-run source_ref/source_incarnation 与 ProjectorRegistry "
-            "注册；no PostgreSQL write adopted（authority 关闭）"
-        )
-        c8_4_registry = None
-    else:
-        c8_4_contract = c8_4_wiring.to_contract(c8_4_source_key)
-        c8_4_validation = validate_projector_contract(c8_4_contract)
-        if not c8_4_validation.valid:
+    graph_bindings = []
+    for native in native_contributions:
+        binding = native.assemble(C8GraphProjectionAssemblyContext())
+        if isinstance(binding, Failure):
             raise ValueError(
-                "C8.4 projector contract invalid: "
-                + "; ".join(item.message for item in c8_4_validation.violations)
+                f"native graph contribution {native.projection.id} invalid: "
+                f"{binding.message}"
             )
-        c8_4_binding_digest = c8_4_wiring.registration_digest(c8_4_contract)
-        c8_4_registry = ProjectorRegistry(
-            revision=0,
-            incarnation=PROJECTOR_REGISTRY_INCARNATION,
-            projectors=(c8_4_contract,),
-        )
-        c8_4_status = "INSTALLED"
-        c8_4_required_wiring = ()
-        c8_4_note = (
-            "REGISTRY_REGISTRATION_ONLY_NO_PG_WRITE_AUTHORITY_CLOSED: "
-            "per-run source_ref/source_incarnation bound；no PostgreSQL "
-            "write adopted"
-        )
+        graph_bindings.append(binding)
 
-    cells = (
-        c8_1_cell,
-        c8_2_cell,
-        c8_3_cell,
-        CellBinding(
-            cell_id="C8.4",
-            family_id=C8_FAMILY_ID,
-            status=c8_4_status,
-            operation_contract_refs=("c8.graph.project.v1",),
-            handler_binding_digest=c8_4_binding_digest,
-            recovery_binding_ref=(
-                "c8.graph.recovery.v1#offset-cas-keeps-old-active-generation;"
-                "rebuild-from-source-closure"
-            ),
-            required_wiring=c8_4_required_wiring,
-            note=c8_4_note,
-        ),
-    )
-    c8_4_wiring_tuple = (c8_4_wiring,)
+    graph_cells: list[CellBinding] = []
+    graph_wirings: list[ProjectorWiring] = []
+    graph_rollback_bindings: list[RollbackBindingDeclaration] = []
+    projector_registry = None
+    for binding in graph_bindings:
+        source_key = (projector_source_keys or {}).get(binding.cell_id)
+        if source_key is None:
+            graph_cells.append(binding.unbound_cell())
+        else:
+            installed = binding.install(source_key)
+            if installed is None:
+                raise ValueError(
+                    f"{binding.cell_id} has a source key but no projector wiring"
+                )
+            installed_cell, installed_registry = installed
+            graph_cells.append(installed_cell)
+            if projector_registry is None:
+                projector_registry = installed_registry
+            else:
+                projector_registry = dataclasses.replace(
+                    projector_registry,
+                    projectors=(
+                        projector_registry.projectors + installed_registry.projectors
+                    ),
+                )
+        if binding.projector_wiring is not None:
+            graph_wirings.append(binding.assembly_projector_wiring())
+        graph_rollback_bindings.append(binding.assembly_rollback_binding())
+
+    cells = (c8_1_cell, c8_2_cell, c8_3_cell, *graph_cells)
     c8_3_rollback_refs = (C8_3_ROLLBACK_REF,)
     if export_token_installed:
         c8_3_rollback_refs += (_C8_3_EXPORT_TOKEN_HANDLER_MODULE,)
@@ -922,19 +898,15 @@ def build_c8_assembly(
             status="PRESENT",
             binding_refs=c8_3_rollback_refs,
         ),
-        RollbackBindingDeclaration(
-            cell_id="C8.4",
-            status="PRESENT",
-            binding_refs=(C8_4_ROLLBACK_REF,),
-        ),
+        *graph_rollback_bindings,
     )
     return FamilyAssembly(
         family_id=C8_FAMILY_ID,
         cells=cells,
         handlers=tuple(handlers),
         recovery_handlers=tuple(recovery_handlers),
-        projector_wiring=c8_4_wiring_tuple,
-        projector_registry=c8_4_registry,
+        projector_wiring=tuple(graph_wirings),
+        projector_registry=projector_registry,
         rollback_bindings=rollback_bindings,
     )
 

@@ -1,0 +1,8 @@
+{
+  "authoritative": false,
+  "sha": "8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+  "state": "pending",
+  "statuses": [],
+  "total_count": 0,
+  "interpretation": "The empty combined-status projection does not establish commit existence; the commit and check-runs endpoints returned HTTP 422."
+}

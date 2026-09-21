@@ -17,7 +17,9 @@ import hashlib
 import json
 import re
 from dataclasses import dataclass, field
-from typing import Any, Literal, Protocol, TypeAlias, runtime_checkable
+from typing import Annotated, Any, Literal, NoReturn, Protocol, TypeAlias, runtime_checkable
+
+from functorial_kit import Failure
 
 from app.successor_runtime.capabilities.checksum import (
     content_digest,
@@ -30,6 +32,143 @@ from app.successor_runtime.language.algebra import (
     freeze_json_object,
 )
 from app.successor_runtime.research.object_types import ObjectType
+from mrw_functorial_kit.core.c2_semantics import c2_shared_contract_failures
+from mrw_functorial_kit.core.w06_semantics import (
+    c2_interpreter_failures,
+    c2_provider_effect_failures,
+    source_library_single_source_guard_failures,
+)
+
+
+C2_TOTAL_CORE_WITNESS = "test:test_w06_c2_total_core_failure_lifts"
+
+
+def c2_contract_failure(
+    code: str,
+    message: str,
+    *,
+    operation: str,
+    site: str,
+    owner: str,
+    public_exception: str = "ValueError",
+    public_message: str | None = None,
+    **details: Any,
+) -> Failure:
+    """Build the canonical contract Failure used by C2 pure boundaries."""
+
+    if code not in c2_shared_contract_failures.codes:
+        details.setdefault("requested_code", code)
+        code = "schema_contract_invalid"
+    context = {
+        "operation": operation,
+        "site": site,
+        "owner": owner,
+        "public_exception": public_exception,
+        "public_message": public_message or message,
+        "witness": C2_TOTAL_CORE_WITNESS,
+        **details,
+    }
+    return c2_shared_contract_failures.fail(code, message, context)
+
+
+def c2_interpreter_failure(message: str, *, operation: str, site: str) -> Failure:
+    return c2_interpreter_failures.fail(
+        "ASSIGNMENT_BINDING_MISMATCH",
+        message,
+        {
+            "operation": operation,
+            "site": site,
+            "owner": SOURCE_LIBRARY_C2_1_OWNER,
+            "witness": C2_TOTAL_CORE_WITNESS,
+        },
+    )
+
+
+def c2_provider_failure(
+    code: str,
+    message: str,
+    *,
+    operation: str,
+    site: str,
+    request_id: str | None = None,
+) -> Failure:
+    return c2_provider_effect_failures.fail(
+        code,
+        message,
+        {
+            "operation": operation,
+            "site": site,
+            "owner": SOURCE_LIBRARY_C2_3_OWNER,
+            "witness": C2_TOTAL_CORE_WITNESS,
+            **({"request_id": request_id} if request_id else {}),
+        },
+    )
+
+
+def c2_guard_failure(
+    code: str, message: str, *, site: str, **details: Any
+) -> Failure:
+    allowed = {
+        "single_source_guard_allowed_urls_invalid",
+        "single_source_guard_blocked",
+        "single_source_guard_invalid_shape",
+        "single_source_guard_missing",
+        "single_source_guard_site_entries_mismatch",
+        "single_source_guard_strict_source_required",
+    }
+    if code not in allowed:
+        code = "single_source_guard_invalid_shape"
+    return source_library_single_source_guard_failures.fail(
+        code,
+        message,
+        {
+            "operation": "source_library.single_source_guard",
+            "site": site,
+            "owner": "source_library.c2_3.v1",
+            "witness": C2_TOTAL_CORE_WITNESS,
+            **details,
+        },
+    )
+
+
+def raise_c2_contract_failure(
+    failure: Failure, exception_type: type[Exception] = ValueError
+) -> NoReturn:
+    """Lift a canonical contract Failure at a compatibility boundary."""
+
+    context = failure.context or {}
+    required = {"public_exception", "public_message"}
+    if (
+        not c2_shared_contract_failures.matches(failure)
+        or not required <= set(context)
+        or context.get("public_exception") != exception_type.__name__
+    ):
+        # kit:boundary owner=source_library_c2_shared.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w06_c2_total_core_failure_lifts
+        raise TypeError("C2 contract lift context is invalid")
+    # kit:boundary owner=source_library_c2_shared.py class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=c2.shared.contract_failure witness=test:test_w06_c2_total_core_failure_lifts
+    raise exception_type(str(context["public_message"]))
+
+
+def _reject_c2_contract(
+    message: str,
+    *,
+    exception_type: type[Exception] = ValueError,
+    operation: str = "source_library.c2.contract",
+    site: str = "source_library_c2_shared",
+) -> NoReturn:
+    """Lift a typed contract failure for the retained constructor ABI."""
+
+    raise_c2_contract_failure(
+        c2_contract_failure(
+            "schema_contract_invalid",
+            message,
+            operation=operation,
+            site=site,
+            owner="source_library.c2.shared.v1",
+            public_exception=exception_type.__name__,
+        ),
+        exception_type,
+    )
 
 # --- C2.1 mirror: scope/catalog/mode/taxonomy/params/protocol/request ---
 _SCOPE_DIGEST_NAMESPACE = b"mrw.project_scope.v2\n"
@@ -79,6 +218,14 @@ SOURCE_LIBRARY_C2_1_RESULT_TYPE = SOURCE_RESOLUTION_RESULT_TYPE
 SourceModeLiteral = Literal[
     "protocol_search", "provider_harvest", "site_search", "url_execution"
 ]
+SourceWarningCode: TypeAlias = Literal[
+    "SOURCE_MODE_INVALID_IGNORED",
+    "SOURCE_MODE_OVERRIDDEN_BY_URLS",
+    "SOURCE_MODE_COERCED_BY_SITE_SEARCH",
+    "SITE_SEARCH_FORCED_HANDLER_CLUSTER",
+    "GENERIC_WEB_INTERNAL_ADAPTER_DETECTED",
+    "GENERIC_WEB_MODE_COERCED",
+]
 SOURCE_MODES: tuple[SourceModeLiteral, ...] = (
     "protocol_search",
     "provider_harvest",
@@ -86,29 +233,24 @@ SOURCE_MODES: tuple[SourceModeLiteral, ...] = (
     "url_execution",
 )
 
-SOURCE_WARNING_CODES: frozenset[str] = frozenset(
-    {
-        "SOURCE_MODE_INVALID_IGNORED",
-        "SOURCE_MODE_OVERRIDDEN_BY_URLS",
-        "SOURCE_MODE_COERCED_BY_SITE_SEARCH",
-        "SITE_SEARCH_FORCED_HANDLER_CLUSTER",
-        "GENERIC_WEB_INTERNAL_ADAPTER_DETECTED",
-        "GENERIC_WEB_MODE_COERCED",
-    }
-)
-SOURCE_REJECTION_CODES: frozenset[str] = frozenset(
-    {
-        "INVALID_ITEM",
-        "DISABLED_ITEM",
-        "INVALID_MODE",
-        "FORBIDDEN_INTERNAL_ADAPTER",
-        "RESOURCE_CEILING_EXCEEDED",
-    }
-)
+SourceRejectionCode: TypeAlias = Literal[
+    "INVALID_ITEM",
+    "DISABLED_ITEM",
+    "INVALID_MODE",
+    "FORBIDDEN_INTERNAL_ADAPTER",
+    "RESOURCE_CEILING_EXCEEDED",
+]
+SOURCE_WARNING_CODES: frozenset[str] = frozenset(SourceWarningCode.__args__)
+SOURCE_REJECTION_CODES: frozenset[str] = frozenset(SourceRejectionCode.__args__)
 
 
 def _derive_digest(value: Any) -> str:
     return content_digest(value)
+
+
+def _require_closed_code(value: Any, allowed: frozenset[str], field: str) -> None:
+    if not isinstance(value, str) or value not in allowed:
+        _reject_c2_contract(f"unsupported {field} {value!r}", exception_type=ValueError)
 
 
 def _freeze(value: FrozenJsonObject | dict[str, Any]) -> FrozenJsonObject:
@@ -124,9 +266,7 @@ def _validate_resolved_schema(resolved_schema: str) -> str:
         or _RESOLVED_SCHEMA_PATTERN.fullmatch(resolved_schema) is None
         or resolved_schema in _FORBIDDEN_RESOLVED_SCHEMAS
     ):
-        raise ValueError(
-            f"invalid resolved project schema identifier {resolved_schema!r}"
-        )
+                _reject_c2_contract(f"invalid resolved project schema identifier {resolved_schema!r}", exception_type=ValueError)
     return resolved_schema
 
 
@@ -139,23 +279,21 @@ def project_scope_digest(
     """Canonical scope digest matching ``compute_scope_digest`` byte-for-byte."""
 
     if not isinstance(project_key, str) or not project_key.strip():
-        raise ValueError("project_key is required")
+        _reject_c2_contract("project_key is required", exception_type=ValueError)
     _validate_resolved_schema(resolved_schema)
     if (
         not isinstance(project_registry_revision, int)
         or isinstance(project_registry_revision, bool)
         or project_registry_revision < 0
     ):
-        raise ValueError("project registry revision must be a non-negative integer")
+        _reject_c2_contract("project registry revision must be a non-negative integer", exception_type=ValueError)
     if (
         not isinstance(incarnation, str)
         or not incarnation
         or incarnation != incarnation.strip()
         or len(incarnation) > 128
     ):
-        raise ValueError(
-            "project scope incarnation must be a non-empty canonical identity"
-        )
+                _reject_c2_contract("project scope incarnation must be a non-empty canonical identity", exception_type=ValueError)
     payload = (
         _SCOPE_DIGEST_NAMESPACE
         + project_key.encode("utf-8")
@@ -179,7 +317,7 @@ class VersionedSchema:
 
     def __post_init__(self) -> None:
         if not isinstance(self.schema_ref, str) or not self.schema_ref:
-            raise ValueError("VersionedSchema.schema_ref is required")
+            _reject_c2_contract("VersionedSchema.schema_ref is required", exception_type=ValueError)
         object.__setattr__(
             self,
             "field_requiredness",
@@ -200,7 +338,7 @@ class VersionedSchema:
         else:
             require_hex64(self.schema_digest, "VersionedSchema.schema_digest")
             if self.schema_digest != expected:
-                raise ValueError("VersionedSchema.schema_digest does not match content")
+                _reject_c2_contract("VersionedSchema.schema_digest does not match content", exception_type=ValueError)
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -321,18 +459,16 @@ class AuthenticatedProjectScope:
 
     def __post_init__(self) -> None:
         if not isinstance(self.project_key, str) or not self.project_key.strip():
-            raise ValueError("AuthenticatedProjectScope.project_key is required")
+            _reject_c2_contract("AuthenticatedProjectScope.project_key is required", exception_type=ValueError)
         if (
             not isinstance(self.registry_revision, int)
             or isinstance(self.registry_revision, bool)
             or self.registry_revision < 0
         ):
-            raise ValueError(
-                "AuthenticatedProjectScope.registry_revision must be non-negative int"
-            )
+                        _reject_c2_contract("AuthenticatedProjectScope.registry_revision must be non-negative int", exception_type=ValueError)
         _validate_resolved_schema(self.resolved_schema)
         if not isinstance(self.incarnation, str) or not self.incarnation.strip():
-            raise ValueError("AuthenticatedProjectScope.incarnation is required")
+            _reject_c2_contract("AuthenticatedProjectScope.incarnation is required", exception_type=ValueError)
         expected = project_scope_digest(
             self.project_key,
             self.resolved_schema,
@@ -344,10 +480,8 @@ class AuthenticatedProjectScope:
         else:
             require_hex64(self.scope_digest, "AuthenticatedProjectScope.scope_digest")
             if self.scope_digest != expected:
-                raise ValueError(
-                    "AuthenticatedProjectScope.scope_digest does not match "
-                    "the canonical project scope binding"
-                )
+                                _reject_c2_contract("AuthenticatedProjectScope.scope_digest does not match "
+                    "the canonical project scope binding", exception_type=ValueError)
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -371,7 +505,7 @@ class ChannelCatalogEntry:
 
     def __post_init__(self) -> None:
         if not isinstance(self.channel_key, str) or not self.channel_key.strip():
-            raise ValueError("ChannelCatalogEntry.channel_key is required")
+            _reject_c2_contract("ChannelCatalogEntry.channel_key is required", exception_type=ValueError)
         object.__setattr__(self, "provider", self.provider.strip().lower())
         object.__setattr__(self, "provider_type", self.provider_type.strip().lower())
         object.__setattr__(self, "extra", _freeze(self.extra))
@@ -428,12 +562,12 @@ class ChannelCatalogSnapshot:
             or isinstance(self.revision, bool)
             or self.revision < 0
         ):
-            raise ValueError("ChannelCatalogSnapshot.revision must be non-negative int")
+            _reject_c2_contract("ChannelCatalogSnapshot.revision must be non-negative int", exception_type=ValueError)
         if not isinstance(self.incarnation, str) or not self.incarnation.strip():
-            raise ValueError("ChannelCatalogSnapshot.incarnation is required")
+            _reject_c2_contract("ChannelCatalogSnapshot.incarnation is required", exception_type=ValueError)
         keys = tuple(entry.channel_key for entry in self.entries)
         if len(keys) != len(set(keys)):
-            raise ValueError("ChannelCatalogSnapshot channel keys must be unique")
+            _reject_c2_contract("ChannelCatalogSnapshot channel keys must be unique", exception_type=ValueError)
         expected = channel_catalog_digest(
             schema_version=self.schema_version,
             revision=self.revision,
@@ -445,7 +579,7 @@ class ChannelCatalogSnapshot:
         else:
             require_hex64(self.digest, "ChannelCatalogSnapshot.digest")
             if self.digest != expected:
-                raise ValueError("ChannelCatalogSnapshot.digest does not match content")
+                _reject_c2_contract("ChannelCatalogSnapshot.digest does not match content", exception_type=ValueError)
 
     def entry_by_key(self, channel_key: str) -> ChannelCatalogEntry | None:
         for entry in self.entries:
@@ -468,7 +602,12 @@ def build_channel_catalog_snapshot(
     revision: int = 1,
     incarnation: str = "channel-catalog-incarnation-1",
     entries: tuple[ChannelCatalogEntry, ...] | list[ChannelCatalogEntry] = (),
-) -> ChannelCatalogSnapshot:
+) -> Annotated[
+    ChannelCatalogSnapshot,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=source_library.channel_catalog_entry.v1 "
+    "witness=test:test_catalog_drift_rejects",
+]:
     return ChannelCatalogSnapshot(
         schema_version="mrw.successor.source-library.channel-catalog.v1",
         revision=revision,
@@ -496,18 +635,14 @@ class SourceItemDefinition:
 
     def __post_init__(self) -> None:
         if self.schema_version != SOURCE_ITEM_DEFINITION_SCHEMA_REF:
-            raise ValueError(
-                "SourceItemDefinition.schema_version is not the frozen schema"
-            )
+                        _reject_c2_contract("SourceItemDefinition.schema_version is not the frozen schema", exception_type=ValueError)
         for name in ("item_key", "channel_key"):
             if not isinstance(getattr(self, name), str):
-                raise TypeError(f"SourceItemDefinition.{name} must be a string")
+                _reject_c2_contract(f"SourceItemDefinition.{name} must be a string", exception_type=TypeError)
         for name in ("item_type", "managed_by"):
             value = getattr(self, name)
             if value is not None and not isinstance(value, str):
-                raise ValueError(
-                    f"SourceItemDefinition.{name} must be a string or None"
-                )
+                                _reject_c2_contract(f"SourceItemDefinition.{name} must be a string or None", exception_type=ValueError)
         object.__setattr__(self, "params", _freeze(self.params))
         object.__setattr__(self, "extra", _freeze(self.extra))
         if (
@@ -515,9 +650,9 @@ class SourceItemDefinition:
             or isinstance(self.revision, bool)
             or self.revision < 0
         ):
-            raise ValueError("SourceItemDefinition.revision must be non-negative int")
+            _reject_c2_contract("SourceItemDefinition.revision must be non-negative int", exception_type=ValueError)
         if not isinstance(self.incarnation, str) or not self.incarnation.strip():
-            raise ValueError("SourceItemDefinition.incarnation is required")
+            _reject_c2_contract("SourceItemDefinition.incarnation is required", exception_type=ValueError)
         expected = source_item_definition_content_digest(
             {
                 "item_key": self.item_key,
@@ -536,9 +671,7 @@ class SourceItemDefinition:
         else:
             require_hex64(self.content_digest, "SourceItemDefinition.content_digest")
             if self.content_digest != expected:
-                raise ValueError(
-                    "SourceItemDefinition.content_digest does not match item content"
-                )
+                                _reject_c2_contract("SourceItemDefinition.content_digest does not match item content", exception_type=ValueError)
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -582,9 +715,7 @@ def source_item_definition_from_dict(item: dict[str, Any]) -> SourceItemDefiniti
         if name not in item
     ]
     if missing:
-        raise ValueError(
-            "source item definition requires explicit identity: " + ", ".join(missing)
-        )
+                _reject_c2_contract("source item definition requires explicit identity: " + ", ".join(missing), exception_type=ValueError)
     return SourceItemDefinition(
         schema_version=SOURCE_ITEM_DEFINITION_SCHEMA_REF,
         item_key=item.get("item_key", ""),
@@ -610,11 +741,11 @@ class SourceMode:
 
     def __post_init__(self) -> None:
         if self.schema_version != SOURCE_MODE_SCHEMA_REF:
-            raise ValueError("SourceMode.schema_version is not the frozen schema")
+            _reject_c2_contract("SourceMode.schema_version is not the frozen schema", exception_type=ValueError)
         if self.mode not in SOURCE_MODES:
-            raise ValueError(f"unsupported SourceMode {self.mode!r}")
+            _reject_c2_contract(f"unsupported SourceMode {self.mode!r}", exception_type=ValueError)
         if not isinstance(self.version, str) or not self.version.strip():
-            raise ValueError("SourceMode.version is required")
+            _reject_c2_contract("SourceMode.version is required", exception_type=ValueError)
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -638,13 +769,13 @@ class SourceTaxonomy:
 
     def __post_init__(self) -> None:
         if self.schema_version != SOURCE_TAXONOMY_SCHEMA_REF:
-            raise ValueError("SourceTaxonomy.schema_version is not the frozen schema")
+            _reject_c2_contract("SourceTaxonomy.schema_version is not the frozen schema", exception_type=ValueError)
         if not isinstance(self.channel_family, str) or not self.channel_family.strip():
-            raise ValueError("SourceTaxonomy.channel_family is required")
+            _reject_c2_contract("SourceTaxonomy.channel_family is required", exception_type=ValueError)
         if self.item_type not in {"user_defined", "service_aggregated"}:
-            raise ValueError(f"unsupported item_type {self.item_type!r}")
+            _reject_c2_contract(f"unsupported item_type {self.item_type!r}", exception_type=ValueError)
         if self.managed_by not in {"user", "system"}:
-            raise ValueError(f"unsupported managed_by {self.managed_by!r}")
+            _reject_c2_contract(f"unsupported managed_by {self.managed_by!r}", exception_type=ValueError)
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -662,21 +793,21 @@ class SourceTaxonomy:
 class VersionedWarning:
     """Fixed-code, versioned warning with an ordered string payload."""
 
-    code: str
+    code: SourceWarningCode
     version: str
     ordered_payload: tuple[str, ...]
     schema_version: str = SOURCE_WARNING_SCHEMA_REF
 
     def __post_init__(self) -> None:
         if self.schema_version != SOURCE_WARNING_SCHEMA_REF:
-            raise ValueError("VersionedWarning.schema_version is not the frozen schema")
+            _reject_c2_contract("VersionedWarning.schema_version is not the frozen schema", exception_type=ValueError)
         if self.code not in SOURCE_WARNING_CODES:
-            raise ValueError(f"unregistered warning code {self.code!r}")
+            _reject_c2_contract(f"unregistered warning code {self.code!r}", exception_type=ValueError)
         if not isinstance(self.version, str) or not self.version.strip():
-            raise ValueError("VersionedWarning.version is required")
+            _reject_c2_contract("VersionedWarning.version is required", exception_type=ValueError)
         object.__setattr__(self, "ordered_payload", tuple(self.ordered_payload))
         if not all(isinstance(item, str) for item in self.ordered_payload):
-            raise ValueError("VersionedWarning.ordered_payload must contain strings")
+            _reject_c2_contract("VersionedWarning.ordered_payload must contain strings", exception_type=ValueError)
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -721,27 +852,27 @@ def versioned_warning_from_legacy_string(value: str) -> VersionedWarning:
             parts = rest.split("->")
             payload = tuple(parts[index] for index in payload_indexes)
             return VersionedWarning(code=code, version="1", ordered_payload=payload)
-    raise ValueError(f"legacy warning is not in the frozen C2.1 union: {value!r}")
+    _reject_c2_contract(f"legacy warning is not in the frozen C2.1 union: {value!r}", exception_type=ValueError)
 
 
 @dataclass(frozen=True, slots=True)
 class SourceRejection:
     """Versioned rejection union for fail-closed source-library resolution."""
 
-    code: str
+    code: SourceRejectionCode
     version: str
     message: str
     schema_version: str = SOURCE_REJECTION_SCHEMA_REF
 
     def __post_init__(self) -> None:
         if self.schema_version != SOURCE_REJECTION_SCHEMA_REF:
-            raise ValueError("SourceRejection.schema_version is not the frozen schema")
+            _reject_c2_contract("SourceRejection.schema_version is not the frozen schema", exception_type=ValueError)
         if self.code not in SOURCE_REJECTION_CODES:
-            raise ValueError(f"unregistered rejection code {self.code!r}")
+            _reject_c2_contract(f"unregistered rejection code {self.code!r}", exception_type=ValueError)
         if not isinstance(self.version, str) or not self.version.strip():
-            raise ValueError("SourceRejection.version is required")
+            _reject_c2_contract("SourceRejection.version is required", exception_type=ValueError)
         if not isinstance(self.message, str):
-            raise TypeError("SourceRejection.message must be a string")
+            _reject_c2_contract("SourceRejection.message must be a string", exception_type=TypeError)
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -875,7 +1006,7 @@ class NormalizedParamsSnapshot:
     end_time: str | None = None
     date_from: str | None = None
     date_to: str | None = None
-    source_mode: str | None = None
+    source_mode: SourceModeLiteral | None = None
     expected_entry_type: str | None = None
     urls: tuple[str, ...] = ()
     site_entries: tuple[str, ...] = ()
@@ -917,7 +1048,7 @@ class NormalizedParamsSnapshot:
             if value is not None and (
                 not isinstance(value, int) or isinstance(value, bool)
             ):
-                raise ValueError(f"NormalizedParamsSnapshot.{name} must be int or None")
+                _reject_c2_contract(f"NormalizedParamsSnapshot.{name} must be int or None", exception_type=ValueError)
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> NormalizedParamsSnapshot:
@@ -1121,23 +1252,19 @@ class SourceExecutionRequest:
 
     def __post_init__(self) -> None:
         if self.schema_version != SOURCE_EXECUTION_REQUEST_SCHEMA_REF:
-            raise ValueError(
-                "SourceExecutionRequest.schema_version is not the frozen schema"
-            )
+                        _reject_c2_contract("SourceExecutionRequest.schema_version is not the frozen schema", exception_type=ValueError)
         if (
             not isinstance(self.item_revision, int)
             or isinstance(self.item_revision, bool)
             or self.item_revision < 0
         ):
-            raise ValueError(
-                "SourceExecutionRequest.item_revision must be non-negative int"
-            )
+                        _reject_c2_contract("SourceExecutionRequest.item_revision must be non-negative int", exception_type=ValueError)
         for name, value in (
             ("item_incarnation", self.item_incarnation),
             ("catalog_incarnation", self.catalog_incarnation),
         ):
             if not isinstance(value, str) or not value.strip():
-                raise ValueError(f"SourceExecutionRequest.{name} is required")
+                _reject_c2_contract(f"SourceExecutionRequest.{name} is required", exception_type=ValueError)
         require_hex64(
             self.item_content_digest,
             "SourceExecutionRequest.item_content_digest",
@@ -1189,7 +1316,7 @@ class ResourceCeiling:
         ):
             value = getattr(self, name)
             if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
-                raise ValueError(f"ResourceCeiling.{name} must be a positive int")
+                _reject_c2_contract(f"ResourceCeiling.{name} must be a positive int", exception_type=ValueError)
         expected = content_digest(
             {
                 "schema": RESOURCE_CEILING_SCHEMA_REF,
@@ -1206,9 +1333,7 @@ class ResourceCeiling:
         else:
             require_hex64(self.ceiling_digest, "ResourceCeiling.ceiling_digest")
             if self.ceiling_digest != expected:
-                raise ValueError(
-                    "ResourceCeiling.ceiling_digest does not match content"
-                )
+                                _reject_c2_contract("ResourceCeiling.ceiling_digest does not match content", exception_type=ValueError)
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -1292,23 +1417,47 @@ C2_3_MAX_ARTIFACT_BYTES = 64 * 1024 * 1024
 C2_3_RESOURCE_POLICY_REF = "mrw.successor.source-library.c2-3.resource-policy.v1"
 
 CANCELLED_PROVIDER_EFFECT_CODE = "CANCELLED"
-C2_3_FAILURE_CODES: frozenset[str] = frozenset(
-    {
-        "MISSING_CREDENTIAL",
-        "INVALID_PARAMS",
-        "UNAUTHORIZED",
-        "UNSUPPORTED_PROVIDER",
-        "REQUEST_BINDING_MISMATCH",
-        "TRANSPORT",
-        "TIMEOUT",
-        "RATE_LIMIT",
-        "PROVIDER_REJECTED",
-        "ARTIFACT_WRITE",
-        "OUTCOME_UNKNOWN",
-        CANCELLED_PROVIDER_EFFECT_CODE,
-        "RESOURCE_CEILING_EXCEEDED",
-    }
+ProviderRejectionCode: TypeAlias = Literal[
+    "MISSING_CREDENTIAL",
+    "INVALID_PARAMS",
+    "UNAUTHORIZED",
+    "UNSUPPORTED_PROVIDER",
+    "REQUEST_BINDING_MISMATCH",
+]
+ProviderExecutionFailureCode: TypeAlias = Literal[
+    "TRANSPORT",
+    "TIMEOUT",
+    "RATE_LIMIT",
+    "PROVIDER_REJECTED",
+    "ARTIFACT_WRITE",
+    "RESOURCE_CEILING_EXCEEDED",
+]
+CredentialRejectionCode: TypeAlias = Literal["MISSING_CREDENTIAL", "UNAUTHORIZED"]
+AggregateProviderFailureCode: TypeAlias = Literal[
+    "MISSING_CREDENTIAL",
+    "INVALID_PARAMS",
+    "UNAUTHORIZED",
+    "UNSUPPORTED_PROVIDER",
+    "REQUEST_BINDING_MISMATCH",
+    "TRANSPORT",
+    "TIMEOUT",
+    "RATE_LIMIT",
+    "PROVIDER_REJECTED",
+    "ARTIFACT_WRITE",
+    "RESOURCE_CEILING_EXCEEDED",
+    "OUTCOME_UNKNOWN",
+    "CANCELLED",
+]
+ProviderEffectOperationKind: TypeAlias = Literal[
+    "source_library.execute_provider_effect.v1"
+]
+
+C2_3_FAILURE_CODES: frozenset[str] = frozenset(AggregateProviderFailureCode.__args__)
+PROVIDER_REJECTION_CODES: frozenset[str] = frozenset(ProviderRejectionCode.__args__)
+PROVIDER_EXECUTION_FAILURE_CODES: frozenset[str] = frozenset(
+    ProviderExecutionFailureCode.__args__
 )
+CREDENTIAL_REJECTION_CODES: frozenset[str] = frozenset(CredentialRejectionCode.__args__)
 
 
 def _freeze(value: FrozenJsonObject | dict[str, Any]) -> FrozenJsonObject:
@@ -1370,22 +1519,16 @@ class CredentialRef:
 
     def __post_init__(self) -> None:
         if not isinstance(self.ref, str) or self.ref != self.ref.strip():
-            raise ValueError(
-                "CredentialRef.ref must be a non-whitespace opaque locator"
-            )
+                        _reject_c2_contract("CredentialRef.ref must be a non-whitespace opaque locator", exception_type=ValueError)
         if _CREDENTIAL_LOCATOR_PATTERN.fullmatch(self.ref) is None:
-            raise ValueError(
-                "CredentialRef.ref must use the opaque credential:/locator pattern; "
-                "raw secret material, bare values and whitespace are rejected"
-            )
+                        _reject_c2_contract("CredentialRef.ref must use the opaque credential:/locator pattern; "
+                "raw secret material, bare values and whitespace are rejected", exception_type=ValueError)
         if _looks_like_secret(self.ref):
-            raise ValueError(
-                "CredentialRef.ref must not embed secret-like raw material"
-            )
+                        _reject_c2_contract("CredentialRef.ref must not embed secret-like raw material", exception_type=ValueError)
         if not self.provider.strip() or self.provider != self.provider.strip():
-            raise ValueError("CredentialRef.provider is required and must be trimmed")
+            _reject_c2_contract("CredentialRef.provider is required and must be trimmed", exception_type=ValueError)
         if self.schema_version != CREDENTIAL_REF_SCHEMA:
-            raise ValueError("CredentialRef.schema_version is not the frozen schema")
+            _reject_c2_contract("CredentialRef.schema_version is not the frozen schema", exception_type=ValueError)
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -1410,9 +1553,7 @@ class ProviderResourcePolicy:
 
     def __post_init__(self) -> None:
         if self.schema_version != RESOURCE_POLICY_SCHEMA:
-            raise ValueError(
-                "ProviderResourcePolicy.schema_version is not the frozen schema"
-            )
+                        _reject_c2_contract("ProviderResourcePolicy.schema_version is not the frozen schema", exception_type=ValueError)
         for name, value in (
             ("timeout_seconds", self.timeout_seconds),
             ("artifact_byte_ceiling", self.artifact_byte_ceiling),
@@ -1420,19 +1561,17 @@ class ProviderResourcePolicy:
             ("reservation_lease_seconds", self.reservation_lease_seconds),
         ):
             if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
-                raise ValueError(f"ProviderResourcePolicy.{name} must be positive int")
+                _reject_c2_contract(f"ProviderResourcePolicy.{name} must be positive int", exception_type=ValueError)
         if (
             not isinstance(self.retry_budget, int)
             or isinstance(self.retry_budget, bool)
             or self.retry_budget < 0
         ):
-            raise ValueError(
-                "ProviderResourcePolicy.retry_budget must be non-negative int"
-            )
+                        _reject_c2_contract("ProviderResourcePolicy.retry_budget must be non-negative int", exception_type=ValueError)
         if self.retry_budget > C2_3_MAX_RETRY_BUDGET:
-            raise ValueError("retry_budget exceeds the frozen ceiling")
+            _reject_c2_contract("retry_budget exceeds the frozen ceiling", exception_type=ValueError)
         if self.artifact_byte_ceiling > C2_3_MAX_ARTIFACT_BYTES:
-            raise ValueError("artifact_byte_ceiling exceeds the frozen ceiling")
+            _reject_c2_contract("artifact_byte_ceiling exceeds the frozen ceiling", exception_type=ValueError)
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -1465,7 +1604,7 @@ class ProviderEffectRequest:
     schema_version: Literal[
         "mrw.successor.source-library.c2-3.provider-effect-request.v1"
     ]
-    operation_kind: Literal["source_library.execute_provider_effect.v1"]
+    operation_kind: ProviderEffectOperationKind
     request_id: str
     idempotency_key: str
     project_scope: AuthenticatedProjectScope
@@ -1489,15 +1628,11 @@ class ProviderEffectRequest:
 
     def __post_init__(self) -> None:
         if self.schema_version != SOURCE_LIBRARY_C2_3_PAYLOAD_SCHEMA:
-            raise ValueError(
-                "ProviderEffectRequest.schema_version is not the frozen schema"
-            )
+                        _reject_c2_contract("ProviderEffectRequest.schema_version is not the frozen schema", exception_type=ValueError)
         if self.operation_kind != SOURCE_LIBRARY_C2_3_KIND:
-            raise ValueError(f"unsupported operation kind {self.operation_kind!r}")
+            _reject_c2_contract(f"unsupported operation kind {self.operation_kind!r}", exception_type=ValueError)
         if not self.request_id.strip() or not self.idempotency_key.strip():
-            raise ValueError(
-                "ProviderEffectRequest request/idempotency ids are required"
-            )
+                        _reject_c2_contract("ProviderEffectRequest request/idempotency ids are required", exception_type=ValueError)
         require_hex64(
             self.item_content_digest, "ProviderEffectRequest.item_content_digest"
         )
@@ -1519,9 +1654,7 @@ class ProviderEffectRequest:
         else:
             require_hex64(self.request_digest, "ProviderEffectRequest.request_digest")
             if self.request_digest != expected:
-                raise ValueError(
-                    "ProviderEffectRequest.request_digest does not match content"
-                )
+                                _reject_c2_contract("ProviderEffectRequest.request_digest does not match content", exception_type=ValueError)
 
     def _digest_payload(self) -> dict[str, Any]:
         return {
@@ -1563,18 +1696,16 @@ class ProviderAttemptRef:
 
     def __post_init__(self) -> None:
         if not self.attempt_id.strip():
-            raise ValueError("ProviderAttemptRef.attempt_id is required")
+            _reject_c2_contract("ProviderAttemptRef.attempt_id is required", exception_type=ValueError)
         require_hex64(self.request_digest, "ProviderAttemptRef.request_digest")
         if (
             not isinstance(self.epoch, int)
             or isinstance(self.epoch, bool)
             or self.epoch < 1
         ):
-            raise ValueError("ProviderAttemptRef.epoch must be a positive integer")
+            _reject_c2_contract("ProviderAttemptRef.epoch must be a positive integer", exception_type=ValueError)
         if self.schema_version != PROVIDER_ATTEMPT_REF_SCHEMA:
-            raise ValueError(
-                "ProviderAttemptRef.schema_version is not the frozen schema"
-            )
+                        _reject_c2_contract("ProviderAttemptRef.schema_version is not the frozen schema", exception_type=ValueError)
 
     def as_ref_string(self) -> str:
         return f"provider-attempt:{self.attempt_id}"
@@ -1603,7 +1734,7 @@ class ProviderReceipt:
 
     def __post_init__(self) -> None:
         if self.schema_version != PROVIDER_RECEIPT_SCHEMA:
-            raise ValueError("ProviderReceipt.schema_version is not the frozen schema")
+            _reject_c2_contract("ProviderReceipt.schema_version is not the frozen schema", exception_type=ValueError)
         expected = provider_receipt_digest(
             receipt_id=self.receipt_id,
             provider=self.provider,
@@ -1618,9 +1749,7 @@ class ProviderReceipt:
         else:
             require_hex64(self.receipt_digest, "ProviderReceipt.receipt_digest")
             if self.receipt_digest != expected:
-                raise ValueError(
-                    "ProviderReceipt.receipt_digest does not match content"
-                )
+                                _reject_c2_contract("ProviderReceipt.receipt_digest does not match content", exception_type=ValueError)
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -1646,12 +1775,10 @@ class CapturedSourceRecordRef:
 
     def __post_init__(self) -> None:
         if not self.record_id.strip() or not self.content_ref.strip():
-            raise ValueError("CapturedSourceRecordRef identities are required")
+            _reject_c2_contract("CapturedSourceRecordRef identities are required", exception_type=ValueError)
         require_hex64(self.content_digest, "CapturedSourceRecordRef.content_digest")
         if self.schema_version != CAPTURED_SOURCE_RECORD_REF_SCHEMA:
-            raise ValueError(
-                "CapturedSourceRecordRef.schema_version is not the frozen schema"
-            )
+                        _reject_c2_contract("CapturedSourceRecordRef.schema_version is not the frozen schema", exception_type=ValueError)
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -1674,20 +1801,18 @@ class StagedArtifactRef:
 
     def __post_init__(self) -> None:
         if not self.artifact_id.strip() or not self.content_ref.strip():
-            raise ValueError("StagedArtifactRef identities are required")
+            _reject_c2_contract("StagedArtifactRef identities are required", exception_type=ValueError)
         require_hex64(self.content_digest, "StagedArtifactRef.content_digest")
         if (
             not isinstance(self.byte_size, int)
             or isinstance(self.byte_size, bool)
             or self.byte_size < 0
         ):
-            raise ValueError("StagedArtifactRef.byte_size must be a non-negative int")
+            _reject_c2_contract("StagedArtifactRef.byte_size must be a non-negative int", exception_type=ValueError)
         if self.staging_state != "STAGED":
-            raise ValueError("StagedArtifactRef.staging_state must be STAGED")
+            _reject_c2_contract("StagedArtifactRef.staging_state must be STAGED", exception_type=ValueError)
         if self.schema_version != STAGED_ARTIFACT_REF_SCHEMA:
-            raise ValueError(
-                "StagedArtifactRef.schema_version is not the frozen schema"
-            )
+                        _reject_c2_contract("StagedArtifactRef.schema_version is not the frozen schema", exception_type=ValueError)
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -1712,7 +1837,7 @@ class CredentialDecisionReceipt:
 
     def __post_init__(self) -> None:
         if self.decision not in {"RESOLVED", "MISSING", "UNAUTHORIZED"}:
-            raise ValueError(f"unsupported credential decision {self.decision!r}")
+            _reject_c2_contract(f"unsupported credential decision {self.decision!r}", exception_type=ValueError)
         object.__setattr__(self, "credential_refs", tuple(self.credential_refs))
         object.__setattr__(self, "redacted_profile", _freeze(self.redacted_profile))
         expected = content_digest(
@@ -1730,9 +1855,7 @@ class CredentialDecisionReceipt:
                 self.receipt_digest, "CredentialDecisionReceipt.receipt_digest"
             )
             if self.receipt_digest != expected:
-                raise ValueError(
-                    "CredentialDecisionReceipt.receipt_digest does not match content"
-                )
+                                _reject_c2_contract("CredentialDecisionReceipt.receipt_digest does not match content", exception_type=ValueError)
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -1756,11 +1879,9 @@ class AuthoritativeProviderReadback:
 
     def __post_init__(self) -> None:
         if self.terminal_status not in {"COMPLETED", "FAILED", "CANCELLED"}:
-            raise ValueError(
-                f"unsupported terminal readback status {self.terminal_status!r}"
-            )
+                        _reject_c2_contract(f"unsupported terminal readback status {self.terminal_status!r}", exception_type=ValueError)
         if not self.readback_receipt_id.strip():
-            raise ValueError("AuthoritativeProviderReadback.receipt id is required")
+            _reject_c2_contract("AuthoritativeProviderReadback.receipt id is required", exception_type=ValueError)
         expected = content_digest(
             {
                 "schema_version": self.schema_version,
@@ -1778,9 +1899,7 @@ class AuthoritativeProviderReadback:
                 self.readback_digest, "AuthoritativeProviderReadback.readback_digest"
             )
             if self.readback_digest != expected:
-                raise ValueError(
-                    "AuthoritativeProviderReadback.readback_digest does not match content"
-                )
+                                _reject_c2_contract("AuthoritativeProviderReadback.readback_digest does not match content", exception_type=ValueError)
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -1803,7 +1922,7 @@ class NonStartProof:
 
     def __post_init__(self) -> None:
         if not self.evidence_locator.strip():
-            raise ValueError("NonStartProof.evidence_locator is required")
+            _reject_c2_contract("NonStartProof.evidence_locator is required", exception_type=ValueError)
         expected = content_digest(
             {
                 "schema_version": self.schema_version,
@@ -1816,7 +1935,7 @@ class NonStartProof:
         else:
             require_hex64(self.proof_digest, "NonStartProof.proof_digest")
             if self.proof_digest != expected:
-                raise ValueError("NonStartProof.proof_digest does not match content")
+                _reject_c2_contract("NonStartProof.proof_digest does not match content", exception_type=ValueError)
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -1848,7 +1967,7 @@ class CancelReceipt:
     def __post_init__(self) -> None:
         require_hex64(self.request_digest, "CancelReceipt.request_digest")
         if self.cancel_status not in {"CANCEL_ACCEPTED", "ALREADY_TERMINAL"}:
-            raise ValueError(f"unsupported cancel status {self.cancel_status!r}")
+            _reject_c2_contract(f"unsupported cancel status {self.cancel_status!r}", exception_type=ValueError)
         expected = content_digest(
             {
                 "schema_version": self.schema_version,
@@ -1863,7 +1982,7 @@ class CancelReceipt:
         else:
             require_hex64(self.receipt_digest, "CancelReceipt.receipt_digest")
             if self.receipt_digest != expected:
-                raise ValueError("CancelReceipt.receipt_digest does not match content")
+                _reject_c2_contract("CancelReceipt.receipt_digest does not match content", exception_type=ValueError)
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -1879,9 +1998,24 @@ class CancelReceipt:
 @dataclass(frozen=True, slots=True)
 class OrderedProviderFailure:
     order_index: int
-    code: str
+    code: AggregateProviderFailureCode
     message: str
     source: str
+
+    def __post_init__(self) -> None:
+        if (
+            not isinstance(self.order_index, int)
+            or isinstance(self.order_index, bool)
+            or self.order_index < 0
+        ):
+                        _reject_c2_contract("OrderedProviderFailure.order_index must be a non-negative int", exception_type=ValueError)
+        _require_closed_code(
+            self.code, C2_3_FAILURE_CODES, "ordered provider failure code"
+        )
+        if not isinstance(self.message, str):
+            _reject_c2_contract("OrderedProviderFailure.message must be a string", exception_type=ValueError)
+        if not isinstance(self.source, str) or not self.source.strip():
+            _reject_c2_contract("OrderedProviderFailure.source is required", exception_type=ValueError)
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -1917,9 +2051,7 @@ class CompletedProviderEffect:
         else:
             require_hex64(self.outcome_digest, "CompletedProviderEffect.outcome_digest")
             if self.outcome_digest != expected:
-                raise ValueError(
-                    "CompletedProviderEffect.outcome_digest does not match content"
-                )
+                                _reject_c2_contract("CompletedProviderEffect.outcome_digest does not match content", exception_type=ValueError)
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -1952,9 +2084,7 @@ class AcceptedProviderEffect:
         else:
             require_hex64(self.outcome_digest, "AcceptedProviderEffect.outcome_digest")
             if self.outcome_digest != expected:
-                raise ValueError(
-                    "AcceptedProviderEffect.outcome_digest does not match content"
-                )
+                                _reject_c2_contract("AcceptedProviderEffect.outcome_digest does not match content", exception_type=ValueError)
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -1992,9 +2122,7 @@ class PartiallyCompletedProviderEffect:
                 "PartiallyCompletedProviderEffect.outcome_digest",
             )
             if self.outcome_digest != expected:
-                raise ValueError(
-                    "PartiallyCompletedProviderEffect.outcome_digest does not match content"
-                )
+                                _reject_c2_contract("PartiallyCompletedProviderEffect.outcome_digest does not match content", exception_type=ValueError)
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -2011,19 +2139,14 @@ class PartiallyCompletedProviderEffect:
 @dataclass(frozen=True, slots=True)
 class RejectedProviderEffect:
     kind: Literal["rejected"] = "rejected"
-    code: str = "INVALID_PARAMS"
+    code: ProviderRejectionCode = "INVALID_PARAMS"
     message: str = ""
     outcome_digest: str = ""
 
     def __post_init__(self) -> None:
-        if self.code not in {
-            "MISSING_CREDENTIAL",
-            "INVALID_PARAMS",
-            "UNAUTHORIZED",
-            "UNSUPPORTED_PROVIDER",
-            "REQUEST_BINDING_MISMATCH",
-        }:
-            raise ValueError(f"unsupported rejected provider code {self.code!r}")
+        _require_closed_code(
+            self.code, PROVIDER_REJECTION_CODES, "rejected provider code"
+        )
         expected = _digest_payload(
             {
                 "schema": "mrw.successor.source-library.c2-3.outcome.v1",
@@ -2037,9 +2160,7 @@ class RejectedProviderEffect:
         else:
             require_hex64(self.outcome_digest, "RejectedProviderEffect.outcome_digest")
             if self.outcome_digest != expected:
-                raise ValueError(
-                    "RejectedProviderEffect.outcome_digest does not match content"
-                )
+                                _reject_c2_contract("RejectedProviderEffect.outcome_digest does not match content", exception_type=ValueError)
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -2053,21 +2174,15 @@ class RejectedProviderEffect:
 @dataclass(frozen=True, slots=True)
 class FailedProviderEffect:
     kind: Literal["failed"] = "failed"
-    code: str = "TRANSPORT"
+    code: ProviderExecutionFailureCode = "TRANSPORT"
     message: str = ""
     retryable: bool = False
     outcome_digest: str = ""
 
     def __post_init__(self) -> None:
-        if self.code not in {
-            "TRANSPORT",
-            "TIMEOUT",
-            "RATE_LIMIT",
-            "PROVIDER_REJECTED",
-            "ARTIFACT_WRITE",
-            "RESOURCE_CEILING_EXCEEDED",
-        }:
-            raise ValueError(f"unsupported failed provider code {self.code!r}")
+        _require_closed_code(
+            self.code, PROVIDER_EXECUTION_FAILURE_CODES, "failed provider code"
+        )
         expected = _digest_payload(
             {
                 "schema": "mrw.successor.source-library.c2-3.outcome.v1",
@@ -2082,9 +2197,7 @@ class FailedProviderEffect:
         else:
             require_hex64(self.outcome_digest, "FailedProviderEffect.outcome_digest")
             if self.outcome_digest != expected:
-                raise ValueError(
-                    "FailedProviderEffect.outcome_digest does not match content"
-                )
+                                _reject_c2_contract("FailedProviderEffect.outcome_digest does not match content", exception_type=ValueError)
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -2121,9 +2234,7 @@ class CancelledProviderEffect:
         else:
             require_hex64(self.outcome_digest, "CancelledProviderEffect.outcome_digest")
             if self.outcome_digest != expected:
-                raise ValueError(
-                    "CancelledProviderEffect.outcome_digest does not match content"
-                )
+                                _reject_c2_contract("CancelledProviderEffect.outcome_digest does not match content", exception_type=ValueError)
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -2156,9 +2267,7 @@ class OutcomeUnknownProviderEffect:
                 self.outcome_digest, "OutcomeUnknownProviderEffect.outcome_digest"
             )
             if self.outcome_digest != expected:
-                raise ValueError(
-                    "OutcomeUnknownProviderEffect.outcome_digest does not match content"
-                )
+                                _reject_c2_contract("OutcomeUnknownProviderEffect.outcome_digest does not match content", exception_type=ValueError)
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -2200,9 +2309,7 @@ class ReconciledProviderEffect:
                 self.outcome_digest, "ReconciledProviderEffect.outcome_digest"
             )
             if self.outcome_digest != expected:
-                raise ValueError(
-                    "ReconciledProviderEffect.outcome_digest does not match content"
-                )
+                                _reject_c2_contract("ReconciledProviderEffect.outcome_digest does not match content", exception_type=ValueError)
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -2287,7 +2394,13 @@ SOURCE_LIBRARY_C2_2_PROTOCOL_SEARCH_KIND = "source_library.protocol_search.v1"
 SOURCE_LIBRARY_C2_2_PROVIDER_HARVEST_KIND = "source_library.provider_harvest.v1"
 SOURCE_LIBRARY_C2_2_SITE_SEARCH_KIND = "source_library.site_search.v1"
 SOURCE_LIBRARY_C2_2_URL_EXECUTION_KIND = "source_library.url_execution.v1"
-SOURCE_LIBRARY_C2_2_KINDS: tuple[str, ...] = (
+SourceLibraryC2_2OperationKind: TypeAlias = Literal[
+    "source_library.protocol_search.v1",
+    "source_library.provider_harvest.v1",
+    "source_library.site_search.v1",
+    "source_library.url_execution.v1",
+]
+SOURCE_LIBRARY_C2_2_KINDS: tuple[SourceLibraryC2_2OperationKind, ...] = (
     SOURCE_LIBRARY_C2_2_PROTOCOL_SEARCH_KIND,
     SOURCE_LIBRARY_C2_2_PROVIDER_HARVEST_KIND,
     SOURCE_LIBRARY_C2_2_SITE_SEARCH_KIND,
@@ -2314,16 +2427,15 @@ C2_2_MAX_URLS = 256
 C2_2_MAX_TASKS = 256
 C2_2_BATCH_SIZE = 32
 
-C2_2_PLANNING_FAILURE_CODES: frozenset[str] = frozenset(
-    {
-        "INVALID_REQUEST",
-        "CHANNEL_NOT_FOUND",
-        "CHANNEL_DISABLED",
-        "FORBIDDEN_INTERNAL_ADAPTER",
-        "RESOURCE_CEILING_EXCEEDED",
-        "CATALOG_STALE",
-    }
-)
+PlanningRejectionCode: TypeAlias = Literal[
+    "INVALID_REQUEST",
+    "CHANNEL_NOT_FOUND",
+    "CHANNEL_DISABLED",
+    "FORBIDDEN_INTERNAL_ADAPTER",
+    "RESOURCE_CEILING_EXCEEDED",
+    "CATALOG_STALE",
+]
+C2_2_PLANNING_FAILURE_CODES: frozenset[str] = frozenset(PlanningRejectionCode.__args__)
 
 SOURCE_MODE_PLANNING_PAYLOAD_TYPE = ObjectType("SourceModePlanningPayload.v1")
 SOURCE_MODE_PLAN_TYPE = ObjectType("SourceModePlan.v1")
@@ -2347,7 +2459,7 @@ class SourceModePlanningPayload:
     """Exact-bound input consumed by one of the four C2.2 planner atoms."""
 
     schema_version: Literal["mrw.successor.source-library.c2-2.planning-payload.v1"]
-    operation_kind: str
+    operation_kind: SourceLibraryC2_2OperationKind
     project_scope: AuthenticatedProjectScope
     execution_request: SourceExecutionRequest
     execution_request_digest: str
@@ -2361,13 +2473,9 @@ class SourceModePlanningPayload:
 
     def __post_init__(self) -> None:
         if self.schema_version != SOURCE_MODE_PLANNING_PAYLOAD_SCHEMA:
-            raise ValueError(
-                "SourceModePlanningPayload.schema_version is not the frozen schema"
-            )
+                        _reject_c2_contract("SourceModePlanningPayload.schema_version is not the frozen schema", exception_type=ValueError)
         if self.operation_kind not in SOURCE_LIBRARY_C2_2_KINDS:
-            raise ValueError(
-                f"unsupported C2.2 planning operation kind {self.operation_kind!r}"
-            )
+                        _reject_c2_contract(f"unsupported C2.2 planning operation kind {self.operation_kind!r}", exception_type=ValueError)
         scope = self.execution_request.project_scope
         if (
             self.project_scope.project_key != scope.project_key
@@ -2376,25 +2484,19 @@ class SourceModePlanningPayload:
             or self.project_scope.incarnation != scope.incarnation
             or self.project_scope.scope_digest != scope.scope_digest
         ):
-            raise ValueError(
-                "SourceModePlanningPayload project scope does not bind the request"
-            )
+                        _reject_c2_contract("SourceModePlanningPayload project scope does not bind the request", exception_type=ValueError)
         if (
             self.execution_request.item_revision != self.item_revision
             or self.execution_request.item_incarnation != self.item_incarnation
             or self.execution_request.item_content_digest != self.item_content_digest
         ):
-            raise ValueError(
-                "SourceModePlanningPayload item binding does not match the request"
-            )
+                        _reject_c2_contract("SourceModePlanningPayload item binding does not match the request", exception_type=ValueError)
         if (
             self.catalog.revision != self.execution_request.catalog_revision
             or self.catalog.incarnation != self.execution_request.catalog_incarnation
             or self.catalog.digest != self.execution_request.catalog_digest
         ):
-            raise ValueError(
-                "SourceModePlanningPayload catalog binding does not match the request"
-            )
+                        _reject_c2_contract("SourceModePlanningPayload catalog binding does not match the request", exception_type=ValueError)
         require_hex64(
             self.execution_request_digest,
             "SourceModePlanningPayload.execution_request_digest",
@@ -2415,9 +2517,7 @@ class SourceModePlanningPayload:
                 self.payload_digest, "SourceModePlanningPayload.payload_digest"
             )
             if self.payload_digest != expected:
-                raise ValueError(
-                    "SourceModePlanningPayload.payload_digest does not match content"
-                )
+                                _reject_c2_contract("SourceModePlanningPayload.payload_digest does not match content", exception_type=ValueError)
 
     def _digest_payload(self) -> dict[str, Any]:
         return {
@@ -2485,14 +2585,14 @@ class OrderedFoldPolicy:
             "CONTINUE_ON_ORDERED_FAILURE",
             "FAIL_FAST",
         }:
-            raise ValueError(f"unsupported fold failure mode {self.failure_mode!r}")
+            _reject_c2_contract(f"unsupported fold failure mode {self.failure_mode!r}", exception_type=ValueError)
         if (
             not isinstance(self.max_partial_failures, int)
             or isinstance(self.max_partial_failures, bool)
             or self.max_partial_failures < 1
             or self.max_partial_failures > C2_2_MAX_TASKS
         ):
-            raise ValueError("max_partial_failures must be a bounded positive int")
+            _reject_c2_contract("max_partial_failures must be a bounded positive int", exception_type=ValueError)
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -2507,7 +2607,7 @@ class OrderedFoldPolicy:
 class SourceModeTask:
     task_id: str
     occurrence_id: str
-    mode: str
+    mode: SourceModeLiteral
     order_index: int
     effect_request: ProviderEffectRequest
     fallback_rule: FallbackRule | None = None
@@ -2517,20 +2617,15 @@ class SourceModeTask:
 
     def __post_init__(self) -> None:
         if not self.task_id.strip() or not self.occurrence_id.strip():
-            raise ValueError("SourceModeTask identities are required")
-        if self.mode not in {
-            "protocol_search",
-            "provider_harvest",
-            "site_search",
-            "url_execution",
-        }:
-            raise ValueError(f"unsupported source mode task {self.mode!r}")
+            _reject_c2_contract("SourceModeTask identities are required", exception_type=ValueError)
+        if self.mode not in SOURCE_MODES:
+            _reject_c2_contract(f"unsupported source mode task {self.mode!r}", exception_type=ValueError)
         if (
             not isinstance(self.order_index, int)
             or isinstance(self.order_index, bool)
             or self.order_index < 0
         ):
-            raise ValueError("SourceModeTask.order_index must be a non-negative int")
+            _reject_c2_contract("SourceModeTask.order_index must be a non-negative int", exception_type=ValueError)
         expected = _plain_digest(
             {
                 "schema_version": self.schema_version,
@@ -2552,7 +2647,7 @@ class SourceModeTask:
         else:
             require_hex64(self.task_digest, "SourceModeTask.task_digest")
             if self.task_digest != expected:
-                raise ValueError("SourceModeTask.task_digest does not match content")
+                _reject_c2_contract("SourceModeTask.task_digest does not match content", exception_type=ValueError)
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -2575,7 +2670,7 @@ class SourceModeTask:
 def source_mode_plan_digest(
     *,
     plan_id: str,
-    mode: str,
+    mode: SourceModeLiteral,
     execution_request_digest: str,
     catalog_revision: int,
     catalog_incarnation: str,
@@ -2605,7 +2700,7 @@ def source_mode_plan_digest(
 @dataclass(frozen=True, slots=True)
 class SourceModePlan:
     plan_id: str
-    mode: str
+    mode: SourceModeLiteral
     execution_request_digest: str
     catalog_revision: int
     catalog_incarnation: str
@@ -2618,20 +2713,15 @@ class SourceModePlan:
     plan_digest: str = ""
 
     def __post_init__(self) -> None:
-        if self.mode not in {
-            "protocol_search",
-            "provider_harvest",
-            "site_search",
-            "url_execution",
-        }:
-            raise ValueError(f"unsupported source mode plan {self.mode!r}")
+        if self.mode not in SOURCE_MODES:
+            _reject_c2_contract(f"unsupported source mode plan {self.mode!r}", exception_type=ValueError)
         require_hex64(
             self.execution_request_digest,
             "SourceModePlan.execution_request_digest",
         )
         require_hex64(self.catalog_digest, "SourceModePlan.catalog_digest")
         if len(self.ordered_tasks) > C2_2_MAX_TASKS:
-            raise ValueError("SourceModePlan exceeds the max task ceiling")
+            _reject_c2_contract("SourceModePlan exceeds the max task ceiling", exception_type=ValueError)
         expected = source_mode_plan_digest(
             plan_id=self.plan_id,
             mode=self.mode,
@@ -2649,7 +2739,7 @@ class SourceModePlan:
         else:
             require_hex64(self.plan_digest, "SourceModePlan.plan_digest")
             if self.plan_digest != expected:
-                raise ValueError("SourceModePlan.plan_digest does not match content")
+                _reject_c2_contract("SourceModePlan.plan_digest does not match content", exception_type=ValueError)
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -2687,7 +2777,7 @@ class PlannedPlanning:
         else:
             require_hex64(self.result_digest, "PlannedPlanning.result_digest")
             if self.result_digest != expected:
-                raise ValueError("PlannedPlanning.result_digest does not match content")
+                _reject_c2_contract("PlannedPlanning.result_digest does not match content", exception_type=ValueError)
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -2700,13 +2790,13 @@ class PlannedPlanning:
 @dataclass(frozen=True, slots=True)
 class RejectedPlanning:
     kind: Literal["rejected"] = "rejected"
-    code: str = "INVALID_REQUEST"
+    code: PlanningRejectionCode = "INVALID_REQUEST"
     message: str = ""
     result_digest: str = ""
 
     def __post_init__(self) -> None:
         if self.code not in C2_2_PLANNING_FAILURE_CODES:
-            raise ValueError(f"unsupported planning rejection code {self.code!r}")
+            _reject_c2_contract(f"unsupported planning rejection code {self.code!r}", exception_type=ValueError)
         expected = _plain_digest(
             {
                 "schema": "mrw.successor.source-library.c2-2.planning-result.v1",
@@ -2720,9 +2810,7 @@ class RejectedPlanning:
         else:
             require_hex64(self.result_digest, "RejectedPlanning.result_digest")
             if self.result_digest != expected:
-                raise ValueError(
-                    "RejectedPlanning.result_digest does not match content"
-                )
+                                _reject_c2_contract("RejectedPlanning.result_digest does not match content", exception_type=ValueError)
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -2739,9 +2827,24 @@ SourceModePlanningResult: TypeAlias = PlannedPlanning | RejectedPlanning
 @dataclass(frozen=True, slots=True)
 class OrderedFailure:
     order_index: int
-    code: str
+    code: AggregateProviderFailureCode
     message: str
     source: str
+
+    def __post_init__(self) -> None:
+        if (
+            not isinstance(self.order_index, int)
+            or isinstance(self.order_index, bool)
+            or self.order_index < 0
+        ):
+            _reject_c2_contract("OrderedFailure.order_index must be a non-negative int", exception_type=ValueError)
+        _require_closed_code(
+            self.code, C2_3_FAILURE_CODES, "ordered collection failure code"
+        )
+        if not isinstance(self.message, str):
+            _reject_c2_contract("OrderedFailure.message must be a string", exception_type=ValueError)
+        if not isinstance(self.source, str) or not self.source.strip():
+            _reject_c2_contract("OrderedFailure.source is required", exception_type=ValueError)
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -2755,7 +2858,7 @@ class OrderedFailure:
 @dataclass(frozen=True, slots=True)
 class ProviderHandoff:
     handoff_id: str
-    mode: str
+    mode: SourceModeLiteral
     provider: str
     provider_job_id: str | None
     provider_status: str
@@ -2764,12 +2867,10 @@ class ProviderHandoff:
 
     def __post_init__(self) -> None:
         if not self.handoff_id.strip():
-            raise ValueError("ProviderHandoff.handoff_id is required")
+            _reject_c2_contract("ProviderHandoff.handoff_id is required", exception_type=ValueError)
         require_hex64(self.receipt_digest, "ProviderHandoff.receipt_digest")
         if self.contract_version != PROVIDER_HANDOFF_SCHEMA:
-            raise ValueError(
-                "ProviderHandoff.contract_version is not the frozen contract"
-            )
+                        _reject_c2_contract("ProviderHandoff.contract_version is not the frozen contract", exception_type=ValueError)
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -2786,7 +2887,7 @@ class ProviderHandoff:
 @dataclass(frozen=True, slots=True)
 class SourceTaskOutcome:
     task_id: str
-    mode: str
+    mode: SourceModeLiteral
     status: Literal[
         "completed",
         "accepted",
@@ -2817,7 +2918,7 @@ class SourceTaskOutcome:
 @dataclass(frozen=True, slots=True)
 class SourceCollectionTerminal:
     terminal_id: str
-    mode: str
+    mode: SourceModeLiteral
     status: Literal["ok", "partial", "error", "accepted", "unknown"]
     records_count: int
     provider_handoff: ProviderHandoff | None = None
@@ -2827,15 +2928,13 @@ class SourceCollectionTerminal:
 
     def __post_init__(self) -> None:
         if self.status not in {"ok", "partial", "error", "accepted", "unknown"}:
-            raise ValueError(f"unsupported collection terminal status {self.status!r}")
+            _reject_c2_contract(f"unsupported collection terminal status {self.status!r}", exception_type=ValueError)
         if (
             not isinstance(self.records_count, int)
             or isinstance(self.records_count, bool)
             or self.records_count < 0
         ):
-            raise ValueError(
-                "SourceCollectionTerminal.records_count must be non-negative"
-            )
+                        _reject_c2_contract("SourceCollectionTerminal.records_count must be non-negative", exception_type=ValueError)
         expected = _plain_digest(
             {
                 "schema_version": self.schema_version,
@@ -2860,9 +2959,7 @@ class SourceCollectionTerminal:
                 self.collection_digest, "SourceCollectionTerminal.collection_digest"
             )
             if self.collection_digest != expected:
-                raise ValueError(
-                    "SourceCollectionTerminal.collection_digest does not match content"
-                )
+                                _reject_c2_contract("SourceCollectionTerminal.collection_digest does not match content", exception_type=ValueError)
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -2904,9 +3001,7 @@ class CollectionCompleted:
         else:
             require_hex64(self.outcome_digest, "CollectionCompleted.outcome_digest")
             if self.outcome_digest != expected:
-                raise ValueError(
-                    "CollectionCompleted.outcome_digest does not match content"
-                )
+                                _reject_c2_contract("CollectionCompleted.outcome_digest does not match content", exception_type=ValueError)
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -2940,9 +3035,7 @@ class CollectionPartiallyCompleted:
                 "CollectionPartiallyCompleted.outcome_digest",
             )
             if self.outcome_digest != expected:
-                raise ValueError(
-                    "CollectionPartiallyCompleted.outcome_digest does not match content"
-                )
+                                _reject_c2_contract("CollectionPartiallyCompleted.outcome_digest does not match content", exception_type=ValueError)
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -2975,9 +3068,7 @@ class CollectionProviderAccepted:
                 self.outcome_digest, "CollectionProviderAccepted.outcome_digest"
             )
             if self.outcome_digest != expected:
-                raise ValueError(
-                    "CollectionProviderAccepted.outcome_digest does not match content"
-                )
+                                _reject_c2_contract("CollectionProviderAccepted.outcome_digest does not match content", exception_type=ValueError)
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -2990,11 +3081,16 @@ class CollectionProviderAccepted:
 @dataclass(frozen=True, slots=True)
 class CollectionRejected:
     kind: Literal["rejected"] = "rejected"
-    code: str = "INVALID_REQUEST"
+    code: PlanningRejectionCode = "INVALID_REQUEST"
     message: str = ""
     outcome_digest: str = ""
 
     def __post_init__(self) -> None:
+        _require_closed_code(
+            self.code, C2_2_PLANNING_FAILURE_CODES, "collection rejection code"
+        )
+        if not isinstance(self.message, str):
+            _reject_c2_contract("CollectionRejected.message must be a string", exception_type=ValueError)
         expected = _plain_digest(
             {
                 "schema": "mrw.successor.source-library.c2-2.collection-outcome.v1",
@@ -3008,9 +3104,7 @@ class CollectionRejected:
         else:
             require_hex64(self.outcome_digest, "CollectionRejected.outcome_digest")
             if self.outcome_digest != expected:
-                raise ValueError(
-                    "CollectionRejected.outcome_digest does not match content"
-                )
+                                _reject_c2_contract("CollectionRejected.outcome_digest does not match content", exception_type=ValueError)
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -3024,12 +3118,21 @@ class CollectionRejected:
 @dataclass(frozen=True, slots=True)
 class CollectionFailed:
     kind: Literal["failed"] = "failed"
-    code: str = "TRANSPORT"
+    code: ProviderExecutionFailureCode = "TRANSPORT"
     message: str = ""
     retryable: bool = False
     outcome_digest: str = ""
 
     def __post_init__(self) -> None:
+        _require_closed_code(
+            self.code,
+            PROVIDER_EXECUTION_FAILURE_CODES,
+            "collection failure code",
+        )
+        if not isinstance(self.message, str):
+            _reject_c2_contract("CollectionFailed.message must be a string", exception_type=ValueError)
+        if not isinstance(self.retryable, bool):
+            _reject_c2_contract("CollectionFailed.retryable must be a bool", exception_type=ValueError)
         expected = _plain_digest(
             {
                 "schema": "mrw.successor.source-library.c2-2.collection-outcome.v1",
@@ -3044,9 +3147,7 @@ class CollectionFailed:
         else:
             require_hex64(self.outcome_digest, "CollectionFailed.outcome_digest")
             if self.outcome_digest != expected:
-                raise ValueError(
-                    "CollectionFailed.outcome_digest does not match content"
-                )
+                                _reject_c2_contract("CollectionFailed.outcome_digest does not match content", exception_type=ValueError)
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -3077,9 +3178,7 @@ class CollectionCancelled:
         else:
             require_hex64(self.outcome_digest, "CollectionCancelled.outcome_digest")
             if self.outcome_digest != expected:
-                raise ValueError(
-                    "CollectionCancelled.outcome_digest does not match content"
-                )
+                                _reject_c2_contract("CollectionCancelled.outcome_digest does not match content", exception_type=ValueError)
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -3110,9 +3209,7 @@ class CollectionOutcomeUnknown:
                 self.outcome_digest, "CollectionOutcomeUnknown.outcome_digest"
             )
             if self.outcome_digest != expected:
-                raise ValueError(
-                    "CollectionOutcomeUnknown.outcome_digest does not match content"
-                )
+                                _reject_c2_contract("CollectionOutcomeUnknown.outcome_digest does not match content", exception_type=ValueError)
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -3215,18 +3312,44 @@ MODE_BY_KIND: dict[str, str] = {
 KIND_BY_MODE: dict[str, str] = {mode: kind for kind, mode in MODE_BY_KIND.items()}
 
 
-def mode_for_kind(kind: str) -> str:
+def mode_for_kind(kind: SourceLibraryC2_2OperationKind) -> SourceModeLiteral:
     try:
         return MODE_BY_KIND[kind]
     except KeyError as exc:
-        raise ValueError(f"unsupported C2.2 operation kind {kind!r}") from exc
+        _reject_c2_contract(f"unsupported C2.2 operation kind {kind!r}", exception_type=ValueError)
 
 
-def kind_for_mode(mode: str) -> str:
+def try_mode_for_kind(kind: str) -> SourceModeLiteral | Failure:
+    try:
+        return mode_for_kind(kind)  # type: ignore[arg-type]
+    except (KeyError, TypeError, ValueError) as exc:
+        return c2_contract_failure(
+            "schema_contract_invalid",
+            str(exc),
+            operation="source_library.c2_2.mode_for_kind",
+            site="mode_for_kind",
+            owner=SOURCE_LIBRARY_C2_2_OWNER,
+        )
+
+
+def kind_for_mode(mode: SourceModeLiteral) -> SourceLibraryC2_2OperationKind:
     try:
         return KIND_BY_MODE[mode]
     except KeyError as exc:
-        raise ValueError(f"unsupported C2.2 source mode {mode!r}") from exc
+        _reject_c2_contract(f"unsupported C2.2 source mode {mode!r}", exception_type=ValueError)
+
+
+def try_kind_for_mode(mode: str) -> SourceLibraryC2_2OperationKind | Failure:
+    try:
+        return kind_for_mode(mode)  # type: ignore[arg-type]
+    except (KeyError, TypeError, ValueError) as exc:
+        return c2_contract_failure(
+            "schema_contract_invalid",
+            str(exc),
+            operation="source_library.c2_2.kind_for_mode",
+            site="kind_for_mode",
+            owner=SOURCE_LIBRARY_C2_2_OWNER,
+        )
 
 
 # --- C2.3 effect ports ---
@@ -3252,10 +3375,19 @@ class EphemeralCredentialLease:
 
 @dataclass(frozen=True, slots=True)
 class RedactedCredentialRejection:
-    code: str
+    code: CredentialRejectionCode
     credential_ref: str
     message: str
     credential_decision_receipt: CredentialDecisionReceipt | None = None
+
+    def __post_init__(self) -> None:
+        _require_closed_code(
+            self.code, CREDENTIAL_REJECTION_CODES, "credential rejection code"
+        )
+        if not isinstance(self.credential_ref, str) or not self.credential_ref.strip():
+            _reject_c2_contract("RedactedCredentialRejection.credential_ref is required", exception_type=ValueError)
+        if not isinstance(self.message, str):
+            _reject_c2_contract("RedactedCredentialRejection.message must be a string", exception_type=ValueError)
 
     def to_plain(self) -> dict[str, Any]:
         return {

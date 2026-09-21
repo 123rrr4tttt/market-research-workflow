@@ -17,17 +17,70 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import StrEnum
+import builtins
 from typing import Protocol, runtime_checkable
+
+from functorial_kit import Failure
 
 from .assignments import (
     AssignmentKind,
     RuntimeAssignment,
     require_digest,
 )
+from .authority_grants import AuthorityGrantUnavailable
 from .claims import ClaimBinding, ClaimBindingMismatch
 from .ports import ControlPlaneScope
 from .reconciliation import ReconciliationHandlerOutcome
 from .transitions import EffectDisposition
+from .failure_policy import raise_runtime_failure, runtime_failure
+
+
+def _node_failure(
+    code: str,
+    message: object,
+    exception_type: type[Exception],
+    *,
+    site: str,
+) -> Failure:
+    """Create one closed node failure before lifting at the legacy ABI."""
+
+    return runtime_failure(code, message, exception_type, site=site)
+
+
+def _raise_node_failure(
+    code: str,
+    message: object,
+    exception_type: type[Exception],
+    *,
+    site: str,
+    cause: BaseException | None = None,
+) -> None:
+    """Raise the exact public exception while retaining typed failure identity."""
+
+    raise_runtime_failure(
+        _node_failure(code, message, exception_type, site=site),
+        exception_type,
+        cause=cause,
+    )
+
+
+def _exception_type_from_failure(
+    failure: Failure,
+    default: type[Exception],
+) -> type[Exception]:
+    """Recover a known public exception class without parsing diagnostics."""
+
+    if failure.code == "CLOCK_OBSERVATION_INVALID":
+        return ClockObservationError
+    name = (failure.context or {}).get("public_exception")
+    candidate = getattr(builtins, name, None) if isinstance(name, str) else None
+    if isinstance(candidate, type) and issubclass(candidate, Exception):
+        return candidate
+    return default
+
+
+class ClockObservationError(ValueError):
+    """The runtime clock returned an invalid observation."""
 
 
 class RuntimeNodeState(StrEnum):
@@ -47,9 +100,19 @@ class NodeIdentity:
 
     def __post_init__(self) -> None:
         if not self.node_id or not self.incarnation:
-            raise ValueError("node identity requires node_id and incarnation")
+            _raise_node_failure(
+                "NODE_CONTRACT_INVALID",
+                "node identity requires node_id and incarnation",
+                ValueError,
+                site="runtime.node.identity",
+            )
         if self.started_at.tzinfo is None:
-            raise ValueError("node started_at must be timezone-aware")
+            _raise_node_failure(
+                "CLOCK_OBSERVATION_INVALID",
+                "node started_at must be timezone-aware",
+                ClockObservationError,
+                site="runtime.node.identity.started_at",
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,7 +126,12 @@ class RuntimeNodeProfile:
     def __post_init__(self) -> None:
         require_digest(self.profile_digest, "node profile digest")
         if not self.supported_assignment_kinds:
-            raise ValueError("node profile must support at least one assignment kind")
+            _raise_node_failure(
+                "NODE_CONTRACT_INVALID",
+                "node profile must support at least one assignment kind",
+                ValueError,
+                site="runtime.node.profile",
+            )
         for digest in self.interpreter_profile_digests:
             require_digest(digest, "interpreter profile digest")
 
@@ -80,7 +148,12 @@ class DeploymentBinding:
         require_digest(self.catalog_digest, "deployment catalog digest")
         require_digest(self.node_profile_digest, "deployment node profile digest")
         if not self.runtime_protocol_version:
-            raise ValueError("deployment requires runtime protocol version")
+            _raise_node_failure(
+                "NODE_CONTRACT_INVALID",
+                "deployment requires runtime protocol version",
+                ValueError,
+                site="runtime.node.deployment",
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,11 +166,26 @@ class RuntimeNodeProtocol:
 
     def __post_init__(self) -> None:
         if not self.version:
-            raise ValueError("runtime protocol requires a version")
+            _raise_node_failure(
+                "NODE_CONTRACT_INVALID",
+                "runtime protocol requires a version",
+                ValueError,
+                site="runtime.node.protocol.version",
+            )
         if self.claim_batch_size <= 0:
-            raise ValueError("claim batch size must be positive")
+            _raise_node_failure(
+                "NODE_CONTRACT_INVALID",
+                "claim batch size must be positive",
+                ValueError,
+                site="runtime.node.protocol.claim_batch_size",
+            )
         if self.heartbeat_extension <= timedelta(0):
-            raise ValueError("heartbeat extension must be positive")
+            _raise_node_failure(
+                "NODE_CONTRACT_INVALID",
+                "heartbeat extension must be positive",
+                ValueError,
+                site="runtime.node.protocol.heartbeat_extension",
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,9 +199,19 @@ class RuntimeClaim:
 
     def __post_init__(self) -> None:
         if self.work_item_revision < 0:
-            raise ValueError("work item revision must be non-negative")
+            _raise_node_failure(
+                "NODE_CLAIM_REJECTED",
+                "work item revision must be non-negative",
+                ValueError,
+                site="runtime.node.claim.revision",
+            )
         if not isinstance(self.effect_disposition, EffectDisposition):
-            raise TypeError("effect disposition must use the frozen runtime enum")
+            _raise_node_failure(
+                "NODE_CLAIM_REJECTED",
+                "effect disposition must use the frozen runtime enum",
+                TypeError,
+                site="runtime.node.claim.disposition",
+            )
 
     def validate_exact(self) -> None:
         """Reparse and rebind all caller-visible content before any effect."""
@@ -125,7 +223,12 @@ class RuntimeClaim:
             self.claim_binding.model_dump(mode="json", exclude_none=False)
         )
         if assignment != self.assignment or claim != self.claim_binding:
-            raise ClaimBindingMismatch("claim serialization changed exact content")
+            _raise_node_failure(
+                "NODE_CLAIM_REJECTED",
+                "claim serialization changed exact content",
+                ClaimBindingMismatch,
+                site="runtime.node.claim.serialization",
+            )
         claim.validate_against(assignment)
 
 
@@ -146,21 +249,51 @@ class InterpreterOutcome:
             EffectDisposition.OUTCOME_UNKNOWN,
         }
         if self.disposition not in terminal:
-            raise ValueError("interpreter outcome must be a terminal observation")
+            _raise_node_failure(
+                "NODE_PORT_RESULT_INVALID",
+                "interpreter outcome must be a terminal observation",
+                ValueError,
+                site="runtime.node.interpreter_outcome.disposition",
+            )
         if self.result_digest is not None:
             require_digest(self.result_digest, "interpreter result digest")
         if self.disposition is EffectDisposition.SUCCEEDED:
             if self.result_digest is None:
-                raise ValueError("SUCCEEDED outcome requires result_digest")
+                _raise_node_failure(
+                    "NODE_PORT_RESULT_INVALID",
+                    "SUCCEEDED outcome requires result_digest",
+                    ValueError,
+                    site="runtime.node.interpreter_outcome.success",
+                )
             if self.failure_code or self.reconciliation_hint:
-                raise ValueError("SUCCEEDED outcome cannot carry failure metadata")
+                _raise_node_failure(
+                    "NODE_PORT_RESULT_INVALID",
+                    "SUCCEEDED outcome cannot carry failure metadata",
+                    ValueError,
+                    site="runtime.node.interpreter_outcome.success.metadata",
+                )
         elif self.disposition is EffectDisposition.FAILED:
             if not self.failure_code:
-                raise ValueError("FAILED outcome requires failure_code")
+                _raise_node_failure(
+                    "NODE_PORT_RESULT_INVALID",
+                    "FAILED outcome requires failure_code",
+                    ValueError,
+                    site="runtime.node.interpreter_outcome.failure",
+                )
             if self.reconciliation_hint:
-                raise ValueError("FAILED outcome cannot carry reconciliation_hint")
+                _raise_node_failure(
+                    "NODE_PORT_RESULT_INVALID",
+                    "FAILED outcome cannot carry reconciliation_hint",
+                    ValueError,
+                    site="runtime.node.interpreter_outcome.failure.metadata",
+                )
         elif not self.reconciliation_hint:
-            raise ValueError("OUTCOME_UNKNOWN requires reconciliation_hint")
+            _raise_node_failure(
+                "NODE_PORT_RESULT_INVALID",
+                "OUTCOME_UNKNOWN requires reconciliation_hint",
+                ValueError,
+                site="runtime.node.interpreter_outcome.unknown",
+            )
 
     @classmethod
     def succeeded(
@@ -209,9 +342,19 @@ class MaterializerCommitOutcome:
         require_digest(self.attempt_id, "materializer attempt id")
         require_digest(self.result_digest, "materializer result digest")
         if not self.receipt_ref:
-            raise ValueError("materializer commit requires a receipt ref")
+            _raise_node_failure(
+                "NODE_PORT_RESULT_INVALID",
+                "materializer commit requires a receipt ref",
+                ValueError,
+                site="runtime.node.materializer.receipt",
+            )
         if self.disposition is not EffectDisposition.SUCCEEDED:
-            raise ValueError("materializer commit receipt must be SUCCEEDED")
+            _raise_node_failure(
+                "NODE_PORT_RESULT_INVALID",
+                "materializer commit receipt must be SUCCEEDED",
+                ValueError,
+                site="runtime.node.materializer.disposition",
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -382,11 +525,26 @@ class RuntimeNode:
         clock: Clock,
     ) -> None:
         if deployment.node_profile_digest != profile.profile_digest:
-            raise ValueError("deployment is bound to a different node profile")
+            _raise_node_failure(
+                "NODE_CONTRACT_INVALID",
+                "deployment is bound to a different node profile",
+                ValueError,
+                site="runtime.node.init.profile",
+            )
         if deployment.runtime_protocol_version != protocol.version:
-            raise ValueError("deployment/runtime protocol version mismatch")
+            _raise_node_failure(
+                "NODE_CONTRACT_INVALID",
+                "deployment/runtime protocol version mismatch",
+                ValueError,
+                site="runtime.node.init.protocol",
+            )
         if control_scope.system_actor_id != identity.node_id:
-            raise ValueError("control-plane actor must be the exact node identity")
+            _raise_node_failure(
+                "NODE_CONTRACT_INVALID",
+                "control-plane actor must be the exact node identity",
+                ValueError,
+                site="runtime.node.init.actor",
+            )
         self.identity = identity
         self.profile = profile
         self.deployment = deployment
@@ -398,7 +556,7 @@ class RuntimeNode:
         self.cancellation = cancellation
         self.clock = clock
 
-    def run_once(self) -> RunOnceReport:
+    def _run_once_impl(self) -> RunOnceReport:
         """Claim one bounded batch and isolate every claim's observation."""
 
         if self.identity.state is not RuntimeNodeState.ACTIVE:
@@ -424,6 +582,35 @@ class RuntimeNode:
             claimed=len(claimed),
             results=results,
         )
+
+    def run_once_result(self) -> RunOnceReport | Failure:
+        """Return one run report or a closed node/clock/port failure."""
+
+        try:
+            return self._run_once_impl()
+        except ClockObservationError as exc:
+            return _node_failure(
+                "CLOCK_OBSERVATION_INVALID",
+                str(exc),
+                ClockObservationError,
+                site="runtime.node.run_once.clock",
+            )
+        except Exception as exc:  # noqa: BLE001 - claim port failures stay typed
+            return _node_failure(
+                "NODE_PORT_RESULT_INVALID",
+                str(exc),
+                type(exc) if isinstance(exc, Exception) else RuntimeError,
+                site="runtime.node.run_once.port",
+            )
+
+    def run_once(self) -> RunOnceReport:
+        """Legacy exception ABI over :meth:`run_once_result`."""
+
+        result = self.run_once_result()
+        if isinstance(result, Failure):
+            exception_type = _exception_type_from_failure(result, RuntimeError)
+            raise_runtime_failure(result, exception_type)
+        return result
 
     def _run_claim(self, claim: RuntimeClaim) -> ClaimRunResult:
         try:
@@ -482,7 +669,7 @@ class RuntimeNode:
                 )
             return self._rejected_without_commit(
                 live_claim,
-                self._error_code(exc),
+                self._error_code(exc, default="DIFFERENT_HANDLER_DIGEST"),
             )
         except Exception as exc:  # noqa: BLE001 - resolver/guard must fail closed
             if live_claim.assignment.assignment_kind is AssignmentKind.RECONCILE:
@@ -490,7 +677,10 @@ class RuntimeNode:
                     live_claim,
                     self._error_code(exc),
                 )
-            return self._commit_pre_effect_failure(live_claim, self._error_code(exc))
+            return self._commit_pre_effect_failure(
+                live_claim,
+                self._error_code(exc, default="AUTHORITY_STALE_BEFORE_EFFECT"),
+            )
 
         if live_claim.assignment.assignment_kind is AssignmentKind.RECONCILE:
             return self._run_reconciliation(live_claim, handler)
@@ -524,7 +714,10 @@ class RuntimeNode:
         except LeaseLost:
             return self._lease_lost(in_flight, executed=False)
         except Exception as exc:  # noqa: BLE001 - guard must fail closed
-            return self._commit_pre_effect_failure(in_flight, self._error_code(exc))
+            return self._commit_pre_effect_failure(
+                in_flight,
+                self._error_code(exc, default="AUTHORITY_STALE_BEFORE_EFFECT"),
+            )
 
         outcome: InterpreterOutcome
         try:
@@ -534,7 +727,12 @@ class RuntimeNode:
                 RuntimeExecutionContext(node=self.identity, observed_at=self._now()),
             )
             if not isinstance(outcome, InterpreterOutcome):
-                raise TypeError("exact handler returned a non-InterpreterOutcome")
+                _raise_node_failure(
+                    "NODE_HANDLER_CONTRACT_INVALID",
+                    "exact handler returned a non-InterpreterOutcome",
+                    TypeError,
+                    site="runtime.node.interpreter.handler_result",
+                )
         except DefiniteInterpreterFailure as exc:
             outcome = InterpreterOutcome.failed(exc.failure_code)
         except OutcomeUncertain as exc:
@@ -611,15 +809,21 @@ class RuntimeNode:
                 RuntimeExecutionContext(node=self.identity, observed_at=self._now()),
             )
             if not isinstance(outcome, MaterializerCommitOutcome):
-                raise TypeError(
-                    "MATERIALIZE_SUCCESSOR handler returned a non-commit receipt"
+                _raise_node_failure(
+                    "NODE_HANDLER_CONTRACT_INVALID",
+                    "MATERIALIZE_SUCCESSOR handler returned a non-commit receipt",
+                    TypeError,
+                    site="runtime.node.materializer.handler_result",
                 )
             if (
                 outcome.assignment_digest != claim.assignment.assignment_digest
                 or outcome.attempt_id != claim.claim_binding.attempt_id
             ):
-                raise ClaimBindingMismatch(
-                    "materializer commit receipt exact identity drift"
+                _raise_node_failure(
+                    "NODE_PORT_RESULT_INVALID",
+                    "materializer commit receipt exact identity drift",
+                    ClaimBindingMismatch,
+                    site="runtime.node.materializer.receipt.identity",
                 )
         except DefiniteInterpreterFailure as exc:
             return self._rejected_without_commit(claim, exc.failure_code)
@@ -656,16 +860,25 @@ class RuntimeNode:
                 RuntimeExecutionContext(node=self.identity, observed_at=self._now()),
             )
             if not isinstance(outcome, ReconciliationHandlerOutcome):
-                raise TypeError(
-                    "RECONCILE handler returned a non-ReconciliationHandlerOutcome"
+                _raise_node_failure(
+                    "NODE_HANDLER_CONTRACT_INVALID",
+                    "RECONCILE handler returned a non-ReconciliationHandlerOutcome",
+                    TypeError,
+                    site="runtime.node.reconciliation.handler_result",
                 )
             target_attempt_id = claim.assignment.reconciliation_attempt_id
             if outcome.result.attempt_id != target_attempt_id:
-                raise ClaimBindingMismatch(
-                    "reconciliation outcome is bound to a different target attempt"
+                _raise_node_failure(
+                    "RECONCILIATION_RESULT_INVALID",
+                    "reconciliation outcome is bound to a different target attempt",
+                    ClaimBindingMismatch,
+                    site="runtime.node.reconciliation.result.identity",
                 )
         except Exception as exc:  # noqa: BLE001 - readback cannot fabricate terminality
-            return self._reconciliation_rejected(claim, self._error_code(exc))
+            return self._reconciliation_rejected(
+                claim,
+                self._error_code(exc, default="NON-RECONCILIATIONHANDLEROUTCOME"),
+            )
 
         try:
             commit_claim = self._heartbeat(claim)
@@ -703,39 +916,92 @@ class RuntimeNode:
         assignment = claim.assignment
         binding = claim.claim_binding
         if assignment.assignment_kind not in self.profile.supported_assignment_kinds:
-            raise ExactHandlerMismatch("node profile does not support assignment kind")
+            _raise_node_failure(
+                "NODE_CLAIM_REJECTED",
+                "node profile does not support assignment kind",
+                ExactHandlerMismatch,
+                site="runtime.node.claim.assignment_kind",
+            )
         if assignment.runtime_protocol_version != self.protocol.version:
-            raise ClaimBindingMismatch("assignment runtime protocol drift")
+            _raise_node_failure(
+                "NODE_CLAIM_REJECTED",
+                "assignment runtime protocol drift",
+                ClaimBindingMismatch,
+                site="runtime.node.claim.protocol",
+            )
         if assignment.deployment_catalog_digest != self.deployment.catalog_digest:
-            raise ClaimBindingMismatch("assignment deployment catalog drift")
+            _raise_node_failure(
+                "NODE_CLAIM_REJECTED",
+                "assignment deployment catalog drift",
+                ClaimBindingMismatch,
+                site="runtime.node.claim.deployment",
+            )
         if binding.node_id != self.identity.node_id:
-            raise ClaimBindingMismatch("claim is bound to a different node")
+            _raise_node_failure(
+                "NODE_CLAIM_REJECTED",
+                "claim is bound to a different node",
+                ClaimBindingMismatch,
+                site="runtime.node.claim.node",
+            )
         if binding.node_profile_digest != self.profile.profile_digest:
-            raise ClaimBindingMismatch("claim node profile drift")
+            _raise_node_failure(
+                "NODE_CLAIM_REJECTED",
+                "claim node profile drift",
+                ClaimBindingMismatch,
+                site="runtime.node.claim.profile",
+            )
         if binding.claim_authority_epoch != self.control_scope.authority_epoch:
-            raise ClaimBindingMismatch("control-plane authority epoch drift")
+            _raise_node_failure(
+                "NODE_CLAIM_REJECTED",
+                "control-plane authority epoch drift",
+                ClaimBindingMismatch,
+                site="runtime.node.claim.authority",
+            )
         if binding.lease_expires_at <= self._now():
-            raise LeaseLost("claim lease already expired")
+            _raise_node_failure(
+                "NODE_CLAIM_REJECTED",
+                "claim lease already expired",
+                LeaseLost,
+                site="runtime.node.claim.lease",
+            )
         exact = assignment.handler_binding
         profile_digest = getattr(exact, "interpreter_profile_digest", None)
         if profile_digest is not None:
             if binding.interpreter_profile_digest != profile_digest:
-                raise ClaimBindingMismatch("claim interpreter profile drift")
+                _raise_node_failure(
+                    "NODE_CLAIM_REJECTED",
+                    "claim interpreter profile drift",
+                    ClaimBindingMismatch,
+                    site="runtime.node.claim.interpreter_profile",
+                )
             if profile_digest not in self.profile.interpreter_profile_digests:
-                raise ExactHandlerMismatch("interpreter profile is not installed")
+                _raise_node_failure(
+                    "NODE_HANDLER_CONTRACT_INVALID",
+                    "interpreter profile is not installed",
+                    ExactHandlerMismatch,
+                    site="runtime.node.claim.interpreter_installation",
+                )
 
     def _validate_handler(self, claim: RuntimeClaim, handler: RuntimeHandler) -> None:
         expected = claim.assignment.handler_binding_digest
         if handler.handler_binding_digest != expected:
-            raise ExactHandlerMismatch("resolver returned a different handler digest")
+            _raise_node_failure(
+                "NODE_HANDLER_CONTRACT_INVALID",
+                "resolver returned a different handler digest",
+                ExactHandlerMismatch,
+                site="runtime.node.handler.binding",
+            )
         exact_profile = getattr(
             claim.assignment.handler_binding,
             "interpreter_profile_digest",
             None,
         )
         if handler.interpreter_profile_digest != exact_profile:
-            raise ExactHandlerMismatch(
-                "resolver returned a different interpreter profile"
+            _raise_node_failure(
+                "NODE_HANDLER_CONTRACT_INVALID",
+                "resolver returned a different interpreter profile",
+                ExactHandlerMismatch,
+                site="runtime.node.handler.interpreter_profile",
             )
 
     def _require_effect_guard(self, claim: RuntimeClaim) -> None:
@@ -774,11 +1040,26 @@ class RuntimeNode:
     ) -> None:
         successor.validate_exact()
         if successor.assignment != previous.assignment:
-            raise ClaimBindingMismatch("claim renewal changed assignment content")
+            _raise_node_failure(
+                "NODE_CLAIM_REJECTED",
+                "claim renewal changed assignment content",
+                ClaimBindingMismatch,
+                site="runtime.node.claim.renewal.assignment",
+            )
         if successor.claim_binding.attempt_id != previous.claim_binding.attempt_id:
-            raise ClaimBindingMismatch("claim renewal changed attempt identity")
+            _raise_node_failure(
+                "NODE_CLAIM_REJECTED",
+                "claim renewal changed attempt identity",
+                ClaimBindingMismatch,
+                site="runtime.node.claim.renewal.attempt",
+            )
         if successor.claim_binding.lease_token != previous.claim_binding.lease_token:
-            raise ClaimBindingMismatch("claim renewal changed lease identity")
+            _raise_node_failure(
+                "NODE_CLAIM_REJECTED",
+                "claim renewal changed lease identity",
+                ClaimBindingMismatch,
+                site="runtime.node.claim.renewal.lease",
+            )
         for field_name in (
             "node_id",
             "node_profile_digest",
@@ -791,15 +1072,26 @@ class RuntimeNode:
             if getattr(successor.claim_binding, field_name) != getattr(
                 previous.claim_binding, field_name
             ):
-                raise ClaimBindingMismatch(
-                    f"claim renewal changed exact {field_name} binding"
+                _raise_node_failure(
+                    "NODE_CLAIM_REJECTED",
+                    f"claim renewal changed exact {field_name} binding",
+                    ClaimBindingMismatch,
+                    site="runtime.node.claim.renewal.binding",
                 )
         if successor.work_item_revision != previous.work_item_revision + 1:
-            raise ClaimBindingMismatch(
-                "claim CAS revision did not advance exactly once"
+            _raise_node_failure(
+                "NODE_CLAIM_REJECTED",
+                "claim CAS revision did not advance exactly once",
+                ClaimBindingMismatch,
+                site="runtime.node.claim.renewal.revision",
             )
         if successor.effect_disposition is not expected_disposition:
-            raise ClaimBindingMismatch("claim disposition transition drift")
+            _raise_node_failure(
+                "NODE_CLAIM_REJECTED",
+                "claim disposition transition drift",
+                ClaimBindingMismatch,
+                site="runtime.node.claim.renewal.disposition",
+            )
 
     def _commit_pre_effect_failure(
         self, claim: RuntimeClaim, failure_code: str
@@ -894,16 +1186,34 @@ class RuntimeNode:
         )
 
     @staticmethod
-    def _error_code(exc: Exception) -> str:
+    def _error_code(
+        exc: Exception,
+        *,
+        default: str = "NODE_PORT_RESULT_INVALID",
+    ) -> str:
         if isinstance(exc, DefiniteInterpreterFailure):
             return exc.failure_code
-        text = str(exc).strip().replace(" ", "_").upper()
-        return text[:512] or type(exc).__name__.upper()
+        if default != "NODE_PORT_RESULT_INVALID":
+            return default
+        if isinstance(exc, AuthorityGrantUnavailable):
+            return "AUTHORITY_GRANT_INVALID"
+        if isinstance(exc, ExactHandlerMismatch):
+            return "NODE_HANDLER_CONTRACT_INVALID"
+        if isinstance(exc, ClaimBindingMismatch):
+            return "NODE_CLAIM_REJECTED"
+        if isinstance(exc, ClockObservationError):
+            return "CLOCK_OBSERVATION_INVALID"
+        return default
 
     def _now(self) -> datetime:
         observed_at = self.clock.now()
-        if observed_at.tzinfo is None:
-            raise ValueError("runtime clock must return timezone-aware datetimes")
+        if observed_at.tzinfo is None or observed_at.utcoffset() is None:
+            _raise_node_failure(
+                "CLOCK_OBSERVATION_INVALID",
+                "runtime clock must return timezone-aware datetimes",
+                ClockObservationError,
+                site="runtime.node.clock.now",
+            )
         return observed_at
 
 
@@ -913,6 +1223,7 @@ __all__ = [
     "ClaimRunResult",
     "ClaimRunState",
     "Clock",
+    "ClockObservationError",
     "DefiniteInterpreterFailure",
     "DeploymentBinding",
     "ExactHandlerMismatch",

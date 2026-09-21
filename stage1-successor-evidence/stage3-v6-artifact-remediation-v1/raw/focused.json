@@ -1,0 +1,40 @@
+{
+  "artifacts": [
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/focused.log",
+      "sha256": "01eef87600e43fdd53b92e6c54acaee299c204f4d4d0e8a9c5e850ab23046bb1"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/focused.xml",
+      "sha256": "dfb3f280471fc9b9100d42bf0e14902e6705a1488dc2a300493b37f43399d04d"
+    }
+  ],
+  "authoritative": false,
+  "command": [
+    "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/bin/python",
+    "-m",
+    "pytest",
+    "-p",
+    "no:cacheprovider",
+    "-q",
+    "--junitxml=/Users/wangyiliang/market-research-workflow/stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/focused.xml",
+    "tests/formal_release/test_check_static_production_contract.py",
+    "tests/formal_release/test_s1_workflow_contract.py",
+    "tests/formal_release/test_dockerfile_lockfile_closure.py",
+    "tests/formal_release/test_stage2_candidate_intake.py",
+    "tests/formal_release/test_source_closure.py"
+  ],
+  "cwd": "/Users/wangyiliang/market-research-workflow",
+  "elapsed_seconds": 38.12474703788757,
+  "environment": {
+    "MRW_STORE_AUTO_CREATE": "false",
+    "MRW_VECTOR_ENABLE_IVFFLAT": "false",
+    "MRW_VECTOR_REQUIRE_PGVECTOR": "false",
+    "MRW_VECTOR_STORE_AUTO_CREATE": "false",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "PYTHONHASHSEED": "0",
+    "PYTHONPATH": "/Users/wangyiliang/market-research-workflow:/Users/wangyiliang/market-research-workflow/src"
+  },
+  "exit_code": 0,
+  "isolation": "none added"
+}

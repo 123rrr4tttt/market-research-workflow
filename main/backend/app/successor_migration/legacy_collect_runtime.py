@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from math import ceil
-from typing import Any, Protocol, runtime_checkable
+from typing import Annotated, Any, Protocol, runtime_checkable
 
 from app.successor_runtime.capabilities import collect_c3 as c3
 from app.successor_runtime.capabilities.checksum import content_digest
@@ -669,7 +669,12 @@ def build_legacy_collect_c3_1_binding(
     project_scope_digest: str,
     resource_policy_epoch: int = 1,
     runtime_protocol_version: str = "mrw.runtime.protocol.v1",
-) -> InterpreterBinding:
+) -> Annotated[
+    InterpreterBinding,
+    "kit:prepared-command effect_boundary=app.successor_migration."
+    "legacy_collect_runtime.build_legacy_collect_c3_1_binding "
+    "witness=test:test_legacy_and_successor_bindings_are_distinct_and_exact",
+]:
     return InterpreterBinding.from_content(
         operation_contract_digest=contract_digest,
         interpreter_profile_digest=legacy_interpreter_profile_digest_c3_1(),
@@ -688,7 +693,12 @@ def build_successor_collect_c3_1_binding(
     project_scope_digest: str,
     resource_policy_epoch: int = 1,
     runtime_protocol_version: str = "mrw.runtime.protocol.v1",
-) -> InterpreterBinding:
+) -> Annotated[
+    InterpreterBinding,
+    "kit:prepared-command effect_boundary=app.successor_migration."
+    "legacy_collect_runtime.build_successor_collect_c3_1_binding "
+    "witness=test:test_legacy_and_successor_bindings_are_distinct_and_exact",
+]:
     return InterpreterBinding.from_content(
         operation_contract_digest=contract_digest,
         interpreter_profile_digest=successor_interpreter_profile_digest_c3_1(),
@@ -707,7 +717,12 @@ def build_legacy_collect_c3_2_binding(
     project_scope_digest: str,
     resource_policy_epoch: int = 1,
     runtime_protocol_version: str = "mrw.runtime.protocol.v1",
-) -> InterpreterBinding:
+) -> Annotated[
+    InterpreterBinding,
+    "kit:prepared-command effect_boundary=app.successor_migration."
+    "legacy_collect_runtime.build_legacy_collect_c3_2_binding "
+    "witness=test:test_legacy_and_successor_bindings_are_distinct_and_exact",
+]:
     return InterpreterBinding.from_content(
         operation_contract_digest=contract_digest,
         interpreter_profile_digest=legacy_interpreter_profile_digest_c3_2(),
@@ -726,7 +741,12 @@ def build_successor_collect_c3_2_binding(
     project_scope_digest: str,
     resource_policy_epoch: int = 1,
     runtime_protocol_version: str = "mrw.runtime.protocol.v1",
-) -> InterpreterBinding:
+) -> Annotated[
+    InterpreterBinding,
+    "kit:prepared-command effect_boundary=app.successor_migration."
+    "legacy_collect_runtime.build_successor_collect_c3_2_binding "
+    "witness=test:test_legacy_and_successor_bindings_are_distinct_and_exact",
+]:
     return InterpreterBinding.from_content(
         operation_contract_digest=contract_digest,
         interpreter_profile_digest=successor_interpreter_profile_digest_c3_2(),

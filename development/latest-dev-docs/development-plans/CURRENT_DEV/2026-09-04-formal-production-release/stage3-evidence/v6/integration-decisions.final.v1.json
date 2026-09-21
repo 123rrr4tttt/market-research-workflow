@@ -1,0 +1,339 @@
+{
+  "workers_finished": true,
+  "validator_clone": "/private/tmp/mrw-stage3-v6-preflight-gga5tnof/candidate",
+  "python": "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/bin/python",
+  "gates": [
+    {
+      "family": "candidate_identity",
+      "status": "PASS",
+      "result": "Exact commit/tree/parent; clean; fsck; input hashes verified",
+      "evidence": "recovery-preflight/completion.json"
+    },
+    {
+      "family": "fresh_r1_r2_r3",
+      "status": "PASS",
+      "result": "R1/R3 PASS; 58 focused tests include R2 synthetic conformance and workflow checks",
+      "evidence": "recovery-preflight/completion.json"
+    },
+    {
+      "family": "architecture_registry_law_negative",
+      "status": "FAIL",
+      "result": "14 failed, 780 passed, 24 subtests passed, 2 warnings; includes environment and missing candidate closure failures",
+      "evidence": "recovery-backend/root.record.json"
+    },
+    {
+      "family": "backend_unit",
+      "status": "FAIL",
+      "result": "28 failed, 1765 passed, 52 subtests passed, 2329 deselected, 25 warnings; stronger temporary socket guard changes failure behavior",
+      "evidence": "recovery-backend/unit-src-path.record.json"
+    },
+    {
+      "family": "backend_integration",
+      "status": "BLOCKED",
+      "result": "25 failed, 359 passed, 69 subtests passed, 291 skipped, 3447 deselected, 23 warnings; service-dependent run, native connection attempt denied by sandbox",
+      "evidence": "recovery-backend/integration-src-path.record.json"
+    },
+    {
+      "family": "core_business",
+      "status": "FAIL",
+      "result": "14 failed, 239 passed, 15 subtests passed, 15 warnings; guard-related failures remain qualified",
+      "evidence": "recovery-backend/core-business-src-path.record.json"
+    },
+    {
+      "family": "successor_runtime",
+      "status": "BLOCKED",
+      "result": "Interrupted partial run; no full-suite verdict; service-safety review required",
+      "evidence": "recovery-backend"
+    },
+    {
+      "family": "migration_graph",
+      "status": "PASS",
+      "result": "36 revisions; one head 20260905_000001; actual alembic heads PASS",
+      "evidence": "recovery-ops/followup.v1.json"
+    },
+    {
+      "family": "production_compose_syntax",
+      "status": "PASS",
+      "result": "Synthetic config render only",
+      "evidence": "recovery-ops/report.v1.json"
+    },
+    {
+      "family": "frontend_frozen_install",
+      "status": "PASS",
+      "result": "386 packages; recovered network failure",
+      "evidence": "recovery-frontend/install-02.json"
+    },
+    {
+      "family": "frontend_lint",
+      "status": "FAIL",
+      "result": "12 errors, 0 warnings",
+      "evidence": "recovery-frontend/lint-01.json"
+    },
+    {
+      "family": "frontend_typecheck_build",
+      "status": "FAIL",
+      "result": "72 TypeScript errors; typecheck and build exit2",
+      "evidence": "recovery-frontend/summary-01.json"
+    },
+    {
+      "family": "frontend_storybook",
+      "status": "FAIL",
+      "result": "Unresolved direct import three",
+      "evidence": "recovery-frontend/storybook-01.json"
+    },
+    {
+      "family": "frontend_e2e",
+      "status": "BLOCKED",
+      "result": "1 passed, 3 failed, 99 reported skipped including early-stop unexecuted; backend deliberately unavailable; diagnostic only",
+      "evidence": "recovery-frontend/summary-01.json"
+    },
+    {
+      "family": "frontend_dependency_audit",
+      "status": "PASS",
+      "result": "high0 critical0 moderate1; high-threshold exit0; advisory details absent",
+      "evidence": "recovery-frontend/audit-summary-01.json"
+    },
+    {
+      "family": "bandit",
+      "status": "FAIL",
+      "result": "High/high gate: 1 B324; total severity low279 medium53 high1; zero skipped files",
+      "evidence": "recovery-ops/report.v1.json"
+    },
+    {
+      "family": "gitleaks",
+      "status": "FAIL",
+      "result": "346 redacted findings over480 commits; unadjudicated, not a live-credential count",
+      "evidence": "recovery-ops/security-followup.v1.json"
+    },
+    {
+      "family": "pip_audit",
+      "status": "BLOCKED",
+      "result": "Strict audit cannot audit non-PyPI functorial-kit0.1.0; exit1; no vulnerability PASS",
+      "evidence": "recovery-ops/audit-retry.v1.json"
+    },
+    {
+      "family": "postgresql_opt_in",
+      "status": "BLOCKED",
+      "result": "Dedicated Docker service unavailable; no dedicated DB created",
+      "evidence": "recovery-ops/followup.v1.json"
+    },
+    {
+      "family": "docker_full_stack",
+      "status": "BLOCKED",
+      "result": "Docker daemon unavailable after unrestricted read-only check",
+      "evidence": "recovery-ops/followup.v1.json"
+    },
+    {
+      "family": "artifacts_rebuild_sbom_provenance_image_scan",
+      "status": "BLOCKED",
+      "result": "No Docker daemon and external FROM inputs unpinned; no qualified artifact or digest produced",
+      "evidence": "recovery-static/static-findings.v1.json"
+    },
+    {
+      "family": "remote_required_checks",
+      "status": "BLOCKED",
+      "result": "Commit/checks HTTP422; zero runs; main protected=false enforcement off; rulesets/effective rules empty",
+      "evidence": "recovery-remote/unrestricted-readonly/observations.json"
+    },
+    {
+      "family": "signature_registry",
+      "status": "UNEXECUTED",
+      "result": "No bound external subject digest/namespace or existing signature; publish/signing authority absent",
+      "evidence": "recovery-remote/unrestricted-readonly/observations.json"
+    }
+  ],
+  "attribution": {
+    "aggregation": "Counts are per command, never summed as unique tests; overlapping selectors and retries remain separate.",
+    "preflight": "CLI omission, missing test interpreters, temporary symlink dirt retained and recovered; final R1 clean PASS.",
+    "root": "Environment alias/compose plugin failures separated from missing candidate registries/baseline; raw node identities in JUnit/log.",
+    "backend": "Temporary guard differs from Stage2 DNS-only injection; plain OSError behavior confounds selected failures. Integration skips and deselects are not PASS. Successor interrupted counts are partial only.",
+    "frontend": "Node26.4.0/macOS versus Node22/Ubuntu; 99 e2e reported skipped includes unexecuted early stop. Missing backend is environment blocker. DEP0205 warning retained.",
+    "security": "Gitleaks findings unadjudicated; pip-audit strict exception cannot be called clean. All raw scanner failures retained.",
+    "interruption": "Pre-interruption tmp receipts disappeared; historical conversation claims excluded from recovered acceptance evidence."
+  },
+  "retained_resources": [
+    {
+      "path": "/private/tmp/mrw-stage3-v6-preflight-gga5tnof",
+      "owner": "recover_preflight",
+      "reason": "Independent clone retained for validator execution and replay",
+      "recovery": "Replay recorded commands; remove only this exact owned directory after evidence review"
+    },
+    {
+      "path": "/private/tmp/mrw-stage3-v6-frontend-recovery-20260907",
+      "owner": "recover_frontend",
+      "reason": "Independent dependency tree and browser failure traces",
+      "recovery": "Use permanent summary and trace hashes; remove exact directory after review"
+    },
+    {
+      "path": "/private/tmp/mrw-stage3-v6-ops-1yM6UC",
+      "owner": "recover_ops",
+      "reason": "Independent clone, scanner venv and Go cache",
+      "recovery": "No containers or services; remove exact directory after review"
+    },
+    {
+      "path": "/private/tmp/mrw-stage3-v6-backend-recovery-20260907",
+      "owner": "recover_backend",
+      "reason": "Independent candidate and partial-run diagnostics",
+      "recovery": "Review final backend receipt before exact-path removal"
+    },
+    {
+      "path": "/private/tmp/mrw-stage3-v6-backend-recovery-guard",
+      "owner": "recover_backend",
+      "reason": "Temporary Python audit guard explains environment differences",
+      "recovery": "Replay only within declared safety scope; remove exact path after review"
+    },
+    {
+      "path": "/private/tmp/mrw-stage3-v6-backend-recovery-20260907-run.py",
+      "owner": "Stage3 recovery workers",
+      "reason": "Task-owned replay runner or diagnostic output",
+      "recovery": "Retain for review; remove exact path after review"
+    },
+    {
+      "path": "/private/tmp/mrw-stage3-v6-backend-recovery-completion.py",
+      "owner": "Stage3 recovery workers",
+      "reason": "Task-owned replay runner or diagnostic output",
+      "recovery": "Retain for review; remove exact path after review"
+    },
+    {
+      "path": "/private/tmp/mrw-stage3-v6-backend-recovery-finalize.py",
+      "owner": "Stage3 recovery workers",
+      "reason": "Task-owned replay runner or diagnostic output",
+      "recovery": "Retain for review; remove exact path after review"
+    },
+    {
+      "path": "/private/tmp/mrw-stage3-v6-backend-recovery-retry.py",
+      "owner": "Stage3 recovery workers",
+      "reason": "Task-owned replay runner or diagnostic output",
+      "recovery": "Retain for review; remove exact path after review"
+    },
+    {
+      "path": "/private/tmp/mrw-stage3-v6-frontend-audit-summary.py",
+      "owner": "Stage3 recovery workers",
+      "reason": "Task-owned replay runner or diagnostic output",
+      "recovery": "Retain for review; remove exact path after review"
+    },
+    {
+      "path": "/private/tmp/mrw-stage3-v6-frontend-recovery-20260907-run.py",
+      "owner": "Stage3 recovery workers",
+      "reason": "Task-owned replay runner or diagnostic output",
+      "recovery": "Retain for review; remove exact path after review"
+    },
+    {
+      "path": "/private/tmp/mrw-stage3-v6-frontend-recovery-summary.py",
+      "owner": "Stage3 recovery workers",
+      "reason": "Task-owned replay runner or diagnostic output",
+      "recovery": "Retain for review; remove exact path after review"
+    }
+  ],
+  "blockers": [
+    {
+      "id": "CANDIDATE_CLOSURE_MISSING",
+      "owner": "Stage1/2",
+      "status": "FAIL",
+      "repair": "Add existing registry/baseline/frontend closure to additive successor; supervisor accept new identity"
+    },
+    {
+      "id": "EXTERNAL_BASES_UNPINNED",
+      "owner": "Stage1/2",
+      "status": "FAIL",
+      "repair": "Pin Docker base digests in successor"
+    },
+    {
+      "id": "FRONTEND_COMPILE_LINT_STORYBOOK",
+      "owner": "Stage1/2",
+      "status": "FAIL",
+      "repair": "Complete frontend source/dependency closure and focused verification"
+    },
+    {
+      "id": "BANDIT_B324",
+      "owner": "Stage1/2",
+      "status": "FAIL",
+      "repair": "Preserve naming semantics while declaring nonsecurity hash use if verified"
+    },
+    {
+      "id": "SECURITY_FINDINGS_UNADJUDICATED",
+      "owner": "Security owner",
+      "status": "BLOCKED",
+      "repair": "Adjudicate redacted history findings and non-PyPI audit coverage"
+    },
+    {
+      "id": "DOCKER_DAEMON_UNAVAILABLE",
+      "owner": "Local environment",
+      "status": "BLOCKED",
+      "repair": "Make dedicated local container execution available"
+    },
+    {
+      "id": "REMOTE_CANDIDATE_AND_ENFORCEMENT_ABSENT",
+      "owner": "Repository authority",
+      "status": "BLOCKED",
+      "repair": "Explicitly authorized publication/enforcement and exact-candidate remote CI required"
+    },
+    {
+      "id": "REGISTRY_SIGNATURE_SUBJECT_UNBOUND",
+      "owner": "Release authority",
+      "status": "BLOCKED",
+      "repair": "Provide authorized immutable registry subject and existing signature for readback"
+    }
+  ],
+  "main_fields": {
+    "candidate_parent": "88ffcc3dab2e6cbdc1f389e16c4226df5a2e51c6",
+    "candidate_strategy": "REMEDIATION_INCLUSIVE_RELEASE",
+    "toolchain_and_platforms": {
+      "platform": "macOS arm64",
+      "frontend_node": "26.4.0",
+      "pnpm": "11.22.0",
+      "backend_python": "3.11.14",
+      "bandit": "1.8.6",
+      "pip_audit": "2.9.0",
+      "gitleaks": "8.24.2",
+      "docker_cli": "29.2.1",
+      "qualification": "Declared local toolchains; exact command receipts are authoritative for versions"
+    },
+    "fresh_r1_r2_r3": {
+      "status": "PASS",
+      "qualification": "R2 synthetic conformance only; 58 focused tests"
+    },
+    "ci_run_id_and_head_sha": {
+      "status": "BLOCKED",
+      "run_id": null,
+      "head_sha": null,
+      "requested_sha": "909eb608e538b6427bcbacca974f1efb05fef611"
+    },
+    "required_jobs_and_conclusions": [],
+    "remote_enforcement_readback": {
+      "status": "BLOCKED",
+      "reason": "main protected=false; enforcement off; empty effective rules; candidate commit absent"
+    },
+    "artifact_names_and_immutable_digests": [],
+    "reproducibility_class": "UNEXECUTED",
+    "declared_platform_differences": [
+      "macOS arm64 rather than Ubuntu CI",
+      "Node26 rather than22",
+      "Python socket audit guard on backend versus unmodified workflow",
+      "Dedicated backend unavailable for frontend e2e"
+    ],
+    "sbom_refs_and_sha256": [],
+    "provenance_refs_and_sha256": [],
+    "security_scan_results": {
+      "status": "FAIL",
+      "qualification": "Bandit and gitleaks failures; strict pip-audit blocked; frontend high threshold passed with one moderate advisory"
+    },
+    "signature_and_attestation_verification": {
+      "status": "UNEXECUTED",
+      "reason": "No bound signature subject; signing writes unauthorized"
+    },
+    "registry_immutability_readback": {
+      "status": "UNEXECUTED",
+      "reason": "No immutable subject digest/namespace bound"
+    },
+    "attempted_external_connections": [
+      {
+        "status": "BLOCKED",
+        "reason": "Native psycopg2 attempted default localhost5432; sandbox denied; no successful connection observed. Python audit is not comprehensive network isolation."
+      }
+    ],
+    "external_effects_qualification": "No external persistent mutation observed; this does not assert comprehensive absence of connection attempts.",
+    "recommended_next_action": "Original Stage1/2 completes bounded successor and sends identity to Supervisor; only accepted successor replaces v6. Stage4 not admitted."
+  },
+  "completion_qualification": "All recovery workers reported finished; backend process-termination receipt retained."
+}

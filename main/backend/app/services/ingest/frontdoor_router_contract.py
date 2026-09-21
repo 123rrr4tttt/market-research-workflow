@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Mapping
+from typing import Annotated, Any, Mapping
 
 from .gate_reason_codes import normalize_reason_code, reason_category
 
@@ -113,7 +113,10 @@ def build_frontdoor_fetch_router_contract(
     fallback_fetch_strategy: str | None = None,
     fallback_boundary: Mapping[str, Any] | None = None,
     diagnostics: Mapping[str, Any] | None = None,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=router_inputs+fallback_evidence+diagnostics+router_contract_constants witness=test:test_w03_ingest_ports_authority_metadata",
+]:
     normalized_fetch_strategy = _clean_text(fetch_strategy)
     normalized_router_state = _normalize_router_state(
         router_state,

@@ -2,11 +2,54 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Callable, Literal, TypeVar
+
+from functorial_kit import Failure
 
 from pydantic import Field, model_validator
 
 from .assignments import Digest, FrozenContract, canonical_digest
+from .failure_policy import raise_runtime_failure, runtime_failure
+
+_T = TypeVar("_T")
+
+
+class AuthorityGrantUnavailable(RuntimeError):
+    """Shared non-start signal when no current authority grant exists."""
+
+
+def _authority_failure(
+    message: object,
+    *,
+    site: str,
+    exception_type: type[Exception] = ValueError,
+) -> Failure:
+    return runtime_failure(
+        "AUTHORITY_GRANT_INVALID",
+        message,
+        exception_type,
+        site=site,
+        context={"owner": "successor_runtime.runtime.authority_grants", "operation": site},
+    )
+
+
+def _try_authority(call: Callable[[], _T], *, site: str) -> _T | Failure:
+    try:
+        return call()
+    except (TypeError, ValueError, OverflowError, KeyError, AttributeError) as exc:
+        return _authority_failure(str(exc), site=site, exception_type=type(exc))
+
+
+def raise_authority_failure(failure: Failure) -> None:
+    name = (failure.context or {}).get("public_exception")
+    exception_type = {
+        "TypeError": TypeError,
+        "ValueError": ValueError,
+        "OverflowError": OverflowError,
+        "KeyError": KeyError,
+        "AttributeError": AttributeError,
+    }.get(name, ValueError)
+    raise_runtime_failure(failure, exception_type)
 
 
 class AuthorityOperationScope(FrozenContract):
@@ -22,6 +65,7 @@ class AuthorityOperationScope(FrozenContract):
         if not self.operation_kinds or len(self.operation_kinds) != len(
             set(self.operation_kinds)
         ):
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
             raise ValueError("authority operation kinds must be non-empty and unique")
         expected = canonical_digest(
             {
@@ -31,6 +75,7 @@ class AuthorityOperationScope(FrozenContract):
             }
         )
         if self.scope_digest != expected:
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
             raise ValueError("authority operation scope digest drift")
         return self
 
@@ -66,6 +111,7 @@ class AuthorityResourceCeiling(FrozenContract):
     def validate_ceiling(self) -> "AuthorityResourceCeiling":
         classes = tuple(item.resource_class for item in self.limits)
         if not classes or len(classes) != len(set(classes)):
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
             raise ValueError("authority resource classes must be non-empty and unique")
         expected = canonical_digest(
             {
@@ -77,6 +123,7 @@ class AuthorityResourceCeiling(FrozenContract):
             }
         )
         if self.ceiling_digest != expected:
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
             raise ValueError("authority resource ceiling digest drift")
         return self
 
@@ -100,8 +147,41 @@ class AuthorityResourceCeiling(FrozenContract):
         )
 
 
+def try_authority_operation_scope(**content: Any) -> AuthorityOperationScope | Failure:
+    return _try_authority(
+        lambda: AuthorityOperationScope(**content),
+        site="authority_grants.operation_scope",
+    )
+
+
+def try_build_authority_operation_scope(**content: Any) -> AuthorityOperationScope | Failure:
+    return _try_authority(
+        lambda: AuthorityOperationScope.from_content(**content),
+        site="authority_grants.build_operation_scope",
+    )
+
+
+def try_authority_resource_ceiling(**content: Any) -> AuthorityResourceCeiling | Failure:
+    return _try_authority(
+        lambda: AuthorityResourceCeiling(**content),
+        site="authority_grants.resource_ceiling",
+    )
+
+
+def try_build_authority_resource_ceiling(**content: Any) -> AuthorityResourceCeiling | Failure:
+    return _try_authority(
+        lambda: AuthorityResourceCeiling.from_content(**content),
+        site="authority_grants.build_resource_ceiling",
+    )
+
+
 __all__ = [
     "AuthorityOperationScope",
     "AuthorityResourceCeiling",
     "AuthorityResourceLimit",
+    "raise_authority_failure",
+    "try_authority_operation_scope",
+    "try_authority_resource_ceiling",
+    "try_build_authority_operation_scope",
+    "try_build_authority_resource_ceiling",
 ]

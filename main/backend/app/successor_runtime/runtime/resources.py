@@ -17,8 +17,47 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import StrEnum
+from typing import Any, Callable, TypeVar
+
+from functorial_kit import Failure
 
 from .assignments import AssignmentKind, require_digest
+
+_RUNTIME_CONTRACT_WITNESS = "test:test_w07_runtime_non_start_proof_negative"
+_T = TypeVar("_T")
+
+
+class ResourceContractError(ValueError):
+    """Compatibility exception for the resource contract ABI."""
+
+
+def _resource_failure(message: object, *, site: str, exception_type: type[Exception] = ValueError) -> Failure:
+    from .failure_policy import runtime_failure
+
+    return runtime_failure(
+        "RESOURCE_CONTRACT_INVALID",
+        message,
+        exception_type,
+        site=site,
+        context={"owner": "successor_runtime.runtime.resources", "operation": site},
+    )
+
+
+def _try_resource(call: Callable[[], _T], *, site: str) -> _T | Failure:
+    try:
+        return call()
+    except (TypeError, ValueError, OverflowError, KeyError, AttributeError) as exc:
+        return _resource_failure(str(exc), site=site, exception_type=type(exc))
+
+
+def raise_resource_failure(
+    failure: Failure, exception_type: type[Exception] = ValueError
+) -> None:
+    """Lift a typed resource failure at the retained exception boundary."""
+
+    from .failure_policy import raise_runtime_failure
+
+    raise_runtime_failure(failure, exception_type)
 
 
 class ResourceClass(StrEnum):
@@ -65,10 +104,13 @@ class QueueEligibility:
 
     def __post_init__(self) -> None:
         if not self.project_key or not self.capability_id:
+            # kit:boundary owner=successor.runtime.resources.queue_eligibility class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
             raise ValueError("queue eligibility requires project and capability")
         if self.units <= 0:
+            # kit:boundary owner=successor.runtime.resources.queue_eligibility class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
             raise ValueError("queue eligibility units must be positive")
         if self.policy_epoch < 0:
+            # kit:boundary owner=successor.runtime.resources.queue_eligibility class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
             raise ValueError("queue eligibility policy_epoch must be >= 0")
         require_digest(self.policy_digest, "policy_digest")
 
@@ -114,8 +156,10 @@ class ResourcePolicySnapshot:
             self.max_units,
         )
         if any(value <= 0 for value in ceilings):
+            # kit:boundary owner=successor.runtime.resources.policy class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
             raise ValueError("resource policy ceilings must be positive")
         if self.max_provider_active is not None and self.max_provider_active <= 0:
+            # kit:boundary owner=successor.runtime.resources.policy class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
             raise ValueError("provider ceiling must be positive")
 
 
@@ -136,6 +180,7 @@ class ResourceUsage:
             self.active_units,
             self.provider_active,
         ) < 0:
+            # kit:boundary owner=successor.runtime.resources.usage class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
             raise ValueError("resource usage cannot be negative")
 
 
@@ -240,6 +285,7 @@ class ExecutionReservation:
     ) -> ExecutionReservation:
         require_digest(attempt_id, "attempt_id")
         if execution_epoch < 0 or not lease_token:
+            # kit:boundary owner=successor.runtime.resources.reservation class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
             raise ValueError("reservation requires execution epoch and lease token")
         content: dict[str, object] = {
             "work_item_id": work_item_id,
@@ -306,10 +352,13 @@ class FairSharePolicy:
             self.max_capability_active,
             self.claim_cycle_seconds,
         ) <= 0:
+            # kit:boundary owner=successor.runtime.resources.fair_share_policy class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
             raise ValueError("fair-share quanta must be positive")
         if self.max_declared_priority < 0 or self.max_aging_boost < 0:
+            # kit:boundary owner=successor.runtime.resources.fair_share_policy class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
             raise ValueError("priority bounds must be non-negative")
         if self.max_aging_boost < self.max_declared_priority:
+            # kit:boundary owner=successor.runtime.resources.fair_share_policy class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
             raise ValueError("aging boost must span the declared priority range")
 
 
@@ -328,14 +377,21 @@ class FairClaimCandidate:
         if not all(
             (self.work_item_id, self.project_key, self.capability_id, self.fairness_key)
         ):
+            # kit:boundary owner=successor.runtime.resources.fair_claim_candidate class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
             raise ValueError("fair candidate identities cannot be empty")
         if self.declared_priority < 0 or self.enqueue_seq < 0:
+            # kit:boundary owner=successor.runtime.resources.fair_claim_candidate class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_runtime_non_start_proof_negative
             raise ValueError("priority and enqueue sequence must be non-negative")
 
 
 def _utc(value: datetime) -> datetime:
     if value.tzinfo is None:
-        raise ValueError("fairness timestamps must be timezone-aware")
+        raise_resource_failure(
+            _resource_failure(
+                "fairness timestamps must be timezone-aware",
+                site="resources.datetime",
+            )
+        )
     return value.astimezone(timezone.utc)
 
 
@@ -348,7 +404,12 @@ def effective_priority(
     """Return declared priority plus a bounded, monotone age boost."""
 
     if declared_priority < 0 or declared_priority > policy.max_declared_priority:
-        raise ValueError("declared priority is outside the frozen policy range")
+        raise_resource_failure(
+            _resource_failure(
+                "declared priority is outside the frozen policy range",
+                site="resources.priority",
+            )
+        )
     age_seconds = max(0.0, (_utc(now) - _utc(enqueued_at)).total_seconds())
     boost = min(
         policy.max_aging_boost,
@@ -373,7 +434,12 @@ def starvation_bound_seconds(
     """
 
     if min(eligible_item_count, project_count, capability_count, claim_batch) <= 0:
-        raise ValueError("starvation bound requires positive bounded cardinalities")
+        raise_resource_failure(
+            _resource_failure(
+                "starvation bound requires positive bounded cardinalities",
+                site="resources.starvation",
+            )
+        )
     priority_steps = math.ceil(
         policy.max_declared_priority / policy.aging_increment
     )
@@ -443,7 +509,12 @@ def select_fair_claims(
             for item in queue
         }
         if len(project_keys) != 1:
-            raise ValueError("fairness_key must remain scoped to one project")
+            raise_resource_failure(
+                _resource_failure(
+                    "fairness_key must remain scoped to one project",
+                    site="resources.fairness_selector",
+                )
+            )
         bucket_project_keys[fairness_key] = next(iter(project_keys))
 
     projects = sorted(
@@ -499,6 +570,129 @@ def select_fair_claims(
     return tuple(chosen)
 
 
+# Total adapters used by qualification, simulations, and boundary tests.  The
+# constructors above intentionally retain their historical exception ABI.
+def try_queue_eligibility(**content: Any) -> QueueEligibility | Failure:
+    return _try_resource(lambda: QueueEligibility(**content), site="resources.queue_eligibility")
+
+
+def try_build_queue_eligibility(**content: Any) -> QueueEligibility | Failure:
+    return try_queue_eligibility(**content)
+
+
+def try_resource_policy_snapshot(**content: Any) -> ResourcePolicySnapshot | Failure:
+    return _try_resource(
+        lambda: ResourcePolicySnapshot(**content), site="resources.resource_policy_snapshot"
+    )
+
+
+def try_build_resource_policy_snapshot(**content: Any) -> ResourcePolicySnapshot | Failure:
+    return try_resource_policy_snapshot(**content)
+
+
+def try_resource_usage(**content: Any) -> ResourceUsage | Failure:
+    return _try_resource(lambda: ResourceUsage(**content), site="resources.resource_usage")
+
+
+def try_build_resource_usage(**content: Any) -> ResourceUsage | Failure:
+    return try_resource_usage(**content)
+
+
+def try_execution_reservation(**content: Any) -> ExecutionReservation | Failure:
+    return _try_resource(
+        lambda: ExecutionReservation.create(**content), site="resources.execution_reservation"
+    )
+
+
+def try_create_execution_reservation(**content: Any) -> ExecutionReservation | Failure:
+    return try_execution_reservation(**content)
+
+
+def try_fair_share_policy(**content: Any) -> FairSharePolicy | Failure:
+    return _try_resource(lambda: FairSharePolicy(**content), site="resources.fair_share_policy")
+
+
+def try_build_fair_share_policy(**content: Any) -> FairSharePolicy | Failure:
+    return try_fair_share_policy(**content)
+
+
+def try_fair_claim_candidate(**content: Any) -> FairClaimCandidate | Failure:
+    return _try_resource(
+        lambda: FairClaimCandidate(**content), site="resources.fair_claim_candidate"
+    )
+
+
+def try_build_fair_claim_candidate(**content: Any) -> FairClaimCandidate | Failure:
+    return try_fair_claim_candidate(**content)
+
+
+def try_evaluate_reservation(
+    eligibility: QueueEligibility,
+    policy: ResourcePolicySnapshot,
+    usage: ResourceUsage,
+) -> ReservationDecision | Failure:
+    return _try_resource(
+        lambda: evaluate_reservation(eligibility, policy, usage),
+        site="resources.evaluate_reservation",
+    )
+
+
+def try_effective_priority(
+    declared_priority: int,
+    enqueued_at: datetime,
+    now: datetime,
+    policy: FairSharePolicy,
+) -> int | Failure:
+    return _try_resource(
+        lambda: effective_priority(declared_priority, enqueued_at, now, policy),
+        site="resources.effective_priority",
+    )
+
+
+def try_starvation_bound_seconds(
+    policy: FairSharePolicy,
+    *,
+    eligible_item_count: int,
+    project_count: int,
+    capability_count: int,
+    claim_batch: int,
+) -> int | Failure:
+    return _try_resource(
+        lambda: starvation_bound_seconds(
+            policy,
+            eligible_item_count=eligible_item_count,
+            project_count=project_count,
+            capability_count=capability_count,
+            claim_batch=claim_batch,
+        ),
+        site="resources.starvation_bound_seconds",
+    )
+
+
+def try_select_fair_claims(
+    candidates: Iterable[FairClaimCandidate],
+    *,
+    now: datetime,
+    limit: int,
+    policy: FairSharePolicy,
+    active_by_project: Mapping[str, int] | None = None,
+    active_by_capability: Mapping[tuple[str, str], int] | None = None,
+    cursor: int = 0,
+) -> tuple[FairClaimCandidate, ...] | Failure:
+    return _try_resource(
+        lambda: select_fair_claims(
+            candidates,
+            now=now,
+            limit=limit,
+            policy=policy,
+            active_by_project=active_by_project,
+            active_by_capability=active_by_capability,
+            cursor=cursor,
+        ),
+        site="resources.select_fair_claims",
+    )
+
+
 __all__ = [
     "EFFECT_ASSIGNMENT_KINDS",
     "ExecutionReservation",
@@ -514,4 +708,22 @@ __all__ = [
     "evaluate_reservation",
     "select_fair_claims",
     "starvation_bound_seconds",
+    "ResourceContractError",
+    "raise_resource_failure",
+    "try_queue_eligibility",
+    "try_build_queue_eligibility",
+    "try_resource_policy_snapshot",
+    "try_build_resource_policy_snapshot",
+    "try_resource_usage",
+    "try_build_resource_usage",
+    "try_execution_reservation",
+    "try_create_execution_reservation",
+    "try_fair_share_policy",
+    "try_build_fair_share_policy",
+    "try_fair_claim_candidate",
+    "try_build_fair_claim_candidate",
+    "try_evaluate_reservation",
+    "try_effective_priority",
+    "try_starvation_bound_seconds",
+    "try_select_fair_claims",
 ]

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import re
+from typing import Annotated
 
 DEFAULT_CONTAINER_SELECTORS = (
     "article",
@@ -356,7 +357,10 @@ def build_search_result_parser_profile(
     entry_domain: str | None,
     *,
     parser_profile: str | None = None,
-) -> SearchResultParserProfile:
+) -> Annotated[
+    SearchResultParserProfile,
+    "kit:non-authoritative derived_as=view fact_source=entry_domain+requested_parser_profile+parser_profile_constants witness=test:test_w03_ingest_ports_authority_metadata",
+]:
     domain = (entry_domain or "").strip().lower()
     requested = str(parser_profile or "").strip().lower()
 

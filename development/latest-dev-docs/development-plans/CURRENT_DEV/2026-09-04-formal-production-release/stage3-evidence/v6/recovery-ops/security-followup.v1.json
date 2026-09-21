@@ -1,0 +1,45 @@
+{
+  "authoritative": false,
+  "candidate_commit": "909eb608e538b6427bcbacca974f1efb05fef611",
+  "candidate_tree": "a60b795e509aa5dc479904a321fba32ed0ab9ab2",
+  "records": [
+    {
+      "id": "gitleaks-version",
+      "command": [
+        "/private/tmp/mrw-stage3-v6-ops-1yM6UC/bin/gitleaks",
+        "version"
+      ],
+      "cwd": "/private/tmp/mrw-stage3-v6-ops-1yM6UC/candidate",
+      "exit_code": 0,
+      "log": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-ops/gitleaks-version.raw.log",
+      "sha256": "df64ed7e156c6ba57dc94dc65618c92209afbc1001ee91254bc0bc66f2951cea"
+    },
+    {
+      "id": "gitleaks-scan",
+      "command": [
+        "/private/tmp/mrw-stage3-v6-ops-1yM6UC/bin/gitleaks",
+        "git",
+        "--redact=100",
+        "--no-banner",
+        "--log-opts=HEAD",
+        "/private/tmp/mrw-stage3-v6-ops-1yM6UC/candidate"
+      ],
+      "cwd": "/private/tmp/mrw-stage3-v6-ops-1yM6UC/candidate",
+      "exit_code": 1,
+      "log": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-ops/gitleaks-scan.raw.log",
+      "sha256": "b3d4f88be3e6c9ae6e5cc1776f8d2c6b8c3cf327dcf5f0ba1e4383e0a01e86a5"
+    }
+  ],
+  "supersedes": {
+    "gitleaks_unavailable": "scanner acquired as pinned v8.24.2 Go source into disposable path"
+  },
+  "pip_audit_status": "BLOCKED_TOOL_BOOTSTRAP_FAILED; no dependency vulnerability verdict",
+  "cleanup": {
+    "created_containers": [],
+    "created_databases": [],
+    "created_images": [],
+    "retained_path": "/private/tmp/mrw-stage3-v6-ops-1yM6UC",
+    "reason": "reviewable standalone clone and scanner cache; no running services"
+  },
+  "external_effects": []
+}

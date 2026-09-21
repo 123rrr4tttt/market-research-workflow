@@ -28,6 +28,13 @@ export const KERNEL_RENDER_SHELL_MODE = {
 
 export type KernelRenderShellMode = (typeof KERNEL_RENDER_SHELL_MODE)[keyof typeof KERNEL_RENDER_SHELL_MODE]
 
+/**
+ * A route may keep the canonical module identity while selecting an explicit
+ * compatibility projection. Compatibility projections reuse the same shell
+ * and domain APIs; they do not introduce a second module identity.
+ */
+export type KernelRouteRenderVariant = 'agent-chat-compat'
+
 export type KernelModuleKey =
   | 'overviewTasks'
   | 'overviewData'
@@ -125,4 +132,5 @@ export type KernelRouteState = {
   surfaceKind: SurfaceKind
   routePath: `/${string}`
   routeHash: `#/${string}`
+  renderVariant?: KernelRouteRenderVariant
 }

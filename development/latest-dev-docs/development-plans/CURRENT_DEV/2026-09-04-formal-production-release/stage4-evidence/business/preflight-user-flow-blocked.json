@@ -1,0 +1,167 @@
+{
+  "api_base": "http://127.0.0.1:18142",
+  "expected_line_keys": [
+    "ingest",
+    "search_discovery_index",
+    "resource_source_library",
+    "projects_config_workflow",
+    "dashboard_admin_governance",
+    "writing_knowledge_graph_agent",
+    "runtime_ops"
+  ],
+  "feedback_loop": {
+    "errors": {
+      "history": null,
+      "submit": "timed out"
+    },
+    "failures": [
+      "feedback_loop_not_run_evidence_matrix_unreachable"
+    ],
+    "history_path": "/api/v1/ingest/history",
+    "http_status": {
+      "history": null,
+      "submit": null
+    },
+    "idempotency_key": "",
+    "project_key": "",
+    "readback": {
+      "history_item_count": 0,
+      "matched": false,
+      "matched_by": [],
+      "missing_fields": [
+        "submission_id",
+        "task_id",
+        "status",
+        "trace_id"
+      ],
+      "required_fields": [
+        "submission_id",
+        "task_id",
+        "status",
+        "trace_id"
+      ]
+    },
+    "reason": "feedback_loop_not_run_evidence_matrix_unreachable",
+    "status": "blocked_by_environment",
+    "submission_id": null,
+    "submit_path": "/api/v1/ingest/url/single",
+    "submitted_url": "",
+    "task_id": null,
+    "trace_id": null
+  },
+  "lines": [
+    {
+      "http_status": null,
+      "line_key": "ingest",
+      "missing_data_paths": [],
+      "probe_path": "/api/v1/ingest",
+      "proof_level": "environment_blocked_no_backend",
+      "reason": "evidence_matrix_unreachable",
+      "response_assertion_status": "not_run",
+      "semantic_fields_checked": [],
+      "status": "blocked_by_environment"
+    },
+    {
+      "http_status": null,
+      "line_key": "search_discovery_index",
+      "missing_data_paths": [],
+      "probe_path": "/api/v1/search",
+      "proof_level": "environment_blocked_no_backend",
+      "reason": "evidence_matrix_unreachable",
+      "response_assertion_status": "not_run",
+      "semantic_fields_checked": [],
+      "status": "blocked_by_environment"
+    },
+    {
+      "http_status": null,
+      "line_key": "resource_source_library",
+      "missing_data_paths": [],
+      "probe_path": "/api/v1/resource_pool",
+      "proof_level": "environment_blocked_no_backend",
+      "reason": "evidence_matrix_unreachable",
+      "response_assertion_status": "not_run",
+      "semantic_fields_checked": [],
+      "status": "blocked_by_environment"
+    },
+    {
+      "http_status": null,
+      "line_key": "projects_config_workflow",
+      "missing_data_paths": [],
+      "probe_path": "/api/v1/projects",
+      "proof_level": "environment_blocked_no_backend",
+      "reason": "evidence_matrix_unreachable",
+      "response_assertion_status": "not_run",
+      "semantic_fields_checked": [],
+      "status": "blocked_by_environment"
+    },
+    {
+      "http_status": null,
+      "line_key": "dashboard_admin_governance",
+      "missing_data_paths": [],
+      "probe_path": "/api/v1/dashboard",
+      "proof_level": "environment_blocked_no_backend",
+      "reason": "evidence_matrix_unreachable",
+      "response_assertion_status": "not_run",
+      "semantic_fields_checked": [],
+      "status": "blocked_by_environment"
+    },
+    {
+      "http_status": null,
+      "line_key": "writing_knowledge_graph_agent",
+      "missing_data_paths": [],
+      "probe_path": "/api/v1/workflow-graph/templates",
+      "proof_level": "environment_blocked_no_backend",
+      "reason": "evidence_matrix_unreachable",
+      "response_assertion_status": "not_run",
+      "semantic_fields_checked": [],
+      "status": "blocked_by_environment"
+    },
+    {
+      "http_status": null,
+      "line_key": "runtime_ops",
+      "missing_data_paths": [],
+      "probe_path": "/api/v1/health",
+      "proof_level": "environment_blocked_no_backend",
+      "reason": "evidence_matrix_unreachable",
+      "response_assertion_status": "not_run",
+      "semantic_fields_checked": [],
+      "status": "blocked_by_environment"
+    }
+  ],
+  "matrix": {
+    "error": "timed out",
+    "http_status": null,
+    "reason": "evidence_matrix_unreachable",
+    "status": "blocked_by_environment"
+  },
+  "matrix_anomalies": {
+    "duplicate_line_keys": [],
+    "invalid_line_keys": [],
+    "missing_line_keys": [],
+    "unexpected_line_keys": []
+  },
+  "matrix_path": "/api/v1/business-lines/evidence-matrix",
+  "recommended_command": "python3 scripts/run_business_line_user_flow_smoke.py --base-url http://127.0.0.1:18142 --output development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage4-evidence/business/preflight-user-flow-blocked.json --allow-blocked --json",
+  "schema_version": "business_line_user_flow_smoke.v1",
+  "started_at": "2026-09-13T04:47:07Z",
+  "status": "blocked_by_environment",
+  "summary": {
+    "blocked_count": 7,
+    "blocker_classification": "evidence_matrix_unreachable",
+    "checked_endpoints": [
+      "http://127.0.0.1:18142/api/v1/business-lines/evidence-matrix"
+    ],
+    "failed_count": 0,
+    "feedback_loop_failures": [],
+    "feedback_loop_status": null,
+    "first_blocked_line": "ingest",
+    "first_blocker_reason": "evidence_matrix_unreachable",
+    "first_failed_line": null,
+    "line_count": 7,
+    "passed_contract_reachable_count": 0,
+    "response_assertion_failed_count": 0,
+    "submission_id": null,
+    "task_id": null,
+    "trace_id": null
+  }
+}

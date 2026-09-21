@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from datetime import datetime
-from typing import Any, Mapping
+from typing import Annotated, Any, Mapping
 
 from .canary_handoff import LIVE_CANARY_EVIDENCE_CONTRACT_VERSION
 
@@ -392,7 +392,10 @@ def build_strict_promotion_readiness(
     ops_promotion_evidence: Mapping[str, Any] | None = None,
     ops_promotion_artifact_attached: bool = False,
     closure_claim: bool = False,
-) -> StrictPromotionReadiness:
+) -> Annotated[
+    StrictPromotionReadiness,
+    "kit:non-authoritative derived_as=preflight fact_source=live_canary_evidence+metrics_artifacts+ops_promotion_evidence+contract_constants witness=test:test_w03_ingest_ports_authority_metadata",
+]:
     live_boundary = _live_canary_boundary(live_canary_evidence)
     metric_boundary = _metric_24h_shape_boundary(
         metrics_artifact,

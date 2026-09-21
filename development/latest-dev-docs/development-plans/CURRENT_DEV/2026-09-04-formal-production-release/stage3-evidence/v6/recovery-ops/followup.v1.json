@@ -1,0 +1,41 @@
+{
+  "records": [
+    {
+      "id": "docker-daemon-unsandboxed",
+      "command": [
+        "docker",
+        "version"
+      ],
+      "cwd": "/private/tmp/mrw-stage3-v6-ops-1yM6UC/candidate",
+      "exit_code": 1,
+      "log": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-ops/docker-daemon-unsandboxed.raw.log",
+      "sha256": "0445c7928a4535caa39656b4c414c1e779375541ede35fbf65ba40f148aeaf3a"
+    },
+    {
+      "id": "alembic-heads",
+      "command": [
+        "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/bin/python",
+        "-m",
+        "alembic",
+        "heads"
+      ],
+      "cwd": "/private/tmp/mrw-stage3-v6-ops-1yM6UC/candidate/main/backend",
+      "exit_code": 0,
+      "log": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-ops/alembic-heads.raw.log",
+      "sha256": "6e7d9451170a11637ed4c31b4e5c2bf50b37e7bc814432f55b9baba386294bd0"
+    },
+    {
+      "id": "gitleaks-install",
+      "command": [
+        "go",
+        "install",
+        "github.com/zricethezav/gitleaks/v8@v8.24.2"
+      ],
+      "cwd": "/private/tmp/mrw-stage3-v6-ops-1yM6UC",
+      "exit_code": 0,
+      "log": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-ops/gitleaks-install.raw.log",
+      "sha256": "2c259901f81aa787f01ec0c6c856d4a01c068abc8477bf2dece808f8ec9edb24"
+    }
+  ],
+  "authoritative": false
+}

@@ -1,0 +1,194 @@
+{
+  "schema_version": "mrw.stage4.stage-result.v1",
+  "authoritative": false,
+  "stage_id": "S4",
+  "status": "PASS_LOCAL_STAGE4_NOT_AUTHORITY",
+  "authority_ceiling": "LOCAL_STAGE4_RUNTIME_ONLY / NOT_AUTHORITY / PRODUCTION_RELEASE_NOT_AUTHORIZED",
+  "candidate": {
+    "label": "r13x",
+    "commit": "8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+    "tree": "ce7c67c831b51f9d64b4c2f1a470a724a50b19df",
+    "exact_images_preserved": true,
+    "derived_backend_image": "mrw-local/stage4-business001:stage4-c9-effect"
+  },
+  "results": [
+    {
+      "area": "runtime",
+      "result": "PASS",
+      "evidence": "runtime/summary.json",
+      "details": "Dedicated mrw-stage4-local stack; DB/ES/Redis/backend/Celery healthy; authenticated readiness; direct and frontend-proxy shallow/deep health 200; frontend root and asset 200; cleanup PASS. Bounded TLS edge probe and representative pre-head upgrade/backfill also PASS in runtime/tls-upgrade-probe.json; public certificate/DNS and all historical predecessors remain out of scope."
+    },
+    {
+      "area": "migration_and_snapshot",
+      "result": "PASS",
+      "evidence": ["runtime/migration.json", "runtime/snapshot-restore.json"],
+      "details": "Fresh upgrade, repeat upgrade, schema fingerprint stability, synthetic fixture snapshot and restore readback passed."
+    },
+    {
+      "area": "config_policy",
+      "result": "PASS",
+      "evidence": "config/config-summary.json",
+      "details": "Compose/policy/provider/auth/secure-cookie focused checks passed; secure-cookie startup guard is embodied and live-checked in the non-r13x derived Stage4 backend/Celery image."
+    },
+    {
+      "area": "business_journeys",
+      "result": "PASS",
+      "evidence": [
+        "business/live-auth-smoke.json",
+        "business/s4-business-001-minimal-command-plan.json",
+        "business/s4-business-003-scope-recheck.json",
+        "runtime/s4-c9-effect-live.json",
+        "runtime/s4-c9-effect-focused.json"
+      ],
+      "details": "Authenticated project/history/business-matrix/deep-health reads passed. The task-tenant C9 command route executed the approved rebuild_projection effect in one PostgreSQL transaction, activated generation 1 with agent_session/graph/search local sinks, and returned exact projection_snapshot readback. Exact replay was stable; changed-intent and stale-base conflicts, plus foreign-tenant rejection, were fail-closed. External sinks remained declared-loss/no-call and no provider call occurred."
+    }
+  ],
+  "changed_files": [
+    "main/backend/docker-entrypoint.sh",
+    "main/backend/app/composition/production.py",
+    "main/backend/app/composition/production_runtime.py",
+    "main/backend/app/composition/production_route_bindings.json",
+    "main/backend/app/successor_runtime/substrate/postgres/facade_commands.py",
+    "main/backend/app/successor_runtime/substrate/postgres/authority_provider.py",
+    "main/backend/tests/successor_runtime/test_c9_movement_closure_backend_postgres.py",
+    "stage4-evidence/runtime/s4-c9-effect-live.json",
+    "main/backend/app/api/__init__.py",
+    "stage4-evidence/runtime/run-stage4-runtime.py",
+    "stage4-evidence/runtime/run-stage4-tls-upgrade-probe.py",
+    "stage4-evidence/runtime/compose.tls-probe.override.yml",
+    "stage4-evidence/runtime/tls-edge.nginx.conf",
+    "stage4-evidence/runtime/tls-upgrade-probe.json",
+    "stage4-evidence/runtime/run-stage4-business003-live.py",
+    "stage4-evidence/runtime/compose.business001.override.yml",
+    "stage4-evidence/runtime/compose.business003.override.yml",
+    "stage4-evidence/runtime/Dockerfile.business003",
+    "stage4-evidence/runtime/c9-effect-build.json",
+    "stage4-evidence/runtime/seed-c9-effect.py",
+    "stage4-evidence/runtime/s4-c9-effect-focused.json",
+    "stage4-evidence/runtime/s4-c9-effect-focused.junit.xml",
+    "stage4-evidence/runtime/s4-c9-effect-focused.log",
+    "stage4-evidence/runtime/s4-business-003-live-readback.json",
+    "stage4-evidence/runtime/compose.override.yml",
+    "stage4-evidence/config/*",
+    "stage4-evidence/business/live-auth-smoke.json",
+    "stage4-evidence/business/s4-business-001-minimal-command-plan.json",
+    "stage4-evidence/business/s4-business-003-scope-recheck.json"
+  ],
+  "verification": {
+    "runtime_exit_code": 0,
+    "runtime_checksum_verification_exit_code": 0,
+    "business_json_validation": "PASS",
+    "runtime_tls_upgrade_probe": "PASS (TLS 200/verify=0; untrusted forwarded-proto 403 tls_denied; representative pre-head upgrade/backfill PASS; cleanup PASS)",
+    "s4_business_003_focused_and_live": "PASS (31 focused + PostgreSQL readback + functorial witness + cross-tenant rejection; rebuilt derived runtime exact projection_snapshot readback PASS)",
+    "s4_business_001_c9_effect_live": "PASS_LOCAL_EFFECT_NOT_AUTHORITY (exact approval/step authorization; generation 1; three local sinks; TERMINAL receipt and stable replay; changed-intent and stale-base conflicts; foreign-tenant rejection)",
+    "s4_business_001_c9_effect_focused": "PASS_LOCAL_FOCUSED_NOT_AUTHORITY (43 focused PostgreSQL C9 tests; terminal/replay, exact authority, expected-base concurrency, and zero-partial-write failure paths; exit 0)",
+    "s4_business_001_c9_build": "PASS_LOCAL_NOT_AUTHORITY (final image sha256:f247a1492400311e032710df01f84365c7e700f61c122b7243ae58eda982af19; exact Dockerfile/input mapping recorded)",
+    "config_focused_tests": "14 compose/config + 80 policy/auth/authority + 49 provider/canonical-writer (3 skipped) + 4 secure-cookie + 3 derived secure-cookie focused passed",
+    "external_model_calls": 0,
+    "remote_or_publish_actions": 0
+  },
+  "resource_lifecycle": {
+    "compose_project": "mrw-stage4-local",
+    "ports": ["127.0.0.1:18142", "127.0.0.1:15142"],
+    "cleanup": "PASS",
+    "project_resources_retained": false,
+    "stage3_artifacts_preserved": true,
+    "derived_runtime_recheck": {
+      "status": "PASS",
+      "evidence": "runtime/narrow-secure-config-recheck.json",
+      "backend_image": "mrw-local/stage4-business001:stage4-c9-effect",
+      "backend_image_id": "sha256:f247a1492400311e032710df01f84365c7e700f61c122b7243ae58eda982af19",
+      "frontend_healthcheck_override": "127.0.0.1",
+      "migration_matrix_rerun": false
+    },
+    "docker_prune_executed": false,
+    "ops_scrapyd_touched": false
+  },
+  "stage5_inputs": [
+    "runtime/summary.json",
+    "runtime/migration.json",
+    "runtime/snapshot-restore.json",
+    "runtime/narrow-secure-config-recheck.json",
+    "runtime/derived-backend-config-build.json",
+    "runtime/tls-upgrade-probe.json",
+    "runtime/s4-business-003-live-readback.json",
+    "runtime/s4-c9-effect-live.json",
+    "runtime/c9-effect-build.json",
+    "runtime/s4-c9-effect-focused.json",
+    "runtime/s4-c9-effect-focused.junit.xml",
+    "runtime/s4-c9-effect-focused.log",
+    "runtime/seed-c9-effect.py",
+    "business/live-auth-smoke.json",
+    "business/s4-business-003-scope-recheck.json",
+    "config/config-summary.json"
+  ],
+  "stage5_reconstruction": {
+    "status": "READY_INPUTS_ONLY_NOT_DISPATCHED",
+    "image": {
+      "reference": "mrw-local/stage4-business001:stage4-c9-effect",
+      "digest": "sha256:f247a1492400311e032710df01f84365c7e700f61c122b7243ae58eda982af19",
+      "roles": ["backend", "celery-worker"]
+    },
+    "snapshot": {
+      "path": "runtime/synthetic-production-like.snapshot.dump",
+      "sha256": "143c7128cf2ed0516844e32535fb40c3270b5459e921e8b11ae951fde7f79135",
+      "classification": "TASK_OWNED_SYNTHETIC_PRODUCTION_LIKE_NOT_REAL_PRODUCTION_DATA",
+      "retained": true
+    },
+    "rebuild_task_data": {
+      "seed_script": "runtime/seed-c9-effect.py",
+      "scope": "stage4_s4_20260913 / project_stage4_s4_20260913 only",
+      "sequence": [
+        "start disposable Stage5-owned Compose resources with compose.business001.override.yml",
+        "restore the retained synthetic snapshot into the task-local database",
+        "run seed-c9-effect.py to recreate scope, source closure, authority and initial offset",
+        "run the Stage5 monitor/recovery checks against the final image",
+        "capture readback and remove only task-local containers, volumes and network"
+      ],
+      "production_data_or_authority": false
+    },
+    "not_started": true
+  },
+  "named_blockers": [
+    {
+      "id": "S4-BUSINESS-001",
+      "owner": "production route effect binding",
+      "status": "RESOLVED_LOCAL_EFFECT_NOT_AUTHORITY",
+      "evidence": [
+        "business/s4-business-001-minimal-command-plan.json",
+        "runtime/s4-c9-effect-live.json"
+      ],
+      "repair": "Installed the production C9 command port and exact postgres.c9_projection_rebuild.v1 writer binding, admitted only rebuild_projection, and seeded task-tenant C9 capability/grant/approval/step authorization for the exact request digest. The effect rebuilt generation 1 transactionally and read back three local sinks; replay and negative paths are stable. This remains local-only and non-authoritative; external provider sinks, production data, release and remote publication remain out of scope."
+    },
+    {
+      "id": "S4-BUSINESS-002",
+      "owner": "Stage4 auth configuration",
+      "status": "RESOLVED",
+      "repair": "Added /api/v1/successor-runtime to protected prefixes and reran authenticated successor middleware admission."
+    },
+    {
+      "id": "S4-CONFIG-001",
+      "owner": "r13x image refresh",
+      "status": "RESOLVED_IN_DERIVED_STAGE4_IMAGE",
+      "repair": "Derived one local Stage4 backend/Celery image from retained r13x and live-checked startup plus Secure/HttpOnly cookie serialization; retained r13x image remains unchanged."
+    },
+    {
+      "id": "S4-BUSINESS-003",
+      "owner": "production successor runtime scope/query assembly",
+      "status": "RESOLVED_LOCAL_SCOPE_QUERY_NOT_AUTHORITY",
+      "evidence": [
+        "business/s4-business-003-scope-recheck.json",
+        "runtime/s4-business-003-live-readback.json"
+      ],
+      "repair": "Production cold-start assembly selects EngineProjectScopeResolver and EngineC9QueryReadPort with the trusted authenticated actor; focused PostgreSQL scope/readback, cross-tenant rejection, and no-write command binding pass. Rebuilt derived backend/Celery runtime returned an exact seeded projection_snapshot (scope fields exact, three candidate sinks, generation/cursor readback) and rejected foreign tenant requests. This closes only the local scope/query item; it does not admit effectful commands."
+    },
+    {
+      "id": "S4-RUNTIME-TLS-001",
+      "owner": "Stage4 local TLS/trusted-proxy probe",
+      "status": "RESOLVED_LOCAL_ONLY",
+      "evidence": "runtime/tls-upgrade-probe.json",
+      "repair": "Bounded task-local TLS edge now passes CA-verified handshake, trusted proxy request, and clean tls_denied spoof rejection; this does not establish public certificate, DNS, remote ingress, or production authority."
+    }
+  ],
+  "conclusion": "Stage4 local runtime, bounded TLS/trusted-proxy behavior, representative upgrade/backfill, authenticated journeys, and the required task-tenant C9 effectful command/readback/idempotency/failure paths are evidenced. The result is a local PASS only: the C9 writer and authority records are task-scoped, external sinks are declared loss/no-call, and no production, remote publication, signing, provider or authority transfer is established."
+}

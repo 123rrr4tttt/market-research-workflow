@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, NoReturn
+
+from functorial_kit import Failure
+from mrw_functorial_kit.core.provider_port_failures import resource_pool_contract_failures
 
 from .search_template_service import execute_search_template, normalize_search_template_placeholders
 from .site_entries import get_site_entry_by_url, upsert_site_entry
@@ -23,6 +26,54 @@ _DEFAULT_QUERY_SUFFIXES = (
     "announcement",
     "pricing",
 )
+
+
+_RESOURCE_POOL_FAILURE_WITNESS = "test:test_latest_service_b_resource_pool_failure_lifts"
+_RESOURCE_POOL_FAILURE_CONTEXT_KEYS = frozenset(
+    {
+        "boundary_class",
+        "failure_family",
+        "operation",
+        "owner",
+        "public_exception",
+        "public_message",
+        "site",
+        "witness",
+    }
+)
+
+
+def _contract_failure(code: str, message: str, *, operation: str, site: str) -> Failure:
+    return resource_pool_contract_failures.fail(
+        code,
+        message,
+        {
+            "boundary_class": "PURE_CONTRACT_FAILURE",
+            "failure_family": resource_pool_contract_failures.name,
+            "operation": operation,
+            "owner": site,
+            "public_exception": "ValueError",
+            "public_message": message,
+            "site": site,
+            "witness": _RESOURCE_POOL_FAILURE_WITNESS,
+        },
+    )
+
+
+def _raise_contract_failure(
+    failure: Failure,
+    exception_type: type[Exception] = ValueError,
+) -> NoReturn:
+    context = failure.context or {}
+    if (
+        not resource_pool_contract_failures.matches(failure)
+        or _RESOURCE_POOL_FAILURE_CONTEXT_KEYS - set(context)
+        or context.get("public_exception") != exception_type.__name__
+    ):
+        # kit:boundary owner=resource_pool.search_contract_discovery.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_latest_service_b_resource_pool_failure_lifts
+        raise TypeError("resource pool failure lift context is incomplete or inconsistent")
+    # kit:boundary owner=resource_pool.search_contract_discovery.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=resource_pool.contract.failure witness=test:test_latest_service_b_resource_pool_failure_lifts
+    raise exception_type(str(context["public_message"]))
 
 
 @dataclass(frozen=True)
@@ -69,7 +120,14 @@ def _candidate_templates(site_url: str, template: str | None) -> list[str]:
 def _query_variants(query_terms: list[str], suffixes: list[str]) -> list[tuple[str, str]]:
     base = " ".join([term for term in query_terms if str(term or "").strip()]).strip()
     if not base:
-        raise ValueError("query_terms is required")
+        _raise_contract_failure(
+            _contract_failure(
+                "query_terms_required",
+                "query_terms is required",
+                operation="discover_search_contract",
+                site="resource_pool.search_contract_discovery._query_variants",
+            )
+        )
     variants: list[tuple[str, str]] = []
     for suffix in suffixes:
         normalized_suffix = str(suffix or "").strip()

@@ -1,0 +1,58 @@
+{
+  "schema": "mrw.stage5.post-acceptance-cleanup.v1",
+  "status": "CLEANUP_RESULT_S5_ACCEPTED",
+  "authoritative": false,
+  "executed_at": "2026-09-13T11:42:04Z",
+  "basis": "Stage 5 supervisor ACCEPTANCE_FINAL; 19_direct-testing-batch-freeze-amendment.v1.md post-acceptance cleanup",
+  "scope": "stage5 task-local temporary copies and rebuildable task caches only",
+  "moved_to_recoverable_trash": {
+    "trash_path": "/Users/wangyiliang/.Trash/mrw-stage5-postacceptance-cleanup-20260913",
+    "file_count": 33,
+    "byte_count": 376526,
+    "classes": [
+      "stage5 temporary probe/check/log/json copies under /private/tmp",
+      "stage5-evidence/recovery/__pycache__",
+      "stage5-evidence/observability/__pycache__"
+    ],
+    "remaining_matching_private_tmp_files": 0,
+    "recoverable": true
+  },
+  "host_disk": {
+    "before": {"filesystem": "/", "available": "53Gi", "capacity": "25%"},
+    "after": {"filesystem": "/", "available": "53Gi", "capacity": "25%"},
+    "measurable_host_delta": "none"
+  },
+  "docker": {
+    "before": {
+      "images": "32 total / 1 active / 18.8GB",
+      "containers": "1 active / 20.48kB",
+      "local_volumes": "30 total / 2 active / 1.055GB",
+      "build_cache": "208 total / 0 active / 10.39GB"
+    },
+    "after": {
+      "images": "32 total / 1 active / 18.8GB",
+      "containers": "1 active / 20.48kB",
+      "local_volumes": "30 total / 2 active / 1.055GB",
+      "build_cache": "208 total / 0 active / 10.39GB"
+    },
+    "removed_objects": [],
+    "global_prune_executed": false,
+    "protected": [
+      "ops-scrapyd-1",
+      "Stage 4 final image mrw-local/stage4-business001@sha256:f247a1492400311e032710df01f84365c7e700f61c122b7243ae58eda982af19",
+      "necessary rollback/test images",
+      "unknown Docker volumes and ops_default network",
+      "host backups"
+    ]
+  },
+  "retained": [
+    "stage5-evidence/",
+    "main/backend/app/",
+    "stage5-evidence/observability/compose.yaml",
+    "stage5-evidence/observability/compose.worker-telemetry.yaml",
+    "Stage 4 final image and necessary rollback/test runtime",
+    "stage5-evidence/recovery/artifacts/*.dump and *.jsonl",
+    "stage5-evidence/observability/logs/ and recovery/logs/ original evidence"
+  ],
+  "note": "Trash movement is recoverable. No canonical evidence, source overlay, dump/seed, required rollback input, other task service, backup, volume, or image was deleted. Docker reported bytes are unchanged and are not asserted as host Docker.raw release."
+}

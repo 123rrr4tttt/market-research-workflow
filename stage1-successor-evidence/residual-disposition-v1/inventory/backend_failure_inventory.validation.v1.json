@@ -1,0 +1,34 @@
+{
+  "checks": {
+    "categories": {
+      "missing_evidence": 30,
+      "source_defect": 3,
+      "stale_expected_semantics": 3,
+      "test_fixture_defect": 19
+    },
+    "hashes": {
+      "inventory_sha256": "ff96ab005b73a7c4889930292cd311ac87996a44e8fe654ee1d69978302967e2",
+      "junit_sha256": "e07c7ae3322bfd3c77e18b47fefce67f82db8e0517640a81b6db22ac2272bb94",
+      "log_sha256": "33d48a566619950f40125467c5a5a53f728b2bb76f9e28b44a5eb14894c10397"
+    },
+    "parseability": "PASS",
+    "reference_checks": {
+      "invalid_path_references": 0,
+      "records": 55
+    },
+    "totals": {
+      "inventory_failures": 55,
+      "junit_failures": 55,
+      "required": 55
+    },
+    "uniqueness": true
+  },
+  "errors": [],
+  "inventory_path": "/Users/wangyiliang/market-research-workflow/stage1-successor-evidence/residual-disposition-v1/inventory/backend_failure_inventory.v1.json",
+  "inventory_sha256": "ff96ab005b73a7c4889930292cd311ac87996a44e8fe654ee1d69978302967e2",
+  "junit_path": "/private/tmp/mrw-stage12-v5-backend-final.4e2HdA/backend-unit-final.xml",
+  "log_path": "/private/tmp/mrw-stage12-v5-backend-final.4e2HdA/backend-unit-final.log",
+  "receipt_sha256": "39be1edf30c57397abdeed8e3377a98414f325b826b421f32aaea9bda00fd63a",
+  "schema_version": "mrw.stage1.residual-disposition.backend-failure-inventory.validation.v1",
+  "status": "PASS"
+}

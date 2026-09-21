@@ -7,6 +7,7 @@ called.
 """
 
 from __future__ import annotations
+from typing import Annotated, Literal
 
 import dataclasses
 from dataclasses import dataclass
@@ -28,6 +29,7 @@ from app.successor_runtime.capabilities.c8_common import (
     graph_occurrence_digest,
     source_closure_entry,
     validate_canonical_ref,
+    reject_c8_projection,
 )
 
 __all__ = [
@@ -286,7 +288,10 @@ def build_graph_context_from_items(
     items: tuple[KnowledgeItem, ...],
     registry: ReadHandleRegistry,
     node_types: tuple[str, ...] | None = None,
-) -> GraphContext:
+) -> Annotated[  # NonAuthoritative
+    GraphContext,
+    Literal["kit:non-authoritative derived_as=view fact_source=items+ReadHandleRegistry witness=test:test_w06_successor_authority_metadata"],
+]:
     present = {item.key for item in items}
     nodes: list[GraphNode] = []
     all_edges: list[GraphEdge] = []
@@ -376,7 +381,7 @@ def project_graph_occurrences(
     node_types: tuple[str, ...] | None = None,
 ) -> GraphProjectionGeneration:
     if isinstance(loss_witness, TestOnlySealedValue):
-        raise C8ProjectionError("production graph projection rejects TEST_ONLY witness")
+        reject_c8_projection("production graph projection rejects TEST_ONLY witness")
     return project_graph_occurrences_test_only(
         generation_id=generation_id,
         project_key=project_key,
@@ -402,14 +407,14 @@ def project_graph_occurrences_test_only(
 ) -> GraphProjectionGeneration:
     registered_profile = loss_profile_registry.resolve(loss_profile.profile_id)
     if registered_profile is None or registered_profile != loss_profile:
-        raise C8ProjectionError("graph loss profile is not a registered exact entry")
+        reject_c8_projection("graph loss profile is not a registered exact entry")
     if loss_witness._secret is not loss_profile_registry._authority._secret:
-        raise C8ProjectionError("graph loss profile witness is not authentic")
+        reject_c8_projection("graph loss profile witness is not authentic")
     if (
         loss_witness.profile_id != loss_profile.profile_id
         or loss_witness.profile_digest != loss_profile.profile_digest
     ):
-        raise C8ProjectionError("graph loss profile witness mismatch")
+        reject_c8_projection("graph loss profile witness mismatch")
     seen_ids: set[str] = set()
     seen_pairs: set[tuple[str, str, str]] = set()
     kept: list[GraphOccurrence] = []
@@ -417,7 +422,7 @@ def project_graph_occurrences_test_only(
     allowed = set(node_types or ())
     for occurrence in occurrences:
         if occurrence.occurrence_id in seen_ids:
-            raise C8ProjectionError(
+            reject_c8_projection(
                 f"graph occurrence collision: {occurrence.occurrence_id}"
             )
         seen_ids.add(occurrence.occurrence_id)
@@ -426,7 +431,7 @@ def project_graph_occurrences_test_only(
             occurrence.occurrence_digest
             and occurrence.occurrence_digest != original_digest
         ):
-            raise C8ProjectionError("graph occurrence digest mismatch")
+            reject_c8_projection("graph occurrence digest mismatch")
         source_identity = occurrence.source_identity
         target_identity = occurrence.target_identity
         if occurrence.edge_type in loss_profile.redaction:

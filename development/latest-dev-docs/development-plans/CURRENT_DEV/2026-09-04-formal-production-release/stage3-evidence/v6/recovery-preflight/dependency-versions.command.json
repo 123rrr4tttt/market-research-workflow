@@ -1,0 +1,21 @@
+{
+  "id": "dependency-versions",
+  "command": [
+    "/Users/wangyiliang/market-research-workflow/.venv/bin/python",
+    "-m",
+    "pip",
+    "list",
+    "--format=json",
+    "--disable-pip-version-check"
+  ],
+  "cwd": "/private/tmp/mrw-stage3-v6-preflight-gga5tnof/candidate",
+  "exit_code": 1,
+  "started_at": "2026-09-06T21:51:57.053904+00:00",
+  "ended_at": "2026-09-06T21:51:57.066436+00:00",
+  "log": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-preflight/dependency-versions.log",
+  "sha256": "a24540f05c7d5e4262ec808818ce9950608f99ee4ead8fc5015c05388e9fc4cf",
+  "environment_overrides": {
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "PYTHONNOUSERSITE": "1"
+  }
+}

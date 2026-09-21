@@ -1,0 +1,112 @@
+{
+  "alert_boundary": {
+    "existing_rules": [
+      "domain.rejection_rate",
+      "route.error_rate",
+      "release_version.error_rate"
+    ],
+    "missing_existing_rule_families": [
+      "queue_depth",
+      "db_connections",
+      "provider_failure",
+      "authority_mismatch",
+      "projection_drift"
+    ],
+    "runtime_rule_validation": "bounded in-process simulation using the installed production_observability contracts"
+  },
+  "authoritative": false,
+  "backend_url": "http://127.0.0.1:18380",
+  "checks": [
+    {
+      "exit_code": 0,
+      "http_status": 200,
+      "name": "backend_health",
+      "payload": {
+        "status": "ok"
+      }
+    },
+    {
+      "exit_code": 0,
+      "http_status": 200,
+      "name": "backend_metrics_scrape"
+    },
+    {
+      "exit_code": 0,
+      "http_status": 200,
+      "name": "prometheus_up_query",
+      "payload": {
+        "data": {
+          "result": [
+            {
+              "metric": {
+                "__name__": "up",
+                "instance": "backend:8000",
+                "job": "mrw-stage5-backend"
+              },
+              "value": [
+                1789293036.562,
+                "1"
+              ]
+            }
+          ],
+          "resultType": "vector"
+        },
+        "status": "success"
+      }
+    },
+    {
+      "counter_labels": [
+        {
+          "domain": "exempt",
+          "method": "GET",
+          "release_version": "1.0.0",
+          "route": "/api/v1/health",
+          "status": "200"
+        },
+        {
+          "domain": "exempt",
+          "method": "GET",
+          "release_version": "1.0.0",
+          "route": "/metrics",
+          "status": "200"
+        }
+      ],
+      "counter_values": [
+        3.0,
+        4.0
+      ],
+      "exit_code": 0,
+      "name": "production_request_metrics",
+      "release_binding": {
+        "release_versions": [
+          "1.0.0"
+        ],
+        "source": "dynamic /metrics label readback",
+        "unique_release_versions": 1
+      }
+    }
+  ],
+  "commands": [
+    {
+      "command": [
+        "docker",
+        "compose",
+        "-f",
+        "stage5-evidence/observability/compose.yaml",
+        "-p",
+        "mrw-stage5-observability",
+        "ps",
+        "--format",
+        "json"
+      ],
+      "exit_code": 0,
+      "stderr": "",
+      "stdout": "{\"Command\":\"\\\"/docker-entrypoint.…\\\"\",\"CreatedAt\":\"2026-09-13 17:45:44 +0800 CST\",\"ExitCode\":0,\"Health\":\"healthy\",\"ID\":\"564aad71fc76\",\"Image\":\"mrw-local/stage4-business001@sha256:f247a1492400311e032710df01f84365c7e700f61c122b7243ae58eda982af19\",\"Labels\":\"com.docker.compose.config-hash=1dcb49a29c2ed1e9428e60216ed9bf050edaa23d8aa0b9e25e89065089e90652,com.docker.compose.container-number=1,com.docker.compose.oneoff=False,com.docker.compose.project.config_files=/Users/wangyiliang/market-research-workflow/stage5-evidence/observability/compose.yaml,com.docker.compose.project.environment_file=/private/tmp/mrw-stage5-observability-gap.env,com.docker.compose.version=5.0.2,com.docker.compose.depends_on=redis:service_healthy:false,db:service_healthy:false,es:service_healthy:false,com.docker.compose.project.working_dir=/Users/wangyiliang/market-research-workflow/stage5-evidence/observability,desktop.docker.io/binds/1/Source=/Users/wangyiliang/market-research-workflow/main/backend/app/production_observability,desktop.docker.io/binds/1/Target=/app/app/production_observability,desktop.docker.io/ports.scheme=v2,desktop.docker.io/ports/8000/tcp=127.0.0.1:18380,com.docker.compose.image=sha256:f247a1492400311e032710df01f84365c7e700f61c122b7243ae58eda982af19,desktop.docker.io/binds/0/Source=/Users/wangyiliang/market-research-workflow/main/backend/app/main.py,desktop.docker.io/binds/1/SourceKind=hostFile,com.docker.compose.project=mrw-stage5-observability,com.docker.compose.service=backend,desktop.docker.io/binds/0/SourceKind=hostFile,desktop.docker.io/binds/0/Target=/app/app/main.py\",\"LocalVolumes\":\"0\",\"Mounts\":\"/host_mnt/User…,/host_mnt/User…\",\"Name\":\"mrw-stage5-observability-backend-1\",\"Names\":\"mrw-stage5-observability-backend-1\",\"Networks\":\"mrw-stage5-observability_default\",\"Ports\":\"127.0.0.1:18380-\\u003e8000/tcp\",\"Project\":\"mrw-stage5-observability\",\"Publishers\":[{\"URL\":\"127.0.0.1\",\"TargetPort\":8000,\"PublishedPort\":18380,\"Protocol\":\"tcp\"}],\"RunningFor\":\"4 minutes ago\",\"Service\":\"backend\",\"Size\":\"0B\",\"State\":\"running\",\"Status\":\"Up 46 seconds (healthy)\"}\n{\"Command\":\"\\\"docker-entrypoint.s…\\\"\",\"CreatedAt\":\"2026-09-13 17:45:43 +0800 CST\",\"ExitCode\":0,\"Health\":\"healthy\",\"ID\":\"5855223d67dd\",\"Image\":\"ankane/pgvector:latest\",\"Labels\":\"com.docker.compose.project=mrw-stage5-observability,com.docker.compose.project.environment_file=/private/tmp/mrw-stage5-observability-gap.env,com.docker.compose.version=5.0.2,com.docker.compose.project.config_files=/Users/wangyiliang/market-research-workflow/stage5-evidence/observability/compose.yaml,com.docker.compose.project.working_dir=/Users/wangyiliang/market-research-workflow/stage5-evidence/observability,com.docker.compose.service=db,desktop.docker.io/ports.scheme=v2,com.docker.compose.config-hash=da8929d0ed028285fcba036f9121000c12062a12772e72256736893a6587a85d,com.docker.compose.container-number=1,com.docker.compose.depends_on=,com.docker.compose.image=sha256:956744bd14e9cbdf639c61c2a2a7c7c2c48a9c8cdd42f7de4ac034f4e96b90f8,com.docker.compose.oneoff=False\",\"LocalVolumes\":\"1\",\"Mounts\":\"mrw-stage5-obs…\",\"Name\":\"mrw-stage5-observability-db-1\",\"Names\":\"mrw-stage5-observability-db-1\",\"Networks\":\"mrw-stage5-observability_default\",\"Ports\":\"5432/tcp\",\"Project\":\"mrw-stage5-observability\",\"Publishers\":[{\"URL\":\"\",\"TargetPort\":5432,\"PublishedPort\":0,\"Protocol\":\"tcp\"}],\"RunningFor\":\"4 minutes ago\",\"Service\":\"db\",\"Size\":\"0B\",\"State\":\"running\",\"Status\":\"Up 4 minutes (healthy)\"}\n{\"Command\":\"\\\"/bin/tini -- /usr/l…\\\"\",\"CreatedAt\":\"2026-09-13 17:45:43 +0800 CST\",\"ExitCode\":0,\"Health\":\"healthy\",\"ID\":\"a0621d890e6d\",\"Image\":\"docker.elastic.co/elasticsearch/elasticsearch:8.15.3\",\"Labels\":\"com.docker.compose.oneoff=False,org.label-schema.schema-version=1.0,org.label-schema.usage=https://www.elastic.co/guide/en/elasticsearch/reference/index.html,org.label-schema.vcs-ref=f97532e680b555c3a05e73a74c28afb666923018,com.docker.compose.depends_on=,com.docker.compose.project.environment_file=/private/tmp/mrw-stage5-observability-gap.env,org.label-schema.vendor=Elastic,org.opencontainers.image.version=8.15.3,com.docker.compose.service=es,desktop.docker.io/ports.scheme=v2,org.opencontainers.image.ref.name=ubuntu,com.docker.compose.container-number=1,com.docker.compose.project.working_dir=/Users/wangyiliang/market-research-workflow/stage5-evidence/observability,org.label-schema.license=Elastic-License-2.0,org.label-schema.name=Elasticsearch,org.opencontainers.image.created=2024-10-09T22:08:00.328917561Z,org.opencontainers.image.revision=f97532e680b555c3a05e73a74c28afb666923018,org.opencontainers.image.vendor=Elastic,com.docker.compose.config-hash=32e8c7f5cd0810a4235d907e4910da1d0678e3956f58f30cbcd0ad7ab26ebfce,com.docker.compose.project.config_files=/Users/wangyiliang/market-research-workflow/stage5-evidence/observability/compose.yaml,org.opencontainers.image.documentation=https://www.elastic.co/guide/en/elasticsearch/reference/index.html,com.docker.compose.project=mrw-stage5-observability,org.label-schema.vcs-url=https://github.com/elastic/elasticsearch,org.label-schema.version=8.15.3,org.opencontainers.image.licenses=Elastic-License-2.0,org.opencontainers.image.source=https://github.com/elastic/elasticsearch,org.opencontainers.image.title=Elasticsearch,com.docker.compose.image=sha256:01c1732062b4a846c5ca687b0094b89bad0bfed00c6d71626db32fb8f3131a78,org.label-schema.build-date=2024-10-09T22:08:00.328917561Z,org.opencontainers.image.url=https://www.elastic.co/products/elasticsearch,com.docker.compose.version=5.0.2,org.label-schema.url=https://www.elastic.co/products/elasticsearch\",\"LocalVolumes\":\"1\",\"Mounts\":\"mrw-stage5-obs…\",\"Name\":\"mrw-stage5-observability-es-1\",\"Names\":\"mrw-stage5-observability-es-1\",\"Networks\":\"mrw-stage5-observability_default\",\"Ports\":\"9200/tcp, 9300/tcp\",\"Project\":\"mrw-stage5-observability\",\"Publishers\":[{\"URL\":\"\",\"TargetPort\":9200,\"PublishedPort\":0,\"Protocol\":\"tcp\"},{\"URL\":\"\",\"TargetPort\":9300,\"PublishedPort\":0,\"Protocol\":\"tcp\"}],\"RunningFor\":\"4 minutes ago\",\"Service\":\"es\",\"Size\":\"0B\",\"State\":\"running\",\"Status\":\"Up 4 minutes (healthy)\"}\n{\"Command\":\"\\\"/bin/prometheus --c…\\\"\",\"CreatedAt\":\"2026-09-13 17:45:44 +0800 CST\",\"ExitCode\":0,\"Health\":\"\",\"ID\":\"da3fca829cc5\",\"Image\":\"prom/prometheus:v3.7.3@sha256:6573196e5dbe834779ac4d34cb053113cc502a69e9e20ba3be96d37f33e81545\",\"Labels\":\"com.docker.compose.project.environment_file=/private/tmp/mrw-stage5-observability-gap.env,com.docker.compose.project.working_dir=/Users/wangyiliang/market-research-workflow/stage5-evidence/observability,com.docker.compose.version=5.0.2,desktop.docker.io/binds/2/SourceKind=hostFile,desktop.docker.io/ports/9090/tcp=127.0.0.1:18390,com.docker.compose.config-hash=5f5b7a9bc683deb200605d4afacd21f718ea3ee60bb7b3a543ffd6507ff3aeb5,com.docker.compose.image=sha256:6573196e5dbe834779ac4d34cb053113cc502a69e9e20ba3be96d37f33e81545,com.docker.compose.project=mrw-stage5-observability,desktop.docker.io/binds/2/Source=/Users/wangyiliang/market-research-workflow/stage5-evidence/observability/prometheus/prometheus.yml,desktop.docker.io/binds/2/Target=/etc/prometheus/prometheus.yml,desktop.docker.io/ports.scheme=v2,org.opencontainers.image.source=https://github.com/prometheus/prometheus,com.docker.compose.container-number=1,com.docker.compose.depends_on=backend:service_healthy:false,com.docker.compose.service=prometheus,desktop.docker.io/binds/0/SourceKind=hostFile,desktop.docker.io/binds/0/Target=/run/secrets/metrics_token,desktop.docker.io/binds/0/Source=/private/tmp/mrw-stage5-observability-gap.metrics-token,maintainer=The Prometheus Authors \\u003cprometheus-developers@googlegroups.com\\u003e,com.docker.compose.oneoff=False,com.docker.compose.project.config_files=/Users/wangyiliang/market-research-workflow/stage5-evidence/observability/compose.yaml\",\"LocalVolumes\":\"1\",\"Mounts\":\"/host_mnt/User…,mrw-stage5-obs…,/host_mnt/priv…\",\"Name\":\"mrw-stage5-observability-prometheus-1\",\"Names\":\"mrw-stage5-observability-prometheus-1\",\"Networks\":\"mrw-stage5-observability_default\",\"Ports\":\"127.0.0.1:18390-\\u003e9090/tcp\",\"Project\":\"mrw-stage5-observability\",\"Publishers\":[{\"URL\":\"127.0.0.1\",\"TargetPort\":9090,\"PublishedPort\":18390,\"Protocol\":\"tcp\"}],\"RunningFor\":\"4 minutes ago\",\"Service\":\"prometheus\",\"Size\":\"0B\",\"State\":\"running\",\"Status\":\"Up 9 seconds\"}\n{\"Command\":\"\\\"docker-entrypoint.s…\\\"\",\"CreatedAt\":\"2026-09-13 17:45:43 +0800 CST\",\"ExitCode\":0,\"Health\":\"healthy\",\"ID\":\"0170035e0bcf\",\"Image\":\"redis:7.4\",\"Labels\":\"com.docker.compose.container-number=1,com.docker.compose.image=sha256:71da9275c5f3fcb97d0fa0c8c5b36cc995327265420f17a04bfd544f458059f7,com.docker.compose.project=mrw-stage5-observability,com.docker.compose.project.environment_file=/private/tmp/mrw-stage5-observability-gap.env,com.docker.compose.service=redis,com.docker.compose.version=5.0.2,desktop.docker.io/ports.scheme=v2,com.docker.compose.config-hash=e1a2265d00b0c188320aa9e8f291eb890236d8e90fae0a79c976536b33e2d866,com.docker.compose.depends_on=,com.docker.compose.oneoff=False,com.docker.compose.project.config_files=/Users/wangyiliang/market-research-workflow/stage5-evidence/observability/compose.yaml,com.docker.compose.project.working_dir=/Users/wangyiliang/market-research-workflow/stage5-evidence/observability\",\"LocalVolumes\":\"1\",\"Mounts\":\"2aab0e5859b48a…\",\"Name\":\"mrw-stage5-observability-redis-1\",\"Names\":\"mrw-stage5-observability-redis-1\",\"Networks\":\"mrw-stage5-observability_default\",\"Ports\":\"6379/tcp\",\"Project\":\"mrw-stage5-observability\",\"Publishers\":[{\"URL\":\"\",\"TargetPort\":6379,\"PublishedPort\":0,\"Protocol\":\"tcp\"}],\"RunningFor\":\"4 minutes ago\",\"Service\":\"redis\",\"Size\":\"0B\",\"State\":\"running\",\"Status\":\"Up 4 minutes (healthy)\"}\n"
+    }
+  ],
+  "completed_at": "2026-09-13T09:50:36.711860+00:00",
+  "exit_code": 0,
+  "prometheus_url": "http://127.0.0.1:18390",
+  "schema": "mrw.stage5.observability.focused.v1",
+  "started_at": "2026-09-13T09:50:36.492185+00:00"
+}

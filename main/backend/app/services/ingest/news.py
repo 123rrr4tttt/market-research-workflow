@@ -10,9 +10,8 @@ from urllib.parse import urlparse
 from ..job_logger import start_job, complete_job, fail_job
 from ..projects import current_project_key
 from .doc_type_mapper import normalize_doc_type
-from .adapters.http_utils import fetch_html, make_html_parser
-from .adapters.social_reddit import RedditAdapter, RedditPost
-from .adapters.news_google import GoogleNewsAdapter, GoogleNewsItem
+from ..resource_pool.http_port import fetch_html, make_html_parser
+from .provider_ports import get_google_news_adapter, get_reddit_adapter
 from .gate_reason_codes import normalize_reason_code
 from .retry_policy import classify_retry_reason, RETRY_CLASS_TRANSIENT
 from .url_unwrap import decode_google_news_url_for_dispatch
@@ -60,6 +59,7 @@ def collect_official_news_updates(
     except Exception as exc:  # noqa: BLE001
         logger.exception("collect_official_news_updates failed")
         fail_job(job_id, str(exc))
+        # kit:boundary owner=ingest.official_news class=SHELL_BOUNDARY_EXCEPTION failure_family=ingest.operation.failure witness=test:test_latest_service_a_ingest_shell_boundaries_reraise_original_errors
         raise
 
 
@@ -86,7 +86,7 @@ def collect_reddit_discussions(
     )
     
     try:
-        adapter = RedditAdapter()
+        adapter = get_reddit_adapter()
         
         # 如果只有一个子论坛，使用原有逻辑保持兼容性
         if len(subreddit_list) == 1:
@@ -112,6 +112,7 @@ def collect_reddit_discussions(
     except Exception as exc:  # noqa: BLE001
         logger.exception("collect_reddit_discussions failed")
         fail_job(job_id, str(exc))
+        # kit:boundary owner=ingest.reddit class=SHELL_BOUNDARY_EXCEPTION failure_family=ingest.reddit.failure witness=test:test_latest_service_a_ingest_shell_boundaries_reraise_original_errors
         raise
 
 
@@ -338,7 +339,7 @@ def _normalize_url(href: str, *, base_url: str) -> str:
 
 def _persist_reddit_items(
     *,
-    posts: Iterable[RedditPost],
+    posts: Iterable[object],
     doc_type: str,
     source_name: str,
     base_url: str,
@@ -426,7 +427,7 @@ def collect_google_news(keywords: List[str], limit: int = 20) -> dict:
     """
     job_id = start_job("google_news", {"keywords": keywords, "limit": limit})
     try:
-        adapter = GoogleNewsAdapter()
+        adapter = get_google_news_adapter()
         news_items = adapter.search_multiple_keywords(keywords, limit)
         
         result = _persist_google_news_items(
@@ -442,12 +443,13 @@ def collect_google_news(keywords: List[str], limit: int = 20) -> dict:
     except Exception as exc:  # noqa: BLE001
         logger.exception("collect_google_news failed")
         fail_job(job_id, str(exc))
+        # kit:boundary owner=ingest.google_news class=SHELL_BOUNDARY_EXCEPTION failure_family=ingest.google_news.failure witness=test:test_latest_service_a_ingest_shell_boundaries_reraise_original_errors
         raise
 
 
 def _persist_google_news_items(
     *,
-    items: Iterable[GoogleNewsItem],
+    items: Iterable[object],
     doc_type: str,
     source_name: str,
     base_url: str,

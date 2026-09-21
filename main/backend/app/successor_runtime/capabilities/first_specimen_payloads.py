@@ -31,6 +31,7 @@ from app.successor_runtime.research.object_types import ObjectType
 
 from .checksum import content_digest
 from .codecs import PayloadCodec
+from .first_specimen import _capability_failure, _raise_capability_failure
 
 _OPERATION_KINDS = {
     "material.capture.source.a": "material.capture_document_snapshot.v1",
@@ -77,13 +78,13 @@ class SourcePayloadContext:
 
     def __post_init__(self) -> None:
         if self.label not in {"a", "b"}:
-            raise ValueError("first-specimen source label must be a or b")
+            _raise_capability_failure(_capability_failure("CAPABILITY_CONTRACT_INVALID", "first-specimen source label must be a or b"))
         if self.document_id <= 0 or self.captured_byte_size <= 0:
-            raise ValueError("captured Document identity and size must be positive")
+            _raise_capability_failure(_capability_failure("INVALID_CAPTURED_MATERIAL", "captured Document identity and size must be positive"))
         if self.observed_at.tzinfo is None or self.captured_updated_at.tzinfo is None:
-            raise ValueError("source and capture timestamps must be timezone-aware")
+            _raise_capability_failure(_capability_failure("INVALID_CAPTURED_MATERIAL", "source and capture timestamps must be timezone-aware"))
         if len(self.captured_content_digest) != 64:
-            raise ValueError("captured content digest must be sha256 hex")
+            _raise_capability_failure(_capability_failure("INVALID_CAPTURED_MATERIAL", "captured content digest must be sha256 hex"))
 
 
 @dataclass(frozen=True, slots=True)
@@ -102,9 +103,9 @@ class FirstSpecimenPayloadContext:
             self.inquiry_ref,
         )
         if any(not value for value in required):
-            raise ValueError("typed payload context identities must be non-empty")
+            _raise_capability_failure(_capability_failure("CAPABILITY_CONTRACT_INVALID", "typed payload context identities must be non-empty"))
         if tuple(source.label for source in self.sources) != ("a", "b"):
-            raise ValueError("typed payload sources must use ordered labels a then b")
+            _raise_capability_failure(_capability_failure("CAPABILITY_CONTRACT_INVALID", "typed payload sources must use ordered labels a then b"))
 
 
 @dataclass(frozen=True, slots=True)
@@ -115,13 +116,13 @@ class PersistedOperationPayloads:
         if tuple(operation_id for operation_id, _ in self.operations) != tuple(
             _OPERATION_KINDS
         ):
-            raise ValueError("typed payload closure must cover the eight static Atoms")
+            _raise_capability_failure(_capability_failure("CAPABILITY_CONTRACT_INVALID", "typed payload closure must cover the eight static Atoms"))
 
     def for_operation(self, operation_id: str) -> ValueRef:
         for candidate, value_ref in self.operations:
             if candidate == operation_id:
                 return value_ref
-        raise KeyError(operation_id)
+        _raise_capability_failure(_capability_failure("LOOKUP_NOT_FOUND", f"payload operation not found: {operation_id}"), KeyError, operation_id)
 
 
 @dataclass(frozen=True, slots=True)
@@ -256,7 +257,7 @@ def persist_first_specimen_payloads(
         codec = bundle.codec_by_kind(kind)
         encoded = codec.encode_payload(spec.payload)
         if codec.decode_payload(encoded) != spec.payload:
-            raise ValueError(f"{spec.operation_id} codec round-trip drift")
+            _raise_capability_failure(_capability_failure("CAPABILITY_CONTRACT_INVALID", f"{spec.operation_id} codec round-trip drift"))
         exact = canonical_bytes(encoded)
         exact_digest = hashlib.sha256(exact).hexdigest()
         object_type = _payload_object_type(codec)
@@ -315,7 +316,7 @@ def persist_internal_export_payload(
     """Persist the final export payload only after artifact admission/approval."""
 
     if intent.content_digest is None or intent.artifact_ref != artifact_ref:
-        raise ValueError("delivery intent does not bind the exact admitted artifact")
+        _raise_capability_failure(_capability_failure("INVALID_ARTIFACT_CLOSURE", "delivery intent does not bind the exact admitted artifact"))
     payload = _payload(
         InternalExportInput,
         delivery_intent_id=intent.delivery_intent_id,
@@ -329,7 +330,7 @@ def persist_internal_export_payload(
     )
     encoded = codec.encode_payload(payload)
     if codec.decode_payload(encoded) != payload:
-        raise ValueError("delivery.internal_export.v1 codec round-trip drift")
+        _raise_capability_failure(_capability_failure("CAPABILITY_CONTRACT_INVALID", "delivery.internal_export.v1 codec round-trip drift"))
     exact = canonical_bytes(encoded)
     exact_digest = hashlib.sha256(exact).hexdigest()
     object_type = _payload_object_type(codec)

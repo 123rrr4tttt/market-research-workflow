@@ -1,0 +1,34 @@
+{
+  "authoritative": false,
+  "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+  "member_count": 4,
+  "members": [
+    {
+      "bytes": 12452,
+      "path": "stage1-successor-evidence/stage2-v6-intake-remediation-v3/build_stage2_v6_intake_remediation_v3.py",
+      "sha256": "b5e3d72e241c322eb5d48676a1970aebc1b43b96df1d37ea42398200bfe83fe1"
+    },
+    {
+      "bytes": 15594,
+      "path": "stage1-successor-evidence/stage2-v6-intake-remediation-v3/check_stage2_v6_intake_remediation_v3.py",
+      "sha256": "add954a92a06ac387e491c669aaa2704b6d7f121b5c0ad71b6822ab4d0374fe1"
+    },
+    {
+      "bytes": 6156,
+      "path": "stage1-successor-evidence/stage2-v6-intake-remediation-v3/stage2-v6-intake-remediation-record.v3.json",
+      "sha256": "69ed505d428771104dc906b42ebd8f16b5f7b1458edaa785236ae9231d8c6a14"
+    },
+    {
+      "bytes": 2529,
+      "path": "stage1-successor-evidence/stage2-v6-intake-remediation-v3/test_stage2_v6_intake_remediation_v3.py",
+      "sha256": "dd9737c1911f43107436ba4fbf9e61ce740a89d1cb75c0ccbe5eccb07d731444"
+    }
+  ],
+  "schema_version": "mrw.stage1.stage2_v6_intake_remediation_manifest.v3",
+  "status": "COMPLETE_NOT_AUTHORITY",
+  "supersedes": {
+    "path": "stage1-successor-evidence/stage2-v6-intake-remediation-v3/artifact-manifest.corrected.v3.json",
+    "reason": "DRIFTED_RECORD_ARGUMENT_WAS_NOT_CHECKED",
+    "sha256": "9824d90bccda1312ec2f7edf2c0f438114e605697886f31c31819c1ddd014be0"
+  }
+}

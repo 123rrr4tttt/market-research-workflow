@@ -1,0 +1,74 @@
+{
+  "builders": {
+    "candidate": "Name:          mrw-r13w-canonical-amd64\nDriver:        docker-container\nLast Activity: 2026-09-12 14:51:35 +0000 UTC\n\nNodes:\nName:                  mrw-r13w-canonical-amd640\nEndpoint:              desktop-linux\nStatus:                running\nBuildKit daemon flags: --allow-insecure-entitlement=network.host\nBuildKit version:      v0.32.2\nPlatforms:             linux/arm64, linux/amd64, linux/amd64/v2, linux/riscv64, linux/ppc64le, linux/s390x, linux/386, linux/arm/v7, linux/arm/v6\nLabels:\n org.mobyproject.buildkit.worker.executor:         oci\n org.mobyproject.buildkit.worker.hostname:         a4f9beb91097\n org.mobyproject.buildkit.worker.network:          host\n org.mobyproject.buildkit.worker.oci.process-mode: sandbox\n org.mobyproject.buildkit.worker.selinux.enabled:  false\n org.mobyproject.buildkit.worker.snapshotter:      overlayfs\nGC Policy rule#0:\n All:            false\n Filters:        type==source.local type==exec.cachemount type==source.git.checkout\n Keep Duration:  48h0m0s\n Max Used Space: 488.3MiB\nGC Policy rule#1:\n All:            false\n Keep Duration:  1440h0m0s\n Reserved Space: 9.313GiB\n Max Used Space: 93.13GiB\n Min Free Space: 84.75GiB\nGC Policy rule#2:\n All:            false\n Reserved Space: 9.313GiB\n Max Used Space: 93.13GiB\n Min Free Space: 84.75GiB\nGC Policy rule#3:\n All:            true\n Reserved Space: 9.313GiB\n Max Used Space: 93.13GiB\n Min Free Space: 84.75GiB",
+    "replay": "Name:          mrw-r13w-replay-amd64\nDriver:        docker-container\nLast Activity: 2026-09-12 15:03:40 +0000 UTC\n\nNodes:\nName:                  mrw-r13w-replay-amd640\nEndpoint:              desktop-linux\nStatus:                running\nBuildKit daemon flags: --allow-insecure-entitlement=network.host\nBuildKit version:      v0.32.2\nPlatforms:             linux/arm64, linux/amd64, linux/amd64/v2, linux/riscv64, linux/ppc64le, linux/s390x, linux/386, linux/arm/v7, linux/arm/v6\nLabels:\n org.mobyproject.buildkit.worker.executor:         oci\n org.mobyproject.buildkit.worker.hostname:         04e441f33ab7\n org.mobyproject.buildkit.worker.network:          host\n org.mobyproject.buildkit.worker.oci.process-mode: sandbox\n org.mobyproject.buildkit.worker.selinux.enabled:  false\n org.mobyproject.buildkit.worker.snapshotter:      overlayfs\nGC Policy rule#0:\n All:            false\n Filters:        type==source.local type==exec.cachemount type==source.git.checkout\n Keep Duration:  48h0m0s\n Max Used Space: 488.3MiB\nGC Policy rule#1:\n All:            false\n Keep Duration:  1440h0m0s\n Reserved Space: 9.313GiB\n Max Used Space: 93.13GiB\n Min Free Space: 84.75GiB\nGC Policy rule#2:\n All:            false\n Reserved Space: 9.313GiB\n Max Used Space: 93.13GiB\n Min Free Space: 84.75GiB\nGC Policy rule#3:\n All:            true\n Reserved Space: 9.313GiB\n Max Used Space: 93.13GiB\n Min Free Space: 84.75GiB"
+  },
+  "buildx_version": "github.com/docker/buildx v0.31.1-desktop.1 3d153e82f8d99923062781d390607dabe1679613",
+  "docker_version": {
+    "Client": {
+      "ApiVersion": "1.53",
+      "Arch": "arm64",
+      "BuildTime": "Mon Feb  2 17:16:37 2026",
+      "Context": "desktop-linux",
+      "DefaultAPIVersion": "1.53",
+      "GitCommit": "a5c7197",
+      "GoVersion": "go1.25.6",
+      "Os": "darwin",
+      "Version": "29.2.1"
+    },
+    "Server": {
+      "ApiVersion": "1.53",
+      "Arch": "arm64",
+      "BuildTime": "2026-02-02T17:16:47.000000000+00:00",
+      "Components": [
+        {
+          "Details": {
+            "ApiVersion": "1.53",
+            "Arch": "arm64",
+            "BuildTime": "Mon Feb  2 17:16:47 2026",
+            "Experimental": "false",
+            "GitCommit": "6bc6209",
+            "GoVersion": "go1.25.6",
+            "KernelVersion": "6.12.72-linuxkit",
+            "MinAPIVersion": "1.44",
+            "Os": "linux"
+          },
+          "Name": "Engine",
+          "Version": "29.2.1"
+        },
+        {
+          "Details": {
+            "GitCommit": "dea7da592f5d1d2b7755e3a161be07f43fad8f75"
+          },
+          "Name": "containerd",
+          "Version": "v2.2.1"
+        },
+        {
+          "Details": {
+            "GitCommit": "v1.3.4-0-gd6d73eb8"
+          },
+          "Name": "runc",
+          "Version": "1.3.4"
+        },
+        {
+          "Details": {
+            "GitCommit": "de40ad0"
+          },
+          "Name": "docker-init",
+          "Version": "0.19.0"
+        }
+      ],
+      "GitCommit": "6bc6209",
+      "GoVersion": "go1.25.6",
+      "KernelVersion": "6.12.72-linuxkit",
+      "MinAPIVersion": "1.44",
+      "Os": "linux",
+      "Platform": {
+        "Name": "Docker Desktop 4.63.0 (220185)"
+      },
+      "Version": "29.2.1"
+    }
+  },
+  "python_version": "Python 3.14.7",
+  "trivy_version": "Version: 0.67.2"
+}

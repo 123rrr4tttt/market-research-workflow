@@ -11,7 +11,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Annotated, Literal, Protocol
 
 from app.successor_runtime.capabilities.c8_common import (
     C8_3_ADMISSION_INTERFACE_CONTRACT,
@@ -27,6 +27,7 @@ from app.successor_runtime.capabilities.c8_common import (
     UnavailableProjection,
     c8_canonical_digest,
     research_draft_artifact_digest,
+    reject_c8_unavailable,
 )
 from app.successor_runtime.capabilities.c8_common import (
     ReportAdmissionIntent as MovementReportAdmissionIntent,
@@ -159,17 +160,20 @@ def build_report_artifact(
     project_key: str,
     topic: str,
     source_reads: tuple[KnowledgeRead, ...],
-) -> ReportArtifact:
+) -> Annotated[  # NonAuthoritative
+    ReportArtifact,
+    Literal["kit:non-authoritative derived_as=view fact_source=report_identity_inputs+source_reads witness=test:test_w06_successor_authority_metadata"],
+]:
     rows: list[ReportRow] = []
     for read in source_reads:
         if read.handle.project_key != project_key:
-            raise UnavailableProjection(
+            reject_c8_unavailable(
                 "report source handles must belong to the report project"
             )
         if not read.provenance.canonical_identity.startswith(
             f"knowledge:{project_key}:"
         ):
-            raise UnavailableProjection(
+            reject_c8_unavailable(
                 "report source provenance is not closed under the report project"
             )
         evidence_refs = read.fields.get("evidence_refs")
@@ -258,7 +262,10 @@ def build_report_artifact(
 
 def build_report_admission_intent(
     artifact: ReportArtifact,
-) -> ReportAdmissionIntent:
+) -> Annotated[  # NonAuthoritative
+    ReportAdmissionIntent,
+    Literal["kit:non-authoritative derived_as=view fact_source=ReportArtifact witness=test:test_w06_successor_authority_metadata"],
+]:
     return ReportAdmissionIntent(
         contract_version=REPORT_ADMISSION_CONTRACT,
         report_id=artifact.report_id,
@@ -273,7 +280,10 @@ def build_report_delivery_intent(
     artifact: ReportArtifact,
     *,
     target_kind: str = "html_export",
-) -> ReportDeliveryIntent:
+) -> Annotated[  # NonAuthoritative
+    ReportDeliveryIntent,
+    Literal["kit:non-authoritative derived_as=view fact_source=ReportArtifact+target_kind witness=test:test_w06_successor_authority_metadata"],
+]:
     return ReportDeliveryIntent(
         contract_version=REPORT_DELIVERY_CONTRACT,
         report_id=artifact.report_id,
@@ -291,11 +301,14 @@ def build_report_stage(
     project_key: str,
     artifact: ResearchDraftArtifact,
     citation_closure: CitationClosure,
-) -> MovementReportStage:
+) -> Annotated[  # NonAuthoritative
+    MovementReportStage,
+    Literal["kit:non-authoritative derived_as=view fact_source=ResearchDraftArtifact+CitationClosure witness=test:test_w06_successor_authority_metadata"],
+]:
     if artifact.project_key != project_key:
-        raise UnavailableProjection("report stage project scope mismatch")
+        reject_c8_unavailable("report stage project scope mismatch")
     if citation_closure != artifact.citation_closure:
-        raise UnavailableProjection("report stage citation closure mismatch")
+        reject_c8_unavailable("report stage citation closure mismatch")
     artifact_sources = tuple(entry.identity for entry in artifact.provenance_closure)
     return MovementReportStage(
         stage_id=stage_id,
@@ -341,9 +354,12 @@ def verify_report_stage(
 
 def build_report_admission_intent_v2(
     verification: ReportVerification,
-) -> MovementReportAdmissionIntent:
+) -> Annotated[  # NonAuthoritative
+    MovementReportAdmissionIntent,
+    Literal["kit:non-authoritative derived_as=view fact_source=ReportVerification witness=test:test_w06_successor_authority_metadata"],
+]:
     if verification.state != "VERIFIED":
-        raise UnavailableProjection("admission intent requires verified report stage")
+        reject_c8_unavailable("admission intent requires verified report stage")
     return MovementReportAdmissionIntent(
         intent_id=f"admission:{verification.verification_id}",
         verification_id=verification.verification_id,
@@ -361,7 +377,7 @@ def confirm_report_admission_readback(
     authority_epoch: int = 1,
 ) -> ReportAdmissionReadback:
     if isinstance(witness, TestOnlySealedValue):
-        raise UnavailableProjection(
+        reject_c8_unavailable(
             "production admission readback rejects TEST_ONLY witness"
         )
     return confirm_report_admission_readback_test_only(
@@ -383,18 +399,18 @@ def confirm_report_admission_readback_test_only(
 ) -> ReportAdmissionReadback:
     registered = verifier_registry.resolve(verification.verification_id)
     if registered is None or registered != verification:
-        raise UnavailableProjection(
+        reject_c8_unavailable(
             "verification is not a registered exact verifier entry"
         )
     if witness._secret is not verifier_registry._authority._secret:
-        raise UnavailableProjection("verification witness is not authentic")
+        reject_c8_unavailable("verification witness is not authentic")
     if (
         witness.verification_id != verification.verification_id
         or witness.object_digest != verification.object_digest
     ):
-        raise UnavailableProjection("verification witness mismatch")
+        reject_c8_unavailable("verification witness mismatch")
     if verification.state != "VERIFIED":
-        raise UnavailableProjection(
+        reject_c8_unavailable(
             "admission readback requires a verified exact verification"
         )
     return ReportAdmissionReadback(
@@ -418,7 +434,7 @@ def prepare_report_export(
     export_format: str = "markdown",
 ) -> MovementReportExportPreparation:
     if readback.state != "ADMITTED":
-        raise UnavailableProjection(
+        reject_c8_unavailable(
             "export preparation requires exact admitted readback"
         )
     return MovementReportExportPreparation(
@@ -436,19 +452,22 @@ def build_report_delivery_intent_v2(
     approval_digest: str,
     approval_epoch: int,
     external: bool = False,
-) -> MovementReportDeliveryIntent:
+) -> Annotated[  # NonAuthoritative
+    MovementReportDeliveryIntent,
+    Literal["kit:non-authoritative derived_as=view fact_source=ReportExportPreparation+approval_inputs witness=test:test_w06_successor_authority_metadata"],
+]:
     if preparation.state != "PREPARED":
-        raise UnavailableProjection(
+        reject_c8_unavailable(
             "delivery intent requires prepared export preparation"
         )
     if not approval_digest:
-        raise UnavailableProjection(
+        reject_c8_unavailable(
             "delivery intent requires non-empty approval digest"
         )
     if approval_epoch < 1:
-        raise UnavailableProjection("delivery intent requires positive approval epoch")
+        reject_c8_unavailable("delivery intent requires positive approval epoch")
     if external:
-        raise UnavailableProjection(
+        reject_c8_unavailable(
             "external delivery rejected in this local milestone"
         )
     return MovementReportDeliveryIntent(
@@ -475,21 +494,26 @@ def build_c8_research_artifact_candidate(
     canonical_revision: int = 1,
     canonical_incarnation: str = "research-artifact-1",
     witness: object | None = None,
-) -> C8ResearchArtifactCandidate:
+) -> Annotated[  # NonAuthoritative
+    C8ResearchArtifactCandidate,
+    "kit:prepared-command "
+    "effect_boundary=c8_report.research_artifact_from_candidate "
+    "witness=test:test_c8_research_artifact_candidate_prepared_command_metadata",
+]:
     if isinstance(witness, TestOnlySealedValue):
-        raise UnavailableProjection(
+        reject_c8_unavailable(
             "research artifact adapter rejects TEST_ONLY witness"
         )
     if verification.state != "VERIFIED":
-        raise UnavailableProjection(
+        reject_c8_unavailable(
             "research artifact adapter requires a verified draft"
         )
     if verification.project_key != draft.project_key:
-        raise UnavailableProjection(
+        reject_c8_unavailable(
             "research artifact adapter rejects cross-project draft"
         )
     if verification.artifact_digest != draft.artifact_digest:
-        raise UnavailableProjection(
+        reject_c8_unavailable(
             "research artifact adapter rejects stale verification"
         )
     metadata = {

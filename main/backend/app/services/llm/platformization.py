@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Literal, Mapping
+from typing import Annotated, Any, Literal, Mapping
 
 
 CapabilityName = Literal[
@@ -365,7 +365,10 @@ def build_trace_audit_record(
     degraded: bool,
     error_code: str | None = None,
     error_detail: str | None = None,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=generated_evidence fact_source=llm.runtime_trace witness=test:test_w01_meta",
+]:
     return {
         "consumer": identity.consumer,
         "project_key": identity.project_key,

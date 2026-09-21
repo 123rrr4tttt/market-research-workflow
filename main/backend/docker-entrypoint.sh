@@ -21,6 +21,8 @@ elif part == "port":
     print(parsed.port or default)
 elif part == "user":
     print(parsed.username or default)
+elif part == "password":
+    print(parsed.password or default)
 elif part == "path":
     value = (parsed.path or "").lstrip("/")
     print(value or default)
@@ -45,8 +47,16 @@ DB_NAME="$(parse_url_part "${DB_URL}" path postgres)"
 ES_HOST="$(parse_url_part "${ES_URL}" host es)"
 ES_PORT="$(parse_url_part "${ES_URL}" port 9200)"
 ES_SCHEME="$(parse_url_part "${ES_URL}" scheme http)"
+ES_USER="$(parse_url_part "${ES_URL}" user '')"
+ES_PASSWORD="$(parse_url_part "${ES_URL}" password '')"
 REDIS_HOST="$(parse_url_part "${REDIS_URL}" host redis)"
 REDIS_PORT="$(parse_url_part "${REDIS_URL}" port 6379)"
+REDIS_PASSWORD="$(parse_url_part "${REDIS_URL}" password '')"
+
+ES_CURL_AUTH=()
+if [ -n "${ES_USER}" ] && [ -n "${ES_PASSWORD}" ]; then
+    ES_CURL_AUTH=(--user "${ES_USER}:${ES_PASSWORD}")
+fi
 
 # 等待PostgreSQL就绪
 echo "⏳ 等待PostgreSQL服务就绪..."
@@ -65,7 +75,7 @@ echo "✅ PostgreSQL已就绪"
 # 等待Elasticsearch就绪
 echo "⏳ 等待Elasticsearch服务就绪..."
 RETRY=0
-until curl -fsS "${ES_SCHEME}://${ES_HOST}:${ES_PORT}/_cluster/health" >/dev/null 2>&1; do
+until curl -fsS "${ES_CURL_AUTH[@]}" "${ES_SCHEME}://${ES_HOST}:${ES_PORT}/_cluster/health" >/dev/null 2>&1; do
     RETRY=$((RETRY + 1))
     if [ $RETRY -ge $MAX_RETRIES ]; then
         echo "❌ Elasticsearch服务未能在${MAX_RETRIES}次重试后就绪"
@@ -79,7 +89,7 @@ echo "✅ Elasticsearch已就绪"
 # 等待Redis就绪（使用Python检查，因为redis-cli可能不可用）
 echo "⏳ 等待Redis服务就绪..."
 RETRY=0
-until python -c "import redis; r=redis.Redis(host='${REDIS_HOST}', port=int('${REDIS_PORT}'), db=0); r.ping()" >/dev/null 2>&1; do
+until python -c "import redis; r=redis.Redis(host='${REDIS_HOST}', port=int('${REDIS_PORT}'), db=0, password='${REDIS_PASSWORD}'); r.ping()" >/dev/null 2>&1; do
     RETRY=$((RETRY + 1))
     if [ $RETRY -ge $MAX_RETRIES ]; then
         echo "❌ Redis服务未能在${MAX_RETRIES}次重试后就绪"

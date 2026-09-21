@@ -9,10 +9,12 @@ from app.services.agent_sessions import reset_agent_session_service_for_tests, r
 from app.services.agent_sessions.service import AgentSessionService
 from app.services.agent_sessions.store import InMemoryAgentSessionStore
 from app.services import workflow_graph as workflow_graph_module
+from app.services.workflow_graph import executors as workflow_graph_executors
 from app.services.workflow_graph.executors.base import BaseNodeExecutor
 from app.services.workflow_graph.executors.llm_call import LLMCallExecutor
 from app.services.workflow_graph.executors.vector_search import VectorSearchExecutor
 from app.services.workflow_graph.store import InMemoryCompiledGraphStore
+from app.services.workflow_graph.governance_contract import build_graph_rollback_contract
 from app.services.workflow_graph.runtime import WorkflowGraphRuntime
 from app.services.workflow_graph import WorkflowGraphRuntimeService
 from app.services.workflow_graph.store import InMemoryRunStore
@@ -47,9 +49,19 @@ class WorkflowGraphRuntimeUnitTest(unittest.TestCase):
         reset_agent_session_store_for_tests(store)
         reset_agent_session_service_for_tests(AgentSessionService(store=store))
 
+    def test_unknown_lazy_executor_export_raises_attribute_error(self):
+        with self.assertRaises(AttributeError) as caught:
+            getattr(workflow_graph_executors, "MissingExecutor")
+
+        self.assertEqual(caught.exception.args, ("MissingExecutor",))
+
     def test_store_keeps_runs_events_results(self):
         store = InMemoryRunStore()
-        run_id = store.create_run(run_id="run-1", topo_order=["a", "b"])
+        run_id = store.create_run(
+            run_id="run-1",
+            topo_order=["a", "b"],
+            metadata={"project_key": "demo_proj", "trace_id": "trace-1", "session_id": "as-1"},
+        )
 
         store.set_run_status(run_id, "running")
         store.set_node_status(run_id, "a", "running")
@@ -62,6 +74,34 @@ class WorkflowGraphRuntimeUnitTest(unittest.TestCase):
         self.assertEqual(snap["run"]["node_statuses"]["a"], "succeeded")
         self.assertEqual(snap["results"]["a"], {"ok": True})
         self.assertEqual(snap["events"][0]["type"], "node.succeeded")
+        self.assertEqual(snap["events"][0]["event_type"], "node.succeeded")
+        self.assertEqual(snap["events"][0]["project_key"], "demo_proj")
+        self.assertEqual(snap["events"][0]["session_id"], "as-1")
+        self.assertEqual(snap["events"][0]["run_id"], "run-1")
+        self.assertEqual(snap["events"][0]["trace_id"], "trace-1")
+        self.assertIn("event_id", snap["events"][0])
+        self.assertIn("created_at", snap["events"][0])
+
+    def test_graph_rollback_contract_reserves_cross_object_governance_fields(self):
+        contract = build_graph_rollback_contract(
+            actor_id="ops-user",
+            project_key="demo_proj",
+            graph_id="cg-1",
+            target_version_id="cver-1",
+            current_revision=4,
+            base_revision=4,
+            reason="restore tested snapshot",
+        )
+
+        self.assertEqual(contract["contract_version"], "workflow_graph.rollback.v1")
+        self.assertEqual(contract["governance_contract_version"], "cross_object.publish_governance.v1")
+        self.assertEqual(contract["object_type"], "curated_business_graph")
+        self.assertEqual(contract["object_id"], "cg-1")
+        self.assertEqual(contract["operator"], {"actor_id": "ops-user"})
+        self.assertEqual(contract["target"]["version_id"], "cver-1")
+        self.assertEqual(contract["snapshot"], {"kind": "version_snapshot", "version_id": "cver-1"})
+        self.assertEqual(contract["reason"], "restore tested snapshot")
+        self.assertTrue({"workflow_template", "dashboard", "report", "project"}.issubset(contract["compatible_object_types"]))
 
     def test_runtime_runs_nodes_by_topo_order_and_marks_succeeded(self):
         runtime = WorkflowGraphRuntime()

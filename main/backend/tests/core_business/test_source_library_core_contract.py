@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from contextlib import nullcontext
 import sys
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 import pytest
 
@@ -15,6 +18,7 @@ try:
     from app.api import source_library as source_library_api
     from app.contracts.errors import ErrorCode
     from app.main import app as backend_app
+    from app.services.source_library import resolver as source_library_resolver
 
     _IMPORT_ERROR = None
 except Exception as exc:  # noqa: BLE001
@@ -190,6 +194,157 @@ def test_source_library_items_service_aggregated_requires_include_system(client)
     body = resp.json()
     assert body["error"]["code"] == ErrorCode.INVALID_INPUT.value
     assert "include_system=true" in body["error"]["message"]
+
+
+def test_source_library_items_include_execution_plan_preview_contract(client, monkeypatch: pytest.MonkeyPatch):
+    captured = {}
+
+    def _fake_service(scope: str, project_key: str | None, include_execution_plan: bool = False):
+        captured["scope"] = scope
+        captured["project_key"] = project_key
+        captured["include_execution_plan"] = include_execution_plan
+        item = {
+            "item_key": "demo.search",
+            "name": "Demo Search",
+            "channel_key": "market.general",
+            "params": {"site_entries": ["https://example.com/search?q={{q}}"], "expected_entry_type": "search_template"},
+            "extra": {},
+        }
+        if include_execution_plan:
+            item["execution_plan"] = source_library_api.build_item_execution_plan(item)
+        return [item]
+
+    monkeypatch.setattr(source_library_api, "list_effective_items", _fake_service)
+
+    resp = client.get(
+        "/api/v1/source_library/items",
+        params={"scope": "effective", "project_key": "demo_proj", "include_execution_plan": "true"},
+        headers=HEADERS,
+    )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    item = body["data"]["items"][0]
+    assert captured == {"scope": "effective", "project_key": "demo_proj", "include_execution_plan": True}
+    assert body["data"]["include_execution_plan"] is True
+    assert item["execution_plan"]["contract_version"] == "source_library.item_execution_plan.v1"
+    assert item["execution_plan"]["site_entry_urls"] == ["https://example.com/search?q={{q}}"]
+    assert item["execution_plan"]["expected_entry_type"] == "search_template"
+
+
+def test_upsert_project_item_internal_supports_project_key_call_without_request(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    captured = {}
+
+    class _ExecuteResult:
+        @staticmethod
+        def scalar_one_or_none():
+            return None
+
+    class _Session:
+        def __enter__(self):
+            captured["session_open"] = True
+            return self
+
+        def __exit__(self, *_args):
+            captured["session_open"] = False
+            return False
+
+        @staticmethod
+        def execute(_query):
+            return _ExecuteResult()
+
+        @staticmethod
+        def add(row):
+            captured["row"] = row
+
+        @staticmethod
+        def commit():
+            assert captured.get("session_open") is True
+            captured["committed"] = True
+
+    monkeypatch.setattr(source_library_api, "bind_project", lambda project_key: nullcontext(project_key))
+    monkeypatch.setattr(source_library_api, "SessionLocal", lambda: _Session())
+
+    resp = source_library_api._upsert_project_item_internal(
+        payload=source_library_api.SourceLibraryItemUpsertPayload(
+            item_key="internal.demo",
+            name="Internal Demo",
+            channel_key="news",
+            params={"site_entries": ["https://example.com/feed.xml"]},
+            tags=["internal"],
+            enabled=True,
+            extra={},
+        ),
+        project_key="demo_proj",
+    )
+
+    assert resp["status"] == "ok"
+    assert resp["data"]["item_key"] == "internal.demo"
+    assert resp["data"]["project_key"] == "demo_proj"
+    assert captured["committed"] is True
+    assert captured["row"].item_key == "internal.demo"
+    assert captured["row"].params["site_entries"] == ["https://example.com/feed.xml"]
+
+
+def test_source_library_run_item_payload_returns_execution_fact_for_single_source_guard():
+    guard = {
+        "contract_version": "resource_pool.site_entry.single_source_guard.v1",
+        "strict_source": True,
+        "guarantee": True,
+        "status": "passed",
+        "reason_code": None,
+        "allowed_urls": ["https://example.com/feed.xml"],
+        "allowed_count": 1,
+        "blocked_reason": None,
+        "source_ref": {"site_entry_url": "https://example.com/feed.xml"},
+        "report_source_ref": "resource_pool.site_entry:project:10",
+    }
+    item = {
+        "item_key": "demo.item",
+        "channel_key": "google_news",
+        "params": {"keywords": ["ai"]},
+        "enabled": True,
+    }
+    channels = [
+        {
+            "channel_key": "google_news",
+            "enabled": True,
+            "provider": "google_news",
+            "kind": "search",
+            "param_schema": {},
+        }
+    ]
+    request = SimpleNamespace(source_mode="single_channel", warnings=[], item_key="demo.item")
+
+    with (
+        patch("app.services.source_library.resolver.get_ingest_config", return_value=None),
+        patch("app.services.source_library.resolver.ItemResolver.resolve", return_value=request),
+        patch(
+            "app.services.source_library.resolver._run_source_mode_single_channel",
+            return_value={"result": {"inserted": 1}},
+        ),
+    ):
+        result = source_library_resolver.run_item_payload(
+            item=item,
+            channels=channels,
+            project_key="demo_proj",
+            override_params={
+                "site_entries": ["https://example.com/feed.xml"],
+                "single_source_guard": guard,
+            },
+        )
+
+    execution_fact = result["execution_fact"]
+    assert result["single_source_guard"] == guard
+    assert result["strict_source"] == guard
+    assert execution_fact["contract_version"] == "source_library.execution_fact.v1"
+    assert execution_fact["reason_code"] == "single_source_guard_passed"
+    assert execution_fact["item_key"] == "demo.item"
+    assert execution_fact["project_key"] == "demo_proj"
+    assert execution_fact["guard_status"] == "passed"
+    assert execution_fact["source_refs"][0]["report_source_ref"] == "resource_pool.site_entry:project:10"
 
 
 @pytest.mark.parametrize("method,path", [("post", "/api/v1/source_library/items"), ("put", "/api/v1/source_library/items/system.item")])
@@ -417,7 +572,7 @@ def test_external_project_register_persist_upserts_synthesized_item(client, monk
         return {"status": "ok"}
 
     monkeypatch.setattr(source_library_api, "synthesize_external_project_item", _fake_synthesize)
-    monkeypatch.setattr(source_library_api, "upsert_project_item", _fake_upsert)
+    monkeypatch.setattr(source_library_api, "_upsert_project_item_internal", _fake_upsert)
 
     resp = client.post(
         "/api/v1/source_library/external-projects/register",
@@ -557,6 +712,20 @@ def test_source_library_write_routes_require_project_key_with_standard_error_env
     body = resp.json()
     assert body["status"] == "error"
     assert body["error"]["code"] == ErrorCode.PROJECT_KEY_REQUIRED.value
+
+
+def test_source_library_legacy_item_run_returns_explicit_deprecation_contract(client):
+    resp = client.post("/api/v1/source_library/items/demo.item/run", headers=HEADERS)
+
+    assert resp.status_code == 410
+    assert resp.headers.get("x-error-code") == ErrorCode.INVALID_INPUT.value
+    body = resp.json()
+    assert body["status"] == "error"
+    assert body["error"]["code"] == ErrorCode.INVALID_INPUT.value
+    assert body["meta"]["deprecated"] == "source_library.legacy_item_run.v1"
+    assert body["detail"]["error"]["details"]["deprecated_endpoint"] == "/api/v1/source_library/items/{item_key}/run"
+    assert body["detail"]["error"]["details"]["replacement_endpoint"] == "/api/v1/ingest/source-library/run"
+    assert body["detail"]["error"]["details"]["legacy_status"] == "410_gone"
 
 
 def test_source_library_sync_shared_from_files_requires_project_key_with_standard_error_envelope(

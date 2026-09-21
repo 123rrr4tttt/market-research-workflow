@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 import math
 from types import SimpleNamespace
-from typing import Any
+from typing import Annotated, Any
 
 
 _EPSILON = 1e-9
@@ -65,7 +65,10 @@ def build_time_semantics(
     task_window: str | None = None,
     task_window_start: date | None = None,
     task_window_end: date | None = None,
-) -> IngestTimeSemantics:
+) -> Annotated[
+    IngestTimeSemantics,
+    "kit:non-authoritative derived_as=view fact_source=source_time+processed_time+task_window_inputs witness=test:test_c13_cli_graph_workflow_metadata_preserves_abi",
+]:
     normalized_processed = _parse_datetime(processed_time) or datetime.now(tz=timezone.utc)
     normalized_source = _parse_datetime(source_time)
     normalized_window = str(task_window or "").strip().lower() or None
@@ -296,7 +299,10 @@ def build_time_density_live_gap_markers(
     effective_time_provenance: dict[str, Any] | None = None,
     feedback_observed: bool = False,
     production_data_verified: bool = False,
-) -> list[str]:
+) -> Annotated[
+    list[str],
+    "kit:non-authoritative derived_as=generated_evidence fact_source=effective_time_provenance+feedback_observed+production_data_verified witness=test:test_c13_cli_graph_workflow_metadata_preserves_abi",
+]:
     markers: set[str] = set()
     if not feedback_observed:
         markers.add("prompt_time_window_feedback_pending")
@@ -311,7 +317,10 @@ def build_time_density_live_gap_markers(
 def build_time_density_decision_log_features(
     row: dict[str, Any],
     trace: dict[str, Any] | None = None,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=decision_log_row+policy_decision_trace+effective_time_provenance witness=test:test_c13_cli_graph_workflow_metadata_preserves_abi",
+]:
     trace = trace or row.get("policy_decision_trace") or {}
     effective_time_provenance = trace.get("effective_time_provenance") or row.get("effective_time_provenance") or {}
     source_distribution = (
@@ -463,7 +472,10 @@ def build_policy_decision_trace(
     priority_decision_trace: dict[str, Any] | None = None,
     ope_freshness_inputs: dict[str, Any] | None = None,
     live_data_gap_markers: list[str] | None = None,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=generated_evidence fact_source=decision_log_row+time_semantics+priority_decision_inputs witness=test:test_c13_cli_graph_workflow_metadata_preserves_abi",
+]:
     effective_time_provenance = effective_time_provenance or {}
     return {
         "contract_version": TIME_DENSITY_DECISION_LOG_CONTRACT_VERSION,

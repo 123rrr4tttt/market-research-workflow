@@ -2,8 +2,13 @@
 from __future__ import annotations
 
 import json
+import os
+import sys
 from dataclasses import dataclass
-from typing import Any
+from typing import Annotated, Any
+
+# Allow direct script execution from the backend repo root.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.services.workflow_graph import compiler, runtime
 
@@ -23,7 +28,11 @@ def _graph(nodes: list[dict[str, Any]], edges: list[tuple[str, str]]) -> dict[st
     }
 
 
-def build_cases() -> list[SmokeCase]:
+def build_cases() -> Annotated[
+    list[SmokeCase],
+    "kit:non-authoritative derived_as=simulation fact_source=local_smoke_fixture_cases "
+    "witness=test:test_c15_backend_misc_cli_report_metadata_preserves_abi",
+]:
     return [
         SmokeCase(
             "01_vector_only",

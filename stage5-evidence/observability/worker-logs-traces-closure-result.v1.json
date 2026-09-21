@@ -1,0 +1,219 @@
+{
+  "schema": "mrw.stage5.observability.worker-logs-traces-closure.v1",
+  "status": "PASS_LOCAL_WORKER_LOGS_TRACES_NOT_AUTHORITY",
+  "scope": "LOCAL_STAGE5_ONLY / NOT_AUTHORITY / RELEASE_DEFERRED",
+  "completed_at": "2026-09-13T11:16:00Z",
+  "implementation": {
+    "worker_signals": "Celery task_prerun/task_postrun/task_failure",
+    "worker_execution": "independent Compose celery-worker process; no task_always_eager",
+    "task": "app.services.tasks.task_worker_observability_noop",
+    "task_effect_boundary": {
+      "external_provider_calls": 0,
+      "database_writes": 0,
+      "filesystem_writes": 0,
+      "queue_side_effects": 0,
+      "queue_side_effects_scope": "No business queue side effect inside the no-op task; Redis broker publish, result-backend write and bounded telemetry-stream writes are transport observability effects."
+    },
+    "transport": "Redis broker/result backend plus bounded telemetry stream",
+    "redaction": "allowlist-only identity projection; task args, payloads, errors, URLs, tokens, and credentials are not serialized",
+    "identity_fields": [
+      "request_id",
+      "run_id",
+      "trace_id",
+      "project_key",
+      "candidate_id",
+      "task_id",
+      "task_name",
+      "worker_name",
+      "queue"
+    ],
+    "record_types": [
+      "worker_event",
+      "structured_log",
+      "trace"
+    ]
+  },
+  "live_chain": {
+    "request_id": "req-stage5-worker-telemetry-final-20260913T111353",
+    "run_id": "stage5-worker-run:req-stage5-worker-telemetry-final-20260913T111353",
+    "trace_id": "c7fd6f8b71f11e28c66dacd63a705c4d",
+    "project_key": "stage5_observability_20260913",
+    "candidate_id": "stage5:worker-telemetry-probe",
+    "task_id": "0da9558d-2f09-447e-bb7b-7e83379c40e2",
+    "task_name": "app.services.tasks.task_worker_observability_noop",
+    "worker_name": "celery@35dfb6f779c0",
+    "queue": "celery",
+    "task_result": "ready=true successful=true status=completed",
+    "correlated_records": {
+      "worker_event": 2,
+      "structured_log": 2,
+      "trace": 2,
+      "events": [
+        "started/running",
+        "terminal/succeeded"
+      ]
+    }
+  },
+  "observation": {
+    "baseline": {
+      "worker_status": "unknown",
+      "structured_logs_status": "not_observed",
+      "traces_status": "not_observed"
+    },
+    "after_live_chain": {
+      "read_status": "ok",
+      "worker_status": "observed",
+      "structured_logs_status": "observed",
+      "traces_status": "observed"
+    },
+    "backend_metrics": {
+      "worker_event_observed": 1.0,
+      "structured_log_observed": 1.0,
+      "trace_observed": 1.0,
+      "record_count_by_type_and_status": {
+        "worker_event": {
+          "running": 2,
+          "succeeded": 2
+        },
+        "structured_log": {
+          "running": 2,
+          "succeeded": 2
+        },
+        "trace": {
+          "running": 2,
+          "succeeded": 2
+        }
+      }
+    },
+    "prometheus": {
+      "up": 1,
+      "worker_event_observed": 1.0,
+      "structured_log_observed": 1.0,
+      "trace_observed": 1.0,
+      "scraped_record_count_by_type_and_status": {
+        "worker_event": {
+          "running": 2,
+          "succeeded": 2
+        },
+        "structured_log": {
+          "running": 2,
+          "succeeded": 2
+        },
+        "trace": {
+          "running": 2,
+          "succeeded": 2
+        }
+      }
+    },
+    "deep_health_boundary": "Overall deep health remained degraded because the task-local runtime has no OPENAI_API_KEY configured; DB, DB pool, Elasticsearch, Redis, worker event, structured logs, and traces were observed. No provider call was made."
+  },
+  "verification": [
+    {
+      "command": "PYTHONPATH=.:../../src .venv311/bin/python -m pytest -q -p no:cacheprovider tests/production_observability/test_worker_logs_traces_telemetry_unittest.py tests/unit/test_task_readback_metadata_unittest.py tests/integration/test_runtime_ops_error_contract_unittest.py -k 'worker_telemetry or runtime_readback or governance_sync_aggregator'",
+      "exit_code": 0,
+      "result": "4 passed, 21 deselected, 15 warnings"
+    },
+    {
+      "command": "PYTHONPATH=.:../../src .venv311/bin/python -m pytest -q -p no:cacheprovider tests/production_observability/test_stage5_runtime_health_source_wiring_unittest.py",
+      "exit_code": 0,
+      "result": "4 passed, 15 warnings"
+    },
+    {
+      "command": ".venv311/bin/python -m py_compile app/main.py app/services/tasks.py app/services/observability_tasks.py app/production_observability/worker.py app/production_observability/worker_telemetry.py app/celery_app.py app/api/governance.py",
+      "exit_code": 0,
+      "result": "PASS"
+    },
+    {
+      "command": "git diff --check -- <worker telemetry code and new evidence paths>",
+      "exit_code": 0,
+      "result": "PASS"
+    },
+    {
+      "command": "jq evidence parse plus correlated JSONL type/count check",
+      "exit_code": 0,
+      "result": "6 correlated records; worker_event/structured_log/trace each present"
+    },
+    {
+      "command": "credential-pattern scan over new evidence",
+      "exit_code": 0,
+      "result": "Elasticsearch credential mechanically redacted; remaining hits are env-var names, not values"
+    }
+  ],
+  "changed_code": [
+    "main/backend/app/production_observability/worker_telemetry.py",
+    "main/backend/app/celery_app.py",
+    "main/backend/app/main.py",
+    "main/backend/app/services/tasks.py",
+    "main/backend/tests/production_observability/test_worker_logs_traces_telemetry_unittest.py",
+    "stage5-evidence/observability/compose.worker-telemetry.yaml"
+  ],
+  "shared_parallel_code_note": "app/services/observability_tasks.py and production_observability/worker.py are concurrently owned by /root/worker_chain_evidence; they were not reverted or rewritten by this result.",
+  "evidence": {
+    "baseline_deep": {
+      "path": "stage5-evidence/observability/logs/82-worker-telemetry-baseline-deep.json",
+      "sha256": "2218d44ef2449ded7526cb9fa228510e41d3b362bfb6f84d2e68b6fb0e170b4d"
+    },
+    "baseline_metrics": {
+      "path": "stage5-evidence/observability/logs/83-worker-telemetry-baseline.metrics",
+      "sha256": "f1e14fd6a4d7410f44bafebe0fa029f9a7f80267cf54d0f94ac3f84c67fdc2d1"
+    },
+    "final_request": {
+      "path": "stage5-evidence/observability/logs/88-worker-telemetry-final-request.json",
+      "sha256": "9f312c9dfda630974b129081ba85660f85af7d1c48936d85d8273917bb65bceb"
+    },
+    "final_metrics": {
+      "path": "stage5-evidence/observability/logs/89-worker-telemetry-final.metrics",
+      "sha256": "ceb3752c0b4920e44d6bfb1fe2dd6633e6e1a763add57a6bbdcba03151bbca1b"
+    },
+    "final_deep": {
+      "path": "stage5-evidence/observability/logs/90-worker-telemetry-final-deep.json",
+      "sha256": "c1df77feb28f6a5e1688a26159cf4c93325a06f6f4e4212c6eca83e2273c8426"
+    },
+    "raw_worker_log": {
+      "path": "stage5-evidence/observability/logs/91-worker-telemetry-worker-raw.log",
+      "sha256": "1c435009eeec08f9b16da5979827d8f0a9b7a015ad9d4d774ce783e28f60c4b2"
+    },
+    "correlated_jsonl": {
+      "path": "stage5-evidence/observability/logs/92-worker-telemetry-correlated.jsonl",
+      "sha256": "64fe76111a27b263846e5328cae867ed556648e8a32b28c5ad222dcec93a4e32"
+    },
+    "structured_log_excerpt": {
+      "path": "stage5-evidence/observability/logs/93-worker-telemetry-structured-log-lines.txt",
+      "sha256": "81911f3e3690b71531694ac745afe4cdb5b6a50804c974acccd940908af37ca0"
+    },
+    "prometheus_up": {
+      "path": "stage5-evidence/observability/logs/94-prometheus-up.json",
+      "sha256": "01d63103d01bea2736902268e782e5d181ccded3cb241046c1ce7b31bd8f1b90"
+    },
+    "prometheus_status": {
+      "path": "stage5-evidence/observability/logs/95-prometheus-worker-status.json",
+      "sha256": "6b85b30635a7eff00d0710b3808a7f40590807df068998365d5b9eadbbed4978"
+    },
+    "prometheus_records": {
+      "path": "stage5-evidence/observability/logs/96-prometheus-worker-records.json",
+      "sha256": "20d7a140f5110787e1a3d35f21d976225903dd668e87af6b595124f96d7e115a"
+    },
+    "focused_tests": {
+      "path": "stage5-evidence/observability/logs/97-worker-telemetry-focused-tests.log",
+      "sha256": "61fd7ae81410626187f570bd13551a9d5a493a25020f358a88d45f4c0e5dab65"
+    },
+    "deep_source_tests": {
+      "path": "stage5-evidence/observability/logs/98-worker-telemetry-deep-source-tests.log",
+      "sha256": "2bf44b28f5bcbb26203dfa69d1c2bef4b3d2c01f6eb4339a49a5d75eb1358c6d"
+    }
+  },
+  "resource_boundary": {
+    "compose_project": "mrw-stage5-worker-telemetry",
+    "image": "mrw-local/stage4-business001@sha256:f247a1492400311e032710df01f84365c7e700f61c122b7243ae58eda982af19",
+    "cleanup": {
+      "compose_containers_volumes_network": "removed by the integrating Stage5 task",
+      "temporary_secrets": "zero bytes and moved to /Users/wangyiliang/.Trash/mrw-stage5-worker-telemetry-cleanup-20260913T1119",
+      "global_prune": false
+    }
+  },
+  "risks": [
+    "The telemetry Redis stream is bounded to 1000 records and is a local non-authoritative observation source, not a durable audit log.",
+    "HTTP deep health remains degraded when the task-local OpenAI key is absent; this is independent of the worker telemetry chain and involved no provider call.",
+    "No OpenTelemetry platform or external collector was introduced; trace here means the local correlated trace record."
+  ]
+}

@@ -7,7 +7,26 @@ import GraphExtensionsSections from '../components/GraphExtensionsSections'
 import { DEFAULT_APP_LOCALE, translate, useAppLocale, type AppLocale, type MessageKey } from '../app/platform/i18n'
 import { endpoints } from '../lib/api/endpoints'
 import { queryKeys } from '../lib/queryKeys'
-import type { AgentArtifactItem, AgentEventItem, AgentMessageItem, AgentSessionDetail, AgentSessionItem, AgentTaskItem, DocumentItem } from '../lib/types'
+import type {
+  AdminActionResponse,
+  AgentArtifactItem,
+  AgentEventItem,
+  AgentMessageItem,
+  AgentSessionDetail,
+  AgentSessionItem,
+  AgentTaskItem,
+  BusinessLineEvidenceMatrix,
+  BusinessLineEvidenceMatrixLine,
+  BusinessLineScheduledArtifactDrilldown,
+  BusinessLineScheduledArtifactDrilldownArtifact,
+  BusinessLineScheduledArtifactDrilldownLane,
+  BusinessLineScheduledArtifactLaneSummary,
+  BusinessLineScheduledArtifactSummaries,
+  BusinessLineScheduledMatrixArtifactSummary,
+  BusinessLineScheduledMatrixDiagnostics,
+  DocumentItem,
+} from '../lib/types'
+import { buildRuntimeDiagnosticPackage, collectRuntimeMissingDependencies, runtimeHealthTarget } from '../lib/runtimeDiagnostic'
 import {
   cancelAgentSession,
   bulkUpdateDocumentExtractedData,
@@ -18,6 +37,11 @@ import {
   deleteAdminDocuments,
   exportGraph,
   getAdminStats,
+  getBusinessLineEvidenceMatrix,
+  getBusinessLineScheduledArtifactDrilldown,
+  getBusinessLineScheduledArtifactSummaries,
+  getBusinessLineScheduledMatrixArtifactSummary,
+  getHealth,
   getAgentSession,
   getSearchHistory,
   listAdminDocuments,
@@ -37,6 +61,15 @@ type OpsPageProps = {
 }
 
 type OpsCardTab = 'business' | 'graph_ext'
+type ScheduledArtifactDrilldownLaneFilter = 'all' | 'warning_only'
+type ScheduledArtifactDrilldownLaneSort = 'source_order' | 'warning_priority' | 'warning_count' | 'artifact_count'
+
+const SCHEDULED_ARTIFACT_DRILLDOWN_EMPTY_WARNING_VIEW_TITLE = 'empty warning view: no lanes match the current warning-only filter and lane sort'
+const SCHEDULED_ARTIFACT_DRILLDOWN_EMPTY_WARNING_VIEW_LINES = [
+  'empty warning view is not scheduled evidence passed',
+  'scheduled_completion_proof unchanged',
+  'only scheduled_run_evidence can close scheduled evidence',
+]
 type OpsActionKey =
   | 'cleanup'
   | 'reExtract'
@@ -63,6 +96,20 @@ type OpsGraphExtensionLabels = {
   entityType: string
   objectValue: string
   relationTargetType: string
+}
+
+type OpsAdminPreviewPackage = {
+  schema_version: string
+  project_key: string
+  action_kind: string
+  risk_labels: string[]
+  source_refs: AdminActionResponse['source_refs']
+  trace_chain: AdminActionResponse['trace_chain']
+  evidence_preview: AdminActionResponse['evidence_preview']
+  audit_event: AdminActionResponse['audit_event']
+  audit_trail: AdminActionResponse['audit_trail']
+  execution_result: AdminActionResponse['execution_result']
+  rollback_hint: AdminActionResponse['rollback_hint']
 }
 
 const OPS_CARD_PALETTE = [
@@ -293,6 +340,321 @@ function getPayloadSummary(payload?: Record<string, unknown> | null) {
   return text.length > 160 ? `${text.slice(0, 160)}...` : text
 }
 
+function getAdminPreviewActionKind(preview: AdminActionResponse | null | undefined, fallback: string) {
+  return String(preview?.action_kind || preview?.action || fallback)
+}
+
+function getAdminPreviewRiskLabels(preview: AdminActionResponse | null | undefined) {
+  return [...(preview?.risk_labels || preview?.risk_tags || [])]
+}
+
+function getAdminPreviewSourceRefCount(preview: AdminActionResponse | null | undefined) {
+  return Array.isArray(preview?.source_refs) ? preview.source_refs.length : 0
+}
+
+function getAdminPreviewTraceLabel(preview: AdminActionResponse | null | undefined) {
+  const trace = preview?.trace_chain || {}
+  const contract = typeof trace.contract_version === 'string' ? trace.contract_version : ''
+  const traceId = typeof trace.trace_id === 'string' ? trace.trace_id : ''
+  const action = getAdminPreviewActionKind(preview, '')
+  return [contract, traceId, action].filter(Boolean).join(' · ') || '-'
+}
+
+function buildOpsAdminPreviewPackage(projectKey: string, preview: AdminActionResponse | null): OpsAdminPreviewPackage {
+  return {
+    schema_version: preview?.schema_version || ['ops', 'admin', 'governance_evidence_package', 'v1'].join('.'),
+    project_key: projectKey,
+    action_kind: getAdminPreviewActionKind(preview, 'unknown'),
+    risk_labels: getAdminPreviewRiskLabels(preview),
+    source_refs: preview?.source_refs || [],
+    trace_chain: preview?.trace_chain || null,
+    evidence_preview: preview?.evidence_preview || null,
+    audit_event: preview?.audit_event || null,
+    audit_trail: preview?.audit_trail || null,
+    execution_result: preview?.execution_result || null,
+    rollback_hint: preview?.rollback_hint || preview?.rollback_recommendation || null,
+  }
+}
+
+function hasAdminGovernanceEvidence(value: unknown): value is AdminActionResponse {
+  if (!value || typeof value !== 'object') return false
+  const record = value as AdminActionResponse
+  return Boolean(
+    record.source_query
+    || record.source_refs?.length
+    || record.trace_chain
+    || record.evidence_preview
+    || record.audit_event
+    || record.audit_trail
+    || record.execution_result
+    || record.rollback_hint
+    || record.rollback_recommendation,
+  )
+}
+
+function getExecutionResultAvailable(value: AdminActionResponse | null | undefined) {
+  if (!value) return false
+  const execution = value.execution_result
+  if (execution && typeof execution === 'object') {
+    const available = execution.execution_result_available
+    if (typeof available === 'boolean') return available
+    return true
+  }
+  return Boolean(value.evidence_preview?.execution_result_available)
+}
+
+function matrixFieldCount(value: unknown) {
+  if (Array.isArray(value)) return value.length
+  if (value && typeof value === 'object') return Object.keys(value).length
+  if (typeof value === 'number') return value
+  if (typeof value === 'string' && value.trim()) return 1
+  return 0
+}
+
+function matrixTextValue(value: unknown) {
+  if (value == null) return ''
+  if (typeof value === 'string') return value.trim()
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  if (value && typeof value === 'object') return JSON.stringify(value)
+  return ''
+}
+
+function matrixTextList(value: unknown) {
+  if (Array.isArray(value)) {
+    return value.map(matrixTextValue).filter(Boolean)
+  }
+  if (typeof value === 'string') {
+    return value.trim() ? [value.trim()] : []
+  }
+  if (value && typeof value === 'object') {
+    return Object.entries(value).map(([key, item]) => `${key}: ${matrixTextValue(item)}`).filter(Boolean)
+  }
+  return []
+}
+
+function matrixBatchStatement(value: BusinessLineEvidenceMatrix | null | undefined) {
+  const orchestration = value?.batch_orchestration
+  if (orchestration && typeof orchestration === 'object') {
+    const statement = (orchestration as Record<string, unknown>).statement
+    if (typeof statement === 'string' && statement.trim()) return statement.trim()
+  }
+  const coveragePolicy = value?.coverage_policy
+  if (coveragePolicy && typeof coveragePolicy === 'object') {
+    const semanticGuard = (coveragePolicy as Record<string, unknown>).semantic_guard
+    if (typeof semanticGuard === 'string' && semanticGuard.trim()) return semanticGuard.trim()
+  }
+  return ''
+}
+
+function matrixLineTestId(line: BusinessLineEvidenceMatrixLine) {
+  return ['ops', 'business', 'line', 'evidence', 'matrix', 'line', line.line_key].join('-')
+}
+
+function hasScheduledMatrixDiagnostics(
+  value: BusinessLineScheduledMatrixDiagnostics | null | undefined,
+): value is BusinessLineScheduledMatrixDiagnostics {
+  return Boolean(value && typeof value === 'object')
+}
+
+function matrixClassificationBoundaryList(value: unknown) {
+  return matrixTextList(value)
+}
+
+function scheduledMatrixArtifactLabel(value: unknown, fallback = '-') {
+  const label = matrixTextValue(value)
+  return label || fallback
+}
+
+function scheduledMatrixArtifactPath(
+  value: BusinessLineScheduledMatrixArtifactSummary | BusinessLineScheduledArtifactLaneSummary | null | undefined,
+) {
+  const artifactPath = typeof value?.artifact_path === 'string' ? value.artifact_path.trim() : ''
+  return artifactPath || '<missing>'
+}
+
+function scheduledMatrixArtifactClass(
+  value: (
+    BusinessLineScheduledMatrixArtifactSummary
+    | BusinessLineScheduledArtifactLaneSummary
+    | BusinessLineScheduledArtifactSummaries
+    | null
+    | undefined
+  ),
+) {
+  const key = String(value?.lane_classification || value?.status || '').toLowerCase()
+  if (key === 'scheduled_run_evidence' || key === 'evidence' || key === 'passed' || key === 'ready') return 'chip chip-ok'
+  if (key === 'scheduled_run_blocked' || key === 'blocked' || key === 'failed' || key === 'error') return 'chip chip-danger'
+  return 'chip chip-warn'
+}
+
+function scheduledArtifactLaneRows(value: BusinessLineScheduledArtifactSummaries | null | undefined) {
+  return Array.isArray(value?.lanes) ? value.lanes : []
+}
+
+function scheduledArtifactDrilldownLaneRows(value: BusinessLineScheduledArtifactDrilldown | null | undefined) {
+  return Array.isArray(value?.lanes) ? value.lanes : []
+}
+
+function scheduledArtifactDrilldownLaneHasWarning(lane: BusinessLineScheduledArtifactDrilldownLane) {
+  const warningCount = typeof lane.identity_warning_count === 'number' && Number.isFinite(lane.identity_warning_count)
+    ? lane.identity_warning_count
+    : 0
+  const highestSeverityRank = typeof lane.identity_warning_highest_severity_rank === 'number' && Number.isFinite(lane.identity_warning_highest_severity_rank)
+    ? lane.identity_warning_highest_severity_rank
+    : 0
+  return warningCount > 0 || highestSeverityRank > 0
+}
+
+function scheduledArtifactDrilldownLaneMetric(value: unknown) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0
+}
+
+function scheduledArtifactDrilldownLaneName(lane: BusinessLineScheduledArtifactDrilldownLane) {
+  return String(lane.lane || '')
+}
+
+function scheduledArtifactDrilldownLaneArtifactCount(lane: BusinessLineScheduledArtifactDrilldownLane) {
+  return scheduledArtifactDrilldownLaneMetric(lane.artifact_count) || scheduledArtifactDrilldownArtifacts(lane).length
+}
+
+function scheduledArtifactDrilldownLaneWarningCount(lane: BusinessLineScheduledArtifactDrilldownLane) {
+  return scheduledArtifactDrilldownLaneMetric(lane.identity_warning_count)
+}
+
+function scheduledArtifactDrilldownLaneSeverityRank(lane: BusinessLineScheduledArtifactDrilldownLane) {
+  return scheduledArtifactDrilldownLaneMetric(lane.identity_warning_highest_severity_rank)
+}
+
+function compareScheduledArtifactDrilldownLanes(
+  left: BusinessLineScheduledArtifactDrilldownLane,
+  right: BusinessLineScheduledArtifactDrilldownLane,
+  metrics: Array<(lane: BusinessLineScheduledArtifactDrilldownLane) => number>,
+) {
+  for (const metric of metrics) {
+    const diff = metric(right) - metric(left)
+    if (diff !== 0) return diff
+  }
+  return scheduledArtifactDrilldownLaneName(left).localeCompare(scheduledArtifactDrilldownLaneName(right))
+}
+
+function sortScheduledArtifactDrilldownLanes(
+  lanes: BusinessLineScheduledArtifactDrilldownLane[],
+  sortMode: ScheduledArtifactDrilldownLaneSort,
+) {
+  if (sortMode === 'source_order') return lanes
+  const sorted = [...lanes]
+  if (sortMode === 'warning_priority') {
+    return sorted.sort((left, right) => compareScheduledArtifactDrilldownLanes(left, right, [
+      scheduledArtifactDrilldownLaneSeverityRank,
+      scheduledArtifactDrilldownLaneWarningCount,
+      scheduledArtifactDrilldownLaneArtifactCount,
+    ]))
+  }
+  if (sortMode === 'warning_count') {
+    return sorted.sort((left, right) => compareScheduledArtifactDrilldownLanes(left, right, [
+      scheduledArtifactDrilldownLaneWarningCount,
+      scheduledArtifactDrilldownLaneSeverityRank,
+      scheduledArtifactDrilldownLaneArtifactCount,
+    ]))
+  }
+  return sorted.sort((left, right) => compareScheduledArtifactDrilldownLanes(left, right, [
+    scheduledArtifactDrilldownLaneArtifactCount,
+    scheduledArtifactDrilldownLaneWarningCount,
+    scheduledArtifactDrilldownLaneSeverityRank,
+  ]))
+}
+
+function scheduledArtifactDrilldownLaneSortExplanation(sortMode: ScheduledArtifactDrilldownLaneSort) {
+  if (sortMode === 'source_order') {
+    return 'source order from API payload; display order only; scheduled_completion_proof unchanged; not proof'
+  }
+  if (sortMode === 'warning_priority') {
+    return 'sorted by highest severity rank desc, warning count desc, artifact count desc, lane asc; display order only; scheduled_completion_proof unchanged; not proof'
+  }
+  if (sortMode === 'warning_count') {
+    return 'sorted by warning count desc, severity rank desc, artifact count desc, lane asc; display order only; scheduled_completion_proof unchanged; not proof'
+  }
+  return 'sorted by artifact count desc, warning count desc, severity rank desc, lane asc; display order only; scheduled_completion_proof unchanged; not proof'
+}
+
+function isScheduledArtifactDrilldownEmptyWarningView(
+  filter: ScheduledArtifactDrilldownLaneFilter,
+  visibleLanes: BusinessLineScheduledArtifactDrilldownLane[],
+  lanes: BusinessLineScheduledArtifactDrilldownLane[],
+) {
+  return filter === 'warning_only' && visibleLanes.length === 0 && lanes.length > 0
+}
+
+function scheduledArtifactDrilldownArtifacts(lane: BusinessLineScheduledArtifactDrilldownLane) {
+  return Array.isArray(lane.artifacts) ? lane.artifacts : []
+}
+
+function scheduledArtifactSizeLabel(sizeBytes: unknown) {
+  if (typeof sizeBytes !== 'number' || !Number.isFinite(sizeBytes) || sizeBytes < 0) return '-'
+  if (sizeBytes < 1024) return `${sizeBytes} B`
+  const units = ['KiB', 'MiB', 'GiB', 'TiB']
+  let value = sizeBytes / 1024
+  let unitIndex = 0
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024
+    unitIndex += 1
+  }
+  return `${value.toFixed(value >= 10 ? 0 : 1)} ${units[unitIndex]}`
+}
+
+function scheduledArtifactSha256Label(sha256: unknown) {
+  if (typeof sha256 !== 'string') return '-'
+  const hash = sha256.trim()
+  if (!hash) return '-'
+  return `sha256: ${hash.length > 20 ? `${hash.slice(0, 12)}...${hash.slice(-8)}` : hash}`
+}
+
+function scheduledArtifactFreshnessRows(artifact: BusinessLineScheduledArtifactDrilldownArtifact) {
+  const windowSize = typeof artifact.freshness_window_size === 'number' && Number.isFinite(artifact.freshness_window_size)
+    ? artifact.freshness_window_size
+    : null
+  const rank = typeof artifact.freshness_rank === 'number' && Number.isFinite(artifact.freshness_rank)
+    ? `rank ${artifact.freshness_rank}${windowSize ? `/${windowSize}` : ''}`
+    : 'rank -'
+  const latest = artifact.is_latest_for_lane == null
+    ? 'latest unknown'
+    : artifact.is_latest_for_lane
+      ? 'latest'
+      : 'stale'
+  const identity = artifact.identity_matches_latest == null
+    ? 'identity unknown'
+    : artifact.identity_matches_latest
+      ? 'identity match'
+      : 'identity mismatch'
+  const identityStatus = scheduledMatrixArtifactLabel(artifact.identity_status, '')
+  const identityWarning = scheduledMatrixArtifactLabel(artifact.identity_warning, '')
+  const identityWarningSeverity = scheduledMatrixArtifactLabel(artifact.identity_warning_severity, '')
+  const identityWarningMessage = scheduledMatrixArtifactLabel(artifact.identity_warning_message, '')
+  const latestPath = scheduledMatrixArtifactLabel(artifact.latest_artifact_path, '')
+  const rows = [rank, latest, identity]
+  if (identityStatus) rows.push(`identity status: ${identityStatus}`)
+  if (identityWarning) rows.push(`identity warning: ${identityWarning}`)
+  if (identityWarningSeverity) rows.push(`identity warning severity: ${identityWarningSeverity}`)
+  if (identityWarningMessage) rows.push(`identity warning message: ${identityWarningMessage}`)
+  if (latestPath) rows.push(`latest path: ${latestPath}`)
+  return rows
+}
+
+function scheduledArtifactDiagnosticsRows(value: unknown) {
+  const diagnostics = normalizeObject(value)
+  const preferred = ['runtime_preflight_status', 'matrix_exit_code', 'first_blocked_reason', 'artifact_count']
+  const keys = [
+    ...preferred.filter((key) => Object.prototype.hasOwnProperty.call(diagnostics, key)),
+    ...Object.keys(diagnostics).filter((key) => !preferred.includes(key) && key !== 'absolute_path').slice(0, 6),
+  ]
+  return keys.map((key) => [key, scheduledMatrixArtifactLabel(diagnostics[key])] as const)
+}
+
+function scheduledMatrixArtifactError(error: unknown) {
+  if (!error) return ''
+  return error instanceof Error ? error.message : String(error)
+}
+
 const detailPreStyle = {
   marginTop: 8,
   maxHeight: 280,
@@ -305,6 +667,13 @@ function statusClass(status?: string | null) {
   const key = String(status || '').toLowerCase()
   if (key.includes('fail') || key.includes('error')) return 'chip chip-danger'
   if (key.includes('done') || key.includes('success') || key.includes('completed') || key.includes('approved')) return 'chip chip-ok'
+  return 'chip chip-warn'
+}
+
+function runtimeModeClass(mode?: string | null) {
+  const key = String(mode || '').toLowerCase()
+  if (key === 'mixed') return 'chip chip-danger'
+  if (key === 'docker' || key === 'local') return 'chip chip-ok'
   return 'chip chip-warn'
 }
 
@@ -329,13 +698,18 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
   const [opsCardTab, setOpsCardTab] = useState<OpsCardTab>('business')
   const [extractMode, setExtractMode] = useState<'replace' | 'merge'>('merge')
   const [extractJsonText, setExtractJsonText] = useState('{}')
+  const [adminPreview, setAdminPreview] = useState<AdminActionResponse | null>(null)
+  const [adminPreviewAction, setAdminPreviewAction] = useState<OpsActionKey | ''>('')
   const [sessionGoal, setSessionGoal] = useState(() => t('opsPage.default.sessionGoal'))
   const [sessionSource, setSessionSource] = useState<'user' | 'agent_batch' | 'workflow_graph'>('user')
   const [sessionCompatMode, setSessionCompatMode] = useState(false)
-  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
+  const [explicitSelectedSessionId, setSelectedSessionId] = useState<string | null>(null)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
-  const [selectedArtifactName, setSelectedArtifactName] = useState<string | null>(null)
+  const [explicitSelectedArtifactName, setSelectedArtifactName] = useState<string | null>(null)
   const [selectedEnforcementEventKey, setSelectedEnforcementEventKey] = useState<string | null>(null)
+  const [scheduledArtifactDrilldownLaneFilter, setScheduledArtifactDrilldownLaneFilter] = useState<ScheduledArtifactDrilldownLaneFilter>('all')
+  const [scheduledArtifactDrilldownLaneSort, setScheduledArtifactDrilldownLaneSort] = useState<ScheduledArtifactDrilldownLaneSort>('source_order')
+  const [scheduledArtifactDrilldownUiEventLog, setScheduledArtifactDrilldownUiEventLog] = useState<string[]>([])
   const opsGraphExtensionLabels = useMemo(
     () => ({
       documentType: translate(locale, 'opsPage.fallback.documentType'),
@@ -347,11 +721,37 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
   )
 
   const adminStats = useQuery({ queryKey: queryKeys.admin.stats(projectKey), queryFn: getAdminStats, enabled: Boolean(projectKey) })
+  const runtimeStatus = useQuery({ queryKey: queryKeys.health.all, queryFn: getHealth })
+  const businessLineEvidenceMatrix = useQuery({
+    queryKey: ['business-line-evidence-matrix', projectKey],
+    queryFn: getBusinessLineEvidenceMatrix,
+    enabled: Boolean(projectKey),
+  })
+  const scheduledMatrixArtifactSummary = useQuery({
+    queryKey: ['business-line-scheduled-matrix-artifact-summary', projectKey],
+    queryFn: getBusinessLineScheduledMatrixArtifactSummary,
+    enabled: Boolean(projectKey),
+  })
+  const scheduledArtifactSummaries = useQuery({
+    queryKey: ['business-line-scheduled-artifact-summaries', projectKey],
+    queryFn: getBusinessLineScheduledArtifactSummaries,
+    enabled: Boolean(projectKey),
+  })
+  const scheduledArtifactDrilldown = useQuery({
+    queryKey: ['business-line-scheduled-artifact-drilldown', projectKey],
+    queryFn: getBusinessLineScheduledArtifactDrilldown,
+    enabled: Boolean(projectKey),
+  })
   const searchHistory = useQuery({ queryKey: queryKeys.admin.searchHistory(projectKey), queryFn: () => getSearchHistory(1, 30), enabled: Boolean(projectKey) })
   const agentSessionsQuery = useQuery({
     queryKey: queryKeys.agentSessions.list(),
     queryFn: listAgentSessions,
   })
+  const normalizedSessions = useMemo(
+    () => normalizeSessionList(agentSessionsQuery.data || undefined),
+    [agentSessionsQuery.data],
+  )
+  const selectedSessionId = explicitSelectedSessionId ?? normalizedSessions[0]?.session_id ?? null
   const adminDocuments = useQuery({
     queryKey: queryKeys.admin.documents(projectKey, docPage, docTypeFilter, docStateFilter, docSearch),
     queryFn: () =>
@@ -439,17 +839,7 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
       }
     },
   })
-  const normalizedSessions = useMemo(
-    () => normalizeSessionList(agentSessionsQuery.data || undefined),
-    [agentSessionsQuery.data],
-  )
-  useEffect(() => {
-    if (!selectedSessionId && normalizedSessions.length) {
-      setSelectedSessionId(normalizedSessions[0].session_id)
-      setSelectedTaskId(null)
-      setSelectedArtifactName('memory.md')
-    }
-  }, [normalizedSessions, selectedSessionId])
+  const selectedArtifactName = explicitSelectedArtifactName ?? 'memory.md'
   const selectedSession = selectedSessionQuery.data
   const selectedSessionTasks = selectedSession?.tasks || []
   const selectedSessionEvents = useMemo(
@@ -473,7 +863,9 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
     [selectedEnforcementEventKey, selectedEnforcementEvents],
   )
   const selectedArtifact = useMemo(
-    () => selectedSessionArtifacts.find((artifact) => artifact.name === selectedArtifactName) || selectedSessionArtifacts[0],
+    () =>
+      selectedSessionArtifacts.find((artifact) => artifact.name === selectedArtifactName)
+      || selectedSessionArtifacts[0],
     [selectedArtifactName, selectedSessionArtifacts],
   )
   const selectedAgentTask = selectedSessionTasks.find((task) => task.task_id === selectedTaskId) || selectedSessionTasks[0]
@@ -516,6 +908,98 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
     () => buildOpsGraphExtension(activeDocDetail.data, activeDocCardId, opsGraphExtensionLabels),
     [activeDocDetail.data, activeDocCardId, opsGraphExtensionLabels],
   )
+  const runtimeServiceEntries = Object.entries(runtimeStatus.data?.services || {})
+  const runtimeMissingDependencies = collectRuntimeMissingDependencies(runtimeStatus.data)
+  const runtimeMode = runtimeStatus.data?.runtime_mode || 'unknown'
+  const businessLineEvidenceLines = businessLineEvidenceMatrix.data?.lines || []
+  const businessLineEvidenceStatement = matrixBatchStatement(businessLineEvidenceMatrix.data)
+  const scheduledMatrixDiagnostics = (
+    businessLineEvidenceMatrix.data?.matrix_diagnostics_guidance
+    || businessLineEvidenceMatrix.data?.scheduled_matrix_diagnostics
+  )
+  const scheduledMatrixArtifact = scheduledMatrixArtifactSummary.data
+  const scheduledMatrixArtifactDiagnostics = normalizeObject(scheduledMatrixArtifact?.diagnostics)
+  const scheduledMatrixArtifactBoundary = matrixTextList(scheduledMatrixArtifact?.completion_boundary)
+  const scheduledMatrixArtifactSummaryRows = matrixTextList(scheduledMatrixArtifact?.summary)
+  const scheduledArtifactSummary = scheduledArtifactSummaries.data
+  const scheduledArtifactLanes = scheduledArtifactLaneRows(scheduledArtifactSummary)
+  const scheduledArtifactSummaryRows = matrixTextList(scheduledArtifactSummary?.summary)
+  const scheduledArtifactBoundary = matrixTextList(scheduledArtifactSummary?.completion_boundary)
+  const scheduledArtifactWhitelistedLanes = matrixTextList(scheduledArtifactSummary?.whitelisted_lanes)
+  const scheduledArtifactDrilldownData = scheduledArtifactDrilldown.data
+  const scheduledArtifactDrilldownLanes = scheduledArtifactDrilldownLaneRows(scheduledArtifactDrilldownData)
+  const scheduledArtifactDrilldownWarningLanes = useMemo(
+    () => scheduledArtifactDrilldownLanes.filter(scheduledArtifactDrilldownLaneHasWarning),
+    [scheduledArtifactDrilldownLanes],
+  )
+  const scheduledArtifactDrilldownFilteredLanes = scheduledArtifactDrilldownLaneFilter === 'warning_only'
+    ? scheduledArtifactDrilldownWarningLanes
+    : scheduledArtifactDrilldownLanes
+  const scheduledArtifactDrilldownVisibleLanes = useMemo(
+    () => sortScheduledArtifactDrilldownLanes(
+      scheduledArtifactDrilldownFilteredLanes,
+      scheduledArtifactDrilldownLaneSort,
+    ),
+    [scheduledArtifactDrilldownFilteredLanes, scheduledArtifactDrilldownLaneSort],
+  )
+  const scheduledArtifactDrilldownEmptyWarningView = isScheduledArtifactDrilldownEmptyWarningView(
+    scheduledArtifactDrilldownLaneFilter,
+    scheduledArtifactDrilldownVisibleLanes,
+    scheduledArtifactDrilldownLanes,
+  )
+  const scheduledArtifactDrilldownEmptyWarningDiagnostics = [
+    `empty warning diagnostics: filter=${scheduledArtifactDrilldownLaneFilter}`,
+    `empty warning diagnostics: sort=${scheduledArtifactDrilldownLaneSort}`,
+    `empty warning diagnostics: total_lanes=${scheduledArtifactDrilldownLanes.length}`,
+    `empty warning diagnostics: visible_lanes=${scheduledArtifactDrilldownVisibleLanes.length}`,
+    `empty warning diagnostics: warning_lanes=${scheduledArtifactDrilldownWarningLanes.length}`,
+  ]
+  const recordScheduledArtifactDrilldownEmptyReset = () => {
+    setScheduledArtifactDrilldownUiEventLog([
+      'ui telemetry event: reset_empty_warning_view',
+      `ui telemetry event: from=${scheduledArtifactDrilldownLaneFilter}`,
+      'ui telemetry event: to=all',
+      `ui telemetry event: sort=${scheduledArtifactDrilldownLaneSort}`,
+      'ui telemetry event: api_payload=unchanged',
+      'ui telemetry event: scheduled_evidence_write=none',
+      'ui telemetry event: scheduled_completion_proof=unchanged',
+    ])
+    setScheduledArtifactDrilldownLaneFilter('all')
+  }
+  const scheduledArtifactDrilldownSummaryRows = matrixTextList(scheduledArtifactDrilldownData?.summary)
+  const scheduledArtifactDrilldownBoundary = matrixTextList(scheduledArtifactDrilldownData?.completion_boundary)
+
+  const copyRuntimeDiagnosticPackage = async () => {
+    const packageText = JSON.stringify(buildRuntimeDiagnosticPackage(projectKey, runtimeStatus.data), null, 2)
+    try {
+      if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
+        throw new Error(t('opsPage.error.clipboardUnavailable'))
+      }
+      await navigator.clipboard.writeText(packageText)
+      setErrorText('')
+      setStatusText(t('opsPage.message.runtimeDiagnosticCopied'))
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t('opsPage.error.unknown')
+      setStatusText(t('opsPage.message.runtimeDiagnosticCopyFailed'))
+      setErrorText(message)
+    }
+  }
+
+  const copyAdminPreviewEvidencePackage = async () => {
+    const packageText = JSON.stringify(buildOpsAdminPreviewPackage(projectKey, adminPreview), null, 2)
+    try {
+      if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
+        throw new Error(t('opsPage.error.clipboardUnavailable'))
+      }
+      await navigator.clipboard.writeText(packageText)
+      setErrorText('')
+      setStatusText(t('opsPage.message.adminPreviewEvidenceCopied'))
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t('opsPage.error.unknown')
+      setStatusText(t('opsPage.message.adminPreviewEvidenceCopyFailed'))
+      setErrorText(message)
+    }
+  }
 
   const toggleDocSelection = (docId: number) => {
     setSelectedDocIds((prev) => (prev.includes(docId) ? prev.filter((id) => id !== docId) : [...prev, docId]))
@@ -535,10 +1019,16 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
     setPending(true)
     setActiveAction(actionKey)
     setErrorText('')
+    setAdminPreview(null)
+    setAdminPreviewAction('')
     setStatusText(formatOpsTemplate(t('opsPage.status.running'), { action: name }))
     try {
       const result = await fn()
       const taskId = typeof (result as { task_id?: unknown })?.task_id === 'string' ? String((result as { task_id?: string }).task_id) : ''
+      if (hasAdminGovernanceEvidence(result)) {
+        setAdminPreview(result)
+        setAdminPreviewAction(actionKey)
+      }
       setStatusText(
         taskId
           ? formatOpsTemplate(t('opsPage.status.submittedWithTask'), { action: name, taskId })
@@ -563,6 +1053,38 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
     }
   }
 
+  const runAdminPreview = async (actionKey: OpsActionKey, fn: () => Promise<AdminActionResponse>) => {
+    const name = actionName(actionKey)
+    setPending(true)
+    setActiveAction(actionKey)
+    setErrorText('')
+    setStatusText(formatOpsTemplate(t('opsPage.status.previewRunning'), { action: name }))
+    try {
+      const result = await fn()
+      setAdminPreview(result)
+      setAdminPreviewAction(actionKey)
+      setStatusText(formatOpsTemplate(t('opsPage.status.previewReady'), {
+        action: name,
+        sourceRefs: getAdminPreviewSourceRefCount(result),
+      }))
+    } catch (error) {
+      const message = error instanceof Error ? error.message : t('opsPage.error.unknown')
+      setStatusText(formatOpsTemplate(t('opsPage.status.previewFailed'), { action: name }))
+      setErrorText(message)
+    } finally {
+      setPending(false)
+      setActiveAction('')
+    }
+  }
+
+  const parseExtractedJson = () => {
+    try {
+      return JSON.parse(extractJsonText || '{}') as unknown
+    } catch {
+      throw new Error(t('opsPage.error.invalidJson'))
+    }
+  }
+
   return (
     <div className={`content-stack gv2-root ops-page ops-page--${variant}`}>
       <section className="panel">
@@ -575,6 +1097,650 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
         <article className="kpi-card"><span>{t('opsPage.kpi.socialDocuments')}</span><strong>{adminStats.data?.social_data?.total || 0}</strong><small>{formatOpsTemplate(t('opsPage.kpi.todayCount'), { count: adminStats.data?.social_data?.recent_today || 0 })}</small></article>
         <article className="kpi-card"><span>{t('opsPage.kpi.sources')}</span><strong>{adminStats.data?.sources?.total || 0}</strong><small>{t('opsPage.kpi.resourcePool')}</small></article>
         <article className="kpi-card"><span>{t('opsPage.kpi.searchHistory')}</span><strong>{adminStats.data?.search_history?.total || 0}</strong><small>{t('opsPage.kpi.history')}</small></article>
+      </section>
+
+      <section className="panel">
+        <div className="panel-header">
+          <h2>{t('opsPage.section.runtimeStatus')}</h2>
+          <div className="inline-actions">
+            <span className={runtimeModeClass(runtimeMode)}>
+              {formatOpsTemplate(t('opsPage.status.runtimeMode'), { mode: runtimeMode })}
+            </span>
+            <button type="button" onClick={() => void copyRuntimeDiagnosticPackage()}>
+              {t('opsPage.action.copyRuntimeDiagnosticPackage')}
+            </button>
+            <button type="button" onClick={() => { void runtimeStatus.refetch() }}>
+              <RefreshCw size={14} />
+              {t('opsPage.action.refresh')}
+            </button>
+          </div>
+        </div>
+        {runtimeMode === 'mixed' ? (
+          <p className="status-line">
+            {t('opsPage.status.mixedRuntimeRisk')}
+          </p>
+        ) : null}
+        {runtimeMissingDependencies.length ? (
+          <p className="status-line">
+            {formatOpsTemplate(t('opsPage.status.missingDependencies'), { dependencies: runtimeMissingDependencies.join(', ') })}
+          </p>
+        ) : null}
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>{t('opsPage.field.service')}</th>
+                <th>{t('opsPage.field.status')}</th>
+                <th>{t('opsPage.field.mode')}</th>
+                <th>{t('opsPage.field.healthPortHint')}</th>
+                <th>{t('opsPage.field.missing')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {runtimeServiceEntries.map(([name, service]) => (
+                <tr key={name}>
+                  <td>{name}</td>
+                  <td><span className={statusClass(service.status)}>{service.status || '-'}</span></td>
+                  <td><span className={runtimeModeClass(service.mode)}>{service.mode || t('opsPage.status.unknown')}</span></td>
+                  <td>{runtimeHealthTarget(service) || service.host || '-'}</td>
+                  <td>{service.missing_dependencies?.length ? service.missing_dependencies.join(', ') : '-'}</td>
+                </tr>
+              ))}
+              {!runtimeServiceEntries.length ? (
+                <tr>
+                  <td colSpan={5} className="empty-cell">
+                    {runtimeStatus.isLoading ? t('opsPage.status.loading') : t('opsPage.empty.runtimeStatus')}
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="panel" data-testid="ops-business-line-evidence-matrix">
+        <div className="panel-header">
+          <div>
+            <h2>{t('opsPage.section.businessLineEvidenceMatrix')}</h2>
+            <p className="muted">
+              {formatOpsTemplate(t('opsPage.status.businessLineEvidenceContract'), {
+                contract: businessLineEvidenceMatrix.data?.contract_version || '-',
+              })}
+            </p>
+            {businessLineEvidenceStatement ? (
+              <p className="status-line">{businessLineEvidenceStatement}</p>
+            ) : null}
+          </div>
+          <div className="inline-actions">
+            <span className="chip">
+              {formatOpsTemplate(t('opsPage.metric.businessLineCount'), { count: businessLineEvidenceLines.length })}
+            </span>
+            <button type="button" onClick={() => { void businessLineEvidenceMatrix.refetch() }}>
+              <RefreshCw size={14} />
+              {t('opsPage.action.refresh')}
+            </button>
+          </div>
+        </div>
+        <div
+          className="grid-2"
+          data-testid="ops-business-line-scheduled-matrix-artifact-summary"
+          style={{ alignItems: 'start', marginBottom: 16 }}
+        >
+          <article className="kpi-card">
+            <span>scheduled matrix lane</span>
+            <strong>{scheduledMatrixArtifact?.lane || '-'}</strong>
+            <small>
+              <span className={scheduledMatrixArtifactClass(scheduledMatrixArtifact)}>
+                {[
+                  scheduledMatrixArtifact?.lane_classification || '-',
+                  scheduledMatrixArtifact?.status || '-',
+                ].join(' / ')}
+              </span>
+            </small>
+          </article>
+          <article className="kpi-card">
+            <span>reason</span>
+            <strong>{scheduledMatrixArtifactLabel(scheduledMatrixArtifact?.reason)}</strong>
+            <small>source checker: {scheduledMatrixArtifact?.source_checker || '-'}</small>
+          </article>
+          <article className="kpi-card">
+            <span>artifact path</span>
+            <strong>{scheduledMatrixArtifactPath(scheduledMatrixArtifact)}</strong>
+            <small>observed at: {formatDate(scheduledMatrixArtifact?.observed_at, locale)}</small>
+          </article>
+          <article className="kpi-card">
+            <span>recommended command</span>
+            <strong>{scheduledMatrixArtifactLabel(scheduledMatrixArtifact?.recommended_command)}</strong>
+            <small>contract: {scheduledMatrixArtifact?.contract_version || '-'}</small>
+          </article>
+          <div>
+            <strong>diagnostics</strong>
+            <ul className="compact-list">
+              <li><code>runtime_preflight_status</code>: {scheduledMatrixArtifactLabel(scheduledMatrixArtifactDiagnostics.runtime_preflight_status)}</li>
+              <li><code>matrix_exit_code</code>: {scheduledMatrixArtifactLabel(scheduledMatrixArtifactDiagnostics.matrix_exit_code)}</li>
+              <li><code>first_blocked_reason</code>: {scheduledMatrixArtifactLabel(scheduledMatrixArtifactDiagnostics.first_blocked_reason)}</li>
+            </ul>
+          </div>
+          <div>
+            <strong>completion boundary</strong>
+            <ul className="compact-list">
+              {scheduledMatrixArtifactBoundary.length
+                ? scheduledMatrixArtifactBoundary.map((item) => <li key={item}>{item}</li>)
+                : <li>-</li>}
+            </ul>
+          </div>
+          {scheduledMatrixArtifactSummaryRows.length ? (
+            <div>
+              <strong>summary</strong>
+              <ul className="compact-list">
+                {scheduledMatrixArtifactSummaryRows.map((item) => <li key={item}>{item}</li>)}
+              </ul>
+            </div>
+          ) : null}
+          {scheduledMatrixArtifactSummary.isError ? (
+            <p className="status-line">
+              scheduled matrix artifact summary unavailable: {scheduledMatrixArtifactError(scheduledMatrixArtifactSummary.error)}
+            </p>
+          ) : null}
+        </div>
+        <div
+          className="grid-2"
+          data-testid="ops-business-line-scheduled-artifact-summaries"
+          style={{ alignItems: 'start', marginBottom: 16 }}
+        >
+          <article className="kpi-card">
+            <span>all scheduled lanes status</span>
+            <strong>
+              <span className={scheduledMatrixArtifactClass(scheduledArtifactSummary)}>
+                {scheduledMatrixArtifactLabel(scheduledArtifactSummary?.status)}
+              </span>
+            </strong>
+            <small>source checker: {scheduledArtifactSummary?.source_checker || '-'}</small>
+          </article>
+          <article className="kpi-card">
+            <span>observed at</span>
+            <strong>{formatDate(scheduledArtifactSummary?.observed_at, locale)}</strong>
+            <small>contract: {scheduledArtifactSummary?.contract_version || '-'}</small>
+          </article>
+          <article className="kpi-card">
+            <span>recommended command</span>
+            <strong>{scheduledMatrixArtifactLabel(scheduledArtifactSummary?.recommended_command)}</strong>
+            <small>
+              lanes: {scheduledArtifactWhitelistedLanes.length ? scheduledArtifactWhitelistedLanes.join(', ') : '-'}
+            </small>
+          </article>
+          <div>
+            <strong>summary</strong>
+            <ul className="compact-list">
+              {scheduledArtifactSummaryRows.length
+                ? scheduledArtifactSummaryRows.map((item) => <li key={item}>{item}</li>)
+                : <li>-</li>}
+            </ul>
+          </div>
+          <div className="table-wrap" style={{ gridColumn: '1 / -1' }}>
+            <table>
+              <thead>
+                <tr>
+                  <th>lane</th>
+                  <th>classification/status</th>
+                  <th>reason</th>
+                  <th>artifact path</th>
+                  <th>observed at</th>
+                </tr>
+              </thead>
+              <tbody>
+                {scheduledArtifactLanes.map((lane, index) => (
+                  <tr key={`${lane.lane || 'lane'}-${index}`}>
+                    <td><code>{lane.lane || '-'}</code></td>
+                    <td>
+                      <span className={scheduledMatrixArtifactClass(lane)}>
+                        {[
+                          scheduledMatrixArtifactLabel(lane.lane_classification),
+                          scheduledMatrixArtifactLabel(lane.status),
+                        ].join(' / ')}
+                      </span>
+                    </td>
+                    <td>{scheduledMatrixArtifactLabel(lane.reason)}</td>
+                    <td><code>{scheduledMatrixArtifactPath(lane)}</code></td>
+                    <td>{formatDate(lane.observed_at, locale)}</td>
+                  </tr>
+                ))}
+                {!scheduledArtifactLanes.length ? (
+                  <tr>
+                    <td colSpan={5} className="empty-cell">
+                      {scheduledArtifactSummaries.isLoading ? t('opsPage.status.loading') : '-'}
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+          <div>
+            <strong>completion boundary</strong>
+            <ul className="compact-list">
+              {scheduledArtifactBoundary.length
+                ? scheduledArtifactBoundary.map((item) => <li key={item}>{item}</li>)
+                : <li>-</li>}
+            </ul>
+          </div>
+          {scheduledArtifactSummaries.isError ? (
+            <p className="status-line">
+              scheduled artifact summaries unavailable: {scheduledMatrixArtifactError(scheduledArtifactSummaries.error)}
+            </p>
+          ) : null}
+        </div>
+        <div
+          className="grid-2"
+          data-testid="ops-business-line-scheduled-artifact-drilldown"
+          style={{ alignItems: 'start', marginBottom: 16 }}
+        >
+          <article className="kpi-card">
+            <span>scheduled artifact drilldown</span>
+            <strong>
+              <span className={scheduledMatrixArtifactClass(scheduledArtifactDrilldownData)}>
+                {scheduledMatrixArtifactLabel(scheduledArtifactDrilldownData?.status)}
+              </span>
+            </strong>
+            <small>source checker: {scheduledArtifactDrilldownData?.source_checker || '-'}</small>
+          </article>
+          <article className="kpi-card">
+            <span>observed at</span>
+            <strong>{formatDate(scheduledArtifactDrilldownData?.observed_at, locale)}</strong>
+            <small>contract: {scheduledArtifactDrilldownData?.contract_version || '-'}</small>
+          </article>
+          <article className="kpi-card">
+            <span>recommended command</span>
+            <strong>{scheduledMatrixArtifactLabel(scheduledArtifactDrilldownData?.recommended_command)}</strong>
+            <small>
+              lanes: {scheduledArtifactDrilldownLanes.length}
+              {' '}
+              | visible lanes: {scheduledArtifactDrilldownVisibleLanes.length}/{scheduledArtifactDrilldownLanes.length}
+            </small>
+          </article>
+          <div style={{ gridColumn: '1 / -1' }}>
+            <strong>quick filter</strong>
+            <div className="inline-actions" style={{ marginTop: 8, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className={scheduledArtifactDrilldownLaneFilter === 'warning_only' ? 'chip chip-warn' : 'chip'}
+                onClick={() => setScheduledArtifactDrilldownLaneFilter('warning_only')}
+              >
+                show warning lanes
+              </button>
+              <button
+                type="button"
+                className={scheduledArtifactDrilldownLaneFilter === 'all' ? 'chip chip-ok' : 'chip'}
+                onClick={() => setScheduledArtifactDrilldownLaneFilter('all')}
+              >
+                show all lanes
+              </button>
+              <span className="chip">
+                warning lane filter: {scheduledArtifactDrilldownLaneFilter}
+              </span>
+              <span className="chip">
+                visible lanes: {scheduledArtifactDrilldownVisibleLanes.length}/{scheduledArtifactDrilldownLanes.length}
+              </span>
+              <button
+                type="button"
+                className={scheduledArtifactDrilldownLaneSort === 'source_order' ? 'chip chip-ok' : 'chip'}
+                onClick={() => setScheduledArtifactDrilldownLaneSort('source_order')}
+              >
+                sort source order
+              </button>
+              <button
+                type="button"
+                className={scheduledArtifactDrilldownLaneSort === 'warning_priority' ? 'chip chip-warn' : 'chip'}
+                onClick={() => setScheduledArtifactDrilldownLaneSort('warning_priority')}
+              >
+                sort warning priority
+              </button>
+              <button
+                type="button"
+                className={scheduledArtifactDrilldownLaneSort === 'warning_count' ? 'chip chip-warn' : 'chip'}
+                onClick={() => setScheduledArtifactDrilldownLaneSort('warning_count')}
+              >
+                sort warning count
+              </button>
+              <button
+                type="button"
+                className={scheduledArtifactDrilldownLaneSort === 'artifact_count' ? 'chip chip-warn' : 'chip'}
+                onClick={() => setScheduledArtifactDrilldownLaneSort('artifact_count')}
+              >
+                sort artifact count
+              </button>
+              <span className="chip">
+                lane sort: {scheduledArtifactDrilldownLaneSort}
+              </span>
+              <span className="chip">
+                lane sort explanation: {scheduledArtifactDrilldownLaneSortExplanation(scheduledArtifactDrilldownLaneSort)}
+              </span>
+            </div>
+            {scheduledArtifactDrilldownEmptyWarningView ? (
+              <article className="kpi-card" style={{ marginTop: 8 }}>
+                <span>{SCHEDULED_ARTIFACT_DRILLDOWN_EMPTY_WARNING_VIEW_TITLE}</span>
+                <div className="inline-actions" style={{ marginTop: 8 }}>
+                  <button
+                    type="button"
+                    className="chip chip-ok"
+                    onClick={recordScheduledArtifactDrilldownEmptyReset}
+                  >
+                    reset empty warning view: show all lanes
+                  </button>
+                </div>
+                <ul className="compact-list">
+                  {SCHEDULED_ARTIFACT_DRILLDOWN_EMPTY_WARNING_VIEW_LINES.map((item) => <li key={item}>{item}</li>)}
+                  {scheduledArtifactDrilldownEmptyWarningDiagnostics.map((item) => <li key={item}>{item}</li>)}
+                </ul>
+              </article>
+            ) : null}
+            {scheduledArtifactDrilldownUiEventLog.length > 0 ? (
+              <article className="kpi-card" style={{ marginTop: 8 }}>
+                <span>scheduled artifact UI event log</span>
+                <ul className="compact-list">
+                  {scheduledArtifactDrilldownUiEventLog.map((item) => <li key={item}>{item}</li>)}
+                </ul>
+              </article>
+            ) : null}
+          </div>
+          <div>
+            <strong>summary</strong>
+            <ul className="compact-list">
+              {scheduledArtifactDrilldownSummaryRows.length
+                ? scheduledArtifactDrilldownSummaryRows.map((item) => <li key={item}>{item}</li>)
+                : <li>-</li>}
+            </ul>
+          </div>
+          <div className="table-wrap" style={{ gridColumn: '1 / -1' }}>
+            <table>
+              <thead>
+                <tr>
+                  <th>lane</th>
+                  <th>classification/status</th>
+                  <th>base_dir</th>
+                  <th>artifact_count</th>
+                  <th>warning_count</th>
+                  <th>warning types</th>
+                  <th>severity counts</th>
+                  <th>highest severity</th>
+                  <th>severity rank</th>
+                  <th>severity order</th>
+                  <th>status counts</th>
+                  <th>completion proof</th>
+                  <th>reason</th>
+                  <th>recommended command</th>
+                </tr>
+              </thead>
+              <tbody>
+                {scheduledArtifactDrilldownVisibleLanes.map((lane, index) => (
+                  <tr key={`${lane.lane || 'lane'}-${index}`}>
+                    <td><code>{lane.lane || '-'}</code></td>
+                    <td>
+                      <span className={scheduledMatrixArtifactClass(lane)}>
+                        {[
+                          scheduledMatrixArtifactLabel(lane.lane_classification),
+                          scheduledMatrixArtifactLabel(lane.status),
+                        ].join(' / ')}
+                      </span>
+                    </td>
+                    <td><code>{scheduledMatrixArtifactLabel(lane.base_dir)}</code></td>
+                    <td>{lane.artifact_count ?? scheduledArtifactDrilldownArtifacts(lane).length}</td>
+                    <td>{lane.identity_warning_count ?? 0}</td>
+                    <td>
+                      <ul className="compact-list">
+                        {matrixTextList(lane.identity_warning_types).length
+                          ? matrixTextList(lane.identity_warning_types).map((item) => <li key={item}>{item}</li>)
+                          : <li>-</li>}
+                      </ul>
+                    </td>
+                    <td>
+                      <ul className="compact-list">
+                        {matrixTextList(lane.identity_warning_severity_counts).length
+                          ? matrixTextList(lane.identity_warning_severity_counts).map((item) => <li key={item}>{item}</li>)
+                          : <li>-</li>}
+                      </ul>
+                    </td>
+                    <td>highest severity: {scheduledMatrixArtifactLabel(lane.identity_warning_highest_severity)}</td>
+                    <td>severity rank: {scheduledMatrixArtifactLabel(lane.identity_warning_highest_severity_rank)}</td>
+                    <td>
+                      <ul className="compact-list">
+                        {matrixTextList(lane.identity_warning_severity_order).length
+                          ? matrixTextList(lane.identity_warning_severity_order).map((item) => <li key={item}>{item}</li>)
+                          : <li>-</li>}
+                      </ul>
+                    </td>
+                    <td>
+                      <ul className="compact-list">
+                        {matrixTextList(lane.identity_status_counts).length
+                          ? matrixTextList(lane.identity_status_counts).map((item) => <li key={item}>{item}</li>)
+                          : <li>-</li>}
+                      </ul>
+                    </td>
+                    <td>{lane.scheduled_completion_proof ? 'scheduled_run_evidence' : 'not completion proof'}</td>
+                    <td>{scheduledMatrixArtifactLabel(lane.reason)}</td>
+                    <td><code>{scheduledMatrixArtifactLabel(lane.recommended_command)}</code></td>
+                  </tr>
+                ))}
+                {!scheduledArtifactDrilldownVisibleLanes.length ? (
+                  <tr>
+                    <td colSpan={14} className="empty-cell">
+                      {scheduledArtifactDrilldown.isLoading
+                        ? t('opsPage.status.loading')
+                        : scheduledArtifactDrilldownEmptyWarningView
+                          ? SCHEDULED_ARTIFACT_DRILLDOWN_EMPTY_WARNING_VIEW_TITLE
+                          : '-'}
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+          <div className="table-wrap" style={{ gridColumn: '1 / -1' }}>
+            <table>
+              <thead>
+                <tr>
+                  <th>lane</th>
+                  <th>artifact path</th>
+                  <th>classification</th>
+                  <th>completion proof</th>
+                  <th>reason</th>
+                  <th>freshness</th>
+                  <th>size_bytes</th>
+                  <th>sha256</th>
+                  <th>mtime</th>
+                  <th>observed at</th>
+                </tr>
+              </thead>
+              <tbody>
+                {scheduledArtifactDrilldownVisibleLanes.flatMap((lane, laneIndex) => {
+                  const artifacts = scheduledArtifactDrilldownArtifacts(lane)
+                  if (!artifacts.length) {
+                    return [
+                      <tr key={`${lane.lane || 'lane'}-${laneIndex}-empty`}>
+                        <td><code>{lane.lane || '-'}</code></td>
+                        <td><code>{scheduledMatrixArtifactPath(lane)}</code></td>
+                        <td>
+                          <span className={scheduledMatrixArtifactClass(lane)}>
+                            {scheduledMatrixArtifactLabel(lane.lane_classification)}
+                          </span>
+                        </td>
+                        <td>{lane.scheduled_completion_proof ? 'scheduled_run_evidence' : 'not completion proof'}</td>
+                        <td>{scheduledMatrixArtifactLabel(lane.reason)}</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>{formatDate(scheduledArtifactDrilldownData?.observed_at, locale)}</td>
+                      </tr>,
+                    ]
+                  }
+                  return artifacts.map((artifact, artifactIndex) => (
+                    <tr key={`${lane.lane || 'lane'}-${artifact.artifact_path || artifactIndex}`}>
+                      <td><code>{lane.lane || '-'}</code></td>
+                      <td><code>{scheduledMatrixArtifactLabel(artifact.artifact_path)}</code></td>
+                      <td>
+                        <span className={scheduledMatrixArtifactClass({ lane_classification: artifact.classification })}>
+                          {scheduledMatrixArtifactLabel(artifact.classification)}
+                        </span>
+                      </td>
+                      <td>{artifact.scheduled_completion_proof ? 'scheduled_run_evidence' : 'not completion proof'}</td>
+                      <td>{scheduledMatrixArtifactLabel(artifact.reason)}</td>
+                      <td>
+                        <ul className="compact-list">
+                          {scheduledArtifactFreshnessRows(artifact).map((item) => <li key={item}>{item}</li>)}
+                        </ul>
+                      </td>
+                      <td>{scheduledArtifactSizeLabel(artifact.size_bytes)}</td>
+                      <td><code>{scheduledArtifactSha256Label(artifact.sha256)}</code></td>
+                      <td>{scheduledMatrixArtifactLabel(artifact.mtime)}</td>
+                      <td>{formatDate(artifact.observed_at, locale)}</td>
+                    </tr>
+                  ))
+                })}
+                {!scheduledArtifactDrilldownVisibleLanes.length ? (
+                  <tr>
+                    <td colSpan={10} className="empty-cell">
+                      {scheduledArtifactDrilldown.isLoading
+                        ? t('opsPage.status.loading')
+                        : scheduledArtifactDrilldownEmptyWarningView
+                          ? SCHEDULED_ARTIFACT_DRILLDOWN_EMPTY_WARNING_VIEW_TITLE
+                          : '-'}
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+          <div style={{ gridColumn: '1 / -1' }}>
+            <strong>diagnostics</strong>
+            <div className="grid-2" style={{ alignItems: 'start', marginTop: 8 }}>
+              {scheduledArtifactDrilldownVisibleLanes.map((lane, index) => {
+                const rows = scheduledArtifactDiagnosticsRows(lane.diagnostics)
+                return (
+                  <article className="kpi-card" key={`${lane.lane || 'lane'}-${index}-diagnostics`}>
+                    <span>{lane.lane || '-'}</span>
+                    <strong>{scheduledMatrixArtifactLabel(lane.lane_classification)}</strong>
+                    <ul className="compact-list">
+                      {rows.length
+                        ? rows.map(([key, value]) => <li key={key}><code>{key}</code>: {value}</li>)
+                        : <li>-</li>}
+                    </ul>
+                  </article>
+                )
+              })}
+              {!scheduledArtifactDrilldownVisibleLanes.length ? (
+                <p className="status-line">
+                  {scheduledArtifactDrilldownEmptyWarningView
+                    ? SCHEDULED_ARTIFACT_DRILLDOWN_EMPTY_WARNING_VIEW_TITLE
+                    : '-'}
+                </p>
+              ) : null}
+            </div>
+          </div>
+          <div>
+            <strong>completion boundary</strong>
+            <ul className="compact-list">
+              {scheduledArtifactDrilldownBoundary.length
+                ? scheduledArtifactDrilldownBoundary.map((item) => <li key={item}>{item}</li>)
+                : <li>-</li>}
+            </ul>
+          </div>
+          {scheduledArtifactDrilldown.isError ? (
+            <p className="status-line">
+              scheduled artifact drilldown unavailable: {scheduledMatrixArtifactError(scheduledArtifactDrilldown.error)}
+            </p>
+          ) : null}
+        </div>
+        {hasScheduledMatrixDiagnostics(scheduledMatrixDiagnostics) ? (
+          <div
+            className="grid-2"
+            data-testid="ops-business-line-matrix-diagnostics-guidance"
+            style={{ alignItems: 'start', marginBottom: 16 }}
+          >
+            <article className="kpi-card">
+              <span>source lane</span>
+              <strong>{scheduledMatrixDiagnostics.source_lane || '-'}</strong>
+              <small>source artifact: {scheduledMatrixDiagnostics.source_artifact || '-'}</small>
+            </article>
+            <article className="kpi-card">
+              <span>classification boundary</span>
+              <ul className="compact-list">
+                {matrixClassificationBoundaryList(scheduledMatrixDiagnostics.classification_boundary).map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+              <small>consumer surface: {scheduledMatrixDiagnostics.consumer_surface || '-'}</small>
+            </article>
+            <div>
+              <strong>recommended display order</strong>
+              <ul className="compact-list">
+                {matrixTextList(scheduledMatrixDiagnostics.recommended_display_order).map((field) => (
+                  <li key={field}><code>{field}</code></li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <strong>required fields</strong>
+              <ul className="compact-list">
+                {matrixTextList(scheduledMatrixDiagnostics.required_fields).map((field) => (
+                  <li key={field}><code>{field}</code></li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <strong>blocked project fields</strong>
+              <ul className="compact-list">
+                {matrixTextList(scheduledMatrixDiagnostics.blocked_project_fields).map((field) => (
+                  <li key={field}><code>{field}</code></li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        ) : null}
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>{t('opsPage.field.lineKey')}</th>
+                <th>{t('opsPage.field.entrypoints')}</th>
+                <th>{t('opsPage.field.apiGroups')}</th>
+                <th>{t('opsPage.field.currentGaps')}</th>
+                <th>{t('opsPage.field.nextRemediation')}</th>
+                <th>{t('opsPage.field.verificationCommands')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {businessLineEvidenceLines.map((line) => (
+                <tr key={line.line_key} data-testid={matrixLineTestId(line)}>
+                  <td><code>{line.line_key}</code></td>
+                  <td>{matrixFieldCount(line.entrypoints)}</td>
+                  <td>{matrixFieldCount(line.api_groups)}</td>
+                  <td>
+                    <ul className="compact-list">
+                      {matrixTextList(line.current_gaps).map((gap) => <li key={gap}>{gap}</li>)}
+                    </ul>
+                  </td>
+                  <td>
+                    <ul className="compact-list">
+                      {matrixTextList(line.next_remediation).map((item) => <li key={item}>{item}</li>)}
+                    </ul>
+                  </td>
+                  <td>
+                    <ul className="compact-list">
+                      {matrixTextList(line.verification_commands).map((command) => <li key={command}><code>{command}</code></li>)}
+                    </ul>
+                  </td>
+                </tr>
+              ))}
+              {!businessLineEvidenceLines.length ? (
+                <tr>
+                  <td colSpan={6} className="empty-cell">
+                    {businessLineEvidenceMatrix.isLoading ? t('opsPage.status.loading') : t('opsPage.empty.businessLineEvidenceMatrix')}
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <section className="panel">
@@ -1184,22 +2350,41 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
             <button
               disabled={pending || !selectedCount}
               onClick={() => {
-                runAction('bulkStructuredWrite', async () => {
-                  let parsed: unknown
-                  try {
-                    parsed = JSON.parse(extractJsonText || '{}')
-                  } catch {
-                    throw new Error(t('opsPage.error.invalidJson'))
-                  }
-                  return bulkUpdateDocumentExtractedData({
+                void runAdminPreview('bulkStructuredWrite', () =>
+                  bulkUpdateDocumentExtractedData({
                     doc_ids: selectedDocIds,
                     mode: extractMode,
-                    extracted_data: parsed,
-                  })
-                })
+                    extracted_data: parseExtractedJson(),
+                    preview: true,
+                  }),
+                )
+              }}
+            >
+              {t('opsPage.action.previewBulkWriteStructured')}
+            </button>
+            <button
+              disabled={pending || !selectedCount}
+              onClick={() => {
+                void runAction('bulkStructuredWrite', async () =>
+                  bulkUpdateDocumentExtractedData({
+                    doc_ids: selectedDocIds,
+                    mode: extractMode,
+                    extracted_data: parseExtractedJson(),
+                  }),
+                )
               }}
             >
               {t('opsPage.action.bulkWriteStructured')}
+            </button>
+            <button
+              disabled={pending || !selectedCount}
+              onClick={() =>
+                void runAdminPreview('deleteDocuments', () =>
+                  deleteAdminDocuments({ ids: selectedDocIds, preview: true }),
+                )
+              }
+            >
+              {t('opsPage.action.previewDeleteDocuments')}
             </button>
             <button
               disabled={pending || !selectedCount}
@@ -1215,6 +2400,92 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
             </button>
           </div>
         </div>
+        {adminPreview ? (
+          <section className="panel" data-testid="ops-document-governance-preview" style={{ marginTop: 16 }}>
+            <div className="panel-header">
+              <h3>{t('opsPage.section.adminGovernanceEvidence')}</h3>
+              <div className="inline-actions">
+                <span className="chip">{actionName(adminPreviewAction || 'deleteDocuments')}</span>
+                <span className="chip">
+                  {adminPreview.preview ? t('opsPage.status.previewEvidence') : t('opsPage.status.executionEvidence')}
+                </span>
+                <button
+                  type="button"
+                  data-testid="ops-copy-preview-evidence-package"
+                  onClick={() => void copyAdminPreviewEvidencePackage()}
+                >
+                  {t('opsPage.action.copyPreviewEvidencePackage')}
+                </button>
+              </div>
+            </div>
+            <div className="kpi-grid" style={{ marginTop: 0 }}>
+              <article className="kpi-card">
+                <span>{t('opsPage.field.actionKind')}</span>
+                <strong>{getAdminPreviewActionKind(adminPreview, adminPreviewAction || '-')}</strong>
+                <small>{formatOpsTemplate(t('opsPage.metric.wouldAffectCount'), { count: adminPreview.would_affect_count ?? adminPreview.requested ?? 0 })}</small>
+              </article>
+              <article className="kpi-card">
+                <span>{t('opsPage.field.riskLabels')}</span>
+                <strong>{getAdminPreviewRiskLabels(adminPreview).join(', ') || '-'}</strong>
+                <small>{formatOpsTemplate(t('opsPage.metric.riskLabelCount'), { count: getAdminPreviewRiskLabels(adminPreview).length })}</small>
+              </article>
+              <article className="kpi-card">
+                <span>{t('opsPage.field.sourceRefs')}</span>
+                <strong>{getAdminPreviewSourceRefCount(adminPreview)}</strong>
+                <small>{adminPreview.source_query ? t('opsPage.status.sourceQueryAvailable') : t('opsPage.status.sourceQueryMissing')}</small>
+              </article>
+              <article className="kpi-card">
+                <span>{t('opsPage.field.executionResultAvailable')}</span>
+                <strong>{String(getExecutionResultAvailable(adminPreview))}</strong>
+                <small>{adminPreview.preview ? t('opsPage.status.previewModeNoExecution') : t('opsPage.status.executionResultReadback')}</small>
+              </article>
+            </div>
+            <div className="grid-2" style={{ alignItems: 'start' }}>
+              <div>
+                <strong>{t('opsPage.field.traceAction')}</strong>
+                <pre style={{ ...detailPreStyle, maxHeight: 160 }}>
+                  {getAdminPreviewTraceLabel(adminPreview)}
+                </pre>
+              </div>
+              <div>
+                <strong>{t('opsPage.field.sourceQuery')}</strong>
+                <pre style={{ ...detailPreStyle, maxHeight: 160 }}>
+                  {adminPreview.source_query ? JSON.stringify(adminPreview.source_query, null, 2) : '-'}
+                </pre>
+              </div>
+              <div>
+                <strong>{t('opsPage.field.sourceRefs')}</strong>
+                <pre style={{ ...detailPreStyle, maxHeight: 180 }}>
+                  {JSON.stringify(adminPreview.source_refs || [], null, 2)}
+                </pre>
+              </div>
+              <div>
+                <strong>{t('opsPage.field.evidencePreview')}</strong>
+                <pre style={{ ...detailPreStyle, maxHeight: 180 }}>
+                  {JSON.stringify(adminPreview.evidence_preview || {}, null, 2)}
+                </pre>
+              </div>
+              <div>
+                <strong>{t('opsPage.field.executionResult')}</strong>
+                <pre style={{ ...detailPreStyle, maxHeight: 180 }}>
+                  {JSON.stringify(adminPreview.execution_result || {}, null, 2)}
+                </pre>
+              </div>
+              <div>
+                <strong>{t('opsPage.field.auditTrail')}</strong>
+                <pre style={{ ...detailPreStyle, maxHeight: 180 }}>
+                  {JSON.stringify(adminPreview.audit_event || adminPreview.audit_trail || {}, null, 2)}
+                </pre>
+              </div>
+              <div>
+                <strong>{t('opsPage.field.rollbackHint')}</strong>
+                <pre style={{ ...detailPreStyle, maxHeight: 180 }}>
+                  {JSON.stringify(adminPreview.rollback_hint || adminPreview.rollback_recommendation || {}, null, 2)}
+                </pre>
+              </div>
+            </div>
+          </section>
+        ) : null}
         <p className="status-line">{formatOpsTemplate(t('opsPage.metric.selectedDocuments'), { count: selectedCount })}</p>
         <div className="table-wrap">
           <table>

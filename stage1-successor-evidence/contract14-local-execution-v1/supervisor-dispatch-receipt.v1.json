@@ -1,0 +1,24 @@
+{
+  "schema_version": "mrw.stage1.contract14.supervisor-dispatch-receipt.v1",
+  "status": "SENT",
+  "sent_at_utc": "2026-09-06T07:30:11Z",
+  "sender_thread_id": "01a074e1-da0d-7a70-9c45-daff7b8bc9ad",
+  "supervisor_thread_id": "01a0748b-be3b-7da2-9cb2-4160756bf10b",
+  "transport": "codex_app.send_message_to_thread",
+  "transport_result": {
+    "threadId": "01a0748b-be3b-7da2-9cb2-4160756bf10b"
+  },
+  "message_kind": "NEW_MILESTONE_RETURN",
+  "return": {
+    "path": "stage1-successor-evidence/contract14-local-execution-v1/return.v1.json",
+    "sha256": "bf448d36c8cab520644fc2b662327e6a16febdc4eb4dd8134a7eed71d92aa4c4"
+  },
+  "validation": {
+    "path": "stage1-successor-evidence/contract14-local-execution-v1/return-validation.v1.json",
+    "sha256": "12ba7476c8935c8dd88fe3d403c81e0058e70e41747f897de9834dc5283526ab",
+    "status": "PASS"
+  },
+  "authoritative": false,
+  "production_release_authorized": false,
+  "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE"
+}

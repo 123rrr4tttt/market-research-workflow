@@ -1,0 +1,124 @@
+{
+  "schema": "mrw.functorial.adapter_boundary_map.v1",
+  "status": "ACTIVE_MUTABLE_MAP",
+  "baseline_snapshot": {
+    "observed_at": "2026-09-05T04:18:38+08:00",
+    "baseline_fail_keys": 727,
+    "raw_fail_findings": 3123,
+    "report_notices": 257,
+    "new_failures": 0,
+    "stale_baseline_keys": 0,
+    "import_direction_fail_keys": 0,
+    "raw_import_direction_findings": 0,
+    "manual_hidden_import_direction_findings": 0
+  },
+  "clusters": [
+    {
+      "name": "collect_runtime_composition_root",
+      "classification": "REAL_BOUNDARY",
+      "raw_findings": 0,
+      "source": "main/backend/app/services/collect_runtime/runtime.py",
+      "imports": [
+        "search_market",
+        "search_policy",
+        "source_library",
+        "url_pool",
+        "crawler_scrapy"
+      ],
+      "action": "Split concrete adapter assembly from ordered batching/runtime semantics; inject CollectAdapter implementations through an explicit composition root.",
+      "state": "COMPLETE"
+    },
+    {
+      "name": "ingest_http_utilities",
+      "classification": "REAL_BOUNDARY",
+      "historical_raw_findings_before_c7_b8": 1,
+      "current_raw_findings": 0,
+      "sources": [
+        "main/backend/app/services/ingest/cleanup_executor.py",
+        "main/backend/app/services/ingest/content_extraction.py",
+        "main/backend/app/services/ingest/ecom.py",
+        "main/backend/app/services/ingest/market_web.py",
+        "main/backend/app/services/ingest/news.py",
+        "main/backend/app/services/ingest/policy.py",
+        "main/backend/app/services/ingest/raw_import.py",
+        "main/backend/app/services/ingest/social.py",
+        "main/backend/app/services/ingest/url_pool.py",
+        "main/backend/app/services/resource_pool"
+      ],
+      "action": "Use the shared HTTP port owned by main/backend/app/services/resource_pool/http_port.py; keep concrete HTTP in the composition shell.",
+      "state": "COMPLETE_SHARED_HTTP_PORT",
+      "evidence": "cleanup_executor.py imports resource_pool.http_port; the additive C7 Stage B8 candidate 446c3164ca675d78e00b4a9a5bb6e555be1b4b01365dfdc2fa22ef016ea88484 binds the current witness bytes and remains NOT_AUTHORITY."
+    },
+    {
+      "name": "source_library_crawler_provider_construction",
+      "classification": "REAL_BOUNDARY_MANUALLY_DETECTED",
+      "scanner_raw_findings": 0,
+      "manual_findings": 0,
+      "source": "main/backend/app/services/source_library/runner.py",
+      "imports": [
+        "app.services.crawlers",
+        "app.services.crawlers.registry",
+        "app.services.crawlers.providers.scrapy"
+      ],
+      "action": "Move crawler provider construction and registration to a composition shell; inject a resolver that returns the existing CrawlerProvider protocol.",
+      "state": "COMPLETE_COMPOSITION_ROOT",
+      "evidence": "runner.py resolves the existing CrawlerProvider protocol through provider_ports; concrete registry and Scrapy construction live in app/composition/source_library.py. The additive C2 Stage B5 candidate was independently accepted but remains NOT_AUTHORITY."
+    },
+    {
+      "name": "ingest_adapter_registry",
+      "classification": "SCANNER_TOPOLOGY",
+      "raw_findings": 0,
+      "sources": [
+        "main/backend/app/services/ingest/adapters/__init__.py",
+        "main/backend/app/services/ingest/adapters/*.py"
+      ],
+      "action": "Classify the adapter package as shell/adapter registry after excluding it from the coarse services core path.",
+      "state": "CLASSIFIED_SHELL"
+    },
+    {
+      "name": "source_library_adapter_registry",
+      "classification": "SCANNER_TOPOLOGY",
+      "raw_findings": 0,
+      "sources": [
+        "main/backend/app/services/source_library/adapters/__init__.py",
+        "main/backend/app/services/source_library/adapters/*.py"
+      ],
+      "action": "Classify registry internals as shell while preserving explicit ports for handlers consumed by pure planners.",
+      "state": "CLASSIFIED_SHELL"
+    },
+    {
+      "name": "resource_pool_external_adapters",
+      "classification": "REAL_BOUNDARY",
+      "raw_findings": 0,
+      "source": "main/backend/app/services/resource_pool",
+      "imports": [
+        "ingest.adapters.http_utils",
+        "source_library.adapters.official_access"
+      ],
+      "action": "Extract bounded HTTP and official-access ports; keep unified search core independent of concrete adapters.",
+      "state": "COMPLETE_SHARED_PORTS"
+    },
+    {
+      "name": "small_adapter_registries",
+      "classification": "SCANNER_TOPOLOGY",
+      "raw_findings": 0,
+      "sources": [
+        "main/backend/app/services/discovery/application.py",
+        "main/backend/app/services/graph",
+        "main/backend/app/services/llm",
+        "main/backend/app/services/local_index"
+      ],
+      "action": "Keep discovery, graph and LLM core dependent on declared ports while concrete construction remains in composition/shell modules.",
+      "state": "COMPLETE_DISCOVERY_LLM_GRAPH_BOUNDARIES",
+      "constraint": "Graph has explicit normalizer injection and focused tests, but no separate shared port law suite is claimed."
+    },
+    {
+      "name": "subproject_to_ingest_adapter",
+      "classification": "REAL_BOUNDARY",
+      "raw_findings": 0,
+      "source": "main/backend/app/subprojects/online_lottery",
+      "action": "Resolve concrete market adapters only in app/composition/online_lottery.py and dispatch through MarketAdapterPort.",
+      "state": "COMPLETE_MARKET_PORT_COMPOSITION_ROOT"
+    }
+  ]
+}

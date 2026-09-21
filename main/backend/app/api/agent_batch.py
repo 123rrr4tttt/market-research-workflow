@@ -41,6 +41,7 @@ from ..services.agent_batch.task_contract import (
     resolve_agent_batch_lane,
 )
 from ..services.agent_sessions import get_agent_session_service
+from ..services.task_readback_metadata import build_runtime_readback_payload
 from ..services.skill_runtime import invoke_skill
 from ..services import tasks as tasks_module
 from ..services.projects import current_project_key
@@ -52,6 +53,10 @@ logger = logging.getLogger(__name__)
 _DEFAULT_CONTRACT_VERSION = "collect.request.v2"
 _ALLOWED_CHANNELS = get_agent_batch_known_channels()
 _ALLOWED_OVERRIDE_PARAMS_BY_CHANNEL = get_allowed_override_params_by_channel()
+_READBACK_LINE_KEYS_BY_CHANNEL = {
+    "search.market": "search_discovery_index",
+    "source_library": "resource_source_library",
+}
 
 
 def _raise_invalid_input(message: str) -> None:
@@ -652,6 +657,27 @@ def _apply_async_or_delay(task_func: Any, args: tuple[Any, ...], kwargs: dict[st
     return apply_async_or_delay(task_func, args, kwargs, lane)
 
 
+def _build_dispatch_runtime_readback(
+    *,
+    channel: str,
+    trace_id: str | None,
+    workflow_run_id: str | None,
+    queue: str | None,
+) -> dict[str, Any]:
+    line_key = _READBACK_LINE_KEYS_BY_CHANNEL.get(str(channel or "").strip().lower())
+    if not line_key:
+        return {}
+    return build_runtime_readback_payload(
+        line_key=line_key,
+        trace_id=trace_id,
+        run_id=workflow_run_id,
+        queue=queue,
+        status="queued",
+        event="agent_batch_dispatched",
+        event_source="agent_batch_api",
+    )
+
+
 def _resolve_run_id(item: _BatchItemRecord, task_snapshot: dict[str, Any]) -> str | None:
     pinned = str(item.workflow_run_id or "").strip()
     if pinned:
@@ -695,6 +721,13 @@ def _submit_source_item(
     lane: str = "main",
     workflow_run_id: str | None = None,
 ) -> str:
+    queue_name = _resolve_queue_for_lane(lane)
+    runtime_readback = _build_dispatch_runtime_readback(
+        channel="source_library",
+        trace_id=trace_id,
+        workflow_run_id=workflow_run_id,
+        queue=queue_name,
+    )
     invoked = _invoke_agent_batch_dispatch(
         "source_library",
         {
@@ -704,6 +737,8 @@ def _submit_source_item(
             "trace_id": trace_id,
             "lane": lane,
             "workflow_run_id": workflow_run_id,
+            "queue": queue_name,
+            "runtime_readback": runtime_readback,
         },
         trace_id=trace_id,
     )
@@ -726,6 +761,13 @@ def _submit_market_collect(
     lane: str = "main",
     workflow_run_id: str | None = None,
 ) -> str:
+    queue_name = _resolve_queue_for_lane(lane)
+    runtime_readback = _build_dispatch_runtime_readback(
+        channel="search.market",
+        trace_id=trace_id,
+        workflow_run_id=workflow_run_id,
+        queue=queue_name,
+    )
     invoked = _invoke_agent_batch_dispatch(
         "search.market",
         {
@@ -739,6 +781,8 @@ def _submit_market_collect(
             "trace_id": trace_id,
             "lane": lane,
             "workflow_run_id": workflow_run_id,
+            "queue": queue_name,
+            "runtime_readback": runtime_readback,
         },
         trace_id=trace_id,
     )
@@ -757,10 +801,30 @@ def _skill_dispatch_source_library_item(payload: dict[str, Any]) -> dict[str, An
     trace_id = str((payload or {}).get("trace_id") or "").strip() or None
     lane = validate_lane((payload or {}).get("lane"), fallback="main")
     workflow_run_id = str((payload or {}).get("workflow_run_id") or "").strip() or None
+    queue_name = str((payload or {}).get("queue") or "").strip() or _resolve_queue_for_lane(lane)
+    runtime_readback = dict((payload or {}).get("runtime_readback") or {})
+    if not runtime_readback:
+        runtime_readback = _build_dispatch_runtime_readback(
+            channel="source_library",
+            trace_id=trace_id,
+            workflow_run_id=workflow_run_id,
+            queue=queue_name,
+        )
+    override_params.setdefault("workflow_run_id", workflow_run_id)
+    override_params.setdefault("trace_id", trace_id)
+    override_params.setdefault("line_key", runtime_readback.get("line_key") or "resource_source_library")
+    override_params.setdefault("queue", queue_name)
+    override_params.setdefault("runtime_readback", runtime_readback)
     task = _apply_async_or_delay(
         tasks_module.task_run_source_library_item,
         (item_key, project_key, override_params),
-        {"workflow_run_id": workflow_run_id, "trace_id": trace_id},
+        {
+            "workflow_run_id": workflow_run_id,
+            "trace_id": trace_id,
+            "line_key": runtime_readback.get("line_key") or "resource_source_library",
+            "queue": queue_name,
+            "runtime_readback": runtime_readback,
+        },
         lane,
     )
     return {"task_id": str(task.id)}
@@ -785,10 +849,25 @@ def _skill_dispatch_market_collect(payload: dict[str, Any]) -> dict[str, Any]:
     trace_id = str((payload or {}).get("trace_id") or "").strip() or None
     lane = validate_lane((payload or {}).get("lane"), fallback="main")
     workflow_run_id = str((payload or {}).get("workflow_run_id") or "").strip() or None
+    queue_name = str((payload or {}).get("queue") or "").strip() or _resolve_queue_for_lane(lane)
+    runtime_readback = dict((payload or {}).get("runtime_readback") or {})
+    if not runtime_readback:
+        runtime_readback = _build_dispatch_runtime_readback(
+            channel="search.market",
+            trace_id=trace_id,
+            workflow_run_id=workflow_run_id,
+            queue=queue_name,
+        )
     task = _apply_async_or_delay(
         tasks_module.task_ingest_market,
         (query_terms, max_items, enable_extraction, project_key, start_offset, days_back, language, provider),
-        {"workflow_run_id": workflow_run_id, "trace_id": trace_id},
+        {
+            "workflow_run_id": workflow_run_id,
+            "trace_id": trace_id,
+            "line_key": runtime_readback.get("line_key") or "search_discovery_index",
+            "queue": queue_name,
+            "runtime_readback": runtime_readback,
+        },
         lane,
     )
     return {"task_id": str(task.id)}

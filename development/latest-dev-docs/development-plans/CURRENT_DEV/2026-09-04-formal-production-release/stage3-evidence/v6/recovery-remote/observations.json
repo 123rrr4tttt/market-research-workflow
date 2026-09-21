@@ -1,0 +1,156 @@
+{
+  "schema_version": "mrw.stage3.remote-observations.v1",
+  "record_id": "v6-recovery-remote",
+  "candidate_commit": "909eb608e538b6427bcbacca974f1efb05fef611",
+  "candidate_tree": "a60b795e509aa5dc479904a321fba32ed0ab9ab2",
+  "authoritative": false,
+  "observed_at": "2026-09-06T21:51:40.841607+00:00",
+  "attempts": [
+    {
+      "id": "commit",
+      "command": [
+        "curl",
+        "--silent",
+        "--show-error",
+        "--max-time",
+        "25",
+        "--include",
+        "--header",
+        "Accept: application/vnd.github+json",
+        "https://api.github.com/repos/123rrr4tttt/market-research-workflow/commits/909eb608e538b6427bcbacca974f1efb05fef611"
+      ],
+      "cwd": "/Users/wangyiliang/market-research-workflow",
+      "exit_code": 6,
+      "response": {
+        "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-remote/commit.response",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "stderr": {
+        "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-remote/commit.stderr",
+        "sha256": "c194ef04dcfb48abf022cdf0ddadd7e9f0550addf63b8936442efd90d7c3b9e2"
+      }
+    },
+    {
+      "id": "runs",
+      "command": [
+        "curl",
+        "--silent",
+        "--show-error",
+        "--max-time",
+        "25",
+        "--include",
+        "--header",
+        "Accept: application/vnd.github+json",
+        "https://api.github.com/repos/123rrr4tttt/market-research-workflow/actions/runs?head_sha=909eb608e538b6427bcbacca974f1efb05fef611"
+      ],
+      "cwd": "/Users/wangyiliang/market-research-workflow",
+      "exit_code": 6,
+      "response": {
+        "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-remote/runs.response",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "stderr": {
+        "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-remote/runs.stderr",
+        "sha256": "c194ef04dcfb48abf022cdf0ddadd7e9f0550addf63b8936442efd90d7c3b9e2"
+      }
+    },
+    {
+      "id": "checks",
+      "command": [
+        "curl",
+        "--silent",
+        "--show-error",
+        "--max-time",
+        "25",
+        "--include",
+        "--header",
+        "Accept: application/vnd.github+json",
+        "https://api.github.com/repos/123rrr4tttt/market-research-workflow/commits/909eb608e538b6427bcbacca974f1efb05fef611/check-runs"
+      ],
+      "cwd": "/Users/wangyiliang/market-research-workflow",
+      "exit_code": 6,
+      "response": {
+        "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-remote/checks.response",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "stderr": {
+        "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-remote/checks.stderr",
+        "sha256": "c194ef04dcfb48abf022cdf0ddadd7e9f0550addf63b8936442efd90d7c3b9e2"
+      }
+    },
+    {
+      "id": "main",
+      "command": [
+        "curl",
+        "--silent",
+        "--show-error",
+        "--max-time",
+        "25",
+        "--include",
+        "--header",
+        "Accept: application/vnd.github+json",
+        "https://api.github.com/repos/123rrr4tttt/market-research-workflow/branches/main"
+      ],
+      "cwd": "/Users/wangyiliang/market-research-workflow",
+      "exit_code": 6,
+      "response": {
+        "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-remote/main.response",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "stderr": {
+        "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-remote/main.stderr",
+        "sha256": "c194ef04dcfb48abf022cdf0ddadd7e9f0550addf63b8936442efd90d7c3b9e2"
+      }
+    },
+    {
+      "id": "rulesets",
+      "command": [
+        "curl",
+        "--silent",
+        "--show-error",
+        "--max-time",
+        "25",
+        "--include",
+        "--header",
+        "Accept: application/vnd.github+json",
+        "https://api.github.com/repos/123rrr4tttt/market-research-workflow/rulesets?includes_parents=true"
+      ],
+      "cwd": "/Users/wangyiliang/market-research-workflow",
+      "exit_code": 6,
+      "response": {
+        "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-remote/rulesets.response",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "stderr": {
+        "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-remote/rulesets.stderr",
+        "sha256": "c194ef04dcfb48abf022cdf0ddadd7e9f0550addf63b8936442efd90d7c3b9e2"
+      }
+    },
+    {
+      "id": "effective-rules",
+      "command": [
+        "curl",
+        "--silent",
+        "--show-error",
+        "--max-time",
+        "25",
+        "--include",
+        "--header",
+        "Accept: application/vnd.github+json",
+        "https://api.github.com/repos/123rrr4tttt/market-research-workflow/rules/branches/main"
+      ],
+      "cwd": "/Users/wangyiliang/market-research-workflow",
+      "exit_code": 6,
+      "response": {
+        "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-remote/effective-rules.response",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "stderr": {
+        "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-remote/effective-rules.stderr",
+        "sha256": "c194ef04dcfb48abf022cdf0ddadd7e9f0550addf63b8936442efd90d7c3b9e2"
+      }
+    }
+  ],
+  "external_mutations": [],
+  "authentication": "ANONYMOUS_PUBLIC_API"
+}

@@ -1,0 +1,92 @@
+{
+  "authoritative": false,
+  "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+  "changed_paths": [
+    {
+      "path": "scripts/formal_release/source_closure.py",
+      "predecessor_sha256": "d604df8a21cd342ba1a7cfe228968b106e8b226794a20d30559b65ddf39dcc4c",
+      "reason": "FINAL_WORKFLOW_EQUIVALENT_CLOSURE_CORRECTION",
+      "successor_sha256": "7371d537f1f47e451f2457a15513265c10e8d94ce419ea70c645357fd34d9349"
+    },
+    {
+      "path": "scripts/formal_release/stage2_candidate_intake.py",
+      "predecessor_sha256": "b6231d5392d737f9c63a2cb01f5562e3a0e9f4fa278160b926a443beff3f3401",
+      "reason": "FINAL_WORKFLOW_EQUIVALENT_CLOSURE_CORRECTION",
+      "successor_sha256": "158c351128e7b7952158bbce632a1e1273827b3d963ef3ddad59360e6e50d835"
+    },
+    {
+      "path": "tests/formal_release/test_source_closure.py",
+      "predecessor_sha256": "c7ba06e248a65e58b6a101d39afefa3eff9127b44167373f6d3053957fe0d96b",
+      "reason": "FINAL_WORKFLOW_EQUIVALENT_CLOSURE_CORRECTION",
+      "successor_sha256": "13a3426770c31c029436ec404f323a738566eb0eea2c56750db9458dba219a95"
+    },
+    {
+      "path": "tests/formal_release/test_stage2_candidate_intake.py",
+      "predecessor_sha256": "64cd00c3ad2bb15b002fdb9f149ef51bda13f596b2d610eadcff8787e1e0ae15",
+      "reason": "FINAL_WORKFLOW_EQUIVALENT_CLOSURE_CORRECTION",
+      "successor_sha256": "0b778577cd20ae8370f45dbb4ef73c38a568ecb5f48965652fcba00aa40df861"
+    }
+  ],
+  "closure_contract": {
+    "candidate_local_full_selector_is_final_gate": true,
+    "changed_or_deleted_selector_paths_must_be_manifest_bound": true,
+    "invalid_or_excluded_selector_paths_fail_closed": true,
+    "non_selector_manifest_entries_are_allowed": true,
+    "stage0_upserts_satisfy_duplicate_workflow_upserts": true,
+    "workflow_roots": [
+      "main/backend",
+      "main/ops",
+      "src/mrw_functorial_kit",
+      "ops",
+      "scripts"
+    ]
+  },
+  "current_bindings": {
+    "checker": "stage1-successor-evidence/stage2-v6-intake-remediation-v5/check_stage2_v6_intake_remediation_v5.py",
+    "record": "stage1-successor-evidence/stage2-v6-intake-remediation-v5/stage2-v6-intake-remediation-record.v5.json"
+  },
+  "external_effects": "NONE_LOCAL_DETERMINISTIC_VALIDATION_ONLY",
+  "predecessor": {
+    "disposition": "SUPERSEDED_CURRENT_HASH_DRIFT_PRESERVED_AS_HISTORY",
+    "manifest": {
+      "path": "stage1-successor-evidence/stage2-v6-intake-remediation-v4/artifact-manifest.v4.json",
+      "sha256": "a76c62a0912d37ed2782ed8fc35efae81f4affa00e97757fec21610bf2fb95a2"
+    },
+    "record": {
+      "path": "stage1-successor-evidence/stage2-v6-intake-remediation-v4/stage2-v6-intake-remediation-record.v4.json",
+      "sha256": "61e99ae5bbdbb679a1fa670e7ebc99db865e04ee0e693baf313e9bb729100dd2"
+    },
+    "validation": {
+      "path": "stage1-successor-evidence/stage2-v6-intake-remediation-v4/validation-receipt.v4.json",
+      "sha256": "ac310817d2c29a43f1ede4b398c7b10580b090166dca7b2d652239a23ed52c21"
+    }
+  },
+  "production_release_authorized": false,
+  "schema_version": "mrw.stage1.stage2_v6_intake_remediation_record.v5",
+  "status": "PASS_STAGE2_V6_WORKFLOW_EQUIVALENT_INTAKE_NOT_AUTHORITY",
+  "verification": {
+    "compileall": "PASS",
+    "ruff": "PASS",
+    "source_and_intake_tests": {
+      "failed": 0,
+      "passed": 139
+    },
+    "source_selector": {
+      "deselected": 2329,
+      "errors": 0,
+      "failed": 0,
+      "junit": {
+        "path": "stage1-successor-evidence/stage2-v6-intake-remediation-v5/raw/source-selector.final.xml",
+        "sha256": "2ee9878a74628727b1442190e7212530a3c12014558e837768df38d918d0cfe4"
+      },
+      "log": {
+        "path": "stage1-successor-evidence/stage2-v6-intake-remediation-v5/raw/source-selector.final.log",
+        "sha256": "97b26df9e9e70b071e9b2308fea906aecf1cef85bd512d346d671f0ea62aad1c"
+      },
+      "passed": 1793,
+      "skipped": 0,
+      "subtests_passed": 52,
+      "warnings": 25
+    }
+  }
+}

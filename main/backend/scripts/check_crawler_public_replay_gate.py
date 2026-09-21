@@ -4,7 +4,11 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
+try:
+    from ._cli_runtime import repo_root as _repo_root
+except ImportError:  # direct script execution
+    from _cli_runtime import repo_root as _repo_root
 
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
@@ -12,6 +16,10 @@ if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
 from scripts.check_source_library_public_replay_a5_gate import build_check as build_a5_gate_check
+from scripts.check_evidence_source_availability import EVIDENCE_SOURCE_UNAVAILABLE
+from scripts.check_evidence_source_availability import classify_required_evidence
+from scripts.check_evidence_source_availability import merge_evidence_sources
+from scripts.check_evidence_source_availability import unavailable_error
 from scripts.source_library_replay_scaleout import DEFAULT_HISTORICAL_TARGETS
 from scripts.source_library_replay_scaleout import validate_manifest_targets
 
@@ -28,10 +36,6 @@ EXPECTED_COUNTS = {
     "enabled_public_target_count": 40,
     "policy_disabled_target_count": 5,
 }
-
-
-def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[3]
 
 
 def _resolve_path(root: Path, path_value: str | Path) -> Path:
@@ -420,11 +424,17 @@ def _live_public_replay_summary(path: Path, errors: list[str]) -> dict[str, Any]
 def build_check(
     repo_root: Path | str | None = None,
     manifest_path: Path | str | None = None,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=preflight fact_source=repository.public_replay_manifest_and_shard_outputs witness=test:test_crawler_public_replay_gate_authority_metadata",
+]:
     root = Path(repo_root) if repo_root is not None else _repo_root()
     root = root.resolve()
     manifest_file = _resolve_path(root, manifest_path or DEFAULT_MANIFEST_PATH)
     errors: list[str] = []
+    evidence_source = classify_required_evidence(root, {"public_replay_gate_manifest": manifest_file})
+    if evidence_source["status"] == EVIDENCE_SOURCE_UNAVAILABLE:
+        errors.append(unavailable_error(evidence_source))
 
     embedded_validation = validate_manifest_targets([dict(target) for target in DEFAULT_HISTORICAL_TARGETS])
     _require(bool(embedded_validation.get("passed")), errors, "embedded 45-site target snapshot must validate")
@@ -462,12 +472,25 @@ def build_check(
     fresh_a5 = build_a5_gate_check(root)
     fresh_a5_summary = _fresh_a5_gate_summary(fresh_a5, errors)
 
+    if paths:
+        direct_evidence = classify_required_evidence(
+            root,
+            {"public_replay_gate_manifest": manifest_file, **paths},
+        )
+        evidence_source = merge_evidence_sources(direct_evidence, fresh_a5.get("evidence_source") or {})
+        if evidence_source["status"] == EVIDENCE_SOURCE_UNAVAILABLE:
+            errors.append(unavailable_error(evidence_source))
+    else:
+        evidence_source = merge_evidence_sources(evidence_source, fresh_a5.get("evidence_source") or {})
+
     live_public_output_path = paths.get("live_public_output", root / "missing-output.public.json")
     live_public_replay = _live_public_replay_summary(live_public_output_path, errors)
 
     public_closed = live_public_replay.get("status") == "real_evidence_present_review_required"
     overall_status = (
-        "deterministic_artifacts_valid_live_public_replay_evidence_present_review_required"
+        EVIDENCE_SOURCE_UNAVAILABLE
+        if evidence_source["status"] == EVIDENCE_SOURCE_UNAVAILABLE
+        else "deterministic_artifacts_valid_live_public_replay_evidence_present_review_required"
         if public_closed
         else "deterministic_artifacts_valid_live_public_replay_not_closed"
     )
@@ -477,6 +500,7 @@ def build_check(
         "repo_root": str(root),
         "manifest_path": _relative_path(manifest_file, root),
         "manifest": manifest_info,
+        "evidence_source": evidence_source,
         "deterministic_artifacts": {
             "embedded_manifest": embedded_validation,
             "source_replay_manifest": source_manifest_summary,

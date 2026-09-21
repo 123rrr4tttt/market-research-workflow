@@ -1,0 +1,63 @@
+{
+  "buildx.build.provenance": {
+    "builder": {
+      "id": ""
+    },
+    "buildType": "https://mobyproject.org/buildkit@v1",
+    "materials": [
+      {
+        "uri": "pkg:docker/nginx@1.30.4-alpine3.24?digest=sha256:dc5069ad14f19660b141b21236140b91656bf89bbc3e2417c70ae650cd66104c\u0026platform=linux%2Famd64",
+        "digest": {
+          "sha256": "dc5069ad14f19660b141b21236140b91656bf89bbc3e2417c70ae650cd66104c"
+        }
+      },
+      {
+        "uri": "pkg:docker/node@22-alpine?digest=sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32\u0026platform=linux%2Famd64",
+        "digest": {
+          "sha256": "c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32"
+        }
+      }
+    ],
+    "invocation": {
+      "configSource": {
+        "entryPoint": "Dockerfile"
+      },
+      "parameters": {
+        "frontend": "dockerfile.v0",
+        "args": {
+          "build-arg:SOURCE_DATE_EPOCH": "0",
+          "no-cache": "",
+          "target": "frontend-runtime"
+        },
+        "locals": [
+          {
+            "name": "context"
+          },
+          {
+            "name": "dockerfile"
+          }
+        ]
+      },
+      "environment": {
+        "dockerfileVersion": "1.26.0",
+        "platform": "linux/arm64"
+      }
+    }
+  },
+  "buildx.build.ref": "mrw-r13w-replay-amd64/mrw-r13w-replay-amd640/1vtx6h9nei6g7hmx988oykgfl",
+  "containerimage.config.digest": "sha256:15371cfe42b4783b38268ee7c5f7eb59a6bbc933d0544212384482905c8ee730",
+  "containerimage.descriptor": {
+    "mediaType": "application/vnd.oci.image.manifest.v1+json",
+    "digest": "sha256:a5b09b80fde1d2bbeb31c54137292e4a4bca7e2cf1f665b858f2d68a05c54e5c",
+    "size": 2607,
+    "annotations": {
+      "org.opencontainers.image.created": "1970-01-01T00:00:00Z"
+    },
+    "platform": {
+      "architecture": "amd64",
+      "os": "linux"
+    }
+  },
+  "containerimage.digest": "sha256:a5b09b80fde1d2bbeb31c54137292e4a4bca7e2cf1f665b858f2d68a05c54e5c",
+  "image.name": "docker.io/mrw-local/r13w-replay-frontend:6aa7518750f2c29229a443f73248c8133f192e4d"
+}

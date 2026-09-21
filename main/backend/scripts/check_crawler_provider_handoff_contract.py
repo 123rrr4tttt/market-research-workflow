@@ -4,7 +4,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
@@ -19,7 +19,10 @@ CONTRACT_VERSION = "crawler_provider_handoff.check.v1"
 PROVIDER_HANDOFF_CONTRACT_VERSION = "source_library.provider_handoff.v1"
 
 
-def build_fixture_payload() -> dict[str, Any]:
+def build_fixture_payload() -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=generated_evidence fact_source=repo_local.frontdoor_route_profile.fixture witness=test:test_crawler_provider_handoff_contract_authority_metadata",
+]:
     route_profile = {
         "contract_version": "ingest.frontdoor_route_profile.v1",
         "route_hint": "crawler_browse",
@@ -89,7 +92,10 @@ def build_fixture_payload() -> dict[str, Any]:
     }
 
 
-def build_check() -> dict[str, Any]:
+def build_check() -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=preflight fact_source=repo_local.frontdoor_route_profile.contract witness=test:test_crawler_provider_handoff_contract_authority_metadata",
+]:
     raw = build_fixture_payload()
     response = to_source_library_response(CollectResult(channel="source_library", meta={"raw": raw}))
     terminal_meta = response.get("terminal_output", {}).get("meta", {})

@@ -1,0 +1,45 @@
+{
+  "artifacts": [
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/focused-final.log",
+      "sha256": "a67a44868d0d8448fa3ac38b8dd7477b97d5e04de077d0e730be44f8ba3d08dc"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/focused-final.xml",
+      "sha256": "50ebcfa01ffcf11036b67e7420307eee8e9b0309851ff53e16df56b8fd6b81b7"
+    }
+  ],
+  "authoritative": false,
+  "command": [
+    "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/bin/python",
+    "-m",
+    "pytest",
+    "-p",
+    "no:cacheprovider",
+    "-q",
+    "--junitxml=/Users/wangyiliang/market-research-workflow/stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/focused-final.xml",
+    "tests/formal_release/test_check_static_production_contract.py",
+    "tests/formal_release/test_s1_workflow_contract.py",
+    "tests/formal_release/test_dockerfile_lockfile_closure.py",
+    "tests/formal_release/test_stage2_candidate_intake.py",
+    "tests/formal_release/test_source_closure.py",
+    "tests/formal_release/test_check_release_evidence.py",
+    "tests/formal_release/test_materialize_stage2_candidate.py",
+    "tests/formal_release/test_generate_stage2_candidate_record.py",
+    "stage1-successor-evidence/current-byte-remediation-v2/bindings/test_current_byte_binding_successors_v2.py",
+    "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/test_stage3_v6_artifact_remediation_v1.py"
+  ],
+  "cwd": "/Users/wangyiliang/market-research-workflow",
+  "elapsed_seconds": 126.32545709609985,
+  "environment": {
+    "MRW_STORE_AUTO_CREATE": "false",
+    "MRW_VECTOR_ENABLE_IVFFLAT": "false",
+    "MRW_VECTOR_REQUIRE_PGVECTOR": "false",
+    "MRW_VECTOR_STORE_AUTO_CREATE": "false",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "PYTHONHASHSEED": "0",
+    "PYTHONPATH": "/Users/wangyiliang/market-research-workflow:/Users/wangyiliang/market-research-workflow/src:/Users/wangyiliang/market-research-workflow/main/backend"
+  },
+  "exit_code": 0,
+  "isolation": "none added"
+}

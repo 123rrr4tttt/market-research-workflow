@@ -1,0 +1,30 @@
+{
+  "schema_version": "stage1.local.execution-validation.v1",
+  "claim_id": "claim-003",
+  "dependent_nodeids": [
+    "tests.unit.test_ingest_canary_closure_readiness_unittest.IngestCanaryClosureReadinessTest::test_retains_current_dev_when_repo_local_blockers_remain",
+    "tests.unit.test_ingest_canary_closure_readiness_unittest.IngestCanaryClosureReadinessTest::test_write_output_round_trips_report_file"
+  ],
+  "generator": {
+    "path": "main/backend/scripts/check_ingest_canary_closure_readiness.py",
+    "sha256": "e3a37b27ae9f440ce5fc35b3713d6f40fc2632f8674b5312e4b43c2f38adcab5"
+  },
+  "anchors": [
+    {"path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/INDEX.md", "sha256": "7c9e761b9bcb6e314b7f2907a75adc5c2caf404fe4fa1ae2252e8474d1e525f6"},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/INDEX.md", "sha256": "0563941ec3ccd96a9d3cb133727f97d2de47d75ace7cf68bf86d9d4bd3dc31bc"},
+    {"path": "development/latest-dev-docs/development-plans/TARGET_TOPIC_ALLOWLIST.json", "sha256": "ce35b86f548c64dd1d2dc8d84aad898b58245dcba737ce9dfb700b340681599b"}
+  ],
+  "artifacts": {
+    "receipt": {"path": "execution-receipt.json", "sha256": "92ac5c295ca8cd813a4c310593ba7753dde8e7ab786c1636798a2f2181f5dfa7"},
+    "report": {"path": "report.json", "sha256": "0ee5a051e8ab5321f3abfeb708d4246166ba97e058f73d2880dafe6ed3cea4e9"},
+    "raw_stdout": {"path": "raw.stdout", "sha256": "0ee5a051e8ab5321f3abfeb708d4246166ba97e058f73d2880dafe6ed3cea4e9"},
+    "raw_stderr": {"path": "raw.stderr", "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
+    "exit_status": {"path": "exit.status", "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa", "value": 0}
+  },
+  "checks": {"exit": 0, "report_status": "passed", "schema": "PASS", "unique_id": "PASS", "hash_reconciliation": "PASS"},
+  "effects_ceiling": "repo-local deterministic readback only; no network/DNS/provider/container/service/user DB/model download; no canary/runtime/deployment/release authority",
+  "errors": [],
+  "status": "PASS",
+  "authoritative": false,
+  "production_release_authorized": false
+}

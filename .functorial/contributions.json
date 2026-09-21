@@ -1,0 +1,37 @@
+{
+  "registries": {
+    "codecs": {},
+    "failures": {
+      "c8.graph.failure": {
+        "content": {
+          "codes": [
+            "GRAPH_PROJECTION_DECLARED_LOSS",
+            "GRAPH_ITEM_CANONICAL_REF_INVALID"
+          ],
+          "name": "c8.graph.failure"
+        }
+      }
+    },
+    "ports": {},
+    "vocabularies": {
+      "c8.operation.kind": {
+        "content": {
+          "members": [
+            "c8.typed_knowledge.demand_read.v1",
+            "c8.writing.compose.v1",
+            "c8.writing.stage.v1",
+            "c8.report.stage.v1",
+            "c8.graph.project.v1",
+            "c8.report.verify.v1",
+            "c8.report.admission.v1",
+            "c8.delivery_intent_prepare.v1",
+            "delivery.internal_export.v1"
+          ],
+          "name": "c8.operation.kind"
+        }
+      }
+    }
+  },
+  "sketches": {},
+  "version": "kit.contributions.sync.v1"
+}

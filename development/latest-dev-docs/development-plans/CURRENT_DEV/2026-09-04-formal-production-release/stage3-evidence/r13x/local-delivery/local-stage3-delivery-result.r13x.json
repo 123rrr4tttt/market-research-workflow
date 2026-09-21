@@ -1,0 +1,215 @@
+{
+  "schema_version": "mrw.stage3.local-delivery-result.r13x.v1",
+  "generated_at": "2026-09-12T17:05:22Z",
+  "status": "PASS_LOCAL_STAGE3_DELIVERY_NOT_AUTHORITY",
+  "authoritative": false,
+  "scope": "LOCAL_STAGE3_DELIVERY_ONLY",
+  "authority_ceiling": "PRODUCTION_RELEASE_NOT_AUTHORIZED",
+  "candidate": {
+    "label": "r13x",
+    "root": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260912-v4-r13x",
+    "commit": "8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+    "tree": "ce7c67c831b51f9d64b4c2f1a470a724a50b19df",
+    "base": "88ffcc3dab2e6cbdc1f389e16c4226df5a2e51c6",
+    "candidate_clean_at_final_check": true,
+    "replay_clean_at_final_check": true,
+    "standalone_non_shallow": true
+  },
+  "local_requirements": [
+    {
+      "id": "candidate.identity_and_r3",
+      "status": "PASS",
+      "basis": "Exact commit/tree/base, candidate and replay clean, Stage 1/2 bindings and final evidence indexes verified."
+    },
+    {
+      "id": "tests.local_required",
+      "status": "PASS_SCOPED_WITH_BYTE_IDENTITY_REUSE",
+      "basis": "Fresh r13x results are 84, 3 and 304 passed; dependency-safe unchanged suites retain their original execution attribution."
+    },
+    {
+      "id": "security.local_required",
+      "status": "PASS_REQUIRED_LOCAL_SOURCE_SECURITY_GATES_NOT_AUTHORITY",
+      "basis": "Bandit 0 high/high, pip-audit 123 dependencies with 0 known vulnerabilities, frontend 0 high/critical, Gitleaks 417 raw/403 stable with 0 new or unresolved, and all three Trivy roles 0 high/critical."
+    },
+    {
+      "id": "artifacts.three_role_reproducible",
+      "status": "PASS",
+      "basis": "Six of six builds passed; candidate/replay three-role manifests are exact reproducible, attestation subject bindings and exact-digest vulnerability thresholds passed."
+    },
+    {
+      "id": "runtime.migration_full_stack",
+      "status": "PASS_SCOPED",
+      "basis": "Runtime content passed, default alembic upgrade head passed at 20260905_000001, 67 public tables were read back, six-service full-stack smoke passed, and task-owned runtime resources were removed."
+    },
+    {
+      "id": "artifacts.recovery_inputs",
+      "status": "PASS_RETAINED",
+      "basis": "Three exact local tags, six OCI archives and three canonical layouts remain retained and checksum-bound; no Docker prune was run."
+    },
+    {
+      "id": "provider.selected_external_live_readback",
+      "status": "PASS",
+      "basis": "One bounded real OpenAI AgentCore probe completed the required tool call and final answer within the 20000 ms budget; evidence is redacted and contains no raw credential or request body."
+    }
+  ],
+  "test_accounting": {
+    "fresh_r13x": [
+      "affected_formal_release: 84 passed",
+      "p0d_postgresql_opt_in: 3 passed",
+      "architecture: 304 passed"
+    ],
+    "dependency_safe_reuse": "PASS_WITH_SOURCE_ATTRIBUTION",
+    "reused_scope": [
+      "backend unit",
+      "backend integration",
+      "core business",
+      "schema and migration contracts",
+      "successor runtime non-PostgreSQL",
+      "frontend frozen install, lint, typecheck, build and declared E2E"
+    ],
+    "nonpass_inventory": "Recorded separately; skips, deselections and warnings are not failures and UNKNOWN_NOT_EMITTED_BY_RECEIPT remains explicit."
+  },
+  "artifact_identity": {
+    "backend_manifest_digest": "sha256:dd4b1f3b512da6d013feb7f5925f343e5a639263b037d5a81445bfa2f8c93c0b",
+    "frontend_manifest_digest": "sha256:a5b09b80fde1d2bbeb31c54137292e4a4bca7e2cf1f665b858f2d68a05c54e5c",
+    "migration_runner_manifest_digest": "sha256:535ac0b1b06ed507e14bc9a1bfc96c27d4522bada61cbc63a9fa959721b59bc5"
+  },
+  "provider_verification": {
+    "status": "PASS",
+    "provider": "openai",
+    "provider_path": "langchain_openai.ChatOpenAI",
+    "api_endpoint_host": "api.openai.com",
+    "model": "gpt-4o-mini",
+    "timeout_ms": 20000,
+    "latency_status": "within_timeout",
+    "external_model_calls": 2,
+    "probe_runs_with_external_calls": 1,
+    "external_call_explanation": "The single AgentCore probe uses one model turn to request the required tool and one model turn to produce the final answer.",
+    "preflight_failures_before_network": 2,
+    "preflight_note": "The first two launch attempts failed before provider construction/network because the standalone runner needed its candidate PYTHONPATH and composition registration. The successful invocation used the existing production composition root without changing candidate source.",
+    "credential_source": "project-owned main/backend/.env; selected keys injected only into the probe process",
+    "credential_persisted": false,
+    "raw_request_or_response_persisted": false,
+    "secret_scan": "PASS"
+  },
+  "runtime_reconciliation": {
+    "historical_full_stack": "PASS_SCOPED",
+    "historical_deep_health": "DEGRADED_ONLY_FOR_ABSENT_OPENAI_API_KEY",
+    "provider_gap_after_local_probe": "CLOSED_BY_SEPARATE_SELECTED_EXTERNAL_PROVIDER_LIVE_READBACK",
+    "full_stack_not_rerun": true,
+    "migration_heads_limitation": "The console-script metadata introspection limitation remains recorded; python -m alembic heads and the exact default upgrade path passed."
+  },
+  "r2_reconciliation": {
+    "release_manifest": "ABSENT_NOT_FABRICATED",
+    "complete_stock_r2": "NOT_RUN_NOT_PASS",
+    "stage3_local_families": {
+      "semantic_closure": "SUPPORTED_BY_LOCAL_EVIDENCE",
+      "candidate_identity": "SUPPORTED_BY_LOCAL_EVIDENCE",
+      "artifact_build": "SUPPORTED_BY_LOCAL_EVIDENCE",
+      "business_validation": "SUPPORTED_BY_LOCAL_EVIDENCE",
+      "security_supply_chain": "SUPPORTED_BY_LOCAL_EVIDENCE"
+    },
+    "later_stage_families": "UNEXECUTED_OR_BLOCKED_AT_THEIR_OWN_STAGE_BOUNDARIES",
+    "release_manifest_r2_contract_order": "RESOLVED_BY_CONTRACT_18_SECTION_2_1"
+  },
+  "deferred_release_items": [
+    {
+      "id": "github.exact_sha_ci_and_enforcement",
+      "status": "DEFERRED_NOT_EXECUTED_NOT_AUTHORIZED"
+    },
+    {
+      "id": "registry.publish_promotion_immutability_readback",
+      "status": "DEFERRED_NOT_EXECUTED_NOT_AUTHORIZED"
+    },
+    {
+      "id": "signing_and_transparency",
+      "status": "DEFERRED_NOT_EXECUTED_NOT_AUTHORIZED"
+    },
+    {
+      "id": "actual_release_manifest_and_complete_r2",
+      "status": "DEFERRED_NOT_EXECUTED_NOT_AUTHORIZED"
+    },
+    {
+      "id": "remote_staging_and_production",
+      "status": "DEFERRED_NOT_EXECUTED_NOT_AUTHORIZED"
+    }
+  ],
+  "stage_transition": {
+    "local_stage3_delivery_complete": true,
+    "formal_stage3_release_qualification_established": false,
+    "stage4_admitted": false,
+    "stage4_remote_deployment_authorized": false,
+    "production_release_authorized": false
+  },
+  "external_effects": {
+    "authorized_external_provider_probe": "one bounded OpenAI AgentCore probe",
+    "github_registry_signing_transparency_or_deployment_writes": 0,
+    "unauthorized_writes": 0
+  },
+  "evidence": {
+    "provider_live_readback": {
+      "path": "local-delivery/provider-live-readback.r13x.json",
+      "sha256": "170109bff0d2ec7773ffcbd2f2c2b670a769afa28b66ba6f34fad4f3a211fd56"
+    },
+    "local_runbook": {
+      "path": "local-delivery/local-runbook.r13x.md",
+      "sha256": "3995c889840af1ff421ba417e6b26d60f596ea08d9b3630aa6e4aa430695e660"
+    },
+    "artifacts_result": {
+      "path": "artifacts/result.json",
+      "sha256": "ee182e66b17ff56a11f70682b1ce16f35a1246ad8b6865f5f603a80049b0c3e9"
+    },
+    "artifacts_index": {
+      "path": "artifacts/SHA256SUMS",
+      "sha256": "bbe0e5e10e30c640130e7c1970cce58bc62cf32b70a1f300da2b7566df3f8d89"
+    },
+    "runtime_summary": {
+      "path": "runtime/summary.json",
+      "sha256": "a3a4c29bfed66f06cf60d8c597c5c362ee7b3c22c7f722fb321d7d8801cafc86"
+    },
+    "runtime_index": {
+      "path": "runtime/SHA256SUMS",
+      "sha256": "68aa6d99c07f8fc060c1bfba301bbae22479c0b44064e5769ab4502957420cf3"
+    },
+    "security_result": {
+      "path": "security/security-gate-aggregation.r13x.json",
+      "sha256": "34b9f2f53d57f7c0f9b6aced7de27087d23885964c477b47d216ca7fccd82d35"
+    },
+    "security_index": {
+      "path": "security/SHA256SUMS",
+      "sha256": "dacd29b313b5d326a19984ee4e47ff2b1581b2f67bda1b6c0ccb290e07effca3"
+    },
+    "tests_result": {
+      "path": "tests/local-test-gate-aggregation.r13x.json",
+      "sha256": "564f4e3fd38a5463793b1baecb44fbf873d5320ca8dfd38ada96d56e33924f94"
+    },
+    "tests_index": {
+      "path": "tests/SHA256SUMS",
+      "sha256": "96a9e0c52d361f056e65d9ee51a3be261537ea574739325713320ceb52577138"
+    },
+    "nonpass_inventory": {
+      "path": "tests/nonpass-inventory.r13x.json",
+      "sha256": "275ddcd7d44941f04899ffaa01d91dca3bda84945fc13c747f5f796d1684eb1b"
+    },
+    "artifact_audit_supplement": {
+      "path": "artifacts/artifact-audit-supplement.r13x.json",
+      "sha256": "2c70a4d83d3277f8ad91fdd8164da21463982c05fa32abdf0bd4e248f91f5653"
+    },
+    "retained_artifact_lifecycle": {
+      "path": "retained-artifact-lifecycle.r13x.json",
+      "sha256": "6870665d41a9c4edc3593a748d0e1e0d825afa97a636a69ae0c5b350ecb0ad72"
+    },
+    "historical_final_requirement_matrix": {
+      "path": "matrix/final-requirement-matrix.r13x.json",
+      "sha256": "f988f26ca3fb296c90a3f10688e1ea5bd03ff0f80605967c64ace7d5b8a9455a"
+    },
+    "historical_final_reconciliation": {
+      "path": "stage3-final-reconciliation.r13x.json",
+      "sha256": "2cfe711b82c40d2a7c4045734065a00f39abcdaaaa69a3cb2629b207663877da"
+    },
+    "historical_final_index": {
+      "path": "SHA256SUMS.r13x-final",
+      "sha256": "d687a464cd10940ac936787216494e682c80fa8fdaad0c01cc1da0d39bdf7913"
+    }
+  }
+}

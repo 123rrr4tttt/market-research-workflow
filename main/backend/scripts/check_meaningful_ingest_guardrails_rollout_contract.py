@@ -6,6 +6,10 @@ import json
 import sys
 from pathlib import Path
 from typing import Any
+try:
+    from ._cli_runtime import repo_root as _repo_root
+except ImportError:  # direct script execution
+    from _cli_runtime import repo_root as _repo_root
 from unittest.mock import patch
 
 
@@ -15,10 +19,6 @@ TOPIC_DOC = Path(
     "2026-03-02-meaningful-ingest-guardrails-plan/"
     "03_wave11-ingest-guardrails-rollout-evidence-2026-05-22.md"
 )
-
-
-def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[3]
 
 
 def _backend_root() -> Path:

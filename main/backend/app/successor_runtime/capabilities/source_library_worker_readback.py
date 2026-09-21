@@ -9,7 +9,10 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any, Literal, NoReturn
+
+from functorial_kit import Failure
+from mrw_functorial_kit.core.w06_semantics import c9_evidence_surface_failures
 
 AUTHORITY_KEYS: tuple[str, ...] = (
     "canonical_write",
@@ -28,6 +31,53 @@ DECISION_OWNER = (
 )
 GuardDecision = Literal["admitted", "rejected", "missing"]
 _CREDENTIAL_MARKERS = ("secret", "token", "password", "api_key", "apikey")
+_FAILURE_WITNESS = "test:test_w06_c9_total_core_failure_lifts"
+
+
+def _failure(
+    code: str,
+    message: str,
+    *,
+    public_exception: str = "ValueError",
+    site: str = "source_library_worker_readback",
+) -> Failure:
+    return c9_evidence_surface_failures.fail(
+        code,
+        message,
+        {
+            "owner": "successor_runtime.capabilities.source_library_worker_readback",
+            "site": site,
+            "public_exception": public_exception,
+            "public_message": message,
+            "witness": _FAILURE_WITNESS,
+        },
+    )
+
+
+def _raise_contract_failure(
+    failure: Failure, exception_type: type[Exception] = ValueError
+) -> NoReturn:
+    context = failure.context or {}
+    if (
+        failure.family != c9_evidence_surface_failures.name
+        or context.get("public_exception") != exception_type.__name__
+    ):
+        # kit:boundary owner=source_library_worker_readback.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w06_c9_total_core_failure_lifts
+        raise TypeError("source-library worker readback failure lift context is incomplete")
+    # kit:boundary owner=source_library_worker_readback.py class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=c9.evidence_surface.failure witness=test:test_w06_c9_total_core_failure_lifts
+    raise exception_type(str(context.get("public_message", failure.message)))
+
+
+def _reject(
+    message: str,
+    exception_type: type[Exception] = ValueError,
+    *,
+    code: str = "surface_contract_invalid",
+) -> NoReturn:
+    _raise_contract_failure(
+        _failure(code, message, public_exception=exception_type.__name__),
+        exception_type,
+    )
 
 
 def authority_ceiling() -> dict[str, bool]:
@@ -38,12 +88,15 @@ def _text(value: Any, name: str, *, required: bool = True) -> str:
     if value is None and not required:
         return ""
     if not isinstance(value, str):
-        raise TypeError(f"{name} must be a string")
+        _reject(f"{name} must be a string", TypeError, code="evidence_source_invalid")
     text = value.strip()
     if not text and required:
-        raise ValueError(f"{name} must not be blank")
+        _reject(f"{name} must not be blank", code="evidence_source_invalid")
     if any(marker in text.lower() for marker in _CREDENTIAL_MARKERS):
-        raise ValueError(f"{name} must not carry credential-like raw material")
+        _reject(
+            f"{name} must not carry credential-like raw material",
+            code="evidence_source_invalid",
+        )
     return text
 
 
@@ -65,15 +118,21 @@ class SourceLibraryWorkerObservation:
     def __post_init__(self) -> None:
         object.__setattr__(self, "item_key", _text(self.item_key, "item_key"))
         if self.plan_mode not in ("resolver", "runner", "sync", "review"):
-            raise ValueError(f"unknown plan_mode: {self.plan_mode}")
+            _reject(
+                f"unknown plan_mode: {self.plan_mode}",
+                code="evidence_source_invalid",
+            )
         if self.phase not in (
             "planned",
             "provider_dispatch_boundary",
             "completed_readback",
         ):
-            raise ValueError(f"unknown phase: {self.phase}")
+            _reject(f"unknown phase: {self.phase}", code="evidence_source_invalid")
         if self.guard_decision not in ("admitted", "rejected", "missing"):
-            raise ValueError(f"unknown guard_decision: {self.guard_decision}")
+            _reject(
+                f"unknown guard_decision: {self.guard_decision}",
+                code="evidence_source_invalid",
+            )
         object.__setattr__(self, "observed_at", _text(self.observed_at, "observed_at"))
         object.__setattr__(
             self,
@@ -108,16 +167,31 @@ class SourceLibraryWorkerReadback:
 
     def __post_init__(self) -> None:
         if self.schema != SURFACE_SCHEMA:
-            raise ValueError("SourceLibraryWorkerReadback.schema is not frozen")
+            _reject(
+                "SourceLibraryWorkerReadback.schema is not frozen",
+                code="surface_contract_invalid",
+            )
         if self.movement_ids != MOVEMENT_IDS:
-            raise ValueError("SourceLibraryWorkerReadback.movement_ids drift")
+            _reject(
+                "SourceLibraryWorkerReadback.movement_ids drift",
+                code="surface_contract_invalid",
+            )
         if any(value is not False for value in self.authority.values()):
-            raise ValueError("source-library readback authority must be all false")
+            _reject(
+                "source-library readback authority must be all false",
+                code="authority_contract_invalid",
+            )
         object.__setattr__(self, "rows", tuple(self.rows))
         if self.provider_dispatch_count != 0:
-            raise ValueError("source-library readback never dispatches providers")
+            _reject(
+                "source-library readback never dispatches providers",
+                code="authority_contract_invalid",
+            )
         if self.line_guard_fail_closed is not True:
-            raise ValueError("source-library line guard must stay fail-closed")
+            _reject(
+                "source-library line guard must stay fail-closed",
+                code="authority_contract_invalid",
+            )
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -138,12 +212,23 @@ def project_source_library_worker_readback(
 ) -> SourceLibraryWorkerReadback:
     """Project typed observations without dispatching any provider."""
 
-    rows = tuple(
-        row
-        if isinstance(row, SourceLibraryWorkerObservation)
-        else SourceLibraryWorkerObservation(**row)
-        for row in records
-    )
+    try:
+        rows = tuple(
+            row
+            if isinstance(row, SourceLibraryWorkerObservation)
+            else SourceLibraryWorkerObservation(**row)
+            for row in records
+        )
+    except (TypeError, ValueError) as exc:
+        _raise_contract_failure(
+            _failure(
+                "projection_input_invalid",
+                str(exc),
+                public_exception=type(exc).__name__,
+                site="project_source_library_worker_readback",
+            ),
+            type(exc),
+        )
     admitted = sum(1 for row in rows if row.guard_decision == "admitted")
     rejected_or_missing = len(rows) - admitted
     execution_fact_consumed = any(
@@ -170,7 +255,11 @@ def project_source_library_matrix_row(
     """Render the resource_source_library evidence-matrix row payload."""
 
     if not isinstance(readback, SourceLibraryWorkerReadback):
-        raise TypeError("source-library matrix row requires typed readback")
+        _reject(
+            "source-library matrix row requires typed readback",
+            TypeError,
+            code="projection_input_invalid",
+        )
     if readback.rejected_or_missing_count:
         status = "blocked"
         reason_code = "source_library_guard_blocked_or_missing"

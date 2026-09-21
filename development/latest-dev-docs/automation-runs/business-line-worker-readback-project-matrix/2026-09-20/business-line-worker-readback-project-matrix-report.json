@@ -1,0 +1,114 @@
+{
+  "allow_blocked": false,
+  "api_base": "http://127.0.0.1:8000",
+  "artifact_dir": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/automation-runs/business-line-worker-readback-project-matrix/2026-09-20",
+  "error": null,
+  "include_child_reports": false,
+  "observed_at": "2026-09-20T08:45:44Z",
+  "project_selection": {
+    "api": {
+      "excluded": [],
+      "project_keys": [
+        "demo_proj",
+        "o1",
+        "iso_proj",
+        "init_fix_0301095525",
+        "demo_proj_1772384627",
+        "demo_proj_compare_0303_121137",
+        "batch84_matrix_proj",
+        "batch85_matrix_proj",
+        "batch86_discovered_proj"
+      ],
+      "projects_api_url": "http://127.0.0.1:8000/api/v1/projects"
+    },
+    "api_excluded_projects": [],
+    "api_project_keys": [
+      "demo_proj",
+      "o1",
+      "iso_proj",
+      "init_fix_0301095525",
+      "demo_proj_1772384627",
+      "demo_proj_compare_0303_121137",
+      "batch84_matrix_proj",
+      "batch85_matrix_proj",
+      "batch86_discovered_proj"
+    ],
+    "exclude": {
+      "project_keys": []
+    },
+    "exclude_project_keys": [],
+    "explicit": {
+      "project_keys": []
+    },
+    "explicit_project_keys": [],
+    "file": {
+      "project_keys": [],
+      "projects_list_json": null
+    },
+    "file_project_keys": [],
+    "filter": {
+      "project_key_regex": "^demo_proj$"
+    },
+    "max": {
+      "projects": null
+    },
+    "max_projects": null,
+    "merged_project_keys": [
+      "demo_proj",
+      "o1",
+      "iso_proj",
+      "init_fix_0301095525",
+      "demo_proj_1772384627",
+      "demo_proj_compare_0303_121137",
+      "batch84_matrix_proj",
+      "batch85_matrix_proj",
+      "batch86_discovered_proj"
+    ],
+    "project_key_regex": "^demo_proj$",
+    "project_keys": [
+      "demo_proj"
+    ],
+    "projects_api_url": "http://127.0.0.1:8000/api/v1/projects",
+    "projects_list_json": null
+  },
+  "projects": [
+    {
+      "artifact_dir": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/automation-runs/business-line-worker-readback-project-matrix/2026-09-20/demo_proj",
+      "chain_report_path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/automation-runs/business-line-worker-readback-project-matrix/2026-09-20/demo_proj/business-line-worker-readback-evidence-chain-report.json",
+      "chain_summary": null,
+      "command": [
+        "python3",
+        "scripts/run_business_line_worker_readback_evidence_chain.py",
+        "--api-base",
+        "http://127.0.0.1:8000",
+        "--project-key",
+        "demo_proj",
+        "--artifact-dir",
+        "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/automation-runs/business-line-worker-readback-project-matrix/2026-09-20/demo_proj",
+        "--timeout",
+        "5.0",
+        "--json",
+        "--trigger-smoke"
+      ],
+      "error": null,
+      "exit_code": 1,
+      "project_key": "demo_proj",
+      "reason": "live_sample_runner_not_passed",
+      "status": "failed",
+      "stopped_at": "batch73_live_sample_runner",
+      "trigger_smoke_status": "passed"
+    }
+  ],
+  "recommended_next_commands": [
+    "python3 scripts/run_business_line_worker_readback_project_matrix.py --api-base http://127.0.0.1:8000 --projects-api-url http://127.0.0.1:8000/api/v1/projects --project-key-regex '^demo_proj$' --artifact-dir /Users/wangyiliang/market-research-workflow/development/latest-dev-docs/automation-runs/business-line-worker-readback-project-matrix/2026-09-20 --timeout 5.0 --trigger-smoke --allow-blocked --json"
+  ],
+  "schema_version": "business_line_worker_readback_project_matrix.v1",
+  "status": "failed",
+  "summary": {
+    "blocked_by_environment": 0,
+    "failed": 1,
+    "passed": 0,
+    "total": 1
+  },
+  "trigger_smoke": true
+}

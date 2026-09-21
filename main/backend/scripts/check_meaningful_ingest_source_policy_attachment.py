@@ -6,9 +6,10 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Annotated, Any
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -28,7 +29,7 @@ TOPIC_ID = "2026-03-02-meaningful-ingest-guardrails-plan"
 TOPIC_DIR = Path("development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED") / TOPIC_ID
 CRAWLER_POLICY_TOPIC_ID = "2026-03-07-crawler-source-expansion"
 CRAWLER_POLICY_DOC = Path(
-    "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
+    "docs/development/development-plans/ARCHIVE_CLOSED/"
     "2026-03-07-crawler-source-expansion/2026-05-22-wave7-crawler-policy-matrix.md"
 )
 DECISION_DOC = TOPIC_DIR / "10_wave29-source-policy-tuning-attachment-decision-2026-05-23.md"
@@ -169,7 +170,12 @@ def _summarize_status(result: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
-def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
+def build_check(repo_root: Path | str | None = None) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=preflight "
+    "fact_source=repository.ingest_policy_anchor_and_canary_checks "
+    "witness=test:test_meaningful_ingest_source_policy_attachment_authority_metadata",
+]:
     root = Path(repo_root).resolve() if repo_root is not None else REPO_ROOT.resolve()
     anchors = {key: _anchor_result(root, key, anchor) for key, anchor in ANCHORS.items()}
 

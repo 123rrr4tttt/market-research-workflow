@@ -26,6 +26,8 @@ from app.successor_runtime.research.codec import canonical_bytes, sha256_hex
 from app.successor_runtime.research.identities import ResearchObjectRef
 from app.successor_runtime.research.object_types import DELIVERY_INTENT_TYPE, ObjectType
 
+from .first_specimen import _capability_failure, _raise_capability_failure
+
 
 DELIVERY_TEMPLATE_TYPE = ObjectType("DeliveryIntentTemplate.v1")
 
@@ -55,17 +57,17 @@ class DeliveryIntentTemplate:
             self.idempotency_key,
         )
         if any(not value for value in required):
-            raise ValueError("delivery template identities must be non-empty")
+            _raise_capability_failure(_capability_failure("DELIVERY_GATE_REJECTED", "delivery template identities must be non-empty"))
         if (
             len(self.authority_digest) != 64
             or any(char not in "0123456789abcdef" for char in self.authority_digest)
             or self.authority_digest == "0" * 64
         ):
-            raise ValueError("delivery template requires a non-placeholder authority digest")
+            _raise_capability_failure(_capability_failure("DELIVERY_AUTHORITY_OR_APPROVAL_INVALID", "delivery template requires a non-placeholder authority digest"))
         if self.channel != DELIVERY_CHANNEL or self.format != DELIVERY_FORMAT:
-            raise ValueError("first specimen permits only internal markdown export")
+            _raise_capability_failure(_capability_failure("DELIVERY_GATE_REJECTED", "first specimen permits only internal markdown export"))
         if self.irreversibility_profile != DELIVERY_IRREVERSIBILITY_PROFILE:
-            raise ValueError("delivery template irreversibility profile drift")
+            _raise_capability_failure(_capability_failure("DELIVERY_GATE_REJECTED", "delivery template irreversibility profile drift"))
 
     def to_payload(self) -> dict[str, object]:
         return {
@@ -104,13 +106,13 @@ class DeliveryAuthoritySnapshot:
 
     def __post_init__(self) -> None:
         if self.authority_epoch < 0:
-            raise ValueError("authority epoch must be non-negative")
+            _raise_capability_failure(_capability_failure("DELIVERY_AUTHORITY_OR_APPROVAL_INVALID", "authority epoch must be non-negative"))
         for name in ("authority_digest", "claim_policy_digest"):
             value = getattr(self, name)
             if len(value) != 64 or any(char not in "0123456789abcdef" for char in value):
-                raise ValueError(f"{name} must be canonical sha256 hex")
+                _raise_capability_failure(_capability_failure("DELIVERY_AUTHORITY_OR_APPROVAL_INVALID", f"{name} must be canonical sha256 hex"))
         if self.successor_claim_enabled == self.legacy_claim_enabled:
-            raise ValueError("delivery authority must select exactly one claim owner")
+            _raise_capability_failure(_capability_failure("DELIVERY_AUTHORITY_OR_APPROVAL_INVALID", "delivery authority must select exactly one claim owner"))
 
 
 @dataclass(frozen=True, slots=True)
@@ -126,18 +128,18 @@ class DeliveryApprovalSnapshot:
 
     def __post_init__(self) -> None:
         if self.revision < 0:
-            raise ValueError("approval revision must be non-negative")
+            _raise_capability_failure(_capability_failure("DELIVERY_AUTHORITY_OR_APPROVAL_INVALID", "approval revision must be non-negative"))
         if any(
             not value
             for value in (self.approval_id, self.actor_id, self.run_id, self.step_id)
         ):
-            raise ValueError("approval exact identities must be non-empty")
+            _raise_capability_failure(_capability_failure("DELIVERY_AUTHORITY_OR_APPROVAL_INVALID", "approval exact identities must be non-empty"))
         for name in ("payload_digest", "authority_digest"):
             value = getattr(self, name)
             if len(value) != 64 or any(char not in "0123456789abcdef" for char in value):
-                raise ValueError(f"approval {name} must be canonical sha256 hex")
+                _raise_capability_failure(_capability_failure("DELIVERY_AUTHORITY_OR_APPROVAL_INVALID", f"approval {name} must be canonical sha256 hex"))
         if self.expires_at.tzinfo is None:
-            raise ValueError("approval expiry must be timezone-aware")
+            _raise_capability_failure(_capability_failure("DELIVERY_AUTHORITY_OR_APPROVAL_INVALID", "approval expiry must be timezone-aware"))
 
 
 @dataclass(frozen=True, slots=True)
@@ -171,19 +173,19 @@ class DeliveryAssignmentParameters:
 
     def __post_init__(self) -> None:
         if self.operation_contract_ref.kind != "delivery.internal_export.v1":
-            raise ValueError("delivery assignment must bind delivery.internal_export.v1")
+            _raise_capability_failure(_capability_failure("CAPABILITY_CONTRACT_INVALID", "delivery assignment must bind delivery.internal_export.v1"))
         if (
             getattr(self.handler_binding, "operation_contract_digest", None)
             != self.operation_contract_ref.contract_digest
         ):
-            raise ValueError("delivery interpreter binds a different operation contract")
+            _raise_capability_failure(_capability_failure("CAPABILITY_CONTRACT_INVALID", "delivery interpreter binds a different operation contract"))
         if (
             getattr(self.recovery_binding, "interpreter_profile_digest", None)
             != getattr(self.handler_binding, "interpreter_profile_digest", None)
         ):
-            raise ValueError("delivery recovery binding must close over the interpreter profile")
+            _raise_capability_failure(_capability_failure("CAPABILITY_CONTRACT_INVALID", "delivery recovery binding must close over the interpreter profile"))
         if self.resource_units <= 0:
-            raise ValueError("delivery resource_units must be positive")
+            _raise_capability_failure(_capability_failure("CAPABILITY_CONTRACT_INVALID", "delivery resource_units must be positive"))
         if any(
             not value
             for value in (
@@ -193,7 +195,7 @@ class DeliveryAssignmentParameters:
                 self.concurrency_key,
             )
         ):
-            raise ValueError("delivery queue/resource bindings must be non-empty")
+            _raise_capability_failure(_capability_failure("CAPABILITY_CONTRACT_INVALID", "delivery queue/resource bindings must be non-empty"))
         for name in (
             "program_digest",
             "plan_digest",
@@ -204,7 +206,7 @@ class DeliveryAssignmentParameters:
         ):
             value = getattr(self, name)
             if len(value) != 64 or any(char not in "0123456789abcdef" for char in value):
-                raise ValueError(f"delivery {name} must be canonical sha256 hex")
+                _raise_capability_failure(_capability_failure("CAPABILITY_CONTRACT_INVALID", f"delivery {name} must be canonical sha256 hex"))
 
 
 @dataclass(frozen=True, slots=True)
@@ -222,15 +224,15 @@ class DeliveryGateCommand:
     def __post_init__(self) -> None:
         project_key = _project_key(self.scope)
         if self.artifact.project_key != project_key:
-            raise ValueError("delivery artifact is outside RuntimeScope")
+            _raise_capability_failure(_capability_failure("DELIVERY_GATE_REJECTED", "delivery artifact is outside RuntimeScope"))
         if self.artifact.object_type.type_id != "ResearchArtifact.v1":
-            raise ValueError("delivery gate requires a ResearchArtifact.v1 base")
+            _raise_capability_failure(_capability_failure("DELIVERY_GATE_REJECTED", "delivery gate requires a ResearchArtifact.v1 base"))
         if self.artifact.revision != self.artifact_expected_revision:
-            raise ValueError("artifact expected revision is not exact")
+            _raise_capability_failure(_capability_failure("DELIVERY_GATE_REJECTED", "artifact expected revision is not exact"))
         if self.artifact.incarnation != self.artifact_expected_incarnation:
-            raise ValueError("artifact expected incarnation is not exact")
+            _raise_capability_failure(_capability_failure("DELIVERY_GATE_REJECTED", "artifact expected incarnation is not exact"))
         if self.assignment.run_id == "" or self.assignment.step_id == "":
-            raise ValueError("delivery assignment run/step identity is required")
+            _raise_capability_failure(_capability_failure("CAPABILITY_CONTRACT_INVALID", "delivery assignment run/step identity is required"))
 
 
 @dataclass(frozen=True, slots=True)
@@ -354,7 +356,7 @@ def _project_key(scope: object) -> str:
     project_scope = getattr(scope, "project_scope", None)
     project_key = getattr(project_scope, "project_key", None)
     if not isinstance(project_key, str) or not project_key:
-        raise TypeError("delivery scope must expose a validated project_scope")
+        _raise_capability_failure(_capability_failure("CAPABILITY_CONTRACT_INVALID", "delivery scope must expose a validated project_scope"), TypeError)
     return project_key
 
 
@@ -425,16 +427,16 @@ class DeliveryGate:
                 expected_incarnation=command.artifact_expected_incarnation,
             )
             if current_artifact != command.artifact:
-                raise DeliveryGateRejected("canonical base artifact drift")
+                _raise_capability_failure(_capability_failure("DELIVERY_GATE_REJECTED", "canonical base artifact drift"), DeliveryGateRejected)
 
             authorities = cast(DeliveryAuthorityPort, authorities)
             authority = authorities.current_delivery_authority(
                 command.scope, command.assignment.capability_id
             )
             if not authority.successor_claim_enabled or authority.legacy_claim_enabled:
-                raise DeliveryGateRejected("successor does not hold exclusive delivery claim")
+                _raise_capability_failure(_capability_failure("DELIVERY_AUTHORITY_OR_APPROVAL_INVALID", "successor does not hold exclusive delivery claim"), DeliveryGateRejected)
             if authority.authority_digest != command.template.authority_digest:
-                raise DeliveryGateRejected("delivery authority digest drift")
+                _raise_capability_failure(_capability_failure("DELIVERY_AUTHORITY_OR_APPROVAL_INVALID", "delivery authority digest drift"), DeliveryGateRejected)
             if (
                 getattr(
                     command.assignment.handler_binding,
@@ -443,7 +445,7 @@ class DeliveryGate:
                 )
                 != authority.authority_digest
             ):
-                raise DeliveryGateRejected("interpreter authority requirement drift")
+                _raise_capability_failure(_capability_failure("DELIVERY_AUTHORITY_OR_APPROVAL_INVALID", "interpreter authority requirement drift"), DeliveryGateRejected)
 
             intent = command.template.candidate(_artifact_locator(current_artifact))
             assert intent.content_digest is not None
@@ -462,7 +464,7 @@ class DeliveryGate:
                 or approval.payload_digest != intent.content_digest
                 or approval.authority_digest != authority.authority_digest
             ):
-                raise DeliveryGateRejected("human approval exact binding drift")
+                _raise_capability_failure(_capability_failure("DELIVERY_AUTHORITY_OR_APPROVAL_INVALID", "human approval exact binding drift"), DeliveryGateRejected)
 
             exact = canonical_bytes(intent)
             provenance = {
@@ -601,11 +603,9 @@ def _validate_ready_assignment(
         if _enum_value(getattr(assignment, field, None)) != value
     ]
     if mismatches:
-        raise DeliveryGateRejected(
-            "READY assignment exact binding drift: " + ", ".join(mismatches)
-        )
+        _raise_capability_failure(_capability_failure("DELIVERY_GATE_REJECTED", "READY assignment exact binding drift: " + ", ".join(mismatches)), DeliveryGateRejected)
     if not getattr(assignment, "assignment_digest", None):
-        raise DeliveryGateRejected("READY assignment lacks exact digest")
+        _raise_capability_failure(_capability_failure("DELIVERY_GATE_REJECTED", "READY assignment lacks exact digest"), DeliveryGateRejected)
 
 
 __all__ = [

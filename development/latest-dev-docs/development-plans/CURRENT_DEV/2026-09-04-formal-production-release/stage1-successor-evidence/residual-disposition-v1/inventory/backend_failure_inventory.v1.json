@@ -1,0 +1,1289 @@
+{
+  "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+  "category_counts": {
+    "missing_evidence": 30,
+    "source_defect": 3,
+    "stale_expected_semantics": 3,
+    "test_fixture_defect": 19
+  },
+  "contract_12": {
+    "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/12_stage1-residual-disposition-return-contract.v1.md",
+    "sha256": "c11c96a68284085dfb2548cd9ce19062de22b5d4bbf5af9d2c2863a16dcf03f2"
+  },
+  "failure_count": 55,
+  "failures": [
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "test_fixture_defect",
+      "cause_group": "crawler-public-replay-shards",
+      "classname": "tests.unit.test_build_crawler_public_replay_shard_outputs_unittest.BuildCrawlerPublicReplayShardOutputsUnitTestCase",
+      "evidence_status": "missing",
+      "failure_excerpt": "self = <unit.test_build_crawler_public_replay_shard_outputs_unittest.BuildCrawlerPublicReplayShardOutputsUnitTestCase testMethod=test_builder_splits_full_public_replay_into_manifest_shards> def test_builder_splits_full_public_replay_into_manifest_shards(self) -> None: with tempfile.TemporaryDirectory() as tmpdir: tmp_path = Path(tmpdir) >           manifest = _read_json(REPO_ROOT / DEFAULT_MANIFEST_PATH) ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ tests/unit/test_build_crawler_public_replay_shard_outputs_unittest.py:36: _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ ",
+      "failure_message": "FileNotFoundError: [Errno 2] No such file or directory: '/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/automation-runs/crawler-public-replay-shards/2026-05-22/shard_manifest.json'",
+      "failure_sha256": "8e72cdbcf060a8b09a9fba841def7115ab55f2310fa6ecd6a05d895b9908fcf0",
+      "name": "test_builder_splits_full_public_replay_into_manifest_shards",
+      "nodeid": "tests.unit.test_build_crawler_public_replay_shard_outputs_unittest.BuildCrawlerPublicReplayShardOutputsUnitTestCase::test_builder_splits_full_public_replay_into_manifest_shards",
+      "owner": "main/backend/tests/unit/test_crawler_public_replay_shards_unittest.py",
+      "primary_cause": "default shard manifest/readback fixture is absent from the dirty checkout",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/crawler-public-replay-shards/2026-05-22/shard_manifest.json",
+      "referenced_paths": [
+        "development/latest-dev-docs/automation-runs/crawler-public-replay-shards/2026-05-22/shard_manifest.json",
+        "development/latest-dev-docs/automation-runs/crawler-public-replay-shards/2026-05-22/shard_readback.json"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "source_defect",
+      "cause_group": "process-fallback-overlay",
+      "classname": "tests.unit.test_collect_runtime_process_fallback_unittest.CollectRuntimeProcessFallbackUnitTestCase",
+      "evidence_status": "present_but_behavior_mismatch",
+      "failure_excerpt": "self = <unit.test_collect_runtime_process_fallback_unittest.CollectRuntimeProcessFallbackUnitTestCase testMethod=test_process_db_job_provider_fallback_consistent_for_info_and_logs> def test_process_db_job_provider_fallback_consistent_for_info_and_logs(self): fake_job = SimpleNamespace( id=7, status=\"running\", job_type=\"source_library_run\", params={ \"item_key\": \"handler.cluster.rss\", \"project_key\": \"demo_proj\", \"handler_allocation\": {\"handler_used\": \"crawler_pool\"}, \"rejection_breakdown\": {\"url_policy_low_value_endpoint\": 1}, }, started_at=datetime(2026, 3, 1, 0, 0, 0, tzinfo=timezone.utc), err",
+      "failure_message": "AssertionError: None != 'db-job-7'",
+      "failure_sha256": "19a25f68e107f660f5675ba60719af66406126ba5f3d0e8f7571827656cde1d7",
+      "name": "test_process_db_job_provider_fallback_consistent_for_info_and_logs",
+      "nodeid": "tests.unit.test_collect_runtime_process_fallback_unittest.CollectRuntimeProcessFallbackUnitTestCase::test_process_db_job_provider_fallback_consistent_for_info_and_logs",
+      "owner": "main/backend/app/api/process.py",
+      "primary_cause": "direct-call process projection loses the db-job fallback task id",
+      "primary_input_path": "main/backend/app/api/process.py",
+      "referenced_paths": [
+        "main/backend/app/api/process.py",
+        "main/backend/tests/unit/test_collect_runtime_process_fallback_unittest.py"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "missing_evidence",
+      "cause_group": "crawler-public-replay-gate",
+      "classname": "tests.unit.test_crawler_public_replay_gate_unittest.CrawlerPublicReplayGateUnitTestCase",
+      "evidence_status": "missing",
+      "failure_excerpt": "self = <unit.test_crawler_public_replay_gate_unittest.CrawlerPublicReplayGateUnitTestCase testMethod=test_gate_validates_deterministic_artifacts_and_detects_real_public_replay> def test_gate_validates_deterministic_artifacts_and_detects_real_public_replay(self) -> None: result = build_check(REPO_ROOT) self.assertEqual(result[\"contract_version\"], CONTRACT_VERSION) >       self.assertTrue(result[\"validation\"][\"passed\"], result[\"validation\"][\"errors\"]) E       AssertionError: False is not true : ['missing crawler public replay gate manifest: development/latest-dev-docs/automation-runs/crawler-pub",
+      "failure_message": "AssertionError: False is not true : ['missing crawler public replay gate manifest: development/latest-dev-docs/automation-runs/crawler-public-replay-gate/2026-05-22/manifest.json', 'fresh A5 gate validation must pass']",
+      "failure_sha256": "3c234c1895498979ec11426fb985c501d1d50fd8f17da355f4af405bb6fe8b85",
+      "name": "test_gate_validates_deterministic_artifacts_and_detects_real_public_replay",
+      "nodeid": "tests.unit.test_crawler_public_replay_gate_unittest.CrawlerPublicReplayGateUnitTestCase::test_gate_validates_deterministic_artifacts_and_detects_real_public_replay",
+      "owner": "main/backend/scripts/check_crawler_public_replay_gate.py",
+      "primary_cause": "A5 gate manifest required by the checker is unavailable",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/crawler-public-replay-gate/2026-05-22/manifest.json",
+      "referenced_paths": [
+        "development/latest-dev-docs/automation-runs/crawler-public-replay-gate/2026-05-22/manifest.json",
+        "main/backend/scripts/check_crawler_public_replay_gate.py"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "test_fixture_defect",
+      "cause_group": "crawler-public-replay-shards",
+      "classname": "tests.unit.test_crawler_public_replay_shards_unittest.CrawlerPublicReplayShardsUnitTestCase",
+      "evidence_status": "missing",
+      "failure_excerpt": "self = <unit.test_crawler_public_replay_shards_unittest.CrawlerPublicReplayShardsUnitTestCase testMethod=test_default_shard_manifest_validates_present_public_outputs> def test_default_shard_manifest_validates_present_public_outputs(self) -> None: result = build_check(REPO_ROOT) self.assertEqual(result[\"contract_version\"], CONTRACT_VERSION) self.assertEqual(result[\"manifest_contract_version\"], MANIFEST_CONTRACT_VERSION) self.assertEqual(result[\"readback_contract_version\"], READBACK_CONTRACT_VERSION) >       self.assertEqual(result[\"status\"], \"shard_outputs_present_review_required\") E       Asse",
+      "failure_message": "AssertionError: 'failed' != 'shard_outputs_present_review_required'\n- failed\n+ shard_outputs_present_review_required",
+      "failure_sha256": "7d419e62a409b6a07c561083a0716096176008287d1e86ec35b63cf8b7311296",
+      "name": "test_default_shard_manifest_validates_present_public_outputs",
+      "nodeid": "tests.unit.test_crawler_public_replay_shards_unittest.CrawlerPublicReplayShardsUnitTestCase::test_default_shard_manifest_validates_present_public_outputs",
+      "owner": "main/backend/tests/unit/test_crawler_public_replay_shards_unittest.py",
+      "primary_cause": "default shard manifest/readback fixture is absent from the dirty checkout",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/crawler-public-replay-shards/2026-05-22/shard_manifest.json",
+      "referenced_paths": [
+        "development/latest-dev-docs/automation-runs/crawler-public-replay-shards/2026-05-22/shard_manifest.json",
+        "development/latest-dev-docs/automation-runs/crawler-public-replay-shards/2026-05-22/shard_readback.json"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "test_fixture_defect",
+      "cause_group": "crawler-public-replay-shards",
+      "classname": "tests.unit.test_crawler_public_replay_shards_unittest.CrawlerPublicReplayShardsUnitTestCase",
+      "evidence_status": "missing",
+      "failure_excerpt": "self = <unit.test_crawler_public_replay_shards_unittest.CrawlerPublicReplayShardsUnitTestCase testMethod=test_manifest_shard_target_drift_fails> def test_manifest_shard_target_drift_fails(self) -> None: with tempfile.TemporaryDirectory() as tmpdir: >           manifest, readback, manifest_path, readback_path = _temp_manifest_and_readback(tmpdir) ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ tests/unit/test_crawler_public_replay_shards_unittest.py:153: _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ tests/unit/test_crawler_public_replay_shards_unittest.py:91: in _temp_mani",
+      "failure_message": "FileNotFoundError: [Errno 2] No such file or directory: '/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/automation-runs/crawler-public-replay-shards/2026-05-22/shard_manifest.json'",
+      "failure_sha256": "3ef58378efae61f76204fd21beb5ad58a98cc2579eff2af1ac6ddc7c61159e58",
+      "name": "test_manifest_shard_target_drift_fails",
+      "nodeid": "tests.unit.test_crawler_public_replay_shards_unittest.CrawlerPublicReplayShardsUnitTestCase::test_manifest_shard_target_drift_fails",
+      "owner": "main/backend/tests/unit/test_crawler_public_replay_shards_unittest.py",
+      "primary_cause": "default shard manifest/readback fixture is absent from the dirty checkout",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/crawler-public-replay-shards/2026-05-22/shard_manifest.json",
+      "referenced_paths": [
+        "development/latest-dev-docs/automation-runs/crawler-public-replay-shards/2026-05-22/shard_manifest.json",
+        "development/latest-dev-docs/automation-runs/crawler-public-replay-shards/2026-05-22/shard_readback.json"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "test_fixture_defect",
+      "cause_group": "crawler-public-replay-shards",
+      "classname": "tests.unit.test_crawler_public_replay_shards_unittest.CrawlerPublicReplayShardsUnitTestCase",
+      "evidence_status": "missing",
+      "failure_excerpt": "self = <unit.test_crawler_public_replay_shards_unittest.CrawlerPublicReplayShardsUnitTestCase testMethod=test_missing_output_readback_rejects_present_shard_output> def test_missing_output_readback_rejects_present_shard_output(self) -> None: with tempfile.TemporaryDirectory() as tmpdir: >           manifest, readback, manifest_path, readback_path = _temp_manifest_and_readback(tmpdir) ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ tests/unit/test_crawler_public_replay_shards_unittest.py:190: _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ tests/unit/test_crawler_public_repla",
+      "failure_message": "FileNotFoundError: [Errno 2] No such file or directory: '/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/automation-runs/crawler-public-replay-shards/2026-05-22/shard_manifest.json'",
+      "failure_sha256": "1b538f5cd6e5060d3cf5d6597b562cc70b8ce27588fe4011a5637b9e84774850",
+      "name": "test_missing_output_readback_rejects_present_shard_output",
+      "nodeid": "tests.unit.test_crawler_public_replay_shards_unittest.CrawlerPublicReplayShardsUnitTestCase::test_missing_output_readback_rejects_present_shard_output",
+      "owner": "main/backend/tests/unit/test_crawler_public_replay_shards_unittest.py",
+      "primary_cause": "default shard manifest/readback fixture is absent from the dirty checkout",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/crawler-public-replay-shards/2026-05-22/shard_manifest.json",
+      "referenced_paths": [
+        "development/latest-dev-docs/automation-runs/crawler-public-replay-shards/2026-05-22/shard_manifest.json",
+        "development/latest-dev-docs/automation-runs/crawler-public-replay-shards/2026-05-22/shard_readback.json"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "test_fixture_defect",
+      "cause_group": "crawler-public-replay-shards",
+      "classname": "tests.unit.test_crawler_public_replay_shards_unittest.CrawlerPublicReplayShardsUnitTestCase",
+      "evidence_status": "missing",
+      "failure_excerpt": "self = <unit.test_crawler_public_replay_shards_unittest.CrawlerPublicReplayShardsUnitTestCase testMethod=test_readback_cannot_claim_public_network_or_browser_runtime> def test_readback_cannot_claim_public_network_or_browser_runtime(self) -> None: with tempfile.TemporaryDirectory() as tmpdir: >           manifest, readback, manifest_path, readback_path = _temp_manifest_and_readback(tmpdir) ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ tests/unit/test_crawler_public_replay_shards_unittest.py:173: _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ tests/unit/test_crawler_public",
+      "failure_message": "FileNotFoundError: [Errno 2] No such file or directory: '/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/automation-runs/crawler-public-replay-shards/2026-05-22/shard_manifest.json'",
+      "failure_sha256": "e2caa538f437aebfa4d78d0ac591f36ce317881478ccf56127e91828d0d3143b",
+      "name": "test_readback_cannot_claim_public_network_or_browser_runtime",
+      "nodeid": "tests.unit.test_crawler_public_replay_shards_unittest.CrawlerPublicReplayShardsUnitTestCase::test_readback_cannot_claim_public_network_or_browser_runtime",
+      "owner": "main/backend/tests/unit/test_crawler_public_replay_shards_unittest.py",
+      "primary_cause": "default shard manifest/readback fixture is absent from the dirty checkout",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/crawler-public-replay-shards/2026-05-22/shard_manifest.json",
+      "referenced_paths": [
+        "development/latest-dev-docs/automation-runs/crawler-public-replay-shards/2026-05-22/shard_manifest.json",
+        "development/latest-dev-docs/automation-runs/crawler-public-replay-shards/2026-05-22/shard_readback.json"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "missing_evidence",
+      "cause_group": "crawler-source-expansion-closure",
+      "classname": "tests.unit.test_crawler_source_expansion_closure_check_unittest.CrawlerSourceExpansionClosureCheckUnitTest",
+      "evidence_status": "missing",
+      "failure_excerpt": "self = <unit.test_crawler_source_expansion_closure_check_unittest.CrawlerSourceExpansionClosureCheckUnitTest testMethod=test_closure_check_maps_plan_tasks_to_current_code_and_evidence> def test_closure_check_maps_plan_tasks_to_current_code_and_evidence(self) -> None: result = build_check(REPO_ROOT) self.assertEqual(result[\"contract_version\"], CONTRACT_VERSION) >       self.assertEqual(result[\"overall_status\"], \"closed\") E       AssertionError: 'not_closed' != 'closed' E       - not_closed E       ? ---- E       + closed tests/unit/test_crawler_source_expansion_closure_check_unittest.py:27: Ass",
+      "failure_message": "AssertionError: 'not_closed' != 'closed'\n- not_closed\n? ----\n+ closed",
+      "failure_sha256": "84ed422781d6d2385f8f7b372acbba06c8c6224ecbfebd03371d83b1b856e191",
+      "name": "test_closure_check_maps_plan_tasks_to_current_code_and_evidence",
+      "nodeid": "tests.unit.test_crawler_source_expansion_closure_check_unittest.CrawlerSourceExpansionClosureCheckUnitTest::test_closure_check_maps_plan_tasks_to_current_code_and_evidence",
+      "owner": "main/backend/scripts/check_crawler_source_expansion_closure.py",
+      "primary_cause": "closure checker cannot close A4/A5/A7 without the recorded probe and replay evidence",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/crawler-source-expansion-wave8-a7-validation-pack/2026-05-22/crawler_source_expansion_closure_check.json",
+      "referenced_paths": [
+        "main/backend/scripts/check_crawler_source_expansion_closure.py",
+        "development/latest-dev-docs/automation-runs/source-library-real-probes/2026-05-22/README.md",
+        "development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22/README.md"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "missing_evidence",
+      "cause_group": "crawler-source-expansion-closure",
+      "classname": "tests.unit.test_crawler_source_expansion_closure_check_unittest.CrawlerSourceExpansionClosureCheckUnitTest",
+      "evidence_status": "missing",
+      "failure_excerpt": "self = <unit.test_crawler_source_expansion_closure_check_unittest.CrawlerSourceExpansionClosureCheckUnitTest testMethod=test_overall_status_closes_after_public_replay_review> def test_overall_status_closes_after_public_replay_review(self) -> None: result = build_check(REPO_ROOT) non_closed = [task for task in result[\"tasks\"] if task[\"status\"] != \"closed\"] >       self.assertEqual(non_closed, []) E       AssertionError: Lists differ: [{'task_id': 'A4', 'title': 'Define minimu[13353 chars]e.'}] != [] E E       First list contains 4 additional elements. E       First extra element 0: E       {'ta",
+      "failure_message": "AssertionError: Lists differ: [{'task_id': 'A4', 'title': 'Define minimu[13353 chars]e.'}] != []\n\nFirst list contains 4 additional elements.\nFirst extra element 0:\n{'task_id': 'A4', 'title': 'Define minimum quality, dedupe, and stability rules', 'status': 'needs_update', 'anchors': [{'key': 'wave7_policy_matrix_doc', 'path': 'docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-crawler-source-expansion/2026-05-22-wave7-crawler-policy-matrix.md', 'exists': True, 'tokens_checked': ['source_policy_action', '`allow`', '`downgrade`', '`block`', 'Executable Check'], 'missing_tokens': [], 'passed': True}, {'key': 'source_candidate_trust', 'path': 'main/backend/app/services/source_library/source_candidate_trust.py', 'exists': True, 'tokens_checked': ['SOURCE_POLICY_ACTIONS', 'source_policy_action', 'source_policy_reason', 'duplicate_candidate_url'], 'missing_tokens': [], 'passed': True}, {'key': 'quality_meaningful_gate', 'path': 'main/backend/app/services/ingest/meaningful_gate.py', 'exists': True, 'tokens_checked': [], 'missing_tokens': [], 'passed': True}, {'key': 'quality_llm_validator', 'path': 'main/backend/app/services/resource_pool/llm_validator.py', 'exists': True, 'tokens_checked': [], 'missing_tokens': [], 'passed': True}, {'key': 'quality_discovery_store', 'path': 'main/backend/app/services/discovery/store.py', 'exists': True, 'tokens_checked': [], 'missing_tokens': [], 'passed': True}, {'key': 'source_policy_matrix_check_script', 'path': 'main/backend/scripts/check_crawler_policy_matrix.py', 'exists': True, 'tokens_checked': ['POLICY_ACTIONS', 'source_policy_action', 'policy_matrix_doc'], 'missing_tokens': [], 'passed': True}, {'key': 'source_real_probe_evidence', 'path': 'development/latest-dev-docs/automation-runs/source-library-real-probes/2026-05-22/README.md', 'exists': False, 'tokens_checked': ['Deterministic local', 'Dirty-source shortlist'], 'missing_tokens': [], 'passed': False}, {'key': 'source_live_probe_evidence', 'path': 'development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22/README.md', 'exists': False, 'tokens_checked': ['candidate_ready', 'relevance_review'], 'missing_tokens': [], 'passed': False}, {'key': 'test_policy_matrix_check', 'path': 'main/backend/tests/unit/test_crawler_policy_matrix_check_unittest.py', 'exists': True, 'tokens_checked': ['test_policy_matrix_binds_all_actions_to_existing_anchors', 'test_policy_matrix_keeps_shared_navigation_out_of_scope'], 'missing_tokens': [], 'passed': True}, {'key': 'test_source_candidate_trust', 'path': 'main/backend/tests/unit/test_source_candidate_trust_unittest.py', 'exists': True, 'tokens_checked': ['source_policy_action', 'test_plan_marks_medium_trust_candidates_as_downgraded_review_path'], 'missing_tokens': [], 'passed': True}], 'evidence': 'The Wave7 policy matrix binds allow/downgrade/block to source_candidate_trust, resolver metadata, probe evidence, and downstream gates.', 'gap': 'Refresh the A4 policy matrix or its executable coverage check.'}\n\nDiff is 20022 characters long. Set self.maxDiff to None to see it.",
+      "failure_sha256": "2cbbde47af10769558ab980bfc47d44622a588261dc5d2397ecc92fe2a505cec",
+      "name": "test_overall_status_closes_after_public_replay_review",
+      "nodeid": "tests.unit.test_crawler_source_expansion_closure_check_unittest.CrawlerSourceExpansionClosureCheckUnitTest::test_overall_status_closes_after_public_replay_review",
+      "owner": "main/backend/scripts/check_crawler_source_expansion_closure.py",
+      "primary_cause": "closure checker cannot close A4/A5/A7 without the recorded probe and replay evidence",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/crawler-source-expansion-wave8-a7-validation-pack/2026-05-22/crawler_source_expansion_closure_check.json",
+      "referenced_paths": [
+        "main/backend/scripts/check_crawler_source_expansion_closure.py",
+        "development/latest-dev-docs/automation-runs/source-library-real-probes/2026-05-22/README.md",
+        "development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22/README.md"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "stale_expected_semantics",
+      "cause_group": "graph-typed-writing-current-authority",
+      "classname": "tests.unit.test_graph_typed_writing_consumer_status_boundary_unittest.GraphTypedWritingConsumerStatusBoundaryUnitTest",
+      "evidence_status": "present_but_semantics_unresolved",
+      "failure_excerpt": "self = <unit.test_graph_typed_writing_consumer_status_boundary_unittest.GraphTypedWritingConsumerStatusBoundaryUnitTest testMethod=test_current_status_is_external_blocked_without_active_partial> def test_current_status_is_external_blocked_without_active_partial(self) -> None: report = build_check(REPO_ROOT) self.assertEqual(report[\"contract_version\"], CONTRACT_VERSION) >       self.assertEqual(report[\"status\"], \"passed\", report[\"validation\"]) E       AssertionError: 'failed' != 'passed' E       - failed E       + passed E        : {'passed': False, 'failures': ['missing_decision_file:2026-03-0",
+      "failure_message": "AssertionError: 'failed' != 'passed'\n- failed\n+ passed\n : {'passed': False, 'failures': ['missing_decision_file:2026-03-07-graph-editing-and-reporting', 'missing_external_blocked_decision:2026-03-07-graph-editing-and-reporting', 'external_blocked_index_missing_status:2026-03-07-graph-editing-and-reporting', 'missing_decision_file:2026-03-07-typed-knowledge-organization', 'missing_external_blocked_decision:2026-03-07-typed-knowledge-organization', 'external_blocked_index_missing_status:2026-03-07-typed-knowledge-organization', 'missing_decision_file:2026-03-07-writing-workbench-evolution', 'missing_external_blocked_decision:2026-03-07-writing-workbench-evolution', 'external_blocked_index_missing_status:2026-03-07-writing-workbench-evolution', 'missing_decision_file:2026-03-14-consumer-side-modularization', 'missing_external_blocked_decision:2026-03-14-consumer-side-modularization', 'external_blocked_index_missing_status:2026-03-14-consumer-side-modularization', 'typed_writing_repo_local_gate_failed', 'legacy_partial_needs_update_terms_leaked_into_current_status_files']}",
+      "failure_sha256": "2a834c7f6f74bb6d191e7d84f8fb11b4f0cd5d7d225807c03a2dd8a984c9a66f",
+      "name": "test_current_status_is_external_blocked_without_active_partial",
+      "nodeid": "tests.unit.test_graph_typed_writing_consumer_status_boundary_unittest.GraphTypedWritingConsumerStatusBoundaryUnitTest::test_current_status_is_external_blocked_without_active_partial",
+      "owner": "main/backend/scripts/check_graph_typed_writing_consumer_status_boundary.py",
+      "primary_cause": "test expects the later closed-authority projection while canonical closure/decision inputs are absent",
+      "primary_input_path": "docs/development/development-plans/ARCHIVE_CLOSED",
+      "referenced_paths": [
+        "main/backend/scripts/check_graph_typed_writing_consumer_status_boundary.py",
+        "docs/development/development-plans/ARCHIVE_CLOSED"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "stale_expected_semantics",
+      "cause_group": "graph-typed-writing-current-authority",
+      "classname": "tests.unit.test_graph_typed_writing_consumer_status_boundary_unittest.GraphTypedWritingConsumerStatusBoundaryUnitTest",
+      "evidence_status": "present_but_semantics_unresolved",
+      "failure_excerpt": "self = <unit.test_graph_typed_writing_consumer_status_boundary_unittest.GraphTypedWritingConsumerStatusBoundaryUnitTest testMethod=test_legacy_status_terms_are_reported_as_legacy_only> def test_legacy_status_terms_are_reported_as_legacy_only(self) -> None: report = build_check(REPO_ROOT) semantics = report[\"legacy_status_semantics\"] >       self.assertGreater(semantics[\"legacy_status_mention_count\"], 0) E       AssertionError: 0 not greater than 0 tests/unit/test_graph_typed_writing_consumer_status_boundary_unittest.py:56: AssertionError",
+      "failure_message": "AssertionError: 0 not greater than 0",
+      "failure_sha256": "2424b567bcdca2284d8a9495a7e2f3ef9f08c1a77f8e47a79c02361903df1ce2",
+      "name": "test_legacy_status_terms_are_reported_as_legacy_only",
+      "nodeid": "tests.unit.test_graph_typed_writing_consumer_status_boundary_unittest.GraphTypedWritingConsumerStatusBoundaryUnitTest::test_legacy_status_terms_are_reported_as_legacy_only",
+      "owner": "main/backend/scripts/check_graph_typed_writing_consumer_status_boundary.py",
+      "primary_cause": "test expects the later closed-authority projection while canonical closure/decision inputs are absent",
+      "primary_input_path": "docs/development/development-plans/ARCHIVE_CLOSED",
+      "referenced_paths": [
+        "main/backend/scripts/check_graph_typed_writing_consumer_status_boundary.py",
+        "docs/development/development-plans/ARCHIVE_CLOSED"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "missing_evidence",
+      "cause_group": "ingest-canary-authority-docs",
+      "classname": "tests.unit.test_ingest_canary_closure_readiness_unittest.IngestCanaryClosureReadinessTest",
+      "evidence_status": "missing",
+      "failure_excerpt": "self = <unit.test_ingest_canary_closure_readiness_unittest.IngestCanaryClosureReadinessTest testMethod=test_retains_current_dev_when_repo_local_blockers_remain> def test_retains_current_dev_when_repo_local_blockers_remain(self) -> None: report = run_check() >       self.assertEqual(report[\"status\"], \"passed\") E       AssertionError: 'failed' != 'passed' E       - failed E       + passed tests/unit/test_ingest_canary_closure_readiness_unittest.py:19: AssertionError",
+      "failure_message": "AssertionError: 'failed' != 'passed'\n- failed\n+ passed",
+      "failure_sha256": "6a5b05cc1bb83905f33bdc27f5cf6a985f8aa73d29b4f6602b3206ae401f51bc",
+      "name": "test_retains_current_dev_when_repo_local_blockers_remain",
+      "nodeid": "tests.unit.test_ingest_canary_closure_readiness_unittest.IngestCanaryClosureReadinessTest::test_retains_current_dev_when_repo_local_blockers_remain",
+      "owner": "main/backend/scripts/check_ingest_canary_closure_readiness.py",
+      "primary_cause": "current Wave 51/56/57 authority documents or index rows are unavailable",
+      "primary_input_path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED",
+      "referenced_paths": [
+        "main/backend/scripts/check_ingest_canary_closure_readiness.py",
+        "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "missing_evidence",
+      "cause_group": "ingest-canary-authority-docs",
+      "classname": "tests.unit.test_ingest_canary_closure_readiness_unittest.IngestCanaryClosureReadinessTest",
+      "evidence_status": "missing",
+      "failure_excerpt": "self = <unit.test_ingest_canary_closure_readiness_unittest.IngestCanaryClosureReadinessTest testMethod=test_write_output_round_trips_report_file> def test_write_output_round_trips_report_file(self) -> None: with tempfile.TemporaryDirectory(prefix=\"ingest-canary-closure-readiness-\") as tmp_dir: output = Path(tmp_dir) / \"closure_readiness.json\" report = run_check(write_output=output) >           self.assertEqual(report[\"status\"], \"passed\") E           AssertionError: 'failed' != 'passed' E           - failed E           + passed tests/unit/test_ingest_canary_closure_readiness_unittest.py:48: Ass",
+      "failure_message": "AssertionError: 'failed' != 'passed'\n- failed\n+ passed",
+      "failure_sha256": "dba3eb40190150520bb21f0f004271ff1fe0b132cdb488c0bc21fe91555b5719",
+      "name": "test_write_output_round_trips_report_file",
+      "nodeid": "tests.unit.test_ingest_canary_closure_readiness_unittest.IngestCanaryClosureReadinessTest::test_write_output_round_trips_report_file",
+      "owner": "main/backend/scripts/check_ingest_canary_closure_readiness.py",
+      "primary_cause": "current Wave 51/56/57 authority documents or index rows are unavailable",
+      "primary_input_path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED",
+      "referenced_paths": [
+        "main/backend/scripts/check_ingest_canary_closure_readiness.py",
+        "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "test_fixture_defect",
+      "cause_group": "llm-crawler-browser-fixture",
+      "classname": "tests.unit.test_llm_crawler_replay_fixture_check_unittest.LlmCrawlerReplayFixtureCheckUnitTestCase",
+      "evidence_status": "missing",
+      "failure_excerpt": "self = <unit.test_llm_crawler_replay_fixture_check_unittest.LlmCrawlerReplayFixtureCheckUnitTestCase testMethod=test_default_fixture_reads_manifest_and_replays_browser_decision_path> def test_default_fixture_reads_manifest_and_replays_browser_decision_path(self) -> None: result = build_check(REPO_ROOT) self.assertEqual(result[\"contract_version\"], CONTRACT_VERSION) self.assertEqual(result[\"fixture_contract_version\"], FIXTURE_CONTRACT_VERSION) >       self.assertEqual(result[\"status\"], \"fixture_replay_passed_public_replay_not_closed\") E       AssertionError: 'failed' != 'fixture_replay_passed_pu",
+      "failure_message": "AssertionError: 'failed' != 'fixture_replay_passed_public_replay_not_closed'\n- failed\n+ fixture_replay_passed_public_replay_not_closed",
+      "failure_sha256": "43a3476f6a5e9932af2b8c6330969cef9a59a964d4f271b27d09a8ff0374346f",
+      "name": "test_default_fixture_reads_manifest_and_replays_browser_decision_path",
+      "nodeid": "tests.unit.test_llm_crawler_replay_fixture_check_unittest.LlmCrawlerReplayFixtureCheckUnitTestCase::test_default_fixture_reads_manifest_and_replays_browser_decision_path",
+      "owner": "main/backend/tests/unit/test_llm_crawler_replay_fixture_check_unittest.py",
+      "primary_cause": "default browser replay fixture was deleted or is unavailable",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/llm-crawler-browser-replay-fixture/2026-05-22/replay.fixture.json",
+      "referenced_paths": [
+        "development/latest-dev-docs/automation-runs/llm-crawler-browser-replay-fixture/2026-05-22/replay.fixture.json",
+        "main/backend/tests/unit/test_llm_crawler_replay_fixture_check_unittest.py"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "test_fixture_defect",
+      "cause_group": "llm-crawler-browser-fixture",
+      "classname": "tests.unit.test_llm_crawler_replay_fixture_check_unittest.LlmCrawlerReplayFixtureCheckUnitTestCase",
+      "evidence_status": "missing",
+      "failure_excerpt": "self = <unit.test_llm_crawler_replay_fixture_check_unittest.LlmCrawlerReplayFixtureCheckUnitTestCase testMethod=test_fixture_cannot_claim_public_replay_or_browser_runtime> def test_fixture_cannot_claim_public_replay_or_browser_runtime(self) -> None: with tempfile.TemporaryDirectory() as tmpdir: >           fixture = _default_fixture() ^^^^^^^^^^^^^^^^^^ tests/unit/test_llm_crawler_replay_fixture_check_unittest.py:103: _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ tests/unit/test_llm_crawler_replay_fixture_check_unittest.py:26: in _default_fixture return json.l",
+      "failure_message": "FileNotFoundError: [Errno 2] No such file or directory: '/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/automation-runs/llm-crawler-browser-replay-fixture/2026-05-22/replay.fixture.json'",
+      "failure_sha256": "70ce47c08a76e32781acab0ea1857a2568a2e881b43d8c40c539cc87c7bcef38",
+      "name": "test_fixture_cannot_claim_public_replay_or_browser_runtime",
+      "nodeid": "tests.unit.test_llm_crawler_replay_fixture_check_unittest.LlmCrawlerReplayFixtureCheckUnitTestCase::test_fixture_cannot_claim_public_replay_or_browser_runtime",
+      "owner": "main/backend/tests/unit/test_llm_crawler_replay_fixture_check_unittest.py",
+      "primary_cause": "default browser replay fixture was deleted or is unavailable",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/llm-crawler-browser-replay-fixture/2026-05-22/replay.fixture.json",
+      "referenced_paths": [
+        "development/latest-dev-docs/automation-runs/llm-crawler-browser-replay-fixture/2026-05-22/replay.fixture.json",
+        "main/backend/tests/unit/test_llm_crawler_replay_fixture_check_unittest.py"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "test_fixture_defect",
+      "cause_group": "llm-crawler-browser-fixture",
+      "classname": "tests.unit.test_llm_crawler_replay_fixture_check_unittest.LlmCrawlerReplayFixtureCheckUnitTestCase",
+      "evidence_status": "missing",
+      "failure_excerpt": "self = <unit.test_llm_crawler_replay_fixture_check_unittest.LlmCrawlerReplayFixtureCheckUnitTestCase testMethod=test_fixture_target_decision_drift_fails> def test_fixture_target_decision_drift_fails(self) -> None: with tempfile.TemporaryDirectory() as tmpdir: >           fixture = _default_fixture() ^^^^^^^^^^^^^^^^^^ tests/unit/test_llm_crawler_replay_fixture_check_unittest.py:87: _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ tests/unit/test_llm_crawler_replay_fixture_check_unittest.py:26: in _default_fixture return json.loads((REPO_ROOT / DEFAULT_FIXTURE_PAT",
+      "failure_message": "FileNotFoundError: [Errno 2] No such file or directory: '/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/automation-runs/llm-crawler-browser-replay-fixture/2026-05-22/replay.fixture.json'",
+      "failure_sha256": "e457652baef1403a50dce1c6fac3dc4f1df5919f450456ff03f4966ab5b9fc46",
+      "name": "test_fixture_target_decision_drift_fails",
+      "nodeid": "tests.unit.test_llm_crawler_replay_fixture_check_unittest.LlmCrawlerReplayFixtureCheckUnitTestCase::test_fixture_target_decision_drift_fails",
+      "owner": "main/backend/tests/unit/test_llm_crawler_replay_fixture_check_unittest.py",
+      "primary_cause": "default browser replay fixture was deleted or is unavailable",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/llm-crawler-browser-replay-fixture/2026-05-22/replay.fixture.json",
+      "referenced_paths": [
+        "development/latest-dev-docs/automation-runs/llm-crawler-browser-replay-fixture/2026-05-22/replay.fixture.json",
+        "main/backend/tests/unit/test_llm_crawler_replay_fixture_check_unittest.py"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "test_fixture_defect",
+      "cause_group": "llm-crawler-public-manifest",
+      "classname": "tests.unit.test_llm_crawler_replay_manifest_check_unittest.LlmCrawlerReplayManifestCheckUnitTestCase",
+      "evidence_status": "missing",
+      "failure_excerpt": "self = <unit.test_llm_crawler_replay_manifest_check_unittest.LlmCrawlerReplayManifestCheckUnitTestCase testMethod=test_default_manifest_records_opt_in_schema_and_keeps_public_replay_gap> def test_default_manifest_records_opt_in_schema_and_keeps_public_replay_gap(self) -> None: result = build_check(REPO_ROOT) self.assertEqual(result[\"contract_version\"], CONTRACT_VERSION) self.assertEqual(result[\"manifest_contract_version\"], MANIFEST_CONTRACT_VERSION) >       self.assertEqual(result[\"status\"], \"manifest_valid_real_public_replay_not_closed\") E       AssertionError: 'failed' != 'manifest_valid_rea",
+      "failure_message": "AssertionError: 'failed' != 'manifest_valid_real_public_replay_not_closed'\n- failed\n+ manifest_valid_real_public_replay_not_closed",
+      "failure_sha256": "eaf714b7d2c47d5304b7fd34db6690ef7ac13e458735a64ccf0c93891c88b27c",
+      "name": "test_default_manifest_records_opt_in_schema_and_keeps_public_replay_gap",
+      "nodeid": "tests.unit.test_llm_crawler_replay_manifest_check_unittest.LlmCrawlerReplayManifestCheckUnitTestCase::test_default_manifest_records_opt_in_schema_and_keeps_public_replay_gap",
+      "owner": "main/backend/tests/unit/test_llm_crawler_replay_manifest_check_unittest.py",
+      "primary_cause": "default opt-in manifest fixture was deleted or is unavailable",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/llm-crawler-high-js-public-replay/2026-05-22/manifest.json",
+      "referenced_paths": [
+        "development/latest-dev-docs/automation-runs/llm-crawler-high-js-public-replay/2026-05-22/manifest.json",
+        "main/backend/tests/unit/test_llm_crawler_replay_manifest_check_unittest.py"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "test_fixture_defect",
+      "cause_group": "llm-crawler-public-manifest",
+      "classname": "tests.unit.test_llm_crawler_replay_manifest_check_unittest.LlmCrawlerReplayManifestCheckUnitTestCase",
+      "evidence_status": "missing",
+      "failure_excerpt": "self = <unit.test_llm_crawler_replay_manifest_check_unittest.LlmCrawlerReplayManifestCheckUnitTestCase testMethod=test_manifest_missing_opt_in_fields_fails_schema_gate> def test_manifest_missing_opt_in_fields_fails_schema_gate(self) -> None: with tempfile.TemporaryDirectory() as tmpdir: >           manifest = _default_manifest() ^^^^^^^^^^^^^^^^^^^ tests/unit/test_llm_crawler_replay_manifest_check_unittest.py:103: _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ tests/unit/test_llm_crawler_replay_manifest_check_unittest.py:28: in _default_manifest return json.loa",
+      "failure_message": "FileNotFoundError: [Errno 2] No such file or directory: '/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/automation-runs/llm-crawler-high-js-public-replay/2026-05-22/manifest.json'",
+      "failure_sha256": "fac430e037c43971571c55f66eb7eb2a967958e74ecd1d41acd92caaf8807606",
+      "name": "test_manifest_missing_opt_in_fields_fails_schema_gate",
+      "nodeid": "tests.unit.test_llm_crawler_replay_manifest_check_unittest.LlmCrawlerReplayManifestCheckUnitTestCase::test_manifest_missing_opt_in_fields_fails_schema_gate",
+      "owner": "main/backend/tests/unit/test_llm_crawler_replay_manifest_check_unittest.py",
+      "primary_cause": "default opt-in manifest fixture was deleted or is unavailable",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/llm-crawler-high-js-public-replay/2026-05-22/manifest.json",
+      "referenced_paths": [
+        "development/latest-dev-docs/automation-runs/llm-crawler-high-js-public-replay/2026-05-22/manifest.json",
+        "main/backend/tests/unit/test_llm_crawler_replay_manifest_check_unittest.py"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "test_fixture_defect",
+      "cause_group": "llm-crawler-public-manifest",
+      "classname": "tests.unit.test_llm_crawler_replay_manifest_check_unittest.LlmCrawlerReplayManifestCheckUnitTestCase",
+      "evidence_status": "missing",
+      "failure_excerpt": "self = <unit.test_llm_crawler_replay_manifest_check_unittest.LlmCrawlerReplayManifestCheckUnitTestCase testMethod=test_opt_in_request_must_cover_exact_manifest_targets> def test_opt_in_request_must_cover_exact_manifest_targets(self) -> None: >       request = _valid_opt_in_request() ^^^^^^^^^^^^^^^^^^^^^^^ tests/unit/test_llm_crawler_replay_manifest_check_unittest.py:131: _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ tests/unit/test_llm_crawler_replay_manifest_check_unittest.py:32: in _valid_opt_in_request manifest = _default_manifest() ^^^^^^^^^^^^^^^^^^^ tes",
+      "failure_message": "FileNotFoundError: [Errno 2] No such file or directory: '/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/automation-runs/llm-crawler-high-js-public-replay/2026-05-22/manifest.json'",
+      "failure_sha256": "205ac05e6f63ce595c380c79244c7b7084bfbf9c45e48ea7fbd7f42f3b6f052b",
+      "name": "test_opt_in_request_must_cover_exact_manifest_targets",
+      "nodeid": "tests.unit.test_llm_crawler_replay_manifest_check_unittest.LlmCrawlerReplayManifestCheckUnitTestCase::test_opt_in_request_must_cover_exact_manifest_targets",
+      "owner": "main/backend/tests/unit/test_llm_crawler_replay_manifest_check_unittest.py",
+      "primary_cause": "default opt-in manifest fixture was deleted or is unavailable",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/llm-crawler-high-js-public-replay/2026-05-22/manifest.json",
+      "referenced_paths": [
+        "development/latest-dev-docs/automation-runs/llm-crawler-high-js-public-replay/2026-05-22/manifest.json",
+        "main/backend/tests/unit/test_llm_crawler_replay_manifest_check_unittest.py"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "test_fixture_defect",
+      "cause_group": "llm-crawler-public-manifest",
+      "classname": "tests.unit.test_llm_crawler_replay_manifest_check_unittest.LlmCrawlerReplayManifestCheckUnitTestCase",
+      "evidence_status": "missing",
+      "failure_excerpt": "self = <unit.test_llm_crawler_replay_manifest_check_unittest.LlmCrawlerReplayManifestCheckUnitTestCase testMethod=test_valid_opt_in_request_is_ready_but_does_not_claim_public_replay> def test_valid_opt_in_request_is_ready_but_does_not_claim_public_replay(self) -> None: >       result = build_check(REPO_ROOT, opt_in_request=_valid_opt_in_request()) ^^^^^^^^^^^^^^^^^^^^^^^ tests/unit/test_llm_crawler_replay_manifest_check_unittest.py:116: _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ tests/unit/test_llm_crawler_replay_manifest_check_unittest.py:32: in _valid_opt",
+      "failure_message": "FileNotFoundError: [Errno 2] No such file or directory: '/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/automation-runs/llm-crawler-high-js-public-replay/2026-05-22/manifest.json'",
+      "failure_sha256": "6068a1a04f4688be398a7d989e5ee95257f229de5c578ab6b5c45be02d744b80",
+      "name": "test_valid_opt_in_request_is_ready_but_does_not_claim_public_replay",
+      "nodeid": "tests.unit.test_llm_crawler_replay_manifest_check_unittest.LlmCrawlerReplayManifestCheckUnitTestCase::test_valid_opt_in_request_is_ready_but_does_not_claim_public_replay",
+      "owner": "main/backend/tests/unit/test_llm_crawler_replay_manifest_check_unittest.py",
+      "primary_cause": "default opt-in manifest fixture was deleted or is unavailable",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/llm-crawler-high-js-public-replay/2026-05-22/manifest.json",
+      "referenced_paths": [
+        "development/latest-dev-docs/automation-runs/llm-crawler-high-js-public-replay/2026-05-22/manifest.json",
+        "main/backend/tests/unit/test_llm_crawler_replay_manifest_check_unittest.py"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "missing_evidence",
+      "cause_group": "wave12-open-search-readiness",
+      "classname": "tests.unit.test_open_search_health_artifact_schema_readback_unittest.OpenSearchHealthArtifactSchemaReadbackTest",
+      "evidence_status": "missing",
+      "failure_excerpt": "self = <unit.test_open_search_health_artifact_schema_readback_unittest.OpenSearchHealthArtifactSchemaReadbackTest testMethod=test_schema_readback_distinguishes_compose_config_from_stopped_connect_error> def test_schema_readback_distinguishes_compose_config_from_stopped_connect_error(self) -> None: artifact = build_health_artifact( runtime_boundary=_runtime_boundary(classification=\"service_not_started_connect_error\"), command_runner=_stopped_runner, ) readback = build_schema_readback(artifact) >       self.assertEqual(readback[\"status\"], \"passed\") E       AssertionError: 'failed' != 'passed' E ",
+      "failure_message": "AssertionError: 'failed' != 'passed'\n- failed\n+ passed",
+      "failure_sha256": "4cc1944f3e0034df0118cb5639c1416429c5a2603a03822b5e606c6bc83d1fb6",
+      "name": "test_schema_readback_distinguishes_compose_config_from_stopped_connect_error",
+      "nodeid": "tests.unit.test_open_search_health_artifact_schema_readback_unittest.OpenSearchHealthArtifactSchemaReadbackTest::test_schema_readback_distinguishes_compose_config_from_stopped_connect_error",
+      "owner": "main/backend/scripts/check_open_search_health_artifact.py",
+      "primary_cause": "Wave12 provider readiness input is unavailable to health/readback builders",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/wave12-provider-readiness/2026-05-22/provider_readiness_summary.json",
+      "referenced_paths": [
+        "development/latest-dev-docs/automation-runs/wave12-provider-readiness/2026-05-22/provider_readiness_summary.json",
+        "main/backend/scripts/check_open_search_health_artifact.py"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "missing_evidence",
+      "cause_group": "wave12-open-search-readiness",
+      "classname": "tests.unit.test_open_search_health_artifact_schema_readback_unittest.OpenSearchHealthArtifactSchemaReadbackTest",
+      "evidence_status": "missing",
+      "failure_excerpt": "self = <unit.test_open_search_health_artifact_schema_readback_unittest.OpenSearchHealthArtifactSchemaReadbackTest testMethod=test_schema_readback_records_real_live_probe_response_without_closure> def test_schema_readback_records_real_live_probe_response_without_closure(self) -> None: artifact = build_health_artifact( runtime_boundary=_runtime_boundary(classification=\"live_query_unsealed\", running=True), command_runner=_running_runner, ) readback = build_schema_readback(artifact) >       self.assertEqual(readback[\"status\"], \"passed\") E       AssertionError: 'failed' != 'passed' E       - failed",
+      "failure_message": "AssertionError: 'failed' != 'passed'\n- failed\n+ passed",
+      "failure_sha256": "2e4490356d68b8169cf5c453ca471b5089072954c66ff08e9c87e5a7cf390200",
+      "name": "test_schema_readback_records_real_live_probe_response_without_closure",
+      "nodeid": "tests.unit.test_open_search_health_artifact_schema_readback_unittest.OpenSearchHealthArtifactSchemaReadbackTest::test_schema_readback_records_real_live_probe_response_without_closure",
+      "owner": "main/backend/scripts/check_open_search_health_artifact.py",
+      "primary_cause": "Wave12 provider readiness input is unavailable to health/readback builders",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/wave12-provider-readiness/2026-05-22/provider_readiness_summary.json",
+      "referenced_paths": [
+        "development/latest-dev-docs/automation-runs/wave12-provider-readiness/2026-05-22/provider_readiness_summary.json",
+        "main/backend/scripts/check_open_search_health_artifact.py"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "missing_evidence",
+      "cause_group": "wave12-open-search-readiness",
+      "classname": "tests.unit.test_open_search_health_artifact_unittest.OpenSearchHealthArtifactTest",
+      "evidence_status": "missing",
+      "failure_excerpt": "self = <unit.test_open_search_health_artifact_unittest.OpenSearchHealthArtifactTest testMethod=test_running_live_probe_remains_unsealed_and_explicit_only> def test_running_live_probe_remains_unsealed_and_explicit_only(self) -> None: artifact = build_health_artifact( runtime_boundary=_runtime_boundary(classification=\"live_query_unsealed\", running=True), command_runner=_running_runner, ) >       self.assertEqual(validate_health_artifact(artifact), []) E       AssertionError: Lists differ: ['Wave12 provider readiness input must be passed'] != [] E E       First list contains 1 additional elements",
+      "failure_message": "AssertionError: Lists differ: ['Wave12 provider readiness input must be passed'] != []\n\nFirst list contains 1 additional elements.\nFirst extra element 0:\n'Wave12 provider readiness input must be passed'\n\n- ['Wave12 provider readiness input must be passed']\n+ []",
+      "failure_sha256": "b6e8acba5634880ff8df436a13b238a36df1b99ebe8c572d9189a0ace493a851",
+      "name": "test_running_live_probe_remains_unsealed_and_explicit_only",
+      "nodeid": "tests.unit.test_open_search_health_artifact_unittest.OpenSearchHealthArtifactTest::test_running_live_probe_remains_unsealed_and_explicit_only",
+      "owner": "main/backend/scripts/check_open_search_health_artifact.py",
+      "primary_cause": "Wave12 provider readiness input is unavailable to health/readback builders",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/wave12-provider-readiness/2026-05-22/provider_readiness_summary.json",
+      "referenced_paths": [
+        "development/latest-dev-docs/automation-runs/wave12-provider-readiness/2026-05-22/provider_readiness_summary.json",
+        "main/backend/scripts/check_open_search_health_artifact.py"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "missing_evidence",
+      "cause_group": "wave12-open-search-readiness",
+      "classname": "tests.unit.test_open_search_health_artifact_unittest.OpenSearchHealthArtifactTest",
+      "evidence_status": "missing",
+      "failure_excerpt": "self = <unit.test_open_search_health_artifact_unittest.OpenSearchHealthArtifactTest testMethod=test_stopped_services_record_connect_error_without_live_closure> def test_stopped_services_record_connect_error_without_live_closure(self) -> None: artifact = build_health_artifact( runtime_boundary=_runtime_boundary(classification=\"service_not_started_connect_error\"), command_runner=_stopped_runner, ) >       self.assertEqual(validate_health_artifact(artifact), []) E       AssertionError: Lists differ: ['Wave12 provider readiness input must be passed'] != [] E E       First list contains 1 additiona",
+      "failure_message": "AssertionError: Lists differ: ['Wave12 provider readiness input must be passed'] != []\n\nFirst list contains 1 additional elements.\nFirst extra element 0:\n'Wave12 provider readiness input must be passed'\n\n- ['Wave12 provider readiness input must be passed']\n+ []",
+      "failure_sha256": "a910981d2749eb4152f57ce8663c60b72b834a599371d4eca8d9a33851e56448",
+      "name": "test_stopped_services_record_connect_error_without_live_closure",
+      "nodeid": "tests.unit.test_open_search_health_artifact_unittest.OpenSearchHealthArtifactTest::test_stopped_services_record_connect_error_without_live_closure",
+      "owner": "main/backend/scripts/check_open_search_health_artifact.py",
+      "primary_cause": "Wave12 provider readiness input is unavailable to health/readback builders",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/wave12-provider-readiness/2026-05-22/provider_readiness_summary.json",
+      "referenced_paths": [
+        "development/latest-dev-docs/automation-runs/wave12-provider-readiness/2026-05-22/provider_readiness_summary.json",
+        "main/backend/scripts/check_open_search_health_artifact.py"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "missing_evidence",
+      "cause_group": "wave12-open-search-readiness",
+      "classname": "tests.unit.test_open_search_runtime_boundary_unittest.OpenSearchRuntimeBoundaryTest",
+      "evidence_status": "missing",
+      "failure_excerpt": "self = <unit.test_open_search_runtime_boundary_unittest.OpenSearchRuntimeBoundaryTest testMethod=test_connect_error_is_reported_as_service_not_started_without_failing_boundary_gate> def test_connect_error_is_reported_as_service_not_started_without_failing_boundary_gate(self) -> None: class ConnectError(Exception): pass def runner(provider: str, base_url: str, limit: int) -> list[dict]: raise ConnectError(f\"connection refused at {base_url}\") contract = build_contract(enable_live_probe=True, env={}, search_runner=runner) >       self.assertEqual(contract[\"status\"], \"passed\") E       AssertionErr",
+      "failure_message": "AssertionError: 'failed' != 'passed'\n- failed\n+ passed",
+      "failure_sha256": "0839224a96da5c4d0f36f744a0e08e61ac8a5a4cb47106786cfdf6d514c03bd2",
+      "name": "test_connect_error_is_reported_as_service_not_started_without_failing_boundary_gate",
+      "nodeid": "tests.unit.test_open_search_runtime_boundary_unittest.OpenSearchRuntimeBoundaryTest::test_connect_error_is_reported_as_service_not_started_without_failing_boundary_gate",
+      "owner": "main/backend/scripts/check_open_search_health_artifact.py",
+      "primary_cause": "Wave12 provider readiness input is unavailable to health/readback builders",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/wave12-provider-readiness/2026-05-22/provider_readiness_summary.json",
+      "referenced_paths": [
+        "development/latest-dev-docs/automation-runs/wave12-provider-readiness/2026-05-22/provider_readiness_summary.json",
+        "main/backend/scripts/check_open_search_health_artifact.py"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "missing_evidence",
+      "cause_group": "wave12-open-search-readiness",
+      "classname": "tests.unit.test_open_search_runtime_boundary_unittest.OpenSearchRuntimeBoundaryTest",
+      "evidence_status": "missing",
+      "failure_excerpt": "self = <unit.test_open_search_runtime_boundary_unittest.OpenSearchRuntimeBoundaryTest testMethod=test_live_query_success_remains_unsealed_and_explicit_only> def test_live_query_success_remains_unsealed_and_explicit_only(self) -> None: def runner(provider: str, base_url: str, limit: int) -> list[dict]: return [_sample_result(provider)] contract = build_contract(enable_live_probe=True, env={}, search_runner=runner) >       self.assertEqual(contract[\"status\"], \"passed\") E       AssertionError: 'failed' != 'passed' E       - failed E       + passed tests/unit/test_open_search_runtime_boundary_unit",
+      "failure_message": "AssertionError: 'failed' != 'passed'\n- failed\n+ passed",
+      "failure_sha256": "d98f617ac206b9452c8c03117cf61b2ef67713c7a8ca11210f83914fceb5333f",
+      "name": "test_live_query_success_remains_unsealed_and_explicit_only",
+      "nodeid": "tests.unit.test_open_search_runtime_boundary_unittest.OpenSearchRuntimeBoundaryTest::test_live_query_success_remains_unsealed_and_explicit_only",
+      "owner": "main/backend/scripts/check_open_search_health_artifact.py",
+      "primary_cause": "Wave12 provider readiness input is unavailable to health/readback builders",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/wave12-provider-readiness/2026-05-22/provider_readiness_summary.json",
+      "referenced_paths": [
+        "development/latest-dev-docs/automation-runs/wave12-provider-readiness/2026-05-22/provider_readiness_summary.json",
+        "main/backend/scripts/check_open_search_health_artifact.py"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "stale_expected_semantics",
+      "cause_group": "open-search-auto-route-exclusion",
+      "classname": "tests.unit.test_open_search_runtime_boundary_unittest.OpenSearchRuntimeBoundaryTest",
+      "evidence_status": "present_but_semantics_unresolved",
+      "failure_excerpt": "self = <unit.test_open_search_runtime_boundary_unittest.OpenSearchRuntimeBoundaryTest testMethod=test_skip_live_probe_keeps_configured_endpoints_distinct_from_runtime_closure> def test_skip_live_probe_keeps_configured_endpoints_distinct_from_runtime_closure(self) -> None: contract = build_contract(enable_live_probe=False, env={}) >       self.assertEqual(validate_contract(contract), []) E       AssertionError: Lists differ: ['trace contract does not exclude local op[164 chars]uto'] != [] E E       First list contains 3 additional elements. E       First extra element 0: E       'trace contract",
+      "failure_message": "AssertionError: Lists differ: ['trace contract does not exclude local op[164 chars]uto'] != []\n\nFirst list contains 3 additional elements.\nFirst extra element 0:\n'trace contract does not exclude local open-search from provider=auto'\n\n+ []\n- ['trace contract does not exclude local open-search from provider=auto',\n-  'trace contract does not list searxng as excluded from provider=auto',\n-  'trace contract does not list yacy as excluded from provider=auto']",
+      "failure_sha256": "df52be0bec604a379db08896635bd82b490f18beb32ba48327548c8a1fd9447f",
+      "name": "test_skip_live_probe_keeps_configured_endpoints_distinct_from_runtime_closure",
+      "nodeid": "tests.unit.test_open_search_runtime_boundary_unittest.OpenSearchRuntimeBoundaryTest::test_skip_live_probe_keeps_configured_endpoints_distinct_from_runtime_closure",
+      "owner": "main/backend/scripts/check_open_search_runtime_boundary.py",
+      "primary_cause": "trace contract does not declare local open-search providers excluded from provider=auto",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/search-provider-trace-artifacts/2026-05-22/search_provider_trace_contract.json",
+      "referenced_paths": [
+        "development/latest-dev-docs/automation-runs/search-provider-trace-artifacts/2026-05-22/search_provider_trace_contract.json",
+        "main/backend/scripts/check_open_search_runtime_boundary.py"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "missing_evidence",
+      "cause_group": "source-library-a5-replay",
+      "classname": "tests.unit.test_source_library_public_replay_a5_gate_unittest.SourceLibraryPublicReplayA5GateUnitTestCase",
+      "evidence_status": "missing",
+      "failure_excerpt": "self = <unit.test_source_library_public_replay_a5_gate_unittest.SourceLibraryPublicReplayA5GateUnitTestCase testMethod=test_a5_gate_freezes_manifest_fixture_and_reviewed_public_replay> def test_a5_gate_freezes_manifest_fixture_and_reviewed_public_replay(self) -> None: result = build_check(REPO_ROOT) self.assertEqual(result[\"contract_version\"], CONTRACT_VERSION) >       self.assertTrue(result[\"validation\"][\"passed\"], result[\"validation\"][\"errors\"]) E       AssertionError: False is not true : ['missing json artifact: development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026",
+      "failure_message": "AssertionError: False is not true : ['missing json artifact: development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/input.json', 'missing json artifact: development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/output.json', 'missing json artifact: development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22/output.json']",
+      "failure_sha256": "7d47a1ba9c15106ec9e50dbd6062f75b1e604e0fcddd162ced2265f9fa73e149",
+      "name": "test_a5_gate_freezes_manifest_fixture_and_reviewed_public_replay",
+      "nodeid": "tests.unit.test_source_library_public_replay_a5_gate_unittest.SourceLibraryPublicReplayA5GateUnitTestCase::test_a5_gate_freezes_manifest_fixture_and_reviewed_public_replay",
+      "owner": "main/backend/scripts/check_source_library_public_replay_a5_gate.py",
+      "primary_cause": "A5 replay input and live-probe readback are unavailable",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/input.json",
+      "referenced_paths": [
+        "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/input.json",
+        "development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22/README.md"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "missing_evidence",
+      "cause_group": "source-library-a5-replay",
+      "classname": "tests.unit.test_source_library_public_replay_a5_gate_unittest.SourceLibraryPublicReplayA5GateUnitTestCase",
+      "evidence_status": "missing",
+      "failure_excerpt": "self = <unit.test_source_library_public_replay_a5_gate_unittest.SourceLibraryPublicReplayA5GateUnitTestCase testMethod=test_term_fallback_public_fixture_remains_relevance_review> def test_term_fallback_public_fixture_remains_relevance_review(self) -> None: result = build_check(REPO_ROOT) live_fixture = result[\"public_live_fixture\"] >       self.assertTrue(live_fixture[\"validation_passed\"]) ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ E       KeyError: 'validation_passed' tests/unit/test_source_library_public_replay_a5_gate_unittest.py:60: KeyError",
+      "failure_message": "KeyError: 'validation_passed'",
+      "failure_sha256": "6d0d0e55adfe40eeeef72efec14c14eae59a836d9ed56dab72ed99ed574d3e1d",
+      "name": "test_term_fallback_public_fixture_remains_relevance_review",
+      "nodeid": "tests.unit.test_source_library_public_replay_a5_gate_unittest.SourceLibraryPublicReplayA5GateUnitTestCase::test_term_fallback_public_fixture_remains_relevance_review",
+      "owner": "main/backend/scripts/check_source_library_public_replay_a5_gate.py",
+      "primary_cause": "A5 replay input and live-probe readback are unavailable",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/input.json",
+      "referenced_paths": [
+        "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/input.json",
+        "development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22/README.md"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "test_fixture_defect",
+      "cause_group": "source-library-review-2",
+      "classname": "tests.unit.test_source_library_review_closure_batch2_unittest.SourceLibraryReviewClosureBatch2UnitTestCase",
+      "evidence_status": "missing",
+      "failure_excerpt": "self = <unit.test_source_library_review_closure_batch2_unittest.SourceLibraryReviewClosureBatch2UnitTestCase testMethod=test_checker_validates_committed_artifact_topic_docs_and_gap_register> def test_checker_validates_committed_artifact_topic_docs_and_gap_register(self) -> None: result = build_check(REPO_ROOT) self.assertEqual(result[\"contract_version\"], CONTRACT_VERSION) >       self.assertTrue(result[\"validation\"][\"passed\"], result[\"validation\"][\"errors\"]) E       AssertionError: False is not true : ['upstream check failed: search_chain_governance', 'upstream check failed: wave16_review_batc",
+      "failure_message": "AssertionError: False is not true : ['upstream check failed: search_chain_governance', 'upstream check failed: wave16_review_batch', 'missing or invalid review batch2 artifact: /Users/wangyiliang/market-research-workflow/development/latest-dev-docs/automation-runs/source-library-review-closure-batch2/2026-05-22/review_batch2.json', 'artifact contract version mismatch', 'artifact batch_id mismatch', 'artifact scope must be fixture-only and no-network', 'artifact must not claim live source collection applicability', 'artifact review batch state mismatch', 'artifact must close the second deterministic fixture batch', 'artifact closed queue ids do not match generated batch2 queue', 'artifact decision count mismatch', 'artifact decisions do not match generated batch2 fixture decisions', 'remaining gap must stay open: human_review', 'remaining gap must not claim closure: human_review', 'remaining gap must stay open: public_replay', 'remaining gap must not claim closure: public_replay', 'remaining gap must stay open: live_source_collection', 'remaining gap must not claim closure: live_source_collection', 'artifact non-closure marker must be false: claims_human_review_complete', 'artifact non-closure marker must be false: claims_human_relevance_review_complete', 'artifact non-closure marker must be false: claims_public_replay_complete', 'artifact non-closure marker must be false: claims_live_public_replay_complete', 'artifact non-closure marker must be false: claims_full_45_site_public_replay', 'artifact non-closure marker must be false: claims_live_source_collection_complete', 'artifact non-closure marker must be false: claims_current_dev_topic_archived', 'artifact non-closure marker must be false: shared_indexes_edited']",
+      "failure_sha256": "b760c5f3ec35926619b9f023ffd82372bb9e1ea403df512ca6bcfb745de53020",
+      "name": "test_checker_validates_committed_artifact_topic_docs_and_gap_register",
+      "nodeid": "tests.unit.test_source_library_review_closure_batch2_unittest.SourceLibraryReviewClosureBatch2UnitTestCase::test_checker_validates_committed_artifact_topic_docs_and_gap_register",
+      "owner": "main/backend/tests/unit/test_source_library_review_closure_batch2_unittest.py",
+      "primary_cause": "deterministic review-batch artifact is absent, so fixture closure cannot be read back",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/source-library-review-closure-batch2/2026-05-22/review_batch2.json",
+      "referenced_paths": [
+        "development/latest-dev-docs/automation-runs/source-library-review-closure-batch2/2026-05-22/review_batch2.json"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "test_fixture_defect",
+      "cause_group": "source-library-review-2",
+      "classname": "tests.unit.test_source_library_review_closure_batch2_unittest.SourceLibraryReviewClosureBatch2UnitTestCase",
+      "evidence_status": "missing",
+      "failure_excerpt": "self = <unit.test_source_library_review_closure_batch2_unittest.SourceLibraryReviewClosureBatch2UnitTestCase testMethod=test_expected_artifact_closes_second_fixture_batch_and_keeps_live_gaps_open> def test_expected_artifact_closes_second_fixture_batch_and_keeps_live_gaps_open(self) -> None: artifact = build_expected_artifact(REPO_ROOT) self.assertEqual(artifact[\"contract_version\"], CONTRACT_VERSION) self.assertTrue(artifact[\"scope\"][\"fixture_only\"]) self.assertFalse(artifact[\"scope\"][\"public_network_attempted\"]) self.assertFalse(artifact[\"scope\"][\"applies_to_full_current_dev_review\"]) self.ass",
+      "failure_message": "AssertionError: False is not true",
+      "failure_sha256": "1629fca5ad0eb9c92a0cc287e5d4f74f62639241c7b496784e8a04d6bb0020fc",
+      "name": "test_expected_artifact_closes_second_fixture_batch_and_keeps_live_gaps_open",
+      "nodeid": "tests.unit.test_source_library_review_closure_batch2_unittest.SourceLibraryReviewClosureBatch2UnitTestCase::test_expected_artifact_closes_second_fixture_batch_and_keeps_live_gaps_open",
+      "owner": "main/backend/tests/unit/test_source_library_review_closure_batch2_unittest.py",
+      "primary_cause": "deterministic review-batch artifact is absent, so fixture closure cannot be read back",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/source-library-review-closure-batch2/2026-05-22/review_batch2.json",
+      "referenced_paths": [
+        "development/latest-dev-docs/automation-runs/source-library-review-closure-batch2/2026-05-22/review_batch2.json"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "test_fixture_defect",
+      "cause_group": "source-library-review-3",
+      "classname": "tests.unit.test_source_library_review_closure_batch3_unittest.SourceLibraryReviewClosureBatch3UnitTestCase",
+      "evidence_status": "missing",
+      "failure_excerpt": "self = <unit.test_source_library_review_closure_batch3_unittest.SourceLibraryReviewClosureBatch3UnitTestCase testMethod=test_checker_validates_committed_artifact_topic_docs_and_gap_register> def test_checker_validates_committed_artifact_topic_docs_and_gap_register(self) -> None: result = build_check(REPO_ROOT) self.assertEqual(result[\"contract_version\"], CONTRACT_VERSION) >       self.assertTrue(result[\"validation\"][\"passed\"], result[\"validation\"][\"errors\"]) E       AssertionError: False is not true : ['upstream check failed: search_chain_governance', 'upstream check failed: wave16_review_batc",
+      "failure_message": "AssertionError: False is not true : ['upstream check failed: search_chain_governance', 'upstream check failed: wave16_review_batch', 'upstream check failed: wave18_review_batch', 'missing or invalid review batch3 artifact: /Users/wangyiliang/market-research-workflow/development/latest-dev-docs/automation-runs/source-library-review-closure-batch3/2026-05-22/review_batch3.json', 'artifact contract version mismatch', 'artifact batch_id mismatch', 'artifact scope must be fixture-only and no-network', 'artifact must not claim live source collection applicability', 'artifact must not claim live ingest migration applicability', 'artifact review batch state mismatch', 'artifact must close the third deterministic fixture batch', 'artifact closed queue ids do not match generated batch3 queue', 'artifact decision count mismatch', 'artifact decisions do not match generated batch3 fixture decisions', 'remaining gap must stay open: human_review', 'remaining gap must not claim closure: human_review', 'remaining gap must stay open: public_replay', 'remaining gap must not claim closure: public_replay', 'remaining gap must stay open: live_source_collection', 'remaining gap must not claim closure: live_source_collection', 'remaining gap must stay open: live_ingest_migration', 'remaining gap must not claim closure: live_ingest_migration', 'artifact non-closure marker must be false: claims_human_review_complete', 'artifact non-closure marker must be false: claims_human_relevance_review_complete', 'artifact non-closure marker must be false: claims_public_replay_complete', 'artifact non-closure marker must be false: claims_live_public_replay_complete', 'artifact non-closure marker must be false: claims_full_45_site_public_replay', 'artifact non-closure marker must be false: claims_live_source_collection_complete', 'artifact non-closure marker must be false: claims_live_ingest_migration_complete', 'artifact non-closure marker must be false: claims_current_dev_topic_archived', 'artifact non-closure marker must be false: shared_indexes_edited']",
+      "failure_sha256": "2a11f8b26795b22805b8a06df1c62a9f2e4c4ed3475bd53d41b32943e267ba20",
+      "name": "test_checker_validates_committed_artifact_topic_docs_and_gap_register",
+      "nodeid": "tests.unit.test_source_library_review_closure_batch3_unittest.SourceLibraryReviewClosureBatch3UnitTestCase::test_checker_validates_committed_artifact_topic_docs_and_gap_register",
+      "owner": "main/backend/tests/unit/test_source_library_review_closure_batch3_unittest.py",
+      "primary_cause": "deterministic review-batch artifact is absent, so fixture closure cannot be read back",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/source-library-review-closure-batch3/2026-05-22/review_batch3.json",
+      "referenced_paths": [
+        "development/latest-dev-docs/automation-runs/source-library-review-closure-batch3/2026-05-22/review_batch3.json"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "test_fixture_defect",
+      "cause_group": "source-library-review-3",
+      "classname": "tests.unit.test_source_library_review_closure_batch3_unittest.SourceLibraryReviewClosureBatch3UnitTestCase",
+      "evidence_status": "missing",
+      "failure_excerpt": "self = <unit.test_source_library_review_closure_batch3_unittest.SourceLibraryReviewClosureBatch3UnitTestCase testMethod=test_expected_artifact_closes_third_fixture_batch_and_keeps_live_gaps_open> def test_expected_artifact_closes_third_fixture_batch_and_keeps_live_gaps_open(self) -> None: artifact = build_expected_artifact(REPO_ROOT) self.assertEqual(artifact[\"contract_version\"], CONTRACT_VERSION) self.assertTrue(artifact[\"scope\"][\"fixture_only\"]) self.assertFalse(artifact[\"scope\"][\"public_network_attempted\"]) self.assertFalse(artifact[\"scope\"][\"applies_to_full_current_dev_review\"]) self.asser",
+      "failure_message": "AssertionError: False is not true",
+      "failure_sha256": "9bd5bdb8ba66622ce3d6cc19d49bc4294729ed12409e8eeee16078948157c86e",
+      "name": "test_expected_artifact_closes_third_fixture_batch_and_keeps_live_gaps_open",
+      "nodeid": "tests.unit.test_source_library_review_closure_batch3_unittest.SourceLibraryReviewClosureBatch3UnitTestCase::test_expected_artifact_closes_third_fixture_batch_and_keeps_live_gaps_open",
+      "owner": "main/backend/tests/unit/test_source_library_review_closure_batch3_unittest.py",
+      "primary_cause": "deterministic review-batch artifact is absent, so fixture closure cannot be read back",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/source-library-review-closure-batch3/2026-05-22/review_batch3.json",
+      "referenced_paths": [
+        "development/latest-dev-docs/automation-runs/source-library-review-closure-batch3/2026-05-22/review_batch3.json"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "test_fixture_defect",
+      "cause_group": "source-library-review-4",
+      "classname": "tests.unit.test_source_library_review_closure_batch4_unittest.SourceLibraryReviewClosureBatch4UnitTestCase",
+      "evidence_status": "missing",
+      "failure_excerpt": "self = <unit.test_source_library_review_closure_batch4_unittest.SourceLibraryReviewClosureBatch4UnitTestCase testMethod=test_checker_validates_committed_artifact_topic_docs_and_gap_register> def test_checker_validates_committed_artifact_topic_docs_and_gap_register(self) -> None: result = build_check(REPO_ROOT) self.assertEqual(result[\"contract_version\"], CONTRACT_VERSION) >       self.assertTrue(result[\"validation\"][\"passed\"], result[\"validation\"][\"errors\"]) E       AssertionError: False is not true : ['upstream check failed: search_chain_governance', 'upstream check failed: wave16_review_batc",
+      "failure_message": "AssertionError: False is not true : ['upstream check failed: search_chain_governance', 'upstream check failed: wave16_review_batch', 'upstream check failed: wave18_review_batch', 'upstream check failed: wave19_review_batch', 'missing or invalid review batch4 artifact: /Users/wangyiliang/market-research-workflow/development/latest-dev-docs/automation-runs/source-library-review-closure-batch4/2026-05-22/review_batch4.json', 'artifact contract version mismatch', 'artifact batch_id mismatch', 'artifact scope must be fixture-only and no-network', 'artifact must not claim live source collection applicability', 'artifact must not claim live ingest migration applicability', 'artifact review batch state mismatch', 'artifact must close the fourth deterministic fixture batch', 'artifact closed queue ids do not match generated batch4 queue', 'artifact decision count mismatch', 'artifact decisions do not match generated batch4 fixture decisions', 'remaining gap must stay open: human_review', 'remaining gap must not claim closure: human_review', 'remaining gap must stay open: public_replay', 'remaining gap must not claim closure: public_replay', 'remaining gap must stay open: live_source_collection', 'remaining gap must not claim closure: live_source_collection', 'remaining gap must stay open: live_ingest_migration', 'remaining gap must not claim closure: live_ingest_migration', 'artifact non-closure marker must be false: claims_human_review_complete', 'artifact non-closure marker must be false: claims_human_relevance_review_complete', 'artifact non-closure marker must be false: claims_public_replay_complete', 'artifact non-closure marker must be false: claims_live_public_replay_complete', 'artifact non-closure marker must be false: claims_full_45_site_public_replay', 'artifact non-closure marker must be false: claims_live_source_collection_complete', 'artifact non-closure marker must be false: claims_live_ingest_migration_complete', 'artifact non-closure marker must be false: claims_current_dev_topic_archived', 'artifact non-closure marker must be false: shared_indexes_edited']",
+      "failure_sha256": "a3629cd28eb025b28fd17f568528395e9ffb40ea9cd1650156cfea830ad96088",
+      "name": "test_checker_validates_committed_artifact_topic_docs_and_gap_register",
+      "nodeid": "tests.unit.test_source_library_review_closure_batch4_unittest.SourceLibraryReviewClosureBatch4UnitTestCase::test_checker_validates_committed_artifact_topic_docs_and_gap_register",
+      "owner": "main/backend/tests/unit/test_source_library_review_closure_batch4_unittest.py",
+      "primary_cause": "deterministic review-batch artifact is absent, so fixture closure cannot be read back",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/source-library-review-closure-batch4/2026-05-22/review_batch4.json",
+      "referenced_paths": [
+        "development/latest-dev-docs/automation-runs/source-library-review-closure-batch4/2026-05-22/review_batch4.json"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "test_fixture_defect",
+      "cause_group": "source-library-review-4",
+      "classname": "tests.unit.test_source_library_review_closure_batch4_unittest.SourceLibraryReviewClosureBatch4UnitTestCase",
+      "evidence_status": "missing",
+      "failure_excerpt": "self = <unit.test_source_library_review_closure_batch4_unittest.SourceLibraryReviewClosureBatch4UnitTestCase testMethod=test_expected_artifact_closes_fourth_fixture_batch_and_keeps_live_gaps_open> def test_expected_artifact_closes_fourth_fixture_batch_and_keeps_live_gaps_open(self) -> None: artifact = build_expected_artifact(REPO_ROOT) self.assertEqual(artifact[\"contract_version\"], CONTRACT_VERSION) self.assertTrue(artifact[\"scope\"][\"fixture_only\"]) self.assertFalse(artifact[\"scope\"][\"public_network_attempted\"]) self.assertFalse(artifact[\"scope\"][\"applies_to_full_current_dev_review\"]) self.ass",
+      "failure_message": "AssertionError: False is not true",
+      "failure_sha256": "bbaceddf03a31fc9b547cc6996e38aa4824ac57ead08bf28d935275f53b81362",
+      "name": "test_expected_artifact_closes_fourth_fixture_batch_and_keeps_live_gaps_open",
+      "nodeid": "tests.unit.test_source_library_review_closure_batch4_unittest.SourceLibraryReviewClosureBatch4UnitTestCase::test_expected_artifact_closes_fourth_fixture_batch_and_keeps_live_gaps_open",
+      "owner": "main/backend/tests/unit/test_source_library_review_closure_batch4_unittest.py",
+      "primary_cause": "deterministic review-batch artifact is absent, so fixture closure cannot be read back",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/source-library-review-closure-batch4/2026-05-22/review_batch4.json",
+      "referenced_paths": [
+        "development/latest-dev-docs/automation-runs/source-library-review-closure-batch4/2026-05-22/review_batch4.json"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "test_fixture_defect",
+      "cause_group": "source-library-review-1",
+      "classname": "tests.unit.test_source_library_review_closure_batch_unittest.SourceLibraryReviewClosureBatchUnitTestCase",
+      "evidence_status": "missing",
+      "failure_excerpt": "self = <unit.test_source_library_review_closure_batch_unittest.SourceLibraryReviewClosureBatchUnitTestCase testMethod=test_checker_validates_committed_artifact_topic_docs_and_non_closure_markers> def test_checker_validates_committed_artifact_topic_docs_and_non_closure_markers(self) -> None: result = build_check(REPO_ROOT) self.assertEqual(result[\"contract_version\"], CONTRACT_VERSION) >       self.assertTrue(result[\"validation\"][\"passed\"], result[\"validation\"][\"errors\"]) E       AssertionError: False is not true : ['upstream check failed: search_chain_governance', 'missing or invalid review bat",
+      "failure_message": "AssertionError: False is not true : ['upstream check failed: search_chain_governance', 'missing or invalid review batch artifact: /Users/wangyiliang/market-research-workflow/development/latest-dev-docs/automation-runs/source-library-review-closure-batch/2026-05-22/review_batch.json', 'artifact contract version mismatch', 'artifact batch_id mismatch', 'artifact scope must be fixture-only and no-network', 'artifact review batch state mismatch', 'artifact must close the deterministic fixture batch', 'artifact closed queue ids do not match generated queue', 'artifact decision count mismatch', 'artifact decisions do not match generated fixture decisions', 'artifact non-closure marker must be false: claims_human_relevance_review_complete', 'artifact non-closure marker must be false: claims_live_public_replay_complete', 'artifact non-closure marker must be false: claims_full_45_site_public_replay', 'artifact non-closure marker must be false: claims_current_dev_topic_archived', 'artifact non-closure marker must be false: shared_indexes_edited']",
+      "failure_sha256": "d5d647660d0d9b6294e1663becb0fa1b8960788e0147cf17202d9f35f39d9857",
+      "name": "test_checker_validates_committed_artifact_topic_docs_and_non_closure_markers",
+      "nodeid": "tests.unit.test_source_library_review_closure_batch_unittest.SourceLibraryReviewClosureBatchUnitTestCase::test_checker_validates_committed_artifact_topic_docs_and_non_closure_markers",
+      "owner": "main/backend/tests/unit/test_source_library_review_closure_batch_unittest.py",
+      "primary_cause": "deterministic review-batch artifact is absent, so fixture closure cannot be read back",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/source-library-review-closure-batch/2026-05-22/review_batch.json",
+      "referenced_paths": [
+        "development/latest-dev-docs/automation-runs/source-library-review-closure-batch/2026-05-22/review_batch.json"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "source_defect",
+      "cause_group": "source-library-governance-anchor",
+      "classname": "tests.unit.test_source_library_search_governance_check_unittest.SourceLibrarySearchGovernanceCheckUnitTestCase",
+      "evidence_status": "present_but_behavior_mismatch",
+      "failure_excerpt": "self = <unit.test_source_library_search_governance_check_unittest.SourceLibrarySearchGovernanceCheckUnitTestCase testMethod=test_checker_preserves_public_replay_and_relevance_review_as_open_gaps> def test_checker_preserves_public_replay_and_relevance_review_as_open_gaps(self) -> None: result = build_check(REPO_ROOT) replay = result[\"public_replay_gaps\"] self.assertIn( replay[\"a5_status\"], { \"deterministic_replay_gate_closed_external_public_replay_blocked\", \"full_public_replay_artifact_present_review_required\", \"full_public_replay_reviewed_closed\", }, ) self.assertFalse(replay[\"public_network_a",
+      "failure_message": "AssertionError: False is not true",
+      "failure_sha256": "5928604043a948c904f33028c9c1bfdec03dad7270e059d7fa31ef0541f01e7d",
+      "name": "test_checker_preserves_public_replay_and_relevance_review_as_open_gaps",
+      "nodeid": "tests.unit.test_source_library_search_governance_check_unittest.SourceLibrarySearchGovernanceCheckUnitTestCase::test_checker_preserves_public_replay_and_relevance_review_as_open_gaps",
+      "owner": "main/backend/scripts/check_source_library_search_governance.py",
+      "primary_cause": "resolver static governance anchor is absent while the governance checker still requires it",
+      "primary_input_path": "main/backend/app/services/source_library/resolver.py",
+      "referenced_paths": [
+        "main/backend/app/services/source_library/resolver.py",
+        "main/backend/scripts/check_source_library_search_governance.py"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "source_defect",
+      "cause_group": "source-library-governance-anchor",
+      "classname": "tests.unit.test_source_library_search_governance_check_unittest.SourceLibrarySearchGovernanceCheckUnitTestCase",
+      "evidence_status": "present_but_behavior_mismatch",
+      "failure_excerpt": "self = <unit.test_source_library_search_governance_check_unittest.SourceLibrarySearchGovernanceCheckUnitTestCase testMethod=test_governance_checker_keeps_mounting_and_capability_boundaries> def test_governance_checker_keeps_mounting_and_capability_boundaries(self) -> None: result = build_check(REPO_ROOT) self.assertEqual(result[\"contract_version\"], CONTRACT_VERSION) >       self.assertTrue(result[\"validation\"][\"passed\"], result[\"validation\"][\"errors\"]) E       AssertionError: False is not true : ['resolver static governance missing: collect_runtime_source_library_adapter_registered', 'public r",
+      "failure_message": "AssertionError: False is not true : ['resolver static governance missing: collect_runtime_source_library_adapter_registered', 'public replay deterministic A5 gate must pass', 'governance checker must preserve at least one relevance-review blocker']",
+      "failure_sha256": "2c7f2ef51250d84a8571ed4c70ae455b507d103f9bab9a3c7b1da042c08ebb58",
+      "name": "test_governance_checker_keeps_mounting_and_capability_boundaries",
+      "nodeid": "tests.unit.test_source_library_search_governance_check_unittest.SourceLibrarySearchGovernanceCheckUnitTestCase::test_governance_checker_keeps_mounting_and_capability_boundaries",
+      "owner": "main/backend/scripts/check_source_library_search_governance.py",
+      "primary_cause": "resolver static governance anchor is absent while the governance checker still requires it",
+      "primary_input_path": "main/backend/app/services/source_library/resolver.py",
+      "referenced_paths": [
+        "main/backend/app/services/source_library/resolver.py",
+        "main/backend/scripts/check_source_library_search_governance.py"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "missing_evidence",
+      "cause_group": "wave10-vector-quality",
+      "classname": "tests.unit.test_wave10_vectorization_quality_gate_unittest.Wave10VectorizationQualityGateTest",
+      "evidence_status": "missing",
+      "failure_excerpt": "self = <unit.test_wave10_vectorization_quality_gate_unittest.Wave10VectorizationQualityGateTest testMethod=test_gate_checks_provider_trace_modes_thresholds_and_fallback_reason> def test_gate_checks_provider_trace_modes_thresholds_and_fallback_reason(self) -> None: module = _load_wave10_gate_module() contract = module.build_contract() self.assertEqual(contract[\"contract_version\"], \"wave10-vectorization-quality-gate.v1\") self.assertEqual(contract[\"scope\"], \"deterministic_local_fixture_no_network_no_container_start\") >       self.assertEqual(contract[\"status\"], \"passed\") E       AssertionError: '",
+      "failure_message": "AssertionError: 'failed' != 'passed'\n- failed\n+ passed",
+      "failure_sha256": "dd8b71d66813714056e14d1eb8d86237f0c2fa579205348bc8b24e1a3fa8e8ee",
+      "name": "test_gate_checks_provider_trace_modes_thresholds_and_fallback_reason",
+      "nodeid": "tests.unit.test_wave10_vectorization_quality_gate_unittest.Wave10VectorizationQualityGateTest::test_gate_checks_provider_trace_modes_thresholds_and_fallback_reason",
+      "owner": "ops/search-lab/scripts/wave10_vectorization_quality_gate.py",
+      "primary_cause": "Wave10 deterministic gate output is unavailable",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/wave10-vectorization-quality-gate/2026-05-22/contract_summary.json",
+      "referenced_paths": [
+        "development/latest-dev-docs/automation-runs/wave10-vectorization-quality-gate/2026-05-22/contract_summary.json",
+        "ops/search-lab/scripts/wave10_vectorization_quality_gate.py"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "missing_evidence",
+      "cause_group": "wave12-provider-readiness",
+      "classname": "tests.unit.test_wave12_provider_readiness_gate_unittest.Wave12ProviderReadinessGateTest",
+      "evidence_status": "missing",
+      "failure_excerpt": "self = <unit.test_wave12_provider_readiness_gate_unittest.Wave12ProviderReadinessGateTest testMethod=test_gate_reports_live_probe_status_fallbacks_and_unsupported_claims> def test_gate_reports_live_probe_status_fallbacks_and_unsupported_claims(self) -> None: module = _load_wave12_gate_module() mode_probe = { \"status\": \"partial\", \"probe_type\": \"test\", \"packages\": {\"lancedb\": \"test\", \"pyarrow\": \"test\"}, \"modes\": { \"keyword\": { \"live_probe_status\": \"ready\", \"executed_mode\": \"keyword\", \"fallback_from\": None, \"fallback_reason\": None, }, \"vector\": { \"live_probe_status\": \"fallback\", \"executed_mode\": ",
+      "failure_message": "AssertionError: 'failed' != 'passed'\n- failed\n+ passed",
+      "failure_sha256": "1dae3c98e7ca1abee81e21b1afe5d8e6ddc818b2159848c67876da5c21bf6be0",
+      "name": "test_gate_reports_live_probe_status_fallbacks_and_unsupported_claims",
+      "nodeid": "tests.unit.test_wave12_provider_readiness_gate_unittest.Wave12ProviderReadinessGateTest::test_gate_reports_live_probe_status_fallbacks_and_unsupported_claims",
+      "owner": "ops/search-lab/scripts/wave12_provider_readiness_gate.py",
+      "primary_cause": "Wave12 readiness artifact is unavailable",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/wave12-provider-readiness/2026-05-22/provider_readiness_summary.json",
+      "referenced_paths": [
+        "development/latest-dev-docs/automation-runs/wave12-provider-readiness/2026-05-22/provider_readiness_summary.json",
+        "ops/search-lab/scripts/wave12_provider_readiness_gate.py"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "missing_evidence",
+      "cause_group": "wave12-provider-readiness",
+      "classname": "tests.unit.test_wave12_provider_readiness_gate_unittest.Wave12ProviderReadinessGateTest",
+      "evidence_status": "missing",
+      "failure_excerpt": "self = <unit.test_wave12_provider_readiness_gate_unittest.Wave12ProviderReadinessGateTest testMethod=test_skip_live_probes_keeps_gate_passed_with_not_run_visibility> def test_skip_live_probes_keeps_gate_passed_with_not_run_visibility(self) -> None: module = _load_wave12_gate_module() contract = module.build_contract(enable_live_probes=False) >       self.assertEqual(contract[\"status\"], \"passed\") E       AssertionError: 'failed' != 'passed' E       - failed E       + passed tests/unit/test_wave12_provider_readiness_gate_unittest.py:120: AssertionError",
+      "failure_message": "AssertionError: 'failed' != 'passed'\n- failed\n+ passed",
+      "failure_sha256": "a171bfbb2db6a5dcc9c396496718e8999b5d4f6879ea6bb2e2368bd021f4e4a1",
+      "name": "test_skip_live_probes_keeps_gate_passed_with_not_run_visibility",
+      "nodeid": "tests.unit.test_wave12_provider_readiness_gate_unittest.Wave12ProviderReadinessGateTest::test_skip_live_probes_keeps_gate_passed_with_not_run_visibility",
+      "owner": "ops/search-lab/scripts/wave12_provider_readiness_gate.py",
+      "primary_cause": "Wave12 readiness artifact is unavailable",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/wave12-provider-readiness/2026-05-22/provider_readiness_summary.json",
+      "referenced_paths": [
+        "development/latest-dev-docs/automation-runs/wave12-provider-readiness/2026-05-22/provider_readiness_summary.json",
+        "ops/search-lab/scripts/wave12_provider_readiness_gate.py"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "missing_evidence",
+      "cause_group": "wave14-provider-capability",
+      "classname": "tests.unit.test_wave14_vectorization_provider_capability_unittest.Wave14VectorizationProviderCapabilityTest",
+      "evidence_status": "missing",
+      "failure_excerpt": "self = <unit.test_wave14_vectorization_provider_capability_unittest.Wave14VectorizationProviderCapabilityTest testMethod=test_gate_reports_local_capability_external_gap_and_no_closure_claim> def test_gate_reports_local_capability_external_gap_and_no_closure_claim(self) -> None: module = _load_wave14_gate_module() contract = module.build_contract() self.assertEqual(contract[\"contract_version\"], \"wave14-vectorization-provider-capability.v1\") >       self.assertEqual(contract[\"status\"], \"passed\") E       AssertionError: 'failed' != 'passed' E       - failed E       + passed tests/unit/test_wave14",
+      "failure_message": "AssertionError: 'failed' != 'passed'\n- failed\n+ passed",
+      "failure_sha256": "b251dfaffb7cd930f7f54095dd4a41b50b3375cd4adde6a68c9488524f35aa1a",
+      "name": "test_gate_reports_local_capability_external_gap_and_no_closure_claim",
+      "nodeid": "tests.unit.test_wave14_vectorization_provider_capability_unittest.Wave14VectorizationProviderCapabilityTest::test_gate_reports_local_capability_external_gap_and_no_closure_claim",
+      "owner": "main/backend/scripts/check_wave14_vectorization_provider_capability.py",
+      "primary_cause": "Wave14 depends on unavailable Wave10/Wave12 provider inputs",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/wave14-vectorization-provider-capability/2026-05-22",
+      "referenced_paths": [
+        "development/latest-dev-docs/automation-runs/wave14-vectorization-provider-capability/2026-05-22",
+        "development/latest-dev-docs/automation-runs/wave10-vectorization-quality-gate/2026-05-22/contract_summary.json",
+        "development/latest-dev-docs/automation-runs/wave12-provider-readiness/2026-05-22/provider_readiness_summary.json"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "missing_evidence",
+      "cause_group": "wave18-hybrid-readback",
+      "classname": "tests.unit.test_wave18_vectorization_hybrid_readback_unittest.Wave18VectorizationHybridReadbackTest",
+      "evidence_status": "missing",
+      "failure_excerpt": "self = <unit.test_wave18_vectorization_hybrid_readback_unittest.Wave18VectorizationHybridReadbackTest testMethod=test_checker_proves_mode_identity_quality_trace_and_readback_without_live_closure> def test_checker_proves_mode_identity_quality_trace_and_readback_without_live_closure(self) -> None: module = _load_wave18_readback_module() contract = module.build_contract() self.assertEqual(contract[\"contract_version\"], \"wave18-vectorization-hybrid-readback.v1\") >       self.assertEqual(contract[\"status\"], \"passed\") E       AssertionError: 'failed' != 'passed' E       - failed E       + passed test",
+      "failure_message": "AssertionError: 'failed' != 'passed'\n- failed\n+ passed",
+      "failure_sha256": "e1f6c5676447d5b20f90dc3282507c5e2d84f65aa98fa00572d18d41ffce4d6f",
+      "name": "test_checker_proves_mode_identity_quality_trace_and_readback_without_live_closure",
+      "nodeid": "tests.unit.test_wave18_vectorization_hybrid_readback_unittest.Wave18VectorizationHybridReadbackTest::test_checker_proves_mode_identity_quality_trace_and_readback_without_live_closure",
+      "owner": "ops/search-lab/scripts/wave18_vectorization_hybrid_readback.py",
+      "primary_cause": "hybrid readback artifact is unavailable",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/wave18-vectorization-hybrid-readback/2026-05-22/hybrid_readback_contract.json",
+      "referenced_paths": [
+        "development/latest-dev-docs/automation-runs/wave18-vectorization-hybrid-readback/2026-05-22/hybrid_readback_contract.json"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "missing_evidence",
+      "cause_group": "wave19-provider-manifest",
+      "classname": "tests.unit.test_wave19_vectorization_provider_manifest_readback_unittest.Wave19VectorizationProviderManifestReadbackTest",
+      "evidence_status": "missing",
+      "failure_excerpt": "self = <unit.test_wave19_vectorization_provider_manifest_readback_unittest.Wave19VectorizationProviderManifestReadbackTest testMethod=test_manifest_fails_if_source_trace_claims_live_provider_verification> def test_manifest_fails_if_source_trace_claims_live_provider_verification(self) -> None: module = _load_wave19_manifest_module() >       wave18 = json.loads(module.WAVE18_HYBRID_READBACK.read_text(encoding=\"utf-8\")) ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ tests/unit/test_wave19_vectorization_provider_manifest_readback_unittest.py:92: _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _",
+      "failure_message": "FileNotFoundError: [Errno 2] No such file or directory: '/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/automation-runs/wave18-vectorization-hybrid-readback/2026-05-22/hybrid_readback_contract.json'",
+      "failure_sha256": "467fdf52325674c57d2c0dbe4718b4b318ae85ab0197e358ff4071991233ec79",
+      "name": "test_manifest_fails_if_source_trace_claims_live_provider_verification",
+      "nodeid": "tests.unit.test_wave19_vectorization_provider_manifest_readback_unittest.Wave19VectorizationProviderManifestReadbackTest::test_manifest_fails_if_source_trace_claims_live_provider_verification",
+      "owner": "ops/search-lab/scripts/wave19_vectorization_provider_manifest_readback.py",
+      "primary_cause": "provider manifest readback is unavailable",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/wave19-vectorization-provider-manifest/2026-05-22/provider_manifest_readback.json",
+      "referenced_paths": [
+        "development/latest-dev-docs/automation-runs/wave19-vectorization-provider-manifest/2026-05-22/provider_manifest_readback.json",
+        "development/latest-dev-docs/automation-runs/wave18-vectorization-hybrid-readback/2026-05-22/hybrid_readback_contract.json"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "missing_evidence",
+      "cause_group": "wave19-provider-manifest",
+      "classname": "tests.unit.test_wave19_vectorization_provider_manifest_readback_unittest.Wave19VectorizationProviderManifestReadbackTest",
+      "evidence_status": "missing",
+      "failure_excerpt": "self = <unit.test_wave19_vectorization_provider_manifest_readback_unittest.Wave19VectorizationProviderManifestReadbackTest testMethod=test_manifest_records_modes_fallback_trace_quality_and_no_live_closure> def test_manifest_records_modes_fallback_trace_quality_and_no_live_closure(self) -> None: module = _load_wave19_manifest_module() contract = module.build_contract() self.assertEqual(contract[\"contract_version\"], \"wave19-vectorization-provider-manifest.v1\") >       self.assertEqual(contract[\"status\"], \"passed\") E       AssertionError: 'failed' != 'passed' E       - failed E       + passed tes",
+      "failure_message": "AssertionError: 'failed' != 'passed'\n- failed\n+ passed",
+      "failure_sha256": "7d76f944b07ba1f23838fd08d1c1ed973b196a00b217d58cf053a5f3f42b7781",
+      "name": "test_manifest_records_modes_fallback_trace_quality_and_no_live_closure",
+      "nodeid": "tests.unit.test_wave19_vectorization_provider_manifest_readback_unittest.Wave19VectorizationProviderManifestReadbackTest::test_manifest_records_modes_fallback_trace_quality_and_no_live_closure",
+      "owner": "ops/search-lab/scripts/wave19_vectorization_provider_manifest_readback.py",
+      "primary_cause": "provider manifest readback is unavailable",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/wave19-vectorization-provider-manifest/2026-05-22/provider_manifest_readback.json",
+      "referenced_paths": [
+        "development/latest-dev-docs/automation-runs/wave19-vectorization-provider-manifest/2026-05-22/provider_manifest_readback.json",
+        "development/latest-dev-docs/automation-runs/wave18-vectorization-hybrid-readback/2026-05-22/hybrid_readback_contract.json"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "missing_evidence",
+      "cause_group": "wave27-29-provider-manifest",
+      "classname": "tests.unit.test_wave27_vectorization_closure_gate_unittest.Wave27VectorizationClosureGateTest",
+      "evidence_status": "missing",
+      "failure_excerpt": "self = <unit.test_wave27_vectorization_closure_gate_unittest.Wave27VectorizationClosureGateTest testMethod=test_gate_fails_if_provider_manifest_claims_closure> def test_gate_fails_if_provider_manifest_claims_closure(self) -> None: module = _load_wave27_module() wave19_path = module.REPO_ROOT / module.ARTIFACTS[\"wave19_provider_manifest\"][\"path\"] >       wave19 = json.loads(wave19_path.read_text(encoding=\"utf-8\")) ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ tests/unit/test_wave27_vectorization_closure_gate_unittest.py:93: _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _",
+      "failure_message": "FileNotFoundError: [Errno 2] No such file or directory: '/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/automation-runs/wave19-vectorization-provider-manifest/2026-05-22/provider_manifest_readback.json'",
+      "failure_sha256": "47ef6adbce2eb861b43d5a30f81087a994e18aa1b29d2a4886338e462d70df4e",
+      "name": "test_gate_fails_if_provider_manifest_claims_closure",
+      "nodeid": "tests.unit.test_wave27_vectorization_closure_gate_unittest.Wave27VectorizationClosureGateTest::test_gate_fails_if_provider_manifest_claims_closure",
+      "owner": "ops/search-lab/scripts/wave27_vectorization_closure_gate.py",
+      "primary_cause": "closure/replay gate cannot consume the missing provider manifest",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/wave19-vectorization-provider-manifest/2026-05-22/provider_manifest_readback.json",
+      "referenced_paths": [
+        "development/latest-dev-docs/automation-runs/wave19-vectorization-provider-manifest/2026-05-22/provider_manifest_readback.json",
+        "development/latest-dev-docs/automation-runs/wave29-oss-node-vector-manifest-replay/2026-05-23"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "missing_evidence",
+      "cause_group": "wave27-29-provider-manifest",
+      "classname": "tests.unit.test_wave27_vectorization_closure_gate_unittest.Wave27VectorizationClosureGateTest",
+      "evidence_status": "missing",
+      "failure_excerpt": "self = <unit.test_wave27_vectorization_closure_gate_unittest.Wave27VectorizationClosureGateTest testMethod=test_gate_retains_all_three_topics_and_preserves_provider_external_boundary> def test_gate_retains_all_three_topics_and_preserves_provider_external_boundary(self) -> None: module = _load_wave27_module() contract = module.build_contract() self.assertEqual(contract[\"contract_version\"], \"wave27-vectorization-closure-gate.v1\") >       self.assertEqual(contract[\"status\"], \"passed\") E       AssertionError: 'failed' != 'passed' E       - failed E       + passed tests/unit/test_wave27_vectorizati",
+      "failure_message": "AssertionError: 'failed' != 'passed'\n- failed\n+ passed",
+      "failure_sha256": "a17058328059afb4827b89704554bef49afc5fac0b705336b80a9c5f091e14c8",
+      "name": "test_gate_retains_all_three_topics_and_preserves_provider_external_boundary",
+      "nodeid": "tests.unit.test_wave27_vectorization_closure_gate_unittest.Wave27VectorizationClosureGateTest::test_gate_retains_all_three_topics_and_preserves_provider_external_boundary",
+      "owner": "ops/search-lab/scripts/wave27_vectorization_closure_gate.py",
+      "primary_cause": "closure/replay gate cannot consume the missing provider manifest",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/wave19-vectorization-provider-manifest/2026-05-22/provider_manifest_readback.json",
+      "referenced_paths": [
+        "development/latest-dev-docs/automation-runs/wave19-vectorization-provider-manifest/2026-05-22/provider_manifest_readback.json",
+        "development/latest-dev-docs/automation-runs/wave29-oss-node-vector-manifest-replay/2026-05-23"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "missing_evidence",
+      "cause_group": "wave27-29-provider-manifest",
+      "classname": "tests.unit.test_wave29_oss_node_vector_manifest_replay_unittest.Wave29OssNodeVectorManifestReplayTest",
+      "evidence_status": "missing",
+      "failure_excerpt": "self = <unit.test_wave29_oss_node_vector_manifest_replay_unittest.Wave29OssNodeVectorManifestReplayTest testMethod=test_gate_fails_if_manifest_mode_claims_live_provider> def test_gate_fails_if_manifest_mode_claims_live_provider(self) -> None: module = _load_wave29_module() >       manifest = json.loads(module.DEFAULT_PROVIDER_MANIFEST.read_text(encoding=\"utf-8\")) ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ tests/unit/test_wave29_oss_node_vector_manifest_replay_unittest.py:91: _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ ../../../.local/share/",
+      "failure_message": "FileNotFoundError: [Errno 2] No such file or directory: '/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/automation-runs/wave19-vectorization-provider-manifest/2026-05-22/provider_manifest_readback.json'",
+      "failure_sha256": "aafdce70ae738e08211d8c4dd7b2a1c859f652e682b5e346e81a7f1aa8e0b1af",
+      "name": "test_gate_fails_if_manifest_mode_claims_live_provider",
+      "nodeid": "tests.unit.test_wave29_oss_node_vector_manifest_replay_unittest.Wave29OssNodeVectorManifestReplayTest::test_gate_fails_if_manifest_mode_claims_live_provider",
+      "owner": "ops/search-lab/scripts/wave27_vectorization_closure_gate.py",
+      "primary_cause": "closure/replay gate cannot consume the missing provider manifest",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/wave19-vectorization-provider-manifest/2026-05-22/provider_manifest_readback.json",
+      "referenced_paths": [
+        "development/latest-dev-docs/automation-runs/wave19-vectorization-provider-manifest/2026-05-22/provider_manifest_readback.json",
+        "development/latest-dev-docs/automation-runs/wave29-oss-node-vector-manifest-replay/2026-05-23"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "missing_evidence",
+      "cause_group": "wave27-29-provider-manifest",
+      "classname": "tests.unit.test_wave29_oss_node_vector_manifest_replay_unittest.Wave29OssNodeVectorManifestReplayTest",
+      "evidence_status": "missing",
+      "failure_excerpt": "self = <unit.test_wave29_oss_node_vector_manifest_replay_unittest.Wave29OssNodeVectorManifestReplayTest testMethod=test_live_platform_probe_can_close_scheduler_tenant_ui_condition> def test_live_platform_probe_can_close_scheduler_tenant_ui_condition(self) -> None: module = _load_wave29_module() original_probe = module._run_live_platform_probe def fake_live_probe(*, live_api_base: str | None, live_ui_base: str | None, timeout: float) -> dict: return { \"contract_version\": \"wave55-oss-node-platform-io-live-probe.v1\", \"status\": \"passed\", \"platform_io_live_sla_closed\": True, \"api_base\": live_api_ba",
+      "failure_message": "AssertionError: 'failed' != 'passed'\n- failed\n+ passed",
+      "failure_sha256": "dcaf9c9ea88fbd4d9394c4e59ec96978a989f4891c553f7c7d914f2eb4d6a1c6",
+      "name": "test_live_platform_probe_can_close_scheduler_tenant_ui_condition",
+      "nodeid": "tests.unit.test_wave29_oss_node_vector_manifest_replay_unittest.Wave29OssNodeVectorManifestReplayTest::test_live_platform_probe_can_close_scheduler_tenant_ui_condition",
+      "owner": "ops/search-lab/scripts/wave27_vectorization_closure_gate.py",
+      "primary_cause": "closure/replay gate cannot consume the missing provider manifest",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/wave19-vectorization-provider-manifest/2026-05-22/provider_manifest_readback.json",
+      "referenced_paths": [
+        "development/latest-dev-docs/automation-runs/wave19-vectorization-provider-manifest/2026-05-22/provider_manifest_readback.json",
+        "development/latest-dev-docs/automation-runs/wave29-oss-node-vector-manifest-replay/2026-05-23"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "missing_evidence",
+      "cause_group": "wave27-29-provider-manifest",
+      "classname": "tests.unit.test_wave29_oss_node_vector_manifest_replay_unittest.Wave29OssNodeVectorManifestReplayTest",
+      "evidence_status": "missing",
+      "failure_excerpt": "self = <unit.test_wave29_oss_node_vector_manifest_replay_unittest.Wave29OssNodeVectorManifestReplayTest testMethod=test_node_manifest_replay_closes_repo_local_oss_node_blockers> def test_node_manifest_replay_closes_repo_local_oss_node_blockers(self) -> None: module = _load_wave29_module() contract = module.build_contract() self.assertEqual(contract[\"contract_version\"], \"wave29-oss-node-vector-manifest-replay.v1\") >       self.assertEqual(contract[\"status\"], \"passed\") E       AssertionError: 'failed' != 'passed' E       - failed E       + passed tests/unit/test_wave29_oss_node_vector_manifest_r",
+      "failure_message": "AssertionError: 'failed' != 'passed'\n- failed\n+ passed",
+      "failure_sha256": "48c72c0e7b36109eec4f3ff88699744c6a847a7448342779c3484c11a9cf5f71",
+      "name": "test_node_manifest_replay_closes_repo_local_oss_node_blockers",
+      "nodeid": "tests.unit.test_wave29_oss_node_vector_manifest_replay_unittest.Wave29OssNodeVectorManifestReplayTest::test_node_manifest_replay_closes_repo_local_oss_node_blockers",
+      "owner": "ops/search-lab/scripts/wave27_vectorization_closure_gate.py",
+      "primary_cause": "closure/replay gate cannot consume the missing provider manifest",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/wave19-vectorization-provider-manifest/2026-05-22/provider_manifest_readback.json",
+      "referenced_paths": [
+        "development/latest-dev-docs/automation-runs/wave19-vectorization-provider-manifest/2026-05-22/provider_manifest_readback.json",
+        "development/latest-dev-docs/automation-runs/wave29-oss-node-vector-manifest-replay/2026-05-23"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "missing_evidence",
+      "cause_group": "wave55-oss-search-quality",
+      "classname": "tests.unit.test_wave55_oss_node_search_quality_gate_unittest.Wave55OssNodeSearchQualityGateTest",
+      "evidence_status": "missing",
+      "failure_excerpt": "self = <unit.test_wave55_oss_node_search_quality_gate_unittest.Wave55OssNodeSearchQualityGateTest testMethod=test_gate_closes_repo_local_open_search_quality_and_reduces_semantic_scope> def test_gate_closes_repo_local_open_search_quality_and_reduces_semantic_scope(self) -> None: module = _load_wave55_module() contract = module.build_contract() self.assertEqual(contract[\"contract_version\"], \"wave55-oss-node-search-quality-gate.v1\") >       self.assertEqual(contract[\"status\"], \"passed\") E       AssertionError: 'failed' != 'passed' E       - failed E       + passed tests/unit/test_wave55_oss_node_",
+      "failure_message": "AssertionError: 'failed' != 'passed'\n- failed\n+ passed",
+      "failure_sha256": "001d29be8bd3dead1f76af10848bd104e426df741eb633143b2be195002d3fe3",
+      "name": "test_gate_closes_repo_local_open_search_quality_and_reduces_semantic_scope",
+      "nodeid": "tests.unit.test_wave55_oss_node_search_quality_gate_unittest.Wave55OssNodeSearchQualityGateTest::test_gate_closes_repo_local_open_search_quality_and_reduces_semantic_scope",
+      "owner": "ops/search-lab/scripts/wave55_oss_node_search_quality_gate.py",
+      "primary_cause": "Wave55 quality inputs/readback are unavailable",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/wave55-oss-node-search-quality-gate/2026-05-23",
+      "referenced_paths": [
+        "development/latest-dev-docs/automation-runs/wave55-oss-node-search-quality-gate/2026-05-23",
+        "development/latest-dev-docs/automation-runs/search-provider-trace-artifacts/2026-05-22/search_provider_trace_contract.json"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "missing_evidence",
+      "cause_group": "wave57-public-corpus",
+      "classname": "tests.unit.test_wave57_oss_node_public_corpus_semantic_relevance_gate_unittest.Wave57OssNodePublicCorpusSemanticRelevanceGateTest",
+      "evidence_status": "missing",
+      "failure_excerpt": "self = <unit.test_wave57_oss_node_public_corpus_semantic_relevance_gate_unittest.Wave57OssNodePublicCorpusSemanticRelevanceGateTest testMethod=test_gate_closes_target_local_public_corpus_provider_quality_route> def test_gate_closes_target_local_public_corpus_provider_quality_route(self) -> None: module = _load_wave57_module() contract = module.build_contract() self.assertEqual( contract[\"contract_version\"], \"wave57-oss-node-public-corpus-semantic-relevance-gate.v1\", ) >       self.assertEqual(contract[\"status\"], \"passed\") E       AssertionError: 'failed' != 'passed' E       - failed E       + ",
+      "failure_message": "AssertionError: 'failed' != 'passed'\n- failed\n+ passed",
+      "failure_sha256": "236e53fa38cdf3a4beb4a87c1e739bd68a35c3a5525ee0ab5b4c0f89514cbf22",
+      "name": "test_gate_closes_target_local_public_corpus_provider_quality_route",
+      "nodeid": "tests.unit.test_wave57_oss_node_public_corpus_semantic_relevance_gate_unittest.Wave57OssNodePublicCorpusSemanticRelevanceGateTest::test_gate_closes_target_local_public_corpus_provider_quality_route",
+      "owner": "ops/search-lab/scripts/wave57_oss_node_public_corpus_semantic_relevance_gate.py",
+      "primary_cause": "Wave57 public-corpus semantic gate input is unavailable",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/wave57-oss-node-public-corpus-semantic-relevance-gate/2026-05-23",
+      "referenced_paths": [
+        "development/latest-dev-docs/automation-runs/wave57-oss-node-public-corpus-semantic-relevance-gate/2026-05-23",
+        "development/latest-dev-docs/automation-runs/wave55-oss-node-search-quality-gate/2026-05-23"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "missing_evidence",
+      "cause_group": "wave57-production-vector",
+      "classname": "tests.unit.test_wave57_production_vector_quality_gate_unittest.Wave57ProductionVectorQualityGateTest",
+      "evidence_status": "missing",
+      "failure_excerpt": "self = <unit.test_wave57_production_vector_quality_gate_unittest.Wave57ProductionVectorQualityGateTest testMethod=test_gate_replays_production_like_corpus_and_closes_when_vector_store_is_available> def test_gate_replays_production_like_corpus_and_closes_when_vector_store_is_available(self) -> None: module = _load_wave57_module() contract = module.build_contract(require_vector_store=False) self.assertEqual(contract[\"contract_version\"], \"wave57-production-vector-quality-gate.v1\") >       self.assertEqual(contract[\"status\"], \"passed\") E       AssertionError: 'failed' != 'passed' E       - failed ",
+      "failure_message": "AssertionError: 'failed' != 'passed'\n- failed\n+ passed",
+      "failure_sha256": "2b10ca4f7cddcb9e42b7b8b919551e9193239c9d5a7624c0a5e434a996cc99e7",
+      "name": "test_gate_replays_production_like_corpus_and_closes_when_vector_store_is_available",
+      "nodeid": "tests.unit.test_wave57_production_vector_quality_gate_unittest.Wave57ProductionVectorQualityGateTest::test_gate_replays_production_like_corpus_and_closes_when_vector_store_is_available",
+      "owner": "ops/search-lab/scripts/wave57_production_vector_quality_gate.py",
+      "primary_cause": "production-like vector quality inputs and optional vector-store readback are unavailable",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/wave57-production-vector-quality-gate/2026-05-23",
+      "referenced_paths": [
+        "development/latest-dev-docs/automation-runs/wave57-production-vector-quality-gate/2026-05-23",
+        "development/latest-dev-docs/automation-runs/wave56-semantic-relevance-gate/2026-05-23"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "missing_evidence",
+      "cause_group": "wave57-production-vector",
+      "classname": "tests.unit.test_wave57_production_vector_quality_gate_unittest.Wave57ProductionVectorQualityGateTest",
+      "evidence_status": "missing",
+      "failure_excerpt": "self = <unit.test_wave57_production_vector_quality_gate_unittest.Wave57ProductionVectorQualityGateTest testMethod=test_require_vector_store_passes_in_optional_lancedb_environment> def test_require_vector_store_passes_in_optional_lancedb_environment(self) -> None: module = _load_wave57_module() from app.services.local_index.adapters import is_lancedb_available if not is_lancedb_available(): self.skipTest(\"optional LanceDB runtime is not installed\") contract = module.build_contract(require_vector_store=True) >       self.assertEqual(contract[\"status\"], \"passed\") E       AssertionError: 'failed' ",
+      "failure_message": "AssertionError: 'failed' != 'passed'\n- failed\n+ passed",
+      "failure_sha256": "bc5347d35703b8e79d7f56976f8c91d99a2e5a441bc5fa8df6a2aae95015929b",
+      "name": "test_require_vector_store_passes_in_optional_lancedb_environment",
+      "nodeid": "tests.unit.test_wave57_production_vector_quality_gate_unittest.Wave57ProductionVectorQualityGateTest::test_require_vector_store_passes_in_optional_lancedb_environment",
+      "owner": "ops/search-lab/scripts/wave57_production_vector_quality_gate.py",
+      "primary_cause": "production-like vector quality inputs and optional vector-store readback are unavailable",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/wave57-production-vector-quality-gate/2026-05-23",
+      "referenced_paths": [
+        "development/latest-dev-docs/automation-runs/wave57-production-vector-quality-gate/2026-05-23",
+        "development/latest-dev-docs/automation-runs/wave56-semantic-relevance-gate/2026-05-23"
+      ]
+    },
+    {
+      "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+      "category": "missing_evidence",
+      "cause_group": "wave8-search-vectorization",
+      "classname": "tests.unit.test_wave8_search_vectorization_contract_unittest.Wave8SearchVectorizationContractTest",
+      "evidence_status": "missing",
+      "failure_excerpt": "self = <unit.test_wave8_search_vectorization_contract_unittest.Wave8SearchVectorizationContractTest testMethod=test_wave8_contract_reuses_recorded_evidence_without_claiming_live_services> def test_wave8_contract_reuses_recorded_evidence_without_claiming_live_services(self) -> None: module = _load_wave8_contract_module() contract = module.build_contract() self.assertEqual(contract[\"contract_version\"], \"wave8-search-vectorization-runtime-contract.v1\") self.assertEqual(contract[\"scope\"], \"deterministic_reuse_no_network_no_container_start\") >       self.assertEqual(contract[\"status\"], \"passed\") E ",
+      "failure_message": "AssertionError: 'failed' != 'passed'\n- failed\n+ passed",
+      "failure_sha256": "eae4d980ab528c6b1b8ca68a333bd38bb04cf11f632916da86795e6d69af2925",
+      "name": "test_wave8_contract_reuses_recorded_evidence_without_claiming_live_services",
+      "nodeid": "tests.unit.test_wave8_search_vectorization_contract_unittest.Wave8SearchVectorizationContractTest::test_wave8_contract_reuses_recorded_evidence_without_claiming_live_services",
+      "owner": "ops/search-lab/scripts/wave8_search_vectorization_contract.py",
+      "primary_cause": "Wave8 recorded provider/container replay evidence is unavailable",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/search-provider-container-replay/2026-05-22/provider_trace_replay_summary.json",
+      "referenced_paths": [
+        "development/latest-dev-docs/automation-runs/search-provider-container-replay/2026-05-22/provider_trace_replay_summary.json",
+        "development/latest-dev-docs/automation-runs/wave10-vectorization-quality-gate/2026-05-22/contract_summary.json"
+      ]
+    }
+  ],
+  "groups": [
+    {
+      "category": "missing_evidence",
+      "nodeids": [
+        "tests.unit.test_crawler_public_replay_gate_unittest.CrawlerPublicReplayGateUnitTestCase::test_gate_validates_deterministic_artifacts_and_detects_real_public_replay"
+      ],
+      "owner": "main/backend/scripts/check_crawler_public_replay_gate.py",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/crawler-public-replay-gate/2026-05-22/manifest.json"
+    },
+    {
+      "category": "test_fixture_defect",
+      "nodeids": [
+        "tests.unit.test_build_crawler_public_replay_shard_outputs_unittest.BuildCrawlerPublicReplayShardOutputsUnitTestCase::test_builder_splits_full_public_replay_into_manifest_shards",
+        "tests.unit.test_crawler_public_replay_shards_unittest.CrawlerPublicReplayShardsUnitTestCase::test_default_shard_manifest_validates_present_public_outputs",
+        "tests.unit.test_crawler_public_replay_shards_unittest.CrawlerPublicReplayShardsUnitTestCase::test_manifest_shard_target_drift_fails",
+        "tests.unit.test_crawler_public_replay_shards_unittest.CrawlerPublicReplayShardsUnitTestCase::test_missing_output_readback_rejects_present_shard_output",
+        "tests.unit.test_crawler_public_replay_shards_unittest.CrawlerPublicReplayShardsUnitTestCase::test_readback_cannot_claim_public_network_or_browser_runtime"
+      ],
+      "owner": "main/backend/tests/unit/test_crawler_public_replay_shards_unittest.py",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/crawler-public-replay-shards/2026-05-22/shard_manifest.json"
+    },
+    {
+      "category": "missing_evidence",
+      "nodeids": [
+        "tests.unit.test_crawler_source_expansion_closure_check_unittest.CrawlerSourceExpansionClosureCheckUnitTest::test_closure_check_maps_plan_tasks_to_current_code_and_evidence",
+        "tests.unit.test_crawler_source_expansion_closure_check_unittest.CrawlerSourceExpansionClosureCheckUnitTest::test_overall_status_closes_after_public_replay_review"
+      ],
+      "owner": "main/backend/scripts/check_crawler_source_expansion_closure.py",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/crawler-source-expansion-wave8-a7-validation-pack/2026-05-22/crawler_source_expansion_closure_check.json"
+    },
+    {
+      "category": "test_fixture_defect",
+      "nodeids": [
+        "tests.unit.test_llm_crawler_replay_fixture_check_unittest.LlmCrawlerReplayFixtureCheckUnitTestCase::test_default_fixture_reads_manifest_and_replays_browser_decision_path",
+        "tests.unit.test_llm_crawler_replay_fixture_check_unittest.LlmCrawlerReplayFixtureCheckUnitTestCase::test_fixture_cannot_claim_public_replay_or_browser_runtime",
+        "tests.unit.test_llm_crawler_replay_fixture_check_unittest.LlmCrawlerReplayFixtureCheckUnitTestCase::test_fixture_target_decision_drift_fails"
+      ],
+      "owner": "main/backend/tests/unit/test_llm_crawler_replay_fixture_check_unittest.py",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/llm-crawler-browser-replay-fixture/2026-05-22/replay.fixture.json"
+    },
+    {
+      "category": "test_fixture_defect",
+      "nodeids": [
+        "tests.unit.test_llm_crawler_replay_manifest_check_unittest.LlmCrawlerReplayManifestCheckUnitTestCase::test_default_manifest_records_opt_in_schema_and_keeps_public_replay_gap",
+        "tests.unit.test_llm_crawler_replay_manifest_check_unittest.LlmCrawlerReplayManifestCheckUnitTestCase::test_manifest_missing_opt_in_fields_fails_schema_gate",
+        "tests.unit.test_llm_crawler_replay_manifest_check_unittest.LlmCrawlerReplayManifestCheckUnitTestCase::test_opt_in_request_must_cover_exact_manifest_targets",
+        "tests.unit.test_llm_crawler_replay_manifest_check_unittest.LlmCrawlerReplayManifestCheckUnitTestCase::test_valid_opt_in_request_is_ready_but_does_not_claim_public_replay"
+      ],
+      "owner": "main/backend/tests/unit/test_llm_crawler_replay_manifest_check_unittest.py",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/llm-crawler-high-js-public-replay/2026-05-22/manifest.json"
+    },
+    {
+      "category": "missing_evidence",
+      "nodeids": [
+        "tests.unit.test_wave8_search_vectorization_contract_unittest.Wave8SearchVectorizationContractTest::test_wave8_contract_reuses_recorded_evidence_without_claiming_live_services"
+      ],
+      "owner": "ops/search-lab/scripts/wave8_search_vectorization_contract.py",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/search-provider-container-replay/2026-05-22/provider_trace_replay_summary.json"
+    },
+    {
+      "category": "stale_expected_semantics",
+      "nodeids": [
+        "tests.unit.test_open_search_runtime_boundary_unittest.OpenSearchRuntimeBoundaryTest::test_skip_live_probe_keeps_configured_endpoints_distinct_from_runtime_closure"
+      ],
+      "owner": "main/backend/scripts/check_open_search_runtime_boundary.py",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/search-provider-trace-artifacts/2026-05-22/search_provider_trace_contract.json"
+    },
+    {
+      "category": "missing_evidence",
+      "nodeids": [
+        "tests.unit.test_source_library_public_replay_a5_gate_unittest.SourceLibraryPublicReplayA5GateUnitTestCase::test_a5_gate_freezes_manifest_fixture_and_reviewed_public_replay",
+        "tests.unit.test_source_library_public_replay_a5_gate_unittest.SourceLibraryPublicReplayA5GateUnitTestCase::test_term_fallback_public_fixture_remains_relevance_review"
+      ],
+      "owner": "main/backend/scripts/check_source_library_public_replay_a5_gate.py",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/input.json"
+    },
+    {
+      "category": "test_fixture_defect",
+      "nodeids": [
+        "tests.unit.test_source_library_review_closure_batch_unittest.SourceLibraryReviewClosureBatchUnitTestCase::test_checker_validates_committed_artifact_topic_docs_and_non_closure_markers"
+      ],
+      "owner": "main/backend/tests/unit/test_source_library_review_closure_batch_unittest.py",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/source-library-review-closure-batch/2026-05-22/review_batch.json"
+    },
+    {
+      "category": "test_fixture_defect",
+      "nodeids": [
+        "tests.unit.test_source_library_review_closure_batch2_unittest.SourceLibraryReviewClosureBatch2UnitTestCase::test_checker_validates_committed_artifact_topic_docs_and_gap_register",
+        "tests.unit.test_source_library_review_closure_batch2_unittest.SourceLibraryReviewClosureBatch2UnitTestCase::test_expected_artifact_closes_second_fixture_batch_and_keeps_live_gaps_open"
+      ],
+      "owner": "main/backend/tests/unit/test_source_library_review_closure_batch2_unittest.py",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/source-library-review-closure-batch2/2026-05-22/review_batch2.json"
+    },
+    {
+      "category": "test_fixture_defect",
+      "nodeids": [
+        "tests.unit.test_source_library_review_closure_batch3_unittest.SourceLibraryReviewClosureBatch3UnitTestCase::test_checker_validates_committed_artifact_topic_docs_and_gap_register",
+        "tests.unit.test_source_library_review_closure_batch3_unittest.SourceLibraryReviewClosureBatch3UnitTestCase::test_expected_artifact_closes_third_fixture_batch_and_keeps_live_gaps_open"
+      ],
+      "owner": "main/backend/tests/unit/test_source_library_review_closure_batch3_unittest.py",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/source-library-review-closure-batch3/2026-05-22/review_batch3.json"
+    },
+    {
+      "category": "test_fixture_defect",
+      "nodeids": [
+        "tests.unit.test_source_library_review_closure_batch4_unittest.SourceLibraryReviewClosureBatch4UnitTestCase::test_checker_validates_committed_artifact_topic_docs_and_gap_register",
+        "tests.unit.test_source_library_review_closure_batch4_unittest.SourceLibraryReviewClosureBatch4UnitTestCase::test_expected_artifact_closes_fourth_fixture_batch_and_keeps_live_gaps_open"
+      ],
+      "owner": "main/backend/tests/unit/test_source_library_review_closure_batch4_unittest.py",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/source-library-review-closure-batch4/2026-05-22/review_batch4.json"
+    },
+    {
+      "category": "missing_evidence",
+      "nodeids": [
+        "tests.unit.test_wave10_vectorization_quality_gate_unittest.Wave10VectorizationQualityGateTest::test_gate_checks_provider_trace_modes_thresholds_and_fallback_reason"
+      ],
+      "owner": "ops/search-lab/scripts/wave10_vectorization_quality_gate.py",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/wave10-vectorization-quality-gate/2026-05-22/contract_summary.json"
+    },
+    {
+      "category": "missing_evidence",
+      "nodeids": [
+        "tests.unit.test_open_search_health_artifact_schema_readback_unittest.OpenSearchHealthArtifactSchemaReadbackTest::test_schema_readback_distinguishes_compose_config_from_stopped_connect_error",
+        "tests.unit.test_open_search_health_artifact_schema_readback_unittest.OpenSearchHealthArtifactSchemaReadbackTest::test_schema_readback_records_real_live_probe_response_without_closure",
+        "tests.unit.test_open_search_health_artifact_unittest.OpenSearchHealthArtifactTest::test_running_live_probe_remains_unsealed_and_explicit_only",
+        "tests.unit.test_open_search_health_artifact_unittest.OpenSearchHealthArtifactTest::test_stopped_services_record_connect_error_without_live_closure",
+        "tests.unit.test_open_search_runtime_boundary_unittest.OpenSearchRuntimeBoundaryTest::test_connect_error_is_reported_as_service_not_started_without_failing_boundary_gate",
+        "tests.unit.test_open_search_runtime_boundary_unittest.OpenSearchRuntimeBoundaryTest::test_live_query_success_remains_unsealed_and_explicit_only",
+        "tests.unit.test_wave12_provider_readiness_gate_unittest.Wave12ProviderReadinessGateTest::test_gate_reports_live_probe_status_fallbacks_and_unsupported_claims",
+        "tests.unit.test_wave12_provider_readiness_gate_unittest.Wave12ProviderReadinessGateTest::test_skip_live_probes_keeps_gate_passed_with_not_run_visibility"
+      ],
+      "owner": "main/backend/scripts/check_open_search_health_artifact.py",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/wave12-provider-readiness/2026-05-22/provider_readiness_summary.json"
+    },
+    {
+      "category": "missing_evidence",
+      "nodeids": [
+        "tests.unit.test_wave14_vectorization_provider_capability_unittest.Wave14VectorizationProviderCapabilityTest::test_gate_reports_local_capability_external_gap_and_no_closure_claim"
+      ],
+      "owner": "main/backend/scripts/check_wave14_vectorization_provider_capability.py",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/wave14-vectorization-provider-capability/2026-05-22"
+    },
+    {
+      "category": "missing_evidence",
+      "nodeids": [
+        "tests.unit.test_wave18_vectorization_hybrid_readback_unittest.Wave18VectorizationHybridReadbackTest::test_checker_proves_mode_identity_quality_trace_and_readback_without_live_closure"
+      ],
+      "owner": "ops/search-lab/scripts/wave18_vectorization_hybrid_readback.py",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/wave18-vectorization-hybrid-readback/2026-05-22/hybrid_readback_contract.json"
+    },
+    {
+      "category": "missing_evidence",
+      "nodeids": [
+        "tests.unit.test_wave19_vectorization_provider_manifest_readback_unittest.Wave19VectorizationProviderManifestReadbackTest::test_manifest_fails_if_source_trace_claims_live_provider_verification",
+        "tests.unit.test_wave19_vectorization_provider_manifest_readback_unittest.Wave19VectorizationProviderManifestReadbackTest::test_manifest_records_modes_fallback_trace_quality_and_no_live_closure",
+        "tests.unit.test_wave27_vectorization_closure_gate_unittest.Wave27VectorizationClosureGateTest::test_gate_fails_if_provider_manifest_claims_closure",
+        "tests.unit.test_wave27_vectorization_closure_gate_unittest.Wave27VectorizationClosureGateTest::test_gate_retains_all_three_topics_and_preserves_provider_external_boundary",
+        "tests.unit.test_wave29_oss_node_vector_manifest_replay_unittest.Wave29OssNodeVectorManifestReplayTest::test_gate_fails_if_manifest_mode_claims_live_provider",
+        "tests.unit.test_wave29_oss_node_vector_manifest_replay_unittest.Wave29OssNodeVectorManifestReplayTest::test_live_platform_probe_can_close_scheduler_tenant_ui_condition",
+        "tests.unit.test_wave29_oss_node_vector_manifest_replay_unittest.Wave29OssNodeVectorManifestReplayTest::test_node_manifest_replay_closes_repo_local_oss_node_blockers"
+      ],
+      "owner": "ops/search-lab/scripts/wave19_vectorization_provider_manifest_readback.py",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/wave19-vectorization-provider-manifest/2026-05-22/provider_manifest_readback.json"
+    },
+    {
+      "category": "missing_evidence",
+      "nodeids": [
+        "tests.unit.test_wave55_oss_node_search_quality_gate_unittest.Wave55OssNodeSearchQualityGateTest::test_gate_closes_repo_local_open_search_quality_and_reduces_semantic_scope"
+      ],
+      "owner": "ops/search-lab/scripts/wave55_oss_node_search_quality_gate.py",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/wave55-oss-node-search-quality-gate/2026-05-23"
+    },
+    {
+      "category": "missing_evidence",
+      "nodeids": [
+        "tests.unit.test_wave57_oss_node_public_corpus_semantic_relevance_gate_unittest.Wave57OssNodePublicCorpusSemanticRelevanceGateTest::test_gate_closes_target_local_public_corpus_provider_quality_route"
+      ],
+      "owner": "ops/search-lab/scripts/wave57_oss_node_public_corpus_semantic_relevance_gate.py",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/wave57-oss-node-public-corpus-semantic-relevance-gate/2026-05-23"
+    },
+    {
+      "category": "missing_evidence",
+      "nodeids": [
+        "tests.unit.test_wave57_production_vector_quality_gate_unittest.Wave57ProductionVectorQualityGateTest::test_gate_replays_production_like_corpus_and_closes_when_vector_store_is_available",
+        "tests.unit.test_wave57_production_vector_quality_gate_unittest.Wave57ProductionVectorQualityGateTest::test_require_vector_store_passes_in_optional_lancedb_environment"
+      ],
+      "owner": "ops/search-lab/scripts/wave57_production_vector_quality_gate.py",
+      "primary_input_path": "development/latest-dev-docs/automation-runs/wave57-production-vector-quality-gate/2026-05-23"
+    },
+    {
+      "category": "missing_evidence",
+      "nodeids": [
+        "tests.unit.test_ingest_canary_closure_readiness_unittest.IngestCanaryClosureReadinessTest::test_retains_current_dev_when_repo_local_blockers_remain",
+        "tests.unit.test_ingest_canary_closure_readiness_unittest.IngestCanaryClosureReadinessTest::test_write_output_round_trips_report_file"
+      ],
+      "owner": "main/backend/scripts/check_ingest_canary_closure_readiness.py",
+      "primary_input_path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED"
+    },
+    {
+      "category": "stale_expected_semantics",
+      "nodeids": [
+        "tests.unit.test_graph_typed_writing_consumer_status_boundary_unittest.GraphTypedWritingConsumerStatusBoundaryUnitTest::test_current_status_is_external_blocked_without_active_partial",
+        "tests.unit.test_graph_typed_writing_consumer_status_boundary_unittest.GraphTypedWritingConsumerStatusBoundaryUnitTest::test_legacy_status_terms_are_reported_as_legacy_only"
+      ],
+      "owner": "main/backend/scripts/check_graph_typed_writing_consumer_status_boundary.py",
+      "primary_input_path": "docs/development/development-plans/ARCHIVE_CLOSED"
+    },
+    {
+      "category": "source_defect",
+      "nodeids": [
+        "tests.unit.test_collect_runtime_process_fallback_unittest.CollectRuntimeProcessFallbackUnitTestCase::test_process_db_job_provider_fallback_consistent_for_info_and_logs"
+      ],
+      "owner": "main/backend/app/api/process.py",
+      "primary_input_path": "main/backend/app/api/process.py"
+    },
+    {
+      "category": "source_defect",
+      "nodeids": [
+        "tests.unit.test_source_library_search_governance_check_unittest.SourceLibrarySearchGovernanceCheckUnitTestCase::test_checker_preserves_public_replay_and_relevance_review_as_open_gaps",
+        "tests.unit.test_source_library_search_governance_check_unittest.SourceLibrarySearchGovernanceCheckUnitTestCase::test_governance_checker_keeps_mounting_and_capability_boundaries"
+      ],
+      "owner": "main/backend/scripts/check_source_library_search_governance.py",
+      "primary_input_path": "main/backend/app/services/source_library/resolver.py"
+    }
+  ],
+  "inventory_sha256": "ff96ab005b73a7c4889930292cd311ac87996a44e8fe654ee1d69978302967e2",
+  "schema_version": "mrw.stage1.residual-disposition.backend-failure-inventory.v1",
+  "source_execution": {
+    "junit_path": "/private/tmp/mrw-stage12-v5-backend-final.4e2HdA/backend-unit-final.xml",
+    "junit_sha256": "e07c7ae3322bfd3c77e18b47fefce67f82db8e0517640a81b6db22ac2272bb94",
+    "log_path": "/private/tmp/mrw-stage12-v5-backend-final.4e2HdA/backend-unit-final.log",
+    "log_sha256": "33d48a566619950f40125467c5a5a53f728b2bb76f9e28b44a5eb14894c10397"
+  }
+}

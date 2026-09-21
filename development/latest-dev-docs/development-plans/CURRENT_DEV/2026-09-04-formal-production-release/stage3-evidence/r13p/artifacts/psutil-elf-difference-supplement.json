@@ -1,0 +1,382 @@
+{
+  "assessment": {
+    "byte_difference_observation": "Each pair has a distinct ephemeral /tmp/pip-install-* source path in .debug_line_str and a distinct derived GNU build-id; full ELF hashes and wheel hashes differ.",
+    "reason": "The images remain non-bit-for-bit reproducible. Bounded runtime-section equality does not replace the contract requirement for a signed provenance plus complete runtime-equivalence exception, and r13p-bound signed provenance is absent.",
+    "result": "ROOT_CAUSE_BOUNDED",
+    "runtime_section_observation": "All inspected .text, .rodata, .data, unwind, dynamic symbol/string, and main DWARF sections match for each canonical/rebuild pair.",
+    "stage3_status": "REBUILD_REQUIRED",
+    "still_blocks_stage3": true
+  },
+  "authoritative": false,
+  "bounded_repair_package": {
+    "acceptance": [
+      "canonical and rebuild psutil wheel SHA256 values match",
+      "both psutil shared-object SHA256 values match for backend and migration-runner",
+      "backend and migration-runner image manifest digests match across clean builders",
+      "SBOM, provenance, scan, and role-specific runtime checks are regenerated for the successor candidate"
+    ],
+    "owner": "Stage1/2 repair owner",
+    "required_change": "Make the linux/arm64 psutil artifact deterministic before both role image builds: preferably consume one hash-pinned prebuilt wheel, or build one wheel in a deterministic fixed path with compiler debug/file prefix mapping and reuse that exact wheel. Do not strip or mutate the already-built Stage3 artifacts.",
+    "surface": "main/backend/Dockerfile:23 and main/backend/requirements.txt:31"
+  },
+  "candidate": {
+    "commit": "342d3b3c35ad987c47990da6ac550dfe936d4818",
+    "tree": "3f87e85dce02b312e445c657c238c11c6809850e"
+  },
+  "collection_limitations": [
+    "The r13o evidence lane previously observed a duplicate writer; archive content hashes and OCI validation are used as inputs, while build-log-to-archive attribution retains that limitation.",
+    "The ELF inspection reads existing images only and does not rebuild, strip sections, or alter candidate bytes."
+  ],
+  "package": {
+    "compiler_comment": "GCC: (Debian 14.2.0-19) 14.2.0",
+    "requirement": "psutil==5.9.8",
+    "source_observation": "pip downloaded psutil-5.9.8.tar.gz and independently built cp311-abi3-linux_aarch64 wheels in each no-cache build"
+  },
+  "roles": {
+    "backend": {
+      "binaries": {
+        "_psutil_linux.abi3.so": {
+          "canonical": {
+            "embedded_pip_build_path": "/tmp/pip-install-gc0yhwsm/psutil_8728701baa724c01b4c5e2e3d0c670ca",
+            "file_sha256": "5d558c495e00130f5353686ee7663d5652cd5fb08fdebf3379323d9a7be85fa6",
+            "gnu_build_id": "a06d8b70656452d546f3d89c12acab465a0b9e75",
+            "path": "/usr/local/lib/python3.11/site-packages/psutil/_psutil_linux.abi3.so",
+            "sections": {
+              ".data": "faa729256a91b62f4de698e79087cf950b4ebf7dae89472c2f93fe83a51e8212",
+              ".debug_abbrev": "dace5785b532a811b44474886d15b870e9c99ccf19af8d3faa2aa044980dde17",
+              ".debug_info": "5bdf86c1471482a7a9a7360a5cd2d201a4555c64609a863ee75f10b6c6b0c827",
+              ".debug_line": "3fb6cdf196c4521e114fa07141d8299e10a6f93cf3e74e9efeab9d457ffc7124",
+              ".debug_line_str": "63d0e5cce411c5bd04c2b64d7c2c2e60acf93a53026945975e954df867ffcc64",
+              ".debug_str": "46978aa25c014f84f443cd6cdc4b93507c01cb0f4c463461997c70b34ccbf7ca",
+              ".dynstr": "8ecb6a731c885338641b3e36d8fa1781cd8613644aeefbbb3ae986081da1ed1d",
+              ".dynsym": "54deb66db394881e6cb77e1d4bec9ae5956ca73498dc989e599b96823c4b1190",
+              ".eh_frame": "54685b54db240ddc079d6d70906245a5c6be200432467a2dcaefdf72073c9502",
+              ".eh_frame_hdr": "a6512d068d3cbbc4207b453500f45bfdafc05d4c64113b39196444c022b00839",
+              ".note.gnu.build-id": "b714c695e3669e735b6d8406d172a01430742f73625ed4626090bb14380480f9",
+              ".rodata": "1d24b0066a46dfb2ba2c0900d8376cc12d14ed0dcbd2c10510b3e8138fd27329",
+              ".strtab": null,
+              ".symtab": null,
+              ".text": "89dc39cf54673250ca619da3806df6005c1665f639f19dcb34481aa489a44878"
+            }
+          },
+          "classification": "EPHEMERAL_PIP_BUILD_PATH_IN_DWARF_AND_DERIVED_GNU_BUILD_ID",
+          "different_inspected_sections": [
+            ".debug_line_str",
+            ".note.gnu.build-id"
+          ],
+          "equal_inspected_sections": [
+            ".data",
+            ".debug_abbrev",
+            ".debug_info",
+            ".debug_line",
+            ".debug_str",
+            ".dynstr",
+            ".dynsym",
+            ".eh_frame",
+            ".eh_frame_hdr",
+            ".rodata",
+            ".text"
+          ],
+          "evidence_boundary": "Inspected runtime code/data/symbol/unwind sections match; .debug_line_str, embedded pip build path, and GNU build-id differ. No claim is made about sections not inspected by this bounded check.",
+          "full_file_equal": false,
+          "rebuild": {
+            "embedded_pip_build_path": "/tmp/pip-install-vl0fo49x/psutil_b2f093e48dc94b83a57bc79b18abdd34",
+            "file_sha256": "72194b1b2c6a02b4b0becbc131e25017bd124cdc84ed5ccf6cdde423ded82184",
+            "gnu_build_id": "8aab009d0a5fd755e2f16d2416db36a5e8e66d1c",
+            "path": "/usr/local/lib/python3.11/site-packages/psutil/_psutil_linux.abi3.so",
+            "sections": {
+              ".data": "faa729256a91b62f4de698e79087cf950b4ebf7dae89472c2f93fe83a51e8212",
+              ".debug_abbrev": "dace5785b532a811b44474886d15b870e9c99ccf19af8d3faa2aa044980dde17",
+              ".debug_info": "5bdf86c1471482a7a9a7360a5cd2d201a4555c64609a863ee75f10b6c6b0c827",
+              ".debug_line": "3fb6cdf196c4521e114fa07141d8299e10a6f93cf3e74e9efeab9d457ffc7124",
+              ".debug_line_str": "a4caebcdde4b5fe24591feab71384eaf31751214bbe08ee66e8c990807755772",
+              ".debug_str": "46978aa25c014f84f443cd6cdc4b93507c01cb0f4c463461997c70b34ccbf7ca",
+              ".dynstr": "8ecb6a731c885338641b3e36d8fa1781cd8613644aeefbbb3ae986081da1ed1d",
+              ".dynsym": "54deb66db394881e6cb77e1d4bec9ae5956ca73498dc989e599b96823c4b1190",
+              ".eh_frame": "54685b54db240ddc079d6d70906245a5c6be200432467a2dcaefdf72073c9502",
+              ".eh_frame_hdr": "a6512d068d3cbbc4207b453500f45bfdafc05d4c64113b39196444c022b00839",
+              ".note.gnu.build-id": "ccdb4da25de9c44d8bf58c717c66ef9fe34e1a37c0d2b9b647f63734156ef3f0",
+              ".rodata": "1d24b0066a46dfb2ba2c0900d8376cc12d14ed0dcbd2c10510b3e8138fd27329",
+              ".strtab": null,
+              ".symtab": null,
+              ".text": "89dc39cf54673250ca619da3806df6005c1665f639f19dcb34481aa489a44878"
+            }
+          }
+        },
+        "_psutil_posix.abi3.so": {
+          "canonical": {
+            "embedded_pip_build_path": "/tmp/pip-install-gc0yhwsm/psutil_8728701baa724c01b4c5e2e3d0c670ca",
+            "file_sha256": "2ece9af2f3622f304a503694b9ff8cffcaa2444815481dd44fcfc5e38f559694",
+            "gnu_build_id": "f215605a6267b2a6cc74fefc1487a4d09a2ec6dc",
+            "path": "/usr/local/lib/python3.11/site-packages/psutil/_psutil_posix.abi3.so",
+            "sections": {
+              ".data": "434784319e911d7665b1d83326f9ae9e04dc337b5baa33ae15f9a16c6bf58bb3",
+              ".debug_abbrev": "54eba640764df5387b09d1f8aa2c478995043a6da3cb8d6d27a678b8116bb902",
+              ".debug_info": "5859431b4a4ba03bc28a986cd4594085f4957dd858817d141b1c11db5d5b35a1",
+              ".debug_line": "4e4b25142251ad37dd5b2d2e6a71b7342e304ed8892052bc08cfbaa550596fbd",
+              ".debug_line_str": "cbb0d1f65afcc28f4c81aebf2eaccd42b512d493866cce2206f62bef5283a4cb",
+              ".debug_str": "b67a06d22fc247133ca6fbe456872ce8eb06334ad30c52342772962fa47170d2",
+              ".dynstr": "9e3937aa528204c6b8e126a52e482c1246be7a8f058ae6a7914a6e61e2e69bb2",
+              ".dynsym": "6ac36502569eb24de6ae51e6f2715ab39acc9b72b0626c7f5e8b702cfe50400f",
+              ".eh_frame": "eedfb31e388c1f26ad586fdd1d0416b67704f2828e5ca18ea5a6d8eacaed6228",
+              ".eh_frame_hdr": "82a98a0840600b2fe28cae7d2513adc095be2272271bbb12b6398f831588d53d",
+              ".note.gnu.build-id": "2a5146171df50ab44e0a31dd212546bb8552252fdc7d3587a885055858f9bc9a",
+              ".rodata": "dd4ed52c3c3bcb53521edfd07a08c07ed48b565c3772a176e50e69dab690b9e2",
+              ".strtab": null,
+              ".symtab": null,
+              ".text": "4ca929eb08f42ba0b7fd9be041068d7eb7d0f768fea3daf14e5b4a2183ab85c9"
+            }
+          },
+          "classification": "EPHEMERAL_PIP_BUILD_PATH_IN_DWARF_AND_DERIVED_GNU_BUILD_ID",
+          "different_inspected_sections": [
+            ".debug_line_str",
+            ".note.gnu.build-id"
+          ],
+          "equal_inspected_sections": [
+            ".data",
+            ".debug_abbrev",
+            ".debug_info",
+            ".debug_line",
+            ".debug_str",
+            ".dynstr",
+            ".dynsym",
+            ".eh_frame",
+            ".eh_frame_hdr",
+            ".rodata",
+            ".text"
+          ],
+          "evidence_boundary": "Inspected runtime code/data/symbol/unwind sections match; .debug_line_str, embedded pip build path, and GNU build-id differ. No claim is made about sections not inspected by this bounded check.",
+          "full_file_equal": false,
+          "rebuild": {
+            "embedded_pip_build_path": "/tmp/pip-install-vl0fo49x/psutil_b2f093e48dc94b83a57bc79b18abdd34",
+            "file_sha256": "b373eee17a82e89cff5d840d207b5261278669a10591ac4d5c13749b70df0b66",
+            "gnu_build_id": "3322a4e03696079e16fa243f0a8579f86a9b3465",
+            "path": "/usr/local/lib/python3.11/site-packages/psutil/_psutil_posix.abi3.so",
+            "sections": {
+              ".data": "434784319e911d7665b1d83326f9ae9e04dc337b5baa33ae15f9a16c6bf58bb3",
+              ".debug_abbrev": "54eba640764df5387b09d1f8aa2c478995043a6da3cb8d6d27a678b8116bb902",
+              ".debug_info": "5859431b4a4ba03bc28a986cd4594085f4957dd858817d141b1c11db5d5b35a1",
+              ".debug_line": "4e4b25142251ad37dd5b2d2e6a71b7342e304ed8892052bc08cfbaa550596fbd",
+              ".debug_line_str": "025a1d16fc74169e7f7467154b4625c3e39618585fba8592af82722b02be3446",
+              ".debug_str": "b67a06d22fc247133ca6fbe456872ce8eb06334ad30c52342772962fa47170d2",
+              ".dynstr": "9e3937aa528204c6b8e126a52e482c1246be7a8f058ae6a7914a6e61e2e69bb2",
+              ".dynsym": "6ac36502569eb24de6ae51e6f2715ab39acc9b72b0626c7f5e8b702cfe50400f",
+              ".eh_frame": "eedfb31e388c1f26ad586fdd1d0416b67704f2828e5ca18ea5a6d8eacaed6228",
+              ".eh_frame_hdr": "82a98a0840600b2fe28cae7d2513adc095be2272271bbb12b6398f831588d53d",
+              ".note.gnu.build-id": "b3cfac8d7b31b478c7ea7823c05f4ff63c552c507c1f9da9944ebf1dcea0fab0",
+              ".rodata": "dd4ed52c3c3bcb53521edfd07a08c07ed48b565c3772a176e50e69dab690b9e2",
+              ".strtab": null,
+              ".symtab": null,
+              ".text": "4ca929eb08f42ba0b7fd9be041068d7eb7d0f768fea3daf14e5b4a2183ab85c9"
+            }
+          }
+        }
+      },
+      "input_archives": {
+        "canonical": {
+          "inspection_exit_code": 0,
+          "load_exit_code": 0,
+          "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13o/artifacts/canonical/backend.oci.tar",
+          "sha256": "89d18f8e22399646306207867037fc5297ca732e10838b7a7e744a6ab20303df"
+        },
+        "rebuild": {
+          "inspection_exit_code": 0,
+          "load_exit_code": 0,
+          "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13o/artifacts/rebuild/backend.oci.tar",
+          "sha256": "aa2ba679edbc1ede9515ffbb5544b5a680ed7b62cd6aee6cabe27cd85cd49f45"
+        }
+      },
+      "psutil_wheel_build_log_observation": {
+        "canonical": {
+          "build_log_sha256": "de91e668c8e14b997db0d3cd46eb8dc45fb2b61a6ac7ccd55be5d8bcbef86b59",
+          "bytes": 289141,
+          "filename": "psutil-5.9.8-cp311-abi3-linux_aarch64.whl",
+          "found": true,
+          "sha256": "b9e7cf4ac09012b9e1b1a363424da6ff056c35f3beeda53ecfbcda6955bb72a7"
+        },
+        "rebuild": {
+          "build_log_sha256": "cfda353be893f510a140e1a75dc4170a7d98d8b31878a5ef893fb0a0c46cac94",
+          "bytes": 289150,
+          "filename": "psutil-5.9.8-cp311-abi3-linux_aarch64.whl",
+          "found": true,
+          "sha256": "c2b675ed182e300f81a12f8030d986fae00b89fe53f02dcb9cdc08ebd7df6434"
+        }
+      }
+    },
+    "migration-runner": {
+      "binaries": {
+        "_psutil_linux.abi3.so": {
+          "canonical": {
+            "embedded_pip_build_path": "/tmp/pip-install-fiqbg1hp/psutil_3b931628321d41de8a3dbcbc50c4407a",
+            "file_sha256": "fb5ea395d0cf0c37c6eabf8779d6d4cf9104ed997a6a19f0b456c42778738b5e",
+            "gnu_build_id": "1fe045cd5f6b1f563c27f0ea4f1c84881e2145c9",
+            "path": "/usr/local/lib/python3.11/site-packages/psutil/_psutil_linux.abi3.so",
+            "sections": {
+              ".data": "faa729256a91b62f4de698e79087cf950b4ebf7dae89472c2f93fe83a51e8212",
+              ".debug_abbrev": "dace5785b532a811b44474886d15b870e9c99ccf19af8d3faa2aa044980dde17",
+              ".debug_info": "5bdf86c1471482a7a9a7360a5cd2d201a4555c64609a863ee75f10b6c6b0c827",
+              ".debug_line": "3fb6cdf196c4521e114fa07141d8299e10a6f93cf3e74e9efeab9d457ffc7124",
+              ".debug_line_str": "70c71e12b505d5d714c807f36c557aa33a8bb69a5da84ce106164c96c9e9ec8b",
+              ".debug_str": "46978aa25c014f84f443cd6cdc4b93507c01cb0f4c463461997c70b34ccbf7ca",
+              ".dynstr": "8ecb6a731c885338641b3e36d8fa1781cd8613644aeefbbb3ae986081da1ed1d",
+              ".dynsym": "54deb66db394881e6cb77e1d4bec9ae5956ca73498dc989e599b96823c4b1190",
+              ".eh_frame": "54685b54db240ddc079d6d70906245a5c6be200432467a2dcaefdf72073c9502",
+              ".eh_frame_hdr": "a6512d068d3cbbc4207b453500f45bfdafc05d4c64113b39196444c022b00839",
+              ".note.gnu.build-id": "e9caa7191c6ed73bc8b14c5f1c8357e03227839b003a2c9b1318d4511f0f2045",
+              ".rodata": "1d24b0066a46dfb2ba2c0900d8376cc12d14ed0dcbd2c10510b3e8138fd27329",
+              ".strtab": null,
+              ".symtab": null,
+              ".text": "89dc39cf54673250ca619da3806df6005c1665f639f19dcb34481aa489a44878"
+            }
+          },
+          "classification": "EPHEMERAL_PIP_BUILD_PATH_IN_DWARF_AND_DERIVED_GNU_BUILD_ID",
+          "different_inspected_sections": [
+            ".debug_line_str",
+            ".note.gnu.build-id"
+          ],
+          "equal_inspected_sections": [
+            ".data",
+            ".debug_abbrev",
+            ".debug_info",
+            ".debug_line",
+            ".debug_str",
+            ".dynstr",
+            ".dynsym",
+            ".eh_frame",
+            ".eh_frame_hdr",
+            ".rodata",
+            ".text"
+          ],
+          "evidence_boundary": "Inspected runtime code/data/symbol/unwind sections match; .debug_line_str, embedded pip build path, and GNU build-id differ. No claim is made about sections not inspected by this bounded check.",
+          "full_file_equal": false,
+          "rebuild": {
+            "embedded_pip_build_path": "/tmp/pip-install-dst40lhe/psutil_f9b9c52bdec443b7afa08d16c80c7576",
+            "file_sha256": "cd12989d2e7e04e5e1ef5fa0062b2599fa9529533c4e9d5ca8251f52e78f2f02",
+            "gnu_build_id": "1f89f4041a8ee5718ad0d0691aa5d61f96270773",
+            "path": "/usr/local/lib/python3.11/site-packages/psutil/_psutil_linux.abi3.so",
+            "sections": {
+              ".data": "faa729256a91b62f4de698e79087cf950b4ebf7dae89472c2f93fe83a51e8212",
+              ".debug_abbrev": "dace5785b532a811b44474886d15b870e9c99ccf19af8d3faa2aa044980dde17",
+              ".debug_info": "5bdf86c1471482a7a9a7360a5cd2d201a4555c64609a863ee75f10b6c6b0c827",
+              ".debug_line": "3fb6cdf196c4521e114fa07141d8299e10a6f93cf3e74e9efeab9d457ffc7124",
+              ".debug_line_str": "a786134094cb1429045695e383665926ed3f07766f3f1b02bd5124db58646d11",
+              ".debug_str": "46978aa25c014f84f443cd6cdc4b93507c01cb0f4c463461997c70b34ccbf7ca",
+              ".dynstr": "8ecb6a731c885338641b3e36d8fa1781cd8613644aeefbbb3ae986081da1ed1d",
+              ".dynsym": "54deb66db394881e6cb77e1d4bec9ae5956ca73498dc989e599b96823c4b1190",
+              ".eh_frame": "54685b54db240ddc079d6d70906245a5c6be200432467a2dcaefdf72073c9502",
+              ".eh_frame_hdr": "a6512d068d3cbbc4207b453500f45bfdafc05d4c64113b39196444c022b00839",
+              ".note.gnu.build-id": "b3603aa428c4ab0d1bb328043cc7eccf9045227827b8de6556855a55e4eb2bed",
+              ".rodata": "1d24b0066a46dfb2ba2c0900d8376cc12d14ed0dcbd2c10510b3e8138fd27329",
+              ".strtab": null,
+              ".symtab": null,
+              ".text": "89dc39cf54673250ca619da3806df6005c1665f639f19dcb34481aa489a44878"
+            }
+          }
+        },
+        "_psutil_posix.abi3.so": {
+          "canonical": {
+            "embedded_pip_build_path": "/tmp/pip-install-fiqbg1hp/psutil_3b931628321d41de8a3dbcbc50c4407a",
+            "file_sha256": "d03315b3a385e00c7bf8f4c43bccc79dea8e6b1ed184145e439f239f505d451b",
+            "gnu_build_id": "1a69d80834c2f7b8b305765cebfa778bd67b5851",
+            "path": "/usr/local/lib/python3.11/site-packages/psutil/_psutil_posix.abi3.so",
+            "sections": {
+              ".data": "434784319e911d7665b1d83326f9ae9e04dc337b5baa33ae15f9a16c6bf58bb3",
+              ".debug_abbrev": "54eba640764df5387b09d1f8aa2c478995043a6da3cb8d6d27a678b8116bb902",
+              ".debug_info": "5859431b4a4ba03bc28a986cd4594085f4957dd858817d141b1c11db5d5b35a1",
+              ".debug_line": "4e4b25142251ad37dd5b2d2e6a71b7342e304ed8892052bc08cfbaa550596fbd",
+              ".debug_line_str": "314e1245fdccc3d805559bdc380626e0ade776b227511ba57d16712e2b1abc86",
+              ".debug_str": "b67a06d22fc247133ca6fbe456872ce8eb06334ad30c52342772962fa47170d2",
+              ".dynstr": "9e3937aa528204c6b8e126a52e482c1246be7a8f058ae6a7914a6e61e2e69bb2",
+              ".dynsym": "6ac36502569eb24de6ae51e6f2715ab39acc9b72b0626c7f5e8b702cfe50400f",
+              ".eh_frame": "eedfb31e388c1f26ad586fdd1d0416b67704f2828e5ca18ea5a6d8eacaed6228",
+              ".eh_frame_hdr": "82a98a0840600b2fe28cae7d2513adc095be2272271bbb12b6398f831588d53d",
+              ".note.gnu.build-id": "521ca1f598346ffd134fad34af5b35e884a58dd9bb094a9b7bc5556f6efcb3b2",
+              ".rodata": "dd4ed52c3c3bcb53521edfd07a08c07ed48b565c3772a176e50e69dab690b9e2",
+              ".strtab": null,
+              ".symtab": null,
+              ".text": "4ca929eb08f42ba0b7fd9be041068d7eb7d0f768fea3daf14e5b4a2183ab85c9"
+            }
+          },
+          "classification": "EPHEMERAL_PIP_BUILD_PATH_IN_DWARF_AND_DERIVED_GNU_BUILD_ID",
+          "different_inspected_sections": [
+            ".debug_line_str",
+            ".note.gnu.build-id"
+          ],
+          "equal_inspected_sections": [
+            ".data",
+            ".debug_abbrev",
+            ".debug_info",
+            ".debug_line",
+            ".debug_str",
+            ".dynstr",
+            ".dynsym",
+            ".eh_frame",
+            ".eh_frame_hdr",
+            ".rodata",
+            ".text"
+          ],
+          "evidence_boundary": "Inspected runtime code/data/symbol/unwind sections match; .debug_line_str, embedded pip build path, and GNU build-id differ. No claim is made about sections not inspected by this bounded check.",
+          "full_file_equal": false,
+          "rebuild": {
+            "embedded_pip_build_path": "/tmp/pip-install-dst40lhe/psutil_f9b9c52bdec443b7afa08d16c80c7576",
+            "file_sha256": "80c019178bc86a9c39aa5b0d197f99602551d1616d8c07f653756ec6eee38c35",
+            "gnu_build_id": "49b0b722b17743ed08a91e8492a5f10bd9137fc5",
+            "path": "/usr/local/lib/python3.11/site-packages/psutil/_psutil_posix.abi3.so",
+            "sections": {
+              ".data": "434784319e911d7665b1d83326f9ae9e04dc337b5baa33ae15f9a16c6bf58bb3",
+              ".debug_abbrev": "54eba640764df5387b09d1f8aa2c478995043a6da3cb8d6d27a678b8116bb902",
+              ".debug_info": "5859431b4a4ba03bc28a986cd4594085f4957dd858817d141b1c11db5d5b35a1",
+              ".debug_line": "4e4b25142251ad37dd5b2d2e6a71b7342e304ed8892052bc08cfbaa550596fbd",
+              ".debug_line_str": "086389015af4cd92e653f9c3e035e063eb1f935537448361f1d6986832e85a2f",
+              ".debug_str": "b67a06d22fc247133ca6fbe456872ce8eb06334ad30c52342772962fa47170d2",
+              ".dynstr": "9e3937aa528204c6b8e126a52e482c1246be7a8f058ae6a7914a6e61e2e69bb2",
+              ".dynsym": "6ac36502569eb24de6ae51e6f2715ab39acc9b72b0626c7f5e8b702cfe50400f",
+              ".eh_frame": "eedfb31e388c1f26ad586fdd1d0416b67704f2828e5ca18ea5a6d8eacaed6228",
+              ".eh_frame_hdr": "82a98a0840600b2fe28cae7d2513adc095be2272271bbb12b6398f831588d53d",
+              ".note.gnu.build-id": "11c30b2e25fb1fcf14730d8786282a0444462c4c3265179cc0cec9dc16d20b5a",
+              ".rodata": "dd4ed52c3c3bcb53521edfd07a08c07ed48b565c3772a176e50e69dab690b9e2",
+              ".strtab": null,
+              ".symtab": null,
+              ".text": "4ca929eb08f42ba0b7fd9be041068d7eb7d0f768fea3daf14e5b4a2183ab85c9"
+            }
+          }
+        }
+      },
+      "input_archives": {
+        "canonical": {
+          "inspection_exit_code": 0,
+          "load_exit_code": 0,
+          "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13o/artifacts/canonical/migration-runner.oci.tar",
+          "sha256": "2c94ffbca65c6f4492d1691f56924c1de19f71f2ef162ba07cf982f1930282a8"
+        },
+        "rebuild": {
+          "inspection_exit_code": 0,
+          "load_exit_code": 0,
+          "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13o/artifacts/rebuild/migration-runner.oci.tar",
+          "sha256": "5771697fd4dd65ac1b372352b694af1c0c22c2a284aff06fef27fec19de946b1"
+        }
+      },
+      "psutil_wheel_build_log_observation": {
+        "canonical": {
+          "build_log_sha256": "662ac25b685281f4843d47ee50e879881c93a3593d3a3282bdbeccc4594e77a2",
+          "bytes": 289146,
+          "filename": "psutil-5.9.8-cp311-abi3-linux_aarch64.whl",
+          "found": true,
+          "sha256": "2b0dee7b1013deedcf06f2811b97ded02046dfd8db4603bcdd894663dd65d11e"
+        },
+        "rebuild": {
+          "build_log_sha256": "b55f86b689787691aa4cef08a90a49dfcbb213f663035b4ce3b16169739368d1",
+          "bytes": 289140,
+          "filename": "psutil-5.9.8-cp311-abi3-linux_aarch64.whl",
+          "found": true,
+          "sha256": "20bde3ee11799745646f9148b390ee3360404ad42c7f75a6b775020f5df4a1d2"
+        }
+      }
+    }
+  },
+  "schema": "mrw.stage3.psutil-elf-difference-supplement.r13p.v1",
+  "source_artifact_candidate": {
+    "commit": "3669d4ddc19fb722058976b4e1f05e99eccfe96e",
+    "reuse_basis": "main/backend and src Git trees are byte-identical between r13o and r13p"
+  }
+}

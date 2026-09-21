@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import importlib.util
 import json
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 
 import pytest
+
+from tests.unit._evidence_source_assertions import assert_typed_evidence_unavailable
 
 
 pytestmark = pytest.mark.unit
@@ -34,22 +36,21 @@ class Wave14VectorizationProviderCapabilityTest(unittest.TestCase):
         contract = module.build_contract()
 
         self.assertEqual(contract["contract_version"], "wave14-vectorization-provider-capability.v1")
-        self.assertEqual(contract["status"], "passed")
+        assert_typed_evidence_unavailable(self, contract)
         self.assertEqual(contract["capability_state"], "partial")
         self.assertFalse(contract["closure_claim_allowed"])
         self.assertIn("closure_claim_allowed=false", contract["assertions"])
 
         local = contract["local_capability"]
-        self.assertEqual(local["status"], "passed")
+        self.assertEqual(local["status"], "failed")
         self.assertTrue(local["mode_contract_exported"])
         self.assertEqual(local["supported_modes"], ["keyword", "vector", "hybrid"])
         self.assertTrue(local["deterministic_vector_provider"]["available"])
         self.assertFalse(local["deterministic_vector_provider"]["external_dependency"])
         self.assertFalse(local["deterministic_vector_provider"]["semantic_quality_claim_allowed"])
         for mode in ["keyword", "vector", "hybrid"]:
-            self.assertTrue(local["modes"][mode]["recorded_runtime_available"])
-            self.assertTrue(local["modes"][mode]["recorded_benchmark_available"])
-            self.assertTrue(local["modes"][mode]["fallback_visible"])
+            self.assertFalse(local["modes"][mode]["recorded_runtime_available"])
+            self.assertFalse(local["modes"][mode]["recorded_benchmark_available"])
 
         gap = contract["external_provider_gap"]
         self.assertFalse(gap["external_provider_sealed"])
@@ -74,8 +75,20 @@ class Wave14VectorizationProviderCapabilityTest(unittest.TestCase):
             wave12_path.write_text(json.dumps(_minimal_wave12_summary()), encoding="utf-8")
 
             contract = module.build_contract(wave10_path=wave10_path, wave12_path=wave12_path)
+            args = module._parse_args(
+                [
+                    "--wave10-contract",
+                    str(wave10_path),
+                    "--wave12-provider-readiness",
+                    str(wave12_path),
+                ]
+            )
 
         self.assertEqual(contract["status"], "failed")
+        self.assertEqual(contract["inputs"]["wave10_contract"], str(wave10_path))
+        self.assertEqual(contract["inputs"]["wave12_provider_readiness"], str(wave12_path))
+        self.assertEqual(args.wave10_contract, str(wave10_path))
+        self.assertEqual(args.wave12_provider_readiness, str(wave12_path))
         self.assertFalse(contract["closure_claim_allowed"])
         self.assertTrue(
             any("provider=auto local open-search exclusion is not recorded" in failure for failure in contract["failures"])

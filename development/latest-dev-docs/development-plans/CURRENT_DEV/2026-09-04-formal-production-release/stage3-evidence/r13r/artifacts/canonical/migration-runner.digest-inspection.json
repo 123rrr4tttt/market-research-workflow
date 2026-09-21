@@ -1,0 +1,58 @@
+{
+  "all_referenced_blobs_validated": true,
+  "archive_bytes": 308203008,
+  "archive_sha256": "ca71f9fd409754aa7d10631bb6af87b0e97a89e218c75bb451528952d8fd3348",
+  "attestation_manifest_count": 1,
+  "image_config_digest": "sha256:cd7008d1ba46b1232088d077ff52daa31406a87c8414938a11dc5cd3834006d2",
+  "image_layer_digests": [
+    "sha256:6310eb16bf4251731feab01e8f633bf5e2d75a657ccad97f420b1f83cce457be",
+    "sha256:3678bb828654fcc3752f7a5eb63c5accfa00c97047252f25405285550d74a3fd",
+    "sha256:db840d086b65cf73e0feea3bd0cf11063818114e466846ae3f2b2fb1a8c2b143",
+    "sha256:f9efa1b83d065a7c5a3041582875b75d63c4ab3d4413514de8e413b51f90e91a",
+    "sha256:b67246d5d21a1e5208d87db10a035e60592ce32fc1bd322536cd6248ad3f3ea1",
+    "sha256:80358df27fe38103b756d0846fff11d094b3698db5d2929e496e10ea484894d3",
+    "sha256:8f1652a7c760aea3f19094d7ed22d3bb20fe1a316835ebc83d4e0c44ad84ccd6",
+    "sha256:356ceff5abed824fd3cb45754737f45e7b6a273774bb8f0aeb24df2ab0a52a91",
+    "sha256:5c409d2faca9ec92d7c6c8d8a7b8c2e70b944f3e0d3e9cf75a4f88acd983ef7f",
+    "sha256:a2cbc81ce7adb71654afa83fc14b1448a4598e78a670c58bc0bf01328c1de204",
+    "sha256:253c7c6696d760c59066ee96b4cacce227fa0843e49cf7018453016436f64e6f",
+    "sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1",
+    "sha256:a0afbf42b8618bb4e80a16b3fdc7969883e9fbe5c90857d66597fd11406b517e",
+    "sha256:800071c1f95361e733e105ec6a73c2a9f497357df504bc11f6120edd6810ec74",
+    "sha256:14cb374d157155933b3d151fd4f7e07aadcf81cf046e10feb19397a48ea49574"
+  ],
+  "image_manifest_digest": "sha256:727ab5d23c89119fae6872882f1458c30f09467c45d207d29b335589270a179d",
+  "oci_root_digest": "sha256:61de723b315ef8d5ad045aad3d0beba0a09eb7c64d27b78d7cf5644e1aec64aa",
+  "phase": "canonical",
+  "platform": "linux/amd64",
+  "provenance_sha256": "611c9ae07bfe241ad715c0a9c6c05eb3ba4a9abdc3230709a202b1551c539265",
+  "role": "migration-runner",
+  "runtime_config": {
+    "Cmd": [
+      "upgrade",
+      "head"
+    ],
+    "Entrypoint": [
+      "alembic"
+    ],
+    "Env": [
+      "PATH=/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+      "LANG=C.UTF-8",
+      "GPG_KEY=A035C8C19219BA821ECEA86B64E628F8D684696D",
+      "PYTHON_VERSION=3.11.16",
+      "PYTHON_SHA256=91bcdebfdde239a003ae93738a7fce0f9230fee5c4bc2b86f6e6e8c6f98aabe8",
+      "PYTHONDONTWRITEBYTECODE=1",
+      "PYTHONUNBUFFERED=1",
+      "PIP_NO_CACHE_DIR=1",
+      "PYTHONPATH=/opt/mrw/src",
+      "MRW_CONTAINER_ROLE=migration-runner"
+    ],
+    "ExposedPorts": null,
+    "Healthcheck": null,
+    "User": null,
+    "WorkingDir": "/app"
+  },
+  "sbom_sha256": "aeb741321c52d6e94eb541356792a7557df629e560c444e7ed5de430d470ebdf",
+  "slsa_provenance_count": 1,
+  "spdx_sbom_count": 1
+}

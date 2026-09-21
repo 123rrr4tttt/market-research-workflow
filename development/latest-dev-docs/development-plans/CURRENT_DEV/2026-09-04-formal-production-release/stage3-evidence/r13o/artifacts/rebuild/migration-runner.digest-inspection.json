@@ -1,0 +1,26 @@
+{
+  "archive_bytes": 292763648,
+  "archive_sha256": "5771697fd4dd65ac1b372352b694af1c0c22c2a284aff06fef27fec19de946b1",
+  "artifact_digest": "sha256:ec9ae4788f9e1a2064064c7de82f2c1e098a20179d757166edf0a99f0a5958d9",
+  "attestation_manifest_count": 0,
+  "image_config_digest": "sha256:2016223255b18cd1a3f639f8df0cfd0a6fa7044ea8098d36ef1b22edf5c6ceb3",
+  "image_layer_digests": [
+    "sha256:bf7af0229701decd1b9f42143504fc8f69e5664c37e57001d198e731e4f86c2e",
+    "sha256:d79bc110ec9cd1a4d8c7d0822d6ef87d25f2ca15e7fbb97e7b5f4809df5cd9bd",
+    "sha256:0fb0508c44a5ab3fb6553d7adcbc772fa40c2ffcdaf40b2521e5743522800d9b",
+    "sha256:3ff159de35c260cb2f2393a6e8dbecb37fa108e25cae872c2b3e8e967dd4ecb4",
+    "sha256:b67246d5d21a1e5208d87db10a035e60592ce32fc1bd322536cd6248ad3f3ea1",
+    "sha256:13262e8c7d5c98b641d906ac11da3420330889c40c3f0d8642c9ed64e4adf18b",
+    "sha256:c1e4c8bdb4f8eedc956a6b9a09688a0da4a9e0f604aa772337aa58a330ebb16a",
+    "sha256:c7bd848e3fcbe6013fd7ab244689f96f367be56a548b8815eb3f3ea0ec744741",
+    "sha256:b422695fcdf4e78da2c2193c55cd2c53ac888285042f75ebec1bded56aa1cac5",
+    "sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1",
+    "sha256:931ef6ec54589ff00ba8803be40877dffb5223c5432cf1a7cd59a4f7f66ef46b",
+    "sha256:74f25166e74accabb89e946bc075a703a982ba9f41ab4a9012928a95c034a99d",
+    "sha256:724044aab3e2a8704313944af6be4403781a841c5eef47f155b56e2afba85347"
+  ],
+  "oci_root_digest": "sha256:ec9ae4788f9e1a2064064c7de82f2c1e098a20179d757166edf0a99f0a5958d9",
+  "phase": "rebuild",
+  "platform": "linux/arm64",
+  "role": "migration-runner"
+}

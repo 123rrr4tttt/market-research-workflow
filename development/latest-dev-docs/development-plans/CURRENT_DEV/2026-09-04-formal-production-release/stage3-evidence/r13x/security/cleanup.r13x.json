@@ -1,0 +1,10 @@
+{
+  "authoritative": false,
+  "candidate_clean_after_cleanup": true,
+  "exists_after_cleanup": false,
+  "generated_at_utc": "2026-09-12T16:09:08.584158Z",
+  "removed": true,
+  "schema_version": "mrw.stage3.security-task-cleanup.v1",
+  "status": "PASS",
+  "task_owned_path": "/private/tmp/mrw-r13x-security-fIVnzM"
+}

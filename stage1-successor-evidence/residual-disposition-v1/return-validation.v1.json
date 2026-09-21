@@ -1,0 +1,17 @@
+{
+  "artifact_count": 18,
+  "authoritative": false,
+  "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+  "backend_failure_nodeids": 55,
+  "backend_failure_nodeids_unique": true,
+  "changed_path_count": 105,
+  "crawler_source_dependent_nodeids": 26,
+  "crawler_source_unique_paths": 68,
+  "errors": [],
+  "opensearch_vector_dependent_nodeids": 24,
+  "opensearch_vector_unique_paths": 19,
+  "return_path": "stage1-successor-evidence/residual-disposition-v1/return.v1.json",
+  "return_sha256": "7757a5504213aea895b35eb39acbf3ec3d1ceeddbc524d34aebb94c8a7990b1b",
+  "schema_version": "mrw.stage1.contract12.return-validation.v1",
+  "status": "PASS"
+}

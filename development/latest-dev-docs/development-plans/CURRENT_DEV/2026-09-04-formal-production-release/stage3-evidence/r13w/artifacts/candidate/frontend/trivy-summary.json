@@ -1,0 +1,30 @@
+{
+  "bound_artifact_digest": "sha256:a5b09b80fde1d2bbeb31c54137292e4a4bca7e2cf1f665b858f2d68a05c54e5c",
+  "counts": {
+    "CRITICAL": 0,
+    "HIGH": 0
+  },
+  "exit_code": 0,
+  "input": "layouts/frontend",
+  "report_identity": {
+    "artifact_name": "/work/layouts/frontend",
+    "artifact_type": "container_image",
+    "matches_layout": true
+  },
+  "report_sha256": "89651cc1d2158e0a4cc0f6aac4ec7baf869f4b98c4e31d81abda53848b6c8d7c",
+  "role": "frontend",
+  "scanner": "aquasec/trivy:0.67.2",
+  "status": "PASS",
+  "threshold": {
+    "exit_code": 1,
+    "ignore_unfixed": false,
+    "severity": [
+      "HIGH",
+      "CRITICAL"
+    ],
+    "vulnerability_types": [
+      "os",
+      "library"
+    ]
+  }
+}

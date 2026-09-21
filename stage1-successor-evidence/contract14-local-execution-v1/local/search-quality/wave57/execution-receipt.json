@@ -1,0 +1,39 @@
+{
+  "claim_ids": ["claim-015"],
+  "contract": "14_stage1-local-evidence-execution-contract.v1",
+  "generator": {
+    "path": "ops/search-lab/scripts/wave57_oss_node_public_corpus_semantic_relevance_gate.py",
+    "sha256": "48346e3ff952910dede974706f0bd9b779c35f13ca0967538eaea26a0a8cd0b9",
+    "effect_boundary": "read-only checked-in public OSS excerpts plus in-process hashing embeddings; explicit JSON/README writes; no network/DNS/provider/container/service/user DB/model download"
+  },
+  "wrapper": {
+    "path": "stage1-successor-evidence/contract14-local-execution-v1/local/search-quality/run_search_quality_generators.py",
+    "sha256": "e7bdd220cbae9fea603912e5ea7dcb3b9400941028f98806ea2b64d63be8b33f"
+  },
+  "command": "PYTHONPATH=main/backend:src main/backend/.venv311/bin/python stage1-successor-evidence/contract14-local-execution-v1/local/search-quality/run_search_quality_generators.py --stage wave57 --out-dir /Users/wangyiliang/market-research-workflow/stage1-successor-evidence/contract14-local-execution-v1/local/search-quality/wave57 --wave55-path /Users/wangyiliang/market-research-workflow/stage1-successor-evidence/contract14-local-execution-v1/local/search-quality/wave55/oss_node_search_quality_gate.json",
+  "options": {"stage": "wave57", "out_dir": "local/search-quality/wave57", "wave55_path": "local/search-quality/wave55/oss_node_search_quality_gate.json", "network_guard": "socket/DNS denied", "corpus_mode": "checked-in excerpts"},
+  "exit_status": 0,
+  "raw_output": {
+    "stdout": {"path": "local/search-quality/wave57.stdout", "sha256": "b3c9a209b0308a99c99a2738dcafbfc32f4517e5864c462472fa2ede27143b59"},
+    "stderr": {"path": "local/search-quality/wave57.stderr", "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}
+  },
+  "inputs": [
+    {"path": "local/search-quality/wave55/oss_node_search_quality_gate.json", "sha256": "c53998e2379e6cef9fe88360d9e6994df56f81655d66c1698fa9968400cfbd18"},
+    {"path": "reference-pool/oss/INDEX.md", "sha256": "08e4751bddc713fa0dd9e313460e9a5160f2d63201c0a673cf8fa3f19eaed15c"},
+    {"path": "reference-pool/oss/dify/README.md", "sha256": "1fba9281244f6942ba69c9477f4c319ca93d349a786a2304c3c91cde88d6c322"},
+    {"path": "reference-pool/oss/n8n/README.md", "sha256": "7badee20e173d729af664f5e0bebe116c9d9a109e7c57321dcad87d7275de1ff"},
+    {"path": "reference-pool/oss/langflow/README.md", "sha256": "b3b51e72e0ad167b21630ac70a8e8473b71f459d2dd69ad8866597f24dfae8d4"},
+    {"path": "reference-pool/oss/outline/README.md", "sha256": "aad57eef765c5571ac0b5b22fba6b992c9c58bf369acc3d475a26e16eae5d2f3"},
+    {"path": "reference-pool/oss/silverbullet-ai/README.md", "sha256": "5cbe086fc1c8a29028369cf52bbb04795375cbc98280baa79038720bb77baca9"},
+    {"path": "reference-pool/oss/agent-cases/langgraph/README.md", "sha256": "d9380e54d8ad8f6b8e1ddc685c62686feaf7615604ae75fec46dcb2df35f70a6"},
+    {"path": "reference-pool/oss/temporal/README.md", "sha256": "269838d3de5da90d4c2c0b45bf7fc745b384a5a05c0932582e923638e8994189"}
+  ],
+  "output": {"path": "local/search-quality/wave57/oss_node_public_corpus_semantic_relevance_gate.json", "sha256": "555b4381c7ee529c9865ea4161775dcfad493c8927b294cc1664a01af61fa476", "status": "passed"},
+  "input_anchors": [
+    ["docs/development/development-plans/ARCHIVE_CLOSED/2026-03-05-oss-node-platform-io-plan/INDEX.md", "b1377fd42a6b049428b941a60de7f3472ac4d451e3e8ad9e394d1c9ccb19b00d"],
+    ["docs/development/development-plans/ARCHIVE_CLOSED/2026-03-05-oss-node-platform-io-plan/11_wave57-oss-node-public-corpus-semantic-relevance-2026-05-23.md", "9f7cea64c2392e92d3421347cde24cdf0454889ee99ebc093f787036e63fdebf"]
+  ],
+  "scope": "target_local_public_oss_corpus_semantic_relevance_no_network_no_live_container; seven checked-in excerpts only",
+  "dependent_nodeids": ["tests.unit.test_wave57_oss_node_public_corpus_semantic_relevance_gate_unittest.Wave57OssNodePublicCorpusSemanticRelevanceGateTest::test_gate_closes_target_local_public_corpus_provider_quality_route"],
+  "authority_ceiling": "authoritative=false; bounded checked-in corpus only; no generic public-web/live provider/production traffic/release authority; PRODUCTION_RELEASE_NOT_AUTHORIZED; no deploy/canary/cutover/authority transfer/push/remote mutation"
+}

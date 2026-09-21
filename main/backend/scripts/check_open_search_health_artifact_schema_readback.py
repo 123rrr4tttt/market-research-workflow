@@ -12,7 +12,7 @@ import hashlib
 import json
 from pathlib import Path
 import sys
-from typing import Any
+from typing import Annotated, Any
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -28,6 +28,10 @@ from scripts.check_open_search_health_artifact import (  # noqa: E402
     _first_existing_path,
     display_path,
     load_json,
+)
+from scripts.evidence_source_contract import (  # noqa: E402
+    apply_evidence_source_contract,
+    evidence_source,
 )
 
 
@@ -263,7 +267,10 @@ def build_schema_readback(
     *,
     source_path: Path | None = None,
     load_failures: list[str] | None = None,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=input.health_artifact witness=test:test_open_search_schema_readback_authority_metadata",
+]:
     failures = list(load_failures or [])
     if not isinstance(artifact, dict):
         artifact = {}
@@ -360,7 +367,20 @@ def build_schema_readback(
         "topic_doc": display_path(REPO_ROOT / TOPIC_DOC),
         "failures": failures,
     }
-    return readback
+    sources = list(artifact.get("evidence_sources") or [])
+    if source_path is not None:
+        sources.append(
+            evidence_source(
+                _resolve_repo_path(source_path),
+                repo_root=REPO_ROOT,
+                label="wave18_open_search_health_artifact",
+            )
+        )
+    return apply_evidence_source_contract(
+        readback,
+        sources,
+        claim_fields=("provider_auto_promotion_allowed",),
+    )
 
 
 def _resolve_repo_path(path: Path) -> Path:

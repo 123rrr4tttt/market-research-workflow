@@ -1,0 +1,47 @@
+{
+  "schema": "mrw.functorial.representation_census.v1",
+  "status": "ACTIVE_MUTABLE_CENSUS",
+  "surfaces": [
+    {
+      "surface": "successor_runtime C7 typed movement",
+      "path": "main/backend/app/successor_runtime/capabilities/ingest_c7_movements.py",
+      "classification": "CANONICAL_FOR_LOCAL_C7_MOVEMENT",
+      "authority": "LOCAL_ONLY",
+      "notes": "Production canonical write, live provider, external delivery, cutover, and authority transfer remain false."
+    },
+    {
+      "surface": "kit C7 semantic registration",
+      "path": "src/mrw_functorial_kit/core/c7_semantics.py",
+      "classification": "PROJECTION",
+      "authority": "GOVERNANCE_ONLY",
+      "bindings": [
+        "main/backend/app/successor_runtime/capabilities/ingest_c7_movements.py",
+        "registries/vocabularies.json",
+        "registries/failures.json",
+        "registries/ports.json"
+      ],
+      "notes": "Registry values must match the canonical runtime constants and existing witness tests."
+    },
+    {
+      "surface": "agent-core functorial catalog",
+      "path": "main/backend/app/services/agent_core/functorial",
+      "classification": "PROJECTION_ONLY",
+      "authority": "NONE",
+      "notes": "Not a canonical successor authority; S2 repair is required before lawful expansion."
+    },
+    {
+      "surface": "successor semantic movement evidence",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence",
+      "classification": "IMMUTABLE_EVIDENCE",
+      "authority": "EVIDENCE_ONLY",
+      "notes": "Historical evidence does not authorize production or live completion."
+    },
+    {
+      "surface": "adapter boundary map",
+      "path": "docs/governance/adapter-boundary-map.v1.json",
+      "classification": "MUTABLE_GOVERNANCE_MAP",
+      "authority": "EVIDENCE_ONLY",
+      "notes": "Tracks real core-to-adapter boundaries separately from scanner topology noise."
+    }
+  ]
+}

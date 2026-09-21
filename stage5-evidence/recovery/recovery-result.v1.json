@@ -1,0 +1,134 @@
+{
+  "schema": "mrw.stage5.recovery-drill.v1",
+  "authoritative": false,
+  "scope": "LOCAL_STAGE5_RECOVERY_ONLY / NOT_AUTHORITY / RELEASE_DEFERRED",
+  "status": "PASS_LOCAL_RECOVERY_DRILL_NOT_AUTHORITY",
+  "source": {
+    "container": "mrw-stage5-recovery-source",
+    "database": "mrw_stage5",
+    "seed_effect": "Stage4 C9 local projection effect, generation 1",
+    "counts": {
+      "scope": 1,
+      "values": 12,
+      "receipts": 6,
+      "projection_offsets": 2,
+      "runtime_events": 2,
+      "runtime_runs": 1,
+      "runtime_effect_attempts": 0,
+      "runtime_idempotency": 0
+    },
+    "receipt_boundary": {
+      "local_receipts": 6,
+      "external_receipts": 0,
+      "external_effect_attempts": 0,
+      "external_provider_calls": "NOT_CALLED / DECLARED_LOSS_NO_CALL"
+    }
+  },
+  "backup": {
+    "format": "pg_dump custom",
+    "artifact": "stage5-evidence/recovery/artifacts/mrw_stage5_source.dump",
+    "exit_code": 0,
+    "sha256": "3c104b2739584cc08f691631d5d4d3e9c4693e7875b93fdb9c0fa306dc6b0f5d",
+    "timed_artifact": "stage5-evidence/recovery/artifacts/mrw_stage5_timed2.dump",
+    "timed_sha256": "2c1cbbd9fbb94b422bc1588e9347a6a1a34d3a1c92d5500b9124e90d209de2f8",
+    "measured_backup_elapsed_ms": 147
+  },
+  "restore": {
+    "container": "mrw-stage5-recovery-restore",
+    "database": "mrw_stage5_restore",
+    "pg_restore_exit_code": 0,
+    "alembic_head": "20260905_000001",
+    "counts_equal_source": true,
+    "ordered_row_json_sha256_equal": {
+      "scope": true,
+      "values": true,
+      "receipts": true
+    },
+    "row_digests": {
+      "scope": "3782e79261abb9626da278415ba3fd2f81a2a07d5d7068b79b0f5a3a2f8e0c5f",
+      "values": "f4d4498a3319460f45e7fde554e8ba7e7e8592707ee7fdbc0851d54d36b76875",
+      "receipts": "02d6bb7b54a07b131209e80b9fae47e995977ce6479c33fca9e692600d53277a"
+    },
+    "measured_restore_elapsed_ms": 577,
+    "measured_restore_plus_readback_elapsed_ms": 699,
+    "readback_counts": {
+      "values": 12,
+      "receipts": 6,
+      "projection_offsets": 2
+    },
+    "rpo": {
+      "observed_loss": "0 rows across scope, successor_values and successor_receipts",
+      "latest_receipt_time_at_backup": "2026-09-13 09:22:37.443011+00"
+    }
+  },
+  "migration_failure_recovery": {
+    "container": "mrw-stage5-recovery-migration",
+    "database": "mrw_stage5_migration",
+    "path": "20260830_000001 -> 20260831_000002 -> 20260905_000001",
+    "downgrade_exit_code": 0,
+    "failure_injection": "pre-created public.runtime_run_projections to conflict with 20260831_000002",
+    "upgrade_with_conflict_exit_code": 1,
+    "failure_class": "DuplicateTable",
+    "transaction_preserved_parent_revisions": ["20260525_000001", "20260830_000001"],
+    "forward_fix": "dropped task-local conflicting table",
+    "forward_fix_upgrade_exit_code": 0,
+    "final_revision": "20260905_000001",
+    "data_preserved": {
+      "values": 12,
+      "receipts": 6,
+      "projection_offsets": 2,
+      "effect_attempts": 0,
+      "idempotency": 0
+    }
+  },
+  "receipt_gated_runtime_recovery": {
+    "status": "PASS_LOCAL_IN_PROCESS_NOT_AUTHORITY",
+    "result": "stage5-evidence/recovery/receipt-gated-runtime-recovery-result.v1.json",
+    "probe_log": "stage5-evidence/recovery/logs/28-receipt-gated-runtime-recovery.log",
+    "trigger": "HTTP 403 domain rejection -> rollback",
+    "recovery": "healthy runtime observations + controller-generated task-local contract receipt -> alert recovered / continue",
+    "local_fixture_receipt": "rejected as receipt_scope_not_production",
+    "external_provider_calls": 0,
+    "authority": false
+  },
+  "evidence": {
+    "backup_log": "stage5-evidence/recovery/logs/01-pg-dump.log",
+    "restore_log": "stage5-evidence/recovery/logs/04-pg-restore.log",
+    "row_digests": "stage5-evidence/recovery/logs/08-row-digests.txt",
+    "boundary_logs": [
+      "stage5-evidence/recovery/logs/09-source-boundary.txt",
+      "stage5-evidence/recovery/logs/09-restore-boundary.txt"
+    ],
+    "migration_failure_log": "stage5-evidence/recovery/logs/17-migration-failure.log",
+    "migration_forward_fix_log": "stage5-evidence/recovery/logs/21-forward-fix-upgrade.log",
+    "timing_log": "stage5-evidence/recovery/logs/25-rpo-rto-timing-fixed.log"
+  },
+  "limitations": [
+    "Synthetic Stage4 C9 local data only; no production data or provider call was used.",
+    "RPO/RTO are single local measurements, not a production capacity or service-level guarantee.",
+    "External sinks remain declared loss/no-call and are not represented as successful effects.",
+    "Migration failure was bounded to a task-local duplicate-table conflict and does not cover every migration failure class."
+  ],
+  "authority_ceiling": [
+    "LOCAL_STAGE5_RECOVERY_ONLY",
+    "NOT_AUTHORITY",
+    "PRODUCTION_RELEASE_NOT_AUTHORIZED",
+    "STAGE6_NOT_STARTED"
+  ],
+  "cleanup": {
+    "status": "CLEANED_TASK_LOCAL_RESOURCES",
+    "containers": [
+      "mrw-stage5-recovery-source",
+      "mrw-stage5-recovery-restore",
+      "mrw-stage5-recovery-migration"
+    ],
+    "volumes": [
+      "mrw-stage5-recovery-restore-data",
+      "mrw-stage5-recovery-migration-data"
+    ],
+    "source_volume": "540c5e230a3a12913c2fa8bbf77cb2c89e4977d972f0bfea6ed90fe87c86439d",
+    "cleanup_log": "stage5-evidence/recovery/logs/26-cleanup.log",
+    "remaining_stage5_recovery_containers": 0,
+    "remaining_stage5_recovery_volumes": 0
+  }
+}

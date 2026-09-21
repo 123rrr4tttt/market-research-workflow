@@ -1,0 +1,1003 @@
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "predicate": {
+    "buildDefinition": {
+      "buildType": "https://github.com/moby/buildkit/blob/master/docs/attestations/slsa-definitions.md",
+      "externalParameters": {
+        "configSource": {
+          "path": "Dockerfile"
+        },
+        "request": {
+          "args": {
+            "build-arg:SOURCE_DATE_EPOCH": "0",
+            "no-cache": "",
+            "target": "frontend-runtime"
+          },
+          "compatibilityVersion": 30,
+          "frontend": "dockerfile.v0",
+          "locals": [
+            {
+              "name": "context"
+            },
+            {
+              "name": "dockerfile"
+            }
+          ],
+          "root": {
+            "configSource": {
+              "path": "Dockerfile"
+            },
+            "request": {
+              "args": {
+                "build-arg:SOURCE_DATE_EPOCH": "0",
+                "no-cache": "",
+                "target": "frontend-runtime",
+                "vcs:localdir:context": "main/frontend-modern",
+                "vcs:localdir:dockerfile": "main/frontend-modern",
+                "vcs:revision": "9b95d1c6c515b3013d6be7fd39ffb54801310c1c",
+                "vcs:source": "https://github.com/123rrr4tttt/market-research-workflow.git"
+              }
+            }
+          }
+        }
+      },
+      "internalParameters": {
+        "buildConfig": {
+          "digestMapping": {
+            "sha256:0799152c36fb840280823d71d552eb2c7b1a8c6ef07318734738d98380b38c31": "step9",
+            "sha256:07d6422033cbd4843147577bc8c59d9022e44d04e6376b2f4a59e93f8122a3b7": "step5",
+            "sha256:2460e75b5401da5790e179a16d5198416c36ec28d30072796a89dcd3a0773282": "step13",
+            "sha256:410b73f76d094cc94857f2da463881f61edc0649db7f7f301b613a33687c01e5": "step3",
+            "sha256:4622593b9767784c76bf46b62d49fb874f3a247e162cc45de6802cc73c9e4ea1": "step12",
+            "sha256:4627480898371dd28fffe54c99fbedeca910f80739a8af7d8e533ac5c9c239fb": "step2",
+            "sha256:5609257e208377af5f2a7efca01123b5bf3251eff41b0ca9ab58499a65a0d94d": "step8",
+            "sha256:5f31e1862e3719ff11e65b835fd6a29be625aa66d119527ca46ade1979ec62df": "step4",
+            "sha256:8c39639c9c63a2ed4a8cc192adf3b7e12d9f1a56c8b7ded7d9e634cb655d203c": "step10",
+            "sha256:8fa547d652d5d086f8fac6aa8d7ed02a1cacda9d485be1b9fa854a39393823fd": "step1",
+            "sha256:a3bc39b7d3cbffb4209b0d72eeefb63fa3c82c7f9ab2beab8ca0ef9393dfc8b4": "step7",
+            "sha256:b47c881debcbf93f16a563b0d48ad87f2898067581bb6f97e9f96aa88972f0bf": "step0",
+            "sha256:e81d4cfecbac63ddabe110374fdf128923a44d2579523e770cb4f59a5e8db274": "step6",
+            "sha256:f549dcf570c55c59fb43991abb32903fae2d0845fcbef6096c06e4b92f9b121a": "step11"
+          },
+          "llbDefinition": [
+            {
+              "id": "step0",
+              "op": {
+                "Op": {
+                  "source": {
+                    "identifier": "docker-image://docker.io/library/nginx:1.30.4-alpine3.24@sha256:dc5069ad14f19660b141b21236140b91656bf89bbc3e2417c70ae650cd66104c"
+                  }
+                },
+                "constraints": {},
+                "platform": {
+                  "Architecture": "amd64",
+                  "OS": "linux"
+                }
+              }
+            },
+            {
+              "id": "step1",
+              "inputs": [
+                "step0:0"
+              ],
+              "op": {
+                "Op": {
+                  "exec": {
+                    "meta": {
+                      "args": [
+                        "/bin/sh",
+                        "-c",
+                        "apk add --no-cache libuuid=2.42.3-r1"
+                      ],
+                      "cwd": "/",
+                      "env": [
+                        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                        "NGINX_VERSION=1.30.4",
+                        "PKG_RELEASE=1",
+                        "DYNPKG_RELEASE=1",
+                        "NJS_VERSION=1.0.1",
+                        "NJS_RELEASE=1",
+                        "ACME_VERSION=0.4.1"
+                      ],
+                      "removeMountStubsRecursive": true
+                    },
+                    "mounts": [
+                      {
+                        "dest": "/"
+                      }
+                    ]
+                  }
+                },
+                "constraints": {},
+                "platform": {
+                  "Architecture": "amd64",
+                  "OS": "linux"
+                }
+              }
+            },
+            {
+              "id": "step2",
+              "op": {
+                "Op": {
+                  "source": {
+                    "attrs": {
+                      "local.excludepatterns": "[\"node_modules\",\"dist\",\".git\",\"*.log\"]",
+                      "local.sharedkeyhint": "context"
+                    },
+                    "identifier": "local://context"
+                  }
+                },
+                "constraints": {}
+              }
+            },
+            {
+              "id": "step3",
+              "inputs": [
+                "step1:0",
+                "step2:0"
+              ],
+              "op": {
+                "Op": {
+                  "file": {
+                    "actions": [
+                      {
+                        "Action": {
+                          "copy": {
+                            "allowEmptyWildcard": true,
+                            "allowWildcard": true,
+                            "createDestPath": true,
+                            "dest": "/etc/nginx/conf.d/default.conf",
+                            "dirCopyContents": true,
+                            "followSymlink": true,
+                            "mode": -1,
+                            "src": "/nginx.conf",
+                            "timestamp": -1
+                          }
+                        },
+                        "input": 0,
+                        "output": 0,
+                        "secondaryInput": 1
+                      }
+                    ]
+                  }
+                },
+                "constraints": {}
+              }
+            },
+            {
+              "id": "step4",
+              "op": {
+                "Op": {
+                  "source": {
+                    "identifier": "docker-image://docker.io/library/node:22-alpine@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32"
+                  }
+                },
+                "constraints": {},
+                "platform": {
+                  "Architecture": "amd64",
+                  "OS": "linux"
+                }
+              }
+            },
+            {
+              "id": "step5",
+              "inputs": [
+                "step4:0"
+              ],
+              "op": {
+                "Op": {
+                  "file": {
+                    "actions": [
+                      {
+                        "Action": {
+                          "mkdir": {
+                            "makeParents": true,
+                            "mode": 493,
+                            "path": "/app"
+                          }
+                        },
+                        "input": 0,
+                        "output": 0,
+                        "secondaryInput": -1
+                      }
+                    ]
+                  }
+                },
+                "constraints": {}
+              }
+            },
+            {
+              "id": "step6",
+              "inputs": [
+                "step5:0"
+              ],
+              "op": {
+                "Op": {
+                  "exec": {
+                    "meta": {
+                      "args": [
+                        "/bin/sh",
+                        "-c",
+                        "corepack enable && corepack prepare pnpm@11.22.0 --activate"
+                      ],
+                      "cwd": "/app",
+                      "env": [
+                        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                        "NODE_VERSION=22.23.2",
+                        "YARN_VERSION=1.22.22",
+                        "COREPACK_ENABLE_DOWNLOAD_PROMPT=0"
+                      ],
+                      "removeMountStubsRecursive": true
+                    },
+                    "mounts": [
+                      {
+                        "dest": "/"
+                      }
+                    ]
+                  }
+                },
+                "constraints": {},
+                "platform": {
+                  "Architecture": "amd64",
+                  "OS": "linux"
+                }
+              }
+            },
+            {
+              "id": "step7",
+              "inputs": [
+                "step6:0",
+                "step2:0"
+              ],
+              "op": {
+                "Op": {
+                  "file": {
+                    "actions": [
+                      {
+                        "Action": {
+                          "copy": {
+                            "allowEmptyWildcard": true,
+                            "allowWildcard": true,
+                            "createDestPath": true,
+                            "dest": "/app/",
+                            "dirCopyContents": true,
+                            "followSymlink": true,
+                            "mode": -1,
+                            "src": "/package.json",
+                            "timestamp": -1
+                          }
+                        },
+                        "input": 0,
+                        "output": -1,
+                        "secondaryInput": 1
+                      },
+                      {
+                        "Action": {
+                          "copy": {
+                            "allowEmptyWildcard": true,
+                            "allowWildcard": true,
+                            "createDestPath": true,
+                            "dest": "/app/",
+                            "dirCopyContents": true,
+                            "followSymlink": true,
+                            "mode": -1,
+                            "src": "/pnpm-lock.yaml",
+                            "timestamp": -1
+                          }
+                        },
+                        "input": 2,
+                        "output": 0,
+                        "secondaryInput": 1
+                      }
+                    ]
+                  }
+                },
+                "constraints": {}
+              }
+            },
+            {
+              "id": "step8",
+              "inputs": [
+                "step7:0",
+                "step2:0"
+              ],
+              "op": {
+                "Op": {
+                  "file": {
+                    "actions": [
+                      {
+                        "Action": {
+                          "copy": {
+                            "allowEmptyWildcard": true,
+                            "allowWildcard": true,
+                            "createDestPath": true,
+                            "dest": "/app/",
+                            "dirCopyContents": true,
+                            "followSymlink": true,
+                            "mode": -1,
+                            "src": "/pnpm-workspace.yaml",
+                            "timestamp": -1
+                          }
+                        },
+                        "input": 0,
+                        "output": 0,
+                        "secondaryInput": 1
+                      }
+                    ]
+                  }
+                },
+                "constraints": {}
+              }
+            },
+            {
+              "id": "step9",
+              "inputs": [
+                "step8:0"
+              ],
+              "op": {
+                "Op": {
+                  "exec": {
+                    "meta": {
+                      "args": [
+                        "/bin/sh",
+                        "-c",
+                        "pnpm install --frozen-lockfile"
+                      ],
+                      "cwd": "/app",
+                      "env": [
+                        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                        "NODE_VERSION=22.23.2",
+                        "YARN_VERSION=1.22.22",
+                        "COREPACK_ENABLE_DOWNLOAD_PROMPT=0",
+                        "VITE_API_BASE_URL="
+                      ],
+                      "removeMountStubsRecursive": true
+                    },
+                    "mounts": [
+                      {
+                        "dest": "/"
+                      }
+                    ]
+                  }
+                },
+                "constraints": {},
+                "platform": {
+                  "Architecture": "amd64",
+                  "OS": "linux"
+                }
+              }
+            },
+            {
+              "id": "step10",
+              "inputs": [
+                "step9:0",
+                "step2:0"
+              ],
+              "op": {
+                "Op": {
+                  "file": {
+                    "actions": [
+                      {
+                        "Action": {
+                          "copy": {
+                            "allowEmptyWildcard": true,
+                            "allowWildcard": true,
+                            "createDestPath": true,
+                            "dest": "/app/",
+                            "dirCopyContents": true,
+                            "followSymlink": true,
+                            "mode": -1,
+                            "src": "/",
+                            "timestamp": -1
+                          }
+                        },
+                        "input": 0,
+                        "output": 0,
+                        "secondaryInput": 1
+                      }
+                    ]
+                  }
+                },
+                "constraints": {}
+              }
+            },
+            {
+              "id": "step11",
+              "inputs": [
+                "step10:0"
+              ],
+              "op": {
+                "Op": {
+                  "exec": {
+                    "meta": {
+                      "args": [
+                        "/bin/sh",
+                        "-c",
+                        "npm run build"
+                      ],
+                      "cwd": "/app",
+                      "env": [
+                        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                        "NODE_VERSION=22.23.2",
+                        "YARN_VERSION=1.22.22",
+                        "COREPACK_ENABLE_DOWNLOAD_PROMPT=0",
+                        "VITE_API_BASE_URL="
+                      ],
+                      "removeMountStubsRecursive": true
+                    },
+                    "mounts": [
+                      {
+                        "dest": "/"
+                      }
+                    ]
+                  }
+                },
+                "constraints": {},
+                "platform": {
+                  "Architecture": "amd64",
+                  "OS": "linux"
+                }
+              }
+            },
+            {
+              "id": "step12",
+              "inputs": [
+                "step3:0",
+                "step11:0"
+              ],
+              "op": {
+                "Op": {
+                  "file": {
+                    "actions": [
+                      {
+                        "Action": {
+                          "copy": {
+                            "allowEmptyWildcard": true,
+                            "allowWildcard": true,
+                            "createDestPath": true,
+                            "dest": "/usr/share/nginx/html",
+                            "dirCopyContents": true,
+                            "followSymlink": true,
+                            "mode": -1,
+                            "src": "/app/dist",
+                            "timestamp": -1
+                          }
+                        },
+                        "input": 0,
+                        "output": 0,
+                        "secondaryInput": 1
+                      }
+                    ]
+                  }
+                },
+                "constraints": {}
+              }
+            },
+            {
+              "id": "step13",
+              "inputs": [
+                "step12:0"
+              ],
+              "op": {
+                "Op": {}
+              }
+            }
+          ]
+        },
+        "builderPlatform": "linux/arm64",
+        "dockerfileVersion": "1.26.0"
+      },
+      "resolvedDependencies": [
+        {
+          "digest": {
+            "sha256": "ae4f3b554449e7e25548e7d8ccc029d17357348e30c6e3df01b92bc93654d6a9"
+          },
+          "uri": "pkg:docker/docker/buildkit-syft-scanner@stable-1?platform=linux%2Farm64"
+        },
+        {
+          "digest": {
+            "sha256": "dc5069ad14f19660b141b21236140b91656bf89bbc3e2417c70ae650cd66104c"
+          },
+          "uri": "pkg:docker/nginx@1.30.4-alpine3.24?digest=sha256:dc5069ad14f19660b141b21236140b91656bf89bbc3e2417c70ae650cd66104c&platform=linux%2Famd64"
+        },
+        {
+          "digest": {
+            "sha256": "c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32"
+          },
+          "uri": "pkg:docker/node@22-alpine?digest=sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32&platform=linux%2Famd64"
+        }
+      ]
+    },
+    "runDetails": {
+      "builder": {
+        "id": ""
+      },
+      "metadata": {
+        "buildkit_completeness": {
+          "request": true,
+          "resolvedDependencies": false
+        },
+        "buildkit_metadata": {
+          "layers": {
+            "step0:0": [
+              [
+                {
+                  "digest": "sha256:55afa1ecc21d2bb5e5045f32dafee56272ffd89860bac26f6c32123439af26a4",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 3846391
+                },
+                {
+                  "digest": "sha256:f45fdf63315816ec6bd937d40fb4450c1364e299cf7bdb48c14d19ee26ce32a0",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 4347545
+                },
+                {
+                  "digest": "sha256:67ff5ce9d4e9e840b2a802e06f9db7aa2526032b11972f065750ca6082d06f2c",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 627
+                },
+                {
+                  "digest": "sha256:51ec9c021a5aa5f4b4e020396c3080d9434d71d75288c5f4b06bfc78104310fe",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 954
+                },
+                {
+                  "digest": "sha256:33e5f432b4d0343ae580ca491ee35e51f51000f5694efd025a8af08e0be7c729",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 403
+                },
+                {
+                  "digest": "sha256:6710fa5752a599abf4c9f536edfe5be7952768135b5050ac9afdefc0533834a2",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 1209
+                },
+                {
+                  "digest": "sha256:0bfd0ed0041486dd19ac2807088044b7b750d7ce008314ef49e75d92f42b9c19",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 1397
+                },
+                {
+                  "digest": "sha256:c39233542455bfb494d68089ebb1b8eb3f0104ef0f676e7bc78fc637a0bad7bf",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 20333532
+                }
+              ]
+            ],
+            "step12:0": [
+              [
+                {
+                  "digest": "sha256:55afa1ecc21d2bb5e5045f32dafee56272ffd89860bac26f6c32123439af26a4",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 3846391
+                },
+                {
+                  "digest": "sha256:f45fdf63315816ec6bd937d40fb4450c1364e299cf7bdb48c14d19ee26ce32a0",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 4347545
+                },
+                {
+                  "digest": "sha256:67ff5ce9d4e9e840b2a802e06f9db7aa2526032b11972f065750ca6082d06f2c",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 627
+                },
+                {
+                  "digest": "sha256:51ec9c021a5aa5f4b4e020396c3080d9434d71d75288c5f4b06bfc78104310fe",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 954
+                },
+                {
+                  "digest": "sha256:33e5f432b4d0343ae580ca491ee35e51f51000f5694efd025a8af08e0be7c729",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 403
+                },
+                {
+                  "digest": "sha256:6710fa5752a599abf4c9f536edfe5be7952768135b5050ac9afdefc0533834a2",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 1209
+                },
+                {
+                  "digest": "sha256:0bfd0ed0041486dd19ac2807088044b7b750d7ce008314ef49e75d92f42b9c19",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 1397
+                },
+                {
+                  "digest": "sha256:c39233542455bfb494d68089ebb1b8eb3f0104ef0f676e7bc78fc637a0bad7bf",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 20333532
+                },
+                {
+                  "digest": "sha256:c9450b245c2453e98630423421608e4fcc533092e6874cc37595ff43df3e7e07",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 63517
+                },
+                {
+                  "digest": "sha256:880f0bf030b7e6da22509dd6e5d4f9c277448856912f5f74bc24679d153fdde8",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 691
+                },
+                {
+                  "digest": "sha256:0d7c6a371dadfa7c8a82dc5705265cc3da40d90080406ef3ab29d95512946774",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 9961665
+                }
+              ]
+            ],
+            "step1:0": [
+              [
+                {
+                  "digest": "sha256:55afa1ecc21d2bb5e5045f32dafee56272ffd89860bac26f6c32123439af26a4",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 3846391
+                },
+                {
+                  "digest": "sha256:f45fdf63315816ec6bd937d40fb4450c1364e299cf7bdb48c14d19ee26ce32a0",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 4347545
+                },
+                {
+                  "digest": "sha256:67ff5ce9d4e9e840b2a802e06f9db7aa2526032b11972f065750ca6082d06f2c",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 627
+                },
+                {
+                  "digest": "sha256:51ec9c021a5aa5f4b4e020396c3080d9434d71d75288c5f4b06bfc78104310fe",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 954
+                },
+                {
+                  "digest": "sha256:33e5f432b4d0343ae580ca491ee35e51f51000f5694efd025a8af08e0be7c729",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 403
+                },
+                {
+                  "digest": "sha256:6710fa5752a599abf4c9f536edfe5be7952768135b5050ac9afdefc0533834a2",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 1209
+                },
+                {
+                  "digest": "sha256:0bfd0ed0041486dd19ac2807088044b7b750d7ce008314ef49e75d92f42b9c19",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 1397
+                },
+                {
+                  "digest": "sha256:c39233542455bfb494d68089ebb1b8eb3f0104ef0f676e7bc78fc637a0bad7bf",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 20333532
+                },
+                {
+                  "digest": "sha256:c9450b245c2453e98630423421608e4fcc533092e6874cc37595ff43df3e7e07",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 63517
+                }
+              ]
+            ],
+            "step3:0": [
+              [
+                {
+                  "digest": "sha256:55afa1ecc21d2bb5e5045f32dafee56272ffd89860bac26f6c32123439af26a4",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 3846391
+                },
+                {
+                  "digest": "sha256:f45fdf63315816ec6bd937d40fb4450c1364e299cf7bdb48c14d19ee26ce32a0",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 4347545
+                },
+                {
+                  "digest": "sha256:67ff5ce9d4e9e840b2a802e06f9db7aa2526032b11972f065750ca6082d06f2c",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 627
+                },
+                {
+                  "digest": "sha256:51ec9c021a5aa5f4b4e020396c3080d9434d71d75288c5f4b06bfc78104310fe",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 954
+                },
+                {
+                  "digest": "sha256:33e5f432b4d0343ae580ca491ee35e51f51000f5694efd025a8af08e0be7c729",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 403
+                },
+                {
+                  "digest": "sha256:6710fa5752a599abf4c9f536edfe5be7952768135b5050ac9afdefc0533834a2",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 1209
+                },
+                {
+                  "digest": "sha256:0bfd0ed0041486dd19ac2807088044b7b750d7ce008314ef49e75d92f42b9c19",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 1397
+                },
+                {
+                  "digest": "sha256:c39233542455bfb494d68089ebb1b8eb3f0104ef0f676e7bc78fc637a0bad7bf",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 20333532
+                },
+                {
+                  "digest": "sha256:c9450b245c2453e98630423421608e4fcc533092e6874cc37595ff43df3e7e07",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 63517
+                },
+                {
+                  "digest": "sha256:880f0bf030b7e6da22509dd6e5d4f9c277448856912f5f74bc24679d153fdde8",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 691
+                }
+              ]
+            ],
+            "step4:0": [
+              [
+                {
+                  "digest": "sha256:55afa1ecc21d2bb5e5045f32dafee56272ffd89860bac26f6c32123439af26a4",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 3846391
+                },
+                {
+                  "digest": "sha256:efbef6f9e333972a10ca323e700496a64e7ddcc3a6725e6afbbae52e690f4a4a",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 52629973
+                },
+                {
+                  "digest": "sha256:a2980c1fee17dfd6263234b253955e0e9d5f38d47c0e71c001139897134899d0",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 1262113
+                },
+                {
+                  "digest": "sha256:16da5a6403776464b5bf551ef294de57da242eac594527ea551a46e7f76ac2d6",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 445
+                }
+              ]
+            ]
+          },
+          "source": {
+            "infos": [
+              {
+                "data": "RlJPTSBub2RlOjIyLWFscGluZUBzaGEyNTY6YzYxMGZjZGZiMWQ1YjQ3NDBkZDcwYzI4NGVkM2NiMTZiYjg1N2UwZjcxNjYxOTZlMzZhNTUwMWRmN2EzYWEzMiBBUyBidWlsZGVyCldPUktESVIgL2FwcAoKRU5WIENPUkVQQUNLX0VOQUJMRV9ET1dOTE9BRF9QUk9NUFQ9MAoKUlVOIGNvcmVwYWNrIGVuYWJsZSAmJiBjb3JlcGFjayBwcmVwYXJlIHBucG1AMTEuMjIuMCAtLWFjdGl2YXRlCgpBUkcgVklURV9BUElfQkFTRV9VUkwKRU5WIFZJVEVfQVBJX0JBU0VfVVJMPSR7VklURV9BUElfQkFTRV9VUkx9CgpDT1BZIHBhY2thZ2UuanNvbiBwbnBtLWxvY2sueWFtbCAuLwpDT1BZIHBucG0td29ya3NwYWNlLnlhbWwgLi8KUlVOIHBucG0gaW5zdGFsbCAtLWZyb3plbi1sb2NrZmlsZQoKQ09QWSAuIC4KUlVOIG5wbSBydW4gYnVpbGQKCkZST00gbmdpbng6MS4zMC40LWFscGluZTMuMjRAc2hhMjU2OmRjNTA2OWFkMTRmMTk2NjBiMTQxYjIxMjM2MTQwYjkxNjU2YmY4OWJiYzNlMjQxN2M3MGFlNjUwY2Q2NjEwNGMgQVMgZnJvbnRlbmQtcnVudGltZQpSVU4gYXBrIGFkZCAtLW5vLWNhY2hlIGxpYnV1aWQ9Mi40Mi4zLXIxCkNPUFkgbmdpbnguY29uZiAvZXRjL25naW54L2NvbmYuZC9kZWZhdWx0LmNvbmYKQ09QWSAtLWZyb209YnVpbGRlciAvYXBwL2Rpc3QgL3Vzci9zaGFyZS9uZ2lueC9odG1sCgpFWFBPU0UgODAKQ01EIFsibmdpbngiLCAiLWciLCAiZGFlbW9uIG9mZjsiXQo=",
+                "digestMapping": {
+                  "sha256:37cb863f99571c1f3e77698f84d997e5e77a1464fd999bdf92122ca2175a707e": "step0",
+                  "sha256:db95d080c24b9e33c3ec4cc001e84cfc24fa6d2d87e886edcaaf28ac8631765a": "step1"
+                },
+                "filename": "Dockerfile",
+                "language": "Dockerfile",
+                "llbDefinition": [
+                  {
+                    "id": "step0",
+                    "op": {
+                      "Op": {
+                        "source": {
+                          "attrs": {
+                            "local.differ": "none",
+                            "local.followpaths": "[\"Dockerfile\",\"Dockerfile.dockerignore\",\"dockerfile\"]",
+                            "local.sharedkeyhint": "dockerfile"
+                          },
+                          "identifier": "local://dockerfile"
+                        }
+                      },
+                      "constraints": {}
+                    }
+                  },
+                  {
+                    "id": "step1",
+                    "inputs": [
+                      "step0:0"
+                    ],
+                    "op": {
+                      "Op": {}
+                    }
+                  }
+                ]
+              }
+            ],
+            "locations": {
+              "step0": {
+                "locations": [
+                  {
+                    "ranges": [
+                      {
+                        "end": {
+                          "line": 18
+                        },
+                        "start": {
+                          "line": 18
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              "step1": {
+                "locations": [
+                  {
+                    "ranges": [
+                      {
+                        "end": {
+                          "line": 19
+                        },
+                        "start": {
+                          "line": 19
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              "step10": {
+                "locations": [
+                  {
+                    "ranges": [
+                      {
+                        "end": {
+                          "line": 15
+                        },
+                        "start": {
+                          "line": 15
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              "step11": {
+                "locations": [
+                  {
+                    "ranges": [
+                      {
+                        "end": {
+                          "line": 16
+                        },
+                        "start": {
+                          "line": 16
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              "step12": {
+                "locations": [
+                  {
+                    "ranges": [
+                      {
+                        "end": {
+                          "line": 21
+                        },
+                        "start": {
+                          "line": 21
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              "step2": {},
+              "step3": {
+                "locations": [
+                  {
+                    "ranges": [
+                      {
+                        "end": {
+                          "line": 20
+                        },
+                        "start": {
+                          "line": 20
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              "step4": {
+                "locations": [
+                  {
+                    "ranges": [
+                      {
+                        "end": {
+                          "line": 1
+                        },
+                        "start": {
+                          "line": 1
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              "step5": {
+                "locations": [
+                  {
+                    "ranges": [
+                      {
+                        "end": {
+                          "line": 2
+                        },
+                        "start": {
+                          "line": 2
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              "step6": {
+                "locations": [
+                  {
+                    "ranges": [
+                      {
+                        "end": {
+                          "line": 6
+                        },
+                        "start": {
+                          "line": 6
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              "step7": {
+                "locations": [
+                  {
+                    "ranges": [
+                      {
+                        "end": {
+                          "line": 11
+                        },
+                        "start": {
+                          "line": 11
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              "step8": {
+                "locations": [
+                  {
+                    "ranges": [
+                      {
+                        "end": {
+                          "line": 12
+                        },
+                        "start": {
+                          "line": 12
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              "step9": {
+                "locations": [
+                  {
+                    "ranges": [
+                      {
+                        "end": {
+                          "line": 13
+                        },
+                        "start": {
+                          "line": 13
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          },
+          "vcs": {
+            "localdir:context": "main/frontend-modern",
+            "localdir:dockerfile": "main/frontend-modern",
+            "revision": "9b95d1c6c515b3013d6be7fd39ffb54801310c1c",
+            "source": "https://github.com/123rrr4tttt/market-research-workflow.git"
+          }
+        },
+        "finishedOn": "2026-09-10T03:19:33.28750776Z",
+        "invocationId": "5wp9fipsnc2u52alwvqb5ayqh",
+        "startedOn": "2026-09-10T03:17:31.212299217Z"
+      }
+    }
+  },
+  "predicateType": "https://slsa.dev/provenance/v1",
+  "subject": []
+}

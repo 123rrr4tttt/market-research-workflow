@@ -1,0 +1,17 @@
+{
+  "id": "integration",
+  "command": [
+    "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/bin/python",
+    "-m",
+    "pytest",
+    "-m",
+    "integration and not external and not flaky",
+    "-q",
+    "-ra",
+    "--junitxml=/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-backend/integration.xml"
+  ],
+  "cwd": "/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend",
+  "started_at": "2026-09-06T21:56:15.656950+00:00",
+  "exit_code": 2,
+  "log": "integration.log"
+}

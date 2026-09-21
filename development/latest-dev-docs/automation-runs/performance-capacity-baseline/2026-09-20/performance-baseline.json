@@ -1,0 +1,507 @@
+{
+  "budgets": {
+    "large": {
+      "max_fixture_bytes": 6000000,
+      "max_records": 2048,
+      "max_total_ms": 5000.0
+    },
+    "medium": {
+      "max_fixture_bytes": 600000,
+      "max_records": 256,
+      "max_total_ms": 750.0
+    },
+    "small": {
+      "max_fixture_bytes": 24000,
+      "max_records": 16,
+      "max_total_ms": 250.0
+    }
+  },
+  "degradation": {
+    "flag": false,
+    "reasons": []
+  },
+  "diagnostic_package": {
+    "budget_breach_summary": {
+      "breaches": [],
+      "count": 0
+    },
+    "fixture_budget_summary": [
+      {
+        "budget_checks": {
+          "fixture_bytes_within_budget": true,
+          "records_within_budget": true,
+          "total_ms_within_budget": true
+        },
+        "fixture": "large",
+        "fixture_bytes": 1563226,
+        "max_fixture_bytes": 6000000,
+        "max_total_ms": 5000.0,
+        "record_count": 2048,
+        "status": "passed",
+        "total_ms": 53.309
+      },
+      {
+        "budget_checks": {
+          "fixture_bytes_within_budget": true,
+          "records_within_budget": true,
+          "total_ms_within_budget": true
+        },
+        "fixture": "medium",
+        "fixture_bytes": 155738,
+        "max_fixture_bytes": 600000,
+        "max_total_ms": 750.0,
+        "record_count": 256,
+        "status": "passed",
+        "total_ms": 4.484
+      },
+      {
+        "budget_checks": {
+          "fixture_bytes_within_budget": true,
+          "records_within_budget": true,
+          "total_ms_within_budget": true
+        },
+        "fixture": "small",
+        "fixture_bytes": 7187,
+        "max_fixture_bytes": 24000,
+        "max_total_ms": 250.0,
+        "record_count": 16,
+        "status": "passed",
+        "total_ms": 0.269
+      }
+    ],
+    "generated_at": "2026-09-20T08:45:19Z",
+    "lane": "performance_capacity_baseline_smoke",
+    "recommended_commands": {
+      "compare_previous": "python3 scripts/performance_capacity_baseline.py --previous <previous-artifact.json> --output <artifact.json>",
+      "minimal_gate": "tmp=$(mktemp); python3 scripts/performance_capacity_baseline.py --output \"$tmp\"; python3 scripts/check_performance_capacity_baseline_artifact.py \"$tmp\"; rm -f \"$tmp\"",
+      "nightly": "bash scripts/run_performance_capacity_nightly.sh",
+      "self_test": "python3 scripts/performance_capacity_baseline.py --self-test"
+    },
+    "schema_version": "performance_capacity_baseline.v1",
+    "service_probe_summary": {
+      "allow_service_failure": false,
+      "degradation": {
+        "decision": "continue",
+        "flag": false,
+        "reasons": [],
+        "service_required": true,
+        "status": "passed"
+      },
+      "dependency": {
+        "checks": [],
+        "missing": [],
+        "required": false,
+        "status": "not_checked"
+      },
+      "elapsed_ms": 98.095,
+      "enabled": true,
+      "error_count": 2,
+      "fail_fast_decision": {
+        "allow_service_failure": false,
+        "effective_exit_code": 0,
+        "exit_code": 0,
+        "reasons": [],
+        "recommended_command": "python3 scripts/performance_capacity_baseline.py --api-base <base-url> --service-required --output <artifact.json>",
+        "service_ping_status": "passed",
+        "service_ready_status": "passed",
+        "service_required": true,
+        "should_fail": false,
+        "status": "continue"
+      },
+      "http_status": 200,
+      "latency": {
+        "attempt_count": 4,
+        "attempts": [
+          {
+            "elapsed_ms": 33.284,
+            "http_status": null,
+            "status": "failed",
+            "url": "http://127.0.0.1:8000/health"
+          },
+          {
+            "elapsed_ms": 6.182,
+            "http_status": 200,
+            "status": "passed",
+            "url": "http://127.0.0.1:8000/api/v1/health"
+          },
+          {
+            "elapsed_ms": 98.095,
+            "http_status": 200,
+            "status": "passed",
+            "url": "http://127.0.0.1:8000/api/v1/health/deep"
+          },
+          {
+            "elapsed_ms": 4.535,
+            "http_status": null,
+            "status": "failed",
+            "url": "http://127.0.0.1:8000/health/deep"
+          }
+        ],
+        "status": "measured",
+        "timeout_seconds": 0.25,
+        "total_elapsed_ms": 142.096
+      },
+      "latency_ms": 98.095,
+      "port": {
+        "host": "127.0.0.1",
+        "scheme": "http",
+        "source": "api_base",
+        "status": "configured",
+        "value": 8000
+      },
+      "reason": null,
+      "recommended_command": "python3 scripts/performance_capacity_baseline.py --api-base <base-url> --service-required --output <artifact.json>",
+      "runtime_mode": "repo_local_deterministic_fixture_smoke",
+      "secret": {
+        "checks": [],
+        "missing": [],
+        "required": false,
+        "status": "not_checked"
+      },
+      "service_ping": {
+        "elapsed_ms": 6.182,
+        "http_status": 200,
+        "latency_ms": 6.182,
+        "status": "passed",
+        "url": "http://127.0.0.1:8000/api/v1/health"
+      },
+      "service_ready": {
+        "elapsed_ms": 98.095,
+        "http_status": 200,
+        "latency_ms": 98.095,
+        "status": "passed",
+        "url": "http://127.0.0.1:8000/api/v1/health/deep"
+      },
+      "status": "ready",
+      "timeout_seconds": 0.25,
+      "url": "http://127.0.0.1:8000/api/v1/health"
+    },
+    "summary": {
+      "degradation_flag": false,
+      "degradation_reason_count": 0,
+      "status": "passed"
+    },
+    "trend_summary": {
+      "comparison_count": 3,
+      "current_total_ms_by_fixture": {
+        "large": 53.309,
+        "medium": 4.484,
+        "small": 0.269
+      },
+      "degraded_fixtures": [],
+      "previous_generated_at": "2026-09-14T08:03:13Z",
+      "previous_schema_version": "performance_capacity_baseline.v1",
+      "status": "compared"
+    }
+  },
+  "environment": {
+    "cwd": "/Users/wangyiliang/market-research-workflow",
+    "platform": "macOS-26.3-arm64-arm-64bit",
+    "python": "3.11.15"
+  },
+  "generated_at": "2026-09-20T08:45:19Z",
+  "lane": "performance_capacity_baseline_smoke",
+  "observations": [
+    {
+      "budget": {
+        "max_fixture_bytes": 24000,
+        "max_records": 16,
+        "max_total_ms": 250.0
+      },
+      "budget_checks": {
+        "fixture_bytes_within_budget": true,
+        "records_within_budget": true,
+        "total_ms_within_budget": true
+      },
+      "fixture": {
+        "name": "small",
+        "payload_tokens_per_record": 24,
+        "query_terms": [
+          "market",
+          "risk",
+          "capacity",
+          "trend"
+        ],
+        "record_count": 16
+      },
+      "observed": {
+        "capacity": {
+          "fixture_bytes": 7187,
+          "index_terms": 411,
+          "query_hit_total": 64
+        },
+        "status": "passed",
+        "summary": {
+          "domain_counts": {
+            "consumer": 4,
+            "industrial": 4,
+            "logistics": 4,
+            "policy": 4
+          },
+          "query_hit_total": 64,
+          "score_mean": 0.441176,
+          "score_p95": 0.838235
+        },
+        "timings_ms": {
+          "aggregate_ms": 0.013,
+          "build_fixture_ms": 0.116,
+          "build_index_ms": 0.138,
+          "query_ms": 0.002,
+          "total_ms": 0.269
+        }
+      }
+    },
+    {
+      "budget": {
+        "max_fixture_bytes": 600000,
+        "max_records": 256,
+        "max_total_ms": 750.0
+      },
+      "budget_checks": {
+        "fixture_bytes_within_budget": true,
+        "records_within_budget": true,
+        "total_ms_within_budget": true
+      },
+      "fixture": {
+        "name": "medium",
+        "payload_tokens_per_record": 36,
+        "query_terms": [
+          "market",
+          "risk",
+          "capacity",
+          "trend"
+        ],
+        "record_count": 256
+      },
+      "observed": {
+        "capacity": {
+          "fixture_bytes": 155738,
+          "index_terms": 9483,
+          "query_hit_total": 1024
+        },
+        "status": "passed",
+        "summary": {
+          "domain_counts": {
+            "consumer": 64,
+            "industrial": 64,
+            "logistics": 64,
+            "policy": 64
+          },
+          "query_hit_total": 1024,
+          "score_mean": 0.46875,
+          "score_p95": 0.941176
+        },
+        "timings_ms": {
+          "aggregate_ms": 0.045,
+          "build_fixture_ms": 1.866,
+          "build_index_ms": 2.57,
+          "query_ms": 0.003,
+          "total_ms": 4.484
+        }
+      }
+    },
+    {
+      "budget": {
+        "max_fixture_bytes": 6000000,
+        "max_records": 2048,
+        "max_total_ms": 5000.0
+      },
+      "budget_checks": {
+        "fixture_bytes_within_budget": true,
+        "records_within_budget": true,
+        "total_ms_within_budget": true
+      },
+      "fixture": {
+        "name": "large",
+        "payload_tokens_per_record": 48,
+        "query_terms": [
+          "market",
+          "risk",
+          "capacity",
+          "trend"
+        ],
+        "record_count": 2048
+      },
+      "observed": {
+        "capacity": {
+          "fixture_bytes": 1563226,
+          "index_terms": 100361,
+          "query_hit_total": 8192
+        },
+        "status": "passed",
+        "summary": {
+          "domain_counts": {
+            "consumer": 512,
+            "industrial": 512,
+            "logistics": 512,
+            "policy": 512
+          },
+          "query_hit_total": 8192,
+          "score_mean": 0.469554,
+          "score_p95": 0.941176
+        },
+        "timings_ms": {
+          "aggregate_ms": 0.268,
+          "build_fixture_ms": 15.325,
+          "build_index_ms": 37.712,
+          "query_ms": 0.004,
+          "total_ms": 53.309
+        }
+      }
+    }
+  ],
+  "schema_version": "performance_capacity_baseline.v1",
+  "scope": {
+    "allow_service_failure": false,
+    "fixture_sizes": [
+      "small",
+      "medium",
+      "large"
+    ],
+    "live_load_test": false,
+    "mode": "repo_local_deterministic_fixture_smoke",
+    "requires_service": true
+  },
+  "service_probe": {
+    "allow_service_failure": false,
+    "degradation": {
+      "decision": "continue",
+      "flag": false,
+      "reasons": [],
+      "service_required": true,
+      "status": "passed"
+    },
+    "dependency": {
+      "checks": [],
+      "missing": [],
+      "required": false,
+      "status": "not_checked"
+    },
+    "elapsed_ms": 98.095,
+    "enabled": true,
+    "errors": [
+      "HTTPError: HTTP Error 404: Not Found",
+      "HTTPError: HTTP Error 404: Not Found"
+    ],
+    "fail_fast_decision": {
+      "allow_service_failure": false,
+      "effective_exit_code": 0,
+      "exit_code": 0,
+      "reasons": [],
+      "recommended_command": "python3 scripts/performance_capacity_baseline.py --api-base <base-url> --service-required --output <artifact.json>",
+      "service_ping_status": "passed",
+      "service_ready_status": "passed",
+      "service_required": true,
+      "should_fail": false,
+      "status": "continue"
+    },
+    "http_status": 200,
+    "latency": {
+      "attempt_count": 4,
+      "attempts": [
+        {
+          "elapsed_ms": 33.284,
+          "http_status": null,
+          "status": "failed",
+          "url": "http://127.0.0.1:8000/health"
+        },
+        {
+          "elapsed_ms": 6.182,
+          "http_status": 200,
+          "status": "passed",
+          "url": "http://127.0.0.1:8000/api/v1/health"
+        },
+        {
+          "elapsed_ms": 98.095,
+          "http_status": 200,
+          "status": "passed",
+          "url": "http://127.0.0.1:8000/api/v1/health/deep"
+        },
+        {
+          "elapsed_ms": 4.535,
+          "http_status": null,
+          "status": "failed",
+          "url": "http://127.0.0.1:8000/health/deep"
+        }
+      ],
+      "status": "measured",
+      "timeout_seconds": 0.25,
+      "total_elapsed_ms": 142.096
+    },
+    "latency_ms": 98.095,
+    "port": {
+      "host": "127.0.0.1",
+      "scheme": "http",
+      "source": "api_base",
+      "status": "configured",
+      "value": 8000
+    },
+    "recommended_command": "python3 scripts/performance_capacity_baseline.py --api-base <base-url> --service-required --output <artifact.json>",
+    "runtime_mode": "repo_local_deterministic_fixture_smoke",
+    "secret": {
+      "checks": [],
+      "missing": [],
+      "required": false,
+      "status": "not_checked"
+    },
+    "service_ping": {
+      "elapsed_ms": 6.182,
+      "http_status": 200,
+      "latency_ms": 6.182,
+      "status": "passed",
+      "url": "http://127.0.0.1:8000/api/v1/health"
+    },
+    "service_ready": {
+      "elapsed_ms": 98.095,
+      "http_status": 200,
+      "latency_ms": 98.095,
+      "status": "passed",
+      "url": "http://127.0.0.1:8000/api/v1/health/deep"
+    },
+    "status": "ready",
+    "timeout_seconds": 0.25,
+    "url": "http://127.0.0.1:8000/api/v1/health"
+  },
+  "status": "passed",
+  "trend_record": {
+    "budget_alert_ratio": 0.95,
+    "comparisons": [
+      {
+        "budget_alert_floor_ms": 4750.0,
+        "current_total_ms": 53.309,
+        "fixture": "large",
+        "previous_total_ms": 46.972,
+        "ratio": 1.1349,
+        "status": "within_trend_budget",
+        "threshold_ratio": 1.5
+      },
+      {
+        "budget_alert_floor_ms": 712.5,
+        "current_total_ms": 4.484,
+        "fixture": "medium",
+        "previous_total_ms": 3.359,
+        "ratio": 1.3349,
+        "status": "within_trend_budget",
+        "threshold_ratio": 1.5
+      },
+      {
+        "budget_alert_floor_ms": 237.5,
+        "current_total_ms": 0.269,
+        "fixture": "small",
+        "previous_total_ms": 0.236,
+        "ratio": 1.1398,
+        "status": "within_trend_budget",
+        "threshold_ratio": 1.5
+      }
+    ],
+    "current_total_ms_by_fixture": {
+      "large": 53.309,
+      "medium": 4.484,
+      "small": 0.269
+    },
+    "degradation_threshold_ratio": 1.5,
+    "previous_generated_at": "2026-09-14T08:03:13Z",
+    "previous_schema_version": "performance_capacity_baseline.v1",
+    "status": "compared"
+  }
+}

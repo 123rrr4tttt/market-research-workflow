@@ -1,0 +1,48 @@
+{
+  "authoritative": false,
+  "authority_ceiling": "LOCAL_UNSIGNED_TASK_OWNED_SMOKE_NOT_RELEASE_AUTHORITY",
+  "cleanup": {
+    "builder_cleanup_exit_code": 0,
+    "builder_residue": false,
+    "docker_prune_run": false,
+    "oci_archive_residue": false,
+    "oci_layout_residue": false,
+    "tag_cleanup_exit_code": 0,
+    "tag_or_image_residue": false,
+    "temporary_root_residue": false
+  },
+  "cleanup_pass": true,
+  "explicit_tag": "mrw-r13v-oci-smoke.local/subject:47327-1789218494",
+  "fatal_error": null,
+  "final_reconciliation_included": {
+    "exists": true,
+    "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13v/artifacts/backend-migration-amd64-final/result.json"
+  },
+  "network_contract": {
+    "build_network": "none",
+    "builder_network": "none",
+    "buildkit_image_preexisting_locally": true,
+    "dockerfile_base": "scratch",
+    "dockerfile_run_instructions": 0
+  },
+  "next_action": "Freeze the failed smoke fact; do not rebuild product images.",
+  "schema": "mrw.stage3.r13v.oci-trivy-smoke.v1",
+  "selected_build": "tagged-provenance-only-build",
+  "status": "FAIL",
+  "subject_binding": {
+    "image_manifest_digest": "sha256:67fa252e71bf74fd3ed8c50e44c5153af7ebfae7f78706b4ef7872c97c5ea02a",
+    "pass": false,
+    "provenance_pass": true,
+    "sbom_pass": false
+  },
+  "trivy_oci_layout_directory": {
+    "artifact_type": "container_image",
+    "command_executed": true,
+    "exit_code": 0,
+    "input_consumed": true,
+    "report_bytes": 2070,
+    "report_json_valid": true,
+    "report_present": true,
+    "result_count": 0
+  }
+}

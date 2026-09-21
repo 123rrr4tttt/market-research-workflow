@@ -1,0 +1,64 @@
+{
+  "SchemaVersion": 2,
+  "Trivy": {
+    "Version": "0.74.0"
+  },
+  "ReportID": "01a095bb-ac2e-7412-a10a-e08bc138bf85",
+  "CreatedAt": "2026-09-12T21:08:19.630269+08:00",
+  "ArtifactID": "sha256:f81901ecfc26db4186118b2b191c0a5fbe12061e0f1fc24227b2b44183a9582b",
+  "ArtifactName": "/var/folders/ww/__28yy2d01n97fff8jhw9yxm0000gn/T/mrw-r13v-oci-smoke-b_g0a978/layout",
+  "ArtifactType": "container_image",
+  "Metadata": {
+    "Size": 2048,
+    "ImageID": "sha256:f81901ecfc26db4186118b2b191c0a5fbe12061e0f1fc24227b2b44183a9582b",
+    "DiffIDs": [
+      "sha256:7885515690b22a884fb6152caada29709e8f4c7ceef90b8c746d6bfef88d2fd6"
+    ],
+    "ImageConfig": {
+      "architecture": "amd64",
+      "created": "1970-01-01T00:00:00Z",
+      "history": [
+        {
+          "created": "1970-01-01T00:00:00Z",
+          "created_by": "ARG SOURCE_DATE_EPOCH=0",
+          "comment": "buildkit.dockerfile.v0",
+          "empty_layer": true
+        },
+        {
+          "created": "1970-01-01T00:00:00Z",
+          "created_by": "LABEL org.opencontainers.image.title=mrw-r13v-oci-subject-smoke",
+          "comment": "buildkit.dockerfile.v0",
+          "empty_layer": true
+        },
+        {
+          "created": "1970-01-01T00:00:00Z",
+          "created_by": "COPY payload.txt /payload.txt # buildkit",
+          "comment": "buildkit.dockerfile.v0"
+        }
+      ],
+      "os": "linux",
+      "rootfs": {
+        "type": "layers",
+        "diff_ids": [
+          "sha256:7885515690b22a884fb6152caada29709e8f4c7ceef90b8c746d6bfef88d2fd6"
+        ]
+      },
+      "config": {
+        "Env": [
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+        ],
+        "Labels": {
+          "org.opencontainers.image.title": "mrw-r13v-oci-subject-smoke"
+        },
+        "WorkingDir": "/"
+      }
+    },
+    "Layers": [
+      {
+        "Size": 2048,
+        "Digest": "sha256:43c7a0fd9197caedaee09069d3fd0b5f0802babae1e37a87d0ac225025c89a2f",
+        "DiffID": "sha256:7885515690b22a884fb6152caada29709e8f4c7ceef90b8c746d6bfef88d2fd6"
+      }
+    ]
+  }
+}

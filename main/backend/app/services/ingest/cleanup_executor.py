@@ -3,9 +3,9 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any
 
-from .adapters.http_utils import HttpFetchError, fetch_html
 from .content_cleaner import clean_frontdoor_document_candidate
 from .content_extraction import apply_main_content_extraction, extract_main_text_from_html
+from app.services.resource_pool.http_port import HttpFetchError, fetch_html
 
 
 def execute_frontdoor_cleanup(

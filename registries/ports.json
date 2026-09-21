@@ -1,0 +1,44 @@
+{
+  "version": "kit-registry.ports.v1",
+  "entries": [
+    {
+      "name": "Counter"
+    },
+    {
+      "name": "ExtractPort"
+    },
+    {
+      "name": "ChunkPort"
+    },
+    {
+      "name": "SummarizePort"
+    },
+    {
+      "name": "PassThroughPort"
+    },
+    {
+      "name": "CollectAdapter"
+    },
+    {
+      "name": "HttpFetchPort"
+    },
+    {
+      "name": "OfficialAccessPort"
+    },
+    {
+      "name": "MarketAdapterPort"
+    },
+    {
+      "name": "PolicyAdapterPort"
+    },
+    {
+      "name": "RedditPort"
+    },
+    {
+      "name": "GoogleNewsPort"
+    },
+    {
+      "name": "LLMProviderPort"
+    }
+  ]
+}

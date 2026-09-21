@@ -22,7 +22,10 @@ import hashlib
 import json
 import math
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import Any, Literal, NoReturn
+
+from functorial_kit import Failure
+from mrw_functorial_kit.core.w06_semantics import quality_promotion_contract_failures
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 __all__ = [
@@ -53,23 +56,55 @@ __all__ = [
 ]
 
 QUALITY_PROMOTION_PORT_SCHEMA = "mrw.successor.agent-batch.quality-promotion-port.v1"
-QUALITY_PROMOTION_PORT_SCOPE = (
-    "successor.provider_independent_quality_gate_and_promotion_readback"
-)
+QUALITY_PROMOTION_PORT_SCOPE = "successor.provider_independent_quality_gate_and_promotion_readback"
+_FAILURE_WITNESS = "test:test_w06_c2_total_core_failure_lifts"
+
+
+def _failure(
+    code: str, message: str, *, public_exception: str = "ValueError", site: str = "quality_promotion_port"
+) -> Failure:
+    return quality_promotion_contract_failures.fail(
+        code,
+        message,
+        {
+            "owner": "successor_runtime.capabilities.quality_promotion_port",
+            "site": site,
+            "public_exception": public_exception,
+            "public_message": message,
+            "witness": _FAILURE_WITNESS,
+        },
+    )
+
+
+def _raise_contract_failure(failure: Failure, exception_type: type[Exception] = ValueError) -> NoReturn:
+    context = failure.context or {}
+    if (
+        failure.family != quality_promotion_contract_failures.name
+        or context.get("public_exception") != exception_type.__name__
+    ):
+        # kit:boundary owner=quality_promotion_port.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w06_c2_total_core_failure_lifts
+        raise TypeError("quality-promotion contract lift context is incomplete")  # noqa: TRY003
+    # kit:boundary owner=quality_promotion_port.py class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=quality.promotion.contract_failure witness=test:test_w06_c2_total_core_failure_lifts
+    raise exception_type(str(context.get("public_message", failure.message)))
+
+
+def _reject(
+    message: str, exception_type: type[Exception] = ValueError, *, code: str = "evidence_type_invalid"
+) -> NoReturn:
+    _raise_contract_failure(_failure(code, message, public_exception=exception_type.__name__), exception_type)
+
 
 FIXTURE_QUALITY_REPLAY_TYPE = "deterministic_no_network_symbolic_search_quality_replay"
 LIVE_PROVIDER_QUALITY_REPLAY_TYPE = "live_provider_quality_replay"
 CRITIC_SCORE_SOURCE = "search_critic.score"
 
-_SENSITIVE_QUERY_KEYS = frozenset(
-    {"password", "pass", "pwd", "token", "secret", "access_token"}
-)
+_SENSITIVE_QUERY_KEYS = frozenset({"password", "pass", "pwd", "token", "secret", "access_token"})
 
 
 def _as_bool(value: Any, name: str) -> bool:
     if isinstance(value, bool):
         return value
-    raise ValueError(f"{name} must be bool")
+    _reject(f"{name} must be bool", code="boolean_invalid")
 
 
 def _as_text(value: Any, name: str) -> str:
@@ -81,9 +116,9 @@ def _as_text(value: Any, name: str) -> str:
 
 def _as_int(value: Any, name: str, *, minimum: int = 0) -> int:
     if isinstance(value, bool) or not isinstance(value, int):
-        raise TypeError(f"{name} must be int")
+        _reject(f"{name} must be int", TypeError, code="integer_invalid")
     if value < minimum:
-        raise ValueError(f"{name} must be >= {minimum}")
+        _reject(f"{name} must be >= {minimum}", code="integer_invalid")
     return value
 
 
@@ -95,17 +130,17 @@ def _as_float(
     maximum: float | None = None,
 ) -> float:
     if isinstance(value, bool):
-        raise TypeError(f"{name} must be number")
+        _reject(f"{name} must be number", TypeError, code="number_invalid")
     try:
         number = float(value)
-    except (TypeError, ValueError) as exc:
-        raise ValueError(f"{name} must be number") from exc
+    except (TypeError, ValueError):
+        _reject(f"{name} must be number", code="number_invalid")
     if not math.isfinite(number):
-        raise ValueError(f"{name} must be finite")
+        _reject(f"{name} must be finite", code="number_invalid")
     if minimum is not None and number < minimum:
-        raise ValueError(f"{name} must be >= {minimum}")
+        _reject(f"{name} must be >= {minimum}", code="number_invalid")
     if maximum is not None and number > maximum:
-        raise ValueError(f"{name} must be <= {maximum}")
+        _reject(f"{name} must be <= {maximum}", code="number_invalid")
     return number
 
 
@@ -113,10 +148,10 @@ def _as_tuple(value: Any, name: str) -> tuple[str, ...]:
     if value is None:
         return ()
     if isinstance(value, (str, bytes)):
-        raise TypeError(f"{name} must be a sequence of strings")
+        _reject(f"{name} must be a sequence of strings", TypeError, code="sequence_invalid")
     items = tuple(str(item).strip() for item in value)
     if any(not item for item in items):
-        raise ValueError(f"{name} cannot contain blank items")
+        _reject(f"{name} cannot contain blank items", code="sequence_invalid")
     return items
 
 
@@ -145,7 +180,7 @@ class CriticScoreReadback:
     def __post_init__(self) -> None:
         object.__setattr__(self, "case_id", _as_text(self.case_id, "case_id"))
         if not self.case_id:
-            raise ValueError("CriticScoreReadback.case_id is required")
+            _reject("CriticScoreReadback.case_id is required", code="case_id_required")
         object.__setattr__(
             self,
             "score",
@@ -161,18 +196,13 @@ class CriticScoreReadback:
                 maximum=1.0,
             ),
         )
-        object.__setattr__(
-            self, "next_action", _as_text(self.next_action, "next_action") or "stop"
-        )
-        object.__setattr__(
-            self, "reason_codes", _as_tuple(self.reason_codes, "reason_codes")
-        )
+        object.__setattr__(self, "next_action", _as_text(self.next_action, "next_action") or "stop")
+        object.__setattr__(self, "reason_codes", _as_tuple(self.reason_codes, "reason_codes"))
         object.__setattr__(self, "diagnosis", _as_text(self.diagnosis, "diagnosis"))
         object.__setattr__(
             self,
             "retry_score_source",
-            _as_text(self.retry_score_source, "retry_score_source")
-            or CRITIC_SCORE_SOURCE,
+            _as_text(self.retry_score_source, "retry_score_source") or CRITIC_SCORE_SOURCE,
         )
 
 
@@ -189,7 +219,7 @@ class RetryBoundaryObservation:
     def __post_init__(self) -> None:
         object.__setattr__(self, "case_id", _as_text(self.case_id, "case_id"))
         if not self.case_id:
-            raise ValueError("RetryBoundaryObservation.case_id is required")
+            _reject("RetryBoundaryObservation.case_id is required", code="case_id_required")
         object.__setattr__(
             self,
             "expected_decision",
@@ -197,7 +227,7 @@ class RetryBoundaryObservation:
         )
         object.__setattr__(self, "decision", _as_text(self.decision, "decision"))
         if not self.expected_decision or not self.decision:
-            raise ValueError("retry boundary observation requires decisions")
+            _reject("retry boundary observation requires decisions", code="evidence_type_invalid")
         object.__setattr__(
             self,
             "critic_score",
@@ -227,9 +257,7 @@ class BoundedRetryReadback:
             self,
             "observations",
             tuple(
-                item
-                if isinstance(item, RetryBoundaryObservation)
-                else RetryBoundaryObservation(**item)
+                item if isinstance(item, RetryBoundaryObservation) else RetryBoundaryObservation(**item)
                 for item in self.observations
             ),
         )
@@ -259,9 +287,7 @@ class BoundedRetryReadback:
 
     @property
     def replay_score_is_observational(self) -> bool:
-        return bool(self.observations) and all(
-            item.replay_score_is_observational for item in self.observations
-        )
+        return bool(self.observations) and all(item.replay_score_is_observational for item in self.observations)
 
 
 @dataclass(frozen=True, slots=True)
@@ -281,9 +307,9 @@ class FixtureQualityReadback:
             _as_int(self.case_count, "case_count", minimum=0),
         )
         if not isinstance(self.critic, CriticScoreReadback):
-            raise TypeError("FixtureQualityReadback.critic must be typed")
+            _reject("FixtureQualityReadback.critic must be typed", TypeError, code="evidence_type_invalid")
         if not isinstance(self.retry, BoundedRetryReadback):
-            raise TypeError("FixtureQualityReadback.retry must be typed")
+            _reject("FixtureQualityReadback.retry must be typed", TypeError, code="evidence_type_invalid")
         object.__setattr__(
             self,
             "fixture_threshold_status",
@@ -312,9 +338,7 @@ class ExecutorHealthEvidence:
     observed_at: str = ""
 
     def __post_init__(self) -> None:
-        object.__setattr__(
-            self, "worker_online", _as_bool(self.worker_online, "worker_online")
-        )
+        object.__setattr__(self, "worker_online", _as_bool(self.worker_online, "worker_online"))
         object.__setattr__(self, "workers", _as_tuple(self.workers, "workers"))
         object.__setattr__(
             self,
@@ -327,13 +351,11 @@ class ExecutorHealthEvidence:
             "broker_url_masked",
             _as_text(self.broker_url_masked, "broker_url_masked"),
         )
-        object.__setattr__(
-            self, "observed_at", _as_text(self.observed_at, "observed_at")
-        )
+        object.__setattr__(self, "observed_at", _as_text(self.observed_at, "observed_at"))
         if self.worker_online and not self.workers:
-            raise ValueError("online executor health requires worker identities")
+            _reject("online executor health requires worker identities", code="executor_health_invalid")
         if not self.worker_online and self.workers:
-            raise ValueError("offline executor health cannot name workers")
+            _reject("offline executor health cannot name workers", code="executor_health_invalid")
 
     @property
     def worker_count(self) -> int:
@@ -360,10 +382,10 @@ class LiveProviderRowEvidence:
     def __post_init__(self) -> None:
         object.__setattr__(self, "provider", _as_text(self.provider, "provider"))
         if not self.provider:
-            raise ValueError("LiveProviderRowEvidence.provider is required")
+            _reject("LiveProviderRowEvidence.provider is required", code="provider_replay_invalid")
         status = _as_text(self.replay_status, "replay_status")
         if status not in {"passed", "failed", "not_run"}:
-            raise ValueError(f"unsupported replay_status {status!r}")
+            _reject(f"unsupported replay_status {status!r}", code="provider_replay_invalid")
         object.__setattr__(self, "replay_status", status)
         object.__setattr__(
             self,
@@ -439,9 +461,7 @@ class LiveProviderRowEvidence:
             ),
         )
         if self.review_visible_sample_count > self.review_sample_count:
-            raise ValueError(
-                "review_visible_sample_count cannot exceed review_sample_count"
-            )
+            _reject("review_visible_sample_count cannot exceed review_sample_count", code="sample_count_invalid")
         object.__setattr__(
             self,
             "trace_success",
@@ -465,28 +485,24 @@ class LiveProviderReplayReadback:
             _as_text(self.readback_artifact_ref, "readback_artifact_ref"),
         )
         if not self.readback_artifact_ref:
-            raise ValueError("live replay readback artifact ref is required")
+            _reject("live replay readback artifact ref is required", code="provider_replay_invalid")
         object.__setattr__(
             self,
             "provider_rows",
             tuple(
-                item
-                if isinstance(item, LiveProviderRowEvidence)
-                else LiveProviderRowEvidence(**item)
+                item if isinstance(item, LiveProviderRowEvidence) else LiveProviderRowEvidence(**item)
                 for item in self.provider_rows
             ),
         )
         object.__setattr__(
             self,
             "operator_review_status",
-            _as_text(self.operator_review_status, "operator_review_status")
-            or "not_run",
+            _as_text(self.operator_review_status, "operator_review_status") or "not_run",
         )
         object.__setattr__(
             self,
             "replay_type",
-            _as_text(self.replay_type, "replay_type")
-            or LIVE_PROVIDER_QUALITY_REPLAY_TYPE,
+            _as_text(self.replay_type, "replay_type") or LIVE_PROVIDER_QUALITY_REPLAY_TYPE,
         )
 
 
@@ -513,7 +529,7 @@ class LiveQualityThresholds:
             _as_text(self.threshold_version, "threshold_version"),
         )
         if not self.threshold_version:
-            raise ValueError("threshold_version is required")
+            _reject("threshold_version is required", code="threshold_version_required")
         object.__setattr__(
             self,
             "required_providers",
@@ -669,28 +685,18 @@ class QualityGateEvidence:
     thresholds: LiveQualityThresholds = field(default_factory=LiveQualityThresholds)
 
     def __post_init__(self) -> None:
-        if self.fixture_replay is not None and not isinstance(
-            self.fixture_replay, FixtureQualityReadback
-        ):
-            raise ValueError("fixture_replay must be typed or None")
-        if self.executor_health is not None and not isinstance(
-            self.executor_health, ExecutorHealthEvidence
-        ):
-            raise ValueError("executor_health must be typed or None")
-        if self.live_replay is not None and not isinstance(
-            self.live_replay, LiveProviderReplayReadback
-        ):
-            raise ValueError("live_replay must be typed or None")
-        if self.rollout_policy is not None and not isinstance(
-            self.rollout_policy, ProviderRolloutPolicyEvidence
-        ):
-            raise ValueError("rollout_policy must be typed or None")
-        if self.input_promotion_claim is not None and not isinstance(
-            self.input_promotion_claim, InputPromotionClaim
-        ):
-            raise ValueError("input_promotion_claim must be typed or None")
+        if self.fixture_replay is not None and not isinstance(self.fixture_replay, FixtureQualityReadback):
+            _reject("fixture_replay must be typed or None", code="evidence_type_invalid")
+        if self.executor_health is not None and not isinstance(self.executor_health, ExecutorHealthEvidence):
+            _reject("executor_health must be typed or None", code="executor_health_invalid")
+        if self.live_replay is not None and not isinstance(self.live_replay, LiveProviderReplayReadback):
+            _reject("live_replay must be typed or None", code="provider_replay_invalid")
+        if self.rollout_policy is not None and not isinstance(self.rollout_policy, ProviderRolloutPolicyEvidence):
+            _reject("rollout_policy must be typed or None", code="evidence_type_invalid")
+        if self.input_promotion_claim is not None and not isinstance(self.input_promotion_claim, InputPromotionClaim):
+            _reject("input_promotion_claim must be typed or None", code="evidence_type_invalid")
         if not isinstance(self.thresholds, LiveQualityThresholds):
-            raise TypeError("thresholds must be typed")
+            _reject("thresholds must be typed", TypeError, code="evidence_type_invalid")
 
 
 @dataclass(frozen=True, slots=True)
@@ -814,18 +820,14 @@ def redact_broker_url(raw_url: Any) -> str:
                 [
                     (
                         key,
-                        "***"
-                        if str(key or "").lower() in _SENSITIVE_QUERY_KEYS
-                        else value,
+                        "***" if str(key or "").lower() in _SENSITIVE_QUERY_KEYS else value,
                     )
                     for key, value in pairs
                 ]
             )
         else:
             masked_query = ""
-        return urlunsplit(
-            (parsed.scheme, netloc, parsed.path, masked_query, parsed.fragment)
-        )
+        return urlunsplit((parsed.scheme, netloc, parsed.path, masked_query, parsed.fragment))
     except Exception:  # noqa: BLE001 - redaction must never fail open
         return "***"
 
@@ -846,9 +848,7 @@ def _evaluate_health_layer(
         failures.append("executor_health_inspect_failed")
     if not evidence.worker_online:
         failures.append("executor_health_no_online_worker")
-    state = (
-        "executor_health_observed_online" if not failures else "executor_health_failed"
-    )
+    state = "executor_health_observed_online" if not failures else "executor_health_failed"
     return HealthLayerVerdict(
         passed=not failures,
         state=state,
@@ -890,11 +890,7 @@ def _evaluate_quality_layer(
         failures.append("retry_blocked_trace_missing")
     return QualityLayerVerdict(
         passed=not failures,
-        state=(
-            "fixture_quality_replay_passed"
-            if not failures
-            else "fixture_quality_replay_failed"
-        ),
+        state=("fixture_quality_replay_passed" if not failures else "fixture_quality_replay_failed"),
         failures=tuple(failures),
         fixture_case_count=readback.case_count,
         critic_score_source=readback.critic.retry_score_source,
@@ -965,9 +961,7 @@ def _promotion_decision(
     policy: ProviderRolloutPolicyEvidence | None,
 ) -> PromotionDecision:
     policy_approved = bool(policy) and policy.approved
-    promotion_allowed = (
-        quality.passed and health.passed and live_closed and policy_approved
-    )
+    promotion_allowed = quality.passed and health.passed and live_closed and policy_approved
     if promotion_allowed:
         return PromotionDecision(
             decision_id="successor.agent-batch.quality-promotion:provider-auto:promote",
@@ -1027,9 +1021,7 @@ def _build_readback(
             "decision_id": decision.decision_id,
             "decision": decision.decision,
             "promotion_allowed": decision.promotion_allowed,
-            "provider_auto_promotion_allowed": (
-                decision.provider_auto_promotion_allowed
-            ),
+            "provider_auto_promotion_allowed": (decision.provider_auto_promotion_allowed),
             "quality_promotion_state": decision.quality_promotion_state,
             "reason_codes": decision.reason_codes,
         }
@@ -1177,9 +1169,7 @@ def evaluate_quality_promotion_gate(
         gate_state=gate_state,
         health=health,
         quality=quality,
-        promotion=PromotionLayerVerdict(
-            passed=decision.promotion_allowed, decision=decision
-        ),
+        promotion=PromotionLayerVerdict(passed=decision.promotion_allowed, decision=decision),
         readback=readback,
         authority=PromotionAuthorityState(),
         effect_counts=EffectCounters(),

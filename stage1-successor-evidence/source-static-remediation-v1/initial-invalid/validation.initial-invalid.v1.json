@@ -1,0 +1,9 @@
+{
+  "authoritative": false,
+  "failure": "BEFORE_HASH:main/backend/app/services/workflow_graph/store.py",
+  "initial_artifact_manifest_sha256": "022c166b509020a754eee6ec437419d31d8b77138f2eb0e670e6b629d02bbc06",
+  "initial_record_sha256": "885c132df7b616949623b8f08e5ec6c7a92988a70c6096b88228ac563877858c",
+  "resolution": "The upstream startup receipt contains a 62-character value in a before_sha256 field. The corrected record preserves the receipt by hash and uses UNKNOWN_NOT_ATTRIBUTED instead of fabricating a SHA-256.",
+  "schema_version": "mrw.stage1.source_static_remediation_initial_invalid.v1",
+  "status": "PRESERVED_INVALID_SUPERSEDED"
+}

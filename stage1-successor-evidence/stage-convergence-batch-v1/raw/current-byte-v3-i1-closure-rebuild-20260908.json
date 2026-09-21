@@ -1,0 +1,37 @@
+{
+  "authoritative": false,
+  "authority_ceiling": "EXACT_BYTE_CORRESPONDENCE_ONLY_NO_CANDIDATE_PROMOTION_NO_STAGE0_REWRITE_NO_PRODUCTION_AUTHORITY",
+  "checker": {
+    "authority_ceiling": "EXACT_BYTE_CORRESPONDENCE_ONLY_NO_CANDIDATE_PROMOTION_NO_STAGE0_REWRITE_NO_PRODUCTION_AUTHORITY",
+    "direct_candidate_declaration_count": 22,
+    "provider_test_direct_candidate_declaration_count": 7,
+    "run_loop_direct_candidate_declaration_count": 3,
+    "source_count": 16,
+    "status": "PASS",
+    "successor_count": 22
+  },
+  "new_documents": {
+    "manifest": {
+      "path": "stage1-successor-evidence/current-byte-remediation-v3/bindings/artifact-manifest.v3.json",
+      "sha256": "447beadb66113e606926c5d01d583c3a56d4cb1c04da29ff5249943b60ab0a35"
+    },
+    "registry": {
+      "path": "stage1-successor-evidence/current-byte-remediation-v3/bindings/current-byte-binding-successors.v3.json",
+      "sha256": "bcc60ffd01ef35eceb06ed87568b724a4107e26de8ea2b47ff9f1e5415bfad71"
+    }
+  },
+  "old_documents": {
+    "manifest": {
+      "path": "stage1-successor-evidence/current-byte-remediation-v3/bindings/artifact-manifest.v3.json",
+      "sha256": "a4674666b2f9feb70c9fa9496859cc91a4fb77ac3226275d0dfae631b9bf77ba"
+    },
+    "registry": {
+      "path": "stage1-successor-evidence/current-byte-remediation-v3/bindings/current-byte-binding-successors.v3.json",
+      "sha256": "ff28a778f672b1d7bccf7b4da9564e243b6df29c05bb9ea5f9921732e22d5b8a"
+    }
+  },
+  "reason": "ADD_COMPLETE_I1_CURRENT_CANDIDATE_PROJECTION",
+  "schema": "mrw.current_byte_v3_rebuild_receipt.v1",
+  "stale_copy": "stage1-successor-evidence/stage-convergence-batch-v1/raw/current-byte-v3-pre-i1-closure-20260908",
+  "status": "PASS"
+}

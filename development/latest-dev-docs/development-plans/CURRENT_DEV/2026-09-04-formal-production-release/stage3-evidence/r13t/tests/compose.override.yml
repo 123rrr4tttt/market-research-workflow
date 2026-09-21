@@ -1,0 +1,22 @@
+services:
+  db:
+    ports: !reset []
+  es:
+    ports: !reset []
+  redis:
+    ports: !reset []
+  backend:
+    image: mrw-r13r-support-backend-arm64:local
+    platform: linux/arm64
+    env_file: !reset []
+    environment:
+      RUN_MIGRATIONS: "true"
+      OPENAI_API_KEY: ""
+    ports: !override
+      - "127.0.0.1:18003:8000"
+    volumes: !reset []
+  frontend-modern:
+    image: mrw-r13s-frontend-canonical:local
+    platform: linux/amd64
+    ports: !override
+      - "127.0.0.1:15177:80"

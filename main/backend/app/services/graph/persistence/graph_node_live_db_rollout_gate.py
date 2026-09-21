@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from typing import Any
+from typing import Annotated, Any
 
 from .graph_projection_contract import GraphProjectionDryRunReport, GraphProjectionRolloutReadinessReport
 
@@ -119,7 +119,12 @@ def build_graph_node_live_db_rollout_gate(
     readiness_report: GraphProjectionRolloutReadinessReport,
     database_url: str | None,
     live_db_evidence: dict[str, Any] | None = None,
-) -> GraphNodeLiveDbRolloutGateReport:
+) -> Annotated[
+    GraphNodeLiveDbRolloutGateReport,
+    "kit:non-authoritative derived_as=generated_evidence "
+    "fact_source=dry_run+readiness+database+live_db_evidence_inputs "
+    "witness=test:test_w04_authority_metadata",
+]:
     """Classify Graph Node live DB rollout state without overclaiming closure.
 
     Dry-run readiness means the no-DB projection fixture and pre-live read/write

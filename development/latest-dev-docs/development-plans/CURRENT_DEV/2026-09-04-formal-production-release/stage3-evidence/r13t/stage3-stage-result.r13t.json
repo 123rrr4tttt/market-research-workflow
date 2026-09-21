@@ -1,0 +1,153 @@
+{
+  "schema_version": "mrw.stage3-stage-result.v1",
+  "generated_at": "2026-09-10T04:21:18Z",
+  "status": "BLOCKED",
+  "stage": 3,
+  "authority": {
+    "release_authorized": false,
+    "production_release_authorized": false,
+    "stage4_admitted": false,
+    "ceiling": "PRODUCTION_RELEASE_NOT_AUTHORIZED"
+  },
+  "candidate": {
+    "label": "r13t",
+    "root": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260910-v4-r13t",
+    "commit": "17e824ab2de3de450bd5215f84bcca428d90218e",
+    "tree": "6e2c8524c7cbd436bf58bc08b37fa2b2bdbc0d92",
+    "base": "88ffcc3dab2e6cbdc1f389e16c4226df5a2e51c6",
+    "manifest_sha256": "ef5b88550da9b1c25fabacd3de8b9b6b4445bf74b45b304060d8f6653936c844",
+    "stage1_stage2_result_sha256": "9c25de90f91a1f2c1fd61c9d9f3b2f96e39772c47c5d9907bf2d3390d300a3b6",
+    "evidence_index_sha256": "69988c795ef54d930b87b1d41cfa8fb9ed8fc48032d7272392ed86c3e6486c4e",
+    "clean": true
+  },
+  "completed_local_scope": {
+    "candidate_identity": {
+      "status": "PASS",
+      "note": "R1, R3, Stage 2 and current-binding v1-r10 passed for the exact r13t candidate."
+    },
+    "focused_validation": {
+      "status": "PASS",
+      "r13t_changed_selectors_passed": 86,
+      "frontend_repair_profile_passed": 234,
+      "note": "The r13t exporter-parity change was verified by focused selectors; unchanged suites were reused only where byte identity was established."
+    },
+    "artifact_reproducibility": {
+      "status": "PASS_SCOPED_WITH_IDENTITY_REUSE",
+      "platform": "linux/amd64",
+      "backend_manifest": "sha256:403eb796b0890b0e77aec8755c2638cc4e239341b7f71f30ff4dfa6ba475ffe2",
+      "migration_runner_manifest": "sha256:727ab5d23c89119fae6872882f1458c30f09467c45d207d29b335589270a179d",
+      "frontend_manifest": "sha256:a5b09b80fde1d2bbeb31c54137292e4a4bca7e2cf1f665b858f2d68a05c54e5c",
+      "backend_and_migration_source": "r13r exact A/B builds; relevant r13r-to-r13t input subtrees are byte-identical",
+      "frontend_source": "r13s exact A/B builds; the r13s-to-r13t frontend Git tree is identical",
+      "frontend_exporter_parity": "r13t canonical and rebuild workflow OCI outputs both use rewrite-timestamp=true",
+      "sbom": "LOCAL_BUILDKIT_SPDX_PRESENT",
+      "provenance": "LOCAL_UNSIGNED_BUILDKIT_PROVENANCE_PRESENT",
+      "limitation": "No predecessor execution is relabelled as a fresh r13t build."
+    },
+    "runtime": {
+      "status": "PASS_SCOPED_WITH_PREDECESSOR_REUSE",
+      "migration_head": "20260905_000001",
+      "backend_startup": "PASS",
+      "frontend_root": 200,
+      "frontend_static_asset": 200,
+      "backend_direct_health": 200,
+      "frontend_proxy_health": 200,
+      "deep_health_http": 200,
+      "deep_health_state": "degraded_missing_OPENAI_API_KEY",
+      "live_provider": "BLOCKED"
+    },
+    "cleanup": {
+      "task_containers": 0,
+      "task_volumes": 0,
+      "task_networks": 0,
+      "task_loaded_tags_removed": 3,
+      "task_ports_closed": true,
+      "unrelated_ops_scrapyd_container_unchanged": "94d3ee03d0ba"
+    }
+  },
+  "blocking_gates": [
+    {
+      "id": "security.gitleaks",
+      "status": "AWAITING_HUMAN_AUTHORITY",
+      "raw_findings": 419,
+      "unique_paths": 220,
+      "stable_remediation_groups": 405,
+      "approved_dispositions": 0,
+      "human_confirmed_real_credentials": 0,
+      "note": "Path routing is complete, but it is not a secret disposition. Exact private review or content remediation is required; broad allowlists remain prohibited."
+    },
+    {
+      "id": "security.backend_image",
+      "status": "BLOCKED",
+      "high": 135,
+      "critical": 13,
+      "observations_with_reported_fixed_version": 0,
+      "note": "The current Trivy report supplies no direct fixed-version upgrade path; the threshold was not weakened."
+    },
+    {
+      "id": "security.migration_runner_image",
+      "status": "BLOCKED",
+      "high": 135,
+      "critical": 13,
+      "observations_with_reported_fixed_version": 0,
+      "note": "The current Trivy report supplies no direct fixed-version upgrade path; the threshold was not weakened."
+    },
+    {
+      "id": "runtime.live_provider",
+      "status": "AWAITING_HUMAN_AUTHORITY",
+      "required_input": "OPENAI_API_KEY",
+      "note": "No key was recorded or inferred; deep health therefore remains degraded rather than live-provider PASS."
+    },
+    {
+      "id": "remote.exact_sha_checks_and_enforcement",
+      "status": "AWAITING_HUMAN_AUTHORITY",
+      "exact_sha_remote_matches": 0,
+      "actions_runs": 0,
+      "commit_and_check_runs_http": 422,
+      "main_commit": "88ffcc3dab2e6cbdc1f389e16c4226df5a2e51c6",
+      "main_protected": false,
+      "rulesets": 0,
+      "applicable_rules": 0
+    },
+    {
+      "id": "registry.signing.transparency",
+      "status": "AWAITING_HUMAN_AUTHORITY",
+      "note": "No registry publish or promotion, immutability proof, signature, or transparency-log write was authorized or performed."
+    },
+    {
+      "id": "release_manifest.r2",
+      "status": "BLOCKED",
+      "actual_release_manifest_present": false,
+      "validator_exit_code": 1,
+      "r2_counts": {
+        "PASS": 1,
+        "BLOCKED": 5,
+        "UNEXECUTED": 4,
+        "FAIL": 0
+      },
+      "candidate_identity_exact": true,
+      "formal_rc_ready": false,
+      "formal_production_ready": false
+    }
+  ],
+  "evidence": {
+    "candidate_manifest": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260910-v4-r13t/evidence/candidate-manifest.v5.json",
+    "candidate_result": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260910-v4-r13t/evidence/stage1-stage2-stage-result.r13t.json",
+    "frontend_reproducibility": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260910-v4-r13s/evidence/frontend-reproducibility-r13s/comparison.json",
+    "backend_migration_artifacts": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13r/artifacts/summary.json",
+    "runtime_result": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13t/tests/result.json",
+    "security_analysis": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13t/security/gitleaks-disposition-analysis.r13t.json",
+    "remote_readback": "/Users/wangyiliang/market-research-workflow/stage3-evidence/r13t/remote/github-readback.r13t.json",
+    "r2_result": "/Users/wangyiliang/market-research-workflow/manifest/r2-preparation-result.r13t.json"
+  },
+  "external_effects": {
+    "local_task_owned_docker_resources": true,
+    "github_read_only_requests": true,
+    "remote_writes": [],
+    "registry_writes": [],
+    "signing_writes": [],
+    "deployments": [],
+    "production_writes": []
+  },
+  "conclusion": "All independently executable local Stage 3 work has been completed and indexed. Stage 3 cannot be marked PASS without security disposition/remediation, a live-provider credential, exact-SHA remote checks and enforcement, registry immutability and signing evidence, and an actual release manifest that passes R2."
+}

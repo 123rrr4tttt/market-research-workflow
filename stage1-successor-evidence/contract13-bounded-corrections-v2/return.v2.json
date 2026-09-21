@@ -1,0 +1,289 @@
+{
+  "RETURN_RESULT": "BLOCKED",
+  "artifact_manifest": {
+    "artifact_count": 32,
+    "path": "stage1-successor-evidence/contract13-bounded-corrections-v2/artifact-manifest.v2.json",
+    "sha256": "7f3338c1af4420dcc41d6a204cbb76afc69621b7c1c3899a0196b565b916d4e6"
+  },
+  "authoritative": false,
+  "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+  "backend_unit_gate_result": {
+    "last_completed_execution": {
+      "deselected": 2328,
+      "exit_code": 1,
+      "failed": 55,
+      "passed": 1712,
+      "skipped": 0,
+      "subtests_passed": 42,
+      "warnings": 14
+    },
+    "rerun_reason": "Contract 13 directs focused verification while known factual blockers remain.",
+    "selector": "unit and not external and not flaky",
+    "status": "FAIL_RETAINED_NOT_RERUN"
+  },
+  "bounded_corrections": {
+    "binding_impact": {
+      "binding_or_registry_write": false,
+      "canonical_receipt": {
+        "path": "stage1-successor-evidence/contract13-bounded-corrections-v2/binding-impact/binding-impact-audit.corrected.v2.json",
+        "sha256": "88bf181ad9d3de4ddac07c613222fb126ebfb22db6d56c161b6fd504ca707c19"
+      },
+      "disposition": "CORRECTION_REQUIRED_ADDITIVE_REBIND_NOT_AUTHORIZED",
+      "status": "BINDING_DRIFT_FOUND_ADDITIVE_REBIND_REVIEW_REQUIRED",
+      "summary": {
+        "bound_path_count": 2,
+        "changed_path_entry_count": 105,
+        "code_contract_checker_audited_count": 91,
+        "code_contract_checker_subset_count": 91,
+        "drifted_bound_path_count": 2,
+        "import_boundary_bound_count": 2,
+        "import_boundary_drift_count": 2,
+        "import_boundary_path_count": 8,
+        "intact_bound_path_count": 0,
+        "not_bound_path_count": 103,
+        "task_start_missing_count": 100,
+        "task_start_recorded_count": 5
+      },
+      "superseded_initial_receipt_retained": true,
+      "validation": {
+        "path": "stage1-successor-evidence/contract13-bounded-corrections-v2/binding-impact/binding-impact-audit.validation.corrected.v2.json",
+        "sha256": "9689769d1799c16d2a52e4943e2e476f100b82643f242eb7d795ddaf0c07adb3"
+      }
+    },
+    "factual_claim_decisions": {
+      "deleted_evidence_restored": false,
+      "disposition": "EVIDENCE_GENERATION_AND_EXTERNAL_AUTHORITY_PARTITIONED",
+      "fresh_proposals_executed": false,
+      "live_observations_executed": false,
+      "receipt": {
+        "path": "stage1-successor-evidence/contract13-bounded-corrections-v2/claim-decisions/claim-decisions.v2.json",
+        "sha256": "8362b368b5f4d944bb1bddf70f397e73c1b3716bc0bdb6244e61699b38e719b3"
+      },
+      "status": "DECISION_TABLE_COMPLETE_ACCEPTANCE_NOT_CLAIMED",
+      "summary": {
+        "decision_claim_counts": {
+          "ACTUAL_HISTORICAL_RECEIPT_REQUIRED": 5,
+          "FRESH_LOCAL_DETERMINISTIC_EVIDENCE_POSSIBLE": 8,
+          "LIVE_OBSERVATION_REQUIRED": 3
+        },
+        "decision_nodeid_counts": {
+          "ACTUAL_HISTORICAL_RECEIPT_REQUIRED": 8,
+          "FRESH_LOCAL_DETERMINISTIC_EVIDENCE_POSSIBLE": 13,
+          "LIVE_OBSERVATION_REQUIRED": 9
+        },
+        "inventory_missing_evidence_nodeid_count": 30,
+        "nodeids_covered_exactly_once": true,
+        "unique_claim_count": 16
+      },
+      "validation": {
+        "path": "stage1-successor-evidence/contract13-bounded-corrections-v2/claim-decisions/validation-receipt.v2.json",
+        "sha256": "40385f6f91b725387165339f3f8761e5b0feca15517a70e3d75e96b887e1951d"
+      }
+    },
+    "historical_stage2_candidates": {
+      "disposition": "READ_ONLY_VERIFIED",
+      "historical_roots_mutated": false,
+      "receipt": {
+        "path": "stage1-successor-evidence/contract13-bounded-corrections-v2/historical-candidates/historical-candidates-readonly-verification.v1.json",
+        "sha256": "b21bc780b140792cc96b5f358fc02c2e818af8b0b29da722d2a8e12857526d89"
+      },
+      "status": "PASS",
+      "v3_commit": "f8d84afc2784cf91784da957e353e2b0c0d6952c",
+      "v3_tree": "1be3dcbc009332ec225297d1b94430862287d816",
+      "v4_commit": "e1aa59708a22e4238c4d9beaf7b7bd2d2095d483",
+      "v4_tree": "d2003fbb8e54c8dd743fa4e84907a8a978ef5107"
+    },
+    "process_api": {
+      "current_sha256": "790b6cb90086d6ba1171309e572b7e7be4c906db3705170dbd4a12ca7ea16c63",
+      "disposition": "CORRECTION_REQUIRED",
+      "isolated_witness": {
+        "path": "stage1-successor-evidence/contract13-bounded-corrections-v2/process-api/process-task-id-overlay-witness-results.v2.json",
+        "sha256": "584c8f0d910bf77ee3b11018e225a7bf41335c5d3efbd10e7c57205c374a011b"
+      },
+      "proposed_sha256": "5687389bdad57881a0f96543ba32ac4eaaaeef0f7939f8f7e36e16316ed7ee61",
+      "query_default_direct_call": {
+        "interpretation": "Receives the declared fastapi.params.Query object and, because it is truthy, passes that object to bind_project.",
+        "is_none": false,
+        "repr": "Query(None)",
+        "truthy": true,
+        "type": "fastapi.params.Query"
+      },
+      "receipt": {
+        "path": "stage1-successor-evidence/contract13-bounded-corrections-v2/process-api/process-task-id-fallback-disposition.v2.json",
+        "sha256": "d36eb13587a31bba47a68e03fe39415eaf31b1192f885db33326e4bcf2c5955b"
+      },
+      "source_mutated": false,
+      "status": "BOUNDED_CORRECTION_COMPLETE_PROPOSED_REPAIR_UNINTEGRATED"
+    },
+    "startup_preservation": {
+      "disposition": "BOUNDED_LOCAL_REPAIR_EVIDENCE_WITH_EXPLICIT_GAPS",
+      "local_acceptance_gaps": [
+        "CELERY_AND_GENERIC_CLI_SCHEMA_INITIALIZATION",
+        "CROSS_PROCESS_POSTGRES_DDL_RACE_AND_FAILURE_RECOVERY"
+      ],
+      "proven": [
+        "FASTAPI_STARTUP_ORDER",
+        "SINGLE_PROCESS_FIRST_OPERATION_FAIL_CLOSED_FALLBACK_RETRY",
+        "SINGLE_PROCESS_CONCURRENT_FIRST_USE"
+      ],
+      "receipt": {
+        "path": "stage1-successor-evidence/contract13-bounded-corrections-v2/startup-preservation/startup-preservation.v2.json",
+        "sha256": "7f874b833bcfc4db1e3d8349a17bce3f8f7fc5cdcccf12a9fbafd5fcfcfbacbd"
+      },
+      "shared_runtime_mutated_by_contract_13": false,
+      "status": "LOCAL_ACCEPTANCE_GAPS_REMAIN"
+    }
+  },
+  "changed_paths": {
+    "entry_count": 31,
+    "path": "stage1-successor-evidence/contract13-bounded-corrections-v2/changed-paths.v2.json",
+    "sha256": "7542014e214bf1ab2e8c4ec06b65e6f263b2200810f99c744df72db8495fd690"
+  },
+  "cleanup_and_recovery_status": {
+    "destructive_cleanup": false,
+    "generated_cache_removed": true,
+    "historical_restore": false,
+    "initial_invalid_integration_outputs_retained": true,
+    "initial_invalid_reason": "Validation checked the virtual changed-path artifact before first write; the four original bytes are retained under initial-invalid and are not canonical.",
+    "v1_package_retained": true
+  },
+  "evidence_authority_partition": {
+    "actual_historical_receipt_requirements": {
+      "claim_count": 5,
+      "dependent_nodeid_count": 8,
+      "recovered": false
+    },
+    "bounded_local_repairs_completed": [
+      "process_api_behavioral_correction_receipt",
+      "historical_candidate_read_only_verification",
+      "binding_impact_audit",
+      "startup_preservation_isolated_analysis",
+      "claim_level_decision_table"
+    ],
+    "fresh_local_deterministic_evidence_proposals": {
+      "claim_count": 8,
+      "dependent_nodeid_count": 13,
+      "executed": false
+    },
+    "genuinely_missing_human_or_external_authority": [
+      "PROCESS_API_ADDITIVE_EXACT_BYTE_REBIND",
+      "HISTORICAL_RECEIPT_RECOVERY_OR_REBIND",
+      "LIVE_PROVIDER_OR_DATABASE_OBSERVATION"
+    ],
+    "live_observation_requirements": {
+      "claim_count": 3,
+      "dependent_nodeid_count": 9,
+      "executed": false
+    },
+    "synthetic_fixture_may_close_factual_claim": false
+  },
+  "external_effects": {
+    "external_delivery": false,
+    "historical_candidate_import": false,
+    "live_database": false,
+    "live_provider": false,
+    "network": false
+  },
+  "historical_v3_v4_unchanged": {
+    "receipt": {
+      "path": "stage1-successor-evidence/contract13-bounded-corrections-v2/historical-candidates/historical-candidates-readonly-verification.v1.json",
+      "sha256": "b21bc780b140792cc96b5f358fc02c2e818af8b0b29da722d2a8e12857526d89"
+    },
+    "status": "PASS",
+    "task_writes": false
+  },
+  "input_source_identity_and_hashes": {
+    "contract_10": {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/10_stage1-stage2-source-and-static-closure-return-contract.v1.md",
+      "sha256": "0c20328727fdefca6a3161e212490a2043efeee17e4bffc854f8ee17847cdd6b"
+    },
+    "contract_11": {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/11_stage1-backend-unit-remediation-return-contract.v1.md",
+      "sha256": "051dcf9be9b8f03d8bb603537bece6f37cdf8423fa8c6e4a4d6183f230227ca5"
+    },
+    "contract_12": {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/12_stage1-residual-disposition-return-contract.v1.md",
+      "sha256": "c11c96a68284085dfb2548cd9ce19062de22b5d4bbf5af9d2c2863a16dcf03f2"
+    },
+    "contract_12_return": {
+      "path": "stage1-successor-evidence/residual-disposition-v1/return.v1.json",
+      "sha256": "7757a5504213aea895b35eb39acbf3ec3d1ceeddbc524d34aebb94c8a7990b1b"
+    },
+    "contract_12_validation": {
+      "path": "stage1-successor-evidence/residual-disposition-v1/return-validation.v1.json",
+      "sha256": "4ecdb79bb21706b6b40ef70d8a710cc696b01244c7e4d7706257ab418fb3f933"
+    },
+    "contract_13": {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/13_contract12-supervisor-review-and-return.v1.md",
+      "sha256": "ac1629315b3ae91aa9de59b7ae87da04a5f10c54d643e406d8785a0783071717"
+    },
+    "process_py": {
+      "path": "main/backend/app/api/process.py",
+      "sha256": "790b6cb90086d6ba1171309e572b7e7be4c906db3705170dbd4a12ca7ea16c63"
+    }
+  },
+  "phase_b_c_v5_gated": true,
+  "primary_replay_receipts_and_sha256": null,
+  "recommended_next_action": "Supervisor should accept or revise this bounded v2 disposition, authorize only the necessary additive rebinds, and separately authorize fresh deterministic generation, historical receipt recovery, or live observation by claim class. Do not rerun the full selector or create v5 until factual blockers and startup acceptance gaps are resolved.",
+  "residual_blockers": [
+    {
+      "blocker": "PROCESS_API_EXACT_BYTE_REBIND_REQUIRED",
+      "disposition": "CORRECTION_REQUIRED",
+      "phase_b_c_v5_gated": true
+    },
+    {
+      "blocker": "TWO_CURRENT_BINDING_DRIFTS_REQUIRE_ADDITIVE_SUCCESSORS",
+      "paths": [
+        "main/backend/app/models/base.py",
+        "main/backend/app/services/workflow_graph/runtime.py"
+      ],
+      "phase_b_c_v5_gated": true
+    },
+    {
+      "blocker": "FACTUAL_EVIDENCE_NOT_YET_SATISFIED",
+      "fresh_local_nodeids": 13,
+      "historical_receipt_nodeids": 8,
+      "live_observation_nodeids": 9,
+      "phase_b_c_v5_gated": true
+    },
+    {
+      "blocker": "STARTUP_PRESERVATION_LOCAL_ACCEPTANCE_GAPS",
+      "gaps": [
+        "CELERY_AND_GENERIC_CLI_SCHEMA_INITIALIZATION",
+        "CROSS_PROCESS_POSTGRES_DDL_RACE_AND_FAILURE_RECOVERY"
+      ],
+      "phase_b_c_v5_gated": true
+    },
+    {
+      "blocker": "REQUIRED_SELECTOR_NOT_GREEN",
+      "last_exit_code": 1,
+      "phase_b_c_v5_gated": true
+    }
+  ],
+  "return_scope": "CONTRACT_13_BOUNDED_CORRECTIONS_ONLY",
+  "schema_version": "mrw.stage1.contract13.return.v2",
+  "source_closure_checker_and_results": "UNCHANGED_FROM_CONTRACT_12_FOCUSED_PASS_NOT_STAGE1_ACCEPTANCE",
+  "stage1_focused_tests_lint_compile": {
+    "contract_13_binding_check": "PASS_105_OF_105_91_OF_91_8_OF_8",
+    "contract_13_claim_decision_check": "PASS_30_NODEIDS_EXACTLY_ONCE",
+    "contract_13_process_witness": "PASS_6_ASSERTIONS",
+    "contract_13_startup_witness": "12_PASSED_10_WARNINGS",
+    "full_selector": "NOT_RERUN_BY_CONTRACT_13"
+  },
+  "stage1_remediation_record_and_sha256": null,
+  "static_stage3_readiness_results": "NOT_RUN_PHASE_A_UNACCEPTED",
+  "successor_candidate_root": null,
+  "successor_closure_path_and_sha256": null,
+  "successor_commit": null,
+  "successor_manifest_path_and_sha256": null,
+  "successor_r1_r2_r3_paths_and_sha256": null,
+  "successor_record_path_and_sha256": null,
+  "successor_tree": null,
+  "v5_fresh_checks": "NOT_RUN_PHASE_A_UNACCEPTED",
+  "warning_skip_deselect_inventory": {
+    "deselected": 2328,
+    "scope": "last completed required-selector execution",
+    "skipped": 0,
+    "warnings": 14
+  }
+}

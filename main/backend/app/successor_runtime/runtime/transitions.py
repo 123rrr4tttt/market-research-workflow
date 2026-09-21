@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from enum import StrEnum
 
+from functorial_kit import Failure
+
+from .failure_policy import raise_runtime_failure, runtime_failure
+
 
 class RunState(StrEnum):
     SUBMITTED = "SUBMITTED"
@@ -245,10 +249,22 @@ class IllegalTransition(ValueError):
 def transition_run(
     current: RunState, event: RunEvent, target: RunState, *, guard: bool
 ) -> RunState:
+    failure = transition_run_result(current, event, target, guard=guard)
+    if isinstance(failure, Failure):
+        raise_runtime_failure(failure, IllegalTransition)
+    return failure
+
+
+def transition_run_result(
+    current: RunState, event: RunEvent, target: RunState, *, guard: bool
+) -> RunState | Failure:
     allowed = RUN_TRANSITIONS.get((current, event), frozenset())
     if not guard or target not in allowed:
-        raise IllegalTransition(
-            f"illegal run transition: {current} + {event} -> {target}"
+        return runtime_failure(
+            "ILLEGAL_RUN_TRANSITION",
+            f"illegal run transition: {current} + {event} -> {target}",
+            IllegalTransition,
+            site="transitions.run",
         )
     return target
 
@@ -256,9 +272,21 @@ def transition_run(
 def transition_step(
     current: StepState, event: StepEvent, target: StepState, *, guard: bool
 ) -> StepState:
+    failure = transition_step_result(current, event, target, guard=guard)
+    if isinstance(failure, Failure):
+        raise_runtime_failure(failure, IllegalTransition)
+    return failure
+
+
+def transition_step_result(
+    current: StepState, event: StepEvent, target: StepState, *, guard: bool
+) -> StepState | Failure:
     allowed = STEP_TRANSITIONS.get((current, event), frozenset())
     if not guard or target not in allowed:
-        raise IllegalTransition(
-            f"illegal step transition: {current} + {event} -> {target}"
+        return runtime_failure(
+            "ILLEGAL_STEP_TRANSITION",
+            f"illegal step transition: {current} + {event} -> {target}",
+            IllegalTransition,
+            site="transitions.step",
         )
     return target

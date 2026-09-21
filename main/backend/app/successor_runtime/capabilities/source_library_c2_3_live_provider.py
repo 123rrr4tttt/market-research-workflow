@@ -12,7 +12,9 @@ import urllib.error
 import urllib.request
 from collections.abc import Callable, Mapping
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Annotated, Any, Literal
+
+from functorial_kit import Failure
 
 from app.successor_runtime.capabilities import source_library_c2_shared as shared
 from app.successor_runtime.capabilities.checksum import content_digest
@@ -37,6 +39,7 @@ __all__ = [
     "SerperLiveReadbackPort",
     "SerperOutcomeUnknownError",
     "build_serper_live_gateway",
+    "try_build_serper_live_gateway",
     "serper_authority_digest",
 ]
 
@@ -145,7 +148,15 @@ class SerperLiveCredentialResolverPort:
                     decision="UNAUTHORIZED",
                     message="authorization provider does not match credential ref",
                 )
-        key = self._api_key_provider()
+        try:
+            key = self._api_key_provider()
+        except Exception:  # noqa: BLE001 - credential resolution stays redacted
+            return _rejection(
+                ref,
+                code="UNAUTHORIZED",
+                decision="UNAUTHORIZED",
+                message="serper credential resolution failed",
+            )
         if key is None or not str(key).strip():
             return _rejection(
                 ref,
@@ -183,7 +194,7 @@ def _default_serper_transport(
     payload: dict[str, Any],
     headers: dict[str, str],
     timeout_seconds: int,
-) -> tuple[int, dict[str, Any]]:
+) -> tuple[int, Any]:
     request = urllib.request.Request(
         url,
         data=json.dumps(payload).encode("utf-8"),
@@ -193,8 +204,6 @@ def _default_serper_transport(
     try:
         with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
             parsed = json.loads(response.read().decode("utf-8"))
-            if not isinstance(parsed, dict):
-                raise TypeError("serper response must be a JSON object")
             return int(response.status), parsed
     except urllib.error.HTTPError as exc:
         try:
@@ -297,7 +306,13 @@ class SerperLiveEffectPort:
         request: shared.ProviderEffectRequest,
         ephemeral_credentials: tuple[shared.EphemeralCredentialLease, ...],
     ) -> shared.ProviderEffectOutcome:
-        key = self._api_key_provider()
+        try:
+            key = self._api_key_provider()
+        except Exception:  # noqa: BLE001 - provider configuration stays typed
+            return shared.RejectedProviderEffect(
+                code="UNAUTHORIZED",
+                message="serper API key resolution failed",
+            )
         if key is None or not str(key).strip():
             return shared.RejectedProviderEffect(
                 code="MISSING_CREDENTIAL",
@@ -308,7 +323,13 @@ class SerperLiveEffectPort:
                 code="UNSUPPORTED_PROVIDER",
                 message="serper live adapter only executes serper provider requests",
             )
-        query = _serper_query(request.effect_payload)
+        try:
+            query = _serper_query(request.effect_payload)
+        except (TypeError, ValueError, AttributeError):
+            return shared.RejectedProviderEffect(
+                code="INVALID_PARAMS",
+                message="serper search request payload is malformed",
+            )
         if not query:
             return shared.RejectedProviderEffect(
                 code="INVALID_PARAMS",
@@ -316,7 +337,13 @@ class SerperLiveEffectPort:
             )
         attempt = _attempt_ref(request)
         self.provider_calls.append(request.request_id)
-        limit = _serper_limit(request.effect_payload)
+        try:
+            limit = _serper_limit(request.effect_payload)
+        except (TypeError, ValueError, AttributeError):
+            return shared.RejectedProviderEffect(
+                code="INVALID_PARAMS",
+                message="serper search request payload is malformed",
+            )
         payload: dict[str, Any] = {"q": query, "num": max(1, limit)}
         headers = {
             "X-API-KEY": str(key),
@@ -361,10 +388,23 @@ class SerperLiveEffectPort:
             )
         else:
             self.real_provider_calls += 1
-        if status == 200 and isinstance(body, dict):
+        if not isinstance(status, int) or isinstance(status, bool):
+            return shared.FailedProviderEffect(
+                code="TRANSPORT",
+                message="serper transport returned an invalid status",
+            )
+        if status == 200:
+            if not isinstance(body, dict):
+                return shared.FailedProviderEffect(
+                    code="TRANSPORT",
+                    message="serper transport returned a malformed response",
+                )
             organic = body.get("organic")
-            if organic is None or not isinstance(organic, list):
-                organic = []
+            if not isinstance(organic, list):
+                return shared.FailedProviderEffect(
+                    code="TRANSPORT",
+                    message="serper transport returned a malformed response",
+                )
             return shared.CompletedProviderEffect(
                 receipt=shared.ProviderReceipt(
                     receipt_id=f"receipt:serper:{request.request_id}",
@@ -461,14 +501,30 @@ class SerperLiveProviderEffectGateway:
         authorization: Any = None,
     ) -> shared.ProviderEffectOutcome:
         leases: list[shared.EphemeralCredentialLease] = []
-        for ref in request.credential_refs:
-            resolved = self.credentials.resolve(ref, authorization)
-            if isinstance(resolved, shared.RedactedCredentialRejection):
-                return shared.RejectedProviderEffect(
-                    code=resolved.code,
-                    message=resolved.message,
-                )
-            leases.append(resolved)
+        try:
+            for ref in request.credential_refs:
+                resolved = self.credentials.resolve(ref, authorization)
+                if isinstance(resolved, shared.RedactedCredentialRejection):
+                    return shared.RejectedProviderEffect(
+                        code=resolved.code,
+                        message=resolved.message,
+                    )
+                if not isinstance(resolved, shared.EphemeralCredentialLease):
+                    return shared.RejectedProviderEffect(
+                        code="UNAUTHORIZED",
+                        message="serper credential resolver returned an invalid lease",
+                    )
+                leases.append(resolved)
+        except (TypeError, ValueError, AttributeError):
+            return shared.RejectedProviderEffect(
+                code="INVALID_PARAMS",
+                message="serper provider request credentials are malformed",
+            )
+        except Exception:  # noqa: BLE001 - resolver/effect boundary stays typed
+            return shared.RejectedProviderEffect(
+                code="UNAUTHORIZED",
+                message="serper credential resolution failed",
+            )
         return self.effect.execute(request, tuple(leases))
 
     def readback_attempt(
@@ -497,9 +553,36 @@ def build_serper_live_gateway(
     *,
     api_key_provider: Callable[[], str | None] | None = None,
     transport: Callable[..., tuple[int, dict[str, Any]]] | None = None,
-) -> SerperLiveProviderEffectGateway | None:
+) -> Annotated[SerperLiveProviderEffectGateway | None, Literal["kit:prepared-command effect_boundary=source_library.serper.live_provider witness=test:test_w06_successor_authority_metadata"]]:
+    result = try_build_serper_live_gateway(
+        api_key_provider=api_key_provider,
+        transport=transport,
+    )
+    if isinstance(result, Failure):
+        # Provider-preparation failures are effect failures, not schema
+        # contract failures; keep the retained builder ABI as a narrow lift.
+        # kit:boundary owner=source_library_c2_3_live_provider.py class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=c2.provider_effect.failure witness=test:test_w06_c2_total_core_failure_lifts
+        raise ValueError(result.message)
+    return result
+
+
+def try_build_serper_live_gateway(
+    *,
+    api_key_provider: Callable[[], str | None] | None = None,
+    transport: Callable[..., tuple[int, dict[str, Any]]] | None = None,
+) -> SerperLiveProviderEffectGateway | None | Failure:
+    """Total live-provider preparation; no network call occurs here."""
+
     key_provider = api_key_provider or _env_api_key_provider
-    configured_key = key_provider()
+    try:
+        configured_key = key_provider()
+    except Exception:  # noqa: BLE001 - configuration resolution stays typed
+        return shared.c2_provider_failure(
+            "UNAUTHORIZED",
+            "serper API key configuration could not be resolved",
+            operation="source_library.serper.build_gateway",
+            site="try_build_serper_live_gateway",
+        )
     if configured_key is None or not str(configured_key).strip():
         return None
     return SerperLiveProviderEffectGateway(

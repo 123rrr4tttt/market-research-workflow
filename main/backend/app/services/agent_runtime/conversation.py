@@ -2,7 +2,20 @@ from __future__ import annotations
 
 from typing import Any, Protocol
 
+from functorial_kit import Failure
+from mrw_functorial_kit.core.agent_service_semantics import agent_runtime_failures
+
 from ...settings.config import settings
+
+
+def runtime_failure(
+    code: str,
+    message: str,
+    context: dict[str, Any] | None = None,
+) -> Failure:
+    """Construct the canonical closed failure for this runtime surface."""
+
+    return agent_runtime_failures.fail(code, message, context)
 
 
 class AgentConversationAnswerer(Protocol):
@@ -13,14 +26,15 @@ class AgentConversationAnswerer(Protocol):
         project_key: str | None,
         context_summary: dict[str, Any],
         turn_decision: dict[str, Any],
-    ) -> dict[str, Any]:
-        ...
+    ) -> dict[str, Any] | Failure: ...
 
 
 class ModelConversationAnswerer:
     """Generate a natural assistant reply for plain conversation turns."""
 
-    def __init__(self, *, chat_model: Any | None = None, chat_model_factory: Any | None = None) -> None:
+    def __init__(
+        self, *, chat_model: Any | None = None, chat_model_factory: Any | None = None
+    ) -> None:
         self.chat_model = chat_model
         self.chat_model_factory = chat_model_factory
 
@@ -31,7 +45,7 @@ class ModelConversationAnswerer:
         project_key: str | None,
         context_summary: dict[str, Any],
         turn_decision: dict[str, Any],
-    ) -> dict[str, Any]:
+    ) -> dict[str, Any] | Failure:
         model = self._get_model()
         prompt = self._build_prompt(
             message=message,
@@ -45,7 +59,11 @@ class ModelConversationAnswerer:
             content = response.get("content")
         answer = str(content or "").strip()
         if not answer:
-            raise RuntimeError("conversation model returned empty answer")
+            return runtime_failure(
+                "conversation_empty_answer",
+                "conversation model returned empty answer",
+                {"model_path": self.__class__.__name__},
+            )
         return {
             "answer": answer,
             "source": "model",
@@ -60,13 +78,15 @@ class ModelConversationAnswerer:
             return self.chat_model
         from app.services.llm.provider import get_local_fallback_chat
 
-        timeout = int(getattr(settings, "agent_chat_model_answer_timeout_seconds", 45) or 45)
+        timeout = int(
+            getattr(settings, "agent_chat_model_answer_timeout_seconds", 45) or 45
+        )
         self.chat_model = get_local_fallback_chat(
             temperature=0.3,
             max_tokens=900,
             timeout_seconds=timeout,
             codex_cli_timeout_seconds=timeout,
-            codex_cli_reasoning_effort="none",
+            codex_cli_reasoning_effort=None,
         )
         return self.chat_model
 
@@ -79,7 +99,11 @@ class ModelConversationAnswerer:
         turn_decision: dict[str, Any],
     ) -> str:
         context_counts = dict(context_summary.get("counts") or {})
-        recent_memory = str(context_summary.get("latest_summary") or context_summary.get("summary") or "").strip()
+        recent_memory = str(
+            context_summary.get("latest_summary")
+            or context_summary.get("summary")
+            or ""
+        ).strip()
         return "\n".join(
             [
                 "You are the interactive agent inside the market-research-workflow app.",

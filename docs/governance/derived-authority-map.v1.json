@@ -1,0 +1,345 @@
+{
+  "schema": "mrw.functorial.derived_authority_map.v1",
+  "status": "ACTIVE_MUTABLE_MAP",
+  "priority_order": [
+    {
+      "surface": "C7 canonical commit preparation",
+      "functions": [
+        "build_commit_binding",
+        "build_commit_intent"
+      ],
+      "path": "main/backend/app/successor_runtime/substrate/postgres/ingest_c7_movement_admission.py",
+      "classification": "PREPARED_COMMAND_NOT_PROJECTION",
+      "risk": "Do not mark canonical commit preparation as derived; preserve authoritative readback semantics.",
+      "action": "Keep these builders explicitly classified as prepared commands; execution authority remains in commit and authoritative readback operations.",
+      "state": "COMPLETE_BY_EXPLICIT_NON_DERIVED_CLASSIFICATION",
+      "constraint": "The architecture heuristic remains baselined for these names because adding a derived marker would be semantically false."
+    },
+    {
+      "surface": "typed knowledge live persistence boundary",
+      "functions": [
+        "build_live_db_boundary_envelope",
+        "build_live_writing_context_from_repository",
+        "build_public_api_route_contract_envelope",
+        "build_persisted_card_request_response_readback"
+      ],
+      "path": "main/backend/app/services/typed_knowledge/persistence_boundary.py",
+      "classification": "STABLE_API_PROJECTION",
+      "risk": "Fixture and live envelopes share a public response shape.",
+      "action": "Preserve the response shape while carrying explicit authoritative=false and derived_as=view/simulation metadata; keep live DB persistence distinct from simulated API/UI readback.",
+      "state": "COMPLETE_COMPATIBILITY_SAFE_AUTHORITY_MARKERS",
+      "witness": "main/backend/tests/unit/test_typed_knowledge_persistence_boundary_unittest.py",
+      "constraint": "Write routes require a non-empty, non-public project identity before bind_project; this does not claim live API/UI/governance closure."
+    },
+    {
+      "surface": "agent-batch symbolic quality promotion gate",
+      "functions": [
+        "build_live_provider_gap_state",
+        "build_symbolic_provider_quality_readiness",
+        "build_symbolic_live_quality_threshold_contract",
+        "build_symbolic_quality_regression_evaluator",
+        "build_symbolic_quality_promotion_readback_gate"
+      ],
+      "path": "main/backend/app/services/agent_batch/search_quality_replay.py",
+      "classification": "PREFLIGHT",
+      "risk": "Outputs use promotion/readback language and can be mistaken for authority.",
+      "action": "Add non-authoritative preflight metadata while preserving every remaining gap.",
+      "state": "COMPLETE_NON_AUTHORITATIVE_DICT"
+    },
+    {
+      "surface": "agent-batch source quality signals",
+      "functions": [
+        "build_source_quality_signals"
+      ],
+      "path": "main/backend/app/services/agent_batch/search_quality_replay.py",
+      "classification": "DERIVED_VIEW_SIGNAL",
+      "derived_as": "view",
+      "authority": {
+        "authoritative": false,
+        "promotion": false,
+        "reverse_write": false
+      },
+      "state": "COMPLETE_NON_AUTHORITATIVE_LIST_ITEMS",
+      "witness": "main/backend/tests/unit/test_agent_batch_search_quality_replay_unittest.py"
+    },
+    {
+      "surface": "C9 semantic source and projection payloads",
+      "functions": [
+        "build_agent_session_payload",
+        "build_research_graph_payload",
+        "build_search_payload"
+      ],
+      "path": "main/backend/app/successor_runtime/substrate/projections/c9_sources.py",
+      "classification": "PROJECTION_PAYLOAD_NOT_SOURCE_CLOSURE",
+      "action": "Mark payload builders as views; do not mark exact canonical-source readers as derived.",
+      "state": "IMMUTABLE_SIDECAR_PLUS_ADDITIVE_CANDIDATE_NOT_AUTHORITY",
+      "constraint": "The v7 sidecar input preserves its predecessor binding while the B19 additive candidate binds current C9 bytes; neither artifact rebinds frozen evidence or authorizes runtime mutation.",
+      "successor_candidate": {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/C9/candidate.v2.json",
+        "candidate_id": "1c326a67eb7ace0de5de064598058bcdb7677d10e3044c52bbe22132d3597c1a",
+        "content_digest": "4186b1fcb030999037cd874a57c125da0fa6e3fff9c087d892f9281417ba93d1",
+        "file_sha256": "ed835ed34b2afae99290b2198874d2fef7c3cbbf206ca428e044f50d24536823",
+        "status": "CANDIDATE_VALID_NOT_AUTHORITY",
+        "stage": "stage-b19-2026-09-05"
+      },
+      "authority_sidecar": {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/sidecar-inputs/C9.v7.json",
+        "schema": "mrw.governance.generated_evidence_authority_sidecar.c9.v7",
+        "sidecar_id": "c9.generated-evidence-authority-sidecar.v7",
+        "content_digest": "1fdc87154c8a7e74d6780a050a50c2cc37613f3d2ce52a17a182e1680f562eb2",
+        "file_sha256": "1272158927d5d6d3ded1d5dc07a888dce6d5353b76059fc17f328666fe92edc8",
+        "status": "PROJECTION_VIEW",
+        "authority": {
+          "candidate_claim": false,
+          "promotion": false,
+          "reverse_write": false,
+          "canonical_write": false,
+          "runtime_mutation": false,
+          "live_provider": false,
+          "external_delivery": false,
+          "cutover": false,
+          "authority_transfer": false
+        }
+      }
+    },
+    {
+      "surface": "C7/P4 evidence observation fragments",
+      "functions": [
+        "build_observations",
+        "build_rollback_observation",
+        "build_manifest_bytes"
+      ],
+      "paths": [
+        "main/backend/app/successor_runtime/specification/c7_p4.py",
+        "main/backend/app/successor_runtime/specification/shared_family_generator.py",
+        "main/backend/app/successor_runtime/specification/compiler.py"
+      ],
+      "classification": "GENERATED_EVIDENCE",
+      "action": "Add generated/non-runtime metadata; never mutate frozen artifacts.",
+      "state": "IMMUTABLE_SIDECAR_PLUS_ADDITIVE_CANDIDATE_NOT_AUTHORITY",
+      "authority_location": [
+        "fragment root authority fields",
+        "observation authority fields",
+        "capability manifest authority_ceiling"
+      ],
+      "constraint": "The B19 additive candidate binds current C7 generator and witness bytes without editing frozen C7.json or build manifests; the candidate and v1 sidecar grant no authority.",
+      "successor_candidate": {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/C7/candidate.v2.json",
+        "candidate_id": "8c3266e0a4e4f589463ed154c92ec288452445a49d6680c953b2d84cbad0a127",
+        "content_digest": "d51cdfd7643dd5e964890d8967e76524532c5ec29ecd377fb976a32e13cb59d2",
+        "file_sha256": "630e2bb6d77b5f6de24357e331c5dd8fcb31cf9135d400187ce71f01058e1c6b",
+        "status": "CANDIDATE_VALID_NOT_AUTHORITY",
+        "stage": "stage-b19-2026-09-05"
+      },
+      "authority_sidecar": {
+        "path": "docs/governance/generated-evidence-authority-sidecar.c7.v1.json",
+        "schema": "mrw.governance.generated_evidence_authority_sidecar.c7.v1",
+        "sidecar_id": "c7.generated-evidence-authority-sidecar.v1"
+      }
+    },
+    {
+      "surface": "shared successor family fragment registration projection",
+      "functions": ["build_documents"],
+      "path": "scripts/generate_stage0_family_exact_byte_rebind.py",
+      "implementation_path": "main/backend/app/successor_runtime/specification/shared_family_generator.py",
+      "generator_mode": "create_only",
+      "classification": "GENERATED_EVIDENCE_REGISTRATION_PROJECTION",
+      "derived_as": "view",
+      "authority_direction": "family config plus exact bindings -> generated fragment bytes",
+      "authority": {
+        "reverse_write": false,
+        "promotion": false,
+        "candidate_claim": false
+      },
+      "state": "REGISTERED_WITH_ADDITIVE_CANDIDATE_LINEAGE_NOT_AUTHORITY",
+      "constraint": "The create-only Stage 0 generator emits additive family evidence; it does not rewrite frozen fragments or authorize evidence writes, promotion, cutover or authority transfer.",
+      "shared_family_projection": {
+        "kind": "CURRENT_CANDIDATE_ROWS",
+        "lineage": "MIXED_STAGE_LINEAGE",
+        "rows": [
+          {
+            "family": "C2",
+            "stage": "stage-b19-2026-09-05",
+            "candidate_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/C2/candidate.v2.json",
+            "candidate_id": "a18b51121d31cde2db566f7d438e0941a81bd68474c9b6dd4f466244ea89153e",
+            "candidate_content_digest": "1f43390a53185566de9db236bf5a6d32d916ed6bed904e7c5fbb2c4144475051",
+            "candidate_file_sha256": "4ccc431f4eb7caebbdb91acd8146960c5a6e400c498a31a50f80251cfdfa4045",
+            "status": "CANDIDATE_VALID_NOT_AUTHORITY",
+            "fragment_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/fragments/C2.json",
+            "manifest_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/manifests/C2.json"
+          },
+          {
+            "family": "C3",
+            "stage": "stage-b19-2026-09-05",
+            "candidate_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/C3/candidate.v2.json",
+            "candidate_id": "3d9da2b66e754d46ee0a69214c6d9b7015502d078466fee07aff176f37c38e26",
+            "candidate_content_digest": "7869210b9dd2fc87511b0bca3ace5e9a8ae0108d91151f64110bdd6d2a420d30",
+            "candidate_file_sha256": "71000110b3b6fd412ccf32468cef91ae21223da5255572ebdafa111c7a79206a",
+            "status": "CANDIDATE_VALID_NOT_AUTHORITY",
+            "fragment_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/fragments/C3.json",
+            "manifest_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/manifests/C3.json"
+          },
+          {
+            "family": "C4",
+            "stage": "stage-b19-2026-09-05",
+            "candidate_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/C4/candidate.v2.json",
+            "candidate_id": "eff01a70e1ae4bdabbcf359bd1814722d9970d5225b2dfc5e9563ea220a270e8",
+            "candidate_content_digest": "edc9bb5797ab67db36899aefe0752bda58975622c2eee6b9f9cbb22672250cd4",
+            "candidate_file_sha256": "3804b62ba1939015d950a491d928da3304d614e7873f1d9013bf45403a7b1176",
+            "status": "CANDIDATE_VALID_NOT_AUTHORITY",
+            "fragment_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/fragments/C4.json",
+            "manifest_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/manifests/C4.json"
+          },
+          {
+            "family": "C5",
+            "stage": "stage-b19-2026-09-05",
+            "candidate_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/C5/candidate.v2.json",
+            "candidate_id": "a847bc28862e9cdc5a6427c272a12ee2e850e871b1c6f54ebf9f843a489551b5",
+            "candidate_content_digest": "f62477356ff52a50101e01709a7030d39e2b26fb520d4fc9cb1ffc70b7e50e2f",
+            "candidate_file_sha256": "a2ddbb2ae28b330a04e52aff2030d1f8edaa1b77b4c6d7a37a48f64a0048aad2",
+            "status": "CANDIDATE_VALID_NOT_AUTHORITY",
+            "fragment_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/fragments/C5.json",
+            "manifest_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/manifests/C5.json"
+          },
+          {
+            "family": "C6",
+            "stage": "stage-b19-2026-09-05",
+            "candidate_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/C6/candidate.v2.json",
+            "candidate_id": "231ca0199f910ef3f836ee71f28ce22632753e3d25263b033316bddb0dc5c8ab",
+            "candidate_content_digest": "c4573517c9be6b04cd53c46e7263d01b865e03228de4f896ba18dc997df7be20",
+            "candidate_file_sha256": "22c9fc2332c16c92dedfacd82c4bcd1936e87692f353169cffec8fa95f2de3ce",
+            "status": "CANDIDATE_VALID_NOT_AUTHORITY",
+            "fragment_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/fragments/C6.json",
+            "manifest_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/manifests/C6.json"
+          },
+          {
+            "family": "C8",
+            "stage": "stage-b19-2026-09-05",
+            "candidate_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/C8/candidate.v2.json",
+            "candidate_id": "d9a832bc0ddba89cc242072e8cb5fc524fda9fdd38da5511393aa58a913db19a",
+            "candidate_content_digest": "132bf7b5f073e491db01f0c484a33234a52e8648e29fdd825dcafb54335de3a6",
+            "candidate_file_sha256": "0695e4c176fa24a77b2c0d8b298940e5244849b9118cb082b841930273f37abc",
+            "status": "CANDIDATE_VALID_NOT_AUTHORITY",
+            "fragment_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/fragments/C8.json",
+            "manifest_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/manifests/C8.json"
+          },
+          {
+            "family": "C9",
+            "stage": "stage-b19-2026-09-05",
+            "candidate_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/C9/candidate.v2.json",
+            "candidate_id": "1c326a67eb7ace0de5de064598058bcdb7677d10e3044c52bbe22132d3597c1a",
+            "candidate_content_digest": "4186b1fcb030999037cd874a57c125da0fa6e3fff9c087d892f9281417ba93d1",
+            "candidate_file_sha256": "ed835ed34b2afae99290b2198874d2fef7c3cbbf206ca428e044f50d24536823",
+            "status": "CANDIDATE_VALID_NOT_AUTHORITY",
+            "fragment_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/fragments/C9.json",
+            "manifest_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/manifests/C9.json"
+          },
+          {
+            "family": "C7",
+            "stage": "stage-b19-2026-09-05",
+            "candidate_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/C7/candidate.v2.json",
+            "candidate_id": "8c3266e0a4e4f589463ed154c92ec288452445a49d6680c953b2d84cbad0a127",
+            "candidate_content_digest": "d51cdfd7643dd5e964890d8967e76524532c5ec29ecd377fb976a32e13cb59d2",
+            "candidate_file_sha256": "630e2bb6d77b5f6de24357e331c5dd8fcb31cf9135d400187ce71f01058e1c6b",
+            "status": "CANDIDATE_VALID_NOT_AUTHORITY",
+            "fragment_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/fragments/C7.json",
+            "manifest_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/manifests/C7.json"
+          }
+        ],
+        "authority": {
+          "candidate_claim": false,
+          "promotion": false,
+          "canonical_write": false,
+          "runtime_cutover": false,
+          "authority_transfer": false,
+          "reverse_write": false,
+          "live_provider": false,
+          "external_delivery": false,
+          "runtime_mutation": false
+        }
+      }
+    },
+    {
+      "surface": "I1 exact-binding drift projection",
+      "functions": [
+        "build_documents"
+      ],
+      "path": "scripts/generate_stage0_i1_exact_binding_rebind.py",
+      "implementation_path": "scripts/generate_i1_exact_binding_rebind.py",
+      "generator_mode": "create_only",
+      "classification": "GENERATED_EVIDENCE_REGISTRATION_PROJECTION",
+      "derived_as": "view",
+      "authority_direction": "frozen I1 build manifests plus current exact bytes -> additive candidate documents",
+      "state": "STAGE_B22_CANDIDATE_NOT_AUTHORITY",
+      "successor_candidate": {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b22-2026-09-05/candidates/I1/candidate.v2.json",
+        "candidate_id": "ab3f9b96856d3c8e41b30d96ac8c1291dad5a71abe7d68d95d40d2f83ff07e66",
+        "content_digest": "e4ea64d558e3f6dbe8f92ae782f62a81b09ff13f02471163a2df60351db53688",
+        "file_sha256": "0a263650a98213f5b45e2a4cd5f5ba90fec96c6ac2731b3ebc39dc7ef285865f",
+        "status": "CANDIDATE_VALID_NOT_AUTHORITY",
+        "amendment": "STAGE_B22_I1_EXACT_BINDING_REBIND_CANDIDATE_NOT_AUTHORITY",
+        "stage": "stage-b22-2026-09-05"
+      },
+      "authority": {
+        "promotion": false,
+        "canonical_write": false,
+        "runtime_cutover": false,
+        "authority_transfer": false
+      },
+      "predecessor_candidates": [
+        {
+          "stage": "stage-b9-2026-09-05",
+          "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b9-2026-09-05/candidates/I1/candidate.v2.json",
+          "candidate_id": "67ae384be170801a501f176969fa5d3ba2b3a2fb4280e5fd80d710142ddc325e",
+          "status": "HISTORY_SNAPSHOT_VALID_NOT_AUTHORITY"
+        },
+        {
+          "stage": "stage-b18-2026-09-05",
+          "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b18-2026-09-05/candidates/I1/candidate.v2.json",
+          "candidate_id": "3d38a8a621448c0c497b6199bd60332128c0fa23a1eb3d779f0135d78dab61bc",
+          "status": "SUPERSEDED_HISTORY_SNAPSHOT_VALID_NOT_AUTHORITY"
+        },
+        {
+          "stage": "stage-b19-2026-09-05",
+          "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/I1/candidate.v2.json",
+          "candidate_id": "de31bfcd449b74fe1ea810c6d550ef6447bd148ba59b50b27638bdb7bd20a493",
+          "status": "SUPERSEDED_HISTORY_SNAPSHOT_VALID_NOT_AUTHORITY"
+        },
+        {
+          "stage": "stage-b20-2026-09-05",
+          "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b20-2026-09-05/candidates/I1/candidate.v2.json",
+          "candidate_id": "33db06f2064c964ad196d184170ddf832949c84e4a2b77e33c4ebbe90dc898b7",
+          "status": "SUPERSEDED_BY_STAGE_B21_NOT_AUTHORITY"
+        },
+        {
+          "stage": "stage-b21-2026-09-05",
+          "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b21-2026-09-05/candidates/I1/candidate.v2.json",
+          "candidate_id": "22bec2b54168f892ac45c9f6c7b68b2ed1ef8a9b2e6a75ed707f0c6745bc67fb",
+          "status": "SUPERSEDED_BY_STAGE_B22_NOT_AUTHORITY"
+        }
+      ],
+      "constraint": "B22 is the current I1 projection candidate. B9, B18, B19, B20, and B21 remain history or superseded lineage without current or authority status; no frozen I1 artifact is rewritten. Candidate-aware tests and this mutable projection are meta-evidence outside the candidate's self-binding and cannot promote authority."
+    },
+    {
+      "surface": "scheduled automation artifact evidence projection",
+      "functions": [
+        "artifact_row",
+        "apply_freshness_window",
+        "scheduler_config_evidence",
+        "collect_lane",
+        "build_report"
+      ],
+      "path": "scripts/check_scheduled_automation_artifacts.py",
+      "classification": "DERIVED_EXTERNAL_CLAIM_PROJECTION",
+      "derived_as": "external_claim",
+      "authority_direction": "artifact bytes plus local scheduler config -> checker report",
+      "authority": {
+        "reverse_write": false,
+        "promotion": false,
+        "completion_claim": false
+      },
+      "state": "REGISTERED_CHECKER_UNCHANGED",
+      "constraint": "scheduled_run_evidence is checker evidence at observed_at, not independent proof that the scheduler executed."
+    }
+  ]
+}

@@ -134,7 +134,7 @@ stop_backend() {
 
 start_backend() {
   cd "$ROOT_DIR"
-  exec ./scripts/local-deploy.sh start --force --no-local-worker
+  exec ./scripts/local-deploy.sh start --backend-only --no-local-worker --non-interactive
 }
 
 cmd="${1:-}"

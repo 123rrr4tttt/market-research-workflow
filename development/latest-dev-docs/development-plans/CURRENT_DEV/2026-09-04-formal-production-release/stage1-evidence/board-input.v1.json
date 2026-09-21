@@ -1,0 +1,138 @@
+{
+  "commands": {
+    "architecture_gate": {
+      "command": "PYTHONPATH=src .venv/bin/python -m pytest -q -p no:cacheprovider tests/test_architecture.py",
+      "exit_code": 0,
+      "receipt": {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage1-receipts/architecture_gate.log",
+        "sha256": "36c7ca9c3178801ce16d2887a4184af1a2c7b49c4855ebc8034357d72a6d4857"
+      },
+      "result": "PASS",
+      "summary": "301 passed"
+    },
+    "compose_config_dev": {
+      "command": "docker compose --profile dev -f main/ops/docker-compose.yml config --quiet",
+      "exit_code": 0,
+      "receipt": {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage1-receipts/compose_config_dev.log",
+        "sha256": "0add54f609c6a52a6e9c3adf9469a20398fdbefdea67eb2d68a4b9237499d654"
+      },
+      "result": "PASS",
+      "summary": "configuration valid: dev"
+    },
+    "compose_config_production": {
+      "command": "PYTHONPATH=src main/backend/.venv311/bin/python scripts/formal_release/check_production_compose_config.py",
+      "exit_code": 0,
+      "receipt": {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage1-receipts/compose_config_production.log",
+        "sha256": "e34b93719f85559d290e1acb544c99e4bf6fa8ee74977c8d8622f5e8270fbf9b"
+      },
+      "result": "PASS",
+      "summary": "configuration valid: production"
+    },
+    "focused_backend_stage1": {
+      "command": "PYTHONPATH=src:main/backend main/backend/.venv311/bin/python -m pytest -q -p no:cacheprovider main/backend/tests/production_composition main/backend/tests/production_contract main/backend/tests/production_identity main/backend/tests/production_observability main/backend/tests/ops_production_contract",
+      "exit_code": 0,
+      "receipt": {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage1-receipts/focused_backend_stage1.log",
+        "sha256": "d9db3fcd276fdc9040de1f57ed4b9285d415b252f3d831d323ab5ced14aa837d"
+      },
+      "result": "PASS",
+      "summary": "158 passed; 13 warnings"
+    },
+    "frontend_build": {
+      "command": "cd main/frontend-modern && pnpm build",
+      "exit_code": 0,
+      "receipt": {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage1-receipts/frontend_build.log",
+        "sha256": "5bd127329584ab553eae656dc65e5f71ffbec4973ed8b97873b2085857986585"
+      },
+      "result": "PASS",
+      "summary": "build succeeded"
+    },
+    "frontend_lint": {
+      "command": "cd main/frontend-modern && pnpm lint",
+      "exit_code": 0,
+      "receipt": {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage1-receipts/frontend_lint.log",
+        "sha256": "ef8d823bcde02b0bb29da7ca4fc0f7679aa408b80ef6352bde73faec4408fb62"
+      },
+      "result": "PASS",
+      "summary": "lint passed; 0 errors"
+    },
+    "frontend_typecheck": {
+      "command": "cd main/frontend-modern && pnpm exec tsc -b",
+      "exit_code": 0,
+      "receipt": {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage1-receipts/frontend_typecheck.log",
+        "sha256": "145f428a56da8c6e0d6ad9260a7fb050c66326a3fdfea37a2b48641df88be3df"
+      },
+      "result": "PASS",
+      "summary": "typecheck passed; 0 errors"
+    },
+    "migration_single_head": {
+      "command": "main/backend/.venv311/bin/python scripts/check_backend_migration_graph.py --expect-single-head --expect-head 20260905_000001 --json",
+      "exit_code": 0,
+      "receipt": {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage1-receipts/migration_single_head.log",
+        "sha256": "129941996e131cc5257817545910e613e0ae8b5b0b0f24dc354309cef64859cd"
+      },
+      "result": "PASS",
+      "summary": "single head: 20260905_000001; revisions: 36"
+    },
+    "r3_direct": {
+      "command": "PYTHONPATH=src main/backend/.venv311/bin/python scripts/formal_release/check_static_production_contract.py",
+      "exit_code": 0,
+      "receipt": {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage1-receipts/r3_direct.log",
+        "sha256": "74435dae202a01e7e45f2ff921195ae84620c1acbf79e0078837845d434c3156"
+      },
+      "result": "PASS",
+      "summary": "static production contract PASS"
+    },
+    "resource_cleanup": {
+      "command": "STAGE1_TEMP_ROOT=/private/tmp/stage1-contract-record-20260906-finalboard main/backend/.venv311/bin/python -c 'import os,pathlib,shutil,subprocess,sys; root=pathlib.Path(os.environ[\"STAGE1_TEMP_ROOT\"]); marker=root.name; existed=root.exists(); shutil.rmtree(root) if existed else None; lines=subprocess.check_output([\"ps\",\"-axo\",\"command=\"],text=True).splitlines(); current=str(os.getpid()); parent=str(os.getppid()); runners=[line for line in lines if marker in line and current not in line and parent not in line]; temp_removed=not root.exists(); print(f\"resource cleanup passed; temp removed: {str(temp_removed).lower()}; runner processes: {len(runners)}\"); sys.exit(1) if not temp_removed or runners else None'",
+      "exit_code": 0,
+      "receipt": {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage1-receipts/resource_cleanup.log",
+        "sha256": "fb451e3778be899d31ffa672dd3e856c802a20c658d3f67003862fc96c98744e"
+      },
+      "result": "PASS",
+      "summary": "resource cleanup passed; temp removed: true; runner processes: 0"
+    },
+    "workflow_contract": {
+      "command": "PYTHONPATH=src main/backend/.venv311/bin/python -m pytest -q -p no:cacheprovider tests/formal_release/test_s1_workflow_contract.py tests/formal_release/test_s1_production_compose_contract.py",
+      "exit_code": 0,
+      "receipt": {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage1-receipts/workflow_contract.log",
+        "sha256": "31237d71b3da7ccedf17ab08c6a5aa33a21bac5e86c92d22ad46f2e9691551bd"
+      },
+      "result": "PASS",
+      "summary": "all required workflow categories present"
+    }
+  },
+  "known_gaps": [
+    {
+      "id": "exact-candidate-freeze",
+      "owner": "stage2-exact-candidate",
+      "reason": "Stage 1 leaves candidate commit and tree intentionally unfrozen; Stage 2 owns isolated materialization and R1 binding.",
+      "stage_floor": "STAGE_2",
+      "status": "RETAINED_LATER_STAGE"
+    },
+    {
+      "id": "immutable-artifact-and-remote-enforcement",
+      "owner": "stage3-artifact-and-ci",
+      "reason": "Immutable artifacts, reproducibility, security scans, and live remote required-check enforcement are Stage 3 evidence.",
+      "stage_floor": "STAGE_3",
+      "status": "RETAINED_LATER_STAGE"
+    },
+    {
+      "id": "staging-runtime-and-recovery-drills",
+      "owner": "stage4-stage5-runtime",
+      "reason": "Staging deployment, live provider execution, canonical writes, backup restore, rollback drills, and recovery receipts require later-stage authority.",
+      "stage_floor": "STAGE_4",
+      "status": "RETAINED_LATER_STAGE"
+    }
+  ],
+  "observed_at": "2026-09-05T16:13:29Z"
+}

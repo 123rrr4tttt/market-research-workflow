@@ -1,0 +1,24 @@
+{
+  "schema_version": "mrw.formal_release.stage3.cleanup.v1",
+  "record_id": "stage3-v4-cleanup-20260906",
+  "stage_id": "STAGE_3",
+  "status": "PASS",
+  "authoritative": false,
+  "candidate_final_identity": {
+    "commit": "e1aa59708a22e4238c4d9beaf7b7bd2d2095d483",
+    "tree": "d2003fbb8e54c8dd743fa4e84907a8a978ef5107",
+    "tracked_status_entries": 0,
+    "untracked_status_entries": 0,
+    "git_lock_paths": []
+  },
+  "removed_task_owned_resources": [
+    "/private/tmp/mrw-stage3-v4-primary-20260906t0329z",
+    "/private/tmp/mrw-stage3-v4-logs-20260906t0329z"
+  ],
+  "containers_created": [],
+  "images_created": [],
+  "volumes_or_databases_created": [],
+  "retained_resources": [],
+  "external_effects": [],
+  "recovery": "No recovery action is required; all task-owned disposable resources were removed by exact path, and all create-only evidence is retained under stage3-evidence/v4."
+}

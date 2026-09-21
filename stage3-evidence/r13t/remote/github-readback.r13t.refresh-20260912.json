@@ -1,0 +1,34 @@
+{
+  "schema_version": "mrw.stage3.remote-readback-refresh.v1",
+  "observed_at": "2026-09-12T09:55:55Z",
+  "status": "AWAITING_HUMAN_AUTHORITY",
+  "candidate": {
+    "commit": "17e824ab2de3de450bd5215f84bcca428d90218e",
+    "tree": "6e2c8524c7cbd436bf58bc08b37fa2b2bdbc0d92"
+  },
+  "repository": "123rrr4tttt/market-research-workflow",
+  "observations": {
+    "commit_http_status": 422,
+    "check_runs_http_status": 422,
+    "actions_exact_head_sha_runs": 0,
+    "remote_exact_head_or_tag_matches": 0,
+    "main_commit": "88ffcc3dab2e6cbdc1f389e16c4226df5a2e51c6",
+    "main_protected": false,
+    "rulesets": 0,
+    "applicable_main_rules": 0
+  },
+  "commands": [
+    "gh api -i repos/123rrr4tttt/market-research-workflow/commits/<exact-sha>",
+    "gh api -i -H Accept:application/vnd.github+json repos/123rrr4tttt/market-research-workflow/commits/<exact-sha>/check-runs",
+    "gh api repos/123rrr4tttt/market-research-workflow/actions/runs?head_sha=<exact-sha>&per_page=1 --jq .total_count",
+    "git ls-remote origin",
+    "gh api repos/123rrr4tttt/market-research-workflow/branches/main",
+    "gh api repos/123rrr4tttt/market-research-workflow/rulesets",
+    "gh api repos/123rrr4tttt/market-research-workflow/rules/branches/main"
+  ],
+  "external_effects": {
+    "github_read_only_requests": true,
+    "remote_writes": []
+  },
+  "conclusion": "The exact r13t SHA still has no remote ref, workflow run, check evidence, or enforced branch/ruleset protection. No remote state changed between the prior readback and this refresh."
+}

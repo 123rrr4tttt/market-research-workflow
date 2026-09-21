@@ -10,8 +10,12 @@ readback are represented as typed receipts, never as collapsed metadata.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Literal, Protocol, TypeAlias, runtime_checkable
+from typing import Annotated, Any, Literal, NoReturn, Protocol, TypeAlias, runtime_checkable
 
+from functorial_kit import Failure
+from mrw_functorial_kit.core import (
+    successor_capability_contract_failures as capability_contract_failures,
+)
 from app.successor_runtime.capabilities.agent_core_c6_common import (
     AgentModelStep,
     ProjectScope,
@@ -20,7 +24,6 @@ from app.successor_runtime.capabilities.agent_core_c6_common import (
 )
 from app.successor_runtime.capabilities.checksum import (
     content_digest,
-    require_hex64,
 )
 from app.successor_runtime.capabilities.contracts import (
     OperationContract,
@@ -73,6 +76,7 @@ __all__ = [
     "build_agent_core_c6_2_registry",
     "build_c6_2_receipt_only_evidence",
     "interpret_model_step",
+    "try_interpret_model_step",
 ]
 
 
@@ -85,14 +89,11 @@ AGENT_CORE_C6_2_CATALOG_ID = "mrw.successor.agent-core.c6-2.operations"
 AGENT_CORE_C6_2_CATALOG_VERSION = "1.0.0"
 AGENT_CORE_C6_2_OBSERVATION_PROFILE = "mrw.successor.agent-core.c6-2.observation.v1"
 AGENT_CORE_C6_2_SEMANTIC_IDENTITY = "agent-core.model-step"
-AGENT_MODEL_STEP_REQUEST_SCHEMA_REF = (
-    "mrw.successor.agent-core.c6-2.model-step-request.v1"
-)
+AGENT_CORE_C6_2_CONTRACT_WITNESS = "test:test_w05_n3_c62_typed_contract_failures"
+AGENT_MODEL_STEP_REQUEST_SCHEMA_REF = "mrw.successor.agent-core.c6-2.model-step-request.v1"
 PROVIDER_ATTEMPT_RECEIPT_SCHEMA_REF = "mrw.successor.agent-core.c6-2.attempt-receipt.v1"
 PROVIDER_READBACK_SCHEMA_REF = "mrw.successor.agent-core.c6-2.readback.v1"
-AGENT_MODEL_STEP_RESULT_SCHEMA_REF = (
-    "mrw.successor.agent-core.c6-2.model-step-result.v1"
-)
+AGENT_MODEL_STEP_RESULT_SCHEMA_REF = "mrw.successor.agent-core.c6-2.model-step-result.v1"
 
 AGENT_MODEL_STEP_REQUEST_TYPE = ObjectType("AgentModelStepRequest.v1")
 PROVIDER_ATTEMPT_RECEIPT_TYPE = ObjectType("ProviderAttemptReceipt.v1")
@@ -174,6 +175,56 @@ PROVIDER_READBACK_STATUSES: frozenset[str] = frozenset(
 )
 
 
+def _contract_failure(
+    code: str,
+    message: str,
+    *,
+    boundary_class: str = "PURE_CONTRACT_FAILURE",
+    **details: Any,
+) -> Failure:
+    """Build the one registered capability-contract failure value."""
+
+    return capability_contract_failures.fail(
+        code,
+        message,
+        {
+            "owner": AGENT_CORE_C6_2_OWNER,
+            "effect_boundary": "agent_core.c6_2.contract_core",
+            "boundary_class": boundary_class,
+            "failure_family": capability_contract_failures.name,
+            "witness": AGENT_CORE_C6_2_CONTRACT_WITNESS,
+            **details,
+        },
+    )
+
+
+def _raise_contract_failure(
+    failure: Failure,
+    exception_type: type[Exception] = ValueError,
+) -> NoReturn:
+    # kit:boundary owner=agent_core_c6_2.py class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.capability.contract_failure witness=test:test_w05_n3_c62_retained_boundary_lifts
+    raise exception_type(failure.message)
+
+
+def _raise_programmer_defect(message: str) -> NoReturn:
+    # kit:boundary owner=agent_core_c6_2.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w05_n3_c62_retained_boundary_lifts
+    raise TypeError(message)  # noqa: TRY003, TRY004
+
+
+def _hex64_failure(value: Any, field_name: str) -> Failure | None:
+    if (
+        not isinstance(value, str)
+        or len(value) != 64
+        or any(character not in "0123456789abcdef" for character in value)
+    ):
+        return _contract_failure(
+            "digest_contract_invalid",
+            f"{field_name} must be a 64-char lowercase hex digest",
+            field=field_name,
+        )
+    return None
+
+
 @dataclass(frozen=True, slots=True)
 class AgentModelStepRequest:
     """Exact-bound provider-step request; transcript/message stay as refs."""
@@ -196,9 +247,21 @@ class AgentModelStepRequest:
 
     def __post_init__(self) -> None:
         if self.schema_version != AGENT_CORE_C6_2_PAYLOAD_SCHEMA:
-            raise ValueError(f"unsupported payload schema {self.schema_version!r}")
+            _raise_contract_failure(
+                _contract_failure(
+                    "schema_contract_invalid",
+                    f"unsupported payload schema {self.schema_version!r}",
+                    field="AgentModelStepRequest.schema_version",
+                )
+            )
         if self.operation_kind != AGENT_CORE_C6_2_KIND:
-            raise ValueError(f"unsupported operation kind {self.operation_kind!r}")
+            _raise_contract_failure(
+                _contract_failure(
+                    "schema_contract_invalid",
+                    f"unsupported operation kind {self.operation_kind!r}",
+                    field="AgentModelStepRequest.operation_kind",
+                )
+            )
         for name in (
             "session_id",
             "turn_id",
@@ -208,12 +271,22 @@ class AgentModelStepRequest:
             "credential_ref",
         ):
             if not isinstance(getattr(self, name), str) or not getattr(self, name):
-                raise ValueError(f"AgentModelStepRequest.{name} is required")
+                _raise_contract_failure(
+                    _contract_failure(
+                        "schema_contract_invalid",
+                        f"AgentModelStepRequest.{name} is required",
+                        field=f"AgentModelStepRequest.{name}",
+                    )
+                )
         object.__setattr__(self, "tool_contract_refs", tuple(self.tool_contract_refs))
-        if not all(
-            isinstance(ref, str) and ref.strip() for ref in self.tool_contract_refs
-        ):
-            raise ValueError("tool_contract_refs must be non-empty strings")
+        if not all(isinstance(ref, str) and ref.strip() for ref in self.tool_contract_refs):
+            _raise_contract_failure(
+                _contract_failure(
+                    "schema_contract_invalid",
+                    "tool_contract_refs must be non-empty strings",
+                    field="AgentModelStepRequest.tool_contract_refs",
+                )
+            )
         for name in (
             "max_iterations",
             "iteration",
@@ -222,21 +295,43 @@ class AgentModelStepRequest:
         ):
             value = getattr(self, name)
             if not isinstance(value, int) or isinstance(value, bool) or value < 0:
-                raise ValueError(
-                    f"AgentModelStepRequest.{name} must be non-negative int"
+                _raise_contract_failure(
+                    _contract_failure(
+                        "schema_contract_invalid",
+                        f"AgentModelStepRequest.{name} must be non-negative int",
+                        field=f"AgentModelStepRequest.{name}",
+                    )
                 )
         if self.iteration > self.max_iterations:
-            raise ValueError("iteration exceeds max_iterations")
+            _raise_contract_failure(
+                _contract_failure(
+                    "schema_contract_invalid",
+                    "iteration exceeds max_iterations",
+                    field="AgentModelStepRequest.iteration",
+                )
+            )
         if self.remaining_tool_calls > self.max_tool_calls:
-            raise ValueError("remaining_tool_calls exceeds max_tool_calls")
+            _raise_contract_failure(
+                _contract_failure(
+                    "schema_contract_invalid",
+                    "remaining_tool_calls exceeds max_tool_calls",
+                    field="AgentModelStepRequest.remaining_tool_calls",
+                )
+            )
         expected = content_digest(self, omit_fields=("payload_digest",))
         if self.payload_digest == "":
             object.__setattr__(self, "payload_digest", expected)
         else:
-            require_hex64(self.payload_digest, "AgentModelStepRequest.payload_digest")
+            digest_failure = _hex64_failure(self.payload_digest, "AgentModelStepRequest.payload_digest")
+            if digest_failure is not None:
+                _raise_contract_failure(digest_failure)
             if self.payload_digest != expected:
-                raise ValueError(
-                    "AgentModelStepRequest.payload_digest does not match content"
+                _raise_contract_failure(
+                    _contract_failure(
+                        "digest_contract_invalid",
+                        "AgentModelStepRequest.payload_digest does not match content",
+                        field="AgentModelStepRequest.payload_digest",
+                    )
                 )
 
     def to_plain(self) -> dict[str, Any]:
@@ -270,18 +365,29 @@ class ProviderStepSucceeded:
 
     def __post_init__(self) -> None:
         if self.schema_version != "mrw.successor.agent-core.c6-2.step-success.v1":
-            raise ValueError("ProviderStepSucceeded.schema_version is not frozen")
-        if (
-            not isinstance(self.provider_observation_ref, str)
-            or not self.provider_observation_ref
-        ):
-            raise ValueError("provider_observation_ref is required")
-        if (
-            not isinstance(self.provider_calls, int)
-            or isinstance(self.provider_calls, bool)
-            or self.provider_calls < 0
-        ):
-            raise ValueError("provider_calls must be a non-negative int")
+            _raise_contract_failure(
+                _contract_failure(
+                    "schema_contract_invalid",
+                    "ProviderStepSucceeded.schema_version is not frozen",
+                    field="ProviderStepSucceeded.schema_version",
+                )
+            )
+        if not isinstance(self.provider_observation_ref, str) or not self.provider_observation_ref:
+            _raise_contract_failure(
+                _contract_failure(
+                    "schema_contract_invalid",
+                    "provider_observation_ref is required",
+                    field="ProviderStepSucceeded.provider_observation_ref",
+                )
+            )
+        if not isinstance(self.provider_calls, int) or isinstance(self.provider_calls, bool) or self.provider_calls < 0:
+            _raise_contract_failure(
+                _contract_failure(
+                    "schema_contract_invalid",
+                    "provider_calls must be a non-negative int",
+                    field="ProviderStepSucceeded.provider_calls",
+                )
+            )
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -329,16 +435,36 @@ class ProviderReadback:
 
     def __post_init__(self) -> None:
         if self.schema_version != PROVIDER_READBACK_SCHEMA_REF:
-            raise ValueError("ProviderReadback.schema_version is not frozen")
+            _raise_contract_failure(
+                _contract_failure(
+                    "schema_contract_invalid",
+                    "ProviderReadback.schema_version is not frozen",
+                    field="ProviderReadback.schema_version",
+                )
+            )
         if not isinstance(self.attempt_id, str) or not self.attempt_id:
-            raise ValueError("ProviderReadback.attempt_id is required")
+            _raise_contract_failure(
+                _contract_failure(
+                    "schema_contract_invalid",
+                    "ProviderReadback.attempt_id is required",
+                    field="ProviderReadback.attempt_id",
+                )
+            )
         if self.status not in PROVIDER_READBACK_STATUSES:
-            raise ValueError(f"unsupported readback status {self.status!r}")
+            _raise_contract_failure(
+                _contract_failure(
+                    "schema_contract_invalid",
+                    f"unsupported readback status {self.status!r}",
+                    field="ProviderReadback.status",
+                )
+            )
         if self.provider_observation_digest is not None:
-            require_hex64(
+            digest_failure = _hex64_failure(
                 self.provider_observation_digest,
                 "ProviderReadback.provider_observation_digest",
             )
+            if digest_failure is not None:
+                _raise_contract_failure(digest_failure)
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -369,35 +495,67 @@ class ProviderAttemptReceipt:
 
     def __post_init__(self) -> None:
         if self.schema_version != PROVIDER_ATTEMPT_RECEIPT_SCHEMA_REF:
-            raise ValueError("ProviderAttemptReceipt.schema_version is not frozen")
+            _raise_contract_failure(
+                _contract_failure(
+                    "schema_contract_invalid",
+                    "ProviderAttemptReceipt.schema_version is not frozen",
+                    field="ProviderAttemptReceipt.schema_version",
+                )
+            )
         for name in ("attempt_id", "outcome_code"):
             if not isinstance(getattr(self, name), str) or not getattr(self, name):
-                raise ValueError(f"ProviderAttemptReceipt.{name} is required")
-        require_hex64(self.request_digest, "ProviderAttemptReceipt.request_digest")
-        require_hex64(self.readback_digest, "ProviderAttemptReceipt.readback_digest")
-        if (
-            not isinstance(self.provider_calls, int)
-            or isinstance(self.provider_calls, bool)
-            or self.provider_calls < 0
+                _raise_contract_failure(
+                    _contract_failure(
+                        "schema_contract_invalid",
+                        f"ProviderAttemptReceipt.{name} is required",
+                        field=f"ProviderAttemptReceipt.{name}",
+                    )
+                )
+        for value, field_name in (
+            (self.request_digest, "ProviderAttemptReceipt.request_digest"),
+            (self.readback_digest, "ProviderAttemptReceipt.readback_digest"),
         ):
-            raise ValueError(
-                "ProviderAttemptReceipt.provider_calls must be non-negative"
+            digest_failure = _hex64_failure(value, field_name)
+            if digest_failure is not None:
+                _raise_contract_failure(digest_failure)
+        if not isinstance(self.provider_calls, int) or isinstance(self.provider_calls, bool) or self.provider_calls < 0:
+            _raise_contract_failure(
+                _contract_failure(
+                    "schema_contract_invalid",
+                    "ProviderAttemptReceipt.provider_calls must be non-negative",
+                    field="ProviderAttemptReceipt.provider_calls",
+                )
             )
-        if (
-            self.outcome_code not in PROVIDER_FAILURE_CODES
-            and self.outcome_code != "ProviderStepSucceeded"
-        ):
-            raise ValueError(f"unsupported outcome code {self.outcome_code!r}")
+        if self.outcome_code not in PROVIDER_FAILURE_CODES and self.outcome_code != "ProviderStepSucceeded":
+            _raise_contract_failure(
+                _contract_failure(
+                    "schema_contract_invalid",
+                    f"unsupported outcome code {self.outcome_code!r}",
+                    field="ProviderAttemptReceipt.outcome_code",
+                )
+            )
         if self.readback_status not in PROVIDER_READBACK_STATUSES | {"NOT_APPLICABLE"}:
-            raise ValueError(f"unsupported readback status {self.readback_status!r}")
+            _raise_contract_failure(
+                _contract_failure(
+                    "schema_contract_invalid",
+                    f"unsupported readback status {self.readback_status!r}",
+                    field="ProviderAttemptReceipt.readback_status",
+                )
+            )
         expected = content_digest(self, omit_fields=("receipt_digest",))
         if self.receipt_digest == "":
             object.__setattr__(self, "receipt_digest", expected)
         else:
-            require_hex64(self.receipt_digest, "ProviderAttemptReceipt.receipt_digest")
+            digest_failure = _hex64_failure(self.receipt_digest, "ProviderAttemptReceipt.receipt_digest")
+            if digest_failure is not None:
+                _raise_contract_failure(digest_failure)
             if self.receipt_digest != expected:
-                raise ValueError(
-                    "ProviderAttemptReceipt.receipt_digest does not match content"
+                _raise_contract_failure(
+                    _contract_failure(
+                        "digest_contract_invalid",
+                        "ProviderAttemptReceipt.receipt_digest does not match content",
+                        field="ProviderAttemptReceipt.receipt_digest",
+                    )
                 )
 
     def to_plain(self) -> dict[str, Any]:
@@ -424,17 +582,29 @@ class AgentModelStepResult:
 
     def __post_init__(self) -> None:
         if self.schema_version != AGENT_MODEL_STEP_RESULT_SCHEMA_REF:
-            raise ValueError("AgentModelStepResult.schema_version is not frozen")
+            _raise_contract_failure(
+                _contract_failure(
+                    "schema_contract_invalid",
+                    "AgentModelStepResult.schema_version is not frozen",
+                    field="AgentModelStepResult.schema_version",
+                )
+            )
         if self.step is not None and not isinstance(self.step, AgentModelStep):
-            raise TypeError("AgentModelStepResult.step must be AgentModelStep or None")
+            _raise_programmer_defect("AgentModelStepResult.step must be AgentModelStep or None")
         expected = content_digest(self, omit_fields=("result_digest",))
         if self.result_digest == "":
             object.__setattr__(self, "result_digest", expected)
         else:
-            require_hex64(self.result_digest, "AgentModelStepResult.result_digest")
+            digest_failure = _hex64_failure(self.result_digest, "AgentModelStepResult.result_digest")
+            if digest_failure is not None:
+                _raise_contract_failure(digest_failure)
             if self.result_digest != expected:
-                raise ValueError(
-                    "AgentModelStepResult.result_digest does not match content"
+                _raise_contract_failure(
+                    _contract_failure(
+                        "digest_contract_invalid",
+                        "AgentModelStepResult.result_digest does not match content",
+                        field="AgentModelStepResult.result_digest",
+                    )
                 )
 
     def to_plain(self) -> dict[str, Any]:
@@ -524,14 +694,47 @@ def interpret_model_step(
 ) -> AgentModelStepResult:
     """Interpret one bounded model step and emit a durable receipt."""
 
-    outcome = port.next_step(request)
-    provider_calls = int(port.provider_calls)
+    outcome = try_interpret_model_step(
+        request,
+        port,
+        attempt_id=attempt_id,
+    )
     if isinstance(outcome, ProviderFailure):
+        _raise_contract_failure(
+            _contract_failure(
+                "program_binding_invalid",
+                outcome.message,
+                provider_failure_code=outcome.code,
+                attempt_id=attempt_id,
+            )
+        )
+    return outcome
+
+
+def try_interpret_model_step(
+    request: AgentModelStepRequest,
+    port: ProviderPort,
+    *,
+    attempt_id: str,
+) -> AgentModelStepResult | ProviderFailure:
+    """Return a durable result, or a typed failure instead of raising."""
+
+    provider_outcome = port.next_step(request)
+    provider_calls = int(port.provider_calls)
+    if isinstance(provider_outcome, ProviderFailure):
+        outcome = provider_outcome
         if outcome.code == "ProviderOutcomeUnknown":
             readback = port.readback(attempt_id)
             if readback.attempt_id != attempt_id:
-                raise ValueError(
-                    "provider readback attempt_id does not match the requested attempt"
+                failure = _contract_failure(
+                    "scope_contract_invalid",
+                    "provider readback attempt_id does not match the requested attempt",
+                    attempt_id=attempt_id,
+                )
+                return ProviderFailure(
+                    code="ProviderInvocationFailed",
+                    message=failure.message,
+                    retryable=False,
                 )
             readback_status: str = readback.status
             if readback.status in {
@@ -539,14 +742,32 @@ def interpret_model_step(
                 "AUTHORITATIVE_READBACK_FAILED",
             }:
                 digest = readback.provider_observation_digest
-                if not digest:
-                    raise ValueError(
-                        "authoritative readback requires a canonical observation digest"
+                if digest is None:
+                    failure = _contract_failure(
+                        "schema_contract_invalid",
+                        "authoritative readback requires a canonical observation digest",
+                        attempt_id=attempt_id,
                     )
-                require_hex64(
-                    digest,
-                    "ProviderReadback.provider_observation_digest",
-                )
+                    return ProviderFailure(
+                        code="ProviderInvocationFailed",
+                        message=failure.message,
+                        retryable=False,
+                    )
+                if (
+                    not isinstance(digest, str)
+                    or len(digest) != 64
+                    or any(character not in "0123456789abcdef" for character in digest)
+                ):
+                    failure = _contract_failure(
+                        "digest_contract_invalid",
+                        ("ProviderReadback.provider_observation_digest must be a 64-char lowercase hex digest"),
+                        attempt_id=attempt_id,
+                    )
+                    return ProviderFailure(
+                        code="ProviderInvocationFailed",
+                        message=failure.message,
+                        retryable=False,
+                    )
             readback_digest = readback.provider_observation_digest or content_digest(
                 {"schema": PROVIDER_READBACK_SCHEMA_REF, "attempt_id": attempt_id}
             )
@@ -573,7 +794,7 @@ def interpret_model_step(
         )
     return AgentModelStepResult(
         schema_version=AGENT_MODEL_STEP_RESULT_SCHEMA_REF,
-        step=outcome.step,
+        step=provider_outcome.step,
         receipt=ProviderAttemptReceipt(
             schema_version=PROVIDER_ATTEMPT_RECEIPT_SCHEMA_REF,
             attempt_id=attempt_id,
@@ -595,7 +816,12 @@ def build_c6_2_receipt_only_evidence(
     request: AgentModelStepRequest,
     *,
     attempt_id: str,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=generated_evidence "
+    "fact_source=ReceiptOnlyProviderPort+receipt_fields "
+    "witness=test:test_w05_agent_core_authority_metadata",
+]:
     """Deterministic fragment input proving zero provider invocations."""
 
     port = ReceiptOnlyProviderPort()
@@ -612,9 +838,7 @@ def build_c6_2_receipt_only_evidence(
     }
 
 
-def _profile_ref(
-    profile_id: str, profile_version: str, digest: str
-) -> ContractProfileRef:
+def _profile_ref(profile_id: str, profile_version: str, digest: str) -> ContractProfileRef:
     return ContractProfileRef(
         profile_id=profile_id,
         profile_version=profile_version,
@@ -759,7 +983,12 @@ class AgentCoreC6_2CapabilityBundle:
         return self.codecs[0]
 
 
-def build_agent_core_c6_2_bundle() -> AgentCoreC6_2CapabilityBundle:
+def build_agent_core_c6_2_bundle() -> Annotated[
+    AgentCoreC6_2CapabilityBundle,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=AGENT_CORE_C6_2_OWNER+capability_contract_constants "
+    "witness=test:test_w05_agent_core_authority_metadata",
+]:
     semantic = _semantic_profile()
     effect = _effect_profile()
     resource = _resource_profile()
@@ -836,7 +1065,12 @@ def build_agent_core_c6_2_bundle() -> AgentCoreC6_2CapabilityBundle:
 
 def build_agent_core_c6_2_catalog(
     bundle: AgentCoreC6_2CapabilityBundle,
-) -> OperationContractCatalogSnapshot:
+) -> Annotated[
+    OperationContractCatalogSnapshot,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=AgentCoreC6_2CapabilityBundle.operations "
+    "witness=test:test_w05_agent_core_authority_metadata",
+]:
     return OperationContractCatalogSnapshot(
         catalog_id=AGENT_CORE_C6_2_CATALOG_ID,
         catalog_version=AGENT_CORE_C6_2_CATALOG_VERSION,
@@ -853,7 +1087,12 @@ def build_agent_core_c6_2_catalog(
 
 def build_agent_core_c6_2_registry(
     bundle: AgentCoreC6_2CapabilityBundle,
-) -> OperationContractRegistry:
+) -> Annotated[
+    OperationContractRegistry,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=AgentCoreC6_2CapabilityBundle+catalog_snapshot "
+    "witness=test:test_w05_agent_core_authority_metadata",
+]:
     return OperationContractRegistry(
         build_agent_core_c6_2_catalog(bundle),
         (bundle.operation,),

@@ -1,0 +1,54 @@
+{
+  "all_referenced_blobs_validated": true,
+  "archive_bytes": 39556608,
+  "archive_sha256": "a2b360eb7e0f248ab17e10598cbca9cc99846f84342d96c88dbb2496ea66bb11",
+  "attestation_manifest_count": 1,
+  "image_config_digest": "sha256:591af750e53bbc04d57dfd1089c058e825108109f66c48c7524d8e7057fceda1",
+  "image_layer_digests": [
+    "sha256:55afa1ecc21d2bb5e5045f32dafee56272ffd89860bac26f6c32123439af26a4",
+    "sha256:f45fdf63315816ec6bd937d40fb4450c1364e299cf7bdb48c14d19ee26ce32a0",
+    "sha256:67ff5ce9d4e9e840b2a802e06f9db7aa2526032b11972f065750ca6082d06f2c",
+    "sha256:51ec9c021a5aa5f4b4e020396c3080d9434d71d75288c5f4b06bfc78104310fe",
+    "sha256:33e5f432b4d0343ae580ca491ee35e51f51000f5694efd025a8af08e0be7c729",
+    "sha256:6710fa5752a599abf4c9f536edfe5be7952768135b5050ac9afdefc0533834a2",
+    "sha256:0bfd0ed0041486dd19ac2807088044b7b750d7ce008314ef49e75d92f42b9c19",
+    "sha256:c39233542455bfb494d68089ebb1b8eb3f0104ef0f676e7bc78fc637a0bad7bf",
+    "sha256:dc6d96841186b286a8988d02ff1fb456eee9a09c09de487d922e870ba3f0144e",
+    "sha256:d72f2efb1b4657d8e2010785ec413ff9164306de9e190e5bcf8048ad3657da28",
+    "sha256:f771cc6b07bccb882cb479f8d4ca90ab73183a1517e71e355b9928f83e35dbd5"
+  ],
+  "image_manifest_digest": "sha256:67891f50676aabf4b34b78fe12a62301be9343a8b3bfb94e689726ee96e86bc5",
+  "oci_root_digest": "sha256:8792353c7222206fc260a894ff3581e71fe85e348801e26ff032968bd2836450",
+  "phase": "canonical",
+  "platform": "linux/amd64",
+  "provenance_sha256": "5d729a619094eea713bf6cca9ec014d0e1c7765046e31889d6c171bac31a0eaa",
+  "role": "frontend",
+  "runtime_config": {
+    "Cmd": [
+      "nginx",
+      "-g",
+      "daemon off;"
+    ],
+    "Entrypoint": [
+      "/docker-entrypoint.sh"
+    ],
+    "Env": [
+      "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+      "NGINX_VERSION=1.30.4",
+      "PKG_RELEASE=1",
+      "DYNPKG_RELEASE=1",
+      "NJS_VERSION=1.0.1",
+      "NJS_RELEASE=1",
+      "ACME_VERSION=0.4.1"
+    ],
+    "ExposedPorts": {
+      "80/tcp": {}
+    },
+    "Healthcheck": null,
+    "User": null,
+    "WorkingDir": "/"
+  },
+  "sbom_sha256": "181e38f89994c83e57d65be61d9c5c944b3cc562a0cf1b09593e903c4a2c7596",
+  "slsa_provenance_count": 1,
+  "spdx_sbom_count": 1
+}

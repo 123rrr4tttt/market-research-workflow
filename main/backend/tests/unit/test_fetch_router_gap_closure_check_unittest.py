@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 import unittest
 from pathlib import Path
+from typing import Annotated, get_args, get_origin, get_type_hints
 
 import pytest
 
@@ -52,6 +53,16 @@ class FetchRouterGapClosureCheckUnitTestCase(unittest.TestCase):
         self.assertEqual(tri_state["source"], "main/backend/app/services/ingest/frontdoor_router_contract.py")
         self.assertFalse(result["validation"]["shared_indexes_edited"])
         self.assertEqual(result["validation"]["protected_shared_indexes"], list(PROTECTED_SHARED_INDEXES))
+
+    def test_fetch_router_gap_closure_authority_metadata(self) -> None:
+        return_hint = get_type_hints(build_check, include_extras=True)["return"]
+        self.assertIs(get_origin(return_hint), Annotated)
+        _, metadata = get_args(return_hint)
+        self.assertEqual(
+            metadata,
+            "kit:non-authoritative derived_as=preflight fact_source=repository.fetch_router_gap_anchors "
+            "witness=test:test_fetch_router_gap_closure_authority_metadata",
+        )
 
 
 if __name__ == "__main__":

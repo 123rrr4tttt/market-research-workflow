@@ -1,0 +1,12 @@
+{
+  "builders": {
+    "relationship": "separate-task-owned-docker-container-builder-instances"
+  },
+  "canonical_digest": "sha256:7d44cc7bec8675d7d4f152a220a42931529a9cec36fdee810b863a5a80739c63",
+  "canonical_oci_root_digest": "sha256:7d195b06f8f3c568aecca001c588309e66c8be07a8bc4ab5d7f0186000d82b2b",
+  "comparison_scope": "linux/arm64-image-manifest-digest",
+  "rebuild_digest": "sha256:ec9ae4788f9e1a2064064c7de82f2c1e098a20179d757166edf0a99f0a5958d9",
+  "rebuild_oci_root_digest": "sha256:ec9ae4788f9e1a2064064c7de82f2c1e098a20179d757166edf0a99f0a5958d9",
+  "role": "migration-runner",
+  "status": "MISMATCH"
+}

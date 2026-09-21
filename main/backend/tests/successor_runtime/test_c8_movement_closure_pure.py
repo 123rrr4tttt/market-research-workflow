@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import dataclasses
+import inspect
 from types import MappingProxyType
+from typing import Annotated, get_args, get_origin, get_type_hints
 
 import pytest
 
@@ -11,6 +13,15 @@ from app.services.typed_knowledge.contracts import (
     build_downstream_contract_draft,
     build_writing_knowledge_handoff,
 )
+
+
+def _return_metadata(function):
+    return_hint = get_type_hints(function, include_extras=True)["return"]
+    assert get_origin(return_hint) is Annotated  # type: ignore[comparison-overlap]
+    metadata = get_args(return_hint)[1]
+    assert isinstance(metadata, str)
+    assert function.__name__ in inspect.getsource(function)
+    return metadata
 from app.successor_migration.legacy_c8_writing import LegacyC8WritingAdapter
 from app.successor_runtime.capabilities import c8_common as c8
 from app.successor_runtime.capabilities import c8_consumer
@@ -155,6 +166,29 @@ def test_strict_issued_demand_read_is_field_bounded() -> None:
     assert read.handle.incarnation == "value-1"
 
 
+def test_read_handle_canonical_read_metadata() -> None:
+    assert _return_metadata(c8.build_read_handle) == (
+        "kit:canonical-read canonical_owner=c8_common.CanonicalRef "
+        "witness=test:test_read_handle_canonical_read_metadata"
+    )
+
+    handle = c8.build_read_handle(
+        domain="graph",
+        object_key="knowledge-candidate:001",
+        project_key=PROJECT_KEY,
+        canonical_ref=c8.CanonicalRef(
+            identity="material:p4-c8:001",
+            content_digest="0" * 64,
+            revision=1,
+            incarnation="value-1",
+        ),
+        field_mask=("canonical_statement", "evidence_refs"),
+    )
+    assert isinstance(handle, c8.ReadHandle)
+    assert handle.canonical_identity == "material:p4-c8:001"
+    assert handle.canonical_digest == "0" * 64
+
+
 def test_forged_handle_is_rejected() -> None:
     context = _context()
     registry = context[2]
@@ -178,6 +212,14 @@ def test_forged_handle_is_rejected() -> None:
             read,
             fields={"canonical_statement": "tampered"},
         )
+
+
+def test_c8_research_artifact_candidate_prepared_command_metadata() -> None:
+    assert _return_metadata(build_c8_research_artifact_candidate) == (
+        "kit:prepared-command "
+        "effect_boundary=c8_report.research_artifact_from_candidate "
+        "witness=test:test_c8_research_artifact_candidate_prepared_command_metadata"
+    )
 
 
 def test_material_registration_requires_exact_entry_and_capability() -> None:

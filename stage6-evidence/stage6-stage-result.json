@@ -1,0 +1,224 @@
+{
+  "schema": "mrw.stage6.local-independent-review.v1",
+  "stage_id": "S6",
+  "status": "PASS_LOCAL_STAGE6_INDEPENDENT_REVIEW_NOT_AUTHORITY",
+  "authoritative": false,
+  "scope": "LOCAL_INDEPENDENT_REVIEW / NOT_AUTHORITY / RELEASE_DEFERRED",
+  "reviewed_at": "2026-09-13T11:44:44Z",
+  "rechecked_at": "2026-09-13T12:07:44Z",
+  "supervisor": "01a0748b-be3b-7da2-9cb2-4160756bf10b",
+  "inputs": {
+    "stage4_result": {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage4-evidence/stage4-stage-result.json",
+      "sha256": "7b37b5c6eef1b0be244003a6e6c53f63906f858015fbe5b090bef598fa94385e",
+      "status": "PASS_LOCAL_STAGE4_NOT_AUTHORITY",
+      "candidate_commit": "8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+      "candidate_tree": "ce7c67c831b51f9d64b4c2f1a470a724a50b19df",
+      "backend_image": "mrw-local/stage4-business001@sha256:f247a1492400311e032710df01f84365c7e700f61c122b7243ae58eda982af19"
+    },
+    "stage5_result": {
+      "path": "stage5-evidence/stage5-stage-result.json",
+      "sha256": "f96c52fc5d1c2b79f67432f5ea2277ac1ef54f7265accebc1740149f43096b89",
+      "status": "PASS_LOCAL_STAGE5_WITH_EXPLICIT_RUNTIME_BOUNDARY_NOT_AUTHORITY"
+    },
+    "stage5_index": {
+      "path": "stage5-evidence/INDEX.md",
+      "sha256": "3dffe4648fabc96854732cd7b8c7483005549e812eb99cb89c77f6b7efe42ec1"
+    },
+    "stage5_runbook": {
+      "path": "stage5-evidence/RUNBOOK.md",
+      "sha256": "b9eddff6c3bd8b928fa48e933fecbfaeede361101aefaa792334adff5a913ed3"
+    },
+    "stage5_root_checksums": {
+      "path": "stage5-evidence/SHA256SUMS",
+      "sha256": "247ea799067f7cbf8d5846242b7c16fac9fd7afcc834479e413eefb79f05a33c",
+      "entries": 214,
+      "verification": "sha256sum -c PASS"
+    },
+    "stage5_observability_checksums": {
+      "path": "stage5-evidence/observability/SHA256SUMS",
+      "sha256": "03d2fe4d2f943d5021e05292a8b632f528a3a23c49ba5b64e2cec6bfa98b42cb",
+      "entries": 153,
+      "verification": "sha256sum -c PASS"
+    },
+    "stage4_runtime_checksums": {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage4-evidence/runtime/SHA256SUMS",
+      "entries": 132,
+      "verification": "sha256sum -c PASS from runtime directory"
+    },
+    "stage5_post_acceptance_cleanup": {
+      "path": "stage5-evidence/post-acceptance-cleanup.v1.json",
+      "sha256": "e07854de86d396212a9aa5386808ef467b7dd2ef4f31ad5f75ac329d1dde3db5",
+      "status": "CLEANUP_RESULT_S5_ACCEPTED"
+    },
+    "stage5_recovery_correction": {
+      "path": "stage5-evidence/recovery/values-jsonl-correction-result.v1.json",
+      "sha256": "884ac00ee6b186e4bd5c93dcc5f38b3732541861c8ff9d0be862421b698631ff",
+      "status": "PASS_LOCAL_VALUES_JSONL_CORRECTION_NOT_AUTHORITY"
+    },
+    "stage4_candidate_replay": {
+      "path": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260912-v4-r13x/{candidate,replay}",
+      "verification": "both clean; commit 8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2; tree ce7c67c831b51f9d64b4c2f1a470a724a50b19df"
+    }
+  },
+  "verification": [
+    {
+      "id": "S6-EVIDENCE-001",
+      "result": "PASS",
+      "check": "Recomputed Stage4 runtime, Stage5 root and Stage5 observability checksum manifests",
+      "evidence": "132 + 214 + 153 entries; all sha256sum -c checks passed"
+    },
+    {
+      "id": "S6-IDENTITY-001",
+      "result": "PASS",
+      "check": "Verified retained Stage4 image identity and chronology",
+      "evidence": "docker image inspect matched sha256:f247a1492400311e032710df01f84365c7e700f61c122b7243ae58eda982af19; Stage5 is image plus explicit source overlay, not a rebuilt image"
+    },
+    {
+      "id": "S6-STAGE4-001",
+      "result": "PASS",
+      "check": "Reviewed Stage4 actor/scope/approval/writer, terminal/replay and rejection evidence",
+      "evidence": "stage4-stage-result.json, runtime/s4-c9-effect-live.json, runtime/s4-c9-effect-focused.json and rollback route evidence; external calls and remote/publish actions are zero"
+    },
+    {
+      "id": "S6-OBS-001",
+      "result": "PASS",
+      "check": "Reviewed real collector, source gauges and alert-state coverage",
+      "evidence": "Prometheus v3.7.3 target up; 27 one-hot alert-state series (9 rules x unknown/triggered/recovered); live runtime-health queue source is Redis LLEN plus DB/runtime-binding reads"
+    },
+    {
+      "id": "S6-WORKER-001",
+      "result": "PASS",
+      "check": "Reviewed independent worker chain and bounded telemetry readback",
+      "evidence": "HTTP deep-health -> Redis broker -> independent Celery prefork worker -> Redis result/backend; worker_event, structured_log and trace records correlate request/run/project/candidate/trace; effect boundary is zero for the no-op business task"
+    },
+    {
+      "id": "S6-RECOVERY-001",
+      "result": "PASS",
+      "check": "Reviewed backup/restore invariants and migration failure recovery",
+      "evidence": "12 values, 6 receipts and 2 projection offsets restored with equal ordered-row digests; DuplicateTable failure exit 1 followed by task-local forward-fix to 20260905_000001; external receipts/effect attempts remain zero"
+    },
+    {
+      "id": "S6-RECOVERY-002",
+      "result": "PASS",
+      "check": "Strict-parsed retained values JSONL exports",
+      "evidence": "Original source and restore files remain preserved with the historical format defect; corrected derived files parse 12/12 rows strictly and retain equal canonical row digests/content digests/value IDs"
+    },
+    {
+      "id": "S6-RECOVERY-003",
+      "result": "PASS",
+      "check": "Rechecked Stage5 owner correction and evidence closure",
+      "evidence": "Field-scoped single-layer event_note repair; no database restore or Stage5 rerun; corrected source/restore outputs share SHA256 8a706bed..., strict-parse 12/12 rows including nested event_note, content_digest mismatches=0, canonical row IDs/digests equal, and root 214-entry manifest verification passes"
+    },
+    {
+      "id": "S6-ROLLBACK-001",
+      "result": "PASS",
+      "check": "Reviewed image/config/credential rollback and exact replay",
+      "evidence": "Current/previous image probes, v2->v1 config and credential rollback, legacy writer closed, replay added no effect/journal/receipt/idempotency"
+    },
+    {
+      "id": "S6-CLEANUP-001",
+      "result": "PASS",
+      "check": "Reviewed post-acceptance cleanup and resource boundary",
+      "evidence": "33 task-local temporary/cache copies moved to recoverable Trash; no Docker objects removed; final image, source overlay, dumps, seeds, rollback inputs and evidence retained; no global prune"
+    },
+    {
+      "id": "S6-SOURCE-001",
+      "result": "PASS",
+      "check": "Recomputed RUNBOOK source-overlay hashes and ran focused syntax checks",
+      "evidence": "All listed overlay hashes matched; py_compile PASS; git diff --check PASS"
+    }
+  ],
+  "explicit_boundaries": [
+    "Provider failure is explicitly simulated; no external provider call occurred.",
+    "External projection sinks were not called and remain DECLARED_LOSS_NO_CALL.",
+    "Recovery uses synthetic Stage4 C9 task data only; it is not production data.",
+    "RPO/RTO are single local measurements, not production SLO or capacity guarantees.",
+    "Production-receipt-gated HTTP recovery was not observed; the local controller-derived receipt chain is in-process and non-authoritative.",
+    "Deep health may remain degraded when the task-local OPENAI_API_KEY is absent; this does not represent a provider call failure.",
+    "Telemetry is a bounded local Redis stream, not a durable audit log or external OpenTelemetry collector.",
+    "No production canonical write, release authority, signing, registry publication, remote deployment, canary, or Stage 7-9 work was performed."
+  ],
+  "findings": [
+    {
+      "id": "S6-FINDING-001",
+      "severity": "INFO",
+      "status": "DISPOSITIONED",
+      "finding": "The mutable progress note contained earlier Stage5 root SHA256SUMS values; post-acceptance cleanup and the owner correction appended retained evidence, yielding the current 214-entry manifest and hash 247ea799..., which independently verifies.",
+      "owner": "Stage5 evidence maintenance",
+      "impact": "Historical metadata only; the current manifest passes after the owner correction."
+    },
+    {
+      "id": "S6-FINDING-002",
+      "severity": "INFO",
+      "status": "BOUNDARY_RECORDED",
+      "finding": "One live-worker Compose snapshot predates the final worker overlay and still shows an additional governance.py mount.",
+      "owner": "Stage5 observability evidence",
+      "impact": "The current governance.py hash equals the retained image copy and the worker autodiscovery path does not import the API governance router, so the removed redundant mount has no observed worker-chain effect. Temporal configuration drift still means the live chain is not claimed as an exact-byte replay of the final overlay."
+    },
+    {
+      "id": "S6-FINDING-003",
+      "severity": "INFO",
+      "status": "RESOLVED_BY_RETAINED_CANDIDATE_RECHECK",
+      "finding": "The Stage4 candidate commit is not resolvable in the current project Git object store.",
+      "owner": "Stage4 retained artifact set",
+      "impact": "The original r13x candidate and replay repositories were independently checked clean at the recorded commit/tree; current-project Git still cannot resolve that historical object, so identity remains tied to those repositories plus retained image/build/checksum evidence."
+    },
+    {
+      "id": "S6-FINDING-004",
+      "severity": "INFO",
+      "status": "BOUNDARY_RECORDED",
+      "finding": "Credential checks covered the reviewed RUNBOOK, Compose, worker and recovery artifacts plus targeted redaction patterns; a full sensitive-literal scan over every evidence byte was not run.",
+      "owner": "Stage6 review",
+      "impact": "No plaintext credential was observed in the checked artifacts, but this review does not claim exhaustive secret scanning."
+    },
+    {
+      "id": "S6-FINDING-005",
+      "severity": "INFO",
+      "status": "RESOLVED_BY_SCOPE_DISAMBIGUATION",
+      "finding": "Stage4 prose reports 43 focused C9 tests while the rework JSON reports 8 passed and 37 deselected (45 collected).",
+      "owner": "Stage4 evidence maintenance",
+      "impact": "These are different selector/execution summaries, not asserted as one run; focused behavior and zero-residue evidence remain available for review."
+    },
+    {
+      "id": "S6-FINDING-006",
+      "severity": "WARNING",
+      "status": "RESOLVED_BY_STAGE5_OWNER",
+      "finding": "The retained recovery values JSONL export is not strict JSONL on three rows in both source and restore copies because event_note contains double-escaped quote characters.",
+      "owner": "Stage5 recovery evidence exporter",
+      "impact": "Original bad bytes remain preserved; owner-produced corrected derivations now parse all 12 rows and match canonical row/content digests and IDs. The correction is a derived evidence repair, not a database rerun or production claim."
+    },
+    {
+      "id": "S6-FINDING-007",
+      "severity": "INFO",
+      "status": "BOUNDARY_RECORDED",
+      "finding": "The mutable progress history mentions 131 Stage4 runtime checksum entries while the retained runtime manifest contains 132 entries.",
+      "owner": "Stage4 evidence maintenance",
+      "impact": "Current 132-entry manifest verification passes; the older count is not used as current proof."
+    },
+    {
+      "id": "S6-FINDING-008",
+      "severity": "INFO",
+      "status": "BOUNDARY_RECORDED",
+      "finding": "Stage4 runtime/checksums-verify.log contains an older 129-OK summary and is not the current manifest verification record.",
+      "owner": "Stage4 evidence maintenance",
+      "impact": "Stage6 relied on a fresh sha256sum -c over the retained 132-entry manifest instead of the stale log."
+    }
+  ],
+  "conclusion": "Stage6 local independent review passes for the declared Stage4/Stage5 evidence and explicit runtime boundaries. This is a local, non-authoritative acceptance record and does not establish formal release readiness or any production/remote authority.",
+  "authority_ceiling": [
+    "PASS_LOCAL_STAGE6_INDEPENDENT_REVIEW_NOT_AUTHORITY",
+    "LOCAL_DEVELOPMENT_ONLY",
+    "RELEASE_DEFERRED",
+    "PRODUCTION_RELEASE_NOT_AUTHORIZED"
+  ],
+  "next_action": "Send STAGE_RESULT(stageId:S6) to supervisor and stop this task; Stage7-9 are not started."
+  ,"cleanup": {
+    "path": "stage6-evidence/post-acceptance-cleanup.v1.json",
+    "sha256": "0d071d96e6215f5c19b5219718597c71313f20fb476afa2a0c7262926e4b1f3a",
+    "status": "CLEANUP_RESULT_S6",
+    "moved_to_recoverable_trash": 25,
+    "moved_bytes": 371764,
+    "docker_objects_removed": 0
+  }
+}

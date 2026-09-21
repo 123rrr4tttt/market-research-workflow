@@ -1,0 +1,95 @@
+{
+  "authoritative": false,
+  "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+  "changed_paths": [
+    {
+      "path": "scripts/formal_release/source_closure.py",
+      "predecessor_sha256": "d604df8a21cd342ba1a7cfe228968b106e8b226794a20d30559b65ddf39dcc4c",
+      "reason": "UNCHANGED_FROM_V3",
+      "successor_sha256": "d604df8a21cd342ba1a7cfe228968b106e8b226794a20d30559b65ddf39dcc4c"
+    },
+    {
+      "path": "scripts/formal_release/stage2_candidate_intake.py",
+      "predecessor_sha256": "36d06f287c295c0d9bece8dc835149d2ebedf96a7cc66bf2d9f8a5926d1ae9da",
+      "reason": "WORKFLOW_DELTA_STAGE0_CLOSURE_DEDUPLICATION",
+      "successor_sha256": "b6231d5392d737f9c63a2cb01f5562e3a0e9f4fa278160b926a443beff3f3401"
+    },
+    {
+      "path": "tests/formal_release/test_source_closure.py",
+      "predecessor_sha256": "c7ba06e248a65e58b6a101d39afefa3eff9127b44167373f6d3053957fe0d96b",
+      "reason": "UNCHANGED_FROM_V3",
+      "successor_sha256": "c7ba06e248a65e58b6a101d39afefa3eff9127b44167373f6d3053957fe0d96b"
+    },
+    {
+      "path": "tests/formal_release/test_stage2_candidate_intake.py",
+      "predecessor_sha256": "4ac83d69d018aa413331421329a2f0d2d47ba2e2a4e5fa3cc7819b680d714a64",
+      "reason": "WORKFLOW_DELTA_STAGE0_CLOSURE_DEDUPLICATION",
+      "successor_sha256": "64cd00c3ad2bb15b002fdb9f149ef51bda13f596b2d610eadcff8787e1e0ae15"
+    }
+  ],
+  "current_bindings": {
+    "checker_path": "stage1-successor-evidence/stage2-v6-intake-remediation-v4/check_stage2_v6_intake_remediation_v4.py",
+    "record_path": "stage1-successor-evidence/stage2-v6-intake-remediation-v4/stage2-v6-intake-remediation-record.v4.json",
+    "record_schema": "mrw.stage1.stage2_v6_intake_remediation_record.v4"
+  },
+  "external_effects": "NONE_LOCAL_DETERMINISTIC_VALIDATION_ONLY",
+  "focused_verification": {
+    "compileall": "PASS",
+    "ruff": "PASS",
+    "source_and_intake_tests": {
+      "failed": 0,
+      "passed": 139
+    },
+    "source_selector": {
+      "deselected": 2329,
+      "errors": 0,
+      "failed": 0,
+      "junit": {
+        "path": "stage1-successor-evidence/stage2-v6-intake-remediation-v4/raw/source-selector.final.xml",
+        "sha256": "2ee9878a74628727b1442190e7212530a3c12014558e837768df38d918d0cfe4"
+      },
+      "log": {
+        "path": "stage1-successor-evidence/stage2-v6-intake-remediation-v4/raw/source-selector.final.log",
+        "sha256": "97b26df9e9e70b071e9b2308fea906aecf1cef85bd512d346d671f0ea62aad1c"
+      },
+      "passed": 1793,
+      "skipped": 0,
+      "subtests_passed": 52,
+      "warnings": 25
+    }
+  },
+  "predecessor": {
+    "manifest": {
+      "path": "stage1-successor-evidence/stage2-v6-intake-remediation-v3/artifact-manifest.corrected2.v3.json",
+      "sha256": "c57d7fc64c1493a99aa6791fcaafa73ac2e6e7d110a46bf3a601b8ca3d319353"
+    },
+    "record": {
+      "path": "stage1-successor-evidence/stage2-v6-intake-remediation-v3/stage2-v6-intake-remediation-record.v3.json",
+      "sha256": "69ed505d428771104dc906b42ebd8f16b5f7b1458edaa785236ae9231d8c6a14"
+    },
+    "relation": "ADDITIVE_SUCCESSOR_NO_REWRITE",
+    "validation": {
+      "path": "stage1-successor-evidence/stage2-v6-intake-remediation-v3/validation-receipt.corrected2.v3.json",
+      "sha256": "1f6daaa1bf92228b26c543d1cb85a56520881a4e9210fd0b65633060ad652a33"
+    }
+  },
+  "production_release_authorized": false,
+  "schema_version": "mrw.stage1.stage2_v6_intake_remediation_record.v4",
+  "status": "PASS_STAGE2_V6_WORKFLOW_EQUIVALENT_INTAKE_NOT_AUTHORITY",
+  "workflow_selector_closure": {
+    "candidate_local_full_selector_remains_final_gate": true,
+    "delta_operations": [
+      "UPSERT",
+      "DELETE"
+    ],
+    "roots": [
+      "main/backend",
+      "main/ops",
+      "src/mrw_functorial_kit",
+      "ops",
+      "scripts"
+    ],
+    "stage0_closure_upserts_satisfy_matching_workflow_upserts": true,
+    "stage0_delete_conflicts_fail_closed": true
+  }
+}

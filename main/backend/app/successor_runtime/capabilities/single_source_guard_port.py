@@ -33,16 +33,15 @@ import json
 import math
 from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import Any, Literal, Protocol, runtime_checkable
+from typing import Annotated, Any, Literal, NoReturn, Protocol, runtime_checkable
+
+from functorial_kit import Failure
+from mrw_functorial_kit.core.w06_semantics import source_library_single_source_guard_failures
 
 from app.successor_runtime.capabilities.checksum import sha256_hex
 
-SINGLE_SOURCE_GUARD_DECISION_SCHEMA = (
-    "mrw.successor.source-library.single-source-guard.decision.v1"
-)
-SINGLE_SOURCE_GUARD_FACT_SCHEMA = (
-    "mrw.successor.source-library.single-source-guard.execution-fact.v1"
-)
+SINGLE_SOURCE_GUARD_DECISION_SCHEMA = "mrw.successor.source-library.single-source-guard.decision.v1"
+SINGLE_SOURCE_GUARD_FACT_SCHEMA = "mrw.successor.source-library.single-source-guard.execution-fact.v1"
 SOURCE_LIBRARY_EXECUTION_FACT_CONTRACT = "source_library.execution_fact.v1"
 SITE_ENTRY_GUARD_CONTRACT = "resource_pool.site_entry.single_source_guard.v1"
 
@@ -62,16 +61,56 @@ GUARD_AUTHORITY_FALSE_REASON = "single-source guard grants no execution authorit
 _MAX_STRING_BYTES = 4096
 _MAX_SOURCE_REF_STRING_BYTES = 1024
 _CREDENTIAL_MARKERS = ("secret", "api_key", "apikey", "token", "password")
+_FAILURE_WITNESS = "test:test_w06_c2_total_core_failure_lifts"
+
+
+def _failure(
+    code: str, message: str, *, public_exception: str = "ValueError", site: str = "single_source_guard_port"
+) -> Failure:
+    return source_library_single_source_guard_failures.fail(
+        code,
+        message,
+        {
+            "owner": "successor_runtime.capabilities.single_source_guard_port",
+            "site": site,
+            "public_exception": public_exception,
+            "public_message": message,
+            "witness": _FAILURE_WITNESS,
+        },
+    )
+
+
+def _raise_contract_failure(failure: Failure, exception_type: type[Exception] = ValueError) -> NoReturn:
+    context = failure.context or {}
+    if (
+        failure.family != source_library_single_source_guard_failures.name
+        or context.get("public_exception") != exception_type.__name__
+    ):
+        # kit:boundary owner=single_source_guard_port.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w06_c2_total_core_failure_lifts
+        raise TypeError("single-source guard contract lift context is incomplete")  # noqa: TRY003
+    # kit:boundary owner=single_source_guard_port.py class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=source_library.single_source_guard.failure witness=test:test_w06_c2_total_core_failure_lifts
+    raise exception_type(str(context.get("public_message", failure.message)))
+
+
+def _reject(
+    message: str, exception_type: type[Exception] = ValueError, *, code: str = "single_source_guard_invalid_shape"
+) -> NoReturn:
+    _raise_contract_failure(_failure(code, message, public_exception=exception_type.__name__), exception_type)
+
+
+def _raise_guard_error(message: str, details: GuardRejectionDetails) -> NoReturn:
+    # kit:boundary owner=single_source_guard_port.py class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=source_library.single_source_guard.failure witness=test:test_w06_c2_total_core_failure_lifts
+    raise SourceLibrarySingleSourceGuardError(message, details=details)
 
 
 def _require_trimmed(value: Any, name: str, *, max_bytes: int) -> str:
     if not isinstance(value, str):
-        raise TypeError(f"{name} must be a string")
+        _reject(f"{name} must be a string", TypeError)
     trimmed = value.strip()
     if not trimmed:
-        raise ValueError(f"{name} must not be blank")
+        _reject(f"{name} must not be blank")
     if len(trimmed.encode("utf-8")) > max_bytes:
-        raise ValueError(f"{name} exceeds the {max_bytes}-byte ceiling")
+        _reject(f"{name} exceeds the {max_bytes}-byte ceiling")
     return trimmed
 
 
@@ -84,7 +123,7 @@ def _plain_json(value: Any) -> Any:
         return [_plain_json(item) for item in value]
     if value is None or isinstance(value, (bool, str, int, float)):
         return value
-    raise TypeError("source metadata must be JSON-compatible")
+    _reject("source metadata must be JSON-compatible", TypeError)
 
 
 def _looks_like_secret(value: str) -> bool:
@@ -104,16 +143,16 @@ def _scan_json(value: Any, name: str) -> None:
     elif isinstance(value, str):
         _require_trimmed(value, name, max_bytes=_MAX_SOURCE_REF_STRING_BYTES)
         if _looks_like_secret(value):
-            raise ValueError(f"{name} must not carry credential-like raw material")
+            _reject(f"{name} must not carry credential-like raw material")
     elif isinstance(value, float) and not math.isfinite(value):
-        raise ValueError(f"{name} must be a finite number")
+        _reject(f"{name} must be a finite number")
 
 
 def _validate_json_object(value: Any, name: str) -> dict[str, Any]:
     if value is None:
         return {}
     if not isinstance(value, dict):
-        raise TypeError(f"{name} must be a plain JSON object")
+        _reject(f"{name} must be a plain JSON object", TypeError)
     plain = _plain_json(value)
     _scan_json(plain, name)
     return plain
@@ -125,11 +164,11 @@ def _string_claims(value: Any, name: str) -> tuple[str, ...]:
     if value is None:
         return ()
     if isinstance(value, (str, bytes, dict)) or not isinstance(value, Iterable):
-        raise TypeError(f"{name} must be a list of URL strings")
+        _reject(f"{name} must be a list of URL strings", TypeError)
     out: list[str] = []
     for entry in value:
         if not isinstance(entry, str):
-            raise TypeError(f"{name} must contain only URL strings")
+            _reject(f"{name} must contain only URL strings", TypeError)
         url = _require_trimmed(entry, name, max_bytes=_MAX_STRING_BYTES)
         out.append(url)
     return tuple(out)
@@ -166,15 +205,11 @@ class SourceDispatchClaims:
     @classmethod
     def from_plain(cls, value: dict[str, Any]) -> SourceDispatchClaims:
         if not isinstance(value, dict):
-            raise TypeError("dispatch claims must be an object")
+            _reject("dispatch claims must be an object", TypeError)
         return cls(
-            site_entries=_string_claims(
-                value.get("site_entries"), "SourceDispatchClaims.site_entries"
-            ),
+            site_entries=_string_claims(value.get("site_entries"), "SourceDispatchClaims.site_entries"),
             urls=_string_claims(value.get("urls"), "SourceDispatchClaims.urls"),
-            site_entry_urls=_string_claims(
-                value.get("site_entry_urls"), "SourceDispatchClaims.site_entry_urls"
-            ),
+            site_entry_urls=_string_claims(value.get("site_entry_urls"), "SourceDispatchClaims.site_entry_urls"),
             official_access_site_entries=_string_claims(
                 value.get("official_access_site_entries"),
                 "SourceDispatchClaims.official_access_site_entries",
@@ -182,12 +217,7 @@ class SourceDispatchClaims:
         )
 
     def exact_claims(self) -> tuple[str, ...]:
-        return (
-            self.site_entries
-            + self.urls
-            + self.site_entry_urls
-            + self.official_access_site_entries
-        )
+        return self.site_entries + self.urls + self.site_entry_urls + self.official_access_site_entries
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -217,43 +247,33 @@ class SingleSourceGuardDeclaration:
         object.__setattr__(
             self,
             "allowed_urls",
-            _string_claims(
-                self.allowed_urls, "SingleSourceGuardDeclaration.allowed_urls"
-            ),
+            _string_claims(self.allowed_urls, "SingleSourceGuardDeclaration.allowed_urls"),
         )
         if self.allowed_count is not None and (
-            not isinstance(self.allowed_count, int)
-            or isinstance(self.allowed_count, bool)
-            or self.allowed_count < 0
+            not isinstance(self.allowed_count, int) or isinstance(self.allowed_count, bool) or self.allowed_count < 0
         ):
-            raise ValueError("allowed_count must be a non-negative integer or None")
+            _reject("allowed_count must be a non-negative integer or None")
         if self.blocked_reason is not None:
             if not isinstance(self.blocked_reason, str):
-                raise TypeError("blocked_reason must be a string or None")
+                _reject("blocked_reason must be a string or None", TypeError)
             blocked = self.blocked_reason.strip()
             object.__setattr__(self, "blocked_reason", blocked or None)
         if self.reason_code is not None:
             if not isinstance(self.reason_code, str):
-                raise TypeError("reason_code must be a string or None")
+                _reject("reason_code must be a string or None", TypeError)
             reason = self.reason_code.strip()
             object.__setattr__(self, "reason_code", reason or None)
         if self.status is not None:
             if not isinstance(self.status, str):
-                raise TypeError("status must be a string or None")
+                _reject("status must be a string or None", TypeError)
             status = self.status.strip()
             object.__setattr__(self, "status", status or None)
-        if (
-            not isinstance(self.contract_version, str)
-            or not self.contract_version.strip()
-        ):
-            raise ValueError("contract_version is required")
+        if not isinstance(self.contract_version, str) or not self.contract_version.strip():
+            _reject("contract_version is required")
         if not isinstance(self.report_source_ref, str):
-            raise TypeError("report_source_ref must be a string")
-        if (
-            self.report_source_ref.strip()
-            and self.report_source_ref != self.report_source_ref.strip()
-        ):
-            raise ValueError("report_source_ref must be trimmed")
+            _reject("report_source_ref must be a string", TypeError)
+        if self.report_source_ref.strip() and self.report_source_ref != self.report_source_ref.strip():
+            _reject("report_source_ref must be trimmed")
         object.__setattr__(
             self,
             "source_ref",
@@ -279,16 +299,12 @@ class SingleSourceGuardDeclaration:
     @classmethod
     def from_dict(cls, value: Any) -> SingleSourceGuardDeclaration:
         if value is None:
-            raise TypeError("single_source_guard is required")
+            _reject("single_source_guard is required", TypeError, code="single_source_guard_missing")
         if not isinstance(value, dict):
-            raise TypeError("single_source_guard must be an object")
+            _reject("single_source_guard must be an object", TypeError, code="single_source_guard_invalid_shape")
         return cls(
-            contract_version=str(
-                value.get("contract_version") or SITE_ENTRY_GUARD_CONTRACT
-            ),
-            allowed_urls=_string_claims(
-                value.get("allowed_urls"), "single_source_guard.allowed_urls"
-            ),
+            contract_version=str(value.get("contract_version") or SITE_ENTRY_GUARD_CONTRACT),
+            allowed_urls=_string_claims(value.get("allowed_urls"), "single_source_guard.allowed_urls"),
             allowed_count=value.get("allowed_count"),
             strict_source=value.get("strict_source"),
             guarantee=value.get("guarantee"),
@@ -318,23 +334,23 @@ class SingleSourceExecutionFact:
 
     def __post_init__(self) -> None:
         if self.schema_version != SINGLE_SOURCE_GUARD_FACT_SCHEMA:
-            raise ValueError("SingleSourceExecutionFact.schema_version is not frozen")
+            _reject("SingleSourceExecutionFact.schema_version is not frozen")
         if self.contract_version != SOURCE_LIBRARY_EXECUTION_FACT_CONTRACT:
-            raise ValueError("SingleSourceExecutionFact.contract_version is not frozen")
+            _reject("SingleSourceExecutionFact.contract_version is not frozen")
         if self.reason_code != GUARD_PASSED_REASON:
-            raise ValueError("SingleSourceExecutionFact.reason_code must be passed")
+            _reject("SingleSourceExecutionFact.reason_code must be passed")
         if self.guard_status != "passed":
-            raise ValueError("SingleSourceExecutionFact.guard_status must be passed")
+            _reject("SingleSourceExecutionFact.guard_status must be passed")
         for name in ("item_key", "project_key"):
             value = getattr(self, name)
             if not isinstance(value, str) or value != value.strip():
-                raise ValueError(f"SingleSourceExecutionFact.{name} must be trimmed")
+                _reject(f"SingleSourceExecutionFact.{name} must be trimmed")
         if not isinstance(self.report_source_ref, str):
-            raise TypeError("report_source_ref must be a string")
+            _reject("report_source_ref must be a string", TypeError)
         if not isinstance(self.source_refs, tuple):
             object.__setattr__(self, "source_refs", tuple(self.source_refs))
         if not all(isinstance(ref, dict) for ref in self.source_refs):
-            raise TypeError("source_refs must contain JSON objects")
+            _reject("source_refs must contain JSON objects", TypeError)
         for index, ref in enumerate(self.source_refs):
             _validate_json_object(ref, f"source_refs[{index}]")
         object.__setattr__(
@@ -366,9 +382,7 @@ class SingleSourceExecutionFact:
             "source_ref": dict(self.source_ref),
             "report_source_ref": self.report_source_ref,
             "single_source_guard": (
-                self.single_source_guard.to_plain()
-                if self.single_source_guard is not None
-                else None
+                self.single_source_guard.to_plain() if self.single_source_guard is not None else None
             ),
         }
 
@@ -387,13 +401,11 @@ class GuardAuthoritySnapshot:
 
     def __post_init__(self) -> None:
         if self.granted is not False:
-            raise ValueError("single-source guard port cannot grant authority")
+            _reject("single-source guard port cannot grant authority")
         if self.live_provider_allowed is not False:
-            raise ValueError(
-                "single-source guard port cannot allow live provider execution"
-            )
+            _reject("single-source guard port cannot allow live provider execution")
         if not isinstance(self.reason, str) or not self.reason.strip():
-            raise ValueError("GuardAuthoritySnapshot.reason is required")
+            _reject("GuardAuthoritySnapshot.reason is required")
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -435,11 +447,11 @@ class GuardRejected:
 
     def __post_init__(self) -> None:
         if self.schema_version != SINGLE_SOURCE_GUARD_DECISION_SCHEMA:
-            raise ValueError("GuardRejected.schema_version is not the frozen schema")
+            _reject("GuardRejected.schema_version is not the frozen schema")
         if self.dispatch_allowed is not False:
-            raise ValueError("GuardRejected.dispatch_allowed must be false")
+            _reject("GuardRejected.dispatch_allowed must be false")
         if not isinstance(self.reason_code, str) or not self.reason_code:
-            raise ValueError("GuardRejected.reason_code is required")
+            _reject("GuardRejected.reason_code is required")
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -466,13 +478,13 @@ class GuardAdmitted:
 
     def __post_init__(self) -> None:
         if self.schema_version != SINGLE_SOURCE_GUARD_DECISION_SCHEMA:
-            raise ValueError("GuardAdmitted.schema_version is not the frozen schema")
+            _reject("GuardAdmitted.schema_version is not the frozen schema")
         if self.dispatch_allowed is not True:
-            raise ValueError("GuardAdmitted.dispatch_allowed must be true")
+            _reject("GuardAdmitted.dispatch_allowed must be true")
         if not isinstance(self.guard, SingleSourceGuardDeclaration):
-            raise TypeError("GuardAdmitted.guard is required")
+            _reject("GuardAdmitted.guard is required", TypeError)
         if not isinstance(self.execution_fact, SingleSourceExecutionFact):
-            raise TypeError("GuardAdmitted.execution_fact is required")
+            _reject("GuardAdmitted.execution_fact is required", TypeError)
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -481,15 +493,12 @@ class GuardAdmitted:
             "guard": self.guard.to_plain() if self.guard is not None else None,
             "dispatch_allowed": self.dispatch_allowed,
             "authority": self.authority.to_plain(),
-            "execution_fact": (
-                self.execution_fact.to_plain()
-                if self.execution_fact is not None
-                else None
-            ),
+            "execution_fact": (self.execution_fact.to_plain() if self.execution_fact is not None else None),
         }
 
 
 GuardDecision = GuardAdmitted | GuardRejected
+NonAuthoritativeSingleSourceExecutionFact = SingleSourceExecutionFact
 
 
 def build_guard_execution_fact(
@@ -498,7 +507,14 @@ def build_guard_execution_fact(
     item_key: str = "",
     project_key: str = "",
     reason_code: str = GUARD_PASSED_REASON,
-) -> SingleSourceExecutionFact:
+) -> Annotated[
+    NonAuthoritativeSingleSourceExecutionFact,
+    Literal[
+        "kit:non-authoritative derived_as=view "
+        "fact_source=guard_request+guard_decision "
+        "witness=test:test_w06_successor_authority_metadata"
+    ],
+]:
     """Build the donor-shaped execution fact for an admitted guard."""
 
     return SingleSourceExecutionFact(
@@ -651,9 +667,7 @@ def guard_override_decision(
             ),
         )
     try:
-        declaration = SingleSourceGuardDeclaration.from_dict(
-            override_params.get("single_source_guard")
-        )
+        declaration = SingleSourceGuardDeclaration.from_dict(override_params.get("single_source_guard"))
     except (TypeError, ValueError) as exc:
         return GuardRejected(
             reason_code=GUARD_INVALID_SHAPE_CODE,
@@ -756,10 +770,7 @@ def validate_single_source_guard(
             expected={},
             actual={},
         )
-        raise SourceLibrarySingleSourceGuardError(
-            f"single_source_guard is blocked: {details.reason_code}",
-            details=details,
-        )
+        _raise_guard_error(f"single_source_guard is blocked: {details.reason_code}", details)
     return declaration
 
 

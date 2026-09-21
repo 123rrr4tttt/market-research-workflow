@@ -2,10 +2,16 @@ from __future__ import annotations
 
 from typing import Any
 
-from .contracts import build_workflow_graph_integrity_report
+from functorial_kit import Failure
+
+from .contracts import (
+    WorkflowGraphCompileError,
+    build_workflow_graph_integrity_report,
+    raise_workflow_graph_legacy,
+    workflow_graph_failure,
+)
 from .executors.base import BaseNodeExecutor, NodeExecutionContext
 from .executors.join import JoinExecutor
-from .executors.llm_call import LLMCallExecutor
 from .executors.vector_search import VectorSearchExecutor
 from .store import InMemoryRunStore, SqlRunStore
 
@@ -19,12 +25,17 @@ class WorkflowGraphRuntime:
     ) -> None:
         self.store = store or InMemoryRunStore()
         self._executors: dict[str, BaseNodeExecutor] = {}
-        for executor in (executors or [VectorSearchExecutor(), LLMCallExecutor(), JoinExecutor()]):
+        resolved_executors = executors
+        if resolved_executors is None:
+            from .executors.llm_call import LLMCallExecutor
+
+            resolved_executors = [VectorSearchExecutor(), LLMCallExecutor(), JoinExecutor()]
+        for executor in resolved_executors:
             self.register_executor(executor)
 
     def register_executor(self, executor: BaseNodeExecutor) -> None:
         if not executor.node_type:
-            raise ValueError("executor.node_type must not be empty")
+            raise_workflow_graph_legacy(workflow_graph_failure("executor_not_registered", "executor.node_type must not be empty", owner="workflow_graph.runtime", public_exception=WorkflowGraphCompileError, public_message="executor.node_type must not be empty", field="executor.node_type", index=-1))
         self._executors[executor.node_type] = executor
 
     def run(
@@ -33,6 +44,9 @@ class WorkflowGraphRuntime:
         *,
         inputs: dict[str, Any] | None = None,
         run_id: str | None = None,
+        project_key: str | None = None,
+        trace_id: str | None = None,
+        session_id: str | None = None,
     ) -> dict[str, Any]:
         nodes = _normalize_nodes(workflow.get("nodes") or {})
         topo_order = _resolve_topo_order(workflow=workflow, nodes=nodes)
@@ -41,7 +55,12 @@ class WorkflowGraphRuntime:
         resolved_run_id = self.store.create_run(
             run_id=run_id,
             topo_order=topo_order,
-            metadata={"workflow_id": workflow.get("workflow_id")},
+            metadata={
+                "workflow_id": workflow.get("workflow_id"),
+                "project_key": str(project_key or "").strip() or None,
+                "trace_id": str(trace_id or "").strip() or None,
+                "session_id": str(session_id or "").strip() or None,
+            },
         )
         self.store.append_event(
             resolved_run_id,
@@ -88,22 +107,33 @@ class WorkflowGraphRuntime:
                     workflow=workflow,
                     inputs=run_inputs,
                 )
+                if isinstance(result, Failure):
+                    raise_workflow_graph_legacy(result, exception_type=WorkflowGraphCompileError)
                 self.store.set_node_result(resolved_run_id, node_id, result)
                 self.store.set_node_status(resolved_run_id, node_id, "succeeded")
                 self.store.append_event(resolved_run_id, event_type="node.succeeded", node_id=node_id)
             except Exception as exc:  # noqa: BLE001
                 self.store.set_node_status(resolved_run_id, node_id, "failed")
                 self.store.set_run_status(resolved_run_id, "failed")
+                failure = getattr(exc, "workflow_failure", None)
+                failure_fields = {}
+                if failure is not None and getattr(failure, "failure", False):
+                    failure_fields = {
+                        "failure_family": failure.family,
+                        "failure_code": failure.code,
+                        "failure_context": dict(failure.context or {}),
+                    }
+                error_payload = {"error": str(exc), **failure_fields}
                 self.store.append_event(
                     resolved_run_id,
                     event_type="node.failed",
                     node_id=node_id,
-                    payload={"error": str(exc)},
+                    payload=error_payload,
                 )
                 self.store.append_event(
                     resolved_run_id,
                     event_type="run.failed",
-                    payload={"node_id": node_id, "error": str(exc)},
+                    payload={"node_id": node_id, **error_payload},
                 )
                 return self.store.snapshot(resolved_run_id)
 
@@ -122,11 +152,11 @@ class WorkflowGraphRuntime:
         node_id = str(node.get("id") or "").strip()
         node_type = str(node.get("node_type") or "").strip().lower()
         if not node_type:
-            raise ValueError(f"node_type missing: {node_id or '<unknown>'}")
+            raise_workflow_graph_legacy(workflow_graph_failure("contract_invalid", f"node_type missing: {node_id or '<unknown>'}", owner="workflow_graph.runtime", public_exception=WorkflowGraphCompileError, public_message=f"node_type missing: {node_id or '<unknown>'}", field="node_type", index=-1))
 
         executor = self._executors.get(node_type)
         if executor is None:
-            raise ValueError(f"unsupported node_type: {node_type}")
+            raise_workflow_graph_legacy(workflow_graph_failure("executor_not_registered", f"unsupported node_type: {node_type}", owner="workflow_graph.runtime", public_exception=WorkflowGraphCompileError, public_message=f"unsupported node_type: {node_type}", field="node_type", index=-1))
 
         all_results = self.store.get_results(run_id)
         upstream_node_ids = [str(x).strip() for x in (node.get("depends_on") or []) if str(x).strip()]
@@ -177,11 +207,11 @@ def _normalize_nodes(nodes: Any) -> dict[str, dict[str, Any]]:
             data = dict(node or {})
             node_id = str(data.get("id") or "").strip()
             if not node_id:
-                raise ValueError("node id is required")
+                raise_workflow_graph_legacy(workflow_graph_failure("contract_invalid", "node id is required", owner="workflow_graph.runtime", public_exception=WorkflowGraphCompileError, public_message="node id is required", field="node_id", index=-1))
             out[node_id] = data
         return out
 
-    raise ValueError("workflow.nodes must be dict or list")
+    raise_workflow_graph_legacy(workflow_graph_failure("contract_invalid", "workflow.nodes must be dict or list", owner="workflow_graph.runtime", public_exception=WorkflowGraphCompileError, public_message="workflow.nodes must be dict or list", field="nodes", index=-1))
 
 
 def _resolve_topo_order(*, workflow: dict[str, Any], nodes: dict[str, dict[str, Any]]) -> list[str]:
@@ -256,7 +286,7 @@ def _resolve_node_inputs(
         if value is None and default_value is not None and str(default_value).strip():
             value = default_value
         if value is None and required:
-            raise ValueError(f"required input missing: {name}")
+            raise_workflow_graph_legacy(workflow_graph_failure("required_input_missing", f"required input missing: {name}", owner="workflow_graph.runtime", public_exception=WorkflowGraphCompileError, public_message=f"required input missing: {name}", field="input", index=-1, name=name))
         if value is not None:
             resolved[name] = value
     return resolved

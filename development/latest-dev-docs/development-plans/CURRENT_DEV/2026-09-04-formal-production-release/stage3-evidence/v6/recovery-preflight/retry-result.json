@@ -1,0 +1,315 @@
+{
+  "schema_version": "mrw.stage3.v6.recovery-preflight-retry.v1",
+  "authoritative": false,
+  "candidate_commit": "909eb608e538b6427bcbacca974f1efb05fef611",
+  "candidate_tree": "a60b795e509aa5dc479904a321fba32ed0ab9ab2",
+  "records": [
+    {
+      "id": "r1-corrected",
+      "command": [
+        "/Users/wangyiliang/market-research-workflow/.venv/bin/python",
+        "scripts/formal_release/check_candidate_identity.py",
+        "--repo-root",
+        "/private/tmp/mrw-stage3-v6-preflight-gga5tnof/candidate",
+        "--expected-commit",
+        "909eb608e538b6427bcbacca974f1efb05fef611",
+        "--expected-tree",
+        "a60b795e509aa5dc479904a321fba32ed0ab9ab2",
+        "--candidate-strategy",
+        "REMEDIATION_INCLUSIVE_RELEASE"
+      ],
+      "cwd": "/private/tmp/mrw-stage3-v6-preflight-gga5tnof/candidate",
+      "exit_code": 1,
+      "started_at": "2026-09-06T21:52:55.209233+00:00",
+      "ended_at": "2026-09-06T21:52:55.485521+00:00",
+      "log": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-preflight/r1-corrected.log",
+      "sha256": "35b2d6cdd39d9a8bc45e09bcf1eac6799911a43a35150296d33b2918ab0dbb60",
+      "environment_overrides": {
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONNOUSERSITE": "1"
+      }
+    },
+    {
+      "id": "focused-toolchain-corrected",
+      "command": [
+        "/Users/wangyiliang/market-research-workflow/.venv/bin/python",
+        "-m",
+        "pytest",
+        "-o",
+        "addopts=",
+        "-p",
+        "no:cacheprovider",
+        "tests/formal_release/test_check_release_evidence.py",
+        "tests/formal_release/test_s1_workflow_contract.py",
+        "tests/formal_release/test_check_candidate_identity.py",
+        "tests/formal_release/test_check_static_production_contract.py",
+        "--junitxml=/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-preflight/focused-corrected.junit.xml",
+        "-ra"
+      ],
+      "cwd": "/private/tmp/mrw-stage3-v6-preflight-gga5tnof/candidate",
+      "exit_code": 0,
+      "started_at": "2026-09-06T21:52:55.485990+00:00",
+      "ended_at": "2026-09-06T21:53:02.851866+00:00",
+      "log": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-preflight/focused-toolchain-corrected.log",
+      "sha256": "bad7f6cc0c3b5289942b8a0b710541572dcd0d855d2362c45f4d0b95afb68423",
+      "environment_overrides": {
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONNOUSERSITE": "1",
+        "PYTHONPATH": "/private/tmp/mrw-stage3-v6-preflight-gga5tnof/candidate"
+      }
+    },
+    {
+      "id": "canonical-final-commit",
+      "command": [
+        "git",
+        "rev-parse",
+        "HEAD"
+      ],
+      "cwd": "/Users/wangyiliang/.codex/release-candidates/mrw-stage2-20260906-v6",
+      "exit_code": 0,
+      "started_at": "2026-09-06T21:53:02.852386+00:00",
+      "ended_at": "2026-09-06T21:53:02.872960+00:00",
+      "log": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-preflight/canonical-final-commit.log",
+      "sha256": "0fc3737c5815dfa347ec90d0fe5ac0a35df687e42eb3eddfdfff7770aa21ab3c",
+      "environment_overrides": {
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONNOUSERSITE": "1"
+      }
+    },
+    {
+      "id": "canonical-final-tree",
+      "command": [
+        "git",
+        "rev-parse",
+        "HEAD^{tree}"
+      ],
+      "cwd": "/Users/wangyiliang/.codex/release-candidates/mrw-stage2-20260906-v6",
+      "exit_code": 0,
+      "started_at": "2026-09-06T21:53:02.873391+00:00",
+      "ended_at": "2026-09-06T21:53:02.893172+00:00",
+      "log": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-preflight/canonical-final-tree.log",
+      "sha256": "0f013e31119a9161540397c5766a2805b86d9ae93501e5e78ae59dd593650313",
+      "environment_overrides": {
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONNOUSERSITE": "1"
+      }
+    },
+    {
+      "id": "canonical-final-parent",
+      "command": [
+        "git",
+        "rev-parse",
+        "HEAD^"
+      ],
+      "cwd": "/Users/wangyiliang/.codex/release-candidates/mrw-stage2-20260906-v6",
+      "exit_code": 0,
+      "started_at": "2026-09-06T21:53:02.894045+00:00",
+      "ended_at": "2026-09-06T21:53:02.914839+00:00",
+      "log": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-preflight/canonical-final-parent.log",
+      "sha256": "d27d26142da0e60c502de1681cc078c7148ab6bdc9d75d38eef5518f9b6f67ea",
+      "environment_overrides": {
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONNOUSERSITE": "1"
+      }
+    },
+    {
+      "id": "canonical-final-status",
+      "command": [
+        "git",
+        "status",
+        "--porcelain=v1",
+        "--untracked-files=all"
+      ],
+      "cwd": "/Users/wangyiliang/.codex/release-candidates/mrw-stage2-20260906-v6",
+      "exit_code": 0,
+      "started_at": "2026-09-06T21:53:02.915379+00:00",
+      "ended_at": "2026-09-06T21:53:03.409492+00:00",
+      "log": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-preflight/canonical-final-status.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment_overrides": {
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONNOUSERSITE": "1"
+      }
+    },
+    {
+      "id": "canonical-final-shallow",
+      "command": [
+        "git",
+        "rev-parse",
+        "--is-shallow-repository"
+      ],
+      "cwd": "/Users/wangyiliang/.codex/release-candidates/mrw-stage2-20260906-v6",
+      "exit_code": 0,
+      "started_at": "2026-09-06T21:53:03.410214+00:00",
+      "ended_at": "2026-09-06T21:53:03.425991+00:00",
+      "log": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-preflight/canonical-final-shallow.log",
+      "sha256": "2ed27c1421e6928dbe13dbfdb5c59e1045b30341fe7ebe05700006bc5ac572c0",
+      "environment_overrides": {
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONNOUSERSITE": "1"
+      }
+    },
+    {
+      "id": "canonical-final-fsck",
+      "command": [
+        "git",
+        "fsck",
+        "--full"
+      ],
+      "cwd": "/Users/wangyiliang/.codex/release-candidates/mrw-stage2-20260906-v6",
+      "exit_code": 0,
+      "started_at": "2026-09-06T21:53:03.426421+00:00",
+      "ended_at": "2026-09-06T21:53:04.504364+00:00",
+      "log": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-preflight/canonical-final-fsck.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment_overrides": {
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONNOUSERSITE": "1"
+      }
+    },
+    {
+      "id": "clone-final-commit",
+      "command": [
+        "git",
+        "rev-parse",
+        "HEAD"
+      ],
+      "cwd": "/private/tmp/mrw-stage3-v6-preflight-gga5tnof/candidate",
+      "exit_code": 0,
+      "started_at": "2026-09-06T21:53:04.505098+00:00",
+      "ended_at": "2026-09-06T21:53:04.525273+00:00",
+      "log": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-preflight/clone-final-commit.log",
+      "sha256": "0fc3737c5815dfa347ec90d0fe5ac0a35df687e42eb3eddfdfff7770aa21ab3c",
+      "environment_overrides": {
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONNOUSERSITE": "1"
+      }
+    },
+    {
+      "id": "clone-final-tree",
+      "command": [
+        "git",
+        "rev-parse",
+        "HEAD^{tree}"
+      ],
+      "cwd": "/private/tmp/mrw-stage3-v6-preflight-gga5tnof/candidate",
+      "exit_code": 0,
+      "started_at": "2026-09-06T21:53:04.526047+00:00",
+      "ended_at": "2026-09-06T21:53:04.549476+00:00",
+      "log": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-preflight/clone-final-tree.log",
+      "sha256": "0f013e31119a9161540397c5766a2805b86d9ae93501e5e78ae59dd593650313",
+      "environment_overrides": {
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONNOUSERSITE": "1"
+      }
+    },
+    {
+      "id": "clone-final-parent",
+      "command": [
+        "git",
+        "rev-parse",
+        "HEAD^"
+      ],
+      "cwd": "/private/tmp/mrw-stage3-v6-preflight-gga5tnof/candidate",
+      "exit_code": 0,
+      "started_at": "2026-09-06T21:53:04.550055+00:00",
+      "ended_at": "2026-09-06T21:53:04.567936+00:00",
+      "log": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-preflight/clone-final-parent.log",
+      "sha256": "d27d26142da0e60c502de1681cc078c7148ab6bdc9d75d38eef5518f9b6f67ea",
+      "environment_overrides": {
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONNOUSERSITE": "1"
+      }
+    },
+    {
+      "id": "clone-final-status",
+      "command": [
+        "git",
+        "status",
+        "--porcelain=v1",
+        "--untracked-files=all"
+      ],
+      "cwd": "/private/tmp/mrw-stage3-v6-preflight-gga5tnof/candidate",
+      "exit_code": 0,
+      "started_at": "2026-09-06T21:53:04.568395+00:00",
+      "ended_at": "2026-09-06T21:53:04.639816+00:00",
+      "log": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-preflight/clone-final-status.log",
+      "sha256": "ec4c5fc29fa2404db792775bb6539751b2f6130309d827655ab049261862868c",
+      "environment_overrides": {
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONNOUSERSITE": "1"
+      }
+    },
+    {
+      "id": "clone-final-shallow",
+      "command": [
+        "git",
+        "rev-parse",
+        "--is-shallow-repository"
+      ],
+      "cwd": "/private/tmp/mrw-stage3-v6-preflight-gga5tnof/candidate",
+      "exit_code": 0,
+      "started_at": "2026-09-06T21:53:04.640289+00:00",
+      "ended_at": "2026-09-06T21:53:04.664004+00:00",
+      "log": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-preflight/clone-final-shallow.log",
+      "sha256": "2ed27c1421e6928dbe13dbfdb5c59e1045b30341fe7ebe05700006bc5ac572c0",
+      "environment_overrides": {
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONNOUSERSITE": "1"
+      }
+    },
+    {
+      "id": "clone-final-fsck",
+      "command": [
+        "git",
+        "fsck",
+        "--full"
+      ],
+      "cwd": "/private/tmp/mrw-stage3-v6-preflight-gga5tnof/candidate",
+      "exit_code": 0,
+      "started_at": "2026-09-06T21:53:04.664726+00:00",
+      "ended_at": "2026-09-06T21:53:05.557611+00:00",
+      "log": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-preflight/clone-final-fsck.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment_overrides": {
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONNOUSERSITE": "1"
+      }
+    }
+  ],
+  "status": "FAILED",
+  "canonical_final": {
+    "commit": "909eb608e538b6427bcbacca974f1efb05fef611",
+    "tree": "a60b795e509aa5dc479904a321fba32ed0ab9ab2",
+    "parent": "88ffcc3dab2e6cbdc1f389e16c4226df5a2e51c6",
+    "status": "",
+    "shallow": "false",
+    "fsck": "",
+    "alternates_present": false,
+    "valid": true
+  },
+  "clone_final": {
+    "commit": "909eb608e538b6427bcbacca974f1efb05fef611",
+    "tree": "a60b795e509aa5dc479904a321fba32ed0ab9ab2",
+    "parent": "88ffcc3dab2e6cbdc1f389e16c4226df5a2e51c6",
+    "status": "?? main/backend/.venv311",
+    "shallow": "false",
+    "fsck": "",
+    "alternates_present": false,
+    "valid": false
+  },
+  "prior_record": {
+    "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-preflight/result.json",
+    "sha256": "1d3b09540293ed98c60ea888b50ea311b0780816b82522c3e514b5913db26ee7"
+  },
+  "r3": {
+    "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-preflight/r3.log",
+    "sha256": "9f7bc679db5e6e481090e43c1c4ee9d59cfe29b9efa3d8e9fa470689cda61e03"
+  },
+  "junit": {
+    "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-preflight/focused-corrected.junit.xml",
+    "sha256": "67e6850d9770464e51539892a3cf34a341a93ed47f05e2c3482f6325d7b881e3"
+  },
+  "qualification": "LOCAL_SYNTHETIC_CONFORMANCE_AND_STATIC_WORKFLOW_ONLY",
+  "external_effects": []
+}

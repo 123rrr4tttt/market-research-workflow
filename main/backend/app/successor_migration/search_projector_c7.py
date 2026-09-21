@@ -9,7 +9,7 @@ writes to an index and never manufactures adoption or provider facts.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any
+from typing import Annotated, Any
 
 from app.successor_runtime.capabilities.ingest_c7_common import (
     ProjectionDiff,
@@ -105,7 +105,12 @@ def build_search_projection(
     *,
     title: str,
     text: str,
-) -> SearchProjection:
+) -> Annotated[
+    SearchProjection,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=successor.ingest_index.search.projector "
+    "witness=test:test_search_projection_binds_document_ref_and_declares_loss",
+]:
     """Pure projection: index-facing fields plus explicit dropped fields."""
 
     projection = _search_projection_body(document_ref, title, text)

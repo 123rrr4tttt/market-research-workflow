@@ -46,8 +46,10 @@ class RuntimeOpsReadbackRow:
     def __post_init__(self) -> None:
         object.__setattr__(self, "row_id", normalized_text(self.row_id, "row_id"))
         if self.read_kind not in RuntimeOpsReadKind.__args__:
+            # kit:boundary owner=successor_runtime.ops_domain.runtime_ops_surface class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_ops_surface_programmer_defect_boundaries
             raise ValueError(f"unknown read_kind: {self.read_kind}")
         if self.status not in ("passed", "degraded", "blocked", "unknown"):
+            # kit:boundary owner=successor_runtime.ops_domain.runtime_ops_surface class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_ops_surface_programmer_defect_boundaries
             raise ValueError(f"unknown status: {self.status}")
         object.__setattr__(
             self, "probe_name", normalized_text(self.probe_name, "probe_name")
@@ -91,6 +93,7 @@ class RuntimeOpsNoCallDecision:
             self, "action_kind", normalized_text(self.action_kind, "action_kind")
         )
         if self.disposition not in ("EXPLICITLY_REJECTED", "DECLARED_LOSS"):
+            # kit:boundary owner=successor_runtime.ops_domain.runtime_ops_surface class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_ops_surface_programmer_defect_boundaries
             raise ValueError(f"unknown disposition: {self.disposition}")
         object.__setattr__(
             self,
@@ -163,8 +166,10 @@ class RuntimeOpsSurfaceManifest:
 
     def __post_init__(self) -> None:
         if self.schema != SURFACE_SCHEMA:
+            # kit:boundary owner=successor_runtime.ops_domain.runtime_ops_surface class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_ops_surface_programmer_defect_boundaries
             raise ValueError("RuntimeOpsSurfaceManifest.schema is not frozen")
         if self.movement_ids != MOVEMENT_IDS:
+            # kit:boundary owner=successor_runtime.ops_domain.runtime_ops_surface class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_ops_surface_programmer_defect_boundaries
             raise ValueError("RuntimeOpsSurfaceManifest.movement_ids drift")
         require_authority_false(self.authority)
         object.__setattr__(self, "readback_rows", tuple(self.readback_rows))
@@ -217,6 +222,7 @@ def project_runtime_ops_surface(
     decisions = _merge_runtime_no_call(supplied)
     for decision in decisions:
         if not decision.decision_owner:
+            # kit:boundary owner=successor_runtime.ops_domain.runtime_ops_surface class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_ops_surface_programmer_defect_boundaries
             raise ValueError("no-call decision requires an explicit decision_owner")
     return RuntimeOpsSurfaceManifest(
         schema=SURFACE_SCHEMA,

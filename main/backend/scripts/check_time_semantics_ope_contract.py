@@ -7,7 +7,7 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 import sys
-from typing import Any
+from typing import Annotated, Any
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -184,7 +184,10 @@ def _ope_freshness_contract() -> dict[str, Any]:
     }
 
 
-def build_contract() -> dict[str, Any]:
+def build_contract() -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=generated_evidence fact_source=source_time_window_contract+target_overlap_contract+ope_freshness_contract witness=test:test_c13_cli_graph_workflow_metadata_preserves_abi",
+]:
     checks = {
         "source_time_window": _source_time_window_contract(),
         "target_overlap_priority": _target_overlap_contract(),

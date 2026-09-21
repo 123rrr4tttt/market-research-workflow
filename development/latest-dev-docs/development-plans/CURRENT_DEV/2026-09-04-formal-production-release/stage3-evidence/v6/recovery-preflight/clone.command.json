@@ -1,0 +1,21 @@
+{
+  "id": "clone",
+  "command": [
+    "git",
+    "clone",
+    "--no-hardlinks",
+    "--no-local",
+    "/Users/wangyiliang/.codex/release-candidates/mrw-stage2-20260906-v6",
+    "/private/tmp/mrw-stage3-v6-preflight-gga5tnof/candidate"
+  ],
+  "cwd": "/private/tmp/mrw-stage3-v6-preflight-gga5tnof",
+  "exit_code": 0,
+  "started_at": "2026-09-06T21:51:54.158448+00:00",
+  "ended_at": "2026-09-06T21:51:56.192079+00:00",
+  "log": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-preflight/clone.log",
+  "sha256": "e007c720c4647ba93f91f43027937ef7641d95e09f58f1660b7472b023041675",
+  "environment_overrides": {
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "PYTHONNOUSERSITE": "1"
+  }
+}

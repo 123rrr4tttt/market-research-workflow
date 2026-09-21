@@ -1,0 +1,21 @@
+{
+  "authoritative": false,
+  "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+  "checks": {
+    "current_four_path_hashes": true,
+    "source_and_intake_focused_tests_pass": true,
+    "source_selector_pass_evidence_retained": true,
+    "v4_failed_history_preserved": true,
+    "v5_constants_bound": true
+  },
+  "manifest": {
+    "path": "stage1-successor-evidence/stage2-v6-intake-remediation-v5/artifact-manifest.v5.json",
+    "sha256": "354e685e03ca30ed43183aa33059db9b057ed8bc6617fc57d9c05e7f2ebdd00c"
+  },
+  "record": {
+    "path": "stage1-successor-evidence/stage2-v6-intake-remediation-v5/stage2-v6-intake-remediation-record.v5.json",
+    "sha256": "b25c4fbccef8358a62a8f8ca8a46c86c593be9a8f42e2ffe370607a7a8f93002"
+  },
+  "schema_version": "mrw.stage1.stage2_v6_intake_remediation_validation.v5",
+  "status": "PASS"
+}

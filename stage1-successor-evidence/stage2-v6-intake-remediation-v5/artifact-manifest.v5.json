@@ -1,0 +1,39 @@
+{
+  "authoritative": false,
+  "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+  "member_count": 6,
+  "members": [
+    {
+      "bytes": 7308,
+      "path": "stage1-successor-evidence/stage2-v6-intake-remediation-v5/build_stage2_v6_intake_remediation_v5.py",
+      "sha256": "3d7d1f92010d048d3be1c68488a9aae43a336275ac87a6fcaa9d68d85d5818bd"
+    },
+    {
+      "bytes": 7089,
+      "path": "stage1-successor-evidence/stage2-v6-intake-remediation-v5/check_stage2_v6_intake_remediation_v5.py",
+      "sha256": "ac5b0efd2d979cbf71bd1ab9fe89424da9e1cde9dc109e34e74e3e250912e721"
+    },
+    {
+      "bytes": 6724,
+      "path": "stage1-successor-evidence/stage2-v6-intake-remediation-v5/raw/source-selector.final.log",
+      "sha256": "97b26df9e9e70b071e9b2308fea906aecf1cef85bd512d346d671f0ea62aad1c"
+    },
+    {
+      "bytes": 322386,
+      "path": "stage1-successor-evidence/stage2-v6-intake-remediation-v5/raw/source-selector.final.xml",
+      "sha256": "2ee9878a74628727b1442190e7212530a3c12014558e837768df38d918d0cfe4"
+    },
+    {
+      "bytes": 4079,
+      "path": "stage1-successor-evidence/stage2-v6-intake-remediation-v5/stage2-v6-intake-remediation-record.v5.json",
+      "sha256": "b25c4fbccef8358a62a8f8ca8a46c86c593be9a8f42e2ffe370607a7a8f93002"
+    },
+    {
+      "bytes": 1307,
+      "path": "stage1-successor-evidence/stage2-v6-intake-remediation-v5/test_stage2_v6_intake_remediation_v5.py",
+      "sha256": "476cb1caed1e721668ca56c65487d919094c25c220a1fb74c5a05209ef857b83"
+    }
+  ],
+  "schema_version": "mrw.stage1.stage2_v6_intake_remediation_manifest.v5",
+  "status": "COMPLETE_NOT_AUTHORITY"
+}

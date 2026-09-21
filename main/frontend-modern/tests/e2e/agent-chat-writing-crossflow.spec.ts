@@ -22,41 +22,15 @@ type WritingDocument = {
   body_md: string
 }
 
-async function mockFastAgentAnswer(page: Page, finalAnswer: string) {
-  await page.route('**/api/v1/agent-chat/turn/stream', async (route) => {
-    const result = {
-      runtime_variant: 'agent_core_v3',
-      agent_mode: 'conversation',
-      final_answer: finalAnswer,
-      capability_calls: [],
-      suggested_next_actions: ['打开写作工作台并保存为草稿'],
-      session: {
-        session_id: 'as-e2e-crossflow',
-        current_phase: 'conversation',
-        compat_mode: false,
-      },
-      contract_version: 'agent_chat.turn.v1',
-    }
-    await route.fulfill({
-      status: 200,
-      headers: {
-        'content-type': 'text/event-stream; charset=utf-8',
-        'cache-control': 'no-cache',
-      },
-      body: `event: agent_core.final_answer\ndata: ${JSON.stringify(result)}\n\n`,
-    })
-  })
-}
-
-async function openAgentChat(page: Page) {
+async function openCodexAgent(page: Page) {
   await setProjectKeyForPage(page, PROJECT_KEY)
-  const response = await page.goto('/#agent-chat.html')
+  const response = await page.goto('/#/workbench/agent')
   if (response) expect(response.ok()).toBeTruthy()
-  await expect(page.getByTestId('agent-chat-page')).toBeVisible()
-  await expect(page.getByTestId('agent-chat-input')).toBeVisible()
+  await expect(page.getByTestId('codex-agent-page')).toBeVisible()
+  await expect(page.getByTestId('codex-agent-frame')).toHaveAttribute('src', '/codex/')
 }
 
-test.describe('agent chat to writing workbench crossflow', () => {
+test.describe('Codex agent to writing workbench crossflow', () => {
   test.describe.configure({ mode: 'serial' })
 
   test.beforeAll(async ({ request }) => {
@@ -74,17 +48,12 @@ test.describe('agent chat to writing workbench crossflow', () => {
     await deleteE2eProject(request, PROJECT_KEY)
   })
 
-  test.describe('mock crossflow with mocked agent stream', () => {
-    test('keeps chat context while creating and verifying a writing draft', async ({ page, request }) => {
-      const chatAnswer = '可以，我会把这次写作任务整理成工作台草稿。'
+  test.describe('Codex route crossflow with writing workbench', () => {
+    test('keeps the Codex surface available while creating and verifying a writing draft', async ({ page, request }) => {
       const title = `Mock Crossflow Draft ${Date.now()}`
       const markdown = `## 跨页面实测\n\n来自 Agent Chat 的写作任务已经进入工作台。`
 
-      await mockFastAgentAnswer(page, chatAnswer)
-      await openAgentChat(page)
-      await page.getByTestId('agent-chat-input').fill('帮我把机器人主题整理成一段写作草稿')
-      await page.getByTestId('agent-chat-send-button').click()
-      await expect(page.locator('.agent-chat-message.role-assistant').last()).toContainText(chatAnswer)
+      await openCodexAgent(page)
 
       await page.goto('/#writing-workbench.html')
       await expect(page.getByTestId('writing-workbench-page')).toBeVisible()
@@ -110,9 +79,8 @@ test.describe('agent chat to writing workbench crossflow', () => {
       const readBody = (await readResponse.json()) as ApiEnvelope<WritingDocument>
       expect(readBody.data.body_md).toContain('跨页面实测')
 
-      await page.goto('/#agent-chat.html')
-      await expect(page.getByTestId('agent-chat-page')).toBeVisible()
-      await expect(page.locator('.agent-chat-thread')).toContainText(chatAnswer)
+      await openCodexAgent(page)
+      await expect(page.getByTestId('codex-agent-page')).toBeVisible()
     })
   })
 
@@ -136,8 +104,7 @@ test.describe('agent chat to writing workbench crossflow', () => {
       expect(created.status).toBe('ok')
       createdDocumentIds.add(created.data.id)
 
-      await openAgentChat(page)
-      await expect(page.getByTestId('agent-chat-page')).toBeVisible()
+      await openCodexAgent(page)
 
       await page.goto('/#writing-workbench.html')
       await expect(page.getByTestId('writing-workbench-page')).toBeVisible()

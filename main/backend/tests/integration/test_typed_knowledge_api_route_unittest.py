@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -117,6 +119,259 @@ class TypedKnowledgeApiRouteIntegrationTestCase(unittest.TestCase):
         self.assertEqual(response_schema["$ref"].rsplit("/", 1)[-1], "TypedKnowledgeRouteContractEnvelope")
         route_data = schema["components"]["schemas"]["TypedKnowledgeRouteContractData"]["properties"]
         self.assertIn("persisted_card_request_response_readback", route_data)
+
+    def test_live_sample_write_requires_explicit_project_key(self):
+        response = self.client.post(
+            "/api/v1/typed-knowledge/live-sample",
+            headers=self.headers,
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.headers.get("x-error-code"), "INVALID_INPUT")
+        body = response.json()
+        self.assertEqual(body["status"], "error")
+        self.assertEqual(body["error"]["code"], "INVALID_INPUT")
+        self.assertEqual(
+            body["error"]["message"],
+            "project_key is required for typed-knowledge write requests",
+        )
+        self.assertTrue(body["error"]["details"]["recoverable"])
+        self.assertEqual(body["error"]["details"]["field"], "project_key")
+        self.assertEqual(body["error"]["details"]["next_action"], "retry_with_explicit_project_key")
+        self.assertEqual(body["detail"]["error"], body["error"])
+
+    def test_live_boundary_error_preserves_typed_failure_code(self):
+        with patch(
+            "app.api.typed_knowledge.live_service.read_live_public_route_contract",
+            side_effect=boundary.TypedKnowledgePersistenceBoundaryError(
+                "persistence_api_envelope_contract_version_mismatch"
+            ),
+        ):
+            response = self.client.get(
+                "/api/v1/typed-knowledge/persistence-boundary",
+                params={"project_key": "demo_proj", "repository_mode": "live"},
+                headers=self.headers,
+            )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.headers.get("x-error-code"), "INVALID_INPUT")
+        body = response.json()
+        self.assertEqual(body["error"]["code"], "INVALID_INPUT")
+        self.assertEqual(
+            body["error"]["details"]["failure_code"],
+            boundary.TYPED_KNOWLEDGE_PERSISTENCE_BOUNDARY_FAILURE,
+        )
+
+    def test_governance_review_write_requires_explicit_project_key(self):
+        response = self.client.post(
+            "/api/v1/typed-knowledge/governance/review-state",
+            json={"object_key": "ki:robotics-policy"},
+            headers=self.headers,
+        )
+
+        self.assertEqual(response.status_code, 400)
+        body = response.json()
+        self.assertEqual(body["status"], "error")
+        self.assertEqual(body["error"]["code"], "INVALID_INPUT")
+        self.assertTrue(body["error"]["details"]["recoverable"])
+        self.assertEqual(body["error"]["details"]["field"], "project_key")
+        self.assertEqual(body["error"]["details"]["next_action"], "retry_with_explicit_project_key")
+        self.assertEqual(body["detail"]["error"], body["error"])
+
+    def test_typed_knowledge_write_routes_reject_reserved_public_before_session(self):
+        with (
+            patch(
+                "app.api.typed_knowledge.live_service.seed_live_sample",
+                side_effect=AssertionError("reserved project key must not enter a write session"),
+            ),
+            patch(
+                "app.api.typed_knowledge.live_service.apply_governance_review_state",
+                side_effect=AssertionError("reserved project key must not enter a write session"),
+            ),
+        ):
+            live_sample = self.client.post(
+                "/api/v1/typed-knowledge/live-sample",
+                params={"project_key": "public"},
+                headers=self.headers,
+            )
+            governance = self.client.post(
+                "/api/v1/typed-knowledge/governance/review-state",
+                json={
+                    "project_key": "public",
+                    "object_key": "ki:robotics-policy",
+                },
+                headers=self.headers,
+            )
+
+        for response in (live_sample, governance):
+            self.assertEqual(response.status_code, 400)
+            self.assertEqual(response.headers.get("x-error-code"), "INVALID_INPUT")
+            body = response.json()
+            self.assertEqual(body["status"], "error")
+            self.assertEqual(body["error"]["code"], "INVALID_INPUT")
+            self.assertEqual(
+                body["error"]["message"],
+                "project_key must retain an explicit writable identity after normalization",
+            )
+            self.assertEqual(body["error"]["details"]["field"], "project_key")
+            self.assertEqual(body["detail"]["error"], body["error"])
+
+    def test_live_sample_write_uses_explicit_project_key_without_demo_fallback(self):
+        bound_projects: list[str] = []
+
+        @contextmanager
+        def fake_bind_project(project_key: str):
+            bound_projects.append(project_key)
+            yield
+
+        class FakeSession:
+            committed = False
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def commit(self):
+                self.committed = True
+
+        with (
+            patch("app.services.typed_knowledge.adapters.live_service.bind_project", fake_bind_project),
+            patch("app.services.typed_knowledge.adapters.live_service.SessionLocal", FakeSession),
+            patch(
+                "app.api.typed_knowledge.persistence_boundary.build_live_db_boundary_envelope"
+            ) as build_envelope,
+        ):
+            build_envelope.return_value = {
+                "data": {
+                    "project_key": "alternate_proj",
+                    "repository": {"live_db_write": True},
+                    "writes": [
+                        {
+                            "live_db_write": True,
+                            "readback": {
+                                "identity_ref": "alternate_proj:knowledge_item:ki:robotics-policy",
+                            },
+                        }
+                    ],
+                },
+                "meta": {"readiness": {"live_db_persistence": True}},
+            }
+            response = self.client.post(
+                "/api/v1/typed-knowledge/live-sample",
+                params={"project_key": "Alternate Proj"},
+                headers=self.headers,
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(bound_projects, ["alternate_proj"])
+        self.assertEqual(build_envelope.call_args.kwargs["project_key"], "alternate_proj")
+        self.assertNotEqual(build_envelope.call_args.kwargs["project_key"], "demo_proj")
+        body = response.json()
+        self.assertEqual(body["status"], "ok")
+        self.assertTrue(body["data"]["repository"]["live_db_write"])
+        self.assertTrue(body["data"]["writes"][0]["live_db_write"])
+        self.assertEqual(
+            body["data"]["writes"][0]["readback"]["identity_ref"],
+            "alternate_proj:knowledge_item:ki:robotics-policy",
+        )
+
+    def test_writing_context_uses_explicit_project_key_and_returns_live_context(self):
+        bound_projects: list[str] = []
+
+        @contextmanager
+        def fake_bind_project(project_key: str):
+            bound_projects.append(project_key)
+            yield
+
+        class FakeSession:
+            committed = False
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def commit(self):
+                self.committed = True
+
+        typed_context = {
+            "contract_version": "typed_knowledge.writing_knowledge_context.v1",
+            "items": [
+                {
+                    "identity_ref": "alternate_proj:knowledge_item:ki:robotics-policy",
+                    "source": "typed_knowledge_live_db_readback",
+                }
+            ],
+        }
+        with (
+            patch("app.services.typed_knowledge.adapters.live_service.bind_project", fake_bind_project),
+            patch("app.services.typed_knowledge.adapters.live_service.SessionLocal", FakeSession),
+            patch(
+                "app.api.typed_knowledge.persistence_boundary.build_live_writing_context_from_repository"
+            ) as build_context,
+        ):
+            build_context.return_value = typed_context
+            response = self.client.get(
+                "/api/v1/typed-knowledge/writing-context",
+                params={"project_key": "Alternate Proj"},
+                headers=self.headers,
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(bound_projects, ["alternate_proj"])
+        self.assertEqual(build_context.call_args.kwargs["project_key"], "alternate_proj")
+        self.assertNotEqual(build_context.call_args.kwargs["project_key"], "demo_proj")
+        body = response.json()
+        self.assertEqual(body["status"], "ok")
+        self.assertEqual(body["data"]["project_key"], "alternate_proj")
+        self.assertEqual(body["data"]["route_path"], boundary.WRITING_CONTEXT_ROUTE_PATH)
+        self.assertTrue(body["data"]["live_db_backed"])
+        self.assertEqual(body["data"]["typed_knowledge_context"], typed_context)
+
+    def test_governance_review_write_uses_explicit_project_key_without_demo_fallback(self):
+        bound_projects: list[str] = []
+
+        @contextmanager
+        def fake_bind_project(project_key: str):
+            bound_projects.append(project_key)
+            yield
+
+        class FakeSession:
+            committed = False
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def commit(self):
+                self.committed = True
+
+        with (
+            patch("app.services.typed_knowledge.adapters.live_service.bind_project", fake_bind_project),
+            patch("app.services.typed_knowledge.adapters.live_service.SessionLocal", FakeSession),
+            patch(
+                "app.api.typed_knowledge.persistence_boundary.apply_live_governance_review_state"
+            ) as apply_review_state,
+        ):
+            apply_review_state.return_value = {
+                "project_key": "alternate_proj",
+                "identity_ref": "alternate_proj:knowledge_item:ki:robotics-policy",
+            }
+            response = self.client.post(
+                "/api/v1/typed-knowledge/governance/review-state",
+                json={"project_key": "Alternate Proj", "object_key": "ki:robotics-policy"},
+                headers=self.headers,
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(bound_projects, ["alternate_proj"])
+        self.assertEqual(apply_review_state.call_args.kwargs["project_key"], "alternate_proj")
+        self.assertNotEqual(apply_review_state.call_args.kwargs["project_key"], "demo_proj")
 
 
 if __name__ == "__main__":

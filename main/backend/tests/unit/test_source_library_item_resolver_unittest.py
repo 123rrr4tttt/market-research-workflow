@@ -89,6 +89,29 @@ class SourceLibraryItemResolverUnitTestCase(unittest.TestCase):
         self.assertTrue(request.taxonomy["internal_adapter_only"])
         self.assertIn("generic_web_internal_adapter_detected", request.warnings)
 
+    def test_handler_cluster_taxonomy_overrides_explicit_protocol_search_mode(self) -> None:
+        item = {
+            "item_key": "handler.cluster.search_template",
+            "channel_key": "handler.cluster",
+            "extra": {"stable_handler_cluster": True, "expected_entry_type": "search_template"},
+        }
+        request = ItemResolver.resolve(
+            item=item,
+            params={
+                "query_terms": ["robotics"],
+                "site_entries": ["https://example.com/search?q={{q}}"],
+                "source_mode": "protocol_search",
+            },
+            project_key="demo_proj",
+            channel_map={"handler.cluster": {"channel_key": "handler.cluster", "provider_type": "native"}},
+            build_frontdoor_protocol=_build_protocol,
+            is_handler_cluster_item=lambda _item: True,
+            has_site_entries=lambda params: bool(params.get("site_entries")),
+        )
+
+        self.assertEqual(request.source_mode, "site_search")
+        self.assertIn("source_mode_coerced_by_site_search_taxonomy:protocol_search->site_search", request.warnings)
+
     def test_normalize_item_taxonomy_marks_handler_cluster_as_service_aggregated(self) -> None:
         item = normalize_item_taxonomy(
             {

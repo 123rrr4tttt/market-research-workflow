@@ -21,12 +21,16 @@ import types
 import typing
 from dataclasses import dataclass, field, fields
 from typing import (
+    Annotated,
     Any,
+    NoReturn,
     Literal,
     TypeAlias,
     get_args,
     get_origin,
 )
+
+from functorial_kit import Failure
 
 from app.successor_runtime.capabilities.checksum import (
     canonical_json,
@@ -59,6 +63,9 @@ from app.successor_runtime.language.object_contracts import (
     make_operation_contract,
 )
 from app.successor_runtime.research.object_types import ObjectType
+from mrw_functorial_kit.core.w05_capability_semantics import (
+    successor_capability_contract_failures,
+)
 
 __all__ = [
     "AUTHENTICATED_COLLECT_SCOPE_TYPE",
@@ -132,9 +139,11 @@ __all__ = [
     "build_collect_request_ref",
     "collect_batch_element_payload_from_dicts",
     "collect_claim_route",
+    "collect_contract_failure",
     "collect_fold_payload_from_dicts",
     "collect_request_ref_from_dict",
     "collect_runtime_mode",
+    "CollectPlanBuildResult",
     "deployment_catalog_digest",
     "fold_ordered_results",
     "per_batch_limit_for",
@@ -142,9 +151,16 @@ __all__ = [
     "require_fold_ceiling",
     "resolve_auto_batch_fail_fast",
     "resolve_auto_batch_parallelism",
+    "raise_collect_contract_failure",
+    "raise_collect_programmer_defect",
     "should_auto_batch",
     "split_query_terms",
+    "try_build_collect_batch_plan",
+    "try_decode_c3_payload",
 ]
+
+CollectPlanBuildResult: TypeAlias = "CollectBatchPlan | Failure"
+PayloadDecodeResult: TypeAlias = "Any | Failure"
 
 
 COLLECT_C3_1_KIND = "collect.execute_batch_element.v1"
@@ -266,21 +282,123 @@ def _freeze(value: FrozenJsonObject | dict[str, Any]) -> FrozenJsonObject:
     return freeze_json_object(dict(value))
 
 
+_C3_CONTRACT_WITNESS = "test:test_w05_n5_c3_contract_failures_use_canonical_value"
+_C3_CONTRACT_CONTEXT_KEYS = frozenset(
+    {
+        "operation",
+        "owner",
+        "public_exception",
+        "public_message",
+        "site",
+        "domain_outcome",
+        "witness",
+    }
+)
+
+
+def collect_contract_failure(
+    *,
+    code: str,
+    message: str,
+    operation: str,
+    site: str,
+    domain_outcome: Literal["INVALID_INPUT", "FOLD_CONTRACT_FAILURE"],
+    public_exception: str = "ValueError",
+    owner: str = COLLECT_C3_1_OWNER,
+) -> Failure:
+    """Build the one canonical C3 contract-failure value."""
+
+    return successor_capability_contract_failures.fail(
+        code,
+        message,
+        {
+            "operation": operation,
+            "owner": owner,
+            "public_exception": public_exception,
+            "public_message": message,
+            "site": site,
+            "domain_outcome": domain_outcome,
+            "witness": _C3_CONTRACT_WITNESS,
+        },
+    )
+
+
+def raise_collect_contract_failure(
+    failure: Failure,
+    exception_type: type[Exception],
+) -> NoReturn:
+    """Lift one canonical failure at a legacy exception boundary."""
+
+    context = failure.context or {}
+    if (
+        not successor_capability_contract_failures.matches(failure)
+        or _C3_CONTRACT_CONTEXT_KEYS - set(context)
+        or context.get("public_exception") != exception_type.__name__
+    ):
+        raise_collect_programmer_defect(
+            "C3 contract lift context is invalid",
+            TypeError,
+        )
+    # kit:boundary owner=collect.c3.v1.public_contract class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.capability.contract_failure witness=test:test_w05_n5_c3_legacy_compatibility_lift_preserves_exception_abi
+    raise exception_type(str(context["public_message"]))
+
+
+def raise_collect_programmer_defect(
+    message: str,
+    exception_type: type[Exception],
+) -> NoReturn:
+    """Retain an internal invariant exception outside the contract family."""
+
+    # kit:boundary owner=collect.c3.v1.programmer_defect class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w05_n5_c3_programmer_defect_lift_preserves_exception_abi
+    raise exception_type(message)
+
+
+def _reject_collect_contract(
+    message: str,
+    exception_type: type[Exception],
+    *,
+    site: str,
+) -> NoReturn:
+    """Build a typed rejection before crossing a legacy constructor boundary."""
+
+    raise_collect_contract_failure(
+        collect_contract_failure(
+            code="schema_contract_invalid",
+            message=message,
+            operation="collect.validate_contract",
+            site=site,
+            domain_outcome="INVALID_INPUT",
+            public_exception=exception_type.__name__,
+        ),
+        exception_type,
+    )
+
+
 def _require_non_empty_string(value: Any, field_name: str) -> str:
     if not isinstance(value, str) or not value.strip():
-        raise ValueError(f"{field_name} is required")
+        _reject_collect_contract(
+            f"{field_name} is required", ValueError, site="_require_non_empty_string"
+        )
     return value.strip()
 
 
 def _require_positive_int(value: Any, field_name: str) -> int:
     if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
-        raise ValueError(f"{field_name} must be a positive int")
+        _reject_collect_contract(
+            f"{field_name} must be a positive int",
+            ValueError,
+            site="_require_positive_int",
+        )
     return value
 
 
 def _require_non_negative_int(value: Any, field_name: str) -> int:
     if not isinstance(value, int) or isinstance(value, bool) or value < 0:
-        raise ValueError(f"{field_name} must be a non-negative int")
+        _reject_collect_contract(
+            f"{field_name} must be a non-negative int",
+            ValueError,
+            site="_require_non_negative_int",
+        )
     return value
 
 
@@ -289,7 +407,11 @@ def _require_string_tuple(
 ) -> tuple[str, ...]:
     items = tuple(str(item) for item in (value or ()))
     if not allow_empty and not items:
-        raise ValueError(f"{field_name} must contain at least one string")
+        _reject_collect_contract(
+            f"{field_name} must contain at least one string",
+            ValueError,
+            site="_require_string_tuple",
+        )
     return items
 
 
@@ -323,7 +445,11 @@ class VersionedSchema:
         else:
             require_hex64(self.schema_digest, "VersionedSchema.schema_digest")
             if self.schema_digest != expected:
-                raise ValueError("VersionedSchema.schema_digest does not match content")
+                _reject_collect_contract(
+                    "VersionedSchema.schema_digest does not match content",
+                    ValueError,
+                    site="VersionedSchema.__post_init__",
+                )
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -477,8 +603,10 @@ class CollectRequestRef:
 
     def __post_init__(self) -> None:
         if self.schema_version != COLLECT_REQUEST_SCHEMA_REF:
-            raise ValueError(
-                "CollectRequestRef.schema_version is not the frozen schema"
+            _reject_collect_contract(
+                "CollectRequestRef.schema_version is not the frozen schema",
+                ValueError,
+                site="CollectRequestRef.__post_init__",
             )
         object.__setattr__(
             self, "request_id", _require_non_empty_string(self.request_id, "request_id")
@@ -504,8 +632,10 @@ class CollectRequestRef:
         else:
             require_hex64(self.request_digest, "CollectRequestRef.request_digest")
             if self.request_digest != expected:
-                raise ValueError(
-                    "CollectRequestRef.request_digest does not match content"
+                _reject_collect_contract(
+                    "CollectRequestRef.request_digest does not match content",
+                    ValueError,
+                    site="CollectRequestRef.__post_init__",
                 )
 
     def to_plain(self) -> dict[str, Any]:
@@ -523,7 +653,12 @@ def build_collect_request_ref(
     request_id: str,
     project_key: str,
     channel: str,
-) -> CollectRequestRef:
+) -> Annotated[
+    CollectRequestRef,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=normalized_collect_request_inputs "
+    "witness=test:test_w05_collect_authority_metadata",
+]:
     return CollectRequestRef(
         schema_version=COLLECT_REQUEST_SCHEMA_REF,
         request_id=request_id,
@@ -560,8 +695,10 @@ class CollectLegacyRequestSnapshot:
 
     def __post_init__(self) -> None:
         if self.schema_version != COLLECT_REQUEST_SNAPSHOT_SCHEMA_REF:
-            raise ValueError(
-                "CollectLegacyRequestSnapshot.schema_version is not the frozen schema"
+            _reject_collect_contract(
+                "CollectLegacyRequestSnapshot.schema_version is not the frozen schema",
+                ValueError,
+                site="CollectLegacyRequestSnapshot.__post_init__",
             )
         object.__setattr__(self, "flow", _require_non_empty_string(self.flow, "flow"))
         object.__setattr__(
@@ -603,8 +740,10 @@ class CollectLegacyRequestSnapshot:
                 self.snapshot_digest, "CollectLegacyRequestSnapshot.snapshot_digest"
             )
             if self.snapshot_digest != expected:
-                raise ValueError(
-                    "CollectLegacyRequestSnapshot.snapshot_digest does not match content"
+                _reject_collect_contract(
+                    "CollectLegacyRequestSnapshot.snapshot_digest does not match content",
+                    ValueError,
+                    site="CollectLegacyRequestSnapshot.__post_init__",
                 )
 
     def to_plain(self) -> dict[str, Any]:
@@ -636,8 +775,10 @@ class CollectResourcePolicy:
 
     def __post_init__(self) -> None:
         if self.schema_ref != COLLECT_RESOURCE_POLICY_SCHEMA_REF:
-            raise ValueError(
-                "CollectResourcePolicy.schema_ref is not the frozen schema"
+            _reject_collect_contract(
+                "CollectResourcePolicy.schema_ref is not the frozen schema",
+                ValueError,
+                site="CollectResourcePolicy.__post_init__",
             )
         object.__setattr__(
             self,
@@ -651,7 +792,11 @@ class CollectResourcePolicy:
                 _require_positive_int(self.deadline_seconds, "deadline_seconds"),
             )
         if self.cancellation not in {"COORDINATED", "NONE"}:
-            raise ValueError(f"unsupported cancellation policy {self.cancellation!r}")
+            _reject_collect_contract(
+                f"unsupported cancellation policy {self.cancellation!r}",
+                ValueError,
+                site="CollectResourcePolicy.__post_init__",
+            )
         object.__setattr__(
             self,
             "provider_concurrency_key",
@@ -674,8 +819,10 @@ class CollectResourcePolicy:
         else:
             require_hex64(self.policy_digest, "CollectResourcePolicy.policy_digest")
             if self.policy_digest != expected:
-                raise ValueError(
-                    "CollectResourcePolicy.policy_digest does not match content"
+                _reject_collect_contract(
+                    "CollectResourcePolicy.policy_digest does not match content",
+                    ValueError,
+                    site="CollectResourcePolicy.__post_init__",
                 )
 
     def to_plain(self) -> dict[str, Any]:
@@ -705,8 +852,10 @@ class CollectBatchElement:
 
     def __post_init__(self) -> None:
         if self.schema_version != COLLECT_BATCH_ELEMENT_SCHEMA_REF:
-            raise ValueError(
-                "CollectBatchElement.schema_version is not the frozen schema"
+            _reject_collect_contract(
+                "CollectBatchElement.schema_version is not the frozen schema",
+                ValueError,
+                site="CollectBatchElement.__post_init__",
             )
         object.__setattr__(
             self, "element_id", _require_non_empty_string(self.element_id, "element_id")
@@ -727,12 +876,20 @@ class CollectBatchElement:
             _require_positive_int(self.per_batch_limit, "per_batch_limit"),
         )
         if self.traversal_policy not in {"STATIC_SHAPE", "MATERIALIZED_SHAPE"}:
-            raise ValueError(f"unsupported traversal policy {self.traversal_policy!r}")
+            _reject_collect_contract(
+                f"unsupported traversal policy {self.traversal_policy!r}",
+                ValueError,
+                site="CollectBatchElement.__post_init__",
+            )
         if self.failure_policy not in {
             "ACCUMULATE",
             "FAIL_FAST_WITH_PARTIAL_OBSERVATION",
         }:
-            raise ValueError(f"unsupported failure policy {self.failure_policy!r}")
+            _reject_collect_contract(
+                f"unsupported failure policy {self.failure_policy!r}",
+                ValueError,
+                site="CollectBatchElement.__post_init__",
+            )
         expected = content_digest(
             {
                 "schema": COLLECT_BATCH_ELEMENT_SCHEMA_REF,
@@ -749,8 +906,10 @@ class CollectBatchElement:
         else:
             require_hex64(self.element_digest, "CollectBatchElement.element_digest")
             if self.element_digest != expected:
-                raise ValueError(
-                    "CollectBatchElement.element_digest does not match content"
+                _reject_collect_contract(
+                    "CollectBatchElement.element_digest does not match content",
+                    ValueError,
+                    site="CollectBatchElement.__post_init__",
                 )
 
     def to_plain(self) -> dict[str, Any]:
@@ -785,17 +944,33 @@ class CollectBatchPlan:
 
     def __post_init__(self) -> None:
         if self.schema_version != COLLECT_BATCH_PLAN_SCHEMA_REF:
-            raise ValueError("CollectBatchPlan.schema_version is not the frozen schema")
+            _reject_collect_contract(
+                "CollectBatchPlan.schema_version is not the frozen schema",
+                ValueError,
+                site="CollectBatchPlan.__post_init__",
+            )
         object.__setattr__(
             self, "plan_id", _require_non_empty_string(self.plan_id, "plan_id")
         )
         object.__setattr__(self, "elements", tuple(self.elements))
         if self.disposition == "TRAVERSE" and len(self.elements) < 2:
-            raise ValueError("TRAVERSE plan requires at least two elements")
+            _reject_collect_contract(
+                "TRAVERSE plan requires at least two elements",
+                ValueError,
+                site="CollectBatchPlan.__post_init__",
+            )
         if self.disposition == "SINGLETON_IDENTITY" and len(self.elements) != 1:
-            raise ValueError("SINGLETON_IDENTITY plan requires exactly one element")
+            _reject_collect_contract(
+                "SINGLETON_IDENTITY plan requires exactly one element",
+                ValueError,
+                site="CollectBatchPlan.__post_init__",
+            )
         if self.disposition == "BYPASSED" and self.elements:
-            raise ValueError("BYPASSED plan must not carry elements")
+            _reject_collect_contract(
+                "BYPASSED plan must not carry elements",
+                ValueError,
+                site="CollectBatchPlan.__post_init__",
+            )
         object.__setattr__(
             self,
             "per_batch_limit",
@@ -817,12 +992,18 @@ class CollectBatchPlan:
             _require_non_negative_int(self.batches_total, "batches_total"),
         )
         if self.batches_total != len(self.elements):
-            raise ValueError("CollectBatchPlan.batches_total must equal len(elements)")
+            _reject_collect_contract(
+                "CollectBatchPlan.batches_total must equal len(elements)",
+                ValueError,
+                site="CollectBatchPlan.__post_init__",
+            )
         if tuple(element.input_index for element in self.elements) != tuple(
             range(len(self.elements))
         ):
-            raise ValueError(
-                "CollectBatchPlan element input_index must be contiguous 0-based unique"
+            _reject_collect_contract(
+                "CollectBatchPlan element input_index must be contiguous 0-based unique",
+                ValueError,
+                site="CollectBatchPlan.__post_init__",
             )
         if any(
             element.traversal_policy != self.traversal_policy
@@ -830,20 +1011,26 @@ class CollectBatchPlan:
             or element.per_batch_limit != self.per_batch_limit
             for element in self.elements
         ):
-            raise ValueError(
-                "CollectBatchPlan elements must share traversal/failure policy and per-batch limit"
+            _reject_collect_contract(
+                "CollectBatchPlan elements must share traversal/failure policy and per-batch limit",
+                ValueError,
+                site="CollectBatchPlan.__post_init__",
             )
         if any(
             not element.element_id.startswith(self.plan_id + ":element:")
             for element in self.elements
         ):
-            raise ValueError(
-                "CollectBatchPlan element ids must bind the parent plan identity"
+            _reject_collect_contract(
+                "CollectBatchPlan element ids must bind the parent plan identity",
+                ValueError,
+                site="CollectBatchPlan.__post_init__",
             )
         ceiling = max(1, len(self.elements))
         if self.effective_parallelism > min(self.requested_parallelism, ceiling):
-            raise ValueError(
-                "effective parallelism exceeds requested parallelism or element count"
+            _reject_collect_contract(
+                "effective parallelism exceeds requested parallelism or element count",
+                ValueError,
+                site="CollectBatchPlan.__post_init__",
             )
         expected = content_digest(
             {
@@ -865,7 +1052,11 @@ class CollectBatchPlan:
         else:
             require_hex64(self.plan_digest, "CollectBatchPlan.plan_digest")
             if self.plan_digest != expected:
-                raise ValueError("CollectBatchPlan.plan_digest does not match content")
+                _reject_collect_contract(
+                    "CollectBatchPlan.plan_digest does not match content",
+                    ValueError,
+                    site="CollectBatchPlan.__post_init__",
+                )
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -978,8 +1169,76 @@ def build_collect_batch_plan(
     authority_scope_ref: str,
     traversal_policy: TraversalPolicy = "MATERIALIZED_SHAPE",
     static_elements: tuple[CollectBatchElement, ...] | None = None,
-) -> CollectBatchPlan:
+) -> Annotated[
+    CollectBatchPlan,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=CollectBatchPlanPayload+ordered_element_policy "
+    "witness=test:test_w05_collect_authority_metadata",
+]:
     """Pure finite ordered plan rules; never mutates the request in place."""
+
+    result = try_build_collect_batch_plan(
+        request_ref=request_ref,
+        snapshot=snapshot,
+        plan_id=plan_id,
+        resource_policy=resource_policy,
+        authority_scope_ref=authority_scope_ref,
+        traversal_policy=traversal_policy,
+        static_elements=static_elements,
+    )
+    if isinstance(result, Failure):
+        raise_collect_contract_failure(result, ValueError)
+    return result
+
+
+def try_build_collect_batch_plan(
+    *,
+    request_ref: CollectRequestRef,
+    snapshot: CollectLegacyRequestSnapshot,
+    plan_id: str,
+    resource_policy: CollectResourcePolicy,
+    authority_scope_ref: str,
+    traversal_policy: TraversalPolicy = "MATERIALIZED_SHAPE",
+    static_elements: tuple[CollectBatchElement, ...] | None = None,
+) -> CollectPlanBuildResult:
+    """Total plan construction; contract rejections are canonical kit failures."""
+
+    try:
+        return _construct_collect_batch_plan(
+            request_ref=request_ref,
+            snapshot=snapshot,
+            plan_id=plan_id,
+            resource_policy=resource_policy,
+            authority_scope_ref=authority_scope_ref,
+            traversal_policy=traversal_policy,
+            static_elements=static_elements,
+        )
+    except (TypeError, ValueError) as exc:
+        return collect_contract_failure(
+            code="schema_contract_invalid",
+            message=str(exc),
+            operation="collect.build_batch_plan",
+            site="try_build_collect_batch_plan",
+            domain_outcome="INVALID_INPUT",
+        )
+
+
+def _construct_collect_batch_plan(
+    *,
+    request_ref: CollectRequestRef,
+    snapshot: CollectLegacyRequestSnapshot,
+    plan_id: str,
+    resource_policy: CollectResourcePolicy,
+    authority_scope_ref: str,
+    traversal_policy: TraversalPolicy = "MATERIALIZED_SHAPE",
+    static_elements: tuple[CollectBatchElement, ...] | None = None,
+) -> Annotated[
+    CollectBatchPlan,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=CollectBatchPlanPayload+ordered_element_policy "
+    "witness=test:test_w05_collect_authority_metadata",
+]:
+    """Ordered construction core invoked by the total plan boundary."""
 
     _require_non_empty_string(authority_scope_ref, "authority_scope_ref")
     if not should_auto_batch(snapshot):
@@ -1015,14 +1274,18 @@ def build_collect_batch_plan(
         if tuple(element.query_terms for element in static_elements) != tuple(
             derived_terms
         ):
-            raise ValueError(
-                "STATIC_SHAPE elements do not match the derived finite ordered shape"
+            _reject_collect_contract(
+                "STATIC_SHAPE elements do not match the derived finite ordered shape",
+                ValueError,
+                site="_construct_collect_batch_plan",
             )
         if tuple(element.input_index for element in static_elements) != tuple(
             range(len(static_elements))
         ):
-            raise ValueError(
-                "STATIC_SHAPE elements must use 0-based contiguous input_index"
+            _reject_collect_contract(
+                "STATIC_SHAPE elements must use 0-based contiguous input_index",
+                ValueError,
+                site="_construct_collect_batch_plan",
             )
         elements = tuple(static_elements)
     else:
@@ -1099,14 +1362,20 @@ class CollectElementError:
 
     def __post_init__(self) -> None:
         if self.code not in COLLECT_ELEMENT_ERROR_CODES:
-            raise ValueError(f"unregistered collect element error code {self.code!r}")
+            _reject_collect_contract(
+                f"unregistered collect element error code {self.code!r}",
+                ValueError,
+                site="CollectElementError.__post_init__",
+            )
         _require_non_empty_string(self.message, "CollectElementError.message")
         object.__setattr__(
             self, "query_terms", _require_string_tuple(self.query_terms, "query_terms")
         )
         if self.exception_type is not None and not isinstance(self.exception_type, str):
-            raise ValueError(
-                "CollectElementError.exception_type must be a string or None"
+            _reject_collect_contract(
+                "CollectElementError.exception_type must be a string or None",
+                ValueError,
+                site="CollectElementError.__post_init__",
             )
         expected = content_digest(
             {
@@ -1122,8 +1391,10 @@ class CollectElementError:
         else:
             require_hex64(self.error_digest, "CollectElementError.error_digest")
             if self.error_digest != expected:
-                raise ValueError(
-                    "CollectElementError.error_digest does not match content"
+                _reject_collect_contract(
+                    "CollectElementError.error_digest does not match content",
+                    ValueError,
+                    site="CollectElementError.__post_init__",
                 )
 
     def to_plain(self) -> dict[str, Any]:
@@ -1153,14 +1424,20 @@ class CollectAttemptReceipt:
 
     def __post_init__(self) -> None:
         if self.schema_version != COLLECT_ATTEMPT_RECEIPT_SCHEMA_REF:
-            raise ValueError(
-                "CollectAttemptReceipt.schema_version is not the frozen schema"
+            _reject_collect_contract(
+                "CollectAttemptReceipt.schema_version is not the frozen schema",
+                ValueError,
+                site="CollectAttemptReceipt.__post_init__",
             )
         if self.receipt_kind not in {
             "DISPATCH_ACKNOWLEDGEMENT",
             "AUTHORITATIVE_READBACK",
         }:
-            raise ValueError(f"unsupported receipt kind {self.receipt_kind!r}")
+            _reject_collect_contract(
+                f"unsupported receipt kind {self.receipt_kind!r}",
+                ValueError,
+                site="CollectAttemptReceipt.__post_init__",
+            )
         object.__setattr__(
             self,
             "provider_type",
@@ -1183,12 +1460,20 @@ class CollectAttemptReceipt:
             _require_non_negative_int(self.attempt_count, "attempt_count"),
         )
         if _OBSERVED_AT.fullmatch(str(self.observed_at or "")) is None:
-            raise ValueError("CollectAttemptReceipt.observed_at must be UTC ISO-8601")
+            _reject_collect_contract(
+                "CollectAttemptReceipt.observed_at must be UTC ISO-8601",
+                ValueError,
+                site="CollectAttemptReceipt.__post_init__",
+            )
         require_hex64(self.raw_digest, "CollectAttemptReceipt.raw_digest")
         if self.authoritative_readback != (
             self.receipt_kind == "AUTHORITATIVE_READBACK"
         ):
-            raise ValueError("authoritative_readback must match receipt_kind exactly")
+            _reject_collect_contract(
+                "authoritative_readback must match receipt_kind exactly",
+                ValueError,
+                site="CollectAttemptReceipt.__post_init__",
+            )
         expected = content_digest(
             {
                 "schema": COLLECT_ATTEMPT_RECEIPT_SCHEMA_REF,
@@ -1207,8 +1492,10 @@ class CollectAttemptReceipt:
         else:
             require_hex64(self.receipt_digest, "CollectAttemptReceipt.receipt_digest")
             if self.receipt_digest != expected:
-                raise ValueError(
-                    "CollectAttemptReceipt.receipt_digest does not match content"
+                _reject_collect_contract(
+                    "CollectAttemptReceipt.receipt_digest does not match content",
+                    ValueError,
+                    site="CollectAttemptReceipt.__post_init__",
                 )
 
     def to_plain(self) -> dict[str, Any]:
@@ -1245,11 +1532,17 @@ class CollectCancellationReceipt:
 
     def __post_init__(self) -> None:
         if self.schema_version != COLLECT_CANCELLATION_RECEIPT_SCHEMA_REF:
-            raise ValueError(
-                "CollectCancellationReceipt.schema_version is not the frozen schema"
+            _reject_collect_contract(
+                "CollectCancellationReceipt.schema_version is not the frozen schema",
+                ValueError,
+                site="CollectCancellationReceipt.__post_init__",
             )
         if self.code != "FAIL_FAST_CANCELLED":
-            raise ValueError(f"unsupported cancellation code {self.code!r}")
+            _reject_collect_contract(
+                f"unsupported cancellation code {self.code!r}",
+                ValueError,
+                site="CollectCancellationReceipt.__post_init__",
+            )
         _require_non_empty_string(self.message, "CollectCancellationReceipt.message")
         object.__setattr__(
             self,
@@ -1257,7 +1550,11 @@ class CollectCancellationReceipt:
             _require_non_negative_int(self.trigger_input_index, "trigger_input_index"),
         )
         if self.observed not in {"SERIAL_EXECUTION", "PARALLEL_COMPLETION"}:
-            raise ValueError(f"unsupported cancellation observation {self.observed!r}")
+            _reject_collect_contract(
+                f"unsupported cancellation observation {self.observed!r}",
+                ValueError,
+                site="CollectCancellationReceipt.__post_init__",
+            )
         expected = content_digest(
             {
                 "schema": COLLECT_CANCELLATION_RECEIPT_SCHEMA_REF,
@@ -1274,8 +1571,10 @@ class CollectCancellationReceipt:
                 self.receipt_digest, "CollectCancellationReceipt.receipt_digest"
             )
             if self.receipt_digest != expected:
-                raise ValueError(
-                    "CollectCancellationReceipt.receipt_digest does not match content"
+                _reject_collect_contract(
+                    "CollectCancellationReceipt.receipt_digest does not match content",
+                    ValueError,
+                    site="CollectCancellationReceipt.__post_init__",
                 )
 
     def to_plain(self) -> dict[str, Any]:
@@ -1304,20 +1603,30 @@ class CollectElementSucceeded:
     def __post_init__(self) -> None:
         self._validate_common()
         if self.status != "succeeded":
-            raise ValueError("CollectElementSucceeded.status must be 'succeeded'")
+            _reject_collect_contract(
+                "CollectElementSucceeded.status must be 'succeeded'",
+                ValueError,
+                site="CollectElementSucceeded.__post_init__",
+            )
         expected = content_digest(self._digest_payload())
         if self.outcome_digest == "":
             object.__setattr__(self, "outcome_digest", expected)
         else:
             require_hex64(self.outcome_digest, "CollectElementSucceeded.outcome_digest")
             if self.outcome_digest != expected:
-                raise ValueError(
-                    "CollectElementSucceeded.outcome_digest does not match content"
+                _reject_collect_contract(
+                    "CollectElementSucceeded.outcome_digest does not match content",
+                    ValueError,
+                    site="CollectElementSucceeded.__post_init__",
                 )
 
     def _validate_common(self) -> None:
         if self.schema_version != COLLECT_ELEMENT_OUTCOME_SCHEMA_REF:
-            raise ValueError("element outcome schema_version is not the frozen schema")
+            _reject_collect_contract(
+                "element outcome schema_version is not the frozen schema",
+                ValueError,
+                site="CollectElementSucceeded._validate_common",
+            )
         _require_non_empty_string(self.element_id, "element_id")
         _require_non_negative_int(self.input_index, "input_index")
         object.__setattr__(self, "links", _require_string_tuple(self.links, "links"))
@@ -1325,7 +1634,11 @@ class CollectElementSucceeded:
         if self.receipt is not None and not isinstance(
             self.receipt, CollectAttemptReceipt
         ):
-            raise ValueError("element receipt must be CollectAttemptReceipt or None")
+            _reject_collect_contract(
+                "element receipt must be CollectAttemptReceipt or None",
+                ValueError,
+                site="CollectElementSucceeded._validate_common",
+            )
 
     def _digest_payload(self) -> dict[str, Any]:
         return {
@@ -1363,22 +1676,36 @@ class CollectElementFailed:
     def __post_init__(self) -> None:
         self._validate_common()
         if self.status != "failed":
-            raise ValueError("CollectElementFailed.status must be 'failed'")
+            _reject_collect_contract(
+                "CollectElementFailed.status must be 'failed'",
+                ValueError,
+                site="CollectElementFailed.__post_init__",
+            )
         if not isinstance(self.error, CollectElementError):
-            raise TypeError("CollectElementFailed requires a typed error")
+            _reject_collect_contract(
+                "CollectElementFailed requires a typed error",
+                TypeError,
+                site="CollectElementFailed.__post_init__",
+            )
         expected = content_digest(self._digest_payload())
         if self.outcome_digest == "":
             object.__setattr__(self, "outcome_digest", expected)
         else:
             require_hex64(self.outcome_digest, "CollectElementFailed.outcome_digest")
             if self.outcome_digest != expected:
-                raise ValueError(
-                    "CollectElementFailed.outcome_digest does not match content"
+                _reject_collect_contract(
+                    "CollectElementFailed.outcome_digest does not match content",
+                    ValueError,
+                    site="CollectElementFailed.__post_init__",
                 )
 
     def _validate_common(self) -> None:
         if self.schema_version != COLLECT_ELEMENT_OUTCOME_SCHEMA_REF:
-            raise ValueError("element outcome schema_version is not the frozen schema")
+            _reject_collect_contract(
+                "element outcome schema_version is not the frozen schema",
+                ValueError,
+                site="CollectElementFailed._validate_common",
+            )
         _require_non_empty_string(self.element_id, "element_id")
         _require_non_negative_int(self.input_index, "input_index")
         object.__setattr__(self, "links", _require_string_tuple(self.links, "links"))
@@ -1386,7 +1713,11 @@ class CollectElementFailed:
         if self.receipt is not None and not isinstance(
             self.receipt, CollectAttemptReceipt
         ):
-            raise ValueError("element receipt must be CollectAttemptReceipt or None")
+            _reject_collect_contract(
+                "element receipt must be CollectAttemptReceipt or None",
+                ValueError,
+                site="CollectElementFailed._validate_common",
+            )
 
     def _digest_payload(self) -> dict[str, Any]:
         return {
@@ -1411,7 +1742,11 @@ class CollectElementFailed:
 
 def _require_legacy_observation_ref(value: Any) -> None:
     if not isinstance(value, str) or _LEGACY_OBSERVATION_REF.fullmatch(value) is None:
-        raise ValueError("legacy_observation_ref must match legacy:<64 lowercase hex>")
+        _reject_collect_contract(
+            "legacy_observation_ref must match legacy:<64 lowercase hex>",
+            ValueError,
+            site="_require_legacy_observation_ref",
+        )
 
 
 CollectElementOutcome: TypeAlias = CollectElementSucceeded | CollectElementFailed
@@ -1430,8 +1765,10 @@ class OrderedCollectElementOutcomeSequence:
         object.__setattr__(self, "outcomes", tuple(self.outcomes))
         indexes = tuple(outcome.input_index for outcome in self.outcomes)
         if tuple(sorted(indexes)) != indexes or len(set(indexes)) != len(indexes):
-            raise ValueError(
-                "outcome sequence input indexes must be strictly increasing"
+            _reject_collect_contract(
+                "outcome sequence input indexes must be strictly increasing",
+                ValueError,
+                site="OrderedCollectElementOutcomeSequence.__post_init__",
             )
         expected = content_digest(
             {
@@ -1448,8 +1785,10 @@ class OrderedCollectElementOutcomeSequence:
                 "OrderedCollectElementOutcomeSequence.sequence_digest",
             )
             if self.sequence_digest != expected:
-                raise ValueError(
-                    "OrderedCollectElementOutcomeSequence.sequence_digest does not match content"
+                _reject_collect_contract(
+                    "OrderedCollectElementOutcomeSequence.sequence_digest does not match content",
+                    ValueError,
+                    site="OrderedCollectElementOutcomeSequence.__post_init__",
                 )
 
     def to_plain(self) -> dict[str, Any]:
@@ -1482,13 +1821,19 @@ class CollectAggregateSucceeded:
                 self.aggregate_digest, "CollectAggregateSucceeded.aggregate_digest"
             )
             if self.aggregate_digest != content_digest(self._digest_payload()):
-                raise ValueError(
-                    "CollectAggregateSucceeded.aggregate_digest does not match content"
+                _reject_collect_contract(
+                    "CollectAggregateSucceeded.aggregate_digest does not match content",
+                    ValueError,
+                    site="CollectAggregateSucceeded.__post_init__",
                 )
 
     def _validate_common(self) -> None:
         if self.schema_version != COLLECT_AGGREGATE_OUTCOME_SCHEMA_REF:
-            raise ValueError("aggregate schema_version is not the frozen schema")
+            _reject_collect_contract(
+                "aggregate schema_version is not the frozen schema",
+                ValueError,
+                site="CollectAggregateSucceeded._validate_common",
+            )
         object.__setattr__(self, "receipts", tuple(self.receipts))
         object.__setattr__(self, "links", _require_string_tuple(self.links, "links"))
 
@@ -1527,7 +1872,11 @@ class CollectAggregatePartial:
 
     def __post_init__(self) -> None:
         if self.schema_version != COLLECT_AGGREGATE_OUTCOME_SCHEMA_REF:
-            raise ValueError("aggregate schema_version is not the frozen schema")
+            _reject_collect_contract(
+                "aggregate schema_version is not the frozen schema",
+                ValueError,
+                site="CollectAggregatePartial.__post_init__",
+            )
         object.__setattr__(self, "errors", tuple(self.errors))
         object.__setattr__(self, "receipts", tuple(self.receipts))
         object.__setattr__(self, "links", _require_string_tuple(self.links, "links"))
@@ -1540,8 +1889,10 @@ class CollectAggregatePartial:
                 self.aggregate_digest, "CollectAggregatePartial.aggregate_digest"
             )
             if self.aggregate_digest != content_digest(self._digest_payload()):
-                raise ValueError(
-                    "CollectAggregatePartial.aggregate_digest does not match content"
+                _reject_collect_contract(
+                    "CollectAggregatePartial.aggregate_digest does not match content",
+                    ValueError,
+                    site="CollectAggregatePartial.__post_init__",
                 )
 
     def _digest_payload(self) -> dict[str, Any]:
@@ -1580,7 +1931,11 @@ class CollectAggregateFailed:
 
     def __post_init__(self) -> None:
         if self.schema_version != COLLECT_AGGREGATE_OUTCOME_SCHEMA_REF:
-            raise ValueError("aggregate schema_version is not the frozen schema")
+            _reject_collect_contract(
+                "aggregate schema_version is not the frozen schema",
+                ValueError,
+                site="CollectAggregateFailed.__post_init__",
+            )
         object.__setattr__(self, "errors", tuple(self.errors))
         object.__setattr__(self, "receipts", tuple(self.receipts))
         object.__setattr__(self, "links", _require_string_tuple(self.links, "links"))
@@ -1593,8 +1948,10 @@ class CollectAggregateFailed:
                 self.aggregate_digest, "CollectAggregateFailed.aggregate_digest"
             )
             if self.aggregate_digest != content_digest(self._digest_payload()):
-                raise ValueError(
-                    "CollectAggregateFailed.aggregate_digest does not match content"
+                _reject_collect_contract(
+                    "CollectAggregateFailed.aggregate_digest does not match content",
+                    ValueError,
+                    site="CollectAggregateFailed.__post_init__",
                 )
 
     def _digest_payload(self) -> dict[str, Any]:
@@ -1630,7 +1987,11 @@ class CollectFoldContractFailure:
 
     def __post_init__(self) -> None:
         if self.schema_version != COLLECT_AGGREGATE_OUTCOME_SCHEMA_REF:
-            raise ValueError("aggregate schema_version is not the frozen schema")
+            _reject_collect_contract(
+                "aggregate schema_version is not the frozen schema",
+                ValueError,
+                site="CollectFoldContractFailure.__post_init__",
+            )
         _require_non_empty_string(self.reason, "CollectFoldContractFailure.reason")
         if self.aggregate_digest == "":
             object.__setattr__(
@@ -1641,8 +2002,10 @@ class CollectFoldContractFailure:
                 self.aggregate_digest, "CollectFoldContractFailure.aggregate_digest"
             )
             if self.aggregate_digest != content_digest(self._digest_payload()):
-                raise ValueError(
-                    "CollectFoldContractFailure.aggregate_digest does not match content"
+                _reject_collect_contract(
+                    "CollectFoldContractFailure.aggregate_digest does not match content",
+                    ValueError,
+                    site="CollectFoldContractFailure.__post_init__",
                 )
 
     def _digest_payload(self) -> dict[str, Any]:
@@ -1685,13 +2048,19 @@ class CollectFoldResourceCeiling:
 
     def __post_init__(self) -> None:
         if self.schema_ref != COLLECT_FOLD_RESOURCE_CEILING_SCHEMA_REF:
-            raise ValueError(
-                "CollectFoldResourceCeiling.schema_ref is not the frozen schema"
+            _reject_collect_contract(
+                "CollectFoldResourceCeiling.schema_ref is not the frozen schema",
+                ValueError,
+                site="CollectFoldResourceCeiling.__post_init__",
             )
         for name in ("max_outcomes", "max_payload_bytes", "max_receipts"):
             value = getattr(self, name)
             if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
-                raise ValueError(f"CollectFoldResourceCeiling.{name} must be positive")
+                _reject_collect_contract(
+                    f"CollectFoldResourceCeiling.{name} must be positive",
+                    ValueError,
+                    site="CollectFoldResourceCeiling.__post_init__",
+                )
         expected = content_digest(
             {
                 "schema": COLLECT_FOLD_RESOURCE_CEILING_SCHEMA_REF,
@@ -1707,8 +2076,10 @@ class CollectFoldResourceCeiling:
                 self.ceiling_digest, "CollectFoldResourceCeiling.ceiling_digest"
             )
             if self.ceiling_digest != expected:
-                raise ValueError(
-                    "CollectFoldResourceCeiling.ceiling_digest does not match content"
+                _reject_collect_contract(
+                    "CollectFoldResourceCeiling.ceiling_digest does not match content",
+                    ValueError,
+                    site="CollectFoldResourceCeiling.__post_init__",
                 )
 
     def to_plain(self) -> dict[str, Any]:
@@ -1736,16 +2107,10 @@ def require_fold_ceiling(
 
     ceiling = COLLECT_FOLD_RESOURCE_CEILING
     if len(outcomes.outcomes) > ceiling.max_outcomes:
-        return (
-            f"fold outcomes {len(outcomes.outcomes)} exceed ceiling "
-            f"{ceiling.max_outcomes}"
-        )
+        return f"fold outcomes {len(outcomes.outcomes)} exceed ceiling {ceiling.max_outcomes}"
     payload_bytes = len(canonical_json(outcomes.to_plain()).encode("utf-8"))
     if payload_bytes > ceiling.max_payload_bytes:
-        return (
-            f"fold payload bytes {payload_bytes} exceed ceiling "
-            f"{ceiling.max_payload_bytes}"
-        )
+        return f"fold payload bytes {payload_bytes} exceed ceiling {ceiling.max_payload_bytes}"
     receipts = sum(1 for outcome in outcomes.outcomes if outcome.receipt is not None)
     if receipts > ceiling.max_receipts:
         return f"fold receipts {receipts} exceed ceiling {ceiling.max_receipts}"
@@ -1826,8 +2191,7 @@ def fold_ordered_results(
                 return CollectFoldContractFailure(
                     schema_version=COLLECT_AGGREGATE_OUTCOME_SCHEMA_REF,
                     reason=(
-                        "duplicate provider_job_id with divergent receipt digest "
-                        f"{receipt.provider_job_id!r}"
+                        f"duplicate provider_job_id with divergent receipt digest {receipt.provider_job_id!r}"
                     ),
                     unconsumed_outcomes=outcomes,
                     aggregate_digest="",
@@ -1886,8 +2250,10 @@ class CollectTraversalObservation:
 
     def __post_init__(self) -> None:
         if self.schema_version != COLLECT_TRAVERSAL_OBSERVATION_SCHEMA_REF:
-            raise ValueError(
-                "CollectTraversalObservation.schema_version is not the frozen schema"
+            _reject_collect_contract(
+                "CollectTraversalObservation.schema_version is not the frozen schema",
+                ValueError,
+                site="CollectTraversalObservation.__post_init__",
             )
         _require_non_empty_string(self.observation_profile, "observation_profile")
         object.__setattr__(self, "ordered_outcomes", tuple(self.ordered_outcomes))
@@ -1910,8 +2276,10 @@ class CollectTraversalObservation:
                 "CollectTraversalObservation.observation_digest",
             )
             if self.observation_digest != expected:
-                raise ValueError(
-                    "CollectTraversalObservation.observation_digest does not match content"
+                _reject_collect_contract(
+                    "CollectTraversalObservation.observation_digest does not match content",
+                    ValueError,
+                    site="CollectTraversalObservation.__post_init__",
                 )
 
     def _digest_payload(self) -> dict[str, Any]:
@@ -1966,10 +2334,16 @@ class OrderedTraversalAborted:
     def __post_init__(self) -> None:
         object.__setattr__(self, "partial_outcomes", tuple(self.partial_outcomes))
         if not isinstance(self.cause, CollectElementError):
-            raise TypeError("OrderedTraversalAborted requires a typed cause")
+            _reject_collect_contract(
+                "OrderedTraversalAborted requires a typed cause",
+                TypeError,
+                site="OrderedTraversalAborted.__post_init__",
+            )
         if not isinstance(self.cancellation_receipt, CollectCancellationReceipt):
-            raise TypeError(
-                "OrderedTraversalAborted requires a typed cancellation receipt"
+            _reject_collect_contract(
+                "OrderedTraversalAborted requires a typed cancellation receipt",
+                TypeError,
+                site="OrderedTraversalAborted.__post_init__",
             )
 
     def to_plain(self) -> dict[str, Any]:
@@ -2043,9 +2417,17 @@ class CollectBatchElementPayload:
 
     def __post_init__(self) -> None:
         if self.schema_version != COLLECT_C3_1_PAYLOAD_SCHEMA:
-            raise ValueError(f"unsupported payload schema {self.schema_version!r}")
+            _reject_collect_contract(
+                f"unsupported payload schema {self.schema_version!r}",
+                ValueError,
+                site="CollectBatchElementPayload.__post_init__",
+            )
         if self.operation_kind != COLLECT_C3_1_KIND:
-            raise ValueError(f"unsupported operation kind {self.operation_kind!r}")
+            _reject_collect_contract(
+                f"unsupported operation kind {self.operation_kind!r}",
+                ValueError,
+                site="CollectBatchElementPayload.__post_init__",
+            )
         object.__setattr__(
             self,
             "authority_scope_ref",
@@ -2059,8 +2441,10 @@ class CollectBatchElementPayload:
                 self.payload_digest, "CollectBatchElementPayload.payload_digest"
             )
             if self.payload_digest != expected:
-                raise ValueError(
-                    "CollectBatchElementPayload.payload_digest does not match content"
+                _reject_collect_contract(
+                    "CollectBatchElementPayload.payload_digest does not match content",
+                    ValueError,
+                    site="CollectBatchElementPayload.__post_init__",
                 )
 
     def to_plain(self) -> dict[str, Any]:
@@ -2090,9 +2474,17 @@ class CollectFoldPayload:
 
     def __post_init__(self) -> None:
         if self.schema_version != COLLECT_C3_2_PAYLOAD_SCHEMA:
-            raise ValueError(f"unsupported payload schema {self.schema_version!r}")
+            _reject_collect_contract(
+                f"unsupported payload schema {self.schema_version!r}",
+                ValueError,
+                site="CollectFoldPayload.__post_init__",
+            )
         if self.operation_kind != COLLECT_C3_2_KIND:
-            raise ValueError(f"unsupported operation kind {self.operation_kind!r}")
+            _reject_collect_contract(
+                f"unsupported operation kind {self.operation_kind!r}",
+                ValueError,
+                site="CollectFoldPayload.__post_init__",
+            )
         _require_non_empty_string(self.aggregation_policy_ref, "aggregation_policy_ref")
         _require_non_empty_string(
             self.observation_profile_ref, "observation_profile_ref"
@@ -2103,8 +2495,10 @@ class CollectFoldPayload:
         else:
             require_hex64(self.payload_digest, "CollectFoldPayload.payload_digest")
             if self.payload_digest != expected:
-                raise ValueError(
-                    "CollectFoldPayload.payload_digest does not match content"
+                _reject_collect_contract(
+                    "CollectFoldPayload.payload_digest does not match content",
+                    ValueError,
+                    site="CollectFoldPayload.__post_init__",
                 )
 
     def to_plain(self) -> dict[str, Any]:
@@ -2197,7 +2591,12 @@ def build_collect_fold_payload(
     ordered_outcomes: OrderedCollectElementOutcomeSequence,
     aggregation_policy_ref: str = COLLECT_AGGREGATION_POLICY_ACCUMULATE_REF,
     observation_profile_ref: str = COLLECT_FOLD_OBSERVATION_PROFILE,
-) -> CollectFoldPayload:
+) -> Annotated[
+    CollectFoldPayload,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=ordered_outcomes+aggregation_policy_ref "
+    "witness=test:test_w05_collect_authority_metadata",
+]:
     return CollectFoldPayload(
         schema_version=COLLECT_C3_2_PAYLOAD_SCHEMA,
         operation_kind=COLLECT_C3_2_KIND,
@@ -2294,7 +2693,11 @@ def _outcome_from_dict(value: dict[str, Any]) -> CollectElementOutcome:
             error=error,
             outcome_digest="",
         )
-    raise ValueError(f"unsupported element outcome status {status!r}")
+    _reject_collect_contract(
+        f"unsupported element outcome status {status!r}",
+        ValueError,
+        site="_outcome_from_dict",
+    )
 
 
 def _plain(value: Any) -> Any:
@@ -2343,8 +2746,10 @@ def _rebuild_value(value: Any, hint: Any) -> Any:
                     return _decode_plain(candidate, value)
                 except (TypeError, ValueError):
                     continue
-        raise ValueError(
-            f"cannot rebuild union value {hint} from {type(value).__name__}"
+        _reject_collect_contract(
+            f"cannot rebuild union value {hint} from {type(value).__name__}",
+            ValueError,
+            site="_rebuild_value",
         )
     if origin is tuple:
         args = get_args(hint)
@@ -2365,9 +2770,10 @@ def _decode_plain(cls: type[Any], value: dict[str, Any]) -> Any:
     if not isinstance(value, dict) or set(value) != expected:
         missing = sorted(expected - set(value))
         extra = sorted(set(value) - expected)
-        raise ValueError(
-            f"{cls.__name__} codec rejected payload fields: "
-            f"missing={missing} extra={extra}"
+        _reject_collect_contract(
+            f"{cls.__name__} codec rejected payload fields: missing={missing} extra={extra}",
+            ValueError,
+            site="_decode_plain",
         )
     hints = typing.get_type_hints(cls)
     kwargs = {
@@ -2388,18 +2794,61 @@ def _payload_codec(
 
     def encode(value: Any) -> dict[str, Any]:
         if not isinstance(value, payload_cls):
-            raise TypeError(
-                f"{codec_id} codec expected {payload_cls.__name__}, got {type(value).__name__}"
+            _reject_collect_contract(
+                f"{codec_id} codec expected {payload_cls.__name__}, got {type(value).__name__}",
+                TypeError,
+                site="_payload_codec.encode",
             )
         result = _plain(value)
         if not isinstance(result, dict):
-            raise TypeError("payload codec produced a non-object encoding")
+            _reject_collect_contract(
+                "payload codec produced a non-object encoding",
+                TypeError,
+                site="_payload_codec.encode",
+            )
         return result
 
     def decode(value: dict[str, Any]) -> Any:
         if not isinstance(value, dict):
-            raise TypeError("payload codec requires a JSON object")
-        return _decode_plain(payload_cls, value)
+            failure = collect_contract_failure(
+                code="codec_contract_invalid",
+                message="payload codec requires a JSON object",
+                operation="collect.decode_payload",
+                site="PayloadCodec.decode",
+                domain_outcome=(
+                    "FOLD_CONTRACT_FAILURE"
+                    if contract_ref.kind == COLLECT_C3_2_KIND
+                    else "INVALID_INPUT"
+                ),
+                public_exception="TypeError",
+                owner=(
+                    COLLECT_C3_2_OWNER
+                    if contract_ref.kind == COLLECT_C3_2_KIND
+                    else COLLECT_C3_1_OWNER
+                ),
+            )
+            raise_collect_contract_failure(failure, TypeError)
+        try:
+            return _decode_plain(payload_cls, value)
+        except (TypeError, ValueError) as exc:
+            failure = collect_contract_failure(
+                code="codec_contract_invalid",
+                message=str(exc),
+                operation="collect.decode_payload",
+                site="PayloadCodec.decode",
+                domain_outcome=(
+                    "FOLD_CONTRACT_FAILURE"
+                    if contract_ref.kind == COLLECT_C3_2_KIND
+                    else "INVALID_INPUT"
+                ),
+                public_exception=type(exc).__name__,
+                owner=(
+                    COLLECT_C3_2_OWNER
+                    if contract_ref.kind == COLLECT_C3_2_KIND
+                    else COLLECT_C3_1_OWNER
+                ),
+            )
+            raise_collect_contract_failure(failure, type(exc))
 
     return PayloadCodec(
         codec_id=codec_id,
@@ -2415,6 +2864,34 @@ def _payload_codec(
             payload_type_id=payload_type.type_id,
         ),
     )
+
+
+def try_decode_c3_payload(
+    codec: PayloadCodec,
+    value: Any,
+) -> PayloadDecodeResult:
+    """Total family-local codec parse without changing public codec errors."""
+
+    try:
+        return codec.decode_payload(value)
+    except (TypeError, ValueError) as exc:
+        return collect_contract_failure(
+            code="codec_contract_invalid",
+            message=str(exc),
+            operation="collect.decode_payload",
+            site="try_decode_c3_payload",
+            domain_outcome=(
+                "FOLD_CONTRACT_FAILURE"
+                if codec.contract_ref.kind == COLLECT_C3_2_KIND
+                else "INVALID_INPUT"
+            ),
+            public_exception=type(exc).__name__,
+            owner=(
+                COLLECT_C3_2_OWNER
+                if codec.contract_ref.kind == COLLECT_C3_2_KIND
+                else COLLECT_C3_1_OWNER
+            ),
+        )
 
 
 def _profile_ref(
@@ -2580,7 +3057,12 @@ class CollectC3CapabilityBundle:
         return self.codecs[1]
 
 
-def build_collect_c3_bundle() -> CollectC3CapabilityBundle:
+def build_collect_c3_bundle() -> Annotated[
+    CollectC3CapabilityBundle,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=COLLECT_C3_OWNER+capability_contract_constants "
+    "witness=test:test_w05_collect_authority_metadata",
+]:
     common_failures = (
         "INVALID_INPUT",
         "ASSIGNMENT_BINDING_MISMATCH",
@@ -2821,7 +3303,12 @@ def build_collect_c3_bundle() -> CollectC3CapabilityBundle:
 
 def build_collect_c3_catalog(
     bundle: CollectC3CapabilityBundle,
-) -> OperationContractCatalogSnapshot:
+) -> Annotated[
+    OperationContractCatalogSnapshot,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=CollectC3CapabilityBundle.operations "
+    "witness=test:test_w05_collect_authority_metadata",
+]:
     return OperationContractCatalogSnapshot(
         catalog_id=COLLECT_C3_1_CATALOG_ID,
         catalog_version=COLLECT_C3_CATALOG_VERSION,
@@ -2844,7 +3331,12 @@ def build_collect_c3_catalog(
 
 def build_collect_c3_registry(
     bundle: CollectC3CapabilityBundle,
-) -> OperationContractRegistry:
+) -> Annotated[
+    OperationContractRegistry,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=CollectC3CapabilityBundle+catalog_snapshot "
+    "witness=test:test_w05_collect_authority_metadata",
+]:
     return OperationContractRegistry(
         build_collect_c3_catalog(bundle),
         (bundle.operation_c3_1, bundle.operation_c3_2),

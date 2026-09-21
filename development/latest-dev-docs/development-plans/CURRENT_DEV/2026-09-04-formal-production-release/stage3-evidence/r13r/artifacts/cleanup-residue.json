@@ -1,0 +1,16 @@
+{
+  "candidate_clean": true,
+  "free_bytes_after": 9127952384,
+  "ops_scrapyd_observed_unchanged": true,
+  "preexisting_resources_preserved": true,
+  "schema": "mrw.stage3.r13r.amd64-cleanup-residue.v1",
+  "status": "PASS_TASK_BUILD_RESIDUE_CLEAN_TEST_TAGS_HANDOFF_RETAINED",
+  "task_builder_residue": [],
+  "task_test_tags_retained": {
+    "backend": "mrw-r13r-amd64-backend-canonical:local",
+    "frontend": "mrw-r13r-amd64-frontend-canonical:local",
+    "migration-runner": "mrw-r13r-amd64-migration-runner-canonical:local"
+  },
+  "temporary_oci_archive_residue": [],
+  "test_tag_cleanup_owner": "/root/stage3_test_gates after gates complete"
+}

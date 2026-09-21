@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Mapping
 
-from .contracts import assert_workflow_graph_integrity
+from .contracts import assert_workflow_graph_integrity, raise_workflow_graph_legacy, workflow_graph_failure
 
 GRAPH_OBJECT_KINDS = frozenset(
     {
@@ -46,6 +46,11 @@ class WorkflowGraphEditContractError(ValueError):
     """Raised when graph edit-contract boundary validation fails."""
 
 
+def _raise_edit_failure(message: str) -> None:
+    failure = workflow_graph_failure("contract_invalid", message, owner="workflow_graph.edit_contract", public_exception=WorkflowGraphEditContractError, public_message=message, field="edit", index=-1)
+    raise_workflow_graph_legacy(failure, exception_type=WorkflowGraphEditContractError)
+
+
 @dataclass(frozen=True)
 class GraphEditNodeContract:
     node_id: str
@@ -81,7 +86,7 @@ def parse_graph_edit_draft_contract(
     object_kind: str | None = None,
 ) -> GraphEditDraftContract:
     if not isinstance(payload, Mapping):
-        raise WorkflowGraphEditContractError("dsl must be a mapping")
+        _raise_edit_failure("dsl must be a mapping")
 
     resolved_object_kind = (
         str(
@@ -94,37 +99,31 @@ def parse_graph_edit_draft_contract(
         .lower()
     )
     if resolved_object_kind not in GRAPH_OBJECT_KINDS:
-        raise WorkflowGraphEditContractError(
-            f"unsupported object_kind '{resolved_object_kind}', expected one of {sorted(GRAPH_OBJECT_KINDS)}"
-        )
+        _raise_edit_failure(f"unsupported object_kind '{resolved_object_kind}', expected one of {sorted(GRAPH_OBJECT_KINDS)}")
 
     nodes_raw = payload.get("nodes", [])
     if not isinstance(nodes_raw, list):
-        raise WorkflowGraphEditContractError("nodes must be a list")
+        _raise_edit_failure("nodes must be a list")
     edges_raw = payload.get("edges", [])
     if not isinstance(edges_raw, list):
-        raise WorkflowGraphEditContractError("edges must be a list")
+        _raise_edit_failure("edges must be a list")
 
     nodes: list[GraphEditNodeContract] = []
     node_id_set: set[str] = set()
     for idx, item in enumerate(nodes_raw):
         if not isinstance(item, Mapping):
-            raise WorkflowGraphEditContractError(f"node at index {idx} must be a mapping")
+            _raise_edit_failure(f"node at index {idx} must be a mapping")
         _reject_system_fields(item, SYSTEM_MANAGED_NODE_FIELDS, kind="node", idx=idx)
         node_id = _extract_node_id(item)
         node_type = _extract_node_type(item)
         if not node_id:
-            raise WorkflowGraphEditContractError(f"node_id at index {idx} must be a non-empty string")
+            _raise_edit_failure(f"node_id at index {idx} must be a non-empty string")
         if not node_type:
-            raise WorkflowGraphEditContractError(
-                f"node_type/type at index {idx} must be a non-empty string"
-            )
+            _raise_edit_failure(f"node_type/type at index {idx} must be a non-empty string")
         if node_id in node_id_set:
-            raise WorkflowGraphEditContractError(f"duplicate node_id: {node_id}")
+            _raise_edit_failure(f"duplicate node_id: {node_id}")
         if resolved_object_kind == "curated_business_graph" and is_temporary_node_id(node_id):
-            raise WorkflowGraphEditContractError(
-                f"temporary node_id '{node_id}' is not allowed for curated_business_graph"
-            )
+            _raise_edit_failure(f"temporary node_id '{node_id}' is not allowed for curated_business_graph")
         node_id_set.add(node_id)
         nodes.append(GraphEditNodeContract(node_id=node_id, node_type=node_type, raw=item))
 
@@ -132,34 +131,24 @@ def parse_graph_edit_draft_contract(
     edge_key_set: set[tuple[str, str, str]] = set()
     for idx, item in enumerate(edges_raw):
         if not isinstance(item, Mapping):
-            raise WorkflowGraphEditContractError(f"edge at index {idx} must be a mapping")
+            _raise_edit_failure(f"edge at index {idx} must be a mapping")
         _reject_system_fields(item, SYSTEM_MANAGED_EDGE_FIELDS, kind="edge", idx=idx)
         from_node_id = _extract_endpoint_node_id(item, "from")
         to_node_id = _extract_endpoint_node_id(item, "to")
         edge_type = _extract_edge_type(item)
 
         if not from_node_id:
-            raise WorkflowGraphEditContractError(
-                f"edge.from at index {idx} must include a non-empty node id"
-            )
+            _raise_edit_failure(f"edge.from at index {idx} must include a non-empty node id")
         if not to_node_id:
-            raise WorkflowGraphEditContractError(
-                f"edge.to at index {idx} must include a non-empty node id"
-            )
+            _raise_edit_failure(f"edge.to at index {idx} must include a non-empty node id")
         if from_node_id not in node_id_set:
-            raise WorkflowGraphEditContractError(
-                f"edge at index {idx} references missing source node '{from_node_id}'"
-            )
+            _raise_edit_failure(f"edge at index {idx} references missing source node '{from_node_id}'")
         if to_node_id not in node_id_set:
-            raise WorkflowGraphEditContractError(
-                f"edge at index {idx} references missing target node '{to_node_id}'"
-            )
+            _raise_edit_failure(f"edge at index {idx} references missing target node '{to_node_id}'")
 
         edge_key = (from_node_id, to_node_id, edge_type)
         if edge_key in edge_key_set:
-            raise WorkflowGraphEditContractError(
-                f"duplicate edge: {from_node_id}->{to_node_id} ({edge_type})"
-            )
+            _raise_edit_failure(f"duplicate edge: {from_node_id}->{to_node_id} ({edge_type})")
         edge_key_set.add(edge_key)
         edges.append(
             GraphEditEdgeContract(
@@ -215,6 +204,4 @@ def _reject_system_fields(
 ) -> None:
     hit = sorted(str(key) for key in item.keys() if str(key) in forbidden)
     if hit:
-        raise WorkflowGraphEditContractError(
-            f"{kind} at index {idx} contains system-managed fields: {', '.join(hit)}"
-        )
+        _raise_edit_failure(f"{kind} at index {idx} contains system-managed fields: {', '.join(hit)}")

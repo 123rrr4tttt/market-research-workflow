@@ -19,9 +19,13 @@ BACKEND_ROOT = REPO_ROOT / "main" / "backend"
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
-from app.services.local_index import LocalIndexChunk, LocalIndexQuery, LocalIndexService
-from app.services.local_index.adapters import LanceDBLocalIndexAdapter, is_lancedb_available
-from app.services.local_index.adapters.lancedb_adapter import _deterministic_vector
+from app.services.local_index import (  # noqa: E402
+    LocalIndexChunk,
+    LocalIndexQuery,
+    LocalIndexService,
+    RepoLocalHashingEmbeddingProvider,
+)
+from app.services.local_index.adapters import LanceDBLocalIndexAdapter, is_lancedb_available  # noqa: E402
 
 
 DEFAULT_OUT_DIR = "development/latest-dev-docs/automation-runs/local-index-lancedb-benchmark/2026-05-22"
@@ -42,7 +46,7 @@ def display_path(path: Path) -> str:
         return str(path)
 
 
-def build_chunks() -> list[LocalIndexChunk]:
+def build_chunks(embedding_provider: RepoLocalHashingEmbeddingProvider) -> list[LocalIndexChunk]:
     keyword_query = "rare alpha keyword benchmark proof"
     vector_query = "semantic vector quality benchmark"
     hybrid_query = "hybrid fusion ranking benchmark"
@@ -54,7 +58,7 @@ def build_chunks() -> list[LocalIndexChunk]:
             source_id="source-alpha",
             title="Keyword primary",
             content=f"{keyword_query} {keyword_query} {keyword_query} robotics policy evidence.",
-            vector=_deterministic_vector("keyword primary decoy vector"),
+            vector=embedding_provider.embed_query("keyword primary decoy vector"),
         ),
         LocalIndexChunk(
             chunk_id="kw-secondary",
@@ -63,7 +67,7 @@ def build_chunks() -> list[LocalIndexChunk]:
             source_id="source-alpha",
             title="Keyword secondary",
             content=f"{keyword_query} secondary evidence.",
-            vector=_deterministic_vector("keyword secondary decoy vector"),
+            vector=embedding_provider.embed_query("keyword secondary decoy vector"),
         ),
         LocalIndexChunk(
             chunk_id="kw-foreign-source",
@@ -72,7 +76,7 @@ def build_chunks() -> list[LocalIndexChunk]:
             source_id="source-beta",
             title="Keyword foreign source",
             content=f"{keyword_query} {keyword_query} excluded by source_id.",
-            vector=_deterministic_vector("keyword foreign source decoy vector"),
+            vector=embedding_provider.embed_query("keyword foreign source decoy vector"),
         ),
         LocalIndexChunk(
             chunk_id="kw-foreign-project",
@@ -81,7 +85,7 @@ def build_chunks() -> list[LocalIndexChunk]:
             source_id="source-alpha",
             title="Keyword foreign project",
             content=f"{keyword_query} {keyword_query} excluded by project_id.",
-            vector=_deterministic_vector("keyword foreign project decoy vector"),
+            vector=embedding_provider.embed_query("keyword foreign project decoy vector"),
         ),
         LocalIndexChunk(
             chunk_id="vec-primary",
@@ -90,7 +94,7 @@ def build_chunks() -> list[LocalIndexChunk]:
             source_id="source-vector",
             title="Vector primary",
             content="Controlled vector quality primary material.",
-            vector=_deterministic_vector(vector_query),
+            vector=embedding_provider.embed_query(vector_query),
         ),
         LocalIndexChunk(
             chunk_id="vec-secondary",
@@ -99,7 +103,7 @@ def build_chunks() -> list[LocalIndexChunk]:
             source_id="source-vector",
             title="Vector secondary",
             content="Controlled vector quality secondary material.",
-            vector=_deterministic_vector("nearby vector quality benchmark secondary"),
+            vector=embedding_provider.embed_query("nearby vector quality benchmark secondary"),
         ),
         LocalIndexChunk(
             chunk_id="vec-foreign-source",
@@ -108,7 +112,7 @@ def build_chunks() -> list[LocalIndexChunk]:
             source_id="source-beta",
             title="Vector foreign source",
             content="Controlled vector quality foreign source material.",
-            vector=_deterministic_vector(vector_query),
+            vector=embedding_provider.embed_query(vector_query),
         ),
         LocalIndexChunk(
             chunk_id="vec-foreign-project",
@@ -117,7 +121,7 @@ def build_chunks() -> list[LocalIndexChunk]:
             source_id="source-vector",
             title="Vector foreign project",
             content="Controlled vector quality foreign project material.",
-            vector=_deterministic_vector(vector_query),
+            vector=embedding_provider.embed_query(vector_query),
         ),
         LocalIndexChunk(
             chunk_id="hybrid-primary",
@@ -126,7 +130,7 @@ def build_chunks() -> list[LocalIndexChunk]:
             source_id="source-hybrid",
             title="Hybrid primary",
             content=f"{hybrid_query} robotics governance {hybrid_query} robotics governance.",
-            vector=_deterministic_vector(hybrid_query),
+            vector=embedding_provider.embed_query(hybrid_query),
         ),
         LocalIndexChunk(
             chunk_id="hybrid-secondary",
@@ -135,7 +139,7 @@ def build_chunks() -> list[LocalIndexChunk]:
             source_id="source-hybrid",
             title="Hybrid secondary",
             content=f"{hybrid_query} secondary governance.",
-            vector=_deterministic_vector("hybrid secondary decoy vector"),
+            vector=embedding_provider.embed_query("hybrid secondary decoy vector"),
         ),
         LocalIndexChunk(
             chunk_id="hybrid-foreign-source",
@@ -144,7 +148,7 @@ def build_chunks() -> list[LocalIndexChunk]:
             source_id="source-beta",
             title="Hybrid foreign source",
             content=f"{hybrid_query} robotics governance excluded by source_id.",
-            vector=_deterministic_vector(hybrid_query),
+            vector=embedding_provider.embed_query(hybrid_query),
         ),
         LocalIndexChunk(
             chunk_id="hybrid-foreign-project",
@@ -153,7 +157,7 @@ def build_chunks() -> list[LocalIndexChunk]:
             source_id="source-hybrid",
             title="Hybrid foreign project",
             content=f"{hybrid_query} robotics governance excluded by project_id.",
-            vector=_deterministic_vector(hybrid_query),
+            vector=embedding_provider.embed_query(hybrid_query),
         ),
     ]
 
@@ -281,8 +285,15 @@ def run_benchmark(out_dir: Path, repeats: int) -> tuple[int, dict[str, Any]]:
         write_report(out_dir, report)
         return 2, report
 
-    service = LocalIndexService(LanceDBLocalIndexAdapter(db_path=db_path, table_name="chunks"))
-    chunks = build_chunks()
+    embedding_provider = RepoLocalHashingEmbeddingProvider()
+    service = LocalIndexService(
+        LanceDBLocalIndexAdapter(
+            db_path=db_path,
+            table_name="chunks",
+            embedding_provider=embedding_provider,
+        )
+    )
+    chunks = build_chunks(embedding_provider)
     report["upsert"] = service.upsert_chunks(chunks)
 
     failures: list[str] = []

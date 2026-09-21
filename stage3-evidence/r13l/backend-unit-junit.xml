@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="6" failures="0" skipped="0" tests="6" time="2.612" timestamp="2026-09-10T04:44:27.476181+08:00" hostname="MacBook-Air-489.local"><testcase classname="" name="tests.test_collect_adapter_laws" time="0.000"><error message="collection failure">ImportError while importing test module '/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260909-v4-r13l/candidate/tests/test_collect_adapter_laws.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+../../../../.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_collect_adapter_laws.py:3: in &lt;module&gt;
+    from functorial_kit import Idempotent, Ordered, PortLawSpec, port_laws
+E   ImportError: cannot import name 'Idempotent' from 'functorial_kit' (/private/tmp/mrw-stage3-r13l.Yf9g4G/deps/functorial_kit/__init__.py)</error></testcase><testcase classname="" name="tests.test_counter_laws" time="0.000"><error message="collection failure">ImportError while importing test module '/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260909-v4-r13l/candidate/tests/test_counter_laws.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+../../../../.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_counter_laws.py:1: in &lt;module&gt;
+    from functorial_kit import Idempotent, Ordered, PortLawSpec, port_laws
+E   ImportError: cannot import name 'Idempotent' from 'functorial_kit' (/private/tmp/mrw-stage3-r13l.Yf9g4G/deps/functorial_kit/__init__.py)</error></testcase><testcase classname="" name="tests.test_example_codec_laws" time="0.000"><error message="collection failure">ImportError while importing test module '/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260909-v4-r13l/candidate/tests/test_example_codec_laws.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+../../../../.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_example_codec_laws.py:1: in &lt;module&gt;
+    from hypothesis import strategies as st
+E   ModuleNotFoundError: No module named 'hypothesis'</error></testcase><testcase classname="" name="tests.test_ingest_provider_port_laws" time="0.000"><error message="collection failure">ImportError while importing test module '/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260909-v4-r13l/candidate/tests/test_ingest_provider_port_laws.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+../../../../.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_ingest_provider_port_laws.py:5: in &lt;module&gt;
+    from functorial_kit import Idempotent, Ordered, PortLawSpec, port_laws
+E   ImportError: cannot import name 'Idempotent' from 'functorial_kit' (/private/tmp/mrw-stage3-r13l.Yf9g4G/deps/functorial_kit/__init__.py)</error></testcase><testcase classname="" name="tests.test_llm_provider_port_laws" time="0.000"><error message="collection failure">ImportError while importing test module '/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260909-v4-r13l/candidate/tests/test_llm_provider_port_laws.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+../../../../.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_llm_provider_port_laws.py:6: in &lt;module&gt;
+    from functorial_kit import Idempotent, Ordered, PortLawSpec, port_laws
+E   ImportError: cannot import name 'Idempotent' from 'functorial_kit' (/private/tmp/mrw-stage3-r13l.Yf9g4G/deps/functorial_kit/__init__.py)</error></testcase><testcase classname="" name="tests.test_resource_pool_port_laws" time="0.000"><error message="collection failure">ImportError while importing test module '/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260909-v4-r13l/candidate/tests/test_resource_pool_port_laws.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+../../../../.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_resource_pool_port_laws.py:3: in &lt;module&gt;
+    from functorial_kit import Idempotent, Ordered, PortLawSpec, port_laws
+E   ImportError: cannot import name 'Idempotent' from 'functorial_kit' (/private/tmp/mrw-stage3-r13l.Yf9g4G/deps/functorial_kit/__init__.py)</error></testcase></testsuite></testsuites>

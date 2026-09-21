@@ -1,0 +1,115 @@
+{
+  "schema_version": "mrw.formal_release.stage3.recovery.v1",
+  "record_id": "v6-cleanup-retention",
+  "stage_id": "STAGE_3",
+  "candidate_generation": "V6_ADDITIVE_SUCCESSOR",
+  "candidate_commit": "909eb608e538b6427bcbacca974f1efb05fef611",
+  "candidate_tree": "a60b795e509aa5dc479904a321fba32ed0ab9ab2",
+  "status": "PASS",
+  "authoritative": false,
+  "derived_as": "preflight",
+  "authority_ceiling": [
+    "NO_DEPLOY",
+    "NO_LIVE",
+    "NO_PRODUCTION_WRITE",
+    "NO_EXTERNAL_DELIVERY",
+    "NO_CANARY",
+    "NO_CUTOVER",
+    "NO_AUTHORITY_TRANSFER",
+    "NO_LEGACY_RETIREMENT",
+    "NO_PUSH",
+    "NO_REMOTE_MUTATION",
+    "NO_REGISTRY_WRITE",
+    "NO_SIGNING_WRITE"
+  ],
+  "external_effects": [],
+  "observed_at": "2026-09-06T22:03:05.779709+00:00",
+  "canonical_clean_check": {
+    "command": [
+      "git",
+      "-C",
+      "/Users/wangyiliang/.codex/release-candidates/mrw-stage2-20260906-v6",
+      "status",
+      "--porcelain=v1",
+      "--untracked-files=all"
+    ],
+    "exit_code": 0,
+    "stdout": ""
+  },
+  "retained_resources": [
+    {
+      "path": "/private/tmp/mrw-stage3-v6-preflight-gga5tnof",
+      "owner": "recover_preflight",
+      "reason": "Independent clone retained for validator execution and replay",
+      "recovery": "Replay recorded commands; remove only this exact owned directory after evidence review"
+    },
+    {
+      "path": "/private/tmp/mrw-stage3-v6-frontend-recovery-20260907",
+      "owner": "recover_frontend",
+      "reason": "Independent dependency tree and browser failure traces",
+      "recovery": "Use permanent summary and trace hashes; remove exact directory after review"
+    },
+    {
+      "path": "/private/tmp/mrw-stage3-v6-ops-1yM6UC",
+      "owner": "recover_ops",
+      "reason": "Independent clone, scanner venv and Go cache",
+      "recovery": "No containers or services; remove exact directory after review"
+    },
+    {
+      "path": "/private/tmp/mrw-stage3-v6-backend-recovery-20260907",
+      "owner": "recover_backend",
+      "reason": "Independent candidate and partial-run diagnostics",
+      "recovery": "Review final backend receipt before exact-path removal"
+    },
+    {
+      "path": "/private/tmp/mrw-stage3-v6-backend-recovery-guard",
+      "owner": "recover_backend",
+      "reason": "Temporary Python audit guard explains environment differences",
+      "recovery": "Replay only within declared safety scope; remove exact path after review"
+    },
+    {
+      "path": "/private/tmp/mrw-stage3-v6-backend-recovery-20260907-run.py",
+      "owner": "Stage3 recovery workers",
+      "reason": "Task-owned replay runner or diagnostic output",
+      "recovery": "Retain for review; remove exact path after review"
+    },
+    {
+      "path": "/private/tmp/mrw-stage3-v6-backend-recovery-completion.py",
+      "owner": "Stage3 recovery workers",
+      "reason": "Task-owned replay runner or diagnostic output",
+      "recovery": "Retain for review; remove exact path after review"
+    },
+    {
+      "path": "/private/tmp/mrw-stage3-v6-backend-recovery-finalize.py",
+      "owner": "Stage3 recovery workers",
+      "reason": "Task-owned replay runner or diagnostic output",
+      "recovery": "Retain for review; remove exact path after review"
+    },
+    {
+      "path": "/private/tmp/mrw-stage3-v6-backend-recovery-retry.py",
+      "owner": "Stage3 recovery workers",
+      "reason": "Task-owned replay runner or diagnostic output",
+      "recovery": "Retain for review; remove exact path after review"
+    },
+    {
+      "path": "/private/tmp/mrw-stage3-v6-frontend-audit-summary.py",
+      "owner": "Stage3 recovery workers",
+      "reason": "Task-owned replay runner or diagnostic output",
+      "recovery": "Retain for review; remove exact path after review"
+    },
+    {
+      "path": "/private/tmp/mrw-stage3-v6-frontend-recovery-20260907-run.py",
+      "owner": "Stage3 recovery workers",
+      "reason": "Task-owned replay runner or diagnostic output",
+      "recovery": "Retain for review; remove exact path after review"
+    },
+    {
+      "path": "/private/tmp/mrw-stage3-v6-frontend-recovery-summary.py",
+      "owner": "Stage3 recovery workers",
+      "reason": "Task-owned replay runner or diagnostic output",
+      "recovery": "Retain for review; remove exact path after review"
+    }
+  ],
+  "qualification": "OWNED_REPLAY_RESOURCES_RETAINED_WITH_PATH_OWNER_REASON; NOT_DELETION_CLAIM",
+  "missing_previous_attempt_resources": "Pre-interruption /private/tmp evidence absent on resume; excluded from active PASS evidence."
+}

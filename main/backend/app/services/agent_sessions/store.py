@@ -3,11 +3,12 @@ from __future__ import annotations
 from copy import deepcopy
 from datetime import datetime, timezone
 from threading import RLock
-from typing import Any
+from typing import Annotated, Any
 from uuid import uuid4
 import logging
 
 from sqlalchemy import func, text
+from functorial_kit import Failure
 
 from app.models.base import Base, SessionLocal, engine
 from app.models.entities import (
@@ -19,6 +20,7 @@ from app.models.entities import (
     AgentTask,
 )
 from app.settings.config import settings
+from mrw_functorial_kit.core.agent_service_semantics import agent_session_failures
 
 logger = logging.getLogger("app.services.agent_sessions.store")
 
@@ -43,6 +45,10 @@ def _artifact_sort_key(item: dict[str, Any]) -> tuple[str, str]:
     return (str(item.get("name") or ""), str(item.get("artifact_id") or ""))
 
 
+def _failure(code: str, message: str, **context: Any) -> Failure:
+    return agent_session_failures.fail(code, message, context or None)
+
+
 class InMemoryAgentSessionStore:
     """Thread-safe fallback store for agent sessions."""
 
@@ -58,10 +64,10 @@ class InMemoryAgentSessionStore:
     def create_session(self, payload: dict[str, Any]) -> dict[str, Any]:
         session_id = str(payload.get("session_id") or "").strip()
         if not session_id:
-            raise ValueError("session_id is required")
+            return _failure("session_id_required", "session_id is required", session_id=session_id)
         with self._lock:
             if session_id in self._sessions:
-                raise ValueError(f"session already exists: {session_id}")
+                return _failure("session_already_exists", f"session already exists: {session_id}", session_id=session_id)
             item = _clone(payload)
             now = _as_iso(_utcnow())
             item.setdefault("created_at", now)
@@ -78,13 +84,16 @@ class InMemoryAgentSessionStore:
     def update_session(self, session_id: str, changes: dict[str, Any]) -> dict[str, Any]:
         with self._lock:
             session = self._must_get_session_ref(session_id)
+            if isinstance(session, Failure):
+                return session
             session.update(_clone(changes))
             session["updated_at"] = _as_iso(_utcnow())
             return _clone(session)
 
     def get_session(self, session_id: str) -> dict[str, Any]:
         with self._lock:
-            return _clone(self._must_get_session_ref(session_id))
+            session = self._must_get_session_ref(session_id)
+            return _clone(session)
 
     def list_sessions(self, *, limit: int = 50) -> list[dict[str, Any]]:
         with self._lock:
@@ -119,9 +128,11 @@ class InMemoryAgentSessionStore:
         session_id = str(payload.get("session_id") or "").strip()
         task_id = str(payload.get("task_id") or "").strip()
         if not session_id or not task_id:
-            raise ValueError("session_id and task_id are required")
+            return _failure("task_identity_required", "session_id and task_id are required", session_id=session_id, task_id=task_id)
         with self._lock:
-            self._must_get_session_ref(session_id)
+            session = self._must_get_session_ref(session_id)
+            if isinstance(session, Failure):
+                return session
             item = _clone(payload)
             now = _as_iso(_utcnow())
             item.setdefault("created_at", now)
@@ -144,14 +155,18 @@ class InMemoryAgentSessionStore:
     def update_task(self, session_id: str, task_id: str, changes: dict[str, Any]) -> dict[str, Any]:
         with self._lock:
             item = self._must_get_task_ref(session_id, task_id)
+            if isinstance(item, Failure):
+                return item
             item.update(_clone(changes))
             item["updated_at"] = _as_iso(_utcnow())
             self._sessions[session_id]["updated_at"] = item["updated_at"]
             return _clone(item)
 
-    def list_tasks(self, session_id: str) -> list[dict[str, Any]]:
+    def list_tasks(self, session_id: str) -> list[dict[str, Any]] | Failure:
         with self._lock:
-            self._must_get_session_ref(session_id)
+            session = self._must_get_session_ref(session_id)
+            if isinstance(session, Failure):
+                return session
             items = sorted(
                 self._tasks[session_id].values(),
                 key=lambda item: str(item.get("created_at") or ""),
@@ -161,17 +176,21 @@ class InMemoryAgentSessionStore:
     def create_message(self, payload: dict[str, Any]) -> dict[str, Any]:
         session_id = str(payload.get("session_id") or "").strip()
         if not session_id:
-            raise ValueError("session_id is required")
+            return _failure("session_id_required", "session_id is required", session_id=session_id)
         with self._lock:
-            self._must_get_session_ref(session_id)
+            session = self._must_get_session_ref(session_id)
+            if isinstance(session, Failure):
+                return session
             item = _clone(payload)
             item.setdefault("created_at", _as_iso(_utcnow()))
             self._messages[session_id].append(item)
             return _clone(item)
 
-    def list_messages(self, session_id: str) -> list[dict[str, Any]]:
+    def list_messages(self, session_id: str) -> list[dict[str, Any]] | Failure:
         with self._lock:
-            self._must_get_session_ref(session_id)
+            session = self._must_get_session_ref(session_id)
+            if isinstance(session, Failure):
+                return session
             return [_clone(item) for item in self._messages[session_id]]
 
     def upsert_artifact(self, payload: dict[str, Any]) -> dict[str, Any]:
@@ -179,9 +198,11 @@ class InMemoryAgentSessionStore:
         name = str(payload.get("name") or "").strip()
         artifact_id = str(payload.get("artifact_id") or "").strip() or f"artifact-{uuid4().hex[:16]}"
         if not session_id or not name:
-            raise ValueError("session_id and name are required")
+            return _failure("artifact_identity_required", "session_id and name are required", session_id=session_id, name=name)
         with self._lock:
-            self._must_get_session_ref(session_id)
+            session = self._must_get_session_ref(session_id)
+            if isinstance(session, Failure):
+                return session
             existing = self._artifacts[session_id].get(name)
             item = _clone(existing or {})
             item.update(_clone(payload))
@@ -193,9 +214,11 @@ class InMemoryAgentSessionStore:
             self._artifacts[session_id][name] = item
             return _clone(item)
 
-    def list_artifacts(self, session_id: str) -> list[dict[str, Any]]:
+    def list_artifacts(self, session_id: str) -> list[dict[str, Any]] | Failure:
         with self._lock:
-            self._must_get_session_ref(session_id)
+            session = self._must_get_session_ref(session_id)
+            if isinstance(session, Failure):
+                return session
             return [_clone(item) for item in sorted(self._artifacts[session_id].values(), key=_artifact_sort_key)]
 
     def append_event(
@@ -207,7 +230,9 @@ class InMemoryAgentSessionStore:
         payload: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         with self._lock:
-            self._must_get_session_ref(session_id)
+            session = self._must_get_session_ref(session_id)
+            if isinstance(session, Failure):
+                return session
             seq = len(self._events[session_id]) + 1
             item = {
                 "session_id": session_id,
@@ -221,15 +246,17 @@ class InMemoryAgentSessionStore:
             self._sessions[session_id]["updated_at"] = item["ts"]
             return _clone(item)
 
-    def list_events(self, session_id: str) -> list[dict[str, Any]]:
+    def list_events(self, session_id: str) -> list[dict[str, Any]] | Failure:
         with self._lock:
-            self._must_get_session_ref(session_id)
+            session = self._must_get_session_ref(session_id)
+            if isinstance(session, Failure):
+                return session
             return [_clone(item) for item in self._events[session_id]]
 
     def create_or_update_approval(self, payload: dict[str, Any]) -> dict[str, Any]:
         approval_id = str(payload.get("approval_id") or "").strip()
         if not approval_id:
-            raise ValueError("approval_id is required")
+            return _failure("approval_id_required", "approval_id is required", approval_id=approval_id)
         with self._lock:
             existing = self._approvals.get(approval_id)
             item = _clone(existing or {})
@@ -246,7 +273,7 @@ class InMemoryAgentSessionStore:
         with self._lock:
             item = self._approvals.get(str(approval_id or "").strip())
             if item is None:
-                raise KeyError(f"approval not found: {approval_id}")
+                return _failure("approval_not_found", f"approval not found: {approval_id}", approval_id=approval_id)
             return _clone(item)
 
     def list_approvals(self, *, session_id: str | None = None) -> list[dict[str, Any]]:
@@ -258,17 +285,19 @@ class InMemoryAgentSessionStore:
                 out.append(_clone(item))
             return sorted(out, key=lambda item: str(item.get("updated_at") or ""), reverse=True)
 
-    def _must_get_session_ref(self, session_id: str) -> dict[str, Any]:
+    def _must_get_session_ref(self, session_id: str) -> dict[str, Any] | Failure:
         item = self._sessions.get(session_id)
         if item is None:
-            raise KeyError(f"session not found: {session_id}")
+            return _failure("session_not_found", f"session not found: {session_id}", session_id=session_id)
         return item
 
-    def _must_get_task_ref(self, session_id: str, task_id: str) -> dict[str, Any]:
-        self._must_get_session_ref(session_id)
+    def _must_get_task_ref(self, session_id: str, task_id: str) -> dict[str, Any] | Failure:
+        session = self._must_get_session_ref(session_id)
+        if isinstance(session, Failure):
+            return session
         item = self._tasks.get(session_id, {}).get(task_id)
         if item is None:
-            raise KeyError(f"task not found: {task_id}")
+            return _failure("task_not_found", f"task not found: {task_id}", session_id=session_id, task_id=task_id)
         return item
 
 
@@ -292,9 +321,14 @@ class SqlAgentSessionStore:
             )
 
     def create_session(self, payload: dict[str, Any]) -> dict[str, Any]:
+        session_id = str(payload.get("session_id") or "").strip()
+        if not session_id:
+            return _failure("session_id_required", "session_id is required", session_id=session_id)
         with SessionLocal() as session:
+            if session.query(AgentSession).filter(AgentSession.session_id == session_id).one_or_none() is not None:
+                return _failure("session_already_exists", f"session already exists: {session_id}", session_id=session_id)
             row = AgentSession(
-                session_id=str(payload.get("session_id") or ""),
+                session_id=session_id,
                 source=str(payload.get("source") or "user"),
                 project_key=payload.get("project_key"),
                 entrypoint_type=str(payload.get("entrypoint_type") or "chat"),
@@ -317,6 +351,8 @@ class SqlAgentSessionStore:
     def update_session(self, session_id: str, changes: dict[str, Any]) -> dict[str, Any]:
         with SessionLocal() as session:
             row = self._must_get_session_row(session, session_id)
+            if isinstance(row, Failure):
+                return row
             if "source" in changes:
                 row.source = str(changes["source"] or "user")
             if "project_key" in changes:
@@ -349,7 +385,8 @@ class SqlAgentSessionStore:
 
     def get_session(self, session_id: str) -> dict[str, Any]:
         with SessionLocal() as session:
-            return _session_row_to_dict(self._must_get_session_row(session, session_id))
+            row = self._must_get_session_row(session, session_id)
+            return row if isinstance(row, Failure) else _session_row_to_dict(row)
 
     def list_sessions(self, *, limit: int = 50) -> list[dict[str, Any]]:
         with SessionLocal() as session:
@@ -378,10 +415,17 @@ class SqlAgentSessionStore:
             return None if row is None else _session_row_to_dict(row)
 
     def create_task(self, payload: dict[str, Any]) -> dict[str, Any]:
+        session_id = str(payload.get("session_id") or "").strip()
+        task_id = str(payload.get("task_id") or "").strip()
+        if not session_id or not task_id:
+            return _failure("task_identity_required", "session_id and task_id are required", session_id=session_id, task_id=task_id)
         with SessionLocal() as session:
+            parent = self._must_get_session_row(session, session_id)
+            if isinstance(parent, Failure):
+                return parent
             row = AgentTask(
-                task_id=str(payload.get("task_id") or ""),
-                session_id=str(payload.get("session_id") or ""),
+                task_id=task_id,
+                session_id=session_id,
                 parent_task_id=payload.get("parent_task_id"),
                 subject=str(payload.get("subject") or ""),
                 description=payload.get("description"),
@@ -416,11 +460,14 @@ class SqlAgentSessionStore:
 
     def get_task(self, session_id: str, task_id: str) -> dict[str, Any]:
         with SessionLocal() as session:
-            return _task_row_to_dict(self._must_get_task_row(session, session_id, task_id))
+            row = self._must_get_task_row(session, session_id, task_id)
+            return row if isinstance(row, Failure) else _task_row_to_dict(row)
 
     def update_task(self, session_id: str, task_id: str, changes: dict[str, Any]) -> dict[str, Any]:
         with SessionLocal() as session:
             row = self._must_get_task_row(session, session_id, task_id)
+            if isinstance(row, Failure):
+                return row
             if "parent_task_id" in changes:
                 row.parent_task_id = changes["parent_task_id"]
             if "subject" in changes:
@@ -477,8 +524,11 @@ class SqlAgentSessionStore:
             session.refresh(row)
             return _task_row_to_dict(row)
 
-    def list_tasks(self, session_id: str) -> list[dict[str, Any]]:
+    def list_tasks(self, session_id: str) -> list[dict[str, Any]] | Failure:
         with SessionLocal() as session:
+            parent = self._must_get_session_row(session, session_id)
+            if isinstance(parent, Failure):
+                return parent
             rows = (
                 session.query(AgentTask)
                 .filter(AgentTask.session_id == session_id)
@@ -488,9 +538,15 @@ class SqlAgentSessionStore:
             return [_task_row_to_dict(row) for row in rows]
 
     def create_message(self, payload: dict[str, Any]) -> dict[str, Any]:
+        session_id = str(payload.get("session_id") or "").strip()
+        if not session_id:
+            return _failure("session_id_required", "session_id is required", session_id=session_id)
         with SessionLocal() as session:
+            parent = self._must_get_session_row(session, session_id)
+            if isinstance(parent, Failure):
+                return parent
             row = AgentMessage(
-                session_id=str(payload.get("session_id") or ""),
+                session_id=session_id,
                 task_id=payload.get("task_id"),
                 role=str(payload.get("role") or "system"),
                 actor=payload.get("actor"),
@@ -502,8 +558,11 @@ class SqlAgentSessionStore:
             session.refresh(row)
             return _message_row_to_dict(row)
 
-    def list_messages(self, session_id: str) -> list[dict[str, Any]]:
+    def list_messages(self, session_id: str) -> list[dict[str, Any]] | Failure:
         with SessionLocal() as session:
+            parent = self._must_get_session_row(session, session_id)
+            if isinstance(parent, Failure):
+                return parent
             rows = (
                 session.query(AgentMessage)
                 .filter(AgentMessage.session_id == session_id)
@@ -516,8 +575,11 @@ class SqlAgentSessionStore:
         session_id = str(payload.get("session_id") or "").strip()
         name = str(payload.get("name") or "").strip()
         if not session_id or not name:
-            raise ValueError("session_id and name are required")
+            return _failure("artifact_identity_required", "session_id and name are required", session_id=session_id, name=name)
         with SessionLocal() as session:
+            parent = self._must_get_session_row(session, session_id)
+            if isinstance(parent, Failure):
+                return parent
             row = (
                 session.query(AgentArtifact)
                 .filter(AgentArtifact.session_id == session_id, AgentArtifact.name == name)
@@ -547,8 +609,11 @@ class SqlAgentSessionStore:
             session.refresh(row)
             return _artifact_row_to_dict(row)
 
-    def list_artifacts(self, session_id: str) -> list[dict[str, Any]]:
+    def list_artifacts(self, session_id: str) -> list[dict[str, Any]] | Failure:
         with SessionLocal() as session:
+            parent = self._must_get_session_row(session, session_id)
+            if isinstance(parent, Failure):
+                return parent
             rows = (
                 session.query(AgentArtifact)
                 .filter(AgentArtifact.session_id == session_id)
@@ -566,7 +631,9 @@ class SqlAgentSessionStore:
         payload: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         with SessionLocal() as session:
-            self._must_get_session_row(session, session_id)
+            parent = self._must_get_session_row(session, session_id)
+            if isinstance(parent, Failure):
+                return parent
             seq = int(
                 session.query(func.coalesce(func.max(AgentEvent.seq), 0))
                 .filter(AgentEvent.session_id == session_id)
@@ -585,8 +652,11 @@ class SqlAgentSessionStore:
             session.refresh(row)
             return _event_row_to_dict(row)
 
-    def list_events(self, session_id: str) -> list[dict[str, Any]]:
+    def list_events(self, session_id: str) -> list[dict[str, Any]] | Failure:
         with SessionLocal() as session:
+            parent = self._must_get_session_row(session, session_id)
+            if isinstance(parent, Failure):
+                return parent
             rows = (
                 session.query(AgentEvent)
                 .filter(AgentEvent.session_id == session_id)
@@ -598,7 +668,7 @@ class SqlAgentSessionStore:
     def create_or_update_approval(self, payload: dict[str, Any]) -> dict[str, Any]:
         approval_id = str(payload.get("approval_id") or "").strip()
         if not approval_id:
-            raise ValueError("approval_id is required")
+            return _failure("approval_id_required", "approval_id is required", approval_id=approval_id)
         with SessionLocal() as session:
             row = session.query(AgentApproval).filter(AgentApproval.approval_id == approval_id).one_or_none()
             if row is None:
@@ -637,7 +707,7 @@ class SqlAgentSessionStore:
         with SessionLocal() as session:
             row = session.query(AgentApproval).filter(AgentApproval.approval_id == approval_id).one_or_none()
             if row is None:
-                raise KeyError(f"approval not found: {approval_id}")
+                return _failure("approval_not_found", f"approval not found: {approval_id}", approval_id=approval_id)
             return _approval_row_to_dict(row)
 
     def list_approvals(self, *, session_id: str | None = None) -> list[dict[str, Any]]:
@@ -649,28 +719,32 @@ class SqlAgentSessionStore:
             return [_approval_row_to_dict(row) for row in rows]
 
     @staticmethod
-    def _must_get_session_row(session: Any, session_id: str) -> AgentSession:
+    def _must_get_session_row(session: Any, session_id: str) -> AgentSession | Failure:
         row = session.query(AgentSession).filter(AgentSession.session_id == session_id).one_or_none()
         if row is None:
-            raise KeyError(f"session not found: {session_id}")
+            return _failure("session_not_found", f"session not found: {session_id}", session_id=session_id)
         return row
 
     @staticmethod
-    def _must_get_task_row(session: Any, session_id: str, task_id: str) -> AgentTask:
+    def _must_get_task_row(session: Any, session_id: str, task_id: str) -> AgentTask | Failure:
         row = (
             session.query(AgentTask)
             .filter(AgentTask.session_id == session_id, AgentTask.task_id == task_id)
             .one_or_none()
         )
         if row is None:
-            raise KeyError(f"task not found: {task_id}")
+            return _failure("task_not_found", f"task not found: {task_id}", session_id=session_id, task_id=task_id)
         return row
 
 
 _STORE: InMemoryAgentSessionStore | SqlAgentSessionStore | None = None
 
 
-def build_agent_session_store() -> InMemoryAgentSessionStore | SqlAgentSessionStore:
+def build_agent_session_store() -> Annotated[
+    InMemoryAgentSessionStore | SqlAgentSessionStore | Failure,
+    "kit:canonical-read canonical_owner=app.services.agent_sessions.store "
+    "witness=test:test_w02_agent_authority_metadata"
+]:
     global _STORE
     if _STORE is not None:
         return _STORE
@@ -679,9 +753,8 @@ def build_agent_session_store() -> InMemoryAgentSessionStore | SqlAgentSessionSt
             _STORE = SqlAgentSessionStore()
             return _STORE
         except Exception as exc:  # noqa: BLE001
-            if bool(getattr(settings, "agent_session_db_store_fail_closed", False)):
-                raise
-            logger.warning("agent session db store unavailable, falling back to memory: %s", exc)
+            logger.error("agent session db store unavailable: %s", exc)
+            return _failure("backend_unavailable", "agent session database backend unavailable", error=str(exc))
     _STORE = InMemoryAgentSessionStore()
     return _STORE
 

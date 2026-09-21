@@ -1,0 +1,19 @@
+{
+  "argv": [
+    "trivy",
+    "image",
+    "--input",
+    "/var/folders/ww/__28yy2d01n97fff8jhw9yxm0000gn/T/mrw-r13v-oci-smoke-b_g0a978/layout",
+    "--format",
+    "json",
+    "--output",
+    "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13v/artifacts/backend-migration-amd64-oci-trivy-smoke/trivy-report.json",
+    "--skip-db-update",
+    "--scanners",
+    "vuln",
+    "--exit-code",
+    "0",
+    "--no-progress"
+  ],
+  "cwd": null
+}

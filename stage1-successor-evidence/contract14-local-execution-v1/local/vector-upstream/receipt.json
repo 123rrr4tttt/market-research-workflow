@@ -1,0 +1,90 @@
+{
+  "receipt_version": "contract14-local-vector-upstream.v1",
+  "receipt_id": "contract14-local-vector-upstream-20260906-0715Z",
+  "generated_at": "2026-09-06T07:15:00Z",
+  "claims": {
+    "claim-005": {
+      "claim_key": "wave10-fresh-deterministic-vector-quality",
+      "status": "blocked",
+      "scope": "fresh repo-local deterministic chain attempted; search-provider trace passed, LanceDB runtime smoke failed before report, benchmark preserved fallback failures, Wave10 aggregate failed",
+      "dependent_nodeids": [
+        "tests.unit.test_wave10_vectorization_quality_gate_unittest.Wave10VectorizationQualityGateTest::test_gate_checks_provider_trace_modes_thresholds_and_fallback_reason"
+      ],
+      "blockers": [
+        "local_index_lancedb_runtime_smoke raised ValueError: Vector column 'vector' has variable length vectors",
+        "benchmark vector and hybrid cases fell back to keyword and failed executed-mode assertions",
+        "wave10 aggregate reports EVIDENCE_SOURCE_UNAVAILABLE for runtime smoke"
+      ]
+    },
+    "claim-008": {
+      "claim_key": "wave14-fresh-local-provider-capability",
+      "status": "blocked",
+      "scope": "fresh Wave14 capability derivation attempted with explicit failed Wave10 and --skip-live-probes Wave12 inputs; closure_claim_allowed=false",
+      "dependent_nodeids": [
+        "tests.unit.test_wave14_vectorization_provider_capability_unittest.Wave14VectorizationProviderCapabilityTest::test_gate_reports_local_capability_external_gap_and_no_closure_claim"
+      ],
+      "blockers": [
+        "Wave10 fresh prerequisite status=failed",
+        "Wave12 --skip-live-probes status=failed because Wave10 baseline failed",
+        "local capability recorded runtime/benchmark evidence unavailable"
+      ]
+    }
+  },
+  "generator_inputs": [
+    {"path": "ops/search-lab/scripts/search_provider_trace_contract.py", "sha256": "6b49b9fedd44386556f84a1a2f58ea8f1d2919463c832ad9f139f417a2a14343"},
+    {"path": "ops/search-lab/scripts/local_index_lancedb_runtime_smoke.py", "sha256": "3744e2c4923792a725e3ca51574a372dab81f6847a6e1229505a712cdcab96e8"},
+    {"path": "ops/search-lab/scripts/local_index_lancedb_benchmark_quality.py", "sha256": "4380536a71d8aaf0a018edf3031128a2d283b2e69c03fe91973e57852096271c"},
+    {"path": "ops/search-lab/scripts/wave10_vectorization_quality_gate.py", "sha256": "14659ba8a69215139f4aaf80687153d59f3980ed39cd14aab2a0e0d1e4690e4d"},
+    {"path": "ops/search-lab/scripts/wave12_provider_readiness_gate.py", "sha256": "f08ee676c7e17611340acb9b0918f504722140b1d206c8cbee0db90862331c94"},
+    {"path": "main/backend/scripts/check_wave14_vectorization_provider_capability.py", "sha256": "3fbce21722f0d560a3446e6135c2af497d19a52c0971ce236b7755506c446abb"},
+    {"path": "local/vector-upstream/run_wave10_local.py", "sha256": "dd63d81572edd4b0a2cfcd3f04588c99fa9b772ecacd7a928c7fcd79c6def29f"},
+    {"path": "local/vector-upstream/run_wave12_skip_live_local.py", "sha256": "39a9140b028f05768066103f5f4f83f6842e94c1f2eec07c2c54231a40814058"},
+    {"path": "local/vector-upstream/run_wave14_local.py", "sha256": "bfcbbbdd8d16da2dc0c5c27ccce10827f2af7375a2b513cc3048677aa1341d19"},
+    {"path": "stage1-successor-evidence/contract13-bounded-corrections-v2/claim-decisions/claim-decisions.v2.json", "sha256": "8362b368b5f4d944bb1bddf70f397e73c1b3716bc0bdb6244e61699b38e719b3"},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/14_stage1-local-evidence-execution-contract.v1.md", "sha256": "3252e21452e78c73fc9fef9b8b7435c2c3e0ab4466a6b411fe567010d4ea28e7"}
+  ],
+  "commands": [
+    {"command": "PYTHONPATH=$PWD/src:$PWD/main/backend main/backend/.venv311/bin/python ops/search-lab/scripts/search_provider_trace_contract.py --out local/vector-upstream/search-provider-trace/search_provider_trace_contract.json", "exit": 0, "stdout": "local/vector-upstream/search-provider-trace/raw.stdout", "stderr": "local/vector-upstream/search-provider-trace/raw.stderr"},
+    {"command": "PYTHONPATH=$PWD/src:$PWD/main/backend main/backend/.venv311/bin/python ops/search-lab/scripts/local_index_lancedb_runtime_smoke.py --out-dir local/vector-upstream/lancedb-runtime", "exit": 1, "stdout": "local/vector-upstream/lancedb-runtime/raw.stdout", "stderr": "local/vector-upstream/lancedb-runtime/raw.stderr"},
+    {"command": "PYTHONPATH=$PWD/src:$PWD/main/backend main/backend/.venv311/bin/python ops/search-lab/scripts/local_index_lancedb_benchmark_quality.py --out-dir local/vector-upstream/lancedb-benchmark --repeats 3", "exit": 1, "stdout": "local/vector-upstream/lancedb-benchmark/raw.stdout", "stderr": "local/vector-upstream/lancedb-benchmark/raw.stderr"},
+    {"command": "PYTHONPATH=$PWD/src:$PWD/main/backend main/backend/.venv311/bin/python local/vector-upstream/run_wave10_local.py", "exit": 1, "stdout": "local/vector-upstream/wave10.raw.stdout", "stderr": "local/vector-upstream/wave10.raw.stderr"},
+    {"command": "PYTHONPATH=$PWD/src:$PWD/main/backend main/backend/.venv311/bin/python local/vector-upstream/run_wave12_skip_live_local.py", "exit": 1, "stdout": "local/vector-upstream/wave12.raw.stdout", "stderr": "local/vector-upstream/wave12.raw.stderr"},
+    {"command": "PYTHONPATH=$PWD/src:$PWD/main/backend main/backend/.venv311/bin/python local/vector-upstream/run_wave14_local.py", "exit": 1, "stdout": "local/vector-upstream/wave14.raw.stdout", "stderr": "local/vector-upstream/wave14.raw.stderr"}
+  ],
+  "raw_output_hashes": {
+    "local/vector-upstream/search-provider-trace/raw.stdout": "6832ce0c3dc5c5759664477a684f4c540de28089d66b39341df068ca78aac601",
+    "local/vector-upstream/search-provider-trace/raw.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "local/vector-upstream/lancedb-runtime/raw.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "local/vector-upstream/lancedb-runtime/raw.stderr": "434c9dd02d943ce105c185a4f2e43aaea3b35733a63a45af2e64c5efb695b5d6",
+    "local/vector-upstream/lancedb-benchmark/raw.stdout": "5ea742af9274786a3ba3783b3e8410d70cca72c4ae8b879e557ac913ab3e4743",
+    "local/vector-upstream/lancedb-benchmark/raw.stderr": "fdf7cf31ad92a0d939b830be074794f70d9f44970a859f790a7247bad87da2d2",
+    "local/vector-upstream/wave10.raw.stdout": "ca827dcceeed1e42b72c9bf0f1170f4ef63236de527f82b8c3fac5d790782faa",
+    "local/vector-upstream/wave10.raw.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "local/vector-upstream/wave12.raw.stdout": "368ef6b5151720e405b12a1caf7122356a40e4322df322d2267b58761a124b7f",
+    "local/vector-upstream/wave12.raw.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "local/vector-upstream/wave14.raw.stdout": "15eda048cb624391b1078ca5cacb14c0c856c3b06ec328585e332a2f954e347d",
+    "local/vector-upstream/wave14.raw.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "artifacts": [
+    {"path": "local/vector-upstream/search-provider-trace/search_provider_trace_contract.json", "status": "passed", "sha256": "0a89c450eaa3287c26439e3082bcb4d1e31942b4f43cc91f7be07db08ecb4a7e"},
+    {"path": "local/vector-upstream/lancedb-runtime/runtime_smoke_results.json", "status": "not_written_uncaught_generator_error", "sha256": null},
+    {"path": "local/vector-upstream/lancedb-benchmark/benchmark_quality_results.json", "status": "failed", "sha256": "6e55e480c46d786265d38d6161b1da160219856aaf9e45677bb79a161e17d039"},
+    {"path": "local/vector-upstream/wave10/contract_summary.json", "status": "failed", "sha256": "eb42498768459ec7363fee36cfd36e92f63912b9a51bd7a68940a1188d0558ca"},
+    {"path": "local/vector-upstream/wave12-skip-live/provider_readiness_summary.json", "status": "failed", "sha256": "e5ce0c0189999fcad0389c0c23f4498a9d9bc7de242134d6620063315857f039"},
+    {"path": "local/vector-upstream/wave14/provider_capability_summary.json", "status": "failed", "sha256": "3741e2a4c964f103dd5f19e08850899c4b4837016e6efa1ebdbd2e03a55483e6"}
+  ],
+  "fresh_chain_refs": {
+    "wave8": {"status": "unavailable", "reason": "Wave8 generator was not listed for this Work package and no fresh Wave8 receipt was executed; historical Wave8 PASS not reused."},
+    "wave10": {"path": "local/vector-upstream/wave10/contract_summary.json", "sha256": "eb42498768459ec7363fee36cfd36e92f63912b9a51bd7a68940a1188d0558ca", "status": "failed"},
+    "wave12_skip_live": {"path": "local/vector-upstream/wave12-skip-live/provider_readiness_summary.json", "sha256": "e5ce0c0189999fcad0389c0c23f4498a9d9bc7de242134d6620063315857f039", "status": "failed", "live_probes": "not_run"},
+    "wave14": {"path": "local/vector-upstream/wave14/provider_capability_summary.json", "sha256": "3741e2a4c964f103dd5f19e08850899c4b4837016e6efa1ebdbd2e03a55483e6", "status": "failed", "closure_claim_allowed": false}
+  },
+  "verification": {
+    "focused_tests": {"command": "PYTHONPATH=$PWD/src:$PWD/main/backend main/backend/.venv311/bin/python -m pytest -q main/backend/tests/unit/test_wave10_vectorization_quality_gate_unittest.py main/backend/tests/unit/test_wave12_provider_readiness_gate_unittest.py main/backend/tests/unit/test_wave14_vectorization_provider_capability_unittest.py", "exit": 0, "result": "5 passed", "stdout_sha256": "46c0ec5a055e313d3aa5407cb20fe4e470f8707fe3df22ee550155d10d3057b7"},
+    "compile": {"command": "PYTHONPATH=$PWD/src:$PWD/main/backend main/backend/.venv311/bin/python -m py_compile local/vector-upstream/run_wave10_local.py local/vector-upstream/run_wave12_skip_live_local.py local/vector-upstream/run_wave14_local.py", "exit": 0},
+    "ruff": {"command": "ruff check local/vector-upstream/run_wave10_local.py local/vector-upstream/run_wave12_skip_live_local.py local/vector-upstream/run_wave14_local.py", "exit": 0, "stdout_sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"},
+    "schema_reference_hash_unique_id": {"exit": 0, "stdout": "local/vector-upstream/schema-reference-hash.stdout", "result": "PASS"}
+  },
+  "resource_cleanup": {"temporary_db_paths_removed": true, "network": false, "dns": false, "containers_or_services_started": false, "external_provider_calls": false, "production_or_user_db_writes": false},
+  "authority": {"authoritative": false, "production_release_authorized": false, "ceiling": ["NO_DEPLOY", "NO_LIVE", "NO_PRODUCTION_WRITE", "NO_EXTERNAL_DELIVERY", "NO_CANARY", "NO_CUTOVER", "NO_AUTHORITY_TRANSFER", "NO_LEGACY_RETIREMENT", "NO_PUSH", "NO_REMOTE_MUTATION", "NO_REGISTRY_WRITE", "NO_SIGNING_WRITE"]}
+}

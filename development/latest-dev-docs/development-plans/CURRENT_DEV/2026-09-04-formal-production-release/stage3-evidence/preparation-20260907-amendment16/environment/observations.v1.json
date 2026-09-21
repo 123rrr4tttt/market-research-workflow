@@ -1,0 +1,221 @@
+{
+  "schema_version": "mrw.amendment16.environment-preparation.v1",
+  "authoritative": false,
+  "candidate_bound": false,
+  "services_started": [],
+  "databases_contacted": [],
+  "installations": [],
+  "records": [
+    {
+      "id": "docker-context",
+      "command": [
+        "docker",
+        "context",
+        "show"
+      ],
+      "cwd": "/Users/wangyiliang/market-research-workflow",
+      "started_at": "2026-09-06T22:40:56.101219+00:00",
+      "exit_code": 0,
+      "raw": "docker-context.raw.log",
+      "sha256": "75270b95abcf0516180e80ce1a2b6f98e42b13765c38de5239be80925439ba63",
+      "available_for_version_query": true
+    },
+    {
+      "id": "docker-version",
+      "command": [
+        "docker",
+        "version"
+      ],
+      "cwd": "/Users/wangyiliang/market-research-workflow",
+      "started_at": "2026-09-06T22:40:56.213274+00:00",
+      "exit_code": 1,
+      "raw": "docker-version.raw.log",
+      "sha256": "02ccb84d9705dd5e007c6da14dea52f09de23b304358b179250cbb4267d24339",
+      "available_for_version_query": false
+    },
+    {
+      "id": "compose-version",
+      "command": [
+        "docker",
+        "compose",
+        "version"
+      ],
+      "cwd": "/Users/wangyiliang/market-research-workflow",
+      "started_at": "2026-09-06T22:40:56.327514+00:00",
+      "exit_code": 0,
+      "raw": "compose-version.raw.log",
+      "sha256": "6cae978da143b55667f689374af5bd2e843bdb2aba174746468b125b87fc73c5",
+      "available_for_version_query": true
+    },
+    {
+      "id": "buildx-version",
+      "command": [
+        "docker",
+        "buildx",
+        "version"
+      ],
+      "cwd": "/Users/wangyiliang/market-research-workflow",
+      "started_at": "2026-09-06T22:40:56.418085+00:00",
+      "exit_code": 0,
+      "raw": "buildx-version.raw.log",
+      "sha256": "0d8eb09b399c4d97cb59aebc4c704752536d7e593ddabd1d82520ecf2bed51ab",
+      "available_for_version_query": true
+    },
+    {
+      "id": "node-version",
+      "command": [
+        "node",
+        "--version"
+      ],
+      "cwd": "/Users/wangyiliang/market-research-workflow",
+      "started_at": "2026-09-06T22:40:56.573296+00:00",
+      "exit_code": 0,
+      "raw": "node-version.raw.log",
+      "sha256": "a75bc1e881900bc735e456cd684724256bcc2d09f91e04e5a42082d821a6b87b",
+      "available_for_version_query": true
+    },
+    {
+      "id": "node22-homebrew-version",
+      "command": [
+        "/opt/homebrew/opt/node@22/bin/node",
+        "--version"
+      ],
+      "cwd": "/Users/wangyiliang/market-research-workflow",
+      "started_at": "2026-09-06T22:40:56.593716+00:00",
+      "exit_code": 127,
+      "raw": "node22-homebrew-version.raw.log",
+      "sha256": "eca8d241275ec898e43bda7da0f784668a7c971f7e2b6e890088a7d0c0ee59d6",
+      "available_for_version_query": false
+    },
+    {
+      "id": "python-version",
+      "command": [
+        "python3",
+        "--version"
+      ],
+      "cwd": "/Users/wangyiliang/market-research-workflow",
+      "started_at": "2026-09-06T22:40:56.595053+00:00",
+      "exit_code": 0,
+      "raw": "python-version.raw.log",
+      "sha256": "0366d77cc1f1ac88ea458231ba4f639323d5caf34de0d50b7618277fd4395f1f",
+      "available_for_version_query": true
+    },
+    {
+      "id": "python311-version",
+      "command": [
+        "python3.11",
+        "--version"
+      ],
+      "cwd": "/Users/wangyiliang/market-research-workflow",
+      "started_at": "2026-09-06T22:40:56.602913+00:00",
+      "exit_code": 0,
+      "raw": "python311-version.raw.log",
+      "sha256": "b1d173e941dbfa8bbabe0c832c75d9449f31942f882d76510e027fa02de2cae0",
+      "available_for_version_query": true
+    },
+    {
+      "id": "backend-python311-version",
+      "command": [
+        "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/bin/python",
+        "--version"
+      ],
+      "cwd": "/Users/wangyiliang/market-research-workflow",
+      "started_at": "2026-09-06T22:40:56.614149+00:00",
+      "exit_code": 0,
+      "raw": "backend-python311-version.raw.log",
+      "sha256": "8fa6fee68fb4ca8eda41d4db888f6a2a6b039d072f18375fa9df13d8912037d7",
+      "available_for_version_query": true
+    },
+    {
+      "id": "psql-version",
+      "command": [
+        "psql",
+        "--version"
+      ],
+      "cwd": "/Users/wangyiliang/market-research-workflow",
+      "started_at": "2026-09-06T22:40:56.619068+00:00",
+      "exit_code": 0,
+      "raw": "psql-version.raw.log",
+      "sha256": "9371f1f2042da0bb7d3a5dde6c3a4a041c829c090040a5a8060d34ccd1b243f2",
+      "available_for_version_query": true
+    },
+    {
+      "id": "pg-isready-version",
+      "command": [
+        "pg_isready",
+        "--version"
+      ],
+      "cwd": "/Users/wangyiliang/market-research-workflow",
+      "started_at": "2026-09-06T22:40:56.649857+00:00",
+      "exit_code": 0,
+      "raw": "pg-isready-version.raw.log",
+      "sha256": "2f800970f832848b11b72a25b578270865b4efaefc3c4b9f3976acb8c8171aa2",
+      "available_for_version_query": true
+    },
+    {
+      "id": "initdb-version",
+      "command": [
+        "initdb",
+        "--version"
+      ],
+      "cwd": "/Users/wangyiliang/market-research-workflow",
+      "started_at": "2026-09-06T22:40:56.662524+00:00",
+      "exit_code": 0,
+      "raw": "initdb-version.raw.log",
+      "sha256": "4da97b41c9e43a87c42bf67cd8882d2b70d5208d7d1cb97c6b13d3b2bc28c081",
+      "available_for_version_query": true
+    },
+    {
+      "id": "pg-ctl-version",
+      "command": [
+        "pg_ctl",
+        "--version"
+      ],
+      "cwd": "/Users/wangyiliang/market-research-workflow",
+      "started_at": "2026-09-06T22:40:56.675897+00:00",
+      "exit_code": 0,
+      "raw": "pg-ctl-version.raw.log",
+      "sha256": "b2b96e457f2c3ff5edc7f2abaaf86fa837b4cf79ae09fb0c975e9859cea8ff03",
+      "available_for_version_query": true
+    },
+    {
+      "id": "cosign-version",
+      "command": [
+        "cosign",
+        "version"
+      ],
+      "cwd": "/Users/wangyiliang/market-research-workflow",
+      "started_at": "2026-09-06T22:40:56.686100+00:00",
+      "exit_code": 127,
+      "raw": "cosign-version.raw.log",
+      "sha256": "385ba4d63fcdc0e1a5c624a71779b66b0376a4087228580afcd9ab5088bbfd24",
+      "available_for_version_query": false
+    },
+    {
+      "id": "syft-version",
+      "command": [
+        "syft",
+        "version"
+      ],
+      "cwd": "/Users/wangyiliang/market-research-workflow",
+      "started_at": "2026-09-06T22:40:56.687546+00:00",
+      "exit_code": 127,
+      "raw": "syft-version.raw.log",
+      "sha256": "5a76f00503171c554a3c3d0321fddf029365ddb257b57414288fc7943020e961",
+      "available_for_version_query": false
+    },
+    {
+      "id": "trivy-version",
+      "command": [
+        "trivy",
+        "--version"
+      ],
+      "cwd": "/Users/wangyiliang/market-research-workflow",
+      "started_at": "2026-09-06T22:40:56.688940+00:00",
+      "exit_code": 127,
+      "raw": "trivy-version.raw.log",
+      "sha256": "2cd2289311fbe36d02d4d4ce604547ef51b6f0b6d0af3cb2795e1f711c57af27",
+      "available_for_version_query": false
+    }
+  ]
+}

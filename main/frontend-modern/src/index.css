@@ -1030,6 +1030,13 @@ button, select, input, textarea { font-family: inherit; }
   margin-bottom: 8px;
 }
 
+.kernel-admin .resource-page .resource-page__plan-detail-grid {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 4px 10px;
+  margin: 8px 0;
+}
+
 .kernel-admin input[type='checkbox'] {
   appearance: none;
   -webkit-appearance: none;
@@ -3452,6 +3459,26 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+.ingest-action-status__details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.ingest-action-status__details span {
+  border: 1px solid rgba(147, 166, 201, 0.28);
+  border-radius: 999px;
+  color: var(--text-soft);
+  font-size: 12px;
+  padding: 4px 8px;
+}
+
+.ingest-action-status--failed .ingest-action-status__details span {
+  border-color: rgba(180, 35, 24, 0.24);
+  color: #b42318;
 }
 
 .spinning { animation: spin 1s linear infinite; }

@@ -1,0 +1,228 @@
+{
+  "authoritative": false,
+  "builds": {
+    "candidate": {
+      "backend": {
+        "contract": "candidate/backend/build-contract.txt",
+        "exit_code": 0,
+        "log": "logs/candidate-backend.log",
+        "metadata": "candidate/backend/build-metadata.json"
+      },
+      "frontend": {
+        "contract": "candidate/frontend/build-contract.txt",
+        "exit_code": 0,
+        "log": "logs/candidate-frontend.log",
+        "metadata": "candidate/frontend/build-metadata.json"
+      },
+      "migration-runner": {
+        "contract": "candidate/migration-runner/build-contract.txt",
+        "exit_code": 0,
+        "log": "logs/candidate-migration-runner.log",
+        "metadata": "candidate/migration-runner/build-metadata.json"
+      }
+    },
+    "replay": {
+      "backend": {
+        "contract": "replay/backend/build-contract.txt",
+        "exit_code": 0,
+        "log": "logs/replay-backend.log",
+        "metadata": "replay/backend/build-metadata.json"
+      },
+      "frontend": {
+        "contract": "replay/frontend/build-contract.txt",
+        "exit_code": 0,
+        "log": "logs/replay-frontend.log",
+        "metadata": "replay/frontend/build-metadata.json"
+      },
+      "migration-runner": {
+        "contract": "replay/migration-runner/build-contract.txt",
+        "exit_code": 0,
+        "log": "logs/replay-migration-runner.log",
+        "metadata": "replay/migration-runner/build-metadata.json"
+      }
+    }
+  },
+  "cleanup": {
+    "reason": "task-owned builders removed after qualification; exact canonical inputs remain available for runtime/full-stack smoke",
+    "removed_builders": [
+      "mrw-r13w-canonical-amd64",
+      "mrw-r13w-replay-amd64"
+    ],
+    "retained_archives": [
+      "candidate/backend/image.oci.tar",
+      "candidate/frontend/image.oci.tar",
+      "candidate/migration-runner/image.oci.tar",
+      "replay/backend/image.oci.tar",
+      "replay/frontend/image.oci.tar",
+      "replay/migration-runner/image.oci.tar"
+    ],
+    "retained_layouts": [
+      "layouts/backend",
+      "layouts/frontend",
+      "layouts/migration-runner"
+    ],
+    "retained_tags": [
+      "mrw-local/r13w-candidate-backend:6aa7518750f2c29229a443f73248c8133f192e4d",
+      "mrw-local/r13w-candidate-frontend:6aa7518750f2c29229a443f73248c8133f192e4d",
+      "mrw-local/r13w-candidate-migration-runner:6aa7518750f2c29229a443f73248c8133f192e4d"
+    ],
+    "status": "COMPLETED_WITH_RELEASE_INPUTS_RETAINED"
+  },
+  "external_effects": {
+    "local_mutations": [
+      "two task-owned Buildx builders",
+      "six OCI archives and extracted canonical layouts",
+      "three canonical Docker Engine tags loaded directly from OCI archives"
+    ],
+    "network_reads": [
+      "Docker Hub pinned base images and BuildKit scanner",
+      "Alpine repositories exact packages",
+      "PyPI exact hashed wheels",
+      "npm registry frozen lock packages",
+      "Trivy vulnerability database"
+    ],
+    "not_performed": [
+      "push",
+      "workflow dispatch",
+      "publish",
+      "sign",
+      "transparency-log write",
+      "deploy"
+    ]
+  },
+  "loaded_images": {
+    "backend": {
+      "docker_image_id": "sha256:8ef7235b26d034dbdf9085eee70899407db2dc4cb1cb211c332e920f3195d3bd",
+      "expected_config_digest": "sha256:9a4232e1ba3b11440c71d7b2c48ded2e13ed8bf0928279b18074589f4b0154bb",
+      "expected_oci_index_digest": "sha256:8ef7235b26d034dbdf9085eee70899407db2dc4cb1cb211c332e920f3195d3bd",
+      "index_identity_match": true,
+      "load_exit_code": 0,
+      "load_source": "candidate/backend/image.oci.tar",
+      "role": "backend",
+      "status": "PASS",
+      "tag": "mrw-local/r13w-candidate-backend:6aa7518750f2c29229a443f73248c8133f192e4d"
+    },
+    "frontend": {
+      "docker_image_id": "sha256:bcdb5450494292d043e7b104b711d59ad3a3510c1fd89f7de70ee2f32ce9b1ed",
+      "expected_config_digest": "sha256:15371cfe42b4783b38268ee7c5f7eb59a6bbc933d0544212384482905c8ee730",
+      "expected_oci_index_digest": "sha256:bcdb5450494292d043e7b104b711d59ad3a3510c1fd89f7de70ee2f32ce9b1ed",
+      "index_identity_match": true,
+      "load_exit_code": 0,
+      "load_source": "candidate/frontend/image.oci.tar",
+      "role": "frontend",
+      "status": "PASS",
+      "tag": "mrw-local/r13w-candidate-frontend:6aa7518750f2c29229a443f73248c8133f192e4d"
+    },
+    "migration-runner": {
+      "docker_image_id": "sha256:35b37cc4eb8935014f68dde4189f83fb5c1668ce099958e2c44c58ecc04bc6e4",
+      "expected_config_digest": "sha256:c16c38b928d93f05e84a1bf1aa8a436f9608d747dcc11670b88e4a029f9576df",
+      "expected_oci_index_digest": "sha256:35b37cc4eb8935014f68dde4189f83fb5c1668ce099958e2c44c58ecc04bc6e4",
+      "index_identity_match": true,
+      "load_exit_code": 0,
+      "load_source": "candidate/migration-runner/image.oci.tar",
+      "role": "migration-runner",
+      "status": "PASS",
+      "tag": "mrw-local/r13w-candidate-migration-runner:6aa7518750f2c29229a443f73248c8133f192e4d"
+    }
+  },
+  "schema_version": "mrw.stage3.local-artifact-execution.v1",
+  "source_commit": "6aa7518750f2c29229a443f73248c8133f192e4d",
+  "source_tree": "9853f36db67a5b62c297f6266bc4d0861a28c396",
+  "trivy": {
+    "backend": {
+      "bound_artifact_digest": "sha256:920686c3103e84d8c651ce043d686349c9c3264025c23439746cbcf8b4cefd58",
+      "counts": {
+        "CRITICAL": 0,
+        "HIGH": 0
+      },
+      "exit_code": 0,
+      "input": "layouts/backend",
+      "report_identity": {
+        "artifact_name": "/work/layouts/backend",
+        "artifact_type": "container_image",
+        "matches_layout": true
+      },
+      "report_sha256": "b6a91ec6dc7ebf65a03b63a9055efb04d2e10270eb04e9e98aa7cab6420cf8d8",
+      "role": "backend",
+      "scanner": "aquasec/trivy:0.67.2",
+      "status": "PASS",
+      "threshold": {
+        "exit_code": 1,
+        "ignore_unfixed": false,
+        "severity": [
+          "HIGH",
+          "CRITICAL"
+        ],
+        "vulnerability_types": [
+          "os",
+          "library"
+        ]
+      }
+    },
+    "frontend": {
+      "bound_artifact_digest": "sha256:a5b09b80fde1d2bbeb31c54137292e4a4bca7e2cf1f665b858f2d68a05c54e5c",
+      "counts": {
+        "CRITICAL": 0,
+        "HIGH": 0
+      },
+      "exit_code": 0,
+      "input": "layouts/frontend",
+      "report_identity": {
+        "artifact_name": "/work/layouts/frontend",
+        "artifact_type": "container_image",
+        "matches_layout": true
+      },
+      "report_sha256": "89651cc1d2158e0a4cc0f6aac4ec7baf869f4b98c4e31d81abda53848b6c8d7c",
+      "role": "frontend",
+      "scanner": "aquasec/trivy:0.67.2",
+      "status": "PASS",
+      "threshold": {
+        "exit_code": 1,
+        "ignore_unfixed": false,
+        "severity": [
+          "HIGH",
+          "CRITICAL"
+        ],
+        "vulnerability_types": [
+          "os",
+          "library"
+        ]
+      }
+    },
+    "migration-runner": {
+      "bound_artifact_digest": "sha256:7d2cd37e6d3be7c7decb51e6cf8fdec358ae0034844c06cfba61ed59e0685ca2",
+      "counts": {
+        "CRITICAL": 0,
+        "HIGH": 0
+      },
+      "exit_code": 0,
+      "input": "layouts/migration-runner",
+      "report_identity": {
+        "artifact_name": "/work/layouts/migration-runner",
+        "artifact_type": "container_image",
+        "matches_layout": true
+      },
+      "report_sha256": "df89f779c1abecaf6af30777824d1f9298b370116079ff97c2252eabb726caa1",
+      "role": "migration-runner",
+      "scanner": "aquasec/trivy:0.67.2",
+      "status": "PASS",
+      "threshold": {
+        "exit_code": 1,
+        "ignore_unfixed": false,
+        "severity": [
+          "HIGH",
+          "CRITICAL"
+        ],
+        "vulnerability_types": [
+          "os",
+          "library"
+        ]
+      }
+    }
+  },
+  "validation": {
+    "attestation": "PASS",
+    "exit_code": 2,
+    "reproducibility": "FAIL"
+  }
+}

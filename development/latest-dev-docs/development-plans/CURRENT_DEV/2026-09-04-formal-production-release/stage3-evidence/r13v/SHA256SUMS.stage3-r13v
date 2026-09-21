@@ -1,0 +1,11 @@
+30da69ffda94be1af30d3676209c90aa8ed410253a7d93f00e7ad76e378d6b21  development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13v/stage3-stage-result.r13v.json
+53af0c4049f59354e7bf7ef2ca453ebed37f8d20f0d5423f3be94ab1efd5ba69  development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13v/security/gitleaks-exact-candidate-scan.r13v.json
+2d6741a06507c45d824741d2e10e2f00b4570961a1aec69cc50dbc3ecb76432c  development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13v/security/gitleaks-disposition.r13v.json
+c32fdf1f22cd4832d966abe42913ed3fa7df768c45ac626798a941364ac260e6  development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13v/security/gitleaks-seed-verification.r13v.json
+fc1a8bd33f620232e1312422378e14b256a3e1f66614eae5f94693aeb55a5018  development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13v/artifacts/backend-migration-amd64-final/result.json
+24af70d6ce737dd1790331071e3050c1b504dc92b8f2ffa28b71fa3d1937e10c  development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13v/artifacts/backend-migration-amd64-final/SHA256SUMS
+de592a9e946ea46601383d5ea26350e4bc3511f3dcc971f8a33b2849c80ef624  stage3-evidence/r13v/remote/github-readback.r13v.json
+f273cb9bff0494b36c9f676877c22833c2620584f56a6119b3eee71cd9043e48  manifest/release-manifest-input-gap-map.r13v.json
+007fe4e2b43c1738f875202b22bc0d77aeeee38e6876ce60d7698462218b0dd2  manifest/r2-preparation-input.r13v.json
+1baccdf8f3753548898cf5d075c8be77b27739842fec192bfdee20611ba538c7  manifest/r2-preparation-result.r13v.json
+28f406266920cd3baea12b22f187d3ee93da17a7490f83132e8d2d886a4ac196  manifest/r2-preparation-execution.r13v.json

@@ -1,0 +1,208 @@
+{
+  "schema_version": "stage1.residual_import_time_db_effect_receipt.v1",
+  "authoritative": false,
+  "status": "FOCUSED_REMEDIATION_VERIFIED",
+  "source_contract": {
+    "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/12_stage1-residual-disposition-return-contract.v1.md",
+    "sha256": "c11c96a68284085dfb2548cd9ce19062de22b5d4bbf5af9d2c2863a16dcf03f2"
+  },
+  "scope": "Import and collection-time database effects only; no live database, provider, deployment, release, canary, cutover or authority operation was executed.",
+  "observed_effects": [
+    {
+      "effect_id": "models_base_default_project_schema",
+      "exact_import_stack": [
+        "pytest unit collection",
+        "app.models.base module import",
+        "engine.begin",
+        "Connection.execute"
+      ],
+      "attempted_schema_action": "CREATE SCHEMA IF NOT EXISTS \"project_default\"",
+      "configuration_owner": [
+        "settings.database_url",
+        "settings.active_project_key",
+        "settings.project_schema_prefix"
+      ],
+      "test_owner": "main/backend/tests/unit/test_schema_startup_boundary_unittest.py",
+      "existing_fixture_or_startup_owner": "main/backend/app/startup_hooks.py::register_startup_hooks",
+      "minimum_patch": "Remove engine.begin and CREATE SCHEMA from models.base module scope; execute the same statement through initialize_default_project_schema registered on FastAPI startup.",
+      "post_patch_boundary": "main/backend/app/startup_hooks.py::initialize_default_project_schema"
+    },
+    {
+      "effect_id": "workflow_graph_compiled_store_bootstrap",
+      "exact_import_stack": [
+        "pytest unit collection",
+        "app.services.workflow_graph package import",
+        "compiler = WorkflowGraphCompilerService",
+        "build_compiled_graph_store",
+        "SqlCompiledGraphStore.__init__",
+        "engine.begin"
+      ],
+      "attempted_schema_action": "SET search_path TO \"public\"; CREATE TABLE IF NOT EXISTS workflow_graph_compiled_artifacts (...)",
+      "configuration_owner": [
+        "settings.workflow_graph_db_store_enabled",
+        "settings.workflow_graph_db_store_fail_closed"
+      ],
+      "test_owner": "main/backend/tests/unit/test_workflow_graph_import_boundary_unittest.py",
+      "existing_fixture_or_startup_owner": "main/backend/app/services/workflow_graph/store.py::build_compiled_graph_store",
+      "minimum_patch": "Keep the existing builder and failure policy; resolve it lazily on the first compiler store operation instead of in the package-global facade constructor.",
+      "post_patch_boundary": "WorkflowGraphCompilerService._resolved_store"
+    },
+    {
+      "effect_id": "workflow_graph_run_and_handoff_store_bootstrap",
+      "exact_import_stack": [
+        "pytest unit collection",
+        "app.services.workflow_graph or app.services.workflow_graph.handoff_store import",
+        "WorkflowGraphRuntimeService or WorkflowGraphHandoffStore package-global construction",
+        "build_run_store",
+        "SqlRunStore.__init__",
+        "engine.begin"
+      ],
+      "attempted_schema_action": "SET search_path TO \"public\"; Base.metadata.create_all for WorkflowGraphRun and WorkflowGraphEvent",
+      "configuration_owner": [
+        "settings.workflow_graph_db_store_enabled",
+        "settings.workflow_graph_db_store_fail_closed"
+      ],
+      "test_owner": "main/backend/tests/unit/test_workflow_graph_import_boundary_unittest.py",
+      "existing_fixture_or_startup_owner": "main/backend/app/services/workflow_graph/store.py::build_run_store",
+      "minimum_patch": "Keep the existing builder and failure policy; resolve it lazily on the first runtime or handoff store operation.",
+      "post_patch_boundary": [
+        "WorkflowGraphRuntimeService._resolved_engine",
+        "WorkflowGraphHandoffStore._resolved_store"
+      ]
+    },
+    {
+      "effect_id": "workflow_graph_executor_llm_cache_bootstrap",
+      "exact_import_stack": [
+        "app.services.workflow_graph import",
+        "workflow_graph.runtime import",
+        "workflow_graph.executors package import",
+        "workflow_graph.executors.llm_call import",
+        "app.services.llm import",
+        "app.services.llm.cache.setup_cache",
+        "SQLiteCache",
+        "metadata.create_all"
+      ],
+      "attempted_schema_action": "Local SQLite LangChain cache metadata.create_all",
+      "configuration_owner": [
+        "settings.env",
+        "main/backend/app/services/llm/cache.py"
+      ],
+      "test_owner": "main/backend/tests/unit/test_workflow_graph_import_boundary_unittest.py",
+      "existing_fixture_or_startup_owner": "WorkflowGraphRuntime default executor composition",
+      "minimum_patch": "Do not change the LLM cache contract; defer the default LLMCallExecutor import until explicit WorkflowGraphRuntime construction and make package executor exports lazy.",
+      "post_patch_boundary": "WorkflowGraphRuntime.__init__"
+    }
+  ],
+  "production_preservation_and_recovery": {
+    "default_project_schema": {
+      "development_and_test": "Failure preserves the existing db bootstrap skipped warning and continues so deep health can report degradation.",
+      "production": "env=production or env=prod logs the classified failure and re-raises it from the startup handler; application startup fails closed.",
+      "recovery": "Correct database configuration or permissions, then restart startup; the explicit function is also safe to invoke again because CREATE SCHEMA uses IF NOT EXISTS."
+    },
+    "workflow_graph_stores": {
+      "fail_closed": "build_run_store and build_compiled_graph_store remain the sole configuration/failure owners. workflow_graph_db_store_fail_closed=true still propagates the registered store_unavailable failure on the first requested effect.",
+      "fallback": "workflow_graph_db_store_fail_closed=false preserves the existing logged in-memory fallback.",
+      "recovery": "A fail-closed builder exception leaves the lazy field unset, so a later operation can retry after availability recovers. A selected in-memory fallback retains the pre-existing process-lifetime behavior and returns to SQL after process restart."
+    },
+    "startup_order": "The default schema handler is the first handler registered by the existing register_startup_hooks call. No main.py or celery_app.py startup ordering was changed. Celery import no longer receives implicit schema-DDL authority."
+  },
+  "fail_fast_diagnostics": [
+    {
+      "command": "subprocess import app.models.base after replacing sqlalchemy.engine.Engine.begin with a fail-fast guard",
+      "result": "PASS; begin_calls=[]; no connection or DDL attempted"
+    },
+    {
+      "command": "subprocess import app.services.workflow_graph and app.services.workflow_graph.handoff_store after replacing sqlalchemy.engine.Engine.begin with a fail-fast guard",
+      "result": "PASS; begin_calls=[]; no PostgreSQL or SQLite transaction/DDL attempted"
+    },
+    {
+      "command": "env PYTHONPATH=main/backend:src main/backend/.venv311/bin/python -m pytest --collect-only -q main/backend/tests/unit",
+      "before_result": "8 collection errors after 1239 tests collected; fail-fast sandbox diagnostic reported psycopg2 OperationalError: connection to localhost port 5432 failed: Operation not permitted. Exact remaining stacks were workflow_graph package/handoff global constructors to SqlCompiledGraphStore or SqlRunStore engine.begin.",
+      "after_result": "exit 0; 1313 tests collected in 9.40s; no database connection or DDL attempted during collection"
+    }
+  ],
+  "focused_verification": [
+    {
+      "command": "env PYTHONPATH=main/backend:src main/backend/.venv311/bin/python -m pytest -q main/backend/tests/unit/test_schema_startup_boundary_unittest.py main/backend/tests/unit/test_workflow_graph_import_boundary_unittest.py main/backend/tests/unit/test_workflow_graph_compiler_unittest.py main/backend/tests/unit/test_workflow_graph_runtime_unittest.py main/backend/tests/unit/test_workflow_graph_handoff_store_unittest.py",
+      "result": "32 passed, 13 warnings in 11.58s"
+    },
+    {
+      "command": "ruff check main/backend/app/services/workflow_graph/executors/__init__.py main/backend/tests/unit/test_schema_startup_boundary_unittest.py main/backend/tests/unit/test_workflow_graph_import_boundary_unittest.py",
+      "result": "All checks passed"
+    },
+    {
+      "command": "main/backend/.venv311/bin/python -m compileall -q on changed Python surfaces",
+      "result": "exit 0"
+    },
+    {
+      "command": "git diff --check on changed Python surfaces",
+      "result": "exit 0"
+    }
+  ],
+  "changed_paths": [
+    {
+      "path": "main/backend/app/models/base.py",
+      "owner": "database session model substrate; shared dirty file",
+      "reason": "remove module-scope schema DDL",
+      "head_sha256": "80e9683f8de422956eef020d4a657b7cc41b8843aaa4e8825ab87c4e3f8c32cd",
+      "after_sha256": "173d95722cef7411f4b1e4606f8dbdbf850d74fbae9847b942b13be1e56c8308"
+    },
+    {
+      "path": "main/backend/app/startup_hooks.py",
+      "owner": "application startup composition; shared dirty file",
+      "reason": "add explicit default schema startup interpreter",
+      "head_sha256": "15302b29afca65064519a4ad265c05b24adb7e2b698425ec9bad28f47286dbe5",
+      "after_sha256": "a1426fad870f3aefaf98236725d953f65f35e6b059603f9e29b9bdf0c1a98d74"
+    },
+    {
+      "path": "main/backend/app/services/workflow_graph/__init__.py",
+      "owner": "workflow graph facade composition; shared dirty file",
+      "reason": "lazy compiler and runtime store realization",
+      "head_sha256": "04db5a5976689e3708590b875f1b35580fadbfc600564bc65aa01866024b331e",
+      "task_start_sha256": "de7d79ec3e12c5e83a953b7886408584f6e74a95930fb7c066e32c92414a8533",
+      "after_sha256": "91cb7b802294a13b5831e7906c7cbceae16c4bd7c99655db99c0aa4ad4fd0f97"
+    },
+    {
+      "path": "main/backend/app/services/workflow_graph/runtime.py",
+      "owner": "workflow graph runtime composition; shared dirty file",
+      "reason": "defer default LLM executor composition until runtime construction",
+      "head_sha256": "e472088a5fd20a9ac6c91095c25b5264a57f791a42e13dbc86b58fc692936b21",
+      "after_sha256": "15c22d898b1c90205c43585aae4e3d83a425782e57676926507b92e6b8fb68ca"
+    },
+    {
+      "path": "main/backend/app/services/workflow_graph/executors/__init__.py",
+      "owner": "workflow graph executor exports",
+      "reason": "preserve exports without eager executor imports",
+      "head_sha256": "3f087e405924acee9b9ad3e9148a1b0d5011d65c96253b20a02d583dc1afd140",
+      "after_sha256": "8901889f8929a4326a1625f582fa6c6c1d5176cfe8b34ce5c1abd5174af6e2c6"
+    },
+    {
+      "path": "main/backend/app/services/workflow_graph/handoff_store.py",
+      "owner": "workflow graph handoff persistence; shared dirty file",
+      "reason": "lazy run-store realization for the package-global facade",
+      "head_sha256": "6355a03615043aba7cba92b480949e1aab181e767f2bcdd664fc748e5b76a51d",
+      "after_sha256": "08b7e60567122f689f6ec67736b5282ba6b89fdc452e82d8c0de2d6c3428e814"
+    },
+    {
+      "path": "main/backend/tests/unit/test_schema_startup_boundary_unittest.py",
+      "owner": "database startup boundary focused tests",
+      "reason": "import purity and startup success/failure witnesses",
+      "head_sha256": null,
+      "after_sha256": "6bcdd014f81f1e6d0ebc0ce35dae46b2ae1c57d19ae51aa1a4d904e4602da824"
+    },
+    {
+      "path": "main/backend/tests/unit/test_workflow_graph_import_boundary_unittest.py",
+      "owner": "workflow graph import boundary focused tests",
+      "reason": "import purity and lazy fail-closed resolution witnesses",
+      "head_sha256": null,
+      "after_sha256": "a38e3ee51fbf1b3b26822bbbd832c5d5cd50dc1838cdf9a87777fdaa104b1eb1"
+    }
+  ],
+  "frozen_binding_impact": {
+    "historical_or_contract_files_modified": false,
+    "registries_modified": false,
+    "candidate_or_release_authority_changed": false,
+    "note": "The receipt binds the current shared dirty-file bytes for review only. Any candidate or frozen artifact that later exact-binds these implementation files requires an authorized additive rebind; focused tests do not authorize release."
+  },
+  "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE"
+}

@@ -1,0 +1,11 @@
+{
+  "argv": [
+    "docker",
+    "image",
+    "inspect",
+    "moby/buildkit:buildx-stable-1",
+    "--format",
+    "{{.Id}}"
+  ],
+  "cwd": null
+}

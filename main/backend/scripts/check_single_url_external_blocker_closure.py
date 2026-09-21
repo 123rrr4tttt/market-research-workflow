@@ -7,7 +7,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any, Callable, Mapping
+from typing import Annotated, Any, Callable, Mapping
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -230,7 +230,12 @@ def build_check(
     claim_closure: bool = False,
     live_canary_runner: LiveCanaryRunner = run_repo_local_production_like_handoff_canary,
     official_api_report_builder: OfficialApiReportBuilder = build_official_api_report,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=preflight "
+    "fact_source=single_url_repo_local_gate_evidence "
+    "witness=test:test_c11_cli_agent_authority_metadata",
+]:
     public_artifact = Path(public_replay_artifact or DEFAULT_PUBLIC_REPLAY_ARTIFACT)
     public_replay_check = build_high_js_replay_check(REPO_ROOT, public_artifact)
 

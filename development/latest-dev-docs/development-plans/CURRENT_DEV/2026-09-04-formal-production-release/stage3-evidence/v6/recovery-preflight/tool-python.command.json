@@ -1,0 +1,17 @@
+{
+  "id": "tool-python",
+  "command": [
+    "/Users/wangyiliang/market-research-workflow/.venv/bin/python",
+    "--version"
+  ],
+  "cwd": "/private/tmp/mrw-stage3-v6-preflight-gga5tnof/candidate",
+  "exit_code": 0,
+  "started_at": "2026-09-06T21:51:56.921184+00:00",
+  "ended_at": "2026-09-06T21:51:56.928993+00:00",
+  "log": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-preflight/tool-python.log",
+  "sha256": "9acda2babae175a076c5eec85844a8033b0b454b9930d80523d355f5ed17c29f",
+  "environment_overrides": {
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "PYTHONNOUSERSITE": "1"
+  }
+}

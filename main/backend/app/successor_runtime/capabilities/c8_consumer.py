@@ -18,6 +18,7 @@ from app.successor_runtime.capabilities.c8_common import (
     TestOnlySealedValue,
     graph_occurrence_digest,
     graph_projection_generation_digest,
+    reject_c8_projection,
 )
 
 __all__ = [
@@ -35,7 +36,7 @@ def consume_graph_projection(
     request_claim_support: bool = False,
 ) -> GraphConsumerResult:
     if isinstance(active_read_handle, TestOnlySealedValue):
-        raise C8ProjectionError(
+        reject_c8_projection(
             "production graph consumer rejects TEST_ONLY active read handle"
         )
     return consume_graph_projection_test_only(
@@ -60,22 +61,22 @@ def consume_graph_projection_test_only(
     request_claim_support: bool = False,
 ) -> GraphConsumerResult:
     if request_claim_support:
-        raise C8ProjectionError(
+        reject_c8_projection(
             "graph consumer never creates claim support or synthetic evidence"
         )
     if projection.project_key != project_key:
-        raise C8ProjectionError("graph consumer project scope mismatch")
+        reject_c8_projection("graph consumer project scope mismatch")
     if projection.generation_id != active_generation_id:
-        raise C8ProjectionError("stale graph generation rejected")
+        reject_c8_projection("stale graph generation rejected")
     if projection.offset != active_offset:
-        raise C8ProjectionError("graph generation offset mismatch")
+        reject_c8_projection("graph generation offset mismatch")
     if projection.provenance_digest != active_provenance_digest:
-        raise C8ProjectionError("graph provenance digest is not the active one")
+        reject_c8_projection("graph provenance digest is not the active one")
     if projection.projection_digest != graph_projection_generation_digest(projection):
-        raise C8ProjectionError("tampered graph projection generation")
+        reject_c8_projection("tampered graph projection generation")
     for occurrence in projection.occurrences:
         if occurrence.occurrence_digest != graph_occurrence_digest(occurrence):
-            raise C8ProjectionError("tampered graph occurrence")
+            reject_c8_projection("tampered graph occurrence")
     if not projection.provenance_digest:
         return GraphConsumerResult(
             consumer_id=consumer_id,

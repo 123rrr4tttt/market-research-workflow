@@ -9,7 +9,10 @@ These presets are intentionally small and opinionated:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, NoReturn
+
+from functorial_kit import Failure
+from mrw_functorial_kit.core.provider_port_failures import resource_pool_contract_failures
 
 
 @dataclass(frozen=True)
@@ -348,6 +351,54 @@ OPEN_SOURCE_PRESET_PACKS: dict[str, OpenSourcePresetPack] = {
 }
 
 
+_RESOURCE_POOL_FAILURE_WITNESS = "test:test_latest_service_b_resource_pool_failure_lifts"
+_RESOURCE_POOL_FAILURE_CONTEXT_KEYS = frozenset(
+    {
+        "boundary_class",
+        "failure_family",
+        "operation",
+        "owner",
+        "public_exception",
+        "public_message",
+        "site",
+        "witness",
+    }
+)
+
+
+def _contract_failure(code: str, message: str, *, operation: str, site: str) -> Failure:
+    return resource_pool_contract_failures.fail(
+        code,
+        message,
+        {
+            "boundary_class": "PURE_CONTRACT_FAILURE",
+            "failure_family": resource_pool_contract_failures.name,
+            "operation": operation,
+            "owner": site,
+            "public_exception": "ValueError",
+            "public_message": message,
+            "site": site,
+            "witness": _RESOURCE_POOL_FAILURE_WITNESS,
+        },
+    )
+
+
+def _raise_contract_failure(
+    failure: Failure,
+    exception_type: type[Exception] = ValueError,
+) -> NoReturn:
+    context = failure.context or {}
+    if (
+        not resource_pool_contract_failures.matches(failure)
+        or _RESOURCE_POOL_FAILURE_CONTEXT_KEYS - set(context)
+        or context.get("public_exception") != exception_type.__name__
+    ):
+        # kit:boundary owner=resource_pool.open_source_source_presets.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_latest_service_b_resource_pool_failure_lifts
+        raise TypeError("resource pool failure lift context is incomplete or inconsistent")
+    # kit:boundary owner=resource_pool.open_source_source_presets.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=resource_pool.contract.failure witness=test:test_latest_service_b_resource_pool_failure_lifts
+    raise exception_type(str(context["public_message"]))
+
+
 def list_open_source_preset_packs() -> list[dict[str, Any]]:
     return [
         {
@@ -363,7 +414,14 @@ def list_open_source_preset_packs() -> list[dict[str, Any]]:
 def get_open_source_preset_pack(pack_key: str) -> OpenSourcePresetPack:
     key = str(pack_key or "").strip()
     if key not in OPEN_SOURCE_PRESET_PACKS:
-        raise ValueError(f"unknown open-source preset pack: {pack_key}")
+        _raise_contract_failure(
+            _contract_failure(
+                "preset_pack_unknown",
+                f"unknown open-source preset pack: {pack_key}",
+                operation="get_open_source_preset_pack",
+                site="resource_pool.open_source_source_presets.get_open_source_preset_pack",
+            )
+        )
     return OPEN_SOURCE_PRESET_PACKS[key]
 
 

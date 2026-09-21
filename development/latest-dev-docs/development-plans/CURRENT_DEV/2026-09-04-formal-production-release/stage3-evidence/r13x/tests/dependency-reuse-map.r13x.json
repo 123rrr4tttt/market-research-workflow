@@ -1,0 +1,147 @@
+{
+  "schema_version": "mrw.stage3.local-test-dependency-reuse.v1",
+  "authoritative": false,
+  "candidate": {
+    "name": "r13x",
+    "commit": "8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+    "tree": "ce7c67c831b51f9d64b4c2f1a470a724a50b19df"
+  },
+  "basis": {
+    "rule": "reuse only where the candidate input object is byte-identical to the receipt input; changed formal-release files are covered by the fresh affected selector",
+    "r13w_to_r13x_changed_paths": [
+      "main/backend/Dockerfile",
+      "scripts/formal_release/generate_stage1_current_binding_successor.py",
+      "scripts/formal_release/source_closure.py",
+      "stage1-successor-evidence/stage1-production-contract-binding-successor-v1-r14/artifact-manifest.v1.json",
+      "stage1-successor-evidence/stage1-production-contract-binding-successor-v1-r14/stage1-production-contract-binding-successor.v1.json"
+    ]
+  },
+  "backend_input_objects": {
+    "main/backend/app": "65eba08454c3711377630868696307a44424d073",
+    "main/backend/tests/unit": "276f8d6aa6f2f969d8d23538644fe99d4395ba76",
+    "main/backend/tests/integration": "40b1cd6d896ca366223a0346dc8756ce81705ff0",
+    "main/backend/tests/core_business": "6511e6e39a2610a7be5191a8d87c3cf0bb246da6",
+    "main/backend/tests/successor_runtime": "01993e93db2fcc298572f323f31664c8cda73e4f",
+    "main/backend/migrations": "818cde1257f604c04d353c66f2d6942a3c346d82",
+    "main/backend/pytest.ini": "dea2f9f103eaa685d4c121b906fe6162a4066c97",
+    "main/backend/Dockerfile.test": "29bc0877bccf559a0ace703d7b055f7942e431a2",
+    "src": "0dfa137c2c9aba658d8b1f39281412ff69c3d67c",
+    "registries": "e9d3148ecf02424f8f52de7c4183499dc324a8c4",
+    "sketches.json": "2f8d6794dcf98b7f95e194bbea81ef87f9a3f8a3",
+    "functorial-kit.json": "58b1900673c26c815971bbbd50f3306444841876"
+  },
+  "backend_identity_scope": {
+    "matching_candidates": {
+      "r13n": "33a841f43cc80f4871119f017138f0cb87a966c6",
+      "r13o": "3669d4ddc19fb722058976b4e1f05e99eccfe96e",
+      "r13q": "bdd765316d80efdef243927d81e2daa9de20f81c",
+      "r13x": "8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2"
+    },
+    "all_listed_objects_equal": true
+  },
+  "frontend_input_objects": {
+    "main/frontend-modern/src": "53874e19fe01b929ae4f5f11f8ad6fc53481fd48",
+    "main/frontend-modern/tests": "1cd8064858c3c5a7daadea94d3b1557a472dafab",
+    "main/frontend-modern/public": "163e0748b48dc56697767dffb9c147964c9a5be4",
+    "main/frontend-modern/.storybook": "dcfb97ccc1f3e945b088b60e048bc5b6d4111e81",
+    "main/frontend-modern/package.json": "4cc40418473b29ce4d2c352f16d29ecd2716f8f0",
+    "main/frontend-modern/pnpm-lock.yaml": "346cae2542540ba3f57ecfd6bb1dae12b4b11e9f",
+    "main/frontend-modern/pnpm-workspace.yaml": "ce13109659a858bd219f086044560c12ea4894da",
+    "main/frontend-modern/eslint.config.js": "4f5467eeb5127d96f6e734a51895ba7a56873f89",
+    "main/frontend-modern/playwright.config.ts": "44fefb74a815097c06ea8f88f1950d6f44f175da",
+    "main/frontend-modern/playwright.storybook.config.ts": "a7e288d51df7506f0dd8a213afedbe699bafdf08",
+    "main/frontend-modern/tsconfig.json": "1ffef600d959ec9e396d5a260bd3f5b927b2cef8",
+    "main/frontend-modern/vite.config.ts": "b1ef565cd97e821ba1ce780fbd05dcc5f4a9123b"
+  },
+  "frontend_identity_scope": {
+    "matching_candidates": {
+      "r13o": "3669d4ddc19fb722058976b4e1f05e99eccfe96e",
+      "r13q": "bdd765316d80efdef243927d81e2daa9de20f81c",
+      "r13x": "8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2"
+    },
+    "all_listed_objects_equal": true
+  },
+  "reused_receipts": [
+    {
+      "gate": "backend_unit",
+      "source_candidate": "r13n",
+      "receipt": "../../r13n/backend-unit-final.log",
+      "receipt_sha256": "7421fab5eec864de82613a02cdfc6187486c53ec960d932632aebbddd6db3fd1",
+      "result": "1821 passed, 2337 deselected, 25 warnings, 52 subtests"
+    },
+    {
+      "gate": "backend_integration",
+      "source_candidate": "r13o",
+      "receipt": "../../r13o/tests/01c-backend-integration-dns-fixture.log",
+      "receipt_sha256": "74fb8f221637363641ee38fb83eba8c16b0909d12b7150fa0e620826f9a1b3e4",
+      "result": "384 passed, 291 skipped, 3483 deselected, 20 warnings, 69 subtests"
+    },
+    {
+      "gate": "core_business",
+      "source_candidate": "r13o",
+      "receipt": "../../r13o/tests/02c-core-business-dns-fixture.log",
+      "receipt_sha256": "5ef0f837033d045d55f8cc78fce82abf4d2791ea48504949117b7916721e7801",
+      "result": "256 passed, 16 warnings, 15 subtests"
+    },
+    {
+      "gate": "schema_guard",
+      "source_candidate": "r13o",
+      "receipt": "../../r13o/tests/04-schema-guard.log",
+      "receipt_sha256": "e6457cbd3056b07540ea03933b962b95b4f756e917587e35265315aa03486fc6",
+      "result": "3 passed, 16 warnings"
+    },
+    {
+      "gate": "migration_schema_contracts",
+      "source_candidate": "r13o",
+      "receipt": "../../r13o/tests/06-migration-schema-contract-tests.log",
+      "receipt_sha256": "f92c3d65c3d6c334993bbcf958f08bd3eddfcc56ff04d37f0827938c1bda1a18",
+      "result": "13 passed"
+    },
+    {
+      "gate": "successor_runtime_nonpg",
+      "source_candidate": "r13q",
+      "receipt": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260910-v4-r13q/evidence/successor-preview/full-nonpg.log",
+      "receipt_sha256": "6cbaa74030d8a6434ddf8de05ab72bed7dcf2c4aa1c7d0a22c62d939abdc61a4",
+      "input_reuse_receipt": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260910-v4-r13q/evidence/successor-preview/input-reuse.r13q.json",
+      "input_reuse_sha256": "e3a972a087d81f91ea75da9b79430adc5562e063edb6a468409a59f46c7d0500",
+      "result": "1484 passed, 292 skipped, 4 warnings"
+    },
+    {
+      "gate": "frontend_frozen_install_lint_typecheck_build",
+      "source_candidate": "r13n",
+      "receipt": "../../r13n/frontend-frozen-lint-typecheck-build.log",
+      "receipt_sha256": "48cc12b5c0ec00a1b7b4cd08bb08a4e176f8d86980682d64fe9c83a92d2c87",
+      "result": "PASS"
+    },
+    {
+      "gate": "frontend_e2e_full",
+      "source_candidate": "r13o",
+      "receipt": "../../r13o/frontend-e2e-full-backend-ready.log",
+      "receipt_sha256": "353f1925ebe7645d839322a3d3092765900d003ecb8441c14db6b5245c29e1b4",
+      "result": "108 passed, 4 skipped"
+    },
+    {
+      "gate": "frontend_e2e_fixture",
+      "source_candidate": "r13o",
+      "receipt": "../../r13o/frontend-e2e-fixture-closure.log",
+      "receipt_sha256": "61fd31dafe1775815c6914c6351051743422371f86d9c9a913c1f7bbe8047ae9",
+      "result": "2 passed"
+    },
+    {
+      "gate": "frontend_e2e_scripted_provider",
+      "source_candidate": "r13o",
+      "receipt": "../../r13o/frontend-e2e-scripted-provider.log",
+      "receipt_sha256": "7af7e993393c7580aebd09d2daaf1333c6d38a7c2feb9b434bd3fb5b7f9594fd",
+      "result": "8 passed"
+    }
+  ],
+  "freshly_executed_in_r13x": [
+    "affected formal-release selector",
+    "P0-D PostgreSQL opt-in selector",
+    "architecture selector with manifest-verified patched consumer-gate kit"
+  ],
+  "limitations": [
+    "Reused receipts remain attributed to their source candidates and environments; they are not relabeled as fresh r13x runs.",
+    "No evidence outside the listed byte-identical inputs is reused by this map."
+  ]
+}

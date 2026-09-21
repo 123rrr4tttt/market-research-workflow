@@ -9,7 +9,9 @@ import importlib
 import inspect
 import json
 import os
-from typing import Any
+from typing import Annotated, Any
+
+from functorial_kit import Failure
 
 from app.services.agent_runtime.capability_registry import list_interactive_agent_capabilities
 from app.services.agent_runtime.control_tools import AgentControlToolRuntime
@@ -45,6 +47,7 @@ from app.services.writing import (
     upsert_citations,
 )
 from app.settings.config import settings
+from mrw_functorial_kit.core.agent_service_semantics import agent_runtime_failures
 
 from .contracts import AgentCoreRequest, CoreEvent, CoreToolCall, CoreToolResult, CoreToolSpec
 from .registry import CoreToolRegistry
@@ -74,6 +77,7 @@ def register_agent_core_mcp_tool(
 
     normalized_tool_name = str(tool_name or "").strip()
     if not normalized_tool_name:
+        # kit:boundary owner=project_tools.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w02_programmer_defect_boundary
         raise ValueError("tool_name is required")
     _MOUNTED_MCP_TOOLS[normalized_tool_name] = (
         {
@@ -99,7 +103,11 @@ def build_project_core_tool_registry(
     service: AgentSessionService,
     source_library_lister: SourceLibraryLister | None = None,
     structured_data_searcher: StructuredDataSearcher | None = None,
-) -> CoreToolRegistry:
+) -> Annotated[
+    CoreToolRegistry,
+    "kit:non-authoritative derived_as=view fact_source=project_core_tool_specs "
+    "witness=test:test_w02_agent_authority_metadata"
+]:
     """Project tool projection for the model-owned core.
 
     Existing agent_runtime tools are adapted into CoreToolSpec/CoreToolResult so
@@ -778,7 +786,11 @@ def _agent_long_task_stage_update_handler(
         emit: Callable[[CoreEvent], None],
     ) -> CoreToolResult:
         stage = _normalize_long_task_stage(tool_call.arguments.get("stage"))
+        if isinstance(stage, Failure):
+            return _runtime_failure_result(tool_call, stage)
         stage_status = _normalize_long_task_stage_status(tool_call.arguments.get("stage_status"))
+        if isinstance(stage_status, Failure):
+            return _runtime_failure_result(tool_call, stage_status)
         project_key = _resolve_project_key(tool_call, request) or str(request.project_key or "").strip() or None
         artifact_name = str(tool_call.arguments.get("artifact_name") or "agent_long_task.state.json").strip() or "agent_long_task.state.json"
         task_id = str(tool_call.arguments.get("task_id") or "").strip() or None
@@ -4231,6 +4243,8 @@ def _writing_document_insert_paragraph_handler() -> Callable[[CoreToolCall, Core
                     range_end=_safe_nonnegative_int(tool_call.arguments.get("range_end")),
                     cursor_offset=_safe_nonnegative_int(tool_call.arguments.get("cursor_offset")),
                 )
+                if isinstance(new_body, Failure):
+                    return _runtime_failure_result(tool_call, new_body)
                 if len(new_body) > 50000:
                     return CoreToolResult(
                         call_id=tool_call.call_id,
@@ -4622,6 +4636,31 @@ def _missing_project_result(tool_call: CoreToolCall) -> CoreToolResult:
     )
 
 
+def _runtime_failure_result(tool_call: CoreToolCall, failure: Failure) -> CoreToolResult:
+    """Project-tool error projection for the closed agent runtime family."""
+
+    legacy_code = "invalid_writing_operation" if failure.code.startswith("writing_") else failure.code
+    failure_payload = {
+        "family": failure.family,
+        "code": failure.code,
+        "message": failure.message,
+        "context": dict(failure.context or {}),
+    }
+    return CoreToolResult(
+        call_id=tool_call.call_id,
+        tool_name=tool_call.tool_name,
+        status="failed",
+        model_summary=failure.message,
+        error={
+            "code": legacy_code,
+            "message": failure.message,
+            "failure_family": failure.family,
+            "failure_code": failure.code,
+            "failure": failure_payload,
+        },
+    )
+
+
 def _stable_hash(value: Any) -> str:
     payload = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:24]
@@ -4681,17 +4720,25 @@ def _compact_task(task: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _normalize_long_task_stage(value: Any) -> str:
+def _normalize_long_task_stage(value: Any) -> str | Failure:
     stage = str(value or "").strip().lower()
     if stage not in _LONG_TASK_STAGE_ORDER:
-        raise ValueError(f"unsupported long-task stage: {stage or value}")
+        return agent_runtime_failures.fail(
+            "long_task_stage_invalid",
+            f"unsupported long-task stage: {stage or value}",
+            {"value": value},
+        )
     return stage
 
 
-def _normalize_long_task_stage_status(value: Any) -> str:
+def _normalize_long_task_stage_status(value: Any) -> str | Failure:
     status = str(value or "in_progress").strip().lower() or "in_progress"
     if status not in _LONG_TASK_STAGE_STATUSES:
-        raise ValueError(f"unsupported long-task stage status: {status}")
+        return agent_runtime_failures.fail(
+            "long_task_stage_status_invalid",
+            f"unsupported long-task stage status: {status}",
+            {"value": value},
+        )
     return status
 
 
@@ -5592,7 +5639,7 @@ def _apply_writing_body_operation(
     range_start: int | None = None,
     range_end: int | None = None,
     cursor_offset: int | None = None,
-) -> str:
+) -> str | Failure:
     operation = str(operation or "append").strip()
     content = str(content_md or "").strip()
     body = str(body_md or "")
@@ -5602,7 +5649,11 @@ def _apply_writing_body_operation(
         return _join_markdown_blocks(content, body)
     if operation == "after_heading":
         if not anchor_heading:
-            raise ValueError("anchor_heading is required for after_heading")
+            return agent_runtime_failures.fail(
+                "writing_anchor_required",
+                "anchor_heading is required for after_heading",
+                {"operation": operation, "anchor": "heading"},
+            )
         lines = body.splitlines()
         for index, line in enumerate(lines):
             if _heading_matches(line, anchor_heading):
@@ -5611,49 +5662,106 @@ def _apply_writing_body_operation(
                     insert_at += 1
                 updated = lines[:insert_at] + ["", content, ""] + lines[insert_at:]
                 return "\n".join(updated).strip() + "\n"
-        raise ValueError(f"anchor heading not found: {anchor_heading}")
+        return agent_runtime_failures.fail(
+            "writing_anchor_not_found",
+            f"anchor heading not found: {anchor_heading}",
+            {"operation": operation, "anchor": "heading", "value": anchor_heading},
+        )
     if operation == "replace_text":
         if not anchor_text:
-            raise ValueError("anchor_text is required for replace_text")
+            return agent_runtime_failures.fail(
+                "writing_anchor_required",
+                "anchor_text is required for replace_text",
+                {"operation": operation, "anchor": "text"},
+            )
         if anchor_text not in body:
-            raise ValueError("anchor_text was not found in the document")
+            return agent_runtime_failures.fail(
+                "writing_anchor_not_found",
+                "anchor_text was not found in the document",
+                {"operation": operation, "anchor": "text"},
+            )
         return body.replace(anchor_text, content, 1)
     if operation == "replace_range":
         if range_start is None or range_end is None:
-            raise ValueError("range_start and range_end are required for replace_range")
-        _validate_body_range(body, range_start, range_end)
+            return agent_runtime_failures.fail(
+                "writing_range_invalid",
+                "range_start and range_end are required for replace_range",
+                {"operation": operation},
+            )
+        range_failure = _validate_body_range(body, range_start, range_end)
+        if isinstance(range_failure, Failure):
+            return range_failure
         return _splice_markdown_range(body, range_start, range_end, content)
     if operation == "insert_at_offset":
         if cursor_offset is None:
-            raise ValueError("cursor_offset is required for insert_at_offset")
-        _validate_body_range(body, cursor_offset, cursor_offset)
+            return agent_runtime_failures.fail(
+                "writing_cursor_offset_required",
+                "cursor_offset is required for insert_at_offset",
+                {"operation": operation},
+            )
+        range_failure = _validate_body_range(body, cursor_offset, cursor_offset)
+        if isinstance(range_failure, Failure):
+            return range_failure
         return _splice_markdown_range(body, cursor_offset, cursor_offset, content)
     if operation == "insert_after_text":
         if not anchor_text:
-            raise ValueError("anchor_text is required for insert_after_text")
+            return agent_runtime_failures.fail(
+                "writing_anchor_required",
+                "anchor_text is required for insert_after_text",
+                {"operation": operation, "anchor": "text"},
+            )
         index = body.find(anchor_text)
         if index < 0:
-            raise ValueError("anchor_text was not found in the document")
+            return agent_runtime_failures.fail(
+                "writing_anchor_not_found",
+                "anchor_text was not found in the document",
+                {"operation": operation, "anchor": "text"},
+            )
         insert_at = index + len(anchor_text)
         return _join_markdown_blocks(body[:insert_at], _join_markdown_blocks(content, body[insert_at:]))
     if operation == "insert_before_text":
         if not anchor_text:
-            raise ValueError("anchor_text is required for insert_before_text")
+            return agent_runtime_failures.fail(
+                "writing_anchor_required",
+                "anchor_text is required for insert_before_text",
+                {"operation": operation, "anchor": "text"},
+            )
         index = body.find(anchor_text)
         if index < 0:
-            raise ValueError("anchor_text was not found in the document")
+            return agent_runtime_failures.fail(
+                "writing_anchor_not_found",
+                "anchor_text was not found in the document",
+                {"operation": operation, "anchor": "text"},
+            )
         return _join_markdown_blocks(_join_markdown_blocks(body[:index], content), body[index:])
-    raise ValueError(f"unsupported writing operation: {operation}")
+    return agent_runtime_failures.fail(
+        "writing_operation_unsupported",
+        f"unsupported writing operation: {operation}",
+        {"operation": operation},
+    )
 
 
-def _validate_body_range(body: str, start: int, end: int) -> None:
+def _validate_body_range(body: str, start: int, end: int) -> Failure | None:
     if start < 0 or end < 0:
-        raise ValueError("range offsets must be >= 0")
+        return agent_runtime_failures.fail(
+            "writing_range_invalid",
+            "range offsets must be >= 0",
+            {"start": start, "end": end},
+        )
     if start > end:
-        raise ValueError("range_start must be <= range_end")
+        return agent_runtime_failures.fail(
+            "writing_range_invalid",
+            "range_start must be <= range_end",
+            {"start": start, "end": end},
+        )
     body_len = len(str(body or ""))
     if end > body_len:
-        raise ValueError("range_end is outside the document")
+        return agent_runtime_failures.fail(
+            "writing_range_invalid",
+            "range_end is outside the document",
+            {"start": start, "end": end, "body_length": body_len},
+        )
+    return None
 
 
 def _splice_markdown_range(body: str, start: int, end: int, content: str) -> str:

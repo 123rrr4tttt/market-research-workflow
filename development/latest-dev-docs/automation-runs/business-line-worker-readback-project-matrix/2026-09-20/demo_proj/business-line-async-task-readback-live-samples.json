@@ -1,0 +1,231 @@
+{
+  "api_base": "http://127.0.0.1:8000",
+  "expected_line_keys": [
+    "ingest",
+    "search_discovery_index",
+    "resource_source_library",
+    "projects_config_workflow",
+    "dashboard_admin_governance",
+    "writing_knowledge_graph_agent",
+    "runtime_ops"
+  ],
+  "lines": [
+    {
+      "attempts": [
+        {
+          "error": null,
+          "http_status": 200,
+          "readback_endpoint": "/api/v1/process/db-job-167?project_key=demo_proj&project_key=demo_proj"
+        }
+      ],
+      "http_status": 200,
+      "line_key": "ingest",
+      "readback_endpoint": "/api/v1/process/db-job-167?project_key=demo_proj&project_key=demo_proj",
+      "reason": "live_readback_trace_mismatch",
+      "requires_worker_readback": true,
+      "sample_count": 0,
+      "status": "failed"
+    },
+    {
+      "attempts": [
+        {
+          "error": null,
+          "http_status": 200,
+          "readback_endpoint": "/api/v1/process/db-job-168?project_key=demo_proj&project_key=demo_proj"
+        }
+      ],
+      "http_status": 200,
+      "line_key": "search_discovery_index",
+      "readback_endpoint": "/api/v1/process/db-job-168?project_key=demo_proj&project_key=demo_proj",
+      "reason": "live_readback_trace_mismatch",
+      "requires_worker_readback": true,
+      "sample_count": 0,
+      "status": "failed"
+    },
+    {
+      "attempts": [
+        {
+          "error": null,
+          "http_status": 200,
+          "readback_endpoint": "/api/v1/process/db-job-171?project_key=demo_proj&project_key=demo_proj"
+        }
+      ],
+      "http_status": 200,
+      "line_key": "resource_source_library",
+      "readback_endpoint": "/api/v1/process/db-job-171?project_key=demo_proj&project_key=demo_proj",
+      "reason": "live_readback_trace_mismatch",
+      "requires_worker_readback": true,
+      "sample_count": 0,
+      "status": "failed"
+    },
+    {
+      "attempts": [
+        {
+          "error": null,
+          "http_status": 200,
+          "readback_endpoint": "/api/v1/process/history?entity=project_config"
+        }
+      ],
+      "http_status": 200,
+      "line_key": "projects_config_workflow",
+      "readback_endpoint": "/api/v1/process/history?entity=project_config",
+      "reason": "live_readback_sample_generated",
+      "requires_worker_readback": false,
+      "sample_count": 1,
+      "status": "passed"
+    },
+    {
+      "attempts": [
+        {
+          "error": null,
+          "http_status": 200,
+          "readback_endpoint": "/api/v1/dashboard/stats"
+        }
+      ],
+      "http_status": 200,
+      "line_key": "dashboard_admin_governance",
+      "readback_endpoint": "/api/v1/dashboard/stats",
+      "reason": "live_readback_sample_generated",
+      "requires_worker_readback": false,
+      "sample_count": 1,
+      "status": "passed"
+    },
+    {
+      "attempts": [
+        {
+          "error": null,
+          "http_status": 200,
+          "readback_endpoint": "/api/v1/process/db-job-169?project_key=demo_proj"
+        }
+      ],
+      "http_status": 200,
+      "line_key": "writing_knowledge_graph_agent",
+      "readback_endpoint": "/api/v1/process/db-job-169?project_key=demo_proj",
+      "reason": "live_readback_trace_mismatch",
+      "requires_worker_readback": true,
+      "sample_count": 0,
+      "status": "failed"
+    },
+    {
+      "attempts": [
+        {
+          "error": null,
+          "http_status": 200,
+          "readback_endpoint": "/api/v1/process/stats"
+        }
+      ],
+      "http_status": 200,
+      "line_key": "runtime_ops",
+      "readback_endpoint": "/api/v1/process/stats",
+      "reason": "live_readback_sample_generated",
+      "requires_worker_readback": false,
+      "sample_count": 1,
+      "status": "passed"
+    }
+  ],
+  "matrix": {
+    "contract_version": "business_line.evidence_matrix.v1",
+    "http_status": 200,
+    "observed_line_count": 7,
+    "reason": "evidence_matrix_reachable",
+    "status": "passed"
+  },
+  "matrix_anomalies": {
+    "duplicate_line_keys": [],
+    "invalid_line_keys": [],
+    "missing_line_keys": [],
+    "unexpected_line_keys": []
+  },
+  "matrix_path": "/api/v1/business-lines/evidence-matrix?project_key=demo_proj",
+  "observed_at": "2026-09-20T08:45:40Z",
+  "project_key": "demo_proj",
+  "recommended_command": "python3 scripts/run_business_line_async_task_readback_live_samples.py --api-base http://127.0.0.1:8000 --output /Users/wangyiliang/market-research-workflow/development/latest-dev-docs/automation-runs/business-line-worker-readback-project-matrix/2026-09-20/demo_proj/business-line-async-task-readback-live-samples.json --allow-blocked --json --task-readback-manifest /Users/wangyiliang/market-research-workflow/development/latest-dev-docs/automation-runs/business-line-worker-readback-project-matrix/2026-09-20/demo_proj/business-line-task-readback-manifest-candidate.json --project-key demo_proj",
+  "samples": [
+    {
+      "events": [
+        "readback_probe_started",
+        "readback_probe_completed",
+        "applied"
+      ],
+      "http_status": 200,
+      "line_key": "projects_config_workflow",
+      "mocked": false,
+      "readback_endpoint": "/api/v1/process/history?entity=project_config",
+      "run_id": "live-readback-projects_config_workflow",
+      "skipped": false,
+      "status": "applied",
+      "trace_id": "4f045abb-a8a7-4663-aaa4-c97f15e3f189"
+    },
+    {
+      "events": [
+        "readback_probe_started",
+        "readback_probe_completed",
+        "available"
+      ],
+      "http_status": 200,
+      "line_key": "dashboard_admin_governance",
+      "mocked": false,
+      "readback_endpoint": "/api/v1/dashboard/stats",
+      "run_id": "live-readback-dashboard_admin_governance",
+      "skipped": false,
+      "status": "available",
+      "trace_id": "5b19206c-6cf7-406d-a563-b029f746eeeb"
+    },
+    {
+      "events": [
+        "readback_probe_started",
+        "readback_probe_completed",
+        "healthy"
+      ],
+      "http_status": 200,
+      "line_key": "runtime_ops",
+      "mocked": false,
+      "readback_endpoint": "/api/v1/process/stats",
+      "run_id": "live-readback-runtime_ops",
+      "skipped": false,
+      "status": "healthy",
+      "trace_id": "593a1bb2-cc93-40bf-81b7-68651a4a8f1f"
+    }
+  ],
+  "schema_version": "business_line_async_task_readback_live_samples.v1",
+  "status": "failed",
+  "summary": {
+    "blocked_line_keys": [],
+    "failed_line_keys": [
+      "ingest",
+      "search_discovery_index",
+      "resource_source_library",
+      "writing_knowledge_graph_agent"
+    ],
+    "passed_line_keys": [
+      "projects_config_workflow",
+      "dashboard_admin_governance",
+      "runtime_ops"
+    ],
+    "sample_line_keys": [
+      "projects_config_workflow",
+      "dashboard_admin_governance",
+      "runtime_ops"
+    ]
+  },
+  "task_readback_manifest": {
+    "duplicate_line_keys": [],
+    "error": null,
+    "line_keys": [
+      "ingest",
+      "resource_source_library",
+      "search_discovery_index",
+      "writing_knowledge_graph_agent"
+    ],
+    "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/automation-runs/business-line-worker-readback-project-matrix/2026-09-20/demo_proj/business-line-task-readback-manifest-candidate.json",
+    "reason": null,
+    "status": "passed",
+    "unexpected_line_keys": [],
+    "worker_required_line_keys": [
+      "ingest",
+      "resource_source_library",
+      "search_discovery_index",
+      "writing_knowledge_graph_agent"
+    ]
+  }
+}

@@ -2,20 +2,12 @@ from typing import Any, Optional, Dict
 from types import SimpleNamespace
 
 from . import cache  # noqa: F401  # ensure cache setup on import
-from .adapters import LangChainProviderAdapter
-from .ports import ChatModelOptions
+from .ports import ChatModelOptions, resolve_llm_provider
 from ...settings.config import settings
 
-# Lazy imports used by the LiteLLM (OpenAI-compatible) path
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
-
-# Provider adapter selection:
-# - If llm_provider == 'litellm', use inline LiteLLM (OpenAI-compatible) branch.
-# - Otherwise, keep using LangChainProviderAdapter for openai/azure/ollama.
-_PROVIDER_ADAPTER = (
-    None if (settings.llm_provider or "").lower() == "litellm" else LangChainProviderAdapter()
-)
+def _provider() -> Any:
+    return resolve_llm_provider(settings.llm_provider or "")
 
 
 def get_chat_model(
@@ -27,40 +19,7 @@ def get_chat_model(
     frequency_penalty: Optional[float] = None,
     **kwargs: Any,
 ):
-    """获取聊天模型；当 provider 为 'litellm' 时静态绑定到 OpenAI 兼容端点。
-
-    - litellm: 直接返回 `langchain_openai.ChatOpenAI`，使用
-      `base_url=settings.litellm_api_base`、`api_key=settings.litellm_api_key or ''`。
-    - 其他(openai/azure/ollama): 透传到 `LangChainProviderAdapter` 以保持最小改动。
-    """
-    provider = (settings.llm_provider or "").lower()
-
-    # Build common model params
-    default_temperature = 0.2 if temperature is None else temperature
-    model_params: Dict[str, Any] = {"temperature": default_temperature}
-    if max_tokens is not None:
-        model_params["max_tokens"] = max_tokens
-    if top_p is not None:
-        model_params["top_p"] = top_p
-    if presence_penalty is not None:
-        model_params["presence_penalty"] = presence_penalty
-    if frequency_penalty is not None:
-        model_params["frequency_penalty"] = frequency_penalty
-    if kwargs:
-        model_params.update(kwargs)
-
-    if provider == "litellm":
-        # Use OpenAI-compatible endpoint served by LiteLLM
-        base_url = getattr(settings, "litellm_api_base", None)
-        api_key = getattr(settings, "litellm_api_key", "") or ""
-        return ChatOpenAI(
-            model=model or "gpt-4o-mini",
-            base_url=base_url or None,
-            api_key=api_key,
-            **model_params,
-        )
-
-    # Fallback to existing adapter paths (openai/azure/ollama)
+    """按 composition 注册的 provider port 解析聊天模型。"""
     options = ChatModelOptions(
         model=model,
         temperature=temperature,
@@ -70,22 +29,11 @@ def get_chat_model(
         frequency_penalty=frequency_penalty,
         extra=kwargs or {},
     )
-    # _PROVIDER_ADAPTER is guaranteed non-None on non-litellm providers
-    return _PROVIDER_ADAPTER.get_chat_model(options)  # type: ignore[union-attr]
+    return _provider().get_chat_model(options)
 
 
 def get_embeddings(model: Optional[str] = None):
-    provider = (settings.llm_provider or "").lower()
-    if provider == "litellm":
-        base_url = getattr(settings, "litellm_api_base", None)
-        api_key = getattr(settings, "litellm_api_key", "") or ""
-        return OpenAIEmbeddings(
-            model=model or settings.embedding_model,
-            base_url=base_url or None,
-            api_key=api_key,
-        )
-    # Other providers via adapter
-    return _PROVIDER_ADAPTER.get_embeddings(model=model)  # type: ignore[union-attr]
+    return _provider().get_embeddings(model=model)
 
 
 def get_local_fallback_chat(
@@ -99,25 +47,13 @@ def get_local_fallback_chat(
     - 具备 `.with_retry() -> self`
     - 不参与 chains 组合，业务可直接按需调用
     """
-    provider = (settings.llm_provider or "").lower()
-
-    if provider == "litellm":
-        base_url = getattr(settings, "litellm_api_base", None)
-        api_key = getattr(settings, "litellm_api_key", "") or ""
-        inner = ChatOpenAI(
-            model=model or "gpt-4o-mini",
-            base_url=base_url or None,
-            api_key=api_key,
-            temperature=temperature,
-            **kwargs,
-        )
-    else:
-        options = ChatModelOptions(
+    inner = _provider().get_chat_model(
+        ChatModelOptions(
             model=model,
             temperature=temperature,
             extra=kwargs or {},
         )
-        inner = _PROVIDER_ADAPTER.get_chat_model(options)  # type: ignore[union-attr]
+    )
 
     class _LightChat:
         def __init__(self, chat: Any):
@@ -137,4 +73,3 @@ def get_local_fallback_chat(
             return SimpleNamespace(content=content)
 
     return _LightChat(inner)
-

@@ -1,0 +1,1 @@
+{"status":"ok","data":{"codex_oauth_enabled":true,"codex_cli_installed":false,"authenticated":false,"token_sink_authenticated":false,"device_auth_pending":false,"persistent_core":{"mounted":false,"idle_ttl_seconds":300},"session":null},"error":null,"meta":{"trace_id":"d7bee3d2-c480-4df3-b6f1-abee4f86b4fa","pagination":null,"project_key":"local_demo_20260921","deprecated":null}}

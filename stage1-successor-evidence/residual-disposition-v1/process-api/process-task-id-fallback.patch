@@ -1,0 +1,8 @@
+--- a/main/backend/app/api/process.py
++++ b/main/backend/app/api/process.py
+@@
+-    task_id = _first_runtime_value(_runtime_task_id_from_payload(params, result_payload, progress_payload))
++    task_id = _first_runtime_value(
++        _runtime_task_id_from_payload(params, result_payload, progress_payload),
++        f"{_DB_JOB_PREFIX}{job.id}" if job.id is not None else None,
++    )

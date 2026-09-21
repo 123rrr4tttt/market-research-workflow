@@ -1,0 +1,14 @@
+{
+  "authoritative": false,
+  "name": "main",
+  "commit_sha": "88ffcc3dab2e6cbdc1f389e16c4226df5a2e51c6",
+  "protected": false,
+  "protection": {
+    "enabled": false,
+    "required_status_checks": {
+      "checks": [],
+      "contexts": [],
+      "enforcement_level": "off"
+    }
+  }
+}

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 from datetime import datetime, timezone
-from typing import Any
+from typing import Annotated, Any
 
 from ...contracts.schemas.writing import KeywordCardItem
 from ..typed_knowledge.contracts import (
@@ -37,7 +37,12 @@ def build_keyword_card(
     evidence: str | None,
     normalized_query: str,
     extra: dict[str, Any] | None = None,
-) -> KeywordCardItem:
+) -> Annotated[
+    KeywordCardItem,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=keyword_card_inputs+system_clock "
+    "witness=test:test_w04_authority_metadata",
+]:
     return KeywordCardItem(
         card_id=make_card_id(source_type, title, url, normalized_query),
         source_type=source_type,
@@ -56,7 +61,16 @@ def build_keyword_card(
     )
 
 
-def build_keyword_card_from_hybrid_row(row: dict[str, Any], *, normalized_query: str) -> KeywordCardItem:
+def build_keyword_card_from_hybrid_row(
+    row: dict[str, Any],
+    *,
+    normalized_query: str,
+) -> Annotated[
+    KeywordCardItem,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=hybrid_search_row "
+    "witness=test:test_w04_authority_metadata",
+]:
     title = str(row.get("title") or row.get("document_title") or row.get("id") or "Document").strip()
     snippet = str(row.get("snippet") or row.get("summary") or row.get("content") or "").strip()
     score = float(row.get("score") or row.get("_score") or 0.6)
@@ -77,7 +91,16 @@ def build_keyword_card_from_hybrid_row(row: dict[str, Any], *, normalized_query:
     )
 
 
-def build_keyword_card_from_source_row(row: dict[str, Any], *, normalized_query: str) -> KeywordCardItem:
+def build_keyword_card_from_source_row(
+    row: dict[str, Any],
+    *,
+    normalized_query: str,
+) -> Annotated[
+    KeywordCardItem,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=source_row "
+    "witness=test:test_w04_authority_metadata",
+]:
     publisher = str(row.get("publisher") or "").strip() or None
     source_type = "graph" if publisher and publisher.startswith("graph:") else "resource"
     score = 0.72 if source_type == "graph" else 0.65
@@ -95,7 +118,16 @@ def build_keyword_card_from_source_row(row: dict[str, Any], *, normalized_query:
     )
 
 
-def build_keyword_card_from_material_item(item: dict[str, Any], *, normalized_query: str) -> KeywordCardItem:
+def build_keyword_card_from_material_item(
+    item: dict[str, Any],
+    *,
+    normalized_query: str,
+) -> Annotated[
+    KeywordCardItem,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=material_item "
+    "witness=test:test_w04_authority_metadata",
+]:
     title = str(item.get("name") or item.get("item_key") or "Material").strip()
     return build_keyword_card(
         source_type="resource",
@@ -116,7 +148,12 @@ def build_keyword_card_from_graph_node(
     *,
     normalized_query: str,
     graph_context: dict[str, Any],
-) -> KeywordCardItem:
+) -> Annotated[
+    KeywordCardItem,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=graph_node+graph_context "
+    "witness=test:test_w04_authority_metadata",
+]:
     node_id = str(node.get("node_id") or "").strip()
     title = str(node.get("title") or node.get("label") or node_id or "Graph Node").strip()
     evidence = str(node.get("summary") or node.get("evidence") or "").strip()
@@ -145,7 +182,12 @@ def build_keyword_card_from_typed_knowledge_handoff(
     handoff: WritingKnowledgeHandoff,
     *,
     normalized_query: str,
-) -> KeywordCardItem:
+) -> Annotated[
+    KeywordCardItem,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=validated_writing_knowledge_handoff "
+    "witness=test:test_w04_authority_metadata",
+]:
     validate_writing_knowledge_handoff(handoff)
     handoff_payload = serialize_writing_knowledge_handoff(handoff)
     typed_knowledge_uri = f"typed-knowledge://{handoff.knowledge_item_key}"

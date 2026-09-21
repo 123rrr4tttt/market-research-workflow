@@ -1,0 +1,7 @@
+{
+  "json_file_count": 117,
+  "json_parse_errors": [],
+  "sha256sums_check_exit": 0,
+  "status": "PASS",
+  "verification_scope": "All JSON evidence parsed and every member listed in SHA256SUMS matched before this compact verification record was added; SHA256SUMS was then regenerated to include this record."
+}

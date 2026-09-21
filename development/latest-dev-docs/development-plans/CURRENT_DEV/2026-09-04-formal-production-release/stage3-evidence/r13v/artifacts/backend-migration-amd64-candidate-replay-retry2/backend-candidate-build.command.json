@@ -1,0 +1,28 @@
+{
+  "argv": [
+    "docker",
+    "buildx",
+    "build",
+    "--builder",
+    "mrw-r13v-amd64-candidate-16010-1789211064",
+    "--progress",
+    "plain",
+    "--no-cache",
+    "--platform",
+    "linux/amd64",
+    "--provenance=true",
+    "--sbom=true",
+    "--build-arg",
+    "SOURCE_DATE_EPOCH=0",
+    "--file",
+    "main/backend/Dockerfile",
+    "--target",
+    "backend-runtime",
+    "--metadata-file",
+    "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13v/artifacts/backend-migration-amd64-candidate-replay-retry2/candidate/backend.build-metadata.json",
+    "--output",
+    "type=oci,dest=/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13v/artifacts/backend-migration-amd64-candidate-replay-retry2/candidate/backend.oci.tar,rewrite-timestamp=true",
+    "."
+  ],
+  "cwd": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260912-v4-r13v/candidate"
+}

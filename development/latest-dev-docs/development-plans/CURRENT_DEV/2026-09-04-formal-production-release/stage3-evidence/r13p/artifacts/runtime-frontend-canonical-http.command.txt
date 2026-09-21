@@ -1,0 +1,1 @@
+curl -fsS -D runtime-frontend-canonical-headers.txt -o runtime-frontend-canonical-body.html http://127.0.0.1:<ephemeral>/

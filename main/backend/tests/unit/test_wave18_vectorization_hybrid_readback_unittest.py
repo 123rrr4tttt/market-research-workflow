@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import importlib.util
-from pathlib import Path
+import tempfile
 import unittest
+from pathlib import Path
 
 import pytest
+
+from tests.unit._evidence_source_assertions import assert_typed_evidence_unavailable
 
 
 pytestmark = pytest.mark.unit
@@ -27,13 +30,43 @@ def _load_wave18_readback_module():
 
 
 class Wave18VectorizationHybridReadbackTest(unittest.TestCase):
+    def test_explicit_prerequisite_paths_are_available_to_build_and_cli(self) -> None:
+        module = _load_wave18_readback_module()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            paths = {name: tmp / f"{name}.json" for name in ("wave8", "wave10", "wave12", "wave14")}
+            contract = module.build_contract(
+                wave8_path=paths["wave8"],
+                wave10_path=paths["wave10"],
+                wave12_path=paths["wave12"],
+                wave14_path=paths["wave14"],
+            )
+            args = module._parse_args(
+                [
+                    "--wave8-contract",
+                    str(paths["wave8"]),
+                    "--wave10-contract",
+                    str(paths["wave10"]),
+                    "--wave12-provider-readiness",
+                    str(paths["wave12"]),
+                    "--wave14-provider-capability",
+                    str(paths["wave14"]),
+                ]
+            )
+
+        for name, path in paths.items():
+            self.assertEqual(contract["inputs"][name]["path"], str(path))
+        self.assertEqual(args.wave8_contract, str(paths["wave8"]))
+        self.assertEqual(args.wave10_contract, str(paths["wave10"]))
+        self.assertEqual(args.wave12_provider_readiness, str(paths["wave12"]))
+        self.assertEqual(args.wave14_provider_capability, str(paths["wave14"]))
+
     def test_checker_proves_mode_identity_quality_trace_and_readback_without_live_closure(self) -> None:
         module = _load_wave18_readback_module()
         contract = module.build_contract()
 
         self.assertEqual(contract["contract_version"], "wave18-vectorization-hybrid-readback.v1")
-        self.assertEqual(contract["status"], "passed")
-        self.assertEqual(contract["failures"], [])
+        assert_typed_evidence_unavailable(self, contract)
         self.assertFalse(contract["closure_claim_allowed"])
         self.assertFalse(contract["provider_live_closure_claim_allowed"])
         self.assertFalse(contract["semantic_quality_claim_allowed"])

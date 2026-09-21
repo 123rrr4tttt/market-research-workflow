@@ -1,0 +1,33 @@
+{
+  "artifacts": {
+    "binding-impact-audit.corrected.v2.json": "88bf181ad9d3de4ddac07c613222fb126ebfb22db6d56c161b6fd504ca707c19",
+    "binding-impact-receipt.corrected.v2.md": "0fd80c57e673c3850c721c7cd396b4ebaa4d2fb26bd19f3717100b8afdf7dee2",
+    "generate_binding_impact_audit_corrected.py": "430050a968b8449abe67e20157708268c52036b966987a938db3c9ce70cb614b"
+  },
+  "authoritative": false,
+  "checks": {
+    "binding_artifact_json_parse": "62/62 PASS",
+    "binding_reference_path_membership": "PASS",
+    "changed_paths_sha256": "PASS",
+    "changed_paths_total_105": "PASS",
+    "changed_paths_unique": "PASS",
+    "code_contract_checker_subset_covered": "91/91 PASS",
+    "contract_sha256": "PASS",
+    "current_hash_matches_changed_paths_after": "105/105 PASS",
+    "direct_hash_fields_recognized": [
+      "successor_sha256",
+      "file_sha256",
+      "sha256",
+      "byte_hash_sha256",
+      "bytes_sha256",
+      "head_sha256",
+      "predecessor_sha256"
+    ],
+    "head_used_as_before": "0",
+    "import_boundary_paths_covered": "8/8 PASS"
+  },
+  "limits": "BYTE_AND_REFERENCE_VALIDATION_ONLY_NOT_RELEASE_AUTHORITY",
+  "schema_version": "mrw.stage1.contract13.binding-impact-audit.validation.corrected.v2",
+  "status": "PASS",
+  "supersedes": "binding-impact-audit.validation.v2.json"
+}

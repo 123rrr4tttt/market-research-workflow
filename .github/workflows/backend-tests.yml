@@ -3,7 +3,8 @@ name: backend-tests
 on:
   pull_request:
   push:
-    branches: [main]
+    branches:
+      - main
   schedule:
     - cron: "0 9 * * *"
   workflow_dispatch:
@@ -16,15 +17,205 @@ on:
 
 concurrency:
   group: backend-tests-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
+
+permissions:
+  contents: read
 
 env:
+  PYTHONPATH: ${{ github.workspace }}/src
   WORKFLOW_GRAPH_DB_STORE_ENABLED: "false"
   WORKFLOW_GRAPH_DB_STORE_FAIL_CLOSED: "false"
   AGENT_SESSION_DB_STORE_ENABLED: "false"
   AGENT_SESSION_DB_STORE_FAIL_CLOSED: "false"
 
 jobs:
+  formal-release-check:
+    name: formal-release-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run static production contract
+        run: |
+          python3 -m pip install "packaging==25.0"
+          python3 scripts/formal_release/check_static_production_contract.py
+
+  evidence-validation-check:
+    name: evidence-validation-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run release evidence validator contract tests
+        run: |
+          python3 -m pip install pytest
+          python3 -m pytest -q tests/formal_release/test_check_release_evidence.py
+
+  frontend-lint-check:
+    name: frontend-lint-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.22.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: main/frontend-modern/pnpm-lock.yaml
+
+      - name: Install frontend dependencies
+        working-directory: main/frontend-modern
+        run: |
+          pnpm install --frozen-lockfile
+
+      - name: Run ESLint
+        working-directory: main/frontend-modern
+        run: |
+          pnpm lint
+
+  frontend-typecheck-check:
+    name: frontend-typecheck-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.22.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: main/frontend-modern/pnpm-lock.yaml
+
+      - name: Install frontend dependencies
+        working-directory: main/frontend-modern
+        run: |
+          pnpm install --frozen-lockfile
+
+      - name: Run TypeScript project references
+        working-directory: main/frontend-modern
+        run: |
+          pnpm exec tsc -b
+
+  frontend-build-check:
+    name: frontend-build-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.22.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: main/frontend-modern/pnpm-lock.yaml
+
+      - name: Install frontend dependencies
+        working-directory: main/frontend-modern
+        run: |
+          pnpm install --frozen-lockfile
+
+      - name: Run production build
+        working-directory: main/frontend-modern
+        run: |
+          pnpm build
+
+  frontend-component-e2e-check:
+    name: frontend-component-e2e-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.22.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: main/frontend-modern/pnpm-lock.yaml
+
+      - name: Install frontend dependencies
+        working-directory: main/frontend-modern
+        run: |
+          pnpm install --frozen-lockfile
+
+      - name: Build Storybook components
+        working-directory: main/frontend-modern
+        run: |
+          pnpm storybook:build
+
+      - name: Install Playwright Chromium
+        working-directory: main/frontend-modern
+        run: |
+          pnpm exec playwright install --with-deps chromium
+
+      - name: Run frontend end-to-end tests
+        working-directory: main/frontend-modern
+        run: |
+          pnpm test:e2e
+
+  migration-single-head-check:
+    name: migration-single-head-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Check Alembic migration graph
+        working-directory: main/backend
+        env:
+          PYTHONPATH: .
+        run: |
+          python3 -m pip install "alembic==1.13.2"
+          heads="$(alembic heads)"
+          echo "$heads"
+          count="$(printf '%s\n' "$heads" | sed '/^[[:space:]]*$/d' | wc -l | tr -d ' ')"
+          if [ "$count" -ne 1 ]; then
+            echo "Expected exactly one Alembic head, found $count" >&2
+            exit 1
+          fi
+          printf '%s\n' "$heads" | grep -q '(head)'
+
   standards-check:
     name: standards-check
     runs-on: ubuntu-latest
@@ -42,8 +233,8 @@ jobs:
         run: |
           python main/backend/scripts/check_api_layer_imports.py
 
-  unit-check:
-    name: unit-check
+  backend-unit-check:
+    name: backend-unit-check
     needs: standards-check
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -65,7 +256,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r main/backend/requirements.txt pytest
+          pip install -r main/backend/requirements.txt "pytest==9.0.3" "pytest-asyncio==1.3.0"
 
       - name: Run pytest (unit, deterministic lane)
         working-directory: main/backend
@@ -111,8 +302,8 @@ jobs:
           path: artifacts/llm-report-must-check/
           if-no-files-found: error
 
-  integration-check:
-    name: integration-check
+  backend-integration-check:
+    name: backend-integration-check
     needs: standards-check
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -521,6 +712,14 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Check out fixed functorial-kit source
+        uses: actions/checkout@v4
+        with:
+          repository: 123rrr4tttt/functorial-kit
+          ref: 785ff25e201c9eae84c862e68e786bc975e7a800
+          path: .ci/functorial-kit-source
+          persist-credentials: false
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -528,18 +727,56 @@ jobs:
           cache: pip
           cache-dependency-path: main/backend/requirements.txt
 
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.22.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: main/frontend-modern/pnpm-lock.yaml
+
       - name: Install security tools
         run: |
           python -m pip install --upgrade pip
           pip install -r main/backend/requirements.txt bandit pip-audit
 
+      - name: Classify and scan fixed functorial-kit Git dependency
+        run: |
+          python scripts/formal_release/check_functorial_kit_dependency_audit.py \
+            --requirements main/backend/requirements.txt \
+            --pyproject pyproject.toml \
+            --manifest tools/functorial-kit/consumer-gate.manifest.json \
+            --source-checkout .ci/functorial-kit-source \
+            --public-requirements "${RUNNER_TEMP}/mrw-public-pypi-requirements.txt" \
+            --report "${RUNNER_TEMP}/mrw-functorial-kit-dependency-audit.json"
+
+      - name: Upload fixed Git dependency audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: functorial-kit-dependency-audit
+          path: ${{ runner.temp }}/mrw-functorial-kit-dependency-audit.json
+          if-no-files-found: error
+
+      - name: Install frontend dependencies
+        working-directory: main/frontend-modern
+        run: |
+          pnpm install --frozen-lockfile
+
       - name: Run SAST (Bandit)
         run: |
           bandit -q -r main/backend/app -x main/backend/tests --severity-level high --confidence-level high
 
-      - name: Run dependency vulnerability scan (pip-audit)
+      - name: Run public PyPI dependency vulnerability scan (pip-audit)
         run: |
-          pip-audit -r main/backend/requirements.txt --strict
+          pip-audit -r "${RUNNER_TEMP}/mrw-public-pypi-requirements.txt" --strict
+
+      - name: Run production frontend dependency audit
+        working-directory: main/frontend-modern
+        run: |
+          pnpm audit --prod --audit-level high
 
       - name: Run secret scanning (gitleaks)
         uses: gitleaks/gitleaks-action@v2
@@ -607,8 +844,8 @@ jobs:
         run: |
           pytest -m "e2e and not external" -q
 
-  docker-check:
-    name: docker-check
+  docker-config-check:
+    name: docker-config-check
     needs: standards-check
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -619,6 +856,59 @@ jobs:
       - name: Prepare env
         run: |
           cp main/backend/.env.example main/backend/.env
+
+      - name: Validate production compose configuration
+        env:
+          DB_IMAGE_DIGEST: "registry.example/db@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+          ES_IMAGE_DIGEST: "registry.example/es@sha256:1111111111111111111111111111111111111111111111111111111111111111"
+          REDIS_IMAGE_DIGEST: "registry.example/redis@sha256:2222222222222222222222222222222222222222222222222222222222222222"
+          BACKEND_IMAGE_DIGEST: "registry.example/backend@sha256:3333333333333333333333333333333333333333333333333333333333333333"
+          FRONTEND_IMAGE_DIGEST: "registry.example/frontend@sha256:4444444444444444444444444444444444444444444444444444444444444444"
+          POSTGRES_USER: "synthetic-stage1-user"
+          POSTGRES_PASSWORD: "synthetic-stage1-password"
+          POSTGRES_DB: "synthetic_stage1_db"
+          REDIS_PASSWORD: "synthetic-stage1-password"
+          ELASTIC_PASSWORD: "synthetic-stage1-password"
+          DATABASE_URL: "postgresql+psycopg2://synthetic-stage1-user:synthetic-stage1-password@db:5432/synthetic_stage1_db"
+          ES_URL: "http://elastic:synthetic-stage1-password@es:9200"
+          REDIS_URL: "redis://:synthetic-stage1-password@redis:6379/0"
+          RELEASE_BUILD_COMMIT: "synthetic-stage1-commit"
+          RELEASE_BUILD_TREE: "synthetic-stage1-tree"
+          RELEASE_BUILD_DIGEST: "4444444444444444444444444444444444444444444444444444444444444444"
+          RUN_MIGRATIONS_BACKEND: "false"
+          RUN_MIGRATIONS_WORKER: "false"
+          PRODUCTION_ALLOWED_HOSTS: "api.synthetic-stage1.test"
+          PRODUCTION_ALLOWED_ORIGINS: "https://app.synthetic-stage1.test"
+          PRODUCTION_TRUSTED_ACTOR_SOURCES: "api"
+          PRODUCTION_TRUSTED_AUTH_MODES: "bearer"
+          PRODUCTION_REQUIRE_TLS: "true"
+          PRODUCTION_ALLOWED_METHODS: "GET,POST,PUT,PATCH,DELETE,OPTIONS"
+          PRODUCTION_ALLOWED_CONTENT_TYPES: "application/json,multipart/form-data"
+          PRODUCTION_MAX_BODY_BYTES: "10485760"
+          PRODUCTION_HTTP_RATE_MAX_REQUESTS: "100"
+          PRODUCTION_HTTP_RATE_WINDOW_SECONDS: "60"
+          PRODUCTION_PROVIDER_IDS: "synthetic-stage1-provider"
+          PRODUCTION_PROVIDER_RATE_MAX_REQUESTS: "60"
+          PRODUCTION_PROVIDER_RATE_WINDOW_SECONDS: "60"
+          PRODUCTION_PROVIDER_MAX_PAYLOAD_BYTES: "10485760"
+          PRODUCTION_PROVIDER_CATALOG_BINDING: "synthetic-stage1-provider-catalog"
+          PRODUCTION_RATE_AUTHORITY_BINDING: "synthetic-stage1-rate-authority"
+          PRODUCTION_CANONICAL_WRITER_BINDING: "synthetic-stage1-canonical-writer"
+          PRODUCTION_CANONICAL_WRITER_OWNER: "synthetic-stage1-owner"
+          PRODUCTION_PROJECT_KEYS: "synthetic-stage1-project"
+          PRODUCTION_METRICS_TOKEN: "synthetic-stage1-metrics-token"
+          PRODUCTION_OBSERVABILITY_RUNTIME_ID: "synthetic-stage1-runtime"
+          PRODUCTION_CANARY_ROUTE_ENABLED: "false"
+          PRODUCTION_DOMAIN_REJECTION_TRIGGER_RATIO: "0.05"
+          PRODUCTION_DOMAIN_REJECTION_RECOVER_RATIO: "0.02"
+          PRODUCTION_ROUTE_ERROR_TRIGGER_RATIO: "0.05"
+          PRODUCTION_ROUTE_ERROR_RECOVER_RATIO: "0.02"
+          PRODUCTION_RELEASE_ERROR_TRIGGER_RATIO: "0.05"
+          PRODUCTION_RELEASE_ERROR_RECOVER_RATIO: "0.02"
+          FRONTEND_PUBLIC_PORT: "18080"
+        run: |
+          test -f main/ops/docker-compose.production.yml
+          docker compose -f main/ops/docker-compose.production.yml config --quiet
 
       - name: Run backend tests in docker compose
         run: |
@@ -642,14 +932,13 @@ jobs:
       - name: Teardown
         if: always()
         run: |
-          docker compose -f main/ops/docker-compose.yml down -v
+          docker compose -f main/ops/docker-compose.yml down -v --remove-orphans
 
   contracts-governance-observe:
     name: contracts-governance-observe
     needs: standards-check
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    # Observation-only lane for API contract governance (openapi/contract snapshots)
     continue-on-error: ${{ github.event_name == 'pull_request' }}
 
     steps:
@@ -744,4 +1033,700 @@ jobs:
             sys.exit(1)
 
           print("[contracts-required-check] PASS (non-blocking mode)")
+          PY
+
+  image-vulnerability-scan-check:
+    name: image-vulnerability-scan-check
+    needs: artifact-metadata-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Download canonical artifact evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: immutable-release-metadata
+          path: immutable-release-metadata
+
+      - name: Revalidate persisted vulnerability evidence
+        run: |
+          mkdir -p vulnerability-scan-evidence
+          python3 - <<'PY'
+          import hashlib, json, re, tarfile
+          from pathlib import Path
+          root = Path("immutable-release-metadata")
+          digest_pattern = re.compile(r"sha256:[0-9a-f]{64}")
+
+          def blob(bundle, digest):
+              if not digest_pattern.fullmatch(digest):
+                  raise SystemExit(f"invalid OCI blob digest: {digest}")
+              payload = bundle.extractfile(f"blobs/sha256/{digest.removeprefix('sha256:')}").read()
+              if hashlib.sha256(payload).hexdigest() != digest.removeprefix("sha256:"):
+                  raise SystemExit(f"OCI blob digest mismatch: {digest}")
+              return payload
+
+          index = json.loads((root / "index.json").read_text(encoding="utf-8"))
+          roles = index.get("roles", {})
+          if set(roles) != {"backend", "frontend", "migration-runner"}:
+              raise SystemExit("canonical role index is incomplete")
+          if index.get("authority", {}).get("ceiling") != "PRODUCTION_RELEASE_NOT_AUTHORIZED":
+              raise SystemExit("release authority ceiling is missing")
+          authority = index.get("authority") or {}
+          if authority.get("status") != "UNEXECUTED_AUTHORITY_REQUIRED":
+              raise SystemExit("release authority receipt status is missing")
+          receipt_entry = authority.get("receipt") or {}
+          if receipt_entry.get("path") != "authority-receipt.json":
+              raise SystemExit("release authority receipt path mismatch")
+          receipt_path = root / str(receipt_entry.get("path", ""))
+          receipt_payload = receipt_path.read_bytes()
+          if hashlib.sha256(receipt_payload).hexdigest() != receipt_entry.get("sha256"):
+              raise SystemExit("release authority receipt hash mismatch")
+          receipt = json.loads(receipt_payload)
+          if receipt.get("status") != "UNEXECUTED_AUTHORITY_REQUIRED" or receipt.get("ceiling") != "PRODUCTION_RELEASE_NOT_AUTHORIZED":
+              raise SystemExit("release authority receipt content mismatch")
+          for role, entry in roles.items():
+              digest = entry.get("artifact_digest", "")
+              if not digest_pattern.fullmatch(digest):
+                  raise SystemExit(f"invalid canonical digest for {role}")
+              if entry.get("metadata") != f"{role}/release-metadata.json":
+                  raise SystemExit(f"release metadata path mismatch for {role}")
+              metadata_path = root / entry["metadata"]
+              metadata_payload = metadata_path.read_bytes()
+              if hashlib.sha256(metadata_payload).hexdigest() != entry.get("metadata_sha256"):
+                  raise SystemExit(f"release metadata hash mismatch for {role}")
+              metadata = json.loads(metadata_payload)
+              if metadata.get("oci_archive", {}).get("path") != f"{role}/image.oci.tar":
+                  raise SystemExit(f"OCI archive path mismatch for {role}")
+              archive = root / metadata["oci_archive"]["path"]
+              payload = archive.read_bytes()
+              if hashlib.sha256(payload).hexdigest() != metadata["oci_archive"]["sha256"]:
+                  raise SystemExit(f"OCI archive hash mismatch for {role}")
+              with tarfile.open(archive, "r") as bundle:
+                  archive_index = json.load(bundle.extractfile("index.json"))
+                  roots = archive_index.get("manifests") or []
+                  if len(roots) != 1 or roots[0].get("digest") != metadata.get("oci_index_digest"):
+                      raise SystemExit(f"OCI index digest mismatch for {role}")
+                  oci_index = json.loads(blob(bundle, metadata["oci_index_digest"]))
+                  images = [
+                      descriptor for descriptor in oci_index.get("manifests") or []
+                      if descriptor.get("platform", {}).get("os") == "linux"
+                      and descriptor.get("platform", {}).get("architecture") == "amd64"
+                      and descriptor.get("annotations", {}).get("vnd.docker.reference.type") != "attestation-manifest"
+                  ]
+                  if len(images) != 1 or images[0].get("digest") != digest:
+                      raise SystemExit(f"canonical image manifest digest mismatch for {role}")
+                  manifest = json.loads(blob(bundle, digest))
+                  config = manifest.get("config") or {}
+                  layers = manifest.get("layers") or []
+                  if not layers or not digest_pattern.fullmatch(str(config.get("digest", ""))):
+                      raise SystemExit(f"canonical image manifest content is incomplete for {role}")
+                  config_document = json.loads(blob(bundle, config["digest"]))
+                  if config_document.get("os") != "linux" or config_document.get("architecture") != "amd64":
+                      raise SystemExit(f"canonical image config platform is not linux/amd64 for {role}")
+                  for layer in layers:
+                      blob(bundle, str(layer.get("digest", "")))
+              if metadata.get("artifact_digest") != digest:
+                  raise SystemExit(f"canonical artifact digest mismatch for {role}")
+          print("canonical OCI scan inputs: PASS")
+          PY
+
+      - name: Scan backend canonical OCI artifact
+        run: |
+          docker run --rm -v "$PWD:/work" aquasec/trivy:0.67.2 image \
+            --input /work/immutable-release-metadata/backend/image.oci.tar \
+            --exit-code 1 --severity HIGH,CRITICAL --vuln-type os,library --format json \
+            --output /work/vulnerability-scan-evidence/backend.json
+
+      - name: Scan frontend canonical OCI artifact
+        run: |
+          docker run --rm -v "$PWD:/work" aquasec/trivy:0.67.2 image \
+            --input /work/immutable-release-metadata/frontend/image.oci.tar \
+            --exit-code 1 --severity HIGH,CRITICAL --vuln-type os,library --format json \
+            --output /work/vulnerability-scan-evidence/frontend.json
+
+      - name: Scan migration runner canonical OCI artifact
+        run: |
+          docker run --rm -v "$PWD:/work" aquasec/trivy:0.67.2 image \
+            --input /work/immutable-release-metadata/migration-runner/image.oci.tar \
+            --exit-code 1 --severity HIGH,CRITICAL --vuln-type os,library --format json \
+            --output /work/vulnerability-scan-evidence/migration-runner.json
+
+      - name: Validate and index vulnerability reports
+        run: |
+          python3 - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          root = Path("immutable-release-metadata")
+          output = Path("vulnerability-scan-evidence")
+          index = json.loads((root / "index.json").read_text(encoding="utf-8"))
+          receipts = {}
+          for role, entry in index["roles"].items():
+              report_path = output / f"{role}.json"
+              payload = report_path.read_bytes()
+              report = json.loads(payload)
+              artifact_name = str(report.get("ArtifactName", "")).replace("\\", "/")
+              artifact_type = str(report.get("ArtifactType", ""))
+              results = report.get("Results")
+              expected_suffix = f"immutable-release-metadata/{role}/image.oci.tar"
+              if report.get("SchemaVersion") != 2 or not artifact_name.endswith(expected_suffix) or not artifact_type or not isinstance(results, list) or not results:
+                  raise SystemExit(f"Trivy report identity or schema mismatch for {role}")
+              if any(not isinstance(result, dict) or not str(result.get("Target", "")) for result in results):
+                  raise SystemExit(f"Trivy report results are incomplete for {role}")
+              forbidden = [v for result in results for v in result.get("Vulnerabilities") or [] if str(v.get("Severity", "")).upper() in {"HIGH", "CRITICAL"}]
+              if forbidden:
+                  raise SystemExit(f"HIGH/CRITICAL vulnerabilities persisted for {role}")
+              receipts[role] = {
+                  "canonical_digest": entry["artifact_digest"],
+                  "scanner_artifact_name": artifact_name,
+                  "scanner_artifact_type": artifact_type,
+                  "policy": "HIGH,CRITICAL;exit-code=1",
+                  "report": f"{role}.json",
+                  "report_sha256": hashlib.sha256(payload).hexdigest(),
+                  "status": "PASS",
+              }
+          (output / "index.json").write_text(json.dumps({"schema_version": "mrw.vulnerability-scan-evidence.v1", "roles": receipts}, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          PY
+
+      - name: Upload canonical vulnerability evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: canonical-vulnerability-evidence
+          path: vulnerability-scan-evidence/
+          if-no-files-found: error
+
+  artifact-metadata-check:
+    name: artifact-metadata-check
+    needs:
+      - formal-release-check
+      - backend-unit-check
+      - backend-integration-check
+      - frontend-lint-check
+      - frontend-typecheck-check
+      - frontend-build-check
+      - frontend-component-e2e-check
+      - migration-single-head-check
+      - security-check
+      - docker-config-check
+      - evidence-validation-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare isolated OCI output directories
+        run: |
+          mkdir -p \
+            immutable-release-metadata/backend \
+            immutable-release-metadata/frontend \
+            immutable-release-metadata/migration-runner \
+            rebuild-output
+
+      - name: Set up canonical Docker Buildx builder
+        id: canonical-builder
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver: docker-container
+
+      - name: Build backend runtime release image
+        id: build-backend
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          builder: ${{ steps.canonical-builder.outputs.name }}
+          file: main/backend/Dockerfile
+          target: backend-runtime
+          push: false
+          provenance: true
+          sbom: true
+          no-cache: true
+          platforms: linux/amd64
+          build-args: SOURCE_DATE_EPOCH=0
+          tags: mrw-local/canonical-backend:${{ github.sha }}
+          outputs: type=oci,dest=immutable-release-metadata/backend/image.oci.tar,rewrite-timestamp=true
+
+      - name: Build frontend runtime release image
+        id: build-frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: main/frontend-modern
+          builder: ${{ steps.canonical-builder.outputs.name }}
+          file: main/frontend-modern/Dockerfile
+          target: frontend-runtime
+          push: false
+          provenance: true
+          sbom: true
+          no-cache: true
+          platforms: linux/amd64
+          build-args: SOURCE_DATE_EPOCH=0
+          tags: mrw-local/canonical-frontend:${{ github.sha }}
+          outputs: type=oci,dest=immutable-release-metadata/frontend/image.oci.tar,rewrite-timestamp=true
+
+      - name: Build migration runner release image
+        id: build-migration-runner
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          builder: ${{ steps.canonical-builder.outputs.name }}
+          file: main/backend/Dockerfile
+          target: migration-runner
+          push: false
+          provenance: true
+          sbom: true
+          no-cache: true
+          platforms: linux/amd64
+          build-args: SOURCE_DATE_EPOCH=0
+          tags: mrw-local/canonical-migration-runner:${{ github.sha }}
+          outputs: type=oci,dest=immutable-release-metadata/migration-runner/image.oci.tar,rewrite-timestamp=true
+
+      - name: Inspect canonical digests and validate attestation contents
+        id: canonical-evidence
+        env:
+          BACKEND_ARCHIVE: immutable-release-metadata/backend/image.oci.tar
+          BACKEND_DIGEST: ${{ steps.build-backend.outputs.digest }}
+          FRONTEND_ARCHIVE: immutable-release-metadata/frontend/image.oci.tar
+          FRONTEND_DIGEST: ${{ steps.build-frontend.outputs.digest }}
+          MIGRATION_RUNNER_ARCHIVE: immutable-release-metadata/migration-runner/image.oci.tar
+          MIGRATION_RUNNER_DIGEST: ${{ steps.build-migration-runner.outputs.digest }}
+        run: |
+          python3 - <<'PY'
+          import gzip
+          import hashlib
+          import json
+          import os
+          import re
+          import tarfile
+          from pathlib import Path
+
+          root = Path("immutable-release-metadata")
+          roles = {
+              "backend": (Path(os.environ["BACKEND_ARCHIVE"]), os.environ["BACKEND_DIGEST"]),
+              "frontend": (Path(os.environ["FRONTEND_ARCHIVE"]), os.environ["FRONTEND_DIGEST"]),
+              "migration-runner": (Path(os.environ["MIGRATION_RUNNER_ARCHIVE"]), os.environ["MIGRATION_RUNNER_DIGEST"]),
+          }
+          digest_pattern = re.compile(r"sha256:[0-9a-f]{64}")
+
+          def blob(bundle, digest):
+              payload = bundle.extractfile(f"blobs/sha256/{digest.removeprefix('sha256:')}").read()
+              if hashlib.sha256(payload).hexdigest() != digest.removeprefix("sha256:"):
+                  raise SystemExit(f"OCI blob digest mismatch: {digest}")
+              return payload
+
+          outputs = []
+          for role, (archive, index_digest) in roles.items():
+              if not digest_pattern.fullmatch(index_digest):
+                  raise SystemExit(f"invalid canonical index digest for {role}")
+              with tarfile.open(archive, "r") as bundle:
+                  archive_index = json.load(bundle.extractfile("index.json"))
+                  roots = archive_index.get("manifests") or []
+                  if len(roots) != 1 or roots[0].get("digest") != index_digest:
+                      raise SystemExit(f"OCI root digest mismatch for {role}")
+                  index_payload = blob(bundle, index_digest)
+                  index = json.loads(index_payload)
+              descriptors = index.get("manifests") or []
+              images = [
+                  descriptor for descriptor in descriptors
+                  if descriptor.get("annotations", {}).get("vnd.docker.reference.type") != "attestation-manifest"
+                  and descriptor.get("platform", {}).get("os") != "unknown"
+              ]
+              attestations = [descriptor for descriptor in descriptors if descriptor not in images]
+              if len(images) != 1 or not attestations:
+                  raise SystemExit(f"expected one image manifest and attestation manifests for {role}")
+              artifact_digest = images[0].get("digest", "")
+              if not digest_pattern.fullmatch(artifact_digest):
+                  raise SystemExit(f"invalid canonical artifact digest for {role}")
+              platform = images[0].get("platform") or {}
+              if platform.get("os") != "linux" or platform.get("architecture") != "amd64":
+                  raise SystemExit(f"canonical image platform is not linux/amd64 for {role}")
+              statements = []
+              with tarfile.open(archive, "r") as bundle:
+                  image_manifest_payload = blob(bundle, artifact_digest)
+                  image_manifest = json.loads(image_manifest_payload)
+                  image_config = image_manifest.get("config") or {}
+                  image_layers = image_manifest.get("layers") or []
+                  if not digest_pattern.fullmatch(str(image_config.get("digest", ""))) or not image_layers:
+                      raise SystemExit(f"canonical image manifest content is incomplete for {role}")
+                  config_payload = blob(bundle, image_config["digest"])
+                  config = json.loads(config_payload)
+                  if config.get("os") != "linux" or config.get("architecture") != "amd64":
+                      raise SystemExit(f"canonical image config platform is not linux/amd64 for {role}")
+                  for layer in image_layers:
+                      layer_digest = str(layer.get("digest", ""))
+                      if not digest_pattern.fullmatch(layer_digest):
+                          raise SystemExit(f"invalid canonical layer digest for {role}")
+                      blob(bundle, layer_digest)
+                  for position, descriptor in enumerate(attestations):
+                      attestation_digest = descriptor.get("digest", "")
+                      if not digest_pattern.fullmatch(attestation_digest):
+                          raise SystemExit(f"invalid attestation manifest digest for {role}")
+                      manifest_payload = blob(bundle, attestation_digest)
+                      (root / role / f"attestation-manifest-{position}.json").write_bytes(manifest_payload)
+                      manifest = json.loads(manifest_payload)
+                      for layer in manifest.get("layers") or []:
+                          layer_digest = layer.get("digest", "")
+                          if not digest_pattern.fullmatch(layer_digest):
+                              raise SystemExit(f"invalid attestation layer digest for {role}")
+                          payload = blob(bundle, layer_digest)
+                          if "gzip" in str(layer.get("mediaType", "")):
+                              payload = gzip.decompress(payload)
+                          statements.append(json.loads(payload))
+
+              def matching(predicate_prefix):
+                  matches = []
+                  for statement in statements:
+                      predicate_type = str(statement.get("predicateType", ""))
+                      subjects = statement.get("subject") or []
+                      subject_matches = any(
+                          subject.get("digest", {}).get("sha256") == artifact_digest.removeprefix("sha256:")
+                          for subject in subjects if isinstance(subject, dict)
+                      )
+                      if predicate_type.startswith(predicate_prefix) and subject_matches and isinstance(statement.get("predicate"), dict):
+                          matches.append(statement)
+                  return matches
+
+              provenance = matching("https://slsa.dev/provenance/")
+              sboms = matching("https://spdx.dev/Document")
+              if len(provenance) != 1:
+                  raise SystemExit(f"missing unique SLSA provenance predicate for {role}")
+              if len(sboms) != 1:
+                  raise SystemExit(f"missing unique SPDX predicate for {role}")
+              provenance_predicate = provenance[0]["predicate"]
+              if not (provenance_predicate.get("buildDefinition") or provenance_predicate.get("builder")):
+                  raise SystemExit(f"empty provenance build content for {role}")
+              sbom_predicate = sboms[0]["predicate"]
+              if not str(sbom_predicate.get("spdxVersion", "")).startswith("SPDX-") or not isinstance(sbom_predicate.get("packages"), list):
+                  raise SystemExit(f"invalid SPDX document content for {role}")
+              inspection = {
+                  "oci_index_digest": index_digest,
+                  "artifact_digest": artifact_digest,
+                  "platform": "linux/amd64",
+                  "image_config_digest": image_config["digest"],
+                  "image_layer_digests": [layer["digest"] for layer in image_layers],
+                  "archive_sha256": hashlib.sha256(archive.read_bytes()).hexdigest(),
+              }
+              (root / role / "digest-inspection.json").write_text(json.dumps(inspection, sort_keys=True) + "\n", encoding="utf-8")
+              (root / role / "provenance.intoto.json").write_text(json.dumps(provenance[0], sort_keys=True) + "\n", encoding="utf-8")
+              (root / role / "sbom.spdx.intoto.json").write_text(json.dumps(sboms[0], sort_keys=True) + "\n", encoding="utf-8")
+              outputs.append(f"{role.replace('-', '_')}_digest={artifact_digest}")
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write("\n".join(outputs) + "\n")
+          PY
+
+      - name: Set up independent rebuild Docker Buildx builder
+        id: rebuild-builder
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver: docker-container
+
+      - name: Clean rebuild backend runtime
+        id: rebuild-backend
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          builder: ${{ steps.rebuild-builder.outputs.name }}
+          file: main/backend/Dockerfile
+          target: backend-runtime
+          push: false
+          provenance: false
+          sbom: false
+          no-cache: true
+          platforms: linux/amd64
+          build-args: SOURCE_DATE_EPOCH=0
+          tags: mrw-local/rebuild-backend:${{ github.sha }}
+          outputs: type=oci,dest=rebuild-output/backend.oci.tar,rewrite-timestamp=true
+
+      - name: Clean rebuild frontend runtime
+        id: rebuild-frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: main/frontend-modern
+          builder: ${{ steps.rebuild-builder.outputs.name }}
+          file: main/frontend-modern/Dockerfile
+          target: frontend-runtime
+          push: false
+          provenance: false
+          sbom: false
+          no-cache: true
+          platforms: linux/amd64
+          build-args: SOURCE_DATE_EPOCH=0
+          tags: mrw-local/rebuild-frontend:${{ github.sha }}
+          outputs: type=oci,dest=rebuild-output/frontend.oci.tar,rewrite-timestamp=true
+
+      - name: Clean rebuild migration runner
+        id: rebuild-migration-runner
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          builder: ${{ steps.rebuild-builder.outputs.name }}
+          file: main/backend/Dockerfile
+          target: migration-runner
+          push: false
+          provenance: false
+          sbom: false
+          no-cache: true
+          platforms: linux/amd64
+          build-args: SOURCE_DATE_EPOCH=0
+          tags: mrw-local/rebuild-migration-runner:${{ github.sha }}
+          outputs: type=oci,dest=rebuild-output/migration-runner.oci.tar,rewrite-timestamp=true
+
+      - name: Compare clean rebuild digests
+        env:
+          BACKEND_CANONICAL_DIGEST: ${{ steps.canonical-evidence.outputs.backend_digest }}
+          BACKEND_REBUILD_INDEX: ${{ steps.rebuild-backend.outputs.digest }}
+          BACKEND_REBUILD_ARCHIVE: rebuild-output/backend.oci.tar
+          FRONTEND_CANONICAL_DIGEST: ${{ steps.canonical-evidence.outputs.frontend_digest }}
+          FRONTEND_REBUILD_INDEX: ${{ steps.rebuild-frontend.outputs.digest }}
+          FRONTEND_REBUILD_ARCHIVE: rebuild-output/frontend.oci.tar
+          MIGRATION_RUNNER_CANONICAL_DIGEST: ${{ steps.canonical-evidence.outputs.migration_runner_digest }}
+          MIGRATION_RUNNER_REBUILD_INDEX: ${{ steps.rebuild-migration-runner.outputs.digest }}
+          MIGRATION_RUNNER_REBUILD_ARCHIVE: rebuild-output/migration-runner.oci.tar
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os, re, tarfile
+          from pathlib import Path
+
+          digest_pattern = re.compile(r"sha256:[0-9a-f]{64}")
+          roles = {
+              "backend": (os.environ["BACKEND_CANONICAL_DIGEST"], Path(os.environ["BACKEND_REBUILD_ARCHIVE"]), os.environ["BACKEND_REBUILD_INDEX"]),
+              "frontend": (os.environ["FRONTEND_CANONICAL_DIGEST"], Path(os.environ["FRONTEND_REBUILD_ARCHIVE"]), os.environ["FRONTEND_REBUILD_INDEX"]),
+              "migration-runner": (os.environ["MIGRATION_RUNNER_CANONICAL_DIGEST"], Path(os.environ["MIGRATION_RUNNER_REBUILD_ARCHIVE"]), os.environ["MIGRATION_RUNNER_REBUILD_INDEX"]),
+          }
+
+          def blob(bundle, digest):
+              if not digest_pattern.fullmatch(digest):
+                  raise SystemExit(f"invalid rebuild digest: {digest}")
+              payload = bundle.extractfile(f"blobs/sha256/{digest.removeprefix('sha256:')}").read()
+              if hashlib.sha256(payload).hexdigest() != digest.removeprefix("sha256:"):
+                  raise SystemExit(f"rebuild OCI blob digest mismatch: {digest}")
+              return payload
+
+          def image_manifest_digest(archive, expected_root):
+              with tarfile.open(archive, "r") as bundle:
+                  archive_index = json.load(bundle.extractfile("index.json"))
+                  roots = archive_index.get("manifests") or []
+                  if len(roots) != 1 or roots[0].get("digest") != expected_root:
+                      raise SystemExit(f"rebuild OCI root digest mismatch: {archive}")
+                  root_payload = blob(bundle, expected_root)
+                  root_document = json.loads(root_payload)
+                  if isinstance(root_document.get("manifests"), list):
+                      images = [
+                          descriptor for descriptor in root_document["manifests"]
+                          if descriptor.get("platform", {}).get("os") == "linux"
+                          and descriptor.get("platform", {}).get("architecture") == "amd64"
+                          and descriptor.get("annotations", {}).get("vnd.docker.reference.type") != "attestation-manifest"
+                      ]
+                      if len(images) != 1:
+                          raise SystemExit(f"rebuild linux/amd64 image manifest is ambiguous: {archive}")
+                      manifest_digest = images[0].get("digest", "")
+                      manifest = json.loads(blob(bundle, manifest_digest))
+                  else:
+                      manifest_digest = expected_root
+                      manifest = root_document
+                  config_descriptor = manifest.get("config") or {}
+                  layers = manifest.get("layers") or []
+                  if not layers or not digest_pattern.fullmatch(str(config_descriptor.get("digest", ""))):
+                      raise SystemExit(f"rebuild image manifest content is incomplete: {archive}")
+                  config = json.loads(blob(bundle, config_descriptor["digest"]))
+                  if config.get("os") != "linux" or config.get("architecture") != "amd64":
+                      raise SystemExit(f"rebuild image config platform is not linux/amd64: {archive}")
+                  for layer in layers:
+                      blob(bundle, str(layer.get("digest", "")))
+                  return manifest_digest
+
+          for role, (canonical, archive, rebuild_root) in roles.items():
+              rebuilt = image_manifest_digest(archive, rebuild_root)
+              if canonical != rebuilt:
+                  raise SystemExit(f"non-reproducible clean build for {role}: canonical={canonical} rebuilt={rebuilt}")
+              receipt = {
+                  "role": role,
+                  "status": "MATCH",
+                  "comparison_scope": "linux/amd64-image-manifest-digest",
+                  "canonical_digest": canonical,
+                  "rebuild_digest": rebuilt,
+                  "rebuild_oci_root_digest": rebuild_root,
+                  "builders": {"canonical": "canonical-builder", "rebuild": "rebuild-builder", "relationship": "separate-builder-instances"},
+              }
+              (Path("immutable-release-metadata") / role / "reproducibility.json").write_text(json.dumps(receipt, sort_keys=True) + "\n", encoding="utf-8")
+          PY
+
+      - name: Build role-indexed metadata bundle
+        env:
+          BACKEND_IMAGE: mrw-local/canonical-backend:${{ github.sha }}
+          BACKEND_INDEX_DIGEST: ${{ steps.build-backend.outputs.digest }}
+          BACKEND_DIGEST: ${{ steps.canonical-evidence.outputs.backend_digest }}
+          FRONTEND_IMAGE: mrw-local/canonical-frontend:${{ github.sha }}
+          FRONTEND_INDEX_DIGEST: ${{ steps.build-frontend.outputs.digest }}
+          FRONTEND_DIGEST: ${{ steps.canonical-evidence.outputs.frontend_digest }}
+          MIGRATION_RUNNER_IMAGE: mrw-local/canonical-migration-runner:${{ github.sha }}
+          MIGRATION_RUNNER_INDEX_DIGEST: ${{ steps.build-migration-runner.outputs.digest }}
+          MIGRATION_RUNNER_DIGEST: ${{ steps.canonical-evidence.outputs.migration_runner_digest }}
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          root = Path("immutable-release-metadata")
+          role_inputs = {
+              "backend": (os.environ["BACKEND_IMAGE"], os.environ["BACKEND_DIGEST"], os.environ["BACKEND_INDEX_DIGEST"]),
+              "frontend": (os.environ["FRONTEND_IMAGE"], os.environ["FRONTEND_DIGEST"], os.environ["FRONTEND_INDEX_DIGEST"]),
+              "migration-runner": (
+                  os.environ["MIGRATION_RUNNER_IMAGE"],
+                  os.environ["MIGRATION_RUNNER_DIGEST"],
+                  os.environ["MIGRATION_RUNNER_INDEX_DIGEST"],
+              ),
+          }
+          required_evidence = (
+              "digest-inspection.json",
+              "provenance.intoto.json",
+              "sbom.spdx.intoto.json",
+              "reproducibility.json",
+              "image.oci.tar",
+          )
+          roles = {}
+          for role, (image, digest, index_digest) in role_inputs.items():
+              if not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
+                  raise SystemExit(f"missing or invalid digest for {role}")
+              role_root = root / role
+              missing = [name for name in required_evidence if not (role_root / name).is_file() or not (role_root / name).stat().st_size]
+              if missing:
+                  raise SystemExit(f"missing immutable metadata for {role}: {', '.join(missing)}")
+              files = {
+                  name: hashlib.sha256((role_root / name).read_bytes()).hexdigest()
+                  for name in required_evidence
+              }
+              provenance = json.loads((role_root / "provenance.intoto.json").read_text(encoding="utf-8"))
+              sbom = json.loads((role_root / "sbom.spdx.intoto.json").read_text(encoding="utf-8"))
+              reproducibility = json.loads((role_root / "reproducibility.json").read_text(encoding="utf-8"))
+              if reproducibility.get("status") != "MATCH" or reproducibility.get("canonical_digest") != digest or reproducibility.get("rebuild_digest") != digest:
+                  raise SystemExit(f"reproducibility evidence mismatch for {role}")
+              for label, statement, prefix in (("provenance", provenance, "https://slsa.dev/provenance/"), ("sbom", sbom, "https://spdx.dev/Document")):
+                  if not str(statement.get("predicateType", "")).startswith(prefix):
+                      raise SystemExit(f"invalid {label} predicate for {role}")
+                  if not any(subject.get("digest", {}).get("sha256") == digest.removeprefix("sha256:") for subject in statement.get("subject") or []):
+                      raise SystemExit(f"{label} subject mismatch for {role}")
+              metadata = {
+                  "role": role,
+                  "image": image,
+                  "artifact_digest": digest,
+                  "oci_index_digest": index_digest,
+                  "oci_archive": {"path": f"{role}/image.oci.tar", "sha256": files["image.oci.tar"]},
+                  "provenance": {"path": f"{role}/provenance.intoto.json", "predicate_type": provenance["predicateType"], "sha256": files["provenance.intoto.json"]},
+                  "sbom": {"path": f"{role}/sbom.spdx.intoto.json", "predicate_type": sbom["predicateType"], "sha256": files["sbom.spdx.intoto.json"]},
+                  "reproducibility": {"path": f"{role}/reproducibility.json", "status": "MATCH", "sha256": files["reproducibility.json"]},
+                  "evidence": files,
+              }
+              (role_root / "release-metadata.json").write_text(
+                  json.dumps(metadata, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+                  encoding="utf-8",
+              )
+              metadata_sha256 = hashlib.sha256((role_root / "release-metadata.json").read_bytes()).hexdigest()
+              roles[role] = {
+                  "metadata": f"{role}/release-metadata.json",
+                  "metadata_sha256": metadata_sha256,
+                  "image": image,
+                  "artifact_digest": digest,
+              }
+
+          authority_receipt = {
+              "status": "UNEXECUTED_AUTHORITY_REQUIRED",
+              "ceiling": "PRODUCTION_RELEASE_NOT_AUTHORIZED",
+              "signing": "UNEXECUTED_AUTHORITY_REQUIRED",
+              "publishing": "UNEXECUTED_AUTHORITY_REQUIRED",
+              "required_boundary": "separate-authorized-release-workflow",
+          }
+          authority_path = root / "authority-receipt.json"
+          authority_path.write_text(json.dumps(authority_receipt, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+          index = {
+              "schema_version": "mrw.immutable-release-metadata.v3",
+              "authoritative": False,
+              "derived_as": "preflight",
+              "release_authorized": False,
+              "source_commit": os.environ["GITHUB_SHA"],
+              "authority": {
+                  "ceiling": "PRODUCTION_RELEASE_NOT_AUTHORIZED",
+                  "status": "UNEXECUTED_AUTHORITY_REQUIRED",
+                  "signing_status": "UNEXECUTED_AUTHORITY_REQUIRED",
+                  "publishing_status": "UNEXECUTED_AUTHORITY_REQUIRED",
+                  "required_boundary": "separate-authorized-release-workflow",
+                  "receipt": {"path": "authority-receipt.json", "sha256": hashlib.sha256(authority_path.read_bytes()).hexdigest()},
+              },
+              "roles": roles,
+          }
+          (root / "index.json").write_text(
+              json.dumps(index, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Upload immutable release metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: immutable-release-metadata
+          path: immutable-release-metadata/
+          if-no-files-found: error
+
+  required-convergence-check:
+    name: required-convergence-check
+    if: always()
+    needs:
+      - formal-release-check
+      - backend-unit-check
+      - backend-integration-check
+      - frontend-lint-check
+      - frontend-typecheck-check
+      - frontend-build-check
+      - frontend-component-e2e-check
+      - migration-single-head-check
+      - security-check
+      - docker-config-check
+      - evidence-validation-check
+      - artifact-metadata-check
+      - image-vulnerability-scan-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Summarize required job outcomes
+        env:
+          NEEDS_JSON: ${{ toJson(needs) }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import sys
+
+          required = (
+              "formal-release-check",
+              "backend-unit-check",
+              "backend-integration-check",
+              "frontend-lint-check",
+              "frontend-typecheck-check",
+              "frontend-build-check",
+              "frontend-component-e2e-check",
+              "migration-single-head-check",
+              "security-check",
+              "docker-config-check",
+              "evidence-validation-check",
+              "artifact-metadata-check",
+              "image-vulnerability-scan-check",
+          )
+          needs = json.loads(os.environ.get("NEEDS_JSON", "{}"))
+          lines = ["## Required CI Convergence", ""]
+          failed = []
+          for job in required:
+              result = (needs.get(job) or {}).get("result", "missing")
+              lines.append(f"- {job}: `{result}`")
+              if result != "success":
+                  failed.append(f"{job}={result}")
+          if os.environ.get("GITHUB_STEP_SUMMARY"):
+              with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as fp:
+                  fp.write("\n".join(lines) + "\n")
+          if failed:
+              print("[required-convergence] FAIL: " + ", ".join(failed), file=sys.stderr)
+              sys.exit(1)
+          print("[required-convergence] PASS")
           PY

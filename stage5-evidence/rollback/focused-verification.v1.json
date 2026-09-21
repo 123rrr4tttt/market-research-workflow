@@ -1,0 +1,74 @@
+{
+  "schema_version": "mrw.stage5.rollback.focused-verification.v1",
+  "authoritative": false,
+  "scope": "LOCAL_STAGE5_ROLLBACK_ONLY / NOT_AUTHORITY / RELEASE_DEFERRED",
+  "created_at": "2026-09-13T09:15:00+08:00",
+  "results": [
+    {
+      "id": "runner-python-compile",
+      "command": "python3 -m py_compile stage5-evidence/rollback/run-rollback-fallback-rehearsal.py",
+      "exit_code": 0,
+      "status": "PASS",
+      "cleanup": "generated __pycache__ removed after the rehearsal"
+    },
+    {
+      "id": "rollback-rehearsal-initial-path-failure",
+      "command": "python3 stage5-evidence/rollback/run-rollback-fallback-rehearsal.py",
+      "exit_code": 1,
+      "status": "FAIL_CORRECTED",
+      "failure": "runner resolved the retained r13w execution record one directory too deep",
+      "evidence": "rollback-fallback-result.v1.json was overwritten by the corrected run; this entry preserves the failure classification",
+      "resource_cleanup": "PASS with zero created containers"
+    },
+    {
+      "id": "rollback-rehearsal-corrected",
+      "command": "python3 stage5-evidence/rollback/run-rollback-fallback-rehearsal.py",
+      "exit_code": 0,
+      "status": "PASS",
+      "run_id": "20260913-090216-45089",
+      "result": "rollback-fallback-result.v1.json",
+      "result_sha256": "f770e4e657308908dfe7bfa90b4104cb279340900e5e00892828667dfda0e29b"
+    },
+    {
+      "id": "rollback-adapter-and-fixture-recovery-focused-host",
+      "command": "PYTHONPATH=\"$PWD\" pytest main/backend/tests/ops_production_contract -q",
+      "exit_code": 0,
+      "status": "PASS",
+      "summary": "27 passed"
+    },
+    {
+      "id": "route-effect-focused-host-dependency-failure",
+      "command": "PYTHONPATH=\"$PWD/main/backend\" pytest main/backend/tests/production_composition/test_route_effect_contract.py -q",
+      "exit_code": 2,
+      "status": "FAIL_DEPENDENCY",
+      "failure": "host Python could not import functorial_kit; retained test image used for the focused retry"
+    },
+    {
+      "id": "route-effect-focused-retained-test-image",
+      "command": "docker run --rm --network none -v \"$PWD:/work:ro\" -w /work --entrypoint /bin/sh mrw-stage3-r13o-tests:local -c 'PYTHONPATH=/work/main/backend:/opt/mrw/src python -m pytest -q main/backend/tests/production_composition/test_route_effect_contract.py'",
+      "exit_code": 1,
+      "status": "FAIL_SHARED_ROUTE_TEST_EXPECTATION",
+      "summary": "20 passed, 1 failed",
+      "failure": "test_v3_registry_shape_and_route_effect_invariants still asserts that the registry has no canonical_write route; the current Stage4 final binding intentionally contains exactly the admitted /api/v1/successor-runtime/v2/commands route bound to postgres.c9_projection_rebuild.v1",
+      "boundary": "No rollback-owned code or shared test file was changed; current binding SHA256 matches runtime/c9-effect-build.json input SHA256 9d88ad8dfd41c633bc60a3c7fcf4243e18b9bbb29948a8ce3d6d39fee28db51b"
+    },
+    {
+      "id": "task-container-cleanup",
+      "command": "docker run cleanup filter for prefix mrw-stage5-rollback-20260913-090216-45089",
+      "exit_code": 0,
+      "status": "PASS",
+      "containers_after": [],
+      "volumes_after": [],
+      "networks_after": []
+    }
+  ],
+  "interpretation": {
+    "rollback_packet": "PASS_LOCAL_ROLLBACK_REHEARSAL_NOT_AUTHORITY",
+    "open_shared_item": "Route-effect test requires a focused Stage4-aware update by the production route binding owner; it must not be relaxed or skipped to manufacture PASS.",
+    "authority_ceiling": [
+      "LOCAL_STAGE5_ROLLBACK_REHEARSAL_ONLY",
+      "NOT_AUTHORITY",
+      "PRODUCTION_RELEASE_NOT_AUTHORIZED"
+    ]
+  }
+}

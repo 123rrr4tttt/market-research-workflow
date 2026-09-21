@@ -7,7 +7,7 @@ from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
 import sys
-from typing import Any
+from typing import Annotated, Any
 from uuid import uuid4
 
 from sqlalchemy import delete, select, text
@@ -339,7 +339,12 @@ def build_evidence(
     days: int,
     limit: int,
     cleanup: bool,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=generated_evidence "
+    "fact_source=prompt_time_policy_decision_logs+prompt_time_window_feedback "
+    "witness=test:test_c15_backend_misc_cli_report_metadata_preserves_abi",
+]:
     missing_tables = [
         table
         for table in ("prompt_time_policy_decision_logs", "prompt_time_window_feedback")

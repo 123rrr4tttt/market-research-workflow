@@ -13,12 +13,12 @@ _CACHE_FILE = Path(__file__).resolve().parents[3] / "data" / "langchain-cache.db
 
 def setup_cache() -> None:
     """Configure LangChain cache using SQLite (disabled in production)."""
-    if settings.env.lower() == "prod":
+    if settings.env.lower() == "prod" or not settings.llm_cache_enabled:
         return
 
-    _CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    set_llm_cache(SQLiteCache(database_path=str(_CACHE_FILE)))
+    cache_file = Path(settings.llm_cache_path) if settings.llm_cache_path else _CACHE_FILE
+    cache_file.parent.mkdir(parents=True, exist_ok=True)
+    set_llm_cache(SQLiteCache(database_path=str(cache_file)))
 
 
 setup_cache()
-

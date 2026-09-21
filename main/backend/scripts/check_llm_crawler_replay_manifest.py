@@ -4,7 +4,11 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Annotated, Any, Mapping
+try:
+    from ._cli_runtime import repo_root as _repo_root
+except ImportError:  # direct script execution
+    from _cli_runtime import repo_root as _repo_root
 
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
@@ -12,6 +16,9 @@ if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
 from app.services.ingest import url_pool as url_pool_module
+from scripts.check_evidence_source_availability import EVIDENCE_SOURCE_UNAVAILABLE
+from scripts.check_evidence_source_availability import classify_required_evidence
+from scripts.check_evidence_source_availability import unavailable_error
 from scripts.check_llm_crawler_high_js_replay_readiness import CONTRACT_VERSION as READINESS_CONTRACT_VERSION
 from scripts.check_llm_crawler_high_js_replay_readiness import DEFAULT_HIGH_JS_TARGETS
 from scripts.check_llm_crawler_high_js_replay_readiness import PROTECTED_SHARED_INDEXES
@@ -77,10 +84,6 @@ REQUIRED_REAL_EVIDENCE = [
     "outputs.target_results[].status=success",
     "outputs.target_results[].browser_rendered=true",
 ]
-
-
-def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[3]
 
 
 def _require(condition: bool, errors: list[str], message: str) -> None:
@@ -419,7 +422,10 @@ def build_check(
     repo_root: Path | str | None = None,
     manifest_path: Path | str | None = None,
     opt_in_request: Mapping[str, Any] | str | Path | None = None,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=preflight fact_source=repository.llm_replay_manifest_and_opt_in witness=test:test_llm_crawler_replay_manifest_authority_metadata",
+]:
     root = Path(repo_root) if repo_root is not None else _repo_root()
     root = root.resolve()
     manifest_rel = Path(manifest_path) if manifest_path is not None else DEFAULT_MANIFEST_PATH
@@ -427,6 +433,9 @@ def build_check(
     manifest_abs = manifest_abs.resolve()
     errors: list[str] = []
 
+    evidence_source = classify_required_evidence(root, {"replay_manifest": manifest_abs})
+    if evidence_source["status"] == EVIDENCE_SOURCE_UNAVAILABLE:
+        errors.append(unavailable_error(evidence_source))
     manifest = _load_json_file(manifest_abs, errors, "replay manifest")
     _require(
         manifest.get("contract_version") == MANIFEST_CONTRACT_VERSION,
@@ -446,6 +455,18 @@ def build_check(
     )
 
     artifacts = _artifact_summary(root, manifest_abs, manifest, errors)
+    if manifest:
+        raw_required_artifacts = manifest.get("required_artifacts")
+        required_artifacts = raw_required_artifacts if isinstance(raw_required_artifacts, dict) else {}
+        required_paths = {
+            f"manifest_artifact.{key}": _resolve_path(root, value)
+            for key, value in required_artifacts.items()
+            if key not in OPTIONAL_ABSENT_ARTIFACT_KEYS and isinstance(value, str) and value.strip()
+        }
+        required_paths["replay_manifest"] = manifest_abs
+        evidence_source = classify_required_evidence(root, required_paths)
+        if evidence_source["status"] == EVIDENCE_SOURCE_UNAVAILABLE:
+            errors.append(unavailable_error(evidence_source))
     targets = _target_summary(manifest, errors)
     execution_policy = _execution_policy_summary(manifest, errors)
     opt_in_schema = _opt_in_schema_summary(manifest, errors)
@@ -468,6 +489,7 @@ def build_check(
         "manifest_path": _relative_path(manifest_abs, root),
         "status": status,
         "scope": "llm_crawler_high_js_public_replay_manifest_boundary",
+        "evidence_source": evidence_source,
         "artifacts": artifacts,
         "target_set": targets,
         "execution_policy": execution_policy,

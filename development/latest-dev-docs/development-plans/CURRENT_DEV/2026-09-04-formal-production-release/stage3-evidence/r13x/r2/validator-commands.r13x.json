@@ -1,0 +1,43 @@
+{
+  "schema_version": "mrw.stage3.r2-validator-commands.r13x.v1",
+  "authoritative": false,
+  "candidate": {
+    "commit": "8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+    "tree": "ce7c67c831b51f9d64b4c2f1a470a724a50b19df"
+  },
+  "placeholders": {
+    "ACTUAL_RELEASE_MANIFEST": "path to the real assembled manifest after evidence exists",
+    "VALIDATION_OUTPUT": "create-only output path outside candidate and replay"
+  },
+  "commands": [
+    {
+      "id": "r2-schema-and-status-validator",
+      "cwd": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260912-v4-r13x/candidate",
+      "argv": [
+        "/opt/homebrew/bin/python3",
+        "scripts/formal_release/check_release_evidence.py",
+        "--manifest",
+        "<ACTUAL_RELEASE_MANIFEST>",
+        "--output",
+        "<VALIDATION_OUTPUT>"
+      ],
+      "expected_interpretation": "Exit 0 only if all ten family findings aggregate to PASS; preserve exit 1 as real negative evidence."
+    },
+    {
+      "id": "supplemental-exact-candidate-binding",
+      "cwd": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260912-v4-r13x/candidate",
+      "shell": "jq -e --arg commit 8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2 --arg tree ce7c67c831b51f9d64b4c2f1a470a724a50b19df '.schema_version == \"mrw.formal-production-release-evidence.v1\" and .authoritative == false and .derived_as == \"preflight\" and .candidate_commit == $commit and .candidate_tree == $tree' \"$ACTUAL_RELEASE_MANIFEST\"",
+      "reason": "The stock R2 checker does not compare candidate_commit or candidate_tree."
+    },
+    {
+      "id": "supplemental-evidence-ref-sha256",
+      "cwd": "/Users/wangyiliang/market-research-workflow",
+      "shell": "jq -r '.records[] | .evidence_refs as $refs | .evidence_sha256 as $sums | range(0; ($refs|length)) as $i | [$sums[$i], $refs[$i]] | @tsv' \"$ACTUAL_RELEASE_MANIFEST\" | while IFS=$'\\t' read -r digest ref; do printf '%s  %s\\n' \"$digest\" \"$ref\" | shasum -a 256 -c - || exit 1; done",
+      "reason": "The stock R2 checker validates digest syntax and pairing, but does not read refs or recompute hashes."
+    }
+  ],
+  "not_executed_reason": "No actual r13x release manifest exists; running the validator against a fabricated or placeholder manifest would not be actual evidence.",
+  "external_effects": [],
+  "unauthorized_writes": 0,
+  "ceiling": "RUNBOOK_ONLY_NOT_VALIDATION_RESULT"
+}

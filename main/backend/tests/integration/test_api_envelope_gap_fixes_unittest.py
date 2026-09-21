@@ -51,7 +51,7 @@ class ApiEnvelopeGapFixesIntegrationTestCase(unittest.TestCase):
             patch("app.api.codex_auth.codex_oauth_enabled", return_value=True),
             patch("app.api.codex_auth.has_valid_token_sink", return_value=True),
         ):
-            response = codex_auth_login(next_url="http://localhost:5173")
+            response = codex_auth_login(next_url="http://localhost:5173", force_oauth=False)
 
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response.headers["location"], "http://localhost:5173")

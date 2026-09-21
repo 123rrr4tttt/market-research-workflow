@@ -1,0 +1,114 @@
+{
+  "attestation_subject_gaps": {
+    "backend": null
+  },
+  "authoritative": false,
+  "authority_ceiling": "LOCAL_UNSIGNED_TASK_OWNED_EVIDENCE_NOT_RELEASE_AUTHORITY",
+  "build_contract": {
+    "candidate": "--no-cache, provenance=true, sbom=true, SOURCE_DATE_EPOCH=0, rewrite-timestamp=true",
+    "comparison": "image manifest, config, and ordered layer digests",
+    "replay": "--no-cache, provenance=false, sbom=false, SOURCE_DATE_EPOCH=0, rewrite-timestamp=true"
+  },
+  "candidate_after": {
+    "backend_tree": "eb3794cb92e59ba3a2dace55f967e16295935f3a",
+    "clean": true,
+    "commit": "8427e3d626cd12f41e45d38e00223f2ef86d692f",
+    "dockerfile_sha256": "8726ec49d21e47c955b33c47da062178f651555d28d9be39f6b95e6b51c0a9f7",
+    "path": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260912-v4-r13v/candidate",
+    "src_tree": "0dfa137c2c9aba658d8b1f39281412ff69c3d67c",
+    "status_porcelain": "",
+    "tree": "4146bcab51e437920a006875e06ed8cdcc32470a"
+  },
+  "candidate_before": {
+    "backend_tree": "eb3794cb92e59ba3a2dace55f967e16295935f3a",
+    "clean": true,
+    "commit": "8427e3d626cd12f41e45d38e00223f2ef86d692f",
+    "dockerfile_sha256": "8726ec49d21e47c955b33c47da062178f651555d28d9be39f6b95e6b51c0a9f7",
+    "path": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260912-v4-r13v/candidate",
+    "src_tree": "0dfa137c2c9aba658d8b1f39281412ff69c3d67c",
+    "status_porcelain": "",
+    "tree": "4146bcab51e437920a006875e06ed8cdcc32470a"
+  },
+  "candidate_replay_inputs_equal": true,
+  "cleanup": {
+    "docker_prune_run": false,
+    "free_bytes_after": 7865069568,
+    "task_builder_container_residue": [],
+    "task_builder_names": [
+      "mrw-r13v-amd64-candidate-11947-1789210135",
+      "mrw-r13v-amd64-replay-11947-1789210135"
+    ],
+    "task_builder_residue": [],
+    "temporary_oci_archives": []
+  },
+  "completed_epoch": 1789210415,
+  "excluded": [
+    "product modification",
+    "registry push or publication",
+    "signing",
+    "transparency log",
+    "deployment",
+    "authority transfer",
+    "Docker prune"
+  ],
+  "free_bytes_after": 7865053184,
+  "inputs_unchanged_and_clean": true,
+  "platform": "linux/amd64",
+  "replay_after": {
+    "backend_tree": "eb3794cb92e59ba3a2dace55f967e16295935f3a",
+    "clean": true,
+    "commit": "8427e3d626cd12f41e45d38e00223f2ef86d692f",
+    "dockerfile_sha256": "8726ec49d21e47c955b33c47da062178f651555d28d9be39f6b95e6b51c0a9f7",
+    "path": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260912-v4-r13v/replay",
+    "src_tree": "0dfa137c2c9aba658d8b1f39281412ff69c3d67c",
+    "status_porcelain": "",
+    "tree": "4146bcab51e437920a006875e06ed8cdcc32470a"
+  },
+  "replay_before": {
+    "backend_tree": "eb3794cb92e59ba3a2dace55f967e16295935f3a",
+    "clean": true,
+    "commit": "8427e3d626cd12f41e45d38e00223f2ef86d692f",
+    "dockerfile_sha256": "8726ec49d21e47c955b33c47da062178f651555d28d9be39f6b95e6b51c0a9f7",
+    "path": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260912-v4-r13v/replay",
+    "src_tree": "0dfa137c2c9aba658d8b1f39281412ff69c3d67c",
+    "status_porcelain": "",
+    "tree": "4146bcab51e437920a006875e06ed8cdcc32470a"
+  },
+  "roles": {
+    "backend": {
+      "builders": {
+        "candidate": "mrw-r13v-amd64-candidate-11947-1789210135",
+        "replay": "mrw-r13v-amd64-replay-11947-1789210135"
+      },
+      "cleanup": {
+        "builder_residue": [],
+        "docker_prune_run": false,
+        "events": [
+          {
+            "environment": "replay",
+            "exit_code": 0,
+            "kind": "builder",
+            "name": "mrw-r13v-amd64-replay-11947-1789210135"
+          },
+          {
+            "environment": "candidate",
+            "exit_code": 0,
+            "kind": "builder",
+            "name": "mrw-r13v-amd64-candidate-11947-1789210135"
+          }
+        ],
+        "free_bytes_after": 7866175488,
+        "temporary_oci_archives_present": []
+      },
+      "error": "RuntimeError: candidate build failed with exit 1",
+      "free_bytes_before": 8937316352,
+      "platform": "linux/amd64",
+      "role": "backend",
+      "status": "FAILED_OR_INCOMPLETE",
+      "target": "backend-runtime"
+    }
+  },
+  "schema": "mrw.stage3.r13v.backend-migration-amd64-result.v1",
+  "status": "FAILED_OR_INCOMPLETE",
+  "trivy_db_update_exit_code": 0
+}

@@ -1,0 +1,20 @@
+{
+  "affected_package_version_count": 28,
+  "counts": {
+    "CRITICAL": 13,
+    "HIGH": 135
+  },
+  "exit_code": 1,
+  "gate_status": "FAIL",
+  "observation_count": 148,
+  "observations_with_reported_fixed_version": 0,
+  "package_types": [
+    "os",
+    "library"
+  ],
+  "reachability_exploitability": "NOT_ASSESSED_BY_TRIVY",
+  "report_sha256": "efb570cd2f2bcaa080b53b345bb7d328ca1dd13971b352e51594a7b2f64c2b17",
+  "scanner": "vulnerability",
+  "threshold": "HIGH,CRITICAL",
+  "unique_vulnerability_id_count": 80
+}

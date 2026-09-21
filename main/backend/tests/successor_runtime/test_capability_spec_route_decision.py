@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import importlib.util
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -138,18 +140,25 @@ def test_build_is_deterministic_digest_valid_and_sensitive_to_readiness_binding(
     assert changed["content_digest"] != first[0]["content_digest"]
 
 
-def test_persisted_outputs_match_generated_exact_bytes() -> None:
+def test_persisted_outputs_keep_predecessor_ownership_bytes() -> None:
     module = _load_generator()
     decision, ownership = module.build_documents(REPOSITORY_ROOT)
     assert (REPOSITORY_ROOT / module.DECISION_REL).read_bytes() == module._serialized(
         decision
     )
-    assert (REPOSITORY_ROOT / module.OWNERSHIP_REL).read_bytes() == module._serialized(
-        ownership
-    )
+    # Ownership evidence is a frozen predecessor.  The live generator has
+    # drifted, so retaining the predecessor bytes is intentional and must not
+    # be rewritten to claim a false MATCH.
+    persisted = json.loads((REPOSITORY_ROOT / module.OWNERSHIP_REL).read_text())
+    assert persisted["content_digest"] == module.content_digest(persisted)
+    assert persisted["generator_binding"] != ownership["generator_binding"]
+    generator_bytes = GENERATOR.read_bytes()
+    assert hashlib.sha256(generator_bytes).hexdigest() != persisted["generator_binding"][
+        "file_sha256"
+    ]
 
 
-def test_check_match_preserves_bytes_and_mtime() -> None:
+def test_check_reports_history_drift_and_preserves_bytes_and_mtime() -> None:
     module = _load_generator()
     paths = [
         REPOSITORY_ROOT / module.DECISION_REL,
@@ -163,9 +172,71 @@ def test_check_match_preserves_bytes_and_mtime() -> None:
         text=True,
         check=False,
     )
-    assert result.returncode == 0, result.stdout + result.stderr
-    assert "CHECK_OK" in result.stdout
+    assert result.returncode == 1
+    assert "DRIFT" in result.stdout
     assert [(path.read_bytes(), path.stat().st_mtime_ns) for path in paths] == before
+
+
+def test_decision_v1_mode_writes_only_decision_and_can_check_read_only(
+    tmp_path: Path,
+) -> None:
+    module = _load_generator()
+    decision, _ownership = module.build_documents(REPOSITORY_ROOT)
+    decision_path = tmp_path / "decision.json"
+    ownership_path = tmp_path / "historical-ownership.json"
+    predecessor_bytes = b'{"historical":"predecessor"}\n'
+    ownership_path.write_bytes(predecessor_bytes)
+    ownership_mtime = ownership_path.stat().st_mtime_ns
+
+    generated = subprocess.run(
+        [
+            sys.executable,
+            str(GENERATOR),
+            "--output-mode",
+            "decision-v1",
+            "--decision-output",
+            str(decision_path),
+            "--ownership-output",
+            str(ownership_path),
+        ],
+        cwd=BACKEND_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert generated.returncode == 0, generated.stdout + generated.stderr
+    assert json.loads(generated.stdout)["output_mode"] == "decision-v1"
+    assert decision_path.read_bytes() == module._serialized(decision)
+    assert (ownership_path.read_bytes(), ownership_path.stat().st_mtime_ns) == (
+        predecessor_bytes,
+        ownership_mtime,
+    )
+
+    before = (decision_path.read_bytes(), decision_path.stat().st_mtime_ns)
+    checked = subprocess.run(
+        [
+            sys.executable,
+            str(GENERATOR),
+            "--check",
+            "--output-mode",
+            "decision-v1",
+            "--decision-output",
+            str(decision_path),
+            "--ownership-output",
+            str(ownership_path),
+        ],
+        cwd=BACKEND_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert checked.returncode == 0, checked.stdout + checked.stderr
+    assert json.loads(checked.stdout)["status"] == "CHECK_OK"
+    assert (decision_path.read_bytes(), decision_path.stat().st_mtime_ns) == before
+    assert (ownership_path.read_bytes(), ownership_path.stat().st_mtime_ns) == (
+        predecessor_bytes,
+        ownership_mtime,
+    )
 
 
 def test_check_drift_exits_one_and_does_not_write(tmp_path: Path) -> None:

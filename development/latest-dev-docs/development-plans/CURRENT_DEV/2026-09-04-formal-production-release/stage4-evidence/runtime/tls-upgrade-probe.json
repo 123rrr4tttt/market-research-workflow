@@ -1,0 +1,86 @@
+{
+  "authoritative": false,
+  "authority_ceiling": "LOCAL_STAGE4_RUNTIME_ONLY / NOT_AUTHORITY / PRODUCTION_RELEASE_NOT_AUTHORIZED",
+  "candidate": {
+    "commit": "8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+    "tree": "ce7c67c831b51f9d64b4c2f1a470a724a50b19df"
+  },
+  "cleanup": {
+    "docker_prune_executed": false,
+    "down_exit_code": 0,
+    "project_residue": {
+      "containers": [],
+      "networks": [],
+      "volumes": []
+    },
+    "status": "PASS"
+  },
+  "docker_subnets_observed_before": [
+    "172.17.0.0/16",
+    "172.18.0.0/16"
+  ],
+  "ended_at": "2026-09-13T06:31:46Z",
+  "matrix_scope": {
+    "fresh_migration_rerun": false,
+    "full_stack_rerun": false,
+    "restore_matrix_rerun": false,
+    "snapshot_matrix_rerun": false
+  },
+  "migration_graph": {
+    "checker": "32-migration-graph-check.log",
+    "heads": [
+      "20260905_000001"
+    ],
+    "revision_count": 36,
+    "roots": [
+      "20251029_000001"
+    ],
+    "status": "PASS"
+  },
+  "project_resources_after": {
+    "containers": [],
+    "networks": [],
+    "volumes": []
+  },
+  "project_resources_before": {
+    "containers": [],
+    "networks": [],
+    "volumes": []
+  },
+  "runtime_images": {
+    "backend": "mrw-local/stage4-r13x-backend-config:8652d653f740735f",
+    "migration": "mrw-local/r13x-candidate-migration-runner:8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+    "tls_edge": "mrw-local/r13x-candidate-frontend:8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2"
+  },
+  "schema_version": "mrw.stage4.tls-upgrade-probe.v1",
+  "started_at": "2026-09-13T06:29:40Z",
+  "status": "PASS",
+  "tls": {
+    "certificate_trust": "PASS",
+    "ephemeral_certificate_sha256": "7bb1e896c1b5e9463b1205094c8425f3396f8547956ad22a84985d1b69e87705",
+    "ephemeral_private_key_persisted": false,
+    "handshake_exit_code": 0,
+    "https_request_status": 200,
+    "incoming_proto_header_overridden_by_edge": true,
+    "public_certificate_or_dns_verified": false,
+    "status": "PASS",
+    "tls_http_version": "1.1",
+    "trusted_proxy_ip": "172.30.44.10",
+    "trusted_proxy_path": "PASS",
+    "untrusted_host_spoof_reason_code": "tls_denied",
+    "untrusted_host_spoof_status": 403
+  },
+  "upgrade": {
+    "all_historical_versions_covered": false,
+    "baseline_classification": "CONSTRUCTED_REPRESENTATIVE_NOT_ACTUAL_PRODUCTION_PREDECESSOR",
+    "from_revision": "20260830_000001",
+    "legacy_fields_preserved": true,
+    "legacy_row_backfill": "PASS",
+    "new_projection_table_present": true,
+    "probe_database_removed": true,
+    "reused_from_prior_attempt": true,
+    "sibling_branch_applied": true,
+    "status": "PASS",
+    "to_revision": "20260905_000001"
+  }
+}

@@ -4,7 +4,11 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Annotated, Any, Mapping
+try:
+    from ._cli_runtime import repo_root as _repo_root
+except ImportError:  # direct script execution
+    from _cli_runtime import repo_root as _repo_root
 
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
@@ -12,6 +16,10 @@ if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
 from app.services.ingest import url_pool as url_pool_module
+from scripts.check_evidence_source_availability import EVIDENCE_SOURCE_UNAVAILABLE
+from scripts.check_evidence_source_availability import classify_required_evidence
+from scripts.check_evidence_source_availability import merge_evidence_sources
+from scripts.check_evidence_source_availability import unavailable_error
 from scripts.check_llm_crawler_replay_manifest import DEFAULT_MANIFEST_PATH
 from scripts.check_llm_crawler_replay_manifest import MANIFEST_CONTRACT_VERSION
 from scripts.check_llm_crawler_replay_manifest import build_check as build_manifest_check
@@ -59,10 +67,6 @@ REQUIRED_DECISION_PATH = {
     "http_fetch_fallback_allowed": False,
     "public_browser_replay_performed": False,
 }
-
-
-def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[3]
 
 
 def _require(condition: bool, errors: list[str], message: str) -> None:
@@ -316,7 +320,10 @@ def build_check(
     repo_root: Path | str | None = None,
     manifest_path: Path | str | None = None,
     fixture_path: Path | str | None = None,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=preflight fact_source=repository.llm_replay_manifest_and_fixture witness=test:test_llm_crawler_replay_fixture_authority_metadata",
+]:
     root = Path(repo_root) if repo_root is not None else _repo_root()
     root = root.resolve()
     manifest_rel = Path(manifest_path) if manifest_path is not None else DEFAULT_MANIFEST_PATH
@@ -326,6 +333,18 @@ def build_check(
     errors: list[str] = []
 
     manifest_check = build_manifest_check(root, manifest_rel)
+    evidence_source = merge_evidence_sources(
+        classify_required_evidence(
+            root,
+            {
+                "replay_manifest": manifest_abs,
+                "browser_replay_fixture": fixture_abs,
+            },
+        ),
+        manifest_check.get("evidence_source") or {},
+    )
+    if evidence_source["status"] == EVIDENCE_SOURCE_UNAVAILABLE:
+        errors.append(unavailable_error(evidence_source))
     _require(manifest_check.get("validation", {}).get("passed") is True, errors, "manifest readback checker must pass")
     _require(
         manifest_check.get("closure", {}).get("real_public_high_js_replay_complete") is False,
@@ -364,6 +383,7 @@ def build_check(
         "fixture_path": _relative_path(fixture_abs, root),
         "status": status,
         "scope": "llm_crawler_unified_frontdoor_browser_replay_fixture",
+        "evidence_source": evidence_source,
         "evidence_doc": str(WAVE18_DOC),
         "manifest_gate": {
             "contract_version": manifest_check.get("contract_version"),

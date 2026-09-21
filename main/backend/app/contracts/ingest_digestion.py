@@ -4,7 +4,40 @@ from datetime import date, datetime
 from enum import Enum
 from typing import Any
 
+from functorial_kit import Failure
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+from mrw_functorial_kit.core.application_failure_semantics import ingest_long_cycle_contract_failures
+
+
+_INGEST_FAILURE_WITNESS = "test:test_w01_contract_failures"
+
+
+def _normalize_ingest_required_text(value: object, *, field: str) -> str | Failure:
+    normalized = str(value or "").strip()
+    if normalized:
+        return normalized
+    return ingest_long_cycle_contract_failures.fail(
+        "required_text_empty",
+        "value must not be empty",
+        {
+            "boundary_class": "PURE_CONTRACT_FAILURE",
+            "failure_family": ingest_long_cycle_contract_failures.name,
+            "field": field,
+            "owner": "app.contracts.ingest_digestion",
+            "operation": "normalize_required_text",
+            "public_exception": "ValueError",
+            "public_message": "value must not be empty",
+            "site": "app.contracts.ingest_digestion",
+            "witness": _INGEST_FAILURE_WITNESS,
+        },
+    )
+
+
+def _lift_ingest_contract_failure(value: str | Failure) -> str:
+    if isinstance(value, Failure):
+        # kit:boundary owner=app.contracts.ingest_digestion.pydantic_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=ingest.long_cycle.contract_failure witness=test:test_w01_contract_failures
+        raise ValueError(value.message)
+    return value
 
 
 class IngestInputKind(str, Enum):
@@ -273,10 +306,12 @@ class LongCycleSchedulerDispatchIntent(BaseModel):
     @field_validator("scheduler_ref", "queue_name", "worker_task_name", "task_key", "selected_window", "cadence")
     @classmethod
     def _normalize_required_text(cls, value: str) -> str:
-        normalized = str(value or "").strip()
-        if not normalized:
-            raise ValueError("value must not be empty")
-        return normalized
+        return _lift_ingest_contract_failure(
+            _normalize_ingest_required_text(
+                value,
+                field="scheduler_ref|queue_name|worker_task_name|task_key|selected_window|cadence",
+            )
+        )
 
 
 class LongCyclePersistenceWriteResult(BaseModel):
@@ -296,10 +331,9 @@ class LongCyclePersistenceWriteResult(BaseModel):
     @field_validator("repository_ref", "logical_table", "operation", "record_key")
     @classmethod
     def _normalize_required_text(cls, value: str) -> str:
-        normalized = str(value or "").strip()
-        if not normalized:
-            raise ValueError("value must not be empty")
-        return normalized
+        return _lift_ingest_contract_failure(
+            _normalize_ingest_required_text(value, field="repository_ref|logical_table|operation|record_key")
+        )
 
     @field_validator("payload_ref")
     @classmethod
@@ -446,10 +480,9 @@ class LongCycleRepositoryReadbackCheck(BaseModel):
     @field_validator("status", "repository_ref", "logical_table", "storage_kind")
     @classmethod
     def _normalize_text(cls, value: str) -> str:
-        normalized = str(value or "").strip()
-        if not normalized:
-            raise ValueError("value must not be empty")
-        return normalized
+        return _lift_ingest_contract_failure(
+            _normalize_ingest_required_text(value, field="status|repository_ref|logical_table|storage_kind")
+        )
 
     @field_validator("blockers", "closed_slice", "remaining_runtime_gaps", "readback_event_sequence")
     @classmethod
@@ -482,10 +515,9 @@ class LongCycleSchedulerHandoffTraceEntry(BaseModel):
     @field_validator("stage", "status", "trace_ref", "task_key", "dispatch_key")
     @classmethod
     def _normalize_required_text(cls, value: str) -> str:
-        normalized = str(value or "").strip()
-        if not normalized:
-            raise ValueError("value must not be empty")
-        return normalized
+        return _lift_ingest_contract_failure(
+            _normalize_ingest_required_text(value, field="stage|status|trace_ref|task_key|dispatch_key")
+        )
 
     @field_validator("detail")
     @classmethod
@@ -522,10 +554,9 @@ class LongCycleSchedulerHandoffTraceCheck(BaseModel):
     @field_validator("status", "dispatch_ref")
     @classmethod
     def _normalize_text(cls, value: str) -> str:
-        normalized = str(value or "").strip()
-        if not normalized:
-            raise ValueError("value must not be empty")
-        return normalized
+        return _lift_ingest_contract_failure(
+            _normalize_ingest_required_text(value, field="status|dispatch_ref")
+        )
 
     @field_validator("blockers", "closed_slice", "remaining_runtime_gaps", "handoff_trace_sequence")
     @classmethod
@@ -579,10 +610,15 @@ class LongCycleSchedulerQueueItem(BaseModel):
     )
     @classmethod
     def _normalize_required_text(cls, value: str) -> str:
-        normalized = str(value or "").strip()
-        if not normalized:
-            raise ValueError("value must not be empty")
-        return normalized
+        return _lift_ingest_contract_failure(
+            _normalize_ingest_required_text(
+                value,
+                field=(
+                    "queue_item_key|queue_state|dispatch_key|idempotency_key|scheduler_ref|queue_name|"
+                    "worker_task_name|task_key|selected_window|cadence|repository_ref|dispatch_ref"
+                ),
+            )
+        )
 
     @field_validator("persistent_ref")
     @classmethod
@@ -624,10 +660,12 @@ class LongCycleRepositoryEventReplaySummary(BaseModel):
     )
     @classmethod
     def _normalize_required_text(cls, value: str) -> str:
-        normalized = str(value or "").strip()
-        if not normalized:
-            raise ValueError("value must not be empty")
-        return normalized
+        return _lift_ingest_contract_failure(
+            _normalize_ingest_required_text(
+                value,
+                field="event_replay_ref|repository_ref|task_key|queue_item_key|dispatch_key|dispatch_ref",
+            )
+        )
 
     @field_validator("terminal_output_ref")
     @classmethod
@@ -679,10 +717,7 @@ class LongCycleSchedulerQueueReplayCheck(BaseModel):
     @field_validator("status")
     @classmethod
     def _normalize_text(cls, value: str) -> str:
-        normalized = str(value or "").strip()
-        if not normalized:
-            raise ValueError("value must not be empty")
-        return normalized
+        return _lift_ingest_contract_failure(_normalize_ingest_required_text(value, field="status"))
 
     @field_validator("blockers", "closed_slice", "remaining_runtime_gaps")
     @classmethod

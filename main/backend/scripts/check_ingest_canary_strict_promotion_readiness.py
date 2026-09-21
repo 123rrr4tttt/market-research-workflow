@@ -5,7 +5,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -82,7 +82,10 @@ def build_check(
     production_metrics_artifact_path: Path | None = None,
     ops_promotion_artifact_path: Path | None = None,
     closure_claim: bool = False,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=preflight fact_source=repo_local.canary_execution_and_promotion_artifacts witness=test:test_ingest_canary_strict_promotion_authority_metadata",
+]:
     live_result = run_repo_local_production_like_handoff_canary(project_key=project_key)
     live_evidence = live_result.get("evidence") if isinstance(live_result.get("evidence"), dict) else {}
     resolved_project_key = str(live_result.get("project_key") or project_key or "demo_proj")

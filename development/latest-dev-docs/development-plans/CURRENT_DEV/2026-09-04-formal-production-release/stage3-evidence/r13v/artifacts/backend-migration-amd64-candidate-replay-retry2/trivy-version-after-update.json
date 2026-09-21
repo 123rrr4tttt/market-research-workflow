@@ -1,0 +1,9 @@
+{
+  "argv": [
+    "trivy",
+    "version"
+  ],
+  "cwd": null,
+  "exit_code": 0,
+  "output": "Version: 0.74.0\nVulnerability DB:\n  Version: 2\n  UpdatedAt: 2026-09-12 07:04:21.045373563 +0000 UTC\n  NextUpdate: 2026-09-13 07:04:21.045373293 +0000 UTC\n  DownloadedAt: 2026-09-12 10:25:48.000269 +0000 UTC\n"
+}

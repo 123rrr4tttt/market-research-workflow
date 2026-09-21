@@ -12,12 +12,55 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 pytestmark = pytest.mark.unit
 
 from app.services.collect_runtime.adapters.source_library import to_source_library_response
+from app.services.collect_runtime.adapters.source_library import SourceLibraryAdapter
 from app.services.collect_runtime.adapters import source_library as source_library_adapter_module
-from app.services.collect_runtime.contracts import CollectResult
+from app.services.collect_runtime.contracts import CollectRequest, CollectResult
 from app.services.collect_runtime.runtime import collect_request_from_source_library_api
 
 
 class CollectRuntimeSourceLibraryAdapterUnitTestCase(unittest.TestCase):
+    def test_source_library_adapter_keeps_crawler_ack_open_until_terminal_readback(self) -> None:
+        request = CollectRequest(
+            channel="source_library",
+            project_key="demo_proj",
+            item_key="crawler.demo.pending",
+            options={"override_params": {}},
+        )
+        raw = {
+            "item_key": "crawler.demo.pending",
+            "channel_key": "crawler.demo_proj",
+            "status": "accepted",
+            "provider_status": "queued",
+            "provider_job_id": "job:pending",
+            "terminal_readback": {
+                "kind": "waiting",
+                "attempt_ref": "provider-attempt:a1",
+                "observed_at": "2030-01-01T00:00:00Z",
+            },
+            "result": {"inserted": 0, "updated": 0, "skipped": 0, "errors": []},
+        }
+
+        with (
+            patch("app.services.collect_runtime.adapters.source_library.start_job", return_value=123),
+            patch("app.services.collect_runtime.adapters.source_library.complete_job") as mocked_complete,
+            patch("app.services.collect_runtime.adapters.source_library.fail_job"),
+            patch(
+                "app.services.source_library.resolver.list_effective_channels",
+                return_value=[{"channel_key": "crawler.demo_proj", "enabled": True}],
+            ),
+            patch(
+                "app.services.source_library.resolver.list_effective_items",
+                return_value=[{"item_key": "crawler.demo.pending", "channel_key": "crawler.demo_proj"}],
+            ),
+            patch("app.services.source_library.resolver.run_item_payload", return_value=raw),
+        ):
+            result = SourceLibraryAdapter().run(request)
+
+        self.assertEqual(result.status, "accepted")
+        self.assertEqual(result.meta["terminal_output"]["status"], "accepted")
+        self.assertEqual(result.meta["terminal_output"]["meta"]["outcome_unknown"]["kind"], "outcome_unknown")
+        mocked_complete.assert_not_called()
+
     def test_collect_request_from_source_library_api_uses_shared_runtime_param_parser(self) -> None:
         request = collect_request_from_source_library_api(
             item_key="ai_terminal.weekly",

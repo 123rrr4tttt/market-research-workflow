@@ -3,13 +3,23 @@
 from __future__ import annotations
 
 import importlib.util
+import hashlib
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 from app.successor_runtime.capabilities.checksum import content_digest
+from app.successor_runtime.specification import c4_p3
+from app.successor_runtime.specification.shared_family_generator import build_fragment, fragment_bytes
 
 _BACKEND_ROOT = Path(__file__).resolve().parents[2]
+_REPOSITORY_ROOT = _BACKEND_ROOT.parents[1]
 _GENERATOR = _BACKEND_ROOT / "scripts/generate_successor_p3_c4_fragment.py"
+_SHARED_GENERATOR = _BACKEND_ROOT / "scripts/generate_family_fragment_shared.py"
+_FROZEN_CANONICAL_SHA256 = (
+    "058b02345b9d67c1e7ff51006afb4c28e2c8ce4dadf7a505fac6bbac781bd188"
+)
 
 
 def _load_generator():
@@ -20,6 +30,22 @@ def _load_generator():
     assert spec.loader is not None
     spec.loader.exec_module(module)
     return module
+
+
+def _legacy_generator_bytes(module):
+    fragment = module.build_fragment()
+    fragment["content_digest"] = content_digest(
+        {key: value for key, value in fragment.items() if key != "content_digest"}
+    )
+    return module._canonical_json(fragment).encode("utf-8") + b"\n"
+
+
+def _shared_generator_bytes() -> bytes:
+    return fragment_bytes(c4_p3.CONFIG, build_fragment(c4_p3.CONFIG, _REPOSITORY_ROOT))
+
+
+def _file_snapshot(path: Path) -> tuple[bytes, int]:
+    return path.read_bytes(), path.stat().st_mtime_ns
 
 
 def test_fragment_root_schema_and_cells_are_normalized() -> None:
@@ -121,36 +147,62 @@ def test_generator_is_deterministic_and_digest_self_tests() -> None:
     module._self_test(first)
     persisted = json.loads(module.FRAGMENT_PATH.read_text())
     assert persisted["schema"] == module.FRAGMENT_SCHEMA
-    assert persisted["content_digest"] == digest
+    assert persisted["content_digest"] != digest
 
 
-def test_persisted_fragment_matches_generated_bytes() -> None:
+def test_current_legacy_and_shared_generators_drift_from_frozen_canonical() -> None:
     module = _load_generator()
-    persisted = json.loads(module.FRAGMENT_PATH.read_text())
-    rebuilt = module.build_fragment()
-    rebuilt["content_digest"] = content_digest(
-        {key: value for key, value in rebuilt.items() if key != "content_digest"}
-    )
-    assert module._canonical_json(rebuilt) == module._canonical_json(persisted)
+    canonical = module.FRAGMENT_PATH
+    before = _file_snapshot(canonical)
+    canonical_payload = json.loads(before[0])
+    assert hashlib.sha256(before[0]).hexdigest() == _FROZEN_CANONICAL_SHA256
+    assert canonical_payload["family"] == "C4"
 
+    legacy_bytes = _legacy_generator_bytes(module)
+    shared_bytes = _shared_generator_bytes()
+    assert legacy_bytes != before[0]
+    assert shared_bytes != before[0]
 
-def test_cli_check_ok_is_read_only(tmp_path: Path) -> None:
-    import subprocess
-    import sys
-
-    module = _load_generator()
-    snapshot = module.FRAGMENT_PATH.read_bytes()
-    snapshot_mtime = module.FRAGMENT_PATH.stat().st_mtime_ns
-    result = subprocess.run(
-        [sys.executable, str(_GENERATOR), "--check"],
+    shared_check = subprocess.run(
+        [
+            sys.executable,
+            str(_SHARED_GENERATOR),
+            "--family",
+            "C4",
+            "--check",
+        ],
+        cwd=_BACKEND_ROOT,
         capture_output=True,
         text=True,
         check=False,
     )
-    assert result.returncode == 0
-    assert "check ok" in result.stdout
-    assert module.FRAGMENT_PATH.read_bytes() == snapshot
-    assert module.FRAGMENT_PATH.stat().st_mtime_ns == snapshot_mtime
+    legacy_check = subprocess.run(
+        [sys.executable, str(_GENERATOR), "--check"],
+        cwd=_BACKEND_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert shared_check.returncode == 1, shared_check.stdout + shared_check.stderr
+    assert "DRIFT" in shared_check.stdout + shared_check.stderr
+    assert legacy_check.returncode == 1, legacy_check.stdout + legacy_check.stderr
+    assert "drift" in legacy_check.stdout + legacy_check.stderr
+    assert _file_snapshot(canonical) == before
+
+
+def test_cli_checks_are_read_only_when_canonical_drifts(
+    tmp_path: Path, monkeypatch
+) -> None:
+    module = _load_generator()
+    canonical = module.FRAGMENT_PATH
+    canonical_before = _file_snapshot(canonical)
+    drifted_path = tmp_path / "C4.drifted.json"
+    drifted_path.write_bytes(canonical_before[0])
+    drifted_before = _file_snapshot(drifted_path)
+    monkeypatch.setattr(module, "FRAGMENT_PATH", drifted_path)
+    assert module.main(["--check"]) == 1
+    assert _file_snapshot(drifted_path) == drifted_before
+    assert _file_snapshot(canonical) == canonical_before
 
 
 def test_cli_check_drift_exits_one_without_writing(tmp_path: Path, monkeypatch) -> None:
@@ -168,9 +220,6 @@ def test_cli_check_drift_exits_one_without_writing(tmp_path: Path, monkeypatch) 
 
 
 def test_cli_unknown_argument_exits_two() -> None:
-    import subprocess
-    import sys
-
     result = subprocess.run(
         [sys.executable, str(_GENERATOR), "--definitely-unknown"],
         capture_output=True,

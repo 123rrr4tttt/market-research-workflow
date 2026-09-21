@@ -1,0 +1,22 @@
+{
+  "artifact_manifest": {
+    "path": "stage1-successor-evidence/stage2-v5-intake-remediation-v2/artifact-manifest.v2.json",
+    "sha256": "632311249228bbbfc52cd190ba81456080936f72742532f50832141610e84399"
+  },
+  "authoritative": false,
+  "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+  "checks": {
+    "contract14_history_allowlist_exact": true,
+    "current_byte_registry_checker_pass": true,
+    "legacy_v2_preserved": true,
+    "source_static_predecessor_non_successor_paths_current": true,
+    "v1_predecessor_and_validation_immutable": true,
+    "v3_direct_bindings_and_six_resolutions": true
+  },
+  "record": {
+    "path": "stage1-successor-evidence/stage2-v5-intake-remediation-v2/stage2-v5-intake-remediation-record.v2.json",
+    "sha256": "840dae5a8f24d70cb2b84ccc8f6e5a5b5a13556403004e8f21072ee41cf70e01"
+  },
+  "schema_version": "mrw.stage1.stage2_v5_intake_remediation_validation.v2",
+  "status": "PASS"
+}

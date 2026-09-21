@@ -1,0 +1,19 @@
+{
+  "id": "r3",
+  "command": [
+    "/Users/wangyiliang/market-research-workflow/.venv/bin/python",
+    "scripts/formal_release/check_static_production_contract.py",
+    "--repo-root",
+    "/private/tmp/mrw-stage3-v6-preflight-gga5tnof/candidate"
+  ],
+  "cwd": "/private/tmp/mrw-stage3-v6-preflight-gga5tnof/candidate",
+  "exit_code": 0,
+  "started_at": "2026-09-06T21:51:57.096962+00:00",
+  "ended_at": "2026-09-06T21:51:57.144945+00:00",
+  "log": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-preflight/r3.log",
+  "sha256": "9f7bc679db5e6e481090e43c1c4ee9d59cfe29b9efa3d8e9fa470689cda61e03",
+  "environment_overrides": {
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "PYTHONNOUSERSITE": "1"
+  }
+}

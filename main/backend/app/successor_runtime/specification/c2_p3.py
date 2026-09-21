@@ -400,6 +400,26 @@ _SOURCE_BINDINGS = (
 
 _IMPLEMENTATION_BINDINGS = (
     BindingTarget(
+        "main/backend/app/services/source_library/provider_ports.py",
+        "legacy_crawler_provider_resolution_port",
+    ),
+    BindingTarget(
+        "main/backend/app/composition/source_library.py",
+        "legacy_crawler_provider_composition",
+    ),
+    BindingTarget(
+        "src/mrw_functorial_kit/core/provider_port_failures.py",
+        "source_library_crawler_provider_resolution_kit_projection",
+    ),
+    BindingTarget(
+        "main/backend/app/main.py",
+        "legacy_crawler_provider_web_wiring",
+    ),
+    BindingTarget(
+        "main/backend/app/celery_app.py",
+        "legacy_crawler_provider_worker_wiring",
+    ),
+    BindingTarget(
         "main/backend/app/successor_runtime/capabilities/source_library_c2_shared.py",
         "shared_contracts",
     ),
@@ -458,6 +478,31 @@ _IMPLEMENTATION_BINDINGS = (
 )
 
 _TEST_BINDINGS = (
+    BindingTarget(
+        "tests/test_c2_runtime_failure_closure.py",
+        "c2_runtime_failure_closure",
+    ),
+    BindingTarget(
+        "tests/test_c2_failure_registration.py",
+        "c2_failure_registration",
+    ),
+    BindingTarget(
+        "main/backend/tests/unit/test_source_library_provider_ports_unittest.py",
+        "legacy_crawler_provider_port",
+    ),
+    BindingTarget(
+        "tests/test_provider_port_failure_registration.py",
+        "provider_port_failure_registration",
+    ),
+    BindingTarget(
+        "main/backend/tests/unit/test_source_library_runner_gray_rollout_unittest.py",
+        "legacy_crawler_provider_runner",
+    ),
+    BindingTarget(
+        "main/backend/tests/integration/"
+        "test_t22_source_library_scrapy_collect_runtime_integration_unittest.py",
+        "legacy_crawler_provider_collect_integration",
+    ),
     BindingTarget(
         "main/backend/tests/successor_runtime/test_p3_c2_2_contracts.py",
         "c2_2_contracts",

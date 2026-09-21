@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from typing import Any
+from typing import Any, NoReturn
+
+from functorial_kit import Failure
+from mrw_functorial_kit.core.w07_semantics import language_failures
 
 from app.successor_runtime.research.object_types import ObjectType
 
@@ -47,6 +50,7 @@ COMPILER_ID = "mrw.functorial-successor.compiler"
 COMPILER_VERSION = "1.0.0"
 TRAVERSAL_MATERIALIZER_TRANSFORM = "mrw.traverse_ordered.materialize"
 TRAVERSAL_MATERIALIZER_VERSION = "1.0.0"
+_FAILURE_WITNESS = "test:test_w07_language_b_failure_boundary"
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,6 +62,58 @@ class CompileFailure(Exception):
 
     def __str__(self) -> str:
         return f"{self.code} at {self.path}: {self.message}"
+
+
+def _compile_failure(
+    code: str,
+    path: str,
+    message: object,
+    *,
+    failures: tuple[ValidationFailure, ...] = (),
+    exception_type: type[Exception] = CompileFailure,
+) -> Failure:
+    """Build a closed language failure before crossing the legacy ABI."""
+
+    public_message = str(message)
+    return language_failures.fail(
+        code,
+        public_message,
+        {
+            "owner": "successor_runtime.language.compile",
+            "path": path,
+            "public_exception": exception_type.__name__,
+            "public_argument": public_message,
+            "public_message": public_message,
+            "failures": failures,
+            "site": "language.compile",
+            "witness": _FAILURE_WITNESS,
+        },
+    )
+
+
+def raise_compile_failure(failure: Failure, *, cause: BaseException | None = None) -> NoReturn:
+    """Lift one typed compile failure into the established exception ABI."""
+
+    context = failure.context or {}
+    if (
+        not language_failures.matches(failure)
+        or context.get("public_exception") != "CompileFailure"
+        or context.get("public_message") != failure.message
+        or not isinstance(context.get("path"), str)
+    ):
+        # kit:boundary owner=successor.language.compile.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_invalid_program_fails_typed_before_any_effect_boundary
+        raise TypeError("compile failure lift context is incomplete")
+    error = CompileFailure(
+        failure.code,
+        str(context["path"]),
+        str(context["public_message"]),
+        tuple(context.get("failures") or ()),
+    )
+    if cause is None:
+        # kit:boundary owner=successor.language.compile.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_invalid_program_fails_typed_before_any_effect_boundary
+        raise error
+    # kit:boundary owner=successor.language.compile.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_invalid_program_fails_typed_before_any_effect_boundary
+    raise error from cause
 
 
 @dataclass(frozen=True, slots=True)
@@ -132,7 +188,7 @@ class _Compiler:
         self.contract_resolver = contract_resolver
         self.program_metadata = program_metadata
 
-    def fold(self, node: ProgramNode, path: tuple[str, ...]) -> _Fragment:
+    def fold(self, node: ProgramNode, path: tuple[str, ...]) -> _Fragment | Failure:
         if isinstance(node, Identity):
             control = _control(node, path)
             return _Fragment(
@@ -170,7 +226,11 @@ class _Compiler:
             return self._atom(node, path)
         if isinstance(node, Then):
             first = self.fold(node.first, path + ("first",))
+            if isinstance(first, Failure):
+                return first
             second = self.fold(node.second, path + ("second",))
+            if isinstance(second, Failure):
+                return second
             added = first.terminals
             second_steps = tuple(
                 replace(step, dependencies=_ordered_unique(added + step.dependencies))
@@ -196,6 +256,8 @@ class _Compiler:
             )
         if isinstance(node, MapOutput):
             source = self.fold(node.source, path + ("source",))
+            if isinstance(source, Failure):
+                return source
             step_id = _stable_id(
                 "step", path, node.transform_ref.ref_digest(), "map_output"
             )
@@ -235,7 +297,11 @@ class _Compiler:
             )
         if isinstance(node, ZipOrdered):
             left = self.fold(node.left, path + ("left",))
+            if isinstance(left, Failure):
+                return left
             right = self.fold(node.right, path + ("right",))
+            if isinstance(right, Failure):
+                return right
             # ZipOrdered only exposes potential parallelism.  P0-A has no
             # ParallelPolicy proof in the AST, so compile the declared
             # left-to-right serial fallback explicitly.
@@ -305,6 +371,8 @@ class _Compiler:
                 fragment = self.fold(
                     branch.program, path + ("branch", branch.branch_id)
                 )
+                if isinstance(fragment, Failure):
+                    return fragment
                 steps = tuple(
                     replace(
                         step,
@@ -411,7 +479,7 @@ class _Compiler:
             )
         if isinstance(node, TraverseOrdered):
             return self._traverse_ordered(node, path)
-        raise CompileFailure(
+        return _compile_failure(
             "UNKNOWN_NODE_KIND",
             ".".join(path),
             f"unsupported node {type(node).__name__}",
@@ -421,10 +489,10 @@ class _Compiler:
         self,
         node: TraverseOrdered,
         path: tuple[str, ...],
-    ) -> _Fragment:
+    ) -> _Fragment | Failure:
         policy = node.traversal_policy
         if policy not in {"STATIC_SHAPE", "MATERIALIZED_SHAPE"}:
-            raise CompileFailure(
+            return _compile_failure(
                 "UNSUPPORTED_TRAVERSAL",
                 ".".join(path),
                 f"unsupported traversal policy {policy!r}",
@@ -443,7 +511,7 @@ class _Compiler:
                 or isinstance(candidate_count, bool)
                 or candidate_count < 0
             ):
-                raise CompileFailure(
+                return _compile_failure(
                     "TRAVERSAL_SHAPE_BINDING_REQUIRED",
                     ".".join(path),
                     "STATIC_SHAPE requires exact traversal_shape_digest and "
@@ -533,18 +601,18 @@ class _Compiler:
             (step_id,),
         )
 
-    def _atom(self, node: Atom, path: tuple[str, ...]) -> _Fragment:
+    def _atom(self, node: Atom, path: tuple[str, ...]) -> _Fragment | Failure:
         operation = node.operation
         contract = self.contract_resolver.resolve(operation.contract_ref)
         if contract is None:
-            raise CompileFailure(
+            return _compile_failure(
                 "UNRESOLVED_OPERATION_CONTRACT",
                 ".".join(path),
                 f"full contract {operation.contract_ref.kind} is not resolvable by exact ref",
             )
         effective_return = frozen_return_contract(contract)
         if effective_return is None:
-            raise CompileFailure(
+            return _compile_failure(
                 "UNKNOWN_RETURN_CONTRACT",
                 ".".join(path),
                 f"return contract {contract.return_contract_ref!r} is not frozen",
@@ -636,17 +704,17 @@ def _ordered_unique(values: tuple[str, ...]) -> tuple[str, ...]:
     return tuple(dict.fromkeys(values))
 
 
-def _topological_order(steps: tuple[CompiledStep, ...]) -> tuple[str, ...]:
+def _topological_order(steps: tuple[CompiledStep, ...]) -> tuple[str, ...] | Failure:
     known = {step.step_id for step in steps}
     if len(known) != len(steps):
-        raise CompileFailure(
+        return _compile_failure(
             "DUPLICATE_STEP_ID", "root", "compiled step IDs are not unique"
         )
     remaining = {step.step_id: set(step.dependencies) for step in steps}
     for step_id, dependencies in remaining.items():
         missing = dependencies - known
         if missing:
-            raise CompileFailure(
+            return _compile_failure(
                 "MISSING_DEPENDENCY",
                 step_id,
                 f"missing dependencies: {sorted(missing)}",
@@ -660,7 +728,7 @@ def _topological_order(steps: tuple[CompiledStep, ...]) -> tuple[str, ...]:
             if step_id in remaining and not remaining[step_id]
         ]
         if not ready:
-            raise CompileFailure(
+            return _compile_failure(
                 "DEPENDENCY_CYCLE", "root", "compiled dependency graph contains a cycle"
             )
         for step_id in ready:
@@ -682,7 +750,7 @@ def _ready_order(
     )
 
 
-def compile_program(
+def _compile_program_unsafe(
     program: ProgramSpec,
     catalog: OperationContractCatalogSnapshot,
     *,
@@ -692,11 +760,11 @@ def compile_program(
     discriminator_registry: TransformRegistry | None = None,
     compiler_id: str = COMPILER_ID,
     compiler_version: str = COMPILER_VERSION,
-) -> ExecutionPlan:
+) -> ExecutionPlan | Failure:
     if operation_contracts is None or not callable(
         getattr(operation_contracts, "resolve", None)
     ):
-        raise CompileFailure(
+        return _compile_failure(
             "MISSING_OPERATION_CONTRACT_RESOLVER",
             "root",
             "compilation requires a full OperationContract resolver/registry",
@@ -721,11 +789,11 @@ def compile_program(
     )
     if not validation.valid:
         first = validation.failures[0]
-        raise CompileFailure(
-            "INVALID_PROGRAM", first.path, first.message, validation.failures
+        return _compile_failure(
+            "INVALID_PROGRAM", first.path, first.message, failures=validation.failures
         )
     if program.program_digest and program.program_digest != program.digest():
-        raise CompileFailure(
+        return _compile_failure(
             "PROGRAM_DIGEST_MISMATCH",
             "root",
             "program_digest does not bind canonical ProgramSpec bytes",
@@ -735,7 +803,11 @@ def compile_program(
         operation_contracts,
         dict(normalized.metadata),
     ).fold(normalized.root, ("root",))
+    if isinstance(fragment, Failure):
+        return fragment
     order = _topological_order(fragment.steps)
+    if isinstance(order, Failure):
+        return order
     step_by_id = {step.step_id: step for step in fragment.steps}
     ordered_steps = tuple(step_by_id[step_id] for step_id in order)
     return_contract = normalized.root.return_contract
@@ -787,15 +859,73 @@ def compile_program(
     return with_plan_digest(plan)
 
 
+def try_compile_program(
+    program: ProgramSpec,
+    catalog: OperationContractCatalogSnapshot,
+    **kwargs: Any,
+) -> ExecutionPlan | Failure:
+    """Total compiler boundary; domain/compiler rejections are closed values."""
+
+    try:
+        return _compile_program_unsafe(program, catalog, **kwargs)
+    except CompileFailure as exc:
+        return _compile_failure(
+            exc.code,
+            exc.path,
+            exc.message,
+            failures=exc.failures,
+        )
+    except TypeError as exc:
+        return _compile_failure(
+            "PROGRAM_TYPE_INVALID",
+            "root",
+            str(exc),
+            exception_type=type(exc),
+        )
+    except ValueError as exc:
+        return _compile_failure(
+            "COMPILED_PLAN_INVALID",
+            "root",
+            str(exc),
+            exception_type=type(exc),
+        )
+
+
+def compile_program(
+    program: ProgramSpec,
+    catalog: OperationContractCatalogSnapshot,
+    **kwargs: Any,
+) -> ExecutionPlan:
+    result = try_compile_program(program, catalog, **kwargs)
+    if isinstance(result, Failure):
+        if result.context and result.context.get("public_exception") == "CompileFailure":
+            raise_compile_failure(result)
+        context = result.context or {}
+        exception_name = str(context.get("public_exception", "ValueError"))
+        exception_type: type[Exception] = TypeError if exception_name == "TypeError" else ValueError
+        message = str(context.get("public_message", result.message))
+        # kit:boundary owner=successor.language.compile.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_invalid_program_fails_typed_before_any_effect_boundary
+        raise exception_type(message)
+    return result
+
+
 def compile(
     program: ProgramSpec, catalog: OperationContractCatalogSnapshot, **kwargs: Any
 ) -> ExecutionPlan:
     return compile_program(program, catalog, **kwargs)
 
 
-def compose_plans(first: ExecutionPlan, second: ExecutionPlan) -> ExecutionPlan:
+def try_compile(
+    program: ProgramSpec,
+    catalog: OperationContractCatalogSnapshot,
+    **kwargs: Any,
+) -> ExecutionPlan | Failure:
+    return try_compile_program(program, catalog, **kwargs)
+
+
+def _compose_plans_unsafe(first: ExecutionPlan, second: ExecutionPlan) -> ExecutionPlan | Failure:
     if object_type_digest(first.output_type) != object_type_digest(second.input_type):
-        raise CompileFailure(
+        return _compile_failure(
             "TYPE_MISMATCH", "compose", "plan output/input types do not match"
         )
     if not first.ordered_steps:
@@ -830,6 +960,8 @@ def compose_plans(first: ExecutionPlan, second: ExecutionPlan) -> ExecutionPlan:
         control_digest,
     )
     order = _topological_order(steps)
+    if isinstance(order, Failure):
+        return order
     contract = second.return_policy
     plan = ExecutionPlan(
         plan_id="plan-" + control_digest[:24],
@@ -872,7 +1004,28 @@ def compose_plans(first: ExecutionPlan, second: ExecutionPlan) -> ExecutionPlan:
     return with_plan_digest(plan)
 
 
-def map_plan_output(
+def try_compose_plans(first: ExecutionPlan, second: ExecutionPlan) -> ExecutionPlan | Failure:
+    try:
+        return _compose_plans_unsafe(first, second)
+    except CompileFailure as exc:
+        return _compile_failure(exc.code, exc.path, exc.message, failures=exc.failures)
+    except (TypeError, ValueError) as exc:
+        return _compile_failure("COMPILED_PLAN_INVALID", "compose", str(exc), exception_type=type(exc))
+
+
+def compose_plans(first: ExecutionPlan, second: ExecutionPlan) -> ExecutionPlan:
+    result = try_compose_plans(first, second)
+    if isinstance(result, Failure):
+        context = result.context or {}
+        if result.code == "TYPE_MISMATCH":
+            raise_compile_failure(result)
+        exception_type = TypeError if context.get("public_exception") == "TypeError" else ValueError
+        # kit:boundary owner=successor.language.compile.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_invalid_program_fails_typed_before_any_effect_boundary
+        raise exception_type(str(context.get("public_message", result.message)))
+    return result
+
+
+def _map_plan_output_unsafe(
     plan: ExecutionPlan, transform: TransformRef, target_type: ObjectType | None = None
 ) -> ExecutionPlan:
     target = target_type or plan.output_type
@@ -923,6 +1076,8 @@ def map_plan_output(
     )
     steps = plan.ordered_steps + (step,)
     order = _topological_order(steps)
+    if isinstance(order, Failure):
+        return order
     result = replace(
         plan,
         plan_id="plan-" + digest[:24],
@@ -938,3 +1093,33 @@ def map_plan_output(
         plan_digest="",
     )
     return with_plan_digest(result)
+
+
+def try_map_plan_output(
+    plan: ExecutionPlan,
+    transform: TransformRef,
+    target_type: ObjectType | None = None,
+) -> ExecutionPlan | Failure:
+    try:
+        return _map_plan_output_unsafe(plan, transform, target_type)
+    except (TypeError, ValueError) as exc:
+        return _compile_failure(
+            "COMPILED_PLAN_INVALID",
+            "map_plan_output",
+            str(exc),
+            exception_type=type(exc),
+        )
+
+
+def map_plan_output(
+    plan: ExecutionPlan,
+    transform: TransformRef,
+    target_type: ObjectType | None = None,
+) -> ExecutionPlan:
+    result = try_map_plan_output(plan, transform, target_type)
+    if isinstance(result, Failure):
+        context = result.context or {}
+        exception_type = TypeError if context.get("public_exception") == "TypeError" else ValueError
+        # kit:boundary owner=successor.language.compile.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_invalid_program_fails_typed_before_any_effect_boundary
+        raise exception_type(str(context.get("public_message", result.message)))
+    return result

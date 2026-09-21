@@ -6,7 +6,7 @@ from __future__ import annotations
 import ast
 import json
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 
 DOCUMENT_QUERY_CONTRACT_VERSION = "document_queries.v1"
@@ -48,7 +48,10 @@ def _function_calls_name(tree: ast.AST, *, function_name: str, called_name: str)
     return False
 
 
-def build_check() -> dict[str, Any]:
+def build_check() -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=generated_evidence fact_source=structured_query_docs+repo_static_checks witness=test:test_c13_cli_graph_workflow_metadata_preserves_abi",
+]:
     prompt_tree = _read_tree(PROMPT_TIME_DENSITY_PATH)
     prompt_text = PROMPT_TIME_DENSITY_PATH.read_text(encoding="utf-8")
     policy_tree = _read_tree(POLICY_FILTERS_PATH)

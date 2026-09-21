@@ -1,0 +1,24 @@
+{
+  "claim_id": "claim-003",
+  "claim": "ingest-canary-current-authority-projection",
+  "contract": "14_stage1-local-evidence-execution-contract.v1",
+  "generator": {
+    "path": "main/backend/scripts/check_ingest_canary_closure_readiness.py",
+    "sha256": "e3a37b27ae9f440ce5fc35b3713d6f40fc2632f8674b5312e4b43c2f38adcab5",
+    "effect_boundary": "pure repo-local reads, deterministic validation and optional JSON write; no network/provider/container/database/model operations"
+  },
+  "command": "python3 main/backend/scripts/check_ingest_canary_closure_readiness.py --json --write-output /Users/wangyiliang/market-research-workflow/stage1-successor-evidence/contract14-local-execution-v1/local/claim-003/report.json",
+  "options": {"json": true, "write_output": "local/claim-003/report.json"},
+  "exit_status": 0,
+  "raw_output": {"stdout": "raw.stdout", "stderr": "raw.stderr"},
+  "report": {"path": "report.json", "sha256": "0ee5a051e8ab5321f3abfeb708d4246166ba97e058f73d2880dafe6ed3cea4e9", "status": "passed", "validation_errors": []},
+  "input_anchors": [
+    ["development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/INDEX.md", "7c9e761b9bcb6e314b7f2907a75adc5c2caf404fe4fa1ae2252e8474d1e525f6"],
+    ["development/latest-dev-docs/development-plans/CURRENT_DEV/INDEX.md", "0563941ec3ccd96a9d3cb133727f97d2de47d75ace7cf68bf86d9d4bd3dc31bc"],
+    ["development/latest-dev-docs/development-plans/TARGET_TOPIC_ALLOWLIST.json", "ce35b86f548c64dd1d2dc8d84aad898b58245dcba737ce9dfb700b340681599b"]
+  ],
+  "scope": "Current repository documentation/authority projection for Wave51/56/57 and Wave27 history classification only; authoritative=false; not canary/runtime/deployment/release evidence",
+  "network_and_external_effects": "blocked by execution policy; no network, DNS, provider, container/service startup, user DB, or model download invoked",
+  "authoritative": false,
+  "production_release_authorized": false
+}

@@ -1,0 +1,27 @@
+{
+  "authoritative": false,
+  "candidate_commit": "6aa7518750f2c29229a443f73248c8133f192e4d",
+  "candidate_tree": "9853f36db67a5b62c297f6266bc4d0861a28c396",
+  "status": "PASS",
+  "pytest_cases": 296,
+  "subtests": 44,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "duration_seconds": 44.02,
+  "junit": {
+    "path": "affected-contracts.r13w.junit.xml",
+    "sha256": "14bec064552059e65c4d2dd133e1a1ccfb3326879a7cf1d840643df213e7c384",
+    "reported_total_including_subtests": 340
+  },
+  "scope": [
+    "dockerfile lock closure",
+    "workflow contract",
+    "static production contract",
+    "functorial-kit dependency audit",
+    "vendored wheel rebuild verifier",
+    "Stage1 current binding successor",
+    "Stage2 candidate intake",
+    "source closure"
+  ]
+}

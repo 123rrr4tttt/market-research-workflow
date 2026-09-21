@@ -1,0 +1,21 @@
+{
+  "authoritative": false,
+  "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+  "checks": {
+    "artifact_manifest": "PASS",
+    "authority_ceiling": "PASS",
+    "claim_and_nodeid_coverage": "PASS",
+    "cleanup_and_blocked_downstream": "PASS",
+    "input_hashes": "PASS",
+    "source_runtime_unchanged": "PASS"
+  },
+  "errors": [],
+  "production_release_authorized": false,
+  "return": {
+    "bytes": 37689,
+    "path": "stage1-successor-evidence/contract14-local-execution-v1/return.v1.json",
+    "sha256": "bf448d36c8cab520644fc2b662327e6a16febdc4eb4dd8134a7eed71d92aa4c4"
+  },
+  "schema_version": "mrw.stage1.contract14.return-validation.v1",
+  "status": "PASS"
+}

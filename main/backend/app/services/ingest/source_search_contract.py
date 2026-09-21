@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any
 from urllib.parse import parse_qsl, quote, quote_plus, urlencode, urlparse, urlunparse
 
 _ENTRY_QUERY_KEYS = {"q", "query", "keyword", "keywords", "search", "s", "term"}
@@ -100,7 +100,10 @@ def build_query_url_from_contract(
     template_url: str,
     query_terms: list[str] | None,
     contract: dict[str, Any] | None = None,
-) -> str:
+) -> Annotated[
+    str,
+    "kit:non-authoritative derived_as=view fact_source=template_url+query_terms+search_contract witness=test:test_w03_ingest_ports_authority_metadata",
+]:
     """Build query URL from a search template URL and normalized search contract."""
     url = str(template_url or "").strip()
     if not url:

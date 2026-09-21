@@ -1,0 +1,59 @@
+{
+  "authoritative": false,
+  "candidate": {
+    "commit": "8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+    "tree": "ce7c67c831b51f9d64b4c2f1a470a724a50b19df"
+  },
+  "command": "bandit -q -r main/backend/app -x main/backend/tests --severity-level high --confidence-level high -f json -o <security>/raw/bandit.report.json",
+  "cwd": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260912-v4-r13x/candidate",
+  "execution": {
+    "argv": [
+      "/private/tmp/mrw-r13x-security-fIVnzM/tools-venv/bin/bandit",
+      "-q",
+      "-r",
+      "main/backend/app",
+      "-x",
+      "main/backend/tests",
+      "--severity-level",
+      "high",
+      "--confidence-level",
+      "high",
+      "-f",
+      "json",
+      "-o",
+      "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/security/raw/bandit.report.json"
+    ],
+    "cwd": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260912-v4-r13x/candidate"
+  },
+  "exit_code": 0,
+  "findings_at_or_above_threshold": 0,
+  "generated_at_utc": "2026-09-12T16:08:59.049575Z",
+  "limitations": [
+    "Local source scan only; this is not release or security approval."
+  ],
+  "metrics": {
+    "CONFIDENCE.HIGH": 279,
+    "CONFIDENCE.LOW": 19,
+    "CONFIDENCE.MEDIUM": 49,
+    "CONFIDENCE.UNDEFINED": 0,
+    "SEVERITY.HIGH": 0,
+    "SEVERITY.LOW": 294,
+    "SEVERITY.MEDIUM": 53,
+    "SEVERITY.UNDEFINED": 0,
+    "loc": 271528,
+    "nosec": 0,
+    "skipped_tests": 0
+  },
+  "report": {
+    "bytes": 277982,
+    "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/security/raw/bandit.report.json",
+    "sha256": "c44963c8ceeeab32b88c8a2716e496bd86f0c3883c46e3afe3b4cc3ed9b2e786"
+  },
+  "schema_version": "mrw.stage3.bandit-gate.v1",
+  "status": "PASS",
+  "threshold": {
+    "confidence": "high",
+    "severity": "high"
+  },
+  "workflow_required_command": "bandit -q -r main/backend/app -x main/backend/tests --severity-level high --confidence-level high"
+}

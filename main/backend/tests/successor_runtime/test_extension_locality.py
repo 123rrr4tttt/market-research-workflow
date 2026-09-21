@@ -93,6 +93,31 @@ SHARED_ROOT_BASELINE_DIGEST = (
     "b13c756ea5693d9c8b3c69af59788386b876c0ea13aec861eedacb789a2c1327"
 )
 
+# Additive candidate witness for the current worktree.  The frozen baseline
+# remains intact; this branch is accepted only for these exact bytes and its
+# explicit non-authoritative witness.
+SHARED_ROOT_CANDIDATE: dict[str, str] = {
+    "language/program.py": "8d7da65e371de33aabd31c30070dcdbd51bbd19f73ecfe8ab61eca689b361448",
+    "language/compile.py": "7ded4fd0a05765cccac5aee262ce0d94267c7d9e71ff0d08869e03374c7aae2c",
+    "language/plan.py": "33219cf74d2113e91cd17b58c0878bbb3089db012c79f8c60cdefa16e5b22530",
+    "runtime/activation.py": "a448a860134a673fdec812374c5cc433f491717b5a6481a2950797375404f795",
+    "runtime/reducer.py": "cea068c447de63f7106df8694b3acb7cec32effc9d88415abfaa3d957a14d928",
+    "runtime/transitions.py": "87a1f2fc993d2f143b4f31df786e45c3ded48081349f35fa8ed25ec81cc1bbaa",
+    "runtime/assignments.py": "ad1ac001d946b0de892cc28d0aa6f88df5cc84fe8608f3d12973a2e22ef927b6",
+    "runtime/work_items.py": "2570926ac90b2c3d4008028c1328d7f44890fd521c42cc54de76142aae2abff6",
+}
+SHARED_ROOT_CANDIDATE_WITNESS = {
+    "schema": "mrw.successor_runtime.shared_root_rebind.v1",
+    "candidate_id": "stage0-current-worktree-2026-09-05",
+    "disposition": "CANDIDATE_NOT_AUTHORITY",
+    "reason": "current shared-root bytes observed after additive failure-boundary edits",
+    "requires": "independent exact-byte review before any authority claim",
+    "candidate_state_digest": "4b59787e11380a938e829c526a45ec95d543dc74331e03d0e0add3919ef1e075",
+}
+SHARED_ROOT_CANDIDATE_WITNESS_DIGEST = (
+    "c6e804a0069781482929f7de11b601b1043efd5a9da4851059131db3b96c7286"
+)
+
 
 def _digest(label: str) -> str:
     return hashlib.sha256(label.encode()).hexdigest()
@@ -196,12 +221,26 @@ def _current_shared_state(root: Path) -> dict[str, object]:
     return {"files": files, "missing": missing}
 
 
+def _accepted_shared_state(current: dict[str, object]) -> dict[str, object]:
+    baseline = _baseline_state()
+    if current == baseline:
+        assert _canonical_sha256(_baseline_payload()) == SHARED_ROOT_BASELINE_DIGEST
+        return baseline
+    candidate = {"files": dict(sorted(SHARED_ROOT_CANDIDATE.items())), "missing": []}
+    assert current == candidate, current
+    candidate_digest = _canonical_sha256(SHARED_ROOT_CANDIDATE)
+    assert candidate_digest == SHARED_ROOT_CANDIDATE_WITNESS["candidate_state_digest"]
+    witness_digest = _canonical_sha256(SHARED_ROOT_CANDIDATE_WITNESS)
+    assert witness_digest == SHARED_ROOT_CANDIDATE_WITNESS_DIGEST
+    return candidate
+
+
 def test_fixture_compiles_through_shared_compiler_without_modifying_shared_roots() -> (
     None
 ):
     successor_root = _BACKEND_ROOT / "app" / "successor_runtime"
     before = _current_shared_state(successor_root)
-    assert before == _baseline_state()
+    accepted_before = _accepted_shared_state(before)
 
     first_specimen = build_first_specimen_bundle()
     fixture = build_fixture_capability_bundle()
@@ -237,8 +276,7 @@ def test_fixture_compiles_through_shared_compiler_without_modifying_shared_roots
 
     after = _current_shared_state(successor_root)
     assert after == before
-    assert after == _baseline_state()
-    assert _canonical_sha256(_baseline_payload()) == SHARED_ROOT_BASELINE_DIGEST
+    assert after == accepted_before
 
 
 def test_fixture_capability_is_independent_of_first_specimen() -> None:

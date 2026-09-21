@@ -128,8 +128,16 @@ class ProjectKeyPolicyTestCase(unittest.TestCase):
             patch("app.main.settings.project_key_enforcement_mode", "warn"),
             patch("app.main.settings.env", "prod"),
             patch("app.main.settings.project_key_require_in_non_dev", True),
+            patch("app.main.settings.production_metrics_token", "test-observability-token"),
         ):
-            resp = client.get("/api/v1/health", headers={"X-Project-Key": "demo_proj", "X-Request-Id": "req-2"})
+            resp = client.get(
+                "/api/v1/health",
+                headers={
+                    "Authorization": "Bearer test-observability-token",
+                    "X-Project-Key": "demo_proj",
+                    "X-Request-Id": "req-2",
+                },
+            )
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.headers.get("x-project-key-enforcement-mode"), "require")
         self.assertEqual(resp.headers.get("x-project-key-fallback-allowed"), "false")

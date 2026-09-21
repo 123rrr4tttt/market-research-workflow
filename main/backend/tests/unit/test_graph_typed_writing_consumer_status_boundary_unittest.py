@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 pytestmark = pytest.mark.unit
 
 from scripts.check_graph_typed_writing_consumer_status_boundary import (  # noqa: E402
+    CANONICAL_ROOT,
     CONTRACT_VERSION,
     TARGET_STATUS,
     build_check,
@@ -24,45 +25,46 @@ REPO_ROOT = Path(__file__).resolve().parents[4]
 
 
 class GraphTypedWritingConsumerStatusBoundaryUnitTest(unittest.TestCase):
-    def test_current_status_is_external_blocked_without_active_partial(self) -> None:
+    def test_current_authority_is_later_canonical_closure(self) -> None:
         report = build_check(REPO_ROOT)
 
         self.assertEqual(report["contract_version"], CONTRACT_VERSION)
         self.assertEqual(report["status"], "passed", report["validation"])
         self.assertTrue(report["validation"]["passed"], report["validation"])
-        self.assertEqual(report["current_dev_status_counts"]["partial"], 0)
+        self.assertEqual(report["authority"]["root"], CANONICAL_ROOT.as_posix())
+        self.assertFalse(report["authority"]["historical_wave27_is_current_authority"])
 
         topic_statuses = {topic["topic_id"]: topic for topic in report["topics"]}
         self.assertEqual(len(topic_statuses), 4)
         for topic in topic_statuses.values():
             self.assertEqual(topic["canonical_status"], TARGET_STATUS)
-            self.assertTrue(topic["external_blocked_index_row"]["has_external_blocked"])
-            self.assertEqual(topic["current_status_problem_count"], 0)
+            self.assertTrue(topic["canonical_directory_exists"])
+            self.assertTrue(topic["canonical_closure_doc_exists"])
+            self.assertEqual(topic["missing_closure_tokens"], [])
+            self.assertTrue(topic["topic_index_has_current_authority"])
+            self.assertTrue(topic["closed_index_points_to_closure"])
+            self.assertFalse(topic["historical_wave27"]["is_current_authority"])
 
-        gates = report["repo_local_gates"]
-        self.assertTrue(gates["graph"]["passed"], gates["graph"])
-        self.assertFalse(gates["graph"]["closure_claim"])
-        self.assertTrue(gates["graph"]["live_tenant_db_audit_open"])
-        self.assertTrue(gates["typed_writing"]["passed"], gates["typed_writing"])
-        self.assertFalse(gates["typed_writing"]["closure_claim_allowed"])
-        self.assertTrue(gates["typed_writing"]["remaining_live_gaps"])
-        self.assertTrue(gates["consumer"]["passed"], gates["consumer"])
-        self.assertEqual(gates["consumer"]["repo_local_blockers"], [])
+        waves = {topic["label"]: topic["closure_wave"] for topic in report["topics"]}
+        self.assertEqual(waves["graph_editing_and_reporting"], 46)
+        self.assertEqual(waves["typed_knowledge_organization"], 54)
+        self.assertEqual(waves["writing_workbench_evolution"], 54)
+        self.assertEqual(waves["consumer_side_modularization"], 45)
 
-    def test_legacy_status_terms_are_reported_as_legacy_only(self) -> None:
+    def test_wave27_decisions_are_history_not_current_authority(self) -> None:
         report = build_check(REPO_ROOT)
-        semantics = report["legacy_status_semantics"]
+        semantics = report["history_semantics"]
 
-        self.assertGreater(semantics["legacy_status_mention_count"], 0)
-        self.assertEqual(semantics["current_status_problem_count"], 0)
-        self.assertTrue(semantics["legacy_status_mentions_by_file"])
+        self.assertEqual(semantics["classification"], "pre_closure_snapshots")
+        self.assertFalse(semantics["deleted_json_or_jsonl_used_as_evidence"])
 
         broken = dict(report)
         broken["topics"] = [dict(topic) for topic in report["topics"]]
-        broken["topics"][0]["current_status_problem_count"] = 1
+        broken["topics"][0]["historical_wave27"] = dict(broken["topics"][0]["historical_wave27"])
+        broken["topics"][0]["historical_wave27"]["is_current_authority"] = True
         failures = validate_report(broken)
         self.assertIn(
-            f"decision_file_contains_legacy_status_terms:{broken['topics'][0]['topic_id']}",
+            f"historical_decision_promoted_to_current:{broken['topics'][0]['topic_id']}",
             failures,
         )
 

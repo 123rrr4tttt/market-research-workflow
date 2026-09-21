@@ -1,6 +1,7 @@
 """Build the canonical catalog index from capability-published contracts."""
 
 from __future__ import annotations
+from typing import Annotated, Literal
 
 from app.successor_runtime.language.catalog import (
     OperationContractCatalogSnapshot,
@@ -25,7 +26,7 @@ def catalog_digest(contracts: tuple[OperationContract, ...]) -> str:
 def build_first_specimen_catalog(
     first_specimen_contracts: tuple[OperationContract, ...],
     fixture_contract: OperationContract | None = None,
-) -> CapabilityCatalogSnapshot:
+) -> Annotated[CapabilityCatalogSnapshot, Literal["kit:non-authoritative derived_as=view fact_source=FirstSpecimen_contracts witness=test:test_w06_successor_authority_metadata"]]:
     contracts = first_specimen_contracts
     if fixture_contract is not None:
         contracts = contracts + (fixture_contract,)
@@ -47,7 +48,7 @@ def build_first_specimen_catalog(
 
 def build_first_specimen_registry(
     first_specimen_contracts: tuple[OperationContract, ...],
-) -> OperationContractRegistry:
+) -> Annotated[OperationContractRegistry, Literal["kit:non-authoritative derived_as=view fact_source=FirstSpecimen_contracts witness=test:test_w06_successor_authority_metadata"]]:
     return OperationContractRegistry(
         build_first_specimen_catalog(first_specimen_contracts),
         first_specimen_contracts,

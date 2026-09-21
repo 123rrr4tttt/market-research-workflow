@@ -23,7 +23,10 @@ from __future__ import annotations
 from collections import deque
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any
+from typing import Annotated, Any, Literal, NoReturn, TypeAlias
+
+from functorial_kit import Failure
+from mrw_functorial_kit.core.w06_semantics import c1_capability_failures
 
 from app.successor_runtime.capabilities.checksum import canonical_json, content_digest
 from app.successor_runtime.language.algebra import (
@@ -72,6 +75,7 @@ __all__ = [
     "C1_PROJECT_KEY",
     "C1_WORKFLOW_CONTEXT_TYPE",
     "C1LegacyDSLFailure",
+    "C1LegacyDSLResult",
     "C1LegacyDSLReceipt",
     "build_c1_catalog",
     "build_c1_contract",
@@ -108,6 +112,8 @@ C1_SEMANTIC_IDENTITY = "c1.legacy-graph.parse-validate-compile"
 C1_OBSERVATION_PROFILE = "mrw.successor.c1.legacy-dsl.observation.v1"
 C1_ORDERED_MERGE_NAME = "mrw.successor.c1.ordered-merge.v1"
 C1_ORDERED_MERGE_VERSION = "1"
+C1_FAILURE_OWNER = "successor_runtime.capabilities.c1_legacy_dsl"
+C1_FAILURE_WITNESS = "test:test_w06_c2_total_core_failure_lifts"
 
 C1_WORKFLOW_CONTEXT_TYPE = ObjectType(
     type_id="WorkflowContext.v1",
@@ -150,12 +156,27 @@ class C1LegacyDSLReceipt:
     def __post_init__(self) -> None:
         if self.ok:
             if self.failure is not None or self.program is None or self.plan is None:
-                raise ValueError("success receipt requires program/plan and no failure")
+                _raise_contract_failure(_contract_failure(
+                    "C1_RECEIPT_CONTRACT_INVALID",
+                    "success receipt requires program/plan and no failure",
+                    operation="C1LegacyDSLReceipt",
+                    site="C1LegacyDSLReceipt/__post_init__",
+                ))
             for name in ("program_digest", "plan_digest", "catalog_digest"):
                 if not getattr(self, name):
-                    raise ValueError(f"{name} must be bound on success")
+                    _raise_contract_failure(_contract_failure(
+                        "C1_RECEIPT_CONTRACT_INVALID",
+                        f"{name} must be bound on success",
+                        operation="C1LegacyDSLReceipt",
+                        site=f"C1LegacyDSLReceipt/{name}",
+                    ))
         elif self.failure is None:
-            raise ValueError("failure receipt requires a typed failure")
+            _raise_contract_failure(_contract_failure(
+                "C1_RECEIPT_CONTRACT_INVALID",
+                "failure receipt requires a typed failure",
+                operation="C1LegacyDSLReceipt",
+                site="C1LegacyDSLReceipt/__post_init__",
+            ))
 
 
 @dataclass(frozen=True, slots=True)
@@ -175,12 +196,56 @@ class _ParsedGraph:
     topo_order: tuple[str, ...]
 
 
-class _C1ParseFailure(Exception):
-    def __init__(self, code: str, message: str, path: str = "") -> None:
-        super().__init__(message)
-        self.code = code
-        self.message = message
-        self.path = path
+C1LegacyDSLResult: TypeAlias = "C1LegacyDSLReceipt | Failure"
+
+
+def _contract_failure(
+    code: str,
+    message: str,
+    *,
+    operation: str,
+    site: str,
+    **details: Any,
+) -> Failure:
+    return c1_capability_failures.fail(
+        code,
+        message,
+        {
+            "owner": C1_FAILURE_OWNER,
+            "operation": operation,
+            "site": site,
+            "public_exception": "ValueError",
+            "public_message": message,
+            "witness": C1_FAILURE_WITNESS,
+            **details,
+        },
+    )
+
+
+def _raise_contract_failure(
+    failure: Failure,
+    exception_type: type[Exception] = ValueError,
+) -> NoReturn:
+    context = failure.context or {}
+    if (
+        failure.family != c1_capability_failures.name
+        or context.get("public_exception") != exception_type.__name__
+        or not context.get("public_message")
+    ):
+        # kit:boundary owner=c1_legacy_dsl.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w06_c2_total_core_failure_lifts
+        raise TypeError("C1 contract lift context is incomplete")
+    # kit:boundary owner=c1_legacy_dsl.py class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=c1.capability.failure witness=test:test_w06_c2_total_core_failure_lifts
+    raise exception_type(str(context["public_message"]))
+
+
+def _parse_failure(code: str, message: str, path: str) -> Failure:
+    return _contract_failure(
+        code,
+        message,
+        operation="C1LegacyDSL.parse_payload",
+        site=path or "payload",
+        path=path,
+    )
 
 
 def _failure_receipt(
@@ -204,37 +269,37 @@ def _failure_receipt(
     )
 
 
-def _parse_payload(payload: Any) -> _ParsedGraph:
+def _parse_payload(payload: Any) -> _ParsedGraph | Failure:
     if not isinstance(payload, Mapping):
-        raise _C1ParseFailure(
+        return _parse_failure(
             C1_DSL_MALFORMED_PAYLOAD,
             "legacy graph DSL payload must be a mapping",
             "payload",
         )
     version = payload.get("version", C1_LEGACY_DSL_VERSION)
     if not isinstance(version, str) or not version.strip():
-        raise _C1ParseFailure(
+        return _parse_failure(
             C1_DSL_MALFORMED_PAYLOAD,
             "version must be a non-empty string",
             "version",
         )
     options_raw = payload.get("options", {})
     if not isinstance(options_raw, Mapping):
-        raise _C1ParseFailure(
+        return _parse_failure(
             C1_DSL_MALFORMED_PAYLOAD,
             "options must be a mapping",
             "options",
         )
     nodes_raw = payload.get("nodes", [])
     if not isinstance(nodes_raw, list):
-        raise _C1ParseFailure(
+        return _parse_failure(
             C1_DSL_MALFORMED_PAYLOAD,
             "nodes must be a list",
             "nodes",
         )
     edges_raw = payload.get("edges", [])
     if not isinstance(edges_raw, list):
-        raise _C1ParseFailure(
+        return _parse_failure(
             C1_DSL_MALFORMED_PAYLOAD,
             "edges must be a list",
             "edges",
@@ -245,21 +310,21 @@ def _parse_payload(payload: Any) -> _ParsedGraph:
     for index, item in enumerate(nodes_raw):
         path = f"nodes[{index}]"
         if not isinstance(item, Mapping):
-            raise _C1ParseFailure(
+            return _parse_failure(
                 C1_DSL_MALFORMED_PAYLOAD,
                 f"node at index {index} must be a mapping",
                 path,
             )
         node_id = item.get("node_id") or item.get("id")
         if not isinstance(node_id, str) or not node_id.strip():
-            raise _C1ParseFailure(
+            return _parse_failure(
                 C1_DSL_MALFORMED_PAYLOAD,
                 f"node_id at index {index} must be a non-empty string",
                 path,
             )
         node_type = item.get("node_type")
         if not isinstance(node_type, str) or not node_type.strip():
-            raise _C1ParseFailure(
+            return _parse_failure(
                 C1_DSL_MALFORMED_PAYLOAD,
                 f"node_type at index {index} must be a non-empty string",
                 path,
@@ -268,20 +333,20 @@ def _parse_payload(payload: Any) -> _ParsedGraph:
         if config_raw is None:
             config_raw = item.get("params", {})
         if not isinstance(config_raw, Mapping):
-            raise _C1ParseFailure(
+            return _parse_failure(
                 C1_DSL_MALFORMED_PAYLOAD,
                 f"config for node {node_id!r} must be a mapping",
                 path,
             )
         if node_id in seen_ids:
-            raise _C1ParseFailure(
+            return _parse_failure(
                 C1_DSL_DUPLICATE_NODE_ID,
                 f"duplicate node_id: {node_id}",
                 path,
             )
         seen_ids.add(node_id)
         if node_type not in C1_LEGACY_ALLOWED_NODE_TYPES:
-            raise _C1ParseFailure(
+            return _parse_failure(
                 C1_DSL_UNSUPPORTED_NODE_TYPE,
                 f"invalid node_type {node_type!r} for node {node_id!r}",
                 path,
@@ -299,7 +364,7 @@ def _parse_payload(payload: Any) -> _ParsedGraph:
     for index, item in enumerate(edges_raw):
         path = f"edges[{index}]"
         if not isinstance(item, Mapping):
-            raise _C1ParseFailure(
+            return _parse_failure(
                 C1_DSL_MALFORMED_PAYLOAD,
                 f"edge at index {index} must be a mapping",
                 path,
@@ -307,13 +372,13 @@ def _parse_payload(payload: Any) -> _ParsedGraph:
         from_node = item.get("from") or item.get("from_node") or item.get("source")
         to_node = item.get("to") or item.get("to_node") or item.get("target")
         if not isinstance(from_node, str) or not from_node.strip():
-            raise _C1ParseFailure(
+            return _parse_failure(
                 C1_DSL_MALFORMED_PAYLOAD,
                 f"edge.from at index {index} must be a non-empty string",
                 path,
             )
         if not isinstance(to_node, str) or not to_node.strip():
-            raise _C1ParseFailure(
+            return _parse_failure(
                 C1_DSL_MALFORMED_PAYLOAD,
                 f"edge.to at index {index} must be a non-empty string",
                 path,
@@ -325,25 +390,21 @@ def _parse_payload(payload: Any) -> _ParsedGraph:
     for index, (from_node, to_node) in enumerate(edges):
         path = f"edges[{index}]"
         if from_node not in node_id_set:
-            raise _C1ParseFailure(
+            return _parse_failure(
                 C1_DSL_MISSING_ENDPOINT,
                 f"edge references missing node: {from_node}",
                 path,
             )
         if to_node not in node_id_set:
-            raise _C1ParseFailure(
+            return _parse_failure(
                 C1_DSL_MISSING_ENDPOINT,
                 f"edge references missing node: {to_node}",
                 path,
             )
 
     topo_order = _topological_order(node_ids, tuple(edges))
-    if topo_order is None:
-        raise _C1ParseFailure(
-            C1_DSL_CYCLE,
-            "workflow graph contains a cycle",
-            "edges",
-        )
+    if isinstance(topo_order, Failure):
+        return topo_order
     return _ParsedGraph(
         version=version,
         options=dict(options_raw),
@@ -356,7 +417,7 @@ def _parse_payload(payload: Any) -> _ParsedGraph:
 def _topological_order(
     node_ids: tuple[str, ...],
     edges: tuple[tuple[str, str], ...],
-) -> tuple[str, ...] | None:
+) -> tuple[str, ...] | Failure:
     outgoing: dict[str, list[str]] = {node_id: [] for node_id in node_ids}
     indegree: dict[str, int] = {node_id: 0 for node_id in node_ids}
     for from_node, to_node in edges:
@@ -372,7 +433,11 @@ def _topological_order(
             if indegree[child] == 0:
                 queue.append(child)
     if len(topo_order) != len(node_ids):
-        return None
+        return _parse_failure(
+            C1_DSL_CYCLE,
+            "workflow graph contains a cycle",
+            "edges",
+        )
     return tuple(topo_order)
 
 
@@ -390,9 +455,15 @@ def _return_contract() -> ReturnContract:
     )
 
 
-def _make_contract(kind: str) -> OperationContract:
+def _make_contract(kind: str) -> OperationContract | Failure:
     if kind not in C1_CONTRACT_KINDS:
-        raise ValueError(f"unsupported C1 operation contract kind: {kind!r}")
+        return _contract_failure(
+            "C1_CONTRACT_KIND_UNSUPPORTED",
+            f"unsupported C1 operation contract kind: {kind!r}",
+            operation="C1LegacyDSL.build_contract",
+            site="kind",
+            kind=kind,
+        )
     suffix = kind.removeprefix("workflow.").removesuffix(".v1")
     profile = f"mrw.successor.c1.{suffix}"
     return make_operation_contract(
@@ -413,17 +484,23 @@ def _make_contract(kind: str) -> OperationContract:
     )
 
 
-def build_c1_operation_contracts() -> tuple[OperationContract, ...]:
-    return tuple(_make_contract(kind) for kind in C1_CONTRACT_KINDS)
+def _lift_contract(outcome: OperationContract | Failure) -> OperationContract:
+    if isinstance(outcome, Failure):
+        _raise_contract_failure(outcome)
+    return outcome
 
 
-def build_c1_contract(kind: str) -> OperationContract:
-    return _make_contract(kind)
+def build_c1_operation_contracts() -> Annotated[tuple[OperationContract, ...], Literal["kit:non-authoritative derived_as=view fact_source=C1_CONTRACT_KINDS+_make_contract witness=test:test_w06_successor_authority_metadata"]]:
+    return tuple(_lift_contract(_make_contract(kind)) for kind in C1_CONTRACT_KINDS)
+
+
+def build_c1_contract(kind: str) -> Annotated[OperationContract, Literal["kit:non-authoritative derived_as=view fact_source=C1_CONTRACT_KINDS+_make_contract witness=test:test_w06_successor_authority_metadata"]]:
+    return _lift_contract(_make_contract(kind))
 
 
 def build_c1_catalog(
     contracts: tuple[OperationContract, ...] | None = None,
-) -> OperationContractCatalogSnapshot:
+) -> Annotated[OperationContractCatalogSnapshot, Literal["kit:non-authoritative derived_as=view fact_source=C1_CONTRACT_KINDS+_make_contract witness=test:test_w06_successor_authority_metadata"]]:
     operations = (
         tuple(contracts) if contracts is not None else build_c1_operation_contracts()
     )
@@ -445,7 +522,7 @@ def build_c1_catalog(
 
 def build_c1_registry(
     contracts: tuple[OperationContract, ...] | None = None,
-) -> OperationContractRegistry:
+) -> Annotated[OperationContractRegistry, Literal["kit:non-authoritative derived_as=view fact_source=contracts+_make_contract witness=test:test_w06_successor_authority_metadata"]]:
     operations = (
         tuple(contracts) if contracts is not None else build_c1_operation_contracts()
     )
@@ -698,10 +775,14 @@ def parse_and_validate_legacy_dsl(
         contracts = build_c1_operation_contracts()
         catalog = build_c1_catalog(contracts)
         operation_contracts = build_c1_registry(contracts)
-    try:
-        graph = _parse_payload(payload)
-    except _C1ParseFailure as exc:
-        return _failure_receipt(exc.code, exc.message, exc.path)
+    graph = _parse_payload(payload)
+    if isinstance(graph, Failure):
+        context = graph.context or {}
+        return _failure_receipt(
+            graph.code,
+            graph.message,
+            str(context.get("path", "")),
+        )
 
     try:
         program_id, project_scope_digest = _program_identities(graph)

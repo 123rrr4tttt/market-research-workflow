@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import random
 import time
-from typing import Any, Callable, TypeVar
+from typing import Any, Callable, NoReturn, TypeVar
 
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.exc import DBAPIError, DisconnectionError, OperationalError, TimeoutError as SATimeoutError
@@ -12,7 +12,9 @@ from sqlalchemy import BigInteger, Column
 import os
 
 from ..settings.config import settings
-from ..services.projects.context import current_project_schema, project_schema_name
+from ..services.projects.context import current_project_schema
+from functorial_kit import Failure
+from mrw_functorial_kit.core.application_failure_semantics import database_session_retry_failures
 
 logger = logging.getLogger("app.models.base")
 T = TypeVar("T")
@@ -83,14 +85,6 @@ engine = create_engine(
     **pool_config
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine, future=True)
-
-# Ensure default project schema exists. If DB is temporarily unavailable in local dev,
-# allow process startup and let health/deep checks report degraded state.
-try:
-    with engine.begin() as _conn:
-        _conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{project_schema_name(settings.active_project_key)}"'))
-except Exception as exc:  # noqa: BLE001
-    logger.warning("db bootstrap skipped: %s", exc)
 
 
 def _normalize_isolation_level(raw: str | None) -> str | None:
@@ -167,6 +161,66 @@ def run_with_session_retry(
     max_backoff_ms: int | None = None,
     log_context: dict[str, Any] | None = None,
 ) -> T:
+    outcome = run_with_session_retry_effect(
+        operation,
+        session_factory=session_factory,
+        max_attempts=max_attempts,
+        base_backoff_ms=base_backoff_ms,
+        max_backoff_ms=max_backoff_ms,
+        log_context=log_context,
+    )
+    if isinstance(outcome, Failure) and database_session_retry_failures.matches(outcome):
+        _raise_session_retry_failure(outcome)
+    return outcome
+
+
+def _session_retry_failure(
+    code: str,
+    message: str,
+    *,
+    operation: str,
+    context: dict[str, Any] | None = None,
+) -> Failure:
+    details: dict[str, Any] = {
+        "owner": "database.session_retry",
+        "operation": operation,
+        "site": "app.models.base.run_with_session_retry",
+        "public_exception": "Exception",
+        "public_message": message,
+        "witness": "test:test_w01_effect_failures",
+    }
+    if context:
+        details.update(context)
+    return database_session_retry_failures.fail(code, message, details)
+
+
+def _raise_session_retry_failure(failure: Failure) -> NoReturn:
+    if not database_session_retry_failures.matches(failure):
+        # kit:boundary owner=database.session_retry.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_session_retry_failure_lift_boundaries
+        raise TypeError("database session retry failure lift requires a registered failure")
+    context = failure.context or {}
+    required = {"owner", "operation", "site", "public_exception", "public_message", "cause"}
+    if required - set(context):
+        # kit:boundary owner=database.session_retry.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_session_retry_failure_lift_boundaries
+        raise TypeError("database session retry failure lift context is incomplete")
+    cause = context.get("cause")
+    if not isinstance(cause, BaseException):
+        # kit:boundary owner=database.session_retry.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_session_retry_failure_lift_boundaries
+        raise TypeError("database session retry failure is missing its original exception")
+    # kit:boundary owner=database.session_retry.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=database.session_retry.failure witness=test:test_session_retry_failure_lift_boundaries
+    raise cause
+
+
+def run_with_session_retry_effect(
+    operation: Callable[[Any], T],
+    *,
+    session_factory: Callable[[], Any] = SessionLocal,
+    max_attempts: int | None = None,
+    base_backoff_ms: int | None = None,
+    max_backoff_ms: int | None = None,
+    log_context: dict[str, Any] | None = None,
+) -> T | Failure:
+    """Execute a transaction and return known effect failures as values."""
     attempts = max(1, int(max_attempts or settings.db_transaction_retry_attempts or 1))
     base_backoff = max(1, int(base_backoff_ms or settings.db_transaction_retry_base_backoff_ms or 100))
     max_backoff = max(base_backoff, int(max_backoff_ms or settings.db_transaction_retry_max_backoff_ms or 1000))
@@ -196,12 +250,51 @@ def run_with_session_retry(
                     context,
                 )
                 if not should_retry:
-                    raise
+                    failure_code = (
+                        "retry_exhausted"
+                        if bool(error_details["retriable"]) and attempt >= attempts
+                        else "operation_failed"
+                    )
+                    failure_message = (
+                        "database transaction retries exhausted"
+                        if failure_code == "retry_exhausted"
+                        else "database operation failed"
+                    )
+                    return _session_retry_failure(
+                        failure_code,
+                        failure_message,
+                        operation="run_with_session_retry",
+                        context={
+                            "cause": exc,
+                            "public_exception": exc.__class__.__name__,
+                            "public_message": str(exc),
+                            "exception_type": error_details["exception_type"],
+                            "sqlstate": error_details["sqlstate"],
+                            "attempt": attempt,
+                            "attempts": attempts,
+                            "retriable": bool(error_details["retriable"]),
+                            "log_context": dict(context),
+                        },
+                    )
                 delay_ms = min(max_backoff, base_backoff * (2 ** (attempt - 1)))
                 delay_ms += random.randint(0, max(5, delay_ms // 4))
                 time.sleep(delay_ms / 1000)
     if last_exc is not None:
-        raise last_exc
+        return _session_retry_failure(
+            "retry_exhausted",
+            "database transaction retries exhausted",
+            operation="run_with_session_retry",
+            context={
+                "cause": last_exc,
+                "public_exception": last_exc.__class__.__name__,
+                "public_message": str(last_exc),
+                "exception_type": last_exc.__class__.__name__,
+                "attempt": attempts,
+                "attempts": attempts,
+                "log_context": dict(context),
+            },
+        )
+    # kit:boundary owner=database.session_retry.failure_core class=PROGRAMMER_DEFECT failure_family=none witness=test:test_session_retry_failure_lift_boundaries
     raise RuntimeError("run_with_session_retry reached unexpected empty state")
 
 

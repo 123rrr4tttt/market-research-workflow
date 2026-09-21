@@ -1,0 +1,1 @@
+gitleaks dir --redact=100 --no-banner --no-color --report-format json --report-path /Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13o/security/gitleaks-dir.report.json /Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260910-v4-r13o/candidate 

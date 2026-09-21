@@ -5,7 +5,11 @@ import json
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
+try:
+    from ._cli_runtime import repo_root as _repo_root
+except ImportError:  # direct script execution
+    from _cli_runtime import repo_root as _repo_root
 
 
 CONTRACT_VERSION = "fetch_router_gap_closure.check.v2"
@@ -181,10 +185,6 @@ TOPIC_ANCHORS: dict[str, tuple[str, ...]] = {
 }
 
 
-def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[3]
-
-
 def _read_text(path: Path) -> str:
     try:
         return path.read_text(encoding="utf-8")
@@ -240,7 +240,10 @@ def _topic_gap(status: str, legacy_gap: str) -> str:
     return f"{legacy_gap} still open: one or more required code, test, or Wave8 evidence anchors are missing."
 
 
-def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
+def build_check(repo_root: Path | str | None = None) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=preflight fact_source=repository.fetch_router_gap_anchors witness=test:test_fetch_router_gap_closure_authority_metadata",
+]:
     root = Path(repo_root) if repo_root is not None else _repo_root()
     root = root.resolve()
     anchors = {key: _anchor_result(root, key, anchor) for key, anchor in ANCHORS.items()}

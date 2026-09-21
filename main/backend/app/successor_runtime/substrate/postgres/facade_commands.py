@@ -5,9 +5,11 @@ The command adapter reserves the exact request through the shared
 advisory transaction lock serializes concurrent duplicates for the same
 project/capability/command id; the first exact reservation is durable and
 every later exact duplicate returns the same receipt.  A changed body raises
-a typed conflict and never submits a second command.  No provider, network,
-index or rebuild effect runs here.  The query adapter is read-only and reads
-the active ``runtime_projection_offsets`` row only.
+a typed conflict and never submits a second command.  The default repository
+is submission-only for compatibility; production installs it with
+``execute_effects=True`` so the approved C9 rebuild runs in the same
+transaction before its command receipt commits.  The query adapter is
+read-only and reads the active ``runtime_projection_offsets`` row only.
 """
 
 from __future__ import annotations
@@ -75,6 +77,9 @@ from app.successor_runtime.substrate.postgres.runtime_journal import (
 from app.successor_runtime.substrate.postgres.values import (
     ReceiptRepository,
     ValueRepository,
+)
+from app.successor_runtime.substrate.postgres.c9_projection_sources import (
+    load_exact_semantic_source_closure,
 )
 
 __all__ = [
@@ -211,8 +216,11 @@ def _command_receipt_content(
     context: AuthorityContext,
     canonical_base_revision: int,
     canonical_incarnation: str,
+    state: str,
+    terminal_observation_ref: str | None = None,
+    effect_result: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    return {
+    content: dict[str, Any] = {
         "schema_version": "mrw.successor.c9.command-receipt.v1",
         "receipt_ref": receipt_ref,
         "command_id": command.command_id,
@@ -223,7 +231,13 @@ def _command_receipt_content(
         "approval_refs": list(context.approval_refs),
         "canonical_base_revision": canonical_base_revision,
         "canonical_incarnation": canonical_incarnation,
+        "state": state,
     }
+    if terminal_observation_ref is not None:
+        content["terminal_observation_ref"] = terminal_observation_ref
+    if effect_result is not None:
+        content["effect_result"] = dict(effect_result)
+    return content
 
 
 def _receipt_from_row(
@@ -263,6 +277,7 @@ class PostgresC9CommandRepository:
         scope: RuntimeScope,
         *,
         tables: ProjectTables | None = None,
+        execute_effects: bool = False,
     ) -> None:
         self.connection = connection
         self.scope = scope
@@ -270,6 +285,7 @@ class PostgresC9CommandRepository:
             metadata = MetaData(schema=scope.project_scope.resolved_schema)
             tables = project_tables(metadata, scope.project_scope.resolved_schema)
         self.tables = tables
+        self.execute_effects = execute_effects
 
     def submit(self, command: FacadeCommandV2) -> CommandReceipt:
         if not validate_command_v2(command).valid:
@@ -326,13 +342,31 @@ class PostgresC9CommandRepository:
                 raise C9CommandConflict(
                     "persisted command receipt request digest drift"
                 )
+            if self.execute_effects:
+                if state != "TERMINAL":
+                    raise C9CommandConflict(
+                        "persisted STARTED command has no terminal effect evidence"
+                    )
+                terminal_ref = persisted_binding.get("terminal_observation_ref")
+                if (
+                    not terminal_ref
+                    or persisted_content.get("state") != "TERMINAL"
+                    or persisted_content.get("terminal_observation_ref") != terminal_ref
+                    or not isinstance(persisted_content.get("effect_result"), Mapping)
+                ):
+                    raise C9CommandConflict(
+                        "persisted terminal command lacks exact effect evidence"
+                    )
             return persisted
         # First-time request: the full authority/approval/scope/base validation
         # must complete before reservation, so a typed rejection leaves zero
         # idempotency/receipt residue and cannot occupy the command id.
+        # Lock the projection row here, not only in the rebuilder: otherwise a
+        # second command id can validate an old expected base, then observe the
+        # first command's committed offset only when the effect lock is taken.
         offset_row = ProjectionOffsetRepository(
             self.connection, self.scope
-        ).load_source(key)
+        ).load_source(key, for_update=True)
         if command.expected_base_token is not None:
             expected = _parse_expected_base(command.expected_base_token)
             observed = None
@@ -374,18 +408,47 @@ class PostgresC9CommandRepository:
                 ) from exc
             state = str(row["state"])
             receipt_ref = derive_c9_receipt_ref(row)
+            effect_result: Mapping[str, Any] | None = None
+            terminal_observation_ref: str | None = None
+            if self.execute_effects:
+                effect_result = self._execute_effect(
+                    command,
+                    key,
+                    canonical_base_revision=canonical_base_revision,
+                    canonical_incarnation=canonical_incarnation,
+                )
+                terminal_observation_ref = str(
+                    effect_result.get("terminal_observation_ref", "")
+                )
+                if not terminal_observation_ref:
+                    raise C9TransactionFatal(
+                        "successful C9 effect lacks a terminal observation reference"
+                    )
+                row = IdempotencyRepository(
+                    self.connection, self.scope
+                ).record_terminal(
+                    C9_CAPABILITY_ID,
+                    command.command_id,
+                    expected_revision=int(row["revision"]),
+                    terminal_observation_ref=terminal_observation_ref,
+                )
+                state = str(row["state"])
             content = _command_receipt_content(
                 receipt_ref=receipt_ref,
                 command=command,
                 context=context,
                 canonical_base_revision=canonical_base_revision,
                 canonical_incarnation=canonical_incarnation,
+                state=state,
+                terminal_observation_ref=terminal_observation_ref,
+                effect_result=effect_result,
             )
+            receipt_digest = sha256_hex(content)
             observed_at = datetime.now(UTC)
             ReceiptRepository(self.connection, self.tables).put_exact(
                 scope=self.scope,
                 receipt_id=receipt_id,
-                receipt_digest=sha256_hex(content),
+                receipt_digest=receipt_digest,
                 delivery_intent_ref=f"c9-command-submission:{project_key}",
                 attempt_ref=f"c9-submission:{command.command_id}",
                 provider_locator=(
@@ -423,6 +486,83 @@ class PostgresC9CommandRepository:
             command=command,
             state=state,
         )
+
+    def _execute_effect(
+        self,
+        command: FacadeCommandV2,
+        key: ProjectionOffsetKey,
+        *,
+        canonical_base_revision: int,
+        canonical_incarnation: str,
+    ) -> Mapping[str, Any]:
+        """Execute the one production-admitted C9 effect in this transaction."""
+
+        if command.command_kind != "rebuild_projection":
+            raise C9Unavailable(
+                f"production C9 command effect is not implemented: {command.command_kind}"
+            )
+        try:
+            PostgresAuthorityProvider(
+                self.connection, self.scope
+            ).require_exact_effect_authority(
+                actor_id=command.actor_ref,
+                capability_id=C9_CAPABILITY_ID,
+                operation_kind=command.command_kind,
+                payload_digest=command.idempotency_key,
+                approval_ref=command.approval_locator,
+                canonical_base_revision=canonical_base_revision,
+                canonical_incarnation=canonical_incarnation,
+            )
+        except (ExactBindingConflict, RecordNotFound) as exc:
+            raise C9CommandBlocked(str(exc)) from exc
+        # Re-read the persisted closure; caller payloads never supply a source
+        # digest or revision that could be treated as authority.
+        from scripts.c9_projection_rebuild import PostgresC9ProjectionRebuilder
+
+        closure = load_exact_semantic_source_closure(self.connection, self.scope)
+        outcome = PostgresC9ProjectionRebuilder(
+            self.connection,
+            self.scope,
+            tables=self.tables,
+        ).rebuild(
+            key=key,
+            source_revision=int(closure.revision),
+            source_digest=str(closure.closure_digest),
+            source_ref=key.source_ref,
+        )
+        if not outcome.generation_activated:
+            raise C9Unavailable(
+                "C9 projection rebuild did not activate a complete generation"
+            )
+        activated_offset = outcome.activated_offset
+        if not isinstance(activated_offset, Mapping):
+            raise C9Unavailable(
+                "C9 projection rebuild lacks its activated offset observation"
+            )
+        terminal_observation_ref = str(activated_offset.get("offset_ref", ""))
+        if not terminal_observation_ref:
+            raise C9Unavailable(
+                "C9 projection rebuild lacks a durable offset observation reference"
+            )
+        return {
+            "operation": command.command_kind,
+            "rebuild_id": outcome.rebuild_id,
+            "generation": outcome.generation,
+            "generation_activated": outcome.generation_activated,
+            "source_revision": outcome.source_revision,
+            "source_digest": outcome.source_digest,
+            "terminal_observation_ref": terminal_observation_ref,
+            "activated_offset_revision": int(activated_offset["revision"]),
+            "sinks": [
+                {
+                    "sink": status.sink,
+                    "outcome": status.outcome,
+                    "candidate_digest": status.candidate_digest,
+                    "receipt_ref": status.receipt_ref,
+                }
+                for status in outcome.sink_statuses
+            ],
+        }
 
     def _readback_committed_receipt(
         self,
@@ -475,7 +615,21 @@ class PostgresC9CommandRepository:
             "grants_digest"
         ):
             raise C9TransactionFatal("committed receipt lacks authority provenance")
-        return _receipt_from_row(receipt, command=command, state=str(binding["state"]))
+        state = str(binding["state"])
+        if content.get("state") != state:
+            raise C9TransactionFatal("committed receipt state drift")
+        if self.execute_effects:
+            terminal_ref = binding.get("terminal_observation_ref")
+            if (
+                state != "TERMINAL"
+                or not terminal_ref
+                or content.get("terminal_observation_ref") != terminal_ref
+                or not isinstance(content.get("effect_result"), Mapping)
+            ):
+                raise C9TransactionFatal(
+                    "committed real-effect receipt lacks terminal evidence"
+                )
+        return _receipt_from_row(receipt, command=command, state=state)
 
 
 class PostgresC9QueryRepository:

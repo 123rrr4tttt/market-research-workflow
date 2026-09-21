@@ -700,13 +700,37 @@ class ReadOnlyAgentToolRuntime:
         item_id: str | None = None,
         resource_uri: str | None = None,
     ) -> dict[str, Any]:
-        result = read_project_structured_data_item(
-            project_key=project_key,
-            dataset=dataset,
-            record_id=record_id,
-            item_id=item_id,
-            resource_uri=resource_uri,
-        )
+        try:
+            result = read_project_structured_data_item(
+                project_key=project_key,
+                dataset=dataset,
+                record_id=record_id,
+                item_id=item_id,
+                resource_uri=resource_uri,
+            )
+        except Exception as exc:  # noqa: BLE001
+            # Keep the capability envelope intact when the authoritative store
+            # is unavailable; the configured searcher may still recover the
+            # item from an in-memory or alternate projection.
+            dataset_text, record_text = _parse_structured_read_ref(
+                dataset=dataset,
+                record_id=record_id,
+                item_id=item_id,
+                resource_uri=resource_uri,
+            )
+            result = {
+                "contract_version": "project.structured_data.item.read.v1",
+                "project_key": project_key,
+                "dataset": dataset_text,
+                "record_id": record_text,
+                "item": None,
+                "model_evidence_manifest": [],
+                "resource_uri": resource_uri,
+                "cleaned_text": "",
+                "source_ref": None,
+                "quality_flags": {},
+                "errors": [{"type": exc.__class__.__name__, "message": str(exc)}],
+            }
         if not result.get("item"):
             fallback = self._read_structured_item_via_searcher(
                 project_key=project_key,

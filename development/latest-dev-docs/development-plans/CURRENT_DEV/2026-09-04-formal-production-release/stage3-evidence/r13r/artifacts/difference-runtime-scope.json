@@ -1,0 +1,32 @@
+{
+  "roles": {
+    "backend": {
+      "canonical_image_manifest_digest": "sha256:403eb796b0890b0e77aec8755c2638cc4e239341b7f71f30ff4dfa6ba475ffe2",
+      "exact": true,
+      "rebuild_image_manifest_digest": "sha256:403eb796b0890b0e77aec8755c2638cc4e239341b7f71f30ff4dfa6ba475ffe2",
+      "rootfs_scope": "NOT_NEEDED_EXACT_IMAGE_MANIFEST_MATCH",
+      "runtime_config_equal": true
+    },
+    "frontend": {
+      "canonical_image_manifest_digest": "sha256:67891f50676aabf4b34b78fe12a62301be9343a8b3bfb94e689726ee96e86bc5",
+      "exact": false,
+      "rebuild_image_manifest_digest": "sha256:ffb5f263c1ae498d9f85541f46769477123c1d1799e1ee89bb169eed8dca4066",
+      "rootfs_scope": {
+        "cause": "APK_WALL_CLOCK_LOG_TIMESTAMP",
+        "difference_count": 1,
+        "only_path": "/var/log/apk.log"
+      },
+      "runtime_config_equal": true
+    },
+    "migration-runner": {
+      "canonical_image_manifest_digest": "sha256:727ab5d23c89119fae6872882f1458c30f09467c45d207d29b335589270a179d",
+      "exact": true,
+      "rebuild_image_manifest_digest": "sha256:727ab5d23c89119fae6872882f1458c30f09467c45d207d29b335589270a179d",
+      "rootfs_scope": "NOT_NEEDED_EXACT_IMAGE_MANIFEST_MATCH",
+      "runtime_config_equal": true
+    }
+  },
+  "runtime_claim": "No full dependency-backed application runtime equivalence claim. Backend and migration-runner are byte-identical across A/B. Frontend runtime config and all rootfs paths except a package-manager log are equal, but Stage 3 does not allow a non-bit-for-bit exception.",
+  "schema": "mrw.stage3.r13r.amd64-difference-runtime-scope.v1",
+  "status": "FAILED_FRONTEND_NOT_BIT_FOR_BIT"
+}

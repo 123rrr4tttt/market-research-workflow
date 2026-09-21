@@ -19,7 +19,7 @@ import hashlib
 import json
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 _ROOT = Path(__file__).resolve().parents[3]
 _BACKEND = _ROOT / "main/backend"
@@ -633,7 +633,12 @@ def _cell_c3_2(fixture: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def build_fragment() -> dict[str, Any]:
+def build_fragment() -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=generated_evidence "
+    "fact_source=C3.1_C3.2_fixtures+current_repo_bindings "
+    "witness=test:test_w10_cli_generator_derived_metadata_preserves_abi",
+]:
     """Return the complete deterministic fragment without the digest field."""
 
     if str(_BACKEND) not in sys.path:

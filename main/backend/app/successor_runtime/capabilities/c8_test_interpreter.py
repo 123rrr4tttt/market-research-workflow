@@ -18,6 +18,7 @@ from app.successor_runtime.capabilities.c8_common import (
     TestOnlySealedValue,
     c8_canonical_digest,
     validate_canonical_material,
+    reject_c8_projection,
 )
 
 __all__ = [
@@ -168,7 +169,7 @@ class _TestOnlyRegistry:
 
     def _check_capability(self, capability: object) -> None:
         if capability._secret is not self._authority._secret:
-            raise C8ProjectionError(
+            reject_c8_projection(
                 "test-only registration capability is not authentic"
             )
         if (
@@ -177,7 +178,7 @@ class _TestOnlyRegistry:
             or capability.authority_id != self.authority_id
             or capability.authority_digest != self.authority_digest
         ):
-            raise C8ProjectionError(
+            reject_c8_projection(
                 "test-only registration capability is not bound to this registry"
             )
 
@@ -203,7 +204,7 @@ class TestOnlyMaterialIssuanceRegistry(_TestOnlyRegistry):
         existing = self._entries.get(material.material_identity)
         if existing is not None:
             if existing != material:
-                raise C8ProjectionError("material registry key rebinding rejected")
+                reject_c8_projection("material registry key rebinding rejected")
             return self._witnesses[material.material_identity]
         witness = TestOnlyMaterialWitness(
             material_identity=material.material_identity,
@@ -235,10 +236,10 @@ class TestOnlyVerifierRegistry(_TestOnlyRegistry):
     ) -> TestOnlyVerificationWitness:
         self._check_capability(capability)
         if verification.state != "VERIFIED":
-            raise C8ProjectionError("only verified report stages are registered")
+            reject_c8_projection("only verified report stages are registered")
         existing = self._entries.get(verification.verification_id)
         if existing is not None and existing != verification:
-            raise C8ProjectionError("verifier registry key rebinding rejected")
+            reject_c8_projection("verifier registry key rebinding rejected")
         self._entries[verification.verification_id] = verification
         return TestOnlyVerificationWitness(
             verification_id=verification.verification_id,
@@ -268,7 +269,7 @@ class TestOnlyLossProfileRegistry(_TestOnlyRegistry):
         self._check_capability(capability)
         existing = self._entries.get(profile.profile_id)
         if existing is not None and existing != profile:
-            raise C8ProjectionError("loss profile registry key rebinding rejected")
+            reject_c8_projection("loss profile registry key rebinding rejected")
         self._entries[profile.profile_id] = profile
         return TestOnlyLossWitness(
             profile_id=profile.profile_id,

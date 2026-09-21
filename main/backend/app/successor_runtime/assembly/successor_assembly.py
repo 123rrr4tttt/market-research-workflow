@@ -11,7 +11,7 @@ write; those are separate authority milestones.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Annotated, Any
 
 from sqlalchemy.engine import Engine
 
@@ -286,7 +286,11 @@ def _merge_projector_registries(
     return registry
 
 
-def build_local_offline_fixture_options() -> FamilyAssemblyOptions:
+def build_local_offline_fixture_options() -> Annotated[
+    FamilyAssemblyOptions,
+    "kit:prepared-command effect_boundary=successor_runtime.successor_assembly "
+    "witness=test:test_w08a_remaining_assembly_bindings_are_prepared_commands",
+]:
     """Deterministic LOCAL_ONLY closures for every installable fixture cell.
 
     All payloads and bindings use the default local-only assembly scope, so the

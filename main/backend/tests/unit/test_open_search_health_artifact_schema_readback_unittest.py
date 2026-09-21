@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import json
 import unittest
+from typing import Annotated, get_args, get_origin, get_type_hints
 
 import pytest
 
 from scripts.check_open_search_health_artifact import build_health_artifact
 from scripts.check_open_search_health_artifact_schema_readback import build_schema_readback
+from tests.unit._evidence_source_assertions import assert_typed_evidence_unavailable
 
 
 pytestmark = pytest.mark.unit
@@ -75,7 +77,7 @@ class OpenSearchHealthArtifactSchemaReadbackTest(unittest.TestCase):
 
         readback = build_schema_readback(artifact)
 
-        self.assertEqual(readback["status"], "passed")
+        assert_typed_evidence_unavailable(self, readback)
         self.assertEqual(readback["contract_version"], "wave19-open-search-health-artifact-schema-readback.v1")
         self.assertEqual(readback["classification_counts"]["compose_config_evidence"], 2)
         self.assertEqual(readback["classification_counts"]["service_not_started_connect_error"], 2)
@@ -96,7 +98,7 @@ class OpenSearchHealthArtifactSchemaReadbackTest(unittest.TestCase):
 
         readback = build_schema_readback(artifact)
 
-        self.assertEqual(readback["status"], "passed")
+        assert_typed_evidence_unavailable(self, readback)
         self.assertEqual(readback["classification_counts"]["compose_config_evidence"], 2)
         self.assertEqual(readback["classification_counts"]["service_not_started_connect_error"], 0)
         self.assertEqual(readback["classification_counts"]["real_live_probe_response"], 2)
@@ -131,6 +133,16 @@ class OpenSearchHealthArtifactSchemaReadbackTest(unittest.TestCase):
         )
 
         self.assertEqual(build_schema_readback(artifact), build_schema_readback(artifact))
+
+    def test_open_search_schema_readback_authority_metadata(self) -> None:
+        return_hint = get_type_hints(build_schema_readback, include_extras=True)["return"]
+        self.assertIs(get_origin(return_hint), Annotated)
+        _, metadata = get_args(return_hint)
+        self.assertEqual(
+            metadata,
+            "kit:non-authoritative derived_as=view fact_source=input.health_artifact "
+            "witness=test:test_open_search_schema_readback_authority_metadata",
+        )
 
 
 if __name__ == "__main__":

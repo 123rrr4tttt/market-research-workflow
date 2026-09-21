@@ -22,6 +22,7 @@ ALLOWED_PROFILES = {"modern-ui", "search-enhancements"}
 DEFAULT_START_PROFILES = ["modern-ui"]
 DEFAULT_CONTROL_PROFILES = ["modern-ui", "search-enhancements"]
 CONTROL_SERVICES = {"launcher-agent", "launcher-ui"}
+COMPOSE_OPERATION_LOCK = threading.Lock()
 APP_SERVICES = ["db", "es", "redis", "backend", "celery-worker", "frontend-modern"]
 SEARCH_SERVICES = ["searxng", "yacy"]
 SERVICE_PROFILES = {
@@ -182,7 +183,8 @@ def delayed_stop(profiles: list[str]) -> None:
         services = list(APP_SERVICES)
         if "search-enhancements" in profiles:
             services.extend(SEARCH_SERVICES)
-        _run(_compose_base(profiles) + ["stop", *services], timeout=180)
+        with COMPOSE_OPERATION_LOCK:
+            _run(_compose_base(profiles) + ["stop", *services], timeout=180)
 
     threading.Thread(target=worker, daemon=True).start()
 
@@ -259,7 +261,8 @@ class Handler(BaseHTTPRequestHandler):
             services = list(APP_SERVICES)
             services.extend(_clean_optional_services(payload.get("optional_services")))
             profiles = _profiles_for_services(services)
-            code, output = _run(_compose_base(profiles) + ["up", "-d", *services], timeout=300)
+            with COMPOSE_OPERATION_LOCK:
+                code, output = _run(_compose_base(profiles) + ["up", "-d", "--no-build", *services], timeout=300)
             self._send(200 if code == 0 else 500, {"ok": code == 0, "profiles": profiles, "output": output})
             return
         if self.path.startswith("/api/launcher/stop"):
@@ -271,12 +274,13 @@ class Handler(BaseHTTPRequestHandler):
             optional_services = _clean_optional_services(payload.get("optional_services"))
             profiles = _profiles_for_services([*APP_SERVICES, *optional_services])
             stop_services = list(APP_SERVICES) + list(SEARCH_SERVICES)
-            code, output = _run(_compose_base(DEFAULT_CONTROL_PROFILES) + ["stop", *stop_services], timeout=180)
-            if code == 0:
-                services = list(APP_SERVICES)
-                services.extend(optional_services)
-                code, output2 = _run(_compose_base(profiles) + ["up", "-d", *services], timeout=300)
-                output = f"{output}\n{output2}".strip()
+            with COMPOSE_OPERATION_LOCK:
+                code, output = _run(_compose_base(DEFAULT_CONTROL_PROFILES) + ["stop", *stop_services], timeout=180)
+                if code == 0:
+                    services = list(APP_SERVICES)
+                    services.extend(optional_services)
+                    code, output2 = _run(_compose_base(profiles) + ["up", "-d", "--no-build", *services], timeout=300)
+                    output = f"{output}\n{output2}".strip()
             self._send(200 if code == 0 else 500, {"ok": code == 0, "profiles": profiles, "output": output})
             return
         if self.path.startswith("/api/launcher/service"):
@@ -286,12 +290,13 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(400, {"ok": False, "error": "invalid_service_action"})
                 return
             profiles = SERVICE_PROFILES[service]
-            if action == "start":
-                code, output = _run(_compose_base(profiles) + ["up", "-d", service], timeout=240)
-            elif action == "stop":
-                code, output = _run(_compose_base(profiles) + ["stop", service], timeout=120)
-            else:
-                code, output = _run(_compose_base(profiles) + ["restart", service], timeout=180)
+            with COMPOSE_OPERATION_LOCK:
+                if action == "start":
+                    code, output = _run(_compose_base(profiles) + ["up", "-d", "--no-build", service], timeout=240)
+                elif action == "stop":
+                    code, output = _run(_compose_base(profiles) + ["stop", service], timeout=120)
+                else:
+                    code, output = _run(_compose_base(profiles) + ["restart", service], timeout=180)
             self._send(
                 200 if code == 0 else 500,
                 {"ok": code == 0, "service": service, "action": action, "profiles": profiles, "output": output},

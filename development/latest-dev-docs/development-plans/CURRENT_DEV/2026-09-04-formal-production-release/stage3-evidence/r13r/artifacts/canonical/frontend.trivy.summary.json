@@ -1,0 +1,20 @@
+{
+  "affected_package_version_count": 0,
+  "counts": {
+    "CRITICAL": 0,
+    "HIGH": 0
+  },
+  "exit_code": 0,
+  "gate_status": "PASS",
+  "observation_count": 0,
+  "observations_with_reported_fixed_version": 0,
+  "package_types": [
+    "os",
+    "library"
+  ],
+  "reachability_exploitability": "NOT_ASSESSED_BY_TRIVY",
+  "report_sha256": "e695285373e03892ae8ebd79fbf2e683f7a3eeeed9e9ea0cd80dcd67c4f29ca1",
+  "scanner": "vulnerability",
+  "threshold": "HIGH,CRITICAL",
+  "unique_vulnerability_id_count": 0
+}

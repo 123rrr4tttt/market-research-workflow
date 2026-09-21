@@ -1,0 +1,10 @@
+services:
+  backend:
+    volumes:
+      - ../../main/backend/app/services/tasks.py:/app/app/services/tasks.py:ro
+  celery-worker:
+    volumes:
+      - ../../main/backend/app/celery_app.py:/app/app/celery_app.py:ro
+      - ../../main/backend/app/production_observability:/app/app/production_observability:ro
+      - ../../main/backend/app/services/tasks.py:/app/app/services/tasks.py:ro
+      - ../../main/backend/app/services/task_readback_metadata.py:/app/app/services/task_readback_metadata.py:ro

@@ -1,0 +1,23 @@
+{
+  "artifacts": [
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/frontend-frozen-install-development-takeover-20260908.log",
+      "sha256": "476a786815674beaab3ac6fe827e947ba3ee1853f1faf08fce1b45f885c8b745"
+    }
+  ],
+  "authoritative": false,
+  "command": [
+    "pnpm",
+    "install",
+    "--frozen-lockfile",
+    "--offline"
+  ],
+  "cwd": "/Users/wangyiliang/market-research-workflow/main/frontend-modern",
+  "elapsed_seconds": 0.2316318749999482,
+  "environment": {
+    "NODE_VERSION": "v26.4.0",
+    "PNPM_VERSION": "11.22.0",
+    "scope": "CURRENT_SOURCE_LOCAL_DIAGNOSTIC_NOT_FINAL_PREVIEW"
+  },
+  "exit_code": 0
+}

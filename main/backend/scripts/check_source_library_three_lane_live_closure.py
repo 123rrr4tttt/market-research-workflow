@@ -9,7 +9,7 @@ import json
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
@@ -452,7 +452,10 @@ def build_contract(
     max_targets: int | None = None,
     max_candidates: int = 4,
     human_review_evidence: list[dict[str, Any]] | None = None,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=generated_evidence fact_source=run_probe+candidate_rows+article_extraction+taxonomy_readiness+human_review_evidence witness=test:test_c13_cli_graph_workflow_metadata_preserves_abi",
+]:
     root = Path(repo_root) if repo_root is not None else REPO_ROOT
     root = root.resolve()
     started_at = _utc_now()

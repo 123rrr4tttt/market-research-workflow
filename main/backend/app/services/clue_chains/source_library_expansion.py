@@ -3,7 +3,10 @@ from __future__ import annotations
 from hashlib import sha256
 import json
 import re
-from typing import Any, Callable, Iterable
+from typing import Any, Callable, Iterable, NoReturn
+
+from functorial_kit import Failure
+from mrw_functorial_kit.core.w04_service_semantics import clue_chain_failures
 
 from ..document_queries.writing_material_queries import query_source_library_material_rows
 from ..resource_pool.url_utils import domain_from_url
@@ -16,6 +19,28 @@ CLUE_CHAIN_SOURCE_LIBRARY_EXPANSION_CONTRACT_VERSION = "clue_chain.source_librar
 SOURCE_LIBRARY_SEARCH_MODE = "source_library_search"
 
 SourceItemLoader = Callable[[str, str], list[dict[str, Any]]]
+
+
+def clue_chain_failure(code: str, message: str, *, owner: str, public_exception: type[Exception] | str = ValueError, **details: Any) -> Failure:
+    return clue_chain_failures.fail(code, message, {
+        "owner": owner,
+        "public_exception": public_exception.__name__ if isinstance(public_exception, type) else str(public_exception),
+        "public_message": message,
+        **details,
+    })
+
+
+def raise_clue_chain_legacy(failure: Failure, exception_type: type[Exception] = ValueError, *, cause: BaseException | None = None) -> NoReturn:
+    context = failure.context or {}
+    if not clue_chain_failures.matches(failure) or context.get("public_exception") != exception_type.__name__ or "public_message" not in context:
+        # kit:boundary owner=clue_chain.source_library.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_source_library_failure_lift_covers_programmer_defect_and_cause
+        raise TypeError("clue chain failure lift context is incomplete or inconsistent")
+    message = str(context["public_message"])
+    if cause is None:
+        # kit:boundary owner=clue_chain.source_library.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=clue_chain.failure witness=test:test_source_library_failure_lift_covers_programmer_defect_and_cause
+        raise exception_type(message)
+    # kit:boundary owner=clue_chain.source_library.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=clue_chain.failure witness=test:test_source_library_failure_lift_covers_programmer_defect_and_cause
+    raise exception_type(message) from cause
 
 
 def expand_source_library_hop(
@@ -36,23 +61,67 @@ def expand_source_library_hop(
     writes resource-pool rows, or performs public-network search.
     """
 
-    normalized_chain_id = _required_text(chain_id, "chain_id")
-    normalized_project_key = _required_text(project_key, "project_key")
-    query = _resolve_query(frontier_query=frontier_query, frontier=frontier)
-    limit = _normalize_limit(max_candidates)
-    domain_values = _normalize_domains(domains)
-    raw_items = _load_source_items(
-        project_key=normalized_project_key,
-        query=query,
+    result = try_expand_source_library_hop(
+        chain_id=chain_id,
+        project_key=project_key,
+        frontier_query=frontier_query,
+        frontier=frontier,
         source_library_items=source_library_items,
         source_item_loader=source_item_loader,
+        domains=domains,
+        max_candidates=max_candidates,
     )
-    ranked_items = rank_source_library_items_for_query(
-        raw_items,
-        query=query,
-        domains=domain_values,
-        limit=limit,
-    )
+    if isinstance(result, Failure):
+        public_type = {"RuntimeError": RuntimeError, "ValueError": ValueError}.get(
+            str((result.context or {}).get("public_exception")), ValueError
+        )
+        raise_clue_chain_legacy(result, exception_type=public_type)
+    return result
+
+
+def try_expand_source_library_hop(
+    *,
+    chain_id: str,
+    project_key: str,
+    frontier_query: str | None = None,
+    frontier: dict[str, Any] | None = None,
+    source_library_items: list[dict[str, Any]] | None = None,
+    source_item_loader: SourceItemLoader | None = None,
+    domains: list[str] | None = None,
+    max_candidates: int = 10,
+) -> dict[str, Any] | Failure:
+    normalized_chain_id = _required_text(chain_id, "chain_id")
+    if isinstance(normalized_chain_id, Failure):
+        return normalized_chain_id
+    normalized_project_key = _required_text(project_key, "project_key")
+    if isinstance(normalized_project_key, Failure):
+        return normalized_project_key
+    query = _resolve_query(frontier_query=frontier_query, frontier=frontier)
+    if isinstance(query, Failure):
+        return query
+    limit = _normalize_limit(max_candidates)
+    domain_values = _normalize_domains(domains)
+    try:
+        raw_items = _load_source_items(
+            project_key=normalized_project_key,
+            query=query,
+            source_library_items=source_library_items,
+            source_item_loader=source_item_loader,
+        )
+        ranked_items = rank_source_library_items_for_query(
+            raw_items,
+            query=query,
+            domains=domain_values,
+            limit=limit,
+        )
+    except Exception as exc:  # noqa: BLE001
+        return clue_chain_failure(
+            "provider_result_invalid",
+            f"source library expansion provider failed: {exc}",
+            owner="clue_chains.source_library_expansion.provider",
+            public_exception=type(exc),
+            exception_type=type(exc).__name__,
+        )
     search_queries = build_candidate_search_queries(query=query, domains=domain_values, limit=8)
     input_digest = _stable_digest(
         {
@@ -249,7 +318,7 @@ def _load_source_items(
     return [dict(item or {}) for item in loaded_items if isinstance(item, dict)]
 
 
-def _resolve_query(*, frontier_query: str | None, frontier: dict[str, Any] | None) -> str:
+def _resolve_query(*, frontier_query: str | None, frontier: dict[str, Any] | None) -> str | Failure:
     candidates = [
         frontier_query,
         (frontier or {}).get("query") if isinstance(frontier, dict) else None,
@@ -260,13 +329,13 @@ def _resolve_query(*, frontier_query: str | None, frontier: dict[str, Any] | Non
         text = str(value or "").strip()
         if text:
             return text
-    raise ValueError("frontier_query or frontier.query is required")
+    return clue_chain_failure("input_invalid", "frontier_query or frontier.query is required", owner="clue_chains.source_library_expansion.query")
 
 
-def _required_text(value: Any, field_name: str) -> str:
+def _required_text(value: Any, field_name: str) -> str | Failure:
     text = str(value or "").strip()
     if not text:
-        raise ValueError(f"{field_name} is required")
+        return clue_chain_failure("input_invalid", f"{field_name} is required", owner="clue_chains.source_library_expansion.input", field=field_name)
     return text
 
 

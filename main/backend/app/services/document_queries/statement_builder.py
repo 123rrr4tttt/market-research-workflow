@@ -3,12 +3,22 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from typing import Any
 
+from functorial_kit import Failure
+
 from sqlalchemy import Select, or_, select
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.sql.elements import ColumnElement
 
 from ...models.entities import Document
-from .contracts import DocumentQuery, DocumentQueryFilter, DocumentQuerySort, build_document_query
+from .contracts import (
+    DocumentQuery,
+    DocumentQueryFilter,
+    DocumentQuerySort,
+    build_document_query,
+    document_query_failure,
+    raise_document_query_legacy,
+    try_build_document_query,
+)
 
 
 DOCUMENT_QUERY_STATEMENT_BUILDER_VERSION = "document_query_statement_builder.v1"
@@ -62,44 +72,49 @@ def _coerce_sequence(value: Any, *, allow_string: bool = False) -> tuple[Any, ..
     return ()
 
 
-def _coerce_query(value: DocumentQuery | Mapping[str, Any]) -> DocumentQuery:
+def _coerce_query(value: DocumentQuery | Mapping[str, Any]) -> DocumentQuery | Failure:
     if isinstance(value, DocumentQuery):
         return value
     payload = value if isinstance(value, Mapping) else {}
-    return build_document_query(
+    try:
+        limit = int(payload.get("limit") or 20)
+        offset = int(payload.get("offset") or 0)
+    except (TypeError, ValueError):
+        return document_query_failure("statement_invalid", "document query pagination must be integers", owner="document_queries.statement_builder.query")
+    return try_build_document_query(
         str(payload.get("query") or ""),
         project_key=payload.get("project_key"),
         consumer=payload.get("consumer"),
         sources=_coerce_sequence(payload.get("sources"), allow_string=True),
         filters=_coerce_sequence(payload.get("filters")),
         sort=_coerce_sequence(payload.get("sort")),
-        limit=int(payload.get("limit") or 20),
-        offset=int(payload.get("offset") or 0),
+        limit=limit,
+        offset=offset,
     )
 
 
-def _field_expression(field: str) -> ColumnElement[Any]:
+def _field_expression(field: str) -> ColumnElement[Any] | Failure:
     cleaned = _clean_text(field)
     if cleaned in _FIELD_MAP:
         return _FIELD_MAP[cleaned]
     if cleaned.startswith("extracted_data."):
         path = [part for part in cleaned.split(".")[1:] if part]
         if not path:
-            raise ValueError("extracted_data filter path is required")
+            return document_query_failure("statement_invalid", "extracted_data filter path is required", owner="document_queries.statement_builder.field")
         expr: Any = Document.extracted_data
         for part in path:
             expr = expr[part]
         return expr.astext
-    raise ValueError(f"unsupported document query field for SQL statement builder: {cleaned}")
+    return document_query_failure("statement_invalid", f"unsupported document query field for SQL statement builder: {cleaned}", owner="document_queries.statement_builder.field")
 
 
-def _sort_expression(sort: DocumentQuerySort) -> ColumnElement[Any]:
+def _sort_expression(sort: DocumentQuerySort) -> ColumnElement[Any] | Failure:
     field = _clean_text(sort.field)
     if field in _SORT_MAP:
         return _SORT_MAP[field]
     if field.startswith("extracted_data."):
         return _field_expression(field)
-    raise ValueError(f"unsupported document query sort field for SQL statement builder: {field}")
+    return document_query_failure("sort_invalid", f"unsupported document query sort field for SQL statement builder: {field}", owner="document_queries.statement_builder.sort")
 
 
 def _value_sequence(value: Any) -> tuple[Any, ...]:
@@ -108,8 +123,10 @@ def _value_sequence(value: Any) -> tuple[Any, ...]:
     return tuple(value)
 
 
-def _filter_condition(filter_: DocumentQueryFilter) -> ColumnElement[bool]:
+def _filter_condition(filter_: DocumentQueryFilter) -> ColumnElement[bool] | Failure:
     field = _field_expression(filter_.field)
+    if isinstance(field, Failure):
+        return field
     op = filter_.op
     value = filter_.value
 
@@ -125,7 +142,7 @@ def _filter_condition(filter_: DocumentQueryFilter) -> ColumnElement[bool]:
         return field <= value
     if op == "exists":
         return field.isnot(None) if bool(value) else field.is_(None)
-    raise ValueError(f"unsupported document query filter operator for SQL statement builder: {op}")
+    return document_query_failure("filter_invalid", f"unsupported document query filter operator for SQL statement builder: {op}", owner="document_queries.statement_builder.filter")
 
 
 def _query_text_condition(query: DocumentQuery) -> ColumnElement[bool] | None:
@@ -153,7 +170,19 @@ def apply_document_query_to_statement(
     query: DocumentQuery | Mapping[str, Any],
     statement: Select[tuple[Document]] | None = None,
 ) -> Select[tuple[Document]]:
+    result = try_apply_document_query_to_statement(query, statement)
+    if isinstance(result, Failure):
+        raise_document_query_legacy(result)
+    return result
+
+
+def try_apply_document_query_to_statement(
+    query: DocumentQuery | Mapping[str, Any],
+    statement: Select[tuple[Document]] | None = None,
+) -> Select[tuple[Document]] | Failure:
     query_object = _coerce_query(query)
+    if isinstance(query_object, Failure):
+        return query_object
     stmt = statement if statement is not None else select(Document)
 
     query_condition = _query_text_condition(query_object)
@@ -165,18 +194,33 @@ def apply_document_query_to_statement(
     if query_object.project_key:
         stmt = stmt.where(Document.extracted_data["project_key"].astext == query_object.project_key)
     for filter_ in query_object.filters:
-        stmt = stmt.where(_filter_condition(filter_))
+        condition = _filter_condition(filter_)
+        if isinstance(condition, Failure):
+            return condition
+        stmt = stmt.where(condition)
 
     for sort in query_object.sort:
         sort_expr = _sort_expression(sort)
+        if isinstance(sort_expr, Failure):
+            return sort_expr
         ordered = sort_expr.asc() if sort.direction == "asc" else sort_expr.desc()
         stmt = stmt.order_by(ordered.nullslast())
     stmt = stmt.order_by(Document.id.desc()).limit(query_object.limit).offset(query_object.offset)
     return stmt
 
 
-def build_document_query_statement(query: DocumentQuery | Mapping[str, Any]) -> Select[tuple[Document]]:
+def build_document_query_statement(
+    query: DocumentQuery | Mapping[str, Any],
+) -> Annotated[
+    Select[tuple[Document]],
+    "kit:prepared-command effect_boundary=document_query_statement "
+    "witness=test:test_w04_authority_metadata",
+]:
     return apply_document_query_to_statement(query)
+
+
+def try_build_document_query_statement(query: DocumentQuery | Mapping[str, Any]) -> Select[tuple[Document]] | Failure:
+    return try_apply_document_query_to_statement(query)
 
 
 def document_query_to_statement(query: DocumentQuery | Mapping[str, Any]) -> Select[tuple[Document]]:

@@ -1,0 +1,115 @@
+{
+  "current": {
+    "generated_at": "2026-09-20T08:45:19Z",
+    "schema_version": "performance_capacity_baseline.v1",
+    "status": "passed"
+  },
+  "degradation": {
+    "flag": false,
+    "reasons": []
+  },
+  "fail_on_degradation": true,
+  "generated_at": "2026-09-20T08:45:19Z",
+  "lane": "performance_capacity_baseline_nightly",
+  "paths": {
+    "current_artifact": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/automation-runs/performance-capacity-baseline/2026-09-20/performance-baseline.json",
+    "history": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/automation-runs/performance-capacity-baseline/trend-history.jsonl",
+    "previous_artifact": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/automation-runs/performance-capacity-baseline/2026-09-14/performance-baseline.json"
+  },
+  "previous": {
+    "generated_at": "2026-09-14T08:03:13Z",
+    "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/automation-runs/performance-capacity-baseline/2026-09-14/performance-baseline.json",
+    "schema_version": "performance_capacity_baseline.v1",
+    "status": "loaded"
+  },
+  "run_date": "2026-09-20",
+  "schema_version": "performance_capacity_nightly_manifest.v1",
+  "service_probe": {
+    "dependency": {
+      "checks": [],
+      "missing": [],
+      "required": false,
+      "status": "not_checked"
+    },
+    "enabled": true,
+    "fail_fast_decision": {
+      "allow_service_failure": false,
+      "effective_exit_code": 0,
+      "exit_code": 0,
+      "reasons": [],
+      "recommended_command": "python3 scripts/performance_capacity_baseline.py --api-base <base-url> --service-required --output <artifact.json>",
+      "service_ping_status": "passed",
+      "service_ready_status": "passed",
+      "service_required": true,
+      "should_fail": false,
+      "status": "continue"
+    },
+    "port": {
+      "host": "127.0.0.1",
+      "scheme": "http",
+      "source": "api_base",
+      "status": "configured",
+      "value": 8000
+    },
+    "recommended_command": "python3 scripts/performance_capacity_baseline.py --api-base <base-url> --service-required --output <artifact.json>",
+    "runtime_mode": "repo_local_deterministic_fixture_smoke",
+    "secret": {
+      "checks": [],
+      "missing": [],
+      "required": false,
+      "status": "not_checked"
+    },
+    "service_ping": {
+      "elapsed_ms": 6.182,
+      "http_status": 200,
+      "latency_ms": 6.182,
+      "status": "passed",
+      "url": "http://127.0.0.1:8000/api/v1/health"
+    },
+    "service_ready": {
+      "elapsed_ms": 98.095,
+      "http_status": 200,
+      "latency_ms": 98.095,
+      "status": "passed",
+      "url": "http://127.0.0.1:8000/api/v1/health/deep"
+    },
+    "status": "ready"
+  },
+  "status": "passed",
+  "trend": {
+    "comparisons": [
+      {
+        "budget_alert_floor_ms": 4750.0,
+        "current_total_ms": 53.309,
+        "fixture": "large",
+        "previous_total_ms": 46.972,
+        "ratio": 1.1349,
+        "status": "within_trend_budget",
+        "threshold_ratio": 1.5
+      },
+      {
+        "budget_alert_floor_ms": 712.5,
+        "current_total_ms": 4.484,
+        "fixture": "medium",
+        "previous_total_ms": 3.359,
+        "ratio": 1.3349,
+        "status": "within_trend_budget",
+        "threshold_ratio": 1.5
+      },
+      {
+        "budget_alert_floor_ms": 237.5,
+        "current_total_ms": 0.269,
+        "fixture": "small",
+        "previous_total_ms": 0.236,
+        "ratio": 1.1398,
+        "status": "within_trend_budget",
+        "threshold_ratio": 1.5
+      }
+    ],
+    "status": "compared"
+  },
+  "validation": {
+    "baseline_exit_code": 0,
+    "checker_exit_code": 0
+  }
+}

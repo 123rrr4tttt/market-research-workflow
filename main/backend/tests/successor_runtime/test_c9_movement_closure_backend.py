@@ -424,6 +424,52 @@ def test_facade_calls_submission_port_exactly_once_and_maps_receipts() -> None:
     assert envelope.data["state"] == "TERMINAL"
 
 
+def test_facade_terminal_replay_is_stable_and_started_never_claims_completion() -> None:
+    started_port = CountingSubmissionPort()
+    started_facade = SuccessorRuntimeFacade(
+        submission_port=started_port,
+        query_port=CountingQueryPort(),
+    )
+
+    started = started_facade.submit(_command())
+    started_replay = started_facade.submit(_command())
+
+    assert started_port.calls == 2
+    assert started == started_replay
+    assert started.status == "waiting"
+    assert started.data is not None
+    assert started.data["state"] == "STARTED"
+
+    terminal_receipt = CommandReceipt(
+        receipt_ref="c9-receipt:terminal-stable",
+        command_id="cmd-v2-1",
+        request_digest="a" * 64,
+        state="TERMINAL",
+        idempotency_id="idem:c9:cmd-v2-1",
+        logical_request_id="cmd-v2-1",
+        authority_context_digest="b" * 64,
+        grant_epoch=7,
+        grants_digest="c" * 64,
+        observed_at="2030-09-01T08:00:00+00:00",
+    )
+    terminal_port = CountingSubmissionPort(receipt=terminal_receipt)
+    terminal_facade = SuccessorRuntimeFacade(
+        submission_port=terminal_port,
+        query_port=CountingQueryPort(),
+    )
+
+    terminal = terminal_facade.submit(_command())
+    terminal_replay = terminal_facade.submit(_command())
+
+    assert terminal_port.calls == 2
+    assert terminal == terminal_replay
+    assert terminal.status == "ok"
+    assert terminal.data is not None
+    assert terminal.data["state"] == "TERMINAL"
+    assert terminal.data["receipt_ref"] == terminal_receipt.receipt_ref
+    assert terminal.data["observed_at"] == terminal_receipt.observed_at
+
+
 def test_facade_calls_query_port_exactly_once() -> None:
     port = CountingQueryPort()
     facade = SuccessorRuntimeFacade(

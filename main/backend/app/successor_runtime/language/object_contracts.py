@@ -3,10 +3,63 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import Annotated, Any, Protocol
+
+from functorial_kit import Failure
+
+from mrw_functorial_kit.core.w07_semantics import language_failures
 
 from app.successor_runtime.research.codec import dataclass_to_json, sha256_hex
 from app.successor_runtime.research.object_types import ObjectType
+
+_LANGUAGE_FAILURE_WITNESS = "test:test_w07_language_research_failure_boundary"
+
+
+def _failure(
+    code: str,
+    message: object,
+    exception_type: type[Exception],
+    *,
+    site: str,
+) -> Failure:
+    """Create a closed language failure before lifting at the public ABI."""
+
+    public_message = str(exception_type(message))
+    return language_failures.fail(
+        code,
+        public_message,
+        {
+            "public_exception": exception_type.__name__,
+            "public_argument": message,
+            "public_message": public_message,
+            "site": site,
+            "witness": _LANGUAGE_FAILURE_WITNESS,
+        },
+    )
+
+
+def _raise_failure(
+    failure: Failure,
+    exception_type: type[Exception],
+    *,
+    cause: BaseException | None = None,
+) -> None:
+    """Lift a complete typed failure while retaining the existing exception ABI."""
+
+    context = failure.context or {}
+    if (
+        not language_failures.matches(failure)
+        or context.get("public_exception") != exception_type.__name__
+        or not context.get("public_message")
+    ):
+        # kit:boundary owner=successor.language.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_language_research_failure_boundary
+        raise TypeError("language failure lift context is incomplete")
+    # kit:boundary owner=successor.language.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_w07_language_research_failure_boundary
+    if cause is None:
+        # kit:boundary owner=successor.language.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_w07_language_research_failure_boundary
+        raise exception_type(context.get("public_argument", context["public_message"]))
+    # kit:boundary owner=successor.language.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_w07_language_research_failure_boundary
+    raise exception_type(context.get("public_argument", context["public_message"])) from cause
 
 __all__ = [
     "CAPTURE_DOCUMENT_SNAPSHOT_RETURN_CONTRACT_REF",
@@ -93,9 +146,25 @@ class ReturnContractRegistry:
     def __post_init__(self) -> None:
         refs = tuple(ref for ref, _contract in self.entries)
         if any(not ref for ref in refs):
-            raise ValueError("return contract ref must be non-empty")
+            _raise_failure(
+                _failure(
+                    "CONTRACT_REGISTRY_INVALID",
+                    "return contract ref must be non-empty",
+                    ValueError,
+                    site="ReturnContractRegistry.ref",
+                ),
+                ValueError,
+            )
         if len(refs) != len(set(refs)):
-            raise ValueError("duplicate return contract ref")
+            _raise_failure(
+                _failure(
+                    "CONTRACT_REGISTRY_INVALID",
+                    "duplicate return contract ref",
+                    ValueError,
+                    site="ReturnContractRegistry.ref.unique",
+                ),
+                ValueError,
+            )
 
     def resolve(self, ref: str) -> ReturnContract | None:
         for candidate, contract in self.entries:
@@ -106,7 +175,15 @@ class ReturnContractRegistry:
     def resolve_required(self, ref: str) -> ReturnContract:
         contract = self.resolve(ref)
         if contract is None:
-            raise KeyError(f"unresolved return contract: {ref}")
+            _raise_failure(
+                _failure(
+                    "UNKNOWN_RETURN_CONTRACT",
+                    f"unresolved return contract: {ref}",
+                    KeyError,
+                    site="ReturnContractRegistry.resolve_required",
+                ),
+                KeyError,
+            )
         return contract
 
 
@@ -120,8 +197,14 @@ def _first_specimen_return_contract(*, admission_required: bool) -> ReturnContra
     )
 
 
-def build_frozen_base_return_contract_registry() -> ReturnContractRegistry:
+def build_frozen_base_return_contract_registry() -> Annotated[
+    ReturnContractRegistry,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=successor_runtime.language.object_contracts.FROZEN_BASE_RETURN_CONTRACT_REFS "
+    "witness=test:test_w07_derived_metadata_is_exact_and_non_authoritative",
+]:
     """Frozen six-ref base registry; order and contracts must never change."""
+    # derived(view) is explicitly non-authoritative; the frozen refs remain the fact source.
 
     return ReturnContractRegistry(
         entries=tuple(
@@ -136,10 +219,14 @@ def build_frozen_base_return_contract_registry() -> ReturnContractRegistry:
     )
 
 
-def build_c7_document_admission_return_contract_extension() -> tuple[
-    tuple[str, ReturnContract], ...
+def build_c7_document_admission_return_contract_extension() -> Annotated[
+    tuple[tuple[str, ReturnContract], ...],
+    "kit:non-authoritative derived_as=view "
+    "fact_source=successor_runtime.language.object_contracts.DOCUMENT_ADMISSION_RETURN_CONTRACT_REF "
+    "witness=test:test_w07_derived_metadata_is_exact_and_non_authoritative",
 ]:
     """Exact additive C7 extension: one Document admission contract."""
+    # derived(view) is explicitly non-authoritative; the contract ref is the fact source.
 
     return (
         (
@@ -149,8 +236,14 @@ def build_c7_document_admission_return_contract_extension() -> tuple[
     )
 
 
-def build_first_specimen_return_contract_registry() -> ReturnContractRegistry:
+def build_first_specimen_return_contract_registry() -> Annotated[
+    ReturnContractRegistry,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=successor_runtime.language.object_contracts.FROZEN_BASE_RETURN_CONTRACT_REFS "
+    "witness=test:test_w07_derived_metadata_is_exact_and_non_authoritative",
+]:
     """Frozen base return vocabulary plus the single additive C7 extension."""
+    # derived(view) is explicitly non-authoritative; the base and extension refs are fact sources.
 
     return ReturnContractRegistry(
         entries=(
@@ -197,7 +290,15 @@ class OperationContract:
     def __post_init__(self) -> None:
         expected = self.contract_digest()
         if self.ref.contract_digest != expected:
-            raise ValueError("OperationContract ref digest mismatch")
+            _raise_failure(
+                _failure(
+                    "CONTRACT_BINDING_MISSING",
+                    "OperationContract ref digest mismatch",
+                    ValueError,
+                    site="OperationContract.ref.contract_digest",
+                ),
+                ValueError,
+            )
 
 
 def make_operation_contract(
@@ -251,4 +352,4 @@ class OperationContractResolver(Protocol):
         """Return the exact contract or None when the ref is not resolvable."""
 
     def resolve_required(self, ref: OperationContractRef) -> OperationContract:
-        """Return the exact contract or raise when the ref is not resolvable."""
+        """Return the exact contract or fail when the ref is not resolvable."""

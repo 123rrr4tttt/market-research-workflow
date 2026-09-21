@@ -1,0 +1,29 @@
+HTTP/2 422 
+date: Sun, 06 Sep 2026 22:40:37 GMT
+content-type: application/json; charset=utf-8
+content-length: 188
+x-github-media-type: github.v3; format=json
+x-github-api-version-selected: 2022-11-28
+access-control-expose-headers: ETag, Link, Location, Retry-After, X-GitHub-OTP, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Used, X-RateLimit-Resource, X-RateLimit-Reset, X-OAuth-Scopes, X-Accepted-OAuth-Scopes, X-Poll-Interval, X-GitHub-Media-Type, X-GitHub-SSO, X-GitHub-Request-Id, Deprecation, Sunset, Warning
+access-control-allow-origin: *
+strict-transport-security: max-age=31536000; includeSubdomains; preload
+x-frame-options: deny
+x-content-type-options: nosniff
+x-xss-protection: 0
+referrer-policy: origin-when-cross-origin, strict-origin-when-cross-origin
+content-security-policy: default-src 'none'
+vary: Accept-Encoding, Accept, X-Requested-With
+server: github.com
+x-ratelimit-limit: 60
+x-ratelimit-remaining: 59
+x-ratelimit-used: 1
+x-ratelimit-resource: core
+x-ratelimit-reset: 1788738037
+x-github-request-id: 1945:1DCA1F:C1B672:11ABE1C:6A9DEBE4
+x-github-edge-region: koreacentral
+
+{
+  "message": "No commit found for SHA: 909eb608e538b6427bcbacca974f1efb05fef611",
+  "documentation_url": "https://docs.github.com/rest/commits/commits#get-a-commit",
+  "status": "422"
+}

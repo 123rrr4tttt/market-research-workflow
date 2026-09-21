@@ -1,6 +1,6 @@
 import { Suspense, lazy, type ReactNode } from 'react'
 import { translate, type AppLocale } from '../platform/i18n'
-import { KERNEL_RENDER_SHELL_MODE, type KernelModuleKey, type KernelRenderShellMode } from './types'
+import { KERNEL_RENDER_SHELL_MODE, type KernelModuleKey, type KernelRenderShellMode, type KernelRouteRenderVariant } from './types'
 
 const CatalogPage = lazy(() => import('../../pages/CatalogPage'))
 const DashboardPage = lazy(() => import('../../pages/DashboardPage'))
@@ -15,6 +15,7 @@ const ResourcePage = lazy(() => import('../../pages/ResourcePage'))
 const RawDataPage = lazy(() => import('../../pages/RawDataPage'))
 const SettingsPage = lazy(() => import('../../pages/SettingsPage'))
 const WritingWorkbenchPage = lazy(() => import('../../pages/WritingWorkbenchPage'))
+const CodexAgentPage = lazy(() => import('../../pages/CodexAgentPage'))
 const AgentChatPage = lazy(() => import('../../pages/AgentChatPage'))
 const LlmDesignerPage = lazy(() => import('../../pages/LlmDesignerPage'))
 
@@ -24,6 +25,7 @@ type RenderKernelModuleContentArgs = {
   onProjectChange: (nextProjectKey: string) => void
   locale: AppLocale
   shellMode?: KernelRenderShellMode
+  renderVariant?: KernelRouteRenderVariant
 }
 
 function renderModuleNode({
@@ -31,6 +33,7 @@ function renderModuleNode({
   projectKey,
   onProjectChange,
   shellMode,
+  renderVariant,
 }: RenderKernelModuleContentArgs): ReactNode {
   if (moduleKey === 'overviewTasks') return <ProcessPage projectKey={projectKey} />
   if (moduleKey === 'flowProcessing') {
@@ -70,7 +73,8 @@ function renderModuleNode({
     return <WritingWorkbenchPage projectKey={projectKey} standalone={shellMode !== KERNEL_RENDER_SHELL_MODE.workbench} />
   }
   if (moduleKey === 'flowAgentChat') {
-    return <AgentChatPage projectKey={projectKey} />
+    if (renderVariant === 'agent-chat-compat') return <AgentChatPage projectKey={projectKey} />
+    return <CodexAgentPage projectKey={projectKey} />
   }
   if (moduleKey === 'dataPolicy') {
     return <PolicyPage projectKey={projectKey} variant="policy" />

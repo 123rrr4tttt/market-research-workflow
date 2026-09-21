@@ -63,6 +63,7 @@ class ProjectConfigReadbackRow:
             self, "project_key", normalized_text(self.project_key, "project_key")
         )
         if self.read_kind not in ProjectConfigReadKind.__args__:
+            # kit:boundary owner=successor_runtime.ops_domain.projects_config_surface class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_ops_surface_programmer_defect_boundaries
             raise ValueError(f"unknown read_kind: {self.read_kind}")
         object.__setattr__(
             self,
@@ -105,8 +106,10 @@ class ProjectConfigNoCallDecision:
             self, "decision_id", normalized_text(self.decision_id, "decision_id")
         )
         if self.mutation_kind not in ProjectConfigMutationKind.__args__:
+            # kit:boundary owner=successor_runtime.ops_domain.projects_config_surface class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_ops_surface_programmer_defect_boundaries
             raise ValueError(f"unknown mutation_kind: {self.mutation_kind}")
         if self.disposition not in ("EXPLICITLY_REJECTED", "DECLARED_LOSS"):
+            # kit:boundary owner=successor_runtime.ops_domain.projects_config_surface class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_ops_surface_programmer_defect_boundaries
             raise ValueError(f"unknown disposition: {self.disposition}")
         object.__setattr__(
             self,
@@ -172,8 +175,10 @@ class ProjectConfigSurfaceManifest:
 
     def __post_init__(self) -> None:
         if self.schema != SURFACE_SCHEMA:
+            # kit:boundary owner=successor_runtime.ops_domain.projects_config_surface class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_ops_surface_programmer_defect_boundaries
             raise ValueError("ProjectConfigSurfaceManifest.schema is not frozen")
         if self.movement_ids != MOVEMENT_IDS:
+            # kit:boundary owner=successor_runtime.ops_domain.projects_config_surface class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_ops_surface_programmer_defect_boundaries
             raise ValueError("ProjectConfigSurfaceManifest.movement_ids drift")
         require_authority_false(self.authority)
         object.__setattr__(self, "readback_rows", tuple(self.readback_rows))
@@ -218,6 +223,7 @@ def project_projects_config_surface(
     )
     for decision in decisions:
         if not decision.decision_owner:
+            # kit:boundary owner=successor_runtime.ops_domain.projects_config_surface class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_ops_surface_programmer_defect_boundaries
             raise ValueError("no-call decision requires an explicit decision_owner")
     return ProjectConfigSurfaceManifest(
         schema=SURFACE_SCHEMA,

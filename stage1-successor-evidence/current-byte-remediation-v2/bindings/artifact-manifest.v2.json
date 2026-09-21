@@ -1,0 +1,45 @@
+{
+  "authoritative": false,
+  "authority": {
+    "candidate_promotion": false,
+    "cutover": false,
+    "deployment": false,
+    "external_delivery": false,
+    "legacy_retirement": false,
+    "live_provider": false,
+    "production_canonical_write": false,
+    "production_release": false
+  },
+  "authority_ceiling": "EXACT_BYTE_CORRESPONDENCE_ONLY_NO_CANDIDATE_PROMOTION_NO_STAGE0_REWRITE_NO_PRODUCTION_AUTHORITY",
+  "content_digest": "502497dda4208717bcd8d544c48b614d58feaef99c1ec4c92fccb039e37de338",
+  "member_count": 5,
+  "members": [
+    {
+      "bytes": 14636,
+      "path": "stage1-successor-evidence/current-byte-remediation-v2/bindings/build_current_byte_binding_successors_v2.py",
+      "sha256": "af3b5cbed636493ef724db0b8e287cd30df514760a3e3af7208a11e40aef9259"
+    },
+    {
+      "bytes": 4854,
+      "path": "stage1-successor-evidence/current-byte-remediation-v2/bindings/check_current_byte_binding_successors_v2.py",
+      "sha256": "ac52e926d1d31218b6a5f39059d3f5e4a4c02a40d537ccfebd3ea5a38ce1730a"
+    },
+    {
+      "bytes": 26945,
+      "path": "stage1-successor-evidence/current-byte-remediation-v2/bindings/current-byte-binding-successors.v2.json",
+      "sha256": "8527402a0715a9540a0e1d1247f3015e3611059b0e16582b543d6848eb05fa7b"
+    },
+    {
+      "bytes": 18697,
+      "path": "stage1-successor-evidence/current-byte-remediation-v2/bindings/snapshots/1daddedc2fe8a435c062fa66019e00db2b47aeb2e88d8fce97e7dfe3e8bd4cf5",
+      "sha256": "1daddedc2fe8a435c062fa66019e00db2b47aeb2e88d8fce97e7dfe3e8bd4cf5"
+    },
+    {
+      "bytes": 2893,
+      "path": "stage1-successor-evidence/current-byte-remediation-v2/bindings/test_current_byte_binding_successors_v2.py",
+      "sha256": "e170f5ebf8c9a15846be9b72c0c9422830fe6fe423f63366154bc2339e413497"
+    }
+  ],
+  "schema": "mrw.current_byte_binding_successor_manifest.v2",
+  "status": "COMPLETE_NOT_AUTHORITY"
+}

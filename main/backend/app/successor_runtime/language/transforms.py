@@ -9,13 +9,38 @@ from __future__ import annotations
 
 import inspect
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any, Callable, NoReturn, TypeAlias
+
+from functorial_kit import Failure
 
 from .algebra import ObjectType, canonical_digest
+from .object_contracts import _failure, _raise_failure
 
 
 class RegistryError(ValueError):
     """Raised for invalid registry entries or references."""
+
+
+TransformResult: TypeAlias = "TransformRef | MergeRef | DiscriminatorRef | Failure"
+
+
+def _transform_failure(
+    code: str,
+    message: object,
+    exception_type: type[Exception],
+    *,
+    site: str,
+) -> Failure:
+    return _failure(code, message, exception_type, site=site)
+
+
+def _lift_transform_failure(
+    failure: Failure,
+    exception_type: type[Exception],
+    *,
+    cause: BaseException | None = None,
+) -> NoReturn:
+    _raise_failure(failure, exception_type, cause=cause)
 
 
 @dataclass(frozen=True, slots=True)
@@ -117,15 +142,19 @@ def compute_pure_function_digest(
 
 def _assert_pure_function(func: Callable[..., Any], label: str) -> None:
     if not inspect.isfunction(func):
+        # kit:boundary owner=successor.language.transforms class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_transform_try_failures_and_legacy_lift
         raise RegistryError(f"{label}: only plain functions may be registered")
     code = func.__code__
     if code.co_flags & (inspect.CO_NESTED | inspect.CO_COROUTINE | inspect.CO_ASYNC_GENERATOR):
+        # kit:boundary owner=successor.language.transforms class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_transform_try_failures_and_legacy_lift
         raise RegistryError(f"{label}: nested or async callables are not allowed")
     if code.co_freevars or code.co_cellvars:
+        # kit:boundary owner=successor.language.transforms class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_transform_try_failures_and_legacy_lift
         raise RegistryError(f"{label}: closures are not allowed")
     source = inspect.getsource(func)
     lowered = source.lower()
     if "exec(" in lowered or "eval(" in lowered or "__import__" in lowered:
+        # kit:boundary owner=successor.language.transforms class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_transform_try_failures_and_legacy_lift
         raise RegistryError(f"{label}: dynamic execution is not allowed")
 
 
@@ -155,39 +184,77 @@ class TransformRegistry:
         loss_profile_id: "str | None" = None,
         preserves_value_ref: bool = False,
     ) -> TransformRef:
-        _assert_pure_function(func, name)
-        if preserves_value_ref and (
-            canonical_digest(input_type) != canonical_digest(output_type)
-            or loss_profile_id is not None
-        ):
-            raise RegistryError(
-                f"{name}: ValueRef-preserving transform requires one exact type and no loss profile"
-            )
-        key = (name, version)
-        if key in self._transforms:
-            raise RegistryError(f"transform {name}@{version} already registered")
-        digest = compute_pure_function_digest(
-            func,
-            input_type,
-            output_type,
-            preserves_value_ref=preserves_value_ref,
-        )
-        self._transforms[key] = TransformEntry(
-            id=name,
+        result = self.try_register_transform(
+            name=name,
             version=version,
             input_type=input_type,
             output_type=output_type,
-            digest=digest,
+            func=func,
             loss_profile_id=loss_profile_id,
             preserves_value_ref=preserves_value_ref,
-            callable=func,
         )
-        return TransformRef(
-            name=name,
-            version=version,
-            digest=digest,
-            transform_kind="transform",
-        )
+        if isinstance(result, Failure):
+            _lift_transform_failure(result, RegistryError)
+        return result
+
+    def try_register_transform(
+        self,
+        *,
+        name: str,
+        version: str,
+        input_type: ObjectType,
+        output_type: ObjectType,
+        func: Callable[..., Any],
+        loss_profile_id: "str | None" = None,
+        preserves_value_ref: bool = False,
+    ) -> TransformRef | Failure:
+        try:
+            _assert_pure_function(func, name)
+            if preserves_value_ref and (
+                canonical_digest(input_type) != canonical_digest(output_type)
+                or loss_profile_id is not None
+            ):
+                # kit:boundary owner=successor.language.transforms class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_transform_try_failures_and_legacy_lift
+                raise RegistryError(
+                    f"{name}: ValueRef-preserving transform requires one exact type and no loss profile"
+                )
+            key = (name, version)
+            if key in self._transforms:
+                # kit:boundary owner=successor.language.transforms class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_transform_try_failures_and_legacy_lift
+                raise RegistryError(f"transform {name}@{version} already registered")
+            digest = compute_pure_function_digest(
+                func,
+                input_type,
+                output_type,
+                preserves_value_ref=preserves_value_ref,
+            )
+            self._transforms[key] = TransformEntry(
+                id=name,
+                version=version,
+                input_type=input_type,
+                output_type=output_type,
+                digest=digest,
+                loss_profile_id=loss_profile_id,
+                preserves_value_ref=preserves_value_ref,
+                callable=func,
+            )
+            return TransformRef(
+                name=name,
+                version=version,
+                digest=digest,
+                transform_kind="transform",
+            )
+        except (RegistryError, OSError, TypeError) as exc:
+            code = (
+                "TRANSFORM_CALLABLE_INVALID"
+                if isinstance(exc, OSError)
+                or "callable" in str(exc)
+                or "plain functions" in str(exc)
+                or "closures" in str(exc)
+                or "dynamic execution" in str(exc)
+                else "TRANSFORM_REGISTRY_INVALID"
+            )
+            return _transform_failure(code, str(exc), RegistryError, site="register_transform")
 
     def register_merge(
         self,
@@ -199,35 +266,70 @@ class TransformRegistry:
         output_type: ObjectType,
         func: Callable[..., Any],
     ) -> MergeRef:
-        _assert_pure_function(func, name)
-        key = (name, version)
-        if key in self._merges:
-            raise RegistryError(f"merge {name}@{version} already registered")
-        digest = canonical_digest(
-            {
-                "source": inspect.getsource(func).strip(),
-                "module": func.__module__,
-                "qualname": func.__qualname__,
-                "left_digest": canonical_digest(left_type),
-                "right_digest": canonical_digest(right_type),
-                "output_digest": canonical_digest(output_type),
-            }
-        )
-        self._merges[key] = MergeEntry(
-            id=name,
+        result = self.try_register_merge(
+            name=name,
             version=version,
             left_type=left_type,
             right_type=right_type,
             output_type=output_type,
-            digest=digest,
-            callable=func,
+            func=func,
         )
-        return MergeRef(
-            name=name,
-            version=version,
-            digest=digest,
-            transform_kind="merge",
-        )
+        if isinstance(result, Failure):
+            _lift_transform_failure(result, RegistryError)
+        return result
+
+    def try_register_merge(
+        self,
+        *,
+        name: str,
+        version: str,
+        left_type: ObjectType,
+        right_type: ObjectType,
+        output_type: ObjectType,
+        func: Callable[..., Any],
+    ) -> MergeRef | Failure:
+        try:
+            _assert_pure_function(func, name)
+            key = (name, version)
+            if key in self._merges:
+                # kit:boundary owner=successor.language.transforms class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_transform_try_failures_and_legacy_lift
+                raise RegistryError(f"merge {name}@{version} already registered")
+            digest = canonical_digest(
+                {
+                    "source": inspect.getsource(func).strip(),
+                    "module": func.__module__,
+                    "qualname": func.__qualname__,
+                    "left_digest": canonical_digest(left_type),
+                    "right_digest": canonical_digest(right_type),
+                    "output_digest": canonical_digest(output_type),
+                }
+            )
+            self._merges[key] = MergeEntry(
+                id=name,
+                version=version,
+                left_type=left_type,
+                right_type=right_type,
+                output_type=output_type,
+                digest=digest,
+                callable=func,
+            )
+            return MergeRef(
+                name=name,
+                version=version,
+                digest=digest,
+                transform_kind="merge",
+            )
+        except (RegistryError, OSError, TypeError) as exc:
+            code = (
+                "TRANSFORM_CALLABLE_INVALID"
+                if isinstance(exc, OSError)
+                or "callable" in str(exc)
+                or "plain functions" in str(exc)
+                or "closures" in str(exc)
+                or "dynamic execution" in str(exc)
+                else "TRANSFORM_REGISTRY_INVALID"
+            )
+            return _transform_failure(code, str(exc), RegistryError, site="register_merge")
 
     def register_discriminator(
         self,
@@ -238,52 +340,154 @@ class TransformRegistry:
         branch_ids: "tuple[str, ...]",
         func: Callable[..., str],
     ) -> DiscriminatorRef:
-        _assert_pure_function(func, name)
-        key = (name, version)
-        if key in self._discriminators:
-            raise RegistryError(f"discriminator {name}@{version} already registered")
-        if not branch_ids or len(set(branch_ids)) != len(branch_ids):
-            raise RegistryError("discriminator branch_ids must be unique and non-empty")
-        digest = canonical_digest(
-            {
-                "source": inspect.getsource(func).strip(),
-                "module": func.__module__,
-                "qualname": func.__qualname__,
-                "input_digest": canonical_digest(input_type),
-                "branch_ids": sorted(branch_ids),
-            }
-        )
-        self._discriminators[key] = DiscriminatorEntry(
-            id=name,
+        result = self.try_register_discriminator(
+            name=name,
             version=version,
             input_type=input_type,
             branch_ids=branch_ids,
-            digest=digest,
-            callable=func,
+            func=func,
         )
-        return DiscriminatorRef(
-            name=name,
-            version=version,
-            digest=digest,
-            transform_kind="discriminator",
-        )
+        if isinstance(result, Failure):
+            _lift_transform_failure(result, RegistryError)
+        return result
+
+    def try_register_discriminator(
+        self,
+        *,
+        name: str,
+        version: str,
+        input_type: ObjectType,
+        branch_ids: "tuple[str, ...]",
+        func: Callable[..., str],
+    ) -> DiscriminatorRef | Failure:
+        try:
+            _assert_pure_function(func, name)
+            key = (name, version)
+            if key in self._discriminators:
+                # kit:boundary owner=successor.language.transforms class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_transform_try_failures_and_legacy_lift
+                raise RegistryError(f"discriminator {name}@{version} already registered")
+            if not branch_ids or len(set(branch_ids)) != len(branch_ids):
+                # kit:boundary owner=successor.language.transforms class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.language.failure witness=test:test_transform_try_failures_and_legacy_lift
+                raise RegistryError("discriminator branch_ids must be unique and non-empty")
+            digest = canonical_digest(
+                {
+                    "source": inspect.getsource(func).strip(),
+                    "module": func.__module__,
+                    "qualname": func.__qualname__,
+                    "input_digest": canonical_digest(input_type),
+                    "branch_ids": sorted(branch_ids),
+                }
+            )
+            self._discriminators[key] = DiscriminatorEntry(
+                id=name,
+                version=version,
+                input_type=input_type,
+                branch_ids=branch_ids,
+                digest=digest,
+                callable=func,
+            )
+            return DiscriminatorRef(
+                name=name,
+                version=version,
+                digest=digest,
+                transform_kind="discriminator",
+            )
+        except (RegistryError, OSError, TypeError) as exc:
+            code = (
+                "TRANSFORM_CALLABLE_INVALID"
+                if isinstance(exc, OSError)
+                or "callable" in str(exc)
+                or "plain functions" in str(exc)
+                or "closures" in str(exc)
+                or "dynamic execution" in str(exc)
+                else "TRANSFORM_REGISTRY_INVALID"
+            )
+            return _transform_failure(code, str(exc), RegistryError, site="register_discriminator")
 
     def resolve_transform(self, ref: TransformRef) -> TransformEntry:
-        entry = self._transforms.get((ref.name, ref.version))
-        if entry is None or entry.digest != ref.digest:
-            raise RegistryError(f"unknown transform {ref.label()}")
+        result = self.try_resolve_transform(ref)
+        if isinstance(result, Failure):
+            _lift_transform_failure(result, RegistryError)
+        return result
+
+    def try_resolve_transform(self, ref: TransformRef) -> TransformEntry | Failure:
+        try:
+            key = (ref.name, ref.version)
+            label = ref.label()
+            digest = ref.digest
+        except (AttributeError, TypeError) as exc:
+            return _transform_failure(
+                "TRANSFORM_BINDING_MISSING",
+                str(exc),
+                RegistryError,
+                site="resolve_transform",
+            )
+        entry = self._transforms.get(key)
+        if entry is None or entry.digest != digest:
+            return _transform_failure(
+                "TRANSFORM_BINDING_MISSING",
+                f"unknown transform {label}",
+                RegistryError,
+                site="resolve_transform",
+            )
         return entry
 
     def resolve_merge(self, ref: MergeRef) -> MergeEntry:
-        entry = self._merges.get((ref.name, ref.version))
-        if entry is None or entry.digest != ref.digest:
-            raise RegistryError(f"unknown merge {ref.label()}")
+        result = self.try_resolve_merge(ref)
+        if isinstance(result, Failure):
+            _lift_transform_failure(result, RegistryError)
+        return result
+
+    def try_resolve_merge(self, ref: MergeRef) -> MergeEntry | Failure:
+        try:
+            key = (ref.name, ref.version)
+            label = ref.label()
+            digest = ref.digest
+        except (AttributeError, TypeError) as exc:
+            return _transform_failure(
+                "TRANSFORM_BINDING_MISSING",
+                str(exc),
+                RegistryError,
+                site="resolve_merge",
+            )
+        entry = self._merges.get(key)
+        if entry is None or entry.digest != digest:
+            return _transform_failure(
+                "TRANSFORM_BINDING_MISSING",
+                f"unknown merge {label}",
+                RegistryError,
+                site="resolve_merge",
+            )
         return entry
 
     def resolve_discriminator(self, ref: DiscriminatorRef) -> DiscriminatorEntry:
-        entry = self._discriminators.get((ref.name, ref.version))
-        if entry is None or entry.digest != ref.digest:
-            raise RegistryError(f"unknown discriminator {ref.label()}")
+        result = self.try_resolve_discriminator(ref)
+        if isinstance(result, Failure):
+            _lift_transform_failure(result, RegistryError)
+        return result
+
+    def try_resolve_discriminator(
+        self, ref: DiscriminatorRef
+    ) -> DiscriminatorEntry | Failure:
+        try:
+            key = (ref.name, ref.version)
+            label = ref.label()
+            digest = ref.digest
+        except (AttributeError, TypeError) as exc:
+            return _transform_failure(
+                "TRANSFORM_BINDING_MISSING",
+                str(exc),
+                RegistryError,
+                site="resolve_discriminator",
+            )
+        entry = self._discriminators.get(key)
+        if entry is None or entry.digest != digest:
+            return _transform_failure(
+                "TRANSFORM_BINDING_MISSING",
+                f"unknown discriminator {label}",
+                RegistryError,
+                site="resolve_discriminator",
+            )
         return entry
 
     def has_transform(self, ref: TransformRef) -> bool:
@@ -338,12 +542,31 @@ def merge_output_type(
     left_type: ObjectType,
     right_type: ObjectType,
 ) -> ObjectType:
-    entry = registry.resolve_merge(ref)
+    result = try_merge_output_type(registry, ref, left_type, right_type)
+    if isinstance(result, Failure):
+        _lift_transform_failure(result, RegistryError)
+    return result
+
+
+def try_merge_output_type(
+    registry: TransformRegistry,
+    ref: MergeRef,
+    left_type: ObjectType,
+    right_type: ObjectType,
+) -> ObjectType | Failure:
+    entry = registry.try_resolve_merge(ref)
+    if isinstance(entry, Failure):
+        return entry
     if (
         canonical_digest(entry.left_type) != canonical_digest(left_type)
         or canonical_digest(entry.right_type) != canonical_digest(right_type)
     ):
-        raise RegistryError(f"merge {ref.label()} type mismatch")
+        return _transform_failure(
+            "TRANSFORM_TYPE_INVALID",
+            f"merge {ref.label()} type mismatch",
+            RegistryError,
+            site="merge_output_type",
+        )
     return entry.output_type
 
 
@@ -352,9 +575,25 @@ def discriminator_branch_ids(
     ref: DiscriminatorRef,
     branch_count: int,
 ) -> "tuple[str, ...]":
-    entry = registry.resolve_discriminator(ref)
+    result = try_discriminator_branch_ids(registry, ref, branch_count)
+    if isinstance(result, Failure):
+        _lift_transform_failure(result, RegistryError)
+    return result
+
+
+def try_discriminator_branch_ids(
+    registry: TransformRegistry,
+    ref: DiscriminatorRef,
+    branch_count: int,
+) -> "tuple[str, ...] | Failure":
+    entry = registry.try_resolve_discriminator(ref)
+    if isinstance(entry, Failure):
+        return entry
     if len(entry.branch_ids) != branch_count:
-        raise RegistryError(
-            f"discriminator {ref.label()} expects {len(entry.branch_ids)} branches"
+        return _transform_failure(
+            "TRANSFORM_TYPE_INVALID",
+            f"discriminator {ref.label()} expects {len(entry.branch_ids)} branches",
+            RegistryError,
+            site="discriminator_branch_ids",
         )
     return entry.branch_ids

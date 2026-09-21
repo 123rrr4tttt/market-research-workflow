@@ -5,6 +5,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.exc import OperationalError
 
 from app.main import app
 
@@ -35,20 +36,26 @@ class _TasksStub:
 
 @pytest.fixture(scope="module")
 def client():
-    with TestClient(app) as tclient:
-        yield tclient
+    # Do not enter TestClient's lifespan: application startup contains real
+    # configuration-sync effects that are outside this HTTP contract test.
+    return TestClient(app)
 
 
 def test_frontend_ingest_flow_contract_smoke(client: TestClient):
     headers = {"X-Project-Key": "demo_proj", "X-Request-Id": "ingest-flow-smoke"}
     tasks_stub = _TasksStub()
+    db_error = OperationalError("select", {}, Exception("database down"))
 
-    with patch("app.api.ingest._tasks_module", return_value=tasks_stub):
+    with patch("app.api.ingest._tasks_module", return_value=tasks_stub), patch(
+        "app.api.ingest._reserve_ingest_submission_db",
+        side_effect=db_error,
+    ), patch("app.api.ingest._complete_ingest_submission_db"):
         source_library_async_resp = client.post(
             "/api/v1/ingest/source-library/run",
             json={
                 "project_key": "demo_proj",
                 "item_key": "reddit.general",
+                "idempotency_key": "ingest-flow-smoke-source-library",
                 "async_mode": True,
                 "override_params": {"limit": 2},
             },
@@ -61,6 +68,18 @@ def test_frontend_ingest_flow_contract_smoke(client: TestClient):
                 "project_key": "demo_proj",
                 "url": "https://example.com",
                 "query_terms": ["market"],
+                "idempotency_key": "ingest-flow-smoke-url",
+                "async_mode": True,
+            },
+            headers=headers,
+        )
+        url_single_duplicate_resp = client.post(
+            "/api/v1/ingest/url/single",
+            json={
+                "project_key": "demo_proj",
+                "url": "https://example.com",
+                "query_terms": ["market"],
+                "idempotency_key": "ingest-flow-smoke-url",
                 "async_mode": True,
             },
             headers=headers,
@@ -68,26 +87,60 @@ def test_frontend_ingest_flow_contract_smoke(client: TestClient):
 
     assert source_library_async_resp.status_code == 200, source_library_async_resp.text
     assert url_single_async_resp.status_code == 200, url_single_async_resp.text
+    assert url_single_duplicate_resp.status_code == 200, url_single_duplicate_resp.text
 
     source_payload = _response_payload(source_library_async_resp.json())
     single_payload = _response_payload(url_single_async_resp.json())
+    duplicate_payload = _response_payload(url_single_duplicate_resp.json())
 
     assert source_payload["status"] == "queued"
     assert source_payload["task_id"] == "source-library-task-1"
     assert source_payload["async"] is True
     assert source_payload["params"]["item_key"] == "reddit.general"
+    assert source_payload["submission_id"]
+    assert source_payload["idempotency_key"] == "ingest-flow-smoke-source-library"
+    assert source_payload["submission_status"] == "submitted"
+    assert source_payload["duplicate"] is False
+    assert source_payload["registry_backend"] == "memory"
+    assert source_payload["registry_degraded"] is True
 
     assert single_payload["status"] == "queued"
     assert single_payload["task_id"] == "single-url-task-1"
     assert single_payload["async"] is True
     assert single_payload["params"]["url"] == "https://example.com"
+    assert single_payload["submission_id"]
+    assert single_payload["idempotency_key"] == "ingest-flow-smoke-url"
+    assert single_payload["submission_status"] == "submitted"
+    assert single_payload["duplicate"] is False
+    assert single_payload["registry_backend"] == "memory"
+    assert single_payload["registry_degraded"] is True
 
+    assert duplicate_payload["status"] == "queued"
+    assert duplicate_payload["task_id"] == "single-url-task-1"
+    assert duplicate_payload["submission_id"] == single_payload["submission_id"]
+    assert duplicate_payload["idempotency_key"] == "ingest-flow-smoke-url"
+    assert duplicate_payload["submission_status"] == "already_submitted"
+    assert duplicate_payload["duplicate"] is True
+    assert duplicate_payload["registry_backend"] == "memory"
+    assert duplicate_payload["registry_degraded"] is True
+    assert "duplicate idempotency_key" in duplicate_payload["duplicate_hint"]
+
+    source_submission_id = source_payload["submission_id"]
+    source_trace_id = f"ingest.source_library.run:{source_submission_id}"
     tasks_stub.task_run_source_library_item.delay.assert_called_once_with(
         "reddit.general",
         "demo_proj",
-        {"limit": 2},
-        workflow_run_id=None,
-        trace_id=None,
+        {
+            "limit": 2,
+            "runtime_readback": {
+                "line_key": "resource_source_library",
+                "trace_id": source_trace_id,
+                "run_id": source_submission_id,
+                "queue": "local.resource_source_library",
+            },
+        },
+        workflow_run_id=source_submission_id,
+        trace_id=source_trace_id,
     )
     tasks_stub.task_ingest_url_via_source_library.delay.assert_called_once_with(
         "https://example.com",
@@ -151,7 +204,11 @@ def test_frontend_ingest_flow_contract_smoke(client: TestClient):
 
 
 def test_frontend_ingest_flow_headers_derive_project():
-    with TestClient(app) as client_obj:
+    with (
+        patch("app.main.require_observability_token"),
+        patch("app.main._build_runtime_status", return_value={}),
+    ):
+        client_obj = TestClient(app)
         resp = client_obj.get("/api/v1/health", headers={"X-Project-Key": "demo_proj"})
 
     assert resp.status_code == 200

@@ -1,0 +1,3111 @@
+{
+  "authoritative": false,
+  "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+  "claims": [
+    {
+      "claim_fingerprint_sha256": "4c102a760c5dba6a47438ee5c166784d9cbfbd12fb30841f86dfa7d24c2a7fdc",
+      "claim_id": "claim-001",
+      "claim_key": "crawler-public-replay-gate-recorded-run",
+      "decision": "ACTUAL_HISTORICAL_RECEIPT_REQUIRED",
+      "dependent_nodeid_count": 1,
+      "dependent_nodeids": [
+        {
+          "current_test_qualification_granted": false,
+          "nodeid": "tests.unit.test_crawler_public_replay_gate_unittest.CrawlerPublicReplayGateUnitTestCase::test_gate_validates_deterministic_artifacts_and_detects_real_public_replay",
+          "support_level": "PARTIAL_RUN_IDENTITY_REVIEW_AND_GATE_PASS_UNSUPPORTED"
+        }
+      ],
+      "factual_claim": "The recorded crawler public replay used the exact manifest and passed the reviewed real-public-replay gate.",
+      "four_layer_assessment": {
+        "layer_a_object_bytes": "VERIFIED_FOR_ALL_ENUMERATED_REQUIREMENTS",
+        "layer_b_stored_assertions": {
+          "details": {
+            "input_output_target_ids_equal_in_order": true,
+            "input_target_count": 45,
+            "log_output_identity_equal": {
+              "allow_public_network": true,
+              "finished_at": true,
+              "probe_id": true,
+              "public_targets_attempted": true,
+              "started_at": true,
+              "target_count": true
+            },
+            "output_assertions": {
+              "allow_public_network": true,
+              "finished_at": "2026-05-23T10:53:31Z",
+              "full_historical_manifest": true,
+              "live_evidence_sufficient": true,
+              "probe_id": "source_library_replay_scaleout_2026_05_22",
+              "public_targets_attempted": 40,
+              "started_at": "2026-05-23T10:50:31Z",
+              "validation_passed": true,
+              "warnings": [
+                "public replay is environment-dependent and must not be required by CI",
+                "term-fallback targets require relevance review before closure"
+              ]
+            },
+            "output_target_count": 45
+          },
+          "status": "RUN_ASSERTED_BUT_REVIEW_NOT_ASSERTED_BY_AN_ENUMERATED_RECEIPT"
+        },
+        "layer_c_independent_run_identity": {
+          "reason": "output.public.json and output.public.log agree on probe id, timestamps, target count, and attempted count; no enumerated review receipt or post-run gate binds that run to a reviewed PASS.",
+          "status": "PARTIALLY_CORROBORATED"
+        },
+        "layer_d_current_qualification": {
+          "authoritative": false,
+          "production_release_authorized": false,
+          "reason": "Contract 14 work package H is history-only and cannot grant current qualification.",
+          "status": "NOT_GRANTED"
+        }
+      },
+      "gaps_and_contradictions": [
+        "The enumerated gate check records evidence_present=false, status=not_closed_missing_real_evidence, and closure_claim=not_closed.",
+        "A later output.public.json and matching log assert a 40-target public run, but no enumerated post-run gate result binds it to PASS.",
+        "No enumerated relevance-review receipt establishes that the 30 term-fallback candidates were reviewed.",
+        "Two of five manifest-required artifacts are absent from claim-001's exact requirement set."
+      ],
+      "missing_specific_evidence": "The historical manifest, public replay output/transcript, checker result, and review receipt bound to the same run identity.",
+      "relationship_findings": {
+        "check_manifest_path_matches": true,
+        "gate_check_asserted_closure_claim": "not_closed",
+        "gate_check_asserted_evidence_present": false,
+        "gate_check_asserted_status": "not_closed_missing_real_evidence",
+        "manifest_contract_version_matches_check_embedding": true,
+        "manifest_missing_from_exact_claim_set": [
+          "development/latest-dev-docs/automation-runs/crawler-source-expansion-wave8-a7-validation-pack/2026-05-22/a5_public_replay_gate_check.json",
+          "development/latest-dev-docs/automation-runs/crawler-source-expansion-wave8-a7-validation-pack/2026-05-22/crawler_source_expansion_closure_check.json"
+        ],
+        "manifest_required_artifact_count": 5,
+        "manifest_required_artifacts_enumerated_for_this_claim": 3
+      },
+      "requirement_row_ids": [
+        "claim-001::source-01",
+        "claim-001::source-02",
+        "claim-001::source-03",
+        "claim-001::source-04",
+        "claim-001::source-05",
+        "claim-001::source-06",
+        "claim-001::source-07",
+        "claim-001::source-08",
+        "claim-001::source-09",
+        "claim-001::source-10",
+        "claim-001::source-11",
+        "claim-001::source-12",
+        "claim-001::source-13",
+        "claim-001::source-14",
+        "claim-001::source-15",
+        "claim-001::source-16"
+      ]
+    },
+    {
+      "claim_fingerprint_sha256": "0bfcebcffad6ece78ca7dc37442ad634148efc2bc2c6e108d04f992ba6913e0d",
+      "claim_id": "claim-002",
+      "claim_key": "crawler-source-expansion-recorded-closure",
+      "decision": "ACTUAL_HISTORICAL_RECEIPT_REQUIRED",
+      "dependent_nodeid_count": 2,
+      "dependent_nodeids": [
+        {
+          "current_test_qualification_granted": false,
+          "nodeid": "tests.unit.test_crawler_source_expansion_closure_check_unittest.CrawlerSourceExpansionClosureCheckUnitTest::test_closure_check_maps_plan_tasks_to_current_code_and_evidence",
+          "support_level": "PARTIAL_MAPPING_AND_RUN_IDENTITY_RECORDED_CLOSURE_UNSUPPORTED"
+        },
+        {
+          "current_test_qualification_granted": false,
+          "nodeid": "tests.unit.test_crawler_source_expansion_closure_check_unittest.CrawlerSourceExpansionClosureCheckUnitTest::test_overall_status_closes_after_public_replay_review",
+          "support_level": "PARTIAL_MAPPING_AND_RUN_IDENTITY_RECORDED_CLOSURE_UNSUPPORTED"
+        }
+      ],
+      "factual_claim": "The recorded crawler source-expansion closure mapped plan tasks to code/evidence and closed only after public-replay review.",
+      "four_layer_assessment": {
+        "layer_a_object_bytes": "VERIFIED_FOR_ALL_ENUMERATED_REQUIREMENTS",
+        "layer_b_stored_assertions": {
+          "details": {
+            "a5_gate_public_network_attempted": false,
+            "a5_gate_status": "deterministic_replay_gate_closed_external_public_replay_blocked",
+            "early_overall_status": "not_closed",
+            "late_overall_status": "external_blocked",
+            "late_task_statuses": {
+              "A1": "closed",
+              "A2": "closed",
+              "A3": "closed",
+              "A4": "closed",
+              "A5": "blocked_external",
+              "A6": "closed",
+              "A7": "closed"
+            },
+            "source_replay": {
+              "input_output_target_ids_equal_in_order": true,
+              "input_target_count": 45,
+              "log_output_identity_equal": {
+                "allow_public_network": true,
+                "finished_at": true,
+                "probe_id": true,
+                "public_targets_attempted": true,
+                "started_at": true,
+                "target_count": true
+              },
+              "output_assertions": {
+                "allow_public_network": true,
+                "finished_at": "2026-05-23T10:53:31Z",
+                "full_historical_manifest": true,
+                "live_evidence_sufficient": true,
+                "probe_id": "source_library_replay_scaleout_2026_05_22",
+                "public_targets_attempted": 40,
+                "started_at": "2026-05-23T10:50:31Z",
+                "validation_passed": true,
+                "warnings": [
+                  "public replay is environment-dependent and must not be required by CI",
+                  "term-fallback targets require relevance review before closure"
+                ]
+              },
+              "output_target_count": 45
+            }
+          },
+          "status": "PLAN_TASK_MAPPING_ASSERTED_BUT_TOPIC_CLOSURE_DENIED"
+        },
+        "layer_c_independent_run_identity": {
+          "reason": "Public output/log identity agrees, but the exact closure and A5 records predate or exclude that run and retain external blocking; no post-run review-bound closure record is enumerated.",
+          "status": "PUBLIC_RUN_PARTIALLY_CORROBORATED_CLOSURE_NOT_CORROBORATED"
+        },
+        "layer_d_current_qualification": {
+          "authoritative": false,
+          "production_release_authorized": false,
+          "reason": "Contract 14 work package H is history-only and cannot grant current qualification.",
+          "status": "NOT_GRANTED"
+        }
+      },
+      "gaps_and_contradictions": [
+        "The later closure record says overall_status=external_blocked and A5=blocked_external, although A7 is closed.",
+        "The A5 gate records public_network_attempted=false and says the full public output is absent from that worktree.",
+        "A later public output/log pair exists, but no enumerated post-public-replay relevance review or closure checker binds it into topic closure."
+      ],
+      "missing_specific_evidence": "The historical closure decision, provider-handoff check, validation-pack output, and public-replay review references for one run lineage.",
+      "relationship_findings": {
+        "a5_external_blocker": {
+          "blocker_type": "external_public_network_or_site_stability",
+          "path": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/output.public.json",
+          "reason": "Full 45-site public replay output is absent from this worktree; public site availability, anti-bot, rate-limit, and parser volatility remain outside the deterministic CI gate.",
+          "status": "recorded"
+        },
+        "late_a5_status": "blocked_external",
+        "late_a7_status": "closed",
+        "late_overall_status": "external_blocked",
+        "late_validation_passed": true
+      },
+      "requirement_row_ids": [
+        "claim-002::source-01",
+        "claim-002::source-02",
+        "claim-002::source-03",
+        "claim-002::source-04",
+        "claim-002::source-05",
+        "claim-002::source-06",
+        "claim-002::source-07",
+        "claim-002::source-08",
+        "claim-002::source-09",
+        "claim-002::source-10",
+        "claim-002::source-11",
+        "claim-002::source-12",
+        "claim-002::source-13",
+        "claim-002::source-14",
+        "claim-002::source-15",
+        "claim-002::source-16",
+        "claim-002::source-17",
+        "claim-002::source-18",
+        "claim-002::source-19",
+        "claim-002::source-20",
+        "claim-002::source-21",
+        "claim-002::source-22"
+      ]
+    },
+    {
+      "claim_fingerprint_sha256": "1cb632166974a6cbb7e1b450fd9248b42fed39f4172e18c19cd71882703903f8",
+      "claim_id": "claim-004",
+      "claim_key": "source-library-a5-recorded-public-replay",
+      "decision": "ACTUAL_HISTORICAL_RECEIPT_REQUIRED",
+      "dependent_nodeid_count": 2,
+      "dependent_nodeids": [
+        {
+          "current_test_qualification_granted": false,
+          "nodeid": "tests.unit.test_source_library_public_replay_a5_gate_unittest.SourceLibraryPublicReplayA5GateUnitTestCase::test_a5_gate_freezes_manifest_fixture_and_reviewed_public_replay",
+          "support_level": "PARTIAL_FROZEN_INPUT_RUN_CORROBORATED_REVIEW_UNSUPPORTED"
+        },
+        {
+          "current_test_qualification_granted": false,
+          "nodeid": "tests.unit.test_source_library_public_replay_a5_gate_unittest.SourceLibraryPublicReplayA5GateUnitTestCase::test_term_fallback_public_fixture_remains_relevance_review",
+          "support_level": "PARTIAL_FROZEN_INPUT_RUN_CORROBORATED_REVIEW_UNSUPPORTED"
+        }
+      ],
+      "factual_claim": "The recorded A5 source-library public replay used the frozen input and received the recorded relevance review.",
+      "four_layer_assessment": {
+        "layer_a_object_bytes": "VERIFIED_FOR_ALL_ENUMERATED_REQUIREMENTS",
+        "layer_b_stored_assertions": {
+          "details": {
+            "input_output_target_ids_equal_in_order": true,
+            "input_target_count": 45,
+            "log_output_identity_equal": {
+              "allow_public_network": true,
+              "finished_at": true,
+              "probe_id": true,
+              "public_targets_attempted": true,
+              "started_at": true,
+              "target_count": true
+            },
+            "output_assertions": {
+              "allow_public_network": true,
+              "finished_at": "2026-05-23T10:53:31Z",
+              "full_historical_manifest": true,
+              "live_evidence_sufficient": true,
+              "probe_id": "source_library_replay_scaleout_2026_05_22",
+              "public_targets_attempted": 40,
+              "started_at": "2026-05-23T10:50:31Z",
+              "validation_passed": true,
+              "warnings": [
+                "public replay is environment-dependent and must not be required by CI",
+                "term-fallback targets require relevance review before closure"
+              ]
+            },
+            "output_target_count": 45
+          },
+          "status": "PUBLIC_RUN_ASSERTED_RELEVANCE_REVIEW_REMAINS_REQUIRED"
+        },
+        "layer_c_independent_run_identity": {
+          "reason": "Frozen target ordering is equal across input/output and the public log matches output run identity, but no relevance-review receipt is enumerated.",
+          "status": "PUBLIC_RUN_CORROBORATED_REVIEW_NOT_CORROBORATED"
+        },
+        "layer_d_current_qualification": {
+          "authoritative": false,
+          "production_release_authorized": false,
+          "reason": "Contract 14 work package H is history-only and cannot grant current qualification.",
+          "status": "NOT_GRANTED"
+        }
+      },
+      "gaps_and_contradictions": [
+        "The public output warns that term-fallback targets require relevance review before closure.",
+        "No enumerated receipt records reviewer identity, reviewed rows, decision, or binding hash."
+      ],
+      "missing_specific_evidence": "The historical input, real/public probe or replay outputs and logs, A5 gate result, and human relevance-review receipt bound to one execution.",
+      "relationship_findings": {
+        "frozen_input_to_output_target_identity": true,
+        "log_output_identity_equal": {
+          "allow_public_network": true,
+          "finished_at": true,
+          "probe_id": true,
+          "public_targets_attempted": true,
+          "started_at": true,
+          "target_count": true
+        },
+        "review_warning": [
+          "public replay is environment-dependent and must not be required by CI",
+          "term-fallback targets require relevance review before closure"
+        ]
+      },
+      "requirement_row_ids": [
+        "claim-004::source-01",
+        "claim-004::source-02",
+        "claim-004::source-03",
+        "claim-004::source-04",
+        "claim-004::source-05",
+        "claim-004::source-06",
+        "claim-004::source-07",
+        "claim-004::source-08",
+        "claim-004::source-09",
+        "claim-004::source-10",
+        "claim-004::source-11",
+        "claim-004::source-12",
+        "claim-004::source-13"
+      ]
+    },
+    {
+      "claim_fingerprint_sha256": "f3a8e5ad734d1b3a2ca4923ec159b6ec4f11e4387d9163ad2e7fa6212a3850d4",
+      "claim_id": "claim-014",
+      "claim_key": "wave57-recorded-production-like-corpus-lineage",
+      "decision": "ACTUAL_HISTORICAL_RECEIPT_REQUIRED",
+      "dependent_nodeid_count": 2,
+      "dependent_nodeids": [
+        {
+          "current_test_qualification_granted": false,
+          "nodeid": "tests.unit.test_wave57_production_vector_quality_gate_unittest.Wave57ProductionVectorQualityGateTest::test_gate_replays_production_like_corpus_and_closes_when_vector_store_is_available",
+          "support_level": "SOURCE_BLOBS_ONLY_WAVE57_LINEAGE_AND_RUN_UNSUPPORTED"
+        },
+        {
+          "current_test_qualification_granted": false,
+          "nodeid": "tests.unit.test_wave57_production_vector_quality_gate_unittest.Wave57ProductionVectorQualityGateTest::test_require_vector_store_passes_in_optional_lancedb_environment",
+          "support_level": "SOURCE_BLOBS_ONLY_WAVE57_LINEAGE_AND_RUN_UNSUPPORTED"
+        }
+      ],
+      "factual_claim": "The recorded Wave57 production-like vector replay used the historical corpus lineage and prerequisite Wave56/provider artifacts claimed by that run.",
+      "four_layer_assessment": {
+        "layer_a_object_bytes": "BLOB_OIDS_EXIST_AND_BYTES_DERIVED_PATH_COMMITS_NOT_ENUMERATED",
+        "layer_b_stored_assertions": {
+          "details": {
+            "wave56_archive_closed_recommendation": "do_not_mark_archive_closed_until_live_production_replay_exists",
+            "wave56_contract_version": "wave56-semantic-vector-quality-gate.v1",
+            "wave56_production_quality_claim_allowed": false,
+            "wave56_scope": "repo_local_production_like_semantic_vector_quality_no_network_no_live_traffic",
+            "wave56_status": "passed"
+          },
+          "status": "SOURCE_OBJECTS_AND_WAVE56_SCOPE_ASSERTED_NO_WAVE57_RECEIPT"
+        },
+        "layer_c_independent_run_identity": {
+          "reason": "The exact claim set contains no Wave57 receipt, corpus manifest, run id, or exact commit:path binding for these blobs.",
+          "status": "NOT_CORROBORATED_FOR_WAVE57"
+        },
+        "layer_d_current_qualification": {
+          "authoritative": false,
+          "production_release_authorized": false,
+          "reason": "Contract 14 work package H is history-only and cannot grant current qualification.",
+          "status": "NOT_GRANTED"
+        }
+      },
+      "gaps_and_contradictions": [
+        "No Wave57 execution receipt or corpus manifest is enumerated, so the claimed Wave57 input lineage cannot be bound.",
+        "No commit identity is enumerated for these path/blob pairs; object existence does not prove either historical path mapping.",
+        "Two different historical JSONL paths are assigned the same blob OID; without a commit tree this proves byte identity, not both path identities.",
+        "The Wave56 record explicitly sets production_quality_claim_allowed=false and requires live production replay before archive closure."
+      ],
+      "missing_specific_evidence": "The historical Wave56 gate, both recorded LanceDB JSONL corpora, four narrative inputs, and the Wave57 vector-store execution receipt bound to one corpus manifest.",
+      "relationship_findings": {
+        "wave56_gate_is_repo_local_no_network": true,
+        "wave56_production_quality_claim_allowed": false,
+        "wave57_named_objects_in_exact_claim_set": []
+      },
+      "requirement_row_ids": [
+        "claim-014::source-01",
+        "claim-014::source-02",
+        "claim-014::source-03",
+        "claim-014::source-04",
+        "claim-014::source-05",
+        "claim-014::source-06",
+        "claim-014::source-07"
+      ]
+    },
+    {
+      "claim_fingerprint_sha256": "b0e25d5ec197dfd7341e4f3bf243ef388fb71ffbd36e3caf9ad91471e9d78ecd",
+      "claim_id": "claim-016",
+      "claim_key": "wave8-recorded-evidence-reuse",
+      "decision": "ACTUAL_HISTORICAL_RECEIPT_REQUIRED",
+      "dependent_nodeid_count": 1,
+      "dependent_nodeids": [
+        {
+          "current_test_qualification_granted": false,
+          "nodeid": "tests.unit.test_wave8_search_vectorization_contract_unittest.Wave8SearchVectorizationContractTest::test_wave8_contract_reuses_recorded_evidence_without_claiming_live_services",
+          "support_level": "FOUR_SOURCE_ASSERTIONS_ONLY_AGGREGATE_REUSE_UNSUPPORTED"
+        }
+      ],
+      "factual_claim": "The Wave8 aggregate reused the recorded provider trace, container replay, LanceDB runtime and benchmark evidence without claiming live services.",
+      "four_layer_assessment": {
+        "layer_a_object_bytes": "BLOB_OIDS_EXIST_AND_BYTES_DERIVED_PATH_COMMITS_NOT_ENUMERATED",
+        "layer_b_stored_assertions": {
+          "details": {
+            "auto_route": {
+              "local_open_search_called": false,
+              "result_sources": [
+                "serper"
+              ],
+              "searxng_called": false,
+              "yacy_called": false
+            },
+            "benchmark_status": "passed",
+            "container_replay_failed_rows": 0,
+            "container_replay_ok": true,
+            "container_replay_passed_rows": 2,
+            "runtime_status": "passed",
+            "trace_contract_version": "search-provider-trace-artifacts.v1",
+            "trace_scope": "offline_unit_contract_no_containers"
+          },
+          "status": "FOUR_SOURCE_RECORDS_ASSERT_PASS_OR_OK_AGGREGATE_REUSE_NOT_ASSERTED"
+        },
+        "layer_c_independent_run_identity": {
+          "reason": "The four blobs are separate source records; no enumerated Wave8 aggregate, manifest, shared run id, hash binding, or commit:path identity connects their reuse.",
+          "status": "NOT_CORROBORATED_FOR_WAVE8_AGGREGATE"
+        },
+        "layer_d_current_qualification": {
+          "authoritative": false,
+          "production_release_authorized": false,
+          "reason": "Contract 14 work package H is history-only and cannot grant current qualification.",
+          "status": "NOT_GRANTED"
+        }
+      },
+      "gaps_and_contradictions": [
+        "The exact set omits the aggregate Wave8 contract required by the claim's own missing_specific_evidence field.",
+        "No exact commit identity is enumerated for the four path/blob pairs.",
+        "The benchmark record retains semantic_embedding_quality_not_proven and global_vector_contract_not_closed."
+      ],
+      "missing_specific_evidence": "The four historical source receipts and their aggregate Wave8 contract with matching run/object identities.",
+      "relationship_findings": {
+        "aggregate_wave8_objects_in_exact_claim_set": [],
+        "benchmark_remaining_blockers": [
+          {
+            "code": "semantic_embedding_quality_not_proven",
+            "message": "This benchmark uses deterministic vectors to prove LanceDB ranking wiring and stable top-k behavior. It does not prove production embedding model relevance quality."
+          },
+          {
+            "code": "global_vector_contract_not_closed",
+            "message": "Unified vector object schema, embedding model/version provenance, and main search evidence contract alignment remain open in CURRENT_DEV."
+          }
+        ]
+      },
+      "requirement_row_ids": [
+        "claim-016::source-01",
+        "claim-016::source-02",
+        "claim-016::source-03",
+        "claim-016::source-04"
+      ]
+    }
+  ],
+  "current_qualification_granted": false,
+  "history_only": true,
+  "inputs": {
+    "claim_table": {
+      "bytes": 142465,
+      "expected_sha256_match": true,
+      "git_blob_oid": "0898c3375d92e0580d23c097943d4a48678f7f92",
+      "parsed_full_document": true,
+      "sha256": "8362b368b5f4d944bb1bddf70f397e73c1b3716bc0bdb6244e61699b38e719b3"
+    },
+    "contract": {
+      "bytes": 6519,
+      "expected_sha256_match": true,
+      "git_blob_oid": "cd93b304dc137c691d25f8fcb59807a3aa376227",
+      "sha256": "3252e21452e78c73fc9fef9b8b7435c2c3e0ab4466a6b411fe567010d4ea28e7"
+    }
+  },
+  "production_release_authorized": false,
+  "read_policy": {
+    "checkout_restore_or_copy_performed": false,
+    "commands": [
+      "git cat-file -e <oid>",
+      "git cat-file -t <oid>",
+      "git cat-file -s <oid>",
+      "git cat-file blob <oid>",
+      "git rev-parse <commit>:<path>"
+    ],
+    "historical_code_executed": false,
+    "interface": "Git read-only object interface"
+  },
+  "record_id": "contract14-work-package-h-history-verification-v1",
+  "requirements": [
+    {
+      "claim_id": "claim-001",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "e6c1df76b8cbb23d3b331eb13539055dc0e39e1a",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 1927,
+      "expected_sha256": "827364747762e7fb09bbad5f277acb458995109ba98b1efb89243e11a8fd93d8",
+      "git_blob_oid": "e6c1df76b8cbb23d3b331eb13539055dc0e39e1a",
+      "missing_path": "development/latest-dev-docs/automation-runs/crawler-public-replay-gate/2026-05-22/README.md",
+      "object_verification": {
+        "actual_bytes": 1927,
+        "actual_sha256": "827364747762e7fb09bbad5f277acb458995109ba98b1efb89243e11a8fd93d8",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-008",
+      "required_factual_claim": "Recorded run scope and qualification note associated with the missing evidence package.",
+      "requirement_row_id": "claim-001::source-01"
+    },
+    {
+      "claim_id": "claim-001",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "b59d4fe9d1823ab497f0a1b869f9de4ea2e8cbe6",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 3249,
+      "expected_sha256": "ea65c48df4c7554ec6d68b85e02b96371d9c7e26c032caf5aed1da606f7d4565",
+      "git_blob_oid": "b59d4fe9d1823ab497f0a1b869f9de4ea2e8cbe6",
+      "missing_path": "development/latest-dev-docs/automation-runs/crawler-public-replay-gate/2026-05-22/crawler_public_replay_gate_check.json",
+      "object_verification": {
+        "actual_bytes": 3249,
+        "actual_sha256": "ea65c48df4c7554ec6d68b85e02b96371d9c7e26c032caf5aed1da606f7d4565",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-009",
+      "required_factual_claim": "Recorded checker or runtime output needed to validate the claimed crawler/source-library evidence state.",
+      "requirement_row_id": "claim-001::source-02"
+    },
+    {
+      "claim_id": "claim-001",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "a20838c0a1216bdaf40ae427cf0d1153e24e8548",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 1665,
+      "expected_sha256": "f36b9f49c07231734a164adb65a2b8cd8198fa636408e2bfa398d960c30175cd",
+      "git_blob_oid": "a20838c0a1216bdaf40ae427cf0d1153e24e8548",
+      "missing_path": "development/latest-dev-docs/automation-runs/crawler-public-replay-gate/2026-05-22/manifest.json",
+      "object_verification": {
+        "actual_bytes": 1665,
+        "actual_sha256": "f36b9f49c07231734a164adb65a2b8cd8198fa636408e2bfa398d960c30175cd",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-010",
+      "required_factual_claim": "Exact recorded target/input identity and execution policy for the historical crawler or source-library run.",
+      "requirement_row_id": "claim-001::source-03"
+    },
+    {
+      "claim_id": "claim-001",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "af8d3677cfc5ba42056ddb8f546a4033b148527f",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 3713,
+      "expected_sha256": "920bcaf2592f420bb49b43bef94013d36a5b9c32949eb6ef4bb2851a957430ff",
+      "git_blob_oid": "af8d3677cfc5ba42056ddb8f546a4033b148527f",
+      "missing_path": "development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22/README.md",
+      "object_verification": {
+        "actual_bytes": 3713,
+        "actual_sha256": "920bcaf2592f420bb49b43bef94013d36a5b9c32949eb6ef4bb2851a957430ff",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-037",
+      "required_factual_claim": "Recorded run scope and qualification note associated with the missing evidence package.",
+      "requirement_row_id": "claim-001::source-04"
+    },
+    {
+      "claim_id": "claim-001",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "769c353c8e84fb156522dd35939da3c74edd9f24",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 1496,
+      "expected_sha256": "f10521e3fda9ec83acb5555af4c995c934e78567e27059fff57fdd7d9e92b58c",
+      "git_blob_oid": "769c353c8e84fb156522dd35939da3c74edd9f24",
+      "missing_path": "development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22/input.json",
+      "object_verification": {
+        "actual_bytes": 1496,
+        "actual_sha256": "f10521e3fda9ec83acb5555af4c995c934e78567e27059fff57fdd7d9e92b58c",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-038",
+      "required_factual_claim": "Exact recorded target/input identity and execution policy for the historical crawler or source-library run.",
+      "requirement_row_id": "claim-001::source-05"
+    },
+    {
+      "claim_id": "claim-001",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "16ad2e240bb6e92df9f56928ba7c3acfa98b997a",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 1158,
+      "expected_sha256": "e5df9ea3591fdb2ef42c9203fce4e43b0b911f7cb717078d00750aa26076f180",
+      "git_blob_oid": "16ad2e240bb6e92df9f56928ba7c3acfa98b997a",
+      "missing_path": "development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22/logs/live-probe.log",
+      "object_verification": {
+        "actual_bytes": 1158,
+        "actual_sha256": "e5df9ea3591fdb2ef42c9203fce4e43b0b911f7cb717078d00750aa26076f180",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-039",
+      "required_factual_claim": "Recorded execution transcript supporting the corresponding run result; transcript identity alone does not establish current authority.",
+      "requirement_row_id": "claim-001::source-06"
+    },
+    {
+      "claim_id": "claim-001",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "fea2ea37c91627973c13fd199ba2b2901df01216",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 18793,
+      "expected_sha256": "2850148ca49c254d8ce47cbc6b2bb53201a4bc7627a8947b3ae447a909dba5a1",
+      "git_blob_oid": "fea2ea37c91627973c13fd199ba2b2901df01216",
+      "missing_path": "development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22/output.json",
+      "object_verification": {
+        "actual_bytes": 18793,
+        "actual_sha256": "2850148ca49c254d8ce47cbc6b2bb53201a4bc7627a8947b3ae447a909dba5a1",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-040",
+      "required_factual_claim": "Recorded checker or runtime output needed to validate the claimed crawler/source-library evidence state.",
+      "requirement_row_id": "claim-001::source-07"
+    },
+    {
+      "claim_id": "claim-001",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "04731a5f00206cf18403d01fad33f24df60b77a8",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 2034,
+      "expected_sha256": "34cec7c032577a3964572aceb1d217e344d9297893d132debc054069d82f079f",
+      "git_blob_oid": "04731a5f00206cf18403d01fad33f24df60b77a8",
+      "missing_path": "development/latest-dev-docs/automation-runs/source-library-real-probes/2026-05-22/README.md",
+      "object_verification": {
+        "actual_bytes": 2034,
+        "actual_sha256": "34cec7c032577a3964572aceb1d217e344d9297893d132debc054069d82f079f",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-041",
+      "required_factual_claim": "Recorded run scope and qualification note associated with the missing evidence package.",
+      "requirement_row_id": "claim-001::source-08"
+    },
+    {
+      "claim_id": "claim-001",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "1abad1c760b5307c5d2ccc0335ac3da6a855a93d",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 1402,
+      "expected_sha256": "09411829977c415bf8e3390f4ed648c50988eb7e2012c6b30e3aedeacba7c4f9",
+      "git_blob_oid": "1abad1c760b5307c5d2ccc0335ac3da6a855a93d",
+      "missing_path": "development/latest-dev-docs/automation-runs/source-library-real-probes/2026-05-22/input.json",
+      "object_verification": {
+        "actual_bytes": 1402,
+        "actual_sha256": "09411829977c415bf8e3390f4ed648c50988eb7e2012c6b30e3aedeacba7c4f9",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-042",
+      "required_factual_claim": "Exact recorded target/input identity and execution policy for the historical crawler or source-library run.",
+      "requirement_row_id": "claim-001::source-09"
+    },
+    {
+      "claim_id": "claim-001",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "d0253aa49f7e545e3b39ce556e408a855c398fad",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 9921,
+      "expected_sha256": "303a8ce31952e540f9719eaeb42653476721073820f005286a8452b3ca5e4791",
+      "git_blob_oid": "d0253aa49f7e545e3b39ce556e408a855c398fad",
+      "missing_path": "development/latest-dev-docs/automation-runs/source-library-real-probes/2026-05-22/output.json",
+      "object_verification": {
+        "actual_bytes": 9921,
+        "actual_sha256": "303a8ce31952e540f9719eaeb42653476721073820f005286a8452b3ca5e4791",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-043",
+      "required_factual_claim": "Recorded checker or runtime output needed to validate the claimed crawler/source-library evidence state.",
+      "requirement_row_id": "claim-001::source-10"
+    },
+    {
+      "claim_id": "claim-001",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "585fe84ddd9a10adb67a37c6420f8c3847b8d2de",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 3811,
+      "expected_sha256": "90d6e65e80aeaeeab5b46cbb38062f56f3750797bcf1ba119f573c92f6791687",
+      "git_blob_oid": "585fe84ddd9a10adb67a37c6420f8c3847b8d2de",
+      "missing_path": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/README.md",
+      "object_verification": {
+        "actual_bytes": 3811,
+        "actual_sha256": "90d6e65e80aeaeeab5b46cbb38062f56f3750797bcf1ba119f573c92f6791687",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-044",
+      "required_factual_claim": "Recorded run scope and qualification note associated with the missing evidence package.",
+      "requirement_row_id": "claim-001::source-11"
+    },
+    {
+      "claim_id": "claim-001",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "fd471b040e350a00e253b22031940f5e1f9487de",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 31566,
+      "expected_sha256": "b797c2747abe4732ed60647741625b7e96ffad021895aa8574a5815cedc8cf3f",
+      "git_blob_oid": "fd471b040e350a00e253b22031940f5e1f9487de",
+      "missing_path": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/input.json",
+      "object_verification": {
+        "actual_bytes": 31566,
+        "actual_sha256": "b797c2747abe4732ed60647741625b7e96ffad021895aa8574a5815cedc8cf3f",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-045",
+      "required_factual_claim": "Exact recorded target/input identity and execution policy for the historical crawler or source-library run.",
+      "requirement_row_id": "claim-001::source-12"
+    },
+    {
+      "claim_id": "claim-001",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "1d81c3582a657b8f7d41043c5de0066e38cbd90f",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 12739,
+      "expected_sha256": "611653e4ac63151e7f367b57626778edd0fdff760b4f0dd6e94f2d0e3243add1",
+      "git_blob_oid": "1d81c3582a657b8f7d41043c5de0066e38cbd90f",
+      "missing_path": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/logs/output.public.log",
+      "object_verification": {
+        "actual_bytes": 12739,
+        "actual_sha256": "611653e4ac63151e7f367b57626778edd0fdff760b4f0dd6e94f2d0e3243add1",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-046",
+      "required_factual_claim": "Recorded execution transcript supporting the corresponding run result; transcript identity alone does not establish current authority.",
+      "requirement_row_id": "claim-001::source-13"
+    },
+    {
+      "claim_id": "claim-001",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "134d014c1c13a9034bc7774e9d33e33fd2dfafb7",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 12153,
+      "expected_sha256": "845c2ef355b7a80d7aef3876e261655d2a1a81a13bf5e24e61d51c8240b7b264",
+      "git_blob_oid": "134d014c1c13a9034bc7774e9d33e33fd2dfafb7",
+      "missing_path": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/logs/replay.log",
+      "object_verification": {
+        "actual_bytes": 12153,
+        "actual_sha256": "845c2ef355b7a80d7aef3876e261655d2a1a81a13bf5e24e61d51c8240b7b264",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-047",
+      "required_factual_claim": "Recorded execution transcript supporting the corresponding run result; transcript identity alone does not establish current authority.",
+      "requirement_row_id": "claim-001::source-14"
+    },
+    {
+      "claim_id": "claim-001",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "0dab4c2cbd958dcfc4fa9bb9c4a217307bd6398e",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 97976,
+      "expected_sha256": "80c654cf8fa310fcd6d0f73f80b2f654cd1bffc85ffa4e0881f2fa253b2f469d",
+      "git_blob_oid": "0dab4c2cbd958dcfc4fa9bb9c4a217307bd6398e",
+      "missing_path": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/output.json",
+      "object_verification": {
+        "actual_bytes": 97976,
+        "actual_sha256": "80c654cf8fa310fcd6d0f73f80b2f654cd1bffc85ffa4e0881f2fa253b2f469d",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-048",
+      "required_factual_claim": "Recorded checker or runtime output needed to validate the claimed crawler/source-library evidence state.",
+      "requirement_row_id": "claim-001::source-15"
+    },
+    {
+      "claim_id": "claim-001",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "d2c782a7aef195c23b984187efbe65f373c1fecc",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 231902,
+      "expected_sha256": "280b44ef519139314e82864ff786dd313c1fb15ecc3f048bcb1c35ca9a6186a7",
+      "git_blob_oid": "d2c782a7aef195c23b984187efbe65f373c1fecc",
+      "missing_path": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/output.public.json",
+      "object_verification": {
+        "actual_bytes": 231902,
+        "actual_sha256": "280b44ef519139314e82864ff786dd313c1fb15ecc3f048bcb1c35ca9a6186a7",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-049",
+      "required_factual_claim": "Recorded checker or runtime output needed to validate the claimed crawler/source-library evidence state.",
+      "requirement_row_id": "claim-001::source-16"
+    },
+    {
+      "claim_id": "claim-002",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "8dbcf59d5e50f16642076b928e248bf6d0554539",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 4852,
+      "expected_sha256": "2e93ddba241aa7187b221771b8f47afb042b354eca063e5cccbebf5c3ab3fa13",
+      "git_blob_oid": "8dbcf59d5e50f16642076b928e248bf6d0554539",
+      "missing_path": "development/latest-dev-docs/automation-runs/crawler-provider-handoff/2026-05-22/README.md",
+      "object_verification": {
+        "actual_bytes": 4852,
+        "actual_sha256": "2e93ddba241aa7187b221771b8f47afb042b354eca063e5cccbebf5c3ab3fa13",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-005",
+      "required_factual_claim": "Recorded run scope and qualification note associated with the missing evidence package.",
+      "requirement_row_id": "claim-002::source-01"
+    },
+    {
+      "claim_id": "claim-002",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "430380d00a55d4ef92f64bc2b6a714a1c9e5b761",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 17101,
+      "expected_sha256": "4b1d1635e5acb98e635041dd340a0395b6767be3f9063f2cd629236967d421f3",
+      "git_blob_oid": "430380d00a55d4ef92f64bc2b6a714a1c9e5b761",
+      "missing_path": "development/latest-dev-docs/automation-runs/crawler-provider-handoff/2026-05-22/crawler_source_expansion_closure_check.json",
+      "object_verification": {
+        "actual_bytes": 17101,
+        "actual_sha256": "4b1d1635e5acb98e635041dd340a0395b6767be3f9063f2cd629236967d421f3",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-006",
+      "required_factual_claim": "Recorded closure decision and its factual evidence references for the identified crawler/source-library scope.",
+      "requirement_row_id": "claim-002::source-02"
+    },
+    {
+      "claim_id": "claim-002",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "a5b1657a4af16680e4bdefce958820baba3f7080",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 2505,
+      "expected_sha256": "8873b74a66af4d706472d2e10ec604283fcfb7b77ce11fe09fdbc1f97180ad35",
+      "git_blob_oid": "a5b1657a4af16680e4bdefce958820baba3f7080",
+      "missing_path": "development/latest-dev-docs/automation-runs/crawler-provider-handoff/2026-05-22/provider_handoff_check.json",
+      "object_verification": {
+        "actual_bytes": 2505,
+        "actual_sha256": "8873b74a66af4d706472d2e10ec604283fcfb7b77ce11fe09fdbc1f97180ad35",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-007",
+      "required_factual_claim": "Recorded checker or runtime output needed to validate the claimed crawler/source-library evidence state.",
+      "requirement_row_id": "claim-002::source-03"
+    },
+    {
+      "claim_id": "claim-002",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "e6c1df76b8cbb23d3b331eb13539055dc0e39e1a",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 1927,
+      "expected_sha256": "827364747762e7fb09bbad5f277acb458995109ba98b1efb89243e11a8fd93d8",
+      "git_blob_oid": "e6c1df76b8cbb23d3b331eb13539055dc0e39e1a",
+      "missing_path": "development/latest-dev-docs/automation-runs/crawler-public-replay-gate/2026-05-22/README.md",
+      "object_verification": {
+        "actual_bytes": 1927,
+        "actual_sha256": "827364747762e7fb09bbad5f277acb458995109ba98b1efb89243e11a8fd93d8",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-008",
+      "required_factual_claim": "Recorded run scope and qualification note associated with the missing evidence package.",
+      "requirement_row_id": "claim-002::source-04"
+    },
+    {
+      "claim_id": "claim-002",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "b59d4fe9d1823ab497f0a1b869f9de4ea2e8cbe6",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 3249,
+      "expected_sha256": "ea65c48df4c7554ec6d68b85e02b96371d9c7e26c032caf5aed1da606f7d4565",
+      "git_blob_oid": "b59d4fe9d1823ab497f0a1b869f9de4ea2e8cbe6",
+      "missing_path": "development/latest-dev-docs/automation-runs/crawler-public-replay-gate/2026-05-22/crawler_public_replay_gate_check.json",
+      "object_verification": {
+        "actual_bytes": 3249,
+        "actual_sha256": "ea65c48df4c7554ec6d68b85e02b96371d9c7e26c032caf5aed1da606f7d4565",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-009",
+      "required_factual_claim": "Recorded checker or runtime output needed to validate the claimed crawler/source-library evidence state.",
+      "requirement_row_id": "claim-002::source-05"
+    },
+    {
+      "claim_id": "claim-002",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "a20838c0a1216bdaf40ae427cf0d1153e24e8548",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 1665,
+      "expected_sha256": "f36b9f49c07231734a164adb65a2b8cd8198fa636408e2bfa398d960c30175cd",
+      "git_blob_oid": "a20838c0a1216bdaf40ae427cf0d1153e24e8548",
+      "missing_path": "development/latest-dev-docs/automation-runs/crawler-public-replay-gate/2026-05-22/manifest.json",
+      "object_verification": {
+        "actual_bytes": 1665,
+        "actual_sha256": "f36b9f49c07231734a164adb65a2b8cd8198fa636408e2bfa398d960c30175cd",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-010",
+      "required_factual_claim": "Exact recorded target/input identity and execution policy for the historical crawler or source-library run.",
+      "requirement_row_id": "claim-002::source-06"
+    },
+    {
+      "claim_id": "claim-002",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "73b91ad622bf251a59daf0709c3e76be6f3f7eff",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 2731,
+      "expected_sha256": "1343e892a806f6878e9a3ab2c5d5f374f0a05d89409ef48a2d92c7aa1d8f58ef",
+      "git_blob_oid": "73b91ad622bf251a59daf0709c3e76be6f3f7eff",
+      "missing_path": "development/latest-dev-docs/automation-runs/crawler-source-expansion-wave8-a7-validation-pack/2026-05-22/README.md",
+      "object_verification": {
+        "actual_bytes": 2731,
+        "actual_sha256": "1343e892a806f6878e9a3ab2c5d5f374f0a05d89409ef48a2d92c7aa1d8f58ef",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-021",
+      "required_factual_claim": "Recorded run scope and qualification note associated with the missing evidence package.",
+      "requirement_row_id": "claim-002::source-07"
+    },
+    {
+      "claim_id": "claim-002",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "95a53efcf67177f55e8d684eb5071faa798e3750",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 3634,
+      "expected_sha256": "019808e757078cb9e941238eb3915f0ac89bfc46277ab2e4ec72b1d481dd4807",
+      "git_blob_oid": "95a53efcf67177f55e8d684eb5071faa798e3750",
+      "missing_path": "development/latest-dev-docs/automation-runs/crawler-source-expansion-wave8-a7-validation-pack/2026-05-22/a5_public_replay_gate_check.json",
+      "object_verification": {
+        "actual_bytes": 3634,
+        "actual_sha256": "019808e757078cb9e941238eb3915f0ac89bfc46277ab2e4ec72b1d481dd4807",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-022",
+      "required_factual_claim": "Recorded checker or runtime output needed to validate the claimed crawler/source-library evidence state.",
+      "requirement_row_id": "claim-002::source-08"
+    },
+    {
+      "claim_id": "claim-002",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "d5faeab84c5e80932b4a456c6d8f4ecc33c76646",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 23015,
+      "expected_sha256": "f036a55be8e512fe7bae2e97b62cdf03c591940ef5e762df659abf79d5a64c12",
+      "git_blob_oid": "d5faeab84c5e80932b4a456c6d8f4ecc33c76646",
+      "missing_path": "development/latest-dev-docs/automation-runs/crawler-source-expansion-wave8-a7-validation-pack/2026-05-22/crawler_source_expansion_closure_check.json",
+      "object_verification": {
+        "actual_bytes": 23015,
+        "actual_sha256": "f036a55be8e512fe7bae2e97b62cdf03c591940ef5e762df659abf79d5a64c12",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-023",
+      "required_factual_claim": "Recorded closure decision and its factual evidence references for the identified crawler/source-library scope.",
+      "requirement_row_id": "claim-002::source-09"
+    },
+    {
+      "claim_id": "claim-002",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "af8d3677cfc5ba42056ddb8f546a4033b148527f",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 3713,
+      "expected_sha256": "920bcaf2592f420bb49b43bef94013d36a5b9c32949eb6ef4bb2851a957430ff",
+      "git_blob_oid": "af8d3677cfc5ba42056ddb8f546a4033b148527f",
+      "missing_path": "development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22/README.md",
+      "object_verification": {
+        "actual_bytes": 3713,
+        "actual_sha256": "920bcaf2592f420bb49b43bef94013d36a5b9c32949eb6ef4bb2851a957430ff",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-037",
+      "required_factual_claim": "Recorded run scope and qualification note associated with the missing evidence package.",
+      "requirement_row_id": "claim-002::source-10"
+    },
+    {
+      "claim_id": "claim-002",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "769c353c8e84fb156522dd35939da3c74edd9f24",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 1496,
+      "expected_sha256": "f10521e3fda9ec83acb5555af4c995c934e78567e27059fff57fdd7d9e92b58c",
+      "git_blob_oid": "769c353c8e84fb156522dd35939da3c74edd9f24",
+      "missing_path": "development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22/input.json",
+      "object_verification": {
+        "actual_bytes": 1496,
+        "actual_sha256": "f10521e3fda9ec83acb5555af4c995c934e78567e27059fff57fdd7d9e92b58c",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-038",
+      "required_factual_claim": "Exact recorded target/input identity and execution policy for the historical crawler or source-library run.",
+      "requirement_row_id": "claim-002::source-11"
+    },
+    {
+      "claim_id": "claim-002",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "16ad2e240bb6e92df9f56928ba7c3acfa98b997a",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 1158,
+      "expected_sha256": "e5df9ea3591fdb2ef42c9203fce4e43b0b911f7cb717078d00750aa26076f180",
+      "git_blob_oid": "16ad2e240bb6e92df9f56928ba7c3acfa98b997a",
+      "missing_path": "development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22/logs/live-probe.log",
+      "object_verification": {
+        "actual_bytes": 1158,
+        "actual_sha256": "e5df9ea3591fdb2ef42c9203fce4e43b0b911f7cb717078d00750aa26076f180",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-039",
+      "required_factual_claim": "Recorded execution transcript supporting the corresponding run result; transcript identity alone does not establish current authority.",
+      "requirement_row_id": "claim-002::source-12"
+    },
+    {
+      "claim_id": "claim-002",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "fea2ea37c91627973c13fd199ba2b2901df01216",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 18793,
+      "expected_sha256": "2850148ca49c254d8ce47cbc6b2bb53201a4bc7627a8947b3ae447a909dba5a1",
+      "git_blob_oid": "fea2ea37c91627973c13fd199ba2b2901df01216",
+      "missing_path": "development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22/output.json",
+      "object_verification": {
+        "actual_bytes": 18793,
+        "actual_sha256": "2850148ca49c254d8ce47cbc6b2bb53201a4bc7627a8947b3ae447a909dba5a1",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-040",
+      "required_factual_claim": "Recorded checker or runtime output needed to validate the claimed crawler/source-library evidence state.",
+      "requirement_row_id": "claim-002::source-13"
+    },
+    {
+      "claim_id": "claim-002",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "04731a5f00206cf18403d01fad33f24df60b77a8",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 2034,
+      "expected_sha256": "34cec7c032577a3964572aceb1d217e344d9297893d132debc054069d82f079f",
+      "git_blob_oid": "04731a5f00206cf18403d01fad33f24df60b77a8",
+      "missing_path": "development/latest-dev-docs/automation-runs/source-library-real-probes/2026-05-22/README.md",
+      "object_verification": {
+        "actual_bytes": 2034,
+        "actual_sha256": "34cec7c032577a3964572aceb1d217e344d9297893d132debc054069d82f079f",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-041",
+      "required_factual_claim": "Recorded run scope and qualification note associated with the missing evidence package.",
+      "requirement_row_id": "claim-002::source-14"
+    },
+    {
+      "claim_id": "claim-002",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "1abad1c760b5307c5d2ccc0335ac3da6a855a93d",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 1402,
+      "expected_sha256": "09411829977c415bf8e3390f4ed648c50988eb7e2012c6b30e3aedeacba7c4f9",
+      "git_blob_oid": "1abad1c760b5307c5d2ccc0335ac3da6a855a93d",
+      "missing_path": "development/latest-dev-docs/automation-runs/source-library-real-probes/2026-05-22/input.json",
+      "object_verification": {
+        "actual_bytes": 1402,
+        "actual_sha256": "09411829977c415bf8e3390f4ed648c50988eb7e2012c6b30e3aedeacba7c4f9",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-042",
+      "required_factual_claim": "Exact recorded target/input identity and execution policy for the historical crawler or source-library run.",
+      "requirement_row_id": "claim-002::source-15"
+    },
+    {
+      "claim_id": "claim-002",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "d0253aa49f7e545e3b39ce556e408a855c398fad",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 9921,
+      "expected_sha256": "303a8ce31952e540f9719eaeb42653476721073820f005286a8452b3ca5e4791",
+      "git_blob_oid": "d0253aa49f7e545e3b39ce556e408a855c398fad",
+      "missing_path": "development/latest-dev-docs/automation-runs/source-library-real-probes/2026-05-22/output.json",
+      "object_verification": {
+        "actual_bytes": 9921,
+        "actual_sha256": "303a8ce31952e540f9719eaeb42653476721073820f005286a8452b3ca5e4791",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-043",
+      "required_factual_claim": "Recorded checker or runtime output needed to validate the claimed crawler/source-library evidence state.",
+      "requirement_row_id": "claim-002::source-16"
+    },
+    {
+      "claim_id": "claim-002",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "585fe84ddd9a10adb67a37c6420f8c3847b8d2de",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 3811,
+      "expected_sha256": "90d6e65e80aeaeeab5b46cbb38062f56f3750797bcf1ba119f573c92f6791687",
+      "git_blob_oid": "585fe84ddd9a10adb67a37c6420f8c3847b8d2de",
+      "missing_path": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/README.md",
+      "object_verification": {
+        "actual_bytes": 3811,
+        "actual_sha256": "90d6e65e80aeaeeab5b46cbb38062f56f3750797bcf1ba119f573c92f6791687",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-044",
+      "required_factual_claim": "Recorded run scope and qualification note associated with the missing evidence package.",
+      "requirement_row_id": "claim-002::source-17"
+    },
+    {
+      "claim_id": "claim-002",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "fd471b040e350a00e253b22031940f5e1f9487de",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 31566,
+      "expected_sha256": "b797c2747abe4732ed60647741625b7e96ffad021895aa8574a5815cedc8cf3f",
+      "git_blob_oid": "fd471b040e350a00e253b22031940f5e1f9487de",
+      "missing_path": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/input.json",
+      "object_verification": {
+        "actual_bytes": 31566,
+        "actual_sha256": "b797c2747abe4732ed60647741625b7e96ffad021895aa8574a5815cedc8cf3f",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-045",
+      "required_factual_claim": "Exact recorded target/input identity and execution policy for the historical crawler or source-library run.",
+      "requirement_row_id": "claim-002::source-18"
+    },
+    {
+      "claim_id": "claim-002",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "1d81c3582a657b8f7d41043c5de0066e38cbd90f",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 12739,
+      "expected_sha256": "611653e4ac63151e7f367b57626778edd0fdff760b4f0dd6e94f2d0e3243add1",
+      "git_blob_oid": "1d81c3582a657b8f7d41043c5de0066e38cbd90f",
+      "missing_path": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/logs/output.public.log",
+      "object_verification": {
+        "actual_bytes": 12739,
+        "actual_sha256": "611653e4ac63151e7f367b57626778edd0fdff760b4f0dd6e94f2d0e3243add1",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-046",
+      "required_factual_claim": "Recorded execution transcript supporting the corresponding run result; transcript identity alone does not establish current authority.",
+      "requirement_row_id": "claim-002::source-19"
+    },
+    {
+      "claim_id": "claim-002",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "134d014c1c13a9034bc7774e9d33e33fd2dfafb7",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 12153,
+      "expected_sha256": "845c2ef355b7a80d7aef3876e261655d2a1a81a13bf5e24e61d51c8240b7b264",
+      "git_blob_oid": "134d014c1c13a9034bc7774e9d33e33fd2dfafb7",
+      "missing_path": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/logs/replay.log",
+      "object_verification": {
+        "actual_bytes": 12153,
+        "actual_sha256": "845c2ef355b7a80d7aef3876e261655d2a1a81a13bf5e24e61d51c8240b7b264",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-047",
+      "required_factual_claim": "Recorded execution transcript supporting the corresponding run result; transcript identity alone does not establish current authority.",
+      "requirement_row_id": "claim-002::source-20"
+    },
+    {
+      "claim_id": "claim-002",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "0dab4c2cbd958dcfc4fa9bb9c4a217307bd6398e",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 97976,
+      "expected_sha256": "80c654cf8fa310fcd6d0f73f80b2f654cd1bffc85ffa4e0881f2fa253b2f469d",
+      "git_blob_oid": "0dab4c2cbd958dcfc4fa9bb9c4a217307bd6398e",
+      "missing_path": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/output.json",
+      "object_verification": {
+        "actual_bytes": 97976,
+        "actual_sha256": "80c654cf8fa310fcd6d0f73f80b2f654cd1bffc85ffa4e0881f2fa253b2f469d",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-048",
+      "required_factual_claim": "Recorded checker or runtime output needed to validate the claimed crawler/source-library evidence state.",
+      "requirement_row_id": "claim-002::source-21"
+    },
+    {
+      "claim_id": "claim-002",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "d2c782a7aef195c23b984187efbe65f373c1fecc",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 231902,
+      "expected_sha256": "280b44ef519139314e82864ff786dd313c1fb15ecc3f048bcb1c35ca9a6186a7",
+      "git_blob_oid": "d2c782a7aef195c23b984187efbe65f373c1fecc",
+      "missing_path": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/output.public.json",
+      "object_verification": {
+        "actual_bytes": 231902,
+        "actual_sha256": "280b44ef519139314e82864ff786dd313c1fb15ecc3f048bcb1c35ca9a6186a7",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-049",
+      "required_factual_claim": "Recorded checker or runtime output needed to validate the claimed crawler/source-library evidence state.",
+      "requirement_row_id": "claim-002::source-22"
+    },
+    {
+      "claim_id": "claim-004",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "af8d3677cfc5ba42056ddb8f546a4033b148527f",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 3713,
+      "expected_sha256": "920bcaf2592f420bb49b43bef94013d36a5b9c32949eb6ef4bb2851a957430ff",
+      "git_blob_oid": "af8d3677cfc5ba42056ddb8f546a4033b148527f",
+      "missing_path": "development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22/README.md",
+      "object_verification": {
+        "actual_bytes": 3713,
+        "actual_sha256": "920bcaf2592f420bb49b43bef94013d36a5b9c32949eb6ef4bb2851a957430ff",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-037",
+      "required_factual_claim": "Recorded run scope and qualification note associated with the missing evidence package.",
+      "requirement_row_id": "claim-004::source-01"
+    },
+    {
+      "claim_id": "claim-004",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "769c353c8e84fb156522dd35939da3c74edd9f24",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 1496,
+      "expected_sha256": "f10521e3fda9ec83acb5555af4c995c934e78567e27059fff57fdd7d9e92b58c",
+      "git_blob_oid": "769c353c8e84fb156522dd35939da3c74edd9f24",
+      "missing_path": "development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22/input.json",
+      "object_verification": {
+        "actual_bytes": 1496,
+        "actual_sha256": "f10521e3fda9ec83acb5555af4c995c934e78567e27059fff57fdd7d9e92b58c",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-038",
+      "required_factual_claim": "Exact recorded target/input identity and execution policy for the historical crawler or source-library run.",
+      "requirement_row_id": "claim-004::source-02"
+    },
+    {
+      "claim_id": "claim-004",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "16ad2e240bb6e92df9f56928ba7c3acfa98b997a",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 1158,
+      "expected_sha256": "e5df9ea3591fdb2ef42c9203fce4e43b0b911f7cb717078d00750aa26076f180",
+      "git_blob_oid": "16ad2e240bb6e92df9f56928ba7c3acfa98b997a",
+      "missing_path": "development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22/logs/live-probe.log",
+      "object_verification": {
+        "actual_bytes": 1158,
+        "actual_sha256": "e5df9ea3591fdb2ef42c9203fce4e43b0b911f7cb717078d00750aa26076f180",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-039",
+      "required_factual_claim": "Recorded execution transcript supporting the corresponding run result; transcript identity alone does not establish current authority.",
+      "requirement_row_id": "claim-004::source-03"
+    },
+    {
+      "claim_id": "claim-004",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "fea2ea37c91627973c13fd199ba2b2901df01216",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 18793,
+      "expected_sha256": "2850148ca49c254d8ce47cbc6b2bb53201a4bc7627a8947b3ae447a909dba5a1",
+      "git_blob_oid": "fea2ea37c91627973c13fd199ba2b2901df01216",
+      "missing_path": "development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22/output.json",
+      "object_verification": {
+        "actual_bytes": 18793,
+        "actual_sha256": "2850148ca49c254d8ce47cbc6b2bb53201a4bc7627a8947b3ae447a909dba5a1",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-040",
+      "required_factual_claim": "Recorded checker or runtime output needed to validate the claimed crawler/source-library evidence state.",
+      "requirement_row_id": "claim-004::source-04"
+    },
+    {
+      "claim_id": "claim-004",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "04731a5f00206cf18403d01fad33f24df60b77a8",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 2034,
+      "expected_sha256": "34cec7c032577a3964572aceb1d217e344d9297893d132debc054069d82f079f",
+      "git_blob_oid": "04731a5f00206cf18403d01fad33f24df60b77a8",
+      "missing_path": "development/latest-dev-docs/automation-runs/source-library-real-probes/2026-05-22/README.md",
+      "object_verification": {
+        "actual_bytes": 2034,
+        "actual_sha256": "34cec7c032577a3964572aceb1d217e344d9297893d132debc054069d82f079f",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-041",
+      "required_factual_claim": "Recorded run scope and qualification note associated with the missing evidence package.",
+      "requirement_row_id": "claim-004::source-05"
+    },
+    {
+      "claim_id": "claim-004",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "1abad1c760b5307c5d2ccc0335ac3da6a855a93d",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 1402,
+      "expected_sha256": "09411829977c415bf8e3390f4ed648c50988eb7e2012c6b30e3aedeacba7c4f9",
+      "git_blob_oid": "1abad1c760b5307c5d2ccc0335ac3da6a855a93d",
+      "missing_path": "development/latest-dev-docs/automation-runs/source-library-real-probes/2026-05-22/input.json",
+      "object_verification": {
+        "actual_bytes": 1402,
+        "actual_sha256": "09411829977c415bf8e3390f4ed648c50988eb7e2012c6b30e3aedeacba7c4f9",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-042",
+      "required_factual_claim": "Exact recorded target/input identity and execution policy for the historical crawler or source-library run.",
+      "requirement_row_id": "claim-004::source-06"
+    },
+    {
+      "claim_id": "claim-004",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "d0253aa49f7e545e3b39ce556e408a855c398fad",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 9921,
+      "expected_sha256": "303a8ce31952e540f9719eaeb42653476721073820f005286a8452b3ca5e4791",
+      "git_blob_oid": "d0253aa49f7e545e3b39ce556e408a855c398fad",
+      "missing_path": "development/latest-dev-docs/automation-runs/source-library-real-probes/2026-05-22/output.json",
+      "object_verification": {
+        "actual_bytes": 9921,
+        "actual_sha256": "303a8ce31952e540f9719eaeb42653476721073820f005286a8452b3ca5e4791",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-043",
+      "required_factual_claim": "Recorded checker or runtime output needed to validate the claimed crawler/source-library evidence state.",
+      "requirement_row_id": "claim-004::source-07"
+    },
+    {
+      "claim_id": "claim-004",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "585fe84ddd9a10adb67a37c6420f8c3847b8d2de",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 3811,
+      "expected_sha256": "90d6e65e80aeaeeab5b46cbb38062f56f3750797bcf1ba119f573c92f6791687",
+      "git_blob_oid": "585fe84ddd9a10adb67a37c6420f8c3847b8d2de",
+      "missing_path": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/README.md",
+      "object_verification": {
+        "actual_bytes": 3811,
+        "actual_sha256": "90d6e65e80aeaeeab5b46cbb38062f56f3750797bcf1ba119f573c92f6791687",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-044",
+      "required_factual_claim": "Recorded run scope and qualification note associated with the missing evidence package.",
+      "requirement_row_id": "claim-004::source-08"
+    },
+    {
+      "claim_id": "claim-004",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "fd471b040e350a00e253b22031940f5e1f9487de",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 31566,
+      "expected_sha256": "b797c2747abe4732ed60647741625b7e96ffad021895aa8574a5815cedc8cf3f",
+      "git_blob_oid": "fd471b040e350a00e253b22031940f5e1f9487de",
+      "missing_path": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/input.json",
+      "object_verification": {
+        "actual_bytes": 31566,
+        "actual_sha256": "b797c2747abe4732ed60647741625b7e96ffad021895aa8574a5815cedc8cf3f",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-045",
+      "required_factual_claim": "Exact recorded target/input identity and execution policy for the historical crawler or source-library run.",
+      "requirement_row_id": "claim-004::source-09"
+    },
+    {
+      "claim_id": "claim-004",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "1d81c3582a657b8f7d41043c5de0066e38cbd90f",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 12739,
+      "expected_sha256": "611653e4ac63151e7f367b57626778edd0fdff760b4f0dd6e94f2d0e3243add1",
+      "git_blob_oid": "1d81c3582a657b8f7d41043c5de0066e38cbd90f",
+      "missing_path": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/logs/output.public.log",
+      "object_verification": {
+        "actual_bytes": 12739,
+        "actual_sha256": "611653e4ac63151e7f367b57626778edd0fdff760b4f0dd6e94f2d0e3243add1",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-046",
+      "required_factual_claim": "Recorded execution transcript supporting the corresponding run result; transcript identity alone does not establish current authority.",
+      "requirement_row_id": "claim-004::source-10"
+    },
+    {
+      "claim_id": "claim-004",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "134d014c1c13a9034bc7774e9d33e33fd2dfafb7",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 12153,
+      "expected_sha256": "845c2ef355b7a80d7aef3876e261655d2a1a81a13bf5e24e61d51c8240b7b264",
+      "git_blob_oid": "134d014c1c13a9034bc7774e9d33e33fd2dfafb7",
+      "missing_path": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/logs/replay.log",
+      "object_verification": {
+        "actual_bytes": 12153,
+        "actual_sha256": "845c2ef355b7a80d7aef3876e261655d2a1a81a13bf5e24e61d51c8240b7b264",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-047",
+      "required_factual_claim": "Recorded execution transcript supporting the corresponding run result; transcript identity alone does not establish current authority.",
+      "requirement_row_id": "claim-004::source-11"
+    },
+    {
+      "claim_id": "claim-004",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "0dab4c2cbd958dcfc4fa9bb9c4a217307bd6398e",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 97976,
+      "expected_sha256": "80c654cf8fa310fcd6d0f73f80b2f654cd1bffc85ffa4e0881f2fa253b2f469d",
+      "git_blob_oid": "0dab4c2cbd958dcfc4fa9bb9c4a217307bd6398e",
+      "missing_path": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/output.json",
+      "object_verification": {
+        "actual_bytes": 97976,
+        "actual_sha256": "80c654cf8fa310fcd6d0f73f80b2f654cd1bffc85ffa4e0881f2fa253b2f469d",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-048",
+      "required_factual_claim": "Recorded checker or runtime output needed to validate the claimed crawler/source-library evidence state.",
+      "requirement_row_id": "claim-004::source-12"
+    },
+    {
+      "claim_id": "claim-004",
+      "classification_at_source": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "commit_path_binding": {
+        "matches_enumerated_blob": true,
+        "resolved_git_oid": "d2c782a7aef195c23b984187efbe65f373c1fecc",
+        "status": "VERIFIED"
+      },
+      "enumerated_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "expected_bytes": 231902,
+      "expected_sha256": "280b44ef519139314e82864ff786dd313c1fb15ecc3f048bcb1c35ca9a6186a7",
+      "git_blob_oid": "d2c782a7aef195c23b984187efbe65f373c1fecc",
+      "missing_path": "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/output.public.json",
+      "object_verification": {
+        "actual_bytes": 231902,
+        "actual_sha256": "280b44ef519139314e82864ff786dd313c1fb15ecc3f048bcb1c35ca9a6186a7",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": "crawler-source-missing-049",
+      "required_factual_claim": "Recorded checker or runtime output needed to validate the claimed crawler/source-library evidence state.",
+      "requirement_row_id": "claim-004::source-13"
+    },
+    {
+      "claim_id": "claim-014",
+      "classification_at_source": "tracked_deleted_no_current_equivalent",
+      "commit_path_binding": {
+        "matches_enumerated_blob": null,
+        "resolved_git_oid": null,
+        "status": "NOT_ENUMERATED"
+      },
+      "enumerated_commit": null,
+      "expected_bytes": null,
+      "expected_sha256": null,
+      "git_blob_oid": "d2b764417dbda3da1594805d65a6d9459beefe3c",
+      "missing_path": "development/latest-dev-docs/automation-runs/deisolation-project-coherence/2026-05-14/local_index_lancedb_project_prototype.jsonl",
+      "object_verification": {
+        "actual_bytes": 17171,
+        "actual_sha256": "590d954753096dce90c8fb1ae1c0fa5e8451d49439817caf0ae3dc80348dc8f8",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": null,
+      "required_factual_claim": "Historical production-like corpus includes the recorded de-isolation LanceDB rows.",
+      "requirement_row_id": "claim-014::source-01"
+    },
+    {
+      "claim_id": "claim-014",
+      "classification_at_source": "tracked_deleted_no_current_equivalent",
+      "commit_path_binding": {
+        "matches_enumerated_blob": null,
+        "resolved_git_oid": null,
+        "status": "NOT_ENUMERATED"
+      },
+      "enumerated_commit": null,
+      "expected_bytes": null,
+      "expected_sha256": null,
+      "git_blob_oid": "d2b764417dbda3da1594805d65a6d9459beefe3c",
+      "missing_path": "development/latest-dev-docs/automation-runs/frontend-coherence-and-searxng-gate/2026-05-14/local_index_lancedb_project_prototype.jsonl",
+      "object_verification": {
+        "actual_bytes": 17171,
+        "actual_sha256": "590d954753096dce90c8fb1ae1c0fa5e8451d49439817caf0ae3dc80348dc8f8",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": null,
+      "required_factual_claim": "Historical production-like corpus includes the recorded frontend-coherence LanceDB rows.",
+      "requirement_row_id": "claim-014::source-02"
+    },
+    {
+      "claim_id": "claim-014",
+      "classification_at_source": "tracked_deleted_no_current_equivalent",
+      "commit_path_binding": {
+        "matches_enumerated_blob": null,
+        "resolved_git_oid": null,
+        "status": "NOT_ENUMERATED"
+      },
+      "enumerated_commit": null,
+      "expected_bytes": null,
+      "expected_sha256": null,
+      "git_blob_oid": "f2c01a6f884f13af11c70c25e8a785f02d33950d",
+      "missing_path": "development/latest-dev-docs/automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md",
+      "object_verification": {
+        "actual_bytes": 2233,
+        "actual_sha256": "bf2a8c0050cb7640fc2b07f7da872bf161bd485a7ac7a3466f9e9bc7c3fd743f",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": null,
+      "required_factual_claim": "Production-like corpus includes the recorded LanceDB benchmark narrative input.",
+      "requirement_row_id": "claim-014::source-03"
+    },
+    {
+      "claim_id": "claim-014",
+      "classification_at_source": "tracked_deleted_no_current_equivalent",
+      "commit_path_binding": {
+        "matches_enumerated_blob": null,
+        "resolved_git_oid": null,
+        "status": "NOT_ENUMERATED"
+      },
+      "enumerated_commit": null,
+      "expected_bytes": null,
+      "expected_sha256": null,
+      "git_blob_oid": "d02e49c4e4d24731b28d29ce50f6ba9673585b93",
+      "missing_path": "development/latest-dev-docs/automation-runs/wave30-vector-closure-gate/2026-05-23/README.md",
+      "object_verification": {
+        "actual_bytes": 1181,
+        "actual_sha256": "4b58b144ee366caa113e0066d74f98e91babbdc3d9c7ccf28d734f98f1841f0e",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": null,
+      "required_factual_claim": "Production-like corpus includes the recorded Wave30 closure narrative input.",
+      "requirement_row_id": "claim-014::source-04"
+    },
+    {
+      "claim_id": "claim-014",
+      "classification_at_source": "tracked_deleted_no_current_equivalent",
+      "commit_path_binding": {
+        "matches_enumerated_blob": null,
+        "resolved_git_oid": null,
+        "status": "NOT_ENUMERATED"
+      },
+      "enumerated_commit": null,
+      "expected_bytes": null,
+      "expected_sha256": null,
+      "git_blob_oid": "9d0d506159ae891a291add62fee80d1a56bc0203",
+      "missing_path": "development/latest-dev-docs/automation-runs/wave55-live-embedding-provider/2026-05-23/README.md",
+      "object_verification": {
+        "actual_bytes": 1269,
+        "actual_sha256": "754c9b16b2b5b609f08a75fee9964d8b1f8ab290cc0fb4bfbad9873d3801b709",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": null,
+      "required_factual_claim": "Production-like corpus includes the recorded Wave55 provider narrative input.",
+      "requirement_row_id": "claim-014::source-05"
+    },
+    {
+      "claim_id": "claim-014",
+      "classification_at_source": "tracked_deleted_no_current_equivalent",
+      "commit_path_binding": {
+        "matches_enumerated_blob": null,
+        "resolved_git_oid": null,
+        "status": "NOT_ENUMERATED"
+      },
+      "enumerated_commit": null,
+      "expected_bytes": null,
+      "expected_sha256": null,
+      "git_blob_oid": "37a8956332265da5963c9e2959481a0677d6062f",
+      "missing_path": "development/latest-dev-docs/automation-runs/wave56-semantic-vector-quality-gate/2026-05-23/README.md",
+      "object_verification": {
+        "actual_bytes": 1525,
+        "actual_sha256": "21038f301c8ff1c8d1dff314ab0493752dfceb46c019c595c3d9f6552a0ef6a3",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": null,
+      "required_factual_claim": "Production-like corpus includes the recorded Wave56 narrative input.",
+      "requirement_row_id": "claim-014::source-06"
+    },
+    {
+      "claim_id": "claim-014",
+      "classification_at_source": "tracked_deleted_no_current_equivalent",
+      "commit_path_binding": {
+        "matches_enumerated_blob": null,
+        "resolved_git_oid": null,
+        "status": "NOT_ENUMERATED"
+      },
+      "enumerated_commit": null,
+      "expected_bytes": null,
+      "expected_sha256": null,
+      "git_blob_oid": "49c48019f751873f6b9c317b516229437f3c4466",
+      "missing_path": "development/latest-dev-docs/automation-runs/wave56-semantic-vector-quality-gate/2026-05-23/semantic_vector_quality_gate.json",
+      "object_verification": {
+        "actual_bytes": 96080,
+        "actual_sha256": "0dbff4f045d1a847a0f9672b3ba1b065d6d018571037bd10f47be2e4915dcde0",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": null,
+      "required_factual_claim": "Recorded Wave56 semantic vector quality gate passed before production-like replay.",
+      "requirement_row_id": "claim-014::source-07"
+    },
+    {
+      "claim_id": "claim-016",
+      "classification_at_source": "tracked_deleted_no_current_equivalent",
+      "commit_path_binding": {
+        "matches_enumerated_blob": null,
+        "resolved_git_oid": null,
+        "status": "NOT_ENUMERATED"
+      },
+      "enumerated_commit": null,
+      "expected_bytes": null,
+      "expected_sha256": null,
+      "git_blob_oid": "a0ea8067f6355165a81c027e6b0763a89645b50a",
+      "missing_path": "development/latest-dev-docs/automation-runs/local-index-lancedb-benchmark/2026-05-22/benchmark_quality_results.json",
+      "object_verification": {
+        "actual_bytes": 26506,
+        "actual_sha256": "7098bdd8440266c69fe7df1f80b6a2b2778eddc99a18124cfcd9db7544ebae94",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": null,
+      "required_factual_claim": "Recorded deterministic ranking and filter benchmark met thresholds.",
+      "requirement_row_id": "claim-016::source-01"
+    },
+    {
+      "claim_id": "claim-016",
+      "classification_at_source": "tracked_deleted_no_current_equivalent",
+      "commit_path_binding": {
+        "matches_enumerated_blob": null,
+        "resolved_git_oid": null,
+        "status": "NOT_ENUMERATED"
+      },
+      "enumerated_commit": null,
+      "expected_bytes": null,
+      "expected_sha256": null,
+      "git_blob_oid": "925bb9cb2e1d5bf6389bdba120e61812814e22ff",
+      "missing_path": "development/latest-dev-docs/automation-runs/local-index-lancedb-runtime-smoke/2026-05-22/runtime_smoke_results.json",
+      "object_verification": {
+        "actual_bytes": 5779,
+        "actual_sha256": "fbac44caa62b7a4e22d50ad4aba9cf4e822c15fc12c5ff517f97e8268d55b9f6",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": null,
+      "required_factual_claim": "Recorded LanceDB keyword, vector, and hybrid runtime smoke passed without fallback.",
+      "requirement_row_id": "claim-016::source-02"
+    },
+    {
+      "claim_id": "claim-016",
+      "classification_at_source": "tracked_deleted_no_current_equivalent",
+      "commit_path_binding": {
+        "matches_enumerated_blob": null,
+        "resolved_git_oid": null,
+        "status": "NOT_ENUMERATED"
+      },
+      "enumerated_commit": null,
+      "expected_bytes": null,
+      "expected_sha256": null,
+      "git_blob_oid": "f1206f568c612c3bb184e5bb6f5aaea8b5323ae5",
+      "missing_path": "development/latest-dev-docs/automation-runs/search-provider-container-replay/2026-05-22/provider_trace_replay_summary.json",
+      "object_verification": {
+        "actual_bytes": 1256,
+        "actual_sha256": "75c53a2064a29a4d916b0b88f9480934e33b1f542400e5955e764bc18e6564f9",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": null,
+      "required_factual_claim": "Recorded container replay preserved explicit provider trace.",
+      "requirement_row_id": "claim-016::source-03"
+    },
+    {
+      "claim_id": "claim-016",
+      "classification_at_source": "tracked_deleted_no_current_equivalent",
+      "commit_path_binding": {
+        "matches_enumerated_blob": null,
+        "resolved_git_oid": null,
+        "status": "NOT_ENUMERATED"
+      },
+      "enumerated_commit": null,
+      "expected_bytes": null,
+      "expected_sha256": null,
+      "git_blob_oid": "a2845e5483da46741e4e8954adc3a2a8255581a4",
+      "missing_path": "development/latest-dev-docs/automation-runs/search-provider-trace-artifacts/2026-05-22/search_provider_trace_contract.json",
+      "object_verification": {
+        "actual_bytes": 2120,
+        "actual_sha256": "0a89c450eaa3287c26439e3082bcb4d1e31942b4f43cc91f7be07db08ecb4a7e",
+        "expected_bytes_match": true,
+        "expected_sha256_match": true,
+        "object_exists": true,
+        "object_type": "blob",
+        "parseable": true
+      },
+      "provenance_entry_id": null,
+      "required_factual_claim": "Recorded explicit SearXNG and YaCy trace excludes local providers from provider=auto.",
+      "requirement_row_id": "claim-016::source-04"
+    }
+  ],
+  "schema_version": "contract14.history_verification_receipt.v1",
+  "scope_note": "Object and stored-record facts only. No historical receipt is made current; no live execution occurred.",
+  "status": "COMPLETED_WITH_PRESERVED_GAPS",
+  "summary": {
+    "all_unique_objects_exist_as_blob": true,
+    "currently_qualified_nodeid_count": 0,
+    "dependent_nodeid_count": 8,
+    "enumerated_commit_path_binding_count": 51,
+    "exact_size_sha_comparable_requirement_count": 51,
+    "exact_size_sha_matches": 51,
+    "objects_existing_as_blob": 32,
+    "parseable_requirement_count": 62,
+    "requirement_row_count": 62,
+    "target_claim_count": 5,
+    "unbound_path_requirement_count": 11,
+    "unique_blob_count": 32,
+    "verified_commit_path_binding_count": 51
+  },
+  "unique_objects": [
+    {
+      "actual_bytes": 2034,
+      "actual_sha256": "34cec7c032577a3964572aceb1d217e344d9297893d132debc054069d82f079f",
+      "expected_bytes_match": true,
+      "expected_bytes_values": [
+        2034
+      ],
+      "expected_sha256_match": true,
+      "expected_sha256_values": [
+        "34cec7c032577a3964572aceb1d217e344d9297893d132debc054069d82f079f"
+      ],
+      "git_blob_oid": "04731a5f00206cf18403d01fad33f24df60b77a8",
+      "object_exists": true,
+      "object_type": "blob",
+      "occurrence_row_ids": [
+        "claim-001::source-08",
+        "claim-002::source-14",
+        "claim-004::source-05"
+      ],
+      "parseability_by_path": {
+        "development/latest-dev-docs/automation-runs/source-library-real-probes/2026-05-22/README.md": {
+          "kind": "UTF8_TEXT",
+          "line_count": 56,
+          "parseable": true
+        }
+      }
+    },
+    {
+      "actual_bytes": 97976,
+      "actual_sha256": "80c654cf8fa310fcd6d0f73f80b2f654cd1bffc85ffa4e0881f2fa253b2f469d",
+      "expected_bytes_match": true,
+      "expected_bytes_values": [
+        97976
+      ],
+      "expected_sha256_match": true,
+      "expected_sha256_values": [
+        "80c654cf8fa310fcd6d0f73f80b2f654cd1bffc85ffa4e0881f2fa253b2f469d"
+      ],
+      "git_blob_oid": "0dab4c2cbd958dcfc4fa9bb9c4a217307bd6398e",
+      "object_exists": true,
+      "object_type": "blob",
+      "occurrence_row_ids": [
+        "claim-001::source-15",
+        "claim-002::source-21",
+        "claim-004::source-12"
+      ],
+      "parseability_by_path": {
+        "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/output.json": {
+          "kind": "JSON",
+          "parseable": true,
+          "root_type": "dict",
+          "top_level_keys": [
+            "closure_status",
+            "finished_at",
+            "inputs",
+            "mode",
+            "outputs",
+            "probe_id",
+            "started_at",
+            "validation"
+          ]
+        }
+      }
+    },
+    {
+      "actual_bytes": 12153,
+      "actual_sha256": "845c2ef355b7a80d7aef3876e261655d2a1a81a13bf5e24e61d51c8240b7b264",
+      "expected_bytes_match": true,
+      "expected_bytes_values": [
+        12153
+      ],
+      "expected_sha256_match": true,
+      "expected_sha256_values": [
+        "845c2ef355b7a80d7aef3876e261655d2a1a81a13bf5e24e61d51c8240b7b264"
+      ],
+      "git_blob_oid": "134d014c1c13a9034bc7774e9d33e33fd2dfafb7",
+      "object_exists": true,
+      "object_type": "blob",
+      "occurrence_row_ids": [
+        "claim-001::source-14",
+        "claim-002::source-20",
+        "claim-004::source-11"
+      ],
+      "parseability_by_path": {
+        "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/logs/replay.log": {
+          "kind": "UTF8_TEXT",
+          "line_count": 96,
+          "parseable": true
+        }
+      }
+    },
+    {
+      "actual_bytes": 1158,
+      "actual_sha256": "e5df9ea3591fdb2ef42c9203fce4e43b0b911f7cb717078d00750aa26076f180",
+      "expected_bytes_match": true,
+      "expected_bytes_values": [
+        1158
+      ],
+      "expected_sha256_match": true,
+      "expected_sha256_values": [
+        "e5df9ea3591fdb2ef42c9203fce4e43b0b911f7cb717078d00750aa26076f180"
+      ],
+      "git_blob_oid": "16ad2e240bb6e92df9f56928ba7c3acfa98b997a",
+      "object_exists": true,
+      "object_type": "blob",
+      "occurrence_row_ids": [
+        "claim-001::source-06",
+        "claim-002::source-12",
+        "claim-004::source-03"
+      ],
+      "parseability_by_path": {
+        "development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22/logs/live-probe.log": {
+          "kind": "UTF8_TEXT",
+          "line_count": 11,
+          "parseable": true
+        }
+      }
+    },
+    {
+      "actual_bytes": 1402,
+      "actual_sha256": "09411829977c415bf8e3390f4ed648c50988eb7e2012c6b30e3aedeacba7c4f9",
+      "expected_bytes_match": true,
+      "expected_bytes_values": [
+        1402
+      ],
+      "expected_sha256_match": true,
+      "expected_sha256_values": [
+        "09411829977c415bf8e3390f4ed648c50988eb7e2012c6b30e3aedeacba7c4f9"
+      ],
+      "git_blob_oid": "1abad1c760b5307c5d2ccc0335ac3da6a855a93d",
+      "object_exists": true,
+      "object_type": "blob",
+      "occurrence_row_ids": [
+        "claim-001::source-09",
+        "claim-002::source-15",
+        "claim-004::source-06"
+      ],
+      "parseability_by_path": {
+        "development/latest-dev-docs/automation-runs/source-library-real-probes/2026-05-22/input.json": {
+          "kind": "JSON",
+          "parseable": true,
+          "root_type": "dict",
+          "top_level_keys": [
+            "branch",
+            "date",
+            "expected_assertions",
+            "lane",
+            "probe_design",
+            "source_inputs",
+            "worktree"
+          ]
+        }
+      }
+    },
+    {
+      "actual_bytes": 12739,
+      "actual_sha256": "611653e4ac63151e7f367b57626778edd0fdff760b4f0dd6e94f2d0e3243add1",
+      "expected_bytes_match": true,
+      "expected_bytes_values": [
+        12739
+      ],
+      "expected_sha256_match": true,
+      "expected_sha256_values": [
+        "611653e4ac63151e7f367b57626778edd0fdff760b4f0dd6e94f2d0e3243add1"
+      ],
+      "git_blob_oid": "1d81c3582a657b8f7d41043c5de0066e38cbd90f",
+      "object_exists": true,
+      "object_type": "blob",
+      "occurrence_row_ids": [
+        "claim-001::source-13",
+        "claim-002::source-19",
+        "claim-004::source-10"
+      ],
+      "parseability_by_path": {
+        "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/logs/output.public.log": {
+          "kind": "UTF8_TEXT",
+          "line_count": 96,
+          "parseable": true
+        }
+      }
+    },
+    {
+      "actual_bytes": 1525,
+      "actual_sha256": "21038f301c8ff1c8d1dff314ab0493752dfceb46c019c595c3d9f6552a0ef6a3",
+      "expected_bytes_match": true,
+      "expected_bytes_values": [],
+      "expected_sha256_match": true,
+      "expected_sha256_values": [],
+      "git_blob_oid": "37a8956332265da5963c9e2959481a0677d6062f",
+      "object_exists": true,
+      "object_type": "blob",
+      "occurrence_row_ids": [
+        "claim-014::source-06"
+      ],
+      "parseability_by_path": {
+        "development/latest-dev-docs/automation-runs/wave56-semantic-vector-quality-gate/2026-05-23/README.md": {
+          "kind": "UTF8_TEXT",
+          "line_count": 41,
+          "parseable": true
+        }
+      }
+    },
+    {
+      "actual_bytes": 17101,
+      "actual_sha256": "4b1d1635e5acb98e635041dd340a0395b6767be3f9063f2cd629236967d421f3",
+      "expected_bytes_match": true,
+      "expected_bytes_values": [
+        17101
+      ],
+      "expected_sha256_match": true,
+      "expected_sha256_values": [
+        "4b1d1635e5acb98e635041dd340a0395b6767be3f9063f2cd629236967d421f3"
+      ],
+      "git_blob_oid": "430380d00a55d4ef92f64bc2b6a714a1c9e5b761",
+      "object_exists": true,
+      "object_type": "blob",
+      "occurrence_row_ids": [
+        "claim-002::source-02"
+      ],
+      "parseability_by_path": {
+        "development/latest-dev-docs/automation-runs/crawler-provider-handoff/2026-05-22/crawler_source_expansion_closure_check.json": {
+          "kind": "JSON",
+          "parseable": true,
+          "root_type": "dict",
+          "top_level_keys": [
+            "contract_version",
+            "doc_drift",
+            "minimum_development_plan",
+            "overall_status",
+            "protected_shared_indexes",
+            "repo_root",
+            "tasks",
+            "topic_dir",
+            "validation"
+          ]
+        }
+      }
+    },
+    {
+      "actual_bytes": 96080,
+      "actual_sha256": "0dbff4f045d1a847a0f9672b3ba1b065d6d018571037bd10f47be2e4915dcde0",
+      "expected_bytes_match": true,
+      "expected_bytes_values": [],
+      "expected_sha256_match": true,
+      "expected_sha256_values": [],
+      "git_blob_oid": "49c48019f751873f6b9c317b516229437f3c4466",
+      "object_exists": true,
+      "object_type": "blob",
+      "occurrence_row_ids": [
+        "claim-014::source-07"
+      ],
+      "parseability_by_path": {
+        "development/latest-dev-docs/automation-runs/wave56-semantic-vector-quality-gate/2026-05-23/semantic_vector_quality_gate.json": {
+          "kind": "JSON",
+          "parseable": true,
+          "root_type": "dict",
+          "top_level_keys": [
+            "archive_closed_recommendation",
+            "closed_condition_scope",
+            "closed_conditions",
+            "contract_version",
+            "failures",
+            "generated_by",
+            "production_quality_claim_allowed",
+            "production_vector_quality_reduced",
+            "provider_readback",
+            "quality_evaluation",
+            "reduced_conditions",
+            "remaining_conditions",
+            "retrieval_contracts",
+            "sample_retrieval_run",
+            "scope",
+            "semantic_quality_claim_allowed",
+            "status"
+          ]
+        }
+      }
+    },
+    {
+      "actual_bytes": 3811,
+      "actual_sha256": "90d6e65e80aeaeeab5b46cbb38062f56f3750797bcf1ba119f573c92f6791687",
+      "expected_bytes_match": true,
+      "expected_bytes_values": [
+        3811
+      ],
+      "expected_sha256_match": true,
+      "expected_sha256_values": [
+        "90d6e65e80aeaeeab5b46cbb38062f56f3750797bcf1ba119f573c92f6791687"
+      ],
+      "git_blob_oid": "585fe84ddd9a10adb67a37c6420f8c3847b8d2de",
+      "object_exists": true,
+      "object_type": "blob",
+      "occurrence_row_ids": [
+        "claim-001::source-11",
+        "claim-002::source-17",
+        "claim-004::source-08"
+      ],
+      "parseability_by_path": {
+        "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/README.md": {
+          "kind": "UTF8_TEXT",
+          "line_count": 93,
+          "parseable": true
+        }
+      }
+    },
+    {
+      "actual_bytes": 2731,
+      "actual_sha256": "1343e892a806f6878e9a3ab2c5d5f374f0a05d89409ef48a2d92c7aa1d8f58ef",
+      "expected_bytes_match": true,
+      "expected_bytes_values": [
+        2731
+      ],
+      "expected_sha256_match": true,
+      "expected_sha256_values": [
+        "1343e892a806f6878e9a3ab2c5d5f374f0a05d89409ef48a2d92c7aa1d8f58ef"
+      ],
+      "git_blob_oid": "73b91ad622bf251a59daf0709c3e76be6f3f7eff",
+      "object_exists": true,
+      "object_type": "blob",
+      "occurrence_row_ids": [
+        "claim-002::source-07"
+      ],
+      "parseability_by_path": {
+        "development/latest-dev-docs/automation-runs/crawler-source-expansion-wave8-a7-validation-pack/2026-05-22/README.md": {
+          "kind": "UTF8_TEXT",
+          "line_count": 58,
+          "parseable": true
+        }
+      }
+    },
+    {
+      "actual_bytes": 1496,
+      "actual_sha256": "f10521e3fda9ec83acb5555af4c995c934e78567e27059fff57fdd7d9e92b58c",
+      "expected_bytes_match": true,
+      "expected_bytes_values": [
+        1496
+      ],
+      "expected_sha256_match": true,
+      "expected_sha256_values": [
+        "f10521e3fda9ec83acb5555af4c995c934e78567e27059fff57fdd7d9e92b58c"
+      ],
+      "git_blob_oid": "769c353c8e84fb156522dd35939da3c74edd9f24",
+      "object_exists": true,
+      "object_type": "blob",
+      "occurrence_row_ids": [
+        "claim-001::source-05",
+        "claim-002::source-11",
+        "claim-004::source-02"
+      ],
+      "parseability_by_path": {
+        "development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22/input.json": {
+          "kind": "JSON",
+          "parseable": true,
+          "root_type": "dict",
+          "top_level_keys": [
+            "description",
+            "probe_timeout",
+            "project_key",
+            "targets"
+          ]
+        }
+      }
+    },
+    {
+      "actual_bytes": 4852,
+      "actual_sha256": "2e93ddba241aa7187b221771b8f47afb042b354eca063e5cccbebf5c3ab3fa13",
+      "expected_bytes_match": true,
+      "expected_bytes_values": [
+        4852
+      ],
+      "expected_sha256_match": true,
+      "expected_sha256_values": [
+        "2e93ddba241aa7187b221771b8f47afb042b354eca063e5cccbebf5c3ab3fa13"
+      ],
+      "git_blob_oid": "8dbcf59d5e50f16642076b928e248bf6d0554539",
+      "object_exists": true,
+      "object_type": "blob",
+      "occurrence_row_ids": [
+        "claim-002::source-01"
+      ],
+      "parseability_by_path": {
+        "development/latest-dev-docs/automation-runs/crawler-provider-handoff/2026-05-22/README.md": {
+          "kind": "UTF8_TEXT",
+          "line_count": 91,
+          "parseable": true
+        }
+      }
+    },
+    {
+      "actual_bytes": 5779,
+      "actual_sha256": "fbac44caa62b7a4e22d50ad4aba9cf4e822c15fc12c5ff517f97e8268d55b9f6",
+      "expected_bytes_match": true,
+      "expected_bytes_values": [],
+      "expected_sha256_match": true,
+      "expected_sha256_values": [],
+      "git_blob_oid": "925bb9cb2e1d5bf6389bdba120e61812814e22ff",
+      "object_exists": true,
+      "object_type": "blob",
+      "occurrence_row_ids": [
+        "claim-016::source-02"
+      ],
+      "parseability_by_path": {
+        "development/latest-dev-docs/automation-runs/local-index-lancedb-runtime-smoke/2026-05-22/runtime_smoke_results.json": {
+          "kind": "JSON",
+          "parseable": true,
+          "root_type": "dict",
+          "top_level_keys": [
+            "assertions",
+            "blockers",
+            "db_path",
+            "duration_ms",
+            "generated_at",
+            "modes",
+            "out_dir",
+            "packages",
+            "platform",
+            "python",
+            "rerun_command",
+            "status",
+            "upsert"
+          ]
+        }
+      }
+    },
+    {
+      "actual_bytes": 3634,
+      "actual_sha256": "019808e757078cb9e941238eb3915f0ac89bfc46277ab2e4ec72b1d481dd4807",
+      "expected_bytes_match": true,
+      "expected_bytes_values": [
+        3634
+      ],
+      "expected_sha256_match": true,
+      "expected_sha256_values": [
+        "019808e757078cb9e941238eb3915f0ac89bfc46277ab2e4ec72b1d481dd4807"
+      ],
+      "git_blob_oid": "95a53efcf67177f55e8d684eb5071faa798e3750",
+      "object_exists": true,
+      "object_type": "blob",
+      "occurrence_row_ids": [
+        "claim-002::source-08"
+      ],
+      "parseability_by_path": {
+        "development/latest-dev-docs/automation-runs/crawler-source-expansion-wave8-a7-validation-pack/2026-05-22/a5_public_replay_gate_check.json": {
+          "kind": "JSON",
+          "parseable": true,
+          "root_type": "dict",
+          "top_level_keys": [
+            "a5_gate",
+            "a5_status",
+            "contract_version",
+            "evidence_doc",
+            "external_blocker",
+            "public_live_fixture",
+            "repo_root",
+            "term_fallback_relevance_review",
+            "validation"
+          ]
+        }
+      }
+    },
+    {
+      "actual_bytes": 1269,
+      "actual_sha256": "754c9b16b2b5b609f08a75fee9964d8b1f8ab290cc0fb4bfbad9873d3801b709",
+      "expected_bytes_match": true,
+      "expected_bytes_values": [],
+      "expected_sha256_match": true,
+      "expected_sha256_values": [],
+      "git_blob_oid": "9d0d506159ae891a291add62fee80d1a56bc0203",
+      "object_exists": true,
+      "object_type": "blob",
+      "occurrence_row_ids": [
+        "claim-014::source-05"
+      ],
+      "parseability_by_path": {
+        "development/latest-dev-docs/automation-runs/wave55-live-embedding-provider/2026-05-23/README.md": {
+          "kind": "UTF8_TEXT",
+          "line_count": 36,
+          "parseable": true
+        }
+      }
+    },
+    {
+      "actual_bytes": 26506,
+      "actual_sha256": "7098bdd8440266c69fe7df1f80b6a2b2778eddc99a18124cfcd9db7544ebae94",
+      "expected_bytes_match": true,
+      "expected_bytes_values": [],
+      "expected_sha256_match": true,
+      "expected_sha256_values": [],
+      "git_blob_oid": "a0ea8067f6355165a81c027e6b0763a89645b50a",
+      "object_exists": true,
+      "object_type": "blob",
+      "occurrence_row_ids": [
+        "claim-016::source-01"
+      ],
+      "parseability_by_path": {
+        "development/latest-dev-docs/automation-runs/local-index-lancedb-benchmark/2026-05-22/benchmark_quality_results.json": {
+          "kind": "JSON",
+          "parseable": true,
+          "root_type": "dict",
+          "top_level_keys": [
+            "assertions",
+            "blockers",
+            "db_path",
+            "duration_ms",
+            "filter_cases",
+            "generated_at",
+            "out_dir",
+            "packages",
+            "platform",
+            "python",
+            "ranking_cases",
+            "remaining_blockers",
+            "rerun_command",
+            "status",
+            "upsert"
+          ]
+        }
+      }
+    },
+    {
+      "actual_bytes": 1665,
+      "actual_sha256": "f36b9f49c07231734a164adb65a2b8cd8198fa636408e2bfa398d960c30175cd",
+      "expected_bytes_match": true,
+      "expected_bytes_values": [
+        1665
+      ],
+      "expected_sha256_match": true,
+      "expected_sha256_values": [
+        "f36b9f49c07231734a164adb65a2b8cd8198fa636408e2bfa398d960c30175cd"
+      ],
+      "git_blob_oid": "a20838c0a1216bdaf40ae427cf0d1153e24e8548",
+      "object_exists": true,
+      "object_type": "blob",
+      "occurrence_row_ids": [
+        "claim-001::source-03",
+        "claim-002::source-06"
+      ],
+      "parseability_by_path": {
+        "development/latest-dev-docs/automation-runs/crawler-public-replay-gate/2026-05-22/manifest.json": {
+          "kind": "JSON",
+          "parseable": true,
+          "root_type": "dict",
+          "top_level_keys": [
+            "closure_policy",
+            "contract_version",
+            "expected_counts",
+            "required_artifacts",
+            "scope"
+          ]
+        }
+      }
+    },
+    {
+      "actual_bytes": 2120,
+      "actual_sha256": "0a89c450eaa3287c26439e3082bcb4d1e31942b4f43cc91f7be07db08ecb4a7e",
+      "expected_bytes_match": true,
+      "expected_bytes_values": [],
+      "expected_sha256_match": true,
+      "expected_sha256_values": [],
+      "git_blob_oid": "a2845e5483da46741e4e8954adc3a2a8255581a4",
+      "object_exists": true,
+      "object_type": "blob",
+      "occurrence_row_ids": [
+        "claim-016::source-04"
+      ],
+      "parseability_by_path": {
+        "development/latest-dev-docs/automation-runs/search-provider-trace-artifacts/2026-05-22/search_provider_trace_contract.json": {
+          "kind": "JSON",
+          "parseable": true,
+          "root_type": "dict",
+          "top_level_keys": [
+            "auto_route",
+            "contract_version",
+            "explicit_results",
+            "generated_by",
+            "provider_auto_policy",
+            "required_result_fields",
+            "scope"
+          ]
+        }
+      }
+    },
+    {
+      "actual_bytes": 2505,
+      "actual_sha256": "8873b74a66af4d706472d2e10ec604283fcfb7b77ce11fe09fdbc1f97180ad35",
+      "expected_bytes_match": true,
+      "expected_bytes_values": [
+        2505
+      ],
+      "expected_sha256_match": true,
+      "expected_sha256_values": [
+        "8873b74a66af4d706472d2e10ec604283fcfb7b77ce11fe09fdbc1f97180ad35"
+      ],
+      "git_blob_oid": "a5b1657a4af16680e4bdefce958820baba3f7080",
+      "object_exists": true,
+      "object_type": "blob",
+      "occurrence_row_ids": [
+        "claim-002::source-03"
+      ],
+      "parseability_by_path": {
+        "development/latest-dev-docs/automation-runs/crawler-provider-handoff/2026-05-22/provider_handoff_check.json": {
+          "kind": "JSON",
+          "parseable": true,
+          "root_type": "dict",
+          "top_level_keys": [
+            "assertions",
+            "contract_version",
+            "handoff",
+            "status"
+          ]
+        }
+      }
+    },
+    {
+      "actual_bytes": 3713,
+      "actual_sha256": "920bcaf2592f420bb49b43bef94013d36a5b9c32949eb6ef4bb2851a957430ff",
+      "expected_bytes_match": true,
+      "expected_bytes_values": [
+        3713
+      ],
+      "expected_sha256_match": true,
+      "expected_sha256_values": [
+        "920bcaf2592f420bb49b43bef94013d36a5b9c32949eb6ef4bb2851a957430ff"
+      ],
+      "git_blob_oid": "af8d3677cfc5ba42056ddb8f546a4033b148527f",
+      "object_exists": true,
+      "object_type": "blob",
+      "occurrence_row_ids": [
+        "claim-001::source-04",
+        "claim-002::source-10",
+        "claim-004::source-01"
+      ],
+      "parseability_by_path": {
+        "development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22/README.md": {
+          "kind": "UTF8_TEXT",
+          "line_count": 81,
+          "parseable": true
+        }
+      }
+    },
+    {
+      "actual_bytes": 3249,
+      "actual_sha256": "ea65c48df4c7554ec6d68b85e02b96371d9c7e26c032caf5aed1da606f7d4565",
+      "expected_bytes_match": true,
+      "expected_bytes_values": [
+        3249
+      ],
+      "expected_sha256_match": true,
+      "expected_sha256_values": [
+        "ea65c48df4c7554ec6d68b85e02b96371d9c7e26c032caf5aed1da606f7d4565"
+      ],
+      "git_blob_oid": "b59d4fe9d1823ab497f0a1b869f9de4ea2e8cbe6",
+      "object_exists": true,
+      "object_type": "blob",
+      "occurrence_row_ids": [
+        "claim-001::source-02",
+        "claim-002::source-05"
+      ],
+      "parseability_by_path": {
+        "development/latest-dev-docs/automation-runs/crawler-public-replay-gate/2026-05-22/crawler_public_replay_gate_check.json": {
+          "kind": "JSON",
+          "parseable": true,
+          "root_type": "dict",
+          "top_level_keys": [
+            "contract_version",
+            "deterministic_artifacts",
+            "live_public_replay",
+            "manifest",
+            "manifest_path",
+            "overall_status",
+            "repo_root",
+            "validation"
+          ]
+        }
+      }
+    },
+    {
+      "actual_bytes": 9921,
+      "actual_sha256": "303a8ce31952e540f9719eaeb42653476721073820f005286a8452b3ca5e4791",
+      "expected_bytes_match": true,
+      "expected_bytes_values": [
+        9921
+      ],
+      "expected_sha256_match": true,
+      "expected_sha256_values": [
+        "303a8ce31952e540f9719eaeb42653476721073820f005286a8452b3ca5e4791"
+      ],
+      "git_blob_oid": "d0253aa49f7e545e3b39ce556e408a855c398fad",
+      "object_exists": true,
+      "object_type": "blob",
+      "occurrence_row_ids": [
+        "claim-001::source-10",
+        "claim-002::source-16",
+        "claim-004::source-07"
+      ],
+      "parseability_by_path": {
+        "development/latest-dev-docs/automation-runs/source-library-real-probes/2026-05-22/output.json": {
+          "kind": "JSON",
+          "parseable": true,
+          "root_type": "dict",
+          "top_level_keys": [
+            "closure_status",
+            "fixture",
+            "inputs",
+            "outputs",
+            "probe_id",
+            "validation"
+          ]
+        }
+      }
+    },
+    {
+      "actual_bytes": 1181,
+      "actual_sha256": "4b58b144ee366caa113e0066d74f98e91babbdc3d9c7ccf28d734f98f1841f0e",
+      "expected_bytes_match": true,
+      "expected_bytes_values": [],
+      "expected_sha256_match": true,
+      "expected_sha256_values": [],
+      "git_blob_oid": "d02e49c4e4d24731b28d29ce50f6ba9673585b93",
+      "object_exists": true,
+      "object_type": "blob",
+      "occurrence_row_ids": [
+        "claim-014::source-04"
+      ],
+      "parseability_by_path": {
+        "development/latest-dev-docs/automation-runs/wave30-vector-closure-gate/2026-05-23/README.md": {
+          "kind": "UTF8_TEXT",
+          "line_count": 22,
+          "parseable": true
+        }
+      }
+    },
+    {
+      "actual_bytes": 17171,
+      "actual_sha256": "590d954753096dce90c8fb1ae1c0fa5e8451d49439817caf0ae3dc80348dc8f8",
+      "expected_bytes_match": true,
+      "expected_bytes_values": [],
+      "expected_sha256_match": true,
+      "expected_sha256_values": [],
+      "git_blob_oid": "d2b764417dbda3da1594805d65a6d9459beefe3c",
+      "object_exists": true,
+      "object_type": "blob",
+      "occurrence_row_ids": [
+        "claim-014::source-01",
+        "claim-014::source-02"
+      ],
+      "parseability_by_path": {
+        "development/latest-dev-docs/automation-runs/deisolation-project-coherence/2026-05-14/local_index_lancedb_project_prototype.jsonl": {
+          "kind": "JSONL",
+          "parseable": true,
+          "root_types": [
+            "dict"
+          ],
+          "row_count": 10
+        },
+        "development/latest-dev-docs/automation-runs/frontend-coherence-and-searxng-gate/2026-05-14/local_index_lancedb_project_prototype.jsonl": {
+          "kind": "JSONL",
+          "parseable": true,
+          "root_types": [
+            "dict"
+          ],
+          "row_count": 10
+        }
+      }
+    },
+    {
+      "actual_bytes": 231902,
+      "actual_sha256": "280b44ef519139314e82864ff786dd313c1fb15ecc3f048bcb1c35ca9a6186a7",
+      "expected_bytes_match": true,
+      "expected_bytes_values": [
+        231902
+      ],
+      "expected_sha256_match": true,
+      "expected_sha256_values": [
+        "280b44ef519139314e82864ff786dd313c1fb15ecc3f048bcb1c35ca9a6186a7"
+      ],
+      "git_blob_oid": "d2c782a7aef195c23b984187efbe65f373c1fecc",
+      "object_exists": true,
+      "object_type": "blob",
+      "occurrence_row_ids": [
+        "claim-001::source-16",
+        "claim-002::source-22",
+        "claim-004::source-13"
+      ],
+      "parseability_by_path": {
+        "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/output.public.json": {
+          "kind": "JSON",
+          "parseable": true,
+          "root_type": "dict",
+          "top_level_keys": [
+            "closure_status",
+            "finished_at",
+            "inputs",
+            "mode",
+            "outputs",
+            "probe_id",
+            "started_at",
+            "validation"
+          ]
+        }
+      }
+    },
+    {
+      "actual_bytes": 23015,
+      "actual_sha256": "f036a55be8e512fe7bae2e97b62cdf03c591940ef5e762df659abf79d5a64c12",
+      "expected_bytes_match": true,
+      "expected_bytes_values": [
+        23015
+      ],
+      "expected_sha256_match": true,
+      "expected_sha256_values": [
+        "f036a55be8e512fe7bae2e97b62cdf03c591940ef5e762df659abf79d5a64c12"
+      ],
+      "git_blob_oid": "d5faeab84c5e80932b4a456c6d8f4ecc33c76646",
+      "object_exists": true,
+      "object_type": "blob",
+      "occurrence_row_ids": [
+        "claim-002::source-09"
+      ],
+      "parseability_by_path": {
+        "development/latest-dev-docs/automation-runs/crawler-source-expansion-wave8-a7-validation-pack/2026-05-22/crawler_source_expansion_closure_check.json": {
+          "kind": "JSON",
+          "parseable": true,
+          "root_type": "dict",
+          "top_level_keys": [
+            "contract_version",
+            "doc_drift",
+            "minimum_development_plan",
+            "overall_status",
+            "protected_shared_indexes",
+            "repo_root",
+            "tasks",
+            "topic_dir",
+            "validation"
+          ]
+        }
+      }
+    },
+    {
+      "actual_bytes": 1927,
+      "actual_sha256": "827364747762e7fb09bbad5f277acb458995109ba98b1efb89243e11a8fd93d8",
+      "expected_bytes_match": true,
+      "expected_bytes_values": [
+        1927
+      ],
+      "expected_sha256_match": true,
+      "expected_sha256_values": [
+        "827364747762e7fb09bbad5f277acb458995109ba98b1efb89243e11a8fd93d8"
+      ],
+      "git_blob_oid": "e6c1df76b8cbb23d3b331eb13539055dc0e39e1a",
+      "object_exists": true,
+      "object_type": "blob",
+      "occurrence_row_ids": [
+        "claim-001::source-01",
+        "claim-002::source-04"
+      ],
+      "parseability_by_path": {
+        "development/latest-dev-docs/automation-runs/crawler-public-replay-gate/2026-05-22/README.md": {
+          "kind": "UTF8_TEXT",
+          "line_count": 41,
+          "parseable": true
+        }
+      }
+    },
+    {
+      "actual_bytes": 1256,
+      "actual_sha256": "75c53a2064a29a4d916b0b88f9480934e33b1f542400e5955e764bc18e6564f9",
+      "expected_bytes_match": true,
+      "expected_bytes_values": [],
+      "expected_sha256_match": true,
+      "expected_sha256_values": [],
+      "git_blob_oid": "f1206f568c612c3bb184e5bb6f5aaea8b5323ae5",
+      "object_exists": true,
+      "object_type": "blob",
+      "occurrence_row_ids": [
+        "claim-016::source-03"
+      ],
+      "parseability_by_path": {
+        "development/latest-dev-docs/automation-runs/search-provider-container-replay/2026-05-22/provider_trace_replay_summary.json": {
+          "kind": "JSON",
+          "parseable": true,
+          "root_type": "dict",
+          "top_level_keys": [
+            "commands",
+            "docker_compose_ok",
+            "docker_container_count",
+            "env",
+            "failed_rows",
+            "ok",
+            "out_dir",
+            "passed_rows",
+            "rows"
+          ]
+        }
+      }
+    },
+    {
+      "actual_bytes": 2233,
+      "actual_sha256": "bf2a8c0050cb7640fc2b07f7da872bf161bd485a7ac7a3466f9e9bc7c3fd743f",
+      "expected_bytes_match": true,
+      "expected_bytes_values": [],
+      "expected_sha256_match": true,
+      "expected_sha256_values": [],
+      "git_blob_oid": "f2c01a6f884f13af11c70c25e8a785f02d33950d",
+      "object_exists": true,
+      "object_type": "blob",
+      "occurrence_row_ids": [
+        "claim-014::source-03"
+      ],
+      "parseability_by_path": {
+        "development/latest-dev-docs/automation-runs/local-index-lancedb-benchmark/2026-05-22/README.md": {
+          "kind": "UTF8_TEXT",
+          "line_count": 44,
+          "parseable": true
+        }
+      }
+    },
+    {
+      "actual_bytes": 31566,
+      "actual_sha256": "b797c2747abe4732ed60647741625b7e96ffad021895aa8574a5815cedc8cf3f",
+      "expected_bytes_match": true,
+      "expected_bytes_values": [
+        31566
+      ],
+      "expected_sha256_match": true,
+      "expected_sha256_values": [
+        "b797c2747abe4732ed60647741625b7e96ffad021895aa8574a5815cedc8cf3f"
+      ],
+      "git_blob_oid": "fd471b040e350a00e253b22031940f5e1f9487de",
+      "object_exists": true,
+      "object_type": "blob",
+      "occurrence_row_ids": [
+        "claim-001::source-12",
+        "claim-002::source-18",
+        "claim-004::source-09"
+      ],
+      "parseability_by_path": {
+        "development/latest-dev-docs/automation-runs/source-library-replay-scaleout/2026-05-22/input.json": {
+          "kind": "JSON",
+          "parseable": true,
+          "root_type": "dict",
+          "top_level_keys": [
+            "description",
+            "project_key",
+            "public_network_default",
+            "query_terms",
+            "source_library_item_key",
+            "targets"
+          ]
+        }
+      }
+    },
+    {
+      "actual_bytes": 18793,
+      "actual_sha256": "2850148ca49c254d8ce47cbc6b2bb53201a4bc7627a8947b3ae447a909dba5a1",
+      "expected_bytes_match": true,
+      "expected_bytes_values": [
+        18793
+      ],
+      "expected_sha256_match": true,
+      "expected_sha256_values": [
+        "2850148ca49c254d8ce47cbc6b2bb53201a4bc7627a8947b3ae447a909dba5a1"
+      ],
+      "git_blob_oid": "fea2ea37c91627973c13fd199ba2b2901df01216",
+      "object_exists": true,
+      "object_type": "blob",
+      "occurrence_row_ids": [
+        "claim-001::source-07",
+        "claim-002::source-13",
+        "claim-004::source-04"
+      ],
+      "parseability_by_path": {
+        "development/latest-dev-docs/automation-runs/source-library-live-probes/2026-05-22/output.json": {
+          "kind": "JSON",
+          "parseable": true,
+          "root_type": "dict",
+          "top_level_keys": [
+            "closure_status",
+            "finished_at",
+            "inputs",
+            "mode",
+            "outputs",
+            "probe_id",
+            "started_at",
+            "validation"
+          ]
+        }
+      }
+    }
+  ]
+}

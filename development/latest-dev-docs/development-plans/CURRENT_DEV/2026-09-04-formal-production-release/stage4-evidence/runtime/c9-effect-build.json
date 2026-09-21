@@ -1,0 +1,73 @@
+{
+  "schema_version": "mrw.stage4.s4-business-001-c9-effect-build.v1",
+  "authoritative": false,
+  "base": {
+    "reference": "mrw-local/r13x-candidate-backend:8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+    "image_id": "sha256:d72688f24fb867ae2e0e9310cfc9ec25aac649a8da69130ee26469c0bd37c2ef",
+    "commit": "8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+    "tree": "ce7c67c831b51f9d64b4c2f1a470a724a50b19df"
+  },
+  "build": {
+    "dockerfile": "runtime/Dockerfile.business003",
+    "command": "docker build --platform linux/amd64 --pull=false --load -f development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage4-evidence/runtime/Dockerfile.business003 -t mrw-local/stage4-business001:stage4-c9-effect .",
+    "exit_code": 0,
+    "network_or_publish_action": false,
+    "source_context": "current working tree; frozen r13x base image retained and unchanged"
+  },
+  "inputs": [
+    {
+      "container_path": "/docker-entrypoint.sh",
+      "source_path": "main/backend/docker-entrypoint.sh",
+      "sha256": "f5215bda79994b29c544763f9a88fbdbefd863a0ab3b70f2962f09b62de677c7"
+    },
+    {
+      "container_path": "/app/app/composition/production.py",
+      "source_path": "main/backend/app/composition/production.py",
+      "sha256": "038ce36ea89cce02f92b7f7e63702b770cc5b5777331b443849f449dfe5ccab5"
+    },
+    {
+      "container_path": "/app/app/composition/production_runtime.py",
+      "source_path": "main/backend/app/composition/production_runtime.py",
+      "sha256": "ec27d3c09b1b975a1d00bd49c44fa3ce692514c4fa747aed7177b3868e1127a4"
+    },
+    {
+      "container_path": "/app/app/api/__init__.py",
+      "source_path": "main/backend/app/api/__init__.py",
+      "sha256": "976f0806bfde7e319319f2a706a0d5a4fafd89c62c97d6188c62422b03447500"
+    },
+    {
+      "container_path": "/app/app/composition/production_route_bindings.json",
+      "source_path": "main/backend/app/composition/production_route_bindings.json",
+      "sha256": "9d88ad8dfd41c633bc60a3c7fcf4243e18b9bbb29948a8ce3d6d39fee28db51b"
+    },
+    {
+      "container_path": "/app/app/successor_runtime/substrate/postgres/facade_commands.py",
+      "source_path": "main/backend/app/successor_runtime/substrate/postgres/facade_commands.py",
+      "sha256": "7b9f99c6ea4d16e2aa02c2e215086e43f8332d9dfe681529ac82fce8965b462e"
+    },
+    {
+      "container_path": "/app/app/successor_runtime/substrate/postgres/authority_provider.py",
+      "source_path": "main/backend/app/successor_runtime/substrate/postgres/authority_provider.py",
+      "sha256": "87ccfc6670af54d4742b5de691731c8454e1bea45830f99e92c80498cbb73a79"
+    }
+  ],
+  "result": {
+    "reference": "mrw-local/stage4-business001:stage4-c9-effect",
+    "image_id": "sha256:f247a1492400311e032710df01f84365c7e700f61c122b7243ae58eda982af19",
+    "repo_digest": "mrw-local/stage4-business001@sha256:f247a1492400311e032710df01f84365c7e700f61c122b7243ae58eda982af19",
+    "platform": "linux/amd64",
+    "compose_roles": ["backend", "celery-worker"],
+    "override": "runtime/compose.business001.override.yml"
+  },
+  "seed_mapping": {
+    "script": "runtime/seed-c9-effect.py",
+    "script_sha256": "6518230666e13504985389c8e86d18e871e62cfd6704de7efdad30b421d5879f",
+    "purpose": "task-tenant source, scope, capability, grant, approval, step and initial offset seed; actor derived at runtime",
+    "request_body_persisted": false
+  },
+  "authority_ceiling": [
+    "LOCAL_STAGE4_RUNTIME_ONLY",
+    "NOT_AUTHORITY",
+    "PRODUCTION_RELEASE_NOT_AUTHORIZED"
+  ]
+}

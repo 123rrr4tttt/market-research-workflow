@@ -1,0 +1,10 @@
+{
+  "argv": [
+    "docker",
+    "buildx",
+    "inspect",
+    "--bootstrap",
+    "mrw-r13v-oci-smoke-47327-1789218494"
+  ],
+  "cwd": null
+}

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from typing import Annotated, get_args, get_origin, get_type_hints
 
 import pytest
 
@@ -9,6 +10,7 @@ from scripts.check_open_search_runtime_boundary import (
     endpoint_config,
     validate_contract,
 )
+from tests.unit._evidence_source_assertions import assert_typed_evidence_unavailable
 
 
 pytestmark = pytest.mark.unit
@@ -41,8 +43,8 @@ class OpenSearchRuntimeBoundaryTest(unittest.TestCase):
     def test_skip_live_probe_keeps_configured_endpoints_distinct_from_runtime_closure(self) -> None:
         contract = build_contract(enable_live_probe=False, env={})
 
-        self.assertEqual(validate_contract(contract), [])
-        self.assertEqual(contract["status"], "passed")
+        self.assertTrue(validate_contract(contract))
+        assert_typed_evidence_unavailable(self, contract)
         self.assertEqual(contract["external_runtime_gap"], "retained")
         self.assertFalse(contract["closure_claim_allowed"])
         self.assertEqual(contract["configured_endpoints"]["searxng"]["endpoint_state"], "configured_endpoint")
@@ -71,7 +73,7 @@ class OpenSearchRuntimeBoundaryTest(unittest.TestCase):
 
         contract = build_contract(enable_live_probe=True, env={}, search_runner=runner)
 
-        self.assertEqual(contract["status"], "passed")
+        assert_typed_evidence_unavailable(self, contract)
         for provider, row in contract["provider_runtime_boundaries"].items():
             self.assertEqual(row["runtime_state"], "service_not_started", provider)
             self.assertEqual(row["boundary_classification"], "service_not_started_connect_error", provider)
@@ -85,7 +87,7 @@ class OpenSearchRuntimeBoundaryTest(unittest.TestCase):
 
         contract = build_contract(enable_live_probe=True, env={}, search_runner=runner)
 
-        self.assertEqual(contract["status"], "passed")
+        assert_typed_evidence_unavailable(self, contract)
         for provider, row in contract["provider_runtime_boundaries"].items():
             self.assertEqual(row["runtime_state"], "live_query_returned", provider)
             self.assertEqual(row["boundary_classification"], "live_query_unsealed", provider)
@@ -105,6 +107,16 @@ class OpenSearchRuntimeBoundaryTest(unittest.TestCase):
 
         self.assertFalse(config["configured"])
         self.assertEqual(config["endpoint_state"], "invalid_endpoint")
+
+    def test_open_search_runtime_boundary_authority_metadata(self) -> None:
+        return_hint = get_type_hints(build_contract, include_extras=True)["return"]
+        self.assertIs(get_origin(return_hint), Annotated)
+        _, metadata = get_args(return_hint)
+        self.assertEqual(
+            metadata,
+            "kit:non-authoritative derived_as=preflight fact_source=repository.open_search_boundary_contract_and_runtime_probe "
+            "witness=test:test_open_search_runtime_boundary_authority_metadata",
+        )
 
 
 if __name__ == "__main__":

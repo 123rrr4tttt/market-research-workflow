@@ -1,0 +1,309 @@
+{
+  "schema_version": "mrw.contract13.historical_candidates_readonly_verification.v1",
+  "record_id": "contract13-item2-historical-candidates-20260906-v1",
+  "observed_at_utc": "2026-09-06T06:50:17Z",
+  "status": "PASS",
+  "authoritative": false,
+  "scope": "CONTRACT_13_REQUIRED_BOUNDED_CORRECTIONS_ITEM_2",
+  "contract_bindings": [
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/13_contract12-supervisor-review-and-return.v1.md",
+      "expected_sha256": "ac1629315b3ae91aa9de59b7ae87da04a5f10c54d643e406d8785a0783071717",
+      "actual_sha256": "ac1629315b3ae91aa9de59b7ae87da04a5f10c54d643e406d8785a0783071717",
+      "status": "MATCH"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/08_stage1-stage2-additive-successor-return-contract.v1.md",
+      "actual_sha256": "77db632919118f7a37924634453f38eae260261de78ac4f063743db818325dc5",
+      "role": "v3 historical paths and hashes",
+      "status": "OBSERVED"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/09_production-deployment-stage3-successor-contract.v1.md",
+      "actual_sha256": "61d5b99ce8966b1bdb4eadf754ae03b7651026098b38da09dd46a69e773237be",
+      "role": "v4 paths and hashes",
+      "status": "OBSERVED"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/10_stage1-stage2-source-and-static-closure-return-contract.v1.md",
+      "actual_sha256": "0c20328727fdefca6a3161e212490a2043efeee17e4bffc854f8ee17847cdd6b",
+      "role": "historical input requirements",
+      "status": "OBSERVED"
+    }
+  ],
+  "candidates": [
+    {
+      "version": "v3",
+      "root": "/Users/wangyiliang/.codex/release-candidates/mrw-stage2-20260906-v3",
+      "root_status": "EXISTS",
+      "expected_commit": "f8d84afc2784cf91784da957e353e2b0c0d6952c",
+      "actual_commit": "f8d84afc2784cf91784da957e353e2b0c0d6952c",
+      "commit_status": "MATCH",
+      "expected_tree": "1be3dcbc009332ec225297d1b94430862287d816",
+      "actual_tree": "1be3dcbc009332ec225297d1b94430862287d816",
+      "tree_status": "MATCH",
+      "actual_parent": "88ffcc3dab2e6cbdc1f389e16c4226df5a2e51c6",
+      "tracked_changes": 0,
+      "untracked_paths": 0,
+      "clean_status": "PASS",
+      "worktree_diff_check": "PASS",
+      "cached_diff_check": "PASS",
+      "tracked_file_count": 9958,
+      "pre_post_guard": {
+        "root_inode": 119271025,
+        "root_mtime_epoch_seconds": 1788656104,
+        "index_sha256_before": "0e190e4c636878a35f3efffc1cc632c14233e31aaed864574396d1e1da99f9dd",
+        "index_sha256_after": "0e190e4c636878a35f3efffc1cc632c14233e31aaed864574396d1e1da99f9dd",
+        "index_mtime_epoch_seconds_before": 1788656205,
+        "index_mtime_epoch_seconds_after": 1788656205,
+        "status": "UNCHANGED"
+      }
+    },
+    {
+      "version": "v4",
+      "root": "/Users/wangyiliang/.codex/release-candidates/mrw-stage2-20260906-v4",
+      "root_status": "EXISTS",
+      "expected_commit": "e1aa59708a22e4238c4d9beaf7b7bd2d2095d483",
+      "actual_commit": "e1aa59708a22e4238c4d9beaf7b7bd2d2095d483",
+      "commit_status": "MATCH",
+      "expected_tree": "d2003fbb8e54c8dd743fa4e84907a8a978ef5107",
+      "actual_tree": "d2003fbb8e54c8dd743fa4e84907a8a978ef5107",
+      "tree_status": "MATCH",
+      "actual_parent": "88ffcc3dab2e6cbdc1f389e16c4226df5a2e51c6",
+      "tracked_changes": 0,
+      "untracked_paths": 0,
+      "clean_status": "PASS",
+      "worktree_diff_check": "PASS",
+      "cached_diff_check": "PASS",
+      "tracked_file_count": 9971,
+      "pre_post_guard": {
+        "root_inode": 119417201,
+        "root_mtime_epoch_seconds": 1788664418,
+        "index_sha256_before": "bac43a5e7217366c956f2d9a848c721b79c47f66c905bbdfa97093c1ddec4120",
+        "index_sha256_after": "bac43a5e7217366c956f2d9a848c721b79c47f66c905bbdfa97093c1ddec4120",
+        "index_mtime_epoch_seconds_before": 1788664418,
+        "index_mtime_epoch_seconds_after": 1788664418,
+        "status": "UNCHANGED"
+      }
+    }
+  ],
+  "stage2_evidence": [
+    {
+      "version": "v3",
+      "path": "/Users/wangyiliang/.codex/release-evidence/mrw-stage2-20260906-v3/candidate-manifest.v3.json",
+      "expected_sha256": "a95e4103dfa3743c6a603079f838d48a20665b38afe7fa2a9b2623ab443522bf",
+      "actual_sha256": "a95e4103dfa3743c6a603079f838d48a20665b38afe7fa2a9b2623ab443522bf",
+      "parse_status": "PASS",
+      "status": "MATCH"
+    },
+    {
+      "version": "v3",
+      "path": "/Users/wangyiliang/.codex/release-evidence/mrw-stage2-20260906-v3/closure.final.v3.json",
+      "expected_sha256": "53497a752a9207b4dc54f8a5ab7e8af23d3f937a82fb71c8e8bc3092fc410808",
+      "actual_sha256": "53497a752a9207b4dc54f8a5ab7e8af23d3f937a82fb71c8e8bc3092fc410808",
+      "parse_status": "PASS",
+      "status": "MATCH"
+    },
+    {
+      "version": "v3",
+      "path": "/Users/wangyiliang/.codex/release-evidence/mrw-stage2-20260906-v3/r1.final.v3.json",
+      "expected_sha256": "fdd6053faeada17b62c050207078ff5944a3c759eb5d6183a43ac4f74cc4774e",
+      "actual_sha256": "fdd6053faeada17b62c050207078ff5944a3c759eb5d6183a43ac4f74cc4774e",
+      "parse_status": "PASS",
+      "status": "MATCH"
+    },
+    {
+      "version": "v3",
+      "path": "/Users/wangyiliang/.codex/release-evidence/mrw-stage2-20260906-v3/stage2-record.final.v3.json",
+      "expected_sha256": "46d0df3f320619508130f87f6f8d60baba6c6080918293f3d021fbe7e26fb312",
+      "actual_sha256": "46d0df3f320619508130f87f6f8d60baba6c6080918293f3d021fbe7e26fb312",
+      "parse_status": "PASS",
+      "status": "MATCH"
+    },
+    {
+      "version": "v3",
+      "path": "/Users/wangyiliang/.codex/release-evidence/mrw-stage2-20260906-v3/candidate-primary.materialization.v3.json",
+      "expected_sha256": null,
+      "actual_sha256": "ba607a9833fdbda45feaa2f088573d60fa79db6ded765ad78b94bb7a4d89732a",
+      "parse_status": "PASS",
+      "identity_status": "MATCH",
+      "status": "OBSERVED_NOT_CONTRACT10_HASH_BOUND"
+    },
+    {
+      "version": "v3",
+      "path": "/Users/wangyiliang/.codex/release-evidence/mrw-stage2-20260906-v3/candidate-replay.materialization.v3.json",
+      "expected_sha256": null,
+      "actual_sha256": "72eef438903c0697b47ab987d62ed0c16206759df5b64e5f574fc2921b5af2a1",
+      "parse_status": "PASS",
+      "identity_status": "MATCH",
+      "status": "OBSERVED_NOT_CONTRACT10_HASH_BOUND"
+    },
+    {
+      "version": "v4",
+      "path": "/Users/wangyiliang/.codex/release-evidence/mrw-stage2-20260906-v4/candidate-manifest.v4.json",
+      "expected_sha256": "abc012b5c114d2d280db5bc5fc24c5591caa5bacc76840b154ec848dca5ae8b0",
+      "actual_sha256": "abc012b5c114d2d280db5bc5fc24c5591caa5bacc76840b154ec848dca5ae8b0",
+      "parse_status": "PASS",
+      "status": "MATCH"
+    },
+    {
+      "version": "v4",
+      "path": "/Users/wangyiliang/.codex/release-evidence/mrw-stage2-20260906-v4/closure.final.v4.json",
+      "expected_sha256": "6e3cf6dfd3ac7c336e81ab5c9b2e310373de7b981edce88109261ac031575c18",
+      "actual_sha256": "6e3cf6dfd3ac7c336e81ab5c9b2e310373de7b981edce88109261ac031575c18",
+      "parse_status": "PASS",
+      "status": "MATCH"
+    },
+    {
+      "version": "v4",
+      "path": "/Users/wangyiliang/.codex/release-evidence/mrw-stage2-20260906-v4/r1.final.v4.json",
+      "expected_sha256": "79f7301e0c1e08553982ccc5c88f5854113825c81019ef6244da6bbd025260f0",
+      "actual_sha256": "79f7301e0c1e08553982ccc5c88f5854113825c81019ef6244da6bbd025260f0",
+      "parse_status": "PASS",
+      "status": "MATCH"
+    },
+    {
+      "version": "v4",
+      "path": "/Users/wangyiliang/.codex/release-evidence/mrw-stage2-20260906-v4/r2.pass.v4.json",
+      "expected_sha256": "8e37eee14ea2eb865a048f57fec7ca55346da642509dc65ac99899b3d69a87ce",
+      "actual_sha256": "8e37eee14ea2eb865a048f57fec7ca55346da642509dc65ac99899b3d69a87ce",
+      "parse_status": "PASS",
+      "status": "MATCH"
+    },
+    {
+      "version": "v4",
+      "path": "/Users/wangyiliang/.codex/release-evidence/mrw-stage2-20260906-v4/r3.pass.v4.json",
+      "expected_sha256": "86c67a4532a5a125f65c8f7405bd2b4b775472112e1577d85355fe6001ff5383",
+      "actual_sha256": "86c67a4532a5a125f65c8f7405bd2b4b775472112e1577d85355fe6001ff5383",
+      "parse_status": "PASS",
+      "status": "MATCH"
+    },
+    {
+      "version": "v4",
+      "path": "/Users/wangyiliang/.codex/release-evidence/mrw-stage2-20260906-v4/stage2-record.final.v4.json",
+      "expected_sha256": "e2797d157c0a97f70b382d6ee6197bbcb073f6e55ac6ced5abe6946318345891",
+      "actual_sha256": "e2797d157c0a97f70b382d6ee6197bbcb073f6e55ac6ced5abe6946318345891",
+      "parse_status": "PASS",
+      "status": "MATCH"
+    },
+    {
+      "version": "v4",
+      "path": "/Users/wangyiliang/.codex/release-evidence/mrw-stage2-20260906-v4/candidate-primary.materialization.v4.json",
+      "expected_sha256": "76256addd9668a7d3a466fff2b2c98ab76be9e87ad9236878c8d483c5de0161b",
+      "actual_sha256": "76256addd9668a7d3a466fff2b2c98ab76be9e87ad9236878c8d483c5de0161b",
+      "parse_status": "PASS",
+      "identity_status": "MATCH",
+      "status": "MATCH"
+    },
+    {
+      "version": "v4",
+      "path": "/Users/wangyiliang/.codex/release-evidence/mrw-stage2-20260906-v4/candidate-replay.materialization.v4.json",
+      "expected_sha256": "53aada9354d0c4410b7b359cd05b76e03899225f116107862e8fadd730beb6e6",
+      "actual_sha256": "53aada9354d0c4410b7b359cd05b76e03899225f116107862e8fadd730beb6e6",
+      "parse_status": "PASS",
+      "identity_status": "MATCH",
+      "status": "MATCH"
+    }
+  ],
+  "contract10_historical_inputs": [
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/04_production-deployment-stage-plan.v1.md",
+      "expected_sha256": "d04ae870b5d2a13afacdc7a07e9d5a89b7ab77e7b6c2d6cdd4bd2101151f76fa",
+      "actual_sha256": "d04ae870b5d2a13afacdc7a07e9d5a89b7ab77e7b6c2d6cdd4bd2101151f76fa",
+      "parse_status": "NOT_APPLICABLE_MARKDOWN",
+      "status": "MATCH"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/05_production-deployment-stage-plan.freeze.v1.json",
+      "expected_sha256": "06d2ec76f7c59973997311ac7ae416005ae0b9c7784598b11127e436dcf8a2aa",
+      "actual_sha256": "06d2ec76f7c59973997311ac7ae416005ae0b9c7784598b11127e436dcf8a2aa",
+      "parse_status": "PASS",
+      "status": "MATCH"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage0-evidence/functorial-refactor-completion.v4.json",
+      "expected_sha256": "4911df1c6450d9802ac7bd6b0669ef3a7343e3ce308d33f0a46dde2c4cb62dda",
+      "actual_sha256": "4911df1c6450d9802ac7bd6b0669ef3a7343e3ce308d33f0a46dde2c4cb62dda",
+      "parse_status": "PASS",
+      "status": "MATCH"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage1-evidence/production-contract-implementation.v1.json",
+      "expected_sha256": "3f5c745ce8253522fa7e3728ba112ed41c80f3b6aa7409ddf028621c6ae07f31",
+      "actual_sha256": "3f5c745ce8253522fa7e3728ba112ed41c80f3b6aa7409ddf028621c6ae07f31",
+      "parse_status": "PASS",
+      "status": "MATCH"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage1-evidence/independent-review.v1.md",
+      "expected_sha256": "10117a7c8c4eec19c33e3ad841c99fb301c43fcda71f8d7addbde4070646f72c",
+      "actual_sha256": "10117a7c8c4eec19c33e3ad841c99fb301c43fcda71f8d7addbde4070646f72c",
+      "parse_status": "NOT_APPLICABLE_MARKDOWN",
+      "status": "MATCH"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage1-successor-evidence/r2-remediation.v1/stage1-r2-remediation-record.v1.json",
+      "expected_sha256": "97203433ca9dcf7f36e98f4dca2461d60f0159515f002127c153a5e061f74efe",
+      "actual_sha256": "97203433ca9dcf7f36e98f4dca2461d60f0159515f002127c153a5e061f74efe",
+      "parse_status": "PASS",
+      "status": "MATCH"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/evidence-index.v2.json",
+      "expected_sha256": "fbe1914ff111879edd1d1f5db02b7322232bdfa0bf05e752581ce2ea53992926",
+      "actual_sha256": "fbe1914ff111879edd1d1f5db02b7322232bdfa0bf05e752581ce2ea53992926",
+      "parse_status": "PASS",
+      "indexed_current_members": 18,
+      "indexed_superseded_members": 6,
+      "indexed_paths_existing": 24,
+      "indexed_hashes_matching": 24,
+      "indexed_member_status": "ALL_MATCH",
+      "status": "MATCH"
+    }
+  ],
+  "stage3_index_member_verification": [
+    ["development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/preconditions.static.v1.json", "341aad887b8b1c81b0c0b409e83ace29e6fc772103e592d504290af1b9eced6f", "MATCH"],
+    ["development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/fresh-r1-r2-r3.v1.json", "db5dd0b7b1f01a88de997a39495702df0735df16f5650598fed5e03dcb4a69ec", "MATCH"],
+    ["development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/test-gates.rebuild-required.v2.json", "d5f6329eae1f05f6be4e94bdd51dc0042af5f093bc43594e60b842c479a1125a", "MATCH"],
+    ["development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/release-evidence-manifest.rebuild-required.v2.json", "bc15bfada25c463583eaff84f78f03de434227e262c53872cbb6f36a43c1ad7f", "MATCH"],
+    ["development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/release-evidence-validation.rebuild-required.v2.json", "75d537f42485f91cbfb118245abc17d5f8edc45b36bad6ddd5d8a1bf88064376", "MATCH"],
+    ["development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/cleanup.v2.json", "996d976e023c96a6c1834007961c4f7e7b90f25feb0019732e93a1c76e0b406a", "MATCH"],
+    ["development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/stage3-candidate-artifact.rebuild-required.v3.json", "347f26bb6a730bb1fdc98224634a4c414a96da06e3ece598dd19b99bbc25080c", "MATCH"],
+    ["development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/receipts/backend-unit-attempt1-missing-ci-env.log", "c9d5461f589a6b6545117f3ad79c26910e67acc03db3c0727b5e7b062ec2b222", "MATCH"],
+    ["development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/receipts/backend-unit-attempt2-ci-env.log", "6b7700ca2b8e1db75996e44bd2e376ca7c25f86e5a6cbf9798b14c1d96e39c49", "MATCH"],
+    ["development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/receipts/backend-unit-import-gap-diagnostic.log", "d251cbc3ebd5bc95fc743792dc9a26a0aa6b3a55d31273efd9341f5f81e63e76", "MATCH"],
+    ["development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/receipts/fresh-r1.log", "79f7301e0c1e08553982ccc5c88f5854113825c81019ef6244da6bbd025260f0", "MATCH"],
+    ["development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/receipts/fresh-r1.v1.json", "79f7301e0c1e08553982ccc5c88f5854113825c81019ef6244da6bbd025260f0", "MATCH"],
+    ["development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/receipts/fresh-r2-focused.log", "185fee9ff5fe0f86ce14ba73a8a6f0801271e441c85f8c36f5c8d80abd930bab", "MATCH"],
+    ["development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/receipts/fresh-r3.log", "86c67a4532a5a125f65c8f7405bd2b4b775472112e1577d85355fe6001ff5383", "MATCH"],
+    ["development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/receipts/fresh-r3.v1.json", "86c67a4532a5a125f65c8f7405bd2b4b775472112e1577d85355fe6001ff5383", "MATCH"],
+    ["development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/receipts/stage1-historical-checker.log", "c1477c7730428bf854fb9c662324b85510ed4345fd15eab6975fe92b251ffc9c", "MATCH"],
+    ["development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/receipts/stage1-r2-remediation-checker.log", "874c62a1d5f5c8493382dd65e41058d59b864c64638e14ff7dc18ec7dca3e080", "MATCH"],
+    ["development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/receipts/workflow-fail-closed.log", "ac7ee2c43368e57d190c6ac089b2190a1f05864eabdfdc3e6d564b749e85fcc3", "MATCH"],
+    ["development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/test-gates.rebuild-required.v1.json", "8f60b94f568f275ff291b77e7ff12c8e3b018339f5a3fa0612b5ce8927d4bb87", "MATCH"],
+    ["development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/release-evidence-manifest.rebuild-required.v1.json", "46b75e445cd7b2f12fbd9899045884da8a369599b44df82fd5ab5a8eebf82c21", "MATCH"],
+    ["development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/release-evidence-validation.rebuild-required.v1.json", "9b6b68d354f52f6bf4e834611720ec842bdf6153a871207ca71c9181ca84d44a", "MATCH"],
+    ["development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/cleanup.v1.json", "ca97abee94b5a809d429a00a397711a364d75d7e37fa768ac33b1b13e3b81bd7", "MATCH"],
+    ["development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/stage3-candidate-artifact.rebuild-required.v2.json", "2f7c117f2ee2913a3d357c36afe971a5d0dbac5a5debe824181f2d1ac0f92690", "MATCH"],
+    ["development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/evidence-index.v1.json", "05279c4d9417696e0667a121fc29bd5b50e15fd92821566c40e2d5832d595653", "MATCH"]
+  ],
+  "validation": {
+    "json_evidence_parse": "PASS",
+    "expected_hashes": "PASS",
+    "candidate_identity": "PASS",
+    "candidate_cleanliness": "PASS",
+    "candidate_diff_check": "PASS",
+    "candidate_index_pre_post_unchanged": "PASS",
+    "stage3_index_members": "PASS_24_OF_24",
+    "historical_drift": []
+  },
+  "execution_controls": {
+    "candidate_code_imported": false,
+    "candidate_commands": "GIT_OPTIONAL_LOCKS=0 git -C <root> -c core.hooksPath=/dev/null read-only plumbing/status/diff",
+    "candidate_cache_created": false,
+    "historical_roots_modified": false,
+    "external_effects": []
+  },
+  "conclusion": "HISTORICAL_V3_V4_EXACT_AND_CLEAN_ALL_CONTRACT10_BOUND_HASHES_MATCH",
+  "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE"
+}

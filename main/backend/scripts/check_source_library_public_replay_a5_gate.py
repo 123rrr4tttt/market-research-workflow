@@ -4,7 +4,11 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
+try:
+    from ._cli_runtime import repo_root as _repo_root
+except ImportError:  # direct script execution
+    from _cli_runtime import repo_root as _repo_root
 
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
@@ -14,6 +18,9 @@ if str(BACKEND_ROOT) not in sys.path:
 from scripts.source_library_replay_scaleout import DEFAULT_HISTORICAL_TARGETS
 from scripts.source_library_replay_scaleout import run_replay
 from scripts.source_library_replay_scaleout import validate_manifest_targets
+from scripts.check_evidence_source_availability import EVIDENCE_SOURCE_UNAVAILABLE
+from scripts.check_evidence_source_availability import classify_required_evidence
+from scripts.check_evidence_source_availability import unavailable_error
 
 
 CONTRACT_VERSION = "source_library.public_replay_a5_gate.v1"
@@ -27,10 +34,6 @@ WAVE47_CLOSURE_DOC = Path(
     "docs/development/development-plans/ARCHIVE_CLOSED/"
     "2026-03-07-crawler-source-expansion/10_wave47-manual-public-replay-closure-2026-05-23.md"
 )
-
-
-def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[3]
 
 
 def _load_json(root: Path, relative_path: Path, errors: list[str]) -> dict[str, Any]:
@@ -258,10 +261,25 @@ def _closure_review_summary(root: Path, errors: list[str]) -> dict[str, Any]:
     }
 
 
-def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
+def build_check(repo_root: Path | str | None = None) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=generated_evidence fact_source=wave47_closure_doc+replay_validation+repo_static_checks witness=test:test_c13_cli_graph_workflow_metadata_preserves_abi",
+]:
     root = Path(repo_root) if repo_root is not None else _repo_root()
     root = root.resolve()
     errors: list[str] = []
+
+    evidence_source = classify_required_evidence(
+        root,
+        {
+            "source_replay_input": REPLAY_RUN_DIR / "input.json",
+            "deterministic_replay_output": REPLAY_RUN_DIR / "output.json",
+            "live_probe_output": LIVE_PROBE_RUN_DIR / "output.json",
+            "full_public_replay_output": REPLAY_RUN_DIR / "output.public.json",
+        },
+    )
+    if evidence_source["status"] == EVIDENCE_SOURCE_UNAVAILABLE:
+        errors.append(unavailable_error(evidence_source))
 
     manifest_validation = validate_manifest_targets([dict(target) for target in DEFAULT_HISTORICAL_TARGETS])
     _require(bool(manifest_validation.get("passed")), errors, "embedded 45-site manifest validation must pass")
@@ -315,13 +333,16 @@ def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
         "contract_version": CONTRACT_VERSION,
         "repo_root": str(root),
         "a5_status": (
-            "deterministic_replay_gate_closed_external_public_replay_blocked"
+            EVIDENCE_SOURCE_UNAVAILABLE
+            if evidence_source["status"] == EVIDENCE_SOURCE_UNAVAILABLE
+            else "deterministic_replay_gate_closed_external_public_replay_blocked"
             if not full_public_output_path.is_file()
             else "full_public_replay_reviewed_closed"
             if full_public_reviewed
             else "full_public_replay_artifact_present_review_required"
         ),
         "evidence_doc": str(WAVE7_A5_DOC),
+        "evidence_source": evidence_source,
         "closure_review_doc": str(WAVE47_CLOSURE_DOC),
         "a5_gate": {
             "embedded_manifest": manifest_validation,

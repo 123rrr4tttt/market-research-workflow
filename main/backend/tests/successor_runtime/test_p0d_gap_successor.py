@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import hashlib
-from dataclasses import replace
+from dataclasses import asdict, fields, replace
 from datetime import UTC, datetime
+from typing import Annotated, get_args, get_origin, get_type_hints
 
 import pytest
 
@@ -12,6 +13,7 @@ from app.successor_runtime.capabilities import (
 )
 from app.successor_runtime.capabilities.catalog import build_first_specimen_registry
 from app.successor_runtime.capabilities.first_specimen_successor import (
+    GapSuccessorClosure,
     GapSuccessorRejected,
     build_gap_successor_closure,
 )
@@ -164,6 +166,31 @@ def test_gap_materializes_schema_valid_successor_and_opens_relation() -> None:
     assert "source_gap_ref" not in dict(root.second.literal_value)
     assert dict(dict(root.second.literal_value)["replan_policy"])["source_gap_ref"] == (
         inputs["gap"].gap_id
+    )
+
+
+def test_gap_successor_closure_non_authoritative_plan_metadata() -> None:
+    inputs = _fixture()
+    closure = build_gap_successor_closure(**inputs)
+
+    assert type(closure) is GapSuccessorClosure
+    field_names = {field.name for field in fields(GapSuccessorClosure)}
+    serialized = asdict(closure)
+    assert field_names.isdisjoint({"authoritative", "derived_as"})
+    assert serialized.keys().isdisjoint({"authoritative", "derived_as"})
+    assert replace(closure) == closure
+
+    hints = get_type_hints(
+        build_gap_successor_closure,
+        include_extras=True,
+    )
+    return_type = hints["return"]
+    assert get_origin(return_type) is Annotated  # type: ignore[comparison-overlap]
+    assert get_args(return_type)[0] is GapSuccessorClosure
+    assert get_args(return_type)[1] == (
+        "kit:non-authoritative derived_as=generated_evidence "
+        "fact_source=predecessor_materialization_inputs "
+        "witness=test:test_gap_successor_closure_non_authoritative_plan_metadata"
     )
 
 

@@ -1,0 +1,70 @@
+{
+  "authoritative": false,
+  "authority": {
+    "candidate_promotion": false,
+    "cutover": false,
+    "deployment": false,
+    "external_delivery": false,
+    "legacy_retirement": false,
+    "live_provider": false,
+    "production_canonical_write": false,
+    "production_release": false
+  },
+  "authority_ceiling": "EXACT_BYTE_CORRESPONDENCE_ONLY_NO_CANDIDATE_PROMOTION_NO_STAGE0_REWRITE_NO_PRODUCTION_AUTHORITY",
+  "content_digest": "5d1af2a9a5d7b52f0e21eeb3a00cd57c62adefcae3d3446e4041f82e342a8948",
+  "member_count": 10,
+  "members": [
+    {
+      "bytes": 13888,
+      "path": "stage1-successor-evidence/current-byte-remediation-v3/semantic-bindings/build_semantic_binding_successors_v3.py",
+      "sha256": "8a17e707f7f8ec103a996788b17d1e51bab210762f99e1caa6011f6b72611f70"
+    },
+    {
+      "bytes": 3232,
+      "path": "stage1-successor-evidence/current-byte-remediation-v3/semantic-bindings/check_semantic_binding_successors_v3.py",
+      "sha256": "f1c7c24dcbf133877baa75ef44d3650a16357f98790d8e91edbb4bdd704f3b5c"
+    },
+    {
+      "bytes": 20487,
+      "path": "stage1-successor-evidence/current-byte-remediation-v3/semantic-bindings/semantic-binding-successors.v3.json",
+      "sha256": "e39a5f84bf23cb3ae863b84ac7a98e62a61c857505937012e373746841e7fb5d"
+    },
+    {
+      "bytes": 32274,
+      "path": "stage1-successor-evidence/current-byte-remediation-v3/semantic-bindings/snapshots/0b9ba3f993c8577902052243bda4dfc6b382abdf53d5ed6e84b6cb78c95512e8",
+      "sha256": "0b9ba3f993c8577902052243bda4dfc6b382abdf53d5ed6e84b6cb78c95512e8"
+    },
+    {
+      "bytes": 25944,
+      "path": "stage1-successor-evidence/current-byte-remediation-v3/semantic-bindings/snapshots/40fea5ab8d9526ec1c085ab353e9acf12564c5c348dcb826cc46557ea6b81bd0",
+      "sha256": "40fea5ab8d9526ec1c085ab353e9acf12564c5c348dcb826cc46557ea6b81bd0"
+    },
+    {
+      "bytes": 250677,
+      "path": "stage1-successor-evidence/current-byte-remediation-v3/semantic-bindings/snapshots/776ae30af7d5224bbff17006909e52efcd8384cd041fef01e2d169a3dc1fe440",
+      "sha256": "776ae30af7d5224bbff17006909e52efcd8384cd041fef01e2d169a3dc1fe440"
+    },
+    {
+      "bytes": 7597,
+      "path": "stage1-successor-evidence/current-byte-remediation-v3/semantic-bindings/snapshots/7936419d8fe94475640ec133198dec2db8c24af00e1d75d716425a8696d93514",
+      "sha256": "7936419d8fe94475640ec133198dec2db8c24af00e1d75d716425a8696d93514"
+    },
+    {
+      "bytes": 23291,
+      "path": "stage1-successor-evidence/current-byte-remediation-v3/semantic-bindings/snapshots/8c6814d0c21e7957bfc3d84a1fcf47d0598e81959768adcd5be5662a32af460f",
+      "sha256": "8c6814d0c21e7957bfc3d84a1fcf47d0598e81959768adcd5be5662a32af460f"
+    },
+    {
+      "bytes": 9988,
+      "path": "stage1-successor-evidence/current-byte-remediation-v3/semantic-bindings/snapshots/dea6b74abfdb2b70fabfbe3f598fa5bc87c3d655617085875ad5fc7c3bd6c387",
+      "sha256": "dea6b74abfdb2b70fabfbe3f598fa5bc87c3d655617085875ad5fc7c3bd6c387"
+    },
+    {
+      "bytes": 2304,
+      "path": "stage1-successor-evidence/current-byte-remediation-v3/semantic-bindings/test_semantic_binding_successors_v3.py",
+      "sha256": "88a9c436879a885485e54ed141e52238d2118e2b921f3f548d3f934d319679c7"
+    }
+  ],
+  "schema": "mrw.current_byte_semantic_binding_manifest.v3",
+  "status": "COMPLETE_NOT_AUTHORITY"
+}

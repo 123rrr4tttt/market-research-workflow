@@ -1,0 +1,31 @@
+{
+  "authoritative": false,
+  "schema_version": "mrw.stage4.s4-c9-effect-rework-focused.v1",
+  "status": "PASS_LOCAL_FOCUSED_NOT_AUTHORITY",
+  "executed_at": "2026-09-13",
+  "command": "python -m pytest -q -p no:cacheprovider tests/successor_runtime/test_c9_movement_closure_backend_postgres.py -k \"effect or different_ids_same_expected_base_serialize\"",
+  "test_dependency_image": "mrw-stage3-r13o-tests:local",
+  "database": "disposable Docker PostgreSQL with task network",
+  "result": {
+    "passed": 8,
+    "failed": 0,
+    "deselected": 37,
+    "exit_code": 0
+  },
+  "coverage": [
+    "TERMINAL effect receipt and exact replay",
+    "legacy STARTED replay rejection",
+    "missing approval/step authorization and capability mode rejection",
+    "different command ids with one expected-base winner",
+    "zero residue on effect authority rejection"
+  ],
+  "log": {
+    "path": "s4-c9-effect-rework-focused.log",
+    "sha256": "b4c42ecb94a8274027e3a0139ce49d698420325665ad85cffe2ef1ef880cd6fa"
+  },
+  "authority_ceiling": [
+    "LOCAL_STAGE4_RUNTIME_ONLY",
+    "NOT_AUTHORITY",
+    "PRODUCTION_RELEASE_NOT_AUTHORIZED"
+  ]
+}

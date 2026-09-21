@@ -17,13 +17,20 @@ full token.
 from __future__ import annotations
 
 import base64
+import binascii
 import hashlib
 import hmac
 import json
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Final
+from typing import Annotated, Any, Final, Literal, NoReturn, TypeAlias
+
+from functorial_kit import Failure
+from mrw_functorial_kit.core.w06_semantics import (
+    c8_contract_failures,
+    c8_report_export_token_failures,
+)
 
 __all__ = [
     "DEFAULT_LOCAL_TOKEN_SECRET",
@@ -31,15 +38,22 @@ __all__ = [
     "REPORT_EXPORT_SCHEMA",
     "REPORT_EXPORT_TOKEN_CONTRACT",
     "ReportExportReceipt",
+    "ReportExportReceiptResult",
     "ReportExportSigningInput",
+    "ReportExportSigningResult",
     "ReportExportTokenAuthority",
     "ReportExportTokenError",
+    "ReportExportVerificationResult",
     "SignedReportExportToken",
     "actor_id_from_secret",
     "build_report_export_receipt",
     "canonical_payload",
     "markdown_sha256",
     "sign_report_export_token",
+    "try_build_report_export_receipt",
+    "try_canonical_payload",
+    "try_sign_report_export_token",
+    "try_verify_report_export_token",
     "verify_report_export_token",
 ]
 
@@ -58,6 +72,130 @@ _RECEIPT_SCHEMA = "mrw.successor.c8.report-export.receipt.v1"
 _SHA256_HEX = frozenset("0123456789abcdef")
 _ACTOR_DIGEST_HEX_LENGTH = 16
 _ACTOR_DIGEST_PREFIX_MAX_LENGTH = 48
+_TOKEN_FAILURE_WITNESS = "test:test_w06_c2_total_core_failure_lifts"
+_CONTRACT_FAILURE_WITNESS = "test:test_w06_c2_total_core_failure_lifts"
+
+ReportExportSigningResult: TypeAlias = "SignedReportExportToken | Failure"
+ReportExportVerificationResult: TypeAlias = "dict[str, Any] | Failure"
+ReportExportReceiptResult: TypeAlias = "ReportExportReceipt | Failure"
+
+
+def _contract_failure(
+    code: str,
+    message: str,
+    *,
+    public_exception: str = "ValueError",
+    site: str = "c8.report_export",
+    **details: Any,
+) -> Failure:
+    return c8_contract_failures.fail(
+        code,
+        message,
+        {
+            "owner": "successor_runtime.capabilities.c8_report_export",
+            "operation": "c8.report_export",
+            "site": site,
+            "public_exception": public_exception,
+            "public_message": message,
+            "witness": _CONTRACT_FAILURE_WITNESS,
+            **details,
+        },
+    )
+
+
+def _token_failure(
+    code: str,
+    message: str | None = None,
+    *,
+    detail: Any = None,
+    site: str = "verify_report_export_token",
+) -> Failure:
+    public_message = code if message is None else message
+    if detail is not None:
+        public_message = f"{public_message}: {detail}"
+    return c8_report_export_token_failures.fail(
+        code,
+        public_message,
+        {
+            "owner": "successor_runtime.capabilities.c8_report_export",
+            "operation": "c8.report_export_token",
+            "site": site,
+            "public_exception": "ReportExportTokenError",
+            "public_message": public_message,
+            "detail": detail,
+            "witness": _TOKEN_FAILURE_WITNESS,
+        },
+    )
+
+
+def _lift_failure(
+    failure: Failure,
+    exception_type: type[Exception] | None = None,
+    *,
+    detail: Any = None,
+) -> NoReturn:
+    """Lift one complete typed failure at the retained public ABI boundary."""
+
+    if not isinstance(failure, Failure):
+        # kit:boundary owner=c8_report_export.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w06_c2_total_core_failure_lifts
+        raise TypeError("report-export failure lift requires a Failure")
+    context = failure.context or {}
+    declared_exception = str(context.get("public_exception") or "")
+    if (
+        not failure.failure
+        or failure.family
+        not in {
+            c8_contract_failures.name,
+            c8_report_export_token_failures.name,
+        }
+        or not declared_exception
+        or not context.get("public_message")
+    ):
+        # kit:boundary owner=c8_report_export.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w06_c2_total_core_failure_lifts
+        raise TypeError("report-export failure lift context is incomplete")
+    if exception_type is None:
+        if failure.family == c8_report_export_token_failures.name:
+            exception_type = ReportExportTokenError
+        else:
+            exception_type = {
+                "TypeError": TypeError,
+                "ValueError": ValueError,
+                "OverflowError": OverflowError,
+            }.get(declared_exception, ValueError)
+    if declared_exception != exception_type.__name__:
+        # kit:boundary owner=c8_report_export.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w06_c2_total_core_failure_lifts
+        raise TypeError("report-export failure lift exception type drift")
+    # kit:boundary owner=c8_report_export.py class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=c8.contract.failure,c8.report_export_token.failure witness=test:test_w06_c2_total_core_failure_lifts
+    if exception_type is ReportExportTokenError:
+        # kit:boundary owner=c8_report_export.py class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=c8.report_export_token.failure witness=test:test_w06_c2_total_core_failure_lifts
+        raise ReportExportTokenError(
+            failure.code,
+            detail=context.get("detail") if detail is None else detail,
+        )
+    # kit:boundary owner=c8_report_export.py class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=c8.contract.failure witness=test:test_w06_c2_total_core_failure_lifts
+    raise exception_type(str(context["public_message"]))
+
+
+def _reject_contract(
+    message: str,
+    exception_type: type[Exception] = ValueError,
+    *,
+    code: str = "input_contract_invalid",
+    site: str = "c8.report_export",
+) -> NoReturn:
+    _lift_failure(
+        _contract_failure(
+            code,
+            message,
+            public_exception=exception_type.__name__,
+            site=site,
+        ),
+        exception_type,
+    )
+
+
+def _reject_token(reason_code: str, *, detail: Any = None) -> NoReturn:
+    _lift_failure(_token_failure(reason_code, detail=detail), ReportExportTokenError)
 
 
 def _clean_text(value: Any, *, max_length: int = 128) -> str | None:
@@ -70,20 +208,23 @@ def _clean_text(value: Any, *, max_length: int = 128) -> str | None:
 def _require_text(value: Any, *, name: str, max_length: int = 128) -> str:
     text = _clean_text(value, max_length=max_length)
     if text is None:
-        raise ValueError(f"{name} is required")
+        _reject_contract(f"{name} is required", site=f"input/{name}")
     return text
 
 
 def _require_sha256_hex(value: Any, *, name: str) -> str:
     digest = _require_text(value, name=name, max_length=64)
     if len(digest) != 64 or any(char not in _SHA256_HEX for char in digest):
-        raise ValueError(f"{name} must be a 64-char lowercase sha256 hex digest")
+        _reject_contract(
+            f"{name} must be a 64-char lowercase sha256 hex digest",
+            site=f"digest/{name}",
+        )
     return digest
 
 
 def _as_bool(value: Any, *, name: str) -> bool:
     if not isinstance(value, bool):
-        raise TypeError(f"{name} must be bool")
+        _reject_contract(f"{name} must be bool", TypeError, site=f"input/{name}")
     return value
 
 
@@ -91,15 +232,18 @@ def _as_int_or_none(value: Any) -> int | None:
     if value is None or value == "":
         return None
     if isinstance(value, bool):
-        raise TypeError("job_id must be int or None")
-    return int(value)
+        _reject_contract("job_id must be int or None", TypeError, site="input/job_id")
+    try:
+        return int(value)
+    except (TypeError, ValueError) as exc:
+        _reject_contract(str(exc), type(exc), site="input/job_id")
 
 
 def _as_utc(value: datetime | None, *, name: str) -> datetime | None:
     if value is None:
         return None
     if not isinstance(value, datetime):
-        raise TypeError(f"{name} must be datetime")
+        _reject_contract(f"{name} must be datetime", TypeError, site=f"input/{name}")
     if value.tzinfo is None:
         return value.replace(tzinfo=timezone.utc)
     return value.astimezone(timezone.utc)
@@ -173,7 +317,7 @@ def _normalize_gate_snapshot(value: Mapping[str, Any] | None) -> dict[str, Any]:
     if value is None:
         return {}
     if not isinstance(value, Mapping):
-        raise TypeError("gate_snapshot must be a mapping")
+        _reject_contract("gate_snapshot must be a mapping", TypeError, site="gate")
     return {str(key): item for key, item in value.items()}
 
 
@@ -184,15 +328,36 @@ def canonical_payload(payload_or_mapping: Mapping[str, Any] | Any) -> bytes:
     ``payload_plain`` so no secret or token ever reaches the serialized bytes.
     """
 
+    outcome = try_canonical_payload(payload_or_mapping)
+    if isinstance(outcome, Failure):
+        _lift_failure(outcome)
+    return outcome
+
+
+def try_canonical_payload(
+    payload_or_mapping: Mapping[str, Any] | Any,
+) -> bytes | Failure:
     if isinstance(payload_or_mapping, ReportExportSigningInput):
         payload: Mapping[str, Any] = payload_or_mapping.payload_plain()
     elif isinstance(payload_or_mapping, Mapping):
         payload = payload_or_mapping
     else:
-        raise TypeError(
-            "canonical_payload requires a mapping or ReportExportSigningInput"
+        return _contract_failure(
+            "payload_codec_invalid",
+            "canonical_payload requires a mapping or ReportExportSigningInput",
+            public_exception="TypeError",
+            site="canonical_payload/input",
         )
-    return _canonical_json_bytes({str(key): item for key, item in payload.items()})
+    try:
+        return _canonical_json_bytes({str(key): item for key, item in payload.items()})
+    except (TypeError, ValueError, OverflowError) as exc:
+        return _contract_failure(
+            "payload_codec_invalid",
+            str(exc),
+            public_exception=type(exc).__name__,
+            site="canonical_payload/encode",
+            error_type=type(exc).__name__,
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -217,7 +382,10 @@ class ReportExportTokenAuthority:
 
     def __post_init__(self) -> None:
         if not self.schema_ref or not isinstance(self.schema_ref, str):
-            raise ValueError("ReportExportTokenAuthority requires schema_ref")
+            _reject_contract(
+                "ReportExportTokenAuthority requires schema_ref",
+                site="authority/schema_ref",
+            )
         for name in (
             "live_provider",
             "canonical_write",
@@ -230,11 +398,17 @@ class ReportExportTokenAuthority:
         ):
             value = getattr(self, name)
             if not isinstance(value, bool):
-                raise TypeError(f"ReportExportTokenAuthority.{name} must be bool")
+                _reject_contract(
+                    f"ReportExportTokenAuthority.{name} must be bool",
+                    TypeError,
+                    site=f"authority/{name}",
+                )
             if value:
-                raise ValueError(
+                _reject_contract(
                     "report-export port grants no runtime authority; "
-                    f"{name} must be False"
+                    f"{name} must be False",
+                    code="authority_contract_invalid",
+                    site=f"authority/{name}",
                 )
 
     def to_plain(self) -> dict[str, Any]:
@@ -281,7 +455,7 @@ class ReportExportSigningInput:
         )
         export_format = str(self.export_format or "").strip().lower()
         if not export_format:
-            raise ValueError("export_format is required")
+            _reject_contract("export_format is required", site="input/export_format")
         object.__setattr__(self, "export_format", export_format[:32])
         object.__setattr__(
             self,
@@ -312,7 +486,10 @@ class ReportExportSigningInput:
         issued_at = _as_utc(self.issued_at, name="issued_at")
         expires_at = _as_utc(self.expires_at, name="expires_at")
         if issued_at is None or expires_at is None:
-            raise ValueError("issued_at and expires_at are required")
+            _reject_contract(
+                "issued_at and expires_at are required",
+                site="input/expiry",
+            )
         object.__setattr__(self, "issued_at", issued_at)
         object.__setattr__(self, "expires_at", expires_at)
         object.__setattr__(
@@ -362,10 +539,17 @@ class SignedReportExportToken:
         )
         token = str(self.artifact_token or "").strip()
         if not token.startswith(_TOKEN_HEADER + "."):
-            raise ValueError("artifact_token must be an llmrpt-v1 signed token")
+            _reject_contract(
+                "artifact_token must be an llmrpt-v1 signed token",
+                site="signed_token/artifact_token",
+            )
         object.__setattr__(self, "artifact_token", token)
         if not isinstance(self.authority, ReportExportTokenAuthority):
-            raise TypeError("SignedReportExportToken.authority must be typed")
+            _reject_contract(
+                "SignedReportExportToken.authority must be typed",
+                TypeError,
+                site="signed_token/authority",
+            )
 
 
 class ReportExportTokenError(RuntimeError):
@@ -387,7 +571,10 @@ class ReportExportTokenError(RuntimeError):
         status_code: int | None = None,
     ) -> None:
         if not reason_code:
-            raise ValueError("ReportExportTokenError requires reason_code")
+            _reject_contract(
+                "ReportExportTokenError requires reason_code",
+                site="error/reason_code",
+            )
         self.reason_code = reason_code
         self.detail = detail
         if status_code is not None:
@@ -434,19 +621,42 @@ def sign_report_export_token(
     not be used as a production secret.
     """
 
+    outcome = try_sign_report_export_token(signing_input, token_secret)
+    if isinstance(outcome, Failure):
+        _lift_failure(outcome)
+    return outcome
+
+
+def try_sign_report_export_token(
+    signing_input: ReportExportSigningInput,
+    token_secret: str = DEFAULT_LOCAL_TOKEN_SECRET,
+) -> ReportExportSigningResult:
+    """Pure signing core returning a closed C8 contract failure on rejection."""
+
     if not isinstance(signing_input, ReportExportSigningInput):
-        raise TypeError("sign_report_export_token requires typed signing input")
+        return _contract_failure(
+            "input_contract_invalid",
+            "sign_report_export_token requires typed signing input",
+            public_exception="TypeError",
+            site="sign/input",
+        )
     payload = signing_input.payload_plain()
-    token, payload_digest, _payload_part = _sign_payload(
-        payload,
-        token_secret,
-    )
-    return SignedReportExportToken(
-        token_ref=f"export-token:{payload_digest}",
-        payload_digest=payload_digest,
-        artifact_token=token,
-        authority=ReportExportTokenAuthority(),
-    )
+    try:
+        token, payload_digest, _payload_part = _sign_payload(payload, token_secret)
+        return SignedReportExportToken(
+            token_ref=f"export-token:{payload_digest}",
+            payload_digest=payload_digest,
+            artifact_token=token,
+            authority=ReportExportTokenAuthority(),
+        )
+    except (TypeError, ValueError, OverflowError) as exc:
+        return _contract_failure(
+            "payload_codec_invalid",
+            str(exc),
+            public_exception=type(exc).__name__,
+            site="sign/encode",
+            error_type=type(exc).__name__,
+        )
 
 
 def verify_report_export_token(
@@ -465,56 +675,84 @@ def verify_report_export_token(
     rejection uses a typed ``ReportExportTokenError.reason_code``.
     """
 
+    outcome = try_verify_report_export_token(
+        token,
+        markdown_sha256,
+        actor_digest,
+        token_secret,
+        now,
+        revoked_check,
+        used_check,
+    )
+    if isinstance(outcome, Failure):
+        _lift_failure(outcome, ReportExportTokenError)
+    return outcome
+
+
+def try_verify_report_export_token(
+    token: str,
+    markdown_sha256: str,
+    actor_digest: str,
+    token_secret: str = DEFAULT_LOCAL_TOKEN_SECRET,
+    now: datetime | None = None,
+    revoked_check: Callable[[str], bool] | None = None,
+    used_check: Callable[[str], bool] | None = None,
+) -> ReportExportVerificationResult:
+    """Pure verification core returning the registered token failure family."""
+
     parts = str(token or "").strip().split(".")
     if len(parts) != 3 or parts[0] != _TOKEN_HEADER or not parts[1] or not parts[2]:
-        raise ReportExportTokenError("invalid_export_token_format")
+        return _token_failure("invalid_export_token_format")
     payload_part = parts[1]
-    expected_signature = hmac.new(
-        _token_secret_bytes(token_secret),
-        payload_part.encode("ascii"),
-        hashlib.sha256,
-    ).digest()
+    try:
+        expected_signature = hmac.new(
+            _token_secret_bytes(token_secret),
+            payload_part.encode("ascii"),
+            hashlib.sha256,
+        ).digest()
+    except UnicodeEncodeError:
+        return _token_failure("invalid_export_token_signature")
     try:
         supplied_signature = _base64url_decode(parts[2])
-    except Exception as exc:
-        raise ReportExportTokenError("invalid_export_token_signature") from exc
+    except (binascii.Error, ValueError, UnicodeError):
+        return _token_failure("invalid_export_token_signature")
     if not hmac.compare_digest(expected_signature, supplied_signature):
-        raise ReportExportTokenError("invalid_export_token_signature")
+        return _token_failure("invalid_export_token_signature")
     try:
         payload = json.loads(_base64url_decode(payload_part).decode("utf-8"))
-    except Exception as exc:
-        raise ReportExportTokenError("invalid_export_token_payload") from exc
+    except (binascii.Error, ValueError, UnicodeError, json.JSONDecodeError):
+        return _token_failure("invalid_export_token_payload")
     if not isinstance(payload, dict):
-        raise ReportExportTokenError("invalid_export_token_payload")
+        return _token_failure("invalid_export_token_payload")
     if payload.get("contract_version") != REPORT_EXPORT_TOKEN_CONTRACT:
-        raise ReportExportTokenError("unsupported_export_token_contract")
+        return _token_failure("unsupported_export_token_contract")
 
     expected_hash = str(payload.get("markdown_sha256") or "").strip()
     supplied_hash = str(markdown_sha256 or "").strip()
     if not expected_hash or expected_hash != supplied_hash:
-        raise ReportExportTokenError("export_token_markdown_hash_mismatch")
+        return _token_failure("export_token_markdown_hash_mismatch")
 
     expires_at = _parse_datetime(payload.get("expires_at"))
     if expires_at is None:
-        raise ReportExportTokenError("export_token_missing_expiry")
+        return _token_failure("export_token_missing_expiry")
     observed_at = _as_utc(now, name="now") if isinstance(now, datetime) else _utc_now()
     if observed_at > expires_at:
-        raise ReportExportTokenError("export_token_expired")
+        return _token_failure("export_token_expired")
 
     expected_actor = str(payload.get("actor_digest") or "").strip()
     supplied_actor = str(actor_digest or "").strip()
     if not expected_actor or expected_actor != supplied_actor:
-        raise ReportExportTokenError("export_token_actor_mismatch")
+        return _token_failure("export_token_actor_mismatch")
 
     artifact_id = str(payload.get("artifact_id") or "").strip()
     if revoked_check is not None and bool(revoked_check(artifact_id)):
-        raise ReportExportTokenError("export_token_revoked")
+        return _token_failure("export_token_revoked")
     if (
         bool(payload.get("one_time_use", True))
         and used_check is not None
         and bool(used_check(artifact_id))
     ):
-        raise ReportExportTokenError("export_token_already_used")
+        return _token_failure("export_token_already_used")
     return payload
 
 
@@ -565,7 +803,7 @@ class ReportExportReceipt:
         )
         export_format = str(self.export_format or "").strip().lower()
         if not export_format:
-            raise ValueError("export_format is required")
+            _reject_contract("export_format is required", site="receipt/export_format")
         object.__setattr__(self, "export_format", export_format[:32])
         object.__setattr__(
             self,
@@ -591,15 +829,19 @@ class ReportExportReceipt:
         issued_at = _as_utc(self.issued_at, name="issued_at")
         expires_at = _as_utc(self.expires_at, name="expires_at")
         if issued_at is None or expires_at is None:
-            raise ValueError("issued_at and expires_at are required")
+            _reject_contract("issued_at and expires_at are required", site="receipt/expiry")
         object.__setattr__(self, "issued_at", issued_at)
         object.__setattr__(self, "expires_at", expires_at)
         delivery_state = str(self.delivery_state or "").strip().upper()
         if not delivery_state:
-            raise ValueError("delivery_state is required")
+            _reject_contract("delivery_state is required", site="receipt/delivery_state")
         object.__setattr__(self, "delivery_state", delivery_state)
         if (self.token_ref is None) != (self.token_payload_digest is None):
-            raise ValueError("token_ref and token_payload_digest are an exact pair")
+            _reject_contract(
+                "token_ref and token_payload_digest are an exact pair",
+                code="digest_binding_invalid",
+                site="receipt/token_refs",
+            )
         if self.token_payload_digest is not None:
             object.__setattr__(
                 self,
@@ -610,7 +852,11 @@ class ReportExportReceipt:
                 ),
             )
         if not isinstance(self.authority, ReportExportTokenAuthority):
-            raise TypeError("ReportExportReceipt.authority must be typed")
+            _reject_contract(
+                "ReportExportReceipt.authority must be typed",
+                TypeError,
+                site="receipt/authority",
+            )
         digest_input: dict[str, Any] = {
             "schema": _RECEIPT_SCHEMA,
             "artifact_id": self.artifact_id,
@@ -635,30 +881,64 @@ class ReportExportReceipt:
 def build_report_export_receipt(
     signing_input: ReportExportSigningInput,
     token: SignedReportExportToken | None = None,
-) -> ReportExportReceipt:
+) -> Annotated[  # NonAuthoritative
+    ReportExportReceipt,
+    Literal["kit:non-authoritative derived_as=view fact_source=ReportExportPreparation+export_observation witness=test:test_w06_successor_authority_metadata"],
+]:
     """Build a digest-only receipt from typed signing metadata.
 
     When ``token`` is provided, only its digest-bearing refs are folded into
     the receipt digest; the full signed token is never retained.
     """
 
+    outcome = try_build_report_export_receipt(signing_input, token)
+    if isinstance(outcome, Failure):
+        _lift_failure(outcome)
+    return outcome
+
+
+def try_build_report_export_receipt(
+    signing_input: ReportExportSigningInput,
+    token: SignedReportExportToken | None = None,
+) -> ReportExportReceiptResult:
+    """Pure receipt construction returning a typed C8 contract failure."""
+
     if not isinstance(signing_input, ReportExportSigningInput):
-        raise TypeError("build_report_export_receipt requires typed signing input")
+        return _contract_failure(
+            "input_contract_invalid",
+            "build_report_export_receipt requires typed signing input",
+            public_exception="TypeError",
+            site="receipt/input",
+        )
     if token is not None and not isinstance(token, SignedReportExportToken):
-        raise TypeError("token must be a SignedReportExportToken")
-    return ReportExportReceipt(
-        artifact_id=signing_input.artifact_id,
-        markdown_sha256=signing_input.markdown_sha256,
-        export_format=signing_input.export_format,
-        trace_id=signing_input.trace_id,
-        request_id=signing_input.request_id,
-        project_key=signing_input.project_key,
-        job_id=signing_input.job_id,
-        actor_digest=signing_input.actor_digest,
-        issued_at=signing_input.issued_at,
-        expires_at=signing_input.expires_at,
-        delivery_state="NOT_DELIVERED",
-        authority=ReportExportTokenAuthority(),
-        token_ref=token.token_ref if token is not None else None,
-        token_payload_digest=(token.payload_digest if token is not None else None),
-    )
+        return _contract_failure(
+            "input_contract_invalid",
+            "token must be a SignedReportExportToken",
+            public_exception="TypeError",
+            site="receipt/token",
+        )
+    try:
+        return ReportExportReceipt(
+            artifact_id=signing_input.artifact_id,
+            markdown_sha256=signing_input.markdown_sha256,
+            export_format=signing_input.export_format,
+            trace_id=signing_input.trace_id,
+            request_id=signing_input.request_id,
+            project_key=signing_input.project_key,
+            job_id=signing_input.job_id,
+            actor_digest=signing_input.actor_digest,
+            issued_at=signing_input.issued_at,
+            expires_at=signing_input.expires_at,
+            delivery_state="NOT_DELIVERED",
+            authority=ReportExportTokenAuthority(),
+            token_ref=token.token_ref if token is not None else None,
+            token_payload_digest=(token.payload_digest if token is not None else None),
+        )
+    except (TypeError, ValueError, OverflowError) as exc:
+        return _contract_failure(
+            "input_contract_invalid",
+            str(exc),
+            public_exception=type(exc).__name__,
+            site="receipt/construct",
+            error_type=type(exc).__name__,
+        )

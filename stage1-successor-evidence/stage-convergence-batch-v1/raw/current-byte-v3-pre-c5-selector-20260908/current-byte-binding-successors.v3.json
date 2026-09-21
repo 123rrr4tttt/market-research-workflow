@@ -1,0 +1,991 @@
+{
+  "authoritative": false,
+  "authority": {
+    "candidate_promotion": false,
+    "cutover": false,
+    "deployment": false,
+    "external_delivery": false,
+    "legacy_retirement": false,
+    "live_provider": false,
+    "production_canonical_write": false,
+    "production_release": false
+  },
+  "authority_ceiling": "EXACT_BYTE_CORRESPONDENCE_ONLY_NO_CANDIDATE_PROMOTION_NO_STAGE0_REWRITE_NO_PRODUCTION_AUTHORITY",
+  "content_digest": "b69ab8213d1a62086e9259dd6c9265c109b736930bdbf148adb7942615102323",
+  "extends": {
+    "content_digest": "0d7eedc8d552a64637c5a06dbe5a729a6f7a48a20b3dbf6d39629ec7d64cfb0d",
+    "mutation": false,
+    "path": "stage1-successor-evidence/current-byte-remediation-v2/bindings/current-byte-binding-successors.v2.json",
+    "record_id": "current-byte-binding-successors-v2",
+    "schema": "mrw.current_byte_binding_successors.v2",
+    "sha256": "8527402a0715a9540a0e1d1247f3015e3611059b0e16582b543d6848eb05fa7b"
+  },
+  "inherited_successor_count": 11,
+  "limits": [
+    "The v2 registry and all eleven v2 successor rows remain byte-for-byte and value-for-value unchanged.",
+    "One shared v3 row binds three exact run_loop candidate declarations and three exact frozen specification references.",
+    "A second shared v3 row binds the seven currently projected frozen C2 candidate references to the provider test and records their common immediate predecessor snapshot identity.",
+    "Historical C2 candidates outside the current intake projection are not included and are not claimed as rebound.",
+    "The run_loop change is limited to TYPE_CHECKING import relocation by exact predecessor transformation.",
+    "The provider test change is limited to module-scoped temporary cache-effect isolation by exact predecessor transformation; test assertions, production sources, aliases, and provider bindings are unchanged.",
+    "Three explicit contract-repair rows refine typed failure behavior or retarget the C2 historical-stage selector while preserving every frozen predecessor byte.",
+    "Exact-byte correspondence grants no candidate promotion or production authority.",
+    "PRODUCTION_RELEASE_NOT_AUTHORIZED"
+  ],
+  "record_id": "current-byte-binding-successors-v3",
+  "schema": "mrw.current_byte_binding_successors.v3",
+  "status": "CURRENT_BYTES_BOUND_BY_ADDITIVE_SUCCESSORS_NOT_AUTHORITY",
+  "successors": [
+    {
+      "bytes": 56853,
+      "cell_id": "C5.4",
+      "family": "C5",
+      "lines": 1509,
+      "predecessor_declarations": [
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/fragments/C5.json",
+          "artifact_sha256": "0b3d83914cf7de356e28a51dbfb5e7836d09266f315b4c26f8eab8bcbf26e30f",
+          "bound_sha256": "790b6cb90086d6ba1171309e572b7e7be4c906db3705170dbd4a12ca7ea16c63",
+          "hash_field": "sha256",
+          "json_pointer": "/source_bindings/10"
+        },
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/manifests/C5.json",
+          "artifact_sha256": "f1ae6a1678b83d75337244d200ab5b584f684180ef4c7e97076cd3573124b11f",
+          "bound_sha256": "790b6cb90086d6ba1171309e572b7e7be4c906db3705170dbd4a12ca7ea16c63",
+          "hash_field": "file_sha256",
+          "json_pointer": "/sources/6"
+        },
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/C5/candidate.v2.json",
+          "artifact_sha256": "a2ddbb2ae28b330a04e52aff2030d1f8edaa1b77b4c6d7a37a48f64a0048aad2",
+          "bound_sha256": "790b6cb90086d6ba1171309e572b7e7be4c906db3705170dbd4a12ca7ea16c63",
+          "hash_field": "file_sha256",
+          "json_pointer": "/sources/6"
+        },
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/fragments/C5.json",
+          "artifact_sha256": "0b3d83914cf7de356e28a51dbfb5e7836d09266f315b4c26f8eab8bcbf26e30f",
+          "bound_sha256": "790b6cb90086d6ba1171309e572b7e7be4c906db3705170dbd4a12ca7ea16c63",
+          "hash_field": "sha256",
+          "json_pointer": "/source_bindings/10"
+        },
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/manifests/C5.json",
+          "artifact_sha256": "f68c123409aeb0935cd93e3072a05f50c8f2637868d5b92847cd95fb018f4c76",
+          "bound_sha256": "790b6cb90086d6ba1171309e572b7e7be4c906db3705170dbd4a12ca7ea16c63",
+          "hash_field": "file_sha256",
+          "json_pointer": "/sources/6"
+        },
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/C5/candidate.v2.json",
+          "artifact_sha256": "919bbbbf66f7b5959b2407bbf7a488efecbd781844599d5b5ad945180f7dbc47",
+          "bound_sha256": "790b6cb90086d6ba1171309e572b7e7be4c906db3705170dbd4a12ca7ea16c63",
+          "hash_field": "file_sha256",
+          "json_pointer": "/sources/6"
+        }
+      ],
+      "predecessor_sha256": "790b6cb90086d6ba1171309e572b7e7be4c906db3705170dbd4a12ca7ea16c63",
+      "relation": "C5_SOURCE_BINDING_SUCCESSOR",
+      "role": "legacy_donor_c5_4_supplementary",
+      "snapshot_path": "snapshots/5687389bdad57881a0f96543ba32ac4eaaaeef0f7939f8f7e36e16316ed7ee61",
+      "source_path": "main/backend/app/api/process.py",
+      "successor_id": "c5-process-current-bytes-v1",
+      "successor_sha256": "5687389bdad57881a0f96543ba32ac4eaaaeef0f7939f8f7e36e16316ed7ee61"
+    },
+    {
+      "binding_group": "source_bindings",
+      "bytes": 56853,
+      "cell_id": "C5.4",
+      "family": "I1",
+      "lines": 1509,
+      "predecessor_declarations": [
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/fragments/I1.json",
+          "artifact_sha256": "8c99a91c0891589073318c9b872d977ec95e37e8e206e66255c88f72578d9110",
+          "bound_sha256": "790b6cb90086d6ba1171309e572b7e7be4c906db3705170dbd4a12ca7ea16c63",
+          "hash_field": "successor_sha256",
+          "json_pointer": "/bindings/63"
+        },
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/manifests/I1.json",
+          "artifact_sha256": "00b0f89e5278f6aee3f5298e5b466d55326292a3fb3421c84daab5740e990521",
+          "bound_sha256": "790b6cb90086d6ba1171309e572b7e7be4c906db3705170dbd4a12ca7ea16c63",
+          "hash_field": "file_sha256",
+          "json_pointer": "/sources/96"
+        },
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/I1/candidate.v2.json",
+          "artifact_sha256": "bb4fc787fbc0d1959f04797e45a99b3da1d00a544501ab30abcc5ff017af0e7e",
+          "bound_sha256": "790b6cb90086d6ba1171309e572b7e7be4c906db3705170dbd4a12ca7ea16c63",
+          "hash_field": "file_sha256",
+          "json_pointer": "/sources/96"
+        }
+      ],
+      "predecessor_sha256": "790b6cb90086d6ba1171309e572b7e7be4c906db3705170dbd4a12ca7ea16c63",
+      "prior_spec_predecessor_sha256": "d3eab110965741ed8c44e2eac31b607675f4102b26679c3ac68b72b8d7addbdc",
+      "relation": "I1_EXACT_BINDING_SUCCESSOR",
+      "role": "legacy_donor_c5_4_supplementary",
+      "snapshot_path": "snapshots/5687389bdad57881a0f96543ba32ac4eaaaeef0f7939f8f7e36e16316ed7ee61",
+      "source_path": "main/backend/app/api/process.py",
+      "successor_id": "i1-c5-4-process-current-bytes-v1",
+      "successor_sha256": "5687389bdad57881a0f96543ba32ac4eaaaeef0f7939f8f7e36e16316ed7ee61"
+    },
+    {
+      "binding_group": "source_bindings",
+      "bytes": 1490,
+      "cell_id": "C5.4",
+      "family": "I1",
+      "lines": 43,
+      "ordered_sha256_chain": [
+        {
+          "sha256": "5f28badfb562179370c4042e2a9a7ef5a8f84933c961755aa86d6c6b8be1b380",
+          "stage": "SPEC_PREDECESSOR"
+        },
+        {
+          "sha256": "6766bc85cb01afd79b8f91793ec2b6020ee45ea0d4797ef0a589076072f2d49d",
+          "stage": "B23_SUCCESSOR"
+        },
+        {
+          "sha256": "013ddec4e03a28e9f15211a346db9481b624cb395b05cf8b05d741e54281b645",
+          "stage": "CURRENT_WORKING_TREE_SUCCESSOR"
+        }
+      ],
+      "predecessor_declarations": [
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/fragments/I1.json",
+          "artifact_sha256": "8c99a91c0891589073318c9b872d977ec95e37e8e206e66255c88f72578d9110",
+          "bound_sha256": "6766bc85cb01afd79b8f91793ec2b6020ee45ea0d4797ef0a589076072f2d49d",
+          "hash_field": "successor_sha256",
+          "json_pointer": "/bindings/64"
+        },
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/manifests/I1.json",
+          "artifact_sha256": "00b0f89e5278f6aee3f5298e5b466d55326292a3fb3421c84daab5740e990521",
+          "bound_sha256": "6766bc85cb01afd79b8f91793ec2b6020ee45ea0d4797ef0a589076072f2d49d",
+          "hash_field": "file_sha256",
+          "json_pointer": "/sources/98"
+        },
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/I1/candidate.v2.json",
+          "artifact_sha256": "bb4fc787fbc0d1959f04797e45a99b3da1d00a544501ab30abcc5ff017af0e7e",
+          "bound_sha256": "6766bc85cb01afd79b8f91793ec2b6020ee45ea0d4797ef0a589076072f2d49d",
+          "hash_field": "file_sha256",
+          "json_pointer": "/sources/98"
+        }
+      ],
+      "predecessor_sha256": "6766bc85cb01afd79b8f91793ec2b6020ee45ea0d4797ef0a589076072f2d49d",
+      "prior_spec_predecessor_sha256": "5f28badfb562179370c4042e2a9a7ef5a8f84933c961755aa86d6c6b8be1b380",
+      "relation": "I1_EXACT_BINDING_SUCCESSOR",
+      "role": "legacy_donor_c5_4_normative",
+      "snapshot_path": "snapshots/013ddec4e03a28e9f15211a346db9481b624cb395b05cf8b05d741e54281b645",
+      "source_path": "main/backend/app/celery_app.py",
+      "successor_id": "i1-c5-4-celery-app-current-bytes-v1",
+      "successor_sha256": "013ddec4e03a28e9f15211a346db9481b624cb395b05cf8b05d741e54281b645"
+    },
+    {
+      "bytes": 56853,
+      "family": "C5",
+      "lines": 1509,
+      "predecessor_declarations": [
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage0-evidence/functorial-refactor-completion.v3.json",
+          "artifact_sha256": "0eac6b6d61c339e55a73b394d97abc9e70ae8409df893ab99371e85703625491",
+          "bound_sha256": "a2ddbb2ae28b330a04e52aff2030d1f8edaa1b77b4c6d7a37a48f64a0048aad2",
+          "hash_field": "file_sha256",
+          "json_pointer": "/bindings/current_candidates/3"
+        },
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage0-evidence/functorial-refactor-completion.v4.json",
+          "artifact_sha256": "4911df1c6450d9802ac7bd6b0669ef3a7343e3ce308d33f0a46dde2c4cb62dda",
+          "bound_sha256": "a2ddbb2ae28b330a04e52aff2030d1f8edaa1b77b4c6d7a37a48f64a0048aad2",
+          "hash_field": "file_sha256",
+          "json_pointer": "/bindings/current_candidates/3"
+        }
+      ],
+      "predecessor_sha256": "790b6cb90086d6ba1171309e572b7e7be4c906db3705170dbd4a12ca7ea16c63",
+      "relation": "STAGE0_V3_V4_C5_DECLARATION_SUCCESSOR",
+      "snapshot_path": "snapshots/5687389bdad57881a0f96543ba32ac4eaaaeef0f7939f8f7e36e16316ed7ee61",
+      "source_path": "main/backend/app/api/process.py",
+      "stage0_record_mutated": false,
+      "successor_id": "stage0-c5-process-current-bytes-v1",
+      "successor_sha256": "5687389bdad57881a0f96543ba32ac4eaaaeef0f7939f8f7e36e16316ed7ee61"
+    },
+    {
+      "bytes": 56853,
+      "lines": 1509,
+      "predecessor_declarations": [
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage1-evidence/production-contract-implementation.v1.json",
+          "artifact_sha256": "3f5c745ce8253522fa7e3728ba112ed41c80f3b6aa7409ddf028621c6ae07f31",
+          "bound_sha256": "790b6cb90086d6ba1171309e572b7e7be4c906db3705170dbd4a12ca7ea16c63",
+          "hash_field": "sha256",
+          "json_pointer": "/bindings/required_files/source/80"
+        }
+      ],
+      "predecessor_sha256": "790b6cb90086d6ba1171309e572b7e7be4c906db3705170dbd4a12ca7ea16c63",
+      "production_contract_mutated": false,
+      "relation": "PRODUCTION_CONTRACT_SOURCE_BINDING_SUCCESSOR",
+      "snapshot_path": "snapshots/5687389bdad57881a0f96543ba32ac4eaaaeef0f7939f8f7e36e16316ed7ee61",
+      "source_path": "main/backend/app/api/process.py",
+      "successor_id": "production-contract-process-current-bytes-v1",
+      "successor_sha256": "5687389bdad57881a0f96543ba32ac4eaaaeef0f7939f8f7e36e16316ed7ee61"
+    },
+    {
+      "bytes": 13390,
+      "family": "C7",
+      "lines": 334,
+      "predecessor_declarations": [
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/fragments/C7.json",
+          "artifact_sha256": "b1bdc5524461cf84638f3ec86dbb68d5e2d5a4cc164bbc4f277f26d7457a7aa1",
+          "bound_sha256": "5b81ef9a41bf8e21c87f2d7a0e0239a4afa14c46de0eb7b37601d217422654f4",
+          "hash_field": "sha256",
+          "json_pointer": "/source_bindings/5"
+        },
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/manifests/C7.json",
+          "artifact_sha256": "8c697b0736bbb0b1083707a559d4a1d22bcf5a4d185dc7909b8bb3c21ec4662c",
+          "bound_sha256": "5b81ef9a41bf8e21c87f2d7a0e0239a4afa14c46de0eb7b37601d217422654f4",
+          "hash_field": "file_sha256",
+          "json_pointer": "/sources/4"
+        },
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/C7/candidate.v2.json",
+          "artifact_sha256": "630e2bb6d77b5f6de24357e331c5dd8fcb31cf9135d400187ce71f01058e1c6b",
+          "bound_sha256": "5b81ef9a41bf8e21c87f2d7a0e0239a4afa14c46de0eb7b37601d217422654f4",
+          "hash_field": "file_sha256",
+          "json_pointer": "/sources/4"
+        },
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/fragments/C7.json",
+          "artifact_sha256": "6efc59fb473a2b2465249289343cfe956bbc9559f72bda25090e922f704e3222",
+          "bound_sha256": "5b81ef9a41bf8e21c87f2d7a0e0239a4afa14c46de0eb7b37601d217422654f4",
+          "hash_field": "sha256",
+          "json_pointer": "/source_bindings/5"
+        },
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/manifests/C7.json",
+          "artifact_sha256": "cef04d5a729154d8bf11bab1ed7323ce868802ea94524602fe180be8e60ba75f",
+          "bound_sha256": "5b81ef9a41bf8e21c87f2d7a0e0239a4afa14c46de0eb7b37601d217422654f4",
+          "hash_field": "file_sha256",
+          "json_pointer": "/sources/4"
+        },
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/C7/candidate.v2.json",
+          "artifact_sha256": "376627c0abc0c60f78b57ee013c3b21b06d4260bbd0c1fd3c7b184e0f313d129",
+          "bound_sha256": "5b81ef9a41bf8e21c87f2d7a0e0239a4afa14c46de0eb7b37601d217422654f4",
+          "hash_field": "file_sha256",
+          "json_pointer": "/sources/4"
+        }
+      ],
+      "predecessor_sha256": "5b81ef9a41bf8e21c87f2d7a0e0239a4afa14c46de0eb7b37601d217422654f4",
+      "relation": "C7_SOURCE_BINDING_SUCCESSOR",
+      "role": "frozen_locator_db_retry",
+      "snapshot_path": "snapshots/173d95722cef7411f4b1e4606f8dbdbf850d74fbae9847b942b13be1e56c8308",
+      "source_path": "main/backend/app/models/base.py",
+      "successor_id": "c7-models-base-current-bytes-v1",
+      "successor_sha256": "173d95722cef7411f4b1e4606f8dbdbf850d74fbae9847b942b13be1e56c8308"
+    },
+    {
+      "bytes": 13390,
+      "family": "C7",
+      "lines": 334,
+      "predecessor_declarations": [
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage0-evidence/functorial-refactor-completion.v3.json",
+          "artifact_sha256": "0eac6b6d61c339e55a73b394d97abc9e70ae8409df893ab99371e85703625491",
+          "bound_sha256": "630e2bb6d77b5f6de24357e331c5dd8fcb31cf9135d400187ce71f01058e1c6b",
+          "hash_field": "file_sha256",
+          "json_pointer": "/bindings/current_candidates/5"
+        },
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage0-evidence/functorial-refactor-completion.v4.json",
+          "artifact_sha256": "4911df1c6450d9802ac7bd6b0669ef3a7343e3ce308d33f0a46dde2c4cb62dda",
+          "bound_sha256": "630e2bb6d77b5f6de24357e331c5dd8fcb31cf9135d400187ce71f01058e1c6b",
+          "hash_field": "file_sha256",
+          "json_pointer": "/bindings/current_candidates/5"
+        }
+      ],
+      "predecessor_sha256": "5b81ef9a41bf8e21c87f2d7a0e0239a4afa14c46de0eb7b37601d217422654f4",
+      "relation": "STAGE0_V3_V4_C7_DECLARATION_SUCCESSOR",
+      "snapshot_path": "snapshots/173d95722cef7411f4b1e4606f8dbdbf850d74fbae9847b942b13be1e56c8308",
+      "source_path": "main/backend/app/models/base.py",
+      "stage0_record_mutated": false,
+      "successor_id": "stage0-c7-models-base-current-bytes-v1",
+      "successor_sha256": "173d95722cef7411f4b1e4606f8dbdbf850d74fbae9847b942b13be1e56c8308"
+    },
+    {
+      "bytes": 56853,
+      "lines": 1509,
+      "predecessor_declarations": [
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json",
+          "artifact_sha256": "fc1009c172d3880795dbdaebb90d8de41a6359161d5b86a89315ed4abc4077ed",
+          "bound_sha256": "790b6cb90086d6ba1171309e572b7e7be4c906db3705170dbd4a12ca7ea16c63",
+          "hash_field": "byte_hash_sha256",
+          "json_pointer": "/entries/20"
+        },
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesSuccessorMovementInventory.v1.json",
+          "artifact_sha256": "08fad9f59a5c588ca86085410efc792d33114903d4723038f50f46c0f858510d",
+          "bound_sha256": "790b6cb90086d6ba1171309e572b7e7be4c906db3705170dbd4a12ca7ea16c63",
+          "hash_field": "sha256",
+          "json_pointer": "/movements/4/donor_byte_closure_refs/4"
+        },
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesSuccessorMovementInventory.v1.json",
+          "artifact_sha256": "08fad9f59a5c588ca86085410efc792d33114903d4723038f50f46c0f858510d",
+          "bound_sha256": "790b6cb90086d6ba1171309e572b7e7be4c906db3705170dbd4a12ca7ea16c63",
+          "hash_field": "sha256",
+          "json_pointer": "/movements/7/donor_byte_closure_refs/1"
+        }
+      ],
+      "predecessor_sha256": "790b6cb90086d6ba1171309e572b7e7be4c906db3705170dbd4a12ca7ea16c63",
+      "relation": "ALL_LINES_V2_ENTRY_SUCCESSOR",
+      "snapshot_path": "snapshots/5687389bdad57881a0f96543ba32ac4eaaaeef0f7939f8f7e36e16316ed7ee61",
+      "source_path": "main/backend/app/api/process.py",
+      "successor_id": "all-lines-process-current-bytes-v1",
+      "successor_sha256": "5687389bdad57881a0f96543ba32ac4eaaaeef0f7939f8f7e36e16316ed7ee61"
+    },
+    {
+      "bytes": 13390,
+      "lines": 334,
+      "predecessor_declarations": [
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json",
+          "artifact_sha256": "fc1009c172d3880795dbdaebb90d8de41a6359161d5b86a89315ed4abc4077ed",
+          "bound_sha256": "80e9683f8de422956eef020d4a657b7cc41b8843aaa4e8825ab87c4e3f8c32cd",
+          "hash_field": "byte_hash_sha256",
+          "json_pointer": "/entries/37"
+        }
+      ],
+      "predecessor_sha256": "80e9683f8de422956eef020d4a657b7cc41b8843aaa4e8825ab87c4e3f8c32cd",
+      "relation": "ALL_LINES_V2_ENTRY_SUCCESSOR",
+      "snapshot_path": "snapshots/173d95722cef7411f4b1e4606f8dbdbf850d74fbae9847b942b13be1e56c8308",
+      "source_path": "main/backend/app/models/base.py",
+      "successor_id": "all-lines-models-base-current-bytes-v1",
+      "successor_sha256": "173d95722cef7411f4b1e4606f8dbdbf850d74fbae9847b942b13be1e56c8308"
+    },
+    {
+      "bytes": 16319,
+      "lines": 429,
+      "predecessor_declarations": [
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json",
+          "artifact_sha256": "fc1009c172d3880795dbdaebb90d8de41a6359161d5b86a89315ed4abc4077ed",
+          "bound_sha256": "cb4ae041aef79ce9b8d68a14615c4a85f1b9182319380a5462133534eeca67fc",
+          "hash_field": "byte_hash_sha256",
+          "json_pointer": "/entries/172"
+        },
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesSuccessorMovementInventory.v1.json",
+          "artifact_sha256": "08fad9f59a5c588ca86085410efc792d33114903d4723038f50f46c0f858510d",
+          "bound_sha256": "cb4ae041aef79ce9b8d68a14615c4a85f1b9182319380a5462133534eeca67fc",
+          "hash_field": "sha256",
+          "json_pointer": "/movements/6/donor_byte_closure_refs/12"
+        }
+      ],
+      "predecessor_sha256": "cb4ae041aef79ce9b8d68a14615c4a85f1b9182319380a5462133534eeca67fc",
+      "relation": "ALL_LINES_V2_ENTRY_SUCCESSOR",
+      "snapshot_path": "snapshots/15c22d898b1c90205c43585aae4e3d83a425782e57676926507b92e6b8fb68ca",
+      "source_path": "main/backend/app/services/workflow_graph/runtime.py",
+      "successor_id": "all-lines-workflow-runtime-current-bytes-v1",
+      "successor_sha256": "15c22d898b1c90205c43585aae4e3d83a425782e57676926507b92e6b8fb68ca"
+    },
+    {
+      "binding_group": "source_bindings",
+      "bytes": 18697,
+      "cell_ids": [
+        "C6.1",
+        "C6.2"
+      ],
+      "change_class": "NONSEMANTIC_SECURITY_INTENT_ANNOTATION",
+      "family": "I1",
+      "git_blob_sha1_working_tree": "a8d2c0799ef7ca8ae0d32fa5fc9d87b0aca22782",
+      "lines": 366,
+      "ordered_sha256_chain": [
+        {
+          "sha256": "5cff4695fa1aa9455d3090ae7e8ca51d414a3e7e93599243ccefccd35331b566",
+          "stage": "SPEC_PREDECESSOR"
+        },
+        {
+          "sha256": "e3735f8e74c81f5e1a979bb993926097500f97a2c64065c60f3d5bba2d8e1428",
+          "stage": "B23_SUCCESSOR"
+        },
+        {
+          "sha256": "1daddedc2fe8a435c062fa66019e00db2b47aeb2e88d8fce97e7dfe3e8bd4cf5",
+          "stage": "CURRENT_WORKING_TREE_SUCCESSOR"
+        }
+      ],
+      "predecessor_declarations": [
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/fragments/I1.json",
+          "artifact_sha256": "8c99a91c0891589073318c9b872d977ec95e37e8e206e66255c88f72578d9110",
+          "bound_sha256": "e3735f8e74c81f5e1a979bb993926097500f97a2c64065c60f3d5bba2d8e1428",
+          "cell_id": "C6.1",
+          "hash_field": "successor_sha256",
+          "json_pointer": "/bindings/69"
+        },
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/fragments/I1.json",
+          "artifact_sha256": "8c99a91c0891589073318c9b872d977ec95e37e8e206e66255c88f72578d9110",
+          "bound_sha256": "e3735f8e74c81f5e1a979bb993926097500f97a2c64065c60f3d5bba2d8e1428",
+          "cell_id": "C6.2",
+          "hash_field": "successor_sha256",
+          "json_pointer": "/bindings/74"
+        },
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/manifests/I1.json",
+          "artifact_sha256": "00b0f89e5278f6aee3f5298e5b466d55326292a3fb3421c84daab5740e990521",
+          "bound_sha256": "e3735f8e74c81f5e1a979bb993926097500f97a2c64065c60f3d5bba2d8e1428",
+          "hash_field": "file_sha256",
+          "json_pointer": "/sources/108"
+        },
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/I1/candidate.v2.json",
+          "artifact_sha256": "bb4fc787fbc0d1959f04797e45a99b3da1d00a544501ab30abcc5ff017af0e7e",
+          "bound_sha256": "e3735f8e74c81f5e1a979bb993926097500f97a2c64065c60f3d5bba2d8e1428",
+          "hash_field": "file_sha256",
+          "json_pointer": "/sources/108"
+        }
+      ],
+      "predecessor_sha256": "e3735f8e74c81f5e1a979bb993926097500f97a2c64065c60f3d5bba2d8e1428",
+      "prior_spec_predecessor_sha256": "5cff4695fa1aa9455d3090ae7e8ca51d414a3e7e93599243ccefccd35331b566",
+      "qualification": "EXACT_BYTES_ONLY_NOT_AUTHORITY",
+      "relation": "I1_SHARED_EXACT_BINDING_SUCCESSOR",
+      "role": "legacy_donor_c6_2",
+      "snapshot_path": "snapshots/1daddedc2fe8a435c062fa66019e00db2b47aeb2e88d8fce97e7dfe3e8bd4cf5",
+      "source_path": "main/backend/app/services/agent_core/native_provider.py",
+      "spec_bindings": [
+        {
+          "cell_id": "C6.1",
+          "fragment_json_pointer": "/bindings/69",
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C6.1.v1.json",
+          "spec_sha256": "a7da8f3ad74f1bdd0b7aa9900d45f7556811e3968698346ca2a3bf955acafbd4"
+        },
+        {
+          "cell_id": "C6.2",
+          "fragment_json_pointer": "/bindings/74",
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C6.2.v1.json",
+          "spec_sha256": "73bdfadc766b005c6459135ddb8169c1f024d9fcda72e0aa89ed202d5b7437fe"
+        }
+      ],
+      "successor_id": "i1-c6-native-provider-current-bytes-v2",
+      "successor_sha256": "1daddedc2fe8a435c062fa66019e00db2b47aeb2e88d8fce97e7dfe3e8bd4cf5"
+    },
+    {
+      "binding_group": "source_bindings",
+      "bytes": 31203,
+      "cell_ids": [
+        "C5.2",
+        "C6.1",
+        "C6.3"
+      ],
+      "change_class": "TYPE_CHECKING_ONLY_IMPORT_RELOCATION",
+      "direct_candidate_declarations": [
+        {
+          "candidate_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/C5/candidate.v2.json",
+          "candidate_sha256": "919bbbbf66f7b5959b2407bbf7a488efecbd781844599d5b5ad945180f7dbc47",
+          "family": "C5",
+          "json_pointer": "/sources/10",
+          "predecessor_sha256": "9c11c49cf985d9e5d5563e6111a6084def841875e584c80f7ffd5c7a5ff934c5"
+        },
+        {
+          "candidate_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/C6/candidate.v2.json",
+          "candidate_sha256": "ffdb0020e8a3617a8693f10657a97787f11c6c759bc9afe96e7d06dcb876f87a",
+          "family": "C6",
+          "json_pointer": "/sources/8",
+          "predecessor_sha256": "9c11c49cf985d9e5d5563e6111a6084def841875e584c80f7ffd5c7a5ff934c5"
+        },
+        {
+          "candidate_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/I1/candidate.v2.json",
+          "candidate_sha256": "bb4fc787fbc0d1959f04797e45a99b3da1d00a544501ab30abcc5ff017af0e7e",
+          "family": "I1",
+          "json_pointer": "/sources/111",
+          "predecessor_sha256": "9c11c49cf985d9e5d5563e6111a6084def841875e584c80f7ffd5c7a5ff934c5"
+        }
+      ],
+      "families": [
+        "C5",
+        "C6",
+        "I1"
+      ],
+      "frozen_cell_sources": [
+        {
+          "cell_id": "C5.2",
+          "family": "C5",
+          "fragment_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/fragments/C5.json",
+          "fragment_sha256": "0b3d83914cf7de356e28a51dbfb5e7836d09266f315b4c26f8eab8bcbf26e30f",
+          "json_pointer": "/source_bindings/7",
+          "role": "legacy_donor_c5_2",
+          "spec_json_pointer": "/source_bindings/2",
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C5.2.v1.json",
+          "spec_sha256": "797be2f9801e2722599e2e2c9fd9ae16c42a40fbdef1a5c43afec9a3e9caff96"
+        },
+        {
+          "cell_id": "C6.1",
+          "family": "C6",
+          "fragment_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/fragments/C6.json",
+          "fragment_sha256": "b41f5c2dbbdfd268a86886c9ffc27fe78cfa3fb5914db44272b3dfece65e52bc",
+          "json_pointer": "/source_bindings/8",
+          "role": "legacy_donor_c6_3",
+          "spec_json_pointer": "/source_bindings/8",
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C6.1.v1.json",
+          "spec_sha256": "a7da8f3ad74f1bdd0b7aa9900d45f7556811e3968698346ca2a3bf955acafbd4"
+        },
+        {
+          "cell_id": "C6.3",
+          "family": "C6",
+          "fragment_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/fragments/C6.json",
+          "fragment_sha256": "b41f5c2dbbdfd268a86886c9ffc27fe78cfa3fb5914db44272b3dfece65e52bc",
+          "json_pointer": "/source_bindings/8",
+          "role": "legacy_donor_c6_3",
+          "spec_json_pointer": "/source_bindings/3",
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C6.3.v1.json",
+          "spec_sha256": "c7e1f89b4e717ff67e4e11ec9939352d13eaf30fa2407fb7dedf198e90217ad5"
+        }
+      ],
+      "git_blob_sha1_working_tree": "43ca6a027cbd28a0750e22a31348175da3b6475b",
+      "lines": 684,
+      "ordered_sha256_chain": [
+        {
+          "sha256": "9c11c49cf985d9e5d5563e6111a6084def841875e584c80f7ffd5c7a5ff934c5",
+          "stage": "FROZEN_CANDIDATE_PREDECESSOR"
+        },
+        {
+          "sha256": "f7d9aa9eff608adcf89b1afa98fb19c6f36520a7a2a96ea25aa31d76e851e89a",
+          "stage": "CURRENT_WORKING_TREE_SUCCESSOR"
+        }
+      ],
+      "predecessor_declarations": [
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/C5/candidate.v2.json",
+          "artifact_sha256": "919bbbbf66f7b5959b2407bbf7a488efecbd781844599d5b5ad945180f7dbc47",
+          "bound_sha256": "9c11c49cf985d9e5d5563e6111a6084def841875e584c80f7ffd5c7a5ff934c5",
+          "hash_field": "file_sha256",
+          "json_pointer": "/sources/10"
+        },
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/C6/candidate.v2.json",
+          "artifact_sha256": "ffdb0020e8a3617a8693f10657a97787f11c6c759bc9afe96e7d06dcb876f87a",
+          "bound_sha256": "9c11c49cf985d9e5d5563e6111a6084def841875e584c80f7ffd5c7a5ff934c5",
+          "hash_field": "file_sha256",
+          "json_pointer": "/sources/8"
+        },
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/I1/candidate.v2.json",
+          "artifact_sha256": "bb4fc787fbc0d1959f04797e45a99b3da1d00a544501ab30abcc5ff017af0e7e",
+          "bound_sha256": "9c11c49cf985d9e5d5563e6111a6084def841875e584c80f7ffd5c7a5ff934c5",
+          "hash_field": "file_sha256",
+          "json_pointer": "/sources/111"
+        }
+      ],
+      "predecessor_sha256": "9c11c49cf985d9e5d5563e6111a6084def841875e584c80f7ffd5c7a5ff934c5",
+      "preservation_scope": {
+        "runtime_behavior_claim": "PRESERVED_BY_EXACT_TEXTUAL_TRANSFORMATION_ONLY",
+        "runtime_import_removed": "read_only_tools.ReadOnlyAgentToolRuntime",
+        "type_checking_import_retained": "read_only_tools.ReadOnlyAgentToolRuntime"
+      },
+      "qualification": "EXACT_BYTES_ONLY_NOT_AUTHORITY",
+      "relation": "C5_C6_I1_SHARED_EXACT_BINDING_SUCCESSOR",
+      "snapshot_path": "snapshots/f7d9aa9eff608adcf89b1afa98fb19c6f36520a7a2a96ea25aa31d76e851e89a",
+      "source_path": "main/backend/app/services/agent_runtime/run_loop.py",
+      "successor_id": "c5-c6-i1-run-loop-current-bytes-v3",
+      "successor_sha256": "f7d9aa9eff608adcf89b1afa98fb19c6f36520a7a2a96ea25aa31d76e851e89a"
+    },
+    {
+      "binding_group": "tests",
+      "bytes": 11276,
+      "cell_ids": [],
+      "change_class": "TEST_FIXTURE_IMPORT_EFFECT_ISOLATION",
+      "direct_candidate_declarations": [
+        {
+          "candidate_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b13-2026-09-05/candidates/C2/candidate.v2.json",
+          "candidate_sha256": "a5f9f704091d9c8baee4a4f0ce3ccf6da4bedab666d427d4b3d50510c136dcf0",
+          "family": "C2",
+          "json_pointer": "/tests/14",
+          "predecessor_sha256": "dc1127564039987d7a422056dfd30e15d9b162a07562ee282aaf24e96fc62588",
+          "stage": "stage-b13-2026-09-05"
+        },
+        {
+          "candidate_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b15-2026-09-05/candidates/C2/candidate.v2.json",
+          "candidate_sha256": "de0e01a13efe6aa220a163fb996bb9bddd86800fd1b4579cc5a9fd4a36b87394",
+          "family": "C2",
+          "json_pointer": "/tests/14",
+          "predecessor_sha256": "dc1127564039987d7a422056dfd30e15d9b162a07562ee282aaf24e96fc62588",
+          "stage": "stage-b15-2026-09-05"
+        },
+        {
+          "candidate_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b16-2026-09-05/candidates/C2/candidate.v2.json",
+          "candidate_sha256": "54e4aa88777795adc2390c0111f50501b1bd7c2fa4e3a3cea433371edcf024b5",
+          "family": "C2",
+          "json_pointer": "/tests/14",
+          "predecessor_sha256": "dc1127564039987d7a422056dfd30e15d9b162a07562ee282aaf24e96fc62588",
+          "stage": "stage-b16-2026-09-05"
+        },
+        {
+          "candidate_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b17-2026-09-05/candidates/C2/candidate.v2.json",
+          "candidate_sha256": "4a74faab9d757a442ad1e3745b664f984d5394df37801800e1e7e787d78b6ceb",
+          "family": "C2",
+          "json_pointer": "/tests/14",
+          "predecessor_sha256": "dc1127564039987d7a422056dfd30e15d9b162a07562ee282aaf24e96fc62588",
+          "stage": "stage-b17-2026-09-05"
+        },
+        {
+          "candidate_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b18-2026-09-05/candidates/C2/candidate.v2.json",
+          "candidate_sha256": "ee9b22d2f3631a050c24023860f414a86732d45f722bd1cc62177ac753eb45d4",
+          "family": "C2",
+          "json_pointer": "/tests/14",
+          "predecessor_sha256": "dc1127564039987d7a422056dfd30e15d9b162a07562ee282aaf24e96fc62588",
+          "stage": "stage-b18-2026-09-05"
+        },
+        {
+          "candidate_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/C2/candidate.v2.json",
+          "candidate_sha256": "4ccc431f4eb7caebbdb91acd8146960c5a6e400c498a31a50f80251cfdfa4045",
+          "family": "C2",
+          "json_pointer": "/tests/14",
+          "predecessor_sha256": "dc1127564039987d7a422056dfd30e15d9b162a07562ee282aaf24e96fc62588",
+          "stage": "stage-b19-2026-09-05"
+        },
+        {
+          "candidate_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/C2/candidate.v2.json",
+          "candidate_sha256": "2536206e80e002515b57ae131962db3cdd1cdd9a5eff64392731138c62b4f269",
+          "family": "C2",
+          "json_pointer": "/tests/14",
+          "predecessor_sha256": "dc1127564039987d7a422056dfd30e15d9b162a07562ee282aaf24e96fc62588",
+          "stage": "stage-b23-2026-09-05"
+        }
+      ],
+      "families": [
+        "C2"
+      ],
+      "frozen_source_snapshots": [
+        {
+          "bytes": 10337,
+          "candidate_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b13-2026-09-05/candidates/C2/candidate.v2.json",
+          "git_blob_sha1": "cbbee92f47e2125dac358fefdb270da026525366",
+          "lines": 280,
+          "role": "immediate_frozen_candidate_source",
+          "sha256": "dc1127564039987d7a422056dfd30e15d9b162a07562ee282aaf24e96fc62588",
+          "snapshot_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b13-2026-09-05/candidates/C2/snapshots/dc1127564039987d7a422056dfd30e15d9b162a07562ee282aaf24e96fc62588"
+        },
+        {
+          "bytes": 10337,
+          "candidate_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b15-2026-09-05/candidates/C2/candidate.v2.json",
+          "git_blob_sha1": "cbbee92f47e2125dac358fefdb270da026525366",
+          "lines": 280,
+          "role": "immediate_frozen_candidate_source",
+          "sha256": "dc1127564039987d7a422056dfd30e15d9b162a07562ee282aaf24e96fc62588",
+          "snapshot_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b15-2026-09-05/candidates/C2/snapshots/dc1127564039987d7a422056dfd30e15d9b162a07562ee282aaf24e96fc62588"
+        },
+        {
+          "bytes": 10337,
+          "candidate_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b16-2026-09-05/candidates/C2/candidate.v2.json",
+          "git_blob_sha1": "cbbee92f47e2125dac358fefdb270da026525366",
+          "lines": 280,
+          "role": "immediate_frozen_candidate_source",
+          "sha256": "dc1127564039987d7a422056dfd30e15d9b162a07562ee282aaf24e96fc62588",
+          "snapshot_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b16-2026-09-05/candidates/C2/snapshots/dc1127564039987d7a422056dfd30e15d9b162a07562ee282aaf24e96fc62588"
+        },
+        {
+          "bytes": 10337,
+          "candidate_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b17-2026-09-05/candidates/C2/candidate.v2.json",
+          "git_blob_sha1": "cbbee92f47e2125dac358fefdb270da026525366",
+          "lines": 280,
+          "role": "immediate_frozen_candidate_source",
+          "sha256": "dc1127564039987d7a422056dfd30e15d9b162a07562ee282aaf24e96fc62588",
+          "snapshot_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b17-2026-09-05/candidates/C2/snapshots/dc1127564039987d7a422056dfd30e15d9b162a07562ee282aaf24e96fc62588"
+        },
+        {
+          "bytes": 10337,
+          "candidate_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b18-2026-09-05/candidates/C2/candidate.v2.json",
+          "git_blob_sha1": "cbbee92f47e2125dac358fefdb270da026525366",
+          "lines": 280,
+          "role": "immediate_frozen_candidate_source",
+          "sha256": "dc1127564039987d7a422056dfd30e15d9b162a07562ee282aaf24e96fc62588",
+          "snapshot_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b18-2026-09-05/candidates/C2/snapshots/dc1127564039987d7a422056dfd30e15d9b162a07562ee282aaf24e96fc62588"
+        },
+        {
+          "bytes": 10337,
+          "candidate_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/C2/candidate.v2.json",
+          "git_blob_sha1": "cbbee92f47e2125dac358fefdb270da026525366",
+          "lines": 280,
+          "role": "immediate_frozen_candidate_source",
+          "sha256": "dc1127564039987d7a422056dfd30e15d9b162a07562ee282aaf24e96fc62588",
+          "snapshot_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/C2/snapshots/dc1127564039987d7a422056dfd30e15d9b162a07562ee282aaf24e96fc62588"
+        },
+        {
+          "bytes": 10337,
+          "candidate_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/C2/candidate.v2.json",
+          "git_blob_sha1": "cbbee92f47e2125dac358fefdb270da026525366",
+          "lines": 280,
+          "role": "immediate_frozen_candidate_source",
+          "sha256": "dc1127564039987d7a422056dfd30e15d9b162a07562ee282aaf24e96fc62588",
+          "snapshot_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/C2/snapshots/dc1127564039987d7a422056dfd30e15d9b162a07562ee282aaf24e96fc62588"
+        }
+      ],
+      "git_blob_sha1_working_tree": "8f2ceed27b9ccd154e7b24f8905d9d56303bf010",
+      "lines": 308,
+      "ordered_sha256_chain": [
+        {
+          "sha256": "dc1127564039987d7a422056dfd30e15d9b162a07562ee282aaf24e96fc62588",
+          "stage": "IMMEDIATE_FROZEN_CANDIDATE_PREDECESSOR"
+        },
+        {
+          "sha256": "5453860c91064f06058e0f4857cb142aa6e14890ed63fc30ad4644dd3c799b0f",
+          "stage": "CURRENT_WORKING_TREE_SUCCESSOR"
+        }
+      ],
+      "predecessor_declarations": [
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b13-2026-09-05/candidates/C2/candidate.v2.json",
+          "artifact_sha256": "a5f9f704091d9c8baee4a4f0ce3ccf6da4bedab666d427d4b3d50510c136dcf0",
+          "bound_sha256": "dc1127564039987d7a422056dfd30e15d9b162a07562ee282aaf24e96fc62588",
+          "hash_field": "file_sha256",
+          "json_pointer": "/tests/14"
+        },
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b15-2026-09-05/candidates/C2/candidate.v2.json",
+          "artifact_sha256": "de0e01a13efe6aa220a163fb996bb9bddd86800fd1b4579cc5a9fd4a36b87394",
+          "bound_sha256": "dc1127564039987d7a422056dfd30e15d9b162a07562ee282aaf24e96fc62588",
+          "hash_field": "file_sha256",
+          "json_pointer": "/tests/14"
+        },
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b16-2026-09-05/candidates/C2/candidate.v2.json",
+          "artifact_sha256": "54e4aa88777795adc2390c0111f50501b1bd7c2fa4e3a3cea433371edcf024b5",
+          "bound_sha256": "dc1127564039987d7a422056dfd30e15d9b162a07562ee282aaf24e96fc62588",
+          "hash_field": "file_sha256",
+          "json_pointer": "/tests/14"
+        },
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b17-2026-09-05/candidates/C2/candidate.v2.json",
+          "artifact_sha256": "4a74faab9d757a442ad1e3745b664f984d5394df37801800e1e7e787d78b6ceb",
+          "bound_sha256": "dc1127564039987d7a422056dfd30e15d9b162a07562ee282aaf24e96fc62588",
+          "hash_field": "file_sha256",
+          "json_pointer": "/tests/14"
+        },
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b18-2026-09-05/candidates/C2/candidate.v2.json",
+          "artifact_sha256": "ee9b22d2f3631a050c24023860f414a86732d45f722bd1cc62177ac753eb45d4",
+          "bound_sha256": "dc1127564039987d7a422056dfd30e15d9b162a07562ee282aaf24e96fc62588",
+          "hash_field": "file_sha256",
+          "json_pointer": "/tests/14"
+        },
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/C2/candidate.v2.json",
+          "artifact_sha256": "4ccc431f4eb7caebbdb91acd8146960c5a6e400c498a31a50f80251cfdfa4045",
+          "bound_sha256": "dc1127564039987d7a422056dfd30e15d9b162a07562ee282aaf24e96fc62588",
+          "hash_field": "file_sha256",
+          "json_pointer": "/tests/14"
+        },
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/C2/candidate.v2.json",
+          "artifact_sha256": "2536206e80e002515b57ae131962db3cdd1cdd9a5eff64392731138c62b4f269",
+          "bound_sha256": "dc1127564039987d7a422056dfd30e15d9b162a07562ee282aaf24e96fc62588",
+          "hash_field": "file_sha256",
+          "json_pointer": "/tests/14"
+        }
+      ],
+      "predecessor_sha256": "dc1127564039987d7a422056dfd30e15d9b162a07562ee282aaf24e96fc62588",
+      "preservation_scope": {
+        "alias_or_provider_binding_changed": false,
+        "effect_path": "pytest.TempPathFactory.mktemp/provider-port-llm-cache/langchain-cache.db",
+        "fixture_autouse": true,
+        "fixture_name": "_isolate_llm_cache_effect",
+        "fixture_scope": "module",
+        "production_sources_changed": false,
+        "restored_state": [
+          "langchain_global_llm_cache",
+          "llm_cache._CACHE_FILE",
+          "settings.env"
+        ],
+        "runtime_behavior_claim": "TEST_IMPORT_EFFECT_ISOLATED_BY_EXACT_TEXTUAL_TRANSFORMATION_ONLY",
+        "test_assertions_changed": false,
+        "test_functions_changed": false
+      },
+      "qualification": "EXACT_BYTES_ONLY_NOT_AUTHORITY",
+      "relation": "C2_SHARED_EXACT_TEST_BINDING_SUCCESSOR",
+      "snapshot_path": "snapshots/5453860c91064f06058e0f4857cb142aa6e14890ed63fc30ad4644dd3c799b0f",
+      "source_path": "tests/test_provider_port_failure_registration.py",
+      "successor_id": "c2-provider-port-failure-registration-current-bytes-v3",
+      "successor_sha256": "5453860c91064f06058e0f4857cb142aa6e14890ed63fc30ad4644dd3c799b0f"
+    },
+    {
+      "binding_group": "source_bindings",
+      "bytes": 13724,
+      "cell_ids": [],
+      "change_class": "TYPED_FAILURE_TO_HTTP_NOT_FOUND_REFINEMENT",
+      "direct_candidate_declarations": [
+        {
+          "candidate_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/C9/candidate.v2.json",
+          "candidate_sha256": "bb7abb42d622828eddb599c72bc0974f22ca0fefb47c70a23a7dbddc3ec67329",
+          "family": "C9",
+          "json_pointer": "/sources/7",
+          "predecessor_sha256": "9c185595c6990055877f3dee47c615070ca3ff8b89b592e4991ab4c49fbefacd"
+        }
+      ],
+      "families": [
+        "C9"
+      ],
+      "lines": 355,
+      "ordered_sha256_chain": [
+        "9c185595c6990055877f3dee47c615070ca3ff8b89b592e4991ab4c49fbefacd",
+        "2a074d509523da9a33008929bc577c16b384ea23b7dba77060eba19fae5a0708"
+      ],
+      "predecessor_declarations": [
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/C9/candidate.v2.json",
+          "artifact_sha256": "bb7abb42d622828eddb599c72bc0974f22ca0fefb47c70a23a7dbddc3ec67329",
+          "bound_sha256": "9c185595c6990055877f3dee47c615070ca3ff8b89b592e4991ab4c49fbefacd",
+          "hash_field": "file_sha256",
+          "json_pointer": "/sources/7"
+        }
+      ],
+      "predecessor_sha256": "9c185595c6990055877f3dee47c615070ca3ff8b89b592e4991ab4c49fbefacd",
+      "preservation_scope": "EXACT_BYTE_REFINEMENT_ONLY_FAILURE_BEHAVIOR_CHANGED_NO_AUTHORITY",
+      "qualification": "EXACT_BYTES_ONLY_NOT_AUTHORITY",
+      "relation": "C9_EXACT_BINDING_SUCCESSOR",
+      "snapshot_path": "snapshots/2a074d509523da9a33008929bc577c16b384ea23b7dba77060eba19fae5a0708",
+      "source_path": "main/backend/app/api/agent_sessions.py",
+      "spec_bindings": [],
+      "successor_id": "c9-session-api-failure-refinement-v3",
+      "successor_sha256": "2a074d509523da9a33008929bc577c16b384ea23b7dba77060eba19fae5a0708"
+    },
+    {
+      "binding_group": "source_bindings",
+      "bytes": 99005,
+      "cell_ids": [
+        "C5.1",
+        "C5.3"
+      ],
+      "change_class": "TYPED_FAILURE_APPROVAL_PROJECTION_REFINEMENT",
+      "direct_candidate_declarations": [
+        {
+          "candidate_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/C5/candidate.v2.json",
+          "candidate_sha256": "919bbbbf66f7b5959b2407bbf7a488efecbd781844599d5b5ad945180f7dbc47",
+          "family": "C5",
+          "json_pointer": "/sources/11",
+          "predecessor_sha256": "49b2037874d51234c83836ac33121cff68ae30163b5ba3facfc171ca68d3d868"
+        },
+        {
+          "candidate_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/C9/candidate.v2.json",
+          "candidate_sha256": "bb7abb42d622828eddb599c72bc0974f22ca0fefb47c70a23a7dbddc3ec67329",
+          "family": "C9",
+          "json_pointer": "/sources/11",
+          "predecessor_sha256": "49b2037874d51234c83836ac33121cff68ae30163b5ba3facfc171ca68d3d868"
+        },
+        {
+          "candidate_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/I1/candidate.v2.json",
+          "candidate_sha256": "bb4fc787fbc0d1959f04797e45a99b3da1d00a544501ab30abcc5ff017af0e7e",
+          "family": "I1",
+          "json_pointer": "/sources/112",
+          "predecessor_sha256": "49b2037874d51234c83836ac33121cff68ae30163b5ba3facfc171ca68d3d868"
+        }
+      ],
+      "families": [
+        "C5",
+        "C9",
+        "I1"
+      ],
+      "lines": 2239,
+      "ordered_sha256_chain": [
+        "49b2037874d51234c83836ac33121cff68ae30163b5ba3facfc171ca68d3d868",
+        "453529a29d37d696be60e936426e9558808bead7ef7247809a020498251d0c07"
+      ],
+      "predecessor_declarations": [
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/C5/candidate.v2.json",
+          "artifact_sha256": "919bbbbf66f7b5959b2407bbf7a488efecbd781844599d5b5ad945180f7dbc47",
+          "bound_sha256": "49b2037874d51234c83836ac33121cff68ae30163b5ba3facfc171ca68d3d868",
+          "hash_field": "file_sha256",
+          "json_pointer": "/sources/11"
+        },
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/C9/candidate.v2.json",
+          "artifact_sha256": "bb7abb42d622828eddb599c72bc0974f22ca0fefb47c70a23a7dbddc3ec67329",
+          "bound_sha256": "49b2037874d51234c83836ac33121cff68ae30163b5ba3facfc171ca68d3d868",
+          "hash_field": "file_sha256",
+          "json_pointer": "/sources/11"
+        },
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/I1/candidate.v2.json",
+          "artifact_sha256": "bb4fc787fbc0d1959f04797e45a99b3da1d00a544501ab30abcc5ff017af0e7e",
+          "bound_sha256": "49b2037874d51234c83836ac33121cff68ae30163b5ba3facfc171ca68d3d868",
+          "hash_field": "file_sha256",
+          "json_pointer": "/sources/112"
+        }
+      ],
+      "predecessor_sha256": "49b2037874d51234c83836ac33121cff68ae30163b5ba3facfc171ca68d3d868",
+      "preservation_scope": "EXACT_BYTE_REFINEMENT_ONLY_FAILURE_BEHAVIOR_CHANGED_NO_AUTHORITY",
+      "prior_spec_predecessor_sha256": "56e5f4cf696bcdd1ceb31883e88b2829597dcc8f25d9a23287073c85cde21852",
+      "qualification": "EXACT_BYTES_ONLY_NOT_AUTHORITY",
+      "relation": "I1_SHARED_EXACT_BINDING_SUCCESSOR",
+      "role": "legacy_donor_c5_1_c5_3",
+      "snapshot_path": "snapshots/453529a29d37d696be60e936426e9558808bead7ef7247809a020498251d0c07",
+      "source_path": "main/backend/app/services/agent_sessions/service.py",
+      "spec_bindings": [
+        {
+          "cell_id": "C5.1",
+          "json_pointer": "/source_bindings/3",
+          "prior_spec_predecessor_sha256": "56e5f4cf696bcdd1ceb31883e88b2829597dcc8f25d9a23287073c85cde21852",
+          "role": "legacy_donor_c5_1_c5_3",
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C5.1.v1.json",
+          "spec_sha256": "95d89862c2caae37f0f549894b444f82b28f5cccc1bd9ddbe089f38b521e50fb"
+        },
+        {
+          "cell_id": "C5.3",
+          "json_pointer": "/source_bindings/2",
+          "prior_spec_predecessor_sha256": "56e5f4cf696bcdd1ceb31883e88b2829597dcc8f25d9a23287073c85cde21852",
+          "role": "legacy_donor_c5_1_c5_3",
+          "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C5.3.v1.json",
+          "spec_sha256": "dc30062093443cf0af7c7fbbf8431e3f752169c7604f30d91667a6c83451e7ad"
+        }
+      ],
+      "successor_id": "c5-c9-i1-session-service-failure-refinement-v3",
+      "successor_sha256": "453529a29d37d696be60e936426e9558808bead7ef7247809a020498251d0c07"
+    },
+    {
+      "binding_group": "source_bindings",
+      "bytes": 6360,
+      "cell_ids": [],
+      "change_class": "HISTORICAL_STAGE_SELECTOR_RETARGETED_TO_TRACKED_B23",
+      "direct_candidate_declarations": [
+        {
+          "candidate_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/C2/candidate.v2.json",
+          "candidate_sha256": "2536206e80e002515b57ae131962db3cdd1cdd9a5eff64392731138c62b4f269",
+          "family": "C2",
+          "json_pointer": "/tests/9",
+          "predecessor_sha256": "4b0457ad66f29d54e73cf4330347b4819855b0c2101fa24be81cef7fd4bc5f09"
+        }
+      ],
+      "families": [
+        "C2"
+      ],
+      "lines": 187,
+      "ordered_sha256_chain": [
+        "4b0457ad66f29d54e73cf4330347b4819855b0c2101fa24be81cef7fd4bc5f09",
+        "cbd81b05412f975cdf4b0d91d51e12263b5ad70033417867ba17f4694dc81fb7"
+      ],
+      "predecessor_declarations": [
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/C2/candidate.v2.json",
+          "artifact_sha256": "2536206e80e002515b57ae131962db3cdd1cdd9a5eff64392731138c62b4f269",
+          "bound_sha256": "4b0457ad66f29d54e73cf4330347b4819855b0c2101fa24be81cef7fd4bc5f09",
+          "hash_field": "file_sha256",
+          "json_pointer": "/tests/9"
+        }
+      ],
+      "predecessor_sha256": "4b0457ad66f29d54e73cf4330347b4819855b0c2101fa24be81cef7fd4bc5f09",
+      "preservation_scope": "EXACT_STAGE_PATH_UPDATE_ONLY_TEST_SEMANTICS_UNCHANGED_NO_AUTHORITY",
+      "qualification": "EXACT_BYTES_ONLY_NOT_AUTHORITY",
+      "relation": "C2_EXACT_TEST_BINDING_SUCCESSOR",
+      "snapshot_path": "snapshots/cbd81b05412f975cdf4b0d91d51e12263b5ad70033417867ba17f4694dc81fb7",
+      "source_path": "main/backend/tests/successor_runtime/test_p3_c2_evidence_generator.py",
+      "spec_bindings": [],
+      "successor_id": "c2-historical-stage-selector-v3",
+      "successor_sha256": "cbd81b05412f975cdf4b0d91d51e12263b5ad70033417867ba17f4694dc81fb7"
+    }
+  ]
+}

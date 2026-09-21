@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any
 
 from .contracts import ALLOWED_COLLECT_FLOWS, CollectRequest, CollectResult, FLOW_COLLECT, FLOW_SOURCE_COLLECT
 
@@ -16,7 +16,10 @@ def _dedup_text_list(values: list[str] | None) -> list[str] | None:
     return out or None
 
 
-def build_display_meta(request: CollectRequest, result: CollectResult | None = None, *, summary: str | None = None) -> dict[str, Any]:
+def build_display_meta(request: CollectRequest, result: CollectResult | None = None, *, summary: str | None = None) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=request+result+summary witness=test:test_w03_ingest_ports_authority_metadata",
+]:
     flow = str(request.flow or "").strip() or FLOW_COLLECT
     if flow not in ALLOWED_COLLECT_FLOWS:
         flow = FLOW_COLLECT

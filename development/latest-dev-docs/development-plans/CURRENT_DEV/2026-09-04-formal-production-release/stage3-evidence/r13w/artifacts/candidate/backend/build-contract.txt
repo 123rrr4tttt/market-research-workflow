@@ -1,0 +1,10 @@
+source=/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260912-v4-r13w/candidate
+builder=mrw-r13w-canonical-amd64
+platform=linux/amd64
+no_cache=true
+source_date_epoch=0
+optional_enhancements=false
+tag=mrw-local/r13w-candidate-backend:6aa7518750f2c29229a443f73248c8133f192e4d
+target=backend-runtime
+provenance=true
+sbom=true

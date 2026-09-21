@@ -1,0 +1,92 @@
+{
+  "authoritative": false,
+  "authority_ceiling": "LOCAL_SECURITY_EVIDENCE_NOT_RELEASE_AUTHORITY",
+  "candidate": {
+    "commit": "3669d4ddc19fb722058976b4e1f05e99eccfe96e",
+    "tree": "ce4e4b9ce1b633276192e809fa72007176224e0c"
+  },
+  "fixed_git_dependency_limitation": "Public vulnerability databases do not cover the pinned Git commit as a PyPI release; the project checker verifies declaration/source/installed bytes and Bandit, while pip-audit covers the validated public-PyPI projection.",
+  "reports": {
+    "bandit.report.json": {
+      "bytes": 277982,
+      "sha256": "df1dde9ac551d439a377c38e2b652792cebe5958fc99796844fcaf4db88e4f22"
+    },
+    "functorial-kit-audit.report.json": {
+      "bytes": 18692,
+      "sha256": "97608e019ec00456a662e9ecede89d5f5d7513071593e02dd2a407b2e68dea0e"
+    },
+    "gitleaks.report.json": {
+      "bytes": 946605,
+      "sha256": "fc6fed841c73f4e6cea8faf91397d0f55ee4c073f08d9226907d7f2a3a1dcdb6"
+    }
+  },
+  "results": {
+    "bandit": {
+      "command_sha256": "b5879e2a96400613265e6d25ca301ac166044c6e45bc6a134536c75009ef548d",
+      "exit_code": 0,
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "frontend-audit": {
+      "command_sha256": "9fa84ad43f3d5986ba1dc72870e7f8e3943a1a023617b1c7fda653340248eeaa",
+      "exit_code": 0,
+      "log_sha256": "0e5f559c4fee6779feeeec29084d7a9098ba09c8cc22d900d1f49079fd2946de"
+    },
+    "functorial-kit-audit": {
+      "command_sha256": "1f9a64769b7c5cda0585493e05e26727e90a35071d834ea66e460ac79e17c9f6",
+      "exit_code": 0,
+      "log_sha256": "289d5a907c170da7ef6480eb30ed335e49c2be58b9b333ac0ab303e45f2ccc65"
+    },
+    "functorial-kit-checkout": {
+      "command_sha256": "e56fc42e11491549ff2b5e1a3518e38490c3712dfa0041cdf4dc8ccd324dd48c",
+      "exit_code": 0,
+      "log_sha256": "122cff6291954d14b99f5dd79748c760f613190635f653e2d5751009eb782e4c"
+    },
+    "functorial-kit-clone": {
+      "command_sha256": "9349b68203ec417b5f17283acb1b19a720f732eb8040bfdadf7e8a7a86f5407f",
+      "exit_code": 0,
+      "log_sha256": "b980437e99349dacdc8a7990b923cf802b1b4aec8f6a1bf71c155d7e40e8d540"
+    },
+    "gitleaks": {
+      "command_sha256": "c40c6751446c69c4be89400430acd75de79ae07d9e0367fa2789aba35dabc8f6",
+      "exit_code": 1,
+      "log_sha256": "7f93789abeb58971d49024cd00f8415b928bb1d23dd07532255425f25f8c1447"
+    },
+    "pip-audit": {
+      "command_sha256": "91e08d563469858776ce8e5b2009f12f8c26b33da2353de8de672779d11755a0",
+      "exit_code": 1,
+      "log_sha256": "82f0d303ef4e9f4600c4f62785db9349578408435aa36e851af44cd57c1259e4"
+    }
+  },
+  "reused_r13n_image_evidence": {
+    "files": {
+      "backend-image-inspect.json": {
+        "sha256": "edfca2e3ca3175301347d0a5d4cc6a15f925957d16acc98fe2630945c5b27d48"
+      },
+      "backend.sbom.spdx.json": {
+        "sha256": "c2be8989b786dca3860f4dd5c77bbc9d5ea1e9e1793a6a43b1701623d6d4c169"
+      },
+      "backend.trivy.json": {
+        "sha256": "5a4a0ca7458343ee0c7bbb5238dc3069adb37656fc751d1a8de0fcac9efd7cd7"
+      },
+      "migration-image-inspect.json": {
+        "sha256": "439cf3395680638bf2c2a468b82c7f5bf6941d0c7e614cbaf852f6584069efd9"
+      },
+      "migration.sbom.spdx.json": {
+        "sha256": "8ca4c74db411b3f94c942623aff03a5963cb6bc54e61ca4003ef3d8e4593653a"
+      },
+      "migration.trivy.json": {
+        "sha256": "500ffd0de3ef58e716130ac1ea186d48df36c7ff8c9f94069430fd14bdab8bb2"
+      },
+      "result.json": {
+        "sha256": "467eff19af9ef42db9bdeedf810ccec6a1cb193300051d557ac6b659bbef7e37"
+      },
+      "tool-versions.json": {
+        "sha256": "bb308eed72e2ebd5509cf03d9a4ca2b56a32183c764780995aba9b632d60db65"
+      }
+    },
+    "scope": "backend and migration role inputs only; main/backend and src Git trees are byte-identical between r13n and r13o. This does not rebind the old execution to r13o candidate SHA and does not cover frontend, independent rebuild, signing, registry, or release authority.",
+    "source": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260910-v4-r13n/evidence/images"
+  },
+  "schema": "mrw.stage3.security-evidence.r13o.v1",
+  "status": "FAILED_OR_INCOMPLETE"
+}

@@ -23,6 +23,7 @@ from scripts.check_successor_c7_semantic_movements import (
     MATRIX_REL,
     REQUIRED_FIELDS,
     STATUS,
+    TOPIC,
     TRACE_REL,
     build_documents,
     parse_design,
@@ -33,6 +34,90 @@ DESIGN_ROOT = Path(
     os.environ.get("C7_SEMANTIC_MOVEMENT_DESIGN_ROOT", str(REPO))
 ).resolve()
 SCRIPT = BACKEND / "scripts/check_successor_c7_semantic_movements.py"
+STAGE_B8_ROOT = (
+    REPO
+    / TOPIC
+    / "evidence/exact-byte-rebind/stage-b8-2026-09-05/candidates/C7"
+).resolve()
+CANDIDATE_REL = STAGE_B8_ROOT / "candidate.v2.json"
+FRAGMENT_REL = (
+    REPO
+    / TOPIC
+    / "evidence/exact-byte-rebind/stage-b8-2026-09-05/fragments/C7.json"
+).resolve()
+STAGE_B12_ROOT = (
+    REPO
+    / TOPIC
+    / "evidence/exact-byte-rebind/stage-b12-2026-09-05/candidates/C7"
+).resolve()
+B12_CANDIDATE_REL = STAGE_B12_ROOT / "candidate.v2.json"
+B12_FRAGMENT_REL = (
+    REPO
+    / TOPIC
+    / "evidence/exact-byte-rebind/stage-b12-2026-09-05/fragments/C7.json"
+).resolve()
+STAGE_B23_ROOT = (
+    REPO
+    / TOPIC
+    / "evidence/exact-byte-rebind/stage-b23-2026-09-07/candidates/C7"
+).resolve()
+CURRENT_CANDIDATE_REL = STAGE_B23_ROOT / "candidate.v2.json"
+CURRENT_FRAGMENT_REL = (
+    REPO
+    / TOPIC
+    / "evidence/exact-byte-rebind/stage-b23-2026-09-07/fragments/C7.json"
+).resolve()
+B12_CANDIDATE_ID = (
+    "763dfb78825e9664c9e4c3cbfa3245c7566669c29918957304a863b6311c5327"
+)
+
+FROZEN_PREDECESSOR_EVIDENCE = {
+    INVENTORY_REL: {
+        "sha256": "8ca654e374b009f5ed97fec337a093a1751367f35c579f8e1afdc0e2273ac271",
+        "bytes": 5139,
+        "content_digest": "4c92fef4f38ebe6b8d5ddf95771bc6b4b4da3ca132ac177cbeddea706ebe4bf8",
+    },
+    MATRIX_REL: {
+        "sha256": "b9d877f0d24b58aedc077b2ed36e2293859eec660917c1ef9ee03f18fe112515",
+        "bytes": 24999,
+        "content_digest": "b4d15c086a2d9699061f934fc57880741f6959c939a7a493b0420fafc7fd05fd",
+    },
+    TRACE_REL: {
+        "sha256": "43c72f47a239af8f3f94070259469b03dbbf18bec3a9038f9ddc49c94670d7b5",
+        "bytes": 9506,
+        "content_digest": "2f1c0f179449b26ad1403cf6dda0034890b9020ccde4900ce4487e8ec485f92d",
+    },
+}
+
+REQUIRED_B23_CANDIDATE_BINDINGS = {
+    "main/backend/app/services/ingest/cleanup_executor.py": "sources",
+    "main/backend/app/successor_runtime/capabilities/ingest_c7_movements.py": (
+        "sources"
+    ),
+    "main/backend/app/successor_runtime/capabilities/ingest_c7_common.py": "sources",
+    "main/backend/app/successor_runtime/capabilities/ingest_c7_program.py": "sources",
+    "main/backend/app/successor_runtime/capabilities/ingest_c7_registry.py": (
+        "sources"
+    ),
+    "scripts/generate_c7_exact_byte_rebind.py": "sources",
+    "tests/test_c7_runtime_failure_closure.py": "tests",
+    "tests/test_c7_semantic_registration.py": "tests",
+}
+REQUIRED_B23_FRAGMENT_BINDINGS = {
+    "main/backend/app/services/ingest/cleanup_executor.py": "source_bindings",
+    "main/backend/app/successor_runtime/capabilities/ingest_c7_movements.py": (
+        "implementation_bindings"
+    ),
+    "main/backend/app/successor_runtime/capabilities/ingest_c7_common.py": (
+        "implementation_bindings"
+    ),
+    "main/backend/app/successor_runtime/capabilities/ingest_c7_program.py": (
+        "implementation_bindings"
+    ),
+    "main/backend/app/successor_runtime/capabilities/ingest_c7_registry.py": (
+        "implementation_bindings"
+    ),
+}
 
 
 def _load(repo_root: Path, relative: Path) -> dict:
@@ -163,10 +248,18 @@ def test_canonical_digests_and_inventory_projection() -> None:
     assert matrix["trace_and_loss_digest"] == bundle["content_digest"]
 
 
-def test_persisted_documents_match_and_check_is_read_only() -> None:
+def test_frozen_predecessor_evidence_bytes_and_known_hashes() -> None:
+    for relative, expected in FROZEN_PREDECESSOR_EVIDENCE.items():
+        payload = (REPO / relative).read_bytes()
+        assert len(payload) == expected["bytes"], relative
+        assert len(payload.splitlines()) == 1, relative
+        assert hashlib.sha256(payload).hexdigest() == expected["sha256"], relative
+        document = json.loads(payload)
+        assert document["content_digest"] == expected["content_digest"], relative
+
+
+def test_current_runtime_checker_reports_drift_without_writing() -> None:
     documents = build_documents(DESIGN_ROOT)
-    for relative, expected in documents.items():
-        assert (REPO / relative).read_bytes() == expected, relative
     before = {
         relative: ((REPO / relative).read_bytes(), (REPO / relative).stat().st_mtime_ns)
         for relative in documents
@@ -186,10 +279,219 @@ def test_persisted_documents_match_and_check_is_read_only() -> None:
         capture_output=True,
         text=True,
     )
-    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.returncode == 1, result.stdout + result.stderr
+    report = json.loads(result.stdout)
+    assert report["status"] == "DRIFT"
+    assert report["paths"] == [
+        INVENTORY_REL.as_posix(),
+        MATRIX_REL.as_posix(),
+        TRACE_REL.as_posix(),
+    ]
+    assert (REPO / INVENTORY_REL).read_bytes() != documents[INVENTORY_REL]
+    assert (REPO / MATRIX_REL).read_bytes() != documents[MATRIX_REL]
+    assert (REPO / TRACE_REL).read_bytes() != documents[TRACE_REL]
     after = {
         relative: ((REPO / relative).read_bytes(), (REPO / relative).stat().st_mtime_ns)
         for relative in documents
+    }
+    assert after == before
+
+
+def test_stage_b8_predecessor_is_history_only_without_current_authority() -> None:
+    candidate = json.loads(CANDIDATE_REL.read_text(encoding="utf-8"))
+    fragment = json.loads(FRAGMENT_REL.read_text(encoding="utf-8"))
+    assert candidate["schema"] == "mrw.family_fragment_rebind.candidate.v2"
+    assert candidate["status"] == "CANDIDATE_VALID_NOT_AUTHORITY"
+    assert candidate["amendment"] == (
+        "STAGE_B8_BOUND_WITNESS_REBIND_CANDIDATE_NOT_AUTHORITY"
+    )
+    assert candidate["family"] == "C7"
+    assert fragment["family"] == "C7"
+    assert fragment["status"] == "AHEAD_OF_TIME_SCAFFOLDING_UNADOPTED"
+    assert all(value is False for value in fragment["authority"].values())
+
+    before = {
+        path.relative_to(STAGE_B8_ROOT).as_posix(): (
+            path.stat().st_mtime_ns,
+            path.read_bytes(),
+        )
+        for path in sorted(STAGE_B8_ROOT.rglob("*"))
+        if path.is_file()
+    }
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(REPO / "scripts/stage_family_fragment_rebind.py"),
+            "check-candidate",
+            "--repo-root",
+            str(REPO),
+            "--candidate",
+            CANDIDATE_REL.relative_to(REPO).as_posix(),
+            "--history-only",
+        ],
+        cwd=BACKEND,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert json.loads(result.stdout) == {
+        "candidate_id": candidate["candidate_id"],
+        "family": "C7",
+        "status": "HISTORY_SNAPSHOT_VALID_NOT_AUTHORITY",
+    }
+    after = {
+        path.relative_to(STAGE_B8_ROOT).as_posix(): (
+            path.stat().st_mtime_ns,
+            path.read_bytes(),
+        )
+        for path in sorted(STAGE_B8_ROOT.rglob("*"))
+        if path.is_file()
+    }
+    assert after == before
+
+
+def test_stage_b12_predecessor_is_history_only_without_current_authority() -> None:
+    candidate = json.loads(B12_CANDIDATE_REL.read_text(encoding="utf-8"))
+    fragment = json.loads(B12_FRAGMENT_REL.read_text(encoding="utf-8"))
+    assert candidate["schema"] == "mrw.family_fragment_rebind.candidate.v2"
+    assert candidate["candidate_id"] == B12_CANDIDATE_ID
+    assert candidate["status"] == "CANDIDATE_VALID_NOT_AUTHORITY"
+    assert candidate["amendment"] == (
+        "STAGE_B12_C7_FINAL_FAILURE_REBIND_CANDIDATE_NOT_AUTHORITY"
+    )
+    assert candidate["family"] == "C7"
+    assert fragment["family"] == "C7"
+    assert fragment["status"] == "AHEAD_OF_TIME_SCAFFOLDING_UNADOPTED"
+    assert all(value is False for value in fragment["authority"].values())
+
+    before = {
+        path.relative_to(STAGE_B12_ROOT).as_posix(): (
+            path.stat().st_mtime_ns,
+            path.read_bytes(),
+        )
+        for path in sorted(STAGE_B12_ROOT.rglob("*"))
+        if path.is_file()
+    }
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(REPO / "scripts/stage_family_fragment_rebind.py"),
+            "check-candidate",
+            "--repo-root",
+            str(REPO),
+            "--candidate",
+            B12_CANDIDATE_REL.relative_to(REPO).as_posix(),
+            "--history-only",
+        ],
+        cwd=BACKEND,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert json.loads(result.stdout) == {
+        "candidate_id": B12_CANDIDATE_ID,
+        "family": "C7",
+        "status": "HISTORY_SNAPSHOT_VALID_NOT_AUTHORITY",
+    }
+    after = {
+        path.relative_to(STAGE_B12_ROOT).as_posix(): (
+            path.stat().st_mtime_ns,
+            path.read_bytes(),
+        )
+        for path in sorted(STAGE_B12_ROOT.rglob("*"))
+        if path.is_file()
+    }
+    assert after == before
+
+
+def test_stage_b19_current_candidate_binds_live_bytes_read_only() -> None:
+    candidate = json.loads(CURRENT_CANDIDATE_REL.read_text(encoding="utf-8"))
+    fragment = json.loads(CURRENT_FRAGMENT_REL.read_text(encoding="utf-8"))
+    assert candidate["schema"] == "mrw.family_fragment_rebind.candidate.v2"
+    assert isinstance(candidate["candidate_id"], str)
+    assert len(candidate["candidate_id"]) == 64
+    assert candidate["status"] == "CANDIDATE_VALID_NOT_AUTHORITY"
+    assert candidate["amendment"] == (
+        "STAGE_B23_C7_CURRENT_BYTE_REBIND_CANDIDATE_NOT_AUTHORITY"
+    )
+    assert candidate["family"] == "C7"
+    assert fragment["family"] == "C7"
+    assert fragment["status"] == "AHEAD_OF_TIME_SCAFFOLDING_UNADOPTED"
+    assert all(value is False for value in fragment["authority"].values())
+
+    candidate_refs = {
+        reference["path"]: reference
+        for group in ("sources", "tests")
+        for reference in candidate[group]
+    }
+    for path, group in REQUIRED_B23_CANDIDATE_BINDINGS.items():
+        assert path in candidate_refs, (group, path)
+        live_payload = (REPO / path).read_bytes()
+        digest = hashlib.sha256(live_payload).hexdigest()
+        assert candidate_refs[path]["file_sha256"] == digest, path
+        assert candidate_refs[path]["bytes"] == len(live_payload), path
+
+    fragment_bindings = {
+        binding["path"]: binding
+        for group in set(REQUIRED_B23_FRAGMENT_BINDINGS.values())
+        for binding in fragment[group]
+    }
+    for path, fragment_group in REQUIRED_B23_FRAGMENT_BINDINGS.items():
+        live_payload = (REPO / path).read_bytes()
+        digest = hashlib.sha256(live_payload).hexdigest()
+        assert fragment_bindings[path]["sha256"] == digest, path
+        assert fragment_bindings[path]["bytes"] == len(live_payload), path
+        assert fragment_bindings[path]["role"]
+        assert REQUIRED_B23_FRAGMENT_BINDINGS[path] == fragment_group
+
+    fragment_reference = candidate["fragments"][0]
+    fragment_payload = CURRENT_FRAGMENT_REL.read_bytes()
+    assert fragment_reference["path"] == (
+        CURRENT_FRAGMENT_REL.relative_to(REPO).as_posix()
+    )
+    assert fragment_reference["bytes"] == len(fragment_payload)
+    assert fragment_reference["file_sha256"] == hashlib.sha256(
+        fragment_payload
+    ).hexdigest()
+
+    before = {
+        path.relative_to(STAGE_B23_ROOT).as_posix(): (
+            path.stat().st_mtime_ns,
+            path.read_bytes(),
+        )
+        for path in sorted(STAGE_B23_ROOT.rglob("*"))
+        if path.is_file()
+    }
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(REPO / "scripts/stage_family_fragment_rebind.py"),
+            "check-candidate",
+            "--repo-root",
+            str(REPO),
+            "--candidate",
+            CURRENT_CANDIDATE_REL.relative_to(REPO).as_posix(),
+        ],
+        cwd=BACKEND,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert json.loads(result.stdout) == {
+        "candidate_id": candidate["candidate_id"],
+        "family": "C7",
+        "status": "CANDIDATE_VALID_NOT_AUTHORITY",
+    }
+    after = {
+        path.relative_to(STAGE_B23_ROOT).as_posix(): (
+            path.stat().st_mtime_ns,
+            path.read_bytes(),
+        )
+        for path in sorted(STAGE_B23_ROOT.rglob("*"))
+        if path.is_file()
     }
     assert after == before
 

@@ -1,0 +1,25 @@
+{
+  "authoritative": false,
+  "status": "FAIL_RECORDED_WITH_LOCAL_OVERRIDE_REPAIR",
+  "backend_image": "mrw-local/stage4-r13x-backend-config:8652d653f740735f",
+  "observed": {
+    "db": "healthy",
+    "elasticsearch_authenticated": "healthy",
+    "redis_authenticated": "healthy",
+    "backend": "healthy",
+    "celery_worker": "healthy",
+    "frontend": "unhealthy"
+  },
+  "cause": "The retained production Compose frontend healthcheck used http://localhost:80/. BusyBox wget resolved localhost to [::1], while nginx accepted 127.0.0.1:80; the IPv6 connection was refused even though the host-facing root returned HTTP 200.",
+  "focused_diagnostic": {
+    "image": "mrw-local/r13x-candidate-frontend:8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+    "localhost_wget_exit_code": 1,
+    "localhost_resolution": "[::1]:80",
+    "ipv4_wget_exit_code": 0,
+    "host_root_http_status": 200,
+    "probe_container_removed": true
+  },
+  "repair": "Stage4 task override changes only the frontend healthcheck target to http://127.0.0.1:80/; the exact r13x frontend image remains unchanged.",
+  "migration_or_snapshot_rerun_required": false,
+  "not_counted_as_pass": true
+}

@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Circle,
   Clock3,
+  Cpu,
   FileText,
   LoaderCircle,
   MessageSquarePlus,
@@ -26,6 +27,7 @@ import {
   getAgentSession,
   listAgentSessionArtifacts,
   listAgentChatCapabilities,
+  listAgentChatModels,
   listAgentSessionEvents,
   listAgentSessionTasks,
   openAgentSessionEventStream,
@@ -179,6 +181,20 @@ type StoredAgentChatState = {
   sessionHistories: ChatHistoryMap
   draftBySession?: StringMap
 }
+
+type AgentChatStreamState = {
+  key: string | null
+  status: AgentSessionEventStreamStatus
+  events: AgentEventItem[]
+}
+
+const idleAgentChatStream = (): AgentChatStreamState => ({
+  key: null,
+  status: 'idle',
+  events: [],
+})
+
+const createMessageTimestamp = (): number => Date.now()
 
 function isTerminalAgentSessionStatus(status?: string | null) {
   return ['completed', 'failed', 'canceled', 'cancelled'].includes(String(status || '').toLowerCase())
@@ -1231,10 +1247,11 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
   const [sessions, setSessions] = useState((): ChatSession[] => initialSessions)
   const [sessionHistories, setSessionHistories] = useState((): ChatHistoryMap => initialHistories)
   const [draftBySession, setDraftBySession] = useState((): StringMap => stored?.draftBySession || {})
-  const [streamStatus, setStreamStatus] = useState((): AgentSessionEventStreamStatus => 'idle')
-  const [streamEvents, setStreamEvents] = useState((): AgentEventItem[] => [])
+  const [streamState, setStreamState] = useState(idleAgentChatStream)
   const [runStateBySession, setRunStateBySession] = useState((): SessionRunStateMap => ({}))
   const [selectedArtifactId, setSelectedArtifactId] = useState(null as string | null)
+  const [selectedModelId, setSelectedModelId] = useState('')
+  const [selectedReasoningEffort, setSelectedReasoningEffort] = useState('')
   const [workbenchView, setWorkbenchView] = useState((): WorkbenchView => 'overview')
   const [sourceHistoryFilter, setSourceHistoryFilter] = useState((): SourceHistoryFilter => 'all')
   const [approvalOverrideById, setApprovalOverrideById] = useState((): StringMap => ({}))
@@ -1242,6 +1259,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
   const listRef = useRef(null as HTMLDivElement | null)
   const streamRefreshTimerRef = useRef(null as number | null)
   const turnStreamEventsRef = useRef([] as AgentEventItem[])
+  const messageTimestampRef = useRef(createMessageTimestamp)
   const refetchBackendSessionRef = useRef(refetchNoop)
   const activeSessionIdRef = useRef(activeSessionId)
   const showDebugMeta = useMemo(() => isAgentDebugMetaEnabled(), [])
@@ -1305,6 +1323,33 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
     staleTime: 60_000,
     retry: false,
   })
+  const codexModelsQuery = useQuery({
+    queryKey: ['agent-chat-models'],
+    queryFn: () => listAgentChatModels(),
+    staleTime: 30_000,
+    retry: false,
+  })
+  const codexModels = useMemo(
+    () => (Array.isArray(codexModelsQuery.data?.items) ? codexModelsQuery.data.items : []),
+    [codexModelsQuery.data],
+  )
+  const defaultModel = useMemo(
+    () => codexModels.find((item) => item.is_default) || codexModels[0] || null,
+    [codexModels],
+  )
+  const activeModelId = selectedModelId || defaultModel?.model || ''
+  const selectedModel = useMemo(
+    () => codexModels.find((item) => item.model === activeModelId) || null,
+    [activeModelId, codexModels],
+  )
+  const supportedReasoningEfforts = useMemo(
+    () => selectedModel?.supported_reasoning_efforts || [],
+    [selectedModel],
+  )
+  const activeReasoningEffort = supportedReasoningEfforts.length
+    && !supportedReasoningEfforts.includes(selectedReasoningEffort)
+    ? supportedReasoningEfforts[0]
+    : selectedReasoningEffort
   const filteredSessions = useMemo(() => {
     const query = sessionFilter.trim().toLowerCase()
     if (!query) return sessions
@@ -1333,6 +1378,29 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
   const shouldOpenSessionStream = Boolean(
     activeBackendSessionId && (isActiveSessionRunning || !backendSessionStatus || !isTerminalAgentSessionStatus(backendSessionStatus)),
   )
+  const streamKey = activeBackendSessionId
+    ? `${projectKey || 'default'}:${activeBackendSessionId}:${shouldOpenSessionStream ? 'open' : 'closed'}`
+    : `local:${projectKey || 'default'}:${resolvedActiveSessionId}`
+  const activeStreamState = streamState.key === streamKey && streamKey
+    ? streamState
+    : idleAgentChatStream()
+  const streamStatus = activeStreamState.status
+  const streamEvents = activeStreamState.events
+  const setStreamStatus = useCallback((status: AgentSessionEventStreamStatus) => {
+    setStreamState((prev) => (prev.key === streamKey ? { ...prev, status } : prev))
+  }, [streamKey])
+  const setStreamEvents = useCallback(
+    (next: AgentEventItem[] | ((prev: AgentEventItem[]) => AgentEventItem[])) => {
+      setStreamState((prev) => {
+        if (prev.key !== streamKey) return prev
+        return {
+          ...prev,
+          events: typeof next === 'function' ? next(prev.events) : next,
+        }
+      })
+    },
+    [streamKey],
+  )
   const runningSessionCount = useMemo(
     () => Object.values(runStateBySession).filter((state) => state?.pending).length,
     [runStateBySession],
@@ -1356,6 +1424,8 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
         session_id: input.backendSessionId || null,
         enable_model_tool_loop: true,
         require_high_risk_approval: false,
+        model: activeModelId || null,
+        reasoning_effort: activeReasoningEffort || null,
       }
       let sessionEvents: AgentEventItem[] = []
       let streamedAnswer = ''
@@ -1441,7 +1511,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
         return { result, events: sessionEvents }
       }
     },
-    [locale, projectKey],
+    [activeModelId, activeReasoningEffort, locale, projectKey, setStreamEvents, setStreamStatus],
   )
   const coordinatorMutation = useMutation({
     mutationFn: (sessionId: string) => runAgentSessionCoordinatorPass(sessionId),
@@ -1537,11 +1607,10 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
   }, [activeSessionId, sessions, sessionHistories, draftBySession, storageKey])
 
   useEffect(() => {
-    setStreamEvents([])
     if (!activeBackendSessionId || !shouldOpenSessionStream) {
-      setStreamStatus('idle')
       return undefined
     }
+    const currentStreamKey = streamKey
     const scheduleRefresh = () => {
       if (streamRefreshTimerRef.current != null) window.clearTimeout(streamRefreshTimerRef.current)
       streamRefreshTimerRef.current = window.setTimeout(() => {
@@ -1568,8 +1637,9 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
         streamRefreshTimerRef.current = null
       }
       close()
+      setStreamState((prev) => (prev.key === currentStreamKey ? idleAgentChatStream() : prev))
     }
-  }, [activeBackendSessionId, shouldOpenSessionStream])
+  }, [activeBackendSessionId, setStreamEvents, setStreamStatus, shouldOpenSessionStream, streamKey])
 
   const createSession = (seedCommand?: string) => {
     const nextId = buildSessionId()
@@ -1605,7 +1675,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
     if (!command || runStateBySession[targetSessionId]?.pending) return
     const targetSession = sessions.find((session) => session.id === targetSessionId) || activeSession
     if (targetSessionId !== resolvedActiveSessionId) setActiveSessionId(targetSessionId)
-    const timestamp = Date.now()
+    const timestamp = messageTimestampRef.current()
 
     setSessionHistories((prev) => ({
       ...prev,
@@ -1972,10 +2042,12 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
   }, [latestArtifacts, selectedArtifactId, sessionArtifacts])
   const capabilityPool = agentCapabilityQuery.data?.tool_pool
   const capabilityGroups = capabilityPool?.groups || null
+  const agentCapabilityItems = agentCapabilityQuery.data?.items
+  const capabilityPoolTools = capabilityPool?.tools
   const capabilityItems = useMemo(() => {
-    if (Array.isArray(capabilityPool?.tools)) return capabilityPool.tools
-    return Array.isArray(agentCapabilityQuery.data?.items) ? agentCapabilityQuery.data.items : []
-  }, [agentCapabilityQuery.data?.items, capabilityPool?.tools])
+    if (Array.isArray(capabilityPoolTools)) return capabilityPoolTools
+    return Array.isArray(agentCapabilityItems) ? agentCapabilityItems : []
+  }, [agentCapabilityItems, capabilityPoolTools])
   const coreCapabilities = useMemo(
     () => {
       const grouped = capabilityGroups && Array.isArray(capabilityGroups.core) ? capabilityGroups.core : null
@@ -2151,6 +2223,33 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
               </div>
             </div>
             <div className="agent-chat-conversation-head__meta">
+              <label className="agent-chat-model-selector" aria-label="Codex model">
+                <Cpu size={14} />
+                <select
+                  value={activeModelId}
+                  onChange={(event) => setSelectedModelId(event.target.value)}
+                  disabled={isActiveSessionRunning || codexModelsQuery.isPending}
+                >
+                  {codexModels.map((item) => (
+                    <option key={item.model} value={item.model}>
+                      {item.display_name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {selectedModel?.supported_reasoning_efforts?.length ? (
+                <select
+                  className="agent-chat-effort-selector"
+                  aria-label="Codex reasoning effort"
+                  value={activeReasoningEffort}
+                  onChange={(event) => setSelectedReasoningEffort(event.target.value)}
+                  disabled={isActiveSessionRunning}
+                >
+                  {selectedModel.supported_reasoning_efforts.map((effort) => (
+                    <option key={effort} value={effort}>{effort}</option>
+                  ))}
+                </select>
+              ) : null}
               <span>{messageCountLabel}</span>
               <span className={`agent-chat-run-signal is-${runSignal.className}`} title={runSignal.detail}>
                 {runSignalIcon}
@@ -2322,6 +2421,7 @@ export default function AgentChatPage({ projectKey }: AgentChatPageProps) {
                       <button
                         key={view}
                         type="button"
+                        aria-label={view}
                         className={workbenchView === view ? 'is-active' : undefined}
                         onClick={() => setWorkbenchView(view)}
                       >

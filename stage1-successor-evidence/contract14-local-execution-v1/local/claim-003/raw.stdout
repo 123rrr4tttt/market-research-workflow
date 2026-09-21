@@ -1,0 +1,131 @@
+{
+  "authority": {
+    "current_dev_classification": "navigation_compatibility_only",
+    "current_waves": [
+      51,
+      56,
+      57
+    ],
+    "deleted_json_or_jsonl_used_as_evidence": false,
+    "index": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/INDEX.md",
+    "root": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED",
+    "wave27_classification": "history_only"
+  },
+  "contract_version": "ingest.canary_closure_readiness.v2",
+  "external_blocked_targets": [
+    "2026-03-02-meaningful-ingest-guardrails-plan",
+    "2026-03-02-single-url-first-ingest-allocation-plan"
+  ],
+  "non_target_wrappers": [
+    "2026-03-02-ingest-platformization-assessment"
+  ],
+  "scope": [
+    "2026-03-02-ingest-platformization-assessment",
+    "2026-03-02-meaningful-ingest-guardrails-plan",
+    "2026-03-02-single-url-first-ingest-allocation-plan"
+  ],
+  "status": "passed",
+  "topics": [
+    {
+      "authority_directory": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-ingest-platformization-assessment",
+      "authority_directory_exists": true,
+      "authority_index_points_to_current_doc": true,
+      "authority_index_row": "- Wave51 non-target reclassification: [./2026-03-02-ingest-platformization-assessment/10_wave51-non-target-assessment-wrapper-reclassification-2026-05-23.md](./2026-03-02-ingest-platformization-assessment/10_wave51-non-target-assessment-wrapper-reclassification-2026-05-23.md)",
+      "current_authority_doc": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-ingest-platformization-assessment/10_wave51-non-target-assessment-wrapper-reclassification-2026-05-23.md",
+      "current_authority_doc_exists": true,
+      "current_dev_directory_exists": false,
+      "current_dev_is_authority": false,
+      "current_dev_navigation_row": "- `non_target_ingest_platformization_assessment_wrapper` [2026-03-02 Ingest Platformization Assessment](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-ingest-platformization-assessment/10_wave51-non-target-assessment-wrapper-reclassification-2026-05-23.md) - Wave51 将它从 external target set 移除；live canary / 24h metrics / ops approval 条件由 Meaningful Ingest Guardrails 与 Single URL First targets 承接。",
+      "current_dev_navigation_row_present": true,
+      "current_status": "non_target_ingest_platformization_assessment_wrapper",
+      "current_wave": 51,
+      "historical_wave27": {
+        "classification": "historical_pre_wave51_56_57_snapshot",
+        "exists": true,
+        "is_current_authority": false,
+        "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-ingest-platformization-assessment/08_wave27-ingest-canary-closure-readiness-2026-05-23.md"
+      },
+      "missing_authority_tokens": [],
+      "remaining_external_conditions": [],
+      "required_authority_tokens": [
+        "Status: `non_target_ingest_platformization_assessment_wrapper`",
+        "Previous review status: `external_blocked`",
+        "remove this parent assessment from the external-blocked target set"
+      ],
+      "slug": "2026-03-02-ingest-platformization-assessment",
+      "target_kind": "non_target_parent_wrapper",
+      "title": "Ingest Platformization Assessment"
+    },
+    {
+      "authority_directory": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-meaningful-ingest-guardrails-plan",
+      "authority_directory_exists": true,
+      "authority_index_points_to_current_doc": true,
+      "authority_index_row": "- [2026-03-02 Meaningful Ingest Guardrails Plan](./2026-03-02-meaningful-ingest-guardrails-plan/13_wave56-strict-promotion-final-gate-2026-05-24.md)",
+      "current_authority_doc": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-meaningful-ingest-guardrails-plan/13_wave56-strict-promotion-final-gate-2026-05-24.md",
+      "current_authority_doc_exists": true,
+      "current_dev_directory_exists": false,
+      "current_dev_is_authority": false,
+      "current_dev_navigation_row": "- `external_blocked` [2026-03-02 Meaningful Ingest Guardrails Plan](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-meaningful-ingest-guardrails-plan/13_wave56-strict-promotion-final-gate-2026-05-24.md)",
+      "current_dev_navigation_row_present": true,
+      "current_status": "external_blocked",
+      "current_wave": 56,
+      "historical_wave27": {
+        "classification": "historical_pre_wave51_56_57_snapshot",
+        "exists": true,
+        "is_current_authority": false,
+        "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-meaningful-ingest-guardrails-plan/09_wave27-ingest-canary-closure-readiness-2026-05-23.md"
+      },
+      "missing_authority_tokens": [],
+      "remaining_external_conditions": [
+        "production 24h guardrail metrics",
+        "operations strict-gate promotion decision"
+      ],
+      "required_authority_tokens": [
+        "strict_promotion_final_gate_landed_external_blocker_minimized",
+        "production_24h_metrics_satisfied=false",
+        "strict_gate_promotion_satisfied=false",
+        "closure_claim=false"
+      ],
+      "slug": "2026-03-02-meaningful-ingest-guardrails-plan",
+      "target_kind": "external_blocked_successor",
+      "title": "Meaningful Ingest Guardrails Plan"
+    },
+    {
+      "authority_directory": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-single-url-first-ingest-allocation-plan",
+      "authority_directory_exists": true,
+      "authority_index_points_to_current_doc": true,
+      "authority_index_row": "- [2026-03-02 Single URL First Ingest Allocation Plan](./2026-03-02-single-url-first-ingest-allocation-plan/13_wave57-single-url-external-blocker-closure-2026-05-24.md)",
+      "current_authority_doc": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-single-url-first-ingest-allocation-plan/13_wave57-single-url-external-blocker-closure-2026-05-24.md",
+      "current_authority_doc_exists": true,
+      "current_dev_directory_exists": false,
+      "current_dev_is_authority": false,
+      "current_dev_navigation_row": "- `external_blocked` [2026-03-02 Single URL First Ingest Allocation Plan](../ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-single-url-first-ingest-allocation-plan/13_wave57-single-url-external-blocker-closure-2026-05-24.md)",
+      "current_dev_navigation_row_present": true,
+      "current_status": "external_blocked",
+      "current_wave": 57,
+      "historical_wave27": {
+        "classification": "historical_pre_wave51_56_57_snapshot",
+        "exists": true,
+        "is_current_authority": false,
+        "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-02-single-url-first-ingest-allocation-plan/09_wave27-ingest-canary-closure-readiness-2026-05-23.md"
+      },
+      "missing_authority_tokens": [],
+      "remaining_external_conditions": [
+        "X public high-JS auth or anti-bot boundary",
+        "production 24h readback",
+        "operations strict-gate promotion decision",
+        "credentialed provider quota behavior beyond public Crossref"
+      ],
+      "required_authority_tokens": [
+        "single_url_external_blocker_repo_public_reduced",
+        "production_24h_metrics_satisfied=false",
+        "provider_credentials_beyond_crossref_open=true",
+        "`closure_claim=false`"
+      ],
+      "slug": "2026-03-02-single-url-first-ingest-allocation-plan",
+      "target_kind": "external_blocked_successor",
+      "title": "Single URL First Ingest Allocation Plan"
+    }
+  ],
+  "validation_errors": []
+}

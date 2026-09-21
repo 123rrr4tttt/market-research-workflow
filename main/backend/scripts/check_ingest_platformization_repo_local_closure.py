@@ -8,7 +8,7 @@ import json
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Annotated, Any, Mapping
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -271,7 +271,10 @@ def validate_report(report: Mapping[str, Any]) -> list[str]:
     return errors
 
 
-def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
+def build_check(repo_root: Path | str | None = None) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=preflight fact_source=repo_local.ingest_platformization_checks witness=test:test_ingest_platformization_repo_local_authority_metadata",
+]:
     root = Path(repo_root) if repo_root is not None else REPO_ROOT
     root = root.resolve()
     metrics_readback = run_metrics_readback_check()

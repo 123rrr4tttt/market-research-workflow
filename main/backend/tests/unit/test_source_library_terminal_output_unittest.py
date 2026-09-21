@@ -185,6 +185,55 @@ class SourceLibraryTerminalOutputUnitTestCase(unittest.TestCase):
         self.assertEqual(dto["meta"]["retryable"], True)
         self.assertEqual(dto["meta"]["reason_code"], "empty")
 
+    def test_nested_crawler_ack_stays_accepted_and_exposes_outcome_unknown(self) -> None:
+        dto = to_terminal_output_dto(
+            {
+                "item_key": "crawler.demo.pending",
+                "channel_key": "handler.cluster",
+                "result": {
+                    "by_url": [
+                        {
+                            "url": "https://example.com/pending",
+                            "result": {
+                                "status": "accepted",
+                                "provider_type": "scrapy",
+                                "provider_status": "queued",
+                                "terminal_readback": {
+                                    "kind": "waiting",
+                                    "attempt_ref": "provider-attempt:a1",
+                                    "observed_at": "2030-01-01T00:00:00Z",
+                                },
+                            },
+                        }
+                    ]
+                },
+            }
+        )
+
+        self.assertEqual(dto["status"], "accepted")
+        self.assertEqual(dto["meta"]["reason_code"], "outcome_unknown")
+        self.assertEqual(dto["meta"]["outcome_unknown"]["kind"], "outcome_unknown")
+        self.assertEqual(dto["meta"]["terminal_readback"]["kind"], "waiting")
+
+    def test_crawler_failed_and_cancelled_readbacks_remain_terminal(self) -> None:
+        for terminal_status in ("FAILED", "CANCELLED"):
+            with self.subTest(terminal_status=terminal_status):
+                dto = to_terminal_output_dto(
+                    {
+                        "status": "accepted",
+                        "provider_status": "queued",
+                        "terminal_readback": {
+                            "kind": "terminal",
+                            "readback": {
+                                "terminal_status": terminal_status,
+                                "attempt_ref": "provider-attempt:a2",
+                            },
+                        },
+                    }
+                )
+                self.assertEqual(dto["status"], terminal_status.lower())
+                self.assertEqual(dto["meta"]["terminal_readback"]["kind"], "terminal")
+
 
 if __name__ == "__main__":
     unittest.main()

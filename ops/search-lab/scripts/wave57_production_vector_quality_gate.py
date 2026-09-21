@@ -28,6 +28,13 @@ BACKEND_ROOT = REPO_ROOT / "main" / "backend"
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
+from scripts.evidence_source_contract import (  # noqa: E402
+    EVIDENCE_SOURCE_UNAVAILABLE,
+    apply_evidence_source_contract,
+    evidence_source,
+    unavailable_evidence_sources,
+)
+
 DEFAULT_OUT_DIR = "development/latest-dev-docs/automation-runs/wave57-production-vector-quality-gate/2026-05-23"
 TARGET_TOPIC = (
     "docs/development/development-plans/ARCHIVE_CLOSED/"
@@ -824,6 +831,65 @@ def build_contract(*, require_vector_store: bool = False) -> dict[str, Any]:
 
     started = time.perf_counter()
     generated_at = datetime.now(UTC).isoformat()
+    evidence_sources = [
+        evidence_source(
+            REPO_ROOT / WAVE56_SEMANTIC_GATE,
+            repo_root=REPO_ROOT,
+            label="wave56_semantic_vector_quality_gate",
+        ),
+        *[
+            evidence_source(REPO_ROOT / path, repo_root=REPO_ROOT, label=f"lancedb_jsonl_{index}")
+            for index, path in enumerate(EXISTING_LANCEDB_JSONL_ARTIFACTS, start=1)
+        ],
+        *[
+            evidence_source(REPO_ROOT / path, repo_root=REPO_ROOT, label=f"automation_readme_{index}")
+            for index, path in enumerate(AUTOMATION_ARTIFACT_READMES, start=1)
+        ],
+    ]
+    if unavailable_evidence_sources(evidence_sources):
+        contract = {
+            "contract_version": "wave57-production-vector-quality-gate.v1",
+            "generated_at": generated_at,
+            "generated_by": "ops/search-lab/scripts/wave57_production_vector_quality_gate.py",
+            "status": "failed",
+            "scope": "production_like_devdocs_corpus_lancedb_vector_store_replay",
+            "target_topic": {"path": TARGET_TOPIC, "exists": (REPO_ROOT / TARGET_TOPIC).exists()},
+            "input_artifact_readback": {"status": "failed"},
+            "corpus_readback": {"status": "not_run", "failures": [EVIDENCE_SOURCE_UNAVAILABLE]},
+            "provider_readback": {"status": "not_run"},
+            "vector_store_readback": {
+                "status": "not_run",
+                "backend": None,
+                "reason": EVIDENCE_SOURCE_UNAVAILABLE,
+            },
+            "quality_evaluation": {"status": "not_run"},
+            "retrieval_contracts": {"status": "not_run"},
+            "closed_conditions": [],
+            "closed_condition_scope": {},
+            "remaining_conditions": [
+                {
+                    "code": PRODUCTION_VECTOR_CLOSED_CONDITION,
+                    "remaining_scope": "required evidence sources must be available before vector-store replay",
+                }
+            ],
+            "production_like_vector_quality_claim_allowed": False,
+            "production_traffic_claim_allowed": False,
+            "global_manifest_update_performed": False,
+            "target_topic_migration_ready": False,
+            "archive_closed_recommendation": "do_not_mark_archive_closed_while_evidence_sources_are_unavailable",
+            "duration_ms": round((time.perf_counter() - started) * 1000, 2),
+            "failures": [],
+        }
+        return apply_evidence_source_contract(
+            contract,
+            evidence_sources,
+            claim_fields=(
+                "production_like_vector_quality_claim_allowed",
+                "production_traffic_claim_allowed",
+                "target_topic_migration_ready",
+            ),
+            clear_fields=("closed_conditions",),
+        )
     input_readback, input_failures = _input_artifact_readback()
     corpus_rows, corpus_readback, corpus_failures = build_production_like_corpus()
     provider = RepoLocalHashingEmbeddingProvider()
@@ -852,7 +918,7 @@ def build_contract(*, require_vector_store: bool = False) -> dict[str, Any]:
         failures.append("required LanceDB vector-store runtime was not available")
 
     production_claim_allowed = not failures and vector_store_readback.get("backend") == "lancedb"
-    return {
+    contract = {
         "contract_version": "wave57-production-vector-quality-gate.v1",
         "generated_at": generated_at,
         "generated_by": "ops/search-lab/scripts/wave57_production_vector_quality_gate.py",
@@ -894,6 +960,16 @@ def build_contract(*, require_vector_store: bool = False) -> dict[str, Any]:
         "duration_ms": round((time.perf_counter() - started) * 1000, 2),
         "failures": failures,
     }
+    return apply_evidence_source_contract(
+        contract,
+        evidence_sources,
+        claim_fields=(
+            "production_like_vector_quality_claim_allowed",
+            "production_traffic_claim_allowed",
+            "target_topic_migration_ready",
+        ),
+        clear_fields=("closed_conditions",),
+    )
 
 
 def write_outputs(out_dir: Path, contract: dict[str, Any]) -> None:

@@ -7,7 +7,11 @@ import argparse
 import ast
 import json
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
+try:
+    from ._cli_runtime import repo_root as _repo_root
+except ImportError:  # direct script execution
+    from _cli_runtime import repo_root as _repo_root
 
 
 CONTRACT_VERSION = "policy-state-document-query-boundary.wave17.v1"
@@ -17,10 +21,6 @@ SURFACE_PATH = "main/backend/app/api/policies.py"
 FUNCTION_NAME = "get_state_policies"
 QUERY_HELPER = "main/backend/app/services/document_queries/policy_filters.py"
 REQUIRED_HELPER_CALLS = ("policy_state_condition", "policy_time_expr")
-
-
-def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[3]
 
 
 def _read_text(path: Path) -> str:
@@ -87,7 +87,10 @@ def _import_tokens(tree: ast.AST) -> set[str]:
     return tokens
 
 
-def build_check(root: Path | None = None) -> dict[str, Any]:
+def build_check(root: Path | None = None) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=generated_evidence fact_source=policy_state_static_checks+document_query_static_checks witness=test:test_c13_cli_graph_workflow_metadata_preserves_abi",
+]:
     repo_root = root or _repo_root()
     surface = repo_root / SURFACE_PATH
     helper = repo_root / QUERY_HELPER

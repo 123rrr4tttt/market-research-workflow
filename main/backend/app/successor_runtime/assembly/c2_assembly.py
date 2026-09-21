@@ -11,6 +11,7 @@ run owner supplies it; without a per-run source key it stays
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
+from typing import Annotated
 
 from app.successor_runtime.assembly.base import (
     PROJECTOR_REGISTRY_INCARNATION,
@@ -169,7 +170,11 @@ def build_c2_assembly(
     project_scope_digest: str,
     projector_source_keys: Mapping[str, ProjectorSourceKey] | None = None,
     provider_gateway: object | None = None,
-) -> FamilyAssembly:
+) -> Annotated[
+    FamilyAssembly,
+    "kit:prepared-command effect_boundary=successor_runtime.c2_assembly "
+    "witness=test:test_c2_assembly_installs_one_exact_handler_per_installed_cell",
+]:
     """Return the C2 family assembly with exact installed handlers.
 
     C2.4 stays ``PROJECTOR_WIRING_DECLARED`` until the run owner supplies a

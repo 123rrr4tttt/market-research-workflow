@@ -53,6 +53,7 @@ class HttpClient:
         for attempt in range(self.max_retries + 1):
             try:
                 resp = self._client.get(url, params=params, **kwargs)
+                # kit:boundary owner=http.client.get_json class=SHELL_BOUNDARY_EXCEPTION failure_family=resource_pool.http_fetch.failure witness=test:test_w03_effect_boundaries
                 resp.raise_for_status()
                 return resp.json()
             except Exception as exc:  # noqa: BLE001
@@ -61,6 +62,7 @@ class HttpClient:
                     "http.get_json failed url=%s attempt=%d err=%s", url, attempt, exc
                 )
                 time.sleep(min(2 ** attempt, 3))
+        # kit:boundary owner=http.client.get_json class=SHELL_BOUNDARY_EXCEPTION failure_family=resource_pool.http_fetch.failure witness=test:test_w03_effect_boundaries
         raise last_exc  # type: ignore[misc]
 
     def post_json(
@@ -75,6 +77,7 @@ class HttpClient:
         for attempt in range(self.max_retries + 1):
             try:
                 resp = self._client.post(url, params=params, json=json, **kwargs)
+                # kit:boundary owner=http.client.post_json class=SHELL_BOUNDARY_EXCEPTION failure_family=resource_pool.http_fetch.failure witness=test:test_w03_effect_boundaries
                 resp.raise_for_status()
                 return resp.json()
             except Exception as exc:  # noqa: BLE001
@@ -83,6 +86,7 @@ class HttpClient:
                     "http.post_json failed url=%s attempt=%d err=%s", url, attempt, exc
                 )
                 time.sleep(min(2 ** attempt, 3))
+        # kit:boundary owner=http.client.post_json class=SHELL_BOUNDARY_EXCEPTION failure_family=resource_pool.http_fetch.failure witness=test:test_w03_effect_boundaries
         raise last_exc  # type: ignore[misc]
 
     def get_text(
@@ -96,6 +100,7 @@ class HttpClient:
         for attempt in range(self.max_retries + 1):
             try:
                 resp = self._client.get(url, params=params, **kwargs)
+                # kit:boundary owner=http.client.get_text class=SHELL_BOUNDARY_EXCEPTION failure_family=resource_pool.http_fetch.failure witness=test:test_w03_effect_boundaries
                 resp.raise_for_status()
                 return resp.text
             except Exception as exc:  # noqa: BLE001
@@ -104,9 +109,8 @@ class HttpClient:
                     "http.get_text failed url=%s attempt=%d err=%s", url, attempt, exc
                 )
                 time.sleep(min(2 ** attempt, 3))
+        # kit:boundary owner=http.client.get_text class=SHELL_BOUNDARY_EXCEPTION failure_family=resource_pool.http_fetch.failure witness=test:test_w03_effect_boundaries
         raise last_exc  # type: ignore[misc]
 
 
 default_http_client = HttpClient()
-
-

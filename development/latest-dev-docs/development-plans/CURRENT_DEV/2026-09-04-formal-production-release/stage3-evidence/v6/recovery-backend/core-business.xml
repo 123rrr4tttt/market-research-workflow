@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="2" failures="0" skipped="1" tests="3" time="0.858" timestamp="2026-09-07T05:56:30.517309+08:00" hostname="MacBook-Air-489.local"><testcase classname="" name="tests.core_business.test_discovery_core_contract" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/core_business/test_discovery_core_contract.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/core_business/test_discovery_core_contract.py:12: in &lt;module&gt;
+    from app.api import discovery as discovery_api
+app/api/__init__.py:3: in &lt;module&gt;
+    from app.successor_runtime.assembly.app_assembly import (
+app/successor_runtime/assembly/__init__.py:3: in &lt;module&gt;
+    from app.successor_runtime.substrate.projections.registry import ProjectorRegistry
+app/successor_runtime/substrate/__init__.py:3: in &lt;module&gt;
+    from .postgres import (
+app/successor_runtime/substrate/postgres/__init__.py:3: in &lt;module&gt;
+    from .authority_provider import PostgresAuthorityProvider
+app/successor_runtime/substrate/postgres/authority_provider.py:18: in &lt;module&gt;
+    from app.successor_runtime.runtime.assignments import canonical_digest
+app/successor_runtime/runtime/__init__.py:3: in &lt;module&gt;
+    from .admission import CommitIntent, CommitIntentState, VerificationBinding
+app/successor_runtime/runtime/admission.py:13: in &lt;module&gt;
+    from app.successor_runtime.research.codec import canonical_bytes
+app/successor_runtime/research/__init__.py:3: in &lt;module&gt;
+    from .artifacts import (
+app/successor_runtime/research/artifacts.py:8: in &lt;module&gt;
+    from .codec import _failure, _raise_failure, finalize_digest, is_sha256_hex
+app/successor_runtime/research/codec.py:19: in &lt;module&gt;
+    from mrw_functorial_kit.core.w07_semantics import research_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.core_business.test_health_and_context_core_e2e" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/core_business/test_health_and_context_core_e2e.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/core_business/test_health_and_context_core_e2e.py:6: in &lt;module&gt;
+    from app.main import app
+app/main.py:20: in &lt;module&gt;
+    from .composition.production import (
+app/composition/production.py:26: in &lt;module&gt;
+    from app.production_contract import (
+app/production_contract/__init__.py:3: in &lt;module&gt;
+    from .policy import (
+app/production_contract/policy.py:8: in &lt;module&gt;
+    from app.production_contract.types import (
+app/production_contract/types.py:18: in &lt;module&gt;
+    from app.successor_runtime.runtime.ports import ProjectScopeRef
+app/successor_runtime/runtime/__init__.py:3: in &lt;module&gt;
+    from .admission import CommitIntent, CommitIntentState, VerificationBinding
+app/successor_runtime/runtime/admission.py:13: in &lt;module&gt;
+    from app.successor_runtime.research.codec import canonical_bytes
+app/successor_runtime/research/__init__.py:3: in &lt;module&gt;
+    from .artifacts import (
+app/successor_runtime/research/artifacts.py:8: in &lt;module&gt;
+    from .codec import _failure, _raise_failure, finalize_digest, is_sha256_hex
+app/successor_runtime/research/codec.py:19: in &lt;module&gt;
+    from mrw_functorial_kit.core.w07_semantics import research_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.core_business.test_main_core_contract" time="0.000"><skipped message="collection skipped">('/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/core_business/test_main_core_contract.py', 32, "Skipped: main core contract tests require backend dependencies: No module named 'mrw_functorial_kit'")</skipped></testcase></testsuite></testsuites>

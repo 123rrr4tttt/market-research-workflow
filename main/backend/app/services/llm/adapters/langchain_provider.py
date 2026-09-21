@@ -23,7 +23,15 @@ def _ensure(value: Optional[str], name: str) -> str:
 class LangChainProviderAdapter(ChatPort, EmbeddingPort):
     def get_chat_model(self, options: ChatModelOptions) -> Any:
         provider = settings.llm_provider.lower()
-        default_temperature = options.temperature if options.temperature is not None else 0.2
+        default_temperature = (
+            options.temperature if options.temperature is not None else 0.2
+        )
+        extra = dict(options.extra or {})
+        codex_timeout = extra.pop("codex_cli_timeout_seconds", None) or extra.pop(
+            "timeout_seconds", None
+        )
+        codex_reasoning_effort = extra.pop("codex_cli_reasoning_effort", None)
+        options.extra = extra
         model_params: Dict[str, Any] = {"temperature": default_temperature}
         if options.max_tokens is not None:
             model_params["max_tokens"] = options.max_tokens
@@ -37,13 +45,15 @@ class LangChainProviderAdapter(ChatPort, EmbeddingPort):
             model_params.update(options.extra)
 
         if provider == "openai":
-            if not settings.openai_api_key and codex_cli_llm_available():
-                timeout = None
-                reasoning_effort = None
-                if options.extra:
-                    timeout = options.extra.pop("codex_cli_timeout_seconds", None) or options.extra.pop("timeout_seconds", None)
-                    reasoning_effort = options.extra.pop("codex_cli_reasoning_effort", None)
-                return CodexCliChatModel(model=options.model, timeout_seconds=timeout, reasoning_effort=reasoning_effort)
+            prefer_codex = bool(getattr(settings, "codex_cli_llm_preferred", True))
+            if (
+                prefer_codex or not settings.openai_api_key
+            ) and codex_cli_llm_available():
+                return CodexCliChatModel(
+                    model=options.model,
+                    timeout_seconds=codex_timeout,
+                    reasoning_effort=codex_reasoning_effort,
+                )
             return ChatOpenAI(
                 model=options.model or "gpt-4o-mini",
                 api_key=_ensure(settings.openai_api_key, "OPENAI_API_KEY"),
@@ -55,7 +65,9 @@ class LangChainProviderAdapter(ChatPort, EmbeddingPort):
                 azure_endpoint=_ensure(settings.azure_api_base, "AZURE_API_BASE"),
                 api_key=_ensure(settings.azure_api_key, "AZURE_API_KEY"),
                 api_version=_ensure(settings.azure_api_version, "AZURE_API_VERSION"),
-                deployment_name=_ensure(settings.azure_chat_deployment, "AZURE_CHAT_DEPLOYMENT"),
+                deployment_name=_ensure(
+                    settings.azure_chat_deployment, "AZURE_CHAT_DEPLOYMENT"
+                ),
                 **model_params,
             )
         if provider == "ollama":
@@ -82,7 +94,9 @@ class LangChainProviderAdapter(ChatPort, EmbeddingPort):
                 azure_endpoint=_ensure(settings.azure_api_base, "AZURE_API_BASE"),
                 api_key=_ensure(settings.azure_api_key, "AZURE_API_KEY"),
                 api_version=_ensure(settings.azure_api_version, "AZURE_API_VERSION"),
-                deployment=_ensure(settings.azure_embedding_deployment, "AZURE_EMBEDDING_DEPLOYMENT"),
+                deployment=_ensure(
+                    settings.azure_embedding_deployment, "AZURE_EMBEDDING_DEPLOYMENT"
+                ),
             )
         if provider == "ollama":
             from langchain_community.embeddings import OllamaEmbeddings

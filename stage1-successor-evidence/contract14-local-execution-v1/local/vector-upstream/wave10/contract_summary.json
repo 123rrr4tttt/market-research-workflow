@@ -1,0 +1,384 @@
+{
+  "assertions": [
+    "search provider trace keeps local open-search providers explicit-only and provider=auto excludes them",
+    "local_index keyword, vector, and hybrid runtime evidence executed without fallback in captured LanceDB smoke",
+    "benchmark fixture meets deterministic case/repeat thresholds for keyword, vector, and hybrid modes",
+    "benchmark fixture trace includes project/source/top_k and mode fields for all result rows",
+    "vector and hybrid runtime exceptions fall back to keyword with explicit fallback_from and fallback_reason metadata",
+    "fixture benchmark is not treated as production embedding semantic quality evidence"
+  ],
+  "authority": "non_authoritative",
+  "closure_claim_allowed": false,
+  "contract_version": "wave10-vectorization-quality-gate.v1",
+  "evidence": {
+    "local_index_benchmark_quality": {
+      "failures": [
+        "benchmark status='failed'",
+        "ranking case vector_source_top2 did not pass",
+        "vector_source_top2: trace executed_mode expected 'vector', got 'keyword'",
+        "vector_source_top2: benchmark trace unexpectedly contains fallback metadata",
+        "vector_source_top2: trace executed_mode expected 'vector', got 'keyword'",
+        "vector_source_top2: benchmark trace unexpectedly contains fallback metadata",
+        "vector_source_top2: trace executed_mode expected 'vector', got 'keyword'",
+        "vector_source_top2: benchmark trace unexpectedly contains fallback metadata",
+        "vector_source_top2: trace executed_mode expected 'vector', got 'keyword'",
+        "vector_source_top2: benchmark trace unexpectedly contains fallback metadata",
+        "vector_source_top2: trace executed_mode expected 'vector', got 'keyword'",
+        "vector_source_top2: benchmark trace unexpectedly contains fallback metadata",
+        "vector_source_top2: trace executed_mode expected 'vector', got 'keyword'",
+        "vector_source_top2: benchmark trace unexpectedly contains fallback metadata",
+        "ranking case hybrid_source_top2 did not pass",
+        "hybrid_source_top2: trace executed_mode expected 'hybrid', got 'keyword'",
+        "hybrid_source_top2: benchmark trace unexpectedly contains fallback metadata",
+        "hybrid_source_top2: trace executed_mode expected 'hybrid', got 'keyword'",
+        "hybrid_source_top2: benchmark trace unexpectedly contains fallback metadata",
+        "hybrid_source_top2: trace executed_mode expected 'hybrid', got 'keyword'",
+        "hybrid_source_top2: benchmark trace unexpectedly contains fallback metadata",
+        "hybrid_source_top2: trace executed_mode expected 'hybrid', got 'keyword'",
+        "hybrid_source_top2: benchmark trace unexpectedly contains fallback metadata",
+        "hybrid_source_top2: trace executed_mode expected 'hybrid', got 'keyword'",
+        "hybrid_source_top2: benchmark trace unexpectedly contains fallback metadata",
+        "hybrid_source_top2: trace executed_mode expected 'hybrid', got 'keyword'",
+        "hybrid_source_top2: benchmark trace unexpectedly contains fallback metadata",
+        "filter case vector_project_filter did not pass",
+        "vector_project_filter: trace executed_mode expected 'vector', got 'keyword'",
+        "vector_project_filter: benchmark trace unexpectedly contains fallback metadata",
+        "vector_project_filter: trace executed_mode expected 'vector', got 'keyword'",
+        "vector_project_filter: benchmark trace unexpectedly contains fallback metadata",
+        "vector_project_filter: trace executed_mode expected 'vector', got 'keyword'",
+        "vector_project_filter: benchmark trace unexpectedly contains fallback metadata",
+        "vector_project_filter: trace executed_mode expected 'vector', got 'keyword'",
+        "vector_project_filter: benchmark trace unexpectedly contains fallback metadata",
+        "vector_project_filter: trace executed_mode expected 'vector', got 'keyword'",
+        "vector_project_filter: benchmark trace unexpectedly contains fallback metadata",
+        "filter case hybrid_project_filter did not pass",
+        "hybrid_project_filter: trace executed_mode expected 'hybrid', got 'keyword'",
+        "hybrid_project_filter: benchmark trace unexpectedly contains fallback metadata",
+        "hybrid_project_filter: trace executed_mode expected 'hybrid', got 'keyword'",
+        "hybrid_project_filter: benchmark trace unexpectedly contains fallback metadata",
+        "hybrid_project_filter: trace executed_mode expected 'hybrid', got 'keyword'",
+        "hybrid_project_filter: benchmark trace unexpectedly contains fallback metadata",
+        "hybrid_project_filter: trace executed_mode expected 'hybrid', got 'keyword'",
+        "hybrid_project_filter: benchmark trace unexpectedly contains fallback metadata",
+        "hybrid_project_filter: trace executed_mode expected 'hybrid', got 'keyword'",
+        "hybrid_project_filter: benchmark trace unexpectedly contains fallback metadata"
+      ],
+      "filter_case_count": 3,
+      "filter_modes": [
+        "hybrid",
+        "keyword",
+        "vector"
+      ],
+      "packages": {
+        "lancedb": "0.24.2",
+        "pyarrow": "24.0.0"
+      },
+      "path": "stage1-successor-evidence/contract14-local-execution-v1/local/vector-upstream/lancedb-benchmark/benchmark_quality_results.json",
+      "quality_thresholds": {
+        "max_failures": 0,
+        "min_filter_cases": 3,
+        "min_ranking_cases": 3,
+        "min_repeats_per_ranking_case": 3,
+        "required_modes": [
+          "keyword",
+          "vector",
+          "hybrid"
+        ]
+      },
+      "ranking_case_count": 3,
+      "ranking_modes": [
+        "hybrid",
+        "keyword",
+        "vector"
+      ],
+      "remaining_blockers": [
+        {
+          "code": "semantic_embedding_quality_not_proven",
+          "message": "This benchmark uses deterministic vectors to prove LanceDB ranking wiring and stable top-k behavior. It does not prove production embedding model relevance quality."
+        },
+        {
+          "code": "global_vector_contract_not_closed",
+          "message": "Unified vector object schema, embedding model/version provenance, and main search evidence contract alignment remain open in CURRENT_DEV."
+        }
+      ],
+      "status": "failed",
+      "threshold_status": "failed"
+    },
+    "local_index_fallback_contract": {
+      "failures": [],
+      "fallback_cases": [
+        {
+          "failures": [],
+          "query_types": [
+            "vector",
+            "fts"
+          ],
+          "requested_mode": "vector",
+          "retrieval_mode": "keyword",
+          "status": "passed",
+          "trace": {
+            "adapter": "lancedb",
+            "embedding_provider": {
+              "embedding_dim": 512,
+              "model": "repo-local-token-hashing-v1",
+              "model_version": "2026-05-23.wave56",
+              "network_required": false,
+              "provider_family": "repo_local",
+              "provider_id": "repo_local_token_hashing",
+              "vector_version": "repo-local-live-v2"
+            },
+            "embedding_provider_readback": {
+              "embedding_dim": 512,
+              "executable": true,
+              "failures": [],
+              "live_provider_verified": true,
+              "model": "repo-local-token-hashing-v1",
+              "model_version": "2026-05-23.wave56",
+              "network_required": false,
+              "provider_family": "repo_local",
+              "provider_id": "repo_local_token_hashing",
+              "status": "passed",
+              "vector_count": 1,
+              "vector_version": "repo-local-live-v2",
+              "vectors": [
+                {
+                  "embedding_dim": 512,
+                  "non_zero_dimensions": 18,
+                  "norm": 1.0,
+                  "text_digest": "40c330e144a80a34",
+                  "vector_digest": "10aff092df920f71"
+                }
+              ]
+            },
+            "executed_mode": "keyword",
+            "fallback_from": "vector",
+            "fallback_reason": "RuntimeError",
+            "project_id": "quality-gate",
+            "provider_live_verified": true,
+            "query_family": "local_material",
+            "requested_mode": "vector",
+            "source_id": "fallback-source",
+            "top_k": 1
+          }
+        },
+        {
+          "failures": [],
+          "query_types": [
+            "hybrid",
+            "fts"
+          ],
+          "requested_mode": "hybrid",
+          "retrieval_mode": "keyword",
+          "status": "passed",
+          "trace": {
+            "adapter": "lancedb",
+            "embedding_provider": {
+              "embedding_dim": 512,
+              "model": "repo-local-token-hashing-v1",
+              "model_version": "2026-05-23.wave56",
+              "network_required": false,
+              "provider_family": "repo_local",
+              "provider_id": "repo_local_token_hashing",
+              "vector_version": "repo-local-live-v2"
+            },
+            "embedding_provider_readback": {
+              "embedding_dim": 512,
+              "executable": true,
+              "failures": [],
+              "live_provider_verified": true,
+              "model": "repo-local-token-hashing-v1",
+              "model_version": "2026-05-23.wave56",
+              "network_required": false,
+              "provider_family": "repo_local",
+              "provider_id": "repo_local_token_hashing",
+              "status": "passed",
+              "vector_count": 1,
+              "vector_version": "repo-local-live-v2",
+              "vectors": [
+                {
+                  "embedding_dim": 512,
+                  "non_zero_dimensions": 18,
+                  "norm": 1.0,
+                  "text_digest": "40c330e144a80a34",
+                  "vector_digest": "10aff092df920f71"
+                }
+              ]
+            },
+            "executed_mode": "keyword",
+            "fallback_from": "hybrid",
+            "fallback_reason": "RuntimeError",
+            "project_id": "quality-gate",
+            "provider_live_verified": true,
+            "query_family": "local_material",
+            "requested_mode": "hybrid",
+            "source_id": "fallback-source",
+            "top_k": 1
+          }
+        }
+      ],
+      "modes": [
+        "keyword",
+        "vector",
+        "hybrid"
+      ],
+      "status": "passed"
+    },
+    "local_index_runtime_smoke": {
+      "failures": [
+        "local_index runtime smoke artifact missing"
+      ],
+      "path": "stage1-successor-evidence/contract14-local-execution-v1/local/vector-upstream/lancedb-runtime/runtime_smoke_results.json",
+      "status": "missing"
+    },
+    "search_provider_trace": {
+      "auto_local_open_search_called": false,
+      "contract_version": "search-provider-trace-artifacts.v1",
+      "explicit_providers": [
+        "searxng",
+        "yacy"
+      ],
+      "failures": [],
+      "path": "stage1-successor-evidence/contract14-local-execution-v1/local/vector-upstream/search-provider-trace/search_provider_trace_contract.json",
+      "required_result_fields": [
+        "provider_route",
+        "provider_family",
+        "provider_auto_included",
+        "backend_trace"
+      ],
+      "scope": "offline_unit_contract_no_containers",
+      "status": "passed"
+    }
+  },
+  "evidence_sources": [
+    {
+      "authority": "non_authoritative",
+      "closure_claim_allowed": false,
+      "execution_status": "NOT_LIVE",
+      "exists": true,
+      "failure_code": null,
+      "label": "search_provider_trace",
+      "path": "stage1-successor-evidence/contract14-local-execution-v1/local/vector-upstream/search-provider-trace/search_provider_trace_contract.json",
+      "status": "available"
+    },
+    {
+      "authority": "non_authoritative",
+      "closure_claim_allowed": false,
+      "execution_status": "NOT_LIVE",
+      "exists": false,
+      "failure_code": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "label": "local_index_runtime_smoke",
+      "path": "stage1-successor-evidence/contract14-local-execution-v1/local/vector-upstream/lancedb-runtime/runtime_smoke_results.json",
+      "status": "unavailable"
+    },
+    {
+      "authority": "non_authoritative",
+      "closure_claim_allowed": false,
+      "execution_status": "NOT_LIVE",
+      "exists": true,
+      "failure_code": null,
+      "label": "local_index_benchmark",
+      "path": "stage1-successor-evidence/contract14-local-execution-v1/local/vector-upstream/lancedb-benchmark/benchmark_quality_results.json",
+      "status": "available"
+    }
+  ],
+  "execution_status": "NOT_LIVE",
+  "failure_codes": [
+    "EVIDENCE_SOURCE_UNAVAILABLE"
+  ],
+  "failures": [
+    "local_index_runtime_smoke: local_index runtime smoke artifact missing",
+    "local_index_benchmark_quality: benchmark status='failed'",
+    "local_index_benchmark_quality: ranking case vector_source_top2 did not pass",
+    "local_index_benchmark_quality: vector_source_top2: trace executed_mode expected 'vector', got 'keyword'",
+    "local_index_benchmark_quality: vector_source_top2: benchmark trace unexpectedly contains fallback metadata",
+    "local_index_benchmark_quality: vector_source_top2: trace executed_mode expected 'vector', got 'keyword'",
+    "local_index_benchmark_quality: vector_source_top2: benchmark trace unexpectedly contains fallback metadata",
+    "local_index_benchmark_quality: vector_source_top2: trace executed_mode expected 'vector', got 'keyword'",
+    "local_index_benchmark_quality: vector_source_top2: benchmark trace unexpectedly contains fallback metadata",
+    "local_index_benchmark_quality: vector_source_top2: trace executed_mode expected 'vector', got 'keyword'",
+    "local_index_benchmark_quality: vector_source_top2: benchmark trace unexpectedly contains fallback metadata",
+    "local_index_benchmark_quality: vector_source_top2: trace executed_mode expected 'vector', got 'keyword'",
+    "local_index_benchmark_quality: vector_source_top2: benchmark trace unexpectedly contains fallback metadata",
+    "local_index_benchmark_quality: vector_source_top2: trace executed_mode expected 'vector', got 'keyword'",
+    "local_index_benchmark_quality: vector_source_top2: benchmark trace unexpectedly contains fallback metadata",
+    "local_index_benchmark_quality: ranking case hybrid_source_top2 did not pass",
+    "local_index_benchmark_quality: hybrid_source_top2: trace executed_mode expected 'hybrid', got 'keyword'",
+    "local_index_benchmark_quality: hybrid_source_top2: benchmark trace unexpectedly contains fallback metadata",
+    "local_index_benchmark_quality: hybrid_source_top2: trace executed_mode expected 'hybrid', got 'keyword'",
+    "local_index_benchmark_quality: hybrid_source_top2: benchmark trace unexpectedly contains fallback metadata",
+    "local_index_benchmark_quality: hybrid_source_top2: trace executed_mode expected 'hybrid', got 'keyword'",
+    "local_index_benchmark_quality: hybrid_source_top2: benchmark trace unexpectedly contains fallback metadata",
+    "local_index_benchmark_quality: hybrid_source_top2: trace executed_mode expected 'hybrid', got 'keyword'",
+    "local_index_benchmark_quality: hybrid_source_top2: benchmark trace unexpectedly contains fallback metadata",
+    "local_index_benchmark_quality: hybrid_source_top2: trace executed_mode expected 'hybrid', got 'keyword'",
+    "local_index_benchmark_quality: hybrid_source_top2: benchmark trace unexpectedly contains fallback metadata",
+    "local_index_benchmark_quality: hybrid_source_top2: trace executed_mode expected 'hybrid', got 'keyword'",
+    "local_index_benchmark_quality: hybrid_source_top2: benchmark trace unexpectedly contains fallback metadata",
+    "local_index_benchmark_quality: filter case vector_project_filter did not pass",
+    "local_index_benchmark_quality: vector_project_filter: trace executed_mode expected 'vector', got 'keyword'",
+    "local_index_benchmark_quality: vector_project_filter: benchmark trace unexpectedly contains fallback metadata",
+    "local_index_benchmark_quality: vector_project_filter: trace executed_mode expected 'vector', got 'keyword'",
+    "local_index_benchmark_quality: vector_project_filter: benchmark trace unexpectedly contains fallback metadata",
+    "local_index_benchmark_quality: vector_project_filter: trace executed_mode expected 'vector', got 'keyword'",
+    "local_index_benchmark_quality: vector_project_filter: benchmark trace unexpectedly contains fallback metadata",
+    "local_index_benchmark_quality: vector_project_filter: trace executed_mode expected 'vector', got 'keyword'",
+    "local_index_benchmark_quality: vector_project_filter: benchmark trace unexpectedly contains fallback metadata",
+    "local_index_benchmark_quality: vector_project_filter: trace executed_mode expected 'vector', got 'keyword'",
+    "local_index_benchmark_quality: vector_project_filter: benchmark trace unexpectedly contains fallback metadata",
+    "local_index_benchmark_quality: filter case hybrid_project_filter did not pass",
+    "local_index_benchmark_quality: hybrid_project_filter: trace executed_mode expected 'hybrid', got 'keyword'",
+    "local_index_benchmark_quality: hybrid_project_filter: benchmark trace unexpectedly contains fallback metadata",
+    "local_index_benchmark_quality: hybrid_project_filter: trace executed_mode expected 'hybrid', got 'keyword'",
+    "local_index_benchmark_quality: hybrid_project_filter: benchmark trace unexpectedly contains fallback metadata",
+    "local_index_benchmark_quality: hybrid_project_filter: trace executed_mode expected 'hybrid', got 'keyword'",
+    "local_index_benchmark_quality: hybrid_project_filter: benchmark trace unexpectedly contains fallback metadata",
+    "local_index_benchmark_quality: hybrid_project_filter: trace executed_mode expected 'hybrid', got 'keyword'",
+    "local_index_benchmark_quality: hybrid_project_filter: benchmark trace unexpectedly contains fallback metadata",
+    "local_index_benchmark_quality: hybrid_project_filter: trace executed_mode expected 'hybrid', got 'keyword'",
+    "local_index_benchmark_quality: hybrid_project_filter: benchmark trace unexpectedly contains fallback metadata",
+    "EVIDENCE_SOURCE_UNAVAILABLE: local_index_runtime_smoke: stage1-successor-evidence/contract14-local-execution-v1/local/vector-upstream/lancedb-runtime/runtime_smoke_results.json"
+  ],
+  "generated_by": "ops/search-lab/scripts/wave10_vectorization_quality_gate.py",
+  "quality_thresholds": {
+    "max_failures": 0,
+    "min_filter_cases": 3,
+    "min_ranking_cases": 3,
+    "min_repeats_per_ranking_case": 3,
+    "required_modes": [
+      "keyword",
+      "vector",
+      "hybrid"
+    ]
+  },
+  "remaining_gaps": [
+    {
+      "code": "current_container_availability_not_replayed",
+      "message": "This gate reads recorded provider evidence and does not start or probe SearXNG/YaCy containers."
+    },
+    {
+      "code": "semantic_embedding_quality_not_proven",
+      "message": "The benchmark fixture uses deterministic vectors and does not prove production embedding relevance quality."
+    },
+    {
+      "code": "global_vector_contract_not_closed",
+      "message": "Unified vector object schema, embedding provenance, and main search evidence contract remain CURRENT_DEV work."
+    }
+  ],
+  "scope": "deterministic_local_fixture_no_network_no_container_start",
+  "semantic_quality_claim_allowed": false,
+  "status": "failed",
+  "target_topics": [
+    {
+      "exists": true,
+      "path": "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-01-open-source-platform-integration"
+    },
+    {
+      "exists": true,
+      "path": "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-05-oss-node-platform-io-plan"
+    },
+    {
+      "exists": true,
+      "path": "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation"
+    }
+  ]
+}

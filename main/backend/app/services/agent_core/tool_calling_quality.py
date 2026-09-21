@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from collections import Counter
 from types import SimpleNamespace
-from typing import Any, Mapping
+from typing import Annotated, Any, Mapping
 
 from .contracts import (
     AGENT_CORE_TOOL_CALL_CONTRACT_VERSION,
@@ -33,7 +33,11 @@ _PROVIDER_KEYS = (
 _TOOL_NAME = "agent.tool_calling_quality.echo"
 
 
-def build_agent_core_tool_calling_quality_contract() -> dict[str, Any]:
+def build_agent_core_tool_calling_quality_contract() -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=tool_calling_quality_contract_constants "
+    "witness=test:test_w02_agent_authority_metadata"
+]:
     """Build the deterministic AgentCore native tool-calling quality boundary.
 
     This contract uses local provider fixtures only. It proves that fake, JSON,
@@ -275,6 +279,7 @@ def _provider_for(provider_key: str) -> CoreProvider:
         return JsonCoreProvider(chat_model=_JsonToolCallingQualityChat(provider_key))
     if provider_key == "native_tool_calling_provider":
         return NativeToolCallingCoreProvider(chat_model=_NativeToolCallingQualityChat(provider_key))
+    # kit:boundary owner=tool_calling_quality.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w02_programmer_defect_boundary
     raise ValueError(f"unknown provider key: {provider_key}")
 
 

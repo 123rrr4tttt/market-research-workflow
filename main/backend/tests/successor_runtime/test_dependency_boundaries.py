@@ -139,6 +139,7 @@ def test_lint_allows_public_capability_shared_modules(tmp_path: Path) -> None:
         "catalog",
         "checksum",
         "codecs",
+        "failure",
         "ingest_c7_common",
         "c8_common",
     ):
@@ -166,6 +167,23 @@ def test_lint_allows_family_common_c8_module(tmp_path: Path) -> None:
         tmp_path,
         "capabilities/c8_writing.py",
         "from .c8_common import ReadHandle\n",
+    )
+    report = check(tmp_path)
+    assert report["ok"], report["violations"]
+
+
+def test_lint_allows_declared_capability_family_modules(tmp_path: Path) -> None:
+    _write(tmp_path, "capabilities/first_specimen.py", "class FailureCore:\n    pass\n")
+    _write(
+        tmp_path,
+        "capabilities/first_specimen_program.py",
+        "from .first_specimen import FailureCore\n",
+    )
+    _write(tmp_path, "capabilities/agent_core_c6_3.py", "class Contract:\n    pass\n")
+    _write(
+        tmp_path,
+        "capabilities/agent_core_c6_3_interpreters.py",
+        "from .agent_core_c6_3 import Contract\n",
     )
     report = check(tmp_path)
     assert report["ok"], report["violations"]

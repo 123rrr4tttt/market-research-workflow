@@ -1,19 +1,28 @@
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
-from sqlalchemy.exc import OperationalError, DatabaseError
+from sqlalchemy.exc import OperationalError, DatabaseError, ProgrammingError
 from typing import Any, Literal, Optional
 import logging
 import hashlib
+import json
+from copy import deepcopy
+from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import lru_cache, partial
+from threading import Lock
 
 from ..project_customization import get_project_customization
 from ..services.ingest_config import get_config as get_ingest_config, upsert_config as upsert_ingest_config
+from ..services.ingest.adapters import submission_registry as ingest_submission_registry
 from ..services.job_logger import list_jobs
 from ..services.projects import bind_project, current_project_key
 from ..services.skill_runtime import invoke_skill
 from ..services.agent_batch.routing import apply_async_or_delay, validate_lane
 from ..services.agent_batch.task_contract import build_source_library_override_params
+from ..services.source_library.single_source_guard import (
+    SourceLibrarySingleSourceGuardError,
+    validate_single_source_guard,
+)
 from ..settings.config import get_effective_project_key_enforcement_mode, settings
 from ..contracts import (
     ApiEnvelope,
@@ -27,6 +36,9 @@ from ..contracts.responses import ok
 
 logger = logging.getLogger(__name__)
 from fastapi.responses import JSONResponse
+
+_INGEST_SUBMISSION_LOCK = Lock()
+_INGEST_SUBMISSIONS: dict[str, dict[str, Any]] = {}
 
 @lru_cache(maxsize=1)
 def _tasks_module():
@@ -100,6 +112,447 @@ def _raise_upstream_error(message: str, *, details: dict[str, Any] | None = None
     )
 
 
+def _canonical_json(value: Any) -> str:
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
+
+
+def _derive_ingest_idempotency(
+    *,
+    trigger_type: str,
+    project_key: str,
+    explicit_key: str | None,
+    basis: dict[str, Any],
+) -> tuple[str, str]:
+    public_key = str(explicit_key or "").strip()
+    if not public_key:
+        public_key = f"{trigger_type}:{hashlib.sha256(_canonical_json(basis).encode('utf-8')).hexdigest()[:24]}"
+    registry_key = f"{trigger_type}:{project_key}:{public_key}"
+    return public_key, registry_key
+
+
+def _submission_id_for_key(registry_key: str) -> str:
+    return ingest_submission_registry.submission_id_for_key(registry_key)
+
+
+def _request_hash_for_payload(payload: dict[str, Any]) -> str:
+    return hashlib.sha256(_canonical_json(payload).encode("utf-8")).hexdigest()
+
+
+def _registry_meta(*, backend: str, degraded: bool) -> dict[str, Any]:
+    return {"registry_backend": backend, "registry_degraded": bool(degraded)}
+
+
+def _reserve_ingest_submission_db(
+    *,
+    registry_key: str,
+    project_key: str,
+    idempotency_key: str,
+    trigger_type: str,
+    subject: dict[str, Any],
+    request_payload: dict[str, Any],
+    request_hash: str,
+) -> tuple[dict[str, Any], bool]:
+    return ingest_submission_registry.reserve_submission_db(
+        registry_key=registry_key,
+        project_key=project_key,
+        idempotency_key=idempotency_key,
+        trigger_type=trigger_type,
+        subject=subject,
+        request_payload=request_payload,
+        request_hash=request_hash,
+    )
+
+
+def _complete_ingest_submission_db(*, registry_key: str, response_payload: dict[str, Any]) -> None:
+    ingest_submission_registry.complete_submission_db(
+        registry_key=registry_key,
+        response_payload=response_payload,
+    )
+
+
+def _forget_ingest_submission_db(*, registry_key: str) -> None:
+    ingest_submission_registry.forget_submission_db(registry_key=registry_key)
+
+
+def _reserve_ingest_submission_memory(
+    *,
+    registry_key: str,
+    project_key: str,
+    idempotency_key: str,
+    trigger_type: str,
+    subject: dict[str, Any],
+    request_hash: str,
+    degraded: bool,
+) -> tuple[dict[str, Any], bool]:
+    with _INGEST_SUBMISSION_LOCK:
+        existing = _INGEST_SUBMISSIONS.get(registry_key)
+        if existing is not None:
+            return deepcopy(existing), True
+
+        now = datetime.now(timezone.utc).isoformat()
+        submission = {
+            "submission_id": _submission_id_for_key(registry_key),
+            "idempotency_key": idempotency_key,
+            "trigger_type": trigger_type,
+            "project_key": project_key,
+            "registry_key": registry_key,
+            "request_hash": request_hash,
+            "subject": dict(subject),
+            "submission_status": "submitted",
+            "duplicate": False,
+            "created_at": now,
+            "updated_at": now,
+            **_registry_meta(backend="memory", degraded=degraded),
+        }
+        _INGEST_SUBMISSIONS[registry_key] = deepcopy(submission)
+        return deepcopy(submission), False
+
+
+def _reserve_ingest_submission(
+    *,
+    registry_key: str,
+    project_key: str,
+    idempotency_key: str,
+    trigger_type: str,
+    subject: dict[str, Any],
+    request_payload: dict[str, Any],
+) -> tuple[dict[str, Any], bool]:
+    request_hash = _request_hash_for_payload(request_payload)
+    try:
+        submission, duplicate = _reserve_ingest_submission_db(
+            registry_key=registry_key,
+            project_key=project_key,
+            idempotency_key=idempotency_key,
+            trigger_type=trigger_type,
+            subject=subject,
+            request_payload=request_payload,
+            request_hash=request_hash,
+        )
+        with _INGEST_SUBMISSION_LOCK:
+            _INGEST_SUBMISSIONS[registry_key] = deepcopy(submission)
+        return submission, duplicate
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "ingest submission registry degraded to memory trigger_type=%s project_key=%s err=%s",
+            trigger_type,
+            project_key,
+            exc,
+        )
+        return _reserve_ingest_submission_memory(
+            registry_key=registry_key,
+            project_key=project_key,
+            idempotency_key=idempotency_key,
+            trigger_type=trigger_type,
+            subject=subject,
+            request_hash=request_hash,
+            degraded=True,
+        )
+
+
+def _complete_ingest_submission(*, registry_key: str, response_payload: dict[str, Any]) -> None:
+    try:
+        _complete_ingest_submission_db(registry_key=registry_key, response_payload=response_payload)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("failed to persist ingest submission completion registry_key=%s err=%s", registry_key, exc)
+    with _INGEST_SUBMISSION_LOCK:
+        submission = _INGEST_SUBMISSIONS.get(registry_key)
+        if submission is None:
+            return
+        submission["response"] = deepcopy(response_payload)
+        submission["updated_at"] = datetime.now(timezone.utc).isoformat()
+        if response_payload.get("task_id") is not None:
+            submission["task_id"] = response_payload.get("task_id")
+        if response_payload.get("status") is not None:
+            submission["status"] = response_payload.get("status")
+            submission["submission_status"] = response_payload.get("status")
+
+
+def _forget_ingest_submission(*, registry_key: str) -> None:
+    try:
+        _forget_ingest_submission_db(registry_key=registry_key)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("failed to delete ingest submission registry_key=%s err=%s", registry_key, exc)
+    with _INGEST_SUBMISSION_LOCK:
+        _INGEST_SUBMISSIONS.pop(registry_key, None)
+
+
+def _apply_submission_fields(
+    response_payload: dict[str, Any],
+    *,
+    submission: dict[str, Any],
+    duplicate: bool = False,
+) -> dict[str, Any]:
+    payload = dict(response_payload)
+    payload["submission_id"] = submission["submission_id"]
+    payload["idempotency_key"] = submission["idempotency_key"]
+    payload["submission_status"] = (
+        "already_submitted"
+        if duplicate
+        else str(submission.get("submission_status") or submission.get("status") or "submitted")
+    )
+    payload["duplicate"] = bool(duplicate)
+    payload["registry_backend"] = submission.get("registry_backend") or "memory"
+    payload["registry_degraded"] = bool(submission.get("registry_degraded"))
+    if submission.get("request_hash"):
+        payload["request_hash"] = submission.get("request_hash")
+    if duplicate:
+        payload["duplicate_of"] = submission["submission_id"]
+        payload["duplicate_hint"] = "duplicate idempotency_key; returning existing submission"
+    payload.setdefault(
+        "trace_chain",
+        _build_ingest_trace_chain(
+            entrypoint=str(submission.get("trigger_type") or "ingest"),
+            project_key=str(submission.get("project_key") or ""),
+            submission_id=str(submission.get("submission_id") or ""),
+            task_id=str(payload.get("task_id") or ""),
+            status=str(payload.get("status") or ""),
+            provider=None,
+        ),
+    )
+    payload["trace_id"] = (payload.get("trace_chain") or {}).get("trace_id")
+    payload["feedback_state"] = _feedback_state_for_submission_payload(
+        status=payload.get("status"),
+        submission_status=payload.get("submission_status"),
+        error=payload.get("error"),
+    )
+    return payload
+
+
+def _duplicate_submission_response(submission: dict[str, Any]) -> dict[str, Any]:
+    response_payload = submission.get("response")
+    if isinstance(response_payload, dict):
+        return _apply_submission_fields(response_payload, submission=submission, duplicate=True)
+    return _apply_submission_fields(
+        {
+            "task_id": submission.get("task_id"),
+            "status": submission.get("status") or "submitted",
+            "async": True,
+            "params": dict(submission.get("subject") or {}),
+        },
+        submission=submission,
+        duplicate=True,
+    )
+
+
+def _validate_source_library_single_source_guard(override_params: dict[str, Any]) -> dict[str, Any] | None:
+    try:
+        return validate_single_source_guard(override_params)
+    except SourceLibrarySingleSourceGuardError as exc:
+        _raise_invalid_input(str(exc), details=dict(exc.details))
+
+
+def _build_ingest_trace_chain(
+    *,
+    entrypoint: str,
+    project_key: str,
+    submission_id: str | None = None,
+    task_id: str | None = None,
+    status: str | None = None,
+    provider: str | None = None,
+    fallback: dict[str, Any] | None = None,
+    retrieval_run_id: str | None = None,
+    known_limitations: list[str] | None = None,
+) -> dict[str, Any]:
+    normalized_submission_id = str(submission_id or "").strip() or None
+    normalized_task_id = str(task_id or "").strip() or None
+    normalized_retrieval_run_id = str(retrieval_run_id or "").strip() or None
+    trace_seed = normalized_submission_id or normalized_task_id or _request_hash_for_payload(
+        {"entrypoint": entrypoint, "project_key": project_key}
+    )[:16]
+    limitations = list(
+        dict.fromkeys(
+            [
+                *(known_limitations or []),
+                "ingest_response_does_not_persist_search_retrieval_run",
+                "no_real_index_timestamp_at_ingest_response",
+            ]
+        )
+    )
+    fallback_payload = {
+        "used": "unknown",
+        "reason": "provider_execution_not_observed_at_ingest_response",
+    }
+    if isinstance(fallback, dict):
+        fallback_payload.update(fallback)
+        fallback_payload.setdefault("used", "unknown")
+        fallback_payload.setdefault("reason", "provider_execution_not_observed_at_ingest_response")
+    return {
+        "contract_version": "ingest_search.trace_chain.v1",
+        "trace_id": f"{entrypoint}:{trace_seed}",
+        "project_key": project_key,
+        "entrypoint": entrypoint,
+        "run_order": [
+            {
+                "order": 1,
+                "stage": "ingest_submission",
+                "submission_id": normalized_submission_id,
+                "status": "registered" if normalized_submission_id else "not_registered",
+            },
+            {
+                "order": 2,
+                "stage": "dispatch_or_execution",
+                "task_id": normalized_task_id,
+                "status": status or ("queued" if normalized_task_id else "completed_or_inline"),
+            },
+            {
+                "order": 3,
+                "stage": "search_retrieval_run",
+                "retrieval_run_id": normalized_retrieval_run_id,
+                "status": "available" if normalized_retrieval_run_id else "not_created_at_ingest_response",
+            },
+        ],
+        "ids": {
+            "submission_id": normalized_submission_id,
+            "task_id": normalized_task_id,
+            "retrieval_run_id": normalized_retrieval_run_id,
+        },
+        "provider": str(provider or "").strip() or "unknown",
+        "fallback": fallback_payload,
+        "index": {
+            "index_backend": "not_available_at_ingest_response",
+            "freshness_state": "not_available",
+            "real_timestamp_available": False,
+            "timestamp_status": "not_available",
+        },
+        "known_limitations": limitations,
+    }
+
+
+def _build_worker_runtime_readback(
+    *,
+    line_key: str,
+    trace_id: str | None,
+    run_id: str | None = None,
+    queue: str | None = None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "line_key": line_key,
+        "trace_id": str(trace_id or "").strip(),
+    }
+    if run_id:
+        payload["run_id"] = str(run_id).strip()
+    if queue:
+        payload["queue"] = str(queue).strip()
+    return {key: value for key, value in payload.items() if value}
+
+
+def _feedback_state_for_submission_payload(
+    *,
+    status: Any,
+    submission_status: Any,
+    error: Any = None,
+) -> str:
+    if error:
+        return "failed"
+    normalized_status = str(status or "").strip().lower()
+    normalized_submission_status = str(submission_status or "").strip().lower()
+    state = normalized_status or normalized_submission_status
+    if state in {"failed", "error", "errored", "cancelled", "rejected"}:
+        return "failed"
+    if state.startswith("degraded"):
+        return "degraded"
+    if state in {"queued", "submitted", "already_submitted", "pending", "running", "started"}:
+        return "accepted_pending_worker"
+    if state in {"ok", "completed", "complete", "finished", "succeeded", "success"}:
+        return "completed"
+    return "unknown"
+
+
+def _submission_history_entry(submission: dict[str, Any]) -> dict[str, Any]:
+    response_payload = submission.get("response") if isinstance(submission.get("response"), dict) else {}
+    task_id = response_payload.get("task_id") or submission.get("task_id")
+    status = response_payload.get("status") or submission.get("status") or submission.get("submission_status")
+    trace_chain = response_payload.get("trace_chain") if isinstance(response_payload.get("trace_chain"), dict) else None
+    if trace_chain is None:
+        trace_chain = _build_ingest_trace_chain(
+            entrypoint=str(submission.get("trigger_type") or "ingest"),
+            project_key=str(submission.get("project_key") or ""),
+            submission_id=str(submission.get("submission_id") or ""),
+            task_id=str(task_id or ""),
+            status=str(status or ""),
+            provider=None,
+        )
+    trace_id = str(response_payload.get("trace_id") or trace_chain.get("trace_id") or "").strip() or None
+    submission_status = str(submission.get("submission_status") or status or "submitted")
+    entry = {
+        "id": submission.get("submission_id"),
+        "job_type": "ingest_submission",
+        "status": status,
+        "task_status": status,
+        "task_id": task_id,
+        "submission_id": submission.get("submission_id"),
+        "idempotency_key": submission.get("idempotency_key"),
+        "submission_status": submission_status,
+        "trigger_type": submission.get("trigger_type"),
+        "project_key": submission.get("project_key"),
+        "trace_id": trace_id,
+        "trace_chain": trace_chain,
+        "feedback_state": _feedback_state_for_submission_payload(
+            status=status,
+            submission_status=submission_status,
+            error=response_payload.get("error") or submission.get("last_error"),
+        ),
+        "registry_backend": submission.get("registry_backend") or "memory",
+        "registry_degraded": bool(submission.get("registry_degraded")),
+        "params": {
+            "subject": dict(submission.get("subject") or {}),
+            "response": deepcopy(response_payload),
+        },
+        "started_at": submission.get("created_at"),
+        "updated_at": submission.get("updated_at"),
+        "finished_at": None,
+        "error": response_payload.get("error") or submission.get("last_error"),
+    }
+    if submission.get("request_hash"):
+        entry["request_hash"] = submission.get("request_hash")
+    return entry
+
+
+def _list_recent_ingest_submissions_db(limit: int) -> list[dict[str, Any]]:
+    return ingest_submission_registry.list_recent_submissions_db(limit)
+
+
+def _list_recent_ingest_submission_history(limit: int) -> list[dict[str, Any]]:
+    limit = max(1, min(int(limit or 20), 100))
+    submissions: list[dict[str, Any]] = []
+    try:
+        submissions.extend(_list_recent_ingest_submissions_db(limit))
+    except ProgrammingError as exc:
+        msg = str(exc).lower()
+        if "does not exist" not in msg and "ingest_submission_registry" not in msg:
+            raise
+    except DatabaseError as exc:
+        msg = str(exc).lower()
+        if "ingest_submission_registry" not in msg:
+            raise
+        logger.warning("ingest submission registry unavailable for history readback: %s", exc)
+
+    with _INGEST_SUBMISSION_LOCK:
+        memory_submissions = [deepcopy(item) for item in _INGEST_SUBMISSIONS.values()]
+
+    seen: set[str] = set()
+    merged: list[dict[str, Any]] = []
+    for submission in [*submissions, *memory_submissions]:
+        key = str(submission.get("registry_key") or submission.get("submission_id") or "")
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        merged.append(_submission_history_entry(submission))
+    merged.sort(key=lambda entry: str(entry.get("updated_at") or entry.get("started_at") or ""), reverse=True)
+    return merged[:limit]
+
+
+def _merge_runtime_readback_override(
+    payload: dict[str, Any] | None,
+    runtime_readback: dict[str, Any],
+) -> dict[str, Any]:
+    merged = dict(payload or {})
+    existing = merged.get("runtime_readback")
+    existing_payload = dict(existing) if isinstance(existing, dict) else {}
+    merged["runtime_readback"] = {**runtime_readback, **existing_payload}
+    return merged
+
+
 def _dispatch_market_collect_async(
     *,
     query_terms: list[str],
@@ -149,6 +602,8 @@ def _dispatch_source_library_item_async(
     project_key: str,
     override_params: dict[str, Any],
     consumer: str,
+    trace_id: str | None = None,
+    workflow_run_id: str | None = None,
 ) -> str:
     invoked = invoke_skill(
         skill_id="ingest.dispatch.source_library_item",
@@ -157,12 +612,14 @@ def _dispatch_source_library_item_async(
             "project_key": project_key,
             "override_params": dict(override_params or {}),
             "lane": "subagent",
+            "trace_id": str(trace_id or "").strip() or None,
+            "workflow_run_id": str(workflow_run_id or "").strip() or None,
         },
         context={
             "actor_role": "business_capability_wrapper",
             "permissions": ["ingest.dispatch.source_library_item"],
             "consumer": consumer,
-            "trace_id": f"{consumer}.source_library",
+            "trace_id": str(trace_id or "").strip() or f"{consumer}.source_library",
         },
     )
     result = invoked.get("result")
@@ -381,6 +838,7 @@ class MarketIngestRequest(BaseModel):
 class SingleUrlIngestRequest(BaseModel):
     url: str = Field(..., min_length=1, description="单个网页 URL")
     query_terms: list[str] | None = Field(default=None, description="可选查询词（用于增强提取）")
+    idempotency_key: str | None = Field(default=None, description="Optional client-supplied key to deduplicate repeated submissions")
     strict_mode: bool = Field(default=False, description="是否启用严格模式")
     search_expand: bool = Field(default=True, description="搜索页是否展开抓取结果链接")
     search_expand_limit: int = Field(default=3, ge=1, le=20, description="搜索页展开抓取的URL上限")
@@ -494,6 +952,7 @@ def ingest_url_single(payload: SingleUrlIngestRequest):
     effective_payload: dict[str, Any] = {
         "url": normalized_url,
         "query_terms": payload.query_terms,
+        "idempotency_key": str(payload.idempotency_key or "").strip() or None,
         "strict_mode": payload.strict_mode,
         "search_expand": bool(payload.search_expand),
         "search_expand_limit": int(payload.search_expand_limit),
@@ -532,25 +991,71 @@ def ingest_url_single(payload: SingleUrlIngestRequest):
         search_options = dict(effective_payload)
         search_options.pop("url", None)
         search_options.pop("query_terms", None)
+        search_options.pop("idempotency_key", None)
         search_options.pop("strict_mode", None)
         search_options.pop("async_mode", None)
 
     if payload.async_mode:
+        idempotency_key, registry_key = _derive_ingest_idempotency(
+            trigger_type="ingest.url.single",
+            project_key=project_key,
+            explicit_key=payload.idempotency_key,
+            basis={
+                "project_key": project_key,
+                "url": normalized_url,
+                "query_terms": payload.query_terms or [],
+                "strict_mode": bool(payload.strict_mode),
+                "search_options": search_options or {},
+            },
+        )
+        submission, duplicate = _reserve_ingest_submission(
+            registry_key=registry_key,
+            project_key=project_key,
+            idempotency_key=idempotency_key,
+            trigger_type="ingest.url.single",
+            subject={"url": normalized_url, "project_key": project_key},
+            request_payload={
+                "project_key": project_key,
+                "url": normalized_url,
+                "query_terms": payload.query_terms or [],
+                "strict_mode": bool(payload.strict_mode),
+                "search_options": search_options or {},
+                "async_mode": True,
+            },
+        )
+        if duplicate:
+            return ok(_duplicate_submission_response(submission))
+        dispatch_search_options = search_options
         if isinstance(search_options, dict):
-            task = _tasks_module().task_ingest_url_via_source_library.delay(
-                normalized_url,
-                payload.query_terms,
-                payload.strict_mode,
-                project_key,
+            dispatch_trace_id = f"ingest.url.single:{submission.get('submission_id') or idempotency_key}"
+            dispatch_search_options = _merge_runtime_readback_override(
                 search_options,
+                _build_worker_runtime_readback(
+                    line_key="ingest",
+                    trace_id=dispatch_trace_id,
+                    run_id=submission.get("submission_id") or idempotency_key,
+                    queue="local.ingest",
+                ),
             )
-        else:
-            task = _tasks_module().task_ingest_url_via_source_library.delay(
-                normalized_url,
-                payload.query_terms,
-                payload.strict_mode,
-                project_key,
-            )
+        try:
+            if isinstance(dispatch_search_options, dict):
+                task = _tasks_module().task_ingest_url_via_source_library.delay(
+                    normalized_url,
+                    payload.query_terms,
+                    payload.strict_mode,
+                    project_key,
+                    dispatch_search_options,
+                )
+            else:
+                task = _tasks_module().task_ingest_url_via_source_library.delay(
+                    normalized_url,
+                    payload.query_terms,
+                    payload.strict_mode,
+                    project_key,
+                )
+        except Exception:
+            _forget_ingest_submission(registry_key=registry_key)
+            raise
         task_payload = task_result_response(
             task_id=task.id,
             async_mode=True,
@@ -562,9 +1067,54 @@ def ingest_url_single(payload: SingleUrlIngestRequest):
             },
         )
         task_payload["effective_payload"] = effective_payload
+        task_payload = _apply_submission_fields(task_payload, submission=submission)
+        task_payload["trace_chain"] = _build_ingest_trace_chain(
+            entrypoint="ingest.url.single",
+            project_key=project_key,
+            submission_id=task_payload.get("submission_id"),
+            task_id=task_payload.get("task_id"),
+            status=task_payload.get("status"),
+            provider=payload.search_provider or "auto",
+            fallback={
+                "enabled": bool(payload.fallback_on_insufficient),
+                "provider": payload.search_fallback_provider,
+                "used": "unknown",
+                "reason": "async_url_ingest_dispatched_provider_execution_pending",
+            },
+        )
+        _complete_ingest_submission(registry_key=registry_key, response_payload=task_payload)
         return ok(task_payload)
 
     try:
+        idempotency_key, registry_key = _derive_ingest_idempotency(
+            trigger_type="ingest.url.single",
+            project_key=project_key,
+            explicit_key=payload.idempotency_key,
+            basis={
+                "project_key": project_key,
+                "url": normalized_url,
+                "query_terms": payload.query_terms or [],
+                "strict_mode": bool(payload.strict_mode),
+                "search_options": search_options or {},
+            },
+        )
+        submission, duplicate = _reserve_ingest_submission(
+            registry_key=registry_key,
+            project_key=project_key,
+            idempotency_key=idempotency_key,
+            trigger_type="ingest.url.single",
+            subject={"url": normalized_url, "project_key": project_key},
+            request_payload={
+                "project_key": project_key,
+                "url": normalized_url,
+                "query_terms": payload.query_terms or [],
+                "strict_mode": bool(payload.strict_mode),
+                "search_options": search_options or {},
+                "async_mode": False,
+            },
+        )
+        if duplicate:
+            return ok(_duplicate_submission_response(submission))
         with bind_project(project_key):
             from ..services.ingest.url_pool import ingest_url_via_source_library_frontdoor
 
@@ -581,15 +1131,39 @@ def ingest_url_single(payload: SingleUrlIngestRequest):
             )
             if isinstance(result, dict):
                 result.setdefault("effective_payload", effective_payload)
+                result = _apply_submission_fields(result, submission=submission)
+                result["trace_chain"] = _build_ingest_trace_chain(
+                    entrypoint="ingest.url.single",
+                    project_key=project_key,
+                    submission_id=result.get("submission_id"),
+                    task_id=result.get("task_id"),
+                    status=result.get("status"),
+                    provider=payload.search_provider or "auto",
+                    fallback={
+                        "enabled": bool(payload.fallback_on_insufficient),
+                        "provider": payload.search_fallback_provider,
+                        "used": bool(str(result.get("status") or "").lower().startswith("degraded")),
+                        "reason": (
+                            "sync_url_ingest_returned_degraded_status"
+                            if str(result.get("status") or "").lower().startswith("degraded")
+                            else "no_fallback_observed_in_ingest_response"
+                        ),
+                    },
+                )
+                _complete_ingest_submission(registry_key=registry_key, response_payload=result)
             return ok(result)
     except Exception as exc:  # noqa: BLE001
+        _forget_ingest_submission(registry_key=registry_key)
         return _error_500(exc)
 
 
 @router.get("/history", response_model=IngestAnyEnvelope)
 def ingest_history(limit: int = 20):
     try:
-        return success_response(list_jobs(limit=limit))
+        normalized_limit = max(1, min(int(limit or 20), 100))
+        submissions = _list_recent_ingest_submission_history(normalized_limit)
+        jobs = list_jobs(limit=normalized_limit)
+        return success_response([*submissions, *jobs])
     except (OperationalError, DatabaseError) as e:
         logger.exception("数据库连接失败")
         _raise_upstream_error(
@@ -664,6 +1238,7 @@ def _resource_display_name(resource_id: str) -> str:
 class SourceLibraryRunPayload(BaseModel):
     item_key: str | None = Field(default=None, min_length=1)
     handler_key: str | None = Field(default=None, min_length=1, description="Run all items under this handler key (provider/kind)")
+    idempotency_key: str | None = Field(default=None, description="Optional client-supplied key to deduplicate repeated submissions")
     source_mode: Literal["protocol_search", "provider_harvest", "site_search", "url_execution"] | None = Field(default=None)
     query_terms: list[str] = Field(default_factory=list)
     urls: list[str] = Field(default_factory=list)
@@ -686,7 +1261,7 @@ class SourceLibrarySyncPayload(BaseModel):
 
 
 def _ensure_handler_cluster_item(*, project_key: str, handler_key: str) -> tuple[str, int]:
-    from .source_library import SourceLibraryItemUpsertPayload, upsert_project_item
+    from .source_library import SourceLibraryItemUpsertPayload, _upsert_project_item_internal
     from ..services.resource_pool import list_site_entries
 
     hk = str(handler_key or "").strip().lower()
@@ -742,7 +1317,7 @@ def _ensure_handler_cluster_item(*, project_key: str, handler_key: str) -> tuple
             "stable_handler_cluster": True,
         },
     )
-    upsert_project_item(payload, project_key=project_key)
+    _upsert_project_item_internal(payload=payload, project_key=project_key)
     return item_key, len(site_entries)
 
 
@@ -751,6 +1326,7 @@ def _run_single_source_library_entry(
     project_key: str,
     item_key: str,
     handler_key: str,
+    idempotency_key: str | None,
     source_mode: str,
     query_terms: list[str] | None,
     urls: list[str] | None,
@@ -843,31 +1419,131 @@ def _run_single_source_library_entry(
         )
         final_override_params.setdefault("_handler_key", resolved_handler_key)
         final_override_params.setdefault("_handler_site_entry_count", site_entry_count)
+    single_source_guard = _validate_source_library_single_source_guard(final_override_params)
+
+    submission: dict[str, Any] | None = None
+    registry_key: str | None = None
+    public_idempotency_key = str(idempotency_key or "").strip()
+    if public_idempotency_key:
+        public_idempotency_key, registry_key = _derive_ingest_idempotency(
+            trigger_type="ingest.source_library.run",
+            project_key=project_key,
+            explicit_key=public_idempotency_key,
+            basis={"project_key": project_key, "item_key": resolved_item_key, "override_params": final_override_params},
+        )
+        submission, duplicate = _reserve_ingest_submission(
+            registry_key=registry_key,
+            project_key=project_key,
+            idempotency_key=public_idempotency_key,
+            trigger_type="ingest.source_library.run",
+            subject={"item_key": resolved_item_key, "project_key": project_key},
+            request_payload={
+                "project_key": project_key,
+                "item_key": resolved_item_key,
+                "source_mode": str(source_mode or "").strip().lower() or None,
+                "override_params": final_override_params,
+                "async_mode": bool(async_mode),
+            },
+        )
+        if duplicate:
+            return {"mode": "source_library_item", "result": _duplicate_submission_response(submission)}
 
     if async_mode:
-        task_id = _dispatch_source_library_item_async(
-            item_key=resolved_item_key,
-            project_key=project_key,
-            override_params=final_override_params,
-            consumer="ingest.source_library.run",
+        dispatch_trace_id = None
+        dispatch_run_id = None
+        if public_idempotency_key:
+            dispatch_trace_id = f"ingest.source_library.run:{(submission or {}).get('submission_id') or public_idempotency_key}"
+            dispatch_run_id = str((submission or {}).get("submission_id") or public_idempotency_key or "").strip() or None
+            final_override_params = _merge_runtime_readback_override(
+                final_override_params,
+                _build_worker_runtime_readback(
+                    line_key="resource_source_library",
+                    trace_id=dispatch_trace_id,
+                    run_id=dispatch_run_id,
+                    queue="local.resource_source_library",
+                ),
+            )
+        try:
+            task_id = _dispatch_source_library_item_async(
+                item_key=resolved_item_key,
+                project_key=project_key,
+                override_params=final_override_params,
+                consumer="ingest.source_library.run",
+                trace_id=dispatch_trace_id,
+                workflow_run_id=dispatch_run_id,
+            )
+        except Exception:
+            if registry_key:
+                _forget_ingest_submission(registry_key=registry_key)
+            raise
+        result_payload = task_result_response(
+            task_id=task_id,
+            async_mode=True,
+            params={"item_key": resolved_item_key},
         )
-        return {
-            "mode": "source_library_item",
-            "result": task_result_response(
-                task_id=task_id,
-                async_mode=True,
-                params={"item_key": resolved_item_key},
-            ),
-        }
+        if single_source_guard is not None:
+            result_payload["single_source_guard"] = single_source_guard
+            result_payload["strict_source"] = single_source_guard
+        if submission and registry_key:
+            result_payload = _apply_submission_fields(result_payload, submission=submission)
+        result_payload["trace_chain"] = _build_ingest_trace_chain(
+            entrypoint="ingest.source_library.run",
+            project_key=project_key,
+            submission_id=result_payload.get("submission_id"),
+            task_id=result_payload.get("task_id"),
+            status=result_payload.get("status"),
+            provider=final_override_params.get("provider")
+            or final_override_params.get("source_mode")
+            or "source_library",
+            fallback={
+                "enabled": "unknown",
+                "used": "unknown",
+                "reason": "async_source_library_dispatched_provider_execution_pending",
+            },
+            known_limitations=["source_library_resolver_selects_final_provider_after_dispatch"],
+        )
+        if submission and registry_key:
+            _complete_ingest_submission(registry_key=registry_key, response_payload=result_payload)
+        return {"mode": "source_library_item", "result": result_payload}
 
     from ..services.collect_runtime import run_source_library_item_compat
 
-    result = run_source_library_item_compat(
-        item_key=resolved_item_key,
-        project_key=project_key,
-        override_params=final_override_params,
-    )
-    return {"mode": "source_library_item", "result": _external_terminal_payload(result)}
+    try:
+        result = run_source_library_item_compat(
+            item_key=resolved_item_key,
+            project_key=project_key,
+            override_params=final_override_params,
+        )
+    except Exception:
+        if registry_key:
+            _forget_ingest_submission(registry_key=registry_key)
+        raise
+    result_payload = _external_terminal_payload(result)
+    if single_source_guard is not None and isinstance(result_payload, dict):
+        result_payload["single_source_guard"] = single_source_guard
+        result_payload["strict_source"] = single_source_guard
+    if submission and registry_key and isinstance(result_payload, dict):
+        result_payload = _apply_submission_fields(result_payload, submission=submission)
+    if isinstance(result_payload, dict):
+        result_payload["trace_chain"] = _build_ingest_trace_chain(
+            entrypoint="ingest.source_library.run",
+            project_key=project_key,
+            submission_id=result_payload.get("submission_id"),
+            task_id=result_payload.get("task_id"),
+            status=result_payload.get("status"),
+            provider=final_override_params.get("provider")
+            or final_override_params.get("source_mode")
+            or "source_library",
+            fallback={
+                "enabled": "unknown",
+                "used": "unknown",
+                "reason": "source_library_terminal_output_does_not_report_fallback_usage",
+            },
+            known_limitations=["source_library_terminal_output_has_no_search_index_timestamp"],
+        )
+    if submission and registry_key and isinstance(result_payload, dict):
+        _complete_ingest_submission(registry_key=registry_key, response_payload=result_payload)
+    return {"mode": "source_library_item", "result": result_payload}
 
 
 @router.post("/source-library/run", response_model=IngestAnyEnvelope)
@@ -893,6 +1569,7 @@ def ingest_source_library_run(payload: SourceLibraryRunPayload):
             {
                 "item_key": payload.item_key,
                 "handler_key": payload.handler_key,
+                "idempotency_key": payload.idempotency_key,
                 "async_mode": payload.async_mode,
                 "source_mode": payload.source_mode,
                 "query_terms": payload.query_terms,
@@ -913,6 +1590,7 @@ def ingest_source_library_run(payload: SourceLibraryRunPayload):
                 project_key=project_key,
                 item_key=str(entry.get("item_key") or "").strip(),
                 handler_key=str(entry.get("handler_key") or "").strip(),
+                idempotency_key=str(entry.get("idempotency_key") or payload.idempotency_key or "").strip() or None,
                 source_mode=str(entry.get("source_mode") or payload.source_mode or "").strip(),
                 query_terms=entry.get("query_terms") if isinstance(entry.get("query_terms"), list) else payload.query_terms,
                 urls=entry.get("urls") if isinstance(entry.get("urls"), list) else payload.urls,
@@ -1468,12 +2146,12 @@ def _run_source_collect_batch(
                 usedforsecurity=False,
             ).hexdigest()[:8]
             item_key = f"graph::{normalized_entry_id}::{normalized_intent}::{fingerprint}"
-            from .source_library import SourceLibraryItemUpsertPayload, upsert_project_item
+            from .source_library import SourceLibraryItemUpsertPayload, _upsert_project_item_internal
             from ..services.source_library import list_effective_items
             existing = list_effective_items(scope="effective", project_key=project_key)
             existed_before = any(str(item.get("item_key") or "").strip() == item_key for item in existing if isinstance(item, dict))
-            upsert_project_item(
-                SourceLibraryItemUpsertPayload(
+            _upsert_project_item_internal(
+                payload=SourceLibraryItemUpsertPayload(
                     item_key=item_key,
                     name=f"Graph Source {normalized_entry_id} {normalized_intent}",
                     channel_key="url_pool",

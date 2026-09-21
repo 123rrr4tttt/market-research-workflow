@@ -1,6 +1,14 @@
 from __future__ import annotations
 
 from .base import CrawlerDispatchRequest, CrawlerDispatchResult, CrawlerProvider
+from .durable_effect_bridge import (
+    CrawlerAttemptRecord,
+    CrawlerAttemptStore,
+    DurableCrawlerEffectBridge,
+    InMemoryCrawlerAttemptStore,
+    RequestDigestMismatch,
+    crawler_request_digest,
+)
 from .providers import ScrapyCrawlerProvider
 from .registry import get_provider, list_providers, register_provider
 
@@ -20,6 +28,12 @@ __all__ = [
     "CrawlerDispatchRequest",
     "CrawlerDispatchResult",
     "CrawlerProvider",
+    "CrawlerAttemptRecord",
+    "CrawlerAttemptStore",
+    "DurableCrawlerEffectBridge",
+    "InMemoryCrawlerAttemptStore",
+    "RequestDigestMismatch",
+    "crawler_request_digest",
     "register_provider",
     "get_provider",
     "list_providers",

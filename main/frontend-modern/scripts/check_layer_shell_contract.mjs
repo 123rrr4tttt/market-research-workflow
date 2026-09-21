@@ -10,8 +10,10 @@ const rootDir = path.resolve(scriptDir, '..')
 const files = {
   adminLayerShell: 'src/app/kernel/AdminLayerShell.tsx',
   frontendKernelApp: 'src/app/kernel/FrontendKernelApp.tsx',
+  kernelTypes: 'src/app/kernel/types.ts',
   moduleChrome: 'src/app/kernel/moduleChrome.ts',
   moduleManifest: 'src/app/kernel/moduleManifest.ts',
+  moduleRenderer: 'src/app/kernel/ModuleRenderer.tsx',
   renderKernelModuleContent: 'src/app/kernel/renderKernelModuleContent.tsx',
   useKernelRuntime: 'src/app/kernel/useKernelRuntime.ts',
   visualizationLayerShell: 'src/app/kernel/VisualizationLayerShell.tsx',
@@ -131,6 +133,52 @@ function assertNoDuplicates(label, values) {
   }
 }
 
+function extractAsConstObjectProperty(source, objectName, propertyName) {
+  const declarationMarker = `export const ${objectName} = {`
+  const declarationIndex = source.indexOf(declarationMarker)
+  if (declarationIndex === -1) {
+    fail(`Could not find ${objectName}`)
+    return null
+  }
+
+  const objectStart = source.indexOf('{', declarationIndex)
+  if (objectStart === -1) {
+    fail(`Could not find ${objectName} object`)
+    return null
+  }
+
+  let objectEnd = -1
+  let depth = 0
+  for (let index = objectStart; index < source.length; index += 1) {
+    if (source[index] === '{') depth += 1
+    if (source[index] === '}') {
+      depth -= 1
+      if (depth === 0) {
+        objectEnd = index
+        break
+      }
+    }
+  }
+  if (objectEnd === -1) {
+    fail(`Could not close ${objectName} object`)
+    return null
+  }
+  if (!source.startsWith('} as const', objectEnd)) {
+    fail(`${objectName} must be declared as const`)
+    return null
+  }
+
+  const objectSource = source.slice(objectStart, objectEnd + 1)
+  const propertyPattern = new RegExp(`^  ${propertyName}: '([^']+)',?$`, 'm')
+  const propertyMatch = objectSource.match(propertyPattern)
+  if (!propertyMatch) {
+    fail(`${objectName} must declare ${propertyName}`)
+    return null
+  }
+
+  return propertyMatch[1]
+}
+
 const moduleManifestSource = readFile(files.moduleManifest)
 const moduleEntries = extractModuleManifest(moduleManifestSource)
 const moduleKeys = moduleEntries.map((entry) => entry.moduleKey)
@@ -162,6 +210,8 @@ const visualizationLayerShellSource = readFile(files.visualizationLayerShell)
 const adminLayerShellSource = readFile(files.adminLayerShell)
 const moduleChromeSource = readFile(files.moduleChrome)
 const frontendKernelAppSource = readFile(files.frontendKernelApp)
+const kernelTypesSource = readFile(files.kernelTypes)
+const moduleRendererSource = readFile(files.moduleRenderer)
 const renderKernelModuleContentSource = readFile(files.renderKernelModuleContent)
 const useKernelRuntimeSource = readFile(files.useKernelRuntime)
 
@@ -197,7 +247,18 @@ assertCondition(adminLayerShellSource.includes('activeLayer="C"'), 'AdminLayerSh
 assertCondition(workbenchLayerShellSource.includes('shellMode="workbench"'), 'WorkbenchLayerShell must pass shellMode="workbench"')
 assertCondition(visualizationLayerShellSource.includes('shellMode="visualization"'), 'VisualizationLayerShell must pass shellMode="visualization"')
 assertCondition(adminLayerShellSource.includes('shellMode="admin"'), 'AdminLayerShell must pass shellMode="admin"')
-assertCondition(renderKernelModuleContentSource.includes("'admin'"), 'KernelRenderShellMode must include admin shell mode')
+assertCondition(
+  extractAsConstObjectProperty(kernelTypesSource, 'KERNEL_RENDER_SHELL_MODE', 'admin') === 'admin',
+  'KernelRenderShellMode must declare admin shell mode',
+)
+assertCondition(
+  moduleRendererSource.includes('shellMode?: KernelRenderShellMode'),
+  'ModuleRenderer must type shellMode as KernelRenderShellMode',
+)
+assertCondition(
+  renderKernelModuleContentSource.includes('shellMode?: KernelRenderShellMode'),
+  'Kernel module rendering must type shellMode as KernelRenderShellMode',
+)
 assertCondition(useKernelRuntimeSource.includes('buildLayerRouteHash(moduleKey)'), 'Kernel runtime navigation must use layered route hashes')
 
 const summary = {

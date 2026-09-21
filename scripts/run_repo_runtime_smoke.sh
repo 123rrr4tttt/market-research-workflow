@@ -12,6 +12,26 @@ REQUIRE_BACKEND_LOG="${REQUIRE_BACKEND_LOG:-/tmp/repo_runtime_smoke_require_back
 PROJECT_KEY="${PROJECT_KEY:-demo_proj}"
 SOURCE_ITEM_KEY="${SOURCE_ITEM_KEY:-}"
 
+resolve_matrix_python() {
+  if [[ -n "${MATRIX_PYTHON_BIN:-}" && -x "$MATRIX_PYTHON_BIN" ]]; then
+    printf '%s\n' "$MATRIX_PYTHON_BIN"
+  elif [[ -x "$PYTHON_BIN" ]]; then
+    printf '%s\n' "$PYTHON_BIN"
+  elif [[ -x "/Users/wangyiliang/.local/bin/python3.11" ]]; then
+    printf '%s\n' "/Users/wangyiliang/.local/bin/python3.11"
+  elif command -v python3.11 >/dev/null 2>&1; then
+    command -v python3.11
+  else
+    command -v python3
+  fi
+}
+
+if [[ "${1:-}" == "matrix" || "${1:-}" == "--matrix" ]]; then
+  shift
+  MATRIX_PYTHON="$(resolve_matrix_python)"
+  exec "$MATRIX_PYTHON" "$ROOT_DIR/scripts/runtime_health_matrix.py" "$@"
+fi
+
 if [[ ! -x "$PYTHON_BIN" ]]; then
   echo "[ERROR] Python executable not found: $PYTHON_BIN" >&2
   exit 2

@@ -1,0 +1,25 @@
+{
+  "artifacts": [
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/frontend-typecheck-development-takeover-20260908.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "authoritative": false,
+  "command": [
+    "pnpm",
+    "exec",
+    "tsc",
+    "-b",
+    "--pretty",
+    "false"
+  ],
+  "cwd": "/Users/wangyiliang/market-research-workflow/main/frontend-modern",
+  "elapsed_seconds": 5.88440058300057,
+  "environment": {
+    "NODE_VERSION": "v26.4.0",
+    "PNPM_VERSION": "11.22.0",
+    "scope": "CURRENT_SOURCE_LOCAL_DIAGNOSTIC_NOT_FINAL_PREVIEW"
+  },
+  "exit_code": 0
+}

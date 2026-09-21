@@ -1,12 +1,13 @@
 # Development Plans Index
 
-更新时间：2026-05-23（PST）
+更新时间：2026-05-26（PST）
 范围：`development/latest-dev-docs/development-plans`
 
 ## Main Entry
 - [main/index.md](./main/index.md)
 - [main/MERGED_DEVELOPMENT_PLANS.md](./main/MERGED_DEVELOPMENT_PLANS.md)
 - [CURRENT_DEV/INDEX.md](./CURRENT_DEV/INDEX.md)
+- [G_REVIEW/current-platformization-gap-2026-05-26.md](./G_REVIEW/current-platformization-gap-2026-05-26.md)
 - [TARGET_TOPIC_ALLOWLIST.json](./TARGET_TOPIC_ALLOWLIST.json)
 - [EXTERNAL_BLOCKER_MANIFEST.v1.json](./EXTERNAL_BLOCKER_MANIFEST.v1.json)
 - [automation-runs/wave45-manual-structured-consumer-live-api-closure/2026-05-23/README.md](../automation-runs/wave45-manual-structured-consumer-live-api-closure/2026-05-23/README.md)

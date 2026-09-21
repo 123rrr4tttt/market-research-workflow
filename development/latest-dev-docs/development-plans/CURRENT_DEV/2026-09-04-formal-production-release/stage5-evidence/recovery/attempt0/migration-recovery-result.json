@@ -1,0 +1,34 @@
+{
+  "authoritative": false,
+  "cleanup": {
+    "down_exit_code": 0,
+    "project_residue": {
+      "containers": [],
+      "networks": [],
+      "volumes": []
+    },
+    "status": "PASS"
+  },
+  "compose_project": "mrw-stage5-migration-recovery",
+  "database": "mrw_stage5_migration_probe",
+  "ended_at": "2026-09-13T09:16:26Z",
+  "error": "m07-current-head failed with exit 125",
+  "migration_image": {
+    "id": "sha256:3b409669bb8248f738c1133f9458d73725951140c0eae938064d469045960509",
+    "platform": "linux/amd64",
+    "reference": "mrw-local/r13x-candidate-migration-runner:8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2"
+  },
+  "project_resources_before": {
+    "containers": [],
+    "networks": [],
+    "volumes": []
+  },
+  "schema_version": "mrw.stage5.migration-failure-recovery.v1",
+  "source": {
+    "classification": "RETAINED_TASK_OWNED_SYNTHETIC_SNAPSHOT_NOT_BACKUP_ARTIFACT",
+    "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage4-evidence/runtime/synthetic-production-like.snapshot.dump",
+    "sha256": "143c7128cf2ed0516844e32535fb40c3270b5459e921e8b11ae951fde7f79135"
+  },
+  "started_at": "2026-09-13T09:16:17Z",
+  "status": "FAIL"
+}

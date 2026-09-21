@@ -1,0 +1,36 @@
+{
+  "authoritative": false,
+  "command": [
+    "/Users/wangyiliang/market-research-workflow/.venv/bin/python",
+    "-m",
+    "pytest",
+    "-p",
+    "no:cacheprovider",
+    "-q",
+    "/private/tmp/mrw-stage-convergence-ytn_rsx9/input-attempt10/tests/formal_release/test_source_closure.py",
+    "/private/tmp/mrw-stage-convergence-ytn_rsx9/input-attempt10/tests/formal_release/test_stage2_candidate_intake.py",
+    "/private/tmp/mrw-stage-convergence-ytn_rsx9/input-attempt10/stage1-successor-evidence/stage3-v6-artifact-remediation-v1/test_stage3_v6_artifact_remediation_v1.py",
+    "--junitxml=/Users/wangyiliang/market-research-workflow/stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/astra-selector-intake-package-final-attempt10.xml"
+  ],
+  "cwd": "/Users/wangyiliang/market-research-workflow/stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw",
+  "environment": {
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "PYTHONPATH": "/private/tmp/mrw-stage-convergence-ytn_rsx9/input-attempt10:/private/tmp/mrw-stage-convergence-ytn_rsx9/input-attempt10/src",
+    "PYTHONHASHSEED": "0",
+    "LLM_CACHE_ENABLED": "false",
+    "PYTHONPYCACHEPREFIX": "/private/tmp/mrw-stage-convergence-ytn_rsx9/host-pycache-attempt10"
+  },
+  "isolation": "none added",
+  "exit_code": 0,
+  "elapsed_seconds": 56.72883987426758,
+  "artifacts": [
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/astra-selector-intake-package-final-attempt10.log",
+      "sha256": "785e0c42734fa9ac2208b8e5c9bedc2ae65659bb24b0c0df506aec7e9f685331"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/astra-selector-intake-package-final-attempt10.xml",
+      "sha256": "f589a0e43bb85ebb913de49940630ed4607db81f0535a08959bcc7583a3e6e69"
+    }
+  ]
+}

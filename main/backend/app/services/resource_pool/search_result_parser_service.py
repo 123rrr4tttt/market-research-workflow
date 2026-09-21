@@ -7,7 +7,7 @@ import json
 from typing import Any, Callable
 from urllib.parse import parse_qs, parse_qsl, urlencode, unquote, urljoin, urlsplit, urlunsplit
 
-from ..ingest.adapters.http_utils import make_html_parser
+from .http_port import make_html_parser
 from .search_result_parser_profiles import SearchResultParserProfile
 from .search_result_parser_profiles import build_search_result_parser_profile
 from .url_utils import domain_from_url, normalize_url

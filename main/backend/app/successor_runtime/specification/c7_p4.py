@@ -10,7 +10,7 @@ shared schema/digest/path/authority/check mechanics live in
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any
 
 from app.successor_migration.document_repository_c7 import (
     CanonicalCommitReadback,
@@ -164,6 +164,14 @@ _SOURCE_BINDINGS = (
 
 _IMPLEMENTATION_BINDINGS = (
     BindingTarget(
+        "main/backend/app/successor_runtime/capabilities/ingest_c7_movements.py",
+        "c7_movement_contracts",
+    ),
+    BindingTarget(
+        "main/backend/app/services/resource_pool/http_port.py",
+        "shared_http_fetch_port",
+    ),
+    BindingTarget(
         "main/backend/app/successor_runtime/capabilities/ingest_c7_common.py",
         "c7_common_contracts",
     ),
@@ -210,6 +218,22 @@ _IMPLEMENTATION_BINDINGS = (
 )
 
 _TEST_BINDINGS = (
+    BindingTarget(
+        "tests/test_c7_runtime_failure_closure.py",
+        "c7_runtime_failure_closure",
+    ),
+    BindingTarget(
+        "tests/test_c7_semantic_registration.py",
+        "c7_semantic_registration",
+    ),
+    BindingTarget(
+        "main/backend/tests/unit/test_cleanup_executor_unittest.py",
+        "legacy_cleanup_http_boundary",
+    ),
+    BindingTarget(
+        "main/backend/tests/unit/test_resource_pool_http_port_unittest.py",
+        "shared_http_fetch_port",
+    ),
     BindingTarget(
         "main/backend/tests/successor_runtime/test_p4_c7_0_return_registry.py",
         "c7_0_return_registry_invariants",
@@ -617,7 +641,12 @@ def _c7_4_observation() -> tuple[dict[str, object], dict[str, object]]:
     }
 
 
-def build_observations(cell_id: str) -> tuple[dict[str, object], dict[str, object]]:
+def build_observations(cell_id: str) -> Annotated[
+    tuple[dict[str, object], dict[str, object]],
+    "kit:non-authoritative derived_as=generated_evidence "
+    "fact_source=successor_runtime.specification.c7_p4.local_c7_cell_observations "
+    "witness=test:test_w08b_specification_authority_metadata_preserves_abi",
+]:
     """Return the declared (successor, legacy) observation pair for a cell."""
 
     builders = {
@@ -636,7 +665,12 @@ def build_rollback_observation(
     cell_id: str,
     successor: dict[str, object],
     legacy: dict[str, object],
-) -> dict[str, object]:
+) -> Annotated[
+    dict[str, object],
+    "kit:non-authoritative derived_as=generated_evidence "
+    "fact_source=successor_observation+legacy_rollback_rules "
+    "witness=test:test_w08b_specification_authority_metadata_preserves_abi",
+]:
     """Declare each cell's rollback claim and compute its rollback digest."""
 
     del legacy

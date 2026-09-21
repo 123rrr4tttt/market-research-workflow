@@ -1,0 +1,16 @@
+{
+  "schema_version": "mrw.stage5.rollback.route-focused-recheck.v1",
+  "authoritative": false,
+  "scope": "LOCAL_STAGE5_ROLLBACK_ONLY / NOT_AUTHORITY / RELEASE_DEFERRED",
+  "created_at": "2026-09-13T09:28:00Z",
+  "command": "docker run --rm --network none -v $PWD:/work:ro -w /work --entrypoint /bin/sh mrw-stage3-r13o-tests:local -c 'PYTHONPATH=/work/main/backend:/opt/mrw/src python -m pytest -q main/backend/tests/production_composition/test_route_effect_contract.py'",
+  "exit_code": 0,
+  "status": "PASS",
+  "summary": "21 passed, 2 warnings",
+  "interpretation": "Stage4-aware assertion accepts exactly one admitted task-scoped C9 canonical writer; all other effectful route invariants remain closed. Warnings are read-only pytest cache writes blocked by the container mount.",
+  "authority_ceiling": [
+    "LOCAL_STAGE5_ROLLBACK_REHEARSAL_ONLY",
+    "NOT_AUTHORITY",
+    "PRODUCTION_RELEASE_NOT_AUTHORIZED"
+  ]
+}

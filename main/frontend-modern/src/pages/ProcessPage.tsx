@@ -1,5 +1,5 @@
 import { Database, RefreshCw, XCircle } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { translate, useAppLocale, type AppLocale } from '../app/platform/i18n'
 import { useProcessData } from '../hooks/useProcessData'
 import type { ProcessHistoryResponse, ProcessTaskDetail, ProcessTaskItem, ProcessTaskList, ProcessTaskStats } from '../lib/types'
@@ -23,6 +23,13 @@ type ProcessSummaryLabels = {
 type ProcessBooleanLabels = {
   yes: string
   no: string
+}
+
+type ProcessDeepLinkParams = {
+  historyId: number | null
+  taskId: string
+  traceId: string
+  source: string
 }
 
 const detailPreStyle = {
@@ -50,6 +57,7 @@ export type ProcessPageViewProps = {
   selectedCurrent: boolean
   selectedTaskId: string | null
   selectedHistoryId: number | null
+  deepLinkParams?: ProcessDeepLinkParams
   selectedTaskIds: string[]
   selectedMeta: Record<string, unknown> | null
   selectedSourceKind: string
@@ -140,7 +148,25 @@ function firstDefined<T>(...values: T[]): T | null {
   return null
 }
 
+function parseProcessDeepLinkParams(): ProcessDeepLinkParams {
+  if (typeof window === 'undefined') {
+    return { historyId: null, taskId: '', traceId: '', source: '' }
+  }
+  const hash = String(window.location.hash || '')
+  const query = hash.includes('?') ? hash.split('?').slice(1).join('?') : ''
+  const params = new URLSearchParams(query)
+  const historyIdRaw = params.get('history_id') || params.get('job_id') || ''
+  const historyId = Number(historyIdRaw)
+  return {
+    historyId: Number.isFinite(historyId) && historyId > 0 ? historyId : null,
+    taskId: params.get('task_id') || '',
+    traceId: params.get('trace_id') || '',
+    source: params.get('source') || '',
+  }
+}
+
 function toFiniteNumber(value: unknown) {
+  if (value === null || value === undefined || value === '' || typeof value === 'boolean') return null
   const n = Number(value)
   return Number.isFinite(n) ? n : null
 }
@@ -160,7 +186,7 @@ function buildResultSummary(input: {
   const updated = toFiniteNumber(firstDefined(dm.updated, params.updated, result.updated, progress.updated))
   const skipped = toFiniteNumber(firstDefined(dm.skipped, params.skipped, result.skipped, progress.skipped))
   const errors = toFiniteNumber(firstDefined(dm.errors_count, params.errors_count, result.errors_count, progress.errors_count))
-  const urls = toFiniteNumber(firstDefined(dm.url_count, params.url_count, params.urls, result.url_count, result.urls))
+  const urls = toFiniteNumber(firstDefined(dm.url_count, params.url_count, params.urls, result.url_count, result.urls, result.urls_extracted))
 
   const parts: string[] = []
   if (inserted != null) parts.push([labels.inserted, inserted].join(' '))
@@ -268,11 +294,13 @@ export function ProcessPage({ projectKey, variant = 'process' }: ProcessPageProp
   const locale = useAppLocale()
   const summaryLabels = useMemo(() => getProcessSummaryLabels(locale), [locale])
   const booleanLabels = useMemo(() => getProcessBooleanLabels(locale), [locale])
+  const initialDeepLinkParams = useMemo(() => parseProcessDeepLinkParams(), [])
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true)
   const [refreshIntervalSec, setRefreshIntervalSec] = useState(8)
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
-  const [selectedHistoryId, setSelectedHistoryId] = useState<number | null>(null)
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(initialDeepLinkParams.taskId || null)
+  const [selectedHistoryId, setSelectedHistoryId] = useState<number | null>(initialDeepLinkParams.historyId)
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([])
+  const [deepLinkParams, setDeepLinkParams] = useState<ProcessDeepLinkParams>(initialDeepLinkParams)
 
   const {
     processStats,
@@ -345,6 +373,24 @@ export function ProcessPage({ projectKey, variant = 'process' }: ProcessPageProp
     return task ? canCancelTask(task) : false
   })
 
+  useEffect(() => {
+    const applyDeepLink = () => {
+      const nextParams = parseProcessDeepLinkParams()
+      setDeepLinkParams(nextParams)
+      if (nextParams.historyId) {
+        setSelectedTaskId(null)
+        setSelectedHistoryId(nextParams.historyId)
+        return
+      }
+      if (nextParams.taskId) {
+        setSelectedHistoryId(null)
+        setSelectedTaskId(nextParams.taskId)
+      }
+    }
+    window.addEventListener('hashchange', applyDeepLink)
+    return () => window.removeEventListener('hashchange', applyDeepLink)
+  }, [])
+
   const toggleTaskSelect = (taskId: string) => {
     setSelectedTaskIds((prev) => (prev.includes(taskId) ? prev.filter((id) => id !== taskId) : [...prev, taskId]))
   }
@@ -380,6 +426,7 @@ export function ProcessPage({ projectKey, variant = 'process' }: ProcessPageProp
       selectedCurrent={selectedCurrent}
       selectedTaskId={selectedTaskId}
       selectedHistoryId={selectedHistoryId}
+      deepLinkParams={deepLinkParams}
       selectedTaskIds={selectedTaskIds}
       selectedMeta={selectedMeta as Record<string, unknown> | null}
       selectedSourceKind={selectedSourceKind}
@@ -438,6 +485,7 @@ export function ProcessPageView({
   selectedCurrent,
   selectedTaskId,
   selectedHistoryId,
+  deepLinkParams = { historyId: null, taskId: '', traceId: '', source: '' },
   selectedTaskIds,
   selectedMeta,
   selectedSourceKind,
@@ -478,6 +526,16 @@ export function ProcessPageView({
         <div className="panel-header">
           <h2>{variant === 'processing' ? t('processPage.title.processing') : t('processPage.title.process')}</h2>
         </div>
+        {deepLinkParams.historyId || deepLinkParams.taskId || deepLinkParams.traceId ? (
+          <p className="status-line">
+            {formatTemplate('processPage.status.deepLinkContext', {
+              source: deepLinkParams.source || '-',
+              historyId: deepLinkParams.historyId || '-',
+              taskId: deepLinkParams.taskId || '-',
+              traceId: deepLinkParams.traceId || '-',
+            })}
+          </p>
+        ) : null}
       </section>
       <section className="kpi-grid">
         <article className="kpi-card">

@@ -26,7 +26,7 @@ import tempfile
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 from .capability_cell_spec import CapabilityCellSpec
 from .runtime_kernel_abi import RuntimeKernelABI
@@ -293,7 +293,12 @@ def bind_file(root: Path, target: BindingTarget) -> dict[str, Any]:
     return binding
 
 
-def build_fragment(config: FamilyFragmentConfig, repo_root: Path) -> dict[str, Any]:
+def build_fragment(config: FamilyFragmentConfig, repo_root: Path) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=generated_evidence "
+    "fact_source=family_config+cell_spec+runtime_kernel_abi+repo_bindings+family_observations "
+    "witness=test:test_w08b_specification_authority_metadata_preserves_abi",
+]:
     """Assemble one deterministic family fragment with a self-digest."""
 
     validate_config(config)
@@ -484,7 +489,12 @@ def self_test(fragment: Mapping[str, Any], config: FamilyFragmentConfig) -> None
         raise FamilyGeneratorError("open_findings must be non-empty with ids")
 
 
-def build_fragment_bytes(fragment: Mapping[str, Any]) -> bytes:
+def build_fragment_bytes(fragment: Mapping[str, Any]) -> Annotated[
+    bytes,
+    "kit:prepared-command effect_boundary=app.successor_runtime.specification."
+    "shared_family_generator.write_atomic_if_changed "
+    "witness=test:test_w08b_specification_authority_metadata_preserves_abi",
+]:
     """Canonical persisted bytes; callers add no formatting or comments."""
 
     return _family_canonical_bytes(fragment) + b"\n"

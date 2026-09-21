@@ -1,0 +1,78 @@
+{
+  "authoritative": false,
+  "candidate": {
+    "clean": true,
+    "commit": "8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+    "root": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260912-v4-r13x/candidate",
+    "tree": "ce7c67c831b51f9d64b4c2f1a470a724a50b19df"
+  },
+  "expected_image_ids": {
+    "backend": "sha256:d72688f24fb867ae2e0e9310cfc9ec25aac649a8da69130ee26469c0bd37c2ef",
+    "frontend": "sha256:f5641ba6d2b50135da1c9c9c3edfd067ed90ecfb37bcb8f0c7580b2e00aaa915",
+    "migration-runner": "sha256:3b409669bb8248f738c1133f9458d73725951140c0eae938064d469045960509"
+  },
+  "image_identity_match": true,
+  "images": {
+    "backend": {
+      "cmd": [
+        "uvicorn",
+        "app.main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000"
+      ],
+      "entrypoint": [
+        "/docker-entrypoint.sh"
+      ],
+      "id": "sha256:d72688f24fb867ae2e0e9310cfc9ec25aac649a8da69130ee26469c0bd37c2ef",
+      "platform": "linux/amd64",
+      "repo_digests": [
+        "mrw-local/r13x-candidate-backend@sha256:d72688f24fb867ae2e0e9310cfc9ec25aac649a8da69130ee26469c0bd37c2ef"
+      ],
+      "repo_tags": [
+        "mrw-local/r13x-candidate-backend:8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2"
+      ],
+      "tag": "mrw-local/r13x-candidate-backend:8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2"
+    },
+    "frontend": {
+      "cmd": [
+        "nginx",
+        "-g",
+        "daemon off;"
+      ],
+      "entrypoint": [
+        "/docker-entrypoint.sh"
+      ],
+      "id": "sha256:f5641ba6d2b50135da1c9c9c3edfd067ed90ecfb37bcb8f0c7580b2e00aaa915",
+      "platform": "linux/amd64",
+      "repo_digests": [
+        "mrw-local/r13x-candidate-frontend@sha256:f5641ba6d2b50135da1c9c9c3edfd067ed90ecfb37bcb8f0c7580b2e00aaa915"
+      ],
+      "repo_tags": [
+        "mrw-local/r13x-candidate-frontend:8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2"
+      ],
+      "tag": "mrw-local/r13x-candidate-frontend:8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2"
+    },
+    "migration-runner": {
+      "cmd": [
+        "upgrade",
+        "head"
+      ],
+      "entrypoint": [
+        "alembic"
+      ],
+      "id": "sha256:3b409669bb8248f738c1133f9458d73725951140c0eae938064d469045960509",
+      "platform": "linux/amd64",
+      "repo_digests": [
+        "mrw-local/r13x-candidate-migration-runner@sha256:3b409669bb8248f738c1133f9458d73725951140c0eae938064d469045960509"
+      ],
+      "repo_tags": [
+        "mrw-local/r13x-candidate-migration-runner:8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2"
+      ],
+      "tag": "mrw-local/r13x-candidate-migration-runner:8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2"
+    }
+  },
+  "no_build_policy": true,
+  "status": "PASS"
+}

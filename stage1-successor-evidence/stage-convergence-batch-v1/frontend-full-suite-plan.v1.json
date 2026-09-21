@@ -1,0 +1,401 @@
+{
+  "schema_version": "frontend-full-suite-plan.v1",
+  "status": "CREATE_ONLY_NOT_EXECUTED_WAITING_FRESH_PREVIEW_IMAGE_AND_SECURITY_ADMISSION",
+  "created_date": "2026-09-07",
+  "owner": "v7_frontend_closure_audit",
+  "purpose": "Run the complete MRW frontend Linux gate set against one exact materialized preview without host service reuse, external network access, source mutation, or hidden environment fallback.",
+  "execution_package": {
+    "runner": {
+      "path": "stage1-successor-evidence/stage-convergence-batch-v1/run-frontend-full-suite-internal.mjs",
+      "sha256": "c6aad684e81c7840cc1e41e7744d71bbb8a02b080c54c5faa3feb0257f3da8fa",
+      "runtime": "Node.js 22 inside the admitted Linux image"
+    },
+    "codex_stub": {
+      "path": "stage1-successor-evidence/stage-convergence-batch-v1/codex-stub18379.mjs",
+      "sha256": "92b702d8a56d59e0b97cf173f8b29faff444bc101c1ded320ebca7d11c69e7b7",
+      "claim_boundary": "synthetic proxy, bootstrap, and iframe readiness only; no native Codex, user authentication, WebSocket, tool, chat, or session-control claim"
+    },
+    "disposition": {
+      "path": "stage1-successor-evidence/stage-convergence-batch-v1/frontend-skip-disposition.v2.md",
+      "sha256": "fb047583078cfeb0e0b33ad34e340b37a76e90147cdb175ef5e8be9ad6712dd4"
+    },
+    "control_coverage_addendum": {
+      "path": "stage1-successor-evidence/stage-convergence-batch-v1/frontend-control-coverage-addendum.v2.md",
+      "sha256": "6db3ddbf7c2b7fbb58403da534de89a1c49f40add20be9465f026e269d1dc5e7"
+    }
+  },
+  "fixed_environment": {
+    "image_sha256": null,
+    "image_state": "BLOCKED_FRESH_IMAGE_REQUIRED_PREDECESSOR_E40AF595_FORBIDDEN",
+    "network": {
+      "name": null,
+      "id": null,
+      "internal": true,
+      "negative_probe_observed": "NOT_RUN_FOR_FRESH_NETWORK",
+      "verification_owner": null,
+      "runner_evidence_limit": "The runner verifies a hash-bound external admission and its hash-bound negative-probe receipt against the exact run, source, preview, lifecycle, image, network name and ID, and security owner. Docker daemon inspection remains the external security owner's evidence."
+    },
+    "topology": {
+      "container_count_for_frontend_gate": 1,
+      "same_container_processes": [
+        "backend18139",
+        "frontend15179 managed by Playwright",
+        "storybook16007 managed by Playwright",
+        "codex-stub18379",
+        "headless Chromium"
+      ],
+      "loopback_only_ports": [15179, 16007, 18139, 18379],
+      "host_port_publish": false,
+      "external_network": false,
+      "unknown_service_reuse": false
+    }
+  },
+  "planned_preview": {
+    "path_at_planning_time": null,
+    "commit": null,
+    "tree": null,
+    "exact_candidate_manifest_schema": "mrw.stage2.exact-candidate-manifest.v4",
+    "exact_candidate_manifest_sha256": null,
+    "predecessor_disposition": "Attempt6 and its temporary root are historical diagnostic evidence only and must not be restored or reused.",
+    "boundary": "A fresh persistent candidate manifest and materialized preview are required before execution. The manifest remains upstream evidence, not a substitute for the runner-algorithm frontend-preview-identity.v1 receipt."
+  },
+  "mount_contract": [
+    {
+      "container_path": "/code",
+      "mode": "read_only",
+      "content": "exact self-contained materialized preview with reachable Git metadata",
+      "required_probe": "exclusive write probe must fail with EROFS, EACCES, or EPERM"
+    },
+    {
+      "container_path": "/work",
+      "mode": "read_write",
+      "content": "create-only per-run projection frontend-full-suite-${MRW_RUN_ID}; never reused or deleted by the runner"
+    },
+    {
+      "container_path": "/artifacts",
+      "mode": "read_write",
+      "content": "create-only logs, reports, snapshots, source-difference record, admission receipts, and shared DB sequencing lock"
+    },
+    {
+      "container_path": "runner script directory",
+      "mode": "read_only",
+      "content": "this external batch execution package; it is not candidate product source"
+    }
+  ],
+  "execution_modes": {
+    "static-only": "Projects the image's already frozen-installed node_modules only after exact package.json, pnpm-lock.yaml, pnpm-workspace.yaml, and virtual-store-lock hash checks, then runs lint, typecheck, all 19 non-browser named static checks, build, Storybook static build, and all Storybook interactions under Docker --network none. This is image-bound dependency evidence, not a fresh candidate install. It does not require or start backend, stub, database, Redis, Elasticsearch, or the main Playwright suite.",
+    "full": "Runs every ordered gate and requires exact preview identity, security-owner lifecycle admission, explicit service targets, seeded project key, and exclusive shared-DB lease."
+  },
+  "admission_dependencies": {
+    "exact_preview_identity": {
+      "required_path_env": "MRW_PREVIEW_IDENTITY_PATH",
+      "required_hash_env": "MRW_PREVIEW_IDENTITY_SHA256",
+      "required_schema": "frontend-preview-identity.v1",
+      "required_fields": [
+        "commit",
+        "tree",
+        "tracked_root_sha256",
+        "candidate_surface_root_sha256"
+      ],
+      "state": "BLOCKED_UNTIL_RUNNER_IDENTITY_RECEIPT"
+    },
+    "backend_lifecycle_admission": {
+      "required_path_env": "MRW_BACKEND_LIFECYCLE_ADMISSION_PATH",
+      "required_hash_env": "MRW_BACKEND_LIFECYCLE_ADMISSION_SHA256",
+      "required_schema": "frontend-backend-lifecycle-admission.v1",
+      "required_fields": {
+        "image_sha256": "exact-match fresh MRW_IMAGE_ID_SHA256; predecessor e40af595... is rejected by the runner",
+        "preview_tracked_root_sha256": "exact-match preview identity",
+        "database_target_sha256": "exact-match redacted database target fingerprint",
+        "allow_test_backend_start": true,
+        "startup_effect_policy": "NO_UNSCOPED_CONFIG_SYNC",
+        "security_owner": "exact-match fresh MRW_SECURITY_OWNER; predecessor v6_intake_v4_impl is rejected by the runner"
+      },
+      "reason": "A prior lifecycle-enabled TestClient run emitted committed LLM-config upserts; backend startup is therefore fail-closed until the safety owner admits the exact image, preview, and database target."
+    },
+    "external_security_admission": {
+      "required_path_env": "MRW_EXTERNAL_SECURITY_ADMISSION_PATH",
+      "required_hash_env": "MRW_EXTERNAL_SECURITY_ADMISSION_SHA256",
+      "required_schema": "frontend-external-security-admission.v1",
+      "required_status": "ADMITTED_NOT_AUTHORITY",
+      "required_network_id_env": "MRW_NETWORK_ID",
+      "negative_probe_schema": "frontend-network-internal-negative-probe-receipt.v1",
+      "negative_probe_status": "PASS_NOT_AUTHORITY",
+      "binding": "The admission and referenced negative-probe receipt must exact-match the run ID, source commit/tree, preview identity, lifecycle admission, image SHA256, internal network name and ID, and security owner. Caller-supplied PASS strings are rejected."
+    },
+    "shared_database_sequence": {
+      "required_env": [
+        "MRW_DB_SEQUENCE_AUTHORITY=security-owner",
+        "MRW_DB_SEQUENCE_LEASE",
+        "MRW_DATABASE_TARGET_SHA256"
+      ],
+      "runner_lock": "/artifacts/locks/mrw-stageconv-shared-db.lock",
+      "lock_mode": "exclusive create",
+      "parallelism": "No other database-mutating gate may overlap. Frontend Playwright uses one worker. Dynamic E2E projects are cleaned by their tests; the seeded real-business project is security-owner supplied."
+    }
+  },
+  "required_environment_names": [
+    "MRW_EXECUTION_PHASE=full",
+    "MRW_RUN_ID",
+    "MRW_IMAGE_ID_SHA256",
+    "MRW_NETWORK_NAME",
+    "MRW_NETWORK_ID",
+    "MRW_SECURITY_OWNER",
+    "MRW_EXTERNAL_SECURITY_ADMISSION_PATH",
+    "MRW_EXTERNAL_SECURITY_ADMISSION_SHA256",
+    "MRW_PREVIEW_COMMIT",
+    "MRW_PREVIEW_TREE",
+    "MRW_PREVIEW_IDENTITY_PATH",
+    "MRW_PREVIEW_IDENTITY_SHA256",
+    "MRW_BACKEND_LIFECYCLE_ADMISSION_PATH",
+    "MRW_BACKEND_LIFECYCLE_ADMISSION_SHA256",
+    "MRW_DATABASE_TARGET_SHA256",
+    "MRW_DB_SEQUENCE_AUTHORITY",
+    "MRW_DB_SEQUENCE_LEASE",
+    "MRW_PNPM_BIN",
+    "MRW_PNPM_STORE_DIR",
+    "MRW_PYTHON_BIN",
+    "PLAYWRIGHT_BROWSERS_PATH",
+    "DATABASE_URL",
+    "REDIS_URL",
+    "ES_URL",
+    "FRONTEND_E2E_PROJECT_KEY"
+  ],
+  "static_only_environment_names": [
+    "MRW_EXECUTION_PHASE=static-only",
+    "MRW_RUN_ID",
+    "MRW_IMAGE_ID_SHA256",
+    "MRW_NETWORK_NAME=none",
+    "MRW_PREVIEW_COMMIT",
+    "MRW_PREVIEW_TREE",
+    "MRW_CANDIDATE_MANIFEST_PATH",
+    "MRW_CANDIDATE_MANIFEST_SHA256",
+    "MRW_PNPM_BIN",
+    "MRW_PNPM_STORE_DIR",
+    "PLAYWRIGHT_BROWSERS_PATH"
+  ],
+  "offline_tool_binding": {
+    "pnpm_executable": "/root/.cache/node/corepack/v1/pnpm/11.22.0/bin/pnpm.mjs",
+    "pnpm_store_source": "/root/.local/share/pnpm/store/v11",
+    "pnpm_store_working_copy": "/work/frontend-full-suite-${MRW_RUN_ID}/pnpm-store",
+    "playwright_browsers": "/ms-playwright",
+    "image_installed_node_modules": "/opt/mrw/frontend/node_modules",
+    "static_only_projection_checks": "Exact-match candidate and image package.json, pnpm-lock.yaml, and pnpm-workspace.yaml hashes; exact-match node_modules/.pnpm/lock.yaml to candidate pnpm-lock.yaml; copy the full installed tree; reject any broken symlink. Static-only commands invoke the projected eslint, tsc, Vite, Storybook, and Playwright executables directly and invoke named Node scripts directly, so pnpm cannot reinterpret or mutate the image-installed projection. The external narrow pnpm router preserves the package-script prefixes storybook -> storybook dev -p 6006 --host 0.0.0.0 and dev -> vite, forwards appended argv, and is self-tested with dev delimiter/help forwarding, Storybook dev/help forwarding, and an exact rejected install route before Playwright may use it.",
+    "reason": "Use the image-prepared pnpm 11.22.0 executable directly. The /opt/node.../bin/pnpm Corepack shim attempts a latest-version registry lookup when the candidate has no packageManager field and is therefore forbidden for network-isolated execution. Full mode copies the image-bound read-only pnpm store into the unique writable work root before a fresh install because pnpm 11 opens a store-index SQLite database. Static-only mode uses the exact-hash-matched already installed tree without claiming a fresh install."
+  },
+  "forced_child_environment": {
+    "CI": "1",
+    "TMPDIR": "/work/frontend-full-suite-${MRW_RUN_ID}/tmp",
+    "FRONTEND_E2E_ISOLATED": "1",
+    "FRONTEND_E2E_PORT": "15179",
+    "FRONTEND_STORYBOOK_E2E_PORT": "16007",
+    "VITE_API_PROXY_TARGET": "http://127.0.0.1:18139",
+    "VITE_CODEX_PROXY_TARGET": "http://127.0.0.1:18379",
+    "FRONTEND_E2E_RUNTIME_MODE": "docker",
+    "FRONTEND_E2E_SKIP_BACKEND_CHECK": "ABSENT",
+    "AGENT_CORE_REAL_BACKEND_E2E": "1",
+    "AGENT_CORE_E2E_SCRIPTED_PROVIDER_ENABLED": "true",
+    "ENV": "test",
+    "DOCKER_ENV": "true",
+    "PROJECT_KEY_ENFORCEMENT_MODE": "require",
+    "BOOTSTRAP_CREATE_INITIAL_PROJECT": "false",
+    "CODEX_AUTH_ENABLED": "false",
+    "CODEX_OAUTH_ENABLED": "false",
+    "CODEX_OAUTH_TOKEN_SINK_ENABLED": "false",
+    "CODEX_CLI_LLM_FALLBACK_ENABLED": "false",
+    "CODEX_CLI_LLM_PERSISTENT_ENABLED": "false",
+    "LOCAL_LLM_ENABLED": "false",
+    "PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD": "1"
+  },
+  "forbidden_inputs": [
+    "/code/.env",
+    "/code/.env.local",
+    "/code/.env.{development,production,test}[.local]",
+    "/code/main/backend/.env",
+    "/code/main/backend/.env.local",
+    "/code/main/backend/.env.{development,production,test}[.local]",
+    "/code/main/frontend-modern/.env",
+    "/code/main/frontend-modern/.env.local",
+    "/code/main/frontend-modern/.env.{development,production,test}[.local]",
+    "host ports or host service reuse",
+    "FRONTEND_E2E_SKIP_BACKEND_CHECK=1",
+    "native Codex configuration or authentication mounts",
+    "OPENAI_API_KEY",
+    "AZURE_API_KEY",
+    "LITELLM_API_KEY",
+    "SERPAPI_KEY",
+    "SERPER_API_KEY",
+    "GOOGLE_SEARCH_API_KEY",
+    "NEWS_API_KEY",
+    "runtime package or browser downloads",
+    "unadmitted backend lifecycle",
+    "unleased shared database mutation"
+  ],
+  "source_integrity_protocol": {
+    "hash_algorithm": "SHA-256 over sorted path NUL kind NUL mode NUL content-sha256 NUL records",
+    "tracked_set": "Stage-0 entries from git ls-files --stage -z; unresolved index stages are rejected. Regular tracked entries use the Git index mode and filesystem content hash.",
+    "gitlinks": "Tracked mode-160000 entries are recorded as either empty unmaterialized directories or clean materialized worktrees. A materialized gitlink must have HEAD exactly equal to the top-level index object ID and zero tracked/untracked status; the record hash binds materialization kind plus object ID. Non-directory, wrong-HEAD, or dirty gitlinks fail closed.",
+    "candidate_surface_set": "tracked set union git ls-files --others --exclude-standard -z",
+    "before_copy": [
+      "Compute /code Git HEAD, tree, tracked root, candidate-surface root, and complete per-entry hashes.",
+      "Exact-match the hash-bound frontend-preview-identity.v1 receipt."
+    ],
+    "after_copy": [
+      "Copy /code/. into a fresh /work/frontend-full-suite-${MRW_RUN_ID}/repo.",
+      "Exact-match work tracked and candidate-surface roots to /code before dependency installation."
+    ],
+    "test_baseline": "Capture Git porcelain status after the frozen offline pnpm install and before gates.",
+    "after_tests": [
+      "Stop backend and stub.",
+      "Recompute /code and /work tracked and candidate-surface roots.",
+      "Require /code unchanged, /work tracked bytes unchanged, /work nonignored candidate surface unchanged, and Git status equal to the test baseline.",
+      "Write the added/changed and removed/resolved source-status record lists even when both are empty."
+    ],
+    "generated_outputs": "Storybook static output, Playwright output, JSON, JUnit, traces, logs, and receipts are directed to /artifacts; ignored node_modules/dist/cache remain confined to /work."
+  },
+  "service_target_fingerprint_protocol": {
+    "parser": "WHATWG URL",
+    "normalization": "Parse the URL, require the service-specific protocol, clear username, password, and fragment, serialize with URL.toString(), then SHA-256 hash the UTF-8 bytes. Host, port, path, and query remain part of the fingerprint.",
+    "allowed_protocols": {
+      "DATABASE_URL": ["postgresql:", "postgresql+psycopg2:"],
+      "REDIS_URL": ["redis:", "rediss:"],
+      "ES_URL": ["http:", "https:"]
+    },
+    "admission_binding": "The security-owner lifecycle receipt and MRW_DATABASE_TARGET_SHA256 must exact-match the computed DATABASE_URL fingerprint. Redis and Elasticsearch fingerprints are recorded, with raw URLs and credentials omitted."
+  },
+  "ordered_gates": [
+    {
+      "id": "pnpm_frozen_offline_install",
+      "command": "pnpm install --frozen-lockfile --offline --store-dir ${MRW_PNPM_STORE_DIR}",
+      "network": "none",
+      "required_exit": 0
+    },
+    {
+      "id": "frontend_lint",
+      "command": "pnpm run lint",
+      "required_exit": 0
+    },
+    {
+      "id": "frontend_typecheck",
+      "command": "pnpm exec tsc -b --pretty false",
+      "required_exit": 0
+    },
+    {
+      "id": "frontend_named_static_checks",
+      "command": "Run all 19 package.json check:* scripts backed by Node contract/audit scripts; browser-backed check:graph-runtime-pixel-gate and check:runtime-visual remain covered by the complete Playwright gate, not duplicated here.",
+      "expected_count": 19,
+      "required_exit": 0
+    },
+    {
+      "id": "frontend_build",
+      "command": "pnpm run build",
+      "required_exit": 0
+    },
+    {
+      "id": "storybook_static_build",
+      "command": "pnpm run storybook:build --output-dir /artifacts/frontend-full-suite-${MRW_RUN_ID}/storybook-static",
+      "required_exit": 0
+    },
+    {
+      "id": "storybook_interactions_all_stories",
+      "command": "pnpm exec playwright test --config playwright.storybook.config.ts --workers 1 --reporter line,json,junit --output /artifacts/.../storybook-test-results",
+      "required_exit": 0,
+      "expected_inventory_at_planned_source": {
+        "stories": 87,
+        "stories_with_play": 39,
+        "aggregate_playwright_tests": 1
+      }
+    },
+    {
+      "id": "backend_and_stub_readiness",
+      "sequence": [
+        "Acquire the shared DB lease.",
+        "Start synthetic Codex stub on 127.0.0.1:18379.",
+        "Start the admitted backend on 127.0.0.1:18139 with scripted provider and explicit database, Redis, and Elasticsearch URLs.",
+        "Require stub /healthz, backend /api/v1/health, and backend /api/v1/health/deep to return success."
+      ],
+      "required_exit": 0
+    },
+    {
+      "id": "frontend_e2e_complete_no_maxfail",
+      "command": "pnpm exec playwright test --config playwright.config.ts --workers 1 --reporter line,json,junit --output /artifacts/.../frontend-e2e-test-results",
+      "required_exit": 0,
+      "max_failures_option": "ABSENT",
+      "expected_inventory_at_planned_source": {
+        "total_tests": 112,
+        "static_skips": 0,
+        "non_static_tests": 112
+      },
+      "conditional_skip_controls": {
+        "AGENT_CORE_REAL_BACKEND_E2E": "1",
+        "FRONTEND_E2E_SKIP_BACKEND_CHECK": "ABSENT"
+      }
+    }
+  ],
+  "static_skip_contract": {
+    "expected_count": 0,
+    "counted_as_pass": false,
+    "exact_titles": [],
+    "validation": "Current-byte source review and Playwright --list collection establish only an expected inventory of 112 tests with no static skip among the ten restored agent-chat cases. PASS_COMPLETE_NO_SKIPS requires the runner to parse the executed full Playwright JSON report, find exactly 112 tests, and find an empty skipped-title set. Any missing test or conditional or environmental skip fails the gate."
+  },
+  "failure_policy": {
+    "playwright_maxfail": false,
+    "gate_execution": "Static gates are attempted in order even if an earlier static gate fails. The complete browser suite runs only after admitted backend and stub readiness; inability to establish that environment is BLOCKED or FAIL, never PASS.",
+    "service_cleanup": "Runner waits after SIGINT, then SIGTERM, and finally SIGKILL if needed, targeting only the backend and stub child processes it created; failure to observe child exit is recorded as an error.",
+    "work_cleanup": "No automatic removal; the unique /work projection and /artifacts receipts remain for audit.",
+    "source_drift": "Any tracked-byte, candidate-surface, or Git-status drift fails the run and is listed explicitly."
+  },
+  "required_artifacts": [
+    "source-before-copy.snapshot.json",
+    "work-after-copy.snapshot.json",
+    "work-status-before-tests.json",
+    "00-pnpm-install.log",
+    "frontend_lint.log",
+    "frontend_typecheck.log",
+    "named-check-*.log (19 files)",
+    "frontend_build.log",
+    "storybook_static_build.log",
+    "storybook-static/",
+    "storybook-interactions.log",
+    "storybook-playwright.json",
+    "storybook-playwright.xml",
+    "backend18139.log",
+    "codex-stub18379.log",
+    "frontend-e2e.log",
+    "frontend-e2e.json",
+    "frontend-e2e.xml",
+    "work-after-tests.snapshot.json",
+    "source-after-tests.snapshot.json",
+    "work-source-difference-after-tests.json",
+    "artifact-manifest.v1.json",
+    "frontend-full-suite-result.v1.json",
+    "frontend-full-suite-result.v1.sha256.json"
+  ],
+  "pass_definition": [
+    "All nine ordered gates complete with exit 0 in full mode. Static-only mode replaces the fresh-install gate with the exact image-frozen dependency projection gate and completes that gate plus lint, typecheck, 19 named checks, build, and both Storybook gates.",
+    "The ordered result gate IDs exact-match the mode's planned IDs; missing, duplicate, or reordered gates fail the run.",
+    "The complete main Playwright report contains exactly 112 tests.",
+    "The complete main Playwright report contains zero skipped tests.",
+    "The /code source identity is unchanged.",
+    "The /work tracked and nonignored candidate surface is unchanged after tests.",
+    "The /work Git status is unchanged from the post-install test baseline.",
+    "The result is bound to the exact preview, image, internal network receipt, environment admission, database target fingerprint, and database sequence lease."
+  ],
+  "authority_ceiling": "INTERNAL_REHEARSAL_ONLY_NO_DEPLOY_NO_LIVE_PROVIDER_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+  "current_blockers": [
+    "A fresh persistent exact-candidate manifest and materialized preview do not yet exist; attempt6 is not reusable.",
+    "A fresh Linux image bound to current pnpm inputs and a fresh internal network negative probe do not yet exist; the predecessor image and network are rejected by the runner.",
+    "Exact backend lifecycle admission for the fresh preview, image, security owner, and redacted database target is not yet supplied.",
+    "Shared database sequence lease and seeded FRONTEND_E2E_PROJECT_KEY must be assigned by the fresh security owner; the 90-upsert target remains UNKNOWN."
+  ],
+  "pre_execution_observations": {
+    "package_static_validation": "Node syntax, JSON parse, runner hash binding, nine ordered gate IDs, and 19 unique named static checks are checked without launching the runner. Playwright --list reports 112 collected main tests, and current-byte source review finds zero static skips among the ten restored agent-chat cases; these are collection/source observations only, with execution_observed=false and no PASS claim.",
+    "docker_start_probe": {
+      "status": "INFRASTRUCTURE_START_BLOCKED_BEFORE_CONTAINER_PROCESS",
+      "observed_state": "Two owned network-none probes remained Docker State=created with Pid=0 and no stdout for more than 60 seconds; the root-gate run was independently waiting at the same boundary.",
+      "cleanup": "Owned Docker client PIDs 70276 and 71625 were terminated; owned containers friendly_hawking and distracted_joliot were removed. No application, test, browser, backend, or shared-service process started.",
+      "ownership_boundary": "No shared PostgreSQL, Redis, Elasticsearch, monitoring, buildkit, or other agent-owned process/container was changed. Main coordination owns further Docker-start diagnosis."
+    }
+  },
+  "execution_observed": false
+}

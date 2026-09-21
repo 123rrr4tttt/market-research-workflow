@@ -22,7 +22,7 @@ import os
 from pathlib import Path
 import sys
 import time
-from typing import Any
+from typing import Annotated, Any
 from urllib.parse import urlparse
 
 
@@ -33,6 +33,10 @@ if str(BACKEND_ROOT) not in sys.path:
 
 from app.services.http.client import HttpClient  # noqa: E402
 from app.services.search import web  # noqa: E402
+from scripts.evidence_source_contract import (  # noqa: E402
+    apply_evidence_source_contract,
+    evidence_source,
+)
 
 
 PROVIDERS = ("searxng", "yacy")
@@ -42,7 +46,7 @@ DEFAULT_OUT = Path("development/latest-dev-docs/automation-runs/wave15-open-sear
 
 OPEN_SEARCH_TOPIC_DIRS = (
     REPO_ROOT
-    / "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
+    / "docs/development/development-plans/ARCHIVE_CLOSED/"
     "2026-05-14-local-open-search-provider-isolation",
     REPO_ROOT
     / "development/latest-dev-docs/development-plans/CURRENT_DEV/"
@@ -432,7 +436,20 @@ def build_contract(
     probe_timeout: float = 1.0,
     env: Mapping[str, str] | None = None,
     search_runner: SearchRunner | None = None,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=preflight fact_source=repository.open_search_boundary_contract_and_runtime_probe witness=test:test_open_search_runtime_boundary_authority_metadata",
+]:
+    evidence_sources = [
+        evidence_source(WAVE6_9_DOC, repo_root=REPO_ROOT, label="wave6_9_status_doc"),
+        evidence_source(WAVE12_SUMMARY, repo_root=REPO_ROOT, label="wave12_provider_readiness"),
+        evidence_source(TRACE_CONTRACT, repo_root=REPO_ROOT, label="search_provider_trace_contract"),
+        evidence_source(
+            CONTAINER_REPLAY_SUMMARY,
+            repo_root=REPO_ROOT,
+            label="container_trace_replay",
+        ),
+    ]
     failures: list[str] = []
     trace_contract, load_failures = load_json(TRACE_CONTRACT)
     failures.extend(load_failures)
@@ -524,7 +541,11 @@ def build_contract(
     validation_failures = validate_contract(contract)
     contract["failures"].extend(validation_failures)
     contract["status"] = "passed" if not contract["failures"] else "failed"
-    return contract
+    return apply_evidence_source_contract(
+        contract,
+        evidence_sources,
+        claim_fields=("provider_auto_promotion_allowed",),
+    )
 
 
 def write_output(path: Path, contract: dict[str, Any]) -> None:

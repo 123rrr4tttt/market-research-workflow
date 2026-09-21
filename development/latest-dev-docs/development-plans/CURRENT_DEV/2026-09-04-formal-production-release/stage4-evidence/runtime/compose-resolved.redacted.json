@@ -1,0 +1,340 @@
+{
+  "assertions": {
+    "all_pull_never": true,
+    "backend_exact": true,
+    "frontend_exact": true,
+    "no_base_host_ports": true,
+    "no_service_builds": true,
+    "production_env": true,
+    "provider_key_injected": true,
+    "worker_exact": true
+  },
+  "authoritative": false,
+  "services": {
+    "backend": {
+      "command": null,
+      "depends_on": {
+        "db": {
+          "condition": "service_healthy",
+          "required": true
+        },
+        "es": {
+          "condition": "service_healthy",
+          "required": true
+        },
+        "redis": {
+          "condition": "service_healthy",
+          "required": true
+        }
+      },
+      "entrypoint": null,
+      "environment": {
+        "CODEX_AUTH_ENABLED": "true",
+        "CODEX_AUTH_PROTECTED_PREFIXES": "/api/v1/projects,/api/v1/business-lines,/api/v1/ingest,/api/v1/workflow-graph,/api/v1/admin,/api/v1/writing",
+        "CODEX_AUTH_TOKENS": "<redacted>",
+        "CODEX_OAUTH_COOKIE_SECURE": "true",
+        "DATABASE_URL": "postgresql+psycopg2://postgres:<redacted>@db:5432/mrw_stage4",
+        "DOCKER_ENV": "true",
+        "ENV": "production",
+        "ES_URL": "http://elastic:<redacted>@es:9200",
+        "LLM_PROVIDER": "openai",
+        "OPENAI_API_BASE": "https://api.openai.com/v1",
+        "OPENAI_API_KEY": "<redacted>",
+        "PRODUCTION_ALLOWED_CONTENT_TYPES": "application/json",
+        "PRODUCTION_ALLOWED_HOSTS": "127.0.0.1,localhost,backend",
+        "PRODUCTION_ALLOWED_METHODS": "GET,POST,PUT,PATCH,DELETE",
+        "PRODUCTION_ALLOWED_ORIGINS": "https://127.0.0.1:15142,https://localhost:15142",
+        "PRODUCTION_CANARY_ROUTE_ENABLED": "false",
+        "PRODUCTION_CANONICAL_WRITER_BINDING": " ",
+        "PRODUCTION_CANONICAL_WRITER_OWNER": " ",
+        "PRODUCTION_DOMAIN_REJECTION_RECOVER_RATIO": "0.05",
+        "PRODUCTION_DOMAIN_REJECTION_TRIGGER_RATIO": "0.10",
+        "PRODUCTION_HTTP_RATE_MAX_REQUESTS": "120",
+        "PRODUCTION_HTTP_RATE_WINDOW_SECONDS": "60",
+        "PRODUCTION_MAX_BODY_BYTES": "1048576",
+        "PRODUCTION_METRICS_TOKEN": "<redacted>",
+        "PRODUCTION_OBSERVABILITY_RUNTIME_ID": "mrw-stage4-local-r13x",
+        "PRODUCTION_PROJECT_KEYS": "stage4_s4_20260913",
+        "PRODUCTION_PROVIDER_CATALOG_BINDING": "registered-provider-catalog.v1",
+        "PRODUCTION_PROVIDER_IDS": "openai",
+        "PRODUCTION_PROVIDER_MAX_PAYLOAD_BYTES": "131072",
+        "PRODUCTION_PROVIDER_RATE_MAX_REQUESTS": "4",
+        "PRODUCTION_PROVIDER_RATE_WINDOW_SECONDS": "60",
+        "PRODUCTION_RATE_AUTHORITY_BINDING": "atomic-redis-rate-observations.v1",
+        "PRODUCTION_RELEASE_ERROR_RECOVER_RATIO": "0.01",
+        "PRODUCTION_RELEASE_ERROR_TRIGGER_RATIO": "0.05",
+        "PRODUCTION_REQUIRE_TLS": "true",
+        "PRODUCTION_ROUTE_ERROR_RECOVER_RATIO": "0.01",
+        "PRODUCTION_ROUTE_ERROR_TRIGGER_RATIO": "0.05",
+        "PRODUCTION_TRUSTED_ACTOR_SOURCES": "authenticated_codex_token",
+        "PRODUCTION_TRUSTED_AUTH_MODES": "codex_auth_token",
+        "REDIS_URL": "redis://:<redacted>@redis:6379/0",
+        "RELEASE_BUILD_COMMIT": "8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+        "RELEASE_BUILD_DIGEST": "sha256:dd4b1f3b512da6d013feb7f5925f343e5a639263b037d5a81445bfa2f8c93c0b",
+        "RELEASE_BUILD_TREE": "ce7c67c831b51f9d64b4c2f1a470a724a50b19df",
+        "RUN_MIGRATIONS": "false",
+        "SERVICE_VERSION": "1.0.0"
+      },
+      "healthcheck": {
+        "interval": "30s",
+        "retries": 3,
+        "start_period": "40s",
+        "test": [
+          "CMD-SHELL",
+          "curl --config - --fail --silent --show-error http://localhost:8000/api/v1/health <<EOF\nheader = \"Authorization: Bearer $${PRODUCTION_METRICS_TOKEN}\"\nEOF"
+        ],
+        "timeout": "10s"
+      },
+      "image": "mrw-local/stage4-r13x-backend-entrypoint:f5215bda79994b29",
+      "networks": {
+        "default": null
+      },
+      "platform": "linux/amd64",
+      "ports": [
+        {
+          "host_ip": "127.0.0.1",
+          "mode": "ingress",
+          "protocol": "tcp",
+          "published": "18142",
+          "target": 8000
+        }
+      ],
+      "pull_policy": "never",
+      "restart": "unless-stopped"
+    },
+    "celery-worker": {
+      "command": [
+        "celery",
+        "-A",
+        "app.celery_app",
+        "worker",
+        "--loglevel=info",
+        "--concurrency=1",
+        "--prefetch-multiplier=1",
+        "--max-tasks-per-child=50",
+        "--max-memory-per-child=300000",
+        "--logfile=/tmp/mrw-stage4-celery-worker.log"
+      ],
+      "depends_on": {
+        "backend": {
+          "condition": "service_healthy",
+          "required": true
+        },
+        "db": {
+          "condition": "service_healthy",
+          "required": true
+        },
+        "es": {
+          "condition": "service_healthy",
+          "required": true
+        },
+        "redis": {
+          "condition": "service_healthy",
+          "required": true
+        }
+      },
+      "entrypoint": null,
+      "environment": {
+        "CELERY_LOG_FILE": "/tmp/mrw-stage4-celery-worker.log",
+        "CODEX_AUTH_ENABLED": "true",
+        "CODEX_AUTH_PROTECTED_PREFIXES": "/api/v1/projects,/api/v1/business-lines,/api/v1/ingest,/api/v1/workflow-graph,/api/v1/admin,/api/v1/writing",
+        "CODEX_AUTH_TOKENS": "<redacted>",
+        "CODEX_OAUTH_COOKIE_SECURE": "true",
+        "DATABASE_URL": "postgresql+psycopg2://postgres:<redacted>@db:5432/mrw_stage4",
+        "DOCKER_ENV": "true",
+        "ENV": "production",
+        "ES_URL": "http://elastic:<redacted>@es:9200",
+        "LLM_PROVIDER": "openai",
+        "OPENAI_API_BASE": "https://api.openai.com/v1",
+        "OPENAI_API_KEY": "<redacted>",
+        "PRODUCTION_ALLOWED_CONTENT_TYPES": "application/json",
+        "PRODUCTION_ALLOWED_HOSTS": "127.0.0.1,localhost,backend",
+        "PRODUCTION_ALLOWED_METHODS": "GET,POST,PUT,PATCH,DELETE",
+        "PRODUCTION_ALLOWED_ORIGINS": "https://127.0.0.1:15142,https://localhost:15142",
+        "PRODUCTION_CANARY_ROUTE_ENABLED": "false",
+        "PRODUCTION_CANONICAL_WRITER_BINDING": " ",
+        "PRODUCTION_CANONICAL_WRITER_OWNER": " ",
+        "PRODUCTION_DOMAIN_REJECTION_RECOVER_RATIO": "0.05",
+        "PRODUCTION_DOMAIN_REJECTION_TRIGGER_RATIO": "0.10",
+        "PRODUCTION_HTTP_RATE_MAX_REQUESTS": "120",
+        "PRODUCTION_HTTP_RATE_WINDOW_SECONDS": "60",
+        "PRODUCTION_MAX_BODY_BYTES": "1048576",
+        "PRODUCTION_METRICS_TOKEN": "<redacted>",
+        "PRODUCTION_OBSERVABILITY_RUNTIME_ID": "mrw-stage4-local-r13x",
+        "PRODUCTION_PROJECT_KEYS": "stage4_s4_20260913",
+        "PRODUCTION_PROVIDER_CATALOG_BINDING": "registered-provider-catalog.v1",
+        "PRODUCTION_PROVIDER_IDS": "openai",
+        "PRODUCTION_PROVIDER_MAX_PAYLOAD_BYTES": "131072",
+        "PRODUCTION_PROVIDER_RATE_MAX_REQUESTS": "4",
+        "PRODUCTION_PROVIDER_RATE_WINDOW_SECONDS": "60",
+        "PRODUCTION_RATE_AUTHORITY_BINDING": "atomic-redis-rate-observations.v1",
+        "PRODUCTION_RELEASE_ERROR_RECOVER_RATIO": "0.01",
+        "PRODUCTION_RELEASE_ERROR_TRIGGER_RATIO": "0.05",
+        "PRODUCTION_REQUIRE_TLS": "true",
+        "PRODUCTION_ROUTE_ERROR_RECOVER_RATIO": "0.01",
+        "PRODUCTION_ROUTE_ERROR_TRIGGER_RATIO": "0.05",
+        "PRODUCTION_TRUSTED_ACTOR_SOURCES": "authenticated_codex_token",
+        "PRODUCTION_TRUSTED_AUTH_MODES": "codex_auth_token",
+        "REDIS_URL": "redis://:<redacted>@redis:6379/0",
+        "RELEASE_BUILD_COMMIT": "8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+        "RELEASE_BUILD_DIGEST": "sha256:dd4b1f3b512da6d013feb7f5925f343e5a639263b037d5a81445bfa2f8c93c0b",
+        "RELEASE_BUILD_TREE": "ce7c67c831b51f9d64b4c2f1a470a724a50b19df",
+        "RUN_MIGRATIONS": "false",
+        "SERVICE_VERSION": "1.0.0"
+      },
+      "healthcheck": {
+        "interval": "30s",
+        "retries": 3,
+        "start_period": "30s",
+        "test": [
+          "CMD-SHELL",
+          "celery -A app.celery_app inspect ping || exit 1"
+        ],
+        "timeout": "10s"
+      },
+      "image": "mrw-local/stage4-r13x-backend-entrypoint:f5215bda79994b29",
+      "networks": {
+        "default": null
+      },
+      "platform": "linux/amd64",
+      "pull_policy": "never",
+      "restart": "unless-stopped"
+    },
+    "db": {
+      "command": null,
+      "entrypoint": null,
+      "environment": {
+        "POSTGRES_DB": "mrw_stage4",
+        "POSTGRES_PASSWORD": "<redacted>",
+        "POSTGRES_USER": "postgres"
+      },
+      "healthcheck": {
+        "interval": "10s",
+        "retries": 5,
+        "start_period": "10s",
+        "test": [
+          "CMD-SHELL",
+          "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""
+        ],
+        "timeout": "5s"
+      },
+      "image": "ankane/pgvector:latest",
+      "networks": {
+        "default": null
+      },
+      "pull_policy": "never",
+      "restart": "unless-stopped",
+      "volumes": [
+        {
+          "source": "db_data",
+          "target": "/var/lib/postgresql/data",
+          "type": "volume",
+          "volume": {}
+        }
+      ]
+    },
+    "es": {
+      "command": null,
+      "entrypoint": null,
+      "environment": {
+        "ELASTIC_PASSWORD": "<redacted>",
+        "ES_JAVA_OPTS": "-Xms512m -Xmx512m",
+        "discovery.type": "single-node",
+        "xpack.security.enabled": "true"
+      },
+      "healthcheck": {
+        "interval": "15s",
+        "retries": 5,
+        "start_period": "40s",
+        "test": [
+          "CMD-SHELL",
+          "curl -fsS -u elastic:\"$$ELASTIC_PASSWORD\" http://localhost:9200/_cluster/health || exit 1"
+        ],
+        "timeout": "10s"
+      },
+      "image": "docker.elastic.co/elasticsearch/elasticsearch:8.15.3",
+      "networks": {
+        "default": null
+      },
+      "pull_policy": "never",
+      "restart": "unless-stopped",
+      "ulimits": {
+        "memlock": {
+          "hard": -1,
+          "soft": -1
+        }
+      },
+      "volumes": [
+        {
+          "source": "es_data",
+          "target": "/usr/share/elasticsearch/data",
+          "type": "volume",
+          "volume": {}
+        }
+      ]
+    },
+    "frontend": {
+      "command": null,
+      "depends_on": {
+        "backend": {
+          "condition": "service_healthy",
+          "required": true
+        }
+      },
+      "entrypoint": null,
+      "healthcheck": {
+        "interval": "30s",
+        "retries": 3,
+        "start_period": "10s",
+        "test": [
+          "CMD-SHELL",
+          "wget -q -O /dev/null http://localhost:80/ || exit 1"
+        ],
+        "timeout": "5s"
+      },
+      "image": "mrw-local/r13x-candidate-frontend:8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+      "networks": {
+        "default": null
+      },
+      "platform": "linux/amd64",
+      "ports": [
+        {
+          "host_ip": "127.0.0.1",
+          "mode": "ingress",
+          "protocol": "tcp",
+          "published": "15142",
+          "target": 80
+        }
+      ],
+      "pull_policy": "never",
+      "restart": "unless-stopped"
+    },
+    "redis": {
+      "command": [
+        "sh",
+        "-c",
+        "exec redis-server --requirepass \"$$REDIS_PASSWORD\""
+      ],
+      "entrypoint": null,
+      "environment": {
+        "REDIS_PASSWORD": "<redacted>"
+      },
+      "healthcheck": {
+        "interval": "10s",
+        "retries": 5,
+        "test": [
+          "CMD-SHELL",
+          "redis-cli --no-auth-warning -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"
+        ],
+        "timeout": "5s"
+      },
+      "image": "redis:7.4",
+      "networks": {
+        "default": null
+      },
+      "pull_policy": "never",
+      "restart": "unless-stopped"
+    }
+  },
+  "status": "PASS"
+}

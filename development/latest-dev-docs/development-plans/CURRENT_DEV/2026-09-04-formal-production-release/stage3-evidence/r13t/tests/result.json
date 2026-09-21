@@ -1,0 +1,90 @@
+{
+  "schema_version": "mrw.stage3.tests.runtime-gates.v2",
+  "candidate": {
+    "name": "r13t",
+    "commit": "17e824ab2de3de450bd5215f84bcca428d90218e",
+    "tree": "6e2c8524c7cbd436bf58bc08b37fa2b2bdbc0d92",
+    "manifest_sha256": "ef5b88550da9b1c25fabacd3de8b9b6b4445bf74b45b304060d8f6653936c844",
+    "modified": false
+  },
+  "status": {
+    "runtime": "PASS_SCOPED_WITH_PREDECESSOR_REUSE",
+    "stage3": "BLOCKED",
+    "authority_ceiling": "PRODUCTION_RELEASE_NOT_AUTHORIZED"
+  },
+  "subtree_reuse": {
+    "backend": {
+      "r13r_tree": "e9511474c0ae03693a45fa818c2603fba0ffb050",
+      "r13t_tree": "e9511474c0ae03693a45fa818c2603fba0ffb050",
+      "equal": true,
+      "reused_evidence": "../../r13r/tests/result.json",
+      "reused_evidence_sha256": "a21108ade10c7ad41124adb8795b0d098f0f6a24309d4b34264a4be3a4fbaa9e"
+    },
+    "frontend": {
+      "r13s_tree": "5946110ff21bae744d546707673f0e3fdcf5c24c",
+      "r13t_tree": "5946110ff21bae744d546707673f0e3fdcf5c24c",
+      "equal": true
+    }
+  },
+  "predecessor_gates": {
+    "migration": "REUSED_R13R_PASS_HEAD_20260905_000001",
+    "backend_amd64": "REUSED_R13R_PASS_EXACT",
+    "r13r_hash_index_sha256": "79ef332cef67c050f0f9da657e88d35fe98da78e58324cd8fa6fed5c292a7aeb"
+  },
+  "frontend_artifact": {
+    "origin_candidate": "r13s",
+    "relabeled_as_r13t_build": false,
+    "platform": "linux/amd64",
+    "docker_loaded_id": "sha256:a5531db485ab882aeaeadd3ff5ee77324d5e94dfc1aed7f18768b33a96df4b82",
+    "image_manifest_digest": "sha256:a5b09b80fde1d2bbeb31c54137292e4a4bca7e2cf1f665b858f2d68a05c54e5c",
+    "canonical_archive_sha256": "358ce6d5a09381ed1ccd61f7152f41d2e5ca5068173fbe1d0b5db484c5855b9b",
+    "reproducibility": "PASS_EXACT_IMAGE",
+    "comparison_sha256": "60cd4d8f402e12b7fc7356397735385fc783a87c49e91bed2cb5983da9187a87"
+  },
+  "fresh_frontend_runtime": {
+    "frontend_root_http": 200,
+    "frontend_static_asset_http": 200,
+    "frontend_proxy_health_http": 200,
+    "frontend_proxy_deep_health_http": 200,
+    "support_backend_direct_health_http": 200,
+    "support_backend_direct_deep_health_http": 200,
+    "deep_health_body_status": "degraded",
+    "missing_dependencies": [
+      "OPENAI_API_KEY"
+    ]
+  },
+  "support_backend": {
+    "scope": "runtime dependency only; not a new backend artifact gate",
+    "source_candidate": "r13r",
+    "source_subtree_equal_to_r13t": true,
+    "platform": "linux/arm64",
+    "docker_image_id": "sha256:1146fb71ea0d4bd42b7695761e818932ada507fa3f9f5700bba8c74815cf299d"
+  },
+  "blockers": [
+    "LIVE_PROVIDER_MISSING_OPENAI_API_KEY",
+    "REMOTE_REGISTRY_SIGNING_AND_RELEASE_AUTHORITY_OUTSIDE_LOCAL_RUNTIME_SCOPE"
+  ],
+  "exclusions": {
+    "aggregate_rerun": false,
+    "browser_e2e_rerun": false,
+    "remote_action": false,
+    "publish_action": false
+  },
+  "cleanup": {
+    "project_containers": 0,
+    "project_volumes": 0,
+    "project_networks": 0,
+    "task_loaded_image_tags_removed": 3,
+    "ports_15177_and_18003_closed": true,
+    "ops_scrapyd_container_id_unchanged": "94d3ee03d0ba"
+  },
+  "evidence_files": [
+    "compose.override.yml",
+    "00-subtree-image-reuse.log",
+    "01-compose-config-resolved.log",
+    "02-frontend-support-stack-up.log",
+    "03-frontend-http-proModern-http-probes.log",
+    "04-cleanup-residue.log"
+  ],
+  "hash_index": "SHA256SUMS.r13t-tests"
+}

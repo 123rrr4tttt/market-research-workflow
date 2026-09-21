@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal
 
-from .codec import is_sha256_hex
+from .codec import _failure, _raise_failure, is_sha256_hex
 from .object_types import ObjectType
 
 __all__ = ["LIFECYCLE_STATES", "LifecycleState", "ResearchObjectRef"]
@@ -46,9 +46,25 @@ class ResearchObjectRef:
         }
         for field_name, value in required_strings.items():
             if not isinstance(value, str) or not value.strip():
-                raise ValueError(f"ResearchObjectRef {field_name} must be non-empty")
+                _raise_failure(
+                    _failure(
+                        "RESEARCH_OBJECT_REF_INVALID",
+                        f"ResearchObjectRef {field_name} must be non-empty",
+                        ValueError,
+                        site=f"ResearchObjectRef.{field_name}",
+                    ),
+                    ValueError,
+                )
         if not isinstance(self.object_type, ObjectType):
-            raise TypeError("ResearchObjectRef object_type must be an ObjectType")
+            _raise_failure(
+                _failure(
+                    "RESEARCH_OBJECT_REF_INVALID",
+                    "ResearchObjectRef object_type must be an ObjectType",
+                    TypeError,
+                    site="ResearchObjectRef.object_type",
+                ),
+                TypeError,
+            )
         for field_name in (
             "type_id",
             "schema_version",
@@ -57,32 +73,74 @@ class ResearchObjectRef:
         ):
             value = getattr(self.object_type, field_name)
             if not isinstance(value, str) or not value.strip():
-                raise ValueError(
-                    f"ResearchObjectRef object_type.{field_name} must be non-empty"
+                _raise_failure(
+                    _failure(
+                        "RESEARCH_OBJECT_REF_INVALID",
+                        f"ResearchObjectRef object_type.{field_name} must be non-empty",
+                        ValueError,
+                        site=f"ResearchObjectRef.object_type.{field_name}",
+                    ),
+                    ValueError,
                 )
         if (
             not isinstance(self.revision, int)
             or isinstance(self.revision, bool)
             or self.revision < 1
         ):
-            raise ValueError("ResearchObjectRef revision must be an integer >= 1")
+            _raise_failure(
+                _failure(
+                    "RESEARCH_OBJECT_REF_INVALID",
+                    "ResearchObjectRef revision must be an integer >= 1",
+                    ValueError,
+                    site="ResearchObjectRef.revision",
+                ),
+                ValueError,
+            )
         if not isinstance(self.incarnation, str) or not _INCARNATION_PATTERN.fullmatch(
             self.incarnation
         ):
-            raise ValueError("ResearchObjectRef incarnation is invalid")
+            _raise_failure(
+                _failure(
+                    "RESEARCH_OBJECT_REF_INVALID",
+                    "ResearchObjectRef incarnation is invalid",
+                    ValueError,
+                    site="ResearchObjectRef.incarnation",
+                ),
+                ValueError,
+            )
         for field_name in ("content_digest", "provenance_closure_digest"):
             value = getattr(self, field_name)
             if not isinstance(value, str) or not is_sha256_hex(value):
-                raise ValueError(
-                    f"ResearchObjectRef {field_name} must be lowercase 64-hex"
+                _raise_failure(
+                    _failure(
+                        "RESEARCH_OBJECT_REF_INVALID",
+                        f"ResearchObjectRef {field_name} must be lowercase 64-hex",
+                        ValueError,
+                        site=f"ResearchObjectRef.{field_name}",
+                    ),
+                    ValueError,
                 )
         if self.lifecycle_state not in LIFECYCLE_STATES:
-            raise ValueError(
-                f"invalid ResearchObjectRef lifecycle state: {self.lifecycle_state}"
+            _raise_failure(
+                _failure(
+                    "RESEARCH_OBJECT_REF_INVALID",
+                    f"invalid ResearchObjectRef lifecycle state: {self.lifecycle_state}",
+                    ValueError,
+                    site="ResearchObjectRef.lifecycle_state",
+                ),
+                ValueError,
             )
         if (
             self.valid_from is not None
             and self.valid_to is not None
             and self.valid_from > self.valid_to
         ):
-            raise ValueError("ResearchObjectRef valid_from must not be after valid_to")
+            _raise_failure(
+                _failure(
+                    "RESEARCH_OBJECT_REF_INVALID",
+                    "ResearchObjectRef valid_from must not be after valid_to",
+                    ValueError,
+                    site="ResearchObjectRef.validity",
+                ),
+                ValueError,
+            )

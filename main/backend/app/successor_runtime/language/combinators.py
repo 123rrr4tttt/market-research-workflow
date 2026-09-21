@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Annotated, Any
+
+from functorial_kit import Failure
 
 from app.successor_runtime.research.claims import Gap
 from app.successor_runtime.research.codec import sha256_hex as research_sha256_hex
@@ -33,6 +35,10 @@ from .algebra import (
     ValueRef,
     canonical_digest,
     freeze_json_object,
+)
+from .object_contracts import (
+    _failure as language_failure,
+    _raise_failure as raise_language_failure,
 )
 from .program import (
     DecisionBranch,
@@ -472,7 +478,7 @@ def decide_program(
     )
 
 
-def build_first_specimen_program(
+def _build_first_specimen_program(
     *,
     catalog: OperationContractCatalogSnapshot,
     program_id: str,
@@ -501,19 +507,26 @@ def build_first_specimen_program(
     registries: Registries,
     source_refs: "tuple[SourceRef, SourceRef]",
     intent_type: "ObjectType | None" = None,
-) -> ProgramSpec:
+) -> Annotated[
+    ProgramSpec,
+    "kit:prepared-command effect_boundary=functorial_successor.first_specimen_program "
+    "witness=test:test_full_ast_round_trip_keeps_complete_child_programs",
+]:
     # ``intent_type`` was the initial builder argument name.  It remains an
     # explicit compatibility alias for the canonical ResearchIntent input.
     if intent_type is not None:
         research_intent_type = intent_type
     if len(source_refs) != 2:
+        # kit:boundary owner=successor.language.combinators.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_language_a
         raise ValueError(
             "first specimen requires exactly two existing SourceRef inputs"
         )
     if source_refs[0].locator == source_refs[1].locator:
+        # kit:boundary owner=successor.language.combinators.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_language_a
         raise ValueError("first specimen requires two distinct Document locators")
     for source_ref in source_refs:
         if not source_ref.locator.startswith("document://"):
+            # kit:boundary owner=successor.language.combinators.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_language_a
             raise ValueError(
                 "first specimen SourceRef must bind an existing Document locator"
             )
@@ -758,11 +771,158 @@ def build_first_specimen_program(
     )
 
 
+def _failure_argument(error: Exception) -> object:
+    return error.args[0] if len(error.args) == 1 else str(error)
+
+
+def _lift_combinator_failure(failure: Failure) -> None:
+    exception_name = str((failure.context or {}).get("public_exception") or "")
+    exception_type = {"ValueError": ValueError, "TypeError": TypeError}.get(
+        exception_name
+    )
+    if exception_type is None:
+        raise_language_failure(failure, ValueError)
+    raise_language_failure(failure, exception_type)
+
+
+def try_build_first_specimen_program(
+    *,
+    catalog: OperationContractCatalogSnapshot,
+    program_id: str,
+    project_key: str,
+    project_scope_digest: str,
+    semantic_identity: str = FIRST_SPECIMEN_SEMANTIC_IDENTITY,
+    observation_profile: str = "mrw.successor.first-specimen.observation.v1",
+    contract_version: str = PROGRAM_CONTRACT_VERSION,
+    project_registry_revision: int = 1,
+    metadata: "dict[str, Any] | None" = None,
+    research_intent_type: ObjectType = RESEARCH_INTENT_TYPE,
+    inquiry_type: ObjectType = INQUIRY_TYPE,
+    research_plan_type: ObjectType = RESEARCH_PLAN_TYPE,
+    source_ref_type: ObjectType = SOURCE_REF_TYPE,
+    captured_snapshot_type: ObjectType = CAPTURED_MATERIAL_SNAPSHOT_TYPE,
+    material_ref_type: ObjectType = MATERIAL_REF_TYPE,
+    evidence_bundle_type: ObjectType = ObjectType("EvidenceBundle.v1"),
+    evidence_qualification_type: ObjectType = EVIDENCE_QUALIFICATION_TYPE,
+    evidence_qualification_bundle_type: ObjectType = ObjectType(
+        "EvidenceQualificationBundle.v1"
+    ),
+    outcome_type: ObjectType = ObjectType("ClaimOrGap.v1"),
+    artifact_type: ObjectType = RESEARCH_ARTIFACT_TYPE,
+    delivery_intent_type: ObjectType = DELIVERY_INTENT_TYPE,
+    program_output_type: ObjectType = DELIVERY_RECEIPT_REF_TYPE,
+    registries: Registries,
+    source_refs: "tuple[SourceRef, SourceRef]",
+    intent_type: "ObjectType | None" = None,
+) -> ProgramSpec | Failure:
+    try:
+        return _build_first_specimen_program(
+            catalog=catalog,
+            program_id=program_id,
+            project_key=project_key,
+            project_scope_digest=project_scope_digest,
+            semantic_identity=semantic_identity,
+            observation_profile=observation_profile,
+            contract_version=contract_version,
+            project_registry_revision=project_registry_revision,
+            metadata=metadata,
+            research_intent_type=research_intent_type,
+            inquiry_type=inquiry_type,
+            research_plan_type=research_plan_type,
+            source_ref_type=source_ref_type,
+            captured_snapshot_type=captured_snapshot_type,
+            material_ref_type=material_ref_type,
+            evidence_bundle_type=evidence_bundle_type,
+            evidence_qualification_type=evidence_qualification_type,
+            evidence_qualification_bundle_type=evidence_qualification_bundle_type,
+            outcome_type=outcome_type,
+            artifact_type=artifact_type,
+            delivery_intent_type=delivery_intent_type,
+            program_output_type=program_output_type,
+            registries=registries,
+            source_refs=source_refs,
+            intent_type=intent_type,
+        )
+    except (TypeError, ValueError, AttributeError) as error:
+        return language_failure(
+            "FIRST_SPECIMEN_INPUT_REJECTED",
+            _failure_argument(error),
+            type(error),
+            site="language.combinators.build_first_specimen_program",
+        )
+
+
+def build_first_specimen_program(
+    *,
+    catalog: OperationContractCatalogSnapshot,
+    program_id: str,
+    project_key: str,
+    project_scope_digest: str,
+    semantic_identity: str = FIRST_SPECIMEN_SEMANTIC_IDENTITY,
+    observation_profile: str = "mrw.successor.first-specimen.observation.v1",
+    contract_version: str = PROGRAM_CONTRACT_VERSION,
+    project_registry_revision: int = 1,
+    metadata: "dict[str, Any] | None" = None,
+    research_intent_type: ObjectType = RESEARCH_INTENT_TYPE,
+    inquiry_type: ObjectType = INQUIRY_TYPE,
+    research_plan_type: ObjectType = RESEARCH_PLAN_TYPE,
+    source_ref_type: ObjectType = SOURCE_REF_TYPE,
+    captured_snapshot_type: ObjectType = CAPTURED_MATERIAL_SNAPSHOT_TYPE,
+    material_ref_type: ObjectType = MATERIAL_REF_TYPE,
+    evidence_bundle_type: ObjectType = ObjectType("EvidenceBundle.v1"),
+    evidence_qualification_type: ObjectType = EVIDENCE_QUALIFICATION_TYPE,
+    evidence_qualification_bundle_type: ObjectType = ObjectType(
+        "EvidenceQualificationBundle.v1"
+    ),
+    outcome_type: ObjectType = ObjectType("ClaimOrGap.v1"),
+    artifact_type: ObjectType = RESEARCH_ARTIFACT_TYPE,
+    delivery_intent_type: ObjectType = DELIVERY_INTENT_TYPE,
+    program_output_type: ObjectType = DELIVERY_RECEIPT_REF_TYPE,
+    registries: Registries,
+    source_refs: "tuple[SourceRef, SourceRef]",
+    intent_type: "ObjectType | None" = None,
+) -> Annotated[
+    ProgramSpec,
+    "kit:prepared-command effect_boundary=functorial_successor.first_specimen_program "
+    "witness=test:test_full_ast_round_trip_keeps_complete_child_programs",
+]:
+    outcome = try_build_first_specimen_program(
+        catalog=catalog,
+        program_id=program_id,
+        project_key=project_key,
+        project_scope_digest=project_scope_digest,
+        semantic_identity=semantic_identity,
+        observation_profile=observation_profile,
+        contract_version=contract_version,
+        project_registry_revision=project_registry_revision,
+        metadata=metadata,
+        research_intent_type=research_intent_type,
+        inquiry_type=inquiry_type,
+        research_plan_type=research_plan_type,
+        source_ref_type=source_ref_type,
+        captured_snapshot_type=captured_snapshot_type,
+        material_ref_type=material_ref_type,
+        evidence_bundle_type=evidence_bundle_type,
+        evidence_qualification_type=evidence_qualification_type,
+        evidence_qualification_bundle_type=evidence_qualification_bundle_type,
+        outcome_type=outcome_type,
+        artifact_type=artifact_type,
+        delivery_intent_type=delivery_intent_type,
+        program_output_type=program_output_type,
+        registries=registries,
+        source_refs=source_refs,
+        intent_type=intent_type,
+    )
+    if isinstance(outcome, Failure):
+        _lift_combinator_failure(outcome)
+    return outcome
+
+
 FIRST_SPECIMEN_GAP_MATERIALIZER_ID = "mrw.first_specimen.gap-successor"
 FIRST_SPECIMEN_GAP_MATERIALIZER_VERSION = "1.0.0"
 
 
-def materialize_first_specimen_gap_successor(
+def _materialize_first_specimen_gap_successor(
     *,
     predecessor_program: ProgramSpec,
     predecessor_run_id: str,
@@ -783,10 +943,13 @@ def materialize_first_specimen_gap_successor(
     """
 
     if not isinstance(gap, Gap):
+        # kit:boundary owner=successor.language.combinators.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_language_a
         raise TypeError("first-specimen successor materializer requires a typed Gap")
     if not successor_intent_ref:
+        # kit:boundary owner=successor.language.combinators.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_language_a
         raise ValueError("successor Inquiry requires an admitted ResearchIntent ref")
     if source_value_ref.project_key != predecessor_program.project_key:
+        # kit:boundary owner=successor.language.combinators.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_language_a
         raise ValueError("source ValueRef and predecessor ProgramSpec project drift")
 
     source_value_ref_digest = canonical_digest(source_value_ref)
@@ -926,6 +1089,71 @@ def materialize_first_specimen_gap_successor(
     )
 
 
+def try_materialize_first_specimen_gap_successor(
+    *,
+    predecessor_program: ProgramSpec,
+    predecessor_run_id: str,
+    predecessor_step_id: str,
+    predecessor_plan_digest: str,
+    source_value_ref: ValueRef,
+    gap: Gap,
+    successor_intent_ref: str,
+    authority_digest: str,
+    materializer_id: str = FIRST_SPECIMEN_GAP_MATERIALIZER_ID,
+    materializer_version: str = FIRST_SPECIMEN_GAP_MATERIALIZER_VERSION,
+) -> SuccessorMaterialization | Failure:
+    try:
+        return _materialize_first_specimen_gap_successor(
+            predecessor_program=predecessor_program,
+            predecessor_run_id=predecessor_run_id,
+            predecessor_step_id=predecessor_step_id,
+            predecessor_plan_digest=predecessor_plan_digest,
+            source_value_ref=source_value_ref,
+            gap=gap,
+            successor_intent_ref=successor_intent_ref,
+            authority_digest=authority_digest,
+            materializer_id=materializer_id,
+            materializer_version=materializer_version,
+        )
+    except (TypeError, ValueError, AttributeError) as error:
+        return language_failure(
+            "SUCCESSOR_MATERIALIZATION_REJECTED",
+            _failure_argument(error),
+            type(error),
+            site="language.combinators.materialize_first_specimen_gap_successor",
+        )
+
+
+def materialize_first_specimen_gap_successor(
+    *,
+    predecessor_program: ProgramSpec,
+    predecessor_run_id: str,
+    predecessor_step_id: str,
+    predecessor_plan_digest: str,
+    source_value_ref: ValueRef,
+    gap: Gap,
+    successor_intent_ref: str,
+    authority_digest: str,
+    materializer_id: str = FIRST_SPECIMEN_GAP_MATERIALIZER_ID,
+    materializer_version: str = FIRST_SPECIMEN_GAP_MATERIALIZER_VERSION,
+) -> SuccessorMaterialization:
+    outcome = try_materialize_first_specimen_gap_successor(
+        predecessor_program=predecessor_program,
+        predecessor_run_id=predecessor_run_id,
+        predecessor_step_id=predecessor_step_id,
+        predecessor_plan_digest=predecessor_plan_digest,
+        source_value_ref=source_value_ref,
+        gap=gap,
+        successor_intent_ref=successor_intent_ref,
+        authority_digest=authority_digest,
+        materializer_id=materializer_id,
+        materializer_version=materializer_version,
+    )
+    if isinstance(outcome, Failure):
+        _lift_combinator_failure(outcome)
+    return outcome
+
+
 def _source_qualification_path(
     *,
     catalog: OperationContractCatalogSnapshot,
@@ -996,6 +1224,7 @@ def _contract_ref(
 ) -> OperationContractRef:
     ref = catalog.lookup(kind)
     if ref is None:
+        # kit:boundary owner=successor.language.combinators.domain class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_language_a
         raise ValueError(f"contract {kind} missing from catalog")
     return ref
 

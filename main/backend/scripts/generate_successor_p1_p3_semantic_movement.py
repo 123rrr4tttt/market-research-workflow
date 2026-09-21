@@ -36,7 +36,7 @@ import json
 import os
 import tempfile
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 ALLOWED_DISPOSITIONS = {
     "PRESERVED_AS",
@@ -515,7 +515,12 @@ def build_matrix(
     inline_rows: list[dict[str, Any]],
     c7_rows: list[dict[str, Any]],
     c7_binding: dict[str, Any],
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=generated_evidence "
+    "fact_source=P1P3_movement_spec+inline_movement_rows+C7_design_rows "
+    "witness=test:test_w10_cli_generator_derived_metadata_preserves_abi",
+]:
     rows = inline_rows + c7_rows
     blockers = [
         row["movement_id"] for row in rows if row["disposition"] == "UNASSIGNED_BLOCKER"
@@ -598,7 +603,11 @@ def _computed_blocker_account(rows: list[dict[str, Any]]) -> dict[str, Any]:
 
 def build_fragments(
     repo_root: Path, matrix: dict[str, Any]
-) -> dict[str, dict[str, Any]]:
+) -> Annotated[
+    dict[str, dict[str, Any]],
+    "kit:non-authoritative derived_as=generated_evidence fact_source=P1P3_movement_matrix "
+    "witness=test:test_w10_cli_generator_derived_metadata_preserves_abi",
+]:
     fragments: dict[str, dict[str, Any]] = {}
     rows_by_family = {
         family: [row for row in matrix["movements"] if row["family"] == family]
@@ -648,7 +657,11 @@ def build_fragments(
     return fragments
 
 
-def build_inventory(matrix: dict[str, Any]) -> dict[str, Any]:
+def build_inventory(matrix: dict[str, Any]) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=generated_evidence fact_source=P1P3_movement_matrix "
+    "witness=test:test_w10_cli_generator_derived_metadata_preserves_abi",
+]:
     inventory: dict[str, Any] = {
         "schema": "mrw.functorial_successor.p1_p3_legacy_donor_movement_inventory.v1",
         "status": "MAINLINE_SEMANTIC_INPUT_NOT_PROMOTION",
@@ -711,7 +724,12 @@ def _evidence_ref_summary(matrix: dict[str, Any]) -> dict[str, Any]:
 
 def build_gate(
     matrix: dict[str, Any], inventory: dict[str, Any], spec: dict[str, Any]
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=generated_evidence "
+    "fact_source=P1P3_movement_spec+matrix+inventory "
+    "witness=test:test_w10_cli_generator_derived_metadata_preserves_abi",
+]:
     refs = _evidence_ref_summary(matrix)
     declared_checks = [
         {
@@ -921,7 +939,12 @@ def build_gate(
     return gate
 
 
-def build_documents(repo_root: Path) -> dict[Path, bytes]:
+def build_documents(repo_root: Path) -> Annotated[
+    dict[Path, bytes],
+    "kit:non-authoritative derived_as=generated_evidence "
+    "fact_source=P1P3_movement_spec+C7_design_inventory_matrix_trace "
+    "witness=test:test_w10_cli_generator_derived_metadata_preserves_abi",
+]:
     """Build every generated artifact keyed by repository-relative path."""
 
     repo_root = repo_root.resolve()

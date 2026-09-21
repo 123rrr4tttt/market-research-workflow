@@ -7,7 +7,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
@@ -401,7 +401,10 @@ def build_check(
     repo_root: Path | str | None = None,
     *,
     human_review_evidence: list[dict[str, Any]] | None = None,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=generated_evidence fact_source=taxonomy_cases+review_queue+human_review_evidence+adapter_capability+topic_docs witness=test:test_c13_cli_graph_workflow_metadata_preserves_abi",
+]:
     root = Path(repo_root) if repo_root is not None else REPO_ROOT
     root = root.resolve()
     errors: list[str] = []

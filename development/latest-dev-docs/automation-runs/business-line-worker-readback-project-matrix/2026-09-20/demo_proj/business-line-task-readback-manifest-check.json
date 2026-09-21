@@ -1,0 +1,136 @@
+{
+  "manifest": {
+    "absolute_path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/automation-runs/business-line-worker-readback-project-matrix/2026-09-20/demo_proj/business-line-task-readback-manifest-candidate.json",
+    "error": null,
+    "expected_line_keys": [
+      "ingest",
+      "search_discovery_index",
+      "resource_source_library",
+      "writing_knowledge_graph_agent"
+    ],
+    "lines": [
+      {
+        "check_status": "passed",
+        "has_readback_location": true,
+        "has_task_or_run_id": true,
+        "has_terminal_event": true,
+        "line_key": "ingest",
+        "missing_fields": [],
+        "mocked": false,
+        "raw_line_key": "ingest",
+        "skipped": false,
+        "status": "completed",
+        "synthetic_fields": [],
+        "violations": []
+      },
+      {
+        "check_status": "passed",
+        "has_readback_location": true,
+        "has_task_or_run_id": true,
+        "has_terminal_event": true,
+        "line_key": "search_discovery_index",
+        "missing_fields": [],
+        "mocked": false,
+        "raw_line_key": "search_discovery_index",
+        "skipped": false,
+        "status": "completed",
+        "synthetic_fields": [],
+        "violations": []
+      },
+      {
+        "check_status": "passed",
+        "has_readback_location": true,
+        "has_task_or_run_id": true,
+        "has_terminal_event": true,
+        "line_key": "resource_source_library",
+        "missing_fields": [],
+        "mocked": false,
+        "raw_line_key": "resource_source_library",
+        "skipped": false,
+        "status": "completed",
+        "synthetic_fields": [],
+        "violations": []
+      },
+      {
+        "check_status": "passed",
+        "has_readback_location": true,
+        "has_task_or_run_id": true,
+        "has_terminal_event": true,
+        "line_key": "writing_knowledge_graph_agent",
+        "missing_fields": [],
+        "mocked": false,
+        "raw_line_key": "writing_knowledge_graph_agent",
+        "skipped": false,
+        "status": "completed",
+        "synthetic_fields": [],
+        "violations": []
+      }
+    ],
+    "manifest_path": "development/latest-dev-docs/automation-runs/business-line-worker-readback-project-matrix/2026-09-20/demo_proj/business-line-task-readback-manifest-candidate.json",
+    "observed_at": "2026-09-20T08:45:39Z",
+    "observed_line_keys": [
+      "ingest",
+      "resource_source_library",
+      "search_discovery_index",
+      "writing_knowledge_graph_agent"
+    ],
+    "reason": null,
+    "status": "passed",
+    "structural_failures": [],
+    "summary": {
+      "blocked_line_keys": [],
+      "duplicate_line_keys": [],
+      "expected_line_count": 4,
+      "failed_line_keys": [],
+      "invalid_line_keys": [],
+      "line_failures": {},
+      "missing_line_keys": [],
+      "mocked_or_skipped_line_keys": [],
+      "observed_line_count": 4,
+      "passed_line_keys": [
+        "ingest",
+        "resource_source_library",
+        "search_discovery_index",
+        "writing_knowledge_graph_agent"
+      ],
+      "qualified_line_keys": [
+        "ingest",
+        "resource_source_library",
+        "search_discovery_index",
+        "writing_knowledge_graph_agent"
+      ],
+      "synthetic_line_keys": [],
+      "terminal_event_missing_line_keys": [],
+      "unexpected_line_keys": []
+    }
+  },
+  "observed_at": "2026-09-20T08:45:39Z",
+  "schema_version": "business_line_task_readback_manifest_check.v1",
+  "status": "passed",
+  "summary": {
+    "blocked_line_keys": [],
+    "duplicate_line_keys": [],
+    "expected_line_count": 4,
+    "failed_line_keys": [],
+    "invalid_line_keys": [],
+    "line_failures": {},
+    "missing_line_keys": [],
+    "mocked_or_skipped_line_keys": [],
+    "observed_line_count": 4,
+    "passed_line_keys": [
+      "ingest",
+      "resource_source_library",
+      "search_discovery_index",
+      "writing_knowledge_graph_agent"
+    ],
+    "qualified_line_keys": [
+      "ingest",
+      "resource_source_library",
+      "search_discovery_index",
+      "writing_knowledge_graph_agent"
+    ],
+    "synthetic_line_keys": [],
+    "terminal_event_missing_line_keys": [],
+    "unexpected_line_keys": []
+  }
+}

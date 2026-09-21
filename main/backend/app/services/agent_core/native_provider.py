@@ -5,7 +5,13 @@ import json
 import re
 from typing import Any
 
-from .contracts import AgentCoreRequest, CoreModelStep, CoreProvider, CoreToolCall, CoreToolSpec
+from .contracts import (
+    AgentCoreRequest,
+    CoreModelStep,
+    CoreProvider,
+    CoreToolCall,
+    CoreToolSpec,
+)
 from .json_provider import JsonCoreProvider
 
 
@@ -78,9 +84,13 @@ class NativeToolCallingCoreProvider(CoreProvider):
                 reason=f"native_invoke_failed:{exc.__class__.__name__}",
             )
 
-        calls = self._extract_tool_calls(response=response, name_map=name_map, request=request)
+        calls = self._extract_tool_calls(
+            response=response, name_map=name_map, request=request
+        )
         if calls:
-            return CoreModelStep.tools(*calls, model_path="native_tool_calling_provider")
+            return CoreModelStep.tools(
+                *calls, model_path="native_tool_calling_provider"
+            )
         content = self._content_to_text(getattr(response, "content", ""))
         guardrail = JsonCoreProvider._fallback_tool_step_if_protocol_violated(
             request=request,
@@ -90,7 +100,9 @@ class NativeToolCallingCoreProvider(CoreProvider):
         )
         if guardrail is not None:
             metadata = dict(guardrail.metadata or {})
-            metadata.setdefault("native_guardrail_reason", "project_context_requires_tool_result")
+            metadata.setdefault(
+                "native_guardrail_reason", "project_context_requires_tool_result"
+            )
             return CoreModelStep(
                 step_type=guardrail.step_type,
                 content=guardrail.content,
@@ -139,8 +151,13 @@ class NativeToolCallingCoreProvider(CoreProvider):
             str(getattr(settings, "litellm_api_base", "") or ""),
             bool(getattr(settings, "litellm_api_key", None)),
             str(getattr(settings, "codex_cli_llm_model", "") or ""),
+            bool(getattr(settings, "codex_cli_llm_preferred", True)),
+            bool(getattr(settings, "codex_cli_llm_ignore_user_config", False)),
         )
-        if NativeToolCallingCoreProvider._shared_model is not None and NativeToolCallingCoreProvider._shared_model_key == cache_key:
+        if (
+            NativeToolCallingCoreProvider._shared_model is not None
+            and NativeToolCallingCoreProvider._shared_model_key == cache_key
+        ):
             self.chat_model = NativeToolCallingCoreProvider._shared_model
             return self.chat_model
         self.chat_model = get_chat_model(temperature=0.0, max_tokens=1200)
@@ -185,7 +202,9 @@ class NativeToolCallingCoreProvider(CoreProvider):
             f"Visible tool names: {', '.join(tool.name for tool in tools) or '(none)'}."
         )
         messages: list[dict[str, str]] = [{"role": "system", "content": system}]
-        model_context = NativeToolCallingCoreProvider._context_for_model(request.context)
+        model_context = NativeToolCallingCoreProvider._context_for_model(
+            request.context
+        )
         if model_context:
             messages.append(
                 {
@@ -196,14 +215,34 @@ class NativeToolCallingCoreProvider(CoreProvider):
         for item in list(transcript or [])[-8:]:
             role = str(item.get("role") or "").strip()
             if role == "user":
-                messages.append({"role": "user", "content": str(item.get("content") or "")})
+                messages.append(
+                    {"role": "user", "content": str(item.get("content") or "")}
+                )
             elif role == "assistant":
-                messages.append({"role": "assistant", "content": str(item.get("content") or item.get("delta") or "")})
+                messages.append(
+                    {
+                        "role": "assistant",
+                        "content": str(item.get("content") or item.get("delta") or ""),
+                    }
+                )
             elif role == "tool":
-                messages.append({"role": "user", "content": f"Tool result:\n{json.dumps(item.get('tool_result') or {}, ensure_ascii=False, default=str)}"})
-        if not any(item.get("role") == "user" and item.get("content") == request.message for item in messages):
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": f"Tool result:\n{json.dumps(item.get('tool_result') or {}, ensure_ascii=False, default=str)}",
+                    }
+                )
+        if not any(
+            item.get("role") == "user" and item.get("content") == request.message
+            for item in messages
+        ):
             messages.append({"role": "user", "content": request.message})
-        messages.append({"role": "system", "content": f"Project key: {request.project_key or ''}. Budget: {json.dumps(remaining_budget or {}, ensure_ascii=False)}"})
+        messages.append(
+            {
+                "role": "system",
+                "content": f"Project key: {request.project_key or ''}. Budget: {json.dumps(remaining_budget or {}, ensure_ascii=False)}",
+            }
+        )
         return messages
 
     @staticmethod
@@ -234,14 +273,19 @@ class NativeToolCallingCoreProvider(CoreProvider):
         }
 
     @staticmethod
-    def _to_native_tools(tools: list[CoreToolSpec]) -> tuple[list[dict[str, Any]], dict[str, str]]:
+    def _to_native_tools(
+        tools: list[CoreToolSpec],
+    ) -> tuple[list[dict[str, Any]], dict[str, str]]:
         native_tools: list[dict[str, Any]] = []
         name_map: dict[str, str] = {}
         used: set[str] = set()
         for spec in tools:
             native_name = _native_tool_name(spec.name)
             if native_name in used:
-                native_name = f"{native_name[:48]}_{hashlib.sha1(spec.name.encode('utf-8')).hexdigest()[:8]}"
+                digest = hashlib.sha1(
+                    spec.name.encode("utf-8"), usedforsecurity=False
+                ).hexdigest()[:8]
+                native_name = f"{native_name[:48]}_{digest}"
             used.add(native_name)
             name_map[native_name] = spec.name
             native_tools.append(
@@ -250,14 +294,18 @@ class NativeToolCallingCoreProvider(CoreProvider):
                     "function": {
                         "name": native_name,
                         "description": f"Canonical tool name: {spec.name}. {spec.description_for_model}",
-                        "parameters": dict(spec.input_schema or {"type": "object", "properties": {}}),
+                        "parameters": dict(
+                            spec.input_schema or {"type": "object", "properties": {}}
+                        ),
                     },
                 }
             )
         return native_tools, name_map
 
     @staticmethod
-    def _extract_tool_calls(*, response: Any, name_map: dict[str, str], request: AgentCoreRequest) -> list[CoreToolCall]:
+    def _extract_tool_calls(
+        *, response: Any, name_map: dict[str, str], request: AgentCoreRequest
+    ) -> list[CoreToolCall]:
         raw_calls = getattr(response, "tool_calls", None)
         if raw_calls is None:
             additional = getattr(response, "additional_kwargs", None)
@@ -276,7 +324,11 @@ class NativeToolCallingCoreProvider(CoreProvider):
                 else:
                     name = str(raw.get("name") or "").strip()
                     args = raw.get("args") or raw.get("arguments") or {}
-                call_id = str(raw.get("id") or raw.get("call_id") or f"{request.turn_id}:native:{index}:{name}").strip()
+                call_id = str(
+                    raw.get("id")
+                    or raw.get("call_id")
+                    or f"{request.turn_id}:native:{index}:{name}"
+                ).strip()
             if not name:
                 continue
             canonical = name_map.get(name, name)
@@ -287,7 +339,9 @@ class NativeToolCallingCoreProvider(CoreProvider):
                     args = {}
             if not isinstance(args, dict):
                 args = {}
-            calls.append(CoreToolCall(tool_name=canonical, arguments=dict(args), call_id=call_id))
+            calls.append(
+                CoreToolCall(tool_name=canonical, arguments=dict(args), call_id=call_id)
+            )
         return calls
 
     @staticmethod

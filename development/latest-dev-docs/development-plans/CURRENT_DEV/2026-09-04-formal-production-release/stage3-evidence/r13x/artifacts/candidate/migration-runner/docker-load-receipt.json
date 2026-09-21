@@ -1,0 +1,12 @@
+{
+  "authoritative": false,
+  "docker_image_id": "sha256:3b409669bb8248f738c1133f9458d73725951140c0eae938064d469045960509",
+  "expected_config_digest": "sha256:52f5eeb2471cfb34fd355083b629ebeb4043a53c92d37e981ef0b93a78423a97",
+  "expected_oci_index_digest": "sha256:3b409669bb8248f738c1133f9458d73725951140c0eae938064d469045960509",
+  "index_identity_match": true,
+  "load_exit_code": 0,
+  "load_source": "candidate/migration-runner/image.oci.tar",
+  "role": "migration-runner",
+  "status": "PASS",
+  "tag": "mrw-local/r13x-candidate-migration-runner:8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2"
+}

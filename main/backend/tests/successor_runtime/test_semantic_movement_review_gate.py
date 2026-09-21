@@ -105,7 +105,19 @@ def test_gate_reports_declared_scope_and_predecessor_gate() -> None:
     )
 
 
-def test_validator_cli_passes_against_canonical_roots() -> None:
+def test_validator_preserves_all_semantics_for_current_canonical_rebuild() -> None:
+    paths = sorted(path for path in EVIDENCE.rglob("*") if path.is_file())
+    fragment_paths = list((EVIDENCE / "fragments").glob("*.v1.json"))
+    aggregate_names = (
+        "P1P3LegacyDonorSemanticMovementInventory.v1.json",
+        "P1P3SuccessorMovementMatrix.v1.json",
+        "P1P3SemanticMovementGate.v1.json",
+    )
+    assert len(fragment_paths) == 9
+    assert sum((EVIDENCE / name).is_file() for name in aggregate_names) == 3
+    snapshot = {path: (path.read_bytes(), path.stat().st_mtime_ns) for path in paths}
+    gate = _load("P1P3SemanticMovementGate.v1.json")
+    matrix = _load("P1P3SuccessorMovementMatrix.v1.json")
     result = subprocess.run(
         [
             sys.executable,
@@ -123,7 +135,72 @@ def test_validator_cli_passes_against_canonical_roots() -> None:
     assert result.returncode == 0, result.stdout + result.stderr
     payload = json.loads(result.stdout)
     assert payload["status"] == "PASS"
+    checks = {check["id"]: check for check in payload["checks"]}
+    assert checks["canonical_rebuild_matches"]["status"] == "PASS"
+    assert checks["canonical_rebuild_matches"]["detail"]["drift"] == []
+    assert checks["gate_consistency"]["detail"] == gate["counts"]
+    assert gate["counts"] == {
+        "exact_blockers_for_this_spec": 0,
+        "external_c7_movements": 20,
+        "external_c7_unassigned_blockers": 0,
+        "inline_movements": 40,
+        "inline_unassigned_blockers": 0,
+        "total_movements": 60,
+        "unique_movements": 60,
+    }
+    assert gate["unassigned_blocker_ids"] == []
+    assert matrix["unassigned_blocker_count"] == 0
+    assert matrix["unassigned_blocker_ids"] == []
+    assert gate["predecessor_to_successor_completeness_gate"]["status"] == "PASS"
     assert all(check["status"] == "PASS" for check in payload["checks"])
+    after = {path: (path.read_bytes(), path.stat().st_mtime_ns) for path in paths}
+    assert after == snapshot
+
+
+def test_validator_detects_canonical_rebuild_drift_without_mutating_source(
+    tmp_path: Path,
+) -> None:
+    drifted_root = tmp_path / "drifted-output"
+    _copy_artifacts(drifted_root)
+    source = EVIDENCE / "P1P3SuccessorMovementMatrix.v1.json"
+    source_snapshot = (source.read_bytes(), source.stat().st_mtime_ns)
+    drifted = drifted_root / source.relative_to(OUTPUT)
+    drifted.write_text(
+        json.dumps(json.loads(source.read_text(encoding="utf-8")), indent=2) + "\n",
+        encoding="utf-8",
+    )
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(VALIDATOR),
+            "--repo-root",
+            str(REPO),
+            "--output-root",
+            str(drifted_root),
+        ],
+        cwd=_BACKEND,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 1, result.stdout + result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["status"] == "FAIL"
+    checks = {check["id"]: check for check in payload["checks"]}
+    assert checks["canonical_rebuild_matches"]["status"] == "FAIL"
+    assert checks["canonical_rebuild_matches"]["detail"]["drift"] == [
+        source.relative_to(OUTPUT).as_posix()
+    ]
+    assert {
+        check_id: check["status"]
+        for check_id, check in checks.items()
+        if check_id != "canonical_rebuild_matches"
+    } == {
+        check_id: "PASS"
+        for check_id in checks
+        if check_id != "canonical_rebuild_matches"
+    }
+    assert (source.read_bytes(), source.stat().st_mtime_ns) == source_snapshot
 
 
 def test_validator_cli_fails_on_tampered_gate(tmp_path: Path) -> None:

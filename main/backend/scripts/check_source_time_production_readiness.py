@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 import sys
 from types import SimpleNamespace
-from typing import Any
+from typing import Annotated, Any
 from unittest.mock import patch
 
 
@@ -678,7 +678,12 @@ def build_check(
     runtime_contracts: dict[str, dict[str, Any]] | None = None,
     live_evidence: dict[str, Any] | None = None,
     include_doc_checks: bool = True,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=generated_evidence "
+    "fact_source=runtime_contracts+live_evidence+repo_token_checks "
+    "witness=test:test_c15_backend_misc_cli_report_metadata_preserves_abi",
+]:
     root = Path(repo_root) if repo_root is not None else REPO_ROOT
     root = root.resolve()
     contracts = runtime_contracts if runtime_contracts is not None else _load_runtime_contracts()

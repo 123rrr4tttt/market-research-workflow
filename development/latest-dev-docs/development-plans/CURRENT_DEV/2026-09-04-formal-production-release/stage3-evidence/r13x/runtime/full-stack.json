@@ -1,0 +1,53 @@
+{
+  "authoritative": false,
+  "backend_direct_deep_status": "degraded",
+  "backend_direct_shallow_status": "ok",
+  "canonical_images_only": true,
+  "compose_no_build": true,
+  "frontend_proxy_deep_status": "degraded",
+  "frontend_proxy_shallow_status": "ok",
+  "frontend_root_http_status": 200,
+  "frontend_static_asset_http_status": 200,
+  "frontend_static_asset_path": "/assets/index-CQhSCy3S.js",
+  "live_provider": {
+    "missing_dependencies": [
+      "OPENAI_API_KEY"
+    ],
+    "openai_api_key_injected": false,
+    "status": "DEGRADED_AWAITING_HUMAN_AUTHORITY"
+  },
+  "local_dependencies": {
+    "database": "ok",
+    "elasticsearch": "ok",
+    "redis": "ok"
+  },
+  "service_logs_exit_code": 0,
+  "services": {
+    "backend": {
+      "health": "healthy",
+      "state": "running"
+    },
+    "celery-worker": {
+      "health": "healthy",
+      "state": "running"
+    },
+    "db": {
+      "health": "healthy",
+      "state": "running"
+    },
+    "es": {
+      "health": "healthy",
+      "state": "running"
+    },
+    "frontend-modern": {
+      "health": "",
+      "state": "running"
+    },
+    "redis": {
+      "health": "",
+      "state": "running"
+    }
+  },
+  "source_bind_mounts": false,
+  "status": "PASS_SCOPED"
+}

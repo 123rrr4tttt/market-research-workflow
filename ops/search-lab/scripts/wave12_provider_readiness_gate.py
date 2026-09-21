@@ -7,6 +7,7 @@ import importlib.util
 import json
 import os
 import platform
+import shlex
 import sys
 import tempfile
 import time
@@ -25,6 +26,10 @@ from app.services.local_index import LocalIndexChunk, LocalIndexQuery, LocalInde
 from app.services.local_index.adapters import LanceDBLocalIndexAdapter, is_lancedb_available  # noqa: E402
 from app.services.local_index.adapters.lancedb_adapter import _deterministic_vector  # noqa: E402
 from app.services.search import web  # noqa: E402
+from scripts.evidence_source_contract import (  # noqa: E402
+    apply_evidence_source_contract,
+    evidence_source,
+)
 
 
 DEFAULT_OUT_DIR = "development/latest-dev-docs/automation-runs/wave12-provider-readiness/2026-05-22"
@@ -32,9 +37,9 @@ WAVE10_GATE = REPO_ROOT / "ops/search-lab/scripts/wave10_vectorization_quality_g
 
 TARGET_TOPICS = [
     "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-01-open-source-platform-integration",
-    "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-05-oss-node-platform-io-plan",
-    "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-global-vectorization-general-foundation",
-    "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-local-open-search-provider-isolation",
+    "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-05-oss-node-platform-io-plan",
+    "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation",
+    "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-local-open-search-provider-isolation",
 ]
 LOCAL_INDEX_MODES = ["keyword", "vector", "hybrid"]
 LOCAL_OPEN_SEARCH_PROVIDERS = ["searxng", "yacy"]
@@ -311,6 +316,51 @@ def _fallback_cases_by_mode(wave10_contract: dict[str, Any]) -> dict[str, dict[s
     return by_mode
 
 
+def _validate_wave10_contract(wave10_contract: dict[str, Any]) -> list[str]:
+    failures: list[str] = []
+    if wave10_contract.get("contract_version") != "wave10-vectorization-quality-gate.v1":
+        failures.append(
+            "wave10 baseline contract_version expected "
+            f"'wave10-vectorization-quality-gate.v1', got {wave10_contract.get('contract_version')!r}"
+        )
+    if wave10_contract.get("status") != "passed":
+        failures.append(f"wave10 baseline status expected 'passed', got {wave10_contract.get('status')!r}")
+
+    evidence = wave10_contract.get("evidence")
+    if not isinstance(evidence, dict):
+        failures.append("wave10 baseline evidence must be a JSON object")
+        return failures
+
+    provider_trace = evidence.get("search_provider_trace")
+    if not isinstance(provider_trace, dict) or provider_trace.get("status") != "passed":
+        failures.append("wave10 baseline search_provider_trace must be present and passed")
+    elif provider_trace.get("auto_local_open_search_called") is not False:
+        failures.append("wave10 baseline must record provider=auto local open-search exclusion")
+
+    runtime_modes = (evidence.get("local_index_runtime_smoke") or {}).get("modes") or {}
+    for mode in LOCAL_INDEX_MODES:
+        row = runtime_modes.get(mode) or {}
+        if row.get("executed_mode") != mode or row.get("retrieval_mode") != mode or row.get("failures"):
+            failures.append(f"wave10 baseline runtime mode {mode!r} is missing or invalid")
+
+    benchmark = evidence.get("local_index_benchmark_quality") or {}
+    if benchmark.get("threshold_status") != "passed":
+        failures.append("wave10 baseline benchmark threshold_status must be passed")
+    for field in ("ranking_modes", "filter_modes"):
+        if set(benchmark.get(field) or []) != set(LOCAL_INDEX_MODES):
+            failures.append(f"wave10 baseline benchmark {field} must contain all local-index modes")
+
+    fallback_cases = _fallback_cases_by_mode(wave10_contract)
+    for mode in ("vector", "hybrid"):
+        row = fallback_cases.get(mode) or {}
+        trace = row.get("trace") or {}
+        if row.get("retrieval_mode") != "keyword" or trace.get("fallback_from") != mode:
+            failures.append(f"wave10 baseline fallback case {mode!r} is missing or invalid")
+        if not trace.get("fallback_reason"):
+            failures.append(f"wave10 baseline fallback case {mode!r} lacks fallback_reason")
+    return failures
+
+
 def build_mode_availability(wave10_contract: dict[str, Any], live_probe: dict[str, Any]) -> dict[str, Any]:
     evidence = wave10_contract.get("evidence", {})
     runtime_modes = (evidence.get("local_index_runtime_smoke") or {}).get("modes") or {}
@@ -432,18 +482,40 @@ def build_unsupported_claims(
     ]
 
 
-def build_contract(*, enable_live_probes: bool = True, probe_timeout: float = 1.5) -> dict[str, Any]:
+def build_contract(
+    *,
+    enable_live_probes: bool = True,
+    probe_timeout: float = 1.5,
+    wave10_contract_path: Path | None = None,
+) -> dict[str, Any]:
     failures: list[str] = []
+    wave10_contract: dict[str, Any]
+    loaded_wave10_contract: Any = None
     try:
-        wave10_contract = _load_wave10_gate_module().build_contract()
+        if wave10_contract_path is None:
+            wave10_contract = _load_wave10_gate_module().build_contract()
+        else:
+            loaded_wave10_contract = json.loads(wave10_contract_path.read_text(encoding="utf-8"))
+            wave10_contract = loaded_wave10_contract if isinstance(loaded_wave10_contract, dict) else {}
     except Exception as exc:  # noqa: BLE001
+        load_failure = f"{exc.__class__.__name__}: {exc}"
         wave10_contract = {
             "status": "failed",
-            "failures": [f"{exc.__class__.__name__}: {exc}"],
+            "failures": [load_failure],
             "evidence": {},
         }
-        failures.append(f"wave10 baseline failed to load: {exc.__class__.__name__}: {exc}")
+        failures.append(f"wave10 baseline failed to load: {load_failure}")
 
+    if wave10_contract_path is not None and not isinstance(loaded_wave10_contract, dict):
+        load_failure = "wave10 contract root must be a JSON object"
+        wave10_contract = {
+            "status": "failed",
+            "failures": [load_failure],
+            "evidence": {},
+        }
+        failures.append(f"wave10 baseline failed to load: {load_failure}")
+
+    failures.extend(_validate_wave10_contract(wave10_contract))
     if wave10_contract.get("status") != "passed":
         failures.extend(f"wave10 baseline: {failure}" for failure in wave10_contract.get("failures", []))
 
@@ -487,7 +559,7 @@ def build_contract(*, enable_live_probes: bool = True, probe_timeout: float = 1.
         and not unsupported_claims
         else "partial"
     )
-    return {
+    contract = {
         "contract_version": "wave12-provider-readiness-gate.v1",
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "generated_by": "ops/search-lab/scripts/wave12_provider_readiness_gate.py",
@@ -498,6 +570,7 @@ def build_contract(*, enable_live_probes: bool = True, probe_timeout: float = 1.
         "platform": platform.platform(),
         "target_topics": target_topics,
         "baseline": {
+            "wave10_contract_path": display_path(wave10_contract_path) if wave10_contract_path else None,
             "wave10_contract_version": wave10_contract.get("contract_version"),
             "wave10_status": wave10_contract.get("status"),
             "wave10_remaining_gaps": wave10_contract.get("remaining_gaps", []),
@@ -512,6 +585,20 @@ def build_contract(*, enable_live_probes: bool = True, probe_timeout: float = 1.
         },
         "failures": failures,
     }
+    evidence_sources = list(wave10_contract.get("evidence_sources") or [])
+    if wave10_contract_path is not None:
+        evidence_sources.append(
+            evidence_source(
+                wave10_contract_path,
+                repo_root=REPO_ROOT,
+                label="wave10_vectorization_quality_gate",
+            )
+        )
+    return apply_evidence_source_contract(
+        contract,
+        evidence_sources,
+        claim_fields=("provider_auto_promotion_allowed", "semantic_quality_claim_allowed"),
+    )
 
 
 def write_outputs(out_dir: Path, contract: dict[str, Any]) -> None:
@@ -519,6 +606,12 @@ def write_outputs(out_dir: Path, contract: dict[str, Any]) -> None:
     (out_dir / "provider_readiness_summary.json").write_text(
         json.dumps(contract, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
+    )
+    wave10_path = contract["baseline"].get("wave10_contract_path")
+    wave10_arg = f" --wave10-contract {shlex.quote(wave10_path)}" if wave10_path else ""
+    rerun_command = (
+        f"{sys.executable} ops/search-lab/scripts/wave12_provider_readiness_gate.py"
+        f"{wave10_arg} --out-dir {shlex.quote(display_path(out_dir))}"
     )
 
     mode_rows = []
@@ -581,7 +674,7 @@ def write_outputs(out_dir: Path, contract: dict[str, Any]) -> None:
         "## Rerun",
         "",
         "```bash",
-        f"{sys.executable} ops/search-lab/scripts/wave12_provider_readiness_gate.py --out-dir {display_path(out_dir)}",
+        rerun_command,
         "```",
         "",
         "Full JSON evidence is in `provider_readiness_summary.json`.",
@@ -590,17 +683,32 @@ def write_outputs(out_dir: Path, contract: dict[str, Any]) -> None:
     (out_dir / "README.md").write_text("\n".join(readme), encoding="utf-8")
 
 
-def main() -> int:
+def _resolve_cli_path(value: str) -> Path:
+    path = Path(value)
+    return path if path.is_absolute() else REPO_ROOT / path
+
+
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--out-dir", default=DEFAULT_OUT_DIR)
     parser.add_argument("--probe-timeout", type=float, default=1.5)
     parser.add_argument("--skip-live-probes", action="store_true")
-    args = parser.parse_args()
+    parser.add_argument("--wave10-contract", default="")
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = _parse_args(argv)
 
     out_dir = Path(args.out_dir)
     if not out_dir.is_absolute():
         out_dir = REPO_ROOT / out_dir
-    contract = build_contract(enable_live_probes=not args.skip_live_probes, probe_timeout=args.probe_timeout)
+    wave10_contract_path = _resolve_cli_path(args.wave10_contract) if args.wave10_contract else None
+    contract = build_contract(
+        enable_live_probes=not args.skip_live_probes,
+        probe_timeout=args.probe_timeout,
+        wave10_contract_path=wave10_contract_path,
+    )
     write_outputs(out_dir, contract)
     print(
         json.dumps(

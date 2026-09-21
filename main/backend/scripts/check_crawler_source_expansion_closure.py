@@ -5,13 +5,19 @@ import json
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
+try:
+    from ._cli_runtime import repo_root as _repo_root
+except ImportError:  # direct script execution
+    from _cli_runtime import repo_root as _repo_root
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
 from scripts.check_crawler_public_replay_gate import build_check as build_public_replay_gate_check
+from scripts.check_evidence_source_availability import classify_required_evidence
+from scripts.check_evidence_source_availability import merge_evidence_sources
 from scripts.check_source_library_public_replay_a5_gate import build_check as build_a5_gate_check
 
 
@@ -261,10 +267,6 @@ ANCHORS: dict[str, Anchor] = {
 }
 
 
-def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[3]
-
-
 def _read_text(path: Path) -> str:
     try:
         return path.read_text(encoding="utf-8")
@@ -323,12 +325,28 @@ def _overall_status(tasks: list[dict[str, Any]]) -> str:
     return "not_closed"
 
 
-def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
+def build_check(repo_root: Path | str | None = None) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=preflight fact_source=repository.crawler_expansion_anchor_and_gate_artifacts witness=test:test_crawler_source_expansion_closure_authority_metadata",
+]:
     root = Path(repo_root) if repo_root is not None else _repo_root()
     root = root.resolve()
     anchor_results = {key: _anchor_result(root, key, anchor) for key, anchor in ANCHORS.items()}
     a5_gate = build_a5_gate_check(root)
     public_replay_gate = build_public_replay_gate_check(root)
+    missing_anchor_source = classify_required_evidence(
+        root,
+        {
+            f"anchor.{key}": result["path"]
+            for key, result in anchor_results.items()
+            if not result["exists"]
+        },
+    )
+    evidence_source = merge_evidence_sources(
+        missing_anchor_source,
+        a5_gate.get("evidence_source") or {},
+        public_replay_gate.get("evidence_source") or {},
+    )
 
     a1_keys = [
         "topic_plan",
@@ -507,6 +525,7 @@ def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
         "contract_version": CONTRACT_VERSION,
         "repo_root": str(root),
         "topic_dir": str(TOPIC_DIR),
+        "evidence_source": evidence_source,
         "overall_status": _overall_status(tasks),
         "doc_drift": {
             "status": "historical_snapshot_superseded",

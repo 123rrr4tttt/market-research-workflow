@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
-from .codec import finalize_digest, is_sha256_hex
+from .codec import _failure, _raise_failure, finalize_digest, is_sha256_hex
 
 __all__ = [
     "DELIVERY_CHANNEL",
@@ -54,11 +54,35 @@ class ResearchArtifact:
 
     def __post_init__(self) -> None:
         if self.format != DELIVERY_FORMAT:
-            raise ValueError(f"artifact format must be {DELIVERY_FORMAT!r}")
+            _raise_failure(
+                _failure(
+                    "ARTIFACT_INVALID",
+                    f"artifact format must be {DELIVERY_FORMAT!r}",
+                    ValueError,
+                    site="ResearchArtifact.format",
+                ),
+                ValueError,
+            )
         if self.revision < 1:
-            raise ValueError("artifact revision must be >= 1")
+            _raise_failure(
+                _failure(
+                    "ARTIFACT_INVALID",
+                    "artifact revision must be >= 1",
+                    ValueError,
+                    site="ResearchArtifact.revision",
+                ),
+                ValueError,
+            )
         if self.lifecycle_state not in ARTIFACT_LIFECYCLE_STATES:
-            raise ValueError(f"invalid artifact lifecycle state: {self.lifecycle_state}")
+            _raise_failure(
+                _failure(
+                    "ARTIFACT_INVALID",
+                    f"invalid artifact lifecycle state: {self.lifecycle_state}",
+                    ValueError,
+                    site="ResearchArtifact.lifecycle_state",
+                ),
+                ValueError,
+            )
         finalize_digest(self, "content_digest")
 
 
@@ -70,9 +94,25 @@ def artifact_identity_ref(
     """Bind artifact identity, revision, and exact canonical content digest."""
 
     if not artifact_id or revision < 1:
-        raise ValueError("artifact identity and revision are required")
+        _raise_failure(
+            _failure(
+                "ARTIFACT_IDENTITY_INVALID",
+                "artifact identity and revision are required",
+                ValueError,
+                site="artifact_identity_ref.identity",
+            ),
+            ValueError,
+        )
     if content_digest is None or not is_sha256_hex(content_digest):
-        raise ValueError("artifact content digest is required")
+        _raise_failure(
+            _failure(
+                "ARTIFACT_IDENTITY_INVALID",
+                "artifact content digest is required",
+                ValueError,
+                site="artifact_identity_ref.content_digest",
+            ),
+            ValueError,
+        )
     return f"{artifact_id}@{revision}:sha256:{content_digest}"
 
 
@@ -99,15 +139,45 @@ class DeliveryIntent:
 
     def __post_init__(self) -> None:
         if self.channel != DELIVERY_CHANNEL:
-            raise ValueError(f"channel must be {DELIVERY_CHANNEL!r}")
+            _raise_failure(
+                _failure(
+                    "DELIVERY_INTENT_INVALID",
+                    f"channel must be {DELIVERY_CHANNEL!r}",
+                    ValueError,
+                    site="DeliveryIntent.channel",
+                ),
+                ValueError,
+            )
         if self.format != DELIVERY_FORMAT:
-            raise ValueError(f"format must be {DELIVERY_FORMAT!r}")
+            _raise_failure(
+                _failure(
+                    "DELIVERY_INTENT_INVALID",
+                    f"format must be {DELIVERY_FORMAT!r}",
+                    ValueError,
+                    site="DeliveryIntent.format",
+                ),
+                ValueError,
+            )
         if self.irreversibility_profile != DELIVERY_IRREVERSIBILITY_PROFILE:
-            raise ValueError(
-                f"irreversibility profile must be {DELIVERY_IRREVERSIBILITY_PROFILE!r}"
+            _raise_failure(
+                _failure(
+                    "DELIVERY_INTENT_INVALID",
+                    f"irreversibility profile must be {DELIVERY_IRREVERSIBILITY_PROFILE!r}",
+                    ValueError,
+                    site="DeliveryIntent.irreversibility_profile",
+                ),
+                ValueError,
             )
         if not self.approval_refs:
-            raise ValueError("delivery intent requires at least one approval ref")
+            _raise_failure(
+                _failure(
+                    "DELIVERY_INTENT_INVALID",
+                    "delivery intent requires at least one approval ref",
+                    ValueError,
+                    site="DeliveryIntent.approval_refs",
+                ),
+                ValueError,
+            )
         finalize_digest(self, "content_digest")
 
 
@@ -124,7 +194,15 @@ class DeliveryAttempt:
 
     def __post_init__(self) -> None:
         if self.effect_disposition not in EFFECT_DISPOSITIONS:
-            raise ValueError(f"invalid effect disposition: {self.effect_disposition}")
+            _raise_failure(
+                _failure(
+                    "DELIVERY_ATTEMPT_INVALID",
+                    f"invalid effect disposition: {self.effect_disposition}",
+                    ValueError,
+                    site="DeliveryAttempt.effect_disposition",
+                ),
+                ValueError,
+            )
         finalize_digest(self, "content_digest")
 
 

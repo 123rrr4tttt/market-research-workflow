@@ -1,0 +1,33 @@
+{
+  "checks": {
+    "categories": {
+      "missing_evidence": 30,
+      "source_defect": 3,
+      "stale_expected_semantics": 3,
+      "test_fixture_defect": 19
+    },
+    "hashes": {
+      "inventory_sha256": "1575359c952b0fe366366938cdb65fabcaa0a44a2b82f4a7fe1cfbf96ffd4aca",
+      "junit_sha256": "e07c7ae3322bfd3c77e18b47fefce67f82db8e0517640a81b6db22ac2272bb94",
+      "log_sha256": "33d48a566619950f40125467c5a5a53f728b2bb76f9e28b44a5eb14894c10397"
+    },
+    "parseability": "PASS",
+    "reference_checks": {
+      "invalid_path_references": 0,
+      "records": 55
+    },
+    "totals": {
+      "inventory_failures": 55,
+      "junit_failures": 55,
+      "required": 55
+    },
+    "uniqueness": true
+  },
+  "errors": [],
+  "inventory_path": "stage1-successor-evidence/residual-disposition-v1/inventory/backend_failure_inventory.root-input.v1.json",
+  "inventory_sha256": "1575359c952b0fe366366938cdb65fabcaa0a44a2b82f4a7fe1cfbf96ffd4aca",
+  "junit_path": "/Users/wangyiliang/market-research-workflow/stage1-successor-evidence/residual-disposition-v1/raw-gate/backend-unit-final.xml",
+  "log_path": "/Users/wangyiliang/market-research-workflow/stage1-successor-evidence/residual-disposition-v1/raw-gate/backend-unit-final.log",
+  "schema_version": "mrw.stage1.residual-disposition.backend-failure-inventory.validation.v1",
+  "status": "PASS"
+}

@@ -11,7 +11,13 @@ from typing import Any
 from ..celery_app import celery_app
 from ..models.base import SessionLocal
 from ..models.entities import EtlJobRun
+from .job_logger import complete_job, fail_job, start_job
 from .projects import bind_project
+from .task_readback_metadata import (
+    extract_runtime_readback_payload,
+    merge_request_runtime_context,
+    merge_runtime_readback_payload,
+)
 
 _social_ingest_app = None
 _indexing_app = None
@@ -75,6 +81,50 @@ def _stable_hash(value: Any) -> str:
     except Exception:
         encoded = str(value)
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def _build_task_runtime_readback(
+    *,
+    line_key: str,
+    task_request: Any,
+    source_payload: dict[str, Any] | None = None,
+    workflow_run_id: str | None = None,
+    trace_id: str | None = None,
+    fallback_worker_name: str,
+    fallback_queue: str,
+) -> dict[str, Any]:
+    metadata = {
+        **extract_runtime_readback_payload(source_payload or {}),
+        "line_key": line_key,
+    }
+    if str(workflow_run_id or "").strip():
+        metadata.setdefault("workflow_run_id", str(workflow_run_id).strip())
+        metadata.setdefault("run_id", str(workflow_run_id).strip())
+    if str(trace_id or "").strip():
+        metadata.setdefault("trace_id", str(trace_id).strip())
+    return merge_request_runtime_context(
+        metadata,
+        task_request,
+        fallback_worker_name=fallback_worker_name,
+        fallback_queue=fallback_queue,
+        status="running",
+        event="worker_started",
+    )
+
+
+def _attach_completed_runtime_readback(
+    result: dict[str, Any],
+    runtime_readback: dict[str, Any],
+) -> dict[str, Any]:
+    payload = dict(result or {})
+    payload["runtime_readback"] = merge_runtime_readback_payload(
+        dict(runtime_readback or {}),
+        runtime_readback,
+        status="completed",
+        event="completed",
+        event_source="celery_worker",
+    )
+    return payload
 
 
 def _compact_agent_task_value(value: Any, *, max_items: int = 20, max_depth: int = 4) -> Any:
@@ -354,8 +404,9 @@ def task_select_prompt_time_windows(
         }
 
 
-@celery_app.task
+@celery_app.task(bind=True)
 def task_ingest_market(
+    self,
     query_terms: list[str],
     max_items: int = 20,
     enable_extraction: bool = True,
@@ -366,9 +417,21 @@ def task_ingest_market(
     provider: str | None = None,
     workflow_run_id: str | None = None,
     trace_id: str | None = None,
+    line_key: str | None = None,
+    queue: str | None = None,
+    runtime_readback: dict[str, Any] | None = None,
 ) -> dict:
     from .collect_runtime import collect_request_from_market_api, run_collect
 
+    runtime_readback = _build_task_runtime_readback(
+        line_key=line_key or "search_discovery_index",
+        task_request=getattr(self, "request", None),
+        source_payload={"runtime_readback": runtime_readback} if runtime_readback else None,
+        workflow_run_id=workflow_run_id,
+        trace_id=trace_id,
+        fallback_worker_name="local.task_ingest_market",
+        fallback_queue=queue or "local.search_discovery_index",
+    )
     ctx = bind_project(project_key) if project_key else nullcontext()
     with ctx:
         req = collect_request_from_market_api(
@@ -385,12 +448,18 @@ def task_ingest_market(
             req.source_context = {**(req.source_context or {}), "workflow_run_id": str(workflow_run_id)}
         if str(trace_id or "").strip():
             req.source_context = {**(req.source_context or {}), "trace_id": str(trace_id)}
+        req.source_context = {
+            **(req.source_context or {}),
+            "runtime_readback": runtime_readback,
+        }
         cr = run_collect(req)
-        return dict((cr.meta or {}).get("raw") or {"inserted": cr.inserted, "updated": cr.updated, "skipped": cr.skipped})
+        raw = dict((cr.meta or {}).get("raw") or {"inserted": cr.inserted, "updated": cr.updated, "skipped": cr.skipped})
+        return _attach_completed_runtime_readback(raw, runtime_readback)
 
 
-@celery_app.task
+@celery_app.task(bind=True)
 def task_ingest_url_via_source_library(
+    self,
     url: str,
     query_terms: list[str] | None = None,
     strict_mode: bool = False,
@@ -410,25 +479,52 @@ def task_ingest_url_via_source_library(
         }
         _record_agent_url_pool_task_event(marker, status="canceled", result=result)
         return result
+    runtime_readback = _build_task_runtime_readback(
+        line_key="ingest",
+        task_request=getattr(self, "request", None),
+        source_payload=search_options,
+        fallback_worker_name="local.task_ingest_url_via_source_library",
+        fallback_queue="local.ingest",
+    )
+    enriched_search_options = {
+        **(search_options or {}),
+        "runtime_readback": runtime_readback,
+    }
     ctx = bind_project(project_key) if project_key else nullcontext()
     with ctx:
+        job_id = start_job(
+            "url_pool_fetch",
+            {
+                "mode": "single_url_async",
+                "url": url,
+                "project_key": project_key,
+                "query_terms": list(query_terms or []),
+                "runtime_readback": runtime_readback,
+            },
+        )
         try:
             result = ingest_url_via_source_library_frontdoor(
                 url=url,
                 project_key=project_key,
                 query_terms=query_terms,
                 strict_mode=strict_mode,
-                search_options=search_options,
+                search_options=enriched_search_options,
                 frontdoor_options={"enabled": True},
                 entrypoint="ingest.url.single.async",
                 source_name="task_ingest_url_via_source_library",
                 enable_extraction=True,
             )
         except Exception as exc:  # noqa: BLE001
+            fail_job(job_id, str(exc))
             _record_agent_url_pool_task_event(marker, status="failed", error=str(exc))
             raise
-        _record_agent_url_pool_task_event(marker, status="completed", result=result if isinstance(result, dict) else {"result": result})
-        return result
+        completed_result = _attach_completed_runtime_readback(
+            result if isinstance(result, dict) else {"result": result},
+            runtime_readback,
+        )
+        complete_job(job_id, result=completed_result)
+        _record_agent_url_pool_task_event(marker, status="completed", result=completed_result)
+        return completed_result
 
 
 
@@ -738,11 +834,63 @@ def task_collect_ecom_prices(limit: int = 100, project_key: str | None = None) -
 
 
 @celery_app.task
-def task_sync_aggregator() -> dict:
+def task_sync_aggregator(
+) -> dict:
     # Aggregator reads from public + all project schemas.
     from .aggregator import sync_project_data_to_aggregator
-
     return sync_project_data_to_aggregator()
+
+
+@celery_app.task(bind=True)
+def task_worker_observability_noop(
+    self,
+    request_id: str | None = None,
+    run_id: str | None = None,
+    trace_id: str | None = None,
+    project_key: str | None = None,
+    candidate_id: str | None = None,
+    queue: str | None = None,
+    runtime_readback: dict[str, Any] | None = None,
+) -> dict:
+    """Execute one identity-preserving observation without effect sinks."""
+
+    runtime_readback = _build_task_runtime_readback(
+        line_key="worker_observability",
+        task_request=getattr(self, "request", None),
+        source_payload={"runtime_readback": runtime_readback} if runtime_readback else None,
+        workflow_run_id=run_id or request_id,
+        trace_id=trace_id,
+        fallback_worker_name="local.task_worker_observability_noop",
+        fallback_queue=queue or "celery",
+    )
+    return {
+        "contract_version": "production.observability.worker-noop.v1",
+        "status": "completed",
+        "effect_sinks": "none",
+        "request_id": request_id,
+        "run_id": run_id or request_id,
+        "trace_id": trace_id,
+        "project_key": project_key,
+        "candidate_id": candidate_id,
+        "effect_boundary": {
+            "external_provider_calls": 0,
+            "database_writes": 0,
+            "filesystem_writes": 0,
+            "queue_side_effects": 0,
+        },
+        "runtime_readback": merge_runtime_readback_payload(
+            dict(runtime_readback or {}),
+            {
+                "request_id": request_id,
+                "trace_id": trace_id,
+                "project_key": project_key,
+                "candidate_id": candidate_id,
+            },
+            status="completed",
+            event="completed",
+            event_source="celery_worker",
+        ),
+    }
 
 
 @celery_app.task
@@ -754,25 +902,40 @@ def task_raw_import_documents(payload: dict, project_key: str | None = None) -> 
         return run_raw_import_documents(payload=payload or {}, project_key=project_key or "")
 
 
-@celery_app.task
+@celery_app.task(bind=True)
 def task_run_source_library_item(
+    self,
     item_key: str,
     project_key: str | None = None,
     override_params: dict | None = None,
     workflow_run_id: str | None = None,
     trace_id: str | None = None,
+    line_key: str | None = None,
+    queue: str | None = None,
+    runtime_readback: dict[str, Any] | None = None,
 ) -> dict:
     from .collect_runtime import run_source_library_item_compat
 
-    return run_source_library_item_compat(
+    runtime_readback = _build_task_runtime_readback(
+        line_key=line_key or "resource_source_library",
+        task_request=getattr(self, "request", None),
+        source_payload={"runtime_readback": runtime_readback} if runtime_readback else override_params,
+        workflow_run_id=workflow_run_id,
+        trace_id=trace_id,
+        fallback_worker_name="local.task_run_source_library_item",
+        fallback_queue=queue or "local.resource_source_library",
+    )
+    result = run_source_library_item_compat(
         item_key=item_key,
         project_key=project_key,
         override_params={
             **(override_params or {}),
             **({"workflow_run_id": str(workflow_run_id)} if str(workflow_run_id or "").strip() else {}),
             **({"trace_id": str(trace_id)} if str(trace_id or "").strip() else {}),
+            "runtime_readback": runtime_readback,
         },
     )
+    return _attach_completed_runtime_readback(result if isinstance(result, dict) else {"result": result}, runtime_readback)
 
 
 @celery_app.task

@@ -16,6 +16,7 @@ pytestmark = pytest.mark.unit
 from scripts.check_source_library_review_closure_batch import CONTRACT_VERSION
 from scripts.check_source_library_review_closure_batch import build_check
 from scripts.check_source_library_review_closure_batch import build_expected_artifact
+from scripts.check_evidence_source_availability import EVIDENCE_SOURCE_UNAVAILABLE
 
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -39,17 +40,17 @@ class SourceLibraryReviewClosureBatchUnitTestCase(unittest.TestCase):
         self.assertFalse(artifact["non_closure_markers"]["claims_live_public_replay_complete"])
         self.assertFalse(artifact["non_closure_markers"]["claims_full_45_site_public_replay"])
 
-    def test_checker_validates_committed_artifact_topic_docs_and_non_closure_markers(self) -> None:
+    def test_checker_fails_closed_when_committed_artifact_is_unavailable(self) -> None:
         result = build_check(REPO_ROOT)
 
         self.assertEqual(result["contract_version"], CONTRACT_VERSION)
-        self.assertTrue(result["validation"]["passed"], result["validation"]["errors"])
+        self.assertEqual(result["evidence_source"]["status"], EVIDENCE_SOURCE_UNAVAILABLE)
+        self.assertFalse(result["validation"]["passed"])
         self.assertFalse(result["validation"]["public_network_attempted"])
-        self.assertTrue(result["governance_scope"]["deterministic_batch_closed"])
+        self.assertFalse(result["governance_scope"]["deterministic_batch_closed"])
         self.assertFalse(result["governance_scope"]["claims_human_relevance_review_complete"])
         self.assertFalse(result["governance_scope"]["claims_live_public_replay_complete"])
-        self.assertEqual(result["artifact_check"]["decision_count"], 1)
-        self.assertEqual(len(result["topic_evidence"]["docs"]), 4)
+        self.assertTrue(all(value is False for value in result["evidence_source"]["authority_ceiling"].values()))
 
     def test_checker_rejects_public_or_human_closure_claims_in_artifact(self) -> None:
         artifact = build_expected_artifact(REPO_ROOT)

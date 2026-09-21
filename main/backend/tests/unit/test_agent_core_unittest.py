@@ -23,6 +23,7 @@ from app.services.agent_core import (
     build_project_core_tool_registry,
     select_core_tool_window,
 )
+import app.services.agent_runtime.read_only_tools as read_only_tools
 from app.services.agent_sessions.service import AgentSessionService
 from app.services.agent_sessions.store import InMemoryAgentSessionStore
 from app.services.search.vector_contracts import (
@@ -2296,12 +2297,25 @@ class AgentCoreUnitTest(unittest.TestCase):
         )
         core = AgentCore(provider=provider, tool_registry=registry, tool_specs=registry.list_specs())
 
-        out = core.run(
-            AgentCoreRequest(
-                message="帮我总结机器人资料",
-                session_id=bundle["session"]["session_id"],
-                project_key="demo_proj",
+        with patch.object(
+            read_only_tools,
+            "read_project_structured_data_item",
+            side_effect=RuntimeError("structured store unavailable"),
+        ) as direct_read:
+            out = core.run(
+                AgentCoreRequest(
+                    message="帮我总结机器人资料",
+                    session_id=bundle["session"]["session_id"],
+                    project_key="demo_proj",
+                )
             )
+
+        direct_read.assert_called_once_with(
+            project_key="demo_proj",
+            dataset="documents",
+            record_id="doc-robot",
+            item_id=None,
+            resource_uri=None,
         )
 
         self.assertEqual(out.tool_results[1].tool_name, "project.structured_data.item.read")

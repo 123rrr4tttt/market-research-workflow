@@ -1,0 +1,392 @@
+{
+  "authoritative": false,
+  "authority": {
+    "authority_transfer": false,
+    "canary": false,
+    "candidate_promotion": false,
+    "cutover": false,
+    "deployment": false,
+    "external_delivery": false,
+    "legacy_retirement": false,
+    "live_provider": false,
+    "production_canonical_write": false,
+    "push": false
+  },
+  "bindings": {
+    "baseline": {
+      "entry_count": 0,
+      "path": "arch-baseline.json",
+      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+    },
+    "candidate_stages": {
+      "C2": "stage-b19-2026-09-05",
+      "C3": "stage-b19-2026-09-05",
+      "C4": "stage-b19-2026-09-05",
+      "C5": "stage-b19-2026-09-05",
+      "C6": "stage-b19-2026-09-05",
+      "C7": "stage-b19-2026-09-05",
+      "C8": "stage-b19-2026-09-05",
+      "C9": "stage-b19-2026-09-05",
+      "I1": "stage-b22-2026-09-05"
+    },
+    "current_candidates": [
+      {
+        "candidate_id": "a18b51121d31cde2db566f7d438e0941a81bd68474c9b6dd4f466244ea89153e",
+        "content_digest": "1f43390a53185566de9db236bf5a6d32d916ed6bed904e7c5fbb2c4144475051",
+        "family": "C2",
+        "file_sha256": "4ccc431f4eb7caebbdb91acd8146960c5a6e400c498a31a50f80251cfdfa4045",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/C2/candidate.v2.json",
+        "status": "CANDIDATE_VALID_NOT_AUTHORITY"
+      },
+      {
+        "candidate_id": "3d9da2b66e754d46ee0a69214c6d9b7015502d078466fee07aff176f37c38e26",
+        "content_digest": "7869210b9dd2fc87511b0bca3ace5e9a8ae0108d91151f64110bdd6d2a420d30",
+        "family": "C3",
+        "file_sha256": "71000110b3b6fd412ccf32468cef91ae21223da5255572ebdafa111c7a79206a",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/C3/candidate.v2.json",
+        "status": "CANDIDATE_VALID_NOT_AUTHORITY"
+      },
+      {
+        "candidate_id": "eff01a70e1ae4bdabbcf359bd1814722d9970d5225b2dfc5e9563ea220a270e8",
+        "content_digest": "edc9bb5797ab67db36899aefe0752bda58975622c2eee6b9f9cbb22672250cd4",
+        "family": "C4",
+        "file_sha256": "3804b62ba1939015d950a491d928da3304d614e7873f1d9013bf45403a7b1176",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/C4/candidate.v2.json",
+        "status": "CANDIDATE_VALID_NOT_AUTHORITY"
+      },
+      {
+        "candidate_id": "a847bc28862e9cdc5a6427c272a12ee2e850e871b1c6f54ebf9f843a489551b5",
+        "content_digest": "f62477356ff52a50101e01709a7030d39e2b26fb520d4fc9cb1ffc70b7e50e2f",
+        "family": "C5",
+        "file_sha256": "a2ddbb2ae28b330a04e52aff2030d1f8edaa1b77b4c6d7a37a48f64a0048aad2",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/C5/candidate.v2.json",
+        "status": "CANDIDATE_VALID_NOT_AUTHORITY"
+      },
+      {
+        "candidate_id": "231ca0199f910ef3f836ee71f28ce22632753e3d25263b033316bddb0dc5c8ab",
+        "content_digest": "c4573517c9be6b04cd53c46e7263d01b865e03228de4f896ba18dc997df7be20",
+        "family": "C6",
+        "file_sha256": "22c9fc2332c16c92dedfacd82c4bcd1936e87692f353169cffec8fa95f2de3ce",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/C6/candidate.v2.json",
+        "status": "CANDIDATE_VALID_NOT_AUTHORITY"
+      },
+      {
+        "candidate_id": "8c3266e0a4e4f589463ed154c92ec288452445a49d6680c953b2d84cbad0a127",
+        "content_digest": "d51cdfd7643dd5e964890d8967e76524532c5ec29ecd377fb976a32e13cb59d2",
+        "family": "C7",
+        "file_sha256": "630e2bb6d77b5f6de24357e331c5dd8fcb31cf9135d400187ce71f01058e1c6b",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/C7/candidate.v2.json",
+        "status": "CANDIDATE_VALID_NOT_AUTHORITY"
+      },
+      {
+        "candidate_id": "d9a832bc0ddba89cc242072e8cb5fc524fda9fdd38da5511393aa58a913db19a",
+        "content_digest": "132bf7b5f073e491db01f0c484a33234a52e8648e29fdd825dcafb54335de3a6",
+        "family": "C8",
+        "file_sha256": "0695e4c176fa24a77b2c0d8b298940e5244849b9118cb082b841930273f37abc",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/C8/candidate.v2.json",
+        "status": "CANDIDATE_VALID_NOT_AUTHORITY"
+      },
+      {
+        "candidate_id": "1c326a67eb7ace0de5de064598058bcdb7677d10e3044c52bbe22132d3597c1a",
+        "content_digest": "4186b1fcb030999037cd874a57c125da0fa6e3fff9c087d892f9281417ba93d1",
+        "family": "C9",
+        "file_sha256": "ed835ed34b2afae99290b2198874d2fef7c3cbbf206ca428e044f50d24536823",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/C9/candidate.v2.json",
+        "status": "CANDIDATE_VALID_NOT_AUTHORITY"
+      },
+      {
+        "candidate_id": "ab3f9b96856d3c8e41b30d96ac8c1291dad5a71abe7d68d95d40d2f83ff07e66",
+        "content_digest": "e4ea64d558e3f6dbe8f92ae782f62a81b09ff13f02471163a2df60351db53688",
+        "family": "I1",
+        "file_sha256": "0a263650a98213f5b45e2a4cd5f5ba90fec96c6ac2731b3ebc39dc7ef285865f",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b22-2026-09-05/candidates/I1/candidate.v2.json",
+        "status": "CANDIDATE_VALID_NOT_AUTHORITY"
+      }
+    ],
+    "declared_loss": {
+      "collect": {
+        "decision_counts": {
+          "ACCEPTED_EXPLICIT_LOSS": 1,
+          "IMPLEMENTED": 4,
+          "NOT_APPLICABLE": 0
+        },
+        "item_count": 5,
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage0-evidence/declared-loss-collect.v1.json",
+        "sha256": "962a83997f4792c43f6a07229f54aeffcad313642b2a2ae97098bae3f7dd37b5",
+        "status": "FACT_REVIEW_COMPLETE_NOT_AUTHORITY"
+      },
+      "ingest": {
+        "decision_counts": {
+          "ACCEPTED_EXPLICIT_LOSS": 1,
+          "IMPLEMENTED": 5,
+          "NOT_APPLICABLE": 0
+        },
+        "item_count": 6,
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage0-evidence/declared-loss-ingest.v1.json",
+        "sha256": "bbe9bdb82c08df87395326bfbf8322d308512963e1c605a8de38de2669ddacc6",
+        "status": null
+      }
+    },
+    "governance_maps": [
+      {
+        "path": "docs/governance/failure-family-map.v1.json",
+        "sha256": "f9b972aeaecdddd97296403957e5eec8a73fd5d2841aebe1aa8b6b6739ee221e",
+        "status": "ACTIVE_MUTABLE_MAP"
+      },
+      {
+        "path": "docs/governance/derived-authority-map.v1.json",
+        "sha256": "e1845fc59e59d5997e0bfef7147828900a5f2151422c6d561aac4e7093589650",
+        "status": "ACTIVE_MUTABLE_MAP"
+      }
+    ],
+    "kit_applicability": {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage0-evidence/kit-applicability.v1.json",
+      "sha256": "e2bc41320c09ed8c2ccbfcfae55fd3bc54a299651224e848f63fec614a524f47",
+      "status": "CONSUMER_GATE_CLOSED_WITH_UPSTREAM_FINDINGS_RETAINED"
+    },
+    "ledger": {
+      "entry_count": 727,
+      "path": "docs/governance/functorial-debt-zero-baseline-resolutions.v1.json",
+      "sha256": "771351d21174e21685961e536ae9a617effa574bceee24d5f4626cb9c68d0a58"
+    },
+    "stage_plan": {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/04_production-deployment-stage-plan.v1.md",
+      "sha256": "d04ae870b5d2a13afacdc7a07e9d5a89b7ab77e7b6c2d6cdd4bd2101151f76fa"
+    },
+    "stage_plan_freeze": {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/05_production-deployment-stage-plan.freeze.v1.json",
+      "schema_version": "mrw.production-deployment-stage-plan.freeze.v1",
+      "sha256": "06d2ec76f7c59973997311ac7ae416005ae0b9c7784598b11127e436dcf8a2aa"
+    }
+  },
+  "candidate": {
+    "commit": null,
+    "tree": null
+  },
+  "candidate_commit": null,
+  "candidate_tree": null,
+  "commands": {
+    "frontend": [
+      {
+        "command": "npm run lint",
+        "exit_code": 0,
+        "receipt": {
+          "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage0-evidence/stage0-v2-frontend-npm-lint.log",
+          "sha256": "dd7de72968561403bc4506dc8d20eab6c461f55afb4e126a3512006701d64607"
+        },
+        "result": "PASS"
+      },
+      {
+        "command": "npm run build",
+        "exit_code": 0,
+        "receipt": {
+          "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage0-evidence/stage0-v2-frontend-build.log",
+          "sha256": "acbcab750f1e86510c25e5dfe62d05b23b3e5c5c848fadd3e53e68e62aa4b1f6"
+        },
+        "result": "PASS"
+      },
+      {
+        "command": "bounded 10-spec Playwright Stage 0 client/mocked set",
+        "exit_code": 0,
+        "observed": "85 passed; 12 explicitly migrated or real-backend-only skipped",
+        "receipt": {
+          "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage0-evidence/stage0-v2-frontend-e2e.log",
+          "sha256": "673dfe05c602340bec96d5aeb53cba495e678aaaea24ef06be83a368aea4a49e"
+        },
+        "result": "PASS"
+      }
+    ],
+    "non_pg": [
+      {
+        "command": "WORKFLOW_GRAPH_DB_STORE_ENABLED=false PYTHONPATH=<absolute patched-kit:repo-src:backend> main/backend/.venv311/bin/python -m pytest -q -p no:cacheprovider main/backend/tests/successor_runtime",
+        "exit_code": 0,
+        "observed": "1645 passed; 119 PostgreSQL-only skips; 3 warnings",
+        "receipt": {
+          "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage0-evidence/stage0-v2-nonpg.log",
+          "sha256": "a4748491434a7953466c7bca0498f05ae858e01a65981ca36101c08cb0c177bd"
+        },
+        "result": "PASS"
+      }
+    ],
+    "pg": [
+      {
+        "command": "isolated Unix-socket PostgreSQL 37-shard successor matrix; per-shard create/dropdb --force; final trap cleanup",
+        "exit_code": 0,
+        "observed": "37/37 shards; 364 passed; 0 failures; 0 errors; 0 skipped; runtime reclaimed",
+        "receipt": {
+          "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage0-evidence/stage0-v2-pg.log",
+          "sha256": "5fbb6abf1398a5bec89a516622380ed794da0e53b51d65f1f16753b437d65bc0"
+        },
+        "result": "PASS"
+      }
+    ],
+    "root": [
+      {
+        "command": "main/backend/.venv311/bin/python -m pytest -q -p no:cacheprovider tests --ignore=tests/test_architecture.py",
+        "exit_code": 0,
+        "observed": "729 passed; 53 subtests; 2 warnings",
+        "receipt": {
+          "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage0-evidence/stage0-v2-root.log",
+          "sha256": "31e85dfd8e7f859211390b69aac699c47ea2aedb89f2df47b817e1bb8d9ad6bb"
+        },
+        "result": "PASS"
+      },
+      {
+        "command": "PYTHONPATH=<patched-kit:repo-src> .venv/bin/python -m pytest -q -p no:cacheprovider tests/test_architecture.py",
+        "exit_code": 0,
+        "observed": "293 passed",
+        "receipt": {
+          "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage0-evidence/stage0-v2-architecture.log",
+          "sha256": "8f26c6197a4d72fd6576cad0edd38830f868d4a4e6507bfe66640d2e704fa9f8"
+        },
+        "result": "PASS"
+      },
+      {
+        "command": "main/backend/.venv311/bin/python -m pytest -q -p no:cacheprovider tests/formal_release/test_generate_stage0_completion.py tests/formal_release/test_stage0_b13_governance_maps.py",
+        "exit_code": 0,
+        "observed": "32 passed",
+        "receipt": {
+          "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage0-evidence/stage0-v4-completion-focused.log",
+          "sha256": "9b3a215598a1f63804afc99d3a95517a994c57dff3712e0a7393844d35f7b333"
+        },
+        "result": "PASS"
+      },
+      {
+        "command": "nine current candidate live checks with scripts/stage_family_fragment_rebind.py check-candidate",
+        "exit_code": 0,
+        "observed": "C2-C9 B19 PASS; I1 B22 PASS",
+        "receipt": {
+          "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage0-evidence/stage0-v2-current-candidates.log",
+          "sha256": "0151d7a0362827955de66bdf84f5975881cae5beffb2136267b52af30bb0c691"
+        },
+        "result": "PASS"
+      }
+    ]
+  },
+  "current_byte_rebind": {
+    "authority": {
+      "candidate_claim": false,
+      "cutover": false,
+      "live_provider": false,
+      "production_canonical_write": false,
+      "promotion": false,
+      "push": false
+    },
+    "candidate_stages": {
+      "C2": "stage-b19-2026-09-05",
+      "C3": "stage-b19-2026-09-05",
+      "C4": "stage-b19-2026-09-05",
+      "C5": "stage-b19-2026-09-05",
+      "C6": "stage-b19-2026-09-05",
+      "C7": "stage-b19-2026-09-05",
+      "C8": "stage-b19-2026-09-05",
+      "C9": "stage-b19-2026-09-05",
+      "I1": "stage-b22-2026-09-05"
+    },
+    "result": "PASS",
+    "run_id": "stage0-current-byte-mixed-lineage-b19-b22-2026-09-05"
+  },
+  "derived_as": "external_claim",
+  "kit": {
+    "ceiling": [
+      "S0B_KIT_APPLICABILITY_ONLY",
+      "EXTERNAL_KIT_WORKTREE_DIRTY",
+      "PYTHON_CONSUMER_GATE_CLOSED_UPSTREAM_FINDINGS_RETAINED",
+      "TYPESCRIPT_NOT_APPLICABLE_TO_MRW_CONSUMER_UPSTREAM_CONFORMANCE_PASS",
+      "RUST_NOT_APPLICABLE_TO_MRW_CONSUMER_UPSTREAM_DEFAULT_COMPILE_FAILURE",
+      "RUST_FMT_AND_CLIPPY_BLOCKED_BY_MISSING_COMPONENTS",
+      "UPSTREAM_KIT_FINDINGS_RETAINED_NON_AUTHORITY",
+      "PRODUCTION_RELEASE_NOT_AUTHORIZED",
+      "NOT_LIVE",
+      "NOT_CUTOVER",
+      "NOT_CANONICAL_WRITE_AUTHORITY"
+    ],
+    "derived_from": {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage0-evidence/kit-applicability.v1.json",
+      "sha256": "e2bc41320c09ed8c2ccbfcfae55fd3bc54a299651224e848f63fec614a524f47"
+    },
+    "languages": {
+      "python": {
+        "ceiling": "MRW_CONSUMER_GATE_CLOSED_UPSTREAM_PYTHON_FORMAT_AND_PYRIGHT_FINDINGS_RETAINED",
+        "consumer_gate_status": "CONSUMER_GATE_CLOSED",
+        "upstream_execution_ceiling": "UPSTREAM_NON_CONSUMER_BLOCKERS_FORMAT_AND_PYRIGHT",
+        "upstream_execution_status": "BLOCKED"
+      },
+      "rust": {
+        "ceiling": "NOT_APPLICABLE_TO_CONSUMER_UPSTREAM_RUST_PARTIAL",
+        "consumer_gate_status": null,
+        "upstream_execution_ceiling": "UPSTREAM_RUST_LAWS_PASS_DEFAULT_FEATURE_COMPILE_FAILURE_FMT_CLIPPY_BLOCKED",
+        "upstream_execution_status": "PARTIAL"
+      },
+      "typescript": {
+        "ceiling": "NOT_APPLICABLE_TO_CONSUMER_UPSTREAM_TYPESCRIPT_CONFORMANCE_PASS",
+        "consumer_gate_status": null,
+        "upstream_execution_ceiling": "UPSTREAM_TYPESCRIPT_CONFORMANCE_PASS_NOT_MRW_CONSUMER_GATE",
+        "upstream_execution_status": "PASS"
+      }
+    },
+    "result": "PASS",
+    "status": "CONSUMER_GATE_CLOSED_WITH_UPSTREAM_FINDINGS_RETAINED"
+  },
+  "negative_findings": [
+    {
+      "classification": "EXCLUDED_NON_STAGE0_RUNTIME_DEPENDENCY",
+      "evidence": {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage0-evidence/frontend-full-e2e-negative.v1.json",
+        "sha256": "aeb145e8afdb22706b61537e35b1032e8df614ed60d9652dad991e90a6573de0"
+      },
+      "id": "frontend-full-e2e-agent-chat-writing-crossflow",
+      "observed_result": "FAIL",
+      "owner": "frontend-runtime/codex-websocket",
+      "reason": "Requires the live Codex WebSocket and backend surface rather than the Stage 0 client or mocked interpreter boundary.",
+      "stage0_dependency": false,
+      "test": "tests/e2e/agent-chat-writing-crossflow.spec.ts:52"
+    },
+    {
+      "classification": "EXCLUDED_NON_STAGE0_RUNTIME_DEPENDENCY",
+      "evidence": {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage0-evidence/frontend-full-e2e-negative.v1.json",
+        "sha256": "aeb145e8afdb22706b61537e35b1032e8df614ed60d9652dad991e90a6573de0"
+      },
+      "id": "frontend-full-e2e-search-discovery",
+      "observed_result": "FAIL",
+      "owner": "backend-runtime/search-discovery",
+      "reason": "Requires a named live search-discovery endpoint and runtime data fixtures that Stage 0 does not realize.",
+      "stage0_dependency": false,
+      "test": "tests/e2e/real-backend-business-lines.spec.ts:200"
+    },
+    {
+      "classification": "EXCLUDED_NON_STAGE0_RUNTIME_DEPENDENCY",
+      "evidence": {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage0-evidence/frontend-full-e2e-negative.v1.json",
+        "sha256": "aeb145e8afdb22706b61537e35b1032e8df614ed60d9652dad991e90a6573de0"
+      },
+      "id": "frontend-full-e2e-writing-knowledge-graph-agent",
+      "observed_result": "FAIL",
+      "owner": "backend-runtime/writing-knowledge-graph-agent",
+      "reason": "Requires live writing, knowledge-graph, and Agent runtime data that belongs to the production runtime contract after Stage 0.",
+      "stage0_dependency": false,
+      "test": "tests/e2e/real-backend-business-lines.spec.ts:264"
+    },
+    {
+      "classification": "EXCLUDED_NON_STAGE0_RUNTIME_DEPENDENCY",
+      "evidence": {
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage0-evidence/frontend-full-e2e-negative.v1.json",
+        "sha256": "aeb145e8afdb22706b61537e35b1032e8df614ed60d9652dad991e90a6573de0"
+      },
+      "id": "frontend-full-e2e-runtime-graph-projection",
+      "observed_result": "FAIL",
+      "owner": "backend-runtime/graph-projection",
+      "reason": "Requires live graph endpoints returning HTTP 200; Stage 0 validates the client and projection contracts without asserting that runtime realization.",
+      "stage0_dependency": false,
+      "test": "tests/e2e/runtime-smoke.spec.ts:431"
+    }
+  ],
+  "observed_at": "2026-09-05T13:09:56Z",
+  "record_id": "stage0-functorial-refactor-completion-v4",
+  "schema": "mrw.formal_release.stage0.functorial_refactor_completion.v4",
+  "schema_version": "mrw.stage0.functorial-refactor-completion.v4",
+  "skip_block": [],
+  "stage": "STAGE_0",
+  "status": "FUNCTORIAL_REFACTOR_COMPLETE_NOT_PRODUCTION_QUALIFIED"
+}

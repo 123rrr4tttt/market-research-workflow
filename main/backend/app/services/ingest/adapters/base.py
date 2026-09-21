@@ -1,21 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import date
-from typing import Iterable
+from collections.abc import Iterable
 
-
-@dataclass(slots=True)
-class PolicyDocument:
-    state: str
-    title: str
-    status: str | None
-    publish_date: date | None
-    summary: str | None
-    content: str
-    uri: str | None = None
-    source_name: str | None = None
-
+from ..provider_ports import PolicyDocument
 
 class PolicyAdapter:
     """Base class for policy adapters."""
@@ -25,5 +12,4 @@ class PolicyAdapter:
 
     def fetch_documents(self) -> Iterable[PolicyDocument]:
         raise NotImplementedError
-
 

@@ -1,0 +1,226 @@
+{
+  "authoritative": false,
+  "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+  "entries": [
+    {
+      "after_sha256": "88bf181ad9d3de4ddac07c613222fb126ebfb22db6d56c161b6fd504ca707c19",
+      "before_sha256": null,
+      "bytes": 136753,
+      "change_kind": "CREATE_ONLY",
+      "path": "stage1-successor-evidence/contract13-bounded-corrections-v2/binding-impact/binding-impact-audit.corrected.v2.json",
+      "scope": "contract_13_bounded_evidence_correction"
+    },
+    {
+      "after_sha256": "ba06941d5cacffec2fd9765a189dd76b44d868b7a0473cdd0267d2493cc0d690",
+      "before_sha256": null,
+      "bytes": 133955,
+      "change_kind": "CREATE_ONLY",
+      "path": "stage1-successor-evidence/contract13-bounded-corrections-v2/binding-impact/binding-impact-audit.v2.json",
+      "scope": "contract_13_bounded_evidence_correction"
+    },
+    {
+      "after_sha256": "9689769d1799c16d2a52e4943e2e476f100b82643f242eb7d795ddaf0c07adb3",
+      "before_sha256": null,
+      "bytes": 1303,
+      "change_kind": "CREATE_ONLY",
+      "path": "stage1-successor-evidence/contract13-bounded-corrections-v2/binding-impact/binding-impact-audit.validation.corrected.v2.json",
+      "scope": "contract_13_bounded_evidence_correction"
+    },
+    {
+      "after_sha256": "dddaf83fab784f92d6da701c58b11bf6a27296c366acd44298a1c2a6e64d7c6c",
+      "before_sha256": null,
+      "bytes": 999,
+      "change_kind": "CREATE_ONLY",
+      "path": "stage1-successor-evidence/contract13-bounded-corrections-v2/binding-impact/binding-impact-audit.validation.v2.json",
+      "scope": "contract_13_bounded_evidence_correction"
+    },
+    {
+      "after_sha256": "0fd80c57e673c3850c721c7cd396b4ebaa4d2fb26bd19f3717100b8afdf7dee2",
+      "before_sha256": null,
+      "bytes": 2902,
+      "change_kind": "CREATE_ONLY",
+      "path": "stage1-successor-evidence/contract13-bounded-corrections-v2/binding-impact/binding-impact-receipt.corrected.v2.md",
+      "scope": "contract_13_bounded_evidence_correction"
+    },
+    {
+      "after_sha256": "3a999528a13f256156318a3aac08541c24be6621753d407e2a19467bc17db751",
+      "before_sha256": null,
+      "bytes": 2841,
+      "change_kind": "CREATE_ONLY",
+      "path": "stage1-successor-evidence/contract13-bounded-corrections-v2/binding-impact/binding-impact-receipt.v2.md",
+      "scope": "contract_13_bounded_evidence_correction"
+    },
+    {
+      "after_sha256": "aabb0ecef51df0dcab161153f2cc175db9c41188afd5170435abff3ca084f3b6",
+      "before_sha256": null,
+      "bytes": 22772,
+      "change_kind": "CREATE_ONLY",
+      "path": "stage1-successor-evidence/contract13-bounded-corrections-v2/binding-impact/generate_binding_impact_audit.py",
+      "scope": "contract_13_bounded_evidence_correction"
+    },
+    {
+      "after_sha256": "430050a968b8449abe67e20157708268c52036b966987a938db3c9ce70cb614b",
+      "before_sha256": null,
+      "bytes": 4114,
+      "change_kind": "CREATE_ONLY",
+      "path": "stage1-successor-evidence/contract13-bounded-corrections-v2/binding-impact/generate_binding_impact_audit_corrected.py",
+      "scope": "contract_13_bounded_evidence_correction"
+    },
+    {
+      "after_sha256": "89115a2fa91aef97a19db7b42f6d44e76d54e9706394cd01e47ddf05b300058e",
+      "before_sha256": null,
+      "bytes": 19787,
+      "change_kind": "CREATE_ONLY",
+      "path": "stage1-successor-evidence/contract13-bounded-corrections-v2/build_contract13_return.py",
+      "scope": "contract_13_bounded_evidence_correction"
+    },
+    {
+      "after_sha256": "ce964014a478796285c16c91bd138ca1b66bc8c6d161bb1c6a0cee431c75dd81",
+      "before_sha256": null,
+      "bytes": 9097,
+      "change_kind": "CREATE_ONLY",
+      "path": "stage1-successor-evidence/contract13-bounded-corrections-v2/claim-decisions/check_claim_decisions.py",
+      "scope": "contract_13_bounded_evidence_correction"
+    },
+    {
+      "after_sha256": "8362b368b5f4d944bb1bddf70f397e73c1b3716bc0bdb6244e61699b38e719b3",
+      "before_sha256": null,
+      "bytes": 142465,
+      "change_kind": "CREATE_ONLY",
+      "path": "stage1-successor-evidence/contract13-bounded-corrections-v2/claim-decisions/claim-decisions.v2.json",
+      "scope": "contract_13_bounded_evidence_correction"
+    },
+    {
+      "after_sha256": "b15d8505eb6cd39f4be74da7c720959bd6ee1e48c08d6a38710067303b554851",
+      "before_sha256": null,
+      "bytes": 25732,
+      "change_kind": "CREATE_ONLY",
+      "path": "stage1-successor-evidence/contract13-bounded-corrections-v2/claim-decisions/claim-decisions.v2.md",
+      "scope": "contract_13_bounded_evidence_correction"
+    },
+    {
+      "after_sha256": "24825fca00ac28b9513a630e86ca4cbefb291703ccc0f6f806043df0fd1b2458",
+      "before_sha256": null,
+      "bytes": 33767,
+      "change_kind": "CREATE_ONLY",
+      "path": "stage1-successor-evidence/contract13-bounded-corrections-v2/claim-decisions/generate_claim_decisions.py",
+      "scope": "contract_13_bounded_evidence_correction"
+    },
+    {
+      "after_sha256": "40385f6f91b725387165339f3f8761e5b0feca15517a70e3d75e96b887e1951d",
+      "before_sha256": null,
+      "bytes": 1970,
+      "change_kind": "CREATE_ONLY",
+      "path": "stage1-successor-evidence/contract13-bounded-corrections-v2/claim-decisions/validation-receipt.v2.json",
+      "scope": "contract_13_bounded_evidence_correction"
+    },
+    {
+      "after_sha256": "b21bc780b140792cc96b5f358fc02c2e818af8b0b29da722d2a8e12857526d89",
+      "before_sha256": null,
+      "bytes": 19463,
+      "change_kind": "CREATE_ONLY",
+      "path": "stage1-successor-evidence/contract13-bounded-corrections-v2/historical-candidates/historical-candidates-readonly-verification.v1.json",
+      "scope": "contract_13_bounded_evidence_correction"
+    },
+    {
+      "after_sha256": "98e249ad7a525fff74468a4e13202040724ed37761b7659ba3bce6487a8b2827",
+      "before_sha256": null,
+      "bytes": 5026,
+      "change_kind": "CREATE_ONLY",
+      "path": "stage1-successor-evidence/contract13-bounded-corrections-v2/historical-candidates/historical-candidates-readonly-verification.v1.md",
+      "scope": "contract_13_bounded_evidence_correction"
+    },
+    {
+      "after_sha256": "df94f9b3e0f136f49cbf1897f6001dbba4cbc98c29b81b03a0a55d975224fcc7",
+      "before_sha256": null,
+      "bytes": 438,
+      "change_kind": "CREATE_ONLY",
+      "path": "stage1-successor-evidence/contract13-bounded-corrections-v2/process-api/SHA256SUMS.v2",
+      "scope": "contract_13_bounded_evidence_correction"
+    },
+    {
+      "after_sha256": "d36eb13587a31bba47a68e03fe39415eaf31b1192f885db33326e4bcf2c5955b",
+      "before_sha256": null,
+      "bytes": 6939,
+      "change_kind": "CREATE_ONLY",
+      "path": "stage1-successor-evidence/contract13-bounded-corrections-v2/process-api/process-task-id-fallback-disposition.v2.json",
+      "scope": "contract_13_bounded_evidence_correction"
+    },
+    {
+      "after_sha256": "98ed80f525bd8ba6bbac756c02d00ea507e1c011fe3b05453bc1f2d3f5532ce8",
+      "before_sha256": null,
+      "bytes": 4175,
+      "change_kind": "CREATE_ONLY",
+      "path": "stage1-successor-evidence/contract13-bounded-corrections-v2/process-api/process-task-id-fallback-disposition.v2.md",
+      "scope": "contract_13_bounded_evidence_correction"
+    },
+    {
+      "after_sha256": "584c8f0d910bf77ee3b11018e225a7bf41335c5d3efbd10e7c57205c374a011b",
+      "before_sha256": null,
+      "bytes": 3013,
+      "change_kind": "CREATE_ONLY",
+      "path": "stage1-successor-evidence/contract13-bounded-corrections-v2/process-api/process-task-id-overlay-witness-results.v2.json",
+      "scope": "contract_13_bounded_evidence_correction"
+    },
+    {
+      "after_sha256": "0489b60f636a0e89489f319adb609ef8011ca30afb7803fdd9df4fb3795d578d",
+      "before_sha256": null,
+      "bytes": 11713,
+      "change_kind": "CREATE_ONLY",
+      "path": "stage1-successor-evidence/contract13-bounded-corrections-v2/process-api/process-task-id-overlay-witness.v2.py",
+      "scope": "contract_13_bounded_evidence_correction"
+    },
+    {
+      "after_sha256": "580fdb53936252bb4c447260cdc88ec077f4635c4f23656d188f7c375145f665",
+      "before_sha256": null,
+      "bytes": 481,
+      "change_kind": "CREATE_ONLY",
+      "path": "stage1-successor-evidence/contract13-bounded-corrections-v2/startup-preservation/artifact-hashes.sha256",
+      "scope": "contract_13_bounded_evidence_correction"
+    },
+    {
+      "after_sha256": "437537d26995f7043e8110cda03a1c5f15d9bdd17012d68f1cdb0ebec4da991b",
+      "before_sha256": null,
+      "bytes": 2542,
+      "change_kind": "CREATE_ONLY",
+      "path": "stage1-successor-evidence/contract13-bounded-corrections-v2/startup-preservation/command-receipts.md",
+      "scope": "contract_13_bounded_evidence_correction"
+    },
+    {
+      "after_sha256": "961b137fc49ca5b7f4576aac9a021dc797fd9e16700ae688594c439dfb6f7467",
+      "before_sha256": null,
+      "bytes": 9135,
+      "change_kind": "CREATE_ONLY",
+      "path": "stage1-successor-evidence/contract13-bounded-corrections-v2/startup-preservation/focused-import-time-db-boundary.patch",
+      "scope": "contract_13_bounded_evidence_correction"
+    },
+    {
+      "after_sha256": "7f874b833bcfc4db1e3d8349a17bce3f8f7fc5cdcccf12a9fbafd5fcfcfbacbd",
+      "before_sha256": null,
+      "bytes": 7774,
+      "change_kind": "CREATE_ONLY",
+      "path": "stage1-successor-evidence/contract13-bounded-corrections-v2/startup-preservation/startup-preservation.v2.json",
+      "scope": "contract_13_bounded_evidence_correction"
+    },
+    {
+      "after_sha256": "48d3b90665b778b61f58601cdd98578ea2ff62440f067b0fe8d15a24f1767ff1",
+      "before_sha256": null,
+      "bytes": 2609,
+      "change_kind": "CREATE_ONLY",
+      "path": "stage1-successor-evidence/contract13-bounded-corrections-v2/startup-preservation/startup-preservation.v2.md",
+      "scope": "contract_13_bounded_evidence_correction"
+    },
+    {
+      "after_sha256": "a96e81676a8b5b19fb5739d16b4aa191697df500c704e3b129b03eae06737816",
+      "before_sha256": null,
+      "bytes": 9902,
+      "change_kind": "CREATE_ONLY",
+      "path": "stage1-successor-evidence/contract13-bounded-corrections-v2/startup-preservation/test_startup_preservation_witness.py",
+      "scope": "contract_13_bounded_evidence_correction"
+    }
+  ],
+  "entry_count": 27,
+  "note": "This list covers create-only Contract 13 evidence members. Product changes inherited from Contract 12 remain frozen in changed-paths.v1.json and were audited read-only.",
+  "product_or_historical_candidate_files_mutated_by_contract_13": false,
+  "schema_version": "mrw.stage1.contract13.changed-paths.v2"
+}

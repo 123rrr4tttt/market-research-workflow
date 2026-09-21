@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from typing import Any, Mapping
+from typing import Annotated, Any, Mapping
 
 from .canary_handoff import CANARY_HANDOFF_CONTRACT_VERSION, CANARY_METRICS_SNAPSHOT_CONTRACT_VERSION
 
@@ -143,7 +143,10 @@ def build_configured_provider_canary_boundary(
     *,
     live_canary_evidence: Mapping[str, Any] | None,
     project_key: str = "demo_proj",
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=external_claim fact_source=live_canary_evidence+configured_provider_evidence witness=test:test_w03_ingest_ports_authority_metadata",
+]:
     """Validate live canary evidence without starting external services."""
     evidence = live_canary_evidence if isinstance(live_canary_evidence, Mapping) else {}
     provider = evidence.get("configured_provider") if isinstance(evidence.get("configured_provider"), Mapping) else {}
@@ -246,7 +249,10 @@ def build_configured_provider_canary_boundary(
 def build_single_url_provider_evidence_boundary(
     *,
     provider_evidence: Mapping[str, Any] | None,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=external_claim fact_source=provider_evidence+source_record witness=test:test_w03_ingest_ports_authority_metadata",
+]:
     """Validate explicit provider-account/quota evidence without claiming closure."""
     evidence = provider_evidence if isinstance(provider_evidence, Mapping) else {}
     source_record = evidence.get("source_record") if isinstance(evidence.get("source_record"), Mapping) else {}
@@ -515,7 +521,10 @@ def build_ingest_canary_metrics_readiness(
     project_key: str = "demo_proj",
     live_canary_evidence: Mapping[str, Any] | None = None,
     metric_readback_evidence: Mapping[str, Any] | None = None,
-) -> IngestCanaryMetricsReadinessReport:
+) -> Annotated[
+    IngestCanaryMetricsReadinessReport,
+    "kit:non-authoritative derived_as=preflight fact_source=handoff+live_canary_evidence+metric_readback_evidence+contract_constants witness=test:test_w03_ingest_ports_authority_metadata",
+]:
     """Classify canary metrics readiness without pretending live closure."""
     normalized_project = str(project_key or "demo_proj").strip() or "demo_proj"
     deterministic_stage = _build_deterministic_stage(handoff=handoff, project_key=normalized_project)

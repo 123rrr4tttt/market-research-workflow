@@ -19,9 +19,13 @@ BACKEND_ROOT = REPO_ROOT / "main" / "backend"
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
-from app.services.local_index import LocalIndexChunk, LocalIndexQuery, LocalIndexService
-from app.services.local_index.adapters import LanceDBLocalIndexAdapter, is_lancedb_available
-from app.services.local_index.adapters.lancedb_adapter import _deterministic_vector
+from app.services.local_index import (  # noqa: E402
+    LocalIndexChunk,
+    LocalIndexQuery,
+    LocalIndexService,
+    RepoLocalHashingEmbeddingProvider,
+)
+from app.services.local_index.adapters import LanceDBLocalIndexAdapter, is_lancedb_available  # noqa: E402
 
 
 DEFAULT_OUT_DIR = "development/latest-dev-docs/automation-runs/local-index-lancedb-runtime-smoke/2026-05-22"
@@ -41,7 +45,7 @@ def display_path(path: Path) -> str:
         return str(path)
 
 
-def build_chunks() -> list[LocalIndexChunk]:
+def build_chunks(embedding_provider: RepoLocalHashingEmbeddingProvider) -> list[LocalIndexChunk]:
     vector_query = "semantic vector target robotics benchmark"
     hybrid_query = "hybrid retrieval fusion robotics policy"
     return [
@@ -62,7 +66,7 @@ def build_chunks() -> list[LocalIndexChunk]:
             title="Vector runtime proof",
             content="A row for semantic vector target robotics benchmark validation.",
             metadata={"expected_mode": "vector"},
-            vector=_deterministic_vector(vector_query),
+            vector=embedding_provider.embed_query(vector_query),
         ),
         LocalIndexChunk(
             chunk_id="chunk-hybrid",
@@ -72,7 +76,7 @@ def build_chunks() -> list[LocalIndexChunk]:
             title="Hybrid runtime proof",
             content=f"{hybrid_query} appears in the text and uses a matching vector.",
             metadata={"expected_mode": "hybrid"},
-            vector=_deterministic_vector(hybrid_query),
+            vector=embedding_provider.embed_query(hybrid_query),
         ),
         LocalIndexChunk(
             chunk_id="chunk-foreign-project",
@@ -124,8 +128,15 @@ def run_smoke(out_dir: Path) -> tuple[int, dict[str, Any]]:
         write_report(out_dir, report)
         return 2, report
 
-    service = LocalIndexService(LanceDBLocalIndexAdapter(db_path=db_path, table_name="chunks"))
-    chunks = build_chunks()
+    embedding_provider = RepoLocalHashingEmbeddingProvider()
+    service = LocalIndexService(
+        LanceDBLocalIndexAdapter(
+            db_path=db_path,
+            table_name="chunks",
+            embedding_provider=embedding_provider,
+        )
+    )
+    chunks = build_chunks(embedding_provider)
     report["upsert"] = service.upsert_chunks(chunks)
 
     checks = [

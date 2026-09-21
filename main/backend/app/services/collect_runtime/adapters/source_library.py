@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from contextlib import nullcontext
-from typing import Any
+from typing import Annotated, Any
 
 from ..contracts import CollectRequest, CollectResult
 from ..display_meta import build_display_meta
 from ...job_logger import complete_job, fail_job, start_job
 from ...projects import bind_project
+from ...task_readback_metadata import extract_runtime_readback_payload, merge_runtime_readback_payload
 from ...ingest.frontdoor_ingress import build_source_library_ingress_envelope
 from ...ingest.postprocess_frontdoor import run_postprocess_frontdoor
 
@@ -70,6 +71,22 @@ AUTHORITY_OUTPUT_CONTRACT_VERSION = "source_library.authority_output.v1"
 COMPAT_PROJECTION_CONTRACT_VERSION = "source_library.compat_projection.v1"
 
 
+def _derive_source_library_status(
+    *,
+    raw: dict[str, Any],
+    terminal_output: dict[str, Any],
+) -> str:
+    """Keep provider ACK/readback states visible at the collect boundary."""
+
+    terminal_status = str(terminal_output.get("status") or "").strip().lower()
+    if terminal_status in {"accepted", "failed", "cancelled"}:
+        return terminal_status
+    raw_status = str(raw.get("status") or "").strip().lower()
+    if raw_status in {"accepted", "failed", "cancelled"}:
+        return raw_status
+    return "completed"
+
+
 class SourceLibraryAdapter:
     def run(self, request: CollectRequest) -> CollectResult:
         from ...source_library.resolver import (
@@ -79,6 +96,11 @@ class SourceLibraryAdapter:
         )
 
         job_id = None
+        runtime_readback = extract_runtime_readback_payload(
+            request.source_context,
+            request.options,
+            (request.options or {}).get("override_params") if isinstance(request.options, dict) else None,
+        )
         try:
             with (bind_project(request.project_key) if request.project_key else nullcontext()):
                 job_id = start_job(
@@ -86,6 +108,7 @@ class SourceLibraryAdapter:
                     {
                         "item_key": request.item_key,
                         "project_key": request.project_key,
+                        **({"runtime_readback": runtime_readback} if runtime_readback else {}),
                         "display_meta": build_display_meta(request, None, summary=f"执行来源项 {request.item_key or '-'}"),
                     },
                 )
@@ -108,6 +131,10 @@ class SourceLibraryAdapter:
                 result_payload=raw if isinstance(raw, dict) else None,
                 collect_result=CollectResult(channel=request.channel or "source_library"),
             )
+            collection_status = _derive_source_library_status(
+                raw=raw if isinstance(raw, dict) else {},
+                terminal_output=terminal_output,
+            )
             stats = (terminal_output.get("results") or {}).get("stats") if isinstance(terminal_output, dict) else {}
             records = (terminal_output.get("results") or {}).get("records") if isinstance(terminal_output, dict) else []
             has_clean_signal = bool(records) or any(
@@ -115,6 +142,7 @@ class SourceLibraryAdapter:
             )
             cr = CollectResult(
                 channel=request.channel or "source_library",
+                status=collection_status,
                 inserted=0 if has_clean_signal else int((nested or {}).get("inserted") or 0),
                 updated=0 if has_clean_signal else int((nested or {}).get("updated") or 0),
                 skipped=0 if has_clean_signal else int((nested or {}).get("skipped") or 0),
@@ -126,12 +154,34 @@ class SourceLibraryAdapter:
             )
             cr.display_meta = build_display_meta(request, cr, summary=f"执行来源项 {request.item_key or '-'}")
             with (bind_project(request.project_key) if request.project_key else nullcontext()):
-                complete_job(job_id, result={
+                complete_result = {
                     "inserted": cr.inserted,
                     "updated": cr.updated,
                     "skipped": cr.skipped,
                     "display_meta": cr.display_meta,
-                })
+                }
+                if runtime_readback:
+                    complete_result["runtime_readback"] = merge_runtime_readback_payload(
+                        dict(runtime_readback),
+                        runtime_readback,
+                        status=cr.status,
+                        event=cr.status if cr.status in {"completed", "failed", "cancelled"} else None,
+                        event_source="collect_adapter",
+                    )
+                if cr.status == "accepted":
+                    # Dispatch was accepted but no authoritative terminal
+                    # readback exists yet.  Leave the ETL job open for
+                    # reconciliation; never rewrite ACK as completion.
+                    pass
+                elif cr.status == "failed":
+                    error_text = "; ".join(
+                        str(item.get("message") or "")
+                        for item in cr.errors
+                        if isinstance(item, dict) and str(item.get("message") or "").strip()
+                    ) or "source-library provider failed"
+                    fail_job(job_id, error_text)
+                else:
+                    complete_job(job_id, status=cr.status, result=complete_result)
             return cr
         except Exception as exc:  # noqa: BLE001
             if job_id is not None:
@@ -200,7 +250,10 @@ def build_source_library_authority_output(
     frontdoor_ingress: dict[str, Any],
     postprocess_frontdoor: dict[str, Any],
     legacy_result: dict[str, Any],
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=terminal_output+frontdoor_ingress+postprocess_frontdoor+legacy_result witness=test:test_w03_ingest_ports_authority_metadata",
+]:
     terminal_results = terminal_output.get("results") if isinstance(terminal_output.get("results"), dict) else {}
     terminal_meta = terminal_output.get("meta") if isinstance(terminal_output.get("meta"), dict) else {}
     provider_handoff = (
@@ -303,10 +356,14 @@ def build_source_library_compat_projection(
     *,
     legacy_result: dict[str, Any],
     authority_output: dict[str, Any],
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=authority_output witness=test:test_w03_ingest_ports_authority_metadata",
+]:
     return {
         "contract_version": COMPAT_PROJECTION_CONTRACT_VERSION,
         "status": "retained_compat",
+        "observed_status": str((authority_output.get("summary") or {}).get("status") or "unknown"),
         "deprecated": True,
         "authority_reference": {
             "authority_output": "authority_output",

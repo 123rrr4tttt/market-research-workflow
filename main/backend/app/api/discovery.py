@@ -3,8 +3,8 @@ from pydantic import BaseModel, Field
 from typing import Any, Optional
 
 from ..project_customization.service import get_project_customization
+from ..composition.discovery import create_default_discovery_application
 from ..services.search.web import generate_keywords, generate_topic_keywords
-from ..services.discovery.application import DiscoveryApplicationService
 from ..services.keyword_generation import generate_social_keywords, generate_subreddit_keywords
 from ..services.job_logger import start_job, complete_job, fail_job
 from fastapi.responses import JSONResponse
@@ -22,7 +22,7 @@ class DiscoveryRequest(BaseModel):
 
 
 router = APIRouter(prefix="/discovery", tags=["discovery"])
-discovery_app = DiscoveryApplicationService.build_default()
+discovery_app = create_default_discovery_application()
 DiscoveryDictEnvelope = ApiEnvelope[dict[str, Any]]
 DISCOVERY_ERROR_RESPONSES = {
     400: {"description": "Invalid input"},

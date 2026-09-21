@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Annotated, Any
 
 
 @dataclass(frozen=True)
@@ -18,7 +18,10 @@ def build_structured_summary(
     extraction_enabled: bool,
     chunks_used: int,
     extraction_mode: str,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=extracted_data+extraction_outcome_inputs witness=test:test_w03_ingest_ports_authority_metadata",
+]:
     er = extracted_data.get("entities_relations")
     entities = er.get("entities") if isinstance(er, dict) else []
     relations = er.get("relations") if isinstance(er, dict) else []

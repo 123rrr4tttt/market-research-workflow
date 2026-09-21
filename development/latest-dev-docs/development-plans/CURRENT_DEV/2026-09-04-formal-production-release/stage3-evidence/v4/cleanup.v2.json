@@ -1,0 +1,31 @@
+{
+  "schema_version": "mrw.formal_release.stage3.cleanup.v2",
+  "record_id": "stage3-v4-cleanup-20260906-v2",
+  "stage_id": "STAGE_3",
+  "status": "PASS",
+  "authoritative": false,
+  "supersedes": {
+    "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/cleanup.v1.json",
+    "sha256": "ca97abee94b5a809d429a00a397711a364d75d7e37fa768ac33b1b13e3b81bd7",
+    "reason": "Adds the disposable clone used to run the corrected v2 manifest through the candidate-local R2 validator."
+  },
+  "candidate_final_identity": {
+    "commit": "e1aa59708a22e4238c4d9beaf7b7bd2d2095d483",
+    "tree": "d2003fbb8e54c8dd743fa4e84907a8a978ef5107",
+    "tracked_status_entries": 0,
+    "untracked_status_entries": 0,
+    "git_lock_paths": []
+  },
+  "removed_task_owned_resources": [
+    "/private/tmp/mrw-stage3-v4-primary-20260906t0329z",
+    "/private/tmp/mrw-stage3-v4-logs-20260906t0329z",
+    "/private/tmp/mrw-stage3-v4-r2-revalidation-20260906t0347z",
+    "/private/tmp/mrw-stage3-v4-r2-validation-v2.json"
+  ],
+  "containers_created": [],
+  "images_created": [],
+  "volumes_or_databases_created": [],
+  "retained_resources": [],
+  "external_effects": [],
+  "recovery": "No recovery action is required; all task-owned disposable resources were removed by exact path, and all create-only evidence versions are retained under stage3-evidence/v4."
+}

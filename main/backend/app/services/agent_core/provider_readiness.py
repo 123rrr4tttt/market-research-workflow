@@ -4,9 +4,15 @@ import json
 from collections import Counter
 from dataclasses import dataclass
 from types import SimpleNamespace
-from typing import Any, Mapping
+from typing import Annotated, Any, Mapping
 
-from .contracts import AgentCoreRequest, CoreModelStep, CoreToolCall, CoreToolResult, CoreToolSpec
+from .contracts import (
+    AgentCoreRequest,
+    CoreModelStep,
+    CoreToolCall,
+    CoreToolResult,
+    CoreToolSpec,
+)
 from .core import AgentCore
 from .fake_provider import FakeCoreProvider
 from .json_provider import JsonCoreProvider
@@ -18,7 +24,9 @@ from .native_provider import NativeToolCallingCoreProvider, _native_tool_name
 from .registry import CoreToolRegistry
 
 
-AGENT_CORE_PROVIDER_LIVE_READINESS_CONTRACT_VERSION = "agent_core.provider_live_readiness.v1"
+AGENT_CORE_PROVIDER_LIVE_READINESS_CONTRACT_VERSION = (
+    "agent_core.provider_live_readiness.v1"
+)
 
 _SUPPORTED_LLM_PROVIDERS = ("openai", "azure", "ollama", "litellm", "local")
 _AGENT_CORE_PROVIDER_KEYS = (
@@ -59,7 +67,11 @@ def build_agent_core_provider_live_readiness_contract(
     settings_source: Any | None = None,
     codex_cli_status: Mapping[str, Any] | None = None,
     enable_live_probes: bool = False,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=provider_readiness_contract_constants "
+    "witness=test:test_w02_agent_authority_metadata"
+]:
     """Build a bounded AgentCore live-provider readiness contract.
 
     The contract intentionally keeps local fixture readiness separate from live
@@ -103,7 +115,11 @@ def build_agent_core_provider_live_readiness_contract(
         unsupported_claims=unsupported_claims,
     )
     selected_row = next((row for row in provider_rows if row.selected), None)
-    selected_provider = selected_row.provider if selected_row is not None else _selected_llm_provider(settings_source)
+    selected_provider = (
+        selected_row.provider
+        if selected_row is not None
+        else _selected_llm_provider(settings_source)
+    )
 
     return {
         "contract_version": AGENT_CORE_PROVIDER_LIVE_READINESS_CONTRACT_VERSION,
@@ -117,7 +133,11 @@ def build_agent_core_provider_live_readiness_contract(
         "configured_provider": {
             "llm_provider": selected_provider,
             "agent_core_runtime_provider": "native_tool_calling_provider_with_json_fallback",
-            "e2e_scripted_provider_enabled": bool(_setting(settings_source, "agent_core_e2e_scripted_provider_enabled", False)),
+            "e2e_scripted_provider_enabled": bool(
+                _setting(
+                    settings_source, "agent_core_e2e_scripted_provider_enabled", False
+                )
+            ),
         },
         "configured_providers": [row.to_dict() for row in provider_rows],
         "codex_cli_fallback": dict(resolved_codex_status),
@@ -143,48 +163,106 @@ def build_agent_core_provider_live_readiness_contract(
     }
 
 
-def validate_agent_core_provider_live_readiness_contract(contract: Mapping[str, Any]) -> list[str]:
+def validate_agent_core_provider_live_readiness_contract(
+    contract: Mapping[str, Any],
+) -> list[str]:
     errors: list[str] = []
     _expect(
-        contract.get("contract_version") == AGENT_CORE_PROVIDER_LIVE_READINESS_CONTRACT_VERSION,
+        contract.get("contract_version")
+        == AGENT_CORE_PROVIDER_LIVE_READINESS_CONTRACT_VERSION,
         errors,
         "unexpected provider live readiness contract version",
     )
     _expect(contract.get("status") in {"passed", "failed"}, errors, "invalid status")
-    _expect(contract.get("readiness_state") in {"ready", "partial", "blocked"}, errors, "invalid readiness_state")
-    provider_rows = [row for row in contract.get("configured_providers") or [] if isinstance(row, dict)]
-    _expect(any(row.get("selected") for row in provider_rows), errors, "selected configured provider row missing")
-    fixture_rows = [row for row in contract.get("local_fixture_readiness") or [] if isinstance(row, dict)]
+    _expect(
+        contract.get("readiness_state") in {"ready", "partial", "blocked"},
+        errors,
+        "invalid readiness_state",
+    )
+    provider_rows = [
+        row
+        for row in contract.get("configured_providers") or []
+        if isinstance(row, dict)
+    ]
+    _expect(
+        any(row.get("selected") for row in provider_rows),
+        errors,
+        "selected configured provider row missing",
+    )
+    fixture_rows = [
+        row
+        for row in contract.get("local_fixture_readiness") or []
+        if isinstance(row, dict)
+    ]
     fixture_keys = {str(row.get("provider_key") or "") for row in fixture_rows}
     for provider_key in _AGENT_CORE_PROVIDER_KEYS:
-        _expect(provider_key in fixture_keys, errors, f"local fixture row missing: {provider_key}")
-    for row in fixture_rows:
-        _expect(row.get("fixture_status") == "ready", errors, f"local fixture not ready: {row.get('provider_key')}")
         _expect(
-            row.get("schema_inventory_contract_version") == "agent_core.tool_schema_inventory.v1",
+            provider_key in fixture_keys,
+            errors,
+            f"local fixture row missing: {provider_key}",
+        )
+    for row in fixture_rows:
+        _expect(
+            row.get("fixture_status") == "ready",
+            errors,
+            f"local fixture not ready: {row.get('provider_key')}",
+        )
+        _expect(
+            row.get("schema_inventory_contract_version")
+            == "agent_core.tool_schema_inventory.v1",
             errors,
             f"fixture schema inventory drift: {row.get('provider_key')}",
         )
-        _expect(row.get("tool_count") == 1, errors, f"fixture tool count drift: {row.get('provider_key')}")
-        _expect(row.get("stop_reason") == "final_answer", errors, f"fixture did not reach final_answer: {row.get('provider_key')}")
-        _expect(row.get("tool_result_status_counts", {}).get("completed", 0) >= 1, errors, f"fixture did not complete a tool: {row.get('provider_key')}")
-    live_rows = [row for row in (contract.get("live_availability") or {}).get("providers") or [] if isinstance(row, dict)]
+        _expect(
+            row.get("tool_count") == 1,
+            errors,
+            f"fixture tool count drift: {row.get('provider_key')}",
+        )
+        _expect(
+            row.get("stop_reason") == "final_answer",
+            errors,
+            f"fixture did not reach final_answer: {row.get('provider_key')}",
+        )
+        _expect(
+            row.get("tool_result_status_counts", {}).get("completed", 0) >= 1,
+            errors,
+            f"fixture did not complete a tool: {row.get('provider_key')}",
+        )
+    live_rows = [
+        row
+        for row in (contract.get("live_availability") or {}).get("providers") or []
+        if isinstance(row, dict)
+    ]
     _expect(bool(live_rows), errors, "live availability rows missing")
     selected_live_rows = [row for row in live_rows if row.get("selected")]
     _expect(bool(selected_live_rows), errors, "selected live availability row missing")
-    closure = contract.get("live_provider_closure") if isinstance(contract.get("live_provider_closure"), Mapping) else {}
+    closure = (
+        contract.get("live_provider_closure")
+        if isinstance(contract.get("live_provider_closure"), Mapping)
+        else {}
+    )
     if contract.get("readiness_state") == "ready":
         _expect(bool(closure), errors, "ready contract missing live provider closure")
-        _expect(closure.get("closed") is True, errors, "ready contract closure not closed")
+        _expect(
+            closure.get("closed") is True, errors, "ready contract closure not closed"
+        )
         for error in validate_repo_local_live_provider_shim_evidence(closure):
             errors.append(f"repo-local live provider shim invalid: {error}")
-        _expect(any(row.get("live_probe_status") == "ready" for row in selected_live_rows), errors, "selected live row not ready")
+        _expect(
+            any(row.get("live_probe_status") == "ready" for row in selected_live_rows),
+            errors,
+            "selected live row not ready",
+        )
         _expect(
             closure.get("external_provider_live_verified") is False,
             errors,
             "repo-local closure must not claim external provider verification",
         )
-    claim_codes = {str(row.get("code") or "") for row in contract.get("unsupported_closure_claims") or [] if isinstance(row, dict)}
+    claim_codes = {
+        str(row.get("code") or "")
+        for row in contract.get("unsupported_closure_claims") or []
+        if isinstance(row, dict)
+    }
     if contract.get("readiness_state") == "ready":
         _expect(
             "repo_local_shim_is_not_external_provider_evidence" in claim_codes,
@@ -197,16 +275,33 @@ def validate_agent_core_provider_live_readiness_contract(contract: Mapping[str, 
             "ready repo-local closure still reports selected-provider live gap",
         )
     else:
-        _expect("all_agentcore_providers_live_not_closed" in claim_codes, errors, "missing all-provider unsupported claim")
-        _expect("selected_provider_live_availability_not_closed" in claim_codes, errors, "missing selected-provider unsupported claim")
+        _expect(
+            "all_agentcore_providers_live_not_closed" in claim_codes,
+            errors,
+            "missing all-provider unsupported claim",
+        )
+        _expect(
+            "selected_provider_live_availability_not_closed" in claim_codes,
+            errors,
+            "missing selected-provider unsupported claim",
+        )
     return errors
 
 
-def _configured_provider_rows(settings_source: Any, codex_status: Mapping[str, Any]) -> list[ProviderConfigRow]:
+def _configured_provider_rows(
+    settings_source: Any, codex_status: Mapping[str, Any]
+) -> list[ProviderConfigRow]:
     selected = _selected_llm_provider(settings_source)
     rows: list[ProviderConfigRow] = []
     for provider in _SUPPORTED_LLM_PROVIDERS:
-        rows.append(_provider_config_row(provider=provider, selected=provider == selected, settings_source=settings_source, codex_status=codex_status))
+        rows.append(
+            _provider_config_row(
+                provider=provider,
+                selected=provider == selected,
+                settings_source=settings_source,
+                codex_status=codex_status,
+            )
+        )
     if selected not in _SUPPORTED_LLM_PROVIDERS:
         rows.append(
             ProviderConfigRow(
@@ -230,7 +325,8 @@ def _provider_config_row(
     codex_status: Mapping[str, Any],
 ) -> ProviderConfigRow:
     if provider == "openai":
-        if _has_setting(settings_source, "openai_api_key"):
+        prefer_codex = _has_setting(settings_source, "codex_cli_llm_preferred")
+        if _has_setting(settings_source, "openai_api_key") and not prefer_codex:
             return ProviderConfigRow(
                 provider=provider,
                 selected=selected,
@@ -240,28 +336,54 @@ def _provider_config_row(
                 notes="Direct OpenAI chat model configuration is present.",
             )
         if bool(codex_status.get("available")):
+            configured_via_preferred = bool(
+                prefer_codex and _has_setting(settings_source, "openai_api_key")
+            )
             return ProviderConfigRow(
                 provider=provider,
                 selected=selected,
                 implementation_path="app.services.llm.codex_cli.CodexCliChatModel",
-                config_state="configured_via_codex_cli_fallback",
+                config_state=(
+                    "configured_via_preferred_codex_cli"
+                    if configured_via_preferred
+                    else "configured_via_codex_cli_fallback"
+                ),
                 required_config_keys=("CODEX_CLI_BINARY", "CODEX_AUTH_TOKEN_SINK"),
-                notes="OpenAI API key is absent, but the repo fallback can use local Codex CLI auth.",
+                notes=(
+                    "AgentChat is configured to prefer the local Codex CLI/app-server model core."
+                    if configured_via_preferred
+                    else "OpenAI API key is absent, but the repo fallback can use local Codex CLI auth."
+                ),
             )
         return ProviderConfigRow(
             provider=provider,
             selected=selected,
             implementation_path="langchain_openai.ChatOpenAI",
             config_state="missing_config",
-            required_config_keys=("OPENAI_API_KEY", "or CODEX_CLI_BINARY+CODEX_AUTH_TOKEN_SINK"),
-            missing_config_keys=("OPENAI_API_KEY", "CODEX_CLI_BINARY+CODEX_AUTH_TOKEN_SINK"),
+            required_config_keys=(
+                "OPENAI_API_KEY",
+                "or CODEX_CLI_BINARY+CODEX_AUTH_TOKEN_SINK",
+            ),
+            missing_config_keys=(
+                "OPENAI_API_KEY",
+                "CODEX_CLI_BINARY+CODEX_AUTH_TOKEN_SINK",
+            ),
             live_probe_status="blocked",
             live_gap_reason="missing_openai_or_codex_cli_credentials",
             notes="OpenAI live availability cannot be claimed without API key or Codex CLI fallback readiness.",
         )
     if provider == "azure":
-        required = ("AZURE_API_BASE", "AZURE_API_KEY", "AZURE_API_VERSION", "AZURE_CHAT_DEPLOYMENT")
-        missing = tuple(key for key in required if not _has_setting(settings_source, _env_to_setting(key)))
+        required = (
+            "AZURE_API_BASE",
+            "AZURE_API_KEY",
+            "AZURE_API_VERSION",
+            "AZURE_CHAT_DEPLOYMENT",
+        )
+        missing = tuple(
+            key
+            for key in required
+            if not _has_setting(settings_source, _env_to_setting(key))
+        )
         return ProviderConfigRow(
             provider=provider,
             selected=selected,
@@ -274,7 +396,11 @@ def _provider_config_row(
             notes="Azure readiness is config-recorded only; no live model call is made by this checker.",
         )
     if provider == "ollama":
-        missing = () if _has_setting(settings_source, "ollama_base_url") else ("OLLAMA_BASE_URL",)
+        missing = (
+            ()
+            if _has_setting(settings_source, "ollama_base_url")
+            else ("OLLAMA_BASE_URL",)
+        )
         return ProviderConfigRow(
             provider=provider,
             selected=selected,
@@ -288,7 +414,11 @@ def _provider_config_row(
         )
     if provider == "litellm":
         required = ("LITELLM_API_BASE", "LITELLM_API_KEY")
-        missing = tuple(key for key in required if not _has_setting(settings_source, _env_to_setting(key)))
+        missing = tuple(
+            key
+            for key in required
+            if not _has_setting(settings_source, _env_to_setting(key))
+        )
         return ProviderConfigRow(
             provider=provider,
             selected=selected,
@@ -327,8 +457,12 @@ def _local_fixture_readiness() -> list[dict[str, Any]]:
             provider_key="fake_core_provider",
             provider=FakeCoreProvider(
                 [
-                    CoreModelStep.tools(_fixture_tool_call("fake"), model_path="fake_core_provider"),
-                    CoreModelStep.final("fake fixture ready", model_path="fake_core_provider"),
+                    CoreModelStep.tools(
+                        _fixture_tool_call("fake"), model_path="fake_core_provider"
+                    ),
+                    CoreModelStep.final(
+                        "fake fixture ready", model_path="fake_core_provider"
+                    ),
                 ]
             ),
         ),
@@ -362,7 +496,9 @@ def _run_fixture(*, provider_key: str, provider: Any) -> dict[str, Any]:
                 "default_model": "fixture",
             },
         )
-        result = AgentCore(provider=provider, tool_registry=registry, tool_specs=registry.list_specs()).run(request)
+        result = AgentCore(
+            provider=provider, tool_registry=registry, tool_specs=registry.list_specs()
+        ).run(request)
         event_counts = Counter(event.event_type for event in result.events)
         tool_result_counts = Counter(item.status for item in result.tool_results)
         ready = (
@@ -374,13 +510,19 @@ def _run_fixture(*, provider_key: str, provider: Any) -> dict[str, Any]:
             "provider_key": provider_key,
             "fixture_status": "ready" if ready else "failed",
             "fixture_type": "local_no_network_tool_dispatch",
-            "schema_inventory_contract_version": schema_inventory.get("contract_version"),
+            "schema_inventory_contract_version": schema_inventory.get(
+                "contract_version"
+            ),
             "tool_count": schema_inventory.get("tool_count"),
             "session_id": result.session_id,
             "turn_id": result.turn_id,
             "stop_reason": result.stop_reason,
-            "event_type_counts": {name: event_counts[name] for name in sorted(event_counts)},
-            "tool_result_status_counts": {name: tool_result_counts[name] for name in sorted(tool_result_counts)},
+            "event_type_counts": {
+                name: event_counts[name] for name in sorted(event_counts)
+            },
+            "tool_result_status_counts": {
+                name: tool_result_counts[name] for name in sorted(tool_result_counts)
+            },
             "tool_names": [item.tool_name for item in result.tool_results],
             "final_answer_present": bool(result.final_answer),
         }
@@ -412,17 +554,23 @@ def _live_availability_rows(
             live_status = "blocked"
             gap_reason = row.live_gap_reason or row.config_state
             availability_state = "gap_recorded"
-            unsupported_claim = "current live model availability is not proven by this run"
+            unsupported_claim = (
+                "current live model availability is not proven by this run"
+            )
         elif enable_live_probes:
             live_status = "not_run"
             gap_reason = "repo_local_live_shim_only_selected_provider"
             availability_state = "gap_recorded"
-            unsupported_claim = "only the selected repo-local shim path is closed by this run"
+            unsupported_claim = (
+                "only the selected repo-local shim path is closed by this run"
+            )
         else:
             live_status = "not_run"
             gap_reason = "live_probe_disabled"
             availability_state = "gap_recorded"
-            unsupported_claim = "current live model availability is not proven by this run"
+            unsupported_claim = (
+                "current live model availability is not proven by this run"
+            )
         rows.append(
             {
                 "provider": row.provider,
@@ -432,9 +580,15 @@ def _live_availability_rows(
                 "availability_state": availability_state,
                 "gap_reason": gap_reason,
                 "unsupported_claim": unsupported_claim,
-                "closure_basis": live_provider_closure.get("closure_basis") if row.selected and closure_ready else None,
+                "closure_basis": live_provider_closure.get("closure_basis")
+                if row.selected and closure_ready
+                else None,
                 "external_provider_live_verified": False,
-                "external_model_calls": live_provider_closure.get("external_model_calls", 0) if row.selected and closure_ready else 0,
+                "external_model_calls": live_provider_closure.get(
+                    "external_model_calls", 0
+                )
+                if row.selected and closure_ready
+                else 0,
             }
         )
     return {
@@ -444,9 +598,13 @@ def _live_availability_rows(
             else "configuration_and_local_fixture_readiness_no_external_model_call"
         ),
         "live_probes_enabled": enable_live_probes,
-        "closure_basis": live_provider_closure.get("closure_basis") if closure_ready else None,
+        "closure_basis": live_provider_closure.get("closure_basis")
+        if closure_ready
+        else None,
         "external_provider_live_verified": False,
-        "external_model_calls": live_provider_closure.get("external_model_calls", 0) if closure_ready else 0,
+        "external_model_calls": live_provider_closure.get("external_model_calls", 0)
+        if closure_ready
+        else 0,
         "providers": rows,
         "summary": {
             "by_live_probe_status": _count_by_key(rows, "live_probe_status"),
@@ -521,7 +679,9 @@ def _unsupported_closure_claims(
             {
                 "code": f"{selected.provider}_provider_adapter_not_implemented",
                 "claim": f"The configured provider {selected.provider!r} is supported by AgentCore live runtime.",
-                "reason": selected.notes or selected.live_gap_reason or "The selected provider has no supported AgentCore live adapter.",
+                "reason": selected.notes
+                or selected.live_gap_reason
+                or "The selected provider has no supported AgentCore live adapter.",
                 "required_next_evidence": "Implement and test the provider branch or change llm_provider to a supported configured provider.",
             }
         )
@@ -550,11 +710,15 @@ def _contract_failures(
     failures: list[str] = []
     for row in local_fixtures:
         if row.get("fixture_status") != "ready":
-            failures.append(f"local fixture failed: {row.get('provider_key')}: {row.get('error_type') or row.get('stop_reason')}")
+            failures.append(
+                f"local fixture failed: {row.get('provider_key')}: {row.get('error_type') or row.get('stop_reason')}"
+            )
     if not any(row.selected for row in provider_rows):
         failures.append("selected provider row missing")
     if enable_live_probes:
-        for error in validate_repo_local_live_provider_shim_evidence(live_provider_closure):
+        for error in validate_repo_local_live_provider_shim_evidence(
+            live_provider_closure
+        ):
             failures.append(f"repo-local live provider shim invalid: {error}")
     return failures
 
@@ -574,7 +738,10 @@ def _readiness_state(
     if live_provider_closure.get("closed") is True:
         return "ready"
     selected = next((row for row in provider_rows if row.selected), None)
-    if selected is None or selected.config_state in {"missing_config", "unsupported_provider"}:
+    if selected is None or selected.config_state in {
+        "missing_config",
+        "unsupported_provider",
+    }:
         return "partial"
     selected_live = next(
         (
@@ -618,7 +785,12 @@ def _fixture_tool_spec() -> CoreToolSpec:
     )
 
 
-def _fixture_tool_handler(tool_call: CoreToolCall, tool_spec: CoreToolSpec, request: AgentCoreRequest, emit: Any) -> CoreToolResult:
+def _fixture_tool_handler(
+    tool_call: CoreToolCall,
+    tool_spec: CoreToolSpec,
+    request: AgentCoreRequest,
+    emit: Any,
+) -> CoreToolResult:
     return CoreToolResult(
         call_id=tool_call.call_id,
         tool_name=tool_call.tool_name,
@@ -704,25 +876,47 @@ def _codex_cli_status(override: Mapping[str, Any] | None) -> dict[str, Any]:
             "binary_available": bool(override.get("binary_available")),
             "auth_available": bool(override.get("auth_available")),
             "fallback_enabled": bool(override.get("fallback_enabled", True)),
+            "preferred": bool(override.get("preferred", True)),
             "model": _text(override.get("model")) or None,
+            "model_provider": _text(override.get("model_provider")) or None,
             "reason": _text(override.get("reason")) or None,
         }
     try:
         from app.services.codex_oauth import has_valid_token_sink
-        from app.services.llm.codex_cli import _resolve_codex_bin, codex_cli_llm_available
+        from app.services.llm.codex_cli import (
+            _resolve_codex_bin,
+            codex_cli_llm_available,
+        )
+        from app.services.llm.codex_user_config import (
+            load_user_codex_model_config,
+            resolve_codex_model,
+        )
         from app.settings.config import settings
 
-        command = str(getattr(settings, "codex_cli_llm_command", "codex") or "codex").strip() or "codex"
+        command = (
+            str(getattr(settings, "codex_cli_llm_command", "codex") or "codex").strip()
+            or "codex"
+        )
         binary_available = bool(_resolve_codex_bin(command))
         auth_available = bool(has_valid_token_sink())
-        fallback_enabled = bool(getattr(settings, "codex_cli_llm_fallback_enabled", True))
+        fallback_enabled = bool(
+            getattr(settings, "codex_cli_llm_fallback_enabled", True)
+        )
+        preferred = bool(getattr(settings, "codex_cli_llm_preferred", True))
         available = bool(codex_cli_llm_available())
+        user_config = load_user_codex_model_config()
+        model = resolve_codex_model(
+            configured_model=getattr(settings, "codex_cli_llm_model", ""),
+            user_config=user_config,
+        )
         return {
             "available": available,
             "binary_available": binary_available,
             "auth_available": auth_available,
             "fallback_enabled": fallback_enabled,
-            "model": str(getattr(settings, "codex_cli_llm_model", "") or "").strip() or None,
+            "preferred": preferred,
+            "model": model,
+            "model_provider": user_config.model_provider or None,
             "reason": None if available else "codex_cli_binary_or_auth_unavailable",
         }
     except Exception as exc:  # noqa: BLE001
@@ -737,7 +931,12 @@ def _codex_cli_status(override: Mapping[str, Any] | None) -> dict[str, Any]:
 
 
 def _selected_llm_provider(settings_source: Any) -> str:
-    return str(_setting(settings_source, "llm_provider", "openai") or "openai").strip().lower() or "openai"
+    return (
+        str(_setting(settings_source, "llm_provider", "openai") or "openai")
+        .strip()
+        .lower()
+        or "openai"
+    )
 
 
 def _setting(settings_source: Any, key: str, default: Any = None) -> Any:

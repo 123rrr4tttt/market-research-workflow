@@ -1,0 +1,56 @@
+{
+  "manifest_version": "vector-downstream-fresh-chain.v1",
+  "generated_at": "2026-09-06",
+  "scope": "fresh offline Wave8 attempted; dependent Wave18/Wave19/Wave27/Wave29 not run after explicit Wave8 evidence-source block",
+  "authority": {
+    "authoritative": false,
+    "execution_status": "NOT_LIVE",
+    "production_release_authorized": false,
+    "live_api_base": "",
+    "live_ui_base": "",
+    "ceiling": ["NO_NETWORK", "NO_DNS", "NO_PROVIDER", "NO_CONTAINER", "NO_SERVICE", "NO_USER_DB", "NO_MODEL_DOWNLOAD", "NO_PRODUCTION_WRITE", "NO_CUTOVER", "NO_AUTHORITY_TRANSFER"]
+  },
+  "current_source_hashes": {
+    "ops/search-lab/scripts/wave8_search_vectorization_contract.py": "23a479ca10fca00dba974741ad2f35c3f881cd0801f88d9859994036d02a7294",
+    "ops/search-lab/scripts/wave18_vectorization_hybrid_readback.py": "acc16e849e0c5762b40ad87a858e2434728b3f7b7e19aec507a977d01212701f",
+    "ops/search-lab/scripts/wave19_vectorization_provider_manifest_readback.py": "2ee739b645858bc94f250de46b6a7d6306d4e1f59ede9eac9428869a71014fcc",
+    "ops/search-lab/scripts/wave27_vectorization_closure_gate.py": "2a5ca4cf7ecb488951c27607eb6feca1c4539d97878f05861cef63c8b5f9db8a",
+    "ops/search-lab/scripts/wave29_oss_node_vector_manifest_replay.py": "23905d0174444ad3eef13ac86acae96ebcde2248add0360039c03531bf9c5b16",
+    "docs/governance/functorial-structural-debt-remediation-progress.v1.md": "e653beaccefe35f48f1b99e718dd93ab758e87a2e7829f8f6504430a97cc2dc0",
+    "local/vector-downstream/run_wave8_fresh.py": "ff9b36b5be4a396e89df9a1d9cb508f6805abf7f78df08c81c0fad283e6caa3b"
+  },
+  "upstream_final_artifacts": {
+    "wave10": {"path": "/private/tmp/mrw-wave10-12-14-final.BpFCAg/wave10/contract_summary.json", "sha256": "e84c7f3bb79a693d479e7be55da940d65750be980cbb00b9a91ae854051aa238", "status": "passed", "closure_claim_allowed": false, "execution_status": "NOT_LIVE"},
+    "wave12": {"path": "/private/tmp/mrw-wave10-12-14-final.BpFCAg/wave12/provider_readiness_summary.json", "sha256": "fe429020f21efb7eb7645e903d278ec98bcc2321ae56ae41b5b224ff0069f4de", "status": "passed", "readiness_state": "partial", "live_probes": "not_run", "closure_claim_allowed": false},
+    "wave14": {"path": "/private/tmp/mrw-wave10-12-14-final.BpFCAg/wave14/provider_capability_summary.json", "sha256": "6d7206da1a87a6330962cb40fda8d559c9f55843a6a538b2280aba918c2987d1", "status": "passed", "closure_claim_allowed": false, "execution_status": "NOT_LIVE"}
+  },
+  "wave8": {
+    "command": "PYTHONPATH=$PWD/src:$PWD/main/backend main/backend/.venv311/bin/python stage1-successor-evidence/current-byte-remediation-v1/local/vector-downstream/run_wave8_fresh.py",
+    "options": {"network": false, "dns": false, "container_start": false, "live_api_base": "", "live_ui_base": ""},
+    "exit": 1,
+    "stdout": "wave8.raw.stdout",
+    "stderr": "wave8.raw.stderr",
+    "stdout_sha256": "56337fc0905444f6bca2f549a47f8318a0a1dddf699d1b1f73dbc9c0cd66089a",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "artifact": "wave8/contract_summary.json",
+    "artifact_sha256": "70203b37701d598c511f37a7e7578486106d715e421a2d8503d0178a21df0fbe",
+    "status": "failed",
+    "failure_codes": ["EVIDENCE_SOURCE_UNAVAILABLE"],
+    "blocker": "search_provider_container_replay input provider_trace_replay_summary.json is unavailable; no historical claim-016 aggregate or live/container input was reused",
+    "nodeid_coverage": ["tests.unit.test_wave8_search_vectorization_contract_unittest.Wave8SearchVectorizationContractTest::test_wave8_contract_reuses_recorded_evidence_without_claiming_live_services"]
+  },
+  "dependent_chain": {
+    "wave18": {"status": "not_run", "reason": "blocked by Wave8 EVIDENCE_SOURCE_UNAVAILABLE"},
+    "wave19": {"status": "not_run", "reason": "blocked by Wave8 EVIDENCE_SOURCE_UNAVAILABLE"},
+    "wave27": {"status": "not_run", "reason": "blocked by Wave8 EVIDENCE_SOURCE_UNAVAILABLE"},
+    "wave29": {"status": "not_run", "reason": "blocked by Wave8 EVIDENCE_SOURCE_UNAVAILABLE"}
+  },
+  "verification": {
+    "focused_tests": {"command": "PYTHONPATH=$PWD/src:$PWD/main/backend main/backend/.venv311/bin/python -m pytest -q main/backend/tests/unit/test_wave8_search_vectorization_contract_unittest.py", "exit": 0, "result": "1 passed"},
+    "compile": {"command": "main/backend/.venv311/bin/python -m py_compile local/vector-downstream/run_wave8_fresh.py", "exit": 0},
+    "ruff": {"command": "ruff check local/vector-downstream/run_wave8_fresh.py", "exit": 0},
+    "schema_reference_hash_unique_id": {"command": "PYTHONPATH=$PWD/src:$PWD/main/backend main/backend/.venv311/bin/python - <<'PY' ...", "status": "passed", "exit": 0, "stdout": "schema-reference-hash.stdout", "stderr": "schema-reference-hash.stderr"},
+    "progress_source_temp_consistency": {"command": "main/backend/.venv311/bin/python - <<'PY' ...", "status": "passed", "exit": 0, "stdout": "progress-consistency.stdout", "stderr": "progress-consistency.stderr"}
+  },
+  "resource_cleanup": {"network": false, "dns": false, "containers_or_services_started": false, "external_provider_calls": false, "production_or_user_db_writes": false, "temporary_store_cleanup": "no store created by Wave8; upstream temporary files retained until supervisor confirms chain archival"}
+}

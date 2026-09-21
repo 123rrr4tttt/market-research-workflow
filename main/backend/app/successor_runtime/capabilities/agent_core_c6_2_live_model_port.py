@@ -13,7 +13,7 @@ import os
 import urllib.error
 import urllib.request
 from collections.abc import Callable
-from typing import Any
+from typing import Annotated, Any, TypeAlias
 
 from app.successor_runtime.capabilities import agent_core_c6_2 as c6_2
 from app.successor_runtime.capabilities.agent_core_c6_common import (
@@ -37,6 +37,7 @@ ENV_VAR_NAME = "OPENAI_API_KEY"
 DEFAULT_MODEL = "gpt-4o-mini"
 DEFAULT_BASE_URL = "https://api.openai.com/v1"
 CHAT_COMPLETIONS_PATH = "/chat/completions"
+_OpenAITransportResponse: TypeAlias = tuple[int, dict[str, Any] | c6_2.ProviderFailure]
 
 _AUTHORITY_PAYLOAD = {
     "schema": "mrw.successor.agent-core.c6-2.authority.v1",
@@ -52,10 +53,6 @@ class OpenAIOutcomeUnknownBeforeSendError(RuntimeError):
     """Marker for a provider call whose outcome is unknown before HTTP send."""
 
 
-class _OpenAIProtocolResponseError(ValueError):
-    """Marker for a malformed or non-JSON chat completions response."""
-
-
 def openai_authority_digest() -> str:
     """Return the C6.2 authority digest required for this live binding."""
 
@@ -66,19 +63,27 @@ def _default_api_key_provider() -> str | None:
     return os.getenv(ENV_VAR_NAME)
 
 
-def _decode_http_body(raw: bytes, *, require_object: bool) -> dict[str, Any]:
+def _decode_http_body(
+    raw: bytes,
+    *,
+    require_object: bool,
+) -> dict[str, Any] | c6_2.ProviderFailure:
     try:
         decoded = json.loads(raw.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+    except (UnicodeDecodeError, json.JSONDecodeError):
         if require_object:
-            raise _OpenAIProtocolResponseError(
-                "OpenAI chat completions response is not valid JSON"
-            ) from exc
+            return c6_2.ProviderFailure(
+                code="ProviderProtocolInvalid",
+                message="OpenAI chat completions response is not valid JSON",
+                retryable=False,
+            )
         return {}
     if not isinstance(decoded, dict):
         if require_object:
-            raise _OpenAIProtocolResponseError(
-                "OpenAI chat completions response is not a JSON object"
+            return c6_2.ProviderFailure(
+                code="ProviderProtocolInvalid",
+                message="OpenAI chat completions response is not a JSON object",
+                retryable=False,
             )
         return {}
     return decoded
@@ -89,7 +94,7 @@ def _openai_chat_transport(
     body: dict[str, Any],
     headers: dict[str, str],
     timeout_seconds: float,
-) -> tuple[int, dict[str, Any]]:
+) -> _OpenAITransportResponse:
     """POST one OpenAI chat completions request and decode its JSON body."""
 
     encoded = json.dumps(body, ensure_ascii=True, separators=(",", ":")).encode("utf-8")
@@ -100,9 +105,7 @@ def _openai_chat_transport(
         method="POST",
     )
     try:
-        with urllib.request.urlopen(
-            request, timeout=float(timeout_seconds)
-        ) as response:
+        with urllib.request.urlopen(request, timeout=float(timeout_seconds)) as response:
             status = int(getattr(response, "status", None) or response.getcode() or 200)
             raw = response.read()
     except urllib.error.HTTPError as exc:
@@ -126,7 +129,7 @@ class OpenAILiveProviderPort:
         api_key_provider: Callable[[], str | None] | None = None,
         transport: Callable[
             [str, dict[str, Any], dict[str, str], float],
-            tuple[int, dict[str, Any]],
+            _OpenAITransportResponse,
         ]
         | None = None,
         model: str | None = None,
@@ -145,9 +148,7 @@ class OpenAILiveProviderPort:
             os.getenv("OPENAI_API_BASE"),
             DEFAULT_BASE_URL,
         )
-        self.timeout_seconds = (
-            30.0 if timeout_seconds is None else float(timeout_seconds)
-        )
+        self.timeout_seconds = 30.0 if timeout_seconds is None else float(timeout_seconds)
         self.requests: list[c6_2.AgentModelStepRequest] = []
         self.started: list[dict[str, Any]] = []
 
@@ -203,19 +204,14 @@ class OpenAILiveProviderPort:
             "Content-Type": "application/json",
         }
         user_probe = (
-            "PARITY_OK probe for session "
-            f"{request.session_id}, turn {request.turn_id}, "
-            f"iteration {request.iteration}."
+            f"PARITY_OK probe for session {request.session_id}, turn {request.turn_id}, iteration {request.iteration}."
         )
         body: dict[str, Any] = {
             "model": self.model,
             "messages": [
                 {
                     "role": "system",
-                    "content": (
-                        "You are a C6.2 provider parity probe. "
-                        "Reply with exactly PARITY_OK and nothing else."
-                    ),
+                    "content": ("You are a C6.2 provider parity probe. Reply with exactly PARITY_OK and nothing else."),
                 },
                 {"role": "user", "content": user_probe},
             ],
@@ -233,12 +229,6 @@ class OpenAILiveProviderPort:
             return self._provider_failure(
                 "ProviderOutcomeUnknown",
                 "OpenAI provider outcome is unknown before send",
-                retryable=False,
-            )
-        except _OpenAIProtocolResponseError:
-            return self._provider_failure(
-                "ProviderProtocolInvalid",
-                "OpenAI chat completions response is not valid JSON",
                 retryable=False,
             )
         except (ValueError, TypeError):
@@ -302,6 +292,8 @@ class OpenAILiveProviderPort:
                 "OpenAI chat completions returned an unexpected status",
                 retryable=False,
             )
+        if isinstance(response, c6_2.ProviderFailure):
+            return response
         if not isinstance(response, dict):
             return self._provider_failure(
                 "ProviderProtocolInvalid",
@@ -361,10 +353,7 @@ class OpenAILiveProviderPort:
         return c6_2.ProviderStepSucceeded(
             schema_version="mrw.successor.agent-core.c6-2.step-success.v1",
             step=step,
-            provider_observation_ref=(
-                f"project-value:observation:c6-2-live:"
-                f"{request.session_id}:{request.turn_id}"
-            ),
+            provider_observation_ref=(f"project-value:observation:c6-2-live:{request.session_id}:{request.turn_id}"),
             provider_calls=self.provider_calls,
         )
 
@@ -381,13 +370,17 @@ def build_openai_live_provider_port(
     api_key_provider: Callable[[], str | None] | None = None,
     transport: Callable[
         [str, dict[str, Any], dict[str, str], float],
-        tuple[int, dict[str, Any]],
+        _OpenAITransportResponse,
     ]
     | None = None,
     model: str | None = None,
     base_url: str | None = None,
     timeout_seconds: float = 30.0,
-) -> OpenAILiveProviderPort | None:
+) -> Annotated[
+    OpenAILiveProviderPort | None,
+    "kit:prepared-command effect_boundary=openai_live_provider_transport "
+    "witness=test:test_w05_agent_core_authority_metadata",
+]:
     """Return a live OpenAI port only when a credential is available."""
 
     key_provider = api_key_provider or _default_api_key_provider

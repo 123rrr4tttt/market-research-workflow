@@ -1,0 +1,29 @@
+{
+  "authoritative": false,
+  "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+  "member_count": 4,
+  "members": [
+    {
+      "bytes": 11829,
+      "path": "stage1-successor-evidence/stage2-v6-intake-remediation-v3/build_stage2_v6_intake_remediation_v3.py",
+      "sha256": "b168d4a6834e522c5de71b8076e8d4c07144973e676c02b76ac021bc13c287a5"
+    },
+    {
+      "bytes": 14838,
+      "path": "stage1-successor-evidence/stage2-v6-intake-remediation-v3/check_stage2_v6_intake_remediation_v3.py",
+      "sha256": "2fb3c41d34efb3225ea0776419b46febc02ab94729f954ae328318a727194c4a"
+    },
+    {
+      "bytes": 6156,
+      "path": "stage1-successor-evidence/stage2-v6-intake-remediation-v3/stage2-v6-intake-remediation-record.v3.json",
+      "sha256": "69ed505d428771104dc906b42ebd8f16b5f7b1458edaa785236ae9231d8c6a14"
+    },
+    {
+      "bytes": 2529,
+      "path": "stage1-successor-evidence/stage2-v6-intake-remediation-v3/test_stage2_v6_intake_remediation_v3.py",
+      "sha256": "dd9737c1911f43107436ba4fbf9e61ce740a89d1cb75c0ccbe5eccb07d731444"
+    }
+  ],
+  "schema_version": "mrw.stage1.stage2_v6_intake_remediation_manifest.v3",
+  "status": "COMPLETE_NOT_AUTHORITY"
+}

@@ -8,7 +8,11 @@ import ast
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
+try:
+    from ._cli_runtime import repo_root as _repo_root
+except ImportError:  # direct script execution
+    from _cli_runtime import repo_root as _repo_root
 
 
 CONTRACT_VERSION = "consumer.sql_predicate_facade.wave15.v1"
@@ -85,10 +89,6 @@ class SqlJsonRead:
     column: int
     expression: str
     function: str | None = None
-
-
-def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[3]
 
 
 def _read_text(path: Path) -> str:
@@ -254,7 +254,14 @@ def _export_result(root: Path) -> dict[str, Any]:
     }
 
 
-def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
+def build_check(
+    repo_root: Path | str | None = None,
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=preflight "
+    "fact_source=repository_source_files "
+    "witness=test:test_c11_cli_agent_authority_metadata",
+]:
     root = Path(repo_root) if repo_root is not None else _repo_root()
     root = root.resolve()
     facade = _facade_result(root)

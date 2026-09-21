@@ -1,0 +1,77 @@
+{
+  "schema_version": "mrw.formal_release.stage3.test_gates.v1",
+  "record_id": "stage3-v4-test-gates-rebuild-required-20260906",
+  "stage_id": "STAGE_3",
+  "candidate_generation": "V4_ADDITIVE_SUCCESSOR",
+  "status": "REBUILD_REQUIRED",
+  "authoritative": false,
+  "candidate_commit": "e1aa59708a22e4238c4d9beaf7b7bd2d2095d483",
+  "candidate_tree": "d2003fbb8e54c8dd743fa4e84907a8a978ef5107",
+  "required_gate": "backend-unit-check",
+  "attempts": [
+    {
+      "attempt": 1,
+      "environment": "existing Python 3.11 toolchain without workflow PYTHONPATH",
+      "exit_code": 2,
+      "status": "BLOCKED_BY_TOOLCHAIN_CONFIGURATION",
+      "exact_result": "collection interrupted with 292 errors; 1 skipped; 585 deselected; mrw_functorial_kit was not importable",
+      "evidence_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/receipts/backend-unit-attempt1-missing-ci-env.log",
+      "evidence_sha256": "c9d5461f589a6b6545117f3ad79c26910e67acc03db3c0727b5e7b062ec2b222"
+    },
+    {
+      "attempt": 2,
+      "environment": "workflow-equivalent PYTHONPATH=<exact-v4>/src with Python 3.11.14 and PYTHONHASHSEED=0",
+      "exit_code": 2,
+      "status": "FAIL",
+      "exact_result": "collection interrupted with 292 errors; 1 skipped; 585 deselected; imports require candidate-local mrw_functorial_kit.core.w07_semantics and mrw_functorial_kit.core.agent_service_semantics, but both modules are absent from the exact v4 tree",
+      "evidence_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/receipts/backend-unit-attempt2-ci-env.log",
+      "evidence_sha256": "6b7700ca2b8e1db75996e44bd2e376ca7c25f86e5a6cbf9798b14c1d96e39c49"
+    }
+  ],
+  "diagnosis": {
+    "failure_id": "stage3.v4.missing_mrw_functorial_core_modules",
+    "classification": "FROZEN_CANDIDATE_SOURCE_CLOSURE_FAILURE",
+    "owner": "STAGE_1_SOURCE_CLOSURE_AND_STAGE_2_ADDITIVE_SUCCESSOR",
+    "tracked_candidate_package_files": [
+      "src/mrw_functorial_kit/core/c7_semantics.py",
+      "src/mrw_functorial_kit/core/provider_port_failures.py",
+      "src/mrw_functorial_kit/core/w06_semantics.py"
+    ],
+    "required_but_absent_files": [
+      "src/mrw_functorial_kit/core/w07_semantics.py",
+      "src/mrw_functorial_kit/core/agent_service_semantics.py"
+    ],
+    "evidence_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/receipts/backend-unit-import-gap-diagnostic.log",
+    "evidence_sha256": "d251cbc3ebd5bc95fc743792dc9a26a0aa6b3a55d31273efd9341f5f81e63e76",
+    "repair_requires_frozen_input_change": true,
+    "earliest_return_stage": "STAGE_1",
+    "successor_rebind_required": true,
+    "in_place_candidate_repair_forbidden": true
+  },
+  "not_executed_due_to_stop_rule": [
+    "backend integration",
+    "backend core-business",
+    "schema and migration",
+    "successor-runtime",
+    "architecture, registry, law, exact-byte and negative/failure",
+    "PostgreSQL opt-in suites",
+    "frontend frozen install, lint, typecheck, build, component and e2e",
+    "Bandit, pip-audit, gitleaks, frontend dependency audit and image scan",
+    "Docker build and full-stack smoke",
+    "remote GitHub readback",
+    "artifact build and reproducibility",
+    "SBOM, provenance, signature and attestation verification",
+    "registry immutability readback"
+  ],
+  "warning_skip_deselect_inventory": {
+    "attempt_1": {"warnings": [], "skips": 1, "deselects": 585, "collection_errors": 292},
+    "attempt_2": {"warnings": [], "skips": 1, "deselects": 585, "collection_errors": 292},
+    "canonical_candidate_non_evidence_execution": {
+      "status": "WARNING",
+      "owner": "schema-analysis subagent",
+      "exact_result": "A read-only focused R2 pytest was executed once in the canonical v4 directory with PYTHONDONTWRITEBYTECODE=1; it reported 9 passed and left candidate tracked/untracked status at 0. It is excluded from Stage 3 fresh evidence."
+    }
+  },
+  "external_effects": [],
+  "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE"
+}

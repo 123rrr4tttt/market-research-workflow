@@ -1,0 +1,1 @@
+docker tag sha256:7d195b06f8f3c568aecca001c588309e66c8be07a8bc4ab5d7f0186000d82b2b mrw-r13p-runtime-migration-runner-canonical:local 

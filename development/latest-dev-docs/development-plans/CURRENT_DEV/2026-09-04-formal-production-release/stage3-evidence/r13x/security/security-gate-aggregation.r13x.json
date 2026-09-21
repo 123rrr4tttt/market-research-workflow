@@ -1,0 +1,81 @@
+{
+  "authoritative": false,
+  "authority_ceiling": "Local evidence only; authoritative=false. This aggregation is not Stage 3 acceptance, release approval, production authority, signing authority, deployment authority, or publication authority.",
+  "candidate": {
+    "clean": true,
+    "commit": "8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+    "tree": "ce7c67c831b51f9d64b4c2f1a470a724a50b19df"
+  },
+  "contract_source": {
+    "workflow": {
+      "bytes": 78330,
+      "path": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260912-v4-r13x/candidate/.github/workflows/backend-tests.yml",
+      "sha256": "47225ea8db96ed23e361e7480fa6d22db78be405e5e4d5dc5d4a2edac1bd1b7f"
+    },
+    "workflow_security_block_lines": "747-850"
+  },
+  "generated_at_utc": "2026-09-12T16:09:08.713523Z",
+  "limitations": [
+    "pip-audit attempt 1 was an external TLS EOF; the same exact command and input passed on attempt 2, and both attempts are retained.",
+    "Gitleaks scanner exit 1 denotes findings; gate PASS follows only from the exact 403-group disposition with zero unresolved groups.",
+    "Image Trivy was not rerun; existing exact r13x digest-bound reports and their checksum manifest were revalidated.",
+    "Tool-native raw JSON schemas do not carry authority fields; every interpreting r13x wrapper and this aggregation explicitly set authoritative=false."
+  ],
+  "required_gates": {
+    "bandit": {
+      "evidence": {
+          "bytes": 2095,
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/security/bandit.r13x.json",
+          "sha256": "226cec03955a2a32694d988a6326e264a788b525541520e32a5c4871aceae582"
+      },
+      "status": "PASS"
+    },
+    "frontend_dependency_audit": {
+      "evidence": {
+          "bytes": 2816,
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/security/frontend-dependency-audit.r13x.json",
+          "sha256": "2b000adfc9fe5dcf41da67ede6268a7847fc914ee4fc8c23843032d722f8a7f8"
+      },
+      "status": "PASS"
+    },
+    "gitleaks": {
+      "evidence": {
+        "bytes": 300303,
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/security/gitleaks-disposition.r13x.json",
+          "sha256": "5e18684c97e32b323738db3874a95bc6fba16643ae57140702d7061277c089d1"
+      },
+      "status": "PASS"
+    },
+    "image_trivy": {
+      "evidence": {
+        "bytes": 6571,
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/security/trivy-exact-artifact-reference.r13x.json",
+        "sha256": "7908f6a5933fb5276c07fbddd98216a642b0902bd232daf963cb4e447ba0d02f"
+      },
+      "status": "PASS_REFERENCED"
+    },
+    "pip_audit": {
+      "evidence": {
+          "bytes": 3918,
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/security/pip-audit.r13x.json",
+          "sha256": "cef2aef467aceaa931a7423a2651aa7a0c88c26068862b171586c85332ff7cdf"
+      },
+      "status": "PASS"
+    }
+  },
+  "schema_version": "mrw.stage3.security-gate-aggregation.v1",
+  "status": "PASS_REQUIRED_LOCAL_SOURCE_SECURITY_GATES_NOT_AUTHORITY",
+  "summary": {
+    "bandit_high_high_findings": 0,
+    "frontend_critical": 0,
+    "frontend_high": 0,
+    "gitleaks_new_or_changed_groups": 0,
+    "gitleaks_raw_findings": 417,
+    "gitleaks_stable_groups": 403,
+    "gitleaks_unresolved_groups": 0,
+    "pip_audit_dependencies": 123,
+    "pip_audit_known_vulnerabilities": 0,
+    "trivy_critical": 0,
+    "trivy_high": 0
+  }
+}

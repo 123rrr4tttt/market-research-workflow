@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import Any
+from typing import Annotated, Any
 
 SEARCH_POLICY_BENCHMARK_CONTRACT_VERSION = "agent_batch.search_policy_benchmark.v1"
 
@@ -44,7 +44,11 @@ _BENCHMARK_CASES: list[dict[str, Any]] = [
 ]
 
 
-def build_search_policy_benchmark_pack() -> dict[str, Any]:
+def build_search_policy_benchmark_pack() -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=_BENCHMARK_CASES+policy_contract_constants "
+    "witness=test:test_w02_agent_authority_metadata"
+]:
     return {
         "contract_version": SEARCH_POLICY_BENCHMARK_CONTRACT_VERSION,
         "cases": deepcopy(_BENCHMARK_CASES),

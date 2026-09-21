@@ -1,0 +1,8 @@
+{
+  "status": "NO_MATCHING_TASK_PROCESS_OBSERVED",
+  "command": "ps -axo pid,ppid,command | rg 'mrw-stage3-v6-backend-recovery|pytest tests/successor_runtime'",
+  "exit_code": 0,
+  "read_only_escalation": true,
+  "output": "41169 1750 /bin/zsh -c ps -axo pid,ppid,command | rg 'mrw-stage3-v6-backend-recovery|pytest tests/successor_runtime'\n41175 41169 rg mrw-stage3-v6-backend-recovery|pytest tests/successor_runtime\n",
+  "interpretation": "Only inspection shell and rg matched. Runner session ended exit 130 after Ctrl-C; no matching runner or successor pytest remained."
+}

@@ -1,0 +1,56 @@
+{
+  "buildx.build.provenance": {
+    "builder": {
+      "id": ""
+    },
+    "buildType": "https://mobyproject.org/buildkit@v1",
+    "materials": [
+      {
+        "uri": "pkg:docker/python@3.11-slim?digest=sha256:9534e5a8e315485d4061ed659af0fd78a284c015f9b73661b41d6bab25604534\u0026platform=linux%2Famd64",
+        "digest": {
+          "sha256": "9534e5a8e315485d4061ed659af0fd78a284c015f9b73661b41d6bab25604534"
+        }
+      }
+    ],
+    "invocation": {
+      "configSource": {
+        "entryPoint": "Dockerfile"
+      },
+      "parameters": {
+        "frontend": "dockerfile.v0",
+        "args": {
+          "build-arg:SOURCE_DATE_EPOCH": "0",
+          "no-cache": "",
+          "target": "migration-runner"
+        },
+        "locals": [
+          {
+            "name": "context"
+          },
+          {
+            "name": "dockerfile"
+          }
+        ]
+      },
+      "environment": {
+        "dockerfileVersion": "1.26.0",
+        "platform": "linux/arm64"
+      }
+    }
+  },
+  "buildx.build.ref": "mrw-r13r-amd64-migration-runner-b-13419-1789009524/mrw-r13r-amd64-migration-runner-b-13419-17890095240/b6b7qp299xamo0gvrmywqh13g",
+  "containerimage.config.digest": "sha256:cd7008d1ba46b1232088d077ff52daa31406a87c8414938a11dc5cd3834006d2",
+  "containerimage.descriptor": {
+    "mediaType": "application/vnd.oci.image.manifest.v1+json",
+    "digest": "sha256:727ab5d23c89119fae6872882f1458c30f09467c45d207d29b335589270a179d",
+    "size": 3983,
+    "annotations": {
+      "org.opencontainers.image.created": "1970-01-01T00:00:00Z"
+    },
+    "platform": {
+      "architecture": "amd64",
+      "os": "linux"
+    }
+  },
+  "containerimage.digest": "sha256:727ab5d23c89119fae6872882f1458c30f09467c45d207d29b335589270a179d"
+}

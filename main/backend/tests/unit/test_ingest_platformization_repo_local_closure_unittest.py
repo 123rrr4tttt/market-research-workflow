@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 import unittest
 from pathlib import Path
+from typing import Annotated, get_args, get_origin, get_type_hints
 
 import pytest
 
@@ -67,6 +68,16 @@ class IngestPlatformizationRepoLocalClosureUnitTestCase(unittest.TestCase):
         self.assertTrue(any("blocker must be closed" in error for error in errors))
         self.assertTrue(any("repo_local_blockers_open" in error for error in errors))
         self.assertTrue(any("archive_recommendation" in error for error in errors))
+
+    def test_ingest_platformization_repo_local_authority_metadata(self) -> None:
+        return_hint = get_type_hints(build_check, include_extras=True)["return"]
+        self.assertIs(get_origin(return_hint), Annotated)
+        _, metadata = get_args(return_hint)
+        self.assertEqual(
+            metadata,
+            "kit:non-authoritative derived_as=preflight fact_source=repo_local.ingest_platformization_checks "
+            "witness=test:test_ingest_platformization_repo_local_authority_metadata",
+        )
 
 
 if __name__ == "__main__":

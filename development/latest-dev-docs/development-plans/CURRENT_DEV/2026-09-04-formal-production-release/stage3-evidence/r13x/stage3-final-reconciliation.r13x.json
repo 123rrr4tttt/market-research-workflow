@@ -1,0 +1,176 @@
+{
+  "schema_version": "mrw.stage3.final-reconciliation.r13x.v1",
+  "generated_at": "2026-09-13T00:34:02+08:00",
+  "authoritative": false,
+  "stage": 3,
+  "status": "AWAITING_HUMAN_AUTHORITY",
+  "stage3_pass_established": false,
+  "authority_ceiling": "PRODUCTION_RELEASE_NOT_AUTHORIZED",
+  "candidate": {
+    "label": "r13x",
+    "root": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260912-v4-r13x",
+    "commit": "8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+    "tree": "ce7c67c831b51f9d64b4c2f1a470a724a50b19df",
+    "base": "88ffcc3dab2e6cbdc1f389e16c4226df5a2e51c6",
+    "candidate_clean": true,
+    "replay_clean": true,
+    "standalone_non_shallow": true,
+    "manifest_sha256": "f14ac45d6e35d491e38aae53c040bcede8f4ddff6bb85837dc99933f2fe01dbc",
+    "stage1_stage2_result_sha256": "cea444dd26be69a8f1c7116eddef5ddcf2cc682401f199748c353c72eaa79da4",
+    "stage1_stage2_index_sha256": "968cd2cb5a1d70399f9190e094e80a46224874863844458a6351500a3b916951"
+  },
+  "local_completion": {
+    "identity_and_static_contract": "PASS",
+    "affected_formal_release_tests": "PASS_84",
+    "postgresql_opt_in": "PASS_3",
+    "architecture": "PASS_304_EXACT_PATCHED_KIT_PY311",
+    "dependency_safe_test_reuse": "PASS_WITH_ORIGINAL_EXECUTION_ATTRIBUTION",
+    "source_security": "PASS_REQUIRED_LOCAL_SOURCE_SECURITY_GATES",
+    "artifact_builds": "PASS_6_OF_6",
+    "artifact_reproducibility": "PASS_ALL_THREE_ROLES_EXACT",
+    "attestation_subject_binding": "PASS",
+    "image_vulnerability_threshold": "PASS_HIGH_0_CRITICAL_0_ALL_THREE_ROLES",
+    "runtime_content": "PASS",
+    "migration_default_upgrade_head": "PASS",
+    "full_stack": "PASS_SCOPED",
+    "cleanup": "PASS_WITH_EXACT_RELEASE_INPUTS_RETAINED"
+  },
+  "artifacts": {
+    "backend": "sha256:dd4b1f3b512da6d013feb7f5925f343e5a639263b037d5a81445bfa2f8c93c0b",
+    "frontend": "sha256:a5b09b80fde1d2bbeb31c54137292e4a4bca7e2cf1f665b858f2d68a05c54e5c",
+    "migration_runner": "sha256:535ac0b1b06ed507e14bc9a1bfc96c27d4522bada61cbc63a9fa959721b59bc5"
+  },
+  "test_accounting": {
+    "fresh": {
+      "affected_formal_release": {"passed": 84, "failed": 0},
+      "postgresql_opt_in": {"passed": 3, "failed": 0},
+      "architecture": {"passed": 304, "failed": 0}
+    },
+    "superseded_invocation_defects": [
+      "Architecture attempt 03 used workspace Python 3.13 and an installed unpatched functorial-kit; it was superseded by the exact Python 3.11 patched-kit run.",
+      "Architecture attempt 03b used the wrong working directory and collected no tests; it was superseded by the exact Python 3.11 patched-kit run."
+    ],
+    "reused_with_byte_identity": {
+      "backend_unit": "1821 passed, 2337 deselected, 25 warnings, 52 subtests",
+      "backend_integration": "384 passed, 291 skipped, 3483 deselected, 20 warnings, 69 subtests",
+      "core_business": "256 passed, 16 warnings, 15 subtests",
+      "schema_guard": "3 passed, 16 warnings",
+      "migration_schema_contracts": "13 passed",
+      "successor_runtime_non_postgresql": "1484 passed, 292 skipped, 4 warnings",
+      "frontend_install_lint_typecheck_build": "PASS",
+      "frontend_e2e_full": "108 passed, 4 skipped",
+      "frontend_e2e_fixture": "2 passed",
+      "frontend_e2e_scripted_provider": "8 passed"
+    },
+    "nonpass_inventory": "tests/nonpass-inventory.r13x.json"
+  },
+  "security_accounting": {
+    "bandit_high_high": 0,
+    "pip_audit_dependencies": 123,
+    "pip_audit_known_vulnerabilities": 0,
+    "frontend_high": 0,
+    "frontend_critical": 0,
+    "gitleaks_raw_findings": 417,
+    "gitleaks_stable_groups": 403,
+    "gitleaks_new_or_changed_groups": 0,
+    "gitleaks_unresolved_groups": 0,
+    "trivy_high": 0,
+    "trivy_critical": 0
+  },
+  "runtime_limitations": [
+    "Deep health is degraded only because OPENAI_API_KEY was absent and live-provider execution was not authorized.",
+    "The extra metadata-only `alembic heads` console-script invocation cannot import migrations outside the production compose working directory; the exact production default `alembic upgrade head` passed, reached head 20260905_000001, and read back 67 public tables."
+  ],
+  "external_authority_blockers": [
+    {
+      "id": "remote.exact_sha_required_checks_enforcement",
+      "status": "AWAITING_HUMAN_AUTHORITY",
+      "observed": "Exact candidate SHA is absent from GitHub; Actions runs and exact-SHA conclusions are zero; main has no branch protection or rulesets; backend-tests is disabled_inactivity.",
+      "required_actions": [
+        "Authorize pushing the exact candidate commit to 123rrr4tttt/market-research-workflow.",
+        "Authorize enabling and running backend-tests for that exact SHA.",
+        "Authorize configuring non-bypassable enforcement for the 13 declared required checks."
+      ]
+    },
+    {
+      "id": "registry.immutability",
+      "status": "AWAITING_HUMAN_AUTHORITY",
+      "observed": "No registry target, authenticated publish capability, package readback, or immutability proof is established; GitHub Packages readback returned 403 without read:packages.",
+      "required_actions": [
+        "Select and authorize the registry target and credential scope.",
+        "Authorize publishing or digest promotion for the three exact artifacts and read back immutability/non-overwrite evidence."
+      ]
+    },
+    {
+      "id": "signing.transparency",
+      "status": "AWAITING_HUMAN_AUTHORITY",
+      "observed": "No signing identity/key, signature, verification receipt, or transparency-log entry is established.",
+      "required_actions": [
+        "Provide or authorize the signing identity/key and transparency-log write.",
+        "Sign and verify the three published exact artifact digests."
+      ]
+    },
+    {
+      "id": "runtime.live_provider",
+      "status": "AWAITING_HUMAN_AUTHORITY",
+      "observed": "OPENAI_API_KEY is absent and live-provider execution is not authorized.",
+      "required_actions": [
+        "Provide the live-provider credential and authorize the bounded deep-health/provider run."
+      ]
+    },
+    {
+      "id": "release_manifest.r2",
+      "status": "AWAITING_HUMAN_AUTHORITY",
+      "observed": "An actual release manifest was not fabricated while its remote, registry, signing, and live-provider inputs were absent.",
+      "required_actions": [
+        "After the other authority-dependent evidence exists, assemble the actual release manifest bound to this candidate and the three exact artifact digests, then run R2 with supplemental identity and evidence-hash verification."
+      ]
+    },
+    {
+      "id": "release_manifest.r2_contract_order",
+      "status": "AWAITING_HUMAN_AUTHORITY",
+      "observed": "The ten-family R2 input contract includes later Stage 4/5/6, independent-review, and promotion evidence while the stage order admits Stage 4 only after Stage 3 PASS.",
+      "required_actions": [
+        "Issue an explicit contract ruling that separates the Stage 3 transition R2 inputs from later-stage qualification inputs, or otherwise defines a non-circular stage order without fabricating later-stage PASS."
+      ]
+    }
+  ],
+  "evidence": {
+    "artifacts_result": {"path": "artifacts/result.json", "sha256": "ee182e66b17ff56a11f70682b1ce16f35a1246ad8b6865f5f603a80049b0c3e9"},
+    "artifacts_index": {"path": "artifacts/SHA256SUMS", "sha256": "bbe0e5e10e30c640130e7c1970cce58bc62cf32b70a1f300da2b7566df3f8d89"},
+    "runtime_summary": {"path": "runtime/summary.json", "sha256": "a3a4c29bfed66f06cf60d8c597c5c362ee7b3c22c7f722fb321d7d8801cafc86"},
+    "runtime_index": {"path": "runtime/SHA256SUMS", "sha256": "68aa6d99c07f8fc060c1bfba301bbae22479c0b44064e5769ab4502957420cf3"},
+    "security_result": {"path": "security/security-gate-aggregation.r13x.json", "sha256": "34b9f2f53d57f7c0f9b6aced7de27087d23885964c477b47d216ca7fccd82d35"},
+    "security_index": {"path": "security/SHA256SUMS", "sha256": "dacd29b313b5d326a19984ee4e47ff2b1581b2f67bda1b6c0ccb290e07effca3"},
+    "tests_result": {"path": "tests/local-test-gate-aggregation.r13x.json", "sha256": "564f4e3fd38a5463793b1baecb44fbf873d5320ca8dfd38ada96d56e33924f94"},
+    "tests_index": {"path": "tests/SHA256SUMS", "sha256": "96a9e0c52d361f056e65d9ee51a3be261537ea574739325713320ceb52577138"},
+    "remote_readback": {"path": "remote/remote-readback.r13x.json", "sha256": "569e1471879725214d4edc22743a4c95f93282c9fa48e10f59201890a528e875"},
+    "r2_gap_map": {"path": "r2/r2-release-manifest-gap-map.r13x.json", "sha256": "50d1a2105ea1ad35f6182d52a7539b98adcce62ffd0fbb28f2fefcaf667fc8a9", "status": "SUPERSEDED_EARLY_SCOPED_EVIDENCE"},
+    "retained_artifact_lifecycle": {"path": "retained-artifact-lifecycle.r13x.json", "sha256": "6870665d41a9c4edc3593a748d0e1e0d825afa97a636a69ae0c5b350ecb0ad72"},
+    "artifact_audit_supplement": {"path": "artifacts/artifact-audit-supplement.r13x.json", "sha256": "2c70a4d83d3277f8ad91fdd8164da21463982c05fa32abdf0bd4e248f91f5653"},
+    "test_nonpass_inventory": {"path": "tests/nonpass-inventory.r13x.json", "sha256": "275ddcd7d44941f04899ffaa01d91dca3bda84945fc13c747f5f796d1684eb1b"},
+    "final_requirement_matrix": {"path": "matrix/final-requirement-matrix.r13x.json", "sha256": "f988f26ca3fb296c90a3f10688e1ea5bd03ff0f80605967c64ace7d5b8a9455a"}
+  },
+  "supersedes_for_final_status": [
+    "matrix/requirement-matrix.r13x.json",
+    "matrix/work-package-result.r13x.json",
+    "r2/r2-release-manifest-gap-map.r13x.json"
+  ],
+  "external_effects": {
+    "local_task_owned_docker_resources": true,
+    "github_read_only_requests": true,
+    "remote_writes": [],
+    "registry_writes": [],
+    "signing_writes": [],
+    "deployments": [],
+    "production_writes": []
+  },
+  "authority": {
+    "stage3_pass": false,
+    "stage4_admitted": false,
+    "release_authorized": false,
+    "production_release_authorized": false,
+    "ceiling": "PRODUCTION_RELEASE_NOT_AUTHORIZED"
+  },
+  "conclusion": "All independently executable local Stage 3 work is complete and evidence-bound. Stage 3 is awaiting the explicitly listed human authority for remote exact-SHA enforcement, registry immutability, signing/transparency, live-provider execution, and the resulting actual release-manifest R2 validation."
+}

@@ -40,6 +40,21 @@ ABI_PATH = TOPIC / "evidence/capability-specs/RuntimeKernelABI.v1.json"
 BUILD_PATH = TOPIC / "evidence/capability-spec-builds/C7.1.BuildManifest.v1.json"
 C7_FRAGMENT_PATH = TOPIC / "evidence/p4-fragments/C7.json"
 FROZEN_10_PATH = TOPIC / "10_functorial-successor-domain-contract-snapshot.v1.json"
+B12_CANDIDATE_PATH = (
+    TOPIC
+    / "evidence/exact-byte-rebind/stage-b12-2026-09-05/candidates/C7/"
+    "candidate.v2.json"
+)
+B12_FRAGMENT_PATH = (
+    TOPIC / "evidence/exact-byte-rebind/stage-b12-2026-09-05/fragments/C7.json"
+)
+B12_CANDIDATE_ID = (
+    "763dfb78825e9664c9e4c3cbfa3245c7566669c29918957304a863b6311c5327"
+)
+B12_WITNESSED_SPEC_SOURCES = {
+    "main/backend/app/successor_runtime/capabilities/ingest_c7_common.py",
+    "main/backend/app/successor_runtime/capabilities/ingest_c7_program.py",
+}
 SCRIPT = BACKEND_ROOT / "scripts/generate_capability_spec_pilots.py"
 
 
@@ -130,7 +145,7 @@ def test_spec_maps_the_current_c7_1_semantics_without_authority_expansion() -> N
     assert manifest["generated"]["program_skeleton"]["reordering_permitted"] is False
 
 
-def test_spec_binds_frozen_10_and_current_source_test_rollback_bytes() -> None:
+def test_spec_binds_frozen_10_and_predecessor_source_test_rollback_bytes() -> None:
     spec = _spec()
     bindings = {binding.path: binding for binding in spec.exact_bindings()}
     frozen_path = FROZEN_10_PATH.as_posix()
@@ -147,7 +162,38 @@ def test_spec_binds_frozen_10_and_current_source_test_rollback_bytes() -> None:
     for binding in spec.exact_bindings():
         path = REPOSITORY_ROOT / binding.path
         assert path.is_file(), binding.path
-        assert hashlib.sha256(path.read_bytes()).hexdigest() == binding.file_sha256
+        live_digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        if binding.path == frozen_path:
+            assert live_digest == binding.file_sha256
+
+
+def test_stage_b12_candidate_witnesses_current_c7_spec_source_bytes() -> None:
+    candidate = _load(B12_CANDIDATE_PATH)
+    fragment = _load(B12_FRAGMENT_PATH)
+    assert candidate["schema"] == "mrw.family_fragment_rebind.candidate.v2"
+    assert candidate["candidate_id"] == B12_CANDIDATE_ID
+    assert candidate["status"] == "CANDIDATE_VALID_NOT_AUTHORITY"
+    assert candidate["amendment"] == (
+        "STAGE_B12_C7_FINAL_FAILURE_REBIND_CANDIDATE_NOT_AUTHORITY"
+    )
+    assert fragment["family"] == "C7"
+    assert fragment["status"] == "AHEAD_OF_TIME_SCAFFOLDING_UNADOPTED"
+    assert all(value is False for value in fragment["authority"].values())
+
+    candidate_refs = {
+        reference["path"]: reference
+        for group in ("sources", "tests")
+        for reference in candidate[group]
+    }
+    spec = _spec()
+    spec_bindings = {binding.path: binding for binding in spec.exact_bindings()}
+    for path in B12_WITNESSED_SPEC_SOURCES:
+        source = REPOSITORY_ROOT / path
+        live_digest = hashlib.sha256(source.read_bytes()).hexdigest()
+        witness = candidate_refs[path]
+        assert witness["file_sha256"] == live_digest, path
+        assert witness["bytes"] == source.stat().st_size, path
+        assert spec_bindings[path].file_sha256 != live_digest, path
 
 
 def test_existing_program_plan_assignment_has_exact_seven_field_closure() -> None:
@@ -252,7 +298,7 @@ def test_semantic_identity_and_exact_artifact_identity_remain_distinct() -> None
     assert current["semantic_identity"]["does_not_replace_exact_artifact_identity"]
 
 
-def test_real_check_matches_without_mtime_change_and_drift_is_read_only(
+def test_frozen_pilot_reports_current_drift_and_temporary_drift_read_only(
     tmp_path: Path,
 ) -> None:
     output = REPOSITORY_ROOT / BUILD_PATH
@@ -265,11 +311,21 @@ def test_real_check_matches_without_mtime_change_and_drift_is_read_only(
         output,
         "--check",
     )
-    assert result.returncode == 0, result.stderr
-    assert result.stdout.startswith("MATCH:")
+    assert result.returncode == 2, result.stderr
+    assert result.stderr.startswith("UNKNOWN: exact binding drift:")
+    assert (
+        "main/backend/app/successor_runtime/capabilities/ingest_c7_common.py"
+        in result.stderr
+    )
     assert output.read_bytes() == before
     assert output.stat().st_mtime_ns == before_mtime
 
+    currentized_spec = _load(SPEC_PATH)
+    for group in ("source_bindings", "test_bindings", "rollback_bindings"):
+        for binding in currentized_spec[group]:
+            source = REPOSITORY_ROOT / binding["path"]
+            binding["file_sha256"] = hashlib.sha256(source.read_bytes()).hexdigest()
+            binding["bytes"] = source.stat().st_size
     spec = _spec()
     for binding in spec.exact_bindings():
         source = REPOSITORY_ROOT / binding.path
@@ -284,6 +340,10 @@ def test_real_check_matches_without_mtime_change_and_drift_is_read_only(
     temporary_output.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(REPOSITORY_ROOT / SPEC_PATH, temporary_spec)
     shutil.copyfile(REPOSITORY_ROOT / ABI_PATH, temporary_abi)
+    temporary_spec.write_text(
+        json.dumps(currentized_spec, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
     temporary_output.write_bytes(b"manual drift\n")
     drift_bytes = temporary_output.read_bytes()
     drift_mtime = temporary_output.stat().st_mtime_ns

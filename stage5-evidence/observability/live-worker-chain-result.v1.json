@@ -1,0 +1,133 @@
+{
+  "authoritative": false,
+  "boundary": {
+    "database_writes": 0,
+    "execution": "HTTP deep-health request -> Redis broker -> independent Celery prefork worker -> Redis result backend",
+    "external_provider_calls": 0,
+    "filesystem_writes": 0,
+    "queue_side_effects_scope": "0 means no business queue side effect inside the no-op task; the broker publish, result-backend write and bounded telemetry-stream writes are transport observability effects and are intentionally observed",
+    "not_claimed": [
+      "production authority",
+      "external OpenTelemetry collector"
+    ],
+    "queue_side_effects": 0,
+    "task": "task_worker_observability_noop"
+  },
+  "checks": {
+    "dispatch_http_200": true,
+    "dispatch_result_ready": true,
+    "dispatch_result_successful": true,
+    "effect_boundary_zero": true,
+    "identity_correlated": true,
+    "metrics_http_200": true,
+    "request_correlated": true,
+    "structured_log_observed": true,
+    "task_completed": true,
+    "trace_observed": true,
+    "worker_event_observed": true,
+    "worker_metric_exported": true
+  },
+  "dispatch": {
+    "http_status": 200,
+    "health_status": "degraded",
+    "worker_probe": {
+      "task_id": "59919525-213f-4ea5-952b-1588284a7101",
+      "ready": true,
+      "successful": true,
+      "result": {
+        "request_id": "stage5-live-worker-http-request",
+        "run_id": "stage5-worker-run:stage5-live-worker-http-request",
+        "trace_id": "stage5-live-worker-http-trace",
+        "project_key": "stage5_observability_20260913",
+        "candidate_id": "stage5:worker-telemetry-probe",
+        "status": "completed",
+        "contract_version": "production.observability.worker-noop.v1",
+        "effect_sinks": "none",
+        "effect_boundary": {
+          "external_provider_calls": 0,
+          "database_writes": 0,
+          "filesystem_writes": 0,
+          "queue_side_effects": 0
+        },
+        "runtime_readback": {
+          "run_id": "stage5-worker-run:stage5-live-worker-http-request",
+          "trace_id": "stage5-live-worker-http-trace",
+          "task_id": "59919525-213f-4ea5-952b-1588284a7101",
+          "worker_name": "celery@35dfb6f779c0",
+          "queue": "celery",
+          "status": "completed",
+          "line_key": "worker_observability",
+          "events": [
+            {
+              "event": "worker_started",
+              "status": "running"
+            },
+            {
+              "event": "completed",
+              "status": "completed"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "identity": {
+    "candidate_id": "stage5:worker-telemetry-probe",
+    "candidate_identity_redacted": true,
+    "project_key": "stage5_observability_20260913",
+    "request_id": "stage5-live-worker-http-request",
+    "run_id": "stage5-worker-run:stage5-live-worker-http-request",
+    "trace_id": "stage5-live-worker-http-trace"
+  },
+  "metrics": {
+    "http_status": 200,
+    "worker_metric_summary": {
+      "sample_count": 9,
+      "families": [
+        "market_api_production_worker_event_records"
+      ],
+      "statuses": [
+        "running",
+        "succeeded",
+        "unknown"
+      ],
+      "observed": true
+    }
+  },
+  "observed_at": "2026-09-13T11:13:50.409356+00:00",
+  "readback": {
+    "http_status": 200,
+    "health_status": "degraded",
+    "worker_observability": {
+      "source": "redis.stream:mrw:production-observability:worker-telemetry",
+      "status": "observed",
+      "read_status": "ok",
+      "structured_logs_status": "observed",
+      "traces_status": "observed",
+      "record_counts": {
+        "structured_log": 2,
+        "trace": 2,
+        "worker_event": 2
+      },
+      "correlatable_request_ids": [
+        "stage5-live-worker-http-request"
+      ],
+      "latest_record": {
+        "request_id": "stage5-live-worker-http-request",
+        "run_id": "stage5-worker-run:stage5-live-worker-http-request",
+        "trace_id": "stage5-live-worker-http-trace",
+        "project_key": "stage5_observability_20260913",
+        "candidate_id": "stage5:worker-telemetry-probe",
+        "task_id": "59919525-213f-4ea5-952b-1588284a7101",
+        "task_name": "app.services.tasks.task_worker_observability_noop",
+        "worker_name": "celery@35dfb6f779c0",
+        "queue": "celery",
+        "record_type": "trace",
+        "event": "worker.terminal",
+        "status": "succeeded"
+      }
+    }
+  },
+  "schema": "mrw.stage5.observability.live-worker-chain.v1",
+  "status": "PASS_LOCAL_LIVE_WORKER_CHAIN_NOT_AUTHORITY"
+}

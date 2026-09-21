@@ -144,6 +144,22 @@ run_frontend_e2e() {
     echo "[test-standardize] Missing npm for frontend-e2e profile" >&2
     return 127
   fi
+  if [[ "${FRONTEND_E2E_SKIP_BACKEND_CHECK:-0}" != "1" ]]; then
+    local backend_base_url="${BACKEND_BASE_URL:-http://127.0.0.1:8000}"
+    local health_url="${backend_base_url%/}/api/v1/health"
+    if ! command -v curl >/dev/null 2>&1; then
+      echo "[test-standardize] Missing curl for frontend-e2e backend readiness check" >&2
+      echo "[test-standardize] Install curl or rerun with FRONTEND_E2E_SKIP_BACKEND_CHECK=1 for fully mocked tests" >&2
+      return 127
+    fi
+    if ! curl -fsS --max-time 3 "${health_url}" >/dev/null 2>&1; then
+      echo "[test-standardize] Backend readiness check failed for frontend-e2e: ${health_url}" >&2
+      echo "[test-standardize] Start backend first, for example:" >&2
+      echo "[test-standardize]   cd ${BACKEND_DIR} && ./.venv311/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000" >&2
+      echo "[test-standardize] If this e2e run is fully mocked, rerun with FRONTEND_E2E_SKIP_BACKEND_CHECK=1" >&2
+      return 2
+    fi
+  fi
   (
     cd "${FRONTEND_DIR}"
     npm run test:e2e -- "$@"

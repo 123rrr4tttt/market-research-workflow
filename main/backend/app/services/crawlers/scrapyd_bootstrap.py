@@ -11,6 +11,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+from .registry import _failure, _raise_contract_failure
 from .scrapyd_client import ScrapydClient
 
 
@@ -86,9 +87,18 @@ def _build_minimal_scrapy_egg(*, project: str, spider: str) -> bytes:
     project_name = str(project or "").strip()
     spider_name = str(spider or "").strip() or "default"
     if not _is_valid_python_package_name(project_name):
-        raise ValueError(
-            f"scrapyd bootstrap requires python-package-compatible project name, got: {project_name!r}"
+        message = (
+            "scrapyd bootstrap requires python-package-compatible project name, "
+            f"got: {project_name!r}"
         )
+        failure = _failure(
+            "bootstrap_project_name_invalid",
+            message,
+            operation="scrapyd_bootstrap.build_egg",
+            site="app.services.crawlers.scrapyd_bootstrap._build_minimal_scrapy_egg",
+            project=project_name,
+        )
+        _raise_contract_failure(failure)
 
     class_name = _to_class_name(spider_name)
     settings_text = """BOT_NAME = "bootstrap_crawler"
@@ -186,13 +196,29 @@ setup(
             check=False,
         )
         if proc.returncode != 0:
-            raise ValueError(
+            message = (
                 "failed to build bootstrap egg: "
                 f"code={proc.returncode}, stdout={proc.stdout[-500:]}, stderr={proc.stderr[-500:]}"
             )
+            failure = _failure(
+                "bootstrap_build_failed",
+                message,
+                operation="scrapyd_bootstrap.build_egg",
+                site="app.services.crawlers.scrapyd_bootstrap._build_minimal_scrapy_egg",
+                project=project_name,
+                returncode=proc.returncode,
+            )
+            _raise_contract_failure(failure)
         eggs = sorted(dist_dir.glob("*.egg"))
         if not eggs:
-            raise ValueError("bootstrap egg build produced no .egg artifact")
+            failure = _failure(
+                "bootstrap_artifact_missing",
+                "bootstrap egg build produced no .egg artifact",
+                operation="scrapyd_bootstrap.build_egg",
+                site="app.services.crawlers.scrapyd_bootstrap._build_minimal_scrapy_egg",
+                project=project_name,
+            )
+            _raise_contract_failure(failure)
         return eggs[-1].read_bytes()
 
 
@@ -204,7 +230,13 @@ def ensure_bootstrap_project_deployed(
 ) -> dict[str, Any]:
     normalized_project = str(project or "").strip()
     if not normalized_project:
-        raise ValueError("bootstrap deploy requires project")
+        failure = _failure(
+            "bootstrap_project_required",
+            "bootstrap deploy requires project",
+            operation="scrapyd_bootstrap.ensure_deployed",
+            site="app.services.crawlers.scrapyd_bootstrap.ensure_bootstrap_project_deployed",
+        )
+        _raise_contract_failure(failure)
 
     cache_key = normalized_project.lower()
     with _BOOTSTRAP_LOCK:
@@ -222,7 +254,15 @@ def ensure_bootstrap_project_deployed(
         )
         status = str(response.get("status") or "unknown").strip().lower()
         if status not in {"ok", "queued"}:
-            raise ValueError(f"scrapyd bootstrap addversion failed: {response}")
+            failure = _failure(
+                "bootstrap_deploy_failed",
+                f"scrapyd bootstrap addversion failed: {response}",
+                operation="scrapyd_bootstrap.ensure_deployed",
+                site="app.services.crawlers.scrapyd_bootstrap.ensure_bootstrap_project_deployed",
+                project=normalized_project,
+                status=status,
+            )
+            _raise_contract_failure(failure)
         _BOOTSTRAPPED_PROJECTS.add(cache_key)
         return {"status": status, "project": normalized_project, "version": version, "raw": response}
 

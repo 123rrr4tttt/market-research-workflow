@@ -24,7 +24,7 @@ _TIME_WINDOW_RE = re.compile(r"^\d+d$")
 
 class PromptTimeDensityItem(BaseModel):
     source_domain: str
-    noun_group_id: str
+    noun_group_id: str | None = None
     prompt_group_id: str
     bucket_time: str
     effective_new_docs: int
@@ -165,7 +165,11 @@ def _coalesce_noun_group_ids(
     return noun_group_ids if noun_group_ids is not None else prompt_group_ids
 
 
-@router.get("/prompt-time-density", response_model=PromptTimeDensityEnvelope)
+@router.get(
+    "/prompt-time-density",
+    response_model=PromptTimeDensityEnvelope,
+    response_model_exclude_unset=True,
+)
 def get_prompt_time_density(
     start: Optional[str] = Query(None, description="开始日期 YYYY-MM-DD"),
     end: Optional[str] = Query(None, description="结束日期 YYYY-MM-DD"),
@@ -251,7 +255,11 @@ def get_prompt_time_density_cloud(
         return _json_error(500, ErrorCode.INTERNAL_ERROR, str(exc))
 
 
-@router.get("/prompt-time-density/priority", response_model=PromptTimeDensityPriorityEnvelope)
+@router.get(
+    "/prompt-time-density/priority",
+    response_model=PromptTimeDensityPriorityEnvelope,
+    response_model_exclude_unset=True,
+)
 def get_prompt_time_density_priority(
     end: Optional[str] = Query(None, description="结束日期 YYYY-MM-DD，默认今天"),
     candidate_windows: Optional[list[str]] = Query(None, description="候选窗口 Nd 列表"),
@@ -300,7 +308,11 @@ def get_prompt_time_density_priority(
         return _json_error(500, ErrorCode.INTERNAL_ERROR, str(exc))
 
 
-@router.get("/prompt-time-density/select-windows", response_model=PromptTimeDensityWindowSelectionEnvelope)
+@router.get(
+    "/prompt-time-density/select-windows",
+    response_model=PromptTimeDensityWindowSelectionEnvelope,
+    response_model_exclude_unset=True,
+)
 def select_prompt_time_windows(
     end: Optional[str] = Query(None, description="结束日期 YYYY-MM-DD，默认今天"),
     candidate_windows: Optional[list[str]] = Query(None, description="候选窗口 Nd 列表"),

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+from typing import Annotated
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 _DROP_QUERY_KEYS = {
@@ -91,7 +92,10 @@ def canonicalize_url(url: str) -> str | None:
     return out
 
 
-def build_idempotency_key(*, canonical_url: str, content_hash: str | None, scope: str) -> str:
+def build_idempotency_key(*, canonical_url: str, content_hash: str | None, scope: str) -> Annotated[
+    str,
+    "kit:prepared-command effect_boundary=streamplus.idempotency witness=test:test_w01_meta",
+]:
     base = "|".join(
         [
             str(canonical_url or "").strip().lower(),

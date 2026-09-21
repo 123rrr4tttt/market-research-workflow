@@ -16,9 +16,7 @@ _GENERATOR = _BACKEND_ROOT / "scripts/generate_c1_slice_acceptance.py"
 
 
 def _load_generator():
-    spec = importlib.util.spec_from_file_location(
-        "generate_c1_slice_acceptance", _GENERATOR
-    )
+    spec = importlib.util.spec_from_file_location("generate_c1_slice_acceptance", _GENERATOR)
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None
     spec.loader.exec_module(module)
@@ -63,9 +61,7 @@ def _configure(
     if not pg_missing:
         pg_path.parent.mkdir(parents=True, exist_ok=True)
         pg_path = _write_pg_fixture(pg_path.parent, module, missing_nodes=missing_nodes)
-        monkeypatch.setattr(
-            module, "PG_TEST_FILE_SHA256", _sha256(pg_path.read_bytes())
-        )
+        monkeypatch.setattr(module, "PG_TEST_FILE_SHA256", _sha256(pg_path.read_bytes()))
     monkeypatch.setattr(module, "PG_TEST_PATH", pg_path)
     fixture_path = _write_fixture(tmp_path / "pg-fixture")
     monkeypatch.setattr(
@@ -74,14 +70,20 @@ def _configure(
         _sha256(fixture_path.read_bytes()),
     )
     monkeypatch.setattr(module, "PG_TEST_FIXTURE_PATH", fixture_path)
-    slice_paths = {
-        slice_id: tmp_path / f"C1Slice{slice_id}.v1.json"
-        for slice_id in module.SLICE_ORDER
-    }
+    slice_paths = {slice_id: tmp_path / f"C1Slice{slice_id}.v1.json" for slice_id in module.SLICE_ORDER}
     aggregate_path = tmp_path / "P5C1SliceAcceptance.v1.json"
     monkeypatch.setattr(module, "SLICE_PATHS", slice_paths)
     monkeypatch.setattr(module, "AGGREGATE_PATH", aggregate_path)
     return {"aggregate": aggregate_path, **slice_paths}
+
+
+def _copy_frozen_evidence(module, tmp_path: Path) -> dict[str, Path]:
+    paths = {slice_id: tmp_path / f"C1Slice{slice_id}.v1.json" for slice_id in module.SLICE_ORDER}
+    for slice_id, path in paths.items():
+        path.write_bytes(module.SLICE_PATHS[slice_id].read_bytes())
+    aggregate = tmp_path / "P5C1SliceAcceptance.v1.json"
+    aggregate.write_bytes(module.AGGREGATE_PATH.read_bytes())
+    return {"aggregate": aggregate, **paths}
 
 
 def _run_cli(*args: str):
@@ -122,9 +124,7 @@ def test_slices_are_normalized_with_c1_coverage_and_authority_false(
         assert artifact["program_plan_sameness"]["same_exact_program"] is True
         assert artifact["program_plan_sameness"]["same_exact_plan"] is True
         assert artifact["observations"]["observational_compatibility"] is True
-        assert artifact["observations"]["compatibility_claim"] == (
-            "NAMED_OBSERVATIONAL_COMPATIBILITY_ONLY"
-        )
+        assert artifact["observations"]["compatibility_claim"] == ("NAMED_OBSERVATIONAL_COMPATIBILITY_ONLY")
         assert artifact["pg_binding"]["nodes"] == list(module.PG_TEST_NODES)
         assert artifact["pg_binding"]["nodes_present"] is True
         assert len(artifact["pg_binding"]["fixture"]["sha256"]) == 64
@@ -182,9 +182,7 @@ def test_write_is_deterministic_atomic_and_digest_self_tested(
         value = json.loads(path.read_text(encoding="utf-8"))
         assert value["slice_id"] == slice_id
         assert value["schema"] == module.SLICE_SCHEMA
-        expected = module.content_digest(
-            {key: item for key, item in value.items() if key != "content_digest"}
-        )
+        expected = module.content_digest({key: item for key, item in value.items() if key != "content_digest"})
         assert value["content_digest"] == expected
     aggregate = json.loads(module.AGGREGATE_PATH.read_text(encoding="utf-8"))
     assert aggregate["schema"] == module.AGGREGATE_SCHEMA
@@ -229,10 +227,7 @@ def test_aggregate_blocks_on_missing_or_blocked_slice(
     )
     aggregate = module.build_aggregate_from_disk()
     assert aggregate["status"] == module.STATUS_BLOCK
-    assert any(
-        finding.startswith("SLICE_BLOCKED:A")
-        for finding in aggregate["blocking_findings"]
-    )
+    assert any(finding.startswith("SLICE_BLOCKED:A") for finding in aggregate["blocking_findings"])
 
 
 def test_aggregate_partial_when_pg_binding_is_inconsistent(
@@ -316,6 +311,64 @@ def test_pg_fail_closed_missing_unbound_node_and_sha_drift(
     assert exc.value.exit_code == module.EXIT_PG_BINDING
 
 
+def test_frozen_review_bindings_are_exact_not_authority() -> None:
+    module = _load_generator()
+    bindings = module._frozen_review_bindings()
+
+    for slice_id in module.SLICE_ORDER:
+        lower = slice_id.lower()
+        artifact = module._read_slice(slice_id)
+        assert artifact["schema"] == module.SLICE_SCHEMA
+        assert artifact["slice_id"] == slice_id
+        assert artifact["accepted"] is True
+        assert artifact["blocking_findings"] == []
+        assert all(not value for value in artifact["authority"].values())
+        assert module._sha256_bytes(module.SLICE_PATHS[slice_id].read_bytes()) == bindings[f"slice_{lower}_file_sha256"]
+
+    aggregate = json.loads(module.AGGREGATE_PATH.read_text(encoding="utf-8"))
+    assert aggregate["schema"] == module.AGGREGATE_SCHEMA
+    assert aggregate["status"] == module.STATUS_READY
+    assert aggregate["candidate_state"] == "NO_CANDIDATE"
+    assert aggregate["promotion_claim"] is False
+    assert all(not value for value in aggregate["authority_ceiling"].values())
+    assert aggregate["content_digest"] == bindings["aggregate_content_digest"]
+    assert module._sha256_bytes(module.AGGREGATE_PATH.read_bytes()) == bindings["aggregate_file_sha256"]
+
+
+def test_frozen_evidence_check_is_read_only_and_write_guarded(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    module = _load_generator()
+    paths = _copy_frozen_evidence(module, tmp_path)
+    canonical_relpaths = {
+        paths[slice_id].resolve(): module._relpath(module.SLICE_PATHS[slice_id]) for slice_id in module.SLICE_ORDER
+    }
+    canonical_relpaths[paths["aggregate"].resolve()] = module._relpath(module.AGGREGATE_PATH)
+    monkeypatch.setattr(
+        module,
+        "SLICE_PATHS",
+        {slice_id: paths[slice_id] for slice_id in module.SLICE_ORDER},
+    )
+    monkeypatch.setattr(module, "AGGREGATE_PATH", paths["aggregate"])
+    original_relpath = module._relpath
+
+    def _stable_relpath(path: Path) -> str:
+        return canonical_relpaths.get(path.resolve(), original_relpath(path))
+
+    monkeypatch.setattr(module, "_relpath", _stable_relpath)
+    before = {path: path.read_bytes() for path in paths.values()}
+
+    assert module.check_evidence() == module.FROZEN_CHECK_RESULT
+    assert {path: path.read_bytes() for path in paths.values()} == before
+
+    with pytest.raises(module.EvidenceBuildError) as exc:
+        module.write_evidence()
+    assert exc.value.exit_code == module.EXIT_FROZEN
+    assert "may not be overwritten" in str(exc.value)
+    assert {path: path.read_bytes() for path in paths.values()} == before
+
+
 def test_cli_write_then_check_is_read_only_and_exact(tmp_path: Path) -> None:
     module = _load_generator()
     pg_path = _write_pg_fixture(tmp_path / "cli-pg", module)
@@ -358,14 +411,10 @@ def test_cli_write_then_check_is_read_only_and_exact(tmp_path: Path) -> None:
         assert after.st_mtime_ns == stat.st_mtime_ns
         assert after.st_size == stat.st_size
 
-    first_bytes = {
-        path: path.read_bytes() for path in (slice_a, slice_b, slice_c, aggregate)
-    }
+    first_bytes = {path: path.read_bytes() for path in (slice_a, slice_b, slice_c, aggregate)}
     proc = _run_cli(*common)
     assert proc.returncode == 0, proc.stderr
-    assert {
-        path: path.read_bytes() for path in (slice_a, slice_b, slice_c, aggregate)
-    } == first_bytes
+    assert {path: path.read_bytes() for path in (slice_a, slice_b, slice_c, aggregate)} == first_bytes
 
 
 def test_cli_check_missing_and_drift_fail_without_writing(tmp_path: Path) -> None:
@@ -454,10 +503,13 @@ def test_live_canonical_check_when_pg_bound() -> None:
     module = _load_generator()
     if not module.PG_TEST_FILE_SHA256 or not module.PG_TEST_PATH.is_file():
         pytest.skip("PG gate file is not bound yet")
+    before = {path: path.read_bytes() for path in (*module.SLICE_PATHS.values(), module.AGGREGATE_PATH)}
     proc = _run_cli("--check")
     assert proc.returncode == 0, proc.stderr
-    assert "unchanged" in proc.stdout
+    assert proc.stdout.strip() == module.FROZEN_CHECK_RESULT
     assert module.SLICE_PATHS["A"].is_file()
     assert module.SLICE_PATHS["B"].is_file()
     assert module.SLICE_PATHS["C"].is_file()
     assert module.AGGREGATE_PATH.is_file()
+    after = {path: path.read_bytes() for path in (*module.SLICE_PATHS.values(), module.AGGREGATE_PATH)}
+    assert after == before

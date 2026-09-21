@@ -1,0 +1,3021 @@
+{
+  "authoritative": false,
+  "authority_ceiling": "READ_ONLY_AUDIT_NO_BINDING_WRITE_NO_CANDIDATE_OR_HISTORY_MUTATION_NO_PRODUCTION_WRITE_NO_DEPLOY_NO_LIVE_NO_RELEASE_AUTHORITY",
+  "changed_paths_source": {
+    "entry_count": 105,
+    "path": "stage1-successor-evidence/residual-disposition-v1/changed-paths.v1.json",
+    "sha256": "d946cf88b022d21cc71c0a1ea424b9cb8f7d2c5a7975fe31c66c67f741790d9b"
+  },
+  "declaration_alignment": {
+    "effect": "Binding impact is reported separately for every declaration set; no source was silently selected as the sole authority.",
+    "family_test_support": "B19_C2_C9_DEFAULT",
+    "i1_runtime_test_support": "B23_I1",
+    "stage0_v4_record": "B19_C2_C9_B22_I1",
+    "stage2_intake": "B23_C2_C9_I1",
+    "status": "DIVERGENT_CURRENT_STAGE_DECLARATIONS"
+  },
+  "deterministic_search_scope": {
+    "binding_artifact_count": 62,
+    "binding_artifacts": [
+      {
+        "binding_set": "CURRENT_PRODUCTION_DECLARATION",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage1-evidence/production-contract-implementation.v1.json",
+        "sha256": "3f5c745ce8253522fa7e3728ba112ed41c80f3b6aa7409ddf028621c6ae07f31"
+      },
+      {
+        "binding_set": "DECLARED_STAGE0_COMPLETION_V4_RECORD",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage0-evidence/functorial-refactor-completion.v4.json",
+        "sha256": "4911df1c6450d9802ac7bd6b0669ef3a7343e3ce308d33f0a46dde2c4cb62dda"
+      },
+      {
+        "binding_set": "CURRENT_ALL_LINES_RECORD",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json",
+        "sha256": "fc1009c172d3880795dbdaebb90d8de41a6359161d5b86a89315ed4abc4077ed"
+      },
+      {
+        "binding_set": "CURRENT_ALL_LINES_RECORD",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesSuccessorMovementInventory.v1.json",
+        "sha256": "08fad9f59a5c588ca86085410efc792d33114903d4723038f50f46c0f858510d"
+      },
+      {
+        "binding_set": "CURRENT_ROOT_REGISTRY",
+        "parse": "PASS",
+        "path": "registries/codecs.json",
+        "sha256": "78d447c43fd889b7354c4fe401e361cab2c1cbde51337e119d052f9b9b32aed7"
+      },
+      {
+        "binding_set": "CURRENT_ROOT_REGISTRY",
+        "parse": "PASS",
+        "path": "registries/failures.json",
+        "sha256": "ef3cbcbdac2dc348b6a116b177512640471240033ddac33d57fff1eed287ab99"
+      },
+      {
+        "binding_set": "CURRENT_ROOT_REGISTRY",
+        "parse": "PASS",
+        "path": "registries/ports.json",
+        "sha256": "27ff2385846711904f3516266692d280282203d91bde6b10bb2e959d08369d8c"
+      },
+      {
+        "binding_set": "CURRENT_ROOT_REGISTRY",
+        "parse": "PASS",
+        "path": "registries/vocabularies.json",
+        "sha256": "b7fc1d7f350c25bae1ccb1173ab718d3ebaa2e499e7a73f428db6d0ea85d574b"
+      },
+      {
+        "binding_set": "DECLARED_STAGE0_V4_FAMILY_CURRENT",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/fragments/C2.json",
+        "sha256": "3fa5f21281f7df20000914ae48a8cb0ce489f9b7dd2a78a8620511db6104178a"
+      },
+      {
+        "binding_set": "DECLARED_STAGE0_V4_FAMILY_CURRENT",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/manifests/C2.json",
+        "sha256": "389c1a3c422e08c3e5405344dcb3845fea61d6e38f0cc329f6b9994319f47c49"
+      },
+      {
+        "binding_set": "DECLARED_STAGE0_V4_FAMILY_CURRENT",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/C2/candidate.v2.json",
+        "sha256": "4ccc431f4eb7caebbdb91acd8146960c5a6e400c498a31a50f80251cfdfa4045"
+      },
+      {
+        "binding_set": "DECLARED_STAGE0_V4_FAMILY_CURRENT",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/fragments/C3.json",
+        "sha256": "edbf5e3368745c8d96b21141a0dc13e4bfb93a132de65b0b59f38e298c97965a"
+      },
+      {
+        "binding_set": "DECLARED_STAGE0_V4_FAMILY_CURRENT",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/manifests/C3.json",
+        "sha256": "b87614e4a71d96cecbb45d87c613aeb3d331487876bc99abe14b89518c13a7ce"
+      },
+      {
+        "binding_set": "DECLARED_STAGE0_V4_FAMILY_CURRENT",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/C3/candidate.v2.json",
+        "sha256": "71000110b3b6fd412ccf32468cef91ae21223da5255572ebdafa111c7a79206a"
+      },
+      {
+        "binding_set": "DECLARED_STAGE0_V4_FAMILY_CURRENT",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/fragments/C4.json",
+        "sha256": "932d2b019cde0dc620f1a58b22306e3efdb3dc2ecbab675eaeb943a06e60a6d3"
+      },
+      {
+        "binding_set": "DECLARED_STAGE0_V4_FAMILY_CURRENT",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/manifests/C4.json",
+        "sha256": "b48223afa39220ac074b39d8bf89e4e80f691f222bdf3315848ce6847ec8ef4f"
+      },
+      {
+        "binding_set": "DECLARED_STAGE0_V4_FAMILY_CURRENT",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/C4/candidate.v2.json",
+        "sha256": "3804b62ba1939015d950a491d928da3304d614e7873f1d9013bf45403a7b1176"
+      },
+      {
+        "binding_set": "DECLARED_STAGE0_V4_FAMILY_CURRENT",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/fragments/C5.json",
+        "sha256": "0b3d83914cf7de356e28a51dbfb5e7836d09266f315b4c26f8eab8bcbf26e30f"
+      },
+      {
+        "binding_set": "DECLARED_STAGE0_V4_FAMILY_CURRENT",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/manifests/C5.json",
+        "sha256": "f1ae6a1678b83d75337244d200ab5b584f684180ef4c7e97076cd3573124b11f"
+      },
+      {
+        "binding_set": "DECLARED_STAGE0_V4_FAMILY_CURRENT",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/C5/candidate.v2.json",
+        "sha256": "a2ddbb2ae28b330a04e52aff2030d1f8edaa1b77b4c6d7a37a48f64a0048aad2"
+      },
+      {
+        "binding_set": "DECLARED_STAGE0_V4_FAMILY_CURRENT",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/fragments/C6.json",
+        "sha256": "b41f5c2dbbdfd268a86886c9ffc27fe78cfa3fb5914db44272b3dfece65e52bc"
+      },
+      {
+        "binding_set": "DECLARED_STAGE0_V4_FAMILY_CURRENT",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/manifests/C6.json",
+        "sha256": "6b227be14dbd0e668f710677fe708e41c0ec8e7354997ad653ff694c839f0d97"
+      },
+      {
+        "binding_set": "DECLARED_STAGE0_V4_FAMILY_CURRENT",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/C6/candidate.v2.json",
+        "sha256": "22c9fc2332c16c92dedfacd82c4bcd1936e87692f353169cffec8fa95f2de3ce"
+      },
+      {
+        "binding_set": "DECLARED_STAGE0_V4_FAMILY_CURRENT",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/fragments/C7.json",
+        "sha256": "b1bdc5524461cf84638f3ec86dbb68d5e2d5a4cc164bbc4f277f26d7457a7aa1"
+      },
+      {
+        "binding_set": "DECLARED_STAGE0_V4_FAMILY_CURRENT",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/manifests/C7.json",
+        "sha256": "8c697b0736bbb0b1083707a559d4a1d22bcf5a4d185dc7909b8bb3c21ec4662c"
+      },
+      {
+        "binding_set": "DECLARED_STAGE0_V4_FAMILY_CURRENT",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/C7/candidate.v2.json",
+        "sha256": "630e2bb6d77b5f6de24357e331c5dd8fcb31cf9135d400187ce71f01058e1c6b"
+      },
+      {
+        "binding_set": "DECLARED_STAGE0_V4_FAMILY_CURRENT",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/fragments/C8.json",
+        "sha256": "dda048235d1f452c898f8b05d4692c2f73c2340d083de563c3ad076f2be43112"
+      },
+      {
+        "binding_set": "DECLARED_STAGE0_V4_FAMILY_CURRENT",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/manifests/C8.json",
+        "sha256": "1eca415a1d766d7dd90095510ad4dfc01574d8b39c428a149209379769adbeaf"
+      },
+      {
+        "binding_set": "DECLARED_STAGE0_V4_FAMILY_CURRENT",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/C8/candidate.v2.json",
+        "sha256": "0695e4c176fa24a77b2c0d8b298940e5244849b9118cb082b841930273f37abc"
+      },
+      {
+        "binding_set": "DECLARED_STAGE0_V4_FAMILY_CURRENT",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/fragments/C9.json",
+        "sha256": "6ca3cd594d6badd2676de56599f39a8f554011a6ddc00a783aa72eb7cb180ee9"
+      },
+      {
+        "binding_set": "DECLARED_STAGE0_V4_FAMILY_CURRENT",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/manifests/C9.json",
+        "sha256": "d9bda2eb8db546fcb0f3187d703eb32fded943b0066a194c5b928918614f7678"
+      },
+      {
+        "binding_set": "DECLARED_STAGE0_V4_FAMILY_CURRENT",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/C9/candidate.v2.json",
+        "sha256": "ed835ed34b2afae99290b2198874d2fef7c3cbbf206ca428e044f50d24536823"
+      },
+      {
+        "binding_set": "DECLARED_STAGE0_V4_I1_CURRENT",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b22-2026-09-05/fragments/I1.json",
+        "sha256": "37948f4cbf6cd87f9285b6f261d096859c0ced028c89563ed554045071d431c3"
+      },
+      {
+        "binding_set": "DECLARED_STAGE0_V4_I1_CURRENT",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b22-2026-09-05/manifests/I1.json",
+        "sha256": "65dd56a61373fe89d35f7cfc7e74fa75c6cf0f943df034f3595ec3d274f235e2"
+      },
+      {
+        "binding_set": "DECLARED_STAGE0_V4_I1_CURRENT",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b22-2026-09-05/candidates/I1/candidate.v2.json",
+        "sha256": "0a263650a98213f5b45e2a4cd5f5ba90fec96c6ac2731b3ebc39dc7ef285865f"
+      },
+      {
+        "binding_set": "CURRENT_STAGE2_INTAKE_B23",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/fragments/C2.json",
+        "sha256": "4d26dc821b8ab3ae36032a9e0875dbc9f602ea5bbfc1481722e668c7eccac5bb"
+      },
+      {
+        "binding_set": "CURRENT_STAGE2_INTAKE_B23",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/manifests/C2.json",
+        "sha256": "64f84335071899b02e3b5920fa7a8ebbbf4614030ed0c1fc25ea4aafb67048bf"
+      },
+      {
+        "binding_set": "CURRENT_STAGE2_INTAKE_B23",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/C2/candidate.v2.json",
+        "sha256": "2536206e80e002515b57ae131962db3cdd1cdd9a5eff64392731138c62b4f269"
+      },
+      {
+        "binding_set": "CURRENT_STAGE2_INTAKE_B23",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/fragments/C3.json",
+        "sha256": "edbf5e3368745c8d96b21141a0dc13e4bfb93a132de65b0b59f38e298c97965a"
+      },
+      {
+        "binding_set": "CURRENT_STAGE2_INTAKE_B23",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/manifests/C3.json",
+        "sha256": "a4213cf70c9c7c668d412b90ffc7749fe00ee88b00a12fa6352c80f4c7509b37"
+      },
+      {
+        "binding_set": "CURRENT_STAGE2_INTAKE_B23",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/C3/candidate.v2.json",
+        "sha256": "23afbb703a4d2b8c688e037bc3950ead3db60307043a487ff396b8502620f16a"
+      },
+      {
+        "binding_set": "CURRENT_STAGE2_INTAKE_B23",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/fragments/C4.json",
+        "sha256": "932d2b019cde0dc620f1a58b22306e3efdb3dc2ecbab675eaeb943a06e60a6d3"
+      },
+      {
+        "binding_set": "CURRENT_STAGE2_INTAKE_B23",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/manifests/C4.json",
+        "sha256": "5862a4b3afd1adea57d1291f8d8f519e08273f03e7b5891f91ee14da0c7048e9"
+      },
+      {
+        "binding_set": "CURRENT_STAGE2_INTAKE_B23",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/C4/candidate.v2.json",
+        "sha256": "b2ffa10d95d681a28a46b948cfa4819dfacdbadf06a98416616e01a8629b8e95"
+      },
+      {
+        "binding_set": "CURRENT_STAGE2_INTAKE_B23",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/fragments/C5.json",
+        "sha256": "0b3d83914cf7de356e28a51dbfb5e7836d09266f315b4c26f8eab8bcbf26e30f"
+      },
+      {
+        "binding_set": "CURRENT_STAGE2_INTAKE_B23",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/manifests/C5.json",
+        "sha256": "f68c123409aeb0935cd93e3072a05f50c8f2637868d5b92847cd95fb018f4c76"
+      },
+      {
+        "binding_set": "CURRENT_STAGE2_INTAKE_B23",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/C5/candidate.v2.json",
+        "sha256": "919bbbbf66f7b5959b2407bbf7a488efecbd781844599d5b5ad945180f7dbc47"
+      },
+      {
+        "binding_set": "CURRENT_STAGE2_INTAKE_B23",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/fragments/C6.json",
+        "sha256": "b41f5c2dbbdfd268a86886c9ffc27fe78cfa3fb5914db44272b3dfece65e52bc"
+      },
+      {
+        "binding_set": "CURRENT_STAGE2_INTAKE_B23",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/manifests/C6.json",
+        "sha256": "8ec6a6c964fa1a373ffd0381bc1a5d68d45d9be81040c82b7fcf82a0c745e489"
+      },
+      {
+        "binding_set": "CURRENT_STAGE2_INTAKE_B23",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/C6/candidate.v2.json",
+        "sha256": "ffdb0020e8a3617a8693f10657a97787f11c6c759bc9afe96e7d06dcb876f87a"
+      },
+      {
+        "binding_set": "CURRENT_STAGE2_INTAKE_B23",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/fragments/C7.json",
+        "sha256": "6efc59fb473a2b2465249289343cfe956bbc9559f72bda25090e922f704e3222"
+      },
+      {
+        "binding_set": "CURRENT_STAGE2_INTAKE_B23",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/manifests/C7.json",
+        "sha256": "cef04d5a729154d8bf11bab1ed7323ce868802ea94524602fe180be8e60ba75f"
+      },
+      {
+        "binding_set": "CURRENT_STAGE2_INTAKE_B23",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/C7/candidate.v2.json",
+        "sha256": "376627c0abc0c60f78b57ee013c3b21b06d4260bbd0c1fd3c7b184e0f313d129"
+      },
+      {
+        "binding_set": "CURRENT_STAGE2_INTAKE_B23",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/fragments/C8.json",
+        "sha256": "dda048235d1f452c898f8b05d4692c2f73c2340d083de563c3ad076f2be43112"
+      },
+      {
+        "binding_set": "CURRENT_STAGE2_INTAKE_B23",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/manifests/C8.json",
+        "sha256": "dd5f36a6a9ff4c78dea05e11c61a76b6300a1868c493487471263d61c6ecad1a"
+      },
+      {
+        "binding_set": "CURRENT_STAGE2_INTAKE_B23",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/C8/candidate.v2.json",
+        "sha256": "29e12181501f43616532f9e75672c0cff7eca5c62be39fa612d1853129c57d1d"
+      },
+      {
+        "binding_set": "CURRENT_STAGE2_INTAKE_B23",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/fragments/C9.json",
+        "sha256": "c142bf67deb880fa9c1bb096e3b1d9659913d2ac9a2d116ec753c83cb4100741"
+      },
+      {
+        "binding_set": "CURRENT_STAGE2_INTAKE_B23",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/manifests/C9.json",
+        "sha256": "7ab4cd16dd41a64023e87234fe4420d479c1fd2cb6df6640c792b561ad32903c"
+      },
+      {
+        "binding_set": "CURRENT_STAGE2_INTAKE_B23",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/C9/candidate.v2.json",
+        "sha256": "bb7abb42d622828eddb599c72bc0974f22ca0fefb47c70a23a7dbddc3ec67329"
+      },
+      {
+        "binding_set": "CURRENT_STAGE2_INTAKE_B23",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/fragments/I1.json",
+        "sha256": "8c99a91c0891589073318c9b872d977ec95e37e8e206e66255c88f72578d9110"
+      },
+      {
+        "binding_set": "CURRENT_STAGE2_INTAKE_B23",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/manifests/I1.json",
+        "sha256": "00b0f89e5278f6aee3f5298e5b466d55326292a3fb3421c84daab5740e990521"
+      },
+      {
+        "binding_set": "CURRENT_STAGE2_INTAKE_B23",
+        "parse": "PASS",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/I1/candidate.v2.json",
+        "sha256": "bb4fc787fbc0d1959f04797e45a99b3da1d00a544501ab30abcc5ff017af0e7e"
+      }
+    ],
+    "declaration_sources": [
+      {
+        "declaration": "B23 for C2-C9 and I1",
+        "line_anchor": "57-64",
+        "path": "scripts/formal_release/stage2_candidate_intake.py",
+        "status": "CURRENT_STAGE2_INTAKE"
+      },
+      {
+        "declaration": "B23 I1 with exact candidate/fragment/manifest identities",
+        "line_anchor": "20-41",
+        "path": "main/backend/tests/successor_runtime/i1_binding_candidate_support.py",
+        "status": "CURRENT_I1_TEST_DECLARATION"
+      },
+      {
+        "declaration": "B19 default family current stage",
+        "line_anchor": "21",
+        "path": "main/backend/tests/successor_runtime/current_candidate_support.py",
+        "status": "OLDER_CURRENT_FAMILY_TEST_DECLARATION"
+      },
+      {
+        "declaration": "B19 for C2-C9; B22 for I1",
+        "line_anchor": "62-68",
+        "path": "scripts/formal_release/generate_stage0_completion.py",
+        "status": "STAGE0_V4_DECLARATION"
+      },
+      {
+        "declaration": "B19 for C2-C9; B22 for I1",
+        "json_pointer": "/bindings/candidate_stages",
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage0-evidence/functorial-refactor-completion.v4.json",
+        "status": "STAGE0_V4_PERSISTED_RECORD"
+      }
+    ],
+    "not_bound_meaning": "No direct path-plus-SHA binding was found in the enumerated current declarations, root registries, B19/B22 declared candidate chains, B23 Stage 2 candidate chains, production declaration, or current all-lines records.",
+    "registry_paths": [
+      "registries/codecs.json",
+      "registries/failures.json",
+      "registries/ports.json",
+      "registries/vocabularies.json"
+    ],
+    "rule": "Direct path-plus-hash objects were recursively inspected in every listed JSON artifact. Snapshots and historical stages other than declared B19/B22 and Stage 2 B23 were excluded. Python declaration anchors were read only to identify the competing current-stage declarations."
+  },
+  "entries": [
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "c40e1dfbf682a971ffb7e0fa72787fa9a3ae7a3a0f2bc784ab77dee7b83e5028",
+      "changed_paths_index": 0,
+      "current_sha256": "c40e1dfbf682a971ffb7e0fa72787fa9a3ae7a3a0f2bc784ab77dee7b83e5028",
+      "path": "main/backend/tests/unit/test_resource_pool_unified_search_unittest.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "task_start",
+        "classification": "TASK_LOCAL_CHANGE_WITH_RECORDED_TASK_START",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": "38fabfc2a147b9da78aaaa4ba81f815bf457673f5f638d02e959be5fdb89ed95"
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "8f534b113fdf880785b160239d69f93a626730853653d214a6248a52dc46e858",
+      "changed_paths_index": 1,
+      "current_sha256": "8f534b113fdf880785b160239d69f93a626730853653d214a6248a52dc46e858",
+      "path": "main/backend/app/services/agent_runtime/read_only_tools.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "RUNTIME"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "e30a76fd3ee947926dd3f170324354219a2e6248b8ab6ffb443b88a6e84f0157",
+      "changed_paths_index": 2,
+      "current_sha256": "e30a76fd3ee947926dd3f170324354219a2e6248b8ab6ffb443b88a6e84f0157",
+      "path": "main/backend/tests/unit/test_agent_core_unittest.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "76f1260dedd1ac938e6c2c6768b662f5c3892c8e7f72d0700ebdf829b28986cd",
+      "changed_paths_index": 3,
+      "current_sha256": "76f1260dedd1ac938e6c2c6768b662f5c3892c8e7f72d0700ebdf829b28986cd",
+      "path": "main/backend/scripts/check_crawler_policy_matrix.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "88b5ecab49eb9e5d764c0cb1bc868b320b9ed7fc3746039c91ad79401b97675e",
+      "changed_paths_index": 4,
+      "current_sha256": "88b5ecab49eb9e5d764c0cb1bc868b320b9ed7fc3746039c91ad79401b97675e",
+      "path": "main/backend/scripts/check_meaningful_ingest_source_policy_attachment.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": true,
+      "binding_reference_count": 7,
+      "binding_references": [
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json",
+          "binding_set": "CURRENT_ALL_LINES_RECORD",
+          "bound_sha256": "80e9683f8de422956eef020d4a657b7cc41b8843aaa4e8825ab87c4e3f8c32cd",
+          "cell_id": null,
+          "current_sha256": "173d95722cef7411f4b1e4606f8dbdbf850d74fbae9847b942b13be1e56c8308",
+          "drift": true,
+          "hash_field": "byte_hash_sha256",
+          "json_pointer": "/entries/37",
+          "role": null
+        },
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/C7/candidate.v2.json",
+          "binding_set": "CURRENT_STAGE2_INTAKE_B23",
+          "bound_sha256": "5b81ef9a41bf8e21c87f2d7a0e0239a4afa14c46de0eb7b37601d217422654f4",
+          "cell_id": null,
+          "current_sha256": "173d95722cef7411f4b1e4606f8dbdbf850d74fbae9847b942b13be1e56c8308",
+          "drift": true,
+          "hash_field": "file_sha256",
+          "json_pointer": "/sources/4",
+          "role": null
+        },
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/fragments/C7.json",
+          "binding_set": "CURRENT_STAGE2_INTAKE_B23",
+          "bound_sha256": "5b81ef9a41bf8e21c87f2d7a0e0239a4afa14c46de0eb7b37601d217422654f4",
+          "cell_id": null,
+          "current_sha256": "173d95722cef7411f4b1e4606f8dbdbf850d74fbae9847b942b13be1e56c8308",
+          "drift": true,
+          "hash_field": "sha256",
+          "json_pointer": "/source_bindings/5",
+          "role": "frozen_locator_db_retry"
+        },
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/manifests/C7.json",
+          "binding_set": "CURRENT_STAGE2_INTAKE_B23",
+          "bound_sha256": "5b81ef9a41bf8e21c87f2d7a0e0239a4afa14c46de0eb7b37601d217422654f4",
+          "cell_id": null,
+          "current_sha256": "173d95722cef7411f4b1e4606f8dbdbf850d74fbae9847b942b13be1e56c8308",
+          "drift": true,
+          "hash_field": "file_sha256",
+          "json_pointer": "/sources/4",
+          "role": null
+        },
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/C7/candidate.v2.json",
+          "binding_set": "DECLARED_STAGE0_V4_FAMILY_CURRENT",
+          "bound_sha256": "5b81ef9a41bf8e21c87f2d7a0e0239a4afa14c46de0eb7b37601d217422654f4",
+          "cell_id": null,
+          "current_sha256": "173d95722cef7411f4b1e4606f8dbdbf850d74fbae9847b942b13be1e56c8308",
+          "drift": true,
+          "hash_field": "file_sha256",
+          "json_pointer": "/sources/4",
+          "role": null
+        },
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/fragments/C7.json",
+          "binding_set": "DECLARED_STAGE0_V4_FAMILY_CURRENT",
+          "bound_sha256": "5b81ef9a41bf8e21c87f2d7a0e0239a4afa14c46de0eb7b37601d217422654f4",
+          "cell_id": null,
+          "current_sha256": "173d95722cef7411f4b1e4606f8dbdbf850d74fbae9847b942b13be1e56c8308",
+          "drift": true,
+          "hash_field": "sha256",
+          "json_pointer": "/source_bindings/5",
+          "role": "frozen_locator_db_retry"
+        },
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/manifests/C7.json",
+          "binding_set": "DECLARED_STAGE0_V4_FAMILY_CURRENT",
+          "bound_sha256": "5b81ef9a41bf8e21c87f2d7a0e0239a4afa14c46de0eb7b37601d217422654f4",
+          "cell_id": null,
+          "current_sha256": "173d95722cef7411f4b1e4606f8dbdbf850d74fbae9847b942b13be1e56c8308",
+          "drift": true,
+          "hash_field": "file_sha256",
+          "json_pointer": "/sources/4",
+          "role": null
+        }
+      ],
+      "binding_status": "BOUND",
+      "changed_paths_after_sha256": "173d95722cef7411f4b1e4606f8dbdbf850d74fbae9847b942b13be1e56c8308",
+      "changed_paths_index": 5,
+      "current_sha256": "173d95722cef7411f4b1e4606f8dbdbf850d74fbae9847b942b13be1e56c8308",
+      "path": "main/backend/app/models/base.py",
+      "required_additive_rebind": "AUTHORIZED_CREATE_ONLY_SUCCESSOR_STAGE_REBIND; DO_NOT_OVERWRITE_B23; VERSIONED_STAGE0_DECLARATION_ALIGNMENT_AND_ADDITIVE_REBIND; VERSIONED_SUCCESSOR_ALL_LINES_BYTE_CLOSURE_RECORD",
+      "surface_kinds": [
+        "CODE",
+        "RUNTIME"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "a1426fad870f3aefaf98236725d953f65f35e6b059603f9e29b9bdf0c1a98d74",
+      "changed_paths_index": 6,
+      "current_sha256": "a1426fad870f3aefaf98236725d953f65f35e6b059603f9e29b9bdf0c1a98d74",
+      "path": "main/backend/app/startup_hooks.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "RUNTIME"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "91cb7b802294a13b5831e7906c7cbceae16c4bd7c99655db99c0aa4ad4fd0f97",
+      "changed_paths_index": 7,
+      "current_sha256": "91cb7b802294a13b5831e7906c7cbceae16c4bd7c99655db99c0aa4ad4fd0f97",
+      "path": "main/backend/app/services/workflow_graph/__init__.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "RUNTIME"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "task_start",
+        "classification": "TASK_LOCAL_CHANGE_WITH_RECORDED_TASK_START",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": "de7d79ec3e12c5e83a953b7886408584f6e74a95930fb7c066e32c92414a8533"
+      }
+    },
+    {
+      "any_binding_drift": true,
+      "binding_reference_count": 2,
+      "binding_references": [
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json",
+          "binding_set": "CURRENT_ALL_LINES_RECORD",
+          "bound_sha256": "cb4ae041aef79ce9b8d68a14615c4a85f1b9182319380a5462133534eeca67fc",
+          "cell_id": null,
+          "current_sha256": "15c22d898b1c90205c43585aae4e3d83a425782e57676926507b92e6b8fb68ca",
+          "drift": true,
+          "hash_field": "byte_hash_sha256",
+          "json_pointer": "/entries/172",
+          "role": null
+        },
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesSuccessorMovementInventory.v1.json",
+          "binding_set": "CURRENT_ALL_LINES_RECORD",
+          "bound_sha256": "cb4ae041aef79ce9b8d68a14615c4a85f1b9182319380a5462133534eeca67fc",
+          "cell_id": null,
+          "current_sha256": "15c22d898b1c90205c43585aae4e3d83a425782e57676926507b92e6b8fb68ca",
+          "drift": true,
+          "hash_field": "sha256",
+          "json_pointer": "/movements/6/donor_byte_closure_refs/12",
+          "role": null
+        }
+      ],
+      "binding_status": "BOUND",
+      "changed_paths_after_sha256": "15c22d898b1c90205c43585aae4e3d83a425782e57676926507b92e6b8fb68ca",
+      "changed_paths_index": 8,
+      "current_sha256": "15c22d898b1c90205c43585aae4e3d83a425782e57676926507b92e6b8fb68ca",
+      "path": "main/backend/app/services/workflow_graph/runtime.py",
+      "required_additive_rebind": "VERSIONED_SUCCESSOR_ALL_LINES_BYTE_CLOSURE_RECORD",
+      "surface_kinds": [
+        "CODE",
+        "RUNTIME"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "8901889f8929a4326a1625f582fa6c6c1d5176cfe8b34ce5c1abd5174af6e2c6",
+      "changed_paths_index": 9,
+      "current_sha256": "8901889f8929a4326a1625f582fa6c6c1d5176cfe8b34ce5c1abd5174af6e2c6",
+      "path": "main/backend/app/services/workflow_graph/executors/__init__.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "RUNTIME"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "08b7e60567122f689f6ec67736b5282ba6b89fdc452e82d8c0de2d6c3428e814",
+      "changed_paths_index": 10,
+      "current_sha256": "08b7e60567122f689f6ec67736b5282ba6b89fdc452e82d8c0de2d6c3428e814",
+      "path": "main/backend/app/services/workflow_graph/handoff_store.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "RUNTIME"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "6bcdd014f81f1e6d0ebc0ce35dae46b2ae1c57d19ae51aa1a4d904e4602da824",
+      "changed_paths_index": 11,
+      "current_sha256": "6bcdd014f81f1e6d0ebc0ce35dae46b2ae1c57d19ae51aa1a4d904e4602da824",
+      "path": "main/backend/tests/unit/test_schema_startup_boundary_unittest.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "a38e3ee51fbf1b3b26822bbbd832c5d5cd50dc1838cdf9a87777fdaa104b1eb1",
+      "changed_paths_index": 12,
+      "current_sha256": "a38e3ee51fbf1b3b26822bbbd832c5d5cd50dc1838cdf9a87777fdaa104b1eb1",
+      "path": "main/backend/tests/unit/test_workflow_graph_import_boundary_unittest.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "603da90399148ae6accb2b3451ebbe4e7626fb4a13f0e4f2452a7ae5806dacb2",
+      "changed_paths_index": 13,
+      "current_sha256": "603da90399148ae6accb2b3451ebbe4e7626fb4a13f0e4f2452a7ae5806dacb2",
+      "path": "main/backend/tests/successor_runtime/i1_binding_candidate_support.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "94c89c1eabd7228fb587a13890580e06466c7c829148b95b1792d3c282bd4685",
+      "changed_paths_index": 14,
+      "current_sha256": "94c89c1eabd7228fb587a13890580e06466c7c829148b95b1792d3c282bd4685",
+      "path": "main/backend/tests/successor_runtime/test_i1_micro_specimens.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "a7754670ba08733927dd1ad7b095452d9adbf7cc104cef998dfe191405d38034",
+      "changed_paths_index": 15,
+      "current_sha256": "a7754670ba08733927dd1ad7b095452d9adbf7cc104cef998dfe191405d38034",
+      "path": "main/backend/tests/successor_runtime/test_i1_rollback_rehearsal.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "0f82ea712eb922918ffa71d6907b30b19746ba283075cd4ca7bde535daf609f5",
+      "changed_paths_index": 16,
+      "current_sha256": "0f82ea712eb922918ffa71d6907b30b19746ba283075cd4ca7bde535daf609f5",
+      "path": "main/backend/tests/unit/test_interactive_agent_runtime_unittest.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "task_start",
+        "classification": "TASK_LOCAL_CHANGE_WITH_RECORDED_TASK_START",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": "d99762d8be0be3ee76da22fa47e4cfb1f9c4d1a725de868d7b8c6ea8949ff31b"
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "bd40581b206e8f93cb54c53c4d2d2cd78492b080df85a0933fdfe23274c233c7",
+      "changed_paths_index": 17,
+      "current_sha256": "bd40581b206e8f93cb54c53c4d2d2cd78492b080df85a0933fdfe23274c233c7",
+      "path": "main/backend/tests/unit/test_policy_indexer_vector_contract_unittest.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CONTRACT",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "061d3c3aa5183907f4fe043350ab79cefe998add7971c3c9a01a9894a3031bff",
+      "changed_paths_index": 18,
+      "current_sha256": "061d3c3aa5183907f4fe043350ab79cefe998add7971c3c9a01a9894a3031bff",
+      "path": "scripts/formal_release/source_closure.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "977a58ec5a8c854dfc18daffe8f7af3e996118d53b205482ba049ccf697c57db",
+      "changed_paths_index": 19,
+      "current_sha256": "977a58ec5a8c854dfc18daffe8f7af3e996118d53b205482ba049ccf697c57db",
+      "path": "scripts/formal_release/stage2_candidate_intake.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "486083e3309f83e74ec1be3526a46899b4f25f8002086475a487f0944ff7640b",
+      "changed_paths_index": 20,
+      "current_sha256": "486083e3309f83e74ec1be3526a46899b4f25f8002086475a487f0944ff7640b",
+      "path": "scripts/formal_release/materialize_stage2_candidate.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "219eca68cb17be285ca078c14d8a4510e69f0bd69bb96c17d72d84b03731dcd9",
+      "changed_paths_index": 21,
+      "current_sha256": "219eca68cb17be285ca078c14d8a4510e69f0bd69bb96c17d72d84b03731dcd9",
+      "path": "tests/formal_release/test_source_closure.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "5fc071b97f62353386727a4215b2d24b8411d2dc88517dc75e8b5432415baa2e",
+      "changed_paths_index": 22,
+      "current_sha256": "5fc071b97f62353386727a4215b2d24b8411d2dc88517dc75e8b5432415baa2e",
+      "path": "tests/formal_release/test_stage2_candidate_intake.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "53805282be077854f13d1ce646a26414ff9c7d7e20df69bf6c16f2309bc4c192",
+      "changed_paths_index": 23,
+      "current_sha256": "53805282be077854f13d1ce646a26414ff9c7d7e20df69bf6c16f2309bc4c192",
+      "path": "tests/formal_release/test_materialize_stage2_candidate.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "192b10a7ff2dfb73dbf5a7c7370d8754a991192565edbbc5a147dfafe07eeeb1",
+      "changed_paths_index": 24,
+      "current_sha256": "192b10a7ff2dfb73dbf5a7c7370d8754a991192565edbbc5a147dfafe07eeeb1",
+      "path": "main/backend/tests/unit/test_raw_import_structuring_unittest.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "715185382a1a1930db7e854fcee6193c4a655470b9605a9202cd1620d0d017a0",
+      "changed_paths_index": 25,
+      "current_sha256": "715185382a1a1930db7e854fcee6193c4a655470b9605a9202cd1620d0d017a0",
+      "path": "main/backend/tests/unit/test_source_library_real_probe_fixture_unittest.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "task_start",
+        "classification": "TASK_LOCAL_CHANGE_WITH_RECORDED_TASK_START",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": "6f572ca0fb21ab75aa71ef6dff7330b640dc8f2122caee71340576ca38003a5c"
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "ce6698a733a879cf9f58595fc08ebf83a1576ad0eb836d1ae3035fba30b43ccc",
+      "changed_paths_index": 26,
+      "current_sha256": "ce6698a733a879cf9f58595fc08ebf83a1576ad0eb836d1ae3035fba30b43ccc",
+      "path": "main/backend/scripts/check_graph_typed_writing_consumer_status_boundary.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "63f9ca4fc7021e410e37e52edae0de1b4061257b84b8a2b5638dcde566b37a94",
+      "changed_paths_index": 27,
+      "current_sha256": "63f9ca4fc7021e410e37e52edae0de1b4061257b84b8a2b5638dcde566b37a94",
+      "path": "main/backend/tests/unit/test_graph_typed_writing_consumer_status_boundary_unittest.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "e3a37b27ae9f440ce5fc35b3713d6f40fc2632f8674b5312e4b43c2f38adcab5",
+      "changed_paths_index": 28,
+      "current_sha256": "e3a37b27ae9f440ce5fc35b3713d6f40fc2632f8674b5312e4b43c2f38adcab5",
+      "path": "main/backend/scripts/check_ingest_canary_closure_readiness.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "0e6b019743c05c9bde8814293f6bff5c29e8c85b6668a6e9470dbdbab93989d6",
+      "changed_paths_index": 29,
+      "current_sha256": "0e6b019743c05c9bde8814293f6bff5c29e8c85b6668a6e9470dbdbab93989d6",
+      "path": "main/backend/tests/unit/test_ingest_canary_closure_readiness_unittest.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "2142b3ef820974d9bee2297366c6e07a93353dcc5e75b2fc3a84982b3b853193",
+      "changed_paths_index": 30,
+      "current_sha256": "2142b3ef820974d9bee2297366c6e07a93353dcc5e75b2fc3a84982b3b853193",
+      "path": "main/backend/scripts/check_typed_writing_live_boundary.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "6186dd2a4d635dc6afc98516ab321a613855aca5df54f2575ce7acb734ec856d",
+      "changed_paths_index": 31,
+      "current_sha256": "6186dd2a4d635dc6afc98516ab321a613855aca5df54f2575ce7acb734ec856d",
+      "path": "main/backend/tests/unit/test_typed_writing_live_boundary_checker_unittest.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "f3b7cc26e6c7615f486e83077501b70deeb95575b27335f0d25815865b97bac4",
+      "changed_paths_index": 32,
+      "current_sha256": "f3b7cc26e6c7615f486e83077501b70deeb95575b27335f0d25815865b97bac4",
+      "path": "main/backend/app/services/workflow_graph/governance_contract.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "RUNTIME",
+        "CONTRACT"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "task_start",
+        "classification": "TASK_LOCAL_CHANGE_WITH_RECORDED_TASK_START",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": "bd38ed4b63d48858551f8271e320cb9d83e1bef499c1a2b18e0839f317875829"
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "585663152710ccfa87fced88a86d374ee6a18f09c3d246acfe690eeaa077ae20",
+      "changed_paths_index": 33,
+      "current_sha256": "585663152710ccfa87fced88a86d374ee6a18f09c3d246acfe690eeaa077ae20",
+      "path": "main/backend/scripts/check_evidence_source_availability.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "7539e4ed65405fdd1d00a4900812d2c8b3f9d29f22592bfe8d2f2a4e5a417bc9",
+      "changed_paths_index": 34,
+      "current_sha256": "7539e4ed65405fdd1d00a4900812d2c8b3f9d29f22592bfe8d2f2a4e5a417bc9",
+      "path": "main/backend/scripts/build_crawler_public_replay_shard_outputs.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "9cb1dfcedc925e5d8f6cf313a2018f58999e7c1f8a30b63903145f14dc3a0406",
+      "changed_paths_index": 35,
+      "current_sha256": "9cb1dfcedc925e5d8f6cf313a2018f58999e7c1f8a30b63903145f14dc3a0406",
+      "path": "main/backend/scripts/check_crawler_public_replay_gate.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "fbb0fdb33f96f4efe57718e5c298231acff22687c757926f1d21d246a502cb31",
+      "changed_paths_index": 36,
+      "current_sha256": "fbb0fdb33f96f4efe57718e5c298231acff22687c757926f1d21d246a502cb31",
+      "path": "main/backend/scripts/check_crawler_public_replay_shards.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "70972b184168ac40ba1f2ff3860c2ebb6ce0bf68445a9d6b9b243980f2ecd89a",
+      "changed_paths_index": 37,
+      "current_sha256": "70972b184168ac40ba1f2ff3860c2ebb6ce0bf68445a9d6b9b243980f2ecd89a",
+      "path": "main/backend/scripts/check_crawler_source_expansion_closure.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "57369b528dcef584d32c3786e7ff329e0495464799ecbe8c5c81890e8aa975f3",
+      "changed_paths_index": 38,
+      "current_sha256": "57369b528dcef584d32c3786e7ff329e0495464799ecbe8c5c81890e8aa975f3",
+      "path": "main/backend/scripts/check_llm_crawler_replay_fixture.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "fd8cfb894fc252840a3077dc63f2e4e89a78d25add5b8018121ff463cc528ac1",
+      "changed_paths_index": 39,
+      "current_sha256": "fd8cfb894fc252840a3077dc63f2e4e89a78d25add5b8018121ff463cc528ac1",
+      "path": "main/backend/scripts/check_llm_crawler_replay_manifest.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "ed2e10ddd94b84a69ca5b5466a4a22cf29ca08d40e05ef5a46fb7df969c462f6",
+      "changed_paths_index": 40,
+      "current_sha256": "ed2e10ddd94b84a69ca5b5466a4a22cf29ca08d40e05ef5a46fb7df969c462f6",
+      "path": "main/backend/scripts/check_source_library_public_replay_a5_gate.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "712d1ac985648afcf663d3b8b36bf022db6f009e7bb76cbf527a1d2ba7692f0d",
+      "changed_paths_index": 41,
+      "current_sha256": "712d1ac985648afcf663d3b8b36bf022db6f009e7bb76cbf527a1d2ba7692f0d",
+      "path": "main/backend/scripts/check_source_library_review_closure_batch.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "aab09ab46d52b343dbee9c18bdcac5884bdab6dcb7e6fc9773d217f5a2d7ef08",
+      "changed_paths_index": 42,
+      "current_sha256": "aab09ab46d52b343dbee9c18bdcac5884bdab6dcb7e6fc9773d217f5a2d7ef08",
+      "path": "main/backend/scripts/check_source_library_review_closure_batch2.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "bd4029338b174a96d9e4fa7ce396678f2e1a158e7c6b97effbf86114301ab86b",
+      "changed_paths_index": 43,
+      "current_sha256": "bd4029338b174a96d9e4fa7ce396678f2e1a158e7c6b97effbf86114301ab86b",
+      "path": "main/backend/scripts/check_source_library_review_closure_batch3.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "6c6138c552b7b5d1b85310499f7eb087626de37ec4966e12bd30ec1cb411fcd5",
+      "changed_paths_index": 44,
+      "current_sha256": "6c6138c552b7b5d1b85310499f7eb087626de37ec4966e12bd30ec1cb411fcd5",
+      "path": "main/backend/scripts/check_source_library_review_closure_batch4.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "d0d078896207a65f2e920a8489fd8b8e8b16c66aaf811deac0429c2337042878",
+      "changed_paths_index": 45,
+      "current_sha256": "d0d078896207a65f2e920a8489fd8b8e8b16c66aaf811deac0429c2337042878",
+      "path": "main/backend/scripts/check_source_library_search_governance.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "d9a236c87ca8cfd656608767e9bca16b1d081e31040fdf28c00b8aa6c8f24af6",
+      "changed_paths_index": 46,
+      "current_sha256": "d9a236c87ca8cfd656608767e9bca16b1d081e31040fdf28c00b8aa6c8f24af6",
+      "path": "main/backend/tests/unit/test_build_crawler_public_replay_shard_outputs_unittest.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "8750c3a94281ff1e0be06927275d7b1447166f5186d814eedd6d78a69496a342",
+      "changed_paths_index": 47,
+      "current_sha256": "8750c3a94281ff1e0be06927275d7b1447166f5186d814eedd6d78a69496a342",
+      "path": "main/backend/tests/unit/test_crawler_public_replay_gate_unittest.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "bb06f0861b52cdce61d785facf278f828c44608e6f6af8f213563dc1a39fdd82",
+      "changed_paths_index": 48,
+      "current_sha256": "bb06f0861b52cdce61d785facf278f828c44608e6f6af8f213563dc1a39fdd82",
+      "path": "main/backend/tests/unit/test_crawler_public_replay_shards_unittest.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "32ccbc8703fc774751c4673e098005e9dd119b41095bc03782f7702f2632533d",
+      "changed_paths_index": 49,
+      "current_sha256": "32ccbc8703fc774751c4673e098005e9dd119b41095bc03782f7702f2632533d",
+      "path": "main/backend/tests/unit/test_crawler_source_expansion_closure_check_unittest.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "b0e59f654a6c2288f7d6d3cc827f2a9209c5a4d9f400ebac834bf8ecfb0098b9",
+      "changed_paths_index": 50,
+      "current_sha256": "b0e59f654a6c2288f7d6d3cc827f2a9209c5a4d9f400ebac834bf8ecfb0098b9",
+      "path": "main/backend/tests/unit/test_llm_crawler_replay_fixture_check_unittest.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "e5d5153dd2de293250aac8f99d8435db9baa766d8547c15dc9f3a79ce9477c58",
+      "changed_paths_index": 51,
+      "current_sha256": "e5d5153dd2de293250aac8f99d8435db9baa766d8547c15dc9f3a79ce9477c58",
+      "path": "main/backend/tests/unit/test_llm_crawler_replay_manifest_check_unittest.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "8b86b2bf780b2be1e605be4f66f1855b1ee3e76644917af17372c15f9452da87",
+      "changed_paths_index": 52,
+      "current_sha256": "8b86b2bf780b2be1e605be4f66f1855b1ee3e76644917af17372c15f9452da87",
+      "path": "main/backend/tests/unit/test_source_library_public_replay_a5_gate_unittest.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "c2d8a555a85fc3faaaf602d127387cb607ade139ecefacdf95d3f0771fc3540c",
+      "changed_paths_index": 53,
+      "current_sha256": "c2d8a555a85fc3faaaf602d127387cb607ade139ecefacdf95d3f0771fc3540c",
+      "path": "main/backend/tests/unit/test_source_library_review_closure_batch_unittest.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "f8d5a1a44e7ad68abadb8d181d2660b2120705053f5227fa2c6bf202a292563d",
+      "changed_paths_index": 54,
+      "current_sha256": "f8d5a1a44e7ad68abadb8d181d2660b2120705053f5227fa2c6bf202a292563d",
+      "path": "main/backend/tests/unit/test_source_library_review_closure_batch2_unittest.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "e6392dbe3d98195df58a203ba7e97d8bc43f3d0581a8e94d98fd28fcb1dd4a89",
+      "changed_paths_index": 55,
+      "current_sha256": "e6392dbe3d98195df58a203ba7e97d8bc43f3d0581a8e94d98fd28fcb1dd4a89",
+      "path": "main/backend/tests/unit/test_source_library_review_closure_batch3_unittest.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "d1166463bddc5833c3f1bf48fffe5529e6d4a3c50334df9bfeab366248da5ce3",
+      "changed_paths_index": 56,
+      "current_sha256": "d1166463bddc5833c3f1bf48fffe5529e6d4a3c50334df9bfeab366248da5ce3",
+      "path": "main/backend/tests/unit/test_source_library_review_closure_batch4_unittest.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "fab78be383ee45c13c049345c2bee5aba321697fe2e9752ead40f237d7cb8f72",
+      "changed_paths_index": 57,
+      "current_sha256": "fab78be383ee45c13c049345c2bee5aba321697fe2e9752ead40f237d7cb8f72",
+      "path": "main/backend/tests/unit/test_source_library_search_governance_check_unittest.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "ab938adbe30a0071c00d4f1fedec018634a50a81b5228ba7ac76a98a1ca01303",
+      "changed_paths_index": 58,
+      "current_sha256": "ab938adbe30a0071c00d4f1fedec018634a50a81b5228ba7ac76a98a1ca01303",
+      "path": "main/backend/scripts/evidence_source_contract.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CONTRACT"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "4990a8c8e06f84a946ee453ea38c84d79e8cac365a0db601f314e154ecbd0cff",
+      "changed_paths_index": 59,
+      "current_sha256": "4990a8c8e06f84a946ee453ea38c84d79e8cac365a0db601f314e154ecbd0cff",
+      "path": "main/backend/scripts/check_open_search_runtime_boundary.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "a040d1e836628651b6d35ebaec81e31a06b0646d2d837ae4c10372dcca63a4ca",
+      "changed_paths_index": 60,
+      "current_sha256": "a040d1e836628651b6d35ebaec81e31a06b0646d2d837ae4c10372dcca63a4ca",
+      "path": "main/backend/scripts/check_open_search_health_artifact.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "d3e8f50ceb11f43405b3b3a1526f59424d61b8fe67cd5def1de4342a31d1fbe1",
+      "changed_paths_index": 61,
+      "current_sha256": "d3e8f50ceb11f43405b3b3a1526f59424d61b8fe67cd5def1de4342a31d1fbe1",
+      "path": "main/backend/scripts/check_open_search_health_artifact_schema_readback.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "3fbce21722f0d560a3446e6135c2af497d19a52c0971ce236b7755506c446abb",
+      "changed_paths_index": 62,
+      "current_sha256": "3fbce21722f0d560a3446e6135c2af497d19a52c0971ce236b7755506c446abb",
+      "path": "main/backend/scripts/check_wave14_vectorization_provider_capability.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "23a479ca10fca00dba974741ad2f35c3f881cd0801f88d9859994036d02a7294",
+      "changed_paths_index": 63,
+      "current_sha256": "23a479ca10fca00dba974741ad2f35c3f881cd0801f88d9859994036d02a7294",
+      "path": "ops/search-lab/scripts/wave8_search_vectorization_contract.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CONTRACT"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "14659ba8a69215139f4aaf80687153d59f3980ed39cd14aab2a0e0d1e4690e4d",
+      "changed_paths_index": 64,
+      "current_sha256": "14659ba8a69215139f4aaf80687153d59f3980ed39cd14aab2a0e0d1e4690e4d",
+      "path": "ops/search-lab/scripts/wave10_vectorization_quality_gate.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "f08ee676c7e17611340acb9b0918f504722140b1d206c8cbee0db90862331c94",
+      "changed_paths_index": 65,
+      "current_sha256": "f08ee676c7e17611340acb9b0918f504722140b1d206c8cbee0db90862331c94",
+      "path": "ops/search-lab/scripts/wave12_provider_readiness_gate.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "aa3be28bd3646e01130ba2b519daf785e5052e38f3494a2145ba4be3f20fa314",
+      "changed_paths_index": 66,
+      "current_sha256": "aa3be28bd3646e01130ba2b519daf785e5052e38f3494a2145ba4be3f20fa314",
+      "path": "ops/search-lab/scripts/wave18_vectorization_hybrid_readback.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "f5e6d56e5e3ef41436aeb9ec91b787843ef6a16ac10f83820681bbdac2686d94",
+      "changed_paths_index": 67,
+      "current_sha256": "f5e6d56e5e3ef41436aeb9ec91b787843ef6a16ac10f83820681bbdac2686d94",
+      "path": "ops/search-lab/scripts/wave19_vectorization_provider_manifest_readback.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "2a5ca4cf7ecb488951c27607eb6feca1c4539d97878f05861cef63c8b5f9db8a",
+      "changed_paths_index": 68,
+      "current_sha256": "2a5ca4cf7ecb488951c27607eb6feca1c4539d97878f05861cef63c8b5f9db8a",
+      "path": "ops/search-lab/scripts/wave27_vectorization_closure_gate.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "23905d0174444ad3eef13ac86acae96ebcde2248add0360039c03531bf9c5b16",
+      "changed_paths_index": 69,
+      "current_sha256": "23905d0174444ad3eef13ac86acae96ebcde2248add0360039c03531bf9c5b16",
+      "path": "ops/search-lab/scripts/wave29_oss_node_vector_manifest_replay.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "9c92092498ddaa16559b5117177e41dc90fe65868771d91d4ee51cf8c481fe4b",
+      "changed_paths_index": 70,
+      "current_sha256": "9c92092498ddaa16559b5117177e41dc90fe65868771d91d4ee51cf8c481fe4b",
+      "path": "ops/search-lab/scripts/wave55_oss_node_search_quality_gate.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "48346e3ff952910dede974706f0bd9b779c35f13ca0967538eaea26a0a8cd0b9",
+      "changed_paths_index": 71,
+      "current_sha256": "48346e3ff952910dede974706f0bd9b779c35f13ca0967538eaea26a0a8cd0b9",
+      "path": "ops/search-lab/scripts/wave57_oss_node_public_corpus_semantic_relevance_gate.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "5400cf8da18fbb5d4411f990ebe727d20cc1e6a208ca88a8e4f6ccdaeb74e534",
+      "changed_paths_index": 72,
+      "current_sha256": "5400cf8da18fbb5d4411f990ebe727d20cc1e6a208ca88a8e4f6ccdaeb74e534",
+      "path": "ops/search-lab/scripts/wave57_production_vector_quality_gate.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "3dc55b12694838c7685b6dda3233253ac25b2e313bf6254cec15e6b2d104921a",
+      "changed_paths_index": 73,
+      "current_sha256": "3dc55b12694838c7685b6dda3233253ac25b2e313bf6254cec15e6b2d104921a",
+      "path": "main/backend/tests/unit/_evidence_source_assertions.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "74602661c4f58545539756dcaedccaca424e2dbae81d4325f6f1144a9339b381",
+      "changed_paths_index": 74,
+      "current_sha256": "74602661c4f58545539756dcaedccaca424e2dbae81d4325f6f1144a9339b381",
+      "path": "main/backend/tests/unit/test_open_search_health_artifact_unittest.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "8d115c5914858b16e97fc1beaedb8208131d8238395592c074406527aa90194f",
+      "changed_paths_index": 75,
+      "current_sha256": "8d115c5914858b16e97fc1beaedb8208131d8238395592c074406527aa90194f",
+      "path": "main/backend/tests/unit/test_open_search_health_artifact_schema_readback_unittest.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "becd8f635dec34e93a6c4e043787bc5165ee033d5a9350ccb284a703a9762c09",
+      "changed_paths_index": 76,
+      "current_sha256": "becd8f635dec34e93a6c4e043787bc5165ee033d5a9350ccb284a703a9762c09",
+      "path": "main/backend/tests/unit/test_open_search_runtime_boundary_unittest.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "2924df69ba5b9c4bb464e17ac2a132f630bba6e5563b1da32740b0e9200ec325",
+      "changed_paths_index": 77,
+      "current_sha256": "2924df69ba5b9c4bb464e17ac2a132f630bba6e5563b1da32740b0e9200ec325",
+      "path": "main/backend/tests/unit/test_wave14_vectorization_provider_capability_unittest.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "2a94dd3ec1130a25e43d55a8ca72a8b8d6f3f0810dc8a3bcdbfa60d63e390c0e",
+      "changed_paths_index": 78,
+      "current_sha256": "2a94dd3ec1130a25e43d55a8ca72a8b8d6f3f0810dc8a3bcdbfa60d63e390c0e",
+      "path": "main/backend/tests/unit/test_wave8_search_vectorization_contract_unittest.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CONTRACT",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "6ce63f0f0575b5b59d26cc344faed74e2655dded5e490db2e893622031f745b3",
+      "changed_paths_index": 79,
+      "current_sha256": "6ce63f0f0575b5b59d26cc344faed74e2655dded5e490db2e893622031f745b3",
+      "path": "main/backend/tests/unit/test_wave10_vectorization_quality_gate_unittest.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "04db954d0462e7981325231426ebb8077c98915ffa791743f46037c6f5b2577e",
+      "changed_paths_index": 80,
+      "current_sha256": "04db954d0462e7981325231426ebb8077c98915ffa791743f46037c6f5b2577e",
+      "path": "main/backend/tests/unit/test_wave12_provider_readiness_gate_unittest.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "ecee3e6bf54e012f85d11f6641e5f31a975deea5cf275912d4d5e47505723800",
+      "changed_paths_index": 81,
+      "current_sha256": "ecee3e6bf54e012f85d11f6641e5f31a975deea5cf275912d4d5e47505723800",
+      "path": "main/backend/tests/unit/test_wave18_vectorization_hybrid_readback_unittest.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "680df535963668029e2b9923a89155a5b673580f41d42c7025d4261df4425c0a",
+      "changed_paths_index": 82,
+      "current_sha256": "680df535963668029e2b9923a89155a5b673580f41d42c7025d4261df4425c0a",
+      "path": "main/backend/tests/unit/test_wave19_vectorization_provider_manifest_readback_unittest.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "fdd87dfa573a0f5205032dd417b3365ea0619db8565892db7180821be712901a",
+      "changed_paths_index": 83,
+      "current_sha256": "fdd87dfa573a0f5205032dd417b3365ea0619db8565892db7180821be712901a",
+      "path": "main/backend/tests/unit/test_wave27_vectorization_closure_gate_unittest.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "55527aec8cee96d1bb5e51dd4d9eecd37b75350ea0fb95bcfc1c2ab37f6df3a5",
+      "changed_paths_index": 84,
+      "current_sha256": "55527aec8cee96d1bb5e51dd4d9eecd37b75350ea0fb95bcfc1c2ab37f6df3a5",
+      "path": "main/backend/tests/unit/test_wave29_oss_node_vector_manifest_replay_unittest.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "bca367f8444c2e911076ff37ebca33e6b62d8f0566567bf8edd86b6f0c71e33b",
+      "changed_paths_index": 85,
+      "current_sha256": "bca367f8444c2e911076ff37ebca33e6b62d8f0566567bf8edd86b6f0c71e33b",
+      "path": "main/backend/tests/unit/test_wave55_oss_node_search_quality_gate_unittest.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "1ba4d5604d87cfa99d082f0174480fa1a13f85ed35ad8e881822daef4947a220",
+      "changed_paths_index": 86,
+      "current_sha256": "1ba4d5604d87cfa99d082f0174480fa1a13f85ed35ad8e881822daef4947a220",
+      "path": "main/backend/tests/unit/test_wave57_oss_node_public_corpus_semantic_relevance_gate_unittest.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "0b487823ad1e630f46924c5a507aac85c3e8cf45227b464fc218fcc95bb485f6",
+      "changed_paths_index": 87,
+      "current_sha256": "0b487823ad1e630f46924c5a507aac85c3e8cf45227b464fc218fcc95bb485f6",
+      "path": "main/backend/tests/unit/test_wave57_production_vector_quality_gate_unittest.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "07cb2522cd324ea02340a653a8571dfc0210562afb414925e8f3072ecb39ffeb",
+      "changed_paths_index": 88,
+      "current_sha256": "07cb2522cd324ea02340a653a8571dfc0210562afb414925e8f3072ecb39ffeb",
+      "path": "stage1-successor-evidence/residual-disposition-v1/build_contract12_return.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CONTRACT"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "33d48a566619950f40125467c5a5a53f728b2bb76f9e28b44a5eb14894c10397",
+      "changed_paths_index": 89,
+      "current_sha256": "33d48a566619950f40125467c5a5a53f728b2bb76f9e28b44a5eb14894c10397",
+      "path": "stage1-successor-evidence/residual-disposition-v1/raw-gate/backend-unit-final.log",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "EVIDENCE_OR_REVIEW_ARTIFACT"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "e07c7ae3322bfd3c77e18b47fefce67f82db8e0517640a81b6db22ac2272bb94",
+      "changed_paths_index": 90,
+      "current_sha256": "e07c7ae3322bfd3c77e18b47fefce67f82db8e0517640a81b6db22ac2272bb94",
+      "path": "stage1-successor-evidence/residual-disposition-v1/raw-gate/backend-unit-final.xml",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "EVIDENCE_OR_REVIEW_ARTIFACT"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "f20c13ac08bc4f23fbb14a1bb21b7a2446f7e5f9d23fb1cad5c32313180e03f7",
+      "changed_paths_index": 91,
+      "current_sha256": "f20c13ac08bc4f23fbb14a1bb21b7a2446f7e5f9d23fb1cad5c32313180e03f7",
+      "path": "stage1-successor-evidence/residual-disposition-v1/raw-gate/receipt.v1.json",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "EVIDENCE_OR_REVIEW_ARTIFACT"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "494c480f9528feb156d18ac0f7a8d02c93639578b06c26197b8ac9edc3ad7707",
+      "changed_paths_index": 92,
+      "current_sha256": "494c480f9528feb156d18ac0f7a8d02c93639578b06c26197b8ac9edc3ad7707",
+      "path": "stage1-successor-evidence/residual-disposition-v1/inventory/generate_backend_failure_inventory.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "030e1aca56fdc2731107c9d8ab247bee6ba4406620246ec1dbf64f41b2ad524e",
+      "changed_paths_index": 93,
+      "current_sha256": "030e1aca56fdc2731107c9d8ab247bee6ba4406620246ec1dbf64f41b2ad524e",
+      "path": "stage1-successor-evidence/residual-disposition-v1/inventory/check_backend_failure_inventory.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "d6d4a68e92274a94a10df214ae0e8011029246048c93f30ca50dbba91f5f813b",
+      "changed_paths_index": 94,
+      "current_sha256": "d6d4a68e92274a94a10df214ae0e8011029246048c93f30ca50dbba91f5f813b",
+      "path": "stage1-successor-evidence/residual-disposition-v1/inventory/backend_failure_inventory.v1.json",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "EVIDENCE_OR_REVIEW_ARTIFACT"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "d3a440588cf3fa55f3023383be7753554e4c1530d53011b8ac94432257c48dc9",
+      "changed_paths_index": 95,
+      "current_sha256": "d3a440588cf3fa55f3023383be7753554e4c1530d53011b8ac94432257c48dc9",
+      "path": "stage1-successor-evidence/residual-disposition-v1/inventory/backend_failure_inventory.validation.v1.json",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "EVIDENCE_OR_REVIEW_ARTIFACT"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "4f01f15464582c7b465af79397e1297510ad95e9170d199564aea72a2c0e34d1",
+      "changed_paths_index": 96,
+      "current_sha256": "4f01f15464582c7b465af79397e1297510ad95e9170d199564aea72a2c0e34d1",
+      "path": "stage1-successor-evidence/residual-disposition-v1/inventory/backend_failure_inventory.root-input.v1.json",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "EVIDENCE_OR_REVIEW_ARTIFACT"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "cadcae2183d64802f6a3fc837692c66bbba82cbfcece6c52943db13c1ee81f67",
+      "changed_paths_index": 97,
+      "current_sha256": "cadcae2183d64802f6a3fc837692c66bbba82cbfcece6c52943db13c1ee81f67",
+      "path": "stage1-successor-evidence/residual-disposition-v1/inventory/backend_failure_inventory.root-input.validation.v1.json",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "EVIDENCE_OR_REVIEW_ARTIFACT"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "5ea2bc4389717be260bfb25588776a728e89157166c32e767f92fc612aacdf78",
+      "changed_paths_index": 98,
+      "current_sha256": "5ea2bc4389717be260bfb25588776a728e89157166c32e767f92fc612aacdf78",
+      "path": "stage1-successor-evidence/residual-disposition-v1/process-api/process-task-id-fallback.patch",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "EVIDENCE_OR_REVIEW_ARTIFACT"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "ddd371725fb25602563aecac248dda5be5de79de3d4ca39729079c67b1c76b91",
+      "changed_paths_index": 99,
+      "current_sha256": "ddd371725fb25602563aecac248dda5be5de79de3d4ca39729079c67b1c76b91",
+      "path": "stage1-successor-evidence/residual-disposition-v1/process-api/process-task-id-fallback-disposition.v1.json",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "EVIDENCE_OR_REVIEW_ARTIFACT"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "b055090b89fe1d95f3a21452753e85ac0647236eb088ab4034d51b4f3bd131d6",
+      "changed_paths_index": 100,
+      "current_sha256": "b055090b89fe1d95f3a21452753e85ac0647236eb088ab4034d51b4f3bd131d6",
+      "path": "stage1-successor-evidence/residual-disposition-v1/process-api/process-task-id-fallback-disposition.v1.md",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "EVIDENCE_OR_REVIEW_ARTIFACT"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "280d22ccdcc8850c68f14cb42e03182fba89419d859001707b9cdc1fad24c24f",
+      "changed_paths_index": 101,
+      "current_sha256": "280d22ccdcc8850c68f14cb42e03182fba89419d859001707b9cdc1fad24c24f",
+      "path": "stage1-successor-evidence/residual-disposition-v1/effects/import-time-db-effects.v1.json",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "EVIDENCE_OR_REVIEW_ARTIFACT"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "8debfde5886019a046c631848665989a7dba99c6e82d62d4e858bce89c049ecc",
+      "changed_paths_index": 102,
+      "current_sha256": "8debfde5886019a046c631848665989a7dba99c6e82d62d4e858bce89c049ecc",
+      "path": "stage1-successor-evidence/residual-disposition-v1/semantic-decisions/stale-status-checkers-v2-disposition.md",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "EVIDENCE_OR_REVIEW_ARTIFACT"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+      "changed_paths_index": 103,
+      "current_sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453",
+      "path": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "EVIDENCE_OR_REVIEW_ARTIFACT"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "a2d74d92f6144dd8e913b7f286af4cff0d772715c14c024bfeec3d670dc4f435",
+      "changed_paths_index": 104,
+      "current_sha256": "a2d74d92f6144dd8e913b7f286af4cff0d772715c14c024bfeec3d670dc4f435",
+      "path": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/opensearch-vector/opensearch-vector-missing-evidence-provenance.v1.json",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "EVIDENCE_OR_REVIEW_ARTIFACT"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    }
+  ],
+  "import_time_db_boundary_audit": [
+    {
+      "any_binding_drift": true,
+      "binding_reference_count": 7,
+      "binding_references": [
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json",
+          "binding_set": "CURRENT_ALL_LINES_RECORD",
+          "bound_sha256": "80e9683f8de422956eef020d4a657b7cc41b8843aaa4e8825ab87c4e3f8c32cd",
+          "cell_id": null,
+          "current_sha256": "173d95722cef7411f4b1e4606f8dbdbf850d74fbae9847b942b13be1e56c8308",
+          "drift": true,
+          "hash_field": "byte_hash_sha256",
+          "json_pointer": "/entries/37",
+          "role": null
+        },
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/C7/candidate.v2.json",
+          "binding_set": "CURRENT_STAGE2_INTAKE_B23",
+          "bound_sha256": "5b81ef9a41bf8e21c87f2d7a0e0239a4afa14c46de0eb7b37601d217422654f4",
+          "cell_id": null,
+          "current_sha256": "173d95722cef7411f4b1e4606f8dbdbf850d74fbae9847b942b13be1e56c8308",
+          "drift": true,
+          "hash_field": "file_sha256",
+          "json_pointer": "/sources/4",
+          "role": null
+        },
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/fragments/C7.json",
+          "binding_set": "CURRENT_STAGE2_INTAKE_B23",
+          "bound_sha256": "5b81ef9a41bf8e21c87f2d7a0e0239a4afa14c46de0eb7b37601d217422654f4",
+          "cell_id": null,
+          "current_sha256": "173d95722cef7411f4b1e4606f8dbdbf850d74fbae9847b942b13be1e56c8308",
+          "drift": true,
+          "hash_field": "sha256",
+          "json_pointer": "/source_bindings/5",
+          "role": "frozen_locator_db_retry"
+        },
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/manifests/C7.json",
+          "binding_set": "CURRENT_STAGE2_INTAKE_B23",
+          "bound_sha256": "5b81ef9a41bf8e21c87f2d7a0e0239a4afa14c46de0eb7b37601d217422654f4",
+          "cell_id": null,
+          "current_sha256": "173d95722cef7411f4b1e4606f8dbdbf850d74fbae9847b942b13be1e56c8308",
+          "drift": true,
+          "hash_field": "file_sha256",
+          "json_pointer": "/sources/4",
+          "role": null
+        },
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/C7/candidate.v2.json",
+          "binding_set": "DECLARED_STAGE0_V4_FAMILY_CURRENT",
+          "bound_sha256": "5b81ef9a41bf8e21c87f2d7a0e0239a4afa14c46de0eb7b37601d217422654f4",
+          "cell_id": null,
+          "current_sha256": "173d95722cef7411f4b1e4606f8dbdbf850d74fbae9847b942b13be1e56c8308",
+          "drift": true,
+          "hash_field": "file_sha256",
+          "json_pointer": "/sources/4",
+          "role": null
+        },
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/fragments/C7.json",
+          "binding_set": "DECLARED_STAGE0_V4_FAMILY_CURRENT",
+          "bound_sha256": "5b81ef9a41bf8e21c87f2d7a0e0239a4afa14c46de0eb7b37601d217422654f4",
+          "cell_id": null,
+          "current_sha256": "173d95722cef7411f4b1e4606f8dbdbf850d74fbae9847b942b13be1e56c8308",
+          "drift": true,
+          "hash_field": "sha256",
+          "json_pointer": "/source_bindings/5",
+          "role": "frozen_locator_db_retry"
+        },
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/manifests/C7.json",
+          "binding_set": "DECLARED_STAGE0_V4_FAMILY_CURRENT",
+          "bound_sha256": "5b81ef9a41bf8e21c87f2d7a0e0239a4afa14c46de0eb7b37601d217422654f4",
+          "cell_id": null,
+          "current_sha256": "173d95722cef7411f4b1e4606f8dbdbf850d74fbae9847b942b13be1e56c8308",
+          "drift": true,
+          "hash_field": "file_sha256",
+          "json_pointer": "/sources/4",
+          "role": null
+        }
+      ],
+      "binding_status": "BOUND",
+      "changed_paths_after_sha256": "173d95722cef7411f4b1e4606f8dbdbf850d74fbae9847b942b13be1e56c8308",
+      "changed_paths_index": 5,
+      "current_sha256": "173d95722cef7411f4b1e4606f8dbdbf850d74fbae9847b942b13be1e56c8308",
+      "path": "main/backend/app/models/base.py",
+      "required_additive_rebind": "AUTHORIZED_CREATE_ONLY_SUCCESSOR_STAGE_REBIND; DO_NOT_OVERWRITE_B23; VERSIONED_STAGE0_DECLARATION_ALIGNMENT_AND_ADDITIVE_REBIND; VERSIONED_SUCCESSOR_ALL_LINES_BYTE_CLOSURE_RECORD",
+      "surface_kinds": [
+        "CODE",
+        "RUNTIME"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "a1426fad870f3aefaf98236725d953f65f35e6b059603f9e29b9bdf0c1a98d74",
+      "changed_paths_index": 6,
+      "current_sha256": "a1426fad870f3aefaf98236725d953f65f35e6b059603f9e29b9bdf0c1a98d74",
+      "path": "main/backend/app/startup_hooks.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "RUNTIME"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "91cb7b802294a13b5831e7906c7cbceae16c4bd7c99655db99c0aa4ad4fd0f97",
+      "changed_paths_index": 7,
+      "current_sha256": "91cb7b802294a13b5831e7906c7cbceae16c4bd7c99655db99c0aa4ad4fd0f97",
+      "path": "main/backend/app/services/workflow_graph/__init__.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "RUNTIME"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "task_start",
+        "classification": "TASK_LOCAL_CHANGE_WITH_RECORDED_TASK_START",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": "de7d79ec3e12c5e83a953b7886408584f6e74a95930fb7c066e32c92414a8533"
+      }
+    },
+    {
+      "any_binding_drift": true,
+      "binding_reference_count": 2,
+      "binding_references": [
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json",
+          "binding_set": "CURRENT_ALL_LINES_RECORD",
+          "bound_sha256": "cb4ae041aef79ce9b8d68a14615c4a85f1b9182319380a5462133534eeca67fc",
+          "cell_id": null,
+          "current_sha256": "15c22d898b1c90205c43585aae4e3d83a425782e57676926507b92e6b8fb68ca",
+          "drift": true,
+          "hash_field": "byte_hash_sha256",
+          "json_pointer": "/entries/172",
+          "role": null
+        },
+        {
+          "artifact": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesSuccessorMovementInventory.v1.json",
+          "binding_set": "CURRENT_ALL_LINES_RECORD",
+          "bound_sha256": "cb4ae041aef79ce9b8d68a14615c4a85f1b9182319380a5462133534eeca67fc",
+          "cell_id": null,
+          "current_sha256": "15c22d898b1c90205c43585aae4e3d83a425782e57676926507b92e6b8fb68ca",
+          "drift": true,
+          "hash_field": "sha256",
+          "json_pointer": "/movements/6/donor_byte_closure_refs/12",
+          "role": null
+        }
+      ],
+      "binding_status": "BOUND",
+      "changed_paths_after_sha256": "15c22d898b1c90205c43585aae4e3d83a425782e57676926507b92e6b8fb68ca",
+      "changed_paths_index": 8,
+      "current_sha256": "15c22d898b1c90205c43585aae4e3d83a425782e57676926507b92e6b8fb68ca",
+      "path": "main/backend/app/services/workflow_graph/runtime.py",
+      "required_additive_rebind": "VERSIONED_SUCCESSOR_ALL_LINES_BYTE_CLOSURE_RECORD",
+      "surface_kinds": [
+        "CODE",
+        "RUNTIME"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "8901889f8929a4326a1625f582fa6c6c1d5176cfe8b34ce5c1abd5174af6e2c6",
+      "changed_paths_index": 9,
+      "current_sha256": "8901889f8929a4326a1625f582fa6c6c1d5176cfe8b34ce5c1abd5174af6e2c6",
+      "path": "main/backend/app/services/workflow_graph/executors/__init__.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "RUNTIME"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "08b7e60567122f689f6ec67736b5282ba6b89fdc452e82d8c0de2d6c3428e814",
+      "changed_paths_index": 10,
+      "current_sha256": "08b7e60567122f689f6ec67736b5282ba6b89fdc452e82d8c0de2d6c3428e814",
+      "path": "main/backend/app/services/workflow_graph/handoff_store.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "RUNTIME"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "6bcdd014f81f1e6d0ebc0ce35dae46b2ae1c57d19ae51aa1a4d904e4602da824",
+      "changed_paths_index": 11,
+      "current_sha256": "6bcdd014f81f1e6d0ebc0ce35dae46b2ae1c57d19ae51aa1a4d904e4602da824",
+      "path": "main/backend/tests/unit/test_schema_startup_boundary_unittest.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    },
+    {
+      "any_binding_drift": false,
+      "binding_reference_count": 0,
+      "binding_references": [],
+      "binding_status": "NOT_BOUND",
+      "changed_paths_after_sha256": "a38e3ee51fbf1b3b26822bbbd832c5d5cd50dc1838cdf9a87777fdaa104b1eb1",
+      "changed_paths_index": 12,
+      "current_sha256": "a38e3ee51fbf1b3b26822bbbd832c5d5cd50dc1838cdf9a87777fdaa104b1eb1",
+      "path": "main/backend/tests/unit/test_workflow_graph_import_boundary_unittest.py",
+      "required_additive_rebind": "NONE_NOT_BOUND_WITHIN_DETERMINISTIC_SEARCH_SCOPE",
+      "surface_kinds": [
+        "CODE",
+        "CHECKER"
+      ],
+      "task_change_attribution": {
+        "before_hash_kind": "NOT_RECORDED",
+        "classification": "INHERITED_OR_UNATTRIBUTABLE_NO_TASK_START_BYTES",
+        "head_used_as_before": false,
+        "recorded_task_start_sha256": null
+      }
+    }
+  ],
+  "limits": [
+    "A matching or drifting hash is byte correspondence only, not semantic acceptance.",
+    "NOT_BOUND is bounded to the deterministic search scope above.",
+    "Only recorded task_start hashes are before evidence; HEAD is never substituted.",
+    "No additive rebind, registry write, candidate mutation, or release action occurred.",
+    "PRODUCTION_RELEASE_NOT_AUTHORIZED"
+  ],
+  "record_id": "contract13-bounded-binding-impact-v2",
+  "schema_version": "mrw.stage1.contract13.binding-impact-audit.v2",
+  "source_contract": {
+    "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/13_contract12-supervisor-review-and-return.v1.md",
+    "required_item": 3,
+    "sha256": "ac1629315b3ae91aa9de59b7ae87da04a5f10c54d643e406d8785a0783071717"
+  },
+  "status": "BINDING_DRIFT_FOUND_ADDITIVE_REBIND_REVIEW_REQUIRED",
+  "summary": {
+    "bound_path_count": 2,
+    "changed_path_entry_count": 105,
+    "code_contract_checker_audited_count": 91,
+    "code_contract_checker_subset_count": 91,
+    "drifted_bound_path_count": 2,
+    "import_boundary_bound_count": 2,
+    "import_boundary_drift_count": 2,
+    "import_boundary_path_count": 8,
+    "intact_bound_path_count": 0,
+    "not_bound_path_count": 103,
+    "task_start_missing_count": 100,
+    "task_start_recorded_count": 5
+  },
+  "supersedes": {
+    "artifact": "binding-impact-audit.v2.json",
+    "reason": "Create-only correction adds byte_hash_sha256 as a recognized direct binding field for AllLinesDonorByteClosure; the original artifact is retained."
+  }
+}

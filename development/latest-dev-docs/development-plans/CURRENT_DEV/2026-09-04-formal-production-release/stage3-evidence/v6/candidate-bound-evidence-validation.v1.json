@@ -1,0 +1,49 @@
+{
+  "schema_version": "mrw.formal_release.stage3.recovery.v1",
+  "record_id": "v6-actual-manifest-binding",
+  "stage_id": "STAGE_3",
+  "candidate_generation": "V6_ADDITIVE_SUCCESSOR",
+  "candidate_commit": "909eb608e538b6427bcbacca974f1efb05fef611",
+  "candidate_tree": "a60b795e509aa5dc479904a321fba32ed0ab9ab2",
+  "status": "PASS",
+  "authoritative": false,
+  "derived_as": "preflight",
+  "authority_ceiling": [
+    "NO_DEPLOY",
+    "NO_LIVE",
+    "NO_PRODUCTION_WRITE",
+    "NO_EXTERNAL_DELIVERY",
+    "NO_CANARY",
+    "NO_CUTOVER",
+    "NO_AUTHORITY_TRANSFER",
+    "NO_LEGACY_RETIREMENT",
+    "NO_PUSH",
+    "NO_REMOTE_MUTATION",
+    "NO_REGISTRY_WRITE",
+    "NO_SIGNING_WRITE"
+  ],
+  "external_effects": [],
+  "observed_at": "2026-09-06T22:03:05.831402+00:00",
+  "command": [
+    "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/bin/python",
+    "/private/tmp/mrw-stage3-v6-preflight-gga5tnof/candidate/scripts/formal_release/check_release_evidence.py",
+    "--manifest",
+    "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/release-evidence-manifest.actual.v1.json"
+  ],
+  "cwd": "/private/tmp/mrw-stage3-v6-preflight-gga5tnof/candidate",
+  "exit_code": 1,
+  "stderr": "",
+  "checker": {
+    "path": "/private/tmp/mrw-stage3-v6-preflight-gga5tnof/candidate/scripts/formal_release/check_release_evidence.py",
+    "sha256": "cecb9a08b6ef23c1ee25d5e6955f35e2539ceead3e5e2568076482aa6dd34c35"
+  },
+  "manifest": {
+    "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/release-evidence-manifest.actual.v1.json",
+    "sha256": "91b9aa74c86d05ee574bb94d94209d354960454ec0ff21f0d92019b13e7d37c1"
+  },
+  "result": {
+    "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/release-evidence-validation.actual.v1.json",
+    "sha256": "b666c1abacfca2e57a106d90a350ddc5cfb70d582d43d23873e14d329b9358ce"
+  },
+  "scope": "Actual reference bytes and exact candidate identity verified; R2 ten gate findings structurally match. Readiness remains false."
+}

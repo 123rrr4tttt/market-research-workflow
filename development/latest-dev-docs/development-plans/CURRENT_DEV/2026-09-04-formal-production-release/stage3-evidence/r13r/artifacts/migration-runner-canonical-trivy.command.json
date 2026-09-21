@@ -1,0 +1,19 @@
+{
+  "argv": [
+    "trivy",
+    "image",
+    "--input",
+    "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13r/artifacts/canonical/migration-runner.oci.tar",
+    "--exit-code",
+    "1",
+    "--severity",
+    "HIGH,CRITICAL",
+    "--vuln-type",
+    "os,library",
+    "--format",
+    "json",
+    "--output",
+    "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13r/artifacts/canonical/migration-runner.trivy.json"
+  ],
+  "cwd": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13r/artifacts"
+}

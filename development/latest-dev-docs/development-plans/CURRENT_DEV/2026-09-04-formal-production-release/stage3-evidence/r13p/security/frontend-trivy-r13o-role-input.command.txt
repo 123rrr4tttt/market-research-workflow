@@ -1,0 +1,1 @@
+trivy image --input /private/tmp/mrw-r13p-frontend-oci.TCKmFV --scanners vuln --exit-code 1 --severity HIGH\,CRITICAL --pkg-types os\,library --format json --output /Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13p/security/frontend.trivy.r13o-role-input.json 

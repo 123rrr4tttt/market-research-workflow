@@ -20,7 +20,7 @@ import hashlib
 import json
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND_ROOT))
@@ -807,7 +807,12 @@ def _rollback_digest(*, cell_id: str) -> str:
     )
 
 
-def build_fragment() -> dict[str, object]:
+def build_fragment() -> Annotated[
+    dict[str, object],
+    "kit:non-authoritative derived_as=generated_evidence "
+    "fact_source=C8.1-C8.4_observations+repo_bindings "
+    "witness=test:test_w10_cli_generator_derived_metadata_preserves_abi",
+]:
     c8_1_successor, c8_1_legacy = _c8_1_observations()
     c8_2_successor, c8_2_legacy = _c8_2_observations()
     c8_3_successor, c8_3_legacy = _c8_3_observations()

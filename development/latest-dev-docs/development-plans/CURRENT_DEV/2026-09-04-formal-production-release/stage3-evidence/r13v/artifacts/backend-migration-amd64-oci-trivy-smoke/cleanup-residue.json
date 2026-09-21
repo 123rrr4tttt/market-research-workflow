@@ -1,0 +1,10 @@
+{
+  "builder_cleanup_exit_code": 0,
+  "builder_residue": false,
+  "docker_prune_run": false,
+  "oci_archive_residue": false,
+  "oci_layout_residue": false,
+  "tag_cleanup_exit_code": 0,
+  "tag_or_image_residue": false,
+  "temporary_root_residue": false
+}

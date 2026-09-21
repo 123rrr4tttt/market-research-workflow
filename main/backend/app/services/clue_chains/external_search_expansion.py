@@ -5,7 +5,7 @@ import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Mapping, Protocol, Sequence
+from typing import Annotated, Any, Callable, Mapping, Protocol, Sequence
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 CONTRACT_VERSION = "clue_chain.external_search_expansion.v1"
@@ -426,7 +426,11 @@ def build_external_search_provider(
     request: ExternalSearchExpansionRequest,
     *,
     live_searcher: LiveSearchHook | None = None,
-) -> ExternalSearchProvider:
+) -> Annotated[
+    ExternalSearchProvider,
+    "kit:prepared-command effect_boundary=external_search_provider "
+    "witness=test:test_w04_authority_metadata",
+]:
     if request.live_enabled and request.injected_results is None and request.fixture_path is None:
         return LiveHookExternalSearchProvider(provider_name=request.provider_name, live_searcher=live_searcher)
     return FixtureExternalSearchProvider(

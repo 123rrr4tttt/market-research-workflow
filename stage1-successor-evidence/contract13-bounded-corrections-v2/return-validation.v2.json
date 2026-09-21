@@ -1,0 +1,20 @@
+{
+  "artifact_count": 32,
+  "authoritative": false,
+  "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+  "changed_path_count": 31,
+  "checks": {
+    "artifact_hashes_and_sizes_match": true,
+    "binding_coverage_is_105_91_8_with_2_drifts": true,
+    "claim_nodeids_partition_30_exactly_once": true,
+    "historical_v3_v4_identities_match": true,
+    "no_generated_cache": true,
+    "phase_b_c_v5_remain_gated": true,
+    "process_py_input_binding_matches": true
+  },
+  "errors": [],
+  "return_path": "stage1-successor-evidence/contract13-bounded-corrections-v2/return.v2.json",
+  "return_sha256": "0b9dda0595b84176bd38c60b69030b930a128146c98a8da893ce4aec897b1bbc",
+  "schema_version": "mrw.stage1.contract13.return-validation.v2",
+  "status": "PASS"
+}

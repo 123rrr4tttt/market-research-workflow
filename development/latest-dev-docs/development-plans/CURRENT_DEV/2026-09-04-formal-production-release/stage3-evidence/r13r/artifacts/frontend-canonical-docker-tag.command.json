@@ -1,0 +1,9 @@
+{
+  "argv": [
+    "docker",
+    "tag",
+    "sha256:8792353c7222206fc260a894ff3581e71fe85e348801e26ff032968bd2836450",
+    "mrw-r13r-amd64-frontend-canonical:local"
+  ],
+  "cwd": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13r/artifacts"
+}

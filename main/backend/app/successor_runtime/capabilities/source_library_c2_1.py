@@ -14,7 +14,9 @@ from __future__ import annotations
 import dataclasses
 import typing
 from dataclasses import dataclass, fields
-from typing import Any, Literal, TypeAlias, get_args, get_origin
+from typing import Annotated, Any, Literal, NoReturn, TypeAlias, get_args, get_origin
+
+from functorial_kit import Failure
 
 from app.successor_runtime.capabilities.checksum import (
     content_digest,
@@ -101,6 +103,7 @@ __all__ = [
     "deployment_catalog_digest",
     "observations_equal",
     "payload_from_dicts",
+    "try_payload_from_dicts",
     "project_scope_digest",
     "resource_ceiling_digest",
     "source_item_definition_content_digest",
@@ -184,6 +187,35 @@ channel_catalog_digest = _shared.channel_catalog_digest
 SOURCE_RESOLUTION_PAYLOAD_TYPE = _shared.SOURCE_RESOLUTION_PAYLOAD_TYPE
 
 
+def _raise_programmer_defect(
+    message: str, exception_type: type[Exception] = ValueError
+) -> NoReturn:
+    """Lift the frozen direct-constructor ABI at one explicit boundary."""
+
+    # kit:boundary owner=source_library_c2_1.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w06_c2_total_core_failure_lifts
+    raise exception_type(message)
+
+
+def _raise_legacy_compatibility(
+    message: str, exception_type: type[Exception] = ValueError
+) -> NoReturn:
+    """Preserve the direct codec/ABI exception at one compatibility boundary."""
+
+    # kit:boundary owner=source_library_c2_1.py class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=c2.shared.contract_failure witness=test:test_w06_c2_total_core_failure_lifts
+    raise exception_type(message)
+
+
+def _contract_failure_code(message: str) -> str:
+    lowered = message.lower()
+    if "digest" in lowered:
+        return "digest_contract_invalid"
+    if any(token in lowered for token in ("scope", "project", "schema identifier")):
+        return "scope_contract_invalid"
+    if any(token in lowered for token in ("channel", "catalog", "entry")):
+        return "catalog_contract_invalid"
+    return "schema_contract_invalid"
+
+
 @dataclass(frozen=True, slots=True)
 class SourceResolutionObservation:
     """Canonical observation over exactly the five named C2.1 dimensions."""
@@ -206,7 +238,7 @@ class SourceResolutionObservation:
 
     def __post_init__(self) -> None:
         if self.schema_version != SOURCE_RESOLUTION_OBSERVATION_SCHEMA_REF:
-            raise ValueError(
+            _raise_programmer_defect(
                 "SourceResolutionObservation.schema_version is not the frozen schema"
             )
         expected = content_digest(self._digest_payload())
@@ -218,7 +250,7 @@ class SourceResolutionObservation:
                 "SourceResolutionObservation.observation_digest",
             )
             if self.observation_digest != expected:
-                raise ValueError(
+                _raise_programmer_defect(
                     "SourceResolutionObservation.observation_digest does not match content"
                 )
 
@@ -307,9 +339,9 @@ class SourceResolutionPayload:
 
     def __post_init__(self) -> None:
         if self.schema_version != SOURCE_LIBRARY_C2_1_PAYLOAD_SCHEMA:
-            raise ValueError(f"unsupported payload schema {self.schema_version!r}")
+            _raise_programmer_defect(f"unsupported payload schema {self.schema_version!r}")
         if self.operation_kind != SOURCE_LIBRARY_C2_1_KIND:
-            raise ValueError(f"unsupported operation kind {self.operation_kind!r}")
+            _raise_programmer_defect(f"unsupported operation kind {self.operation_kind!r}")
         object.__setattr__(self, "params", freeze_json_object(dict(self.params)))
         expected = content_digest(self, omit_fields=("payload_digest",))
         if self.payload_digest == "":
@@ -317,7 +349,7 @@ class SourceResolutionPayload:
         else:
             require_hex64(self.payload_digest, "SourceResolutionPayload.payload_digest")
             if self.payload_digest != expected:
-                raise ValueError(
+                _raise_programmer_defect(
                     "SourceResolutionPayload.payload_digest does not match content"
                 )
 
@@ -346,29 +378,66 @@ def payload_from_dicts(
 ) -> SourceResolutionPayload:
     """Build the exact-bound payload from validated plain dictionaries."""
 
-    scope = AuthenticatedProjectScope(
+    result = try_payload_from_dicts(
         project_key=project_key,
         registry_revision=registry_revision,
         resolved_schema=resolved_schema,
-        incarnation=scope_incarnation,
+        scope_incarnation=scope_incarnation,
         scope_digest=scope_digest,
+        channels=channels,
+        item=item,
+        params=params,
     )
-    catalog = ChannelCatalogSnapshot(
-        schema_version="mrw.successor.source-library.channel-catalog.v1",
-        revision=1,
-        incarnation="channel-catalog-incarnation-1",
-        digest="",
-        entries=tuple(ChannelCatalogEntry(**dict(channel)) for channel in channels),
-    )
-    return SourceResolutionPayload(
-        schema_version=SOURCE_LIBRARY_C2_1_PAYLOAD_SCHEMA,
-        operation_kind=SOURCE_LIBRARY_C2_1_KIND,
-        project_scope=scope,
-        catalog=catalog,
-        item=source_item_definition_from_dict(item),
-        params=freeze_json_object(dict(params)),
-        payload_digest="",
-    )
+    if isinstance(result, Failure):
+        _shared.raise_c2_contract_failure(result, ValueError)
+    return result
+
+
+def try_payload_from_dicts(
+    *,
+    project_key: str,
+    registry_revision: int,
+    resolved_schema: str,
+    scope_incarnation: str,
+    scope_digest: str,
+    channels: list[dict[str, Any]] | tuple[dict[str, Any], ...],
+    item: dict[str, Any],
+    params: dict[str, Any],
+) -> SourceResolutionPayload | Failure:
+    """Total payload construction preserving the legacy public ABI via lift."""
+
+    try:
+        scope = AuthenticatedProjectScope(
+            project_key=project_key,
+            registry_revision=registry_revision,
+            resolved_schema=resolved_schema,
+            incarnation=scope_incarnation,
+            scope_digest=scope_digest,
+        )
+        catalog = ChannelCatalogSnapshot(
+            schema_version="mrw.successor.source-library.channel-catalog.v1",
+            revision=1,
+            incarnation="channel-catalog-incarnation-1",
+            digest="",
+            entries=tuple(ChannelCatalogEntry(**dict(channel)) for channel in channels),
+        )
+        return SourceResolutionPayload(
+            schema_version=SOURCE_LIBRARY_C2_1_PAYLOAD_SCHEMA,
+            operation_kind=SOURCE_LIBRARY_C2_1_KIND,
+            project_scope=scope,
+            catalog=catalog,
+            item=source_item_definition_from_dict(item),
+            params=freeze_json_object(dict(params)),
+            payload_digest="",
+        )
+    except (TypeError, ValueError, KeyError, AttributeError, OverflowError) as exc:
+        return _shared.c2_contract_failure(
+            _contract_failure_code(str(exc)),
+            str(exc),
+            operation="source_library.c2_1.payload_from_dicts",
+            site="payload_from_dicts",
+            owner=SOURCE_LIBRARY_C2_1_OWNER,
+        )
 
 
 def deployment_catalog_digest() -> str:
@@ -422,7 +491,7 @@ def _decode_plain(cls: type[Any], value: dict[str, Any]) -> Any:
     if not isinstance(value, dict) or set(value) != expected:
         missing = sorted(expected - set(value))
         extra = sorted(set(value) - expected)
-        raise ValueError(
+        _raise_legacy_compatibility(
             f"{cls.__name__} codec rejected payload fields: "
             f"missing={missing} extra={extra}"
         )
@@ -440,17 +509,18 @@ def _payload_codec(contract_ref: Any) -> PayloadCodec:
 
     def encode(value: Any) -> dict[str, Any]:
         if not isinstance(value, SourceResolutionPayload):
-            raise TypeError(
-                f"{codec_id} codec expected SourceResolutionPayload, got {type(value).__name__}"
+            _raise_legacy_compatibility(
+                f"{codec_id} codec expected SourceResolutionPayload, got {type(value).__name__}",
+                TypeError,
             )
         result = _plain(value)
         if not isinstance(result, dict):
-            raise TypeError("payload codec produced a non-object encoding")
+            _raise_legacy_compatibility("payload codec produced a non-object encoding", TypeError)
         return result
 
     def decode(value: dict[str, Any]) -> SourceResolutionPayload:
         if not isinstance(value, dict):
-            raise TypeError("payload codec requires a JSON object")
+            _raise_legacy_compatibility("payload codec requires a JSON object", TypeError)
         return _decode_plain(SourceResolutionPayload, value)
 
     return PayloadCodec(
@@ -640,7 +710,7 @@ class SourceLibraryC2_1CapabilityBundle:
         return self.codecs[0]
 
 
-def build_source_library_c2_1_bundle() -> SourceLibraryC2_1CapabilityBundle:
+def build_source_library_c2_1_bundle() -> Annotated[SourceLibraryC2_1CapabilityBundle, Literal["kit:non-authoritative derived_as=view fact_source=C2.1_contract_constants witness=test:test_w06_successor_authority_metadata"]]:
     semantic = _semantic_profile()
     effect = _effect_profile()
     resource = _resource_profile()
@@ -711,7 +781,7 @@ def build_source_library_c2_1_bundle() -> SourceLibraryC2_1CapabilityBundle:
 
 def build_source_library_c2_1_catalog(
     bundle: SourceLibraryC2_1CapabilityBundle,
-) -> OperationContractCatalogSnapshot:
+) -> Annotated[OperationContractCatalogSnapshot, Literal["kit:non-authoritative derived_as=view fact_source=C2.1_operation_bundle witness=test:test_w06_successor_authority_metadata"]]:
     return OperationContractCatalogSnapshot(
         catalog_id=SOURCE_LIBRARY_C2_1_CATALOG_ID,
         catalog_version=SOURCE_LIBRARY_C2_1_CATALOG_VERSION,
@@ -728,7 +798,7 @@ def build_source_library_c2_1_catalog(
 
 def build_source_library_c2_1_registry(
     bundle: SourceLibraryC2_1CapabilityBundle,
-) -> OperationContractRegistry:
+) -> Annotated[OperationContractRegistry, Literal["kit:non-authoritative derived_as=view fact_source=C2.1_operation_bundle witness=test:test_w06_successor_authority_metadata"]]:
     return OperationContractRegistry(
         build_source_library_c2_1_catalog(bundle),
         (bundle.operation,),

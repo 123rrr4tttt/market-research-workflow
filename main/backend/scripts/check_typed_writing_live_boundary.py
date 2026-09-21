@@ -6,8 +6,9 @@ import json
 import os
 import shutil
 import sys
+from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Annotated, Any
 
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
@@ -42,6 +43,10 @@ from app.services.typed_knowledge import persistence_boundary  # noqa: E402
 CONTRACT_VERSION = "typed_writing.live_boundary_inventory.v1"
 READINESS_STATE = "closed"
 CLOSURE_POSITION = "typed_knowledge_live_db_api_ui_governance_closed"
+LIVE_VERIFIED = "LIVE_VERIFIED"
+NOT_LIVE = "NOT_LIVE"
+
+LiveReadbackReader = Callable[[], Mapping[str, Any]]
 
 EVIDENCE_DOCS = (
     Path(
@@ -393,6 +398,7 @@ def _live_db_runtime_readback() -> dict[str, Any]:
             session.commit()
         return {
             "passed": True,
+            "execution_status": LIVE_VERIFIED,
             "boundary_live": boundary_envelope["data"]["repository"]["live_db_write"] is True
             and boundary_envelope["meta"]["readiness"]["live_db_persistence"] is True
             and not boundary_envelope["meta"]["remaining_live_gaps"],
@@ -416,12 +422,35 @@ def _live_db_runtime_readback() -> dict[str, Any]:
     except Exception as exc:  # noqa: BLE001
         return {
             "passed": False,
+            "execution_status": NOT_LIVE,
             "error": f"{exc.__class__.__name__}: {exc}",
         }
 
 
-def _live_boundaries(root: Path, sources: Mapping[str, Mapping[str, Any]]) -> list[dict[str, Any]]:
-    live = _live_db_runtime_readback()
+def _read_live_runtime(reader: LiveReadbackReader) -> dict[str, Any]:
+    try:
+        readback = reader()
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "passed": False,
+            "execution_status": NOT_LIVE,
+            "error": f"{exc.__class__.__name__}: {exc}",
+        }
+    if not isinstance(readback, Mapping):
+        return {
+            "passed": False,
+            "execution_status": NOT_LIVE,
+            "error": "TypeError: live readback reader must return a mapping",
+        }
+    return dict(readback)
+
+
+def _live_boundaries(
+    root: Path,
+    sources: Mapping[str, Mapping[str, Any]],
+    live: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    live_verified = live.get("execution_status") == LIVE_VERIFIED
     frontend_workbench = str(sources["frontend_writing_workbench"]["text"])
     frontend_domain = str(sources["frontend_writing_domain"]["text"])
     typed_api = str(sources["typed_api"]["text"])
@@ -437,7 +466,10 @@ def _live_boundaries(root: Path, sources: Mapping[str, Mapping[str, Any]]) -> li
         {
             "code": "live_db_persistence_not_implemented",
             "area": "typed_knowledge.live_db",
-            "closed": bool(live.get("boundary_live")) and db_model_exists and migration_exists,
+            "closed": live_verified
+            and bool(live.get("boundary_live"))
+            and db_model_exists
+            and migration_exists,
             "evidence": [
                 "main/backend/app/models/typed_knowledge_entities.py",
                 "main/backend/app/services/typed_knowledge/persistence_boundary.py",
@@ -450,7 +482,8 @@ def _live_boundaries(root: Path, sources: Mapping[str, Mapping[str, Any]]) -> li
         {
             "code": "live_db_backed_typed_knowledge_api_readback_not_verified",
             "area": "typed_knowledge.live_db_backed_api",
-            "closed": bool(live.get("route_live"))
+            "closed": live_verified
+            and bool(live.get("route_live"))
             and db_model_exists
             and _public_typed_knowledge_api_exists(root),
             "evidence": ["main/backend/app/api/typed_knowledge.py"],
@@ -461,7 +494,9 @@ def _live_boundaries(root: Path, sources: Mapping[str, Mapping[str, Any]]) -> li
         {
             "code": "governance_ui_not_implemented",
             "area": "typed_knowledge.governance_ui",
-            "closed": bool(live.get("governance_mutation")) and governance_ui_exists,
+            "closed": live_verified
+            and bool(live.get("governance_mutation"))
+            and governance_ui_exists,
             "evidence": ["main/frontend-modern/src/pages/WritingWorkbenchPage.tsx"],
             "gap_recorded": False,
             "required_to_close": "typed-knowledge governance UI with human acceptance and state mutation contract",
@@ -469,7 +504,7 @@ def _live_boundaries(root: Path, sources: Mapping[str, Mapping[str, Any]]) -> li
         {
             "code": "migration_and_backfill_not_executed",
             "area": "typed_knowledge.migration_backfill",
-            "closed": bool(live.get("boundary_live")) and migration_exists,
+            "closed": live_verified and bool(live.get("boundary_live")) and migration_exists,
             "evidence": ["main/backend/migrations/versions/20260402_000003_add_typed_knowledge_objects.py"],
             "gap_recorded": False,
             "required_to_close": "migration/backfill run against live DB and preserved evidence",
@@ -477,7 +512,9 @@ def _live_boundaries(root: Path, sources: Mapping[str, Mapping[str, Any]]) -> li
         {
             "code": "writing_live_typed_knowledge_fetch_not_available",
             "area": "writing.public_typed_knowledge_fetch",
-            "closed": bool(live.get("writing_context")) and _writing_live_typed_knowledge_fetch_exists(sources),
+            "closed": live_verified
+            and bool(live.get("writing_context"))
+            and _writing_live_typed_knowledge_fetch_exists(sources),
             "evidence": ["main/backend/app/api/writing.py", "main/frontend-modern/src/lib/api/domains/writing.ts"],
             "gap_recorded": False,
             "required_to_close": "writing workbench wired to a live typed-knowledge fetch API instead of envelope-only context injection",
@@ -485,7 +522,9 @@ def _live_boundaries(root: Path, sources: Mapping[str, Mapping[str, Any]]) -> li
         {
             "code": "writing_ui_governance_mutation_not_available",
             "area": "writing.ui_governance_mutation",
-            "closed": bool(live.get("governance_mutation")) and governance_ui_exists,
+            "closed": live_verified
+            and bool(live.get("governance_mutation"))
+            and governance_ui_exists,
             "evidence": ["main/frontend-modern/src/pages/WritingWorkbenchPage.tsx"],
             "gap_recorded": False,
             "required_to_close": "explicit governance mutation controls and API contract, not just resource-card consumption",
@@ -493,7 +532,7 @@ def _live_boundaries(root: Path, sources: Mapping[str, Mapping[str, Any]]) -> li
         {
             "code": "persisted_typed_knowledge_cards_live_readback_not_verified",
             "area": "writing.live_db_card_survival",
-            "closed": bool(live.get("persisted_card_live")),
+            "closed": live_verified and bool(live.get("persisted_card_live")),
             "evidence": ["main/backend/tests/unit/test_writing_keyword_card_service_unittest.py"],
             "gap_recorded": False,
             "readback": live.get("evidence", live.get("error")),
@@ -519,11 +558,31 @@ def _evidence_docs(root: Path) -> list[dict[str, Any]]:
     return docs
 
 
-def build_inventory(root: Path = REPO_ROOT) -> dict[str, Any]:
+def build_inventory(
+    root: Path = REPO_ROOT,
+    *,
+    live_readback_reader: LiveReadbackReader | None = None,
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=generated_evidence "
+    "fact_source=source_inventory+deterministic_coverage+live_boundaries+evidence_docs "
+    "witness=test:test_c13_cli_graph_workflow_metadata_preserves_abi",
+]:
     root = root.resolve()
     sources = _source_inventory(root)
     deterministic_coverage = _deterministic_coverage(root, sources)
-    live_boundaries = _live_boundaries(root, sources)
+    live_readback_scope = (
+        "injected_contract_fixture" if live_readback_reader is not None else "production_live"
+    )
+    live_readback = _read_live_runtime(live_readback_reader or _live_db_runtime_readback)
+    live_execution_status = str(live_readback.get("execution_status") or NOT_LIVE)
+    live_boundaries = _live_boundaries(root, sources, live_readback)
+    closure_claim_allowed = (
+        live_readback_scope == "production_live"
+        and live_execution_status == LIVE_VERIFIED
+        and all(row["closed"] for row in live_boundaries)
+    )
+    readiness_state = READINESS_STATE if closure_claim_allowed else NOT_LIVE.lower()
     evidence_docs = _evidence_docs(root)
     failures = validate_inventory(
         {
@@ -531,17 +590,21 @@ def build_inventory(root: Path = REPO_ROOT) -> dict[str, Any]:
             "deterministic_coverage": deterministic_coverage,
             "live_boundaries": live_boundaries,
             "evidence_docs": evidence_docs,
-            "closure_claim_allowed": True,
-            "readiness_state": READINESS_STATE,
+            "closure_claim_allowed": closure_claim_allowed,
+            "readiness_state": readiness_state,
+            "live_readback_scope": live_readback_scope,
+            "live_execution_status": live_execution_status,
         }
     )
     return {
         "contract_version": CONTRACT_VERSION,
         "scope": "typed_knowledge_to_writing_workbench_live_boundary",
         "status": "passed" if not failures else "failed",
-        "readiness_state": READINESS_STATE,
-        "closure_position": CLOSURE_POSITION,
-        "closure_claim_allowed": True,
+        "readiness_state": readiness_state,
+        "closure_position": CLOSURE_POSITION if closure_claim_allowed else NOT_LIVE.lower(),
+        "closure_claim_allowed": closure_claim_allowed,
+        "live_readback_scope": live_readback_scope,
+        "live_execution_status": live_execution_status,
         "deterministic_coverage": deterministic_coverage,
         "live_boundaries": live_boundaries,
         "remaining_live_gaps": [row["code"] for row in live_boundaries if not row["closed"]],
@@ -559,10 +622,24 @@ def validate_inventory(inventory: Mapping[str, Any]) -> list[str]:
     failures: list[str] = []
     if inventory.get("contract_version") != CONTRACT_VERSION:
         failures.append("contract_version_mismatch")
-    if inventory.get("readiness_state") != READINESS_STATE:
-        failures.append("readiness_state_must_be_closed")
-    if inventory.get("closure_claim_allowed") is not True:
-        failures.append("closure_claim_allowed_must_be_true")
+    live_readback_scope = inventory.get("live_readback_scope")
+    live_execution_status = inventory.get("live_execution_status")
+    if live_readback_scope == "production_live":
+        if live_execution_status != LIVE_VERIFIED:
+            failures.append("production_live_readback_not_verified")
+    elif live_readback_scope == "injected_contract_fixture":
+        if live_execution_status != NOT_LIVE:
+            failures.append("injected_contract_fixture_must_be_not_live")
+    else:
+        failures.append("invalid_live_readback_scope")
+    closure_claim_allowed = inventory.get("closure_claim_allowed") is True
+    if closure_claim_allowed and not (
+        live_readback_scope == "production_live" and live_execution_status == LIVE_VERIFIED
+    ):
+        failures.append("closure_claim_without_live_verification")
+    expected_readiness = READINESS_STATE if closure_claim_allowed else NOT_LIVE.lower()
+    if inventory.get("readiness_state") != expected_readiness:
+        failures.append("readiness_state_does_not_match_live_authority")
 
     coverage_by_code = {
         str(row.get("code")): row
@@ -612,6 +689,8 @@ def _print_text(inventory: Mapping[str, Any]) -> None:
     print(f"contract_version={inventory['contract_version']}")
     print(f"readiness_state={inventory['readiness_state']}")
     print(f"closure_claim_allowed={str(inventory['closure_claim_allowed']).lower()}")
+    print(f"live_readback_scope={inventory['live_readback_scope']}")
+    print(f"live_execution_status={inventory['live_execution_status']}")
     print("deterministic_coverage:")
     for row in inventory["deterministic_coverage"]:
         print(f"- {row['code']}: {'passed' if row['passed'] else 'failed'}")

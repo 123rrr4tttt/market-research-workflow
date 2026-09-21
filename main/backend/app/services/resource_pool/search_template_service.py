@@ -7,11 +7,14 @@ import gzip
 import json
 import re
 import time
-from typing import Any
+from typing import Annotated, Any, NoReturn
 from urllib.parse import parse_qs, parse_qsl, urlencode, urljoin, urlsplit, urlunsplit, unquote
 import xml.etree.ElementTree as ET
 
-from ..ingest.adapters.http_utils import HttpFetchError, fetch_html, make_html_parser
+from functorial_kit import Failure
+from mrw_functorial_kit.core.provider_port_failures import resource_pool_contract_failures
+
+from .http_port import HttpFetchError, fetch_html, make_html_parser
 from ..ingest.source_search_contract import build_query_url_from_contract, normalize_source_search_contract
 from .search_result_parser_service import parse_search_result_candidates
 from .search_capabilities import SearchCapabilityScore, make_search_candidate, select_search_candidates
@@ -43,6 +46,53 @@ _TRACKING_QUERY_KEYS = {
 _ENCODED_Q_PLACEHOLDER = re.compile(r"%7B%7Bq%7D%7D", re.IGNORECASE)
 _ENCODED_PAGE_PLACEHOLDER = re.compile(r"%7B%7Bpage%7D%7D", re.IGNORECASE)
 _RESILIENT_SEARCH_MARKERS = ("403", "429", "Failed to fetch", "blocked", "rate limit")
+
+_RESOURCE_POOL_FAILURE_WITNESS = "test:test_latest_service_b_resource_pool_failure_lifts"
+_RESOURCE_POOL_FAILURE_CONTEXT_KEYS = frozenset(
+    {
+        "boundary_class",
+        "failure_family",
+        "operation",
+        "owner",
+        "public_exception",
+        "public_message",
+        "site",
+        "witness",
+    }
+)
+
+
+def _contract_failure(code: str, message: str, *, operation: str, site: str) -> Failure:
+    return resource_pool_contract_failures.fail(
+        code,
+        message,
+        {
+            "boundary_class": "PURE_CONTRACT_FAILURE",
+            "failure_family": resource_pool_contract_failures.name,
+            "operation": operation,
+            "owner": site,
+            "public_exception": "ValueError",
+            "public_message": message,
+            "site": site,
+            "witness": _RESOURCE_POOL_FAILURE_WITNESS,
+        },
+    )
+
+
+def _raise_contract_failure(
+    failure: Failure,
+    exception_type: type[Exception] = ValueError,
+) -> NoReturn:
+    context = failure.context or {}
+    if (
+        not resource_pool_contract_failures.matches(failure)
+        or _RESOURCE_POOL_FAILURE_CONTEXT_KEYS - set(context)
+        or context.get("public_exception") != exception_type.__name__
+    ):
+        # kit:boundary owner=resource_pool.search_template_service.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_latest_service_b_resource_pool_failure_lifts
+        raise TypeError("resource pool failure lift context is incomplete or inconsistent")
+    # kit:boundary owner=resource_pool.search_template_service.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=resource_pool.contract.failure witness=test:test_latest_service_b_resource_pool_failure_lifts
+    raise exception_type(str(context["public_message"]))
 _SEARCH_RESULT_CONTAINER_SELECTORS = (
     "article",
     "[role='article']",
@@ -581,10 +631,20 @@ def _candidate_filter_state(
     return "selected_without_query_filter" if selected_count > 0 else "empty_without_query_filter"
 
 
-def build_search_template_urls(template: str, query_terms: list[str], params: dict[str, Any]) -> tuple[list[str], int]:
+def build_search_template_urls(template: str, query_terms: list[str], params: dict[str, Any]) -> Annotated[
+    tuple[list[str], int],
+    "kit:non-authoritative derived_as=view fact_source=search_template+query_terms+pagination_params witness=test:test_w03_ingest_ports_authority_metadata",
+]:
     normalized_template = normalize_search_template_placeholders(template)
     if not normalized_template or "{{q}}" not in normalized_template:
-        raise ValueError("search_template requires template containing {{q}}")
+        _raise_contract_failure(
+            _contract_failure(
+                "search_template_invalid",
+                "search_template requires template containing {{q}}",
+                operation="build_search_template_urls",
+                site="resource_pool.search_template_service.build_search_template_urls",
+            )
+        )
     start_page, max_pages = resolve_search_template_pagination(params)
     contract = normalize_source_search_contract(
         normalized_template,
@@ -774,7 +834,14 @@ def execute_external_site_search(
 ) -> SearchTemplateExecutionResult:
     params = dict(params or {})
     if not entry_domain:
-        raise ValueError("entry_domain is required for external site search")
+        _raise_contract_failure(
+            _contract_failure(
+                "entry_domain_required",
+                "entry_domain is required for external site search",
+                operation="execute_external_site_search",
+                site="resource_pool.search_template_service.execute_external_site_search",
+            )
+        )
     search_query = " ".join([f"site:{entry_domain}", *[term for term in query_terms if term]])
     search_url = f"external_search:{search_query}"
     raw_candidates: list[SearchTemplateRawCandidate] = []

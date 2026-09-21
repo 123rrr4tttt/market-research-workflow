@@ -9,6 +9,30 @@ HOST_PROJECT_ROOT="${HOST_PROJECT_ROOT:-${ROOT_DIR}}"
 LAUNCHER_PROJECT_NAME="${LAUNCHER_PROJECT_NAME:-mrw-launcher}"
 LAUNCHER_URL="${LAUNCHER_URL:-http://127.0.0.1:5176}"
 MAX_WAIT="${MAX_WAIT:-90}"
+REBUILD=0
+UP_BUILD_ARG=(--no-build)
+
+usage() {
+  echo "Usage: $(basename "$0") [-h|--help] [--rebuild]"
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    --rebuild)
+      REBUILD=1
+      UP_BUILD_ARG=(--build)
+      ;;
+    *)
+      echo "Usage: $(basename "$0") [--rebuild]" >&2
+      exit 2
+      ;;
+  esac
+  shift
+done
 
 open_url() {
   local url="$1"
@@ -55,13 +79,20 @@ wait_for_launcher() {
   return 1
 }
 
+if curl -fsS --max-time 1 "$LAUNCHER_URL" >/dev/null 2>&1; then
+  echo "Docker Web Launcher is already reachable: $LAUNCHER_URL"
+  open_url "$LAUNCHER_URL"
+  exit 0
+fi
+
 ensure_docker_ready
 
 cd "$OPS_DIR"
 echo "Starting Docker control UI only..."
-HOST_PROJECT_ROOT="$HOST_PROJECT_ROOT" docker compose --profile modern-ui stop launcher-ui launcher-agent >/dev/null 2>&1 || true
 HOST_PROJECT_ROOT="$HOST_PROJECT_ROOT" LAUNCHER_PROJECT_NAME="$LAUNCHER_PROJECT_NAME" \
-  docker compose --project-name "$LAUNCHER_PROJECT_NAME" --profile modern-ui up -d --build launcher-agent launcher-ui
+  docker compose --project-name "$LAUNCHER_PROJECT_NAME" --profile modern-ui stop launcher-ui launcher-agent >/dev/null 2>&1 || true
+HOST_PROJECT_ROOT="$HOST_PROJECT_ROOT" LAUNCHER_PROJECT_NAME="$LAUNCHER_PROJECT_NAME" \
+  docker compose --project-name "$LAUNCHER_PROJECT_NAME" --profile modern-ui up -d "${UP_BUILD_ARG[@]}" launcher-agent launcher-ui
 
 if wait_for_launcher; then
   echo "Opening Docker Web Launcher: $LAUNCHER_URL"

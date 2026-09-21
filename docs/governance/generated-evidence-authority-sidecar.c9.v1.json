@@ -1,0 +1,158 @@
+{
+  "schema": "mrw.governance.generated_evidence_authority_sidecar.c9.v1",
+  "sidecar_id": "c9.generated-evidence-authority-sidecar.v1",
+  "mutability": "immutable",
+  "view_kind": "PROJECTION_VIEW",
+  "snapshot_scope": "CURRENT_CHECKOUT_ONLY",
+  "domain_authoritative": false,
+  "canonical_source": false,
+  "promotion_authority": false,
+  "live_or_cutover_authority": false,
+  "runtime_mutation": false,
+  "authority_direction": "exact current-checkout C9 source bytes -> non-authoritative projection views",
+  "authority_ceiling": {
+    "canonical_source": false,
+    "domain_authority": false,
+    "canonical_write": false,
+    "reverse_write": false,
+    "promotion": false,
+    "candidate_claim": false,
+    "live_provider": false,
+    "external_delivery": false,
+    "cutover": false,
+    "authority_transfer": false,
+    "runtime_mutation": false
+  },
+  "bindings": [
+    {
+      "kind": "current_c9_projection_source_module",
+      "path": "main/backend/app/successor_runtime/substrate/projections/c9_sources.py",
+      "external_sha256": "c8152805521142f2160f6f15a97ab0339dc34fbd0f7b34fe6556c1bbb317aecf",
+      "bytes": 57072,
+      "lines": 1624,
+      "functions": [
+        "build_agent_session_payload",
+        "build_research_graph_payload",
+        "build_search_payload"
+      ],
+      "source_slice": {
+        "start_line": 1,
+        "end_line": 1624,
+        "bytes": 57072,
+        "sha256": "c8152805521142f2160f6f15a97ab0339dc34fbd0f7b34fe6556c1bbb317aecf"
+      }
+    },
+    {
+      "kind": "c9_projection_payload_builder",
+      "function": "build_agent_session_payload",
+      "path": "main/backend/app/successor_runtime/substrate/projections/c9_sources.py",
+      "external_sha256": "c8152805521142f2160f6f15a97ab0339dc34fbd0f7b34fe6556c1bbb317aecf",
+      "bytes": 57072,
+      "lines": 1624,
+      "canonical_source": false,
+      "domain_authoritative": false,
+      "promotion_authority": false,
+      "live_or_cutover_authority": false,
+      "runtime_mutation": false,
+      "source_slice": {
+        "start_line": 1514,
+        "end_line": 1559,
+        "bytes": 1789,
+        "sha256": "e3f05c46f1a3909ae8ee278824d2e5377b3de47d39bd8694852bf250c92f83aa"
+      }
+    },
+    {
+      "kind": "c9_projection_payload_builder",
+      "function": "build_research_graph_payload",
+      "path": "main/backend/app/successor_runtime/substrate/projections/c9_sources.py",
+      "external_sha256": "c8152805521142f2160f6f15a97ab0339dc34fbd0f7b34fe6556c1bbb317aecf",
+      "bytes": 57072,
+      "lines": 1624,
+      "canonical_source": false,
+      "domain_authoritative": false,
+      "promotion_authority": false,
+      "live_or_cutover_authority": false,
+      "runtime_mutation": false,
+      "source_slice": {
+        "start_line": 1562,
+        "end_line": 1591,
+        "bytes": 1261,
+        "sha256": "b52c9d104ddb22d22010ea3799d03c4a9e359840629e5285cb61d46802a25900"
+      }
+    },
+    {
+      "kind": "c9_projection_payload_builder",
+      "function": "build_search_payload",
+      "path": "main/backend/app/successor_runtime/substrate/projections/c9_sources.py",
+      "external_sha256": "c8152805521142f2160f6f15a97ab0339dc34fbd0f7b34fe6556c1bbb317aecf",
+      "bytes": 57072,
+      "lines": 1624,
+      "canonical_source": false,
+      "domain_authoritative": false,
+      "promotion_authority": false,
+      "live_or_cutover_authority": false,
+      "runtime_mutation": false,
+      "source_slice": {
+        "start_line": 1594,
+        "end_line": 1624,
+        "bytes": 1264,
+        "sha256": "95de123799e1d83c3b4d2a9891b929452d331653b544ba86a830090133a33c10"
+      }
+    },
+    {
+      "kind": "current_c9_canonical_source_closure_reader_module",
+      "path": "main/backend/app/successor_runtime/substrate/postgres/c9_projection_sources.py",
+      "external_sha256": "6c5046dbcb2d02ebc9577fe86e48dee23f84c4faf5cbf393507961b81123475c",
+      "bytes": 45399,
+      "lines": 1212,
+      "authority_class": "CANONICAL_SOURCE_CLOSURE_READER",
+      "derived": false,
+      "functions": [
+        "read_runtime_session_source",
+        "read_research_graph_source",
+        "read_c7_search_source",
+        "build_semantic_source_closure"
+      ],
+      "source_slice": {
+        "start_line": 290,
+        "end_line": 634,
+        "bytes": 11941,
+        "sha256": "44fc3ce6f666268f7485e62a812bda8cdea79c10ad03de2206733433ddf781c1"
+      }
+    },
+    {
+      "kind": "capability_spec",
+      "cell_id": "C9.3",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C9.3.v1.json",
+      "external_sha256": "f393a5f1aec75608c5b5945f824f960acb0f922ec04c3f82d4b9fc6e0a74cebd",
+      "bytes": 10166,
+      "lines": 226,
+      "source_slice": {
+        "start_line": 1,
+        "end_line": 226,
+        "bytes": 10166,
+        "sha256": "f393a5f1aec75608c5b5945f824f960acb0f922ec04c3f82d4b9fc6e0a74cebd"
+      }
+    },
+    {
+      "kind": "capability_spec_build_manifest",
+      "cell_id": "C9.3",
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-spec-builds/C9.3.BuildManifest.v1.json",
+      "external_sha256": "6722c196479d01c6412a6289294d24b2367669855a3fc75b508efbcb5d78f1d5",
+      "bytes": 11921,
+      "lines": 1,
+      "internal_digest": {
+        "field": "artifact_identity.artifact_digest",
+        "algorithm": "capability-spec-compiler-artifact-identity",
+        "value": "4e42d4d762336a8c642ed9536b886a0b8a6e9de95a68695640a76e068a3d4a8b",
+        "generated_payload_digest": "87fdb2d3a90a19ce7e319a1038643d697762e18a9cd732387b6bb64baa877c7a"
+      },
+      "source_slice": {
+        "start_line": 1,
+        "end_line": 1,
+        "bytes": 11921,
+        "sha256": "6722c196479d01c6412a6289294d24b2367669855a3fc75b508efbcb5d78f1d5"
+      }
+    }
+  ]
+}

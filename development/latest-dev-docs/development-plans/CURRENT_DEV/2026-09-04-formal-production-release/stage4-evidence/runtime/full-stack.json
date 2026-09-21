@@ -1,0 +1,115 @@
+{
+  "authoritative": false,
+  "dependency_ping": {
+    "database": "ok",
+    "elasticsearch": "ok",
+    "redis": "ok"
+  },
+  "http": {
+    "deep_direct": {
+      "code": 200,
+      "status": "ok"
+    },
+    "deep_proxy": {
+      "code": 200,
+      "status": "ok"
+    },
+    "frontend_asset": 200,
+    "frontend_root": 200,
+    "shallow_direct": {
+      "code": 200,
+      "status": "ok"
+    },
+    "shallow_proxy": {
+      "code": 200,
+      "status": "ok"
+    }
+  },
+  "production_runtime": {
+    "env": "production",
+    "local_tls_handshake_verified": true,
+    "localhost_transport": "HTTP for health-only runtime probe; TLS policy is evaluated separately for production effect routes",
+    "observability_bearer_required": true,
+    "production_require_tls": true,
+    "tls_evidence": "tls-upgrade-probe.json",
+    "tls_scope": "task-local self-signed CA and fixed single-IP Docker proxy only",
+    "trusted_proxy_path_verified": true
+  },
+  "provider_readiness": {
+    "credential_injected_to_task_containers": true,
+    "credential_persisted_in_evidence": false,
+    "external_model_calls": 0,
+    "missing_dependencies": [],
+    "scope": "configuration/readiness through same-stack deep health only",
+    "selected_provider": "openai"
+  },
+  "representative_pre_head_upgrade": {
+    "classification": "CONSTRUCTED_REPRESENTATIVE_BASELINE_NOT_ACTUAL_PRODUCTION_PREDECESSOR",
+    "evidence": "tls-upgrade-probe.json",
+    "from_revision": "20260830_000001",
+    "legacy_row_backfill": "PASS",
+    "status": "PASS",
+    "to_revision": "20260905_000001"
+  },
+  "secure_config_recheck": {
+    "auth_prefix": {
+      "authenticated_http_status": 404,
+      "authenticated_response_class": "passed_codex_auth_middleware",
+      "configured_in_override": true,
+      "path": "/api/v1/successor-runtime",
+      "token_persisted": false,
+      "unauthenticated_http_status": 401,
+      "unauthenticated_response_class": "codex_auth_required"
+    },
+    "backend_and_celery_authenticated_readiness": true,
+    "cookie": {
+      "dummy_cookie_value_only": true,
+      "external_oauth_exchange": false,
+      "secure_setting": true,
+      "set_cookie_httponly": true,
+      "set_cookie_secure": true
+    },
+    "evidence": "narrow-secure-config-recheck.json",
+    "status": "PASS"
+  },
+  "service_logs_exit_code": 0,
+  "services": {
+    "backend": {
+      "health": "healthy",
+      "image": "mrw-local/stage4-r13x-backend-config:8652d653f740735f",
+      "name": "mrw-stage4-local-backend-1",
+      "state": "running"
+    },
+    "celery-worker": {
+      "health": "healthy",
+      "image": "mrw-local/stage4-r13x-backend-config:8652d653f740735f",
+      "name": "mrw-stage4-local-celery-worker-1",
+      "state": "running"
+    },
+    "db": {
+      "health": "healthy",
+      "image": "ankane/pgvector:latest",
+      "name": "mrw-stage4-local-db-1",
+      "state": "running"
+    },
+    "es": {
+      "health": "healthy",
+      "image": "docker.elastic.co/elasticsearch/elasticsearch:8.15.3",
+      "name": "mrw-stage4-local-es-1",
+      "state": "running"
+    },
+    "frontend": {
+      "health": "healthy",
+      "image": "mrw-local/r13x-candidate-frontend:8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+      "name": "mrw-stage4-local-frontend-1",
+      "state": "running"
+    },
+    "redis": {
+      "health": "healthy",
+      "image": "redis:7.4",
+      "name": "mrw-stage4-local-redis-1",
+      "state": "running"
+    }
+  },
+  "status": "PASS"
+}

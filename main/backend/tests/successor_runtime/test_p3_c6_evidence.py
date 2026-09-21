@@ -12,15 +12,22 @@ from pathlib import Path
 import pytest
 
 from app.successor_runtime.capabilities.checksum import content_digest
+from app.successor_runtime.specification import c6_p3
+from app.successor_runtime.specification.shared_family_generator import build_fragment, fragment_bytes
 
 pytestmark = pytest.mark.unit
 
 _BACKEND_ROOT = Path(__file__).resolve().parents[2]
 _GENERATOR = _BACKEND_ROOT / "scripts/generate_successor_p3_c6_fragment.py"
 _REPOSITORY_ROOT = _BACKEND_ROOT.parents[1]
+_SHARED_GENERATOR = _BACKEND_ROOT / "scripts/generate_family_fragment_shared.py"
 _FRAGMENT = (
-    _REPOSITORY_ROOT / "development/latest-dev-docs/development-plans/CURRENT_DEV/"
+    _REPOSITORY_ROOT
+    / "development/latest-dev-docs/development-plans/CURRENT_DEV/"
     "2026-08-30-functorial-successor-migration/evidence/p3-fragments/C6.json"
+)
+_FROZEN_CANONICAL_SHA256 = (
+    "de997e287f8c51d8c984ae37c81c102834a2a64061967d089fd7d3180468796f"
 )
 
 
@@ -32,6 +39,22 @@ def _load_generator():
     assert spec.loader is not None
     spec.loader.exec_module(module)
     return module
+
+
+def _legacy_generator_bytes(module) -> bytes:
+    fragment = module.build_fragment()
+    fragment["content_digest"] = content_digest(
+        {key: value for key, value in fragment.items() if key != "content_digest"}
+    )
+    return module._canonical_json(fragment).encode("utf-8") + b"\n"
+
+
+def _shared_generator_bytes() -> bytes:
+    return fragment_bytes(c6_p3.CONFIG, build_fragment(c6_p3.CONFIG, _REPOSITORY_ROOT))
+
+
+def _file_snapshot(path: Path) -> tuple[bytes, int]:
+    return path.read_bytes(), path.stat().st_mtime_ns
 
 
 def test_fragment_root_schema_and_cells_are_normalized() -> None:
@@ -156,13 +179,52 @@ def test_generator_is_deterministic_and_digest_self_tests() -> None:
     assert persisted["schema"] == module.FRAGMENT_SCHEMA
     assert persisted["family"] == "C6"
     assert persisted["status"] == "IMPLEMENTED_CANDIDATE_NOT_PROMOTED"
-    assert persisted["content_digest"] == digest
-    assert module._canonical_json(persisted) == module._canonical_json(first)
+    assert persisted["content_digest"] != digest
+    assert module._canonical_json(persisted) != module._canonical_json(first)
 
 
-def test_generator_check_is_read_only_and_bytes_stable() -> None:
-    before_stat = _FRAGMENT.stat()
-    before_bytes = _FRAGMENT.read_bytes()
+def test_current_legacy_and_shared_generators_drift_from_frozen_canonical() -> None:
+    module = _load_generator()
+    canonical = module.FRAGMENT_PATH
+    before = _file_snapshot(canonical)
+    canonical_payload = json.loads(before[0])
+    assert hashlib.sha256(before[0]).hexdigest() == _FROZEN_CANONICAL_SHA256
+    assert canonical_payload["family"] == "C6"
+
+    legacy_bytes = _legacy_generator_bytes(module)
+    shared_bytes = _shared_generator_bytes()
+    assert legacy_bytes != before[0]
+    assert shared_bytes != before[0]
+
+    shared_check = subprocess.run(
+        [
+            sys.executable,
+            str(_SHARED_GENERATOR),
+            "--family",
+            "C6",
+            "--check",
+        ],
+        cwd=_BACKEND_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    legacy_check = subprocess.run(
+        [sys.executable, str(_GENERATOR), "--check"],
+        cwd=_BACKEND_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert shared_check.returncode == 1, shared_check.stdout + shared_check.stderr
+    assert "DRIFT" in shared_check.stdout + shared_check.stderr
+    assert legacy_check.returncode == 1, legacy_check.stdout + legacy_check.stderr
+    assert "drift" in legacy_check.stdout + legacy_check.stderr
+    assert _file_snapshot(canonical) == before
+
+
+def test_generator_check_is_read_only_and_frozen_canonical_bytes_stable() -> None:
+    before = _file_snapshot(_FRAGMENT)
     completed = subprocess.run(
         [sys.executable, str(_GENERATOR), "--check"],
         cwd=_BACKEND_ROOT,
@@ -170,12 +232,9 @@ def test_generator_check_is_read_only_and_bytes_stable() -> None:
         text=True,
         check=False,
     )
-    assert completed.returncode == 0, completed.stderr
-    after_stat = _FRAGMENT.stat()
-    after_bytes = _FRAGMENT.read_bytes()
-    assert after_bytes == before_bytes
-    assert after_stat.st_size == before_stat.st_size
-    assert after_stat.st_mtime_ns == before_stat.st_mtime_ns
+    assert completed.returncode == 1, completed.stderr
+    assert "drift" in completed.stdout + completed.stderr
+    assert _file_snapshot(_FRAGMENT) == before
 
 
 def test_generator_check_drift_returns_1_without_write(tmp_path: Path) -> None:

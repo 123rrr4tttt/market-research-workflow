@@ -1,0 +1,2220 @@
+{
+  "canonical_image_manifest_digest": "sha256:34406d92011bcaaa67bd6f7e5de7e29842ee77fe3b880679b9891143daed150e",
+  "canonical_runtime_config": {
+    "Cmd": [
+      "nginx",
+      "-g",
+      "daemon off;"
+    ],
+    "Entrypoint": [
+      "/docker-entrypoint.sh"
+    ],
+    "Env": [
+      "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+      "NGINX_VERSION=1.27.5",
+      "PKG_RELEASE=1",
+      "DYNPKG_RELEASE=1",
+      "NJS_VERSION=0.8.10",
+      "NJS_RELEASE=1"
+    ],
+    "ExposedPorts": {
+      "80/tcp": {}
+    },
+    "Healthcheck": null,
+    "User": null,
+    "WorkingDir": "/"
+  },
+  "classification_note": "Domains are path/content based. actual_file_content means bytes differ outside known cache/package-metadata paths; it does not identify semantic cause. unknown is intentionally retained where the evidence is insufficient.",
+  "differences": [
+    {
+      "canonical": {
+        "gid": 0,
+        "mode": 493,
+        "mtime": 1788994693,
+        "size": 0,
+        "type": "directory",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/etc/nginx/conf.d",
+      "rebuild": {
+        "gid": 0,
+        "mode": 493,
+        "mtime": 1788995244,
+        "size": 0,
+        "type": "directory",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "gid": 0,
+        "mode": 493,
+        "mtime": 1788994781,
+        "size": 0,
+        "type": "directory",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html",
+      "rebuild": {
+        "gid": 0,
+        "mode": 493,
+        "mtime": 1788995275,
+        "size": 0,
+        "type": "directory",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "gid": 0,
+        "mode": 493,
+        "mtime": 1788994781,
+        "size": 0,
+        "type": "directory",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/assets",
+      "rebuild": {
+        "gid": 0,
+        "mode": 493,
+        "mtime": 1788995275,
+        "size": 0,
+        "type": "directory",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "6cc15449cdc3c16f8d0d8c38b63d02fb251d43158a1b258cbe22dddad31cbe61",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994781,
+        "size": 25266,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/assets/AgentChatPage-6p_JKZd5.css",
+      "rebuild": {
+        "content_sha256": "6cc15449cdc3c16f8d0d8c38b63d02fb251d43158a1b258cbe22dddad31cbe61",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995275,
+        "size": 25266,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "1bd08079ca760281886a6c7bdd5b2c332c7e1906a2e5cf51c1deaa83c9849e48",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994781,
+        "size": 63422,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/assets/AgentChatPage-DqdZDLLV.js",
+      "rebuild": {
+        "content_sha256": "1bd08079ca760281886a6c7bdd5b2c332c7e1906a2e5cf51c1deaa83c9849e48",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995275,
+        "size": 63422,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "cf3daa3738816b8a30ff2bfd8ddba39acada3881237b56cd0ed82323fe6e5b56",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994781,
+        "size": 4831,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/assets/CatalogPage-DH0rfcDS.js",
+      "rebuild": {
+        "content_sha256": "cf3daa3738816b8a30ff2bfd8ddba39acada3881237b56cd0ed82323fe6e5b56",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995275,
+        "size": 4831,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "2a5306c4e740919c439322c881570575f03b3682b9b9fc94e7c1407d27a46e10",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994781,
+        "size": 3059,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/assets/CodexAgentPage-BTG7vI9U.js",
+      "rebuild": {
+        "content_sha256": "2a5306c4e740919c439322c881570575f03b3682b9b9fc94e7c1407d27a46e10",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995275,
+        "size": 3059,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "ea45914584d3568d11ee1759a4bcad303d24e218cc15937f633ef1200be24a18",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994781,
+        "size": 5140,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/assets/CodexAgentPage-CAPFgeYF.css",
+      "rebuild": {
+        "content_sha256": "ea45914584d3568d11ee1759a4bcad303d24e218cc15937f633ef1200be24a18",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995275,
+        "size": 5140,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "ec7e17e88da78d21345a88f2dab83bf000ee3bb6f8a6e22a6ac4aa0e095cb4f5",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994781,
+        "size": 1128,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/assets/ConceptLabIndexPage-DLz08ajZ.js",
+      "rebuild": {
+        "content_sha256": "ec7e17e88da78d21345a88f2dab83bf000ee3bb6f8a6e22a6ac4aa0e095cb4f5",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995275,
+        "size": 1128,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "516046e91d6773abe6ded68e433666ba042bf88719b22f815d92958116ee3091",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994781,
+        "size": 1512,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/assets/ConceptMonolithPage-BdNXW0jI.js",
+      "rebuild": {
+        "content_sha256": "516046e91d6773abe6ded68e433666ba042bf88719b22f815d92958116ee3091",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995275,
+        "size": 1512,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "8e363c604a976e0fb781b85ebcfd26387dc61cec0c874b83833f56dc2e296c24",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994781,
+        "size": 1363,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/assets/ConceptOrbitalPage-D1ueeWm7.js",
+      "rebuild": {
+        "content_sha256": "8e363c604a976e0fb781b85ebcfd26387dc61cec0c874b83833f56dc2e296c24",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995275,
+        "size": 1363,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "1c61a1364306064ad248a70b7bd617705a87e65dbdcd11ba6f0a359704d15294",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994781,
+        "size": 1989,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/assets/ConceptQuietPage-DZXx8RZW.js",
+      "rebuild": {
+        "content_sha256": "1c61a1364306064ad248a70b7bd617705a87e65dbdcd11ba6f0a359704d15294",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995275,
+        "size": 1989,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "a41997420ffe773c08eedcd57d0835d9a7ea725f65d9f653c04780fb66678eb2",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994781,
+        "size": 12794,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/assets/CrawlerManagePage-CsalQjen.js",
+      "rebuild": {
+        "content_sha256": "a41997420ffe773c08eedcd57d0835d9a7ea725f65d9f653c04780fb66678eb2",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995275,
+        "size": 12794,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "27e8e15b6855aa0b04efe4fe98f553bf5f1fc8f411458e11644de74efc56fcc2",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994781,
+        "size": 31844,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/assets/DashboardPage-CpFtR8jX.js",
+      "rebuild": {
+        "content_sha256": "27e8e15b6855aa0b04efe4fe98f553bf5f1fc8f411458e11644de74efc56fcc2",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995275,
+        "size": 31844,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "7a5d7260b917f4f1f62b39f7f5ffe1b0c963e47cf4fe1cf1b960c69b4939f637",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994781,
+        "size": 7597,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/assets/GraphExtensionsSections-C7qBEAhs.js",
+      "rebuild": {
+        "content_sha256": "7a5d7260b917f4f1f62b39f7f5ffe1b0c963e47cf4fe1cf1b960c69b4939f637",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995275,
+        "size": 7597,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "19dfa348be992943782fbb6217b24f0243fb4172a651985dab4ffd260d0499dd",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994781,
+        "size": 4491,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/assets/GraphPage-CNhEpsal.css",
+      "rebuild": {
+        "content_sha256": "19dfa348be992943782fbb6217b24f0243fb4172a651985dab4ffd260d0499dd",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995275,
+        "size": 4491,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "0c5ea67f5db14c9e5dbcbbf2854164a2f33cb079db5427a6d4fe919ed6e3c6b7",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994781,
+        "size": 391377,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/assets/GraphPage-DkXuJdhp.js",
+      "rebuild": {
+        "content_sha256": "0c5ea67f5db14c9e5dbcbbf2854164a2f33cb079db5427a6d4fe919ed6e3c6b7",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995275,
+        "size": 391377,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "ce8800393957f5aa47ac78b2723e78ed32bfa9b0eaaa64a73307dc8ec4e45dd7",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994781,
+        "size": 41622,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/assets/IngestPage-BQb3nYpu.js",
+      "rebuild": {
+        "content_sha256": "ce8800393957f5aa47ac78b2723e78ed32bfa9b0eaaa64a73307dc8ec4e45dd7",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995275,
+        "size": 41622,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "468caeb6d9c4f0e000d28f8309e1b0905642b9c2f54cbac6f0510822c34cd8ac",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994781,
+        "size": 86465,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/assets/LlmDesignerPage-aEgSmkMz.js",
+      "rebuild": {
+        "content_sha256": "468caeb6d9c4f0e000d28f8309e1b0905642b9c2f54cbac6f0510822c34cd8ac",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995275,
+        "size": 86465,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "d6fd9a066ead3b02df794f3bf90edc94726d15edbf030ce096b187355cc921ec",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994781,
+        "size": 68245,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/assets/OpsPage-BJsKe9sB.js",
+      "rebuild": {
+        "content_sha256": "d6fd9a066ead3b02df794f3bf90edc94726d15edbf030ce096b187355cc921ec",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995275,
+        "size": 68245,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "f8bdedf1d7d455b6d008834c9af4dd9a7002b7aab9179eb0013f85343225fcfa",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994781,
+        "size": 9198,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/assets/PolicyPage-Btp6eRsv.js",
+      "rebuild": {
+        "content_sha256": "f8bdedf1d7d455b6d008834c9af4dd9a7002b7aab9179eb0013f85343225fcfa",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995275,
+        "size": 9198,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "40531a0b34c3953032b91e1c00079d5c356c2e832efb66013f0f14b53720aa6e",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994781,
+        "size": 20640,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/assets/ProcessPage-CXBUpluh.js",
+      "rebuild": {
+        "content_sha256": "40531a0b34c3953032b91e1c00079d5c356c2e832efb66013f0f14b53720aa6e",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995275,
+        "size": 20640,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "83f032bc52a05785e9f548cc6c9d2a0785a0af443ccf8977cee1e3ed25d5d3ba",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994781,
+        "size": 13270,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/assets/ProjectsPage-CXlddCVe.js",
+      "rebuild": {
+        "content_sha256": "83f032bc52a05785e9f548cc6c9d2a0785a0af443ccf8977cee1e3ed25d5d3ba",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995275,
+        "size": 13270,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "f56ccd4bb2c3e7e37a02cd2bfafeb573291ea71337e4b78f4b92202e9b84cf07",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994781,
+        "size": 5986,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/assets/RawDataPage-DHBqPlny.js",
+      "rebuild": {
+        "content_sha256": "f56ccd4bb2c3e7e37a02cd2bfafeb573291ea71337e4b78f4b92202e9b84cf07",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995275,
+        "size": 5986,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "fb40ebb83ead2cc148a88df836d55636d0d257385c623cfee7132442fae91ad0",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994781,
+        "size": 42757,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/assets/ResourcePage-BaYLWC0d.js",
+      "rebuild": {
+        "content_sha256": "fb40ebb83ead2cc148a88df836d55636d0d257385c623cfee7132442fae91ad0",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995275,
+        "size": 42757,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "0c3365631d2c51b9f9526d31b79474fdf068a0edf3e8177b9bb0ea7c4f2517a4",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994781,
+        "size": 15184,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/assets/SettingsPage-aYT_PQhj.js",
+      "rebuild": {
+        "content_sha256": "0c3365631d2c51b9f9526d31b79474fdf068a0edf3e8177b9bb0ea7c4f2517a4",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995275,
+        "size": 15184,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "37060b68e6506aad94ae16640ff643b0adda6d7e90c71f9e88a81a6ed1963efd",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994781,
+        "size": 26708,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/assets/WritingWorkbenchPage-BSfd_TZA.css",
+      "rebuild": {
+        "content_sha256": "37060b68e6506aad94ae16640ff643b0adda6d7e90c71f9e88a81a6ed1963efd",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995275,
+        "size": 26708,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "2f3c0ab57db224e30a3739e78b14f43c59774918a574fc8c130ed14e162e1894",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994781,
+        "size": 72973,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/assets/WritingWorkbenchPage-C_ll1Hef.js",
+      "rebuild": {
+        "content_sha256": "2f3c0ab57db224e30a3739e78b14f43c59774918a574fc8c130ed14e162e1894",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995275,
+        "size": 72973,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "bf35d4c1309c24a5b48a66b87cb9f1903ceaaac3c4f8479699efc33813e7a3f2",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994781,
+        "size": 6678,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/assets/concept-lab-C3sgPKn8.css",
+      "rebuild": {
+        "content_sha256": "bf35d4c1309c24a5b48a66b87cb9f1903ceaaac3c4f8479699efc33813e7a3f2",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995275,
+        "size": 6678,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "8b0d34dcef251bf90655f749febbedebcb9e77491416ca2a245a92505fa73102",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994781,
+        "size": 507153,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/assets/echarts-vendor-C0jKRgb7.js",
+      "rebuild": {
+        "content_sha256": "8b0d34dcef251bf90655f749febbedebcb9e77491416ca2a245a92505fa73102",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995275,
+        "size": 507153,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "fa397a53b4e57e03fb19a62fac3c8a0b27d7e39a6975e83cc8aa4a46e7d1da85",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994781,
+        "size": 18934,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/assets/icons-vendor-CRqPWv0s.js",
+      "rebuild": {
+        "content_sha256": "fa397a53b4e57e03fb19a62fac3c8a0b27d7e39a6975e83cc8aa4a46e7d1da85",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995275,
+        "size": 18934,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "eb58b695a2657f3ee9a1e46a60b6f840d05d4400ac0fee575bfd419d0ef7dc9d",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994781,
+        "size": 110147,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/assets/index-CP4iV5fD.css",
+      "rebuild": {
+        "content_sha256": "eb58b695a2657f3ee9a1e46a60b6f840d05d4400ac0fee575bfd419d0ef7dc9d",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995275,
+        "size": 110147,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "9ece299d42928909aaea63e7275091d066686a55821e47ba2c08a52f78f87112",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994781,
+        "size": 360108,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/assets/index-CQhSCy3S.js",
+      "rebuild": {
+        "content_sha256": "9ece299d42928909aaea63e7275091d066686a55821e47ba2c08a52f78f87112",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995275,
+        "size": 360108,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "3f8da2c787179babdc1a0cc7b884f301d106f6bb4063983fbcfab7eafe1f84fe",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994781,
+        "size": 42956,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/assets/query-vendor-BrWlH1zu.js",
+      "rebuild": {
+        "content_sha256": "3f8da2c787179babdc1a0cc7b884f301d106f6bb4063983fbcfab7eafe1f84fe",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995275,
+        "size": 42956,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "472906938d02421afe75b9d5ac38b58183504d30b8828b60d275227ccaabdac7",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994781,
+        "size": 1155983,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/assets/react-force-graph-3d-BpAaSgy6.js",
+      "rebuild": {
+        "content_sha256": "472906938d02421afe75b9d5ac38b58183504d30b8828b60d275227ccaabdac7",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995275,
+        "size": 1155983,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "1243b61a71923367ce620fb944427c80c9b03e863e18374fcf4f74d6d06f63fc",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994781,
+        "size": 15869,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/assets/react-vendor-BnuhLJ6X.css",
+      "rebuild": {
+        "content_sha256": "1243b61a71923367ce620fb944427c80c9b03e863e18374fcf4f74d6d06f63fc",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995275,
+        "size": 15869,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "6a43eec6de9fbb19f4682781916df5afb1be3e1db520ce72a7b88ad620066003",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994781,
+        "size": 374278,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/assets/react-vendor-Da4hxVma.js",
+      "rebuild": {
+        "content_sha256": "6a43eec6de9fbb19f4682781916df5afb1be3e1db520ce72a7b88ad620066003",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995275,
+        "size": 374278,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "gid": 0,
+        "mode": 493,
+        "mtime": 1788994779,
+        "size": 0,
+        "type": "directory",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-assets",
+      "rebuild": {
+        "gid": 0,
+        "mode": 493,
+        "mtime": 1788995274,
+        "size": 0,
+        "type": "directory",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "77e6f12df24564597bf4edb1eda51f5fdf94ebeb2de3bd7112c55af5d03ef569",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 10803,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-assets/01013c1912187a8ce15d1f28fd96e22d0553f613.png",
+      "rebuild": {
+        "content_sha256": "77e6f12df24564597bf4edb1eda51f5fdf94ebeb2de3bd7112c55af5d03ef569",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 10803,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "e6360d21b9638ab3adeb03217e5874931d40c97d27c218ee23b842ba7a3dd7b3",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 236557,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-assets/047e3cc434a1edceb2e2650715ab8d2ae44cf7ee.png",
+      "rebuild": {
+        "content_sha256": "e6360d21b9638ab3adeb03217e5874931d40c97d27c218ee23b842ba7a3dd7b3",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 236557,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "b738e5c27c9240353ab19a4051068cc64ed97ce9d75c05caa7899068f3f4c0d6",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 24037,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-assets/0c63471e2e8f686f1e8865e74ef7f5f82801a658.png",
+      "rebuild": {
+        "content_sha256": "b738e5c27c9240353ab19a4051068cc64ed97ce9d75c05caa7899068f3f4c0d6",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 24037,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "ae173dab838857d679b77dd906a740045d4a3746ac9db82edd0432825bc64e71",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 23736,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-assets/0dd062cd21a4cdd3282958bb8774f3dae0d32457.png",
+      "rebuild": {
+        "content_sha256": "ae173dab838857d679b77dd906a740045d4a3746ac9db82edd0432825bc64e71",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 23736,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "4dd0700b86f6107fc0c1782b499d5459716f0eb96cb1b14fd392dda1c1267d46",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 4140873,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-assets/13c7517f27508af9bd007ba5219e733109df8cc1.png",
+      "rebuild": {
+        "content_sha256": "4dd0700b86f6107fc0c1782b499d5459716f0eb96cb1b14fd392dda1c1267d46",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 4140873,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "77415c3ed04ba3d4d91e5715a6f6b5172281808459b8ef65f514666655baa9f9",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 67979,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-assets/26af2a442ac36709bafcf5d4546f469897fb2331.png",
+      "rebuild": {
+        "content_sha256": "77415c3ed04ba3d4d91e5715a6f6b5172281808459b8ef65f514666655baa9f9",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 67979,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "aed54b816cf3907e1e62fa1928124aa8cbad380ec7f65b016cd465501d09faf7",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 20969,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-assets/2eac7fc4e6bba29f05c94705826c368f360bf283.png",
+      "rebuild": {
+        "content_sha256": "aed54b816cf3907e1e62fa1928124aa8cbad380ec7f65b016cd465501d09faf7",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 20969,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "54b66c605791d8834915887c90e1bdce0fa7e21933be1e8ae9ebe64bb571af4f",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 10615,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-assets/30507ba5de7fa1929019a6c4888c0366c05d6111.png",
+      "rebuild": {
+        "content_sha256": "54b66c605791d8834915887c90e1bdce0fa7e21933be1e8ae9ebe64bb571af4f",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 10615,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "86fda9ac0d934c504b9d354bd2ea9ccb934a56aeaafd1adca900106a38c92985",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 53582,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-assets/3175a1abd6a49114e3008bf23098ca5f5205eb53.png",
+      "rebuild": {
+        "content_sha256": "86fda9ac0d934c504b9d354bd2ea9ccb934a56aeaafd1adca900106a38c92985",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 53582,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "2b6b0fcd058ad5a243a8541d8ce61ebdd32477d79e12094f13ab57c8d6923538",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 274100,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-assets/3559607aa566ebbbc727a926fbd88aff9a81565c.png",
+      "rebuild": {
+        "content_sha256": "2b6b0fcd058ad5a243a8541d8ce61ebdd32477d79e12094f13ab57c8d6923538",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 274100,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "35f631dd6897b55108cc0ae6aff812e16dcc471a3bd661b3614ffb0a58ad48e0",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 6463,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-assets/37138d297deccf1f26d54b202cc124dcfa2d3365.png",
+      "rebuild": {
+        "content_sha256": "35f631dd6897b55108cc0ae6aff812e16dcc471a3bd661b3614ffb0a58ad48e0",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 6463,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "03c230002e8a4e502cef7bb36702bfcca3976b3db5a51f7916468d36fe168e78",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 64055,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-assets/39319035c91df9fc5ecff689785b415b058de3e4.png",
+      "rebuild": {
+        "content_sha256": "03c230002e8a4e502cef7bb36702bfcca3976b3db5a51f7916468d36fe168e78",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 64055,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "63fa34414b7a69b2bf458b4393f4b21af0dd7b91fb927e70e3ec2a51addbb097",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 55835,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-assets/3fbc6c2bac5f7cbfb3c909a14e638f725b67335c.png",
+      "rebuild": {
+        "content_sha256": "63fa34414b7a69b2bf458b4393f4b21af0dd7b91fb927e70e3ec2a51addbb097",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 55835,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "c20640f01e8ca3597398fe18e7dfb3c263e26e5795ba275a5be8188213328761",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 213255,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-assets/423ac876d1a911a64c9540b3adb7179d2dc1b352.png",
+      "rebuild": {
+        "content_sha256": "c20640f01e8ca3597398fe18e7dfb3c263e26e5795ba275a5be8188213328761",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 213255,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "67fe37a4ed98895b9b201dbcf5024819a7da03a8aa5f06f1bdf36ce3ffe9f0a3",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 38224,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-assets/4300088d87146ad978b58326c5ef99f852922679.png",
+      "rebuild": {
+        "content_sha256": "67fe37a4ed98895b9b201dbcf5024819a7da03a8aa5f06f1bdf36ce3ffe9f0a3",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 38224,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "68c18188acb8b42413690644db650108e02818435589855b46e1abe04862c320",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 56050,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-assets/451dffd09eda38c7b275bb58c19f51c3890c1d6c.png",
+      "rebuild": {
+        "content_sha256": "68c18188acb8b42413690644db650108e02818435589855b46e1abe04862c320",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 56050,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "ee8a58eb29a7e51940a6b2a687a81c3b04f1b3ba22dedd08177b8ca836128d29",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 148031,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-assets/49c6d3a592150d32199cc52d84a176de0199ab65.png",
+      "rebuild": {
+        "content_sha256": "ee8a58eb29a7e51940a6b2a687a81c3b04f1b3ba22dedd08177b8ca836128d29",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 148031,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "a274af33b572af532f94db38f0949f522f3d182de65f0e4acecb765e38e29233",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 24874,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-assets/4ce169106083ce3e91f69b894f34531b2fa162e6.png",
+      "rebuild": {
+        "content_sha256": "a274af33b572af532f94db38f0949f522f3d182de65f0e4acecb765e38e29233",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 24874,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "cc80ed2791203895d462fbe55ed8b728d8a8e91bbd06c346c4c6595b866d4636",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 169439,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-assets/51e3dfb808a47b1676c3458cc79afc40b4e1fcc9.png",
+      "rebuild": {
+        "content_sha256": "cc80ed2791203895d462fbe55ed8b728d8a8e91bbd06c346c4c6595b866d4636",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 169439,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "3f4d9e684eb155dee82517983a0c69511e4e3a8da692667adc847d021f1f30be",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 84216,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-assets/54aa743e000e32564e7a30320d449ee21d7b9bc2.png",
+      "rebuild": {
+        "content_sha256": "3f4d9e684eb155dee82517983a0c69511e4e3a8da692667adc847d021f1f30be",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 84216,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "36a9629bf7a2304659fcfa78d1a3d9b61dc57ebffa8bb7dbc1df7ad73583ce15",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 31171,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-assets/58eec15ed266a63796abefe66771375f3f35346f.png",
+      "rebuild": {
+        "content_sha256": "36a9629bf7a2304659fcfa78d1a3d9b61dc57ebffa8bb7dbc1df7ad73583ce15",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 31171,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "83d6e7c0d6ee88f097465f2d3005e655326383586ff69030c934aed974f5cc75",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 368716,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-assets/5d84da2ef292fda03143ba5f2346117d92927515.png",
+      "rebuild": {
+        "content_sha256": "83d6e7c0d6ee88f097465f2d3005e655326383586ff69030c934aed974f5cc75",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 368716,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "39bed956a674359f31d9e66115b8825ec8f6dd93e6c9f8cacc6acfbff8dc97da",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 375537,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-assets/66d18760ff80fb4fdf8f5d1dca2c110949ded986.png",
+      "rebuild": {
+        "content_sha256": "39bed956a674359f31d9e66115b8825ec8f6dd93e6c9f8cacc6acfbff8dc97da",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 375537,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "0c1952a63988fca8b73dd02f0b14ff81ab799176d824dbd6585acac27a38bd35",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 42507,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-assets/70d2f45b780a53a6beea53dbc61964169853913b.png",
+      "rebuild": {
+        "content_sha256": "0c1952a63988fca8b73dd02f0b14ff81ab799176d824dbd6585acac27a38bd35",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 42507,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "b87adb3b5ac44e038c9d9b5893044b5e4f990a613a99e6036a90ec478f58c4d9",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 11324,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-assets/83cf8cde378ad81afbeb4418482f32134883a849.png",
+      "rebuild": {
+        "content_sha256": "b87adb3b5ac44e038c9d9b5893044b5e4f990a613a99e6036a90ec478f58c4d9",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 11324,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "989240444720cab849b292ea03daba02451033eb3a24188082003bd266faa512",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 19864,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-assets/883251c436ba9f2a03484f4f73a7c5e3b12e7859.png",
+      "rebuild": {
+        "content_sha256": "989240444720cab849b292ea03daba02451033eb3a24188082003bd266faa512",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 19864,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "1020a355804d58375bb3508bd4f88d90d7bba6483ad239aefdf2560b50a468bd",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 32360,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-assets/8e4a479ebdfab3bcf24520d6e35dc6abc15e8244.png",
+      "rebuild": {
+        "content_sha256": "1020a355804d58375bb3508bd4f88d90d7bba6483ad239aefdf2560b50a468bd",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 32360,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "e9c3b802c63d623e2046e0c30e2e595559f6d1edcf202803c6b950f202602502",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 30710,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-assets/960cd04edd50a735ed700da2a242cf8e6e6eaa24.png",
+      "rebuild": {
+        "content_sha256": "e9c3b802c63d623e2046e0c30e2e595559f6d1edcf202803c6b950f202602502",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 30710,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "52f8f5170794cd11af6f7d82c6742ad3c34e58a32964123974256fc818fe3e5c",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 69496,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-assets/9ac4f201c2fa6133beb3e134b8b56a2182a28419.png",
+      "rebuild": {
+        "content_sha256": "52f8f5170794cd11af6f7d82c6742ad3c34e58a32964123974256fc818fe3e5c",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 69496,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "84f5defd53460096e8a4935f778dd65c687ea3e171394b13328b87e3530c2dcb",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 28501,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-assets/a0ce274767e57a9f4662227fc31226ef8060127a.png",
+      "rebuild": {
+        "content_sha256": "84f5defd53460096e8a4935f778dd65c687ea3e171394b13328b87e3530c2dcb",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 28501,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "49eb99932d1f51b1b45d5375fab6e8ce8e78a39f0dd5329f819af1eed99b213a",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 92383,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-assets/ba22c95ed3bb79fb9b207fecd274a20267f46d50.png",
+      "rebuild": {
+        "content_sha256": "49eb99932d1f51b1b45d5375fab6e8ce8e78a39f0dd5329f819af1eed99b213a",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 92383,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "3c128ff590921ad099a9bd87f305aa6662edd8cbe31e79f93c08f8ef8e9538a4",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 44690,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-assets/bb555b95b783029461a1ff6d665c3ad51034d0df.png",
+      "rebuild": {
+        "content_sha256": "3c128ff590921ad099a9bd87f305aa6662edd8cbe31e79f93c08f8ef8e9538a4",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 44690,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "06ef498ac47e9a4f7a16dfa85b9061fb6584054ccc22dbd941082559cd359935",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 275203,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-assets/bcf11a75154b49e8ab645a05061e740183e48e6a.png",
+      "rebuild": {
+        "content_sha256": "06ef498ac47e9a4f7a16dfa85b9061fb6584054ccc22dbd941082559cd359935",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 275203,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "68ca71b32893f1acfaac51a1549af6ff6abce0d27814d9f62f3436f38b70e3cd",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 100509,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-assets/c1049b44dc8e39174c4ea080cd8aa54504e6c6e5.png",
+      "rebuild": {
+        "content_sha256": "68ca71b32893f1acfaac51a1549af6ff6abce0d27814d9f62f3436f38b70e3cd",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 100509,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "53375ab634ab35379d63890bae9328e4c15bb6e0f5f70b8501a9849c28297157",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 55227,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-assets/c993f40fc015bf993c0ea920cd1d11c979d4fd66.png",
+      "rebuild": {
+        "content_sha256": "53375ab634ab35379d63890bae9328e4c15bb6e0f5f70b8501a9849c28297157",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 55227,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "f2ea6bc1917fea775fc9d3e3b632970670ab9a539f4873bdfdcd76bcfbcd88e7",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 83671,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-assets/c9b80412e552ff61c4eae1adc6272a150da93350.png",
+      "rebuild": {
+        "content_sha256": "f2ea6bc1917fea775fc9d3e3b632970670ab9a539f4873bdfdcd76bcfbcd88e7",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 83671,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "21d7f7fbeae46d1368caf117c069fbae1b8fe6a420b69b6993a13ce993e5f5fd",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 158379,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-assets/caa6690537438185d1b99bcf128a23ef46c358a6.png",
+      "rebuild": {
+        "content_sha256": "21d7f7fbeae46d1368caf117c069fbae1b8fe6a420b69b6993a13ce993e5f5fd",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 158379,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "5940d901a735472f9da314aca04aabe0a81d1db9b18d208d68e31773f2dc81e8",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 17512,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-assets/d28589a2e9944e4ab64014ddf628f675c5b974ea.png",
+      "rebuild": {
+        "content_sha256": "5940d901a735472f9da314aca04aabe0a81d1db9b18d208d68e31773f2dc81e8",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 17512,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "7d971d73b64cf236b217f1ba651735f6345967f7691c88f19a5fbed4ff6585db",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 66220,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-assets/d6060e02d1230959a6e76dd44626f3258644f356.png",
+      "rebuild": {
+        "content_sha256": "7d971d73b64cf236b217f1ba651735f6345967f7691c88f19a5fbed4ff6585db",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 66220,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "69d6eba444a9e7d5fbaf73b2f4cc639de055f10c7dd157bbb9f30c263fd6eecb",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 1119993,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-assets/dda01a7c85d5b5f69210f1c39b28767dbbaef5a7.png",
+      "rebuild": {
+        "content_sha256": "69d6eba444a9e7d5fbaf73b2f4cc639de055f10c7dd157bbb9f30c263fd6eecb",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 1119993,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "08001ecaa8cfe5802116d754a4580c561b2f10c41db3010b37c227fa130f4fd7",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 54736,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-assets/deaa93f5008cec38b998de6d40390edd8730bebb.png",
+      "rebuild": {
+        "content_sha256": "08001ecaa8cfe5802116d754a4580c561b2f10c41db3010b37c227fa130f4fd7",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 54736,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "14c1ac38d698364af8d9f1851eb7d4febda613a7e2dd53629b0ea08849509fb4",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 59210,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-assets/e1a334bb6e64b0ed7283934b3e65e5892a215e5c.png",
+      "rebuild": {
+        "content_sha256": "14c1ac38d698364af8d9f1851eb7d4febda613a7e2dd53629b0ea08849509fb4",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 59210,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "7af8cbb972089f06887b365aecbb4f20fad2e67627e1dd5ea286843864d39c33",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 50399,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-assets/e46dcae250b1a54d3b895b644e33c72daa81d770.png",
+      "rebuild": {
+        "content_sha256": "7af8cbb972089f06887b365aecbb4f20fad2e67627e1dd5ea286843864d39c33",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 50399,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "e6a8dc7e5a15d14f55cc8afa82dbe49e3c6e6f432aa32e4eceeaa86106c83023",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 13701,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-assets/e78f3aa805b56f92d565fd22494738b018117e23.png",
+      "rebuild": {
+        "content_sha256": "e6a8dc7e5a15d14f55cc8afa82dbe49e3c6e6f432aa32e4eceeaa86106c83023",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 13701,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "529d2e90f541ccbf161656e846d3f0cefbbc6d2d4d5fb41711c65d428fcce01a",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 37932,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-assets/ef920951946b18eaf785bcaf25a90bda10c3ab67.png",
+      "rebuild": {
+        "content_sha256": "529d2e90f541ccbf161656e846d3f0cefbbc6d2d4d5fb41711c65d428fcce01a",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 37932,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "90537cc824a42e693e598d4de4e1c04287033a2fd647a0848274739def97328c",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 237336,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-assets/f50b0d43e78675333066fb08483bef27d9b2c3cf.png",
+      "rebuild": {
+        "content_sha256": "90537cc824a42e693e598d4de4e1c04287033a2fd647a0848274739def97328c",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 237336,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "f130e7841b21291c957f4104c08001f0575c2362808462b7205ff469276f8b33",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 59027,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-assets/fac5f0c2d1c16874a262329037bacad265d167f0.png",
+      "rebuild": {
+        "content_sha256": "f130e7841b21291c957f4104c08001f0575c2362808462b7205ff469276f8b33",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 59027,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "53651727e391c7b6d67e3f0f7207fe9d9b7dead3e243c137f9fa8796b8b1d693",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 358,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-assets/meta.json",
+      "rebuild": {
+        "content_sha256": "53651727e391c7b6d67e3f0f7207fe9d9b7dead3e243c137f9fa8796b8b1d693",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 358,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "62ae583f53262a7036ce0b90493a2506d667717ea0ae40d0f5494a54bea9c518",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 1634,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-assets/thumbnail.png",
+      "rebuild": {
+        "content_sha256": "62ae583f53262a7036ce0b90493a2506d667717ea0ae40d0f5494a54bea9c518",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 1634,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "62ae583f53262a7036ce0b90493a2506d667717ea0ae40d0f5494a54bea9c518",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 1634,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/graph-kit-thumbnail.png",
+      "rebuild": {
+        "content_sha256": "62ae583f53262a7036ce0b90493a2506d667717ea0ae40d0f5494a54bea9c518",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 1634,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "98dadfc5b33756d3f921569dd23c91df9b3b0d6dffe094f73b309cf539d2123c",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994781,
+        "size": 878,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/index.html",
+      "rebuild": {
+        "content_sha256": "98dadfc5b33756d3f921569dd23c91df9b3b0d6dffe094f73b309cf539d2123c",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995275,
+        "size": 878,
+        "type": "file",
+        "uid": 0
+      }
+    },
+    {
+      "canonical": {
+        "content_sha256": "4a748afd443918bb16591c834c401dae33e87861ab5dbad0811c3a3b4a9214fb",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788994779,
+        "size": 1497,
+        "type": "file",
+        "uid": 0
+      },
+      "cause_assessment": "CONFIRMED_SAME_CONTENT_ONLY_MTIME_DIFFERS",
+      "domain": "timestamp_only",
+      "kind": "timestamp_only",
+      "path": "/usr/share/nginx/html/vite.svg",
+      "rebuild": {
+        "content_sha256": "4a748afd443918bb16591c834c401dae33e87861ab5dbad0811c3a3b4a9214fb",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 1788995274,
+        "size": 1497,
+        "type": "file",
+        "uid": 0
+      }
+    }
+  ],
+  "inventory": {
+    "by_domain": {
+      "timestamp_only": 90
+    },
+    "by_kind": {
+      "timestamp_only": 90
+    },
+    "canonical_paths": 2295,
+    "difference_count": 90,
+    "rebuild_paths": 2295
+  },
+  "rebuild_image_manifest_digest": "sha256:792d16b97838d2c079dc8ae9a9656b019be9b7149b11e330af10dc3b4a1d9b08",
+  "rebuild_runtime_config": {
+    "Cmd": [
+      "nginx",
+      "-g",
+      "daemon off;"
+    ],
+    "Entrypoint": [
+      "/docker-entrypoint.sh"
+    ],
+    "Env": [
+      "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+      "NGINX_VERSION=1.27.5",
+      "PKG_RELEASE=1",
+      "DYNPKG_RELEASE=1",
+      "NJS_VERSION=0.8.10",
+      "NJS_RELEASE=1"
+    ],
+    "ExposedPorts": {
+      "80/tcp": {}
+    },
+    "Healthcheck": null,
+    "User": null,
+    "WorkingDir": "/"
+  },
+  "role": "frontend",
+  "runtime_config_equal": true
+}

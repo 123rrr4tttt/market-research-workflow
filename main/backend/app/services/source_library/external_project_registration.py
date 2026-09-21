@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import base64
 import re
-from typing import Any
+from typing import Any, NoReturn
 from urllib.parse import urljoin, urlsplit
 
 from bs4 import BeautifulSoup
+
+from functorial_kit import Failure
+from mrw_functorial_kit.core.application_failure_semantics import source_library_contract_failures
 
 from ..extraction.json_utils import extract_json_payload
 from ..http.client import default_http_client
@@ -35,6 +38,48 @@ _DEFAULT_RSS_PATHS = (
     "/atom.xml",
 )
 _URL_PATTERN = re.compile(r"https?://[^\s<>'\"`]+", re.IGNORECASE)
+_FAILURE_WITNESS = "test:test_w01_source_export_failures"
+
+
+def _registration_failure(code: str, message: str, *, site: str) -> Failure:
+    return source_library_contract_failures.fail(
+        code,
+        message,
+        {
+            "boundary_class": "PURE_CONTRACT_FAILURE",
+            "failure_family": source_library_contract_failures.name,
+            "operation": "source_library.external_project_registration",
+            "owner": "source_library.external_project_registration",
+            "public_exception": "ValueError",
+            "public_message": message,
+            "site": site,
+            "witness": _FAILURE_WITNESS,
+        },
+    )
+
+
+def _raise_registration_failure(
+    failure: Failure,
+    *,
+    cause: BaseException | None = None,
+) -> NoReturn:
+    context = failure.context or {}
+    required = {"boundary_class", "failure_family", "operation", "owner", "public_exception", "public_message", "site", "witness"}
+    if (
+        not source_library_contract_failures.matches(failure)
+        or required - set(context)
+        or context.get("failure_family") != source_library_contract_failures.name
+        or context.get("boundary_class") != "PURE_CONTRACT_FAILURE"
+        or context.get("public_exception") != "ValueError"
+        or context.get("public_message") != failure.message
+    ):
+        # kit:boundary owner=source_library.external_project_registration.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w01_source_export_failures
+        raise TypeError("external-project registration failure lift context is incomplete or inconsistent")
+    if cause is None:
+        # kit:boundary owner=source_library.external_project_registration.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=source_library.contract_failure witness=test:test_w01_source_export_failures
+        raise ValueError(str(context["public_message"]))
+    # kit:boundary owner=source_library.external_project_registration.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=source_library.contract_failure witness=test:test_w01_source_export_failures
+    raise ValueError(str(context["public_message"])) from cause
 
 
 def synthesize_external_project_item(
@@ -50,7 +95,13 @@ def synthesize_external_project_item(
 
     project_context = collect_external_project_context(project_link=normalized_link, hints=hints)
     if not _has_meaningful_evidence(project_context):
-        raise ValueError("unable to collect enough external project evidence for manifest synthesis")
+        _raise_registration_failure(
+            _registration_failure(
+                "external_project_evidence_insufficient",
+                "unable to collect enough external project evidence for manifest synthesis",
+                site="synthesize_external_project_item.project_context",
+            )
+        )
     resolved_item_key = _resolve_item_key(item_key=item_key, project_link=normalized_link)
     resolved_display_name = _resolve_display_name(display_name=display_name, project_link=normalized_link)
     manifest = synthesize_external_project_manifest(
@@ -127,7 +178,13 @@ def synthesize_external_project_manifest(
         text = str(result or "").strip()
     payload = extract_json_payload(text)
     if not isinstance(payload, dict):
-        raise ValueError("LLM did not return a valid external project manifest JSON object")
+        _raise_registration_failure(
+            _registration_failure(
+                "external_project_manifest_invalid",
+                "LLM did not return a valid external project manifest JSON object",
+                site="synthesize_external_project_manifest.llm_payload",
+            )
+        )
     payload.setdefault("contract_version", EXTERNAL_PROJECT_MANIFEST_CONTRACT_VERSION)
     payload.setdefault("item_key", item_key)
     payload.setdefault("display_name", display_name)

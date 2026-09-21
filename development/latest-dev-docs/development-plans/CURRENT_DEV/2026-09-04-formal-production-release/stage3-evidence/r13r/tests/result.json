@@ -1,0 +1,114 @@
+{
+  "schema_version": "mrw.stage3.tests.runtime-gates.v1",
+  "candidate": {
+    "name": "r13r",
+    "root": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260910-v4-r13r/candidate",
+    "commit": "9b95d1c6c515b3013d6be7fd39ffb54801310c1c",
+    "tree": "040f2ed5b223607c63404c709e413f8898c2b504",
+    "manifest_sha256": "ee6d13fe269c7177f0eb2b5df1aca1d50e05299b43aeeb4759093b6d1d61d439",
+    "modified": false
+  },
+  "scope": "r13r local linux/amd64 migration and runtime gates only",
+  "runtime_status": "PASS_SCOPED",
+  "stage3_status": "BLOCKED",
+  "authority_ceiling": "PRODUCTION_RELEASE_NOT_AUTHORIZED",
+  "canonical_artifact_index": {
+    "path": "../artifacts/available-images.json",
+    "sha256": "b81073fbc87592b7a5b6e81d15dbd7e322378f1b3d41d0dee3bde54e7b8c7244"
+  },
+  "artifacts": {
+    "backend": {
+      "tag": "mrw-r13r-amd64-backend-canonical:local",
+      "platform": "linux/amd64",
+      "docker_image_id": "sha256:d436f3287396cec2b94dcb76c3cb3d555d36feee5016d4b9b024ca57879089f9",
+      "manifest_digest": "sha256:403eb796b0890b0e77aec8755c2638cc4e239341b7f71f30ff4dfa6ba475ffe2",
+      "reproducibility": "PASS_EXACT"
+    },
+    "migration_runner": {
+      "tag": "mrw-r13r-amd64-migration-runner-canonical:local",
+      "platform": "linux/amd64",
+      "docker_image_id": "sha256:61de723b315ef8d5ad045aad3d0beba0a09eb7c64d27b78d7cf5644e1aec64aa",
+      "manifest_digest": "sha256:727ab5d23c89119fae6872882f1458c30f09467c45d207d29b335589270a179d",
+      "reproducibility": "PASS_EXACT"
+    },
+    "frontend": {
+      "tag": "mrw-r13r-amd64-frontend-canonical:local",
+      "platform": "linux/amd64",
+      "docker_image_id": "sha256:8792353c7222206fc260a894ff3581e71fe85e348801e26ff032968bd2836450",
+      "canonical_manifest_digest": "sha256:67891f50676aabf4b34b78fe12a62301be9343a8b3bfb94e689726ee96e86bc5",
+      "rebuild_manifest_digest": "sha256:ffb5f263c1ae498d9f85541f46769477123c1d1799e1ee89bb169eed8dca4066",
+      "reproducibility": "FAIL_SINGLE_ROOTFS_PATH",
+      "differing_path": "/var/log/apk.log",
+      "runtime_libuuid": "2.42.3-r1",
+      "reproducibility_evidence_sha256": "e082be361eb517a7585be1cbe82aabc2178d775b3ce9939d21f093838cf402e5",
+      "rootfs_difference_evidence_sha256": "d0077cbdbc3b43c51655e155b05610c570d636e93359a6f8cb953a85219b7fd8"
+    }
+  },
+  "migration": {
+    "command": "alembic upgrade head",
+    "exit_code": 0,
+    "current_exit_code": 0,
+    "database_version_query_exit_code": 0,
+    "head": "20260905_000001",
+    "head_kind": "mergepoint"
+  },
+  "runtime": {
+    "dependency_stack": "PASS",
+    "backend_startup": "PASS_HEALTHY",
+    "frontend_modern_startup": "PASS",
+    "frontend_root_http_status": 200,
+    "frontend_static_asset_http_status": 200,
+    "backend_direct_health_http_status": 200,
+    "frontend_proxy_health_http_status": 200,
+    "backend_direct_deep_health_http_status": 200,
+    "frontend_proxy_deep_health_http_status": 200,
+    "deep_health_body_status": "degraded",
+    "database": "ok",
+    "database_pool": "ok",
+    "elasticsearch": "ok",
+    "redis_dependency_ping": "ok"
+  },
+  "blockers": [
+    {
+      "code": "FRONTEND_REPRODUCIBILITY_MISMATCH",
+      "detail": "canonical and rebuild manifests differ at /var/log/apk.log",
+      "blocks_stage3_pass": true
+    },
+    {
+      "code": "LIVE_PROVIDER_MISSING_OPENAI_API_KEY",
+      "detail": "deep health is degraded and live-provider validation is BLOCKED",
+      "blocks_stage3_pass": true
+    },
+    {
+      "code": "SUCCESSOR_R13S_PENDING",
+      "detail": "r13s was not formally returned or accepted when these r13r runtime receipts were closed",
+      "blocks_rebinding_to_successor": true
+    }
+  ],
+  "exclusions": {
+    "aggregate_rerun": false,
+    "browser_e2e_rerun": false,
+    "remote_action": false,
+    "publish_action": false
+  },
+  "cleanup": {
+    "project_containers": 0,
+    "project_volumes": 0,
+    "project_networks": 0,
+    "task_image_tags_removed": 3,
+    "host_ports_15175_and_18001_closed": true,
+    "ops_scrapyd_container_id_before_after": "94d3ee03d0ba",
+    "unrelated_resources_touched": false
+  },
+  "evidence_files": [
+    "compose.override.yml",
+    "00-identity-compose-config.log",
+    "01-dependencies-up.log",
+    "02-migration-upgrade-current.log",
+    "03-backend-up.log",
+    "04-frontend-up.log",
+    "05-http-probes.log",
+    "06-cleanup-residue.log"
+  ],
+  "hash_index": "SHA256SUMS.r13r-tests"
+}

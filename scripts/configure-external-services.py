@@ -11,6 +11,7 @@ import argparse
 import getpass
 import os
 import re
+import shlex
 import shutil
 import sys
 import urllib.error
@@ -91,14 +92,18 @@ def parse_env(path: Path) -> tuple[list[str], dict[str, str]]:
 
 
 def unquote_env_value(value: str) -> str:
+    value = value.strip()
     if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
-        return value[1:-1]
+        try:
+            parts = shlex.split(value, posix=True)
+        except ValueError:
+            return value[1:-1]
+        return " ".join(parts)
     return value
 
 
 def quote_env_value(value: str) -> str:
-    escaped = value.replace("\\", "\\\\").replace("'", "\\'")
-    return f"'{escaped}'"
+    return "'" + value.replace("'", "'\\''") + "'"
 
 
 def write_env_updates(updates: dict[str, str]) -> None:

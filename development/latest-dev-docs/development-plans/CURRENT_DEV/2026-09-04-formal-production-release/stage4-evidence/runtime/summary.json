@@ -1,0 +1,71 @@
+{
+  "authoritative": false,
+  "authority_ceiling": "LOCAL_STAGE4_RUNTIME_ONLY / NOT_AUTHORITY / PRODUCTION_RELEASE_NOT_AUTHORIZED",
+  "candidate": {
+    "commit": "8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+    "label": "r13x",
+    "root": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260912-v4-r13x/candidate",
+    "tree": "ce7c67c831b51f9d64b4c2f1a470a724a50b19df"
+  },
+  "commands_policy": {
+    "entrypoint_only_derived_backend_build_executed": true,
+    "fresh_snapshot_restore_matrix_rerun_for_tls_upgrade_probe": false,
+    "full_role_rebuild_executed": false,
+    "narrow_recheck_reused_existing_snapshot_without_rerunning_migrations": true,
+    "prune_executed": false,
+    "pull_allowed": false,
+    "secure_config_derived_backend_build_executed": true
+  },
+  "compose_project": "mrw-stage4-local",
+  "ended_at": "2026-09-13T06:31:46Z",
+  "error": null,
+  "ports": {
+    "backend": "127.0.0.1:18142",
+    "frontend": "127.0.0.1:15142"
+  },
+  "provider": {
+    "credential_source": "project-owned main/backend/.env selected fields",
+    "deep_health_same_stack": true,
+    "external_model_calls": 0,
+    "secret_persisted": false,
+    "selected_fields": [
+      "LLM_PROVIDER",
+      "OPENAI_API_KEY",
+      "OPENAI_API_BASE"
+    ]
+  },
+  "remote_or_publish_actions": 0,
+  "results": {
+    "cleanup": "PASS",
+    "compose_config": "PASS",
+    "full_stack": "PASS",
+    "identity": "PASS",
+    "migration": "PASS",
+    "representative_pre_head_upgrade": "PASS",
+    "secure_config_narrow_recheck": "PASS",
+    "snapshot_restore": "PASS",
+    "tls_trusted_proxy_probe": "PASS"
+  },
+  "risks": [
+    "This local runtime evidence is non-authoritative and does not establish remote staging or release qualification.",
+    "Backend and Celery used a non-r13x derived image replacing /docker-entrypoint.sh and /app/app/composition/production.py on the exact retained r13x backend base.",
+    "The narrow recheck restored the already-bound synthetic snapshot; it did not rerun the migration or snapshot matrix.",
+    "The cookie probe exercised the running container's actual settings and Starlette Set-Cookie serialization without performing an external OAuth exchange.",
+    "The TLS probe used a task-local self-signed CA and one fixed trusted Docker proxy IP; it does not establish public certificate, DNS, or remote ingress readiness.",
+    "The pre-head upgrade probe used a constructed 20260830_000001 baseline with one legacy row; it is not evidence for every historical version or an actual production predecessor."
+  ],
+  "runtime_backend_identity": {
+    "base": "mrw-local/r13x-candidate-backend:8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+    "classification": "NON_R13X_DERIVED_STAGE4_RUNTIME_IMAGE",
+    "image_id": "sha256:f99f900e5b420cf7e1c9513598a87251cc6c8124e6ec8461c564ed4d7ca76c20",
+    "reference": "mrw-local/stage4-r13x-backend-config:8652d653f740735f",
+    "replaced_paths": [
+      "/docker-entrypoint.sh",
+      "/app/app/composition/production.py"
+    ]
+  },
+  "schema_version": "mrw.stage4.local-runtime.v1",
+  "stage3_artifacts_preserved": true,
+  "started_at": "2026-09-13T05:24:30Z",
+  "status": "PASS_LOCAL_STAGE4_RUNTIME_NOT_AUTHORITY"
+}

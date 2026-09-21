@@ -24,7 +24,10 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Any
+from typing import Any, NoReturn
+
+from functorial_kit import Failure
+from mrw_functorial_kit.core.w06_semantics import c9_evidence_surface_failures
 
 from app.successor_runtime.capabilities.checksum import content_digest
 
@@ -50,12 +53,8 @@ __all__ = [
 ]
 
 EVIDENCE_MATRIX_SCHEMA = "mrw.successor.runtime.c9-1.evidence-matrix.v1"
-EVIDENCE_MATRIX_AUTHORITY_SCHEMA = (
-    "mrw.successor.runtime.c9-1.evidence-matrix-authority.v1"
-)
-EVIDENCE_MATRIX_READBACK_SCHEMA = (
-    "mrw.successor.runtime.c9-1.evidence-matrix-readback.v1"
-)
+EVIDENCE_MATRIX_AUTHORITY_SCHEMA = "mrw.successor.runtime.c9-1.evidence-matrix-authority.v1"
+EVIDENCE_MATRIX_READBACK_SCHEMA = "mrw.successor.runtime.c9-1.evidence-matrix-readback.v1"
 
 BUSINESS_LINE_KEYS: tuple[str, ...] = (
     "ingest",
@@ -93,6 +92,41 @@ _AUTHORITY_FLAG_FIELDS = (
 )
 
 _HEX64_RE = re.compile(r"^[0-9a-f]{64}$")
+_FAILURE_WITNESS = "test:test_w06_c2_total_core_failure_lifts"
+
+
+def _failure(
+    code: str, message: str, *, public_exception: str = "ValueError", site: str = "c9_evidence_matrix"
+) -> Failure:
+    return c9_evidence_surface_failures.fail(
+        code,
+        message,
+        {
+            "owner": "successor_runtime.capabilities.c9_evidence_matrix",
+            "site": site,
+            "public_exception": public_exception,
+            "public_message": message,
+            "witness": _FAILURE_WITNESS,
+        },
+    )
+
+
+def _raise_contract_failure(failure: Failure, exception_type: type[Exception] = ValueError) -> NoReturn:
+    context = failure.context or {}
+    if (
+        failure.family != c9_evidence_surface_failures.name
+        or context.get("public_exception") != exception_type.__name__
+    ):
+        # kit:boundary owner=c9_evidence_matrix.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w06_c2_total_core_failure_lifts
+        raise TypeError("C9 evidence matrix contract lift context is incomplete")  # noqa: TRY003
+    # kit:boundary owner=c9_evidence_matrix.py class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=c9.evidence_surface.failure witness=test:test_w06_c2_total_core_failure_lifts
+    raise exception_type(str(context.get("public_message", failure.message)))
+
+
+def _reject(
+    message: str, exception_type: type[Exception] = ValueError, *, code: str = "surface_contract_invalid"
+) -> NoReturn:
+    _raise_contract_failure(_failure(code, message, public_exception=exception_type.__name__), exception_type)
 
 
 class EvidenceMatrixError(ValueError):
@@ -134,15 +168,22 @@ def _coerce_row_status(value: object) -> EvidenceRowStatus:
     text = str(value).strip().lower()
     try:
         return EvidenceRowStatus(text)
-    except ValueError as exc:
-        raise EvidenceMatrixSourceError(
-            f"unsupported evidence row status {value!r}"
-        ) from exc
+    except ValueError:
+        _raise_contract_failure(
+            _failure(
+                "evidence_source_invalid",
+                f"unsupported evidence row status {value!r}",
+                public_exception="EvidenceMatrixSourceError",
+            ),
+            EvidenceMatrixSourceError,
+        )
 
 
 def _as_bool(value: object, name: str) -> bool:
     if not isinstance(value, bool):
-        raise TypeError(f"{name} must be bool")
+        _raise_contract_failure(
+            _failure("evidence_source_invalid", f"{name} must be bool", public_exception="TypeError"), TypeError
+        )
     return value
 
 
@@ -151,14 +192,24 @@ def _as_text(value: object, name: str) -> str:
         return ""
     text = str(value).strip()
     if not text:
-        raise EvidenceMatrixSourceError(f"{name} must be non-empty")
+        _raise_contract_failure(
+            _failure(
+                "evidence_source_invalid", f"{name} must be non-empty", public_exception="EvidenceMatrixSourceError"
+            ),
+            EvidenceMatrixSourceError,
+        )
     return text
 
 
 def _require_digest_hex(value: str, name: str) -> str:
     if _HEX64_RE.fullmatch(value) is None:
-        raise EvidenceMatrixIntegrityError(
-            f"{name} must be a 64-char lowercase hex digest"
+        _raise_contract_failure(
+            _failure(
+                "evidence_integrity_invalid",
+                f"{name} must be a 64-char lowercase hex digest",
+                public_exception="EvidenceMatrixIntegrityError",
+            ),
+            EvidenceMatrixIntegrityError,
         )
     return value
 
@@ -200,13 +251,13 @@ class EvidenceMatrixAuthority:
 
     def __post_init__(self) -> None:
         if not isinstance(self.schema_ref, str) or not self.schema_ref.strip():
-            raise ValueError("EvidenceMatrixAuthority.schema_ref is required")
+            _reject("EvidenceMatrixAuthority.schema_ref is required", code="authority_contract_invalid")
         for name in _AUTHORITY_FLAG_FIELDS:
             value = _as_bool(getattr(self, name), f"EvidenceMatrixAuthority.{name}")
             if value:
-                raise ValueError(
-                    "C9.1 evidence matrix grants no runtime authority; "
-                    f"{name} must be False"
+                _reject(
+                    f"C9.1 evidence matrix grants no runtime authority; {name} must be False",
+                    code="authority_contract_invalid",
                 )
 
     def to_plain(self) -> dict[str, Any]:
@@ -229,11 +280,9 @@ class EvidenceMatrixSummary:
         for name in ("total", "passed", "blocked", "failed"):
             value = getattr(self, name)
             if isinstance(value, bool) or not isinstance(value, int) or value < 0:
-                raise ValueError(
-                    f"EvidenceMatrixSummary.{name} must be a non-negative integer"
-                )
+                _reject(f"EvidenceMatrixSummary.{name} must be a non-negative integer", code="projection_input_invalid")
         if self.total != self.passed + self.blocked + self.failed:
-            raise ValueError("EvidenceMatrixSummary counts must cover every row status")
+            _reject("EvidenceMatrixSummary counts must cover every row status", code="projection_input_invalid")
 
     def to_plain(self) -> dict[str, int]:
         return {
@@ -258,20 +307,16 @@ class EvidenceSourceRef:
     digest: str = ""
 
     def __post_init__(self) -> None:
-        object.__setattr__(
-            self, "source_kind", _as_text(self.source_kind, "source_kind")
-        )
-        object.__setattr__(
-            self, "observed_at", _as_text(self.observed_at, "observed_at")
-        )
+        object.__setattr__(self, "source_kind", _as_text(self.source_kind, "source_kind"))
+        object.__setattr__(self, "observed_at", _as_text(self.observed_at, "observed_at"))
         object.__setattr__(self, "status", _as_text(self.status, "status"))
-        object.__setattr__(
-            self, "reason_code", _as_text(self.reason_code, "reason_code")
-        )
+        object.__setattr__(self, "reason_code", _as_text(self.reason_code, "reason_code"))
         digest = str(self.digest or "").strip()
         if digest and _HEX64_RE.fullmatch(digest) is None:
-            raise EvidenceMatrixSourceError(
-                "EvidenceSourceRef.digest must be a 64-char lowercase hex digest"
+            _reject(
+                "EvidenceSourceRef.digest must be a 64-char lowercase hex digest",
+                EvidenceMatrixSourceError,
+                code="evidence_source_invalid",
             )
         object.__setattr__(self, "digest", digest)
 
@@ -301,8 +346,10 @@ class BusinessLineEvidenceRecord:
     def __post_init__(self) -> None:
         normalized_key = normalize_evidence_line_key(self.line_key)
         if normalized_key not in BUSINESS_LINE_KEYS:
-            raise EvidenceMatrixLineSetError(
-                f"unknown business-line key {self.line_key!r}"
+            _reject(
+                f"unknown business-line key {self.line_key!r}",
+                EvidenceMatrixLineSetError,
+                code="evidence_line_set_invalid",
             )
         object.__setattr__(self, "line_key", normalized_key)
         object.__setattr__(self, "status", _coerce_row_status(self.status))
@@ -326,17 +373,19 @@ class BusinessLineEvidenceRecord:
         )
         source_refs = tuple(self.source_refs)
         if any(not isinstance(item, EvidenceSourceRef) for item in source_refs):
-            raise EvidenceMatrixSourceError(
-                "BusinessLineEvidenceRecord.source_refs must be typed source refs"
+            _reject(
+                "BusinessLineEvidenceRecord.source_refs must be typed source refs",
+                EvidenceMatrixSourceError,
+                code="evidence_source_invalid",
             )
         object.__setattr__(self, "source_refs", source_refs)
-        object.__setattr__(
-            self, "observed_at", _as_text(self.observed_at, "observed_at")
-        )
+        object.__setattr__(self, "observed_at", _as_text(self.observed_at, "observed_at"))
         expected_worker = normalized_key in WORKER_REQUIRED_BUSINESS_LINE_KEYS
         if self.requires_worker_readback != expected_worker:
-            raise EvidenceMatrixLineSetError(
-                f"worker requirement mismatch for line {normalized_key!r}"
+            _reject(
+                f"worker requirement mismatch for line {normalized_key!r}",
+                EvidenceMatrixLineSetError,
+                code="evidence_line_set_invalid",
             )
         provided = str(self.row_digest or "").strip()
         expected = _record_digest(self)
@@ -345,8 +394,10 @@ class BusinessLineEvidenceRecord:
         else:
             _require_digest_hex(provided, "BusinessLineEvidenceRecord.row_digest")
             if provided != expected:
-                raise EvidenceMatrixIntegrityError(
-                    "BusinessLineEvidenceRecord.row_digest does not match content"
+                _reject(
+                    "BusinessLineEvidenceRecord.row_digest does not match content",
+                    EvidenceMatrixIntegrityError,
+                    code="evidence_integrity_invalid",
                 )
 
     def verify_digest(self) -> None:
@@ -354,8 +405,10 @@ class BusinessLineEvidenceRecord:
 
         expected = _record_digest(self)
         if self.row_digest != expected:
-            raise EvidenceMatrixIntegrityError(
-                "BusinessLineEvidenceRecord.row_digest does not match content"
+            _reject(
+                "BusinessLineEvidenceRecord.row_digest does not match content",
+                EvidenceMatrixIntegrityError,
+                code="evidence_integrity_invalid",
             )
 
     def to_plain(self) -> dict[str, Any]:
@@ -389,43 +442,49 @@ class BusinessLineEvidenceMatrix:
         rows = tuple(self.rows)
         object.__setattr__(self, "expected_line_keys", expected_line_keys)
         object.__setattr__(self, "rows", rows)
-        object.__setattr__(
-            self, "observed_at", _as_text(self.observed_at, "observed_at")
-        )
+        object.__setattr__(self, "observed_at", _as_text(self.observed_at, "observed_at"))
         if expected_line_keys != BUSINESS_LINE_KEYS:
-            raise EvidenceMatrixLineSetError(
-                "C9.1 evidence matrix requires the canonical seven line keys"
+            _reject(
+                "C9.1 evidence matrix requires the canonical seven line keys",
+                EvidenceMatrixLineSetError,
+                code="evidence_line_set_invalid",
             )
         if any(not isinstance(row, BusinessLineEvidenceRecord) for row in rows):
-            raise EvidenceMatrixSourceError(
-                "BusinessLineEvidenceMatrix.rows must be typed evidence records"
+            _reject(
+                "BusinessLineEvidenceMatrix.rows must be typed evidence records",
+                EvidenceMatrixSourceError,
+                code="evidence_source_invalid",
             )
         row_keys = tuple(row.line_key for row in rows)
         if row_keys != expected_line_keys:
-            raise EvidenceMatrixLineSetError(
-                "C9.1 evidence matrix rows are not unique canonical ordered lines"
+            _reject(
+                "C9.1 evidence matrix rows are not unique canonical ordered lines",
+                EvidenceMatrixLineSetError,
+                code="evidence_line_set_invalid",
             )
         for row in rows:
             expected_worker = row.line_key in WORKER_REQUIRED_BUSINESS_LINE_KEYS
             if row.requires_worker_readback != expected_worker:
-                raise EvidenceMatrixLineSetError(
-                    f"worker requirement mismatch for line {row.line_key!r}"
+                _reject(
+                    f"worker requirement mismatch for line {row.line_key!r}",
+                    EvidenceMatrixLineSetError,
+                    code="evidence_line_set_invalid",
                 )
             row.verify_digest()
         if not isinstance(self.summary, EvidenceMatrixSummary):
-            raise TypeError("BusinessLineEvidenceMatrix.summary must be typed")
+            _reject("BusinessLineEvidenceMatrix.summary must be typed", TypeError, code="projection_input_invalid")
         if not isinstance(self.authority, EvidenceMatrixAuthority):
-            raise TypeError("BusinessLineEvidenceMatrix.authority must be typed")
+            _reject("BusinessLineEvidenceMatrix.authority must be typed", TypeError, code="authority_contract_invalid")
         if not isinstance(self.completion_claim, bool):
-            raise TypeError("BusinessLineEvidenceMatrix.completion_claim must be bool")
+            _reject(
+                "BusinessLineEvidenceMatrix.completion_claim must be bool", TypeError, code="projection_input_invalid"
+            )
         if self.completion_claim:
-            raise ValueError("C9.1 evidence matrix never claims real completion")
+            _reject("C9.1 evidence matrix never claims real completion", code="authority_contract_invalid")
         source_status = _coerce_row_status(self.source_status)
         object.__setattr__(self, "source_status", source_status)
         passed = sum(row.status is EvidenceRowStatus.PASSED for row in rows)
-        blocked = sum(
-            row.status is EvidenceRowStatus.BLOCKED_BY_ENVIRONMENT for row in rows
-        )
+        blocked = sum(row.status is EvidenceRowStatus.BLOCKED_BY_ENVIRONMENT for row in rows)
         failed = sum(row.status is EvidenceRowStatus.FAILED for row in rows)
         if (
             self.summary.total != len(rows)
@@ -433,8 +492,10 @@ class BusinessLineEvidenceMatrix:
             or self.summary.blocked != blocked
             or self.summary.failed != failed
         ):
-            raise EvidenceMatrixIntegrityError(
-                "C9.1 evidence matrix summary does not match its rows"
+            _reject(
+                "C9.1 evidence matrix summary does not match its rows",
+                EvidenceMatrixIntegrityError,
+                code="evidence_integrity_invalid",
             )
         if passed == len(rows):
             aggregate = EvidenceRowStatus.PASSED
@@ -445,8 +506,10 @@ class BusinessLineEvidenceMatrix:
         else:
             aggregate = EvidenceRowStatus.FAILED
         if source_status is not aggregate:
-            raise EvidenceMatrixIntegrityError(
-                "C9.1 evidence matrix source_status does not match row statuses"
+            _reject(
+                "C9.1 evidence matrix source_status does not match row statuses",
+                EvidenceMatrixIntegrityError,
+                code="evidence_integrity_invalid",
             )
         provided = str(self.matrix_digest or "").strip()
         expected = _matrix_digest(self)
@@ -455,8 +518,10 @@ class BusinessLineEvidenceMatrix:
         else:
             _require_digest_hex(provided, "BusinessLineEvidenceMatrix.matrix_digest")
             if provided != expected:
-                raise EvidenceMatrixIntegrityError(
-                    "BusinessLineEvidenceMatrix.matrix_digest does not match content"
+                _reject(
+                    "BusinessLineEvidenceMatrix.matrix_digest does not match content",
+                    EvidenceMatrixIntegrityError,
+                    code="evidence_integrity_invalid",
                 )
 
     def verify_digest(self) -> None:
@@ -466,8 +531,10 @@ class BusinessLineEvidenceMatrix:
             row.verify_digest()
         expected = _matrix_digest(self)
         if self.matrix_digest != expected:
-            raise EvidenceMatrixIntegrityError(
-                "BusinessLineEvidenceMatrix.matrix_digest does not match content"
+            _reject(
+                "BusinessLineEvidenceMatrix.matrix_digest does not match content",
+                EvidenceMatrixIntegrityError,
+                code="evidence_integrity_invalid",
             )
 
     def to_plain(self) -> dict[str, Any]:
@@ -514,9 +581,9 @@ def project_business_line_evidence_matrix(
 ) -> BusinessLineEvidenceMatrix:
     """Project exactly seven typed records into one canonical evidence matrix.
 
-    The projection is pure and read-only.  Line-set drift raises
-    :class:`EvidenceMatrixLineSetError`; non-typed rows raise
-    :class:`EvidenceMatrixSourceError`; stale row digests raise
+    The projection is pure and read-only.  Line-set drift returns through the
+    :class:`EvidenceMatrixLineSetError` compatibility boundary; non-typed rows
+    use :class:`EvidenceMatrixSourceError`; stale row digests use
     :class:`EvidenceMatrixIntegrityError`.
     """
 
@@ -526,8 +593,10 @@ def project_business_line_evidence_matrix(
     unexpected_keys: list[str] = []
     for record in typed:
         if not isinstance(record, BusinessLineEvidenceRecord):
-            raise EvidenceMatrixSourceError(
-                "C9.1 evidence matrix projection requires typed evidence records"
+            _reject(
+                "C9.1 evidence matrix projection requires typed evidence records",
+                EvidenceMatrixSourceError,
+                code="projection_input_invalid",
             )
         key = normalize_evidence_line_key(record.line_key)
         if key not in BUSINESS_LINE_KEYS:
@@ -540,28 +609,30 @@ def project_business_line_evidence_matrix(
 
     missing_keys = [key for key in BUSINESS_LINE_KEYS if key not in by_key]
     if missing_keys or duplicate_keys or unexpected_keys:
-        raise EvidenceMatrixLineSetError(
+        _reject(
             "C9.1 evidence matrix line set is not exactly canonical: "
             f"missing={sorted(missing_keys)} "
             f"duplicate={sorted(set(duplicate_keys))} "
-            f"unexpected={sorted(str(item) for item in unexpected_keys)}"
+            f"unexpected={sorted(str(item) for item in unexpected_keys)}",
+            EvidenceMatrixLineSetError,
+            code="evidence_line_set_invalid",
         )
 
     for key in BUSINESS_LINE_KEYS:
         record = by_key[key]
         expected_worker = key in WORKER_REQUIRED_BUSINESS_LINE_KEYS
         if record.requires_worker_readback != expected_worker:
-            raise EvidenceMatrixLineSetError(
-                f"worker requirement mismatch for line {key!r}"
+            _reject(
+                f"worker requirement mismatch for line {key!r}",
+                EvidenceMatrixLineSetError,
+                code="evidence_line_set_invalid",
             )
     for key in BUSINESS_LINE_KEYS:
         by_key[key].verify_digest()
 
     rows = tuple(_canonicalize_row(by_key[key]) for key in BUSINESS_LINE_KEYS)
     passed = sum(row.status is EvidenceRowStatus.PASSED for row in rows)
-    blocked = sum(
-        row.status is EvidenceRowStatus.BLOCKED_BY_ENVIRONMENT for row in rows
-    )
+    blocked = sum(row.status is EvidenceRowStatus.BLOCKED_BY_ENVIRONMENT for row in rows)
     failed = sum(row.status is EvidenceRowStatus.FAILED for row in rows)
     if failed:
         source_status = EvidenceRowStatus.FAILED

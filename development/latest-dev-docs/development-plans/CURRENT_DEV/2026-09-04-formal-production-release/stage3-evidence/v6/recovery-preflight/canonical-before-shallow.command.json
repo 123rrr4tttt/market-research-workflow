@@ -1,0 +1,18 @@
+{
+  "id": "canonical-before-shallow",
+  "command": [
+    "git",
+    "rev-parse",
+    "--is-shallow-repository"
+  ],
+  "cwd": "/Users/wangyiliang/.codex/release-candidates/mrw-stage2-20260906-v6",
+  "exit_code": 0,
+  "started_at": "2026-09-06T21:51:53.260185+00:00",
+  "ended_at": "2026-09-06T21:51:53.271686+00:00",
+  "log": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-preflight/canonical-before-shallow.log",
+  "sha256": "2ed27c1421e6928dbe13dbfdb5c59e1045b30341fe7ebe05700006bc5ac572c0",
+  "environment_overrides": {
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "PYTHONNOUSERSITE": "1"
+  }
+}

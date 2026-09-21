@@ -1,0 +1,142 @@
+{
+  "authoritative": false,
+  "authority_ceiling": "LOCAL_UNSIGNED_TASK_OWNED_EVIDENCE_NOT_RELEASE_AUTHORITY",
+  "candidate_after": {
+    "backend_tree": "eb3794cb92e59ba3a2dace55f967e16295935f3a",
+    "clean": true,
+    "commit": "8427e3d626cd12f41e45d38e00223f2ef86d692f",
+    "dockerfile_sha256": "8726ec49d21e47c955b33c47da062178f651555d28d9be39f6b95e6b51c0a9f7",
+    "path": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260912-v4-r13v/candidate",
+    "src_tree": "0dfa137c2c9aba658d8b1f39281412ff69c3d67c",
+    "status_porcelain": "",
+    "tree": "4146bcab51e437920a006875e06ed8cdcc32470a"
+  },
+  "candidate_before": {
+    "backend_tree": "eb3794cb92e59ba3a2dace55f967e16295935f3a",
+    "clean": true,
+    "commit": "8427e3d626cd12f41e45d38e00223f2ef86d692f",
+    "dockerfile_sha256": "8726ec49d21e47c955b33c47da062178f651555d28d9be39f6b95e6b51c0a9f7",
+    "path": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260912-v4-r13v/candidate",
+    "src_tree": "0dfa137c2c9aba658d8b1f39281412ff69c3d67c",
+    "status_porcelain": "",
+    "tree": "4146bcab51e437920a006875e06ed8cdcc32470a"
+  },
+  "docker_prune_run": false,
+  "free_bytes_after": 6925778944,
+  "inputs_unchanged_and_clean": true,
+  "replay_after": {
+    "backend_tree": "eb3794cb92e59ba3a2dace55f967e16295935f3a",
+    "clean": true,
+    "commit": "8427e3d626cd12f41e45d38e00223f2ef86d692f",
+    "dockerfile_sha256": "8726ec49d21e47c955b33c47da062178f651555d28d9be39f6b95e6b51c0a9f7",
+    "path": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260912-v4-r13v/replay",
+    "src_tree": "0dfa137c2c9aba658d8b1f39281412ff69c3d67c",
+    "status_porcelain": "",
+    "tree": "4146bcab51e437920a006875e06ed8cdcc32470a"
+  },
+  "replay_before": {
+    "backend_tree": "eb3794cb92e59ba3a2dace55f967e16295935f3a",
+    "clean": true,
+    "commit": "8427e3d626cd12f41e45d38e00223f2ef86d692f",
+    "dockerfile_sha256": "8726ec49d21e47c955b33c47da062178f651555d28d9be39f6b95e6b51c0a9f7",
+    "path": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260912-v4-r13v/replay",
+    "src_tree": "0dfa137c2c9aba658d8b1f39281412ff69c3d67c",
+    "status_porcelain": "",
+    "tree": "4146bcab51e437920a006875e06ed8cdcc32470a"
+  },
+  "roles": {
+    "backend": {
+      "build_attempts": [
+        {
+          "attempt": 1,
+          "exit_code": 0
+        }
+      ],
+      "build_contract": "candidate source, --no-cache, linux/amd64, provenance=false, sbom=false, SOURCE_DATE_EPOCH=0, OCI rewrite-timestamp=true",
+      "cleanup": {
+        "archive_residue": false,
+        "builder_residue": false,
+        "docker_prune_run": false,
+        "events": [
+          {
+            "exit_code": 0,
+            "kind": "builder",
+            "name": "mrw-r13v-trivy-backend-1789212961"
+          },
+          {
+            "bytes_reclaimed": 309707776,
+            "kind": "temporary_oci_archive",
+            "removed": true,
+            "sha256_before_removal": "e1f26e935a500dc234260bd899ddc78f796edad97057c04c0ab348b8ea3bf034"
+          }
+        ],
+        "free_bytes_after": 6928343040,
+        "tag_residue": false
+      },
+      "digest_binding": {
+        "config_equal_to_ab_candidate": false,
+        "layers_equal_to_ab_candidate": false,
+        "manifest_equal_to_ab_candidate": false,
+        "observed_image_config_digest": "sha256:5208550405ac54049dafb82810a8a12676ed926c9a54a0afbd9a91b80744adf0",
+        "observed_image_manifest_digest": "sha256:feeb2366f247f5f731ce6651c85a98d9b1655bd559ab060b0d50396260a4c93e",
+        "status": "MISMATCH"
+      },
+      "error": "RuntimeError: DIGEST_MISMATCH",
+      "expected_image_config_digest": "sha256:bceec10bc727ce6b73165a5f80bd6c7a5c44e5859d95ec489ec0c6727dfdf4bc",
+      "expected_image_manifest_digest": "sha256:889b93d5350793223f841f6c81cdeeed7b069ced331217b8c07ef3284d80fc90",
+      "free_bytes_before": 8324141056,
+      "fresh_scan_tag": "mrw-r13v-trivy-backend:local",
+      "role": "backend",
+      "status": "FAILED_OR_INCOMPLETE",
+      "target": "backend-runtime"
+    },
+    "migration-runner": {
+      "build_attempts": [
+        {
+          "attempt": 1,
+          "exit_code": 0
+        }
+      ],
+      "build_contract": "candidate source, --no-cache, linux/amd64, provenance=false, sbom=false, SOURCE_DATE_EPOCH=0, OCI rewrite-timestamp=true",
+      "cleanup": {
+        "archive_residue": false,
+        "builder_residue": false,
+        "docker_prune_run": false,
+        "events": [
+          {
+            "exit_code": 0,
+            "kind": "builder",
+            "name": "mrw-r13v-trivy-migration-runner-1789212961"
+          },
+          {
+            "bytes_reclaimed": 309704704,
+            "kind": "temporary_oci_archive",
+            "removed": true,
+            "sha256_before_removal": "36b055ef9726e410506d1aaa40b14a69ff57b0bfa2dc307a82583144ed6482c1"
+          }
+        ],
+        "free_bytes_after": 6925901824,
+        "tag_residue": false
+      },
+      "digest_binding": {
+        "config_equal_to_ab_candidate": false,
+        "layers_equal_to_ab_candidate": false,
+        "manifest_equal_to_ab_candidate": false,
+        "observed_image_config_digest": "sha256:00f63541d10e006bd11e815780fe41c25d2cde633028d45c52f271631af1cae1",
+        "observed_image_manifest_digest": "sha256:f353aa22f566aa6f49681a7d8f83bb8e3b56d6f8b8ad526a9e3fcd2bf7f014ea",
+        "status": "MISMATCH"
+      },
+      "error": "RuntimeError: DIGEST_MISMATCH",
+      "expected_image_config_digest": "sha256:c22448639ef17dac25fe640300834f95292326147608d4118d593fba7a22da40",
+      "expected_image_manifest_digest": "sha256:f4f8f39c6bddf90cce5f2f8740da3422b1ae2af188b4edf62829966f3caace72",
+      "free_bytes_before": 6928334848,
+      "fresh_scan_tag": "mrw-r13v-trivy-migration-runner:local",
+      "role": "migration-runner",
+      "status": "FAILED_OR_INCOMPLETE",
+      "target": "migration-runner"
+    }
+  },
+  "schema": "mrw.stage3.r13v.backend-migration-trivy-recovery.v1",
+  "source_ab_evidence": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13v/artifacts/backend-migration-amd64-candidate-replay-retry4",
+  "status": "FAILED_OR_INCOMPLETE"
+}

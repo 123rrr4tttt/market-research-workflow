@@ -1,0 +1,27 @@
+{
+  "artifact_manifest": {
+    "path": "stage1-successor-evidence/source-static-remediation-v1/artifact-manifest.v1.json",
+    "sha256": "2f5b5f84d9e3ed3019df559a102d5ae9eedd3c0e552151eef6cd31dc2b2d1c9a"
+  },
+  "authoritative": false,
+  "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+  "checks": {
+    "artifact_hashes_and_refs_match": true,
+    "authoritative_and_release_flags_false": true,
+    "authority_ceiling_exact": true,
+    "duplicate_paths_and_ids_rejected": true,
+    "enumerated_current_paths_fresh": true,
+    "external_actions_remain_not_run": true,
+    "historical_v3_v4_identity_and_evidence_match": true,
+    "phase_a_raw_log_and_junit_totals_match": true,
+    "phase_b_six_required_gaps_pass_static_contract": true,
+    "prior_residual_inventory_hash_and_schema_match": true,
+    "schema_fail_closed": true
+  },
+  "record": {
+    "path": "stage1-successor-evidence/source-static-remediation-v1/stage1-source-static-remediation-record.v1.json",
+    "sha256": "82833de8573fd7e1120816999825e4d05677ec06a8d65ba0f88924e33c7ea258"
+  },
+  "schema_version": "mrw.stage1.source_static_remediation_validation.v1",
+  "status": "PASS"
+}

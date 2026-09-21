@@ -1,0 +1,107 @@
+{
+  "schema": "mrw.stage1.root-gates-plan.v1",
+  "status": "READY_FOR_SINGLE_ISOLATED_EXECUTION",
+  "authoritative": false,
+  "authority": {
+    "candidate_promotion": false,
+    "cutover": false,
+    "deployment": false,
+    "external_delivery": false,
+    "live_provider": false,
+    "production_release": false
+  },
+  "scope": {
+    "included": [
+      "governed patched functorial-kit materialization",
+      "tests/test_architecture.py",
+      "read-only architecture baseline delta",
+      "complete project-root tests/ collection"
+    ],
+    "excluded": [
+      "main/backend/tests",
+      "frontend tests",
+      "service startup",
+      "database or provider connection",
+      "baseline write",
+      "candidate mutation"
+    ]
+  },
+  "exact_inputs": {
+    "preview_path": "/private/tmp/mrw-stage-convergence-ytn_rsx9/preview-attempt3",
+    "preview_commit": "3472d35004d7f50c14fb9fcdfb5ea801dd77f196",
+    "preview_tree": "f871c1b5939eb055bed191aceffe238d32694e88",
+    "candidate_manifest_path": "/private/tmp/mrw-stage-convergence-ytn_rsx9/candidate-manifest-attempt3.json",
+    "candidate_manifest_sha256": "1b4f9e5b6e56035da274ed962f2eda6379bd2c930faa1bd6902085fa763a9705",
+    "candidate_manifest_schema": "mrw.stage2.exact-candidate-manifest.v3",
+    "candidate_manifest_status": "EXACT_CANDIDATE_INTAKE_NOT_AUTHORITY",
+    "image_sha256": "e40af59580fc6a9dd5ade567618a133027a4b9ab8a8cebc5dc76e779ad766dac",
+    "image_platform": "linux/amd64",
+    "kit_repository_path": "/Users/wangyiliang/Desktop/functorial-kit",
+    "kit_base_commit": "785ff25e201c9eae84c862e68e786bc975e7a800",
+    "kit_base_tree": "40a8019815040ff00c0ce61c0cdca30ac004ec7e"
+  },
+  "runner": {
+    "path": "stage1-successor-evidence/stage-convergence-batch-v1/run-root-gates-isolated.sh",
+    "sha256": "0a6c28a6ab976df2c85e416b650ae67d46b764550e642ba98d0bc4b128fa0a35",
+    "runtime": "bash inside exact admitted image",
+    "artifact_root": "/private/tmp/mrw-stage-convergence-ytn_rsx9/root-gates-attempt3-correction1",
+    "create_only": true
+  },
+  "container_isolation": {
+    "network": "none",
+    "root_filesystem": "read_only",
+    "capabilities": "all_dropped",
+    "no_new_privileges": true,
+    "host_ports": [],
+    "docker_socket_mount": false,
+    "credentials": [],
+    "mounts": [
+      {"container_path": "/code", "mode": "read_only", "content": "exact preview"},
+      {"container_path": "/artifacts", "mode": "read_write", "content": "task-owned create-only outputs"},
+      {"container_path": "/kit-repo", "mode": "read_only", "content": "offline governed kit checkout"},
+      {"container_path": "/admission/candidate-manifest-attempt3.json", "mode": "read_only", "content": "hash-bound intake manifest"},
+      {"container_path": "/runner/run-root-gates-isolated.sh", "mode": "read_only", "content": "batch runner"},
+      {"container_path": "/tmp", "mode": "tmpfs", "content": "pytest and subprocess temporary files"},
+      {"container_path": "/private/tmp", "mode": "tmpfs", "content": "tests with explicit macOS-compatible temp prefix"}
+    ]
+  },
+  "source_write_audit": {
+    "static_result": "NO_REQUIRED_TRACKED_ROOT_WRITES_IDENTIFIED",
+    "observed_test_write_targets": [
+      "pytest tmp_path fixtures",
+      "tempfile-managed /tmp paths",
+      "two compose-render fixtures under /private/tmp"
+    ],
+    "controls": [
+      "outer Docker mount inspection must report /code RW=false without an in-container write probe",
+      "source Git status must be empty before and after",
+      "path-mode-content digest of every tracked entry must match before and after",
+      "all 61 top-level gitlinks bind index OIDs; the exact seven contract-required materialized gitlinks additionally bind clean matching HEAD and recursively hashed tracked bytes",
+      "the remaining 54 gitlinks must be empty uninitialized directories without .git and are classified UNINITIALIZED_IDENTITY_ONLY",
+      "safe.directory is injected only for /code, /kit-repo, and the exact seven contract-required materialized gitlink directories; no Git config file is written",
+      "pytest cache and Python bytecode are redirected away from /code",
+      "architecture baseline command omits --write-baseline"
+    ],
+    "disposition_if_write_required": "retain failure diagnostics and stop; do not remount or project changes into candidate without a new reviewed contract"
+  },
+  "ordered_commands_inside_container": [
+    "python /code/scripts/materialize_functorial_kit_consumer_gate.py --kit-repo /kit-repo --output /artifacts/root-gates-${MRW_RUN_ID}/kit",
+    "PYTHONPATH=/artifacts/root-gates-${MRW_RUN_ID}/kit/python:/code/src:/code/main/backend python -m pytest tests/test_architecture.py -q -ra --junitxml=...",
+    "PYTHONPATH=/artifacts/root-gates-${MRW_RUN_ID}/kit/python:/code/src:/code/main/backend python scripts/check_architecture_baseline_delta.py --root /code",
+    "PYTHONPATH=/artifacts/root-gates-${MRW_RUN_ID}/kit/python:/code/src:/code/main/backend python -m pytest tests -q -ra --junitxml=..."
+  ],
+  "test_contract": {
+    "maxfail": "ABSENT",
+    "deselection": "ABSENT",
+    "skip_suppression": "ABSENT",
+    "coverage_suppression": "ABSENT",
+    "junit": "REQUIRED",
+    "combined_stdout_stderr_log": "REQUIRED",
+    "exit_zero_required": true
+  },
+  "limits": [
+    "Passing project-root tests is not passing main/backend/tests.",
+    "Passing architecture gates is a ratchet result and does not erase baselined debt.",
+    "No result grants promotion, release, deployment, live-provider, cutover, or external-delivery authority."
+  ]
+}

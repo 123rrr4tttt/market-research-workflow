@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import dataclasses
-from typing import Any
+from typing import Annotated, Any
 
+from functorial_kit import Failure
 from app.successor_runtime.capabilities import agent_core_c6_2 as c6_2
 from app.successor_runtime.capabilities.checksum import (
     canonical_json,
     content_digest,
-    require_hex64,
     sha256_hex,
 )
 from app.successor_runtime.language.algebra import (
@@ -31,34 +31,70 @@ __all__ = [
     "compile_agent_core_c6_2_program",
     "exact_contract_ref",
     "payload_value_ref",
+    "try_exact_contract_ref",
+    "try_payload_value_ref",
+    "try_build_agent_core_c6_2_program",
 ]
+
+
+def _lift_program_contract_failure(outcome: ProgramSpec | ValueRef | Failure) -> Any:
+    if isinstance(outcome, Failure):
+        c6_2._raise_contract_failure(outcome)
+    return outcome
+
+
+def try_exact_contract_ref(
+    catalog: OperationContractCatalogSnapshot,
+) -> OperationContractRef | Failure:
+    ref = catalog.lookup(c6_2.AGENT_CORE_C6_2_KIND)
+    if ref is None:
+        return c6_2._contract_failure(
+            "catalog_contract_invalid",
+            f"contract {c6_2.AGENT_CORE_C6_2_KIND} missing from catalog {catalog.catalog_id}",
+            catalog_id=catalog.catalog_id,
+            operation_kind=c6_2.AGENT_CORE_C6_2_KIND,
+        )
+    return ref
 
 
 def exact_contract_ref(
     catalog: OperationContractCatalogSnapshot,
 ) -> OperationContractRef:
-    ref = catalog.lookup(c6_2.AGENT_CORE_C6_2_KIND)
-    if ref is None:
-        raise ValueError(
-            f"contract {c6_2.AGENT_CORE_C6_2_KIND} missing from catalog "
-            f"{catalog.catalog_id}"
-        )
-    return ref
+    return _lift_program_contract_failure(try_exact_contract_ref(catalog))
 
 
-def payload_value_ref(
+def try_payload_value_ref(
     payload: c6_2.AgentModelStepRequest,
     *,
     program_id: str,
     project_key: str,
-) -> ValueRef:
+) -> ValueRef | Failure:
     """Build the exact content-addressed ValueRef for one C6.2 request."""
 
     if payload.operation_kind != c6_2.AGENT_CORE_C6_2_KIND:
-        raise ValueError("payload operation_kind is not the frozen C6.2 kind")
+        return c6_2._contract_failure(
+            "schema_contract_invalid",
+            "payload operation_kind is not the frozen C6.2 kind",
+            operation_kind=payload.operation_kind,
+        )
     if payload.project_scope.project_key != project_key:
-        raise ValueError("payload project scope drift")
-    require_hex64(payload.payload_digest, "AgentModelStepRequest.payload_digest")
+        return c6_2._contract_failure(
+            "scope_contract_invalid",
+            "payload project scope drift",
+            payload_project_key=payload.project_scope.project_key,
+            program_project_key=project_key,
+        )
+    digest = payload.payload_digest
+    if (
+        not isinstance(digest, str)
+        or len(digest) != 64
+        or any(character not in "0123456789abcdef" for character in digest)
+    ):
+        return c6_2._contract_failure(
+            "digest_contract_invalid",
+            "AgentModelStepRequest.payload_digest must be a 64-char lowercase hex digest",
+            field="payload_digest",
+        )
     plain = dataclasses.asdict(payload)
     exact_text = canonical_json(plain)
     exact_bytes = exact_text.encode("utf-8")
@@ -98,7 +134,22 @@ def payload_value_ref(
     )
 
 
-def build_agent_core_c6_2_program(
+def payload_value_ref(
+    payload: c6_2.AgentModelStepRequest,
+    *,
+    program_id: str,
+    project_key: str,
+) -> ValueRef:
+    return _lift_program_contract_failure(
+        try_payload_value_ref(
+            payload,
+            program_id=program_id,
+            project_key=project_key,
+        )
+    )
+
+
+def try_build_agent_core_c6_2_program(
     *,
     payload: c6_2.AgentModelStepRequest,
     catalog: OperationContractCatalogSnapshot,
@@ -109,23 +160,48 @@ def build_agent_core_c6_2_program(
     semantic_identity: str = c6_2.AGENT_CORE_C6_2_SEMANTIC_IDENTITY,
     observation_profile: str = c6_2.AGENT_CORE_C6_2_OBSERVATION_PROFILE,
     contract_version: str = "mrw.functorial-successor.program-spec.v1",
-) -> ProgramSpec:
+) -> (
+    Annotated[
+        ProgramSpec,
+        "kit:prepared-command effect_boundary=successor_program_interpreter "
+        "witness=test:test_w05_agent_core_authority_metadata",
+    ]
+    | Failure
+):
     """Build the exact-bound single-Atom Program for one C6.2 request."""
 
     if payload.project_scope.project_key != project_key:
-        raise ValueError("payload project_key does not match Program project_key")
+        return c6_2._contract_failure(
+            "scope_contract_invalid",
+            "payload project_key does not match Program project_key",
+            payload_project_key=payload.project_scope.project_key,
+            program_project_key=project_key,
+        )
     if payload.project_scope.registry_revision != project_registry_revision:
-        raise ValueError(
-            "payload registry revision does not match Program registry revision"
+        return c6_2._contract_failure(
+            "scope_contract_invalid",
+            "payload registry revision does not match Program registry revision",
+            payload_registry_revision=payload.project_scope.registry_revision,
+            program_registry_revision=project_registry_revision,
         )
     if payload.project_scope.scope_digest != project_scope_digest:
-        raise ValueError("payload scope digest does not match Program scope digest")
-    ref = exact_contract_ref(catalog)
-    value_ref = payload_value_ref(
+        return c6_2._contract_failure(
+            "scope_contract_invalid",
+            "payload scope digest does not match Program scope digest",
+            payload_scope_digest=payload.project_scope.scope_digest,
+            program_scope_digest=project_scope_digest,
+        )
+    exact_ref = try_exact_contract_ref(catalog)
+    if isinstance(exact_ref, Failure):
+        return exact_ref
+    value_ref = try_payload_value_ref(
         payload,
         program_id=program_id,
         project_key=project_key,
     )
+    if isinstance(value_ref, Failure):
+        return value_ref
+    ref = exact_ref
     operation = OperationSpec(
         operation_id=c6_2.AGENT_CORE_C6_2_OPERATION_ID,
         contract_ref=ref,
@@ -184,6 +260,37 @@ def build_agent_core_c6_2_program(
         metadata=metadata,
         program_digest="",
     ).with_digest()
+
+
+def build_agent_core_c6_2_program(
+    *,
+    payload: c6_2.AgentModelStepRequest,
+    catalog: OperationContractCatalogSnapshot,
+    program_id: str,
+    project_key: str,
+    project_registry_revision: int,
+    project_scope_digest: str,
+    semantic_identity: str = c6_2.AGENT_CORE_C6_2_SEMANTIC_IDENTITY,
+    observation_profile: str = c6_2.AGENT_CORE_C6_2_OBSERVATION_PROFILE,
+    contract_version: str = "mrw.functorial-successor.program-spec.v1",
+) -> Annotated[
+    ProgramSpec,
+    "kit:prepared-command effect_boundary=successor_program_interpreter "
+    "witness=test:test_w05_agent_core_authority_metadata",
+]:
+    return _lift_program_contract_failure(
+        try_build_agent_core_c6_2_program(
+            payload=payload,
+            catalog=catalog,
+            program_id=program_id,
+            project_key=project_key,
+            project_registry_revision=project_registry_revision,
+            project_scope_digest=project_scope_digest,
+            semantic_identity=semantic_identity,
+            observation_profile=observation_profile,
+            contract_version=contract_version,
+        )
+    )
 
 
 def compile_agent_core_c6_2_program(

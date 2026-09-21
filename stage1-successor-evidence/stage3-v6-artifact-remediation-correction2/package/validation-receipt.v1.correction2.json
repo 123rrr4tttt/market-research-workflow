@@ -1,0 +1,41 @@
+{
+  "authoritative": false,
+  "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+  "checks": {
+    "artifact_paths_complete": true,
+    "authority_false": true,
+    "correction1_manifest_members_complete": true,
+    "correction1_trio_fixed_hashes": true,
+    "create_only_atomic_bundle": true,
+    "nested_declared_bytes_and_hashes_verified": true,
+    "production_release_not_authorized": true,
+    "receipt_artifacts_complete": true,
+    "recursive_artifact_manifest_members_complete": true
+  },
+  "manifest": {
+    "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-correction2/package/artifact-manifest.v1.correction2.json",
+    "sha256": "0bc405fb77d58f8621191062f9650811cd0ed0f8d1deff15d0ad36f223d01199"
+  },
+  "predecessor_correction1": [
+    {
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/stage3-v6-artifact-remediation-record.v1.correction1.json",
+      "sha256": "1f2eb55570ade210db34078f449215df235afcb99ffcf00e2e8238f5688567fc"
+    },
+    {
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/artifact-manifest.v1.correction1.json",
+      "sha256": "6cb08c46f6579a553c4a26cd458eab49817896504375d3e009921dbd1cd492b6"
+    },
+    {
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/validation-receipt.v1.correction1.json",
+      "sha256": "1e77a1211ce73f5dc8f0291477489a1cdbb9cf29c6aefdb37e0856cf13f52bcd"
+    }
+  ],
+  "production_release_authorized": false,
+  "production_release_status": "PRODUCTION_RELEASE_NOT_AUTHORIZED",
+  "record": {
+    "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-correction2/package/stage3-v6-artifact-remediation-record.v1.correction2.json",
+    "sha256": "86073cd6495963d9dd6161b12e412cb45ff68bff527686c9387f25fbf5f2c96b"
+  },
+  "schema_version": "mrw.stage1.stage3_v6_artifact_remediation_correction2_validation.v1",
+  "status": "PASS_NOT_AUTHORITY"
+}

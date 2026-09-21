@@ -1,0 +1,16 @@
+{
+  "argv": [
+    "docker",
+    "buildx",
+    "create",
+    "--name",
+    "mrw-r13v-oci-smoke-47327-1789218494",
+    "--driver",
+    "docker-container",
+    "--driver-opt",
+    "network=none",
+    "--driver-opt",
+    "image=moby/buildkit:buildx-stable-1"
+  ],
+  "cwd": null
+}

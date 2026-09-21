@@ -1,0 +1,57 @@
+{
+  "schema_version": "mrw.stage3.frontend.audit.v1",
+  "record_id": "frontend-production-audit-20260907",
+  "status": "PASS_AT_HIGH_THRESHOLD",
+  "authoritative": false,
+  "candidate_commit": "909eb608e538b6427bcbacca974f1efb05fef611",
+  "candidate_tree": "a60b795e509aa5dc479904a321fba32ed0ab9ab2",
+  "command": [
+    "pnpm",
+    "audit",
+    "--prod",
+    "--audit-level",
+    "high",
+    "--json"
+  ],
+  "cwd": "/private/tmp/mrw-stage3-v6-frontend-recovery-20260907/main/frontend-modern",
+  "toolchain": {
+    "node": "26.4.0",
+    "pnpm": "11.22.0",
+    "platform": "macOS arm64"
+  },
+  "exit_code": 0,
+  "metadata": {
+    "vulnerabilities": {
+      "info": 0,
+      "low": 0,
+      "moderate": 1,
+      "high": 0,
+      "critical": 0
+    },
+    "dependencies": 94,
+    "devDependencies": 0,
+    "optionalDependencies": 5,
+    "totalDependencies": 99
+  },
+  "advisory_count_returned": 0,
+  "qualification": "Metadata reports one moderate vulnerability, but advisories is empty at high threshold; zero high/critical. Not a zero-vulnerability claim.",
+  "attempts": [
+    {
+      "receipt": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-frontend/audit-01.json",
+      "receipt_sha256": "bf603d5cd4e789cc52243cbdba440417a283c2c1e5bd6f5d001ac91b5f65fbeb",
+      "raw_log": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-frontend/audit-01.log",
+      "raw_sha256": "1cf39c12597e369266d82ea7fd9caac58ad95be4d2ff4c51fa76359466424061",
+      "exit_code": 1
+    },
+    {
+      "receipt": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-frontend/audit-02.json",
+      "receipt_sha256": "d646ccbbf3fceb37c3a00726b26f39d111c8b1b3f984b6ccd16761d91095d261",
+      "raw_log": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-frontend/audit-02.log",
+      "raw_sha256": "d3a70443153a807dcc97bc290b04881dd241fd4dec39430e460d5955839fee12",
+      "exit_code": 0
+    }
+  ],
+  "failed_attempt": "audit-01 sandbox fetch failed; audit-02 approved network escalation",
+  "summary_01_sha256": "66fe79cb36fcad474e68b88cad20c763b415e74199181963fcdb0e77c97d538c",
+  "all_runs_ended": true
+}

@@ -1,0 +1,81 @@
+{
+  "authoritative": false,
+  "response": {
+    "env": "dev",
+    "health_url": "/api/v1/health",
+    "missing_dependencies": [
+      "OPENAI_API_KEY"
+    ],
+    "mixed_environment": {
+      "detected": false,
+      "message": null,
+      "modes_by_service": {
+        "api": "docker",
+        "database": "docker",
+        "elasticsearch": "docker",
+        "frontend": "local",
+        "redis": "docker"
+      },
+      "runtime_mode": "docker"
+    },
+    "port_hints": {
+      "api": 8000,
+      "database": 5432,
+      "elasticsearch": 9200,
+      "frontend": 5173,
+      "redis": 6379
+    },
+    "provider": "openai",
+    "runtime_mode": "docker",
+    "services": {
+      "api": {
+        "health_url": "/api/v1/health",
+        "missing_dependencies": [],
+        "mode": "docker",
+        "port_hint": 8000,
+        "status": "ok"
+      },
+      "database": {
+        "host": "db",
+        "missing_dependencies": [],
+        "mode": "docker",
+        "port_hint": 5432,
+        "status": "configured"
+      },
+      "elasticsearch": {
+        "health_url": "http://es:9200",
+        "host": "es",
+        "missing_dependencies": [],
+        "mode": "docker",
+        "port_hint": 9200,
+        "status": "configured"
+      },
+      "frontend": {
+        "health_url": "http://localhost:5173",
+        "missing_dependencies": [],
+        "mode": "local",
+        "port_hint": 5173,
+        "status": "hint"
+      },
+      "llm": {
+        "health_url": null,
+        "missing_dependencies": [
+          "OPENAI_API_KEY"
+        ],
+        "mode": "unknown",
+        "port_hint": null,
+        "provider": "openai",
+        "status": "missing"
+      },
+      "redis": {
+        "host": "redis",
+        "missing_dependencies": [],
+        "mode": "docker",
+        "port_hint": 6379,
+        "status": "configured"
+      }
+    },
+    "startup_contract_version": "runtime-startup.v1",
+    "status": "ok"
+  }
+}

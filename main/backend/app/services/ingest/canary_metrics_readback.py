@@ -3,7 +3,10 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Annotated, Any, Mapping, NoReturn
+
+from functorial_kit import Failure
+from mrw_functorial_kit.core.provider_port_failures import ingest_operation_failures
 
 from .canary_handoff import CANARY_HANDOFF_CONTRACT_VERSION, CANARY_METRICS_SNAPSHOT_CONTRACT_VERSION
 from .canary_metrics import CONTRACT_VERSION as READINESS_CONTRACT_VERSION
@@ -11,6 +14,41 @@ from .canary_metrics import build_ingest_canary_metrics_readiness
 
 
 CONTRACT_VERSION = "ingest.canary_metrics_readback.v1"
+_FAILURE_WITNESS = "test:test_ingest_service_a_failure_lifts"
+
+
+def _failure(code: str, message: str, *, operation: str, site: str, **details: Any) -> Failure:
+    context: dict[str, Any] = {
+        "boundary_class": "PURE_CONTRACT_FAILURE",
+        "failure_family": ingest_operation_failures.name,
+        "operation": operation,
+        "owner": site,
+        "public_exception": "ValueError",
+        "public_message": message,
+        "site": site,
+        "witness": _FAILURE_WITNESS,
+    }
+    context.update(details)
+    return ingest_operation_failures.fail(code, message, context)
+
+
+def _raise_failure(failure: Failure, *, cause: BaseException | None = None) -> NoReturn:
+    context = failure.context or {}
+    required = {"failure_family", "operation", "owner", "public_exception", "public_message", "site", "witness"}
+    if (
+        not ingest_operation_failures.matches(failure)
+        or required - set(context)
+        or context.get("failure_family") != ingest_operation_failures.name
+        or context.get("public_exception") != "ValueError"
+    ):
+        # kit:boundary owner=ingest.canary_metrics_readback.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_ingest_service_a_failure_lifts
+        raise TypeError("canary metrics readback failure lift context is incomplete or inconsistent")
+    message = str(context["public_message"])
+    if cause is None:
+        # kit:boundary owner=ingest.canary_metrics_readback.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=ingest.operation.failure witness=test:test_ingest_service_a_failure_lifts
+        raise ValueError(message)
+    # kit:boundary owner=ingest.canary_metrics_readback.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=ingest.operation.failure witness=test:test_ingest_service_a_failure_lifts
+    raise ValueError(message) from cause
 
 
 def _canonical_json(payload: Mapping[str, Any]) -> str:
@@ -25,7 +63,10 @@ def build_canary_metrics_readback_record(
     *,
     handoff: Mapping[str, Any],
     project_key: str = "demo_proj",
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=generated_evidence fact_source=handoff+project_key+snapshot_digest_inputs witness=test:test_w03_ingest_ports_authority_metadata",
+]:
     readiness = build_ingest_canary_metrics_readiness(handoff=handoff, project_key=project_key)
     metrics_snapshot = handoff.get("metrics_snapshot") if isinstance(handoff.get("metrics_snapshot"), Mapping) else {}
     canary_status = {
@@ -69,10 +110,22 @@ def write_canary_metrics_readback_record(path: Path | str, record: Mapping[str, 
     )
 
 
-def read_canary_metrics_readback_record(path: Path | str) -> dict[str, Any]:
+def try_read_canary_metrics_readback_record(path: Path | str) -> dict[str, Any] | Failure:
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
-        raise ValueError("canary metrics readback record must be a JSON object")
+        return _failure(
+            "canary_readback_not_object",
+            "canary metrics readback record must be a JSON object",
+            operation="read_canary_metrics_readback_record",
+            site="app.services.ingest.canary_metrics_readback.read_canary_metrics_readback_record",
+        )
+    return payload
+
+
+def read_canary_metrics_readback_record(path: Path | str) -> dict[str, Any]:
+    payload = try_read_canary_metrics_readback_record(path)
+    if isinstance(payload, Failure):
+        _raise_failure(payload)
     return payload
 
 
@@ -144,6 +197,7 @@ __all__ = [
     "CONTRACT_VERSION",
     "build_canary_metrics_readback_record",
     "read_canary_metrics_readback_record",
+    "try_read_canary_metrics_readback_record",
     "run_canary_metrics_readback_gate",
     "validate_canary_metrics_readback_record",
     "write_canary_metrics_readback_record",

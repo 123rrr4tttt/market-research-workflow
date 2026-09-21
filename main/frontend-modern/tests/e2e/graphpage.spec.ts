@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page, type Route } from '@playwright/test'
 
 type CuratedDraftRequest = {
   actor_id?: string
@@ -26,7 +26,13 @@ type CuratedReportingHandoffRequest = {
   selected_node_ids?: string[]
 }
 
-async function setupGraphPageMocks(page: Page, options: { curatedSubmitConflict?: boolean } = {}) {
+type WorkflowDryRunRequest = {
+  dry_run?: boolean
+  project_key?: string
+  params?: Record<string, unknown>
+}
+
+async function setupGraphPageMocks(page: Page, options: { curatedSubmitConflict?: boolean; workflowTemplate?: boolean } = {}) {
   let graphConfigHit = 0
   let marketGraphHit = 0
   let policyGraphHit = 0
@@ -37,10 +43,12 @@ async function setupGraphPageMocks(page: Page, options: { curatedSubmitConflict?
   let curatedRollbackHit = 0
   let curatedReportingHandoffHit = 0
   let handoffReplayHit = 0
+  let workflowDryRunHit = 0
   let lastCuratedDraftBody: CuratedDraftRequest | null = null
   let lastCuratedSubmitBody: CuratedSubmitRequest | null = null
   let lastCuratedRollbackBody: CuratedRollbackRequest | null = null
   let lastCuratedReportingHandoffBody: CuratedReportingHandoffRequest | null = null
+  let lastWorkflowDryRunBody: WorkflowDryRunRequest | null = null
 
   await page.route('**/api/v1/project-customization/graph-config**', async (route) => {
     graphConfigHit += 1
@@ -107,11 +115,81 @@ async function setupGraphPageMocks(page: Page, options: { curatedSubmitConflict?
     })
   })
 
-  await page.route('**/api/v1/workflow-graph/templates', async (route) => {
+  const fulfillWorkflowTemplateList = async (route: Route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify({ status: 'ok', data: { items: [], total: 0 } }),
+      body: JSON.stringify({
+        status: 'ok',
+        data: {
+          items: options.workflowTemplate
+            ? [{ template_id: 'gp-workflow-template', name: 'GraphPage Workflow Template', active_version_id: 'v-active' }]
+            : [],
+          total: options.workflowTemplate ? 1 : 0,
+        },
+      }),
+    })
+  }
+
+  await page.route('**/api/v1/workflow-graph/templates', fulfillWorkflowTemplateList)
+  await page.route('**/api/v1/workflow-graph/templates?**', fulfillWorkflowTemplateList)
+
+  await page.route('**/api/v1/workflow-graph/templates/gp-workflow-template/versions**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'ok',
+        data: {
+          active_version_id: 'v-active',
+          items: [{ version_id: 'v-active', version_name: 'Active version', activated: true }],
+          total: 1,
+        },
+      }),
+    })
+  })
+
+  await page.route('**/api/v1/project-customization/workflows/gp-workflow-template/template/versions**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'ok',
+        data: {
+          workflow_name: 'gp-workflow-template',
+          items: [
+            { stage: 'draft', version: 41, steps: [{ name: 'collect' }], requires_publish: true },
+            { stage: 'active', version: 42, steps: [{ name: 'collect' }, { name: 'publish' }], requires_publish: false },
+          ],
+          stage_summary: { active_version: 42, draft_version: 41, requires_publish: true },
+        },
+      }),
+    })
+  })
+
+  await page.route('**/api/v1/project-customization/workflows/gp-workflow-template/run**', async (route) => {
+    workflowDryRunHit += 1
+    lastWorkflowDryRunBody = route.request().postDataJSON() as WorkflowDryRunRequest
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'ok',
+        data: {
+          workflow_name: 'gp-workflow-template',
+          dry_run: true,
+          status: 'planned',
+          config_version: 42,
+          readiness: 'ready',
+          will_execute: false,
+          writes_blocked: true,
+          requires_publish: true,
+          steps: [
+            { step: 'collect', status: 'ready', will_execute: false, writes_blocked: true },
+            { step: 'publish', status: 'blocked', will_execute: false, writes_blocked: true },
+          ],
+        },
+      }),
     })
   })
 
@@ -340,6 +418,9 @@ async function setupGraphPageMocks(page: Page, options: { curatedSubmitConflict?
     get handoffReplayHit() {
       return handoffReplayHit
     },
+    get workflowDryRunHit() {
+      return workflowDryRunHit
+    },
     get lastCuratedDraftBody() {
       return lastCuratedDraftBody
     },
@@ -351,6 +432,9 @@ async function setupGraphPageMocks(page: Page, options: { curatedSubmitConflict?
     },
     get lastCuratedReportingHandoffBody() {
       return lastCuratedReportingHandoffBody
+    },
+    get lastWorkflowDryRunBody() {
+      return lastWorkflowDryRunBody
     },
   }
 }
@@ -633,6 +717,30 @@ test('graph builder submits local draft to curated workflow graph API', async ({
   }))
   expect(hits.lastCuratedReportingHandoffBody).toEqual(expect.objectContaining({
     topic: 'robotics reporting',
+  }))
+})
+
+test('graph builder dry-runs workflow template without writes', async ({ page }) => {
+  const hits = await setupGraphPageMocks(page, { workflowTemplate: true })
+
+  const response = await page.goto('/#graph-template-new.html')
+  expect(response?.ok()).toBeTruthy()
+
+  await expect(page.getByRole('heading', { level: 1, name: '新建图谱', exact: true })).toBeVisible()
+  await expect(page.getByTestId('graph-template-dry-run')).toBeEnabled()
+
+  await page.getByTestId('graph-template-dry-run').click()
+  await expect(page.getByTestId('graph-template-dry-run-result')).toContainText('config_version=42')
+  await expect(page.getByTestId('graph-template-dry-run-result')).toContainText('readiness=ready')
+  await expect(page.getByTestId('graph-template-dry-run-result')).toContainText('writes_blocked=true')
+  await expect(page.getByTestId('graph-template-dry-run-result')).toContainText('requires_publish=true')
+  await expect(page.getByTestId('graph-template-dry-run-result')).toContainText('#1 collect: status=ready')
+  await expect(page.getByTestId('graph-template-dry-run-result')).toContainText('#2 publish: status=blocked')
+
+  expect(hits.workflowDryRunHit).toBe(1)
+  expect(hits.lastWorkflowDryRunBody).toEqual(expect.objectContaining({
+    dry_run: true,
+    params: {},
   }))
 })
 

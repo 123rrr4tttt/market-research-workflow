@@ -9,6 +9,15 @@ from typing import Any
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+BACKEND_ROOT = REPO_ROOT / "main" / "backend"
+if str(BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(BACKEND_ROOT))
+
+from scripts.evidence_source_contract import (  # noqa: E402
+    apply_evidence_source_contract,
+    evidence_source,
+)
+
 DEFAULT_OUT_DIR = "development/latest-dev-docs/automation-runs/wave8-search-vectorization-contract/2026-05-22"
 
 SEARCH_PROVIDER_TRACE = (
@@ -29,10 +38,10 @@ LOCAL_INDEX_BENCHMARK = (
 )
 
 TARGET_TOPICS = [
-    "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-global-vectorization-general-foundation",
-    "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-local-open-search-provider-isolation",
+    "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation",
+    "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-local-open-search-provider-isolation",
     "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-01-open-source-platform-integration",
-    "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-05-oss-node-platform-io-plan",
+    "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-05-oss-node-platform-io-plan",
 ]
 LOCAL_OPEN_SEARCH_PROVIDERS = ["searxng", "yacy"]
 LOCAL_INDEX_MODES = ["keyword", "vector", "hybrid"]
@@ -254,7 +263,7 @@ def build_contract() -> dict[str, Any]:
         for failure in row.get("failures", [])
     ]
     failures.extend(f"target topic missing: {row['path']}" for row in target_topics if not row["exists"])
-    return {
+    contract = {
         "contract_version": "wave8-search-vectorization-runtime-contract.v1",
         "scope": "deterministic_reuse_no_network_no_container_start",
         "generated_by": "ops/search-lab/scripts/wave8_search_vectorization_contract.py",
@@ -284,6 +293,20 @@ def build_contract() -> dict[str, Any]:
         ],
         "failures": failures,
     }
+    return apply_evidence_source_contract(
+        contract,
+        [
+            evidence_source(SEARCH_PROVIDER_TRACE, repo_root=REPO_ROOT, label="search_provider_trace"),
+            evidence_source(
+                SEARCH_PROVIDER_CONTAINER_REPLAY,
+                repo_root=REPO_ROOT,
+                label="search_provider_container_replay",
+            ),
+            evidence_source(LOCAL_INDEX_RUNTIME, repo_root=REPO_ROOT, label="local_index_runtime_smoke"),
+            evidence_source(LOCAL_INDEX_BENCHMARK, repo_root=REPO_ROOT, label="local_index_benchmark"),
+        ],
+        claim_fields=("semantic_quality_claim_allowed",),
+    )
 
 
 def write_outputs(out_dir: Path, contract: dict[str, Any]) -> None:

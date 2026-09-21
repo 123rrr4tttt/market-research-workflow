@@ -9,7 +9,7 @@ import json
 import os
 from pathlib import Path
 import sys
-from typing import Any
+from typing import Annotated, Any
 from unittest.mock import patch
 
 
@@ -1064,7 +1064,10 @@ def build_gate_snapshot(
     graphpage_ui_evidence: dict[str, Any] | None = None,
     live_db_audit_evidence: dict[str, Any] | None = None,
     allow_live_closure_claim: bool = False,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=generated_evidence fact_source=repo_local_static_checks+tenant_like_fixture+conflict_rollback_readback+graphpage_ui_evidence+live_db_audit_evidence witness=test:test_c13_cli_graph_workflow_metadata_preserves_abi",
+]:
     repo_stage = _build_repo_local_stage(static_checks=repo_local_static_checks(repo_root))
     tenant_like_stage = _build_tenant_like_fixture_stage()
     conflict_stage = _build_conflict_rollback_readback_stage()

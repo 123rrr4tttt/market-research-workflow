@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any
+from typing import Annotated, Any
 
 from sqlalchemy import insert, select, update
 from sqlalchemy.engine import Connection
@@ -289,7 +289,11 @@ class PostgresDeliveryRuntimePort:
 
 def build_delivery_runtime_assignment(
     request: DeliveryAssignmentRequest,
-) -> RuntimeAssignment:
+) -> Annotated[
+    RuntimeAssignment,
+    "kit:prepared-command effect_boundary=postgres.delivery_runtime_assignment "
+    "witness=test:test_w08c_postgres_builder_metadata_preserves_return_types",
+]:
     """Build the exact post-approval delivery assignment."""
 
     params = request.parameters

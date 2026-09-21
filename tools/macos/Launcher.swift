@@ -282,7 +282,7 @@ struct LauncherView: View {
                 runTerminalAction(name: "Reset Runtime", command: "cd \(shellQuote(LauncherConfig.repoPath)) || exit 1; ./scripts/local-service-control.sh local-stop || true; pkill -f 'codex app-server --listen ws://127.0.0.1:0' || true; ./scripts/docker-deploy.sh stop --profile modern-ui --profile search-enhancements || true")
             }
             SmallButton(title: "Frontend", icon: "safari.fill") {
-                openURL("http://127.0.0.1:5173")
+                openURL(preferredFrontendURL())
             }
             SmallButton(title: "Docker UI", icon: "globe") {
                 openURL("http://127.0.0.1:5176")
@@ -485,7 +485,9 @@ struct LauncherView: View {
     private func handleMonitorAction(_ check: ServiceCheck) {
         switch check.id {
         case "backend":
-            if check.state == .good {
+            if check.detail.hasPrefix("Docker") {
+                runTerminalAction(name: "Stop Docker App", command: "cd \(shellQuote(LauncherConfig.repoPath)) || exit 1; ./scripts/docker-app-control.sh stop --with-search")
+            } else if check.state == .good {
                 runTerminalAction(name: "Stop Local Backend", command: "cd \(shellQuote(LauncherConfig.repoPath)) || exit 1; ./scripts/local-service-control.sh backend-stop")
             } else {
                 runTerminalAction(name: "Start Local Backend", command: "cd \(shellQuote(LauncherConfig.repoPath)) || exit 1; ./scripts/local-service-control.sh backend-start")
@@ -497,7 +499,9 @@ struct LauncherView: View {
                 runTerminalAction(name: "Start Local Frontend", command: "cd \(shellQuote(LauncherConfig.repoPath)) || exit 1; ./scripts/local-service-control.sh frontend-start")
             }
         case "worker":
-            if check.state == .good {
+            if check.detail.hasPrefix("Docker") {
+                runTerminalAction(name: "Stop Docker App", command: "cd \(shellQuote(LauncherConfig.repoPath)) || exit 1; ./scripts/docker-app-control.sh stop --with-search")
+            } else if check.state == .good {
                 runTerminalAction(name: "Stop Local Worker", command: "cd \(shellQuote(LauncherConfig.repoPath)) || exit 1; ./scripts/local-service-control.sh worker-stop")
             } else {
                 runTerminalAction(name: "Start Local Worker", command: "cd \(shellQuote(LauncherConfig.repoPath)) || exit 1; ./scripts/local-service-control.sh worker-start")
@@ -583,14 +587,17 @@ struct LauncherView: View {
     }
 
     private var localRunningCount: Int {
-        ["backend", "frontend", "worker"].compactMap { check(id: $0) }.filter { $0.state == .good }.count
+        let localBackend = check(id: "backend")?.detail.hasPrefix("Docker") == false && check(id: "backend")?.state == .good
+        let localFrontend = check(id: "frontend")?.state == .good
+        let localWorker = check(id: "worker")?.state == .good && check(id: "worker")?.detail.hasPrefix("Docker") != true
+        return [localBackend, localFrontend, localWorker].filter { $0 }.count
     }
 
     private var runtimeTitle: String {
         if localRunningCount == 3 {
             return "Local stack is running"
         }
-        if (check(id: "docker")?.state == .good) && !(check(id: "docker")?.detail.hasPrefix("0 ") ?? true) {
+        if check(id: "docker")?.state == .good {
             return "Docker stack is active"
         }
         if goodCheckCount > 0 {
@@ -629,7 +636,7 @@ struct LauncherView: View {
 
     private func preferredFrontendURL() -> String {
         let docker = check(id: "docker")
-        if docker?.state == .good && !(docker?.detail.hasPrefix("0 ") ?? true) {
+        if docker?.state == .good {
             return "http://localhost:5174"
         }
         return "http://localhost:5173"
@@ -946,6 +953,8 @@ let launcherEnvSettings: [EnvSetting] = [
     EnvSetting(id: "SERPAPI_KEY", label: "SerpApi Key", group: "Search", secret: true, hint: "External web search", url: "https://serpapi.com/manage-api-key"),
     EnvSetting(id: "SERPSTACK_KEY", label: "Serpstack Key", group: "Search", secret: true, hint: "External web search", url: "https://serpstack.com/dashboard"),
     EnvSetting(id: "BING_SEARCH_KEY", label: "Bing Search Key", group: "Search", secret: true, hint: "Bing web search", url: "https://portal.azure.com/#view/Microsoft_Azure_ProjectOxford/CognitiveServicesHub/~/BingSearch"),
+    EnvSetting(id: "AZURE_SEARCH_ENDPOINT", label: "Azure Search Endpoint", group: "Search", secret: false, hint: "Azure AI Search", url: "https://portal.azure.com/#view/HubsExtension/BrowseResource/resourceType/Microsoft.Search%2FsearchServices"),
+    EnvSetting(id: "AZURE_SEARCH_KEY", label: "Azure Search Key", group: "Search", secret: true, hint: "Azure AI Search", url: "https://portal.azure.com/"),
     EnvSetting(id: "SEARXNG_BASE_URL", label: "SearXNG Base URL", group: "Optional Enhancements", secret: false, hint: "Default http://127.0.0.1:8088", url: "http://127.0.0.1:8088"),
     EnvSetting(id: "SEARXNG_MAX_PAGES", label: "SearXNG Max Pages", group: "Optional Enhancements", secret: false, hint: "Paged result volume"),
     EnvSetting(id: "YACY_BASE_URL", label: "YaCy Base URL", group: "Optional Enhancements", secret: false, hint: "Default http://127.0.0.1:8090", url: "http://127.0.0.1:8090"),
@@ -1110,16 +1119,24 @@ struct SettingsEditorView: View {
         message = "Loaded \(envPath.path)"
     }
 
+    private func launcherSettingsUpdates() -> [String: String] {
+        var updates: [String: String] = [:]
+        for setting in launcherEnvSettings {
+            updates[setting.id] = values[setting.id, default: ""]
+        }
+        updates["CODEX_OAUTH_ENABLED"] = codexOAuthEnabled ? "true" : "false"
+        updates["CODEX_OAUTH_REDIRECT_URI"] = values["CODEX_OAUTH_REDIRECT_URI"] ?? "http://localhost:8000/api/v1/codex-auth/callback"
+        updates["CODEX_OAUTH_FRONTEND_SUCCESS_URL"] = values["CODEX_OAUTH_FRONTEND_SUCCESS_URL"] ?? "http://localhost:5173"
+        updates["CODEX_OAUTH_FRONTEND_ERROR_URL"] = values["CODEX_OAUTH_FRONTEND_ERROR_URL"] ?? "http://localhost:5173"
+        return updates
+    }
+
     private func save() {
         ensureEnvFile()
         do {
-            var updates = values
-            updates["CODEX_OAUTH_ENABLED"] = codexOAuthEnabled ? "true" : "false"
-            updates["CODEX_OAUTH_REDIRECT_URI"] = values["CODEX_OAUTH_REDIRECT_URI"] ?? "http://localhost:8000/api/v1/codex-auth/callback"
-            updates["CODEX_OAUTH_FRONTEND_SUCCESS_URL"] = values["CODEX_OAUTH_FRONTEND_SUCCESS_URL"] ?? "http://localhost:5173"
-            updates["CODEX_OAUTH_FRONTEND_ERROR_URL"] = values["CODEX_OAUTH_FRONTEND_ERROR_URL"] ?? "http://localhost:5173"
+            let updates = launcherSettingsUpdates()
             try writeEnvFile(envPath, updates: updates)
-            values = updates
+            values.merge(updates) { _, updated in updated }
             message = "Saved settings"
         } catch {
             message = "Save failed: \(error.localizedDescription)"
@@ -1127,14 +1144,13 @@ struct SettingsEditorView: View {
     }
 
     private func saveCodexAuthDefaults() {
-        var updates = values
-        updates["CODEX_OAUTH_ENABLED"] = codexOAuthEnabled ? "true" : "false"
+        var updates = launcherSettingsUpdates()
         updates["CODEX_OAUTH_REDIRECT_URI"] = "http://localhost:8000/api/v1/codex-auth/callback"
         updates["CODEX_OAUTH_FRONTEND_SUCCESS_URL"] = "http://localhost:5173"
         updates["CODEX_OAUTH_FRONTEND_ERROR_URL"] = "http://localhost:5173"
         do {
             try writeEnvFile(envPath, updates: updates)
-            values = updates
+            values.merge(updates) { _, updated in updated }
             message = codexOAuthEnabled ? "Codex OAuth enabled; opening auth page" : "Codex OAuth is disabled"
         } catch {
             message = "Cannot save Codex Auth setting: \(error.localizedDescription)"
@@ -1293,20 +1309,19 @@ func writeEnvFile(_ url: URL, updates: [String: String]) throws {
 }
 
 func unquoteEnvValue(_ value: String) -> String {
-    if value.count >= 2 {
-        let first = value.first
-        let last = value.last
-        if (first == "'" && last == "'") || (first == "\"" && last == "\"") {
-            return String(value.dropFirst().dropLast())
-        }
+    guard value.count >= 2 else { return value }
+    if value.hasPrefix("\"") && value.hasSuffix("\"") {
+        return String(value.dropFirst().dropLast())
     }
-    return value
+    guard value.hasPrefix("'"), value.hasSuffix("'") else {
+        return value
+    }
+    let inner = String(value.dropFirst().dropLast())
+    return inner.replacingOccurrences(of: "'\\''", with: "'")
 }
 
 func quoteEnvValue(_ value: String) -> String {
-    let escaped = value
-        .replacingOccurrences(of: "\\", with: "\\\\")
-        .replacingOccurrences(of: "'", with: "\\'")
+    let escaped = value.replacingOccurrences(of: "'", with: "'\\''")
     return "'\(escaped)'"
 }
 
@@ -1315,21 +1330,34 @@ func monitorCommand() -> String {
     cd \(shellQuote(LauncherConfig.repoPath))
     backend=down
     backend_count=0
+    backend_owner=none
+    local_backend=down
+    docker_backend=down
     frontend=down
     worker=down
+    docker_worker=down
     health=down
     deep=down
     docker_state=off
     docker_count=0
+    docker_frontend=down
+    docker_launcher=down
     env_file=missing
     llm=missing
     search=missing
     searxng=down
     yacy=down
     ollama=down
+    docker_services=""
 
     backend_count=$(lsof -nP -iTCP:8000 -sTCP:LISTEN 2>/dev/null | awk 'NR>1 {print $2}' | sort -u | wc -l | tr -d ' ')
     [ "$backend_count" != "0" ] && backend=up
+    for backend_pid in $(lsof -tiTCP:8000 -sTCP:LISTEN 2>/dev/null || true); do
+      if ps -p "$backend_pid" -o command= 2>/dev/null | grep -Eq 'uvicorn app\\.main:app|/uvicorn app\\.main:app'; then
+        local_backend=up
+        backend_owner=local
+      fi
+    done
     lsof -nP -iTCP:5173 -sTCP:LISTEN >/dev/null 2>&1 && frontend=up
     if [ -f /tmp/celery-local-worker.pid ]; then
       worker_pid=$(cat /tmp/celery-local-worker.pid 2>/dev/null || true)
@@ -1338,19 +1366,34 @@ func monitorCommand() -> String {
       fi
     fi
     curl -fsS --max-time 2 http://127.0.0.1:8000/api/v1/health >/dev/null 2>&1 && health=ok
-    curl -fsS --max-time 3 http://127.0.0.1:8000/api/v1/health/deep >/dev/null 2>&1 && deep=ok
+    deep_json=$(curl -fsS --max-time 3 http://127.0.0.1:8000/api/v1/health/deep 2>/dev/null || true)
+    deep_status=$(printf '%s' "$deep_json" | /usr/bin/python3 -c 'import json,sys; print(json.load(sys.stdin).get("status",""))' 2>/dev/null || true)
+    [ "$deep_status" = "ok" ] && deep=ok
+
+    has_docker_service() {
+      printf '%s\\n' "$docker_services" | grep -qx "$1"
+    }
     if docker info >/dev/null 2>&1; then
       docker_state=ready
-      docker_count=$(cd main/ops && docker compose --profile modern-ui --profile search-enhancements ps --status running --services 2>/dev/null | awk 'NF && $0 != "launcher-agent" && $0 != "launcher-ui"' | wc -l | tr -d ' ')
-      docker_launcher=down
-      if cd main/ops && docker compose --project-name mrw-launcher --profile modern-ui ps --status running --services 2>/dev/null | awk 'NF' | grep -Eq '^(launcher-agent|launcher-ui)$'; then
-        docker_launcher=up
+      docker_services=$( (cd main/ops && docker compose --profile modern-ui --profile search-enhancements ps --status running --services 2>/dev/null) || true )
+      has_docker_service backend && docker_backend=up
+      has_docker_service frontend-modern && docker_frontend=up
+      has_docker_service celery-worker && docker_worker=up
+      docker_count=0
+      has_docker_service backend && docker_count=$((docker_count + 1))
+      has_docker_service frontend-modern && docker_count=$((docker_count + 1))
+      has_docker_service celery-worker && docker_count=$((docker_count + 1))
+      if [ "$docker_backend" = "up" ] && [ "$backend_owner" != "local" ]; then
+        backend=up
+        backend_owner=docker
       fi
     fi
+    curl -fsS --max-time 2 http://127.0.0.1:5176 >/dev/null 2>&1 && docker_launcher=up
+
     if [ -f main/backend/.env ]; then
       env_file=present
       env_has() {
-        awk -F= -v key="$1" '$1 == key {gsub(/^[ "'\\''"]+|[ "'\\''"]+$/, "", $2); if ($2 != "") found=1} END {exit found ? 0 : 1}' main/backend/.env
+        grep -Eq "^[[:space:]]*$1=[[:space:]]*[^[:space:]#]" main/backend/.env
       }
       if env_has OPENAI_API_KEY || env_has AZURE_API_KEY || curl -fsS --max-time 2 http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
         llm=configured
@@ -1365,11 +1408,16 @@ func monitorCommand() -> String {
 
     printf 'backend=%s\\n' "$backend"
     printf 'backend_count=%s\\n' "$backend_count"
+    printf 'backend_owner=%s\\n' "$backend_owner"
+    printf 'local_backend=%s\\n' "$local_backend"
+    printf 'docker_backend=%s\\n' "$docker_backend"
     printf 'frontend=%s\\n' "$frontend"
     printf 'worker=%s\\n' "$worker"
+    printf 'docker_worker=%s\\n' "$docker_worker"
     printf 'health=%s\\n' "$health"
     printf 'deep=%s\\n' "$deep"
     printf 'docker=%s:%s\\n' "$docker_state" "$docker_count"
+    printf 'docker_frontend=%s\\n' "$docker_frontend"
     printf 'docker_launcher=%s\\n' "$docker_launcher"
     printf 'env_file=%s\\n' "$env_file"
     printf 'llm=%s\\n' "$llm"
@@ -1379,7 +1427,6 @@ func monitorCommand() -> String {
     printf 'ollama=%s\\n' "$ollama"
     """
 }
-
 func runShell(_ command: String, completion: @escaping (String) -> Void) {
     DispatchQueue.global(qos: .utility).async {
         let process = Process()
@@ -1410,9 +1457,12 @@ func parseMonitorOutput(_ output: String) -> [ServiceCheck] {
 
     let backendUp = values["backend"] == "up"
     let backendCount = Int(values["backend_count"] ?? "0") ?? 0
+    let localBackendUp = values["local_backend"] == "up"
+    let dockerBackendUp = values["docker_backend"] == "up"
     let frontendUp = values["frontend"] == "up"
     let workerValue = values["worker"] ?? "down"
     let workerUp = workerValue.hasPrefix("up:")
+    let dockerWorkerUp = values["docker_worker"] == "up"
     let healthOk = values["health"] == "ok"
     let deepOk = values["deep"] == "ok"
     let dockerValue = values["docker"] ?? "off:0"
@@ -1421,27 +1471,52 @@ func parseMonitorOutput(_ output: String) -> [ServiceCheck] {
     let dockerReady = dockerParts.first == "ready"
     let dockerCount = dockerParts.count > 1 ? dockerParts[1] : "0"
     let dockerRunningCount = Int(dockerCount) ?? 0
+    let dockerStackComplete = dockerReady && dockerRunningCount >= 3
     let envPresent = values["env_file"] == "present"
     let llmConfigured = values["llm"] == "configured"
     let searchConfigured = values["search"] == "configured"
     let searxngUp = values["searxng"] == "up"
     let yacyUp = values["yacy"] == "up"
     let ollamaUp = values["ollama"] == "up"
+    let backendDetail: String
+    let backendState: CheckState
+    if localBackendUp {
+        backendDetail = backendCount > 1 ? "\(backendCount) local listeners on :8000" : "Local listening on :8000"
+        backendState = backendCount > 1 ? .warning : .good
+    } else if dockerBackendUp {
+        backendDetail = "Docker backend on :8000"
+        backendState = .good
+    } else {
+        backendDetail = backendUp ? "Port :8000 has unknown owner" : "Not listening"
+        backendState = .bad
+    }
+    let workerDetail: String
+    let workerState: CheckState
+    if workerUp {
+        workerDetail = "Local PID \(workerValue.replacingOccurrences(of: "up:", with: ""))"
+        workerState = .good
+    } else if dockerWorkerUp {
+        workerDetail = "Docker celery worker"
+        workerState = .good
+    } else {
+        workerDetail = "Not running"
+        workerState = .warning
+    }
 
     return [
         ServiceCheck(
             id: "backend",
             title: "Backend",
-            detail: backendUp ? (backendCount > 1 ? "\(backendCount) listeners on :8000" : "Listening on :8000") : "Not listening",
-            state: backendUp ? (backendCount > 1 ? .warning : .good) : .bad,
+            detail: backendDetail,
+            state: backendState,
             icon: "server.rack"
         ),
-        ServiceCheck(id: "frontend", title: "Frontend", detail: frontendUp ? "Listening on :5173" : "Not listening", state: frontendUp ? .good : .bad, icon: "display"),
-        ServiceCheck(id: "worker", title: "Worker", detail: workerUp ? "PID \(workerValue.replacingOccurrences(of: "up:", with: ""))" : "Not running", state: workerUp ? .good : .warning, icon: "gearshape.2"),
+        ServiceCheck(id: "frontend", title: "Frontend", detail: frontendUp ? "Local listening on :5173" : "Local :5173 not listening", state: frontendUp ? .good : .bad, icon: "display"),
+        ServiceCheck(id: "worker", title: "Worker", detail: workerDetail, state: workerState, icon: "gearshape.2"),
         ServiceCheck(id: "health", title: "Health", detail: healthOk ? "API ok" : "No response", state: healthOk ? .good : .bad, icon: "heart.text.square"),
-        ServiceCheck(id: "deep", title: "Deep Health", detail: deepOk ? "DB + ES ok" : "Check failed", state: deepOk ? .good : .warning, icon: "waveform.path.ecg.rectangle"),
-        ServiceCheck(id: "docker", title: "Docker", detail: dockerReady ? "\(dockerCount) compose services" : "Docker not ready", state: dockerReady && dockerRunningCount > 0 ? .good : .warning, icon: "shippingbox"),
-        ServiceCheck(id: "dockerLauncher", title: "Docker Launcher", detail: dockerLauncherUp ? "Listening on :5176" : "Offline", state: dockerLauncherUp ? .good : .warning, icon: "rectangle.connected.to.line.below"),
+        ServiceCheck(id: "deep", title: "Deep Health", detail: deepOk ? "DB + ES ok" : "Check degraded", state: deepOk ? .good : .warning, icon: "waveform.path.ecg.rectangle"),
+        ServiceCheck(id: "docker", title: "Docker", detail: dockerReady ? "\(dockerCount)/3 core services" : "Docker not ready", state: dockerStackComplete ? .good : .warning, icon: "shippingbox"),
+        ServiceCheck(id: "dockerLauncher", title: "Docker Launcher", detail: dockerLauncherUp ? "Reachable :5176" : "Offline", state: dockerLauncherUp ? .good : .warning, icon: "rectangle.connected.to.line.below"),
         ServiceCheck(id: "env", title: "Env", detail: envPresent ? ".env present" : ".env missing", state: envPresent ? .good : .bad, icon: "doc.badge.gearshape"),
         ServiceCheck(id: "llm", title: "LLM", detail: llmConfigured ? "Configured" : "Missing key", state: llmConfigured ? .good : .warning, icon: "brain.head.profile"),
         ServiceCheck(id: "search", title: "Search Keys", detail: searchConfigured ? "Configured" : "Missing key", state: searchConfigured ? .good : .warning, icon: "magnifyingglass.circle"),

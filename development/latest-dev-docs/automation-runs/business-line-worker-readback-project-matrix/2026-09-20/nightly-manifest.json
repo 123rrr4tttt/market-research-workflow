@@ -1,0 +1,167 @@
+{
+  "allow_blocked": false,
+  "api_base": "http://127.0.0.1:8000",
+  "duration_seconds": 29.014,
+  "exclude_project_keys": [],
+  "execution_source": "scheduled",
+  "generated_at": "2026-09-20T08:45:44Z",
+  "history_path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/automation-runs/business-line-worker-readback-project-matrix/trend-history.jsonl",
+  "lane": "business_line_worker_readback_project_matrix_nightly",
+  "matrix_diagnostics": {
+    "blocked_project_count": 0,
+    "blocked_projects": [],
+    "duration_seconds": 29.014,
+    "failed_project_count": 1,
+    "failed_projects": [
+      {
+        "exit_code": 1,
+        "project_key": "demo_proj",
+        "reason": "live_sample_runner_not_passed",
+        "status": "failed",
+        "stopped_at": "batch73_live_sample_runner",
+        "trigger_smoke_status": "passed"
+      }
+    ],
+    "first_blocked_reason": null,
+    "matrix_exit_code": 1,
+    "matrix_report_status": "failed",
+    "matrix_status": "failed",
+    "project_keys": [
+      "demo_proj"
+    ],
+    "projects_api_url": "http://127.0.0.1:8000/api/v1/projects",
+    "reason_counts": {
+      "live_sample_runner_not_passed": 1
+    },
+    "runtime_preflight_start_exit_code": 124,
+    "runtime_preflight_status": "passed",
+    "stopped_at_counts": {
+      "batch73_live_sample_runner": 1
+    },
+    "summary_total": 1
+  },
+  "matrix_exit_code": 1,
+  "matrix_finished_at": "2026-09-20T08:45:44Z",
+  "matrix_report": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/automation-runs/business-line-worker-readback-project-matrix/2026-09-20/business-line-worker-readback-project-matrix-report.json",
+  "matrix_report_loaded": true,
+  "matrix_report_status": "failed",
+  "matrix_started_at": "2026-09-20T08:45:15Z",
+  "max_projects": null,
+  "project_key_regex": "^demo_proj$",
+  "project_selection": {
+    "api": {
+      "excluded": [],
+      "project_keys": [
+        "demo_proj",
+        "o1",
+        "iso_proj",
+        "init_fix_0301095525",
+        "demo_proj_1772384627",
+        "demo_proj_compare_0303_121137",
+        "batch84_matrix_proj",
+        "batch85_matrix_proj",
+        "batch86_discovered_proj"
+      ],
+      "projects_api_url": "http://127.0.0.1:8000/api/v1/projects"
+    },
+    "api_excluded_projects": [],
+    "api_project_keys": [
+      "demo_proj",
+      "o1",
+      "iso_proj",
+      "init_fix_0301095525",
+      "demo_proj_1772384627",
+      "demo_proj_compare_0303_121137",
+      "batch84_matrix_proj",
+      "batch85_matrix_proj",
+      "batch86_discovered_proj"
+    ],
+    "exclude": {
+      "project_keys": []
+    },
+    "exclude_project_keys": [],
+    "explicit": {
+      "project_keys": []
+    },
+    "explicit_project_keys": [],
+    "file": {
+      "project_keys": [],
+      "projects_list_json": null
+    },
+    "file_project_keys": [],
+    "filter": {
+      "project_key_regex": "^demo_proj$"
+    },
+    "max": {
+      "projects": null
+    },
+    "max_projects": null,
+    "merged_project_keys": [
+      "demo_proj",
+      "o1",
+      "iso_proj",
+      "init_fix_0301095525",
+      "demo_proj_1772384627",
+      "demo_proj_compare_0303_121137",
+      "batch84_matrix_proj",
+      "batch85_matrix_proj",
+      "batch86_discovered_proj"
+    ],
+    "project_key_regex": "^demo_proj$",
+    "project_keys": [
+      "demo_proj"
+    ],
+    "projects_api_url": "http://127.0.0.1:8000/api/v1/projects",
+    "projects_list_json": null
+  },
+  "projects_api_url": "http://127.0.0.1:8000/api/v1/projects",
+  "projects_api_url_was_default": true,
+  "run_date": "2026-09-20",
+  "run_source": "scheduled",
+  "runtime_preflight": {
+    "attempted_start": true,
+    "checked_at": "2026-09-20T08:43:51Z",
+    "ensure_local_runtime": true,
+    "initial_health": {
+      "error": "Bad Gateway",
+      "ok": false,
+      "url": "http://127.0.0.1:8000/api/v1/health"
+    },
+    "local_deploy_script": "/Users/wangyiliang/market-research-workflow/scripts/local-deploy.sh",
+    "post_start_health": {
+      "duration_seconds": 0.034,
+      "ok": true,
+      "status_code": 200,
+      "url": "http://127.0.0.1:8000/api/v1/health"
+    },
+    "start_duration_seconds": 80.012,
+    "start_error": "local deploy start timed out after 80.0 seconds",
+    "start_exit_code": 124,
+    "start_stderr_tail": "",
+    "start_stdout_tail": "",
+    "status": "passed"
+  },
+  "scheduled_run_evidence": true,
+  "scheduler": {
+    "env": {
+      "MRW_SCHEDULED_RUN_EVIDENCE": "true"
+    },
+    "execution_source": "scheduled",
+    "run_source": "scheduled",
+    "scheduled_run_evidence": true,
+    "source": "mrw_scheduled_run_evidence",
+    "trigger": "codex_app_scheduler"
+  },
+  "schema_version": "business_line_worker_readback_project_matrix_nightly_manifest.v1",
+  "source": "mrw_scheduled_run_evidence",
+  "status": "failed",
+  "summary": {
+    "blocked_by_environment": 0,
+    "failed": 1,
+    "passed": 0,
+    "total": 1
+  },
+  "timeout": 5.0,
+  "trigger": "codex_app_scheduler",
+  "trigger_smoke": true
+}

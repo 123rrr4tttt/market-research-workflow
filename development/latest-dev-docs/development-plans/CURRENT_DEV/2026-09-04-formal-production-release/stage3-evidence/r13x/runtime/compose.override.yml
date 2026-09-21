@@ -1,0 +1,46 @@
+services:
+  db:
+    ports: !reset []
+  es:
+    ports: !reset []
+  redis:
+    ports: !reset []
+  backend:
+    image: mrw-local/r13x-candidate-backend:8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2
+    pull_policy: never
+    platform: linux/amd64
+    build: !reset null
+    ports: !override
+      - "127.0.0.1:18132:8000"
+    volumes: !reset []
+    environment:
+      RUN_MIGRATIONS: "false"
+      OPENAI_API_KEY: ""
+  celery-worker:
+    image: mrw-local/r13x-candidate-backend:8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2
+    pull_policy: never
+    platform: linux/amd64
+    build: !reset null
+    volumes: !reset []
+    environment:
+      RUN_MIGRATIONS: "false"
+      OPENAI_API_KEY: ""
+      CELERY_LOG_FILE: /tmp/r13x-celery-worker.log
+    command:
+      - celery
+      - -A
+      - app.celery_app
+      - worker
+      - --loglevel=info
+      - --concurrency=1
+      - --prefetch-multiplier=1
+      - --max-tasks-per-child=50
+      - --max-memory-per-child=300000
+      - --logfile=/tmp/r13x-celery-worker.log
+  frontend-modern:
+    image: mrw-local/r13x-candidate-frontend:8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2
+    pull_policy: never
+    platform: linux/amd64
+    build: !reset null
+    ports: !override
+      - "127.0.0.1:15132:80"

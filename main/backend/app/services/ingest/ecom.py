@@ -10,7 +10,7 @@ from sqlalchemy import select
 from ...models.base import SessionLocal
 from ...models.entities import PriceObservation, Product
 from ..extraction.numeric_general import extract_numeric_general
-from .adapters.http_utils import fetch_html
+from ..resource_pool.http_port import fetch_html
 from ..job_logger import complete_job, fail_job, start_job
 
 
@@ -147,4 +147,5 @@ def collect_ecom_price_observations(limit: int = 100) -> dict[str, Any]:
         return result
     except Exception as exc:  # noqa: BLE001
         fail_job(job_id, str(exc))
+        # kit:boundary owner=ingest.ecom class=SHELL_BOUNDARY_EXCEPTION failure_family=ingest.operation.failure witness=test:test_ingest_service_a_failure_lifts
         raise

@@ -5,8 +5,11 @@ from datetime import datetime, timezone
 import hashlib
 import json
 import re
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Mapping, NoReturn
 import unicodedata
+
+from functorial_kit import Failure
+from mrw_functorial_kit.core.w04_service_semantics import clue_chain_failures
 
 from app.services.projects import current_project_key
 
@@ -43,6 +46,40 @@ class ClueChainClosedError(ValueError):
     pass
 
 
+def clue_chain_failure(code: str, message: str, *, owner: str, public_exception: type[Exception] | str = ValueError, **details: Any) -> Failure:
+    return clue_chain_failures.fail(code, message, {
+        "owner": owner,
+        "public_exception": public_exception.__name__ if isinstance(public_exception, type) else str(public_exception),
+        "public_message": message,
+        **details,
+    })
+
+
+def raise_clue_chain_legacy(failure: Failure, exception_type: type[Exception] = ValueError, *, cause: BaseException | None = None) -> NoReturn:
+    context = failure.context or {}
+    if not clue_chain_failures.matches(failure) or context.get("public_exception") != exception_type.__name__ or "public_message" not in context:
+        # kit:boundary owner=clue_chain.service.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_service_failure_lift_covers_programmer_defect_and_cause
+        raise TypeError("clue chain failure lift context is incomplete or inconsistent")
+    message = str(context["public_message"])
+    if cause is None:
+        # kit:boundary owner=clue_chain.service.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=clue_chain.failure witness=test:test_service_failure_lift_covers_programmer_defect_and_cause
+        raise exception_type(message)
+    # kit:boundary owner=clue_chain.service.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=clue_chain.failure witness=test:test_service_failure_lift_covers_programmer_defect_and_cause
+    raise exception_type(message) from cause
+
+
+def _captured_failure(exc: BaseException, *, owner: str) -> Failure:
+    if isinstance(exc, ClueChainNotFoundError):
+        code, public = "chain_not_found", ClueChainNotFoundError
+    elif isinstance(exc, ClueChainObjectMissingError):
+        code, public = "object_not_found", ClueChainObjectMissingError
+    elif isinstance(exc, ClueChainClosedError):
+        code, public = "chain_closed", ClueChainClosedError
+    else:
+        code, public = "input_invalid", ValueError
+    return clue_chain_failure(code, str(exc), owner=owner, public_exception=public)
+
+
 class ClueChainService:
     def __init__(
         self,
@@ -55,9 +92,42 @@ class ClueChainService:
         self._project_key = str(project_key or "").strip() or None
         self._clock = clock
 
+    def try_create_chain(self, payload: Mapping[str, Any]) -> dict[str, Any] | Failure:
+        return self._try_call("create_chain", lambda: self.create_chain(payload))
+
+    def try_get_chain(self, chain_id: str) -> dict[str, Any] | Failure:
+        return self._try_call("get_chain", lambda: self.get_chain(chain_id))
+
+    def try_close_chain(self, chain_id: str, payload: Mapping[str, Any] | None = None) -> dict[str, Any] | Failure:
+        return self._try_call("close_chain", lambda: self.close_chain(chain_id, payload))
+
+    def try_expand_chain(self, chain_id: str, payload: Mapping[str, Any], *, provider: ManualExpansionProvider | None = None) -> dict[str, Any] | Failure:
+        return self._try_call("expand_chain", lambda: self.expand_chain(chain_id, payload, provider=provider))
+
+    def try_record_hop(self, chain_id: str, payload: Mapping[str, Any]) -> dict[str, Any] | Failure:
+        return self._try_call("record_hop", lambda: self.record_hop(chain_id, payload))
+
+    def try_add_evidence(self, chain_id: str, hop_id: str, payload: Mapping[str, Any]) -> dict[str, Any] | Failure:
+        return self._try_call("add_evidence", lambda: self.add_evidence(chain_id, hop_id, payload))
+
+    def try_add_candidate(self, chain_id: str, hop_id: str, payload: Mapping[str, Any]) -> dict[str, Any] | Failure:
+        return self._try_call("add_candidate", lambda: self.add_candidate(chain_id, hop_id, payload))
+
+    def try_record_decision(self, chain_id: str, candidate_id: str, payload: Mapping[str, Any]) -> dict[str, Any] | Failure:
+        return self._try_call("record_decision", lambda: self.record_decision(chain_id, candidate_id, payload))
+
+    def try_merge_aliases(self, chain_id: str, candidate_id: str, aliases: list[str]) -> dict[str, Any] | Failure:
+        return self._try_call("merge_aliases", lambda: self.merge_aliases(chain_id, candidate_id, aliases))
+
+    def _try_call(self, operation: str, callback: Callable[[], dict[str, Any]]) -> dict[str, Any] | Failure:
+        try:
+            return callback()
+        except (ClueChainNotFoundError, ClueChainObjectMissingError, ClueChainClosedError, ValueError) as exc:
+            return _captured_failure(exc, owner=f"clue_chain.service.{operation}")
+
     def create_chain(self, payload: Mapping[str, Any]) -> dict[str, Any]:
         if not isinstance(payload, Mapping):
-            raise ValueError("payload must be a mapping")
+            raise_clue_chain_legacy(clue_chain_failure("input_invalid", "payload must be a mapping", owner="clue_chain.service.create_chain"))
         project_key = _non_empty(payload.get("project_key")) or self._resolve_project_key()
         seed_node_ids = _normalize_string_list(payload.get("seed_node_ids"))
         seed_nodes = _normalize_seed_nodes(payload.get("seed_nodes"))
@@ -66,7 +136,7 @@ class ClueChainService:
             if seed_node_id and seed_node_id not in seed_node_ids:
                 seed_node_ids.append(seed_node_id)
         if not seed_node_ids:
-            raise ValueError("seed_node_ids or seed_nodes is required")
+            raise_clue_chain_legacy(clue_chain_failure("input_invalid", "seed_node_ids or seed_nodes is required", owner="clue_chain.service.create_chain"))
 
         title = _non_empty(payload.get("title")) or f"Chain for {', '.join(seed_node_ids[:3])}"
         objective = _non_empty(payload.get("objective")) or f"Trace clues from {', '.join(seed_node_ids[:3])}"
@@ -190,7 +260,7 @@ class ClueChainService:
         if provider is not None:
             provider_output = provider(self.get_chain(chain_id), body)
             if not isinstance(provider_output, Mapping):
-                raise ValueError("manual expansion provider must return a mapping")
+                raise_clue_chain_legacy(clue_chain_failure("provider_result_invalid", "manual expansion provider must return a mapping", owner="clue_chain.service.expand_chain"))
             merged = dict(body)
             merged.update(dict(provider_output))
             if not _non_empty(merged.get("provider")):
@@ -298,7 +368,7 @@ class ClueChainService:
             record = self._chain_record_ref(state, cid)
             self._ensure_chain_open(record)
             if hid not in record["hops"]:
-                raise ClueChainObjectMissingError(f"hop not found: {hid}")
+                raise_clue_chain_legacy(clue_chain_failure("object_not_found", f"hop not found: {hid}", owner="clue_chain.service.add_evidence", public_exception=ClueChainObjectMissingError), exception_type=ClueChainObjectMissingError)
             evidence = self._add_evidence_record(record, hid, payload, now)
             _append_unique(record["hops"][hid], "evidence_ids", evidence["evidence_id"])
             record["chain"]["updated_at"] = now
@@ -317,7 +387,7 @@ class ClueChainService:
             record = self._chain_record_ref(state, cid)
             self._ensure_chain_open(record)
             if hid not in record["hops"]:
-                raise ClueChainObjectMissingError(f"hop not found: {hid}")
+                raise_clue_chain_legacy(clue_chain_failure("object_not_found", f"hop not found: {hid}", owner="clue_chain.service.add_candidate", public_exception=ClueChainObjectMissingError), exception_type=ClueChainObjectMissingError)
             candidate = self._add_candidate_record(record, hid, payload, now)
             resolved_candidate_id["value"] = candidate["candidate_id"]
             _append_unique(record["hops"][hid], "candidate_ids", candidate["candidate_id"])
@@ -338,14 +408,14 @@ class ClueChainService:
             self._ensure_chain_open(record)
             candidate = record["candidates"].get(cand_id)
             if not isinstance(candidate, Mapping):
-                raise ClueChainObjectMissingError(f"candidate not found: {cand_id}")
+                raise_clue_chain_legacy(clue_chain_failure("object_not_found", f"candidate not found: {cand_id}", owner="clue_chain.service.record_decision", public_exception=ClueChainObjectMissingError), exception_type=ClueChainObjectMissingError)
             decision = _normalize_choice(body.get("decision") or body.get("action"), DECISIONS, default="defer", field="decision")
             target_candidate_id = _non_empty(body.get("target_candidate_id"))
             if decision == "merge":
                 if not target_candidate_id:
-                    raise ValueError("target_candidate_id is required for merge decisions")
+                    raise_clue_chain_legacy(clue_chain_failure("input_invalid", "target_candidate_id is required for merge decisions", owner="clue_chain.service.record_decision"))
                 if target_candidate_id not in record["candidates"]:
-                    raise ClueChainObjectMissingError(f"target candidate not found: {target_candidate_id}")
+                    raise_clue_chain_legacy(clue_chain_failure("object_not_found", f"target candidate not found: {target_candidate_id}", owner="clue_chain.service.record_decision", public_exception=ClueChainObjectMissingError), exception_type=ClueChainObjectMissingError)
             actor = _non_empty(body.get("actor")) or "unknown"
             reason = _non_empty(body.get("reason")) or ""
             graph_node_id = _non_empty(body.get("graph_node_id"))
@@ -432,7 +502,7 @@ class ClueChainService:
             record = self._chain_record_ref(state, cid)
             candidate = record["candidates"].get(cand_id)
             if not isinstance(candidate, Mapping):
-                raise ClueChainObjectMissingError(f"candidate not found: {cand_id}")
+                raise_clue_chain_legacy(clue_chain_failure("object_not_found", f"candidate not found: {cand_id}", owner="clue_chain.service.merge_aliases", public_exception=ClueChainObjectMissingError), exception_type=ClueChainObjectMissingError)
             merged = merge_alias_values(candidate.get("aliases"), aliases)
             candidate = dict(candidate)
             candidate["aliases"] = merged
@@ -512,11 +582,11 @@ class ClueChainService:
         entity_type = _non_empty(payload.get("entity_type") or payload.get("node_type") or payload.get("type")) or "Entity"
         value = _non_empty(payload.get("value") or payload.get("label") or payload.get("title") or payload.get("name"))
         if not value:
-            raise ValueError("candidate value is required")
+            raise_clue_chain_legacy(clue_chain_failure("input_invalid", "candidate value is required", owner="clue_chain.service.candidate"))
         aliases = merge_alias_values([value], payload.get("aliases"))
         alias_norms = [normalize_alias(alias) for alias in aliases if normalize_alias(alias)]
         if not alias_norms:
-            raise ValueError("candidate aliases must normalize to a non-empty key")
+            raise_clue_chain_legacy(clue_chain_failure("input_invalid", "candidate aliases must normalize to a non-empty key", owner="clue_chain.service.candidate"))
 
         alias_index = record.setdefault("alias_index", {})
         existing_id = next((alias_index[norm] for norm in alias_norms if norm in alias_index), None)
@@ -606,7 +676,7 @@ class ClueChainService:
         to_ref = _non_empty(payload.get("to_ref") or payload.get("to_node_id") or payload.get("to_candidate_id") or payload.get("target"))
         relation = _non_empty(payload.get("relation") or payload.get("edge_type") or payload.get("predicate")) or "related_to"
         if not from_ref or not to_ref:
-            raise ValueError("edge from_ref and to_ref are required")
+            raise_clue_chain_legacy(clue_chain_failure("input_invalid", "edge from_ref and to_ref are required", owner="clue_chain.service.edge"))
         evidence_ids = _normalize_string_list(payload.get("evidence_ids"))
         if payload.get("evidence_id"):
             _append_value(evidence_ids, str(payload.get("evidence_id")))
@@ -665,7 +735,7 @@ class ClueChainService:
         chains = state.get("chains") if isinstance(state.get("chains"), Mapping) else {}
         record = chains.get(cid)
         if not isinstance(record, Mapping):
-            raise ClueChainNotFoundError(f"clue chain not found: {cid}")
+            raise_clue_chain_legacy(clue_chain_failure("chain_not_found", f"clue chain not found: {cid}", owner="clue_chain.service.aggregate", public_exception=ClueChainNotFoundError), exception_type=ClueChainNotFoundError)
         hops = _sorted_records(record.get("hops"), "started_at")
         evidence = _sorted_records(record.get("evidence"), "captured_at")
         candidates = _sorted_records(record.get("candidates"), "updated_at")
@@ -693,7 +763,7 @@ class ClueChainService:
         chains = state.setdefault("chains", {})
         record = chains.get(chain_id)
         if not isinstance(record, dict):
-            raise ClueChainNotFoundError(f"clue chain not found: {chain_id}")
+            raise_clue_chain_legacy(clue_chain_failure("chain_not_found", f"clue chain not found: {chain_id}", owner="clue_chain.service.record", public_exception=ClueChainNotFoundError), exception_type=ClueChainNotFoundError)
         for key in ("hops", "evidence", "candidates", "decisions", "edges", "alias_index"):
             record.setdefault(key, {})
         record.setdefault("events", [])
@@ -702,7 +772,7 @@ class ClueChainService:
     def _ensure_chain_open(self, record: Mapping[str, Any]) -> None:
         chain = record.get("chain") if isinstance(record.get("chain"), Mapping) else {}
         if chain.get("status") == "closed":
-            raise ClueChainClosedError(f"clue chain is closed: {chain.get('chain_id')}")
+            raise_clue_chain_legacy(clue_chain_failure("chain_closed", f"clue chain is closed: {chain.get('chain_id')}", owner="clue_chain.service.open_guard", public_exception=ClueChainClosedError), exception_type=ClueChainClosedError)
 
     def _mutate(self, mutator: Callable[[dict[str, Any]], dict[str, Any]]) -> dict[str, Any]:
         state = self.store.load_state()
@@ -871,7 +941,7 @@ def _sorted_records(raw: Any, timestamp_field: str) -> list[dict[str, Any]]:
 def _normalize_id(value: Any, field: str) -> str:
     item = str(value or "").strip()
     if not item:
-        raise ValueError(f"{field} is required")
+        raise_clue_chain_legacy(clue_chain_failure("input_invalid", f"{field} is required", owner="clue_chain.service.normalize_id"))
     return item
 
 
@@ -889,7 +959,7 @@ def _first(values: Any) -> str | None:
 def _normalize_choice(value: Any, allowed: frozenset[str], *, default: str, field: str) -> str:
     candidate = str(value or "").strip().lower() or default
     if candidate not in allowed:
-        raise ValueError(f"unsupported {field}: {candidate}")
+        raise_clue_chain_legacy(clue_chain_failure("input_invalid", f"unsupported {field}: {candidate}", owner="clue_chain.service.normalize_choice"))
     return candidate
 
 
@@ -900,7 +970,7 @@ def _bounded_int(value: Any, *, default: int, minimum: int = 0, maximum: int = 1
         try:
             result = int(value)
         except Exception as exc:  # noqa: BLE001
-            raise ValueError("integer field is invalid") from exc
+            raise_clue_chain_legacy(clue_chain_failure("input_invalid", "integer field is invalid", owner="clue_chain.service.bounded_int"), cause=exc)
     return max(minimum, min(maximum, result))
 
 
@@ -910,7 +980,7 @@ def _optional_float(value: Any) -> float | None:
     try:
         return float(value)
     except Exception as exc:  # noqa: BLE001
-        raise ValueError("float field is invalid") from exc
+        raise_clue_chain_legacy(clue_chain_failure("input_invalid", "float field is invalid", owner="clue_chain.service.optional_float"), cause=exc)
 
 
 def _bounded_float(value: Any, *, default: float, minimum: float, maximum: float) -> float:

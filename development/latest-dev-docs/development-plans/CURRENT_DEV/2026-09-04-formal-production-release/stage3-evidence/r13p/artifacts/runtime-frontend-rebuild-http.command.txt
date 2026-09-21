@@ -1,0 +1,1 @@
+curl -fsS -D runtime-frontend-rebuild-headers.txt -o runtime-frontend-rebuild-body.html http://127.0.0.1:<ephemeral>/

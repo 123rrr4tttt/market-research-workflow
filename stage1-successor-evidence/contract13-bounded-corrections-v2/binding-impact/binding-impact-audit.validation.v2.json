@@ -1,0 +1,23 @@
+{
+  "artifacts": {
+    "binding-impact-audit.v2.json": "ba06941d5cacffec2fd9765a189dd76b44d868b7a0473cdd0267d2493cc0d690",
+    "binding-impact-receipt.v2.md": "3a999528a13f256156318a3aac08541c24be6621753d407e2a19467bc17db751",
+    "generate_binding_impact_audit.py": "aabb0ecef51df0dcab161153f2cc175db9c41188afd5170435abff3ca084f3b6"
+  },
+  "authoritative": false,
+  "checks": {
+    "binding_artifact_json_parse": "62/62 PASS",
+    "binding_reference_path_membership": "PASS",
+    "changed_paths_sha256": "PASS",
+    "changed_paths_total_105": "PASS",
+    "changed_paths_unique": "PASS",
+    "code_contract_checker_subset_covered": "91/91 PASS",
+    "contract_sha256": "PASS",
+    "current_hash_matches_changed_paths_after": "105/105 PASS",
+    "head_used_as_before": "0",
+    "import_boundary_paths_covered": "8/8 PASS"
+  },
+  "limits": "BYTE_AND_REFERENCE_VALIDATION_ONLY_NOT_RELEASE_AUTHORITY",
+  "schema_version": "mrw.stage1.contract13.binding-impact-audit.validation.v2",
+  "status": "PASS"
+}

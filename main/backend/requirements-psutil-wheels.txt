@@ -1,0 +1,5 @@
+# Official PyPI cp36-abi3 wheels: Linux aarch64 and x86_64, respectively.
+# 6.0.0 is the first psutil release providing Linux aarch64 wheels.
+psutil==6.0.0 \
+    --hash=sha256:e2e8d0054fc88153ca0544f5c4d554d42e33df2e009c4ff42284ac9ebdef4132 \
+    --hash=sha256:5fd9a97c8e94059b0ef54a7d4baf13b405011176c3b6ff257c247cae0d560ecd

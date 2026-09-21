@@ -1,0 +1,22 @@
+{
+  "schema_version": "mrw.stage4.config.env-presence.v1",
+  "source": "main/backend/.env",
+  "values_read_or_persisted": false,
+  "variables": {
+    "LLM_PROVIDER": "PRESENT",
+    "OPENAI_API_KEY": "PRESENT",
+    "OPENAI_API_BASE": "PRESENT",
+    "OPENAI_MODEL": "ABSENT",
+    "CODEX_OAUTH_COOKIE_SECURE": "ABSENT",
+    "PRODUCTION_METRICS_TOKEN": "ABSENT",
+    "PRODUCTION_ALLOWED_HOSTS": "ABSENT",
+    "PRODUCTION_ALLOWED_ORIGINS": "ABSENT",
+    "PRODUCTION_TRUSTED_ACTOR_SOURCES": "ABSENT",
+    "PRODUCTION_TRUSTED_AUTH_MODES": "ABSENT",
+    "PRODUCTION_REQUIRE_TLS": "ABSENT",
+    "PRODUCTION_PROVIDER_IDS": "ABSENT",
+    "PRODUCTION_CANONICAL_WRITER_BINDING": "ABSENT",
+    "PRODUCTION_CANONICAL_WRITER_OWNER": "ABSENT"
+  },
+  "handling": "Only assignment names were inspected. No value, credential, request body, or response was printed or persisted. Stage4 runtime must supply production controls through its task-owned secret/config injection."
+}

@@ -7,6 +7,7 @@ from dataclasses import replace
 from typing import Any
 
 import pytest
+from functorial_kit import Failure
 
 from app.successor_runtime.language.object_contracts import (
     OperationContractRef,
@@ -401,6 +402,50 @@ def test_cw08_recovery_uses_exact_staged_bytes_and_readback_prevents_duplicate_c
     assert store.loads == 2
     assert store.verifications == 1
     assert decoder.calls == 2
+
+
+def test_cw08_resume_result_returns_typed_binding_failure_without_raising() -> None:
+    scope, assignment, binding, intent, events, request, staged = _fixture()
+    recovery, store, decoder, handler = _recovery(
+        assignment, replace(staged, content_digest=_digest("mutated"))
+    )
+
+    result = recovery.resume_result(
+        scope=scope,
+        assignment=assignment,
+        intent=intent,
+        binding=binding,
+        request=request,
+        current_authority_digest=binding.authority_digest,
+        current_base_revision=0,
+        current_incarnation="artifact-inc-1",
+        ordered_event_payloads=events,
+    )
+
+    assert isinstance(result, Failure)
+    assert result.family == "successor.runtime.failure"
+    assert result.code == "STAGED_RECOVERY_BINDING_REJECTED"
+    assert "content_digest" in result.message
+    assert store.verifications == decoder.calls == handler.commit_count == 0
+
+
+def test_cw08_request_constructor_retains_value_error_compatibility() -> None:
+    with pytest.raises(
+        ValueError,
+        match="staged recovery request has an incomplete exact binding",
+    ):
+        StagedRecoveryRequest(
+            artifact_id="",
+            value_id="value-1",
+            effect_attempt_id="attempt-1",
+            effect_receipt_ref="receipt-1",
+            object_type="Object.v1",
+            codec_id="codec.v1",
+            value_revision=1,
+            value_incarnation="inc-1",
+            qualifier_ref="qualifier-1",
+            loss_profile_ref=None,
+        )
 
 
 @pytest.mark.parametrize(

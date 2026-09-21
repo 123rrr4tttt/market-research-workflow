@@ -5,6 +5,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from typing import Annotated, get_args, get_origin, get_type_hints
 
 import pytest
 
@@ -503,6 +504,16 @@ class LlmCrawlerHighJsReplayReadinessCheckUnitTestCase(unittest.TestCase):
         self.assertFalse(result["validation"]["passed"])
         self.assertTrue(
             any("contains unredacted local path" in error for error in result["validation"]["errors"])
+        )
+
+    def test_llm_crawler_high_js_replay_authority_metadata(self) -> None:
+        return_hint = get_type_hints(build_check, include_extras=True)["return"]
+        self.assertIs(get_origin(return_hint), Annotated)
+        _, metadata = get_args(return_hint)
+        self.assertEqual(
+            metadata,
+            "kit:non-authoritative derived_as=preflight fact_source=repo_local.high_js_replay_targets_and_artifacts "
+            "witness=test:test_llm_crawler_high_js_replay_authority_metadata",
         )
 
 

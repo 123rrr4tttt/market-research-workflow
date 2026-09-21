@@ -1,0 +1,12 @@
+{
+  "authoritative": false,
+  "docker_prune_executed": false,
+  "down_exit_code": 0,
+  "project_residue": {
+    "containers": [],
+    "networks": [],
+    "volumes": []
+  },
+  "stage3_images_removed": false,
+  "status": "PASS"
+}

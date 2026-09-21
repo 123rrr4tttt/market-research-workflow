@@ -1,0 +1,33 @@
+{
+  "authoritative": false,
+  "authority_ceiling": "LOCAL_UNSIGNED_TASK_OWNED_EVIDENCE_NOT_RELEASE_AUTHORITY",
+  "candidate": {
+    "backend_tree": "eb3794cb92e59ba3a2dace55f967e16295935f3a",
+    "clean": true,
+    "commit": "8427e3d626cd12f41e45d38e00223f2ef86d692f",
+    "dockerfile_sha256": "8726ec49d21e47c955b33c47da062178f651555d28d9be39f6b95e6b51c0a9f7",
+    "path": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260912-v4-r13v/candidate",
+    "src_tree": "0dfa137c2c9aba658d8b1f39281412ff69c3d67c",
+    "status_porcelain": "",
+    "tree": "4146bcab51e437920a006875e06ed8cdcc32470a"
+  },
+  "candidate_manifest": {
+    "path": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260912-v4-r13v/evidence/candidate-manifest.v5.json",
+    "sha256": "e182f547008d57d02f833f777aaf1ffa31236860be7d5f9106d4f81f2176e485"
+  },
+  "candidate_replay_input_identity_equal": true,
+  "expected_commit": "8427e3d626cd12f41e45d38e00223f2ef86d692f",
+  "expected_tree": "4146bcab51e437920a006875e06ed8cdcc32470a",
+  "platform": "linux/amd64",
+  "replay": {
+    "backend_tree": "eb3794cb92e59ba3a2dace55f967e16295935f3a",
+    "clean": true,
+    "commit": "8427e3d626cd12f41e45d38e00223f2ef86d692f",
+    "dockerfile_sha256": "8726ec49d21e47c955b33c47da062178f651555d28d9be39f6b95e6b51c0a9f7",
+    "path": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260912-v4-r13v/replay",
+    "src_tree": "0dfa137c2c9aba658d8b1f39281412ff69c3d67c",
+    "status_porcelain": "",
+    "tree": "4146bcab51e437920a006875e06ed8cdcc32470a"
+  },
+  "schema": "mrw.stage3.r13v.backend-migration-amd64-input.v1"
+}

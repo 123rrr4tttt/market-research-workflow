@@ -163,12 +163,22 @@ case "${cmd}" in
     fi
     ;;
   status)
-    if docker info >/dev/null 2>&1; then
-      compose ps searxng yacy || true
-    else
-      echo "⚠️ Docker not running; SearXNG/YaCy unavailable"
+    if (( ${#select_services[@]} > 0 )); then
+      if docker info >/dev/null 2>&1; then
+        compose ps ${select_services[@]+"${select_services[@]}"} || true
+      else
+        echo "⚠️ Docker not running; SearXNG/YaCy unavailable"
+      fi
+    elif [[ "${with_lancedb}" != true ]]; then
+      if docker info >/dev/null 2>&1; then
+        compose ps searxng yacy || true
+      else
+        echo "⚠️ Docker not running; SearXNG/YaCy unavailable"
+      fi
     fi
-    status_lancedb
+    if [[ "${with_lancedb}" == true ]] || (( ${#select_services[@]} == 0 )); then
+      status_lancedb
+    fi
     ;;
   install-lancedb)
     install_lancedb

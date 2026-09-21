@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import Annotated, Any
+
+from mrw_functorial_kit.core.agent_service_semantics import agent_batch_failures
 
 AGENT_BATCH_PLANNER_PROMPT_ID = "agent_batch_planner.v1"
 AGENT_BATCH_PLANNER_CONTRACT_VERSION = "agent_batch_planner.contract.v1"
@@ -13,8 +15,8 @@ from .task_contract import (
     is_agent_batch_task_executable,
     normalize_agent_batch_task,
     normalize_query_terms,
+    _raise_legacy_agent_batch_failure,
 )
-
 REASON_SKILL_PLAN_INVALID_JSON = "skill_planner_invalid_json"
 REASON_SKILL_PLAN_SCHEMA_INVALID = "skill_planner_schema_invalid"
 REASON_SKILL_PLAN_EMPTY_TASKS = "skill_planner_empty_tasks"
@@ -56,7 +58,11 @@ _SPLIT_RE = re.compile(r"\s*(?:，|,|、|；|;|\band\b|\bor\b|和|与|及|以及
 _WORD_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9\-_/\.]*|[\u4e00-\u9fff]{2,}")
 
 
-def build_agent_batch_task_manifest() -> dict[str, Any]:
+def build_agent_batch_task_manifest() -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=plan_payload+plan_inputs "
+    "witness=test:test_w02_agent_authority_metadata"
+]:
     """Authoritative callable task catalog used by planner prompt construction."""
     task_specs = get_agent_batch_task_contract_specs()
     manifest = {
@@ -85,9 +91,8 @@ def build_agent_batch_task_manifest() -> dict[str, Any]:
                 "channel": "source_library",
                 "item_key": "ai_terminal.weekly",
                 "query_terms": ["ai terminal product launches"],
-                "max_items": 1,
+                "max_items": 20,
                 "language": "zh",
-                "source_mode": "site_search",
             },
         ],
     }
@@ -155,11 +160,17 @@ def validate_skill_planner_contract(candidate: Any) -> tuple[dict[str, Any] | No
     return normalized, None
 
 
-def plan_batch_search_command(command: str) -> dict[str, Any]:
+def plan_batch_search_command(command: str) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=intent+tasks+strategy+constraints "
+    "witness=test:test_w02_agent_authority_metadata"
+]:
     """Deterministic parser for zh/en natural-language batch search commands."""
     raw = _normalize_space(command)
     if not raw:
-        raise ValueError("command is required")
+        _raise_legacy_agent_batch_failure(
+            agent_batch_failures.fail("command_required", "command is required", {"command": str(command or "")})
+        )
 
     language = _detect_language(raw)
     cleaned = _strip_prefix_boilerplate(raw)

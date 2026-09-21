@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import hashlib
 from enum import StrEnum
-from typing import Literal
+from typing import Any, Callable, Literal, TypeVar
+
+from functorial_kit import Failure
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -16,6 +18,45 @@ from .assignments import (
     FrozenContract,
     canonical_digest,
 )
+from .failure_policy import raise_runtime_failure, runtime_failure
+
+_T = TypeVar("_T")
+
+
+def _admission_failure(
+    code: str,
+    message: object,
+    exception_type: type[Exception],
+    *,
+    site: str,
+) -> Failure:
+    return runtime_failure(
+        code,
+        message,
+        exception_type,
+        site=site,
+        context={"owner": "successor_runtime.runtime.admission", "operation": site},
+    )
+
+
+def _try_admission(call: Callable[[], _T], *, site: str, code: str) -> _T | Failure:
+    try:
+        return call()
+    except (TypeError, ValueError, OverflowError, KeyError, AttributeError) as exc:
+        return _admission_failure(code, str(exc), type(exc), site=site)
+
+
+def raise_admission_failure(failure: Failure, exception_type: type[Exception] = ValueError) -> None:
+    if exception_type is ValueError:
+        name = (failure.context or {}).get("public_exception")
+        exception_type = {
+            "TypeError": TypeError,
+            "ValueError": ValueError,
+            "OverflowError": OverflowError,
+            "KeyError": KeyError,
+            "AttributeError": AttributeError,
+        }.get(name, ValueError)
+    raise_runtime_failure(failure, exception_type)
 
 
 class VerificationBinding(ContentAddressedBinding):
@@ -62,6 +103,8 @@ class VerificationBinding(ContentAddressedBinding):
     def validate_ordered_event_closure(self) -> "VerificationBinding":
         expected = ordered_event_closure_digest(self.ordered_event_payload_digests)
         if self.ordered_event_payload_closure_digest != expected:
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
             raise ValueError("ordered event payload closure digest mismatch")
         return self
 
@@ -78,12 +121,15 @@ class VerificationBinding(ContentAddressedBinding):
         if payloads is None:
             payloads = content.pop("ordered_event_records", None)
         if payloads is None:
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
             raise ValueError("ordered_event_payloads are required")
         if "ordered_event_payload_digests" in content or (
             "ordered_event_payload_closure_digest" in content
         ):
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
             raise ValueError("ordered event digests are derived from payloads")
         if not isinstance(payloads, (tuple, list)) or not payloads:
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
             raise ValueError("ordered_event_payloads must be a non-empty sequence")
         digests = tuple(event_payload_digest(payload) for payload in payloads)
         return super().from_content(
@@ -97,8 +143,10 @@ class VerificationBinding(ContentAddressedBinding):
     ) -> None:
         actual = tuple(event_payload_digest(payload) for payload in ordered_event_payloads)
         if actual != self.ordered_event_payload_digests:
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
             raise ValueError("ordered event payload bytes drift")
         if ordered_event_closure_digest(actual) != self.ordered_event_payload_closure_digest:
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
             raise ValueError("ordered event closure drift")
 
 
@@ -171,40 +219,96 @@ def require_admission_binding(
     """
 
     if intent.state is not CommitIntentState.PREPARED:
+        # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
         raise ValueError("commit intent is not prepared")
     binding.require_exact_ordered_event_payloads(ordered_event_payloads)
     if binding.binding_digest != intent.verification_binding_digest:
+        # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
         raise ValueError("verification binding drift")
     if (
         binding.canonical_owner != intent.canonical_owner
         or binding.project_key != intent.project_key
         or binding.canonical_object_id != intent.object_id
     ):
+        # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
         raise ValueError("canonical identity drift")
     if (
         binding.project_registry_revision != intent.project_registry_revision
         or binding.project_scope_digest != intent.project_scope_digest
     ):
+        # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
         raise ValueError("project scope drift")
     if (
         binding.authority_digest != intent.authority_digest
         or binding.authority_digest != current_authority_digest
     ):
+        # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
         raise ValueError("authority drift before canonical commit")
     if (
         binding.canonical_base_revision != intent.expected_base_revision
         or binding.canonical_base_revision != current_base_revision
     ):
+        # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
         raise ValueError("canonical base revision drift")
     if (
         binding.canonical_incarnation != intent.expected_incarnation
         or binding.canonical_incarnation != current_incarnation
     ):
+        # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
         raise ValueError("canonical incarnation drift")
     if binding.output_content_digest != intent.content_digest:
+        # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
         raise ValueError("candidate content drift")
     if (
         binding.ordered_event_payload_closure_digest
         != intent.ordered_event_closure_digest
     ):
+        # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
         raise ValueError("ordered event closure drift")
+
+
+def try_require_admission_binding(
+    binding: VerificationBinding,
+    intent: CommitIntent,
+    *,
+    current_authority_digest: str,
+    current_base_revision: int,
+    current_incarnation: str,
+    ordered_event_payloads: tuple[object, ...] | list[object],
+) -> None | Failure:
+    return _try_admission(
+        lambda: require_admission_binding(
+            binding,
+            intent,
+            current_authority_digest=current_authority_digest,
+            current_base_revision=current_base_revision,
+            current_incarnation=current_incarnation,
+            ordered_event_payloads=ordered_event_payloads,
+        ),
+        site="admission.require_binding",
+        code="ADMISSION_BINDING_REJECTED",
+    )
+
+
+def try_verification_binding(**content: Any) -> VerificationBinding | Failure:
+    return _try_admission(
+        lambda: VerificationBinding(**content),
+        site="admission.verification_binding",
+        code="VERIFICATION_BINDING_INVALID",
+    )
+
+
+def try_commit_intent(**content: Any) -> CommitIntent | Failure:
+    return _try_admission(
+        lambda: CommitIntent(**content),
+        site="admission.commit_intent",
+        code="ADMISSION_ROW_INVALID",
+    )
+
+
+def try_event_payload_digest(payload: object) -> str | Failure:
+    return _try_admission(
+        lambda: event_payload_digest(payload),
+        site="admission.event_payload_digest",
+        code="ADMISSION_BINDING_REJECTED",
+    )

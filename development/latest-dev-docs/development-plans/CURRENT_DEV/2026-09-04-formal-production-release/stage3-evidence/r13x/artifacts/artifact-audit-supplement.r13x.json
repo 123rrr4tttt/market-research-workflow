@@ -1,0 +1,79 @@
+{
+  "schema_version": "mrw.stage3.artifact-audit-supplement.r13x.v1",
+  "authoritative": false,
+  "status": "PASS_LOCAL_AUDIT_SUPPLEMENT_NOT_AUTHORITY",
+  "candidate": {
+    "commit": "8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+    "tree": "ce7c67c831b51f9d64b4c2f1a470a724a50b19df"
+  },
+  "purpose": "Supplement the immutable execution record with the retained-input lifecycle and the actual Trivy invocation recovered from the execution transcript. The original record is not rewritten.",
+  "retained_input_lifecycle": {
+    "source": "../retained-artifact-lifecycle.r13x.json",
+    "owner": {
+      "role": "Stage 3 executor",
+      "task_id": "01a087e8-26ad-71d1-b701-cde619801bd9"
+    },
+    "recovery": "Load only the listed canonical OCI archive with docker load, then verify the loaded image identity against execution-record.json and artifacts/SHA256SUMS. A network rebuild is not recovery.",
+    "removal": "After Supervisor acceptance, explicit supersession, or abandonment, remove only the three listed tags with docker image rm; do not prune. Remove listed archives/layouts only by exact path after preserving this result and its checksum index.",
+    "automatic_cleanup_authorized": false
+  },
+  "trivy_command_receipt": {
+    "recovery_source": "Codex execution transcript for the r13x artifact work package, corroborated by the three logs, exit files, reports, and report identities listed below.",
+    "cwd": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/artifacts",
+    "argv_template": [
+      "docker",
+      "run",
+      "--rm",
+      "-v",
+      "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/artifacts:/work",
+      "aquasec/trivy:0.67.2",
+      "image",
+      "--input",
+      "/work/layouts/${role}",
+      "--exit-code",
+      "1",
+      "--severity",
+      "HIGH,CRITICAL",
+      "--vuln-type",
+      "os,library",
+      "--format",
+      "json",
+      "--output",
+      "/work/candidate/${role}/trivy.json"
+    ],
+    "roles": [
+      {
+        "role": "backend",
+        "input": "layouts/backend",
+        "report": "candidate/backend/trivy.json",
+        "log": "logs/trivy-backend.log",
+        "exit_receipt": "metadata/trivy-backend.exit",
+        "exit_code": 0,
+        "high": 0,
+        "critical": 0
+      },
+      {
+        "role": "frontend",
+        "input": "layouts/frontend",
+        "report": "candidate/frontend/trivy.json",
+        "log": "logs/trivy-frontend.log",
+        "exit_receipt": "metadata/trivy-frontend.exit",
+        "exit_code": 0,
+        "high": 0,
+        "critical": 0
+      },
+      {
+        "role": "migration-runner",
+        "input": "layouts/migration-runner",
+        "report": "candidate/migration-runner/trivy.json",
+        "log": "logs/trivy-migration-runner.log",
+        "exit_receipt": "metadata/trivy-migration-runner.exit",
+        "exit_code": 0,
+        "high": 0,
+        "critical": 0
+      }
+    ],
+    "threshold_semantics": "Trivy was configured to exit 1 for any HIGH or CRITICAL OS/library vulnerability; all three actual commands exited 0 and all three bound reports contain zero HIGH and zero CRITICAL findings.",
+    "authority_ceiling": "LOCAL_COMMAND_AUDIT_ONLY_NOT_RELEASE_AUTHORITY"
+  }
+}

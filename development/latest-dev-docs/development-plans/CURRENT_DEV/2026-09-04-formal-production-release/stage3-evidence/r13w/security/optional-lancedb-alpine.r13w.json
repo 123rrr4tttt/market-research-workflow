@@ -1,0 +1,32 @@
+{
+  "authoritative": false,
+  "candidate_commit": "6aa7518750f2c29229a443f73248c8133f192e4d",
+  "candidate_tree": "9853f36db67a5b62c297f6266bc4d0861a28c396",
+  "status": "FAIL_CLOSED_UNSUPPORTED_OPTIONAL_VARIANT",
+  "release_default_affected": false,
+  "release_default": "INSTALL_OPTIONAL_ENHANCEMENTS=false",
+  "package": "lancedb==0.24.2",
+  "pypi": {
+    "sdist_available": false,
+    "musllinux_wheel_available": false,
+    "published_wheel_count": 7
+  },
+  "upstream": {
+    "tag": "python-v0.24.2",
+    "commit": "f79295c6970524f5f835b72b97749b29b4d92e00",
+    "tree": "7ae94d62214b442981c2306a5537c8b0d1a04bcb",
+    "cargo_lock_sha256": "43bd975b139d5cfb5df3bba1499f75262ba583d720491d1638f44cf7b80bcc2f",
+    "manifest_version": "0.24.2",
+    "lock_package_version": "0.24.2-beta.1",
+    "locked_build_result": "REJECTED_BY_CARGO_1_86_0_AND_1_91_1"
+  },
+  "bounded_source_attempt": {
+    "temporary_lock_version_correction_sha256": "3f0616f4d3691aa23bcea64b4cd2cc17e8574c7cdbbd5eaeeac0e7ffc5df01cd",
+    "additional_exact_build_package": "protobuf-dev=31.1-r1",
+    "first_wheel_completed": false,
+    "two_build_byte_identity_established": false,
+    "alpine_install_import_audit_established": false,
+    "candidate_files_changed": false
+  },
+  "conclusion": "No lancedb wheel was vendored and no runtime compiler fallback was added. The optional=true variant remains explicitly fail closed; the default release path is unchanged."
+}

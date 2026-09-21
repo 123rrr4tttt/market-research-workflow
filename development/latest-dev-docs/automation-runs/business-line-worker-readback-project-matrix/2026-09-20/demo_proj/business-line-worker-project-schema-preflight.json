@@ -1,0 +1,63 @@
+{
+  "api_base": "http://127.0.0.1:8000",
+  "checked_endpoints": [
+    {
+      "body_tail": "{\"status\":\"ok\",\"provider\":\"openai\",\"env\":\"dev\",\"startup_contract_version\":\"runtime-startup.v1\",\"runtime_mode\":\"local\",\"services\":{\"api\":{\"status\":\"ok\",\"mode\":\"local\",\"health_url\":\"/api/v1/health\",\"port_hint\":8000,\"missing_dependencies\":[]},\"frontend\":{\"status\":\"hint\",\"mode\":\"local\",\"health_url\":\"http://localhost:5173\",\"port_hint\":5173,\"missing_dependencies\":[]},\"database\":{\"status\":\"configured\",\"mode\":\"local\",\"host\":\"localhost\",\"port_hint\":5432,\"missing_dependencies\":[]},\"elasticsearch\":{\"status\":\"configured\",\"mode\":\"local\",\"host\":\"localhost\",\"port_hint\":9200,\"missing_dependencies\":[],\"health_url\":\"http://localhost:9200\"},\"redis\":{\"status\":\"configured\",\"mode\":\"local\",\"host\":\"localhost\",\"port_hint\":6379,\"missing_dependencies\":[]},\"llm\":{\"status\":\"configured\",\"mode\":\"unknown\",\"provider\":\"openai\",\"health_url\":null,\"port_hint\":null,\"missing_dependencies\":[]}},\"health_url\":\"/api/v1/health\",\"port_hints\":{\"api\":8000,\"frontend\":5173,\"database\":5432,\"elasticsearch\":9200,\"redis\":6379},\"missing_dependencies\":[],\"mixed_environment\":{\"detected\":false,\"runtime_mode\":\"local\",\"modes_by_service\":{\"api\":\"local\",\"frontend\":\"local\",\"database\":\"local\",\"elasticsearch\":\"local\",\"redis\":\"local\"},\"message\":null}}",
+      "error": "",
+      "http_status": 200,
+      "json_envelope_status": "ok",
+      "name": "backend_health",
+      "project_key": "demo_proj",
+      "reason": "reachable",
+      "required": true,
+      "schema_missing_marker": false,
+      "status": "passed",
+      "url": "http://127.0.0.1:8000/api/v1/health"
+    },
+    {
+      "body_tail": "\",\"queue\":\"local.writing_knowledge_graph_agent\",\"trace_id\":\"writing-outline_generate\",\"status\":\"completed\",\"events\":[{\"event\":\"worker_started\",\"status\":\"running\",\"timestamp\":\"2026-07-19T16:41:31Z\",\"event_source\":\"writing_llm_action_service\"},{\"event\":\"task_queued\",\"status\":\"running\",\"timestamp\":\"2026-07-19T16:41:31Z\",\"event_source\":\"writing_llm_action_service\"},{\"event\":\"completed\",\"status\":\"completed\",\"timestamp\":\"2026-07-19T16:41:31Z\",\"event_source\":\"etl_job_runs\"},{\"event\":\"agent_batch_submitted\",\"status\":\"completed\",\"timestamp\":\"2026-07-19T16:41:31Z\",\"event_source\":\"etl_job_runs\"},{\"event\":\"agent_event_persisted\",\"status\":\"completed\",\"timestamp\":\"2026-07-19T16:41:31Z\",\"event_source\":\"etl_job_runs\"},{\"event\":\"approval_state_recorded\",\"status\":\"completed\",\"timestamp\":\"2026-07-19T16:41:31Z\",\"event_source\":\"etl_job_runs\"},{\"event\":\"artifact_readback_persisted\",\"status\":\"completed\",\"timestamp\":\"2026-07-19T16:41:31Z\",\"event_source\":\"etl_job_runs\"},{\"event\":\"etl_job_started\",\"status\":\"running\",\"event_source\":\"etl_job_runs\",\"timestamp\":\"2026-07-19T09:41:31.473580-07:00\"}],\"event_source\":\"etl_job_runs\",\"readback_source\":\"etl_job_runs\",\"readback_endpoint\":\"/api/v1/process/db-job-148?project_key=demo_proj\",\"readback_path\":\"/api/v1/process/db-job-148?project_key=demo_proj\",\"mocked\":false,\"skipped\":false,\"job_type\":\"wr_action\"}],\"line_key\":null,\"limit\":20,\"project_key\":\"demo_proj\",\"readback_source\":\"celery_inspect_or_etl_job_runs\"},\"error\":null,\"meta\":{\"trace_id\":\"business-line-worker-project-schema-preflight:demo_proj\",\"pagination\":null,\"project_key\":\"demo_proj\",\"deprecated\":null}}",
+      "error": "",
+      "http_status": 200,
+      "json_envelope_status": "ok",
+      "name": "process_tasks",
+      "project_key": "demo_proj",
+      "reason": "reachable",
+      "required": true,
+      "schema_missing_marker": false,
+      "status": "passed",
+      "url": "http://127.0.0.1:8000/api/v1/process/tasks?project_key=demo_proj"
+    },
+    {
+      "body_tail": "\",\"queue\":\"local.writing_knowledge_graph_agent\",\"trace_id\":\"writing-outline_generate\",\"status\":\"completed\",\"events\":[{\"event\":\"worker_started\",\"status\":\"running\",\"timestamp\":\"2026-07-19T16:41:31Z\",\"event_source\":\"writing_llm_action_service\"},{\"event\":\"task_queued\",\"status\":\"running\",\"timestamp\":\"2026-07-19T16:41:31Z\",\"event_source\":\"writing_llm_action_service\"},{\"event\":\"completed\",\"status\":\"completed\",\"timestamp\":\"2026-07-19T16:41:31Z\",\"event_source\":\"etl_job_runs\"},{\"event\":\"agent_batch_submitted\",\"status\":\"completed\",\"timestamp\":\"2026-07-19T16:41:31Z\",\"event_source\":\"etl_job_runs\"},{\"event\":\"agent_event_persisted\",\"status\":\"completed\",\"timestamp\":\"2026-07-19T16:41:31Z\",\"event_source\":\"etl_job_runs\"},{\"event\":\"approval_state_recorded\",\"status\":\"completed\",\"timestamp\":\"2026-07-19T16:41:31Z\",\"event_source\":\"etl_job_runs\"},{\"event\":\"artifact_readback_persisted\",\"status\":\"completed\",\"timestamp\":\"2026-07-19T16:41:31Z\",\"event_source\":\"etl_job_runs\"},{\"event\":\"etl_job_started\",\"status\":\"running\",\"event_source\":\"etl_job_runs\",\"timestamp\":\"2026-07-19T09:41:31.473580-07:00\"}],\"event_source\":\"etl_job_runs\",\"readback_source\":\"etl_job_runs\",\"readback_endpoint\":\"/api/v1/process/db-job-148?project_key=demo_proj\",\"readback_path\":\"/api/v1/process/db-job-148?project_key=demo_proj\",\"mocked\":false,\"skipped\":false,\"job_type\":\"wr_action\"}],\"line_key\":null,\"limit\":20,\"project_key\":\"demo_proj\",\"readback_source\":\"celery_inspect_or_etl_job_runs\"},\"error\":null,\"meta\":{\"trace_id\":\"business-line-worker-project-schema-preflight:demo_proj\",\"pagination\":null,\"project_key\":\"demo_proj\",\"deprecated\":null}}",
+      "error": "",
+      "http_status": 200,
+      "json_envelope_status": "ok",
+      "name": "process_logs",
+      "project_key": "demo_proj",
+      "reason": "reachable",
+      "required": true,
+      "schema_missing_marker": false,
+      "status": "passed",
+      "url": "http://127.0.0.1:8000/api/v1/process/logs?project_key=demo_proj"
+    }
+  ],
+  "observed_at": "2026-09-20T08:45:22Z",
+  "project_key": "demo_proj",
+  "recommended_next_commands": [
+    "./scripts/local-deploy.sh start --non-interactive --force",
+    "python3 scripts/check_business_line_worker_project_schema_preflight.py --api-base http://127.0.0.1:8000 --project-key demo_proj --output /Users/wangyiliang/market-research-workflow/development/latest-dev-docs/automation-runs/business-line-worker-readback-project-matrix/2026-09-20/demo_proj/business-line-worker-project-schema-preflight.json --allow-blocked --json",
+    "PYTHONPATH=main/backend /Users/wangyiliang/.local/bin/python3.11 -m pytest main/backend/tests/integration/test_project_schema_guard_unittest.py -q",
+    "python3 scripts/run_backend_migration_live_smoke.py --output /tmp/mrw_backend_migration_live_smoke.json --allow-blocked --json"
+  ],
+  "schema_version": "business_line_worker_project_schema_preflight.v1",
+  "status": "passed",
+  "summary": {
+    "blocked_count": 0,
+    "blocked_endpoints": [],
+    "checked_count": 3,
+    "failed_count": 0,
+    "failed_endpoints": [],
+    "passed_count": 3
+  },
+  "timeout": 5.0
+}

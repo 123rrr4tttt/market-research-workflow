@@ -1,0 +1,8 @@
+{
+  "argv": [
+    "docker",
+    "buildx",
+    "version"
+  ],
+  "cwd": null
+}

@@ -7,58 +7,30 @@ broker message nor a mutable process-local registry may weaken that binding.
 
 from __future__ import annotations
 
-import hashlib
-import json
 from datetime import datetime
 from enum import StrEnum
-from collections.abc import Collection
-from typing import Annotated, Literal, TypeAlias, TypeVar
+from typing import Annotated, Any, Callable, Literal, TypeAlias, TypeVar
+
+from functorial_kit import Failure
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.successor_runtime.language.object_contracts import OperationContractRef
 from app.successor_runtime.language.object_contracts import ReturnContract
 
+from .failure_policy import canonical_digest, raise_runtime_failure, runtime_failure
+
+_RUNTIME_CONTRACT_WITNESS = "test:test_w07_runtime_failure_lift_context"
+
 
 Digest: TypeAlias = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
-
-
-def canonical_digest(
-    value: BaseModel | dict[str, object] | tuple[object, ...],
-    *,
-    exclude_fields: Collection[str] = (),
-) -> str:
-    """Return the deterministic sha256 digest used by identity contracts."""
-
-    if isinstance(value, BaseModel):
-        payload = value.model_dump(
-            mode="json",
-            exclude=set(exclude_fields),
-            exclude_none=False,
-        )
-    else:
-        payload = value
-        if exclude_fields:
-            if not isinstance(payload, dict):
-                raise TypeError(
-                    "exclude_fields is only valid for model or mapping digests"
-                )
-            payload = {
-                key: item for key, item in payload.items() if key not in exclude_fields
-            }
-    encoded = json.dumps(
-        payload,
-        ensure_ascii=False,
-        sort_keys=True,
-        separators=(",", ":"),
-    ).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
 
 
 def require_digest(value: str, field_name: str) -> str:
     """Fail closed when a runtime identity is not canonical SHA-256 hex."""
 
     if len(value) != 64 or any(char not in "0123456789abcdef" for char in value):
+        # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
         raise ValueError(f"{field_name} must be a 64-char lowercase hex digest")
     return value
 
@@ -68,6 +40,47 @@ class FrozenContract(BaseModel):
 
 
 _BindingT = TypeVar("_BindingT", bound="ContentAddressedBinding")
+_T = TypeVar("_T")
+
+
+def _assignment_failure(
+    message: object,
+    *,
+    site: str,
+    exception_type: type[Exception] = ValueError,
+) -> Failure:
+    return runtime_failure(
+        "ASSIGNMENT_INVALID",
+        message,
+        exception_type,
+        site=site,
+        context={"owner": "successor_runtime.runtime.assignments", "operation": site},
+    )
+
+
+def _try_assignment(call: Callable[[], _T], *, site: str) -> _T | Failure:
+    try:
+        return call()
+    except (TypeError, ValueError, OverflowError, KeyError, AttributeError) as exc:
+        return _assignment_failure(str(exc), site=site, exception_type=type(exc))
+
+
+def raise_assignment_failure(failure: Failure) -> None:
+    """Lift a typed assignment failure at the retained exception ABI."""
+
+    exception_type = _exception_type_from_failure(failure)
+    raise_runtime_failure(failure, exception_type)
+
+
+def _exception_type_from_failure(failure: Failure) -> type[Exception]:
+    name = (failure.context or {}).get("public_exception")
+    return {
+        "TypeError": TypeError,
+        "ValueError": ValueError,
+        "OverflowError": OverflowError,
+        "KeyError": KeyError,
+        "AttributeError": AttributeError,
+    }.get(name, ValueError)
 
 
 class ContentAddressedBinding(FrozenContract):
@@ -79,6 +92,7 @@ class ContentAddressedBinding(FrozenContract):
     def validate_binding_digest(self) -> "ContentAddressedBinding":
         expected = canonical_digest(self, exclude_fields={"binding_digest"})
         if self.binding_digest != expected:
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
             raise ValueError("binding_digest does not match canonical binding content")
         return self
 
@@ -87,6 +101,7 @@ class ContentAddressedBinding(FrozenContract):
         """Construct a binding without accepting a caller-chosen identity."""
 
         if "binding_digest" in content:
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
             raise ValueError("binding_digest is derived from canonical binding content")
         provisional = cls.model_construct(**content, binding_digest="0" * 64)
         return cls(
@@ -224,6 +239,7 @@ class CompiledAdmissionBinding(ContentAddressedBinding):
     @model_validator(mode="after")
     def validate_distinct_steps(self) -> "CompiledAdmissionBinding":
         if self.effect_step_id == self.admission_step_id:
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
             raise ValueError("effect and admission step identities must be distinct")
         return self
 
@@ -295,13 +311,16 @@ class RuntimeAssignment(FrozenContract):
             self.handler_binding_kind != expected
             or self.handler_binding.binding_kind != expected
         ):
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
             raise ValueError(
                 f"{self.assignment_kind} requires exact {expected} binding"
             )
         if self.handler_binding_digest != self.handler_binding.binding_digest:
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
             raise ValueError("handler_binding_digest does not match the exact binding")
         expected_locator = f"handler-binding:sha256:{self.handler_binding_digest}"
         if self.handler_binding_ref != expected_locator:
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
             raise ValueError(
                 "handler_binding_ref must be the canonical locator for the exact binding digest"
             )
@@ -311,6 +330,7 @@ class RuntimeAssignment(FrozenContract):
                 self.operation_contract_digest
                 != self.operation_contract_ref.contract_digest
             ):
+                # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
                 raise ValueError("operation contract ref/digest mismatch")
 
         if self.assignment_kind in {
@@ -319,6 +339,7 @@ class RuntimeAssignment(FrozenContract):
         }:
             self._require_step_contract()
             if self.return_contract_binding is None:
+                # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
                 raise ValueError(
                     f"{self.assignment_kind} requires return_contract_binding"
                 )
@@ -328,6 +349,7 @@ class RuntimeAssignment(FrozenContract):
                 else CompiledStepRole.EFFECT
             )
             if self.step_role is not expected_role:
+                # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
                 raise ValueError(
                     f"{self.assignment_kind} requires compiled step role {expected_role}"
                 )
@@ -335,35 +357,43 @@ class RuntimeAssignment(FrozenContract):
                 self.assignment_kind is AssignmentKind.VERIFY_ADMIT
                 and not self.return_contract_binding.admission_required
             ):
+                # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
                 raise ValueError(
                     "VERIFY_ADMIT requires an admission_required return contract"
                 )
             if self.assignment_kind is AssignmentKind.VERIFY_ADMIT:
                 self._validate_compiled_admission_binding()
             elif self.compiled_admission_binding is not None:
+                # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
                 raise ValueError(
                     "compiled_admission_binding is only valid for VERIFY_ADMIT"
                 )
             binding = self.handler_binding
             assert isinstance(binding, InterpreterBinding)
             if binding.operation_contract_digest != self.operation_contract_digest:
+                # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
                 raise ValueError(
                     "interpreter is bound to a different operation contract"
                 )
             if binding.deployment_catalog_digest != self.deployment_catalog_digest:
+                # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
                 raise ValueError("interpreter deployment catalog drift")
             if binding.runtime_protocol_version != self.runtime_protocol_version:
+                # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
                 raise ValueError("interpreter runtime protocol drift")
             if binding.resource_policy_epoch != self.resource_policy_epoch:
+                # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
                 raise ValueError("interpreter resource policy epoch drift")
 
         elif self.assignment_kind is AssignmentKind.RECONCILE:
             self._require_step_contract()
             if not self.reconciliation_attempt_id:
+                # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
                 raise ValueError("RECONCILE requires the original attempt identity")
             binding = self.handler_binding
             assert isinstance(binding, RecoveryBinding)
             if binding.interpreter_profile_digest is None:
+                # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
                 raise ValueError(
                     "RECONCILE must close over the original interpreter profile"
                 )
@@ -374,16 +404,20 @@ class RuntimeAssignment(FrozenContract):
                 or self.step_role is not None
                 or self.expected_step_revision is not None
             ):
+                # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
                 raise ValueError("COMPILE is run-scoped, not step-scoped")
 
         elif self.assignment_kind is AssignmentKind.QUALIFY:
             if not self.plan_digest:
+                # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
                 raise ValueError("QUALIFY requires plan_digest")
             binding = self.handler_binding
             assert isinstance(binding, QualificationBinding)
             if binding.deployment_catalog_digest != self.deployment_catalog_digest:
+                # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
                 raise ValueError("qualification deployment catalog drift")
             if binding.resource_policy_epoch != self.resource_policy_epoch:
+                # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
                 raise ValueError("qualification resource policy epoch drift")
 
         elif self.assignment_kind is AssignmentKind.PROJECT:
@@ -394,6 +428,7 @@ class RuntimeAssignment(FrozenContract):
                 and binding.source_digest
                 and binding.declared_loss_profile_ref
             ):
+                # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
                 raise ValueError(
                     "PROJECT requires exact source and declared loss binding"
                 )
@@ -406,16 +441,19 @@ class RuntimeAssignment(FrozenContract):
                 or self.step_role is not None
                 or self.expected_step_revision is not None
             ):
+                # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
                 raise ValueError(
                     "MATERIALIZE_SUCCESSOR is a post-run assignment, not a step replay"
                 )
             if self.plan_digest != binding.predecessor_plan_digest:
+                # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
                 raise ValueError("materializer predecessor plan drift")
             if (
                 not self.input_refs
                 or self.payload_ref not in self.input_refs
                 or self.payload_digest != binding.source_value_digest
             ):
+                # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
                 raise ValueError(
                     "materializer source locator/digest pair is absent from exact inputs"
                 )
@@ -424,37 +462,79 @@ class RuntimeAssignment(FrozenContract):
 
     def _require_step_contract(self) -> None:
         if not self.step_id:
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
             raise ValueError(f"{self.assignment_kind} requires step_id")
         if self.expected_step_revision is None:
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
             raise ValueError(f"{self.assignment_kind} requires expected_step_revision")
         if not self.operation_contract_digest:
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
             raise ValueError(
                 f"{self.assignment_kind} requires operation_contract_digest"
             )
         if self.operation_contract_ref is None:
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
             raise ValueError(f"{self.assignment_kind} requires operation_contract_ref")
 
     def _validate_compiled_admission_binding(self) -> None:
         binding = self.compiled_admission_binding
         if binding is None:
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
             raise ValueError("VERIFY_ADMIT requires compiled_admission_binding")
         if not self.plan_digest:
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
             raise ValueError("VERIFY_ADMIT requires plan_digest")
         if binding.plan_digest != self.plan_digest:
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
             raise ValueError("compiled admission plan digest drift")
         if binding.admission_step_id != self.step_id:
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
             raise ValueError(
                 "VERIFY_ADMIT step_id must equal the compiled admission step"
             )
         if binding.operation_contract_digest != self.operation_contract_digest:
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
             raise ValueError("compiled admission operation contract drift")
         return_binding = self.return_contract_binding
         assert return_binding is not None
         if binding.return_contract_ref != return_binding.return_contract_ref:
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
             raise ValueError("compiled admission return contract ref drift")
         if binding.return_contract_digest != return_binding.binding_digest:
+            # kit:boundary owner=successor.runtime.validation class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.runtime.failure witness=test:test_w07_runtime_failure_lift_context
             raise ValueError("compiled admission return contract digest drift")
 
     @property
     def assignment_digest(self) -> str:
         return canonical_digest(self)
+
+
+# Total adapters used by queue/claim boundaries. Constructors retain their
+# historical Pydantic/ValueError ABI; callers that can handle domain failures
+# without throwing should use these result forms.
+def try_require_digest(value: str, field_name: str) -> str | Failure:
+    return _try_assignment(
+        lambda: require_digest(value, field_name), site="assignments.require_digest"
+    )
+
+
+def try_runtime_assignment(**content: Any) -> RuntimeAssignment | Failure:
+    return _try_assignment(
+        lambda: RuntimeAssignment(**content), site="assignments.runtime_assignment"
+    )
+
+
+def try_validate_runtime_assignment(value: object) -> RuntimeAssignment | Failure:
+    return _try_assignment(
+        lambda: RuntimeAssignment.model_validate(value),
+        site="assignments.validate_runtime_assignment",
+    )
+
+
+def try_content_addressed_binding(
+    binding_type: type[_BindingT], **content: Any
+) -> _BindingT | Failure:
+    return _try_assignment(
+        lambda: binding_type.from_content(**content),
+        site="assignments.content_addressed_binding",
+    )

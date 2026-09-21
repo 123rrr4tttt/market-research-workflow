@@ -1,0 +1,161 @@
+{
+  "schema_version": "mrw.stage3.backend-same-base-preview.v1",
+  "generated_at": "2026-09-12T10:31:27Z",
+  "mode": "SUCCESSOR_PREVIEW_ONLY",
+  "status": "PACKAGE_UPGRADE_SUCCEEDED_TRIVY_GATE_FAILED",
+  "scope": {
+    "product_file": "main/backend/Dockerfile",
+    "task_change": "Add apt-get upgrade -y between apt-get update and apt-get install in backend-shared-base.",
+    "constraints": [
+      "same pinned python:3.11-slim base digest",
+      "no distribution switch",
+      "no builder/runtime stage refactor",
+      "pre-existing Dockerfile changes preserved"
+    ],
+    "dockerfile_sha256_before": "8726ec49d21e47c955b33c47da062178f651555d28d9be39f6b95e6b51c0a9f7",
+    "dockerfile_sha256_after": "e68ef13259ccebe6e64599add1ee8155ee78231c9eeb00b37271ba35b7521189"
+  },
+  "builds": {
+    "platform": "linux/amd64",
+    "backend": {
+      "tag": "mrw-r13u-backend-same-base-preview:local",
+      "image_id": "sha256:5e37e250faa7b85ebbe7204c6d0ef1e3784d50e40b087ba2a928aab1d167ab30",
+      "no_cache": true,
+      "exit_code": 0
+    },
+    "migration_runner": {
+      "tag": "mrw-r13u-migration-same-base-preview:local",
+      "image_id": "sha256:4a6bfd683b9eb364722c46ff9d1268fb31daa8289246d1a5f108b723f1121668",
+      "shared_base_cache_reused_from_backend_build": true,
+      "exit_code": 0
+    }
+  },
+  "trivy": {
+    "version": "0.74.0",
+    "database": {
+      "updated_at": "2026-09-12T07:04:21.045373563Z",
+      "downloaded_at": "2026-09-12T10:25:48.000269Z",
+      "update_exit_code": 0
+    },
+    "baseline": {
+      "source_candidate": "r13r reused for byte-identical r13t backend and src inputs",
+      "scan_created_at": "2026-09-10T11:23:11.493793+08:00",
+      "per_role_rows": 148,
+      "per_role_unique_cves": 80,
+      "reported_fixed_version_nonempty": 0
+    },
+    "fresh_preview": {
+      "scan_created_at_backend": "2026-09-12T18:26:14.886592+08:00",
+      "scan_created_at_migration_runner": "2026-09-12T18:26:15.088784+08:00",
+      "per_role_rows": 150,
+      "per_role_unique_cves": 82,
+      "severity": {
+        "CRITICAL": 13,
+        "HIGH": 137
+      },
+      "status_counts": {
+        "affected": 138,
+        "fix_deferred": 12
+      },
+      "reported_fixed_version_nonempty": 0,
+      "backend_exit_code": 1,
+      "migration_runner_exit_code": 1,
+      "roles_semantically_identical": true
+    },
+    "comparison": {
+      "key": [
+        "PkgName",
+        "VulnerabilityID"
+      ],
+      "baseline_pairs_retained": 148,
+      "baseline_pairs_closed": 0,
+      "added_pairs": [
+        {
+          "package": "libpcre2-8-0",
+          "vulnerability_id": "CVE-2026-86145",
+          "severity": "HIGH"
+        },
+        {
+          "package": "libpcre2-8-0",
+          "vulnerability_id": "CVE-2026-89161",
+          "severity": "HIGH"
+        }
+      ],
+      "row_delta_per_role": 2,
+      "unique_cve_delta_per_role": 2,
+      "database_drift_note": "The baseline and preview scans used different scan dates and vulnerability DB snapshots. The two newly visible libpcre2 findings therefore include scanner-database drift; all 148 baseline package/CVE pairs remaining in the fresh report independently establishes zero scanner-recognized closure."
+    },
+    "assessment_prediction": {
+      "expected_closed_rows_per_role": 32,
+      "expected_closed_unique_cves_per_role": 11,
+      "realized_scanner_closed_rows_per_role": 0,
+      "realized_scanner_closed_unique_cves_per_role": 0,
+      "verdict": "NOT_REALIZED"
+    },
+    "gate": "FAIL"
+  },
+  "package_upgrade_smoke": {
+    "status": "PASS",
+    "roles_checked": [
+      "backend-runtime",
+      "migration-runner"
+    ],
+    "executables_checked": [
+      "python",
+      "alembic",
+      "curl",
+      "psql"
+    ],
+    "observed_versions": {
+      "curl": "8.14.1-2+deb13u5",
+      "gzip": "1.13-1+deb13u1",
+      "libcurl3t64-gnutls": "8.14.1-2+deb13u5",
+      "libcurl4t64": "8.14.1-2+deb13u5",
+      "libpcre2-8-0": "10.46-1~deb13u2",
+      "libperl5.40": "5.40.1-6+deb13u1",
+      "libsqlite3-0": "3.46.1-7+deb13u2",
+      "libssh2-1t64": "1.11.1-1+deb13u2",
+      "perl": "5.40.1-6+deb13u1",
+      "perl-base": "5.40.1-6+deb13u1",
+      "perl-modules-5.40": "5.40.1-6+deb13u1"
+    }
+  },
+  "focused_checks": {
+    "initial_invocation": {
+      "command_prefix": "python -m pytest",
+      "exit_code": 127,
+      "failure": "python command not found"
+    },
+    "retry": {
+      "command_prefix": ".venv/bin/python -m pytest",
+      "exit_code": 0,
+      "tests_passed": 40,
+      "subtests_passed": 34
+    },
+    "image_package_smoke": "PASS"
+  },
+  "protected_candidate": {
+    "label": "r13t",
+    "root": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260910-v4-r13t/candidate",
+    "commit": "17e824ab2de3de450bd5215f84bcca428d90218e",
+    "tree": "6e2c8524c7cbd436bf58bc08b37fa2b2bdbc0d92",
+    "status_porcelain_count": 0,
+    "unchanged": true
+  },
+  "cleanup": {
+    "scope": "task-owned preview tags only",
+    "docker_prune_run": false,
+    "tag_removal_exit_code": 0,
+    "backend_tag_absent_after_cleanup": true,
+    "migration_runner_tag_absent_after_cleanup": true,
+    "matching_containers_after_cleanup": 0,
+    "evidence": "08-cleanup.log"
+  },
+  "authority": {
+    "classification": "PREVIEW_ONLY",
+    "successor_candidate_created": false,
+    "release_evidence": false,
+    "release_gate_closed": false,
+    "decision": "Do not promote this same-base apt upgrade as Trivy remediation. A different bounded remediation path requires its own candidate, compatibility checks, and fresh scan."
+  }
+}

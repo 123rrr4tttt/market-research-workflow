@@ -1,0 +1,71 @@
+{
+  "schema": "mrw.stage5.recovery-correction.v1",
+  "status": "PASS_LOCAL_RECOVERY_EVIDENCE_CORRECTION_NOT_AUTHORITY",
+  "authoritative": false,
+  "scope": "LOCAL_STAGE5_RECOVERY_EVIDENCE_CORRECTION_ONLY / NOT_AUTHORITY / RELEASE_DEFERRED",
+  "purpose": "Provide independently parseable corrected projections for the retained values JSONL exports without changing the original recovery result or rerunning recovery.",
+  "original_recovery_result": {
+    "path": "stage5-evidence/recovery/recovery-result.v1.json",
+    "sha256": "15f02002b84ef6cce14f0e8bffae393ee25a9488223554309664db561f1a9144",
+    "preserved_unchanged": true
+  },
+  "correction_result": {
+    "path": "stage5-evidence/recovery/values-jsonl-correction-result.v1.json",
+    "sha256": "884ac00ee6b186e4bd5c93dcc5f38b3732541861c8ff9d0be862421b698631ff",
+    "status": "PASS_LOCAL_VALUES_JSONL_CORRECTION_NOT_AUTHORITY"
+  },
+  "repair": {
+    "script": "stage5-evidence/recovery/repair_jsonl_export.py",
+    "script_sha256": "12053fb37f4dedbdf171644e073ddfb1443ad23542683137883274e49f10973a",
+    "operation": "Remove exactly one extra JSON-escape layer within event_note fields only.",
+    "global_backslash_replacement": false,
+    "database_restore_or_stage5_rerun": false
+  },
+  "historical_inputs": {
+    "source": {
+      "path": "stage5-evidence/recovery/artifacts/source-values.jsonl",
+      "sha256": "f4d4498a3319460f45e7fde554e8ba7e7e8592707ee7fdbc0851d54d36b76875",
+      "invalid_json_lines": [3, 4, 12]
+    },
+    "restore": {
+      "path": "stage5-evidence/recovery/artifacts/restore-values.jsonl",
+      "sha256": "f4d4498a3319460f45e7fde554e8ba7e7e8592707ee7fdbc0851d54d36b76875",
+      "invalid_json_lines": [3, 4, 12]
+    },
+    "preserved_unchanged": true
+  },
+  "corrected_outputs": {
+    "source": {
+      "path": "stage5-evidence/recovery/artifacts/source-values.corrected.v1.jsonl",
+      "sha256": "8a706bed737735c83ab7c9dd0b282fb89b3ec9b54a3930e561f8d901bf0d4006",
+      "rows": 12,
+      "repaired_event_note_fields": 6
+    },
+    "restore": {
+      "path": "stage5-evidence/recovery/artifacts/restore-values.corrected.v1.jsonl",
+      "sha256": "8a706bed737735c83ab7c9dd0b282fb89b3ec9b54a3930e561f8d901bf0d4006",
+      "rows": 12,
+      "repaired_event_note_fields": 6
+    },
+    "row_digest_log": {
+      "path": "stage5-evidence/recovery/logs/08-row-digests-corrected.txt",
+      "sha256": "6d87ffcaedb097a67772e1bcde0c19d499cf99b3376ab941864e15c2f1122658"
+    }
+  },
+  "invariants": {
+    "source_strict_jsonl_parse": true,
+    "restore_strict_jsonl_parse": true,
+    "source_restore_row_count_equal": true,
+    "source_restore_semantic_rows_equal": true,
+    "source_restore_canonical_row_digests_equal": true,
+    "content_digest_mismatches": [],
+    "value_ids_and_order_equal": true,
+    "corrected_files_byte_equal": true
+  },
+  "authority_ceiling": [
+    "LOCAL_STAGE5_RECOVERY_EVIDENCE_CORRECTION_ONLY",
+    "NOT_AUTHORITY",
+    "RELEASE_DEFERRED",
+    "PRODUCTION_RELEASE_NOT_AUTHORIZED"
+  ]
+}

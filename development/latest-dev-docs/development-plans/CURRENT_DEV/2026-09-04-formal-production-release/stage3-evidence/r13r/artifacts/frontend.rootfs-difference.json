@@ -1,0 +1,33 @@
+{
+  "canonical_paths": 2214,
+  "difference_count": 1,
+  "differences": [
+    {
+      "canonical": {
+        "content_sha256": "a4a868033094ae8ea77dd07863bd92382fdb50fa52998f79eeb2907028b7f0c4",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 0,
+        "size": 9194,
+        "type": "file",
+        "uid": 0
+      },
+      "canonical_content_sha256": "a4a868033094ae8ea77dd07863bd92382fdb50fa52998f79eeb2907028b7f0c4",
+      "kind": "content_changed",
+      "path": "/var/log/apk.log",
+      "rebuild": {
+        "content_sha256": "ff1b953597a8f7119928d1429a3b3248f8605339ca89d2c68e8e6f3b4e30440d",
+        "gid": 0,
+        "mode": 420,
+        "mtime": 0,
+        "size": 9194,
+        "type": "file",
+        "uid": 0
+      },
+      "rebuild_content_sha256": "ff1b953597a8f7119928d1429a3b3248f8605339ca89d2c68e8e6f3b4e30440d"
+    }
+  ],
+  "rebuild_paths": 2214,
+  "role": "frontend",
+  "runtime_config_equal": true
+}

@@ -2,7 +2,40 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
+from functorial_kit import Failure
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from mrw_functorial_kit.core.application_failure_semantics import writing_request_contract_failures
+
+
+_WRITING_FAILURE_WITNESS = "test:test_w01_contract_failures"
+
+
+def _normalize_writing_query(value: object, *, operation: str) -> str | Failure:
+    normalized = str(value or "").strip()
+    if normalized:
+        return normalized
+    return writing_request_contract_failures.fail(
+        "query_required",
+        "query is required",
+        {
+            "boundary_class": "PURE_CONTRACT_FAILURE",
+            "failure_family": writing_request_contract_failures.name,
+            "field": "query",
+            "owner": "app.contracts.schemas.writing",
+            "operation": operation,
+            "public_exception": "ValueError",
+            "public_message": "query is required",
+            "site": "app.contracts.schemas.writing",
+            "witness": _WRITING_FAILURE_WITNESS,
+        },
+    )
+
+
+def _lift_writing_contract_failure(value: str | Failure) -> str:
+    if isinstance(value, Failure):
+        # kit:boundary owner=app.contracts.schemas.writing.pydantic_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=writing.request.contract_failure witness=test:test_w01_contract_failures
+        raise ValueError(value.message)
+    return value
 
 
 class WritingRequestContext(BaseModel):
@@ -36,10 +69,9 @@ class KeywordCardRequest(WritingRequestContext):
     @field_validator("query")
     @classmethod
     def _query_must_not_be_blank(cls, value: str) -> str:
-        normalized = str(value or "").strip()
-        if not normalized:
-            raise ValueError("query is required")
-        return normalized
+        return _lift_writing_contract_failure(
+            _normalize_writing_query(value, operation="KeywordCardRequest.query")
+        )
 
 
 class KeywordCardItem(BaseModel):
@@ -121,10 +153,9 @@ class SuggestRequest(WritingRequestContext):
     @field_validator("query")
     @classmethod
     def _normalize_query(cls, value: str) -> str:
-        normalized = str(value or "").strip()
-        if not normalized:
-            raise ValueError("query is required")
-        return normalized
+        return _lift_writing_contract_failure(
+            _normalize_writing_query(value, operation="SuggestRequest.query")
+        )
 
 
 class SuggestItem(BaseModel):

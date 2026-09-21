@@ -3,14 +3,15 @@ from __future__ import annotations
 from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from ..contracts import ErrorCode, error_response, success_response
-from ..models.base import SessionLocal
-from ..services.projects import bind_project
 from ..services.projects.context import _normalize_project_key
 from ..services.typed_knowledge import contracts
+from ..services.typed_knowledge.adapters import live_service
 from ..services.typed_knowledge import persistence_boundary
+from ._error_responses import error_json_response as _error_json
 
 
 router = APIRouter(prefix="/typed-knowledge", tags=["typed_knowledge"])
@@ -27,6 +28,8 @@ class TypedKnowledgeRouteInfo(BaseModel):
 
 class TypedKnowledgeRouteContractData(BaseModel):
     contract_version: str
+    authoritative: bool
+    derived_as: Literal["view"]
     route: TypedKnowledgeRouteInfo
     persistence_boundary: dict[str, Any]
     persistence_boundary_meta: dict[str, Any]
@@ -61,7 +64,7 @@ class TypedKnowledgeRouteContractEnvelope(BaseModel):
 
 
 class TypedKnowledgeGovernanceReviewStateRequest(BaseModel):
-    project_key: str | None = Field(default=None, min_length=1, max_length=128)
+    project_key: str | None = Field(default=None, max_length=128)
     object_type: str = Field(default=persistence_boundary.OBJECT_TYPE_KNOWLEDGE_ITEM, max_length=32)
     object_key: str = Field(default="ki:robotics-policy", min_length=1, max_length=255)
     review_state: str = Field(default=contracts.REVIEW_STATE_HUMAN_CONFIRMED, max_length=64)
@@ -73,13 +76,57 @@ def _typed_project_key(project_key: str | None) -> str:
     return _normalize_project_key(str(project_key or "demo_proj"))
 
 
+def _required_write_project_key(
+    project_key: str | None,
+    *,
+    route_path: str,
+) -> tuple[str | None, dict[str, Any] | None]:
+    raw_project_key = str(project_key or "").strip()
+    if not raw_project_key:
+        return None, {
+            "message": "project_key is required for typed-knowledge write requests",
+            "details": {
+                "field": "project_key",
+                "route_path": route_path,
+                "recoverable": True,
+                "next_action": "retry_with_explicit_project_key",
+            },
+        }
+    normalized_project_key = _normalize_project_key(raw_project_key)
+    fallback_project_key = _normalize_project_key("")
+    identity_probe = "typed_knowledge_request_identity"
+    retains_request_identity = (
+        _normalize_project_key(f"{raw_project_key}_{identity_probe}")
+        != _normalize_project_key(identity_probe)
+    )
+    if normalized_project_key == "public" or (
+        normalized_project_key == fallback_project_key and not retains_request_identity
+    ):
+        return None, {
+            "message": "project_key must retain an explicit writable identity after normalization",
+            "details": {
+                "field": "project_key",
+                "route_path": route_path,
+                "recoverable": True,
+                "next_action": "retry_with_explicit_project_key",
+            },
+        }
+    return normalized_project_key, None
+
+
 def _http_bad_request(exc: Exception, *, project_key: str) -> HTTPException:
+    details: dict[str, Any] = {
+        "project_key": project_key,
+        "exception_type": exc.__class__.__name__,
+    }
+    if isinstance(exc, persistence_boundary.TypedKnowledgePersistenceBoundaryError):
+        details["failure_code"] = exc.failure_code
     return HTTPException(
         status_code=400,
         detail=error_response(
             ErrorCode.INVALID_INPUT,
             str(exc) or "invalid typed-knowledge request",
-            details={"project_key": project_key, "exception_type": exc.__class__.__name__},
+            details=details,
         ),
     )
 
@@ -97,16 +144,8 @@ def get_typed_knowledge_persistence_boundary(
     if repository_mode == "contract":
         return persistence_boundary.build_public_api_route_contract_envelope(project_key=resolved_project_key)
     try:
-        with bind_project(resolved_project_key), SessionLocal() as session:
-            boundary_envelope = persistence_boundary.build_live_db_boundary_envelope(
-                session=session,
-                project_key=resolved_project_key,
-                seed_sample=True,
-            )
-            session.commit()
-        return persistence_boundary.build_public_api_route_contract_envelope(
+        return live_service.read_live_public_route_contract(
             project_key=resolved_project_key,
-            boundary_envelope=boundary_envelope,
         )
     except Exception as exc:  # noqa: BLE001
         raise _http_bad_request(exc, project_key=resolved_project_key) from exc
@@ -118,17 +157,22 @@ def get_typed_knowledge_persistence_boundary(
     response_model_exclude_unset=True,
 )
 def seed_typed_knowledge_live_sample(
-    project_key: str = Query(default="demo_proj", min_length=1, max_length=128),
-) -> dict[str, Any]:
-    resolved_project_key = _typed_project_key(project_key)
+    project_key: str | None = Query(default=None, max_length=128),
+) -> dict[str, Any] | JSONResponse:
+    resolved_project_key, project_key_error = _required_write_project_key(
+        project_key,
+        route_path="/api/v1/typed-knowledge/live-sample",
+    )
+    if project_key_error is not None:
+        return _error_json(
+            400,
+            ErrorCode.INVALID_INPUT,
+            project_key_error["message"],
+            details=project_key_error["details"],
+        )
+    assert resolved_project_key is not None
     try:
-        with bind_project(resolved_project_key), SessionLocal() as session:
-            envelope = persistence_boundary.build_live_db_boundary_envelope(
-                session=session,
-                project_key=resolved_project_key,
-                seed_sample=True,
-            )
-            session.commit()
+        envelope = live_service.seed_live_sample(project_key=resolved_project_key)
         return success_response(envelope["data"], meta=envelope["meta"])
     except Exception as exc:  # noqa: BLE001
         raise _http_bad_request(exc, project_key=resolved_project_key) from exc
@@ -144,13 +188,7 @@ def get_typed_knowledge_writing_context(
 ) -> dict[str, Any]:
     resolved_project_key = _typed_project_key(project_key)
     try:
-        with bind_project(resolved_project_key), SessionLocal() as session:
-            context = persistence_boundary.build_live_writing_context_from_repository(
-                session=session,
-                project_key=resolved_project_key,
-                seed_sample=True,
-            )
-            session.commit()
+        context = live_service.read_live_writing_context(project_key=resolved_project_key)
         return success_response(
             {
                 "project_key": resolved_project_key,
@@ -170,20 +208,28 @@ def get_typed_knowledge_writing_context(
 )
 def update_typed_knowledge_governance_review_state(
     payload: TypedKnowledgeGovernanceReviewStateRequest,
-) -> dict[str, Any]:
-    resolved_project_key = _typed_project_key(payload.project_key)
+) -> dict[str, Any] | JSONResponse:
+    resolved_project_key, project_key_error = _required_write_project_key(
+        payload.project_key,
+        route_path=persistence_boundary.GOVERNANCE_REVIEW_STATE_ROUTE_PATH,
+    )
+    if project_key_error is not None:
+        return _error_json(
+            400,
+            ErrorCode.INVALID_INPUT,
+            project_key_error["message"],
+            details=project_key_error["details"],
+        )
+    assert resolved_project_key is not None
     try:
-        with bind_project(resolved_project_key), SessionLocal() as session:
-            mutation = persistence_boundary.apply_live_governance_review_state(
-                session=session,
-                project_key=resolved_project_key,
-                object_type=payload.object_type,
-                object_key=payload.object_key,
-                review_state=payload.review_state,
-                actor_type=payload.actor_type,
-                actor_id=payload.actor_id,
-            )
-            session.commit()
+        mutation = live_service.apply_governance_review_state(
+            project_key=resolved_project_key,
+            object_type=payload.object_type,
+            object_key=payload.object_key,
+            review_state=payload.review_state,
+            actor_type=payload.actor_type,
+            actor_id=payload.actor_id,
+        )
         return success_response(mutation)
     except Exception as exc:  # noqa: BLE001
         raise _http_bad_request(exc, project_key=resolved_project_key) from exc

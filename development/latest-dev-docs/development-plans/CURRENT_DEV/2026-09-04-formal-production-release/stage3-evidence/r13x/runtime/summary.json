@@ -1,0 +1,35 @@
+{
+  "authoritative": false,
+  "authority_ceiling": "PRODUCTION_RELEASE_NOT_AUTHORIZED",
+  "candidate": {
+    "commit": "8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+    "root": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260912-v4-r13x/candidate",
+    "tree": "ce7c67c831b51f9d64b4c2f1a470a724a50b19df"
+  },
+  "candidate_modified": false,
+  "docker_build_executed": false,
+  "ended_at": "2026-09-12T15:55:01Z",
+  "error": null,
+  "limitations": [
+    "OPENAI_API_KEY absent: deep health is DEGRADED_AWAITING_HUMAN_AUTHORITY",
+    "migration runner console-script `alembic heads` cannot import namespace package migrations; exact default `alembic upgrade head` passed"
+  ],
+  "live_provider": {
+    "missing_dependencies": [
+      "OPENAI_API_KEY"
+    ],
+    "openai_api_key_injected": false,
+    "status": "DEGRADED_AWAITING_HUMAN_AUTHORITY"
+  },
+  "remote_or_publish_action": false,
+  "results": {
+    "cleanup": "PASS",
+    "full_stack": "PASS_SCOPED",
+    "identity": "PASS",
+    "migration": "PASS_WITH_HEADS_INTROSPECTION_LIMITATION",
+    "runtime_content": "PASS"
+  },
+  "schema_version": "mrw.stage3.r13x-runtime-smoke.v1",
+  "started_at": "2026-09-12T15:53:59Z",
+  "status": "PASS_SCOPED_WITH_LIVE_PROVIDER_AND_HEADS_INTROSPECTION_LIMITATIONS"
+}

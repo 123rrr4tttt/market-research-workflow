@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from typing import List
+from typing import Any, List
 
 from sqlalchemy.orm import Session
 
@@ -16,9 +16,10 @@ from ...models.entities import Document, Source
 from .doc_type_mapper import normalize_doc_type
 from .frontdoor_ingress import build_frontdoor_ingress_envelope
 from .postprocess_frontdoor import run_postprocess_frontdoor
-from .adapters.http_utils import fetch_html
+from ..resource_pool.http_port import fetch_html
 from .url_pool import collect_urls_from_list
 from .url_pool import _extract_text_from_html
+from ..task_readback_metadata import merge_runtime_readback_payload
 
 logger = logging.getLogger(__name__)
 BATCH_COMMIT_SIZE = 100
@@ -46,12 +47,21 @@ def collect_market_info(
     start_offset: int | None = None,
     days_back: int | None = None,
     language: str = "en",
+    runtime_readback: dict[str, Any] | None = None,
 ) -> dict:
     """
     Collect market-related info via search API.
     Default: auto (Serper -> Google -> Serpstack -> SerpAPI -> DDG).
     """
-    job_id = start_job("market_info", {"keywords": keywords, "limit": limit, "provider": provider})
+    job_id = start_job(
+        "market_info",
+        {
+            "keywords": keywords,
+            "limit": limit,
+            "provider": provider,
+            **({"runtime_readback": dict(runtime_readback)} if runtime_readback else {}),
+        },
+    )
 
     try:
         normalized_doc_type = normalize_doc_type("market_info")
@@ -195,6 +205,14 @@ def collect_market_info(
             "body_fetch_inserted": int(routed_result.get("inserted") or 0),
             "body_fetch_skipped": int(routed_result.get("skipped") or 0),
         }
+        if runtime_readback:
+            result["runtime_readback"] = merge_runtime_readback_payload(
+                dict(runtime_readback),
+                runtime_readback,
+                status="completed",
+                event="completed",
+                event_source="ingest_market",
+            )
         result["display_meta"] = build_display_meta(
             CollectRequest(
                 channel="search.market",
@@ -219,4 +237,5 @@ def collect_market_info(
     except Exception as exc:
         logger.exception("collect_market_info failed")
         fail_job(job_id, str(exc))
+        # kit:boundary owner=ingest.market_web class=SHELL_BOUNDARY_EXCEPTION failure_family=ingest.operation.failure witness=test:test_ingest_service_a_failure_lifts
         raise

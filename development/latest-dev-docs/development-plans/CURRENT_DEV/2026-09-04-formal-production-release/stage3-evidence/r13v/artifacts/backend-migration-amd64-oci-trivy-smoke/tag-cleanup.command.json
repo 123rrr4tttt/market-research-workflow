@@ -1,0 +1,10 @@
+{
+  "argv": [
+    "docker",
+    "image",
+    "rm",
+    "-f",
+    "mrw-r13v-oci-smoke.local/subject:47327-1789218494"
+  ],
+  "cwd": null
+}

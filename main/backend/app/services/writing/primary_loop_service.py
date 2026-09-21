@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Annotated
+
 from ...contracts.schemas.writing import (
     PrimaryWritingLoopStage,
     WritingBaselineCapability,
@@ -19,7 +21,12 @@ _CANONICAL_PRIMARY_LOOP: tuple[PrimaryWritingLoopStage, ...] = (
 )
 
 
-def build_wave_a_baseline_matrix() -> WritingBaselineDeltaMatrix:
+def build_wave_a_baseline_matrix() -> Annotated[
+    WritingBaselineDeltaMatrix,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=writing_baseline_capability_constants "
+    "witness=test:test_w04_authority_metadata",
+]:
     return WritingBaselineDeltaMatrix(
         contract_version="writing.wave_c.e8.v1",
         capabilities=[

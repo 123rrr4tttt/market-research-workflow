@@ -1,0 +1,135 @@
+{
+  "authoritative": false,
+  "checker": "static-production-contract",
+  "derived_as": "preflight",
+  "findings": [
+    {
+      "check_id": "compose.production_profile",
+      "evidence": [
+        "main/ops/docker-compose.production.yml services=backend,celery-worker,db,es,frontend,redis"
+      ],
+      "status": "PASS",
+      "summary": "production contract resolves exactly the required production services"
+    },
+    {
+      "check_id": "compose.image_digest_pinning",
+      "evidence": [
+        "main/ops/docker-compose.production.yml production_images=fail_fast_required_refs",
+        "image_digest_evidence=unresolved_required_refs_not_artifact_evidence"
+      ],
+      "status": "PASS",
+      "summary": "all production service images use fail-fast required digest references"
+    },
+    {
+      "check_id": "compose.production_policy",
+      "evidence": [
+        "main/ops/docker-compose.production.yml build=absent",
+        "main/ops/docker-compose.production.yml release_policy=explicit_required_refs"
+      ],
+      "status": "PASS",
+      "summary": "production services use immutable images and explicit release and migration policy"
+    },
+    {
+      "check_id": "compose.public_ports",
+      "evidence": [
+        "main/ops/docker-compose.production.yml published_ports=loopback_only"
+      ],
+      "status": "PASS",
+      "summary": "db/es/redis are not published outside loopback"
+    },
+    {
+      "check_id": "compose.source_bind_mounts",
+      "evidence": [
+        "main/ops/docker-compose.production.yml mounts=named_volumes_only"
+      ],
+      "status": "PASS",
+      "summary": "production services use only registered named volumes"
+    },
+    {
+      "check_id": "database.default_credentials",
+      "evidence": [
+        "main/ops/docker-compose.production.yml database_default=absent"
+      ],
+      "status": "PASS",
+      "summary": "production credential inputs do not select the postgres/postgres default pair"
+    },
+    {
+      "check_id": "compose.elasticsearch_security",
+      "evidence": [
+        "main/ops/docker-compose.production.yml xpack.security.enabled=true"
+      ],
+      "status": "PASS",
+      "summary": "production Elasticsearch explicitly enables xpack security"
+    },
+    {
+      "check_id": "release.identity_alignment",
+      "evidence": [
+        "pyproject.toml version=1.0.0",
+        "main/frontend-modern/package.json version=1.0.0",
+        "main/ops/docker-compose.production.yml backend.SERVICE_VERSION=1.0.0"
+      ],
+      "status": "PASS",
+      "summary": "root, frontend, and backend share one stable release version"
+    },
+    {
+      "check_id": "pyproject.file_dependency",
+      "evidence": [
+        "pyproject.toml"
+      ],
+      "status": "PASS",
+      "summary": "root pyproject has no machine-local file dependency"
+    },
+    {
+      "check_id": "branch_protection.required_checks",
+      "evidence": [
+        ".github/branch-protection-required-checks.json categories=formal-release,backend-unit,backend-integration,frontend-lint,frontend-typecheck,frontend-build,frontend-component-e2e,migration,security,docker-config,evidence,artifact-metadata,image-vulnerability-scan"
+      ],
+      "status": "PASS",
+      "summary": "every release domain maps to a concrete required job"
+    },
+    {
+      "check_id": "workflow.frontend_component_e2e",
+      "evidence": [
+        "frontend_component_e2e_contract=complete"
+      ],
+      "status": "PASS",
+      "summary": "frontend component build and Playwright e2e execution are blocking"
+    },
+    {
+      "check_id": "workflow.security_scans",
+      "evidence": [
+        "security_contract=fixed_git_source_plus_public_pypi_strict"
+      ],
+      "status": "PASS",
+      "summary": "required security job classifies the fixed Git dependency and executes blocking public dependency audits"
+    },
+    {
+      "check_id": "artifact_metadata.immutable_release",
+      "evidence": [
+        "canonical_artifact_chain_contract=complete",
+        "artifact_bytes_not_built_or_verified_current_run",
+        "required_refs_not_artifact_evidence"
+      ],
+      "status": "PASS",
+      "summary": "canonical three-role artifact chain validates scans, predicates, and reproducible digests"
+    },
+    {
+      "check_id": "workflow.image_vulnerability_scan",
+      "evidence": [
+        "canonical_vulnerability_evidence_contract=complete"
+      ],
+      "status": "PASS",
+      "summary": "persisted scans are rebound to the canonical digest and revalidated fail closed"
+    },
+    {
+      "check_id": "workflow.required_convergence",
+      "evidence": [
+        "required_convergence_contract=complete"
+      ],
+      "status": "PASS",
+      "summary": "required convergence checks every contracted job outcome"
+    }
+  ],
+  "schema_version": "mrw.formal-release-preflight.v1",
+  "status": "PASS"
+}

@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Iterable, Mapping
+from typing import Annotated, Any, Iterable, Mapping, NoReturn
+
+from functorial_kit import Failure
+from mrw_functorial_kit.core.w04_service_semantics import workflow_graph_failures
 
 ALLOWED_NODE_TYPES = frozenset({"vector_search", "llm_call", "join"})
 
@@ -12,6 +15,61 @@ class WorkflowGraphCompileError(ValueError):
 
 class WorkflowGraphIntegrityError(ValueError):
     """Raised when workflow graph integrity validation fails."""
+
+
+_FAILURE_CONTEXT_KEYS = frozenset({"owner", "public_exception", "public_message"})
+
+
+def workflow_graph_failure(
+    code: str,
+    message: str,
+    *,
+    owner: str,
+    public_exception: type[Exception] | str,
+    public_message: str | None = None,
+    **details: Any,
+) -> Failure:
+    """Create one closed workflow-graph failure with its compatibility ABI."""
+    context = {
+        "owner": owner,
+        "public_exception": (
+            public_exception.__name__ if isinstance(public_exception, type) else str(public_exception)
+        ),
+        "public_message": str(public_message if public_message is not None else message),
+        **details,
+    }
+    return workflow_graph_failures.fail(code, message, context)
+
+
+def raise_workflow_graph_legacy(
+    failure: Failure,
+    exception_type: type[Exception] = WorkflowGraphCompileError,
+    *,
+    cause: BaseException | None = None,
+    exception_kwargs: Mapping[str, Any] | None = None,
+) -> NoReturn:
+    """Lift a closed failure once into the established public exception ABI."""
+    context = failure.context or {}
+    if (
+        not workflow_graph_failures.matches(failure)
+        or not _FAILURE_CONTEXT_KEYS <= set(context)
+        or context.get("public_exception") != exception_type.__name__
+    ):
+        raise TypeError("workflow graph failure lift context is incomplete or inconsistent")  # kit:boundary owner=workflow_graph.contracts.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_legacy_lift_rejects_wrong_family_as_programmer_defect
+    message = str(context["public_message"])
+    if exception_kwargs:
+        error = exception_type(**dict(exception_kwargs))
+        setattr(error, "workflow_failure", failure)
+        if cause is None:
+            raise error  # kit:boundary owner=workflow_graph.contracts.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=workflow_graph.failure witness=test:test_workflow_graph_legacy_lift_with_exception_kwargs
+        raise error from cause  # kit:boundary owner=workflow_graph.contracts.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=workflow_graph.failure witness=test:test_workflow_graph_legacy_lift_with_exception_kwargs_and_cause
+    if cause is None:
+        error = exception_type(message)
+        setattr(error, "workflow_failure", failure)
+        raise error  # kit:boundary owner=workflow_graph.contracts.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=workflow_graph.failure witness=test:test_public_compile_abi_and_topology_checksum_are_preserved
+    error = exception_type(message)
+    setattr(error, "workflow_failure", failure)
+    raise error from cause  # kit:boundary owner=workflow_graph.contracts.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=workflow_graph.failure witness=test:test_workflow_graph_legacy_lift_preserves_cause
 
 
 @dataclass(frozen=True)
@@ -65,7 +123,12 @@ def build_workflow_graph_integrity_report(
     node_ids: Iterable[str],
     edges: Iterable[tuple[str, str]],
     topo_order: Iterable[str] | None = None,
-) -> WorkflowGraphIntegrityReport:
+) -> Annotated[
+    WorkflowGraphIntegrityReport,
+    "kit:non-authoritative derived_as=preflight "
+    "fact_source=node_ids+edges+topo_order "
+    "witness=test:test_w04_authority_metadata",
+]:
     normalized_node_ids = [str(node_id or "").strip() for node_id in node_ids if str(node_id or "").strip()]
     node_id_set = set(normalized_node_ids)
     issues: list[WorkflowGraphIntegrityIssue] = []
@@ -195,4 +258,12 @@ def assert_workflow_graph_integrity(
     if report.valid:
         return report
     first_issue = report.issues[0]
-    raise error_cls(first_issue.message)
+    failure = workflow_graph_failure(
+        "integrity_invalid",
+        first_issue.message,
+        owner="workflow_graph.contracts.assert_workflow_graph_integrity",
+        public_exception=error_cls,
+        index=-1,
+        field=first_issue.code,
+    )
+    raise_workflow_graph_legacy(failure, exception_type=error_cls)

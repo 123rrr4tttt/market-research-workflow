@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections import Counter
 from dataclasses import dataclass
-from typing import Any, Literal, Mapping
+from typing import Annotated, Any, Literal, Mapping
 
 from app.services.llm.platformization import (
     build_trace_audit_record,
@@ -69,7 +69,11 @@ def build_agent_core_platform_contract(
     registry: CoreToolRegistry,
     result: AgentCoreRunResult,
     service_name: str = "agent_core.runtime_dispatcher",
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=platform_contract_constants "
+    "witness=test:test_w02_agent_authority_metadata"
+]:
     """Build the deterministic audit envelope for AgentCore as an LLM-platform consumer.
 
     The envelope intentionally avoids raw event ids and timestamps. Those fields
@@ -140,7 +144,11 @@ def build_provider_capability_matrix(
     capability: str = "agent_tool_dispatch",
     consumer: str = AGENT_CORE_PLATFORM_CONSUMER,
     agent_role: str | None = "orchestration_runtime",
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=platform_contract_constants "
+    "witness=test:test_w02_agent_authority_metadata"
+]:
     """Build the static AgentCore provider capability and framework boundary matrix.
 
     This is a contract inventory, not a live provider health probe. It records
@@ -259,7 +267,11 @@ def build_provider_capability_matrix(
     }
 
 
-def build_external_framework_boundary() -> dict[str, Any]:
+def build_external_framework_boundary() -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=platform_contract_constants "
+    "witness=test:test_w02_agent_authority_metadata"
+]:
     return {
         "contract_version": AGENT_CORE_EXTERNAL_FRAMEWORK_BOUNDARY_CONTRACT_VERSION,
         "adoption_status": "deferred",

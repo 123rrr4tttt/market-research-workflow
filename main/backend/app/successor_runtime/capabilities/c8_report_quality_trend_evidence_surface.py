@@ -11,6 +11,11 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any, Literal
 
+from app.successor_runtime.capabilities.c8_common import (
+    reject_c8_type,
+    reject_c8_value,
+)
+
 AUTHORITY_KEYS: tuple[str, ...] = (
     "canonical_write",
     "live_provider",
@@ -26,8 +31,6 @@ MOVEMENT_IDS: tuple[str, ...] = ("ALL-SM-016",)
 DECISION_OWNER = "MRW report trend owner (B-recheck); S2c decision owner"
 QualityTrendOutcome = Literal["passed", "held", "blocked", "unknown"]
 _CREDENTIAL_MARKERS = ("secret", "token", "password", "api_key", "apikey")
-
-
 def authority_ceiling() -> dict[str, bool]:
     return {name: False for name in AUTHORITY_KEYS}
 
@@ -36,13 +39,13 @@ def _text(value: Any, name: str, *, required: bool = True) -> str:
     if value is None and not required:
         return ""
     if not isinstance(value, str):
-        raise TypeError(f"{name} must be a string")
+        reject_c8_type(f"{name} must be a string")
     text = value.strip()
     if not text and required:
-        raise ValueError(f"{name} must not be blank")
+        reject_c8_value(f"{name} must not be blank")
     lowered = text.lower()
     if any(marker in lowered for marker in _CREDENTIAL_MARKERS):
-        raise ValueError(f"{name} must not carry credential-like raw material")
+        reject_c8_value(f"{name} must not carry credential-like raw material")
     return text
 
 
@@ -63,16 +66,16 @@ class ReportQualityTrendObservation:
         object.__setattr__(self, "report_id", _text(self.report_id, "report_id"))
         object.__setattr__(self, "trace_id", _text(self.trace_id, "trace_id"))
         if self.outcome not in ("passed", "held", "blocked", "unknown"):
-            raise ValueError(f"unknown outcome: {self.outcome}")
+            reject_c8_value(f"unknown outcome: {self.outcome}")
         object.__setattr__(self, "gate_mode", _text(self.gate_mode, "gate_mode"))
         if not isinstance(self.fallback_used, bool):
-            raise TypeError("fallback_used must be bool")
+            reject_c8_type("fallback_used must be bool")
         if (
             not isinstance(self.coverage_count, int)
             or isinstance(self.coverage_count, bool)
             or self.coverage_count < 0
         ):
-            raise ValueError("coverage_count must be a non-negative integer")
+            reject_c8_value("coverage_count must be a non-negative integer")
         object.__setattr__(self, "observed_at", _text(self.observed_at, "observed_at"))
         object.__setattr__(
             self,
@@ -112,16 +115,16 @@ class ReportQualityTrendReadback:
 
     def __post_init__(self) -> None:
         if self.schema != SURFACE_SCHEMA:
-            raise ValueError("ReportQualityTrendReadback.schema is not frozen")
+            reject_c8_value("ReportQualityTrendReadback.schema is not frozen")
         if self.movement_ids != MOVEMENT_IDS:
-            raise ValueError("ReportQualityTrendReadback.movement_ids drift")
+            reject_c8_value("ReportQualityTrendReadback.movement_ids drift")
         if any(value is not False for value in self.authority.values()):
-            raise ValueError("trend evidence surface authority must be all false")
+            reject_c8_value("trend evidence surface authority must be all false")
         object.__setattr__(self, "observations", tuple(self.observations))
         if self.no_call_durable_aggregation is not True:
-            raise ValueError("trend surface never grants durable aggregation")
+            reject_c8_value("trend surface never grants durable aggregation")
         if self.aggregation_writer_called is not False:
-            raise ValueError("trend surface must never call an aggregation writer")
+            reject_c8_value("trend surface must never call an aggregation writer")
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -173,7 +176,7 @@ def project_quality_trend_summary(
     """Render a deterministic summary payload."""
 
     if not isinstance(readback, ReportQualityTrendReadback):
-        raise TypeError("quality trend summary requires typed readback")
+        reject_c8_type("quality trend summary requires typed readback")
     return {
         "schema": readback.schema,
         "movement_ids": list(readback.movement_ids),

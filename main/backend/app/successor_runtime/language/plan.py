@@ -8,14 +8,27 @@ perform effects.  Operational identifiers are deliberately excluded from
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from typing import Any, Literal
+from typing import Annotated, Any, Literal, NoReturn
+
+from functorial_kit import Failure
 
 from app.successor_runtime.research.object_types import ObjectType
 
 from .algebra import ReturnContract
 from .checksum import sha256_hex
-from .object_contracts import OperationContractRef
+from .object_contracts import (
+    OperationContractRef,
+    _failure as _language_failure,
+    _raise_failure as _lift_language_failure,
+)
 from .transforms import TransformRef
+
+def _plan_failure(code: str, message: object, *, site: str, exception_type: type[Exception] = ValueError) -> Failure:
+    return _language_failure(code, message, exception_type, site=site)
+
+
+def raise_plan_failure(failure: Failure, exception_type: type[Exception] = ValueError) -> NoReturn:
+    _lift_language_failure(failure, exception_type)
 
 SourcePath = tuple[str, ...]
 
@@ -102,12 +115,16 @@ class CompiledDecisionBranch:
 
     def __post_init__(self) -> None:
         if not self.branch_id or not self.guard:
+            # kit:boundary owner=successor.language.plan.invariant class=PROGRAMMER_DEFECT failure_family=none witness=test:test_failure_and_return_barrier_survives_plan_composition
             raise ValueError("compiled decision branch requires identity and guard")
         if not self.step_ids or not self.entry_step_ids:
+            # kit:boundary owner=successor.language.plan.invariant class=PROGRAMMER_DEFECT failure_family=none witness=test:test_failure_and_return_barrier_survives_plan_composition
             raise ValueError("compiled decision branch requires steps and entries")
         if len(set(self.step_ids)) != len(self.step_ids):
+            # kit:boundary owner=successor.language.plan.invariant class=PROGRAMMER_DEFECT failure_family=none witness=test:test_failure_and_return_barrier_survives_plan_composition
             raise ValueError("compiled decision branch step IDs must be unique")
         if not set(self.entry_step_ids).issubset(self.step_ids):
+            # kit:boundary owner=successor.language.plan.invariant class=PROGRAMMER_DEFECT failure_family=none witness=test:test_failure_and_return_barrier_survives_plan_composition
             raise ValueError("compiled decision entries must belong to the branch")
 
 
@@ -132,19 +149,24 @@ class CompiledControlNode:
         if not self.control_digest:
             object.__setattr__(self, "control_digest", expected)
         elif self.control_digest != expected:
+            # kit:boundary owner=successor.language.plan.invariant class=PROGRAMMER_DEFECT failure_family=none witness=test:test_failure_and_return_barrier_survives_plan_composition
             raise ValueError("compiled control digest mismatch")
 
         if self.node_kind == "decide":
             if self.discriminator_ref is None or not self.decision_branches:
+                # kit:boundary owner=successor.language.plan.invariant class=PROGRAMMER_DEFECT failure_family=none witness=test:test_failure_and_return_barrier_survives_plan_composition
                 raise ValueError("compiled Decide requires discriminator and branches")
             branch_ids = tuple(branch.branch_id for branch in self.decision_branches)
             if len(set(branch_ids)) != len(branch_ids):
+                # kit:boundary owner=successor.language.plan.invariant class=PROGRAMMER_DEFECT failure_family=none witness=test:test_failure_and_return_barrier_survives_plan_composition
                 raise ValueError("compiled Decide branch IDs must be unique")
         elif self.discriminator_ref is not None or self.decision_branches:
+                # kit:boundary owner=successor.language.plan.invariant class=PROGRAMMER_DEFECT failure_family=none witness=test:test_failure_and_return_barrier_survives_plan_composition
             raise ValueError("only compiled Decide may carry decision control")
 
     def require_valid_control_digest(self) -> None:
         if self.control_digest != compiled_control_digest(self):
+            # kit:boundary owner=successor.language.plan.invariant class=PROGRAMMER_DEFECT failure_family=none witness=test:test_failure_and_return_barrier_survives_plan_composition
             raise ValueError("compiled control digest mismatch")
 
 
@@ -202,11 +224,22 @@ class ProgramPlanSourceMap:
 class FrozenDependencyIndex:
     entries: tuple[tuple[str, tuple[str, ...]], ...]
 
-    def dependencies_for(self, step_id: str) -> tuple[str, ...]:
+    def try_dependencies_for(self, step_id: str) -> tuple[str, ...] | Failure:
         for candidate, dependencies in self.entries:
             if candidate == step_id:
                 return dependencies
-        raise KeyError(step_id)
+        return _plan_failure(
+            "MISSING_DEPENDENCY",
+            step_id,
+            site="FrozenDependencyIndex.dependencies_for",
+            exception_type=KeyError,
+        )
+
+    def dependencies_for(self, step_id: str) -> tuple[str, ...]:
+        result = self.try_dependencies_for(step_id)
+        if isinstance(result, Failure):
+            raise_plan_failure(result, KeyError)
+        return result
 
 
 @dataclass(frozen=True, slots=True)
@@ -360,7 +393,15 @@ def normalized_plan_structure(plan: ExecutionPlan) -> NormalizedPlanStructure:
     )
 
 
-def plans_structurally_equivalent(left: ExecutionPlan, right: ExecutionPlan) -> bool:
+def plans_structurally_equivalent(
+    left: ExecutionPlan,
+    right: ExecutionPlan,
+) -> Annotated[
+    bool,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=successor_runtime.language.plan.ExecutionPlan "
+    "witness=test:test_w07_derived_metadata_is_exact_and_non_authoritative",
+]:
     return normalized_plan_structure(left) == normalized_plan_structure(right)
 
 
@@ -431,7 +472,7 @@ def with_plan_digest(plan: ExecutionPlan) -> ExecutionPlan:
     return replace(plan, plan_digest=sha256_hex(_plan_payload(plan)))
 
 
-def identity_plan(object_type: ObjectType) -> ExecutionPlan:
+def _identity_plan_unsafe(object_type: ObjectType) -> ExecutionPlan:
     source_digest = sha256_hex({"identity": object_type_digest(object_type)})
     control = CompiledControlNode(
         control_id="control-" + source_digest[:24],
@@ -480,3 +521,28 @@ def identity_plan(object_type: ObjectType) -> ExecutionPlan:
         plan_digest="",
     )
     return with_plan_digest(plan)
+
+
+def try_identity_plan(object_type: ObjectType) -> ExecutionPlan | Failure:
+    try:
+        return _identity_plan_unsafe(object_type)
+    except (TypeError, ValueError) as exc:
+        return _plan_failure(
+            "COMPILED_PLAN_INVALID",
+            str(exc),
+            site="identity_plan",
+            exception_type=type(exc),
+        )
+
+
+def identity_plan(object_type: ObjectType) -> ExecutionPlan:
+    result = try_identity_plan(object_type)
+    if isinstance(result, Failure):
+        context = result.context or {}
+        exception_type = TypeError if context.get("public_exception") == "TypeError" else ValueError
+        raise_plan_failure(result, exception_type)
+    return result
+
+
+def try_identity(object_type: ObjectType) -> ExecutionPlan | Failure:
+    return try_identity_plan(object_type)

@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import dataclasses
-from typing import Any
+from functorial_kit import Failure
+from typing import Annotated, Any
 
 from app.successor_runtime.capabilities import agent_core_c6_1 as c6_1
 from app.successor_runtime.capabilities.checksum import (
     canonical_json,
     content_digest,
-    require_hex64,
     sha256_hex,
 )
 from app.successor_runtime.language.algebra import (
@@ -25,23 +25,66 @@ from app.successor_runtime.language.object_contracts import (
     OperationContractResolver,
 )
 from app.successor_runtime.language.program import ProgramSpec, atom_node
+from app.successor_runtime.capabilities.agent_core_c6_common import (
+    _contract_failure,
+    _raise_contract,
+)
 
 __all__ = [
     "build_agent_core_c6_1_program",
     "compile_agent_core_c6_1_program",
     "exact_contract_ref",
     "payload_value_ref",
+    "validate_agent_core_c6_1_program_identity",
+    "validate_exact_contract_ref",
+    "validate_payload_value_ref",
 ]
+
+_C6_1_PROGRAM_WITNESS = "test:test_w05_n2_c61_public_contract_lifts"
+
+
+def _program_contract_failure(
+    *,
+    code: str,
+    message: str,
+    site: str,
+    public_exception: str,
+    public_message: str,
+) -> Failure:
+    return _contract_failure(
+        code=code,
+        message=message,
+        operation=c6_1.AGENT_CORE_C6_1_KIND,
+        site=site,
+        public_exception=public_exception,
+        public_message=public_message,
+        owner=c6_1.AGENT_CORE_C6_1_OWNER,
+    )
 
 
 def exact_contract_ref(
     catalog: OperationContractCatalogSnapshot,
 ) -> OperationContractRef:
+    failure_or_ref = validate_exact_contract_ref(catalog)
+    if isinstance(failure_or_ref, Failure):
+        _raise_contract(failure_or_ref, ValueError)
+    return failure_or_ref
+
+
+def validate_exact_contract_ref(
+    catalog: OperationContractCatalogSnapshot,
+) -> OperationContractRef | Failure:
     ref = catalog.lookup(c6_1.AGENT_CORE_C6_1_KIND)
     if ref is None:
-        raise ValueError(
-            f"contract {c6_1.AGENT_CORE_C6_1_KIND} missing from catalog "
-            f"{catalog.catalog_id}"
+        return _program_contract_failure(
+            code="catalog_contract_invalid",
+            message="C6.1 operation contract missing from catalog",
+            site="exact_contract_ref/catalog",
+            public_exception="ValueError",
+            public_message=(
+                f"contract {c6_1.AGENT_CORE_C6_1_KIND} missing from catalog "
+                f"{catalog.catalog_id}"
+            ),
         )
     return ref
 
@@ -54,11 +97,69 @@ def payload_value_ref(
 ) -> ValueRef:
     """Build the exact content-addressed ValueRef for one C6.1 request."""
 
+    failure = validate_payload_value_ref(
+        payload,
+        program_id=program_id,
+        project_key=project_key,
+    )
+    if failure is not None:
+        _raise_contract(failure, ValueError)
+    return _payload_value_ref(
+        payload,
+        program_id=program_id,
+        project_key=project_key,
+    )
+
+
+def validate_payload_value_ref(
+    payload: c6_1.AgentTurnRequest,
+    *,
+    program_id: str,
+    project_key: str,
+) -> Failure | None:
     if payload.operation_kind != c6_1.AGENT_CORE_C6_1_KIND:
-        raise ValueError("payload operation_kind is not the frozen C6.1 kind")
+        return _program_contract_failure(
+            code="schema_contract_invalid",
+            message="payload operation kind is not C6.1",
+            site="payload_value_ref/operation_kind",
+            public_exception="ValueError",
+            public_message=(
+                "payload operation_kind is not the frozen C6.1 kind"
+            ),
+        )
     if payload.project_scope.project_key != project_key:
-        raise ValueError("payload project scope drift")
-    require_hex64(payload.payload_digest, "AgentTurnRequest.payload_digest")
+        return _program_contract_failure(
+            code="scope_contract_invalid",
+            message="payload project scope drift",
+            site="payload_value_ref/project_scope",
+            public_exception="ValueError",
+            public_message="payload project scope drift",
+        )
+    digest = payload.payload_digest
+    if (
+        not isinstance(digest, str)
+        or len(digest) != 64
+        or any(char not in "0123456789abcdef" for char in digest)
+    ):
+        return _program_contract_failure(
+            code="digest_contract_invalid",
+            message="payload digest is not canonical hex",
+            site="payload_value_ref/payload_digest",
+            public_exception="ValueError",
+            public_message=(
+                "AgentTurnRequest.payload_digest must be a 64-char lowercase "
+                "hex digest"
+            ),
+        )
+    return None
+
+
+def _payload_value_ref(
+    payload: c6_1.AgentTurnRequest,
+    *,
+    program_id: str,
+    project_key: str,
+) -> ValueRef:
     plain = dataclasses.asdict(payload)
     exact_text = canonical_json(plain)
     exact_bytes = exact_text.encode("utf-8")
@@ -111,17 +212,21 @@ def build_agent_core_c6_1_program(
     semantic_identity: str = c6_1.AGENT_CORE_C6_1_SEMANTIC_IDENTITY,
     observation_profile: str = c6_1.AGENT_CORE_C6_1_OBSERVATION_PROFILE,
     contract_version: str = "mrw.functorial-successor.program-spec.v1",
-) -> ProgramSpec:
+) -> Annotated[
+    ProgramSpec,
+    "kit:prepared-command effect_boundary=successor_program_interpreter "
+    "witness=test:test_w05_agent_core_authority_metadata",
+]:
     """Build the exact-bound single-Atom Program for one C6.1 request."""
 
-    if payload.project_scope.project_key != project_key:
-        raise ValueError("payload project_key does not match Program project_key")
-    if payload.project_scope.registry_revision != project_registry_revision:
-        raise ValueError(
-            "payload registry revision does not match Program registry revision"
-        )
-    if payload.project_scope.scope_digest != project_scope_digest:
-        raise ValueError("payload scope digest does not match Program scope digest")
+    failure = validate_agent_core_c6_1_program_identity(
+        payload,
+        project_key=project_key,
+        project_registry_revision=project_registry_revision,
+        project_scope_digest=project_scope_digest,
+    )
+    if failure is not None:
+        _raise_contract(failure, ValueError)
     ref = exact_contract_ref(catalog)
     value_ref = payload_value_ref(
         payload,
@@ -185,6 +290,47 @@ def build_agent_core_c6_1_program(
         metadata=metadata,
         program_digest="",
     ).with_digest()
+
+
+def validate_agent_core_c6_1_program_identity(
+    payload: c6_1.AgentTurnRequest,
+    *,
+    project_key: str,
+    project_registry_revision: int,
+    project_scope_digest: str,
+) -> Failure | None:
+    if payload.project_scope.project_key != project_key:
+        return _program_contract_failure(
+            code="scope_contract_invalid",
+            message="payload and program project keys drift",
+            site="program_identity/project_key",
+            public_exception="ValueError",
+            public_message=(
+                "payload project_key does not match Program project_key"
+            ),
+        )
+    if payload.project_scope.registry_revision != project_registry_revision:
+        return _program_contract_failure(
+            code="scope_contract_invalid",
+            message="payload and program registry revisions drift",
+            site="program_identity/registry_revision",
+            public_exception="ValueError",
+            public_message=(
+                "payload registry revision does not match Program registry "
+                "revision"
+            ),
+        )
+    if payload.project_scope.scope_digest != project_scope_digest:
+        return _program_contract_failure(
+            code="scope_contract_invalid",
+            message="payload and program scope digests drift",
+            site="program_identity/scope_digest",
+            public_exception="ValueError",
+            public_message=(
+                "payload scope digest does not match Program scope digest"
+            ),
+        )
+    return None
 
 
 def compile_agent_core_c6_1_program(

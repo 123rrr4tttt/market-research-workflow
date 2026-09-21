@@ -14,7 +14,7 @@ _TARGET_MODULE_COUNTS = {
     "indexer.py": 1,
     "market.py": 2,
     "reports.py": 1,
-    "search.py": 2,
+    "search.py": 3,
     "writing.py": 18,
 }
 
@@ -47,7 +47,7 @@ class ApiSchemaWritingSearchSmallContractTestCase(unittest.TestCase):
             counts[operation["source_module"]] += 1
 
         self.assertEqual(counts, _TARGET_MODULE_COUNTS)
-        self.assertEqual(sum(counts.values()), 24)
+        self.assertEqual(sum(counts.values()), 25)
 
     def test_target_operations_have_no_untyped_200_schemas(self):
         untyped = [

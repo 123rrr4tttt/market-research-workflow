@@ -1,0 +1,129 @@
+{
+  "schema_version": "mrw.stage3.r13v-gitleaks-seed-verification.v1",
+  "generated_at_utc": "2026-09-12T10:46:04.529720Z",
+  "status": "PASS_EXACT_R13V_GITLEAKS_AND_SEED_EVIDENCE_VERIFIED",
+  "authority_ceiling": "Read-only verification and checksum index only; no product or candidate modification and no release or Stage 3 authority.",
+  "candidate_replay_identity": {
+    "expected_commit": "8427e3d626cd12f41e45d38e00223f2ef86d692f",
+    "expected_tree": "4146bcab51e437920a006875e06ed8cdcc32470a",
+    "candidate": {
+      "root": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260912-v4-r13v/candidate",
+      "commit_matches": true,
+      "tree_matches": true,
+      "clean": true
+    },
+    "replay": {
+      "root": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260912-v4-r13v/replay",
+      "commit_matches": true,
+      "tree_matches": true,
+      "clean": true
+    },
+    "candidate_replay_seed_bytes_equal": true
+  },
+  "verified_inputs": {
+    "exact_candidate_scan": {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13v/security/gitleaks-exact-candidate-scan.r13v.json",
+      "sha256": "53af0c4049f59354e7bf7ef2ca453ebed37f8d20f0d5423f3be94ab1efd5ba69",
+      "declared_candidate_identity_matches": true
+    },
+    "disposition": {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13v/security/gitleaks-disposition.r13v.json",
+      "sha256": "2d6741a06507c45d824741d2e10e2f00b4570961a1aec69cc50dbc3ecb76432c",
+      "declared_scan_hash_matches": true,
+      "declared_semantic_hash_matches": true
+    },
+    "prior_semantic_review": {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13t/security/gitleaks-semantic-review.r13t.json",
+      "sha256": "67e6db70cde9d990733bd9f4b678c573c0f508ed8aaee761a4a790ef6c975774"
+    },
+    "prior_fresh_scan": {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13t/security/gitleaks-fresh-after-seed-redaction.r13t.json",
+      "sha256": "452822b2dec277c69c6d1807d8873846365885331bbf83776410adda4f9e9561"
+    },
+    "prior_seed_load_reconciliation": {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13t/security/gitleaks-fresh-after-seed-redaction-reconciliation.r13t.json",
+      "sha256": "ef7d52a4bca1c5dbc87f362746b7e6e45e30304577f35a4d400bce3d195a88b8"
+    }
+  },
+  "gitleaks_verification": {
+    "raw_findings": 417,
+    "stable_groups": 403,
+    "context_false_positive_groups": 369,
+    "exact_location_snapshot_exception_groups": 34,
+    "unresolved_groups": 0,
+    "rotation_or_revocation_groups": 0,
+    "unknown_groups": 0,
+    "r13v_counter_equals_r13t_fresh_counter": true,
+    "r13v_set_equals_r13t_semantic_minus_two_seed_groups": true,
+    "scan_set_equals_disposition_set": true,
+    "common_group_member_counts_equal": true,
+    "scanner_value_material_absent": true,
+    "original_value_material_absent": true,
+    "evidence_files_default_gitleaks_self_scan": "PASS",
+    "policy_effect": {
+      "broad_allowlist_added": false,
+      "directory_or_rule_ignore_added": false,
+      "gitleaks_configuration_changed": false,
+      "scanner_threshold_changed": false
+    },
+    "snapshot_exception_scope": "Only the listed fingerprint, rule, path, and location tuples in four immutable imported README snapshots."
+  },
+  "seed_byte_identity_reuse": {
+    "relative_path": "main/backend/seed_data/project_demo_proj_v0.9-rc2.0.sql",
+    "sha256": "5551ca2a20bf709b087aeb9f9f14c48b2bda33a5fb78b50edd1511bcc6cb695a",
+    "candidate_replay_live_bytes_equal": true,
+    "redaction_marker_locations": [
+      855,
+      1810
+    ],
+    "one_marker_per_location": true,
+    "prior_validated_seed_sha256_matches": true,
+    "referenced_capability_test": {
+      "command": "PYTHONPATH=<workspace>/src:<workspace>/main/backend main/backend/.venv311/bin/python -m pytest -q main/backend/tests/successor_runtime/test_first_specimen_capabilities.py",
+      "status": "PASS",
+      "passed": 12,
+      "failed": 0
+    },
+    "referenced_disposable_postgresql_load": {
+      "isolation": "unique task container; loopback random host port; no existing database connection; no ops-scrapyd interaction",
+      "initial_base_image_attempt": {
+        "image": "postgres:16-alpine",
+        "status": "EXPECTED_ENVIRONMENT_MISMATCH",
+        "reason": "project migration requires vector extension; container removed without seed load"
+      },
+      "successful_image": "pgvector/pgvector:pg16",
+      "migration": "alembic upgrade head PASS",
+      "loader": "main/backend/scripts/load_demo_proj_seed.sh PASS",
+      "target_schema": "project_demo_proj_r13t",
+      "target_project_key": "demo_proj_r13t",
+      "readback": {
+        "project_registrations": 1,
+        "sources": 6,
+        "documents": 75,
+        "etl_job_runs": 1,
+        "required_tables": 7
+      },
+      "cleanup": {
+        "task_container_removed": true,
+        "anonymous_data_volume_removed": true,
+        "ops_scrapyd_untouched": true
+      }
+    },
+    "reuse_basis": "The r13v candidate seed is byte-identical to the seed validated by the referenced capability test and disposable PostgreSQL load evidence; no behavioral result is inferred across differing bytes.",
+    "current_turn_reexecution": "Not required; this package validates exact-byte reuse rather than creating a second database run."
+  },
+  "verification_checks": [
+    "JSON parse PASS",
+    "candidate and replay Git identity/clean PASS",
+    "417 raw and 403 stable denominator PASS",
+    "fingerprint multiset and set equivalence PASS",
+    "369 plus 34 disposition partition PASS",
+    "zero unresolved/rotation/unknown PASS",
+    "scanner value and obvious credential-material guards PASS",
+    "git diff --check scoped to new evidence PASS"
+  ],
+  "remaining_risk": [
+    "The 34 snapshot entries are accepted only as the listed exact-location exceptions; no broader path, directory, rule, or content-family exception follows.",
+    "Referenced seed load and capability results remain valid only while the seed SHA-256 remains identical."
+  ]
+}

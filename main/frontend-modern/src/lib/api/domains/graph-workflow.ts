@@ -25,8 +25,16 @@ import type {
   WorkflowGraphTemplateVersionMutationResponse,
   WorkflowGraphTemplateVersionPayload,
   WorkflowTemplate,
+  WorkflowTemplateDiffResponse,
   WorkflowTemplateMutationResponse,
   WorkflowTemplatePayload,
+  WorkflowTemplatePromotePayload,
+  WorkflowTemplateRollbackPayload,
+  WorkflowTemplateRollbackResponse,
+  WorkflowTemplateStageMutationResponse,
+  WorkflowTemplateStagePayload,
+  WorkflowTemplateVersionListResponse,
+  WorkflowRunResult,
 } from '../../types'
 
 export async function listWorkflows() {
@@ -42,15 +50,49 @@ export async function upsertWorkflowTemplate(workflowName: string, payload: Work
   return post<WorkflowTemplateMutationResponse>(endpoints.workflow.template(workflowName), payload)
 }
 
+export async function diffWorkflowTemplate(workflowName: string, payload: WorkflowTemplatePayload) {
+  return post<WorkflowTemplateDiffResponse>(endpoints.workflow.templateDiff(workflowName), payload)
+}
+
+export async function listWorkflowTemplateVersions(workflowName: string, projectKey?: string) {
+  const query = projectKey ? `?project_key=${encodeURIComponent(projectKey)}` : ''
+  const data = await get<WorkflowTemplateVersionListResponse | WorkflowTemplateVersionListResponse['items']>(
+    `${endpoints.workflow.templateVersions(workflowName)}${query}`,
+  )
+  if (Array.isArray(data)) return { items: data, total: data.length } satisfies WorkflowTemplateVersionListResponse
+  return data || { items: [] }
+}
+
+export async function stageWorkflowTemplate(workflowName: string, payload: WorkflowTemplateStagePayload) {
+  return post<WorkflowTemplateStageMutationResponse>(endpoints.workflow.templateStage(workflowName), payload)
+}
+
+export async function promoteWorkflowTemplate(workflowName: string, payload: WorkflowTemplatePromotePayload) {
+  return post<WorkflowTemplateStageMutationResponse>(endpoints.workflow.templatePromote(workflowName), payload)
+}
+
+export async function previewWorkflowTemplateRollback(workflowName: string, payload: WorkflowTemplateRollbackPayload) {
+  return post<WorkflowTemplateRollbackResponse>(endpoints.workflow.templateRollbackPreview(workflowName), payload)
+}
+
+export async function applyWorkflowTemplateRollback(workflowName: string, payload: WorkflowTemplateRollbackPayload) {
+  return post<WorkflowTemplateRollbackResponse>(endpoints.workflow.templateRollback(workflowName), payload)
+}
+
 export async function deleteWorkflowTemplate(workflowName: string, projectKey?: string) {
   const query = projectKey ? `?project_key=${encodeURIComponent(projectKey)}` : ''
   return del<WorkflowTemplateMutationResponse>(`${endpoints.workflow.template(workflowName)}${query}`)
 }
 
-export async function runWorkflow(workflowName: string, params: Record<string, unknown>) {
-  return post<Record<string, unknown>>(endpoints.workflow.run(workflowName), {
+export type WorkflowRunOptions = {
+  dryRun?: boolean
+}
+
+export async function runWorkflow(workflowName: string, params: Record<string, unknown> = {}, options: WorkflowRunOptions = {}) {
+  return post<WorkflowRunResult>(endpoints.workflow.run(workflowName), {
     project_key: getProjectKey(),
     params,
+    ...(options.dryRun ? { dry_run: true } : {}),
   })
 }
 

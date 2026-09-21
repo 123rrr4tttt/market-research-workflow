@@ -1,0 +1,207 @@
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "predicate": {
+    "buildDefinition": {
+      "buildType": "https://github.com/moby/buildkit/blob/master/docs/attestations/slsa-definitions.md",
+      "externalParameters": {
+        "configSource": {
+          "path": "Dockerfile"
+        },
+        "request": {
+          "args": {
+            "build-arg:SOURCE_DATE_EPOCH": "0",
+            "force-network-mode": "none",
+            "no-cache": ""
+          },
+          "compatibilityVersion": 30,
+          "frontend": "dockerfile.v0",
+          "locals": [
+            {
+              "name": "context"
+            },
+            {
+              "name": "dockerfile"
+            }
+          ],
+          "root": {
+            "configSource": {
+              "path": "Dockerfile"
+            },
+            "request": {
+              "args": {
+                "build-arg:SOURCE_DATE_EPOCH": "0",
+                "force-network-mode": "none",
+                "no-cache": ""
+              }
+            }
+          }
+        }
+      },
+      "internalParameters": {
+        "buildConfig": {
+          "digestMapping": {
+            "sha256:e1b5ac1027876df5898d3e2c237fdb53488b4abb64f846403deedcfefd182032": "step0",
+            "sha256:e8ee2c7cf674e4266000acd385860a2e65b13c94050d41d917279271a750b985": "step2",
+            "sha256:f6d719e9c95bd50770e0bcc9e97bc48a69d2f1876bcae62672f49fedbb3b7119": "step1"
+          },
+          "llbDefinition": [
+            {
+              "id": "step0",
+              "op": {
+                "Op": {
+                  "source": {
+                    "attrs": {
+                      "local.followpaths": "[\"payload.txt\"]",
+                      "local.sharedkeyhint": "context"
+                    },
+                    "identifier": "local://context"
+                  }
+                },
+                "constraints": {}
+              }
+            },
+            {
+              "id": "step1",
+              "inputs": [
+                "step0:0"
+              ],
+              "op": {
+                "Op": {
+                  "file": {
+                    "actions": [
+                      {
+                        "Action": {
+                          "copy": {
+                            "allowEmptyWildcard": true,
+                            "allowWildcard": true,
+                            "createDestPath": true,
+                            "dest": "/payload.txt",
+                            "dirCopyContents": true,
+                            "followSymlink": true,
+                            "mode": -1,
+                            "src": "/payload.txt",
+                            "timestamp": -1
+                          }
+                        },
+                        "input": -1,
+                        "output": 0,
+                        "secondaryInput": 0
+                      }
+                    ]
+                  }
+                },
+                "constraints": {}
+              }
+            },
+            {
+              "id": "step2",
+              "inputs": [
+                "step1:0"
+              ],
+              "op": {
+                "Op": {}
+              }
+            }
+          ]
+        },
+        "builderPlatform": "linux/arm64",
+        "dockerfileVersion": "1.26.0"
+      }
+    },
+    "runDetails": {
+      "builder": {
+        "id": ""
+      },
+      "metadata": {
+        "buildkit_completeness": {
+          "request": true,
+          "resolvedDependencies": false
+        },
+        "buildkit_metadata": {
+          "layers": {
+            "step1:0": [
+              [
+                {
+                  "digest": "sha256:ceb2c85939334f323a482ada3a20e6768716500c5000f5947692c784e3ea8028",
+                  "mediaType": "application/vnd.oci.image.layer.v1.tar+gzip",
+                  "size": 134
+                }
+              ]
+            ]
+          },
+          "source": {
+            "infos": [
+              {
+                "data": "RlJPTSBzY3JhdGNoCkFSRyBTT1VSQ0VfREFURV9FUE9DSD0wCkxBQkVMIG9yZy5vcGVuY29udGFpbmVycy5pbWFnZS50aXRsZT1tcnctcjEzdi1vY2ktc3ViamVjdC1zbW9rZQpDT1BZIHBheWxvYWQudHh0IC9wYXlsb2FkLnR4dAo=",
+                "digestMapping": {
+                  "sha256:78bf623d01a66e0be703d91dc9d734256d08f1f044cc16fbbd8481c00bc0b680": "step1",
+                  "sha256:ab4338e94e757c0e7525f7ccd73cc4f25298575ddd6a877a260284b5e22191dd": "step0"
+                },
+                "filename": "Dockerfile",
+                "language": "Dockerfile",
+                "llbDefinition": [
+                  {
+                    "id": "step0",
+                    "op": {
+                      "Op": {
+                        "source": {
+                          "attrs": {
+                            "local.differ": "none",
+                            "local.followpaths": "[\"Dockerfile\",\"Dockerfile.dockerignore\",\"dockerfile\"]",
+                            "local.sharedkeyhint": "dockerfile"
+                          },
+                          "identifier": "local://dockerfile"
+                        }
+                      },
+                      "constraints": {}
+                    }
+                  },
+                  {
+                    "id": "step1",
+                    "inputs": [
+                      "step0:0"
+                    ],
+                    "op": {
+                      "Op": {}
+                    }
+                  }
+                ]
+              }
+            ],
+            "locations": {
+              "step0": {},
+              "step1": {
+                "locations": [
+                  {
+                    "ranges": [
+                      {
+                        "end": {
+                          "line": 4
+                        },
+                        "start": {
+                          "line": 4
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "finishedOn": "2026-09-12T13:08:19.510231793Z",
+        "invocationId": "dh0klq4rmg9k732fqcrjkce59",
+        "startedOn": "2026-09-12T13:08:19.472705918Z"
+      }
+    }
+  },
+  "predicateType": "https://slsa.dev/provenance/v1",
+  "subject": [
+    {
+      "digest": {
+        "sha256": "67fa252e71bf74fd3ed8c50e44c5153af7ebfae7f78706b4ef7872c97c5ea02a"
+      },
+      "name": "pkg:docker/mrw-r13v-oci-smoke.local/subject@47327-1789218494?platform=linux%2Famd64"
+    }
+  ]
+}

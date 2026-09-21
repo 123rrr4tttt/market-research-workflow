@@ -1,0 +1,9 @@
+{
+  "authoritative": false,
+  "manifest_sha256": "2f5b5f84d9e3ed3019df559a102d5ae9eedd3c0e552151eef6cd31dc2b2d1c9a",
+  "reason": "The semantically valid package snapshot is preserved because its generator and checker were subsequently reformatted to satisfy the required Ruff gate. The final canonical paths bind the formatted scripts.",
+  "record_sha256": "82833de8573fd7e1120816999825e4d05677ec06a8d65ba0f88924e33c7ea258",
+  "schema_version": "mrw.stage1.source_static_remediation_pre_lint_snapshot.v1",
+  "status": "PRESERVED_SUPERSEDED_BY_FORMATTED_TOOLING",
+  "validation_receipt_sha256": "e044bcac60909fd3805fa1d668f16776f56edb72929c5391b931e5fdc7b7216f"
+}

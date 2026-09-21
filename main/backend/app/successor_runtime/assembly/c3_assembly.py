@@ -8,6 +8,7 @@ realization.  Without deterministic element payloads the C3 cells are
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import Annotated
 
 from app.successor_runtime.assembly.base import (
     C3AssemblyOptions,
@@ -41,7 +42,11 @@ C3_ROLLBACK_PATHS = (
 
 def build_deterministic_element_payloads(
     project_key: str = "project:c3-i1-local",
-) -> tuple[object, ...]:
+) -> Annotated[
+    tuple[object, ...],
+    "kit:prepared-command effect_boundary=successor_runtime.c3_assembly "
+    "witness=test:test_c3_assembly_installs_with_production_fixture_builder",
+]:
     """Build the deterministic I1 C3 element payloads from the collect API."""
 
     request_ref = c3.build_collect_request_ref(
@@ -142,7 +147,11 @@ def build_c3_assembly(
     uow_factory: Callable[[], object],
     project_scope_digest: str,
     options: C3AssemblyOptions | None = None,
-) -> FamilyAssembly:
+) -> Annotated[
+    FamilyAssembly,
+    "kit:prepared-command effect_boundary=successor_runtime.c3_assembly "
+    "witness=test:test_c3_assembly_installs_with_production_fixture_builder",
+]:
     """Return the C3 family assembly for one fixture closure or declared gap."""
 
     opts = options or C3AssemblyOptions()

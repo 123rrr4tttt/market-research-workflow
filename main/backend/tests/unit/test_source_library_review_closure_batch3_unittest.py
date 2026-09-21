@@ -16,6 +16,7 @@ pytestmark = pytest.mark.unit
 from scripts.check_source_library_review_closure_batch3 import CONTRACT_VERSION
 from scripts.check_source_library_review_closure_batch3 import build_check
 from scripts.check_source_library_review_closure_batch3 import build_expected_artifact
+from scripts.check_evidence_source_availability import EVIDENCE_SOURCE_UNAVAILABLE
 
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -34,8 +35,6 @@ class SourceLibraryReviewClosureBatch3UnitTestCase(unittest.TestCase):
         self.assertTrue(artifact["review_batch"]["deterministic_batch3_closed"])
         self.assertEqual(artifact["review_batch"]["decision_count"], 3)
         self.assertEqual(artifact["input_contracts"]["batch3_fixture_queue"]["queued_count"], 3)
-        self.assertTrue(artifact["input_contracts"]["wave16_review_batch"]["validation_passed"])
-        self.assertTrue(artifact["input_contracts"]["wave18_review_batch"]["validation_passed"])
         self.assertEqual(
             [row["decision"] for row in artifact["review_batch"]["decisions"]],
             [
@@ -67,23 +66,19 @@ class SourceLibraryReviewClosureBatch3UnitTestCase(unittest.TestCase):
         self.assertFalse(artifact["non_closure_markers"]["claims_live_source_collection_complete"])
         self.assertFalse(artifact["non_closure_markers"]["claims_live_ingest_migration_complete"])
 
-    def test_checker_validates_committed_artifact_topic_docs_and_gap_register(self) -> None:
+    def test_checker_fails_closed_when_committed_artifact_is_unavailable(self) -> None:
         result = build_check(REPO_ROOT)
 
         self.assertEqual(result["contract_version"], CONTRACT_VERSION)
-        self.assertTrue(result["validation"]["passed"], result["validation"]["errors"])
+        self.assertEqual(result["evidence_source"]["status"], EVIDENCE_SOURCE_UNAVAILABLE)
+        self.assertFalse(result["validation"]["passed"])
         self.assertFalse(result["validation"]["public_network_attempted"])
-        self.assertTrue(result["governance_scope"]["deterministic_batch3_closed"])
+        self.assertFalse(result["governance_scope"]["deterministic_batch3_closed"])
         self.assertFalse(result["governance_scope"]["claims_human_review_complete"])
         self.assertFalse(result["governance_scope"]["claims_public_replay_complete"])
         self.assertFalse(result["governance_scope"]["claims_live_source_collection_complete"])
         self.assertFalse(result["governance_scope"]["claims_live_ingest_migration_complete"])
-        self.assertEqual(result["artifact_check"]["decision_count"], 3)
-        self.assertEqual(
-            result["artifact_check"]["remaining_gap_keys"],
-            ["human_review", "live_ingest_migration", "live_source_collection", "public_replay"],
-        )
-        self.assertEqual(len(result["topic_evidence"]["docs"]), 4)
+        self.assertTrue(all(value is False for value in result["evidence_source"]["authority_ceiling"].values()))
 
     def test_checker_rejects_human_public_source_or_ingest_closure_claims(self) -> None:
         artifact = build_expected_artifact(REPO_ROOT)

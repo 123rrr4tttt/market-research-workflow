@@ -9,7 +9,10 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any, Literal, NoReturn
+
+from functorial_kit import Failure
+from mrw_functorial_kit.core.w06_semantics import c9_evidence_surface_failures
 
 AUTHORITY_KEYS: tuple[str, ...] = (
     "canonical_write",
@@ -23,11 +26,44 @@ AUTHORITY_KEYS: tuple[str, ...] = (
 )
 SURFACE_SCHEMA = "mrw.successor.c9-2.search-retrieval-panel.surface.v1"
 MOVEMENT_IDS: tuple[str, ...] = ("ALL-SM-003",)
-DECISION_OWNER = (
-    "MRW search/discovery worker lane owner (B-recheck); S2c decision owner"
-)
+DECISION_OWNER = "MRW search/discovery worker lane owner (B-recheck); S2c decision owner"
 RetrievalRunState = Literal["terminal", "running", "missing", "undecidable"]
 _CREDENTIAL_MARKERS = ("secret", "token", "password", "api_key", "apikey")
+_FAILURE_WITNESS = "test:test_w06_c2_total_core_failure_lifts"
+
+
+def _failure(
+    code: str, message: str, *, public_exception: str = "ValueError", site: str = "c9_2_search_retrieval_panel"
+) -> Failure:
+    return c9_evidence_surface_failures.fail(
+        code,
+        message,
+        {
+            "owner": "successor_runtime.capabilities.c9_2_search_retrieval_panel",
+            "site": site,
+            "public_exception": public_exception,
+            "public_message": message,
+            "witness": _FAILURE_WITNESS,
+        },
+    )
+
+
+def _raise_contract_failure(failure: Failure, exception_type: type[Exception] = ValueError) -> NoReturn:
+    context = failure.context or {}
+    if (
+        failure.family != c9_evidence_surface_failures.name
+        or context.get("public_exception") != exception_type.__name__
+    ):
+        # kit:boundary owner=c9_2_search_retrieval_panel.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w06_c2_total_core_failure_lifts
+        raise TypeError("C9.2 contract lift context is incomplete")  # noqa: TRY003
+    # kit:boundary owner=c9_2_search_retrieval_panel.py class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=c9.evidence_surface.failure witness=test:test_w06_c2_total_core_failure_lifts
+    raise exception_type(str(context.get("public_message", failure.message)))
+
+
+def _reject(message: str, exception_type: type[Exception] = ValueError) -> NoReturn:
+    _raise_contract_failure(
+        _failure("surface_contract_invalid", message, public_exception=exception_type.__name__), exception_type
+    )
 
 
 def authority_ceiling() -> dict[str, bool]:
@@ -38,12 +74,12 @@ def _text(value: Any, name: str, *, required: bool = True) -> str:
     if value is None and not required:
         return ""
     if not isinstance(value, str):
-        raise TypeError(f"{name} must be a string")
+        _reject(f"{name} must be a string", TypeError)
     text = value.strip()
     if not text and required:
-        raise ValueError(f"{name} must not be blank")
+        _reject(f"{name} must not be blank")
     if any(marker in text.lower() for marker in _CREDENTIAL_MARKERS):
-        raise ValueError(f"{name} must not carry credential-like raw material")
+        _reject(f"{name} must not carry credential-like raw material")
     return text
 
 
@@ -66,9 +102,9 @@ class SearchRetrievalRunObservation:
         )
         object.__setattr__(self, "search_kind", _text(self.search_kind, "search_kind"))
         if self.run_state not in ("terminal", "running", "missing", "undecidable"):
-            raise ValueError(f"unknown run_state: {self.run_state}")
+            _reject(f"unknown run_state: {self.run_state}")
         if self.index_freshness not in ("fresh", "stale", "unknown"):
-            raise ValueError(f"unknown index_freshness: {self.index_freshness}")
+            _reject(f"unknown index_freshness: {self.index_freshness}")
         object.__setattr__(self, "observed_at", _text(self.observed_at, "observed_at"))
         object.__setattr__(
             self,
@@ -107,17 +143,17 @@ class SearchRetrievalPanelPayload:
 
     def __post_init__(self) -> None:
         if self.schema != SURFACE_SCHEMA:
-            raise ValueError("SearchRetrievalPanelPayload.schema is not frozen")
+            _reject("SearchRetrievalPanelPayload.schema is not frozen")
         if self.movement_ids != MOVEMENT_IDS:
-            raise ValueError("SearchRetrievalPanelPayload.movement_ids drift")
+            _reject("SearchRetrievalPanelPayload.movement_ids drift")
         if any(value is not False for value in self.authority.values()):
-            raise ValueError("search retrieval panel authority must be all false")
+            _reject("search retrieval panel authority must be all false")
         if self.panel_status not in ("READY", "DEGRADED", "BLOCKED", "NO_PANEL"):
-            raise ValueError(f"unknown panel_status: {self.panel_status}")
+            _reject(f"unknown panel_status: {self.panel_status}")
         object.__setattr__(self, "rows", tuple(self.rows))
         object.__setattr__(self, "declared_loss", tuple(self.declared_loss))
         if self.no_fake_panel_success is not True:
-            raise ValueError("search panel must not fabricate success")
+            _reject("search panel must not fabricate success")
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -137,28 +173,18 @@ def project_search_retrieval_panel(
     """Project typed observations without reading or writing search state."""
 
     rows = tuple(
-        row
-        if isinstance(row, SearchRetrievalRunObservation)
-        else SearchRetrievalRunObservation(**row)
+        row if isinstance(row, SearchRetrievalRunObservation) else SearchRetrievalRunObservation(**row)
         for row in observations
     )
     if not rows:
         status: Literal["READY", "DEGRADED", "BLOCKED", "NO_PANEL"] = "NO_PANEL"
-    elif any(
-        row.run_state == "undecidable" or row.index_freshness == "unknown"
-        for row in rows
-    ):
+    elif any(row.run_state == "undecidable" or row.index_freshness == "unknown" for row in rows):
         status = "BLOCKED"
     elif any(
-        row.run_state == "missing"
-        or row.run_state == "terminal"
-        and row.index_freshness == "stale"
-        for row in rows
+        row.run_state == "missing" or row.run_state == "terminal" and row.index_freshness == "stale" for row in rows
     ):
         status = "DEGRADED"
-    elif all(
-        row.run_state == "terminal" and row.index_freshness == "fresh" for row in rows
-    ):
+    elif all(row.run_state == "terminal" and row.index_freshness == "fresh" for row in rows):
         status = "READY"
     else:
         status = "DEGRADED"

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shlex
 import sys
 from pathlib import Path
 from typing import Any
@@ -23,6 +24,11 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 BACKEND_ROOT = REPO_ROOT / "main" / "backend"
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
+
+from scripts.evidence_source_contract import (  # noqa: E402
+    apply_evidence_source_contract,
+    evidence_source,
+)
 
 DEFAULT_OUT_DIR = (
     "development/latest-dev-docs/automation-runs/"
@@ -440,8 +446,8 @@ def _evaluate_quality(rows: list[dict[str, Any]], provider: Any) -> tuple[dict[s
     )
 
 
-def _input_readback() -> tuple[dict[str, Any], list[str]]:
-    wave55, wave55_row = _load_json(WAVE55_SEARCH_QUALITY_ARTIFACT)
+def _input_readback(*, wave55_search_quality_path: Path) -> tuple[dict[str, Any], list[str]]:
+    wave55, wave55_row = _load_json(wave55_search_quality_path)
     failures: list[str] = []
     failures.extend(wave55_row.get("failures") or [])
 
@@ -486,7 +492,7 @@ def _input_readback() -> tuple[dict[str, Any], list[str]]:
     )
 
 
-def build_contract() -> dict[str, Any]:
+def build_contract(*, wave55_search_quality_path: Path | None = None) -> dict[str, Any]:
     from app.services.local_index import RepoLocalHashingEmbeddingProvider
     from app.services.search.vector_contracts import (
         SEARCH_EVIDENCE_HIT_CONTRACT_VERSION,
@@ -499,7 +505,10 @@ def build_contract() -> dict[str, Any]:
         validate_search_evidence_hit,
     )
 
-    input_readback, input_failures = _input_readback()
+    resolved_wave55_search_quality_path = wave55_search_quality_path or WAVE55_SEARCH_QUALITY_ARTIFACT
+    input_readback, input_failures = _input_readback(
+        wave55_search_quality_path=resolved_wave55_search_quality_path
+    )
     rows, corpus_failures = _build_public_corpus_rows()
     provider = RepoLocalHashingEmbeddingProvider()
     provider_readback = provider.readback(
@@ -542,7 +551,7 @@ def build_contract() -> dict[str, Any]:
         failures.append(f"target topic missing: {TARGET_TOPIC}")
 
     status = "passed" if not failures else "failed"
-    return {
+    contract = {
         "contract_version": CONTRACT_VERSION,
         "generated_by": "ops/search-lab/scripts/wave57_oss_node_public_corpus_semantic_relevance_gate.py",
         "status": status,
@@ -614,6 +623,35 @@ def build_contract() -> dict[str, Any]:
         "sample_retrieval_run": retrieval_run,
         "failures": failures,
     }
+    corpus_sources = [
+        evidence_source(PUBLIC_CORPUS_INDEX, repo_root=REPO_ROOT, label="public_corpus_index"),
+        *[
+            evidence_source(
+                REPO_ROOT / str(spec["path"]),
+                repo_root=REPO_ROOT,
+                label=f"public_corpus_{spec['repo']}",
+            )
+            for spec in _corpus_specs()
+        ],
+    ]
+    return apply_evidence_source_contract(
+        contract,
+        [
+            evidence_source(
+                resolved_wave55_search_quality_path,
+                repo_root=REPO_ROOT,
+                label="wave55_oss_node_search_quality_gate",
+            ),
+            *corpus_sources,
+        ],
+        claim_fields=(
+            "public_corpus_semantic_relevance_claim_allowed",
+            "live_container_quality_claim_allowed",
+            "production_traffic_quality_claim_allowed",
+            "target_archive_closed_candidate",
+        ),
+        clear_fields=("closed_conditions",),
+    )
 
 
 def write_outputs(out_dir: Path, contract: dict[str, Any]) -> None:
@@ -621,6 +659,13 @@ def write_outputs(out_dir: Path, contract: dict[str, Any]) -> None:
     (out_dir / "oss_node_public_corpus_semantic_relevance_gate.json").write_text(
         json.dumps(contract, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
+    )
+    rerun_command = (
+        "PYTHONPATH=main/backend python3 "
+        "ops/search-lab/scripts/wave57_oss_node_public_corpus_semantic_relevance_gate.py "
+        "--wave55-search-quality "
+        f"{shlex.quote(contract['input_artifact_readback']['wave55_search_quality_gate']['path'])} "
+        f"--out-dir {shlex.quote(display_path(out_dir))}"
     )
     quality = contract["quality_evaluation"]
     readme = [
@@ -661,9 +706,7 @@ def write_outputs(out_dir: Path, contract: dict[str, Any]) -> None:
         "## Rerun",
         "",
         "```bash",
-        "PYTHONPATH=main/backend python3 "
-        "ops/search-lab/scripts/wave57_oss_node_public_corpus_semantic_relevance_gate.py "
-        f"--out-dir {display_path(out_dir)}",
+        rerun_command,
         "PYTHONPATH=main/backend python3 -m pytest -q "
         "main/backend/tests/unit/test_wave57_oss_node_public_corpus_semantic_relevance_gate_unittest.py",
         "```",
@@ -674,14 +717,26 @@ def write_outputs(out_dir: Path, contract: dict[str, Any]) -> None:
     (out_dir / "README.md").write_text("\n".join(readme), encoding="utf-8")
 
 
-def main() -> int:
+def _resolve_cli_path(value: str) -> Path:
+    path = Path(value)
+    return path if path.is_absolute() else REPO_ROOT / path
+
+
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--out-dir", default=DEFAULT_OUT_DIR)
-    args = parser.parse_args()
+    parser.add_argument("--wave55-search-quality", default=str(WAVE55_SEARCH_QUALITY_ARTIFACT))
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = _parse_args(argv)
     out_dir = Path(args.out_dir)
     if not out_dir.is_absolute():
         out_dir = REPO_ROOT / out_dir
-    contract = build_contract()
+    contract = build_contract(
+        wave55_search_quality_path=_resolve_cli_path(args.wave55_search_quality)
+    )
     write_outputs(out_dir, contract)
     print(
         json.dumps(

@@ -8,7 +8,7 @@ import hashlib
 import json
 from pathlib import Path
 import sys
-from typing import Any
+from typing import Annotated, Any
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -302,7 +302,10 @@ def build_gate_snapshot(
     failure_isolation_checks: dict[str, bool] | None = None,
     force3d_rollback_checks: dict[str, bool] | None = None,
     visual_gate_snapshot: dict[str, Any] | None = None,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=generated_evidence fact_source=graph_projection_dry_run+migration_checks+failure_isolation_checks+visual_gate_snapshot witness=test:test_c13_cli_graph_workflow_metadata_preserves_abi",
+]:
     """Build a deterministic pre-live rollout/readback gate.
 
     This gate composes existing graph rollout evidence but intentionally does

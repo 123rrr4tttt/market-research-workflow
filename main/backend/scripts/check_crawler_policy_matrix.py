@@ -4,12 +4,16 @@ import argparse
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
+try:
+    from ._cli_runtime import repo_root as _repo_root
+except ImportError:  # direct script execution
+    from _cli_runtime import repo_root as _repo_root
 
 
 CONTRACT_VERSION = "crawler_policy_matrix.v1"
 TOPIC_DIR = Path(
-    "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
+    "docs/development/development-plans/ARCHIVE_CLOSED/"
     "2026-03-07-crawler-source-expansion"
 )
 POLICY_MATRIX_DOC = TOPIC_DIR / "2026-05-22-wave7-crawler-policy-matrix.md"
@@ -106,10 +110,6 @@ PROTECTED_SHARED_INDEXES = (
 )
 
 
-def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[3]
-
-
 def _read_text(path: Path) -> str:
     try:
         return path.read_text(encoding="utf-8")
@@ -148,7 +148,12 @@ def _doc_decision_coverage(root: Path) -> dict[str, Any]:
     }
 
 
-def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
+def build_check(repo_root: Path | str | None = None) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=preflight "
+    "fact_source=repository.crawler_policy_matrix.anchors "
+    "witness=test:test_crawler_policy_matrix_check_authority_metadata",
+]:
     root = Path(repo_root) if repo_root is not None else _repo_root()
     root = root.resolve()
     anchors = {key: _anchor_result(root, key, anchor) for key, anchor in ANCHORS.items()}

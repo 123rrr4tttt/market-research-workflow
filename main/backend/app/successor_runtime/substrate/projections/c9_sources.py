@@ -31,7 +31,7 @@ import json
 import math
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Any
+from typing import Annotated, Any
 
 __all__ = [
     "AGENT_SESSION_PROJECTION_PAYLOAD_SCHEMA",
@@ -1515,7 +1515,13 @@ def build_agent_session_payload(
     source: RuntimeSessionSourceV1,
     *,
     declared_losses: tuple[ProjectionFieldLossV1, ...],
-) -> AgentSessionProjectionPayloadV1:
+) -> Annotated[
+    AgentSessionProjectionPayloadV1,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=app.successor_runtime.substrate.projections.c9_sources."
+    "RuntimeSessionSourceV1 "
+    "witness=test:test_w08e_projection_authority_metadata_is_exact",
+]:
     """Project one runtime-session source into a loss-bound session payload."""
 
     if not isinstance(source, RuntimeSessionSourceV1):
@@ -1563,7 +1569,13 @@ def build_research_graph_payload(
     source: ResearchGraphSourceV1,
     *,
     declared_losses: tuple[ProjectionFieldLossV1, ...],
-) -> ResearchGraphProjectionPayloadV1:
+) -> Annotated[
+    ResearchGraphProjectionPayloadV1,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=app.successor_runtime.substrate.projections.c9_sources."
+    "ResearchGraphSourceV1 "
+    "witness=test:test_w08e_projection_authority_metadata_is_exact",
+]:
     """Project graph objects and relations one-to-one without new edges."""
 
     if not isinstance(source, ResearchGraphSourceV1):
@@ -1595,7 +1607,13 @@ def build_search_payload(
     source: C7SearchSourceV1,
     *,
     declared_losses: tuple[ProjectionFieldLossV1, ...],
-) -> SearchProjectionPayloadV1:
+) -> Annotated[
+    SearchProjectionPayloadV1,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=app.successor_runtime.substrate.projections.c9_sources."
+    "C7SearchSourceV1 "
+    "witness=test:test_w08e_projection_authority_metadata_is_exact",
+]:
     """Project C7 search segments with explicit NOT_EXECUTED statuses."""
 
     if not isinstance(source, C7SearchSourceV1):

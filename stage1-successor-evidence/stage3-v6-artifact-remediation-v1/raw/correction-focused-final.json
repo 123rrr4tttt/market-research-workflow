@@ -1,0 +1,36 @@
+{
+  "artifacts": [
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/correction-focused-final.log",
+      "sha256": "9e420467c40804367ef577dcd2c881d9bf7e362288bb4bc1680dddc29dcfce8b"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/correction-focused-final.xml",
+      "sha256": "e18259a5277ff0f502148343c1ec8b5c7d195a54fb79d51cf300ed659ea8bd6e"
+    }
+  ],
+  "authoritative": false,
+  "command": [
+    "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/bin/python",
+    "-m",
+    "pytest",
+    "-p",
+    "no:cacheprovider",
+    "-q",
+    "--junitxml=/Users/wangyiliang/market-research-workflow/stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/correction-focused-final.xml",
+    "tests/formal_release/test_stage2_candidate_intake.py"
+  ],
+  "cwd": "/Users/wangyiliang/market-research-workflow",
+  "elapsed_seconds": 23.25261688232422,
+  "environment": {
+    "MRW_STORE_AUTO_CREATE": "false",
+    "MRW_VECTOR_ENABLE_IVFFLAT": "false",
+    "MRW_VECTOR_REQUIRE_PGVECTOR": "false",
+    "MRW_VECTOR_STORE_AUTO_CREATE": "false",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "PYTHONHASHSEED": "0",
+    "PYTHONPATH": "/Users/wangyiliang/market-research-workflow:/Users/wangyiliang/market-research-workflow/src:/Users/wangyiliang/market-research-workflow/main/backend"
+  },
+  "exit_code": 0,
+  "isolation": "none added"
+}

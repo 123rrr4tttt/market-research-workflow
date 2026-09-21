@@ -11,13 +11,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 pytestmark = pytest.mark.contract
 
 _TARGET_MODULE_COUNTS = {
-    "agent_chat.py": 4,
-    "agent_sessions.py": 16,
-    "codex_auth.py": 5,
+    "agent_chat.py": 5,
+    "agent_sessions.py": 17,
+    "codex_auth.py": 6,
     "app.web_ui_routes": 1,
 }
 
 _JSON_ENVELOPE_PATHS = {
+    ("GET", "/api/v1/agent-chat/models"),
     ("GET", "/api/v1/agent-chat/capabilities"),
     ("POST", "/api/v1/agent-chat/turn"),
     ("POST", "/api/v1/agent-chat/approvals/{approval_id}/continue"),
@@ -29,6 +30,7 @@ _JSON_ENVELOPE_PATHS = {
     ("GET", "/api/v1/agent-sessions/{session_id}/artifacts"),
     ("GET", "/api/v1/agent-sessions/{session_id}/messages"),
     ("POST", "/api/v1/agent-sessions/{session_id}/messages"),
+    ("GET", "/api/v1/agent-sessions/{session_id}/failure-package"),
     ("GET", "/api/v1/agent-approvals"),
     ("POST", "/api/v1/agent-sessions/{session_id}/actions/retry-task"),
     ("POST", "/api/v1/agent-sessions/{session_id}/actions/cancel"),
@@ -38,6 +40,7 @@ _JSON_ENVELOPE_PATHS = {
     ("POST", "/api/v1/agent-approvals/{approval_id}/resolve"),
     ("GET", "/api/v1/codex-auth/status"),
     ("POST", "/api/v1/codex-auth/logout"),
+    ("POST", "/api/v1/codex-auth/token-sink/profile/revoke"),
     ("POST", "/api/v1/codex-auth/cli/bootstrap"),
 }
 

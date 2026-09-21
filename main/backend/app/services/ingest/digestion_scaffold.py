@@ -6,7 +6,7 @@ import re
 import sqlite3
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Annotated, Any, NoReturn, Protocol
 from urllib.parse import urlparse
 
 from app.contracts.ingest_digestion import (
@@ -36,6 +36,8 @@ from app.contracts.ingest_digestion import (
     LongCycleTaskStatus,
     NormalizedIngestEnvelope,
 )
+from functorial_kit import Failure
+from mrw_functorial_kit.core.provider_port_failures import ingest_long_cycle_failures
 
 DEFAULT_DOWNSTREAM_TARGETS = ("resource_pool", "report_generation", "writing")
 DEFAULT_CANDIDATE_WINDOWS = ("7d", "30d", "90d")
@@ -50,6 +52,53 @@ LONG_CYCLE_LIVE_SCHEDULER_EVIDENCE_FIELDS = (
     "digestion_output_readback",
     "downstream_handoff_observed",
 )
+
+_FAILURE_WITNESS = "test:test_ingest_service_a_failure_lifts"
+_FAILURE_CONTEXT_KEYS = frozenset(
+    {
+        "boundary_class",
+        "failure_family",
+        "operation",
+        "owner",
+        "public_exception",
+        "public_message",
+        "site",
+        "witness",
+    }
+)
+
+
+def _failure(code: str, message: str, *, operation: str, site: str, **details: Any) -> Failure:
+    context: dict[str, Any] = {
+        "boundary_class": "PURE_CONTRACT_FAILURE",
+        "failure_family": ingest_long_cycle_failures.name,
+        "operation": operation,
+        "owner": site,
+        "public_exception": "ValueError",
+        "public_message": message,
+        "site": site,
+        "witness": _FAILURE_WITNESS,
+    }
+    context.update(details)
+    return ingest_long_cycle_failures.fail(code, message, context)
+
+
+def _raise_failure(failure: Failure, *, cause: BaseException | None = None) -> NoReturn:
+    context = failure.context or {}
+    if (
+        not ingest_long_cycle_failures.matches(failure)
+        or _FAILURE_CONTEXT_KEYS - set(context)
+        or context.get("failure_family") != ingest_long_cycle_failures.name
+        or context.get("public_exception") != "ValueError"
+    ):
+        # kit:boundary owner=ingest.long_cycle.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_ingest_service_a_failure_lifts
+        raise TypeError("long-cycle failure lift context is incomplete or inconsistent")
+    message = str(context["public_message"])
+    if cause is None:
+        # kit:boundary owner=ingest.long_cycle.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=ingest.long_cycle.failure witness=test:test_ingest_service_a_failure_lifts
+        raise ValueError(message)
+    # kit:boundary owner=ingest.long_cycle.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=ingest.long_cycle.failure witness=test:test_ingest_service_a_failure_lifts
+    raise ValueError(message) from cause
 
 
 def taxonomy_baseline_contract() -> dict[str, list[str]]:
@@ -126,7 +175,9 @@ def _to_long_cycle_status(value: LongCycleTaskStatus | str | None) -> LongCycleT
     return LongCycleTaskStatus.PLANNED
 
 
-def _to_lifecycle_transition(value: LongCycleLifecycleTransition | str | None) -> LongCycleLifecycleTransition:
+def _try_to_lifecycle_transition(
+    value: LongCycleLifecycleTransition | str | None,
+) -> LongCycleLifecycleTransition | Failure:
     if isinstance(value, LongCycleLifecycleTransition):
         return value
     if hasattr(value, "value"):
@@ -136,7 +187,19 @@ def _to_lifecycle_transition(value: LongCycleLifecycleTransition | str | None) -
     for candidate in LongCycleLifecycleTransition:
         if candidate.value == raw:
             return candidate
-    raise ValueError(f"unknown long-cycle lifecycle transition: {value}")
+    return _failure(
+        "lifecycle_transition_invalid",
+        f"unknown long-cycle lifecycle transition: {value}",
+        operation="to_lifecycle_transition",
+        site="app.services.ingest.digestion_scaffold._to_lifecycle_transition",
+    )
+
+
+def _to_lifecycle_transition(value: LongCycleLifecycleTransition | str | None) -> LongCycleLifecycleTransition:
+    result = _try_to_lifecycle_transition(value)
+    if isinstance(result, Failure):
+        _raise_failure(result)
+    return result
 
 
 def _stable_json_hash(value: Any) -> str:
@@ -304,14 +367,14 @@ def _derive_window_bounds(task_window: str, anchor_day: date) -> tuple[date, dat
     return start, end
 
 
-def build_time_semantics(
+def _try_build_time_semantics(
     *,
     source_time: datetime | str | None = None,
     processed_time: datetime | str | None = None,
     task_window: str | None = None,
     task_window_start: date | None = None,
     task_window_end: date | None = None,
-) -> IngestTimeSemantics:
+) -> IngestTimeSemantics | Failure:
     normalized_processed = _parse_datetime(processed_time) or _utcnow()
     normalized_source = _parse_datetime(source_time)
     normalized_window = str(task_window or "").strip().lower() or None
@@ -327,13 +390,23 @@ def build_time_semantics(
     start = task_window_start
     end = task_window_end
     if (start is None) != (end is None):
-        raise ValueError("task_window_start and task_window_end must be provided together")
+        return _failure(
+            "window_bounds_invalid",
+            "task_window_start and task_window_end must be provided together",
+            operation="build_time_semantics",
+            site="app.services.ingest.digestion_scaffold.build_time_semantics",
+        )
     if start is None and end is None and normalized_window:
         derived = _derive_window_bounds(normalized_window, anchor_day=effective_time.date())
         if derived:
             start, end = derived
     if start and end and start > end:
-        raise ValueError("task_window_start must be <= task_window_end")
+        return _failure(
+            "window_bounds_invalid",
+            "task_window_start must be <= task_window_end",
+            operation="build_time_semantics",
+            site="app.services.ingest.digestion_scaffold.build_time_semantics",
+        )
 
     return IngestTimeSemantics(
         source_time=normalized_source,
@@ -346,6 +419,29 @@ def build_time_semantics(
         task_window_start=start,
         task_window_end=end,
     )
+
+
+def build_time_semantics(
+    *,
+    source_time: datetime | str | None = None,
+    processed_time: datetime | str | None = None,
+    task_window: str | None = None,
+    task_window_start: date | None = None,
+    task_window_end: date | None = None,
+) -> Annotated[
+    IngestTimeSemantics,
+    "kit:non-authoritative derived_as=view fact_source=source_time+processed_time+task_window_inputs witness=test:test_w03_ingest_ports_authority_metadata",
+]:
+    result = _try_build_time_semantics(
+        source_time=source_time,
+        processed_time=processed_time,
+        task_window=task_window,
+        task_window_start=task_window_start,
+        task_window_end=task_window_end,
+    )
+    if isinstance(result, Failure):
+        _raise_failure(result)
+    return result
 
 
 def build_normalized_ingest_envelope(
@@ -365,7 +461,10 @@ def build_normalized_ingest_envelope(
     task_window: str | None = None,
     task_window_start: date | None = None,
     task_window_end: date | None = None,
-) -> NormalizedIngestEnvelope:
+) -> Annotated[
+    NormalizedIngestEnvelope,
+    "kit:non-authoritative derived_as=view fact_source=ingestion_inputs+time_semantics+downstream_targets witness=test:test_w03_ingest_ports_authority_metadata",
+]:
     normalized_kind = classify_input_kind(entrypoint=entrypoint, artifact_source=artifact_source, doc_type=doc_type)
     normalized_format = _to_content_format(content_format) if content_format else infer_content_format(
         mime_type=mime_type,
@@ -414,7 +513,10 @@ def build_wave_a_scaffold(
     source_time: datetime | str | None = None,
     processed_time: datetime | str | None = None,
     task_window: str | None = None,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=ingestion_inputs+normalized_envelope+digestion_decision witness=test:test_w03_ingest_ports_authority_metadata",
+]:
     envelope = build_normalized_ingest_envelope(
         project_key=project_key,
         entrypoint=entrypoint,
@@ -439,7 +541,7 @@ def build_wave_a_scaffold(
     }
 
 
-def build_long_cycle_task_object(
+def _try_build_long_cycle_task_object(
     *,
     task_goal: str,
     input_selector: dict[str, Any] | None = None,
@@ -453,14 +555,24 @@ def build_long_cycle_task_object(
     output_ref: str | None = None,
     updated_at: datetime | str | None = None,
     reason: str | None = None,
-) -> LongCycleTaskObject:
+) -> LongCycleTaskObject | Failure:
     windows, rejected = _normalize_candidate_window_list(candidate_windows)
     if rejected:
-        raise ValueError(f"invalid candidate_windows: {', '.join(rejected)}")
+        return _failure(
+            "candidate_window_invalid",
+            f"invalid candidate_windows: {', '.join(rejected)}",
+            operation="build_long_cycle_task_object",
+            site="app.services.ingest.digestion_scaffold.build_long_cycle_task_object",
+        )
 
     normalized_selected = str(selected_window or "").strip().lower() or None
     if normalized_selected and normalized_selected not in windows:
-        raise ValueError("selected_window must be included in candidate_windows")
+        return _failure(
+            "candidate_window_invalid",
+            "selected_window must be included in candidate_windows",
+            operation="build_long_cycle_task_object",
+            site="app.services.ingest.digestion_scaffold.build_long_cycle_task_object",
+        )
 
     snapshot = None
     normalized_status = _to_long_cycle_status(status) if status else None
@@ -483,6 +595,43 @@ def build_long_cycle_task_object(
         output_target=output_target,
         last_run_snapshot=snapshot,
     )
+
+
+def build_long_cycle_task_object(
+    *,
+    task_goal: str,
+    input_selector: dict[str, Any] | None = None,
+    window_strategy: str = "prompt_time_density_priority",
+    candidate_windows: list[str] | tuple[str, ...] | None = None,
+    cadence: str = "manual",
+    priority_rule: str | None = "prefer_low_density_gap_fill",
+    output_target: str = "digestion_status_snapshot",
+    status: LongCycleTaskStatus | str | None = None,
+    selected_window: str | None = None,
+    output_ref: str | None = None,
+    updated_at: datetime | str | None = None,
+    reason: str | None = None,
+) -> Annotated[
+    LongCycleTaskObject,
+    "kit:non-authoritative derived_as=view fact_source=scaffold+task_record_contract witness=test:test_w03_ingest_ports_authority_metadata",
+]:
+    result = _try_build_long_cycle_task_object(
+        task_goal=task_goal,
+        input_selector=input_selector,
+        window_strategy=window_strategy,
+        candidate_windows=candidate_windows,
+        cadence=cadence,
+        priority_rule=priority_rule,
+        output_target=output_target,
+        status=status,
+        selected_window=selected_window,
+        output_ref=output_ref,
+        updated_at=updated_at,
+        reason=reason,
+    )
+    if isinstance(result, Failure):
+        _raise_failure(result)
+    return result
 
 
 def check_long_cycle_automation_status(
@@ -616,7 +765,10 @@ def build_long_cycle_persistent_task_record(
     event_time: datetime | str | None = None,
     reason: str | None = None,
     remaining_external_bindings: list[str] | None = None,
-) -> LongCyclePersistentTaskRecord:
+) -> Annotated[
+    LongCyclePersistentTaskRecord,
+    "kit:non-authoritative derived_as=view fact_source=task_object+automation_status witness=test:test_w03_ingest_ports_authority_metadata",
+]:
     automation = _as_automation_status(automation_status)
     normalized_status = _to_long_cycle_status(status) if status else automation.status
     now = _parse_datetime(event_time) or automation.normalized_input.processed_time or _utcnow()
@@ -670,7 +822,7 @@ _ALLOWED_TRANSITIONS: dict[LongCycleTaskStatus, set[LongCycleTaskStatus]] = {
 }
 
 
-def transition_long_cycle_persistent_task_record(
+def _try_transition_long_cycle_persistent_task_record(
     record: LongCyclePersistentTaskRecord | dict[str, Any],
     *,
     transition: LongCycleLifecycleTransition | str,
@@ -680,25 +832,52 @@ def transition_long_cycle_persistent_task_record(
     dispatch_ref: str | None = None,
     output_ref: str | None = None,
     error: str | None = None,
-) -> LongCyclePersistentTaskRecord:
+) -> LongCyclePersistentTaskRecord | Failure:
     current = record if isinstance(record, LongCyclePersistentTaskRecord) else LongCyclePersistentTaskRecord.model_validate(record)
-    normalized_transition = _to_lifecycle_transition(transition)
+    normalized_transition = _try_to_lifecycle_transition(transition)
+    if isinstance(normalized_transition, Failure):
+        return normalized_transition
     if normalized_transition == LongCycleLifecycleTransition.PLAN:
-        raise ValueError("plan is only valid as an initial lifecycle event")
+        return _failure(
+            "lifecycle_transition_invalid",
+            "plan is only valid as an initial lifecycle event",
+            operation="transition_long_cycle_persistent_task_record",
+            site="app.services.ingest.digestion_scaffold.transition_long_cycle_persistent_task_record",
+        )
     target_status = _TRANSITION_TARGETS[normalized_transition]
     allowed_targets = _ALLOWED_TRANSITIONS[current.status]
     if target_status not in allowed_targets:
-        raise ValueError(f"invalid long-cycle transition: {current.status.value} -> {target_status.value}")
+        return _failure(
+            "lifecycle_transition_invalid",
+            f"invalid long-cycle transition: {current.status.value} -> {target_status.value}",
+            operation="transition_long_cycle_persistent_task_record",
+            site="app.services.ingest.digestion_scaffold.transition_long_cycle_persistent_task_record",
+        )
 
     normalized_dispatch_ref = str(dispatch_ref or current.dispatch_ref or "").strip() or None
     normalized_output_ref = str(output_ref or current.output_ref or "").strip() or None
     normalized_error = str(error or "").strip() or None
     if normalized_transition == LongCycleLifecycleTransition.DISPATCH and not normalized_dispatch_ref:
-        raise ValueError("dispatch_ref is required for dispatch transition")
+        return _failure(
+            "required_ref_missing",
+            "dispatch_ref is required for dispatch transition",
+            operation="transition_long_cycle_persistent_task_record",
+            site="app.services.ingest.digestion_scaffold.transition_long_cycle_persistent_task_record",
+        )
     if normalized_transition == LongCycleLifecycleTransition.SUCCEED and not normalized_output_ref:
-        raise ValueError("output_ref is required for succeed transition")
+        return _failure(
+            "required_ref_missing",
+            "output_ref is required for succeed transition",
+            operation="transition_long_cycle_persistent_task_record",
+            site="app.services.ingest.digestion_scaffold.transition_long_cycle_persistent_task_record",
+        )
     if normalized_transition == LongCycleLifecycleTransition.FAIL and not (normalized_error or reason):
-        raise ValueError("error or reason is required for fail transition")
+        return _failure(
+            "required_ref_missing",
+            "error or reason is required for fail transition",
+            operation="transition_long_cycle_persistent_task_record",
+            site="app.services.ingest.digestion_scaffold.transition_long_cycle_persistent_task_record",
+        )
 
     now = _parse_datetime(event_time) or _utcnow()
     event = LongCycleTaskLifecycleEvent(
@@ -734,7 +913,33 @@ def transition_long_cycle_persistent_task_record(
     )
 
 
-def build_long_cycle_scheduler_dispatch_intent(
+def transition_long_cycle_persistent_task_record(
+    record: LongCyclePersistentTaskRecord | dict[str, Any],
+    *,
+    transition: LongCycleLifecycleTransition | str,
+    event_time: datetime | str | None = None,
+    actor: str | None = None,
+    reason: str | None = None,
+    dispatch_ref: str | None = None,
+    output_ref: str | None = None,
+    error: str | None = None,
+) -> LongCyclePersistentTaskRecord:
+    result = _try_transition_long_cycle_persistent_task_record(
+        record,
+        transition=transition,
+        event_time=event_time,
+        actor=actor,
+        reason=reason,
+        dispatch_ref=dispatch_ref,
+        output_ref=output_ref,
+        error=error,
+    )
+    if isinstance(result, Failure):
+        _raise_failure(result)
+    return result
+
+
+def _try_build_long_cycle_scheduler_dispatch_intent(
     record: LongCyclePersistentTaskRecord | dict[str, Any],
     *,
     scheduler_ref: str = "contract.scheduler.ingest_long_cycle",
@@ -742,18 +947,33 @@ def build_long_cycle_scheduler_dispatch_intent(
     worker_task_name: str = "ingest.long_cycle.digest.contract_only",
     run_at: datetime | str | None = None,
     live_dispatch: bool = False,
-) -> LongCycleSchedulerDispatchIntent:
+) -> LongCycleSchedulerDispatchIntent | Failure:
     current = record if isinstance(record, LongCyclePersistentTaskRecord) else LongCyclePersistentTaskRecord.model_validate(record)
     if current.status != LongCycleTaskStatus.READY:
-        raise ValueError("scheduler dispatch intent requires a ready persistent task")
+        return _failure(
+            "task_state_invalid",
+            "scheduler dispatch intent requires a ready persistent task",
+            operation="build_long_cycle_scheduler_dispatch_intent",
+            site="app.services.ingest.digestion_scaffold.build_long_cycle_scheduler_dispatch_intent",
+        )
     snapshot = current.task.last_run_snapshot
     selected_window = snapshot.selected_window if snapshot else None
     if not selected_window:
-        raise ValueError("scheduler dispatch intent requires selected_window")
+        return _failure(
+            "candidate_window_invalid",
+            "scheduler dispatch intent requires selected_window",
+            operation="build_long_cycle_scheduler_dispatch_intent",
+            site="app.services.ingest.digestion_scaffold.build_long_cycle_scheduler_dispatch_intent",
+        )
 
     normalized_scheduler_ref = str(scheduler_ref or "").strip()
     if not normalized_scheduler_ref:
-        raise ValueError("scheduler_ref is required for scheduler dispatch intent")
+        return _failure(
+            "required_ref_missing",
+            "scheduler_ref is required for scheduler dispatch intent",
+            operation="build_long_cycle_scheduler_dispatch_intent",
+            site="app.services.ingest.digestion_scaffold.build_long_cycle_scheduler_dispatch_intent",
+        )
     dispatch_time = _parse_datetime(run_at) or current.updated_at
     idempotency_payload = {
         "task_key": current.task_key,
@@ -787,6 +1007,31 @@ def build_long_cycle_scheduler_dispatch_intent(
         payload=payload,
         live_dispatch=bool(live_dispatch),
     )
+
+
+def build_long_cycle_scheduler_dispatch_intent(
+    record: LongCyclePersistentTaskRecord | dict[str, Any],
+    *,
+    scheduler_ref: str = "contract.scheduler.ingest_long_cycle",
+    queue_name: str = "ingest.long_cycle.contract",
+    worker_task_name: str = "ingest.long_cycle.digest.contract_only",
+    run_at: datetime | str | None = None,
+    live_dispatch: bool = False,
+) -> Annotated[
+    LongCycleSchedulerDispatchIntent,
+    "kit:non-authoritative derived_as=view fact_source=persistent_task_record+scheduler_contract witness=test:test_w03_ingest_ports_authority_metadata",
+]:
+    result = _try_build_long_cycle_scheduler_dispatch_intent(
+        record,
+        scheduler_ref=scheduler_ref,
+        queue_name=queue_name,
+        worker_task_name=worker_task_name,
+        run_at=run_at,
+        live_dispatch=live_dispatch,
+    )
+    if isinstance(result, Failure):
+        _raise_failure(result)
+    return result
 
 
 class LongCycleTaskRepository(Protocol):
@@ -852,7 +1097,7 @@ class InMemoryLongCycleTaskRepository:
         return list(self._writes)
 
 
-def _read_jsonl(path: Path) -> list[dict[str, Any]]:
+def _try_read_jsonl(path: Path) -> list[dict[str, Any]] | Failure:
     if not path.is_file():
         return []
     rows: list[dict[str, Any]] = []
@@ -863,11 +1108,32 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
         try:
             payload = json.loads(raw)
         except json.JSONDecodeError as exc:
-            raise ValueError(f"invalid JSONL row in {path}:{line_no}: {exc}") from exc
+            return _failure(
+                "jsonl_invalid",
+                f"invalid JSONL row in {path}:{line_no}: {exc}",
+                operation="read_jsonl",
+                site="app.services.ingest.digestion_scaffold._read_jsonl",
+                line_number=line_no,
+                path=str(path),
+            )
         if not isinstance(payload, dict):
-            raise ValueError(f"invalid JSONL row in {path}:{line_no}: expected object")
+            return _failure(
+                "jsonl_invalid",
+                f"invalid JSONL row in {path}:{line_no}: expected object",
+                operation="read_jsonl",
+                site="app.services.ingest.digestion_scaffold._read_jsonl",
+                line_number=line_no,
+                path=str(path),
+            )
         rows.append(payload)
     return rows
+
+
+def _read_jsonl(path: Path) -> list[dict[str, Any]]:
+    result = _try_read_jsonl(path)
+    if isinstance(result, Failure):
+        _raise_failure(result)
+    return result
 
 
 def _append_jsonl(path: Path, payload: dict[str, Any]) -> None:
@@ -912,7 +1178,15 @@ class JsonlLongCycleTaskRepository:
             task_key = str(row.get("task_key") or "").strip()
             event_payload = row.get("event")
             if not task_key or not isinstance(event_payload, dict):
-                raise ValueError(f"invalid lifecycle event row in {self._events_path}")
+                _raise_failure(
+                    _failure(
+                        "lifecycle_event_invalid",
+                        f"invalid lifecycle event row in {self._events_path}",
+                        operation="load_jsonl_repository",
+                        site="app.services.ingest.digestion_scaffold.JsonlLongCycleTaskRepository._load",
+                        path=str(self._events_path),
+                    )
+                )
             event = LongCycleTaskLifecycleEvent.model_validate(event_payload)
             self._events.setdefault(task_key, []).append(event)
         self._event_counts = {task_key: len(events) for task_key, events in self._events.items()}
@@ -1225,7 +1499,7 @@ def check_long_cycle_scheduler_e2e_contract(
         repo.upsert_task_record(initial_record, write_time=base_time),
     ]
     normalized_dispatch_ref = str(dispatch_ref or "").strip() or f"contract-dispatch://{dispatch_intent.dispatch_key}"
-    running = transition_long_cycle_persistent_task_record(
+    running_result = _try_transition_long_cycle_persistent_task_record(
         initial_record,
         transition=LongCycleLifecycleTransition.DISPATCH,
         dispatch_ref=normalized_dispatch_ref,
@@ -1233,6 +1507,9 @@ def check_long_cycle_scheduler_e2e_contract(
         actor="ingest_long_cycle_scheduler_e2e_contract",
         reason="dispatch intent recorded without live scheduler execution",
     )
+    if isinstance(running_result, Failure):
+        _raise_failure(running_result)
+    running = running_result
     writes.append(repo.upsert_task_record(running, write_time=dispatch_time))
 
     normalized_output_ref = str(output_ref or "").strip() or (
@@ -1726,7 +2003,7 @@ def check_long_cycle_scheduler_handoff_trace_contract(
     return check.model_dump(mode="json")
 
 
-def build_long_cycle_scheduler_queue_item(
+def _try_build_long_cycle_scheduler_queue_item(
     dispatch_intent: LongCycleSchedulerDispatchIntent | dict[str, Any],
     *,
     repository_ref: str,
@@ -1735,7 +2012,7 @@ def build_long_cycle_scheduler_queue_item(
     queue_state: str = "queued_contract_only",
     queue_handoff_mode: str = "durable_repository_replay_contract_only",
     live_enqueue: bool = False,
-) -> LongCycleSchedulerQueueItem:
+) -> LongCycleSchedulerQueueItem | Failure:
     """Build a scheduler queue handoff item."""
 
     intent = (
@@ -1745,7 +2022,12 @@ def build_long_cycle_scheduler_queue_item(
     )
     normalized_repository_ref = str(repository_ref or "").strip()
     if not normalized_repository_ref:
-        raise ValueError("repository_ref is required for long-cycle scheduler queue item")
+        return _failure(
+            "required_ref_missing",
+            "repository_ref is required for long-cycle scheduler queue item",
+            operation="build_long_cycle_scheduler_queue_item",
+            site="app.services.ingest.digestion_scaffold.build_long_cycle_scheduler_queue_item",
+        )
     normalized_dispatch_ref = str(dispatch_ref or "").strip() or f"contract-dispatch://{intent.dispatch_key}"
     normalized_enqueue_after = _parse_datetime(enqueue_after) or intent.run_at
     queue_key_payload = {
@@ -1790,15 +2072,53 @@ def build_long_cycle_scheduler_queue_item(
     )
 
 
+def build_long_cycle_scheduler_queue_item(
+    dispatch_intent: LongCycleSchedulerDispatchIntent | dict[str, Any],
+    *,
+    repository_ref: str,
+    dispatch_ref: str | None = None,
+    enqueue_after: datetime | str | None = None,
+    queue_state: str = "queued_contract_only",
+    queue_handoff_mode: str = "durable_repository_replay_contract_only",
+    live_enqueue: bool = False,
+) -> Annotated[
+    LongCycleSchedulerQueueItem,
+    "kit:non-authoritative derived_as=view fact_source=dispatch_intent+queue_contract witness=test:test_w03_ingest_ports_authority_metadata",
+]:
+    result = _try_build_long_cycle_scheduler_queue_item(
+        dispatch_intent,
+        repository_ref=repository_ref,
+        dispatch_ref=dispatch_ref,
+        enqueue_after=enqueue_after,
+        queue_state=queue_state,
+        queue_handoff_mode=queue_handoff_mode,
+        live_enqueue=live_enqueue,
+    )
+    if isinstance(result, Failure):
+        _raise_failure(result)
+    return result
+
+
 class RepoLocalLongCycleSchedulerQueue:
     def __init__(self) -> None:
         self._items: list[LongCycleSchedulerQueueItem] = []
         self._consumed: list[LongCycleSchedulerQueueItem] = []
 
     def enqueue(self, item: LongCycleSchedulerQueueItem | dict[str, Any]) -> LongCycleSchedulerQueueItem:
+        result = self.try_enqueue(item)
+        if isinstance(result, Failure):
+            _raise_failure(result)
+        return result
+
+    def try_enqueue(self, item: LongCycleSchedulerQueueItem | dict[str, Any]) -> LongCycleSchedulerQueueItem | Failure:
         current = item if isinstance(item, LongCycleSchedulerQueueItem) else LongCycleSchedulerQueueItem.model_validate(item)
         if current.live_enqueue is not True:
-            raise ValueError("repo-local scheduler queue requires live_enqueue=true")
+            return _failure(
+                "live_enqueue_required",
+                "repo-local scheduler queue requires live_enqueue=true",
+                operation="repo_local_scheduler_queue.enqueue",
+                site="app.services.ingest.digestion_scaffold.RepoLocalLongCycleSchedulerQueue.enqueue",
+            )
         for existing in self._items:
             if existing.idempotency_key == current.idempotency_key:
                 return existing
@@ -1806,6 +2126,12 @@ class RepoLocalLongCycleSchedulerQueue:
         return current
 
     def consume_next(self, *, queue_name: str | None = None) -> LongCycleSchedulerQueueItem:
+        result = self.try_consume_next(queue_name=queue_name)
+        if isinstance(result, Failure):
+            _raise_failure(result)
+        return result
+
+    def try_consume_next(self, *, queue_name: str | None = None) -> LongCycleSchedulerQueueItem | Failure:
         normalized_queue_name = str(queue_name or "").strip() or None
         for index, item in enumerate(self._items):
             if normalized_queue_name and item.queue_name != normalized_queue_name:
@@ -1823,7 +2149,12 @@ class RepoLocalLongCycleSchedulerQueue:
             del self._items[index]
             self._consumed.append(consumed)
             return consumed
-        raise ValueError("repo-local scheduler queue has no consumable item")
+        return _failure(
+            "queue_empty",
+            "repo-local scheduler queue has no consumable item",
+            operation="repo_local_scheduler_queue.consume_next",
+            site="app.services.ingest.digestion_scaffold.RepoLocalLongCycleSchedulerQueue.consume_next",
+        )
 
     def list_queued(self) -> list[LongCycleSchedulerQueueItem]:
         return list(self._items)
@@ -1839,7 +2170,10 @@ def build_long_cycle_downstream_handoff(
     repository_ref: str,
     consumed_at: datetime,
     downstream_targets: list[str] | tuple[str, ...] | None = None,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=persistent_task_records+downstream_contract witness=test:test_w03_ingest_ports_authority_metadata",
+]:
     targets = []
     seen: set[str] = set()
     for item in downstream_targets or DEFAULT_DOWNSTREAM_TARGETS:
@@ -1878,7 +2212,7 @@ def build_long_cycle_downstream_handoff(
     }
 
 
-def consume_repo_local_long_cycle_queue_item(
+def _try_consume_repo_local_long_cycle_queue_item(
     *,
     queue: RepoLocalLongCycleSchedulerQueue,
     repository: SqliteLongCycleTaskRepository,
@@ -1886,17 +2220,29 @@ def consume_repo_local_long_cycle_queue_item(
     consumed_at: datetime | str | None = None,
     output_ref: str | None = None,
     downstream_targets: list[str] | tuple[str, ...] | None = None,
-) -> dict[str, Any]:
-    consumed_item = queue.consume_next(queue_name=queue_name)
+) -> dict[str, Any] | Failure:
+    consumed_item = queue.try_consume_next(queue_name=queue_name)
+    if isinstance(consumed_item, Failure):
+        return consumed_item
     initial_record = repository.get_task_record(consumed_item.task_key)
     if initial_record is None:
-        raise ValueError(f"repo-local worker could not read task record {consumed_item.task_key}")
+        return _failure(
+            "task_record_missing",
+            f"repo-local worker could not read task record {consumed_item.task_key}",
+            operation="consume_repo_local_long_cycle_queue_item",
+            site="app.services.ingest.digestion_scaffold.consume_repo_local_long_cycle_queue_item",
+        )
     if initial_record.status != LongCycleTaskStatus.READY:
-        raise ValueError(f"repo-local worker requires ready task, got {initial_record.status.value}")
+        return _failure(
+            "task_state_invalid",
+            f"repo-local worker requires ready task, got {initial_record.status.value}",
+            operation="consume_repo_local_long_cycle_queue_item",
+            site="app.services.ingest.digestion_scaffold.consume_repo_local_long_cycle_queue_item",
+        )
 
     dispatch_time = _parse_datetime(consumed_at) or consumed_item.run_at
     completed_time = dispatch_time + timedelta(minutes=3)
-    running = transition_long_cycle_persistent_task_record(
+    running_result = _try_transition_long_cycle_persistent_task_record(
         initial_record,
         transition=LongCycleLifecycleTransition.DISPATCH,
         dispatch_ref=consumed_item.dispatch_ref,
@@ -1904,12 +2250,15 @@ def consume_repo_local_long_cycle_queue_item(
         actor=consumed_item.worker_task_name,
         reason="repo-local worker consumed scheduler queue item",
     )
+    if isinstance(running_result, Failure):
+        return running_result
+    running = running_result
     dispatch_write = repository.upsert_task_record(running, write_time=dispatch_time)
 
     normalized_output_ref = str(output_ref or "").strip() or (
         f"{repository.repository_ref}/digestion_outputs/{consumed_item.task_key}/{consumed_item.selected_window}"
     )
-    completed = transition_long_cycle_persistent_task_record(
+    completed_result = _try_transition_long_cycle_persistent_task_record(
         running,
         transition=LongCycleLifecycleTransition.SUCCEED,
         output_ref=normalized_output_ref,
@@ -1917,6 +2266,9 @@ def consume_repo_local_long_cycle_queue_item(
         actor=consumed_item.worker_task_name,
         reason="repo-local digestion output written and ready for downstream handoff",
     )
+    if isinstance(completed_result, Failure):
+        return completed_result
+    completed = completed_result
     complete_write = repository.upsert_task_record(completed, write_time=completed_time)
 
     reopened = repository.reopen()
@@ -1960,6 +2312,28 @@ def consume_repo_local_long_cycle_queue_item(
         "readback_output_ref": readback_record.output_ref if readback_record else None,
         "downstream_handoff": downstream_handoff,
     }
+
+
+def consume_repo_local_long_cycle_queue_item(
+    *,
+    queue: RepoLocalLongCycleSchedulerQueue,
+    repository: SqliteLongCycleTaskRepository,
+    queue_name: str | None = None,
+    consumed_at: datetime | str | None = None,
+    output_ref: str | None = None,
+    downstream_targets: list[str] | tuple[str, ...] | None = None,
+) -> dict[str, Any]:
+    result = _try_consume_repo_local_long_cycle_queue_item(
+        queue=queue,
+        repository=repository,
+        queue_name=queue_name,
+        consumed_at=consumed_at,
+        output_ref=output_ref,
+        downstream_targets=downstream_targets,
+    )
+    if isinstance(result, Failure):
+        _raise_failure(result)
+    return result
 
 
 def summarize_long_cycle_repository_event_replay(
@@ -2340,7 +2714,7 @@ def check_long_cycle_repo_local_live_scheduler_queue_handoff_replay_contract(
     return check.model_dump(mode="json")
 
 
-def check_long_cycle_scheduler_queue_handoff_replay_contract(
+def _try_check_long_cycle_scheduler_queue_handoff_replay_contract(
     *,
     repository: JsonlLongCycleTaskRepository | SqliteLongCycleTaskRepository,
     scheduler_runtime_configured: bool = False,
@@ -2349,12 +2723,17 @@ def check_long_cycle_scheduler_queue_handoff_replay_contract(
     scheduler_queue: RepoLocalLongCycleSchedulerQueue | None = None,
     downstream_targets: list[str] | tuple[str, ...] | None = None,
     **scheduler_e2e_kwargs: Any,
-) -> dict[str, Any]:
+) -> dict[str, Any] | Failure:
     """Validate scheduler intent -> queue item -> durable repository replay without live closure."""
 
     if repo_local_live:
         if not isinstance(repository, SqliteLongCycleTaskRepository):
-            raise ValueError("repo-local live scheduler queue replay requires SqliteLongCycleTaskRepository")
+            return _failure(
+                "repository_type_invalid",
+                "repo-local live scheduler queue replay requires SqliteLongCycleTaskRepository",
+                operation="check_long_cycle_scheduler_queue_handoff_replay_contract",
+                site="app.services.ingest.digestion_scaffold.check_long_cycle_scheduler_queue_handoff_replay_contract",
+            )
         return check_long_cycle_repo_local_live_scheduler_queue_handoff_replay_contract(
             repository=repository,
             scheduler_queue=scheduler_queue,
@@ -2483,3 +2862,42 @@ def check_long_cycle_scheduler_queue_handoff_replay_contract(
         live_scheduler_closure_validated=handoff.live_scheduler_closure_validated,
     )
     return check.model_dump(mode="json")
+
+
+def check_long_cycle_scheduler_queue_handoff_replay_contract(
+    *,
+    repository: JsonlLongCycleTaskRepository | SqliteLongCycleTaskRepository,
+    scheduler_runtime_configured: bool = False,
+    live_scheduler_evidence: dict[str, Any] | None = None,
+    repo_local_live: bool = False,
+    scheduler_queue: RepoLocalLongCycleSchedulerQueue | None = None,
+    downstream_targets: list[str] | tuple[str, ...] | None = None,
+    **scheduler_e2e_kwargs: Any,
+) -> dict[str, Any]:
+    result = _try_check_long_cycle_scheduler_queue_handoff_replay_contract(
+        repository=repository,
+        scheduler_runtime_configured=scheduler_runtime_configured,
+        live_scheduler_evidence=live_scheduler_evidence,
+        repo_local_live=repo_local_live,
+        scheduler_queue=scheduler_queue,
+        downstream_targets=downstream_targets,
+        **scheduler_e2e_kwargs,
+    )
+    if isinstance(result, Failure):
+        _raise_failure(result)
+    return result
+
+
+# Typed contract probes remain available for callers that must inspect a failure
+# without crossing the retained ValueError compatibility boundary.
+try_to_lifecycle_transition = _try_to_lifecycle_transition
+try_build_time_semantics = _try_build_time_semantics
+try_build_long_cycle_task_object = _try_build_long_cycle_task_object
+try_transition_long_cycle_persistent_task_record = _try_transition_long_cycle_persistent_task_record
+try_build_long_cycle_scheduler_dispatch_intent = _try_build_long_cycle_scheduler_dispatch_intent
+try_read_jsonl = _try_read_jsonl
+try_build_long_cycle_scheduler_queue_item = _try_build_long_cycle_scheduler_queue_item
+try_consume_repo_local_long_cycle_queue_item = _try_consume_repo_local_long_cycle_queue_item
+try_check_long_cycle_scheduler_queue_handoff_replay_contract = (
+    _try_check_long_cycle_scheduler_queue_handoff_replay_contract
+)

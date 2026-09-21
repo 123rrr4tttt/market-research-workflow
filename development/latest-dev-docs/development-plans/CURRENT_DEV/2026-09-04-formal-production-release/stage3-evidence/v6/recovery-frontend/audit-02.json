@@ -1,0 +1,25 @@
+{
+  "name": "audit-02",
+  "command": [
+    "pnpm",
+    "audit",
+    "--prod",
+    "--audit-level",
+    "high",
+    "--json"
+  ],
+  "cwd": "/private/tmp/mrw-stage3-v6-frontend-recovery-20260907/main/frontend-modern",
+  "candidate_commit": "909eb608e538b6427bcbacca974f1efb05fef611",
+  "candidate_tree": "a60b795e509aa5dc479904a321fba32ed0ab9ab2",
+  "started": "2026-09-06T21:59:11.144287+00:00",
+  "exit_code": 0,
+  "environment_overrides": {
+    "CI": "true",
+    "STORYBOOK_DISABLE_TELEMETRY": "1",
+    "VITE_API_PROXY_TARGET": "http://127.0.0.1:1",
+    "npm_config_cache": "/private/tmp/mrw-stage3-v6-frontend-recovery-20260907/npm-cache"
+  },
+  "log": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-frontend/audit-02.log",
+  "log_sha256": "d3a70443153a807dcc97bc290b04881dd241fd4dec39430e460d5955839fee12",
+  "authoritative": false
+}

@@ -13,6 +13,10 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping
+try:
+    from ._cli_runtime import repo_root as _repo_root
+except ImportError:  # direct script execution
+    from _cli_runtime import repo_root as _repo_root
 
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
@@ -43,10 +47,6 @@ CHROME_CANDIDATES = [
 ]
 
 TargetRunner = Callable[[Mapping[str, Any], str, int], dict[str, Any]]
-
-
-def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[3]
 
 
 def _utc_now() -> str:

@@ -1,0 +1,74 @@
+{
+  "schema": "mrw.stage5.observability.authority-signal-closure.v1",
+  "authoritative": false,
+  "scope": "LOCAL_STAGE5_OBSERVABILITY_ONLY / NOT_AUTHORITY",
+  "completed_at": "2026-09-13T10:45:38Z",
+  "implementation": {
+    "typed_signal": {
+      "read_source": "postgres.project_scope_registry+runtime_step_authorizations+runtime_capability_authority",
+      "required_identity": [
+        "task",
+        "tenant",
+        "project_scope",
+        "capability",
+        "step",
+        "epoch"
+      ],
+      "unknown_when": [
+        "task_id absent",
+        "tenant_id absent",
+        "project scope row absent or malformed",
+        "step authorization row absent or ambiguous",
+        "capability authority row absent or ambiguous",
+        "authority read error"
+      ],
+      "mismatch_only_when": [
+        "tenant/project binding differs",
+        "step project scope digest or registry revision differs",
+        "capability binding differs",
+        "step claim authority epoch differs from capability authority epoch"
+      ]
+    },
+    "metric_semantics": {
+      "observed_match": "value 0.0",
+      "observed_mismatch": "value 1.0",
+      "not_observed_or_unknown": "authority.mismatch observation omitted; rule stays unknown"
+    },
+    "changed_files": [
+      "main/backend/app/main.py",
+      "main/backend/app/production_observability/__init__.py",
+      "main/backend/app/production_observability/health.py",
+      "main/backend/app/production_observability/runtime.py",
+      "main/backend/tests/production_observability/test_stage5_runtime_health_gap_rules_unittest.py",
+      "main/backend/tests/production_observability/test_stage5_runtime_health_source_wiring_unittest.py"
+    ]
+  },
+  "verification": [
+    {
+      "command": "PYTHONPATH=main/backend:src main/backend/.venv311/bin/python -m pytest -q main/backend/tests/production_observability/test_stage5_runtime_health_gap_rules_unittest.py main/backend/tests/production_observability/test_stage5_runtime_health_source_wiring_unittest.py",
+      "exit_code": 0,
+      "result": "15 passed, 15 warnings"
+    },
+    {
+      "command": "PYTHONPATH=main/backend:src main/backend/.venv311/bin/python -m py_compile main/backend/app/main.py main/backend/app/production_observability/__init__.py main/backend/app/production_observability/health.py main/backend/app/production_observability/runtime.py main/backend/tests/production_observability/test_stage5_runtime_health_gap_rules_unittest.py main/backend/tests/production_observability/test_stage5_runtime_health_source_wiring_unittest.py",
+      "exit_code": 0,
+      "result": "passed"
+    },
+    {
+      "command": "git diff --check -- main/backend/app/main.py main/backend/app/production_observability/__init__.py main/backend/app/production_observability/health.py main/backend/app/production_observability/runtime.py main/backend/tests/production_observability/test_stage5_runtime_health_gap_rules_unittest.py main/backend/tests/production_observability/test_stage5_runtime_health_source_wiring_unittest.py",
+      "exit_code": 0,
+      "result": "passed"
+    }
+  ],
+  "test_coverage": [
+    "normal authority identity -> observed value 0",
+    "real typed epoch mismatch -> value 1 and triggered alert",
+    "matching authority read with controller-derived receipt -> recovered alert",
+    "absent task/tenant or unknown authority read -> observation omitted and alert unknown",
+    "source wiring maps typed authority read into RuntimeBindingSignal"
+  ],
+  "risks": [
+    "No live PostgreSQL task row was seeded in this focused closure; integration review still needs to exercise the exact task_id/tenant_id query against the shared Stage5 task data.",
+    "No production receipt, production canonical write, provider call, release authority, or Stage 6 admission is claimed."
+  ]
+}

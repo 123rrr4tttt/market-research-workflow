@@ -4,7 +4,13 @@ import json
 import re
 from typing import Any
 
-from .contracts import AgentCoreRequest, CoreModelStep, CoreProvider, CoreToolCall, CoreToolSpec
+from .contracts import (
+    AgentCoreRequest,
+    CoreModelStep,
+    CoreProvider,
+    CoreToolCall,
+    CoreToolSpec,
+)
 from .tool_window import extract_source_library_item_key
 
 
@@ -20,7 +26,9 @@ class JsonCoreProvider(CoreProvider):
     _shared_model_key: tuple[Any, ...] | None = None
     _shared_model: Any | None = None
 
-    def __init__(self, *, chat_model: Any | None = None, chat_model_factory: Any | None = None) -> None:
+    def __init__(
+        self, *, chat_model: Any | None = None, chat_model_factory: Any | None = None
+    ) -> None:
         self.chat_model = chat_model
         self.chat_model_factory = chat_model_factory
 
@@ -53,12 +61,16 @@ class JsonCoreProvider(CoreProvider):
             if parsed is not None:
                 break
             invalid_responses.append(text[:2000])
-            if attempt == 1 and self._fallback_tool_step_if_protocol_violated(
-                request=request,
-                tools=tools,
-                transcript=transcript,
-                invalid_text=text,
-            ) is not None:
+            if (
+                attempt == 1
+                and self._fallback_tool_step_if_protocol_violated(
+                    request=request,
+                    tools=tools,
+                    transcript=transcript,
+                    invalid_text=text,
+                )
+                is not None
+            ):
                 continue
             break
         if parsed is None:
@@ -70,10 +82,21 @@ class JsonCoreProvider(CoreProvider):
             )
             if fallback is not None:
                 return fallback
-            return CoreModelStep.final(text or "我现在无法生成有效回答。", model_path="json_core_provider", parse_error="invalid_json")
-        step_type = str(parsed.get("type") or parsed.get("step_type") or parsed.get("action") or "").strip()
+            return CoreModelStep.final(
+                text or "我现在无法生成有效回答。",
+                model_path="json_core_provider",
+                parse_error="invalid_json",
+            )
+        step_type = str(
+            parsed.get("type") or parsed.get("step_type") or parsed.get("action") or ""
+        ).strip()
         if step_type in {"final", "final_answer", "answer_direct", "assistant_message"}:
-            final_content = str(parsed.get("content") or parsed.get("answer") or parsed.get("final_answer") or "").strip()
+            final_content = str(
+                parsed.get("content")
+                or parsed.get("answer")
+                or parsed.get("final_answer")
+                or ""
+            ).strip()
             writing_create_step = self._writing_create_step_if_needed(
                 request=request,
                 tools=tools,
@@ -82,7 +105,9 @@ class JsonCoreProvider(CoreProvider):
             )
             if writing_create_step is not None:
                 return writing_create_step
-            read_step = self._followup_read_step_if_needed(request=request, tools=tools, transcript=transcript)
+            read_step = self._followup_read_step_if_needed(
+                request=request, tools=tools, transcript=transcript
+            )
             if read_step is not None:
                 return read_step
             fallback = self._fallback_tool_step_if_protocol_violated(
@@ -95,7 +120,9 @@ class JsonCoreProvider(CoreProvider):
                 return fallback
             return CoreModelStep.final(final_content, model_path="json_core_provider")
         if step_type in {"tool_calls", "call_tools"}:
-            writing_done_step = self._writing_create_done_final_if_needed(request=request, transcript=transcript)
+            writing_done_step = self._writing_create_done_final_if_needed(
+                request=request, transcript=transcript
+            )
             if writing_done_step is not None:
                 return writing_done_step
             writing_create_step = self._writing_create_step_if_needed(
@@ -107,7 +134,9 @@ class JsonCoreProvider(CoreProvider):
             if writing_create_step is not None:
                 return writing_create_step
             tool_calls: list[CoreToolCall] = []
-            for index, item in enumerate(list(parsed.get("tool_calls") or parsed.get("tools") or []), start=1):
+            for index, item in enumerate(
+                list(parsed.get("tool_calls") or parsed.get("tools") or []), start=1
+            ):
                 if not isinstance(item, dict):
                     continue
                 tool_name = str(item.get("tool_name") or item.get("name") or "").strip()
@@ -120,12 +149,19 @@ class JsonCoreProvider(CoreProvider):
                     CoreToolCall(
                         tool_name=tool_name,
                         arguments=dict(arguments),
-                        call_id=str(item.get("call_id") or f"{request.turn_id}:tool:{index}:{tool_name}"),
+                        call_id=str(
+                            item.get("call_id")
+                            or f"{request.turn_id}:tool:{index}:{tool_name}"
+                        ),
                         reason=str(item.get("reason") or "").strip() or None,
                     )
                 )
             return CoreModelStep.tools(*tool_calls, model_path="json_core_provider")
-        return CoreModelStep.final(str(parsed.get("content") or text or "").strip(), model_path="json_core_provider", parse_error="unknown_step")
+        return CoreModelStep.final(
+            str(parsed.get("content") or text or "").strip(),
+            model_path="json_core_provider",
+            parse_error="unknown_step",
+        )
 
     @staticmethod
     def _writing_create_done_final_if_needed(
@@ -133,21 +169,41 @@ class JsonCoreProvider(CoreProvider):
         request: AgentCoreRequest,
         transcript: list[dict[str, Any]],
     ) -> CoreModelStep | None:
-        if not JsonCoreProvider._asks_to_create_workbench_document(str(request.message or ""), transcript):
+        if not JsonCoreProvider._asks_to_create_workbench_document(
+            str(request.message or ""), transcript
+        ):
             return None
         for item in reversed(list(transcript or [])):
-            if not isinstance(item, dict) or item.get("role") != "tool" or not isinstance(item.get("tool_result"), dict):
+            if (
+                not isinstance(item, dict)
+                or item.get("role") != "tool"
+                or not isinstance(item.get("tool_result"), dict)
+            ):
                 continue
             result = dict(item.get("tool_result") or {})
             if str(result.get("tool_name") or "") != "writing.document.create":
                 continue
             if str(result.get("status") or "") != "completed":
                 return None
-            structured = result.get("structured_content") if isinstance(result.get("structured_content"), dict) else {}
-            document = structured.get("document") if isinstance(structured.get("document"), dict) else {}
+            structured = (
+                result.get("structured_content")
+                if isinstance(result.get("structured_content"), dict)
+                else {}
+            )
+            document = (
+                structured.get("document")
+                if isinstance(structured.get("document"), dict)
+                else {}
+            )
             doc_id = structured.get("doc_id") or document.get("id")
-            title = str(document.get("title") or structured.get("title") or "新建稿件").strip()
-            source_refs = structured.get("source_refs") if isinstance(structured.get("source_refs"), list) else []
+            title = str(
+                document.get("title") or structured.get("title") or "新建稿件"
+            ).strip()
+            source_refs = (
+                structured.get("source_refs")
+                if isinstance(structured.get("source_refs"), list)
+                else []
+            )
             refs = f"；引用线索 {len(source_refs)} 条" if source_refs else ""
             return CoreModelStep.final(
                 f"已在写作工作台新建文档《{title}》（ID: {doc_id}）{refs}。正文已经写入该文档。",
@@ -170,18 +226,29 @@ class JsonCoreProvider(CoreProvider):
         executed_tools = {
             str((item.get("tool_result") or {}).get("tool_name") or "").strip()
             for item in list(transcript or [])
-            if isinstance(item, dict) and item.get("role") == "tool" and isinstance(item.get("tool_result"), dict)
+            if isinstance(item, dict)
+            and item.get("role") == "tool"
+            and isinstance(item.get("tool_result"), dict)
         }
         if "writing.document.create" in executed_tools:
             return None
         message = str(request.message or "").strip()
         if not JsonCoreProvider._asks_to_create_workbench_document(message, transcript):
             return None
-        body_md = JsonCoreProvider._draft_body_for_writing_create(final_content=final_content, transcript=transcript)
+        body_md = JsonCoreProvider._draft_body_for_writing_create(
+            final_content=final_content, transcript=transcript
+        )
         if not body_md:
             return None
-        title = JsonCoreProvider._title_for_writing_create(message=message, body_md=body_md)
-        source_refs = sorted({f"record:{item}" for item in re.findall(r"记录\s*([0-9A-Za-z_-]+)", body_md)})
+        title = JsonCoreProvider._title_for_writing_create(
+            message=message, body_md=body_md
+        )
+        source_refs = sorted(
+            {
+                f"record:{item}"
+                for item in re.findall(r"记录\s*([0-9A-Za-z_-]+)", body_md)
+            }
+        )
         return CoreModelStep.tools(
             CoreToolCall(
                 tool_name="writing.document.create",
@@ -204,7 +271,9 @@ class JsonCoreProvider(CoreProvider):
         )
 
     @staticmethod
-    def _asks_to_create_workbench_document(message: str, transcript: list[dict[str, Any]]) -> bool:
+    def _asks_to_create_workbench_document(
+        message: str, transcript: list[dict[str, Any]]
+    ) -> bool:
         text = str(message or "").strip()
         recent_user = " ".join(
             str(item.get("content") or "")
@@ -212,8 +281,14 @@ class JsonCoreProvider(CoreProvider):
             if isinstance(item, dict) and item.get("role") == "user"
         )
         combined = f"{recent_user}\n{text}".lower()
-        mentions_workbench = any(token in combined for token in ("写作工作台", "工作台", "writing workbench", "workbench"))
-        mentions_document = any(token in combined for token in ("文档", "稿件", "文稿", "正文", "文章", "draft", "document"))
+        mentions_workbench = any(
+            token in combined
+            for token in ("写作工作台", "工作台", "writing workbench", "workbench")
+        )
+        mentions_document = any(
+            token in combined
+            for token in ("文档", "稿件", "文稿", "正文", "文章", "draft", "document")
+        )
         create_or_write = any(
             token in combined
             for token in (
@@ -232,10 +307,14 @@ class JsonCoreProvider(CoreProvider):
                 "save into",
             )
         )
-        return create_or_write and (mentions_workbench or mentions_document or "写作" in combined)
+        return create_or_write and (
+            mentions_workbench or mentions_document or "写作" in combined
+        )
 
     @classmethod
-    def _draft_body_for_writing_create(cls, *, final_content: str, transcript: list[dict[str, Any]]) -> str:
+    def _draft_body_for_writing_create(
+        cls, *, final_content: str, transcript: list[dict[str, Any]]
+    ) -> str:
         candidates = [str(final_content or "")]
         candidates.extend(
             str(item.get("content") or "")
@@ -283,20 +362,42 @@ class JsonCoreProvider(CoreProvider):
         executed_tools = {
             str((item.get("tool_result") or {}).get("tool_name") or "").strip()
             for item in list(transcript or [])
-            if isinstance(item, dict) and item.get("role") == "tool" and isinstance(item.get("tool_result"), dict)
+            if isinstance(item, dict)
+            and item.get("role") == "tool"
+            and isinstance(item.get("tool_result"), dict)
         }
-        if executed_tools.intersection({"project.structured_data.item.read", "project.structured_data.items.read", "project.context.resource.read", "writing.document.read", "writing.document.section.read"}):
+        if executed_tools.intersection(
+            {
+                "project.structured_data.item.read",
+                "project.structured_data.items.read",
+                "project.context.resource.read",
+                "writing.document.read",
+                "writing.document.section.read",
+            }
+        ):
             return None
         calls: list[CoreToolCall] = []
         for item in reversed(list(transcript or [])):
-            if not isinstance(item, dict) or item.get("role") != "tool" or not isinstance(item.get("tool_result"), dict):
+            if (
+                not isinstance(item, dict)
+                or item.get("role") != "tool"
+                or not isinstance(item.get("tool_result"), dict)
+            ):
                 continue
             result = dict(item.get("tool_result") or {})
             structured = result.get("structured_content")
             if not isinstance(structured, dict):
                 continue
-            payload = structured.get("result") if isinstance(structured.get("result"), dict) else structured
-            manifest = payload.get("model_evidence_manifest") if isinstance(payload, dict) else None
+            payload = (
+                structured.get("result")
+                if isinstance(structured.get("result"), dict)
+                else structured
+            )
+            manifest = (
+                payload.get("model_evidence_manifest")
+                if isinstance(payload, dict)
+                else None
+            )
             if not isinstance(manifest, list):
                 continue
             for index, evidence in enumerate(manifest[:2], start=1):
@@ -304,7 +405,11 @@ class JsonCoreProvider(CoreProvider):
                     continue
                 read_tool = str(evidence.get("read_tool") or "").strip()
                 arguments = evidence.get("read_arguments")
-                if not read_tool or read_tool not in available or not isinstance(arguments, dict):
+                if (
+                    not read_tool
+                    or read_tool not in available
+                    or not isinstance(arguments, dict)
+                ):
                     continue
                 calls.append(
                     CoreToolCall(
@@ -331,16 +436,23 @@ class JsonCoreProvider(CoreProvider):
         from app.services.llm.provider import get_local_fallback_chat
         from app.settings.config import settings
 
-        timeout = int(getattr(settings, "agent_chat_model_answer_timeout_seconds", 45) or 45)
+        timeout = int(
+            getattr(settings, "agent_chat_model_answer_timeout_seconds", 45) or 45
+        )
         cache_key = (
             str(getattr(settings, "llm_provider", "") or "").lower(),
             str(getattr(settings, "openai_api_base", "") or ""),
             bool(getattr(settings, "openai_api_key", None)),
             str(getattr(settings, "codex_cli_llm_model", "") or ""),
             str(getattr(settings, "codex_cli_llm_reasoning_effort", "") or ""),
+            bool(getattr(settings, "codex_cli_llm_preferred", True)),
+            bool(getattr(settings, "codex_cli_llm_ignore_user_config", False)),
             timeout,
         )
-        if JsonCoreProvider._shared_model is not None and JsonCoreProvider._shared_model_key == cache_key:
+        if (
+            JsonCoreProvider._shared_model is not None
+            and JsonCoreProvider._shared_model_key == cache_key
+        ):
             self.chat_model = JsonCoreProvider._shared_model
             return self.chat_model
         self.chat_model = get_local_fallback_chat(
@@ -348,7 +460,9 @@ class JsonCoreProvider(CoreProvider):
             max_tokens=1200,
             timeout_seconds=timeout,
             codex_cli_timeout_seconds=timeout,
-            codex_cli_reasoning_effort=str(getattr(settings, "codex_cli_llm_reasoning_effort", "none") or "none"),
+            codex_cli_reasoning_effort=getattr(
+                settings, "codex_cli_llm_reasoning_effort", None
+            ),
         )
         JsonCoreProvider._shared_model_key = cache_key
         JsonCoreProvider._shared_model = self.chat_model
@@ -376,7 +490,7 @@ class JsonCoreProvider(CoreProvider):
                 "instruction": (
                     "Answer as the model core of an interactive project agent. "
                     "No tools are visible for this turn, so answer directly from general knowledge and the recent transcript. "
-                    "Return only JSON in this shape: {\"type\":\"final_answer\",\"content\":\"natural answer\"}. "
+                    'Return only JSON in this shape: {"type":"final_answer","content":"natural answer"}. '
                     "Use prior transcript to resolve follow-up messages such as summarize, continue, expand, '这些', '总结一些', or '继续'."
                 ),
                 "repair_instruction": repair_instruction,
@@ -423,8 +537,8 @@ class JsonCoreProvider(CoreProvider):
                 "A final answer saying the source-library run tool is unavailable is invalid if ingest.source_library.run is in available_tool_names. "
                 "Do not answer that you lack access to a tool that is present in the tools list; select the tool and let policy or the tool result establish the boundary. "
                 "Valid JSON shapes: "
-                "{\"type\":\"final_answer\",\"content\":\"natural answer\"} or "
-                "{\"type\":\"tool_calls\",\"tool_calls\":[{\"tool_name\":\"name\",\"arguments\":{},\"reason\":\"why\"}]}. "
+                '{"type":"final_answer","content":"natural answer"} or '
+                '{"type":"tool_calls","tool_calls":[{"tool_name":"name","arguments":{},"reason":"why"}]}. '
                 "After tool results are present in transcript, produce a natural final_answer that explains the result without exposing backend internals. "
                 "If local data was read, synthesize patterns, concrete examples, implications, and limits from the actual items; do not stop at dataset names, counts, or a menu of possible next actions. "
                 "Do not give a merely formal status such as only 'completed', 'queued', or 'updated'. "
@@ -443,7 +557,7 @@ class JsonCoreProvider(CoreProvider):
                 },
                 {
                     "when": "The user mentions a source-library item key such as market.general.baseline and asks to run or supplement evidence.",
-                    "then": "Call ingest.source_library.run with arguments {\"project_key\": project_key, \"items\": [item_key], \"async_mode\": true}.",
+                    "then": 'Call ingest.source_library.run with arguments {"project_key": project_key, "items": [item_key], "async_mode": true}.',
                 },
                 {
                     "when": "The user asks what data, source-library items, workflow graphs, artifacts, ingest status, or session context exist in the current project.",
@@ -495,7 +609,7 @@ class JsonCoreProvider(CoreProvider):
                 },
                 {
                     "when": "source.candidate.review returns an approved URL-pool ingest_payload and the user has chosen collection or asked to proceed.",
-                    "then": "Call ingest.url_pool.submit with {\"project_key\": project_key, \"ingest_payload\": ingest_payload, \"async_mode\": true}. Report the returned task_id or next inspectable ingest state.",
+                    "then": 'Call ingest.url_pool.submit with {"project_key": project_key, "ingest_payload": ingest_payload, "async_mode": true}. Report the returned task_id or next inspectable ingest state.',
                 },
                 {
                     "when": "The user asks to put a just-submitted URL-pool/source candidate into a writing document.",
@@ -610,21 +724,42 @@ class JsonCoreProvider(CoreProvider):
         if writing_create_step is not None:
             return writing_create_step
 
-        if any(isinstance(item, dict) and item.get("role") == "tool" for item in transcript):
+        if any(
+            isinstance(item, dict) and item.get("role") == "tool" for item in transcript
+        ):
             return None
 
-        query = JsonCoreProvider._project_query_from_message_and_transcript(message, transcript)
+        query = JsonCoreProvider._project_query_from_message_and_transcript(
+            message, transcript
+        )
         source_item_key = extract_source_library_item_key(message)
         asks_source_execution = (
             source_item_key
             and "ingest.source_library.run" in available
-            and any(token in lowered for token in ("补", "证据", "run", "execute", "采集", "collect", "来源库", "source-library", "source library"))
+            and any(
+                token in lowered
+                for token in (
+                    "补",
+                    "证据",
+                    "run",
+                    "execute",
+                    "采集",
+                    "collect",
+                    "来源库",
+                    "source-library",
+                    "source library",
+                )
+            )
         )
         if asks_source_execution:
             return CoreModelStep.tools(
                 CoreToolCall(
                     tool_name="ingest.source_library.run",
-                    arguments={"project_key": request.project_key, "items": [source_item_key], "async_mode": True},
+                    arguments={
+                        "project_key": request.project_key,
+                        "items": [source_item_key],
+                        "async_mode": True,
+                    },
                     call_id=f"{request.turn_id}:guardrail:ingest.source_library.run",
                     reason="Protocol guardrail: explicit source-library execution request requires governed tool call.",
                 ),
@@ -681,15 +816,23 @@ class JsonCoreProvider(CoreProvider):
             ("project.structured_graph.query", {"query": query, "limit": 12}),
             ("project.graph.search", {"query": query, "limit": 12}),
             ("project.structured_data.search", {"query": query, "limit": 12}),
-            ("writing.document.list", {"project_key": request.project_key, "limit": 20}),
+            (
+                "writing.document.list",
+                {"project_key": request.project_key, "limit": 20},
+            ),
             ("agent_session.context.read", {"session_id": request.session_id}),
-            ("source_library.item.list", {"project_key": request.project_key, "limit": 20}),
+            (
+                "source_library.item.list",
+                {"project_key": request.project_key, "limit": 20},
+            ),
             ("ingest.status.read", {"session_id": request.session_id}),
         ]
         calls = [
             CoreToolCall(
                 tool_name=name,
-                arguments={key: value for key, value in arguments.items() if value is not None},
+                arguments={
+                    key: value for key, value in arguments.items() if value is not None
+                },
                 call_id=f"{request.turn_id}:guardrail:{name}",
                 reason="Protocol guardrail: current project question requires read-only project context.",
             )
@@ -705,11 +848,22 @@ class JsonCoreProvider(CoreProvider):
         return None
 
     @staticmethod
-    def _project_query_from_message_and_transcript(message: str, transcript: list[dict[str, Any]]) -> str:
+    def _project_query_from_message_and_transcript(
+        message: str, transcript: list[dict[str, Any]]
+    ) -> str:
         text = str(message or "").strip()
-        generic_followup = (
-            len(text) <= 24
-            and any(token in text for token in ("下一步", "继续", "试试看", "检索", "搜索", "查找", "关键词", "不可能"))
+        generic_followup = len(text) <= 24 and any(
+            token in text
+            for token in (
+                "下一步",
+                "继续",
+                "试试看",
+                "检索",
+                "搜索",
+                "查找",
+                "关键词",
+                "不可能",
+            )
         )
         if not generic_followup:
             return text

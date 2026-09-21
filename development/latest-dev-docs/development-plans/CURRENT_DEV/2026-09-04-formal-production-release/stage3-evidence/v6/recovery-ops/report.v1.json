@@ -1,0 +1,209 @@
+{
+  "schema_version": "mrw.stage3.recovery_ops.v1",
+  "authoritative": false,
+  "candidate_commit": "909eb608e538b6427bcbacca974f1efb05fef611",
+  "candidate_tree": "a60b795e509aa5dc479904a321fba32ed0ab9ab2",
+  "records": [
+    {
+      "id": "clone",
+      "command": [
+        "git",
+        "clone",
+        "--no-hardlinks",
+        "--no-local",
+        "/Users/wangyiliang/.codex/release-candidates/mrw-stage2-20260906-v6",
+        "/private/tmp/mrw-stage3-v6-ops-1yM6UC/candidate"
+      ],
+      "cwd": "/private/tmp/mrw-stage3-v6-ops-1yM6UC",
+      "exit_code": 0,
+      "seconds": 2.800644874572754,
+      "log": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-ops/clone.raw.log",
+      "sha256": "1798a5cbf798ad7c52a9842cec24dca4d5c9a7b3f28fe59deca67c1cfbdb943c"
+    },
+    {
+      "id": "identity",
+      "command": [
+        "git",
+        "show",
+        "-s",
+        "--format=%H %T %P",
+        "HEAD"
+      ],
+      "cwd": "/private/tmp/mrw-stage3-v6-ops-1yM6UC/candidate",
+      "exit_code": 0,
+      "seconds": 0.03053736686706543,
+      "log": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-ops/identity.raw.log",
+      "sha256": "a4d910b3e14d302dd2e75ef1ff84cb6f2d14ebcce4dcbcb0c0a9db877c353859"
+    },
+    {
+      "id": "tool-python",
+      "command": [
+        "python3",
+        "--version"
+      ],
+      "cwd": "/private/tmp/mrw-stage3-v6-ops-1yM6UC/candidate",
+      "exit_code": 0,
+      "seconds": 0.012183189392089844,
+      "log": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-ops/tool-python.raw.log",
+      "sha256": "0366d77cc1f1ac88ea458231ba4f639323d5caf34de0d50b7618277fd4395f1f"
+    },
+    {
+      "id": "tool-docker",
+      "command": [
+        "docker",
+        "version"
+      ],
+      "cwd": "/private/tmp/mrw-stage3-v6-ops-1yM6UC/candidate",
+      "exit_code": 1,
+      "seconds": 0.11640501022338867,
+      "log": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-ops/tool-docker.raw.log",
+      "sha256": "02ccb84d9705dd5e007c6da14dea52f09de23b304358b179250cbb4267d24339"
+    },
+    {
+      "id": "tool-compose",
+      "command": [
+        "docker",
+        "compose",
+        "version"
+      ],
+      "cwd": "/private/tmp/mrw-stage3-v6-ops-1yM6UC/candidate",
+      "exit_code": 0,
+      "seconds": 0.08604288101196289,
+      "log": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-ops/tool-compose.raw.log",
+      "sha256": "6cae978da143b55667f689374af5bd2e843bdb2aba174746468b125b87fc73c5"
+    },
+    {
+      "id": "tool-bandit",
+      "command": [
+        "bandit",
+        "--version"
+      ],
+      "cwd": "/private/tmp/mrw-stage3-v6-ops-1yM6UC/candidate",
+      "exit_code": 0,
+      "seconds": 0.2649807929992676,
+      "log": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-ops/tool-bandit.raw.log",
+      "sha256": "0a29fe334c207c411c2338ba03aecbac42026a251d33b5b5c2b80fe78d9db621"
+    },
+    {
+      "id": "tool-pip-audit",
+      "command": [
+        "pip-audit",
+        "--version"
+      ],
+      "cwd": "/private/tmp/mrw-stage3-v6-ops-1yM6UC/candidate",
+      "exit_code": 0,
+      "seconds": 0.49741601943969727,
+      "log": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-ops/tool-pip-audit.raw.log",
+      "sha256": "c43b4e1dda16b464077d42660a94dd65d2e1dc6ed3619d5b8c1f30dd298f1155"
+    },
+    {
+      "id": "tool-gitleaks",
+      "command": [
+        "gitleaks",
+        "version"
+      ],
+      "cwd": "/private/tmp/mrw-stage3-v6-ops-1yM6UC/candidate",
+      "exit_code": 127,
+      "seconds": 0.00197601318359375,
+      "log": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-ops/tool-gitleaks.raw.log",
+      "sha256": "24abdcabf2a5ec542b0a8854cf0c96c09c4ab6e2040da9258bc82957e1a8478d"
+    },
+    {
+      "id": "migration-graph",
+      "command": [
+        "python3",
+        "scripts/check_backend_migration_graph.py",
+        "--expect-single-head",
+        "--json"
+      ],
+      "cwd": "/private/tmp/mrw-stage3-v6-ops-1yM6UC/candidate",
+      "exit_code": 0,
+      "seconds": 0.060270071029663086,
+      "log": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-ops/migration-graph.raw.log",
+      "sha256": "352a472e9b1d2af084cf0470e65a3c47d23f23ed7d58e00b1a6b075a25e74809"
+    },
+    {
+      "id": "production-compose",
+      "command": [
+        "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/bin/python",
+        "scripts/formal_release/check_production_compose_config.py"
+      ],
+      "cwd": "/private/tmp/mrw-stage3-v6-ops-1yM6UC/candidate",
+      "exit_code": 0,
+      "seconds": 0.2833437919616699,
+      "log": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-ops/production-compose.raw.log",
+      "sha256": "38eea0c62425fa22b233c422e516e5e19e8860ee2baf0b2c74803ce1613fae6c"
+    },
+    {
+      "id": "bandit",
+      "command": [
+        "bandit",
+        "-q",
+        "-r",
+        "main/backend/app",
+        "-x",
+        "main/backend/tests",
+        "--severity-level",
+        "high",
+        "--confidence-level",
+        "high"
+      ],
+      "cwd": "/private/tmp/mrw-stage3-v6-ops-1yM6UC/candidate",
+      "exit_code": 1,
+      "seconds": 20.683762073516846,
+      "log": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-ops/bandit.raw.log",
+      "sha256": "8ff459403bdee93b13c5ccd71345c00bad5ade552786c59db349e40858e63b6c"
+    },
+    {
+      "id": "pip-audit",
+      "command": [
+        "pip-audit",
+        "-r",
+        "main/backend/requirements.txt",
+        "--strict",
+        "--progress-spinner",
+        "off"
+      ],
+      "cwd": "/private/tmp/mrw-stage3-v6-ops-1yM6UC/candidate",
+      "exit_code": 1,
+      "seconds": 18.28039813041687,
+      "log": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-ops/pip-audit.raw.log",
+      "sha256": "7f54fd5c3a02e4adeda8616e66c4c7a3068605e3a59a17f0d5f7b4cae71e2394"
+    },
+    {
+      "id": "clean-final",
+      "command": [
+        "git",
+        "status",
+        "--porcelain"
+      ],
+      "cwd": "/private/tmp/mrw-stage3-v6-ops-1yM6UC/candidate",
+      "exit_code": 0,
+      "seconds": 0.9107789993286133,
+      "log": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-ops/clean-final.raw.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "environment_differences": [
+    "Local macOS arm64 toolchain; not remote workflow",
+    "Shared existing Python interpreter used read-only; cache writes isolated in disposable directory",
+    "No DNS/socket guard injected"
+  ],
+  "unexecuted": {
+    "postgres_opt_in": "Docker daemon unavailable; no existing user DB used",
+    "docker_smoke": "Docker daemon unavailable; floating product FROM requires successor",
+    "image_scan": "No qualified candidate artifact",
+    "gitleaks": "binary unavailable"
+  },
+  "external_effects": [],
+  "cleanup": {
+    "containers": [],
+    "databases": [],
+    "images": [],
+    "retained": [
+      "/private/tmp/mrw-stage3-v6-ops-1yM6UC"
+    ],
+    "owner": "recovery_ops",
+    "reason": "isolated clone and dependency cache retained for review; no service started"
+  }
+}

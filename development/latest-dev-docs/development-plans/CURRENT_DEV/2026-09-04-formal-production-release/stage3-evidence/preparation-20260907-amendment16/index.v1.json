@@ -1,0 +1,199 @@
+{
+  "schema_version": "mrw.stage3.preparation.index.v1",
+  "authoritative": false,
+  "status": "PREPARATION_COMPLETE_WITH_BLOCKERS",
+  "candidate_acceptance": false,
+  "contract16_sha256": "316339cdfa538f66272802e31dd236c0838f1fcd093169d79408b81e816ded6f",
+  "evidence": [
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/preparation-20260907-amendment16/README.md",
+      "sha256": "289b39063d7ef6eb51f932e2282f34f28147e76afb83ccfd0e10fe8890dd89c8"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/preparation-20260907-amendment16/environment/assessment.v1.md",
+      "sha256": "5664a6ba874cdfd54ec983d09da645acce859251bd95b537e62c5de35598c64b"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/preparation-20260907-amendment16/environment/backend-python311-version.raw.log",
+      "sha256": "8fa6fee68fb4ca8eda41d4db888f6a2a6b039d072f18375fa9df13d8912037d7"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/preparation-20260907-amendment16/environment/buildx-version.raw.log",
+      "sha256": "0d8eb09b399c4d97cb59aebc4c704752536d7e593ddabd1d82520ecf2bed51ab"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/preparation-20260907-amendment16/environment/compose-version.raw.log",
+      "sha256": "6cae978da143b55667f689374af5bd2e843bdb2aba174746468b125b87fc73c5"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/preparation-20260907-amendment16/environment/cosign-version.raw.log",
+      "sha256": "385ba4d63fcdc0e1a5c624a71779b66b0376a4087228580afcd9ab5088bbfd24"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/preparation-20260907-amendment16/environment/docker-context.raw.log",
+      "sha256": "75270b95abcf0516180e80ce1a2b6f98e42b13765c38de5239be80925439ba63"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/preparation-20260907-amendment16/environment/docker-version-unrestricted.raw.log",
+      "sha256": "0445c7928a4535caa39656b4c414c1e779375541ede35fbf65ba40f148aeaf3a"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/preparation-20260907-amendment16/environment/docker-version.raw.log",
+      "sha256": "02ccb84d9705dd5e007c6da14dea52f09de23b304358b179250cbb4267d24339"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/preparation-20260907-amendment16/environment/initdb-version.raw.log",
+      "sha256": "4da97b41c9e43a87c42bf67cd8882d2b70d5208d7d1cb97c6b13d3b2bc28c081"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/preparation-20260907-amendment16/environment/node-version.raw.log",
+      "sha256": "a75bc1e881900bc735e456cd684724256bcc2d09f91e04e5a42082d821a6b87b"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/preparation-20260907-amendment16/environment/node22-homebrew-version.raw.log",
+      "sha256": "eca8d241275ec898e43bda7da0f784668a7c971f7e2b6e890088a7d0c0ee59d6"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/preparation-20260907-amendment16/environment/observations.v1.json",
+      "sha256": "2337116afab560de161f1f84b4fb788e17e84cdd7437f6f283475d730f34fcf7"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/preparation-20260907-amendment16/environment/pg-ctl-version.raw.log",
+      "sha256": "b2b96e457f2c3ff5edc7f2abaaf86fa837b4cf79ae09fb0c975e9859cea8ff03"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/preparation-20260907-amendment16/environment/pg-isready-version.raw.log",
+      "sha256": "2f800970f832848b11b72a25b578270865b4efaefc3c4b9f3976acb8c8171aa2"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/preparation-20260907-amendment16/environment/probe.py",
+      "sha256": "73bcd2882e9f02ea938f564aa362c2fa3dd257e162e035e936dace690f5c0428"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/preparation-20260907-amendment16/environment/psql-version.raw.log",
+      "sha256": "9371f1f2042da0bb7d3a5dde6c3a4a041c829c090040a5a8060d34ccd1b243f2"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/preparation-20260907-amendment16/environment/python-version.raw.log",
+      "sha256": "0366d77cc1f1ac88ea458231ba4f639323d5caf34de0d50b7618277fd4395f1f"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/preparation-20260907-amendment16/environment/python311-version.raw.log",
+      "sha256": "b1d173e941dbfa8bbabe0c832c75d9449f31942f882d76510e027fa02de2cae0"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/preparation-20260907-amendment16/environment/syft-version.raw.log",
+      "sha256": "5a76f00503171c554a3c3d0321fddf029365ddb257b57414288fc7943020e961"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/preparation-20260907-amendment16/environment/trivy-version.raw.log",
+      "sha256": "2cd2289311fbe36d02d4d4ce604547ef51b6f0b6d0af3cb2795e1f711c57af27"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/preparation-20260907-amendment16/external-admission.v1.json",
+      "sha256": "67c0fe90d731b43df440b832e4bc624cc603af6a47d7b380a517b1fc0be0f38e"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/preparation-20260907-amendment16/gates/gate-coverage-delta.v1.md",
+      "sha256": "77d87464ada7e83759a8bc9f6707c20bde501b458acb320af400c8ca511495a5"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/preparation-20260907-amendment16/index.py",
+      "sha256": "8f3f66ab70af669b25be1862d16a4189358e03056cd3d3b7e16eb33023a41ff4"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/preparation-20260907-amendment16/remote/readback.py",
+      "sha256": "d93f51f55c1ae987101d07edd5368fc47c95d1505de7f6092927e6cd154628f6"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/preparation-20260907-amendment16/remote/readonly-network/effective-rules.response",
+      "sha256": "dc81e978108ac511faf6abbf815adbebd63e1aa7c703a099248102a0d5cf86c0"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/preparation-20260907-amendment16/remote/readonly-network/effective-rules.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/preparation-20260907-amendment16/remote/readonly-network/main.response",
+      "sha256": "d1acab062149e09376d49ab7c2f66bdefc07f483b17bd5afc9630621a7affffc"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/preparation-20260907-amendment16/remote/readonly-network/main.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/preparation-20260907-amendment16/remote/readonly-network/observations.json",
+      "sha256": "b25421fb90840e518e7717d296be86f655b8b421a1d0e991092f008cecc9e3e6"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/preparation-20260907-amendment16/remote/readonly-network/old-v6-commit.response",
+      "sha256": "1bdaa56f7cf0fb2a7cca3e01e6cd240036edeb1f62b6c9c6c6ad95f5974068b2"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/preparation-20260907-amendment16/remote/readonly-network/old-v6-commit.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/preparation-20260907-amendment16/remote/readonly-network/old-v6-runs.response",
+      "sha256": "b829f4c967da76a1b76b43d138d237eeb3eea25ee6ba63ff968e106b1017d195"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/preparation-20260907-amendment16/remote/readonly-network/old-v6-runs.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/preparation-20260907-amendment16/remote/readonly-network/rulesets.response",
+      "sha256": "7cc3a404b69ecb9eb74f64463387a62c6ed3dcef07e13f0ee65a1ed231526028"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/preparation-20260907-amendment16/remote/readonly-network/rulesets.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/preparation-20260907-amendment16/remote/sandbox/effective-rules.response",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/preparation-20260907-amendment16/remote/sandbox/effective-rules.stderr",
+      "sha256": "c194ef04dcfb48abf022cdf0ddadd7e9f0550addf63b8936442efd90d7c3b9e2"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/preparation-20260907-amendment16/remote/sandbox/main.response",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/preparation-20260907-amendment16/remote/sandbox/main.stderr",
+      "sha256": "c194ef04dcfb48abf022cdf0ddadd7e9f0550addf63b8936442efd90d7c3b9e2"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/preparation-20260907-amendment16/remote/sandbox/observations.json",
+      "sha256": "21a4f099e4cb554283dffb3fb812ada00843d2a08eda6a9712fd4cfb3f289aa8"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/preparation-20260907-amendment16/remote/sandbox/old-v6-commit.response",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/preparation-20260907-amendment16/remote/sandbox/old-v6-commit.stderr",
+      "sha256": "c194ef04dcfb48abf022cdf0ddadd7e9f0550addf63b8936442efd90d7c3b9e2"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/preparation-20260907-amendment16/remote/sandbox/old-v6-runs.response",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/preparation-20260907-amendment16/remote/sandbox/old-v6-runs.stderr",
+      "sha256": "c194ef04dcfb48abf022cdf0ddadd7e9f0550addf63b8936442efd90d7c3b9e2"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/preparation-20260907-amendment16/remote/sandbox/rulesets.response",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/preparation-20260907-amendment16/remote/sandbox/rulesets.stderr",
+      "sha256": "c194ef04dcfb48abf022cdf0ddadd7e9f0550addf63b8936442efd90d7c3b9e2"
+    }
+  ],
+  "external_mutations": [],
+  "services_started": []
+}

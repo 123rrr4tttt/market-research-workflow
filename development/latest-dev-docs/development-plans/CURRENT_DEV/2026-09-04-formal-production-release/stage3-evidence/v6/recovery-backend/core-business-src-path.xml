@@ -1,0 +1,645 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="14" skipped="0" tests="268" time="6.192" timestamp="2026-09-07T05:59:24.399287+08:00" hostname="MacBook-Air-489.local"><testcase classname="tests.core_business.test_admin_dashboard_process_core_contract.AdminDashboardProcessCoreContractTestCase" name="test_admin_bulk_update_extracted_data_execution_returns_response_audit_readback" time="0.002" /><testcase classname="tests.core_business.test_admin_dashboard_process_core_contract.AdminDashboardProcessCoreContractTestCase" name="test_admin_bulk_update_extracted_data_preview_returns_impact_without_writes" time="0.001" /><testcase classname="tests.core_business.test_admin_dashboard_process_core_contract.AdminDashboardProcessCoreContractTestCase" name="test_admin_bulk_update_requires_doc_ids_returns_error_envelope" time="0.000" /><testcase classname="tests.core_business.test_admin_dashboard_process_core_contract.AdminDashboardProcessCoreContractTestCase" name="test_admin_content_graph_invalid_start_date_returns_error_envelope" time="0.017" /><testcase classname="tests.core_business.test_admin_dashboard_process_core_contract.AdminDashboardProcessCoreContractTestCase" name="test_admin_delete_documents_execution_returns_response_audit_readback" time="0.001" /><testcase classname="tests.core_business.test_admin_dashboard_process_core_contract.AdminDashboardProcessCoreContractTestCase" name="test_admin_delete_documents_preview_returns_impact_without_writes" time="0.001" /><testcase classname="tests.core_business.test_admin_dashboard_process_core_contract.AdminDashboardProcessCoreContractTestCase" name="test_admin_export_graph_empty_doc_ids_returns_error_envelope" time="0.003" /><testcase classname="tests.core_business.test_admin_dashboard_process_core_contract.AdminDashboardProcessCoreContractTestCase" name="test_admin_export_graph_invalid_doc_ids_returns_error_envelope" time="0.004" /><testcase classname="tests.core_business.test_admin_dashboard_process_core_contract.AdminDashboardProcessCoreContractTestCase" name="test_admin_get_document_not_found_returns_error_envelope" time="0.004" /><testcase classname="tests.core_business.test_admin_dashboard_process_core_contract.AdminDashboardProcessCoreContractTestCase" name="test_admin_market_graph_invalid_start_date_returns_error_envelope" time="0.005" /><testcase classname="tests.core_business.test_admin_dashboard_process_core_contract.AdminDashboardProcessCoreContractTestCase" name="test_admin_policy_graph_invalid_end_date_returns_error_envelope" time="0.004" /><testcase classname="tests.core_business.test_admin_dashboard_process_core_contract.AdminDashboardProcessCoreContractTestCase" name="test_admin_raw_import_http_exception_maps_to_rate_limited" time="0.005" /><testcase classname="tests.core_business.test_admin_dashboard_process_core_contract.AdminDashboardProcessCoreContractTestCase" name="test_admin_raw_import_success_returns_envelope" time="0.006" /><testcase classname="tests.core_business.test_admin_dashboard_process_core_contract.AdminDashboardProcessCoreContractTestCase" name="test_admin_reextract_execution_returns_response_audit_readback" time="0.001" /><testcase classname="tests.core_business.test_admin_dashboard_process_core_contract.AdminDashboardProcessCoreContractTestCase" name="test_admin_reextract_preview_returns_impact_without_mutation" time="0.001" /><testcase classname="tests.core_business.test_admin_dashboard_process_core_contract.AdminDashboardProcessCoreContractTestCase" name="test_admin_update_document_invalid_merge_returns_error_envelope" time="0.004" /><testcase classname="tests.core_business.test_admin_dashboard_process_core_contract.AdminDashboardProcessCoreContractTestCase" name="test_dashboard_drilldown_by_source_ref_returns_rows_and_filters" time="0.004" /><testcase classname="tests.core_business.test_admin_dashboard_process_core_contract.AdminDashboardProcessCoreContractTestCase" name="test_dashboard_ecom_price_trends_invalid_start_date_returns_422_invalid_input" time="0.003" /><testcase classname="tests.core_business.test_admin_dashboard_process_core_contract.AdminDashboardProcessCoreContractTestCase" name="test_dashboard_llm_report_detail_empty_trace_id_returns_error_envelope" time="0.003" /><testcase classname="tests.core_business.test_admin_dashboard_process_core_contract.AdminDashboardProcessCoreContractTestCase" name="test_dashboard_llm_report_detail_trace_hit_returns_quality_and_export_contract" time="0.006" /><testcase classname="tests.core_business.test_admin_dashboard_process_core_contract.AdminDashboardProcessCoreContractTestCase" name="test_dashboard_llm_report_detail_trace_miss_returns_actionable_not_found_contract" time="0.300" /><testcase classname="tests.core_business.test_admin_dashboard_process_core_contract.AdminDashboardProcessCoreContractTestCase" name="test_dashboard_report_from_filter_blocks_quality_gate_for_missing_selected_ref" time="0.168" /><testcase classname="tests.core_business.test_admin_dashboard_process_core_contract.AdminDashboardProcessCoreContractTestCase" name="test_dashboard_report_from_filter_creates_writing_draft_with_evidence_metadata" time="0.155" /><testcase classname="tests.core_business.test_admin_dashboard_process_core_contract.AdminDashboardProcessCoreContractTestCase" name="test_dashboard_report_from_filter_export_pdf_then_llm_report_detail_preserves_dashboard_evidence" time="0.924" /><testcase classname="tests.core_business.test_admin_dashboard_process_core_contract.AdminDashboardProcessCoreContractTestCase" name="test_dashboard_report_from_filter_prefers_authenticated_actor_context_over_spoofed_header_actor" time="0.173" /><testcase classname="tests.core_business.test_admin_dashboard_process_core_contract.AdminDashboardProcessCoreContractTestCase" name="test_dashboard_report_from_filter_requires_source_refs_before_draft_write" time="0.008" /><testcase classname="tests.core_business.test_admin_dashboard_process_core_contract.AdminDashboardProcessCoreContractTestCase" name="test_dashboard_report_from_filter_strict_mode_allows_warn_gate_with_draft" time="0.144" /><testcase classname="tests.core_business.test_admin_dashboard_process_core_contract.AdminDashboardProcessCoreContractTestCase" name="test_dashboard_report_from_filter_strict_mode_rejects_blocked_gate_before_draft_write" time="0.003" /><testcase classname="tests.core_business.test_admin_dashboard_process_core_contract.AdminDashboardProcessCoreContractTestCase" name="test_dashboard_report_from_filter_uses_header_actor_as_legacy_fallback_without_authenticated_context" time="0.157" /><testcase classname="tests.core_business.test_admin_dashboard_process_core_contract.AdminDashboardProcessCoreContractTestCase" name="test_dashboard_report_from_filter_warns_for_stale_and_low_trust_refs" time="0.148" /><testcase classname="tests.core_business.test_admin_dashboard_process_core_contract.AdminDashboardProcessCoreContractTestCase" name="test_dashboard_stats_contract_includes_source_queries" time="0.009" /><testcase classname="tests.core_business.test_admin_dashboard_process_core_contract.AdminDashboardProcessCoreContractTestCase" name="test_dashboard_stats_db_failure_maps_to_upstream_error" time="0.005" /><testcase classname="tests.core_business.test_admin_dashboard_process_core_contract.AdminDashboardProcessCoreContractTestCase" name="test_dashboard_stats_empty_data_returns_stable_pending_actions" time="0.151" /><testcase classname="tests.core_business.test_admin_dashboard_process_core_contract.AdminDashboardProcessCoreContractTestCase" name="test_process_stats_failure_maps_to_internal_error" time="0.011" /><testcase classname="tests.core_business.test_admin_dashboard_process_core_contract.AdminDashboardProcessCoreContractTestCase" name="test_process_stats_success_returns_envelope" time="0.002" /><testcase classname="tests.core_business.test_api_group_a_core_contract.ApiGroupACoreContractTestCase" name="test_prompt_time_density_cloud_runtime_failure_returns_internal_error" time="0.003" /><testcase classname="tests.core_business.test_api_group_a_core_contract.ApiGroupACoreContractTestCase" name="test_prompt_time_density_invalid_bucket_returns_422" time="0.002" /><testcase classname="tests.core_business.test_api_group_a_core_contract.ApiGroupACoreContractTestCase" name="test_prompt_time_density_priority_invalid_candidate_returns_422" time="0.002" /><testcase classname="tests.core_business.test_api_group_a_core_contract.ApiGroupACoreContractTestCase" name="test_prompt_time_density_priority_success_envelope" time="0.003"><failure message="AssertionError: Lists differ: [{'so[25 chars]m', 'noun_group_id': None, 'prompt_group_id': [441 chars]one}] != [{'so[25 chars]m', 'prompt_group_id': 'pg-1', 'window': '7d',[96 chars]: 1}]&#10;&#10;First differing element 0:&#10;{'sou[24 chars]m', 'noun_group_id': None, 'prompt_group_id': [440 chars]None}&#10;{'sou[24 chars]m', 'prompt_group_id': 'pg-1', 'window': '7d',[95 chars]': 1}&#10;&#10;Diff is 663 characters long. Set self.maxDiff to None to see it.">self = &lt;test_api_group_a_core_contract.ApiGroupACoreContractTestCase testMethod=test_prompt_time_density_priority_success_envelope&gt;
+
+    def test_prompt_time_density_priority_success_envelope(self):
+        mocked_items = [
+            {
+                "source_domain": "example.com",
+                "prompt_group_id": "pg-1",
+                "window": "7d",
+                "density": 0.2,
+                "norm_density": 1.0,
+                "dup_ratio": 0.0,
+                "collection_priority_score": 0.6,
+                "rank": 1,
+            }
+        ]
+        with patch("app.api.stats.query_prompt_time_density_priority", return_value=mocked_items):
+            response = self.client.get(
+                "/api/v1/stats/prompt-time-density/priority",
+                params={"candidate_windows": "7d"},
+                headers=self.headers,
+            )
+    
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["status"], "ok")
+        self.assertIsNone(body["error"])
+&gt;       self.assertEqual(body["data"]["items"], mocked_items)
+E       AssertionError: Lists differ: [{'so[25 chars]m', 'noun_group_id': None, 'prompt_group_id': [441 chars]one}] != [{'so[25 chars]m', 'prompt_group_id': 'pg-1', 'window': '7d',[96 chars]: 1}]
+E       
+E       First differing element 0:
+E       {'sou[24 chars]m', 'noun_group_id': None, 'prompt_group_id': [440 chars]None}
+E       {'sou[24 chars]m', 'prompt_group_id': 'pg-1', 'window': '7d',[95 chars]': 1}
+E       
+E       Diff is 663 characters long. Set self.maxDiff to None to see it.
+
+tests/core_business/test_api_group_a_core_contract.py:200: AssertionError</failure></testcase><testcase classname="tests.core_business.test_api_group_a_core_contract.ApiGroupACoreContractTestCase" name="test_prompt_time_density_select_windows_runtime_failure_returns_internal_error" time="0.002" /><testcase classname="tests.core_business.test_api_group_a_core_contract.ApiGroupACoreContractTestCase" name="test_prompt_time_density_select_windows_success" time="0.002" /><testcase classname="tests.core_business.test_api_group_a_core_contract.ApiGroupACoreContractTestCase" name="test_prompt_time_density_success_envelope" time="0.006"><failure message="fastapi.exceptions.ResponseValidationError: 1 validation errors:&#10;  {'type': 'missing', 'loc': ('response', 'data', 'items', 0, 'noun_group_id'), 'msg': 'Field required', 'input': {'source_domain': 'example.com', 'prompt_group_id': 'pg-1', 'bucket_time': '2026-03-05', 'effective_new_docs': 3, 'density': 0.3, 'baseline_density': 0.2, 'norm_density': 1.5, 'dup_ratio': 0.0}}">+ Exception Group Traceback (most recent call last):
+  |   File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/_utils.py", line 79, in collapse_excgroups
+  |     yield
+  |   File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/middleware/base.py", line 192, in __call__
+  |     async with anyio.create_task_group() as task_group:
+  |   File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/anyio/_backends/_asyncio.py", line 799, in __aexit__
+  |     raise BaseExceptionGroup(
+  | ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception)
+  +-+---------------- 1 ----------------
+    | Traceback (most recent call last):
+    |   File "/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/unittest/case.py", line 57, in testPartExecutor
+    |     yield
+    |   File "/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/unittest/case.py", line 623, in run
+    |     self._callTestMethod(testMethod)
+    |   File "/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/unittest/case.py", line 579, in _callTestMethod
+    |     if method() is not None:
+    |        ^^^^^^^^
+    |   File "/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/core_business/test_api_group_a_core_contract.py", line 148, in test_prompt_time_density_success_envelope
+    |     response = self.client.get(
+    |                ^^^^^^^^^^^^^^^^
+    |   File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/testclient.py", line 479, in get
+    |     return super().get(
+    |            ^^^^^^^^^^^^
+    |   File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/httpx/_client.py", line 1066, in get
+    |     return self.request(
+    |            ^^^^^^^^^^^^^
+    |   File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/testclient.py", line 451, in request
+    |     return super().request(
+    |            ^^^^^^^^^^^^^^^^
+    |   File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/httpx/_client.py", line 837, in request
+    |     return self.send(request, auth=auth, follow_redirects=follow_redirects)
+    |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/httpx/_client.py", line 926, in send
+    |     response = self._send_handling_auth(
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/httpx/_client.py", line 954, in _send_handling_auth
+    |     response = self._send_handling_redirects(
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/httpx/_client.py", line 991, in _send_handling_redirects
+    |     response = self._send_single_request(request)
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/httpx/_client.py", line 1027, in _send_single_request
+    |     response = transport.handle_request(request)
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/testclient.py", line 354, in handle_request
+    |     raise exc
+    |   File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/testclient.py", line 351, in handle_request
+    |     portal.call(self.app, scope, receive, send)
+    |   File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/anyio/from_thread.py", line 334, in call
+    |     return cast(T_Retval, self.start_task_soon(func, *args).result())
+    |                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/concurrent/futures/_base.py", line 456, in result
+    |     return self.__get_result()
+    |            ^^^^^^^^^^^^^^^^^^^
+    |   File "/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/concurrent/futures/_base.py", line 401, in __get_result
+    |     raise self._exception
+    |   File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/anyio/from_thread.py", line 259, in _call_func
+    |     retval = await retval_or_awaitable
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/fastapi/applications.py", line 1134, in __call__
+    |     await super().__call__(scope, receive, send)
+    |   File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/applications.py", line 113, in __call__
+    |     await self.middleware_stack(scope, receive, send)
+    |   File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/middleware/errors.py", line 186, in __call__
+    |     raise exc
+    |   File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    |     await self.app(scope, receive, _send)
+    |   File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/middleware/base.py", line 191, in __call__
+    |     with recv_stream, send_stream, collapse_excgroups():
+    |   File "/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/contextlib.py", line 158, in __exit__
+    |     self.gen.throw(typ, value, traceback)
+    |   File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/_utils.py", line 85, in collapse_excgroups
+    |     raise exc
+    |   File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/middleware/base.py", line 193, in __call__
+    |     response = await self.dispatch_func(request, call_next)
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/app/main.py", line 964, in metrics_middleware
+    |     response: Response = await call_next(request)
+    |                          ^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/middleware/base.py", line 168, in call_next
+    |     raise app_exc from app_exc.__cause__ or app_exc.__context__
+    |   File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/middleware/base.py", line 144, in coro
+    |     await self.app(scope, receive_or_disconnect, send_no_error)
+    |   File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/middleware/base.py", line 191, in __call__
+    |     with recv_stream, send_stream, collapse_excgroups():
+    |   File "/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/contextlib.py", line 158, in __exit__
+    |     self.gen.throw(typ, value, traceback)
+    |   File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/_utils.py", line 85, in collapse_excgroups
+    |     raise exc
+    |   File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/middleware/base.py", line 193, in __call__
+    |     response = await self.dispatch_func(request, call_next)
+    |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/app/main.py", line 918, in legacy_route_rewrite_middleware
+    |     response: Response = await call_next(request)
+    |                          ^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/middleware/base.py", line 168, in call_next
+    |     raise app_exc from app_exc.__cause__ or app_exc.__context__
+    |   File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/middleware/base.py", line 144, in coro
+    |     await self.app(scope, receive_or_disconnect, send_no_error)
+    |   File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    |     await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+    |   File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    |     raise exc
+    |   File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    |     await app(scope, receive, sender)
+    |   File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+    |     await self.app(scope, receive, send)
+    |   File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/routing.py", line 716, in __call__
+    |     await self.middleware_stack(scope, receive, send)
+    |   File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/routing.py", line 736, in app
+    |     await route.handle(scope, receive, send)
+    |   File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/routing.py", line 290, in handle
+    |     await self.app(scope, receive, send)
+    |   File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/fastapi/routing.py", line 124, in app
+    |     await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+    |   File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    |     raise exc
+    |   File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    |     await app(scope, receive, sender)
+    |   File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/fastapi/routing.py", line 110, in app
+    |     response = await f(request)
+    |                ^^^^^^^^^^^^^^^^
+    |   File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/fastapi/routing.py", line 412, in app
+    |     content = await serialize_response(
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^
+    |   File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/fastapi/routing.py", line 253, in serialize_response
+    |     raise ResponseValidationError(
+    | fastapi.exceptions.ResponseValidationError: 1 validation errors:
+    |   {'type': 'missing', 'loc': ('response', 'data', 'items', 0, 'noun_group_id'), 'msg': 'Field required', 'input': {'source_domain': 'example.com', 'prompt_group_id': 'pg-1', 'bucket_time': '2026-03-05', 'effective_new_docs': 3, 'density': 0.3, 'baseline_density': 0.2, 'norm_density': 1.5, 'dup_ratio': 0.0}}
+    | 
+    +------------------------------------
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/core_business/test_api_group_a_core_contract.py", line 148, in test_prompt_time_density_success_envelope
+    response = self.client.get(
+               ^^^^^^^^^^^^^^^^
+  File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/testclient.py", line 479, in get
+    return super().get(
+           ^^^^^^^^^^^^
+  File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/httpx/_client.py", line 1066, in get
+    return self.request(
+           ^^^^^^^^^^^^^
+  File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/testclient.py", line 451, in request
+    return super().request(
+           ^^^^^^^^^^^^^^^^
+  File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/httpx/_client.py", line 837, in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/httpx/_client.py", line 926, in send
+    response = self._send_handling_auth(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/httpx/_client.py", line 954, in _send_handling_auth
+    response = self._send_handling_redirects(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/httpx/_client.py", line 991, in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/httpx/_client.py", line 1027, in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/testclient.py", line 354, in handle_request
+    raise exc
+  File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/testclient.py", line 351, in handle_request
+    portal.call(self.app, scope, receive, send)
+  File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/anyio/from_thread.py", line 334, in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/concurrent/futures/_base.py", line 456, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/concurrent/futures/_base.py", line 401, in __get_result
+    raise self._exception
+  File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/anyio/from_thread.py", line 259, in _call_func
+    retval = await retval_or_awaitable
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/fastapi/applications.py", line 1134, in __call__
+    await super().__call__(scope, receive, send)
+  File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/applications.py", line 113, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/middleware/errors.py", line 186, in __call__
+    raise exc
+  File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/middleware/base.py", line 191, in __call__
+    with recv_stream, send_stream, collapse_excgroups():
+  File "/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/contextlib.py", line 158, in __exit__
+    self.gen.throw(typ, value, traceback)
+  File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/_utils.py", line 85, in collapse_excgroups
+    raise exc
+  File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/middleware/base.py", line 193, in __call__
+    response = await self.dispatch_func(request, call_next)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/app/main.py", line 964, in metrics_middleware
+    response: Response = await call_next(request)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/middleware/base.py", line 168, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/middleware/base.py", line 144, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/middleware/base.py", line 191, in __call__
+    with recv_stream, send_stream, collapse_excgroups():
+  File "/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/contextlib.py", line 158, in __exit__
+    self.gen.throw(typ, value, traceback)
+  File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/_utils.py", line 85, in collapse_excgroups
+    raise exc
+  File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/middleware/base.py", line 193, in __call__
+    response = await self.dispatch_func(request, call_next)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/app/main.py", line 918, in legacy_route_rewrite_middleware
+    response: Response = await call_next(request)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/middleware/base.py", line 168, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/middleware/base.py", line 144, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/routing.py", line 736, in app
+    await route.handle(scope, receive, send)
+  File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/routing.py", line 290, in handle
+    await self.app(scope, receive, send)
+  File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/fastapi/routing.py", line 124, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/fastapi/routing.py", line 110, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/fastapi/routing.py", line 412, in app
+    content = await serialize_response(
+              ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/fastapi/routing.py", line 253, in serialize_response
+    raise ResponseValidationError(
+fastapi.exceptions.ResponseValidationError: 1 validation errors:
+  {'type': 'missing', 'loc': ('response', 'data', 'items', 0, 'noun_group_id'), 'msg': 'Field required', 'input': {'source_domain': 'example.com', 'prompt_group_id': 'pg-1', 'bucket_time': '2026-03-05', 'effective_new_docs': 3, 'density': 0.3, 'baseline_density': 0.2, 'norm_density': 1.5, 'dup_ratio': 0.0}}
+
+
+The above exception was the direct cause of the following exception:
+
+self = &lt;test_api_group_a_core_contract.ApiGroupACoreContractTestCase testMethod=test_prompt_time_density_success_envelope&gt;
+
+    def test_prompt_time_density_success_envelope(self):
+        mocked_items = [
+            {
+                "source_domain": "example.com",
+                "prompt_group_id": "pg-1",
+                "bucket_time": "2026-03-05",
+                "effective_new_docs": 3,
+                "density": 0.3,
+                "baseline_density": 0.2,
+                "norm_density": 1.5,
+                "dup_ratio": 0.0,
+            }
+        ]
+        with patch("app.api.stats.query_prompt_time_density", return_value=mocked_items):
+&gt;           response = self.client.get(
+                "/api/v1/stats/prompt-time-density",
+                params={"time_window": "7d", "bucket": "day"},
+                headers=self.headers,
+            )
+
+tests/core_business/test_api_group_a_core_contract.py:148: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/testclient.py:479: in get
+    return super().get(
+/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/httpx/_client.py:1066: in get
+    return self.request(
+/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/testclient.py:451: in request
+    return super().request(
+/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/httpx/_client.py:837: in request
+    return self.send(request, auth=auth, follow_redirects=follow_redirects)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/httpx/_client.py:926: in send
+    response = self._send_handling_auth(
+/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/httpx/_client.py:954: in _send_handling_auth
+    response = self._send_handling_redirects(
+/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/httpx/_client.py:991: in _send_handling_redirects
+    response = self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/httpx/_client.py:1027: in _send_single_request
+    response = transport.handle_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/testclient.py:354: in handle_request
+    raise exc
+/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/testclient.py:351: in handle_request
+    portal.call(self.app, scope, receive, send)
+/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/anyio/from_thread.py:334: in call
+    return cast(T_Retval, self.start_task_soon(func, *args).result())
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/concurrent/futures/_base.py:456: in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/concurrent/futures/_base.py:401: in __get_result
+    raise self._exception
+/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/anyio/from_thread.py:259: in _call_func
+    retval = await retval_or_awaitable
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/fastapi/applications.py:1134: in __call__
+    await super().__call__(scope, receive, send)
+/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/applications.py:113: in __call__
+    await self.middleware_stack(scope, receive, send)
+/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/middleware/errors.py:186: in __call__
+    raise exc
+/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/middleware/errors.py:164: in __call__
+    await self.app(scope, receive, _send)
+/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/middleware/base.py:191: in __call__
+    with recv_stream, send_stream, collapse_excgroups():
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/contextlib.py:158: in __exit__
+    self.gen.throw(typ, value, traceback)
+/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/_utils.py:85: in collapse_excgroups
+    raise exc
+/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/middleware/base.py:193: in __call__
+    response = await self.dispatch_func(request, call_next)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/main.py:964: in metrics_middleware
+    response: Response = await call_next(request)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/middleware/base.py:168: in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/middleware/base.py:144: in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/middleware/base.py:191: in __call__
+    with recv_stream, send_stream, collapse_excgroups():
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/contextlib.py:158: in __exit__
+    self.gen.throw(typ, value, traceback)
+/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/_utils.py:85: in collapse_excgroups
+    raise exc
+/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/middleware/base.py:193: in __call__
+    response = await self.dispatch_func(request, call_next)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+app/main.py:918: in legacy_route_rewrite_middleware
+    response: Response = await call_next(request)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^
+/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/middleware/base.py:168: in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/middleware/base.py:144: in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/middleware/exceptions.py:63: in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    raise exc
+/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/fastapi/middleware/asyncexitstack.py:18: in __call__
+    await self.app(scope, receive, send)
+/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/routing.py:716: in __call__
+    await self.middleware_stack(scope, receive, send)
+/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/routing.py:736: in app
+    await route.handle(scope, receive, send)
+/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/routing.py:290: in handle
+    await self.app(scope, receive, send)
+/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/fastapi/routing.py:124: in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/_exception_handler.py:53: in wrapped_app
+    raise exc
+/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/starlette/_exception_handler.py:42: in wrapped_app
+    await app(scope, receive, sender)
+/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/fastapi/routing.py:110: in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/fastapi/routing.py:412: in app
+    content = await serialize_response(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    async def serialize_response(
+        *,
+        field: Optional[ModelField] = None,
+        response_content: Any,
+        include: Optional[IncEx] = None,
+        exclude: Optional[IncEx] = None,
+        by_alias: bool = True,
+        exclude_unset: bool = False,
+        exclude_defaults: bool = False,
+        exclude_none: bool = False,
+        is_coroutine: bool = True,
+    ) -&gt; Any:
+        if field:
+            errors = []
+            if not hasattr(field, "serialize"):
+                # pydantic v1
+                response_content = _prepare_response_content(
+                    response_content,
+                    exclude_unset=exclude_unset,
+                    exclude_defaults=exclude_defaults,
+                    exclude_none=exclude_none,
+                )
+            if is_coroutine:
+                value, errors_ = field.validate(response_content, {}, loc=("response",))
+            else:
+                value, errors_ = await run_in_threadpool(
+                    field.validate, response_content, {}, loc=("response",)
+                )
+            if isinstance(errors_, list):
+                errors.extend(errors_)
+            elif errors_:
+                errors.append(errors_)
+            if errors:
+&gt;               raise ResponseValidationError(
+                    errors=_normalize_errors(errors), body=response_content
+                )
+E               fastapi.exceptions.ResponseValidationError: 1 validation errors:
+E                 {'type': 'missing', 'loc': ('response', 'data', 'items', 0, 'noun_group_id'), 'msg': 'Field required', 'input': {'source_domain': 'example.com', 'prompt_group_id': 'pg-1', 'bucket_time': '2026-03-05', 'effective_new_docs': 3, 'density': 0.3, 'baseline_density': 0.2, 'norm_density': 1.5, 'dup_ratio': 0.0}}
+
+/Users/wangyiliang/market-research-workflow/main/backend/.venv311/lib/python3.11/site-packages/fastapi/routing.py:253: ResponseValidationError</failure></testcase><testcase classname="tests.core_business.test_api_group_a_core_contract.ApiGroupACoreContractTestCase" name="test_resource_pool_urls_success_envelope_with_pagination" time="0.015" /><testcase classname="tests.core_business.test_api_group_a_core_contract.ApiGroupACoreContractTestCase" name="test_search_success_envelope" time="0.003" /><testcase classname="tests.core_business.test_api_group_a_core_contract.ApiGroupACoreContractTestCase" name="test_search_upstream_error_maps_to_standard_error_envelope" time="0.002" /><testcase classname="tests.core_business.test_api_group_a_core_contract.ApiGroupACoreContractTestCase" name="test_source_library_channels_success_envelope" time="0.003" /><testcase classname="tests.core_business.test_api_group_b_core_contract.ApiGroupBCoreContractTestCase" name="test_admin_raw_import_async_success_contract" time="0.002" /><testcase classname="tests.core_business.test_api_group_b_core_contract.ApiGroupBCoreContractTestCase" name="test_admin_raw_import_rate_limited_error_contract" time="0.002" /><testcase classname="tests.core_business.test_api_group_b_core_contract.ApiGroupBCoreContractTestCase" name="test_dashboard_document_analysis_invalid_start_date_returns_422_invalid_input" time="0.002" /><testcase classname="tests.core_business.test_api_group_b_core_contract.ApiGroupBCoreContractTestCase" name="test_dashboard_market_trends_invalid_start_date_returns_422_invalid_input" time="0.002" /><testcase classname="tests.core_business.test_api_group_b_core_contract.ApiGroupBCoreContractTestCase" name="test_dashboard_sentiment_analysis_invalid_end_date_returns_422_invalid_input" time="0.002" /><testcase classname="tests.core_business.test_api_group_b_core_contract.ApiGroupBCoreContractTestCase" name="test_dashboard_stats_db_failure_maps_to_upstream_error" time="0.002" /><testcase classname="tests.core_business.test_api_group_b_core_contract.ApiGroupBCoreContractTestCase" name="test_dashboard_stats_success_contract" time="0.296" /><testcase classname="tests.core_business.test_api_group_b_core_contract.ApiGroupBCoreContractTestCase" name="test_ingest_market_rejects_empty_query_terms" time="0.005" /><testcase classname="tests.core_business.test_api_group_b_core_contract.ApiGroupBCoreContractTestCase" name="test_ingest_source_library_conflict_identifiers_invalid_input" time="0.003" /><testcase classname="tests.core_business.test_api_group_b_core_contract.ApiGroupBCoreContractTestCase" name="test_policies_list_invalid_start_date_returns_422_invalid_input" time="0.002" /><testcase classname="tests.core_business.test_api_group_b_core_contract.ApiGroupBCoreContractTestCase" name="test_policies_state_invalid_start_date_returns_422_invalid_input" time="0.003" /><testcase classname="tests.core_business.test_api_group_b_core_contract.ApiGroupBCoreContractTestCase" name="test_policies_stats_invalid_start_date_returns_422_invalid_input" time="0.003" /><testcase classname="tests.core_business.test_api_group_b_core_contract.ApiGroupBCoreContractTestCase" name="test_policy_detail_missing_returns_404_not_found" time="0.003" /><testcase classname="tests.core_business.test_api_group_b_core_contract.ApiGroupBCoreContractTestCase" name="test_process_stats_failure_maps_to_internal_error" time="0.003" /><testcase classname="tests.core_business.test_api_group_b_core_contract.ApiGroupBCoreContractTestCase" name="test_process_stats_success_contract" time="0.003" /><testcase classname="tests.core_business.test_business_line_evidence_contract" name="test_business_line_evidence_matrix_route_is_registered" time="0.001"><failure message="AssertionError: assert '/business-lines/evidence-matrix' in {'/admin/content-graph', '/admin/documents/bulk/extracted-data', '/admin/documents/delete', '/admin/documents/list', '/admin/documents/raw-import', '/admin/documents/re-extract', ...}">def test_business_line_evidence_matrix_route_is_registered() -&gt; None:
+        if _IMPORT_ERROR is not None:
+            pytest.skip(f"business line evidence contract tests require backend dependencies: {_IMPORT_ERROR}")
+    
+        paths = {route.path for route in api_router.routes if isinstance(route, APIRoute)}
+    
+&gt;       assert "/business-lines/evidence-matrix" in paths
+E       AssertionError: assert '/business-lines/evidence-matrix' in {'/admin/content-graph', '/admin/documents/bulk/extracted-data', '/admin/documents/delete', '/admin/documents/list', '/admin/documents/raw-import', '/admin/documents/re-extract', ...}
+
+tests/core_business/test_business_line_evidence_contract.py:261: AssertionError</failure></testcase><testcase classname="tests.core_business.test_business_line_evidence_contract" name="test_scheduled_matrix_artifact_summary_route_is_registered_without_user_path" time="0.000"><failure message="assert None is not None">def test_scheduled_matrix_artifact_summary_route_is_registered_without_user_path() -&gt; None:
+        if _IMPORT_ERROR is not None:
+            pytest.skip(f"business line evidence contract tests require backend dependencies: {_IMPORT_ERROR}")
+    
+        route = next(
+            (
+                route
+                for route in api_router.routes
+                if isinstance(route, APIRoute)
+                and route.path == "/business-lines/scheduled-matrix-artifact-summary"
+            ),
+            None,
+        )
+    
+&gt;       assert route is not None
+E       assert None is not None
+
+tests/core_business/test_business_line_evidence_contract.py:278: AssertionError</failure></testcase><testcase classname="tests.core_business.test_business_line_evidence_contract" name="test_scheduled_artifact_summaries_route_is_registered_without_user_path" time="0.000"><failure message="assert None is not None">def test_scheduled_artifact_summaries_route_is_registered_without_user_path() -&gt; None:
+        if _IMPORT_ERROR is not None:
+            pytest.skip(f"business line evidence contract tests require backend dependencies: {_IMPORT_ERROR}")
+    
+        route = next(
+            (
+                route
+                for route in api_router.routes
+                if isinstance(route, APIRoute)
+                and route.path == "/business-lines/scheduled-artifact-summaries"
+            ),
+            None,
+        )
+    
+&gt;       assert route is not None
+E       assert None is not None
+
+tests/core_business/test_business_line_evidence_contract.py:297: AssertionError</failure></testcase><testcase classname="tests.core_business.test_business_line_evidence_contract" name="test_scheduled_artifact_drilldown_route_is_registered_without_user_path" time="0.000"><failure message="assert None is not None">def test_scheduled_artifact_drilldown_route_is_registered_without_user_path() -&gt; None:
+        if _IMPORT_ERROR is not None:
+            pytest.skip(f"business line evidence contract tests require backend dependencies: {_IMPORT_ERROR}")
+    
+        route = next(
+            (
+                route
+                for route in api_router.routes
+                if isinstance(route, APIRoute)
+                and route.path == "/business-lines/scheduled-artifact-drilldown"
+            ),
+            None,
+        )
+    
+&gt;       assert route is not None
+E       assert None is not None
+
+tests/core_business/test_business_line_evidence_contract.py:316: AssertionError</failure></testcase><testcase classname="tests.core_business.test_business_line_evidence_contract" name="test_scheduled_matrix_artifact_summary_contract" time="0.270"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">client = &lt;starlette.testclient.TestClient object at 0x11ae0a890&gt;
+
+    def test_scheduled_matrix_artifact_summary_contract(client: TestClient) -&gt; None:
+        response = client.get("/api/v1/business-lines/scheduled-matrix-artifact-summary")
+    
+&gt;       assert response.status_code == 200
+E       assert 404 == 200
+E        +  where 404 = &lt;Response [404 Not Found]&gt;.status_code
+
+tests/core_business/test_business_line_evidence_contract.py:324: AssertionError</failure></testcase><testcase classname="tests.core_business.test_business_line_evidence_contract" name="test_scheduled_artifact_summaries_contract" time="0.156"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">client = &lt;starlette.testclient.TestClient object at 0x11a10ded0&gt;
+
+    def test_scheduled_artifact_summaries_contract(client: TestClient) -&gt; None:
+        response = client.get("/api/v1/business-lines/scheduled-artifact-summaries")
+    
+&gt;       assert response.status_code == 200
+E       assert 404 == 200
+E        +  where 404 = &lt;Response [404 Not Found]&gt;.status_code
+
+tests/core_business/test_business_line_evidence_contract.py:368: AssertionError</failure></testcase><testcase classname="tests.core_business.test_business_line_evidence_contract" name="test_scheduled_artifact_drilldown_contract" time="0.181"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">client = &lt;starlette.testclient.TestClient object at 0x11be8d450&gt;
+
+    def test_scheduled_artifact_drilldown_contract(client: TestClient) -&gt; None:
+        response = client.get("/api/v1/business-lines/scheduled-artifact-drilldown")
+    
+&gt;       assert response.status_code == 200
+E       assert 404 == 200
+E        +  where 404 = &lt;Response [404 Not Found]&gt;.status_code
+
+tests/core_business/test_business_line_evidence_contract.py:432: AssertionError</failure></testcase><testcase classname="tests.core_business.test_business_line_evidence_contract" name="test_scheduled_artifact_drilldown_lane_identity_warning_grouping_normalization" time="0.000" /><testcase classname="tests.core_business.test_business_line_evidence_contract" name="test_scheduled_artifact_drilldown_same_as_latest_projection_is_no_warning" time="0.000" /><testcase classname="tests.core_business.test_business_line_evidence_contract" name="test_business_line_evidence_matrix_contract" time="0.307"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">client = &lt;starlette.testclient.TestClient object at 0x11a44d450&gt;
+
+    def test_business_line_evidence_matrix_contract(client: TestClient) -&gt; None:
+        response = client.get("/api/v1/business-lines/evidence-matrix")
+    
+&gt;       assert response.status_code == 200
+E       assert 404 == 200
+E        +  where 404 = &lt;Response [404 Not Found]&gt;.status_code
+
+tests/core_business/test_business_line_evidence_contract.py:793: AssertionError</failure></testcase><testcase classname="tests.core_business.test_contracts_errors_core_contract.ContractsErrorsCoreContractTestCase" name="test_http_exception_dict_detail_is_wrapped_with_meta_and_details" time="0.004" /><testcase classname="tests.core_business.test_contracts_errors_core_contract.ContractsErrorsCoreContractTestCase" name="test_http_exception_empty_detail_uses_default_message" time="0.002" /><testcase classname="tests.core_business.test_contracts_errors_core_contract.ContractsErrorsCoreContractTestCase" name="test_http_exception_envelope_prefers_known_error_code_from_detail" time="0.002" /><testcase classname="tests.core_business.test_contracts_errors_core_contract.ContractsErrorsCoreContractTestCase" name="test_http_exception_envelope_unknown_detail_code_falls_back_to_status_mapping" time="0.002" /><testcase classname="tests.core_business.test_contracts_errors_core_contract.ContractsErrorsCoreContractTestCase" name="test_map_exception_to_error_default_sets_exception_type" time="0.000" /><testcase classname="tests.core_business.test_contracts_errors_core_contract.ContractsErrorsCoreContractTestCase" name="test_map_exception_to_error_keyword_branches" time="0.000" /><testcase classname="tests.core_business.test_contracts_errors_core_contract.ContractsErrorsCoreContractTestCase" name="test_map_status_to_error_code_core_matrix" time="0.001" /><testcase classname="tests.core_business.test_crawler_management_core_contract.CrawlerManagementApiContractTestCase" name="test_crawler_import_invalid_input_returns_standard_error_envelope" time="0.002" /><testcase classname="tests.core_business.test_crawler_management_core_contract.CrawlerManagementApiContractTestCase" name="test_crawler_list_runtime_failure_returns_internal_error" time="0.002" /><testcase classname="tests.core_business.test_crawler_management_core_contract.CrawlerManagementApiContractTestCase" name="test_crawler_project_missing_returns_standard_not_found_envelope" time="0.002" /><testcase classname="tests.core_business.test_crawler_management_core_contract.CrawlerManagementApiContractTestCase" name="test_deploy_endpoint_run_async_returns_task_contract_with_mocked_tasks" time="0.004" /><testcase classname="tests.core_business.test_crawler_management_core_contract.CrawlerManagementApiContractTestCase" name="test_import_endpoint_sync_returns_enveloped_result_with_mocked_service" time="0.002" /><testcase classname="tests.core_business.test_discovery_core_contract" name="test_discovery_search_route_is_reachable" time="0.005" /><testcase classname="tests.core_business.test_discovery_core_contract" name="test_discovery_search_success_envelope_shape" time="0.004" /><testcase classname="tests.core_business.test_discovery_core_contract" name="test_discovery_search_exception_mapping[resource not found-404-NOT_FOUND]" time="0.004" /><testcase classname="tests.core_business.test_discovery_core_contract" name="test_discovery_search_exception_mapping[rate limit exceeded-429-RATE_LIMITED]" time="0.004" /><testcase classname="tests.core_business.test_discovery_core_contract" name="test_discovery_search_exception_mapping[upstream timeout-502-UPSTREAM_ERROR]" time="0.005" /><testcase classname="tests.core_business.test_discovery_core_contract" name="test_discovery_search_exception_mapping[api key missing-500-CONFIG_ERROR]" time="0.004" /><testcase classname="tests.core_business.test_health_and_context_core_e2e" name="test_health_endpoint_core_payload_and_contract_exempt_shape" time="0.004" /><testcase classname="tests.core_business.test_health_and_context_core_e2e" name="test_deep_health_endpoint_core_payload_and_contract_exempt_shape" time="0.010" /><testcase classname="tests.core_business.test_health_and_context_core_e2e" name="test_health_project_key_uses_query_when_header_missing" time="0.004" /><testcase classname="tests.core_business.test_health_and_context_core_e2e" name="test_health_project_key_header_takes_precedence_over_query" time="0.003" /><testcase classname="tests.core_business.test_health_and_context_core_e2e" name="test_deep_health_project_key_uses_query_when_header_missing" time="0.008" /><testcase classname="tests.core_business.test_health_and_context_core_e2e" name="test_deep_health_project_key_header_takes_precedence_over_query" time="0.007" /><testcase classname="tests.core_business.test_ingest_core_contract.IngestCoreContractTestCase" name="test_graph_structured_search_rejects_invalid_payload_with_standard_envelope" time="0.004" /><testcase classname="tests.core_business.test_ingest_core_contract.IngestCoreContractTestCase" name="test_ingest_config_maps_known_failures_to_standard_error_envelope" time="0.004" /><testcase classname="tests.core_business.test_ingest_core_contract.IngestCoreContractTestCase" name="test_ingest_config_missing_record_sets_error_header" time="0.002" /><testcase classname="tests.core_business.test_ingest_core_contract.IngestCoreContractTestCase" name="test_market_async_normalizes_params_and_returns_task_contract_shape" time="0.002" /><testcase classname="tests.core_business.test_ingest_core_contract.IngestCoreContractTestCase" name="test_market_async_routes_with_lane_queue_when_apply_async_available" time="0.003" /><testcase classname="tests.core_business.test_ingest_core_contract.IngestCoreContractTestCase" name="test_market_rejects_empty_query_terms_before_task_dispatch" time="0.002" /><testcase classname="tests.core_business.test_ingest_core_contract.IngestCoreContractTestCase" name="test_market_runtime_errors_use_mapped_status_and_error_headers" time="0.004" /><testcase classname="tests.core_business.test_ingest_core_contract.IngestCoreContractTestCase" name="test_source_library_run_accepts_single_source_guard_and_preserves_evidence" time="0.002" /><testcase classname="tests.core_business.test_ingest_core_contract.IngestCoreContractTestCase" name="test_source_library_run_async_returns_task_contract_shape" time="0.002" /><testcase classname="tests.core_business.test_ingest_core_contract.IngestCoreContractTestCase" name="test_source_library_run_async_reuses_existing_submission_for_explicit_idempotency_key" time="0.006" /><testcase classname="tests.core_business.test_ingest_core_contract.IngestCoreContractTestCase" name="test_source_library_run_async_routes_with_subagent_lane_when_apply_async_available" time="0.002" /><testcase classname="tests.core_business.test_ingest_core_contract.IngestCoreContractTestCase" name="test_source_library_run_items_batch_uses_item_form_only" time="0.002" /><testcase classname="tests.core_business.test_ingest_core_contract.IngestCoreContractTestCase" name="test_source_library_run_promotes_top_level_fields_into_override_params" time="0.002" /><testcase classname="tests.core_business.test_ingest_core_contract.IngestCoreContractTestCase" name="test_source_library_run_rejects_blocked_single_source_guard_before_dispatch" time="0.002" /><testcase classname="tests.core_business.test_ingest_core_contract.IngestCoreContractTestCase" name="test_source_library_run_rejects_invalid_items_payload_with_standard_envelope" time="0.002" /><testcase classname="tests.core_business.test_ingest_core_contract.IngestCoreContractTestCase" name="test_source_library_run_rejects_missing_and_conflicting_identifiers" time="0.004" /><testcase classname="tests.core_business.test_ingest_core_contract.IngestCoreContractTestCase" name="test_source_library_run_rejects_single_source_guard_site_entries_mismatch_before_dispatch" time="0.002" /><testcase classname="tests.core_business.test_ingest_core_contract.IngestCoreContractTestCase" name="test_source_library_run_reuses_persistent_registry_hit_without_dispatch" time="0.002" /><testcase classname="tests.core_business.test_ingest_core_contract.IngestCoreContractTestCase" name="test_source_library_run_sync_preserves_terminal_payload_and_exposes_frontdoor_tracks" time="0.002" /><testcase classname="tests.core_business.test_ingest_core_contract.IngestCoreContractTestCase" name="test_subproject_news_rejects_body_project_mismatch_with_standard_envelope" time="0.002" /><testcase classname="tests.core_business.test_ingest_core_contract.IngestCoreContractTestCase" name="test_url_single_async_includes_light_filter_search_options_when_overridden" time="0.003" /><testcase classname="tests.core_business.test_ingest_core_contract.IngestCoreContractTestCase" name="test_url_single_async_marks_memory_registry_when_db_unavailable" time="0.003" /><testcase classname="tests.core_business.test_ingest_core_contract.IngestCoreContractTestCase" name="test_url_single_async_reuses_existing_submission_for_duplicate_idempotency_key" time="0.006" /><testcase classname="tests.core_business.test_ingest_core_contract.IngestCoreContractTestCase" name="test_url_single_async_reuses_persistent_registry_hit_without_dispatch" time="0.002" /><testcase classname="tests.core_business.test_ingest_core_contract.IngestCoreContractTestCase" name="test_url_single_async_submission_readback_is_visible_in_history" time="0.013"><failure message="AssertionError: 503 != 200 : {&quot;status&quot;:&quot;error&quot;,&quot;data&quot;:null,&quot;error&quot;:{&quot;code&quot;:&quot;UPSTREAM_ERROR&quot;,&quot;message&quot;:&quot;数据库服务不可用，请检查数据库服务是否已启动。&quot;,&quot;details&quot;:{&quot;reason&quot;:&quot;(psycopg2.OperationalError) connection to server at \&quot;localhost\&quot; (::1), port 5432 failed: Operation not permitted\n\tIs the server running on that host and accepting TCP/IP connections?\nconnection to server at \&quot;localhost\&quot; (127.0.0.1), port 5432 failed: Operation not permitted\n\tIs the server running on that host and accepting TCP/IP connections?\n\n(Background on this error at: https://sqlalche.me/e/20/e3q8)&quot;}},&quot;meta&quot;:{&quot;trace_id&quot;:&quot;73acacc5-2fd6-4c1b-9227-ede947e5c3df&quot;,&quot;pagination&quot;:null,&quot;project_key&quot;:&quot;default&quot;,&quot;deprecated&quot;:null},&quot;detail&quot;:{&quot;error&quot;:{&quot;code&quot;:&quot;UPSTREAM_ERROR&quot;,&quot;message&quot;:&quot;数据库服务不可用，请检查数据库服务是否已启动。&quot;,&quot;details&quot;:{&quot;reason&quot;:&quot;(psycopg2.OperationalError) connection to server at \&quot;localhost\&quot; (::1), port 5432 failed: Operation not permitted\n\tIs the server running on that host and accepting TCP/IP connections?\nconnection to server at \&quot;localhost\&quot; (127.0.0.1), port 5432 failed: Operation not permitted\n\tIs the server running on that host and accepting TCP/IP connections?\n\n(Background on this error at: https://sqlalche.me/e/20/e3q8)&quot;}},&quot;message&quot;:&quot;数据库服务不可用，请检查数据库服务是否已启动。&quot;}}">self = &lt;test_ingest_core_contract.IngestCoreContractTestCase testMethod=test_url_single_async_submission_readback_is_visible_in_history&gt;
+
+    def test_url_single_async_submission_readback_is_visible_in_history(self):
+        tasks = _TrackedTasks()
+        idempotency_key = _unique_key("core-url-single-history-idem")
+        unique_url = f"https://example.com/post/{idempotency_key}"
+        payload = {
+            "url": unique_url,
+            "query_terms": ["market"],
+            "idempotency_key": idempotency_key,
+            "strict_mode": True,
+            "project_key": "demo_proj",
+            "async_mode": True,
+        }
+        legacy_job = {"id": 999, "job_type": "legacy_job", "status": "completed", "params": {"k": "v"}}
+    
+        with patch("app.api.ingest._tasks_module", return_value=tasks), patch(
+            "app.api.ingest.list_jobs",
+            return_value=[legacy_job],
+        ):
+            first_resp = self.client.post("/api/v1/ingest/url/single", json=payload)
+            duplicate_resp = self.client.post("/api/v1/ingest/url/single", json=payload)
+            history_resp = self.client.get("/api/v1/ingest/history", params={"limit": 5})
+    
+        self.assertEqual(first_resp.status_code, 200, msg=first_resp.text)
+        self.assertEqual(duplicate_resp.status_code, 200, msg=duplicate_resp.text)
+&gt;       self.assertEqual(history_resp.status_code, 200, msg=history_resp.text)
+E       AssertionError: 503 != 200 : {"status":"error","data":null,"error":{"code":"UPSTREAM_ERROR","message":"数据库服务不可用，请检查数据库服务是否已启动。","details":{"reason":"(psycopg2.OperationalError) connection to server at \"localhost\" (::1), port 5432 failed: Operation not permitted\n\tIs the server running on that host and accepting TCP/IP connections?\nconnection to server at \"localhost\" (127.0.0.1), port 5432 failed: Operation not permitted\n\tIs the server running on that host and accepting TCP/IP connections?\n\n(Background on this error at: https://sqlalche.me/e/20/e3q8)"}},"meta":{"trace_id":"73acacc5-2fd6-4c1b-9227-ede947e5c3df","pagination":null,"project_key":"default","deprecated":null},"detail":{"error":{"code":"UPSTREAM_ERROR","message":"数据库服务不可用，请检查数据库服务是否已启动。","details":{"reason":"(psycopg2.OperationalError) connection to server at \"localhost\" (::1), port 5432 failed: Operation not permitted\n\tIs the server running on that host and accepting TCP/IP connections?\nconnection to server at \"localhost\" (127.0.0.1), port 5432 failed: Operation not permitted\n\tIs the server running on that host and accepting TCP/IP connections?\n\n(Background on this error at: https://sqlalche.me/e/20/e3q8)"}},"message":"数据库服务不可用，请检查数据库服务是否已启动。"}}
+
+tests/core_business/test_ingest_core_contract.py:729: AssertionError</failure></testcase><testcase classname="tests.core_business.test_ingest_core_contract.IngestCoreContractTestCase" name="test_url_single_async_task_contract_compat_with_task_result_status" time="0.004" /><testcase classname="tests.core_business.test_ingest_core_contract.IngestCoreContractTestCase" name="test_url_single_sync_response_contains_effective_payload_with_light_filter_fields" time="0.003" /><testcase classname="tests.core_business.test_main_core_contract" name="test_app_initialization_core_contract" time="0.000"><failure message="AssertionError: assert '1.0.0' == '0.1.0-rc.1'&#10;  &#10;  - 0.1.0-rc.1&#10;  + 1.0.0">def test_app_initialization_core_contract() -&gt; None:
+        paths = {route.path for route in backend_app.routes if isinstance(route, APIRoute)}
+    
+        assert backend_app.title == "Market Intel API"
+&gt;       assert backend_app.version == "0.1.0-rc.1"
+E       AssertionError: assert '1.0.0' == '0.1.0-rc.1'
+E         
+E         - 0.1.0-rc.1
+E         + 1.0.0
+
+tests/core_business/test_main_core_contract.py:49: AssertionError</failure></testcase><testcase classname="tests.core_business.test_main_core_contract" name="test_success_json_response_is_wrapped_with_contract_envelope" time="0.000" /><testcase classname="tests.core_business.test_main_core_contract" name="test_existing_success_envelope_meta_is_enriched_with_trace_and_project" time="0.000" /><testcase classname="tests.core_business.test_main_core_contract" name="test_existing_success_envelope_keeps_explicit_trace_and_project" time="0.000" /><testcase classname="tests.core_business.test_main_core_contract" name="test_ok_uses_request_context_meta_by_default" time="0.000" /><testcase classname="tests.core_business.test_main_core_contract" name="test_ok_fills_missing_explicit_meta_from_request_context" time="0.000" /><testcase classname="tests.core_business.test_main_core_contract" name="test_project_key_fallback_headers_and_warning" time="0.002" /><testcase classname="tests.core_business.test_main_core_contract" name="test_http_exception_with_dict_detail_is_enveloped" time="0.002" /><testcase classname="tests.core_business.test_main_core_contract" name="test_http_exception_with_existing_envelope_detail_preserves_error_code" time="0.002" /><testcase classname="tests.core_business.test_main_core_contract" name="test_unhandled_exception_for_contract_api_is_enveloped" time="0.004" /><testcase classname="tests.core_business.test_main_core_contract" name="test_request_validation_error_for_contract_api_is_enveloped" time="0.003" /><testcase classname="tests.core_business.test_main_core_contract" name="test_unhandled_exception_for_non_contract_api_keeps_legacy_shape" time="0.003" /><testcase classname="tests.core_business.test_process_consistency_core_contract" name="test_process_list_stats_history_consistency_semantics" time="0.007" /><testcase classname="tests.core_business.test_process_consistency_core_contract" name="test_prompt_time_density_priority_contract_fields" time="0.006" /><testcase classname="tests.core_business.test_process_consistency_core_contract" name="test_prompt_time_density_priority_invalid_window_returns_422" time="0.002" /><testcase classname="tests.core_business.test_process_runtime_readback_core_contract" name="test_process_tasks_and_logs_are_explicit_readback_routes_not_dynamic_task_ids" time="0.005" /><testcase classname="tests.core_business.test_process_runtime_readback_core_contract" name="test_process_tasks_projects_celery_inspect_worker_readback_fields" time="0.002" /><testcase classname="tests.core_business.test_process_runtime_readback_core_contract" name="test_process_logs_projects_etl_job_run_completion_without_forging_other_lines" time="0.004" /><testcase classname="tests.core_business.test_process_runtime_readback_core_contract" name="test_process_logs_do_not_forge_terminal_events_from_completed_db_status" time="0.002" /><testcase classname="tests.core_business.test_process_runtime_readback_core_contract" name="test_process_tasks_do_not_treat_business_state_as_runtime_status" time="0.002" /><testcase classname="tests.core_business.test_process_runtime_readback_core_contract" name="test_process_db_job_exact_endpoint_exposes_runtime_readback_fields_at_data_root" time="0.002" /><testcase classname="tests.core_business.test_process_runtime_readback_core_contract" name="test_process_db_job_exact_endpoint_binds_project_key_for_runtime_readback" time="0.002" /><testcase classname="tests.core_business.test_project_customization_core_contract" name="test_get_workflow_template_missing_name_returns_invalid_input_envelope" time="0.002" /><testcase classname="tests.core_business.test_project_customization_core_contract" name="test_get_workflow_template_missing_workflow_returns_not_found_envelope" time="0.003" /><testcase classname="tests.core_business.test_project_customization_core_contract" name="test_upsert_workflow_template_requires_project_key_and_valid_steps" time="0.004" /><testcase classname="tests.core_business.test_project_customization_core_contract" name="test_delete_workflow_template_missing_custom_workflow_returns_not_found_envelope" time="0.002" /><testcase classname="tests.core_business.test_project_customization_core_contract" name="test_run_workflow_errors_use_standard_envelope" time="0.004" /><testcase classname="tests.core_business.test_project_customization_core_contract" name="test_run_workflow_not_found_error_uses_matching_status_code" time="0.002" /><testcase classname="tests.core_business.test_project_customization_core_contract" name="test_run_workflow_dry_run_returns_preview_without_execution" time="0.002" /><testcase classname="tests.core_business.test_project_customization_core_contract" name="test_run_workflow_dry_run_reports_ready_low_risk_when_dependencies_exist" time="0.002" /><testcase classname="tests.core_business.test_project_customization_core_contract" name="test_workflow_template_diff_returns_versioned_preview_without_mutation" time="0.002" /><testcase classname="tests.core_business.test_project_customization_core_contract" name="test_workflow_template_diff_requires_explicit_project_key" time="0.002" /><testcase classname="tests.core_business.test_project_customization_core_contract" name="test_workflow_template_stage_save_and_promote_preserves_active_until_publish" time="0.009" /><testcase classname="tests.core_business.test_project_customization_core_contract" name="test_workflow_template_stage_promote_and_rollback_prefer_authenticated_actor_context_over_spoofed_headers" time="0.018" /><testcase classname="tests.core_business.test_project_customization_core_contract" name="test_workflow_template_stage_promote_payload_identity_wins_over_authenticated_context_and_headers" time="0.006" /><testcase classname="tests.core_business.test_project_customization_core_contract" name="test_workflow_template_stage_promote_and_rollback_use_header_identity_when_payload_actor_missing" time="0.010" /><testcase classname="tests.core_business.test_project_customization_core_contract" name="test_workflow_template_stage_uses_system_identity_when_payload_and_headers_missing" time="0.002" /><testcase classname="tests.core_business.test_project_customization_core_contract" name="test_workflow_template_rollback_preview_returns_audited_plan_without_mutation" time="0.002" /><testcase classname="tests.core_business.test_project_customization_core_contract" name="test_workflow_template_rollback_apply_restores_active_snapshot_and_persists" time="0.003" /><testcase classname="tests.core_business.test_project_customization_core_contract" name="test_workflow_template_rollback_apply_restores_staging_without_publishing_active" time="0.003" /><testcase classname="tests.core_business.test_project_customization_core_contract" name="test_workflow_template_promote_missing_stage_returns_not_found" time="0.002" /><testcase classname="tests.core_business.test_projects_core_contract.ProjectsCoreContractTestCase" name="test_activate_archived_project_maps_to_invalid_input_error_code" time="0.002" /><testcase classname="tests.core_business.test_projects_core_contract.ProjectsCoreContractTestCase" name="test_create_project_duplicate_key_maps_to_invalid_input_error_code" time="0.002" /><testcase classname="tests.core_business.test_projects_core_contract.ProjectsCoreContractTestCase" name="test_create_project_table_set_includes_writing_workbench_tables" time="0.000" /><testcase classname="tests.core_business.test_projects_core_contract.ProjectsCoreContractTestCase" name="test_delete_default_hard_delete_guard_maps_to_invalid_input_error_code" time="0.002" /><testcase classname="tests.core_business.test_projects_core_contract.ProjectsCoreContractTestCase" name="test_inject_initial_copy_sql_casts_json_source_to_jsonb_target" time="0.000" /><testcase classname="tests.core_business.test_projects_core_contract.ProjectsCoreContractTestCase" name="test_inject_initial_copy_sql_skips_when_no_common_columns" time="0.000" /><testcase classname="tests.core_business.test_projects_core_contract.ProjectsCoreContractTestCase" name="test_inject_initial_copy_sql_uses_common_columns_and_jsonb_conversion" time="0.000" /><testcase classname="tests.core_business.test_projects_core_contract.ProjectsCoreContractTestCase" name="test_inject_target_allows_default_only_in_overwrite_mode" time="0.000" /><testcase classname="tests.core_business.test_projects_core_contract.ProjectsCoreContractTestCase" name="test_invalid_parameter_maps_to_invalid_input_error_code" time="0.002" /><testcase classname="tests.core_business.test_projects_core_contract.ProjectsCoreContractTestCase" name="test_list_projects_returns_enveloped_items" time="0.002" /><testcase classname="tests.core_business.test_projects_core_contract.ProjectsCoreContractTestCase" name="test_project_detail_path_not_found_maps_to_not_found_error_code" time="0.002" /><testcase classname="tests.core_business.test_projects_core_contract.ProjectsCoreContractTestCase" name="test_projects_auto_create_missing_template_maps_to_not_found_error_code" time="0.002" /><testcase classname="tests.core_business.test_projects_core_contract.ProjectsCoreContractTestCase" name="test_seed_sql_executes_via_driver_cursor_without_parameter_mapping" time="0.000" /><testcase classname="tests.core_business.test_projects_core_contract.ProjectsCoreContractTestCase" name="test_seed_sql_filter_removes_psql_meta_and_version_specific_lines" time="0.000" /><testcase classname="tests.core_business.test_resource_pool_core_contract" name="test_list_urls_returns_envelope_with_pagination_and_passes_filters" time="0.014" /><testcase classname="tests.core_business.test_resource_pool_core_contract" name="test_list_site_entries_dash_alias_returns_standard_list_envelope" time="0.013" /><testcase classname="tests.core_business.test_resource_pool_core_contract" name="test_list_site_entries_main_route_adds_lifecycle_fields_without_deprecation" time="0.014" /><testcase classname="tests.core_business.test_resource_pool_core_contract" name="test_list_site_entries_readbacks_lifecycle_transition_metadata" time="0.013" /><testcase classname="tests.core_business.test_resource_pool_core_contract" name="test_list_site_entries_adds_execution_plan_preview_from_item_plan" time="0.013" /><testcase classname="tests.core_business.test_resource_pool_core_contract" name="test_upsert_site_entry_with_lifecycle_extra_persists_transition_evidence" time="0.013" /><testcase classname="tests.core_business.test_resource_pool_core_contract" name="test_patch_site_entry_lifecycle_writes_review_state_and_returns_lifecycle_summary" time="0.013" /><testcase classname="tests.core_business.test_resource_pool_core_contract" name="test_patch_site_entry_lifecycle_blocks_accepted_when_persisted_site_url_missing" time="0.013" /><testcase classname="tests.core_business.test_resource_pool_core_contract" name="test_patch_site_entry_lifecycle_supports_review_states[accepted-True]" time="0.013" /><testcase classname="tests.core_business.test_resource_pool_core_contract" name="test_patch_site_entry_lifecycle_supports_review_states[rejected-True]" time="0.014" /><testcase classname="tests.core_business.test_resource_pool_core_contract" name="test_patch_site_entry_lifecycle_supports_review_states[needs_review-True]" time="0.014" /><testcase classname="tests.core_business.test_resource_pool_core_contract" name="test_patch_site_entry_lifecycle_supports_review_states[disabled-False]" time="0.014" /><testcase classname="tests.core_business.test_resource_pool_core_contract" name="test_patch_site_entry_lifecycle_rejects_invalid_state" time="0.013" /><testcase classname="tests.core_business.test_resource_pool_core_contract" name="test_list_urls_requires_project_key_when_no_context" time="0.013" /><testcase classname="tests.core_business.test_resource_pool_core_contract" name="test_list_urls_shared_scope_allows_missing_project_key" time="0.013" /><testcase classname="tests.core_business.test_resource_pool_core_contract" name="test_list_urls_rejects_page_below_minimum" time="0.013" /><testcase classname="tests.core_business.test_resource_pool_core_contract" name="test_list_urls_rejects_page_size_over_maximum" time="0.013" /><testcase classname="tests.core_business.test_resource_pool_core_contract" name="test_list_site_entries_rejects_invalid_scope" time="0.013" /><testcase classname="tests.core_business.test_resource_pool_core_contract" name="test_upsert_site_entry_maps_value_error_to_invalid_input" time="0.013" /><testcase classname="tests.core_business.test_resource_pool_core_contract" name="test_list_site_entries_maps_unexpected_error_to_internal_error" time="0.156" /><testcase classname="tests.core_business.test_resource_pool_core_contract" name="test_list_site_entries_shared_scope_allows_missing_project_key" time="0.013" /><testcase classname="tests.core_business.test_resource_pool_core_contract" name="test_recommend_site_entry_does_not_require_project_key" time="0.013" /><testcase classname="tests.core_business.test_resource_pool_core_contract" name="test_import_open_source_presets_shared_scope_allows_missing_project_key" time="0.013" /><testcase classname="tests.core_business.test_resource_pool_core_contract" name="test_discover_search_contract_shared_scope_allows_missing_project_key" time="0.013" /><testcase classname="tests.core_business.test_resource_pool_core_contract" name="test_discover_search_contract_error_paths_return_standard_error_contract" time="0.014" /><testcase classname="tests.core_business.test_resource_pool_core_contract" name="test_simplify_site_entries_shared_scope_allows_missing_project_key" time="0.012" /><testcase classname="tests.core_business.test_resource_pool_core_contract" name="test_extract_from_documents_sync_returns_task_result_envelope" time="0.012" /><testcase classname="tests.core_business.test_resource_pool_core_contract" name="test_extract_from_documents_async_returns_queued_task_envelope" time="0.012" /><testcase classname="tests.core_business.test_resource_pool_core_contract" name="test_capture_enable_returns_standard_ok_envelope" time="0.013" /><testcase classname="tests.core_business.test_resource_pool_core_contract" name="test_capture_from_tasks_async_returns_queued_task_envelope" time="0.013" /><testcase classname="tests.core_business.test_resource_pool_core_contract" name="test_capture_from_tasks_internal_error_maps_to_standard_error_envelope" time="0.013" /><testcase classname="tests.core_business.test_resource_pool_core_contract" name="test_discover_site_entries_sync_write_returns_write_result_envelope" time="0.013" /><testcase classname="tests.core_business.test_resource_pool_core_contract" name="test_discover_site_entries_async_returns_queued_task_envelope" time="0.013" /><testcase classname="tests.core_business.test_resource_pool_core_contract" name="test_discover_site_entries_error_paths_return_standard_error_contract" time="0.014" /><testcase classname="tests.core_business.test_resource_pool_core_contract" name="test_unified_search_success_returns_standard_ok_envelope" time="0.017" /><testcase classname="tests.core_business.test_resource_pool_core_contract" name="test_source_library_collect_runs_keyword_to_structured_project_flow" time="0.013" /><testcase classname="tests.core_business.test_resource_pool_core_contract" name="test_source_library_collect_reports_not_ready_when_no_material_is_ingested" time="0.014" /><testcase classname="tests.core_business.test_resource_pool_core_contract" name="test_unified_search_value_error_maps_to_invalid_input" time="0.014" /><testcase classname="tests.core_business.test_resource_pool_core_contract" name="test_unified_search_runtime_error_maps_to_internal_error" time="0.015" /><testcase classname="tests.core_business.test_resource_pool_core_contract" name="test_unified_search_config_error_maps_to_400" time="0.015" /><testcase classname="tests.core_business.test_resource_pool_core_contract" name="test_recommend_site_entries_batch_returns_standard_ok_envelope" time="0.014" /><testcase classname="tests.core_business.test_resource_pool_core_contract" name="test_recommend_site_entries_batch_error_paths_return_standard_error_contract" time="0.015" /><testcase classname="tests.core_business.test_search_core_contract.SearchCoreContractTestCase" name="test_search_init_indices_success_envelope_complete" time="0.002" /><testcase classname="tests.core_business.test_search_core_contract.SearchCoreContractTestCase" name="test_search_internal_error_envelope_complete" time="0.003" /><testcase classname="tests.core_business.test_search_core_contract.SearchCoreContractTestCase" name="test_search_success_envelope_complete" time="0.006" /><testcase classname="tests.core_business.test_search_core_contract.SearchCoreContractTestCase" name="test_search_upstream_error_envelope_complete" time="0.002" /><testcase classname="tests.core_business.test_source_library_core_contract" name="test_source_library_query_endpoints_success_envelope[/api/v1/source_library/channels-list_effective_channels-result0-items]" time="0.002" /><testcase classname="tests.core_business.test_source_library_core_contract" name="test_source_library_query_endpoints_success_envelope[/api/v1/source_library/items-list_effective_items-result1-items]" time="0.002" /><testcase classname="tests.core_business.test_source_library_core_contract" name="test_source_library_query_endpoints_success_envelope[/api/v1/source_library/items/by_symbol-list_items_by_symbol-result2-by_symbol]" time="0.002" /><testcase classname="tests.core_business.test_source_library_core_contract" name="test_source_library_query_endpoints_error_envelope[/api/v1/source_library/channels-list_effective_channels]" time="0.002" /><testcase classname="tests.core_business.test_source_library_core_contract" name="test_source_library_query_endpoints_error_envelope[/api/v1/source_library/items-list_effective_items]" time="0.002" /><testcase classname="tests.core_business.test_source_library_core_contract" name="test_source_library_query_endpoints_error_envelope[/api/v1/source_library/items/by_symbol-list_items_by_symbol]" time="0.002" /><testcase classname="tests.core_business.test_source_library_core_contract" name="test_source_library_shared_scope_allows_missing_project_key" time="0.003" /><testcase classname="tests.core_business.test_source_library_core_contract" name="test_source_library_items_default_filters_user_defined_and_include_system_opt_in" time="0.004" /><testcase classname="tests.core_business.test_source_library_core_contract" name="test_source_library_items_service_aggregated_requires_include_system" time="0.002" /><testcase classname="tests.core_business.test_source_library_core_contract" name="test_source_library_items_include_execution_plan_preview_contract" time="0.002" /><testcase classname="tests.core_business.test_source_library_core_contract" name="test_upsert_project_item_internal_supports_project_key_call_without_request" time="0.014" /><testcase classname="tests.core_business.test_source_library_core_contract" name="test_source_library_run_item_payload_returns_execution_fact_for_single_source_guard" time="0.001" /><testcase classname="tests.core_business.test_source_library_core_contract" name="test_source_library_item_write_rejects_service_aggregated_from_user_api[post-/api/v1/source_library/items]" time="0.003" /><testcase classname="tests.core_business.test_source_library_core_contract" name="test_source_library_item_write_rejects_service_aggregated_from_user_api[put-/api/v1/source_library/items/system.item]" time="0.003" /><testcase classname="tests.core_business.test_source_library_core_contract" name="test_source_library_item_write_rejects_generic_web_user_defined" time="0.002" /><testcase classname="tests.core_business.test_source_library_core_contract" name="test_source_library_item_write_requires_external_manifest_for_external_channel" time="0.002" /><testcase classname="tests.core_business.test_source_library_core_contract" name="test_source_library_item_write_rejects_external_manifest_channel_mismatch" time="0.002" /><testcase classname="tests.core_business.test_source_library_core_contract" name="test_external_project_register_preview_returns_synthesized_item_without_persist" time="0.002"><failure message="assert 500 == 200&#10; +  where 500 = &lt;Response [500 Internal Server Error]&gt;.status_code">client = &lt;starlette.testclient.TestClient object at 0x11bba75d0&gt;
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x11bccb090&gt;
+
+    def test_external_project_register_preview_returns_synthesized_item_without_persist(client, monkeypatch: pytest.MonkeyPatch):
+        def _fake_synthesize(**kwargs):
+            assert kwargs["project_link"] == "https://github.com/example/external-demo"
+            return _external_registration_item_payload()
+    
+        monkeypatch.setattr(source_library_api, "synthesize_external_project_item", _fake_synthesize)
+    
+        resp = client.post(
+            "/api/v1/source_library/external-projects/register",
+            params={"project_key": "demo_proj"},
+            json={
+                "project_link": "https://github.com/example/external-demo",
+                "persist": False,
+                "hints": {"query_terms": ["ai"]},
+            },
+            headers=HEADERS,
+        )
+    
+&gt;       assert resp.status_code == 200
+E       assert 500 == 200
+E        +  where 500 = &lt;Response [500 Internal Server Error]&gt;.status_code
+
+tests/core_business/test_source_library_core_contract.py:545: AssertionError</failure></testcase><testcase classname="tests.core_business.test_source_library_core_contract" name="test_external_project_register_persist_upserts_synthesized_item" time="0.004"><failure message="assert 500 == 200&#10; +  where 500 = &lt;Response [500 Internal Server Error]&gt;.status_code">client = &lt;starlette.testclient.TestClient object at 0x11bba75d0&gt;
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x11a546790&gt;
+
+    def test_external_project_register_persist_upserts_synthesized_item(client, monkeypatch: pytest.MonkeyPatch):
+        captured = {}
+    
+        def _fake_synthesize(**_kwargs):
+            payload = _external_registration_item_payload()
+            payload["enabled"] = False
+            return payload
+    
+        def _fake_upsert(payload, project_key: str):
+            captured["project_key"] = project_key
+            captured["payload"] = payload.model_dump()
+            return {"status": "ok"}
+    
+        monkeypatch.setattr(source_library_api, "synthesize_external_project_item", _fake_synthesize)
+        monkeypatch.setattr(source_library_api, "_upsert_project_item_internal", _fake_upsert)
+    
+        resp = client.post(
+            "/api/v1/source_library/external-projects/register",
+            params={"project_key": "demo_proj"},
+            json={
+                "project_link": "https://github.com/example/external-demo",
+                "persist": True,
+                "enabled": False,
+            },
+            headers=HEADERS,
+        )
+    
+&gt;       assert resp.status_code == 200
+E       assert 500 == 200
+E        +  where 500 = &lt;Response [500 Internal Server Error]&gt;.status_code
+
+tests/core_business/test_source_library_core_contract.py:588: AssertionError</failure></testcase><testcase classname="tests.core_business.test_source_library_core_contract" name="test_external_project_register_surfaces_synthesis_failure_as_invalid_input" time="0.002" /><testcase classname="tests.core_business.test_source_library_core_contract" name="test_external_project_register_surfaces_runtime_failure_as_internal_error" time="0.002" /><testcase classname="tests.core_business.test_source_library_core_contract" name="test_source_library_write_routes_require_project_key_with_standard_error_envelope[post-/api/v1/source_library/items-payload0]" time="0.002" /><testcase classname="tests.core_business.test_source_library_core_contract" name="test_source_library_write_routes_require_project_key_with_standard_error_envelope[put-/api/v1/source_library/items/demo.item-payload1]" time="0.002" /><testcase classname="tests.core_business.test_source_library_core_contract" name="test_source_library_write_routes_require_project_key_with_standard_error_envelope[post-/api/v1/source_library/items/demo.item/refresh-payload2]" time="0.002" /><testcase classname="tests.core_business.test_source_library_core_contract" name="test_source_library_write_routes_require_project_key_with_standard_error_envelope[post-/api/v1/source_library/handler_clusters/sync-payload3]" time="0.002" /><testcase classname="tests.core_business.test_source_library_core_contract" name="test_source_library_write_routes_require_project_key_with_standard_error_envelope[post-/api/v1/source_library/external-projects/register-payload4]" time="0.002" /><testcase classname="tests.core_business.test_source_library_core_contract" name="test_source_library_legacy_item_run_returns_explicit_deprecation_contract" time="0.002" /><testcase classname="tests.core_business.test_source_library_core_contract" name="test_source_library_sync_shared_from_files_requires_project_key_with_standard_error_envelope" time="0.002" /><testcase classname="tests.core_business.test_source_library_core_contract" name="test_source_library_refresh_missing_item_returns_not_found_envelope" time="0.003" /><testcase classname="tests.core_business.test_source_library_core_contract" name="test_source_library_refresh_runtime_failure_returns_internal_error_envelope" time="0.003" /></testsuite></testsuites>

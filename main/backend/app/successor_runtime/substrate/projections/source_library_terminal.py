@@ -13,7 +13,7 @@ modifies shared migration/catalog state.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 import sqlalchemy as sa
 from sqlalchemy import delete, insert, select
@@ -265,7 +265,12 @@ def build_source_library_terminal_table(
     metadata: sa.MetaData,
     *,
     name: str = DEFAULT_PROJECTION_TABLE,
-) -> sa.Table:
+) -> Annotated[
+    sa.Table,
+    "kit:prepared-command effect_boundary=app.successor_runtime.substrate.projections."
+    "source_library_terminal.build_source_library_terminal_table "
+    "witness=test:test_w08e_projection_authority_metadata_is_exact",
+]:
     return sa.Table(
         name,
         metadata,

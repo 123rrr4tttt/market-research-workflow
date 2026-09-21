@@ -1,0 +1,37 @@
+{
+  "authoritative": false,
+  "authority_ceiling": "EXACT_BYTE_CORRESPONDENCE_ONLY_NO_CANDIDATE_PROMOTION_NO_STAGE0_REWRITE_NO_PRODUCTION_AUTHORITY",
+  "checker": {
+    "authority_ceiling": "EXACT_BYTE_CORRESPONDENCE_ONLY_NO_CANDIDATE_PROMOTION_NO_STAGE0_REWRITE_NO_PRODUCTION_AUTHORITY",
+    "direct_candidate_declaration_count": 15,
+    "provider_test_direct_candidate_declaration_count": 7,
+    "run_loop_direct_candidate_declaration_count": 3,
+    "source_count": 10,
+    "status": "PASS",
+    "successor_count": 16
+  },
+  "new_documents": {
+    "manifest": {
+      "path": "stage1-successor-evidence/current-byte-remediation-v3/bindings/artifact-manifest.v3.json",
+      "sha256": "01db55f28ae22ba503ac6f1cf6029bca43de29acb4b167ab007019abf5ccf53f"
+    },
+    "registry": {
+      "path": "stage1-successor-evidence/current-byte-remediation-v3/bindings/current-byte-binding-successors.v3.json",
+      "sha256": "a46b41be2bd39361e96f2595c4cdbcab2c3b9f98a4714ca5b09d17014569c2ed"
+    }
+  },
+  "old_documents": {
+    "manifest": {
+      "path": "stage1-successor-evidence/current-byte-remediation-v3/bindings/artifact-manifest.v3.json",
+      "sha256": "ece28143f5f185ad2aa69e2ad96f09db01f1c21fcc2528a755fc456823ff40fb"
+    },
+    "registry": {
+      "path": "stage1-successor-evidence/current-byte-remediation-v3/bindings/current-byte-binding-successors.v3.json",
+      "sha256": "4d2a23c824acafa4caaa174def0f711f6d2a2255079ffd97a61498991314156c"
+    }
+  },
+  "reason": "ADD_C2_HISTORICAL_STAGE_SELECTOR_SUCCESSOR",
+  "schema": "mrw.current_byte_v3_rebuild_receipt.v1",
+  "stale_copy": "stage1-successor-evidence/stage-convergence-batch-v1/raw/current-byte-v3-pre-c2-selector-20260908",
+  "status": "PASS"
+}

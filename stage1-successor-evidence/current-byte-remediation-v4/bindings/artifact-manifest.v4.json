@@ -1,0 +1,47 @@
+{
+  "added_successor_count": 0,
+  "authoritative": false,
+  "authority": {
+    "candidate_promotion": false,
+    "cutover": false,
+    "deployment": false,
+    "external_delivery": false,
+    "legacy_retirement": false,
+    "live_provider": false,
+    "production_canonical_write": false,
+    "production_release": false
+  },
+  "authority_ceiling": "EXACT_BYTE_CORRESPONDENCE_ONLY_NO_CANDIDATE_PROMOTION_NO_STAGE0_REWRITE_NO_PRODUCTION_AUTHORITY",
+  "content_digest": "039e71bb01d4372173a2ba446aa40b0495b3d54ca690c3ce7aa0d00c081dc300",
+  "extends": {
+    "mutation": false,
+    "path": "stage1-successor-evidence/current-byte-remediation-v3/bindings/current-byte-binding-successors.v3.json",
+    "sha256": "bcc60ffd01ef35eceb06ed87568b724a4107e26de8ea2b47ff9f1e5415bfad71"
+  },
+  "member_count": 4,
+  "members": [
+    {
+      "bytes": 11244,
+      "path": "stage1-successor-evidence/current-byte-remediation-v4/bindings/build_current_byte_binding_successors_v4.py",
+      "sha256": "ac3f67389ce8f3ea6c6fa6cdc479577e18408d81c4933b1374c91550255adb4c"
+    },
+    {
+      "bytes": 5131,
+      "path": "stage1-successor-evidence/current-byte-remediation-v4/bindings/check_current_byte_binding_successors_v4.py",
+      "sha256": "fb87911f05d057ac8bccf756f2627b09d2108324fae9e257d8f96770f62b323d"
+    },
+    {
+      "bytes": 73041,
+      "path": "stage1-successor-evidence/current-byte-remediation-v4/bindings/current-byte-binding-successors.v4.json",
+      "sha256": "82b1be901f1d3170c0e976af56659bd007c883b0bc7de6f6350ea75f49177ec5"
+    },
+    {
+      "bytes": 7960,
+      "path": "stage1-successor-evidence/current-byte-remediation-v4/bindings/test_current_byte_binding_successors_v4.py",
+      "sha256": "22261e15567fec3c53759dd2ebe198213c767aa99d8adf19afa2838e095b7adc"
+    }
+  ],
+  "new_snapshot_count": 0,
+  "schema": "mrw.current_byte_binding_successor_manifest.v4",
+  "status": "COMPLETE_ZERO_DELTA_NOT_AUTHORITY"
+}

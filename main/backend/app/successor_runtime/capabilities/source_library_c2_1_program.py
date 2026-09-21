@@ -12,9 +12,12 @@ Canonical type ids and payload types come from the single DTO vocabulary in
 from __future__ import annotations
 
 import dataclasses
-from typing import Any
+from typing import Annotated, Any, Literal
+
+from functorial_kit import Failure
 
 from app.successor_runtime.capabilities import source_library_c2_1 as c2_1
+from app.successor_runtime.capabilities import source_library_c2_shared as _shared
 from app.successor_runtime.capabilities.checksum import (
     canonical_json,
     content_digest,
@@ -42,39 +45,85 @@ __all__ = [
     "compile_source_library_c2_1_program",
     "exact_contract_ref",
     "payload_value_ref",
+    "try_build_source_library_c2_1_program",
+    "try_exact_contract_ref",
+    "try_payload_value_ref",
 ]
+
+
+def _lift_program_failure(result: Any) -> Any:
+    if isinstance(result, Failure):
+        _shared.raise_c2_contract_failure(result, ValueError)
+    return result
+
+
+def try_exact_contract_ref(
+    catalog: OperationContractCatalogSnapshot,
+) -> OperationContractRef | Failure:
+    try:
+        ref = catalog.lookup(c2_1.SOURCE_LIBRARY_C2_1_KIND)
+    except (AttributeError, TypeError, ValueError) as exc:
+        return _shared.c2_contract_failure(
+            "catalog_contract_invalid",
+            str(exc),
+            operation="source_library.c2_1.exact_contract_ref",
+            site="exact_contract_ref",
+            owner=c2_1.SOURCE_LIBRARY_C2_1_OWNER,
+        )
+    if ref is None:
+        return _shared.c2_contract_failure(
+            "catalog_contract_invalid",
+            f"contract {c2_1.SOURCE_LIBRARY_C2_1_KIND} missing from catalog {catalog.catalog_id}",
+            operation="source_library.c2_1.exact_contract_ref",
+            site="exact_contract_ref",
+            owner=c2_1.SOURCE_LIBRARY_C2_1_OWNER,
+        )
+    return ref
 
 
 def exact_contract_ref(
     catalog: OperationContractCatalogSnapshot,
 ) -> OperationContractRef:
-    ref = catalog.lookup(c2_1.SOURCE_LIBRARY_C2_1_KIND)
-    if ref is None:
-        raise ValueError(
-            f"contract {c2_1.SOURCE_LIBRARY_C2_1_KIND} missing from catalog "
-            f"{catalog.catalog_id}"
-        )
-    return ref
+    return _lift_program_failure(try_exact_contract_ref(catalog))
 
 
-def payload_value_ref(
+def try_payload_value_ref(
     payload: c2_1.SourceResolutionPayload,
     *,
     program_id: str,
     project_key: str,
-) -> ValueRef:
-    """Build the exact content-addressed ValueRef for one C2.1 payload."""
-
-    if payload.operation_kind != c2_1.SOURCE_LIBRARY_C2_1_KIND:
-        raise ValueError("payload operation_kind is not the frozen C2.1 kind")
-    if payload.project_scope.project_key != project_key:
-        raise ValueError("payload project scope drift")
-    require_hex64(payload.catalog.digest, "payload catalog digest")
-    plain = dataclasses.asdict(payload)
-    exact_text = canonical_json(plain)
-    exact_bytes = exact_text.encode("utf-8")
-    content_digest_hex = sha256_hex(exact_bytes)
-    require_hex64(payload.payload_digest, "SourceResolutionPayload.payload_digest")
+) -> ValueRef | Failure:
+    try:
+        if payload.operation_kind != c2_1.SOURCE_LIBRARY_C2_1_KIND:
+            return _shared.c2_contract_failure(
+                "schema_contract_invalid",
+                "payload operation_kind is not the frozen C2.1 kind",
+                operation="source_library.c2_1.payload_value_ref",
+                site="payload_value_ref/operation_kind",
+                owner=c2_1.SOURCE_LIBRARY_C2_1_OWNER,
+            )
+        if payload.project_scope.project_key != project_key:
+            return _shared.c2_contract_failure(
+                "scope_contract_invalid",
+                "payload project scope drift",
+                operation="source_library.c2_1.payload_value_ref",
+                site="payload_value_ref/project_scope",
+                owner=c2_1.SOURCE_LIBRARY_C2_1_OWNER,
+            )
+        require_hex64(payload.catalog.digest, "payload catalog digest")
+        plain = dataclasses.asdict(payload)
+        exact_text = canonical_json(plain)
+        exact_bytes = exact_text.encode("utf-8")
+        content_digest_hex = sha256_hex(exact_bytes)
+        require_hex64(payload.payload_digest, "SourceResolutionPayload.payload_digest")
+    except (TypeError, ValueError, AttributeError, KeyError) as exc:
+        return _shared.c2_contract_failure(
+            "digest_contract_invalid" if "digest" in str(exc).lower() else "schema_contract_invalid",
+            str(exc),
+            operation="source_library.c2_1.payload_value_ref",
+            site="payload_value_ref",
+            owner=c2_1.SOURCE_LIBRARY_C2_1_OWNER,
+        )
     value_id = f"{program_id}:payload:c2-1"
     provenance_digest = content_digest(
         {
@@ -109,6 +158,17 @@ def payload_value_ref(
     )
 
 
+def payload_value_ref(
+    payload: c2_1.SourceResolutionPayload,
+    *,
+    program_id: str,
+    project_key: str,
+) -> ValueRef:
+    return _lift_program_failure(
+        try_payload_value_ref(payload, program_id=program_id, project_key=project_key)
+    )
+
+
 def build_source_library_c2_1_program(
     *,
     payload: c2_1.SourceResolutionPayload,
@@ -120,23 +180,71 @@ def build_source_library_c2_1_program(
     semantic_identity: str = c2_1.SOURCE_LIBRARY_C2_1_SEMANTIC_IDENTITY,
     observation_profile: str = c2_1.SOURCE_RESOLUTION_OBSERVATION_PROFILE,
     contract_version: str = "mrw.functorial-successor.program-spec.v1",
-) -> ProgramSpec:
-    """Build the exact-bound single-Atom Program for one C2.1 payload."""
+) -> Annotated[ProgramSpec, Literal["kit:non-authoritative derived_as=view fact_source=payload+catalog+program_inputs witness=test:test_w06_successor_authority_metadata"]]:
+    return _lift_program_failure(
+        try_build_source_library_c2_1_program(
+            payload=payload,
+            catalog=catalog,
+            program_id=program_id,
+            project_key=project_key,
+            project_registry_revision=project_registry_revision,
+            project_scope_digest=project_scope_digest,
+            semantic_identity=semantic_identity,
+            observation_profile=observation_profile,
+            contract_version=contract_version,
+        )
+    )
 
+
+def try_build_source_library_c2_1_program(
+    *,
+    payload: c2_1.SourceResolutionPayload,
+    catalog: OperationContractCatalogSnapshot,
+    program_id: str,
+    project_key: str,
+    project_registry_revision: int,
+    project_scope_digest: str,
+    semantic_identity: str = c2_1.SOURCE_LIBRARY_C2_1_SEMANTIC_IDENTITY,
+    observation_profile: str = c2_1.SOURCE_RESOLUTION_OBSERVATION_PROFILE,
+    contract_version: str = "mrw.functorial-successor.program-spec.v1",
+) -> Annotated[ProgramSpec, Literal["kit:non-authoritative derived_as=view fact_source=payload+catalog+program_inputs witness=test:test_w06_successor_authority_metadata"]] | Failure:
+    """Total exact-bound Program construction; legacy entry lifts failures."""
     if payload.project_scope.project_key != project_key:
-        raise ValueError("payload project_key does not match Program project_key")
+        return _shared.c2_contract_failure(
+            "scope_contract_invalid",
+            "payload project_key does not match Program project_key",
+            operation="source_library.c2_1.build_program",
+            site="build_program/project_key",
+            owner=c2_1.SOURCE_LIBRARY_C2_1_OWNER,
+        )
     if payload.project_scope.registry_revision != project_registry_revision:
-        raise ValueError(
-            "payload registry revision does not match Program registry revision"
+        return _shared.c2_contract_failure(
+            "scope_contract_invalid",
+            "payload registry revision does not match Program registry revision",
+            operation="source_library.c2_1.build_program",
+            site="build_program/registry_revision",
+            owner=c2_1.SOURCE_LIBRARY_C2_1_OWNER,
         )
     if payload.project_scope.scope_digest != project_scope_digest:
-        raise ValueError("payload scope digest does not match Program scope digest")
-    ref = exact_contract_ref(catalog)
-    value_ref = payload_value_ref(
+        return _shared.c2_contract_failure(
+            "scope_contract_invalid",
+            "payload scope digest does not match Program scope digest",
+            operation="source_library.c2_1.build_program",
+            site="build_program/scope_digest",
+            owner=c2_1.SOURCE_LIBRARY_C2_1_OWNER,
+        )
+    ref_result = try_exact_contract_ref(catalog)
+    if isinstance(ref_result, Failure):
+        return ref_result
+    value_result = try_payload_value_ref(
         payload,
         program_id=program_id,
         project_key=project_key,
     )
+    if isinstance(value_result, Failure):
+        return value_result
+    ref = ref_result
+    value_ref = value_result
     operation = OperationSpec(
         operation_id=c2_1.SOURCE_LIBRARY_C2_1_OPERATION_ID,
         contract_ref=ref,

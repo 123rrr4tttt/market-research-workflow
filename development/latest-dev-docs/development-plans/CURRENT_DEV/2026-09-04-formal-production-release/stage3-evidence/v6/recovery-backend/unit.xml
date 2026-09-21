@@ -1,0 +1,891 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="53" failures="0" skipped="1" tests="54" time="15.295" timestamp="2026-09-07T05:55:58.660814+08:00" hostname="MacBook-Air-489.local"><testcase classname="" name="tests.core_business.test_discovery_core_contract" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/core_business/test_discovery_core_contract.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/core_business/test_discovery_core_contract.py:12: in &lt;module&gt;
+    from app.api import discovery as discovery_api
+app/api/__init__.py:3: in &lt;module&gt;
+    from app.successor_runtime.assembly.app_assembly import (
+app/successor_runtime/assembly/__init__.py:3: in &lt;module&gt;
+    from app.successor_runtime.substrate.projections.registry import ProjectorRegistry
+app/successor_runtime/substrate/__init__.py:3: in &lt;module&gt;
+    from .postgres import (
+app/successor_runtime/substrate/postgres/__init__.py:3: in &lt;module&gt;
+    from .authority_provider import PostgresAuthorityProvider
+app/successor_runtime/substrate/postgres/authority_provider.py:18: in &lt;module&gt;
+    from app.successor_runtime.runtime.assignments import canonical_digest
+app/successor_runtime/runtime/__init__.py:3: in &lt;module&gt;
+    from .admission import CommitIntent, CommitIntentState, VerificationBinding
+app/successor_runtime/runtime/admission.py:13: in &lt;module&gt;
+    from app.successor_runtime.research.codec import canonical_bytes
+app/successor_runtime/research/__init__.py:3: in &lt;module&gt;
+    from .artifacts import (
+app/successor_runtime/research/artifacts.py:8: in &lt;module&gt;
+    from .codec import _failure, _raise_failure, finalize_digest, is_sha256_hex
+app/successor_runtime/research/codec.py:19: in &lt;module&gt;
+    from mrw_functorial_kit.core.w07_semantics import research_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.core_business.test_health_and_context_core_e2e" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/core_business/test_health_and_context_core_e2e.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/core_business/test_health_and_context_core_e2e.py:6: in &lt;module&gt;
+    from app.main import app
+app/main.py:20: in &lt;module&gt;
+    from .composition.production import (
+app/composition/production.py:26: in &lt;module&gt;
+    from app.production_contract import (
+app/production_contract/__init__.py:3: in &lt;module&gt;
+    from .policy import (
+app/production_contract/policy.py:8: in &lt;module&gt;
+    from app.production_contract.types import (
+app/production_contract/types.py:18: in &lt;module&gt;
+    from app.successor_runtime.runtime.ports import ProjectScopeRef
+app/successor_runtime/runtime/__init__.py:3: in &lt;module&gt;
+    from .admission import CommitIntent, CommitIntentState, VerificationBinding
+app/successor_runtime/runtime/admission.py:13: in &lt;module&gt;
+    from app.successor_runtime.research.codec import canonical_bytes
+app/successor_runtime/research/__init__.py:3: in &lt;module&gt;
+    from .artifacts import (
+app/successor_runtime/research/artifacts.py:8: in &lt;module&gt;
+    from .codec import _failure, _raise_failure, finalize_digest, is_sha256_hex
+app/successor_runtime/research/codec.py:19: in &lt;module&gt;
+    from mrw_functorial_kit.core.w07_semantics import research_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.core_business.test_main_core_contract" time="0.000"><skipped message="collection skipped">('/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/core_business/test_main_core_contract.py', 32, "Skipped: main core contract tests require backend dependencies: No module named 'mrw_functorial_kit'")</skipped></testcase><testcase classname="" name="tests.e2e.test_deep_health_smoke_e2e" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/e2e/test_deep_health_smoke_e2e.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/e2e/test_deep_health_smoke_e2e.py:6: in &lt;module&gt;
+    from app.main import app
+app/main.py:20: in &lt;module&gt;
+    from .composition.production import (
+app/composition/production.py:26: in &lt;module&gt;
+    from app.production_contract import (
+app/production_contract/__init__.py:3: in &lt;module&gt;
+    from .policy import (
+app/production_contract/policy.py:8: in &lt;module&gt;
+    from app.production_contract.types import (
+app/production_contract/types.py:18: in &lt;module&gt;
+    from app.successor_runtime.runtime.ports import ProjectScopeRef
+app/successor_runtime/runtime/__init__.py:3: in &lt;module&gt;
+    from .admission import CommitIntent, CommitIntentState, VerificationBinding
+app/successor_runtime/runtime/admission.py:13: in &lt;module&gt;
+    from app.successor_runtime.research.codec import canonical_bytes
+app/successor_runtime/research/__init__.py:3: in &lt;module&gt;
+    from .artifacts import (
+app/successor_runtime/research/artifacts.py:8: in &lt;module&gt;
+    from .codec import _failure, _raise_failure, finalize_digest, is_sha256_hex
+app/successor_runtime/research/codec.py:19: in &lt;module&gt;
+    from mrw_functorial_kit.core.w07_semantics import research_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.e2e.test_health_smoke_e2e" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/e2e/test_health_smoke_e2e.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/e2e/test_health_smoke_e2e.py:6: in &lt;module&gt;
+    from app.main import app
+app/main.py:20: in &lt;module&gt;
+    from .composition.production import (
+app/composition/production.py:26: in &lt;module&gt;
+    from app.production_contract import (
+app/production_contract/__init__.py:3: in &lt;module&gt;
+    from .policy import (
+app/production_contract/policy.py:8: in &lt;module&gt;
+    from app.production_contract.types import (
+app/production_contract/types.py:18: in &lt;module&gt;
+    from app.successor_runtime.runtime.ports import ProjectScopeRef
+app/successor_runtime/runtime/__init__.py:3: in &lt;module&gt;
+    from .admission import CommitIntent, CommitIntentState, VerificationBinding
+app/successor_runtime/runtime/admission.py:13: in &lt;module&gt;
+    from app.successor_runtime.research.codec import canonical_bytes
+app/successor_runtime/research/__init__.py:3: in &lt;module&gt;
+    from .artifacts import (
+app/successor_runtime/research/artifacts.py:8: in &lt;module&gt;
+    from .codec import _failure, _raise_failure, finalize_digest, is_sha256_hex
+app/successor_runtime/research/codec.py:19: in &lt;module&gt;
+    from mrw_functorial_kit.core.w07_semantics import research_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.e2e.test_request_context_headers_e2e" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/e2e/test_request_context_headers_e2e.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/e2e/test_request_context_headers_e2e.py:6: in &lt;module&gt;
+    from app.main import app
+app/main.py:20: in &lt;module&gt;
+    from .composition.production import (
+app/composition/production.py:26: in &lt;module&gt;
+    from app.production_contract import (
+app/production_contract/__init__.py:3: in &lt;module&gt;
+    from .policy import (
+app/production_contract/policy.py:8: in &lt;module&gt;
+    from app.production_contract.types import (
+app/production_contract/types.py:18: in &lt;module&gt;
+    from app.successor_runtime.runtime.ports import ProjectScopeRef
+app/successor_runtime/runtime/__init__.py:3: in &lt;module&gt;
+    from .admission import CommitIntent, CommitIntentState, VerificationBinding
+app/successor_runtime/runtime/admission.py:13: in &lt;module&gt;
+    from app.successor_runtime.research.codec import canonical_bytes
+app/successor_runtime/research/__init__.py:3: in &lt;module&gt;
+    from .artifacts import (
+app/successor_runtime/research/artifacts.py:8: in &lt;module&gt;
+    from .codec import _failure, _raise_failure, finalize_digest, is_sha256_hex
+app/successor_runtime/research/codec.py:19: in &lt;module&gt;
+    from mrw_functorial_kit.core.w07_semantics import research_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.e2e.test_runtime_observability_smoke_e2e" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/e2e/test_runtime_observability_smoke_e2e.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/e2e/test_runtime_observability_smoke_e2e.py:13: in &lt;module&gt;
+    from app.main import app
+app/main.py:20: in &lt;module&gt;
+    from .composition.production import (
+app/composition/production.py:26: in &lt;module&gt;
+    from app.production_contract import (
+app/production_contract/__init__.py:3: in &lt;module&gt;
+    from .policy import (
+app/production_contract/policy.py:8: in &lt;module&gt;
+    from app.production_contract.types import (
+app/production_contract/types.py:18: in &lt;module&gt;
+    from app.successor_runtime.runtime.ports import ProjectScopeRef
+app/successor_runtime/runtime/__init__.py:3: in &lt;module&gt;
+    from .admission import CommitIntent, CommitIntentState, VerificationBinding
+app/successor_runtime/runtime/admission.py:13: in &lt;module&gt;
+    from app.successor_runtime.research.codec import canonical_bytes
+app/successor_runtime/research/__init__.py:3: in &lt;module&gt;
+    from .artifacts import (
+app/successor_runtime/research/artifacts.py:8: in &lt;module&gt;
+    from .codec import _failure, _raise_failure, finalize_digest, is_sha256_hex
+app/successor_runtime/research/codec.py:19: in &lt;module&gt;
+    from mrw_functorial_kit.core.w07_semantics import research_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.functorial_debt.test_c15_backend_misc_cli_report_metadata" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/functorial_debt/test_c15_backend_misc_cli_report_metadata.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/functorial_debt/test_c15_backend_misc_cli_report_metadata.py:14: in &lt;module&gt;
+    from scripts.build_crawler_public_replay_shard_outputs import build_public_shard_outputs
+scripts/build_crawler_public_replay_shard_outputs.py:19: in &lt;module&gt;
+    from scripts.check_crawler_public_replay_shards import DEFAULT_MANIFEST_PATH
+scripts/check_crawler_public_replay_shards.py:18: in &lt;module&gt;
+    from scripts.check_crawler_public_replay_gate import build_check as build_public_gate_check
+scripts/check_crawler_public_replay_gate.py:18: in &lt;module&gt;
+    from scripts.check_source_library_public_replay_a5_gate import build_check as build_a5_gate_check
+scripts/check_source_library_public_replay_a5_gate.py:18: in &lt;module&gt;
+    from scripts.source_library_replay_scaleout import DEFAULT_HISTORICAL_TARGETS
+scripts/source_library_replay_scaleout.py:16: in &lt;module&gt;
+    from scripts.source_library_public_live_probes import _run_target
+scripts/source_library_public_live_probes.py:17: in &lt;module&gt;
+    from app.services.resource_pool.search_template_adapters import apply_search_template_adapter_plan
+app/services/resource_pool/__init__.py:3: in &lt;module&gt;
+    from .append_adapter import DefaultResourcePoolAppendAdapter
+app/services/resource_pool/append_adapter.py:5: in &lt;module&gt;
+    from .extract import append_url
+app/services/resource_pool/extract.py:11: in &lt;module&gt;
+    from ...models.base import SessionLocal
+app/models/base.py:15: in &lt;module&gt;
+    from ..services.projects.context import current_project_schema
+app/services/projects/__init__.py:1: in &lt;module&gt;
+    from .context import (
+app/services/projects/context.py:10: in &lt;module&gt;
+    from mrw_functorial_kit.core.application_failure_semantics import project_operation_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.functorial_debt.test_latest_service_a_ingest_failure_lifts" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/functorial_debt/test_latest_service_a_ingest_failure_lifts.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/functorial_debt/test_latest_service_a_ingest_failure_lifts.py:15: in &lt;module&gt;
+    from app.services.ingest import (  # noqa: E402
+app/services/ingest/canary_metrics_readback.py:9: in &lt;module&gt;
+    from mrw_functorial_kit.core.provider_port_failures import ingest_operation_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.functorial_debt.test_latest_service_b_resource_pool_failure_lifts" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/functorial_debt/test_latest_service_b_resource_pool_failure_lifts.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/functorial_debt/test_latest_service_b_resource_pool_failure_lifts.py:8: in &lt;module&gt;
+    from app.services.resource_pool import (
+app/services/resource_pool/__init__.py:3: in &lt;module&gt;
+    from .append_adapter import DefaultResourcePoolAppendAdapter
+app/services/resource_pool/append_adapter.py:5: in &lt;module&gt;
+    from .extract import append_url
+app/services/resource_pool/extract.py:11: in &lt;module&gt;
+    from ...models.base import SessionLocal
+app/models/base.py:15: in &lt;module&gt;
+    from ..services.projects.context import current_project_schema
+app/services/projects/__init__.py:1: in &lt;module&gt;
+    from .context import (
+app/services/projects/context.py:10: in &lt;module&gt;
+    from mrw_functorial_kit.core.application_failure_semantics import project_operation_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.functorial_debt.test_w01_app_misc" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/functorial_debt/test_w01_app_misc.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/functorial_debt/test_w01_app_misc.py:15: in &lt;module&gt;
+    from app.services.llm_report_generator import build_report_capability_truth
+app/services/llm_report_generator.py:8: in &lt;module&gt;
+    from mrw_functorial_kit.core.application_failure_semantics import llm_report_request_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.functorial_debt.test_w01_contract_failures" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/functorial_debt/test_w01_contract_failures.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/functorial_debt/test_w01_contract_failures.py:12: in &lt;module&gt;
+    from app.contracts import ingest_digestion, successor_runtime
+app/contracts/__init__.py:5: in &lt;module&gt;
+    from .ingest_digestion import (
+app/contracts/ingest_digestion.py:9: in &lt;module&gt;
+    from mrw_functorial_kit.core.application_failure_semantics import ingest_long_cycle_contract_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.functorial_debt.test_w01_effect_failures" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/functorial_debt/test_w01_effect_failures.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/functorial_debt/test_w01_effect_failures.py:13: in &lt;module&gt;
+    from app.models import base
+app/models/base.py:15: in &lt;module&gt;
+    from ..services.projects.context import current_project_schema
+app/services/projects/__init__.py:1: in &lt;module&gt;
+    from .context import (
+app/services/projects/context.py:10: in &lt;module&gt;
+    from mrw_functorial_kit.core.application_failure_semantics import project_operation_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.functorial_debt.test_w01_project_identity_failures" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/functorial_debt/test_w01_project_identity_failures.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/functorial_debt/test_w01_project_identity_failures.py:13: in &lt;module&gt;
+    from app.project_customization.registry import (
+app/project_customization/__init__.py:2: in &lt;module&gt;
+    from .registry import register_project_customization, register_project_customization_prefix
+app/project_customization/registry.py:5: in &lt;module&gt;
+    from ..services.projects.context import _project_failure, _raise_project_failure
+app/services/projects/__init__.py:1: in &lt;module&gt;
+    from .context import (
+app/services/projects/context.py:10: in &lt;module&gt;
+    from mrw_functorial_kit.core.application_failure_semantics import project_operation_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.functorial_debt.test_w01_request_failures" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/functorial_debt/test_w01_request_failures.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/functorial_debt/test_w01_request_failures.py:12: in &lt;module&gt;
+    from app.services import keyword_memory, report, task_readback_metadata
+app/services/keyword_memory.py:9: in &lt;module&gt;
+    from mrw_functorial_kit.core.application_failure_semantics import keyword_memory_contract_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.functorial_debt.test_w01_source_export_failures" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/functorial_debt/test_w01_source_export_failures.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/functorial_debt/test_w01_source_export_failures.py:8: in &lt;module&gt;
+    from app.services.llm_report_export import (
+app/services/llm_report_export.py:16: in &lt;module&gt;
+    from mrw_functorial_kit.core.application_failure_semantics import llm_report_request_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.functorial_debt.test_w01_workflow_graph_failure_lift" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/functorial_debt/test_w01_workflow_graph_failure_lift.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/functorial_debt/test_w01_workflow_graph_failure_lift.py:8: in &lt;module&gt;
+    from app.api import workflow_graph
+app/api/__init__.py:3: in &lt;module&gt;
+    from app.successor_runtime.assembly.app_assembly import (
+app/successor_runtime/assembly/__init__.py:3: in &lt;module&gt;
+    from app.successor_runtime.substrate.projections.registry import ProjectorRegistry
+app/successor_runtime/substrate/__init__.py:3: in &lt;module&gt;
+    from .postgres import (
+app/successor_runtime/substrate/postgres/__init__.py:3: in &lt;module&gt;
+    from .authority_provider import PostgresAuthorityProvider
+app/successor_runtime/substrate/postgres/authority_provider.py:18: in &lt;module&gt;
+    from app.successor_runtime.runtime.assignments import canonical_digest
+app/successor_runtime/runtime/__init__.py:3: in &lt;module&gt;
+    from .admission import CommitIntent, CommitIntentState, VerificationBinding
+app/successor_runtime/runtime/admission.py:13: in &lt;module&gt;
+    from app.successor_runtime.research.codec import canonical_bytes
+app/successor_runtime/research/__init__.py:3: in &lt;module&gt;
+    from .artifacts import (
+app/successor_runtime/research/artifacts.py:8: in &lt;module&gt;
+    from .codec import _failure, _raise_failure, finalize_digest, is_sha256_hex
+app/successor_runtime/research/codec.py:19: in &lt;module&gt;
+    from mrw_functorial_kit.core.w07_semantics import research_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.functorial_debt.test_w02_agent_batch_failures" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/functorial_debt/test_w02_agent_batch_failures.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/functorial_debt/test_w02_agent_batch_failures.py:11: in &lt;module&gt;
+    from app.services.agent_batch.approval_binding import approve_approval
+app/services/agent_batch/approval_binding.py:10: in &lt;module&gt;
+    from mrw_functorial_kit.core.agent_service_semantics import agent_batch_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.functorial_debt.test_w02_agent_core_no_throw" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/functorial_debt/test_w02_agent_core_no_throw.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/functorial_debt/test_w02_agent_core_no_throw.py:7: in &lt;module&gt;
+    from app.services.agent_core.project_tools import (
+app/services/agent_core/__init__.py:17: in &lt;module&gt;
+    from .json_provider import JsonCoreProvider
+app/services/agent_core/json_provider.py:14: in &lt;module&gt;
+    from .tool_window import extract_source_library_item_key
+app/services/agent_core/tool_window.py:7: in &lt;module&gt;
+    from app.services.agent_runtime.material_ontology import classify_material_intent
+app/services/agent_runtime/__init__.py:1: in &lt;module&gt;
+    from .coordinator import CoordinatorRuntime
+app/services/agent_runtime/coordinator.py:7: in &lt;module&gt;
+    from .task_bus import find_unresolved_dependencies
+app/services/agent_runtime/task_bus.py:8: in &lt;module&gt;
+    from .conversation import runtime_failure
+app/services/agent_runtime/conversation.py:6: in &lt;module&gt;
+    from mrw_functorial_kit.core.agent_service_semantics import agent_runtime_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.functorial_debt.test_w02_functorial_failures" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/functorial_debt/test_w02_functorial_failures.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/functorial_debt/test_w02_functorial_failures.py:7: in &lt;module&gt;
+    from mrw_functorial_kit.core.agent_service_semantics import (
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.functorial_debt.test_w02_oauth_skill" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/functorial_debt/test_w02_oauth_skill.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/functorial_debt/test_w02_oauth_skill.py:10: in &lt;module&gt;
+    from mrw_functorial_kit.core.agent_service_semantics import (
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.functorial_debt.test_w02_runtime_no_throw" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/functorial_debt/test_w02_runtime_no_throw.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/functorial_debt/test_w02_runtime_no_throw.py:10: in &lt;module&gt;
+    from app.services.agent_runtime.conversation import ModelConversationAnswerer
+app/services/agent_runtime/__init__.py:1: in &lt;module&gt;
+    from .coordinator import CoordinatorRuntime
+app/services/agent_runtime/coordinator.py:7: in &lt;module&gt;
+    from .task_bus import find_unresolved_dependencies
+app/services/agent_runtime/task_bus.py:8: in &lt;module&gt;
+    from .conversation import runtime_failure
+app/services/agent_runtime/conversation.py:6: in &lt;module&gt;
+    from mrw_functorial_kit.core.agent_service_semantics import agent_runtime_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.functorial_debt.test_w02_sessions" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/functorial_debt/test_w02_sessions.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/functorial_debt/test_w02_sessions.py:10: in &lt;module&gt;
+    from app.services.agent_sessions.service import (
+app/services/agent_sessions/__init__.py:1: in &lt;module&gt;
+    from .service import AgentSessionService, get_agent_session_service, reset_agent_session_service_for_tests
+app/services/agent_sessions/service.py:10: in &lt;module&gt;
+    from mrw_functorial_kit.core.agent_service_semantics import agent_session_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.functorial_debt.test_w03_core_raise_inventory" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/functorial_debt/test_w03_core_raise_inventory.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/functorial_debt/test_w03_core_raise_inventory.py:12: in &lt;module&gt;
+    from app.services.crawlers import registry, scrapyd_runtime
+app/services/crawlers/__init__.py:4: in &lt;module&gt;
+    from .durable_effect_bridge import (
+app/services/crawlers/durable_effect_bridge.py:16: in &lt;module&gt;
+    from mrw_functorial_kit.core.provider_port_failures import crawler_runtime_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.functorial_debt.test_w03_service_a_terra_boundaries" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/functorial_debt/test_w03_service_a_terra_boundaries.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/functorial_debt/test_w03_service_a_terra_boundaries.py:10: in &lt;module&gt;
+    from app.services.collect_runtime import runtime as collect_runtime
+app/services/collect_runtime/__init__.py:2: in &lt;module&gt;
+    from .runtime import (
+app/services/collect_runtime/runtime.py:12: in &lt;module&gt;
+    from mrw_functorial_kit.core.provider_port_failures import collect_runtime_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.functorial_debt.test_w04_clue_document_failure_core" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/functorial_debt/test_w04_clue_document_failure_core.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/functorial_debt/test_w04_clue_document_failure_core.py:8: in &lt;module&gt;
+    from mrw_functorial_kit.core.w04_service_semantics import clue_chain_failures, document_query_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.functorial_debt.test_w04_graph_search_contract_core" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/functorial_debt/test_w04_graph_search_contract_core.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/functorial_debt/test_w04_graph_search_contract_core.py:13: in &lt;module&gt;
+    from app.services.graph.backfill_graph_nodes import (
+app/services/graph/backfill_graph_nodes.py:7: in &lt;module&gt;
+    from mrw_functorial_kit.core.w04_service_semantics import graph_backfill_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.functorial_debt.test_w04_search_failure_core" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/functorial_debt/test_w04_search_failure_core.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/functorial_debt/test_w04_search_failure_core.py:11: in &lt;module&gt;
+    from app.services.search import hybrid
+app/services/search/hybrid.py:11: in &lt;module&gt;
+    from ...models.base import SessionLocal
+app/models/base.py:15: in &lt;module&gt;
+    from ..services.projects.context import current_project_schema
+app/services/projects/__init__.py:1: in &lt;module&gt;
+    from .context import (
+app/services/projects/context.py:10: in &lt;module&gt;
+    from mrw_functorial_kit.core.application_failure_semantics import project_operation_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.functorial_debt.test_w04_typed_knowledge_contract_failure_core" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/functorial_debt/test_w04_typed_knowledge_contract_failure_core.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/functorial_debt/test_w04_typed_knowledge_contract_failure_core.py:9: in &lt;module&gt;
+    from app.services.typed_knowledge import contracts
+app/services/typed_knowledge/contracts.py:8: in &lt;module&gt;
+    from mrw_functorial_kit.core.w04_service_semantics import typed_knowledge_contract_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.functorial_debt.test_w04_typed_knowledge_persistence_failure_core" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/functorial_debt/test_w04_typed_knowledge_persistence_failure_core.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/functorial_debt/test_w04_typed_knowledge_persistence_failure_core.py:9: in &lt;module&gt;
+    from app.services.typed_knowledge import persistence_boundary as boundary
+app/services/typed_knowledge/persistence_boundary.py:12: in &lt;module&gt;
+    from mrw_functorial_kit.core.typed_knowledge_semantics import typed_knowledge_persistence_boundary_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.functorial_debt.test_w04_workflow_contract_failure_core" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/functorial_debt/test_w04_workflow_contract_failure_core.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/functorial_debt/test_w04_workflow_contract_failure_core.py:9: in &lt;module&gt;
+    from mrw_functorial_kit.core.w04_service_semantics import workflow_graph_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.functorial_debt.test_w04_writing_failure_core" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/functorial_debt/test_w04_writing_failure_core.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/functorial_debt/test_w04_writing_failure_core.py:8: in &lt;module&gt;
+    from mrw_functorial_kit.core.w04_service_semantics import writing_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.functorial_debt.test_w05" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/functorial_debt/test_w05.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/functorial_debt/test_w05.py:12: in &lt;module&gt;
+    from app.successor_runtime.capabilities.agent_batch_c4 import (
+app/successor_runtime/capabilities/__init__.py:3: in &lt;module&gt;
+    from .catalog import CapabilityCatalogSnapshot, build_first_specimen_catalog
+app/successor_runtime/capabilities/catalog.py:6: in &lt;module&gt;
+    from app.successor_runtime.language.catalog import (
+app/successor_runtime/language/__init__.py:3: in &lt;module&gt;
+    from app.successor_runtime.research.object_types import ObjectType
+app/successor_runtime/research/__init__.py:3: in &lt;module&gt;
+    from .artifacts import (
+app/successor_runtime/research/artifacts.py:8: in &lt;module&gt;
+    from .codec import _failure, _raise_failure, finalize_digest, is_sha256_hex
+app/successor_runtime/research/codec.py:19: in &lt;module&gt;
+    from mrw_functorial_kit.core.w07_semantics import research_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.functorial_debt.test_w05_n1_c4" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/functorial_debt/test_w05_n1_c4.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/functorial_debt/test_w05_n1_c4.py:12: in &lt;module&gt;
+    from app.successor_runtime.capabilities import agent_batch_c4 as c4
+app/successor_runtime/capabilities/__init__.py:3: in &lt;module&gt;
+    from .catalog import CapabilityCatalogSnapshot, build_first_specimen_catalog
+app/successor_runtime/capabilities/catalog.py:6: in &lt;module&gt;
+    from app.successor_runtime.language.catalog import (
+app/successor_runtime/language/__init__.py:3: in &lt;module&gt;
+    from app.successor_runtime.research.object_types import ObjectType
+app/successor_runtime/research/__init__.py:3: in &lt;module&gt;
+    from .artifacts import (
+app/successor_runtime/research/artifacts.py:8: in &lt;module&gt;
+    from .codec import _failure, _raise_failure, finalize_digest, is_sha256_hex
+app/successor_runtime/research/codec.py:19: in &lt;module&gt;
+    from mrw_functorial_kit.core.w07_semantics import research_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.functorial_debt.test_w05_n2_c61" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/functorial_debt/test_w05_n2_c61.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/functorial_debt/test_w05_n2_c61.py:11: in &lt;module&gt;
+    from mrw_functorial_kit.core.w05_capability_semantics import (
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.functorial_debt.test_w05_n3_c62" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/functorial_debt/test_w05_n3_c62.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/functorial_debt/test_w05_n3_c62.py:11: in &lt;module&gt;
+    from mrw_functorial_kit.core import successor_capability_contract_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.functorial_debt.test_w05_n4_c63" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/functorial_debt/test_w05_n4_c63.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/functorial_debt/test_w05_n4_c63.py:9: in &lt;module&gt;
+    from mrw_functorial_kit.core import (
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.functorial_debt.test_w05_n5_c3" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/functorial_debt/test_w05_n5_c3.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/functorial_debt/test_w05_n5_c3.py:12: in &lt;module&gt;
+    from app.successor_runtime.capabilities import collect_c3 as c3
+app/successor_runtime/capabilities/__init__.py:3: in &lt;module&gt;
+    from .catalog import CapabilityCatalogSnapshot, build_first_specimen_catalog
+app/successor_runtime/capabilities/catalog.py:6: in &lt;module&gt;
+    from app.successor_runtime.language.catalog import (
+app/successor_runtime/language/__init__.py:3: in &lt;module&gt;
+    from app.successor_runtime.research.object_types import ObjectType
+app/successor_runtime/research/__init__.py:3: in &lt;module&gt;
+    from .artifacts import (
+app/successor_runtime/research/artifacts.py:8: in &lt;module&gt;
+    from .codec import _failure, _raise_failure, finalize_digest, is_sha256_hex
+app/successor_runtime/research/codec.py:19: in &lt;module&gt;
+    from mrw_functorial_kit.core.w07_semantics import research_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.functorial_debt.test_w07" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/functorial_debt/test_w07.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/functorial_debt/test_w07.py:8: in &lt;module&gt;
+    from app.successor_runtime.language.algebra import build_catalog_snapshot
+app/successor_runtime/language/__init__.py:3: in &lt;module&gt;
+    from app.successor_runtime.research.object_types import ObjectType
+app/successor_runtime/research/__init__.py:3: in &lt;module&gt;
+    from .artifacts import (
+app/successor_runtime/research/artifacts.py:8: in &lt;module&gt;
+    from .codec import _failure, _raise_failure, finalize_digest, is_sha256_hex
+app/successor_runtime/research/codec.py:19: in &lt;module&gt;
+    from mrw_functorial_kit.core.w07_semantics import research_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.functorial_debt.test_w07_language_c" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/functorial_debt/test_w07_language_c.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/functorial_debt/test_w07_language_c.py:13: in &lt;module&gt;
+    from app.successor_runtime.language.program import (
+app/successor_runtime/language/__init__.py:3: in &lt;module&gt;
+    from app.successor_runtime.research.object_types import ObjectType
+app/successor_runtime/research/__init__.py:3: in &lt;module&gt;
+    from .artifacts import (
+app/successor_runtime/research/artifacts.py:8: in &lt;module&gt;
+    from .codec import _failure, _raise_failure, finalize_digest, is_sha256_hex
+app/successor_runtime/research/codec.py:19: in &lt;module&gt;
+    from mrw_functorial_kit.core.w07_semantics import research_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.functorial_debt.test_w07_language_research" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/functorial_debt/test_w07_language_research.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/functorial_debt/test_w07_language_research.py:12: in &lt;module&gt;
+    from app.successor_runtime.language.object_contracts import (
+app/successor_runtime/language/__init__.py:3: in &lt;module&gt;
+    from app.successor_runtime.research.object_types import ObjectType
+app/successor_runtime/research/__init__.py:3: in &lt;module&gt;
+    from .artifacts import (
+app/successor_runtime/research/artifacts.py:8: in &lt;module&gt;
+    from .codec import _failure, _raise_failure, finalize_digest, is_sha256_hex
+app/successor_runtime/research/codec.py:19: in &lt;module&gt;
+    from mrw_functorial_kit.core.w07_semantics import research_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.functorial_debt.test_w07_ops_surface" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/functorial_debt/test_w07_ops_surface.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/functorial_debt/test_w07_ops_surface.py:11: in &lt;module&gt;
+    from app.successor_runtime.ops_domain.base import ops_surface_failure, normalized_text
+app/successor_runtime/ops_domain/__init__.py:7: in &lt;module&gt;
+    from .base import AUTHORITY_KEYS, authority_ceiling, require_authority_false
+app/successor_runtime/ops_domain/base.py:11: in &lt;module&gt;
+    from mrw_functorial_kit.core.w07_semantics import ops_surface_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.functorial_debt.test_w07_runtime" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/functorial_debt/test_w07_runtime.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/functorial_debt/test_w07_runtime.py:10: in &lt;module&gt;
+    from app.successor_runtime.runtime.failure_policy import (
+app/successor_runtime/runtime/__init__.py:3: in &lt;module&gt;
+    from .admission import CommitIntent, CommitIntentState, VerificationBinding
+app/successor_runtime/runtime/admission.py:13: in &lt;module&gt;
+    from app.successor_runtime.research.codec import canonical_bytes
+app/successor_runtime/research/__init__.py:3: in &lt;module&gt;
+    from .artifacts import (
+app/successor_runtime/research/artifacts.py:8: in &lt;module&gt;
+    from .codec import _failure, _raise_failure, finalize_digest, is_sha256_hex
+app/successor_runtime/research/codec.py:19: in &lt;module&gt;
+    from mrw_functorial_kit.core.w07_semantics import research_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.functorial_debt.test_w07_runtime_facade_policy" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/functorial_debt/test_w07_runtime_facade_policy.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/functorial_debt/test_w07_runtime_facade_policy.py:6: in &lt;module&gt;
+    from app.successor_runtime.runtime.facade import (
+app/successor_runtime/runtime/__init__.py:3: in &lt;module&gt;
+    from .admission import CommitIntent, CommitIntentState, VerificationBinding
+app/successor_runtime/runtime/admission.py:13: in &lt;module&gt;
+    from app.successor_runtime.research.codec import canonical_bytes
+app/successor_runtime/research/__init__.py:3: in &lt;module&gt;
+    from .artifacts import (
+app/successor_runtime/research/artifacts.py:8: in &lt;module&gt;
+    from .codec import _failure, _raise_failure, finalize_digest, is_sha256_hex
+app/successor_runtime/research/codec.py:19: in &lt;module&gt;
+    from mrw_functorial_kit.core.w07_semantics import research_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.functorial_debt.test_w07_runtime_node_reconcile" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/functorial_debt/test_w07_runtime_node_reconcile.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/functorial_debt/test_w07_runtime_node_reconcile.py:12: in &lt;module&gt;
+    from app.successor_runtime.runtime.node import (
+app/successor_runtime/runtime/__init__.py:3: in &lt;module&gt;
+    from .admission import CommitIntent, CommitIntentState, VerificationBinding
+app/successor_runtime/runtime/admission.py:13: in &lt;module&gt;
+    from app.successor_runtime.research.codec import canonical_bytes
+app/successor_runtime/research/__init__.py:3: in &lt;module&gt;
+    from .artifacts import (
+app/successor_runtime/research/artifacts.py:8: in &lt;module&gt;
+    from .codec import _failure, _raise_failure, finalize_digest, is_sha256_hex
+app/successor_runtime/research/codec.py:19: in &lt;module&gt;
+    from mrw_functorial_kit.core.w07_semantics import research_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.functorial_debt.test_w07_runtime_orchestration" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/functorial_debt/test_w07_runtime_orchestration.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/functorial_debt/test_w07_runtime_orchestration.py:8: in &lt;module&gt;
+    from app.successor_runtime.runtime.replay import (
+app/successor_runtime/runtime/__init__.py:3: in &lt;module&gt;
+    from .admission import CommitIntent, CommitIntentState, VerificationBinding
+app/successor_runtime/runtime/admission.py:13: in &lt;module&gt;
+    from app.successor_runtime.research.codec import canonical_bytes
+app/successor_runtime/research/__init__.py:3: in &lt;module&gt;
+    from .artifacts import (
+app/successor_runtime/research/artifacts.py:8: in &lt;module&gt;
+    from .codec import _failure, _raise_failure, finalize_digest, is_sha256_hex
+app/successor_runtime/research/codec.py:19: in &lt;module&gt;
+    from mrw_functorial_kit.core.w07_semantics import research_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.functorial_debt.test_w08b" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/functorial_debt/test_w08b.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/functorial_debt/test_w08b.py:9: in &lt;module&gt;
+    from app.successor_runtime.specification.c7_p4 import (
+app/successor_runtime/specification/c7_p4.py:15: in &lt;module&gt;
+    from app.successor_migration.document_repository_c7 import (
+app/successor_migration/__init__.py:3: in &lt;module&gt;
+    from .document_canonical_read import (
+app/successor_migration/document_canonical_read.py:19: in &lt;module&gt;
+    from app.successor_runtime.runtime.ports import (
+app/successor_runtime/runtime/__init__.py:3: in &lt;module&gt;
+    from .admission import CommitIntent, CommitIntentState, VerificationBinding
+app/successor_runtime/runtime/admission.py:13: in &lt;module&gt;
+    from app.successor_runtime.research.codec import canonical_bytes
+app/successor_runtime/research/__init__.py:3: in &lt;module&gt;
+    from .artifacts import (
+app/successor_runtime/research/artifacts.py:8: in &lt;module&gt;
+    from .codec import _failure, _raise_failure, finalize_digest, is_sha256_hex
+app/successor_runtime/research/codec.py:19: in &lt;module&gt;
+    from mrw_functorial_kit.core.w07_semantics import research_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.functorial_debt.test_w08c" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/functorial_debt/test_w08c.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/functorial_debt/test_w08c.py:11: in &lt;module&gt;
+    from app.successor_runtime.substrate.postgres.c8_production import (
+app/successor_runtime/substrate/__init__.py:3: in &lt;module&gt;
+    from .postgres import (
+app/successor_runtime/substrate/postgres/__init__.py:3: in &lt;module&gt;
+    from .authority_provider import PostgresAuthorityProvider
+app/successor_runtime/substrate/postgres/authority_provider.py:18: in &lt;module&gt;
+    from app.successor_runtime.runtime.assignments import canonical_digest
+app/successor_runtime/runtime/__init__.py:3: in &lt;module&gt;
+    from .admission import CommitIntent, CommitIntentState, VerificationBinding
+app/successor_runtime/runtime/admission.py:13: in &lt;module&gt;
+    from app.successor_runtime.research.codec import canonical_bytes
+app/successor_runtime/research/__init__.py:3: in &lt;module&gt;
+    from .artifacts import (
+app/successor_runtime/research/artifacts.py:8: in &lt;module&gt;
+    from .codec import _failure, _raise_failure, finalize_digest, is_sha256_hex
+app/successor_runtime/research/codec.py:19: in &lt;module&gt;
+    from mrw_functorial_kit.core.w07_semantics import research_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.functorial_debt.test_w08d" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/functorial_debt/test_w08d.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/functorial_debt/test_w08d.py:12: in &lt;module&gt;
+    from app.successor_runtime.capabilities import source_library_c2_3 as c23
+app/successor_runtime/capabilities/__init__.py:3: in &lt;module&gt;
+    from .catalog import CapabilityCatalogSnapshot, build_first_specimen_catalog
+app/successor_runtime/capabilities/catalog.py:6: in &lt;module&gt;
+    from app.successor_runtime.language.catalog import (
+app/successor_runtime/language/__init__.py:3: in &lt;module&gt;
+    from app.successor_runtime.research.object_types import ObjectType
+app/successor_runtime/research/__init__.py:3: in &lt;module&gt;
+    from .artifacts import (
+app/successor_runtime/research/artifacts.py:8: in &lt;module&gt;
+    from .codec import _failure, _raise_failure, finalize_digest, is_sha256_hex
+app/successor_runtime/research/codec.py:19: in &lt;module&gt;
+    from mrw_functorial_kit.core.w07_semantics import research_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.functorial_debt.test_w08e" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/functorial_debt/test_w08e.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/functorial_debt/test_w08e.py:5: in &lt;module&gt;
+    from app.successor_runtime.substrate.projections.c8_handler_bindings import (
+app/successor_runtime/substrate/__init__.py:3: in &lt;module&gt;
+    from .postgres import (
+app/successor_runtime/substrate/postgres/__init__.py:3: in &lt;module&gt;
+    from .authority_provider import PostgresAuthorityProvider
+app/successor_runtime/substrate/postgres/authority_provider.py:18: in &lt;module&gt;
+    from app.successor_runtime.runtime.assignments import canonical_digest
+app/successor_runtime/runtime/__init__.py:3: in &lt;module&gt;
+    from .admission import CommitIntent, CommitIntentState, VerificationBinding
+app/successor_runtime/runtime/admission.py:13: in &lt;module&gt;
+    from app.successor_runtime.research.codec import canonical_bytes
+app/successor_runtime/research/__init__.py:3: in &lt;module&gt;
+    from .artifacts import (
+app/successor_runtime/research/artifacts.py:8: in &lt;module&gt;
+    from .codec import _failure, _raise_failure, finalize_digest, is_sha256_hex
+app/successor_runtime/research/codec.py:19: in &lt;module&gt;
+    from mrw_functorial_kit.core.w07_semantics import research_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.functorial_debt.test_w08f" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/functorial_debt/test_w08f.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/functorial_debt/test_w08f.py:7: in &lt;module&gt;
+    from app.successor_migration.graph_projector_c7 import build_graph_projection
+app/successor_migration/__init__.py:3: in &lt;module&gt;
+    from .document_canonical_read import (
+app/successor_migration/document_canonical_read.py:19: in &lt;module&gt;
+    from app.successor_runtime.runtime.ports import (
+app/successor_runtime/runtime/__init__.py:3: in &lt;module&gt;
+    from .admission import CommitIntent, CommitIntentState, VerificationBinding
+app/successor_runtime/runtime/admission.py:13: in &lt;module&gt;
+    from app.successor_runtime.research.codec import canonical_bytes
+app/successor_runtime/research/__init__.py:3: in &lt;module&gt;
+    from .artifacts import (
+app/successor_runtime/research/artifacts.py:8: in &lt;module&gt;
+    from .codec import _failure, _raise_failure, finalize_digest, is_sha256_hex
+app/successor_runtime/research/codec.py:19: in &lt;module&gt;
+    from mrw_functorial_kit.core.w07_semantics import research_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.integration.test_agent_runtime_artifact_idle_replay_unittest" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/integration/test_agent_runtime_artifact_idle_replay_unittest.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/integration/test_agent_runtime_artifact_idle_replay_unittest.py:12: in &lt;module&gt;
+    from app.services.agent_runtime.interactive_agent import InteractiveAgentRuntime
+app/services/agent_runtime/__init__.py:1: in &lt;module&gt;
+    from .coordinator import CoordinatorRuntime
+app/services/agent_runtime/coordinator.py:7: in &lt;module&gt;
+    from .task_bus import find_unresolved_dependencies
+app/services/agent_runtime/task_bus.py:8: in &lt;module&gt;
+    from .conversation import runtime_failure
+app/services/agent_runtime/conversation.py:6: in &lt;module&gt;
+    from mrw_functorial_kit.core.agent_service_semantics import agent_runtime_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.integration.test_agent_runtime_scenario_replay_unittest" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/integration/test_agent_runtime_scenario_replay_unittest.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/integration/test_agent_runtime_scenario_replay_unittest.py:8: in &lt;module&gt;
+    from app.services.agent_runtime.interactive_agent import InteractiveAgentRuntime
+app/services/agent_runtime/__init__.py:1: in &lt;module&gt;
+    from .coordinator import CoordinatorRuntime
+app/services/agent_runtime/coordinator.py:7: in &lt;module&gt;
+    from .task_bus import find_unresolved_dependencies
+app/services/agent_runtime/task_bus.py:8: in &lt;module&gt;
+    from .conversation import runtime_failure
+app/services/agent_runtime/conversation.py:6: in &lt;module&gt;
+    from mrw_functorial_kit.core.agent_service_semantics import agent_runtime_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase><testcase classname="" name="tests.integration.test_frontend_ingest_flow_smoke_unittest" time="0.000"><error message="collection failure">ImportError while importing test module '/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend/tests/integration/test_frontend_ingest_flow_smoke_unittest.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/Users/wangyiliang/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/integration/test_frontend_ingest_flow_smoke_unittest.py:10: in &lt;module&gt;
+    from app.main import app
+app/main.py:20: in &lt;module&gt;
+    from .composition.production import (
+app/composition/production.py:26: in &lt;module&gt;
+    from app.production_contract import (
+app/production_contract/__init__.py:3: in &lt;module&gt;
+    from .policy import (
+app/production_contract/policy.py:8: in &lt;module&gt;
+    from app.production_contract.types import (
+app/production_contract/types.py:18: in &lt;module&gt;
+    from app.successor_runtime.runtime.ports import ProjectScopeRef
+app/successor_runtime/runtime/__init__.py:3: in &lt;module&gt;
+    from .admission import CommitIntent, CommitIntentState, VerificationBinding
+app/successor_runtime/runtime/admission.py:13: in &lt;module&gt;
+    from app.successor_runtime.research.codec import canonical_bytes
+app/successor_runtime/research/__init__.py:3: in &lt;module&gt;
+    from .artifacts import (
+app/successor_runtime/research/artifacts.py:8: in &lt;module&gt;
+    from .codec import _failure, _raise_failure, finalize_digest, is_sha256_hex
+app/successor_runtime/research/codec.py:19: in &lt;module&gt;
+    from mrw_functorial_kit.core.w07_semantics import research_failures
+E   ModuleNotFoundError: No module named 'mrw_functorial_kit'</error></testcase></testsuite></testsuites>

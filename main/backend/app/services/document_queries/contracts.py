@@ -3,7 +3,10 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass, field
-from typing import Any, Iterable, Mapping
+from typing import Annotated, Any, Iterable, Mapping, NoReturn
+
+from functorial_kit import Failure
+from mrw_functorial_kit.core.w04_service_semantics import document_query_failures
 
 
 DOCUMENT_QUERY_CONTRACT_VERSION = "document_queries.v1"
@@ -12,6 +15,50 @@ FILTER_OPERATORS = frozenset({"eq", "in", "contains", "gte", "lte", "exists"})
 SORT_DIRECTIONS = frozenset({"asc", "desc"})
 DEFAULT_QUERY_LIMIT = 20
 MAX_QUERY_LIMIT = 100
+
+
+def document_query_failure(
+    code: str,
+    message: str,
+    *,
+    owner: str,
+    public_exception: type[Exception] | str = ValueError,
+    public_message: str | None = None,
+    **details: Any,
+) -> Failure:
+    return document_query_failures.fail(
+        code,
+        message,
+        {
+            "owner": owner,
+            "public_exception": public_exception.__name__ if isinstance(public_exception, type) else str(public_exception),
+            "public_message": str(public_message if public_message is not None else message),
+            **details,
+        },
+    )
+
+
+def raise_document_query_legacy(
+    failure: Failure,
+    exception_type: type[Exception] = ValueError,
+    *,
+    cause: BaseException | None = None,
+) -> NoReturn:
+    context = failure.context or {}
+    if (
+        not document_query_failures.matches(failure)
+        or "public_exception" not in context
+        or "public_message" not in context
+        or context.get("public_exception") != exception_type.__name__
+    ):
+        # kit:boundary owner=document_queries.contracts.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_document_query_failure_lift_covers_programmer_defect_and_cause
+        raise TypeError("document query failure lift context is incomplete or inconsistent")
+    message = str(context["public_message"])
+    if cause is None:
+        # kit:boundary owner=document_queries.contracts.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=document_query.failure witness=test:test_document_query_failure_lift_covers_programmer_defect_and_cause
+        raise exception_type(message)
+    # kit:boundary owner=document_queries.contracts.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=document_query.failure witness=test:test_document_query_failure_lift_covers_programmer_defect_and_cause
+    raise exception_type(message) from cause
 
 
 def _clean_text(value: Any) -> str:
@@ -63,9 +110,10 @@ class DocumentQueryFilter:
         field = _clean_text(self.field)
         op = _clean_text(self.op).lower() or "eq"
         if not field:
-            raise ValueError("document query filter field is required")
+            raise_document_query_legacy(document_query_failure("filter_invalid", "document query filter field is required", owner="document_queries.contracts.filter"))
         if op not in FILTER_OPERATORS:
-            raise ValueError(f"unsupported document query filter operator: {op}")
+            message = f"unsupported document query filter operator: {op}"
+            raise_document_query_legacy(document_query_failure("filter_invalid", message, owner="document_queries.contracts.filter"))
         object.__setattr__(self, "field", field)
         object.__setattr__(self, "op", op)
 
@@ -85,7 +133,8 @@ class DocumentQuerySort:
         field = _clean_text(self.field) or "relevance"
         direction = _clean_text(self.direction).lower() or "desc"
         if direction not in SORT_DIRECTIONS:
-            raise ValueError(f"unsupported document query sort direction: {direction}")
+            message = f"unsupported document query sort direction: {direction}"
+            raise_document_query_legacy(document_query_failure("sort_invalid", message, owner="document_queries.contracts.sort"))
         object.__setattr__(self, "field", field)
         object.__setattr__(self, "direction", direction)
 
@@ -178,17 +227,65 @@ def build_document_query(
     sort: Iterable[DocumentQuerySort | Mapping[str, Any]] = (),
     limit: int = DEFAULT_QUERY_LIMIT,
     offset: int = 0,
-) -> DocumentQuery:
-    return DocumentQuery(
-        query=query,
+) -> Annotated[
+    DocumentQuery,
+    "kit:prepared-command effect_boundary=app.services.document_queries.statement_builder "
+    "witness=test:test_query_object_normalizes_filter_sort_and_bounds",
+]:
+    result = try_build_document_query(
+        query,
         project_key=project_key,
         consumer=consumer,
-        sources=tuple(sources),
-        filters=tuple(filters),
-        sort=tuple(sort) or (DocumentQuerySort(),),
+        sources=sources,
+        filters=filters,
+        sort=sort,
         limit=limit,
         offset=offset,
     )
+    if isinstance(result, Failure):
+        raise_document_query_legacy(result)
+    return result
+
+
+def try_build_document_query(
+    query: str,
+    *,
+    project_key: str | None = None,
+    consumer: str | None = None,
+    sources: Iterable[str] = (),
+    filters: Iterable[DocumentQueryFilter | Mapping[str, Any]] = (),
+    sort: Iterable[DocumentQuerySort | Mapping[str, Any]] = (),
+    limit: int = DEFAULT_QUERY_LIMIT,
+    offset: int = 0,
+) -> DocumentQuery | Failure:
+    filter_values = tuple(filters)
+    sort_values = tuple(sort) or (DocumentQuerySort(),)
+    for item in filter_values:
+        payload = item.to_dict() if isinstance(item, DocumentQueryFilter) else _as_mapping(item)
+        field = _clean_text(payload.get("field"))
+        op = _clean_text(payload.get("op")).lower() or "eq"
+        if not field:
+            return document_query_failure("filter_invalid", "document query filter field is required", owner="document_queries.contracts.filter")
+        if op not in FILTER_OPERATORS:
+            return document_query_failure("filter_invalid", f"unsupported document query filter operator: {op}", owner="document_queries.contracts.filter")
+    for item in sort_values:
+        payload = item.to_dict() if isinstance(item, DocumentQuerySort) else _as_mapping(item)
+        direction = _clean_text(payload.get("direction")).lower() or "desc"
+        if direction not in SORT_DIRECTIONS:
+            return document_query_failure("sort_invalid", f"unsupported document query sort direction: {direction}", owner="document_queries.contracts.sort")
+    try:
+        return DocumentQuery(
+            query=query,
+            project_key=project_key,
+            consumer=consumer,
+            sources=tuple(sources),
+            filters=filter_values,
+            sort=sort_values,
+            limit=limit,
+            offset=offset,
+        )
+    except ValueError as exc:
+        return document_query_failure("filter_invalid", str(exc), owner="document_queries.contracts.query")
 
 
 def build_document_query_result_item(
@@ -196,7 +293,12 @@ def build_document_query_result_item(
     *,
     source_type: str,
     rank: int,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view "
+    "fact_source=repository_row+source_type+rank "
+    "witness=test:test_w04_authority_metadata",
+]:
     raw = dict(row) if isinstance(row, Mapping) else {}
     title = _clean_text(_lookup(row, "title", "document_title", "name", "id")) or "Document"
     snippet = _clean_text(_lookup(row, "snippet", "summary", "description", "content", "evidence"))
@@ -232,7 +334,12 @@ def build_document_query_result_envelope(
     result_source_type: str = "document",
     total: int | None = None,
     meta: Mapping[str, Any] | None = None,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view "
+    "fact_source=document_query+rows+source+meta "
+    "witness=test:test_w04_authority_metadata",
+]:
     results = [
         build_document_query_result_item(row, source_type=result_source_type, rank=index)
         for index, row in enumerate(rows, start=1)
@@ -265,26 +372,32 @@ def build_document_query_result_envelope(
     }
 
 
-def validate_document_query_result_envelope(envelope: Mapping[str, Any]) -> None:
+def try_validate_document_query_result_envelope(envelope: Mapping[str, Any]) -> None | Failure:
     if envelope.get("status") != "ok":
-        raise ValueError("document query result envelope status must be ok")
+        return document_query_failure("result_envelope_invalid", "document query result envelope status must be ok", owner="document_queries.contracts.result_envelope")
     data = envelope.get("data")
     if not isinstance(data, Mapping):
-        raise ValueError("document query result envelope data must be an object")
+        return document_query_failure("result_envelope_invalid", "document query result envelope data must be an object", owner="document_queries.contracts.result_envelope")
     if data.get("contract_version") != DOCUMENT_QUERY_CONTRACT_VERSION:
-        raise ValueError("unsupported document query result envelope contract_version")
+        return document_query_failure("result_envelope_invalid", "unsupported document query result envelope contract_version", owner="document_queries.contracts.result_envelope")
     query = data.get("query")
     if not isinstance(query, Mapping) or query.get("contract_version") != DOCUMENT_QUERY_CONTRACT_VERSION:
-        raise ValueError("document query result envelope query contract is missing")
+        return document_query_failure("result_envelope_invalid", "document query result envelope query contract is missing", owner="document_queries.contracts.result_envelope")
     results = data.get("results")
     if not isinstance(results, list):
-        raise ValueError("document query result envelope results must be a list")
+        return document_query_failure("result_envelope_invalid", "document query result envelope results must be a list", owner="document_queries.contracts.result_envelope")
     for result in results:
         if not isinstance(result, Mapping):
-            raise ValueError("document query result item must be an object")
+            return document_query_failure("result_envelope_invalid", "document query result item must be an object", owner="document_queries.contracts.result_envelope")
         for key in ("title", "snippet", "source_type", "rank"):
             if key not in result:
-                raise ValueError(f"document query result item missing key: {key}")
+                return document_query_failure("result_envelope_invalid", f"document query result item missing key: {key}", owner="document_queries.contracts.result_envelope")
+
+
+def validate_document_query_result_envelope(envelope: Mapping[str, Any]) -> None:
+    result = try_validate_document_query_result_envelope(envelope)
+    if isinstance(result, Failure):
+        raise_document_query_legacy(result)
 
 
 def rows_for_document_views(envelope: Mapping[str, Any]) -> list[dict[str, Any]]:

@@ -1,0 +1,116 @@
+{
+  "schema_version": "mrw.stage3.remote-readback.r13x.v1",
+  "authoritative": false,
+  "observed_at": "2026-09-12T15:13:16Z",
+  "repository": "123rrr4tttt/market-research-workflow",
+  "query_policy": {
+    "method": "GET",
+    "query_audit_ref": "remote/query-audit.r13x.json",
+    "external_effects": [
+      "read-only GitHub REST API requests"
+    ],
+    "push": false,
+    "workflow_dispatch": false,
+    "remote_mutation": false,
+    "registry_write": false,
+    "signing_write": false,
+    "unauthorized_writes": 0
+  },
+  "candidate": {
+    "commit": "8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+    "tree": "ce7c67c831b51f9d64b4c2f1a470a724a50b19df",
+    "base": "88ffcc3dab2e6cbdc1f389e16c4226df5a2e51c6",
+    "candidate_clean": true,
+    "replay_clean": true,
+    "candidate_manifest_sha256": "f14ac45d6e35d491e38aae53c040bcede8f4ddff6bb85837dc99933f2fe01dbc",
+    "stage1_stage2_result_sha256": "cea444dd26be69a8f1c7116eddef5ddcf2cc682401f199748c353c72eaa79da4",
+    "stage1_stage2_index_sha256": "968cd2cb5a1d70399f9190e094e80a46224874863844458a6351500a3b916951"
+  },
+  "github_authentication": {
+    "authenticated_account": "123rrr4tttt",
+    "storage": "keyring",
+    "token_scopes_reported_by_gh": [
+      "gist",
+      "read:org",
+      "repo",
+      "workflow"
+    ],
+    "token_value_recorded": false
+  },
+  "findings": {
+    "exact_commit": {
+      "status": "NOT_PRESENT_ON_REMOTE",
+      "http_status": 422,
+      "evidence_ref": "remote/exact-commit.response.json"
+    },
+    "exact_actions_runs": {
+      "status": "NONE",
+      "count": 0,
+      "evidence_ref": "remote/exact-runs.response.json"
+    },
+    "exact_check_runs": {
+      "status": "UNAVAILABLE_BECAUSE_SHA_NOT_PRESENT",
+      "http_status": 422,
+      "evidence_ref": "remote/exact-check-runs.response.json"
+    },
+    "branch_protection": {
+      "status": "ABSENT",
+      "main_protected": false,
+      "http_status": 404,
+      "evidence_refs": [
+        "remote/main-branch.response.json",
+        "remote/branch-protection.response.json"
+      ]
+    },
+    "rulesets": {
+      "status": "ABSENT",
+      "repository_ruleset_count": 0,
+      "effective_rule_count_for_main": 0,
+      "evidence_refs": [
+        "remote/rulesets.response.json",
+        "remote/effective-rules.response.json"
+      ]
+    },
+    "required_checks": {
+      "declared_count_in_candidate": 13,
+      "enforced_count_on_main": 0,
+      "exact_sha_conclusion_count": 0,
+      "status": "BLOCKED"
+    },
+    "workflow": {
+      "name": "backend-tests",
+      "state": "disabled_inactivity",
+      "status": "BLOCKED",
+      "evidence_ref": "remote/workflows.response.json"
+    },
+    "registry_readback": {
+      "status": "BLOCKED_BY_MISSING_READ_PACKAGES_SCOPE",
+      "http_status": 403,
+      "evidence_ref": "remote/packages.response.json"
+    }
+  },
+  "required_checks_declared_in_candidate": [
+    "formal-release-check",
+    "backend-unit-check",
+    "backend-integration-check",
+    "frontend-lint-check",
+    "frontend-typecheck-check",
+    "frontend-build-check",
+    "frontend-component-e2e-check",
+    "migration-single-head-check",
+    "security-check",
+    "docker-config-check",
+    "evidence-validation-check",
+    "artifact-metadata-check",
+    "image-vulnerability-scan-check"
+  ],
+  "overall": "BLOCKED",
+  "blocked_by": [
+    "exact candidate commit is not present on the GitHub remote",
+    "there are no Actions runs or check conclusions for the exact candidate SHA",
+    "main has neither branch protection nor rulesets enforcing required checks",
+    "the only repository workflow is disabled due to inactivity",
+    "the authenticated token lacks read:packages, so registry package readback is unavailable"
+  ],
+  "ceiling": "READ_ONLY_REMOTE_EVIDENCE_ONLY_NOT_STAGE3_PASS"
+}

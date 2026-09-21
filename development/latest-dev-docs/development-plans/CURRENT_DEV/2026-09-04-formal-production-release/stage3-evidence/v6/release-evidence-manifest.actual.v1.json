@@ -1,0 +1,179 @@
+{
+  "schema_version": "mrw.formal-production-release-evidence.v1",
+  "authoritative": false,
+  "derived_as": "preflight",
+  "candidate_commit": "909eb608e538b6427bcbacca974f1efb05fef611",
+  "candidate_tree": "a60b795e509aa5dc479904a321fba32ed0ab9ab2",
+  "records": [
+    {
+      "gate_id": "v6-semantic_closure",
+      "family": "semantic_closure",
+      "status": "UNEXECUTED",
+      "required": true,
+      "evidence_refs": [
+        "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/test-gates.final.v1.json"
+      ],
+      "evidence_sha256": [
+        "88329083d77d683b8352e0f51849f3b6500c271087b3f22957e9de016b6730ad"
+      ],
+      "observed_at": "2026-09-06T22:03:05.778190+00:00",
+      "owner": "Stage3 executor",
+      "notes": [
+        "Negative Stage3 manifest; future-stage evidence is not asserted."
+      ]
+    },
+    {
+      "gate_id": "v6-candidate_identity",
+      "family": "candidate_identity",
+      "status": "PASS",
+      "required": true,
+      "evidence_refs": [
+        "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-preflight/completion.json"
+      ],
+      "evidence_sha256": [
+        "b63f4f44dc5ecd550db69b52b9f8a004675b3f5bb8328411cac83548562cbcbd"
+      ],
+      "observed_at": "2026-09-06T22:03:05.778190+00:00",
+      "owner": "Stage3 executor",
+      "notes": [
+        "Negative Stage3 manifest; future-stage evidence is not asserted."
+      ]
+    },
+    {
+      "gate_id": "v6-artifact_build",
+      "family": "artifact_build",
+      "status": "FAIL",
+      "required": true,
+      "evidence_refs": [
+        "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/test-gates.final.v1.json"
+      ],
+      "evidence_sha256": [
+        "88329083d77d683b8352e0f51849f3b6500c271087b3f22957e9de016b6730ad"
+      ],
+      "observed_at": "2026-09-06T22:03:05.778190+00:00",
+      "owner": "Stage3 executor",
+      "notes": [
+        "Negative Stage3 manifest; future-stage evidence is not asserted."
+      ]
+    },
+    {
+      "gate_id": "v6-business_validation",
+      "family": "business_validation",
+      "status": "FAIL",
+      "required": true,
+      "evidence_refs": [
+        "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/test-gates.final.v1.json"
+      ],
+      "evidence_sha256": [
+        "88329083d77d683b8352e0f51849f3b6500c271087b3f22957e9de016b6730ad"
+      ],
+      "observed_at": "2026-09-06T22:03:05.778190+00:00",
+      "owner": "Stage3 executor",
+      "notes": [
+        "Negative Stage3 manifest; future-stage evidence is not asserted."
+      ]
+    },
+    {
+      "gate_id": "v6-security_supply_chain",
+      "family": "security_supply_chain",
+      "status": "FAIL",
+      "required": true,
+      "evidence_refs": [
+        "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/test-gates.final.v1.json"
+      ],
+      "evidence_sha256": [
+        "88329083d77d683b8352e0f51849f3b6500c271087b3f22957e9de016b6730ad"
+      ],
+      "observed_at": "2026-09-06T22:03:05.778190+00:00",
+      "owner": "Stage3 executor",
+      "notes": [
+        "Negative Stage3 manifest; future-stage evidence is not asserted."
+      ]
+    },
+    {
+      "gate_id": "v6-runtime_staging",
+      "family": "runtime_staging",
+      "status": "UNEXECUTED",
+      "required": true,
+      "evidence_refs": [
+        "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/test-gates.final.v1.json"
+      ],
+      "evidence_sha256": [
+        "88329083d77d683b8352e0f51849f3b6500c271087b3f22957e9de016b6730ad"
+      ],
+      "observed_at": "2026-09-06T22:03:05.778190+00:00",
+      "owner": "Stage3 executor",
+      "notes": [
+        "Negative Stage3 manifest; future-stage evidence is not asserted."
+      ]
+    },
+    {
+      "gate_id": "v6-observability_canary",
+      "family": "observability_canary",
+      "status": "UNEXECUTED",
+      "required": true,
+      "evidence_refs": [
+        "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/test-gates.final.v1.json"
+      ],
+      "evidence_sha256": [
+        "88329083d77d683b8352e0f51849f3b6500c271087b3f22957e9de016b6730ad"
+      ],
+      "observed_at": "2026-09-06T22:03:05.778190+00:00",
+      "owner": "Stage3 executor",
+      "notes": [
+        "Negative Stage3 manifest; future-stage evidence is not asserted."
+      ]
+    },
+    {
+      "gate_id": "v6-backup_recovery",
+      "family": "backup_recovery",
+      "status": "UNEXECUTED",
+      "required": true,
+      "evidence_refs": [
+        "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/test-gates.final.v1.json"
+      ],
+      "evidence_sha256": [
+        "88329083d77d683b8352e0f51849f3b6500c271087b3f22957e9de016b6730ad"
+      ],
+      "observed_at": "2026-09-06T22:03:05.778190+00:00",
+      "owner": "Stage3 executor",
+      "notes": [
+        "Negative Stage3 manifest; future-stage evidence is not asserted."
+      ]
+    },
+    {
+      "gate_id": "v6-independent_review",
+      "family": "independent_review",
+      "status": "UNEXECUTED",
+      "required": true,
+      "evidence_refs": [
+        "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/test-gates.final.v1.json"
+      ],
+      "evidence_sha256": [
+        "88329083d77d683b8352e0f51849f3b6500c271087b3f22957e9de016b6730ad"
+      ],
+      "observed_at": "2026-09-06T22:03:05.778190+00:00",
+      "owner": "Stage3 executor",
+      "notes": [
+        "Negative Stage3 manifest; future-stage evidence is not asserted."
+      ]
+    },
+    {
+      "gate_id": "v6-promotion_authority",
+      "family": "promotion_authority",
+      "status": "BLOCKED",
+      "required": true,
+      "evidence_refs": [
+        "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/test-gates.final.v1.json"
+      ],
+      "evidence_sha256": [
+        "88329083d77d683b8352e0f51849f3b6500c271087b3f22957e9de016b6730ad"
+      ],
+      "observed_at": "2026-09-06T22:03:05.778190+00:00",
+      "owner": "Stage3 executor",
+      "notes": [
+        "Negative Stage3 manifest; future-stage evidence is not asserted."
+      ]
+    }
+  ]
+}

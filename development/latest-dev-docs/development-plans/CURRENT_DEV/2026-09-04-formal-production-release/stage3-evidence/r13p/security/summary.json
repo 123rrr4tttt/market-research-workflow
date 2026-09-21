@@ -1,0 +1,99 @@
+{
+  "authoritative": false,
+  "authority_ceiling": "LOCAL_SECURITY_EVIDENCE_NOT_RELEASE_AUTHORITY",
+  "candidate": {
+    "commit": "342d3b3c35ad987c47990da6ac550dfe936d4818",
+    "effective_manifest_sha256": "64c04d1d3d6fc7d302d89d5247857bcd20115a83432043ea95e18bf74d52635e",
+    "tree": "3f87e85dce02b312e445c657c238c11c6809850e"
+  },
+  "current_tree_gitleaks": {
+    "by_rule": {
+      "aws-access-token": 42,
+      "curl-auth-header": 6,
+      "curl-auth-user": 1,
+      "generic-api-key": 360,
+      "private-key": 1
+    },
+    "by_top_level_path": {
+      "RELEASE_NOTES_v0.1.0-rc.1.md": 3,
+      "development": 332,
+      "docs": 49,
+      "main": 25,
+      "scripts": 1
+    },
+    "classification": "UNRESOLVED_REQUIRES_DISPOSITION",
+    "exit_code": 1,
+    "finding_count": 410,
+    "private_key_location": "docs/reference-pool/platformization/snapshots/readmes/getsops__sops.md:1606",
+    "redaction": "100 percent",
+    "report_sha256": "fe6310bd561cd6d1b30ad8dbec217b07dab5b11bd3db9bb9bab391377eb0968e"
+  },
+  "limitations": [
+    "Trivy reports scan validated r13o canonical OCI layouts whose role-input Git trees are byte-identical to r13p; they do not create r13p-bound provenance.",
+    "Public vulnerability databases do not cover the pinned functorial-kit Git commit as a PyPI release; the fixed-Git checker covers declaration, checkout, installed bytes, and Bandit only.",
+    "Gitleaks and Trivy findings require human disposition; no allowlist or suppression was applied."
+  ],
+  "reused_unchanged_role_input_checks": {
+    "bandit_high_high": {
+      "exit_code": 0,
+      "report_sha256": "df1dde9ac551d439a377c38e2b652792cebe5958fc99796844fcaf4db88e4f22"
+    },
+    "fixed_git_dependency_audit": {
+      "exit_code": 0,
+      "report_sha256": "97608e019ec00456a662e9ecede89d5f5d7513071593e02dd2a407b2e68dea0e"
+    },
+    "pip_audit_python_3_11": {
+      "exit_code": 0,
+      "report_sha256": "af941734d04f5765dcc6da3c182b9f583774d34fe62a70e7b54f9ff0e78b3afe"
+    },
+    "pnpm_audit_prod_high": {
+      "exit_code": 0,
+      "log_sha256": "0e5f559c4fee6779feeeec29084d7a9098ba09c8cc22d900d1f49079fd2946de"
+    }
+  },
+  "role_input_identity": {
+    "scope": "Only backend, migration-runner, and frontend build inputs are covered; Compose and formal-release binding changes are excluded.",
+    "status": "EXACT_GIT_TREE_MATCH_R13O_TO_R13P",
+    "trees": {
+      "backend": {
+        "main/backend": "9dae51846ae3808587f734a5e2c071bfc2b083ae",
+        "src": "0dfa137c2c9aba658d8b1f39281412ff69c3d67c"
+      },
+      "frontend": {
+        "main/frontend-modern": "f89dc7733737c8a1e3a6350ff32a5d0568771245"
+      },
+      "migration-runner": {
+        "main/backend": "9dae51846ae3808587f734a5e2c071bfc2b083ae",
+        "src": "0dfa137c2c9aba658d8b1f39281412ff69c3d67c"
+      }
+    }
+  },
+  "schema": "mrw.stage3.security-evidence.r13p.v1",
+  "status": "FAILED_UNRESOLVED_FINDINGS",
+  "trivy_high_critical": {
+    "backend": {
+      "critical": 13,
+      "exit_code": 1,
+      "high": 135,
+      "report_sha256": "28b3274a587f0b777f9c14f6818603a6332d3716fef106fb06a3d4f0ce636e14",
+      "source_artifact_digest": "sha256:63ea52a50b78b201e5203261435686801b3679bc06b71f7e79e90c65a43f1259",
+      "total_high_critical": 148
+    },
+    "frontend": {
+      "critical": 2,
+      "exit_code": 1,
+      "high": 34,
+      "report_sha256": "5a5304231d8b4e6b9ff1db87495cc1c5f13b7fdb3d2a7cb45932de94ded909c3",
+      "source_artifact_digest": "sha256:34406d92011bcaaa67bd6f7e5de7e29842ee77fe3b880679b9891143daed150e",
+      "total_high_critical": 36
+    },
+    "migration-runner": {
+      "critical": 13,
+      "exit_code": 1,
+      "high": 135,
+      "report_sha256": "4beb5affa898409d5f3c90bb6025579773766cb2c1153d83a0173b51dafe1e4d",
+      "source_artifact_digest": "sha256:7d44cc7bec8675d7d4f152a220a42931529a9cec36fdee810b863a5a80739c63",
+      "total_high_critical": 148
+    }
+  }
+}

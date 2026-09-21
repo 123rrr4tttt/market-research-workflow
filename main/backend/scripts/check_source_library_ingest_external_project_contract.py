@@ -7,7 +7,7 @@ import json
 import sys
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+from typing import Annotated, Any
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -498,7 +498,10 @@ def _load_live_replay_artifact(path: Path | None) -> tuple[dict[str, Any], list[
     return summary, errors, closed_gap_codes
 
 
-def build_contract(*, live_replay_artifact: Path | None = None) -> dict[str, Any]:
+def build_contract(*, live_replay_artifact: Path | None = None) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=generated_evidence fact_source=boundary+manifest_registry+manifest_builder+item_surface+runner_frontdoor+article_extraction+python_cli_container_runner witness=test:test_c13_cli_graph_workflow_metadata_preserves_abi",
+]:
     failures: list[str] = []
     evidence: dict[str, Any] = {}
 

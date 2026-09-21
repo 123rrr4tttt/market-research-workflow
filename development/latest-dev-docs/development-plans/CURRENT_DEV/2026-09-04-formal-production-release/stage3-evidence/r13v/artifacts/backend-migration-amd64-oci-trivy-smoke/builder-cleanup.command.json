@@ -1,0 +1,10 @@
+{
+  "argv": [
+    "docker",
+    "buildx",
+    "rm",
+    "-f",
+    "mrw-r13v-oci-smoke-47327-1789218494"
+  ],
+  "cwd": null
+}

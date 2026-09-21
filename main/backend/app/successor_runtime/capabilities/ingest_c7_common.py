@@ -19,12 +19,14 @@ import dataclasses
 import hashlib
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import Annotated, Any, Literal, NoReturn
+
+from functorial_kit import Failure
+from mrw_functorial_kit.core.w06_semantics import c7_ingest_contract_failures
 
 from app.successor_runtime.capabilities.checksum import (
     canonical_json,
     content_digest,
-    require_hex64,
 )
 from app.successor_runtime.capabilities.codecs import PayloadCodec, dataclass_codec
 from app.successor_runtime.language.catalog import (
@@ -71,6 +73,7 @@ __all__ = [
     "C7IngestCapabilityBundle",
     "C7IngestSubmission",
     "C7ReconciliationDecision",
+    "c7_contract_failure",
     "EffectOutcome",
     "NormalizedIngestDocument",
     "ProjectionDiff",
@@ -81,6 +84,7 @@ __all__ = [
     "canonical_json",
     "content_digest",
     "normalize_ingest_submission",
+    "raise_c7_contract_failure",
     "stage_ingest_submission",
 ]
 
@@ -118,6 +122,103 @@ INGEST_STAGES: tuple[str, ...] = (
 
 STAGE_CANDIDATE_PAYLOAD_TYPE = ObjectType("C7IngestSubmission.v1")
 STAGED_CANDIDATE_RESULT_TYPE = ObjectType("StagedIngestCandidate.v1")
+_C7_FAILURE_WITNESS = "test:test_w06_c2_total_core_failure_lifts"
+
+
+def c7_contract_failure(
+    code: str,
+    message: str,
+    *,
+    exception_type: type[Exception] = ValueError,
+    public_exception: str | None = None,
+    operation: str = "ingest_index.c7.contract",
+    site: str = "ingest_c7_common",
+    **details: Any,
+) -> Failure:
+    """Construct one closed C7 contract failure before the ABI lift."""
+
+    declared_exception = public_exception or exception_type.__name__
+    return c7_ingest_contract_failures.fail(
+        code,
+        message,
+        {
+            "owner": "successor_runtime.capabilities.ingest_c7_common",
+            "effect_boundary": "ingest_index.c7.contract_core",
+            "boundary_class": "PURE_CONTRACT_FAILURE",
+            "failure_family": c7_ingest_contract_failures.name,
+            "operation": operation,
+            "site": site,
+            "public_exception": declared_exception,
+            "public_message": message,
+            "witness": _C7_FAILURE_WITNESS,
+            **details,
+        },
+    )
+
+
+def raise_c7_contract_failure(
+    failure: Failure,
+    exception_type: type[Exception] = ValueError,
+) -> NoReturn:
+    """Lift one complete C7 failure at the retained public ABI boundary."""
+
+    if not isinstance(failure, Failure):
+        # kit:boundary owner=ingest_c7_common.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w06_c2_total_core_failure_lifts
+        raise TypeError("C7 contract lift requires a Failure")
+    context = failure.context or {}
+    if (
+        not failure.failure
+        or failure.family != c7_ingest_contract_failures.name
+        or context.get("failure_family") != c7_ingest_contract_failures.name
+        or context.get("public_exception") != exception_type.__name__
+        or not context.get("public_message")
+    ):
+        # kit:boundary owner=ingest_c7_common.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w06_c2_total_core_failure_lifts
+        raise TypeError("C7 contract lift context is incomplete or inconsistent")
+    # kit:boundary owner=ingest_c7_common.py class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=c7.ingest.contract_failure witness=test:test_w06_c2_total_core_failure_lifts
+    raise exception_type(str(context["public_message"]))
+
+
+def _reject_c7_contract(
+    message: str,
+    *,
+    code: str = "input_contract_invalid",
+    exception_type: type[Exception] = ValueError,
+    operation: str = "ingest_index.c7.contract",
+    site: str = "ingest_c7_common",
+) -> NoReturn:
+    raise_c7_contract_failure(
+        c7_contract_failure(
+            code,
+            message,
+            exception_type=exception_type,
+            operation=operation,
+            site=site,
+        ),
+        exception_type,
+    )
+
+
+# Compatibility spellings used by sibling C7 capability modules.
+_contract_failure = c7_contract_failure
+_raise_contract_failure = raise_c7_contract_failure
+
+
+def _reject_contract(
+    message: str,
+    exception_type: type[Exception] = ValueError,
+    *,
+    code: str = "input_contract_invalid",
+    operation: str = "ingest_index.c7.contract",
+    site: str = "ingest_c7_common",
+) -> NoReturn:
+    _reject_c7_contract(
+        message,
+        code=code,
+        exception_type=exception_type,
+        operation=operation,
+        site=site,
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -133,20 +234,45 @@ class C7IngestSubmission:
 
     def __post_init__(self) -> None:
         if not str(self.idempotency_key or "").strip():
-            raise ValueError("C7IngestSubmission.idempotency_key is required")
+            _reject_c7_contract(
+                "C7IngestSubmission.idempotency_key is required",
+                site="input/C7IngestSubmission.idempotency_key",
+            )
         if not str(self.project_key or "").strip():
-            raise ValueError("C7IngestSubmission.project_key is required")
+            _reject_c7_contract(
+                "C7IngestSubmission.project_key is required",
+                site="input/C7IngestSubmission.project_key",
+            )
         if not str(self.source_locator or "").strip():
-            raise ValueError("C7IngestSubmission.source_locator is required")
+            _reject_c7_contract(
+                "C7IngestSubmission.source_locator is required",
+                site="input/C7IngestSubmission.source_locator",
+            )
         if self.payload_digest == "":
             plain = {
                 field_def.name: getattr(self, field_def.name)
                 for field_def in dataclasses.fields(self)
                 if field_def.name != "payload_digest"
             }
-            object.__setattr__(self, "payload_digest", content_digest(plain))
+            try:
+                digest = content_digest(plain)
+            except TypeError as exc:
+                _reject_c7_contract(
+                    str(exc),
+                    site="digest/C7IngestSubmission.payload_digest",
+                    exception_type=TypeError,
+                )
+            object.__setattr__(self, "payload_digest", digest)
         else:
-            require_hex64(self.payload_digest, "C7IngestSubmission.payload_digest")
+            if (
+                not isinstance(self.payload_digest, str)
+                or len(self.payload_digest) != 64
+                or any(character not in "0123456789abcdef" for character in self.payload_digest)
+            ):
+                _reject_c7_contract(
+                    "C7IngestSubmission.payload_digest must be a 64-char lowercase hex digest",
+                    site="digest/C7IngestSubmission.payload_digest",
+                )
 
 
 @dataclass(frozen=True, slots=True)
@@ -182,11 +308,21 @@ class StagedIngestCandidate:
 
     def __post_init__(self) -> None:
         if not str(self.candidate_id or "").strip():
-            raise ValueError("StagedIngestCandidate.candidate_id is required")
+            _reject_c7_contract(
+                "StagedIngestCandidate.candidate_id is required",
+                site="input/StagedIngestCandidate.candidate_id",
+            )
         if not str(self.submission_id or "").strip():
-            raise ValueError("StagedIngestCandidate.submission_id is required")
+            _reject_c7_contract(
+                "StagedIngestCandidate.submission_id is required",
+                site="input/StagedIngestCandidate.submission_id",
+            )
         if self.stage not in INGEST_STAGES:
-            raise ValueError(f"unsupported ingest stage: {self.stage}")
+            _reject_c7_contract(
+                f"unsupported ingest stage: {self.stage}",
+                code="stage_invalid",
+                site="stage/StagedIngestCandidate.stage",
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -224,7 +360,13 @@ class C7IngestCapabilityBundle:
         for codec in self.codecs:
             if codec.contract_ref.kind == kind:
                 return codec
-        raise KeyError(f"no C7 payload codec for kind {kind}")
+        _reject_c7_contract(
+            f"no C7 payload codec for kind {kind}",
+            code="lookup_not_found",
+            exception_type=KeyError,
+            operation="ingest_index.c7.codec_lookup",
+            site="lookup/C7IngestCapabilityBundle.codec_by_kind",
+        )
 
 
 def _profile_ref(profile: Any) -> ContractProfileRef:
@@ -395,7 +537,7 @@ def _make_contract(
     )
 
 
-def build_ingest_c7_bundle() -> C7IngestCapabilityBundle:
+def build_ingest_c7_bundle() -> Annotated[C7IngestCapabilityBundle, Literal["kit:non-authoritative derived_as=view fact_source=C7_ingest_contract_constants witness=test:test_w06_successor_authority_metadata"]]:
     semantic = _semantic_profile()
     effect = _effect_profile()
     resource = _resource_profile()
@@ -441,7 +583,7 @@ def build_ingest_c7_bundle() -> C7IngestCapabilityBundle:
 
 def build_ingest_c7_catalog(
     bundle: C7IngestCapabilityBundle,
-) -> OperationContractCatalogSnapshot:
+) -> Annotated[OperationContractCatalogSnapshot, Literal["kit:non-authoritative derived_as=view fact_source=C7_ingest_contract_constants witness=test:test_w06_successor_authority_metadata"]]:
     return OperationContractCatalogSnapshot(
         catalog_id=C7_OPERATION_CATALOG_ID,
         catalog_version=C7_OPERATION_CATALOG_VERSION,
@@ -459,7 +601,7 @@ def build_ingest_c7_catalog(
 
 def build_ingest_c7_registry(
     bundle: C7IngestCapabilityBundle,
-) -> OperationContractRegistry:
+) -> Annotated[OperationContractRegistry, Literal["kit:non-authoritative derived_as=view fact_source=C7_ingest_contract_constants witness=test:test_w06_successor_authority_metadata"]]:
     return OperationContractRegistry(
         build_ingest_c7_catalog(bundle),
         bundle.operations,

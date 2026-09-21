@@ -1,0 +1,674 @@
+diff --git a/python/functorial_kit/arch/gates.py b/python/functorial_kit/arch/gates.py
+index 14c07ae..f1c3aa3 100644
+--- a/python/functorial_kit/arch/gates.py
++++ b/python/functorial_kit/arch/gates.py
+@@ -19,7 +19,8 @@ _IGNORED = {"__pycache__", ".venv", "node_modules", ".git", "dist", "build"}
+ def _walk(root: Path, base: Path, out: list[SourceFile]) -> None:
+     if not base.exists():
+         return
+-    for p in sorted(base.rglob("*.py")):
++    paths = [base] if base.is_file() else sorted(base.rglob("*.py"))
++    for p in paths:
+         if any(part in _IGNORED for part in p.parts):
+             continue
+         out.append(SourceFile(p.relative_to(root).as_posix(), p.read_text(encoding="utf-8")))
+diff --git a/python/functorial_kit/arch/scan.py b/python/functorial_kit/arch/scan.py
+index ee5d82f..f0bb8e9 100644
+--- a/python/functorial_kit/arch/scan.py
++++ b/python/functorial_kit/arch/scan.py
+@@ -2,7 +2,9 @@
+ 
+ from __future__ import annotations
+ 
++import ast
+ import re
++import shlex
+ from collections.abc import Callable, Mapping, Sequence
+ from dataclasses import dataclass
+ from typing import Literal, get_args
+@@ -65,7 +67,6 @@ class ScanInput:
+ 
+ 
+ _RE_IMPORT = re.compile(r"^(?P<indent>[ \t]*)(?:from\s+(?P<mod>[\w.]+)\s+import\b|import\s+(?P<mod2>[\w.]+))", re.M)
+-_RE_RAISE = re.compile(r"\braise\b")
+ _RE_VOCAB = re.compile(r"define_vocabulary\(\s*['\"]([^'\"]+)['\"]\s*,\s*(\([^)]*\)|get_args\((\w+)\))")
+ _RE_FAMILY = re.compile(r"define_failure_family\(\s*['\"]([^'\"]+)['\"]\s*,\s*(\([^)]*\)|get_args\((\w+)\))")
+ _RE_CODEC = re.compile(r"define_codec\(([\s\S]*?)\bparse\s*=")
+@@ -73,16 +74,151 @@ _RE_PORT = re.compile(r"^class\s+([A-Z]\w*)\s*\((?:[\w.]*\bProtocol\b|ABC)\b", r
+ _RE_DERIVED = re.compile(r"^def\s+((?:build|plan|preflight|simulate)\w*)\s*\(([^)]*)\)\s*(?:->\s*([^:]+))?:", re.M)
+ _RE_HELPER = re.compile(r"^def\s+(_?[a-z]\w*)\s*\(", re.M)
+ _RE_PORT_LAWS = re.compile(r"port_laws\(\s*['\"]([^'\"]+)['\"]")
++_RE_BOUNDARY = re.compile(r"#\s*kit:boundary(?:\s+(.*))?$")
++
++_BOUNDARY_CLASSES = frozenset(
++    {
++        "SHELL_BOUNDARY_EXCEPTION",
++        "LEGACY_COMPATIBILITY_EXCEPTION",
++        "PROGRAMMER_DEFECT",
++    }
++)
++_SEMANTIC_RETURN_MARKERS = {
++    "NonAuthoritativeReturn": ("derived_as", "fact_source", "witness"),
++    "PreparedCommandReturn": ("effect_boundary", "witness"),
++    "CanonicalReadReturn": ("canonical_owner", "witness"),
++    "AuthoritativeWriteReturn": ("canonical_writer", "witness"),
++}
++_SEMANTIC_RETURN_TAGS = {
++    "kit:non-authoritative": "NonAuthoritativeReturn",
++    "kit:prepared-command": "PreparedCommandReturn",
++    "kit:canonical-read": "CanonicalReadReturn",
++    "kit:authoritative-write": "AuthoritativeWriteReturn",
++}
+ 
+ 
+ def _under(path: str, roots: Sequence[str]) -> bool:
+     return any(path == r or path.startswith(r.rstrip("/") + "/") for r in roots)
+ 
+ 
++def _under_core(path: str, inp: ScanInput) -> bool:
++    """Shell paths take precedence over an enclosing core path."""
++
++    return _under(path, inp.config.core_paths) and not _under(
++        path, inp.config.shell_paths
++    )
++
++
+ def _line_of(text: str, index: int) -> int:
+     return text.count("\n", 0, index) + 1
+ 
+ 
++def _boundary_fields(line: str) -> dict[str, str] | None:
++    match = _RE_BOUNDARY.search(line)
++    if not match:
++        return None
++    payload = match.group(1)
++    if not payload:
++        return {}
++    fields: dict[str, str] = {}
++    try:
++        tokens = shlex.split(payload)
++    except ValueError:
++        return {"__invalid__": "unparseable"}
++    if not any("=" in token for token in tokens):
++        return {}
++    for token in tokens:
++        if "=" not in token:
++            return {"__invalid__": "expected key=value fields"}
++        key, value = token.split("=", 1)
++        if not key or not value or key in fields:
++            return {"__invalid__": "empty or duplicate field"}
++        fields[key] = value
++    return fields
++
++
++def _structured_boundary_error(
++    fields: Mapping[str, str],
++    inp: ScanInput,
++) -> str | None:
++    required = {"owner", "class", "failure_family", "witness"}
++    if "__invalid__" in fields:
++        return fields["__invalid__"]
++    if set(fields) != required:
++        return "fields must be owner,class,failure_family,witness"
++    if fields["class"] not in _BOUNDARY_CLASSES:
++        return "class is not a permitted boundary classification"
++    family = fields["failure_family"]
++    registered = set(inp.registries.failures.members_by_name())
++    if family == "none" and fields["class"] != "PROGRAMMER_DEFECT":
++        return "failure_family=none is only valid for PROGRAMMER_DEFECT"
++    if family != "none" and family not in registered:
++        return "failure_family is not registered"
++    witness = fields["witness"]
++    if not witness.startswith("test:"):
++        return "witness must start with test:"
++    test_text = "\n".join(t.text for t in inp.tests)
++    if witness.removeprefix("test:") not in test_text:
++        return "witness is absent from test sources"
++    return None
++
++
++def _annotation_marker(annotation: str) -> tuple[str, dict[str, str]] | None:
++    try:
++        tree = ast.parse(annotation, mode="eval")
++    except SyntaxError:
++        return None
++    for node in ast.walk(tree):
++        if isinstance(node, ast.Constant) and isinstance(node.value, str) and node.value.startswith("kit:"):
++            try:
++                tokens = shlex.split(node.value)
++            except ValueError:
++                return "NonAuthoritativeReturn", {"__invalid__": "unparseable string metadata"}
++            if not tokens or tokens[0] not in _SEMANTIC_RETURN_TAGS:
++                continue
++            fields: dict[str, str] = {}
++            for token in tokens[1:]:
++                if "=" not in token:
++                    return _SEMANTIC_RETURN_TAGS[tokens[0]], {"__invalid__": "expected key=value string metadata"}
++                key, value = token.split("=", 1)
++                if not key or not value or key in fields:
++                    return _SEMANTIC_RETURN_TAGS[tokens[0]], {"__invalid__": "empty or duplicate string metadata"}
++                fields[key] = value
++            return _SEMANTIC_RETURN_TAGS[tokens[0]], fields
++        if not isinstance(node, ast.Call):
++            continue
++        func = node.func
++        name = func.id if isinstance(func, ast.Name) else func.attr if isinstance(func, ast.Attribute) else ""
++        if name not in _SEMANTIC_RETURN_MARKERS:
++            continue
++        fields: dict[str, str] = {}
++        for keyword in node.keywords:
++            if keyword.arg is None or not isinstance(keyword.value, ast.Constant) or not isinstance(keyword.value.value, str):
++                return name, {"__invalid__": "metadata values must be string literals"}
++            fields[keyword.arg] = keyword.value.value
++        return name, fields
++    return None
++
++
++def _semantic_return_error(annotation: str, tests: Sequence[SourceFile]) -> str | None:
++    marker = _annotation_marker(annotation)
++    if marker is None:
++        return "semantic return marker is absent"
++    name, fields = marker
++    if "__invalid__" in fields:
++        return fields["__invalid__"]
++    required = set(_SEMANTIC_RETURN_MARKERS[name])
++    if set(fields) != required or any(not value for value in fields.values()):
++        return f"{name} requires {','.join(sorted(required))}"
++    witness = fields["witness"]
++    if not witness.startswith("test:"):
++        return "witness must start with test:"
++    test_text = "\n".join(t.text for t in tests)
++    if witness.removeprefix("test:") not in test_text:
++        return "witness is absent from test sources"
++    return None
++
++
+ def _literals(s: str) -> tuple[str, ...]:
+     return tuple(sorted(m.group(1) for m in re.finditer(r"['\"]([^'\"]+)['\"]", s)))
+ 
+@@ -120,6 +256,77 @@ def _module_of(path: str) -> str:
+     return p.replace("/", ".")
+ 
+ 
++def _package_inits(sources: Sequence[SourceFile]) -> frozenset[str]:
++    return frozenset(
++        source.path
++        for source in sources
++        if source.path.endswith("/__init__.py")
++    )
++
++
++def _source_import_alias(path: str, package_inits: frozenset[str]) -> str:
++    """Derive the runtime import name from the first real package ancestor.
++
++    src is normally a filesystem root rather than a package.  The first
++    directory below it containing __init__.py is the import root.  Files
++    outside a package keep the repository-module fallback used by relative
++    resolution.
++    """
++
++    parts = path.split("/")
++    for index, part in enumerate(parts[:-1]):
++        package_init = "/".join((*parts[:index], part, "__init__.py"))
++        if package_init in package_inits:
++            module_parts = parts[index:]
++            if module_parts[-1] == "__init__.py":
++                module_parts.pop()
++            else:
++                module_parts[-1] = module_parts[-1].removesuffix(".py")
++            return ".".join(module_parts)
++    return _module_of(path)
++
++
++def _import_index(
++    sources: Sequence[SourceFile],
++) -> tuple[dict[str, frozenset[str]], dict[str, frozenset[str]]]:
++    package_inits = _package_inits(sources)
++    runtime_aliases: dict[str, set[str]] = {}
++    repository_modules: dict[str, set[str]] = {}
++    for source in sources:
++        runtime_aliases.setdefault(
++            _source_import_alias(source.path, package_inits), set()
++        ).add(source.path)
++        repository_modules.setdefault(_module_of(source.path), set()).add(source.path)
++    return (
++        {name: frozenset(paths) for name, paths in runtime_aliases.items()},
++        {name: frozenset(paths) for name, paths in repository_modules.items()},
++    )
++
++
++def _import_targets(
++    *,
++    from_path: str,
++    mod: str,
++    runtime_aliases: Mapping[str, frozenset[str]],
++    repository_modules: Mapping[str, frozenset[str]],
++) -> frozenset[str]:
++    if mod.startswith("."):
++        return frozenset(repository_modules.get(_resolve(from_path, mod), ()))
++    return frozenset({*runtime_aliases.get(mod, ()), *repository_modules.get(mod, ())})
++
++
++def _is_shell_import(
++    target_paths: frozenset[str],
++    shell_paths: Sequence[str],
++) -> bool:
++    shell_directories = tuple(path for path in shell_paths if not path.endswith(".py"))
++    shell_files = frozenset(path for path in shell_paths if path.endswith(".py"))
++    return any(
++        path in shell_files or _under(path, shell_directories)
++        for path in target_paths
++    )
++
++
+ def _resolve(from_path: str, mod: str) -> str:
+     """Resolve an import module string to a module path (dots) relative to project root."""
+     if not mod.startswith("."):
+@@ -146,29 +353,89 @@ def _in_type_checking_block(text: str, index: int, indent: str) -> bool:
+ 
+ def _import_direction(inp: ScanInput) -> list[Violation]:
+     out: list[Violation] = []
+-    shell_mods = [_module_of(p) for p in inp.config.shell_paths]
++    runtime_aliases, repository_modules = _import_index(inp.sources)
++    absolute_alias_conflicts: set[str] = set()
+     for f in inp.sources:
+-        if not _under(f.path, inp.config.core_paths):
++        if not _under_core(f.path, inp):
+             continue
+         for m in _RE_IMPORT.finditer(f.text):
++            line_text = f.text[m.start() : f.text.find("\n", m.start())]
++            if "kit:boundary" in line_text:
++                continue
+             if _in_type_checking_block(f.text, m.start(), m.group("indent")):
+                 continue
+-            mod = _resolve(f.path, m.group("mod") or m.group("mod2"))
+-            if any(mod == s or mod.startswith(s + ".") for s in shell_mods) or re.search(r"(^|\.)(shell|adapters|features)(\.|$)", mod):
++            mod = m.group("mod") or m.group("mod2")
++            if not mod.startswith("."):
++                runtime_paths = runtime_aliases.get(mod, frozenset())
++                repository_paths = repository_modules.get(mod, frozenset())
++                if runtime_paths and repository_paths and runtime_paths != repository_paths:
++                    absolute_alias_conflicts.add(mod)
++                    out.append(
++                        Violation(
++                            "import-direction",
++                            f.path,
++                            _line_of(f.text, m.start()),
++                            (
++                                f"ambiguous absolute import '{mod}' maps to "
++                                f"runtime={','.join(sorted(runtime_paths))} "
++                                f"repository={','.join(sorted(repository_paths))}"
++                            ),
++                            "fail",
++                        )
++                    )
++            target_paths = _import_targets(
++                from_path=f.path,
++                mod=mod,
++                runtime_aliases=runtime_aliases,
++                repository_modules=repository_modules,
++            )
++            if _is_shell_import(target_paths, inp.config.shell_paths) or re.search(r"(^|\.)(shell|adapters|features)(\.|$)", mod):
+                 out.append(Violation("import-direction", f.path, _line_of(f.text, m.start()), f"core imports {mod}", "fail"))
++    alias_owners = {
++        alias: paths
++        for alias, paths in runtime_aliases.items()
++        if len(paths) > 1 and alias not in absolute_alias_conflicts
++    }
++    for alias, paths in sorted(alias_owners.items()):
++        out.append(
++            Violation(
++                "import-direction",
++                "(source)",
++                0,
++                f"ambiguous import alias '{alias}' maps to {', '.join(sorted(paths))}",
++                "fail",
++            )
++        )
+     return out
+ 
+ 
+ def _no_raise_in_core(inp: ScanInput) -> list[Violation]:
+     out: list[Violation] = []
+     for f in inp.sources:
+-        if not _under(f.path, inp.config.core_paths):
++        if not _under_core(f.path, inp):
+             continue
+         lines = f.text.split("\n")
+-        for m in _RE_RAISE.finditer(f.text):
+-            line = _line_of(f.text, m.start())
+-            window = "\n".join(lines[max(0, line - 2) : line])
+-            if "kit:boundary" in window:
++        try:
++            tree = ast.parse(f.text)
++        except SyntaxError:
++            continue
++        for node in ast.walk(tree):
++            if not isinstance(node, ast.Raise):
++                continue
++            line = node.lineno
++            window_lines = lines[max(0, line - 3) : line]
++            boundary = next(
++                (fields for candidate in reversed(window_lines) if (fields := _boundary_fields(candidate)) is not None),
++                None,
++            )
++            if boundary == {}:
++                # v0 compatibility; new declarations must use structured metadata.
++                continue
++            if boundary is not None:
++                error = _structured_boundary_error(boundary, inp)
++                if error is None:
++                    continue
++                out.append(Violation("no-throw-in-core", f.path, line, f"invalid kit:boundary: {error}", "fail"))
+                 continue
+             out.append(Violation("no-throw-in-core", f.path, line, "raise in core path", "fail"))
+     return out
+@@ -237,14 +504,28 @@ def _fakes_run_laws(inp: ScanInput) -> list[Violation]:
+ def _derived_marked(inp: ScanInput) -> list[Violation]:
+     out: list[Violation] = []
+     for f in inp.sources:
+-        for m in _RE_DERIVED.finditer(f.text):
+-            if m.group(1).startswith("_"):
++        try:
++            tree = ast.parse(f.text)
++        except SyntaxError:
++            continue
++        for node in tree.body:
++            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
++                continue
++            if node.name.startswith("_") or not node.name.startswith(("build", "plan", "preflight", "simulate")):
++                continue
++            ret = ast.unparse(node.returns) if node.returns is not None else ""
++            body = ast.get_source_segment(f.text, node) or ""
++            if "NonAuthoritativeDict" in ret and "fact_source=" in body:
++                continue
++            if "NonAuthoritative" in ret and re.search(r"\bderived\(", body) and "fact_source=" in body:
+                 continue
+-            ret = m.group(3) or ""
+-            body = f.text[m.end() : m.end() + 4000]
+-            if "NonAuthoritative" in ret or re.search(r"\bderived\(", body):
++            if any(marker in ret for marker in _SEMANTIC_RETURN_MARKERS) or "kit:" in ret:
++                error = _semantic_return_error(ret, inp.tests)
++                if error is None:
++                    continue
++                out.append(Violation("derived-marked", f.path, node.lineno, f"{node.name} has invalid semantic return metadata: {error}", "fail"))
+                 continue
+-            out.append(Violation("derived-marked", f.path, _line_of(f.text, m.start()), f"{m.group(1)} returns an unmarked derived value", "fail"))
++            out.append(Violation("derived-marked", f.path, node.lineno, f"{node.name} returns an unmarked derived value", "fail"))
+     return out
+ 
+ 
+diff --git a/python/tests/test_arch.py b/python/tests/test_arch.py
+index dad4e7c..b4cfc3b 100644
+--- a/python/tests/test_arch.py
++++ b/python/tests/test_arch.py
+@@ -1,8 +1,10 @@
+ import json
+ from dataclasses import replace
++from functorial_kit.arch import scan as scan_module
+ 
+ from functorial_kit import KitConfig, Registries, ScanInput, SourceFile, parse_registry, ratchet, scan_architecture, violation_key
+ from functorial_kit.core.registry import Registry
++import pytest
+ 
+ 
+ def reg(kind: str, entries: list[dict[str, object]]) -> Registry:
+@@ -18,7 +20,7 @@ CLEAN = ScanInput(
+     [
+         SourceFile(
+             "src/project/core/status.py",
+-            'from typing import Literal, Protocol, get_args\nfrom functorial_kit import define_vocabulary\n\nStatus = Literal["active", "blocked"]\nstatus = define_vocabulary("status", get_args(Status))\n\n\nclass Counter(Protocol):\n    def read(self) -> int: ...\n\n\ndef build_view(x: int) -> NonAuthoritative[int]:\n    return derived("view", x)\n',
++            'from typing import Literal, Protocol, get_args\nfrom functorial_kit import define_vocabulary\n\nStatus = Literal["active", "blocked"]\nstatus = define_vocabulary("status", get_args(Status))\n\n\nclass Counter(Protocol):\n    def read(self) -> int: ...\n\n\ndef build_view(x: int) -> NonAuthoritative[int]:\n    return derived("view", x, fact_source="counter")\n',
+         ),
+         SourceFile("src/project/shell/fake.py", "class InMemoryCounter:\n    def read(self) -> int:\n        return 1\n"),
+     ],
+@@ -36,6 +38,17 @@ def with_source(*extra: SourceFile, tests: list[SourceFile] | None = None) -> Sc
+     return replace(CLEAN, sources=[*CLEAN.sources, *extra], tests=CLEAN.tests if tests is None else tests)
+ 
+ 
++def boundary_scan(
++    *,
++    core_paths: tuple[str, ...],
++    shell_paths: tuple[str, ...],
++    sources: list[SourceFile],
++) -> list:
++    config = replace(CONFIG, core_paths=core_paths, shell_paths=shell_paths)
++    inp = replace(CLEAN, config=config, sources=sources)
++    return [v for v in scan_architecture(inp) if v.severity == "fail" and v.gate == "import-direction"]
++
++
+ class TestArchitectureGates:
+     def test_INVARIANT__clean_project(self) -> None:
+         assert gates(CLEAN) == []
+@@ -48,10 +61,206 @@ class TestArchitectureGates:
+         text = "from typing import TYPE_CHECKING\n\nif TYPE_CHECKING:\n    from ..shell.fake import InMemoryCounter\n"
+         assert gates(with_source(SourceFile("src/project/core/ok.py", text))) == []
+ 
++    def test_INVARIANT__explicit_import_boundary_exempt(self) -> None:
++        assert gates(with_source(SourceFile("src/project/core/ok.py", "from ..shell.fake import InMemoryCounter  # kit:boundary\n"))) == []
++
+     def test_INVARIANT__raise_in_core_fails_unless_boundary(self) -> None:
+         assert gates(with_source(SourceFile("src/project/core/t.py", "def f():\n    raise ValueError('x')\n"))) == ["no-throw-in-core"]
+         assert gates(with_source(SourceFile("src/project/core/t.py", "def f():\n    # kit:boundary\n    raise ValueError('x')\n"))) == []
+ 
++    def test_INVARIANT__only_ast_raise_nodes_fail_no_throw_in_core(self) -> None:
++        text = '''"""Document how to raise or re-raise an error."""
++
++# This comment mentions raise and re-raise.
++class Example:
++    """Class docstring: raise only as prose."""
++
++    def explain(self) -> None:
++        """Function docstring: re-raise is documentation."""
++        # A raise in a comment is not an exception statement.
++        return None
++'''
++        assert gates(with_source(SourceFile("src/project/core/docs.py", text))) == []
++
++    def test_INVARIANT__ast_raise_reports_the_statement_line(self) -> None:
++        text = "def f():\n    # explanation\n    raise ValueError('x')\n"
++        violations = [
++            violation
++            for violation in scan_architecture(
++                with_source(SourceFile("src/project/core/t.py", text))
++            )
++            if violation.gate == "no-throw-in-core"
++        ]
++        assert [(violation.file, violation.line, violation.message) for violation in violations] == [
++            ("src/project/core/t.py", 3, "raise in core path")
++        ]
++
++    def test_INVARIANT__syntax_error_does_not_abort_no_throw_scan(self) -> None:
++        text = "def f(:\n    raise ValueError('x')\n"
++        assert gates(with_source(SourceFile("src/project/core/broken.py", text))) == []
++
++    def test_INVARIANT__structured_programmer_boundary_requires_complete_metadata(self) -> None:
++        valid = "def f():\n    # kit:boundary owner=project.core class=PROGRAMMER_DEFECT failure_family=none witness=test:read\n    raise AssertionError('x')\n"
++        assert gates(with_source(SourceFile("src/project/core/valid.py", valid))) == []
++        invalid = "def f():\n    # kit:boundary owner=project.core class=PROGRAMMER_DEFECT\n    raise AssertionError('x')\n"
++        assert gates(with_source(SourceFile("src/project/core/invalid.py", invalid))) == ["no-throw-in-core"]
++
++    def test_INVARIANT__structured_boundary_rejects_domain_failure_classification(self) -> None:
++        text = "def f():\n    # kit:boundary owner=project.core class=DOMAIN_REJECTION failure_family=none witness=test:read\n    raise ValueError('x')\n"
++        assert gates(with_source(SourceFile("src/project/core/invalid.py", text))) == ["no-throw-in-core"]
++
++    def test_INVARIANT__nested_shell_path_overrides_parent_core(self) -> None:
++        config = replace(CONFIG, core_paths=("src/project",), shell_paths=("src/project/shell",))
++        assert gates(replace(CLEAN, config=config)) == []
++
++    def test_INVARIANT__exact_shell_init_flags_package_import_but_not_sibling_target(self) -> None:
++        sources = [
++            SourceFile("src/backend/app/__init__.py", ""),
++            SourceFile("src/backend/app/facade/__init__.py", ""),
++            SourceFile("src/backend/app/facade/store.py", ""),
++            SourceFile("src/backend/app/core/consumer.py", "from app.facade import Facade\n"),
++            SourceFile("src/backend/app/core/sibling_user.py", "from app.facade.store import Store\n"),
++        ]
++        hits = boundary_scan(
++            core_paths=("src/backend/app/core",),
++            shell_paths=("src/backend/app/facade/__init__.py",),
++            sources=sources,
++        )
++        assert [(v.file, v.line, v.message) for v in hits] == [
++            ("src/backend/app/core/consumer.py", 1, "core imports app.facade")
++        ]
++
++    def test_INVARIANT__exact_shell_file_flags_exact_target_only(self) -> None:
++        sources = [
++            SourceFile("src/backend/app/__init__.py", ""),
++            SourceFile("src/backend/app/facade/__init__.py", ""),
++            SourceFile("src/backend/app/facade/store.py", ""),
++            SourceFile("src/backend/app/facade/pure.py", ""),
++            SourceFile("src/backend/app/core/store_user.py", "from app.facade.store import Store\n"),
++            SourceFile("src/backend/app/core/pure_user.py", "from app.facade.pure import Pure\n"),
++        ]
++        hits = boundary_scan(
++            core_paths=("src/backend/app/core",),
++            shell_paths=("src/backend/app/facade/store.py",),
++            sources=sources,
++        )
++        assert [(v.file, v.line, v.message) for v in hits] == [
++            ("src/backend/app/core/store_user.py", 1, "core imports app.facade.store")
++        ]
++
++    def test_INVARIANT__directory_shell_path_keeps_prefix_semantics(self) -> None:
++        sources = [
++            SourceFile("src/backend/app/__init__.py", ""),
++            SourceFile("src/backend/app/facade/__init__.py", ""),
++            SourceFile("src/backend/app/facade/store.py", ""),
++            SourceFile("src/backend/app/core/package_user.py", "from app.facade import Facade\n"),
++            SourceFile("src/backend/app/core/store_user.py", "from app.facade.store import Store\n"),
++        ]
++        hits = boundary_scan(
++            core_paths=("src/backend/app/core",),
++            shell_paths=("src/backend/app/facade",),
++            sources=sources,
++        )
++        assert [(v.file, v.message) for v in hits] == [
++            ("src/backend/app/core/package_user.py", "core imports app.facade"),
++            ("src/backend/app/core/store_user.py", "core imports app.facade.store"),
++        ]
++
++    def test_INVARIANT__relative_import_preserves_from_file_semantics(self) -> None:
++        sources = [
++            SourceFile("src/backend/app/__init__.py", ""),
++            SourceFile("src/backend/app/facade/__init__.py", ""),
++            SourceFile("src/backend/app/facade/store.py", ""),
++            SourceFile("src/backend/app/core/store.py", "from ..facade.store import Store\n"),
++        ]
++        assert boundary_scan(
++            core_paths=("src/backend/app/core",),
++            shell_paths=("src/backend/app/facade/store.py",),
++            sources=sources,
++        ) != []
++
++    def test_INVARIANT__repository_qualified_shell_import_is_detected(self) -> None:
++        sources = [
++            SourceFile("main/backend/app/__init__.py", ""),
++            SourceFile("main/backend/app/facade/__init__.py", ""),
++            SourceFile("main/backend/app/facade/store.py", ""),
++            SourceFile("main/backend/app/core/store_user.py", "from main.backend.app.facade.store import Store\n"),
++        ]
++        hits = boundary_scan(
++            core_paths=("main/backend/app/core",),
++            shell_paths=("main/backend/app/facade/store.py",),
++            sources=sources,
++        )
++        assert [(v.file, v.message) for v in hits] == [
++            ("main/backend/app/core/store_user.py", "core imports main.backend.app.facade.store")
++        ]
++
++    def test_INVARIANT__runtime_and_repository_absolute_spellings_match_one_file(self) -> None:
++        sources = [
++            SourceFile("main/backend/app/__init__.py", ""),
++            SourceFile("main/backend/app/facade/__init__.py", ""),
++            SourceFile("main/backend/app/facade/store.py", ""),
++            SourceFile("main/backend/app/core/runtime_user.py", "from app.facade.store import Store\n"),
++            SourceFile("main/backend/app/core/repository_user.py", "from main.backend.app.facade.store import Store\n"),
++        ]
++        hits = boundary_scan(
++            core_paths=("main/backend/app/core",),
++            shell_paths=("main/backend/app/facade/store.py",),
++            sources=sources,
++        )
++        assert [(v.file, v.message) for v in hits] == [
++            ("main/backend/app/core/repository_user.py", "core imports main.backend.app.facade.store"),
++            ("main/backend/app/core/runtime_user.py", "core imports app.facade.store"),
++        ]
++
++    def test_INVARIANT__cross_mapping_absolute_alias_conflicts_fail_visible(
++        self, monkeypatch: pytest.MonkeyPatch
++    ) -> None:
++        sources = [
++            SourceFile("src/backend/app/core/user.py", "from alias.facade import Facade\n"),
++        ]
++        def monkeypatch_index(sources):
++            return (
++                {"alias.facade": frozenset({"src/alias/facade.py"})},
++                {"alias.facade": frozenset({"alias/facade.py"})},
++            )
++        monkeypatch.setattr(scan_module, "_import_index", monkeypatch_index)
++        hits = boundary_scan(
++            core_paths=("src/backend/app/core",),
++            shell_paths=("alias/facade.py",),
++            sources=sources,
++        )
++        assert [(v.file, v.message) for v in hits] == [
++            (
++                "src/backend/app/core/user.py",
++                "ambiguous absolute import 'alias.facade' maps to runtime=src/alias/facade.py repository=alias/facade.py",
++            ),
++            ("src/backend/app/core/user.py", "core imports alias.facade"),
++        ]
++
++    def test_INVARIANT__ambiguous_runtime_import_alias_fails_visible(self) -> None:
++        sources = [
++            SourceFile("src/left/pkg/__init__.py", ""),
++            SourceFile("src/left/pkg/facade.py", ""),
++            SourceFile("src/right/pkg/__init__.py", ""),
++            SourceFile("src/right/pkg/facade.py", ""),
++            SourceFile("src/backend/app/core/user.py", "from pkg.facade import Facade\n"),
++        ]
++        hits = boundary_scan(
++            core_paths=("src/backend/app/core",),
++            shell_paths=("src/left/pkg/facade.py",),
++            sources=sources,
++        )
++        assert [(v.file, v.message) for v in hits] == [
++            ("(source)", "ambiguous import alias 'pkg' maps to src/left/pkg/__init__.py, src/right/pkg/__init__.py"),
++            ("(source)", "ambiguous import alias 'pkg.facade' maps to src/left/pkg/facade.py, src/right/pkg/facade.py"),
++            ("src/backend/app/core/user.py", "core imports pkg.facade"),
++        ]
++
++    def test_INVARIANT__single_file_core_path_is_scanned(self) -> None:
++        config = replace(CONFIG, core_paths=("src/project/core/status.py",))
++        assert gates(replace(CLEAN, config=config)) == []
++
+     def test_INVARIANT__unregistered_vocabulary_fails(self) -> None:
+         assert gates(with_source(SourceFile("src/project/core/v.py", 'mode = define_vocabulary("mode", ("a",))\n'))) == ["registry-complete"]
+ 
+@@ -74,6 +283,24 @@ class TestArchitectureGates:
+     def test_INVARIANT__unmarked_build_fails_derived_marked(self) -> None:
+         assert gates(with_source(SourceFile("src/project/core/p.py", "def build_plan(x: int) -> int:\n    return x\n"))) == ["derived-marked"]
+ 
++    def test_INVARIANT__annotated_semantic_return_requires_witness(self) -> None:
++        valid = 'def build_plan(x: int) -> Annotated[int, PreparedCommandReturn(effect_boundary="queue", witness="test:read")]:\n    return x\n'
++        assert gates(with_source(SourceFile("src/project/core/valid.py", valid))) == []
++        invalid = 'def build_plan(x: int) -> Annotated[int, PreparedCommandReturn(effect_boundary="queue", witness="test:missing")]:\n    return x\n'
++        assert gates(with_source(SourceFile("src/project/core/invalid.py", invalid))) == ["derived-marked"]
++
++    def test_INVARIANT__annotated_non_authoritative_return_is_abi_preserving_marker(self) -> None:
++        text = 'def build_view(x: int) -> Annotated[int, NonAuthoritativeReturn(derived_as="view", fact_source="counter", witness="test:read")]:\n    return x\n'
++        assert gates(with_source(SourceFile("src/project/core/view.py", text))) == []
++
++    def test_INVARIANT__string_semantic_metadata_avoids_runtime_kit_dependency(self) -> None:
++        text = 'def build_view(x: int) -> Annotated[int, "kit:non-authoritative derived_as=view fact_source=counter witness=test:read"]:\n    return x\n'
++        assert gates(with_source(SourceFile("src/project/core/view.py", text))) == []
++
++    def test_INVARIANT__string_semantic_metadata_rejects_missing_fields(self) -> None:
++        text = 'def build_view(x: int) -> Annotated[int, "kit:non-authoritative derived_as=view witness=test:read"]:\n    return x\n'
++        assert gates(with_source(SourceFile("src/project/core/view.py", text))) == ["derived-marked"]
++
+     def test_INVARIANT__sketch_missing_witness_fails(self) -> None:
+         inp = replace(CLEAN, sketches_text=json.dumps({"version": "kit-sketches.v1", "entries": [{"shape": "codec", "equations": [{"claim": "c", "class": "testable", "witness": "test:nope"}]}]}))
+         assert gates(inp) == ["sketch-valid"]

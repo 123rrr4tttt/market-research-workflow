@@ -3,6 +3,7 @@ from __future__ import annotations
 import tempfile
 import unittest
 from pathlib import Path
+from typing import Annotated, get_args, get_origin, get_type_hints
 
 import pytest
 
@@ -66,6 +67,16 @@ class IngestCanary24hMetricsArtifactTest(unittest.TestCase):
 
         self.assertTrue(any("rejection_rate" in error for error in errors))
         self.assertTrue(any("snapshot_digest" in error for error in errors))
+
+    def test_ingest_canary_24h_metrics_authority_metadata(self) -> None:
+        return_hint = get_type_hints(build_24h_metrics_artifact, include_extras=True)["return"]
+        self.assertIs(get_origin(return_hint), Annotated)
+        _, metadata = get_args(return_hint)
+        self.assertEqual(
+            metadata,
+            "kit:non-authoritative derived_as=generated_evidence fact_source=repo_local.ingest_canary_fixture_events "
+            "witness=test:test_ingest_canary_24h_metrics_authority_metadata",
+        )
 
 
 if __name__ == "__main__":

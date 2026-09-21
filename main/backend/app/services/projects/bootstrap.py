@@ -27,6 +27,7 @@ from ...models.entities import (
 )
 from ...models.writing_entities import WritingDocument, WritingDocumentCitation, WritingDocumentDraft
 from .context import _normalize_project_key, project_schema_name
+from .schema_initialization import run_serialized_schema_ddl
 
 
 logger = logging.getLogger(__name__)
@@ -68,7 +69,7 @@ def ensure_project_schema_ready(project_key: str, *, name: str | None = None) ->
     schema_name = project_schema_name(normalized)
     display_name = (name or normalized.replace("_", " ").title()).strip() or normalized
 
-    with engine.begin() as conn:
+    def _initialize(conn: object) -> None:
         conn.execute(text('SET search_path TO "public"'))
         conn.execute(
             text(
@@ -84,12 +85,11 @@ def ensure_project_schema_ready(project_key: str, *, name: str | None = None) ->
             {"project_key": normalized, "name": display_name, "schema_name": schema_name},
         )
         conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{schema_name}"'))
-
-    for table in TENANT_TABLES:
-        with engine.begin() as conn:
-            conn.execute(text(f'SET search_path TO "{schema_name}"'))
+        conn.execute(text(f'SET search_path TO "{schema_name}"'))
+        for table in TENANT_TABLES:
             try:
-                table.create(bind=conn, checkfirst=True)
+                with conn.begin_nested():
+                    table.create(bind=conn, checkfirst=True)
             except Exception as exc:  # noqa: BLE001
                 table_name = getattr(table, "name", "")
                 if table_name == "embeddings" and _is_missing_vector_type(exc):
@@ -101,17 +101,22 @@ def ensure_project_schema_ready(project_key: str, *, name: str | None = None) ->
                     continue
                 raise
 
-    _ensure_tenant_id_sequences(schema_name)
+        _ensure_tenant_id_sequences(schema_name, connection=conn)
+
+    run_serialized_schema_ddl(
+        engine,
+        schema_name=schema_name,
+        operation=_initialize,
+    )
     return {"project_key": normalized, "schema_name": schema_name}
 
 
-def _ensure_tenant_id_sequences(schema_name: str) -> None:
+def _ensure_tenant_id_sequences(schema_name: str, *, connection: object) -> None:
     table_names = [table.name for table in TENANT_TABLES if "id" in table.c]
     for table_name in table_names:
-        with engine.begin() as conn:
-            conn.execute(
-                text(
-                    """
+        connection.execute(
+            text(
+                """
                     DO $$
                     DECLARE
                       seq_qualified text := format('%I.%I_id_seq', :schema_name, :table_name);
@@ -134,7 +139,7 @@ def _ensure_tenant_id_sequences(schema_name: str) -> None:
                         seq_qualified, :schema_name, :table_name
                       );
                     END$$;
-                    """
-                ),
-                {"schema_name": schema_name, "table_name": table_name},
-            )
+                """
+            ),
+            {"schema_name": schema_name, "table_name": table_name},
+        )

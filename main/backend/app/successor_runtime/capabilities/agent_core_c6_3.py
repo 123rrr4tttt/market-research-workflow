@@ -11,7 +11,13 @@ survives in the redacted output.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Literal, TypeAlias
+from typing import Annotated, Any, Literal, NoReturn, TypeAlias
+
+from functorial_kit import Failure
+from mrw_functorial_kit.core import (
+    successor_capability_contract_failures,
+)
+
 
 from app.successor_runtime.capabilities.agent_core_c6_common import (
     ProjectScope,
@@ -23,7 +29,6 @@ from app.successor_runtime.capabilities.agent_core_c6_common import (
 from app.successor_runtime.capabilities.checksum import (
     canonical_json,
     content_digest,
-    require_hex64,
     sha256_hex,
 )
 from app.successor_runtime.capabilities.contracts import (
@@ -94,9 +99,7 @@ REDACTION_POLICY_SCHEMA_REF = "mrw.successor.agent-core.c6-3.redaction-policy.v1
 REDACTION_SOURCE_SCHEMA_REF = "mrw.successor.agent-core.c6-3.source.v1"
 REDACTED_EVIDENCE_SCHEMA_REF = "mrw.successor.agent-core.c6-3.evidence.v1"
 REDACTION_RECEIPT_SCHEMA_REF = "mrw.successor.agent-core.c6-3.receipt.v1"
-REDACTION_RESOURCE_CEILING_SCHEMA_REF = (
-    "mrw.successor.agent-core.c6-3.resource-ceiling.v1"
-)
+REDACTION_RESOURCE_CEILING_SCHEMA_REF = "mrw.successor.agent-core.c6-3.resource-ceiling.v1"
 _REDACTED_MARKER = "[REDACTED]"
 
 REDACTION_POLICY_TYPE = ObjectType("RedactionPolicyRef.v1")
@@ -187,6 +190,76 @@ _SENSITIVE_PATH_TOKENS: frozenset[str] = frozenset(
     }
 )
 _ALLOWED_CLASSES: frozenset[str] = frozenset({"REDACT", "OMIT", "FINGERPRINT"})
+_C6_3_CONTRACT_WITNESS = "test:test_w05_n4_c63_typed_contract_failures"
+
+
+def _contract_failure(
+    code: str,
+    message: str,
+    *,
+    boundary_class: str = "PURE_CONTRACT_FAILURE",
+    **details: Any,
+) -> Failure:
+    """Build the canonical kit value before any legacy public exception lift."""
+
+    return successor_capability_contract_failures.fail(
+        code,
+        message,
+        {
+            "owner": AGENT_CORE_C6_3_OWNER,
+            "effect_boundary": "agent_core.c6_3.contract_core",
+            "boundary_class": boundary_class,
+            "failure_family": successor_capability_contract_failures.name,
+            "witness": _C6_3_CONTRACT_WITNESS,
+            **details,
+        },
+    )
+
+
+def _raise_contract_failure(
+    failure: Failure,
+    exception_type: type[ValueError] = ValueError,
+) -> NoReturn:
+    # kit:boundary owner=agent_core_c6_3.py class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.capability.contract_failure witness=test:test_w05_n4_c63_typed_contract_failures
+    raise exception_type(failure.message)
+
+
+def _hex64_failure(value: Any, field_name: str) -> Failure | None:
+    if not isinstance(value, str) or len(value) != 64:
+        return _contract_failure(
+            "digest_contract_invalid",
+            f"{field_name} must be a 64-char lowercase hex digest",
+            field=field_name,
+        )
+    if any(char not in "0123456789abcdef" for char in value):
+        return _contract_failure(
+            "digest_contract_invalid",
+            f"{field_name} must be a 64-char lowercase hex digest",
+            field=field_name,
+        )
+    return None
+
+
+def _validated_fingerprint_entry(
+    path: Any,
+    digest: Any,
+) -> tuple[str, str] | Failure:
+    normalized_path = str(path)
+    digest_failure = _hex64_failure(digest, "fingerprint digest")
+    if digest_failure is not None:
+        return digest_failure
+    return normalized_path, digest
+
+
+def _validated_provenance_entry(
+    name: Any,
+    digest: Any,
+) -> tuple[str, str] | Failure:
+    normalized_name = str(name)
+    digest_failure = _hex64_failure(digest, "provenance digest")
+    if digest_failure is not None:
+        return digest_failure
+    return normalized_name, digest
 
 
 def redaction_policy_digest(
@@ -221,11 +294,25 @@ class RedactionPolicyRef:
 
     def __post_init__(self) -> None:
         if self.schema_version != REDACTION_POLICY_SCHEMA_REF:
-            raise ValueError("RedactionPolicyRef.schema_version is not frozen")
+            _raise_contract_failure(
+                _contract_failure(
+                    "schema_contract_invalid",
+                    "RedactionPolicyRef.schema_version is not frozen",
+                    field="RedactionPolicyRef.schema_version",
+                )
+            )
         for name in ("policy_id", "policy_version"):
             if not isinstance(getattr(self, name), str) or not getattr(self, name):
-                raise ValueError(f"RedactionPolicyRef.{name} is required")
-        require_hex64(self.policy_digest, "RedactionPolicyRef.policy_digest")
+                _raise_contract_failure(
+                    _contract_failure(
+                        "schema_contract_invalid",
+                        f"RedactionPolicyRef.{name} is required",
+                        field=f"RedactionPolicyRef.{name}",
+                    )
+                )
+        digest_failure = _hex64_failure(self.policy_digest, "RedactionPolicyRef.policy_digest")
+        if digest_failure is not None:
+            _raise_contract_failure(digest_failure)
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -258,9 +345,21 @@ class RedactionEvidencePayload:
 
     def __post_init__(self) -> None:
         if self.schema_version != AGENT_CORE_C6_3_PAYLOAD_SCHEMA:
-            raise ValueError(f"unsupported payload schema {self.schema_version!r}")
+            _raise_contract_failure(
+                _contract_failure(
+                    "schema_contract_invalid",
+                    f"unsupported payload schema {self.schema_version!r}",
+                    field="RedactionEvidencePayload.schema_version",
+                )
+            )
         if self.operation_kind != AGENT_CORE_C6_3_KIND:
-            raise ValueError(f"unsupported operation kind {self.operation_kind!r}")
+            _raise_contract_failure(
+                _contract_failure(
+                    "schema_contract_invalid",
+                    f"unsupported operation kind {self.operation_kind!r}",
+                    field="RedactionEvidencePayload.operation_kind",
+                )
+            )
         for name in (
             "source_observation_ref",
             "source_kind",
@@ -270,11 +369,19 @@ class RedactionEvidencePayload:
             "interpreter_profile_ref",
         ):
             if not isinstance(getattr(self, name), str) or not getattr(self, name):
-                raise ValueError(f"RedactionEvidencePayload.{name} is required")
-        require_hex64(
+                _raise_contract_failure(
+                    _contract_failure(
+                        "schema_contract_invalid",
+                        f"RedactionEvidencePayload.{name} is required",
+                        field=f"RedactionEvidencePayload.{name}",
+                    )
+                )
+        source_digest_failure = _hex64_failure(
             self.source_observation_digest,
             "RedactionEvidencePayload.source_observation_digest",
         )
+        if source_digest_failure is not None:
+            _raise_contract_failure(source_digest_failure)
         object.__setattr__(
             self,
             "field_classifications",
@@ -282,31 +389,59 @@ class RedactionEvidencePayload:
         )
         for path, classification in self.field_classifications:
             if not isinstance(path, str) or not path:
-                raise ValueError("field classification path must be a non-empty string")
+                _raise_contract_failure(
+                    _contract_failure(
+                        "schema_contract_invalid",
+                        "field classification path must be a non-empty string",
+                        field="RedactionEvidencePayload.field_classifications",
+                    )
+                )
             if classification not in _ALLOWED_CLASSES:
-                raise ValueError(f"unsupported classification {classification!r}")
+                _raise_contract_failure(
+                    _contract_failure(
+                        "schema_contract_invalid",
+                        f"unsupported classification {classification!r}",
+                        field="RedactionEvidencePayload.field_classifications",
+                    )
+                )
         if (
             not isinstance(self.max_input_bytes, int)
             or isinstance(self.max_input_bytes, bool)
             or self.max_input_bytes <= 0
         ):
-            raise ValueError("max_input_bytes must be a positive int")
+            _raise_contract_failure(
+                _contract_failure(
+                    "schema_contract_invalid",
+                    "max_input_bytes must be a positive int",
+                    field="RedactionEvidencePayload.max_input_bytes",
+                )
+            )
         if (
             not isinstance(self.max_event_batch, int)
             or isinstance(self.max_event_batch, bool)
             or self.max_event_batch <= 0
         ):
-            raise ValueError("max_event_batch must be a positive int")
+            _raise_contract_failure(
+                _contract_failure(
+                    "schema_contract_invalid",
+                    "max_event_batch must be a positive int",
+                    field="RedactionEvidencePayload.max_event_batch",
+                )
+            )
         expected = content_digest(self, omit_fields=("payload_digest",))
         if self.payload_digest == "":
             object.__setattr__(self, "payload_digest", expected)
         else:
-            require_hex64(
-                self.payload_digest, "RedactionEvidencePayload.payload_digest"
-            )
+            digest_failure = _hex64_failure(self.payload_digest, "RedactionEvidencePayload.payload_digest")
+            if digest_failure is not None:
+                _raise_contract_failure(digest_failure)
             if self.payload_digest != expected:
-                raise ValueError(
-                    "RedactionEvidencePayload.payload_digest does not match content"
+                _raise_contract_failure(
+                    _contract_failure(
+                        "digest_contract_invalid",
+                        "RedactionEvidencePayload.payload_digest does not match content",
+                        field="RedactionEvidencePayload.payload_digest",
+                    )
                 )
 
     def to_plain(self) -> dict[str, Any]:
@@ -353,28 +488,37 @@ class RedactedEvidence:
 
     def __post_init__(self) -> None:
         if self.schema_version != REDACTED_EVIDENCE_SCHEMA_REF:
-            raise ValueError("RedactedEvidence.schema_version is not frozen")
+            _raise_contract_failure(
+                _contract_failure(
+                    "schema_contract_invalid",
+                    "RedactedEvidence.schema_version is not frozen",
+                    field="RedactedEvidence.schema_version",
+                )
+            )
         if self.raw_value_persisted is not False:
-            raise ValueError("RedactedEvidence.raw_value_persisted must be false")
-        require_hex64(
+            _raise_contract_failure(
+                _contract_failure(
+                    "schema_contract_invalid",
+                    "RedactedEvidence.raw_value_persisted must be false",
+                    field="RedactedEvidence.raw_value_persisted",
+                )
+            )
+        source_digest_failure = _hex64_failure(
             self.source_observation_digest,
             "RedactedEvidence.source_observation_digest",
         )
-        object.__setattr__(
-            self, "redacted_value", freeze_c6_json_object(dict(self.redacted_value))
-        )
-        object.__setattr__(
-            self, "redacted_field_paths", tuple(self.redacted_field_paths)
-        )
+        if source_digest_failure is not None:
+            _raise_contract_failure(source_digest_failure)
+        object.__setattr__(self, "redacted_value", freeze_c6_json_object(dict(self.redacted_value)))
+        object.__setattr__(self, "redacted_field_paths", tuple(self.redacted_field_paths))
         object.__setattr__(self, "omitted_field_paths", tuple(self.omitted_field_paths))
-        object.__setattr__(
-            self,
-            "fingerprint_entries",
-            tuple(
-                (str(path), require_hex64(digest, "fingerprint digest"))
-                for path, digest in self.fingerprint_entries
-            ),
-        )
+        fingerprint_entries: list[tuple[str, str]] = []
+        for path, digest in self.fingerprint_entries:
+            entry = _validated_fingerprint_entry(path, digest)
+            if isinstance(entry, Failure):
+                _raise_contract_failure(entry)
+            fingerprint_entries.append(entry)
+        object.__setattr__(self, "fingerprint_entries", tuple(fingerprint_entries))
         expected_redacted = content_digest(
             {
                 "schema": REDACTED_EVIDENCE_SCHEMA_REF,
@@ -384,19 +528,31 @@ class RedactedEvidence:
         if self.redacted_digest == "":
             object.__setattr__(self, "redacted_digest", expected_redacted)
         else:
-            require_hex64(self.redacted_digest, "RedactedEvidence.redacted_digest")
+            digest_failure = _hex64_failure(self.redacted_digest, "RedactedEvidence.redacted_digest")
+            if digest_failure is not None:
+                _raise_contract_failure(digest_failure)
             if self.redacted_digest != expected_redacted:
-                raise ValueError(
-                    "RedactedEvidence.redacted_digest does not match redacted value"
+                _raise_contract_failure(
+                    _contract_failure(
+                        "digest_contract_invalid",
+                        "RedactedEvidence.redacted_digest does not match redacted value",
+                        field="RedactedEvidence.redacted_digest",
+                    )
                 )
         expected_evidence = content_digest(self, omit_fields=("evidence_digest",))
         if self.evidence_digest == "":
             object.__setattr__(self, "evidence_digest", expected_evidence)
         else:
-            require_hex64(self.evidence_digest, "RedactedEvidence.evidence_digest")
+            digest_failure = _hex64_failure(self.evidence_digest, "RedactedEvidence.evidence_digest")
+            if digest_failure is not None:
+                _raise_contract_failure(digest_failure)
             if self.evidence_digest != expected_evidence:
-                raise ValueError(
-                    "RedactedEvidence.evidence_digest does not match content"
+                _raise_contract_failure(
+                    _contract_failure(
+                        "digest_contract_invalid",
+                        "RedactedEvidence.evidence_digest does not match content",
+                        field="RedactedEvidence.evidence_digest",
+                    )
                 )
 
     def to_plain(self) -> dict[str, Any]:
@@ -413,9 +569,7 @@ class RedactedEvidence:
             "redacted_value": thaw_json_value(self.redacted_value),
             "redacted_field_paths": list(self.redacted_field_paths),
             "omitted_field_paths": list(self.omitted_field_paths),
-            "fingerprint_entries": [
-                [path, digest] for path, digest in self.fingerprint_entries
-            ],
+            "fingerprint_entries": [[path, digest] for path, digest in self.fingerprint_entries],
             "declared_loss_profile_ref": self.declared_loss_profile_ref,
             "raw_value_persisted": self.raw_value_persisted,
             "redacted_digest": self.redacted_digest,
@@ -435,46 +589,51 @@ class RedactionReceipt:
 
     def __post_init__(self) -> None:
         if self.schema_version != REDACTION_RECEIPT_SCHEMA_REF:
-            raise ValueError("RedactionReceipt.schema_version is not frozen")
+            _raise_contract_failure(
+                _contract_failure(
+                    "schema_contract_invalid",
+                    "RedactionReceipt.schema_version is not frozen",
+                    field="RedactionReceipt.schema_version",
+                )
+            )
+        provenance_entries: list[tuple[str, str]] = []
+        for name, value in self.source_to_redacted_provenance:
+            entry = _validated_provenance_entry(name, value)
+            if isinstance(entry, Failure):
+                _raise_contract_failure(entry)
+            provenance_entries.append(entry)
         object.__setattr__(
             self,
             "source_to_redacted_provenance",
-            tuple(
-                (str(name), require_hex64(value, "provenance digest"))
-                for name, value in self.source_to_redacted_provenance
-            ),
+            tuple(provenance_entries),
         )
         object.__setattr__(
             self,
             "policy_application_receipt",
             freeze_c6_json_object(dict(self.policy_application_receipt)),
         )
-        expected = content_digest(
-            {
-                key: value
-                for key, value in self.to_plain().items()
-                if key != "receipt_digest"
-            }
-        )
+        expected = content_digest({key: value for key, value in self.to_plain().items() if key != "receipt_digest"})
         if self.receipt_digest == "":
             object.__setattr__(self, "receipt_digest", expected)
         else:
-            require_hex64(self.receipt_digest, "RedactionReceipt.receipt_digest")
+            digest_failure = _hex64_failure(self.receipt_digest, "RedactionReceipt.receipt_digest")
+            if digest_failure is not None:
+                _raise_contract_failure(digest_failure)
             if self.receipt_digest != expected:
-                raise ValueError(
-                    "RedactionReceipt.receipt_digest does not match content"
+                _raise_contract_failure(
+                    _contract_failure(
+                        "digest_contract_invalid",
+                        "RedactionReceipt.receipt_digest does not match content",
+                        field="RedactionReceipt.receipt_digest",
+                    )
                 )
 
     def to_plain(self) -> dict[str, Any]:
         return {
             "schema_version": self.schema_version,
             "evidence": self.evidence.to_plain(),
-            "source_to_redacted_provenance": [
-                [name, digest] for name, digest in self.source_to_redacted_provenance
-            ],
-            "policy_application_receipt": thaw_json_value(
-                self.policy_application_receipt
-            ),
+            "source_to_redacted_provenance": [[name, digest] for name, digest in self.source_to_redacted_provenance],
+            "policy_application_receipt": thaw_json_value(self.policy_application_receipt),
             "receipt_digest": self.receipt_digest,
         }
 
@@ -517,7 +676,13 @@ class RedactionResourceCeiling:
         ):
             value = getattr(self, name)
             if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
-                raise ValueError(f"RedactionResourceCeiling.{name} must be positive")
+                _raise_contract_failure(
+                    _contract_failure(
+                        "schema_contract_invalid",
+                        f"RedactionResourceCeiling.{name} must be positive",
+                        field=f"RedactionResourceCeiling.{name}",
+                    )
+                )
         expected = content_digest(
             {
                 "schema": REDACTION_RESOURCE_CEILING_SCHEMA_REF,
@@ -529,12 +694,16 @@ class RedactionResourceCeiling:
         if self.ceiling_digest == "":
             object.__setattr__(self, "ceiling_digest", expected)
         else:
-            require_hex64(
-                self.ceiling_digest, "RedactionResourceCeiling.ceiling_digest"
-            )
+            digest_failure = _hex64_failure(self.ceiling_digest, "RedactionResourceCeiling.ceiling_digest")
+            if digest_failure is not None:
+                _raise_contract_failure(digest_failure)
             if self.ceiling_digest != expected:
-                raise ValueError(
-                    "RedactionResourceCeiling.ceiling_digest does not match content"
+                _raise_contract_failure(
+                    _contract_failure(
+                        "digest_contract_invalid",
+                        "RedactionResourceCeiling.ceiling_digest does not match content",
+                        field="RedactionResourceCeiling.ceiling_digest",
+                    )
                 )
 
     def to_plain(self) -> dict[str, Any]:
@@ -575,6 +744,33 @@ def _raw_string_present(redacted_plain: Any, raw_leaf: Any) -> bool:
     return False
 
 
+def _redaction_failure_from_contract(
+    contract_failure: Failure,
+    code: str,
+) -> RedactionFailure:
+    return RedactionFailure(code, contract_failure.message)
+
+
+def _redaction_failure(
+    code: str,
+    message: str,
+    *,
+    contract_code: str,
+    boundary_class: str = "PURE_CONTRACT_FAILURE",
+    **details: Any,
+) -> RedactionFailure:
+    return _redaction_failure_from_contract(
+        _contract_failure(
+            contract_code,
+            message,
+            boundary_class=boundary_class,
+            redaction_code=code,
+            **details,
+        ),
+        code,
+    )
+
+
 def _apply_classification(
     value: Any,
     *,
@@ -584,7 +780,7 @@ def _apply_classification(
     omitted_paths: list[str],
     fingerprints: list[tuple[str, str]],
     suppressed_values: list[Any],
-) -> tuple[Any, bool]:
+) -> tuple[Any, bool] | RedactionFailure:
     """Return ``(transformed, removed)``; sensitive leaves fail closed."""
 
     if isinstance(value, dict):
@@ -602,16 +798,23 @@ def _apply_classification(
                 suppressed_values.extend(_leaf_scalars(item))
                 continue
             if classification == "FINGERPRINT":
-                fingerprints.append(
-                    (child_path, sha256_hex(canonical_json(item).encode("utf-8")))
-                )
+                fingerprints.append((child_path, sha256_hex(canonical_json(item).encode("utf-8"))))
                 out[key] = {"fingerprint": fingerprints[-1][1]}
                 redacted_paths.append(child_path)
                 suppressed_values.extend(_leaf_scalars(item))
                 continue
             if any(token in str(key).lower() for token in _SENSITIVE_PATH_TOKENS):
-                raise SensitiveFieldUnclassified(child_path)
-            transformed, removed = _apply_classification(
+                return _redaction_failure_from_contract(
+                    _contract_failure(
+                        "program_binding_invalid",
+                        (f"sensitive field is not classified by the bound policy: {child_path}"),
+                        boundary_class="DOMAIN_REJECTION",
+                        redaction_code="SensitiveFieldUnclassified",
+                        field_path=child_path,
+                    ),
+                    "SensitiveFieldUnclassified",
+                )
+            classified = _apply_classification(
                 item,
                 path=child_path,
                 classifications=classifications,
@@ -620,13 +823,16 @@ def _apply_classification(
                 fingerprints=fingerprints,
                 suppressed_values=suppressed_values,
             )
+            if isinstance(classified, RedactionFailure):
+                return classified
+            transformed, removed = classified
             if not removed:
                 out[key] = transformed
         return out, False
     if isinstance(value, (list, tuple)):
         out = []
         for item in value:
-            transformed, _removed = _apply_classification(
+            classified = _apply_classification(
                 item,
                 path=path,
                 classifications=classifications,
@@ -635,6 +841,9 @@ def _apply_classification(
                 fingerprints=fingerprints,
                 suppressed_values=suppressed_values,
             )
+            if isinstance(classified, RedactionFailure):
+                return classified
+            transformed, _removed = classified
             out.append(transformed)
         return out, False
     return value, False
@@ -651,40 +860,43 @@ def redact_observation(
     """Deterministic pre-persistence redaction; failures never yield a receipt."""
 
     if payload.operation_kind != AGENT_CORE_C6_3_KIND:
-        return RedactionFailure(
+        return _redaction_failure(
             code="RedactionPolicyMissing",
             message="payload operation kind is not the frozen C6.3 redaction atom",
+            contract_code="schema_contract_invalid",
         )
     try:
         source_bytes = canonical_json(raw_observation).encode("utf-8")
     except (TypeError, ValueError) as exc:
-        return RedactionFailure(
+        return _redaction_failure(
             code="SerializationFailed",
             message=f"source observation cannot be serialized: {exc}",
+            contract_code="codec_contract_invalid",
+            serialization_error=type(exc).__name__,
         )
-    if len(source_bytes) > min(
-        payload.max_input_bytes, REDACTION_RESOURCE_CEILING.max_input_bytes
-    ):
-        return RedactionFailure(
+    if len(source_bytes) > min(payload.max_input_bytes, REDACTION_RESOURCE_CEILING.max_input_bytes):
+        return _redaction_failure(
             code="ResourceCeilingExceeded",
             message=(
                 f"source observation bytes {len(source_bytes)} exceed ceiling "
                 f"{min(payload.max_input_bytes, REDACTION_RESOURCE_CEILING.max_input_bytes)}"
             ),
+            contract_code="program_binding_invalid",
+            observed_bytes=len(source_bytes),
         )
     expected_source_digest = source_observation_digest(raw_observation)
     if expected_source_digest != payload.source_observation_digest:
-        return RedactionFailure(
+        return _redaction_failure(
             code="SourceDigestMismatch",
             message="source observation digest does not match the exact payload binding",
+            contract_code="digest_contract_invalid",
         )
-    if (
-        len(payload.field_classifications)
-        > REDACTION_RESOURCE_CEILING.max_classification_paths
-    ):
-        return RedactionFailure(
+    if len(payload.field_classifications) > REDACTION_RESOURCE_CEILING.max_classification_paths:
+        return _redaction_failure(
             code="ResourceCeilingExceeded",
             message="field classification path count exceeds the redaction ceiling",
+            contract_code="program_binding_invalid",
+            observed_paths=len(payload.field_classifications),
         )
     classifications = dict(payload.field_classifications)
     expected_policy_digest = redaction_policy_digest(
@@ -693,36 +905,35 @@ def redact_observation(
         classifications,
     )
     if expected_policy_digest != payload.policy.policy_digest:
-        return RedactionFailure(
+        return _redaction_failure(
             code="RedactionPolicyUnsupported",
             message="policy digest does not match the field classification map",
+            contract_code="digest_contract_invalid",
         )
 
     redacted_paths: list[str] = []
     omitted_paths: list[str] = []
     fingerprints: list[tuple[str, str]] = []
     suppressed_values: list[Any] = []
-    try:
-        redacted_value, _removed = _apply_classification(
-            raw_observation,
-            path="",
-            classifications=classifications,
-            redacted_paths=redacted_paths,
-            omitted_paths=omitted_paths,
-            fingerprints=fingerprints,
-            suppressed_values=suppressed_values,
-        )
-    except SensitiveFieldUnclassified as exc:
-        return RedactionFailure(
-            code="SensitiveFieldUnclassified",
-            message=f"sensitive field is not classified by the bound policy: {exc}",
-        )
+    classified = _apply_classification(
+        raw_observation,
+        path="",
+        classifications=classifications,
+        redacted_paths=redacted_paths,
+        omitted_paths=omitted_paths,
+        fingerprints=fingerprints,
+        suppressed_values=suppressed_values,
+    )
+    if isinstance(classified, RedactionFailure):
+        return classified
+    redacted_value, _removed = classified
 
     for raw_leaf in suppressed_values:
         if _raw_string_present(redacted_value, raw_leaf):
-            return RedactionFailure(
+            return _redaction_failure(
                 code="ForbiddenRawValueDetected",
                 message="raw source value survived the redacted evidence output",
+                contract_code="codec_contract_invalid",
             )
 
     policy_receipt = freeze_c6_json_object(
@@ -764,22 +975,17 @@ def redact_observation(
         ),
         policy_application_receipt=policy_receipt,
     )
-    plain_body = {
-        key: value
-        for key, value in receipt.to_plain().items()
-        if key != "receipt_digest"
-    }
+    plain_body = {key: value for key, value in receipt.to_plain().items() if key != "receipt_digest"}
     if receipt.receipt_digest != content_digest(plain_body):
-        return RedactionFailure(
+        return _redaction_failure(
             code="RedactedDigestMismatch",
             message="redaction receipt digest does not match its content",
+            contract_code="digest_contract_invalid",
         )
     return receipt
 
 
-def _profile_ref(
-    profile_id: str, profile_version: str, digest: str
-) -> ContractProfileRef:
+def _profile_ref(profile_id: str, profile_version: str, digest: str) -> ContractProfileRef:
     return ContractProfileRef(
         profile_id=profile_id,
         profile_version=profile_version,
@@ -831,10 +1037,7 @@ def _resource_profile() -> ResourceProfile:
         "default_soft_limit_seconds": 30,
         "default_hard_limit_seconds": 60,
         "node_profile_selector": "any",
-        "budget_ref": (
-            "mrw.successor.agent-core.c6-3.budget.v1:"
-            + REDACTION_RESOURCE_CEILING.ceiling_digest
-        ),
+        "budget_ref": ("mrw.successor.agent-core.c6-3.budget.v1:" + REDACTION_RESOURCE_CEILING.ceiling_digest),
         "deadline_policy_ref": "mrw.successor.agent-core.c6-3.deadline.v1",
         "node_profile_requirements": ("any",),
         "units": 1,
@@ -938,7 +1141,12 @@ class AgentCoreC6_3CapabilityBundle:
         return self.codecs[0]
 
 
-def build_agent_core_c6_3_bundle() -> AgentCoreC6_3CapabilityBundle:
+def build_agent_core_c6_3_bundle() -> Annotated[
+    AgentCoreC6_3CapabilityBundle,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=AGENT_CORE_C6_3_OWNER+capability_contract_constants "
+    "witness=test:test_w05_agent_core_authority_metadata",
+]:
     semantic = _semantic_profile()
     effect = _effect_profile()
     resource = _resource_profile()
@@ -1015,7 +1223,12 @@ def build_agent_core_c6_3_bundle() -> AgentCoreC6_3CapabilityBundle:
 
 def build_agent_core_c6_3_catalog(
     bundle: AgentCoreC6_3CapabilityBundle,
-) -> OperationContractCatalogSnapshot:
+) -> Annotated[
+    OperationContractCatalogSnapshot,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=AgentCoreC6_3CapabilityBundle.operations "
+    "witness=test:test_w05_agent_core_authority_metadata",
+]:
     return OperationContractCatalogSnapshot(
         catalog_id=AGENT_CORE_C6_3_CATALOG_ID,
         catalog_version=AGENT_CORE_C6_3_CATALOG_VERSION,
@@ -1032,7 +1245,12 @@ def build_agent_core_c6_3_catalog(
 
 def build_agent_core_c6_3_registry(
     bundle: AgentCoreC6_3CapabilityBundle,
-) -> OperationContractRegistry:
+) -> Annotated[
+    OperationContractRegistry,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=AgentCoreC6_3CapabilityBundle+catalog_snapshot "
+    "witness=test:test_w05_agent_core_authority_metadata",
+]:
     return OperationContractRegistry(
         build_agent_core_c6_3_catalog(bundle),
         (bundle.operation,),

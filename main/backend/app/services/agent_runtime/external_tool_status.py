@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from functorial_kit import Failure
+
+from .conversation import runtime_failure
+
 
 _DEFAULT_SERVICE_STATUS: tuple[dict[str, Any], ...] = (
     {
@@ -60,10 +64,14 @@ def register_external_service_state(
     server_error: str | None = None,
     status: str | None = None,
     reason: str | None = None,
-) -> None:
+) -> Failure | None:
     normalized_service_id = _normalize_service_id(service_id)
     if not normalized_service_id:
-        raise ValueError("service_id is required")
+        return runtime_failure(
+            "capability_input_missing",
+            "service_id is required",
+            {"operation": "register_external_service_state", "field": "service_id"},
+        )
     override: dict[str, Any] = {"service_id": normalized_service_id}
     for key, value in {
         "fit": fit,
@@ -77,18 +85,24 @@ def register_external_service_state(
         if value is not None:
             override[key] = value
     _SERVICE_STATUS_OVERRIDES[normalized_service_id] = override
+    return None
 
 
 def clear_external_service_states() -> None:
     _SERVICE_STATUS_OVERRIDES.clear()
 
 
-def mark_mcp_tool_mounted(*, service_id: str, tool_name: str) -> None:
+def mark_mcp_tool_mounted(*, service_id: str, tool_name: str) -> Failure | None:
     normalized_service_id = _normalize_service_id(service_id) or "project-internal-catalog"
     normalized_tool_name = str(tool_name or "").strip()
     if not normalized_tool_name:
-        return
+        return runtime_failure(
+            "capability_input_missing",
+            "tool_name is required",
+            {"operation": "mark_mcp_tool_mounted", "field": "tool_name"},
+        )
     _MOUNTED_MCP_TOOLS_BY_SERVICE.setdefault(normalized_service_id, set()).add(normalized_tool_name)
+    return None
 
 
 def clear_mounted_mcp_tools() -> None:
@@ -110,10 +124,14 @@ def list_external_service_statuses() -> list[dict[str, Any]]:
     return statuses
 
 
-def get_external_service_status(service_id: str | None) -> dict[str, Any] | None:
+def get_external_service_status(service_id: str | None) -> dict[str, Any] | Failure:
     normalized = _normalize_service_id(service_id)
     if not normalized:
-        return None
+        return runtime_failure(
+            "capability_input_missing",
+            "service_id is required",
+            {"operation": "get_external_service_status", "field": "service_id"},
+        )
     return next(
         (item for item in list_external_service_statuses() if item.get("service_id") == normalized),
         _resolve_service_status(

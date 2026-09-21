@@ -7,6 +7,8 @@ from unittest.mock import patch
 import pytest
 
 from app.services.clue_chains import ClueChainClosedError, ClueChainService, InMemoryClueChainStore
+from app.services.clue_chains.service import clue_chain_failure, raise_clue_chain_legacy
+from functorial_kit import Failure
 
 pytestmark = pytest.mark.unit
 
@@ -163,6 +165,19 @@ class ClueChainServiceUnitTest(unittest.TestCase):
         chain_id = result["chain"]["chain_id"]
         self.assertEqual(store["payload"]["base_version"], 1)
         self.assertEqual(store["payload"]["chains"][chain_id]["chain"]["project_key"], "demo_proj")
+
+    def test_service_failure_lift_covers_programmer_defect_and_cause(self) -> None:
+        invalid = Failure(family="other.failure", code="bad", message="bad", context={})
+        with self.assertRaisesRegex(TypeError, "failure lift context"):
+            raise_clue_chain_legacy(invalid)
+
+        failure = clue_chain_failure("input_invalid", "service failure", owner="test")
+        with self.assertRaisesRegex(ValueError, "^service failure$"):
+            raise_clue_chain_legacy(failure)
+        cause = RuntimeError("service cause")
+        with self.assertRaisesRegex(ValueError, "^service failure$") as raised:
+            raise_clue_chain_legacy(failure, cause=cause)
+        self.assertIs(raised.exception.__cause__, cause)
 
 
 if __name__ == "__main__":

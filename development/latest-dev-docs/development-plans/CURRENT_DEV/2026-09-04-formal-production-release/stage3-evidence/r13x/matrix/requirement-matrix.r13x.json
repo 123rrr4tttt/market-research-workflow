@@ -1,0 +1,204 @@
+{
+  "schema_version": "mrw.stage3.requirement-matrix.r13x.v1",
+  "authoritative": false,
+  "observed_at": "2026-09-12T15:13:16Z",
+  "candidate": {
+    "commit": "8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+    "tree": "ce7c67c831b51f9d64b4c2f1a470a724a50b19df",
+    "base": "88ffcc3dab2e6cbdc1f389e16c4226df5a2e51c6"
+  },
+  "classification_vocabulary": {
+    "FRESH": "observed in this r13x read-only work package",
+    "REUSED_EXACT_IDENTITY": "pre-existing evidence bound to the exact r13x candidate identity",
+    "HISTORICAL_CONTEXT_ONLY": "older-candidate evidence used only to understand method or failure, never re-labelled as r13x",
+    "PENDING_OTHER_WORK_PACKAGE": "required result is owned by another current r13x work package and was not observed here",
+    "BLOCKED": "a known dependency or authority is absent"
+  },
+  "requirements": [
+    {
+      "id": "S3-01",
+      "requirement": "R1, R2 and R3 all target the exact Stage2 candidate",
+      "state": "PARTIAL",
+      "fresh": ["matrix identity verification of candidate and replay"],
+      "reused": [
+        {"classification": "REUSED_EXACT_IDENTITY", "ref": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260912-v4-r13x/evidence/r1-candidate-identity.r13x.json"},
+        {"classification": "REUSED_EXACT_IDENTITY", "ref": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260912-v4-r13x/evidence/r3-static-production-contract.r13x.json"}
+      ],
+      "blocked_by": ["actual r13x release manifest and its R2 validation do not exist"]
+    },
+    {
+      "id": "S3-02",
+      "requirement": "backend unit, integration, core-business, schema/migration and successor runtime full gates",
+      "state": "PENDING_OTHER_WORK_PACKAGE",
+      "fresh": [],
+      "reused": [],
+      "blocked_by": ["current r13x backend/test work package result not observed in this allowed evidence scope"]
+    },
+    {
+      "id": "S3-03",
+      "requirement": "architecture, registry, law, exact-byte and negative/failure tests",
+      "state": "PENDING_OTHER_WORK_PACKAGE",
+      "fresh": [],
+      "reused": [],
+      "blocked_by": ["current r13x semantic/test aggregate not observed in this allowed evidence scope"]
+    },
+    {
+      "id": "S3-04",
+      "requirement": "PostgreSQL opt-in tests use a dedicated database and leave zero teardown residue",
+      "state": "PENDING_OTHER_WORK_PACKAGE",
+      "fresh": [],
+      "reused": [],
+      "blocked_by": ["current r13x PostgreSQL execution and residue receipt not observed"]
+    },
+    {
+      "id": "S3-05",
+      "requirement": "frontend frozen install, lint, typecheck, build and component/e2e",
+      "state": "PENDING_OTHER_WORK_PACKAGE",
+      "fresh": [],
+      "reused": [],
+      "blocked_by": ["current r13x frontend result not observed"]
+    },
+    {
+      "id": "S3-06",
+      "requirement": "Bandit, pip-audit, gitleaks and frontend dependency audit",
+      "state": "PENDING_OTHER_WORK_PACKAGE",
+      "fresh": [],
+      "reused": [
+        {"classification": "HISTORICAL_CONTEXT_ONLY", "ref": "stage3-evidence/r13v/security/gitleaks-disposition.r13v.json", "reason": "different commit/tree"}
+      ],
+      "blocked_by": ["exact r13x security results not observed"]
+    },
+    {
+      "id": "S3-07",
+      "requirement": "Docker build and full-stack smoke",
+      "state": "PENDING_OTHER_WORK_PACKAGE",
+      "fresh": [],
+      "reused": [
+        {"classification": "HISTORICAL_CONTEXT_ONLY", "ref": "stage3-evidence/r13t/tests/result.json", "reason": "different commit/tree"}
+      ],
+      "blocked_by": ["current r13x Docker/full-stack output not observed"]
+    },
+    {
+      "id": "S3-08",
+      "requirement": "live GitHub branch protection or ruleset readback proves required jobs cannot be bypassed",
+      "state": "BLOCKED",
+      "fresh": ["remote/remote-readback.r13x.json"],
+      "reused": [],
+      "blocked_by": [
+        "exact r13x commit is absent from GitHub",
+        "no exact-SHA Actions or check runs exist",
+        "main branch protection is absent",
+        "repository and effective main rulesets are empty",
+        "backend-tests workflow is disabled_inactivity"
+      ]
+    },
+    {
+      "id": "S3-09",
+      "requirement": "all base and compose images are digest-pinned and no production floating latest remains",
+      "state": "PENDING_OTHER_WORK_PACKAGE",
+      "fresh": [],
+      "reused": [],
+      "blocked_by": ["current r13x artifact/static integration result not observed"]
+    },
+    {
+      "id": "S3-10",
+      "requirement": "production compose does not bind-mount checkout source",
+      "state": "PENDING_OTHER_WORK_PACKAGE",
+      "fresh": [],
+      "reused": [],
+      "blocked_by": ["current r13x artifact/static integration result not observed"]
+    },
+    {
+      "id": "S3-11",
+      "requirement": "lockfile and clean build context are used",
+      "state": "PENDING_OTHER_WORK_PACKAGE",
+      "fresh": [],
+      "reused": [],
+      "blocked_by": ["current r13x artifact build receipts not observed"]
+    },
+    {
+      "id": "S3-12",
+      "requirement": "backend, frontend and migration runner each produce an immutable digest",
+      "state": "PENDING_OTHER_WORK_PACKAGE",
+      "fresh": [],
+      "reused": [
+        {"classification": "HISTORICAL_CONTEXT_ONLY", "ref": "stage3-evidence/r13w/artifacts/artifact-comparison.json", "reason": "source commit 6aa7518, not r13x"}
+      ],
+      "blocked_by": ["exact r13x three-role artifact outputs not observed"]
+    },
+    {
+      "id": "S3-13",
+      "requirement": "SBOM, build provenance, vulnerability scans and signature/verification results exist",
+      "state": "BLOCKED",
+      "fresh": ["remote/credential-capability-inventory.r13x.json"],
+      "reused": [],
+      "blocked_by": [
+        "exact r13x artifact/SBOM/provenance/scan results not observed",
+        "no signing key or Sigstore identity token was established",
+        "no signature verification input or receipt was identified",
+        "signing/transparency-log writes are not authorized"
+      ]
+    },
+    {
+      "id": "S3-14",
+      "requirement": "actual release manifest binds candidate commit/tree, artifact digests, build run and tool versions",
+      "state": "BLOCKED",
+      "fresh": [
+        "r2/r2-release-manifest-gap-map.r13x.json",
+        "r2/validator-commands.r13x.json"
+      ],
+      "reused": [],
+      "blocked_by": [
+        "actual r13x release manifest is absent",
+        "final current artifact, test, security, remote, registry and signing evidence inputs are incomplete"
+      ]
+    },
+    {
+      "id": "S3-15",
+      "requirement": "artifact registry uses immutable tags or digest promotion and disallows overwrite",
+      "state": "BLOCKED",
+      "fresh": ["remote/credential-capability-inventory.r13x.json"],
+      "reused": [],
+      "blocked_by": [
+        "registry target is not identified",
+        "authenticated registry capability is not established",
+        "GitHub Packages readback is denied because read:packages is missing",
+        "registry publish/promotion is not authorized"
+      ]
+    },
+    {
+      "id": "S3-16",
+      "requirement": "workflow runs on exact candidate SHA; all required jobs pass and run/job/skip/deselect/warning evidence is recorded",
+      "state": "BLOCKED",
+      "fresh": ["remote/remote-readback.r13x.json"],
+      "reused": [],
+      "blocked_by": [
+        "exact candidate SHA is not on GitHub",
+        "no exact-SHA workflow run exists",
+        "no exact-SHA job conclusions exist",
+        "workflow is disabled_inactivity",
+        "push and workflow dispatch are not authorized"
+      ]
+    },
+    {
+      "id": "S3-17",
+      "requirement": "second clean environment rebuild matches artifact digests or records an allowed difference domain with signed provenance and runtime-equivalence gates",
+      "state": "PENDING_OTHER_WORK_PACKAGE",
+      "fresh": [],
+      "reused": [
+        {"classification": "HISTORICAL_CONTEXT_ONLY", "ref": "stage3-evidence/r13w/artifacts/artifact-comparison.json", "reason": "historical mismatch and different candidate"},
+        {"classification": "HISTORICAL_CONTEXT_ONLY", "ref": "stage3-evidence/r13v/artifacts/backend-migration-amd64-final/result.json", "reason": "historical REBUILD_REQUIRED and different candidate"}
+      ],
+      "blocked_by": ["exact r13x independent rebuild and comparison output not observed"]
+    }
+  ],
+  "summary": {
+    "fresh_read_only_requirements_addressed": ["S3-01", "S3-08", "S3-13", "S3-14", "S3-15", "S3-16"],
+    "known_blocked_requirements": ["S3-08", "S3-13", "S3-14", "S3-15", "S3-16"],
+    "stage3_pass_claimed": false,
+    "work_package_status": "COMPLETE_WITH_EXTERNAL_BLOCKERS"
+  },
+  "external_effects": ["read-only GitHub REST API requests"],
+  "unauthorized_writes": 0,
+  "ceiling": "NON_DOCKER_READ_ONLY_LOCAL_EVIDENCE_NOT_STAGE3_AUTHORITY"
+}

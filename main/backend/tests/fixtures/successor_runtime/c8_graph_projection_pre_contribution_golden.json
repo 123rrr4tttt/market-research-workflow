@@ -1,0 +1,193 @@
+{
+  "schema": "mrw.test.c8-4.pre-contribution-observations.v1",
+  "provenance": {
+    "captured_at": "2026-09-21",
+    "capture_mode": "read-only execution of pre-contribution local backups",
+    "sources": [
+      "work/contribution-implementation/backups/mrw/main/backend/app/successor_runtime/capabilities/c8_program.py",
+      "work/contribution-implementation/backups/mrw/main/backend/app/successor_runtime/assembly/c8_assembly.py"
+    ],
+    "note": "The backups included then-current dirty work and are evidence sources, not runtime test dependencies."
+  },
+  "operation_order": [
+    "c8.typed_knowledge.demand_read.v1",
+    "c8.writing.compose.v1",
+    "c8.writing.stage.v1",
+    "c8.report.stage.v1",
+    "c8.graph.project.v1"
+  ],
+  "operation_contract": {
+    "ref": {
+      "kind": "c8.graph.project.v1",
+      "contract_version": "1.0.0",
+      "contract_digest": "7a1aa9383aa13962f633ca483605efa2f4e44a6d0ff39be6b2c988bfd855492e"
+    },
+    "input_type": {
+      "type_id": "C8GraphProjectInput.v1",
+      "schema_version": "1.0.0",
+      "codec_id": "mrw.canonical-json.v1",
+      "canonical_codec_version": "1"
+    },
+    "output_type": {
+      "type_id": "C8GraphContext.v1",
+      "schema_version": "1.0.0",
+      "codec_id": "mrw.canonical-json.v1",
+      "canonical_codec_version": "1"
+    },
+    "return_contract_ref": "mrw.return.material.read-canonical-ref.v1",
+    "semantic_profile_ref": "c8.c8-4.semantic@1.0.0",
+    "effect_profile_ref": "c8.c8-4.effect@1.0.0",
+    "resource_profile_ref": "c8.c8-4.resource@1.0.0",
+    "failure_profile_ref": "c8.c8-4.failure@1.0.0",
+    "authority_profile_ref": "c8.c8-4.authority@1.0.0",
+    "interpreter_compatibility_ref": "successor.c8.c8-4.v1@1.0.0",
+    "observation_profile_ref": "mrw.successor.c8.c8-4.observation.v1@1.0.0",
+    "allowed_override_schema_ref": "mrw.functorial-successor.override.none.v1",
+    "owner_capability_id": "graph.c8.4.v1"
+  },
+  "payload_codec": {
+    "codec_id": "mrw.successor.c8.c8-4.payload.codec.v1",
+    "codec_version": "1",
+    "payload_type_id": "C8GraphProjectInput.v1",
+    "codec_digest": "58d6956c9511753b92c1c482a60357519b159f3c15d91a555b356a3d4884d572",
+    "sample_wire": {
+      "project_key": "project-a",
+      "graph_id": "graph-a",
+      "node_keys": ["ki:a"],
+      "node_types": ["Topic"],
+      "payload_digest": "0001c393d545f3f32c8a61ca8a354055f225ad8e47ec40e04ccb8d8059a9212c"
+    }
+  },
+  "profile_digests": {
+    "authority": "a245d172e4e68372891cb18ebf693d5124cd64658387cd242291037f1b4df641",
+    "effect": "5911adc450d3480ae9e422fd96e96550411afc6a6d0b487722b48fd5132c6146",
+    "failure": "a00b2d46f19446fd7bab4bfafd342c28be6fd75d4d0ee2bfd0684228eca4659c",
+    "interpreter": "6032bce86ba331b85f0a7a9814b5b23fecfc7d04ba04effa45ed4df328433f74",
+    "observation": "5706cf9e83e9e8b7fa738372ae0589cd00fc55d00d2dd616f8c17f160bea6352",
+    "resource": "4fb3ec69faec49e505b0bdfc9527d32a9f88d101d8d90406695146b7a2f6245c",
+    "semantic": "972069254d2913d9355367ab33e6bf88eb83a1a45f969dcf82ea4ce9d4b401c7"
+  },
+  "profile_observations": {
+    "authority": {
+      "approval_required": false,
+      "approval_kinds": [],
+      "authority_epoch": 1,
+      "canonical_owner": "graph.c8.4.v1",
+      "credential_refs": [],
+      "grant_scopes": ["project"],
+      "revalidation_points": ["claim_time"]
+    },
+    "effect": {
+      "execution_class": "PROJECTION",
+      "external_visibility": "NONE",
+      "network_required": false,
+      "irreversible": false,
+      "human_approval_required": false,
+      "external_acquisition": false,
+      "internal_export_only": false
+    },
+    "failure": {
+      "typed_failures": [
+        "GRAPH_PROJECTION_DECLARED_LOSS",
+        "GRAPH_ITEM_CANONICAL_REF_INVALID"
+      ],
+      "retryable": false,
+      "readback_profile_ref": "c8.graph.readback.v1"
+    }
+  },
+  "projector_wiring": {
+    "cell_id": "C8.4",
+    "projector_id": "c8.graph.projector",
+    "projector_version": "1",
+    "source_kind": "successor_value",
+    "projection_id": "graph.context_adapter",
+    "projection_schema_ref": "mrw.successor.c8.graph-projection.v1",
+    "declared_loss": [
+      "c8.graph.node-edge-filtering.v1",
+      "c8.graph.text-truncation.v1",
+      "c8.graph.redaction.v1",
+      "c8.graph.casefold-and-duplicate-collapse.v1",
+      "c8.graph.omitted-fields.v1"
+    ],
+    "note": "capability schema: mrw.successor.c8.graph-context.v1; exact per-run source key is supplied by the runner"
+  },
+  "unbound_cell": {
+    "cell_id": "C8.4",
+    "family_id": "C8",
+    "status": "PROJECTOR_WIRING_DECLARED",
+    "operation_contract_refs": ["c8.graph.project.v1"],
+    "handler_binding_digest": null,
+    "recovery_binding_ref": "c8.graph.recovery.v1#offset-cas-keeps-old-active-generation;rebuild-from-source-closure",
+    "rollback_binding_refs": [],
+    "required_wiring": ["C8.4 RuntimeHandler/注册", "declared-loss projection 记账"],
+    "note": "缺 per-run source_ref/source_incarnation 与 ProjectorRegistry 注册；no PostgreSQL write adopted（authority 关闭）"
+  },
+  "installed_cell": {
+    "cell_id": "C8.4",
+    "family_id": "C8",
+    "status": "INSTALLED",
+    "operation_contract_refs": ["c8.graph.project.v1"],
+    "handler_binding_digest": "82b2f8c8f57abccc34b02a6075405b4b85e71c2582fff2ff707b29c347e9261e",
+    "recovery_binding_ref": "c8.graph.recovery.v1#offset-cas-keeps-old-active-generation;rebuild-from-source-closure",
+    "rollback_binding_refs": [],
+    "required_wiring": [],
+    "note": "REGISTRY_REGISTRATION_ONLY_NO_PG_WRITE_AUTHORITY_CLOSED: per-run source_ref/source_incarnation bound；no PostgreSQL write adopted"
+  },
+  "installed_projector_registry": {
+    "revision": 0,
+    "incarnation": "mrw.successor.assembly.projector-registry.v1",
+    "projectors": [
+      {
+        "key": {
+          "projector_id": "c8.graph.projector",
+          "projector_version": "1",
+          "source_kind": "successor_value",
+          "source_ref": "run:c8-graph-contribution:before-after",
+          "source_incarnation": "incarnation:c8-graph-contribution:before-after"
+        },
+        "projection_id": "graph.context_adapter",
+        "projection_schema_ref": "mrw.successor.c8.graph-projection.v1",
+        "declared_loss": [
+          "c8.graph.node-edge-filtering.v1",
+          "c8.graph.text-truncation.v1",
+          "c8.graph.redaction.v1",
+          "c8.graph.casefold-and-duplicate-collapse.v1",
+          "c8.graph.omitted-fields.v1"
+        ],
+        "read_only": true
+      }
+    ]
+  },
+  "rollback_bindings": [
+    {
+      "cell_id": "C8.1",
+      "status": "PRESENT",
+      "binding_refs": [
+        "main/backend/app/successor_migration/legacy_c8_typed_knowledge.py",
+        "main/backend/app/successor_runtime/assembly/c8_assembly.py"
+      ],
+      "note": ""
+    },
+    {
+      "cell_id": "C8.2",
+      "status": "PRESENT",
+      "binding_refs": [
+        "main/backend/app/successor_migration/legacy_c8_writing.py",
+        "main/backend/app/successor_runtime/assembly/c8_assembly.py"
+      ],
+      "note": ""
+    },
+    {
+      "cell_id": "C8.3",
+      "status": "PRESENT",
+      "binding_refs": ["main/backend/app/successor_migration/legacy_c8_report.py"],
+      "note": ""
+    },
+    {
+      "cell_id": "C8.4",
+      "status": "PRESENT",
+      "binding_refs": ["main/backend/app/successor_migration/legacy_c8_graph.py"],
+      "note": ""
+    }
+  ]
+}

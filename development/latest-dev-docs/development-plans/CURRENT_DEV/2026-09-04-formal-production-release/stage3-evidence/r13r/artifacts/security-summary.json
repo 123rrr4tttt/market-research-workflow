@@ -1,0 +1,69 @@
+{
+  "note": "Initial direct OCI-tar attempts are retained as unsupported-input diagnostics. Effective scans use Docker tags loaded from those exact validated canonical OCI outputs.",
+  "roles": {
+    "backend": {
+      "affected_package_version_count": 28,
+      "counts": {
+        "CRITICAL": 13,
+        "HIGH": 135
+      },
+      "exit_code": 1,
+      "gate_status": "FAIL",
+      "observation_count": 148,
+      "observations_with_reported_fixed_version": 0,
+      "package_types": [
+        "os",
+        "library"
+      ],
+      "reachability_exploitability": "NOT_ASSESSED_BY_TRIVY",
+      "report_sha256": "31fbb563a4a9a0011f7b979539300e033a0e22242762d7a47d49448e85661343",
+      "scanner": "vulnerability",
+      "threshold": "HIGH,CRITICAL",
+      "unique_vulnerability_id_count": 80
+    },
+    "frontend": {
+      "affected_package_version_count": 0,
+      "counts": {
+        "CRITICAL": 0,
+        "HIGH": 0
+      },
+      "exit_code": 0,
+      "gate_status": "PASS",
+      "observation_count": 0,
+      "observations_with_reported_fixed_version": 0,
+      "package_types": [
+        "os",
+        "library"
+      ],
+      "reachability_exploitability": "NOT_ASSESSED_BY_TRIVY",
+      "report_sha256": "e695285373e03892ae8ebd79fbf2e683f7a3eeeed9e9ea0cd80dcd67c4f29ca1",
+      "scanner": "vulnerability",
+      "threshold": "HIGH,CRITICAL",
+      "unique_vulnerability_id_count": 0
+    },
+    "migration-runner": {
+      "affected_package_version_count": 28,
+      "counts": {
+        "CRITICAL": 13,
+        "HIGH": 135
+      },
+      "exit_code": 1,
+      "gate_status": "FAIL",
+      "observation_count": 148,
+      "observations_with_reported_fixed_version": 0,
+      "package_types": [
+        "os",
+        "library"
+      ],
+      "reachability_exploitability": "NOT_ASSESSED_BY_TRIVY",
+      "report_sha256": "efb570cd2f2bcaa080b53b345bb7d328ca1dd13971b352e51594a7b2f64c2b17",
+      "scanner": "vulnerability",
+      "threshold": "HIGH,CRITICAL",
+      "unique_vulnerability_id_count": 80
+    }
+  },
+  "schema": "mrw.stage3.r13r.amd64-trivy-summary.v1",
+  "status": "FAIL_THRESHOLD",
+  "threshold": "HIGH,CRITICAL",
+  "tool": "Trivy 0.74.0"
+}

@@ -1,0 +1,18 @@
+{
+  "reason": [
+    "Initial R1 invocation used --strategy instead of required --candidate-strategy",
+    "Four R1 CLI subtests require repo-relative existing interpreter environments"
+  ],
+  "aliases": [
+    {
+      "path": "/private/tmp/mrw-stage3-v6-preflight-gga5tnof/candidate/.venv",
+      "target": "/Users/wangyiliang/market-research-workflow/.venv"
+    },
+    {
+      "path": "/private/tmp/mrw-stage3-v6-preflight-gga5tnof/candidate/main/backend/.venv311",
+      "target": "/Users/wangyiliang/market-research-workflow/main/backend/.venv311"
+    }
+  ],
+  "scope": "Toolchain-only aliases within disposable clone; no candidate code modifications",
+  "prior_record_sha256": "1d3b09540293ed98c60ea888b50ea311b0780816b82522c3e514b5913db26ee7"
+}

@@ -1,0 +1,18 @@
+{
+  "id": "clone-final-tree",
+  "command": [
+    "git",
+    "rev-parse",
+    "HEAD^{tree}"
+  ],
+  "cwd": "/private/tmp/mrw-stage3-v6-preflight-gga5tnof/candidate",
+  "exit_code": 0,
+  "started_at": "2026-09-06T21:53:04.526047+00:00",
+  "ended_at": "2026-09-06T21:53:04.549476+00:00",
+  "log": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-preflight/clone-final-tree.log",
+  "sha256": "0f013e31119a9161540397c5766a2805b86d9ae93501e5e78ae59dd593650313",
+  "environment_overrides": {
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "PYTHONNOUSERSITE": "1"
+  }
+}

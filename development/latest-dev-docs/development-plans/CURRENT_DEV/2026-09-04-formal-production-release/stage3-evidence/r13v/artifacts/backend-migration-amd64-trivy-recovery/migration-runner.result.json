@@ -1,0 +1,45 @@
+{
+  "build_attempts": [
+    {
+      "attempt": 1,
+      "exit_code": 0
+    }
+  ],
+  "build_contract": "candidate source, --no-cache, linux/amd64, provenance=false, sbom=false, SOURCE_DATE_EPOCH=0, OCI rewrite-timestamp=true",
+  "cleanup": {
+    "archive_residue": false,
+    "builder_residue": false,
+    "docker_prune_run": false,
+    "events": [
+      {
+        "exit_code": 0,
+        "kind": "builder",
+        "name": "mrw-r13v-trivy-migration-runner-1789212961"
+      },
+      {
+        "bytes_reclaimed": 309704704,
+        "kind": "temporary_oci_archive",
+        "removed": true,
+        "sha256_before_removal": "36b055ef9726e410506d1aaa40b14a69ff57b0bfa2dc307a82583144ed6482c1"
+      }
+    ],
+    "free_bytes_after": 6925901824,
+    "tag_residue": false
+  },
+  "digest_binding": {
+    "config_equal_to_ab_candidate": false,
+    "layers_equal_to_ab_candidate": false,
+    "manifest_equal_to_ab_candidate": false,
+    "observed_image_config_digest": "sha256:00f63541d10e006bd11e815780fe41c25d2cde633028d45c52f271631af1cae1",
+    "observed_image_manifest_digest": "sha256:f353aa22f566aa6f49681a7d8f83bb8e3b56d6f8b8ad526a9e3fcd2bf7f014ea",
+    "status": "MISMATCH"
+  },
+  "error": "RuntimeError: DIGEST_MISMATCH",
+  "expected_image_config_digest": "sha256:c22448639ef17dac25fe640300834f95292326147608d4118d593fba7a22da40",
+  "expected_image_manifest_digest": "sha256:f4f8f39c6bddf90cce5f2f8740da3422b1ae2af188b4edf62829966f3caace72",
+  "free_bytes_before": 6928334848,
+  "fresh_scan_tag": "mrw-r13v-trivy-migration-runner:local",
+  "role": "migration-runner",
+  "status": "FAILED_OR_INCOMPLETE",
+  "target": "migration-runner"
+}

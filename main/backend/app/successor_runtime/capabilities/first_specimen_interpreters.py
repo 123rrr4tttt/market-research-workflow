@@ -43,6 +43,7 @@ from app.successor_runtime.research.codec import digest_dataclass
 from app.successor_runtime.research.evidence import Validity
 
 from .checksum import content_digest, require_hex64
+from .first_specimen import _capability_failure, _raise_capability_failure
 
 __all__ = [
     "CapturedDocumentValue",
@@ -213,13 +214,13 @@ class CapturedDocumentValue:
 
     def __post_init__(self) -> None:
         if not isinstance(self.exact_bytes, bytes):
-            raise TypeError("CapturedDocumentValue.exact_bytes must be bytes")
+            _raise_capability_failure(_capability_failure("INVALID_CAPTURED_MATERIAL", "CapturedDocumentValue.exact_bytes must be bytes"), TypeError)
         require_hex64(
             self.exact_bytes_digest,
             "CapturedDocumentValue.exact_bytes_digest",
         )
         if _bytes_digest(self.exact_bytes) != self.exact_bytes_digest:
-            raise ValueError("CapturedDocumentValue exact bytes digest mismatch")
+            _raise_capability_failure(_capability_failure("INVALID_CAPTURED_MATERIAL", "CapturedDocumentValue exact bytes digest mismatch"))
 
 
 @dataclass(frozen=True, slots=True)
@@ -247,15 +248,15 @@ class ComposedMarkdownArtifact:
 
     def __post_init__(self) -> None:
         if not isinstance(self.exact_bytes, bytes):
-            raise TypeError("ComposedMarkdownArtifact.exact_bytes must be bytes")
+            _raise_capability_failure(_capability_failure("INVALID_ARTIFACT_CLOSURE", "ComposedMarkdownArtifact.exact_bytes must be bytes"), TypeError)
         require_hex64(
             self.exact_bytes_digest,
             "ComposedMarkdownArtifact.exact_bytes_digest",
         )
         if _bytes_digest(self.exact_bytes) != self.exact_bytes_digest:
-            raise ValueError("ComposedMarkdownArtifact exact bytes digest mismatch")
+            _raise_capability_failure(_capability_failure("INVALID_ARTIFACT_CLOSURE", "ComposedMarkdownArtifact exact bytes digest mismatch"))
         if self.artifact.content_ref != f"sha256:{self.exact_bytes_digest}":
-            raise ValueError("ResearchArtifact content_ref does not bind exact bytes")
+            _raise_capability_failure(_capability_failure("INVALID_ARTIFACT_CLOSURE", "ResearchArtifact content_ref does not bind exact bytes"))
 
 
 @dataclass(frozen=True, slots=True)
@@ -286,18 +287,18 @@ class VerifiedDeliveryBinding:
         ):
             require_hex64(getattr(self, field_name), field_name)
         if _all_zero_digest(self.authority_digest):
-            raise ValueError("verified delivery authority must not be all-zero")
+            _raise_capability_failure(_capability_failure("DELIVERY_AUTHORITY_OR_APPROVAL_INVALID", "verified delivery authority must not be all-zero"))
         if self.approval_epoch < 0 or self.authority_epoch < 0:
-            raise ValueError("approval and authority epochs must be non-negative")
+            _raise_capability_failure(_capability_failure("DELIVERY_AUTHORITY_OR_APPROVAL_INVALID", "approval and authority epochs must be non-negative"))
         if not self.approval_refs:
-            raise ValueError("verified delivery requires approval refs")
+            _raise_capability_failure(_capability_failure("DELIVERY_AUTHORITY_OR_APPROVAL_INVALID", "verified delivery requires approval refs"))
         if self.validated_at.tzinfo is None or self.expires_at.tzinfo is None:
-            raise ValueError("delivery validation timestamps must be timezone-aware")
+            _raise_capability_failure(_capability_failure("DELIVERY_AUTHORITY_OR_APPROVAL_INVALID", "delivery validation timestamps must be timezone-aware"))
         if self.expires_at <= self.validated_at:
-            raise ValueError("verified delivery binding is already expired")
+            _raise_capability_failure(_capability_failure("DELIVERY_AUTHORITY_OR_APPROVAL_INVALID", "verified delivery binding is already expired"))
         expected = digest_dataclass(self, ("binding_digest",))
         if self.binding_digest != expected:
-            raise ValueError("verified delivery binding digest mismatch")
+            _raise_capability_failure(_capability_failure("DELIVERY_AUTHORITY_OR_APPROVAL_INVALID", "verified delivery binding digest mismatch"))
 
     @classmethod
     def from_content(cls, **values: object) -> VerifiedDeliveryBinding:
@@ -352,13 +353,13 @@ class InternalExportObservation:
             "InternalExportObservation.receipt_digest",
         )
         if self.outcome_time.tzinfo is None:
-            raise ValueError("internal export outcome_time must be timezone-aware")
+            _raise_capability_failure(_capability_failure("INTERNAL_EXPORT_REJECTED", "internal export outcome_time must be timezone-aware"))
         expected_locator = f"internal://export/sha256/{self.artifact_bytes_digest}"
         if self.provider_locator != expected_locator:
-            raise ValueError("internal export locator is not content-addressed")
+            _raise_capability_failure(_capability_failure("INTERNAL_EXPORT_REJECTED", "internal export locator is not content-addressed"))
         expected_receipt = digest_dataclass(self, ("receipt_digest",))
         if self.receipt_digest != expected_receipt:
-            raise ValueError("internal export receipt digest mismatch")
+            _raise_capability_failure(_capability_failure("INTERNAL_EXPORT_READBACK_CONFLICT", "internal export receipt digest mismatch"))
 
     @classmethod
     def from_content(cls, **values: object) -> InternalExportObservation:
@@ -433,27 +434,27 @@ class FirstSpecimenInterpreters:
         try:
             snapshot = captured.snapshot
             if snapshot.document_id != payload.document_id:
-                raise ValueError("captured document identity drift")
+                _raise_capability_failure(_capability_failure("DOCUMENT_OBSERVATION_MISMATCH", "captured document identity drift"))
             if not isinstance(captured.exact_bytes, bytes):
-                raise TypeError("captured value replay returned non-bytes")
+                _raise_capability_failure(_capability_failure("DOCUMENT_OBSERVATION_MISMATCH", "captured value replay returned non-bytes"), TypeError)
             exact_bytes = bytes(captured.exact_bytes)
             raw_digest = _bytes_digest(exact_bytes)
             if raw_digest != payload.content_sha256_hex or (
                 raw_digest != captured.exact_bytes_digest
             ):
-                raise ValueError("captured exact bytes digest drift")
+                _raise_capability_failure(_capability_failure("DOCUMENT_OBSERVATION_MISMATCH", "captured exact bytes digest drift"))
             if len(exact_bytes) != payload.byte_size:
-                raise ValueError("captured exact byte size drift")
+                _raise_capability_failure(_capability_failure("DOCUMENT_OBSERVATION_MISMATCH", "captured exact byte size drift"))
             expected_updated_at = _parse_datetime(payload.observed_updated_at)
             if snapshot.observed_updated_at != expected_updated_at:
-                raise ValueError("captured updated_at drift")
+                _raise_capability_failure(_capability_failure("DOCUMENT_OBSERVATION_MISMATCH", "captured updated_at drift"))
             if snapshot.byte_size != len(exact_bytes):
-                raise ValueError("captured snapshot byte size drift")
+                _raise_capability_failure(_capability_failure("DOCUMENT_OBSERVATION_MISMATCH", "captured snapshot byte size drift"))
             if (
                 snapshot.observed_text_hash is not None
                 and snapshot.observed_text_hash != payload.content_sha256_hex
             ):
-                raise ValueError("captured text_hash drift")
+                _raise_capability_failure(_capability_failure("DOCUMENT_OBSERVATION_MISMATCH", "captured text_hash drift"))
             return InterpreterSuccess(
                 CapturedDocumentValue(
                     exact_bytes=exact_bytes,
@@ -477,7 +478,7 @@ class FirstSpecimenInterpreters:
 
         try:
             if not payload.source_ref:
-                raise ValueError("source_ref is required")
+                _raise_capability_failure(_capability_failure("INVALID_CAPTURED_MATERIAL", "source_ref is required"))
             return InterpreterSuccess(
                 derive_material_ref(
                     source_ref=payload.source_ref,
@@ -527,7 +528,7 @@ class FirstSpecimenInterpreters:
                 observed_at=observed_at,
             )
             if qualification.RELATION_STORAGE != "research_relations_only":
-                raise ValueError("qualification must remain relation-only")
+                _raise_capability_failure(_capability_failure("INVALID_EVIDENCE_QUALIFICATION", "qualification must remain relation-only"))
             return InterpreterSuccess(qualification)
         except (TypeError, ValueError) as exc:
             return InterpreterFailure(
@@ -567,7 +568,7 @@ class FirstSpecimenInterpreters:
                 }
                 missing = [name for name, value in required.items() if not value]
                 if missing:
-                    raise ValueError("gap fields are incomplete: " + ", ".join(missing))
+                    _raise_capability_failure(_capability_failure("INVALID_CLAIM_OR_GAP", "gap fields are incomplete: " + ", ".join(missing)))
                 value: ClaimOrGap = Gap(
                     gap_id=payload.claim_or_gap_id,
                     inquiry_ref=payload.inquiry_ref,
@@ -587,13 +588,13 @@ class FirstSpecimenInterpreters:
                 )
             else:
                 if not payload.statement_ref:
-                    raise ValueError("claim statement_ref is required")
+                    _raise_capability_failure(_capability_failure("INVALID_CLAIM_OR_GAP", "claim statement_ref is required"))
                 if not payload.uncertainty_profile_ref:
-                    raise ValueError("claim uncertainty_profile_ref is required")
+                    _raise_capability_failure(_capability_failure("INVALID_CLAIM_OR_GAP", "claim uncertainty_profile_ref is required"))
                 if not (
                     payload.support_relation_refs or payload.contradiction_relation_refs
                 ):
-                    raise ValueError("claim requires an evidence relation")
+                    _raise_capability_failure(_capability_failure("INVALID_CLAIM_OR_GAP", "claim requires an evidence relation"))
                 value = Claim(
                     claim_id=payload.claim_or_gap_id,
                     statement_ref=payload.statement_ref,
@@ -634,25 +635,23 @@ class FirstSpecimenInterpreters:
         try:
             expected_outcome_ref = _claim_or_gap_ref(outcome.value)
             if payload.claim_closure != (expected_outcome_ref,):
-                raise ValueError("artifact outcome closure is not exact")
+                _raise_capability_failure(_capability_failure("INVALID_ARTIFACT_CLOSURE", "artifact outcome closure is not exact"))
             qualification_refs = tuple(
                 qualification.qualification_id for qualification in qualifications
             )
             if payload.evidence_relation_closure != qualification_refs:
-                raise ValueError("artifact qualification closure is not exact")
+                _raise_capability_failure(_capability_failure("INVALID_ARTIFACT_CLOSURE", "artifact qualification closure is not exact"))
             material_refs = tuple(material.material_ref_id for material in materials)
             if payload.citation_closure != material_refs:
-                raise ValueError("artifact citation closure is not exact")
+                _raise_capability_failure(_capability_failure("INVALID_ARTIFACT_CLOSURE", "artifact citation closure is not exact"))
             if not material_refs:
-                raise ValueError("artifact citation closure must not be empty")
+                _raise_capability_failure(_capability_failure("INVALID_ARTIFACT_CLOSURE", "artifact citation closure must not be empty"))
             material_ref_set = set(material_refs)
             if any(
                 qualification.material_ref not in material_ref_set
                 for qualification in qualifications
             ):
-                raise ValueError(
-                    "qualification refers outside artifact citation closure"
-                )
+                _raise_capability_failure(_capability_failure("INVALID_ARTIFACT_CLOSURE", "qualification refers outside artifact citation closure"))
 
             exact_bytes = _render_markdown(
                 payload,
@@ -837,12 +836,12 @@ def _require_delivery_input(
     artifact_bytes: bytes,
 ) -> None:
     if not isinstance(artifact_bytes, bytes):
-        raise TypeError("artifact_bytes must be exact bytes")
+        _raise_capability_failure(_capability_failure("INVALID_ARTIFACT_CLOSURE", "artifact_bytes must be exact bytes"), TypeError)
     if artifact.lifecycle_state != "ADMITTED":
-        raise ValueError("delivery requires an admitted artifact")
+        _raise_capability_failure(_capability_failure("INVALID_ARTIFACT_CLOSURE", "delivery requires an admitted artifact"))
     expected_content_ref = f"sha256:{_bytes_digest(artifact_bytes)}"
     if artifact.content_ref != expected_content_ref:
-        raise ValueError("artifact bytes do not match content_ref")
+        _raise_capability_failure(_capability_failure("INVALID_ARTIFACT_CLOSURE", "artifact bytes do not match content_ref"))
     exact_ref = artifact_exact_ref(artifact)
     expected = (
         (payload.delivery_intent_id, intent.delivery_intent_id, "intent id"),
@@ -854,12 +853,12 @@ def _require_delivery_input(
     )
     drift = [label for left, right, label in expected if left != right]
     if drift:
-        raise ValueError("delivery intent drift: " + ", ".join(drift))
+        _raise_capability_failure(_capability_failure("DELIVERY_AUTHORITY_OR_APPROVAL_INVALID", "delivery intent drift: " + ", ".join(drift)))
     if intent.content_digest is None:
-        raise ValueError("delivery intent content digest is required")
+        _raise_capability_failure(_capability_failure("DELIVERY_AUTHORITY_OR_APPROVAL_INVALID", "delivery intent content digest is required"))
     require_hex64(intent.authority_digest, "DeliveryIntent.authority_digest")
     if _all_zero_digest(intent.authority_digest):
-        raise ValueError("all-zero delivery authority is forbidden")
+        _raise_capability_failure(_capability_failure("DELIVERY_AUTHORITY_OR_APPROVAL_INVALID", "all-zero delivery authority is forbidden"))
 
 
 def _require_verified_delivery(
@@ -870,17 +869,17 @@ def _require_verified_delivery(
     now: datetime,
 ) -> None:
     if intent.content_digest is None:
-        raise ValueError("delivery intent content digest is required")
+        _raise_capability_failure(_capability_failure("DELIVERY_AUTHORITY_OR_APPROVAL_INVALID", "delivery intent content digest is required"))
     if verified.delivery_intent_digest != intent.content_digest:
-        raise PermissionError("validated delivery intent digest drift")
+        _raise_capability_failure(_capability_failure("DELIVERY_AUTHORITY_OR_APPROVAL_INVALID", "validated delivery intent digest drift"), PermissionError)
     if verified.approved_payload_digest != intent.content_digest:
-        raise PermissionError("approval payload digest drift")
+        _raise_capability_failure(_capability_failure("DELIVERY_AUTHORITY_OR_APPROVAL_INVALID", "approval payload digest drift"), PermissionError)
     if verified.approval_refs != payload.approval_refs:
-        raise PermissionError("approval ref drift")
+        _raise_capability_failure(_capability_failure("DELIVERY_AUTHORITY_OR_APPROVAL_INVALID", "approval ref drift"), PermissionError)
     if verified.authority_digest != intent.authority_digest:
-        raise PermissionError("authority digest drift")
+        _raise_capability_failure(_capability_failure("DELIVERY_AUTHORITY_OR_APPROVAL_INVALID", "authority digest drift"), PermissionError)
     if verified.expires_at <= now:
-        raise PermissionError("approval or authority expired")
+        _raise_capability_failure(_capability_failure("DELIVERY_AUTHORITY_OR_APPROVAL_INVALID", "approval or authority expired"), PermissionError)
 
 
 def _receipt_from_observation(
@@ -971,7 +970,7 @@ def _claim_or_gap_ref(value: ClaimOrGap) -> str:
         return value.claim_id
     if isinstance(value, Gap):
         return value.gap_id
-    raise TypeError("outcome must contain Claim or Gap")
+    _raise_capability_failure(_capability_failure("INVALID_CLAIM_OR_GAP", "outcome must contain Claim or Gap"), TypeError)
 
 
 def _bytes_digest(value: bytes) -> str:
@@ -986,5 +985,5 @@ def _parse_datetime(value: str) -> datetime:
     normalized = value[:-1] + "+00:00" if value.endswith("Z") else value
     parsed = datetime.fromisoformat(normalized)
     if parsed.tzinfo is None:
-        raise ValueError("observed_updated_at must be timezone-aware")
+        _raise_capability_failure(_capability_failure("DOCUMENT_OBSERVATION_MISMATCH", "observed_updated_at must be timezone-aware"))
     return parsed

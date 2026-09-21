@@ -22,7 +22,12 @@ from collections.abc import Callable
 from dataclasses import dataclass, field, fields
 from datetime import datetime, timedelta, timezone
 from enum import StrEnum
-from typing import Any, Final, Protocol, runtime_checkable
+from typing import Any, Final, NoReturn, Protocol, runtime_checkable
+
+from functorial_kit import Failure
+from mrw_functorial_kit.core.w06_semantics import (
+    c8_report_export_token_state_failures,
+)
 
 __all__ = [
     "REPORT_EXPORT_TOKEN_STATE_AUTHORITY_SCHEMA",
@@ -52,6 +57,89 @@ __all__ = [
     "readback_report_export_token",
     "revoke_report_export_token",
 ]
+
+_TOKEN_STATE_OWNER = "c8.report_export_token_state.v1"
+_TOKEN_STATE_WITNESS = "test:test_w06_c2_total_core_failure_lifts"
+_TOKEN_STATE_CONTEXT_KEYS = frozenset(
+    {
+        "owner",
+        "effect_boundary",
+        "boundary_class",
+        "failure_family",
+        "public_exception",
+        "public_message",
+        "site",
+        "witness",
+    }
+)
+
+
+def _failure(
+    code: str,
+    message: str,
+    *,
+    site: str,
+    public_exception: str,
+    boundary_class: str = "PURE_CONTRACT_FAILURE",
+    **details: Any,
+) -> Failure:
+    """Create the closed C8 token-state failure value before ABI lifting."""
+
+    return c8_report_export_token_state_failures.fail(
+        code,
+        message,
+        {
+            "owner": _TOKEN_STATE_OWNER,
+            "effect_boundary": "c8.report_export_token_state.contract_core",
+            "boundary_class": boundary_class,
+            "failure_family": c8_report_export_token_state_failures.name,
+            "public_exception": public_exception,
+            "public_message": message,
+            "site": site,
+            "witness": _TOKEN_STATE_WITNESS,
+            **details,
+        },
+    )
+
+
+def _raise_failure(
+    failure: Failure,
+    exception_type: type[Exception] = ValueError,
+) -> NoReturn:
+    """Lift a complete typed failure at the retained public ABI boundary."""
+
+    context = failure.context or {}
+    if (
+        failure.family != c8_report_export_token_state_failures.name
+        or _TOKEN_STATE_CONTEXT_KEYS - set(context)
+        or context.get("failure_family") != c8_report_export_token_state_failures.name
+        or context.get("public_exception") != exception_type.__name__
+    ):
+        # kit:boundary owner=c8_report_export_token_state.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w06_c2_total_core_failure_lifts
+        raise TypeError("token-state failure lift context is incomplete or inconsistent")
+    # kit:boundary owner=c8_report_export_token_state.py class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=c8.report_export_token_state.failure witness=test:test_w06_c2_total_core_failure_lifts
+    raise exception_type(str(context["public_message"]))
+
+
+def _raise_effect_failure(
+    failure: Failure,
+    exception_type: type[Exception] | None = None,
+) -> NoReturn:
+    """Lift backend/provider failure while retaining effect-boundary semantics."""
+
+    exception_type = exception_type or TokenStateBackendUnavailableError
+    context = failure.context or {}
+    if (
+        failure.family != c8_report_export_token_state_failures.name
+        or context.get("boundary_class") != "SHELL_BOUNDARY_EXCEPTION"
+        or context.get("failure_family") != c8_report_export_token_state_failures.name
+        or context.get("public_exception") != exception_type.__name__
+        or not context.get("public_message")
+    ):
+        # kit:boundary owner=c8_report_export_token_state.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w06_c2_total_core_failure_lifts
+        raise TypeError("token-state effect lift context is incomplete or inconsistent")
+    # kit:boundary owner=c8_report_export_token_state.py class=SHELL_BOUNDARY_EXCEPTION failure_family=c8.report_export_token_state.failure witness=test:test_w06_c2_total_core_failure_lifts
+    raise exception_type(str(context["public_message"]))
 
 REPORT_EXPORT_TOKEN_STATE_SCHEMA: Final[str] = (
     "mrw.successor.c8.report-export-token-state.v1"
@@ -94,23 +182,56 @@ def _clean_text(value: Any, *, max_length: int = 128) -> str | None:
     return text[:max_length]
 
 
-def _require_text(value: Any, *, name: str, max_length: int = 128) -> str:
+def _require_text_failure(
+    value: Any,
+    *,
+    name: str,
+    max_length: int = 128,
+) -> str | Failure:
     text = _clean_text(value, max_length=max_length)
     if text is None:
-        raise ValueError(f"{name} is required")
+        return _failure(
+            "input_contract_invalid",
+            f"{name} is required",
+            site=f"input/{name}",
+            public_exception="ValueError",
+        )
     return text
+
+
+def _require_text(value: Any, *, name: str, max_length: int = 128) -> str:
+    outcome = _require_text_failure(value, name=name, max_length=max_length)
+    if isinstance(outcome, Failure):
+        _raise_failure(outcome, ValueError)
+    return outcome
 
 
 def _require_sha256_hex(value: Any, *, name: str) -> str:
     digest = _require_text(value, name=name, max_length=64)
     if len(digest) != 64 or any(char not in _SHA256_HEX for char in digest):
-        raise ValueError(f"{name} must be a 64-char lowercase sha256 hex digest")
+        _raise_failure(
+            _failure(
+                "input_contract_invalid",
+                f"{name} must be a 64-char lowercase sha256 hex digest",
+                site=f"digest/{name}",
+                public_exception="ValueError",
+            ),
+            ValueError,
+        )
     return digest
 
 
 def _as_bool(value: Any, *, name: str) -> bool:
     if not isinstance(value, bool):
-        raise TypeError(f"{name} must be bool")
+        _raise_failure(
+            _failure(
+                "input_contract_invalid",
+                f"{name} must be bool",
+                site=f"input/{name}",
+                public_exception="TypeError",
+            ),
+            TypeError,
+        )
     return value
 
 
@@ -118,15 +239,42 @@ def _as_int_or_none(value: Any, *, name: str) -> int | None:
     if value is None or value == "":
         return None
     if isinstance(value, bool):
-        raise TypeError(f"{name} must be int or None")
-    return int(value)
+        _raise_failure(
+            _failure(
+                "input_contract_invalid",
+                f"{name} must be int or None",
+                site=f"input/{name}",
+                public_exception="TypeError",
+            ),
+            TypeError,
+        )
+    try:
+        return int(value)
+    except (TypeError, ValueError, OverflowError) as exc:
+        _raise_failure(
+            _failure(
+                "input_contract_invalid",
+                str(exc),
+                site=f"input/{name}",
+                public_exception=type(exc).__name__,
+            ),
+            type(exc),
+        )
 
 
 def _as_utc(value: datetime | None, *, name: str) -> datetime | None:
     if value is None:
         return None
     if not isinstance(value, datetime):
-        raise TypeError(f"{name} must be datetime")
+        _raise_failure(
+            _failure(
+                "input_contract_invalid",
+                f"{name} must be datetime",
+                site=f"input/{name}",
+                public_exception="TypeError",
+            ),
+            TypeError,
+        )
     if value.tzinfo is None:
         return value.replace(tzinfo=timezone.utc)
     return value.astimezone(timezone.utc)
@@ -195,9 +343,15 @@ def _guard_no_credentials(instance: Any) -> None:
         value = getattr(instance, candidate.name)
         for text in _iter_string_values(value):
             if _is_credential_like(text):
-                raise TokenStateCredentialError(
-                    f"{type(instance).__name__} must not carry raw secret or "
-                    "token material"
+                _raise_failure(
+                    _failure(
+                        "credential_rejected",
+                        f"{type(instance).__name__} must not carry raw secret or "
+                        "token material",
+                        site=f"credentials/{type(instance).__name__}",
+                        public_exception="TokenStateCredentialError",
+                    ),
+                    TokenStateCredentialError,
                 )
 
 
@@ -251,15 +405,37 @@ class ReportExportTokenStateAuthority:
 
     def __post_init__(self) -> None:
         if not self.schema_ref or not isinstance(self.schema_ref, str):
-            raise ValueError("ReportExportTokenStateAuthority requires schema_ref")
+            _raise_failure(
+                _failure(
+                    "input_contract_invalid",
+                    "ReportExportTokenStateAuthority requires schema_ref",
+                    site="authority/schema_ref",
+                    public_exception="ValueError",
+                ),
+                ValueError,
+            )
         for name in _AUTHORITY_BOOL_FIELDS:
             value = getattr(self, name)
             if not isinstance(value, bool):
-                raise TypeError(f"ReportExportTokenStateAuthority.{name} must be bool")
+                _raise_failure(
+                    _failure(
+                        "input_contract_invalid",
+                        f"ReportExportTokenStateAuthority.{name} must be bool",
+                        site=f"authority/{name}",
+                        public_exception="TypeError",
+                    ),
+                    TypeError,
+                )
             if value:
-                raise ValueError(
-                    "report-export token state grants no runtime authority; "
-                    f"{name} must be False"
+                _raise_failure(
+                    _failure(
+                        "conflict",
+                        "report-export token state grants no runtime authority; "
+                        f"{name} must be False",
+                        site=f"authority/{name}",
+                        public_exception="ValueError",
+                    ),
+                    ValueError,
                 )
 
     def to_plain(self) -> dict[str, Any]:
@@ -275,10 +451,24 @@ def _authority_for(
     if authority is None:
         return ReportExportTokenStateAuthority()
     if not isinstance(authority, ReportExportTokenStateAuthority):
-        raise TypeError("token-state authority must be typed")
+        _raise_failure(
+            _failure(
+                "input_contract_invalid",
+                "token-state authority must be typed",
+                site="authority/type",
+                public_exception="TypeError",
+            ),
+            TypeError,
+        )
     if not _all_authority_false(authority):
-        raise TokenStateConflictError(
-            "token-state records require an all-False authority ceiling"
+        _raise_failure(
+            _failure(
+                "conflict",
+                "token-state records require an all-False authority ceiling",
+                site="authority/ceiling",
+                public_exception="TokenStateConflictError",
+            ),
+            TokenStateConflictError,
         )
     return authority
 
@@ -363,8 +553,24 @@ class ReportExportTokenStateRecord:
             try:
                 return ReportExportTokenStateValue(value)
             except ValueError as exc:
-                raise ValueError(f"unknown token state value: {value}") from exc
-        raise TypeError("state must be ReportExportTokenStateValue")
+                _raise_failure(
+                    _failure(
+                        "input_contract_invalid",
+                        f"unknown token state value: {value}",
+                        site="state/value",
+                        public_exception="ValueError",
+                    ),
+                    ValueError,
+                )
+        _raise_failure(
+            _failure(
+                "input_contract_invalid",
+                "state must be ReportExportTokenStateValue",
+                site="state/type",
+                public_exception="TypeError",
+            ),
+            TypeError,
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -461,13 +667,37 @@ class PruneExportTokenStatesCommand:
             self.retention_days,
             int,
         ):
-            raise TypeError("retention_days must be int")
+            _raise_failure(
+                _failure(
+                    "input_contract_invalid",
+                    "retention_days must be int",
+                    site="prune/retention_days",
+                    public_exception="TypeError",
+                ),
+                TypeError,
+            )
         if self.retention_days < 1:
-            raise ValueError("retention_days must be >= 1")
+            _raise_failure(
+                _failure(
+                    "input_contract_invalid",
+                    "retention_days must be >= 1",
+                    site="prune/retention_days",
+                    public_exception="ValueError",
+                ),
+                ValueError,
+            )
         object.__setattr__(self, "dry_run", _as_bool(self.dry_run, name="dry_run"))
         now = _as_utc(self.now, name="now")
         if now is None:
-            raise ValueError("prune now is required")
+            _raise_failure(
+                _failure(
+                    "input_contract_invalid",
+                    "prune now is required",
+                    site="prune/now",
+                    public_exception="ValueError",
+                ),
+                ValueError,
+            )
         object.__setattr__(self, "now", now)
         object.__setattr__(self, "authority", _authority_for(self.authority))
         _guard_no_credentials(self)
@@ -508,7 +738,15 @@ class TokenClaimRecord:
             )
         claimed_at = _as_utc(self.claimed_at, name="claimed_at")
         if claimed_at is None:
-            raise ValueError("claimed_at is required")
+            _raise_failure(
+                _failure(
+                    "input_contract_invalid",
+                    "claimed_at is required",
+                    site="claim/claimed_at",
+                    public_exception="ValueError",
+                ),
+                ValueError,
+            )
         object.__setattr__(self, "claimed_at", claimed_at)
         object.__setattr__(self, "authority", _authority_for(self.authority))
         _guard_no_credentials(self)
@@ -630,11 +868,7 @@ class TokenReadbackRecord:
                 "payload_digest",
                 _require_sha256_hex(self.payload_digest, name="payload_digest"),
             )
-        state = (
-            self.state
-            if isinstance(self.state, ReportExportTokenStateValue)
-            else ReportExportTokenStateValue(str(self.state))
-        )
+        state = ReportExportTokenStateRecord._normalize_state(self.state)
         for name in ("used_at", "revoked_at", "last_seen_at"):
             object.__setattr__(
                 self,
@@ -702,20 +936,60 @@ class TokenPruneRecord:
             self.retention_days,
             int,
         ):
-            raise TypeError("retention_days must be int")
+            _raise_failure(
+                _failure(
+                    "input_contract_invalid",
+                    "retention_days must be int",
+                    site="prune/retention_days",
+                    public_exception="TypeError",
+                ),
+                TypeError,
+            )
         if self.retention_days < 1:
-            raise ValueError("retention_days must be >= 1")
+            _raise_failure(
+                _failure(
+                    "input_contract_invalid",
+                    "retention_days must be >= 1",
+                    site="prune/retention_days",
+                    public_exception="ValueError",
+                ),
+                ValueError,
+            )
         cutoff = _as_utc(self.cutoff, name="cutoff")
         if cutoff is None:
-            raise ValueError("cutoff is required")
+            _raise_failure(
+                _failure(
+                    "input_contract_invalid",
+                    "cutoff is required",
+                    site="prune/cutoff",
+                    public_exception="ValueError",
+                ),
+                ValueError,
+            )
         object.__setattr__(self, "cutoff", cutoff)
         object.__setattr__(self, "dry_run", _as_bool(self.dry_run, name="dry_run"))
         for name in ("candidate_count", "deleted_count"):
             value = getattr(self, name)
             if isinstance(value, bool) or not isinstance(value, int):
-                raise TypeError(f"{name} must be int")
+                _raise_failure(
+                    _failure(
+                        "input_contract_invalid",
+                        f"{name} must be int",
+                        site=f"prune/{name}",
+                        public_exception="TypeError",
+                    ),
+                    TypeError,
+                )
             if value < 0:
-                raise ValueError(f"{name} must be >= 0")
+                _raise_failure(
+                    _failure(
+                        "input_contract_invalid",
+                        f"{name} must be >= 0",
+                        site=f"prune/{name}",
+                        public_exception="ValueError",
+                    ),
+                    ValueError,
+                )
             object.__setattr__(self, name, value)
         object.__setattr__(self, "degraded", _as_bool(self.degraded, name="degraded"))
         object.__setattr__(self, "authority", _authority_for(self.authority))
@@ -755,7 +1029,15 @@ class LocalSuccessorReportExportTokenStore:
     ) -> None:
         self.degraded = _as_bool(degraded, name="degraded")
         if now_provider is not None and not callable(now_provider):
-            raise TypeError("now_provider must be callable")
+            _raise_failure(
+                _failure(
+                    "input_contract_invalid",
+                    "now_provider must be callable",
+                    site="store/now_provider",
+                    public_exception="TypeError",
+                ),
+                TypeError,
+            )
         self.now_provider = now_provider or _utc_now
         self._rows: dict[str, dict[str, Any]] = {}
         self.reads = 0
@@ -772,13 +1054,27 @@ class LocalSuccessorReportExportTokenStore:
     def _now(self) -> datetime:
         now = self.now_provider()
         if not isinstance(now, datetime):
-            raise TokenStateConflictError("now_provider must return datetime")
+            _raise_failure(
+                _failure(
+                    "conflict",
+                    "now_provider must return datetime",
+                    site="store/now_provider",
+                    public_exception="TokenStateConflictError",
+                ),
+                TokenStateConflictError,
+            )
         return _as_utc(now, name="now") or _utc_now()
 
     def _require_available(self) -> None:
         if self.degraded:
-            raise TokenStateBackendUnavailableError(
-                f"{self.table_name} backend unavailable; no durable claim made"
+            _raise_effect_failure(
+                _failure(
+                    "backend_unavailable",
+                    f"{self.table_name} backend unavailable; no durable claim made",
+                    site="store/backend",
+                    public_exception="TokenStateBackendUnavailableError",
+                    boundary_class="SHELL_BOUNDARY_EXCEPTION",
+                ),
             )
 
     def _existing_or_empty(self, artifact_id: str) -> dict[str, Any]:
@@ -837,7 +1133,15 @@ class LocalSuccessorReportExportTokenStore:
 
     def claim(self, command: ClaimExportTokenCommand) -> TokenClaimRecord:
         if not isinstance(command, ClaimExportTokenCommand):
-            raise TypeError("claim requires a ClaimExportTokenCommand")
+            _raise_failure(
+                _failure(
+                    "input_contract_invalid",
+                    "claim requires a ClaimExportTokenCommand",
+                    site="store/claim/command",
+                    public_exception="TypeError",
+                ),
+                TypeError,
+            )
         _guard_no_credentials(command)
         self._require_available()
         artifact_id = command.artifact_id
@@ -891,7 +1195,15 @@ class LocalSuccessorReportExportTokenStore:
 
     def revoke(self, command: RevokeExportTokenCommand) -> TokenRevokeRecord:
         if not isinstance(command, RevokeExportTokenCommand):
-            raise TypeError("revoke requires a RevokeExportTokenCommand")
+            _raise_failure(
+                _failure(
+                    "input_contract_invalid",
+                    "revoke requires a RevokeExportTokenCommand",
+                    site="store/revoke/command",
+                    public_exception="TypeError",
+                ),
+                TypeError,
+            )
         _guard_no_credentials(command)
         self._require_available()
         artifact_id = command.artifact_id
@@ -926,7 +1238,15 @@ class LocalSuccessorReportExportTokenStore:
 
     def readback(self, command: ReadbackExportTokenCommand) -> TokenReadbackRecord:
         if not isinstance(command, ReadbackExportTokenCommand):
-            raise TypeError("readback requires a ReadbackExportTokenCommand")
+            _raise_failure(
+                _failure(
+                    "input_contract_invalid",
+                    "readback requires a ReadbackExportTokenCommand",
+                    site="store/readback/command",
+                    public_exception="TypeError",
+                ),
+                TypeError,
+            )
         _guard_no_credentials(command)
         self._require_available()
         artifact_id = command.artifact_id
@@ -960,7 +1280,15 @@ class LocalSuccessorReportExportTokenStore:
 
     def prune(self, command: PruneExportTokenStatesCommand) -> TokenPruneRecord:
         if not isinstance(command, PruneExportTokenStatesCommand):
-            raise TypeError("prune requires a PruneExportTokenStatesCommand")
+            _raise_failure(
+                _failure(
+                    "input_contract_invalid",
+                    "prune requires a PruneExportTokenStatesCommand",
+                    site="store/prune/command",
+                    public_exception="TypeError",
+                ),
+                TypeError,
+            )
         _guard_no_credentials(command)
         self._require_available()
         authority = _authority_for(command.authority)
@@ -1007,8 +1335,14 @@ class LocalSuccessorReportExportTokenStore:
 
 def _require_store(store: Any, operation: str) -> ReportExportTokenStateStore:
     if not isinstance(store, ReportExportTokenStateStore):
-        raise TokenStateConflictError(
-            f"{operation} requires a ReportExportTokenStateStore"
+        _raise_failure(
+            _failure(
+                "input_contract_invalid",
+                f"{operation} requires a ReportExportTokenStateStore",
+                site=f"{operation}/store",
+                public_exception="TokenStateConflictError",
+            ),
+            TokenStateConflictError,
         )
     return store
 
@@ -1016,10 +1350,24 @@ def _require_store(store: Any, operation: str) -> ReportExportTokenStateStore:
 def _require_result_authority(record: Any) -> None:
     authority = getattr(record, "authority", None)
     if not isinstance(authority, ReportExportTokenStateAuthority):
-        raise TokenStateConflictError("store returned an untyped authority")
+        _raise_failure(
+            _failure(
+                "conflict",
+                "store returned an untyped authority",
+                site="result/authority",
+                public_exception="TokenStateConflictError",
+            ),
+            TokenStateConflictError,
+        )
     if not _all_authority_false(authority):
-        raise TokenStateConflictError(
-            "store returned an authority that grants runtime power"
+        _raise_failure(
+            _failure(
+                "conflict",
+                "store returned an authority that grants runtime power",
+                site="result/authority",
+                public_exception="TokenStateConflictError",
+            ),
+            TokenStateConflictError,
         )
 
 
@@ -1031,15 +1379,37 @@ def claim_report_export_token_once(
 
     store = _require_store(store, "claim_report_export_token_once")
     if not isinstance(command, ClaimExportTokenCommand):
-        raise TypeError("claim_report_export_token_once requires typed command")
+        _raise_failure(
+            _failure(
+                "input_contract_invalid",
+                "claim_report_export_token_once requires typed command",
+                site="claim/command",
+                public_exception="TypeError",
+            ),
+            TypeError,
+        )
     _guard_no_credentials(command)
     record = store.claim(command)
     if not isinstance(record, TokenClaimRecord):
-        raise TokenStateConflictError("store claim returned the wrong record type")
+        _raise_failure(
+            _failure(
+                "conflict",
+                "store claim returned the wrong record type",
+                site="claim/result",
+                public_exception="TokenStateConflictError",
+            ),
+            TokenStateConflictError,
+        )
     _require_result_authority(record)
     if record.degraded and record.claimed:
-        raise TokenStateConflictError(
-            "degraded token state cannot be reported as a durable claim"
+        _raise_failure(
+            _failure(
+                "conflict",
+                "degraded token state cannot be reported as a durable claim",
+                site="claim/degraded",
+                public_exception="TokenStateConflictError",
+            ),
+            TokenStateConflictError,
         )
     return record
 
@@ -1052,15 +1422,37 @@ def revoke_report_export_token(
 
     store = _require_store(store, "revoke_report_export_token")
     if not isinstance(command, RevokeExportTokenCommand):
-        raise TypeError("revoke_report_export_token requires typed command")
+        _raise_failure(
+            _failure(
+                "input_contract_invalid",
+                "revoke_report_export_token requires typed command",
+                site="revoke/command",
+                public_exception="TypeError",
+            ),
+            TypeError,
+        )
     _guard_no_credentials(command)
     record = store.revoke(command)
     if not isinstance(record, TokenRevokeRecord):
-        raise TokenStateConflictError("store revoke returned the wrong record type")
+        _raise_failure(
+            _failure(
+                "conflict",
+                "store revoke returned the wrong record type",
+                site="revoke/result",
+                public_exception="TokenStateConflictError",
+            ),
+            TokenStateConflictError,
+        )
     _require_result_authority(record)
     if record.degraded and record.revoked:
-        raise TokenStateConflictError(
-            "degraded token state cannot be reported as durable revocation"
+        _raise_failure(
+            _failure(
+                "conflict",
+                "degraded token state cannot be reported as durable revocation",
+                site="revoke/degraded",
+                public_exception="TokenStateConflictError",
+            ),
+            TokenStateConflictError,
         )
     return record
 
@@ -1073,11 +1465,27 @@ def readback_report_export_token(
 
     store = _require_store(store, "readback_report_export_token")
     if not isinstance(command, ReadbackExportTokenCommand):
-        raise TypeError("readback_report_export_token requires typed command")
+        _raise_failure(
+            _failure(
+                "input_contract_invalid",
+                "readback_report_export_token requires typed command",
+                site="readback/command",
+                public_exception="TypeError",
+            ),
+            TypeError,
+        )
     _guard_no_credentials(command)
     record = store.readback(command)
     if not isinstance(record, TokenReadbackRecord):
-        raise TokenStateConflictError("store readback returned the wrong record type")
+        _raise_failure(
+            _failure(
+                "conflict",
+                "store readback returned the wrong record type",
+                site="readback/result",
+                public_exception="TokenStateConflictError",
+            ),
+            TokenStateConflictError,
+        )
     _require_result_authority(record)
     return record
 
@@ -1090,12 +1498,36 @@ def prune_report_export_token_states(
 
     store = _require_store(store, "prune_report_export_token_states")
     if not isinstance(command, PruneExportTokenStatesCommand):
-        raise TypeError("prune_report_export_token_states requires typed command")
+        _raise_failure(
+            _failure(
+                "input_contract_invalid",
+                "prune_report_export_token_states requires typed command",
+                site="prune/command",
+                public_exception="TypeError",
+            ),
+            TypeError,
+        )
     _guard_no_credentials(command)
     record = store.prune(command)
     if not isinstance(record, TokenPruneRecord):
-        raise TokenStateConflictError("store prune returned the wrong record type")
+        _raise_failure(
+            _failure(
+                "conflict",
+                "store prune returned the wrong record type",
+                site="prune/result",
+                public_exception="TokenStateConflictError",
+            ),
+            TokenStateConflictError,
+        )
     _require_result_authority(record)
     if record.degraded and record.deleted_count:
-        raise TokenStateConflictError("degraded prune cannot report durable deletions")
+        _raise_failure(
+            _failure(
+                "conflict",
+                "degraded prune cannot report durable deletions",
+                site="prune/degraded",
+                public_exception="TokenStateConflictError",
+            ),
+            TokenStateConflictError,
+        )
     return record

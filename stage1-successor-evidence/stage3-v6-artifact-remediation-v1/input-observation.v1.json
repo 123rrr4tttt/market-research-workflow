@@ -1,0 +1,98 @@
+{
+  "authoritative": false,
+  "contract": {
+    "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/15_production-deployment-stage3-v6-contract.v1.md",
+    "sha256": "f7d3637c5cc48eaf7396331c3657cc6cff42269dbf4ffab17af4f7a7a3170d5a"
+  },
+  "paths": [
+    {
+      "observation_scope": "RESUMED_REPAIR_OBSERVATION_NOT_TASK_START",
+      "observed_source_sha256": "2c31f7a970abe8be818165865e7179a64599c8a5329709ae261ff6e3ed6c35b5",
+      "path": ".github/workflows/backend-tests.yml",
+      "v6_sha256": "6c108b0842c600fe100ad560732740f347a5d357625fa753a1e052f0b33a7cc6"
+    },
+    {
+      "observation_scope": "RESUMED_REPAIR_OBSERVATION_NOT_TASK_START",
+      "observed_source_sha256": "696195d3a8ca59a23da069d56147732ea42b991299d088b3c78d3776612f6fff",
+      "path": ".github/branch-protection-required-checks.json",
+      "v6_sha256": "696195d3a8ca59a23da069d56147732ea42b991299d088b3c78d3776612f6fff"
+    },
+    {
+      "observation_scope": "RESUMED_REPAIR_OBSERVATION_NOT_TASK_START",
+      "observed_source_sha256": "5639669cb4edecf0237940d4c2bfd6ea500bbf184a4087134a8034600aa47cf8",
+      "path": "main/backend/Dockerfile",
+      "v6_sha256": "837b30116e81235c40e809a7ea0b9d0049bdf52a763b2262ed74f3cecc79c655"
+    },
+    {
+      "observation_scope": "RESUMED_REPAIR_OBSERVATION_NOT_TASK_START",
+      "observed_source_sha256": "27d4426ff07f7e020a06d7cdf9cf1cb20e257644a2cd734dbedb0642d83f182b",
+      "path": "main/frontend-modern/Dockerfile",
+      "v6_sha256": "ae4132f1587973c4eeafbbda4f6c64be74563e968193b9b05d197f83c3a16e6b"
+    },
+    {
+      "observation_scope": "RESUMED_REPAIR_OBSERVATION_NOT_TASK_START",
+      "observed_source_sha256": "b39911bade7c4968ff9d0c1c7206a1d820a8d73365b53bee10469234aae25137",
+      "path": "main/frontend-modern/pnpm-lock.yaml",
+      "v6_sha256": "b39911bade7c4968ff9d0c1c7206a1d820a8d73365b53bee10469234aae25137"
+    },
+    {
+      "observation_scope": "RESUMED_REPAIR_OBSERVATION_NOT_TASK_START",
+      "observed_source_sha256": "3ab6fd954cef736a8aa8f67cd85c5b1bf60957c0969ae84f8862a797cf6d33b8",
+      "path": "main/frontend-modern/package-lock.json",
+      "v6_sha256": "3ab6fd954cef736a8aa8f67cd85c5b1bf60957c0969ae84f8862a797cf6d33b8"
+    },
+    {
+      "observation_scope": "RESUMED_REPAIR_OBSERVATION_NOT_TASK_START",
+      "observed_source_sha256": "cb5f2e816df9abe20a4c8a181b0888a0c4412ebc983a845bf818de7d74f435b4",
+      "path": "scripts/formal_release/check_static_production_contract.py",
+      "v6_sha256": "df8257a37482cecb62797a21ac2323a9c72fcfe3f580c18cf1d8a27a4d2b9c75"
+    },
+    {
+      "observation_scope": "RESUMED_REPAIR_OBSERVATION_NOT_TASK_START",
+      "observed_source_sha256": "158c351128e7b7952158bbce632a1e1273827b3d963ef3ddad59360e6e50d835",
+      "path": "scripts/formal_release/stage2_candidate_intake.py",
+      "v6_sha256": "158c351128e7b7952158bbce632a1e1273827b3d963ef3ddad59360e6e50d835"
+    },
+    {
+      "observation_scope": "RESUMED_REPAIR_OBSERVATION_NOT_TASK_START",
+      "observed_source_sha256": "0b778577cd20ae8370f45dbb4ef73c38a568ecb5f48965652fcba00aa40df861",
+      "path": "tests/formal_release/test_stage2_candidate_intake.py",
+      "v6_sha256": "0b778577cd20ae8370f45dbb4ef73c38a568ecb5f48965652fcba00aa40df861"
+    }
+  ],
+  "predecessor": {
+    "commit": "909eb608e538b6427bcbacca974f1efb05fef611",
+    "evidence": [
+      {
+        "path": "/Users/wangyiliang/.codex/release-evidence/mrw-stage2-20260906-v6/candidate-manifest.v6.json",
+        "sha256": "020ea3fe312fe5a21f5c064455fc7e2fb1d53440ca0a2dfa9bf115777c80ece1"
+      },
+      {
+        "path": "/Users/wangyiliang/.codex/release-evidence/mrw-stage2-20260906-v6/closure.final.v6.json",
+        "sha256": "d2f0607fbf29422f78887c5c72ac17af2d867e719044fa03a545ba19a1e30e73"
+      },
+      {
+        "path": "/Users/wangyiliang/.codex/release-evidence/mrw-stage2-20260906-v6/stage2-record.final.v6.json",
+        "sha256": "0a6555aca056084f3e7645d03b7adf04b3e4f2be49d52294e48f2b2a239f9a90"
+      },
+      {
+        "path": "/Users/wangyiliang/.codex/release-evidence/mrw-stage2-20260906-v6/r1.final.v6.json",
+        "sha256": "c0ed90b8d1253b0d8191cef46506d5ed436b74f34c6a4f8a0758de0b76ef8f2d"
+      },
+      {
+        "path": "/Users/wangyiliang/.codex/release-evidence/mrw-stage2-20260906-v6/r2.pass.v6.json",
+        "sha256": "0edca14b4177a63cb2046fb74ab01e1099d66277d5a778df91b6c7faedef9c76"
+      },
+      {
+        "path": "/Users/wangyiliang/.codex/release-evidence/mrw-stage2-20260906-v6/r3.pass.v6.json",
+        "sha256": "9f7bc679db5e6e481090e43c1c4ee9d59cfe29b9efa3d8e9fa470689cda61e03"
+      }
+    ],
+    "root": "/Users/wangyiliang/.codex/release-candidates/mrw-stage2-20260906-v6",
+    "tree": "a60b795e509aa5dc479904a321fba32ed0ab9ab2"
+  },
+  "production_release_authorized": false,
+  "schema_version": "mrw.stage3_v6_artifact_repair.input_observation.v1",
+  "status": "INPUTS_VERIFIED_REPAIR_IN_PROGRESS",
+  "successor_created": false
+}

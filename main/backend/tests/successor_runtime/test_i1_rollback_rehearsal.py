@@ -10,7 +10,6 @@ PostgreSQL opt-in surface.
 
 from __future__ import annotations
 
-import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -22,9 +21,12 @@ from app.successor_runtime.assembly.successor_assembly import (
     assemble_successor_runtime,
     build_local_offline_fixture_options,
 )
+from app.successor_runtime.specification import CapabilityCellSpec
+from tests.successor_runtime.i1_binding_candidate_support import (
+    REPOSITORY_ROOT,
+    verify_exact_binding,
+)
 
-BACKEND_ROOT = Path(__file__).resolve().parents[2]
-REPOSITORY_ROOT = BACKEND_ROOT.parents[1]
 TOPIC = Path(
     "development/latest-dev-docs/development-plans/CURRENT_DEV/"
     "2026-08-30-functorial-successor-migration"
@@ -37,7 +39,7 @@ pytestmark = pytest.mark.unit
 def _load(path: Path) -> dict[str, Any]:
     value = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(value, dict):
-        raise TypeError(f"expected JSON object: {path}")
+        raise TypeError(f"expected JSON object: {path}")  # noqa: TRY003
     return value
 
 
@@ -49,11 +51,14 @@ def _rollback_rows() -> list[dict[str, Any]]:
     declarations = {item.cell_id: item for item in assembly.rollback_bindings}
     rows: list[dict[str, Any]] = []
     for cell in assembly.cells:
-        spec = _load(SPECS_DIR / f"{cell.cell_id}.v1.json")
+        spec_value = _load(SPECS_DIR / f"{cell.cell_id}.v1.json")
+        spec = CapabilityCellSpec.from_dict(spec_value)
         spec_bindings = tuple(
-            str(item["path"]) for item in spec.get("rollback_bindings", [])
+            binding.path for binding in spec.rollback_bindings
         )
         declaration = declarations.get(cell.cell_id)
+        for binding in spec.rollback_bindings:
+            verify_exact_binding(spec, "rollback_bindings", binding)
         if cell.cell_id.startswith("C7.") and declaration.status == "PRESENT":
             assert declaration is not None
             for binding_path in declaration.binding_refs:
@@ -86,20 +91,6 @@ def _rollback_rows() -> list[dict[str, Any]]:
             continue
         if declaration is not None and declaration.status == "PRESENT":
             assert declaration is not None
-            for binding_path in spec_bindings:
-                path = Path(binding_path)
-                if not path.is_absolute():
-                    path = REPOSITORY_ROOT / path
-                assert path.is_file(), f"rollback binding missing: {binding_path}"
-                actual = hashlib.sha256(path.read_bytes()).hexdigest()
-                expected = next(
-                    item["file_sha256"]
-                    for item in spec["rollback_bindings"]
-                    if item["path"] == binding_path
-                )
-                assert actual == expected, (
-                    f"rollback binding drift: {binding_path}: {actual} != {expected}"
-                )
             rows.append(
                 {
                     "cell_id": cell.cell_id,

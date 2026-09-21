@@ -25,7 +25,7 @@ import hashlib
 import json
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND_ROOT))
@@ -571,7 +571,12 @@ def _bindings() -> tuple[
     )
 
 
-def build_fragment() -> dict[str, object]:
+def build_fragment() -> Annotated[
+    dict[str, object],
+    "kit:non-authoritative derived_as=generated_evidence "
+    "fact_source=C9.1-C9.3_contracts+repo_bindings "
+    "witness=test:test_w10_cli_generator_derived_metadata_preserves_abi",
+]:
     source_bindings, implementation_bindings, test_bindings = _bindings()
     cells = [_cell_9_1(), _cell_9_2(), _cell_9_3()]
     return {

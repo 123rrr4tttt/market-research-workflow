@@ -26,6 +26,8 @@ from typing import (
     runtime_checkable,
 )
 
+from functorial_kit import Failure
+
 from app.successor_runtime.capabilities import agent_batch_c4 as c4
 from app.successor_runtime.capabilities.checksum import (
     canonical_json,
@@ -60,6 +62,8 @@ __all__ = [
     "successor_plan_interpreter_profile_digest",
     "successor_retry_interpreter_profile_digest",
     "successor_submission_interpreter_profile_digest",
+    "validate_exact_batch_plan_binding",
+    "validate_exact_retry_binding",
 ]
 
 
@@ -127,7 +131,7 @@ def _is_hex64(value: Any) -> bool:
     return isinstance(value, str) and is_sha256_hex(value)
 
 
-def _require_exact_binding(
+def _validate_exact_binding(
     *,
     kind: str,
     operation_id: str,
@@ -144,8 +148,8 @@ def _require_exact_binding(
     deployment_catalog_digest: str,
     binding: Any,
     expected_interpreter_profile_digest: str | None,
-) -> dict[str, str]:
-    """Fail closed unless the complete C4 Program/Plan closure is exact."""
+) -> dict[str, str] | Failure:
+    """Return the exact C4 closure receipt or its canonical typed failure."""
 
     failures: list[str] = []
     if payload.operation_kind != kind:
@@ -246,8 +250,14 @@ def _require_exact_binding(
         failures.append("binding/interpreter profile")
 
     if failures:
-        raise mismatch_type(
-            f"{kind} binding drift: " + ", ".join(sorted(set(failures)))
+        public_message = f"{kind} binding drift: " + ", ".join(
+            sorted(set(failures))
+        )
+        return c4._failure(
+            "program_binding_invalid",
+            public_message,
+            site="interpreter/exact_binding",
+            public_exception=mismatch_type.__name__,
         )
     return {
         "program_digest": program.program_digest,
@@ -271,7 +281,37 @@ def require_exact_batch_plan_binding(
     binding: Any,
     expected_interpreter_profile_digest: str | None = None,
 ) -> dict[str, str]:
-    return _require_exact_binding(
+    result = validate_exact_batch_plan_binding(
+        program=program,
+        plan=plan,
+        contract_ref=contract_ref,
+        payload_ref=payload_ref,
+        payload=payload,
+        project_scope=project_scope,
+        catalog=catalog,
+        deployment_catalog_digest=deployment_catalog_digest,
+        binding=binding,
+        expected_interpreter_profile_digest=expected_interpreter_profile_digest,
+    )
+    if isinstance(result, Failure):
+        c4._raise_contract_failure(result, BatchPlanBindingMismatch)
+    return result
+
+
+def validate_exact_batch_plan_binding(
+    *,
+    program: Any,
+    plan: Any,
+    contract_ref: OperationContractRef,
+    payload_ref: Any,
+    payload: PayloadView,
+    project_scope: ProjectScopeView,
+    catalog: OperationContractCatalogSnapshot,
+    deployment_catalog_digest: str,
+    binding: Any,
+    expected_interpreter_profile_digest: str | None = None,
+) -> dict[str, str] | Failure:
+    return _validate_exact_binding(
         kind=c4.BATCH_PLAN_KIND,
         operation_id=c4.BATCH_PLAN_OPERATION_ID,
         payload_type_id=c4.BATCH_PLAN_PAYLOAD_TYPE.type_id,
@@ -303,7 +343,37 @@ def require_exact_retry_binding(
     binding: Any,
     expected_interpreter_profile_digest: str | None = None,
 ) -> dict[str, str]:
-    return _require_exact_binding(
+    result = validate_exact_retry_binding(
+        program=program,
+        plan=plan,
+        contract_ref=contract_ref,
+        payload_ref=payload_ref,
+        payload=payload,
+        project_scope=project_scope,
+        catalog=catalog,
+        deployment_catalog_digest=deployment_catalog_digest,
+        binding=binding,
+        expected_interpreter_profile_digest=expected_interpreter_profile_digest,
+    )
+    if isinstance(result, Failure):
+        c4._raise_contract_failure(result, RetryBindingMismatch)
+    return result
+
+
+def validate_exact_retry_binding(
+    *,
+    program: Any,
+    plan: Any,
+    contract_ref: OperationContractRef,
+    payload_ref: Any,
+    payload: PayloadView,
+    project_scope: ProjectScopeView,
+    catalog: OperationContractCatalogSnapshot,
+    deployment_catalog_digest: str,
+    binding: Any,
+    expected_interpreter_profile_digest: str | None = None,
+) -> dict[str, str] | Failure:
+    return _validate_exact_binding(
         kind=c4.RETRY_REDUCE_KIND,
         operation_id=c4.RETRY_REDUCE_OPERATION_ID,
         payload_type_id=c4.RETRY_REDUCER_PAYLOAD_TYPE.type_id,
@@ -391,35 +461,34 @@ class AgentBatchC4PlanSuccessorInterpreter:
         deployment_catalog_digest: str,
         binding: Any,
     ) -> InterpreterOutcome[c4.BatchPlanResult]:
-        try:
-            require_exact_batch_plan_binding(
-                program=program,
-                plan=plan,
-                contract_ref=contract_ref,
-                payload_ref=payload_ref,
-                payload=payload,
-                project_scope=project_scope,
-                catalog=catalog,
-                deployment_catalog_digest=deployment_catalog_digest,
-                binding=binding,
-                expected_interpreter_profile_digest=(
-                    successor_plan_interpreter_profile_digest()
-                ),
-            )
-        except BatchPlanBindingMismatch as exc:
+        binding_result = validate_exact_batch_plan_binding(
+            program=program,
+            plan=plan,
+            contract_ref=contract_ref,
+            payload_ref=payload_ref,
+            payload=payload,
+            project_scope=project_scope,
+            catalog=catalog,
+            deployment_catalog_digest=deployment_catalog_digest,
+            binding=binding,
+            expected_interpreter_profile_digest=(
+                successor_plan_interpreter_profile_digest()
+            ),
+        )
+        if isinstance(binding_result, Failure):
             return InterpreterFailure(
                 code="ASSIGNMENT_BINDING_MISMATCH",
-                message=str(exc),
+                message=str((binding_result.context or {})["public_message"]),
                 retryable=False,
             )
-        try:
-            return InterpreterSuccess(c4.build_batch_plan(payload))
-        except ValueError as exc:
+        plan_result = c4.try_build_batch_plan(payload)
+        if isinstance(plan_result, Failure):
             return InterpreterFailure(
                 code="INVALID_PLAN",
-                message=str(exc),
+                message=str((plan_result.context or {})["public_message"]),
                 retryable=False,
             )
+        return InterpreterSuccess(plan_result)
 
 
 class AgentBatchC4RetrySuccessorInterpreter:
@@ -440,35 +509,27 @@ class AgentBatchC4RetrySuccessorInterpreter:
         deployment_catalog_digest: str,
         binding: Any,
     ) -> InterpreterOutcome[c4.RetryTransition]:
-        try:
-            require_exact_retry_binding(
-                program=program,
-                plan=plan,
-                contract_ref=contract_ref,
-                payload_ref=payload_ref,
-                payload=payload,
-                project_scope=project_scope,
-                catalog=catalog,
-                deployment_catalog_digest=deployment_catalog_digest,
-                binding=binding,
-                expected_interpreter_profile_digest=(
-                    successor_retry_interpreter_profile_digest()
-                ),
-            )
-        except RetryBindingMismatch as exc:
+        binding_result = validate_exact_retry_binding(
+            program=program,
+            plan=plan,
+            contract_ref=contract_ref,
+            payload_ref=payload_ref,
+            payload=payload,
+            project_scope=project_scope,
+            catalog=catalog,
+            deployment_catalog_digest=deployment_catalog_digest,
+            binding=binding,
+            expected_interpreter_profile_digest=(
+                successor_retry_interpreter_profile_digest()
+            ),
+        )
+        if isinstance(binding_result, Failure):
             return InterpreterFailure(
                 code="ASSIGNMENT_BINDING_MISMATCH",
-                message=str(exc),
+                message=str((binding_result.context or {})["public_message"]),
                 retryable=False,
             )
-        try:
-            return InterpreterSuccess(c4.reduce_retry_action(payload))
-        except ValueError as exc:
-            return InterpreterFailure(
-                code="RETRY_ACTION_INVALID",
-                message=str(exc),
-                retryable=False,
-            )
+        return InterpreterSuccess(c4.reduce_retry_action(payload))
 
 
 def successor_submission_interpreter_profile_digest() -> str:
@@ -507,30 +568,29 @@ class AgentBatchC4SubmissionSuccessorInterpreter:
         run_ref: str = "run:p3-c4-submission",
         created_at: str = "2030-09-01T08:00:00Z",
     ) -> InterpreterOutcome[c4.AgentBatchSubmissionReceipt]:
-        try:
-            _require_exact_binding(
-                kind=c4.SUBMISSION_KIND,
-                operation_id=c4.SUBMISSION_OPERATION_ID,
-                payload_type_id=c4.SUBMISSION_TYPE.type_id,
-                result_type_id=c4.SUBMISSION_RECEIPT_TYPE.type_id,
-                mismatch_type=BatchPlanBindingMismatch,
-                program=program,
-                plan=plan,
-                contract_ref=contract_ref,
-                payload_ref=payload_ref,
-                payload=payload,
-                project_scope=project_scope,
-                catalog=catalog,
-                deployment_catalog_digest=deployment_catalog_digest,
-                binding=binding,
-                expected_interpreter_profile_digest=(
-                    successor_submission_interpreter_profile_digest()
-                ),
-            )
-        except BatchPlanBindingMismatch as exc:
+        binding_result = _validate_exact_binding(
+            kind=c4.SUBMISSION_KIND,
+            operation_id=c4.SUBMISSION_OPERATION_ID,
+            payload_type_id=c4.SUBMISSION_TYPE.type_id,
+            result_type_id=c4.SUBMISSION_RECEIPT_TYPE.type_id,
+            mismatch_type=BatchPlanBindingMismatch,
+            program=program,
+            plan=plan,
+            contract_ref=contract_ref,
+            payload_ref=payload_ref,
+            payload=payload,
+            project_scope=project_scope,
+            catalog=catalog,
+            deployment_catalog_digest=deployment_catalog_digest,
+            binding=binding,
+            expected_interpreter_profile_digest=(
+                successor_submission_interpreter_profile_digest()
+            ),
+        )
+        if isinstance(binding_result, Failure):
             return InterpreterFailure(
                 code="ASSIGNMENT_BINDING_MISMATCH",
-                message=str(exc),
+                message=str((binding_result.context or {})["public_message"]),
                 retryable=False,
             )
         accepted = tuple(

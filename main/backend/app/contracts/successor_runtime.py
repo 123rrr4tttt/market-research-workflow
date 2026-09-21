@@ -14,7 +14,150 @@ from __future__ import annotations
 import itertools
 from typing import Annotated, Any, Literal
 
+from functorial_kit import Failure
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+from mrw_functorial_kit.core.application_failure_semantics import successor_runtime_dto_contract_failures
+
+
+_SUCCESSOR_FAILURE_WITNESS = "test:test_w01_contract_failures"
+
+
+def _successor_contract_failure(code: str, message: str, *, operation: str) -> Failure:
+    return successor_runtime_dto_contract_failures.fail(
+        code,
+        message,
+        {
+            "boundary_class": "PURE_CONTRACT_FAILURE",
+            "failure_family": successor_runtime_dto_contract_failures.name,
+            "owner": "app.contracts.successor_runtime",
+            "operation": operation,
+            "public_exception": "ValueError",
+            "public_message": message,
+            "site": "app.contracts.successor_runtime",
+            "witness": _SUCCESSOR_FAILURE_WITNESS,
+        },
+    )
+
+
+def _lift_successor_contract_failure(failure: Failure | None) -> None:
+    if failure is not None:
+        # kit:boundary owner=app.contracts.successor_runtime.pydantic_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor_runtime.dto.contract_failure witness=test:test_w01_contract_failures
+        raise ValueError(failure.message)
+
+
+def _validate_command_payload_kind(
+    command_kind: str,
+    payload_kind: str,
+    *,
+    operation: str,
+) -> Failure | None:
+    if command_kind != payload_kind:
+        return _successor_contract_failure(
+            "command_payload_kind_mismatch",
+            "command_kind must match the typed payload_kind",
+            operation=operation,
+        )
+    return None
+
+
+def _validate_query_params_kind(
+    query_kind: str,
+    params_kind: str,
+    *,
+    operation: str,
+) -> Failure | None:
+    if query_kind != params_kind:
+        return _successor_contract_failure(
+            "query_params_kind_mismatch",
+            "query_kind must match the typed params_kind",
+            operation=operation,
+        )
+    return None
+
+
+def _validate_v2_envelope(
+    status: str,
+    data: dict[str, Any] | None,
+    error: object | None,
+) -> Failure | None:
+    data_required = status in {"ok", "waiting"}
+    error_required = status in {"blocked", "unavailable", "conflict", "error"}
+    operation = "SuccessorRuntimeEnvelopeV2DTO._validate_envelope"
+    if data_required and data is None:
+        return _successor_contract_failure(
+            "successful_envelope_data_missing",
+            "ok/waiting envelope requires data",
+            operation=operation,
+        )
+    if data_required and error is not None:
+        return _successor_contract_failure(
+            "successful_envelope_error_present",
+            "ok/waiting envelope must not carry error details",
+            operation=operation,
+        )
+    if error_required and error is None:
+        return _successor_contract_failure(
+            "error_envelope_details_missing",
+            "error-family envelope requires typed error details",
+            operation=operation,
+        )
+    if error_required and data is not None:
+        return _successor_contract_failure(
+            "error_envelope_data_present",
+            "error-family envelope must not carry data",
+            operation=operation,
+        )
+    return None
+
+
+def _validate_legacy_envelope(
+    status: str,
+    data: dict[str, Any] | None,
+    error: object | None,
+) -> Failure | None:
+    operation = "SuccessorRuntimeApiEnvelopeDTO._validate_envelope"
+    if status == "error" and error is None:
+        return _successor_contract_failure(
+            "error_envelope_details_missing",
+            "error envelope requires error details",
+            operation=operation,
+        )
+    if status != "error" and error is not None:
+        return _successor_contract_failure(
+            "non_error_envelope_details_present",
+            "non-error envelope must not carry error details",
+            operation=operation,
+        )
+    return None
+
+
+def _validate_sse_observation(
+    after_seq: int,
+    events: list[Any],
+    next_seq: int,
+) -> Failure | None:
+    seqs = [event.seq for event in events]
+    operation = "SuccessorRuntimeSseObservationDTO._validate_after_seq_exclusive"
+    if any(seq <= after_seq for seq in seqs):
+        return _successor_contract_failure(
+            "sse_event_not_after_cursor",
+            "event seq must be strictly greater than after_seq",
+            operation=operation,
+        )
+    if any(current <= previous for previous, current in itertools.pairwise(seqs)):
+        return _successor_contract_failure(
+            "sse_events_not_strictly_ascending",
+            "event seqs must be unique and strictly ascending",
+            operation=operation,
+        )
+    expected_next = seqs[-1] if seqs else after_seq
+    if next_seq != expected_next:
+        return _successor_contract_failure(
+            "sse_next_seq_mismatch",
+            "next_seq must match the last event seq",
+            operation=operation,
+        )
+    return None
 
 API_STATUS_KINDS: tuple[str, ...] = (
     "ok",
@@ -264,8 +407,13 @@ class SuccessorRuntimeCommandV2DTO(BaseModel):
 
     @model_validator(mode="after")
     def _validate_discriminated_payload(self) -> SuccessorRuntimeCommandV2DTO:
-        if self.command_kind != self.payload.payload_kind:
-            raise ValueError("command_kind must match the typed payload_kind")
+        _lift_successor_contract_failure(
+            _validate_command_payload_kind(
+                self.command_kind,
+                self.payload.payload_kind,
+                operation="SuccessorRuntimeCommandV2DTO._validate_discriminated_payload",
+            )
+        )
         return self
 
 
@@ -282,8 +430,13 @@ class SuccessorRuntimeQueryV2DTO(BaseModel):
 
     @model_validator(mode="after")
     def _validate_discriminated_params(self) -> SuccessorRuntimeQueryV2DTO:
-        if self.query_kind != self.params.params_kind:
-            raise ValueError("query_kind must match the typed params_kind")
+        _lift_successor_contract_failure(
+            _validate_query_params_kind(
+                self.query_kind,
+                self.params.params_kind,
+                operation="SuccessorRuntimeQueryV2DTO._validate_discriminated_params",
+            )
+        )
         return self
 
 
@@ -310,21 +463,9 @@ class SuccessorRuntimeEnvelopeV2DTO(BaseModel):
 
     @model_validator(mode="after")
     def _validate_envelope(self) -> SuccessorRuntimeEnvelopeV2DTO:
-        data_required = self.status in {"ok", "waiting"}
-        error_required = self.status in {
-            "blocked",
-            "unavailable",
-            "conflict",
-            "error",
-        }
-        if data_required and self.data is None:
-            raise ValueError("ok/waiting envelope requires data")
-        if data_required and self.error is not None:
-            raise ValueError("ok/waiting envelope must not carry error details")
-        if error_required and self.error is None:
-            raise ValueError("error-family envelope requires typed error details")
-        if error_required and self.data is not None:
-            raise ValueError("error-family envelope must not carry data")
+        _lift_successor_contract_failure(
+            _validate_v2_envelope(self.status, self.data, self.error)
+        )
         return self
 
 
@@ -364,8 +505,13 @@ class SuccessorRuntimeCommandDTO(BaseModel):
 
     @model_validator(mode="after")
     def _validate_discriminated_payload(self) -> SuccessorRuntimeCommandDTO:
-        if self.command_kind != self.payload.payload_kind:
-            raise ValueError("command_kind must match the typed payload_kind")
+        _lift_successor_contract_failure(
+            _validate_command_payload_kind(
+                self.command_kind,
+                self.payload.payload_kind,
+                operation="SuccessorRuntimeCommandDTO._validate_discriminated_payload",
+            )
+        )
         return self
 
 
@@ -423,8 +569,13 @@ class SuccessorRuntimeQueryDTO(BaseModel):
 
     @model_validator(mode="after")
     def _validate_discriminated_params(self) -> SuccessorRuntimeQueryDTO:
-        if self.query_kind != self.params.params_kind:
-            raise ValueError("query_kind must match the typed params_kind")
+        _lift_successor_contract_failure(
+            _validate_query_params_kind(
+                self.query_kind,
+                self.params.params_kind,
+                operation="SuccessorRuntimeQueryDTO._validate_discriminated_params",
+            )
+        )
         return self
 
 
@@ -447,10 +598,9 @@ class SuccessorRuntimeApiEnvelopeDTO(BaseModel):
 
     @model_validator(mode="after")
     def _validate_envelope(self) -> SuccessorRuntimeApiEnvelopeDTO:
-        if self.status == "error" and self.error is None:
-            raise ValueError("error envelope requires error details")
-        if self.status != "error" and self.error is not None:
-            raise ValueError("non-error envelope must not carry error details")
+        _lift_successor_contract_failure(
+            _validate_legacy_envelope(self.status, self.data, self.error)
+        )
         return self
 
 
@@ -487,12 +637,7 @@ class SuccessorRuntimeSseObservationDTO(BaseModel):
     def _validate_after_seq_exclusive(
         self,
     ) -> SuccessorRuntimeSseObservationDTO:
-        seqs = [event.seq for event in self.events]
-        if any(seq <= self.after_seq for seq in seqs):
-            raise ValueError("event seq must be strictly greater than after_seq")
-        if any(current <= previous for previous, current in itertools.pairwise(seqs)):
-            raise ValueError("event seqs must be unique and strictly ascending")
-        expected_next = seqs[-1] if seqs else self.after_seq
-        if self.next_seq != expected_next:
-            raise ValueError("next_seq must match the last event seq")
+        _lift_successor_contract_failure(
+            _validate_sse_observation(self.after_seq, self.events, self.next_seq)
+        )
         return self

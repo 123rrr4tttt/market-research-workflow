@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import unittest
 from types import SimpleNamespace
@@ -36,7 +37,7 @@ class AgentCoreToolCallingQualityUnitTest(unittest.TestCase):
 
         rows = {row["provider_key"]: row for row in contract["provider_tool_call_contracts"]}
         self.assertEqual(set(rows), {"fake_core_provider", "json_core_provider", "native_tool_calling_provider"})
-        for provider_key, row in rows.items():
+        for _provider_key, row in rows.items():
             self.assertEqual(row["fixture_status"], "ready")
             self.assertEqual(row["step_type"], "tool_calls")
             self.assertEqual(row["tool_call_contract"]["contract_version"], "agent_core.tool_call_shape.v1")
@@ -115,6 +116,41 @@ class AgentCoreToolCallingQualityUnitTest(unittest.TestCase):
         self.assertEqual(call.tool_name, "agent.tool_calling_quality.echo")
         self.assertEqual(call.arguments, {"query": "native-openai-shape"})
 
+    def test_native_tool_collision_suffix_keeps_sha1_truncated_compatibility(self) -> None:
+        long_slash = "tool/" + "a" * 60
+        long_dot = "tool." + "a" * 60
+        truncated_base = "tool_" + "a" * 43
+        expected = f"{truncated_base}_{hashlib.sha1(long_dot.encode('utf-8')).hexdigest()[:8]}"
+
+        native_tools, name_map = NativeToolCallingCoreProvider._to_native_tools(
+            [
+                CoreToolSpec(name=long_slash, description_for_model="slash", input_schema=None),
+                CoreToolSpec(name=long_dot, description_for_model="dot", input_schema=None),
+            ]
+        )
+
+        assert native_tools[0]["function"]["name"] == _native_tool_name(long_slash)
+        assert native_tools[1]["function"]["name"] == expected
+        assert name_map[_native_tool_name(long_slash)] == long_slash
+        assert name_map[expected] == long_dot
+
+    def test_native_tool_collisions_use_distinct_nonsecurity_sha1_suffixes(self) -> None:
+        slash_name = "tool/alpha1"
+        dot_name = "tool.alpha1"
+        dot_suffix = hashlib.sha1(dot_name.encode("utf-8")).hexdigest()[:8]
+
+        native_tools, name_map = NativeToolCallingCoreProvider._to_native_tools(
+            [
+                CoreToolSpec(name=slash_name, description_for_model="slash", input_schema=None),
+                CoreToolSpec(name=dot_name, description_for_model="dot", input_schema=None),
+            ]
+        )
+        names = [row["function"]["name"] for row in native_tools]
+
+        assert names == ["tool_alpha1", f"tool_alpha1_{dot_suffix}"]
+        assert len(set(names)) == 2
+        assert name_map == {names[0]: slash_name, names[1]: dot_name}
+
     def test_repo_local_live_provider_shim_records_native_tool_calling_closure_shape(self) -> None:
         evidence = build_repo_local_live_provider_shim_evidence()
 
@@ -134,7 +170,7 @@ class AgentCoreToolCallingQualityUnitTest(unittest.TestCase):
 
 
 class _OpenAiFunctionToolCallChat:
-    def bind_tools(self, tools: Any) -> "_OpenAiFunctionToolCallChat":
+    def bind_tools(self, tools: Any) -> _OpenAiFunctionToolCallChat:
         self.bound_tools = list(tools or [])
         return self
 

@@ -1,0 +1,39 @@
+{
+  "schema_version": "mrw.formal_release.stage3.evidence_index.v2",
+  "record_id": "stage3-v4-evidence-index-20260906-v2",
+  "stage_id": "STAGE_3",
+  "status": "REBUILD_REQUIRED",
+  "authoritative": false,
+  "candidate_commit": "e1aa59708a22e4238c4d9beaf7b7bd2d2095d483",
+  "candidate_tree": "d2003fbb8e54c8dd743fa4e84907a8a978ef5107",
+  "current_evidence_paths_and_sha256": [
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/preconditions.static.v1.json", "sha256": "341aad887b8b1c81b0c0b409e83ace29e6fc772103e592d504290af1b9eced6f"},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/fresh-r1-r2-r3.v1.json", "sha256": "db5dd0b7b1f01a88de997a39495702df0735df16f5650598fed5e03dcb4a69ec"},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/test-gates.rebuild-required.v2.json", "sha256": "d5f6329eae1f05f6be4e94bdd51dc0042af5f093bc43594e60b842c479a1125a"},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/release-evidence-manifest.rebuild-required.v2.json", "sha256": "bc15bfada25c463583eaff84f78f03de434227e262c53872cbb6f36a43c1ad7f"},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/release-evidence-validation.rebuild-required.v2.json", "sha256": "75d537f42485f91cbfb118245abc17d5f8edc45b36bad6ddd5d8a1bf88064376"},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/cleanup.v2.json", "sha256": "996d976e023c96a6c1834007961c4f7e7b90f25feb0019732e93a1c76e0b406a"},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/stage3-candidate-artifact.rebuild-required.v3.json", "sha256": "347f26bb6a730bb1fdc98224634a4c414a96da06e3ece598dd19b99bbc25080c"},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/receipts/backend-unit-attempt1-missing-ci-env.log", "sha256": "c9d5461f589a6b6545117f3ad79c26910e67acc03db3c0727b5e7b062ec2b222"},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/receipts/backend-unit-attempt2-ci-env.log", "sha256": "6b7700ca2b8e1db75996e44bd2e376ca7c25f86e5a6cbf9798b14c1d96e39c49"},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/receipts/backend-unit-import-gap-diagnostic.log", "sha256": "d251cbc3ebd5bc95fc743792dc9a26a0aa6b3a55d31273efd9341f5f81e63e76"},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/receipts/fresh-r1.log", "sha256": "79f7301e0c1e08553982ccc5c88f5854113825c81019ef6244da6bbd025260f0"},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/receipts/fresh-r1.v1.json", "sha256": "79f7301e0c1e08553982ccc5c88f5854113825c81019ef6244da6bbd025260f0"},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/receipts/fresh-r2-focused.log", "sha256": "185fee9ff5fe0f86ce14ba73a8a6f0801271e441c85f8c36f5c8d80abd930bab"},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/receipts/fresh-r3.log", "sha256": "86c67a4532a5a125f65c8f7405bd2b4b775472112e1577d85355fe6001ff5383"},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/receipts/fresh-r3.v1.json", "sha256": "86c67a4532a5a125f65c8f7405bd2b4b775472112e1577d85355fe6001ff5383"},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/receipts/stage1-historical-checker.log", "sha256": "c1477c7730428bf854fb9c662324b85510ed4345fd15eab6975fe92b251ffc9c"},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/receipts/stage1-r2-remediation-checker.log", "sha256": "874c62a1d5f5c8493382dd65e41058d59b864c64638e14ff7dc18ec7dca3e080"},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/receipts/workflow-fail-closed.log", "sha256": "ac7ee2c43368e57d190c6ac089b2190a1f05864eabdfdc3e6d564b749e85fcc3"}
+  ],
+  "superseded_retained_evidence": [
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/test-gates.rebuild-required.v1.json", "sha256": "8f60b94f568f275ff291b77e7ff12c8e3b018339f5a3fa0612b5ce8927d4bb87", "reason": "Replaced create-only by v2 to close sub-status vocabulary and skip/deselect attribution."},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/release-evidence-manifest.rebuild-required.v1.json", "sha256": "46b75e445cd7b2f12fbd9899045884da8a369599b44df82fd5ab5a8eebf82c21", "reason": "Replaced create-only by v2 to bind corrected test-gates v2."},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/release-evidence-validation.rebuild-required.v1.json", "sha256": "9b6b68d354f52f6bf4e834611720ec842bdf6153a871207ca71c9181ca84d44a", "reason": "Replaced create-only by v2 after candidate-local validator re-execution."},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/cleanup.v1.json", "sha256": "ca97abee94b5a809d429a00a397711a364d75d7e37fa768ac33b1b13e3b81bd7", "reason": "Replaced create-only by v2 to include the validator re-execution clone cleanup."},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/stage3-candidate-artifact.rebuild-required.v2.json", "sha256": "2f7c117f2ee2913a3d357c36afe971a5d0dbac5a5debe824181f2d1ac0f92690", "reason": "Replaced create-only by v3 to normalize child statuses and bind corrected evidence."},
+    {"path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/evidence-index.v1.json", "sha256": "05279c4d9417696e0667a121fc29bd5b50e15fd92821566c40e2d5832d595653", "reason": "Replaced create-only by this v2 index."}
+  ],
+  "external_effects": [],
+  "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE"
+}

@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from .codec import finalize_digest
+from .codec import _failure, _raise_failure, finalize_digest
 
 __all__ = ["CLAIM_LIFECYCLE_STATES", "Claim", "Gap"]
 
@@ -30,9 +30,25 @@ class Claim:
 
     def __post_init__(self) -> None:
         if self.lifecycle_state not in CLAIM_LIFECYCLE_STATES:
-            raise ValueError(f"invalid claim lifecycle state: {self.lifecycle_state}")
+            _raise_failure(
+                _failure(
+                    "CLAIM_INVALID",
+                    f"invalid claim lifecycle state: {self.lifecycle_state}",
+                    ValueError,
+                    site="Claim.lifecycle_state",
+                ),
+                ValueError,
+            )
         if not self.scope:
-            raise ValueError("claim scope is required")
+            _raise_failure(
+                _failure(
+                    "CLAIM_INVALID",
+                    "claim scope is required",
+                    ValueError,
+                    site="Claim.scope",
+                ),
+                ValueError,
+            )
         finalize_digest(self, "content_digest")
 
 
@@ -49,7 +65,23 @@ class Gap:
 
     def __post_init__(self) -> None:
         if not self.reopen_policy:
-            raise ValueError("gap reopen_policy is required")
+            _raise_failure(
+                _failure(
+                    "GAP_INVALID",
+                    "gap reopen_policy is required",
+                    ValueError,
+                    site="Gap.reopen_policy",
+                ),
+                ValueError,
+            )
         if not self.missing_evidence_or_decision:
-            raise ValueError("gap missing_evidence_or_decision is required")
+            _raise_failure(
+                _failure(
+                    "GAP_INVALID",
+                    "gap missing_evidence_or_decision is required",
+                    ValueError,
+                    site="Gap.missing_evidence_or_decision",
+                ),
+                ValueError,
+            )
         finalize_digest(self, "content_digest")

@@ -1,0 +1,114 @@
+{
+  "schema_version": "mrw.formal_release.stage3.test_gates.v2",
+  "record_id": "stage3-v4-test-gates-rebuild-required-20260906-v2",
+  "stage_id": "STAGE_3",
+  "candidate_generation": "V4_ADDITIVE_SUCCESSOR",
+  "status": "REBUILD_REQUIRED",
+  "authoritative": false,
+  "candidate_commit": "e1aa59708a22e4238c4d9beaf7b7bd2d2095d483",
+  "candidate_tree": "d2003fbb8e54c8dd743fa4e84907a8a978ef5107",
+  "required_gate": "backend-unit-check",
+  "exact_selector": "unit and not external and not flaky",
+  "attempts": [
+    {
+      "attempt": 1,
+      "command": "cd main/backend && PYTHONDONTWRITEBYTECODE=1 PYTHONHASHSEED=0 PYTEST_ADDOPTS='-p no:cacheprovider' /Users/wangyiliang/market-research-workflow/main/backend/.venv311/bin/python -m pytest -m 'unit and not external and not flaky' -q",
+      "environment": "existing Python 3.11 toolchain without workflow PYTHONPATH",
+      "exit_code": 2,
+      "status": "BLOCKED",
+      "reason": "The first attempt omitted the workflow-level candidate PYTHONPATH and therefore could not distinguish toolchain configuration from candidate closure.",
+      "exact_result": "collection interrupted with 292 errors; 1 skipped; 585 deselected; mrw_functorial_kit was not importable",
+      "evidence_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/receipts/backend-unit-attempt1-missing-ci-env.log",
+      "evidence_sha256": "c9d5461f589a6b6545117f3ad79c26910e67acc03db3c0727b5e7b062ec2b222"
+    },
+    {
+      "attempt": 2,
+      "command": "cd main/backend && PYTHONDONTWRITEBYTECODE=1 PYTHONHASHSEED=0 PYTHONPATH=/private/tmp/mrw-stage3-v4-primary-20260906t0329z/src PYTEST_ADDOPTS='-p no:cacheprovider' /Users/wangyiliang/market-research-workflow/main/backend/.venv311/bin/python -m pytest -m 'unit and not external and not flaky' -q",
+      "environment": "workflow-equivalent PYTHONPATH=<exact-v4>/src with Python 3.11.14 and PYTHONHASHSEED=0",
+      "exit_code": 2,
+      "status": "FAIL",
+      "reason": "The exact candidate tree does not contain modules imported by its backend application.",
+      "exact_result": "collection interrupted with 292 errors; 1 skipped; 585 deselected; imports require candidate-local mrw_functorial_kit.core.w07_semantics and mrw_functorial_kit.core.agent_service_semantics, but both modules are absent from the exact v4 tree",
+      "evidence_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/receipts/backend-unit-attempt2-ci-env.log",
+      "evidence_sha256": "6b7700ca2b8e1db75996e44bd2e376ca7c25f86e5a6cbf9798b14c1d96e39c49"
+    }
+  ],
+  "diagnosis": {
+    "failure_id": "stage3.v4.missing_mrw_functorial_core_modules",
+    "classification": "FROZEN_CANDIDATE_SOURCE_CLOSURE_FAILURE",
+    "owner": "STAGE_1_SOURCE_CLOSURE_AND_STAGE_2_ADDITIVE_SUCCESSOR",
+    "tracked_candidate_package_files": [
+      "src/mrw_functorial_kit/core/c7_semantics.py",
+      "src/mrw_functorial_kit/core/provider_port_failures.py",
+      "src/mrw_functorial_kit/core/w06_semantics.py"
+    ],
+    "required_but_absent_files": [
+      "src/mrw_functorial_kit/core/w07_semantics.py",
+      "src/mrw_functorial_kit/core/agent_service_semantics.py"
+    ],
+    "evidence_ref": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v4/receipts/backend-unit-import-gap-diagnostic.log",
+    "evidence_sha256": "d251cbc3ebd5bc95fc743792dc9a26a0aa6b3a55d31273efd9341f5f81e63e76",
+    "repair_requires_frozen_input_change": true,
+    "earliest_return_stage": "STAGE_1",
+    "successor_rebind_required": true,
+    "in_place_candidate_repair_forbidden": true
+  },
+  "warning_skip_deselect_inventory": {
+    "warnings": [],
+    "skips": [
+      {
+        "attempts": [1, 2],
+        "count_per_attempt": 1,
+        "identity": "UNKNOWN_NOT_EMITTED_BY_PYTEST_Q_DURING_COLLECTION_ABORT",
+        "reason": "The quiet pytest run reported one collection-time skip but did not emit its node identity before the 292-error collection abort.",
+        "owner": "backend-unit-check pytest collection",
+        "disposition": "RETAINED_AS_UNRESOLVED_ITEM_NOT_HIDDEN; no PASS claim depends on this skip"
+      }
+    ],
+    "deselects": [
+      {
+        "attempts": [1, 2],
+        "count_per_attempt": 585,
+        "identity": "MARKER_SELECTION_COHORT",
+        "selector": "unit and not external and not flaky",
+        "reason": "Pytest deselected collected tests outside the required backend unit deterministic marker expression before collection aborted.",
+        "owner": ".github/workflows/backend-tests.yml backend-unit-check selection policy",
+        "disposition": "EXPECTED_SELECTOR_EFFECT; individual node IDs were not emitted by pytest -q and are not represented as executed or passed"
+      }
+    ],
+    "collection_errors": [
+      {
+        "attempts": [1, 2],
+        "count_per_attempt": 292,
+        "identity": "FULL_NODE_LIST_IN_BOUND_LOGS",
+        "reason": "Candidate-local imports fail because w07_semantics.py and agent_service_semantics.py are absent from the exact v4 tree.",
+        "owner": "STAGE_1_SOURCE_CLOSURE_AND_STAGE_2_ADDITIVE_SUCCESSOR"
+      }
+    ],
+    "native_aborts": [],
+    "scanner_exceptions": [],
+    "canonical_candidate_non_evidence_execution": {
+      "classification": "WARNING",
+      "owner": "schema-analysis subagent",
+      "exact_result": "A read-only focused R2 pytest was executed once in the canonical v4 directory with PYTHONDONTWRITEBYTECODE=1 and cache disabled; it reported 9 passed and left candidate tracked/untracked status at 0.",
+      "disposition": "EXCLUDED_FROM_STAGE_3_FRESH_EVIDENCE"
+    }
+  },
+  "not_executed_due_to_stop_rule": [
+    {"family": "backend integration", "status": "UNEXECUTED"},
+    {"family": "backend core-business", "status": "UNEXECUTED"},
+    {"family": "schema and migration", "status": "UNEXECUTED"},
+    {"family": "successor-runtime", "status": "UNEXECUTED"},
+    {"family": "architecture, registry, law, exact-byte and negative/failure", "status": "UNEXECUTED"},
+    {"family": "PostgreSQL opt-in suites", "status": "UNEXECUTED"},
+    {"family": "frontend frozen install, lint, typecheck, build, component and e2e", "status": "UNEXECUTED"},
+    {"family": "Bandit, pip-audit, gitleaks, frontend dependency audit and image scan", "status": "UNEXECUTED"},
+    {"family": "Docker build and full-stack smoke", "status": "UNEXECUTED"},
+    {"family": "remote GitHub readback", "status": "UNEXECUTED"},
+    {"family": "artifact build and reproducibility", "status": "UNEXECUTED"},
+    {"family": "SBOM, provenance, signature and attestation verification", "status": "UNEXECUTED"},
+    {"family": "registry immutability readback", "status": "UNEXECUTED"}
+  ],
+  "external_effects": [],
+  "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE"
+}

@@ -1,0 +1,390 @@
+{
+  "generated_at": "2026-09-06T07:40:46.379965+00:00",
+  "status": "passed",
+  "python": "3.11.14",
+  "platform": "macOS-26.3-arm64-arm-64bit",
+  "packages": {
+    "lancedb": "0.24.2",
+    "pyarrow": "24.0.0"
+  },
+  "db_path": "/var/folders/ww/__28yy2d01n97fff8jhw9yxm0000gn/T/mrw-local-index-lancedb-runtime-opcp8jzn",
+  "out_dir": "/tmp/mrw-lancedb-vector-final.l6Kxyp/runtime",
+  "rerun_command": "main/backend/.venv311/bin/python ops/search-lab/scripts/local_index_lancedb_runtime_smoke.py --out-dir /tmp/mrw-lancedb-vector-final.l6Kxyp/runtime",
+  "blockers": [],
+  "upsert": {
+    "ok": true,
+    "chunk_count": 4,
+    "created_table": true,
+    "adapter": "lancedb",
+    "embedding_provider": "repo_local_token_hashing",
+    "embedding_model": "repo-local-token-hashing-v1",
+    "embedding_dim": 512,
+    "vector_version": "repo-local-live-v2"
+  },
+  "modes": {
+    "keyword": {
+      "query": "rare-lancedb-keyword-proof",
+      "expected_chunk_id": "chunk-keyword",
+      "expected_source_id": "source-keyword",
+      "latency_ms": 18.38,
+      "top_k": 1,
+      "top_chunk_id": "chunk-keyword",
+      "top_source_id": "source-keyword",
+      "top_score": 2.6520416736602783,
+      "executed_mode": "keyword",
+      "retrieval_mode": "keyword",
+      "trace": {
+        "adapter": "lancedb",
+        "requested_mode": "keyword",
+        "executed_mode": "keyword",
+        "query_family": "local_material",
+        "project_id": "runtime-smoke",
+        "source_id": "source-keyword",
+        "top_k": 3,
+        "embedding_provider": {
+          "provider_id": "repo_local_token_hashing",
+          "provider_family": "repo_local",
+          "model": "repo-local-token-hashing-v1",
+          "model_version": "2026-05-23.wave56",
+          "embedding_dim": 512,
+          "vector_version": "repo-local-live-v2",
+          "network_required": false
+        },
+        "embedding_provider_readback": {
+          "provider_id": "repo_local_token_hashing",
+          "provider_family": "repo_local",
+          "model": "repo-local-token-hashing-v1",
+          "model_version": "2026-05-23.wave56",
+          "embedding_dim": 512,
+          "vector_version": "repo-local-live-v2",
+          "network_required": false,
+          "status": "passed",
+          "executable": true,
+          "live_provider_verified": true,
+          "vector_count": 1,
+          "vectors": [
+            {
+              "text_digest": "755ea788065e033b",
+              "vector_digest": "2c5290b051b7f85c",
+              "embedding_dim": 512,
+              "norm": 1.0,
+              "non_zero_dimensions": 15
+            }
+          ],
+          "failures": []
+        },
+        "provider_live_verified": true
+      },
+      "results": [
+        {
+          "chunk_id": "chunk-keyword",
+          "document_id": "doc-keyword",
+          "project_id": "runtime-smoke",
+          "source_id": "source-keyword",
+          "title": "Keyword runtime proof",
+          "content": "rare-lancedb-keyword-proof appears in this real table row for FTS validation.",
+          "score": 2.6520416736602783,
+          "url": null,
+          "source_type": "material",
+          "metadata": {
+            "adapter": "lancedb",
+            "embedding_provider": "repo_local_token_hashing",
+            "embedding_model": "repo-local-token-hashing-v1",
+            "embedding_model_version": "2026-05-23.wave56",
+            "embedding_dim": 512,
+            "vector_version": "repo-local-live-v2"
+          },
+          "retrieval_mode": "keyword",
+          "retrieval_family": "local_index",
+          "trace": {
+            "adapter": "lancedb",
+            "requested_mode": "keyword",
+            "executed_mode": "keyword",
+            "query_family": "local_material",
+            "project_id": "runtime-smoke",
+            "source_id": "source-keyword",
+            "top_k": 3,
+            "embedding_provider": {
+              "provider_id": "repo_local_token_hashing",
+              "provider_family": "repo_local",
+              "model": "repo-local-token-hashing-v1",
+              "model_version": "2026-05-23.wave56",
+              "embedding_dim": 512,
+              "vector_version": "repo-local-live-v2",
+              "network_required": false
+            },
+            "embedding_provider_readback": {
+              "provider_id": "repo_local_token_hashing",
+              "provider_family": "repo_local",
+              "model": "repo-local-token-hashing-v1",
+              "model_version": "2026-05-23.wave56",
+              "embedding_dim": 512,
+              "vector_version": "repo-local-live-v2",
+              "network_required": false,
+              "status": "passed",
+              "executable": true,
+              "live_provider_verified": true,
+              "vector_count": 1,
+              "vectors": [
+                {
+                  "text_digest": "755ea788065e033b",
+                  "vector_digest": "2c5290b051b7f85c",
+                  "embedding_dim": 512,
+                  "norm": 1.0,
+                  "non_zero_dimensions": 15
+                }
+              ],
+              "failures": []
+            },
+            "provider_live_verified": true
+          }
+        }
+      ]
+    },
+    "vector": {
+      "query": "semantic vector target robotics benchmark",
+      "expected_chunk_id": "chunk-vector",
+      "expected_source_id": "source-vector",
+      "latency_ms": 7.52,
+      "top_k": 1,
+      "top_chunk_id": "chunk-vector",
+      "top_source_id": "source-vector",
+      "top_score": 0.0,
+      "executed_mode": "vector",
+      "retrieval_mode": "vector",
+      "trace": {
+        "adapter": "lancedb",
+        "requested_mode": "vector",
+        "executed_mode": "vector",
+        "query_family": "local_material",
+        "project_id": "runtime-smoke",
+        "source_id": "source-vector",
+        "top_k": 3,
+        "embedding_provider": {
+          "provider_id": "repo_local_token_hashing",
+          "provider_family": "repo_local",
+          "model": "repo-local-token-hashing-v1",
+          "model_version": "2026-05-23.wave56",
+          "embedding_dim": 512,
+          "vector_version": "repo-local-live-v2",
+          "network_required": false
+        },
+        "embedding_provider_readback": {
+          "provider_id": "repo_local_token_hashing",
+          "provider_family": "repo_local",
+          "model": "repo-local-token-hashing-v1",
+          "model_version": "2026-05-23.wave56",
+          "embedding_dim": 512,
+          "vector_version": "repo-local-live-v2",
+          "network_required": false,
+          "status": "passed",
+          "executable": true,
+          "live_provider_verified": true,
+          "vector_count": 1,
+          "vectors": [
+            {
+              "text_digest": "a815869d9b0d5260",
+              "vector_digest": "c1e9d0ee4af17cfd",
+              "embedding_dim": 512,
+              "norm": 1.0,
+              "non_zero_dimensions": 30
+            }
+          ],
+          "failures": []
+        },
+        "provider_live_verified": true
+      },
+      "results": [
+        {
+          "chunk_id": "chunk-vector",
+          "document_id": "doc-vector",
+          "project_id": "runtime-smoke",
+          "source_id": "source-vector",
+          "title": "Vector runtime proof",
+          "content": "A row for semantic vector target robotics benchmark validation.",
+          "score": 0.0,
+          "url": null,
+          "source_type": "material",
+          "metadata": {
+            "adapter": "lancedb",
+            "embedding_provider": "repo_local_token_hashing",
+            "embedding_model": "repo-local-token-hashing-v1",
+            "embedding_model_version": "2026-05-23.wave56",
+            "embedding_dim": 512,
+            "vector_version": "repo-local-live-v2"
+          },
+          "retrieval_mode": "vector",
+          "retrieval_family": "local_index",
+          "trace": {
+            "adapter": "lancedb",
+            "requested_mode": "vector",
+            "executed_mode": "vector",
+            "query_family": "local_material",
+            "project_id": "runtime-smoke",
+            "source_id": "source-vector",
+            "top_k": 3,
+            "embedding_provider": {
+              "provider_id": "repo_local_token_hashing",
+              "provider_family": "repo_local",
+              "model": "repo-local-token-hashing-v1",
+              "model_version": "2026-05-23.wave56",
+              "embedding_dim": 512,
+              "vector_version": "repo-local-live-v2",
+              "network_required": false
+            },
+            "embedding_provider_readback": {
+              "provider_id": "repo_local_token_hashing",
+              "provider_family": "repo_local",
+              "model": "repo-local-token-hashing-v1",
+              "model_version": "2026-05-23.wave56",
+              "embedding_dim": 512,
+              "vector_version": "repo-local-live-v2",
+              "network_required": false,
+              "status": "passed",
+              "executable": true,
+              "live_provider_verified": true,
+              "vector_count": 1,
+              "vectors": [
+                {
+                  "text_digest": "a815869d9b0d5260",
+                  "vector_digest": "c1e9d0ee4af17cfd",
+                  "embedding_dim": 512,
+                  "norm": 1.0,
+                  "non_zero_dimensions": 30
+                }
+              ],
+              "failures": []
+            },
+            "provider_live_verified": true
+          }
+        }
+      ]
+    },
+    "hybrid": {
+      "query": "hybrid retrieval fusion robotics policy",
+      "expected_chunk_id": "chunk-hybrid",
+      "expected_source_id": "source-hybrid",
+      "latency_ms": 12.06,
+      "top_k": 1,
+      "top_chunk_id": "chunk-hybrid",
+      "top_source_id": "source-hybrid",
+      "top_score": 0.032786883413791656,
+      "executed_mode": "hybrid",
+      "retrieval_mode": "hybrid",
+      "trace": {
+        "adapter": "lancedb",
+        "requested_mode": "hybrid",
+        "executed_mode": "hybrid",
+        "query_family": "local_material",
+        "project_id": "runtime-smoke",
+        "source_id": "source-hybrid",
+        "top_k": 3,
+        "embedding_provider": {
+          "provider_id": "repo_local_token_hashing",
+          "provider_family": "repo_local",
+          "model": "repo-local-token-hashing-v1",
+          "model_version": "2026-05-23.wave56",
+          "embedding_dim": 512,
+          "vector_version": "repo-local-live-v2",
+          "network_required": false
+        },
+        "embedding_provider_readback": {
+          "provider_id": "repo_local_token_hashing",
+          "provider_family": "repo_local",
+          "model": "repo-local-token-hashing-v1",
+          "model_version": "2026-05-23.wave56",
+          "embedding_dim": 512,
+          "vector_version": "repo-local-live-v2",
+          "network_required": false,
+          "status": "passed",
+          "executable": true,
+          "live_provider_verified": true,
+          "vector_count": 1,
+          "vectors": [
+            {
+              "text_digest": "b80f9ebd43f2f4f0",
+              "vector_digest": "ea903ea01f78922b",
+              "embedding_dim": 512,
+              "norm": 1.0,
+              "non_zero_dimensions": 29
+            }
+          ],
+          "failures": []
+        },
+        "provider_live_verified": true
+      },
+      "results": [
+        {
+          "chunk_id": "chunk-hybrid",
+          "document_id": "doc-hybrid",
+          "project_id": "runtime-smoke",
+          "source_id": "source-hybrid",
+          "title": "Hybrid runtime proof",
+          "content": "hybrid retrieval fusion robotics policy appears in the text and uses a matching vector.",
+          "score": 0.032786883413791656,
+          "url": null,
+          "source_type": "material",
+          "metadata": {
+            "adapter": "lancedb",
+            "embedding_provider": "repo_local_token_hashing",
+            "embedding_model": "repo-local-token-hashing-v1",
+            "embedding_model_version": "2026-05-23.wave56",
+            "embedding_dim": 512,
+            "vector_version": "repo-local-live-v2"
+          },
+          "retrieval_mode": "hybrid",
+          "retrieval_family": "local_index",
+          "trace": {
+            "adapter": "lancedb",
+            "requested_mode": "hybrid",
+            "executed_mode": "hybrid",
+            "query_family": "local_material",
+            "project_id": "runtime-smoke",
+            "source_id": "source-hybrid",
+            "top_k": 3,
+            "embedding_provider": {
+              "provider_id": "repo_local_token_hashing",
+              "provider_family": "repo_local",
+              "model": "repo-local-token-hashing-v1",
+              "model_version": "2026-05-23.wave56",
+              "embedding_dim": 512,
+              "vector_version": "repo-local-live-v2",
+              "network_required": false
+            },
+            "embedding_provider_readback": {
+              "provider_id": "repo_local_token_hashing",
+              "provider_family": "repo_local",
+              "model": "repo-local-token-hashing-v1",
+              "model_version": "2026-05-23.wave56",
+              "embedding_dim": 512,
+              "vector_version": "repo-local-live-v2",
+              "network_required": false,
+              "status": "passed",
+              "executable": true,
+              "live_provider_verified": true,
+              "vector_count": 1,
+              "vectors": [
+                {
+                  "text_digest": "b80f9ebd43f2f4f0",
+                  "vector_digest": "ea903ea01f78922b",
+                  "embedding_dim": 512,
+                  "norm": 1.0,
+                  "non_zero_dimensions": 29
+                }
+              ],
+              "failures": []
+            },
+            "provider_live_verified": true
+          }
+        }
+      ]
+    }
+  },
+  "assertions": [
+    "lancedb and pyarrow importable",
+    "real LanceDB table created through LanceDBLocalIndexAdapter",
+    "project_id and source_id filters applied through LanceDB where predicate",
+    "keyword, vector, and hybrid modes each returned the expected top row without fallback"
+  ],
+  "duration_ms": 313.41
+}

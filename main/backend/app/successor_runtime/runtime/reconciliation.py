@@ -10,6 +10,8 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Protocol
 
+from functorial_kit import Failure
+
 from pydantic import Field, model_validator
 
 from .assignments import (
@@ -21,10 +23,40 @@ from .assignments import (
 )
 from .recovery import NonStartProof, authorize_successor_attempt
 from .transitions import EffectDisposition
+from .failure_policy import raise_runtime_failure, runtime_failure
 
 
 class ReconciliationError(RuntimeError):
     """An exact recovery binding or authoritative observation is invalid."""
+
+
+def _reconciliation_failure(
+    code: str,
+    message: object,
+    exception_type: type[Exception],
+    *,
+    site: str,
+) -> Failure:
+    """Create one closed reconciliation failure before ABI lifting."""
+
+    return runtime_failure(code, message, exception_type, site=site)
+
+
+def _raise_reconciliation_failure(
+    code: str,
+    message: object,
+    exception_type: type[Exception],
+    *,
+    site: str,
+    cause: BaseException | None = None,
+) -> None:
+    """Lift typed reconciliation evidence to the existing exception ABI."""
+
+    raise_runtime_failure(
+        _reconciliation_failure(code, message, exception_type, site=site),
+        exception_type,
+        cause=cause,
+    )
 
 
 class ReconciliationState(StrEnum):
@@ -65,11 +97,26 @@ class AuthoritativeEffectReadback(FrozenContract):
         if self.disposition is EffectDisposition.SUCCEEDED and (
             not self.provider_locator or not self.receipt_digest
         ):
-            raise ValueError("SUCCEEDED readback requires provider locator and receipt")
+            _raise_reconciliation_failure(
+                "RECONCILIATION_READBACK_INVALID",
+                "SUCCEEDED readback requires provider locator and receipt",
+                ValueError,
+                site="runtime.reconciliation.readback.success",
+            )
         if self.disposition is EffectDisposition.FAILED and not self.failure_digest:
-            raise ValueError("FAILED readback requires failure digest")
+            _raise_reconciliation_failure(
+                "RECONCILIATION_READBACK_INVALID",
+                "FAILED readback requires failure digest",
+                ValueError,
+                site="runtime.reconciliation.readback.failure",
+            )
         if self.disposition is EffectDisposition.NOT_STARTED:
-            raise ValueError("NOT_STARTED requires a separate NonStartProof")
+            _raise_reconciliation_failure(
+                "RECONCILIATION_READBACK_INVALID",
+                "NOT_STARTED requires a separate NonStartProof",
+                ValueError,
+                site="runtime.reconciliation.readback.not_started",
+            )
         return self
 
 
@@ -106,8 +153,11 @@ class ReconciliationResult(FrozenContract):
                 or self.non_start_proof is not None
                 or self.wait_reason is not None
             ):
-                raise ValueError(
-                    "RESOLVED reconciliation requires exact terminal readback"
+                _raise_reconciliation_failure(
+                    "RECONCILIATION_RESULT_INVALID",
+                    "RESOLVED reconciliation requires exact terminal readback",
+                    ValueError,
+                    site="runtime.reconciliation.result.resolved",
                 )
         elif self.state is ReconciliationState.NOT_STARTED_PROVEN:
             if (
@@ -117,7 +167,12 @@ class ReconciliationResult(FrozenContract):
                 or self.readback is not None
                 or self.wait_reason is not None
             ):
-                raise ValueError("NOT_STARTED_PROVEN requires exact proof")
+                _raise_reconciliation_failure(
+                    "RECONCILIATION_RESULT_INVALID",
+                    "NOT_STARTED_PROVEN requires exact proof",
+                    ValueError,
+                    site="runtime.reconciliation.result.not_started",
+                )
         elif self.state is ReconciliationState.WAITING and (
             self.disposition is not EffectDisposition.OUTCOME_UNKNOWN
             or not self.wait_reason
@@ -131,8 +186,11 @@ class ReconciliationResult(FrozenContract):
                 )
             )
         ):
-            raise ValueError(
-                "WAITING reconciliation requires exact OUTCOME_UNKNOWN evidence"
+            _raise_reconciliation_failure(
+                "RECONCILIATION_RESULT_INVALID",
+                "WAITING reconciliation requires exact OUTCOME_UNKNOWN evidence",
+                ValueError,
+                site="runtime.reconciliation.result.waiting",
             )
         return self
 
@@ -157,14 +215,20 @@ class ReconciliationHandlerOutcome(FrozenContract):
             and self.result.disposition is EffectDisposition.SUCCEEDED
         )
         if resolved_success and self.output_digest is None:
-            raise ValueError(
-                "resolved successful reconciliation requires output_digest"
+            _raise_reconciliation_failure(
+                "RECONCILIATION_RESULT_INVALID",
+                "resolved successful reconciliation requires output_digest",
+                ValueError,
+                site="runtime.reconciliation.handler_output.success",
             )
         if not resolved_success and (
             self.output_digest is not None or self.receipt_ref is not None
         ):
-            raise ValueError(
-                "only resolved successful reconciliation may bind output or receipt"
+            _raise_reconciliation_failure(
+                "RECONCILIATION_RESULT_INVALID",
+                "only resolved successful reconciliation may bind output or receipt",
+                ValueError,
+                site="runtime.reconciliation.handler_output.binding",
             )
         return self
 
@@ -172,7 +236,7 @@ class ReconciliationHandlerOutcome(FrozenContract):
 class EffectReconciler:
     """Resolve only through authoritative readback or exact non-start proof."""
 
-    def reconcile(
+    def _reconcile_impl(
         self,
         *,
         assignment: RuntimeAssignment,
@@ -182,11 +246,19 @@ class EffectReconciler:
         self._require_exact_recovery_binding(assignment, attempt, interpreter)
         readback = interpreter.readback(attempt)
         if not isinstance(readback, AuthoritativeEffectReadback):
-            raise ReconciliationError(
-                "interpreter readback did not return authoritative typed evidence"
+            _raise_reconciliation_failure(
+                "RECONCILIATION_READBACK_INVALID",
+                "interpreter readback did not return authoritative typed evidence",
+                ReconciliationError,
+                site="runtime.reconciliation.readback.type",
             )
         if readback.attempt_id != attempt.attempt_id:
-            raise ReconciliationError("readback is bound to a different attempt")
+            _raise_reconciliation_failure(
+                "RECONCILIATION_READBACK_INVALID",
+                "readback is bound to a different attempt",
+                ReconciliationError,
+                site="runtime.reconciliation.readback.attempt",
+            )
         if readback.disposition in {
             EffectDisposition.SUCCEEDED,
             EffectDisposition.FAILED,
@@ -205,7 +277,60 @@ class EffectReconciler:
             wait_reason=readback.reason or "AUTHORITATIVE_OUTCOME_UNRESOLVED",
         )
 
-    def prove_non_start(
+    def reconcile_result(
+        self,
+        *,
+        assignment: RuntimeAssignment,
+        attempt: EffectAttemptObservation,
+        interpreter: ReadbackInterpreter,
+    ) -> ReconciliationResult | Failure:
+        """Return authoritative reconciliation evidence or a typed failure."""
+
+        try:
+            return self._reconcile_impl(
+                assignment=assignment,
+                attempt=attempt,
+                interpreter=interpreter,
+            )
+        except ReconciliationError as exc:
+            return _reconciliation_failure(
+                "RECONCILIATION_BINDING_REJECTED",
+                str(exc),
+                ReconciliationError,
+                site="runtime.reconciliation.reconcile",
+            )
+        except Exception as exc:  # noqa: BLE001 - malformed readback is typed
+            return _reconciliation_failure(
+                "RECONCILIATION_READBACK_INVALID",
+                str(exc),
+                type(exc) if isinstance(exc, Exception) else RuntimeError,
+                site="runtime.reconciliation.reconcile.readback",
+            )
+
+    def reconcile(
+        self,
+        *,
+        assignment: RuntimeAssignment,
+        attempt: EffectAttemptObservation,
+        interpreter: ReadbackInterpreter,
+    ) -> ReconciliationResult:
+        """Legacy exception ABI over :meth:`reconcile_result`."""
+
+        result = self.reconcile_result(
+            assignment=assignment,
+            attempt=attempt,
+            interpreter=interpreter,
+        )
+        if isinstance(result, Failure):
+            exception_type: type[Exception] = (
+                ReconciliationError
+                if result.code == "RECONCILIATION_BINDING_REJECTED"
+                else ValueError
+            )
+            raise_runtime_failure(result, exception_type)
+        return result
+
+    def _prove_non_start_impl(
         self,
         *,
         assignment: RuntimeAssignment,
@@ -229,7 +354,13 @@ class EffectReconciler:
                 proof=proof,
             )
         except ValueError as exc:
-            raise ReconciliationError(str(exc)) from exc
+            _raise_reconciliation_failure(
+                "NON_START_PROOF_INVALID",
+                str(exc),
+                ReconciliationError,
+                site="runtime.reconciliation.non_start.authorize",
+                cause=exc,
+            )
         expected = {
             "interpreter_id": attempt.interpreter_id,
             "interpreter_version": attempt.interpreter_version,
@@ -241,8 +372,11 @@ class EffectReconciler:
         actual = proof.model_dump(mode="python")
         drift = tuple(key for key, value in expected.items() if actual[key] != value)
         if drift:
-            raise ReconciliationError(
-                "NonStartProof identity drift: " + ", ".join(drift)
+            _raise_reconciliation_failure(
+                "NON_START_PROOF_INVALID",
+                "NonStartProof identity drift: " + ", ".join(drift),
+                ReconciliationError,
+                site="runtime.reconciliation.non_start.identity",
             )
         return ReconciliationResult(
             state=ReconciliationState.NOT_STARTED_PROVEN,
@@ -251,6 +385,59 @@ class EffectReconciler:
             non_start_proof=proof,
         )
 
+    def prove_non_start_result(
+        self,
+        *,
+        assignment: RuntimeAssignment,
+        attempt: EffectAttemptObservation,
+        interpreter: ReadbackInterpreter,
+    ) -> ReconciliationResult | Failure:
+        """Return an exact non-start proof or a typed failure."""
+
+        try:
+            return self._prove_non_start_impl(
+                assignment=assignment,
+                attempt=attempt,
+                interpreter=interpreter,
+            )
+        except ReconciliationError as exc:
+            return _reconciliation_failure(
+                "RECONCILIATION_BINDING_REJECTED",
+                str(exc),
+                ReconciliationError,
+                site="runtime.reconciliation.prove_non_start",
+            )
+        except Exception as exc:  # noqa: BLE001 - proof validation is typed
+            return _reconciliation_failure(
+                "NON_START_PROOF_INVALID",
+                str(exc),
+                type(exc) if isinstance(exc, Exception) else RuntimeError,
+                site="runtime.reconciliation.prove_non_start.proof",
+            )
+
+    def prove_non_start(
+        self,
+        *,
+        assignment: RuntimeAssignment,
+        attempt: EffectAttemptObservation,
+        interpreter: ReadbackInterpreter,
+    ) -> ReconciliationResult:
+        """Legacy exception ABI over :meth:`prove_non_start_result`."""
+
+        result = self.prove_non_start_result(
+            assignment=assignment,
+            attempt=attempt,
+            interpreter=interpreter,
+        )
+        if isinstance(result, Failure):
+            exception_type: type[Exception] = (
+                ReconciliationError
+                if result.code == "RECONCILIATION_BINDING_REJECTED"
+                else ValueError
+            )
+            raise_runtime_failure(result, exception_type)
+        return result
+
     @staticmethod
     def _require_exact_recovery_binding(
         assignment: RuntimeAssignment,
@@ -258,22 +445,62 @@ class EffectReconciler:
         interpreter: ReadbackInterpreter,
     ) -> None:
         if assignment.assignment_kind is not AssignmentKind.RECONCILE:
-            raise ReconciliationError("reconciler requires RECONCILE assignment")
+            _raise_reconciliation_failure(
+                "RECONCILIATION_BINDING_REJECTED",
+                "reconciler requires RECONCILE assignment",
+                ReconciliationError,
+                site="runtime.reconciliation.binding.assignment_kind",
+            )
         if assignment.reconciliation_attempt_id != attempt.attempt_id:
-            raise ReconciliationError("assignment targets a different attempt")
+            _raise_reconciliation_failure(
+                "RECONCILIATION_BINDING_REJECTED",
+                "assignment targets a different attempt",
+                ReconciliationError,
+                site="runtime.reconciliation.binding.attempt",
+            )
         binding = assignment.handler_binding
         if not isinstance(binding, RecoveryBinding):
-            raise ReconciliationError("assignment lacks exact RecoveryBinding")
+            _raise_reconciliation_failure(
+                "RECONCILIATION_BINDING_REJECTED",
+                "assignment lacks exact RecoveryBinding",
+                ReconciliationError,
+                site="runtime.reconciliation.binding.recovery",
+            )
         if binding.interpreter_profile_digest != attempt.interpreter_profile_digest:
-            raise ReconciliationError("original interpreter profile drift")
+            _raise_reconciliation_failure(
+                "RECONCILIATION_BINDING_REJECTED",
+                "original interpreter profile drift",
+                ReconciliationError,
+                site="runtime.reconciliation.binding.interpreter_profile",
+            )
         if interpreter.interpreter_id != attempt.interpreter_id:
-            raise ReconciliationError("readback interpreter identity drift")
+            _raise_reconciliation_failure(
+                "RECONCILIATION_BINDING_REJECTED",
+                "readback interpreter identity drift",
+                ReconciliationError,
+                site="runtime.reconciliation.binding.interpreter_id",
+            )
         if interpreter.interpreter_version != attempt.interpreter_version:
-            raise ReconciliationError("readback interpreter version drift")
+            _raise_reconciliation_failure(
+                "RECONCILIATION_BINDING_REJECTED",
+                "readback interpreter version drift",
+                ReconciliationError,
+                site="runtime.reconciliation.binding.interpreter_version",
+            )
         if interpreter.provider_id != attempt.provider_id:
-            raise ReconciliationError("readback provider identity drift")
+            _raise_reconciliation_failure(
+                "RECONCILIATION_BINDING_REJECTED",
+                "readback provider identity drift",
+                ReconciliationError,
+                site="runtime.reconciliation.binding.provider_id",
+            )
         if interpreter.provider_version != attempt.provider_version:
-            raise ReconciliationError("readback provider version drift")
+            _raise_reconciliation_failure(
+                "RECONCILIATION_BINDING_REJECTED",
+                "readback provider version drift",
+                ReconciliationError,
+                site="runtime.reconciliation.binding.provider_version",
+            )
 
 
 __all__ = [

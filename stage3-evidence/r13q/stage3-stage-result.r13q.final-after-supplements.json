@@ -1,0 +1,160 @@
+{
+  "schema_version": "mrw.stage3.stage-result.r13q.v1",
+  "stage": 3,
+  "status": "BLOCKED",
+  "authoritative": false,
+  "observed_at": "2026-09-10T01:03:27Z",
+  "candidate": {
+    "name": "r13q",
+    "commit": "bdd765316d80efdef243927d81e2daa9de20f81c",
+    "tree": "2734ad57714d270fa79561d0bf2ee0a3a922e34c",
+    "base": "88ffcc3dab2e6cbdc1f389e16c4226df5a2e51c6",
+    "candidate_checkout_clean": true,
+    "modified_by_supplemental_work": false
+  },
+  "supersedes_for_current_status": {
+    "path": "/Users/wangyiliang/market-research-workflow/stage3-evidence/r13q/stage3-stage-result.r13q.json",
+    "sha256": "f92462a8ec7fddaff78ab5e3d3dbf072abf67e0ede4f4a4bb15e1b74a09aff71",
+    "preservation": "The prior result and index remain sealed. This file appends the Supervisor-requested frontend-profile and psutil root-cause results."
+  },
+  "supplemental_results": [
+    {
+      "id": "frontend_modern_profile_local_stack",
+      "status": "PASS_SCOPED_WITH_LIVE_PROVIDER_LIMITATION",
+      "observations": {
+        "compose_up_wait": "PASS",
+        "frontend_root_http": 200,
+        "frontend_static_asset_http": 200,
+        "backend_direct_health_http": 200,
+        "frontend_proxy_health_http": 200,
+        "backend_direct_deep_health_http": 200,
+        "frontend_proxy_deep_health_http": 200,
+        "database": "ok",
+        "database_pool": "ok",
+        "elasticsearch": "ok",
+        "redis_dependency_ping": "ok",
+        "deep_health_body_status": "degraded",
+        "live_provider": "NOT_PASS_MISSING_OPENAI_API_KEY"
+      },
+      "scope": "The previously omitted frontend profile is now directly observed. Local frontend-to-backend proxy connectivity is closed. No live-provider PASS is claimed.",
+      "evidence": {
+        "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13p/tests/frontend-profile-supplement-r13q/result.json",
+        "sha256": "27bf9393043c80067a03dcd84b00622b66274c54d4212b562a2eb1c40437459e",
+        "index_path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13p/tests/frontend-profile-supplement-r13q/SHA256SUMS.frontend-profile-supplement-r13q",
+        "index_sha256": "fdc649d17dcc48eae049002512b971f0e10bc3b65aacb6c4de51af8d0d88d11d"
+      }
+    },
+    {
+      "id": "psutil_elf_reproducibility_root_cause",
+      "status": "ROOT_CAUSE_BOUNDED_REBUILD_REQUIRED",
+      "root_cause": "psutil==5.9.8 is independently built from psutil-5.9.8.tar.gz. Random /tmp/pip-install-* source paths enter .debug_line_str, which changes the derived GNU build-id and therefore the full shared-object and wheel hashes.",
+      "equal_inspected_domains": [
+        ".text",
+        ".rodata",
+        ".data",
+        ".eh_frame",
+        ".eh_frame_hdr",
+        ".dynsym",
+        ".dynstr",
+        ".debug_info",
+        ".debug_abbrev",
+        ".debug_line",
+        ".debug_str"
+      ],
+      "different_inspected_domains": [
+        ".debug_line_str",
+        ".note.gnu.build-id"
+      ],
+      "stage3_effect": "The unknown-cause gap is closed, but bit-for-bit reproducibility remains failed. Runtime-section equality alone does not satisfy the signed-provenance and complete runtime-equivalence exception.",
+      "bounded_repair": {
+        "owner": "Stage1/2 repair owner thread 01a08002-1217-7283-89a5-499599bdc1a2",
+        "status": "DISPATCHED",
+        "surface": [
+          "main/backend/Dockerfile:23",
+          "main/backend/requirements.txt:31"
+        ],
+        "preferred_change": "Consume one hash-pinned prebuilt target-platform wheel; otherwise build one wheel at a deterministic fixed path with compiler debug/file prefix mapping and reuse that exact wheel for backend and migration-runner.",
+        "forbidden_shortcuts": [
+          "strip or mutate existing Stage 3 artifacts",
+          "lower reproducibility requirements",
+          "claim full runtime equivalence from inspected-section equality"
+        ]
+      },
+      "evidence": {
+        "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13p/artifacts/psutil-elf-difference-supplement.json",
+        "sha256": "5a88310405a1fc65b8113515861bb4674ada5300424d87a1a4cfea14c70edcbc",
+        "index_path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13p/artifacts/SHA256SUMS.psutil-elf-supplement",
+        "index_sha256": "09c5192b0dd204383a95a7f659f362d52173dc6e65bd13a49c13a9fecff035a9"
+      }
+    }
+  ],
+  "closed_by_supplements": [
+    "The frontend-modern profile is no longer merely omitted; its local HTTP and backend proxy path passed.",
+    "The psutil shared-object difference cause is no longer unknown."
+  ],
+  "remaining_blockers": [
+    {
+      "id": "LIVE_PROVIDER_CREDENTIAL_MISSING",
+      "status": "BLOCKED_MISSING_USER_SECRET",
+      "required_input": "A task-authorized live provider credential supplied without placing secret material in evidence.",
+      "scope": "Only the live-provider scenario remains open; scripted-provider coverage is not relabeled as live."
+    },
+    {
+      "id": "PSUTIL_REPRODUCIBLE_BUILD_REPAIR",
+      "status": "REBUILD_REQUIRED",
+      "owner": "Stage1/2 repair owner",
+      "required_outcome": "A successor candidate with identical psutil wheel/shared-object bytes and matching backend/migration image manifests across clean builds, followed by affected SBOM, provenance, scan, and runtime checks."
+    },
+    {
+      "id": "GITLEAKS_UNRESOLVED",
+      "status": "BLOCKED",
+      "detail": "Exact-r13q default scan has 419 findings and zero approved dispositions. The rejected broad allowlist remains forbidden."
+    },
+    {
+      "id": "BACKEND_MIGRATION_HIGH_CRITICAL_CVES",
+      "status": "BLOCKED_UPSTREAM_NO_FIXED_VERSION",
+      "detail": "Backend and migration-runner each have 135 HIGH and 13 CRITICAL OS findings with no reported FixedVersion. Thresholds were not weakened."
+    },
+    {
+      "id": "REMOTE_SHA_WORKFLOW_AND_ENFORCEMENT",
+      "status": "AWAITING_HUMAN_AUTHORITY",
+      "required_actions": [
+        "Push the exact accepted successor candidate to a named remote ref.",
+        "Run the required workflow for that exact SHA.",
+        "Enforce all 13 declared required checks without bypass."
+      ]
+    },
+    {
+      "id": "REGISTRY_AND_SIGNING",
+      "status": "AWAITING_HUMAN_AUTHORITY",
+      "required_actions": [
+        "Publish or promote the three artifact roles and verify registry immutability.",
+        "Create and verify signed provenance and required transparency-log records."
+      ]
+    }
+  ],
+  "release_manifest": {
+    "actual_release_manifest_generated": false,
+    "reason": "Security, reproducibility, live-provider, remote, registry, and signing inputs remain incomplete."
+  },
+  "cleanup": {
+    "frontend_supplement_project_containers": 0,
+    "frontend_supplement_project_volumes": 0,
+    "frontend_supplement_project_networks": 0,
+    "frontend_supplement_image_removed": true,
+    "frontend_supplement_ports_closed": true,
+    "psutil_inspection_task_images_containers_tags_builders": 0,
+    "host_redis_preserved": true,
+    "ops_scrapyd_touched": false
+  },
+  "external_effects": [
+    "Task-owned local frontend-profile Compose resources were created, observed, and removed.",
+    "Existing OCI archives were loaded read-only for bounded ELF inspection and task image tags were removed.",
+    "A bounded repair request was sent to the existing Stage1/2 repair owner."
+  ],
+  "remote_writes_performed": [],
+  "authority_ceiling": "NO_PUSH_NO_WORKFLOW_DISPATCH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE_NO_DEPLOY",
+  "production_release_authorized": false,
+  "stage3_pass": false,
+  "conclusion": "The two Supervisor-identified local gaps now have actual evidence. Stage 3 remains BLOCKED pending a reproducible-build successor, live-provider input, unresolved security findings, and human-authorized remote, registry, and signing actions."
+}

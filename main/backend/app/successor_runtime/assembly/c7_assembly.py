@@ -25,7 +25,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import Annotated, Any
 
 from sqlalchemy.engine import Connection
 
@@ -732,7 +732,11 @@ def build_c7_assembly(
     project_scope_digest: str | None = None,
     canonical_write: C7CanonicalWriteClosure | None = None,
     projector_driver: C7ProjectorDriverClosure | None = None,
-) -> FamilyAssembly:
+) -> Annotated[
+    FamilyAssembly,
+    "kit:prepared-command effect_boundary=successor_runtime.c7_assembly "
+    "witness=test:test_w08a_remaining_assembly_bindings_are_prepared_commands",
+]:
     """Build the C7 family assembly with per-cell rollback-route closures.
 
     ``project_scope_digest`` defaults to the deterministic local-only identity
@@ -970,7 +974,11 @@ def build_c7_assembly(
 
 def build_deterministic_c7_rollback_options(
     project_scope_digest: str,
-) -> C7AssemblyOptions:
+) -> Annotated[
+    C7AssemblyOptions,
+    "kit:prepared-command effect_boundary=successor_runtime.c7_assembly "
+    "witness=test:test_w08a_remaining_assembly_bindings_are_prepared_commands",
+]:
     """Build the deterministic local C7 rollback-route fixture closures."""
 
     require_assembly_digest(

@@ -19,7 +19,7 @@ import hashlib
 import json
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND_ROOT))
@@ -482,7 +482,12 @@ def _bindings() -> tuple[
     )
 
 
-def build_fragment() -> dict[str, object]:
+def build_fragment() -> Annotated[
+    dict[str, object],
+    "kit:non-authoritative derived_as=generated_evidence "
+    "fact_source=C2.1_resolution+C2.2_program+C2.3_fixture_receipt+C2.4_projection "
+    "witness=test:test_w10_cli_generator_derived_metadata_preserves_abi",
+]:
     payload, request, item, channels = _resolved()
     planning = _planning(payload, request)
     plan = _plan(payload, request)

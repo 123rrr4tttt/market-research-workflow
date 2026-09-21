@@ -33,7 +33,7 @@ class ApiSchemaIngestResourceContractTestCase(unittest.TestCase):
         }
 
         self.assertEqual(len(by_module["ingest.py"]), 19)
-        self.assertEqual(len(by_module["resource_pool.py"]), 19)
+        self.assertEqual(len(by_module["resource_pool.py"]), 21)
         for module, rows in by_module.items():
             untyped_paths = [
                 f"{operation['method']} {operation['path']}"

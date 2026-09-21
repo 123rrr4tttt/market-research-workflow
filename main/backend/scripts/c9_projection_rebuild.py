@@ -27,7 +27,7 @@ import sys
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any, Literal, Protocol, runtime_checkable
+from typing import Annotated, Any, Literal, Protocol, runtime_checkable
 
 from sqlalchemy import select, update
 from sqlalchemy.engine import Connection, Engine
@@ -130,7 +130,13 @@ SOURCE_OBJECT_TYPES: Mapping[str, str] = {
 }
 
 
-def build_loss_profile(sink: str) -> tuple[str, ...]:
+def build_loss_profile(
+    sink: str,
+) -> Annotated[
+    tuple[str, ...],
+    "kit:non-authoritative derived_as=view fact_source=sink_loss_profile_catalog "
+    "witness=test:test_c15_backend_misc_cli_report_metadata_preserves_abi",
+]:
     """Explicit per-sink loss profile; external sinks are declared loss."""
 
     if sink in EXTERNAL_DECLARED_LOSS_SINKS:

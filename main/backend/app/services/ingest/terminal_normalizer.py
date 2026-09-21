@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import Any
+from typing import Annotated, Any
 
 
 def build_terminal_ingest_payload(
@@ -10,7 +10,10 @@ def build_terminal_ingest_payload(
     ingress_envelope: dict[str, Any],
     extraction_outcome: dict[str, Any],
     terminal_context: dict[str, Any] | None = None,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=document_candidate+ingress_envelope+extraction_outcome+terminal_context witness=test:test_w03_ingest_ports_authority_metadata",
+]:
     candidate = dict(document_candidate or {})
     ingress = dict(ingress_envelope or {})
     extraction = dict(extraction_outcome or {})

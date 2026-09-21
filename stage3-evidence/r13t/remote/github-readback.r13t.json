@@ -1,0 +1,157 @@
+{
+  "schema_version": "mrw.stage3.remote-readback.r13t.v1",
+  "status": "BLOCKED_REQUIRED_REMOTE_FACTS",
+  "authoritative": false,
+  "observed_at": "2026-09-10T03:54:52Z",
+  "observation_window": {
+    "started_at": "2026-09-10T03:54:42Z",
+    "ended_at": "2026-09-10T03:54:52Z"
+  },
+  "repository": {
+    "full_name": "123rrr4tttt/market-research-workflow",
+    "html_url": "https://github.com/123rrr4tttt/market-research-workflow",
+    "visibility": "public",
+    "default_branch": "main"
+  },
+  "candidate": {
+    "commit": "17e824ab2de3de450bd5215f84bcca428d90218e",
+    "tree": "6e2c8524c7cbd436bf58bc08b37fa2b2bdbc0d92",
+    "base": "88ffcc3dab2e6cbdc1f389e16c4226df5a2e51c6",
+    "local_checkout_clean": true,
+    "remote_exact_head_or_tag_matches": 0
+  },
+  "predecessor_readback": {
+    "path": "/Users/wangyiliang/market-research-workflow/stage3-evidence/r13s/remote/github-readback.r13s.json",
+    "sha256": "0e8705c1af5a36c8f500407113cc0a6545cf286e0587d445bdd49c9feb587d6a",
+    "reuse": "Predecessor identity only; all exact-r13t SHA and current main/ruleset facts below were queried fresh."
+  },
+  "requests": [
+    {
+      "method": "GET",
+      "target_url": "https://api.github.com/repos/123rrr4tttt/market-research-workflow",
+      "http_status": 200,
+      "body_summary": {
+        "full_name": "123rrr4tttt/market-research-workflow",
+        "visibility": "public",
+        "default_branch": "main",
+        "archived": false,
+        "disabled": false
+      }
+    },
+    {
+      "method": "GET",
+      "target_url": "https://api.github.com/repos/123rrr4tttt/market-research-workflow/commits/17e824ab2de3de450bd5215f84bcca428d90218e",
+      "http_status": 422,
+      "body_summary": {
+        "message": "No commit found for SHA: 17e824ab2de3de450bd5215f84bcca428d90218e",
+        "status": "422"
+      }
+    },
+    {
+      "method": "GET",
+      "target_url": "https://api.github.com/repos/123rrr4tttt/market-research-workflow/actions/runs?head_sha=17e824ab2de3de450bd5215f84bcca428d90218e&per_page=100",
+      "http_status": 200,
+      "body_summary": {
+        "total_count": 0,
+        "workflow_runs": []
+      }
+    },
+    {
+      "method": "GET",
+      "target_url": "https://api.github.com/repos/123rrr4tttt/market-research-workflow/commits/17e824ab2de3de450bd5215f84bcca428d90218e/check-runs?per_page=100",
+      "http_status": 422,
+      "body_summary": {
+        "message": "No commit found for SHA: 17e824ab2de3de450bd5215f84bcca428d90218e",
+        "status": "422"
+      }
+    },
+    {
+      "method": "GET",
+      "target_url": "https://api.github.com/repos/123rrr4tttt/market-research-workflow/commits/17e824ab2de3de450bd5215f84bcca428d90218e/status",
+      "http_status": 200,
+      "body_summary": {
+        "sha": "17e824ab2de3de450bd5215f84bcca428d90218e",
+        "state": "pending",
+        "status_count": 0,
+        "statuses": []
+      },
+      "interpretation": "The empty combined-status projection is not evidence that the commit exists remotely or that any required check ran."
+    },
+    {
+      "method": "GET",
+      "target_url": "https://api.github.com/repos/123rrr4tttt/market-research-workflow/branches/main",
+      "http_status": 200,
+      "body_summary": {
+        "name": "main",
+        "commit_sha": "88ffcc3dab2e6cbdc1f389e16c4226df5a2e51c6",
+        "protected": false
+      }
+    },
+    {
+      "method": "GET",
+      "target_url": "https://api.github.com/repos/123rrr4tttt/market-research-workflow/branches/main/protection",
+      "http_status": 404,
+      "body_summary": {
+        "message": "Branch not protected",
+        "status": "404"
+      }
+    },
+    {
+      "method": "GET",
+      "target_url": "https://api.github.com/repos/123rrr4tttt/market-research-workflow/rulesets?includes_parents=true&per_page=100",
+      "http_status": 200,
+      "body_summary": {
+        "ruleset_count": 0,
+        "rulesets": []
+      }
+    },
+    {
+      "method": "GET",
+      "target_url": "https://api.github.com/repos/123rrr4tttt/market-research-workflow/rules/branches/main",
+      "http_status": 200,
+      "body_summary": {
+        "applicable_rule_count": 0,
+        "rules": []
+      }
+    }
+  ],
+  "required_checks": {
+    "declaration_ref": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260910-v4-r13t/candidate/.github/branch-protection-required-checks.json",
+    "declaration_sha256": "696195d3a8ca59a23da069d56147732ea42b991299d088b3c78d3776612f6fff",
+    "declared_context_count": 13,
+    "exact_sha_workflow_run_count": 0,
+    "exact_sha_job_conclusions": [],
+    "conclusion": "UNOBSERVABLE_EXACT_SHA_ABSENT"
+  },
+  "enforcement": {
+    "observation": "CURRENT_AT_2026-09-10T03:54:52Z",
+    "default_branch_head": "88ffcc3dab2e6cbdc1f389e16c4226df5a2e51c6",
+    "default_branch_protected": false,
+    "branch_protection_required_checks": [],
+    "repository_rulesets": [],
+    "applicable_main_rules": [],
+    "required_checks_unbypassable": false
+  },
+  "blocked_by": [
+    {
+      "id": "REMOTE_EXACT_SHA_ABSENT",
+      "fact": "The r13t candidate commit is absent from remote heads/tags and GitHub commit/check-runs readback.",
+      "required_human_authority": "Authorize pushing the exact r13t candidate to a specifically named remote ref."
+    },
+    {
+      "id": "REQUIRED_WORKFLOW_NOT_RUN",
+      "fact": "The exact-r13t Actions query returned total_count=0.",
+      "required_human_authority": "After the exact SHA exists remotely, authorize its existing workflow trigger or dispatch path."
+    },
+    {
+      "id": "REQUIRED_CHECK_ENFORCEMENT_ABSENT",
+      "fact": "Current readback shows main unprotected, branch protection absent, and zero repository/applicable rules.",
+      "required_human_authority": "Authorize a reviewed branch-protection or ruleset mutation binding the declared required checks without unauthorized bypass."
+    }
+  ],
+  "external_effects": [
+    "Read-only git ls-remote against origin",
+    "Read-only GitHub REST API requests listed in this record"
+  ],
+  "remote_writes_performed": []
+}

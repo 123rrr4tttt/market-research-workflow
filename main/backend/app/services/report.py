@@ -7,6 +7,8 @@ from datetime import date, datetime
 from typing import Iterable, Sequence
 
 from sqlalchemy import Date, case, cast, func, select, String
+from functorial_kit import Failure
+from mrw_functorial_kit.core.application_failure_semantics import report_query_contract_failures
 
 from ..models.base import SessionLocal
 from ..models.entities import Document, MarketStat
@@ -15,20 +17,56 @@ from .llm.service import summarize_policy_text
 
 
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_FAILURE_WITNESS = "test:test_w01_request_failures"
+_FAILURE_CONTEXT_KEYS = frozenset(
+    {"owner", "operation", "failure_family", "public_exception", "public_message", "witness"}
+)
 
 
-def _parse_date(value: str | None, *, field: str) -> date | None:
+def _report_query_failure(message: str, *, operation: str, field: str) -> Failure:
+    return report_query_contract_failures.fail(
+        "date_format_invalid",
+        message,
+        {
+            "owner": "report",
+            "operation": operation,
+            "field": field,
+            "failure_family": report_query_contract_failures.name,
+            "public_exception": "ValueError",
+            "public_message": message,
+            "witness": _FAILURE_WITNESS,
+        },
+    )
+
+
+def _raise_report_query_failure(failure: Failure) -> None:
+    context = failure.context or {}
+    if not report_query_contract_failures.matches(failure) or _FAILURE_CONTEXT_KEYS - set(context):
+        # kit:boundary owner=report.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w01_request_failures
+        raise TypeError("report query failure lift context is incomplete or inconsistent")
+    # kit:boundary owner=report.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=report.query.contract_failure witness=test:test_w01_request_failures
+    raise ValueError(str(context["public_message"]))
+
+
+def _parse_date_outcome(value: object | None, *, field: str) -> date | None | Failure:
     if not value:
         return None
-    raw = value.strip()
+    raw = str(value).strip()
     if not raw:
         return None
     if not _DATE_RE.match(raw):
-        raise ValueError(f"{field} must be YYYY-MM-DD")
+        return _report_query_failure(f"{field} must be YYYY-MM-DD", operation="report.parse_date", field=field)
     try:
         return datetime.strptime(raw, "%Y-%m-%d").date()
-    except ValueError as exc:
-        raise ValueError(f"{field} must be YYYY-MM-DD") from exc
+    except ValueError:
+        return _report_query_failure(f"{field} must be YYYY-MM-DD", operation="report.parse_date", field=field)
+
+
+def _parse_date(value: str | None, *, field: str) -> date | None:
+    outcome = _parse_date_outcome(value, field=field)
+    if isinstance(outcome, Failure):
+        _raise_report_query_failure(outcome)
+    return outcome
 
 
 def _policy_effective_date_expr():

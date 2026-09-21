@@ -8,7 +8,7 @@ never import the runtime layer.
 
 from __future__ import annotations
 
-from typing import Any, Protocol
+from typing import Annotated, Any, Protocol
 
 from app.successor_runtime.capabilities import c8_common as c8
 from app.successor_runtime.capabilities.c8_common import c8_canonical_digest
@@ -50,7 +50,12 @@ C8_DELIVERY_BRIDGE_OPERATION_KINDS = (
 )
 
 
-def build_c8_interpreter_binding(payload: dict[str, Any]) -> InterpreterBinding:
+def build_c8_interpreter_binding(payload: dict[str, Any]) -> Annotated[
+    InterpreterBinding,
+    "kit:prepared-command effect_boundary=app.successor_runtime.substrate.projections."
+    "c8_handler_bindings.build_c8_interpreter_binding "
+    "witness=test:test_w08e_projection_authority_metadata_is_exact",
+]:
     """Build an exact content-addressed InterpreterBinding from a payload."""
 
     binding = InterpreterBinding.from_content(**payload)
@@ -73,7 +78,12 @@ def build_c8_delivery_activation_catalog(
     required_node_profile_selector: str,
     fairness_key: str,
     queue_eligibility: QueueEligibility,
-) -> FirstSpecimenActivationCatalog:
+) -> Annotated[
+    FirstSpecimenActivationCatalog,
+    "kit:prepared-command effect_boundary=app.successor_runtime.substrate.projections."
+    "c8_handler_bindings.build_c8_delivery_activation_catalog "
+    "witness=test:test_w08e_projection_authority_metadata_is_exact",
+]:
     """Build the exact five-entry C8 delivery-bridge activation catalog."""
 
     from app.successor_runtime.capabilities.c8_program import (
@@ -138,7 +148,12 @@ def build_c8_recovery_binding(
     authoritative_readback_profile_ref: str,
     recovery_handler_id: str = "c8.recovery.readback.v1",
     recovery_handler_version: str = "1.0.0",
-) -> RecoveryBinding:
+) -> Annotated[
+    RecoveryBinding,
+    "kit:prepared-command effect_boundary=app.successor_runtime.substrate.projections."
+    "c8_handler_bindings.build_c8_recovery_binding "
+    "witness=test:test_w08e_projection_authority_metadata_is_exact",
+]:
     """Build the exact shared RecoveryBinding for unknown-outcome readback."""
 
     binding = RecoveryBinding.from_content(

@@ -1,0 +1,65 @@
+{
+  "schema": "mrw.stage5.observability.runtime-alert-snapshot.v1",
+  "authoritative": false,
+  "classification": "actual_runtime_http_observation",
+  "project": "mrw-stage5-observability",
+  "backend_image": {
+    "reference": "mrw-local/stage4-business001@sha256:f247a1492400311e032710df01f84365c7e700f61c122b7243ae58eda982af19",
+    "upstream_build_mapping": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage4-evidence/runtime/c9-effect-build.json"
+  },
+  "collector_target_after_auth_fix": {
+    "scrape_url": "http://backend:8000/metrics",
+    "health": "up",
+    "last_error": "",
+    "evidence": "stage5-evidence/observability/logs/09-prometheus-targets-after-authfix.json"
+  },
+  "sequence": [
+    {
+      "step": "baseline_health",
+      "http_status": 200,
+      "alert_transition_expected": "no_alert",
+      "evidence": "stage5-evidence/observability/logs/17-alert-trigger-recover/00-baseline-health.body"
+    },
+    {
+      "step": "unauthenticated_control",
+      "http_status": 401,
+      "alert_transition_expected": "no_403_or_5xx_alert",
+      "evidence": "stage5-evidence/observability/logs/17-alert-trigger-recover/01-unauth-401.body"
+    },
+    {
+      "step": "domain_rejection_trigger",
+      "http_status": 403,
+      "reason_code": "public_effect_route_unadmitted",
+      "alert_transition_expected": "domain_rejection_triggered",
+      "evidence": "stage5-evidence/observability/logs/17-alert-trigger-recover/02-auth-http-403.body"
+    },
+    {
+      "step": "subsequent_health",
+      "http_status": 200,
+      "alert_transition_expected": "health_scrape_observed",
+      "controller_recovery_observed": false,
+      "evidence": "stage5-evidence/observability/logs/17-alert-trigger-recover/03-recovery-health.body"
+    },
+    {
+      "step": "post_health_effect_probe",
+      "http_status": 403,
+      "reason_code": "observability_rollback_latched",
+      "controller_recovery_observed": false,
+      "evidence": "stage5-evidence/observability/logs/17-alert-trigger-recover/04-post-recovery-auth-http.body"
+    }
+  ],
+  "actual_runtime_recovery": {
+    "status": "NOT_OBSERVED",
+    "reason": "Existing runtime requests do not supply the valid production receipt required by fail-closed recovery; no controller-state endpoint is exposed.",
+    "not_run_claim": true
+  },
+  "release_binding": {
+    "release_version": "1.0.0",
+    "source": "dynamic /metrics label readback",
+    "focused_result": "stage5-evidence/observability/observability-focused-result.json"
+  },
+  "in_process_recovery_with_receipt": {
+    "status": "PASS_LOCAL_RULE_PROBE_NOT_AUTHORITY",
+    "evidence": "stage5-evidence/observability/alert-rule-probe.json"
+  }
+}

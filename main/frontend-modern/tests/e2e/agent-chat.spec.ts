@@ -4,7 +4,7 @@ import type { Page } from '@playwright/test'
 test.describe.configure({ mode: 'serial' })
 
 async function openAgentChat(page: Page) {
-  const initial = await page.goto('/#agent-chat.html')
+  const initial = await page.goto('/#agent-chat-compat.html')
   if (initial) expect(initial.ok()).toBeTruthy()
   await page.evaluate(() => window.localStorage.clear())
   const response = await page.reload()
@@ -371,7 +371,10 @@ async function installAgentChatScenarioMocks(page: Page) {
   })
 }
 
-test.describe('agent chat user interaction', () => {
+// The canonical module route mounts CodexAgentPage. This explicit compatibility
+// route owns the in-process AgentChatPage contract while both projections share
+// the same Workbench shell and module identity.
+test.describe('agent chat compatibility user interaction', () => {
   test.beforeEach(async ({ page }) => {
     const consoleErrors: string[] = []
     page.on('console', (message) => {
@@ -394,7 +397,9 @@ test.describe('agent chat user interaction', () => {
     await expect(answer).not.toContainText('agent_batch.nl_command.submit')
     await expect(answer).not.toContainText('pending approval')
     await expect(answer).not.toContainText('parsed')
-    await expect(runtimeSummary).toContainText('0 tools')
+    // The shell follows the persisted application locale; keep the invariant
+    // tool count assertion valid for both supported catalog languages.
+    await expect(runtimeSummary).toContainText(/0 tools|0 个工具/)
     await expect(answer.locator('.agent-chat-message-meta')).toHaveCount(0)
     await expect(answer.locator('.agent-chat-run-details')).toHaveCount(0)
   })
@@ -448,13 +453,13 @@ test.describe('agent chat user interaction', () => {
     await expect(page.getByTestId('agent-chat-task-plan-card').nth(1)).toContainText('写作工作台补段')
     await expect(page.getByTestId('agent-chat-long-task-stage-card')).toContainText('draft_output')
     await expect(page.getByTestId('agent-chat-long-task-stage-card')).toContainText('internal_evidence')
-    await expect(page.getByTestId('agent-chat-long-task-stage-card')).toContainText('evidence 2 · gaps 2')
+    await expect(page.getByTestId('agent-chat-long-task-stage-card')).toContainText(/evidence 2 · gaps 2|证据 2 · 缺口 2/)
 
     await page.getByRole('button', { name: 'tools' }).click()
     await expect(page.getByTestId('agent-chat-progressive-tool-event')).toHaveCount(9)
-    await expect(page.getByTestId('agent-chat-source-quality-card')).toContainText('score 85')
+    await expect(page.getByTestId('agent-chat-source-quality-card')).toContainText(/score 85|分数 85/)
     await expect(page.getByTestId('agent-chat-investigation-trace-card')).toContainText('robot_market')
-    await expect(page.getByTestId('agent-chat-investigation-trace-card')).toContainText('2 nodes · 1 edges')
+    await expect(page.getByTestId('agent-chat-investigation-trace-card')).toContainText(/2 nodes · 1 edges|2 个节点 · 1 条边/)
     await expect(page.getByTestId('agent-chat-investigation-trace-card')).toContainText('需要补充官方或监管来源')
     await expect(page.getByTestId('agent-chat-diff-event')).toContainText('+2 / -0')
 
@@ -521,7 +526,7 @@ test.describe('agent chat user interaction', () => {
   })
 })
 
-test.describe('agent chat formal behavior guards', () => {
+test.describe('agent chat compatibility formal behavior guards', () => {
   test('keeps default chat empty, renders capabilities as read-only, and surfaces backend failure as retryable error', async ({ page }) => {
     await page.route('**/api/v1/agent-chat/capabilities**', async (route) => {
       await route.fulfill({
@@ -679,4 +684,11 @@ test.describe('agent chat formal behavior guards', () => {
     expect(turnPayloads[1]?.session_id ?? null).toBeNull()
     await expect(page.locator('.agent-chat-message.role-assistant').last()).toContainText('mock answer 2')
   })
+})
+
+test('Codex agent route mounts the embedded WebUI surface', async ({ page }) => {
+  const response = await page.goto('/#/workbench/agent')
+  if (response) expect(response.ok()).toBeTruthy()
+  await expect(page.getByTestId('codex-agent-page')).toBeVisible()
+  await expect(page.getByTestId('codex-agent-frame')).toHaveAttribute('src', '/codex/')
 })

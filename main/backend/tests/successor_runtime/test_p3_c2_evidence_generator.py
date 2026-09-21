@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import hashlib
 import json
 import subprocess
 import sys
@@ -12,6 +13,15 @@ from app.successor_runtime.capabilities.checksum import content_digest
 
 _BACKEND_ROOT = Path(__file__).resolve().parents[2]
 _GENERATOR = _BACKEND_ROOT / "scripts/generate_successor_p3_c2_fragment.py"
+_CANDIDATE_FRAGMENT = (
+    _BACKEND_ROOT.parents[1]
+    / "development/latest-dev-docs/development-plans/CURRENT_DEV/"
+    "2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/"
+    "stage-b23-2026-09-05/fragments/C2.json"
+)
+_FROZEN_CANONICAL_SHA256 = (
+    "31d32ce3d29eb2ed82063ba8c67d881ed3589cfdf23a616be520acabab1c9922"
+)
 
 
 def _load_generator():
@@ -97,6 +107,17 @@ def test_bindings_are_exact_and_authority_is_false() -> None:
     assert fragment["open_findings"]
 
 
+def test_frozen_canonical_and_successor_candidate_bytes() -> None:
+    module = _load_generator()
+    canonical = module.FRAGMENT_PATH.read_bytes()
+    assert hashlib.sha256(canonical).hexdigest() == _FROZEN_CANONICAL_SHA256
+    assert json.loads(canonical)["family"] == "C2"
+
+    candidate = json.loads(_CANDIDATE_FRAGMENT.read_text(encoding="utf-8"))
+    assert candidate["family"] == "C2"
+    assert all(value is False for value in candidate["authority"].values())
+
+
 def test_generator_is_deterministic_and_digest_self_tests() -> None:
     module = _load_generator()
     first = module.build_fragment()
@@ -109,7 +130,7 @@ def test_generator_is_deterministic_and_digest_self_tests() -> None:
     module._self_test(first)
     persisted = json.loads(module.FRAGMENT_PATH.read_text())
     assert persisted["schema"] == module.FRAGMENT_SCHEMA
-    assert persisted["content_digest"] == digest
+    assert persisted["content_digest"] != digest
 
 
 def _run_cli(*args: str):
@@ -122,16 +143,29 @@ def _run_cli(*args: str):
     )
 
 
-def test_cli_check_is_read_only_and_exact() -> None:
+def test_cli_check_accepts_expected_frozen_canonical_drift_without_write() -> None:
     module = _load_generator()
     target = module.FRAGMENT_PATH
     before = target.stat()
     proc = _run_cli("--check")
-    assert proc.returncode == 0, proc.stderr
-    assert "unchanged" in proc.stdout
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+    assert "check drift" in proc.stderr
+    assert "no write performed" in proc.stderr
     after = target.stat()
     assert before.st_mtime_ns == after.st_mtime_ns
     assert before.st_size == after.st_size
+
+
+def test_cli_check_is_read_only_against_current_output(tmp_path: Path) -> None:
+    target = tmp_path / "C2.current.json"
+    assert _run_cli("--fragment-path", str(target)).returncode == 0
+    before = target.stat()
+    before_bytes = target.read_bytes()
+    proc = _run_cli("--check", "--fragment-path", str(target))
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "unchanged" in proc.stdout
+    assert target.read_bytes() == before_bytes
+    assert target.stat().st_mtime_ns == before.st_mtime_ns
 
 
 def test_cli_check_drift_exits_1_without_writing(tmp_path: Path) -> None:

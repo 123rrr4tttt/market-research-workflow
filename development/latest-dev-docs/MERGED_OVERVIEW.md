@@ -1,6 +1,6 @@
 # 合并文档总览
 
-Updated: 2026-05-24 PST
+Updated: 2026-06-09 EDT
 
 ## 目录级合并结果
 
@@ -28,6 +28,14 @@ Updated: 2026-05-24 PST
 - “最近新增”中的 Wave21-Wave34 条目是 historical wave log；历史 `partial` 计数只说明当时的迁档进度，不应作为当前未封口数量读取。
 
 ## 最近新增
+
+- `development-plans`：
+  - [2026-05-26 当前平台化差距复核](./development-plans/G_REVIEW/current-platformization-gap-2026-05-26.md)
+
+- `automation-runs`：
+  - [2026-06-09 Branch Hygiene Report](./automation-runs/branch-hygiene-2026-06-09.md)
+  - [2026-05-25 Business Line Worker Readback Project Matrix Automation](./automation-runs/business-line-worker-readback-project-matrix/README.md)
+  - [2026-05-24 LLM Report Token State Retention Automation](./automation-runs/llm-report-token-state-retention/README.md)
 
 - `development-plans`：
   - [2026-05-24 Wave55 AgentCore External Provider Live Readback](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-llm-service-and-agent-platformization/12_wave55-agentcore-external-provider-live-readback-2026-05-24.md)
@@ -529,6 +537,11 @@ Updated: 2026-05-24 PST
   - [2026-03-05-oss-node-platform-io-plan/01_oss-code-harvest-and-io-taskplan-2026-03-05.md](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-05-oss-node-platform-io-plan/01_oss-code-harvest-and-io-taskplan-2026-03-05.md)
 - `ops-frontend/F_PLAN`：
   - [frontend-modern-api-graph-atomic-execution-2026-03-05.md](./ops-frontend/F_PLAN/frontend-modern-api-graph-atomic-execution-2026-03-05.md)
+
+- 2026-05-23 业务条线用户流完整性审计：
+  - [automation-runs/business-line-user-flow-audit/2026-05-23/README.md](./automation-runs/business-line-user-flow-audit/2026-05-23/README.md)
+- 2026-05-24 性能 / 容量 baseline smoke lane：
+  - [automation-runs/performance-capacity-baseline/2026-05-24/README.md](./automation-runs/performance-capacity-baseline/2026-05-24/README.md)
 
 更多历史新增请进入对应子目录 `INDEX.md`。
 

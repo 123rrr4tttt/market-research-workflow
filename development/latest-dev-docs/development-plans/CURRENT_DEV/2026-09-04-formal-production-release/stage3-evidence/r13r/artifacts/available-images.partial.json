@@ -1,0 +1,56 @@
+{
+  "backend": {
+    "cleanup_owner": "/root/stage3_test_gates after all local stack/migration gates complete",
+    "docker_inspect": {
+      "architecture": "amd64",
+      "id": "sha256:d436f3287396cec2b94dcb76c3cb3d555d36feee5016d4b9b024ca57879089f9",
+      "os": "linux",
+      "repo_tags": [
+        "mrw-r13r-amd64-backend-canonical:local"
+      ]
+    },
+    "image_config_digest": "sha256:72072cc7298dce26f786329b29d2f0e720aa6e2341c4272b3ae389a1485e02b6",
+    "image_manifest_digest": "sha256:403eb796b0890b0e77aec8755c2638cc4e239341b7f71f30ff4dfa6ba475ffe2",
+    "load_method": "docker load --input /Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13r/artifacts/canonical/backend.oci.tar (performed before bounded archive cleanup), then docker tag sha256:d436f3287396cec2b94dcb76c3cb3d555d36feee5016d4b9b024ca57879089f9 mrw-r13r-amd64-backend-canonical:local",
+    "loaded_image_id": "sha256:d436f3287396cec2b94dcb76c3cb3d555d36feee5016d4b9b024ca57879089f9",
+    "platform": "linux/amd64",
+    "status": "AVAILABLE_FOR_LOCAL_TEST_GATES",
+    "tag": "mrw-r13r-amd64-backend-canonical:local"
+  },
+  "frontend": {
+    "cleanup_owner": "/root/stage3_test_gates after all local stack/migration gates complete",
+    "docker_inspect": {
+      "architecture": "amd64",
+      "id": "sha256:8792353c7222206fc260a894ff3581e71fe85e348801e26ff032968bd2836450",
+      "os": "linux",
+      "repo_tags": [
+        "mrw-r13r-amd64-frontend-canonical:local"
+      ]
+    },
+    "image_config_digest": "sha256:591af750e53bbc04d57dfd1089c058e825108109f66c48c7524d8e7057fceda1",
+    "image_manifest_digest": "sha256:67891f50676aabf4b34b78fe12a62301be9343a8b3bfb94e689726ee96e86bc5",
+    "load_method": "docker load --input /Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13r/artifacts/canonical/frontend.oci.tar (performed before bounded archive cleanup), then docker tag sha256:8792353c7222206fc260a894ff3581e71fe85e348801e26ff032968bd2836450 mrw-r13r-amd64-frontend-canonical:local",
+    "loaded_image_id": "sha256:8792353c7222206fc260a894ff3581e71fe85e348801e26ff032968bd2836450",
+    "platform": "linux/amd64",
+    "status": "AVAILABLE_FOR_LOCAL_TEST_GATES",
+    "tag": "mrw-r13r-amd64-frontend-canonical:local"
+  },
+  "migration-runner": {
+    "cleanup_owner": "/root/stage3_test_gates after all local stack/migration gates complete",
+    "docker_inspect": {
+      "architecture": "amd64",
+      "id": "sha256:61de723b315ef8d5ad045aad3d0beba0a09eb7c64d27b78d7cf5644e1aec64aa",
+      "os": "linux",
+      "repo_tags": [
+        "mrw-r13r-amd64-migration-runner-canonical:local"
+      ]
+    },
+    "image_config_digest": "sha256:cd7008d1ba46b1232088d077ff52daa31406a87c8414938a11dc5cd3834006d2",
+    "image_manifest_digest": "sha256:727ab5d23c89119fae6872882f1458c30f09467c45d207d29b335589270a179d",
+    "load_method": "docker load --input /Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13r/artifacts/canonical/migration-runner.oci.tar (performed before bounded archive cleanup), then docker tag sha256:61de723b315ef8d5ad045aad3d0beba0a09eb7c64d27b78d7cf5644e1aec64aa mrw-r13r-amd64-migration-runner-canonical:local",
+    "loaded_image_id": "sha256:61de723b315ef8d5ad045aad3d0beba0a09eb7c64d27b78d7cf5644e1aec64aa",
+    "platform": "linux/amd64",
+    "status": "AVAILABLE_FOR_LOCAL_TEST_GATES",
+    "tag": "mrw-r13r-amd64-migration-runner-canonical:local"
+  }
+}

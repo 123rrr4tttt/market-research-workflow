@@ -2,13 +2,56 @@ from __future__ import annotations
 
 from copy import deepcopy
 from hashlib import sha256
-from typing import Any
+from typing import Annotated, Any, NoReturn
+
+from functorial_kit import Failure
+from mrw_functorial_kit.core.application_failure_semantics import (
+    source_library_contract_failures,
+)
 
 from ..resource_pool.url_utils import domain_from_url
 
 
 CONTRACT_VERSION = "frontdoor.ingress.v1"
 _ALLOWED_INGRESS_TYPES = {"source_library", "raw_import", "discovery"}
+
+
+def _frontdoor_contract_failure(
+    message: str,
+    *,
+    ingress_type: str,
+    entrypoint: str,
+    project_key: str | None,
+    site: str,
+) -> Failure:
+    return source_library_contract_failures.fail(
+        "frontdoor_entrypoint_rejected",
+        message,
+        {
+            "item_key": None,
+            "channel_key": str(ingress_type or "").strip() or None,
+            "project_key": str(project_key or "").strip() or None,
+            "entrypoint": str(entrypoint or "").strip() or None,
+            "site": site,
+            "public_exception": "ValueError",
+            "public_message": message,
+            "witness": "test:test_ingest_service_a_failure_lifts",
+        },
+    )
+
+
+def _raise_frontdoor_contract_failure(failure: Failure) -> NoReturn:
+    context = failure.context or {}
+    required = {"item_key", "channel_key", "project_key", "entrypoint", "site", "public_exception", "public_message", "witness"}
+    if (
+        not source_library_contract_failures.matches(failure)
+        or required - set(context)
+        or context.get("public_exception") != "ValueError"
+    ):
+        # kit:boundary owner=ingest.frontdoor.contract_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_ingest_service_a_failure_lifts
+        raise TypeError("frontdoor contract lift context is incomplete or inconsistent")
+    # kit:boundary owner=ingest.frontdoor.contract_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=source_library.contract_failure witness=test:test_ingest_service_a_failure_lifts
+    raise ValueError(str(context["public_message"]))
 
 
 def build_frontdoor_ingress_envelope(
@@ -23,13 +66,32 @@ def build_frontdoor_ingress_envelope(
     trace_id: str | None = None,
     retryable: bool = False,
     reason_code: str = "ok",
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=ingress_inputs+normalized_source_ref witness=test:test_w03_ingest_ports_authority_metadata",
+]:
     normalized_type = str(ingress_type or "").strip().lower()
     if normalized_type not in _ALLOWED_INGRESS_TYPES:
-        raise ValueError(f"unsupported ingress_type: {ingress_type}")
+        _raise_frontdoor_contract_failure(
+            _frontdoor_contract_failure(
+                f"unsupported ingress_type: {ingress_type}",
+                ingress_type=ingress_type,
+                entrypoint=entrypoint,
+                project_key=project_key,
+                site="build_frontdoor_ingress_envelope.ingress_type",
+            )
+        )
     normalized_entrypoint = str(entrypoint or "").strip()
     if not normalized_entrypoint:
-        raise ValueError("entrypoint is required")
+        _raise_frontdoor_contract_failure(
+            _frontdoor_contract_failure(
+                "entrypoint is required",
+                ingress_type=normalized_type,
+                entrypoint=entrypoint,
+                project_key=project_key,
+                site="build_frontdoor_ingress_envelope.entrypoint",
+            )
+        )
     normalized_source_mode = str(source_mode or "").strip().lower() or "unknown"
     payload = dict(collection_payload or {})
     snapshot = deepcopy(raw_snapshot if isinstance(raw_snapshot, dict) else payload)
@@ -61,7 +123,10 @@ def build_source_library_ingress_envelope(
     *,
     terminal_output: dict[str, Any],
     legacy_result: dict[str, Any] | None = None,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=terminal_output+legacy_result+frontdoor_route_inputs witness=test:test_w03_ingest_ports_authority_metadata",
+]:
     item = terminal_output.get("item") if isinstance(terminal_output.get("item"), dict) else {}
     meta = terminal_output.get("meta") if isinstance(terminal_output.get("meta"), dict) else {}
     provider_handoff = meta.get("provider_handoff") if isinstance(meta.get("provider_handoff"), dict) else None
@@ -150,7 +215,10 @@ def build_raw_import_ingress_envelope(
     project_key: str | None,
     payload: dict[str, Any],
     item: dict[str, Any],
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=raw_import_payload+item witness=test:test_w03_ingest_ports_authority_metadata",
+]:
     return build_frontdoor_ingress_envelope(
         ingress_type="raw_import",
         entrypoint="ingest.raw_import",
@@ -166,7 +234,10 @@ def build_discovery_ingress_envelope(
     *,
     project_key: str | None,
     item: dict[str, Any],
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=discovery_item witness=test:test_w03_ingest_ports_authority_metadata",
+]:
     return build_frontdoor_ingress_envelope(
         ingress_type="discovery",
         entrypoint="discovery.store",

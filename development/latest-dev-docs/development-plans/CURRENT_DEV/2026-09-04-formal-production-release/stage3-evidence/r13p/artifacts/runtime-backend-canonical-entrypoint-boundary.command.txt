@@ -1,0 +1,1 @@
+docker run --rm --name mrw-r13p-backend-canonical-boundary -e STARTUP_MAX_RETRIES=1 -e STARTUP_RETRY_DELAY=0 -e DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:9/postgres mrw-r13p-runtime-backend-canonical:local 

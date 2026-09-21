@@ -1,0 +1,74 @@
+{
+  "schema_version":"mrw.stage3.preparation.external-admission.v1",
+  "authoritative":false,
+  "qualification":"PREPARATION_ONLY; no successor identity accepted",
+  "contract16_sha256":"316339cdfa538f66272802e31dd236c0838f1fcd093169d79408b81e816ded6f",
+  "observations":{
+    "repository":"123rrr4tttt/market-research-workflow",
+    "old_v6_commit":"909eb608e538b6427bcbacca974f1efb05fef611",
+    "old_v6_remote_commit_http":422,
+    "old_v6_runs":0,
+    "main_protected":false,
+    "required_status_enforcement":"off",
+    "repository_rulesets":[],
+    "effective_main_rules":[],
+    "new_candidate_sha":null,
+    "external_registry_namespace":null,
+    "artifact_subject_digests":[],
+    "signature_identity_policy":null,
+    "raw":"remote/readonly-network/observations.json"
+  },
+  "human_decisions":[
+    {
+      "id":"REMOTE_CANDIDATE_EXECUTION",
+      "action":"After successor acceptance, authorize publishing exactly that commit to a specified review branch and triggering the required CI event, or have repository owner perform it",
+      "target":"GitHub repository 123rrr4tttt/market-research-workflow; exact branch and successor SHA pending",
+      "scope":"Single accepted candidate and required workflow; no merge/deploy/promotion",
+      "risk":"Uploads selected repository contents and consumes CI resources; workflow effects must first be reviewed",
+      "owner":"User/repository owner",
+      "prerequisites":["Accepted successor commit/tree","Chosen branch/event","Workflow read-only/build effects verified","Suitable authenticated access if executor is to act"],
+      "status":"UNAUTHORIZED"
+    },
+    {
+      "id":"REQUIRED_ENFORCEMENT",
+      "action":"Authorize repository owner to configure protection/rulesets requiring the final gate set on the intended protected branch, including bypass policy",
+      "target":"123rrr4tttt/market-research-workflow intended protected branch (current main unprotected)",
+      "scope":"Required contexts/check identities, freshness policy and explicit bypass actors; no unrelated settings",
+      "risk":"Changes who can merge or update the branch and may block normal contributions",
+      "owner":"User/repository administrator",
+      "prerequisites":["Final gate-to-job mapping","Branch choice","Bypass policy decision","Administration permission for designated operator"],
+      "status":"UNAUTHORIZED"
+    },
+    {
+      "id":"REGISTRY_SUBJECT",
+      "action":"Choose persistent registry namespace and either supply existing immutable artifacts for readback or separately authorize publication of the three accepted artifact digests",
+      "target":"Registry/namespace pending; backend, frontend, migration-runner roles",
+      "scope":"Three bound digests and immutable/no-overwrite policy; no overwrite or promotion",
+      "risk":"External artifact disclosure, retention and storage cost",
+      "owner":"User/release owner",
+      "prerequisites":["Actual final artifact digests","Namespace and visibility choice","Immutability evidence","Publisher authority separate from reader"],
+      "status":"UNAUTHORIZED"
+    },
+    {
+      "id":"EXISTING_SIGNATURE_OR_SIGNING_AUTHORITY",
+      "action":"Supply existing signatures/attestations with trusted issuer and signer identity, or separately authorize signing of the accepted artifact subjects",
+      "target":"Three final artifact digests; signing identity and transparency service pending",
+      "scope":"Verify existing signatures read-only; any signing/OIDC/transparency write requires distinct permission",
+      "risk":"Creates public or persistent attestations and conveys signer identity; local unsigned provenance is insufficient",
+      "owner":"User/release signing authority",
+      "prerequisites":["Immutable subjects","Trust policy (issuer/identity or trusted public key)","Registry read access","Explicit signing permission only if no existing signatures"],
+      "status":"UNAUTHORIZED"
+    }
+  ],
+  "implementation_owner_work_not_user_choices":[
+    "Complete temporary materialized candidate inventory and all safely executable local gates before freezing",
+    "Choose and record consistent Python/Node/lock/cwd/PYTHONPATH; do not mutate guard exception semantics to make tests pass",
+    "Allocate dedicated DB/container resources through Stage1/2 environment owner; current preparation has no service-start permission",
+    "For native/subprocess clients, prove applicable isolation or leave only those tests blocked; DNS monkeypatch is insufficient",
+    "Bind actual scan/SBOM/provenance/rebuild receipts to the same three artifact subjects",
+    "Adjudicate security findings with evidence; do not blanket-ignore them",
+    "Keep future stage families unexecuted and preserve false production readiness"
+  ],
+  "external_mutations":[],
+  "stage4":"NOT_ADMITTED"
+}

@@ -7,7 +7,11 @@ import argparse
 import ast
 import json
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
+try:
+    from ._cli_runtime import repo_root as _repo_root
+except ImportError:  # direct script execution
+    from _cli_runtime import repo_root as _repo_root
 
 
 CONTRACT_VERSION = "prompt-time-density-consumer-facade.wave20.v1"
@@ -19,10 +23,6 @@ REQUIRED_FACADE_CALLS = {
     "_prompt_group_of": ("get_prompt_time_density_group",),
     "_source_domain_of": ("get_prompt_time_density_source_domain",),
 }
-
-
-def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[3]
 
 
 def _read_text(path: Path) -> str:
@@ -86,7 +86,10 @@ def _direct_extracted_data_reads(tree: ast.AST) -> list[dict[str, Any]]:
     return reads
 
 
-def build_check(root: Path | None = None) -> dict[str, Any]:
+def build_check(root: Path | None = None) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=generated_evidence fact_source=prompt_time_density_static_checks+facade_contract_docs witness=test:test_c13_cli_graph_workflow_metadata_preserves_abi",
+]:
     repo_root = root or _repo_root()
     surface = repo_root / SURFACE_PATH
     facade = repo_root / FACADE_PATH

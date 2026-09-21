@@ -4,7 +4,7 @@ from collections import Counter
 import hashlib
 import json
 from time import perf_counter
-from typing import Any, Mapping
+from typing import Annotated, Any, Mapping
 
 from .contracts import AgentCoreRequest, CoreEvent, CoreToolCall, CoreToolResult, CoreToolSpec, core_tool_call_contract_shape
 from .core import AgentCore
@@ -32,7 +32,11 @@ def build_agent_core_external_provider_live_readback_evidence(
     allow_external_network: bool = False,
     timeout_ms: int = 20_000,
     model: str | None = None,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=generated_evidence fact_source=bounded_environment+provider_status_inputs "
+    "witness=test:test_w02_agent_authority_metadata"
+]:
     """Run or classify the selected external provider live AgentCore readback.
 
     The real network call is gated by ``allow_external_network``.  Without that

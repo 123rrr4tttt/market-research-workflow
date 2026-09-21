@@ -15,7 +15,8 @@ ordered traversal in-process only for bounded local fixtures and parity.
 from __future__ import annotations
 
 import dataclasses
-from typing import Any
+from functorial_kit import Failure
+from typing import Annotated, Any, Literal, NoReturn, TypeAlias
 
 from app.successor_runtime.capabilities import collect_c3 as c3
 from app.successor_runtime.capabilities.checksum import (
@@ -61,6 +62,7 @@ __all__ = [
     "COLLECT_FOLD_TRANSFORM_VERSION",
     "COLLECT_SEQUENCE_TO_FOLD_PAYLOAD_TRANSFORM_NAME",
     "FAMILY_PAYLOAD_CODEC_ID",
+    "ProgramBuildResult",
     "TRAVERSAL_COMPILED_CODE",
     "TraversalCompileStatus",
     "build_collect_c3_1_program",
@@ -79,6 +81,10 @@ __all__ = [
     "fold_transform_ref",
     "payload_value_ref",
     "sequence_to_fold_payload_transform_ref",
+    "try_build_collect_c3_2_pure_fold_program",
+    "try_build_collect_c3_composed_program",
+    "try_build_collect_c3_program",
+    "try_build_declared_traversal_program",
 ]
 
 TRAVERSAL_COMPILED_CODE = "COMPILED_TRAVERSE_ORDERED"
@@ -87,6 +93,46 @@ COLLECT_FOLD_TRANSFORM_VERSION = "1.0.0"
 COLLECT_SEQUENCE_TO_FOLD_PAYLOAD_TRANSFORM_NAME = "collect.sequence_to_fold_payload"
 FAMILY_PAYLOAD_CODEC_ID = "mrw.successor.collect.c3.family-payload.codec.v1"
 FAMILY_PAYLOAD_IDENTITY_SCHEMA = "mrw.successor.collect.c3.family-payload-identity.v1"
+ProgramBuildResult: TypeAlias = "ProgramSpec | Failure"
+
+
+def _program_contract_failure(
+    *,
+    message: str,
+    site: str,
+    domain_outcome: Literal["INVALID_INPUT", "FOLD_CONTRACT_FAILURE"],
+) -> Failure:
+    return c3.collect_contract_failure(
+        code="program_binding_invalid",
+        message=message,
+        operation="collect.build_program",
+        site=site,
+        domain_outcome=domain_outcome,
+        public_exception="ValueError",
+        owner=(
+            c3.COLLECT_C3_2_OWNER
+            if domain_outcome == "FOLD_CONTRACT_FAILURE"
+            else c3.COLLECT_C3_1_OWNER
+        ),
+    )
+
+
+def _reject_program_contract(
+    message: str,
+    *,
+    site: str,
+    domain_outcome: Literal["INVALID_INPUT", "FOLD_CONTRACT_FAILURE"] = (
+        "INVALID_INPUT"
+    ),
+) -> NoReturn:
+    c3.raise_collect_contract_failure(
+        _program_contract_failure(
+            message=message,
+            site=site,
+            domain_outcome=domain_outcome,
+        ),
+        ValueError,
+    )
 
 
 def _element_atom_root() -> Any:
@@ -152,7 +198,10 @@ def build_family_payload_value_ref(
     *,
     program_id: str,
     project_key: str,
-) -> ValueRef:
+) -> Annotated[
+    ValueRef,
+    "kit:prepared-command effect_boundary=successor_values_storage witness=test:test_w05_collect_authority_metadata",
+]:
     """Exact content-addressed ValueRef for the ordered element payload sequence."""
 
     plain = [payload.to_plain() for payload in element_payloads]
@@ -189,7 +238,10 @@ def _sequence_to_fold_payload_plain(sequence_plain: dict[str, Any]) -> dict[str,
 
     parent_request_ref = sequence_plain.get("parent_request_ref")
     if not isinstance(parent_request_ref, dict):
-        raise TypeError("sequence_to_fold_payload requires a parent_request_ref")
+        c3.raise_collect_programmer_defect(
+            "sequence_to_fold_payload requires a parent_request_ref",
+            TypeError,
+        )
     return {
         "parent_request_ref": parent_request_ref,
         "ordered_outcomes": sequence_plain,
@@ -203,7 +255,10 @@ def _fold_ordered_payload_plain(payload_plain: dict[str, Any]) -> dict[str, Any]
 
     outcomes = payload_plain.get("ordered_outcomes")
     if not isinstance(outcomes, dict):
-        raise TypeError("fold transform requires ordered_outcomes")
+        c3.raise_collect_programmer_defect(
+            "fold transform requires ordered_outcomes",
+            TypeError,
+        )
     payload = c3.collect_fold_payload_from_dicts(
         parent_request_ref=outcomes["parent_request_ref"],
         ordered_outcomes=outcomes,
@@ -247,7 +302,10 @@ def _register_sequence_to_fold_payload(
     )
 
 
-def build_collect_c3_transform_registry() -> TransformRegistry:
+def build_collect_c3_transform_registry() -> Annotated[
+    TransformRegistry,
+    "kit:prepared-command effect_boundary=pure_transform_registry witness=test:test_w05_collect_authority_metadata",
+]:
     """Family-local registered transforms; no shared registry edits."""
 
     registry = TransformRegistry(
@@ -297,7 +355,10 @@ def exact_contract_ref(
 ) -> OperationContractRef:
     ref = catalog.lookup(kind)
     if ref is None:
-        raise ValueError(f"contract {kind} missing from catalog {catalog.catalog_id}")
+        _reject_program_contract(
+            f"contract {kind} missing from catalog {catalog.catalog_id}",
+            site="exact_contract_ref",
+        )
     return ref
 
 
@@ -313,7 +374,10 @@ def payload_value_ref(
     """Build the exact content-addressed ValueRef for one C3 payload."""
 
     if payload.parent_request_ref.project_key != project_key:
-        raise ValueError("payload project scope drift")
+        _reject_program_contract(
+            "payload project scope drift",
+            site="payload_value_ref",
+        )
     require_hex64(payload.payload_digest, f"{type(payload).__name__}.payload_digest")
     plain = dataclasses.asdict(payload)
     exact_text = canonical_json(plain)
@@ -390,11 +454,18 @@ def build_collect_c3_program(
     value_suffix: str,
     extra_metadata: dict[str, Any] | None = None,
     contract_version: str = "mrw.functorial-successor.program-spec.v1",
-) -> ProgramSpec:
+) -> Annotated[
+    ProgramSpec,
+    "kit:prepared-command effect_boundary=successor_program_interpreter "
+    "witness=test:test_w05_collect_authority_metadata",
+]:
     """Build the exact-bound single-Atom Program for one C3 payload."""
 
     if payload.parent_request_ref.project_key != project_key:
-        raise ValueError("payload project_key does not match Program project_key")
+        _reject_program_contract(
+            "payload project_key does not match Program project_key",
+            site="build_collect_c3_program",
+        )
     ref = exact_contract_ref(catalog, kind=payload.operation_kind)
     value_ref = payload_value_ref(
         payload,
@@ -460,6 +531,52 @@ def build_collect_c3_program(
     ).with_digest()
 
 
+def try_build_collect_c3_program(
+    *,
+    payload: Any,
+    catalog: OperationContractCatalogSnapshot,
+    program_id: str,
+    project_key: str,
+    project_registry_revision: int,
+    project_scope_digest: str,
+    operation_id: str,
+    semantic_identity: str,
+    observation_profile: str,
+    payload_type: Any,
+    result_type: Any,
+    codec_id: str,
+    value_suffix: str,
+    extra_metadata: dict[str, Any] | None = None,
+    contract_version: str = "mrw.functorial-successor.program-spec.v1",
+) -> ProgramBuildResult:
+    """Total exact single-Atom Program construction."""
+
+    try:
+        return build_collect_c3_program(
+            payload=payload,
+            catalog=catalog,
+            program_id=program_id,
+            project_key=project_key,
+            project_registry_revision=project_registry_revision,
+            project_scope_digest=project_scope_digest,
+            operation_id=operation_id,
+            semantic_identity=semantic_identity,
+            observation_profile=observation_profile,
+            payload_type=payload_type,
+            result_type=result_type,
+            codec_id=codec_id,
+            value_suffix=value_suffix,
+            extra_metadata=extra_metadata,
+            contract_version=contract_version,
+        )
+    except (TypeError, ValueError) as exc:
+        return _program_contract_failure(
+            message=str(exc),
+            site="try_build_collect_c3_program",
+            domain_outcome="INVALID_INPUT",
+        )
+
+
 def build_collect_c3_1_program(
     *,
     payload: c3.CollectBatchElementPayload,
@@ -468,7 +585,11 @@ def build_collect_c3_1_program(
     project_key: str,
     project_registry_revision: int,
     project_scope_digest: str,
-) -> ProgramSpec:
+) -> Annotated[
+    ProgramSpec,
+    "kit:prepared-command effect_boundary=successor_program_interpreter "
+    "witness=test:test_w05_collect_authority_metadata",
+]:
     return build_collect_c3_program(
         payload=payload,
         catalog=catalog,
@@ -502,7 +623,11 @@ def build_collect_c3_2_program(
     project_key: str,
     project_registry_revision: int,
     project_scope_digest: str,
-) -> ProgramSpec:
+) -> Annotated[
+    ProgramSpec,
+    "kit:prepared-command effect_boundary=successor_program_interpreter "
+    "witness=test:test_w05_collect_authority_metadata",
+]:
     return build_collect_c3_program(
         payload=payload,
         catalog=catalog,
@@ -533,11 +658,19 @@ def build_collect_c3_2_pure_fold_program(
     project_key: str,
     project_registry_revision: int,
     project_scope_digest: str,
-) -> ProgramSpec:
+) -> Annotated[
+    ProgramSpec,
+    "kit:prepared-command effect_boundary=successor_program_interpreter "
+    "witness=test:test_w05_collect_authority_metadata",
+]:
     """Named pure fold Program realized as a registered TRANSFORM (no EFFECT)."""
 
     if payload.parent_request_ref.project_key != project_key:
-        raise ValueError("payload project_key does not match Program project_key")
+        _reject_program_contract(
+            "payload project_key does not match Program project_key",
+            site="build_collect_c3_2_pure_fold_program",
+            domain_outcome="FOLD_CONTRACT_FAILURE",
+        )
     registry = build_collect_c3_transform_registry()
     fold_ref, _sequence_ref = _family_refs(registry)
     root = map_output_node(
@@ -586,6 +719,34 @@ def build_collect_c3_2_pure_fold_program(
     ).with_digest()
 
 
+def try_build_collect_c3_2_pure_fold_program(
+    *,
+    payload: c3.CollectFoldPayload,
+    catalog: OperationContractCatalogSnapshot,
+    program_id: str,
+    project_key: str,
+    project_registry_revision: int,
+    project_scope_digest: str,
+) -> ProgramBuildResult:
+    """Total pure-fold Program construction."""
+
+    try:
+        return build_collect_c3_2_pure_fold_program(
+            payload=payload,
+            catalog=catalog,
+            program_id=program_id,
+            project_key=project_key,
+            project_registry_revision=project_registry_revision,
+            project_scope_digest=project_scope_digest,
+        )
+    except (TypeError, ValueError) as exc:
+        return _program_contract_failure(
+            message=str(exc),
+            site="try_build_collect_c3_2_pure_fold_program",
+            domain_outcome="FOLD_CONTRACT_FAILURE",
+        )
+
+
 def build_collect_c3_composed_program(
     *,
     element_payloads: tuple[c3.CollectBatchElementPayload, ...],
@@ -594,7 +755,11 @@ def build_collect_c3_composed_program(
     project_key: str,
     project_registry_revision: int,
     project_scope_digest: str,
-) -> ProgramSpec:
+) -> Annotated[
+    ProgramSpec,
+    "kit:prepared-command effect_boundary=successor_program_interpreter "
+    "witness=test:test_w05_collect_authority_metadata",
+]:
     """Compose TraverseOrdered -> typed fold payload -> FoldAtom.
 
     The composed Program binds the actual TraverseOrdered materialization
@@ -602,10 +767,16 @@ def build_collect_c3_composed_program(
     """
 
     if not element_payloads:
-        raise ValueError("composed C3 program requires at least one element payload")
+        _reject_program_contract(
+            "composed C3 program requires at least one element payload",
+            site="build_collect_c3_composed_program",
+        )
     for payload in element_payloads:
         if payload.parent_request_ref.project_key != project_key:
-            raise ValueError("payload project_key does not match Program project_key")
+            _reject_program_contract(
+                "payload project_key does not match Program project_key",
+                site="build_collect_c3_composed_program",
+            )
 
     element_program = build_collect_c3_1_program(
         payload=element_payloads[0],
@@ -722,6 +893,34 @@ def build_collect_c3_composed_program(
     ).with_digest()
 
 
+def try_build_collect_c3_composed_program(
+    *,
+    element_payloads: tuple[c3.CollectBatchElementPayload, ...],
+    catalog: OperationContractCatalogSnapshot,
+    program_id: str,
+    project_key: str,
+    project_registry_revision: int,
+    project_scope_digest: str,
+) -> ProgramBuildResult:
+    """Total composed Program construction preserving materialized-shape order."""
+
+    try:
+        return build_collect_c3_composed_program(
+            element_payloads=element_payloads,
+            catalog=catalog,
+            program_id=program_id,
+            project_key=project_key,
+            project_registry_revision=project_registry_revision,
+            project_scope_digest=project_scope_digest,
+        )
+    except (TypeError, ValueError) as exc:
+        return _program_contract_failure(
+            message=str(exc),
+            site="try_build_collect_c3_composed_program",
+            domain_outcome="INVALID_INPUT",
+        )
+
+
 def compile_collect_c3_program(
     program: ProgramSpec,
     catalog: OperationContractCatalogSnapshot,
@@ -768,25 +967,39 @@ def build_declared_traversal_program(
     traversal_policy: str = "MATERIALIZED_SHAPE",
     static_shape_digest: str | None = None,
     static_element_count: int | None = None,
-) -> ProgramSpec:
+) -> Annotated[
+    ProgramSpec,
+    "kit:prepared-command effect_boundary=successor_program_interpreter "
+    "witness=test:test_w05_collect_authority_metadata",
+]:
     """Declared TraverseOrdered program with exact occurrence binding metadata."""
 
     if traversal_policy not in {"STATIC_SHAPE", "MATERIALIZED_SHAPE"}:
-        raise ValueError(f"unsupported traversal policy {traversal_policy!r}")
+        _reject_program_contract(
+            f"unsupported traversal policy {traversal_policy!r}",
+            site="build_declared_traversal_program",
+        )
     if traversal_policy == "STATIC_SHAPE":
         if not isinstance(static_shape_digest, str) or len(static_shape_digest) != 64:
-            raise ValueError("STATIC_SHAPE requires an exact traversal_shape_digest")
+            _reject_program_contract(
+                "STATIC_SHAPE requires an exact traversal_shape_digest",
+                site="build_declared_traversal_program",
+            )
         if (
             not isinstance(static_element_count, int)
             or isinstance(static_element_count, bool)
             or static_element_count < 0
         ):
-            raise ValueError(
-                "STATIC_SHAPE requires a non-negative traversal_element_count"
+            _reject_program_contract(
+                "STATIC_SHAPE requires a non-negative traversal_element_count",
+                site="build_declared_traversal_program",
             )
     else:
         if static_shape_digest is not None or static_element_count is not None:
-            raise ValueError("MATERIALIZED_SHAPE must not carry static shape metadata")
+            _reject_program_contract(
+                "MATERIALIZED_SHAPE must not carry static shape metadata",
+                site="build_declared_traversal_program",
+            )
 
     element_program = build_collect_c3_1_program(
         payload=element_payload,
@@ -836,6 +1049,40 @@ def build_declared_traversal_program(
         metadata=metadata,
         program_digest="",
     ).with_digest()
+
+
+def try_build_declared_traversal_program(
+    *,
+    element_payload: c3.CollectBatchElementPayload,
+    catalog: OperationContractCatalogSnapshot,
+    program_id: str,
+    project_key: str,
+    project_registry_revision: int,
+    project_scope_digest: str,
+    traversal_policy: str = "MATERIALIZED_SHAPE",
+    static_shape_digest: str | None = None,
+    static_element_count: int | None = None,
+) -> ProgramBuildResult:
+    """Total static/materialized traversal Program construction."""
+
+    try:
+        return build_declared_traversal_program(
+            element_payload=element_payload,
+            catalog=catalog,
+            program_id=program_id,
+            project_key=project_key,
+            project_registry_revision=project_registry_revision,
+            project_scope_digest=project_scope_digest,
+            traversal_policy=traversal_policy,
+            static_shape_digest=static_shape_digest,
+            static_element_count=static_element_count,
+        )
+    except (TypeError, ValueError) as exc:
+        return _program_contract_failure(
+            message=str(exc),
+            site="try_build_declared_traversal_program",
+            domain_outcome="INVALID_INPUT",
+        )
 
 
 def compile_declared_traversal_program(

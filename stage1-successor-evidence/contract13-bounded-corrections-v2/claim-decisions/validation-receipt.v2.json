@@ -1,0 +1,47 @@
+{
+  "artifacts": [
+    {
+      "path": "stage1-successor-evidence/contract13-bounded-corrections-v2/claim-decisions/claim-decisions.v2.json",
+      "sha256": "8362b368b5f4d944bb1bddf70f397e73c1b3716bc0bdb6244e61699b38e719b3"
+    },
+    {
+      "path": "stage1-successor-evidence/contract13-bounded-corrections-v2/claim-decisions/claim-decisions.v2.md",
+      "sha256": "b15d8505eb6cd39f4be74da7c720959bd6ee1e48c08d6a38710067303b554851"
+    },
+    {
+      "path": "stage1-successor-evidence/contract13-bounded-corrections-v2/claim-decisions/check_claim_decisions.py",
+      "sha256": "ce964014a478796285c16c91bd138ca1b66bc8c6d161bb1c6a0cee431c75dd81"
+    },
+    {
+      "path": "stage1-successor-evidence/contract13-bounded-corrections-v2/claim-decisions/generate_claim_decisions.py",
+      "sha256": "24825fca00ac28b9513a630e86ca4cbefb291703ccc0f6f806043df0fd1b2458"
+    }
+  ],
+  "authority_ceiling": "STAGE1_UNACCEPTED; NOT_LIVE; NON_AUTHORITATIVE; PRODUCTION_RELEASE_NOT_AUTHORIZED; NO_DEPLOY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_PUSH_NO_REMOTE_MUTATION",
+  "checks": {
+    "authority_not_widened": true,
+    "claim_keys_unique": true,
+    "decision_payloads_mutually_exclusive": true,
+    "fresh_proposal_fields_complete": true,
+    "frozen_missing_evidence_nodeid_count_is_30": true,
+    "nodeid_union_exact": true,
+    "nodeids_exactly_once": true,
+    "referenced_inputs_generators_anchors_and_provenance_resolve": true,
+    "synthetic_fixture_cannot_close_fact": true
+  },
+  "counts": {
+    "covered_nodeids": 30,
+    "decision_nodeid_counts": {
+      "ACTUAL_HISTORICAL_RECEIPT_REQUIRED": 8,
+      "FRESH_LOCAL_DETERMINISTIC_EVIDENCE_POSSIBLE": 13,
+      "LIVE_OBSERVATION_REQUIRED": 9
+    },
+    "expected_nodeids": 30,
+    "unique_claims": 16
+  },
+  "errors": [],
+  "record_id": "contract13-claim-decisions-validation-2026-09-06",
+  "schema_version": "mrw.contract13.claim_decisions.validation.v2",
+  "status": "passed",
+  "validation_passed": true
+}

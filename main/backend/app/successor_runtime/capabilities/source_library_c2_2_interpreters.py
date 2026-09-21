@@ -10,7 +10,9 @@ never be widened by a plan.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Generic, TypeAlias, TypeVar
+from typing import Annotated, Any, Generic, Literal, TypeAlias, TypeVar
+
+from functorial_kit import Failure
 
 from app.successor_runtime.capabilities import source_library_c2_shared as shared
 from app.successor_runtime.capabilities.checksum import content_digest
@@ -27,6 +29,8 @@ __all__ = [
     "plan_source_mode",
     "plan_url_execution",
     "require_exact_planning_binding",
+    "try_plan_source_mode",
+    "try_require_exact_planning_binding",
     "successor_planning_interpreter_profile_digest",
 ]
 
@@ -59,6 +63,13 @@ class PlanningBindingMismatch(ValueError):
     """Exact C2.2 planning binding drifted or was never established."""
 
 
+def _raise_planning_binding_mismatch(message: str) -> None:
+    """Lift the retained binding-mismatch exception at one ABI boundary."""
+
+    # kit:boundary owner=source_library.c2_2.v1 class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=c2.interpreter.failure witness=test:test_w06_c2_total_core_failure_lifts
+    raise PlanningBindingMismatch(message)
+
+
 def successor_planning_interpreter_profile_digest() -> str:
     return content_digest(
         {
@@ -85,17 +96,17 @@ def require_exact_planning_binding(
     """Validate the exact C2.2 planning binding before any plan is produced."""
 
     if payload.operation_kind not in shared.MODE_BY_KIND:
-        raise PlanningBindingMismatch("C2.2 payload operation kind is not one of four")
+        _raise_planning_binding_mismatch("C2.2 payload operation kind is not one of four")
     mode = shared.mode_for_kind(payload.operation_kind)
     request = payload.execution_request
     if request.source_mode.mode != mode:
-        raise PlanningBindingMismatch(
+        _raise_planning_binding_mismatch(
             f"C2.2 planner mode {mode} does not match request mode "
             f"{request.source_mode.mode}"
         )
     expected_request_digest = content_digest(request.to_plain())
     if payload.execution_request_digest != expected_request_digest:
-        raise PlanningBindingMismatch(
+        _raise_planning_binding_mismatch(
             "C2.2 execution_request_digest does not match the exact request"
         )
     if (
@@ -107,7 +118,7 @@ def require_exact_planning_binding(
         or payload.project_scope.incarnation != request.project_scope.incarnation
         or payload.project_scope.scope_digest != request.project_scope.scope_digest
     ):
-        raise PlanningBindingMismatch(
+        _raise_planning_binding_mismatch(
             "C2.2 payload project scope does not match the exact request"
         )
     if (
@@ -115,7 +126,7 @@ def require_exact_planning_binding(
         or payload.catalog.incarnation != request.catalog_incarnation
         or payload.catalog.digest != request.catalog_digest
     ):
-        raise PlanningBindingMismatch(
+        _raise_planning_binding_mismatch(
             "C2.2 payload catalog does not match the exact request catalog binding"
         )
     if (
@@ -123,11 +134,11 @@ def require_exact_planning_binding(
         or payload.item_incarnation != request.item_incarnation
         or payload.item_content_digest != request.item_content_digest
     ):
-        raise PlanningBindingMismatch(
+        _raise_planning_binding_mismatch(
             "C2.2 payload item does not match the exact request item binding"
         )
     if payload.resource_ceiling_digest != shared.resource_ceiling_digest():
-        raise PlanningBindingMismatch("C2.2 resource ceiling digest drift")
+        _raise_planning_binding_mismatch("C2.2 resource ceiling digest drift")
     if project_scope is not None and (
         project_scope.project_key != payload.project_scope.project_key
         or project_scope.registry_revision != payload.project_scope.registry_revision
@@ -135,35 +146,58 @@ def require_exact_planning_binding(
         or project_scope.incarnation != payload.project_scope.incarnation
         or project_scope.scope_digest != payload.project_scope.scope_digest
     ):
-        raise PlanningBindingMismatch("C2.2 project scope binding drift")
+        _raise_planning_binding_mismatch("C2.2 project scope binding drift")
     if (
         catalog is not None
         and getattr(catalog, "digest", None) is not None
         and catalog.digest != payload.catalog.digest
     ):
-        raise PlanningBindingMismatch("C2.2 catalog snapshot binding drift")
+        _raise_planning_binding_mismatch("C2.2 catalog snapshot binding drift")
     if (
         binding is not None
         and expected_interpreter_profile_digest is not None
         and getattr(binding, "interpreter_profile_digest", None)
         != expected_interpreter_profile_digest
     ):
-        raise PlanningBindingMismatch(
+        _raise_planning_binding_mismatch(
             "C2.2 interpreter binding profile digest does not match"
         )
     if program is not None and plan is not None:
         if getattr(plan, "program_digest", None) != getattr(
             program, "program_digest", None
         ):
-            raise PlanningBindingMismatch(
+            _raise_planning_binding_mismatch(
                 "plan.program_digest does not match program.program_digest"
             )
         if getattr(plan, "program_id", None) != getattr(program, "program_id", None):
-            raise PlanningBindingMismatch(
+            _raise_planning_binding_mismatch(
                 "plan.program_id does not match program.program_id"
             )
         if payload_ref is not None and getattr(plan, "plan_digest", None) is None:
-            raise PlanningBindingMismatch("C2.2 plan digest is not available")
+            _raise_planning_binding_mismatch("C2.2 plan digest is not available")
+
+
+def try_require_exact_planning_binding(
+    payload: shared.SourceModePlanningPayload,
+    **kwargs: Any,
+) -> None | Failure:
+    try:
+        require_exact_planning_binding(payload, **kwargs)
+        return None
+    except PlanningBindingMismatch as exc:
+        return shared.c2_interpreter_failure(
+            str(exc),
+            operation="source_library.c2_2.require_exact_planning_binding",
+            site="require_exact_planning_binding",
+        )
+    except (TypeError, ValueError, KeyError, AttributeError) as exc:
+        return shared.c2_contract_failure(
+            "binding_contract_invalid",
+            str(exc),
+            operation="source_library.c2_2.require_exact_planning_binding",
+            site="require_exact_planning_binding",
+            owner=shared.SOURCE_LIBRARY_C2_2_OWNER,
+        )
 
 
 def _reject(code: str, message: str) -> shared.RejectedPlanning:
@@ -332,7 +366,7 @@ def _plan(
 
 def plan_protocol_search(
     payload: shared.SourceModePlanningPayload,
-) -> shared.SourceModePlanningResult:
+) -> Annotated[shared.SourceModePlanningResult, Literal["kit:non-authoritative derived_as=view fact_source=request+catalog+interpreter_profile witness=test:test_w06_successor_authority_metadata"]]:
     blocked = _validate_channel(payload)
     if blocked is not None:
         return blocked
@@ -401,7 +435,7 @@ def plan_protocol_search(
 
 def plan_provider_harvest(
     payload: shared.SourceModePlanningPayload,
-) -> shared.SourceModePlanningResult:
+) -> Annotated[shared.SourceModePlanningResult, Literal["kit:non-authoritative derived_as=view fact_source=request+catalog+interpreter_profile witness=test:test_w06_successor_authority_metadata"]]:
     blocked = _validate_channel(payload)
     if blocked is not None:
         return blocked
@@ -454,7 +488,7 @@ def plan_provider_harvest(
 
 def plan_site_search(
     payload: shared.SourceModePlanningPayload,
-) -> shared.SourceModePlanningResult:
+) -> Annotated[shared.SourceModePlanningResult, Literal["kit:non-authoritative derived_as=view fact_source=request+catalog+interpreter_profile witness=test:test_w06_successor_authority_metadata"]]:
     request = payload.execution_request
     handler_entry = payload.catalog.entry_by_key("handler.cluster")
     if handler_entry is None:
@@ -535,7 +569,7 @@ def plan_site_search(
 
 def plan_url_execution(
     payload: shared.SourceModePlanningPayload,
-) -> shared.SourceModePlanningResult:
+) -> Annotated[shared.SourceModePlanningResult, Literal["kit:non-authoritative derived_as=view fact_source=request+catalog+interpreter_profile witness=test:test_w06_successor_authority_metadata"]]:
     blocked = _validate_channel(payload)
     if blocked is not None:
         return blocked
@@ -614,10 +648,31 @@ PLANNERS = {
 
 def plan_source_mode(
     payload: shared.SourceModePlanningPayload,
-) -> shared.SourceModePlanningResult:
-    mode = shared.mode_for_kind(payload.operation_kind)
+) -> Annotated[shared.SourceModePlanningResult, Literal["kit:non-authoritative derived_as=view fact_source=request+catalog+interpreter_profile witness=test:test_w06_successor_authority_metadata"]]:
+    mode_result = shared.try_mode_for_kind(payload.operation_kind)
+    if isinstance(mode_result, Failure):
+        return _reject("INVALID_REQUEST", mode_result.message)
+    mode = mode_result
     planner = PLANNERS[mode]
     return planner(payload)
+
+
+def try_plan_source_mode(
+    payload: shared.SourceModePlanningPayload,
+) -> shared.SourceModePlanningResult | Failure:
+    """Total planner dispatch; malformed payloads stay in the C2 family."""
+
+    try:
+        result = plan_source_mode(payload)
+    except (TypeError, ValueError, KeyError, AttributeError, OverflowError) as exc:
+        return shared.c2_contract_failure(
+            "schema_contract_invalid",
+            str(exc),
+            operation="source_library.c2_2.plan_source_mode",
+            site="plan_source_mode",
+            owner=shared.SOURCE_LIBRARY_C2_2_OWNER,
+        )
+    return result
 
 
 class SourceLibraryC2_2SuccessorInterpreter:
@@ -661,7 +716,13 @@ class SourceLibraryC2_2SuccessorInterpreter:
                 message=str(exc),
                 retryable=False,
             )
-        result = plan_source_mode(payload)
+        result = try_plan_source_mode(payload)
+        if isinstance(result, Failure):
+            return InterpreterFailure(
+                code=result.code,
+                message=result.message,
+                retryable=False,
+            )
         if isinstance(result, shared.RejectedPlanning):
             return InterpreterFailure(
                 code=result.code,

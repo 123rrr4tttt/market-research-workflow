@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
-from .codec import digest_dataclass, finalize_digest, sha256_hex
+from .codec import _failure, _raise_failure, digest_dataclass, finalize_digest, sha256_hex
 
 __all__ = ["CapturedMaterialSnapshot", "MaterialRef"]
 
@@ -36,7 +36,15 @@ class MaterialRef:
         if self.content_digest is None:
             object.__setattr__(self, "content_digest", expected_content)
         elif self.content_digest != expected_content:
-            raise ValueError("MaterialRef content digest mismatch")
+            _raise_failure(
+                _failure(
+                    "MATERIAL_REF_INVALID",
+                    "MaterialRef content digest mismatch",
+                    ValueError,
+                    site="MaterialRef.content_digest",
+                ),
+                ValueError,
+            )
         expected_provenance = sha256_hex(
             {
                 "source_ref": self.source_ref,
@@ -50,4 +58,12 @@ class MaterialRef:
         if self.provenance_digest is None:
             object.__setattr__(self, "provenance_digest", expected_provenance)
         elif self.provenance_digest != expected_provenance:
-            raise ValueError("MaterialRef provenance digest mismatch")
+            _raise_failure(
+                _failure(
+                    "MATERIAL_REF_INVALID",
+                    "MaterialRef provenance digest mismatch",
+                    ValueError,
+                    site="MaterialRef.provenance_digest",
+                ),
+                ValueError,
+            )

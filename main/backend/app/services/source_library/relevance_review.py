@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections import Counter
 from hashlib import sha256
 import json
-from typing import Any
+from typing import Annotated, Any
 from urllib.parse import urlparse
 
 
@@ -62,7 +62,10 @@ def build_relevance_review_queue(
     runtime_diagnostics: list[dict[str, Any]] | None = None,
     errors: list[dict[str, Any]] | None = None,
     source_surface: str = "resource_pool.unified_search",
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=source_library.review_candidates witness=test:test_w01_meta",
+]:
     """Build a fail-closed review queue for low-confidence selected candidates.
 
     The queue is deterministic and intentionally does not represent completed
@@ -188,7 +191,10 @@ def build_taxonomy_review_readiness(
     review_queue: dict[str, Any] | None,
     human_review_evidence: list[dict[str, Any]] | None = None,
     source_surface: str = "source_library.taxonomy_review_readiness",
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=preflight fact_source=source_library.taxonomy_review witness=test:test_w01_meta",
+]:
     """Summarize deterministic taxonomy readiness without claiming review closure."""
 
     taxonomy_rows = [_taxonomy_case_readiness(row, position=index) for index, row in enumerate(taxonomy_cases)]

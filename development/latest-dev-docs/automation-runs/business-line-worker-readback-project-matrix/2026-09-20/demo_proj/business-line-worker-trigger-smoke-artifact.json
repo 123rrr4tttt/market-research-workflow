@@ -1,0 +1,117 @@
+{
+  "api_base": "http://127.0.0.1:8000",
+  "generated_at": "2026-09-20T08:45:22Z",
+  "lines": [
+    {
+      "accepted": true,
+      "blocked": false,
+      "error": null,
+      "http_status": 200,
+      "job_id": "abj-5c2c45b1ba04467f",
+      "line_key": "search_discovery_index",
+      "method": "POST",
+      "path": "/api/v1/agent-batch/jobs",
+      "reason": null,
+      "recommended_next_commands": [
+        "python3 scripts/run_business_line_async_task_readback_live_samples.py --api-base http://127.0.0.1:8000 --project-key demo_proj --output /Users/wangyiliang/market-research-workflow/development/latest-dev-docs/automation-runs/business-line-worker-readback-project-matrix/2026-09-20/demo_proj/business-line-async-task-readback-live-samples.json --json",
+        "python3 scripts/run_business_line_worker_readback_evidence_chain.py --api-base http://127.0.0.1:8000 --project-key demo_proj --artifact-dir /Users/wangyiliang/market-research-workflow/development/latest-dev-docs/automation-runs/business-line-worker-readback-project-matrix/2026-09-20/demo_proj --json"
+      ],
+      "response_status": "ok",
+      "run_id": "abj-5c2c45b1ba04467f-smoke-search-market-run",
+      "status": "passed",
+      "task_id": "ce0a060d-0411-4ac2-a16c-3ad88daa2c3b",
+      "trigger_kind": "agent_batch.search_market"
+    },
+    {
+      "accepted": true,
+      "blocked": false,
+      "error": null,
+      "http_status": 200,
+      "job_id": null,
+      "line_key": "resource_source_library",
+      "method": "POST",
+      "path": "/api/v1/ingest/source-library/run",
+      "reason": null,
+      "recommended_next_commands": [
+        "python3 scripts/run_business_line_async_task_readback_live_samples.py --api-base http://127.0.0.1:8000 --project-key demo_proj --output /Users/wangyiliang/market-research-workflow/development/latest-dev-docs/automation-runs/business-line-worker-readback-project-matrix/2026-09-20/demo_proj/business-line-async-task-readback-live-samples.json --json",
+        "python3 scripts/run_business_line_worker_readback_evidence_chain.py --api-base http://127.0.0.1:8000 --project-key demo_proj --artifact-dir /Users/wangyiliang/market-research-workflow/development/latest-dev-docs/automation-runs/business-line-worker-readback-project-matrix/2026-09-20/demo_proj --json"
+      ],
+      "response_status": "ok",
+      "run_id": null,
+      "status": "passed",
+      "task_id": "8c28a29c-f0aa-46ea-8d46-b09c560b6298",
+      "trigger_kind": "ingest.source_library_run_smoke_only"
+    },
+    {
+      "accepted": true,
+      "blocked": false,
+      "error": null,
+      "http_status": 200,
+      "job_id": "169",
+      "line_key": "writing_knowledge_graph_agent",
+      "method": "POST",
+      "path": "/api/v1/writing/llm-actions",
+      "reason": null,
+      "recommended_next_commands": [
+        "python3 scripts/run_business_line_async_task_readback_live_samples.py --api-base http://127.0.0.1:8000 --project-key demo_proj --output /Users/wangyiliang/market-research-workflow/development/latest-dev-docs/automation-runs/business-line-worker-readback-project-matrix/2026-09-20/demo_proj/business-line-async-task-readback-live-samples.json --json",
+        "python3 scripts/run_business_line_worker_readback_evidence_chain.py --api-base http://127.0.0.1:8000 --project-key demo_proj --artifact-dir /Users/wangyiliang/market-research-workflow/development/latest-dev-docs/automation-runs/business-line-worker-readback-project-matrix/2026-09-20/demo_proj --json"
+      ],
+      "response_status": "ok",
+      "run_id": null,
+      "status": "passed",
+      "task_id": null,
+      "trigger_kind": "writing.llm_action"
+    },
+    {
+      "accepted": true,
+      "blocked": false,
+      "error": null,
+      "http_status": 200,
+      "job_id": null,
+      "line_key": "ingest",
+      "method": "POST",
+      "path": "/api/v1/ingest/url/single",
+      "reason": null,
+      "recommended_next_commands": [
+        "python3 scripts/run_business_line_async_task_readback_live_samples.py --api-base http://127.0.0.1:8000 --project-key demo_proj --output /Users/wangyiliang/market-research-workflow/development/latest-dev-docs/automation-runs/business-line-worker-readback-project-matrix/2026-09-20/demo_proj/business-line-async-task-readback-live-samples.json --json",
+        "python3 scripts/run_business_line_worker_readback_evidence_chain.py --api-base http://127.0.0.1:8000 --project-key demo_proj --artifact-dir /Users/wangyiliang/market-research-workflow/development/latest-dev-docs/automation-runs/business-line-worker-readback-project-matrix/2026-09-20/demo_proj --json"
+      ],
+      "response_status": "ok",
+      "run_id": null,
+      "status": "passed",
+      "task_id": "ff8fd045-1e7f-422e-9058-19ddc1f33c25",
+      "trigger_kind": "ingest.url_single_celery"
+    }
+  ],
+  "project_key": "demo_proj",
+  "recommended_next_commands": [
+    "python3 scripts/run_business_line_worker_readback_evidence_chain.py --api-base http://127.0.0.1:8000 --project-key demo_proj --artifact-dir /Users/wangyiliang/market-research-workflow/development/latest-dev-docs/automation-runs/business-line-worker-readback-project-matrix/2026-09-20/demo_proj --json",
+    "python3 scripts/run_business_line_async_task_readback_live_samples.py --api-base http://127.0.0.1:8000 --project-key demo_proj --output /Users/wangyiliang/market-research-workflow/development/latest-dev-docs/automation-runs/business-line-worker-readback-project-matrix/2026-09-20/demo_proj/business-line-async-task-readback-live-samples.json --json"
+  ],
+  "schema_version": "business_line_worker_readback_smoke_triggers.v1",
+  "scope": {
+    "does_long_poll": false,
+    "does_readback_validation": false,
+    "worker_required_line_keys": [
+      "ingest",
+      "search_discovery_index",
+      "resource_source_library",
+      "writing_knowledge_graph_agent"
+    ]
+  },
+  "status": "passed",
+  "summary": {
+    "accepted": 4,
+    "accepted_line_keys": [
+      "ingest",
+      "search_discovery_index",
+      "resource_source_library",
+      "writing_knowledge_graph_agent"
+    ],
+    "blocked": 0,
+    "blocked_line_keys": [],
+    "failed": 0,
+    "failed_line_keys": [],
+    "total": 4
+  }
+}

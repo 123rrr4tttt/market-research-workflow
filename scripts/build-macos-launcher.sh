@@ -9,23 +9,31 @@ APP_NAME="Market Research Workflow.app"
 EXECUTABLE_NAME="MarketResearchWorkflow"
 DESKTOP_APP="${HOME}/Desktop/${APP_NAME}"
 LOCAL_APP="${REPO_DIR}/tools/macos/${APP_NAME}"
+WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/mrw-launcher-build.XXXXXX")"
+BUILD_APP="${WORK_DIR}/${APP_NAME}"
+DESKTOP_TMP="${WORK_DIR}/desktop-${APP_NAME}"
+LOCAL_BACKUP="${WORK_DIR}/local-previous-${APP_NAME}"
+DESKTOP_BACKUP="${WORK_DIR}/desktop-previous-${APP_NAME}"
+
+cleanup() {
+  rm -rf "${WORK_DIR}"
+}
+trap cleanup EXIT INT TERM
 
 if [[ ! -f "${SOURCE}" ]]; then
   echo "Missing launcher source: ${SOURCE}" >&2
   exit 1
 fi
 
-mkdir -p "${LOCAL_APP}/Contents/MacOS" "${LOCAL_APP}/Contents/Resources"
-rm -rf "${LOCAL_APP}" "${DESKTOP_APP}"
-mkdir -p "${LOCAL_APP}/Contents/MacOS" "${LOCAL_APP}/Contents/Resources"
+mkdir -p "${BUILD_APP}/Contents/MacOS" "${BUILD_APP}/Contents/Resources"
 
 swiftc "${SOURCE}" \
   -parse-as-library \
-  -o "${LOCAL_APP}/Contents/MacOS/${EXECUTABLE_NAME}" \
+  -o "${BUILD_APP}/Contents/MacOS/${EXECUTABLE_NAME}" \
   -framework SwiftUI \
   -framework AppKit
 
-cat >"${LOCAL_APP}/Contents/Info.plist" <<PLIST
+cat >"${BUILD_APP}/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -43,9 +51,9 @@ cat >"${LOCAL_APP}/Contents/Info.plist" <<PLIST
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
-  <string>1.0</string>
+  <string>1.1</string>
   <key>CFBundleVersion</key>
-  <string>1</string>
+  <string>2</string>
   <key>LSMinimumSystemVersion</key>
   <string>13.0</string>
   <key>NSAppleEventsUsageDescription</key>
@@ -56,10 +64,35 @@ cat >"${LOCAL_APP}/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
-printf 'APPL????' >"${LOCAL_APP}/Contents/PkgInfo"
+printf 'APPL????' >"${BUILD_APP}/Contents/PkgInfo"
 
-codesign --force --sign - "${LOCAL_APP}" >/dev/null 2>&1 || true
-cp -R "${LOCAL_APP}" "${DESKTOP_APP}"
+codesign --force --sign - "${BUILD_APP}"
+codesign --verify --deep --strict --verbose=2 "${BUILD_APP}"
+
+replace_app() {
+  local next="$1"
+  local destination="$2"
+  local backup="$3"
+
+  if [[ -e "${destination}" ]]; then
+    mv "${destination}" "${backup}"
+  fi
+  if mv "${next}" "${destination}"; then
+    rm -rf "${backup}"
+  else
+    if [[ -e "${backup}" && ! -e "${destination}" ]]; then
+      mv "${backup}" "${destination}" || true
+    fi
+    return 1
+  fi
+}
+
+replace_app "${BUILD_APP}" "${LOCAL_APP}" "${LOCAL_BACKUP}"
+
+mkdir -p "${WORK_DIR}/desktop-copy"
+cp -R "${LOCAL_APP}" "${DESKTOP_TMP}"
+codesign --verify --deep --strict --verbose=2 "${DESKTOP_TMP}"
+replace_app "${DESKTOP_TMP}" "${DESKTOP_APP}" "${DESKTOP_BACKUP}"
 
 echo "Built launcher:"
 echo "  ${LOCAL_APP}"

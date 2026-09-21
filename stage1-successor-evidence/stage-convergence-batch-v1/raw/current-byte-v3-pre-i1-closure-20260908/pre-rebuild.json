@@ -1,0 +1,13 @@
+{
+  "authoritative": false,
+  "documents": {
+    "manifest": {
+      "path": "stage1-successor-evidence/current-byte-remediation-v3/bindings/artifact-manifest.v3.json",
+      "sha256": "a4674666b2f9feb70c9fa9496859cc91a4fb77ac3226275d0dfae631b9bf77ba"
+    },
+    "registry": {
+      "path": "stage1-successor-evidence/current-byte-remediation-v3/bindings/current-byte-binding-successors.v3.json",
+      "sha256": "ff28a778f672b1d7bccf7b4da9564e243b6df29c05bb9ea5f9921732e22d5b8a"
+    }
+  }
+}

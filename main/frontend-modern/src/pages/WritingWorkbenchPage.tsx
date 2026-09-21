@@ -737,6 +737,16 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
     () => writingTypedKnowledgeContextKey(effectiveWritingTypedContext),
     [effectiveWritingTypedContext],
   )
+  const writingTypedContextSummary = useMemo(() => {
+    const firstHandoff = effectiveWritingTypedContext?.handoffs[0]
+    if (!effectiveWritingTypedContext || !firstHandoff) return null
+    return tf('writingWorkbenchPage.status.typedKnowledgeContextReady', {
+      count: effectiveWritingTypedContext.handoffs.length,
+      key: firstHandoff.knowledge_item_key,
+      state: firstHandoff.review_state,
+      live: String(Boolean(typedKnowledgeContextQuery.data?.live_db_backed)),
+    })
+  }, [effectiveWritingTypedContext, tf, typedKnowledgeContextQuery.data?.live_db_backed])
 
   const resetContextPanels = () => {
     dismissInsightCard()
@@ -1129,12 +1139,6 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
     return () => window.removeEventListener('keydown', handleEscape)
   }, [dismissInsightCard, effectiveSelectedCardId])
 
-  useEffect(() => {
-    const handleResize = () => setViewport(readViewport())
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [])
-
   const documentSummaries = useMemo(
     () =>
       (documentsQuery.data || []).map((item) => ({
@@ -1332,13 +1336,16 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
     setToolbarPosition(null)
   }
 
+  const hasCustomToolbarPosition = toolbarPosition !== null
+
   useEffect(() => {
-    if (!toolbarPosition) return
-    const nextPosition = clampToolbarPosition(toolbarPosition)
-    if (nextPosition.left !== toolbarPosition.left || nextPosition.top !== toolbarPosition.top) {
-      setToolbarPosition(nextPosition)
+    const handleResize = () => {
+      setViewport(readViewport())
+      setToolbarPosition((current) => (current ? clampToolbarPosition(current) : current))
     }
-  }, [clampToolbarPosition, toolbarPosition, viewport])
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [clampToolbarPosition, hasCustomToolbarPosition])
 
   const handleDocumentsPanelResizeStart = (edge: 'e' | 's' | 'se') =>
     beginPanelResize(edge, effectiveDocumentsPanelSize, setDocumentsPanelSize)
@@ -2225,6 +2232,11 @@ export default function WritingWorkbenchPage({ projectKey, standalone = false }:
           <div className="writing-toolbar-cluster writing-toolbar-cluster--meta">
             {latestAgentUpdate ? (
               <span className="chip chip-ok">Agent v{latestAgentUpdate.newVersion || documentDetailQuery.data?.version || '-'}</span>
+            ) : null}
+            {writingTypedContextSummary ? (
+              <span className="chip chip-ok" data-testid="writing-typed-knowledge-context">
+                {writingTypedContextSummary}
+              </span>
             ) : null}
             {toolbarStatus ? <span className="writing-toolbar-status">{toolbarStatus}</span> : null}
             {effectiveDocumentId != null ? <span className="chip chip-warn">doc {effectiveDocumentId}</span> : null}

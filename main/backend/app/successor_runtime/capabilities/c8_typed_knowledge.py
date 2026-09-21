@@ -39,6 +39,9 @@ from app.successor_runtime.capabilities.c8_common import (
     validate_canonical_material,
     validate_canonical_ref,
     validate_typed_knowledge_candidate,
+    reject_c8_ambiguous,
+    reject_c8_projection,
+    reject_c8_unavailable,
 )
 
 __all__ = [
@@ -88,9 +91,9 @@ def demand_read(
     if project_key is not None:
         candidates = [item for item in candidates if item.project_key == project_key]
     if not candidates:
-        raise UnavailableProjection(f"typed knowledge item {item_key} is unavailable")
+        reject_c8_unavailable(f"typed knowledge item {item_key} is unavailable")
     if len(candidates) > 1:
-        raise AmbiguousProjection(f"typed knowledge item {item_key} is ambiguous")
+        reject_c8_ambiguous(f"typed knowledge item {item_key} is ambiguous")
     item = candidates[0]
     ref = item.canonical_ref or derived_canonical_ref(item)
     handle = build_read_handle(
@@ -105,8 +108,8 @@ def demand_read(
     resolution = active_registry.resolve(handle, items=items)
     if not resolution.available:
         if resolution.ambiguous:
-            raise AmbiguousProjection(resolution.reason)
-        raise UnavailableProjection(resolution.reason)
+            reject_c8_ambiguous(resolution.reason)
+        reject_c8_unavailable(resolution.reason)
     return KnowledgeRead(
         item=item,
         fields=dict(resolution.value),
@@ -145,16 +148,16 @@ class StrictReadHandleRegistry:
     ) -> KnowledgeReadHandle:
         registered = self._issuance.resolve(material.material_identity)
         if registered is None or registered != material:
-            raise UnavailableProjection(
+            reject_c8_unavailable(
                 "material is not an issued exact registry entry"
             )
         if witness._secret is not self._issuance._authority._secret:
-            raise UnavailableProjection("material issuance witness is not authentic")
+            reject_c8_unavailable("material issuance witness is not authentic")
         if (
             witness.material_identity != material.material_identity
             or witness.attestation_digest != material.attestation_digest
         ):
-            raise UnavailableProjection("material issuance witness mismatch")
+            reject_c8_unavailable("material issuance witness mismatch")
         validate_typed_knowledge_candidate(
             candidate,
             material=material,
@@ -220,14 +223,14 @@ class StrictReadHandleRegistry:
     ) -> IssuedKnowledgeRead:
         issued = self._handles.get(handle.handle_id)
         if issued is None:
-            raise UnavailableProjection("forged read handle was never issued")
+            reject_c8_unavailable("forged read handle was never issued")
         if issued != handle:
-            raise UnavailableProjection(
+            reject_c8_unavailable(
                 "read handle does not match the issued entry byte-for-byte"
             )
         registered = self._issuance.resolve(handle.canonical_identity)
         if registered is None or registered != material:
-            raise UnavailableProjection(
+            reject_c8_unavailable(
                 "material drifted from the registered issuance entry"
             )
         validate_canonical_material(material, project_key=handle.project_key)
@@ -239,11 +242,11 @@ class StrictReadHandleRegistry:
         if handle.fields_digest != candidate_fields_digest(
             candidate, handle.field_mask
         ):
-            raise UnavailableProjection("issued handle fields digest is stale")
+            reject_c8_unavailable("issued handle fields digest is stale")
         selected: dict[str, object] = {}
         for name in handle.field_mask:
             if not hasattr(candidate, name):
-                raise UnavailableProjection(f"demanded field unavailable: {name}")
+                reject_c8_unavailable(f"demanded field unavailable: {name}")
             selected[name] = getattr(candidate, name)
         return IssuedKnowledgeRead(
             handle=handle,
@@ -263,7 +266,7 @@ def strict_issued_demand_read(
     object_key: str | None = None,
 ) -> IssuedKnowledgeRead:
     if isinstance(witness, TestOnlySealedValue):
-        raise UnavailableProjection("production demand-read rejects TEST_ONLY witness")
+        reject_c8_unavailable("production demand-read rejects TEST_ONLY witness")
     return strict_issued_demand_read_test_only(
         material,
         witness,

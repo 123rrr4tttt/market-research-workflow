@@ -7,6 +7,7 @@ from typing import Any, Callable, TypeVar
 
 from .checksum import content_digest, decode_dataclass, require_hex64
 from .contracts import OperationContractRef
+from .checksum import _primitive_failure, _raise_primitive_failure
 
 T = TypeVar("T")
 
@@ -59,7 +60,13 @@ def dataclass_codec(
 
     def encode(value: Any) -> dict[str, Any]:
         if not isinstance(value, dto_cls):
-            raise TypeError(f"{codec_id} codec expected {dto_cls.__name__}")
+            failure = _primitive_failure(
+                "codec_input_type_invalid",
+                f"{codec_id} codec expected {dto_cls.__name__}",
+                exception_type=TypeError,
+                field_name=f"codec/{codec_id}",
+            )
+            _raise_primitive_failure(failure, TypeError)
         return _canonical_dict(value)
 
     def decode(value: dict[str, Any]) -> Any:

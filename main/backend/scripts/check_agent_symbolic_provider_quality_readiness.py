@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -231,7 +231,12 @@ def _check_input_quality_claim_rejected() -> dict[str, Any]:
     return readiness
 
 
-def build_contract() -> dict[str, Any]:
+def build_contract() -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=preflight "
+    "fact_source=app.services.source_library.provider_quality "
+    "witness=test:test_c11_cli_agent_authority_metadata",
+]:
     failures: list[dict[str, str]] = []
     evidence: dict[str, Any] = {}
     checks = [

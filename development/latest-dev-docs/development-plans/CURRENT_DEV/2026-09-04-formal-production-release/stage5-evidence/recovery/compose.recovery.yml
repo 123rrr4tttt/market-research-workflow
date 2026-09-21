@@ -1,0 +1,200 @@
+services:
+  backend:
+    image: mrw-local/stage4-business001:stage4-c9-effect
+    pull_policy: never
+    platform: linux/amd64
+    ports: !override
+      - "127.0.0.1:18152:8000"
+    environment:
+      DATABASE_URL: "postgresql+psycopg2://postgres:${POSTGRES_PASSWORD}@db:5432/mrw_stage5_recovery"
+      CODEX_OAUTH_COOKIE_SECURE: "true"
+      CODEX_AUTH_ENABLED: "true"
+      CODEX_AUTH_TOKENS: "${CODEX_AUTH_TOKENS}"
+      CODEX_AUTH_PROTECTED_PREFIXES: "/api/v1/projects,/api/v1/business-lines,/api/v1/ingest,/api/v1/workflow-graph,/api/v1/admin,/api/v1/writing,/api/v1/successor-runtime"
+      LLM_PROVIDER: "${LLM_PROVIDER}"
+      OPENAI_API_KEY: "${OPENAI_API_KEY}"
+      OPENAI_API_BASE: "${OPENAI_API_BASE}"
+      RELEASE_BUILD_COMMIT: "8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2"
+      RELEASE_BUILD_TREE: "ce7c67c831b51f9d64b4c2f1a470a724a50b19df"
+      RELEASE_BUILD_DIGEST: "sha256:dd4b1f3b512da6d013feb7f5925f343e5a639263b037d5a81445bfa2f8c93c0b"
+      RUN_MIGRATIONS: "false"
+      PRODUCTION_ALLOWED_HOSTS: "127.0.0.1,localhost,backend"
+      PRODUCTION_ALLOWED_ORIGINS: "https://127.0.0.1:18152,https://localhost:18152"
+      PRODUCTION_TRUSTED_ACTOR_SOURCES: "authenticated_codex_token"
+      PRODUCTION_TRUSTED_AUTH_MODES: "codex_auth_token"
+      PRODUCTION_REQUIRE_TLS: "true"
+      PRODUCTION_ALLOWED_METHODS: "GET,POST,PUT,PATCH,DELETE"
+      PRODUCTION_ALLOWED_CONTENT_TYPES: "application/json"
+      PRODUCTION_MAX_BODY_BYTES: "1048576"
+      PRODUCTION_HTTP_RATE_MAX_REQUESTS: "120"
+      PRODUCTION_HTTP_RATE_WINDOW_SECONDS: "60"
+      PRODUCTION_PROVIDER_IDS: "openai"
+      PRODUCTION_PROVIDER_RATE_MAX_REQUESTS: "4"
+      PRODUCTION_PROVIDER_RATE_WINDOW_SECONDS: "60"
+      PRODUCTION_PROVIDER_MAX_PAYLOAD_BYTES: "131072"
+      PRODUCTION_PROVIDER_CATALOG_BINDING: "registered-provider-catalog.v1"
+      PRODUCTION_RATE_AUTHORITY_BINDING: "atomic-redis-rate-observations.v1"
+      PRODUCTION_CANONICAL_WRITER_BINDING: " "
+      PRODUCTION_CANONICAL_WRITER_OWNER: " "
+      PRODUCTION_PROJECT_KEYS: "stage5_recovery_20260913"
+      PRODUCTION_METRICS_TOKEN: "${PRODUCTION_METRICS_TOKEN}"
+      PRODUCTION_OBSERVABILITY_RUNTIME_ID: "mrw-stage5-recovery"
+      PRODUCTION_CANARY_ROUTE_ENABLED: "false"
+      PRODUCTION_DOMAIN_REJECTION_TRIGGER_RATIO: "0.10"
+      PRODUCTION_DOMAIN_REJECTION_RECOVER_RATIO: "0.05"
+      PRODUCTION_ROUTE_ERROR_TRIGGER_RATIO: "0.05"
+      PRODUCTION_ROUTE_ERROR_RECOVER_RATIO: "0.01"
+      PRODUCTION_RELEASE_ERROR_TRIGGER_RATIO: "0.05"
+      PRODUCTION_RELEASE_ERROR_RECOVER_RATIO: "0.01"
+      ACTIVE_PROJECT_KEY: "stage5_recovery_20260913"
+
+  celery-worker:
+    image: mrw-local/stage4-business001:stage4-c9-effect
+    pull_policy: never
+    platform: linux/amd64
+    environment:
+      DATABASE_URL: "postgresql+psycopg2://postgres:${POSTGRES_PASSWORD}@db:5432/mrw_stage5_recovery"
+      CODEX_OAUTH_COOKIE_SECURE: "true"
+      CODEX_AUTH_ENABLED: "true"
+      CODEX_AUTH_TOKENS: "${CODEX_AUTH_TOKENS}"
+      CODEX_AUTH_PROTECTED_PREFIXES: "/api/v1/projects,/api/v1/business-lines,/api/v1/ingest,/api/v1/workflow-graph,/api/v1/admin,/api/v1/writing,/api/v1/successor-runtime"
+      LLM_PROVIDER: "${LLM_PROVIDER}"
+      OPENAI_API_KEY: "${OPENAI_API_KEY}"
+      OPENAI_API_BASE: "${OPENAI_API_BASE}"
+      RELEASE_BUILD_COMMIT: "8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2"
+      RELEASE_BUILD_TREE: "ce7c67c831b51f9d64b4c2f1a470a724a50b19df"
+      RELEASE_BUILD_DIGEST: "sha256:dd4b1f3b512da6d013feb7f5925f343e5a639263b037d5a81445bfa2f8c93c0b"
+      RUN_MIGRATIONS: "false"
+      PRODUCTION_ALLOWED_HOSTS: "127.0.0.1,localhost,backend"
+      PRODUCTION_ALLOWED_ORIGINS: "https://127.0.0.1:18152,https://localhost:18152"
+      PRODUCTION_TRUSTED_ACTOR_SOURCES: "authenticated_codex_token"
+      PRODUCTION_TRUSTED_AUTH_MODES: "codex_auth_token"
+      PRODUCTION_REQUIRE_TLS: "true"
+      PRODUCTION_ALLOWED_METHODS: "GET,POST,PUT,PATCH,DELETE"
+      PRODUCTION_ALLOWED_CONTENT_TYPES: "application/json"
+      PRODUCTION_MAX_BODY_BYTES: "1048576"
+      PRODUCTION_HTTP_RATE_MAX_REQUESTS: "120"
+      PRODUCTION_HTTP_RATE_WINDOW_SECONDS: "60"
+      PRODUCTION_PROVIDER_IDS: "openai"
+      PRODUCTION_PROVIDER_RATE_MAX_REQUESTS: "4"
+      PRODUCTION_PROVIDER_RATE_WINDOW_SECONDS: "60"
+      PRODUCTION_PROVIDER_MAX_PAYLOAD_BYTES: "131072"
+      PRODUCTION_PROVIDER_CATALOG_BINDING: "registered-provider-catalog.v1"
+      PRODUCTION_RATE_AUTHORITY_BINDING: "atomic-redis-rate-observations.v1"
+      PRODUCTION_CANONICAL_WRITER_BINDING: " "
+      PRODUCTION_CANONICAL_WRITER_OWNER: " "
+      PRODUCTION_PROJECT_KEYS: "stage5_recovery_20260913"
+      PRODUCTION_METRICS_TOKEN: "${PRODUCTION_METRICS_TOKEN}"
+      PRODUCTION_OBSERVABILITY_RUNTIME_ID: "mrw-stage5-recovery"
+      PRODUCTION_CANARY_ROUTE_ENABLED: "false"
+      PRODUCTION_DOMAIN_REJECTION_TRIGGER_RATIO: "0.10"
+      PRODUCTION_DOMAIN_REJECTION_RECOVER_RATIO: "0.05"
+      PRODUCTION_ROUTE_ERROR_TRIGGER_RATIO: "0.05"
+      PRODUCTION_ROUTE_ERROR_RECOVER_RATIO: "0.01"
+      PRODUCTION_RELEASE_ERROR_TRIGGER_RATIO: "0.05"
+      PRODUCTION_RELEASE_ERROR_RECOVER_RATIO: "0.01"
+      ACTIVE_PROJECT_KEY: "stage5_recovery_20260913"
+      CELERY_LOG_FILE: "/tmp/mrw-stage5-recovery-celery.log"
+    command:
+      - celery
+      - -A
+      - app.celery_app
+      - worker
+      - --loglevel=info
+      - --concurrency=1
+      - --prefetch-multiplier=1
+      - --max-tasks-per-child=50
+      - --max-memory-per-child=300000
+      - --logfile=/tmp/mrw-stage5-recovery-celery.log
+
+  restore-db:
+    image: ankane/pgvector:latest
+    pull_policy: never
+    platform: linux/arm64
+    environment:
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+      POSTGRES_DB: "mrw_stage5_restore"
+    volumes:
+      - restore_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+
+  restore-backend:
+    image: mrw-local/stage4-business001:stage4-c9-effect
+    pull_policy: never
+    platform: linux/amd64
+    depends_on:
+      restore-db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgresql+psycopg2://postgres:${POSTGRES_PASSWORD}@restore-db:5432/mrw_stage5_restore"
+      CODEX_OAUTH_COOKIE_SECURE: "true"
+      CODEX_AUTH_ENABLED: "true"
+      CODEX_AUTH_TOKENS: "${CODEX_AUTH_TOKENS}"
+      CODEX_AUTH_PROTECTED_PREFIXES: "/api/v1/projects,/api/v1/business-lines,/api/v1/ingest,/api/v1/workflow-graph,/api/v1/admin,/api/v1/writing,/api/v1/successor-runtime"
+      LLM_PROVIDER: "${LLM_PROVIDER}"
+      OPENAI_API_KEY: "${OPENAI_API_KEY}"
+      OPENAI_API_BASE: "${OPENAI_API_BASE}"
+      RELEASE_BUILD_COMMIT: "8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2"
+      RELEASE_BUILD_TREE: "ce7c67c831b51f9d64b4c2f1a470a724a50b19df"
+      RELEASE_BUILD_DIGEST: "sha256:dd4b1f3b512da6d013feb7f5925f343e5a639263b037d5a81445bfa2f8c93c0b"
+      RUN_MIGRATIONS: "false"
+      PRODUCTION_ALLOWED_HOSTS: "127.0.0.1,localhost,restore-backend"
+      PRODUCTION_ALLOWED_ORIGINS: "https://127.0.0.1:18152,https://localhost:18152"
+      PRODUCTION_TRUSTED_ACTOR_SOURCES: "authenticated_codex_token"
+      PRODUCTION_TRUSTED_AUTH_MODES: "codex_auth_token"
+      PRODUCTION_REQUIRE_TLS: "true"
+      PRODUCTION_ALLOWED_METHODS: "GET,POST,PUT,PATCH,DELETE"
+      PRODUCTION_ALLOWED_CONTENT_TYPES: "application/json"
+      PRODUCTION_MAX_BODY_BYTES: "1048576"
+      PRODUCTION_HTTP_RATE_MAX_REQUESTS: "120"
+      PRODUCTION_HTTP_RATE_WINDOW_SECONDS: "60"
+      PRODUCTION_PROVIDER_IDS: "openai"
+      PRODUCTION_PROVIDER_RATE_MAX_REQUESTS: "4"
+      PRODUCTION_PROVIDER_RATE_WINDOW_SECONDS: "60"
+      PRODUCTION_PROVIDER_MAX_PAYLOAD_BYTES: "131072"
+      PRODUCTION_PROVIDER_CATALOG_BINDING: "registered-provider-catalog.v1"
+      PRODUCTION_RATE_AUTHORITY_BINDING: "atomic-redis-rate-observations.v1"
+      PRODUCTION_CANONICAL_WRITER_BINDING: " "
+      PRODUCTION_CANONICAL_WRITER_OWNER: " "
+      PRODUCTION_PROJECT_KEYS: "stage5_recovery_20260913"
+      PRODUCTION_METRICS_TOKEN: "${PRODUCTION_METRICS_TOKEN}"
+      PRODUCTION_OBSERVABILITY_RUNTIME_ID: "mrw-stage5-recovery-restore"
+      PRODUCTION_CANARY_ROUTE_ENABLED: "false"
+      PRODUCTION_DOMAIN_REJECTION_TRIGGER_RATIO: "0.10"
+      PRODUCTION_DOMAIN_REJECTION_RECOVER_RATIO: "0.05"
+      PRODUCTION_ROUTE_ERROR_TRIGGER_RATIO: "0.05"
+      PRODUCTION_ROUTE_ERROR_RECOVER_RATIO: "0.01"
+      PRODUCTION_RELEASE_ERROR_TRIGGER_RATIO: "0.05"
+      PRODUCTION_RELEASE_ERROR_RECOVER_RATIO: "0.01"
+      ACTIVE_PROJECT_KEY: "stage5_recovery_20260913"
+
+  migration-db:
+    image: ankane/pgvector:latest
+    pull_policy: never
+    platform: linux/arm64
+    environment:
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+      POSTGRES_DB: "mrw_stage5_migration_probe"
+    volumes:
+      - migration_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+
+volumes:
+  restore_data:
+  migration_data:

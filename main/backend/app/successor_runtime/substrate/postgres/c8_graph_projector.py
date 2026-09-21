@@ -22,6 +22,12 @@ from sqlalchemy.engine import Connection
 
 from app.successor_runtime.capabilities import c8_common as c8
 from app.successor_runtime.capabilities.c8_graph import project_graph_occurrences
+from app.successor_runtime.capabilities.c8_graph_projection_contribution import (
+    C8_GRAPH_PROJECTOR_ID,
+    C8_GRAPH_PROJECTOR_VERSION,
+    C8_GRAPH_SOURCE_KIND,
+    C8_GRAPH_VALUE_SCHEMA,
+)
 from app.successor_runtime.capabilities.checksum import (
     canonical_json,
     content_digest,
@@ -59,10 +65,6 @@ __all__ = [
     "read_active_graph",
 ]
 
-C8_GRAPH_PROJECTOR_ID = "c8.graph.projector"
-C8_GRAPH_PROJECTOR_VERSION = "1"
-C8_GRAPH_SOURCE_KIND = "successor_value"
-C8_GRAPH_VALUE_SCHEMA = "mrw.successor.c8.graph-projection.v1"
 C8_GRAPH_VALUE_OBJECT_TYPE = "GraphProjectionGeneration.v1"
 C8_GRAPH_VALUE_CODEC_ID = (
     "mrw.successor.c8.graph-projection-generation.canonical-json.v1"

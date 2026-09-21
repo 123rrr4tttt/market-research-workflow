@@ -1,0 +1,141 @@
+{
+  "artifacts_checksum_manifest": {
+    "bytes": 17716,
+    "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/artifacts/SHA256SUMS",
+    "sha256": "bbe0e5e10e30c640130e7c1970cce58bc62cf32b70a1f300da2b7566df3f8d89"
+  },
+  "artifacts_checksum_verification": {
+    "bytes": 9222,
+    "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/security/raw/artifacts-sha256-verify.log",
+    "sha256": "a098f4f7eaa3eff9a85c9ad4befc3bb2ec98c42eba4a4df2cbfe08978d0f4d2d"
+  },
+  "authoritative": false,
+  "candidate": {
+    "commit": "8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+    "tree": "ce7c67c831b51f9d64b4c2f1a470a724a50b19df"
+  },
+  "execution": "Not rerun in this task; exact r13x digest-bound reports from the artifacts lane were verified and referenced.",
+  "generated_at_utc": "2026-09-12T16:08:59.049575Z",
+  "limitations": [
+    "Trivy evidence is local and non-authoritative; it does not grant release or production authority."
+  ],
+  "roles": {
+    "backend": {
+      "artifact_tar": {
+        "bytes": 149245952,
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/artifacts/candidate/backend/image.oci.tar",
+        "sha256": "72e2fed20ec21f39e9fdde21c85e188a9ebea4d221b8f63322594f7db0a6723e"
+      },
+      "bound_artifact_digest": "sha256:dd4b1f3b512da6d013feb7f5925f343e5a639263b037d5a81445bfa2f8c93c0b",
+      "counts": {
+        "CRITICAL": 0,
+        "HIGH": 0
+      },
+      "digest_inspection": {
+        "bytes": 2186,
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/artifacts/candidate/backend/digest-inspection.json",
+        "sha256": "b1a5ba94885ddc3d2e9333d13a5b1988e35d0b4e9235e31abb80fbcafd187b5a"
+      },
+      "exit_code": 0,
+      "report": {
+        "bytes": 209023,
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/artifacts/candidate/backend/trivy.json",
+        "sha256": "02f66085c71a114981b1a297504e4cabc3648b6ab60afd8d55fe7612b77ee6cb"
+      },
+      "report_identity": {
+        "artifact_name": "/work/layouts/backend",
+        "artifact_type": "container_image",
+        "matches_layout": true
+      },
+      "status": "PASS",
+      "summary": {
+        "bytes": 727,
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/artifacts/candidate/backend/trivy-summary.json",
+        "sha256": "01d4ac76e33dc7e837afd5fb944a73dce5e5433fab8aae34705fbca2b073e3c0"
+      }
+    },
+    "frontend": {
+      "artifact_tar": {
+        "bytes": 39555584,
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/artifacts/candidate/frontend/image.oci.tar",
+        "sha256": "34fbe59eaf79882855a7acadc5020c110008318bfd58d3e98d2169255adae047"
+      },
+      "bound_artifact_digest": "sha256:a5b09b80fde1d2bbeb31c54137292e4a4bca7e2cf1f665b858f2d68a05c54e5c",
+      "counts": {
+        "CRITICAL": 0,
+        "HIGH": 0
+      },
+      "digest_inspection": {
+        "bytes": 1793,
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/artifacts/candidate/frontend/digest-inspection.json",
+        "sha256": "56f3d0992acc4e74d0d35f242d262b217e838549015dc412cfa81de2c142fce1"
+      },
+      "exit_code": 0,
+      "report": {
+        "bytes": 159805,
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/artifacts/candidate/frontend/trivy.json",
+        "sha256": "06d5ce4d5eb961a1b99d14d23a64e7e927eaf9bcf324c58da5e0575dab517bb0"
+      },
+      "report_identity": {
+        "artifact_name": "/work/layouts/frontend",
+        "artifact_type": "container_image",
+        "matches_layout": true
+      },
+      "status": "PASS",
+      "summary": {
+        "bytes": 730,
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/artifacts/candidate/frontend/trivy-summary.json",
+        "sha256": "e428dc7ca29045e515f8cf53a56ea9be4f4978e52ab4495dcb444b98d065f841"
+      }
+    },
+    "migration-runner": {
+      "artifact_tar": {
+        "bytes": 149234688,
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/artifacts/candidate/migration-runner/image.oci.tar",
+        "sha256": "a15879ee4777cb7d0830fe30cf39264ad04e98d6eb74a1e8ea34d1b371a7360a"
+      },
+      "bound_artifact_digest": "sha256:535ac0b1b06ed507e14bc9a1bfc96c27d4522bada61cbc63a9fa959721b59bc5",
+      "counts": {
+        "CRITICAL": 0,
+        "HIGH": 0
+      },
+      "digest_inspection": {
+        "bytes": 2046,
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/artifacts/candidate/migration-runner/digest-inspection.json",
+        "sha256": "8c0a578dac07a862fdb01b1d844a4d4e829f6d2520af34f76d10847a29134594"
+      },
+      "exit_code": 0,
+      "report": {
+        "bytes": 207379,
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/artifacts/candidate/migration-runner/trivy.json",
+        "sha256": "e1bd3ea156233d3c2952197d7c77db5d007307808086e85f7d5d0957aa955e63"
+      },
+      "report_identity": {
+        "artifact_name": "/work/layouts/migration-runner",
+        "artifact_type": "container_image",
+        "matches_layout": true
+      },
+      "status": "PASS",
+      "summary": {
+        "bytes": 754,
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/artifacts/candidate/migration-runner/trivy-summary.json",
+        "sha256": "88ac108ce128299a1d7309091d90da1f8f95b7d3c7355882fe0c3006cacdaf69"
+      }
+    }
+  },
+  "scanner": "aquasec/trivy:0.67.2",
+  "schema_version": "mrw.stage3.exact-artifact-trivy-reference.v1",
+  "status": "PASS_REFERENCED_EXACT_R13X_TRIVY_EVIDENCE",
+  "threshold": {
+    "exit_code": 1,
+    "ignore_unfixed": false,
+    "severity": [
+      "HIGH",
+      "CRITICAL"
+    ],
+    "vulnerability_types": [
+      "os",
+      "library"
+    ]
+  }
+}

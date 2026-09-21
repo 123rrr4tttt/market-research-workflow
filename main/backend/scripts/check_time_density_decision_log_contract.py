@@ -6,7 +6,7 @@ from datetime import date
 import json
 from pathlib import Path
 import sys
-from typing import Any
+from typing import Annotated, Any
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -95,7 +95,10 @@ def _priority_fixture() -> tuple[list[dict[str, Any]], dict[str, Any]]:
     return rows, captured
 
 
-def build_contract() -> dict[str, Any]:
+def build_contract() -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=generated_evidence fact_source=priority_fixture+persist_hook_capture witness=test:test_c13_cli_graph_workflow_metadata_preserves_abi",
+]:
     rows, captured = _priority_fixture()
     first = rows[0] if rows else {}
     trace = first.get("policy_decision_trace") or {}

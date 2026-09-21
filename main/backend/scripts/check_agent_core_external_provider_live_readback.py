@@ -4,7 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 from app.services.agent_core.external_provider_live_readback import (
     build_agent_core_external_provider_live_readback_evidence,
@@ -17,7 +17,11 @@ def build_contract_snapshot(
     allow_external_network: bool = False,
     timeout_ms: int = 20_000,
     model: str | None = None,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:canonical-read canonical_owner=app.services.agent_core.external_provider_live_readback "
+    "witness=test:test_c11_cli_agent_authority_metadata",
+]:
     return build_agent_core_external_provider_live_readback_evidence(
         allow_external_network=allow_external_network,
         timeout_ms=timeout_ms,

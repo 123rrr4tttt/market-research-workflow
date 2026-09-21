@@ -8,7 +8,7 @@ projector never writes to a graph and never claims projection truth.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any
+from typing import Annotated, Any
 
 from app.successor_runtime.capabilities.ingest_c7_common import (
     ProjectionDiff,
@@ -102,7 +102,12 @@ def build_graph_projection(
     document_ref: DocumentRef,
     *,
     source_locator: str,
-) -> GraphProjection:
+) -> Annotated[
+    GraphProjection,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=successor.ingest_index.graph.projector "
+    "witness=test:test_graph_projection_binds_document_ref_and_declares_loss",
+]:
     projection = _graph_projection_body(document_ref, source_locator)
     return GraphProjection(
         document_ref=document_ref,

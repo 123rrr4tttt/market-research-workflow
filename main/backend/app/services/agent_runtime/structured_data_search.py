@@ -4,7 +4,7 @@ from datetime import date, datetime
 from decimal import Decimal
 import json
 import re
-from typing import Any, Callable
+from typing import Annotated, Any, Callable
 
 from sqlalchemy import Text, cast, func, or_, select
 
@@ -235,7 +235,11 @@ def build_structured_data_model_evidence_manifest(
     query: str | None,
     items: list[dict[str, Any]] | tuple[dict[str, Any], ...] | None,
     limit: int = 12,
-) -> list[dict[str, Any]]:
+) -> Annotated[
+    list[dict[str, Any]],
+    "kit:non-authoritative derived_as=generated_evidence fact_source=structured_data_model_outputs "
+    "witness=test:test_w02_agent_authority_metadata"
+]:
     """Build stable model-facing read handles for already-stored project records."""
 
     resolved_project_key = str(project_key or "").strip()

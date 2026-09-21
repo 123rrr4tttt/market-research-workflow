@@ -100,12 +100,569 @@ def test_list_site_entries_dash_alias_returns_standard_list_envelope(
     body = resp.json()
     assert body["status"] == "ok"
     assert body["data"] == {"items": []}
+    assert body["meta"]["deprecated"] == "resource_pool.site_entries_dash_alias.v1"
+    assert resp.headers.get("deprecation") == "true"
+    assert resp.headers.get("x-deprecated-endpoint") == "/api/v1/resource_pool/site-entries"
+    assert resp.headers.get("x-replacement-endpoint") == "/api/v1/resource_pool/site_entries"
     assert body["meta"]["pagination"] == {
         "page": 1,
         "page_size": 20,
         "total": 0,
         "total_pages": 0,
     }
+
+
+def test_list_site_entries_main_route_adds_lifecycle_fields_without_deprecation(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        resource_pool_api,
+        "list_site_entries",
+        lambda **_: (
+            [
+                {
+                    "id": 1,
+                    "site_url": "https://example.com/feed.xml",
+                    "domain": "example.com",
+                    "entry_type": "rss",
+                    "source": "manual",
+                    "scope": "project",
+                    "enabled": False,
+                    "extra": {},
+                },
+                {
+                    "id": 2,
+                    "site_url": "https://example.com/search?q={{q}}",
+                    "domain": "example.com",
+                    "entry_type": "search_template",
+                    "source": "manual",
+                    "scope": "shared",
+                    "enabled": True,
+                    "extra": {"lifecycle_state": "candidate"},
+                },
+                {
+                    "id": 3,
+                    "site_url": "",
+                    "domain": "example.com",
+                    "entry_type": "rss",
+                    "source": "manual",
+                    "scope": "project",
+                    "enabled": True,
+                    "extra": {"lifecycle_state": "accepted"},
+                },
+            ],
+            3,
+        ),
+    )
+
+    resp = client.get("/api/v1/resource_pool/site_entries", params={"project_key": "demo_proj"})
+
+    assert resp.status_code == 200
+    body = resp.json()
+    items = body["data"]["items"]
+    assert [item["lifecycle_state"] for item in items] == ["disabled", "candidate", "accepted"]
+    assert items[0]["lifecycle_summary"]["state_source"] == "enabled"
+    assert items[1]["lifecycle_summary"]["state_source"] == "extra.lifecycle_state"
+    assert items[0]["execution_fact"]["contract_version"] == "resource.execution_fact.v1"
+    assert items[0]["execution_fact"]["reason_code"] == "review_disabled"
+    assert items[1]["execution_fact"]["reason_code"] == "review_candidate"
+    assert items[2]["execution_fact"]["reason_code"] == "missing_site_entry_url"
+    assert items[2]["execution_fact"]["guard_status"] == "blocked"
+    assert items[2]["execution_fact"]["single_source_guard"]["reason_code"] == "missing_site_entry_url"
+    assert items[2]["next_actions"][0]["enabled"] is False
+    assert items[2]["next_actions"][0]["blocked"] is True
+    assert items[2]["next_actions"][0]["block_reason"] == "missing_site_entry_url"
+    assert body["meta"]["deprecated"] is None
+    assert resp.headers.get("deprecation") is None
+
+
+def test_list_site_entries_readbacks_lifecycle_transition_metadata(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    transition = {
+        "contract_version": "resource_pool.site_entry.lifecycle_transition.v1",
+        "from_state": "needs_review",
+        "to_state": "accepted",
+        "reviewer": "qa",
+        "reason": "source verified",
+        "updated_at": "2026-05-25T12:00:00+00:00",
+        "event_ref": "resource_pool.site_entry.lifecycle_transition:project:10:accepted:2026-05-25T12:00:00+00:00",
+        "source_ref": {"site_entry_url": "https://example.com/feed.xml"},
+        "report_source_ref": "resource_pool.site_entry:project:10",
+        "executable_before": False,
+        "executable_after": True,
+        "to_state_executable": True,
+        "executable": True,
+    }
+    monkeypatch.setattr(
+        resource_pool_api,
+        "list_site_entries",
+        lambda **_: (
+            [
+                {
+                    "id": 10,
+                    "site_url": "https://example.com/feed.xml",
+                    "domain": "example.com",
+                    "entry_type": "rss",
+                    "source": "manual",
+                    "source_ref": {},
+                    "scope": "project",
+                    "enabled": True,
+                    "extra": {
+                        "lifecycle_state": "accepted",
+                        "review_state": "accepted",
+                        "lifecycle_transition": transition,
+                    },
+                }
+            ],
+            1,
+        ),
+    )
+
+    resp = client.get("/api/v1/resource_pool/site_entries", params={"project_key": "demo_proj"})
+
+    assert resp.status_code == 200
+    item = resp.json()["data"]["items"][0]
+    assert item["lifecycle_transition"] == transition
+    assert item["extra"]["lifecycle_transition"] == transition
+    assert item["review_closure"]["lifecycle_transition"] == transition
+    assert item["execution_fact"]["lifecycle_transition"] == transition
+    assert item["lifecycle_summary"]["lifecycle_transition_ref"] == transition["event_ref"]
+    assert item["lifecycle_summary"]["lifecycle_transition_contract_version"] == transition["contract_version"]
+
+
+def test_list_site_entries_adds_execution_plan_preview_from_item_plan(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        resource_pool_api,
+        "list_site_entries",
+        lambda **_: (
+            [
+                {
+                    "id": 7,
+                    "site_url": "https://example.com/search?q={{q}}",
+                    "domain": "example.com",
+                    "entry_type": "search_template",
+                    "source": "manual",
+                    "scope": "project",
+                    "enabled": True,
+                    "extra": {},
+                }
+            ],
+            1,
+        ),
+    )
+
+    resp = client.get("/api/v1/resource_pool/site_entries", params={"project_key": "demo_proj"})
+
+    assert resp.status_code == 200
+    item = resp.json()["data"]["items"][0]
+    preview = item["execution_plan_preview"]
+    assert preview["contract_version"] == "source_library.item_execution_plan.v1"
+    assert preview["site_entry_urls"] == ["https://example.com/search?q={{q}}"]
+    assert preview["expected_entry_type"] == "search_template"
+    assert preview["route_bucket_counts"]["total"] == 1
+    assert preview["plan_meta"]["preview_source"] == "resource_pool.site_entry"
+
+
+def test_upsert_site_entry_with_lifecycle_extra_persists_transition_evidence(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, Any] = {}
+
+    def _fake_upsert_site_entry(**kwargs: Any) -> dict[str, Any]:
+        captured.update(kwargs)
+        return {
+            "id": 12,
+            "site_url": kwargs["site_url"],
+            "domain": kwargs["domain"],
+            "entry_type": kwargs["entry_type"],
+            "template": kwargs["template"],
+            "name": kwargs["name"],
+            "capabilities": kwargs["capabilities"],
+            "source": kwargs["source"],
+            "source_ref": kwargs["source_ref"],
+            "tags": kwargs["tags"],
+            "enabled": kwargs["enabled"],
+            "scope": kwargs["scope"],
+            "extra": kwargs["extra"],
+        }
+
+    monkeypatch.setattr(resource_pool_api, "upsert_site_entry", _fake_upsert_site_entry)
+
+    resp = client.post(
+        "/api/v1/resource_pool/site_entries",
+        json={
+            "project_key": "demo_proj",
+            "scope": "project",
+            "site_url": "https://example.com/feed.xml",
+            "entry_type": "rss",
+            "source_ref": {},
+            "extra": {"lifecycle_state": "accepted", "review_state": "accepted"},
+        },
+    )
+
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    transition = captured["extra"]["lifecycle_transition"]
+    assert transition["contract_version"] == "resource_pool.site_entry.lifecycle_transition.v1"
+    assert transition["from_state"] is None
+    assert transition["to_state"] == "accepted"
+    assert transition["report_source_ref"] == "resource_pool.site_entry:project:https://example.com/feed.xml"
+    assert transition["executable_before"] is False
+    assert transition["executable_after"] is True
+    assert transition["to_state_executable"] is True
+    assert captured["extra"]["review_closure"]["status"] == "ready_to_collect"
+    assert captured["extra"]["evidence_binding"]["report_source_ref"] == transition["report_source_ref"]
+    assert captured["extra"]["execution_fact"]["lifecycle_transition"] == transition
+    assert data["lifecycle_transition"]["event_ref"] == transition["event_ref"]
+    assert data["extra"]["lifecycle_transition"]["event_ref"] == transition["event_ref"]
+
+
+def test_patch_site_entry_lifecycle_writes_review_state_and_returns_lifecycle_summary(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, Any] = {}
+
+    def _fake_get_site_entry_by_url(**kwargs: Any) -> dict[str, Any]:
+        captured["lookup"] = kwargs
+        return {
+            "id": 10,
+            "site_url": "https://example.com/feed.xml",
+            "domain": "example.com",
+            "entry_type": "rss",
+            "template": None,
+            "name": "Example Feed",
+            "capabilities": {"rss": True},
+            "source": "manual",
+            "source_ref": {},
+            "tags": ["news"],
+            "enabled": True,
+            "scope": "project",
+            "extra": {"legacy_key": "kept"},
+        }
+
+    def _fake_upsert_site_entry(**kwargs: Any) -> dict[str, Any]:
+        captured["upsert"] = kwargs
+        return {
+            "id": 10,
+            "site_url": kwargs["site_url"],
+            "domain": kwargs["domain"],
+            "entry_type": kwargs["entry_type"],
+            "template": kwargs["template"],
+            "name": kwargs["name"],
+            "capabilities": kwargs["capabilities"],
+            "source": kwargs["source"],
+            "source_ref": kwargs["source_ref"],
+            "tags": kwargs["tags"],
+            "enabled": kwargs["enabled"],
+            "scope": kwargs["scope"],
+            "extra": kwargs["extra"],
+        }
+
+    monkeypatch.setattr(resource_pool_api, "get_site_entry_by_url", _fake_get_site_entry_by_url)
+    monkeypatch.setattr(resource_pool_api, "upsert_site_entry", _fake_upsert_site_entry)
+
+    resp = client.patch(
+        "/api/v1/resource_pool/site_entries/lifecycle",
+        json={
+            "project_key": "demo_proj",
+            "scope": "project",
+            "site_url": "https://example.com/feed.xml",
+            "lifecycle_state": "accepted",
+            "reviewer": "qa",
+            "review_note": "approved for ingestion",
+        },
+    )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["status"] == "ok"
+    assert body["data"]["lifecycle_state"] == "accepted"
+    assert body["data"]["lifecycle_summary"]["state"] == "accepted"
+    assert body["data"]["lifecycle_summary"]["state_source"] == "extra.lifecycle_state"
+    lifecycle_transition = body["data"]["lifecycle_transition"]
+    assert lifecycle_transition["contract_version"] == "resource_pool.site_entry.lifecycle_transition.v1"
+    assert lifecycle_transition["from_state"] == "active"
+    assert lifecycle_transition["to_state"] == "accepted"
+    assert lifecycle_transition["reviewer"] == "qa"
+    assert lifecycle_transition["reason"] == "approved for ingestion"
+    assert lifecycle_transition["event_ref"]
+    assert lifecycle_transition["report_source_ref"] == "resource_pool.site_entry:project:10"
+    assert lifecycle_transition["source_ref"]["site_entry_url"] == "https://example.com/feed.xml"
+    assert lifecycle_transition["executable_before"] is False
+    assert lifecycle_transition["executable_after"] is True
+    assert lifecycle_transition["to_state_executable"] is True
+    assert body["data"]["lifecycle_summary"]["lifecycle_transition_ref"] == lifecycle_transition["event_ref"]
+    assert body["data"]["review_closure"]["status"] == "ready_to_collect"
+    assert body["data"]["review_closure"]["reason_code"] == "ready_to_collect"
+    assert body["data"]["review_closure"]["executable"] is True
+    assert body["data"]["review_closure"]["lifecycle_transition"] == lifecycle_transition
+    assert body["data"]["review_closure"]["site_entry_url"] == "https://example.com/feed.xml"
+    assert body["data"]["review_closure"]["report_source_ref"] == "resource_pool.site_entry:project:10"
+    collect_action = body["data"]["next_actions"][0]
+    assert collect_action["action"] == "collect_source_library_run"
+    assert collect_action["enabled"] is True
+    assert collect_action["payload"]["handler_key"] == "rss"
+    assert collect_action["payload"]["override_params"]["site_entries"] == ["https://example.com/feed.xml"]
+    assert "urls" not in collect_action["payload"]
+    single_source_guard = collect_action["single_source_guard"]
+    assert single_source_guard == body["data"]["review_closure"]["single_source_guard"]
+    assert single_source_guard == collect_action["payload"]["override_params"]["single_source_guard"]
+    assert single_source_guard["contract_version"] == "resource_pool.site_entry.single_source_guard.v1"
+    assert single_source_guard["strict_source"] is True
+    assert single_source_guard["guarantee"] is True
+    assert single_source_guard["status"] == "passed"
+    assert single_source_guard["reason_code"] is None
+    assert single_source_guard["allowed_urls"] == ["https://example.com/feed.xml"]
+    assert single_source_guard["allowed_count"] == 1
+    assert single_source_guard["blocked_reason"] is None
+    assert single_source_guard["source_ref"]["site_entry_url"] == "https://example.com/feed.xml"
+    assert single_source_guard["report_source_ref"] == "resource_pool.site_entry:project:10"
+    assert single_source_guard["runner_contract"]["guard_field"] == "override_params.site_entries"
+    assert body["data"]["evidence_binding"]["source_ref"]["site_entry_url"] == "https://example.com/feed.xml"
+    assert body["data"]["evidence_binding"]["report_source_ref"] == "resource_pool.site_entry:project:10"
+    execution_fact = body["data"]["execution_fact"]
+    assert execution_fact["contract_version"] == "resource.execution_fact.v1"
+    assert execution_fact["reason_code"] == "ready_to_collect"
+    assert execution_fact["review_state"] == "accepted"
+    assert execution_fact["guard_status"] == "passed"
+    assert execution_fact["lifecycle_transition"] == lifecycle_transition
+    assert execution_fact["source_refs"][0]["report_source_ref"] == "resource_pool.site_entry:project:10"
+    assert execution_fact["execution_plan_ref"]["site_entry_urls"] == ["https://example.com/feed.xml"]
+    assert execution_fact["next_actions"][0]["action"] == "collect_source_library_run"
+    assert captured["lookup"] == {
+        "scope": "project",
+        "project_key": "demo_proj",
+        "site_url": "https://example.com/feed.xml",
+    }
+    assert captured["upsert"]["extra"]["legacy_key"] == "kept"
+    assert captured["upsert"]["extra"]["lifecycle_state"] == "accepted"
+    assert captured["upsert"]["extra"]["review_state"] == "accepted"
+    assert captured["upsert"]["extra"]["lifecycle_review"]["reviewer"] == "qa"
+    assert captured["upsert"]["extra"]["lifecycle_transition"] == lifecycle_transition
+    assert captured["upsert"]["extra"]["review_closure"]["status"] == "ready_to_collect"
+    assert captured["upsert"]["extra"]["review_closure"]["lifecycle_transition"] == lifecycle_transition
+    assert captured["upsert"]["extra"]["evidence_binding"]["report_source_ref"] == "resource_pool.site_entry:project:10"
+    assert captured["upsert"]["extra"]["execution_fact"]["reason_code"] == "ready_to_collect"
+    assert captured["upsert"]["extra"]["execution_fact"]["lifecycle_transition"] == lifecycle_transition
+    assert captured["upsert"]["enabled"] is True
+
+
+def test_patch_site_entry_lifecycle_blocks_accepted_when_persisted_site_url_missing(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, Any] = {}
+
+    monkeypatch.setattr(
+        resource_pool_api,
+        "get_site_entry_by_url",
+        lambda **_: {
+            "id": 13,
+            "site_url": "",
+            "domain": "example.com",
+            "entry_type": "rss",
+            "template": None,
+            "name": "Broken Feed",
+            "capabilities": {},
+            "source": "manual",
+            "source_ref": {},
+            "tags": [],
+            "enabled": True,
+            "scope": "project",
+            "extra": {},
+        },
+    )
+
+    def _fake_upsert_site_entry(**kwargs: Any) -> dict[str, Any]:
+        captured.update(kwargs)
+        return {
+            "id": 13,
+            "site_url": kwargs["site_url"],
+            "domain": kwargs["domain"],
+            "entry_type": kwargs["entry_type"],
+            "template": kwargs["template"],
+            "name": kwargs["name"],
+            "capabilities": kwargs["capabilities"],
+            "source": kwargs["source"],
+            "source_ref": kwargs["source_ref"],
+            "tags": kwargs["tags"],
+            "enabled": kwargs["enabled"],
+            "scope": kwargs["scope"],
+            "extra": kwargs["extra"],
+        }
+
+    monkeypatch.setattr(resource_pool_api, "upsert_site_entry", _fake_upsert_site_entry)
+
+    resp = client.patch(
+        "/api/v1/resource_pool/site_entries/lifecycle",
+        json={
+            "project_key": "demo_proj",
+            "scope": "project",
+            "site_url": "https://example.com/feed.xml",
+            "lifecycle_state": "accepted",
+        },
+    )
+
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    collect_action = data["next_actions"][0]
+    assert data["lifecycle_state"] == "accepted"
+    assert data["review_closure"]["status"] == "blocked"
+    assert data["review_closure"]["reason_code"] == "missing_site_entry_url"
+    assert data["review_closure"]["executable"] is False
+    assert collect_action["enabled"] is False
+    assert collect_action["blocked"] is True
+    assert collect_action["block_reason"] == "missing_site_entry_url"
+    assert collect_action["payload"]["override_params"]["site_entries"] == []
+    assert data["execution_fact"]["guard_status"] == "blocked"
+    assert data["lifecycle_transition"]["to_state"] == "accepted"
+    assert data["lifecycle_transition"]["executable_after"] is False
+    assert data["lifecycle_transition"]["to_state_executable"] is False
+    assert captured["extra"]["site_entry_url_missing"] is True
+    assert captured["extra"]["lifecycle_transition"]["executable_after"] is False
+
+
+@pytest.mark.parametrize(
+    ("lifecycle_state", "expected_enabled"),
+    [
+        ("accepted", True),
+        ("rejected", True),
+        ("needs_review", True),
+        ("disabled", False),
+    ],
+)
+def test_patch_site_entry_lifecycle_supports_review_states(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    lifecycle_state: str,
+    expected_enabled: bool,
+) -> None:
+    captured: dict[str, Any] = {}
+
+    monkeypatch.setattr(
+        resource_pool_api,
+        "get_site_entry_by_url",
+        lambda **_: {
+            "id": 11,
+            "site_url": "https://example.com/feed.xml",
+            "domain": "example.com",
+            "entry_type": "rss",
+            "template": None,
+            "name": "Example Feed",
+            "capabilities": {},
+            "source": "manual",
+            "source_ref": {},
+            "tags": [],
+            "enabled": True,
+            "scope": "project",
+            "extra": {},
+        },
+    )
+
+    def _fake_upsert_site_entry(**kwargs: Any) -> dict[str, Any]:
+        captured.update(kwargs)
+        return {
+            "id": 11,
+            "site_url": kwargs["site_url"],
+            "domain": kwargs["domain"],
+            "entry_type": kwargs["entry_type"],
+            "template": kwargs["template"],
+            "name": kwargs["name"],
+            "capabilities": kwargs["capabilities"],
+            "source": kwargs["source"],
+            "source_ref": kwargs["source_ref"],
+            "tags": kwargs["tags"],
+            "enabled": kwargs["enabled"],
+            "scope": kwargs["scope"],
+            "extra": kwargs["extra"],
+        }
+
+    monkeypatch.setattr(resource_pool_api, "upsert_site_entry", _fake_upsert_site_entry)
+
+    resp = client.patch(
+        "/api/v1/resource_pool/site_entries/lifecycle",
+        json={
+            "project_key": "demo_proj",
+            "scope": "project",
+            "site_url": "https://example.com/feed.xml",
+            "lifecycle_state": lifecycle_state,
+        },
+    )
+
+    assert resp.status_code == 200
+    data = resp.json()["data"]
+    assert data["lifecycle_state"] == lifecycle_state
+    assert captured["extra"]["lifecycle_state"] == lifecycle_state
+    assert captured["extra"]["review_state"] == lifecycle_state
+    assert captured["enabled"] is expected_enabled
+    collect_action = data["next_actions"][0]
+    execution_fact = data["execution_fact"]
+    single_source_guard = collect_action["single_source_guard"]
+    assert single_source_guard == data["review_closure"]["single_source_guard"]
+    assert single_source_guard == collect_action["payload"]["override_params"]["single_source_guard"]
+    assert single_source_guard["strict_source"] is True
+    assert single_source_guard["allowed_urls"] == ["https://example.com/feed.xml"]
+    assert single_source_guard["allowed_count"] == 1
+    assert collect_action["payload"]["override_params"]["site_entries"] == ["https://example.com/feed.xml"]
+    assert "urls" not in collect_action["payload"]
+    if lifecycle_state == "accepted":
+        assert data["review_closure"]["status"] == "ready_to_collect"
+        assert data["review_closure"]["reason_code"] == "ready_to_collect"
+        assert collect_action["enabled"] is True
+        assert collect_action["blocked"] is False
+        assert collect_action["payload"]["handler_key"] == "rss"
+        assert single_source_guard["guarantee"] is True
+        assert single_source_guard["status"] == "passed"
+        assert single_source_guard["blocked_reason"] is None
+        assert execution_fact["reason_code"] == "ready_to_collect"
+        assert execution_fact["review_state"] == "accepted"
+        assert execution_fact["guard_status"] == "passed"
+    else:
+        assert data["review_closure"]["status"] == "blocked"
+        assert collect_action["enabled"] is False
+        assert collect_action["blocked"] is True
+        assert collect_action["block_reason"] in {"review_rejected", "review_disabled", "review_needs_review"}
+        assert single_source_guard["guarantee"] is False
+        assert single_source_guard["status"] == "blocked"
+        assert single_source_guard["blocked_reason"] == collect_action["block_reason"]
+        assert execution_fact["reason_code"] == collect_action["block_reason"]
+        assert execution_fact["review_state"] == lifecycle_state
+        assert execution_fact["guard_status"] == "blocked"
+
+
+def test_patch_site_entry_lifecycle_rejects_invalid_state(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def _unexpected_upsert(**_: Any) -> dict[str, Any]:
+        raise AssertionError("upsert_site_entry should not be called for invalid lifecycle_state")
+
+    monkeypatch.setattr(resource_pool_api, "upsert_site_entry", _unexpected_upsert)
+
+    resp = client.patch(
+        "/api/v1/resource_pool/site_entries/lifecycle",
+        json={
+            "project_key": "demo_proj",
+            "scope": "project",
+            "site_url": "https://example.com/feed.xml",
+            "lifecycle_state": "archived",
+        },
+    )
+
+    assert resp.status_code == 400
+    body = resp.json()
+    assert body["status"] == "error"
+    assert body["error"]["code"] == "INVALID_INPUT"
+    assert "lifecycle_state must be one of" in body["error"]["message"]
+    assert resp.headers.get("x-error-code") == "INVALID_INPUT"
 
 
 def test_list_urls_requires_project_key_when_no_context(
@@ -710,6 +1267,8 @@ def test_source_library_collect_runs_keyword_to_structured_project_flow(
     assert body["status"] == "ok"
     data = body["data"]
     assert data["contract_version"] == "source_library.keyword_collect.v1"
+    assert data["lifecycle_summary"]["state"] == "ready"
+    assert data["lifecycle_summary"]["documents_inserted_valid"] == 2
     assert data["summary"]["candidates_found"] == 2
     assert data["summary"]["documents_inserted_valid"] == 2
     assert data["summary"]["ready_for_project_flows"] is True
@@ -748,6 +1307,7 @@ def test_source_library_collect_reports_not_ready_when_no_material_is_ingested(
 
     assert resp.status_code == 200, resp.text
     data = resp.json()["data"]
+    assert data["lifecycle_summary"]["state"] == "not_ready"
     assert data["summary"]["candidates_found"] == 0
     assert data["summary"]["documents_inserted_valid"] == 0
     assert data["summary"]["ready_for_project_flows"] is False

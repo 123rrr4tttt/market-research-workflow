@@ -1,0 +1,44 @@
+{
+  "schema_version": "mrw.production-deployment-stage-plan.freeze.v1",
+  "status": "FROZEN_FOR_IMPLEMENTATION_V1",
+  "frozen_at": "2026-09-05",
+  "deployment_strategy": "REMEDIATION_INCLUSIVE_RELEASE",
+  "frozen_files": [
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/04_production-deployment-stage-plan.v1.md",
+      "sha256": "d04ae870b5d2a13afacdc7a07e9d5a89b7ab77e7b6c2d6cdd4bd2101151f76fa",
+      "bytes": 24713,
+      "lines": 420
+    }
+  ],
+  "mutable_progress": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/06_production-deployment-stage-progress.v1.md",
+  "stage_boundary": {
+    "stage_0": "functorial implementation and verification closure only",
+    "stage_1": "production contract implementation closure",
+    "stage_2": "clean exact remediation-inclusive candidate identity",
+    "candidate_rebind_is_part_of_stage_0": false
+  },
+  "ordered_execution": [
+    "stage_0",
+    "stage_1",
+    "stage_2"
+  ],
+  "authority_ceiling": {
+    "deployment": false,
+    "candidate_promotion": false,
+    "production_canonical_write": false,
+    "live_provider": false,
+    "external_delivery": false,
+    "canary": false,
+    "cutover": false,
+    "authority_transfer": false,
+    "legacy_retirement": false,
+    "push": false
+  },
+  "mutation_policy": {
+    "frozen_files_are_immutable": true,
+    "progress_updates_only_in_mutable_progress": true,
+    "additive_amendment_required_for_normative_change": true,
+    "dirty_worktree_must_not_be_reset_or_cleaned": true
+  }
+}

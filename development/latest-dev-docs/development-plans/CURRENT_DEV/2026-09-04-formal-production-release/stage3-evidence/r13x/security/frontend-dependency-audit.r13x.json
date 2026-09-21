@@ -1,0 +1,79 @@
+{
+  "audit_exit_code": 0,
+  "authoritative": false,
+  "candidate": {
+    "commit": "8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+    "tree": "ce7c67c831b51f9d64b4c2f1a470a724a50b19df"
+  },
+  "canonical_workflow_cwd": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260912-v4-r13x/candidate/main/frontend-modern",
+  "commands": [
+    "pnpm install --frozen-lockfile",
+    "pnpm audit --prod --audit-level high --json"
+  ],
+  "cwd": "/private/tmp/mrw-r13x-security-fIVnzM/main/frontend-modern",
+  "dependency_counts": {
+    "dependencies": 94,
+    "devDependencies": 0,
+    "optionalDependencies": 5,
+    "totalDependencies": 99
+  },
+  "execution": {
+    "audit_argv": [
+      "/opt/homebrew/bin/pnpm",
+      "audit",
+      "--prod",
+      "--audit-level",
+      "high",
+      "--json"
+    ],
+    "cwd": "/private/tmp/mrw-r13x-security-fIVnzM/main/frontend-modern",
+    "install_argv": [
+      "/opt/homebrew/bin/pnpm",
+      "install",
+      "--frozen-lockfile"
+    ]
+  },
+  "generated_at_utc": "2026-09-12T16:08:59.049575Z",
+  "immutable_mirror": {
+    "method": "git archive HEAD main/frontend-modern extracted into the task-owned temporary directory",
+    "reason": "Run frozen installation without writing node_modules into the canonical candidate.",
+    "source_commit": "8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2"
+  },
+  "inputs": {
+    "package_json": {
+      "bytes": 3626,
+      "path": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260912-v4-r13x/candidate/main/frontend-modern/package.json",
+      "sha256": "1b6f61b17626e79538454c9de4e3fbe8b82113f368dff230812003e99469e381"
+    },
+    "pnpm_lock": {
+      "bytes": 149946,
+      "path": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260912-v4-r13x/candidate/main/frontend-modern/pnpm-lock.yaml",
+      "sha256": "ea0320bbe698b77edf557820c4f739cd9b579b90b98919b996fa6b38c503491d"
+    }
+  },
+  "install_exit_code": 0,
+  "limitations": [
+    "The package and frozen lock inputs are exact; registry advisory results reflect the service available at scan time.",
+    "Local frontend dependency evidence only; this is not release or security approval."
+  ],
+  "report": {
+    "bytes": 276,
+    "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/security/raw/pnpm-audit.report.json",
+    "sha256": "0e5f559c4fee6779feeeec29084d7a9098ba09c8cc22d900d1f49079fd2946de"
+  },
+  "schema_version": "mrw.stage3.frontend-dependency-audit-gate.v1",
+  "scope": "production dependencies",
+  "status": "PASS",
+  "threshold": "high",
+  "vulnerability_counts": {
+    "critical": 0,
+    "high": 0,
+    "info": 0,
+    "low": 0,
+    "moderate": 0
+  },
+  "workflow_required_commands": [
+    "pnpm install --frozen-lockfile",
+    "pnpm audit --prod --audit-level high"
+  ]
+}

@@ -7,7 +7,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
@@ -30,6 +30,11 @@ from scripts.check_source_library_search_governance import (  # noqa: E402
 )
 from scripts.check_source_library_taxonomy_review_readiness import (  # noqa: E402
     build_check as build_taxonomy_review_readiness_check,
+)
+from scripts.check_evidence_source_availability import (  # noqa: E402
+    EVIDENCE_SOURCE_UNAVAILABLE,
+    classify_required_evidence,
+    unavailable_error,
 )
 
 
@@ -148,7 +153,10 @@ def _batch_decision(entry: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def build_expected_artifact(repo_root: Path | str | None = None) -> dict[str, Any]:
+def build_expected_artifact(repo_root: Path | str | None = None) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=review_closure_expected_artifact_contract witness=test:test_c13_cli_graph_workflow_metadata_preserves_abi",
+]:
     root = Path(repo_root) if repo_root is not None else REPO_ROOT
     root = root.resolve()
 
@@ -312,11 +320,17 @@ def build_check(
     repo_root: Path | str | None = None,
     *,
     artifact_path: Path | str | None = None,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=generated_evidence fact_source=review_closure_contract_docs+artifact_payload+repo_static_checks witness=test:test_c13_cli_graph_workflow_metadata_preserves_abi",
+]:
     root = Path(repo_root) if repo_root is not None else REPO_ROOT
     root = root.resolve()
     artifact = (root / Path(artifact_path or DEFAULT_ARTIFACT_PATH)).resolve()
     errors: list[str] = []
+    evidence_source = classify_required_evidence(root, {"review_batch_artifact": artifact})
+    if evidence_source["status"] == EVIDENCE_SOURCE_UNAVAILABLE:
+        errors.append(unavailable_error(evidence_source))
 
     expected_artifact = build_expected_artifact(root)
     upstream_checks = expected_artifact["input_contracts"]
@@ -332,12 +346,14 @@ def build_check(
         "contract_version": CONTRACT_VERSION,
         "repo_root": str(root),
         "expected_artifact": expected_artifact,
+        "evidence_source": evidence_source,
         "artifact_check": artifact_check,
         "topic_evidence": docs,
         "governance_scope": {
             "public_network_required": False,
             "public_network_attempted": False,
-            "deterministic_batch_closed": True,
+            "deterministic_batch_closed": not errors
+            and evidence_source["status"] != EVIDENCE_SOURCE_UNAVAILABLE,
             "claims_human_relevance_review_complete": False,
             "claims_live_public_replay_complete": False,
             "claims_full_45_site_public_replay": False,

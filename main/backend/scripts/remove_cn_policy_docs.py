@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import argparse
 import re
-from typing import Iterable, List
+from typing import Annotated, Any, Iterable, List
 
 from sqlalchemy import and_, cast, or_, String
 
@@ -77,7 +77,13 @@ def contains_chinese(text: str | None) -> bool:
     return bool(CHINESE_CHAR_PATTERN.search(text))
 
 
-def build_query(session):
+def build_query(
+    session,
+) -> Annotated[
+    Any,
+    "kit:prepared-command effect_boundary=sqlalchemy.session.query "
+    "witness=test:test_c15_backend_misc_cli_report_metadata_preserves_abi",
+]:
     """构建筛选包含中国区域或中文正文的政策文档的查询。"""
     json_state = cast(Document.extracted_data["policy"]["state"], String)
     region_conditions = []
@@ -167,4 +173,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

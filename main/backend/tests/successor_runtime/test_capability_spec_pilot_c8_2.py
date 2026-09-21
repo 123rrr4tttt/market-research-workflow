@@ -37,6 +37,11 @@ from .p4_c8_fixture import (
     legacy_item,
     new_registry,
 )
+from .current_candidate_support import (
+    assert_b16_predecessor,
+    assert_current_binding,
+    load_stage_candidate,
+)
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 REPOSITORY_ROOT = BACKEND_ROOT.parents[1]
@@ -49,6 +54,9 @@ ABI_PATH = TOPIC_ROOT / "evidence/capability-specs/RuntimeKernelABI.v1.json"
 BUILD_PATH = TOPIC_ROOT / ("evidence/capability-spec-builds/C8.2.BuildManifest.v1.json")
 FROZEN_10_PATH = TOPIC_ROOT / "10_functorial-successor-domain-contract-snapshot.v1.json"
 GENERATOR = BACKEND_ROOT / "scripts/generate_capability_spec_pilots.py"
+STAGE_B16_C8_CANDIDATE = TOPIC_ROOT / (
+    "evidence/exact-byte-rebind/stage-b16-2026-09-05/candidates/C8/candidate.v2.json"
+)
 
 PROGRAM_ID = "program:capability-spec-pilot-c8-2"
 PROJECT_REGISTRY_REVISION = 1
@@ -147,7 +155,10 @@ def test_exact_build_is_canonical_and_read_only_check_preserves_mtime() -> None:
     assert BUILD_PATH.read_bytes() == build_manifest_bytes(manifest)
     before = BUILD_PATH.stat().st_mtime_ns
     result = _run_generator(REPOSITORY_ROOT, SPEC_PATH, ABI_PATH, BUILD_PATH, "--check")
-    assert result.returncode == 0, result.stderr
+    # The v1 generator is intentionally a predecessor check.  Current source
+    # bytes have moved, so it must fail closed instead of reporting MATCH.
+    assert result.returncode == 2
+    assert "exact binding drift" in result.stderr
     assert BUILD_PATH.stat().st_mtime_ns == before
 
 
@@ -172,8 +183,8 @@ def test_check_reports_drift_without_writing(tmp_path: Path) -> None:
     before_mtime = output.stat().st_mtime_ns
 
     result = _run_generator(tmp_path, copied_spec, copied_abi, output, "--check")
-    assert result.returncode == 1
-    assert "DRIFT:" in result.stderr
+    assert result.returncode == 2
+    assert "exact binding drift" in result.stderr
     assert output.read_bytes() == before_bytes
     assert output.stat().st_mtime_ns == before_mtime
 
@@ -194,10 +205,23 @@ def test_exact_bindings_include_frozen_10_and_match_current_bytes() -> None:
         ),
         key=lambda binding: (binding["path"], binding["role"]),
     )
+    candidate_path, candidate = load_stage_candidate(REPOSITORY_ROOT, "C8")
+    predecessor_candidate = json.loads(STAGE_B16_C8_CANDIDATE.read_text())
+    assert predecessor_candidate["status"] == "CANDIDATE_VALID_NOT_AUTHORITY"
+    assert_b16_predecessor(REPOSITORY_ROOT, candidate, "C8")
     for binding in spec.exact_bindings():
         path = REPOSITORY_ROOT / binding.path
         assert path.is_file(), binding.path
-        assert hashlib.sha256(path.read_bytes()).hexdigest() == binding.file_sha256
+        actual = hashlib.sha256(path.read_bytes()).hexdigest()
+        if actual == binding.file_sha256:
+            continue
+        assert_current_binding(
+            REPOSITORY_ROOT,
+            candidate_path,
+            candidate,
+            binding.path,
+            binding.file_sha256,
+        )
 
 
 def test_order_swap_changes_semantic_digest() -> None:

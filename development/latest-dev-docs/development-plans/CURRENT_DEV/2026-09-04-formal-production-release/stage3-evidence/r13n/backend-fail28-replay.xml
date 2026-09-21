@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="28" time="5.530" timestamp="2026-09-10T05:38:55.725722+08:00" hostname="MacBook-Air-489.local"><testcase classname="tests.successor_runtime.test_i1_micro_specimens" name="test_i1_current_successor_is_live_and_frozen_candidates_are_history_only" time="0.515"><failure message="AssertionError: FAIL family_fragment_rebind: snapshots/00b0f89e5278f6aee3f5298e5b466d55326292a3fb3421c84daab5740e990521 immutable snapshot must not be writable&#10;  &#10;assert 1 == 0&#10; +  where 1 = CompletedProcess(args=['/Users/wangyiliang/.local/bin/python3.11', '/private/tmp/mrw-stage3-r13n.vDQ3Mq/runner/scripts... snapshots/00b0f89e5278f6aee3f5298e5b466d55326292a3fb3421c84daab5740e990521 immutable snapshot must not be writable\n').returncode">@pytest.mark.unit
+    def test_i1_current_successor_is_live_and_frozen_candidates_are_history_only() -&gt; None:
+        candidate, fragment = candidate_context()
+        stage_roots = {
+            path.parents[2]
+            for path in (
+                CANDIDATE_PATH,
+                B10_CANDIDATE_PATH,
+                B16_CANDIDATE_PATH,
+                B22_HISTORY_CANDIDATE_PATH,
+                B19_HISTORY_CANDIDATE_PATH,
+                B20_HISTORY_CANDIDATE_PATH,
+                B21_HISTORY_CANDIDATE_PATH,
+            )
+        }
+        paths = [
+            path for root in stage_roots for path in root.rglob("*") if path.is_file()
+        ]
+        snapshot = {path: (path.read_bytes(), path.stat().st_mtime_ns) for path in paths}
+    
+        live_outcome, registry = check_current_successor_live()
+        assert live_outcome["status"] == "PASS"
+        assert registry["status"] == (
+            "CURRENT_BYTES_BOUND_BY_ADDITIVE_SUCCESSORS_NOT_AUTHORITY"
+        )
+    
+        checks = (
+            (
+                CANDIDATE_PATH,
+                ("--history-only",),
+                "HISTORY_SNAPSHOT_VALID_NOT_AUTHORITY",
+            ),
+            (
+                B22_HISTORY_CANDIDATE_PATH,
+                ("--history-only",),
+                "HISTORY_SNAPSHOT_VALID_NOT_AUTHORITY",
+            ),
+            (
+                B19_HISTORY_CANDIDATE_PATH,
+                ("--history-only",),
+                "HISTORY_SNAPSHOT_VALID_NOT_AUTHORITY",
+            ),
+            (
+                B20_HISTORY_CANDIDATE_PATH,
+                ("--history-only",),
+                "HISTORY_SNAPSHOT_VALID_NOT_AUTHORITY",
+            ),
+            (
+                B21_HISTORY_CANDIDATE_PATH,
+                ("--history-only",),
+                "HISTORY_SNAPSHOT_VALID_NOT_AUTHORITY",
+            ),
+            (
+                B10_CANDIDATE_PATH,
+                ("--history-only",),
+                "HISTORY_SNAPSHOT_VALID_NOT_AUTHORITY",
+            ),
+            (
+                B16_CANDIDATE_PATH,
+                ("--history-only",),
+                "HISTORY_SNAPSHOT_VALID_NOT_AUTHORITY",
+            ),
+        )
+        for candidate_path, extra, expected_status in checks:
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(CHECKER_PATH),
+                    "check-candidate",
+                    "--repo-root",
+                    str(REPOSITORY_ROOT),
+                    "--candidate",
+                    str(candidate_path),
+                    *extra,
+                ],
+                cwd=REPOSITORY_ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+&gt;           assert result.returncode == 0, result.stdout + result.stderr
+E           AssertionError: FAIL family_fragment_rebind: snapshots/00b0f89e5278f6aee3f5298e5b466d55326292a3fb3421c84daab5740e990521 immutable snapshot must not be writable
+E             
+E           assert 1 == 0
+E            +  where 1 = CompletedProcess(args=['/Users/wangyiliang/.local/bin/python3.11', '/private/tmp/mrw-stage3-r13n.vDQ3Mq/runner/scripts... snapshots/00b0f89e5278f6aee3f5298e5b466d55326292a3fb3421c84daab5740e990521 immutable snapshot must not be writable\n').returncode
+
+tests/successor_runtime/test_i1_micro_specimens.py:254: AssertionError</failure></testcase><testcase classname="tests.unit.test_agent_core_unittest.AgentCoreUnitTest" name="test_source_web_search_returns_trusted_candidates_without_ingest" time="1.711" /><testcase classname="tests.unit.test_collect_runtime_source_library_adapter_unittest.CollectRuntimeSourceLibraryAdapterUnitTestCase" name="test_to_source_library_response_promotes_external_article_body_record_to_document_candidate" time="0.004" /><testcase classname="tests.unit.test_collect_runtime_source_library_adapter_unittest.CollectRuntimeSourceLibraryAdapterUnitTestCase" name="test_to_source_library_response_propagates_external_manifest_summary" time="0.004" /><testcase classname="tests.unit.test_source_library_external_project_adapter_unittest.ExternalProjectAdapterUnitTestCase" name="test_article_extractor_manifest_materializes_body_and_diagnostics" time="0.003" /><testcase classname="tests.unit.test_source_library_external_project_adapter_unittest.ExternalProjectAdapterUnitTestCase" name="test_article_extractor_manifest_reports_metadata_and_fetch_fallback_states" time="0.004" /><testcase classname="tests.unit.test_source_library_external_project_adapter_unittest.ExternalProjectAdapterUnitTestCase" name="test_cli_or_container_manifest_runs_predeclared_fixture_wrapper" time="0.002" /><testcase classname="tests.unit.test_source_library_external_project_adapter_unittest.ExternalProjectAdapterUnitTestCase" name="test_http_api_manifest_maps_artifacts_into_record_meta" time="0.006" /><testcase classname="tests.unit.test_source_library_external_project_adapter_unittest.ExternalProjectAdapterUnitTestCase" name="test_python_library_manifest_rejects_unknown_runner_id" time="0.001" /><testcase classname="tests.unit.test_source_library_external_project_adapter_unittest.ExternalProjectAdapterUnitTestCase" name="test_python_library_manifest_runs_registered_fixture_runner" time="0.002" /><testcase classname="tests.unit.test_source_library_external_project_adapter_unittest.ExternalProjectAdapterUnitTestCase" name="test_rss_feed_manifest_returns_materialized_records" time="0.006" /><testcase classname="tests.unit.test_source_library_external_project_registration_unittest.ExternalProjectRegistrationUnitTestCase" name="test_collect_external_project_context_extracts_generic_endpoint_candidates_from_html" time="0.010" /><testcase classname="tests.unit.test_source_library_external_project_registration_unittest.ExternalProjectRegistrationUnitTestCase" name="test_collect_external_project_context_uses_github_api_when_repo_link" time="0.005" /><testcase classname="tests.unit.test_source_library_external_project_registration_unittest.ExternalProjectRegistrationUnitTestCase" name="test_synthesize_external_project_item_attaches_provider_binding_to_registration_context" time="0.001" /><testcase classname="tests.unit.test_source_library_external_project_registration_unittest.ExternalProjectRegistrationUnitTestCase" name="test_synthesize_external_project_item_requires_minimum_evidence" time="0.001" /><testcase classname="tests.unit.test_source_library_external_project_registration_unittest.ExternalProjectRegistrationUnitTestCase" name="test_synthesize_external_project_manifest_rejects_blocked_headers" time="0.002" /><testcase classname="tests.unit.test_source_library_external_project_registration_unittest.ExternalProjectRegistrationUnitTestCase" name="test_synthesize_external_project_manifest_uses_deterministic_context_probe_when_high_confidence_exists" time="0.002" /><testcase classname="tests.unit.test_source_library_external_project_registration_unittest.ExternalProjectRegistrationUnitTestCase" name="test_synthesize_external_project_manifest_uses_workflow_llm_skill" time="0.002" /><testcase classname="tests.unit.test_source_library_ingest_external_project_contract_check_unittest.SourceLibraryIngestExternalProjectContractCheckTest" name="test_contract_gate_accepts_passing_live_replay_artifact" time="0.035" /><testcase classname="tests.unit.test_source_library_ingest_external_project_contract_check_unittest.SourceLibraryIngestExternalProjectContractCheckTest" name="test_contract_gate_reports_current_narrow_closure_and_known_gaps" time="0.026" /><testcase classname="tests.unit.test_source_library_ingest_live_replay_unittest.SourceLibraryIngestLiveReplayUnitTestCase" name="test_live_replay_validates_article_and_external_project_boundaries" time="1.615" /><testcase classname="tests.unit.test_source_library_url_pool_adapter_unittest.SourceLibraryUrlPoolAdapterUnitTestCase" name="test_arxiv_abs_record_includes_pdf_artifact_ref" time="0.002" /><testcase classname="tests.unit.test_source_library_url_pool_adapter_unittest.SourceLibraryUrlPoolAdapterUnitTestCase" name="test_rejects_local_urls_before_fetch" time="0.002" /><testcase classname="tests.unit.test_source_library_url_pool_adapter_unittest.SourceLibraryUrlPoolAdapterUnitTestCase" name="test_terminal_output_only_mode_fetches_clean_records_without_write_side_effects" time="0.001" /><testcase classname="tests.unit.test_url_unwrap_unittest.UrlUnwrapUnitTestCase" name="test_unwrap_url_google_news_batch_execute_decodes_source_url" time="0.002" /><testcase classname="tests.unit.test_url_unwrap_unittest.UrlUnwrapUnitTestCase" name="test_unwrap_url_google_news_batch_execute_uses_cache_on_repeated_token" time="0.002" /><testcase classname="tests.unit.test_url_unwrap_unittest.UrlUnwrapUnitTestCase" name="test_unwrap_url_network_redirect_accepts_public_target" time="0.003" /><testcase classname="tests.unit.test_wave57_oss_node_public_corpus_semantic_relevance_gate_unittest.Wave57OssNodePublicCorpusSemanticRelevanceGateTest" name="test_gate_closes_target_local_public_corpus_provider_quality_route" time="0.264" /></testsuite></testsuites>

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import Any, Mapping
+from typing import Annotated, Any, Mapping
 
 from .gate_reason_codes import normalize_reason_code
 from .metrics_payload import build_metrics_payload_for_result
@@ -37,7 +37,10 @@ def build_single_url_canary_handoff(
     live_canary_validated: bool | None = None,
     closure_claim: bool | None = None,
     live_canary_evidence: Mapping[str, Any] | None = None,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=ingress_envelope+postprocess_frontdoor+writer_result+metrics_payload+live_canary_evidence witness=test:test_w03_ingest_ports_authority_metadata",
+]:
     ingress = dict(ingress_envelope or {})
     postprocess = dict(postprocess_frontdoor or {})
     data = postprocess.get("data") if isinstance(postprocess.get("data"), dict) else {}

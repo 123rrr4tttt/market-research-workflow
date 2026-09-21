@@ -1,0 +1,10 @@
+{
+  "artifact_type": "container_image",
+  "command_executed": true,
+  "exit_code": 0,
+  "input_consumed": true,
+  "report_bytes": 2070,
+  "report_json_valid": true,
+  "report_present": true,
+  "result_count": 0
+}

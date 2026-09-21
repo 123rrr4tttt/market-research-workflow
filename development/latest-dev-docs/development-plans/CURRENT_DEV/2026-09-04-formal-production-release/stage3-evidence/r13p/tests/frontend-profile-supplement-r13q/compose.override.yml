@@ -1,0 +1,14 @@
+services:
+  db:
+    ports: !reset []
+  es:
+    ports: !reset []
+  redis:
+    ports: !reset []
+  backend:
+    image: mrw-r13n-backend-exact:test
+    ports: !override
+      - "127.0.0.1:18000:8000"
+  frontend-modern:
+    ports: !override
+      - "127.0.0.1:15174:80"

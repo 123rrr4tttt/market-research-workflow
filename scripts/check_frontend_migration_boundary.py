@@ -15,7 +15,7 @@ import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Annotated, Any, Iterable
 
 
 FRONTEND_ROOT = Path("main/frontend-modern")
@@ -128,7 +128,11 @@ def read_text(root: Path, rel_path: Path) -> str:
     return (root / FRONTEND_ROOT / rel_path).read_text(encoding="utf-8")
 
 
-def build_line_starts(source: str) -> list[int]:
+def build_line_starts(source: str) -> Annotated[
+    list[int],
+    "kit:non-authoritative derived_as=view fact_source=frontend_module_source "
+    "witness=test:test_w11_non_authoritative_metadata",
+]:
     starts = [0]
     for index, char in enumerate(source):
         if char == "\n":
@@ -634,7 +638,12 @@ def build_business_string_report(
     root: Path,
     module_entries: list[ModuleEntry],
     module_to_file: dict[str, Path],
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=generated_evidence "
+    "fact_source=frontend_module_entries+module_file_bindings "
+    "witness=test:test_w11_non_authoritative_metadata",
+]:
     module_keys = {entry.module_key for entry in module_entries}
     routes = {entry.entry_route for entry in module_entries}
     legacy_hashes = {entry.legacy_hash for entry in module_entries}
@@ -706,7 +715,12 @@ def build_page_refactor_report(
     catalog_shape: dict[str, dict[str, str]],
     catalogs: dict[str, dict[str, dict[str, str]]],
     business_report: dict[str, Any],
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=generated_evidence "
+    "fact_source=frontend_module_manifests+placement_baselines+catalogs+business_report "
+    "witness=test:test_w11_non_authoritative_metadata",
+]:
     module_by_key = {entry.module_key: entry for entry in module_entries}
     page_records: dict[str, dict[str, Any]] = {}
     remaining_by_file = business_report["remaining_gaps_by_file"]
@@ -774,7 +788,12 @@ def build_page_refactor_report(
     }
 
 
-def build_report(root: Path) -> dict[str, Any]:
+def build_report(root: Path) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=generated_evidence "
+    "fact_source=frontend_module_sources+manifests+catalogs+baseline_inventory "
+    "witness=test:test_w11_non_authoritative_metadata",
+]:
     root = root.resolve()
     problems: list[str] = []
 

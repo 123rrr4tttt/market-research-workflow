@@ -1,0 +1,37 @@
+{
+  "authoritative": false,
+  "authority_ceiling": "EXACT_BYTE_CORRESPONDENCE_ONLY_NO_CANDIDATE_PROMOTION_NO_STAGE0_REWRITE_NO_PRODUCTION_AUTHORITY",
+  "checker": {
+    "authority_ceiling": "EXACT_BYTE_CORRESPONDENCE_ONLY_NO_CANDIDATE_PROMOTION_NO_STAGE0_REWRITE_NO_PRODUCTION_AUTHORITY",
+    "direct_candidate_declaration_count": 16,
+    "provider_test_direct_candidate_declaration_count": 7,
+    "run_loop_direct_candidate_declaration_count": 3,
+    "source_count": 11,
+    "status": "PASS",
+    "successor_count": 17
+  },
+  "new_documents": {
+    "manifest": {
+      "path": "stage1-successor-evidence/current-byte-remediation-v3/bindings/artifact-manifest.v3.json",
+      "sha256": "a4674666b2f9feb70c9fa9496859cc91a4fb77ac3226275d0dfae631b9bf77ba"
+    },
+    "registry": {
+      "path": "stage1-successor-evidence/current-byte-remediation-v3/bindings/current-byte-binding-successors.v3.json",
+      "sha256": "ff28a778f672b1d7bccf7b4da9564e243b6df29c05bb9ea5f9921732e22d5b8a"
+    }
+  },
+  "old_documents": {
+    "manifest": {
+      "path": "stage1-successor-evidence/current-byte-remediation-v3/bindings/artifact-manifest.v3.json",
+      "sha256": "01db55f28ae22ba503ac6f1cf6029bca43de29acb4b167ab007019abf5ccf53f"
+    },
+    "registry": {
+      "path": "stage1-successor-evidence/current-byte-remediation-v3/bindings/current-byte-binding-successors.v3.json",
+      "sha256": "a46b41be2bd39361e96f2595c4cdbcab2c3b9f98a4714ca5b09d17014569c2ed"
+    }
+  },
+  "reason": "ADD_C5_HISTORICAL_STAGE_SELECTOR_SUCCESSOR",
+  "schema": "mrw.current_byte_v3_rebuild_receipt.v1",
+  "stale_copy": "stage1-successor-evidence/stage-convergence-batch-v1/raw/current-byte-v3-pre-c5-selector-20260908",
+  "status": "PASS"
+}

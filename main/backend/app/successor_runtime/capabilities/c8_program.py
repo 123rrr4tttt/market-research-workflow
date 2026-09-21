@@ -12,10 +12,28 @@ from __future__ import annotations
 
 import dataclasses
 from dataclasses import dataclass
-from typing import Any
+from typing import Annotated, Any, Literal
 
 from app.successor_runtime.capabilities import c8_common as c8
-from app.successor_runtime.capabilities.c8_common import C8ProjectionError
+from app.successor_runtime.capabilities.c8_common import (
+    reject_c8_key,
+    reject_c8_projection,
+    reject_c8_value,
+)
+from app.successor_runtime.capabilities.c8_graph_projection_contribution import (
+    C8_4_INPUT_TYPE,
+    C8_4_KIND,
+    C8_4_OPERATION_ID,
+    C8_4_OWNER,
+    C8_4_PAYLOAD_CODEC_ID,  # noqa: F401 - retained public compatibility export
+    C8_4_RESULT_TYPE,
+    C8_4_RETURN_CONTRACT_REF,
+    C8CellDefinition,
+    C8GraphProjectInput,
+    C8GraphProjectionAssemblyContext,
+    C8GraphProjectionRuntimeBinding,
+    c8_graph_projection_definition_issues,
+)
 from app.successor_runtime.capabilities.checksum import (
     canonical_json,
     content_digest,
@@ -57,6 +75,12 @@ from app.successor_runtime.language.profiles import (
 )
 from app.successor_runtime.language.program import ProgramSpec, atom_node, then_node
 from app.successor_runtime.research.object_types import CANONICAL_CODEC_ID, ObjectType
+from functorial_kit.contributions import compose_contributions
+from functorial_kit.core.failure import Failure
+from functorial_kit.native_contribution import NativeContribution
+from mrw_functorial_kit.contributions.c8_graph_projection import (
+    c8_graph_projection_native_contributions,
+)
 
 __all__ = [
     "C8_1_INPUT_TYPE",
@@ -107,6 +131,10 @@ __all__ = [
     "build_c8_bridge_bundle",
     "build_c8_bundle",
     "build_c8_catalog",
+    "compose_default_c8_graph_projection_contributions",
+    "graph_projection_binding",
+    "graph_projection_definition",
+    "validate_c8_graph_projection_contributions",
     "build_c8_delivery_bridge_bundle",
     "build_c8_delivery_bridge_program",
     "build_c8_program",
@@ -133,8 +161,6 @@ C8_OBSERVATION_PROFILE = "mrw.successor.c8.observation.v1"
 C8_1_OWNER = "typed_knowledge.c8.1.v1"
 C8_2_OWNER = "writing.c8.2.v1"
 C8_3_OWNER = "report.c8.3.v1"
-C8_4_OWNER = "graph.c8.4.v1"
-
 C8_1_OPERATION_ID = "c8.typed_knowledge.demand_read"
 C8_1_KIND = "c8.typed_knowledge.demand_read.v1"
 C8_1_PAYLOAD_CODEC_ID = "mrw.successor.c8.c8-1.payload.codec.v1"
@@ -156,12 +182,6 @@ C8_3_KIND = "c8.report.stage.v1"
 C8_3_PAYLOAD_CODEC_ID = "mrw.successor.c8.c8-3.payload.codec.v1"
 C8_3_INPUT_TYPE = ObjectType("C8ReportSourceReads.v1")
 C8_3_RESULT_TYPE = ObjectType("C8StagedReport.v1")
-
-C8_4_OPERATION_ID = "c8.graph.project"
-C8_4_KIND = "c8.graph.project.v1"
-C8_4_PAYLOAD_CODEC_ID = "mrw.successor.c8.c8-4.payload.codec.v1"
-C8_4_INPUT_TYPE = ObjectType("C8GraphProjectInput.v1")
-C8_4_RESULT_TYPE = ObjectType("C8GraphContext.v1")
 
 C8_VERIFY_OPERATION_ID = "c8.report.verify"
 C8_VERIFY_KIND = "c8.report.verify.v1"
@@ -186,9 +206,8 @@ C8_DELIVERY_INTENT_PREPARE_KIND = "c8.delivery_intent_prepare.v1"
 _C8_1_RETURN_CONTRACT_REF = READ_CANONICAL_REF_RETURN_CONTRACT_REF
 _C8_2_RETURN_CONTRACT_REF = SINGLE_TYPED_OUTPUT_RETURN_CONTRACT_REF
 _C8_3_RETURN_CONTRACT_REF = RUNTIME_VALUE_RETURN_CONTRACT_REF
-_C8_4_RETURN_CONTRACT_REF = READ_CANONICAL_REF_RETURN_CONTRACT_REF
-
-_CELL_IDS = ("C8.1", "C8.2", "C8.3", "C8.4")
+_C8_4_RETURN_CONTRACT_REF = C8_4_RETURN_CONTRACT_REF
+_CELL_IDS = ("C8.1", "C8.2", "C8.3")
 
 
 @dataclass(frozen=True, slots=True)
@@ -227,18 +246,6 @@ class C8ReportStageInput:
         _bind_payload_digest(self, "C8ReportStageInput")
 
 
-@dataclass(frozen=True, slots=True)
-class C8GraphProjectInput:
-    project_key: str
-    graph_id: str
-    node_keys: tuple[str, ...]
-    node_types: tuple[str, ...]
-    payload_digest: str = ""
-
-    def __post_init__(self) -> None:
-        _bind_payload_digest(self, "C8GraphProjectInput")
-
-
 def payload_body_digest(payload: Any) -> str:
     body = {
         name: value
@@ -255,7 +262,7 @@ def _bind_payload_digest(payload: Any, type_name: str) -> None:
         return
     require_hex64(payload.payload_digest, f"{type_name}.payload_digest")
     if payload.payload_digest != expected:
-        raise ValueError(
+        reject_c8_value(
             f"{type_name}.payload_digest does not match recomputed body digest"
         )
 
@@ -271,7 +278,7 @@ class C8CapabilityBundle:
         for codec in self.codecs:
             if codec.contract_ref.kind == kind:
                 return codec
-        raise KeyError(f"no C8 payload codec for kind {kind}")
+        reject_c8_key(f"no C8 payload codec for kind {kind}")
 
 
 def _profile_ref(profile: Any) -> ContractProfileRef:
@@ -296,7 +303,6 @@ def _semantic_profile(cell_id: str) -> SemanticProfile:
             (),
         ),
         "C8.3": (("C8ReportSourceReads.v1",), ("C8StagedReport.v1",), ()),
-        "C8.4": (("C8GraphProjectInput.v1",), ("C8GraphContext.v1",), ()),
     }[cell_id]
     values = {
         "semantic_profile_id": f"c8.{suffix}.semantic",
@@ -304,11 +310,7 @@ def _semantic_profile(cell_id: str) -> SemanticProfile:
         "reads": reads_creates[0],
         "creates": reads_creates[1],
         "creates_relations": reads_creates[2],
-        "declared_loss": (
-            ("graph_node_filter", "report_export_body")
-            if cell_id in ("C8.3", "C8.4")
-            else ()
-        ),
+        "declared_loss": ("graph_node_filter", "report_export_body") if cell_id == "C8.3" else (),
         "observation_profile_ref": f"mrw.successor.c8.{suffix}.observation.v1",
     }
     return SemanticProfile(**values, profile_digest=content_digest(values))
@@ -320,7 +322,6 @@ def _effect_profile(cell_id: str) -> EffectProfile:
         "C8.1": "EFFECTFUL",
         "C8.2": "PURE_TRANSFORM",
         "C8.3": "ADMISSION",
-        "C8.4": "PROJECTION",
     }[cell_id]
     values = {
         "effect_profile_id": f"c8.{suffix}.effect",
@@ -371,7 +372,6 @@ def _failure_profile(cell_id: str) -> FailureProfile:
             "REPORT_ADMISSION_INTERFACE_ONLY",
             "REPORT_EXPORT_NOT_EXECUTED",
         ),
-        "C8.4": ("GRAPH_PROJECTION_DECLARED_LOSS", "GRAPH_ITEM_CANONICAL_REF_INVALID"),
     }[cell_id]
     values = {
         "failure_profile_id": f"c8.{suffix}.failure",
@@ -387,7 +387,6 @@ def _failure_profile(cell_id: str) -> FailureProfile:
             "C8.1": "c8.typed_knowledge.readback.v1",
             "C8.2": "c8.writing.readback.v1",
             "C8.3": "c8.report.admission.readback.v1",
-            "C8.4": "c8.graph.readback.v1",
         }[cell_id],
         "compensation_profile_ref": None,
     }
@@ -400,7 +399,6 @@ def _authority_profile(cell_id: str) -> AuthorityProfile:
         "C8.1": C8_1_OWNER,
         "C8.2": C8_2_OWNER,
         "C8.3": C8_3_OWNER,
-        "C8.4": C8_4_OWNER,
     }[cell_id]
     values = {
         "authority_profile_id": f"c8.{suffix}.authority",
@@ -422,7 +420,6 @@ def _interpreter_profile(cell_id: str) -> InterpreterProfile:
         "C8.1": (C8_1_KIND,),
         "C8.2": (C8_2_COMPOSE_KIND, C8_2_STAGE_KIND),
         "C8.3": (C8_3_KIND,),
-        "C8.4": (C8_4_KIND,),
     }[cell_id]
     values = {
         "interpreter_profile_id": f"successor.c8.{suffix}.v1",
@@ -460,7 +457,6 @@ def _observation_profile(cell_id: str) -> ObservationProfile:
                 "admission_interface_only",
                 "declared_loss",
             ),
-            "C8.4": ("declared_loss", "provenance_closure", "canonical_identity"),
         }[cell_id],
         "compatible_with_legacy": True,
         "observation_schema_ref": f"mrw.successor.c8.{suffix}.observation.v1",
@@ -501,7 +497,111 @@ def _make_contract(
     )
 
 
-def build_c8_bundle() -> C8CapabilityBundle:
+GraphProjectionNativeContribution = NativeContribution[
+    C8CellDefinition,
+    C8GraphProjectionAssemblyContext,
+    C8GraphProjectionRuntimeBinding,
+]
+
+
+def compose_default_c8_graph_projection_contributions() -> tuple[
+    GraphProjectionNativeContribution, ...
+]:
+    """Return the native list after validating its factory-free projections."""
+
+    return validate_c8_graph_projection_contributions(
+        c8_graph_projection_native_contributions
+    )
+
+
+def validate_c8_graph_projection_contributions(
+    natives: tuple[GraphProjectionNativeContribution, ...],
+) -> tuple[GraphProjectionNativeContribution, ...]:
+    composition = compose_contributions(tuple(native.projection for native in natives))
+    if isinstance(composition, Failure):
+        reject_c8_value(
+            "C8 graph projection contribution catalog invalid: "
+            f"{composition.message}"
+        )
+    cell_ids: set[str] = set()
+    for native in natives:
+        definition = native.definition
+        issues = c8_graph_projection_definition_issues(definition)
+        if issues:
+            reject_c8_value(
+                f"native graph definition {definition.cell_id} invalid: "
+                + "; ".join(f"{issue.path}: {issue.message}" for issue in issues)
+            )
+        if definition.cell_id in cell_ids:
+            reject_c8_value(
+                f"duplicate native graph cell id {definition.cell_id}"
+            )
+        cell_ids.add(definition.cell_id)
+    return natives
+
+
+def _graph_projection_bindings(
+    graph_projection_contributions: tuple[GraphProjectionNativeContribution, ...]
+    | None,
+) -> tuple[C8GraphProjectionRuntimeBinding, ...]:
+    natives = (
+        compose_default_c8_graph_projection_contributions()
+        if graph_projection_contributions is None
+        else validate_c8_graph_projection_contributions(graph_projection_contributions)
+    )
+    bindings: list[C8GraphProjectionRuntimeBinding] = []
+    for native in natives:
+        binding = native.assemble(C8GraphProjectionAssemblyContext())
+        if isinstance(binding, Failure):
+            reject_c8_value(
+                f"native graph contribution {native.projection.id} invalid: "
+                f"{binding.message}"
+            )
+        bindings.append(binding)
+    return tuple(bindings)
+
+
+def graph_projection_binding(
+    cell_id: str,
+    *,
+    graph_projection_composition: tuple[GraphProjectionNativeContribution, ...]
+    | None = None,
+) -> C8GraphProjectionRuntimeBinding:
+    """Resolve one assembled graph operation binding by its native cell id."""
+
+    for binding in _graph_projection_bindings(graph_projection_composition):
+        if binding.cell_id == cell_id:
+            return binding
+    reject_c8_value(f"native graph operation binding {cell_id} is not declared")
+
+
+def graph_projection_definition(
+    cell_id: str,
+    *,
+    graph_projection_composition: tuple[GraphProjectionNativeContribution, ...]
+    | None = None,
+) -> C8CellDefinition:
+    """Read a native definition without assembling a runtime binding."""
+
+    natives = (
+        compose_default_c8_graph_projection_contributions()
+        if graph_projection_composition is None
+        else validate_c8_graph_projection_contributions(graph_projection_composition)
+    )
+    for native in natives:
+        if native.definition.cell_id == cell_id:
+            return native.definition
+    reject_c8_value(f"native graph operation definition {cell_id} is not declared")
+
+
+def build_c8_bundle(
+    *,
+    graph_projection_composition: tuple[GraphProjectionNativeContribution, ...]
+    | None = None,
+) -> Annotated[  # NonAuthoritative
+    C8CapabilityBundle,
+    Literal["kit:non-authoritative derived_as=view fact_source=C8_contract_and_profile_constants witness=test:test_w06_successor_authority_metadata"],
+]:
     profiles_by_cell: dict[str, dict[str, object]] = {}
     contracts: list[OperationContract] = []
     for cell_id in _CELL_IDS:
@@ -525,7 +625,6 @@ def build_c8_bundle() -> C8CapabilityBundle:
             "C8.1": C8_1_OWNER,
             "C8.2": C8_2_OWNER,
             "C8.3": C8_3_OWNER,
-            "C8.4": C8_4_OWNER,
         }[cell_id]
         kind, input_type, output_type, return_ref = {
             "C8.1": (
@@ -545,12 +644,6 @@ def build_c8_bundle() -> C8CapabilityBundle:
                 C8_3_INPUT_TYPE,
                 C8_3_RESULT_TYPE,
                 _C8_3_RETURN_CONTRACT_REF,
-            ),
-            "C8.4": (
-                C8_4_KIND,
-                C8_4_INPUT_TYPE,
-                C8_4_RESULT_TYPE,
-                _C8_4_RETURN_CONTRACT_REF,
             ),
         }[cell_id]
         contracts.append(
@@ -586,6 +679,10 @@ def build_c8_bundle() -> C8CapabilityBundle:
                     owner=owner,
                 )
             )
+    graph_bindings = _graph_projection_bindings(graph_projection_composition)
+    for binding in graph_bindings:
+        contracts.append(binding.operation_contract)
+        profiles_by_cell[binding.cell_id] = dict(binding.profiles)
     codecs = (
         _payload_codec(
             _contract_by_kind(contracts, C8_1_KIND).ref,
@@ -605,12 +702,7 @@ def build_c8_bundle() -> C8CapabilityBundle:
             C8_3_INPUT_TYPE,
             C8ReportStageInput,
         ),
-        _payload_codec(
-            _contract_by_kind(contracts, C8_4_KIND).ref,
-            C8_4_PAYLOAD_CODEC_ID,
-            C8_4_INPUT_TYPE,
-            C8GraphProjectInput,
-        ),
+        *(binding.payload_codec for binding in graph_bindings),
     )
     return C8CapabilityBundle(
         bundle_id="mrw.functorial-successor.c8",
@@ -641,7 +733,10 @@ def _payload_codec(
     )
 
 
-def build_c8_catalog(bundle: C8CapabilityBundle) -> OperationContractCatalogSnapshot:
+def build_c8_catalog(bundle: C8CapabilityBundle) -> Annotated[  # NonAuthoritative
+    OperationContractCatalogSnapshot,
+    Literal["kit:non-authoritative derived_as=view fact_source=C8_contract_and_profile_constants witness=test:test_w06_successor_authority_metadata"],
+]:
     return OperationContractCatalogSnapshot(
         catalog_id=C8_OPERATION_CATALOG_ID,
         catalog_version=C8_OPERATION_CATALOG_VERSION,
@@ -657,7 +752,10 @@ def build_c8_catalog(bundle: C8CapabilityBundle) -> OperationContractCatalogSnap
     )
 
 
-def build_c8_registry(bundle: C8CapabilityBundle) -> OperationContractRegistry:
+def build_c8_registry(bundle: C8CapabilityBundle) -> Annotated[  # NonAuthoritative
+    OperationContractRegistry,
+    Literal["kit:non-authoritative derived_as=view fact_source=C8_contract_and_profile_constants witness=test:test_w06_successor_authority_metadata"],
+]:
     return OperationContractRegistry(build_c8_catalog(bundle), bundle.operations)
 
 
@@ -668,7 +766,7 @@ def exact_contract_ref(
 ) -> OperationContractRef:
     ref = catalog.lookup(kind)
     if ref is None:
-        raise ValueError(f"contract {kind} missing from catalog {catalog.catalog_id}")
+        reject_c8_value(f"contract {kind} missing from catalog {catalog.catalog_id}")
     return ref
 
 
@@ -696,7 +794,7 @@ def payload_value_ref(
     value_suffix: str,
 ) -> ValueRef:
     if payload.project_key != project_key:
-        raise ValueError("payload project scope drift")
+        reject_c8_value("payload project scope drift")
     plain = dataclasses.asdict(payload)
     exact_text = canonical_json(plain)
     exact_bytes = exact_text.encode("utf-8")
@@ -746,7 +844,7 @@ def _atom(
     )
     payload = payload_ref if payload_ref is not None else value_ref
     if payload is None:
-        raise ValueError("atom requires a payload value ref")
+        reject_c8_value("atom requires a payload value ref")
     operation = OperationSpec(
         operation_id=operation_id,
         contract_ref=contract_ref,
@@ -774,10 +872,16 @@ def build_c8_program(
     project_key: str,
     project_registry_revision: int,
     project_scope_digest: str,
-) -> ProgramSpec:
+    graph_projection_composition: tuple[GraphProjectionNativeContribution, ...]
+    | None = None,
+) -> Annotated[  # NonAuthoritative
+    ProgramSpec,
+    Literal["kit:non-authoritative derived_as=view fact_source=payload+catalog+program_inputs witness=test:test_w06_successor_authority_metadata"],
+]:
     if payload.project_key != project_key:
-        raise ValueError("payload project_key does not match Program project_key")
+        reject_c8_value("payload project_key does not match Program project_key")
     extra_metadata: dict[str, object] = {}
+    program_owner: str
     if cell_id == "C8.2":
         compose_ref = exact_contract_ref(catalog, kind=C8_2_COMPOSE_KIND)
         stage_ref = exact_contract_ref(catalog, kind=C8_2_STAGE_KIND)
@@ -824,7 +928,8 @@ def build_c8_program(
         return_contract_ref = _C8_2_RETURN_CONTRACT_REF
         operation_kinds = (C8_2_COMPOSE_KIND, C8_2_STAGE_KIND)
         payload_value = handoff_value
-    else:
+        program_owner = C8_2_OWNER
+    elif cell_id in ("C8.1", "C8.3"):
         kind, operation_id, codec_id, suffix, object_type, result_type = {
             "C8.1": (
                 C8_1_KIND,
@@ -842,14 +947,6 @@ def build_c8_program(
                 C8_3_INPUT_TYPE,
                 C8_3_RESULT_TYPE,
             ),
-            "C8.4": (
-                C8_4_KIND,
-                C8_4_OPERATION_ID,
-                C8_4_PAYLOAD_CODEC_ID,
-                "c8-4",
-                C8_4_INPUT_TYPE,
-                C8_4_RESULT_TYPE,
-            ),
         }[cell_id]
         ref = exact_contract_ref(catalog, kind=kind)
         value = payload_value_ref(
@@ -863,7 +960,6 @@ def build_c8_program(
         return_contract_ref = {
             "C8.1": _C8_1_RETURN_CONTRACT_REF,
             "C8.3": _C8_3_RETURN_CONTRACT_REF,
-            "C8.4": _C8_4_RETURN_CONTRACT_REF,
         }[cell_id]
         root = _atom(
             operation_id=operation_id,
@@ -877,11 +973,42 @@ def build_c8_program(
         output_type = root.output_type
         operation_kinds = (kind,)
         payload_value = value
+        program_owner = {"C8.1": C8_1_OWNER, "C8.3": C8_3_OWNER}[cell_id]
         if cell_id == "C8.3":
             extra_metadata = {
                 "admission_interface_digest": c8.C8_3_ADMISSION_INTERFACE_DIGEST,
                 "delivery_interface_digest": c8.C8_3_DELIVERY_INTERFACE_DIGEST,
             }
+    else:
+        graph_definition = graph_projection_definition(
+            cell_id,
+            graph_projection_composition=graph_projection_composition,
+        )
+        atom_wiring = graph_definition.program_atom
+        kind = atom_wiring.operation_kind
+        ref = exact_contract_ref(catalog, kind=kind)
+        value = payload_value_ref(
+            payload,
+            program_id=program_id,
+            project_key=project_key,
+            codec_id=atom_wiring.payload_codec_id,
+            object_type=atom_wiring.input_type,
+            value_suffix=atom_wiring.value_suffix,
+        )
+        return_contract_ref = atom_wiring.return_contract_ref
+        root = _atom(
+            operation_id=atom_wiring.operation_id,
+            contract_ref=ref,
+            input_type=atom_wiring.input_type,
+            output_type=atom_wiring.output_type,
+            return_contract_ref=return_contract_ref,
+            value_ref=value,
+        )
+        input_type = root.input_type
+        output_type = root.output_type
+        operation_kinds = (kind,)
+        payload_value = value
+        program_owner = graph_definition.owner
     metadata = freeze_json_object(
         {
             "schema": f"mrw.successor.c8.{cell_id.replace('.', '-')}.program-metadata.v1",
@@ -892,12 +1019,7 @@ def build_c8_program(
             "payload_storage_ref": payload_value.storage_ref,
             "payload_content_digest": payload_value.content_digest,
             "payload_provenance_digest": payload_value.provenance_digest,
-            "canonical_owner": {
-                "C8.1": C8_1_OWNER,
-                "C8.2": C8_2_OWNER,
-                "C8.3": C8_3_OWNER,
-                "C8.4": C8_4_OWNER,
-            }[cell_id],
+            "canonical_owner": program_owner,
             "return_contract_ref": return_contract_ref,
             "admission_required": False,
             "lifecycle_state": "P4_NOT_STARTED",
@@ -982,7 +1104,7 @@ def handler_binding_closure_payloads(
     for step in plan.ordered_steps:
         ref = step.operation_contract_ref
         if ref is None:
-            raise ValueError("ExecutionPlan step is missing an operation contract ref")
+            reject_c8_value("ExecutionPlan step is missing an operation contract ref")
         closure.append(
             {
                 "step_id": step.step_id,
@@ -1000,7 +1122,10 @@ def handler_binding_closure_payloads(
     return tuple(closure)
 
 
-def build_c8_bridge_bundle() -> C8CapabilityBundle:
+def build_c8_bridge_bundle() -> Annotated[  # NonAuthoritative
+    C8CapabilityBundle,
+    Literal["kit:non-authoritative derived_as=view fact_source=C8_contract_and_profile_constants witness=test:test_w06_successor_authority_metadata"],
+]:
     base = build_c8_bundle()
     profiles = base.profiles["C8.3"]
     verify_contract = _make_contract(
@@ -1047,9 +1172,12 @@ def build_c8_report_bridge_program(
     project_key: str,
     project_registry_revision: int,
     project_scope_digest: str,
-) -> ProgramSpec:
+) -> Annotated[  # NonAuthoritative
+    ProgramSpec,
+    Literal["kit:non-authoritative derived_as=view fact_source=payload+catalog+program_inputs witness=test:test_w06_successor_authority_metadata"],
+]:
     if stage_payload.project_key != project_key:
-        raise ValueError("stage payload project_key does not match Program")
+        reject_c8_value("stage payload project_key does not match Program")
     stage_ref = exact_contract_ref(catalog, kind=C8_3_KIND)
     verify_ref = exact_contract_ref(catalog, kind=C8_VERIFY_KIND)
     admission_ref = exact_contract_ref(catalog, kind=C8_ADMISSION_KIND)
@@ -1160,20 +1288,20 @@ def validate_delivery_operation_contract(
     delivery_operation: OperationContract,
 ) -> OperationContract:
     if delivery_operation.ref.kind != DELIVERY_INTERNAL_EXPORT_KIND:
-        raise C8ProjectionError(
+        reject_c8_projection(
             "delivery operation kind must be delivery.internal_export.v1"
         )
     if delivery_operation.input_type.type_id != C8_DELIVERY_INTENT_TYPE.type_id:
-        raise C8ProjectionError("delivery operation input must be DeliveryIntent.v1")
+        reject_c8_projection("delivery operation input must be DeliveryIntent.v1")
     if delivery_operation.output_type.type_id != C8_DELIVERY_RECEIPT_TYPE.type_id:
-        raise C8ProjectionError(
+        reject_c8_projection(
             "delivery operation output must be DeliveryReceiptRef.v1"
         )
     if (
         delivery_operation.return_contract_ref
         != DELIVERY_INTENT_RECEIPT_RETURN_CONTRACT_REF
     ):
-        raise C8ProjectionError(
+        reject_c8_projection(
             "delivery operation must use the delivery receipt return contract"
         )
     for name in (
@@ -1186,12 +1314,12 @@ def validate_delivery_operation_contract(
         "observation_profile_ref",
     ):
         if not getattr(delivery_operation, name):
-            raise C8ProjectionError(f"delivery operation missing exact {name}")
+            reject_c8_projection(f"delivery operation missing exact {name}")
     if (
         not delivery_operation.ref.contract_digest
         or len(delivery_operation.ref.contract_digest) != 64
     ):
-        raise C8ProjectionError("delivery operation contract digest is not exact")
+        reject_c8_projection("delivery operation contract digest is not exact")
     return delivery_operation
 
 
@@ -1200,15 +1328,15 @@ def validate_delivery_payload_codec(
     delivery_operation: OperationContract,
 ) -> PayloadCodec:
     if delivery_codec.codec_id != "delivery.internal_export.v1.payload":
-        raise C8ProjectionError(
+        reject_c8_projection(
             "delivery codec id must be delivery.internal_export.v1.payload"
         )
     if delivery_codec.payload_type_id != "InternalExportInput.v1":
-        raise C8ProjectionError(
+        reject_c8_projection(
             "delivery codec payload type must be InternalExportInput.v1"
         )
     if delivery_codec.contract_ref != delivery_operation.ref:
-        raise C8ProjectionError(
+        reject_c8_projection(
             "delivery codec contract ref must equal the exact delivery operation"
         )
     return delivery_codec
@@ -1217,7 +1345,10 @@ def validate_delivery_payload_codec(
 def build_c8_delivery_bridge_bundle(
     delivery_operation: OperationContract,
     delivery_codec: PayloadCodec,
-) -> C8CapabilityBundle:
+) -> Annotated[  # NonAuthoritative
+    C8CapabilityBundle,
+    Literal["kit:non-authoritative derived_as=view fact_source=C8_contract_and_profile_constants witness=test:test_w06_successor_authority_metadata"],
+]:
     validate_delivery_operation_contract(delivery_operation)
     validate_delivery_payload_codec(delivery_codec, delivery_operation)
     base = build_c8_bridge_bundle()
@@ -1257,29 +1388,32 @@ def build_c8_delivery_bridge_program(
     project_key: str,
     project_registry_revision: int,
     project_scope_digest: str,
-) -> ProgramSpec:
+) -> Annotated[  # NonAuthoritative
+    ProgramSpec,
+    Literal["kit:non-authoritative derived_as=view fact_source=payload+catalog+program_inputs witness=test:test_w06_successor_authority_metadata"],
+]:
     validate_delivery_operation_contract(delivery_operation)
     validate_delivery_payload_codec(delivery_codec, delivery_operation)
     if delivery_payload_ref.object_type.type_id != "InternalExportInput.v1":
-        raise C8ProjectionError(
+        reject_c8_projection(
             "delivery payload ref object type must be InternalExportInput.v1"
         )
     if delivery_payload_ref.codec_id != delivery_codec.codec_id:
-        raise C8ProjectionError(
+        reject_c8_projection(
             "delivery payload ref codec must equal the delivery codec"
         )
     if artifact_input_ref.object_type != C8_RESEARCH_ARTIFACT_TYPE:
-        raise C8ProjectionError(
+        reject_c8_projection(
             "artifact input ref object type must be ResearchArtifact.v1"
         )
     if artifact_input_ref.codec_id != CANONICAL_CODEC_ID:
-        raise C8ProjectionError("artifact input ref must use the canonical JSON codec")
+        reject_c8_projection("artifact input ref must use the canonical JSON codec")
     if intent_input_ref.object_type != C8_DELIVERY_INTENT_TYPE:
-        raise C8ProjectionError(
+        reject_c8_projection(
             "intent input ref object type must be DeliveryIntent.v1"
         )
     if intent_input_ref.codec_id != CANONICAL_CODEC_ID:
-        raise C8ProjectionError("intent input ref must use the canonical JSON codec")
+        reject_c8_projection("intent input ref must use the canonical JSON codec")
     refs = (
         delivery_payload_ref,
         artifact_input_ref,
@@ -1287,14 +1421,14 @@ def build_c8_delivery_bridge_program(
     )
     storage_refs = [ref.storage_ref for ref in refs]
     if len(set(storage_refs)) != len(storage_refs):
-        raise C8ProjectionError("delivery bridge refs must not share storage_ref")
+        reject_c8_projection("delivery bridge refs must not share storage_ref")
     value_ids = [ref.value_id for ref in refs]
     if len(set(value_ids)) != len(value_ids):
-        raise C8ProjectionError(
+        reject_c8_projection(
             "delivery bridge refs must have distinct value identities"
         )
     if stage_payload.project_key != project_key:
-        raise ValueError("stage payload project_key does not match Program")
+        reject_c8_value("stage payload project_key does not match Program")
     stage_ref = exact_contract_ref(catalog, kind=C8_3_KIND)
     verify_ref = exact_contract_ref(catalog, kind=C8_VERIFY_KIND)
     admission_ref = exact_contract_ref(catalog, kind=C8_ADMISSION_KIND)

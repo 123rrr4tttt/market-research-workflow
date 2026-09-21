@@ -1,0 +1,1 @@
+bandit -q -r main/backend/app -x main/backend/tests --severity-level high --confidence-level high --format json --output /Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13o/security/bandit.report.json 

@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Annotated, Literal, NoReturn
+
+from functorial_kit import Failure
+from mrw_functorial_kit.core.w06_semantics import first_specimen_capability_failures
 
 from app.successor_runtime.language.object_contracts import (
     CAPTURE_DOCUMENT_SNAPSHOT_RETURN_CONTRACT_REF,
@@ -59,6 +62,34 @@ __all__ = [
     "ResearchArtifact",
     "build_first_specimen_bundle",
 ]
+
+
+def _capability_failure(code: str, message: str, **context: object) -> Failure:
+    """Construct the closed W06 failure value shared by this capability family."""
+
+    return first_specimen_capability_failures.fail(
+        code,
+        message,
+        {
+            "owner": "first_specimen.capabilities",
+            "effect_boundary": "first_specimen.capability.contract_core",
+            "failure_family": first_specimen_capability_failures.name,
+            "boundary_class": "PURE_CONTRACT_FAILURE",
+            "witness": "test:test_w06_first_specimen_failure_lifts",
+            **context,
+        },
+    )
+
+
+def _raise_capability_failure(
+    failure: Failure,
+    exception_type: type[Exception] = ValueError,
+    *exception_args: object,
+) -> NoReturn:
+    """Lift a typed core failure only at the compatibility ABI boundary."""
+
+    # kit:boundary owner=first_specimen.capabilities class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=first_specimen.capability.failure witness=test:test_w06_c2_total_core_failure_lifts
+    raise exception_type(*(exception_args or (failure.message,)))
 
 
 def _object_type(type_id: str) -> ObjectType:
@@ -286,7 +317,7 @@ class CaptureDocumentSnapshotInput:
         require_hex64(self.content_sha256_hex, "CaptureDocumentSnapshotInput.content_sha256_hex")
         require_hex64(self.payload_digest, "CaptureDocumentSnapshotInput.payload_digest")
         if content_digest(self, omit_fields=("payload_digest",)) != self.payload_digest:
-            raise ValueError("CaptureDocumentSnapshotInput.payload_digest does not match content")
+            _raise_capability_failure(_capability_failure("CAPABILITY_CONTRACT_INVALID", "CaptureDocumentSnapshotInput.payload_digest does not match content"))
 
 
 @dataclass(frozen=True, slots=True)
@@ -300,7 +331,7 @@ class CanonicalReadInput:
     def __post_init__(self) -> None:
         require_hex64(self.payload_digest, "CanonicalReadInput.payload_digest")
         if content_digest(self, omit_fields=("payload_digest",)) != self.payload_digest:
-            raise ValueError("CanonicalReadInput.payload_digest does not match content")
+            _raise_capability_failure(_capability_failure("CAPABILITY_CONTRACT_INVALID", "CanonicalReadInput.payload_digest does not match content"))
 
 
 @dataclass(frozen=True, slots=True)
@@ -317,7 +348,7 @@ class EvidenceQualificationInput:
     def __post_init__(self) -> None:
         require_hex64(self.payload_digest, "EvidenceQualificationInput.payload_digest")
         if content_digest(self, omit_fields=("payload_digest",)) != self.payload_digest:
-            raise ValueError("EvidenceQualificationInput.payload_digest does not match content")
+            _raise_capability_failure(_capability_failure("CAPABILITY_CONTRACT_INVALID", "EvidenceQualificationInput.payload_digest does not match content"))
 
 
 @dataclass(frozen=True, slots=True)
@@ -338,7 +369,7 @@ class ClaimOrGapInput:
     def __post_init__(self) -> None:
         require_hex64(self.payload_digest, "ClaimOrGapInput.payload_digest")
         if content_digest(self, omit_fields=("payload_digest",)) != self.payload_digest:
-            raise ValueError("ClaimOrGapInput.payload_digest does not match content")
+            _raise_capability_failure(_capability_failure("CAPABILITY_CONTRACT_INVALID", "ClaimOrGapInput.payload_digest does not match content"))
 
 
 ClaimOrGap = Claim | Gap
@@ -355,7 +386,7 @@ class MarkdownComposeInput:
     def __post_init__(self) -> None:
         require_hex64(self.payload_digest, "MarkdownComposeInput.payload_digest")
         if content_digest(self, omit_fields=("payload_digest",)) != self.payload_digest:
-            raise ValueError("MarkdownComposeInput.payload_digest does not match content")
+            _raise_capability_failure(_capability_failure("CAPABILITY_CONTRACT_INVALID", "MarkdownComposeInput.payload_digest does not match content"))
 
 
 @dataclass(frozen=True, slots=True)
@@ -370,9 +401,9 @@ class InternalExportInput:
     def __post_init__(self) -> None:
         require_hex64(self.payload_digest, "InternalExportInput.payload_digest")
         if not self.approval_refs:
-            raise ValueError("InternalExportInput requires at least one human approval ref")
+            _raise_capability_failure(_capability_failure("CAPABILITY_CONTRACT_INVALID", "InternalExportInput requires at least one human approval ref"))
         if content_digest(self, omit_fields=("payload_digest",)) != self.payload_digest:
-            raise ValueError("InternalExportInput.payload_digest does not match content")
+            _raise_capability_failure(_capability_failure("CAPABILITY_CONTRACT_INVALID", "InternalExportInput.payload_digest does not match content"))
 
 
 @dataclass(frozen=True, slots=True)
@@ -386,13 +417,21 @@ class FirstSpecimenCapabilityBundle:
         for contract in self.operations:
             if contract.ref.kind == kind:
                 return contract
-        raise KeyError(kind)
+        _raise_capability_failure(
+            _capability_failure("LOOKUP_NOT_FOUND", f"operation contract not found: {kind}"),
+            KeyError,
+            kind,
+        )
 
     def codec_by_kind(self, kind: str) -> PayloadCodec:
         for codec in self.codecs:
             if codec.contract_ref.kind == kind:
                 return codec
-        raise KeyError(kind)
+        _raise_capability_failure(
+            _capability_failure("LOOKUP_NOT_FOUND", f"payload codec not found: {kind}"),
+            KeyError,
+            kind,
+        )
 
 
 FIRST_SPECIMEN_OPERATION_KINDS: tuple[str, ...] = (
@@ -405,7 +444,7 @@ FIRST_SPECIMEN_OPERATION_KINDS: tuple[str, ...] = (
 )
 
 
-def build_first_specimen_bundle() -> FirstSpecimenCapabilityBundle:
+def build_first_specimen_bundle() -> Annotated[FirstSpecimenCapabilityBundle, Literal["kit:non-authoritative derived_as=view fact_source=FirstSpecimen_contract_constants witness=test:test_w06_successor_authority_metadata"]]:
     source_ref_type = _object_type("SourceRef.v1")
     captured_snapshot_type = _object_type("CapturedMaterialSnapshot.v1")
     material_ref_type = _object_type("MaterialRef.v1")

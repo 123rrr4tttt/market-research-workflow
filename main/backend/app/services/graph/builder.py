@@ -8,7 +8,7 @@ from collections import defaultdict, Counter
 import unicodedata
 import re
 from datetime import datetime, timedelta
-from typing import List, Optional, Dict, Set, Tuple
+from typing import Annotated, List, Optional, Dict, Set, Tuple
 
 from ...settings.graph import (
     STOPWORDS, COOCCUR_WINDOW, USE_TFIDF, TIME_DECAY_TAU_DAYS,
@@ -145,7 +145,12 @@ def build_graph(
     window: int = COOCCUR_WINDOW,
     use_tfidf: bool = USE_TFIDF,
     tau: Optional[float] = TIME_DECAY_TAU_DAYS
-) -> Graph:
+) -> Annotated[
+    Graph,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=normalized_social_posts+graph_parameters "
+    "witness=test:test_w04_authority_metadata",
+]:
     """
     构建内容图谱
     
@@ -435,7 +440,12 @@ def build_topic_subgraph(
     topic_label: str,
     *,
     time_window: Optional[Tuple[datetime, datetime]] = None
-) -> Graph:
+) -> Annotated[
+    Graph,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=source_graph+topic_label+time_window "
+    "witness=test:test_w04_authority_metadata",
+]:
     """
     构建主题子图
     
@@ -524,7 +534,12 @@ def build_topic_subgraph(
 
 def build_market_graph(
     market_data_list: List[NormalizedMarketData]
-) -> Graph:
+) -> Annotated[
+    Graph,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=normalized_market_data "
+    "witness=test:test_w04_authority_metadata",
+]:
     """
     构建市场数据图谱
     
@@ -657,7 +672,12 @@ def build_market_graph(
 
 def build_policy_graph(
     policy_data_list: List[NormalizedPolicyData]
-) -> Graph:
+) -> Annotated[
+    Graph,
+    "kit:non-authoritative derived_as=view "
+    "fact_source=normalized_policy_data "
+    "witness=test:test_w04_authority_metadata",
+]:
     """
     构建政策数据图谱
     """

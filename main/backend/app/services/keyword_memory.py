@@ -5,9 +5,48 @@ from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import func, select
+from functorial_kit import Failure
+from mrw_functorial_kit.core.application_failure_semantics import keyword_memory_contract_failures
 
 from ..models.base import SessionLocal
 from ..models.entities import KeywordHistory, KeywordPrior
+
+
+_FAILURE_WITNESS = "test:test_w01_request_failures"
+_FAILURE_CONTEXT_KEYS = frozenset(
+    {"owner", "operation", "failure_family", "public_exception", "public_message", "witness"}
+)
+
+
+def _keyword_failure(message: str, *, operation: str) -> Failure:
+    return keyword_memory_contract_failures.fail(
+        "keyword_required",
+        message,
+        {
+            "owner": "keyword_memory",
+            "operation": operation,
+            "failure_family": keyword_memory_contract_failures.name,
+            "public_exception": "ValueError",
+            "public_message": message,
+            "witness": _FAILURE_WITNESS,
+        },
+    )
+
+
+def _raise_keyword_failure(failure: Failure) -> None:
+    context = failure.context or {}
+    if not keyword_memory_contract_failures.matches(failure) or _FAILURE_CONTEXT_KEYS - set(context):
+        # kit:boundary owner=keyword_memory.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w01_request_failures
+        raise TypeError("keyword memory failure lift context is incomplete or inconsistent")
+    # kit:boundary owner=keyword_memory.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=keyword_memory.contract_failure witness=test:test_w01_request_failures
+    raise ValueError(str(context["public_message"]))
+
+
+def _validate_keyword(keyword: str) -> str | Failure:
+    normalized = normalize_keyword(keyword)
+    if not normalized:
+        return _keyword_failure("keyword is required", operation="upsert_keyword_prior")
+    return normalized
 
 
 def normalize_keyword(text: str) -> str:
@@ -77,9 +116,10 @@ def upsert_keyword_prior(
     notes: str | None = None,
     extra: dict[str, Any] | None = None,
 ) -> KeywordPrior:
-    term = normalize_keyword(keyword)
-    if not term:
-        raise ValueError("keyword is required")
+    term_outcome = _validate_keyword(keyword)
+    if isinstance(term_outcome, Failure):
+        _raise_keyword_failure(term_outcome)
+    term = term_outcome
     with SessionLocal() as session:
         row = session.execute(select(KeywordPrior).where(KeywordPrior.keyword == term)).scalar_one_or_none()
         if row is None:

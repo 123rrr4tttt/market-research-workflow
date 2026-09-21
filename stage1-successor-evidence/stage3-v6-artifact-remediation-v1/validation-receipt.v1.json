@@ -1,0 +1,23 @@
+{
+  "authoritative": false,
+  "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+  "checks": {
+    "authority_false": true,
+    "contract_and_v6_identity_bound": true,
+    "current_artifact_hashes_bound": true,
+    "fresh_test_receipts_clean": true,
+    "historical_v6_record_bound": true,
+    "input_observation_bound": true,
+    "production_release_false": true
+  },
+  "manifest": {
+    "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/artifact-manifest.v1.json",
+    "sha256": "479ce15342bb1760f78ddc14767dc02c2b7cc70129413918299999f5ef70b922"
+  },
+  "record": {
+    "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/stage3-v6-artifact-remediation-record.v1.json",
+    "sha256": "bda307646e629af1f0488184dfc3dac6eabfa3e04754e858fb4696c6e54907cc"
+  },
+  "schema_version": "mrw.stage1.stage3_v6_artifact_remediation_validation.v1",
+  "status": "PASS"
+}

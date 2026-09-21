@@ -1,0 +1,223 @@
+{
+  "RETURN_RESULT": "AWAITING_HUMAN_AUTHORITY",
+  "artifact_manifest": {
+    "path": "stage1-successor-evidence/residual-disposition-v1/artifact-manifest.v1.json",
+    "sha256": "c9325c5e12e698e4d2afc2fb665b5c702da3f00530b455e947debd89344fd5e6"
+  },
+  "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+  "backend_failure_inventory": {
+    "canonical": {
+      "path": "stage1-successor-evidence/residual-disposition-v1/inventory/backend_failure_inventory.root-input.v1.json",
+      "sha256": "4f01f15464582c7b465af79397e1297510ad95e9170d199564aea72a2c0e34d1"
+    },
+    "category_counts": {
+      "missing_evidence": 30,
+      "source_defect": 3,
+      "stale_expected_semantics": 3,
+      "test_fixture_defect": 19
+    },
+    "failure_count": 55,
+    "invalid_references": 0,
+    "junit_set_equal": true,
+    "nodeids_unique": true,
+    "validation": {
+      "path": "stage1-successor-evidence/residual-disposition-v1/inventory/backend_failure_inventory.root-input.validation.v1.json",
+      "sha256": "cadcae2183d64802f6a3fc837692c66bbba82cbfcece6c52943db13c1ee81f67"
+    }
+  },
+  "backend_unit_gate_result": {
+    "junit": {
+      "path": "stage1-successor-evidence/residual-disposition-v1/raw-gate/backend-unit-final.xml",
+      "sha256": "e07c7ae3322bfd3c77e18b47fefce67f82db8e0517640a81b6db22ac2272bb94"
+    },
+    "last_completed_execution": {
+      "deselected": 2328,
+      "exit_code": 1,
+      "failed": 55,
+      "passed": 1712,
+      "skipped": 0,
+      "subtests_passed": 42,
+      "warnings": 14
+    },
+    "raw_log": {
+      "path": "stage1-successor-evidence/residual-disposition-v1/raw-gate/backend-unit-final.log",
+      "sha256": "33d48a566619950f40125467c5a5a53f728b2bb76f9e28b44a5eb14894c10397"
+    },
+    "rerun_reason": "Not rerun because 30 missing-evidence failures remain explicitly fail-closed and the exact-bound process.py production projection defect requires additive rebind authority.",
+    "selector": "unit and not external and not flaky",
+    "status": "FAIL_RETAINED_NOT_RERUN"
+  },
+  "changed_paths": {
+    "entry_count": 105,
+    "path": "stage1-successor-evidence/residual-disposition-v1/changed-paths.v1.json",
+    "sha256": "d946cf88b022d21cc71c0a1ea424b9cb8f7d2c5a7975fe31c66c67f741790d9b"
+  },
+  "cleanup_and_recovery_status": {
+    "destructive_cleanup": false,
+    "historical_restore": false,
+    "noncanonical_initial_path_copies_retained": true,
+    "note": "Initial create-only copies under the contract-directory nested evidence root were retained; canonical return references only the repository-root evidence package."
+  },
+  "effect_isolation_receipt": {
+    "path": "stage1-successor-evidence/residual-disposition-v1/effects/import-time-db-effects.v1.json",
+    "sha256": "280d22ccdcc8850c68f14cb42e03182fba89419d859001707b9cdc1fad24c24f"
+  },
+  "external_effects": {
+    "effect_isolation": {
+      "path": "stage1-successor-evidence/residual-disposition-v1/effects/import-time-db-effects.v1.json",
+      "sha256": "280d22ccdcc8850c68f14cb42e03182fba89419d859001707b9cdc1fad24c24f"
+    },
+    "external_delivery": false,
+    "live_database": false,
+    "live_provider": false,
+    "network": false
+  },
+  "historical_v3_v4_unchanged": {
+    "task_writes": false,
+    "v3_completion": {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage0-evidence/functorial-refactor-completion.v3.json",
+      "sha256": "0eac6b6d61c339e55a73b394d97abc9e70ae8409df893ab99371e85703625491"
+    },
+    "v4_completion": {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage0-evidence/functorial-refactor-completion.v4.json",
+      "sha256": "4911df1c6450d9802ac7bd6b0669ef3a7343e3ce308d33f0a46dde2c4cb62dda"
+    },
+    "v4_expected_sha256": "4911df1c6450d9802ac7bd6b0669ef3a7343e3ce308d33f0a46dde2c4cb62dda"
+  },
+  "history_binding_disposition": {
+    "historical_bytes_modified": false,
+    "i1_current": "B23 live projection",
+    "i1_predecessor": "B22 history-only",
+    "process_api": {
+      "path": "stage1-successor-evidence/residual-disposition-v1/process-api/process-task-id-fallback-disposition.v1.json",
+      "sha256": "ddd371725fb25602563aecac248dda5be5de79de3d4ca39729079c67b1c76b91"
+    }
+  },
+  "input_source_identity_and_hashes": {
+    "contract_10": {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/10_stage1-stage2-source-and-static-closure-return-contract.v1.md",
+      "sha256": "0c20328727fdefca6a3161e212490a2043efeee17e4bffc854f8ee17847cdd6b"
+    },
+    "contract_11": {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/11_stage1-backend-unit-remediation-return-contract.v1.md",
+      "sha256": "051dcf9be9b8f03d8bb603537bece6f37cdf8423fa8c6e4a4d6183f230227ca5"
+    },
+    "contract_12": {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/12_stage1-residual-disposition-return-contract.v1.md",
+      "sha256": "c11c96a68284085dfb2548cd9ce19062de22b5d4bbf5af9d2c2863a16dcf03f2"
+    },
+    "current_head": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+    "current_head_tree": "5840bf9ba906c49f70020d226c54446f4ba5aa33",
+    "dispatch_head": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+    "dispatch_tree": "5840bf9ba906c49f70020d226c54446f4ba5aa33",
+    "process_py": {
+      "modified_by_contract_12": false,
+      "path": "main/backend/app/api/process.py",
+      "sha256": "790b6cb90086d6ba1171309e572b7e7be4c906db3705170dbd4a12ca7ea16c63"
+    }
+  },
+  "missing_evidence_provenance": {
+    "crawler_source": {
+      "path": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/crawler-source/crawler-source-missing-evidence-provenance.v1.json",
+      "sha256": "e30a797ff38ff3e43c9dd4459cbcdb306d9e44c6f630e2427a7f00429fe94453"
+    },
+    "crawler_source_dependent_nodeids": 26,
+    "crawler_source_unique_paths": 68,
+    "note": "Dependent nodeid sets overlap; the backend inventory has 30 unique missing-evidence failures.",
+    "opensearch_vector": {
+      "path": "stage1-successor-evidence/residual-disposition-v1/missing-evidence/opensearch-vector/opensearch-vector-missing-evidence-provenance.v1.json",
+      "sha256": "a2d74d92f6144dd8e913b7f286af4cff0d772715c14c024bfeec3d670dc4f435"
+    },
+    "opensearch_vector_dependent_nodeids": 24,
+    "opensearch_vector_unique_paths": 19
+  },
+  "primary_replay_receipts_and_sha256": null,
+  "recommended_next_action": "Supervisor should independently accept this disposition, then either grant a create-only C5.4/I1 exact-byte rebind for process.py and supply authorized current evidence, or keep Stage 1 unaccepted. Only after those blockers are resolved should the full selector be rerun.",
+  "residual_blockers": [
+    {
+      "blocker": "PROCESS_API_EXACT_BYTE_REBIND_AUTHORITY_REQUIRED",
+      "current_sha256": "790b6cb90086d6ba1171309e572b7e7be4c906db3705170dbd4a12ca7ea16c63",
+      "patch": {
+        "path": "stage1-successor-evidence/residual-disposition-v1/process-api/process-task-id-fallback.patch",
+        "sha256": "5ea2bc4389717be260bfb25588776a728e89157166c32e767f92fc612aacdf78"
+      },
+      "proposed_sha256": "5687389bdad57881a0f96543ba32ac4eaaaeef0f7939f8f7e36e16316ed7ee61"
+    },
+    {
+      "backend_inventory_nodeids": 30,
+      "blocker": "EVIDENCE_SOURCE_UNAVAILABLE",
+      "crawler_source_unique_paths": 68,
+      "opensearch_vector_unique_paths": 19,
+      "synthetic_fixture_may_close_claim": false
+    },
+    {
+      "blocker": "REQUIRED_SELECTOR_NOT_GREEN",
+      "last_exit_code": 1,
+      "phase_b_c_v5_gated": true
+    }
+  ],
+  "return_scope": "STAGE_1_SOURCE_AND_STATIC_CLOSURE_AND_STAGE_2_V5_SUCCESSOR",
+  "schema_version": "mrw.stage1.contract12.return.v1",
+  "semantic_decisions": {
+    "path": "stage1-successor-evidence/residual-disposition-v1/semantic-decisions/stale-status-checkers-v2-disposition.md",
+    "sha256": "8debfde5886019a046c631848665989a7dba99c6e82d62d4e858bce89c049ecc"
+  },
+  "source_closure_checker_and_results": {
+    "integrated_focused_receipt": "375 passed, 53 warnings in 40.18s",
+    "projected_model": "exact base tree plus ordered UPSERT/DELETE overlay",
+    "properties": [
+      "base-only MRW candidates are detected",
+      "cross-clone base blobs are read from the bound object store",
+      "all manifest entries are exact-compared",
+      "MRW package omission and DELETE cannot use checkout bytes as fallback"
+    ],
+    "status": "FOCUSED_PASS_NOT_STAGE1_ACCEPTANCE"
+  },
+  "source_gate_negative_receipts": {
+    "coverage": [
+      "checkout/base divergence",
+      "DELETE and omission",
+      "missing package init",
+      "base-only MRW detection",
+      "cross-clone base blobs",
+      "wrong base OID",
+      "UPSERT bytes/mode/sha/blob drift",
+      "DELETE base-mode/base-blob drift"
+    ],
+    "status": "PASS"
+  },
+  "stage1_focused_tests_lint_compile": {
+    "broad_compileall_observation": "NOT_A_GATE: unrelated pre-existing SyntaxError in main/backend/scripts/reinforce_numeric_data.py:258",
+    "focused_ruff": "PASS",
+    "integrated_pytest": "375 passed, 53 warnings in 40.18s",
+    "scoped_compileall": "PASS",
+    "scoped_git_diff_check": "PASS"
+  },
+  "stage1_remediation_record_and_sha256": null,
+  "static_stage3_readiness_results": "NOT_RUN_PHASE_A_UNACCEPTED",
+  "successor_candidate_root": null,
+  "successor_closure_path_and_sha256": null,
+  "successor_commit": null,
+  "successor_manifest_path_and_sha256": null,
+  "successor_r1_r2_r3_paths_and_sha256": null,
+  "successor_record_path_and_sha256": null,
+  "successor_tree": null,
+  "v5_fresh_checks": "NOT_RUN_PHASE_A_UNACCEPTED",
+  "warning_skip_deselect_inventory": {
+    "deselected": 2328,
+    "scope": "last completed required-selector execution",
+    "skipped": 0,
+    "warnings": 14
+  },
+  "workflow_environment_equivalence": {
+    "differences": [
+      "existing local dependency environment was reused",
+      "existing .env state was reused",
+      "four DB/store flags were explicitly false",
+      "--tb=short changed presentation only",
+      "dirty checkout contains deleted historical evidence"
+    ],
+    "last_selector_workflow_equivalent": false,
+    "unit_collection_after_import_isolation": "1313 collected, exit 0, no DB transaction or DDL"
+  }
+}

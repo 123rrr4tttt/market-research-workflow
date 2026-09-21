@@ -1,0 +1,48 @@
+{
+  "status": "ok",
+  "data": {
+    "task_id": "afea152f-2d9e-4397-b348-5416d8dfe5c8",
+    "status": "SUCCESS",
+    "ready": true,
+    "successful": true,
+    "failed": false,
+    "result": {
+      "inserted": 1,
+      "updated": 0,
+      "skipped": 0,
+      "error_count": 0,
+      "errors": [],
+      "items": [
+        {
+          "index": 0,
+          "doc_id": 148,
+          "status": "ok",
+          "uri": null,
+          "uris": [],
+          "fetched_from_url": false,
+          "doc_type": "raw_note"
+        }
+      ],
+      "source_name": "local_celery_raw_import_smoke_20260921",
+      "project_key": "local_demo_20260921"
+    },
+    "progress": null,
+    "traceback": null,
+    "inserted_valid": null,
+    "rejected_count": 0,
+    "rejection_breakdown": {},
+    "degradation_flags": [],
+    "quality_score": null,
+    "error_code": "OK",
+    "handler_used": null,
+    "skip_reason": null,
+    "name": null
+  },
+  "error": null,
+  "meta": {
+    "trace_id": "46f27055-c38d-4b2a-828a-af8cb772f904",
+    "pagination": null,
+    "project_key": "local_demo_20260921",
+    "deprecated": null
+  }
+}

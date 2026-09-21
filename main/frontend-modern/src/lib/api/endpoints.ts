@@ -9,10 +9,23 @@ export const endpoints = {
   },
   dashboard: {
     stats: `${API_BASE}/dashboard/stats`,
+    reportFromFilter: `${API_BASE}/dashboard/report-from-filter`,
+    llmReportDetail: (query: URLSearchParams | string) =>
+      withQuery(`${API_BASE}/dashboard/llm-report-detail`, query),
+  },
+  llmReport: {
+    exportPdf: `${API_BASE}/llm-report/export/pdf`,
+    exportDocx: `${API_BASE}/llm-report/export/docx`,
   },
   stats: {
     promptTimeDensity: `${API_BASE}/stats/prompt-time-density`,
     promptTimeDensityPriority: `${API_BASE}/stats/prompt-time-density/priority`,
+  },
+  businessLines: {
+    evidenceMatrix: `${API_BASE}/business-lines/evidence-matrix`,
+    scheduledMatrixArtifactSummary: `${API_BASE}/business-lines/scheduled-matrix-artifact-summary`,
+    scheduledArtifactSummaries: `${API_BASE}/business-lines/scheduled-artifact-summaries`,
+    scheduledArtifactDrilldown: `${API_BASE}/business-lines/scheduled-artifact-drilldown`,
   },
   projects: {
     root: `${API_BASE}/projects`,
@@ -94,6 +107,7 @@ export const endpoints = {
   },
   agentChat: {
     capabilities: `${API_BASE}/agent-chat/capabilities`,
+    models: `${API_BASE}/agent-chat/models`,
     turn: `${API_BASE}/agent-chat/turn`,
     turnStream: `${API_BASE}/agent-chat/turn/stream`,
     approvalContinue: (approvalId: string) => `${API_BASE}/agent-chat/approvals/${encodeURIComponent(approvalId)}/continue`,
@@ -126,7 +140,10 @@ export const endpoints = {
   discovery: {
     generateKeywords: `${API_BASE}/discovery/generate-keywords`,
   },
-    ingest: {
+  search: {
+    retrievalRun: (retrievalRunId: string) => `${API_BASE}/search/runs/${encodeURIComponent(retrievalRunId)}`,
+  },
+  ingest: {
     history: `${API_BASE}/ingest/history`,
     urlSingle: `${API_BASE}/ingest/url/single`,
     policyRegulation: `${API_BASE}/ingest/policy/regulation`,
@@ -155,6 +172,18 @@ export const endpoints = {
     root: `${API_BASE}/project-customization/workflows`,
     template: (workflowName: string) =>
       `${API_BASE}/project-customization/workflows/${encodeURIComponent(workflowName)}/template`,
+    templateDiff: (workflowName: string) =>
+      `${API_BASE}/project-customization/workflows/${encodeURIComponent(workflowName)}/template/diff`,
+    templateVersions: (workflowName: string) =>
+      `${API_BASE}/project-customization/workflows/${encodeURIComponent(workflowName)}/template/versions`,
+    templateStage: (workflowName: string) =>
+      `${API_BASE}/project-customization/workflows/${encodeURIComponent(workflowName)}/template/stage`,
+    templatePromote: (workflowName: string) =>
+      `${API_BASE}/project-customization/workflows/${encodeURIComponent(workflowName)}/template/promote`,
+    templateRollbackPreview: (workflowName: string) =>
+      `${API_BASE}/project-customization/workflows/${encodeURIComponent(workflowName)}/template/rollback/preview`,
+    templateRollback: (workflowName: string) =>
+      `${API_BASE}/project-customization/workflows/${encodeURIComponent(workflowName)}/template/rollback`,
     run: (workflowName: string) =>
       `${API_BASE}/project-customization/workflows/${encodeURIComponent(workflowName)}/run`,
   },

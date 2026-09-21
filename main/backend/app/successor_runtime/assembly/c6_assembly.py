@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import dataclasses
 from collections.abc import Callable
-from typing import Any
+from typing import Annotated, Any
 
 from app.successor_runtime.assembly.base import (
     C6AssemblyOptions,
@@ -173,7 +173,11 @@ class _DeterministicPureToolSpecimen:
         )
 
 
-def build_deterministic_fixtures() -> dict[str, Any]:
+def build_deterministic_fixtures() -> Annotated[
+    dict[str, Any],
+    "kit:prepared-command effect_boundary=successor_runtime.c6_assembly "
+    "witness=test:test_w08a_remaining_assembly_bindings_are_prepared_commands",
+]:
     """Return the exact LOCAL_ONLY C6 fixture dimensions as one options dict."""
 
     return {
@@ -203,7 +207,11 @@ def build_openai_live_fixture_options(
     model: str | None = None,
     base_url: str | None = None,
     timeout_seconds: float = 30.0,
-) -> C6AssemblyOptions | None:
+) -> Annotated[
+    C6AssemblyOptions | None,
+    "kit:prepared-command effect_boundary=successor_runtime.c6_assembly "
+    "witness=test:test_w08a_remaining_assembly_bindings_are_prepared_commands",
+]:
     """Return the full deterministic C6 closure with a live OpenAI port.
 
     Assembly construction never calls the provider.  Missing ``OPENAI_API_KEY``
@@ -317,7 +325,11 @@ def build_c6_assembly(
     uow_factory: Callable[[], object],
     project_scope_digest: str,
     options: C6AssemblyOptions | None = None,
-) -> FamilyAssembly:
+) -> Annotated[
+    FamilyAssembly,
+    "kit:prepared-command effect_boundary=successor_runtime.c6_assembly "
+    "witness=test:test_w08a_remaining_assembly_bindings_are_prepared_commands",
+]:
     """Install each C6 store handler when its fixture closure is complete."""
 
     opts = options or C6AssemblyOptions()

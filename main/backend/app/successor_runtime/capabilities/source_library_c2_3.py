@@ -10,7 +10,7 @@ is performed here.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Annotated, Any, Literal
 
 from app.successor_runtime.capabilities import source_library_c2_shared as _shared
 from app.successor_runtime.capabilities.checksum import content_digest
@@ -450,7 +450,7 @@ class SourceLibraryC2_3CapabilityBundle:
         return self.codecs[0]
 
 
-def build_source_library_c2_3_bundle() -> SourceLibraryC2_3CapabilityBundle:
+def build_source_library_c2_3_bundle() -> Annotated[SourceLibraryC2_3CapabilityBundle, Literal["kit:non-authoritative derived_as=view fact_source=C2.3_contract_constants witness=test:test_w06_successor_authority_metadata"]]:
     semantic = _semantic_profile()
     effect = _effect_profile()
     resource = _resource_profile()
@@ -521,7 +521,7 @@ def build_source_library_c2_3_bundle() -> SourceLibraryC2_3CapabilityBundle:
 
 def build_source_library_c2_3_catalog(
     bundle: SourceLibraryC2_3CapabilityBundle,
-) -> OperationContractCatalogSnapshot:
+) -> Annotated[OperationContractCatalogSnapshot, Literal["kit:non-authoritative derived_as=view fact_source=C2.3_operation_bundle witness=test:test_w06_successor_authority_metadata"]]:
     return OperationContractCatalogSnapshot(
         catalog_id=SOURCE_LIBRARY_C2_3_CATALOG_ID,
         catalog_version=SOURCE_LIBRARY_C2_3_CATALOG_VERSION,
@@ -538,7 +538,7 @@ def build_source_library_c2_3_catalog(
 
 def build_source_library_c2_3_registry(
     bundle: SourceLibraryC2_3CapabilityBundle,
-) -> OperationContractRegistry:
+) -> Annotated[OperationContractRegistry, Literal["kit:non-authoritative derived_as=view fact_source=C2.3_operation_bundle witness=test:test_w06_successor_authority_metadata"]]:
     return OperationContractRegistry(
         build_source_library_c2_3_catalog(bundle),
         (bundle.operation,),

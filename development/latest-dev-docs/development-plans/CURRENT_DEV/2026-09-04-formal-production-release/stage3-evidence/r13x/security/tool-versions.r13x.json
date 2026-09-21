@@ -1,0 +1,16 @@
+{
+  "authoritative": false,
+  "bandit": "bandit 1.9.4\n  python version = 3.11.15 (main, Mar  3 2026, 00:52:57) [Clang 21.0.0 (clang-2100.0.123.102)]",
+  "generated_at_utc": "2026-09-12T16:08:59.049575Z",
+  "gitleaks": "8.30.1",
+  "node": "v26.4.0",
+  "pip_audit": "pip-audit 2.10.1",
+  "pnpm": "11.22.0",
+  "python": "Python 3.11.15",
+  "schema_version": "mrw.stage3.security-tool-versions.v1",
+  "workflow_input": {
+    "bytes": 78330,
+    "path": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260912-v4-r13x/candidate/.github/workflows/backend-tests.yml",
+    "sha256": "47225ea8db96ed23e361e7480fa6d22db78be405e5e4d5dc5d4a2edac1bd1b7f"
+  }
+}

@@ -7,7 +7,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Annotated, Any, Mapping
 from unittest.mock import patch
 
 
@@ -404,7 +404,12 @@ def build_report(
     require_live_crossref: bool = False,
     provider_credentials_artifact: Path | None = None,
     provider_credentials_evidence: Mapping[str, Any] | None = None,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=preflight "
+    "fact_source=single_url_official_api_probe_results "
+    "witness=test:test_c11_cli_agent_authority_metadata",
+]:
     token_results = [
         _token_check(
             REPO_ROOT / "main/backend/app/services/source_library/adapters/official_access.py",

@@ -1,0 +1,56 @@
+{
+  "authoritative": false,
+  "schema_version": "mrw.stage4.s4-c9-effect-live.v2",
+  "status": "PASS_LOCAL_C9_EFFECT_NOT_AUTHORITY",
+  "executed_at": "2026-09-13T08:36:54Z",
+  "image": {
+    "reference": "mrw-local/stage4-business001:stage4-c9-effect",
+    "repo_digest": "mrw-local/stage4-business001@sha256:f247a1492400311e032710df01f84365c7e700f61c122b7243ae58eda982af19",
+    "platform": "linux/amd64"
+  },
+  "database": {
+    "kind": "disposable Docker PostgreSQL",
+    "project_key": "stage4_s4_20260913",
+    "resolved_schema": "project_stage4_s4_20260913",
+    "scope_digest": "95a43da52e486fe2891093d44057fe3212d78d69c0c8caf359150887160bc627",
+    "source_ref": "project:stage4_s4_20260913:semantic-sources",
+    "source_revision": 0,
+    "source_digest": "b67e62682d87b99f759bb024ba724c3c6d701920de8d33ce25c14f39167fae90"
+  },
+  "authority": {
+    "actor_derived": true,
+    "actor_identity_sha256": "c492b583665ae41276fa4855513a662cad39535a79dd3eab95900ce460d653ba",
+    "approval_ref": "approval:stage4:c9:effect",
+    "step_id": "step:stage4:c9:rebuild",
+    "grant_epoch": 1,
+    "provider_calls": 0
+  },
+  "command": {
+    "command_id": "cmd:stage4:c9:rebuild",
+    "request_digest": "70617c3eb29a9c36e14ea25d90d307e7383b16d32474e97373c276773ef4a29e",
+    "first_state": "TERMINAL",
+    "exact_replay_equal": true,
+    "idempotency_revision": 1,
+    "terminal_observation_ref": "value:project_stage4_s4_20260913:c9:generation:1:56686c0b908771a349995b6a855854339be36ba3b76da63ed291b1a4476ed224",
+    "receipt_state": "TERMINAL"
+  },
+  "projection": {
+    "generation": 1,
+    "offset_revision": 1,
+    "offset_ref": "value:project_stage4_s4_20260913:c9:generation:1:56686c0b908771a349995b6a855854339be36ba3b76da63ed291b1a4476ed224",
+    "local_sinks": ["agent_session", "graph", "search"],
+    "external_sinks": ["elasticsearch", "qdrant", "graph_provider"],
+    "external_sink_disposition": "DECLARED_LOSS_NO_CALL"
+  },
+  "cleanup": {
+    "database_container_removed": true,
+    "network_removed": true,
+    "provider_calls": 0,
+    "credentials_persisted": false
+  },
+  "authority_ceiling": [
+    "LOCAL_STAGE4_RUNTIME_ONLY",
+    "NOT_AUTHORITY",
+    "PRODUCTION_RELEASE_NOT_AUTHORIZED"
+  ]
+}

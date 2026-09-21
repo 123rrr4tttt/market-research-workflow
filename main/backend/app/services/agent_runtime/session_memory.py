@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 import json
 import re
-from typing import Any
+from typing import Annotated, Any
 
 
 SESSION_CONTEXT_CONTRACT_VERSION = "agent_runtime.session_context_summary.v1"
@@ -77,7 +77,11 @@ def build_session_context_summary(
     project_key: str | None = None,
     budget: SessionContextBudget | None = None,
     thresholds: SessionMemoryUpdateThresholds | None = None,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=session+messages+tasks+events+artifacts+approvals "
+    "witness=test:test_w02_agent_authority_metadata"
+]:
     """Build the model-facing compressed context for an AgentSessionService bundle."""
 
     safe_bundle = _safe_bundle(bundle)
@@ -109,7 +113,11 @@ def build_session_context_summary(
     }
 
 
-def build_stable_summary(bundle: dict[str, Any], *, latest_user_instruction: str | None = None) -> dict[str, Any]:
+def build_stable_summary(bundle: dict[str, Any], *, latest_user_instruction: str | None = None) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=session+messages+tasks+events+artifacts+approvals "
+    "witness=test:test_w02_agent_authority_metadata"
+]:
     safe_bundle = _safe_bundle(bundle)
     session = safe_bundle["session"]
     tasks = safe_bundle["tasks"]
@@ -159,7 +167,11 @@ def build_project_context(
     *,
     project_key: str | None = None,
     tool_calls: list[dict[str, Any]] | None = None,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=session+artifact+source+workflow_inputs "
+    "witness=test:test_w02_agent_authority_metadata"
+]:
     safe_bundle = _safe_bundle(bundle)
     session = safe_bundle["session"]
     artifacts = safe_bundle["artifacts"]
@@ -193,7 +205,11 @@ def build_project_context(
     }
 
 
-def build_tool_use_summary(bundle: dict[str, Any]) -> dict[str, Any]:
+def build_tool_use_summary(bundle: dict[str, Any]) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=tool_call_history "
+    "witness=test:test_w02_agent_authority_metadata"
+]:
     safe_bundle = _safe_bundle(bundle)
     calls = _extract_tool_calls(safe_bundle)
     tool_counts: dict[str, int] = {}
@@ -228,7 +244,11 @@ def build_budgeted_context(
     tool_use_summary: dict[str, Any],
     latest_user_instruction: str | None = None,
     budget: SessionContextBudget | None = None,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=session_context_inputs "
+    "witness=test:test_w02_agent_authority_metadata"
+]:
     active_budget = budget or SessionContextBudget()
     max_chars = max(1, int(active_budget.max_chars))
     raw_sections = {
@@ -350,7 +370,11 @@ def should_update_memory(
     }
 
 
-def build_memory_correction_marker(messages: list[dict[str, Any]]) -> dict[str, Any]:
+def build_memory_correction_marker(messages: list[dict[str, Any]]) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=message_history "
+    "witness=test:test_w02_agent_authority_metadata"
+]:
     latest_user = _latest_user_instruction(messages)
     matched = bool(latest_user and MEMORY_CORRECTION_PATTERN.search(latest_user))
     return {

@@ -1,0 +1,9 @@
+dce8cf2b1db3c96599aa80d5e8ffe36fc5f10280ce78806895aa60f241c9e098  development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13r/tests/00-identity-compose-config.log
+3d0d857e29c557e61ee2b99875e33dbe50760491499a30ce28775b794fef44a4  development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13r/tests/01-dependencies-up.log
+2b40f6d6fdcd801e39a6d4ae109ba89b6c606e0ebb9557f594ca82f51ad874a7  development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13r/tests/02-migration-upgrade-current.log
+bbadc21010a24a5ff9b61d040a4849935006743904d2d1da80262426c94ff40d  development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13r/tests/03-backend-up.log
+97afa0e7ea518f01fd886c511ccc3ad603f75a1a8eee910d63fc1dd7678d9ac2  development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13r/tests/04-frontend-up.log
+e57d662a434bfcbcf31c2552117e2b05e8c43351c8935e866a0a637310440aa2  development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13r/tests/05-http-probes.log
+8a8cf7823ba07d3c8cdee59d52847bbcc1084007f6d05b51513dcb77afeb4be9  development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13r/tests/06-cleanup-residue.log
+4cf9bf5c5916505b0835d77846aa4dfede6dd3736f7c3ad7940c4a5361ffb729  development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13r/tests/compose.override.yml
+a21108ade10c7ad41124adb8795b0d098f0f6a24309d4b34264a4be3a4fbaa9e  development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13r/tests/result.json

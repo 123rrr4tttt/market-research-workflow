@@ -1,0 +1,273 @@
+{
+  "authoritative": false,
+  "authority_ceiling": "LOCAL_ARTIFACT_EVIDENCE_NOT_RELEASE_AUTHORITY",
+  "build_commands": {
+    "canonical-backend-build": {
+      "command_sha256": "d8d810bc09fb17734511a217eb995920ec1773e255ab1cf5ea135add4e264a1a",
+      "exit_code": 0,
+      "log_sha256": "de91e668c8e14b997db0d3cd46eb8dc45fb2b61a6ac7ccd55be5d8bcbef86b59",
+      "metadata_sha256": "2fb1ec6cceeb49eaf028d94379104f0da7c17a878698c319afff5018eadad391"
+    },
+    "canonical-frontend-build": {
+      "command_sha256": "28cbc7881ad80d39eaef12be8d8c3b348998f1b4df7e9b9ccb512fd2d7e9835d",
+      "exit_code": 0,
+      "log_sha256": "0af71d09bbb2b17e5f1f1695e4ea3c8079c94b730f2bf8f5ae157f009344e877",
+      "metadata_sha256": "0e76b94ab2271fb0b39ceb5b7775f745b4e032652a55ab842b31a6066ea631d5"
+    },
+    "canonical-migration-runner-build": {
+      "command_sha256": "92caf58ceae3b59089c558e74077ed3512e9f8108ab329834a73ac880fb07ddb",
+      "exit_code": 0,
+      "log_sha256": "662ac25b685281f4843d47ee50e879881c93a3593d3a3282bdbeccc4594e77a2",
+      "metadata_sha256": "387f886b6f9e2f404a7e9a0fb2c2b8ee8c805db48a63a5ee3c247df8fb89e0de"
+    },
+    "rebuild-backend-build": {
+      "command_sha256": "b815b6172b553b88a0d484eb4a7ea0a7f0380496fee30488478ba81f90b9ab6b",
+      "exit_code": 0,
+      "log_sha256": "cfda353be893f510a140e1a75dc4170a7d98d8b31878a5ef893fb0a0c46cac94",
+      "metadata_sha256": "9bbf8c2b991ee19c864e4b30629421c9c3fa64f5b78f00d92ec65cd1fde74dee"
+    },
+    "rebuild-frontend-build": {
+      "command_sha256": "67d0797c936da752ba292f8a21e2c8949ff4cb26a808b7d138756c4e1b2d7871",
+      "exit_code": 0,
+      "log_sha256": "6df5b969d6960f6e04af29bd796c0f5376cb93650127468f6560d40f2fd0d92e",
+      "metadata_sha256": "4f9e7e3d7462e0187aa91e0a639a6b52be65a09c5c23ec4943842149d9ef426a"
+    },
+    "rebuild-migration-runner-build": {
+      "command_sha256": "f769806c428e9527c9e3d658fc45d2be1b8b2fd7ab2b8c24a60ad6161f304f1e",
+      "exit_code": 0,
+      "log_sha256": "b55f86b689787691aa4cef08a90a49dfcbb213f663035b4ce3b16169739368d1",
+      "metadata_sha256": "2ffd4aa3e9d0182a71912bc23c95afa677abfd46d0dafdb6d15cf5264e1b9a31"
+    }
+  },
+  "candidate": {
+    "commit": "3669d4ddc19fb722058976b4e1f05e99eccfe96e",
+    "tree": "ce4e4b9ce1b633276192e809fa72007176224e0c"
+  },
+  "canonical": {
+    "backend": {
+      "archive_bytes": 300088320,
+      "archive_sha256": "89d18f8e22399646306207867037fc5297ca732e10838b7a7e744a6ab20303df",
+      "artifact_digest": "sha256:63ea52a50b78b201e5203261435686801b3679bc06b71f7e79e90c65a43f1259",
+      "attestation_manifest_count": 1,
+      "image_config_digest": "sha256:2eefa4cd90ff21a12931f0ca474f0c408d38afa2f9fc240c99c461ee541cc1bb",
+      "image_layer_digests": [
+        "sha256:bf7af0229701decd1b9f42143504fc8f69e5664c37e57001d198e731e4f86c2e",
+        "sha256:d79bc110ec9cd1a4d8c7d0822d6ef87d25f2ca15e7fbb97e7b5f4809df5cd9bd",
+        "sha256:0fb0508c44a5ab3fb6553d7adcbc772fa40c2ffcdaf40b2521e5743522800d9b",
+        "sha256:3ff159de35c260cb2f2393a6e8dbecb37fa108e25cae872c2b3e8e967dd4ecb4",
+        "sha256:b67246d5d21a1e5208d87db10a035e60592ce32fc1bd322536cd6248ad3f3ea1",
+        "sha256:4753c011a5f88a035e7764f0c5678b3a21a8aaa467302bfb967278f35b88dbde",
+        "sha256:e07c48ac17a405c60528f17482633572ed0b50baeb576a3e31d102723e380f30",
+        "sha256:d5787dd9a240e46c3f624d8962fbd3d6d210f7196f83ea1f2b365e8e6199d9a9",
+        "sha256:8530e9b3f255631a154e2fe5549d221aa5811729c51d9b3a785a28bd5c34d83d",
+        "sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1",
+        "sha256:19af60303453d1322f321b390905937a6776ed8347d1ddefd95af3fced91beeb",
+        "sha256:4236992393303088225ea4f9623098b325d34b3facaa2e328e1bc1c450913de5",
+        "sha256:724044aab3e2a8704313944af6be4403781a841c5eef47f155b56e2afba85347",
+        "sha256:9d88ddd5a2c79938691231919b1b34b2575e5b5ac4a03799cf6c8d3c3e4f6ff7",
+        "sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1"
+      ],
+      "oci_root_digest": "sha256:fbe51a32acf6074207bdc2a1e71dc9e73b17a9a37096a51d5a4c7fd32570e35d",
+      "phase": "canonical",
+      "platform": "linux/arm64",
+      "role": "backend",
+      "slsa_provenance_count": 1,
+      "spdx_sbom_count": 1
+    },
+    "frontend": {
+      "archive_bytes": 32775168,
+      "archive_sha256": "1307f81da844798ddc93b6f01f08d7cfdaf895263a611c1533d2824df8919112",
+      "artifact_digest": "sha256:34406d92011bcaaa67bd6f7e5de7e29842ee77fe3b880679b9891143daed150e",
+      "attestation_manifest_count": 1,
+      "image_config_digest": "sha256:8806e9cd43cdec15d119fb5a45edc375bacdd86349cbd3db6422e327b493f289",
+      "image_layer_digests": [
+        "sha256:6e771e15690e2fabf2332d3a3b744495411d6e0b00b2aea64419b58b0066cf81",
+        "sha256:c60e446e49a0b607fd79968afdc54cedce67644990a3930925add6caf577779d",
+        "sha256:e6557c42ebeaea010d8a8883fdacdc5a17dea1221416d0d980e206dd42dc7e29",
+        "sha256:d3282d7e6b7633cf153dce0ca1c72b6ea574edb0b34351f848fb16b7d13c851f",
+        "sha256:a4ce1202d74643d4e4ce15787afc2402a18802e3d7bfd0f6bf60c912b57eec1f",
+        "sha256:1ab010a063387e697fc32bb43022532c0e275d2e51fb65c2ac541e082e610a33",
+        "sha256:37aca2470cdaf48d251d9308c09dc8735b45ebcbefada46537c9989991b3fe6d",
+        "sha256:9994ea1088e3f1d0eb3dea855f32e7e63742b2644c8611c124ba81bc3453047e",
+        "sha256:d13917c17d41e4f776d4fb17dcdd7cc477d7754a4a1eed52f9d3dadc8bff7b1a",
+        "sha256:5b00a93e875b36c0a9e6530c2d20565ed3b1711fde1d3f0784dbb5cc73490b98"
+      ],
+      "oci_root_digest": "sha256:4d5bc00f6e17a808ced8ae7bd1b30ec6df12570c9cdb0615f9ca540f35f3a25b",
+      "phase": "canonical",
+      "platform": "linux/arm64",
+      "role": "frontend",
+      "slsa_provenance_count": 1,
+      "spdx_sbom_count": 1
+    },
+    "migration-runner": {
+      "archive_bytes": 300079104,
+      "archive_sha256": "2c94ffbca65c6f4492d1691f56924c1de19f71f2ef162ba07cf982f1930282a8",
+      "artifact_digest": "sha256:7d44cc7bec8675d7d4f152a220a42931529a9cec36fdee810b863a5a80739c63",
+      "attestation_manifest_count": 1,
+      "image_config_digest": "sha256:96df2eca4eda7be85268ea85186fbd3a5730217a805d49c72c1f6597dc4d7ff7",
+      "image_layer_digests": [
+        "sha256:bf7af0229701decd1b9f42143504fc8f69e5664c37e57001d198e731e4f86c2e",
+        "sha256:d79bc110ec9cd1a4d8c7d0822d6ef87d25f2ca15e7fbb97e7b5f4809df5cd9bd",
+        "sha256:0fb0508c44a5ab3fb6553d7adcbc772fa40c2ffcdaf40b2521e5743522800d9b",
+        "sha256:3ff159de35c260cb2f2393a6e8dbecb37fa108e25cae872c2b3e8e967dd4ecb4",
+        "sha256:b67246d5d21a1e5208d87db10a035e60592ce32fc1bd322536cd6248ad3f3ea1",
+        "sha256:665523159fa1ac3e062f4fc134d25ac0d71d0e1a7ce6225527e500ea5fad8e4c",
+        "sha256:273c6dd17ce716a618ee74e1df6a5fefa9d3b97ab1011ce9a67fbfcb3ecd7d2e",
+        "sha256:f634d443ffb8de64939d2e6be2aefd98f7a3411f8a8377e66950ac406c7704c4",
+        "sha256:bc7001169f87ae1ce769cd5796cf829088603fb0e358fa02db244fd644e8bd63",
+        "sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1",
+        "sha256:9401f03f9952ce252bd6917b3d5a3f2417551094c71eb28d09155b64b911ed7d",
+        "sha256:bfcc931d08234bb2255d793a36e0b8bbe30264fe0d65c4a69655dabb5c86f1fa",
+        "sha256:724044aab3e2a8704313944af6be4403781a841c5eef47f155b56e2afba85347"
+      ],
+      "oci_root_digest": "sha256:7d195b06f8f3c568aecca001c588309e66c8be07a8bc4ab5d7f0186000d82b2b",
+      "phase": "canonical",
+      "platform": "linux/arm64",
+      "role": "migration-runner",
+      "slsa_provenance_count": 1,
+      "spdx_sbom_count": 1
+    }
+  },
+  "comparisons": {
+    "backend": {
+      "builders": {
+        "relationship": "separate-task-owned-docker-container-builder-instances"
+      },
+      "canonical_digest": "sha256:63ea52a50b78b201e5203261435686801b3679bc06b71f7e79e90c65a43f1259",
+      "canonical_oci_root_digest": "sha256:fbe51a32acf6074207bdc2a1e71dc9e73b17a9a37096a51d5a4c7fd32570e35d",
+      "comparison_scope": "linux/arm64-image-manifest-digest",
+      "rebuild_digest": "sha256:425a5be56b83fed64c0d85398656804e06853a56a4d643339f7a1615451495fc",
+      "rebuild_oci_root_digest": "sha256:425a5be56b83fed64c0d85398656804e06853a56a4d643339f7a1615451495fc",
+      "role": "backend",
+      "status": "MISMATCH"
+    },
+    "frontend": {
+      "builders": {
+        "relationship": "separate-task-owned-docker-container-builder-instances"
+      },
+      "canonical_digest": "sha256:34406d92011bcaaa67bd6f7e5de7e29842ee77fe3b880679b9891143daed150e",
+      "canonical_oci_root_digest": "sha256:4d5bc00f6e17a808ced8ae7bd1b30ec6df12570c9cdb0615f9ca540f35f3a25b",
+      "comparison_scope": "linux/arm64-image-manifest-digest",
+      "rebuild_digest": "sha256:792d16b97838d2c079dc8ae9a9656b019be9b7149b11e330af10dc3b4a1d9b08",
+      "rebuild_oci_root_digest": "sha256:792d16b97838d2c079dc8ae9a9656b019be9b7149b11e330af10dc3b4a1d9b08",
+      "role": "frontend",
+      "status": "MISMATCH"
+    },
+    "migration-runner": {
+      "builders": {
+        "relationship": "separate-task-owned-docker-container-builder-instances"
+      },
+      "canonical_digest": "sha256:7d44cc7bec8675d7d4f152a220a42931529a9cec36fdee810b863a5a80739c63",
+      "canonical_oci_root_digest": "sha256:7d195b06f8f3c568aecca001c588309e66c8be07a8bc4ab5d7f0186000d82b2b",
+      "comparison_scope": "linux/arm64-image-manifest-digest",
+      "rebuild_digest": "sha256:ec9ae4788f9e1a2064064c7de82f2c1e098a20179d757166edf0a99f0a5958d9",
+      "rebuild_oci_root_digest": "sha256:ec9ae4788f9e1a2064064c7de82f2c1e098a20179d757166edf0a99f0a5958d9",
+      "role": "migration-runner",
+      "status": "MISMATCH"
+    }
+  },
+  "errors": {},
+  "image_scans": {
+    "backend": {
+      "command_sha256": "2276bc1c3a87043ebcc155dfd63ce9973f2c9363997af286305317cf074e0b57",
+      "exit_code": 1,
+      "log_sha256": "1350ce958808a138ee9e49f77061f79afb62a5b35c7ae043dba26993caac4dc9",
+      "report_sha256": null
+    },
+    "frontend": {
+      "command_sha256": "c779828b78333405875349466f1918283a283d96d55818966fa4b224d05c4006",
+      "exit_code": 1,
+      "log_sha256": "c1d8804b4c26eaddf8c2b421db162aabd8eb202a0fb851c1c27e4eef40a2711a",
+      "report_sha256": null
+    },
+    "migration-runner": {
+      "command_sha256": "924668292f491c0c471736c10324c53140e2b971d801aa6448d0a5b1ab54b145",
+      "exit_code": 1,
+      "log_sha256": "e7330278d9c0db3d1a5affd52f3439a9cdc9d545de061b591951e6387b46686a",
+      "report_sha256": null
+    }
+  },
+  "platform": "linux/arm64",
+  "rebuild": {
+    "backend": {
+      "archive_bytes": 292767232,
+      "archive_sha256": "aa2ba679edbc1ede9515ffbb5544b5a680ed7b62cd6aee6cabe27cd85cd49f45",
+      "artifact_digest": "sha256:425a5be56b83fed64c0d85398656804e06853a56a4d643339f7a1615451495fc",
+      "attestation_manifest_count": 0,
+      "image_config_digest": "sha256:a60089f9e92d7fea67a597251675a00e5f4d78fe100a9035d5c3a4ab9baf6e3c",
+      "image_layer_digests": [
+        "sha256:bf7af0229701decd1b9f42143504fc8f69e5664c37e57001d198e731e4f86c2e",
+        "sha256:d79bc110ec9cd1a4d8c7d0822d6ef87d25f2ca15e7fbb97e7b5f4809df5cd9bd",
+        "sha256:0fb0508c44a5ab3fb6553d7adcbc772fa40c2ffcdaf40b2521e5743522800d9b",
+        "sha256:3ff159de35c260cb2f2393a6e8dbecb37fa108e25cae872c2b3e8e967dd4ecb4",
+        "sha256:b67246d5d21a1e5208d87db10a035e60592ce32fc1bd322536cd6248ad3f3ea1",
+        "sha256:93daf157b5b5641676ce8e0065399008b50557fc42dcdcb89c78e8757fa0bace",
+        "sha256:9528166e462d0a6211e4c03220e329c930ae1daee630a32d4547cc7db7658ded",
+        "sha256:4726665dac2cc0fadd0e31772d6ba4f864bd44556305a52e29829c188dddd3be",
+        "sha256:993c1577d823af6be006fbbd4c364a068eb8e9aaf682d696cf351cc0dde5c312",
+        "sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1",
+        "sha256:5672031eba96090edf358431f38e867803a36f156e7887b7569e947104586ec5",
+        "sha256:2b8fa9912ba1a2fa116ef7e1dd74e2ff1de7a7334b2a4f90efe9652585fe45f0",
+        "sha256:724044aab3e2a8704313944af6be4403781a841c5eef47f155b56e2afba85347",
+        "sha256:9d88ddd5a2c79938691231919b1b34b2575e5b5ac4a03799cf6c8d3c3e4f6ff7",
+        "sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1"
+      ],
+      "oci_root_digest": "sha256:425a5be56b83fed64c0d85398656804e06853a56a4d643339f7a1615451495fc",
+      "phase": "rebuild",
+      "platform": "linux/arm64",
+      "role": "backend"
+    },
+    "frontend": {
+      "archive_bytes": 31797760,
+      "archive_sha256": "089c81dedbc7b04c464039258e4f114f567bd65967c6167bb673e8b8f624d179",
+      "artifact_digest": "sha256:792d16b97838d2c079dc8ae9a9656b019be9b7149b11e330af10dc3b4a1d9b08",
+      "attestation_manifest_count": 0,
+      "image_config_digest": "sha256:2e2a23984669557b52cde7e74a00824bc1be1f9f3fc0615d5fbdddfce54ca9fd",
+      "image_layer_digests": [
+        "sha256:6e771e15690e2fabf2332d3a3b744495411d6e0b00b2aea64419b58b0066cf81",
+        "sha256:c60e446e49a0b607fd79968afdc54cedce67644990a3930925add6caf577779d",
+        "sha256:e6557c42ebeaea010d8a8883fdacdc5a17dea1221416d0d980e206dd42dc7e29",
+        "sha256:d3282d7e6b7633cf153dce0ca1c72b6ea574edb0b34351f848fb16b7d13c851f",
+        "sha256:a4ce1202d74643d4e4ce15787afc2402a18802e3d7bfd0f6bf60c912b57eec1f",
+        "sha256:1ab010a063387e697fc32bb43022532c0e275d2e51fb65c2ac541e082e610a33",
+        "sha256:37aca2470cdaf48d251d9308c09dc8735b45ebcbefada46537c9989991b3fe6d",
+        "sha256:9994ea1088e3f1d0eb3dea855f32e7e63742b2644c8611c124ba81bc3453047e",
+        "sha256:f1b40a94bf725e209753ffcbcae61d2567bf133bd93feecc2d869b1d579fdd8a",
+        "sha256:b5abe9a3694744e820fa9e5452da94dd1fb26b9abc673adbe9990b67023bd759"
+      ],
+      "oci_root_digest": "sha256:792d16b97838d2c079dc8ae9a9656b019be9b7149b11e330af10dc3b4a1d9b08",
+      "phase": "rebuild",
+      "platform": "linux/arm64",
+      "role": "frontend"
+    },
+    "migration-runner": {
+      "archive_bytes": 292763648,
+      "archive_sha256": "5771697fd4dd65ac1b372352b694af1c0c22c2a284aff06fef27fec19de946b1",
+      "artifact_digest": "sha256:ec9ae4788f9e1a2064064c7de82f2c1e098a20179d757166edf0a99f0a5958d9",
+      "attestation_manifest_count": 0,
+      "image_config_digest": "sha256:2016223255b18cd1a3f639f8df0cfd0a6fa7044ea8098d36ef1b22edf5c6ceb3",
+      "image_layer_digests": [
+        "sha256:bf7af0229701decd1b9f42143504fc8f69e5664c37e57001d198e731e4f86c2e",
+        "sha256:d79bc110ec9cd1a4d8c7d0822d6ef87d25f2ca15e7fbb97e7b5f4809df5cd9bd",
+        "sha256:0fb0508c44a5ab3fb6553d7adcbc772fa40c2ffcdaf40b2521e5743522800d9b",
+        "sha256:3ff159de35c260cb2f2393a6e8dbecb37fa108e25cae872c2b3e8e967dd4ecb4",
+        "sha256:b67246d5d21a1e5208d87db10a035e60592ce32fc1bd322536cd6248ad3f3ea1",
+        "sha256:13262e8c7d5c98b641d906ac11da3420330889c40c3f0d8642c9ed64e4adf18b",
+        "sha256:c1e4c8bdb4f8eedc956a6b9a09688a0da4a9e0f604aa772337aa58a330ebb16a",
+        "sha256:c7bd848e3fcbe6013fd7ab244689f96f367be56a548b8815eb3f3ea0ec744741",
+        "sha256:b422695fcdf4e78da2c2193c55cd2c53ac888285042f75ebec1bded56aa1cac5",
+        "sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1",
+        "sha256:931ef6ec54589ff00ba8803be40877dffb5223c5432cf1a7cd59a4f7f66ef46b",
+        "sha256:74f25166e74accabb89e946bc075a703a982ba9f41ab4a9012928a95c034a99d",
+        "sha256:724044aab3e2a8704313944af6be4403781a841c5eef47f155b56e2afba85347"
+      ],
+      "oci_root_digest": "sha256:ec9ae4788f9e1a2064064c7de82f2c1e098a20179d757166edf0a99f0a5958d9",
+      "phase": "rebuild",
+      "platform": "linux/arm64",
+      "role": "migration-runner"
+    }
+  },
+  "schema": "mrw.stage3.local-artifact-evidence.r13o.v1",
+  "scope": "Two separate task-owned docker-container Buildx builders, no-cache builds, local OCI output only. No registry push/promotion, signing, transparency log, deployment, or authority transfer. linux/arm64 is local evidence and does not satisfy the required CI linux/amd64 run.",
+  "status": "FAILED_OR_INCOMPLETE"
+}

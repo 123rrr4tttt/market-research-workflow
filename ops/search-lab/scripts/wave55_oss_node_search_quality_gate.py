@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shlex
 import sys
 from pathlib import Path
 from typing import Any
@@ -21,6 +22,11 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 BACKEND_ROOT = REPO_ROOT / "main" / "backend"
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
+
+from scripts.evidence_source_contract import (  # noqa: E402
+    apply_evidence_source_contract,
+    evidence_source,
+)
 
 DEFAULT_OUT_DIR = "development/latest-dev-docs/automation-runs/wave55-oss-node-search-quality-gate/2026-05-23"
 OPEN_SEARCH_TRACE = (
@@ -476,9 +482,13 @@ def _semantic_quality_readback() -> tuple[dict[str, Any], list[str], list[dict[s
     )
 
 
-def _input_artifact_readback() -> tuple[dict[str, Any], list[str]]:
-    trace, trace_row = _load_json(OPEN_SEARCH_TRACE)
-    provider_gate, provider_row = _load_json(LIVE_EMBEDDING_PROVIDER_GATE)
+def _input_artifact_readback(
+    *,
+    open_search_trace_path: Path,
+    live_embedding_provider_gate_path: Path,
+) -> tuple[dict[str, Any], list[str]]:
+    trace, trace_row = _load_json(open_search_trace_path)
+    provider_gate, provider_row = _load_json(live_embedding_provider_gate_path)
     failures: list[str] = []
     failures.extend(trace_row.get("failures") or [])
     failures.extend(provider_row.get("failures") or [])
@@ -582,8 +592,19 @@ def _retrieval_contract_readback(top_hits: list[dict[str, Any]]) -> tuple[dict[s
     )
 
 
-def build_contract() -> dict[str, Any]:
-    input_readback, input_failures = _input_artifact_readback()
+def build_contract(
+    *,
+    open_search_trace_path: Path | None = None,
+    live_embedding_provider_gate_path: Path | None = None,
+) -> dict[str, Any]:
+    resolved_open_search_trace_path = open_search_trace_path or OPEN_SEARCH_TRACE
+    resolved_live_embedding_provider_gate_path = (
+        live_embedding_provider_gate_path or LIVE_EMBEDDING_PROVIDER_GATE
+    )
+    input_readback, input_failures = _input_artifact_readback(
+        open_search_trace_path=resolved_open_search_trace_path,
+        live_embedding_provider_gate_path=resolved_live_embedding_provider_gate_path,
+    )
     open_search_quality, open_search_failures = _open_search_quality_readback()
     semantic_quality, semantic_failures, top_hits = _semantic_quality_readback()
     retrieval_contracts, retrieval_failures = _retrieval_contract_readback(top_hits)
@@ -597,7 +618,7 @@ def build_contract() -> dict[str, Any]:
     if not target_topic.exists():
         failures.append(f"target topic missing: {TARGET_TOPIC}")
 
-    return {
+    contract = {
         "contract_version": "wave55-oss-node-search-quality-gate.v1",
         "generated_by": "ops/search-lab/scripts/wave55_oss_node_search_quality_gate.py",
         "status": "passed" if not failures else "failed",
@@ -628,6 +649,27 @@ def build_contract() -> dict[str, Any]:
         "archive_closed_recommendation": "do_not_mark_archive_closed_until_live_container_or_production_quality_evidence_exists",
         "failures": failures,
     }
+    return apply_evidence_source_contract(
+        contract,
+        [
+            evidence_source(
+                resolved_open_search_trace_path,
+                repo_root=REPO_ROOT,
+                label="open_search_trace",
+            ),
+            evidence_source(
+                resolved_live_embedding_provider_gate_path,
+                repo_root=REPO_ROOT,
+                label="wave55_live_embedding_provider_gate",
+            ),
+        ],
+        claim_fields=(
+            "local_open_search_quality_claim_allowed",
+            "repo_local_semantic_quality_claim_allowed",
+            "production_quality_claim_allowed",
+        ),
+        clear_fields=("closed_conditions", "reduced_conditions"),
+    )
 
 
 def write_outputs(out_dir: Path, contract: dict[str, Any]) -> None:
@@ -635,6 +677,14 @@ def write_outputs(out_dir: Path, contract: dict[str, Any]) -> None:
     (out_dir / "oss_node_search_quality_gate.json").write_text(
         json.dumps(contract, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
+    )
+    rerun_command = (
+        "PYTHONPATH=main/backend python3 "
+        "ops/search-lab/scripts/wave55_oss_node_search_quality_gate.py "
+        f"--open-search-trace {shlex.quote(contract['input_artifact_readback']['open_search_trace']['path'])} "
+        "--live-embedding-provider-gate "
+        f"{shlex.quote(contract['input_artifact_readback']['live_embedding_provider_gate']['path'])} "
+        f"--out-dir {shlex.quote(display_path(out_dir))}"
     )
     open_quality = contract["open_search_quality_readback"]
     semantic_quality = contract["semantic_quality_readback"]
@@ -665,7 +715,7 @@ def write_outputs(out_dir: Path, contract: dict[str, Any]) -> None:
         "## Rerun",
         "",
         "```bash",
-        f"PYTHONPATH=main/backend python3 ops/search-lab/scripts/wave55_oss_node_search_quality_gate.py --out-dir {display_path(out_dir)}",
+        rerun_command,
         "PYTHONPATH=main/backend python3 -m pytest -q "
         "main/backend/tests/unit/test_wave55_oss_node_search_quality_gate_unittest.py",
         "```",
@@ -676,14 +726,28 @@ def write_outputs(out_dir: Path, contract: dict[str, Any]) -> None:
     (out_dir / "README.md").write_text("\n".join(readme), encoding="utf-8")
 
 
-def main() -> int:
+def _resolve_cli_path(value: str) -> Path:
+    path = Path(value)
+    return path if path.is_absolute() else REPO_ROOT / path
+
+
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--out-dir", default=DEFAULT_OUT_DIR)
-    args = parser.parse_args()
+    parser.add_argument("--open-search-trace", default=str(OPEN_SEARCH_TRACE))
+    parser.add_argument("--live-embedding-provider-gate", default=str(LIVE_EMBEDDING_PROVIDER_GATE))
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = _parse_args(argv)
     out_dir = Path(args.out_dir)
     if not out_dir.is_absolute():
         out_dir = REPO_ROOT / out_dir
-    contract = build_contract()
+    contract = build_contract(
+        open_search_trace_path=_resolve_cli_path(args.open_search_trace),
+        live_embedding_provider_gate_path=_resolve_cli_path(args.live_embedding_provider_gate),
+    )
     write_outputs(out_dir, contract)
     print(
         json.dumps(

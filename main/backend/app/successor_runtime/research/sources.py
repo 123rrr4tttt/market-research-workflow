@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
-from .codec import finalize_digest
+from .codec import _failure, _raise_failure, finalize_digest
 
 __all__ = ["SourceRef"]
 
@@ -22,5 +22,13 @@ class SourceRef:
 
     def __post_init__(self) -> None:
         if not isinstance(self.access_profile_ref, str):
-            raise ValueError("SourceRef access_profile_ref is required")
+            _raise_failure(
+                _failure(
+                    "SOURCE_REF_INVALID",
+                    "SourceRef access_profile_ref is required",
+                    ValueError,
+                    site="SourceRef.access_profile_ref",
+                ),
+                ValueError,
+            )
         finalize_digest(self, "content_digest")

@@ -1,0 +1,53 @@
+{
+  "schema_version": "mrw.formal-production-release-development-freeze.v1",
+  "status": "FROZEN_FOR_IMPLEMENTATION_V1",
+  "frozen_on": "2026-09-04",
+  "candidate_strategy": "REMEDIATION_INCLUSIVE_RELEASE",
+  "source_task": "01a069dd-d6ad-70d2-af42-72a155b0cc9d",
+  "members": [
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/00_formal-production-release-development-plan.v1.md",
+      "sha256": "97801ddbe46233429309f218cfcb183ade785ffd1a2d0872223907851ca95087",
+      "bytes": 20473,
+      "lines": 346
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/01_formal-production-release-gap-ledger.v1.json",
+      "sha256": "21df93d7c9dc1ac3cc77a9a449f3c37527001f0716551ce34db032c7c93754a0",
+      "bytes": 4614,
+      "lines": 103
+    }
+  ],
+  "mutable_progress": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/03_formal-production-release-progress.v1.md",
+  "implementation_write_roots": [
+    "scripts/formal_release",
+    "tests/formal_release"
+  ],
+  "source_task_exclusive_roots": [
+    "docs/governance/functorial-structural-debt-remediation-progress.v1.md",
+    "docs/governance/adapter-boundary-map.v1.json",
+    "docs/governance/derived-authority-map.v1.json",
+    "docs/governance/failure-family-map.v1.json",
+    "functorial-kit.json",
+    "arch-baseline.json",
+    "registries",
+    "sketches.json",
+    "src/mrw_functorial_kit",
+    "main/backend"
+  ],
+  "authority_ceiling": {
+    "candidate_promotion": false,
+    "production_canonical_write": false,
+    "live_provider": false,
+    "external_delivery": false,
+    "cutover": false,
+    "authority_transfer": false,
+    "legacy_retirement": false
+  },
+  "validation_scope": {
+    "freeze_exact_bytes": true,
+    "formal_release_authorized": false,
+    "production_environment_executed": false,
+    "historical_candidate_evidence_transferable": false
+  }
+}

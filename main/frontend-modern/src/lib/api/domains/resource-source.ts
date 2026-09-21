@@ -1,5 +1,5 @@
 import { endpoints } from '../endpoints'
-import { asList, getProjectKey, httpGet as get, httpPost as post } from '../client'
+import { asList, getProjectKey, httpGet as get, httpPatch as patch, httpPost as post } from '../client'
 import type {
   ResourcePoolBatchRecommendationPayload,
   ResourcePoolBatchRecommendationResponse,
@@ -9,6 +9,7 @@ import type {
   ResourcePoolDiscoverResponse,
   ResourcePoolRecommendationPayload,
   ResourcePoolRecommendationResponse,
+  ResourcePoolSiteEntryLifecyclePatchPayload,
   ResourcePoolUpsertSiteEntryPayload,
   ResourcePoolUrlItem,
   SiteEntryGroupedResponse,
@@ -24,6 +25,65 @@ import type {
   SourceLibraryScope,
 } from '../../types'
 
+function asRecord(value: unknown) {
+  return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {}
+}
+
+function firstDefined<T>(...values: Array<T | null | undefined>) {
+  return values.find((value) => value !== undefined && value !== null)
+}
+
+function normalizeSourceLibraryItem(item: SourceLibraryItem): SourceLibraryItem {
+  const extra = asRecord(item.extra)
+  return {
+    ...item,
+    item_type: String(firstDefined(item.item_type, extra.item_type, '') || '') || undefined,
+    managed_by: String(firstDefined(item.managed_by, extra.managed_by, '') || '') || undefined,
+    capability: firstDefined(item.capability, extra.capability, extra.capability_profile) as SourceLibraryItem['capability'],
+    capability_summary: firstDefined(
+      item.capability_summary,
+      extra.capability_summary,
+      extra.capability,
+      extra.capability_profile,
+    ) as SourceLibraryItem['capability_summary'],
+  }
+}
+
+function normalizeSourceLibraryItems(items: SourceLibraryItem[]) {
+  return items.map(normalizeSourceLibraryItem)
+}
+
+function normalizeSiteEntry(item: SiteEntryItem): SiteEntryItem {
+  const extra = asRecord(item.extra)
+  const reviewClosure = asRecord(firstDefined(item.review_closure, extra.review_closure))
+  const evidenceBinding = asRecord(firstDefined(item.evidence_binding, reviewClosure.evidence_binding, extra.evidence_binding))
+  const executionFact = asRecord(firstDefined(item.execution_fact, extra.execution_fact))
+  const lifecycleSummary = asRecord(item.lifecycle_summary)
+  return {
+    ...item,
+    lifecycle_transition: firstDefined(
+      item.lifecycle_transition,
+      lifecycleSummary.lifecycle_transition,
+      extra.lifecycle_transition,
+    ) as SiteEntryItem['lifecycle_transition'],
+    review_closure: reviewClosure as SiteEntryItem['review_closure'],
+    next_actions: firstDefined(item.next_actions, reviewClosure.next_actions, extra.next_actions) as SiteEntryItem['next_actions'],
+    evidence_binding: evidenceBinding as SiteEntryItem['evidence_binding'],
+    single_source_guard: firstDefined(
+      item.single_source_guard,
+      reviewClosure.single_source_guard,
+      reviewClosure.strict_source,
+      executionFact.single_source_guard,
+      extra.single_source_guard,
+    ) as SiteEntryItem['single_source_guard'],
+    execution_fact: executionFact as SiteEntryItem['execution_fact'],
+  }
+}
+
+function normalizeSiteEntries(items: SiteEntryItem[]) {
+  return items.map(normalizeSiteEntry)
+}
+
 export async function listSourceItems() {
   return listSourceLibraryItemsWithScope('effective')
 }
@@ -31,7 +91,7 @@ export async function listSourceItems() {
 export async function listSourceLibraryItemsWithScope(scope: SourceLibraryScope = 'effective') {
   const query = new URLSearchParams({ scope })
   const data = await get<SourceLibraryItem[] | { items?: SourceLibraryItem[] }>(endpoints.sourceLibrary.itemsQuery(query))
-  return asList<SourceLibraryItem>(data)
+  return normalizeSourceLibraryItems(asList<SourceLibraryItem>(data))
 }
 
 export async function listSourceLibraryChannels(scope: SourceLibraryScope = 'effective') {
@@ -44,7 +104,17 @@ export async function listSourceLibraryChannels(scope: SourceLibraryScope = 'eff
 
 export async function listSourceLibraryItemsGrouped(scope: SourceLibraryScope = 'effective') {
   const query = new URLSearchParams({ scope })
-  return get<SourceLibraryItemsGroupedResponse>(endpoints.sourceLibrary.itemsGroupedQuery(query))
+  const data = await get<SourceLibraryItemsGroupedResponse>(endpoints.sourceLibrary.itemsGroupedQuery(query))
+  const byHandler = asRecord(data?.by_handler)
+  return {
+    ...data,
+    by_handler: Object.fromEntries(
+      Object.entries(byHandler).map(([handlerKey, items]) => [
+        handlerKey,
+        normalizeSourceLibraryItems(Array.isArray(items) ? (items as SourceLibraryItem[]) : []),
+      ]),
+    ),
+  }
 }
 
 export async function upsertSourceLibraryItem(payload: SourceLibraryItemUpsertPayload) {
@@ -136,7 +206,7 @@ export async function listSiteEntries(page = 1, pageSize = 20) {
   const data = await get<SiteEntryItem[] | { items?: SiteEntryItem[] }>(
     endpoints.resourcePool.siteEntriesQuery(query),
   )
-  return asList<SiteEntryItem>(data)
+  return normalizeSiteEntries(asList<SiteEntryItem>(data))
 }
 
 export async function listSiteEntriesWithFilters(params?: {
@@ -155,7 +225,7 @@ export async function listSiteEntriesWithFilters(params?: {
   const data = await get<SiteEntryItem[] | { items?: SiteEntryItem[] }>(
     endpoints.resourcePool.siteEntriesQuery(query),
   )
-  return asList<SiteEntryItem>(data)
+  return normalizeSiteEntries(asList<SiteEntryItem>(data))
 }
 
 export async function upsertSiteEntry(payload: {
@@ -209,6 +279,20 @@ export async function bindSiteEntry(payload: ResourcePoolUpsertSiteEntryPayload)
     source: payload.source || 'manual',
     source_ref: payload.source_ref || {},
     extra: payload.extra || {},
+  })
+}
+
+export async function patchSiteEntryLifecycle(payload: ResourcePoolSiteEntryLifecyclePatchPayload) {
+  return patch<SiteEntryItem>(`${endpoints.resourcePool.siteEntries}/lifecycle`, {
+    project_key: payload.project_key || getProjectKey(),
+    scope: payload.scope || 'project',
+    site_url: payload.site_url,
+    lifecycle_state: payload.lifecycle_state,
+    reviewer: payload.reviewer ?? null,
+    review_note: payload.review_note ?? null,
+    review_reason: payload.review_reason ?? null,
+    enabled: payload.enabled ?? null,
+    extra_patch: payload.extra_patch ?? null,
   })
 }
 

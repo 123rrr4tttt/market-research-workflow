@@ -1,0 +1,45 @@
+{
+  "archive_sha256": "eeb839e18b16e70dfc959c82900b9b432fe0d6b7c89e7bb1d3c846bcbcfbba17",
+  "attestation_descriptor_bindings": [
+    {
+      "descriptor_digest": "sha256:e86aa4c779dc2274b34f694dd366563bcd16be5095058fcd6e28662b65439ab7",
+      "descriptor_subject_digest": "sha256:67fa252e71bf74fd3ed8c50e44c5153af7ebfae7f78706b4ef7872c97c5ea02a",
+      "descriptor_subject_matches_image": true
+    }
+  ],
+  "attestation_descriptor_count": 1,
+  "combined_build_exit_code": 1,
+  "explicit_tag": "mrw-r13v-oci-smoke.local/subject:47327-1789218494",
+  "image_config_digest": "sha256:f81901ecfc26db4186118b2b191c0a5fbe12061e0f1fc24227b2b44183a9582b",
+  "image_descriptor_annotations": {},
+  "image_manifest_digest": "sha256:67fa252e71bf74fd3ed8c50e44c5153af7ebfae7f78706b4ef7872c97c5ea02a",
+  "oci_root_index_digests": [
+    "sha256:773dcc54cea3b4dd46f997489cbf79e8c181c380677dc74b17ae4d5535378c9e"
+  ],
+  "platform": {
+    "architecture": "amd64",
+    "os": "linux"
+  },
+  "selected_build": "tagged-provenance-only-build",
+  "statements": {
+    "provenance": {
+      "predicate_type": "https://slsa.dev/provenance/v1",
+      "present": true,
+      "subject_contains_image_manifest_digest": true,
+      "subjects": [
+        {
+          "digest": {
+            "sha256": "67fa252e71bf74fd3ed8c50e44c5153af7ebfae7f78706b4ef7872c97c5ea02a"
+          },
+          "name": "pkg:docker/mrw-r13v-oci-smoke.local/subject@47327-1789218494?platform=linux%2Famd64"
+        }
+      ]
+    },
+    "sbom": {
+      "predicate_type": null,
+      "present": false,
+      "subject_contains_image_manifest_digest": false,
+      "subjects": []
+    }
+  }
+}

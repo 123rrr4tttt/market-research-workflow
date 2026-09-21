@@ -7,7 +7,11 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
+try:
+    from ._cli_runtime import repo_root as _repo_root
+except ImportError:  # direct script execution
+    from _cli_runtime import repo_root as _repo_root
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -47,10 +51,6 @@ DOCUMENT_QUERY_BUILDER_EXPECTED_EXPORTS = (
     "apply_document_query_to_statement",
     "document_query_to_statement",
 )
-
-
-def _repo_root() -> Path:
-    return REPO_ROOT
 
 
 def _read_text(path: Path) -> str:
@@ -325,7 +325,10 @@ def build_check(
     repo_root: Path | str | None = None,
     *,
     live_evidence_path: Path | str | None = None,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=generated_evidence fact_source=structured_sql_check+consumer_gates+endpoint_projection+builder_status+live_evidence witness=test:test_c13_cli_graph_workflow_metadata_preserves_abi",
+]:
     root = Path(repo_root).resolve() if repo_root is not None else _repo_root().resolve()
 
     structured_sql = build_structured_sql_check(root)

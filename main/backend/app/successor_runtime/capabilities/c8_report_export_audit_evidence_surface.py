@@ -12,6 +12,11 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any, Literal
 
+from app.successor_runtime.capabilities.c8_common import (
+    reject_c8_type,
+    reject_c8_value,
+)
+
 AUTHORITY_KEYS: tuple[str, ...] = (
     "canonical_write",
     "live_provider",
@@ -43,20 +48,20 @@ def _text(value: Any, name: str, *, required: bool = True) -> str:
     if value is None and not required:
         return ""
     if not isinstance(value, str):
-        raise TypeError(f"{name} must be a string")
+        reject_c8_type(f"{name} must be a string")
     text = value.strip()
     if not text and required:
-        raise ValueError(f"{name} must not be blank")
+        reject_c8_value(f"{name} must not be blank")
     lowered = text.lower()
     if any(marker in lowered for marker in _CREDENTIAL_MARKERS):
-        raise ValueError(f"{name} must not carry credential-like raw material")
+        reject_c8_value(f"{name} must not carry credential-like raw material")
     return text
 
 
 def _digest_text(value: Any, name: str) -> str:
     text = _text(value, name)
     if not _DIGEST_RE.match(text):
-        raise ValueError(f"{name} must be 64 hex chars with optional sha256: prefix")
+        reject_c8_value(f"{name} must be 64 hex chars with optional sha256: prefix")
     return text
 
 
@@ -86,7 +91,7 @@ class ExportAuditObservation:
             "degraded_memory",
             "local_deterministic_observation",
         ):
-            raise ValueError(f"unknown origin: {self.origin}")
+            reject_c8_value(f"unknown origin: {self.origin}")
         object.__setattr__(
             self,
             "integrity_digest",
@@ -135,16 +140,16 @@ class ExportAuditEvidenceReadback:
 
     def __post_init__(self) -> None:
         if self.schema != SURFACE_SCHEMA:
-            raise ValueError("ExportAuditEvidenceReadback.schema is not frozen")
+            reject_c8_value("ExportAuditEvidenceReadback.schema is not frozen")
         if self.movement_ids != MOVEMENT_IDS:
-            raise ValueError("ExportAuditEvidenceReadback.movement_ids drift")
+            reject_c8_value("ExportAuditEvidenceReadback.movement_ids drift")
         if any(value is not False for value in self.authority.values()):
-            raise ValueError("audit evidence surface authority must be all false")
+            reject_c8_value("audit evidence surface authority must be all false")
         object.__setattr__(self, "observations", tuple(self.observations))
         if self.no_call_durable_write is not True:
-            raise ValueError("audit surface never grants durable write authority")
+            reject_c8_value("audit surface never grants durable write authority")
         if self.degraded_is_not_durable_proof is not True:
-            raise ValueError("degraded/local evidence is never durable proof")
+            reject_c8_value("degraded/local evidence is never durable proof")
 
     def to_plain(self) -> dict[str, Any]:
         return {
@@ -194,7 +199,7 @@ def project_export_audit_dashboard_rows(
     """Render read-only dashboard rows from an evidence readback."""
 
     if not isinstance(readback, ExportAuditEvidenceReadback):
-        raise TypeError("export audit dashboard rows require typed readback")
+        reject_c8_type("export audit dashboard rows require typed readback")
     return tuple(
         {
             "trace_id": row.trace_id,

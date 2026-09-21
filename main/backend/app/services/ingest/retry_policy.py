@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any
 
 from .gate_reason_codes import normalize_reason_code
 
@@ -58,7 +58,10 @@ def classify_retry_reason(reason: Any) -> tuple[str, str]:
     return normalized, RETRY_CLASS_PERMANENT
 
 
-def build_retry_observability(payload: dict[str, Any] | None) -> dict[str, Any]:
+def build_retry_observability(payload: dict[str, Any] | None) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=retry_payload+retry_reason_contract witness=test:test_w03_ingest_ports_authority_metadata",
+]:
     data = dict(payload or {})
     reason_counts: dict[str, int] = {}
 

@@ -1,0 +1,182 @@
+{
+  "schema_version": "mrw.stage4.config-policy-summary.v1",
+  "generated_at": "2026-09-13T06:05:22Z",
+  "status": "PASS_LOCAL_CONFIG_POLICY_DERIVED_IMAGE_RUNTIME_RECHECKED",
+  "scope": "STAGE4_LOCAL_CONFIG_AND_PERMISSION_BOUNDARY_ONLY",
+  "authoritative": false,
+  "authority_ceiling": "NOT_AUTHORITY / PRODUCTION_RELEASE_NOT_AUTHORIZED",
+  "candidate_input": {
+    "label": "r13x",
+    "commit": "8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+    "tree": "ce7c67c831b51f9d64b4c2f1a470a724a50b19df",
+    "source": "../../stage3-evidence/r13x/local-delivery/local-stage3-delivery-result.r13x.json"
+  },
+  "worktree_execution": {
+    "head": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+    "tree": "5840bf9ba906c49f70020d226c54446f4ba5aa33",
+    "current_checkout_note": "The changed Stage1-era production files are untracked relative to this checkout HEAD and were preserved in place; they are not claimed as r13x candidate bytes."
+  },
+  "result": {
+    "compose_contract": "PASS",
+    "production_config_render": "PASS_PREFLIGHT_ONLY",
+    "auth_policy_authority": "PASS",
+    "provider_and_canonical_writer": "PASS_WITH_3_DECLARED_NOT_RUN",
+    "secure_cookie_boundary": "PASS_IN_WORKTREE_AND_DERIVED_STAGE4_IMAGE",
+    "live_runtime_substitution_claim": true,
+    "derived_stage4_runtime_recheck": "PASS"
+  },
+  "product_defect_and_fix": {
+    "before": "Production OAuth was enabled by default, codex_oauth_cookie_secure defaulted false, the OAuth callback was policy-bootstrap-exempt, and production Compose did not inject CODEX_OAUTH_COOKIE_SECURE.",
+    "after": "Production composition fails closed if OAuth is enabled without secure session cookies; production Compose requires CODEX_OAUTH_COOKIE_SECURE for backend; the production env example fixes it to true; callback verification asserts Secure and HttpOnly attributes.",
+    "affected_role": "backend image only; celery-worker reuses that image but does not consume the cookie setting",
+    "fix_not_embodied_in_r13x_image": true,
+    "r13x_rebuild_performed": false,
+    "derived_stage4_image": "mrw-local/stage4-r13x-backend-config:8652d653f740735f",
+    "derived_stage4_image_id": "sha256:f99f900e5b420cf7e1c9513598a87251cc6c8124e6ec8461c564ed4d7ca76c20",
+    "r13x_impact": "Original r13x backend image remains unchanged and does not contain the new startup guard. A non-r13x Stage4-local image was derived by replacing only the authenticated readiness entrypoint and production.py; r13x frontend and migration-runner are unchanged.",
+    "runtime_compatibility": "The derived Stage4 backend/Celery image contains the exact worktree guard and ran healthy with CODEX_OAUTH_COOKIE_SECURE=true; running-container readback verified Secure and HttpOnly without external OAuth exchange.",
+    "runtime_recheck_evidence": "../runtime/narrow-secure-config-recheck.json",
+    "runtime_recheck_evidence_sha256": "cead675b4cc3e7b5d8ae0907ca2f8c0868ce6a3e9e56c454f2ec61b5a3960d13"
+  },
+  "changed_files": [
+    "main/backend/app/composition/production.py",
+    "main/ops/docker-compose.production.yml",
+    "main/backend/.env.production.example",
+    "scripts/formal_release/check_production_compose_config.py",
+    "tests/formal_release/test_s1_production_compose_contract.py",
+    "main/backend/tests/production_composition/test_production_composition.py",
+    "main/backend/tests/production_composition/test_production_runtime_bindings.py",
+    "main/backend/tests/production_composition/test_production_auth_bootstrap.py"
+  ],
+  "verification": [
+    {
+      "id": "compose_contract_and_render",
+      "status": "PASS",
+      "command": "main/backend/.venv311/bin/python -m pytest -q tests/formal_release/test_s1_production_compose_contract.py tests/formal_release/test_check_production_compose_config.py --junitxml=.../postfix-formal-compose.junit.xml",
+      "exit_code": 0,
+      "counts": {"passed": 14, "failed": 0, "errors": 0, "skipped": 0},
+      "evidence": "postfix-formal-compose.junit.xml"
+    },
+    {
+      "id": "policy_auth_authority",
+      "status": "PASS",
+      "command": "main/backend/.venv311/bin/python -m pytest -q main/backend/tests/production_contract/test_s1_production_policy.py main/backend/tests/production_composition/test_production_composition.py main/backend/tests/production_composition/test_production_runtime_bindings.py main/backend/tests/production_composition/test_production_auth_bootstrap.py main/backend/tests/production_composition/test_route_effect_contract.py main/backend/tests/production_composition/test_s1_operation_authority_adapters.py --junitxml=.../postfix-policy-auth-authority.junit.xml",
+      "exit_code": 0,
+      "counts": {"passed": 80, "failed": 0, "errors": 0, "skipped": 0, "warnings": 15},
+      "evidence": "postfix-policy-auth-authority.junit.xml"
+    },
+    {
+      "id": "provider_and_canonical_writer",
+      "status": "PASS_WITH_DECLARED_NOT_RUN",
+      "command": "PYTHONPATH=<repo>/main/backend:<repo>/src main/backend/.venv311/bin/python -m pytest -q <10 focused authority/provider/canonical-writer test files> --junitxml=.../postfix-provider-canonical-writer.junit.xml",
+      "exit_code": 0,
+      "counts": {"passed": 49, "failed": 0, "errors": 0, "skipped": 3, "warnings": 2},
+      "not_run": [
+        "real Serper parity probe: MRW_LIVE_PROVIDER_PARITY not enabled",
+        "real OpenAI parity probe: MRW_LIVE_PROVIDER_PARITY not enabled",
+        "real PostgreSQL two-node composition: SUCCESSOR_TEST_DATABASE_URL not set"
+      ],
+      "evidence": "postfix-provider-canonical-writer.junit.xml"
+    },
+    {
+      "id": "secure_cookie_response",
+      "status": "PASS",
+      "command": "main/backend/.venv311/bin/python -m pytest -q main/backend/tests/production_composition/test_production_auth_bootstrap.py --junitxml=.../final-secure-cookie.junit.xml",
+      "exit_code": 0,
+      "counts": {"passed": 4, "failed": 0, "errors": 0, "skipped": 0, "warnings": 15},
+      "evidence": "final-secure-cookie.junit.xml"
+    },
+    {
+      "id": "production_compose_config_preflight",
+      "status": "PASS",
+      "command": "main/backend/.venv311/bin/python scripts/formal_release/check_production_compose_config.py --repo-root <repo> --output .../postfix-production-compose-config.json",
+      "exit_code": 0,
+      "evidence": "postfix-production-compose-config.json",
+      "limit": "synthetic config render only; service_start=false"
+    },
+    {
+      "id": "static_production_contract",
+      "status": "PASS",
+      "command": "main/backend/.venv311/bin/python scripts/formal_release/check_static_production_contract.py --repo-root <repo> --output .../postfix-static-production-contract.json",
+      "exit_code": 0,
+      "evidence": "postfix-static-production-contract.json",
+      "limit": "non-authoritative static preflight"
+    },
+    {
+      "id": "ruff",
+      "status": "PASS",
+      "command": "/opt/homebrew/bin/ruff check <changed Python files>",
+      "exit_code": 0,
+      "result": "All checks passed"
+    },
+    {
+      "id": "compileall",
+      "status": "PASS",
+      "command": "main/backend/.venv311/bin/python -m compileall -q main/backend/app/composition/production.py scripts/formal_release/check_production_compose_config.py",
+      "exit_code": 0
+    },
+    {
+      "id": "secure_cookie_derived_focused",
+      "status": "PASS",
+      "command": "main/backend/.venv311/bin/python -m pytest -q <secure-cookie startup, callback and runtime-binding tests> --junitxml=.../secure-cookie-derived-focused.junit.xml",
+      "exit_code": 0,
+      "counts": {"passed": 3, "failed": 0, "errors": 0, "skipped": 0, "warnings": 15},
+      "evidence": "secure-cookie-derived-focused.junit.xml"
+    },
+    {
+      "id": "derived_backend_content",
+      "status": "PASS",
+      "command": "docker run --rm --platform linux/amd64 --entrypoint sh <derived-stage4-image> -lc '<exact hashes, bash syntax, parser and guard checks>'",
+      "exit_code": 0,
+      "evidence": "../runtime/derived-backend-config-build.json"
+    },
+    {
+      "id": "derived_backend_live_runtime",
+      "status": "PASS",
+      "command": "python3 <runtime>/run-stage4-narrow-recheck.py",
+      "exit_code": 0,
+      "result": "backend and celery healthy; shallow/deep direct and deep proxy HTTP 200 status ok; Secure and HttpOnly cookie readback; successor-runtime unauthenticated 401 and task-token request passed auth middleware to route-level 404; cleanup residue 0/0/0",
+      "evidence": "../runtime/narrow-secure-config-recheck.json"
+    }
+  ],
+  "diagnostic_attempts": [
+    {
+      "status": "ENVIRONMENT_PRECONDITION_FAILED_THEN_CORRECTED",
+      "exit_code": 2,
+      "detail": "Initial provider/canonical-writer collection lacked the repository PYTHONPATH and reported ModuleNotFoundError: app; the corrected invocation passed 49 and declared 3 skipped."
+    },
+    {
+      "status": "TOOL_PATH_FAILED_THEN_CORRECTED",
+      "exit_code": 127,
+      "detail": "Ruff was not installed in main/backend/.venv311; the installed /opt/homebrew/bin/ruff completed with exit 0."
+    }
+  ],
+  "env_presence_evidence": "env-presence.json",
+  "external_effects": {
+    "provider_calls": 0,
+    "production_or_external_writes": 0,
+    "github_registry_signing_or_remote_deploy_writes": 0,
+    "task_local_evidence_writes": true
+  },
+  "limits_and_risks": [
+    "Static and unit checks do not replace Stage4 live TLS, deep-health, worker, API, frontend-proxy, database, Redis, or Elasticsearch verification.",
+    "Three real-provider/PostgreSQL selectors remain explicitly NOT_RUN in this lane; the Stage4 runtime lane owns the real isolated runtime proof.",
+    "No production data, external business write, secret value, request body, or response payload was used or persisted."
+  ],
+  "remaining_items": [
+    {
+      "id": "secure_cookie_guard_not_embodied_in_r13x_backend",
+      "status": "RESOLVED_IN_DERIVED_STAGE4_IMAGE",
+      "owner": "Stage4 main integration",
+      "blocked_by": null,
+      "current_runtime_path": "Completed task-owned stack recheck with mrw-local/stage4-r13x-backend-config:8652d653f740735f; startup, authenticated readiness and Secure/HttpOnly readback passed"
+    },
+    {
+      "id": "live_runtime_boundaries",
+      "status": "PASS_BY_STAGE4_RUNTIME_LANE",
+      "owner": "Stage4 runtime lane",
+      "blocked_by": null,
+      "current_runtime_path": "Runtime summary ../runtime/summary.json; narrow secure-config recheck ../runtime/narrow-secure-config-recheck.json"
+    }
+  ]
+}

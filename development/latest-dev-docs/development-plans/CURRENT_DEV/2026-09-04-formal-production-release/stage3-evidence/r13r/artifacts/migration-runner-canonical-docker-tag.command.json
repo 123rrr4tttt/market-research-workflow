@@ -1,0 +1,9 @@
+{
+  "argv": [
+    "docker",
+    "tag",
+    "sha256:61de723b315ef8d5ad045aad3d0beba0a09eb7c64d27b78d7cf5644e1aec64aa",
+    "mrw-r13r-amd64-migration-runner-canonical:local"
+  ],
+  "cwd": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13r/artifacts"
+}

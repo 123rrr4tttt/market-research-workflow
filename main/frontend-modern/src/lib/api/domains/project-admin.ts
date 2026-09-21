@@ -18,6 +18,10 @@ import type {
   AdminStats,
   AdminTopicExtractPayload,
   AdminTopicExtractResponse,
+  DashboardReportFromFilterPayload,
+  DashboardReportFromFilterResponse,
+  DashboardLlmReportDetailParams,
+  DashboardLlmReportDetailResponse,
   DashboardStats,
   DocumentBulkExtractedPayload,
   DocumentExtractedPayload,
@@ -29,6 +33,17 @@ import type {
 
 export async function getDashboardStats() {
   return get<DashboardStats>(endpoints.dashboard.stats)
+}
+
+export async function createDashboardReportFromFilter(payload: DashboardReportFromFilterPayload) {
+  return post<DashboardReportFromFilterResponse>(endpoints.dashboard.reportFromFilter, payload)
+}
+
+export async function getDashboardLlmReportDetail({ traceId, projectKey }: DashboardLlmReportDetailParams) {
+  const params = new URLSearchParams()
+  params.set('trace_id', traceId)
+  if (projectKey) params.set('project_key', projectKey)
+  return get<DashboardLlmReportDetailResponse>(endpoints.dashboard.llmReportDetail(params))
 }
 
 export async function listProjects() {
@@ -105,7 +120,8 @@ export async function clearDocumentExtractedData(docIds: number[]) {
 
 export async function deleteAdminDocuments(payload: AdminDeleteDocumentsPayload | number[]) {
   const ids = Array.isArray(payload) ? payload : payload.ids
-  return post<{ deleted?: number }>(endpoints.admin.documentsDelete, { ids })
+  const preview = Array.isArray(payload) ? undefined : payload.preview
+  return post<AdminActionResponse>(endpoints.admin.documentsDelete, { ids, ...(preview === undefined ? {} : { preview }) })
 }
 
 export async function reExtractDocuments(payload: AdminReExtractPayload = {}) {

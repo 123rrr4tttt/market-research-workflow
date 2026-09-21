@@ -1,0 +1,14 @@
+{
+  "argv": [
+    "docker",
+    "buildx",
+    "create",
+    "--driver",
+    "docker-container",
+    "--driver-opt",
+    "image=moby/buildkit@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8",
+    "--name",
+    "mrw-r13r-amd64-frontend-a-13419-1789010241"
+  ],
+  "cwd": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13r/artifacts"
+}

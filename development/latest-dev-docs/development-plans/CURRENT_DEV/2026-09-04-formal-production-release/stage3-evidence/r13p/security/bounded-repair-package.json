@@ -1,0 +1,2788 @@
+{
+  "candidate": {
+    "commit": "342d3b3c35ad987c47990da6ac550dfe936d4818",
+    "tree": "3f87e85dce02b312e445c657c238c11c6809850e"
+  },
+  "deduplicated_counts": {
+    "critical_cves": [
+      "CVE-2026-13221",
+      "CVE-2026-31789",
+      "CVE-2026-42496",
+      "CVE-2026-43185",
+      "CVE-2026-8376"
+    ],
+    "package_version_cve": 184,
+    "role_observations": 332,
+    "unique_cves": 106
+  },
+  "findings": [
+    {
+      "fixed_version": "3.3.7-r0",
+      "installed_version": "3.3.3-r0",
+      "package": "libcrypto3",
+      "package_class": "os-pkgs",
+      "package_type": "alpine",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "frontend"
+      ],
+      "severity": "CRITICAL",
+      "status": "fixed",
+      "vulnerability_id": "CVE-2026-31789"
+    },
+    {
+      "fixed_version": "3.3.7-r0",
+      "installed_version": "3.3.3-r0",
+      "package": "libssl3",
+      "package_class": "os-pkgs",
+      "package_type": "alpine",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "frontend"
+      ],
+      "severity": "CRITICAL",
+      "status": "fixed",
+      "vulnerability_id": "CVE-2026-31789"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "5.40.1-6",
+      "package": "libperl5.40",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "CRITICAL",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-13221"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "5.40.1-6",
+      "package": "libperl5.40",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "CRITICAL",
+      "status": "fix_deferred",
+      "vulnerability_id": "CVE-2026-42496"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "5.40.1-6",
+      "package": "libperl5.40",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "CRITICAL",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-8376"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "CRITICAL",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-43185"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "5.40.1-6",
+      "package": "perl",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "CRITICAL",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-13221"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "5.40.1-6",
+      "package": "perl",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "CRITICAL",
+      "status": "fix_deferred",
+      "vulnerability_id": "CVE-2026-42496"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "5.40.1-6",
+      "package": "perl",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "CRITICAL",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-8376"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "5.40.1-6",
+      "package": "perl-base",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "CRITICAL",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-13221"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "5.40.1-6",
+      "package": "perl-base",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "CRITICAL",
+      "status": "fix_deferred",
+      "vulnerability_id": "CVE-2026-42496"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "5.40.1-6",
+      "package": "perl-base",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "CRITICAL",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-8376"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "5.40.1-6",
+      "package": "perl-modules-5.40",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "CRITICAL",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-13221"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "5.40.1-6",
+      "package": "perl-modules-5.40",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "CRITICAL",
+      "status": "fix_deferred",
+      "vulnerability_id": "CVE-2026-42496"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "5.40.1-6",
+      "package": "perl-modules-5.40",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "CRITICAL",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-8376"
+    },
+    {
+      "fixed_version": "1.34.8-r0",
+      "installed_version": "1.34.5-r0",
+      "package": "c-ares",
+      "package_class": "os-pkgs",
+      "package_type": "alpine",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "frontend"
+      ],
+      "severity": "HIGH",
+      "status": "fixed",
+      "vulnerability_id": "CVE-2026-33630"
+    },
+    {
+      "fixed_version": "3.3.6-r0",
+      "installed_version": "3.3.3-r0",
+      "package": "libcrypto3",
+      "package_class": "os-pkgs",
+      "package_type": "alpine",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "frontend"
+      ],
+      "severity": "HIGH",
+      "status": "fixed",
+      "vulnerability_id": "CVE-2025-15467"
+    },
+    {
+      "fixed_version": "3.3.6-r0",
+      "installed_version": "3.3.3-r0",
+      "package": "libcrypto3",
+      "package_class": "os-pkgs",
+      "package_type": "alpine",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "frontend"
+      ],
+      "severity": "HIGH",
+      "status": "fixed",
+      "vulnerability_id": "CVE-2025-69421"
+    },
+    {
+      "fixed_version": "3.3.7-r0",
+      "installed_version": "3.3.3-r0",
+      "package": "libcrypto3",
+      "package_class": "os-pkgs",
+      "package_type": "alpine",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "frontend"
+      ],
+      "severity": "HIGH",
+      "status": "fixed",
+      "vulnerability_id": "CVE-2026-28387"
+    },
+    {
+      "fixed_version": "3.3.7-r0",
+      "installed_version": "3.3.3-r0",
+      "package": "libcrypto3",
+      "package_class": "os-pkgs",
+      "package_type": "alpine",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "frontend"
+      ],
+      "severity": "HIGH",
+      "status": "fixed",
+      "vulnerability_id": "CVE-2026-28388"
+    },
+    {
+      "fixed_version": "3.3.7-r0",
+      "installed_version": "3.3.3-r0",
+      "package": "libcrypto3",
+      "package_class": "os-pkgs",
+      "package_type": "alpine",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "frontend"
+      ],
+      "severity": "HIGH",
+      "status": "fixed",
+      "vulnerability_id": "CVE-2026-28389"
+    },
+    {
+      "fixed_version": "3.3.7-r0",
+      "installed_version": "3.3.3-r0",
+      "package": "libcrypto3",
+      "package_class": "os-pkgs",
+      "package_type": "alpine",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "frontend"
+      ],
+      "severity": "HIGH",
+      "status": "fixed",
+      "vulnerability_id": "CVE-2026-28390"
+    },
+    {
+      "fixed_version": "2.7.2-r0",
+      "installed_version": "2.7.0-r0",
+      "package": "libexpat",
+      "package_class": "os-pkgs",
+      "package_type": "alpine",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "frontend"
+      ],
+      "severity": "HIGH",
+      "status": "fixed",
+      "vulnerability_id": "CVE-2025-59375"
+    },
+    {
+      "fixed_version": "2.7.4-r0",
+      "installed_version": "2.7.0-r0",
+      "package": "libexpat",
+      "package_class": "os-pkgs",
+      "package_type": "alpine",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "frontend"
+      ],
+      "severity": "HIGH",
+      "status": "fixed",
+      "vulnerability_id": "CVE-2026-25210"
+    },
+    {
+      "fixed_version": "2.8.1-r0",
+      "installed_version": "2.7.0-r0",
+      "package": "libexpat",
+      "package_class": "os-pkgs",
+      "package_type": "alpine",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "frontend"
+      ],
+      "severity": "HIGH",
+      "status": "fixed",
+      "vulnerability_id": "CVE-2026-45186"
+    },
+    {
+      "fixed_version": "2.8.4-r0",
+      "installed_version": "2.7.0-r0",
+      "package": "libexpat",
+      "package_class": "os-pkgs",
+      "package_type": "alpine",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "frontend"
+      ],
+      "severity": "HIGH",
+      "status": "fixed",
+      "vulnerability_id": "CVE-2026-76956"
+    },
+    {
+      "fixed_version": "2.8.4-r0",
+      "installed_version": "2.7.0-r0",
+      "package": "libexpat",
+      "package_class": "os-pkgs",
+      "package_type": "alpine",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "frontend"
+      ],
+      "severity": "HIGH",
+      "status": "fixed",
+      "vulnerability_id": "CVE-2026-76957"
+    },
+    {
+      "fixed_version": "1.6.53-r0",
+      "installed_version": "1.6.47-r0",
+      "package": "libpng",
+      "package_class": "os-pkgs",
+      "package_type": "alpine",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "frontend"
+      ],
+      "severity": "HIGH",
+      "status": "fixed",
+      "vulnerability_id": "CVE-2025-64720"
+    },
+    {
+      "fixed_version": "1.6.53-r0",
+      "installed_version": "1.6.47-r0",
+      "package": "libpng",
+      "package_class": "os-pkgs",
+      "package_type": "alpine",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "frontend"
+      ],
+      "severity": "HIGH",
+      "status": "fixed",
+      "vulnerability_id": "CVE-2025-65018"
+    },
+    {
+      "fixed_version": "1.6.53-r0",
+      "installed_version": "1.6.47-r0",
+      "package": "libpng",
+      "package_class": "os-pkgs",
+      "package_type": "alpine",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "frontend"
+      ],
+      "severity": "HIGH",
+      "status": "fixed",
+      "vulnerability_id": "CVE-2025-66293"
+    },
+    {
+      "fixed_version": "1.6.54-r0",
+      "installed_version": "1.6.47-r0",
+      "package": "libpng",
+      "package_class": "os-pkgs",
+      "package_type": "alpine",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "frontend"
+      ],
+      "severity": "HIGH",
+      "status": "fixed",
+      "vulnerability_id": "CVE-2026-22695"
+    },
+    {
+      "fixed_version": "1.6.54-r0",
+      "installed_version": "1.6.47-r0",
+      "package": "libpng",
+      "package_class": "os-pkgs",
+      "package_type": "alpine",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "frontend"
+      ],
+      "severity": "HIGH",
+      "status": "fixed",
+      "vulnerability_id": "CVE-2026-22801"
+    },
+    {
+      "fixed_version": "1.6.55-r0",
+      "installed_version": "1.6.47-r0",
+      "package": "libpng",
+      "package_class": "os-pkgs",
+      "package_type": "alpine",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "frontend"
+      ],
+      "severity": "HIGH",
+      "status": "fixed",
+      "vulnerability_id": "CVE-2026-25646"
+    },
+    {
+      "fixed_version": "3.3.6-r0",
+      "installed_version": "3.3.3-r0",
+      "package": "libssl3",
+      "package_class": "os-pkgs",
+      "package_type": "alpine",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "frontend"
+      ],
+      "severity": "HIGH",
+      "status": "fixed",
+      "vulnerability_id": "CVE-2025-15467"
+    },
+    {
+      "fixed_version": "3.3.6-r0",
+      "installed_version": "3.3.3-r0",
+      "package": "libssl3",
+      "package_class": "os-pkgs",
+      "package_type": "alpine",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "frontend"
+      ],
+      "severity": "HIGH",
+      "status": "fixed",
+      "vulnerability_id": "CVE-2025-69421"
+    },
+    {
+      "fixed_version": "3.3.7-r0",
+      "installed_version": "3.3.3-r0",
+      "package": "libssl3",
+      "package_class": "os-pkgs",
+      "package_type": "alpine",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "frontend"
+      ],
+      "severity": "HIGH",
+      "status": "fixed",
+      "vulnerability_id": "CVE-2026-28387"
+    },
+    {
+      "fixed_version": "3.3.7-r0",
+      "installed_version": "3.3.3-r0",
+      "package": "libssl3",
+      "package_class": "os-pkgs",
+      "package_type": "alpine",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "frontend"
+      ],
+      "severity": "HIGH",
+      "status": "fixed",
+      "vulnerability_id": "CVE-2026-28388"
+    },
+    {
+      "fixed_version": "3.3.7-r0",
+      "installed_version": "3.3.3-r0",
+      "package": "libssl3",
+      "package_class": "os-pkgs",
+      "package_type": "alpine",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "frontend"
+      ],
+      "severity": "HIGH",
+      "status": "fixed",
+      "vulnerability_id": "CVE-2026-28389"
+    },
+    {
+      "fixed_version": "3.3.7-r0",
+      "installed_version": "3.3.3-r0",
+      "package": "libssl3",
+      "package_class": "os-pkgs",
+      "package_type": "alpine",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "frontend"
+      ],
+      "severity": "HIGH",
+      "status": "fixed",
+      "vulnerability_id": "CVE-2026-28390"
+    },
+    {
+      "fixed_version": "2.13.4-r6",
+      "installed_version": "2.13.4-r5",
+      "package": "libxml2",
+      "package_class": "os-pkgs",
+      "package_type": "alpine",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "frontend"
+      ],
+      "severity": "HIGH",
+      "status": "fixed",
+      "vulnerability_id": "CVE-2025-32414"
+    },
+    {
+      "fixed_version": "2.13.4-r6",
+      "installed_version": "2.13.4-r5",
+      "package": "libxml2",
+      "package_class": "os-pkgs",
+      "package_type": "alpine",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "frontend"
+      ],
+      "severity": "HIGH",
+      "status": "fixed",
+      "vulnerability_id": "CVE-2025-32415"
+    },
+    {
+      "fixed_version": "2.13.9-r0",
+      "installed_version": "2.13.4-r5",
+      "package": "libxml2",
+      "package_class": "os-pkgs",
+      "package_type": "alpine",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "frontend"
+      ],
+      "severity": "HIGH",
+      "status": "fixed",
+      "vulnerability_id": "CVE-2025-49794"
+    },
+    {
+      "fixed_version": "2.13.9-r0",
+      "installed_version": "2.13.4-r5",
+      "package": "libxml2",
+      "package_class": "os-pkgs",
+      "package_type": "alpine",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "frontend"
+      ],
+      "severity": "HIGH",
+      "status": "fixed",
+      "vulnerability_id": "CVE-2025-49795"
+    },
+    {
+      "fixed_version": "2.13.9-r0",
+      "installed_version": "2.13.4-r5",
+      "package": "libxml2",
+      "package_class": "os-pkgs",
+      "package_type": "alpine",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "frontend"
+      ],
+      "severity": "HIGH",
+      "status": "fixed",
+      "vulnerability_id": "CVE-2025-49796"
+    },
+    {
+      "fixed_version": "2.13.9-r1",
+      "installed_version": "2.13.4-r5",
+      "package": "libxml2",
+      "package_class": "os-pkgs",
+      "package_type": "alpine",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "frontend"
+      ],
+      "severity": "HIGH",
+      "status": "fixed",
+      "vulnerability_id": "CVE-2026-6732"
+    },
+    {
+      "fixed_version": "1.2.5-r11",
+      "installed_version": "1.2.5-r9",
+      "package": "musl",
+      "package_class": "os-pkgs",
+      "package_type": "alpine",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "frontend"
+      ],
+      "severity": "HIGH",
+      "status": "fixed",
+      "vulnerability_id": "CVE-2026-40200"
+    },
+    {
+      "fixed_version": "1.2.5-r11",
+      "installed_version": "1.2.5-r9",
+      "package": "musl-utils",
+      "package_class": "os-pkgs",
+      "package_type": "alpine",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "frontend"
+      ],
+      "severity": "HIGH",
+      "status": "fixed",
+      "vulnerability_id": "CVE-2026-40200"
+    },
+    {
+      "fixed_version": "1.68.1",
+      "installed_version": "1.64.0-r0",
+      "package": "nghttp2-libs",
+      "package_class": "os-pkgs",
+      "package_type": "alpine",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "frontend"
+      ],
+      "severity": "HIGH",
+      "status": "fixed",
+      "vulnerability_id": "CVE-2026-27135"
+    },
+    {
+      "fixed_version": "1.3.2-r0",
+      "installed_version": "1.3.1-r2",
+      "package": "zlib",
+      "package_class": "os-pkgs",
+      "package_type": "alpine",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "frontend"
+      ],
+      "severity": "HIGH",
+      "status": "fixed",
+      "vulnerability_id": "CVE-2026-22184"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "1:2.41.5-0+deb13u1",
+      "package": "bsdutils",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-76642"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "1:2.41.5-0+deb13u1",
+      "package": "bsdutils",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-78408"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "1:2.41.5-0+deb13u1",
+      "package": "bsdutils",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-78409"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "1:2.41.5-0+deb13u1",
+      "package": "bsdutils",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-78410"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "8.14.1-2+deb13u4",
+      "package": "curl",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-12064"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "8.14.1-2+deb13u4",
+      "package": "curl",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-8286"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "8.14.1-2+deb13u4",
+      "package": "curl",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-8458"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "8.14.1-2+deb13u4",
+      "package": "curl",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-8927"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "1.13-1",
+      "package": "gzip",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-41992"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "2.3.2-2+b1",
+      "package": "libacl1",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-54369"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "2.41.5-0+deb13u1",
+      "package": "libblkid1",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-76642"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "2.41.5-0+deb13u1",
+      "package": "libblkid1",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-78408"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "2.41.5-0+deb13u1",
+      "package": "libblkid1",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-78409"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "2.41.5-0+deb13u1",
+      "package": "libblkid1",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-78410"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "8.14.1-2+deb13u4",
+      "package": "libcurl3t64-gnutls",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-12064"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "8.14.1-2+deb13u4",
+      "package": "libcurl3t64-gnutls",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-8286"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "8.14.1-2+deb13u4",
+      "package": "libcurl3t64-gnutls",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-8458"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "8.14.1-2+deb13u4",
+      "package": "libcurl3t64-gnutls",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-8927"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "8.14.1-2+deb13u4",
+      "package": "libcurl4t64",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-12064"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "8.14.1-2+deb13u4",
+      "package": "libcurl4t64",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-8286"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "8.14.1-2+deb13u4",
+      "package": "libcurl4t64",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-8458"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "8.14.1-2+deb13u4",
+      "package": "libcurl4t64",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-8927"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "2.8.3-1~deb13u1",
+      "package": "libexpat1",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-76956"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "2.8.3-1~deb13u1",
+      "package": "libexpat1",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-76957"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "2.41.5-0+deb13u1",
+      "package": "liblastlog2-2",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-76642"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "2.41.5-0+deb13u1",
+      "package": "liblastlog2-2",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-78408"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "2.41.5-0+deb13u1",
+      "package": "liblastlog2-2",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-78409"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "2.41.5-0+deb13u1",
+      "package": "liblastlog2-2",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-78410"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "2.41.5-0+deb13u1",
+      "package": "libmount1",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-76642"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "2.41.5-0+deb13u1",
+      "package": "libmount1",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-78408"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "2.41.5-0+deb13u1",
+      "package": "libmount1",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-78409"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "2.41.5-0+deb13u1",
+      "package": "libmount1",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-78410"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.5+20250216-2",
+      "package": "libncursesw6",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2025-69720"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "5.40.1-6",
+      "package": "libperl5.40",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "fix_deferred",
+      "vulnerability_id": "CVE-2026-42497"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "5.40.1-6",
+      "package": "libperl5.40",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-48962"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "5.40.1-6",
+      "package": "libperl5.40",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-57432"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "5.40.1-6",
+      "package": "libperl5.40",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-57433"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "5.40.1-6",
+      "package": "libperl5.40",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "fix_deferred",
+      "vulnerability_id": "CVE-2026-9538"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "2.41.5-0+deb13u1",
+      "package": "libsmartcols1",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-76642"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "2.41.5-0+deb13u1",
+      "package": "libsmartcols1",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-78408"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "2.41.5-0+deb13u1",
+      "package": "libsmartcols1",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-78409"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "2.41.5-0+deb13u1",
+      "package": "libsmartcols1",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-78410"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "3.46.1-7+deb13u1",
+      "package": "libsqlite3-0",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-11822"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "3.46.1-7+deb13u1",
+      "package": "libsqlite3-0",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-11824"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "1.11.1-1+deb13u1",
+      "package": "libssh2-1t64",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-58050"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "257.13-1~deb13u1",
+      "package": "libsystemd0",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-16742"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.5+20250216-2",
+      "package": "libtinfo6",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2025-69720"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "257.13-1~deb13u1",
+      "package": "libudev1",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-16742"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "2.41.5-0+deb13u1",
+      "package": "libuuid1",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-76642"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "2.41.5-0+deb13u1",
+      "package": "libuuid1",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-78408"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "2.41.5-0+deb13u1",
+      "package": "libuuid1",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-78409"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "2.41.5-0+deb13u1",
+      "package": "libuuid1",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-78410"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2013-7445"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2019-19449"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2019-19814"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2021-3847"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2021-3864"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2024-21803"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2024-58015"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2025-22104"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2025-38137"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2025-38187"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2025-38204"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2025-38206"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2025-38421"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2025-38636"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2025-39859"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2025-39862"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2025-39958"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2025-40025"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2025-68174"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2025-68735"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-23102"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-23208"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-23327"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-31493"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-31536"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-31568"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-43198"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-43263"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-46130"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-46181"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-46279"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-52991"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-53000"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-53010"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-53089"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-53091"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-53109"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-53118"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-53277"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-53330"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-63879"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-64283"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-68409"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-68426"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-68470"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-72042"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-72098"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-72463"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-74268"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-74269"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-74520"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-74611"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-74752"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.12.107-1",
+      "package": "linux-libc-dev",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-74753"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "1:4.16.0-2+really2.41.5-0+deb13u1",
+      "package": "login",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-76642"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "1:4.16.0-2+really2.41.5-0+deb13u1",
+      "package": "login",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-78408"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "1:4.16.0-2+really2.41.5-0+deb13u1",
+      "package": "login",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-78409"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "1:4.16.0-2+really2.41.5-0+deb13u1",
+      "package": "login",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-78410"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "2.41.5-0+deb13u1",
+      "package": "mount",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-76642"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "2.41.5-0+deb13u1",
+      "package": "mount",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-78408"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "2.41.5-0+deb13u1",
+      "package": "mount",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-78409"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "2.41.5-0+deb13u1",
+      "package": "mount",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-78410"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.5+20250216-2",
+      "package": "ncurses-base",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2025-69720"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "6.5+20250216-2",
+      "package": "ncurses-bin",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2025-69720"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "5.40.1-6",
+      "package": "perl",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "fix_deferred",
+      "vulnerability_id": "CVE-2026-42497"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "5.40.1-6",
+      "package": "perl",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-48962"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "5.40.1-6",
+      "package": "perl",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-57432"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "5.40.1-6",
+      "package": "perl",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-57433"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "5.40.1-6",
+      "package": "perl",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "fix_deferred",
+      "vulnerability_id": "CVE-2026-9538"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "5.40.1-6",
+      "package": "perl-base",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "fix_deferred",
+      "vulnerability_id": "CVE-2026-42497"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "5.40.1-6",
+      "package": "perl-base",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-48962"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "5.40.1-6",
+      "package": "perl-base",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-57432"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "5.40.1-6",
+      "package": "perl-base",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-57433"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "5.40.1-6",
+      "package": "perl-base",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "fix_deferred",
+      "vulnerability_id": "CVE-2026-9538"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "5.40.1-6",
+      "package": "perl-modules-5.40",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "fix_deferred",
+      "vulnerability_id": "CVE-2026-42497"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "5.40.1-6",
+      "package": "perl-modules-5.40",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-48962"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "5.40.1-6",
+      "package": "perl-modules-5.40",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-57432"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "5.40.1-6",
+      "package": "perl-modules-5.40",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-57433"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "5.40.1-6",
+      "package": "perl-modules-5.40",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "fix_deferred",
+      "vulnerability_id": "CVE-2026-9538"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "2.41.5-0+deb13u1",
+      "package": "util-linux",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-76642"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "2.41.5-0+deb13u1",
+      "package": "util-linux",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-78408"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "2.41.5-0+deb13u1",
+      "package": "util-linux",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-78409"
+    },
+    {
+      "fixed_version": null,
+      "installed_version": "2.41.5-0+deb13u1",
+      "package": "util-linux",
+      "package_class": "os-pkgs",
+      "package_type": "debian",
+      "reachability": "NOT_ASSESSED_BY_TRIVY",
+      "roles": [
+        "backend",
+        "migration-runner"
+      ],
+      "severity": "HIGH",
+      "status": "affected",
+      "vulnerability_id": "CVE-2026-78410"
+    }
+  ],
+  "gate": {
+    "severity_threshold": [
+      "HIGH",
+      "CRITICAL"
+    ],
+    "status": "FAILED"
+  },
+  "gitleaks_disposition": {
+    "finding_count": 410,
+    "priority_location": "docs/reference-pool/platformization/snapshots/readmes/getsops__sops.md:1606",
+    "report": "gitleaks-current-tree.report.json",
+    "required_action": "Review redacted findings; rotate/remove confirmed credentials and record narrowly justified allowlist entries only for verified fixtures or vendored reference snapshots."
+  },
+  "origin": {
+    "language_package_findings": 0,
+    "os_package_findings": 184,
+    "unknown_origin_findings": 0
+  },
+  "repair_surfaces": [
+    {
+      "acceptance": "Trivy HIGH/CRITICAL count is zero for the rebuilt frontend runtime image.",
+      "action": "Refresh the pinned nginx:1.27-alpine runtime digest to an image containing at least the Trivy-reported fixed package versions, then rebuild and rescan.",
+      "file": "main/frontend-modern/Dockerfile",
+      "line": 18,
+      "roles": [
+        "frontend"
+      ]
+    },
+    {
+      "acceptance": "Rebuilt backend and migration images either have zero HIGH/CRITICAL findings or each remaining finding has approved VEX/risk disposition tied to its exact package/version/CVE.",
+      "action": "Refresh the pinned python:3.11-slim base and remove build-only packages from runtime stages where feasible. Trivy reports no fixed version for the current Debian 13.6 findings, so do not invent package pins; rebuild against a base with vendor fixes or produce explicit VEX/risk disposition for remaining findings.",
+      "file": "main/backend/Dockerfile",
+      "lines": [
+        1,
+        11,
+        16
+      ],
+      "roles": [
+        "backend",
+        "migration-runner"
+      ]
+    }
+  ],
+  "schema": "mrw.stage3.bounded-security-repair.r13p.v1"
+}

@@ -1,0 +1,42 @@
+{
+  "schema": "mrw.functorial_structural_debt_remediation.freeze.v1",
+  "status": "FROZEN_EXACT_BYTES",
+  "frozen_at": "2026-09-04",
+  "authority": {
+    "normative": false,
+    "promotion_authorized": false,
+    "production_canonical_write": false,
+    "live_provider": false,
+    "external_delivery": false,
+    "cutover": false,
+    "authority_transfer": false
+  },
+  "members": {
+    "review": {
+      "path": "docs/governance/functorial-project-review-2026-09-04.v1.md",
+      "status": "FROZEN_EVIDENCE_V1",
+      "sha256": "0ebf1335862305ea06e20e5944e04e12b7e7f37a44c3729612e64edd63763dd1",
+      "bytes": 18166,
+      "lines": 422
+    },
+    "plan": {
+      "path": "docs/governance/functorial-structural-debt-remediation-plan.v1.md",
+      "status": "FROZEN_FOR_IMPLEMENTATION_V1",
+      "sha256": "6afe1173b15ab42221c93a07968396faa2ad27c9581a787e706c2135e3bfb3f6",
+      "bytes": 16083,
+      "lines": 385
+    }
+  },
+  "mutable_progress": {
+    "path": "docs/governance/functorial-structural-debt-remediation-progress.v1.md",
+    "mutability": "MUTABLE_EXECUTION_STATE"
+  },
+  "validation_scope": [
+    "JSON parse",
+    "exact path existence",
+    "SHA-256/bytes/lines closure",
+    "frozen status literals",
+    "mutable progress separation",
+    "kit full Python architecture ratchet"
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "schema_version": "stage1.residual_raw_gate_receipt.v1",
+  "authoritative": false,
+  "status": "COMPLETED_FAILING_EXECUTION_PRESERVED",
+  "source_contract_sha256": "c11c96a68284085dfb2548cd9ce19062de22b5d4bbf5af9d2c2863a16dcf03f2",
+  "selector": "unit and not external and not flaky",
+  "result": {
+    "exit_code": 1,
+    "failed": 55,
+    "passed": 1712,
+    "skipped": 0,
+    "deselected": 2328,
+    "warnings": 14,
+    "subtests_passed": 42,
+    "collection_errors": 0
+  },
+  "environment": {
+    "python": "main/backend/.venv311/bin/python",
+    "pythonhashseed": "0",
+    "pythonpath": "/Users/wangyiliang/market-research-workflow/src",
+    "workflow_graph_db_store_enabled": "false",
+    "workflow_graph_db_store_fail_closed": "false",
+    "agent_session_db_store_enabled": "false",
+    "agent_session_db_store_fail_closed": "false",
+    "extraction_max_parallel": "12",
+    "topic_workflow_max_parallel": "8",
+    "project_schema_prefix": "project_",
+    "diagnostic_differences": [
+      "PYTHONDONTWRITEBYTECODE=1",
+      "pytest cacheprovider disabled",
+      "existing .venv311 reused; dependencies were not reinstalled"
+    ]
+  },
+  "artifacts": [
+    {
+      "path": "stage1-successor-evidence/residual-disposition-v1/raw-gate/backend-unit-final.log",
+      "sha256": "33d48a566619950f40125467c5a5a53f728b2bb76f9e28b44a5eb14894c10397",
+      "source_path": "/private/tmp/mrw-stage12-v5-backend-final.4e2HdA/backend-unit-final.log",
+      "copy_mode": "create_only"
+    },
+    {
+      "path": "stage1-successor-evidence/residual-disposition-v1/raw-gate/backend-unit-final.xml",
+      "sha256": "e07c7ae3322bfd3c77e18b47fefce67f82db8e0517640a81b6db22ac2272bb94",
+      "source_path": "/private/tmp/mrw-stage12-v5-backend-final.4e2HdA/backend-unit-final.xml",
+      "copy_mode": "create_only"
+    }
+  ],
+  "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE"
+}

@@ -50,21 +50,31 @@ class LanceDBLocalIndexAdapter:
         rows: list[dict[str, Any]] = []
         embedding_provider = _adapter_embedding_provider(self)
         provider_meta = embedding_provider.metadata()
+        embedding_dim = int(provider_meta["embedding_dim"])
         for chunk in chunks:
             record = chunk.to_record()
             metadata = dict(record.pop("metadata", {}) or {})
             if not record.get("vector"):
                 record["vector"] = embedding_provider.embed_text(_embedding_text(record))
+            vector_dim = len(record["vector"])
+            if vector_dim != embedding_dim:
+                raise _vector_dimension_mismatch(chunk.chunk_id, expected=embedding_dim, actual=vector_dim)
+            declared_dim = metadata.get("embedding_dim")
+            if declared_dim is not None and int(declared_dim) != vector_dim:
+                raise _metadata_dimension_mismatch(chunk.chunk_id, declared=declared_dim, actual=vector_dim)
             record["embedding_provider"] = metadata.get("embedding_provider") or provider_meta["provider_id"]
             record["embedding_model"] = metadata.get("embedding_model") or provider_meta["model"]
-            record["embedding_model_version"] = metadata.get("embedding_model_version") or provider_meta["model_version"]
-            record["embedding_dim"] = metadata.get("embedding_dim") or len(record["vector"])
+            record["embedding_model_version"] = (
+                metadata.get("embedding_model_version") or provider_meta["model_version"]
+            )
+            record["embedding_dim"] = vector_dim
             record["vector_version"] = metadata.get("vector_version") or provider_meta["vector_version"]
             record["metadata_json"] = json.dumps(metadata, ensure_ascii=False, sort_keys=True)
             rows.append(record)
         if not rows:
             return {"ok": True, "chunk_count": 0, "created_table": False, "adapter": "lancedb"}
-        self._table = self._db.create_table(self.table_name, data=rows, mode="overwrite")
+        table_data = _fixed_size_vector_table(rows, embedding_dim=embedding_dim)
+        self._table = self._db.create_table(self.table_name, data=table_data, mode="overwrite")
         self._table.create_fts_index("content", replace=True)
         return {
             "ok": True,
@@ -217,4 +227,26 @@ def _embedding_text(record: dict[str, Any]) -> str:
             str(record.get("content") or "").strip(),
         ]
         if part
+    )
+
+
+def _fixed_size_vector_table(rows: list[dict[str, Any]], *, embedding_dim: int) -> Any:
+    import pyarrow as pa  # type: ignore
+
+    table = pa.Table.from_pylist(rows)
+    vector_index = table.schema.get_field_index("vector")
+    vectors = pa.array(
+        [row["vector"] for row in rows],
+        type=pa.list_(pa.float32(), embedding_dim),
+    )
+    return table.set_column(vector_index, "vector", vectors)
+
+
+def _vector_dimension_mismatch(chunk_id: str, *, expected: int, actual: int) -> ValueError:
+    return ValueError(f"vector dimension mismatch for chunk {chunk_id!r}: expected {expected}, got {actual}")
+
+
+def _metadata_dimension_mismatch(chunk_id: str, *, declared: object, actual: int) -> ValueError:
+    return ValueError(
+        f"embedding_dim metadata mismatch for chunk {chunk_id!r}: declared {declared}, vector has {actual}"
     )

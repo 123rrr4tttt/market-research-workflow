@@ -9,9 +9,13 @@ plan-shape checks.
 
 from __future__ import annotations
 
-import subprocess
 import sys
 from pathlib import Path
+
+try:
+    from scripts._current_dev_git import changed_files_in_worktree, run_git
+except ModuleNotFoundError:
+    from _current_dev_git import changed_files_in_worktree, run_git
 
 
 PLAN_PATH = Path(
@@ -52,14 +56,6 @@ REQUIRED_AUDIT_TEXT = [
 ]
 
 
-def run_git(args: list[str]) -> str:
-    proc = subprocess.run(["git", *args], text=True, capture_output=True, check=False)
-    if proc.returncode != 0:
-        detail = proc.stderr.strip() or proc.stdout.strip()
-        raise RuntimeError(f"git {' '.join(args)} failed: {detail}")
-    return proc.stdout.strip()
-
-
 def changed_files_against_integration() -> list[str]:
     try:
         merge_base = run_git(["merge-base", "HEAD", INTEGRATION_BRANCH])
@@ -67,19 +63,6 @@ def changed_files_against_integration() -> list[str]:
         merge_base = "HEAD~1"
     output = run_git(["diff", "--name-only", f"{merge_base}..HEAD"])
     return [line for line in output.splitlines() if line]
-
-
-def changed_files_in_worktree() -> list[str]:
-    output = run_git(["status", "--porcelain"])
-    paths: list[str] = []
-    for line in output.splitlines():
-        if not line:
-            continue
-        path = line[2:].strip()
-        if " -> " in path:
-            path = path.split(" -> ", 1)[1]
-        paths.append(path)
-    return paths
 
 
 def unique_ordered(paths: list[str]) -> list[str]:

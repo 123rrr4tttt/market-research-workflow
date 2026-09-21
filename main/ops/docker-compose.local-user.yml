@@ -1,0 +1,76 @@
+# Current-checkout local user runtime, using retained images without rebuilding.
+# Invoke with docker-compose.yml, project mrw-local-user, and explicit services.
+services:
+  db:
+    ports: !reset []
+  es:
+    ports: !reset []
+  redis:
+    ports: !reset []
+    volumes:
+      - local_user_redis:/data
+    command: [redis-server, --appendonly, "yes"]
+  backend:
+    image: mrw-local/stage4-business001:stage4-c9-effect
+    platform: linux/amd64
+    pull_policy: never
+    build: !reset null
+    env_file: !reset []
+    environment:
+      ENV: dev
+      DATABASE_URL: postgresql+psycopg2://postgres:postgres@db:5432/postgres
+      ES_URL: http://es:9200
+      REDIS_URL: redis://redis:6379/0
+      RUN_MIGRATIONS: "true"
+      OPENAI_API_KEY: ""
+      PYTHONPATH: /opt/functorial-kit:/opt/mrw/src
+      CODEX_CLI_LLM_FALLBACK_ENABLED: "false"
+      CODEX_CLI_LLM_PREFERRED: "false"
+      MODERN_FRONTEND_URL: http://127.0.0.1:15132
+    ports: !override
+      - 127.0.0.1:18132:8000
+    volumes: !override
+      - ../backend/app:/app/app:ro
+      - ../backend/migrations:/app/migrations:ro
+      - ../backend/alembic.ini:/app/alembic.ini:ro
+      - ../backend/llm_prompts:/app/llm_prompts:ro
+      - ../../src:/opt/mrw/src:ro
+      - ${MRW_FUNCTORIAL_KIT_PATH:-../../../Desktop/functorial-kit/python}:/opt/functorial-kit:ro
+      - local_user_logs:/var/log/celery:ro
+      - ../backend/seed_data:/app/seed_data:ro
+  celery-worker:
+    image: mrw-local/stage4-business001:stage4-c9-effect
+    platform: linux/amd64
+    pull_policy: never
+    build: !reset null
+    env_file: !reset []
+    environment:
+      ENV: dev
+      DATABASE_URL: postgresql+psycopg2://postgres:postgres@db:5432/postgres
+      ES_URL: http://es:9200
+      REDIS_URL: redis://redis:6379/0
+      RUN_MIGRATIONS: "false"
+      OPENAI_API_KEY: ""
+      PYTHONPATH: /opt/functorial-kit:/opt/mrw/src
+      CODEX_CLI_LLM_FALLBACK_ENABLED: "false"
+      CODEX_CLI_LLM_PREFERRED: "false"
+      CELERY_LOG_FILE: /var/log/celery/worker.log
+    volumes: !override
+      - ../backend/app:/app/app:ro
+      - ../backend/llm_prompts:/app/llm_prompts:ro
+      - ../../src:/opt/mrw/src:ro
+      - ${MRW_FUNCTORIAL_KIT_PATH:-../../../Desktop/functorial-kit/python}:/opt/functorial-kit:ro
+      - local_user_logs:/var/log/celery
+    command: [celery, -A, app.celery_app, worker, --loglevel=info, --concurrency=1, --prefetch-multiplier=1, --max-tasks-per-child=50, --max-memory-per-child=300000, --logfile=/var/log/celery/worker.log]
+  frontend-modern:
+    image: mrw-local/r13x-candidate-frontend:8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2
+    platform: linux/amd64
+    pull_policy: never
+    build: !reset null
+    ports: !override
+      - 127.0.0.1:15132:80
+    volumes:
+      - ../frontend-modern/dist:/usr/share/nginx/html:ro
+volumes:
+  local_user_redis:
+  local_user_logs:

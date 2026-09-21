@@ -1,0 +1,144 @@
+{
+  "authoritative": false,
+  "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+  "member_count": 27,
+  "members": [
+    {
+      "bytes": 13432,
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/build_stage3_v6_artifact_remediation_v1.py",
+      "sha256": "e05158b13c09e3d1d20e1b5c04e345c4c5de4fb96991ff1561ac188dca7d9c46"
+    },
+    {
+      "bytes": 30873,
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/check_stage3_v6_artifact_remediation_v1.py",
+      "sha256": "afd398de2c0f2216becb1bf2cb115cafb581766d3e1bf5e45fd908e68ee43572"
+    },
+    {
+      "bytes": 4964,
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/input-observation.v1.json",
+      "sha256": "636201ccb95fbfa5391ea703746bc670d8b172612f2cad1bf9ff99fc978434d3"
+    },
+    {
+      "bytes": 2128,
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/focused-final.json",
+      "sha256": "02bce1bd9418815e195db20de9c786eb8c6f018840a98036ff8914086cb31950"
+    },
+    {
+      "bytes": 424,
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/focused-final.log",
+      "sha256": "a67a44868d0d8448fa3ac38b8dd7477b97d5e04de077d0e730be44f8ba3d08dc"
+    },
+    {
+      "bytes": 46753,
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/focused-final.xml",
+      "sha256": "50ebcfa01ffcf11036b67e7420307eee8e9b0309851ff53e16df56b8fd6b81b7"
+    },
+    {
+      "bytes": 558,
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/frontend-build.json",
+      "sha256": "21e3cc0f83540185261bfdf1fc6d48224c753ce27ada3426bea78f251ba27b04"
+    },
+    {
+      "bytes": 2862,
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/frontend-build.log",
+      "sha256": "17e912cde2c42ee123eb7ebe6763158cc4f94b0112621f12850fa7cc8e1fe967"
+    },
+    {
+      "bytes": 595,
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/frontend-frozen-install.json",
+      "sha256": "f1ab3d0b5be18d3dac65e24aba16b93e29cadd09daa1f3e3a03130f7a4569f49"
+    },
+    {
+      "bytes": 53,
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/frontend-frozen-install.log",
+      "sha256": "82d1448e824b26164f10b36f5b4c7dd8898ef757679156959c1e5c5abe7439dd"
+    },
+    {
+      "bytes": 556,
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/frontend-lint.json",
+      "sha256": "a84d842fdbc6770e3b5f5ad0d4c21a872ac7b2c91491b14991f8cf535aa6af2a"
+    },
+    {
+      "bytes": 11,
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/frontend-lint.log",
+      "sha256": "050c69da23536758722729aeda55a8d0fb9d557495ef6d33d70873a3b64a71c1"
+    },
+    {
+      "bytes": 652,
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/frontend-storybook.json",
+      "sha256": "45f9092dff4883c0e88db5d18bcb29bf30a767d7c4d2d0586218c315ee686eeb"
+    },
+    {
+      "bytes": 18467,
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/frontend-storybook.log",
+      "sha256": "58efda7d2d7b641d23d0dc162474158ebddecb6703a896f07c0d9ab76f7a521e"
+    },
+    {
+      "bytes": 610,
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/frontend-typecheck.json",
+      "sha256": "0b3eacad348c74e6e021ed840f6ec9b9aa98cb1bd5c35cb8a56088d4cc46c3d2"
+    },
+    {
+      "bytes": 0,
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/frontend-typecheck.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 1565,
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/package-focused-create-final.json",
+      "sha256": "c68323925bc908f0bd97fb905ad41b61e6d1431018b0e20ec0370f10fe54ca89"
+    },
+    {
+      "bytes": 99,
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/package-focused-create-final.log",
+      "sha256": "ac2f36e71645a1de73da7440fcbb6859ffac97f0e92a46c130cee96e3a6add79"
+    },
+    {
+      "bytes": 2581,
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/package-focused-create-final.xml",
+      "sha256": "687f9b964aa7fb8f153e14efcc6c1ac9be4eb23cfe022e39a233912aff4712d9"
+    },
+    {
+      "bytes": 1545,
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/package-focused-final.json",
+      "sha256": "b6cecf5b3ee050754abeea026f8c3dfad38f3fddbeef4b8d2bf216c4c1539511"
+    },
+    {
+      "bytes": 99,
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/package-focused-final.log",
+      "sha256": "ac2f36e71645a1de73da7440fcbb6859ffac97f0e92a46c130cee96e3a6add79"
+    },
+    {
+      "bytes": 2581,
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/package-focused-final.xml",
+      "sha256": "4df55e7a2a301f19c793b43da2889da78b7342e56d87fe746608662b45143ca9"
+    },
+    {
+      "bytes": 1676,
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/source-selector-bound-final.json",
+      "sha256": "4f4d5e9219446b9a1ddd3474931a353b37a8b76109149e0ba69e60b0a9671fe8"
+    },
+    {
+      "bytes": 6734,
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/source-selector-bound-final.log",
+      "sha256": "b44d50c073d9e4dba0c50ad8194018a34988489a270d560b862c210ae3cd5f3e"
+    },
+    {
+      "bytes": 323095,
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/source-selector-bound-final.xml",
+      "sha256": "849f2edbd7bba9df8db30b74e35541158a1f4e35e34fa8d106112067fe6b1da0"
+    },
+    {
+      "bytes": 37226,
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/stage3-v6-artifact-remediation-record.v1.json",
+      "sha256": "bda307646e629af1f0488184dfc3dac6eabfa3e04754e858fb4696c6e54907cc"
+    },
+    {
+      "bytes": 15587,
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/test_stage3_v6_artifact_remediation_v1.py",
+      "sha256": "c9e6ee8569fccf2a99e2227c18d257f43ec51efd83dbfeff5f8701859fc3a55c"
+    }
+  ],
+  "schema_version": "mrw.stage1.stage3_v6_artifact_remediation_manifest.v1",
+  "status": "COMPLETE_NOT_AUTHORITY"
+}

@@ -1,0 +1,58 @@
+{
+  "authoritative": false,
+  "status": "PASS",
+  "identity_classification": "NON_R13X_DERIVED_STAGE4_RUNTIME_IMAGE",
+  "purpose": "Derive one Stage4-local backend image from retained r13x by replacing only the authenticated readiness entrypoint and production OAuth secure-cookie startup guard.",
+  "base": {
+    "reference": "mrw-local/r13x-candidate-backend:8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+    "image_id": "sha256:d72688f24fb867ae2e0e9310cfc9ec25aac649a8da69130ee26469c0bd37c2ef",
+    "candidate_commit": "8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+    "candidate_tree": "ce7c67c831b51f9d64b4c2f1a470a724a50b19df"
+  },
+  "replacements": [
+    {
+      "image_path": "/docker-entrypoint.sh",
+      "source_path": "main/backend/docker-entrypoint.sh",
+      "source_sha256": "f5215bda79994b29c544763f9a88fbdbefd863a0ab3b70f2962f09b62de677c7",
+      "reason": "Authenticated Elasticsearch and Redis readiness with correctly parsed user/password URL fields"
+    },
+    {
+      "image_path": "/app/app/composition/production.py",
+      "source_path": "main/backend/app/composition/production.py",
+      "source_sha256": "f35a8cc676fd226eacb960f55d4e270ed9174aa664bb18e92189bc0c6593da67",
+      "reason": "Fail closed when production OAuth is enabled without Secure session cookies"
+    }
+  ],
+  "derived": {
+    "reference": "mrw-local/stage4-r13x-backend-config:8652d653f740735f",
+    "image_id": "sha256:f99f900e5b420cf7e1c9513598a87251cc6c8124e6ec8461c564ed4d7ca76c20",
+    "repo_digest": "mrw-local/stage4-r13x-backend-config@sha256:f99f900e5b420cf7e1c9513598a87251cc6c8124e6ec8461c564ed4d7ca76c20",
+    "platform": "linux/amd64",
+    "dockerfile": "Dockerfile.entrypoint",
+    "compose_roles": ["backend", "celery-worker"]
+  },
+  "validation": {
+    "host_bash_n_exit_code": 0,
+    "host_parse_url_part_exit_code": 0,
+    "image_content_and_parser_exit_code": 0,
+    "image_entrypoint_sha256_exact": true,
+    "image_production_composition_sha256_exact": true,
+    "secure_cookie_guard_marker_present": true
+  },
+  "commands": [
+    {
+      "command": "docker build --platform linux/amd64 --pull=false --load -f <runtime>/Dockerfile.entrypoint -t mrw-local/stage4-r13x-backend-config:8652d653f740735f .",
+      "exit_code": 0,
+      "result": "local derived image loaded; base resolved locally; no registry push"
+    },
+    {
+      "command": "docker run --rm --platform linux/amd64 --entrypoint sh <derived-image> -lc '<exact file hashes, bash syntax, parser and guard checks>'",
+      "exit_code": 0,
+      "result": "derived runtime files PASS"
+    }
+  ],
+  "network_or_publish_action": false,
+  "registry_push": false,
+  "frozen_r13x_modified": false,
+  "full_role_rebuild": false
+}

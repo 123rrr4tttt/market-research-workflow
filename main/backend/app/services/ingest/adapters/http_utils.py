@@ -2,11 +2,17 @@ from __future__ import annotations
 
 import random
 import time
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 import requests
 from requests import Response
-from selectolax.parser import HTMLParser
+
+from app.services.resource_pool.http_port import (
+    HttpFetchError,
+    HttpFetchFailureReason,
+    make_html_parser,
+)
 
 
 DEFAULT_HEADERS: Mapping[str, str] = {
@@ -22,10 +28,6 @@ DEFAULT_TIMEOUT = 30.0
 
 _SESSION = requests.Session()
 _SESSION.headers.update(DEFAULT_HEADERS)
-
-
-class HttpFetchError(RuntimeError):
-    """Raised when HTTP fetching fails after retries."""
 
 
 def fetch_html(
@@ -70,25 +72,37 @@ def fetch_html(
             # 4xx as fatal but retry on transient 5xx.
             if response.status_code >= 500:
                 last_exc = HttpFetchError(
-                    f"{response.status_code} received from {url}"
+                    f"{response.status_code} received from {url}",
+                    reason=HttpFetchFailureReason.HTTP_STATUS,
+                    url=url,
+                    status_code=int(response.status_code),
+                    retryable=True,
                 )
             else:
                 try:
                     response.raise_for_status()
                 except requests.HTTPError as exc:  # pragma: no cover - unlikely
-                    raise HttpFetchError(str(exc)) from exc
+                    raise HttpFetchError(
+                        str(exc),
+                        reason=HttpFetchFailureReason.HTTP_STATUS,
+                        url=url,
+                        status_code=int(response.status_code),
+                        retryable=False,
+                    ) from exc
                 return response.text, response
 
         # Exponential backoff with jitter
         sleep_for = backoff ** attempt + random.uniform(0, 0.3)
         time.sleep(sleep_for)
 
-    raise HttpFetchError(f"Failed to fetch {url}") from last_exc
+    if isinstance(last_exc, HttpFetchError):
+        raise last_exc
+
+    raise HttpFetchError(
+        f"Failed to fetch {url}",
+        reason=HttpFetchFailureReason.TRANSPORT,
+        url=url,
+    ) from last_exc
 
 
-def make_html_parser(html: str) -> HTMLParser:
-    """Create a Selectolax parser from raw HTML."""
-
-    return HTMLParser(html)
-
-
+__all__ = ["HttpFetchError", "fetch_html", "make_html_parser"]

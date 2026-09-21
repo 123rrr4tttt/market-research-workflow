@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from ..contracts import CollectRequest, CollectResult
 from ..display_meta import build_display_meta
+from ...task_readback_metadata import extract_runtime_readback_payload
 
 
 class SearchMarketAdapter:
@@ -16,6 +17,7 @@ class SearchMarketAdapter:
             start_offset=request.options.get("start_offset"),
             days_back=request.options.get("days_back"),
             language=str(request.language or "en"),
+            runtime_readback=extract_runtime_readback_payload(request.source_context, request.options),
         )
         cr = CollectResult(
             channel=request.channel or "search.market",

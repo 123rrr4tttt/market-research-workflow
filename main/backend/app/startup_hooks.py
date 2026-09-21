@@ -8,6 +8,10 @@ from sqlalchemy import text
 
 from .models.base import Base, engine
 from .settings.config import settings
+from .services.projects.schema_initialization import (
+    initialize_default_project_schema,
+    run_serialized_schema_ddl,
+)
 from .models.entities import (
     AgentApproval,
     AgentArtifact,
@@ -41,25 +45,31 @@ from .models.entities import (
     WorkflowGraphEvent,
     WorkflowGraphRun,
 )
+from .models.llm_report_export_audit import LlmReportExportAuditEvent
+from .models.llm_report_export_token_state import LlmReportExportTokenState
+from .models.llm_report_trends import LlmReportQualityTrend
 from .models.writing_entities import WritingDocument, WritingDocumentCitation, WritingDocumentDraft
 
 
 def register_startup_hooks(app: FastAPI) -> None:
     logger = logging.getLogger("app")
 
+    @app.on_event("startup")
+    def _ensure_default_project_schema() -> None:
+        initialize_default_project_schema(logger_obj=logger)
+
     def _is_missing_vector_type(exc: Exception) -> bool:
         message = str(exc).lower()
         return "vector" in message and "does not exist" in message
 
     def _create_tenant_tables_best_effort(schema_name: str, tenant_tables: list) -> None:
-        with engine.begin() as conn:
+        def _create(conn: object) -> None:
             conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{schema_name}"'))
-
-        for table in tenant_tables:
-            with engine.begin() as conn:
-                conn.execute(text(f'SET search_path TO "{schema_name}", public'))
+            conn.execute(text(f'SET search_path TO "{schema_name}", public'))
+            for table in tenant_tables:
                 try:
-                    table.create(bind=conn, checkfirst=True)
+                    with conn.begin_nested():
+                        table.create(bind=conn, checkfirst=True)
                 except Exception as exc:  # noqa: BLE001
                     table_name = getattr(table, "name", "")
                     if table_name == "embeddings" and _is_missing_vector_type(exc):
@@ -70,6 +80,12 @@ def register_startup_hooks(app: FastAPI) -> None:
                         )
                         continue
                     raise
+
+        run_serialized_schema_ddl(
+            engine,
+            schema_name=schema_name,
+            operation=_create,
+        )
 
     @app.on_event("startup")
     def _ensure_bootstrap_projects() -> None:
@@ -84,7 +100,7 @@ def register_startup_hooks(app: FastAPI) -> None:
         - All projects are peers. "public" schema is reserved for control-plane and shared tables.
         """
         try:
-            with engine.begin() as conn:
+            def _bootstrap(conn: object) -> None:
                 conn.execute(text('SET search_path TO "public"'))
 
                 legacy = conn.execute(
@@ -185,6 +201,12 @@ def register_startup_hooks(app: FastAPI) -> None:
                         conn.execute(
                             text(f'ALTER SEQUENCE IF EXISTS public."{t}_id_seq" SET SCHEMA "{neutral_schema}"')
                         )
+
+            run_serialized_schema_ddl(
+                engine,
+                schema_name="public",
+                operation=_bootstrap,
+            )
         except Exception as exc:  # noqa: BLE001
             logging.getLogger("app").warning("failed to bootstrap projects: %s", exc)
 
@@ -209,6 +231,9 @@ def register_startup_hooks(app: FastAPI) -> None:
             PriceObservation.__table__,
             ResourcePoolUrl.__table__,
             ResourcePoolSiteEntry.__table__,
+            LlmReportQualityTrend.__table__,
+            LlmReportExportAuditEvent.__table__,
+            LlmReportExportTokenState.__table__,
             WritingDocument.__table__,
             WritingDocumentDraft.__table__,
             WritingDocumentCitation.__table__,
@@ -218,10 +243,10 @@ def register_startup_hooks(app: FastAPI) -> None:
                 rows = conn.execute(
                     text("SELECT project_key, schema_name FROM public.projects WHERE enabled = true")
                 ).fetchall()
-                for _project_key, schema_name in rows:
-                    if not schema_name:
-                        continue
-                    _create_tenant_tables_best_effort(schema_name, tenant_tables)
+            for _project_key, schema_name in rows:
+                if not schema_name:
+                    continue
+                _create_tenant_tables_best_effort(schema_name, tenant_tables)
         except Exception as exc:  # noqa: BLE001
             logger.warning("failed to ensure project schemas ready: %s", exc)
 
@@ -255,8 +280,14 @@ def register_startup_hooks(app: FastAPI) -> None:
             WorkflowGraphEvent.__table__,
         ]
         try:
-            with engine.begin() as conn:
+            def _create_shared_tables(conn: object) -> None:
                 conn.execute(text('SET search_path TO "public"'))
                 Base.metadata.create_all(bind=conn, tables=shared_tables, checkfirst=True)
+
+            run_serialized_schema_ddl(
+                engine,
+                schema_name="public",
+                operation=_create_shared_tables,
+            )
         except Exception as exc:  # noqa: BLE001
             logging.getLogger("app").warning("failed to ensure shared source-library tables ready: %s", exc)

@@ -1,19 +1,40 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Mapping
+from typing import Annotated, Any, Mapping
 from uuid import uuid4
+
+from .contracts import raise_workflow_graph_legacy, workflow_graph_failure
 
 AUDIT_CONTRACT_VERSION = "workflow_graph.governance_audit.v1"
 ROLLBACK_CONTRACT_VERSION = "workflow_graph.rollback.v1"
+CROSS_OBJECT_GOVERNANCE_CONTRACT_VERSION = "cross_object.publish_governance.v1"
 
 GRAPH_EDIT_AUDIT_ACTIONS = frozenset({"submit", "rollback"})
 HANDOFF_AUDIT_ACTIONS = frozenset({"handoff.persisted", "handoff.replayed"})
 AUDIT_ACTIONS = GRAPH_EDIT_AUDIT_ACTIONS | HANDOFF_AUDIT_ACTIONS
 
 GRAPH_GOVERNANCE_OBJECT_SCOPES = frozenset({"curated_business_graph", "graph_handoff"})
+COMPATIBLE_GOVERNANCE_OBJECT_TYPES = ("workflow_template", "dashboard", "report", "project")
 AUDIT_STATUSES = frozenset({"succeeded", "failed", "rejected"})
 HANDOFF_MODES = frozenset({"pull_prepared_evidence", "push_payload"})
+
+
+def _raise_governance_failure(message: str, *, cause: BaseException | None = None) -> None:
+    failure = workflow_graph_failure(
+        "contract_invalid",
+        message,
+        owner="workflow_graph.governance_contract",
+        public_exception=ValueError,
+        public_message=message,
+        field="governance",
+        index=-1,
+    )
+    # The governance contract deliberately exposes the historical ``ValueError``
+    # ABI.  Pass that concrete type into the shared lift so its public-exception
+    # context remains consistent with the typed failure rather than falling back
+    # to the compiler-error default.
+    raise_workflow_graph_legacy(failure, exception_type=ValueError, cause=cause)
 
 ROLLBACK_SCOPE = "snapshot_restore"
 VERSION_SEMANTICS = "curated_graph_revision_separate_from_template_versions"
@@ -34,25 +55,30 @@ def build_graph_edit_audit_record(
     status: str = "succeeded",
     rollback_from_version_id: str | None = None,
     context: Mapping[str, Any] | None = None,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view "
+    "fact_source=graph_edit_governance_inputs "
+    "witness=test:test_w04_authority_metadata",
+]:
     resolved_action = _required_str(action, "action")
     if resolved_action not in GRAPH_EDIT_AUDIT_ACTIONS:
-        raise ValueError(f"unsupported graph edit audit action: {resolved_action}")
+        _raise_governance_failure(f"unsupported graph edit audit action: {resolved_action}")
 
     resolved_scope = _required_str(object_scope, "object_scope")
     if resolved_scope != "curated_business_graph":
-        raise ValueError(f"unsupported graph edit object_scope: {resolved_scope}")
+        _raise_governance_failure(f"unsupported graph edit object_scope: {resolved_scope}")
 
     resolved_from_revision = _non_negative_int(from_revision, "from_revision")
     resolved_to_revision = _non_negative_int(to_revision, "to_revision")
     if resolved_to_revision <= resolved_from_revision:
-        raise ValueError("to_revision must be greater than from_revision")
+        _raise_governance_failure("to_revision must be greater than from_revision")
 
     resolved_rollback_from = str(rollback_from_version_id or "").strip() or None
     if resolved_action == "rollback" and not resolved_rollback_from:
-        raise ValueError("rollback_from_version_id is required for rollback audit")
+        _raise_governance_failure("rollback_from_version_id is required for rollback audit")
     if resolved_action == "submit" and resolved_rollback_from:
-        raise ValueError("rollback_from_version_id is only allowed for rollback audit")
+        _raise_governance_failure("rollback_from_version_id is only allowed for rollback audit")
 
     record = _base_audit_record(
         action=resolved_action,
@@ -89,7 +115,12 @@ def build_graph_rollback_contract(
     base_revision: int | None,
     requested_at: str | None = None,
     reason: str | None = None,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view "
+    "fact_source=graph_rollback_governance_inputs "
+    "witness=test:test_w04_authority_metadata",
+]:
     resolved_current_revision = _non_negative_int(current_revision, "current_revision")
     resolved_base_revision = None
     if base_revision is not None:
@@ -97,9 +128,12 @@ def build_graph_rollback_contract(
 
     contract = {
         "contract_version": ROLLBACK_CONTRACT_VERSION,
+        "governance_contract_version": CROSS_OBJECT_GOVERNANCE_CONTRACT_VERSION,
         "graph_id": _required_str(graph_id, "graph_id"),
         "actor_id": _required_str(actor_id, "actor_id"),
         "project_key": _required_str(project_key, "project_key"),
+        "object_type": "curated_business_graph",
+        "object_id": _required_str(graph_id, "graph_id"),
         "object_scope": "curated_business_graph",
         "rollback_scope": ROLLBACK_SCOPE,
         "target_version_id": _required_str(target_version_id, "target_version_id"),
@@ -108,6 +142,19 @@ def build_graph_rollback_contract(
         "requires_base_revision_match": True,
         "version_semantics": VERSION_SEMANTICS,
         "requested_at": requested_at or _utcnow(),
+        "operator": {
+            "actor_id": _required_str(actor_id, "actor_id"),
+        },
+        "target": {
+            "object_type": "curated_business_graph",
+            "object_id": _required_str(graph_id, "graph_id"),
+            "version_id": _required_str(target_version_id, "target_version_id"),
+        },
+        "snapshot": {
+            "kind": "version_snapshot",
+            "version_id": _required_str(target_version_id, "target_version_id"),
+        },
+        "compatible_object_types": list(COMPATIBLE_GOVERNANCE_OBJECT_TYPES),
     }
     resolved_reason = str(reason or "").strip()
     if resolved_reason:
@@ -127,14 +174,19 @@ def build_handoff_audit_record(
     timestamp: str | None = None,
     status: str = "succeeded",
     evidence_pack: Mapping[str, Any] | None = None,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view "
+    "fact_source=handoff_audit_inputs "
+    "witness=test:test_w04_authority_metadata",
+]:
     resolved_action = _required_str(action, "action")
     if resolved_action not in HANDOFF_AUDIT_ACTIONS:
-        raise ValueError(f"unsupported handoff audit action: {resolved_action}")
+        _raise_governance_failure(f"unsupported handoff audit action: {resolved_action}")
 
     resolved_mode = _required_str(handoff_mode, "handoff_mode")
     if resolved_mode not in HANDOFF_MODES:
-        raise ValueError(f"unsupported handoff_mode: {resolved_mode}")
+        _raise_governance_failure(f"unsupported handoff_mode: {resolved_mode}")
 
     pack = dict(evidence_pack or {})
     provenance = pack.get("provenance") if isinstance(pack.get("provenance"), Mapping) else {}
@@ -174,21 +226,25 @@ def _base_audit_record(
 ) -> dict[str, Any]:
     resolved_status = _required_str(status, "status")
     if resolved_status not in AUDIT_STATUSES:
-        raise ValueError(f"unsupported audit status: {resolved_status}")
+        _raise_governance_failure(f"unsupported audit status: {resolved_status}")
 
     resolved_scope = _required_str(object_scope, "object_scope")
     if resolved_scope not in GRAPH_GOVERNANCE_OBJECT_SCOPES:
-        raise ValueError(f"unsupported audit object_scope: {resolved_scope}")
+        _raise_governance_failure(f"unsupported audit object_scope: {resolved_scope}")
 
     record = {
         "contract_version": AUDIT_CONTRACT_VERSION,
+        "governance_contract_version": CROSS_OBJECT_GOVERNANCE_CONTRACT_VERSION,
         "audit_id": str(audit_id or "").strip() or f"audit_{uuid4().hex[:12]}",
         "action": _required_str(action, "action"),
         "actor_id": _required_str(actor_id, "actor_id"),
         "graph_id": _required_str(graph_id, "graph_id"),
+        "object_type": resolved_scope,
+        "object_id": _required_str(graph_id, "graph_id"),
         "object_scope": resolved_scope,
         "timestamp": timestamp or _utcnow(),
         "status": resolved_status,
+        "compatible_object_types": list(COMPATIBLE_GOVERNANCE_OBJECT_TYPES),
     }
     resolved_project_key = str(project_key or "").strip()
     if resolved_project_key:
@@ -199,7 +255,7 @@ def _base_audit_record(
 def _required_str(value: Any, field: str) -> str:
     resolved = str(value or "").strip()
     if not resolved:
-        raise ValueError(f"{field} is required")
+        _raise_governance_failure(f"{field} is required")
     return resolved
 
 
@@ -207,9 +263,9 @@ def _non_negative_int(value: Any, field: str) -> int:
     try:
         resolved = int(value)
     except Exception as exc:  # noqa: BLE001
-        raise ValueError(f"{field} must be an integer") from exc
+        _raise_governance_failure(f"{field} must be an integer", cause=exc)
     if resolved < 0:
-        raise ValueError(f"{field} must be >= 0")
+        _raise_governance_failure(f"{field} must be >= 0")
     return resolved
 
 

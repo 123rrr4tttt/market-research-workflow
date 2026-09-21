@@ -51,6 +51,8 @@ from app.successor_runtime.research.object_types import (
 )
 from app.successor_runtime.research.sources import SourceRef
 
+from .first_specimen import _capability_failure, _raise_capability_failure
+
 
 class SubmissionRejected(RuntimeError):
     """The exact submission cannot be created without weakening its bindings."""
@@ -95,26 +97,26 @@ class SubmissionCommand:
             self.fairness_key,
         )
         if any(not value for value in required):
-            raise ValueError("submission identities must be non-empty")
+            _raise_capability_failure(_capability_failure("SUBMISSION_REJECTED", "submission identities must be non-empty"))
         project_key = _project_key(self.scope)
         if self.intent.project_key != project_key:
-            raise ValueError("ResearchIntent project scope drift")
+            _raise_capability_failure(_capability_failure("SUBMISSION_REJECTED", "ResearchIntent project scope drift"))
         if self.inquiry.intent_ref != self.intent.intent_id:
-            raise ValueError("Inquiry does not bind the submitted ResearchIntent")
+            _raise_capability_failure(_capability_failure("SUBMISSION_REJECTED", "Inquiry does not bind the submitted ResearchIntent"))
         if self.research_plan.inquiry_ref != self.inquiry.inquiry_id:
-            raise ValueError("ResearchPlan does not bind the submitted Inquiry")
+            _raise_capability_failure(_capability_failure("SUBMISSION_REJECTED", "ResearchPlan does not bind the submitted Inquiry"))
         if len(set(self.document_ids)) != 2 or any(
             not isinstance(value, int) or isinstance(value, bool) or value <= 0
             for value in self.document_ids
         ):
-            raise ValueError("first specimen requires two distinct positive Document IDs")
+            _raise_capability_failure(_capability_failure("SUBMISSION_REJECTED", "first specimen requires two distinct positive Document IDs"))
         if len({source.locator for source in self.source_refs}) != 2:
-            raise ValueError("first specimen requires two distinct SourceRef locators")
+            _raise_capability_failure(_capability_failure("SUBMISSION_REJECTED", "first specimen requires two distinct SourceRef locators"))
         for source, document_id in zip(self.source_refs, self.document_ids, strict=True):
             if source.locator != f"document://{project_key}/{document_id}":
-                raise ValueError("SourceRef locator does not bind the exact Document ID")
+                _raise_capability_failure(_capability_failure("SUBMISSION_REJECTED", "SourceRef locator does not bind the exact Document ID"))
             if source.access_profile_ref != "DocumentCanonicalReadPort":
-                raise ValueError("SourceRef must use DocumentCanonicalReadPort")
+                _raise_capability_failure(_capability_failure("SUBMISSION_REJECTED", "SourceRef must use DocumentCanonicalReadPort"))
         for name in (
             "deployment_catalog_digest",
             "submission_authority_digest",
@@ -124,16 +126,16 @@ class SubmissionCommand:
         ):
             value = getattr(self, name)
             if len(value) != 64 or any(char not in "0123456789abcdef" for char in value):
-                raise ValueError(f"{name} must be canonical sha256 hex")
+                _raise_capability_failure(_capability_failure("SUBMISSION_REJECTED", f"{name} must be canonical sha256 hex"))
         if self.submission_authority_digest == "0" * 64:
-            raise ValueError("submission authority cannot be a placeholder")
+            _raise_capability_failure(_capability_failure("SUBMISSION_REJECTED", "submission authority cannot be a placeholder"))
         if self.claim_authority_epoch < 0 or self.resource_policy_epoch < 0:
-            raise ValueError("submission epochs must be non-negative")
+            _raise_capability_failure(_capability_failure("SUBMISSION_REJECTED", "submission epochs must be non-negative"))
         if (
             getattr(self.compiler_binding, "operation_catalog_digest", None)
             != self.catalog.catalog_digest
         ):
-            raise ValueError("CompilerBinding operation catalog drift")
+            _raise_capability_failure(_capability_failure("SUBMISSION_REJECTED", "CompilerBinding operation catalog drift"))
 
 
 @dataclass(frozen=True, slots=True)
@@ -260,14 +262,14 @@ def _project_key(scope: object) -> str:
     project_scope = getattr(scope, "project_scope", None)
     project_key = getattr(project_scope, "project_key", None)
     if not isinstance(project_key, str) or not project_key:
-        raise TypeError("submission scope must expose a validated project_scope")
+        _raise_capability_failure(_capability_failure("CAPABILITY_CONTRACT_INVALID", "submission scope must expose a validated project_scope"), TypeError)
     return project_key
 
 
 def _project_scope_value(scope: object, field: str) -> object:
     project_scope = getattr(scope, "project_scope", None)
     if project_scope is None or not hasattr(project_scope, field):
-        raise TypeError("submission scope must expose a validated project_scope")
+        _raise_capability_failure(_capability_failure("CAPABILITY_CONTRACT_INVALID", "submission scope must expose a validated project_scope"), TypeError)
     return getattr(project_scope, field)
 
 
@@ -275,13 +277,13 @@ def _validate_document_observation(
     observation: CanonicalDocumentObservation, document_id: int
 ) -> None:
     if observation.document_id != document_id:
-        raise SubmissionRejected("DocumentCanonicalReadPort identity drift")
+        _raise_capability_failure(_capability_failure("SUBMISSION_REJECTED", "DocumentCanonicalReadPort identity drift"), SubmissionRejected)
     if not isinstance(observation.exact_bytes, bytes):
-        raise SubmissionRejected("DocumentCanonicalReadPort must return independent bytes")
+        _raise_capability_failure(_capability_failure("SUBMISSION_REJECTED", "DocumentCanonicalReadPort must return independent bytes"), SubmissionRejected)
     if observation.updated_at.tzinfo is None:
-        raise SubmissionRejected("DocumentCanonicalReadPort timestamp must be timezone-aware")
+        _raise_capability_failure(_capability_failure("SUBMISSION_REJECTED", "DocumentCanonicalReadPort timestamp must be timezone-aware"), SubmissionRejected)
     if observation.text_hash is not None and not isinstance(observation.text_hash, str):
-        raise SubmissionRejected("DocumentCanonicalReadPort text_hash type drift")
+        _raise_capability_failure(_capability_failure("SUBMISSION_REJECTED", "DocumentCanonicalReadPort text_hash type drift"), SubmissionRejected)
 
 
 def _incarnation(submission_id: str, label: str) -> str:
@@ -784,11 +786,9 @@ def _validate_compile_assignment(
         if _enum_value(getattr(assignment, field, None)) != value
     ]
     if mismatches:
-        raise SubmissionRejected(
-            "COMPILE assignment exact binding drift: " + ", ".join(mismatches)
-        )
+        _raise_capability_failure(_capability_failure("SUBMISSION_REJECTED", "COMPILE assignment exact binding drift: " + ", ".join(mismatches)), SubmissionRejected)
     if not getattr(assignment, "assignment_digest", None):
-        raise SubmissionRejected("COMPILE assignment lacks exact digest")
+        _raise_capability_failure(_capability_failure("SUBMISSION_REJECTED", "COMPILE assignment lacks exact digest"), SubmissionRejected)
 
 
 __all__ = [

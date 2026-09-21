@@ -4,7 +4,10 @@ import hashlib
 import math
 import re
 from dataclasses import dataclass
-from typing import Iterable, Protocol
+from typing import Any, Iterable, NoReturn, Protocol
+
+from functorial_kit import Failure
+from mrw_functorial_kit.core.provider_port_failures import indexer_policy_failures
 
 
 LOCAL_LIVE_EMBEDDING_PROVIDER_ID = "repo_local_token_hashing"
@@ -12,6 +15,39 @@ LOCAL_LIVE_EMBEDDING_MODEL = "repo-local-token-hashing-v1"
 LOCAL_LIVE_EMBEDDING_MODEL_VERSION = "2026-05-23.wave56"
 LOCAL_LIVE_VECTOR_VERSION = "repo-local-live-v2"
 DEFAULT_LOCAL_LIVE_EMBEDDING_DIM = 512
+_FAILURE_WITNESS = "test:test_w01_embedding_dimension_abi_still_raises_value_error"
+
+
+def _embedding_failure(code: str, message: str, *, site: str, **details: Any) -> Failure:
+    context: dict[str, Any] = {
+        "boundary_class": "PURE_CONTRACT_FAILURE",
+        "failure_family": indexer_policy_failures.name,
+        "operation": "local_index.embedding_provider",
+        "owner": "local_index.embedding_provider",
+        "public_exception": "ValueError",
+        "public_message": message,
+        "site": site,
+        "witness": _FAILURE_WITNESS,
+    }
+    context.update(details)
+    return indexer_policy_failures.fail(code, message, context)
+
+
+def _raise_embedding_failure(failure: Failure) -> NoReturn:
+    context = failure.context or {}
+    required = {"boundary_class", "failure_family", "operation", "owner", "public_exception", "public_message", "site", "witness"}
+    if (
+        not indexer_policy_failures.matches(failure)
+        or required - set(context)
+        or context.get("failure_family") != indexer_policy_failures.name
+        or context.get("boundary_class") != "PURE_CONTRACT_FAILURE"
+        or context.get("public_exception") != "ValueError"
+        or context.get("public_message") != failure.message
+    ):
+        # kit:boundary owner=local_index.embedding_provider.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w01_embedding_dimension_abi_still_raises_value_error
+        raise TypeError("embedding provider failure lift context is incomplete or inconsistent")
+    # kit:boundary owner=local_index.embedding_provider.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=indexer.policy.failure witness=test:test_w01_embedding_dimension_abi_still_raises_value_error
+    raise ValueError(str(context["public_message"]))
 
 
 class LocalEmbeddingProvider(Protocol):
@@ -72,7 +108,14 @@ class RepoLocalHashingEmbeddingProvider:
 
     def __init__(self, embedding_dim: int = DEFAULT_LOCAL_LIVE_EMBEDDING_DIM) -> None:
         if embedding_dim < 8:
-            raise ValueError("embedding_dim must be at least 8")
+            _raise_embedding_failure(
+                _embedding_failure(
+                    "embedding_dimension_invalid",
+                    "embedding_dim must be at least 8",
+                    site="RepoLocalHashingEmbeddingProvider.embedding_dim",
+                    embedding_dim=embedding_dim,
+                )
+            )
         self.embedding_dim = int(embedding_dim)
 
     def embed_text(self, text: str) -> list[float]:

@@ -18,6 +18,9 @@ from sqlalchemy import create_engine
 
 from app.api import router as api_router
 from app.api import successor_runtime as api_module
+from app.composition.production_runtime import (
+    build_production_successor_runtime_app_dependencies,
+)
 from app.contracts.successor_runtime import (
     SuccessorRuntimeCommandMetaV2DTO,
     SuccessorRuntimeEnvelopeV2DTO,
@@ -50,6 +53,12 @@ from app.successor_runtime.runtime.facade_contracts import (
     QueryResult,
 )
 from app.successor_runtime.runtime.ports import ProjectScopeRef
+from app.services.request_identity import (
+    authenticated_actor_context,
+    set_request_actor_context,
+)
+from app.successor_runtime.runtime.ports import RuntimeScope
+from app.successor_runtime.substrate.postgres.session import compute_scope_digest
 
 pytestmark = pytest.mark.unit
 
@@ -300,6 +309,124 @@ def test_mounted_query_returns_typed_projection_envelope() -> None:
     assert port.last.read_only is True
     for key in CONTROL_TOP_LEVEL_FIELDS:
         assert key not in body
+
+
+def test_production_query_mount_returns_exact_registry_scope(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import app.composition.production_runtime as production_runtime
+
+    incarnation = "inc:production-query-mount"
+    registry_scope = ProjectScopeRef(
+        project_key=LOCAL_PROJECT,
+        resolved_schema="mrw_p_production_query_mount",
+        project_registry_revision=9,
+        incarnation=incarnation,
+        scope_digest=compute_scope_digest(
+            LOCAL_PROJECT,
+            "mrw_p_production_query_mount",
+            9,
+            incarnation,
+        ),
+    )
+    connection = object()
+    observed: dict[str, object] = {}
+
+    class _ConnectionContext:
+        def __enter__(self) -> object:
+            return connection
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+    class _Engine:
+        def connect(self) -> _ConnectionContext:
+            return _ConnectionContext()
+
+    class _RegistryResolver:
+        def __init__(self, *, connection: object) -> None:
+            observed["resolver_connection"] = connection
+
+        def resolve(self, project_key: str) -> ProjectScopeRef:
+            observed["project_key"] = project_key
+            return registry_scope
+
+    class _Repository:
+        def __init__(self, repository_connection: object, scope: RuntimeScope) -> None:
+            observed["repository_connection"] = repository_connection
+            observed["runtime_scope"] = scope
+
+        def read(self, query: FacadeQueryV2) -> QueryResult:
+            observed["query"] = query
+            return QueryResult(
+                data={"projection_generation": 4, "source": "postgres"},
+                meta=ProjectionResponseMetaV2(
+                    project_key=registry_scope.project_key,
+                    trace_id=query.meta.trace_id,
+                    projection_id=PROJECTION_ID,
+                    project_scope_ref=registry_scope,
+                    projector_id=SOURCE_IDENTITY["projector_id"],
+                    projector_version=SOURCE_IDENTITY["projector_version"],
+                    source_kind=SOURCE_IDENTITY["source_kind"],
+                    source_ref=SOURCE_IDENTITY["source_ref"],
+                    source_incarnation=SOURCE_IDENTITY["source_incarnation"],
+                    projection_generation=4,
+                    offset_revision=3,
+                    projection_revision=4,
+                    source_digest="d" * 64,
+                    cursor=3,
+                ),
+            )
+
+    monkeypatch.setattr(production_runtime, "ServerProjectScopeResolver", _RegistryResolver)
+    monkeypatch.setattr(production_runtime, "PostgresC9QueryRepository", _Repository)
+    deps = build_production_successor_runtime_app_dependencies(_Engine())  # type: ignore[arg-type]
+    router = api_module.create_successor_runtime_router(
+        resolver=deps.resolver,
+        facade=deps.facade,
+        actor_provider=deps.actor_provider,
+    )
+    app = _app_with_router(router=router)
+
+    @app.middleware("http")
+    async def bind_trusted_actor(request: Request, call_next: Any) -> Any:
+        set_request_actor_context(
+            request,
+            authenticated_actor_context(
+                actor_id="actor:production-query-mount",
+                source="authenticated_request_state",
+                auth_mode="oidc_claims",
+            ),
+        )
+        return await call_next(request)
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/v1/successor-runtime/v2/queries",
+            json=_query_body(),
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "ok"
+    assert body["data"] == {"projection_generation": 4, "source": "postgres"}
+    assert body["meta"]["project_scope_ref"] == {
+        "project_key": registry_scope.project_key,
+        "resolved_schema": registry_scope.resolved_schema,
+        "project_registry_revision": registry_scope.project_registry_revision,
+        "incarnation": registry_scope.incarnation,
+        "scope_digest": registry_scope.scope_digest,
+    }
+    assert body["meta"]["project_scope_ref"]["incarnation"] != (
+        "incarnation:local-only-app-mount:v1"
+    )
+    assert body["control_feedback"] is False
+    assert observed["resolver_connection"] is connection
+    assert observed["repository_connection"] is connection
+    assert observed["runtime_scope"] == RuntimeScope(
+        project_scope=registry_scope,
+        actor_id="actor:production-query-mount",
+    )
 
 
 @pytest.mark.parametrize(

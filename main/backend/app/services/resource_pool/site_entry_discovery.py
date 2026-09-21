@@ -13,7 +13,7 @@ from sqlalchemy import select
 from ...models.base import SessionLocal
 from ...models.entities import ResourcePoolUrl, SharedResourcePoolUrl
 from ..projects import bind_project, bind_schema
-from ..ingest.adapters.http_utils import HttpFetchError, fetch_html, make_html_parser
+from .http_port import HttpFetchError, fetch_html, make_html_parser
 from .auto_classify import classify_site_entry
 from .site_entries import upsert_site_entry
 from .auto_classify import infer_keyword_capabilities, classify_site_entries_batch

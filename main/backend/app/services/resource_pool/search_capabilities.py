@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 import json
 import re
 import time
-from typing import Any
+from typing import Annotated, Any
 from urllib.parse import parse_qsl, urlsplit
 
 from ..extraction.json_utils import extract_json_payload
@@ -150,7 +150,10 @@ def resolve_candidate_scoring_config(raw: dict[str, Any] | str | None) -> Search
 def build_capability_candidates(
     strategy: str,
     raw_candidates: list[dict[str, Any] | str],
-) -> list[SearchCapabilityCandidate]:
+) -> Annotated[
+    list[SearchCapabilityCandidate],
+    "kit:non-authoritative derived_as=view fact_source=strategy+raw_candidates+url_normalization witness=test:test_w03_ingest_ports_authority_metadata",
+]:
     out: list[SearchCapabilityCandidate] = []
     seen: set[str] = set()
     normalized_strategy = (strategy or "").strip().lower() or "unknown"

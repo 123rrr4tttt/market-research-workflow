@@ -233,11 +233,18 @@ def _c8_payload(cell_id: str) -> Any:
     )
 
 
-def _program_observation(cell_id: str) -> dict[str, object]:
-    bundle = c8p.build_c8_bundle()
+def _program_observation(
+    cell_id: str,
+    *,
+    graph_projection_composition: Any | None = None,
+    payload: Any | None = None,
+) -> dict[str, object]:
+    bundle = c8p.build_c8_bundle(
+        graph_projection_composition=graph_projection_composition,
+    )
     catalog = c8p.build_c8_catalog(bundle)
     registry = c8p.build_c8_registry(bundle)
-    payload = _c8_payload(cell_id)
+    payload = _c8_payload(cell_id) if payload is None else payload
     program = c8p.build_c8_program(
         cell_id=cell_id,
         payload=payload,
@@ -246,18 +253,24 @@ def _program_observation(cell_id: str) -> dict[str, object]:
         project_key=PROJECT_KEY,
         project_registry_revision=PROJECT_REGISTRY_REVISION,
         project_scope_digest=PROJECT_SCOPE_DIGEST,
+        graph_projection_composition=graph_projection_composition,
     )
     plan = c8p.compile_c8_program(
         program,
         catalog,
         operation_contracts=registry,
     )
-    primary_kind = {
-        "C8.1": c8p.C8_1_KIND,
-        "C8.2": c8p.C8_2_COMPOSE_KIND,
-        "C8.3": c8p.C8_3_KIND,
-        "C8.4": c8p.C8_4_KIND,
-    }[cell_id]
+    primary_kind = (
+        {
+            "C8.1": c8p.C8_1_KIND,
+            "C8.2": c8p.C8_2_COMPOSE_KIND,
+            "C8.3": c8p.C8_3_KIND,
+        }.get(cell_id)
+        or c8p.graph_projection_definition(
+            cell_id,
+            graph_projection_composition=graph_projection_composition,
+        ).kind
+    )
     contract = c8p.exact_contract_ref(catalog, kind=primary_kind)
     cell_profiles = bundle.profiles[cell_id]
     interpreter_profile_digest = cell_profiles["interpreter"].profile_digest
@@ -323,8 +336,12 @@ def _program_observation(cell_id: str) -> dict[str, object]:
     else:
         post = LegacyGraphNode(type="Post", id="1")
         keyword = LegacyGraphNode(type="Keyword", id="k1")
+        graph_definition = c8p.graph_projection_definition(
+            cell_id,
+            graph_projection_composition=graph_projection_composition,
+        )
         donors.register(
-            catalog.lookup(c8p.C8_4_KIND).contract_digest,
+            catalog.lookup(graph_definition.kind).contract_digest,
             LegacyC8GraphDonor(nodes={"Post:1": post, "Keyword:k1": keyword}).run,
         )
     seed_inputs = {plan.ordered_steps[0].step_id: (payload, payload.payload_digest)}
@@ -566,8 +583,12 @@ def _c8_4_observations() -> tuple[dict[str, object], dict[str, object]]:
     }
 
 
-def _operation_bindings() -> dict[str, list[dict[str, object]]]:
-    bundle = c8p.build_c8_bundle()
+def _operation_bindings(
+    graph_projection_composition: Any | None = None,
+) -> dict[str, list[dict[str, object]]]:
+    bundle = c8p.build_c8_bundle(
+        graph_projection_composition=graph_projection_composition,
+    )
     by_kind = {operation.ref.kind: operation for operation in bundle.operations}
 
     def binding(operation_kind: str, role: str) -> dict[str, object]:
@@ -609,7 +630,17 @@ def _operation_bindings() -> dict[str, list[dict[str, object]]]:
                 c8r.REPORT_DELIVERY_CONTRACT, "report_delivery_interface"
             ),
         ],
-        "c8_4": [binding(c8p.C8_4_KIND, "graph_declared_loss_projection")],
+        "c8_4": [
+            binding(
+                native.definition.kind,
+                "graph_declared_loss_projection",
+            )
+            for native in (
+                c8p.compose_default_c8_graph_projection_contributions()
+                if graph_projection_composition is None
+                else graph_projection_composition
+            )
+        ],
     }
 
 

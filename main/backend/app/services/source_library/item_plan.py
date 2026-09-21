@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Annotated, Any, Dict
 from urllib.parse import unquote
 
 from .external_project import build_external_project_summary, get_external_project_manifest, is_external_project_item
@@ -122,7 +122,10 @@ def _is_handler_cluster_search_template_item(item: dict[str, Any]) -> bool:
     )
 
 
-def build_item_execution_plan(item: dict[str, Any] | None) -> dict[str, Any]:
+def build_item_execution_plan(item: dict[str, Any] | None) -> Annotated[
+    dict[str, Any],
+    "kit:prepared-command effect_boundary=source_library.item_execution witness=test:test_w01_meta",
+]:
     from ..resource_pool.site_search_policy import resolve_site_search_policy
 
     source_item = dict(item or {})
@@ -229,7 +232,10 @@ def build_item_definition_view(
     item: dict[str, Any] | None,
     *,
     include_execution_plan: bool = False,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=source_library.item_definition witness=test:test_w01_meta",
+]:
     definition = dict(item or {})
     params = _as_dict(definition.get("params"))
     extra = _as_dict(definition.get("extra"))

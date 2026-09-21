@@ -11,7 +11,7 @@ credential or durable effect is touched.
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any
+from typing import Annotated, Any
 
 from app.services.agent_core.contracts import (
     AgentCoreRequest,
@@ -781,7 +781,12 @@ def build_legacy_agent_core_c6_1_binding(
     project_scope_digest: str,
     runtime_protocol_version: str = "mrw.runtime.protocol.v1",
     resource_policy_epoch: int = 1,
-) -> InterpreterBinding:
+) -> Annotated[
+    InterpreterBinding,
+    "kit:prepared-command effect_boundary=app.successor_migration."
+    "legacy_agent_core.build_legacy_agent_core_c6_1_binding "
+    "witness=test:test_c6_1_same_program_legacy_and_successor_shadow_parity",
+]:
     return _binding(
         contract_digest=contract_digest,
         interpreter_profile_digest=c6_1_legacy_profile_digest(),
@@ -798,7 +803,12 @@ def build_successor_agent_core_c6_1_binding(
     project_scope_digest: str,
     runtime_protocol_version: str = "mrw.runtime.protocol.v1",
     resource_policy_epoch: int = 1,
-) -> InterpreterBinding:
+) -> Annotated[
+    InterpreterBinding,
+    "kit:prepared-command effect_boundary=app.successor_migration."
+    "legacy_agent_core.build_successor_agent_core_c6_1_binding "
+    "witness=test:test_c6_1_same_program_legacy_and_successor_shadow_parity",
+]:
     return _binding(
         contract_digest=contract_digest,
         interpreter_profile_digest=c6_1_successor_profile_digest(),
@@ -815,7 +825,12 @@ def build_legacy_agent_core_c6_2_binding(
     project_scope_digest: str,
     runtime_protocol_version: str = "mrw.runtime.protocol.v1",
     resource_policy_epoch: int = 1,
-) -> InterpreterBinding:
+) -> Annotated[
+    InterpreterBinding,
+    "kit:prepared-command effect_boundary=app.successor_migration."
+    "legacy_agent_core.build_legacy_agent_core_c6_2_binding "
+    "witness=test:test_c6_2_same_program_legacy_and_successor_provider_parity",
+]:
     return _binding(
         contract_digest=contract_digest,
         interpreter_profile_digest=c6_2_legacy_profile_digest(),
@@ -832,7 +847,12 @@ def build_successor_agent_core_c6_2_binding(
     project_scope_digest: str,
     runtime_protocol_version: str = "mrw.runtime.protocol.v1",
     resource_policy_epoch: int = 1,
-) -> InterpreterBinding:
+) -> Annotated[
+    InterpreterBinding,
+    "kit:prepared-command effect_boundary=app.successor_migration."
+    "legacy_agent_core.build_successor_agent_core_c6_2_binding "
+    "witness=test:test_c6_2_same_program_legacy_and_successor_provider_parity",
+]:
     return _binding(
         contract_digest=contract_digest,
         interpreter_profile_digest=c6_2_successor_profile_digest(),
@@ -849,7 +869,12 @@ def build_legacy_agent_core_c6_3_binding(
     project_scope_digest: str,
     runtime_protocol_version: str = "mrw.runtime.protocol.v1",
     resource_policy_epoch: int = 1,
-) -> InterpreterBinding:
+) -> Annotated[
+    InterpreterBinding,
+    "kit:prepared-command effect_boundary=app.successor_migration."
+    "legacy_agent_core.build_legacy_agent_core_c6_3_binding "
+    "witness=test:test_c6_3_swapped_bindings_and_mutation_reject",
+]:
     return _binding(
         contract_digest=contract_digest,
         interpreter_profile_digest=c6_3_legacy_profile_digest(),
@@ -866,7 +891,12 @@ def build_successor_agent_core_c6_3_binding(
     project_scope_digest: str,
     runtime_protocol_version: str = "mrw.runtime.protocol.v1",
     resource_policy_epoch: int = 1,
-) -> InterpreterBinding:
+) -> Annotated[
+    InterpreterBinding,
+    "kit:prepared-command effect_boundary=app.successor_migration."
+    "legacy_agent_core.build_successor_agent_core_c6_3_binding "
+    "witness=test:test_c6_3_swapped_bindings_and_mutation_reject",
+]:
     return _binding(
         contract_digest=contract_digest,
         interpreter_profile_digest=c6_3_successor_profile_digest(),

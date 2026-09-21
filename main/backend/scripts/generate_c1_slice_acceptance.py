@@ -33,7 +33,7 @@ import re
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 if __package__ in (None, ""):
@@ -65,9 +65,13 @@ AGGREGATE_SCHEMA = "mrw.functorial-successor.p5-c1-slice-acceptance.v1"
 AGGREGATE_ID = "p5-c1-slice-acceptance"
 
 SLICE_ORDER = ("A", "B", "C")
-SLICE_PATHS = {
-    slice_id: SLICE_DIR / f"C1Slice{slice_id}.v1.json" for slice_id in SLICE_ORDER
+SLICE_PATHS = {slice_id: SLICE_DIR / f"C1Slice{slice_id}.v1.json" for slice_id in SLICE_ORDER}
+REVIEW_BINDINGS = {
+    "declared_scope": SLICE_DIR / "reviews/C1DeclaredScopeCorrectnessReview.v1.json",
+    "predecessor_completeness": SLICE_DIR / "reviews/C1PredecessorCompletenessReview.v1.json",
 }
+FROZEN_REVIEW_AUTHORITY = "NO_PROMOTION_NO_CANDIDATE_NO_LIVE_NO_PROVIDER_NO_CUTOVER"
+FROZEN_CHECK_RESULT = "FROZEN_HISTORICAL_EVIDENCE_UNCHANGED_NOT_AUTHORITY"
 SLICE_SPECS = {
     "A": {
         "name": "intake_recovery",
@@ -102,9 +106,7 @@ C1_CELL_BOUNDARIES = {
     "C1.3": "graph store replay",
 }
 
-PG_TEST_RELPATH = Path(
-    "main/backend/tests/successor_runtime/test_p5_c1_slice_acceptance_postgres.py"
-)
+PG_TEST_RELPATH = Path("main/backend/tests/successor_runtime/test_p5_c1_slice_acceptance_postgres.py")
 PG_TEST_PATH = REPOSITORY_ROOT / PG_TEST_RELPATH
 PG_TEST_NODES = (
     "test_c1_slice_runtime_node_replay_restart_and_rollback",
@@ -116,13 +118,9 @@ PG_TEST_NODES = (
     "test_c1_store_aba_and_stale_revision_fail_closed",
 )
 PG_TEST_FILE_SHA256 = "1bea9f4f44714f625153d8f661335e01996fd965272b75208bd32534f544aa54"
-PG_TEST_FIXTURE_RELPATH = Path(
-    "main/backend/tests/successor_runtime/c1_slice_postgres_fixture.py"
-)
+PG_TEST_FIXTURE_RELPATH = Path("main/backend/tests/successor_runtime/c1_slice_postgres_fixture.py")
 PG_TEST_FIXTURE_PATH = REPOSITORY_ROOT / PG_TEST_FIXTURE_RELPATH
-PG_TEST_FIXTURE_SHA256 = (
-    "b2411e5439045b58edd0ac523db1021dd2f36af9af0a9230d99673e6d4943a56"
-)
+PG_TEST_FIXTURE_SHA256 = "b2411e5439045b58edd0ac523db1021dd2f36af9af0a9230d99673e6d4943a56"
 
 STATUS_READY = "C1_ACCEPTANCE_EVIDENCE_READY_FOR_INDEPENDENT_REVIEW"
 STATUS_PARTIAL = "PARTIAL"
@@ -134,6 +132,7 @@ EXIT_MISSING = 2
 EXIT_PG_BINDING = 3
 EXIT_PG_UNBOUND = 4
 EXIT_BUILD = 5
+EXIT_FROZEN = 6
 
 
 class EvidenceBuildError(RuntimeError):
@@ -177,9 +176,7 @@ def _bind(path: Path, role: str) -> dict[str, object]:
 
 def _missing_pg_nodes(text: str) -> tuple[str, ...]:
     return tuple(
-        node
-        for node in PG_TEST_NODES
-        if re.search(rf"^def\s+{re.escape(node)}\s*\(", text, re.MULTILINE) is None
+        node for node in PG_TEST_NODES if re.search(rf"^def\s+{re.escape(node)}\s*\(", text, re.MULTILINE) is None
     )
 
 
@@ -206,8 +203,7 @@ def _require_pg_binding(
         )
     if bound_sha != actual_sha:
         raise EvidenceBuildError(
-            "PG test file bound SHA drift: "
-            f"expected={bound_sha} actual={actual_sha} path={_relpath(path)}",
+            f"PG test file bound SHA drift: expected={bound_sha} actual={actual_sha} path={_relpath(path)}",
             exit_code=EXIT_PG_BINDING,
         )
     try:
@@ -231,9 +227,7 @@ def _require_pg_binding(
         )
     fixture_data = fixture_path.read_bytes()
     fixture_sha = _sha256_bytes(fixture_data)
-    bound_fixture_sha = (
-        pg_fixture_sha256 if pg_fixture_sha256 is not None else PG_TEST_FIXTURE_SHA256
-    )
+    bound_fixture_sha = pg_fixture_sha256 if pg_fixture_sha256 is not None else PG_TEST_FIXTURE_SHA256
     if not bound_fixture_sha:
         raise EvidenceBuildError(
             "PG_TEST_FIXTURE_SHA256 is unbound; evidence generation is fail-closed",
@@ -298,14 +292,12 @@ def _bindings(
 ) -> tuple[list[dict[str, object]], list[dict[str, object]], list[dict[str, object]]]:
     source_paths = [
         (
-            EVIDENCE_ROOT
-            / "CapabilitySpecCompilationAndVerticalSlicesDecision.v1.json",
+            EVIDENCE_ROOT / "CapabilitySpecCompilationAndVerticalSlicesDecision.v1.json",
             "vertical_slices_route_decision",
         ),
         (EVIDENCE_ROOT / "p1-fragments/C1.json", "p1_fragment_C1"),
         (
-            TOPIC_ROOT
-            / "13_functorial-successor-c1-c9-locator-pending-inventory.v1.json",
+            TOPIC_ROOT / "13_functorial-successor-c1-c9-locator-pending-inventory.v1.json",
             "c1_c9_locator_inventory",
         ),
         (
@@ -339,8 +331,7 @@ def _bindings(
         implementation_paths.extend(
             [
                 (
-                    BACKEND_ROOT
-                    / "app/successor_runtime/capabilities/ingest_c7_program.py",
+                    BACKEND_ROOT / "app/successor_runtime/capabilities/ingest_c7_program.py",
                     "c7_ingest_program",
                 ),
                 (
@@ -357,8 +348,7 @@ def _bindings(
                     "c8_program",
                 ),
                 (
-                    BACKEND_ROOT
-                    / "app/successor_runtime/capabilities/first_specimen.py",
+                    BACKEND_ROOT / "app/successor_runtime/capabilities/first_specimen.py",
                     "first_specimen_bundle",
                 ),
                 (
@@ -432,12 +422,8 @@ def _c1_cell_coverage(slice_id: str, acceptance: Any) -> dict[str, dict[str, obj
                     "replay_refs": list(acceptance.replay_refs),
                     "observation_profile": acceptance.observation_profile,
                     "legacy_observation_digest": acceptance.legacy_observation_digest,
-                    "successor_observation_digest": (
-                        acceptance.successor_observation_digest
-                    ),
-                    "observational_compatibility": (
-                        acceptance.observational_compatibility
-                    ),
+                    "successor_observation_digest": (acceptance.successor_observation_digest),
+                    "observational_compatibility": (acceptance.observational_compatibility),
                     "compatibility_claim": acceptance.compatibility_claim,
                     "evidence_ref": f"evidence:c1:{slice_id}:runtime-replay",
                 },
@@ -451,9 +437,7 @@ def _c1_cell_coverage(slice_id: str, acceptance: Any) -> dict[str, dict[str, obj
                     "journal_refs": list(acceptance.journal_refs),
                     "readback_refs": list(acceptance.readback_refs),
                     "rollback_refs": list(acceptance.rollback_refs),
-                    "before_authority_epoch": (
-                        acceptance.rollback_before_authority_epoch
-                    ),
+                    "before_authority_epoch": (acceptance.rollback_before_authority_epoch),
                     "after_authority_epoch": acceptance.rollback_after_authority_epoch,
                     "rollback_preserves_journal_refs": True,
                     "rollback_preserves_readback_refs": True,
@@ -469,7 +453,12 @@ def build_slice(
     *,
     pg_path: Path | None = None,
     pg_fixture_path: Path | None = None,
-) -> dict[str, object]:
+) -> Annotated[
+    dict[str, object],
+    "kit:non-authoritative derived_as=generated_evidence "
+    "fact_source=successor_program_specs+legacy_oracle_receipt+pg_gate_bindings "
+    "witness=test:test_w10_cli_generator_derived_metadata_preserves_abi",
+]:
     program, plan = _slice_fixture(slice_id)
     receipt = _oracle_receipt(slice_id, program, plan)
     acceptance = receipt.acceptance
@@ -522,9 +511,7 @@ def build_slice(
             "replay_refs": list(acceptance.replay_refs),
             "projector_refs": [f"projector:c1:{slice_id.lower()}:readback"],
             "rollback_refs": list(acceptance.rollback_refs),
-            "rollback_before_authority_epoch": (
-                acceptance.rollback_before_authority_epoch
-            ),
+            "rollback_before_authority_epoch": (acceptance.rollback_before_authority_epoch),
             "rollback_after_authority_epoch": acceptance.rollback_after_authority_epoch,
             "rollback_preserves_journal_refs": True,
             "rollback_preserves_readback_refs": True,
@@ -566,9 +553,7 @@ def build_slice(
 
 
 def _self_test_slice(artifact: dict[str, object]) -> None:
-    expected = content_digest(
-        {key: value for key, value in artifact.items() if key != "content_digest"}
-    )
+    expected = content_digest({key: value for key, value in artifact.items() if key != "content_digest"})
     if artifact["content_digest"] != expected:
         raise EvidenceBuildError(f"{artifact['slice_id']} content digest drift")
     if artifact["schema"] != SLICE_SCHEMA:
@@ -583,14 +568,10 @@ def _self_test_slice(artifact: dict[str, object]) -> None:
         "source_map_digest",
         "dependency_index_digest",
     ):
-        if not re.fullmatch(
-            r"[0-9a-f]{64}", str(artifact["exact_digests"].get(key, ""))
-        ):
+        if not re.fullmatch(r"[0-9a-f]{64}", str(artifact["exact_digests"].get(key, ""))):
             raise EvidenceBuildError(f"{artifact['slice_id']} {key} is not hex64")
     for key in ("legacy_observation_digest", "successor_observation_digest"):
-        if not re.fullmatch(
-            r"[0-9a-f]{64}", str(artifact["observations"].get(key, ""))
-        ):
+        if not re.fullmatch(r"[0-9a-f]{64}", str(artifact["observations"].get(key, ""))):
             raise EvidenceBuildError(f"{artifact['slice_id']} {key} is not hex64")
     if not artifact["acceptance"]["acceptance_digest"]:
         raise EvidenceBuildError(f"{artifact['slice_id']} acceptance digest missing")
@@ -600,9 +581,7 @@ def _self_test_slice(artifact: dict[str, object]) -> None:
     if not re.fullmatch(r"[0-9a-f]{64}", str(fixture_sha)):
         raise EvidenceBuildError(f"{artifact['slice_id']} PG fixture SHA is not hex64")
     if any(artifact["authority"].values()):
-        raise EvidenceBuildError(
-            f"{artifact['slice_id']} authority flags must be false"
-        )
+        raise EvidenceBuildError(f"{artifact['slice_id']} authority flags must be false")
     if artifact["accepted"] != (not artifact["blocking_findings"]):
         raise EvidenceBuildError(f"{artifact['slice_id']} acceptance state drift")
 
@@ -613,7 +592,12 @@ def build_evidence(
     pg_sha256: str | None = None,
     pg_fixture_path: Path | None = None,
     pg_fixture_sha256: str | None = None,
-) -> dict[str, dict[str, object]]:
+) -> Annotated[
+    tuple[dict[str, dict[str, object]], dict[str, object]],
+    "kit:non-authoritative derived_as=generated_evidence "
+    "fact_source=successor_program_specs+legacy_oracle_receipt+pg_gate_bindings "
+    "witness=test:test_w10_cli_generator_derived_metadata_preserves_abi",
+]:
     pg_binding = _require_pg_binding(
         pg_path=pg_path,
         pg_sha256=pg_sha256,
@@ -667,6 +651,19 @@ def write_evidence(
     pg_fixture_path: Path | None = None,
     pg_fixture_sha256: str | None = None,
 ) -> tuple[dict[str, dict[str, object]], dict[str, object]]:
+    frozen_bindings = _frozen_review_bindings()
+    frozen_matches = _frozen_slice_matches(frozen_bindings)
+    if frozen_matches:
+        aggregate_sha = _sha256_bytes(AGGREGATE_PATH.read_bytes()) if AGGREGATE_PATH.is_file() else None
+        if len(frozen_matches) == len(SLICE_ORDER) and (aggregate_sha == frozen_bindings["aggregate_file_sha256"]):
+            raise EvidenceBuildError(
+                "frozen C1 evidence may not be overwritten",
+                exit_code=EXIT_FROZEN,
+            )
+        raise EvidenceBuildError(
+            "frozen C1 evidence binding is partial; overwrite refused",
+            exit_code=EXIT_FROZEN,
+        )
     slices = build_evidence(
         pg_path=pg_path,
         pg_sha256=pg_sha256,
@@ -700,9 +697,7 @@ def _read_slice(slice_id: str) -> dict[str, object]:
             exit_code=EXIT_BUILD,
         )
     expected = value.get("content_digest")
-    actual = content_digest(
-        {key: item for key, item in value.items() if key != "content_digest"}
-    )
+    actual = content_digest({key: item for key, item in value.items() if key != "content_digest"})
     if expected != actual:
         raise EvidenceBuildError(
             f"slice artifact content digest drift: {_relpath(path)}",
@@ -737,9 +732,7 @@ def _pure_refs_from_slices(
 
 
 def _c1_movement_scope() -> dict[str, object]:
-    matrix_path = (
-        EVIDENCE_ROOT / "semantic-movement/P1P3SuccessorMovementMatrix.v1.json"
-    )
+    matrix_path = EVIDENCE_ROOT / "semantic-movement/P1P3SuccessorMovementMatrix.v1.json"
     if not matrix_path.is_file():
         raise EvidenceBuildError(
             f"P1-P3 movement matrix missing for aggregate scope: {_relpath(matrix_path)}",
@@ -754,11 +747,7 @@ def _c1_movement_scope() -> dict[str, object]:
         ) from exc
     rows = [row for row in matrix.get("movements", []) if row.get("family") == "C1"]
     movement_ids = [row["movement_id"] for row in rows if row.get("movement_id")]
-    blocker_ids = [
-        row["movement_id"]
-        for row in rows
-        if row.get("disposition") == "UNASSIGNED_BLOCKER"
-    ]
+    blocker_ids = [row["movement_id"] for row in rows if row.get("disposition") == "UNASSIGNED_BLOCKER"]
     dispositions: dict[str, int] = {}
     for row in rows:
         disposition = row.get("disposition")
@@ -775,15 +764,18 @@ def _c1_movement_scope() -> dict[str, object]:
     }
 
 
-def build_aggregate_from_disk() -> dict[str, object]:
+def build_aggregate_from_disk() -> Annotated[
+    dict[str, object],
+    "kit:non-authoritative derived_as=generated_evidence "
+    "fact_source=three_exact_c1_slice_artifacts+P1P3_movement_matrix "
+    "witness=test:test_w10_cli_generator_derived_metadata_preserves_abi",
+]:
     slices = {slice_id: _read_slice(slice_id) for slice_id in SLICE_ORDER}
     findings: list[str] = []
     status = STATUS_READY
     for slice_id in SLICE_ORDER:
         slice_value = slices[slice_id]
-        if slice_value.get("accepted") is not True or slice_value.get(
-            "blocking_findings"
-        ):
+        if slice_value.get("accepted") is not True or slice_value.get("blocking_findings"):
             status = STATUS_BLOCK
             findings.append(f"SLICE_BLOCKED:{slice_id}")
         pg = slice_value.get("pg_binding")
@@ -810,13 +802,9 @@ def build_aggregate_from_disk() -> dict[str, object]:
                 "bytes": len(SLICE_PATHS[slice_id].read_bytes()),
                 "lines": len(SLICE_PATHS[slice_id].read_bytes().splitlines()),
                 "content_digest": slices[slice_id]["content_digest"],
-                "acceptance_digest": slices[slice_id]["acceptance"][
-                    "acceptance_digest"
-                ],
+                "acceptance_digest": slices[slice_id]["acceptance"]["acceptance_digest"],
                 "accepted": slices[slice_id]["accepted"],
-                "blocking_findings": list(
-                    slices[slice_id].get("blocking_findings") or []
-                ),
+                "blocking_findings": list(slices[slice_id].get("blocking_findings") or []),
             }
             for slice_id in SLICE_ORDER
         ],
@@ -845,9 +833,7 @@ def build_aggregate_from_disk() -> dict[str, object]:
 
 
 def _self_test_aggregate(aggregate: dict[str, object]) -> None:
-    expected = content_digest(
-        {key: value for key, value in aggregate.items() if key != "content_digest"}
-    )
+    expected = content_digest({key: value for key, value in aggregate.items() if key != "content_digest"})
     if aggregate["content_digest"] != expected:
         raise EvidenceBuildError("aggregate content digest drift")
     if aggregate["schema"] != AGGREGATE_SCHEMA:
@@ -855,8 +841,7 @@ def _self_test_aggregate(aggregate: dict[str, object]) -> None:
     if aggregate["status"] not in {STATUS_READY, STATUS_PARTIAL, STATUS_BLOCK}:
         raise EvidenceBuildError("aggregate status outside the fail-closed ladder")
     if aggregate["status"] == STATUS_READY and (
-        any(not item["accepted"] for item in aggregate["slice_bindings"])
-        or aggregate["blocking_findings"]
+        any(not item["accepted"] for item in aggregate["slice_bindings"]) or aggregate["blocking_findings"]
     ):
         raise EvidenceBuildError("READY aggregate cannot carry blockers")
     if aggregate["candidate_state"] != "NO_CANDIDATE":
@@ -880,6 +865,176 @@ def _self_test_aggregate(aggregate: dict[str, object]) -> None:
         raise EvidenceBuildError("aggregate movement scope blocker count drift")
 
 
+def _frozen_review_bindings() -> dict[str, str]:
+    bindings: list[dict[str, str]] = []
+    required = (
+        "slice_a_file_sha256",
+        "slice_b_file_sha256",
+        "slice_c_file_sha256",
+        "aggregate_file_sha256",
+        "aggregate_content_digest",
+    )
+    for role, path in REVIEW_BINDINGS.items():
+        if not path.is_file():
+            raise EvidenceBuildError(
+                f"C1 frozen review binding missing: {_relpath(path)}",
+                exit_code=EXIT_MISSING,
+            )
+        try:
+            review = json.loads(path.read_text(encoding="utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise EvidenceBuildError(
+                f"invalid C1 frozen review binding {_relpath(path)}: {exc}",
+                exit_code=EXIT_BUILD,
+            ) from exc
+        rebind = review.get("mainline_rebind")
+        hashes = rebind.get("current_bundle_hashes") if isinstance(rebind, dict) else None
+        if not isinstance(hashes, dict) or rebind.get("authority") != FROZEN_REVIEW_AUTHORITY:
+            raise EvidenceBuildError(
+                f"C1 frozen review binding is not NOT_AUTHORITY exact-byte state: {_relpath(path)}",
+                exit_code=EXIT_BUILD,
+            )
+        normalized: dict[str, str] = {}
+        for field in required:
+            value = hashes.get(field)
+            if not isinstance(value, str) or re.fullmatch(r"[0-9a-f]{64}", value) is None:
+                raise EvidenceBuildError(
+                    f"C1 frozen review binding has invalid SHA-256 {field}: {_relpath(path)}",
+                    exit_code=EXIT_BUILD,
+                )
+            normalized[field] = value
+        normalized["review_role"] = role
+        bindings.append(normalized)
+
+    first = {key: value for key, value in bindings[0].items() if key != "review_role"}
+    for review in bindings[1:]:
+        other = {key: value for key, value in review.items() if key != "review_role"}
+        if other != first:
+            raise EvidenceBuildError(
+                "C1 frozen review bindings disagree on exact-byte state",
+                exit_code=EXIT_BUILD,
+            )
+    return first
+
+
+def _validate_frozen_slice(slice_id: str, bindings: dict[str, str]) -> None:
+    artifact = _read_slice(slice_id)
+    lower = slice_id.lower()
+    authority = artifact.get("authority")
+    pg = artifact.get("pg_binding")
+    fixture = pg.get("fixture") if isinstance(pg, dict) else None
+    if artifact.get("schema") != SLICE_SCHEMA or artifact.get("slice_id") != slice_id:
+        raise EvidenceBuildError(
+            f"frozen C1 slice schema or identity drift: {slice_id}",
+            exit_code=EXIT_DRIFT,
+        )
+    if artifact.get("accepted") is not True or artifact.get("blocking_findings"):
+        raise EvidenceBuildError(
+            f"frozen C1 slice acceptance state drift: {slice_id}",
+            exit_code=EXIT_DRIFT,
+        )
+    if not isinstance(authority, dict) or any(authority.values()):
+        raise EvidenceBuildError(
+            f"frozen C1 slice authority ceiling drift: {slice_id}",
+            exit_code=EXIT_DRIFT,
+        )
+    if (
+        not isinstance(pg, dict)
+        or pg.get("sha256") != PG_TEST_FILE_SHA256
+        or not isinstance(fixture, dict)
+        or fixture.get("sha256") != PG_TEST_FIXTURE_SHA256
+    ):
+        raise EvidenceBuildError(
+            f"frozen C1 slice PG binding drift: {slice_id}",
+            exit_code=EXIT_DRIFT,
+        )
+
+
+def _validate_frozen_aggregate(bindings: dict[str, str]) -> None:
+    path = AGGREGATE_PATH
+    try:
+        aggregate = json.loads(path.read_text(encoding="utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise EvidenceBuildError(
+            f"invalid frozen C1 aggregate {_relpath(path)}: {exc}",
+            exit_code=EXIT_BUILD,
+        ) from exc
+    if not isinstance(aggregate, dict):
+        raise EvidenceBuildError(
+            f"frozen C1 aggregate must be an object: {_relpath(path)}",
+            exit_code=EXIT_BUILD,
+        )
+    _self_test_aggregate(aggregate)
+    if aggregate["status"] != STATUS_READY:
+        raise EvidenceBuildError(
+            "frozen C1 aggregate status must be READY",
+            exit_code=EXIT_DRIFT,
+        )
+    if aggregate["content_digest"] != bindings["aggregate_content_digest"]:
+        raise EvidenceBuildError(
+            "frozen C1 aggregate review content digest drift",
+            exit_code=EXIT_DRIFT,
+        )
+    actual_bindings = aggregate.get("slice_bindings")
+    if not isinstance(actual_bindings, list) or len(actual_bindings) != len(SLICE_ORDER):
+        raise EvidenceBuildError(
+            "frozen C1 aggregate slice bindings are incomplete",
+            exit_code=EXIT_DRIFT,
+        )
+    by_id = {item.get("slice_id"): item for item in actual_bindings if isinstance(item, dict)}
+    for slice_id in SLICE_ORDER:
+        binding = by_id.get(slice_id)
+        lower = slice_id.lower()
+        slice_content_digest = _read_slice(slice_id).get("content_digest")
+        if (
+            binding is None
+            or binding.get("path") != _relpath(SLICE_PATHS[slice_id])
+            or binding.get("sha256") != bindings[f"slice_{lower}_file_sha256"]
+            or binding.get("content_digest") != slice_content_digest
+        ):
+            raise EvidenceBuildError(
+                f"frozen C1 aggregate slice binding drift: {slice_id}",
+                exit_code=EXIT_DRIFT,
+            )
+
+
+def _frozen_slice_matches(bindings: dict[str, str]) -> list[str]:
+    matches: list[str] = []
+    for slice_id in SLICE_ORDER:
+        path = SLICE_PATHS[slice_id]
+        lower = slice_id.lower()
+        if path.is_file() and (_sha256_bytes(path.read_bytes()) == bindings[f"slice_{lower}_file_sha256"]):
+            matches.append(slice_id)
+    return matches
+
+
+def _check_frozen_evidence(bindings: dict[str, str]) -> str | None:
+    matches = _frozen_slice_matches(bindings)
+    if not matches:
+        return None
+    if len(matches) != len(SLICE_ORDER):
+        details = ", ".join(f"present={slice_id}" for slice_id in matches)
+        raise EvidenceBuildError(
+            f"partial frozen C1 slice binding: {details}",
+            exit_code=EXIT_FROZEN,
+        )
+    aggregate_path = AGGREGATE_PATH
+    if not aggregate_path.is_file():
+        raise EvidenceBuildError(
+            f"frozen C1 aggregate missing: {_relpath(aggregate_path)}",
+            exit_code=EXIT_MISSING,
+        )
+    if _sha256_bytes(aggregate_path.read_bytes()) != bindings["aggregate_file_sha256"]:
+        raise EvidenceBuildError(
+            f"frozen C1 aggregate exact-byte drift: {_relpath(aggregate_path)}",
+            exit_code=EXIT_FROZEN,
+        )
+    for slice_id in SLICE_ORDER:
+        _validate_frozen_slice(slice_id, bindings)
+    _validate_frozen_aggregate(bindings)
+    return FROZEN_CHECK_RESULT
+
+
 def check_evidence(
     *,
     pg_path: Path | None = None,
@@ -887,6 +1042,9 @@ def check_evidence(
     pg_fixture_path: Path | None = None,
     pg_fixture_sha256: str | None = None,
 ) -> str:
+    frozen_result = _check_frozen_evidence(_frozen_review_bindings())
+    if frozen_result is not None:
+        return frozen_result
     expected_slices = build_evidence(
         pg_path=pg_path,
         pg_sha256=pg_sha256,
@@ -924,9 +1082,7 @@ def check_evidence(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(
-        description="C1 Slice A/B/C hash-bound evidence generator"
-    )
+    parser = argparse.ArgumentParser(description="C1 Slice A/B/C hash-bound evidence generator")
     parser.add_argument(
         "--check",
         action="store_true",
@@ -952,9 +1108,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.aggregate_path is not None:
         AGGREGATE_PATH = Path(args.aggregate_path)
     pg_path = Path(args.pg_test_path) if args.pg_test_path is not None else None
-    pg_fixture_path = (
-        Path(args.pg_fixture_path) if args.pg_fixture_path is not None else None
-    )
+    pg_fixture_path = Path(args.pg_fixture_path) if args.pg_fixture_path is not None else None
 
     try:
         if args.check:

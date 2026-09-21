@@ -4,6 +4,7 @@ import sys
 import threading
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
@@ -14,6 +15,7 @@ pytestmark = pytest.mark.unit
 
 try:
     from app.services.source_library import resolver
+    from app.services.source_library.single_source_guard import SourceLibrarySingleSourceGuardError
 
     _IMPORT_ERROR = None
 except Exception as exc:  # noqa: BLE001
@@ -63,6 +65,190 @@ class SourceLibraryResolverUnitTestCase(unittest.TestCase):
         self.assertEqual(result["middle_layer_protocol"]["pipeline"]["mode"], "candidate_fetch")
         self.assertTrue(result["middle_layer_protocol"]["force_url_routing_flow"])
         resolve_channel.assert_not_called()
+
+    def test_run_item_payload_blocks_single_source_guard_mismatch_before_resolver(self):
+        guard = {
+            "contract_version": "resource_pool.site_entry.single_source_guard.v1",
+            "strict_source": True,
+            "guarantee": True,
+            "allowed_urls": ["https://example.com/feed.xml"],
+            "allowed_count": 1,
+            "blocked_reason": None,
+        }
+        item = {
+            "item_key": "demo.item",
+            "channel_key": "google_news",
+            "params": {"keywords": ["ai"]},
+            "enabled": True,
+        }
+        channels = [
+            {
+                "channel_key": "google_news",
+                "enabled": True,
+                "provider": "google_news",
+                "kind": "search",
+                "param_schema": {},
+            }
+        ]
+
+        with (
+            patch("app.services.source_library.resolver.get_ingest_config", return_value=None),
+            patch("app.services.source_library.resolver.ItemResolver.resolve") as item_resolver,
+        ):
+            with self.assertRaises(SourceLibrarySingleSourceGuardError) as raised:
+                resolver.run_item_payload(
+                    item=item,
+                    channels=channels,
+                    project_key="demo_proj",
+                    override_params={
+                        "site_entries": ["https://evil.example/feed.xml"],
+                        "single_source_guard": guard,
+                    },
+                )
+
+        self.assertEqual(raised.exception.details["reason_code"], "single_source_guard_site_entries_mismatch")
+        self.assertEqual(raised.exception.details["single_source_guard"], guard)
+        item_resolver.assert_not_called()
+
+    def test_run_item_payload_blocks_single_source_guard_blocked_before_resolver(self):
+        guard = {
+            "contract_version": "resource_pool.site_entry.single_source_guard.v1",
+            "strict_source": True,
+            "guarantee": False,
+            "allowed_urls": ["https://example.com/feed.xml"],
+            "allowed_count": 1,
+            "blocked_reason": "review_rejected",
+        }
+        item = {
+            "item_key": "demo.item",
+            "channel_key": "google_news",
+            "params": {"keywords": ["ai"]},
+            "enabled": True,
+        }
+
+        with (
+            patch("app.services.source_library.resolver.get_ingest_config", return_value=None),
+            patch("app.services.source_library.resolver.ItemResolver.resolve") as item_resolver,
+        ):
+            with self.assertRaises(SourceLibrarySingleSourceGuardError) as raised:
+                resolver.run_item_payload(
+                    item=item,
+                    channels=[],
+                    project_key="demo_proj",
+                    override_params={
+                        "site_entries": ["https://example.com/feed.xml"],
+                        "single_source_guard": guard,
+                    },
+                )
+
+        self.assertEqual(raised.exception.details["reason_code"], "single_source_guard_blocked")
+        self.assertEqual(raised.exception.details["actual"], {"guarantee": False, "blocked_reason": "review_rejected"})
+        item_resolver.assert_not_called()
+
+    def test_run_item_payload_allows_valid_single_source_guard(self):
+        guard = {
+            "contract_version": "resource_pool.site_entry.single_source_guard.v1",
+            "strict_source": True,
+            "guarantee": True,
+            "allowed_urls": ["https://example.com/feed.xml"],
+            "allowed_count": 1,
+            "blocked_reason": None,
+        }
+        item = {
+            "item_key": "demo.item",
+            "channel_key": "google_news",
+            "params": {"keywords": ["ai"]},
+            "enabled": True,
+        }
+        channels = [
+            {
+                "channel_key": "google_news",
+                "enabled": True,
+                "provider": "google_news",
+                "kind": "search",
+                "param_schema": {},
+            }
+        ]
+        request = SimpleNamespace(source_mode="single_channel", warnings=[], item_key="demo.item")
+
+        with (
+            patch("app.services.source_library.resolver.get_ingest_config", return_value=None),
+            patch("app.services.source_library.resolver.ItemResolver.resolve", return_value=request) as item_resolver,
+            patch(
+                "app.services.source_library.resolver._run_source_mode_single_channel",
+                return_value={"result": {"inserted": 1}},
+            ) as run_single_channel,
+        ):
+            result = resolver.run_item_payload(
+                item=item,
+                channels=channels,
+                project_key="demo_proj",
+                override_params={
+                    "site_entries": ["https://example.com/feed.xml"],
+                    "single_source_guard": guard,
+                },
+            )
+
+        self.assertEqual(result["result"]["inserted"], 1)
+        item_resolver.assert_called_once()
+        resolved_params = item_resolver.call_args.kwargs["params"]
+        self.assertEqual(resolved_params["single_source_guard"], guard)
+        self.assertEqual(resolved_params["site_entries"], ["https://example.com/feed.xml"])
+        run_single_channel.assert_called_once()
+
+    def test_run_item_payload_smoke_only_preserves_runtime_readback_without_dispatch(self):
+        item = {
+            "item_key": "url_pool.default",
+            "channel_key": "url_pool",
+            "params": {"scope": "effective", "limit": 50},
+            "enabled": True,
+            "name": "URL pool default",
+        }
+        channels = [
+            {
+                "channel_key": "url_pool",
+                "enabled": True,
+                "provider_type": "native",
+                "provider": "url_pool",
+                "kind": "collect",
+                "default_params": {},
+                "param_schema": {},
+            }
+        ]
+        runtime_readback = {
+            "line_key": "resource_source_library",
+            "task_id": "celery-source-smoke",
+            "worker_name": "worker@solo",
+            "queue": "resource_source_library",
+            "trace_id": "trace-source-smoke",
+        }
+
+        with (
+            patch("app.services.source_library.resolver.get_ingest_config", return_value=None),
+            patch("app.services.source_library.resolver.ItemResolver.resolve") as item_resolver,
+            patch("app.services.source_library.resolver.run_channel") as run_channel,
+        ):
+            result = resolver.run_item_payload(
+                item=item,
+                channels=channels,
+                project_key="demo_proj",
+                override_params={
+                    "_source_library_smoke_only": True,
+                    "runtime_readback": runtime_readback,
+                    "limit": 1,
+                },
+            )
+
+        self.assertEqual(result["contract_version"], "source_library.smoke_only.v1")
+        self.assertEqual(result["source_mode"], "smoke_only")
+        self.assertTrue(result["smoke_only"])
+        self.assertEqual(result["runtime_readback"], runtime_readback)
+        self.assertEqual(result["result"]["runtime_readback"], runtime_readback)
+        self.assertEqual(result["result"]["inserted"], 0)
+        self.assertFalse(result["result"]["smoke_only"]["handler_dispatched"])
+        self.assertEqual(result["result"]["execution_request"]["params"]["limit"], 1)
+        item_resolver.assert_not_called()
+        run_channel.assert_not_called()
 
     def test_run_item_with_url_routing_materializes_runtime_targets_before_helper(self):
         item = {"item_key": "url_pool.default", "channel_key": "url_pool"}

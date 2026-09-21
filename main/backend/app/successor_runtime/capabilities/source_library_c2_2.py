@@ -9,7 +9,9 @@ effects; provider dispatch is delegated to C2.3 ports.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Annotated, Any, Literal
+
+from functorial_kit import Failure
 
 from app.successor_runtime.capabilities import source_library_c2_shared as _shared
 from app.successor_runtime.capabilities.checksum import content_digest
@@ -344,13 +346,32 @@ class SourceLibraryC2_2CapabilityBundle:
     profiles: dict[str, object]
 
     def payload_codec(self, kind: str) -> PayloadCodec:
+        result = self.try_payload_codec(kind)
+        if isinstance(result, Failure):
+            _raise_payload_codec_compatibility(result)
+        return result
+
+    def try_payload_codec(self, kind: str) -> PayloadCodec | Failure:
         for codec in self.codecs:
             if kind in codec.codec_id:
                 return codec
-        raise KeyError(f"no C2.2 payload codec for {kind}")
+        return _shared.c2_contract_failure(
+            "catalog_contract_invalid",
+            f"no C2.2 payload codec for {kind}",
+            operation="source_library.c2_2.payload_codec",
+            site="payload_codec",
+            owner=SOURCE_LIBRARY_C2_2_OWNER,
+        )
 
 
-def build_source_library_c2_2_bundle() -> SourceLibraryC2_2CapabilityBundle:
+def _raise_payload_codec_compatibility(failure: Failure) -> None:
+    """Lift the retained ``payload_codec`` KeyError ABI at one boundary."""
+
+    # kit:boundary owner=source_library.c2_2.v1 class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.capability.contract_failure witness=test:test_w06_c2_total_core_failure_lifts
+    raise KeyError(failure.message)
+
+
+def build_source_library_c2_2_bundle() -> Annotated[SourceLibraryC2_2CapabilityBundle, Literal["kit:non-authoritative derived_as=view fact_source=C2.2_contract_constants witness=test:test_w06_successor_authority_metadata"]]:
     semantic = _semantic_profile()
     effect = _effect_profile()
     resource = _resource_profile()
@@ -434,7 +455,7 @@ def build_source_library_c2_2_bundle() -> SourceLibraryC2_2CapabilityBundle:
 
 def build_source_library_c2_2_catalog(
     bundle: SourceLibraryC2_2CapabilityBundle,
-) -> OperationContractCatalogSnapshot:
+) -> Annotated[OperationContractCatalogSnapshot, Literal["kit:non-authoritative derived_as=view fact_source=C2.2_operation_bundle witness=test:test_w06_successor_authority_metadata"]]:
     return OperationContractCatalogSnapshot(
         catalog_id=SOURCE_LIBRARY_C2_2_CATALOG_ID,
         catalog_version=SOURCE_LIBRARY_C2_2_CATALOG_VERSION,
@@ -452,7 +473,7 @@ def build_source_library_c2_2_catalog(
 
 def build_source_library_c2_2_registry(
     bundle: SourceLibraryC2_2CapabilityBundle,
-) -> OperationContractRegistry:
+) -> Annotated[OperationContractRegistry, Literal["kit:non-authoritative derived_as=view fact_source=C2.2_operation_bundle witness=test:test_w06_successor_authority_metadata"]]:
     return OperationContractRegistry(
         build_source_library_c2_2_catalog(bundle),
         bundle.operations,

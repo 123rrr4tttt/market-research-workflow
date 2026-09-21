@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import dataclasses
 from dataclasses import dataclass
-from typing import Any
+from typing import Annotated, Any
 
 from app.services.source_library.item_resolver import (
     ItemResolver,
@@ -485,7 +485,12 @@ def build_legacy_source_library_c2_1_binding(
     project_scope_digest: str,
     resource_policy_epoch: int = 1,
     runtime_protocol_version: str = "mrw.runtime.protocol.v1",
-) -> InterpreterBinding:
+) -> Annotated[
+    InterpreterBinding,
+    "kit:prepared-command effect_boundary=app.successor_migration."
+    "legacy_source_library.build_legacy_source_library_c2_1_binding "
+    "witness=test:test_exact_bindings_are_distinct_and_cross_rejected",
+]:
     """One exact legacy interpreter binding; never claims successor too."""
 
     return InterpreterBinding.from_content(
@@ -506,7 +511,12 @@ def build_successor_source_library_c2_1_binding(
     project_scope_digest: str,
     resource_policy_epoch: int = 1,
     runtime_protocol_version: str = "mrw.runtime.protocol.v1",
-) -> InterpreterBinding:
+) -> Annotated[
+    InterpreterBinding,
+    "kit:prepared-command effect_boundary=app.successor_migration."
+    "legacy_source_library.build_successor_source_library_c2_1_binding "
+    "witness=test:test_exact_bindings_are_distinct_and_cross_rejected",
+]:
     """One exact successor interpreter binding; never claims legacy too."""
 
     return InterpreterBinding.from_content(

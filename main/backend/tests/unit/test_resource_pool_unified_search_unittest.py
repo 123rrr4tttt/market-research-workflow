@@ -903,7 +903,18 @@ class ResourcePoolUnifiedSearchUnitTestCase(unittest.TestCase):
         ), patch(
             "app.services.resource_pool.unified_search.execute_search_template",
             return_value=SimpleNamespace(selected_candidates=[], used_term_fallback=False, errors=[], diagnostics={}),
-        ) as execute:
+        ) as execute, patch(
+            "app.services.resource_pool.unified_search.execute_external_site_search",
+            return_value=SimpleNamespace(
+                selected_candidates=[],
+                used_term_fallback=False,
+                errors=[],
+                diagnostics={"search_service": "external_search"},
+            ),
+        ) as execute_external, patch(
+            "app.services.search.web.DDGS",
+            side_effect=AssertionError("unit search must not construct a real DDGS provider"),
+        ) as ddgs:
             unified_search_by_item_payload(
                 project_key="demo",
                 item=item,
@@ -911,7 +922,11 @@ class ResourcePoolUnifiedSearchUnitTestCase(unittest.TestCase):
                 allow_term_fallback=False,
             )
 
+        execute.assert_called_once()
+        execute_external.assert_called_once()
         self.assertEqual(execute.call_args.kwargs["params"]["parser_profile"], "fallback_anchor_only")
+        self.assertEqual(execute_external.call_args.kwargs["params"]["parser_profile"], "fallback_anchor_only")
+        ddgs.assert_not_called()
 
     def test_unified_search_marks_anchor_only_parser_candidates_for_review(self) -> None:
         item = {

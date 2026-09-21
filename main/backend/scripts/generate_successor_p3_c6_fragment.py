@@ -20,7 +20,7 @@ import hashlib
 import json
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(BACKEND_ROOT))
@@ -618,7 +618,12 @@ def _bindings() -> tuple[
     )
 
 
-def build_fragment() -> dict[str, object]:
+def build_fragment() -> Annotated[
+    dict[str, object],
+    "kit:non-authoritative derived_as=generated_evidence "
+    "fact_source=C6.1-C6.3_closures+repo_bindings "
+    "witness=test:test_w10_cli_generator_derived_metadata_preserves_abi",
+]:
     c6_1_legacy, c6_1_successor = _c6_1_observations()
     c6_2_legacy, c6_2_successor = _c6_2_observations()
     c6_3_legacy, c6_3_successor = _c6_3_observations()
@@ -878,7 +883,11 @@ def _self_test(fragment: dict[str, object]) -> None:
     )
 
 
-def build_digested_fragment() -> dict[str, object]:
+def build_digested_fragment() -> Annotated[
+    dict[str, object],
+    "kit:non-authoritative derived_as=generated_evidence fact_source=C6_fragment_build "
+    "witness=test:test_w10_cli_generator_derived_metadata_preserves_abi",
+]:
     first = build_fragment()
     second = build_fragment()
     assert _canonical_json(first) == _canonical_json(second), (

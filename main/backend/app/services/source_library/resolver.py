@@ -6,10 +6,16 @@ from contextvars import copy_context
 import logging
 import time
 from types import SimpleNamespace
-from typing import Any, Dict, List, Literal, Sequence, Tuple
+from typing import Any, Dict, List, Literal, NoReturn, Sequence, Tuple
 
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
+
+from functorial_kit import Failure
+from mrw_functorial_kit.core.application_failure_semantics import (
+    source_library_contract_failures,
+    source_library_resolver_failures,
+)
 
 from ...models.base import SessionLocal
 from ...models.entities import (
@@ -39,6 +45,7 @@ from .relevance_review import annotate_records_with_relevance_review_queue
 from .relevance_review import merge_relevance_review_queues
 from .loader import load_project_library_files
 from .runner import run_channel
+from .single_source_guard import build_single_source_execution_fact, validate_single_source_guard
 from .types import (
     FrontDoorExecutionProtocol,
     build_source_concurrency_plan,
@@ -51,6 +58,80 @@ logger = logging.getLogger(__name__)
 
 ExecutionLayer = Literal["execute", "terminal_output_only"]
 PROVIDER_HANDOFF_CONTRACT_VERSION = "source_library.provider_handoff.v1"
+SMOKE_ONLY_CONTRACT_VERSION = "source_library.smoke_only.v1"
+_FAILURE_WITNESS = "test:test_w01_source_export_failures"
+
+
+def _resolver_failure(code: str, message: str, *, site: str, **details: Any) -> Failure:
+    context: dict[str, Any] = {
+        "boundary_class": "PURE_CONTRACT_FAILURE",
+        "failure_family": source_library_contract_failures.name,
+        "operation": "source_library.resolver",
+        "owner": "source_library.resolver",
+        "public_exception": "ValueError",
+        "public_message": message,
+        "site": site,
+        "witness": _FAILURE_WITNESS,
+    }
+    context.update(details)
+    return source_library_contract_failures.fail(code, message, context)
+
+
+def _raise_resolver_failure(failure: Failure) -> NoReturn:
+    context = failure.context or {}
+    required = {"boundary_class", "failure_family", "operation", "owner", "public_exception", "public_message", "site", "witness"}
+    if (
+        not source_library_contract_failures.matches(failure)
+        or required - set(context)
+        or context.get("failure_family") != source_library_contract_failures.name
+        or context.get("boundary_class") != "PURE_CONTRACT_FAILURE"
+        or context.get("public_exception") != "ValueError"
+        or context.get("public_message") != failure.message
+    ):
+        # kit:boundary owner=source_library.resolver.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w01_source_export_failures
+        raise TypeError("source-library resolver failure lift context is incomplete or inconsistent")
+    # kit:boundary owner=source_library.resolver.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=source_library.contract_failure witness=test:test_w01_source_export_failures
+    raise ValueError(str(context["public_message"]))
+
+
+def _parallel_failure(
+    code: str,
+    message: str,
+    *,
+    site: str,
+    public_exception: str,
+    **details: Any,
+) -> Failure:
+    context: dict[str, Any] = {
+        "boundary_class": "EFFECT_FAILURE",
+        "failure_family": source_library_resolver_failures.name,
+        "operation": "source_library.resolver.parallel",
+        "owner": "source_library.resolver",
+        "public_exception": public_exception,
+        "public_message": message,
+        "site": site,
+        "witness": _FAILURE_WITNESS,
+    }
+    context.update(details)
+    return source_library_resolver_failures.fail(code, message, context)
+
+
+def _raise_parallel_failure(failure: Failure, *, cause: BaseException) -> NoReturn:
+    context = failure.context or {}
+    required = {"boundary_class", "failure_family", "operation", "owner", "public_exception", "public_message", "site", "witness"}
+    if (
+        not source_library_resolver_failures.matches(failure)
+        or required - set(context)
+        or context.get("failure_family") != source_library_resolver_failures.name
+        or context.get("boundary_class") != "EFFECT_FAILURE"
+        or context.get("public_exception") != type(cause).__name__
+        or context.get("public_message") != failure.message
+        or str(cause) != failure.message
+    ):
+        # kit:boundary owner=source_library.resolver.parallel_failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w01_source_export_failures
+        raise TypeError("source-library resolver parallel failure lift context is incomplete or inconsistent")
+    # kit:boundary owner=source_library.resolver.parallel_failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=source_library.resolver.failure witness=test:test_w01_source_export_failures
+    raise cause
 
 def _as_list(value: Any) -> list:
     if isinstance(value, list):
@@ -447,6 +528,64 @@ def _has_site_entries(params: Dict[str, Any] | None) -> bool:
     return False
 
 
+def _is_source_library_smoke_only(params: Dict[str, Any] | None) -> bool:
+    if not isinstance(params, dict):
+        return False
+    return _as_bool(params.get("_source_library_smoke_only"), False)
+
+
+def _build_source_library_smoke_payload(
+    *,
+    item: Dict[str, Any],
+    params: Dict[str, Any],
+    project_key: str | None,
+) -> Dict[str, Any]:
+    item_key = str(item.get("item_key") or "").strip()
+    channel_key = str(item.get("channel_key") or "").strip()
+    runtime_readback = params.get("runtime_readback") if isinstance(params.get("runtime_readback"), dict) else None
+    result = {
+        "status": "ok",
+        "inserted": 0,
+        "updated": 0,
+        "skipped": 0,
+        "errors": [],
+        "records": [],
+        "execution_request": {
+            "item_key": item_key,
+            "project_key": project_key,
+            "source_mode": "smoke_only",
+            "params": dict(params),
+            "warnings": [],
+        },
+        "smoke_only": {
+            "contract_version": SMOKE_ONLY_CONTRACT_VERSION,
+            "reason": "worker_readback_smoke",
+            "resolver_short_circuit": True,
+            "handler_dispatched": False,
+        },
+    }
+    if runtime_readback:
+        result["runtime_readback"] = dict(runtime_readback)
+    payload: Dict[str, Any] = {
+        "contract_version": SMOKE_ONLY_CONTRACT_VERSION,
+        "status": "ok",
+        "source_mode": "smoke_only",
+        "smoke_only": True,
+        "item_key": item_key,
+        "channel_key": channel_key,
+        "project_key": project_key,
+        "params": dict(params),
+        "result": result,
+        "item_type": item.get("item_type"),
+        "managed_by": item.get("managed_by"),
+        "name": item.get("name"),
+        "extra": _as_dict(item.get("extra")),
+    }
+    if runtime_readback:
+        payload["runtime_readback"] = dict(runtime_readback)
+    return payload
+
+
 def _normalize_site_entries(value: Any) -> list[str]:
     if isinstance(value, str):
         raw_entries: list[Any] = [value]
@@ -587,7 +726,7 @@ def _protocol_to_dict(protocol: FrontDoorExecutionProtocol) -> Dict[str, Any]:
     }
 
 
-def _run_tasks_with_concurrency_plan(
+def _try_run_tasks_with_concurrency_plan(
     *,
     values: list[Any],
     worker,
@@ -597,17 +736,25 @@ def _run_tasks_with_concurrency_plan(
     thread_name_prefix: str,
     timeout_row_builder=None,
     error_row_builder=None,
-) -> list[Any]:
+) -> list[Any] | Failure:
     if not values:
         return []
     if max_workers <= 1 and timeout_seconds is None:
         out: list[Any] = []
-        for value in values:
+        for index, value in enumerate(values):
             try:
                 out.append(worker(value))
             except Exception as exc:
                 if fail_fast:
-                    raise
+                    return _parallel_failure(
+                        "parallel_item_failed",
+                        str(exc),
+                        site="_run_tasks_with_concurrency_plan.serial",
+                        public_exception=type(exc).__name__,
+                        item_index=index,
+                        thread_name_prefix=thread_name_prefix,
+                        cause=exc,
+                    )
                 if error_row_builder is not None:
                     out.append(error_row_builder(value, exc))
         return out
@@ -632,7 +779,15 @@ def _run_tasks_with_concurrency_plan(
                     rows[idx] = future.result()
                 except Exception as exc:
                     if fail_fast:
-                        raise
+                        return _parallel_failure(
+                            "parallel_item_failed",
+                            str(exc),
+                            site="_run_tasks_with_concurrency_plan.future_fallback",
+                            public_exception=type(exc).__name__,
+                            item_index=idx,
+                            thread_name_prefix=thread_name_prefix,
+                            cause=exc,
+                        )
                     if error_row_builder is not None:
                         rows[idx] = error_row_builder(value, exc)
             return rows
@@ -651,7 +806,15 @@ def _run_tasks_with_concurrency_plan(
                         rows[idx] = result
                 except Exception as exc:
                     if fail_fast:
-                        raise
+                        return _parallel_failure(
+                            "parallel_item_failed",
+                            str(exc),
+                            site="_run_tasks_with_concurrency_plan.future_completed",
+                            public_exception=type(exc).__name__,
+                            item_index=idx,
+                            thread_name_prefix=thread_name_prefix,
+                            cause=exc,
+                        )
                     if error_row_builder is not None:
                         rows[idx] = error_row_builder(value, exc)
             if timeout_seconds is None:
@@ -669,12 +832,52 @@ def _run_tasks_with_concurrency_plan(
                 if timeout_row_builder is not None:
                     rows[idx] = timeout_row_builder(value, timeout_seconds)
                 if fail_fast:
-                    raise TimeoutError(f"{thread_name_prefix} timeout after {timeout_seconds:.3f}s")
+                    timeout = TimeoutError(f"{thread_name_prefix} timeout after {timeout_seconds:.3f}s")
+                    return _parallel_failure(
+                        "parallel_timeout",
+                        str(timeout),
+                        site="_run_tasks_with_concurrency_plan.timeout",
+                        public_exception="TimeoutError",
+                        item_index=idx,
+                        thread_name_prefix=thread_name_prefix,
+                        timeout_seconds=timeout_seconds,
+                        cause=timeout,
+                    )
         return rows
     finally:
         shutdown = getattr(executor, "shutdown", None)
         if callable(shutdown):
             shutdown(wait=False, cancel_futures=True)
+
+
+def _run_tasks_with_concurrency_plan(
+    *,
+    values: list[Any],
+    worker,
+    max_workers: int,
+    timeout_seconds: float | None,
+    fail_fast: bool,
+    thread_name_prefix: str,
+    timeout_row_builder=None,
+    error_row_builder=None,
+) -> list[Any]:
+    outcome = _try_run_tasks_with_concurrency_plan(
+        values=values,
+        worker=worker,
+        max_workers=max_workers,
+        timeout_seconds=timeout_seconds,
+        fail_fast=fail_fast,
+        thread_name_prefix=thread_name_prefix,
+        timeout_row_builder=timeout_row_builder,
+        error_row_builder=error_row_builder,
+    )
+    if isinstance(outcome, Failure):
+        cause = (outcome.context or {}).get("cause")
+        if not isinstance(cause, BaseException):
+            # kit:boundary owner=source_library.resolver.parallel_failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w01_source_export_failures
+            raise TypeError("source-library resolver parallel failure has no exception cause")
+        _raise_parallel_failure(outcome, cause=cause)
+    return outcome
 
 
 def _run_single_routed_url(
@@ -1440,7 +1643,13 @@ def run_item_with_url_routing(
     """
     urls = params.get("urls")
     if not isinstance(urls, list) or not urls:
-        raise ValueError("params.urls must be a non-empty list for URL routing")
+        _raise_resolver_failure(
+            _resolver_failure(
+                "url_routing_urls_required",
+                "params.urls must be a non-empty list for URL routing",
+                site="run_item_with_url_routing.params.urls",
+            )
+        )
 
     runtime_targets: list[tuple[str, dict[str, Any]]] = [
         (str(url or "").strip(), {"source": "params.urls", "index": idx}) for idx, url in enumerate(urls)
@@ -1468,12 +1677,25 @@ def _run_url_routing_materialization(
     Materialize URL routing results from frozen runtime targets.
     """
     if not isinstance(runtime_targets, Sequence) or not runtime_targets:
-        raise ValueError("runtime_targets must be a non-empty sequence for URL routing")
+        _raise_resolver_failure(
+            _resolver_failure(
+                "frontdoor_runtime_targets_invalid",
+                "runtime_targets must be a non-empty sequence for URL routing",
+                site="_run_url_routing_materialization.runtime_targets",
+            )
+        )
 
     normalized_runtime_targets: list[tuple[str, Dict[str, Any]]] = []
     for idx, target in enumerate(runtime_targets):
         if not isinstance(target, (tuple, list)) or len(target) < 1:
-            raise ValueError("runtime_targets entries must contain a url and optional metadata")
+            _raise_resolver_failure(
+                _resolver_failure(
+                    "frontdoor_runtime_targets_invalid",
+                    "runtime_targets entries must contain a url and optional metadata",
+                    site="_run_url_routing_materialization.runtime_targets.entry",
+                    index=idx,
+                )
+            )
         url_str = str(target[0] or "").strip()
         target_meta = target[1] if len(target) > 1 and isinstance(target[1], dict) else {}
         normalized_runtime_targets.append((url_str, dict(target_meta)))
@@ -2253,7 +2475,14 @@ def run_item_payload(
     override_params: Dict[str, Any] | None = None,
 ) -> Dict[str, Any]:
     if not item.get("enabled", True):
-        raise ValueError(f"source item disabled: {item.get('item_key')}")
+        _raise_resolver_failure(
+            _resolver_failure(
+                "source_item_disabled",
+                f"source item disabled: {item.get('item_key')}",
+                site="run_item_payload.item_disabled",
+                item_key=item.get("item_key"),
+            )
+        )
 
     channels = channels if channels is not None else list_effective_channels(scope="effective", project_key=project_key)
     channel_map = {x["channel_key"]: x for x in channels}
@@ -2267,6 +2496,7 @@ def run_item_payload(
             params = _deep_merge(params, config["payload"])
     if override_params:
         params = _deep_merge(params, override_params)
+    single_source_guard = validate_single_source_guard(params)
     params = _normalize_search_params(params)
 
     # generic_web.* is internal plugin capability for site_search orchestration only.
@@ -2281,7 +2511,14 @@ def run_item_payload(
         and not generic_web_internal_item
         and not _as_bool(params.get("_allow_internal_generic_web"), False)
     ):
-        raise ValueError("generic_web.* direct item execution is disabled; use site_search(handler.cluster) entry")
+        _raise_resolver_failure(
+            _resolver_failure(
+                "frontdoor_entrypoint_rejected",
+                "generic_web.* direct item execution is disabled; use site_search(handler.cluster) entry",
+                site="run_item_payload.generic_web_direct",
+                item_key=item.get("item_key"),
+            )
+        )
 
     # Keep static URL-list items on the same front-door path as runtime-provided URLs.
     # Operators can still explicitly freeze legacy fixed lists when needed.
@@ -2292,6 +2529,9 @@ def run_item_payload(
             params = dict(params)
             params.pop("urls", None)
             params["legacy_url_list_frozen"] = True
+
+    if _is_source_library_smoke_only(params):
+        return _build_source_library_smoke_payload(item=item, params=params, project_key=project_key)
 
     request = ItemResolver.resolve(
         item=item,
@@ -2318,4 +2558,15 @@ def run_item_payload(
         payload.setdefault("name", item.get("name"))
         payload.setdefault("project_key", project_key)
         payload.setdefault("extra", _as_dict(item.get("extra")))
+        if single_source_guard:
+            payload.setdefault("single_source_guard", single_source_guard)
+            payload.setdefault("strict_source", single_source_guard)
+            payload.setdefault(
+                "execution_fact",
+                build_single_source_execution_fact(
+                    single_source_guard,
+                    item_key=str(item.get("item_key") or "").strip() or None,
+                    project_key=project_key,
+                ),
+            )
     return payload

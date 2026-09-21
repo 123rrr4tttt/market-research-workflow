@@ -1,0 +1,58 @@
+{
+  "schema_version": "mrw.stage3.tests-lane-summary.v1",
+  "candidate": {
+    "name": "r13p",
+    "commit": "342d3b3c35ad987c47990da6ac550dfe936d4818",
+    "tree": "3f87e85dce02b312e445c657c238c11c6809850e",
+    "manifest_sha256": "64c04d1d3d6fc7d302d89d5247857bcd20115a83432043ea95e18bf74d52635e"
+  },
+  "status": "REBUILD_REQUIRED",
+  "authority_ceiling": "PRODUCTION_RELEASE_NOT_AUTHORIZED",
+  "groups": {
+    "backend_unit": "REUSED_IDENTITY_VALID: r13n 1821 passed, 2337 deselected, 25 warnings, 52 subtests",
+    "backend_integration": "REUSED_IDENTITY_VALID: r13o 384 passed, 291 skipped, 3483 deselected, 20 warnings, 69 subtests",
+    "core_business": "REUSED_IDENTITY_VALID: r13o 256 passed, 16 warnings, 15 subtests",
+    "migration_single_head": "REUSED_IDENTITY_VALID: unique 20260905_000001",
+    "migration_schema_contracts": "REUSED_IDENTITY_VALID: 13 passed",
+    "schema_guard": "REUSED_IDENTITY_VALID: 3 passed, 16 warnings",
+    "frontend_frozen_lint_typecheck_build": "REUSED_IDENTITY_VALID: passed",
+    "frontend_e2e": "REUSED_IDENTITY_VALID: 108 passed/4 skipped plus 2 fixture and 8 scripted-provider passed",
+    "successor_nonpg": "FAIL: 1474 passed, 292 skipped, 10 failed, 4 warnings",
+    "p0d_postgres_unix_socket_focused": "PASS: 3 passed",
+    "successor_postgres_unix_socket": "FAIL: 1764 passed, 2 skipped, 10 failed, 4 warnings",
+    "r13p_compose_config": "PASS: backend healthcheck argv is [CMD,curl,-f,http://localhost:8000/api/v1/health]",
+    "local_full_stack": "PARTIAL: db, Elasticsearch, Redis, backend and Celery healthy; shallow health ok; deep health degraded only because live provider key was intentionally absent; frontend profile was not part of this base-stack run"
+  },
+  "successor_failures": [
+    {"nodeid":"tests/successor_runtime/test_c7_semantic_movement_completeness.py::test_stage_b19_current_candidate_binds_live_bytes_read_only","first_error":"FileNotFoundError: stage-b23 candidates/C7/candidate.v2.json","classification":"candidate historical evidence coupling; required exact-byte gate","blocks_stage3":true,"contract":"18 section 2 successor runtime and exact-byte; section 4 requires a Stage1/2 successor candidate"},
+    {"nodeid":"tests/successor_runtime/test_capability_spec_route_decision.py::test_persisted_outputs_keep_predecessor_ownership_bytes","first_error":"persisted decision bytes differ from generator rebuild at byte 1131","classification":"candidate historical evidence coupling; required exact-byte gate","blocks_stage3":true,"contract":"18 section 2 successor runtime and exact-byte; section 4"},
+    {"nodeid":"tests/successor_runtime/test_family_fragment_rebind_candidates.py::test_family_candidate_meta_contract_and_read_only_checks[C4]","first_error":"FileNotFoundError: stage-b23 candidates/C4/candidate.v2.json","classification":"candidate historical evidence coupling; required exact-byte gate","blocks_stage3":true,"contract":"18 section 2 successor runtime and exact-byte; section 4"},
+    {"nodeid":"tests/successor_runtime/test_family_fragment_rebind_candidates.py::test_family_candidate_meta_contract_and_read_only_checks[C6]","first_error":"FileNotFoundError: stage-b23 candidates/C6/candidate.v2.json","classification":"candidate historical evidence coupling; required exact-byte gate","blocks_stage3":true,"contract":"18 section 2 successor runtime and exact-byte; section 4"},
+    {"nodeid":"tests/successor_runtime/test_family_fragment_rebind_candidates.py::test_family_candidate_meta_contract_and_read_only_checks[C7]","first_error":"FileNotFoundError: stage-b23 candidates/C7/candidate.v2.json","classification":"candidate historical evidence coupling; required exact-byte gate","blocks_stage3":true,"contract":"18 section 2 successor runtime and exact-byte; section 4"},
+    {"nodeid":"tests/successor_runtime/test_family_fragment_rebind_candidates.py::test_family_candidate_meta_contract_and_read_only_checks[C9]","first_error":"FileNotFoundError: stage-b23 candidates/C9/candidate.v2.json","classification":"candidate historical evidence coupling; required exact-byte gate","blocks_stage3":true,"contract":"18 section 2 successor runtime and exact-byte; section 4"},
+    {"nodeid":"tests/successor_runtime/test_semantic_movement_generator.py::test_cli_check_accepts_current_projection_and_is_read_only","first_error":"generator --check returned 1 with status DRIFT for fragments C2-C8","classification":"candidate historical evidence coupling; required successor projection gate","blocks_stage3":true,"contract":"18 section 2 successor runtime, architecture and exact-byte; section 4"},
+    {"nodeid":"tests/successor_runtime/test_semantic_movement_p1_p3_evidence.py::test_fragments_and_inventory_are_bijective_projections","first_error":"fragment matrix_content_digest 122efc... differs from matrix content_digest 8fcc83...","classification":"candidate historical evidence coupling; required projection gate","blocks_stage3":true,"contract":"18 section 2 successor runtime and architecture; section 4"},
+    {"nodeid":"tests/successor_runtime/test_semantic_movement_review_gate.py::test_validator_preserves_all_semantics_for_current_canonical_rebuild","first_error":"validator returned 1; canonical_rebuild_matches and projections_bijective failed","classification":"candidate historical evidence coupling; required canonical rebuild gate","blocks_stage3":true,"contract":"18 section 2 successor runtime, architecture and exact-byte; section 4"},
+    {"nodeid":"tests/successor_runtime/test_semantic_movement_review_gate.py::test_validator_detects_canonical_rebuild_drift_without_mutating_source","first_error":"expected only injected matrix drift but baseline already contains seven fragment drifts","classification":"candidate historical evidence coupling; required negative/failure gate","blocks_stage3":true,"contract":"18 section 2 successor runtime and negative/failure; section 4"}
+  ],
+  "prior_tcp_errors": {
+    "classification": "environment not applicable to the explicit fixture contract",
+    "first_error": "P0-D capacity fixture forbids TCP PostgreSQL URLs",
+    "nodeids": [
+      "tests/successor_runtime/test_p0d_capacity_postgres.py::test_postgres_guard_proves_non_superuser_unix_socket_and_exact_nodes",
+      "tests/successor_runtime/test_p0d_capacity_postgres.py::test_two_node_capacity_baseline_is_measured_without_mutating_work_items",
+      "tests/successor_runtime/test_p0d_capacity_postgres.py::test_generator_writes_only_after_live_guard_and_digest_readback"
+    ],
+    "blocks_stage3": false,
+    "resolution": "task-owned PostgreSQL Unix socket run passed all 3; full Unix-socket aggregate had no errors",
+    "contract": "18 section 2 dedicated PostgreSQL opt-in and teardown; section 3.2 preserves the production guard"
+  },
+  "cleanup": {
+    "r13p_test_database": "dropped with FORCE; no test database or measurement role remained",
+    "r13p_workcopy_and_socket": "moved to Trash; original temporary paths absent",
+    "r13p_compose_project": "containers, volumes and network residue zero",
+    "r13o_compose_project": "containers, volumes and network residue zero after explicit Supervisor authorization",
+    "preserved": "ops-scrapyd and all unrelated projects, images and builders"
+  },
+  "ceiling_note": "Ten deterministic candidate-bound successor failures prevent Stage 3 PASS. No candidate files were modified."
+}

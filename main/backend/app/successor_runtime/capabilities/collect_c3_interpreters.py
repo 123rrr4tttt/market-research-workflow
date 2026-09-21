@@ -43,6 +43,7 @@ from app.successor_runtime.language.compile import (
 from app.successor_runtime.language.object_contracts import OperationContractRef
 from app.successor_runtime.language.plan import with_plan_digest
 from app.successor_runtime.research.codec import is_sha256_hex
+from functorial_kit import Failure
 
 __all__ = [
     "COLLECT_C3_1_LEGACY_INTERPRETER_ID",
@@ -61,6 +62,7 @@ __all__ = [
     "InterpreterSuccess",
     "ProjectScopeView",
     "RequestRefView",
+    "ExactBindingResult",
     "authority_requirement_digest",
     "deterministic_composed_element_runner",
     "legacy_interpreter_profile_digest_c3_1",
@@ -71,6 +73,9 @@ __all__ = [
     "run_ordered_traversal",
     "successor_interpreter_profile_digest_c3_1",
     "successor_interpreter_profile_digest_c3_2",
+    "try_exact_collect_binding",
+    "try_exact_composed_binding",
+    "try_exact_traversal_binding",
 ]
 
 
@@ -97,6 +102,7 @@ class InterpreterFailure:
 
 
 InterpreterOutcome: TypeAlias = InterpreterSuccess[T] | InterpreterFailure
+ExactBindingResult: TypeAlias = "Any | Failure"
 
 
 @runtime_checkable
@@ -147,11 +153,26 @@ class CollectBindingMismatch(ValueError):
     """Raised when Program/Plan/payload/project/catalog/binding drift."""
 
 
+def _exact_binding_failure(
+    *,
+    message: str,
+    site: str,
+) -> Failure:
+    return c3.collect_contract_failure(
+        code="program_binding_invalid",
+        message=message,
+        operation="collect.require_exact_binding",
+        site=site,
+        domain_outcome="INVALID_INPUT",
+        public_exception="CollectBindingMismatch",
+    )
+
+
 def _is_hex64(value: Any) -> bool:
     return isinstance(value, str) and is_sha256_hex(value)
 
 
-def require_exact_collect_binding(
+def try_exact_collect_binding(
     *,
     program: Any,
     plan: Any,
@@ -163,8 +184,8 @@ def require_exact_collect_binding(
     deployment_catalog_digest: str,
     binding: Any,
     expected_interpreter_profile_digest: str | None = None,
-) -> dict[str, str]:
-    """Fail closed unless the complete C3 closure is exact."""
+) -> ExactBindingResult:
+    """Return the exact C3 closure or one canonical binding failure."""
 
     failures: list[str] = []
     expected_kind = payload.operation_kind
@@ -286,8 +307,9 @@ def require_exact_collect_binding(
         failures.append("binding/interpreter profile")
 
     if failures:
-        raise CollectBindingMismatch(
-            "C3 collect binding drift: " + ", ".join(sorted(set(failures)))
+        return _exact_binding_failure(
+            message="C3 collect binding drift: " + ", ".join(sorted(set(failures))),
+            site="try_exact_collect_binding",
         )
     return {
         "program_digest": program.program_digest,
@@ -298,13 +320,45 @@ def require_exact_collect_binding(
     }
 
 
-def require_exact_traversal_binding(
+def require_exact_collect_binding(
+    *,
+    program: Any,
+    plan: Any,
+    contract_ref: OperationContractRef,
+    payload_ref: Any,
+    payload: Any,
+    project_scope: ProjectScopeView,
+    catalog: OperationContractCatalogSnapshot,
+    deployment_catalog_digest: str,
+    binding: Any,
+    expected_interpreter_profile_digest: str | None = None,
+) -> dict[str, str]:
+    """Preserve the legacy exception ABI for exact C3 binding checks."""
+
+    result = try_exact_collect_binding(
+        program=program,
+        plan=plan,
+        contract_ref=contract_ref,
+        payload_ref=payload_ref,
+        payload=payload,
+        project_scope=project_scope,
+        catalog=catalog,
+        deployment_catalog_digest=deployment_catalog_digest,
+        binding=binding,
+        expected_interpreter_profile_digest=(expected_interpreter_profile_digest),
+    )
+    if isinstance(result, Failure):
+        c3.raise_collect_contract_failure(result, CollectBindingMismatch)
+    return result
+
+
+def try_exact_traversal_binding(
     *,
     program: Any,
     plan: Any,
     catalog: OperationContractCatalogSnapshot,
-) -> dict[str, str | int]:
-    """Fail closed unless the declared TraverseOrdered occurrence is exact."""
+) -> ExactBindingResult:
+    """Return the exact traversal binding or one canonical failure."""
 
     failures: list[str] = []
     program_metadata = dict(program.metadata)
@@ -371,8 +425,9 @@ def require_exact_traversal_binding(
         failures.append("plan traversal output order")
 
     if failures:
-        raise CollectBindingMismatch(
-            "C3 traversal binding drift: " + ", ".join(sorted(set(failures)))
+        return _exact_binding_failure(
+            message="C3 traversal binding drift: " + ", ".join(sorted(set(failures))),
+            site="try_exact_traversal_binding",
         )
     return {
         "program_digest": program.program_digest,
@@ -383,6 +438,24 @@ def require_exact_traversal_binding(
             element_count if element_count is not None else 0
         ),
     }
+
+
+def require_exact_traversal_binding(
+    *,
+    program: Any,
+    plan: Any,
+    catalog: OperationContractCatalogSnapshot,
+) -> dict[str, str | int]:
+    """Preserve the legacy exception ABI for traversal binding checks."""
+
+    result = try_exact_traversal_binding(
+        program=program,
+        plan=plan,
+        catalog=catalog,
+    )
+    if isinstance(result, Failure):
+        c3.raise_collect_contract_failure(result, CollectBindingMismatch)
+    return result
 
 
 def _failed_outcome(
@@ -540,14 +613,14 @@ def _find_control_node(node: Any, step_id: str) -> Any | None:
     return None
 
 
-def require_exact_composed_binding(
+def try_exact_composed_binding(
     *,
     program: Any,
     plan: Any,
     catalog: OperationContractCatalogSnapshot,
     assignment: Any | None = None,
-) -> dict[str, str]:
-    """Fail closed unless the composed traversal/fold epoch and payload closure."""
+) -> ExactBindingResult:
+    """Return the exact composed closure or one canonical failure."""
 
     failures: list[str] = []
     metadata = dict(program.metadata)
@@ -662,8 +735,9 @@ def require_exact_composed_binding(
             failures.append("assignment/input closure digest")
 
     if failures:
-        raise CollectBindingMismatch(
-            "C3 composed binding drift: " + ", ".join(sorted(set(failures)))
+        return _exact_binding_failure(
+            message="C3 composed binding drift: " + ", ".join(sorted(set(failures))),
+            site="try_exact_composed_binding",
         )
     return {
         "composed_program_digest": program.program_digest,
@@ -675,6 +749,26 @@ def require_exact_composed_binding(
         "payload_element_count": str(metadata["payload_element_count"]),
         "payload_incarnation": str(metadata["payload_incarnation"]),
     }
+
+
+def require_exact_composed_binding(
+    *,
+    program: Any,
+    plan: Any,
+    catalog: OperationContractCatalogSnapshot,
+    assignment: Any | None = None,
+) -> dict[str, str]:
+    """Preserve the legacy exception ABI for composed binding checks."""
+
+    result = try_exact_composed_binding(
+        program=program,
+        plan=plan,
+        catalog=catalog,
+        assignment=assignment,
+    )
+    if isinstance(result, Failure):
+        c3.raise_collect_contract_failure(result, CollectBindingMismatch)
+    return result
 
 
 def deterministic_composed_element_runner(
@@ -847,17 +941,16 @@ class ComposedCollectSuccessorInterpreter:
                 message="successor composed binding is not the C3.2 fold profile",
                 retryable=False,
             )
-        try:
-            require_exact_composed_binding(
-                program=program,
-                plan=plan,
-                catalog=catalog,
-                assignment=assignment,
-            )
-        except CollectBindingMismatch as exc:
+        binding_result = try_exact_composed_binding(
+            program=program,
+            plan=plan,
+            catalog=catalog,
+            assignment=assignment,
+        )
+        if isinstance(binding_result, Failure):
             return InterpreterFailure(
                 code="ASSIGNMENT_BINDING_MISMATCH",
-                message=str(exc),
+                message=str(binding_result.message),
                 retryable=False,
             )
         if not element_payloads:
@@ -911,8 +1004,7 @@ def legacy_interpreter_profile_digest_c3_1() -> str:
             "interpreter_id": COLLECT_C3_1_LEGACY_INTERPRETER_ID,
             "version": "1.0.0",
             "donor": (
-                "collect_runtime._should_auto_batch+_split_query_terms+"
-                "_execute_auto_batch"
+                "collect_runtime._should_auto_batch+_split_query_terms+_execute_auto_batch"
             ),
         }
     )

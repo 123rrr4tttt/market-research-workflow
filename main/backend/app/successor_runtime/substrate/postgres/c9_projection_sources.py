@@ -37,7 +37,7 @@ import hashlib
 import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import Annotated, Any
 
 from sqlalchemy import MetaData, select
 from sqlalchemy.engine import Connection
@@ -614,7 +614,11 @@ def read_c7_search_source(
 def build_semantic_source_closure(
     connection: Connection,
     scope: RuntimeScope,
-) -> c9.C9SemanticSourceClosureV1:
+) -> Annotated[
+    c9.C9SemanticSourceClosureV1,
+    "kit:canonical-read canonical_owner=c9_sources.C9SemanticSourceClosureV1 "
+    "witness=test:test_w08c_postgres_builder_metadata_preserves_return_types",
+]:
     """Build the pure three-source semantic closure for one project."""
 
     runtime_session = read_runtime_session_source(connection, scope)

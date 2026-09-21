@@ -12,6 +12,8 @@ from ...models.base import SessionLocal
 from ...models.entities import Document, Embedding
 from ...settings.config import settings
 from ..llm.provider import get_embeddings
+from functorial_kit import Failure
+from mrw_functorial_kit.core.w04_service_semantics import search_failures
 from .es_client import get_es_client
 
 logger = logging.getLogger(__name__)
@@ -84,30 +86,30 @@ def bm25_search(es: Elasticsearch, query: str, state: str | None, top_k: int) ->
     return hits
 
 
-def qdrant_vector_search(query: str, state: str | None, top_k: int) -> List[dict]:
-    """Prefer Qdrant vector search when client/config available.
-
-    Raises RuntimeError when qdrant not available so caller can fallback.
-    """
+def try_qdrant_vector_search(query: str, state: str | None, top_k: int) -> List[dict] | Failure:
+    """Run the Qdrant port and return its closed provider outcome."""
     import os
 
     try:
         from qdrant_client import QdrantClient  # type: ignore
         from qdrant_client.models import Filter, FieldCondition, MatchValue  # type: ignore
     except Exception as exc:  # noqa: BLE001
-        raise RuntimeError(f"qdrant_unavailable: {exc}")
+        return _qdrant_failure("backend_unavailable", f"qdrant_unavailable: {exc}", exc)
 
     try:
         embedding = get_embeddings().embed_query(query)
     except Exception as exc:  # noqa: BLE001
-        raise RuntimeError(f"embed_failed: {exc}")
+        return _qdrant_failure("embedding_failed", f"embed_failed: {exc}", exc)
 
     url = os.getenv("QDRANT_URL")
     host = os.getenv("QDRANT_HOST")
     port = int(os.getenv("QDRANT_PORT", "6333"))
     collection = os.getenv("QDRANT_COLLECTION", "policy_chunks")
 
-    client = QdrantClient(url=url) if url else QdrantClient(host=host or "localhost", port=port)
+    try:
+        client = QdrantClient(url=url) if url else QdrantClient(host=host or "localhost", port=port)
+    except Exception as exc:  # noqa: BLE001
+        return _qdrant_failure("backend_unavailable", f"qdrant_unavailable: {exc}", exc)
 
     qfilter = None
     if state:
@@ -121,7 +123,7 @@ def qdrant_vector_search(query: str, state: str | None, top_k: int) -> List[dict
             limit=top_k,
         )
     except Exception as exc:  # noqa: BLE001
-        raise RuntimeError(f"qdrant_search_failed: {exc}")
+        return _qdrant_failure("vector_search_failed", f"qdrant_search_failed: {exc}", exc)
 
     hits: List[dict] = []
     for pt in result:
@@ -212,17 +214,44 @@ def qdrant_vector_search(query: str, state: str | None, top_k: int) -> List[dict
     return hits
 
 
+def qdrant_vector_search(query: str, state: str | None, top_k: int) -> List[dict]:
+    """Compatibility lift for direct callers that still use RuntimeError."""
+    result = try_qdrant_vector_search(query, state, top_k)
+    if isinstance(result, Failure):
+        # kit:boundary owner=search.hybrid.qdrant_compatibility_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=search.failure witness=test:test_w04_search_qdrant_failure_core
+        raise RuntimeError(result.message)
+    return result
+
+
+def _qdrant_failure(code: str, message: str, exc: Exception) -> Failure:
+    return search_failures.fail(
+        code,
+        message,
+        {
+            "owner": "search.hybrid.qdrant_port",
+            "provider": "qdrant",
+            "exception_type": type(exc).__name__,
+        },
+    )
+
+
 def vector_search(query: str, state: str | None, top_k: int) -> List[dict]:
     # Try Qdrant first; fallback to pgvector
     used_fallback = False
     fallback_reason: str | None = None
     try:
-        q_hits = qdrant_vector_search(query, state, top_k)
-        return q_hits
-    except Exception as qerr:  # noqa: BLE001
-        logger.info(f"Qdrant 不可用或查询失败，降级至 pgvector: {qerr}")
+        qdrant_attempt: List[dict] | Failure = qdrant_vector_search(query, state, top_k)
+    except RuntimeError as exc:
+        # Preserve the public Qdrant compatibility seam used by callers and
+        # deterministic substitutes, then close its expected failure again
+        # before selecting the pgvector fallback.
+        qdrant_attempt = _qdrant_failure("vector_search_failed", str(exc), exc)
+    if isinstance(qdrant_attempt, Failure):
+        logger.info(f"Qdrant 不可用或查询失败，降级至 pgvector: {qdrant_attempt.message}")
         used_fallback = True
-        fallback_reason = str(qerr)
+        fallback_reason = qdrant_attempt.message
+    else:
+        return qdrant_attempt
 
     try:
         embedding = get_embeddings().embed_query(query)

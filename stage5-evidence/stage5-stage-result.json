@@ -1,0 +1,84 @@
+{
+  "schema": "mrw.stage5.stage-result.v1",
+  "stage_id": "S5",
+  "authoritative": false,
+  "scope": "LOCAL_STAGE5_ONLY / NOT_AUTHORITY / RELEASE_DEFERRED",
+  "status": "PASS_LOCAL_STAGE5_WITH_EXPLICIT_RUNTIME_BOUNDARY_NOT_AUTHORITY",
+  "started_at": "2026-09-13T09:00:00Z",
+  "ended_at": "2026-09-13T11:21:39Z",
+  "timing_basis": "Stage envelope from task execution window; precise backup/restore measurements are in recovery/logs/25-rpo-rto-timing-fixed.log.",
+  "upstream": {
+    "stage4_status": "PASS_LOCAL_STAGE4_NOT_AUTHORITY",
+    "stage4_result": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage4-evidence/stage4-stage-result.json",
+    "backend_image": "mrw-local/stage4-business001@sha256:f247a1492400311e032710df01f84365c7e700f61c122b7243ae58eda982af19"
+  },
+  "work_packages": {
+    "observability": {
+      "status": "PASS_LOCAL_SUBPACKAGE_WITH_EXPLICIT_RUNTIME_BOUNDARY",
+      "result": "stage5-evidence/observability/observability-work-package-result.json",
+      "collector": "Prometheus v3.7.3 real scrape target up; 27 alert-state series (9 rules x unknown/triggered/recovered)",
+      "focused_tests": "60 passed, 15 warnings, 2 subtests passed (production_observability plus affected composition/integration entry points)",
+      "actual_runtime_trigger": "HTTP 403 domain rejection observed",
+      "in_process_rules": "domain rejection, route error, release error and six Stage5 local rules (queue, DB connection, provider failure, authority mismatch, projection drift, request latency) trigger/recover with controller-derived receipt",
+      "actual_runtime_recovery": "HTTP recovery remains NOT_OBSERVED without a valid production receipt; live runtime-health queue chain recovered with a controller-derived local/runtime receipt",
+      "runtime_source_boundary": [
+        "runtime-health samples are sourced by deep health from Redis LLEN, DB SELECT 1/pool and runtime bindings; provider failure is explicitly simulated; no HTTP endpoint fabricates source observations",
+        "production-receipt-gated HTTP recovery remains fail-closed and was not observed"
+      ],
+      "live_runtime_health_receipt_chain": "stage5-evidence/observability/logs/68-gap-closure2-live-runtime-health-receipt.json",
+      "live_worker_chain": "stage5-evidence/observability/live-worker-chain-result.v1.json",
+      "celery_worker_log": "stage5-evidence/observability/logs/85-celery-worker-log-tail.txt",
+      "worker_telemetry": "Redis bounded worker_event/structured_log/trace records with request/run/project/candidate correlation; no-op queue_side_effects=0 is business-task scope, while broker/result/telemetry writes are transport observability effects",
+      "worker_logs_traces_closure": "stage5-evidence/observability/worker-logs-traces-closure-result.v1.json",
+      "gauge_evidence": {
+        "backend_metrics": "stage5-evidence/observability/logs/43-gap-closure-backend-gauges.txt",
+        "prometheus_targets": "stage5-evidence/observability/logs/40-gap-closure-prometheus-targets.json",
+        "prometheus_alert_state": "stage5-evidence/observability/logs/72-gap-closure3-alert-state-count.json",
+        "runtime_health_query": "stage5-evidence/observability/logs/58-gap-closure2-runtime-health-query.json",
+        "queue_trigger_recover": "stage5-evidence/observability/logs/65-gap-closure2-metrics-queue-trigger.txt",
+        "live_receipt_chain": "stage5-evidence/observability/logs/68-gap-closure2-live-runtime-health-receipt.json",
+        "final_integrated_focused_tests": "stage5-evidence/observability/logs/81-final-integrated-focused-tests.log",
+        "live_worker_chain": "stage5-evidence/observability/live-worker-chain-result.v1.json"
+      }
+    },
+    "recovery": {
+      "status": "PASS_LOCAL_RECOVERY_DRILL_NOT_AUTHORITY",
+      "result": "stage5-evidence/recovery/recovery-result.v1.json",
+      "restore": "12 values, 6 receipts and 2 projection offsets restored with exact ordered-row hashes",
+      "migration": "bounded DuplicateTable failure recovered by task-local forward-fix; final Alembic head 20260905_000001",
+      "rpo": "0 observed row loss in scope, values or receipts",
+      "rto": "577 ms restore; 699 ms restore plus readback in this local run",
+      "external_effect_boundary": "0 external receipts and 0 runtime effect attempts; external sinks remain DECLARED_LOSS_NO_CALL"
+    },
+    "rollback": {
+      "status": "PASS_LOCAL_ROLLBACK_REHEARSAL_NOT_AUTHORITY",
+      "result": "stage5-evidence/rollback/rollback-fallback-result.v1.json",
+      "focused_recheck": "stage5-evidence/rollback/focused-route-recheck.v1.json",
+      "summary": "backend/frontend/config/credential revisions rolled back and restored; legacy writer remained closed; exact replay did not add effect, journal, receipt or idempotency"
+    }
+  },
+  "cleanup": {
+    "status": "PASS_TASK_LOCAL_CLEANUP",
+    "recovery_cleanup": "stage5-evidence/recovery/logs/26-cleanup.log",
+    "observability_cleanup": "stage5-evidence/observability/cleanup.json",
+    "global_prune": false,
+    "protected": ["ops-scrapyd-1", "host backups", "unknown Docker volumes"]
+  },
+  "known_gaps": [
+    "Queue, DB connection, provider failure, authority mismatch and projection drift are sampled by the real deep-health path; provider failure remains explicitly simulated and all observations are non-authoritative.",
+    "Production-receipt-gated HTTP runtime recovery was not observed; only the bounded in-process rule probe recovered.",
+    "All recovery data is synthetic Stage4 C9 local data; no production or external provider call was used.",
+    "RPO/RTO are single local measurements and not production SLO/capacity guarantees.",
+    "Stage 6, production authority, signing, registry, remote deployment, canary and release remain out of scope."
+  ],
+  "stage6_input": {
+    "recommended": "independent local acceptance of Stage5 evidence and explicit-gap disposition",
+    "must_recheck": [
+      "recovery-result.v1.json and row-digest equality",
+      "migration failure and forward-fix logs",
+      "observability runtime-source boundary and 27 Prometheus alert-state series",
+      "rollback exact-replay and legacy-writer-closed evidence"
+    ],
+    "authority_ceiling": ["NOT_AUTHORITY", "RELEASE_DEFERRED", "STAGE6_NOT_STARTED"]
+  }
+}

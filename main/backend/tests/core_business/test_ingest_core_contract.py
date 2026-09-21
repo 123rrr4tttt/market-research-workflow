@@ -5,8 +5,10 @@ import unittest
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
+from uuid import uuid4
 
 import pytest
+from sqlalchemy.exc import OperationalError
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
@@ -40,6 +42,10 @@ def _response_payload(body):
     if isinstance(body, dict) and isinstance(body.get("data"), dict):
         return body["data"]
     return body
+
+
+def _unique_key(prefix: str) -> str:
+    return f"{prefix}-{uuid4().hex}"
 
 
 class IngestCoreContractTestCase(unittest.TestCase):
@@ -271,6 +277,17 @@ class IngestCoreContractTestCase(unittest.TestCase):
         self.assertEqual(data.get("status"), "queued")
         self.assertTrue(data.get("async"))
         self.assertEqual(data.get("params"), {"item_key": "demo-item"})
+        trace_chain = data.get("trace_chain") or {}
+        self.assertEqual(trace_chain.get("contract_version"), "ingest_search.trace_chain.v1")
+        self.assertEqual(trace_chain.get("entrypoint"), "ingest.source_library.run")
+        self.assertEqual(trace_chain.get("ids", {}).get("task_id"), "source-library-task-1")
+        self.assertEqual(trace_chain.get("ids", {}).get("retrieval_run_id"), None)
+        self.assertEqual(trace_chain.get("run_order", [])[0]["stage"], "ingest_submission")
+        self.assertEqual(trace_chain.get("run_order", [])[1]["stage"], "dispatch_or_execution")
+        self.assertEqual(trace_chain.get("run_order", [])[2]["status"], "not_created_at_ingest_response")
+        self.assertEqual(trace_chain.get("fallback", {}).get("used"), "unknown")
+        self.assertFalse(trace_chain.get("index", {}).get("real_timestamp_available"))
+        self.assertIn("no_real_index_timestamp_at_ingest_response", trace_chain.get("known_limitations") or [])
 
         tasks.task_run_source_library_item.delay.assert_called_once_with(
             "demo-item",
@@ -314,11 +331,129 @@ class IngestCoreContractTestCase(unittest.TestCase):
                 "language": "zh",
                 "scope": "project",
                 "platforms": ["web", "rss"],
-                "source_mode": "site_search",
             },
             workflow_run_id=None,
             trace_id=None,
         )
+
+    def test_source_library_run_accepts_single_source_guard_and_preserves_evidence(self):
+        tasks = _TrackedTasks()
+        guard = {
+            "contract_version": "resource_pool.site_entry.single_source_guard.v1",
+            "strict_source": True,
+            "guarantee": True,
+            "allowed_urls": ["https://example.com/feed.xml"],
+            "allowed_count": 1,
+            "blocked_reason": None,
+            "source_ref": {"site_entry_url": "https://example.com/feed.xml"},
+            "report_source_ref": "resource_pool.site_entry:project:10",
+        }
+        payload = {
+            "item_key": "demo-item",
+            "project_key": "demo_proj",
+            "async_mode": True,
+            "override_params": {
+                "site_entries": ["https://example.com/feed.xml"],
+                "single_source_guard": guard,
+            },
+        }
+
+        with patch("app.api.ingest._tasks_module", return_value=tasks):
+            resp = self.client.post("/api/v1/ingest/source-library/run", json=payload)
+
+        self.assertEqual(resp.status_code, 200, msg=resp.text)
+        data = _response_payload(resp.json())
+        self.assertEqual(data.get("task_id"), "source-library-task-1")
+        self.assertEqual(data.get("single_source_guard"), guard)
+        self.assertEqual(data.get("strict_source"), guard)
+        tasks.task_run_source_library_item.delay.assert_called_once_with(
+            "demo-item",
+            "demo_proj",
+            {
+                "site_entries": ["https://example.com/feed.xml"],
+                "single_source_guard": guard,
+            },
+            workflow_run_id=None,
+            trace_id=None,
+        )
+
+    def test_source_library_run_rejects_blocked_single_source_guard_before_dispatch(self):
+        tasks = _TrackedTasks()
+        guard = {
+            "contract_version": "resource_pool.site_entry.single_source_guard.v1",
+            "strict_source": True,
+            "guarantee": False,
+            "allowed_urls": ["https://example.com/feed.xml"],
+            "allowed_count": 1,
+            "blocked_reason": "review_rejected",
+        }
+        payload = {
+            "item_key": "demo-item",
+            "project_key": "demo_proj",
+            "async_mode": True,
+            "override_params": {
+                "site_entries": ["https://example.com/feed.xml"],
+                "single_source_guard": guard,
+            },
+        }
+
+        with patch("app.api.ingest._tasks_module", return_value=tasks):
+            resp = self.client.post("/api/v1/ingest/source-library/run", json=payload)
+
+        self.assertEqual(resp.status_code, 400)
+        body = resp.json()
+        details = body["detail"]["error"]["details"]
+        self.assertEqual(body["detail"]["error"]["code"], "INVALID_INPUT")
+        self.assertEqual(details["reason_code"], "single_source_guard_blocked")
+        self.assertEqual(details["single_source_guard"], guard)
+        self.assertEqual(details["expected"], {"guarantee": True, "blocked_reason": None})
+        self.assertEqual(details["actual"], {"guarantee": False, "blocked_reason": "review_rejected"})
+        tasks.task_run_source_library_item.delay.assert_not_called()
+
+    def test_source_library_run_rejects_single_source_guard_site_entries_mismatch_before_dispatch(self):
+        tasks = _TrackedTasks()
+        guard = {
+            "contract_version": "resource_pool.site_entry.single_source_guard.v1",
+            "strict_source": True,
+            "guarantee": True,
+            "allowed_urls": ["https://example.com/feed.xml"],
+            "allowed_count": 1,
+            "blocked_reason": None,
+        }
+        payload = {
+            "item_key": "demo-item",
+            "project_key": "demo_proj",
+            "async_mode": True,
+            "override_params": {
+                "site_entries": ["https://evil.example/feed.xml"],
+                "single_source_guard": guard,
+            },
+        }
+
+        with patch("app.api.ingest._tasks_module", return_value=tasks):
+            resp = self.client.post("/api/v1/ingest/source-library/run", json=payload)
+
+        self.assertEqual(resp.status_code, 400)
+        body = resp.json()
+        details = body["detail"]["error"]["details"]
+        self.assertEqual(body["detail"]["error"]["code"], "INVALID_INPUT")
+        self.assertEqual(details["reason_code"], "single_source_guard_site_entries_mismatch")
+        self.assertEqual(details["single_source_guard"], guard)
+        self.assertEqual(
+            details["expected"],
+            {
+                "site_entries": ["https://example.com/feed.xml"],
+                "allowed_urls": ["https://example.com/feed.xml"],
+            },
+        )
+        self.assertEqual(
+            details["actual"],
+            {
+                "site_entries": ["https://evil.example/feed.xml"],
+                "allowed_urls": ["https://example.com/feed.xml"],
+            },
+        )
+        tasks.task_run_source_library_item.delay.assert_not_called()
 
     def test_source_library_run_items_batch_uses_item_form_only(self):
         tasks = _TrackedTasks()
@@ -470,9 +605,11 @@ class IngestCoreContractTestCase(unittest.TestCase):
 
     def test_url_single_async_task_contract_compat_with_task_result_status(self):
         tasks = _TrackedTasks()
+        unique_url = f"https://example.com/post/{_unique_key('task-contract')}"
         payload = {
-            "url": "https://example.com/post/42",
+            "url": unique_url,
             "query_terms": ["market"],
+            "idempotency_key": _unique_key("core-url-single-task-contract"),
             "strict_mode": True,
             "project_key": "demo_proj",
             "async_mode": True,
@@ -493,7 +630,7 @@ class IngestCoreContractTestCase(unittest.TestCase):
         self.assertEqual(
             data.get("params"),
             {
-                "url": "https://example.com/post/42",
+                "url": unique_url,
                 "query_terms": ["market"],
                 "strict_mode": True,
             },
@@ -503,11 +640,284 @@ class IngestCoreContractTestCase(unittest.TestCase):
             self.assertEqual(task_result_status, data.get("status"))
 
         tasks.task_ingest_url_via_source_library.delay.assert_called_once_with(
-            "https://example.com/post/42",
+            unique_url,
             ["market"],
             True,
             "demo_proj",
         )
+
+    def test_url_single_async_reuses_existing_submission_for_duplicate_idempotency_key(self):
+        tasks = _TrackedTasks()
+        idempotency_key = _unique_key("core-url-single-idem")
+        unique_url = f"https://example.com/post/{idempotency_key}"
+        payload = {
+            "url": unique_url,
+            "query_terms": ["market"],
+            "idempotency_key": idempotency_key,
+            "strict_mode": True,
+            "project_key": "demo_proj",
+            "async_mode": True,
+        }
+
+        with patch("app.api.ingest._tasks_module", return_value=tasks):
+            first_resp = self.client.post("/api/v1/ingest/url/single", json=payload)
+            duplicate_resp = self.client.post("/api/v1/ingest/url/single", json=payload)
+
+        self.assertEqual(first_resp.status_code, 200, msg=first_resp.text)
+        self.assertEqual(duplicate_resp.status_code, 200, msg=duplicate_resp.text)
+
+        first_data = _response_payload(first_resp.json())
+        duplicate_data = _response_payload(duplicate_resp.json())
+
+        self.assertEqual(first_data.get("task_id"), "single-url-task-1")
+        self.assertEqual(first_data.get("status"), "queued")
+        self.assertEqual(first_data.get("submission_status"), "submitted")
+        self.assertEqual(first_data.get("idempotency_key"), idempotency_key)
+        self.assertTrue(first_data.get("submission_id"))
+        self.assertFalse(first_data.get("duplicate"))
+        first_trace_chain = first_data.get("trace_chain") or {}
+        self.assertEqual(first_trace_chain.get("entrypoint"), "ingest.url.single")
+        self.assertEqual(first_trace_chain.get("ids", {}).get("submission_id"), first_data.get("submission_id"))
+        self.assertEqual(first_trace_chain.get("ids", {}).get("task_id"), "single-url-task-1")
+        self.assertEqual(first_trace_chain.get("run_order", [])[2]["status"], "not_created_at_ingest_response")
+        self.assertEqual(first_trace_chain.get("fallback", {}).get("used"), "unknown")
+        self.assertFalse(first_trace_chain.get("index", {}).get("real_timestamp_available"))
+
+        self.assertEqual(duplicate_data.get("task_id"), "single-url-task-1")
+        self.assertEqual(duplicate_data.get("status"), "queued")
+        self.assertEqual(duplicate_data.get("submission_id"), first_data.get("submission_id"))
+        self.assertEqual(duplicate_data.get("idempotency_key"), idempotency_key)
+        self.assertEqual(duplicate_data.get("submission_status"), "already_submitted")
+        self.assertTrue(duplicate_data.get("duplicate"))
+        self.assertIn("duplicate idempotency_key", duplicate_data.get("duplicate_hint") or "")
+        self.assertEqual(
+            duplicate_data.get("trace_chain", {}).get("ids", {}).get("submission_id"),
+            first_data.get("submission_id"),
+        )
+
+        tasks.task_ingest_url_via_source_library.delay.assert_called_once_with(
+            unique_url,
+            ["market"],
+            True,
+            "demo_proj",
+        )
+
+    def test_url_single_async_submission_readback_is_visible_in_history(self):
+        tasks = _TrackedTasks()
+        idempotency_key = _unique_key("core-url-single-history-idem")
+        unique_url = f"https://example.com/post/{idempotency_key}"
+        payload = {
+            "url": unique_url,
+            "query_terms": ["market"],
+            "idempotency_key": idempotency_key,
+            "strict_mode": True,
+            "project_key": "demo_proj",
+            "async_mode": True,
+        }
+        legacy_job = {"id": 999, "job_type": "legacy_job", "status": "completed", "params": {"k": "v"}}
+
+        with patch("app.api.ingest._tasks_module", return_value=tasks), patch(
+            "app.api.ingest.list_jobs",
+            return_value=[legacy_job],
+        ):
+            first_resp = self.client.post("/api/v1/ingest/url/single", json=payload)
+            duplicate_resp = self.client.post("/api/v1/ingest/url/single", json=payload)
+            history_resp = self.client.get("/api/v1/ingest/history", params={"limit": 5})
+
+        self.assertEqual(first_resp.status_code, 200, msg=first_resp.text)
+        self.assertEqual(duplicate_resp.status_code, 200, msg=duplicate_resp.text)
+        self.assertEqual(history_resp.status_code, 200, msg=history_resp.text)
+
+        first_data = _response_payload(first_resp.json())
+        duplicate_data = _response_payload(duplicate_resp.json())
+        history_items = history_resp.json()["data"]
+        readback = next(
+            item for item in history_items if item.get("submission_id") == first_data.get("submission_id")
+        )
+
+        self.assertEqual(duplicate_data.get("submission_id"), first_data.get("submission_id"))
+        self.assertEqual(readback.get("submission_id"), first_data.get("submission_id"))
+        self.assertEqual(readback.get("idempotency_key"), idempotency_key)
+        self.assertEqual(readback.get("task_id"), "single-url-task-1")
+        self.assertEqual(readback.get("status"), "queued")
+        self.assertEqual(readback.get("task_status"), "queued")
+        self.assertEqual(readback.get("submission_status"), "queued")
+        self.assertEqual(readback.get("feedback_state"), "accepted_pending_worker")
+        self.assertEqual(readback.get("trace_id"), first_data.get("trace_id"))
+        self.assertEqual(readback.get("trace_chain", {}).get("ids", {}).get("submission_id"), first_data.get("submission_id"))
+        self.assertEqual(readback.get("trace_chain", {}).get("ids", {}).get("task_id"), "single-url-task-1")
+        self.assertTrue(any(item.get("job_type") == "legacy_job" for item in history_items))
+        tasks.task_ingest_url_via_source_library.delay.assert_called_once_with(
+            unique_url,
+            ["market"],
+            True,
+            "demo_proj",
+        )
+
+    def test_source_library_run_async_reuses_existing_submission_for_explicit_idempotency_key(self):
+        tasks = _TrackedTasks()
+        idempotency_key = _unique_key("core-source-library-idem")
+        item_key = f"demo-item-idempotent-{uuid4().hex}"
+        payload = {
+            "item_key": item_key,
+            "project_key": "demo_proj",
+            "async_mode": True,
+            "idempotency_key": idempotency_key,
+            "override_params": {"k": "v"},
+        }
+
+        with patch("app.api.ingest._tasks_module", return_value=tasks):
+            first_resp = self.client.post("/api/v1/ingest/source-library/run", json=payload)
+            duplicate_resp = self.client.post("/api/v1/ingest/source-library/run", json=payload)
+
+        self.assertEqual(first_resp.status_code, 200, msg=first_resp.text)
+        self.assertEqual(duplicate_resp.status_code, 200, msg=duplicate_resp.text)
+
+        first_data = _response_payload(first_resp.json())
+        duplicate_data = _response_payload(duplicate_resp.json())
+
+        self.assertEqual(first_data.get("task_id"), "source-library-task-1")
+        self.assertEqual(first_data.get("status"), "queued")
+        self.assertEqual(first_data.get("submission_status"), "submitted")
+        self.assertEqual(first_data.get("idempotency_key"), idempotency_key)
+        self.assertFalse(first_data.get("duplicate"))
+
+        self.assertEqual(duplicate_data.get("task_id"), "source-library-task-1")
+        self.assertEqual(duplicate_data.get("status"), "queued")
+        self.assertEqual(duplicate_data.get("submission_id"), first_data.get("submission_id"))
+        self.assertEqual(duplicate_data.get("submission_status"), "already_submitted")
+        self.assertTrue(duplicate_data.get("duplicate"))
+
+        tasks.task_run_source_library_item.delay.assert_called_once()
+        source_args = tasks.task_run_source_library_item.delay.call_args.args
+        source_kwargs = tasks.task_run_source_library_item.delay.call_args.kwargs
+        self.assertEqual(source_args[:2], (item_key, "demo_proj"))
+        self.assertEqual(source_args[2]["k"], "v")
+        source_readback = source_args[2]["runtime_readback"]
+        self.assertEqual(source_readback["line_key"], "resource_source_library")
+        self.assertTrue(source_readback["trace_id"].startswith("ingest.source_library.run:"))
+        self.assertEqual(source_kwargs["trace_id"], source_readback["trace_id"])
+
+    def test_url_single_async_reuses_persistent_registry_hit_without_dispatch(self):
+        tasks = _TrackedTasks()
+        payload = {
+            "url": "https://example.com/post/db-duplicate",
+            "query_terms": ["market"],
+            "idempotency_key": "core-url-single-db-idem-1",
+            "project_key": "demo_proj",
+            "async_mode": True,
+        }
+        submission = {
+            "submission_id": "sub_db_existing",
+            "idempotency_key": "core-url-single-db-idem-1",
+            "trigger_type": "ingest.url.single",
+            "project_key": "demo_proj",
+            "registry_key": "ingest.url.single:demo_proj:core-url-single-db-idem-1",
+            "request_hash": "a" * 64,
+            "subject": {"url": "https://example.com/post/db-duplicate", "project_key": "demo_proj"},
+            "response": {
+                "task_id": "db-task-1",
+                "status": "queued",
+                "async": True,
+                "params": {"url": "https://example.com/post/db-duplicate"},
+            },
+            "registry_backend": "db",
+            "registry_degraded": False,
+        }
+
+        with patch("app.api.ingest._tasks_module", return_value=tasks), patch(
+            "app.api.ingest._reserve_ingest_submission_db",
+            return_value=(submission, True),
+        ) as reserve_db:
+            resp = self.client.post("/api/v1/ingest/url/single", json=payload)
+
+        self.assertEqual(resp.status_code, 200, msg=resp.text)
+        data = _response_payload(resp.json())
+        self.assertEqual(data.get("task_id"), "db-task-1")
+        self.assertEqual(data.get("submission_id"), "sub_db_existing")
+        self.assertEqual(data.get("submission_status"), "already_submitted")
+        self.assertTrue(data.get("duplicate"))
+        self.assertEqual(data.get("registry_backend"), "db")
+        self.assertFalse(data.get("registry_degraded"))
+        self.assertEqual(data.get("request_hash"), "a" * 64)
+        tasks.task_ingest_url_via_source_library.delay.assert_not_called()
+        reserve_db.assert_called_once()
+
+    def test_url_single_async_marks_memory_registry_when_db_unavailable(self):
+        tasks = _TrackedTasks()
+        idempotency_key = _unique_key("core-url-single-db-down-idem")
+        unique_url = f"https://example.com/post/{idempotency_key}"
+        payload = {
+            "url": unique_url,
+            "query_terms": ["market"],
+            "idempotency_key": idempotency_key,
+            "project_key": "demo_proj",
+            "async_mode": True,
+        }
+        db_error = OperationalError("select", {}, Exception("database down"))
+
+        with patch("app.api.ingest._tasks_module", return_value=tasks), patch(
+            "app.api.ingest._reserve_ingest_submission_db",
+            side_effect=db_error,
+        ), patch("app.api.ingest._complete_ingest_submission_db"):
+            resp = self.client.post("/api/v1/ingest/url/single", json=payload)
+
+        self.assertEqual(resp.status_code, 200, msg=resp.text)
+        data = _response_payload(resp.json())
+        self.assertEqual(data.get("task_id"), "single-url-task-1")
+        self.assertEqual(data.get("registry_backend"), "memory")
+        self.assertTrue(data.get("registry_degraded"))
+        self.assertEqual(data.get("idempotency_key"), idempotency_key)
+        self.assertTrue(data.get("request_hash"))
+        tasks.task_ingest_url_via_source_library.delay.assert_called_once_with(
+            unique_url,
+            ["market"],
+            False,
+            "demo_proj",
+        )
+
+    def test_source_library_run_reuses_persistent_registry_hit_without_dispatch(self):
+        tasks = _TrackedTasks()
+        payload = {
+            "item_key": "demo-item-db-idempotent",
+            "project_key": "demo_proj",
+            "async_mode": True,
+            "idempotency_key": "core-source-library-db-idem-1",
+            "override_params": {"k": "v"},
+        }
+        submission = {
+            "submission_id": "sub_source_db_existing",
+            "idempotency_key": "core-source-library-db-idem-1",
+            "trigger_type": "ingest.source_library.run",
+            "project_key": "demo_proj",
+            "registry_key": "ingest.source_library.run:demo_proj:core-source-library-db-idem-1",
+            "request_hash": "b" * 64,
+            "subject": {"item_key": "demo-item-db-idempotent", "project_key": "demo_proj"},
+            "response": {
+                "task_id": "source-db-task-1",
+                "status": "queued",
+                "async": True,
+                "params": {"item_key": "demo-item-db-idempotent"},
+            },
+            "registry_backend": "db",
+            "registry_degraded": False,
+        }
+
+        with patch("app.api.ingest._tasks_module", return_value=tasks), patch(
+            "app.api.ingest._reserve_ingest_submission_db",
+            return_value=(submission, True),
+        ):
+            resp = self.client.post("/api/v1/ingest/source-library/run", json=payload)
+
+        self.assertEqual(resp.status_code, 200, msg=resp.text)
+        data = _response_payload(resp.json())
+        self.assertEqual(data.get("task_id"), "source-db-task-1")
+        self.assertEqual(data.get("submission_id"), "sub_source_db_existing")
+        self.assertEqual(data.get("submission_status"), "already_submitted")
+        self.assertTrue(data.get("duplicate"))
+        self.assertEqual(data.get("registry_backend"), "db")
+        self.assertFalse(data.get("registry_degraded"))
+        tasks.task_run_source_library_item.delay.assert_not_called()
 
     def test_url_single_async_includes_light_filter_search_options_when_overridden(self):
         tasks = _TrackedTasks()
@@ -523,7 +933,24 @@ class IngestCoreContractTestCase(unittest.TestCase):
             "light_filter_reject_search_noise_domain": False,
         }
 
-        with patch("app.api.ingest._tasks_module", return_value=tasks):
+        submission = {
+            "submission_id": "sub_url_light_filter_runtime_readback",
+            "idempotency_key": "core-url-single-light-filter-runtime-readback",
+            "trigger_type": "ingest.url.single",
+            "project_key": "demo_proj",
+            "registry_key": "ingest.url.single:demo_proj:core-url-single-light-filter-runtime-readback",
+            "request_hash": "c" * 64,
+            "subject": {"url": "https://example.com/post/43", "project_key": "demo_proj"},
+            "submission_status": "submitted",
+            "status": "submitted",
+            "registry_backend": "memory",
+            "registry_degraded": False,
+        }
+        with (
+            patch("app.api.ingest._tasks_module", return_value=tasks),
+            patch("app.api.ingest._reserve_ingest_submission", return_value=(submission, False)),
+            patch("app.api.ingest._complete_ingest_submission"),
+        ):
             resp = self.client.post("/api/v1/ingest/url/single", json=payload)
 
         self.assertEqual(resp.status_code, 200, msg=resp.text)
@@ -547,33 +974,22 @@ class IngestCoreContractTestCase(unittest.TestCase):
         self.assertEqual(effective_payload.get("light_filter_reject_static_assets"), False)
         self.assertEqual(effective_payload.get("light_filter_reject_search_noise_domain"), False)
 
-        tasks.task_ingest_url_via_source_library.delay.assert_called_once_with(
-            "https://example.com/post/43",
-            ["market"],
-            False,
-            "demo_proj",
-            {
-                "search_expand": True,
-                "search_expand_limit": 3,
-                "search_provider": "auto",
-                "search_fallback_provider": "ddg_html",
-                "fallback_on_insufficient": True,
-                "allow_search_summary_write": False,
-                "min_results_required": 6,
-                "target_candidates": 6,
-                "decode_redirect_wrappers": True,
-                "filter_low_value_candidates": True,
-                "light_filter_enabled": False,
-                "light_filter_min_score": 55,
-                "light_filter_reject_static_assets": False,
-                "light_filter_reject_search_noise_domain": False,
-            },
-        )
+        tasks.task_ingest_url_via_source_library.delay.assert_called_once()
+        url_args = tasks.task_ingest_url_via_source_library.delay.call_args.args
+        self.assertEqual(url_args[:4], ("https://example.com/post/43", ["market"], False, "demo_proj"))
+        dispatch_options = url_args[4]
+        self.assertEqual(dispatch_options["light_filter_enabled"], False)
+        self.assertEqual(dispatch_options["light_filter_min_score"], 55)
+        url_readback = dispatch_options["runtime_readback"]
+        self.assertEqual(url_readback["line_key"], "ingest")
+        self.assertTrue(url_readback["trace_id"].startswith("ingest.url.single:"))
 
     def test_url_single_sync_response_contains_effective_payload_with_light_filter_fields(self):
+        unique_url = f"https://example.com/post/{_unique_key('sync-light-filter')}"
         payload = {
-            "url": "https://example.com/post/44",
+            "url": unique_url,
             "query_terms": ["market"],
+            "idempotency_key": _unique_key("core-url-single-sync"),
             "strict_mode": False,
             "project_key": "demo_proj",
             "async_mode": False,
@@ -592,11 +1008,18 @@ class IngestCoreContractTestCase(unittest.TestCase):
         data = _response_payload(body)
         self.assertEqual(data.get("status"), "degraded_success")
         effective_payload = data.get("effective_payload") or {}
-        self.assertEqual(effective_payload.get("url"), "https://example.com/post/44")
+        self.assertEqual(effective_payload.get("url"), unique_url)
         self.assertEqual(effective_payload.get("light_filter_enabled"), True)
         self.assertEqual(effective_payload.get("light_filter_min_score"), 42)
         self.assertEqual(effective_payload.get("light_filter_reject_static_assets"), True)
         self.assertEqual(effective_payload.get("light_filter_reject_search_noise_domain"), True)
+        trace_chain = data.get("trace_chain") or {}
+        self.assertEqual(trace_chain.get("contract_version"), "ingest_search.trace_chain.v1")
+        self.assertEqual(trace_chain.get("entrypoint"), "ingest.url.single")
+        self.assertEqual(trace_chain.get("fallback", {}).get("used"), True)
+        self.assertEqual(trace_chain.get("fallback", {}).get("reason"), "sync_url_ingest_returned_degraded_status")
+        self.assertFalse(trace_chain.get("index", {}).get("real_timestamp_available"))
+        self.assertIn("no_real_index_timestamp_at_ingest_response", trace_chain.get("known_limitations") or [])
 
 
 if __name__ == "__main__":

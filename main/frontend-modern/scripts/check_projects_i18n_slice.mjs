@@ -9,6 +9,7 @@ const rootDir = path.resolve(scriptDir, '..')
 
 const files = {
   page: 'src/pages/ProjectsPage.tsx',
+  readinessLib: 'src/lib/projectReadiness.ts',
   catalog: 'src/app/platform/i18n/catalog.ts',
 }
 
@@ -37,6 +38,52 @@ const requiredKeys = [
   'projects.action.delete',
   'projects.list.title',
   'projects.list.empty',
+  'projects.readiness.title',
+  'projects.readiness.field.check',
+  'projects.readiness.field.status',
+  'projects.readiness.field.evidence',
+  'projects.readiness.field.nextAction',
+  'projects.readiness.field.actionPriority',
+  'projects.readiness.status.ready',
+  'projects.readiness.status.blocked',
+  'projects.readiness.status.unknown',
+  'projects.readiness.summary.ready',
+  'projects.readiness.summary.blocked',
+  'projects.readiness.summary.unknown',
+  'projects.readiness.action.ready',
+  'projects.readiness.action.blocked',
+  'projects.readiness.action.unknown',
+  'projects.readiness.actionDetail.ready',
+  'projects.readiness.actionDetail.blocked',
+  'projects.readiness.actionDetail.unknown',
+  'projects.readiness.actionTarget.ready',
+  'projects.readiness.actionTarget.blocked',
+  'projects.readiness.actionTarget.unknown',
+  'projects.readiness.action.copyContext',
+  'projects.readiness.action.openTarget',
+  'projects.readiness.action.refreshStatus',
+  'projects.readiness.message.contextCopied',
+  'projects.readiness.message.contextCopyFailed',
+  'projects.readiness.message.targetOpened',
+  'projects.readiness.message.statusRefreshed',
+  'projects.readiness.check.projectRecord',
+  'projects.readiness.check.enabled',
+  'projects.readiness.check.schema',
+  'projects.readiness.check.activeMarker',
+  'projects.readiness.evidence.loading',
+  'projects.readiness.evidence.listUnavailable',
+  'projects.readiness.evidence.noProjectKey',
+  'projects.readiness.evidence.projectFound',
+  'projects.readiness.evidence.fallbackActive',
+  'projects.readiness.evidence.projectMissing',
+  'projects.readiness.evidence.enabledTrue',
+  'projects.readiness.evidence.enabledFalse',
+  'projects.readiness.evidence.enabledUnknown',
+  'projects.readiness.evidence.schemaKnown',
+  'projects.readiness.evidence.schemaMissing',
+  'projects.readiness.evidence.activeTrue',
+  'projects.readiness.evidence.activeFalse',
+  'projects.readiness.evidence.activeUnknown',
   'projects.status.current',
   'projects.error.missingProjectKey',
 ]
@@ -71,12 +118,14 @@ function escapeRegExp(value) {
 }
 
 const pageSource = readFile(files.page)
+const readinessLibSource = readFile(files.readinessLib)
+const usageSource = `${pageSource}\n${readinessLibSource}`
 const catalogSource = readFile(files.catalog)
 const failures = []
 
 for (const key of requiredKeys) {
-  if (!pageSource.includes(`'${key}'`)) {
-    failures.push(`ProjectsPage does not use ${key}`)
+  if (!usageSource.includes(`'${key}'`)) {
+    failures.push(`ProjectsPage readiness surface does not use ${key}`)
   }
 
   const shortKey = key.replace(/^projects\./, '')

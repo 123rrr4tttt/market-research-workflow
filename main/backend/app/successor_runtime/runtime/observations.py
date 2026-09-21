@@ -14,9 +14,29 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Literal
 
-from pydantic import Field, model_validator
+from functorial_kit import Failure
+
+from pydantic import Field, ValidationError, model_validator
 
 from .assignments import Digest, FrozenContract, canonical_digest
+from .failure_policy import raise_runtime_failure, runtime_failure
+
+
+class LegacyObservationError(ValueError):
+    """Invalid captured legacy evidence at the compatibility boundary."""
+
+
+def _raise_legacy_observation_failure(message: object, *, site: str) -> None:
+    """Preserve native validation errors while recording typed evidence."""
+
+    failure: Failure = runtime_failure(
+        "LEGACY_OBSERVATION_INVALID",
+        message,
+        LegacyObservationError,
+        site=site,
+    )
+    # The pydantic validator wraps this ValueError into its native ValidationError.
+    raise_runtime_failure(failure, LegacyObservationError)
 
 
 class ObservationSourceKind(StrEnum):
@@ -64,28 +84,46 @@ class LegacySourceObservation(FrozenContract):
     @model_validator(mode="after")
     def validate_observation(self) -> LegacySourceObservation:
         if self.observed_at.tzinfo is None or self.observed_at.utcoffset() is None:
-            raise ValueError("legacy observation observed_at must be timezone-aware")
+            _raise_legacy_observation_failure(
+                "legacy observation observed_at must be timezone-aware",
+                site="runtime.observations.observed_at",
+            )
         expected = canonical_digest(self, exclude_fields={"source_digest"})
         if self.source_digest != expected:
-            raise ValueError("legacy observation source_digest mismatch")
+            _raise_legacy_observation_failure(
+                "legacy observation source_digest mismatch",
+                site="runtime.observations.source_digest",
+            )
         if (
             self.observation_class is ObservationClass.OBSERVED
             and not self.observed_state
         ):
-            raise ValueError("OBSERVED observation requires an observed_state")
+            _raise_legacy_observation_failure(
+                "OBSERVED observation requires an observed_state",
+                site="runtime.observations.observed_state",
+            )
         if (
             self.observation_class is ObservationClass.CONTRADICTORY
             and self.reason is None
         ):
-            raise ValueError("CONTRADICTORY observation requires a reason")
+            _raise_legacy_observation_failure(
+                "CONTRADICTORY observation requires a reason",
+                site="runtime.observations.contradiction",
+            )
         if self.terminal_authority_claim is not None:
-            raise ValueError("legacy observations never claim terminal authority")
+            _raise_legacy_observation_failure(
+                "legacy observations never claim terminal authority",
+                site="runtime.observations.terminal_authority",
+            )
         return self
 
     @classmethod
     def from_content(cls, **content: object) -> LegacySourceObservation:
         if "source_digest" in content:
-            raise ValueError("source_digest is derived, not caller supplied")
+            _raise_legacy_observation_failure(
+                "source_digest is derived, not caller supplied",
+                site="runtime.observations.from_content.source_digest",
+            )
         provisional = cls.model_construct(**content, source_digest="0" * 64)
         return cls(
             **content,
@@ -109,23 +147,38 @@ class LegacyObservationSet(FrozenContract):
     @model_validator(mode="after")
     def validate_set(self) -> LegacyObservationSet:
         if self.captured_at.tzinfo is None or self.captured_at.utcoffset() is None:
-            raise ValueError("observation set captured_at must be timezone-aware")
+            _raise_legacy_observation_failure(
+                "observation set captured_at must be timezone-aware",
+                site="runtime.observations.set.captured_at",
+            )
         identities = tuple(
             (item.source_kind.value, item.source_identity) for item in self.observations
         )
         if tuple(sorted(identities)) != identities:
-            raise ValueError("observation set is not canonically ordered")
+            _raise_legacy_observation_failure(
+                "observation set is not canonically ordered",
+                site="runtime.observations.set.order",
+            )
         if len(set(identities)) != len(identities):
-            raise ValueError("observation set contains duplicate source identity")
+            _raise_legacy_observation_failure(
+                "observation set contains duplicate source identity",
+                site="runtime.observations.set.identity",
+            )
         expected = canonical_digest(self, exclude_fields={"set_digest"})
         if self.set_digest != expected:
-            raise ValueError("observation set_digest mismatch")
+            _raise_legacy_observation_failure(
+                "observation set_digest mismatch",
+                site="runtime.observations.set_digest",
+            )
         return self
 
     @classmethod
     def from_content(cls, **content: object) -> LegacyObservationSet:
         if "set_digest" in content:
-            raise ValueError("set_digest is derived, not caller supplied")
+            _raise_legacy_observation_failure(
+                "set_digest is derived, not caller supplied",
+                site="runtime.observations.set.from_content.set_digest",
+            )
         provisional = cls.model_construct(**content, set_digest="0" * 64)
         return cls(
             **content,
@@ -134,6 +187,26 @@ class LegacyObservationSet(FrozenContract):
                 exclude_fields={"set_digest"},
             ),
         )
+
+    @classmethod
+    def readback(cls, payload: object) -> LegacyObservationSet:
+        """Read captured legacy evidence with the native Pydantic ABI."""
+
+        return cls.model_validate(payload)
+
+    @classmethod
+    def readback_result(cls, payload: object) -> LegacyObservationSet | Failure:
+        """Return captured evidence or a typed compatibility-boundary failure."""
+
+        try:
+            return cls.readback(payload)
+        except ValidationError as exc:
+            return runtime_failure(
+                "LEGACY_OBSERVATION_INVALID",
+                str(exc),
+                LegacyObservationError,
+                site="runtime.observations.set.readback",
+            )
 
 
 class ProcessTaskObservationJoin(FrozenContract):
@@ -155,6 +228,7 @@ class ProcessTaskObservationJoin(FrozenContract):
 
 __all__ = [
     "LegacyObservationSet",
+    "LegacyObservationError",
     "LegacySourceObservation",
     "ObservationClass",
     "ObservationFreshness",

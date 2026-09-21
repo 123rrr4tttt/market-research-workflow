@@ -13,7 +13,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
-from typing import Literal, TypeAlias
+from typing import Annotated, Literal, TypeAlias
 
 from app.successor_runtime.capabilities import (
     line_event_readback_port,
@@ -96,7 +96,11 @@ class S1HorizontalPortContract:
         }
 
 
-def build_s1_horizontal_port_registry() -> tuple[S1HorizontalPortContract, ...]:
+def build_s1_horizontal_port_registry() -> Annotated[
+    tuple[S1HorizontalPortContract, ...],
+    "kit:prepared-command effect_boundary=successor_runtime.s1_horizontal_port_assembly "
+    "witness=test:test_w08a_remaining_assembly_bindings_are_prepared_commands",
+]:
     """Return the four S1 horizontal port contracts in package order."""
 
     return (

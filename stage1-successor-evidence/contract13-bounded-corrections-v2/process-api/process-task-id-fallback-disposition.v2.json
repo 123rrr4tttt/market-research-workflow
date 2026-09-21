@@ -1,0 +1,119 @@
+{
+  "schema_version": "mrw.stage1.contract13.process_api_correction.v2",
+  "record_id": "stage1-contract13-process-api-task-id-fallback-v2",
+  "observed_at": "2026-09-06",
+  "status": "BOUNDED_CORRECTION_COMPLETE_PROPOSED_REPAIR_UNINTEGRATED",
+  "authoritative": false,
+  "contract": {
+    "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/13_contract12-supervisor-review-and-return.v1.md",
+    "sha256": "ac1629315b3ae91aa9de59b7ae87da04a5f10c54d643e406d8785a0783071717",
+    "required_item": 1
+  },
+  "supersedes_only": {
+    "artifact": "stage1-successor-evidence/residual-disposition-v1/process-api/process-task-id-fallback-disposition.v1.json",
+    "sha256": "ddd371725fb25602563aecac248dda5be5de79de3d4ca39729079c67b1c76b91",
+    "json_pointer": "/behavioral_analysis/query_default",
+    "reason": "v1 incorrectly conflated a direct Python call's declared FastAPI Query object with the None value produced by FastAPI request parsing. All v1 files remain unchanged."
+  },
+  "behavioral_analysis": {
+    "query_default": {
+      "declaration": "project_key: Optional[str] = Query(None, description=\"项目标识（用于查询对应项目 schema 的 DB job）\")",
+      "runtime": "FastAPI 0.120.4",
+      "direct_python_call_omitted": {
+        "value_type": "fastapi.params.Query",
+        "repr": "Query(None)",
+        "str": "annotation=Union[str, NoneType] required=False default=None alias='project_key' description='项目标识（用于查询对应项目 schema 的 DB job）' json_schema_extra={}",
+        "is_none": false,
+        "truthy": true,
+        "field_default_type": "builtins.NoneType",
+        "field_default_repr": "None",
+        "observed_behavior": "get_task_info('db-job-7') passes the declared Query object to the function body. Since the object is truthy, bind_project(project_key) is selected; the same Query object is also forwarded to _db_job_to_runtime_task_info."
+      },
+      "direct_python_call_explicit_none": {
+        "call": "get_task_info('db-job-7', project_key=None)",
+        "observed_behavior": "The nullcontext branch is selected and _db_job_to_runtime_task_info receives None. This is the correct direct-call fixture shape."
+      },
+      "fastapi_http_request_omitted": {
+        "request": "GET /process/db-job-7",
+        "observed_behavior": "FastAPI request parsing applies the Query field's inner default and invokes the endpoint with project_key=None; bind_project is not selected."
+      },
+      "separation": "The Python function default is a Query parameter descriptor whose own default field is None. Only FastAPI request parsing resolves an omitted HTTP query parameter to that inner None value."
+    },
+    "overlay": {
+      "current_expression": "{**task_info, **runtime_projection}",
+      "current_behavior": "For a DB job whose payload has no task_id, task_info starts with endpoint identity db-job-7, but later runtime_projection.task_id=null overwrites it.",
+      "logs_behavior": "get_task_logs uses the endpoint task_id and returns db-job-7 independently of runtime_projection.",
+      "before": {
+        "missing_payload_projection_task_id": null,
+        "missing_payload_info_task_id": null,
+        "missing_payload_logs_task_id": "db-job-7",
+        "explicit_payload_info_task_id": "provider-task-9",
+        "classification": "OBSERVABLE_PRODUCTION_PROJECTION_DEFECT"
+      },
+      "proposed_after": {
+        "missing_payload_projection_task_id": "db-job-7",
+        "missing_payload_info_task_id": "db-job-7",
+        "missing_payload_logs_task_id": "db-job-7",
+        "explicit_payload_info_task_id": "provider-task-9",
+        "classification": "ISOLATED_PROPOSED_BEHAVIOR_ONLY"
+      },
+      "precedence": "_first_runtime_value(payload task_id, db-job-{job.id}) preserves any explicit provider/runtime task_id and uses the pseudo-id only when payload identity is absent."
+    },
+    "fixture_boundary": {
+      "incorrect_call": "get_task_info('db-job-7')",
+      "correct_call": "get_task_info('db-job-7', project_key=None)",
+      "effect_of_fixture_only_change": "It prevents the FastAPI Query descriptor from entering direct-call application logic. It does not change _db_job_projection and therefore the corrected fixture still observes info.task_id=null versus logs.task_id=db-job-7 on current source.",
+      "can_eliminate_production_defect": false
+    }
+  },
+  "proposed_source_transition": {
+    "path": "main/backend/app/api/process.py",
+    "before_sha256": "790b6cb90086d6ba1171309e572b7e7be4c906db3705170dbd4a12ca7ea16c63",
+    "proposed_after_sha256": "5687389bdad57881a0f96543ba32ac4eaaaeef0f7939f8f7e36e16316ed7ee61",
+    "patch_artifact": "stage1-successor-evidence/residual-disposition-v1/process-api/process-task-id-fallback.patch",
+    "patch_sha256": "5ea2bc4389717be260bfb25588776a728e89157166c32e767f92fc612aacdf78",
+    "integrated": false,
+    "required_authority": "ADDITIVE_REBIND_AUTHORIZATION_BEFORE_SOURCE_WRITE"
+  },
+  "isolated_evidence": {
+    "witness": {
+      "path": "stage1-successor-evidence/contract13-bounded-corrections-v2/process-api/process-task-id-overlay-witness.v2.py",
+      "sha256": "0489b60f636a0e89489f319adb609ef8011ca30afb7803fdd9df4fb3795d578d"
+    },
+    "captured_result": {
+      "path": "stage1-successor-evidence/contract13-bounded-corrections-v2/process-api/process-task-id-overlay-witness-results.v2.json",
+      "sha256": "584c8f0d910bf77ee3b11018e225a7bf41335c5d3efbd10e7c57205c374a011b"
+    },
+    "command": "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src:main/backend main/backend/.venv311/bin/python stage1-successor-evidence/contract13-bounded-corrections-v2/process-api/process-task-id-overlay-witness.v2.py",
+    "exit_code": 0,
+    "database_contacted": false,
+    "network_contacted": false,
+    "assertions_passed": 6
+  },
+  "validation": {
+    "json_parse": "PASS: both v2 JSON artifacts parsed with json.load",
+    "witness_replay": "PASS: exit 0; parsed stdout exactly matched process-task-id-overlay-witness-results.v2.json",
+    "hash_check": "PASS: contract, current source, v1 inputs and v2 member hashes matched",
+    "diff_check": "PASS: git diff --no-index --check reported no whitespace errors for every create-only v2 member",
+    "scope_check": "PASS: task-created paths are restricted to stage1-successor-evidence/contract13-bounded-corrections-v2/process-api/; non-owned paths were read only"
+  },
+  "authority_ceiling": [
+    "NO_SOURCE_EDIT",
+    "NO_B23_HISTORY_MUTATION",
+    "NO_EXACT_BYTE_QUALIFICATION",
+    "NO_PRODUCTION_WRITE",
+    "NO_DEPLOY",
+    "NO_LIVE_DB_OR_NETWORK",
+    "NO_CANARY",
+    "NO_CUTOVER",
+    "NO_AUTHORITY_TRANSFER",
+    "NO_LEGACY_RETIREMENT",
+    "PRODUCTION_RELEASE_NOT_AUTHORIZED"
+  ],
+  "acceptance": {
+    "contract13_item1_bounded_evidence": "COMPLETE",
+    "source_repair": "PROPOSED_NOT_INTEGRATED",
+    "stage1": "UNACCEPTED",
+    "phase_b_c_v5": "GATED"
+  }
+}

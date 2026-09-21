@@ -1,8 +1,13 @@
 import copy
+import importlib.util
+import inspect
 import pathlib
 import sys
 import tempfile
+import types
 import unittest
+from unittest.mock import patch
+from typing import Annotated, get_args, get_origin, get_type_hints
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -12,7 +17,92 @@ from app.services.typed_knowledge import contracts  # noqa: E402
 from app.services.typed_knowledge import persistence_boundary as boundary  # noqa: E402
 
 
+def _load_typed_knowledge_api_module():
+    package_name = "app.api"
+    if package_name not in sys.modules:
+        api_package = types.ModuleType(package_name)
+        api_package.__path__ = [str(ROOT / "app" / "api")]
+        sys.modules[package_name] = api_package
+
+    module_name = "app.api.typed_knowledge"
+    existing_module = sys.modules.get(module_name)
+    if existing_module is not None:
+        return existing_module
+    module_path = ROOT / "app" / "api" / "typed_knowledge.py"
+    spec = importlib.util.spec_from_file_location(module_name, module_path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"cannot load typed knowledge API module: {module_path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _return_metadata(function):
+    return_hint = get_type_hints(function, include_extras=True)["return"]
+    assert get_origin(return_hint) is Annotated  # type: ignore[comparison-overlap]
+    metadata = get_args(return_hint)[1]
+    assert isinstance(metadata, str)
+    assert function.__name__ in inspect.getsource(function)
+    return metadata
+
+
+class _LiveRepositoryStub:
+    def __init__(self, records=()):
+        self.records = tuple(records)
+        self.upsert_calls = 0
+        self.repository_ref = boundary.LIVE_DB_REPOSITORY_REF
+        self.logical_table = boundary.DEFAULT_LOGICAL_TABLE
+        self.persistence_mode = boundary.LIVE_DB_PERSISTENCE_MODE
+        self.live_db_write = True
+        self.governance_ui_available = True
+        self.migration_backfill_executed = True
+
+    def upsert_record(self, *args, **kwargs):
+        self.upsert_calls += 1
+        raise AssertionError("live read projection must not seed")
+
+    def list_records(self, *, project_key=None):
+        normalized_project_key = str(project_key or "").strip() or None
+        if normalized_project_key is None:
+            return self.records
+        return tuple(record for record in self.records if record.project_key == normalized_project_key)
+
+    def list_writes(self):
+        return ()
+
+
 class TypedKnowledgePersistenceBoundaryTests(unittest.TestCase):
+    def test_boundary_error_exposes_stable_failure_code(self):
+        error = boundary.TypedKnowledgePersistenceBoundaryError(
+            "governance_review_record_not_found:demo_proj:knowledge_item:missing"
+        )
+
+        self.assertEqual(
+            error.failure_code,
+            boundary.TYPED_KNOWLEDGE_PERSISTENCE_BOUNDARY_FAILURE,
+        )
+
+    def test_persistence_boundary_record_view_metadata(self):
+        self.assertEqual(
+            _return_metadata(boundary.build_persistence_boundary_record),
+            (
+                "kit:non-authoritative derived_as=view "
+                "fact_source=typed_knowledge_canonical_inputs "
+                "witness=test:test_persistence_boundary_record_view_metadata"
+            ),
+        )
+
+    def test_persistence_api_envelope_view_metadata(self):
+        self.assertEqual(
+            _return_metadata(boundary.build_persistence_api_envelope),
+            (
+                "kit:non-authoritative derived_as=view "
+                "fact_source=typed_knowledge_repository_records "
+                "witness=test:test_persistence_api_envelope_view_metadata"
+            ),
+        )
+
     def test_sample_boundary_envelope_preserves_identity_visibility_lifecycle_and_handoff_refs(self):
         envelope = boundary.build_sample_boundary_envelope()
         repeated = boundary.build_sample_boundary_envelope()
@@ -95,6 +185,42 @@ class TypedKnowledgePersistenceBoundaryTests(unittest.TestCase):
         self.assertEqual(second.status_after, boundary.LIFECYCLE_STATE_ACTIVE)
         self.assertEqual(stored.visibility_scope, contracts.VISIBILITY_SCOPE_DOWNSTREAM_READY)
         self.assertFalse(second.live_db_write)
+
+    def test_repository_keeps_same_object_key_writes_project_scoped(self):
+        item_a = contracts.KnowledgeItem(
+            key="ki:shared",
+            project_key="alpha_proj",
+            canonical_statement="Alpha project owns its scoped knowledge item.",
+            primary_type_node_key="type:signal",
+            evidence_refs=("doc:alpha",),
+            review_state=contracts.REVIEW_STATE_DRAFT_CANDIDATE,
+        )
+        item_b = contracts.KnowledgeItem(
+            key=item_a.key,
+            project_key="beta_proj",
+            canonical_statement="Beta project owns a separate item with the same object key.",
+            primary_type_node_key=item_a.primary_type_node_key,
+            evidence_refs=("doc:beta",),
+            review_state=contracts.REVIEW_STATE_HUMAN_CONFIRMED,
+        )
+        repository = boundary.InMemoryTypedKnowledgeRepository(repository_ref="memory://project-boundary")
+        record_a = boundary.build_persistence_boundary_record(item_a)
+        record_b = boundary.build_persistence_boundary_record(item_b)
+
+        write_a = repository.upsert_record(record_a, write_time="2026-05-22T00:00:00Z")
+        write_b = repository.upsert_record(record_b, write_time="2026-05-22T00:01:00Z")
+
+        alpha_records = repository.list_records(project_key="alpha_proj")
+        beta_records = repository.list_records(project_key="beta_proj")
+        self.assertEqual(len(repository.list_records()), 2)
+        self.assertEqual(len(alpha_records), 1)
+        self.assertEqual(len(beta_records), 1)
+        self.assertEqual(alpha_records[0].identity_ref, "alpha_proj:knowledge_item:ki:shared")
+        self.assertEqual(beta_records[0].identity_ref, "beta_proj:knowledge_item:ki:shared")
+        self.assertIsNotNone(repository.get_record("alpha_proj:knowledge_item:ki:shared"))
+        self.assertIsNotNone(repository.get_record("beta_proj:knowledge_item:ki:shared"))
+        self.assertEqual(write_a.status_before, None)
+        self.assertEqual(write_b.status_before, None)
 
     def test_jsonl_repository_survives_reopen_without_claiming_live_db(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -205,6 +331,72 @@ class TypedKnowledgePersistenceBoundaryTests(unittest.TestCase):
         ):
             boundary.validate_public_api_route_contract_envelope(overclaim)
 
+    def test_live_db_backed_route_does_not_promote_expected_shape_to_live_closure(self):
+        sample = boundary.build_sample_boundary_envelope(project_key="live_read_proj")
+        records = tuple(
+            boundary.deserialize_persistence_boundary_record(record)
+            for record in sample["data"]["records"]
+        )
+        repository = _LiveRepositoryStub(records)
+
+        with patch.object(boundary, "SqlAlchemyTypedKnowledgeRepository", return_value=repository):
+            live_boundary = boundary.build_live_db_boundary_envelope(
+                session=object(),
+                project_key="live_read_proj",
+                seed_sample=True,
+            )
+        envelope = boundary.build_public_api_route_contract_envelope(
+            project_key="live_read_proj",
+            boundary_envelope=live_boundary,
+        )
+
+        self.assertEqual(envelope["data"]["route"]["live_db_backed"], True)
+        self.assertEqual(envelope["meta"]["readiness"]["live_db_persistence"], True)
+        self.assertEqual(envelope["meta"]["readiness"]["live_api_closure"], False)
+        self.assertEqual(envelope["meta"]["readiness"]["live_ui_closure"], False)
+        self.assertEqual(envelope["meta"]["readiness"]["governance_ui"], False)
+        self.assertIn(
+            "live_api_request_response_closure_not_verified",
+            envelope["meta"]["remaining_live_gaps"],
+        )
+        self.assertIn(
+            "live_browser_ui_readback_not_verified",
+            envelope["meta"]["remaining_live_gaps"],
+        )
+
+    def test_public_api_route_contract_serializes_non_authoritative_view(self):
+        envelope = boundary.build_public_api_route_contract_envelope(project_key="view_proj")
+
+        self.assertEqual(envelope["data"]["authoritative"], False)
+        self.assertEqual(envelope["data"]["derived_as"], "view")
+        boundary.validate_public_api_route_contract_envelope(envelope)
+
+        overclaim = copy.deepcopy(envelope)
+        overclaim["data"]["authoritative"] = True
+        with self.assertRaisesRegex(
+            boundary.TypedKnowledgePersistenceBoundaryError,
+            "public_api_route_authority_overclaim",
+        ):
+            boundary.validate_public_api_route_contract_envelope(overclaim)
+
+    def test_live_writing_context_read_projection_does_not_seed_empty_repository(self):
+        repository = _LiveRepositoryStub()
+
+        with (
+            patch.object(boundary, "SqlAlchemyTypedKnowledgeRepository", return_value=repository),
+            self.assertRaisesRegex(
+                boundary.TypedKnowledgePersistenceBoundaryError,
+                "persistence_api_envelope_missing_records",
+            ),
+        ):
+            boundary.build_live_writing_context_from_repository(
+                session=object(),
+                project_key="empty_read_proj",
+                seed_sample=True,
+            )
+
+        self.assertEqual(repository.upsert_calls, 0)
+
     def test_persisted_card_request_response_readback_preserves_ui_api_boundary_without_live_claims(self):
         envelope = boundary.build_public_api_route_contract_envelope(project_key="ui_proj")
         readback = envelope["data"]["persisted_card_request_response_readback"]
@@ -239,6 +431,78 @@ class TypedKnowledgePersistenceBoundaryTests(unittest.TestCase):
         self.assertIn(
             "live_api_request_response_closure_not_verified",
             readback["meta"]["remaining_live_gaps"],
+        )
+
+    def test_persisted_card_readback_serializes_non_authoritative_simulation(self):
+        sample = boundary.build_sample_boundary_envelope(project_key="simulation_proj")
+
+        readback = boundary.build_persisted_card_request_response_readback(
+            project_key="simulation_proj",
+            boundary_envelope=sample,
+            live_db_backed=True,
+        )
+
+        self.assertEqual(readback["authoritative"], False)
+        self.assertEqual(readback["derived_as"], "simulation")
+        self.assertEqual(readback["keyword_card_response"]["authoritative"], False)
+        self.assertEqual(readback["keyword_card_response"]["derived_as"], "simulation")
+        self.assertEqual(
+            readback["keyword_card_response"]["source"],
+            "repo_local_simulated_response_shape",
+        )
+        self.assertEqual(readback["persisted_document"]["source"], "typed_knowledge_local_expected_document")
+        self.assertEqual(readback["persisted_document"]["live_db_document"], False)
+        self.assertEqual(readback["meta"]["readiness"]["live_db_persistence"], True)
+        self.assertEqual(readback["meta"]["readiness"]["live_api_closure"], False)
+        self.assertEqual(readback["meta"]["readiness"]["live_ui_closure"], False)
+        self.assertEqual(readback["meta"]["readiness"]["governance_ui"], False)
+
+        overclaim = copy.deepcopy(readback)
+        overclaim["authoritative"] = True
+        with self.assertRaisesRegex(
+            boundary.TypedKnowledgePersistenceBoundaryError,
+            "persisted_card_readback_authority_overclaim",
+        ):
+            boundary.validate_persisted_card_request_response_readback(overclaim)
+
+    def test_persisted_card_simulation_rejects_live_writing_document_overclaim(self):
+        sample = boundary.build_sample_boundary_envelope(project_key="document_overclaim_proj")
+        readback = boundary.build_persisted_card_request_response_readback(
+            project_key="document_overclaim_proj",
+            boundary_envelope=sample,
+            live_db_backed=True,
+        )
+
+        overclaim = copy.deepcopy(readback)
+        overclaim["persisted_document"]["source"] = "typed_knowledge_live_db_readback"
+        overclaim["persisted_document"]["live_db_document"] = True
+        with self.assertRaisesRegex(
+            boundary.TypedKnowledgePersistenceBoundaryError,
+            "persisted_card_readback_invalid_persisted_document",
+        ):
+            boundary.validate_persisted_card_request_response_readback(overclaim)
+
+    def test_typed_knowledge_write_project_key_rejects_normalize_to_fallback(self):
+        api_module = _load_typed_knowledge_api_module()
+
+        for invalid_project_key in ("!!!", "___", "public"):
+            resolved, error = api_module._required_write_project_key(
+                invalid_project_key,
+                route_path=boundary.PUBLIC_API_ROUTE_PATH,
+            )
+            self.assertIsNone(resolved)
+            self.assertEqual(
+                error["message"],
+                "project_key must retain an explicit writable identity after normalization",
+            )
+            self.assertEqual(error["details"]["route_path"], boundary.PUBLIC_API_ROUTE_PATH)
+
+        self.assertEqual(
+            api_module._required_write_project_key(
+                "default",
+                route_path=boundary.PUBLIC_API_ROUTE_PATH,
+            ),
+            ("default", None),
         )
 
     def test_durable_repository_readback_contract_keeps_live_boundaries_open(self):

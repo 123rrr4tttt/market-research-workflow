@@ -1,0 +1,233 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="6" skipped="0" tests="182" time="26.383" timestamp="2026-09-07T11:05:17.591480+08:00" hostname="MacBook-Air-489.local"><testcase classname="tests.formal_release.test_source_closure" name="test_source_closure_passes_with_two_modules_and_seven_consumers" time="0.056" /><testcase classname="tests.formal_release.test_source_closure" name="test_source_closure_rejects_missing_required_module[src/mrw_functorial_kit/core/w07_semantics.py]" time="0.006" /><testcase classname="tests.formal_release.test_source_closure" name="test_source_closure_rejects_missing_required_module[src/mrw_functorial_kit/core/agent_service_semantics.py]" time="0.005" /><testcase classname="tests.formal_release.test_source_closure" name="test_source_closure_rejects_unknown_package_export" time="0.006" /><testcase classname="tests.formal_release.test_source_closure" name="test_source_closure_resolves_relative_package_imports" time="0.053" /><testcase classname="tests.formal_release.test_source_closure" name="test_source_closure_rejects_source_manifest_omission" time="0.050" /><testcase classname="tests.formal_release.test_source_closure" name="test_source_closure_optional_probe_skips_unrelated_repository" time="0.000" /><testcase classname="tests.formal_release.test_source_closure" name="test_projected_source_closure_uses_base_consumer_not_checkout_drift" time="0.365" /><testcase classname="tests.formal_release.test_source_closure" name="test_base_only_mrw_package_is_detected_and_checked_fail_closed" time="0.107" /><testcase classname="tests.formal_release.test_source_closure" name="test_projected_mrw_detection_ignores_undeclared_checkout_only_package" time="0.138" /><testcase classname="tests.formal_release.test_source_closure" name="test_projected_source_closure_reads_base_blob_from_index_repository" time="0.450" /><testcase classname="tests.formal_release.test_source_closure" name="test_projected_source_closure_rejects_base_missing_init_despite_checkout_file" time="0.160" /><testcase classname="tests.formal_release.test_source_closure" name="test_projected_source_closure_allows_base_missing_package_when_fully_upserted" time="0.307" /><testcase classname="tests.formal_release.test_source_closure" name="test_projected_source_closure_treats_delete_as_missing[module]" time="0.155" /><testcase classname="tests.formal_release.test_source_closure" name="test_projected_source_closure_treats_delete_as_missing[init]" time="0.233" /><testcase classname="tests.formal_release.test_source_closure" name="test_projected_source_closure_treats_delete_as_missing[consumer]" time="0.318" /><testcase classname="tests.formal_release.test_source_closure" name="test_projected_source_closure_rejects_wrong_base_index_binding" time="0.137" /><testcase classname="tests.formal_release.test_source_closure" name="test_projected_source_closure_rejects_upsert_metadata_or_bytes_drift[sha256]" time="0.134" /><testcase classname="tests.formal_release.test_source_closure" name="test_projected_source_closure_rejects_upsert_metadata_or_bytes_drift[blob]" time="0.124" /><testcase classname="tests.formal_release.test_source_closure" name="test_projected_source_closure_rejects_upsert_metadata_or_bytes_drift[mode]" time="0.133" /><testcase classname="tests.formal_release.test_source_closure" name="test_projected_source_closure_rejects_upsert_source_bytes_drift" time="0.134" /><testcase classname="tests.formal_release.test_source_closure" name="test_workflow_selector_delta_completeness" time="0.124" /><testcase classname="tests.formal_release.test_source_closure" name="test_workflow_selector_delta_exclusions" time="0.117" /><testcase classname="tests.formal_release.test_source_closure" name="test_workflow_selector_delta_excludes_backup_virtualenvs" time="0.120" /><testcase classname="tests.formal_release.test_source_closure" name="test_workflow_selector_delta_rejects_included_symlink_and_fifo" time="0.112" /><testcase classname="tests.formal_release.test_source_closure" name="test_workflow_selector_manifest_allows_irrelevant_extra" time="0.116" /><testcase classname="tests.formal_release.test_source_closure" name="test_workflow_selector_roots_are_closed" time="0.000" /><testcase classname="tests.formal_release.test_source_closure" name="test_exact_rebind_selector_excludes_non_sidecar_historical_outputs" time="0.123" /><testcase classname="tests.formal_release.test_source_closure" name="test_root_support_selector_rejects_changed_or_deleted_omission[scripts/base.sh]" time="0.134" /><testcase classname="tests.formal_release.test_source_closure" name="test_root_support_selector_rejects_changed_or_deleted_omission[docs/governance/base.json]" time="0.115" /><testcase classname="tests.formal_release.test_source_closure" name="test_root_support_selector_rejects_changed_or_deleted_omission[development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b13-2026-09-05/sidecar-inputs/base.json]" time="0.115" /><testcase classname="tests.formal_release.test_source_closure" name="test_root_support_selector_rejects_changed_or_deleted_omission[development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage0-evidence/base.json]" time="0.119" /><testcase classname="tests.formal_release.test_source_closure" name="test_root_law_witness_omission_is_rejected" time="0.118" /><testcase classname="tests.formal_release.test_source_closure" name="test_workflow_selector_manifest_coverage_and_unchanged_base" time="0.122" /><testcase classname="tests.formal_release.test_source_closure" name="test_workflow_selector_manifest_rejects_omissions[main/backend/app/base.py-changed]" time="0.117" /><testcase classname="tests.formal_release.test_source_closure" name="test_workflow_selector_manifest_rejects_omissions[main/backend/app/new.py-untracked]" time="0.117" /><testcase classname="tests.formal_release.test_source_closure" name="test_workflow_selector_manifest_rejects_omissions[main/backend/app/legacy.py-delete]" time="0.114" /><testcase classname="tests.formal_release.test_source_closure" name="test_workflow_selector_manifest_rejects_stale_operation" time="0.115" /><testcase classname="tests.formal_release.test_source_closure" name="test_frontend_selector_delta_covers_files_bytes_and_modes" time="0.112" /><testcase classname="tests.formal_release.test_source_closure" name="test_frontend_selector_includes_storybook_execution_config" time="0.148" /><testcase classname="tests.formal_release.test_source_closure" name="test_frontend_selector_delta_covers_fifty_nine_upserts_and_three_deletes" time="0.115" /><testcase classname="tests.formal_release.test_source_closure" name="test_frontend_selector_excludes_generated_runtime_and_legacy_lock" time="0.101" /><testcase classname="tests.formal_release.test_source_closure" name="test_frontend_selector_rejects_eligible_symlink_and_fifo" time="0.100" /><testcase classname="tests.formal_release.test_source_closure" name="test_frontend_selector_manifest_unchanged_and_extra_entries" time="0.102" /><testcase classname="tests.formal_release.test_source_closure" name="test_frontend_selector_manifest_rejects_missing_row[src/base.css-changed upsert]" time="0.100" /><testcase classname="tests.formal_release.test_source_closure" name="test_frontend_selector_manifest_rejects_missing_row[src/legacy.tsx-delete]" time="0.100" /><testcase classname="tests.formal_release.test_source_closure" name="test_frontend_selector_manifest_rejects_wrong_operation" time="0.101" /><testcase classname="tests.formal_release.test_source_closure" name="test_frontend_selector_policy_is_closed" time="0.000" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_manifest_return_has_exact_non_authority_metadata" time="0.001" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_builds_canonical_manifest_with_exact_base_preconditions" time="0.256" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_read_cache_hit_requires_full_fingerprint_and_does_not_skip_reads" time="0.540" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_read_cache_fails_closed_without_explicit_sha1_object_format" time="0.259" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_routes_stage0_closure_separately_from_stage1_closure" time="0.282" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_allows_recursive_predecessor_candidate_snapshot_closure" time="0.255" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_recursive_predecessor_candidate_fifo_fails_before_read" time="0.154" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_missing_or_nonregular_recursive_stage0_reference_fails_closed[False]" time="0.302" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_missing_or_nonregular_recursive_stage0_reference_fails_closed[True]" time="0.288" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_stage0_closure_is_exact_not_a_subset_or_superset" time="0.527" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_write_is_create_only_and_cli_outputs_manifest" time="0.305" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_rejects_unsafe_paths[/absolute.txt-escapes repository root]" time="0.000" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_rejects_unsafe_paths[../outside.txt-escapes repository root]" time="0.000" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_rejects_unsafe_paths[keep.txt//-not a canonical POSIX path]" time="0.000" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_rejects_unsafe_paths[a/./b-not a canonical POSIX path]" time="0.000" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_rejects_unsafe_paths[trailing/-not a canonical POSIX path]" time="0.000" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_rejects_unsafe_paths[platform\\alias.txt-not a canonical POSIX path]" time="0.000" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_rejects_unsafe_paths[C:/platform-alias.txt-not a canonical POSIX path]" time="0.000" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_rejects_unsafe_paths[.git/config-git metadata]" time="0.000" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_rejects_unsafe_paths[__pycache__/tool.pyc-forbidden history/cache/runtime]" time="0.000" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_rejects_unsafe_paths[runtime/tool.json-forbidden history/cache/runtime]" time="0.000" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_rejects_unsafe_paths[secrets/token.json-secret directory]" time="0.000" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_rejects_unsafe_paths[cafe\u0301.txt-not NFC-normalized]" time="0.000" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_accepts_exact_project_source_paths" time="0.000" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_accepts_only_contract14_derived_history_prefix" time="0.000" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_candidate_specific_current_byte_successor_resolution" time="0.005" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_v3_inherits_shared_i1_successor_and_resolves_real_current_candidates" time="0.092"><failure message="stage2_candidate_intake.Stage2IntakeError: current-byte registry does not contain exactly one candidate-specific successor for C5:main/backend/app/services/agent_sessions/service.py">monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x10ad6f930&gt;
+
+    def test_v3_inherits_shared_i1_successor_and_resolves_real_current_candidates(
+        monkeypatch: pytest.MonkeyPatch,
+    ) -&gt; None:
+        monkeypatch.setattr(
+            tool.stage_family_fragment_rebind,
+            "check_candidate",
+            REAL_CHECK_CANDIDATE,
+        )
+        builder_path = ROOT / tool.CONVERGENCE_CURRENT_BYTE_SUCCESSOR_REGISTRY.parent / (
+            "build_current_byte_binding_successors_v3.py"
+        )
+        spec = importlib.util.spec_from_file_location("intake_v3_binding_builder", builder_path)
+        assert spec is not None and spec.loader is not None
+        builder = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(builder)
+        # Validate current bytes without creating any formal binding output.
+        registry = json.loads(builder.build_documents(ROOT)[builder.REGISTRY_REL])
+&gt;       rows = tool._registry_resolution_rows(
+            ROOT,
+            tool.STAGE0_CANDIDATE_PATHS,
+            registry,
+            expected_identity=tool.directory_identity(ROOT),
+        )
+
+/private/tmp/mrw-stage-convergence-ytn_rsx9/input-attempt7/tests/formal_release/test_stage2_candidate_intake.py:613: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+source_root = PosixPath('/private/tmp/mrw-stage-convergence-ytn_rsx9/input-attempt7')
+stage0_paths = (PosixPath('development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/eviden...-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/C7/candidate.v2.json'), ...)
+registry = {'authoritative': False, 'authority': {'candidate_promotion': False, 'cutover': False, 'deployment': False, 'external_...TE_NO_PRODUCTION_AUTHORITY', 'content_digest': '77c61253205268a00a842b92ad4a684f171e4388aa53578787df2625224db0ff', ...}
+expected_identity = (16777234, 123688645)
+
+    def _registry_resolution_rows(
+        source_root: Path,
+        stage0_paths: Sequence[Path],
+        registry: dict[str, Any],
+        *,
+        expected_identity: DirectoryIdentity,
+    ) -&gt; list[dict[str, str]]:
+        successors = registry.get("successors")
+        if not isinstance(successors, list):
+            raise Stage2IntakeError("current-byte successor registry rows are missing")
+        by_id = {
+            row.get("successor_id"): row
+            for row in successors
+            if isinstance(row, dict) and isinstance(row.get("successor_id"), str)
+        }
+        if len(by_id) != len(successors):
+            raise Stage2IntakeError("current-byte successor ids are invalid or duplicated")
+        resolutions: list[dict[str, str]] = []
+        for family, candidate_path in zip(STAGE0_FAMILIES, stage0_paths, strict=True):
+            try:
+                result = stage_family_fragment_rebind.check_candidate(
+                    candidate_path,
+                    repo_root=source_root,
+                    history_only=True,
+                )
+            except Exception as exc:
+                raise Stage2IntakeError(
+                    f"Stage0 {family} frozen candidate validation failed: {exc}"
+                ) from exc
+            if result.get("family") != family or result.get("status") != stage_family_fragment_rebind.HISTORY_STATUS:
+                raise Stage2IntakeError(f"Stage0 frozen candidate identity mismatch: {family}")
+            candidate, candidate_raw = _load_json_object(
+                source_root,
+                candidate_path,
+                label=f"Stage0 {family} candidate",
+                expected_identity=expected_identity,
+            )
+            for group in ("fragments", "sources", "tests"):
+                references = candidate.get(group)
+                if not isinstance(references, list):
+                    raise Stage2IntakeError(f"Stage0 {family} candidate {group} binding drift")
+                for reference in references:
+                    if not isinstance(reference, dict):
+                        raise Stage2IntakeError(f"Stage0 {family} candidate reference drift")
+                    path = safe_relative(reference.get("path"), label="Stage0 candidate reference")
+                    predecessor = reference.get("file_sha256")
+                    if not isinstance(predecessor, str) or SHA256.fullmatch(predecessor) is None:
+                        raise Stage2IntakeError(f"Stage0 {family} candidate source digest drift")
+                    live, _metadata = _read_regular_bytes(
+                        source_root,
+                        path,
+                        label=f"Stage0 {family} live reference",
+                        expected_identity=expected_identity,
+                    )
+                    successor = sha256_bytes(live)
+                    if successor == predecessor:
+                        continue
+                    matches = [
+                        row
+                        for row in successors
+                        if isinstance(row, dict)
+                        and row.get("source_path") == path.as_posix()
+                        and row.get("predecessor_sha256") == predecessor
+                        and row.get("successor_sha256") == successor
+                    ]
+                    exact = []
+                    candidate_sha = sha256_bytes(candidate_raw)
+                    for row in matches:
+                        declarations = row.get("predecessor_declarations")
+                        if not isinstance(declarations, list):
+                            continue
+                        direct = any(
+                            isinstance(item, dict)
+                            and item.get("artifact") == candidate_path.as_posix()
+                            and item.get("artifact_sha256") == candidate_sha
+                            and item.get("bound_sha256") == predecessor
+                            for item in declarations
+                        )
+                        alias_id = SHARED_STAGE0_SUCCESSOR_ALIASES.get((family, path.as_posix()))
+                        if direct or row.get("successor_id") == alias_id:
+                            exact.append(row)
+                    if len(exact) != 1:
+&gt;                       raise Stage2IntakeError(
+                            "current-byte registry does not contain exactly one candidate-specific "
+                            f"successor for {family}:{path.as_posix()}"
+                        )
+E                       stage2_candidate_intake.Stage2IntakeError: current-byte registry does not contain exactly one candidate-specific successor for C5:main/backend/app/services/agent_sessions/service.py
+
+/private/tmp/mrw-stage-convergence-ytn_rsx9/input-attempt7/scripts/formal_release/stage2_candidate_intake.py:1383: Stage2IntakeError</failure></testcase><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_v3_manifest_binds_successor_and_remediation_records" time="0.264" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_legacy_v3_remediation_path_preserves_narrow_selection" time="0.268" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_workflow_equivalent_v3_record_merges_selector_delta[remediation0-mrw.stage1.stage2_v6_intake_remediation_record.v5]" time="0.334" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_workflow_equivalent_v3_record_merges_selector_delta[remediation1-mrw.stage1.stage3_v6_artifact_remediation_record.v1]" time="0.336" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_workflow_equivalent_v3_record_merges_selector_delta[remediation2-mrw.stage1.stage3_v6_artifact_remediation_record.v1]" time="0.360" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_stage3_frontend_delta_is_automatically_selected_and_omission_rejected[registry0]" time="0.300" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_stage3_frontend_delta_is_automatically_selected_and_omission_rejected[registry1]" time="0.299" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_workflow_equivalent_delta_rejects_explicit_operation_conflict[remediation0-mrw.stage1.stage2_v6_intake_remediation_record.v5]" time="0.239" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_workflow_equivalent_delta_rejects_explicit_operation_conflict[remediation1-mrw.stage1.stage3_v6_artifact_remediation_record.v1]" time="0.232" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_workflow_equivalent_delta_rejects_explicit_operation_conflict[remediation2-mrw.stage1.stage3_v6_artifact_remediation_record.v1]" time="0.233" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_cli_keeps_existing_remediation_record_option_for_new_v3_path[remediation0]" time="0.000" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_cli_keeps_existing_remediation_record_option_for_new_v3_path[remediation1]" time="0.000" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_cli_keeps_existing_remediation_record_option_for_new_v3_path[remediation2]" time="0.000" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_workflow_equivalent_delta_accepts_stage0_closure_as_satisfied_upsert" time="0.000" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_rejects_exact_sensitive_and_runtime_paths[app/runtime/tool.json-forbidden history/cache/runtime]" time="0.000" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_rejects_exact_sensitive_and_runtime_paths[app/runtime-cache/data-forbidden history/cache/runtime]" time="0.000" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_rejects_exact_sensitive_and_runtime_paths[main/app/secrets/token.json-secret directory]" time="0.000" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_rejects_exact_sensitive_and_runtime_paths[credentials/client.json-secret directory]" time="0.000" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_rejects_exact_sensitive_and_runtime_paths[main/backend/.env-live environment file]" time="0.000" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_rejects_exact_sensitive_and_runtime_paths[main/backend/.env.local-live environment file]" time="0.000" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_rejects_exact_sensitive_and_runtime_paths[main/backend/.env.production-live environment file]" time="0.000" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_rejects_exact_sensitive_and_runtime_paths[deploy/private.key-secret file]" time="0.000" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_rejects_exact_sensitive_and_runtime_paths[deploy/certificate.pem-secret file]" time="0.000" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_rejects_exact_sensitive_and_runtime_paths[deploy/identity.p12-secret file]" time="0.000" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_rejects_exact_sensitive_and_runtime_paths[deploy/identity.pfx-secret file]" time="0.000" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_rejects_exact_sensitive_and_runtime_paths[keys/id_rsa-secret file]" time="0.000" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_rejects_exact_sensitive_and_runtime_paths[keys/id_ed25519-secret file]" time="0.000" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_rejects_exact_sensitive_and_runtime_paths[.netrc-secret file]" time="0.000" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_rejects_exact_sensitive_and_runtime_paths[.npmrc-secret file]" time="0.000" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_rejects_exact_sensitive_and_runtime_paths[.pypirc-secret file]" time="0.000" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_rejects_exact_sensitive_and_runtime_paths[service.token-secret file]" time="0.000" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_rejects_exact_sensitive_and_runtime_paths[cache.db-runtime or cache file]" time="0.000" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_rejects_exact_sensitive_and_runtime_paths[server.pid-runtime or cache file]" time="0.000" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_rejects_non_canonical_base_refs[main]" time="0.171" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_rejects_non_canonical_base_refs[refs/heads/main]" time="0.166" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_rejects_non_canonical_base_refs[refs/remotes/origin/master]" time="0.155" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_rejects_non_canonical_base_refs[refs/remotes/origin/main ]" time="0.149" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_rejects_non_canonical_base_refs[refs/remotes/upstream/main]" time="0.163" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_rejects_malformed_manifest_types_without_runtime_errors[source-porcelain-not-str]" time="0.274" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_rejects_malformed_manifest_types_without_runtime_errors[source-head-not-str]" time="0.253" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_rejects_malformed_manifest_types_without_runtime_errors[entry-mode-not-str]" time="0.262" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_rejects_malformed_manifest_types_without_runtime_errors[upsert-nonzero-base-mode-invalid-base-blob]" time="0.256" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_rejects_malformed_manifest_types_without_runtime_errors[delete-base-blob-not-str]" time="0.256" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_rejects_malformed_manifest_types_without_runtime_errors[binding-path-not-str]" time="0.263" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_validator_rejects_unchanged_closure_path_alias_before_materialization" time="0.256" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_cli_returns_structured_failure_for_malformed_manifest" time="0.254" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_rejects_remote_name_not_paired_with_origin_main" time="0.419" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_validator_rejects_base_ref_projection_drift" time="0.255" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_validator_rejects_non_core_upsert_exact_projection_drift[base_mode-100755]" time="0.273" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_validator_rejects_non_core_upsert_exact_projection_drift[base_blob-0000000000000000000000000000000000000000]" time="0.273" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_validator_rejects_non_core_upsert_exact_projection_drift[sha256-0000000000000000000000000000000000000000000000000000000000000000]" time="0.279" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_validator_rejects_non_core_upsert_exact_projection_drift[blob-0000000000000000000000000000000000000000]" time="0.300" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_validator_rejects_non_core_upsert_exact_projection_drift[mode-100755]" time="0.292" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_validator_rejects_non_core_upsert_live_bytes_drift" time="0.318" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_write_create_only_rejects_invalid_non_core_upsert_before_output" time="0.306" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_validator_rejects_delete_base_precondition_drift" time="0.307" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_validator_rejects_delete_path_reappearing_after_manifest" time="0.305" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_validator_fails_closed_when_projected_mrw_package_is_missing" time="0.309" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_cli_rejects_non_canonical_base_ref_before_output" time="0.180" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_rejects_case_collision_and_bad_source_types" time="0.184" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_regular_file_swap_to_fifo_fails_closed" time="0.172" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_parent_directory_swap_to_external_symlink_fails_closed" time="0.171" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_stage1_record_swap_to_fifo_fails_closed" time="0.162" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_git_environment_cannot_redirect_source_identity" time="0.367" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_git_environment_clears_config_rewrites_for_remote" time="0.245" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_home_and_xdg_gitconfigs_cannot_affect_git_reads" time="0.279" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_local_fsmonitor_is_disabled_for_git_reads" time="0.278" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_replace_refs_cannot_substitute_source_or_base_objects" time="0.440" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_source_identity_rejects_any_info_grafts_entry[file]" time="0.207" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_source_identity_rejects_any_info_grafts_entry[directory]" time="0.207" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_source_identity_rejects_any_info_grafts_entry[dangling-symlink]" time="0.206" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_source_identity_rejects_repository_subdirectory" time="0.167" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_rejects_symlink_escape_and_accepts_unrelated_dirty_source" time="0.307" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_dirty_source_audit_projection_and_unselected_file" time="0.291" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_rejects_missing_or_evil_stage0_family[&lt;lambda&gt;0]" time="0.233" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_rejects_missing_or_evil_stage0_family[&lt;lambda&gt;1]" time="0.222" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_rejects_validator_family_status_mismatch" time="0.223" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_rejects_stage1_receipt_mismatch_and_fake_stage1" time="0.294" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_rejects_stage0_closure_scope_and_direct_masquerade" time="0.734" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_validator_rejects_closure_duplicates_crossing_and_missing_entries" time="0.274" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_output_must_be_outside_source_and_additional_files_regular" time="0.558" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_output_parent_swap_cannot_redirect_write_into_source" time="0.294" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_source_root_rename_to_external_directory_fails_closed" time="0.241" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_delete_entry_rejects_same_form_root_replacement" time="0.202" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_stable_upstream_context_reads_original_fd_and_restores" time="0.158" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_source_bytes_rejects_same_mode_file_swap" time="0.160" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_regular_reader_rejects_same_inode_file_after_parent_swap" time="0.001" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_regular_reader_failed_final_open_does_not_leak_descriptors" time="0.012" /><testcase classname="tests.formal_release.test_stage2_candidate_intake" name="test_open_parent_identity_fstat_failure_does_not_leak_descriptors" time="0.004" /><testcase classname="stage1-successor-evidence.stage3-v6-artifact-remediation-v1.test_stage3_v6_artifact_remediation_v1" name="test_relocated_root_full_checker_projects_only_local_raw" time="0.010" /><testcase classname="stage1-successor-evidence.stage3-v6-artifact-remediation-v1.test_stage3_v6_artifact_remediation_v1" name="test_accepts_current_clean_pytest_receipt_with_junit" time="0.000"><failure message="ValueError: RECEIPT_CWD_ANCHOR">def test_accepts_current_clean_pytest_receipt_with_junit() -&gt; None:
+&gt;       parsed = checker.validate_receipt(receipt("source-selector.json"), root=checker.ROOT)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/private/tmp/mrw-stage-convergence-ytn_rsx9/input-attempt7/stage1-successor-evidence/stage3-v6-artifact-remediation-v1/test_stage3_v6_artifact_remediation_v1.py:286: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/private/tmp/mrw-stage-convergence-ytn_rsx9/input-attempt7/stage1-successor-evidence/stage3-v6-artifact-remediation-v1/check_stage3_v6_artifact_remediation_v1.py:356: in validate_receipt
+    require(Path(cwd).is_relative_to(receipt_source_root), "RECEIPT_CWD_ANCHOR")
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+condition = False, message = 'RECEIPT_CWD_ANCHOR'
+
+    def require(condition: bool, message: str) -&gt; None:
+        if not condition:
+&gt;           raise ValueError(message)
+E           ValueError: RECEIPT_CWD_ANCHOR
+
+/private/tmp/mrw-stage-convergence-ytn_rsx9/input-attempt7/stage1-successor-evidence/stage3-v6-artifact-remediation-v1/check_stage3_v6_artifact_remediation_v1.py:152: ValueError</failure></testcase><testcase classname="stage1-successor-evidence.stage3-v6-artifact-remediation-v1.test_stage3_v6_artifact_remediation_v1" name="test_accepts_focused_receipt_without_claiming_dns_injection" time="0.000"><failure message="ValueError: RECEIPT_CWD_ANCHOR">def test_accepts_focused_receipt_without_claiming_dns_injection() -&gt; None:
+        payload = receipt("focused-final.json")
+        assert payload["isolation"] == "none added"
+&gt;       assert checker.validate_receipt(payload, root=checker.ROOT)["junit"]["failures"] == 0
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/private/tmp/mrw-stage-convergence-ytn_rsx9/input-attempt7/stage1-successor-evidence/stage3-v6-artifact-remediation-v1/test_stage3_v6_artifact_remediation_v1.py:295: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/private/tmp/mrw-stage-convergence-ytn_rsx9/input-attempt7/stage1-successor-evidence/stage3-v6-artifact-remediation-v1/check_stage3_v6_artifact_remediation_v1.py:356: in validate_receipt
+    require(Path(cwd).is_relative_to(receipt_source_root), "RECEIPT_CWD_ANCHOR")
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+condition = False, message = 'RECEIPT_CWD_ANCHOR'
+
+    def require(condition: bool, message: str) -&gt; None:
+        if not condition:
+&gt;           raise ValueError(message)
+E           ValueError: RECEIPT_CWD_ANCHOR
+
+/private/tmp/mrw-stage-convergence-ytn_rsx9/input-attempt7/stage1-successor-evidence/stage3-v6-artifact-remediation-v1/check_stage3_v6_artifact_remediation_v1.py:152: ValueError</failure></testcase><testcase classname="stage1-successor-evidence.stage3-v6-artifact-remediation-v1.test_stage3_v6_artifact_remediation_v1" name="test_accepts_each_frontend_command_receipt_without_junit" time="0.000"><failure message="ValueError: COMMAND_RECEIPT_CWD_ANCHOR">def test_accepts_each_frontend_command_receipt_without_junit() -&gt; None:
+        names = (
+            "frontend-build.json",
+            "frontend-frozen-install.json",
+            "frontend-lint.json",
+            "frontend-storybook.json",
+            "frontend-typecheck.json",
+        )
+        for name in names:
+&gt;           parsed = checker.validate_command_receipt(receipt(name), root=checker.ROOT)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+/private/tmp/mrw-stage-convergence-ytn_rsx9/input-attempt7/stage1-successor-evidence/stage3-v6-artifact-remediation-v1/test_stage3_v6_artifact_remediation_v1.py:310: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/private/tmp/mrw-stage-convergence-ytn_rsx9/input-attempt7/stage1-successor-evidence/stage3-v6-artifact-remediation-v1/check_stage3_v6_artifact_remediation_v1.py:301: in validate_command_receipt
+    require(Path(cwd).is_relative_to(receipt_source_root), "COMMAND_RECEIPT_CWD_ANCHOR")
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+condition = False, message = 'COMMAND_RECEIPT_CWD_ANCHOR'
+
+    def require(condition: bool, message: str) -&gt; None:
+        if not condition:
+&gt;           raise ValueError(message)
+E           ValueError: COMMAND_RECEIPT_CWD_ANCHOR
+
+/private/tmp/mrw-stage-convergence-ytn_rsx9/input-attempt7/stage1-successor-evidence/stage3-v6-artifact-remediation-v1/check_stage3_v6_artifact_remediation_v1.py:152: ValueError</failure></testcase><testcase classname="stage1-successor-evidence.stage3-v6-artifact-remediation-v1.test_stage3_v6_artifact_remediation_v1" name="test_rejects_non_pytest_command_as_pytest_receipt" time="0.001" /><testcase classname="stage1-successor-evidence.stage3-v6-artifact-remediation-v1.test_stage3_v6_artifact_remediation_v1" name="test_rejects_dirty_junit_without_hardcoding_pass_count" time="0.001" /><testcase classname="stage1-successor-evidence.stage3-v6-artifact-remediation-v1.test_stage3_v6_artifact_remediation_v1" name="test_rejects_authoritative_command_receipt" time="0.000" /><testcase classname="stage1-successor-evidence.stage3-v6-artifact-remediation-v1.test_stage3_v6_artifact_remediation_v1" name="test_rejects_unknown_frontend_command_receipt" time="0.000"><failure message="AssertionError: Regex pattern did not match.&#10;  Expected regex: 'COMMAND_RECEIPT_COMMAND_KIND'&#10;  Actual message: 'COMMAND_RECEIPT_CWD_ANCHOR'">tmp_path = PosixPath('/private/var/folders/ww/__28yy2d01n97fff8jhw9yxm0000gn/T/pytest-of-wangyiliang/pytest-71/test_rejects_unknown_frontend_0')
+
+    def test_rejects_unknown_frontend_command_receipt(tmp_path: Path) -&gt; None:
+        payload = receipt("frontend-build.json")
+        payload["command"] = ["python", "-c", "print('pass')"]
+&gt;       with pytest.raises(ValueError, match="COMMAND_RECEIPT_COMMAND_KIND"):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'COMMAND_RECEIPT_COMMAND_KIND'
+E         Actual message: 'COMMAND_RECEIPT_CWD_ANCHOR'
+
+/private/tmp/mrw-stage-convergence-ytn_rsx9/input-attempt7/stage1-successor-evidence/stage3-v6-artifact-remediation-v1/test_stage3_v6_artifact_remediation_v1.py:343: AssertionError</failure></testcase><testcase classname="stage1-successor-evidence.stage3-v6-artifact-remediation-v1.test_stage3_v6_artifact_remediation_v1" name="test_rejects_missing_manifest_member" time="0.001" /><testcase classname="stage1-successor-evidence.stage3-v6-artifact-remediation-v1.test_stage3_v6_artifact_remediation_v1" name="test_rejects_source_hash_drift" time="0.001" /><testcase classname="stage1-successor-evidence.stage3-v6-artifact-remediation-v1.test_stage3_v6_artifact_remediation_v1" name="test_builder_parses_dynamic_changed_and_receipt_boundaries" time="0.000" /><testcase classname="stage1-successor-evidence.stage3-v6-artifact-remediation-v1.test_stage3_v6_artifact_remediation_v1" name="test_builder_rejects_write_without_explicit_final_boundary" time="0.001" /><testcase classname="stage1-successor-evidence.stage3-v6-artifact-remediation-v1.test_stage3_v6_artifact_remediation_v1" name="test_correction1_paths_and_frozen_predecessor_are_fixed" time="0.000" /><testcase classname="stage1-successor-evidence.stage3-v6-artifact-remediation-v1.test_stage3_v6_artifact_remediation_v1" name="test_correction1_selector_policy_matches_live_selector_contract" time="0.001" /><testcase classname="stage1-successor-evidence.stage3-v6-artifact-remediation-v1.test_stage3_v6_artifact_remediation_v1" name="test_checker_accepts_original_and_correction_record_paths_only" time="0.000" /><testcase classname="stage1-successor-evidence.stage3-v6-artifact-remediation-v1.test_stage3_v6_artifact_remediation_v1" name="test_builder_correction_mode_is_explicit_and_mutually_exclusive" time="0.000" /><testcase classname="stage1-successor-evidence.stage3-v6-artifact-remediation-v1.test_stage3_v6_artifact_remediation_v1" name="test_checker_validates_bounded_correction1_record" time="0.009" /><testcase classname="stage1-successor-evidence.stage3-v6-artifact-remediation-v1.test_stage3_v6_artifact_remediation_v1" name="test_real_record_payload_selects_correction_record_binding" time="0.037"><failure message="ValueError: RECEIPT_CWD_ANCHOR">def test_real_record_payload_selects_correction_record_binding() -&gt; None:
+        prior = checker.load(builder.ROOT / builder.RECORD)
+        test_receipts = [
+            Path(row["path"])
+            for row in prior["test_receipts"]
+        ]
+        final_receipt = next(
+            Path(row["path"])
+            for row in prior["test_receipts"]
+            if row["role"] == "final"
+        )
+        command_receipts = [Path(row["path"]) for row in prior["command_receipts"]]
+    
+&gt;       original = builder.record_payload(
+            receipt_paths=test_receipts,
+            command_receipt_paths=command_receipts,
+            final_receipt=final_receipt,
+            receipt_source_root=builder.ROOT.absolute(),
+            changed_paths=[Path(row) for row in prior["additional_binding_paths"]],
+        )
+
+/private/tmp/mrw-stage-convergence-ytn_rsx9/input-attempt7/stage1-successor-evidence/stage3-v6-artifact-remediation-v1/test_stage3_v6_artifact_remediation_v1.py:602: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/private/tmp/mrw-stage-convergence-ytn_rsx9/input-attempt7/stage1-successor-evidence/stage3-v6-artifact-remediation-v1/build_stage3_v6_artifact_remediation_v1.py:235: in record_payload
+    receipts, command_receipts, summary = verify_receipts(
+/private/tmp/mrw-stage-convergence-ytn_rsx9/input-attempt7/stage1-successor-evidence/stage3-v6-artifact-remediation-v1/build_stage3_v6_artifact_remediation_v1.py:129: in verify_receipts
+    parsed = checker.validate_receipt(
+/private/tmp/mrw-stage-convergence-ytn_rsx9/input-attempt7/stage1-successor-evidence/stage3-v6-artifact-remediation-v1/check_stage3_v6_artifact_remediation_v1.py:356: in validate_receipt
+    require(Path(cwd).is_relative_to(receipt_source_root), "RECEIPT_CWD_ANCHOR")
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+condition = False, message = 'RECEIPT_CWD_ANCHOR'
+
+    def require(condition: bool, message: str) -&gt; None:
+        if not condition:
+&gt;           raise ValueError(message)
+E           ValueError: RECEIPT_CWD_ANCHOR
+
+/private/tmp/mrw-stage-convergence-ytn_rsx9/input-attempt7/stage1-successor-evidence/stage3-v6-artifact-remediation-v1/check_stage3_v6_artifact_remediation_v1.py:152: ValueError</failure></testcase></testsuite></testsuites>

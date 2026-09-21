@@ -1,0 +1,216 @@
+{
+  "schema": "mrw.stage5.observability.work-package-result.v1",
+  "authoritative": false,
+  "scope": "LOCAL_STAGE5_OBSERVABILITY_SUBPACKAGE / NOT_AUTHORITY / RELEASE_DEFERRED",
+  "status": "PASS_LOCAL_SUBPACKAGE_WITH_EXPLICIT_RUNTIME_BOUNDARY",
+  "upstream_input": {
+    "stage4_status": "PASS_LOCAL_STAGE4_NOT_AUTHORITY",
+    "backend_celery_image": "mrw-local/stage4-business001@sha256:f247a1492400311e032710df01f84365c7e700f61c122b7243ae58eda982af19",
+    "build_mapping": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage4-evidence/runtime/c9-effect-build.json"
+  },
+  "implementation_changes": [
+    "main/backend/app/production_observability/contracts.py: added five bounded Stage5 runtime-health metric families and source contract",
+    "main/backend/app/production_observability/config.py: configured five local trigger=1/recover=0 rules with non-production provenance",
+    "main/backend/app/production_observability/runtime.py: added observe_runtime_health and read-only runtime-health gauge projection",
+    "main/backend/app/production_observability/metrics.py: registered runtime-health Prometheus gauge",
+    "main/backend/app/production_observability/health.py: typed authority-read and C9 projection source signals preserve NOT_OBSERVED/UNKNOWN",
+    "main/backend/app/production_observability/decision.py: alert recovery remains receipt-gated and non-authoritative",
+    "main/backend/app/main.py: exported one-hot alert-state gauge for all configured rules on /metrics",
+    "main/backend/app/main.py: deep health now samples Redis LLEN, SQL SELECT 1/pool, runtime bindings/release identity and explicit simulated provider status",
+    "stage5-evidence/observability/verify_observability.py: checks gauge declarations and Prometheus alert-state series",
+    "stage5-evidence/observability/run_live_runtime_health_receipt_probe.py: live-source queue failure and controller-derived receipt recovery probe",
+    "main/backend/app/production_observability/worker.py: Celery task lifecycle metric/log/trace instrumentation",
+    "main/backend/app/production_observability/worker_telemetry.py: bounded Redis stream for worker events, structured logs and traces",
+    "main/backend/app/services/tasks.py: task-owned no-op worker observability probe with zero effect boundary",
+    "stage5-evidence/observability/compose.worker-telemetry.yaml: task-local source overlay for backend and independent worker",
+    "stage5-evidence/observability/run_live_worker_chain_probe.py: HTTP to independent worker result and telemetry probe",
+    "stage5-evidence/observability/verify_observability.py: current live-worker Compose scrape verifier",
+    "stage5-evidence/observability/worker-logs-traces-closure-result.v1.json: independent worker, Redis telemetry, log and Prometheus closure"
+  ],
+  "evidence_config_files": [
+      "stage5-evidence/observability/compose.yaml",
+      "stage5-evidence/observability/prometheus/prometheus.yml",
+      "stage5-evidence/observability/verify_observability.py",
+    "stage5-evidence/observability/run_alert_rule_probe.py",
+    "main/backend/app/production_observability/contracts.py",
+    "main/backend/app/production_observability/config.py",
+    "main/backend/app/production_observability/runtime.py",
+    "main/backend/app/production_observability/metrics.py",
+    "main/backend/app/main.py",
+    "stage5-evidence/observability/compose.worker-telemetry.yaml",
+    "stage5-evidence/observability/run_live_worker_chain_probe.py"
+  ],
+  "real_collector": {
+    "project": "mrw-stage5-observability",
+    "prometheus_image": "prom/prometheus:v3.7.3@sha256:6573196e5dbe834779ac4d34cb053113cc502a69e9e20ba3be96d37f33e81545",
+    "target": "http://backend:8000/metrics",
+    "final_target_health": "up",
+    "initial_auth_failure_preserved": "stage5-evidence/observability/logs/06-prometheus-targets.json",
+    "fix": "task-local 0600 token file mounted read-only at /run/secrets/metrics_token; secret values were not written to evidence",
+    "final_evidence": [
+      "stage5-evidence/observability/logs/09-prometheus-targets-after-authfix.json",
+      "stage5-evidence/observability/logs/28-final-targets.json",
+      "stage5-evidence/observability/logs/40-gap-closure-prometheus-targets.json",
+    "stage5-evidence/observability/logs/42-gap-closure-alert-state-series.json",
+    "stage5-evidence/observability/logs/58-gap-closure2-runtime-health-query.json",
+    "stage5-evidence/observability/logs/59-gap-closure2-alert-state-query.json",
+    "stage5-evidence/observability/logs/64-gap-closure2-deep-health-queue-trigger.json",
+    "stage5-evidence/observability/logs/65-gap-closure2-metrics-queue-trigger.txt",
+    "stage5-evidence/observability/logs/66-gap-closure2-deep-health-queue-recover.json",
+    "stage5-evidence/observability/logs/67-gap-closure2-metrics-queue-recover.txt",
+    "stage5-evidence/observability/logs/68-gap-closure2-live-runtime-health-receipt.json"
+    ]
+  },
+  "scraped_metrics": {
+    "backend_scrape_http_status": 200,
+    "present_families": [
+      "market_api_requests_total",
+      "market_api_request_latency_seconds",
+      "market_api_production_requests_total",
+      "market_api_production_request_latency_seconds",
+      "market_api_production_observability_runtime_health",
+      "market_api_production_observability_alert_state",
+      "market_api_production_worker_observability_status",
+      "market_api_production_worker_event_records",
+      "process_start_time_seconds"
+    ],
+    "release_binding": "1.0.0",
+    "missing_source_producers": [],
+    "worker_observability": {
+      "status": "PASS_LOCAL_LIVE_WORKER_CHAIN_NOT_AUTHORITY",
+      "evidence": "stage5-evidence/observability/live-worker-chain-result.v1.json",
+      "execution": "HTTP deep-health request -> Redis broker -> independent Celery prefork worker -> Redis result backend",
+      "task": "task_worker_observability_noop",
+      "effect_boundary_scope": "queue_side_effects=0 is business-task scope; broker/result/telemetry Redis writes are transport observability effects",
+      "correlation": "request_id/run_id/project_key/candidate_id/trace_id/worker/queue",
+      "metrics": "backend /metrics exports Redis-backed worker_event_records and observed status gauges",
+      "structured_logs": "worker JSONL log plus bounded Redis structured_log records",
+      "traces": "bounded Redis trace records correlated by trace_id and request_id"
+    },
+    "runtime_health_source_boundary": "queue_depth, database_connections, provider_failure, authority_mismatch and projection_drift are sampled by the real deep-health path; provider failure is explicitly simulated and all observations remain non-authoritative",
+    "focused_result": "stage5-evidence/observability/observability-focused-result-gap-closure4.json",
+    "live_runtime_health_receipt_probe": "stage5-evidence/observability/logs/68-gap-closure2-live-runtime-health-receipt.json",
+    "live_worker_chain": "stage5-evidence/observability/live-worker-chain-result.v1.json",
+    "celery_worker_log": "stage5-evidence/observability/logs/85-celery-worker-log-tail.txt",
+    "live_worker_verifier": "stage5-evidence/observability/observability-focused-result-live-worker.json",
+    "worker_logs_traces_closure": "stage5-evidence/observability/worker-logs-traces-closure-result.v1.json"
+  },
+  "semantic_signal_closure": {
+    "authority": "stage5-evidence/observability/authority-signal-closure.v1.json",
+    "projection": "stage5-evidence/observability/projection-drift-closure-probe.json",
+    "authority_unknown_policy": "missing task/tenant/project-scope/capability/step/epoch is NOT_OBSERVED and omits authority.mismatch observation",
+    "projection_unknown_policy": "missing project/source/offset/read error is NOT_OBSERVED or ERROR and omits projection.drift observation",
+    "projection_drift_basis": "active C9 offset source_digest compared with freshly derived closure_digest; release mismatch alone is not C9 drift"
+  },
+  "alert_validation": {
+    "existing_rules": [
+      "domain-rejection",
+      "route-error",
+      "release-error"
+    ],
+    "actual_runtime_trigger": {
+      "status": "OBSERVED",
+      "http_status": 403,
+      "rule": "domain-rejection",
+      "reason_code": "public_effect_route_unadmitted",
+      "snapshot": "stage5-evidence/observability/runtime-alert-snapshot.json"
+    },
+    "actual_runtime_recovery": {
+      "status": "NOT_OBSERVED",
+      "reason": "Existing runtime requests do not supply the valid production receipt required by fail-closed recovery; post-health effect probe remained observability_rollback_latched."
+    },
+    "in_process_rule_probe": {
+      "status": "PASS_LOCAL_RULE_PROBE_NOT_AUTHORITY",
+      "execution": "local focused runtime-health probe with controller-derived receipt and matching observations",
+    "all_nine_rules_trigger_and_recover_with_valid_receipt": true,
+      "result": "stage5-evidence/observability/alert-rule-probe.json"
+    },
+    "live_runtime_health_chain": {
+      "status": "PASS_LOCAL_LIVE_SOURCE_RECEIPT_CHAIN_NOT_AUTHORITY",
+      "trigger": "Redis LLEN celery=1 plus simulated provider failure; deep-health source snapshot drove queue alert triggered",
+      "recovery": "Redis LLEN celery=0 plus simulated provider healthy; controller-derived local/runtime receipt validated queue alert recovered",
+      "receipt_valid": true,
+      "external_provider_calls": 0,
+      "evidence": "stage5-evidence/observability/logs/68-gap-closure2-live-runtime-health-receipt.json"
+    },
+    "runtime_source_boundary_not_claimed": [
+      "No external provider call or production receipt was created",
+      "HTTP runtime recovery remains fail-closed and was not observed without a valid production receipt"
+    ]
+  },
+  "verification": [
+    {
+      "name": "compose_config",
+      "exit_code": 0,
+      "evidence": "stage5-evidence/observability/logs/08-compose-config-tokenfile.log"
+    },
+    {
+      "name": "focused_verifier",
+      "exit_code": 0,
+      "evidence": "stage5-evidence/observability/observability-focused-result-gap-closure4.json"
+    },
+    {
+      "name": "production_observability_focused_tests",
+      "summary": "45 passed, 15 warnings, 2 subtests passed (package evidence)",
+      "exit_code": 0,
+      "evidence": "stage5-evidence/observability/logs/70-final-production-observability-focused-tests.log"
+    },
+    {
+      "name": "final_integrated_affected_focused_tests",
+      "summary": "60 passed, 15 warnings, 2 subtests passed",
+      "exit_code": 0,
+      "evidence": "stage5-evidence/observability/logs/81-final-integrated-focused-tests.log"
+    },
+    {
+      "name": "backend_container_alert_rule_probe",
+      "exit_code": 0,
+      "evidence": "stage5-evidence/observability/logs/52-alert-rule-probe-final-after-collector.log"
+    },
+    {
+      "name": "prometheus_alert_state_series",
+      "summary": "27 series (9 rules x unknown/triggered/recovered), target up",
+      "exit_code": 0,
+      "evidence": "stage5-evidence/observability/logs/72-gap-closure3-alert-state-count.json"
+    },
+    {
+      "name": "backend_observability_gauge_declarations",
+      "summary": "runtime-health and alert-state gauges declared in real /metrics scrape",
+      "exit_code": 0,
+      "evidence": "stage5-evidence/observability/logs/43-gap-closure-backend-gauges.txt"
+    },
+    {
+      "name": "live_runtime_health_receipt_chain",
+      "summary": "real Redis/DB/runtime-binding source snapshot; queue trigger -> valid controller-derived receipt -> recovered queue rule",
+      "exit_code": 0,
+      "evidence": "stage5-evidence/observability/logs/68-gap-closure2-live-runtime-health-receipt.json"
+    },
+    {
+      "name": "live_http_celery_worker_result_chain",
+      "summary": "HTTP deep-health dispatch reached independent Celery prefork worker; Redis result and telemetry readback correlated request/run/project/candidate/trace",
+      "exit_code": 0,
+      "evidence": "stage5-evidence/observability/live-worker-chain-result.v1.json"
+    },
+    {
+      "name": "live_worker_compose_scrape_verifier",
+      "summary": "current worker-overlay Compose target up, backend metrics and 27 alert-state series verified",
+      "exit_code": 0,
+      "evidence": "stage5-evidence/observability/observability-focused-result-live-worker.json"
+    },
+    {
+      "name": "worker_logs_traces_closure",
+      "summary": "independent non-eager Celery worker produced correlated worker_event, structured_log and trace records with Prometheus readback",
+      "exit_code": 0,
+      "evidence": "stage5-evidence/observability/worker-logs-traces-closure-result.v1.json"
+    }
+  ],
+  "known_failures_preserved": [
+    "stage5-evidence/observability/logs/attempt1-release-hardcode/observability-focused-result.json",
+    "stage5-evidence/observability/logs/attempt2-recovery-without-receipt/alert-rule-probe.json"
+  ],
+  "cleanup": "stage5-evidence/observability/cleanup.json",
+  "authority_ceiling": [
+    "LOCAL_STAGE5_OBSERVABILITY_ONLY",
+    "NOT_AUTHORITY",
+    "PRODUCTION_RELEASE_NOT_AUTHORIZED"
+  ]
+}

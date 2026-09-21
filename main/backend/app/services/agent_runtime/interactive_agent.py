@@ -7,13 +7,15 @@ import json
 from typing import Any
 from uuid import uuid4
 
+from functorial_kit import Failure
+
 from app.services.agent_sessions.service import AgentSessionService, get_agent_session_service
 
 from .capability_registry import (
     is_social_chat_goal,
     list_interactive_agent_capabilities,
 )
-from .conversation import AgentConversationAnswerer, ModelConversationAnswerer
+from .conversation import AgentConversationAnswerer, ModelConversationAnswerer, runtime_failure
 from .control_tools import AgentControlToolRuntime
 from .material_ontology import annotate_capability_result
 from .read_only_tools import ReadOnlyAgentToolRuntime
@@ -27,7 +29,7 @@ from .turn_decision import AgentTurnDecisionPlanner, build_turn_decision_plan
 BatchLoopRunner = Callable[..., dict[str, Any]]
 SourceLibraryLister = Callable[[str | None], list[dict[str, Any]]]
 StructuredDataSearcher = Callable[..., dict[str, Any]]
-HighRiskCapabilityExecutor = Callable[..., dict[str, Any]]
+HighRiskCapabilityExecutor = Callable[..., dict[str, Any] | Failure]
 FINAL_TASK_STATUSES = frozenset({"completed", "failed", "canceled", "expired"})
 AGENT_BATCH_FALLBACK_CAPABILITY_ID = "agent_batch.nl_command.submit"
 PROJECT_HIGH_RISK_CAPABILITY_IDS = frozenset({"ingest.source_library.run", "workflow_graph.run", "report.generate"})
@@ -97,18 +99,25 @@ class InteractiveAgentRuntime:
         turn_decision_planner: AgentTurnDecisionPlanner | None = None,
         conversation_answerer: AgentConversationAnswerer | None = None,
         require_high_risk_approval: bool = False,
-    ) -> dict[str, Any]:
+    ) -> dict[str, Any] | Failure:
         command = str(message or "").strip()
         if not command:
-            raise ValueError("message is required")
+            return runtime_failure(
+                "message_required",
+                "message is required",
+                {"operation": "InteractiveAgentRuntime.run_turn", "field": "message"},
+            )
 
         turn_id = _new_id("turn")
-        session, created_tasks, user_message_created = self._ensure_session(
+        session_result = self._ensure_session(
             session_id=session_id,
             project_key=project_key,
             message=command,
             turn_id=turn_id,
         )
+        if isinstance(session_result, Failure):
+            return session_result
+        session, created_tasks, user_message_created = session_result
         resolved_session_id = str(session["session_id"])
         task_blueprints = self._build_turn_blueprints(command=command, turn_id=turn_id)
         if created_tasks:
@@ -119,6 +128,8 @@ class InteractiveAgentRuntime:
                 goal=command,
                 task_blueprints=task_blueprints,
             )
+            if isinstance(appended, Failure):
+                return appended
             task_ids = {str(task.get("metadata", {}).get("interactive_turn_role") or ""): str(task.get("task_id") or "") for task in appended}
 
         if not user_message_created:
@@ -158,7 +169,9 @@ class InteractiveAgentRuntime:
         loop_result: dict[str, Any] = {}
         run_loop_result: dict[str, Any] = {}
 
-        self.service.claim_task(resolved_session_id, execute_task_id, owner="interactive_agent")
+        claim_result = self.service.claim_task(resolved_session_id, execute_task_id, owner="interactive_agent")
+        if isinstance(claim_result, Failure):
+            return claim_result
         read_only_runtime = ReadOnlyAgentToolRuntime(
             service=self.service,
             source_library_lister=source_library_lister,
@@ -483,11 +496,17 @@ class InteractiveAgentRuntime:
         approved_by: str = "user",
         binding_payload_overrides: dict[str, Any] | None = None,
         high_risk_executor: HighRiskCapabilityExecutor | None = None,
-    ) -> dict[str, Any]:
+    ) -> dict[str, Any] | Failure:
         resolved_approval_id = str(approval_id or "").strip()
         if not resolved_approval_id:
-            raise ValueError("approval_id is required")
+            return runtime_failure(
+                "approval_id_required",
+                "approval_id is required",
+                {"operation": "InteractiveAgentRuntime.continue_approved_capability", "field": "approval_id"},
+            )
         approval = self.service.store.get_approval(resolved_approval_id)
+        if isinstance(approval, Failure):
+            return approval
         overrides = dict(binding_payload_overrides or {})
         if overrides:
             binding_payload = _merge_binding_payload(dict(approval.get("binding_payload") or {}), overrides)
@@ -508,6 +527,8 @@ class InteractiveAgentRuntime:
                     "audit_log": audit_log,
                 }
             )
+            if isinstance(approval, Failure):
+                return approval
             requester_session_id = str(approval.get("requester_session_id") or "").strip()
             if requester_session_id:
                 self.service.store.append_event(
@@ -521,12 +542,22 @@ class InteractiveAgentRuntime:
                 )
         if str(approval.get("status") or "") == "pending":
             approval = self.service.resolve_approval(resolved_approval_id, approved_by=approved_by, approved=True)
+            if isinstance(approval, Failure):
+                return approval
         if str(approval.get("status") or "") != "approved":
-            raise ValueError("approval must be approved before continue")
+            return runtime_failure(
+                "approval_not_approved",
+                "approval must be approved before continue",
+                {"approval_id": resolved_approval_id, "status": approval.get("status")},
+            )
 
         binding_payload = dict(approval.get("binding_payload") or {})
         if str(binding_payload.get("contract_version") or "") != "interactive_agent.high_risk_approval.v1":
-            raise ValueError("approval is not an interactive agent high-risk approval")
+            return runtime_failure(
+                "approval_type_invalid",
+                "approval is not an interactive agent high-risk approval",
+                {"approval_id": resolved_approval_id, "contract_version": binding_payload.get("contract_version")},
+            )
         session_id = str(approval.get("requester_session_id") or binding_payload.get("session_id") or "").strip()
         execute_task_id = str(approval.get("requester_task_id") or "").strip()
         turn_id = str(binding_payload.get("turn_id") or "").strip()
@@ -534,9 +565,27 @@ class InteractiveAgentRuntime:
         command = str(binding_payload.get("command") or "").strip()
         project_key = str(binding_payload.get("project_key") or "").strip() or None
         if not session_id or not execute_task_id or not turn_id or not capability_id:
-            raise ValueError("approval binding is missing required resume fields")
+            return runtime_failure(
+                "approval_binding_incomplete",
+                "approval binding is missing required resume fields",
+                {
+                    "approval_id": resolved_approval_id,
+                    "missing_fields": [
+                        key
+                        for key, value in {
+                            "session_id": session_id,
+                            "execute_task_id": execute_task_id,
+                            "turn_id": turn_id,
+                            "capability_id": capability_id,
+                        }.items()
+                        if not value
+                    ],
+                },
+            )
 
         execute_task = self.service.store.get_task(session_id, execute_task_id)
+        if isinstance(execute_task, Failure):
+            return execute_task
         execute_payload = dict(execute_task.get("result_payload") or {})
         existing_continuation = dict(execute_payload.get("approval_continuation") or {})
         if existing_continuation.get("approval_id") == resolved_approval_id and str(execute_task.get("status") or "") in FINAL_TASK_STATUSES:
@@ -571,7 +620,9 @@ class InteractiveAgentRuntime:
                 task_id=execute_task_id,
                 payload={"approval_id": resolved_approval_id, "capability_id": capability_id},
             )
-        self.service.claim_task(session_id, execute_task_id, owner="interactive_agent")
+        claim_result = self.service.claim_task(session_id, execute_task_id, owner="interactive_agent")
+        if isinstance(claim_result, Failure):
+            return claim_result
         self.service.store.append_event(
             session_id,
             event_type="interactive_agent.tool_call_started",
@@ -586,7 +637,7 @@ class InteractiveAgentRuntime:
             },
         )
         executor = high_risk_executor or self._execute_approved_high_risk_capability
-        capability_call = executor(
+        capability_outcome = executor(
             approval=approval,
             binding_payload=binding_payload,
             turn_id=turn_id,
@@ -596,7 +647,24 @@ class InteractiveAgentRuntime:
             command=command,
             project_key=project_key,
         )
-        capability_call = dict(capability_call or {})
+        if isinstance(capability_outcome, Failure):
+            capability_call = build_capability_call(
+                turn_id=turn_id,
+                capability_id=capability_id,
+                protocol="approval_gated",
+                status="failed",
+                summary=capability_outcome.message,
+                error={
+                    "family": capability_outcome.family,
+                    "code": capability_outcome.code,
+                    "message": capability_outcome.message,
+                    "context": dict(capability_outcome.context or {}),
+                },
+                result={},
+                extra={"approval_id": resolved_approval_id},
+            )
+        else:
+            capability_call = dict(capability_outcome or {})
         capability_call.setdefault("turn_id", turn_id)
         capability_call.setdefault("capability_id", capability_id)
         capability_call.setdefault("tool_name", capability_id)
@@ -729,14 +797,24 @@ class InteractiveAgentRuntime:
         project_key: str | None,
         message: str,
         turn_id: str,
-    ) -> tuple[dict[str, Any], list[dict[str, Any]], bool]:
+    ) -> tuple[dict[str, Any], list[dict[str, Any]], bool] | Failure:
         resolved_session_id = str(session_id or "").strip()
         if resolved_session_id:
             session = self.service.get_session(resolved_session_id)
+            if isinstance(session, Failure):
+                return session
             existing_project = str(session.get("project_key") or "").strip()
             incoming_project = str(project_key or "").strip()
             if existing_project and incoming_project and existing_project != incoming_project:
-                raise ValueError("session project_key does not match request project_key")
+                return runtime_failure(
+                    "session_project_mismatch",
+                    "session project_key does not match request project_key",
+                    {
+                        "session_id": resolved_session_id,
+                        "session_project_key": existing_project,
+                        "request_project_key": incoming_project,
+                    },
+                )
             return session, [], False
 
         blueprints = self._build_turn_blueprints(command=message, turn_id=turn_id)
@@ -755,6 +833,8 @@ class InteractiveAgentRuntime:
             },
             task_blueprints=blueprints,
         )
+        if isinstance(bundle, Failure):
+            return bundle
         return dict(bundle["session"]), list(bundle["tasks"]), True
 
     def _build_turn_blueprints(self, *, command: str, turn_id: str) -> list[dict[str, Any]]:
@@ -1381,7 +1461,7 @@ class InteractiveAgentRuntime:
         capability_id: str,
         command: str,
         project_key: str | None,
-    ) -> dict[str, Any]:
+    ) -> dict[str, Any] | Failure:
         del approval
         approval_id = str(binding_payload.get("resume_token") or "").split(":")[-1] or None
         try:
@@ -1389,7 +1469,11 @@ class InteractiveAgentRuntime:
                 execution_payload = dict(binding_payload.get("execution_payload") or {})
                 graph_id = self._extract_workflow_graph_id(command=command, binding_payload={**binding_payload, **execution_payload})
                 if not graph_id:
-                    raise ValueError("graph_id is required to continue workflow_graph.run")
+                    return runtime_failure(
+                        "capability_input_missing",
+                        "graph_id is required to continue workflow_graph.run",
+                        {"capability_id": capability_id, "field": "graph_id"},
+                    )
                 from app.services.workflow_graph import runtime as workflow_graph_runtime
 
                 inputs = dict(execution_payload.get("inputs") or binding_payload.get("inputs") or binding_payload.get("input") or {})
@@ -1417,7 +1501,11 @@ class InteractiveAgentRuntime:
                     or self._extract_source_item_key(command)
                 )
                 if not item_key:
-                    raise ValueError("item_key is required to continue ingest.source_library.run")
+                    return runtime_failure(
+                        "capability_input_missing",
+                        "item_key is required to continue ingest.source_library.run",
+                        {"capability_id": capability_id, "field": "item_key"},
+                    )
                 from app.services.collect_runtime import run_source_library_item_compat
 
                 override_params = dict(execution_payload.get("override_params") or binding_payload.get("override_params") or {})
@@ -1452,9 +1540,17 @@ class InteractiveAgentRuntime:
                     or str(execution_payload.get("output_path") or "").strip()
                 )
                 if not topic:
-                    raise ValueError("topic is required to continue report.generate")
+                    return runtime_failure(
+                        "capability_input_missing",
+                        "topic is required to continue report.generate",
+                        {"capability_id": capability_id, "field": "topic"},
+                    )
                 if not output_path:
-                    raise ValueError("output_path is required to continue report.generate")
+                    return runtime_failure(
+                        "capability_input_missing",
+                        "output_path is required to continue report.generate",
+                        {"capability_id": capability_id, "field": "output_path"},
+                    )
                 sources = list(binding_payload.get("sources") or execution_payload.get("sources") or [])
                 if not sources:
                     sources = [
@@ -1517,7 +1613,11 @@ class InteractiveAgentRuntime:
                 execution_payload = dict(binding_payload.get("execution_payload") or {})
                 command_to_run = str(execution_payload.get("command") or binding_payload.get("command") or command).strip()
                 if not command_to_run:
-                    raise ValueError("command is required to continue agent_batch.nl_command.submit")
+                    return runtime_failure(
+                        "capability_input_missing",
+                        "command is required to continue agent_batch.nl_command.submit",
+                        {"capability_id": capability_id, "field": "command"},
+                    )
                 from app.api.agent_batch import _submit_jobs_from_loop_tasks
                 from app.services.agent_batch.agent_loop import run_agent_batch_nl_command_loop
                 from app.services.agent_batch.executor_health import inspect_executor_health

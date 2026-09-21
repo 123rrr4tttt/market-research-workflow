@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import Any
+from typing import Annotated, Any, NoReturn
+
+from functorial_kit import Failure
+from mrw_functorial_kit.core.agent_service_semantics import agent_batch_failures
 
 AGENT_BATCH_TASK_MANIFEST_VERSION = "agent_batch.task_manifest.v1"
 AGENT_BATCH_SEARCH_POLICY_CONTRACT_VERSION = "agent_batch.search_policy.v1"
@@ -87,6 +90,29 @@ _RUNTIME_PARAM_ALIASES_BY_CHANNEL = {
         "source_mode": ["source_mode"],
     }
 }
+
+
+def _raise_legacy_agent_batch_failure(failure: Failure) -> NoReturn:
+    """Lift one closed core failure into the legacy public exception ABI."""
+    if not agent_batch_failures.matches(failure):
+        # kit:boundary owner=agent_batch.public_abi class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w02_abi_lift_rejects_non_agent_batch_failure_as_programmer_defect
+        raise TypeError("agent batch ABI lift requires an agent.batch.failure")
+
+    message = failure.message
+    if failure.code == "approval_not_found":
+        # kit:boundary owner=agent_batch.public_abi class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=agent.batch.failure witness=test:test_w02_legacy_lift_preserves_public_exception_observation
+        raise KeyError("approval_token_not_found")
+    if failure.code == "approval_expired":
+        # kit:boundary owner=agent_batch.public_abi class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=agent.batch.failure witness=test:test_w02_legacy_lift_preserves_public_exception_observation
+        raise ValueError("approval_token_expired")
+    if failure.code == "approval_token_required":
+        # kit:boundary owner=agent_batch.public_abi class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=agent.batch.failure witness=test:test_w02_legacy_lift_preserves_public_exception_observation
+        raise ValueError("approval_token is required")
+    if failure.code in {"channel_unknown", "command_required", "lane_invalid", "planner_no_executable_tasks"}:
+        # kit:boundary owner=agent_batch.public_abi class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=agent.batch.failure witness=test:test_w02_legacy_lift_preserves_public_exception_observation
+        raise (KeyError(message) if failure.code == "channel_unknown" else ValueError(message))
+    # kit:boundary owner=agent_batch.public_abi class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w02_abi_lift_rejects_non_agent_batch_failure_as_programmer_defect
+    raise TypeError(f"unsupported agent batch failure code: {failure.code}")
 
 _RETRY_ACTION_ALLOWED_VALUES = [
     "expand_query_terms",
@@ -574,31 +600,59 @@ def _clone_channel_spec(spec: dict[str, Any], *, include_internal: bool) -> dict
     return cloned
 
 
-def build_search_brief_schema() -> dict[str, Any]:
+def build_search_brief_schema() -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=task_contract_constants "
+    "witness=test:test_w02_agent_authority_metadata"
+]:
     return deepcopy(_SEARCH_BRIEF_SCHEMA)
 
 
-def build_search_critic_schema() -> dict[str, Any]:
+def build_search_critic_schema() -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=task_contract_constants "
+    "witness=test:test_w02_agent_authority_metadata"
+]:
     return deepcopy(_SEARCH_CRITIC_SCHEMA)
 
 
-def build_search_quality_replay_schema() -> dict[str, Any]:
+def build_search_quality_replay_schema() -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=task_contract_constants "
+    "witness=test:test_w02_agent_authority_metadata"
+]:
     return deepcopy(_SEARCH_QUALITY_REPLAY_SCHEMA)
 
 
-def build_provider_quality_readiness_schema() -> dict[str, Any]:
+def build_provider_quality_readiness_schema() -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=task_contract_constants "
+    "witness=test:test_w02_agent_authority_metadata"
+]:
     return deepcopy(_PROVIDER_QUALITY_READINESS_SCHEMA)
 
 
-def build_live_quality_threshold_schema() -> dict[str, Any]:
+def build_live_quality_threshold_schema() -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=task_contract_constants "
+    "witness=test:test_w02_agent_authority_metadata"
+]:
     return deepcopy(_LIVE_QUALITY_THRESHOLD_SCHEMA)
 
 
-def build_quality_promotion_readback_schema() -> dict[str, Any]:
+def build_quality_promotion_readback_schema() -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=task_contract_constants "
+    "witness=test:test_w02_agent_authority_metadata"
+]:
     return deepcopy(_QUALITY_PROMOTION_READBACK_SCHEMA)
 
 
-def build_retry_action_schema() -> dict[str, Any]:
+def build_retry_action_schema() -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=task_contract_constants "
+    "witness=test:test_w02_agent_authority_metadata"
+]:
     return deepcopy(_RETRY_ACTION_SCHEMA)
 
 
@@ -719,7 +773,11 @@ def list_search_policy_event_names() -> list[str]:
     return list(_SEARCH_POLICY_EVENT_NAMES)
 
 
-def build_search_policy_contract() -> dict[str, Any]:
+def build_search_policy_contract() -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=task_contract_policy_sources "
+    "witness=test:test_w02_agent_authority_metadata"
+]:
     return {
         "contract_version": AGENT_BATCH_SEARCH_POLICY_CONTRACT_VERSION,
         "search_brief": build_search_brief_schema(),
@@ -751,17 +809,31 @@ def get_agent_batch_known_channels() -> set[str]:
     return set(_AGENT_BATCH_CHANNEL_SPECS.keys())
 
 
-def build_agent_batch_tasks_schema() -> dict[str, Any]:
+def build_agent_batch_tasks_schema() -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=task_contract_constants "
+    "witness=test:test_w02_agent_authority_metadata"
+]:
     return {
         "required_keys": ["channel"],
         "optional_keys": list(_TASK_OPTIONAL_KEYS),
     }
 
 
-def build_agent_batch_manifest_entry(channel: str) -> dict[str, Any]:
+def build_agent_batch_manifest_entry(channel: str) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=task_contract_policy_sources "
+    "witness=test:test_w02_agent_authority_metadata"
+]:
     spec = get_agent_batch_task_contract_spec(channel, include_internal=False)
     if spec is None:
-        raise KeyError(f"unknown agent batch channel: {channel}")
+        _raise_legacy_agent_batch_failure(
+            agent_batch_failures.fail(
+                "channel_unknown",
+                f"unknown agent batch channel: {channel}",
+                {"channel": str(channel or "")},
+            )
+        )
     spec["channel"] = str(channel or "").strip().lower()
     return spec
 
@@ -815,7 +887,11 @@ def build_agent_batch_execution_registry(
     *,
     execution_bindings: list[dict[str, str]] | None = None,
     globals_map: dict[str, Any] | None = None,
-) -> dict[str, dict[str, Any]]:
+) -> Annotated[
+    dict[str, dict[str, Any]],
+    "kit:non-authoritative derived_as=view fact_source=task_contract_policy_sources "
+    "witness=test:test_w02_agent_authority_metadata"
+]:
     bindings = list(execution_bindings or list_agent_batch_execution_bindings())
     exported = dict(globals_map or {})
     registry: dict[str, dict[str, Any]] = {}
@@ -827,11 +903,13 @@ def build_agent_batch_execution_registry(
             continue
         submitter = exported.get(submitter_export)
         if not callable(submitter):
+            # kit:boundary owner=agent_batch.execution_registry class=PROGRAMMER_DEFECT failure_family=none witness=test:test_build_agent_batch_execution_registry_resolves_exports_and_fails_fast
             raise RuntimeError(f"channel submitter export not found: {submitter_export}")
         entry: dict[str, Any] = {"submitter": submitter}
         if rule_guard_export:
             rule_guard = exported.get(rule_guard_export)
             if not callable(rule_guard):
+                # kit:boundary owner=agent_batch.execution_registry class=PROGRAMMER_DEFECT failure_family=none witness=test:test_build_agent_batch_execution_registry_resolves_exports_and_fails_fast
                 raise RuntimeError(f"channel rule_guard export not found: {rule_guard_export}")
             entry["rule_guard"] = rule_guard
         registry[channel] = entry
@@ -907,7 +985,11 @@ def normalize_agent_batch_task(task: dict[str, Any], *, idx: int, default_langua
     }
 
 
-def build_agent_batch_submit_item_data(task: dict[str, Any], *, idx: int, default_language: str) -> dict[str, Any]:
+def build_agent_batch_submit_item_data(task: dict[str, Any], *, idx: int, default_language: str) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=normalized_task_input "
+    "witness=test:test_w02_agent_authority_metadata"
+]:
     normalized = normalize_agent_batch_task(task, idx=idx, default_language=default_language)
     if not normalized:
         return {}
@@ -978,10 +1060,16 @@ def resolve_agent_batch_lane(channel: str, priority: int | None) -> str:
     return default_lane
 
 
-def build_agent_batch_dispatch_payload(channel: str, payload: dict[str, Any]) -> dict[str, Any]:
+def build_agent_batch_dispatch_payload(channel: str, payload: dict[str, Any]) -> Annotated[
+    dict[str, Any],
+    "kit:prepared-command effect_boundary=task_contract "
+    "witness=test:test_w02_agent_authority_metadata"
+]:
     spec = get_agent_batch_task_contract_spec(channel, include_internal=True)
     if spec is None:
-        raise KeyError(f"unknown agent batch channel: {channel}")
+        _raise_legacy_agent_batch_failure(
+            agent_batch_failures.fail("channel_unknown", f"unknown agent batch channel: {channel}", {"channel": str(channel or "")})
+        )
     dispatch = dict(((spec.get("execution") or {}).get("dispatch") or {}))
     fields = list(dispatch.get("payload_fields") or [])
     out = {"channel": str(channel or "").strip().lower()}
@@ -993,10 +1081,16 @@ def build_agent_batch_dispatch_payload(channel: str, payload: dict[str, Any]) ->
     return out
 
 
-def build_agent_batch_dispatch_invocation(channel: str, payload: dict[str, Any], *, trace_id: str | None) -> dict[str, Any]:
+def build_agent_batch_dispatch_invocation(channel: str, payload: dict[str, Any], *, trace_id: str | None) -> Annotated[
+    dict[str, Any],
+    "kit:prepared-command effect_boundary=task_contract "
+    "witness=test:test_w02_agent_authority_metadata"
+]:
     spec = get_agent_batch_task_contract_spec(channel, include_internal=True)
     if spec is None:
-        raise KeyError(f"unknown agent batch channel: {channel}")
+        _raise_legacy_agent_batch_failure(
+            agent_batch_failures.fail("channel_unknown", f"unknown agent batch channel: {channel}", {"channel": str(channel or "")})
+        )
     dispatch = dict(((spec.get("execution") or {}).get("dispatch") or {}))
     skill_id = str(dispatch.get("skill_id") or "").strip()
     required_permission = str(dispatch.get("required_permission") or "").strip()
@@ -1020,10 +1114,16 @@ def build_agent_batch_dispatch_invocation(channel: str, payload: dict[str, Any],
     }
 
 
-def build_agent_batch_approval_argv(channel: str, payload: dict[str, Any]) -> list[str]:
+def build_agent_batch_approval_argv(channel: str, payload: dict[str, Any]) -> Annotated[
+    list[str],
+    "kit:prepared-command effect_boundary=task_contract "
+    "witness=test:test_w02_agent_authority_metadata"
+]:
     spec = get_agent_batch_task_contract_spec(channel, include_internal=True)
     if spec is None:
-        raise KeyError(f"unknown agent batch channel: {channel}")
+        _raise_legacy_agent_batch_failure(
+            agent_batch_failures.fail("channel_unknown", f"unknown agent batch channel: {channel}", {"channel": str(channel or "")})
+        )
     approval_binding = dict(((spec.get("execution") or {}).get("approval_binding") or {}))
     argv = [str(item) for item in list(approval_binding.get("argv_prefix") or []) if str(item or "").strip()]
     value_field = str(approval_binding.get("value_field") or "").strip()
@@ -1038,22 +1138,28 @@ def build_agent_batch_approval_argv(channel: str, payload: dict[str, Any]) -> li
     return argv
 
 
-def build_business_override_params(channel: str, task: dict[str, Any], *, workflow_run_id: str | None) -> dict[str, Any]:
+def build_business_override_params(channel: str, task: dict[str, Any], *, workflow_run_id: str | None) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=task+workflow_run_id "
+    "witness=test:test_w02_agent_authority_metadata"
+]:
     normalized_channel = str(channel or "").strip().lower()
     override_params = dict(task.get("override_params") or {})
     if normalized_channel not in _OVERRIDE_PROMOTION_FIELDS_BY_CHANNEL:
         if str(workflow_run_id or "").strip():
             override_params.setdefault("workflow_run_id", str(workflow_run_id).strip())
         return override_params
+    if normalized_channel == "source_library":
+        override_params.pop("source_mode", None)
 
     query_terms = normalize_query_terms(task.get("query_terms"))
     urls = normalize_string_list(task.get("urls"))
     platforms = normalize_string_list(task.get("platforms"))
 
     if query_terms:
-        override_params.setdefault("query_terms", query_terms)
+        override_params["query_terms"] = query_terms
     if urls:
-        override_params.setdefault("urls", urls)
+        override_params["urls"] = urls
 
     max_items = task.get("max_items")
     if max_items is not None:
@@ -1062,25 +1168,27 @@ def build_business_override_params(channel: str, task: dict[str, Any], *, workfl
         except Exception:
             max_items_int = None
         if max_items_int is not None:
-            override_params.setdefault("max_items", max_items_int)
-            override_params.setdefault("limit", max_items_int)
+            override_params["max_items"] = max_items_int
+            override_params["limit"] = max_items_int
 
     if str(task.get("provider") or "").strip():
-        override_params.setdefault("provider", str(task.get("provider")).strip())
+        override_params["provider"] = str(task.get("provider")).strip()
     if str(task.get("language") or "").strip():
-        override_params.setdefault("language", str(task.get("language")).strip())
+        override_params["language"] = str(task.get("language")).strip()
     if str(task.get("scope") or "").strip():
-        override_params.setdefault("scope", str(task.get("scope")).strip())
+        override_params["scope"] = str(task.get("scope")).strip()
     if platforms:
-        override_params.setdefault("platforms", platforms)
-    if str(task.get("source_mode") or "").strip():
-        override_params.setdefault("source_mode", str(task.get("source_mode")).strip())
+        override_params["platforms"] = platforms
     if str(workflow_run_id or "").strip():
-        override_params.setdefault("workflow_run_id", str(workflow_run_id).strip())
+        override_params["workflow_run_id"] = str(workflow_run_id).strip()
     return override_params
 
 
-def build_source_library_override_params(task: dict[str, Any], *, workflow_run_id: str | None) -> dict[str, Any]:
+def build_source_library_override_params(task: dict[str, Any], *, workflow_run_id: str | None) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=business_override+workflow_run_id "
+    "witness=test:test_w02_agent_authority_metadata"
+]:
     return build_business_override_params("source_library", task, workflow_run_id=workflow_run_id)
 
 

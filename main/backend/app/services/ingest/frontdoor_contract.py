@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Iterable, Mapping
+from typing import Annotated, Any, Iterable, Mapping
 
 from .gate_reason_codes import normalize_reason_code, reason_category
 
@@ -60,7 +60,10 @@ def build_frontdoor_envelope(
     degradation_flags: Iterable[Any] | None = None,
     diagnostics: Mapping[str, Any] | None = None,
     extra: Mapping[str, Any] | None = None,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=ingress_inputs+collection_payload+trace_contract witness=test:test_w03_ingest_ports_authority_metadata",
+]:
     normalized_reason = normalize_reason_code(reason_code, default="ok")
     envelope = {
         "status": _normalize_status(status),

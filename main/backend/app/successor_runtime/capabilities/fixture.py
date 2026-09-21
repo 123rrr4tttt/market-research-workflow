@@ -9,6 +9,7 @@ not reuse any first-specimen private helper or module.
 """
 
 from __future__ import annotations
+from typing import Annotated, Literal
 
 from dataclasses import dataclass
 
@@ -30,6 +31,10 @@ from .profiles import (
     ObservationProfile,
     ResourceProfile,
     SemanticProfile,
+)
+from .failure import (
+    capability_failure as _capability_failure,
+    raise_capability_failure as _raise_capability_failure,
 )
 
 FIXTURE_OPERATION_KIND = "fixture.echo_hex_digest.v1"
@@ -71,7 +76,12 @@ class EchoHexDigestInput:
         require_hex64(self.value_sha256_hex, "EchoHexDigestInput.value_sha256_hex")
         require_hex64(self.payload_digest, "EchoHexDigestInput.payload_digest")
         if content_digest(self, omit_fields=("payload_digest",)) != self.payload_digest:
-            raise ValueError("EchoHexDigestInput.payload_digest does not match content")
+            _raise_capability_failure(
+                _capability_failure(
+                    "CAPABILITY_CONTRACT_INVALID",
+                    "EchoHexDigestInput.payload_digest does not match content",
+                )
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -203,7 +213,14 @@ class FixtureCapabilityBundle:
     codec: PayloadCodec
 
 
-def build_fixture_capability_bundle() -> FixtureCapabilityBundle:
+def build_fixture_capability_bundle() -> Annotated[
+    FixtureCapabilityBundle,
+    Literal[
+        "kit:non-authoritative derived_as=simulation "
+        "fact_source=fixture_capability_inputs "
+        "witness=test:test_w06_successor_authority_metadata"
+    ],
+]:
     (
         semantic,
         effect,

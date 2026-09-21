@@ -4,16 +4,12 @@ from dataclasses import dataclass
 from typing import Any
 
 from ..projects import current_project_key
-from .adapters import DefaultDiscoveryAdapter
+from .ports import DiscoveryAdapterPort
 
 
 @dataclass
 class DiscoveryApplicationService:
-    adapter: DefaultDiscoveryAdapter
-
-    @classmethod
-    def build_default(cls) -> "DiscoveryApplicationService":
-        return cls(adapter=DefaultDiscoveryAdapter())
+    adapter: DiscoveryAdapterPort
 
     def _store_with_capture(self, results: list, job_type: str) -> dict[str, int]:
         project_key = (current_project_key() or "").strip() or None

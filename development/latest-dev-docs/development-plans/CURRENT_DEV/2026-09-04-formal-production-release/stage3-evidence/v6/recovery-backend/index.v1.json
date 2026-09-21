@@ -1,0 +1,189 @@
+{
+  "candidate_commit": "909eb608e538b6427bcbacca974f1efb05fef611",
+  "candidate_tree": "a60b795e509aa5dc479904a321fba32ed0ab9ab2",
+  "authoritative": false,
+  "env": {
+    "PATH": "/Users/wangyiliang/Library/TinyTeX/bin/universal-darwin:/opt/homebrew/bin:/opt/homebrew/sbin:/Users/wangyiliang/Library/Python/3.9/bin:/Users/wangyiliang/bin:/Users/wangyiliang/.elan/bin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/opt/pmk/env/global/bin:/Users/wangyiliang/.codex/tmp/arg0/codex-arg0NI7CKX:/Users/wangyiliang/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override:/Users/wangyiliang/Library/TinyTeX/bin/universal-darwin:/Users/wangyiliang/.local/bin:/opt/homebrew/opt/postgresql/bin:/opt/homebrew/opt/postgresql@18/bin:/Users/wangyiliang/.cargo/bin:/Users/wangyiliang/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback:/Applications/ChatGPT.app/Contents/Resources",
+    "HOME": "/private/tmp/mrw-stage3-v6-backend-recovery-20260907",
+    "TMPDIR": "/private/tmp",
+    "PYTHONHASHSEED": "0",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "PYTHONPATH": "/private/tmp/mrw-stage3-v6-backend-recovery-guard:/private/tmp/mrw-stage3-v6-backend-recovery-20260907:/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend",
+    "TOKENIZERS_PARALLELISM": "false",
+    "HF_HUB_OFFLINE": "1",
+    "TRANSFORMERS_OFFLINE": "1"
+  },
+  "environment_difference": "macOS reused venv311 dependencies, no .env copy, sanitized environment, Python socket audit denial, offline transformers; not remote workflow and not comprehensive native/subprocess isolation",
+  "guard_source": "import sys, socket\ndef audit(event,args):\n    if event in (\"socket.connect\", \"socket.sendto\", \"socket.getaddrinfo\"):\n        raise OSError(\"STAGE3_PYTHON_SOCKET_AUDIT_DENIED:\"+event)\nsys.addaudithook(audit)\n",
+  "records": [
+    {
+      "id": "identity",
+      "command": [
+        "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/bin/python",
+        "-c",
+        "import subprocess,sys,platform,json; print(sys.version); print(platform.platform()); print(sys.path); subprocess.run([\"git\",\"rev-parse\",\"HEAD\",\"HEAD^{tree}\"]); subprocess.run([\"git\",\"status\",\"--porcelain\"])"
+      ],
+      "cwd": "/private/tmp/mrw-stage3-v6-backend-recovery-20260907",
+      "started_at": "2026-09-06T21:52:27.107606+00:00",
+      "exit_code": 0,
+      "log": "identity.log"
+    },
+    {
+      "id": "root",
+      "command": [
+        "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/bin/python",
+        "-m",
+        "pytest",
+        "tests",
+        "-q",
+        "-ra",
+        "--junitxml=/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-backend/root.xml"
+      ],
+      "cwd": "/private/tmp/mrw-stage3-v6-backend-recovery-20260907",
+      "started_at": "2026-09-06T21:52:28.376204+00:00",
+      "exit_code": 1,
+      "log": "root.log"
+    },
+    {
+      "id": "unit",
+      "command": [
+        "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/bin/python",
+        "-m",
+        "pytest",
+        "-m",
+        "unit and not external and not flaky",
+        "-q",
+        "-ra",
+        "--junitxml=/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-backend/unit.xml"
+      ],
+      "cwd": "/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend",
+      "started_at": "2026-09-06T21:55:58.080021+00:00",
+      "exit_code": 2,
+      "log": "unit.log"
+    },
+    {
+      "id": "integration",
+      "command": [
+        "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/bin/python",
+        "-m",
+        "pytest",
+        "-m",
+        "integration and not external and not flaky",
+        "-q",
+        "-ra",
+        "--junitxml=/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-backend/integration.xml"
+      ],
+      "cwd": "/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend",
+      "started_at": "2026-09-06T21:56:15.656950+00:00",
+      "exit_code": 2,
+      "log": "integration.log"
+    },
+    {
+      "id": "core-business",
+      "command": [
+        "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/bin/python",
+        "-m",
+        "pytest",
+        "tests/core_business",
+        "-m",
+        "(unit or integration or contract or e2e) and not external",
+        "-q",
+        "-ra",
+        "--junitxml=/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-backend/core-business.xml"
+      ],
+      "cwd": "/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend",
+      "started_at": "2026-09-06T21:56:29.943063+00:00",
+      "exit_code": 2,
+      "log": "core-business.log"
+    },
+    {
+      "id": "successor-runtime",
+      "command": [
+        "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/bin/python",
+        "-m",
+        "pytest",
+        "tests/successor_runtime",
+        "-m",
+        "not external",
+        "-q",
+        "-ra",
+        "--junitxml=/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-backend/successor-runtime.xml"
+      ],
+      "cwd": "/private/tmp/mrw-stage3-v6-backend-recovery-20260907/main/backend",
+      "started_at": "2026-09-06T21:56:31.637631+00:00",
+      "exit_code": 2,
+      "log": "successor-runtime.log"
+    }
+  ],
+  "retained_clone": "/private/tmp/mrw-stage3-v6-backend-recovery-20260907",
+  "files": [
+    {
+      "path": "core-business.log",
+      "sha256": "a984fd75ddc08bfe7466d006e0d9b03aa22ec85f92e6ca8a7db934f354dac2dd"
+    },
+    {
+      "path": "core-business.record.json",
+      "sha256": "313ae7f184127073ab04581c842c22e14649960d177415eeda5e34fa6b29e643"
+    },
+    {
+      "path": "core-business.xml",
+      "sha256": "ceb26ea9a6a3646dec20473ae9d4c7cbb99099b737594ed6ecf6a5554084ad33"
+    },
+    {
+      "path": "identity.log",
+      "sha256": "c67b059d19c8ae1dde008cf348b33c266bfa49f85a95caca5aeabcc73cac050d"
+    },
+    {
+      "path": "identity.record.json",
+      "sha256": "5de191ef0e45b44632fd3783f1446226d5e61ed6fae1e7026b261a66460df48e"
+    },
+    {
+      "path": "integration.log",
+      "sha256": "67e4bbce5cb1a9080961de0a7e8f09ccf3fd43b46f35bb477015f21e4a038896"
+    },
+    {
+      "path": "integration.record.json",
+      "sha256": "3b26259b3d8e1c087ab5ad91b8d56e6bfb571b867b525c88394a191bb6a4eb79"
+    },
+    {
+      "path": "integration.xml",
+      "sha256": "71f085a8897a535c9c80144359aff99d11f6835060828fd4cbed686b40c8f3fa"
+    },
+    {
+      "path": "root.log",
+      "sha256": "367898a06c6e1fb5136868535c5f64fd3541ba2f69903bb3dddf686c0a359638"
+    },
+    {
+      "path": "root.record.json",
+      "sha256": "457ae2d6cba18760eb79230e9805a2b399723352d898d8894491f08bb6fc97c4"
+    },
+    {
+      "path": "root.xml",
+      "sha256": "274d2bb2035dda5d53e5fd4cb052fc9cba337ab325ffbee5ff5120eccb12a097"
+    },
+    {
+      "path": "successor-runtime.log",
+      "sha256": "ce7a04fdbbd74743f688f4b7c14b1976f91cd02f71121d84568ef27028728b3a"
+    },
+    {
+      "path": "successor-runtime.record.json",
+      "sha256": "2027d15cc448a97f662f8d44cdb5dad95e73593a223e67d69589ac25d9c0460e"
+    },
+    {
+      "path": "successor-runtime.xml",
+      "sha256": "43935bb0cb08cd1d8a551ea74508c6a3d247d20fec96aba548e5c9d8298941d6"
+    },
+    {
+      "path": "unit.log",
+      "sha256": "c81bcdd7083d6530d69eee523239d58706784fb79eef80ec8889cae09e4c21e6"
+    },
+    {
+      "path": "unit.record.json",
+      "sha256": "6e0cfdf85ce9d76e5c48092567e506cae9530569ba85a09417f2c69a77323c2a"
+    },
+    {
+      "path": "unit.xml",
+      "sha256": "c5f67f6ee60212db13373cb9d304a23874d6d11b81d3c9a019f04049d34c71d6"
+    }
+  ]
+}

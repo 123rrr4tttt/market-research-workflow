@@ -7,7 +7,7 @@ import importlib.util
 import json
 from pathlib import Path
 import sys
-from typing import Any
+from typing import Annotated, Any
 from unittest.mock import patch
 
 
@@ -266,7 +266,10 @@ def build_check(
     include_doc_checks: bool = True,
     pre_release_gate_path: Path | None = None,
     strict_closure: bool = False,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=generated_evidence fact_source=source_readiness+sample_readback+distribution_readback+release_gate+doc_artifact witness=test:test_c13_cli_graph_workflow_metadata_preserves_abi",
+]:
     root = Path(repo_root) if repo_root is not None else REPO_ROOT
     root = root.resolve()
     source_readiness = _load_script_module("check_source_time_production_readiness.py").build_check(

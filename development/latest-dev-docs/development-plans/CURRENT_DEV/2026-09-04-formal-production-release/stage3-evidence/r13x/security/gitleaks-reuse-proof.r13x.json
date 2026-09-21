@@ -1,0 +1,1551 @@
+{
+  "authoritative": false,
+  "current_commit": "8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+  "files": [
+    {
+      "r13v_blob_oid": "5015095204cc53ee435948b69e8a10af9c328d81",
+      "r13x_blob_oid": "5015095204cc53ee435948b69e8a10af9c328d81",
+      "r13x_worktree_blob_oid": "5015095204cc53ee435948b69e8a10af9c328d81",
+      "relative_path": "RELEASE_NOTES_v0.1.0-rc.1.md",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "90110700a39b77d391b2dde5b3c707a05bb12ec3",
+      "r13x_blob_oid": "90110700a39b77d391b2dde5b3c707a05bb12ec3",
+      "r13x_worktree_blob_oid": "90110700a39b77d391b2dde5b3c707a05bb12ec3",
+      "relative_path": "development/latest-dev-docs/automation-runs/agent-core-live-user-audit-2026-05-13/r25_stream_assistant_delta_capital.sse.txt",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "0fe3e01c20f617dbb807f7513853222e7fb22885",
+      "r13x_blob_oid": "0fe3e01c20f617dbb807f7513853222e7fb22885",
+      "r13x_worktree_blob_oid": "0fe3e01c20f617dbb807f7513853222e7fb22885",
+      "relative_path": "development/latest-dev-docs/automation-runs/agent-core-live-user-audit-2026-05-13/r29_contentfulness_rerun/writing_writeback_after_content_prompt.sse.txt",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "b4a852bbfe0b57225f1a32790ec4200b81d9bd78",
+      "r13x_blob_oid": "b4a852bbfe0b57225f1a32790ec4200b81d9bd78",
+      "r13x_worktree_blob_oid": "b4a852bbfe0b57225f1a32790ec4200b81d9bd78",
+      "relative_path": "development/latest-dev-docs/automation-runs/agent-core-live-user-audit-2026-05-13/r29_live_prompt_matrix/capability_summary.sse.txt",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "00364472475beaf6f819bc2648e79ef530bad4d7",
+      "r13x_blob_oid": "00364472475beaf6f819bc2648e79ef530bad4d7",
+      "r13x_worktree_blob_oid": "00364472475beaf6f819bc2648e79ef530bad4d7",
+      "relative_path": "development/latest-dev-docs/automation-runs/agent-core-live-user-audit-2026-05-13/r29_live_prompt_matrix/long_investigation_trace.sse.txt",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "2193c06ce6baa45f3a4d24bacd2372c797c11291",
+      "r13x_blob_oid": "2193c06ce6baa45f3a4d24bacd2372c797c11291",
+      "r13x_worktree_blob_oid": "2193c06ce6baa45f3a4d24bacd2372c797c11291",
+      "relative_path": "development/latest-dev-docs/automation-runs/agent-core-live-user-audit-2026-05-13/r29_live_prompt_matrix/writing_writeback.sse.txt",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "e520f6cc5aeb46e0e322fabee0695a21b0918614",
+      "r13x_blob_oid": "e520f6cc5aeb46e0e322fabee0695a21b0918614",
+      "r13x_worktree_blob_oid": "e520f6cc5aeb46e0e322fabee0695a21b0918614",
+      "relative_path": "development/latest-dev-docs/automation-runs/agent-core-live-user-audit-2026-05-13/r29_live_prompt_matrix_after_fix/followup_summary_after_query_and_noise_fix.sse.txt",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "5b339f4d4f3ef894ca3ec7099f776af0ffcaeccb",
+      "r13x_blob_oid": "5b339f4d4f3ef894ca3ec7099f776af0ffcaeccb",
+      "r13x_worktree_blob_oid": "5b339f4d4f3ef894ca3ec7099f776af0ffcaeccb",
+      "relative_path": "development/latest-dev-docs/automation-runs/agent-core-live-user-audit-2026-05-13/r30_external_mcp_matrix/mcp_status_turn.json",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "931171da35053d8001622370bb5363c7b139660c",
+      "r13x_blob_oid": "931171da35053d8001622370bb5363c7b139660c",
+      "r13x_worktree_blob_oid": "931171da35053d8001622370bb5363c7b139660c",
+      "relative_path": "development/latest-dev-docs/automation-runs/agent-core-live-user-audit-2026-05-13/r33_data_quality_audit/quality_audit_after_scan_bound_fix.sse.txt",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "62a84afc596c34a5e4d4f7abac0179309da154f3",
+      "r13x_blob_oid": "62a84afc596c34a5e4d4f7abac0179309da154f3",
+      "r13x_worktree_blob_oid": "62a84afc596c34a5e4d4f7abac0179309da154f3",
+      "relative_path": "development/latest-dev-docs/automation-runs/agent-core-live-user-audit-2026-05-13/r33_data_quality_audit/quality_audit_after_tool_window_fix.sse.txt",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "5a41736b8f5d54871436e32edeb389b5479a41b5",
+      "r13x_blob_oid": "5a41736b8f5d54871436e32edeb389b5479a41b5",
+      "r13x_worktree_blob_oid": "5a41736b8f5d54871436e32edeb389b5479a41b5",
+      "relative_path": "development/latest-dev-docs/automation-runs/agent-core-live-user-audit-2026-05-13/robot_structured_search_auto_summary_newbackend.sse.txt",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "0b6588c45d9c3b3423c09663db23ee128beefca4",
+      "r13x_blob_oid": "0b6588c45d9c3b3423c09663db23ee128beefca4",
+      "r13x_worktree_blob_oid": "0b6588c45d9c3b3423c09663db23ee128beefca4",
+      "relative_path": "development/latest-dev-docs/automation-runs/wave20-long-cycle-scheduler-queue/2026-05-22/scheduler_queue_replay_check.json",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "94b354e8fa23b94c227af7370c89cd1eeb34af22",
+      "r13x_blob_oid": "94b354e8fa23b94c227af7370c89cd1eeb34af22",
+      "r13x_worktree_blob_oid": "94b354e8fa23b94c227af7370c89cd1eeb34af22",
+      "relative_path": "development/latest-dev-docs/automation-runs/wave45-manual-structured-consumer-live-api-closure/2026-05-23/live_evidence.json",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "4c19f568c2b75c585720e41a425627d827e94408",
+      "r13x_blob_oid": "4c19f568c2b75c585720e41a425627d827e94408",
+      "r13x_worktree_blob_oid": "4c19f568c2b75c585720e41a425627d827e94408",
+      "relative_path": "development/latest-dev-docs/automation-runs/wave55-long-cycle-live-scheduler-closure/2026-05-23/live_scheduler_closure.json",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "0ffb3105f1e53403fddf482a8464421fc1d0add4",
+      "r13x_blob_oid": "0ffb3105f1e53403fddf482a8464421fc1d0add4",
+      "r13x_worktree_blob_oid": "0ffb3105f1e53403fddf482a8464421fc1d0add4",
+      "relative_path": "development/latest-dev-docs/automation-runs/wave55-long-cycle-live-scheduler-closure/2026-05-23/queue_handoff_replay_v2.json",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "4e5dcdbf55de7b12a20dea7d7108d8786177c24b",
+      "r13x_blob_oid": "4e5dcdbf55de7b12a20dea7d7108d8786177c24b",
+      "r13x_worktree_blob_oid": "4e5dcdbf55de7b12a20dea7d7108d8786177c24b",
+      "relative_path": "development/latest-dev-docs/backend-docs/C_INGEST/TWITTER_API_SETUP.md",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "4e5dcdbf55de7b12a20dea7d7108d8786177c24b",
+      "r13x_blob_oid": "4e5dcdbf55de7b12a20dea7d7108d8786177c24b",
+      "r13x_worktree_blob_oid": "4e5dcdbf55de7b12a20dea7d7108d8786177c24b",
+      "relative_path": "development/latest-dev-docs/backend-docs/E_OPS/TWITTER_API_SETUP.md",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "d992a5c1823930371de1f101c944d4651f91f79f",
+      "r13x_blob_oid": "d992a5c1823930371de1f101c944d4651f91f79f",
+      "r13x_worktree_blob_oid": "d992a5c1823930371de1f101c944d4651f91f79f",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-investigation/AllLinesS2bClosure.amendment.v1.json",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "47f89c387448ee08e6156ade42b133fe22d4e788",
+      "r13x_blob_oid": "47f89c387448ee08e6156ade42b133fe22d4e788",
+      "r13x_worktree_blob_oid": "47f89c387448ee08e6156ade42b133fe22d4e788",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b11-2026-09-05/candidates/C7/snapshots/3d8227f2865770e39982d99e97cf05ccb271700cdf865425430cc318780cc78d",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "d82e10c86dc3fe15cc96447ba6c99a890a0bde37",
+      "r13x_blob_oid": "d82e10c86dc3fe15cc96447ba6c99a890a0bde37",
+      "r13x_worktree_blob_oid": "d82e10c86dc3fe15cc96447ba6c99a890a0bde37",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b11-2026-09-05/candidates/C7/snapshots/552d1a6450e4aa74c23b866e63010c3bce5daa1189ac079c9e922c9963c78789",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "db554b0ca71351a52ebdb031f7f237abcc7e1b93",
+      "r13x_blob_oid": "db554b0ca71351a52ebdb031f7f237abcc7e1b93",
+      "r13x_worktree_blob_oid": "db554b0ca71351a52ebdb031f7f237abcc7e1b93",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b11-2026-09-05/candidates/C7/snapshots/70f35fb895558ab2c98f8f203c8130ea0d5af9098d02b9dbfbb7f2ae65926266",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "16fc99932fa660a6221f2430fb6b8a6a4fe40bb1",
+      "r13x_blob_oid": "16fc99932fa660a6221f2430fb6b8a6a4fe40bb1",
+      "r13x_worktree_blob_oid": "16fc99932fa660a6221f2430fb6b8a6a4fe40bb1",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b11-2026-09-05/candidates/C7/snapshots/d1724ee0a77f6808f6266106c5aea9640e0649c3b29a9527518a14b3af3b30e7",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "ef44ab0fb4c346f2f0c91effd34643d79d03c558",
+      "r13x_blob_oid": "ef44ab0fb4c346f2f0c91effd34643d79d03c558",
+      "r13x_worktree_blob_oid": "ef44ab0fb4c346f2f0c91effd34643d79d03c558",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b11-2026-09-05/candidates/C7/snapshots/d3a7aaf1916d2a01c1ed6e7004a06d6cd6ed24840a7403fd10e2ffdc53559a83",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "db554b0ca71351a52ebdb031f7f237abcc7e1b93",
+      "r13x_blob_oid": "db554b0ca71351a52ebdb031f7f237abcc7e1b93",
+      "r13x_worktree_blob_oid": "db554b0ca71351a52ebdb031f7f237abcc7e1b93",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b11-2026-09-05/fragments/C7.json",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "9965a288ac195eb4f5fae19e2333dcb5e862c4cd",
+      "r13x_blob_oid": "9965a288ac195eb4f5fae19e2333dcb5e862c4cd",
+      "r13x_worktree_blob_oid": "9965a288ac195eb4f5fae19e2333dcb5e862c4cd",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b12-2026-09-05/candidates/C7/snapshots/23b3d2978e19c53ef9cf2689ed687b9e7a670bf922a9861ef622ce0804793489",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "47f89c387448ee08e6156ade42b133fe22d4e788",
+      "r13x_blob_oid": "47f89c387448ee08e6156ade42b133fe22d4e788",
+      "r13x_worktree_blob_oid": "47f89c387448ee08e6156ade42b133fe22d4e788",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b12-2026-09-05/candidates/C7/snapshots/3d8227f2865770e39982d99e97cf05ccb271700cdf865425430cc318780cc78d",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "d82e10c86dc3fe15cc96447ba6c99a890a0bde37",
+      "r13x_blob_oid": "d82e10c86dc3fe15cc96447ba6c99a890a0bde37",
+      "r13x_worktree_blob_oid": "d82e10c86dc3fe15cc96447ba6c99a890a0bde37",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b12-2026-09-05/candidates/C7/snapshots/552d1a6450e4aa74c23b866e63010c3bce5daa1189ac079c9e922c9963c78789",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "db554b0ca71351a52ebdb031f7f237abcc7e1b93",
+      "r13x_blob_oid": "db554b0ca71351a52ebdb031f7f237abcc7e1b93",
+      "r13x_worktree_blob_oid": "db554b0ca71351a52ebdb031f7f237abcc7e1b93",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b12-2026-09-05/candidates/C7/snapshots/70f35fb895558ab2c98f8f203c8130ea0d5af9098d02b9dbfbb7f2ae65926266",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "16fc99932fa660a6221f2430fb6b8a6a4fe40bb1",
+      "r13x_blob_oid": "16fc99932fa660a6221f2430fb6b8a6a4fe40bb1",
+      "r13x_worktree_blob_oid": "16fc99932fa660a6221f2430fb6b8a6a4fe40bb1",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b12-2026-09-05/candidates/C7/snapshots/d1724ee0a77f6808f6266106c5aea9640e0649c3b29a9527518a14b3af3b30e7",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "ef44ab0fb4c346f2f0c91effd34643d79d03c558",
+      "r13x_blob_oid": "ef44ab0fb4c346f2f0c91effd34643d79d03c558",
+      "r13x_worktree_blob_oid": "ef44ab0fb4c346f2f0c91effd34643d79d03c558",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b12-2026-09-05/candidates/C7/snapshots/d3a7aaf1916d2a01c1ed6e7004a06d6cd6ed24840a7403fd10e2ffdc53559a83",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "9965a288ac195eb4f5fae19e2333dcb5e862c4cd",
+      "r13x_blob_oid": "9965a288ac195eb4f5fae19e2333dcb5e862c4cd",
+      "r13x_worktree_blob_oid": "9965a288ac195eb4f5fae19e2333dcb5e862c4cd",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b12-2026-09-05/fragments/C7.json",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "483c4395a3a0e3f31c4ba072b38b3748550c4f67",
+      "r13x_blob_oid": "483c4395a3a0e3f31c4ba072b38b3748550c4f67",
+      "r13x_worktree_blob_oid": "483c4395a3a0e3f31c4ba072b38b3748550c4f67",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b13-2026-09-05/candidates/C4/snapshots/0ad80b4debf4b8868fc8a7c5f5466b0871a956dfdf764a118c357a756f49bb0d",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "1423698fd19fac4fbd32a321799ae8f08a8a1520",
+      "r13x_blob_oid": "1423698fd19fac4fbd32a321799ae8f08a8a1520",
+      "r13x_worktree_blob_oid": "1423698fd19fac4fbd32a321799ae8f08a8a1520",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b13-2026-09-05/candidates/C4/snapshots/4f22303d895fe4e12710177533c118ab31e85bfb512e734ab97f25b8086886d8",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "6225c1d32c8ab455dac23e4de5cacf9aa4746b9c",
+      "r13x_blob_oid": "6225c1d32c8ab455dac23e4de5cacf9aa4746b9c",
+      "r13x_worktree_blob_oid": "6225c1d32c8ab455dac23e4de5cacf9aa4746b9c",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b13-2026-09-05/candidates/C5/snapshots/4ade886a493631ffb15b645e44bd9043eb78c527563b91600b73da023b761bb0",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "221fb4a490cf030fc6c811092614500383054ed5",
+      "r13x_blob_oid": "221fb4a490cf030fc6c811092614500383054ed5",
+      "r13x_worktree_blob_oid": "221fb4a490cf030fc6c811092614500383054ed5",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b13-2026-09-05/candidates/C5/snapshots/9cced6aacc7d4dd69fb76cc7d84a90d47a1ef87b539f320947f49da2d370ffad",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "377f19ab94a628192dd12cf15ee77fd2113a2879",
+      "r13x_blob_oid": "377f19ab94a628192dd12cf15ee77fd2113a2879",
+      "r13x_worktree_blob_oid": "377f19ab94a628192dd12cf15ee77fd2113a2879",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b13-2026-09-05/candidates/C8/snapshots/3f3e515948c752e5b8ca8482804d3cc66e891fe2477999c208abf157e2330a9b",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "r13x_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "r13x_worktree_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b13-2026-09-05/candidates/C8/snapshots/a471f9ffa18a2d42651b71e1be3ffe65af81159c7f0ddadc5082ba59d2183afb",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "035c4e430d2f9bf7e12e74d81d1005127b94a586",
+      "r13x_blob_oid": "035c4e430d2f9bf7e12e74d81d1005127b94a586",
+      "r13x_worktree_blob_oid": "035c4e430d2f9bf7e12e74d81d1005127b94a586",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b13-2026-09-05/candidates/C8/snapshots/f656051757774c505e9c4d5ee9c612fbfd295afcd7bc187d576753a3ac822f4b",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "bb6be473d6869073ef15bc94c32341675a5a1f5d",
+      "r13x_blob_oid": "bb6be473d6869073ef15bc94c32341675a5a1f5d",
+      "r13x_worktree_blob_oid": "bb6be473d6869073ef15bc94c32341675a5a1f5d",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b13-2026-09-05/candidates/C9/snapshots/4c7043ee578ff0375eb1005ddb207804e7351af5d1820a5231156163996214ef",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "59daf5587ec92bbb117460718a957b4954847d69",
+      "r13x_blob_oid": "59daf5587ec92bbb117460718a957b4954847d69",
+      "r13x_worktree_blob_oid": "59daf5587ec92bbb117460718a957b4954847d69",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b13-2026-09-05/candidates/C9/snapshots/5c96d3415250a394a57dac3bad0d1a1432d0c9b79072e82fbfccdd5a3297fafd",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "a9e9a6408addd35256f02592874b83390b025c4d",
+      "r13x_blob_oid": "a9e9a6408addd35256f02592874b83390b025c4d",
+      "r13x_worktree_blob_oid": "a9e9a6408addd35256f02592874b83390b025c4d",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b13-2026-09-05/candidates/I1/snapshots/206e69ad34ab60948c8310c6012f15fc66a03386eb3d2b60ae9e88328c8316a6",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "r13x_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "r13x_worktree_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b13-2026-09-05/candidates/I1/snapshots/a471f9ffa18a2d42651b71e1be3ffe65af81159c7f0ddadc5082ba59d2183afb",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "ef44ab0fb4c346f2f0c91effd34643d79d03c558",
+      "r13x_blob_oid": "ef44ab0fb4c346f2f0c91effd34643d79d03c558",
+      "r13x_worktree_blob_oid": "ef44ab0fb4c346f2f0c91effd34643d79d03c558",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b13-2026-09-05/candidates/I1/snapshots/d3a7aaf1916d2a01c1ed6e7004a06d6cd6ed24840a7403fd10e2ffdc53559a83",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "377f19ab94a628192dd12cf15ee77fd2113a2879",
+      "r13x_blob_oid": "377f19ab94a628192dd12cf15ee77fd2113a2879",
+      "r13x_worktree_blob_oid": "377f19ab94a628192dd12cf15ee77fd2113a2879",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b13-2026-09-05/fragments/C8.json",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "a9e9a6408addd35256f02592874b83390b025c4d",
+      "r13x_blob_oid": "a9e9a6408addd35256f02592874b83390b025c4d",
+      "r13x_worktree_blob_oid": "a9e9a6408addd35256f02592874b83390b025c4d",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b14-2026-09-05/candidates/I1/snapshots/206e69ad34ab60948c8310c6012f15fc66a03386eb3d2b60ae9e88328c8316a6",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "r13x_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "r13x_worktree_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b14-2026-09-05/candidates/I1/snapshots/a471f9ffa18a2d42651b71e1be3ffe65af81159c7f0ddadc5082ba59d2183afb",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "ef44ab0fb4c346f2f0c91effd34643d79d03c558",
+      "r13x_blob_oid": "ef44ab0fb4c346f2f0c91effd34643d79d03c558",
+      "r13x_worktree_blob_oid": "ef44ab0fb4c346f2f0c91effd34643d79d03c558",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b14-2026-09-05/candidates/I1/snapshots/d3a7aaf1916d2a01c1ed6e7004a06d6cd6ed24840a7403fd10e2ffdc53559a83",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "483c4395a3a0e3f31c4ba072b38b3748550c4f67",
+      "r13x_blob_oid": "483c4395a3a0e3f31c4ba072b38b3748550c4f67",
+      "r13x_worktree_blob_oid": "483c4395a3a0e3f31c4ba072b38b3748550c4f67",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b15-2026-09-05/candidates/C4/snapshots/0ad80b4debf4b8868fc8a7c5f5466b0871a956dfdf764a118c357a756f49bb0d",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "1423698fd19fac4fbd32a321799ae8f08a8a1520",
+      "r13x_blob_oid": "1423698fd19fac4fbd32a321799ae8f08a8a1520",
+      "r13x_worktree_blob_oid": "1423698fd19fac4fbd32a321799ae8f08a8a1520",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b15-2026-09-05/candidates/C4/snapshots/4f22303d895fe4e12710177533c118ab31e85bfb512e734ab97f25b8086886d8",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "6225c1d32c8ab455dac23e4de5cacf9aa4746b9c",
+      "r13x_blob_oid": "6225c1d32c8ab455dac23e4de5cacf9aa4746b9c",
+      "r13x_worktree_blob_oid": "6225c1d32c8ab455dac23e4de5cacf9aa4746b9c",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b15-2026-09-05/candidates/C5/snapshots/4ade886a493631ffb15b645e44bd9043eb78c527563b91600b73da023b761bb0",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "221fb4a490cf030fc6c811092614500383054ed5",
+      "r13x_blob_oid": "221fb4a490cf030fc6c811092614500383054ed5",
+      "r13x_worktree_blob_oid": "221fb4a490cf030fc6c811092614500383054ed5",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b15-2026-09-05/candidates/C5/snapshots/9cced6aacc7d4dd69fb76cc7d84a90d47a1ef87b539f320947f49da2d370ffad",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "377f19ab94a628192dd12cf15ee77fd2113a2879",
+      "r13x_blob_oid": "377f19ab94a628192dd12cf15ee77fd2113a2879",
+      "r13x_worktree_blob_oid": "377f19ab94a628192dd12cf15ee77fd2113a2879",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b15-2026-09-05/candidates/C8/snapshots/3f3e515948c752e5b8ca8482804d3cc66e891fe2477999c208abf157e2330a9b",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "r13x_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "r13x_worktree_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b15-2026-09-05/candidates/C8/snapshots/a471f9ffa18a2d42651b71e1be3ffe65af81159c7f0ddadc5082ba59d2183afb",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "035c4e430d2f9bf7e12e74d81d1005127b94a586",
+      "r13x_blob_oid": "035c4e430d2f9bf7e12e74d81d1005127b94a586",
+      "r13x_worktree_blob_oid": "035c4e430d2f9bf7e12e74d81d1005127b94a586",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b15-2026-09-05/candidates/C8/snapshots/f656051757774c505e9c4d5ee9c612fbfd295afcd7bc187d576753a3ac822f4b",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "bb6be473d6869073ef15bc94c32341675a5a1f5d",
+      "r13x_blob_oid": "bb6be473d6869073ef15bc94c32341675a5a1f5d",
+      "r13x_worktree_blob_oid": "bb6be473d6869073ef15bc94c32341675a5a1f5d",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b15-2026-09-05/candidates/C9/snapshots/4c7043ee578ff0375eb1005ddb207804e7351af5d1820a5231156163996214ef",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "59daf5587ec92bbb117460718a957b4954847d69",
+      "r13x_blob_oid": "59daf5587ec92bbb117460718a957b4954847d69",
+      "r13x_worktree_blob_oid": "59daf5587ec92bbb117460718a957b4954847d69",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b15-2026-09-05/candidates/C9/snapshots/5c96d3415250a394a57dac3bad0d1a1432d0c9b79072e82fbfccdd5a3297fafd",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "a9e9a6408addd35256f02592874b83390b025c4d",
+      "r13x_blob_oid": "a9e9a6408addd35256f02592874b83390b025c4d",
+      "r13x_worktree_blob_oid": "a9e9a6408addd35256f02592874b83390b025c4d",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b15-2026-09-05/candidates/I1/snapshots/206e69ad34ab60948c8310c6012f15fc66a03386eb3d2b60ae9e88328c8316a6",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "r13x_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "r13x_worktree_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b15-2026-09-05/candidates/I1/snapshots/a471f9ffa18a2d42651b71e1be3ffe65af81159c7f0ddadc5082ba59d2183afb",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "ef44ab0fb4c346f2f0c91effd34643d79d03c558",
+      "r13x_blob_oid": "ef44ab0fb4c346f2f0c91effd34643d79d03c558",
+      "r13x_worktree_blob_oid": "ef44ab0fb4c346f2f0c91effd34643d79d03c558",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b15-2026-09-05/candidates/I1/snapshots/d3a7aaf1916d2a01c1ed6e7004a06d6cd6ed24840a7403fd10e2ffdc53559a83",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "377f19ab94a628192dd12cf15ee77fd2113a2879",
+      "r13x_blob_oid": "377f19ab94a628192dd12cf15ee77fd2113a2879",
+      "r13x_worktree_blob_oid": "377f19ab94a628192dd12cf15ee77fd2113a2879",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b15-2026-09-05/fragments/C8.json",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "483c4395a3a0e3f31c4ba072b38b3748550c4f67",
+      "r13x_blob_oid": "483c4395a3a0e3f31c4ba072b38b3748550c4f67",
+      "r13x_worktree_blob_oid": "483c4395a3a0e3f31c4ba072b38b3748550c4f67",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b16-2026-09-05/candidates/C4/snapshots/0ad80b4debf4b8868fc8a7c5f5466b0871a956dfdf764a118c357a756f49bb0d",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "1423698fd19fac4fbd32a321799ae8f08a8a1520",
+      "r13x_blob_oid": "1423698fd19fac4fbd32a321799ae8f08a8a1520",
+      "r13x_worktree_blob_oid": "1423698fd19fac4fbd32a321799ae8f08a8a1520",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b16-2026-09-05/candidates/C4/snapshots/4f22303d895fe4e12710177533c118ab31e85bfb512e734ab97f25b8086886d8",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "6225c1d32c8ab455dac23e4de5cacf9aa4746b9c",
+      "r13x_blob_oid": "6225c1d32c8ab455dac23e4de5cacf9aa4746b9c",
+      "r13x_worktree_blob_oid": "6225c1d32c8ab455dac23e4de5cacf9aa4746b9c",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b16-2026-09-05/candidates/C5/snapshots/4ade886a493631ffb15b645e44bd9043eb78c527563b91600b73da023b761bb0",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "221fb4a490cf030fc6c811092614500383054ed5",
+      "r13x_blob_oid": "221fb4a490cf030fc6c811092614500383054ed5",
+      "r13x_worktree_blob_oid": "221fb4a490cf030fc6c811092614500383054ed5",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b16-2026-09-05/candidates/C5/snapshots/9cced6aacc7d4dd69fb76cc7d84a90d47a1ef87b539f320947f49da2d370ffad",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "377f19ab94a628192dd12cf15ee77fd2113a2879",
+      "r13x_blob_oid": "377f19ab94a628192dd12cf15ee77fd2113a2879",
+      "r13x_worktree_blob_oid": "377f19ab94a628192dd12cf15ee77fd2113a2879",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b16-2026-09-05/candidates/C8/snapshots/3f3e515948c752e5b8ca8482804d3cc66e891fe2477999c208abf157e2330a9b",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "r13x_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "r13x_worktree_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b16-2026-09-05/candidates/C8/snapshots/a471f9ffa18a2d42651b71e1be3ffe65af81159c7f0ddadc5082ba59d2183afb",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "035c4e430d2f9bf7e12e74d81d1005127b94a586",
+      "r13x_blob_oid": "035c4e430d2f9bf7e12e74d81d1005127b94a586",
+      "r13x_worktree_blob_oid": "035c4e430d2f9bf7e12e74d81d1005127b94a586",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b16-2026-09-05/candidates/C8/snapshots/f656051757774c505e9c4d5ee9c612fbfd295afcd7bc187d576753a3ac822f4b",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "bb6be473d6869073ef15bc94c32341675a5a1f5d",
+      "r13x_blob_oid": "bb6be473d6869073ef15bc94c32341675a5a1f5d",
+      "r13x_worktree_blob_oid": "bb6be473d6869073ef15bc94c32341675a5a1f5d",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b16-2026-09-05/candidates/C9/snapshots/4c7043ee578ff0375eb1005ddb207804e7351af5d1820a5231156163996214ef",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "59daf5587ec92bbb117460718a957b4954847d69",
+      "r13x_blob_oid": "59daf5587ec92bbb117460718a957b4954847d69",
+      "r13x_worktree_blob_oid": "59daf5587ec92bbb117460718a957b4954847d69",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b16-2026-09-05/candidates/C9/snapshots/5c96d3415250a394a57dac3bad0d1a1432d0c9b79072e82fbfccdd5a3297fafd",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "a9e9a6408addd35256f02592874b83390b025c4d",
+      "r13x_blob_oid": "a9e9a6408addd35256f02592874b83390b025c4d",
+      "r13x_worktree_blob_oid": "a9e9a6408addd35256f02592874b83390b025c4d",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b16-2026-09-05/candidates/I1/snapshots/206e69ad34ab60948c8310c6012f15fc66a03386eb3d2b60ae9e88328c8316a6",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "r13x_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "r13x_worktree_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b16-2026-09-05/candidates/I1/snapshots/a471f9ffa18a2d42651b71e1be3ffe65af81159c7f0ddadc5082ba59d2183afb",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "ef44ab0fb4c346f2f0c91effd34643d79d03c558",
+      "r13x_blob_oid": "ef44ab0fb4c346f2f0c91effd34643d79d03c558",
+      "r13x_worktree_blob_oid": "ef44ab0fb4c346f2f0c91effd34643d79d03c558",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b16-2026-09-05/candidates/I1/snapshots/d3a7aaf1916d2a01c1ed6e7004a06d6cd6ed24840a7403fd10e2ffdc53559a83",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "377f19ab94a628192dd12cf15ee77fd2113a2879",
+      "r13x_blob_oid": "377f19ab94a628192dd12cf15ee77fd2113a2879",
+      "r13x_worktree_blob_oid": "377f19ab94a628192dd12cf15ee77fd2113a2879",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b16-2026-09-05/fragments/C8.json",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "483c4395a3a0e3f31c4ba072b38b3748550c4f67",
+      "r13x_blob_oid": "483c4395a3a0e3f31c4ba072b38b3748550c4f67",
+      "r13x_worktree_blob_oid": "483c4395a3a0e3f31c4ba072b38b3748550c4f67",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b17-2026-09-05/candidates/C4/snapshots/0ad80b4debf4b8868fc8a7c5f5466b0871a956dfdf764a118c357a756f49bb0d",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "1423698fd19fac4fbd32a321799ae8f08a8a1520",
+      "r13x_blob_oid": "1423698fd19fac4fbd32a321799ae8f08a8a1520",
+      "r13x_worktree_blob_oid": "1423698fd19fac4fbd32a321799ae8f08a8a1520",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b17-2026-09-05/candidates/C4/snapshots/4f22303d895fe4e12710177533c118ab31e85bfb512e734ab97f25b8086886d8",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "6225c1d32c8ab455dac23e4de5cacf9aa4746b9c",
+      "r13x_blob_oid": "6225c1d32c8ab455dac23e4de5cacf9aa4746b9c",
+      "r13x_worktree_blob_oid": "6225c1d32c8ab455dac23e4de5cacf9aa4746b9c",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b17-2026-09-05/candidates/C5/snapshots/4ade886a493631ffb15b645e44bd9043eb78c527563b91600b73da023b761bb0",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "221fb4a490cf030fc6c811092614500383054ed5",
+      "r13x_blob_oid": "221fb4a490cf030fc6c811092614500383054ed5",
+      "r13x_worktree_blob_oid": "221fb4a490cf030fc6c811092614500383054ed5",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b17-2026-09-05/candidates/C5/snapshots/9cced6aacc7d4dd69fb76cc7d84a90d47a1ef87b539f320947f49da2d370ffad",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "377f19ab94a628192dd12cf15ee77fd2113a2879",
+      "r13x_blob_oid": "377f19ab94a628192dd12cf15ee77fd2113a2879",
+      "r13x_worktree_blob_oid": "377f19ab94a628192dd12cf15ee77fd2113a2879",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b17-2026-09-05/candidates/C8/snapshots/3f3e515948c752e5b8ca8482804d3cc66e891fe2477999c208abf157e2330a9b",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "r13x_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "r13x_worktree_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b17-2026-09-05/candidates/C8/snapshots/a471f9ffa18a2d42651b71e1be3ffe65af81159c7f0ddadc5082ba59d2183afb",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "8031e081d80bb3089289403456dad18b972eb728",
+      "r13x_blob_oid": "8031e081d80bb3089289403456dad18b972eb728",
+      "r13x_worktree_blob_oid": "8031e081d80bb3089289403456dad18b972eb728",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b17-2026-09-05/candidates/C8/snapshots/dda048235d1f452c898f8b05d4692c2f73c2340d083de563c3ad076f2be43112",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "035c4e430d2f9bf7e12e74d81d1005127b94a586",
+      "r13x_blob_oid": "035c4e430d2f9bf7e12e74d81d1005127b94a586",
+      "r13x_worktree_blob_oid": "035c4e430d2f9bf7e12e74d81d1005127b94a586",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b17-2026-09-05/candidates/C8/snapshots/f656051757774c505e9c4d5ee9c612fbfd295afcd7bc187d576753a3ac822f4b",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "bb6be473d6869073ef15bc94c32341675a5a1f5d",
+      "r13x_blob_oid": "bb6be473d6869073ef15bc94c32341675a5a1f5d",
+      "r13x_worktree_blob_oid": "bb6be473d6869073ef15bc94c32341675a5a1f5d",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b17-2026-09-05/candidates/C9/snapshots/4c7043ee578ff0375eb1005ddb207804e7351af5d1820a5231156163996214ef",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "59daf5587ec92bbb117460718a957b4954847d69",
+      "r13x_blob_oid": "59daf5587ec92bbb117460718a957b4954847d69",
+      "r13x_worktree_blob_oid": "59daf5587ec92bbb117460718a957b4954847d69",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b17-2026-09-05/candidates/C9/snapshots/5c96d3415250a394a57dac3bad0d1a1432d0c9b79072e82fbfccdd5a3297fafd",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "8031e081d80bb3089289403456dad18b972eb728",
+      "r13x_blob_oid": "8031e081d80bb3089289403456dad18b972eb728",
+      "r13x_worktree_blob_oid": "8031e081d80bb3089289403456dad18b972eb728",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b17-2026-09-05/fragments/C8.json",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "483c4395a3a0e3f31c4ba072b38b3748550c4f67",
+      "r13x_blob_oid": "483c4395a3a0e3f31c4ba072b38b3748550c4f67",
+      "r13x_worktree_blob_oid": "483c4395a3a0e3f31c4ba072b38b3748550c4f67",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b18-2026-09-05/candidates/C4/snapshots/0ad80b4debf4b8868fc8a7c5f5466b0871a956dfdf764a118c357a756f49bb0d",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "1423698fd19fac4fbd32a321799ae8f08a8a1520",
+      "r13x_blob_oid": "1423698fd19fac4fbd32a321799ae8f08a8a1520",
+      "r13x_worktree_blob_oid": "1423698fd19fac4fbd32a321799ae8f08a8a1520",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b18-2026-09-05/candidates/C4/snapshots/4f22303d895fe4e12710177533c118ab31e85bfb512e734ab97f25b8086886d8",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "6225c1d32c8ab455dac23e4de5cacf9aa4746b9c",
+      "r13x_blob_oid": "6225c1d32c8ab455dac23e4de5cacf9aa4746b9c",
+      "r13x_worktree_blob_oid": "6225c1d32c8ab455dac23e4de5cacf9aa4746b9c",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b18-2026-09-05/candidates/C5/snapshots/4ade886a493631ffb15b645e44bd9043eb78c527563b91600b73da023b761bb0",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "221fb4a490cf030fc6c811092614500383054ed5",
+      "r13x_blob_oid": "221fb4a490cf030fc6c811092614500383054ed5",
+      "r13x_worktree_blob_oid": "221fb4a490cf030fc6c811092614500383054ed5",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b18-2026-09-05/candidates/C5/snapshots/9cced6aacc7d4dd69fb76cc7d84a90d47a1ef87b539f320947f49da2d370ffad",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "9965a288ac195eb4f5fae19e2333dcb5e862c4cd",
+      "r13x_blob_oid": "9965a288ac195eb4f5fae19e2333dcb5e862c4cd",
+      "r13x_worktree_blob_oid": "9965a288ac195eb4f5fae19e2333dcb5e862c4cd",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b18-2026-09-05/candidates/C7/snapshots/23b3d2978e19c53ef9cf2689ed687b9e7a670bf922a9861ef622ce0804793489",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "47f89c387448ee08e6156ade42b133fe22d4e788",
+      "r13x_blob_oid": "47f89c387448ee08e6156ade42b133fe22d4e788",
+      "r13x_worktree_blob_oid": "47f89c387448ee08e6156ade42b133fe22d4e788",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b18-2026-09-05/candidates/C7/snapshots/3d8227f2865770e39982d99e97cf05ccb271700cdf865425430cc318780cc78d",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "d82e10c86dc3fe15cc96447ba6c99a890a0bde37",
+      "r13x_blob_oid": "d82e10c86dc3fe15cc96447ba6c99a890a0bde37",
+      "r13x_worktree_blob_oid": "d82e10c86dc3fe15cc96447ba6c99a890a0bde37",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b18-2026-09-05/candidates/C7/snapshots/552d1a6450e4aa74c23b866e63010c3bce5daa1189ac079c9e922c9963c78789",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "db554b0ca71351a52ebdb031f7f237abcc7e1b93",
+      "r13x_blob_oid": "db554b0ca71351a52ebdb031f7f237abcc7e1b93",
+      "r13x_worktree_blob_oid": "db554b0ca71351a52ebdb031f7f237abcc7e1b93",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b18-2026-09-05/candidates/C7/snapshots/70f35fb895558ab2c98f8f203c8130ea0d5af9098d02b9dbfbb7f2ae65926266",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "16fc99932fa660a6221f2430fb6b8a6a4fe40bb1",
+      "r13x_blob_oid": "16fc99932fa660a6221f2430fb6b8a6a4fe40bb1",
+      "r13x_worktree_blob_oid": "16fc99932fa660a6221f2430fb6b8a6a4fe40bb1",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b18-2026-09-05/candidates/C7/snapshots/d1724ee0a77f6808f6266106c5aea9640e0649c3b29a9527518a14b3af3b30e7",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "ef44ab0fb4c346f2f0c91effd34643d79d03c558",
+      "r13x_blob_oid": "ef44ab0fb4c346f2f0c91effd34643d79d03c558",
+      "r13x_worktree_blob_oid": "ef44ab0fb4c346f2f0c91effd34643d79d03c558",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b18-2026-09-05/candidates/C7/snapshots/d3a7aaf1916d2a01c1ed6e7004a06d6cd6ed24840a7403fd10e2ffdc53559a83",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "ff1c0a9f7530087982b89ffef206249a28101a4f",
+      "r13x_blob_oid": "ff1c0a9f7530087982b89ffef206249a28101a4f",
+      "r13x_worktree_blob_oid": "ff1c0a9f7530087982b89ffef206249a28101a4f",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b18-2026-09-05/candidates/C7/snapshots/f4f571eab84dca83015cd5d247f221696aedc30ca99f97fe3530ce4b97a25ff2",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "377f19ab94a628192dd12cf15ee77fd2113a2879",
+      "r13x_blob_oid": "377f19ab94a628192dd12cf15ee77fd2113a2879",
+      "r13x_worktree_blob_oid": "377f19ab94a628192dd12cf15ee77fd2113a2879",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b18-2026-09-05/candidates/C8/snapshots/3f3e515948c752e5b8ca8482804d3cc66e891fe2477999c208abf157e2330a9b",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "r13x_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "r13x_worktree_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b18-2026-09-05/candidates/C8/snapshots/a471f9ffa18a2d42651b71e1be3ffe65af81159c7f0ddadc5082ba59d2183afb",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "8031e081d80bb3089289403456dad18b972eb728",
+      "r13x_blob_oid": "8031e081d80bb3089289403456dad18b972eb728",
+      "r13x_worktree_blob_oid": "8031e081d80bb3089289403456dad18b972eb728",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b18-2026-09-05/candidates/C8/snapshots/dda048235d1f452c898f8b05d4692c2f73c2340d083de563c3ad076f2be43112",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "035c4e430d2f9bf7e12e74d81d1005127b94a586",
+      "r13x_blob_oid": "035c4e430d2f9bf7e12e74d81d1005127b94a586",
+      "r13x_worktree_blob_oid": "035c4e430d2f9bf7e12e74d81d1005127b94a586",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b18-2026-09-05/candidates/C8/snapshots/f656051757774c505e9c4d5ee9c612fbfd295afcd7bc187d576753a3ac822f4b",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "bb6be473d6869073ef15bc94c32341675a5a1f5d",
+      "r13x_blob_oid": "bb6be473d6869073ef15bc94c32341675a5a1f5d",
+      "r13x_worktree_blob_oid": "bb6be473d6869073ef15bc94c32341675a5a1f5d",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b18-2026-09-05/candidates/C9/snapshots/4c7043ee578ff0375eb1005ddb207804e7351af5d1820a5231156163996214ef",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "59daf5587ec92bbb117460718a957b4954847d69",
+      "r13x_blob_oid": "59daf5587ec92bbb117460718a957b4954847d69",
+      "r13x_worktree_blob_oid": "59daf5587ec92bbb117460718a957b4954847d69",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b18-2026-09-05/candidates/C9/snapshots/5c96d3415250a394a57dac3bad0d1a1432d0c9b79072e82fbfccdd5a3297fafd",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "a9e9a6408addd35256f02592874b83390b025c4d",
+      "r13x_blob_oid": "a9e9a6408addd35256f02592874b83390b025c4d",
+      "r13x_worktree_blob_oid": "a9e9a6408addd35256f02592874b83390b025c4d",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b18-2026-09-05/candidates/I1/snapshots/206e69ad34ab60948c8310c6012f15fc66a03386eb3d2b60ae9e88328c8316a6",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "r13x_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "r13x_worktree_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b18-2026-09-05/candidates/I1/snapshots/a471f9ffa18a2d42651b71e1be3ffe65af81159c7f0ddadc5082ba59d2183afb",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "d0c49232b5ec8d8fe880c4f7dc544ebd6542bccb",
+      "r13x_blob_oid": "d0c49232b5ec8d8fe880c4f7dc544ebd6542bccb",
+      "r13x_worktree_blob_oid": "d0c49232b5ec8d8fe880c4f7dc544ebd6542bccb",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b18-2026-09-05/candidates/I1/snapshots/c1f44187230a452204c86ca4ccfa9db074a898dd4087cb1d8039f2dcd1c6c586",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "ef44ab0fb4c346f2f0c91effd34643d79d03c558",
+      "r13x_blob_oid": "ef44ab0fb4c346f2f0c91effd34643d79d03c558",
+      "r13x_worktree_blob_oid": "ef44ab0fb4c346f2f0c91effd34643d79d03c558",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b18-2026-09-05/candidates/I1/snapshots/d3a7aaf1916d2a01c1ed6e7004a06d6cd6ed24840a7403fd10e2ffdc53559a83",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "ff1c0a9f7530087982b89ffef206249a28101a4f",
+      "r13x_blob_oid": "ff1c0a9f7530087982b89ffef206249a28101a4f",
+      "r13x_worktree_blob_oid": "ff1c0a9f7530087982b89ffef206249a28101a4f",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b18-2026-09-05/fragments/C7.json",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "8031e081d80bb3089289403456dad18b972eb728",
+      "r13x_blob_oid": "8031e081d80bb3089289403456dad18b972eb728",
+      "r13x_worktree_blob_oid": "8031e081d80bb3089289403456dad18b972eb728",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b18-2026-09-05/fragments/C8.json",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "483c4395a3a0e3f31c4ba072b38b3748550c4f67",
+      "r13x_blob_oid": "483c4395a3a0e3f31c4ba072b38b3748550c4f67",
+      "r13x_worktree_blob_oid": "483c4395a3a0e3f31c4ba072b38b3748550c4f67",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/C4/snapshots/0ad80b4debf4b8868fc8a7c5f5466b0871a956dfdf764a118c357a756f49bb0d",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "1423698fd19fac4fbd32a321799ae8f08a8a1520",
+      "r13x_blob_oid": "1423698fd19fac4fbd32a321799ae8f08a8a1520",
+      "r13x_worktree_blob_oid": "1423698fd19fac4fbd32a321799ae8f08a8a1520",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/C4/snapshots/4f22303d895fe4e12710177533c118ab31e85bfb512e734ab97f25b8086886d8",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "6225c1d32c8ab455dac23e4de5cacf9aa4746b9c",
+      "r13x_blob_oid": "6225c1d32c8ab455dac23e4de5cacf9aa4746b9c",
+      "r13x_worktree_blob_oid": "6225c1d32c8ab455dac23e4de5cacf9aa4746b9c",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/C5/snapshots/4ade886a493631ffb15b645e44bd9043eb78c527563b91600b73da023b761bb0",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "221fb4a490cf030fc6c811092614500383054ed5",
+      "r13x_blob_oid": "221fb4a490cf030fc6c811092614500383054ed5",
+      "r13x_worktree_blob_oid": "221fb4a490cf030fc6c811092614500383054ed5",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/C5/snapshots/9cced6aacc7d4dd69fb76cc7d84a90d47a1ef87b539f320947f49da2d370ffad",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "47f89c387448ee08e6156ade42b133fe22d4e788",
+      "r13x_blob_oid": "47f89c387448ee08e6156ade42b133fe22d4e788",
+      "r13x_worktree_blob_oid": "47f89c387448ee08e6156ade42b133fe22d4e788",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/C7/snapshots/3d8227f2865770e39982d99e97cf05ccb271700cdf865425430cc318780cc78d",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "d82e10c86dc3fe15cc96447ba6c99a890a0bde37",
+      "r13x_blob_oid": "d82e10c86dc3fe15cc96447ba6c99a890a0bde37",
+      "r13x_worktree_blob_oid": "d82e10c86dc3fe15cc96447ba6c99a890a0bde37",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/C7/snapshots/552d1a6450e4aa74c23b866e63010c3bce5daa1189ac079c9e922c9963c78789",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "7ef5621ac268f68e742349ab6f4cb847c0010f6e",
+      "r13x_blob_oid": "7ef5621ac268f68e742349ab6f4cb847c0010f6e",
+      "r13x_worktree_blob_oid": "7ef5621ac268f68e742349ab6f4cb847c0010f6e",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/C7/snapshots/b1bdc5524461cf84638f3ec86dbb68d5e2d5a4cc164bbc4f277f26d7457a7aa1",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "ff1c0a9f7530087982b89ffef206249a28101a4f",
+      "r13x_blob_oid": "ff1c0a9f7530087982b89ffef206249a28101a4f",
+      "r13x_worktree_blob_oid": "ff1c0a9f7530087982b89ffef206249a28101a4f",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/C7/snapshots/f4f571eab84dca83015cd5d247f221696aedc30ca99f97fe3530ce4b97a25ff2",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "r13x_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "r13x_worktree_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/C8/snapshots/a471f9ffa18a2d42651b71e1be3ffe65af81159c7f0ddadc5082ba59d2183afb",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "8031e081d80bb3089289403456dad18b972eb728",
+      "r13x_blob_oid": "8031e081d80bb3089289403456dad18b972eb728",
+      "r13x_worktree_blob_oid": "8031e081d80bb3089289403456dad18b972eb728",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/C8/snapshots/dda048235d1f452c898f8b05d4692c2f73c2340d083de563c3ad076f2be43112",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "035c4e430d2f9bf7e12e74d81d1005127b94a586",
+      "r13x_blob_oid": "035c4e430d2f9bf7e12e74d81d1005127b94a586",
+      "r13x_worktree_blob_oid": "035c4e430d2f9bf7e12e74d81d1005127b94a586",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/C8/snapshots/f656051757774c505e9c4d5ee9c612fbfd295afcd7bc187d576753a3ac822f4b",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "bb6be473d6869073ef15bc94c32341675a5a1f5d",
+      "r13x_blob_oid": "bb6be473d6869073ef15bc94c32341675a5a1f5d",
+      "r13x_worktree_blob_oid": "bb6be473d6869073ef15bc94c32341675a5a1f5d",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/C9/snapshots/4c7043ee578ff0375eb1005ddb207804e7351af5d1820a5231156163996214ef",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "59daf5587ec92bbb117460718a957b4954847d69",
+      "r13x_blob_oid": "59daf5587ec92bbb117460718a957b4954847d69",
+      "r13x_worktree_blob_oid": "59daf5587ec92bbb117460718a957b4954847d69",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/C9/snapshots/5c96d3415250a394a57dac3bad0d1a1432d0c9b79072e82fbfccdd5a3297fafd",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "a9e9a6408addd35256f02592874b83390b025c4d",
+      "r13x_blob_oid": "a9e9a6408addd35256f02592874b83390b025c4d",
+      "r13x_worktree_blob_oid": "a9e9a6408addd35256f02592874b83390b025c4d",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/I1/snapshots/206e69ad34ab60948c8310c6012f15fc66a03386eb3d2b60ae9e88328c8316a6",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "r13x_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "r13x_worktree_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/I1/snapshots/a471f9ffa18a2d42651b71e1be3ffe65af81159c7f0ddadc5082ba59d2183afb",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "d0c49232b5ec8d8fe880c4f7dc544ebd6542bccb",
+      "r13x_blob_oid": "d0c49232b5ec8d8fe880c4f7dc544ebd6542bccb",
+      "r13x_worktree_blob_oid": "d0c49232b5ec8d8fe880c4f7dc544ebd6542bccb",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/I1/snapshots/c1f44187230a452204c86ca4ccfa9db074a898dd4087cb1d8039f2dcd1c6c586",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "ef44ab0fb4c346f2f0c91effd34643d79d03c558",
+      "r13x_blob_oid": "ef44ab0fb4c346f2f0c91effd34643d79d03c558",
+      "r13x_worktree_blob_oid": "ef44ab0fb4c346f2f0c91effd34643d79d03c558",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/candidates/I1/snapshots/d3a7aaf1916d2a01c1ed6e7004a06d6cd6ed24840a7403fd10e2ffdc53559a83",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "7ef5621ac268f68e742349ab6f4cb847c0010f6e",
+      "r13x_blob_oid": "7ef5621ac268f68e742349ab6f4cb847c0010f6e",
+      "r13x_worktree_blob_oid": "7ef5621ac268f68e742349ab6f4cb847c0010f6e",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/fragments/C7.json",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "8031e081d80bb3089289403456dad18b972eb728",
+      "r13x_blob_oid": "8031e081d80bb3089289403456dad18b972eb728",
+      "r13x_worktree_blob_oid": "8031e081d80bb3089289403456dad18b972eb728",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b19-2026-09-05/fragments/C8.json",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "a9e9a6408addd35256f02592874b83390b025c4d",
+      "r13x_blob_oid": "a9e9a6408addd35256f02592874b83390b025c4d",
+      "r13x_worktree_blob_oid": "a9e9a6408addd35256f02592874b83390b025c4d",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b20-2026-09-05/candidates/I1/snapshots/206e69ad34ab60948c8310c6012f15fc66a03386eb3d2b60ae9e88328c8316a6",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "r13x_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "r13x_worktree_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b20-2026-09-05/candidates/I1/snapshots/a471f9ffa18a2d42651b71e1be3ffe65af81159c7f0ddadc5082ba59d2183afb",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "d0c49232b5ec8d8fe880c4f7dc544ebd6542bccb",
+      "r13x_blob_oid": "d0c49232b5ec8d8fe880c4f7dc544ebd6542bccb",
+      "r13x_worktree_blob_oid": "d0c49232b5ec8d8fe880c4f7dc544ebd6542bccb",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b20-2026-09-05/candidates/I1/snapshots/c1f44187230a452204c86ca4ccfa9db074a898dd4087cb1d8039f2dcd1c6c586",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "ef44ab0fb4c346f2f0c91effd34643d79d03c558",
+      "r13x_blob_oid": "ef44ab0fb4c346f2f0c91effd34643d79d03c558",
+      "r13x_worktree_blob_oid": "ef44ab0fb4c346f2f0c91effd34643d79d03c558",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b20-2026-09-05/candidates/I1/snapshots/d3a7aaf1916d2a01c1ed6e7004a06d6cd6ed24840a7403fd10e2ffdc53559a83",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "a9e9a6408addd35256f02592874b83390b025c4d",
+      "r13x_blob_oid": "a9e9a6408addd35256f02592874b83390b025c4d",
+      "r13x_worktree_blob_oid": "a9e9a6408addd35256f02592874b83390b025c4d",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b21-2026-09-05/candidates/I1/snapshots/206e69ad34ab60948c8310c6012f15fc66a03386eb3d2b60ae9e88328c8316a6",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "r13x_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "r13x_worktree_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b21-2026-09-05/candidates/I1/snapshots/a471f9ffa18a2d42651b71e1be3ffe65af81159c7f0ddadc5082ba59d2183afb",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "d0c49232b5ec8d8fe880c4f7dc544ebd6542bccb",
+      "r13x_blob_oid": "d0c49232b5ec8d8fe880c4f7dc544ebd6542bccb",
+      "r13x_worktree_blob_oid": "d0c49232b5ec8d8fe880c4f7dc544ebd6542bccb",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b21-2026-09-05/candidates/I1/snapshots/c1f44187230a452204c86ca4ccfa9db074a898dd4087cb1d8039f2dcd1c6c586",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "ef44ab0fb4c346f2f0c91effd34643d79d03c558",
+      "r13x_blob_oid": "ef44ab0fb4c346f2f0c91effd34643d79d03c558",
+      "r13x_worktree_blob_oid": "ef44ab0fb4c346f2f0c91effd34643d79d03c558",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b21-2026-09-05/candidates/I1/snapshots/d3a7aaf1916d2a01c1ed6e7004a06d6cd6ed24840a7403fd10e2ffdc53559a83",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "a9e9a6408addd35256f02592874b83390b025c4d",
+      "r13x_blob_oid": "a9e9a6408addd35256f02592874b83390b025c4d",
+      "r13x_worktree_blob_oid": "a9e9a6408addd35256f02592874b83390b025c4d",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b22-2026-09-05/candidates/I1/snapshots/206e69ad34ab60948c8310c6012f15fc66a03386eb3d2b60ae9e88328c8316a6",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "r13x_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "r13x_worktree_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b22-2026-09-05/candidates/I1/snapshots/a471f9ffa18a2d42651b71e1be3ffe65af81159c7f0ddadc5082ba59d2183afb",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "d0c49232b5ec8d8fe880c4f7dc544ebd6542bccb",
+      "r13x_blob_oid": "d0c49232b5ec8d8fe880c4f7dc544ebd6542bccb",
+      "r13x_worktree_blob_oid": "d0c49232b5ec8d8fe880c4f7dc544ebd6542bccb",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b22-2026-09-05/candidates/I1/snapshots/c1f44187230a452204c86ca4ccfa9db074a898dd4087cb1d8039f2dcd1c6c586",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "ef44ab0fb4c346f2f0c91effd34643d79d03c558",
+      "r13x_blob_oid": "ef44ab0fb4c346f2f0c91effd34643d79d03c558",
+      "r13x_worktree_blob_oid": "ef44ab0fb4c346f2f0c91effd34643d79d03c558",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b22-2026-09-05/candidates/I1/snapshots/d3a7aaf1916d2a01c1ed6e7004a06d6cd6ed24840a7403fd10e2ffdc53559a83",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "483c4395a3a0e3f31c4ba072b38b3748550c4f67",
+      "r13x_blob_oid": "483c4395a3a0e3f31c4ba072b38b3748550c4f67",
+      "r13x_worktree_blob_oid": "483c4395a3a0e3f31c4ba072b38b3748550c4f67",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/C4/snapshots/0ad80b4debf4b8868fc8a7c5f5466b0871a956dfdf764a118c357a756f49bb0d",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "1423698fd19fac4fbd32a321799ae8f08a8a1520",
+      "r13x_blob_oid": "1423698fd19fac4fbd32a321799ae8f08a8a1520",
+      "r13x_worktree_blob_oid": "1423698fd19fac4fbd32a321799ae8f08a8a1520",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/C4/snapshots/4f22303d895fe4e12710177533c118ab31e85bfb512e734ab97f25b8086886d8",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "6225c1d32c8ab455dac23e4de5cacf9aa4746b9c",
+      "r13x_blob_oid": "6225c1d32c8ab455dac23e4de5cacf9aa4746b9c",
+      "r13x_worktree_blob_oid": "6225c1d32c8ab455dac23e4de5cacf9aa4746b9c",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/C5/snapshots/4ade886a493631ffb15b645e44bd9043eb78c527563b91600b73da023b761bb0",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "221fb4a490cf030fc6c811092614500383054ed5",
+      "r13x_blob_oid": "221fb4a490cf030fc6c811092614500383054ed5",
+      "r13x_worktree_blob_oid": "221fb4a490cf030fc6c811092614500383054ed5",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/C5/snapshots/9cced6aacc7d4dd69fb76cc7d84a90d47a1ef87b539f320947f49da2d370ffad",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "47f89c387448ee08e6156ade42b133fe22d4e788",
+      "r13x_blob_oid": "47f89c387448ee08e6156ade42b133fe22d4e788",
+      "r13x_worktree_blob_oid": "47f89c387448ee08e6156ade42b133fe22d4e788",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/C7/snapshots/3d8227f2865770e39982d99e97cf05ccb271700cdf865425430cc318780cc78d",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "d82e10c86dc3fe15cc96447ba6c99a890a0bde37",
+      "r13x_blob_oid": "d82e10c86dc3fe15cc96447ba6c99a890a0bde37",
+      "r13x_worktree_blob_oid": "d82e10c86dc3fe15cc96447ba6c99a890a0bde37",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/C7/snapshots/552d1a6450e4aa74c23b866e63010c3bce5daa1189ac079c9e922c9963c78789",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "20de77288b1f9b2cec85102d97d418f908571a03",
+      "r13x_blob_oid": "20de77288b1f9b2cec85102d97d418f908571a03",
+      "r13x_worktree_blob_oid": "20de77288b1f9b2cec85102d97d418f908571a03",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/C7/snapshots/6efc59fb473a2b2465249289343cfe956bbc9559f72bda25090e922f704e3222",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "7ef5621ac268f68e742349ab6f4cb847c0010f6e",
+      "r13x_blob_oid": "7ef5621ac268f68e742349ab6f4cb847c0010f6e",
+      "r13x_worktree_blob_oid": "7ef5621ac268f68e742349ab6f4cb847c0010f6e",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/C7/snapshots/b1bdc5524461cf84638f3ec86dbb68d5e2d5a4cc164bbc4f277f26d7457a7aa1",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "r13x_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "r13x_worktree_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/C8/snapshots/a471f9ffa18a2d42651b71e1be3ffe65af81159c7f0ddadc5082ba59d2183afb",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "8031e081d80bb3089289403456dad18b972eb728",
+      "r13x_blob_oid": "8031e081d80bb3089289403456dad18b972eb728",
+      "r13x_worktree_blob_oid": "8031e081d80bb3089289403456dad18b972eb728",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/C8/snapshots/dda048235d1f452c898f8b05d4692c2f73c2340d083de563c3ad076f2be43112",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "035c4e430d2f9bf7e12e74d81d1005127b94a586",
+      "r13x_blob_oid": "035c4e430d2f9bf7e12e74d81d1005127b94a586",
+      "r13x_worktree_blob_oid": "035c4e430d2f9bf7e12e74d81d1005127b94a586",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/C8/snapshots/f656051757774c505e9c4d5ee9c612fbfd295afcd7bc187d576753a3ac822f4b",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "bb6be473d6869073ef15bc94c32341675a5a1f5d",
+      "r13x_blob_oid": "bb6be473d6869073ef15bc94c32341675a5a1f5d",
+      "r13x_worktree_blob_oid": "bb6be473d6869073ef15bc94c32341675a5a1f5d",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/C9/snapshots/4c7043ee578ff0375eb1005ddb207804e7351af5d1820a5231156163996214ef",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "59daf5587ec92bbb117460718a957b4954847d69",
+      "r13x_blob_oid": "59daf5587ec92bbb117460718a957b4954847d69",
+      "r13x_worktree_blob_oid": "59daf5587ec92bbb117460718a957b4954847d69",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/C9/snapshots/5c96d3415250a394a57dac3bad0d1a1432d0c9b79072e82fbfccdd5a3297fafd",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "a9e9a6408addd35256f02592874b83390b025c4d",
+      "r13x_blob_oid": "a9e9a6408addd35256f02592874b83390b025c4d",
+      "r13x_worktree_blob_oid": "a9e9a6408addd35256f02592874b83390b025c4d",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/I1/snapshots/206e69ad34ab60948c8310c6012f15fc66a03386eb3d2b60ae9e88328c8316a6",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "r13x_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "r13x_worktree_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/I1/snapshots/a471f9ffa18a2d42651b71e1be3ffe65af81159c7f0ddadc5082ba59d2183afb",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "d0c49232b5ec8d8fe880c4f7dc544ebd6542bccb",
+      "r13x_blob_oid": "d0c49232b5ec8d8fe880c4f7dc544ebd6542bccb",
+      "r13x_worktree_blob_oid": "d0c49232b5ec8d8fe880c4f7dc544ebd6542bccb",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/I1/snapshots/c1f44187230a452204c86ca4ccfa9db074a898dd4087cb1d8039f2dcd1c6c586",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "ef44ab0fb4c346f2f0c91effd34643d79d03c558",
+      "r13x_blob_oid": "ef44ab0fb4c346f2f0c91effd34643d79d03c558",
+      "r13x_worktree_blob_oid": "ef44ab0fb4c346f2f0c91effd34643d79d03c558",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/candidates/I1/snapshots/d3a7aaf1916d2a01c1ed6e7004a06d6cd6ed24840a7403fd10e2ffdc53559a83",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "20de77288b1f9b2cec85102d97d418f908571a03",
+      "r13x_blob_oid": "20de77288b1f9b2cec85102d97d418f908571a03",
+      "r13x_worktree_blob_oid": "20de77288b1f9b2cec85102d97d418f908571a03",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/fragments/C7.json",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "8031e081d80bb3089289403456dad18b972eb728",
+      "r13x_blob_oid": "8031e081d80bb3089289403456dad18b972eb728",
+      "r13x_worktree_blob_oid": "8031e081d80bb3089289403456dad18b972eb728",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-05/fragments/C8.json",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "483c4395a3a0e3f31c4ba072b38b3748550c4f67",
+      "r13x_blob_oid": "483c4395a3a0e3f31c4ba072b38b3748550c4f67",
+      "r13x_worktree_blob_oid": "483c4395a3a0e3f31c4ba072b38b3748550c4f67",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-07/candidates/C4/snapshots/0ad80b4debf4b8868fc8a7c5f5466b0871a956dfdf764a118c357a756f49bb0d",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "1423698fd19fac4fbd32a321799ae8f08a8a1520",
+      "r13x_blob_oid": "1423698fd19fac4fbd32a321799ae8f08a8a1520",
+      "r13x_worktree_blob_oid": "1423698fd19fac4fbd32a321799ae8f08a8a1520",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-07/candidates/C4/snapshots/4f22303d895fe4e12710177533c118ab31e85bfb512e734ab97f25b8086886d8",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "47f89c387448ee08e6156ade42b133fe22d4e788",
+      "r13x_blob_oid": "47f89c387448ee08e6156ade42b133fe22d4e788",
+      "r13x_worktree_blob_oid": "47f89c387448ee08e6156ade42b133fe22d4e788",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-07/candidates/C7/snapshots/3d8227f2865770e39982d99e97cf05ccb271700cdf865425430cc318780cc78d",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "d82e10c86dc3fe15cc96447ba6c99a890a0bde37",
+      "r13x_blob_oid": "d82e10c86dc3fe15cc96447ba6c99a890a0bde37",
+      "r13x_worktree_blob_oid": "d82e10c86dc3fe15cc96447ba6c99a890a0bde37",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-07/candidates/C7/snapshots/552d1a6450e4aa74c23b866e63010c3bce5daa1189ac079c9e922c9963c78789",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "5cb3a93b7edadd382f57b6c0adcdc3435d390c91",
+      "r13x_blob_oid": "5cb3a93b7edadd382f57b6c0adcdc3435d390c91",
+      "r13x_worktree_blob_oid": "5cb3a93b7edadd382f57b6c0adcdc3435d390c91",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-07/candidates/C7/snapshots/6824c30fc94da8d8198b52682b40540da665c8648ba34d4417c6325f3f02f2a2",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "7ef5621ac268f68e742349ab6f4cb847c0010f6e",
+      "r13x_blob_oid": "7ef5621ac268f68e742349ab6f4cb847c0010f6e",
+      "r13x_worktree_blob_oid": "7ef5621ac268f68e742349ab6f4cb847c0010f6e",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-07/candidates/C7/snapshots/b1bdc5524461cf84638f3ec86dbb68d5e2d5a4cc164bbc4f277f26d7457a7aa1",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "bb6be473d6869073ef15bc94c32341675a5a1f5d",
+      "r13x_blob_oid": "bb6be473d6869073ef15bc94c32341675a5a1f5d",
+      "r13x_worktree_blob_oid": "bb6be473d6869073ef15bc94c32341675a5a1f5d",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-07/candidates/C9/snapshots/4c7043ee578ff0375eb1005ddb207804e7351af5d1820a5231156163996214ef",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "59daf5587ec92bbb117460718a957b4954847d69",
+      "r13x_blob_oid": "59daf5587ec92bbb117460718a957b4954847d69",
+      "r13x_worktree_blob_oid": "59daf5587ec92bbb117460718a957b4954847d69",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-07/candidates/C9/snapshots/5c96d3415250a394a57dac3bad0d1a1432d0c9b79072e82fbfccdd5a3297fafd",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "5cb3a93b7edadd382f57b6c0adcdc3435d390c91",
+      "r13x_blob_oid": "5cb3a93b7edadd382f57b6c0adcdc3435d390c91",
+      "r13x_worktree_blob_oid": "5cb3a93b7edadd382f57b6c0adcdc3435d390c91",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-07/fragments/C7.json",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "483c4395a3a0e3f31c4ba072b38b3748550c4f67",
+      "r13x_blob_oid": "483c4395a3a0e3f31c4ba072b38b3748550c4f67",
+      "r13x_worktree_blob_oid": "483c4395a3a0e3f31c4ba072b38b3748550c4f67",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-08/candidates/C4/snapshots/0ad80b4debf4b8868fc8a7c5f5466b0871a956dfdf764a118c357a756f49bb0d",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "1423698fd19fac4fbd32a321799ae8f08a8a1520",
+      "r13x_blob_oid": "1423698fd19fac4fbd32a321799ae8f08a8a1520",
+      "r13x_worktree_blob_oid": "1423698fd19fac4fbd32a321799ae8f08a8a1520",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-08/candidates/C4/snapshots/4f22303d895fe4e12710177533c118ab31e85bfb512e734ab97f25b8086886d8",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "6225c1d32c8ab455dac23e4de5cacf9aa4746b9c",
+      "r13x_blob_oid": "6225c1d32c8ab455dac23e4de5cacf9aa4746b9c",
+      "r13x_worktree_blob_oid": "6225c1d32c8ab455dac23e4de5cacf9aa4746b9c",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-08/candidates/C5/snapshots/4ade886a493631ffb15b645e44bd9043eb78c527563b91600b73da023b761bb0",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "221fb4a490cf030fc6c811092614500383054ed5",
+      "r13x_blob_oid": "221fb4a490cf030fc6c811092614500383054ed5",
+      "r13x_worktree_blob_oid": "221fb4a490cf030fc6c811092614500383054ed5",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-08/candidates/C5/snapshots/9cced6aacc7d4dd69fb76cc7d84a90d47a1ef87b539f320947f49da2d370ffad",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "47f89c387448ee08e6156ade42b133fe22d4e788",
+      "r13x_blob_oid": "47f89c387448ee08e6156ade42b133fe22d4e788",
+      "r13x_worktree_blob_oid": "47f89c387448ee08e6156ade42b133fe22d4e788",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-08/candidates/C7/snapshots/3d8227f2865770e39982d99e97cf05ccb271700cdf865425430cc318780cc78d",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "d82e10c86dc3fe15cc96447ba6c99a890a0bde37",
+      "r13x_blob_oid": "d82e10c86dc3fe15cc96447ba6c99a890a0bde37",
+      "r13x_worktree_blob_oid": "d82e10c86dc3fe15cc96447ba6c99a890a0bde37",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-08/candidates/C7/snapshots/552d1a6450e4aa74c23b866e63010c3bce5daa1189ac079c9e922c9963c78789",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "5cb3a93b7edadd382f57b6c0adcdc3435d390c91",
+      "r13x_blob_oid": "5cb3a93b7edadd382f57b6c0adcdc3435d390c91",
+      "r13x_worktree_blob_oid": "5cb3a93b7edadd382f57b6c0adcdc3435d390c91",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-08/candidates/C7/snapshots/6824c30fc94da8d8198b52682b40540da665c8648ba34d4417c6325f3f02f2a2",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "7ef5621ac268f68e742349ab6f4cb847c0010f6e",
+      "r13x_blob_oid": "7ef5621ac268f68e742349ab6f4cb847c0010f6e",
+      "r13x_worktree_blob_oid": "7ef5621ac268f68e742349ab6f4cb847c0010f6e",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-08/candidates/C7/snapshots/b1bdc5524461cf84638f3ec86dbb68d5e2d5a4cc164bbc4f277f26d7457a7aa1",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "r13x_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "r13x_worktree_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-08/candidates/C8/snapshots/a471f9ffa18a2d42651b71e1be3ffe65af81159c7f0ddadc5082ba59d2183afb",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "8031e081d80bb3089289403456dad18b972eb728",
+      "r13x_blob_oid": "8031e081d80bb3089289403456dad18b972eb728",
+      "r13x_worktree_blob_oid": "8031e081d80bb3089289403456dad18b972eb728",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-08/candidates/C8/snapshots/dda048235d1f452c898f8b05d4692c2f73c2340d083de563c3ad076f2be43112",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "035c4e430d2f9bf7e12e74d81d1005127b94a586",
+      "r13x_blob_oid": "035c4e430d2f9bf7e12e74d81d1005127b94a586",
+      "r13x_worktree_blob_oid": "035c4e430d2f9bf7e12e74d81d1005127b94a586",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-08/candidates/C8/snapshots/f656051757774c505e9c4d5ee9c612fbfd295afcd7bc187d576753a3ac822f4b",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "bb6be473d6869073ef15bc94c32341675a5a1f5d",
+      "r13x_blob_oid": "bb6be473d6869073ef15bc94c32341675a5a1f5d",
+      "r13x_worktree_blob_oid": "bb6be473d6869073ef15bc94c32341675a5a1f5d",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-08/candidates/C9/snapshots/4c7043ee578ff0375eb1005ddb207804e7351af5d1820a5231156163996214ef",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "59daf5587ec92bbb117460718a957b4954847d69",
+      "r13x_blob_oid": "59daf5587ec92bbb117460718a957b4954847d69",
+      "r13x_worktree_blob_oid": "59daf5587ec92bbb117460718a957b4954847d69",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-08/candidates/C9/snapshots/5c96d3415250a394a57dac3bad0d1a1432d0c9b79072e82fbfccdd5a3297fafd",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "a9e9a6408addd35256f02592874b83390b025c4d",
+      "r13x_blob_oid": "a9e9a6408addd35256f02592874b83390b025c4d",
+      "r13x_worktree_blob_oid": "a9e9a6408addd35256f02592874b83390b025c4d",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-08/candidates/I1/snapshots/206e69ad34ab60948c8310c6012f15fc66a03386eb3d2b60ae9e88328c8316a6",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "r13x_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "r13x_worktree_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-08/candidates/I1/snapshots/a471f9ffa18a2d42651b71e1be3ffe65af81159c7f0ddadc5082ba59d2183afb",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "d0c49232b5ec8d8fe880c4f7dc544ebd6542bccb",
+      "r13x_blob_oid": "d0c49232b5ec8d8fe880c4f7dc544ebd6542bccb",
+      "r13x_worktree_blob_oid": "d0c49232b5ec8d8fe880c4f7dc544ebd6542bccb",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-08/candidates/I1/snapshots/c1f44187230a452204c86ca4ccfa9db074a898dd4087cb1d8039f2dcd1c6c586",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "ef44ab0fb4c346f2f0c91effd34643d79d03c558",
+      "r13x_blob_oid": "ef44ab0fb4c346f2f0c91effd34643d79d03c558",
+      "r13x_worktree_blob_oid": "ef44ab0fb4c346f2f0c91effd34643d79d03c558",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-08/candidates/I1/snapshots/d3a7aaf1916d2a01c1ed6e7004a06d6cd6ed24840a7403fd10e2ffdc53559a83",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "5cb3a93b7edadd382f57b6c0adcdc3435d390c91",
+      "r13x_blob_oid": "5cb3a93b7edadd382f57b6c0adcdc3435d390c91",
+      "r13x_worktree_blob_oid": "5cb3a93b7edadd382f57b6c0adcdc3435d390c91",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-08/fragments/C7.json",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "8031e081d80bb3089289403456dad18b972eb728",
+      "r13x_blob_oid": "8031e081d80bb3089289403456dad18b972eb728",
+      "r13x_worktree_blob_oid": "8031e081d80bb3089289403456dad18b972eb728",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b23-2026-09-08/fragments/C8.json",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "373ed253f15c8bd501475c3fa8f02d7d75ceeebf",
+      "r13x_blob_oid": "373ed253f15c8bd501475c3fa8f02d7d75ceeebf",
+      "r13x_worktree_blob_oid": "373ed253f15c8bd501475c3fa8f02d7d75ceeebf",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b8-2026-09-05/candidates/C7/snapshots/bfb8c32de4e048fe8eea36a427c1afd893d86a9b2f4a41c4430a948579674f58",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "c9c59253dd8db779db9acd9f3adda8118f576a25",
+      "r13x_blob_oid": "c9c59253dd8db779db9acd9f3adda8118f576a25",
+      "r13x_worktree_blob_oid": "c9c59253dd8db779db9acd9f3adda8118f576a25",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b8-2026-09-05/candidates/C7/snapshots/cc6b232887f90fd17e9baad6212d7a7aab6acd12fa3747be2a8e6e2f3f26c95f",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "16fc99932fa660a6221f2430fb6b8a6a4fe40bb1",
+      "r13x_blob_oid": "16fc99932fa660a6221f2430fb6b8a6a4fe40bb1",
+      "r13x_worktree_blob_oid": "16fc99932fa660a6221f2430fb6b8a6a4fe40bb1",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b8-2026-09-05/candidates/C7/snapshots/d1724ee0a77f6808f6266106c5aea9640e0649c3b29a9527518a14b3af3b30e7",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "16fc99932fa660a6221f2430fb6b8a6a4fe40bb1",
+      "r13x_blob_oid": "16fc99932fa660a6221f2430fb6b8a6a4fe40bb1",
+      "r13x_worktree_blob_oid": "16fc99932fa660a6221f2430fb6b8a6a4fe40bb1",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b8-2026-09-05/fragments/C7.json",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "ef44ab0fb4c346f2f0c91effd34643d79d03c558",
+      "r13x_blob_oid": "ef44ab0fb4c346f2f0c91effd34643d79d03c558",
+      "r13x_worktree_blob_oid": "ef44ab0fb4c346f2f0c91effd34643d79d03c558",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p4-fragments/C7.json",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "a9e9a6408addd35256f02592874b83390b025c4d",
+      "r13x_blob_oid": "a9e9a6408addd35256f02592874b83390b025c4d",
+      "r13x_worktree_blob_oid": "a9e9a6408addd35256f02592874b83390b025c4d",
+      "relative_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p4-fragments/C8.json",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "a411b75cc826adb1ca28c80e92969aad62282540",
+      "r13x_blob_oid": "a411b75cc826adb1ca28c80e92969aad62282540",
+      "r13x_worktree_blob_oid": "a411b75cc826adb1ca28c80e92969aad62282540",
+      "relative_path": "docs/governance/functorial-structural-debt-remediation-completion5-classification.v1.json",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "b7275d7bda203472d2fb15abb24702a8a7c71d60",
+      "r13x_blob_oid": "b7275d7bda203472d2fb15abb24702a8a7c71d60",
+      "r13x_worktree_blob_oid": "b7275d7bda203472d2fb15abb24702a8a7c71d60",
+      "relative_path": "docs/reference-pool/platformization/snapshots/llm_embedded/readmes/BerriAI__litellm.md",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "15d032d5ef1cdf19d445a99c8ba63d152ec80c49",
+      "r13x_blob_oid": "15d032d5ef1cdf19d445a99c8ba63d152ec80c49",
+      "r13x_worktree_blob_oid": "15d032d5ef1cdf19d445a99c8ba63d152ec80c49",
+      "relative_path": "docs/reference-pool/platformization/snapshots/llm_embedded/readmes/Helicone__helicone.md",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "b506edbdff6c43aff0016f9493035ab0aa0c9c6b",
+      "r13x_blob_oid": "b506edbdff6c43aff0016f9493035ab0aa0c9c6b",
+      "r13x_worktree_blob_oid": "b506edbdff6c43aff0016f9493035ab0aa0c9c6b",
+      "relative_path": "docs/reference-pool/platformization/snapshots/llm_embedded/readmes/Portkey-AI__gateway.md",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "d3cef70b72d6b585cc04ae52dbcdfe77e3b3cade",
+      "r13x_blob_oid": "d3cef70b72d6b585cc04ae52dbcdfe77e3b3cade",
+      "r13x_worktree_blob_oid": "d3cef70b72d6b585cc04ae52dbcdfe77e3b3cade",
+      "relative_path": "docs/reference-pool/platformization/snapshots/readmes/getsops__sops.md",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "0c9bbf63c076f0433b43ee41872a31af70611df5",
+      "r13x_blob_oid": "0c9bbf63c076f0433b43ee41872a31af70611df5",
+      "r13x_worktree_blob_oid": "0c9bbf63c076f0433b43ee41872a31af70611df5",
+      "relative_path": "main/backend/app/services/agent_batch/search_quality_replay.py",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "1423698fd19fac4fbd32a321799ae8f08a8a1520",
+      "r13x_blob_oid": "1423698fd19fac4fbd32a321799ae8f08a8a1520",
+      "r13x_worktree_blob_oid": "1423698fd19fac4fbd32a321799ae8f08a8a1520",
+      "relative_path": "main/backend/app/successor_runtime/specification/c4_p3.py",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "221fb4a490cf030fc6c811092614500383054ed5",
+      "r13x_blob_oid": "221fb4a490cf030fc6c811092614500383054ed5",
+      "r13x_worktree_blob_oid": "221fb4a490cf030fc6c811092614500383054ed5",
+      "relative_path": "main/backend/app/successor_runtime/specification/c5_p3.py",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "47f89c387448ee08e6156ade42b133fe22d4e788",
+      "r13x_blob_oid": "47f89c387448ee08e6156ade42b133fe22d4e788",
+      "r13x_worktree_blob_oid": "47f89c387448ee08e6156ade42b133fe22d4e788",
+      "relative_path": "main/backend/app/successor_runtime/specification/c7_p4.py",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "r13x_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "r13x_worktree_blob_oid": "0c43b696d50ebdb1e9e52ffe31bde1203aaf9591",
+      "relative_path": "main/backend/app/successor_runtime/specification/c8_p4.py",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "59daf5587ec92bbb117460718a957b4954847d69",
+      "r13x_blob_oid": "59daf5587ec92bbb117460718a957b4954847d69",
+      "r13x_worktree_blob_oid": "59daf5587ec92bbb117460718a957b4954847d69",
+      "relative_path": "main/backend/app/successor_runtime/specification/c9_p4.py",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "4e5dcdbf55de7b12a20dea7d7108d8786177c24b",
+      "r13x_blob_oid": "4e5dcdbf55de7b12a20dea7d7108d8786177c24b",
+      "r13x_worktree_blob_oid": "4e5dcdbf55de7b12a20dea7d7108d8786177c24b",
+      "relative_path": "main/backend/docs/TWITTER_API_SETUP.md",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "483c4395a3a0e3f31c4ba072b38b3748550c4f67",
+      "r13x_blob_oid": "483c4395a3a0e3f31c4ba072b38b3748550c4f67",
+      "r13x_worktree_blob_oid": "483c4395a3a0e3f31c4ba072b38b3748550c4f67",
+      "relative_path": "main/backend/scripts/generate_successor_p3_c4_fragment.py",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "6225c1d32c8ab455dac23e4de5cacf9aa4746b9c",
+      "r13x_blob_oid": "6225c1d32c8ab455dac23e4de5cacf9aa4746b9c",
+      "r13x_worktree_blob_oid": "6225c1d32c8ab455dac23e4de5cacf9aa4746b9c",
+      "relative_path": "main/backend/scripts/generate_successor_p3_c5_fragment.py",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "d82e10c86dc3fe15cc96447ba6c99a890a0bde37",
+      "r13x_blob_oid": "d82e10c86dc3fe15cc96447ba6c99a890a0bde37",
+      "r13x_worktree_blob_oid": "d82e10c86dc3fe15cc96447ba6c99a890a0bde37",
+      "relative_path": "main/backend/scripts/generate_successor_p4_c7_fragment.py",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "035c4e430d2f9bf7e12e74d81d1005127b94a586",
+      "r13x_blob_oid": "035c4e430d2f9bf7e12e74d81d1005127b94a586",
+      "r13x_worktree_blob_oid": "035c4e430d2f9bf7e12e74d81d1005127b94a586",
+      "relative_path": "main/backend/scripts/generate_successor_p4_c8_fragment.py",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "bb6be473d6869073ef15bc94c32341675a5a1f5d",
+      "r13x_blob_oid": "bb6be473d6869073ef15bc94c32341675a5a1f5d",
+      "r13x_worktree_blob_oid": "bb6be473d6869073ef15bc94c32341675a5a1f5d",
+      "relative_path": "main/backend/scripts/generate_successor_p4_c9_fragment.py",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "eba0204627964a6757c6667c1098104d2c40972d",
+      "r13x_blob_oid": "eba0204627964a6757c6667c1098104d2c40972d",
+      "r13x_worktree_blob_oid": "eba0204627964a6757c6667c1098104d2c40972d",
+      "relative_path": "main/backend/tests/core_business/test_admin_dashboard_process_core_contract.py",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "819523c18d46e6f64c4f485983514742046162a6",
+      "r13x_blob_oid": "819523c18d46e6f64c4f485983514742046162a6",
+      "r13x_worktree_blob_oid": "819523c18d46e6f64c4f485983514742046162a6",
+      "relative_path": "main/backend/tests/successor_runtime/test_c8_research_artifact_delivery_bridge_postgres.py",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "9c8ef89881435927f054e39de41db1b626dca76a",
+      "r13x_blob_oid": "9c8ef89881435927f054e39de41db1b626dca76a",
+      "r13x_worktree_blob_oid": "9c8ef89881435927f054e39de41db1b626dca76a",
+      "relative_path": "main/backend/tests/successor_runtime/test_c9_movement_closure_backend_postgres.py",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "b2243dfcd9a7012b2b175ac3c390939552384819",
+      "r13x_blob_oid": "b2243dfcd9a7012b2b175ac3c390939552384819",
+      "r13x_worktree_blob_oid": "b2243dfcd9a7012b2b175ac3c390939552384819",
+      "relative_path": "main/backend/tests/successor_runtime/test_p0c_admission_recovery.py",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "55d868cc04ad68a787d8d55bf8369d86d90dede1",
+      "r13x_blob_oid": "55d868cc04ad68a787d8d55bf8369d86d90dede1",
+      "r13x_worktree_blob_oid": "55d868cc04ad68a787d8d55bf8369d86d90dede1",
+      "relative_path": "main/backend/tests/successor_runtime/test_p0c_failure_policy.py",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "d0c49232b5ec8d8fe880c4f7dc544ebd6542bccb",
+      "r13x_blob_oid": "d0c49232b5ec8d8fe880c4f7dc544ebd6542bccb",
+      "r13x_worktree_blob_oid": "d0c49232b5ec8d8fe880c4f7dc544ebd6542bccb",
+      "relative_path": "main/backend/tests/successor_runtime/test_p3_traversal_foundation.py",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "34eca20496bc160818bb27ddeba9f438c2ceab40",
+      "r13x_blob_oid": "34eca20496bc160818bb27ddeba9f438c2ceab40",
+      "r13x_worktree_blob_oid": "34eca20496bc160818bb27ddeba9f438c2ceab40",
+      "relative_path": "main/backend/tests/successor_runtime/test_s2b_c8_export_token_state.py",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "3be74dc57a5688a3f12e780ca6d13131585f7ff1",
+      "r13x_blob_oid": "3be74dc57a5688a3f12e780ca6d13131585f7ff1",
+      "r13x_worktree_blob_oid": "3be74dc57a5688a3f12e780ca6d13131585f7ff1",
+      "relative_path": "main/backend/tests/successor_runtime/test_successor_postgres_validation_runner.py",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "ba1438a1d33cd34bf93ddcdcbfb2aff7b8f6d71b",
+      "r13x_blob_oid": "ba1438a1d33cd34bf93ddcdcbfb2aff7b8f6d71b",
+      "r13x_worktree_blob_oid": "ba1438a1d33cd34bf93ddcdcbfb2aff7b8f6d71b",
+      "relative_path": "main/backend/tests/unit/test_llm_report_export_token_state_service_unittest.py",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "269b2581dabcdf3740b7d17b70e4e95956675b7b",
+      "r13x_blob_oid": "269b2581dabcdf3740b7d17b70e4e95956675b7b",
+      "r13x_worktree_blob_oid": "269b2581dabcdf3740b7d17b70e4e95956675b7b",
+      "relative_path": "main/ops/docker-compose.production.yml",
+      "unchanged": true
+    },
+    {
+      "r13v_blob_oid": "25cede1a0279e77a3a74bf8f3b31880d61f51a60",
+      "r13x_blob_oid": "25cede1a0279e77a3a74bf8f3b31880d61f51a60",
+      "r13x_worktree_blob_oid": "25cede1a0279e77a3a74bf8f3b31880d61f51a60",
+      "relative_path": "scripts/fix_demo_proj_seq.sh",
+      "unchanged": true
+    }
+  ],
+  "finding_paths": 219,
+  "generated_at_utc": "2026-09-12T16:08:59.049575Z",
+  "limitations": [
+    "Reuse applies only to these exact paths, bytes, locations, rules, and fingerprints."
+  ],
+  "new_or_changed_findings": 0,
+  "prior_commit": "8427e3d626cd12f41e45d38e00223f2ef86d692f",
+  "proof_method": "For every path containing a finding, compare the r13v commit blob OID, r13x commit blob OID, and the clean r13x worktree hash-object; separately compare the complete rule/path/location/fingerprint multiset.",
+  "raw_finding_multiset_equal": true,
+  "schema_version": "mrw.stage3.gitleaks-unchanged-input-reuse-proof.v1",
+  "stable_group_set_equal": true,
+  "status": "PASS_ALL_FINDING_INPUT_FILES_BYTE_IDENTICAL"
+}

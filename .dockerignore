@@ -1,0 +1,17 @@
+.git
+.venv
+.venv*/
+**/.venv
+**/.venv*/
+**/__pycache__/
+**/.pytest_cache/
+**/.ruff_cache/
+**/.mypy_cache/
+**/node_modules/
+development/
+docs/
+reference-pool/
+artifacts/
+main/frontend-modern/
+main/logs/
+

@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import hashlib
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, NoReturn
+
+from functorial_kit import Failure
+from mrw_functorial_kit.core.w04_service_semantics import writing_failures
 
 from ...models.base import SessionLocal, run_with_session_retry
 from ...models.writing_entities import WritingDocument, WritingDocumentDraft
@@ -24,6 +27,65 @@ class WritingVersionConflictError(ValueError):
         self.expected_version = expected_version
         self.current_version = current_version
         self.server_snapshot = server_snapshot
+
+
+_WRITING_FAILURE_CONTEXT_KEYS = frozenset({"owner", "public_exception", "public_message"})
+
+
+def _writing_failure(
+    code: str,
+    message: str,
+    *,
+    owner: str,
+    public_exception: type[Exception] | str,
+    public_message: str | None = None,
+    **details: Any,
+) -> Failure:
+    return writing_failures.fail(
+        code,
+        message,
+        {
+            "owner": owner,
+            "public_exception": (
+                public_exception.__name__ if isinstance(public_exception, type) else str(public_exception)
+            ),
+            "public_message": str(public_message if public_message is not None else message),
+            **details,
+        },
+    )
+
+
+def _raise_writing_legacy(failure: Failure, *, cause: BaseException | None = None) -> NoReturn:
+    """Lift a closed writing failure exactly once at the public service boundary."""
+    context = failure.context or {}
+    if not writing_failures.matches(failure) or not _WRITING_FAILURE_CONTEXT_KEYS <= set(context):
+        # kit:boundary owner=writing.document_service.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w04_writing_failure_core
+        raise TypeError("writing failure lift context is incomplete or inconsistent")
+
+    public_exception = str(context["public_exception"])
+    message = str(context["public_message"])
+    if public_exception == "KeyError":
+        if cause is None:
+            # kit:boundary owner=writing.document_service.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=writing.failure witness=test:test_w04_writing_failure_core
+            raise KeyError(message)
+        # kit:boundary owner=writing.document_service.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=writing.failure witness=test:test_w04_writing_failure_core
+        raise KeyError(message) from cause
+    if public_exception == "WritingVersionConflictError" and failure.code == "version_conflict":
+        conflict = WritingVersionConflictError(
+            expected_version=context.get("expected_version"),
+            current_version=int(context.get("current_version", 0)),
+            server_snapshot=dict(context.get("server_snapshot") or {}),
+        )
+        if cause is None:
+            # kit:boundary owner=writing.document_service.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=writing.failure witness=test:test_w04_writing_failure_core
+            raise conflict
+        # kit:boundary owner=writing.document_service.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=writing.failure witness=test:test_w04_writing_failure_core
+        raise conflict from cause
+    if failure.code == "action_execution_failed" and isinstance(cause, BaseException):
+        # kit:boundary owner=writing.document_service.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=writing.failure witness=test:test_w04_writing_failure_core
+        raise cause
+    # kit:boundary owner=writing.document_service.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w04_writing_failure_core
+    raise TypeError(f"unsupported writing failure code: {failure.code}")
 
 
 def _utcnow_iso() -> str:
@@ -90,19 +152,36 @@ def list_documents(*, project_key: str, limit: int = 50) -> list[dict[str, Any]]
         return [_serialize_document(row) for row in rows]
 
 
-def get_document(*, doc_id: int, project_key: str) -> dict[str, Any]:
+def try_get_document(*, doc_id: int, project_key: str) -> dict[str, Any] | Failure:
     with SessionLocal() as session:
         row = fetch_active_document(session, doc_id=doc_id, project_key=project_key)
         if row is None:
-            raise KeyError(f"writing document not found: {doc_id}")
+            return _writing_failure(
+                "document_not_found",
+                f"writing document not found: {doc_id}",
+                owner="writing.document_service.get_document",
+                public_exception=KeyError,
+            )
         return _serialize_document(row)
 
 
-def delete_document(*, doc_id: int, project_key: str, updated_by_user_id: str | None = None) -> dict[str, Any]:
-    def _op(session) -> dict[str, Any]:
+def get_document(*, doc_id: int, project_key: str) -> dict[str, Any]:
+    outcome = try_get_document(doc_id=doc_id, project_key=project_key)
+    if isinstance(outcome, Failure):
+        _raise_writing_legacy(outcome)
+    return outcome
+
+
+def try_delete_document(*, doc_id: int, project_key: str, updated_by_user_id: str | None = None) -> dict[str, Any] | Failure:
+    def _op(session) -> dict[str, Any] | Failure:
         row = fetch_active_document(session, doc_id=doc_id, project_key=project_key)
         if row is None:
-            raise KeyError(f"writing document not found: {doc_id}")
+            return _writing_failure(
+                "document_not_found",
+                f"writing document not found: {doc_id}",
+                owner="writing.document_service.delete_document",
+                public_exception=KeyError,
+            )
 
         row.status = "archived"
         row.deleted_at = datetime.now(timezone.utc)
@@ -115,7 +194,14 @@ def delete_document(*, doc_id: int, project_key: str, updated_by_user_id: str | 
     return run_with_session_retry(_op, log_context={"operation": "delete_writing_document", "doc_id": doc_id, "project_key": project_key})
 
 
-def save_document_with_conflict(
+def delete_document(*, doc_id: int, project_key: str, updated_by_user_id: str | None = None) -> dict[str, Any]:
+    outcome = try_delete_document(doc_id=doc_id, project_key=project_key, updated_by_user_id=updated_by_user_id)
+    if isinstance(outcome, Failure):
+        _raise_writing_legacy(outcome)
+    return outcome
+
+
+def try_save_document_with_conflict(
     *,
     doc_id: int,
     project_key: str,
@@ -125,22 +211,35 @@ def save_document_with_conflict(
     if_match: str | None = None,
     updated_by_user_id: str | None = None,
     metadata_json: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    def _op(session) -> dict[str, Any]:
+) -> dict[str, Any] | Failure:
+    def _op(session) -> dict[str, Any] | Failure:
         row = fetch_active_document(session, doc_id=doc_id, project_key=project_key)
         if row is None:
-            raise KeyError(f"writing document not found: {doc_id}")
+            return _writing_failure(
+                "document_not_found",
+                f"writing document not found: {doc_id}",
+                owner="writing.document_service.save_document",
+                public_exception=KeyError,
+            )
 
         current_version = int(row.head_version or 1)
         current_etag = row.etag or _compute_etag(body_md=row.body_md or "", version=current_version)
         if base_version is not None and int(base_version) != current_version:
-            raise WritingVersionConflictError(
+            return _writing_failure(
+                "version_conflict",
+                "writing document version conflict",
+                owner="writing.document_service.save_document",
+                public_exception="WritingVersionConflictError",
                 expected_version=int(base_version),
                 current_version=current_version,
                 server_snapshot=_build_conflict_details(row, expected_version=int(base_version)),
             )
         if if_match and if_match != current_etag:
-            raise WritingVersionConflictError(
+            return _writing_failure(
+                "version_conflict",
+                "writing document version conflict",
+                owner="writing.document_service.save_document",
+                public_exception="WritingVersionConflictError",
                 expected_version=base_version,
                 current_version=current_version,
                 server_snapshot=_build_conflict_details(row, expected_version=base_version),
@@ -162,7 +261,33 @@ def save_document_with_conflict(
     return run_with_session_retry(_op, log_context={"operation": "save_writing_document", "doc_id": doc_id, "project_key": project_key})
 
 
-def save_draft_autosave(
+def save_document_with_conflict(
+    *,
+    doc_id: int,
+    project_key: str,
+    body_md: str,
+    title: str | None = None,
+    base_version: int | None = None,
+    if_match: str | None = None,
+    updated_by_user_id: str | None = None,
+    metadata_json: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    outcome = try_save_document_with_conflict(
+        doc_id=doc_id,
+        project_key=project_key,
+        body_md=body_md,
+        title=title,
+        base_version=base_version,
+        if_match=if_match,
+        updated_by_user_id=updated_by_user_id,
+        metadata_json=metadata_json,
+    )
+    if isinstance(outcome, Failure):
+        _raise_writing_legacy(outcome)
+    return outcome
+
+
+def try_save_draft_autosave(
     *,
     doc_id: int,
     project_key: str,
@@ -171,16 +296,25 @@ def save_draft_autosave(
     autosave_token: str,
     request_id: str | None = None,
     selection_snapshot: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    def _op(session) -> dict[str, Any]:
+) -> dict[str, Any] | Failure:
+    def _op(session) -> dict[str, Any] | Failure:
         document = fetch_active_document(session, doc_id=doc_id, project_key=project_key)
         if document is None:
-            raise KeyError(f"writing document not found: {doc_id}")
+            return _writing_failure(
+                "document_not_found",
+                f"writing document not found: {doc_id}",
+                owner="writing.document_service.save_draft_autosave",
+                public_exception=KeyError,
+            )
 
         current_version = int(document.head_version or 1)
         expected_version = int(base_version) if base_version is not None else current_version
         if expected_version != current_version:
-            raise WritingVersionConflictError(
+            return _writing_failure(
+                "version_conflict",
+                "writing document version conflict",
+                owner="writing.document_service.save_draft_autosave",
+                public_exception="WritingVersionConflictError",
                 expected_version=expected_version,
                 current_version=current_version,
                 server_snapshot=_build_conflict_details(document, expected_version=expected_version),
@@ -208,6 +342,30 @@ def save_draft_autosave(
         return _serialize_draft(row)
 
     return run_with_session_retry(_op, log_context={"operation": "autosave_writing_document", "doc_id": doc_id, "project_key": project_key})
+
+
+def save_draft_autosave(
+    *,
+    doc_id: int,
+    project_key: str,
+    draft_body_md: str,
+    base_version: int | None = None,
+    autosave_token: str,
+    request_id: str | None = None,
+    selection_snapshot: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    outcome = try_save_draft_autosave(
+        doc_id=doc_id,
+        project_key=project_key,
+        draft_body_md=draft_body_md,
+        base_version=base_version,
+        autosave_token=autosave_token,
+        request_id=request_id,
+        selection_snapshot=selection_snapshot,
+    )
+    if isinstance(outcome, Failure):
+        _raise_writing_legacy(outcome)
+    return outcome
 
 
 def export_document_markdown(*, doc_id: int, project_key: str) -> dict[str, Any]:

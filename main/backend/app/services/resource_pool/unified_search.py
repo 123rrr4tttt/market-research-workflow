@@ -5,12 +5,20 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 import json
-from typing import Any
+from typing import Any, NoReturn
 from urllib.parse import urljoin, urlsplit
 import xml.etree.ElementTree as ET
 import gzip
 
-from ..ingest.adapters.http_utils import HttpFetchError, fetch_html, make_html_parser
+from functorial_kit import Failure
+from mrw_functorial_kit.core.provider_port_failures import resource_pool_contract_failures
+
+from .http_port import (
+    HttpFetchError,
+    fetch_html,
+    handle_official_access_api,
+    make_html_parser,
+)
 from .auto_classify import infer_keyword_capabilities
 from .candidate_source_plan import build_candidate_source_plan, plan_to_metadata
 from ..source_library.resolver import list_effective_items
@@ -34,7 +42,6 @@ from .search_template_service import normalize_search_template_placeholders
 from .search_template_service import resolve_search_template_pagination
 from .site_entries import get_site_entry_by_url
 from .url_utils import domain_from_url, normalize_url
-from ..source_library.adapters.official_access import handle_official_access_api
 
 
 @dataclass
@@ -71,6 +78,54 @@ _PRIORITY_KEEP_DOMAINS = {
     "docs.anthropic.com",
     "cloud.google.com",
 }
+
+
+_RESOURCE_POOL_FAILURE_WITNESS = "test:test_latest_service_b_resource_pool_failure_lifts"
+_RESOURCE_POOL_FAILURE_CONTEXT_KEYS = frozenset(
+    {
+        "boundary_class",
+        "failure_family",
+        "operation",
+        "owner",
+        "public_exception",
+        "public_message",
+        "site",
+        "witness",
+    }
+)
+
+
+def _contract_failure(code: str, message: str, *, operation: str, site: str) -> Failure:
+    return resource_pool_contract_failures.fail(
+        code,
+        message,
+        {
+            "boundary_class": "PURE_CONTRACT_FAILURE",
+            "failure_family": resource_pool_contract_failures.name,
+            "operation": operation,
+            "owner": site,
+            "public_exception": "ValueError",
+            "public_message": message,
+            "site": site,
+            "witness": _RESOURCE_POOL_FAILURE_WITNESS,
+        },
+    )
+
+
+def _raise_contract_failure(
+    failure: Failure,
+    exception_type: type[Exception] = ValueError,
+) -> NoReturn:
+    context = failure.context or {}
+    if (
+        not resource_pool_contract_failures.matches(failure)
+        or _RESOURCE_POOL_FAILURE_CONTEXT_KEYS - set(context)
+        or context.get("public_exception") != exception_type.__name__
+    ):
+        # kit:boundary owner=resource_pool.unified_search.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_latest_service_b_resource_pool_failure_lifts
+        raise TypeError("resource pool failure lift context is incomplete or inconsistent")
+    # kit:boundary owner=resource_pool.unified_search.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=resource_pool.contract.failure witness=test:test_latest_service_b_resource_pool_failure_lifts
+    raise exception_type(str(context["public_message"]))
 
 
 def _apply_site_search_service_policy(params: dict[str, Any], policy: Any) -> dict[str, Any]:
@@ -798,9 +853,23 @@ def unified_search_by_item(
     terms = _as_terms(query_terms)
     item_key = (item_key or "").strip()
     if not item_key:
-        raise ValueError("item_key is required")
+        _raise_contract_failure(
+            _contract_failure(
+                "item_key_required",
+                "item_key is required",
+                operation="unified_search_by_item",
+                site="resource_pool.unified_search.unified_search_by_item.item_key",
+            )
+        )
     if not project_key:
-        raise ValueError("project_key is required")
+        _raise_contract_failure(
+            _contract_failure(
+                "project_key_required",
+                "project_key is required",
+                operation="unified_search_by_item",
+                site="resource_pool.unified_search.unified_search_by_item.project_key",
+            )
+        )
     max_candidates = min(max(1, int(max_candidates)), 2000)
     if pool_scope not in {"project", "shared"}:
         pool_scope = "project"
@@ -809,7 +878,14 @@ def unified_search_by_item(
     item_map = {x.get("item_key"): x for x in items if isinstance(x, dict)}
     item = item_map.get(item_key)
     if not item:
-        raise ValueError(f"source item not found: {item_key}")
+        _raise_contract_failure(
+            _contract_failure(
+                "source_item_not_found",
+                f"source item not found: {item_key}",
+                operation="unified_search_by_item",
+                site="resource_pool.unified_search.unified_search_by_item.source_item",
+            )
+        )
 
     return unified_search_by_item_payload(
         project_key=project_key,
@@ -850,9 +926,23 @@ def unified_search_by_item_payload(
     terms = _as_terms(query_terms)
     item_key = str(item.get("item_key") or "").strip()
     if not item_key:
-        raise ValueError("item.item_key is required")
+        _raise_contract_failure(
+            _contract_failure(
+                "item_key_required",
+                "item.item_key is required",
+                operation="unified_search_by_item_payload",
+                site="resource_pool.unified_search.unified_search_by_item_payload.item_key",
+            )
+        )
     if not project_key:
-        raise ValueError("project_key is required")
+        _raise_contract_failure(
+            _contract_failure(
+                "project_key_required",
+                "project_key is required",
+                operation="unified_search_by_item_payload",
+                site="resource_pool.unified_search.unified_search_by_item_payload.project_key",
+            )
+        )
     max_candidates = min(max(1, int(max_candidates)), 2000)
     if pool_scope not in {"project", "shared"}:
         pool_scope = "project"
@@ -871,7 +961,14 @@ def unified_search_by_item_payload(
     )
     site_entry_urls = _resolve_item_site_entries(item, resolved_execution_plan)
     if not site_entry_urls:
-        raise ValueError("item.params.site_entries is required and cannot be empty for unified search")
+        _raise_contract_failure(
+            _contract_failure(
+                "site_entries_required",
+                "item.params.site_entries is required and cannot be empty for unified search",
+                operation="unified_search_by_item_payload",
+                site="resource_pool.unified_search.unified_search_by_item_payload.site_entries",
+            )
+        )
     candidate_target_config = _resolve_candidate_target_config(params, max_candidates=max_candidates)
     if candidate_target_config is None:
         candidate_target_config = _derive_default_candidate_target_config(

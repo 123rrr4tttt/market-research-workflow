@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from .codec import finalize_digest
+from .codec import _failure, _raise_failure, finalize_digest
 
 __all__ = ["Inquiry", "PlanWorkItem", "ResearchIntent", "ResearchPlan"]
 
@@ -25,9 +25,25 @@ class ResearchIntent:
 
     def __post_init__(self) -> None:
         if not isinstance(self.audience_or_use, str):
-            raise ValueError("ResearchIntent audience_or_use is required")
+            _raise_failure(
+                _failure(
+                    "RESEARCH_INTENT_INVALID",
+                    "ResearchIntent audience_or_use is required",
+                    ValueError,
+                    site="ResearchIntent.audience_or_use",
+                ),
+                ValueError,
+            )
         if not isinstance(self.constraints, dict):
-            raise ValueError("ResearchIntent constraints are required")
+            _raise_failure(
+                _failure(
+                    "RESEARCH_INTENT_INVALID",
+                    "ResearchIntent constraints are required",
+                    ValueError,
+                    site="ResearchIntent.constraints",
+                ),
+                ValueError,
+            )
         finalize_digest(self, "content_digest")
 
 
@@ -43,7 +59,15 @@ class Inquiry:
 
     def __post_init__(self) -> None:
         if not isinstance(self.uncertainty_ceiling, str):
-            raise ValueError("Inquiry uncertainty_ceiling is required")
+            _raise_failure(
+                _failure(
+                    "INQUIRY_INVALID",
+                    "Inquiry uncertainty_ceiling is required",
+                    ValueError,
+                    site="Inquiry.uncertainty_ceiling",
+                ),
+                ValueError,
+            )
         finalize_digest(self, "content_digest")
 
 
@@ -66,5 +90,13 @@ class ResearchPlan:
 
     def __post_init__(self) -> None:
         if not isinstance(self.replan_policy, dict):
-            raise ValueError("ResearchPlan replan_policy is required")
+            _raise_failure(
+                _failure(
+                    "RESEARCH_PLAN_INVALID",
+                    "ResearchPlan replan_policy is required",
+                    ValueError,
+                    site="ResearchPlan.replan_policy",
+                ),
+                ValueError,
+            )
         finalize_digest(self, "content_digest")

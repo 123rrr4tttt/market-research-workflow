@@ -1,0 +1,59 @@
+{
+  "authoritative": false,
+  "current_contains_expected_head": true,
+  "database_scope": "dedicated disposable PostgreSQL in mrw-r13x-runtime compose project",
+  "default_cmd": [
+    "upgrade",
+    "head"
+  ],
+  "default_contract_executed": "alembic upgrade head",
+  "default_contract_passed": true,
+  "default_entrypoint": [
+    "alembic"
+  ],
+  "default_heads_exit_code": 1,
+  "default_upgrade_exit_code": 0,
+  "expected_head": "20260905_000001",
+  "head_introspection_invocation": "python -m alembic heads",
+  "heads_introspection_limitation": "alembic heads via the console-script entrypoint fails with ModuleNotFoundError: No module named 'migrations'; python -m alembic heads succeeds",
+  "migration_image": {
+    "cmd": [
+      "upgrade",
+      "head"
+    ],
+    "entrypoint": [
+      "alembic"
+    ],
+    "id": "sha256:3b409669bb8248f738c1133f9458d73725951140c0eae938064d469045960509",
+    "platform": "linux/amd64",
+    "repo_digests": [
+      "mrw-local/r13x-candidate-migration-runner@sha256:3b409669bb8248f738c1133f9458d73725951140c0eae938064d469045960509"
+    ],
+    "repo_tags": [
+      "mrw-local/r13x-candidate-migration-runner:8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2"
+    ],
+    "tag": "mrw-local/r13x-candidate-migration-runner:8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2"
+  },
+  "required_tables": [
+    "ingest_submission_registry",
+    "llm_report_export_audit_events",
+    "llm_report_export_token_states",
+    "llm_report_quality_trends"
+  ],
+  "required_tables_present": [
+    "ingest_submission_registry",
+    "llm_report_export_audit_events",
+    "llm_report_export_token_states",
+    "llm_report_quality_trends"
+  ],
+  "schema_readback_lines": [
+    "20260905_000001",
+    "67",
+    "ingest_submission_registry",
+    "llm_report_export_audit_events",
+    "llm_report_export_token_states",
+    "llm_report_quality_trends"
+  ],
+  "schema_readback_ok": true,
+  "status": "PASS_WITH_HEADS_INTROSPECTION_LIMITATION"
+}

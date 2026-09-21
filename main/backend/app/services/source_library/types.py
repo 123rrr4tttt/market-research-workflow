@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict
+from typing import Annotated, Any, Dict
 
 
 class SourceTier(str, Enum):
@@ -285,7 +285,10 @@ def build_source_concurrency_plan(
     params: Dict[str, Any] | None,
     total_search_tasks: int,
     total_url_tasks: int,
-) -> SourceConcurrencyPlan:
+) -> Annotated[
+    SourceConcurrencyPlan,
+    "kit:prepared-command effect_boundary=source_library.concurrency witness=test:test_w01_meta",
+]:
     raw = dict(params or {})
     batch_size = _clamp_int(
         raw.get("keyword_batch_size") if raw.get("keyword_batch_size") is not None else raw.get("batch_size", raw.get("batch")),

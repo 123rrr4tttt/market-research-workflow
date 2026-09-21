@@ -14,6 +14,7 @@ from ...llm.platformization import (
 )
 from ....settings.config import settings
 from .base import BaseNodeExecutor, NodeExecutionContext
+from ..contracts import WorkflowGraphCompileError, raise_workflow_graph_legacy, workflow_graph_failure
 
 
 def _invoke_llm(
@@ -47,10 +48,10 @@ def _invoke_llm(
 
 def invoke_workflow_llm_call_skill(payload: Mapping[str, Any]) -> dict[str, Any]:
     if not isinstance(payload, Mapping):
-        raise ValueError("workflow.llm_call payload must be a mapping")
+        raise_workflow_graph_legacy(workflow_graph_failure("contract_invalid", "workflow.llm_call payload must be a mapping", owner="workflow_graph.executors.llm_call", public_exception=WorkflowGraphCompileError, public_message="workflow.llm_call payload must be a mapping", field="payload", index=-1))
     prompt = str(payload.get("prompt") or "").strip()
     if not prompt:
-        raise ValueError("prompt is required")
+        raise_workflow_graph_legacy(workflow_graph_failure("contract_invalid", "prompt is required", owner="workflow_graph.executors.llm_call", public_exception=WorkflowGraphCompileError, public_message="prompt is required", field="prompt", index=-1))
 
     text = _invoke_llm(
         prompt,
@@ -267,7 +268,8 @@ def _assert_prompt_template_inputs(*, params: dict[str, Any], context: NodeExecu
     required = _extract_template_variables(template)
     missing = [name for name in required if name not in context.inputs]
     if missing:
-        raise ValueError(f"prompt_template_missing_inputs:{','.join(sorted(missing))}")
+        message = f"prompt_template_missing_inputs:{','.join(sorted(missing))}"
+        raise_workflow_graph_legacy(workflow_graph_failure("required_input_missing", message, owner="workflow_graph.executors.llm_call", public_exception=WorkflowGraphCompileError, public_message=message, field="prompt_template", index=-1, missing=sorted(missing)))
 
 
 def _extract_template_variables(template: str) -> set[str]:

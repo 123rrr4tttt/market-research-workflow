@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from hashlib import sha256
 import re
-from typing import Any
+from typing import Annotated, Any
 from urllib.parse import urlparse
 
 from ..ingest.meaningful_gate import url_policy_check
@@ -48,7 +48,10 @@ def build_source_candidate_plan(
     source_library_items: list[dict[str, Any]] | None = None,
     max_candidates: int = 20,
     min_trust_score: float = DEFAULT_MIN_TRUST_SCORE,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:prepared-command effect_boundary=source_library.candidate_search witness=test:test_w01_meta",
+]:
     """Build a no-fetch/no-write source candidate plan for AgentCore.
 
     This is intentionally a planning gate. It normalizes and scores URLs, but
@@ -234,7 +237,10 @@ def evaluate_source_candidate_url(
     }
 
 
-def build_candidate_search_queries(*, query: str | None, domains: list[str] | None = None, limit: int = 8) -> list[str]:
+def build_candidate_search_queries(*, query: str | None, domains: list[str] | None = None, limit: int = 8) -> Annotated[
+    list[str],
+    "kit:prepared-command effect_boundary=source_library.candidate_search witness=test:test_w01_meta",
+]:
     query_text = str(query or "").strip()
     domain_values = _normalize_domains(domains)
     queries: list[str] = []

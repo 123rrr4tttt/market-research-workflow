@@ -87,7 +87,7 @@ class UpdateProjectPayload(BaseModel):
 
 
 class InjectInitialProjectPayload(BaseModel):
-    project_key: str | None = Field(default=None, min_length=1, max_length=64)
+    project_key: str = Field(..., min_length=1, max_length=64)
     name: str | None = Field(default=None, min_length=1, max_length=255)
     source_project_key: str = Field(default="demo_proj", min_length=1, max_length=64)
     overwrite: bool = False
@@ -117,8 +117,10 @@ class AutoCreateProjectPayload(BaseModel):
     llm_configs: list[AutoLlmConfigPayload] = Field(default_factory=list)
 
 
-def _resolve_inject_target_key(raw_project_key: str | None, *, source_key: str, overwrite: bool) -> str:
-    target_key = _normalize_project_key(raw_project_key or f"{source_key}_{int(time.time())}")
+def _resolve_inject_target_key(raw_project_key: str, *, source_key: str, overwrite: bool) -> str:
+    if not str(raw_project_key or "").strip():
+        _raise_invalid_input("project_key is required for inject-initial")
+    target_key = _normalize_project_key(raw_project_key)
     if target_key == "public":
         _raise_invalid_input("project_key is reserved", status_code=409)
     if target_key == "default" and not overwrite:
@@ -171,6 +173,108 @@ INITIAL_PROJECT_TABLES = [
     WritingDocumentDraft.__table__,
     WritingDocumentCitation.__table__,
 ]
+
+
+_JSON_UDT_NAMES = {"json", "jsonb"}
+
+
+def _quote_ident(identifier: str) -> str:
+    return '"' + identifier.replace('"', '""') + '"'
+
+
+def _column_udt_name(column: dict[str, object]) -> str:
+    return str(column.get("udt_name") or column.get("data_type") or "").lower()
+
+
+def _initial_project_column_metadata(conn, *, schema_name: str, table_name: str) -> list[dict[str, object]]:
+    result = conn.execute(
+        text(
+            """
+            SELECT column_name, udt_name, data_type, ordinal_position
+            FROM information_schema.columns
+            WHERE table_schema=:schema_name
+              AND table_name=:table_name
+              AND is_generated='NEVER'
+            ORDER BY ordinal_position
+            """
+        ),
+        {"schema_name": schema_name, "table_name": table_name},
+    )
+    return [dict(row) for row in result.mappings().all()]
+
+
+def _initial_project_copy_expression(
+    source_column: dict[str, object],
+    target_column: dict[str, object],
+) -> str:
+    source_expr = _quote_ident(str(source_column["column_name"]))
+    target_udt = _column_udt_name(target_column)
+    if target_udt not in _JSON_UDT_NAMES:
+        return source_expr
+
+    source_udt = _column_udt_name(source_column)
+    if target_udt == "jsonb":
+        if source_udt == "jsonb":
+            return source_expr
+        return f"{source_expr}::jsonb"
+
+    if source_udt == "json":
+        return source_expr
+    return f"{source_expr}::json"
+
+
+def _build_initial_project_copy_insert_sql(
+    *,
+    source_schema: str,
+    target_schema: str,
+    table_name: str,
+    source_columns: list[dict[str, object]],
+    target_columns: list[dict[str, object]],
+) -> str | None:
+    source_by_name = {str(column["column_name"]): column for column in source_columns}
+    copy_pairs = [
+        (target_column, source_by_name[str(target_column["column_name"])])
+        for target_column in target_columns
+        if str(target_column["column_name"]) in source_by_name
+    ]
+    if not copy_pairs:
+        return None
+
+    target_column_sql = ", ".join(_quote_ident(str(target["column_name"])) for target, _source in copy_pairs)
+    source_expr_sql = ", ".join(
+        _initial_project_copy_expression(source, target) for target, source in copy_pairs
+    )
+    return (
+        f"INSERT INTO {_quote_ident(target_schema)}.{_quote_ident(table_name)} ({target_column_sql}) "
+        f"SELECT {source_expr_sql} FROM {_quote_ident(source_schema)}.{_quote_ident(table_name)}"
+    )
+
+
+def _copy_initial_project_table(conn, *, source_schema: str, target_schema: str, table_name: str) -> int:
+    conn.execute(
+        text(f"TRUNCATE TABLE {_quote_ident(target_schema)}.{_quote_ident(table_name)} RESTART IDENTITY CASCADE")
+    )
+    source_columns = _initial_project_column_metadata(conn, schema_name=source_schema, table_name=table_name)
+    target_columns = _initial_project_column_metadata(conn, schema_name=target_schema, table_name=table_name)
+    copy_sql = _build_initial_project_copy_insert_sql(
+        source_schema=source_schema,
+        target_schema=target_schema,
+        table_name=table_name,
+        source_columns=source_columns,
+        target_columns=target_columns,
+    )
+    if copy_sql is None:
+        logger.info(
+            "inject_initial_project_copy_skipped table=%s source_schema=%s target_schema=%s reason=no_common_columns",
+            table_name,
+            source_schema,
+            target_schema,
+        )
+        return 0
+
+    inserted = conn.execute(text(copy_sql))
+    return int(getattr(inserted, "rowcount", 0) or 0)
+
 
 llm_config_service = LlmConfigService()
 
@@ -409,6 +513,25 @@ def _project_exists(project_key: str) -> bool:
             return row is not None
 
 
+def _project_list_readiness_fields(row: Project) -> dict[str, bool]:
+    enabled = bool(getattr(row, "enabled", False))
+    schema_name = str(getattr(row, "schema_name", "") or "").strip()
+    archived = not enabled
+    schema_ready = (
+        bool(schema_name)
+        and schema_name != "public"
+        and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,62}", schema_name) is not None
+    )
+    has_worker_fixture = enabled and schema_ready
+    nightly_matrix_eligible = enabled and schema_ready and has_worker_fixture
+    return {
+        "archived": archived,
+        "schema_ready": schema_ready,
+        "has_worker_fixture": has_worker_fixture,
+        "nightly_matrix_eligible": nightly_matrix_eligible,
+    }
+
+
 def _create_tenant_tables_best_effort(schema_name: str) -> None:
     """
     Create tenant tables, but tolerate missing pgvector extension by
@@ -538,6 +661,7 @@ def list_projects() -> dict:
                                 "schema_name": row.schema_name,
                                 "enabled": row.enabled,
                                 "is_active": row.is_active,
+                                **_project_list_readiness_fields(row),
                             }
                             for row in rows
                         ]
@@ -652,11 +776,12 @@ def inject_initial_project(payload: InjectInitialProjectPayload) -> dict:
             if not source_table_exists:
                 copied_counts[tname] = 0
                 continue
-            conn.execute(text(f'TRUNCATE TABLE "{target_schema}"."{tname}" RESTART IDENTITY CASCADE'))
-            inserted = conn.execute(
-                text(f'INSERT INTO "{target_schema}"."{tname}" SELECT * FROM "{source_schema}"."{tname}"')
+            copied_counts[tname] = _copy_initial_project_table(
+                conn,
+                source_schema=source_schema,
+                target_schema=target_schema,
+                table_name=tname,
             )
-            copied_counts[tname] = int(getattr(inserted, "rowcount", 0) or 0)
             # best-effort sequence alignment for id-based tables
             try:
                 conn.execute(

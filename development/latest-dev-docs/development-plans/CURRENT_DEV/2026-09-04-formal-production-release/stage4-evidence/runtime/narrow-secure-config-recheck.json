@@ -1,0 +1,103 @@
+{
+  "auth_prefix": {
+    "authenticated_http_status": 404,
+    "authenticated_response_class": "passed_codex_auth_middleware",
+    "configured_in_override": true,
+    "path": "/api/v1/successor-runtime",
+    "token_persisted": false,
+    "unauthenticated_http_status": 401,
+    "unauthenticated_response_class": "codex_auth_required"
+  },
+  "authoritative": false,
+  "backend_and_celery_authenticated_readiness": true,
+  "backend_image": {
+    "image_id": "sha256:f99f900e5b420cf7e1c9513598a87251cc6c8124e6ec8461c564ed4d7ca76c20",
+    "reference": "mrw-local/stage4-r13x-backend-config:8652d653f740735f"
+  },
+  "cleanup": {
+    "docker_prune_executed": false,
+    "down_exit_code": 0,
+    "project_residue": {
+      "containers": [],
+      "networks": [],
+      "volumes": []
+    },
+    "stage3_images_removed": false,
+    "status": "PASS"
+  },
+  "cookie": {
+    "dummy_cookie_value_only": true,
+    "external_oauth_exchange": false,
+    "secure_setting": true,
+    "set_cookie_httponly": true,
+    "set_cookie_secure": true
+  },
+  "ended_at": "2026-09-13T06:02:35Z",
+  "health": {
+    "deep_direct": {
+      "code": 200,
+      "status": "ok"
+    },
+    "deep_proxy": {
+      "code": 200,
+      "status": "ok"
+    },
+    "shallow_direct": {
+      "code": 200,
+      "status": "ok"
+    }
+  },
+  "migration_matrix_rerun": false,
+  "project_resources_after": {
+    "containers": [],
+    "networks": [],
+    "volumes": []
+  },
+  "project_resources_before": {
+    "containers": [],
+    "networks": [],
+    "volumes": []
+  },
+  "schema_version": "mrw.stage4.secure-config-narrow-recheck.v1",
+  "services": {
+    "backend": {
+      "health": "healthy",
+      "image": "mrw-local/stage4-r13x-backend-config:8652d653f740735f",
+      "name": "mrw-stage4-local-backend-1",
+      "state": "running"
+    },
+    "celery-worker": {
+      "health": "healthy",
+      "image": "mrw-local/stage4-r13x-backend-config:8652d653f740735f",
+      "name": "mrw-stage4-local-celery-worker-1",
+      "state": "running"
+    },
+    "db": {
+      "health": "healthy",
+      "image": "ankane/pgvector:latest",
+      "name": "mrw-stage4-local-db-1",
+      "state": "running"
+    },
+    "es": {
+      "health": "healthy",
+      "image": "docker.elastic.co/elasticsearch/elasticsearch:8.15.3",
+      "name": "mrw-stage4-local-es-1",
+      "state": "running"
+    },
+    "frontend": {
+      "health": "healthy",
+      "image": "mrw-local/r13x-candidate-frontend:8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+      "name": "mrw-stage4-local-frontend-1",
+      "state": "running"
+    },
+    "redis": {
+      "health": "healthy",
+      "image": "redis:7.4",
+      "name": "mrw-stage4-local-redis-1",
+      "state": "running"
+    }
+  },
+  "snapshot_reused": "synthetic-production-like.snapshot.dump",
+  "started_at": "2026-09-13T06:01:59Z",
+  "status": "PASS"
+}

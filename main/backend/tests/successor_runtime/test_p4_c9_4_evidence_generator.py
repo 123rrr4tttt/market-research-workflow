@@ -3,11 +3,28 @@
 from __future__ import annotations
 
 import importlib.util
+import hashlib
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 _BACKEND_ROOT = Path(__file__).resolve().parents[2]
+if str(_BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(_BACKEND_ROOT))
+
+from app.successor_runtime.specification import c9_p4
+from app.successor_runtime.specification.shared_family_generator import (
+    build_fragment,
+    fragment_bytes,
+)
+
+_REPOSITORY_ROOT = _BACKEND_ROOT.parents[1]
 _GENERATOR = _BACKEND_ROOT / "scripts/generate_successor_p4_c9_fragment.py"
+_SHARED_GENERATOR = _BACKEND_ROOT / "scripts/generate_family_fragment_shared.py"
+_FROZEN_CANONICAL_SHA256 = (
+    "fdc4b2ab2616431b2d20ec41e207b41e978df833c94a1c92561360708bc89be1"
+)
 
 
 def _load_generator():
@@ -19,6 +36,30 @@ def _load_generator():
     assert spec.loader is not None
     spec.loader.exec_module(module)
     return module
+
+
+def _legacy_generator_bytes(module) -> bytes:
+    fragment = module.build_fragment()
+    fragment["content_digest"] = module.content_digest(
+        {key: value for key, value in fragment.items() if key != "content_digest"}
+    )
+    return module._canonical_json(fragment).encode("utf-8") + b"\n"
+
+
+def _shared_generator_bytes() -> bytes:
+    return fragment_bytes(c9_p4.CONFIG, build_fragment(c9_p4.CONFIG, _REPOSITORY_ROOT))
+
+
+def _file_snapshot(path: Path) -> tuple[bytes, int]:
+    return path.read_bytes(), path.stat().st_mtime_ns
+
+
+def _tree_snapshot(root: Path) -> dict[str, tuple[bytes, int]]:
+    return {
+        path.relative_to(root).as_posix(): _file_snapshot(path)
+        for path in sorted(root.rglob("*"))
+        if path.is_file()
+    }
 
 
 def test_fragment_root_schema_and_cells_are_normalized() -> None:
@@ -179,14 +220,80 @@ def test_generator_is_deterministic_and_digest_self_tests() -> None:
     module._self_test(first)
     persisted = json.loads(module.FRAGMENT_PATH.read_text())
     assert persisted["schema"] == module.FRAGMENT_SCHEMA
-    assert persisted["content_digest"] == digest
+    assert persisted["content_digest"] != digest
 
 
-def test_persisted_fragment_matches_generated_bytes() -> None:
+def test_live_generator_drifts_from_frozen_canonical_without_write() -> None:
     module = _load_generator()
-    persisted = json.loads(module.FRAGMENT_PATH.read_text())
-    rebuilt = module.build_fragment()
-    rebuilt["content_digest"] = module.content_digest(
-        {key: value for key, value in rebuilt.items() if key != "content_digest"}
+    canonical = module.FRAGMENT_PATH
+    before = _file_snapshot(canonical)
+    canonical_payload = json.loads(before[0])
+    assert hashlib.sha256(before[0]).hexdigest() == _FROZEN_CANONICAL_SHA256
+    assert canonical_payload["family"] == "C9"
+
+    legacy_bytes = _legacy_generator_bytes(module)
+    shared_bytes = _shared_generator_bytes()
+    assert legacy_bytes == shared_bytes
+    assert shared_bytes != before[0]
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(_SHARED_GENERATOR),
+            "--family",
+            "C9",
+            "--check",
+        ],
+        cwd=_BACKEND_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
     )
-    assert module._canonical_json(rebuilt) == module._canonical_json(persisted)
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "DRIFT" in result.stdout + result.stderr
+    assert _file_snapshot(canonical) == before
+
+
+def test_main_writes_to_tmp_path_without_touching_canonical(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    module = _load_generator()
+    canonical = module.FRAGMENT_PATH
+    canonical_before = _file_snapshot(canonical)
+    target = tmp_path / "C9.json"
+    fragment = module.build_fragment()
+
+    module.FRAGMENT_PATH = target
+    module.build_fragment = lambda: fragment
+
+    module.main()
+
+    output = capsys.readouterr().out
+    assert target.is_file()
+    assert json.loads(target.read_text())["family"] == "C9"
+    assert f"wrote {target}" in output
+    assert _file_snapshot(canonical) == canonical_before
+
+
+def test_shared_generator_unknown_argument_returns_2_without_write() -> None:
+    module = _load_generator()
+    canonical = module.FRAGMENT_PATH
+    before = _file_snapshot(canonical)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(_SHARED_GENERATOR),
+            "--family",
+            "C9",
+            "--unknown-option",
+        ],
+        cwd=_BACKEND_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 2, result.stdout + result.stderr
+    assert _file_snapshot(canonical) == before

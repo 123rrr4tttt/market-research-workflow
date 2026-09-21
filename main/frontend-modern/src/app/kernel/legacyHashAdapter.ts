@@ -84,7 +84,7 @@ export function parseLegacyHashToMode(rawHash: string): KernelModuleKey | null {
   if (path.includes('social-media-visualization.html')) return 'dataSocial'
   if (path.includes('policy-visualization.html')) return 'dataPolicy'
   if (path.includes('writing-workbench.html') || path.includes('writing.html')) return 'flowWriting'
-  if (path.includes('agent-chat.html') || path.includes('agent.html')) return 'flowAgentChat'
+  if (path.includes('agent-chat-compat.html') || path.includes('agent-chat.html') || path.includes('agent.html')) return 'flowAgentChat'
   if (path.includes('workflow-designer.html')) {
     const mode = (query.get('mode') || '').toLowerCase()
     if (mode === 'llm-node-design' || mode === 'llm-node' || mode === 'llm') return 'flowLlmNodeDesign'

@@ -1,0 +1,304 @@
+{
+  "authoritative": false,
+  "services": {
+    "backend": {
+      "command": null,
+      "depends_on": {
+        "db": {
+          "condition": "service_healthy",
+          "required": true
+        },
+        "es": {
+          "condition": "service_healthy",
+          "required": true
+        },
+        "redis": {
+          "condition": "service_started",
+          "required": true
+        }
+      },
+      "entrypoint": null,
+      "environment": {
+        "CELERY_LOG_FILE": "/var/log/celery/worker.log",
+        "DATABASE_URL": "postgresql+psycopg2://postgres:postgres@db:5432/postgres",
+        "DOCKER_ENV": "true",
+        "ES_URL": "http://es:9200",
+        "MODERN_FRONTEND_URL": "http://localhost:5174",
+        "OPENAI_API_BASE": "https://api.openai.com/v1",
+        "OPENAI_API_KEY": "",
+        "REDIS_URL": "redis://redis:6379/0",
+        "RUN_MIGRATIONS": "false",
+        "SEARXNG_BASE_URL": "http://searxng:8080",
+        "YACY_BASE_URL": "http://yacy:8090",
+        "YACY_RESOURCE_MODE": "local"
+      },
+      "healthcheck": {
+        "interval": "30s",
+        "retries": 3,
+        "start_period": "40s",
+        "test": [
+          "CMD",
+          "curl",
+          "-f",
+          "http://localhost:8000/api/v1/health"
+        ],
+        "timeout": "10s"
+      },
+      "image": "mrw-local/r13x-candidate-backend:8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+      "networks": {
+        "default": null
+      },
+      "platform": "linux/amd64",
+      "ports": [
+        {
+          "host_ip": "127.0.0.1",
+          "mode": "ingress",
+          "protocol": "tcp",
+          "published": "18132",
+          "target": 8000
+        }
+      ],
+      "pull_policy": "never"
+    },
+    "celery-worker": {
+      "command": [
+        "celery",
+        "-A",
+        "app.celery_app",
+        "worker",
+        "--loglevel=info",
+        "--concurrency=1",
+        "--prefetch-multiplier=1",
+        "--max-tasks-per-child=50",
+        "--max-memory-per-child=300000",
+        "--logfile=/tmp/r13x-celery-worker.log"
+      ],
+      "depends_on": {
+        "backend": {
+          "condition": "service_healthy",
+          "required": true
+        },
+        "db": {
+          "condition": "service_healthy",
+          "required": true
+        },
+        "redis": {
+          "condition": "service_started",
+          "required": true
+        }
+      },
+      "entrypoint": null,
+      "environment": {
+        "CELERY_LOG_FILE": "/tmp/r13x-celery-worker.log",
+        "DATABASE_URL": "postgresql+psycopg2://postgres:postgres@db:5432/postgres",
+        "DOCKER_ENV": "true",
+        "ES_URL": "http://es:9200",
+        "OPENAI_API_KEY": "",
+        "REDIS_URL": "redis://redis:6379/0",
+        "RUN_MIGRATIONS": "false",
+        "SEARXNG_BASE_URL": "http://searxng:8080",
+        "YACY_BASE_URL": "http://yacy:8090",
+        "YACY_RESOURCE_MODE": "local"
+      },
+      "healthcheck": {
+        "interval": "30s",
+        "retries": 3,
+        "start_period": "20s",
+        "test": [
+          "CMD-SHELL",
+          "celery -A app.celery_app inspect ping || exit 1"
+        ],
+        "timeout": "10s"
+      },
+      "image": "mrw-local/r13x-candidate-backend:8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+      "networks": {
+        "default": null
+      },
+      "platform": "linux/amd64",
+      "pull_policy": "never",
+      "restart": "unless-stopped"
+    },
+    "db": {
+      "command": null,
+      "entrypoint": null,
+      "environment": {
+        "POSTGRES_DB": "postgres",
+        "POSTGRES_PASSWORD": "postgres",
+        "POSTGRES_USER": "postgres"
+      },
+      "healthcheck": {
+        "interval": "5s",
+        "retries": 5,
+        "test": [
+          "CMD-SHELL",
+          "pg_isready -U postgres"
+        ],
+        "timeout": "5s"
+      },
+      "image": "ankane/pgvector:latest",
+      "networks": {
+        "default": null
+      },
+      "volumes": [
+        {
+          "source": "db_data",
+          "target": "/var/lib/postgresql/data",
+          "type": "volume",
+          "volume": {}
+        }
+      ]
+    },
+    "es": {
+      "command": null,
+      "entrypoint": null,
+      "environment": {
+        "ES_JAVA_OPTS": "-Xms512m -Xmx512m",
+        "bootstrap.memory_lock": "true",
+        "discovery.type": "single-node",
+        "xpack.security.enabled": "false"
+      },
+      "healthcheck": {
+        "interval": "10s",
+        "retries": 5,
+        "start_period": "30s",
+        "test": [
+          "CMD-SHELL",
+          "curl -f http://localhost:9200/_cluster/health || exit 1"
+        ],
+        "timeout": "5s"
+      },
+      "image": "docker.elastic.co/elasticsearch/elasticsearch:8.15.3",
+      "networks": {
+        "default": null
+      },
+      "ulimits": {
+        "memlock": {
+          "hard": -1,
+          "soft": -1
+        }
+      },
+      "volumes": [
+        {
+          "source": "es_data",
+          "target": "/usr/share/elasticsearch/data",
+          "type": "volume",
+          "volume": {}
+        }
+      ]
+    },
+    "frontend-modern": {
+      "command": null,
+      "depends_on": {
+        "backend": {
+          "condition": "service_healthy",
+          "required": true
+        }
+      },
+      "entrypoint": null,
+      "image": "mrw-local/r13x-candidate-frontend:8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+      "networks": {
+        "default": null
+      },
+      "platform": "linux/amd64",
+      "ports": [
+        {
+          "host_ip": "127.0.0.1",
+          "mode": "ingress",
+          "protocol": "tcp",
+          "published": "15132",
+          "target": 80
+        }
+      ],
+      "profiles": [
+        "modern-ui"
+      ],
+      "pull_policy": "never"
+    },
+    "launcher-agent": {
+      "build": {
+        "context": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260912-v4-r13x/candidate/main/ops/launcher-agent",
+        "dockerfile": "Dockerfile"
+      },
+      "command": null,
+      "entrypoint": null,
+      "environment": {
+        "BACKEND_BASE_URL": "http://host.docker.internal:8000",
+        "HOST_PROJECT_ROOT": "/Users/wangyiliang/market-research-workflow",
+        "LAUNCHER_AGENT_PORT": "8787",
+        "LAUNCHER_PROJECT_NAME": "mrw-launcher"
+      },
+      "extra_hosts": [
+        "host.docker.internal=host-gateway"
+      ],
+      "networks": {
+        "default": null
+      },
+      "ports": [
+        {
+          "host_ip": "127.0.0.1",
+          "mode": "ingress",
+          "protocol": "tcp",
+          "published": "8787",
+          "target": 8787
+        }
+      ],
+      "profiles": [
+        "modern-ui"
+      ],
+      "volumes": [
+        {
+          "bind": {},
+          "source": "/var/run/docker.sock",
+          "target": "/var/run/docker.sock",
+          "type": "bind"
+        },
+        {
+          "bind": {},
+          "source": "/Users/wangyiliang/market-research-workflow",
+          "target": "/Users/wangyiliang/market-research-workflow",
+          "type": "bind"
+        }
+      ],
+      "working_dir": "/Users/wangyiliang/market-research-workflow/main/ops"
+    },
+    "launcher-ui": {
+      "build": {
+        "context": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260912-v4-r13x/candidate/main/ops/launcher-ui",
+        "dockerfile": "Dockerfile"
+      },
+      "command": null,
+      "depends_on": {
+        "launcher-agent": {
+          "condition": "service_started",
+          "required": true
+        }
+      },
+      "entrypoint": null,
+      "extra_hosts": [
+        "host.docker.internal=host-gateway"
+      ],
+      "networks": {
+        "default": null
+      },
+      "ports": [
+        {
+          "mode": "ingress",
+          "protocol": "tcp",
+          "published": "5176",
+          "target": 80
+        }
+      ],
+      "profiles": [
+        "modern-ui"
+      ]
+    },
+    "redis": {
+      "command": null,
+      "entrypoint": null,
+      "image": "redis:7.4",
+      "networks": {
+        "default": null
+      }
+    }
+  }
+}

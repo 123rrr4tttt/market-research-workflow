@@ -11,9 +11,10 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import shlex
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -24,6 +25,10 @@ if str(BACKEND_ROOT) not in sys.path:
 from app.services.local_index import LOCAL_INDEX_QUERY_MODES  # noqa: E402
 from app.services.local_index.adapters import is_lancedb_available  # noqa: E402
 from app.services.local_index.adapters.lancedb_adapter import _deterministic_vector  # noqa: E402
+from scripts.evidence_source_contract import (  # noqa: E402
+    apply_evidence_source_contract,
+    evidence_source,
+)
 
 
 DEFAULT_OUT_DIR = "development/latest-dev-docs/automation-runs/wave14-vectorization-provider-capability/2026-05-22"
@@ -38,8 +43,8 @@ WAVE12_PROVIDER_READINESS = (
 
 TARGET_TOPICS = [
     "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-01-open-source-platform-integration",
-    "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-03-05-oss-node-platform-io-plan",
-    "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/2026-05-14-global-vectorization-general-foundation",
+    "docs/development/development-plans/ARCHIVE_CLOSED/2026-03-05-oss-node-platform-io-plan",
+    "docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation",
 ]
 LOCAL_INDEX_MODES = ["keyword", "vector", "hybrid"]
 LOCAL_OPEN_SEARCH_PROVIDERS = ["searxng", "yacy"]
@@ -281,7 +286,12 @@ def build_contract(
     *,
     wave10_path: Path | None = None,
     wave12_path: Path | None = None,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=preflight "
+    "fact_source=wave10_contract+wave12_provider_readiness+repo_topics "
+    "witness=test:test_c15_backend_misc_cli_report_metadata_preserves_abi",
+]:
     failures: list[str] = []
     resolved_wave10_path = wave10_path or WAVE10_CONTRACT
     resolved_wave12_path = wave12_path or WAVE12_PROVIDER_READINESS
@@ -310,7 +320,7 @@ def build_contract(
     failures.extend(f"external_provider_gap: {failure}" for failure in external_failures)
 
     closure_claim_allowed = False
-    return {
+    contract = {
         "contract_version": "wave14-vectorization-provider-capability.v1",
         "generated_by": "main/backend/scripts/check_wave14_vectorization_provider_capability.py",
         "status": "passed" if not failures else "failed",
@@ -355,6 +365,22 @@ def build_contract(
         ],
         "failures": failures,
     }
+    return apply_evidence_source_contract(
+        contract,
+        [
+            evidence_source(
+                resolved_wave10_path,
+                repo_root=REPO_ROOT,
+                label="wave10_vectorization_quality_gate",
+            ),
+            evidence_source(
+                resolved_wave12_path,
+                repo_root=REPO_ROOT,
+                label="wave12_provider_readiness",
+            ),
+        ],
+        claim_fields=("semantic_quality_claim_allowed",),
+    )
 
 
 def write_outputs(out_dir: Path, contract: dict[str, Any]) -> None:
@@ -362,6 +388,13 @@ def write_outputs(out_dir: Path, contract: dict[str, Any]) -> None:
     (out_dir / "provider_capability_summary.json").write_text(
         json.dumps(contract, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
+    )
+    rerun_command = (
+        "PYTHONPATH=main/backend python3 "
+        "main/backend/scripts/check_wave14_vectorization_provider_capability.py "
+        f"--wave10-contract {shlex.quote(contract['inputs']['wave10_contract'])} "
+        f"--wave12-provider-readiness {shlex.quote(contract['inputs']['wave12_provider_readiness'])} "
+        f"--out-dir {shlex.quote(display_path(out_dir))}"
     )
 
     mode_rows = []
@@ -439,7 +472,7 @@ def write_outputs(out_dir: Path, contract: dict[str, Any]) -> None:
         "## Rerun",
         "",
         "```bash",
-        f"PYTHONPATH=main/backend python3 main/backend/scripts/check_wave14_vectorization_provider_capability.py --out-dir {display_path(out_dir)}",
+        rerun_command,
         "```",
         "",
         "Full deterministic output is in `provider_capability_summary.json`.",
@@ -448,16 +481,30 @@ def write_outputs(out_dir: Path, contract: dict[str, Any]) -> None:
     (out_dir / "README.md").write_text("\n".join(readme), encoding="utf-8")
 
 
-def main() -> int:
+def _resolve_cli_path(value: str) -> Path:
+    path = Path(value)
+    return path if path.is_absolute() else REPO_ROOT / path
+
+
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--out-dir", default=DEFAULT_OUT_DIR)
-    args = parser.parse_args()
+    parser.add_argument("--wave10-contract", default=str(WAVE10_CONTRACT))
+    parser.add_argument("--wave12-provider-readiness", default=str(WAVE12_PROVIDER_READINESS))
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = _parse_args(argv)
 
     out_dir = Path(args.out_dir)
     if not out_dir.is_absolute():
         out_dir = REPO_ROOT / out_dir
 
-    contract = build_contract()
+    contract = build_contract(
+        wave10_path=_resolve_cli_path(args.wave10_contract),
+        wave12_path=_resolve_cli_path(args.wave12_provider_readiness),
+    )
     write_outputs(out_dir, contract)
     print(
         json.dumps(

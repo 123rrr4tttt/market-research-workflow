@@ -1,0 +1,23 @@
+{
+  "artifact_manifest": {
+    "path": "stage1-successor-evidence/stage2-v6-intake-remediation-v3/artifact-manifest.corrected2.v3.json",
+    "sha256": "c57d7fc64c1493a99aa6791fcaafa73ac2e6e7d110a46bf3a601b8ca3d319353"
+  },
+  "authoritative": false,
+  "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+  "checks": {
+    "current_four_path_hashes": true,
+    "historical_v2_and_v3_manifest_compatibility": true,
+    "source_static_predecessor_bytes_for_two_closure_paths": true,
+    "v2_predecessor_and_validation_immutable": true,
+    "v2_predecessor_hashes_match_v5_manifest": true,
+    "workflow_equivalent_constants_bound": true,
+    "workflow_selector_closure_semantics_exact": true
+  },
+  "record": {
+    "path": "stage1-successor-evidence/stage2-v6-intake-remediation-v3/stage2-v6-intake-remediation-record.v3.json",
+    "sha256": "69ed505d428771104dc906b42ebd8f16b5f7b1458edaa785236ae9231d8c6a14"
+  },
+  "schema_version": "mrw.stage1.stage2_v6_intake_remediation_validation.v3",
+  "status": "PASS"
+}

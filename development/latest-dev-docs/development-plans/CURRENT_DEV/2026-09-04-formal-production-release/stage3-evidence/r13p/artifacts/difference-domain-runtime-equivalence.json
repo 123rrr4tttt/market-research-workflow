@@ -1,0 +1,149 @@
+{
+  "authoritative": false,
+  "candidate": {
+    "commit": "342d3b3c35ad987c47990da6ac550dfe936d4818",
+    "tree": "3f87e85dce02b312e445c657c238c11c6809850e"
+  },
+  "conclusion": {
+    "full_runtime_equivalence_claim": false,
+    "reason": "Observed entrypoint behavior is equal within the bounded smokes, but backend and migration success paths were not exercised, two psutil shared-object files differ byte-for-byte for an unknown build cause, and no r13p-bound signed provenance exists.",
+    "reproducibility_claim": false,
+    "status": "LIMITED_NOT_STAGE3_NON_BIT_FOR_BIT_EXCEPTION"
+  },
+  "difference_domain": {
+    "backend": {
+      "actual_file_content_differences": [
+        {
+          "canonical_sha256": "5d558c495e00130f5353686ee7663d5652cd5fb08fdebf3379323d9a7be85fa6",
+          "cause_assessment": "ACTUAL_BYTES_DIFFER_EXACT_CAUSE_UNKNOWN",
+          "path": "/usr/local/lib/python3.11/site-packages/psutil/_psutil_linux.abi3.so",
+          "rebuild_sha256": "72194b1b2c6a02b4b0becbc131e25017bd124cdc84ed5ccf6cdde423ded82184"
+        },
+        {
+          "canonical_sha256": "2ece9af2f3622f304a503694b9ff8cffcaa2444815481dd44fcfc5e38f559694",
+          "cause_assessment": "ACTUAL_BYTES_DIFFER_EXACT_CAUSE_UNKNOWN",
+          "path": "/usr/local/lib/python3.11/site-packages/psutil/_psutil_posix.abi3.so",
+          "rebuild_sha256": "b373eee17a82e89cff5d840d207b5261278669a10591ac4d5c13749b70df0b66"
+        }
+      ],
+      "by_domain": {
+        "actual_file_content": 2,
+        "cache_or_generated_bytecode": 8246,
+        "package_manager_metadata": 5,
+        "timestamp_only": 14070
+      },
+      "by_kind": {
+        "content_changed": 8253,
+        "timestamp_only": 14070
+      },
+      "canonical_image_manifest_digest": "sha256:63ea52a50b78b201e5203261435686801b3679bc06b71f7e79e90c65a43f1259",
+      "canonical_inventory_paths": 37848,
+      "difference_count": 22323,
+      "rebuild_image_manifest_digest": "sha256:425a5be56b83fed64c0d85398656804e06853a56a4d643339f7a1615451495fc",
+      "rebuild_inventory_paths": 37848,
+      "runtime_config_equal": true
+    },
+    "frontend": {
+      "actual_file_content_differences": [],
+      "by_domain": {
+        "timestamp_only": 90
+      },
+      "by_kind": {
+        "timestamp_only": 90
+      },
+      "canonical_image_manifest_digest": "sha256:34406d92011bcaaa67bd6f7e5de7e29842ee77fe3b880679b9891143daed150e",
+      "canonical_inventory_paths": 2295,
+      "difference_count": 90,
+      "rebuild_image_manifest_digest": "sha256:792d16b97838d2c079dc8ae9a9656b019be9b7149b11e330af10dc3b4a1d9b08",
+      "rebuild_inventory_paths": 2295,
+      "runtime_config_equal": true
+    },
+    "migration-runner": {
+      "actual_file_content_differences": [
+        {
+          "canonical_sha256": "fb5ea395d0cf0c37c6eabf8779d6d4cf9104ed997a6a19f0b456c42778738b5e",
+          "cause_assessment": "ACTUAL_BYTES_DIFFER_EXACT_CAUSE_UNKNOWN",
+          "path": "/usr/local/lib/python3.11/site-packages/psutil/_psutil_linux.abi3.so",
+          "rebuild_sha256": "cd12989d2e7e04e5e1ef5fa0062b2599fa9529533c4e9d5ca8251f52e78f2f02"
+        },
+        {
+          "canonical_sha256": "d03315b3a385e00c7bf8f4c43bccc79dea8e6b1ed184145e439f239f505d451b",
+          "cause_assessment": "ACTUAL_BYTES_DIFFER_EXACT_CAUSE_UNKNOWN",
+          "path": "/usr/local/lib/python3.11/site-packages/psutil/_psutil_posix.abi3.so",
+          "rebuild_sha256": "80c019178bc86a9c39aa5b0d197f99602551d1616d8c07f653756ec6eee38c35"
+        }
+      ],
+      "by_domain": {
+        "actual_file_content": 2,
+        "cache_or_generated_bytecode": 8246,
+        "package_manager_metadata": 5,
+        "timestamp_only": 14070
+      },
+      "by_kind": {
+        "content_changed": 8253,
+        "timestamp_only": 14070
+      },
+      "canonical_image_manifest_digest": "sha256:7d44cc7bec8675d7d4f152a220a42931529a9cec36fdee810b863a5a80739c63",
+      "canonical_inventory_paths": 37847,
+      "difference_count": 22323,
+      "rebuild_image_manifest_digest": "sha256:ec9ae4788f9e1a2064064c7de82f2c1e098a20179d757166edf0a99f0a5958d9",
+      "rebuild_inventory_paths": 37847,
+      "runtime_config_equal": true
+    }
+  },
+  "resource_cleanup": {
+    "builders": "not created or restored",
+    "task_container_names": "removed",
+    "task_image_tags": "removed"
+  },
+  "runtime_equivalence": {
+    "backend": {
+      "application_import": {
+        "canonical_exit": 0,
+        "output_equal": true,
+        "output_sha256": "adf661d03b15b76cfadfff247c0b0df3739b0d97471151642282f4bbedd0b244",
+        "rebuild_exit": 0
+      },
+      "default_entrypoint_dependency_boundary": {
+        "canonical_exit": 1,
+        "expected_observation": "Both default entrypoints reach PostgreSQL readiness and fail after the configured single retry against an intentionally unreachable task-local endpoint.",
+        "output_equal": true,
+        "output_sha256": "54a6d45530dbd2c5972d9a500fb54b8f52babd4e266bee38d95a3f2092535523",
+        "rebuild_exit": 1
+      },
+      "status": "LIMITED_OBSERVATIONAL_EQUIVALENCE",
+      "success_path_blocker": "A role-complete default startup requires task-owned PostgreSQL, Elasticsearch, and Redis services. Those services were outside this bounded smoke and were not created."
+    },
+    "frontend": {
+      "default_http_root": {
+        "body_equal": true,
+        "body_sha256": "98dadfc5b33756d3f921569dd23c91df9b3b0d6dffe094f73b309cf539d2123c",
+        "canonical_exit": 0,
+        "rebuild_exit": 0
+      },
+      "nginx_config_test": {
+        "canonical_exit": 0,
+        "output_equal": true,
+        "output_sha256": "4a6b36d2ee2a6bc83ea6e4494eb86e8ca24f6914066e7f9ea6924c98be767c11",
+        "rebuild_exit": 0
+      },
+      "status": "PASS_MINIMAL_RUNTIME_EQUIVALENCE"
+    },
+    "migration-runner": {
+      "alembic_help": {
+        "canonical_exit": 0,
+        "output_equal": true,
+        "output_sha256": "e7eabdcb2eca64865c17e7ff70a2e49c8253f9e6e5ebbfd55f4a8763c5db96a0",
+        "rebuild_exit": 0
+      },
+      "status": "LIMITED_ENTRYPOINT_EQUIVALENCE",
+      "upgrade_path_blocker": "Running the default `alembic upgrade head` requires a task-owned database and was not included in this bounded smoke."
+    }
+  },
+  "schema": "mrw.stage3.difference-domain-runtime-equivalence.r13p.v1",
+  "source_artifacts": {
+    "candidate_commit": "3669d4ddc19fb722058976b4e1f05e99eccfe96e",
+    "platform": "linux/arm64",
+    "reuse_basis": "Exact Git-tree equality for main/backend, src, and main/frontend-modern between r13o and r13p."
+  }
+}

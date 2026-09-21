@@ -1,0 +1,63 @@
+{
+  "builders": {
+    "candidate": "mrw-r13v-amd64-candidate-16010-1789211064",
+    "replay": "mrw-r13v-amd64-replay-16010-1789211064"
+  },
+  "buildkit_image": "moby/buildkit@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8",
+  "buildx_version": {
+    "argv": [
+      "docker",
+      "buildx",
+      "version"
+    ],
+    "cwd": null,
+    "exit_code": 0,
+    "output": "github.com/docker/buildx v0.31.1-desktop.1 3d153e82f8d99923062781d390607dabe1679613\n"
+  },
+  "disk_strategy": "One role at a time; two independent task-owned builders are recreated using the same unique names per role, then removed with their caches. Temporary OCI archives are removed after inspection and Trivy scanning.",
+  "docker_version": {
+    "argv": [
+      "docker",
+      "version"
+    ],
+    "cwd": null,
+    "exit_code": 0,
+    "output": "Client:\n Version:           29.2.1\n API version:       1.53\n Go version:        go1.25.6\n Git commit:        a5c7197\n Built:             Mon Feb  2 17:16:37 2026\n OS/Arch:           darwin/arm64\n Context:           desktop-linux\n\nServer: Docker Desktop 4.63.0 (220185)\n Engine:\n  Version:          29.2.1\n  API version:      1.53 (minimum version 1.44)\n  Go version:       go1.25.6\n  Git commit:       6bc6209\n  Built:            Mon Feb  2 17:16:47 2026\n  OS/Arch:          linux/arm64\n  Experimental:     false\n containerd:\n  Version:          v2.2.1\n  GitCommit:        dea7da592f5d1d2b7755e3a161be07f43fad8f75\n runc:\n  Version:          1.3.4\n  GitCommit:        v1.3.4-0-gd6d73eb8\n docker-init:\n  Version:          0.19.0\n  GitCommit:        de40ad0\n"
+  },
+  "free_bytes_before": 8376524800,
+  "minimum_build_start_free_bytes": 4294967296,
+  "preexisting_builders": {
+    "argv": [
+      "docker",
+      "buildx",
+      "ls"
+    ],
+    "cwd": null,
+    "exit_code": 0,
+    "output": "NAME/NODE                        DRIVER/ENDPOINT     STATUS     BUILDKIT   PLATFORMS\nmrw-stageconv-ytn-testimg        docker-container                          \n \\_ mrw-stageconv-ytn-testimg0    \\_ desktop-linux   inactive              \ndefault                          docker                                    \n \\_ default                       \\_ default         running    v0.27.1    linux/amd64 (+2), linux/arm64, linux/ppc64le, linux/s390x, (2 more)\ndesktop-linux*                   docker                                    \n \\_ desktop-linux                 \\_ desktop-linux   running    v0.27.1    linux/amd64 (+2), linux/arm64, linux/ppc64le, linux/s390x, (2 more)\n"
+  },
+  "preexisting_containers": {
+    "argv": [
+      "docker",
+      "ps",
+      "-a",
+      "--format",
+      "{{.ID}}\t{{.Names}}\t{{.Status}}\t{{.Image}}"
+    ],
+    "cwd": null,
+    "exit_code": 0,
+    "output": "94d3ee03d0ba\tops-scrapyd-1\tUp 3 days (unhealthy)\tvimagick/scrapyd:latest\n"
+  },
+  "preservation": "No preexisting images, containers, volumes, builders, or caches are removed. No Docker prune is run.",
+  "schema": "mrw.stage3.r13v.backend-migration-amd64-environment.v1",
+  "started_epoch": 1789211064,
+  "trivy_version_before": {
+    "argv": [
+      "trivy",
+      "version"
+    ],
+    "cwd": null,
+    "exit_code": 0,
+    "output": "Version: 0.74.0\nVulnerability DB:\n  Version: 2\n  UpdatedAt: 2026-09-12 07:04:21.045373563 +0000 UTC\n  NextUpdate: 2026-09-13 07:04:21.045373293 +0000 UTC\n  DownloadedAt: 2026-09-12 10:25:48.000269 +0000 UTC\n"
+  }
+}

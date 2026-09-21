@@ -3,7 +3,12 @@ from __future__ import annotations
 import dataclasses
 import hashlib
 import json
+import shutil
+import subprocess
+import sys
+from contextlib import contextmanager
 from pathlib import Path
+from typing import Iterator
 
 import pytest
 
@@ -13,6 +18,10 @@ from app.successor_runtime.substrate.postgres.source_library_c2_1_canary import 
 )
 
 from . import test_p2_c2_1_canary_postgres as canary
+from .current_candidate_support import (
+    assert_b16_predecessor,
+    assert_current_binding,
+)
 
 pytestmark = pytest.mark.unit
 
@@ -26,6 +35,15 @@ _PACKET_V2 = _PACKET_V1.with_name("P2C21CapabilityPacket.v2.json")
 _PACKET_V3 = _PACKET_V1.with_name("P2C21CapabilityPacket.v3.json")
 _PACKET_V4 = _PACKET_V1.with_name("P2C21CapabilityPacket.v4.json")
 _PACKET = _PACKET_V1.with_name("P2C21CapabilityPacket.v5.json")
+_PREDECESSOR_BINDING_PATH = (
+    "main/backend/app/successor_runtime/capabilities/source_library_c2_shared.py"
+)
+_EXACT_REBIND_ROOT = (
+    _REPOSITORY_ROOT
+    / "development/latest-dev-docs/development-plans/CURRENT_DEV"
+    / "2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind"
+)
+_TEMP_B18_STAGE = "stage-b18-2099-01-01"
 
 
 def _canonical_digest(value: object) -> str:
@@ -39,20 +57,93 @@ def _canonical_digest(value: object) -> str:
     ).hexdigest()
 
 
+@contextmanager
+def _temporary_b18_candidate() -> Iterator[Path]:
+    stage_dir = _EXACT_REBIND_ROOT / _TEMP_B18_STAGE
+    candidate_dir = stage_dir / "candidates/I1"
+    if stage_dir.exists() or stage_dir.is_symlink():
+        raise AssertionError(f"temporary B18 stage already exists: {stage_dir}")
+    try:
+        subprocess.run(
+            [
+                sys.executable,
+                str(_REPOSITORY_ROOT / "scripts/generate_stage0_i1_exact_binding_rebind.py"),
+                "--stage",
+                _TEMP_B18_STAGE,
+                "--write",
+            ],
+            cwd=_REPOSITORY_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        subprocess.run(
+            [
+                sys.executable,
+                str(_REPOSITORY_ROOT / "scripts/stage_family_fragment_rebind.py"),
+                "stage",
+                "--manifest",
+                str(stage_dir / "manifests/I1.json"),
+                "--output-dir",
+                str(candidate_dir),
+            ],
+            cwd=_REPOSITORY_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        yield candidate_dir / "candidate.v2.json"
+    except subprocess.CalledProcessError as exc:
+        raise AssertionError(exc.stderr or exc.stdout) from exc
+    finally:
+        shutil.rmtree(stage_dir, ignore_errors=True)
+
+
 def test_packet_content_and_source_bindings_are_exact() -> None:
     packet = json.loads(_PACKET.read_bytes())
     claimed = packet.pop("content_digest")
     assert claimed == _canonical_digest(packet)
     assert packet["status"] == "FROZEN_LOCAL_ONLY_PROMOTED_NOT_LIVE_V5"
 
-    for binding in packet["source_bindings"]:
-        data = (_REPOSITORY_ROOT / binding["path"]).read_bytes()
-        assert binding == {
-            "path": binding["path"],
-            "sha256": hashlib.sha256(data).hexdigest(),
-            "bytes": len(data),
-            "lines": len(data.splitlines()),
-        }
+    with _temporary_b18_candidate() as candidate_path:
+        candidate = json.loads(candidate_path.read_text(encoding="utf-8"))
+        assert candidate["status"] == "CANDIDATE_VALID_NOT_AUTHORITY"
+        assert_b16_predecessor(_REPOSITORY_ROOT, candidate, "I1")
+        candidate_binding = None
+        for group_name in ("sources", "implementation_bindings"):
+            for binding in candidate.get(group_name, []):
+                if binding["path"] == _PREDECESSOR_BINDING_PATH:
+                    candidate_binding = binding
+                    break
+            if candidate_binding is not None:
+                break
+        assert candidate_binding is not None
+
+        for binding in packet["source_bindings"]:
+            data = (_REPOSITORY_ROOT / binding["path"]).read_bytes()
+            live = {
+                "path": binding["path"],
+                "sha256": hashlib.sha256(data).hexdigest(),
+                "bytes": len(data),
+                "lines": len(data.splitlines()),
+            }
+            if binding["path"] == _PREDECESSOR_BINDING_PATH:
+                assert live["sha256"] != binding["sha256"]
+                assert candidate_binding["path"] == binding["path"]
+                assert candidate_binding["file_sha256"] == live["sha256"]
+                assert candidate_binding["bytes"] == live["bytes"]
+                snapshot = candidate_path.parent / candidate_binding["snapshot_path"]
+                assert snapshot.read_bytes() == data
+            else:
+                if binding == live:
+                    continue
+                assert_current_binding(
+                    _REPOSITORY_ROOT,
+                    candidate_path,
+                    candidate,
+                    binding["path"],
+                    binding["sha256"],
+                )
 
 
 def test_v2_additively_supersedes_immutable_v1_packet() -> None:

@@ -257,6 +257,7 @@ class AgentBatchLoopUnitTest(unittest.TestCase):
         self.assertEqual(source_keys, ["ai_terminal.weekly", "robotics.market_watch"])
         for source_task in [x for x in tasks if str(x.get("channel") or "") == "source_library"]:
             self.assertEqual(source_task["query_terms"], ["智能终端 商业产品 公司"])
+            self.assertEqual(source_task["max_items"], 10)
 
     def test_nl_command_autonomous_source_prefers_site_constrained_items(self):
         payload = agent_batch_api.AgentBatchNlCommandRequest(
@@ -651,6 +652,34 @@ class AgentBatchLoopUnitTest(unittest.TestCase):
         self.assertEqual(source_tasks[0]["query_terms"], ["embodied ai robotics commercialization companies product latest news"])
         self.assertIsNone(source_tasks[0]["source_mode"])
         self.assertTrue(str(submit_calls[1]["idempotency_key"]).endswith(":retry:2"))
+
+    def test_retry_attach_source_library_inherits_query_terms_and_target_count_when_omitted(self):
+        agent_loop = __import__("app.services.agent_batch.agent_loop", fromlist=["_apply_retry_action"])
+        retried = agent_loop._apply_retry_action(
+            tasks=[
+                {
+                    "channel": "search.market",
+                    "query_terms": ["ai terminal products companies"],
+                    "max_items": 8,
+                    "provider": "auto",
+                    "language": "en",
+                }
+            ],
+            retry_action={
+                "action": "attach_source_library",
+                "channel": "source_library",
+                "rewrite": {"item_key": "ai_terminal.weekly"},
+            },
+            command="search ai terminal products companies top 8",
+        )
+
+        self.assertEqual(len(retried), 2)
+        source_task = retried[1]
+        self.assertEqual(source_task["channel"], "source_library")
+        self.assertEqual(source_task["item_key"], "ai_terminal.weekly")
+        self.assertEqual(source_task["query_terms"], ["ai terminal products companies"])
+        self.assertEqual(source_task["max_items"], 8)
+        self.assertIsNone(source_task["source_mode"])
 
     def test_loop_skips_retry_when_critic_recommends_stop(self):
         submit_calls: list[dict[str, object]] = []

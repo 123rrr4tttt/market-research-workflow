@@ -110,6 +110,10 @@ class AgentBatchSearchQualityReplayUnitTest(unittest.TestCase):
 
         signals = build_source_quality_signals(search_brief=_brief(), records=_retry_records())
         self.assertEqual(len(signals), 2)
+        self.assertTrue(all(signal.authoritative is False for signal in signals))
+        self.assertTrue(all(signal.reverse_write is False for signal in signals))
+        self.assertTrue(all(signal.fact_source for signal in signals))
+        self.assertTrue(all(signal.derived_as == "view" for signal in signals))
         self.assertEqual(signals[0]["provider_trace_state"], "deterministic_replay")
         self.assertFalse(signals[0]["provider_live_verified"])
         self.assertEqual(signals[0]["source_library_item_key"], "robotics.market_watch")

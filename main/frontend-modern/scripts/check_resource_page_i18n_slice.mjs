@@ -48,6 +48,20 @@ const retiredPageSnippets = [
   'search handler or item',
   'preferred_execution_modes:',
   'View registration_context',
+  '`enabled:${String(payload.enabled)}`',
+  '`managed_by:${compactValue',
+  '`item_type:${compactValue',
+  '`capability:${capabilitySummary}`',
+  '`mode:${compactValue',
+  '`source_mode:${compactValue',
+  '`entry_type:${compactValue',
+  '`expected:${compactValue',
+  '`urls:${urls.length}`',
+  '`routes:${compactValue',
+  '`preview:${compactValue',
+  'lifecycle:{state}',
+  'review:{reviewState}',
+  'source_ref:{reportSourceRef',
 ]
 
 function readFile(relPath) {
@@ -114,6 +128,12 @@ if (!pageSource.includes("import { translate, useAppLocale, type MessageKey } fr
 }
 if (!pageSource.includes('formatResourceTemplate(')) {
   failures.push('ResourcePage must format runtime messages through catalog template data')
+}
+if (!pageSource.includes('resourcePage.fact.managedBy') || !pageSource.includes('resourcePage.fact.actionState')) {
+  failures.push('ResourcePage must route source-library fact labels through resourcePage.fact catalog keys')
+}
+if (!pageSource.includes('resource-page__plan-detail-grid')) {
+  failures.push('ResourcePage plan detail grid must use a CSS class instead of inline grid template strings')
 }
 if (!businessAuditSource.includes('resourcePage')) {
   failures.push('business-string audit must recognize the resourcePage namespace')

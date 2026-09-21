@@ -5,17 +5,75 @@ import hashlib
 import json
 from importlib import import_module
 from threading import RLock
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Mapping, NoReturn
+
+from functorial_kit import Failure
 
 from app.services.agent_runtime import assert_no_write_conflict
 from app.services.agent_sessions import get_agent_session_service
 from app.settings.config import settings
 from app.services.agent_batch.task_contract import build_agent_batch_manifest_entry, list_agent_batch_dispatch_skill_bindings
+from mrw_functorial_kit.core.agent_service_semantics import agent_skill_runtime_failures
 
 
 SkillHandler = Callable[..., Any]
 _ALLOWED_ACTOR_ROLES = frozenset({"orchestration_runtime", "business_capability_wrapper", "user_facing_assistant"})
 _ALLOWED_CONCURRENCY_CLASSES = frozenset({"read_only", "write_shared", "write_external", "privileged"})
+_SKILL_FAILURE_WITNESS = "test:test_w02_skill_runtime_failure_lifts"
+_SKILL_FAILURE_CONTEXT_KEYS = frozenset(
+    {"operation", "public_exception", "public_message", "site", "witness"}
+)
+
+
+def _skill_failure(
+    code: str,
+    message: str,
+    *,
+    operation: str,
+    site: str,
+    public_exception: str,
+) -> Failure:
+    return agent_skill_runtime_failures.fail(
+        code,
+        message,
+        {
+            "operation": operation,
+            "public_exception": public_exception,
+            "public_message": message,
+            "site": site,
+            "witness": _SKILL_FAILURE_WITNESS,
+        },
+    )
+
+
+def _raise_skill_failure(
+    failure: Failure,
+    exception_type: type[Exception],
+    *,
+    cause: BaseException | None = None,
+) -> NoReturn:
+    context = failure.context or {}
+    if (
+        failure.family != agent_skill_runtime_failures.name
+        or _SKILL_FAILURE_CONTEXT_KEYS - set(context)
+        or context.get("public_exception") != exception_type.__name__
+    ):
+        # kit:boundary owner=skill_runtime.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w02_skill_runtime_failure_lifts
+        raise TypeError("skill failure lift context is incomplete")
+    if cause is None:
+        # kit:boundary owner=skill_runtime.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=agent.skill_runtime.failure witness=test:test_w02_skill_runtime_failure_lifts
+        raise exception_type(str(context["public_message"]))
+    # kit:boundary owner=skill_runtime.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=agent.skill_runtime.failure witness=test:test_w02_skill_runtime_failure_lifts
+    raise exception_type(str(context["public_message"])) from cause
+
+
+def _raise_skill_runtime_defect(
+    message: str,
+    exception_type: type[Exception] = RuntimeError,
+) -> NoReturn:
+    """Keep deployment wiring defects outside the closed invocation vocabulary."""
+    # kit:boundary owner=skill_runtime.bootstrap class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w02_skill_runtime_failure_lifts
+    raise exception_type(message)
 
 
 @dataclass(frozen=True)
@@ -82,9 +140,18 @@ class SkillRuntime:
     ) -> None:
         resolved_skill_id = str(skill_id or "").strip()
         if not resolved_skill_id:
-            raise ValueError("skill_id is required")
+            _raise_skill_failure(
+                _skill_failure(
+                    "skill_id_required",
+                    "skill_id is required",
+                    operation="register",
+                    site="skill_id",
+                    public_exception="ValueError",
+                ),
+                ValueError,
+            )
         if not callable(handler):
-            raise ValueError("handler must be callable")
+            _raise_skill_runtime_defect("handler must be callable", ValueError)
 
         normalized_roles = tuple(_normalize_actor_roles(allowed_actor_roles))
         normalized_permissions = tuple(_normalize_permissions(required_permissions))
@@ -116,12 +183,30 @@ class SkillRuntime:
         self._bootstrap()
         resolved_skill_id = str(skill_id or "").strip()
         if not resolved_skill_id:
-            raise ValueError("skill_id is required")
+            _raise_skill_failure(
+                _skill_failure(
+                    "skill_id_required",
+                    "skill_id is required",
+                    operation="invoke",
+                    site="skill_id",
+                    public_exception="ValueError",
+                ),
+                ValueError,
+            )
 
         with self._lock:
             spec = self._registry.get(resolved_skill_id)
         if spec is None:
-            raise KeyError(f"unknown skill: {resolved_skill_id}")
+            _raise_skill_failure(
+                _skill_failure(
+                    "skill_not_found",
+                    f"unknown skill: {resolved_skill_id}",
+                    operation="invoke",
+                    site="registry_lookup",
+                    public_exception="KeyError",
+                ),
+                KeyError,
+            )
 
         loop_guard_reason = _detect_skill_loop_guard(
             skill_id=resolved_skill_id,
@@ -131,7 +216,16 @@ class SkillRuntime:
             context=context,
         )
         if loop_guard_reason:
-            raise RuntimeError(loop_guard_reason)
+            _raise_skill_failure(
+                _skill_failure(
+                    "loop_detected",
+                    loop_guard_reason,
+                    operation="invoke",
+                    site="loop_guard",
+                    public_exception="RuntimeError",
+                ),
+                RuntimeError,
+            )
 
         actor_role = _resolve_actor_role(context)
         requested_permissions = _resolve_requested_permissions(context, spec.required_permissions)
@@ -142,8 +236,15 @@ class SkillRuntime:
         if missing_permissions:
             denied_reasons.append("missing_required_permissions")
         if denied_reasons:
-            raise PermissionError(
-                f"skill invoke denied: {resolved_skill_id} ({','.join(denied_reasons)})"
+            _raise_skill_failure(
+                _skill_failure(
+                    "invoke_denied",
+                    f"skill invoke denied: {resolved_skill_id} ({','.join(denied_reasons)})",
+                    operation="invoke",
+                    site="authorization",
+                    public_exception="PermissionError",
+                ),
+                PermissionError,
             )
 
         approval_request = _enforce_runtime_policies(
@@ -189,20 +290,20 @@ class SkillRuntime:
         runtime = getattr(module, "runtime", None)
         curated = getattr(module, "curated", None)
         if compiler is None or runtime is None or curated is None:
-            raise RuntimeError("workflow_graph services unavailable for skill bootstrap")
+            _raise_skill_runtime_defect("workflow_graph services unavailable for skill bootstrap")
         workflow_llm_module = import_module("app.services.workflow_graph.executors.llm_call")
         workflow_llm_handler = getattr(workflow_llm_module, "invoke_workflow_llm_call_skill", None)
         if workflow_llm_handler is None:
-            raise RuntimeError("workflow llm_call executor unavailable for skill bootstrap")
+            _raise_skill_runtime_defect("workflow llm_call executor unavailable for skill bootstrap")
         ingest_api_module = import_module("app.api.ingest")
         ingest_dispatch_market = getattr(ingest_api_module, "_skill_dispatch_ingest_market_collect", None)
         ingest_dispatch_source = getattr(ingest_api_module, "_skill_dispatch_ingest_source_library_item", None)
         if ingest_dispatch_market is None or ingest_dispatch_source is None:
-            raise RuntimeError("ingest dispatch skills unavailable for skill bootstrap")
+            _raise_skill_runtime_defect("ingest dispatch skills unavailable for skill bootstrap")
         agent_batch_api_module = import_module("app.api.agent_batch")
         dispatch_bindings = list_agent_batch_dispatch_skill_bindings()
         if not dispatch_bindings:
-            raise RuntimeError("agent batch dispatch skill bindings unavailable for skill bootstrap")
+            _raise_skill_runtime_defect("agent batch dispatch skill bindings unavailable for skill bootstrap")
 
         self.register(
             skill_id="workflow_graph.compile",
@@ -394,10 +495,12 @@ class SkillRuntime:
             required_permission = str(binding.get("required_permission") or "").strip()
             handler_export = str(binding.get("handler_export") or "").strip()
             if not channel or not skill_id or not required_permission or not handler_export:
-                raise RuntimeError("agent batch dispatch skill binding is incomplete")
+                _raise_skill_runtime_defect("agent batch dispatch skill binding is incomplete")
             handler = getattr(agent_batch_api_module, handler_export, None)
             if handler is None:
-                raise RuntimeError(f"agent batch dispatch handler unavailable for channel={channel}: {handler_export}")
+                _raise_skill_runtime_defect(
+                    f"agent batch dispatch handler unavailable for channel={channel}: {handler_export}"
+                )
             self.register(
                 skill_id=skill_id,
                 handler=handler,
@@ -418,7 +521,16 @@ def _normalize_actor_roles(values: tuple[str, ...] | list[str] | set[str]) -> li
         if not candidate:
             continue
         if candidate not in _ALLOWED_ACTOR_ROLES:
-            raise ValueError(f"unsupported actor_role: {candidate}")
+            _raise_skill_failure(
+                _skill_failure(
+                    "actor_role_invalid",
+                    f"unsupported actor_role: {candidate}",
+                    operation="normalize_actor_roles",
+                    site="allowed_actor_roles",
+                    public_exception="ValueError",
+                ),
+                ValueError,
+            )
         if candidate not in out:
             out.append(candidate)
     if not out:
@@ -441,7 +553,10 @@ def _normalize_agent_batch_task_manifest(value: Mapping[str, Any] | None) -> dic
     entry = dict(value)
     channel = str(entry.get("channel") or "").strip().lower()
     if not channel:
-        raise ValueError("agent_batch_task_manifest.channel is required")
+        _raise_skill_runtime_defect(
+            "agent_batch_task_manifest.channel is required",
+            ValueError,
+        )
     entry["channel"] = channel
     return entry
 
@@ -449,7 +564,10 @@ def _normalize_agent_batch_task_manifest(value: Mapping[str, Any] | None) -> dic
 def _normalize_concurrency_class(value: str | None) -> str:
     candidate = str(value or "read_only").strip().lower() or "read_only"
     if candidate not in _ALLOWED_CONCURRENCY_CLASSES:
-        raise ValueError(f"unsupported concurrency_class: {candidate}")
+        _raise_skill_runtime_defect(
+            f"unsupported concurrency_class: {candidate}",
+            ValueError,
+        )
     return candidate
 
 
@@ -462,7 +580,16 @@ def _normalize_contract_dict(value: Mapping[str, Any] | None) -> dict[str, Any] 
 def _resolve_actor_role(context: Mapping[str, Any] | None) -> str:
     actor_role = str((context or {}).get("actor_role") or "orchestration_runtime").strip()
     if actor_role not in _ALLOWED_ACTOR_ROLES:
-        raise PermissionError(f"unsupported actor_role: {actor_role}")
+        _raise_skill_failure(
+            _skill_failure(
+                "actor_role_invalid",
+                f"unsupported actor_role: {actor_role}",
+                operation="resolve_actor_role",
+                site="context.actor_role",
+                public_exception="PermissionError",
+            ),
+            PermissionError,
+        )
     return actor_role
 
 
@@ -529,16 +656,24 @@ def _enforce_write_shared_policy(*, skill_id: str, context: Mapping[str, Any] | 
     task = service.store.get_task(session_id, task_id)
     tasks = service.store.list_tasks(session_id)
     write_set = _normalize_context_write_set((context or {}).get("write_set")) or _normalize_context_write_set(task.get("write_set"))
-    try:
-        assert_no_write_conflict(tasks, task_id, write_set)
-    except RuntimeError as exc:
+    conflict = assert_no_write_conflict(tasks, task_id, write_set)
+    if conflict is not None:
         service.store.append_event(
             session_id,
             event_type="skill.write_conflict",
             task_id=task_id,
             payload={"skill_id": skill_id, "write_set": write_set},
         )
-        raise RuntimeError(f"skill invoke denied: {skill_id} (write_set_conflict)") from exc
+        _raise_skill_failure(
+            _skill_failure(
+                "write_set_conflict",
+                f"skill invoke denied: {skill_id} (write_set_conflict)",
+                operation="enforce_write_shared_policy",
+                site="write_set",
+                public_exception="RuntimeError",
+            ),
+            RuntimeError,
+        )
 
 
 def _enforce_runtime_policies(
@@ -563,7 +698,16 @@ def _enforce_runtime_policies(
 
     session_id, task_id = _resolve_agent_session_context(context)
     if not session_id or not task_id:
-        raise PermissionError(f"skill invoke denied: {skill_id} (approval_context_required)")
+        _raise_skill_failure(
+            _skill_failure(
+                "approval_context_required",
+                f"skill invoke denied: {skill_id} (approval_context_required)",
+                operation="enforce_runtime_policies",
+                site="approval_context",
+                public_exception="PermissionError",
+            ),
+            PermissionError,
+        )
 
     service = get_agent_session_service()
     binding_payload = _build_approval_binding(
@@ -588,8 +732,15 @@ def _enforce_runtime_policies(
             "force_approval": True,
         },
     )
-    raise PermissionError(
-        f"skill invoke denied: {skill_id} (approval_required:{approval['approval_id']})"
+    _raise_skill_failure(
+        _skill_failure(
+            "approval_required",
+            f"skill invoke denied: {skill_id} (approval_required:{approval['approval_id']})",
+            operation="enforce_runtime_policies",
+            site="approval",
+            public_exception="PermissionError",
+        ),
+        PermissionError,
     )
 
 

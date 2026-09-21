@@ -13,12 +13,18 @@ from app.services.workflow_graph.governance_contract import (
     build_graph_edit_audit_record,
     build_graph_rollback_contract,
 )
+from app.services.workflow_graph.contracts import raise_workflow_graph_legacy, workflow_graph_failure
 
 CONFIG_KEY = "workflow_graph_curated_v1"
 CONFIG_TYPE = "workflow_graph_curated"
 EVIDENCE_PACK_CONTRACT_VERSION = "graph_evidence_pack.v1"
 HANDOFF_CONTRACT_VERSION = "graph_handoff.v1"
 HANDOFF_PRODUCER = "workflow_graph.backend_bridge"
+
+
+def _raise_curated_failure(code: str, message: str, *, exception_type: type[Exception] = ValueError) -> None:
+    failure = workflow_graph_failure(code, message, owner="workflow_graph.curated_service", public_exception=exception_type, public_message=message, field="curated", index=-1)
+    raise_workflow_graph_legacy(failure, exception_type=exception_type)
 
 
 class WorkflowGraphSyncConflictError(ValueError):
@@ -45,7 +51,7 @@ class WorkflowGraphCuratedService:
         state = self._load_state()
         graph = state["graphs"].get(gid)
         if graph is None:
-            raise WorkflowGraphObjectMissingError(f"curated graph not found: {gid}")
+            _raise_curated_failure("object_not_found", f"curated graph not found: {gid}", exception_type=WorkflowGraphObjectMissingError)
         return {
             "graph_id": gid,
             "revision": int(graph.get("revision") or 0),
@@ -61,7 +67,7 @@ class WorkflowGraphCuratedService:
         gid = _normalize_graph_id(graph_id)
         dsl = payload.get("dsl")
         if not isinstance(dsl, Mapping):
-            raise ValueError("dsl is required and must be a mapping")
+            _raise_curated_failure("contract_invalid", "dsl is required and must be a mapping")
         parse_graph_edit_draft_contract(dsl, object_kind="template_graph")
         base_revision = _read_optional_int(payload, "base_revision")
         actor_id = str(payload.get("actor_id") or payload.get("user_id") or "").strip() or "unknown"
@@ -72,7 +78,9 @@ class WorkflowGraphCuratedService:
             graph = self._ensure_graph(state, gid)
             current_revision = int(graph.get("revision") or 0)
             if base_revision is not None and base_revision != current_revision:
-                raise WorkflowGraphSyncConflictError(expected_revision=base_revision, actual_revision=current_revision)
+                message = f"conflict: revision mismatch expected={base_revision} actual={current_revision}"
+                failure = workflow_graph_failure("revision_conflict", message, owner="workflow_graph.curated_service", public_exception=WorkflowGraphSyncConflictError, public_message=message, field="base_revision", index=-1, expected_revision=base_revision, actual_revision=current_revision)
+                raise_workflow_graph_legacy(failure, exception_type=WorkflowGraphSyncConflictError, exception_kwargs={"expected_revision": base_revision, "actual_revision": current_revision})
             graph["draft"] = {
                 "dsl": dict(dsl),
                 "updated_at": now,
@@ -105,19 +113,21 @@ class WorkflowGraphCuratedService:
         def _mutator(state: dict[str, Any]) -> dict[str, Any]:
             graph = state["graphs"].get(gid)
             if graph is None:
-                raise WorkflowGraphObjectMissingError(f"curated graph not found: {gid}")
+                _raise_curated_failure("object_not_found", f"curated graph not found: {gid}", exception_type=WorkflowGraphObjectMissingError)
             current_revision = int(graph.get("revision") or 0)
             if base_revision is not None and base_revision != current_revision:
-                raise WorkflowGraphSyncConflictError(expected_revision=base_revision, actual_revision=current_revision)
+                message = f"conflict: revision mismatch expected={base_revision} actual={current_revision}"
+                failure = workflow_graph_failure("revision_conflict", message, owner="workflow_graph.curated_service", public_exception=WorkflowGraphSyncConflictError, public_message=message, field="base_revision", index=-1, expected_revision=base_revision, actual_revision=current_revision)
+                raise_workflow_graph_legacy(failure, exception_type=WorkflowGraphSyncConflictError, exception_kwargs={"expected_revision": base_revision, "actual_revision": current_revision})
             draft = graph.get("draft")
             if not isinstance(draft, Mapping) or not isinstance(draft.get("dsl"), Mapping):
-                raise ValueError("draft missing: save draft before submit")
+                _raise_curated_failure("contract_invalid", "draft missing: save draft before submit")
             # Submit path enforces curated-business constraints; temporary ids must be resolved.
             parse_graph_edit_draft_contract(draft["dsl"], object_kind="curated_business_graph")
             new_revision = current_revision + 1
             version_id = explicit_version_id or f"cver_{new_revision}_{uuid4().hex[:8]}"
             if version_id in graph["versions"]:
-                raise ValueError(f"version already exists: {version_id}")
+                _raise_curated_failure("contract_invalid", f"version already exists: {version_id}")
             audit_id = f"audit_{uuid4().hex[:12]}"
             audit_record = build_graph_edit_audit_record(
                 audit_id=audit_id,
@@ -175,7 +185,7 @@ class WorkflowGraphCuratedService:
         state = self._load_state()
         graph = state["graphs"].get(gid)
         if graph is None:
-            raise WorkflowGraphObjectMissingError(f"curated graph not found: {gid}")
+            _raise_curated_failure("object_not_found", f"curated graph not found: {gid}", exception_type=WorkflowGraphObjectMissingError)
         current_revision = int(graph.get("revision") or 0)
         if since_revision is None:
             sync_status = "snapshot"
@@ -201,7 +211,7 @@ class WorkflowGraphCuratedService:
         gid = _normalize_graph_id(graph_id)
         target_version_id = str(payload.get("target_version_id") or "").strip()
         if not target_version_id:
-            raise ValueError("target_version_id is required")
+            _raise_curated_failure("contract_invalid", "target_version_id is required")
         base_revision = _read_optional_int(payload, "base_revision")
         actor_id = str(payload.get("actor_id") or payload.get("user_id") or "").strip() or "unknown"
         now = _utcnow()
@@ -209,13 +219,15 @@ class WorkflowGraphCuratedService:
         def _mutator(state: dict[str, Any]) -> dict[str, Any]:
             graph = state["graphs"].get(gid)
             if graph is None:
-                raise WorkflowGraphObjectMissingError(f"curated graph not found: {gid}")
+                _raise_curated_failure("object_not_found", f"curated graph not found: {gid}", exception_type=WorkflowGraphObjectMissingError)
             current_revision = int(graph.get("revision") or 0)
             if base_revision is not None and base_revision != current_revision:
-                raise WorkflowGraphSyncConflictError(expected_revision=base_revision, actual_revision=current_revision)
+                message = f"conflict: revision mismatch expected={base_revision} actual={current_revision}"
+                failure = workflow_graph_failure("revision_conflict", message, owner="workflow_graph.curated_service", public_exception=WorkflowGraphSyncConflictError, public_message=message, field="base_revision", index=-1, expected_revision=base_revision, actual_revision=current_revision)
+                raise_workflow_graph_legacy(failure, exception_type=WorkflowGraphSyncConflictError, exception_kwargs={"expected_revision": base_revision, "actual_revision": current_revision})
             target = graph["versions"].get(target_version_id)
             if not isinstance(target, Mapping):
-                raise WorkflowGraphObjectMissingError(f"version not found: {target_version_id}")
+                _raise_curated_failure("object_not_found", f"version not found: {target_version_id}", exception_type=WorkflowGraphObjectMissingError)
 
             new_revision = current_revision + 1
             rollback_version_id = f"cver_{new_revision}_{uuid4().hex[:8]}"
@@ -294,7 +306,7 @@ class WorkflowGraphCuratedService:
         state = self._load_state()
         graph = state["graphs"].get(gid)
         if graph is None:
-            raise WorkflowGraphObjectMissingError(f"curated graph not found: {gid}")
+            _raise_curated_failure("object_not_found", f"curated graph not found: {gid}", exception_type=WorkflowGraphObjectMissingError)
         safe_limit = max(1, min(int(limit or 50), 200))
         audits = list(graph.get("audits") or [])
         audits = audits[-safe_limit:]
@@ -313,23 +325,23 @@ class WorkflowGraphCuratedService:
         state = self._load_state()
         graph = state["graphs"].get(gid)
         if graph is None:
-            raise WorkflowGraphObjectMissingError(f"curated graph not found: {gid}")
+            _raise_curated_failure("object_not_found", f"curated graph not found: {gid}", exception_type=WorkflowGraphObjectMissingError)
 
         version = None
         if version_id:
             version = graph["versions"].get(version_id)
             if not isinstance(version, Mapping):
-                raise WorkflowGraphObjectMissingError(f"version not found: {version_id}")
+                _raise_curated_failure("object_not_found", f"version not found: {version_id}", exception_type=WorkflowGraphObjectMissingError)
         if version is None:
             current = graph.get("current")
             if not isinstance(current, Mapping):
-                raise ValueError("current graph snapshot missing: submit draft first")
+                _raise_curated_failure("contract_invalid", "current graph snapshot missing: submit draft first")
             version = current
             version_id = str(current.get("version_id") or "").strip() or None
 
         dsl = version.get("dsl")
         if not isinstance(dsl, Mapping):
-            raise ValueError("graph version dsl missing")
+            _raise_curated_failure("contract_invalid", "graph version dsl missing")
         parse_graph_edit_draft_contract(dsl, object_kind="curated_business_graph")
         nodes_raw = dsl.get("nodes") if isinstance(dsl.get("nodes"), list) else []
         edges_raw = dsl.get("edges") if isinstance(dsl.get("edges"), list) else []
@@ -396,7 +408,7 @@ class WorkflowGraphCuratedService:
     def build_reporting_handoff(self, graph_id: str, payload: Mapping[str, Any]) -> dict[str, Any]:
         topic = str(payload.get("topic") or "").strip()
         if not topic:
-            raise ValueError("topic is required")
+            _raise_curated_failure("contract_invalid", "topic is required")
         evidence_pack = self.build_evidence_pack(graph_id, payload)
         sources: list[dict[str, Any]] = []
         for node in evidence_pack["selected_nodes"]:
@@ -437,7 +449,7 @@ class WorkflowGraphCuratedService:
     def build_writing_handoff(self, graph_id: str, payload: Mapping[str, Any]) -> dict[str, Any]:
         query = str(payload.get("query") or payload.get("topic") or "").strip()
         if not query:
-            raise ValueError("query is required")
+            _raise_curated_failure("contract_invalid", "query is required")
         evidence_pack = self.build_evidence_pack(graph_id, payload)
         return {
             "contract_version": HANDOFF_CONTRACT_VERSION,
@@ -477,7 +489,7 @@ class WorkflowGraphCuratedService:
         state = self._load_state()
         current = int(state["base_version"])
         if base_version is not None and base_version != current:
-            raise ValueError(f"conflict: base_version mismatch expected={base_version} actual={current}")
+            _raise_curated_failure("revision_conflict", f"conflict: base_version mismatch expected={base_version} actual={current}")
         updated = mutator(deepcopy(state))
         updated["base_version"] = current + 1
         return self._save_state(updated)
@@ -588,9 +600,9 @@ def _read_optional_int(payload: Mapping[str, Any], field: str) -> int | None:
     try:
         value = int(raw)
     except Exception as exc:  # noqa: BLE001
-        raise ValueError(f"{field} must be an integer") from exc
+        _raise_curated_failure("contract_invalid", f"{field} must be an integer")
     if value < 0:
-        raise ValueError(f"{field} must be >= 0")
+        _raise_curated_failure("contract_invalid", f"{field} must be >= 0")
     return value
 
 
@@ -653,7 +665,7 @@ def _safe_float(value: Any) -> float | None:
 def _normalize_graph_id(value: Any) -> str:
     gid = str(value or "").strip()
     if not gid:
-        raise ValueError("graph_id is required")
+        _raise_curated_failure("contract_invalid", "graph_id is required")
     return gid
 
 

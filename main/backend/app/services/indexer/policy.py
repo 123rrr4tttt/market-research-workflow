@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import logging
 import os
-from typing import Iterable, List, Sequence
+from typing import Iterable, List, NoReturn, Sequence
 from urllib.parse import urlparse
 
 from elasticsearch import Elasticsearch
@@ -18,6 +18,8 @@ from ..search.es_client import get_es_client
 from ..job_logger import start_job, complete_job, fail_job
 from ..projects import current_project_key
 from ..document_views import get_extracted_data
+from mrw_functorial_kit.core.provider_port_failures import indexer_policy_failures
+from functorial_kit import Failure
 
 
 _CHUNK_SIZE = 800
@@ -89,7 +91,20 @@ def _build_vector_contract_payload(document: Document, clean_text: str) -> dict:
     return payload
 
 
-def _validate_vector_contract_payload(payload: dict) -> None:
+def _indexer_failure(code: str, message: str, *, site: str) -> Failure:
+    return indexer_policy_failures.fail(
+        code,
+        message,
+        {"operation": "index_policy_documents", "site": site},
+    )
+
+
+def _raise_indexer_failure(failure: Failure, exception_type: type[Exception] = ValueError) -> NoReturn:
+    # kit:boundary owner=indexer.policy.contract_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=indexer.policy.failure witness=test:test_w03_indexer_contract_failures
+    raise exception_type(failure.message)
+
+
+def _validate_vector_contract_payload(payload: dict) -> Failure | None:
     missing: list[str] = []
     for field in _REQUIRED_VECTOR_FIELDS:
         value = payload.get(field)
@@ -104,14 +119,30 @@ def _validate_vector_contract_payload(payload: dict) -> None:
         if value is None:
             missing.append(field)
     if missing:
-        raise ValueError(f"vector_contract_missing_fields: {','.join(sorted(set(missing)))}")
+        return _indexer_failure(
+            "vector_contract_missing_fields",
+            f"vector_contract_missing_fields: {','.join(sorted(set(missing)))}",
+            site="vector_contract.required_fields",
+        )
     if payload.get("keep_for_vectorization") is not True:
-        raise ValueError("vector_contract_keep_for_vectorization_false")
+        return _indexer_failure(
+            "vector_contract_not_vectorizable",
+            "vector_contract_keep_for_vectorization_false",
+            site="vector_contract.keep_for_vectorization",
+        )
+    return None
 
 
 def index_policy_documents(document_ids: Sequence[int] | None = None, state: str | None = None) -> dict:
     if not settings.openai_api_key:
-        raise RuntimeError("OPENAI_API_KEY 未配置，无法生成嵌入")
+        _raise_indexer_failure(
+            _indexer_failure(
+                "embedding_provider_not_configured",
+                "OPENAI_API_KEY 未配置，无法生成嵌入",
+                site="embedding_provider.configuration",
+            ),
+            RuntimeError,
+        )
 
     job_params = {}
     if document_ids:
@@ -170,7 +201,9 @@ def index_policy_documents(document_ids: Sequence[int] | None = None, state: str
             qdrant_collection = os.environ.get("QDRANT_COLLECTION", "policy_chunks")
             for chunk, vector in zip(chunks, vectors):
                 vector_contract = _build_vector_contract_payload(chunk.document, chunk.text)
-                _validate_vector_contract_payload(vector_contract)
+                vector_contract_failure = _validate_vector_contract_payload(vector_contract)
+                if vector_contract_failure is not None:
+                    _raise_indexer_failure(vector_contract_failure)
                 embedding_row = Embedding(
                     object_id=chunk.document.id,
                     object_type=_EMBEDDING_OBJECT_TYPE,
@@ -242,6 +275,7 @@ def index_policy_documents(document_ids: Sequence[int] | None = None, state: str
         except Exception as exc:  # noqa: BLE001
             session.rollback()
             fail_job(job_id, str(exc))
+            # kit:boundary owner=indexer.policy.execution class=SHELL_BOUNDARY_EXCEPTION failure_family=indexer.policy.failure witness=test:test_w03_effect_boundaries
             raise
 
         if es_actions:

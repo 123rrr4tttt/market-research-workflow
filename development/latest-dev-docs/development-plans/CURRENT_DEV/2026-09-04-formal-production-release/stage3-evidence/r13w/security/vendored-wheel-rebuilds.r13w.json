@@ -1,0 +1,25 @@
+{
+  "authority": "SCOPED_REBUILD_VERIFICATION_NOT_RELEASE_AUTHORITY",
+  "schema": "mrw.vendored-wheel-rebuild-verification.v1",
+  "status": "PASS",
+  "wheels": {
+    "functorial-kit": {
+      "build_count": 2,
+      "byte_identical": true,
+      "rebuild_sha256": [
+        "4c5d72393d10d76ecec197e2e6b09961f73a6776fc48d709dee2d2e185fdee6d",
+        "4c5d72393d10d76ecec197e2e6b09961f73a6776fc48d709dee2d2e185fdee6d"
+      ],
+      "vendored_sha256": "4c5d72393d10d76ecec197e2e6b09961f73a6776fc48d709dee2d2e185fdee6d"
+    },
+    "psutil": {
+      "build_count": 2,
+      "byte_identical": true,
+      "rebuild_sha256": [
+        "b2d1a596bd6fc63c4ed3df506816a343e1f2cb9d6fb6d4d4f6c9d79595454032",
+        "b2d1a596bd6fc63c4ed3df506816a343e1f2cb9d6fb6d4d4f6c9d79595454032"
+      ],
+      "vendored_sha256": "b2d1a596bd6fc63c4ed3df506816a343e1f2cb9d6fb6d4d4f6c9d79595454032"
+    }
+  }
+}

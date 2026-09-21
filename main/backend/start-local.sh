@@ -13,6 +13,7 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 REPO_DIR="$(cd "$ROOT_DIR/.." && pwd)"
+export PYTHONPATH="$REPO_DIR/src${PYTHONPATH:+:$PYTHONPATH}"
 FRONTEND_DIR="$ROOT_DIR/frontend-modern"
 OPS_DIR="$(cd "$SCRIPT_DIR/../ops" && pwd)"
 ES_LOCAL_SCRIPT="$REPO_DIR/scripts/start-es-local.sh"
@@ -61,6 +62,7 @@ DEV_RELOAD="${DEV_RELOAD:-1}"
 USE_DOCKER_DEPS=0
 NON_INTERACTIVE=0
 FORCE=0
+BACKEND_ONLY=0
 WITH_LOCAL_WORKER=1
 AUTO_INSTALL_DEPS=1
 KEEP_DOCKER_DEPS=0
@@ -76,6 +78,7 @@ Options:
   --keep-docker-deps    纯本机模式下保留 Docker 依赖（默认会自动停止，避免模式混用）
   --non-interactive     非交互模式，端口冲突时直接失败退出
   --force               强制模式，端口冲突时自动处理并继续
+  --backend-only        仅启动后端；跳过本机前端和 Celery worker
   --with-local-worker   同时启动本机 Celery worker（默认已开启）
   --no-local-worker     不启动本机 Celery worker
   --no-auto-install     不自动安装缺失依赖（Homebrew/Node/PostgreSQL/Redis/pgvector）
@@ -108,6 +111,11 @@ while [ $# -gt 0 ]; do
         --force)
             FORCE=1
             NON_INTERACTIVE=1
+            shift
+            ;;
+        --backend-only)
+            BACKEND_ONLY=1
+            WITH_LOCAL_WORKER=0
             shift
             ;;
         --with-local-worker)
@@ -905,9 +913,11 @@ if lsof -Pi :8000 -sTCP:LISTEN -t >/dev/null; then
     fi
 fi
 
-ensure_node_available || true
-ensure_modern_frontend_running
-ensure_local_worker_running || exit 1
+if [ "$BACKEND_ONLY" != "1" ]; then
+    ensure_node_available || true
+    ensure_modern_frontend_running
+    ensure_local_worker_running || exit 1
+fi
 
 echo ""
 if [ "$DEV_RELOAD" = "1" ]; then

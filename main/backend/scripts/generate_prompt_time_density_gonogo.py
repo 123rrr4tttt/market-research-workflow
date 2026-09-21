@@ -4,7 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 
 def _read_json(path: Path) -> dict[str, Any]:
@@ -39,7 +39,12 @@ def build_gonogo_report(
     ope_max_latest_age_hours: float = 72.0,
     ope_min_ess_ratio: float = 0.20,
     ope_max_weight_cv: float = 2.5,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=generated_evidence "
+    "fact_source=realcase+perf+ope+policy_health_inputs "
+    "witness=test:test_w10_cli_generator_derived_metadata_preserves_abi",
+]:
     ope = ope or {}
     policy_health = policy_health or {}
 

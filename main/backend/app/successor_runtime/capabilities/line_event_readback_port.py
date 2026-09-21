@@ -22,7 +22,10 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, NoReturn
+
+from functorial_kit import Failure
+from mrw_functorial_kit.core.w06_semantics import line_event_readback_failures
 
 SCHEMA_REF = "mrw.successor.runtime.c5-4.line-event-readback.v1"
 AUTHORITY_SNAPSHOT = {
@@ -34,9 +37,7 @@ AUTHORITY_SNAPSHOT = {
     "cutover": False,
 }
 
-SUCCESS_TERMINAL_STATUSES = frozenset(
-    {"completed", "succeeded", "applied", "available", "healthy"}
-)
+SUCCESS_TERMINAL_STATUSES = frozenset({"completed", "succeeded", "applied", "available", "healthy"})
 FAILURE_STATUSES = frozenset({"failed", "canceled", "blocked", "rejected"})
 RUNNING_STATUSES = frozenset({"running", "started", "active"})
 QUEUED_STATUSES = frozenset({"queued", "scheduled", "pending"})
@@ -127,6 +128,41 @@ TERMINAL_READBACK_EVENTS = frozenset(
 )
 
 DEFAULT_TIMESTAMP = "1970-01-01T00:00:00+00:00"
+_FAILURE_WITNESS = "test:test_w06_c2_total_core_failure_lifts"
+
+
+def _failure(
+    code: str, message: str, *, public_exception: str = "ValueError", site: str = "line_event_readback_port"
+) -> Failure:
+    return line_event_readback_failures.fail(
+        code,
+        message,
+        {
+            "owner": "successor_runtime.capabilities.line_event_readback_port",
+            "site": site,
+            "public_exception": public_exception,
+            "public_message": message,
+            "witness": _FAILURE_WITNESS,
+        },
+    )
+
+
+def _raise_contract_failure(failure: Failure, exception_type: type[Exception] = ValueError) -> NoReturn:
+    context = failure.context or {}
+    if (
+        failure.family != line_event_readback_failures.name
+        or context.get("public_exception") != exception_type.__name__
+    ):
+        # kit:boundary owner=line_event_readback_port.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w06_c2_total_core_failure_lifts
+        raise TypeError("line-event contract lift context is incomplete")  # noqa: TRY003
+    # kit:boundary owner=line_event_readback_port.py class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=line_event.readback.failure witness=test:test_w06_c2_total_core_failure_lifts
+    raise exception_type(str(context.get("public_message", failure.message)))
+
+
+def _reject(
+    message: str, exception_type: type[Exception] = ValueError, *, code: str = "event_migration_illegal"
+) -> NoReturn:
+    _raise_contract_failure(_failure(code, message, public_exception=exception_type.__name__), exception_type)
 
 
 def normalize_line_key(value: Any) -> str | None:
@@ -253,21 +289,19 @@ class LineEventReadbackRecord:
     def __post_init__(self) -> None:
         normalized = normalize_line_key(self.line_key)
         if normalized not in KNOWN_LINE_KEYS:
-            raise UnknownLineKeyError(f"unknown line_key {self.line_key!r}")
+            _reject(f"unknown line_key {self.line_key!r}", UnknownLineKeyError, code="line_key_unknown")
         canonical = LINE_EVENT_CHAINS[normalized]
         event_names = tuple(item.event for item in self.events)
         if len(set(event_names)) != len(event_names):
-            raise IllegalEventMigrationError(
-                f"line {normalized} contains duplicate events"
-            )
+            _reject(f"line {normalized} contains duplicate events", IllegalEventMigrationError)
         if any(name not in canonical for name in event_names):
-            raise UnknownLineEventError(
-                f"line {normalized} contains an event outside its canonical chain"
+            _reject(
+                f"line {normalized} contains an event outside its canonical chain",
+                UnknownLineEventError,
+                code="line_event_unknown",
             )
         if event_names != canonical[: len(event_names)]:
-            raise IllegalEventMigrationError(
-                f"line {normalized} event chain has a gap or is not canonical"
-            )
+            _reject(f"line {normalized} event chain has a gap or is not canonical", IllegalEventMigrationError)
         object.__setattr__(self, "line_key", normalized)
         if self.digest == "":
             object.__setattr__(self, "digest", record_digest(self))
@@ -276,9 +310,7 @@ class LineEventReadbackRecord:
         """Fail closed when the content address no longer matches content."""
 
         if self.digest != record_digest(self):
-            raise IllegalEventMigrationError(
-                f"line {self.line_key} readback record digest mismatch"
-            )
+            _reject(f"line {self.line_key} readback record digest mismatch", IllegalEventMigrationError)
 
     @property
     def event_names(self) -> tuple[str, ...]:
@@ -286,9 +318,7 @@ class LineEventReadbackRecord:
 
     @property
     def persistence_observed(self) -> bool:
-        return (
-            self.event_names[-1] in TERMINAL_READBACK_EVENTS if self.events else False
-        )
+        return self.event_names[-1] in TERMINAL_READBACK_EVENTS if self.events else False
 
 
 @dataclass(frozen=True, slots=True)
@@ -325,7 +355,7 @@ class LineEventReadbackPort:
     def empty(cls, line_key: str) -> LineEventReadbackRecord:
         normalized = normalize_line_key(line_key)
         if normalized not in KNOWN_LINE_KEYS:
-            raise UnknownLineKeyError(f"unknown line_key {line_key!r}")
+            _reject(f"unknown line_key {line_key!r}", UnknownLineKeyError, code="line_key_unknown")
         return LineEventReadbackRecord(line_key=normalized)
 
     @classmethod
@@ -359,17 +389,22 @@ class LineEventReadbackPort:
         if observed_name is not None:
             normalized_event = observed_name.lower()
             if normalized_event not in canonical:
-                raise UnknownLineEventError(
-                    f"line {record.line_key} has no canonical event {observed_name!r}"
+                _reject(
+                    f"line {record.line_key} has no canonical event {observed_name!r}",
+                    UnknownLineEventError,
+                    code="line_event_unknown",
                 )
             if _status_is_failure(resolved_status):
-                raise IllegalEventMigrationError(
-                    f"line {record.line_key} cannot record {normalized_event!r} "
-                    f"under failure status {resolved_status!r}"
+                _reject(
+                    f"line {record.line_key} cannot record {normalized_event!r} under "
+                    f"failure status {resolved_status!r}",
+                    IllegalEventMigrationError,
                 )
         elif resolved_status is None:
-            raise UnknownLineEventError(
-                "an observation requires a canonical event or a known status"
+            _reject(
+                "an observation requires a canonical event or a known status",
+                UnknownLineEventError,
+                code="line_event_unknown",
             )
         else:
             normalized_event = ""
@@ -381,36 +416,34 @@ class LineEventReadbackPort:
         )
         if _status_is_success(resolved_status):
             if normalized_event and normalized_event not in TERMINAL_READBACK_EVENTS:
-                raise IllegalEventMigrationError(
-                    f"line {record.line_key} cannot record {normalized_event!r} "
-                    f"under success status {resolved_status!r}"
+                _reject(
+                    f"line {record.line_key} cannot record {normalized_event!r} under "
+                    f"success status {resolved_status!r}",
+                    IllegalEventMigrationError,
                 )
             if len(record.events) < len(canonical) - 1:
-                raise IllegalEventMigrationError(
-                    f"line {record.line_key} has only {len(record.events)} "
-                    f"recorded events; success status {resolved_status!r} "
-                    "requires every required pre-terminal event to be recorded"
+                _reject(
+                    f"line {record.line_key} has only {len(record.events)} recorded events; "
+                    f"success status {resolved_status!r} requires every required "
+                    "pre-terminal event to be recorded",
+                    IllegalEventMigrationError,
                 )
             prefix_limit = len(canonical) - 1
             if normalized_event == canonical[-1]:
                 prefix_limit = len(canonical)
-        if normalized_event in TERMINAL_READBACK_EVENTS and _status_is_failure(
-            resolved_status
-        ):
-            raise IllegalEventMigrationError(
-                f"line {record.line_key} cannot observe {normalized_event!r} "
-                f"under failure status {resolved_status!r}"
+        if normalized_event in TERMINAL_READBACK_EVENTS and _status_is_failure(resolved_status):
+            _reject(
+                f"line {record.line_key} cannot observe {normalized_event!r} under failure status {resolved_status!r}",
+                IllegalEventMigrationError,
             )
 
-        recorded_name = normalized_event or (
-            canonical[prefix_limit - 1] if prefix_limit > 0 else ""
-        )
+        recorded_name = normalized_event or (canonical[prefix_limit - 1] if prefix_limit > 0 else "")
         effective_status = resolved_status
         if recorded_name in TERMINAL_READBACK_EVENTS:
             if _status_is_failure(effective_status):
-                raise IllegalEventMigrationError(
-                    f"line {record.line_key} cannot observe {recorded_name!r} "
-                    "under a failure status"
+                _reject(
+                    f"line {record.line_key} cannot observe {recorded_name!r} under a failure status",
+                    IllegalEventMigrationError,
                 )
             if not _status_is_success(effective_status):
                 effective_status = "completed"
@@ -465,7 +498,7 @@ class LineEventReadbackPort:
                 queue=non_empty_text(queue) or record.queue,
             )
         except ValueError as exc:
-            raise IllegalEventMigrationError(str(exc)) from exc
+            _reject(str(exc), IllegalEventMigrationError)
         candidate.verify_digest()
         return candidate
 
@@ -508,15 +541,9 @@ class LineEventReadbackPort:
             if record.event_names[:-1] == LINE_EVENT_CHAINS[record.line_key][:-1]:
                 decidable = True
             else:
-                reason = (
-                    f"terminal event {terminal!r} observed before its canonical "
-                    "predecessors"
-                )
+                reason = f"terminal event {terminal!r} observed before its canonical predecessors"
         else:
-            reason = (
-                f"terminal readback event {terminal!r} not observed; "
-                "persistence is undecidable"
-            )
+            reason = f"terminal readback event {terminal!r} not observed; persistence is undecidable"
         if not decidable and reason is None:
             reason = "persistence is not claimed by a non-terminal observation"
         return LineEventReadbackResult(

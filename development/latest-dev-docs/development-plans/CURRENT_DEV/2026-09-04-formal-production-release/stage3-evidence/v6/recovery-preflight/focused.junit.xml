@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="4" skipped="0" tests="86" time="5.641" timestamp="2026-09-07T05:51:57.225622+08:00" hostname="MacBook-Air-489.local"><testcase classname="tests.formal_release.test_check_release_evidence" name="test_validate_manifest_accepts_rc_ready_manifest" time="0.000" /><testcase classname="tests.formal_release.test_check_release_evidence" name="test_validate_manifest_accepts_production_ready_manifest" time="0.000" /><testcase classname="tests.formal_release.test_check_release_evidence" name="test_duplicate_gate_id_is_rejected" time="0.000" /><testcase classname="tests.formal_release.test_check_release_evidence" name="test_missing_family_is_rejected" time="0.000" /><testcase classname="tests.formal_release.test_check_release_evidence" name="test_invalid_digest_is_rejected" time="0.000" /><testcase classname="tests.formal_release.test_check_release_evidence" name="test_pass_without_evidence_is_rejected" time="0.000" /><testcase classname="tests.formal_release.test_check_release_evidence" name="test_blocked_and_unexecuted_statuses_are_preserved" time="0.000" /><testcase classname="tests.formal_release.test_check_release_evidence" name="test_cli_writes_deterministic_wrapper" time="0.006" /><testcase classname="tests.formal_release.test_check_release_evidence" name="test_direct_script_help_works" time="0.034" /><testcase classname="tests.formal_release.test_s1_workflow_contract.S1WorkflowContractTestCase" name="test_convergence_is_not_promoted_to_a_required_check" time="0.007" /><testcase classname="tests.formal_release.test_s1_workflow_contract.S1WorkflowContractTestCase" name="test_convergence_job_is_fail_closed_for_success_cancel_and_skip" time="0.007" /><testcase classname="tests.formal_release.test_s1_workflow_contract.S1WorkflowContractTestCase" name="test_docker_job_collects_diagnostics_only_after_failure_and_always_tears_down" time="0.006" /><testcase classname="tests.formal_release.test_s1_workflow_contract.S1WorkflowContractTestCase" name="test_docker_job_keeps_static_production_and_development_compose_separate" time="0.006" /><testcase classname="tests.formal_release.test_s1_workflow_contract.S1WorkflowContractTestCase" name="test_every_required_category_has_an_unconditional_concrete_job" time="0.007" /><testcase classname="tests.formal_release.test_s1_workflow_contract.S1WorkflowContractTestCase" name="test_metadata_contract_passes_with_clean_compose_digests" time="0.008" /><testcase classname="tests.formal_release.test_s1_workflow_contract.S1WorkflowContractTestCase" name="test_metadata_job_does_not_use_secrets_or_production_publishing" time="0.007" /><testcase classname="tests.formal_release.test_s1_workflow_contract.S1WorkflowContractTestCase" name="test_metadata_job_has_real_build_inspection_signature_and_upload" time="0.006" /><testcase classname="tests.formal_release.test_s1_workflow_contract.S1WorkflowContractTestCase" name="test_required_check_contract_covers_every_category_exactly" time="0.006" /><testcase classname="tests.formal_release.test_s1_workflow_contract.S1WorkflowContractTestCase" name="test_security_contract_has_three_real_scan_families" time="0.006" /><testcase classname="tests.formal_release.test_check_candidate_identity.CandidateIdentityPreflightTestCase" name="test_candidate_root_rename_to_output_parent_is_rejected" time="0.167" /><testcase classname="tests.formal_release.test_check_candidate_identity.CandidateIdentityPreflightTestCase" name="test_cli_help_runs_in_repo_python_envs" time="0.019"><failure message="AssertionError: False is not true : python executable missing: .venv/bin/python">self = &lt;test_check_candidate_identity.CandidateIdentityPreflightTestCase testMethod=test_cli_help_runs_in_repo_python_envs&gt;
+
+    def test_cli_help_runs_in_repo_python_envs(self) -&gt; None:
+        for python in self.PYTHONS:
+            with self.subTest(python=python):
+&gt;               result = self.run_cli(python, "--help")
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/formal_release/test_check_candidate_identity.py:604: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/formal_release/test_check_candidate_identity.py:67: in run_cli
+    self.assertTrue(python.exists(), f"python executable missing: {python}")
+E   AssertionError: False is not true : python executable missing: .venv/bin/python</failure><failure message="AssertionError: False is not true : python executable missing: main/backend/.venv311/bin/python">self = &lt;test_check_candidate_identity.CandidateIdentityPreflightTestCase testMethod=test_cli_help_runs_in_repo_python_envs&gt;
+
+    def test_cli_help_runs_in_repo_python_envs(self) -&gt; None:
+        for python in self.PYTHONS:
+            with self.subTest(python=python):
+&gt;               result = self.run_cli(python, "--help")
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/formal_release/test_check_candidate_identity.py:604: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/formal_release/test_check_candidate_identity.py:67: in run_cli
+    self.assertTrue(python.exists(), f"python executable missing: {python}")
+E   AssertionError: False is not true : python executable missing: main/backend/.venv311/bin/python</failure></testcase><testcase classname="tests.formal_release.test_check_candidate_identity.CandidateIdentityPreflightTestCase" name="test_cli_output_is_marked_and_directly_runnable_in_repo_python_envs" time="0.120"><failure message="AssertionError: False is not true : python executable missing: .venv/bin/python">self = &lt;test_check_candidate_identity.CandidateIdentityPreflightTestCase testMethod=test_cli_output_is_marked_and_directly_runnable_in_repo_python_envs&gt;
+
+    def test_cli_output_is_marked_and_directly_runnable_in_repo_python_envs(self) -&gt; None:
+        root, commit, tree = self.init_repo()
+        output_dir = self.make_repo()
+    
+        for python in self.PYTHONS:
+            with self.subTest(python=python):
+                output = output_dir / f"candidate-{python.parent.parent.name}.json"
+&gt;               result = self.run_cli(
+                    python,
+                    "--repo-root",
+                    str(root),
+                    "--expected-commit",
+                    commit,
+                    "--expected-tree",
+                    tree,
+                    "--candidate-strategy",
+                    "REMEDIATION_INCLUSIVE_RELEASE",
+                    "--output",
+                    str(output),
+                )
+
+tests/formal_release/test_check_candidate_identity.py:616: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/formal_release/test_check_candidate_identity.py:67: in run_cli
+    self.assertTrue(python.exists(), f"python executable missing: {python}")
+E   AssertionError: False is not true : python executable missing: .venv/bin/python</failure><failure message="AssertionError: False is not true : python executable missing: main/backend/.venv311/bin/python">self = &lt;test_check_candidate_identity.CandidateIdentityPreflightTestCase testMethod=test_cli_output_is_marked_and_directly_runnable_in_repo_python_envs&gt;
+
+    def test_cli_output_is_marked_and_directly_runnable_in_repo_python_envs(self) -&gt; None:
+        root, commit, tree = self.init_repo()
+        output_dir = self.make_repo()
+    
+        for python in self.PYTHONS:
+            with self.subTest(python=python):
+                output = output_dir / f"candidate-{python.parent.parent.name}.json"
+&gt;               result = self.run_cli(
+                    python,
+                    "--repo-root",
+                    str(root),
+                    "--expected-commit",
+                    commit,
+                    "--expected-tree",
+                    tree,
+                    "--candidate-strategy",
+                    "REMEDIATION_INCLUSIVE_RELEASE",
+                    "--output",
+                    str(output),
+                )
+
+tests/formal_release/test_check_candidate_identity.py:616: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/formal_release/test_check_candidate_identity.py:67: in run_cli
+    self.assertTrue(python.exists(), f"python executable missing: {python}")
+E   AssertionError: False is not true : python executable missing: main/backend/.venv311/bin/python</failure></testcase><testcase classname="tests.formal_release.test_check_candidate_identity.CandidateIdentityPreflightTestCase" name="test_commit_mismatch_fails" time="0.147" /><testcase classname="tests.formal_release.test_check_candidate_identity.CandidateIdentityPreflightTestCase" name="test_dirty_tracked_file_fails" time="0.147" /><testcase classname="tests.formal_release.test_check_candidate_identity.CandidateIdentityPreflightTestCase" name="test_exact_clean_match_passes_and_writes_json" time="0.169" /><testcase classname="tests.formal_release.test_check_candidate_identity.CandidateIdentityPreflightTestCase" name="test_existing_regular_output_is_not_overwritten" time="0.122" /><testcase classname="tests.formal_release.test_check_candidate_identity.CandidateIdentityPreflightTestCase" name="test_external_output_is_create_only" time="0.200" /><testcase classname="tests.formal_release.test_check_candidate_identity.CandidateIdentityPreflightTestCase" name="test_git_environment_cannot_redirect_identity_or_output_confinement" time="0.274" /><testcase classname="tests.formal_release.test_check_candidate_identity.CandidateIdentityPreflightTestCase" name="test_git_environment_clears_config_rewrites_for_remote" time="0.145" /><testcase classname="tests.formal_release.test_check_candidate_identity.CandidateIdentityPreflightTestCase" name="test_hidden_index_flags_fail_when_porcelain_is_clean" time="0.485" /><testcase classname="tests.formal_release.test_check_candidate_identity.CandidateIdentityPreflightTestCase" name="test_home_and_xdg_gitconfigs_cannot_affect_git_reads" time="0.268" /><testcase classname="tests.formal_release.test_check_candidate_identity.CandidateIdentityPreflightTestCase" name="test_invalid_strategy_fails" time="0.194" /><testcase classname="tests.formal_release.test_check_candidate_identity.CandidateIdentityPreflightTestCase" name="test_local_fsmonitor_is_disabled_for_git_reads" time="0.285" /><testcase classname="tests.formal_release.test_check_candidate_identity.CandidateIdentityPreflightTestCase" name="test_output_inside_candidate_is_rejected_without_pollution" time="0.226" /><testcase classname="tests.formal_release.test_check_candidate_identity.CandidateIdentityPreflightTestCase" name="test_output_parent_swap_cannot_redirect_write_into_candidate" time="0.231" /><testcase classname="tests.formal_release.test_check_candidate_identity.CandidateIdentityPreflightTestCase" name="test_overlay_hidden_index_flags_fail_when_porcelain_is_clean" time="0.301" /><testcase classname="tests.formal_release.test_check_candidate_identity.CandidateIdentityPreflightTestCase" name="test_replace_refs_cannot_substitute_candidate_objects" time="0.566" /><testcase classname="tests.formal_release.test_check_candidate_identity.CandidateIdentityPreflightTestCase" name="test_repo_subdirectory_cannot_write_output_in_repository_root" time="0.239" /><testcase classname="tests.formal_release.test_check_candidate_identity.CandidateIdentityPreflightTestCase" name="test_symlink_ancestor_output_is_rejected" time="0.240" /><testcase classname="tests.formal_release.test_check_candidate_identity.CandidateIdentityPreflightTestCase" name="test_symlink_output_is_not_followed_or_overwritten" time="0.211" /><testcase classname="tests.formal_release.test_check_candidate_identity.CandidateIdentityPreflightTestCase" name="test_tree_mismatch_fails" time="0.234" /><testcase classname="tests.formal_release.test_check_candidate_identity.CandidateIdentityPreflightTestCase" name="test_untracked_file_fails" time="0.226" /><testcase classname="tests.formal_release.test_check_static_production_contract.StaticProductionContractTestCase" name="test_all_images_must_use_exact_fail_fast_digest_form" time="0.012" /><testcase classname="tests.formal_release.test_check_static_production_contract.StaticProductionContractTestCase" name="test_artifact_metadata_rejects_duplicate_identity_and_missing_role_operation" time="0.017" /><testcase classname="tests.formal_release.test_check_static_production_contract.StaticProductionContractTestCase" name="test_artifact_metadata_rejects_single_generic_image_regression" time="0.005" /><testcase classname="tests.formal_release.test_check_static_production_contract.StaticProductionContractTestCase" name="test_branch_and_convergence_require_both_new_jobs" time="0.007" /><testcase classname="tests.formal_release.test_check_static_production_contract.StaticProductionContractTestCase" name="test_contract_10_phase_b_workflow_families_pass" time="0.006" /><testcase classname="tests.formal_release.test_check_static_production_contract.StaticProductionContractTestCase" name="test_core_steps_and_nonconforming_support_steps_remain_fail_closed" time="0.001" /><testcase classname="tests.formal_release.test_check_static_production_contract.StaticProductionContractTestCase" name="test_db_es_redis_ports_and_source_binds_fail_closed" time="0.012" /><testcase classname="tests.formal_release.test_check_static_production_contract.StaticProductionContractTestCase" name="test_default_credentials_and_disabled_es_security_fail" time="0.011" /><testcase classname="tests.formal_release.test_check_static_production_contract.StaticProductionContractTestCase" name="test_direct_cli_reviews_production_compose_and_emits_json" time="0.067" /><testcase classname="tests.formal_release.test_check_static_production_contract.StaticProductionContractTestCase" name="test_explicit_cleanup_diagnostics_and_upload_may_use_failure_or_always" time="0.001" /><testcase classname="tests.formal_release.test_check_static_production_contract.StaticProductionContractTestCase" name="test_frontend_component_e2e_rejects_nonexecution_and_bypass" time="0.015" /><testcase classname="tests.formal_release.test_check_static_production_contract.StaticProductionContractTestCase" name="test_image_scan_rejects_tag_only_nonblocking_and_missing_role" time="0.020" /><testcase classname="tests.formal_release.test_check_static_production_contract.StaticProductionContractTestCase" name="test_live_production_contract_passes_compose_family" time="0.013" /><testcase classname="tests.formal_release.test_check_static_production_contract.StaticProductionContractTestCase" name="test_production_contract_resolves_exact_service_set" time="0.005" /><testcase classname="tests.formal_release.test_check_static_production_contract.StaticProductionContractTestCase" name="test_production_policy_requires_release_and_migration_bindings" time="0.010" /><testcase classname="tests.formal_release.test_check_static_production_contract.StaticProductionContractTestCase" name="test_security_requires_blocking_frontend_audit_after_frozen_install" time="0.013" /></testsuite></testsuites>

@@ -17,18 +17,15 @@ import hashlib
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from types import MappingProxyType
-from typing import Any, Final, Literal, TypeAlias
+from typing import Any, Final, Literal, NoReturn, TypeAlias
 
-REQUEST_IDENTITY_PORT_REF: Final[str] = (
-    "mrw.successor.request-identity.horizontal-port.v1"
-)
+from functorial_kit import Failure
+from mrw_functorial_kit.core.application_failure_semantics import request_identity_failures
+
+REQUEST_IDENTITY_PORT_REF: Final[str] = "mrw.successor.request-identity.horizontal-port.v1"
 REQUEST_IDENTITY_SCHEMA: Final[str] = "mrw.successor.request-identity.actor-context.v1"
-REQUEST_IDENTITY_OBSERVATION_SCHEMA: Final[str] = (
-    "mrw.successor.request-identity.observation.v1"
-)
-REQUEST_IDENTITY_AUTHORITY_SCHEMA: Final[str] = (
-    "mrw.successor.request-identity.authority.v1"
-)
+REQUEST_IDENTITY_OBSERVATION_SCHEMA: Final[str] = "mrw.successor.request-identity.observation.v1"
+REQUEST_IDENTITY_AUTHORITY_SCHEMA: Final[str] = "mrw.successor.request-identity.authority.v1"
 
 ACTOR_IDENTITY_AUTHENTICATED: Final[str] = "authenticated"
 ACTOR_IDENTITY_LEGACY_HEADER: Final[str] = "legacy_header"
@@ -84,6 +81,43 @@ _ACTOR_METADATA_VALUE_MAX_LENGTH = 128
 _ACTOR_DIGEST_HEX_LENGTH = 16
 
 _EMPTY_METADATA: Mapping[str, Any] = MappingProxyType({})
+_FAILURE_WITNESS = "test:test_w06_c2_total_core_failure_lifts"
+
+
+def _failure(
+    code: str, message: str, *, public_exception: str = "ValueError", site: str = "request_identity_port"
+) -> Failure:
+    return request_identity_failures.fail(
+        code,
+        message,
+        {
+            "owner": "successor_runtime.capabilities.request_identity_port",
+            "site": site,
+            "public_exception": public_exception,
+            "public_message": message,
+            "witness": _FAILURE_WITNESS,
+        },
+    )
+
+
+def _raise_contract_failure(failure: Failure, exception_type: type[Exception] = ValueError) -> NoReturn:
+    context = failure.context or {}
+    if failure.family != request_identity_failures.name or context.get("public_exception") != exception_type.__name__:
+        # kit:boundary owner=request_identity_port.py class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w06_c2_total_core_failure_lifts
+        raise TypeError("request identity contract lift context is incomplete")  # noqa: TRY003
+    # kit:boundary owner=request_identity_port.py class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=request_identity.failure witness=test:test_w06_c2_total_core_failure_lifts
+    raise exception_type(str(context.get("public_message", failure.message)))
+
+
+def _reject(
+    message: str, exception_type: type[Exception] = ValueError, *, code: str = "actor_context_invalid"
+) -> NoReturn:
+    _raise_contract_failure(_failure(code, message, public_exception=exception_type.__name__), exception_type)
+
+
+def _raise_trusted_actor_required(context: RequestActorContext) -> NoReturn:
+    # kit:boundary owner=request_identity_port.py class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=request_identity.failure witness=test:test_w06_c2_total_core_failure_lifts
+    raise TrustedActorRequired(context)
 
 
 def _clean_text(value: Any, *, max_length: int = _ACTOR_ID_MAX_LENGTH) -> str | None:
@@ -143,9 +177,7 @@ def _freeze_actor_metadata(
         if value is None or isinstance(value, (bool, int, float)):
             safe[clean_key] = value
         elif isinstance(value, str):
-            clean_value = _clean_text(
-                value, max_length=_ACTOR_METADATA_VALUE_MAX_LENGTH
-            )
+            clean_value = _clean_text(value, max_length=_ACTOR_METADATA_VALUE_MAX_LENGTH)
             if clean_value is not None:
                 safe[clean_key] = clean_value
     return MappingProxyType(safe)
@@ -158,9 +190,7 @@ def actor_id_from_secret(prefix: str, value: Any) -> str:
     never log, store or emit ``value`` itself.
     """
 
-    digest = hashlib.sha256(str(value or "").encode("utf-8")).hexdigest()[
-        :_ACTOR_DIGEST_HEX_LENGTH
-    ]
+    digest = hashlib.sha256(str(value or "").encode("utf-8")).hexdigest()[:_ACTOR_DIGEST_HEX_LENGTH]
     clean_prefix = _clean_text(prefix, max_length=_ACTOR_DIGEST_PREFIX_MAX_LENGTH)
     return f"{clean_prefix or DEFAULT_AUTHENTICATED_SOURCE}:{digest}"
 
@@ -191,11 +221,11 @@ class RequestIdentityAuthority:
         ):
             value = getattr(self, name)
             if not isinstance(value, bool):
-                raise TypeError(f"RequestIdentityAuthority.{name} must be bool")
+                _reject(f"RequestIdentityAuthority.{name} must be bool", TypeError, code="authority_contract_invalid")
             if value:
-                raise ValueError(
-                    "request-identity port grants no runtime authority; "
-                    f"{name} must be False"
+                _reject(
+                    f"request-identity port grants no runtime authority; {name} must be False",
+                    code="authority_contract_invalid",
                 )
 
     def to_plain(self) -> dict[str, Any]:
@@ -225,27 +255,25 @@ class RequestActorContext:
     actor_trusted: bool
     legacy_actor_id: str | None = None
     actor_metadata: Mapping[str, Any] = field(default_factory=lambda: _EMPTY_METADATA)
-    authority: RequestIdentityAuthority = field(
-        default_factory=RequestIdentityAuthority
-    )
+    authority: RequestIdentityAuthority = field(default_factory=RequestIdentityAuthority)
 
     def __post_init__(self) -> None:
         if self.identity_kind not in IDENTITY_KINDS:
-            raise ValueError(f"identity_kind must be one of {sorted(IDENTITY_KINDS)}")
+            _reject(f"identity_kind must be one of {sorted(IDENTITY_KINDS)}", code="actor_context_invalid")
         actor_id = _clean_text(self.actor_id)
         if actor_id is None:
-            raise ValueError("RequestActorContext requires a non-empty actor_id")
+            _reject("RequestActorContext requires a non-empty actor_id", code="actor_context_invalid")
         source = _clean_text(self.actor_source, max_length=_ACTOR_SOURCE_MAX_LENGTH)
         if source is None:
-            raise ValueError("RequestActorContext requires actor_source")
+            _reject("RequestActorContext requires actor_source", code="actor_context_invalid")
         mode = _clean_text(self.actor_auth_mode, max_length=_ACTOR_MODE_MAX_LENGTH)
         if mode is None:
-            raise ValueError("RequestActorContext requires actor_auth_mode")
+            _reject("RequestActorContext requires actor_auth_mode", code="actor_context_invalid")
         if not isinstance(self.actor_trusted, bool):
-            raise TypeError("RequestActorContext.actor_trusted must be bool")
+            _reject("RequestActorContext.actor_trusted must be bool", TypeError, code="actor_context_invalid")
         legacy_actor_id = _clean_text(self.legacy_actor_id)
         if not isinstance(self.authority, RequestIdentityAuthority):
-            raise TypeError("RequestActorContext.authority is required")
+            _reject("RequestActorContext.authority is required", TypeError, code="authority_contract_invalid")
         object.__setattr__(self, "actor_id", actor_id)
         object.__setattr__(self, "actor_source", source)
         object.__setattr__(self, "actor_auth_mode", mode)
@@ -307,9 +335,7 @@ class RequestIdentityObservation:
     legacy_actor_id: str | None = None
 
 
-RequestIdentityResolver: TypeAlias = Callable[
-    [RequestIdentityObservation], RequestActorContext
-]
+RequestIdentityResolver: TypeAlias = Callable[[RequestIdentityObservation], RequestActorContext]
 
 
 def request_identity_observation_from_state(
@@ -350,14 +376,8 @@ def authenticated_actor_context(
     return RequestActorContext(
         identity_kind=ACTOR_IDENTITY_AUTHENTICATED,
         actor_id=clean_actor_id,
-        actor_source=(
-            _clean_text(source, max_length=_ACTOR_SOURCE_MAX_LENGTH)
-            or DEFAULT_AUTHENTICATED_SOURCE
-        ),
-        actor_auth_mode=(
-            _clean_text(auth_mode, max_length=_ACTOR_MODE_MAX_LENGTH)
-            or DEFAULT_AUTHENTICATED_MODE
-        ),
+        actor_source=(_clean_text(source, max_length=_ACTOR_SOURCE_MAX_LENGTH) or DEFAULT_AUTHENTICATED_SOURCE),
+        actor_auth_mode=(_clean_text(auth_mode, max_length=_ACTOR_MODE_MAX_LENGTH) or DEFAULT_AUTHENTICATED_MODE),
         actor_trusted=True,
         legacy_actor_id=legacy_actor_id,
         actor_metadata=actor_metadata,
@@ -397,9 +417,7 @@ def _authenticated_context_from_observation(
         raw_actor = getattr(observation, state_attr)
         if not isinstance(raw_actor, Mapping):
             continue
-        actor_id = _first_mapping_text(
-            raw_actor, _ACTOR_ID_KEYS, max_length=_ACTOR_ID_MAX_LENGTH
-        )
+        actor_id = _first_mapping_text(raw_actor, _ACTOR_ID_KEYS, max_length=_ACTOR_ID_MAX_LENGTH)
         if actor_id is None:
             continue
         return authenticated_actor_context(
@@ -457,17 +475,11 @@ def _state_actor_context_from_observation(
     if actor_id is None:
         return None
     context_map = _as_mapping(observation.actor_context)
-    identity_source = _clean_text(
-        observation.identity_source, max_length=_ACTOR_SOURCE_MAX_LENGTH
-    )
-    actor_source = _clean_text(
-        observation.actor_source, max_length=_ACTOR_SOURCE_MAX_LENGTH
-    )
+    identity_source = _clean_text(observation.identity_source, max_length=_ACTOR_SOURCE_MAX_LENGTH)
+    actor_source = _clean_text(observation.actor_source, max_length=_ACTOR_SOURCE_MAX_LENGTH)
     normalized_source = identity_source or actor_source or REQUEST_STATE_SOURCE
     auth_mode = _clean_text(observation.auth_mode, max_length=_ACTOR_MODE_MAX_LENGTH)
-    actor_auth_mode = _clean_text(
-        observation.actor_auth_mode, max_length=_ACTOR_MODE_MAX_LENGTH
-    )
+    actor_auth_mode = _clean_text(observation.actor_auth_mode, max_length=_ACTOR_MODE_MAX_LENGTH)
     normalized_mode = auth_mode or actor_auth_mode or REQUEST_STATE_SOURCE
     trusted = bool(observation.actor_trusted)
     legacy_actor_id = (
@@ -501,8 +513,10 @@ def resolve_request_actor_context(
     """
 
     if not isinstance(observation, RequestIdentityObservation):
-        raise TypeError(
-            "resolve_request_actor_context requires RequestIdentityObservation"
+        _reject(
+            "resolve_request_actor_context requires RequestIdentityObservation",
+            TypeError,
+            code="observation_type_invalid",
         )
     authenticated = _authenticated_context_from_observation(observation)
     if authenticated is not None:
@@ -553,13 +567,13 @@ class TrustedActorRequired(RuntimeError):
 def require_trusted_actor_context(
     context: RequestActorContext,
 ) -> RequestActorContext:
-    """Return a trusted context or raise a typed 403-equivalent denial."""
+    """Return a trusted context or lift a typed 403-equivalent denial."""
 
     if not isinstance(context, RequestActorContext):
-        raise TypeError("require_trusted_actor_context requires RequestActorContext")
+        _reject("require_trusted_actor_context requires RequestActorContext", TypeError, code="actor_context_invalid")
     if context.actor_trusted:
         return context
-    raise TrustedActorRequired(context)
+    _raise_trusted_actor_required(context)
 
 
 __all__ = [

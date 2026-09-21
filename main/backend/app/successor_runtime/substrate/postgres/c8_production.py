@@ -16,6 +16,7 @@ from __future__ import annotations
 import dataclasses
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Annotated
 
 from sqlalchemy import MetaData
 from sqlalchemy.engine import Connection, Engine
@@ -554,7 +555,11 @@ def build_postgres_c8_delivery_assembly(
     bundle: C8CapabilityBundle,
     activation_catalog: FirstSpecimenActivationCatalog,
     delivery_interpreter: InternalExportInterpreter,
-) -> C8PostgresDeliveryAssembly:
+) -> Annotated[
+    C8PostgresDeliveryAssembly,
+    "kit:prepared-command effect_boundary=postgres.c8_delivery_assembly "
+    "witness=test:test_w08c_postgres_builder_metadata_preserves_return_types",
+]:
     """Install the exact five-entry C8 bridge on a real RuntimeNode."""
 
     bridge_kinds = (

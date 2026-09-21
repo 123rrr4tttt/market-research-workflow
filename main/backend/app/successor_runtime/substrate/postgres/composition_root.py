@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any, Protocol, Self
+from typing import Annotated, Any, Protocol, Self
 
 from sqlalchemy import select
 from sqlalchemy.engine import Engine
@@ -496,7 +496,13 @@ def compose_postgres_first_specimen_runtime(
     )
 
 
-def build_postgres_first_specimen_runtime_node(**kwargs: Any) -> RuntimeNode:
+def build_postgres_first_specimen_runtime_node(
+    **kwargs: Any,
+) -> Annotated[
+    RuntimeNode,
+    "kit:prepared-command effect_boundary=postgres.first_specimen_runtime_node "
+    "witness=test:test_w08c_postgres_builder_metadata_preserves_return_types",
+]:
     """Convenience entry point for process startup."""
 
     return compose_postgres_first_specimen_runtime(**kwargs).node

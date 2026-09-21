@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from typing import Any
+from typing import Annotated, Any
 
 from ..mapping import normalize_canonical_node_id, normalize_node_properties, normalize_node_type
 from ..models import Graph
@@ -96,7 +96,12 @@ def build_graph_projection_rollout_readiness(
     migration_checks: dict[str, bool],
     failure_isolation_checks: dict[str, bool],
     max_dry_run_limit: int = 1000,
-) -> GraphProjectionRolloutReadinessReport:
+) -> Annotated[
+    GraphProjectionRolloutReadinessReport,
+    "kit:non-authoritative derived_as=preflight "
+    "fact_source=rollout_mode+limit+precondition_inputs "
+    "witness=test:test_w04_authority_metadata",
+]:
     """Validate the static pre-live rollout contract without opening a DB.
 
     This is a narrow preflight for the first tenant DB dry-run. It blocks
@@ -184,7 +189,16 @@ def build_graph_projection_rollout_readiness(
     )
 
 
-def build_graph_projection_dry_run(graph: Graph, *, schema_version: str = "v1") -> GraphProjectionDryRunReport:
+def build_graph_projection_dry_run(
+    graph: Graph,
+    *,
+    schema_version: str = "v1",
+) -> Annotated[
+    GraphProjectionDryRunReport,
+    "kit:non-authoritative derived_as=simulation "
+    "fact_source=in_memory_graph+schema_version "
+    "witness=test:test_w04_authority_metadata",
+]:
     """Build a deterministic no-DB projection report for rollout evidence.
 
     The report mirrors storage canonicalization and in-graph edge endpoint

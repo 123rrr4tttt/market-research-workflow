@@ -1,0 +1,79 @@
+[
+    {
+        "Id": "sha256:d436f3287396cec2b94dcb76c3cb3d555d36feee5016d4b9b024ca57879089f9",
+        "RepoTags": [
+            "mrw-r13r-amd64-backend-canonical:local"
+        ],
+        "RepoDigests": [
+            "mrw-r13r-amd64-backend-canonical@sha256:d436f3287396cec2b94dcb76c3cb3d555d36feee5016d4b9b024ca57879089f9"
+        ],
+        "Comment": "buildkit.dockerfile.v0",
+        "Created": "1970-01-01T00:00:00Z",
+        "Config": {
+            "ExposedPorts": {
+                "8000/tcp": {}
+            },
+            "Env": [
+                "PATH=/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "LANG=C.UTF-8",
+                "GPG_KEY=A035C8C19219BA821ECEA86B64E628F8D684696D",
+                "PYTHON_VERSION=3.11.16",
+                "PYTHON_SHA256=91bcdebfdde239a003ae93738a7fce0f9230fee5c4bc2b86f6e6e8c6f98aabe8",
+                "PYTHONDONTWRITEBYTECODE=1",
+                "PYTHONUNBUFFERED=1",
+                "PIP_NO_CACHE_DIR=1",
+                "PYTHONPATH=/opt/mrw/src",
+                "MRW_CONTAINER_ROLE=backend-runtime"
+            ],
+            "Entrypoint": [
+                "/docker-entrypoint.sh"
+            ],
+            "Cmd": [
+                "uvicorn",
+                "app.main:app",
+                "--host",
+                "0.0.0.0",
+                "--port",
+                "8000"
+            ],
+            "WorkingDir": "/app",
+            "ArgsEscaped": true
+        },
+        "Architecture": "amd64",
+        "Os": "linux",
+        "Size": 300943189,
+        "RootFS": {
+            "Type": "layers",
+            "Layers": [
+                "sha256:411a86676185cb54d695a805b238194a64e9b77e0c723f3802fbb87d333ea0b3",
+                "sha256:4d43b7f98e4c38fd2d37f37f1bf9965d2c4018b01453d3b29d924653c3275f4b",
+                "sha256:7895f75e926a456464bbd0f1285738ba25e7d70aad4aa94c32c1d274b3b9e85e",
+                "sha256:164ea7718b2462d163b7bd95ece7ebd8b669f0cdb1b094b66009aecec2f1195b",
+                "sha256:8b6da3bd28008659e694315022ffb9c31aa31b5840b77e8f6197872538b9473a",
+                "sha256:50113489ce9c21b43d4ddf13b5805c21bf66338a5cecb358e099eaa17f7676da",
+                "sha256:0749227b7faf86ada21647cffe57a258f0b18f6e5c4b13c491d5c8791e7f2631",
+                "sha256:88bb4ae2b6e9aff365cf1a55488688c3e3feba80150fb3777dd7cc2917ec69f0",
+                "sha256:d4ed10318df0998a43457466c7ae915baafa5dea4569f4df54c0f1a5bdd19ead",
+                "sha256:939c062ccee55e8bca9bfa8b4a4ae55a8e6d0dad9d0efc82339ff44e7aa4af15",
+                "sha256:c3bb99f6f2eaa734dd56e1d9e72887cf9b86d874c3a541b078152200e4ac816f",
+                "sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef",
+                "sha256:2afab2359743fc6029c3cd859bb7fbbedd93b8cb9380851f7b1e54054169779f",
+                "sha256:1d468f9d92f2511afac46dbf4573381abe88239eda83f3a8256f8525855c9e22",
+                "sha256:49875b46689681a2a14f26c9446e66f96cc797afec3d5f5c6472024730b05e22",
+                "sha256:cec44076aa35f702cdc55b9e3fe2e06afd7f0c3f8315da8d3a4f07bb83971152",
+                "sha256:5f70bf18a086007016e948b04aed3b82103a36bea41755b6cddfaf10ace3c6ef"
+            ]
+        },
+        "Metadata": {
+            "LastTagTime": "2026-09-10T03:05:24.975388048Z"
+        },
+        "Descriptor": {
+            "mediaType": "application/vnd.oci.image.index.v1+json",
+            "digest": "sha256:d436f3287396cec2b94dcb76c3cb3d555d36feee5016d4b9b024ca57879089f9",
+            "size": 857,
+            "annotations": {
+                "org.opencontainers.image.created": "1970-01-01T00:00:00Z"
+            }
+        }
+    }
+]

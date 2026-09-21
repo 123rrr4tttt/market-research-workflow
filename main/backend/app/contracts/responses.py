@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any, Generic, TypeVar
+from contextvars import ContextVar
 import json
 import os
 from datetime import datetime, timezone
@@ -12,6 +13,8 @@ from pydantic import BaseModel, Field
 from .errors import ErrorCode
 
 T = TypeVar("T")
+_CURRENT_TRACE_ID: ContextVar[str | None] = ContextVar("api_current_trace_id", default=None)
+_CURRENT_PROJECT_KEY: ContextVar[str | None] = ContextVar("api_current_project_key", default=None)
 
 
 class ApiErrorModel(BaseModel):
@@ -51,12 +54,43 @@ class TaskResultData(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+def set_api_context_meta(*, trace_id: str | None, project_key: str | None) -> tuple[Any, Any]:
+    trace_token = _CURRENT_TRACE_ID.set(trace_id)
+    project_token = _CURRENT_PROJECT_KEY.set(project_key)
+    return trace_token, project_token
+
+
+def reset_api_context_meta(tokens: tuple[Any, Any]) -> None:
+    trace_token, project_token = tokens
+    _CURRENT_TRACE_ID.reset(trace_token)
+    _CURRENT_PROJECT_KEY.reset(project_token)
+
+
+def _context_meta() -> ApiMetaModel:
+    return ApiMetaModel(
+        trace_id=_CURRENT_TRACE_ID.get(),
+        project_key=_CURRENT_PROJECT_KEY.get(),
+    )
+
+
+def _merge_context_meta(meta: ApiMetaModel | None) -> ApiMetaModel:
+    context_meta = _context_meta()
+    if meta is None:
+        return context_meta
+    updates: dict[str, Any] = {}
+    if not meta.trace_id:
+        updates["trace_id"] = context_meta.trace_id
+    if not meta.project_key:
+        updates["project_key"] = context_meta.project_key
+    return meta.model_copy(update=updates) if updates else meta
+
+
 def ok(data: T = None, *, meta: ApiMetaModel | None = None) -> dict[str, Any]:
     envelope = ApiEnvelope[T](
         status="ok",
         data=data,
         error=None,
-        meta=meta or ApiMetaModel(),
+        meta=_merge_context_meta(meta),
     ).model_dump(by_alias=True)
     _emit_contracts_governance_snapshot(envelope, event="ok")
     return envelope
@@ -73,7 +107,7 @@ def fail(
         status="error",
         data=None,
         error=ApiErrorModel(code=code.value, message=message, details=details or {}),
-        meta=meta or ApiMetaModel(),
+        meta=_merge_context_meta(meta),
     ).model_dump(by_alias=True)
     _emit_contracts_governance_snapshot(envelope, event="error")
     return envelope
@@ -88,7 +122,7 @@ def ok_page(
     total_pages: int,
     meta: ApiMetaModel | None = None,
 ) -> dict[str, Any]:
-    merged_meta = (meta or ApiMetaModel()).model_copy(
+    merged_meta = _merge_context_meta(meta).model_copy(
         update={
             "pagination": PaginationMetaModel(
                 page=page,

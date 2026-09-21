@@ -2,8 +2,11 @@ from __future__ import annotations
 
 from ipaddress import ip_address
 import socket
-from typing import Any
+from typing import Annotated, Any, NoReturn
 from urllib.parse import quote_plus, urlsplit
+
+from functorial_kit import Failure
+from mrw_functorial_kit.core.application_failure_semantics import source_library_contract_failures
 
 from .external_project_registry import resolve_external_project_provider_binding
 
@@ -53,6 +56,49 @@ _BLOCKED_RUNTIME_HEADER_KEYS = {
     "forwarded",
 }
 
+_FAILURE_WITNESS = "test:test_w01_source_export_failures"
+
+
+def _manifest_failure(code: str, message: str, *, site: str, **details: Any) -> Failure:
+    context: dict[str, Any] = {
+        "boundary_class": "PURE_CONTRACT_FAILURE",
+        "failure_family": source_library_contract_failures.name,
+        "operation": "source_library.external_project",
+        "owner": "source_library.external_project",
+        "public_exception": "ValueError",
+        "public_message": message,
+        "site": site,
+        "witness": _FAILURE_WITNESS,
+    }
+    context.update(details)
+    return source_library_contract_failures.fail(code, message, context)
+
+
+def _raise_manifest_failure(
+    failure: Failure,
+    exception_type: type[Exception] = ValueError,
+    *,
+    cause: BaseException | None = None,
+) -> NoReturn:
+    context = failure.context or {}
+    required = {"boundary_class", "failure_family", "operation", "owner", "public_exception", "public_message", "site", "witness"}
+    if (
+        not source_library_contract_failures.matches(failure)
+        or required - set(context)
+        or context.get("failure_family") != source_library_contract_failures.name
+        or context.get("boundary_class") != "PURE_CONTRACT_FAILURE"
+        or context.get("public_exception") != exception_type.__name__
+        or context.get("public_message") != failure.message
+    ):
+        # kit:boundary owner=source_library.external_project.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w01_source_export_failures
+        raise TypeError("source-library manifest failure lift context is incomplete or inconsistent")
+    message = str(context["public_message"])
+    if cause is None:
+        # kit:boundary owner=source_library.external_project.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=source_library.contract_failure witness=test:test_w01_source_export_failures
+        raise exception_type(message)
+    # kit:boundary owner=source_library.external_project.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=source_library.contract_failure witness=test:test_w01_source_export_failures
+    raise exception_type(message) from cause
+
 
 def has_external_project_manifest(extra: dict[str, Any] | None) -> bool:
     return isinstance(extra, dict) and isinstance(extra.get(EXTERNAL_PROJECT_MANIFEST_KEY), dict)
@@ -80,11 +126,21 @@ def normalize_external_project_extra(
     has_manifest = isinstance(normalized.get(EXTERNAL_PROJECT_MANIFEST_KEY), dict)
     normalized_channel = str(channel_key or "").strip().lower()
     if normalized_channel == EXTERNAL_PROJECT_CHANNEL_KEY and not has_manifest:
-        raise ValueError(f"{EXTERNAL_PROJECT_CHANNEL_KEY} requires extra.{EXTERNAL_PROJECT_MANIFEST_KEY}")
+        _raise_manifest_failure(
+            _manifest_failure(
+                "external_project_manifest_invalid",
+                f"{EXTERNAL_PROJECT_CHANNEL_KEY} requires extra.{EXTERNAL_PROJECT_MANIFEST_KEY}",
+                site="normalize_external_project_extra.manifest",
+            )
+        )
     if has_manifest:
         if normalized_channel and normalized_channel != EXTERNAL_PROJECT_CHANNEL_KEY:
-            raise ValueError(
-                f"extra.{EXTERNAL_PROJECT_MANIFEST_KEY} requires channel_key={EXTERNAL_PROJECT_CHANNEL_KEY}"
+            _raise_manifest_failure(
+                _manifest_failure(
+                    "external_project_manifest_invalid",
+                    f"extra.{EXTERNAL_PROJECT_MANIFEST_KEY} requires channel_key={EXTERNAL_PROJECT_CHANNEL_KEY}",
+                    site="normalize_external_project_extra.channel_key",
+                )
             )
         normalized[EXTERNAL_PROJECT_MANIFEST_KEY] = normalize_external_project_manifest(
             normalized.get(EXTERNAL_PROJECT_MANIFEST_KEY),
@@ -117,24 +173,50 @@ def normalize_external_project_manifest(
     payload = dict(manifest or {})
     contract_version = str(payload.get("contract_version") or "").strip()
     if contract_version != EXTERNAL_PROJECT_MANIFEST_CONTRACT_VERSION:
-        raise ValueError(
-            f"external project manifest contract_version must be {EXTERNAL_PROJECT_MANIFEST_CONTRACT_VERSION}"
+        _raise_manifest_failure(
+            _manifest_failure(
+                "external_project_manifest_invalid",
+                f"external project manifest contract_version must be {EXTERNAL_PROJECT_MANIFEST_CONTRACT_VERSION}",
+                site="normalize_external_project_manifest.contract_version",
+            )
         )
 
     resolved_item_key = str(payload.get("item_key") or item_key or "").strip()
     if not resolved_item_key:
-        raise ValueError("external project manifest item_key is required")
+        _raise_manifest_failure(
+            _manifest_failure(
+                "external_project_manifest_invalid",
+                "external project manifest item_key is required",
+                site="normalize_external_project_manifest.item_key",
+            )
+        )
     if item_key and resolved_item_key != str(item_key).strip():
-        raise ValueError("external project manifest item_key must match payload.item_key")
+        _raise_manifest_failure(
+            _manifest_failure(
+                "external_project_manifest_invalid",
+                "external project manifest item_key must match payload.item_key",
+                site="normalize_external_project_manifest.item_key_match",
+            )
+        )
 
     resolved_display_name = str(payload.get("display_name") or display_name or "").strip()
     if not resolved_display_name:
-        raise ValueError("external project manifest display_name is required")
+        _raise_manifest_failure(
+            _manifest_failure(
+                "external_project_manifest_invalid",
+                "external project manifest display_name is required",
+                site="normalize_external_project_manifest.display_name",
+            )
+        )
 
     execution_mode = str(payload.get("execution_mode") or "").strip().lower()
     if execution_mode not in SUPPORTED_EXECUTION_MODES:
-        raise ValueError(
-            f"external project manifest execution_mode must be one of: {', '.join(sorted(SUPPORTED_EXECUTION_MODES))}"
+        _raise_manifest_failure(
+            _manifest_failure(
+                "external_project_execution_mode_unsupported",
+                f"external project manifest execution_mode must be one of: {', '.join(sorted(SUPPORTED_EXECUTION_MODES))}",
+                site="normalize_external_project_manifest.execution_mode",
+            )
         )
 
     normalized = {
@@ -171,12 +253,21 @@ def normalize_external_project_manifest(
     normalized["provider_binding"] = resolve_external_project_provider_binding(normalized)
 
     if not any(bool(normalized["capabilities"].get(key)) for key in _CAPABILITY_KEYS):
-        raise ValueError("external project manifest capabilities must declare at least one supported output")
+        _raise_manifest_failure(
+            _manifest_failure(
+                "external_project_manifest_invalid",
+                "external project manifest capabilities must declare at least one supported output",
+                site="normalize_external_project_manifest.capabilities",
+            )
+        )
 
     return normalized
 
 
-def build_external_project_summary(manifest: dict[str, Any] | None) -> dict[str, Any] | None:
+def build_external_project_summary(manifest: dict[str, Any] | None) -> Annotated[
+    dict[str, Any] | None,
+    "kit:non-authoritative derived_as=view fact_source=source_library.manifest witness=test:test_w01_meta",
+]:
     if not isinstance(manifest, dict):
         return None
     try:
@@ -208,11 +299,29 @@ def resolve_runner_url(
 ) -> str:
     runner_ref = str((manifest or {}).get("runner_ref") or "").strip()
     if runner_ref.startswith("article-extractor://"):
-        raise ValueError("article_extractor runner_ref is a parser identity, not a fetch URL")
+        _raise_manifest_failure(
+            _manifest_failure(
+                "external_project_manifest_invalid",
+                "article_extractor runner_ref is a parser identity, not a fetch URL",
+                site="resolve_runner_url.runner_ref",
+            )
+        )
     if runner_ref.startswith("python-library://"):
-        raise ValueError("python_library runner_ref is a registered runner identity, not a fetch URL")
+        _raise_manifest_failure(
+            _manifest_failure(
+                "external_project_manifest_invalid",
+                "python_library runner_ref is a registered runner identity, not a fetch URL",
+                site="resolve_runner_url.runner_ref",
+            )
+        )
     if runner_ref.startswith(("cli://", "container://")):
-        raise ValueError("cli_or_container runner_ref is a registered runner identity, not a fetch URL")
+        _raise_manifest_failure(
+            _manifest_failure(
+                "external_project_manifest_invalid",
+                "cli_or_container runner_ref is a registered runner identity, not a fetch URL",
+                site="resolve_runner_url.runner_ref",
+            )
+        )
     if runner_ref.startswith("rsshub://"):
         url = f"https://rsshub.app/{runner_ref[len('rsshub://'):].lstrip('/')}"
         return _normalize_remote_http_url(url, field_name="runner_ref")
@@ -234,22 +343,52 @@ def resolve_runner_url(
 def _normalize_runner_ref(value: Any, *, execution_mode: str) -> str:
     raw = str(value or "").strip()
     if not raw:
-        raise ValueError("external project manifest runner_ref is required")
+        _raise_manifest_failure(
+            _manifest_failure(
+                "external_project_manifest_invalid",
+                "external project manifest runner_ref is required",
+                site="normalize_runner_ref.runner_ref",
+            )
+        )
     if raw.startswith("article-extractor://"):
         if execution_mode != "article_extractor":
-            raise ValueError("article-extractor:// runner_ref is only supported for article_extractor execution_mode")
+            _raise_manifest_failure(
+                _manifest_failure(
+                    "external_project_manifest_invalid",
+                    "article-extractor:// runner_ref is only supported for article_extractor execution_mode",
+                    site="normalize_runner_ref.execution_mode",
+                )
+            )
         return raw
     if raw.startswith("python-library://"):
         if execution_mode != "python_library":
-            raise ValueError("python-library:// runner_ref is only supported for python_library execution_mode")
+            _raise_manifest_failure(
+                _manifest_failure(
+                    "external_project_manifest_invalid",
+                    "python-library:// runner_ref is only supported for python_library execution_mode",
+                    site="normalize_runner_ref.execution_mode",
+                )
+            )
         return raw
     if raw.startswith(("cli://", "container://")):
         if execution_mode != "cli_or_container":
-            raise ValueError("cli:// or container:// runner_ref is only supported for cli_or_container execution_mode")
+            _raise_manifest_failure(
+                _manifest_failure(
+                    "external_project_manifest_invalid",
+                    "cli:// or container:// runner_ref is only supported for cli_or_container execution_mode",
+                    site="normalize_runner_ref.execution_mode",
+                )
+            )
         return raw
     if raw.startswith("rsshub://"):
         if execution_mode != "rss_feed":
-            raise ValueError("rsshub:// runner_ref is only supported for rss_feed execution_mode")
+            _raise_manifest_failure(
+                _manifest_failure(
+                    "external_project_manifest_invalid",
+                    "rsshub:// runner_ref is only supported for rss_feed execution_mode",
+                    site="normalize_runner_ref.execution_mode",
+                )
+            )
         return raw
     return _normalize_remote_http_url(raw, field_name="runner_ref")
 
@@ -257,27 +396,37 @@ def _normalize_runner_ref(value: Any, *, execution_mode: str) -> str:
 def _normalize_remote_http_url(value: Any, *, field_name: str) -> str:
     raw = str(value or "").strip()
     if not raw:
-        raise ValueError(f"{field_name} is required")
+        _raise_manifest_failure(
+            _manifest_failure("external_project_manifest_invalid", f"{field_name} is required", site=f"{field_name}.required")
+        )
     parts = urlsplit(raw)
     if parts.scheme not in {"http", "https"}:
-        raise ValueError(f"{field_name} must use http or https")
+        _raise_manifest_failure(
+            _manifest_failure("external_project_manifest_invalid", f"{field_name} must use http or https", site=f"{field_name}.scheme")
+        )
     host = str(parts.hostname or "").strip().lower()
     if not host:
-        raise ValueError(f"{field_name} host is required")
+        _raise_manifest_failure(
+            _manifest_failure("external_project_manifest_invalid", f"{field_name} host is required", site=f"{field_name}.host")
+        )
     _ensure_public_host(host, field_name=field_name)
     return raw
 
 
 def _ensure_public_host(host: str, *, field_name: str) -> None:
     if host in {"localhost", "127.0.0.1", "::1"} or host.endswith(".local"):
-        raise ValueError(f"{field_name} cannot target localhost or local hosts")
+        _raise_manifest_failure(
+            _manifest_failure("external_project_manifest_invalid", f"{field_name} cannot target localhost or local hosts", site=f"{field_name}.host")
+        )
     try:
         parsed = ip_address(host)
     except ValueError:
         _ensure_host_resolves_public(host, field_name=field_name)
         return
     if parsed.is_private or parsed.is_loopback or parsed.is_link_local or parsed.is_reserved or parsed.is_multicast:
-        raise ValueError(f"{field_name} cannot target private or non-routable hosts")
+        _raise_manifest_failure(
+            _manifest_failure("external_project_manifest_invalid", f"{field_name} cannot target private or non-routable hosts", site=f"{field_name}.host")
+        )
 
 
 def _ensure_host_resolves_public(host: str, *, field_name: str) -> None:
@@ -297,13 +446,21 @@ def _ensure_host_resolves_public(host: str, *, field_name: str) -> None:
         except ValueError:
             continue
         if parsed.is_private or parsed.is_loopback or parsed.is_link_local or parsed.is_reserved or parsed.is_multicast:
-            raise ValueError(f"{field_name} cannot resolve to private or non-routable hosts")
+            _raise_manifest_failure(
+                _manifest_failure("external_project_manifest_invalid", f"{field_name} cannot resolve to private or non-routable hosts", site=f"{field_name}.resolved_host")
+            )
 
 
 def _require_text(value: Any, *, field_name: str) -> str:
     text = str(value or "").strip()
     if not text:
-        raise ValueError(f"external project manifest {field_name} is required")
+        _raise_manifest_failure(
+            _manifest_failure(
+                "external_project_manifest_invalid",
+                f"external project manifest {field_name} is required",
+                site=f"normalize_external_project_manifest.{field_name}",
+            )
+        )
     return text
 
 
@@ -392,7 +549,13 @@ def _normalize_runtime_config(payload: Any) -> dict[str, Any]:
         if not header_key:
             continue
         if header_key.lower() in _BLOCKED_RUNTIME_HEADER_KEYS:
-            raise ValueError(f"runtime_config.headers does not allow header: {header_key}")
+            _raise_manifest_failure(
+                _manifest_failure(
+                    "external_project_manifest_invalid",
+                    f"runtime_config.headers does not allow header: {header_key}",
+                    site="normalize_runtime_config.headers",
+                )
+            )
         normalized_headers[header_key] = str(value)
     return {
         "method": str(source.get("method") or "GET").strip().upper() or "GET",

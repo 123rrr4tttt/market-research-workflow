@@ -6,7 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 
 CONTRACT_VERSION = "graph.visual_data_smoke_gate.v1"
@@ -442,7 +442,10 @@ def build_gate_snapshot(
     repo_root: Path = REPO_ROOT,
     backend_data_evidence: dict[str, Any] | None = None,
     live_ui_evidence: dict[str, Any] | None = None,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=generated_evidence fact_source=visual_data_fixture_smoke+backend_data_static_checks+graphpage_ui_static_checks+backend_data_evidence+live_ui_evidence witness=test:test_c13_cli_graph_workflow_metadata_preserves_abi",
+]:
     fixture_stage = _build_fixture_stage()
     backend_stage = _build_backend_data_stage(
         static_checks=backend_data_static_checks(repo_root),

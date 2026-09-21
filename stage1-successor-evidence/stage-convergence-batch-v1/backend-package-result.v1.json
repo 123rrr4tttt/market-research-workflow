@@ -1,0 +1,258 @@
+{
+  "schema_version": "mrw.stage_convergence.backend_package_result.v1",
+  "package_id": "contract16.stage_convergence.backend_package.binding_registry_integration.v1",
+  "authoritative": false,
+  "scope": "SOURCE_DIAGNOSTIC_NOT_FINAL_CANDIDATE",
+  "status": "PACKAGE_IMPLEMENTED_FOCUSED_PASS_NOT_FINAL_CANDIDATE",
+  "source_identity": {
+    "repository_root": "/Users/wangyiliang/market-research-workflow",
+    "head_commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+    "worktree_state": "DIRTY_SHARED_WORKTREE",
+    "candidate_identity": null,
+    "candidate_built": false,
+    "final_candidate_qualification": false
+  },
+  "implemented_surfaces": [
+    {
+      "surface_id": "workflow_graph.lazy_executor_protocol",
+      "result": "AttributeError ABI retained with exact missing-name args and boundary witness"
+    },
+    {
+      "surface_id": "api.persistence_service_boundaries",
+      "result": "ingest submission registry and typed-knowledge live session ownership moved behind service adapters"
+    },
+    {
+      "surface_id": "api.structured_error_projection",
+      "result": "nine genuine HTTPException-detail excess occurrences replaced by structured JSONResponse projection without allowlist change or exception substitution"
+    },
+    {
+      "surface_id": "api.shared_error_projection",
+      "result": "four same-form API projections share app.api._error_responses.error_json_response while contracts.error_response remains the envelope owner"
+    },
+    {
+      "surface_id": "ingest.runtime_readback_dispatch",
+      "result": "source-library idempotent dispatch test asserts exact runtime_readback line, trace, run and queue identity"
+    }
+  ],
+  "source_files": [
+    {
+      "artifact_id": "source.api.error_responses",
+      "path": "main/backend/app/api/_error_responses.py",
+      "sha256": "6c8b18e23677ab41a190ab392b735ee1f7e758115f1b3802bd108c0bb6cbfdba"
+    },
+    {
+      "artifact_id": "source.api.dashboard",
+      "path": "main/backend/app/api/dashboard.py",
+      "sha256": "f56720b1ad19d0acce7f89175c15c88bdcd2bf229e8bee473281e70a86a73893"
+    },
+    {
+      "artifact_id": "source.api.ingest",
+      "path": "main/backend/app/api/ingest.py",
+      "sha256": "8a7446095c523480e3849a635496a3d7ee063fcd5a673f5f109409127f3299f9"
+    },
+    {
+      "artifact_id": "source.api.search",
+      "path": "main/backend/app/api/search.py",
+      "sha256": "51780ab5f337b75c395db051d3821eddd91b29bd992954a9c9dd5ae24b76cc3d"
+    },
+    {
+      "artifact_id": "source.api.source_library",
+      "path": "main/backend/app/api/source_library.py",
+      "sha256": "5833eeaba1dab3d829b06eb42baae9861720c46fe66cbfb5b51af2168146b3d4"
+    },
+    {
+      "artifact_id": "source.api.typed_knowledge",
+      "path": "main/backend/app/api/typed_knowledge.py",
+      "sha256": "30e0dfaecbab5676f663a94d355c01112fcea1ce1fb249d4d39431e791179275"
+    },
+    {
+      "artifact_id": "source.service.ingest_submission_registry",
+      "path": "main/backend/app/services/ingest/adapters/submission_registry.py",
+      "sha256": "6c777b6662e8332f6ef9fbf3dcbaedee98c07fe7016d58ab67fcac4868b29e77"
+    },
+    {
+      "artifact_id": "source.service.typed_knowledge_adapters_init",
+      "path": "main/backend/app/services/typed_knowledge/adapters/__init__.py",
+      "sha256": "87725048eb522dd7460c00633280322212b779bca2ee6256f571bb7654d173dd"
+    },
+    {
+      "artifact_id": "source.service.typed_knowledge_live",
+      "path": "main/backend/app/services/typed_knowledge/adapters/live_service.py",
+      "sha256": "eca45fc9c46817962bb38bcaf423c8738019eb9671f7149ed38126782c007c4e"
+    },
+    {
+      "artifact_id": "source.workflow_graph.executor_exports",
+      "path": "main/backend/app/services/workflow_graph/executors/__init__.py",
+      "sha256": "1e1667bb78b1673e6744d82dcc40e08a054de5bf49045fc3b5df070838e88af9"
+    },
+    {
+      "artifact_id": "test.dashboard_error_contract",
+      "path": "main/backend/tests/core_business/test_admin_dashboard_process_core_contract.py",
+      "sha256": "6f6da96ef626fafeac1d47c47d839829e96e32e0beb3942403bafe3f519149fd"
+    },
+    {
+      "artifact_id": "test.search_error_contract",
+      "path": "main/backend/tests/core_business/test_search_core_contract.py",
+      "sha256": "6220279fa31c28b8054facb3324753a60922a55fb4774ea134c81c18fec22bae"
+    },
+    {
+      "artifact_id": "test.ingest_flow",
+      "path": "main/backend/tests/integration/test_frontend_ingest_flow_smoke_unittest.py",
+      "sha256": "cefab63077d3dfc878ca04d31ccf8ef5107ee04a1281276e2cf7c20cfd71cff8"
+    },
+    {
+      "artifact_id": "test.typed_knowledge_api",
+      "path": "main/backend/tests/integration/test_typed_knowledge_api_route_unittest.py",
+      "sha256": "90b4e3d86ce4d0ab3e2db3fd5655bdb1b87ce9f3dd16ee44dec5b1faafea971f"
+    },
+    {
+      "artifact_id": "test.shared_error_response",
+      "path": "main/backend/tests/unit/test_api_error_responses_unittest.py",
+      "sha256": "056775c64a42c964b03e4846301898021ff8e9940a088e6cc05958d0f8f9e393"
+    },
+    {
+      "artifact_id": "test.persistence_service_boundaries",
+      "path": "main/backend/tests/unit/test_api_persistence_service_boundaries_unittest.py",
+      "sha256": "fe3160001db6da63e776a7d37e7e64ad23104a1529f1f59370e706c5df3fdb19"
+    },
+    {
+      "artifact_id": "test.typed_knowledge_persistence_boundary",
+      "path": "main/backend/tests/unit/test_typed_knowledge_persistence_boundary_unittest.py",
+      "sha256": "6056bfd5982849d4ca9b020ca165fda9b40519f2a43214608c35fdddb4d3b009"
+    },
+    {
+      "artifact_id": "test.workflow_graph_runtime",
+      "path": "main/backend/tests/unit/test_workflow_graph_runtime_unittest.py",
+      "sha256": "5b9be3800f2c38b58fc74659ee8d4434605da7bd9310f63e60e296f25665cd21"
+    }
+  ],
+  "focused_receipts": [
+    {
+      "receipt_id": "focused.shared_error_response.v1",
+      "path": "/private/tmp/mrw-contract16-shared-error-response.xml",
+      "sha256": "673191c79cd0c499b34a2ce9ad78ce32164247847bd9d2edcd54bb06301e5179",
+      "timestamp": "2026-09-07T07:31:40.401126+08:00",
+      "result": "3 passed",
+      "currentness": "FRESH_AFTER_SHARED_HELPER_REFACTOR",
+      "collection_boundary": "does not import app.main; no TestClient and no lifespan",
+      "assertion_scope": "status, X-Error-Code, details, deprecated meta, context trace/project meta and detail alias"
+    },
+    {
+      "receipt_id": "focused.http_contract_original_11.v1",
+      "path": "/private/tmp/mrw-contract16-http-contract-shared-refactor.xml",
+      "sha256": "e4446b40e934ac2b271fa5b9cc04df9f0bdfb069f708409a48d5c3cff5199b13",
+      "timestamp": "2026-09-07T07:32:28.317532+08:00",
+      "result": "11 passed",
+      "currentness": "FRESH_AFTER_SHARED_HELPER_REFACTOR",
+      "collection_boundary": "existing test modules import app.main during collection; TestClient is not entered as a context manager and application lifespan is not executed",
+      "assertion_scope": "dashboard four errors, search invalid/not-found, source-library deprecated 410, typed-knowledge required/reserved project-key behavior"
+    },
+    {
+      "receipt_id": "focused.ingest_flow_safe.v1",
+      "path": "/private/tmp/mrw-contract16-ingest-flow-safe.xml",
+      "sha256": "e1082a764028f20367bde80f3ff3037983514b0b26cd1573c8af0fa1119fdb63",
+      "timestamp": "2026-09-07T07:25:52.732241+08:00",
+      "result": "2 passed",
+      "currentness": "CURRENT_FOR_INGEST_FLOW_SURFACE",
+      "collection_boundary": "app.main imported; TestClient lifespan not entered; persistence, task dispatch and collect runtime effects mocked; database URL set to task fail-closed endpoint"
+    },
+    {
+      "receipt_id": "focused.persistence_adapters_expanded.v1",
+      "path": "/private/tmp/mrw-contract16-persistence-adapters-expanded.xml",
+      "sha256": "767f909521740037c474f8a5e61dae025378adedd2fbe3bd320ce0990d6c31d7",
+      "timestamp": "2026-09-07T07:27:28.215711+08:00",
+      "result": "6 passed",
+      "currentness": "CURRENT_FOR_SERVICE_ADAPTER_SURFACE",
+      "collection_boundary": "all database sessions and project binders are test doubles; database URL set to task fail-closed endpoint"
+    },
+    {
+      "receipt_id": "focused.search_typed_expanded.v1",
+      "path": "/private/tmp/mrw-contract16-search-typed-api-expanded.xml",
+      "sha256": "1df5a67f42d75757a73640abb583a79edd6f67564f902acd8311ddebb6e45869",
+      "timestamp": "2026-09-07T07:28:16.188561+08:00",
+      "result": "16 passed",
+      "currentness": "PRE_SHARED_HELPER_REFACTOR_DIAGNOSTIC",
+      "collection_boundary": "app.main imported; no TestClient lifespan; live typed-knowledge sessions are test doubles; database URL set to task fail-closed endpoint"
+    },
+    {
+      "receipt_id": "focused.api_standards_checker_tests.v1",
+      "path": "/private/tmp/mrw-contract16-api-standards-guard.xml",
+      "sha256": "b49779fa7ab6abc367f27e515f572228280881460c1adc2279b68e99bbaf56bc",
+      "timestamp": "2026-09-07T07:27:55.580727+08:00",
+      "result": "6 passed",
+      "currentness": "CHECKER_IMPLEMENTATION_TESTS",
+      "collection_boundary": "temporary source fixtures only; no app.main and no lifespan"
+    },
+    {
+      "receipt_id": "focused.workflow_runtime.v1",
+      "path": "/private/tmp/mrw-contract16-workflow-runtime.xml",
+      "sha256": "c3cfc8e118b9a24e0c8ea71730f82f1d372ebc3253a4a8deb68c16f07dd8ad86",
+      "timestamp": "2026-09-07T06:54:23.141100+08:00",
+      "result": "15 passed",
+      "currentness": "CURRENT_FOR_LAZY_EXECUTOR_SOURCE_HASH",
+      "collection_boundary": "unit tests; no application lifespan"
+    },
+    {
+      "receipt_id": "focused.lazy_executor_exact.v1",
+      "path": "/private/tmp/mrw-contract16-lazy-export.xml",
+      "sha256": "8179390248b0115fb1a6a8bc2a5fc06c96f213e9f28436d2d5fee5fde35b17d4",
+      "timestamp": "2026-09-07T06:50:11.621077+08:00",
+      "result": "1 passed",
+      "currentness": "CURRENT_FOR_LAZY_EXECUTOR_SOURCE_HASH",
+      "collection_boundary": "unit test; no application lifespan"
+    },
+    {
+      "receipt_id": "diagnostic.source_unit_after_service.v1",
+      "path": "/private/tmp/mrw-contract16-source-unit-after-service.xml",
+      "sha256": "27cdffb8149a3dadfac4f4441d5d284ad85715c38e7f6e965e9d4def52a2a8fe",
+      "timestamp": "2026-09-07T07:13:14.678491+08:00",
+      "result": "1800 passed plus 52 unittest subtests represented as 1852 JUnit tests",
+      "currentness": "PRE_HTTP_AND_SHARED_HELPER_REFACTOR_DIAGNOSTIC_ONLY",
+      "collection_boundary": "source-worktree unit marker run with DNS fail-closed injection; not a final-candidate run"
+    }
+  ],
+  "direct_checks": [
+    {
+      "check_id": "api_layer_standards.current_source",
+      "command": "main/backend/.venv311/bin/python main/backend/scripts/check_api_layer_imports.py",
+      "exit_code": 0,
+      "result": "Scanned 37 API files; detected 26 direct ..models imports and 67 HTTPException-detail raises in 61 semantic calls; no new model imports and no new HTTPException-detail raises"
+    },
+    {
+      "check_id": "python_compile.affected_files",
+      "exit_code": 0,
+      "result": "PASS"
+    },
+    {
+      "check_id": "git_diff_check.affected_files",
+      "exit_code": 0,
+      "result": "PASS"
+    }
+  ],
+  "test_environment": {
+    "governance_output_environment": "CONTRACT_GOVERNANCE_DIR and CONTRACTS_GOVERNANCE_DIR explicitly unset for fresh shared-helper and HTTP focused runs",
+    "database_environment": "DATABASE_URL explicitly set to postgresql+psycopg2://invalid:invalid@127.0.0.1:1/invalid with one-second connect timeout for post-incident focused API runs",
+    "lifespan": "NOT_ENTERED for fresh post-incident TestClient runs",
+    "important_limit": "Importing app.main registers lifespan handlers but is distinct from executing the lifespan. Absence of lifespan alone does not prove absence of every effect; the affected effect paths were mocked or fail-closed for the cited focused runs."
+  },
+  "external_effects": [
+    {
+      "effect_id": "contract16.testclient_lifespan.llm_prompt_upsert.20260907T0711+0800",
+      "incident_receipt_path": "/private/tmp/mrw-contract16-effect-incident-20260907T0711+0800.json",
+      "incident_receipt_sha256": "cc20aac4a04762a5e256384794684382ebca2f7f5d73ab6529813fee8440e38c",
+      "verdict": "CONFIRMED_COMMITTED_UPSERT_EXECUTION",
+      "observed_log": "synced 90 LLM configs",
+      "possible_write_scope": "enabled projects discovered through public.projects and their tenant-schema llm_service_configs tables",
+      "incident_database_target": "UNKNOWN_AT_INCIDENT",
+      "row_identity_and_before_after": "UNKNOWN_NOT_REPROBED",
+      "recovery_status": "NOT_ATTEMPTED_NOT_AUTHORIZED",
+      "note": "No reconnect, readback, cleanup or rollback was performed after the incident. Recovery of non-owned or unknown data requires specific user authorization."
+    }
+  ],
+  "authority_ceiling": "NO_FINAL_CANDIDATE_NO_CANONICAL_ADOPTION_NO_PRODUCTION_RELEASE_NO_EXTERNAL_EFFECT_RECOVERY",
+  "remaining_integration": [
+    "Parent line owns configuration, registries, candidate construction and aggregate acceptance.",
+    "Current hashes bind dirty source-worktree bytes only and must be recomputed if any listed source changes.",
+    "The pre-refactor source unit receipt is diagnostic and cannot qualify the eventual final candidate."
+  ]
+}

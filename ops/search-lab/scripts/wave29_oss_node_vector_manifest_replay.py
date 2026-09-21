@@ -11,19 +11,29 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import sys
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+BACKEND_ROOT = REPO_ROOT / "main" / "backend"
+if str(BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(BACKEND_ROOT))
+
+from scripts.evidence_source_contract import (  # noqa: E402
+    apply_evidence_source_contract,
+    evidence_source,
+)
+
 DEFAULT_OUT_DIR = "development/latest-dev-docs/automation-runs/wave29-oss-node-vector-manifest-replay/2026-05-23"
 DEFAULT_PROVIDER_MANIFEST = (
     REPO_ROOT
     / "development/latest-dev-docs/automation-runs/wave19-vectorization-provider-manifest/2026-05-22/provider_manifest_readback.json"
 )
 TARGET_TOPIC = (
-    "development/latest-dev-docs/development-plans/ARCHIVE_EXTERNAL_BLOCKED/"
+    "docs/development/development-plans/ARCHIVE_CLOSED/"
     "2026-03-05-oss-node-platform-io-plan"
 )
 
@@ -945,7 +955,7 @@ def build_contract(
     external_conditions_retained = _retained_external_conditions(
         platform_io_live_sla_closed=platform_io_live_sla_closed
     )
-    return {
+    contract = {
         "contract_version": "wave29-oss-node-vector-manifest-replay.v1",
         "generated_by": "ops/search-lab/scripts/wave29_oss_node_vector_manifest_replay.py",
         "status": status,
@@ -988,6 +998,17 @@ def build_contract(
         ),
         "failures": failures,
     }
+    return apply_evidence_source_contract(
+        contract,
+        [
+            evidence_source(
+                resolved_manifest_path,
+                repo_root=REPO_ROOT,
+                label="wave19_provider_manifest",
+            )
+        ],
+        claim_fields=("target_archive_closed_candidate",),
+    )
 
 
 def write_outputs(out_dir: Path, contract: dict[str, Any]) -> None:

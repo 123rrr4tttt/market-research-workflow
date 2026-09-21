@@ -27,6 +27,8 @@ from typing import (
     runtime_checkable,
 )
 
+from functorial_kit import Failure
+
 from app.successor_runtime.capabilities import source_library_c2_1 as c2_1
 from app.successor_runtime.capabilities.checksum import (
     canonical_json,
@@ -59,6 +61,8 @@ __all__ = [
     "require_exact_resolution_binding",
     "require_resource_ceiling",
     "resolve_source_execution_request",
+    "try_require_exact_resolution_binding",
+    "try_resolve_source_execution_request",
     "successor_interpreter_profile_digest",
 ]
 
@@ -1033,8 +1037,30 @@ def resolve_source_execution_request(
     )
 
 
+def try_resolve_source_execution_request(
+    payload: PayloadView,
+) -> c2_1.SourceResolutionResult | Failure:
+    """Total pure C2.1 resolution; malformed contract input becomes Failure."""
+
+    try:
+        return resolve_source_execution_request(payload)
+    except (TypeError, ValueError, KeyError, AttributeError, OverflowError) as exc:
+        return c2_1._shared.c2_contract_failure(
+            "schema_contract_invalid",
+            str(exc),
+            operation="source_library.c2_1.resolve_execution_request",
+            site="resolve_source_execution_request",
+            owner=SOURCE_LIBRARY_C2_1_OWNER,
+        )
+
+
 class ResolutionBindingMismatch(ValueError):
     """Raised when Program/Plan/payload/project/catalog/binding drift."""
+
+
+def _raise_resolution_binding_mismatch(message: str) -> None:
+    # kit:boundary owner=source_library_c2_1_interpreters.py class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=c2.interpreter.failure witness=test:test_w06_c2_total_core_failure_lifts
+    raise ResolutionBindingMismatch(message)
 
 
 def _is_hex64(value: Any) -> bool:
@@ -1175,7 +1201,7 @@ def require_exact_resolution_binding(
         failures.append("binding/interpreter profile")
 
     if failures:
-        raise ResolutionBindingMismatch(
+        _raise_resolution_binding_mismatch(
             "C2.1 resolution binding drift: " + ", ".join(sorted(set(failures)))
         )
     return {
@@ -1185,6 +1211,29 @@ def require_exact_resolution_binding(
         "payload_content_digest": payload_ref.content_digest,
         "binding_digest": binding.binding_digest,
     }
+
+
+def try_require_exact_resolution_binding(
+    **kwargs: Any,
+) -> dict[str, str] | Failure:
+    """Total exact-binding check used by interpreters and replay callers."""
+
+    try:
+        return require_exact_resolution_binding(**kwargs)
+    except ResolutionBindingMismatch as exc:
+        return c2_1._shared.c2_interpreter_failure(
+            str(exc),
+            operation="source_library.c2_1.require_exact_resolution_binding",
+            site="require_exact_resolution_binding",
+        )
+    except (TypeError, ValueError, KeyError, AttributeError) as exc:
+        return c2_1._shared.c2_contract_failure(
+            "binding_contract_invalid",
+            str(exc),
+            operation="source_library.c2_1.require_exact_resolution_binding",
+            site="require_exact_resolution_binding",
+            owner=SOURCE_LIBRARY_C2_1_OWNER,
+        )
 
 
 def legacy_interpreter_profile_digest() -> str:
@@ -1247,9 +1296,7 @@ class SourceLibraryC2_1SuccessorInterpreter:
                 catalog=catalog,
                 deployment_catalog_digest=deployment_catalog_digest,
                 binding=binding,
-                expected_interpreter_profile_digest=(
-                    successor_interpreter_profile_digest()
-                ),
+                expected_interpreter_profile_digest=successor_interpreter_profile_digest(),
             )
         except ResolutionBindingMismatch as exc:
             return InterpreterFailure(
@@ -1257,4 +1304,11 @@ class SourceLibraryC2_1SuccessorInterpreter:
                 message=str(exc),
                 retryable=False,
             )
-        return InterpreterSuccess(resolve_source_execution_request(payload))
+        result = try_resolve_source_execution_request(payload)
+        if isinstance(result, Failure):
+            return InterpreterFailure(
+                code="INVALID_INPUT",
+                message=result.message,
+                retryable=False,
+            )
+        return InterpreterSuccess(result)

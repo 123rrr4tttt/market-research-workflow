@@ -4,7 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 from app.services.agent_core.provider_trace import (
     build_agent_core_provider_trace_readback_contract,
@@ -12,7 +12,11 @@ from app.services.agent_core.provider_trace import (
 )
 
 
-def build_contract_snapshot() -> dict[str, Any]:
+def build_contract_snapshot() -> Annotated[
+    dict[str, Any],
+    "kit:canonical-read canonical_owner=app.services.agent_core.provider_trace "
+    "witness=test:test_c11_cli_agent_authority_metadata",
+]:
     return build_agent_core_provider_trace_readback_contract()
 
 

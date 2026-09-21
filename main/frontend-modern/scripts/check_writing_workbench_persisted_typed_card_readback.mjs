@@ -16,7 +16,7 @@ const files = {
   backendReadbackTest: path.join(repoRoot, 'main/backend/tests/unit/test_writing_keyword_card_service_unittest.py'),
   evidenceDoc: path.join(
     repoRoot,
-    'development/latest-dev-docs/development-plans/CURRENT_DEV/2026-03-07-writing-workbench-evolution/09_wave17-worker6-persisted-typed-card-ui-readback-2026-05-22.md',
+    'docs/development/development-plans/ARCHIVE_CLOSED/2026-03-07-writing-workbench-evolution/09_wave17-worker6-persisted-typed-card-ui-readback-2026-05-22.md',
   ),
 }
 
@@ -45,7 +45,7 @@ const evidenceDoc = readFile(files.evidenceDoc)
 assertIncludesAll('persisted typed-card request helper', writingDomain, [
   'buildPersistedTypedKnowledgeKeywordCardRequest',
   "document: Pick<WritingDocument, 'metadata_json'> | null | undefined",
-  'const typedContext = readTypedKnowledgeWritingContextFromDocument(document)',
+  'const resolvedTypedContext = typedContext || readTypedKnowledgeWritingContextFromDocument(document)',
   "sources = ['document', 'resource', 'graph']",
   'withTypedKnowledgeWritingContext',
 ])

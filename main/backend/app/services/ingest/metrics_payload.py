@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any
 
 from .gate_reason_codes import normalize_reason_code
 from .guardrail_rollout import ROLLOUT_CONTRACT_VERSION
@@ -186,7 +186,10 @@ def build_metrics_payload_from_summary(
     summary: dict[str, Any] | None,
     *,
     top_n: int = _DEFAULT_TOP_N,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=metrics_summary witness=test:test_w03_ingest_ports_authority_metadata",
+]:
     base = new_metrics_summary()
     if isinstance(summary, dict):
         base["total_samples"] = _coerce_non_negative_int(summary.get("total_samples"))
@@ -293,7 +296,10 @@ def build_metrics_payload_for_result(
     *,
     fallback_adapter: str | None = None,
     top_n: int = _DEFAULT_TOP_N,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=collect_result+job_meta witness=test:test_w03_ingest_ports_authority_metadata",
+]:
     summary = new_metrics_summary()
     record_metrics_observation(summary, result, fallback_adapter=fallback_adapter)
     return build_metrics_payload_from_summary(summary, top_n=top_n)

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Annotated, Any
 
 
 CAPABILITY_CALL_CONTRACT_VERSION = "interactive_agent.capability_call.v1"
@@ -68,7 +68,11 @@ def build_capability_call(
     protocol: str | None = None,
     error: dict[str, Any] | None = None,
     extra: dict[str, Any] | None = None,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:prepared-command effect_boundary=tool_contract "
+    "witness=test:test_w02_agent_authority_metadata"
+]:
     payload: dict[str, Any] = {
         "contract_version": CAPABILITY_CALL_CONTRACT_VERSION,
         "turn_id": turn_id,
@@ -100,7 +104,11 @@ def build_tool_definition(
     timeout_seconds: int = 10,
     result_budget: int = 4000,
     capability_id: str | None = None,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=tool_contract_inputs "
+    "witness=test:test_w02_agent_authority_metadata"
+]:
     return {
         "contract_version": TOOL_DEFINITION_CONTRACT_VERSION,
         "name": name,
@@ -117,7 +125,11 @@ def build_tool_definition(
     }
 
 
-def build_stream_descriptor(*, session_id: str, since_seq: int = 0) -> dict[str, Any]:
+def build_stream_descriptor(*, session_id: str, since_seq: int = 0) -> Annotated[
+    dict[str, Any],
+    "kit:prepared-command effect_boundary=agent_session_stream "
+    "witness=test:test_w02_agent_authority_metadata"
+]:
     return {
         "protocol_version": STREAM_PROTOCOL_VERSION,
         "session_id": session_id,

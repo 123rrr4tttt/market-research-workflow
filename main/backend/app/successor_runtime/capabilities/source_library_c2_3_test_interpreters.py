@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import hashlib
 from collections.abc import Mapping
-from typing import Any
+from typing import Annotated, Any, Literal
 
 from app.successor_runtime.capabilities import source_library_c2_shared as shared
 from app.successor_runtime.capabilities.checksum import sha256_hex
@@ -44,7 +44,7 @@ def build_fixture_attempt_ref(
     request: shared.ProviderEffectRequest,
     *,
     epoch: int = 1,
-) -> shared.ProviderAttemptRef:
+) -> Annotated[shared.ProviderAttemptRef, Literal["kit:non-authoritative derived_as=simulation fact_source=ProviderEffectRequest+fixture_epoch witness=test:test_w06_successor_authority_metadata"]]:
     attempt_id = f"attempt:c2-3-{request.request_id}-e{epoch}"
     return shared.ProviderAttemptRef(
         attempt_id=attempt_id,
@@ -61,7 +61,7 @@ def build_fixture_receipt(
     provider_job_id: str | None = None,
     provider_status: str = "ACCEPTED",
     observed_at: str = DEFAULT_FIXTURE_OBSERVED_AT,
-) -> shared.ProviderReceipt:
+) -> Annotated[shared.ProviderReceipt, Literal["kit:non-authoritative derived_as=simulation fact_source=ProviderEffectRequest+fixture_epoch witness=test:test_w06_successor_authority_metadata"]]:
     receipt_id = f"receipt:c2-3-{request.request_id}"
     return shared.ProviderReceipt(
         receipt_id=receipt_id,
@@ -156,7 +156,7 @@ class FixtureProviderEffectPort:
             self._outcomes.get(request.idempotency_key, self._default),
         )
         if outcome is None:
-            return shared.FailedProviderEffect(
+            return shared.RejectedProviderEffect(
                 code="UNSUPPORTED_PROVIDER",
                 message=f"no scripted fixture outcome for {request.request_id}",
             )
@@ -312,7 +312,12 @@ def build_deterministic_completed_outcome(
     records: tuple[shared.CapturedSourceRecordRef, ...] = (),
     artifacts: tuple[shared.StagedArtifactRef, ...] = (),
     observed_at: str = DEFAULT_FIXTURE_OBSERVED_AT,
-) -> shared.CompletedProviderEffect:
+) -> Annotated[
+    shared.CompletedProviderEffect,
+    "kit:non-authoritative derived_as=simulation "
+    "fact_source=source_library.c2_3.fixture_script "
+    "witness=test:test_scripted_outcomes_are_deterministic_and_traced",
+]:
     return shared.CompletedProviderEffect(
         receipt=build_fixture_receipt(
             request,
@@ -331,7 +336,7 @@ def build_deterministic_accepted_outcome(
     *,
     attempt_ref: shared.ProviderAttemptRef,
     observed_at: str = DEFAULT_FIXTURE_OBSERVED_AT,
-) -> shared.AcceptedProviderEffect:
+) -> Annotated[shared.AcceptedProviderEffect, Literal["kit:non-authoritative derived_as=simulation fact_source=ProviderEffectRequest+fixture_epoch witness=test:test_w06_successor_authority_metadata"]]:
     return shared.AcceptedProviderEffect(
         receipt=build_fixture_receipt(
             request,
@@ -347,7 +352,7 @@ def build_deterministic_unknown_outcome(
     request: shared.ProviderEffectRequest,
     *,
     attempt_ref: shared.ProviderAttemptRef,
-) -> shared.OutcomeUnknownProviderEffect:
+) -> Annotated[shared.OutcomeUnknownProviderEffect, Literal["kit:non-authoritative derived_as=simulation fact_source=ProviderEffectRequest+fixture_epoch witness=test:test_w06_successor_authority_metadata"]]:
     return shared.OutcomeUnknownProviderEffect(
         attempt_ref=attempt_ref.as_ref_string(),
         reason="fixture crash after effect dispatch before receipt",

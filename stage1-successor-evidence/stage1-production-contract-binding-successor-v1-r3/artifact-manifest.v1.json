@@ -1,0 +1,51 @@
+{
+  "authoritative": false,
+  "implementation": [
+    {
+      "path": "scripts/formal_release/generate_stage1_production_contract_record.py",
+      "sha256": "58e25777ce942dbc40136708a88ce0682378da9016a946933581d1c838207513"
+    },
+    {
+      "path": "scripts/formal_release/check_stage1_production_contract_record.py",
+      "sha256": "0766b7cbc116e9bed9329a172038a7dc28cda29769d6aa6788df85e9788a5fea"
+    },
+    {
+      "path": "scripts/formal_release/generate_stage1_current_binding_successor.py",
+      "sha256": "be68de0ee39d72011ea3b451e332853ddaeee661f11b7d738e710504a32306e5"
+    },
+    {
+      "path": "scripts/formal_release/check_stage1_current_binding_successor.py",
+      "sha256": "68b07bfc49621c7a31ce02f516b80099f216eb87db4ae63ac14792ee96cb9ce1"
+    },
+    {
+      "path": "scripts/formal_release/stage2_candidate_intake.py",
+      "sha256": "34dc7dfe7746d7e5362abdd70c34dba9ad48514e6697034a25699aa8357b869b"
+    },
+    {
+      "path": "scripts/formal_release/source_closure.py",
+      "sha256": "9c931234c283fa3e6d1cb0fb2c659e0828090657574abf7d4f37a63b315be83d"
+    },
+    {
+      "path": "tests/formal_release/test_generate_stage1_production_contract_record.py",
+      "sha256": "7b6377e65e1e8ab7d85d317b7341357d642df84de0b323fb60a0660a1b6549b5"
+    },
+    {
+      "path": "tests/formal_release/test_stage1_current_binding_successor.py",
+      "sha256": "2fa3ca7e150356b4dc426c111fc11d8d86511b73493de877e37fbaff0e585ce0"
+    },
+    {
+      "path": "tests/formal_release/test_stage2_candidate_intake.py",
+      "sha256": "e4dd58e0f329c125dad078e6a0488afd05276a940a210e9ff6bb61e15f63f428"
+    },
+    {
+      "path": "tests/formal_release/test_source_closure.py",
+      "sha256": "3f29a8f6453fd838f382333998f86420433375a1fb917fe509376476a742d0ee"
+    }
+  ],
+  "record": {
+    "path": "stage1-successor-evidence/stage1-production-contract-binding-successor-v1-r3/stage1-production-contract-binding-successor.v1.json",
+    "sha256": "46eb5641f6a493e2c4805177fd144671499a2481f021a0090d4d606ac89ba23d"
+  },
+  "schema": "mrw.stage1.production-contract-binding-successor.artifact-manifest.v1",
+  "status": "COMPLETE_NOT_AUTHORITY"
+}

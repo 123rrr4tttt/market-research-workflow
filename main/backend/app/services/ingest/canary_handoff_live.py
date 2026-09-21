@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from typing import Any, Mapping
+from typing import Annotated, Any, Mapping
 from unittest.mock import patch
 from uuid import uuid4
 
@@ -151,7 +151,10 @@ def build_production_like_handoff_evidence(
     accepted_result: Mapping[str, Any],
     rejected_result: Mapping[str, Any],
     db_readback: Mapping[str, Any],
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=generated_evidence fact_source=repo_local_api_responses+db_readback witness=test:test_w03_ingest_ports_authority_metadata",
+]:
     accepted_handoff = _handoff_from_result(accepted_result)
     rejected_handoff = _handoff_from_result(rejected_result)
     accepted_gate = accepted_handoff.get("strict_gate_state") if isinstance(accepted_handoff.get("strict_gate_state"), Mapping) else {}

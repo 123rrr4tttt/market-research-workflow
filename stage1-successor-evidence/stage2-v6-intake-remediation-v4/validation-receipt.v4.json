@@ -1,0 +1,21 @@
+{
+  "artifact_manifest": {
+    "path": "stage1-successor-evidence/stage2-v6-intake-remediation-v4/artifact-manifest.v4.json",
+    "sha256": "a76c62a0912d37ed2782ed8fc35efae81f4affa00e97757fec21610bf2fb95a2"
+  },
+  "authoritative": false,
+  "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+  "checks": {
+    "current_four_path_hashes": true,
+    "source_selector_pass_evidence_retained": true,
+    "v3_history_immutable": true,
+    "v4_intake_constants_bound": true,
+    "workflow_delta_stage0_overlap_closed": true
+  },
+  "record": {
+    "path": "stage1-successor-evidence/stage2-v6-intake-remediation-v4/stage2-v6-intake-remediation-record.v4.json",
+    "sha256": "61e99ae5bbdbb679a1fa670e7ebc99db865e04ee0e693baf313e9bb729100dd2"
+  },
+  "schema_version": "mrw.stage1.stage2_v6_intake_remediation_validation.v4",
+  "status": "PASS"
+}

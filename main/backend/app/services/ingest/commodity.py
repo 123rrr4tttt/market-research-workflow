@@ -141,4 +141,5 @@ def ingest_commodity_metrics(symbols: dict[str, str] | None = None, limit: int =
         return result
     except Exception as exc:  # noqa: BLE001
         fail_job(job_id, str(exc))
+        # kit:boundary owner=ingest.commodity class=SHELL_BOUNDARY_EXCEPTION failure_family=ingest.operation.failure witness=test:test_ingest_service_a_failure_lifts
         raise

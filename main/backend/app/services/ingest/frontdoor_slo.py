@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from math import ceil
-from typing import Any, Mapping
+from typing import Annotated, Any, Mapping
 
 from .gate_reason_codes import normalize_reason_code
 from .retry_policy import RETRY_CLASS_PERMANENT, RETRY_CLASS_TRANSIENT
@@ -117,7 +117,10 @@ def record_frontdoor_slo_observation(
                 _merge_counter(retry_counts, projection.get("reason_code") or "retryable", 1)
 
 
-def build_frontdoor_slo_payload(summary: Mapping[str, Any] | None) -> dict[str, Any]:
+def build_frontdoor_slo_payload(summary: Mapping[str, Any] | None) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=summary+tri_state_contract+latency_samples witness=test:test_w03_ingest_ports_authority_metadata",
+]:
     raw = summary if isinstance(summary, Mapping) else {}
     sample_size = _as_non_negative_int(raw.get("sample_size"))
     denominator = float(sample_size) if sample_size > 0 else 1.0

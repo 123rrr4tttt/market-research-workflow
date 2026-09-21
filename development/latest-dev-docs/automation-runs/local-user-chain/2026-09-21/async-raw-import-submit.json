@@ -1,0 +1,1 @@
+{"status":"ok","data":{"task_id":"afea152f-2d9e-4397-b348-5416d8dfe5c8","async":true,"status":"queued","result":null,"params":{"source_name":"local_celery_raw_import_smoke_20260921","items_total":1}},"error":null,"meta":{"trace_id":"ef987bd2-bdc0-4213-adf4-983f907f8e35","pagination":null,"project_key":"local_demo_20260921","deprecated":null}}

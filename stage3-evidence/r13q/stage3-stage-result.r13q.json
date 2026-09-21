@@ -1,0 +1,283 @@
+{
+  "schema_version": "mrw.stage3.stage-result.r13q.v1",
+  "stage": 3,
+  "status": "BLOCKED",
+  "authoritative": false,
+  "observed_at": "2026-09-10T00:37:05Z",
+  "candidate": {
+    "name": "r13q",
+    "root": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260910-v4-r13q",
+    "commit": "bdd765316d80efdef243927d81e2daa9de20f81c",
+    "tree": "2734ad57714d270fa79561d0bf2ee0a3a922e34c",
+    "base": "88ffcc3dab2e6cbdc1f389e16c4226df5a2e51c6",
+    "candidate_checkout_clean": true,
+    "manifest": {
+      "path": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260910-v4-r13q/evidence/candidate-manifest.v5.json",
+      "sha256": "4da75d49384e03243d6702afff9b8acdde875ac4f448affbaa92e588ad0db68d"
+    },
+    "stage1_stage2_result": {
+      "path": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260910-v4-r13q/evidence/stage1-stage2-stage-result.r13q.json",
+      "sha256": "89dd22e1ca4ac5d065d3b2bcac040b504c508404bde8d9bc1b48347d9c77f633"
+    },
+    "evidence_index": {
+      "path": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260910-v4-r13q/evidence/SHA256SUMS.r13q",
+      "sha256": "cde93097717aa3d58b63a9643406bb09f30d3a8035cca9c3881aac8b99f824d7"
+    }
+  },
+  "requirements": [
+    {
+      "id": "candidate_identity_r1_r3",
+      "status": "PASS",
+      "basis": "Exact commit and tree were re-read from the clean candidate checkout; the accepted r13q Stage 1/2 manifest, result, and index hashes match."
+    },
+    {
+      "id": "backend_unit_integration_core_business",
+      "status": "PASS_REUSED_IDENTITY_VALID",
+      "counts": {
+        "unit_passed": 1821,
+        "integration_passed": 384,
+        "core_business_passed": 256
+      },
+      "basis": "The r13q Stage 1/2 result records unchanged backend, source, workflow, compose, registry, kit, and dependency inputs versus the cited runs; reuse is limited to those unchanged inputs."
+    },
+    {
+      "id": "migration_and_schema",
+      "status": "PASS_REUSED_IDENTITY_VALID",
+      "counts": {
+        "migration_schema_focused_passed": 13,
+        "schema_guard_passed": 3,
+        "postgres_unix_socket_p0d_passed": 3
+      }
+    },
+    {
+      "id": "successor_architecture_exact_byte_negative",
+      "status": "PASS_BOUNDED_INPUT_REUSE",
+      "counts": {
+        "passed": 1484,
+        "skipped": 292,
+        "failed": 0,
+        "warnings": 4,
+        "fresh_r13q_affected_contracts_passed": 231
+      },
+      "scope": "The successful aggregate is accepted through the explicit r13q input comparison and is not relabeled as a fresh exact-SHA full aggregate.",
+      "evidence": [
+        {
+          "path": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260910-v4-r13q/evidence/successor-preview/input-reuse.r13q.json",
+          "sha256": "e3a972a087d81f91ea75da9b79430adc5562e063edb6a468409a59f46c7d0500"
+        },
+        {
+          "path": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260910-v4-r13q/evidence/successor-preview/full-nonpg.log",
+          "sha256": "6cbaa74030d8a6434ddf8de05ab72bed7dcf2c4aa1c7d0a22c62d939abdc61a4"
+        },
+        {
+          "path": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260910-v4-r13q/evidence/local-gates/affected-contracts-r13q/result.json",
+          "sha256": "7499d75ece3e1fc9b62c71d75fd9104823e884ed37eaed402bbfef64aaa19fc9"
+        }
+      ]
+    },
+    {
+      "id": "frontend_frozen_install_lint_typecheck_build_component_e2e",
+      "status": "PASS_REUSED_IDENTITY_VALID",
+      "counts": {
+        "e2e_passed": 108,
+        "e2e_explicit_skips": 4,
+        "fixture_focused_passed": 2,
+        "scripted_provider_passed": 8
+      }
+    },
+    {
+      "id": "frontend_image_and_smoke",
+      "status": "PASS_LOCAL_ARM64_PREVIEW_ONLY",
+      "scope": "Exact matching r13q frontend context bytes; strict HIGH/CRITICAL Trivy, nginx configuration, and HTTP smoke passed. This is not a canonical linux/amd64 release artifact.",
+      "counts": {
+        "trivy_high": 0,
+        "trivy_critical": 0
+      },
+      "evidence": [
+        {
+          "path": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260910-v4-r13q/evidence/frontend-input-reuse.r13q.json",
+          "sha256": "31fa7c4c061ab41fcac318c1f23907910f9b75b63b7b0ccf2da94eeed150ba23"
+        },
+        {
+          "path": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260910-v4-r13q/evidence/frontend-image-preview/result.json",
+          "sha256": "f5c7f526866a75131ef0b26759775828a5e34038160f43227afd8e86884a0af0"
+        }
+      ]
+    },
+    {
+      "id": "full_stack_smoke",
+      "status": "PARTIAL",
+      "basis": "Database, Elasticsearch, Redis, backend, and Celery were healthy and shallow health was ok. No live-provider key was available and the prior base-stack run omitted the frontend profile."
+    },
+    {
+      "id": "security_static_and_dependency",
+      "status": "PASS_REUSED_IDENTITY_VALID",
+      "basis": "Bandit HIGH/HIGH, fixed Git dependency audit, pip-audit on Python 3.11, and production pnpm audit passed for unchanged inputs."
+    },
+    {
+      "id": "gitleaks_exact_candidate",
+      "status": "BLOCKED",
+      "counts": {
+        "findings": 419,
+        "approved_dispositions": 0
+      },
+      "scan_exit": 1,
+      "basis": "The exact-r13q default policy scan remains unresolved. Finding count is not asserted to equal real-secret count. The rejected broad allowlist must not be applied.",
+      "evidence": {
+        "path": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260910-v4-r13q/evidence/security-disposition.r13q.json",
+        "sha256": "a8ea7a8aa943697d15abb985a8236790007b92c79bd561d076ca79636f364397"
+      }
+    },
+    {
+      "id": "backend_migration_image_vulnerability_scan",
+      "status": "BLOCKED",
+      "roles": {
+        "backend": {
+          "high": 135,
+          "critical": 13,
+          "total_high_critical": 148,
+          "fixed_version_available": false
+        },
+        "migration_runner": {
+          "high": 135,
+          "critical": 13,
+          "total_high_critical": 148,
+          "fixed_version_available": false
+        }
+      },
+      "policy": "No ignore-unfixed or threshold reduction was used."
+    },
+    {
+      "id": "three_role_reproducibility_and_runtime_equivalence",
+      "status": "BLOCKED",
+      "basis": "All historical canonical/rebuild image digest pairs differ. Backend and migration-runner each contain two differing psutil shared objects with unknown cause. Frontend contents and minimal runtime observations match, but the three-role exception is not established and no r13q-bound signed provenance exists.",
+      "evidence": {
+        "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13p/artifacts/difference-domain-runtime-equivalence.json",
+        "sha256": "35730aab5126f582983e1c80797273e0eeee671b22dfbe3f5169e52cd01e1ab9"
+      }
+    },
+    {
+      "id": "remote_exact_sha_required_workflow_and_enforcement",
+      "status": "AWAITING_HUMAN_AUTHORITY",
+      "basis": "Exact r13q SHA is absent remotely, no exact-SHA workflow or check run exists, main is unprotected, and no repository or applicable rulesets exist.",
+      "evidence": {
+        "path": "/Users/wangyiliang/market-research-workflow/stage3-evidence/r13q/remote/github-readback.r13q.json",
+        "sha256": "8ba755c4c4d6544d805924c8ca4b0533dae7596465ef458ba915927d3a3409df"
+      }
+    },
+    {
+      "id": "registry_publish_promotion_and_immutability",
+      "status": "AWAITING_HUMAN_AUTHORITY"
+    },
+    {
+      "id": "signing_provenance_transparency_log",
+      "status": "AWAITING_HUMAN_AUTHORITY"
+    },
+    {
+      "id": "actual_release_manifest_r2",
+      "status": "BLOCKED",
+      "basis": "No actual release manifest was generated because required inputs remain blocked. The existing R2 preparation report is structurally valid and fail-closed with candidate identity exact.",
+      "r2": {
+        "validator_exit": 1,
+        "report_status": "BLOCKED",
+        "structural_fail_findings": 0,
+        "candidate_identity_exact": true,
+        "formal_rc_ready": false,
+        "formal_production_ready": false
+      },
+      "evidence": [
+        {
+          "path": "/Users/wangyiliang/market-research-workflow/manifest/release-manifest-input-gap-map.r13q.json",
+          "sha256": "46672cab4f3bf95df1ce0fe10135f3e6a9efff32ed07d5e021ded045eafdeb87"
+        },
+        {
+          "path": "/Users/wangyiliang/market-research-workflow/manifest/r2-preparation-input.r13q.json",
+          "sha256": "da821f8a9711167262c7a1f9ee77190d2b4393d1d4c38aa92ca77c41670731a8"
+        },
+        {
+          "path": "/Users/wangyiliang/market-research-workflow/manifest/r2-preparation-result.r13q.json",
+          "sha256": "bcd753ff2ef9f6edb11aa7830a5568f10106a14ca572c173824b8e258332a3b8"
+        },
+        {
+          "path": "/Users/wangyiliang/market-research-workflow/manifest/r2-preparation-execution.r13q.json",
+          "sha256": "6208065ae807a48cdfa5f115605fe065adeb202a39c9d15a1203ea2bc793810e"
+        }
+      ]
+    }
+  ],
+  "supporting_evidence": [
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13p/tests/summary.json",
+      "sha256": "a7e653554cef64d3eddd21b15ef23af3e298431d148a2f72ee9bf096655250ab"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13p/artifacts/summary.json",
+      "sha256": "a8e7480f0823aabc3340163df1ea63c23652d731576af59b31e778c56d9e85fd"
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13p/security/summary.json",
+      "sha256": "78723892c915cd0eb4dcbf60d65f7404fcd344b6ff82aa92b99af50afbd64619"
+    }
+  ],
+  "blockers": [
+    {
+      "id": "GITLEAKS_UNRESOLVED",
+      "owner": "source_and_security_review",
+      "status": "BLOCKED",
+      "detail": "419 exact-r13q findings, zero approved dispositions."
+    },
+    {
+      "id": "BACKEND_MIGRATION_HIGH_CRITICAL_CVES",
+      "owner": "upstream_base_image_and_security",
+      "status": "BLOCKED",
+      "detail": "Backend and migration-runner each have 135 HIGH and 13 CRITICAL OS findings with no reported fixed version."
+    },
+    {
+      "id": "THREE_ROLE_REPRODUCIBILITY_NOT_ESTABLISHED",
+      "owner": "artifact_build",
+      "status": "BLOCKED",
+      "detail": "Unknown psutil shared-object byte differences and missing r13q-bound signed provenance prevent the non-bit-for-bit exception."
+    },
+    {
+      "id": "FULL_STACK_EVIDENCE_PARTIAL",
+      "owner": "runtime_validation",
+      "status": "BLOCKED",
+      "detail": "No live-provider key and no frontend-profile observation in the prior base-stack run."
+    },
+    {
+      "id": "REMOTE_AND_RELEASE_WRITES_NOT_AUTHORIZED",
+      "owner": "human_release_authority",
+      "status": "AWAITING_HUMAN_AUTHORITY",
+      "required_actions": [
+        "Push exact commit bdd765316d80efdef243927d81e2daa9de20f81c to a specifically named remote ref.",
+        "Trigger the existing required workflow for that exact SHA.",
+        "Enforce all 13 declared required checks without bypass through reviewed branch protection or rulesets.",
+        "Publish or promote the three release roles and verify registry immutability.",
+        "Create and verify signed provenance and any required transparency-log entries."
+      ]
+    }
+  ],
+  "cleanup": {
+    "r13o_compose_residue": 0,
+    "r13p_compose_residue": 0,
+    "task_owned_test_database_or_role_residue": 0,
+    "temporary_artifact_comparison_images_containers_and_tags": 0,
+    "ops_scrapyd_touched": false,
+    "candidate_modified_by_stage3_closeout": false
+  },
+  "release_manifest": {
+    "actual_release_manifest_generated": false,
+    "placeholder_promoted": false
+  },
+  "external_effects": [
+    "Authorized task-owned local test, Docker build, image scan, artifact comparison, and cleanup operations recorded in cited evidence.",
+    "Read-only GitHub and git remote inspection recorded in the remote readback.",
+    "Local R2 preparation validation and r13q evidence writes under the workspace."
+  ],
+  "remote_writes_performed": [],
+  "unauthorized_effects_observed": [],
+  "authority_ceiling": "NO_PUSH_NO_WORKFLOW_DISPATCH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE_NO_DEPLOY",
+  "production_release_authorized": false,
+  "stage3_pass": false,
+  "conclusion": "All independently executable work within the granted authority is exhausted. Stage 3 remains BLOCKED and no release, promotion, signature, deployment, or authority transfer occurred."
+}

@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 
 from ..base import CrawlerDispatchRequest, CrawlerDispatchResult
+from ..registry import _failure, _raise_contract_failure
 from ..scrapyd_bootstrap import (
     ensure_bootstrap_project_deployed,
     is_bootstrap_recoverable_schedule_error,
@@ -82,7 +83,13 @@ class ScrapyCrawlerProvider:
     ) -> dict:
         target_project = str(project or "").strip()
         if not target_project:
-            raise ValueError("poll requires project for scrapy provider")
+            failure = _failure(
+                "poll_project_required",
+                "poll requires project for scrapy provider",
+                operation="scrapy.poll",
+                site="app.services.crawlers.providers.scrapy.ScrapyCrawlerProvider.poll",
+            )
+            _raise_contract_failure(failure)
         response = self.client.list_jobs(project=target_project)
         job_id = str(external_job_id or "").strip()
         running = response.get("running") if isinstance(response.get("running"), list) else []
@@ -90,14 +97,14 @@ class ScrapyCrawlerProvider:
         finished = response.get("finished") if isinstance(response.get("finished"), list) else []
         all_jobs = running + pending + finished
         matched = next((x for x in all_jobs if str((x or {}).get("id") or "").strip() == job_id), None)
-        status = "unknown"
+        status = "unavailable"
         if matched is not None:
             if matched in running:
                 status = "running"
             elif matched in pending:
                 status = "queued"
             else:
-                status = "completed"
+                status = _finished_job_status(matched)
         return {
             "external_provider": self.provider_type,
             "external_job_id": job_id,
@@ -107,6 +114,21 @@ class ScrapyCrawlerProvider:
             "spider": spider,
             "raw": {"listjobs": response, "matched": matched, "options": dict(options or {})},
         }
+
+
+def _finished_job_status(job: object) -> str:
+    """Map Scrapyd's finished row to the closed crawler terminal vocabulary."""
+
+    row = job if isinstance(job, dict) else {}
+    observed = " ".join(
+        str(row.get(key) or "").strip().lower()
+        for key in ("status", "state", "close_reason", "finish_reason", "reason", "error")
+    )
+    if any(token in observed for token in ("cancel", "canceled", "killed", "stopped", "shutdown")):
+        return "cancelled"
+    if any(token in observed for token in ("fail", "error", "exception", "crash")):
+        return "failed"
+    return "completed"
 
 
 __all__ = ["ScrapyCrawlerProvider"]

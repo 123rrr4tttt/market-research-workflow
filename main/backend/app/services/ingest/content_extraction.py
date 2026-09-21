@@ -4,7 +4,7 @@ import re
 from typing import Any
 from urllib.parse import urlparse
 
-from .adapters.http_utils import make_html_parser
+from ..resource_pool.http_port import make_html_parser
 
 
 _SHELL_MARKERS = (

@@ -19,16 +19,14 @@ import os
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
+from threading import Barrier
 from typing import Any
 
-import pytest
-import sqlalchemy as sa
-from sqlalchemy import text
-from sqlalchemy.engine import Engine, make_url
-from sqlalchemy.pool import NullPool
-
 import app.successor_runtime.substrate.postgres.facade_commands as facade_commands_module
+import pytest
 import scripts.c9_projection_rebuild as rebuild_module
+import sqlalchemy as sa
+from app.composition.production_runtime import EngineC9QueryReadPort
 from app.successor_runtime.research.codec import canonical_bytes, sha256_hex
 from app.successor_runtime.runtime.authority_grants import (
     AuthorityOperationScope,
@@ -49,6 +47,7 @@ from app.successor_runtime.runtime.facade_contracts import (
     derive_c9_request_digest,
 )
 from app.successor_runtime.runtime.ports import ProjectScopeRef, RuntimeScope
+from app.successor_runtime.runtime.qualification import StepAuthorizationBinding
 from app.successor_runtime.substrate.postgres.approvals import (
     ApprovalBinding,
     ApprovalRepository,
@@ -56,6 +55,9 @@ from app.successor_runtime.substrate.postgres.approvals import (
 from app.successor_runtime.substrate.postgres.authority import (
     AuthorityGrant,
     AuthorityGrantRepository,
+)
+from app.successor_runtime.substrate.postgres.authority_provider import (
+    PostgresAuthorityProvider,
 )
 from app.successor_runtime.substrate.postgres.c9_projection_sources import (
     build_semantic_source_closure,
@@ -82,6 +84,7 @@ from app.successor_runtime.substrate.postgres.models import (
 )
 from app.successor_runtime.substrate.postgres.projection_offsets import (
     ProjectionOffsetKey,
+    ProjectionOffsetRepository,
 )
 from app.successor_runtime.substrate.postgres.runtime_journal import (
     StaleRevisionError,
@@ -100,6 +103,9 @@ from scripts.c9_projection_rebuild import (
     PostgresProjectionSinkWriter,
     build_loss_profile,
 )
+from sqlalchemy import text
+from sqlalchemy.engine import Engine, make_url
+from sqlalchemy.pool import NullPool
 
 pytestmark = pytest.mark.integration
 
@@ -338,17 +344,136 @@ def _seed_approval_for_digest(
     connection: Any,
     approval_id: str,
     payload_digest: str,
+    *,
+    step_id: str = "step:c9:exact",
 ) -> None:
     ApprovalRepository(connection, SCOPE).decide(
         ApprovalBinding(
             approval_id=approval_id,
             actor_id=ACTOR,
             run_id=RUN_ID,
-            step_id="step:c9:exact",
+            step_id=step_id,
             payload_digest=payload_digest,
             decision="APPROVED",
             expires_at=NOW + timedelta(hours=1),
             authority_digest=sha256_hex({"authority": approval_id}),
+        )
+    )
+
+
+def _seed_exact_effect_authority(
+    connection: Any,
+    command: FacadeCommandV2,
+    *,
+    approval_id: str,
+    step_id: str,
+    canonical_base_revision: int = 0,
+) -> None:
+    _seed_approval_for_digest(
+        connection,
+        approval_id,
+        command.idempotency_key,
+        step_id=step_id,
+    )
+    connection.execute(
+        sa.update(PUBLIC_TABLES["runtime_capability_authority"])
+        .where(
+            PUBLIC_TABLES["runtime_capability_authority"].c.project_key
+            == PROJECT_KEY,
+            PUBLIC_TABLES["runtime_capability_authority"].c.capability_id
+            == "capability:successor-runtime:c9",
+        )
+        .values(effective_at=datetime(2020, 1, 1, tzinfo=UTC))
+    )
+    context = PostgresAuthorityProvider(connection, SCOPE).current_context(
+        ACTOR,
+        capability_id="capability:successor-runtime:c9",
+        approval_refs=(approval_id,),
+        canonical_base_revision=canonical_base_revision,
+        canonical_incarnation=SCOPE_INCARNATION,
+        now=datetime(2026, 9, 13, tzinfo=UTC),
+    )
+    binding = StepAuthorizationBinding.from_content(
+        run_id=RUN_ID,
+        step_id=step_id,
+        operation_kind=command.command_kind,
+        operation_contract_digest=_digest(f"operation-contract:{step_id}"),
+        capability_id="capability:successor-runtime:c9",
+        claim_owner="successor",
+        claim_authority_epoch=1,
+        claim_policy_digest=_digest("claim-policy:c9"),
+        payload_digest=command.idempotency_key,
+        actor_id=ACTOR,
+        project_key=PROJECT_KEY,
+        project_registry_revision=REGISTRY_REVISION,
+        project_scope_digest=SCOPE_DIGEST,
+        interpreter_binding_digest=_digest("interpreter:c9"),
+        deployment_catalog_digest=_digest("deployment-catalog:c9"),
+        authority_source_bindings=context.authority_source_bindings,
+        grants_digest=context.grants_digest,
+        approval_refs=(approval_id,),
+        resource_ceiling_digest=context.resource_ceiling_digest,
+        resource_policy_epoch=1,
+        queue_eligibility_digest=_digest("queue-eligibility:c9"),
+        grant_epoch=context.grant_epoch,
+        expires_at=context.expires_at,
+        canonical_base_revision=canonical_base_revision,
+        canonical_incarnation=SCOPE_INCARNATION,
+    )
+    connection.execute(
+        sa.insert(PUBLIC_TABLES["runtime_steps"]).values(
+            project_key=PROJECT_KEY,
+            run_id=RUN_ID,
+            step_id=step_id,
+            operation_id=f"operation:{step_id}",
+            operation_kind=command.command_kind,
+            operation_version="1",
+            state="READY",
+            input_digest=command.idempotency_key,
+            effect_class="LOCAL_TEST_ONLY",
+            resource_class="CPU_LIGHT",
+            concurrency_key=f"c9:{step_id}",
+            capability_id="capability:successor-runtime:c9",
+            claim_owner="successor",
+            claim_authority_epoch=1,
+            claim_policy_digest=binding.claim_policy_digest,
+            max_attempts=1,
+        )
+    )
+    connection.execute(
+        sa.insert(PUBLIC_TABLES["runtime_step_authorizations"]).values(
+            authorization_id=f"authorization:{step_id}",
+            project_key=PROJECT_KEY,
+            run_id=RUN_ID,
+            step_id=step_id,
+            operation_kind=binding.operation_kind,
+            operation_contract_digest=binding.operation_contract_digest,
+            capability_id=binding.capability_id,
+            claim_owner=binding.claim_owner,
+            claim_authority_epoch=binding.claim_authority_epoch,
+            claim_policy_digest=binding.claim_policy_digest,
+            payload_digest=binding.payload_digest,
+            actor_id=binding.actor_id,
+            project_registry_revision=binding.project_registry_revision,
+            project_scope_digest=binding.project_scope_digest,
+            grant_epoch=binding.grant_epoch,
+            expires_at=binding.expires_at,
+            approval_ref=approval_id,
+            authorization_digest=binding.binding_digest,
+            interpreter_binding_digest=binding.interpreter_binding_digest,
+            deployment_catalog_digest=binding.deployment_catalog_digest,
+            authority_source_bindings_json=[
+                item.model_dump(mode="json")
+                for item in binding.authority_source_bindings
+            ],
+            grants_digest=binding.grants_digest,
+            approval_refs_json=list(binding.approval_refs),
+            resource_ceiling_digest=binding.resource_ceiling_digest,
+            resource_policy_epoch=binding.resource_policy_epoch,
+            queue_eligibility_digest=binding.queue_eligibility_digest,
+            canonical_base_revision=binding.canonical_base_revision,
+            canonical_incarnation=binding.canonical_incarnation,
+            authorization_binding_json=binding.model_dump(mode="json"),
         )
     )
 
@@ -1006,6 +1131,225 @@ def test_command_repository_exact_reserve_replay_same_receipt(
         assert _idempotency_row_count(connection) == 1
 
 
+def test_command_repository_effect_success_is_terminal_and_exact_replay(
+    database: tuple[Engine, ProjectTables],
+) -> None:
+    engine, project = database
+    approval_id = "approval:c9:effect-terminal"
+    command = _command(
+        command_id="cmd-c9-pg-effect-terminal",
+        approval_locator=approval_id,
+        expected_base_token=(
+            f"generation:0|revision:0|incarnation:{SCOPE_INCARNATION}"
+        ),
+    )
+    with engine.begin() as connection:
+        _seed_authority(connection)
+        _seed_sources(connection, project)
+        source_digest, _ = _source_digest(connection, project)
+        _initialize_offset(connection, project, source_digest)
+        _seed_exact_effect_authority(
+            connection,
+            command,
+            approval_id=approval_id,
+            step_id="step:c9:effect-terminal",
+        )
+        repo = PostgresC9CommandRepository(
+            connection,
+            SCOPE,
+            tables=project,
+            execute_effects=True,
+        )
+
+        first = repo.submit(command)
+        replay = repo.submit(command)
+
+        assert first == replay
+        assert first.state == "TERMINAL"
+        offset = ProjectionOffsetRepository(connection, SCOPE).load_source(_key())
+        assert int(offset["projection_generation"]) == 1
+        assert int(offset["revision"]) == 1
+        binding = facade_commands_module.IdempotencyRepository(
+            connection, SCOPE
+        ).load("capability:successor-runtime:c9", command.command_id)
+        receipt = (
+            connection.execute(
+                sa.select(project.successor_receipts).where(
+                    project.successor_receipts.c.project_key == PROJECT_KEY,
+                    project.successor_receipts.c.receipt_id
+                    == facade_commands_module._command_receipt_id(command.command_id),
+                )
+            )
+            .mappings()
+            .one()
+        )
+        assert binding["state"] == "TERMINAL"
+        assert binding["terminal_observation_ref"] == (
+            receipt["receipt_json"]["effect_result"]["terminal_observation_ref"]
+        )
+        assert receipt["receipt_json"]["state"] == "TERMINAL"
+        assert receipt["receipt_json"]["terminal_observation_ref"] == (
+            binding["terminal_observation_ref"]
+        )
+        assert receipt["receipt_json"]["effect_result"]["generation"] == 1
+        sink_outcomes = {
+            item["sink"]: item["outcome"]
+            for item in receipt["receipt_json"]["effect_result"]["sinks"]
+        }
+        assert set(sink_outcomes) == set(REQUIRED_LOCAL_SINKS) | set(
+            EXTERNAL_DECLARED_LOSS_SINKS
+        )
+        assert all(sink_outcomes[sink] == "LOCAL_WRITTEN" for sink in REQUIRED_LOCAL_SINKS)
+        assert all(
+            sink_outcomes[sink] == "DECLARED_LOSS_NO_CALL"
+            for sink in EXTERNAL_DECLARED_LOSS_SINKS
+        )
+
+
+def test_command_repository_effect_mode_rejects_legacy_started_replay(
+    database: tuple[Engine, ProjectTables],
+) -> None:
+    engine, project = database
+    command = _command(command_id="cmd-c9-pg-legacy-started")
+    with engine.begin() as connection:
+        _seed_authority(connection)
+        legacy = PostgresC9CommandRepository(
+            connection, SCOPE, tables=project
+        ).submit(command)
+        assert legacy.state == "STARTED"
+
+        with pytest.raises(C9CommandConflict, match="no terminal effect evidence"):
+            PostgresC9CommandRepository(
+                connection,
+                SCOPE,
+                tables=project,
+                execute_effects=True,
+            ).submit(command)
+
+        binding = facade_commands_module.IdempotencyRepository(
+            connection, SCOPE
+        ).load("capability:successor-runtime:c9", command.command_id)
+        assert binding["state"] == "STARTED"
+        assert binding["terminal_observation_ref"] is None
+        assert _command_receipt_count(connection, project) == 1
+
+
+def test_command_repository_effect_without_exact_authority_leaves_zero_residue(
+    database: tuple[Engine, ProjectTables],
+) -> None:
+    engine, project = database
+    command = _command(command_id="cmd-c9-pg-effect-no-approval")
+    with engine.begin() as connection:
+        _seed_authority(connection)
+        _seed_sources(connection, project)
+        source_digest, _ = _source_digest(connection, project)
+        _initialize_offset(connection, project, source_digest)
+        baseline_receipts = _command_receipt_count(connection, project)
+        repo = PostgresC9CommandRepository(
+            connection,
+            SCOPE,
+            tables=project,
+            execute_effects=True,
+        )
+
+        with pytest.raises(C9CommandBlocked, match="exact approval"):
+            repo.submit(command)
+
+        assert _idempotency_row_count(connection) == 0
+        assert _command_receipt_count(connection, project) == baseline_receipts
+        offset = ProjectionOffsetRepository(connection, SCOPE).load_source(_key())
+        assert int(offset["projection_generation"]) == 0
+        assert int(offset["revision"]) == 0
+
+
+def test_command_repository_effect_without_step_authorization_leaves_zero_residue(
+    database: tuple[Engine, ProjectTables],
+) -> None:
+    engine, project = database
+    approval_id = "approval:c9:effect-no-step-auth"
+    command = _command(
+        command_id="cmd-c9-pg-effect-no-step-auth",
+        approval_locator=approval_id,
+    )
+    with engine.begin() as connection:
+        _seed_authority(connection)
+        _seed_sources(connection, project)
+        source_digest, _ = _source_digest(connection, project)
+        _initialize_offset(connection, project, source_digest)
+        _seed_approval_for_digest(
+            connection,
+            approval_id,
+            command.idempotency_key,
+            step_id="step:c9:effect-no-step-auth",
+        )
+        connection.execute(
+            sa.update(PUBLIC_TABLES["runtime_capability_authority"])
+            .where(
+                PUBLIC_TABLES["runtime_capability_authority"].c.project_key
+                == PROJECT_KEY
+            )
+            .values(effective_at=datetime(2020, 1, 1, tzinfo=UTC))
+        )
+        baseline_receipts = _command_receipt_count(connection, project)
+
+        with pytest.raises(C9CommandBlocked, match="step authorization"):
+            PostgresC9CommandRepository(
+                connection,
+                SCOPE,
+                tables=project,
+                execute_effects=True,
+            ).submit(command)
+
+        assert _idempotency_row_count(connection) == 0
+        assert _command_receipt_count(connection, project) == baseline_receipts
+        offset = ProjectionOffsetRepository(connection, SCOPE).load_source(_key())
+        assert int(offset["projection_generation"]) == 0
+
+
+def test_command_repository_effect_rechecks_capability_mode_before_writes(
+    database: tuple[Engine, ProjectTables],
+) -> None:
+    engine, project = database
+    approval_id = "approval:c9:effect-mode-off"
+    command = _command(
+        command_id="cmd-c9-pg-effect-mode-off",
+        approval_locator=approval_id,
+    )
+    with engine.begin() as connection:
+        _seed_authority(connection)
+        _seed_sources(connection, project)
+        source_digest, _ = _source_digest(connection, project)
+        _initialize_offset(connection, project, source_digest)
+        _seed_exact_effect_authority(
+            connection,
+            command,
+            approval_id=approval_id,
+            step_id="step:c9:effect-mode-off",
+        )
+        connection.execute(
+            sa.update(PUBLIC_TABLES["runtime_capability_authority"])
+            .where(
+                PUBLIC_TABLES["runtime_capability_authority"].c.project_key
+                == PROJECT_KEY
+            )
+            .values(mode="off")
+        )
+        baseline_receipts = _command_receipt_count(connection, project)
+
+        with pytest.raises(C9CommandBlocked, match="capability mode"):
+            PostgresC9CommandRepository(
+                connection,
+                SCOPE,
+                tables=project,
+                execute_effects=True,
+            ).submit(command)
+
+        assert _idempotency_row_count(connection) == 0
+        assert _command_receipt_count(connection, project) == baseline_receipts
+        offset = ProjectionOffsetRepository(connection, SCOPE).load_source(_key())
+        assert int(offset["projection_generation"]) == 0
+
+
 def test_command_repository_same_id_changed_body_conflict(
     database: tuple[Engine, ProjectTables],
 ) -> None:
@@ -1053,6 +1397,77 @@ def test_command_repository_concurrent_duplicate_is_one_receipt_one_row(
     assert len(receipts) == 1
     with engine.begin() as connection:
         assert _idempotency_row_count(connection) == 1
+
+
+def test_command_repository_different_ids_same_expected_base_serialize(
+    database: tuple[Engine, ProjectTables],
+) -> None:
+    engine, project = database
+    with engine.begin() as connection:
+        _seed_authority(connection)
+        _seed_sources(connection, project)
+        source_digest, _ = _source_digest(connection, project)
+        _initialize_offset(connection, project, source_digest)
+
+    expected_base = f"generation:0|revision:0|incarnation:{SCOPE_INCARNATION}"
+    commands = {
+        command_id: _command(
+            command_id=command_id,
+            expected_base_token=expected_base,
+            approval_locator=approval_id,
+        )
+        for command_id, approval_id in (
+            ("cmd-c9-pg-base-race-a", "approval:c9:base-race-a"),
+            ("cmd-c9-pg-base-race-b", "approval:c9:base-race-b"),
+        )
+    }
+    with engine.begin() as connection:
+        for index, (command_id, command) in enumerate(commands.items()):
+            assert command.approval_locator is not None
+            _seed_exact_effect_authority(
+                connection,
+                command,
+                approval_id=command.approval_locator,
+                step_id=f"step:c9:base-race-{index}",
+            )
+    barrier = Barrier(2)
+    outcomes: list[tuple[str, str, Exception | None]] = []
+
+    # Each thread owns its transaction and repository; the barrier releases
+    # both first submissions against the same old expected base together.
+    def submit_once(command_id: str) -> None:
+        barrier.wait()
+        try:
+            with engine.connect() as connection, connection.begin():
+                PostgresC9CommandRepository(
+                    connection,
+                    SCOPE,
+                    tables=project,
+                    execute_effects=True,
+                ).submit(commands[command_id])
+            outcomes.append(("ok", command_id, None))
+        except Exception as exc:
+            outcomes.append(("error", command_id, exc))
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [
+            executor.submit(submit_once, "cmd-c9-pg-base-race-a"),
+            executor.submit(submit_once, "cmd-c9-pg-base-race-b"),
+        ]
+        for future in futures:
+            future.result()
+
+    assert len(outcomes) == 2
+    assert [kind for kind, _, _ in outcomes].count("ok") == 1
+    conflicts = [exc for kind, _, exc in outcomes if kind == "error"]
+    assert len(conflicts) == 1
+    assert isinstance(conflicts[0], C9CommandBaseConflict)
+
+    with engine.begin() as connection:
+        assert _idempotency_row_count(connection) == 1
+        offset = ProjectionOffsetRepository(connection, SCOPE).load_source(_key())
+        assert int(offset["projection_generation"]) == 1
+        assert int(offset["revision"]) == 1
 
 
 def test_command_repository_effect_boundary_rejects_scope_actor_approval_grant(
@@ -1980,6 +2395,30 @@ def test_query_repository_fresh_session_readback_no_memory_fallback(
     assert query_result.meta.offset_revision == 1
     assert query_result.meta.source_digest == source_digest
     assert query_result.meta.projection_revision == 1
+
+
+def test_engine_query_port_reads_exact_registry_scope_from_postgres(
+    database: tuple[Engine, ProjectTables],
+) -> None:
+    engine, project = database
+    with engine.begin() as connection:
+        _seed_authority(connection)
+        _seed_sources(connection, project)
+        source_digest, _ = _source_digest(connection, project)
+        _initialize_offset(connection, project, source_digest)
+        PostgresC9ProjectionRebuilder(connection, SCOPE, tables=project).rebuild(
+            key=_key(),
+            source_revision=SOURCE_REVISION,
+            source_digest=source_digest,
+            source_ref=SOURCE_REF,
+        )
+
+    result = EngineC9QueryReadPort(engine).read(_query())
+
+    assert result.meta.project_scope_ref == SCOPE.project_scope
+    assert result.data.source_digest == source_digest
+    assert result.data.projection_generation == 1
+    assert result.data.candidate_values
 
 
 def _ready_projection(

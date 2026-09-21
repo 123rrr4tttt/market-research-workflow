@@ -1,0 +1,28 @@
+{
+  "schema_version": "mrw.stage3.remote-query-audit.r13x.v1",
+  "authoritative": false,
+  "observed_at": "2026-09-12T15:13:16Z",
+  "repository": "123rrr4tttt/market-research-workflow",
+  "queries": [
+    {"method": "GET", "endpoint": "repos/123rrr4tttt/market-research-workflow/commits/8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2", "http_status": 422},
+    {"method": "GET", "endpoint": "repos/123rrr4tttt/market-research-workflow/actions/runs?head_sha=8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2&per_page=100", "http_status": 200},
+    {"method": "GET", "endpoint": "repos/123rrr4tttt/market-research-workflow/commits/8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2/check-runs?per_page=100", "http_status": 422},
+    {"method": "GET", "endpoint": "repos/123rrr4tttt/market-research-workflow/commits/8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2/status", "http_status": 200},
+    {"method": "GET", "endpoint": "repos/123rrr4tttt/market-research-workflow/branches/main", "http_status": 200},
+    {"method": "GET", "endpoint": "repos/123rrr4tttt/market-research-workflow/branches/main/protection", "http_status": 404},
+    {"method": "GET", "endpoint": "repos/123rrr4tttt/market-research-workflow/rulesets", "http_status": 200},
+    {"method": "GET", "endpoint": "repos/123rrr4tttt/market-research-workflow/rules/branches/main", "http_status": 200},
+    {"method": "GET", "endpoint": "repos/123rrr4tttt/market-research-workflow/actions/workflows", "http_status": 200},
+    {"method": "GET", "endpoint": "repos/123rrr4tttt/market-research-workflow/actions/secrets", "http_status": 200},
+    {"method": "GET", "endpoint": "repos/123rrr4tttt/market-research-workflow/actions/variables", "http_status": 200},
+    {"method": "GET", "endpoint": "repos/123rrr4tttt/market-research-workflow/environments", "http_status": 200},
+    {"method": "GET", "endpoint": "users/123rrr4tttt/packages?package_type=container&per_page=100", "http_status": 403},
+    {"method": "GET", "endpoint": "repos/123rrr4tttt/market-research-workflow/deployments", "http_status": 200},
+    {"method": "GET", "endpoint": "repos/123rrr4tttt/market-research-workflow/releases", "http_status": 200}
+  ],
+  "mutation_methods_used": [],
+  "external_writes": 0,
+  "unauthorized_writes": 0,
+  "secret_values_requested": false,
+  "secret_values_recorded": false
+}

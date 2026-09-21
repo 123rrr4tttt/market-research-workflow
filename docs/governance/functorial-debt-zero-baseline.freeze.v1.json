@@ -1,0 +1,47 @@
+{
+  "schema": "mrw.functorial_debt_zero_baseline.freeze.v1",
+  "status": "FROZEN_EXACT_BYTES",
+  "frozen_at": "2026-09-05",
+  "authority": {
+    "implementation_only": true,
+    "promotion_authorized": false,
+    "production_canonical_write": false,
+    "live_provider": false,
+    "external_delivery": false,
+    "cutover": false,
+    "authority_transfer": false
+  },
+  "members": {
+    "task_specification": {
+      "path": "docs/governance/functorial-debt-zero-baseline-task-spec.v1.md",
+      "sha256": "f5b5130967fb0fd12f60f331ddbf2644f792553a0f0e754101998e06532d45ad",
+      "bytes": 9430,
+      "lines": 222
+    },
+    "input_classification": {
+      "path": "docs/governance/functorial-structural-debt-remediation-completion5-classification.v1.json",
+      "sha256": "954af8ef72ebd5a8955597d771eafd1aaeb3684c3f9e1079b1306f0c0d0e1137",
+      "bytes": 485748,
+      "lines": 8024
+    },
+    "packet_registry": {
+      "path": "docs/governance/functorial-debt-zero-baseline-packets.v1.json",
+      "sha256": "5131d82d35baccf0439ddcc56444549fad15e4e2c34a9e8645f9a252b6737eab",
+      "bytes": 709756,
+      "lines": 10414,
+      "packet_count": 13,
+      "assigned_fail_keys": 727
+    },
+    "starting_baseline": {
+      "path": "docs/governance/functorial-debt-zero-baseline.starting-baseline.v1.json",
+      "sha256": "dff707e228e14bba8bd17ba7714e613a3862aec015c95bc1b75949d42f3425b5",
+      "bytes": 93889,
+      "lines": 729,
+      "fail_keys": 727
+    }
+  },
+  "mutable_progress": {
+    "path": "docs/governance/functorial-debt-zero-baseline-progress.v1.md",
+    "mutability": "SINGLE_WRITER_MUTABLE_EXECUTION_STATE"
+  }
+}

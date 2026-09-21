@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useState, type KeyboardEvent } from 'react'
+import { Suspense, useCallback, useEffect, useState, type KeyboardEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import FigmaSideNav from '../../components/FigmaSideNav'
 import { activateProject, getDeepHealth, getEnvSettings, getHealth, getProjectKey, injectInitialProject, listProjects, setProjectKey as persistProjectKey } from '../../lib/api'
@@ -12,6 +12,7 @@ import { applyThemeTokens, useAppTheme } from '../platform/theme'
 import { renderKernelModuleContent } from '../kernel/renderKernelModuleContent'
 import { resolveKernelRoute } from '../kernel/routes'
 import { buildProjectOptions, hasProject, isReservedProjectKey, resolveBootstrapTarget, resolveEffectiveProjectKey } from '../kernel/projectKeys'
+import type { ProjectItem } from '../../lib/types'
 import { resolveInteractionSurface } from '../topology/contracts'
 import { resolveSurfaceSwitchTarget, updateLastModeBySurface, type SurfaceLastModeMap } from '../topology/navigationSwitching'
 import { SHARED_CONTRACT_NOTE, SURFACE_SWITCH_RULES } from '../topology/sharedPlatformContract'
@@ -34,6 +35,24 @@ function resolveShellModeFromHash(rawHash: string, fallbackMode: NavMode): NavMo
   return route.moduleKey
 }
 
+function resolvePendingProjectKey({
+  projects,
+  projectKey,
+  selectedPendingKey,
+}: {
+  projects?: ProjectItem[] | null
+  projectKey: string
+  selectedPendingKey: string | null
+}) {
+  if (selectedPendingKey !== null) {
+    if (!projects) return selectedPendingKey
+    if (hasProject(projects, selectedPendingKey)) return selectedPendingKey
+    if (!projects.length && !isReservedProjectKey(selectedPendingKey)) return selectedPendingKey
+  }
+  if (projects?.length === 0) return resolveBootstrapTarget(projectKey)
+  return projectKey
+}
+
 export default function AppShell() {
   const shellPrefs = getLocalJson<{ lastMode?: NavMode; pendingProjectKey?: string; lastModeBySurface?: SurfaceLastModeMap }>(SHELL_PREFS_KEY, {})
   const defaultMode = resolveShellModeFromHash(window.location.hash, shellPrefs.lastMode || defaultNavMode)
@@ -46,8 +65,12 @@ export default function AppShell() {
   )
   const locale = useAppLocale()
   const appTheme = useAppTheme()
-  const [projectKey, setProjectKeyState] = useState(getProjectKey())
-  const [pendingProjectKey, setPendingProjectKey] = useState(() => resolveBootstrapTarget(shellPrefs.pendingProjectKey || projectKey))
+  const [projectKeyState, setProjectKeyState] = useState(getProjectKey())
+  const [pendingSelection, setPendingSelection] = useState<string | null>(() => {
+    const fallback = resolveBootstrapTarget(projectKeyState)
+    const stored = resolveBootstrapTarget(shellPrefs.pendingProjectKey || projectKeyState)
+    return stored === fallback ? null : stored
+  })
   const [switchMessage, setSwitchMessage] = useState('')
 
   const health = useQuery({ queryKey: queryKeys.health.all, queryFn: getHealth })
@@ -64,6 +87,23 @@ export default function AppShell() {
     refetchIntervalInBackground: true,
   })
   const projects = useQuery({ queryKey: queryKeys.projects.all(), queryFn: listProjects })
+  const resolvedProjectKey = projects.data
+    ? resolveEffectiveProjectKey({
+      projects: projects.data,
+      currentProjectKey: projectKeyState,
+      pendingProjectKey: resolvePendingProjectKey({
+        projects: projects.data,
+        projectKey: projectKeyState,
+        selectedPendingKey: pendingSelection,
+      }),
+    })
+    : projectKeyState
+  const projectKey = resolvedProjectKey
+  const pendingProjectKey = resolvePendingProjectKey({
+    projects: projects.data,
+    projectKey,
+    selectedPendingKey: pendingSelection,
+  })
   const projectOptions = buildProjectOptions({
     activeProjectKey: projectKey,
     pendingProjectKey,
@@ -71,11 +111,16 @@ export default function AppShell() {
   })
   const canActivatePendingProject = hasProject(projects.data, pendingProjectKey)
 
+  const selectProject = useCallback((next: string) => {
+    const normalized = persistProjectKey(next)
+    setProjectKeyState(normalized)
+    setPendingSelection(null)
+  }, [])
+
   const activateMutation = useMutation({
     mutationFn: activateProject,
     onSuccess: (next) => {
-      setProjectKeyState(next)
-      setPendingProjectKey(next)
+      selectProject(next)
       setSwitchMessage(`已切换到项目: ${next}`)
     },
     onError: (error) => {
@@ -98,8 +143,7 @@ export default function AppShell() {
     onSuccess: async (result) => {
       const next = String(result?.project_key || '').trim()
       if (next) {
-        setProjectKeyState(next)
-        setPendingProjectKey(next)
+        selectProject(next)
       }
       setSwitchMessage(`初始化注入完成: ${next || pendingProjectKey}`)
       await queryClient.invalidateQueries({ queryKey: queryKeys.projects.all() })
@@ -113,22 +157,9 @@ export default function AppShell() {
   const isLlmDesignerMode = viewMode === 'flowLlmNodeDesign'
 
   useEffect(() => {
-    if (!projects.data) return
-    const effectiveProjectKey = resolveEffectiveProjectKey({
-      projects: projects.data,
-      currentProjectKey: projectKey,
-      pendingProjectKey,
-    })
-    if (effectiveProjectKey && effectiveProjectKey !== projectKey) {
-      const next = persistProjectKey(effectiveProjectKey)
-      setProjectKeyState(next)
-      setPendingProjectKey(next)
-      return
-    }
-    if (!projects.data.length && isReservedProjectKey(pendingProjectKey)) {
-      setPendingProjectKey(resolveBootstrapTarget(pendingProjectKey))
-    }
-  }, [pendingProjectKey, projectKey, projects.data])
+    if (!projects.data || projectKey === projectKeyState) return
+    persistProjectKey(projectKey)
+  }, [projectKey, projectKeyState, projects.data])
 
   const keyReady = (key: string) => Boolean(String(envSettings.data?.[key] || '').trim())
   const llmKeyReady = keyReady('OPENAI_API_KEY') || keyReady('AZURE_API_KEY')
@@ -182,7 +213,7 @@ export default function AppShell() {
   const modernContent = renderKernelModuleContent({
     moduleKey: viewMode,
     projectKey,
-    onProjectChange: setProjectKeyState,
+    onProjectChange: selectProject,
     locale,
     shellMode: KERNEL_RENDER_SHELL_MODE.legacyShell,
   })
@@ -199,10 +230,6 @@ export default function AppShell() {
     syncModeFromHash()
     return () => window.removeEventListener('hashchange', syncModeFromHash)
   }, [])
-
-  useEffect(() => {
-    setPendingProjectKey(projectKey)
-  }, [projectKey])
 
   useEffect(() => {
     const result = verifyRegistryHashCompatibility()
@@ -232,7 +259,11 @@ export default function AppShell() {
     setViewMode(mode)
     persistShellPrefs(mode, pendingProjectKey, nextLastModeBySurface)
     const nextHash = hashByMode[mode]
-    if (nextHash && window.location.hash !== nextHash) window.location.hash = nextHash
+    if (nextHash && window.location.hash !== nextHash) {
+      const nextUrl = new URL(window.location.href, window.location.origin)
+      nextUrl.hash = nextHash
+      window.location.assign(nextUrl.toString())
+    }
   }
 
   const handleSurfaceChange = (surface: InteractionSurface) => {
@@ -259,7 +290,7 @@ export default function AppShell() {
             <select
               value={pendingProjectKey}
               onChange={(e) => {
-                setPendingProjectKey(e.target.value)
+                setPendingSelection(e.target.value)
                 setSwitchMessage('')
               }}
               disabled={activateMutation.isPending}

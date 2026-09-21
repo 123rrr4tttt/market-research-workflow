@@ -1,0 +1,1 @@
+docker run -d --rm --name mrw-r13p-frontend-rebuild-http -p 127.0.0.1::80 mrw-r13p-runtime-frontend-rebuild:local 

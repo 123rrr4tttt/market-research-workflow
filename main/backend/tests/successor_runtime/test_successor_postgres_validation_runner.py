@@ -16,12 +16,17 @@ import scripts.run_successor_postgres_validation as runner
 
 pytestmark = [pytest.mark.unit, pytest.mark.mocked]
 
-OWNED_RE = re.compile(r"^mrw_successor_validation_[a-z0-9]{16}$")
+OWNED_RE = re.compile(r"^mrw_successor_test_validation_[a-z0-9]{16}$")
 TOKEN = "0123456789abcdef"
-DATABASE_NAME = f"mrw_successor_validation_{TOKEN}"
-ROLE_NAME = f"mrw_successor_validation_{TOKEN}"
+DATABASE_NAME = f"mrw_successor_test_validation_{TOKEN}"
+ROLE_NAME = f"mrw_successor_test_validation_{TOKEN}"
 ADMIN_URL = "postgresql+psycopg2://admin@/mrw_admin_test?host=/var/run/postgresql"
 CHILD_COMMAND = ("python3.11", "-m", "pytest", "-q", "tests/successor_runtime")
+
+
+def test_owned_database_name_satisfies_real_postgres_test_guard() -> None:
+    """Keep runner output admissible to every opt-in PostgreSQL test."""
+    assert re.search(r"(?:test|testing|ci)", DATABASE_NAME, re.IGNORECASE)
 
 
 class FakeAdminClient:
@@ -172,7 +177,7 @@ def test_generates_regex_bound_names_and_runs_child_once() -> None:
     assert OWNED_RE.fullmatch(report.role_name or "")
     executed_sql = [sql for sql, _ in client.executed]
     assert (
-        f'CREATE ROLE "{ROLE_NAME}" NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT LOGIN'
+        f'CREATE ROLE "{ROLE_NAME}" NOSUPERUSER NOCREATEDB NOCREATEROLE INHERIT LOGIN'
         in executed_sql
     )
     assert f'CREATE DATABASE "{DATABASE_NAME}" OWNER "{ROLE_NAME}"' in executed_sql

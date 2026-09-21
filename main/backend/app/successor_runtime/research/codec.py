@@ -1,7 +1,7 @@
 """Strict canonical JSON codec and SHA-256 digest helpers.
 
 The successor codec never uses a lossy json.dumps default-string coercion.
-Values that cannot be represented without lossy coercion raise
+Values that cannot be represented without lossy coercion produce
 :class:`UnsupportedCanonicalValueError` instead of being stringified.  JSON
 object keys are sorted by UTF-16 code units (RFC 8785 style) and datetimes are
 normalized to fixed UTC ISO-8601 strings.
@@ -13,6 +13,59 @@ import datetime as _dt
 import hashlib
 from dataclasses import fields, is_dataclass
 from typing import Any, Mapping, Sequence
+
+from functorial_kit import Failure
+
+from mrw_functorial_kit.core.w07_semantics import research_failures
+
+_RESEARCH_FAILURE_WITNESS = "test:test_w07_language_research_failure_boundary"
+
+
+def _failure(
+    code: str,
+    message: object,
+    exception_type: type[Exception],
+    *,
+    site: str,
+) -> Failure:
+    """Create a closed research failure before lifting at the public ABI."""
+
+    public_message = str(exception_type(message))
+    return research_failures.fail(
+        code,
+        public_message,
+        {
+            "public_exception": exception_type.__name__,
+            "public_argument": message,
+            "public_message": public_message,
+            "site": site,
+            "witness": _RESEARCH_FAILURE_WITNESS,
+        },
+    )
+
+
+def _raise_failure(
+    failure: Failure,
+    exception_type: type[Exception],
+    *,
+    cause: BaseException | None = None,
+) -> None:
+    """Lift a complete typed failure while retaining the existing exception ABI."""
+
+    context = failure.context or {}
+    if (
+        not research_failures.matches(failure)
+        or context.get("public_exception") != exception_type.__name__
+        or not context.get("public_message")
+    ):
+        # kit:boundary owner=successor.research.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_language_research_failure_boundary
+        raise TypeError("research failure lift context is incomplete")
+    # kit:boundary owner=successor.research.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.research.failure witness=test:test_w07_language_research_failure_boundary
+    if cause is None:
+        # kit:boundary owner=successor.research.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.research.failure witness=test:test_w07_language_research_failure_boundary
+        raise exception_type(context.get("public_argument", context["public_message"]))
+    # kit:boundary owner=successor.research.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=successor.research.failure witness=test:test_w07_language_research_failure_boundary
+    raise exception_type(context.get("public_argument", context["public_message"])) from cause
 
 __all__ = [
     "CanonicalCodecError",
@@ -58,7 +111,15 @@ def _quote(text: str) -> str:
 
 def _datetime_text(value: _dt.datetime) -> str:
     if value.tzinfo is None:
-        raise CanonicalCodecError("naive datetime is not canonical")
+        _raise_failure(
+            _failure(
+                "CANONICAL_ENCODING_INVALID",
+                "naive datetime is not canonical",
+                CanonicalCodecError,
+                site="codec.datetime.tzinfo",
+            ),
+            CanonicalCodecError,
+        )
     return value.astimezone(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 
 
@@ -78,7 +139,15 @@ def _encode(value: Any) -> str:
         return str(value)
     if isinstance(value, float):
         if value != value or value in (float("inf"), float("-inf")):
-            raise CanonicalCodecError(f"non-finite float is not canonical: {value!r}")
+            _raise_failure(
+                _failure(
+                    "CANONICAL_ENCODING_INVALID",
+                    f"non-finite float is not canonical: {value!r}",
+                    CanonicalCodecError,
+                    site="codec.float.finite",
+                ),
+                CanonicalCodecError,
+            )
         return repr(value)
     if isinstance(value, str):
         return _quote(value)
@@ -87,8 +156,14 @@ def _encode(value: Any) -> str:
     if isinstance(value, Mapping):
         for key in value:
             if not isinstance(key, str):
-                raise CanonicalCodecError(
-                    f"non-string JSON object key is not canonical: {key!r}"
+                _raise_failure(
+                    _failure(
+                        "CANONICAL_JSON_ROOT_INVALID",
+                        f"non-string JSON object key is not canonical: {key!r}",
+                        CanonicalCodecError,
+                        site="codec.mapping.key",
+                    ),
+                    CanonicalCodecError,
                 )
         items = sorted(value.items(), key=lambda item: _utf16_key(item[0]))
         body = ",".join(_quote(key) + ":" + _encode(item) for key, item in items)
@@ -100,15 +175,29 @@ def _encode(value: Any) -> str:
         return "[" + ",".join(_encode(item) for item in ordered) + "]"
     if is_dataclass(value):
         return _encode(dataclass_to_json(value))
-    raise UnsupportedCanonicalValueError(
-        f"cannot canonicalize {type(value).__name__}; refusing lossy string coercion"
+    _raise_failure(
+        _failure(
+            "CANONICAL_VALUE_UNSUPPORTED",
+            f"cannot canonicalize {type(value).__name__}; refusing lossy string coercion",
+            UnsupportedCanonicalValueError,
+            site="codec.value.type",
+        ),
+        UnsupportedCanonicalValueError,
     )
 
 
 def dataclass_to_json(obj: Any, exclude: Sequence[str] = ()) -> dict[str, Any]:
     """Return a JSON-native mapping for a dataclass in declaration order."""
     if not is_dataclass(obj):
-        raise TypeError(f"expected a dataclass instance, got {type(obj).__name__}")
+        _raise_failure(
+            _failure(
+                "CANONICAL_ENCODING_INVALID",
+                f"expected a dataclass instance, got {type(obj).__name__}",
+                TypeError,
+                site="codec.dataclass_to_json.input",
+            ),
+            TypeError,
+        )
     excluded = set(exclude)
     return {
         field.name: getattr(obj, field.name)
@@ -145,7 +234,15 @@ def finalize_digest(obj: Any, digest_field: str) -> None:
         object.__setattr__(obj, digest_field, expected)
         return
     if current != expected:
-        raise ValueError(f"{type(obj).__name__} {digest_field} mismatch")
+        _raise_failure(
+            _failure(
+                "DIGEST_FINALIZATION_INVALID",
+                f"{type(obj).__name__} {digest_field} mismatch",
+                ValueError,
+                site=f"codec.finalize_digest.{digest_field}",
+            ),
+            ValueError,
+        )
 
 
 def is_sha256_hex(value: str) -> bool:

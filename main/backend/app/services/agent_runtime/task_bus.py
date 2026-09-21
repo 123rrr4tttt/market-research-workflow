@@ -3,6 +3,10 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
+from functorial_kit import Failure
+
+from .conversation import runtime_failure
+
 ACTIVE_TASK_STATUSES = frozenset({"claimed", "in_progress"})
 FINAL_TASK_STATUSES = frozenset({"completed", "failed", "canceled", "expired"})
 
@@ -29,9 +33,13 @@ def find_unresolved_dependencies(task: dict[str, Any], tasks: list[dict[str, Any
     return unresolved
 
 
-def assert_no_write_conflict(tasks: list[dict[str, Any]], task_id: str, write_set: list[str]) -> None:
+def assert_no_write_conflict(
+    tasks: list[dict[str, Any]], task_id: str, write_set: list[str]
+) -> Failure | None:
+    """Return a typed conflict instead of throwing from the task-bus core."""
+
     if not write_set:
-        return
+        return None
     target = set(_normalize_string_list(write_set))
     for task in tasks:
         if str(task.get("task_id") or "") == str(task_id):
@@ -40,7 +48,17 @@ def assert_no_write_conflict(tasks: list[dict[str, Any]], task_id: str, write_se
             continue
         other = set(_normalize_string_list(task.get("write_set")))
         if target.intersection(other):
-            raise RuntimeError("write_set_conflict")
+            return runtime_failure(
+                "write_set_conflict",
+                "write_set_conflict",
+                {
+                    "task_id": str(task_id),
+                    "write_set": sorted(target),
+                    "conflicting_task_id": str(task.get("task_id") or ""),
+                    "conflicting_write_set": sorted(other),
+                },
+            )
+    return None
 
 
 def collect_expired_task_ids(tasks: list[dict[str, Any]], *, now: datetime | None = None) -> list[str]:

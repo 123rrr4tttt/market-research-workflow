@@ -8,7 +8,7 @@ step.  No C7-owned shadow Program/Plan vocabulary exists here.
 from __future__ import annotations
 
 import dataclasses
-from typing import Any
+from typing import Annotated, Any, Literal
 
 from app.successor_runtime.capabilities import ingest_c7_common as c7
 from app.successor_runtime.capabilities.checksum import (
@@ -47,7 +47,14 @@ def exact_contract_ref(
 ) -> OperationContractRef:
     ref = catalog.lookup(kind)
     if ref is None:
-        raise ValueError(f"contract {kind} missing from catalog {catalog.catalog_id}")
+        c7.raise_c7_contract_failure(
+            c7.c7_contract_failure(
+                "lookup_not_found",
+                f"contract {kind} missing from catalog {catalog.catalog_id}",
+                operation="ingest_index.c7.program",
+                site="exact_contract_ref",
+            )
+        )
     return ref
 
 
@@ -62,7 +69,14 @@ def payload_value_ref(
     """Exact content-addressed ValueRef for the C7.1 payload."""
 
     if payload.project_key != project_key:
-        raise ValueError("payload project scope drift")
+        c7.raise_c7_contract_failure(
+            c7.c7_contract_failure(
+                "program_binding_invalid",
+                "payload project scope drift",
+                operation="ingest_index.c7.program",
+                site="payload_value_ref/project_key",
+            )
+        )
     plain = dataclasses.asdict(payload)
     exact_text = canonical_json(plain)
     exact_bytes = exact_text.encode("utf-8")
@@ -100,11 +114,18 @@ def build_ingest_c7_1_program(
     project_key: str,
     project_registry_revision: int,
     project_scope_digest: str,
-) -> ProgramSpec:
+) -> Annotated[ProgramSpec, Literal["kit:non-authoritative derived_as=view fact_source=payload+catalog+program_inputs witness=test:test_w06_successor_authority_metadata"]]:
     """Compilable single-Atom Program for the C7.1 staged candidate."""
 
     if payload.project_key != project_key:
-        raise ValueError("payload project_key does not match Program project_key")
+        c7.raise_c7_contract_failure(
+            c7.c7_contract_failure(
+                "program_binding_invalid",
+                "payload project_key does not match Program project_key",
+                operation="ingest_index.c7.program",
+                site="build_ingest_c7_1_program/project_key",
+            )
+        )
     ref = exact_contract_ref(catalog, kind=c7.STAGE_CANDIDATE_KIND)
     value_ref = payload_value_ref(
         payload,

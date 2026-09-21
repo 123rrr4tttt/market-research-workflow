@@ -1,0 +1,619 @@
+{
+  "RETURN_RESULT": "BLOCKED",
+  "artifact_manifest": {
+    "artifact_count": 80,
+    "path": "stage1-successor-evidence/contract14-local-execution-v1/artifact-manifest.v1.json",
+    "sha256": "e6a2d2be2d25329cd3b13da7abab75085274464ba0ee882c3a94482b46109a82"
+  },
+  "authoritative": false,
+  "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+  "backend_unit_gate_result": "FAIL_RETAINED_55_FAILED_1712_PASSED_NOT_RERUN",
+  "changed_paths": {
+    "entry_count": 79,
+    "path": "stage1-successor-evidence/contract14-local-execution-v1/changed-paths.v1.json",
+    "sha256": "7e31ad367719da5f9d5ad13b3e4d584834a28e693ad935b91baed2dc2155661e"
+  },
+  "claim_dispositions": [
+    {
+      "actual_scope": "{\"layer_a_object_bytes\": \"VERIFIED_FOR_ALL_ENUMERATED_REQUIREMENTS\", \"layer_b_stored_assertions\": {\"details\": {\"input_output_target_ids_equal_in_order\": true, \"input_target_count\": 45, \"log_output_identity_equal\": {\"allow_public_network\": true, \"finished_at\": true, \"probe_id\": true, \"public_targets_attempted\": true, \"started_at\": true, \"target_count\": true}, \"output_assertions\": {\"allow_public_network\": true, \"finished_at\": \"2026-05-23T10:53:31Z\", \"full_historical_manifest\": true, \"live_evidence_sufficient\": true, \"probe_id\": \"source_library_replay_scaleout_2026_05_22\", \"public_targets_attempted\": 40, \"started_at\": \"2026-05-23T10:50:31Z\", \"validation_passed\": true, \"warnings\": [\"public replay is environment-dependent and must not be required by CI\", \"term-fallback targets require relevance review before closure\"]}, \"output_target_count\": 45}, \"status\": \"RUN_ASSERTED_BUT_REVIEW_NOT_ASSERTED_BY_AN_ENUMERATED_RECEIPT\"}, \"layer_c_independent_run_identity\": {\"reason\": \"output.public.json and output.public.log agree on probe id, timestamps, target count, and attempted count; no enumerated review receipt or post-run gate binds that run to a reviewed PASS.\", \"status\": \"PARTIALLY_CORROBORATED\"}, \"layer_d_current_qualification\": {\"authoritative\": false, \"production_release_authorized\": false, \"reason\": \"Contract 14 work package H is history-only and cannot grant current qualification.\", \"status\": \"NOT_GRANTED\"}}",
+      "authoritative": false,
+      "blockers": [
+        "The enumerated gate check records evidence_present=false, status=not_closed_missing_real_evidence, and closure_claim=not_closed.",
+        "A later output.public.json and matching log assert a 40-target public run, but no enumerated post-run gate result binds it to PASS.",
+        "No enumerated relevance-review receipt establishes that the 30 term-fallback candidates were reviewed.",
+        "Two of five manifest-required artifacts are absent from claim-001's exact requirement set."
+      ],
+      "claim_id": "claim-001",
+      "claim_key": "crawler-public-replay-gate-recorded-run",
+      "current_qualification_granted": false,
+      "decision": "ACTUAL_HISTORICAL_RECEIPT_REQUIRED",
+      "dependent_nodeid_count": 1,
+      "dependent_nodeids": [
+        "tests.unit.test_crawler_public_replay_gate_unittest.CrawlerPublicReplayGateUnitTestCase::test_gate_validates_deterministic_artifacts_and_detects_real_public_replay"
+      ],
+      "evidence": [
+        {
+          "bytes": 132806,
+          "path": "stage1-successor-evidence/contract14-local-execution-v1/history/history-verification-receipt.v1.json",
+          "sha256": "2187771630e3fd041f73f7de2358d587a96803115f3076926e7def791a38905a"
+        }
+      ],
+      "execution": "GIT_OBJECT_READ_ONLY",
+      "production_release_authorized": false,
+      "status": "HISTORY_INSPECTED_CURRENT_QUALIFICATION_NOT_GRANTED"
+    },
+    {
+      "actual_scope": "{\"layer_a_object_bytes\": \"VERIFIED_FOR_ALL_ENUMERATED_REQUIREMENTS\", \"layer_b_stored_assertions\": {\"details\": {\"a5_gate_public_network_attempted\": false, \"a5_gate_status\": \"deterministic_replay_gate_closed_external_public_replay_blocked\", \"early_overall_status\": \"not_closed\", \"late_overall_status\": \"external_blocked\", \"late_task_statuses\": {\"A1\": \"closed\", \"A2\": \"closed\", \"A3\": \"closed\", \"A4\": \"closed\", \"A5\": \"blocked_external\", \"A6\": \"closed\", \"A7\": \"closed\"}, \"source_replay\": {\"input_output_target_ids_equal_in_order\": true, \"input_target_count\": 45, \"log_output_identity_equal\": {\"allow_public_network\": true, \"finished_at\": true, \"probe_id\": true, \"public_targets_attempted\": true, \"started_at\": true, \"target_count\": true}, \"output_assertions\": {\"allow_public_network\": true, \"finished_at\": \"2026-05-23T10:53:31Z\", \"full_historical_manifest\": true, \"live_evidence_sufficient\": true, \"probe_id\": \"source_library_replay_scaleout_2026_05_22\", \"public_targets_attempted\": 40, \"started_at\": \"2026-05-23T10:50:31Z\", \"validation_passed\": true, \"warnings\": [\"public replay is environment-dependent and must not be required by CI\", \"term-fallback targets require relevance review before closure\"]}, \"output_target_count\": 45}}, \"status\": \"PLAN_TASK_MAPPING_ASSERTED_BUT_TOPIC_CLOSURE_DENIED\"}, \"layer_c_independent_run_identity\": {\"reason\": \"Public output/log identity agrees, but the exact closure and A5 records predate or exclude that run and retain external blocking; no post-run review-bound closure record is enumerated.\", \"status\": \"PUBLIC_RUN_PARTIALLY_CORROBORATED_CLOSURE_NOT_CORROBORATED\"}, \"layer_d_current_qualification\": {\"authoritative\": false, \"production_release_authorized\": false, \"reason\": \"Contract 14 work package H is history-only and cannot grant current qualification.\", \"status\": \"NOT_GRANTED\"}}",
+      "authoritative": false,
+      "blockers": [
+        "The later closure record says overall_status=external_blocked and A5=blocked_external, although A7 is closed.",
+        "The A5 gate records public_network_attempted=false and says the full public output is absent from that worktree.",
+        "A later public output/log pair exists, but no enumerated post-public-replay relevance review or closure checker binds it into topic closure."
+      ],
+      "claim_id": "claim-002",
+      "claim_key": "crawler-source-expansion-recorded-closure",
+      "current_qualification_granted": false,
+      "decision": "ACTUAL_HISTORICAL_RECEIPT_REQUIRED",
+      "dependent_nodeid_count": 2,
+      "dependent_nodeids": [
+        "tests.unit.test_crawler_source_expansion_closure_check_unittest.CrawlerSourceExpansionClosureCheckUnitTest::test_closure_check_maps_plan_tasks_to_current_code_and_evidence",
+        "tests.unit.test_crawler_source_expansion_closure_check_unittest.CrawlerSourceExpansionClosureCheckUnitTest::test_overall_status_closes_after_public_replay_review"
+      ],
+      "evidence": [
+        {
+          "bytes": 132806,
+          "path": "stage1-successor-evidence/contract14-local-execution-v1/history/history-verification-receipt.v1.json",
+          "sha256": "2187771630e3fd041f73f7de2358d587a96803115f3076926e7def791a38905a"
+        }
+      ],
+      "execution": "GIT_OBJECT_READ_ONLY",
+      "production_release_authorized": false,
+      "status": "HISTORY_INSPECTED_CURRENT_QUALIFICATION_NOT_GRANTED"
+    },
+    {
+      "actual_scope": "Current repository documentation/authority projection for Wave51/56/57 and Wave27 history classification only; authoritative=false; not canary/runtime/deployment/release evidence",
+      "authoritative": false,
+      "blockers": [],
+      "claim_id": "claim-003",
+      "claim_key": "ingest-canary-current-authority-projection",
+      "current_qualification_granted": false,
+      "decision": "FRESH_LOCAL_DETERMINISTIC_EVIDENCE_POSSIBLE",
+      "dependent_nodeid_count": 2,
+      "dependent_nodeids": [
+        "tests.unit.test_ingest_canary_closure_readiness_unittest.IngestCanaryClosureReadinessTest::test_retains_current_dev_when_repo_local_blockers_remain",
+        "tests.unit.test_ingest_canary_closure_readiness_unittest.IngestCanaryClosureReadinessTest::test_write_output_round_trips_report_file"
+      ],
+      "evidence": [
+        {
+          "bytes": 1937,
+          "path": "stage1-successor-evidence/contract14-local-execution-v1/local/claim-003/execution-receipt.json",
+          "sha256": "92ac5c295ca8cd813a4c310593ba7753dde8e7ab786c1636798a2f2181f5dfa7"
+        },
+        {
+          "bytes": 2163,
+          "path": "stage1-successor-evidence/contract14-local-execution-v1/local/claim-003/execution-validation.v1.json",
+          "sha256": "25b0be78366e39e7ee668a02031125e15a4bd9b728c903b65f0fe5f6dfa5d207"
+        },
+        {
+          "bytes": 7685,
+          "path": "stage1-successor-evidence/contract14-local-execution-v1/local/claim-003/report.json",
+          "sha256": "0ee5a051e8ab5321f3abfeb708d4246166ba97e058f73d2880dafe6ed3cea4e9"
+        }
+      ],
+      "execution": "EXECUTED_EXIT_0",
+      "production_release_authorized": false,
+      "status": "COMPLETED_LOCAL_DETERMINISTIC"
+    },
+    {
+      "actual_scope": "{\"layer_a_object_bytes\": \"VERIFIED_FOR_ALL_ENUMERATED_REQUIREMENTS\", \"layer_b_stored_assertions\": {\"details\": {\"input_output_target_ids_equal_in_order\": true, \"input_target_count\": 45, \"log_output_identity_equal\": {\"allow_public_network\": true, \"finished_at\": true, \"probe_id\": true, \"public_targets_attempted\": true, \"started_at\": true, \"target_count\": true}, \"output_assertions\": {\"allow_public_network\": true, \"finished_at\": \"2026-05-23T10:53:31Z\", \"full_historical_manifest\": true, \"live_evidence_sufficient\": true, \"probe_id\": \"source_library_replay_scaleout_2026_05_22\", \"public_targets_attempted\": 40, \"started_at\": \"2026-05-23T10:50:31Z\", \"validation_passed\": true, \"warnings\": [\"public replay is environment-dependent and must not be required by CI\", \"term-fallback targets require relevance review before closure\"]}, \"output_target_count\": 45}, \"status\": \"PUBLIC_RUN_ASSERTED_RELEVANCE_REVIEW_REMAINS_REQUIRED\"}, \"layer_c_independent_run_identity\": {\"reason\": \"Frozen target ordering is equal across input/output and the public log matches output run identity, but no relevance-review receipt is enumerated.\", \"status\": \"PUBLIC_RUN_CORROBORATED_REVIEW_NOT_CORROBORATED\"}, \"layer_d_current_qualification\": {\"authoritative\": false, \"production_release_authorized\": false, \"reason\": \"Contract 14 work package H is history-only and cannot grant current qualification.\", \"status\": \"NOT_GRANTED\"}}",
+      "authoritative": false,
+      "blockers": [
+        "The public output warns that term-fallback targets require relevance review before closure.",
+        "No enumerated receipt records reviewer identity, reviewed rows, decision, or binding hash."
+      ],
+      "claim_id": "claim-004",
+      "claim_key": "source-library-a5-recorded-public-replay",
+      "current_qualification_granted": false,
+      "decision": "ACTUAL_HISTORICAL_RECEIPT_REQUIRED",
+      "dependent_nodeid_count": 2,
+      "dependent_nodeids": [
+        "tests.unit.test_source_library_public_replay_a5_gate_unittest.SourceLibraryPublicReplayA5GateUnitTestCase::test_a5_gate_freezes_manifest_fixture_and_reviewed_public_replay",
+        "tests.unit.test_source_library_public_replay_a5_gate_unittest.SourceLibraryPublicReplayA5GateUnitTestCase::test_term_fallback_public_fixture_remains_relevance_review"
+      ],
+      "evidence": [
+        {
+          "bytes": 132806,
+          "path": "stage1-successor-evidence/contract14-local-execution-v1/history/history-verification-receipt.v1.json",
+          "sha256": "2187771630e3fd041f73f7de2358d587a96803115f3076926e7def791a38905a"
+        }
+      ],
+      "execution": "GIT_OBJECT_READ_ONLY",
+      "production_release_authorized": false,
+      "status": "HISTORY_INSPECTED_CURRENT_QUALIFICATION_NOT_GRANTED"
+    },
+    {
+      "actual_scope": "fresh repo-local deterministic chain attempted; search-provider trace passed, LanceDB runtime smoke failed before report, benchmark preserved fallback failures, Wave10 aggregate failed",
+      "authoritative": false,
+      "blockers": [
+        "local_index_lancedb_runtime_smoke raised ValueError: Vector column 'vector' has variable length vectors",
+        "benchmark vector and hybrid cases fell back to keyword and failed executed-mode assertions",
+        "wave10 aggregate reports EVIDENCE_SOURCE_UNAVAILABLE for runtime smoke"
+      ],
+      "claim_id": "claim-005",
+      "claim_key": "wave10-fresh-deterministic-vector-quality",
+      "current_qualification_granted": false,
+      "decision": "FRESH_LOCAL_DETERMINISTIC_EVIDENCE_POSSIBLE",
+      "dependent_nodeid_count": 1,
+      "dependent_nodeids": [
+        "tests.unit.test_wave10_vectorization_quality_gate_unittest.Wave10VectorizationQualityGateTest::test_gate_checks_provider_trace_modes_thresholds_and_fallback_reason"
+      ],
+      "evidence": [
+        {
+          "bytes": 10530,
+          "path": "stage1-successor-evidence/contract14-local-execution-v1/local/vector-upstream/receipt.json",
+          "sha256": "1264c757b9a1535136a25272c59f9970679cd8de923307e05f68cdd42d42e95b"
+        }
+      ],
+      "execution": "EXECUTED_NONZERO_RETAINED",
+      "production_release_authorized": false,
+      "status": "BLOCKED_LOCAL_OBSERVATION_RETAINED"
+    },
+    {
+      "actual_scope": "No live observation was attempted.",
+      "authoritative": false,
+      "blockers": [
+        "Contract 14 does not authorize live database/provider/platform execution."
+      ],
+      "claim_id": "claim-006",
+      "claim_key": "wave12-current-open-search-runtime-readiness",
+      "current_qualification_granted": false,
+      "decision": "LIVE_OBSERVATION_REQUIRED",
+      "dependent_nodeid_count": 6,
+      "dependent_nodeids": [
+        "tests.unit.test_open_search_health_artifact_schema_readback_unittest.OpenSearchHealthArtifactSchemaReadbackTest::test_schema_readback_distinguishes_compose_config_from_stopped_connect_error",
+        "tests.unit.test_open_search_health_artifact_schema_readback_unittest.OpenSearchHealthArtifactSchemaReadbackTest::test_schema_readback_records_real_live_probe_response_without_closure",
+        "tests.unit.test_open_search_health_artifact_unittest.OpenSearchHealthArtifactTest::test_running_live_probe_remains_unsealed_and_explicit_only",
+        "tests.unit.test_open_search_health_artifact_unittest.OpenSearchHealthArtifactTest::test_stopped_services_record_connect_error_without_live_closure",
+        "tests.unit.test_open_search_runtime_boundary_unittest.OpenSearchRuntimeBoundaryTest::test_connect_error_is_reported_as_service_not_started_without_failing_boundary_gate",
+        "tests.unit.test_open_search_runtime_boundary_unittest.OpenSearchRuntimeBoundaryTest::test_live_query_success_remains_unsealed_and_explicit_only"
+      ],
+      "evidence": [],
+      "execution": "NOT_RUN_ZERO_LIVE_EXECUTION",
+      "production_release_authorized": false,
+      "status": "OPEN_LIVE_OBSERVATION_REQUIRED"
+    },
+    {
+      "actual_scope": "No live observation was attempted.",
+      "authoritative": false,
+      "blockers": [
+        "Contract 14 does not authorize live database/provider/platform execution."
+      ],
+      "claim_id": "claim-007",
+      "claim_key": "wave12-current-provider-readiness",
+      "current_qualification_granted": false,
+      "decision": "LIVE_OBSERVATION_REQUIRED",
+      "dependent_nodeid_count": 2,
+      "dependent_nodeids": [
+        "tests.unit.test_wave12_provider_readiness_gate_unittest.Wave12ProviderReadinessGateTest::test_gate_reports_live_probe_status_fallbacks_and_unsupported_claims",
+        "tests.unit.test_wave12_provider_readiness_gate_unittest.Wave12ProviderReadinessGateTest::test_skip_live_probes_keeps_gate_passed_with_not_run_visibility"
+      ],
+      "evidence": [],
+      "execution": "NOT_RUN_ZERO_LIVE_EXECUTION",
+      "production_release_authorized": false,
+      "status": "OPEN_LIVE_OBSERVATION_REQUIRED"
+    },
+    {
+      "actual_scope": "fresh Wave14 capability derivation attempted with explicit failed Wave10 and --skip-live-probes Wave12 inputs; closure_claim_allowed=false",
+      "authoritative": false,
+      "blockers": [
+        "Wave10 fresh prerequisite status=failed",
+        "Wave12 --skip-live-probes status=failed because Wave10 baseline failed",
+        "local capability recorded runtime/benchmark evidence unavailable"
+      ],
+      "claim_id": "claim-008",
+      "claim_key": "wave14-fresh-local-provider-capability",
+      "current_qualification_granted": false,
+      "decision": "FRESH_LOCAL_DETERMINISTIC_EVIDENCE_POSSIBLE",
+      "dependent_nodeid_count": 1,
+      "dependent_nodeids": [
+        "tests.unit.test_wave14_vectorization_provider_capability_unittest.Wave14VectorizationProviderCapabilityTest::test_gate_reports_local_capability_external_gap_and_no_closure_claim"
+      ],
+      "evidence": [
+        {
+          "bytes": 10530,
+          "path": "stage1-successor-evidence/contract14-local-execution-v1/local/vector-upstream/receipt.json",
+          "sha256": "1264c757b9a1535136a25272c59f9970679cd8de923307e05f68cdd42d42e95b"
+        }
+      ],
+      "execution": "EXECUTED_NONZERO_RETAINED",
+      "production_release_authorized": false,
+      "status": "BLOCKED_LOCAL_OBSERVATION_RETAINED"
+    },
+    {
+      "actual_scope": "No downstream generator executed; no historical receipt substituted.",
+      "authoritative": false,
+      "blockers": [
+        "Fresh Wave8 receipt unavailable; historical claim-016 PASS was not reused.",
+        "Fresh Wave10 and Wave12 prerequisites failed.",
+        "Fresh Wave14 status is failed and closure_claim_allowed=false."
+      ],
+      "claim_id": "claim-009",
+      "claim_key": "wave18-fresh-deterministic-hybrid-readback",
+      "current_qualification_granted": false,
+      "decision": "FRESH_LOCAL_DETERMINISTIC_EVIDENCE_POSSIBLE",
+      "dependent_nodeid_count": 1,
+      "dependent_nodeids": [
+        "tests.unit.test_wave18_vectorization_hybrid_readback_unittest.Wave18VectorizationHybridReadbackTest::test_checker_proves_mode_identity_quality_trace_and_readback_without_live_closure"
+      ],
+      "evidence": [
+        {
+          "bytes": 10530,
+          "path": "stage1-successor-evidence/contract14-local-execution-v1/local/vector-upstream/receipt.json",
+          "sha256": "1264c757b9a1535136a25272c59f9970679cd8de923307e05f68cdd42d42e95b"
+        }
+      ],
+      "execution": "NOT_RUN_FAIL_CLOSED",
+      "production_release_authorized": false,
+      "status": "BLOCKED_BY_FAILED_FRESH_PREREQUISITE"
+    },
+    {
+      "actual_scope": "No downstream generator executed; no historical receipt substituted.",
+      "authoritative": false,
+      "blockers": [
+        "Fresh Wave14 failed; fresh Wave18 was not executed because its prerequisites failed."
+      ],
+      "claim_id": "claim-010",
+      "claim_key": "wave19-fresh-derived-provider-manifest",
+      "current_qualification_granted": false,
+      "decision": "FRESH_LOCAL_DETERMINISTIC_EVIDENCE_POSSIBLE",
+      "dependent_nodeid_count": 2,
+      "dependent_nodeids": [
+        "tests.unit.test_wave19_vectorization_provider_manifest_readback_unittest.Wave19VectorizationProviderManifestReadbackTest::test_manifest_fails_if_source_trace_claims_live_provider_verification",
+        "tests.unit.test_wave19_vectorization_provider_manifest_readback_unittest.Wave19VectorizationProviderManifestReadbackTest::test_manifest_records_modes_fallback_trace_quality_and_no_live_closure"
+      ],
+      "evidence": [
+        {
+          "bytes": 10530,
+          "path": "stage1-successor-evidence/contract14-local-execution-v1/local/vector-upstream/receipt.json",
+          "sha256": "1264c757b9a1535136a25272c59f9970679cd8de923307e05f68cdd42d42e95b"
+        }
+      ],
+      "execution": "NOT_RUN_FAIL_CLOSED",
+      "production_release_authorized": false,
+      "status": "BLOCKED_BY_FAILED_FRESH_PREREQUISITE"
+    },
+    {
+      "actual_scope": "No downstream generator executed; no historical receipt substituted.",
+      "authoritative": false,
+      "blockers": [
+        "Fresh Wave19 was not executed because fresh Wave14/Wave18 prerequisites were unavailable."
+      ],
+      "claim_id": "claim-011",
+      "claim_key": "wave27-wave29-fresh-manifest-and-topic-readback",
+      "current_qualification_granted": false,
+      "decision": "FRESH_LOCAL_DETERMINISTIC_EVIDENCE_POSSIBLE",
+      "dependent_nodeid_count": 4,
+      "dependent_nodeids": [
+        "tests.unit.test_wave27_vectorization_closure_gate_unittest.Wave27VectorizationClosureGateTest::test_gate_fails_if_provider_manifest_claims_closure",
+        "tests.unit.test_wave27_vectorization_closure_gate_unittest.Wave27VectorizationClosureGateTest::test_gate_retains_all_three_topics_and_preserves_provider_external_boundary",
+        "tests.unit.test_wave29_oss_node_vector_manifest_replay_unittest.Wave29OssNodeVectorManifestReplayTest::test_gate_fails_if_manifest_mode_claims_live_provider",
+        "tests.unit.test_wave29_oss_node_vector_manifest_replay_unittest.Wave29OssNodeVectorManifestReplayTest::test_node_manifest_replay_closes_repo_local_oss_node_blockers"
+      ],
+      "evidence": [
+        {
+          "bytes": 10530,
+          "path": "stage1-successor-evidence/contract14-local-execution-v1/local/vector-upstream/receipt.json",
+          "sha256": "1264c757b9a1535136a25272c59f9970679cd8de923307e05f68cdd42d42e95b"
+        }
+      ],
+      "execution": "NOT_RUN_FAIL_CLOSED",
+      "production_release_authorized": false,
+      "status": "BLOCKED_BY_FAILED_FRESH_PREREQUISITE"
+    },
+    {
+      "actual_scope": "No live observation was attempted.",
+      "authoritative": false,
+      "blockers": [
+        "Contract 14 does not authorize live database/provider/platform execution."
+      ],
+      "claim_id": "claim-012",
+      "claim_key": "wave29-current-platform-api-ui-sla",
+      "current_qualification_granted": false,
+      "decision": "LIVE_OBSERVATION_REQUIRED",
+      "dependent_nodeid_count": 1,
+      "dependent_nodeids": [
+        "tests.unit.test_wave29_oss_node_vector_manifest_replay_unittest.Wave29OssNodeVectorManifestReplayTest::test_live_platform_probe_can_close_scheduler_tenant_ui_condition"
+      ],
+      "evidence": [],
+      "execution": "NOT_RUN_ZERO_LIVE_EXECUTION",
+      "production_release_authorized": false,
+      "status": "OPEN_LIVE_OBSERVATION_REQUIRED"
+    },
+    {
+      "actual_scope": "repo_local_controlled_open_search_and_semantic_quality_no_network; explicit searxng/yacy fixture and local semantic fixture only",
+      "authoritative": false,
+      "blockers": [],
+      "claim_id": "claim-013",
+      "claim_key": "wave55-fresh-controlled-search-quality",
+      "current_qualification_granted": false,
+      "decision": "FRESH_LOCAL_DETERMINISTIC_EVIDENCE_POSSIBLE",
+      "dependent_nodeid_count": 1,
+      "dependent_nodeids": [
+        "tests.unit.test_wave55_oss_node_search_quality_gate_unittest.Wave55OssNodeSearchQualityGateTest::test_gate_closes_repo_local_open_search_quality_and_reduces_semantic_scope"
+      ],
+      "evidence": [
+        {
+          "bytes": 3505,
+          "path": "stage1-successor-evidence/contract14-local-execution-v1/local/search-quality/wave55/execution-receipt.json",
+          "sha256": "3dddd87c8b9ec39b300ade84694b4244eed68223cea19f7f653f386fb5769b52"
+        },
+        {
+          "bytes": 34360,
+          "path": "stage1-successor-evidence/contract14-local-execution-v1/local/search-quality/wave55/oss_node_search_quality_gate.json",
+          "sha256": "c53998e2379e6cef9fe88360d9e6994df56f81655d66c1698fa9968400cfbd18"
+        }
+      ],
+      "execution": "EXECUTED_EXIT_0",
+      "production_release_authorized": false,
+      "status": "COMPLETED_LOCAL_DETERMINISTIC"
+    },
+    {
+      "actual_scope": "{\"layer_a_object_bytes\": \"BLOB_OIDS_EXIST_AND_BYTES_DERIVED_PATH_COMMITS_NOT_ENUMERATED\", \"layer_b_stored_assertions\": {\"details\": {\"wave56_archive_closed_recommendation\": \"do_not_mark_archive_closed_until_live_production_replay_exists\", \"wave56_contract_version\": \"wave56-semantic-vector-quality-gate.v1\", \"wave56_production_quality_claim_allowed\": false, \"wave56_scope\": \"repo_local_production_like_semantic_vector_quality_no_network_no_live_traffic\", \"wave56_status\": \"passed\"}, \"status\": \"SOURCE_OBJECTS_AND_WAVE56_SCOPE_ASSERTED_NO_WAVE57_RECEIPT\"}, \"layer_c_independent_run_identity\": {\"reason\": \"The exact claim set contains no Wave57 receipt, corpus manifest, run id, or exact commit:path binding for these blobs.\", \"status\": \"NOT_CORROBORATED_FOR_WAVE57\"}, \"layer_d_current_qualification\": {\"authoritative\": false, \"production_release_authorized\": false, \"reason\": \"Contract 14 work package H is history-only and cannot grant current qualification.\", \"status\": \"NOT_GRANTED\"}}",
+      "authoritative": false,
+      "blockers": [
+        "No Wave57 execution receipt or corpus manifest is enumerated, so the claimed Wave57 input lineage cannot be bound.",
+        "No commit identity is enumerated for these path/blob pairs; object existence does not prove either historical path mapping.",
+        "Two different historical JSONL paths are assigned the same blob OID; without a commit tree this proves byte identity, not both path identities.",
+        "The Wave56 record explicitly sets production_quality_claim_allowed=false and requires live production replay before archive closure."
+      ],
+      "claim_id": "claim-014",
+      "claim_key": "wave57-recorded-production-like-corpus-lineage",
+      "current_qualification_granted": false,
+      "decision": "ACTUAL_HISTORICAL_RECEIPT_REQUIRED",
+      "dependent_nodeid_count": 2,
+      "dependent_nodeids": [
+        "tests.unit.test_wave57_production_vector_quality_gate_unittest.Wave57ProductionVectorQualityGateTest::test_gate_replays_production_like_corpus_and_closes_when_vector_store_is_available",
+        "tests.unit.test_wave57_production_vector_quality_gate_unittest.Wave57ProductionVectorQualityGateTest::test_require_vector_store_passes_in_optional_lancedb_environment"
+      ],
+      "evidence": [
+        {
+          "bytes": 132806,
+          "path": "stage1-successor-evidence/contract14-local-execution-v1/history/history-verification-receipt.v1.json",
+          "sha256": "2187771630e3fd041f73f7de2358d587a96803115f3076926e7def791a38905a"
+        }
+      ],
+      "execution": "GIT_OBJECT_READ_ONLY",
+      "production_release_authorized": false,
+      "status": "HISTORY_INSPECTED_CURRENT_QUALIFICATION_NOT_GRANTED"
+    },
+    {
+      "actual_scope": "target_local_public_oss_corpus_semantic_relevance_no_network_no_live_container; seven checked-in excerpts only",
+      "authoritative": false,
+      "blockers": [],
+      "claim_id": "claim-015",
+      "claim_key": "wave57-fresh-public-oss-corpus-relevance",
+      "current_qualification_granted": false,
+      "decision": "FRESH_LOCAL_DETERMINISTIC_EVIDENCE_POSSIBLE",
+      "dependent_nodeid_count": 1,
+      "dependent_nodeids": [
+        "tests.unit.test_wave57_oss_node_public_corpus_semantic_relevance_gate_unittest.Wave57OssNodePublicCorpusSemanticRelevanceGateTest::test_gate_closes_target_local_public_corpus_provider_quality_route"
+      ],
+      "evidence": [
+        {
+          "bytes": 4262,
+          "path": "stage1-successor-evidence/contract14-local-execution-v1/local/search-quality/wave57/execution-receipt.json",
+          "sha256": "23c2179376bd2fd6c9bbdf9e6cd321adffa0bb93792523fabefe57fa7142827d"
+        },
+        {
+          "bytes": 95526,
+          "path": "stage1-successor-evidence/contract14-local-execution-v1/local/search-quality/wave57/oss_node_public_corpus_semantic_relevance_gate.json",
+          "sha256": "555b4381c7ee529c9865ea4161775dcfad493c8927b294cc1664a01af61fa476"
+        }
+      ],
+      "execution": "EXECUTED_EXIT_0",
+      "production_release_authorized": false,
+      "status": "COMPLETED_LOCAL_DETERMINISTIC"
+    },
+    {
+      "actual_scope": "{\"layer_a_object_bytes\": \"BLOB_OIDS_EXIST_AND_BYTES_DERIVED_PATH_COMMITS_NOT_ENUMERATED\", \"layer_b_stored_assertions\": {\"details\": {\"auto_route\": {\"local_open_search_called\": false, \"result_sources\": [\"serper\"], \"searxng_called\": false, \"yacy_called\": false}, \"benchmark_status\": \"passed\", \"container_replay_failed_rows\": 0, \"container_replay_ok\": true, \"container_replay_passed_rows\": 2, \"runtime_status\": \"passed\", \"trace_contract_version\": \"search-provider-trace-artifacts.v1\", \"trace_scope\": \"offline_unit_contract_no_containers\"}, \"status\": \"FOUR_SOURCE_RECORDS_ASSERT_PASS_OR_OK_AGGREGATE_REUSE_NOT_ASSERTED\"}, \"layer_c_independent_run_identity\": {\"reason\": \"The four blobs are separate source records; no enumerated Wave8 aggregate, manifest, shared run id, hash binding, or commit:path identity connects their reuse.\", \"status\": \"NOT_CORROBORATED_FOR_WAVE8_AGGREGATE\"}, \"layer_d_current_qualification\": {\"authoritative\": false, \"production_release_authorized\": false, \"reason\": \"Contract 14 work package H is history-only and cannot grant current qualification.\", \"status\": \"NOT_GRANTED\"}}",
+      "authoritative": false,
+      "blockers": [
+        "The exact set omits the aggregate Wave8 contract required by the claim's own missing_specific_evidence field.",
+        "No exact commit identity is enumerated for the four path/blob pairs.",
+        "The benchmark record retains semantic_embedding_quality_not_proven and global_vector_contract_not_closed."
+      ],
+      "claim_id": "claim-016",
+      "claim_key": "wave8-recorded-evidence-reuse",
+      "current_qualification_granted": false,
+      "decision": "ACTUAL_HISTORICAL_RECEIPT_REQUIRED",
+      "dependent_nodeid_count": 1,
+      "dependent_nodeids": [
+        "tests.unit.test_wave8_search_vectorization_contract_unittest.Wave8SearchVectorizationContractTest::test_wave8_contract_reuses_recorded_evidence_without_claiming_live_services"
+      ],
+      "evidence": [
+        {
+          "bytes": 132806,
+          "path": "stage1-successor-evidence/contract14-local-execution-v1/history/history-verification-receipt.v1.json",
+          "sha256": "2187771630e3fd041f73f7de2358d587a96803115f3076926e7def791a38905a"
+        }
+      ],
+      "execution": "GIT_OBJECT_READ_ONLY",
+      "production_release_authorized": false,
+      "status": "HISTORY_INSPECTED_CURRENT_QUALIFICATION_NOT_GRANTED"
+    }
+  ],
+  "claim_summary": {
+    "blocked_local_claims": [
+      "claim-005",
+      "claim-008",
+      "claim-009",
+      "claim-010",
+      "claim-011"
+    ],
+    "blocked_local_nodeid_count": 9,
+    "claim_count": 16,
+    "completed_local_claims": [
+      "claim-003",
+      "claim-013",
+      "claim-015"
+    ],
+    "completed_local_nodeid_count": 4,
+    "dependent_nodeid_count": 30,
+    "history_inspected_claims": [
+      "claim-001",
+      "claim-002",
+      "claim-004",
+      "claim-014",
+      "claim-016"
+    ],
+    "history_nodeid_count": 8,
+    "nodeids_covered_exactly_once": true,
+    "open_live_claims": [
+      "claim-006",
+      "claim-007",
+      "claim-012"
+    ],
+    "open_live_nodeid_count": 9
+  },
+  "external_effects": {
+    "containers_or_services_started": false,
+    "dns": false,
+    "external_delivery": false,
+    "live_database": false,
+    "live_provider": false,
+    "model_download": false,
+    "network": false,
+    "production_write": false
+  },
+  "focused_verification": {
+    "claim_003": "generator exit 0; receipt validation PASS",
+    "full_selector": "NOT_RERUN_BY_CONTRACT_14",
+    "history": "validator PASS; ruff PASS; py_compile PASS; deterministic replay byte-identical",
+    "search_quality": "13 focused tests passed; wrapper ruff and py_compile passed; receipt hash and unique-ID checks passed",
+    "vector_upstream": {
+      "compile": {
+        "command": "PYTHONPATH=$PWD/src:$PWD/main/backend main/backend/.venv311/bin/python -m py_compile local/vector-upstream/run_wave10_local.py local/vector-upstream/run_wave12_skip_live_local.py local/vector-upstream/run_wave14_local.py",
+        "exit": 0
+      },
+      "focused_tests": {
+        "command": "PYTHONPATH=$PWD/src:$PWD/main/backend main/backend/.venv311/bin/python -m pytest -q main/backend/tests/unit/test_wave10_vectorization_quality_gate_unittest.py main/backend/tests/unit/test_wave12_provider_readiness_gate_unittest.py main/backend/tests/unit/test_wave14_vectorization_provider_capability_unittest.py",
+        "exit": 0,
+        "result": "5 passed",
+        "stdout_sha256": "46c0ec5a055e313d3aa5407cb20fe4e470f8707fe3df22ee550155d10d3057b7"
+      },
+      "ruff": {
+        "command": "ruff check local/vector-upstream/run_wave10_local.py local/vector-upstream/run_wave12_skip_live_local.py local/vector-upstream/run_wave14_local.py",
+        "exit": 0,
+        "stdout_sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+      },
+      "schema_reference_hash_unique_id": {
+        "exit": 0,
+        "result": "PASS",
+        "stdout": "local/vector-upstream/schema-reference-hash.stdout"
+      }
+    }
+  },
+  "historical_v3_v4_unchanged": {
+    "status": "PASS_RECHECKED_READ_ONLY",
+    "task_writes": false,
+    "v3": {
+      "commit": "f8d84afc2784cf91784da957e353e2b0c0d6952c",
+      "dirty_path_count": 0,
+      "tree": "1be3dcbc009332ec225297d1b94430862287d816"
+    },
+    "v4": {
+      "commit": "e1aa59708a22e4238c4d9beaf7b7bd2d2095d483",
+      "dirty_path_count": 0,
+      "tree": "d2003fbb8e54c8dd743fa4e84907a8a978ef5107"
+    }
+  },
+  "history_verification": {
+    "four_levels": {
+      "current_qualification": "0 nodeids granted current qualification.",
+      "independent_run_identity": "Only crawler public output/log has partial corroboration.",
+      "object_bytes": "32/32 unique objects exist as blobs; 62/62 requirements parseable.",
+      "stored_assertions": "Recorded per claim without treating assertions as execution truth."
+    },
+    "receipt": {
+      "bytes": 132806,
+      "path": "stage1-successor-evidence/contract14-local-execution-v1/history/history-verification-receipt.v1.json",
+      "sha256": "2187771630e3fd041f73f7de2358d587a96803115f3076926e7def791a38905a"
+    },
+    "status": "COMPLETED_WITH_PRESERVED_GAPS",
+    "summary": {
+      "all_unique_objects_exist_as_blob": true,
+      "currently_qualified_nodeid_count": 0,
+      "dependent_nodeid_count": 8,
+      "enumerated_commit_path_binding_count": 51,
+      "exact_size_sha_comparable_requirement_count": 51,
+      "exact_size_sha_matches": 51,
+      "objects_existing_as_blob": 32,
+      "parseable_requirement_count": 62,
+      "requirement_row_count": 62,
+      "target_claim_count": 5,
+      "unbound_path_requirement_count": 11,
+      "unique_blob_count": 32,
+      "verified_commit_path_binding_count": 51
+    }
+  },
+  "input_source_identity_and_hashes": {
+    "claim_table": {
+      "bytes": 142465,
+      "path": "stage1-successor-evidence/contract13-bounded-corrections-v2/claim-decisions/claim-decisions.v2.json",
+      "sha256": "8362b368b5f4d944bb1bddf70f397e73c1b3716bc0bdb6244e61699b38e719b3"
+    },
+    "contract_13_return": {
+      "bytes": 12772,
+      "path": "stage1-successor-evidence/contract13-bounded-corrections-v2/return.v2.json",
+      "sha256": "0b9dda0595b84176bd38c60b69030b930a128146c98a8da893ce4aec897b1bbc"
+    },
+    "contract_14": {
+      "bytes": 6519,
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/14_stage1-local-evidence-execution-contract.v1.md",
+      "sha256": "3252e21452e78c73fc9fef9b8b7435c2c3e0ab4466a6b411fe567010d4ea28e7"
+    }
+  },
+  "phase_b_c_v5_gated": true,
+  "production_release_authorized": false,
+  "recommended_next_action": "Supervisor should disposition the LanceDB 8-vs-512 vector mismatch and the existing additive rebind/startup gaps. Do not enter Phase B/C or create v5; authorize live work separately by claim if desired.",
+  "residual_blockers": [
+    "PROCESS_API_EXACT_BYTE_REBIND_REQUIRED",
+    "TWO_CURRENT_BINDING_DRIFTS_REQUIRE_ADDITIVE_SUCCESSORS",
+    "CELERY_AND_GENERIC_CLI_SCHEMA_INITIALIZATION",
+    "CROSS_PROCESS_POSTGRES_DDL_RACE_AND_FAILURE_RECOVERY",
+    "LANCEDB_VECTOR_DIMENSION_MISMATCH_8_VS_512",
+    "FRESH_WAVE8_WAVE10_WAVE12_WAVE14_CHAIN_UNAVAILABLE_FOR_CLAIMS_009_010_011",
+    "HISTORICAL_REVIEW_RUN_AND_LINEAGE_GAPS_FOR_CLAIMS_001_002_004_014_016",
+    "LIVE_OBSERVATIONS_OPEN_FOR_CLAIMS_006_007_012",
+    "FULL_SELECTOR_RETAINS_55_FAILURES"
+  ],
+  "resource_cleanup": {
+    "destructive_cleanup": false,
+    "downstream_vector_generators_executed": false,
+    "generated_cache_removed": true,
+    "historical_restore": false,
+    "temporary_resources_removed": true
+  },
+  "return_scope": "CONTRACT_14_LOCAL_EXECUTION_AND_HISTORY_INSPECTION_ONLY",
+  "schema_version": "mrw.stage1.contract14.return.v1",
+  "supervisor_dispatch": "PENDING_ACTUAL_SUCCESSFUL_TASK_MESSAGE",
+  "unchanged_source_runtime_and_bindings": {
+    "binding_or_registry_write": false,
+    "contract_14_modified": false,
+    "models_base_py": {
+      "bytes": 13390,
+      "path": "main/backend/app/models/base.py",
+      "sha256": "173d95722cef7411f4b1e4606f8dbdbf850d74fbae9847b942b13be1e56c8308"
+    },
+    "process_py": {
+      "bytes": 56769,
+      "path": "main/backend/app/api/process.py",
+      "sha256": "790b6cb90086d6ba1171309e572b7e7be4c906db3705170dbd4a12ca7ea16c63"
+    },
+    "workflow_graph_runtime_py": {
+      "bytes": 16319,
+      "path": "main/backend/app/services/workflow_graph/runtime.py",
+      "sha256": "15c22d898b1c90205c43585aae4e3d83a425782e57676926507b92e6b8fb68ca"
+    }
+  }
+}

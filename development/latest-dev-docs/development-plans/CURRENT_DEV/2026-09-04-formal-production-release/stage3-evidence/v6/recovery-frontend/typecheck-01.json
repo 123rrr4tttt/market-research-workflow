@@ -1,0 +1,23 @@
+{
+  "name": "typecheck-01",
+  "command": [
+    "pnpm",
+    "exec",
+    "tsc",
+    "-b"
+  ],
+  "cwd": "/private/tmp/mrw-stage3-v6-frontend-recovery-20260907/main/frontend-modern",
+  "candidate_commit": "909eb608e538b6427bcbacca974f1efb05fef611",
+  "candidate_tree": "a60b795e509aa5dc479904a321fba32ed0ab9ab2",
+  "started": "2026-09-06T21:53:58.946996+00:00",
+  "exit_code": 2,
+  "environment_overrides": {
+    "CI": "true",
+    "STORYBOOK_DISABLE_TELEMETRY": "1",
+    "VITE_API_PROXY_TARGET": "http://127.0.0.1:1",
+    "npm_config_cache": "/private/tmp/mrw-stage3-v6-frontend-recovery-20260907/npm-cache"
+  },
+  "log": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-frontend/typecheck-01.log",
+  "log_sha256": "4c9b1b517baaeb66fd64f5fcabf505f18a6174ace50751f23d303350ac99cf92",
+  "authoritative": false
+}

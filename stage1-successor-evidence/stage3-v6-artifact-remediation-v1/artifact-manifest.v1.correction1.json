@@ -1,0 +1,124 @@
+{
+  "authoritative": false,
+  "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+  "member_count": 23,
+  "members": [
+    {
+      "bytes": 48090,
+      "path": "scripts/formal_release/source_closure.py",
+      "sha256": "e7d65fa325cd6171aea8e23dad396347ac200fa62b63d4bc03427333070be734"
+    },
+    {
+      "bytes": 106363,
+      "path": "scripts/formal_release/stage2_candidate_intake.py",
+      "sha256": "40b520a33519b51852e9e50a8600c93f586fed3d043aeffcdb7671bcdd99dbf0"
+    },
+    {
+      "bytes": 16664,
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/build_stage3_v6_artifact_remediation_v1.py",
+      "sha256": "2f5b7fbb9d6f234d9e28e33ca5119c6c9adf073575cb972aedac0bc1841feaae"
+    },
+    {
+      "bytes": 36150,
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/check_stage3_v6_artifact_remediation_v1.py",
+      "sha256": "3fcb8dd619c33f7a4776d828d310a84794fd7cbac7ae8d4029f1333f28e2b61c"
+    },
+    {
+      "bytes": 4964,
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/input-observation.v1.json",
+      "sha256": "636201ccb95fbfa5391ea703746bc670d8b172612f2cad1bf9ff99fc978434d3"
+    },
+    {
+      "bytes": 1640,
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/current-byte-selector-intake-package-development-takeover-20260908.json",
+      "sha256": "92f3a6188540d94c86b7ea3a42da9169ea2a3f585c502c2b819678fd63aa38d6"
+    },
+    {
+      "bytes": 261,
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/current-byte-selector-intake-package-development-takeover-20260908.log",
+      "sha256": "2ddfebcb29bd91c92669fc48a280266ad43a6f4fc7587b091063a3929bd5e1ab"
+    },
+    {
+      "bytes": 31419,
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/current-byte-selector-intake-package-development-takeover-20260908.xml",
+      "sha256": "d80602a7c70a00b6832c7505517a81f2d252225e326d01d7aac0680c9abfa0ed"
+    },
+    {
+      "bytes": 651,
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/frontend-build-development-takeover-20260908.json",
+      "sha256": "2234f30bc09b3d9724ddbbe59b7c21e80ff938ff2333b82f16afc2dd346e433f"
+    },
+    {
+      "bytes": 3024,
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/frontend-build-development-takeover-20260908.log",
+      "sha256": "b42f3964da889729840997506e463ddcadccc3aeb6f4e77df30514fdc452eb6c"
+    },
+    {
+      "bytes": 704,
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/frontend-frozen-install-development-takeover-20260908.json",
+      "sha256": "b72429f76b184b4ca5430645eb58cc7eea8b0689bb6f7bf8eacaa57043299870"
+    },
+    {
+      "bytes": 53,
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/frontend-frozen-install-development-takeover-20260908.log",
+      "sha256": "476a786815674beaab3ac6fe827e947ba3ee1853f1faf08fce1b45f885c8b745"
+    },
+    {
+      "bytes": 648,
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/frontend-lint-development-takeover-20260908.json",
+      "sha256": "18cdc9f7857c5f514c507859f24e6bde288b2d5579e1a7852eb1c6d42c102efc"
+    },
+    {
+      "bytes": 11,
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/frontend-lint-development-takeover-20260908.log",
+      "sha256": "050c69da23536758722729aeda55a8d0fb9d557495ef6d33d70873a3b64a71c1"
+    },
+    {
+      "bytes": 758,
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/frontend-storybook-development-takeover-20260908.json",
+      "sha256": "ffd355a8bbe80150188fa3fc3e1bc87df1c88b4442ecfe49a49653e7ea5a3a62"
+    },
+    {
+      "bytes": 20021,
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/frontend-storybook-development-takeover-20260908.log",
+      "sha256": "b63653e95a608a579b8650c90bd7836b92e136b92ef95030d28fc00f1d303a72"
+    },
+    {
+      "bytes": 702,
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/frontend-typecheck-development-takeover-20260908.json",
+      "sha256": "4d92fa9eeae3bb6078090bb31bc8ca36080a402db9213ab4347866039cf91db7"
+    },
+    {
+      "bytes": 0,
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/frontend-typecheck-development-takeover-20260908.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "bytes": 40165,
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/stage3-v6-artifact-remediation-record.v1.correction1.json",
+      "sha256": "1f2eb55570ade210db34078f449215df235afcb99ffcf00e2e8238f5688567fc"
+    },
+    {
+      "bytes": 37226,
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/stage3-v6-artifact-remediation-record.v1.json",
+      "sha256": "bda307646e629af1f0488184dfc3dac6eabfa3e04754e858fb4696c6e54907cc"
+    },
+    {
+      "bytes": 25606,
+      "path": "stage1-successor-evidence/stage3-v6-artifact-remediation-v1/test_stage3_v6_artifact_remediation_v1.py",
+      "sha256": "cb0a0e49a777b95c3352c7f7caa7c76d70a84cc955fdc5ea0fcac0a5b68db7fb"
+    },
+    {
+      "bytes": 36713,
+      "path": "tests/formal_release/test_source_closure.py",
+      "sha256": "7c6de09e6bd77880932c3b0533b8cfcc0ef1bab690f4b0d1617afc2b9d4d403a"
+    },
+    {
+      "bytes": 84885,
+      "path": "tests/formal_release/test_stage2_candidate_intake.py",
+      "sha256": "77bd50056b93c9a9c133d5187684b024d6ea0438a9daca1c4a9b91215c61dca7"
+    }
+  ],
+  "schema_version": "mrw.stage1.stage3_v6_artifact_remediation_manifest.v1",
+  "status": "COMPLETE_NOT_AUTHORITY"
+}

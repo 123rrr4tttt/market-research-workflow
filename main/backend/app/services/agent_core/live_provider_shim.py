@@ -5,7 +5,7 @@ import hashlib
 import json
 from time import perf_counter
 from types import SimpleNamespace
-from typing import Any, Mapping
+from typing import Annotated, Any, Mapping
 
 from .contracts import (
     AgentCoreRequest,
@@ -105,7 +105,11 @@ class RepoLocalLiveProviderShim:
         return SimpleNamespace(content="Repo-local live provider shim completed.", tool_calls=[])
 
 
-def build_repo_local_live_provider_shim_evidence(*, timeout_ms: int = 1000) -> dict[str, Any]:
+def build_repo_local_live_provider_shim_evidence(*, timeout_ms: int = 1000) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=generated_evidence fact_source=repo_local_provider_shim_checks "
+    "witness=test:test_w02_agent_authority_metadata"
+]:
     shim = RepoLocalLiveProviderShim()
     started = perf_counter()
     try:

@@ -1,0 +1,58 @@
+services:
+  db:
+    pull_policy: never
+    ports: !reset []
+  es:
+    pull_policy: never
+    ports: !reset []
+  redis:
+    pull_policy: never
+    ports: !reset []
+  backend:
+    image: mrw-local/stage4-r13x-backend-config:8652d653f740735f
+    pull_policy: never
+    platform: linux/amd64
+    ports: !override
+      - "127.0.0.1:18142:8000"
+    environment:
+      LLM_PROVIDER: "${LLM_PROVIDER:-openai}"
+      OPENAI_API_KEY: "${OPENAI_API_KEY:?required bounded local provider credential}"
+      OPENAI_API_BASE: "${OPENAI_API_BASE:-https://api.openai.com/v1}"
+      CODEX_OAUTH_COOKIE_SECURE: "true"
+      CODEX_AUTH_ENABLED: "${CODEX_AUTH_ENABLED:?required task auth enablement}"
+      CODEX_AUTH_TOKENS: "${CODEX_AUTH_TOKENS:?required task auth token}"
+      CODEX_AUTH_PROTECTED_PREFIXES: "/api/v1/projects,/api/v1/business-lines,/api/v1/ingest,/api/v1/workflow-graph,/api/v1/admin,/api/v1/writing,/api/v1/successor-runtime"
+  celery-worker:
+    image: mrw-local/stage4-r13x-backend-config:8652d653f740735f
+    pull_policy: never
+    platform: linux/amd64
+    environment:
+      LLM_PROVIDER: "${LLM_PROVIDER:-openai}"
+      OPENAI_API_KEY: "${OPENAI_API_KEY:?required bounded local provider credential}"
+      OPENAI_API_BASE: "${OPENAI_API_BASE:-https://api.openai.com/v1}"
+      CODEX_OAUTH_COOKIE_SECURE: "true"
+      CODEX_AUTH_ENABLED: "${CODEX_AUTH_ENABLED:?required task auth enablement}"
+      CODEX_AUTH_TOKENS: "${CODEX_AUTH_TOKENS:?required task auth token}"
+      CODEX_AUTH_PROTECTED_PREFIXES: "/api/v1/projects,/api/v1/business-lines,/api/v1/ingest,/api/v1/workflow-graph,/api/v1/admin,/api/v1/writing,/api/v1/successor-runtime"
+      CELERY_LOG_FILE: /tmp/mrw-stage4-celery-worker.log
+    command:
+      - celery
+      - -A
+      - app.celery_app
+      - worker
+      - --loglevel=info
+      - --concurrency=1
+      - --prefetch-multiplier=1
+      - --max-tasks-per-child=50
+      - --max-memory-per-child=300000
+      - --logfile=/tmp/mrw-stage4-celery-worker.log
+  frontend:
+    image: mrw-local/r13x-candidate-frontend:8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2
+    pull_policy: never
+    platform: linux/amd64
+    ports: !override
+      - "127.0.0.1:15142:80"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget -q -O /dev/null http://127.0.0.1:80/ || exit 1

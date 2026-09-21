@@ -1,0 +1,1352 @@
+{
+  "schema_version": "mrw.stage3.frontend.recovery.v1",
+  "record_id": "frontend-recovery-20260907",
+  "candidate_commit": "909eb608e538b6427bcbacca974f1efb05fef611",
+  "candidate_tree": "a60b795e509aa5dc479904a321fba32ed0ab9ab2",
+  "status": "REBUILD_REQUIRED",
+  "authoritative": false,
+  "receipts": [
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-frontend/browser-inspect-01.json",
+      "sha256": "2a3af0fe4fd6f761e5055e4fadad626096d6d7276009912eccec32b8c6b46323",
+      "name": "browser-inspect-01",
+      "exit_code": 0
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-frontend/build-01.json",
+      "sha256": "23157d56d52794ec1968120c2043d5246c6a9155cf144b493144dfe231306171",
+      "name": "build-01",
+      "exit_code": 2
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-frontend/e2e-01.json",
+      "sha256": "a36580606317e8d385882b2d7cad01c2356588b05f6179a129f1ca86a81a5e00",
+      "name": "e2e-01",
+      "exit_code": 1
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-frontend/e2e-02.json",
+      "sha256": "d06d236a49f58f647c6bf45ccbacd5edf9f69f6113ca61c3d625087bac659f6a",
+      "name": "e2e-02",
+      "exit_code": 1
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-frontend/install-01.json",
+      "sha256": "f4bba348cc137b214c4015ec32188f1e45b46858573e1e555756cd71d4025126",
+      "name": "install-01",
+      "exit_code": 1
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-frontend/install-02.json",
+      "sha256": "dc447823841ccd50120859f0cd6b9b18315dbcc4c8244a6b68e931149ea9d86a",
+      "name": "install-02",
+      "exit_code": 0
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-frontend/lint-01.json",
+      "sha256": "99f758004d0096b8fbab9f376ad5f058f1b83b3fa48bc48daa7866909b51928d",
+      "name": "lint-01",
+      "exit_code": 1
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-frontend/storybook-01.json",
+      "sha256": "d31ce6358fd1651344ced7cbc341f0c941b30fd94576604a8b1a91967b6d99ad",
+      "name": "storybook-01",
+      "exit_code": 1
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-frontend/toolchain-01.json",
+      "sha256": "f52d4c44ac3ef85a4c75b82bc159aa96aae05592df3e1e848a84e2534af4ce39",
+      "name": "toolchain-01",
+      "exit_code": 0
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-frontend/typecheck-01.json",
+      "sha256": "1c79b0948a84859789e98e4b30bdaa6e863ee85785897252c52a8b9366a89550",
+      "name": "typecheck-01",
+      "exit_code": 2
+    },
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/v6/recovery-frontend/vite-start-diagnostic-01.json",
+      "sha256": "0af36f33d890695fe422f0a45f1cf768f5a1c6c8759d974088a2178dad61512e",
+      "name": "vite-start-diagnostic-01",
+      "exit_code": 1
+    }
+  ],
+  "toolchain": {
+    "node": "26.4.0",
+    "pnpm": "11.22.0",
+    "typescript": "5.9.3",
+    "playwright": "1.62.1",
+    "platform": "macOS arm64",
+    "workflow_difference": "Workflow Node22 Ubuntu; this local execution is not remote workflow parity"
+  },
+  "counts": {
+    "installed_packages": 386,
+    "lint_errors": 12,
+    "lint_warnings": 0,
+    "typescript_errors": 72,
+    "e2e": {
+      "startTime": "2026-09-06T21:55:34.898Z",
+      "duration": 23749.2,
+      "expected": 1,
+      "skipped": 99,
+      "unexpected": 3,
+      "flaky": 0
+    },
+    "e2e_status_inventory": {
+      "skipped": 99,
+      "unexpected": 3,
+      "expected": 1
+    }
+  },
+  "e2e_tests": [
+    {
+      "file": "agent-chat-real-backend-long-task.spec.ts",
+      "line": 23,
+      "title": "routes material source and writing supplement semantics through the real backend",
+      "status": "skipped",
+      "results": [
+        {
+          "workerIndex": -1,
+          "parallelIndex": -1,
+          "status": "skipped",
+          "duration": 0,
+          "errors": [],
+          "stdout": [],
+          "stderr": [],
+          "retry": 0,
+          "startTime": "2026-09-06T21:55:37.514Z",
+          "annotations": [
+            {
+              "type": "skip",
+              "description": "requires a real backend started with AGENT_CORE_E2E_SCRIPTED_PROVIDER_ENABLED=true",
+              "location": {
+                "file": "/private/tmp/mrw-stage3-v6-frontend-recovery-20260907/main/frontend-modern/tests/e2e/agent-chat-real-backend-long-task.spec.ts",
+                "line": 13,
+                "column": 8
+              }
+            }
+          ],
+          "attachments": []
+        }
+      ],
+      "annotations": [
+        {
+          "type": "skip",
+          "description": "requires a real backend started with AGENT_CORE_E2E_SCRIPTED_PROVIDER_ENABLED=true",
+          "location": {
+            "file": "/private/tmp/mrw-stage3-v6-frontend-recovery-20260907/main/frontend-modern/tests/e2e/agent-chat-real-backend-long-task.spec.ts",
+            "line": 13,
+            "column": 8
+          }
+        }
+      ]
+    },
+    {
+      "file": "agent-chat-real-backend-long-task.spec.ts",
+      "line": 76,
+      "title": "surfaces real AgentCore source intake and writing output after refresh",
+      "status": "skipped",
+      "results": [
+        {
+          "workerIndex": -1,
+          "parallelIndex": -1,
+          "status": "skipped",
+          "duration": 0,
+          "errors": [],
+          "stdout": [],
+          "stderr": [],
+          "retry": 0,
+          "startTime": "2026-09-06T21:55:37.514Z",
+          "annotations": [
+            {
+              "type": "skip",
+              "description": "requires a real backend started with AGENT_CORE_E2E_SCRIPTED_PROVIDER_ENABLED=true",
+              "location": {
+                "file": "/private/tmp/mrw-stage3-v6-frontend-recovery-20260907/main/frontend-modern/tests/e2e/agent-chat-real-backend-long-task.spec.ts",
+                "line": 13,
+                "column": 8
+              }
+            }
+          ],
+          "attachments": []
+        }
+      ],
+      "annotations": [
+        {
+          "type": "skip",
+          "description": "requires a real backend started with AGENT_CORE_E2E_SCRIPTED_PROVIDER_ENABLED=true",
+          "location": {
+            "file": "/private/tmp/mrw-stage3-v6-frontend-recovery-20260907/main/frontend-modern/tests/e2e/agent-chat-real-backend-long-task.spec.ts",
+            "line": 13,
+            "column": 8
+          }
+        }
+      ]
+    },
+    {
+      "file": "agent-chat-writing-crossflow.spec.ts",
+      "line": 78,
+      "title": "keeps chat context while creating and verifying a writing draft",
+      "status": "unexpected",
+      "results": [
+        {
+          "workerIndex": 0,
+          "parallelIndex": 0,
+          "status": "failed",
+          "duration": 0,
+          "error": {
+            "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m",
+            "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m\n    at createE2eProject (/private/tmp/mrw-stage3-v6-frontend-recovery-20260907/main/frontend-modern/tests/e2e/helpers/project-fixtures.ts:16:48)\n    at /private/tmp/mrw-stage3-v6-frontend-recovery-20260907/main/frontend-modern/tests/e2e/agent-chat-writing-crossflow.spec.ts:63:5",
+            "location": {
+              "file": "/private/tmp/mrw-stage3-v6-frontend-recovery-20260907/main/frontend-modern/tests/e2e/helpers/project-fixtures.ts",
+              "column": 48,
+              "line": 16
+            },
+            "snippet": "   at helpers/project-fixtures.ts:16\n\n  14 |     },\n  15 |   })\n> 16 |   expect(response.ok(), await response.text()).toBeTruthy()\n     |                                                ^\n  17 | }\n  18 |\n  19 | export async function deleteE2eProject(request: APIRequestContext, projectKey: string) {"
+          },
+          "errors": [
+            {
+              "location": {
+                "file": "/private/tmp/mrw-stage3-v6-frontend-recovery-20260907/main/frontend-modern/tests/e2e/helpers/project-fixtures.ts",
+                "column": 48,
+                "line": 16
+              },
+              "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m\n\n   at helpers/project-fixtures.ts:16\n\n  14 |     },\n  15 |   })\n> 16 |   expect(response.ok(), await response.text()).toBeTruthy()\n     |                                                ^\n  17 | }\n  18 |\n  19 | export async function deleteE2eProject(request: APIRequestContext, projectKey: string) {\n    at createE2eProject (/private/tmp/mrw-stage3-v6-frontend-recovery-20260907/main/frontend-modern/tests/e2e/helpers/project-fixtures.ts:16:48)\n    at /private/tmp/mrw-stage3-v6-frontend-recovery-20260907/main/frontend-modern/tests/e2e/agent-chat-writing-crossflow.spec.ts:63:5"
+            },
+            {
+              "location": {
+                "file": "/private/tmp/mrw-stage3-v6-frontend-recovery-20260907/main/frontend-modern/tests/e2e/helpers/project-fixtures.ts",
+                "column": 50,
+                "line": 22
+              },
+              "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBeTruthy\u001b[2m()\u001b[22m\n\nReceived: \u001b[31mfalse\u001b[39m\n\n   at helpers/project-fixtures.ts:22\n\n  20 |   const response = await request.delete(`/api/v1/projects/${encodeURIComponent(projectKey)}?hard=true`)\n  21 |   if (![200, 404].includes(response.status())) {\n> 22 |     expect(response.ok(), await response.text()).toBeTruthy()\n     |                                                  ^\n  23 |   }\n  24 | }\n  25 |\n    at deleteE2eProject (/private/tmp/mrw-stage3-v6-frontend-recovery-20260907/main/frontend-modern/tests/e2e/helpers/project-fixtures.ts:22:50)\n    at /private/tmp/mrw-stage3-v6-frontend-recovery-20260907/main/frontend-modern/tests/e2e/agent-chat-writing-crossflow.spec.ts:74:5"
+            }
+          ],
+          "stdout": [],
+          "stderr": [],
+          "retry": 0,
+          "startTime": "2026-09-06T21:55:38.472Z",
+          "annotations": [],
+          "attachments": [
+            {
+              "name": "error-context",
+              "contentType": "text/markdown",
+              "path": "/private/tmp/mrw-stage3-v6-frontend-recovery-20260907/main/frontend-modern/test-results/agent-chat-writing-crossfl-61261-d-verifying-a-writing-draft-chromium/error-context.md"
+            },
+            {
+              "name": "error-context",
+              "contentType": "text/markdown",
+              "path": "/private/tmp/mrw-stage3-v6-frontend-recovery-20260907/main/frontend-modern/test-results/agent-chat-writing-crossfl-61261-d-verifying-a-writing-draft-chromium/error-context.md"
+            }
+          ],
+          "errorLocation": {
+            "file": "/private/tmp/mrw-stage3-v6-frontend-recovery-20260907/main/frontend-modern/tests/e2e/helpers/project-fixtures.ts",
+            "column": 48,
+            "line": 16
+          }
+        }
+      ],
+      "annotations": []
+    },
+    {
+      "file": "agent-chat-writing-crossflow.spec.ts",
+      "line": 120,
+      "title": "opens a backend-created workbench draft after leaving agent chat",
+      "status": "skipped",
+      "results": [
+        {
+          "workerIndex": -1,
+          "parallelIndex": -1,
+          "status": "skipped",
+          "duration": 0,
+          "errors": [],
+          "stdout": [],
+          "stderr": [],
+          "retry": 0,
+          "startTime": "2026-09-06T21:55:38.680Z",
+          "annotations": [],
+          "attachments": []
+        }
+      ],
+      "annotations": []
+    },
+    {
+      "file": "agent-chat.spec.ts",
+      "line": 386,
+      "title": "free conversation returns a streamed model answer without execution chrome",
+      "status": "unexpected",
+      "results": [
+        {
+          "workerIndex": 1,
+          "parallelIndex": 0,
+          "status": "failed",
+          "duration": 7259,
+          "error": {
+            "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('.agent-chat-runtime-panel summary')\nExpected substring: \u001b[32m\"0 tools\"\u001b[39m\nReceived string:    \u001b[31m\"\u8fd0\u884c\u7ec6\u82821 \u4e2a\u4e8b\u4ef6 \u00b7 0 \u4e2a\u5de5\u5177 \u00b7 0 \u4e2a\u4ea7\u7269\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.agent-chat-runtime-panel summary')\u001b[22m\n\u001b[2m    14 \u00d7 locator resolved to <summary>\u2026</summary>\u001b[22m\n\u001b[2m       - unexpected value \"\u8fd0\u884c\u7ec6\u82821 \u4e2a\u4e8b\u4ef6 \u00b7 0 \u4e2a\u5de5\u5177 \u00b7 0 \u4e2a\u4ea7\u7269\"\u001b[22m\n",
+            "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('.agent-chat-runtime-panel summary')\nExpected substring: \u001b[32m\"0 tools\"\u001b[39m\nReceived string:    \u001b[31m\"\u8fd0\u884c\u7ec6\u82821 \u4e2a\u4e8b\u4ef6 \u00b7 0 \u4e2a\u5de5\u5177 \u00b7 0 \u4e2a\u4ea7\u7269\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.agent-chat-runtime-panel summary')\u001b[22m\n\u001b[2m    14 \u00d7 locator resolved to <summary>\u2026</summary>\u001b[22m\n\u001b[2m       - unexpected value \"\u8fd0\u884c\u7ec6\u82821 \u4e2a\u4e8b\u4ef6 \u00b7 0 \u4e2a\u5de5\u5177 \u00b7 0 \u4e2a\u4ea7\u7269\"\u001b[22m\n\n    at /private/tmp/mrw-stage3-v6-frontend-recovery-20260907/main/frontend-modern/tests/e2e/agent-chat.spec.ts:397:34",
+            "location": {
+              "file": "/private/tmp/mrw-stage3-v6-frontend-recovery-20260907/main/frontend-modern/tests/e2e/agent-chat.spec.ts",
+              "column": 34,
+              "line": 397
+            },
+            "snippet": "  395 |     await expect(answer).not.toContainText('pending approval')\n  396 |     await expect(answer).not.toContainText('parsed')\n> 397 |     await expect(runtimeSummary).toContainText('0 tools')\n      |                                  ^\n  398 |     await expect(answer.locator('.agent-chat-message-meta')).toHaveCount(0)\n  399 |     await expect(answer.locator('.agent-chat-run-details')).toHaveCount(0)\n  400 |   })"
+          },
+          "errors": [
+            {
+              "location": {
+                "file": "/private/tmp/mrw-stage3-v6-frontend-recovery-20260907/main/frontend-modern/tests/e2e/agent-chat.spec.ts",
+                "column": 34,
+                "line": 397
+              },
+              "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: locator('.agent-chat-runtime-panel summary')\nExpected substring: \u001b[32m\"0 tools\"\u001b[39m\nReceived string:    \u001b[31m\"\u8fd0\u884c\u7ec6\u82821 \u4e2a\u4e8b\u4ef6 \u00b7 0 \u4e2a\u5de5\u5177 \u00b7 0 \u4e2a\u4ea7\u7269\"\u001b[39m\nTimeout: 5000ms\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.agent-chat-runtime-panel summary')\u001b[22m\n\u001b[2m    14 \u00d7 locator resolved to <summary>\u2026</summary>\u001b[22m\n\u001b[2m       - unexpected value \"\u8fd0\u884c\u7ec6\u82821 \u4e2a\u4e8b\u4ef6 \u00b7 0 \u4e2a\u5de5\u5177 \u00b7 0 \u4e2a\u4ea7\u7269\"\u001b[22m\n\n\n  395 |     await expect(answer).not.toContainText('pending approval')\n  396 |     await expect(answer).not.toContainText('parsed')\n> 397 |     await expect(runtimeSummary).toContainText('0 tools')\n      |                                  ^\n  398 |     await expect(answer.locator('.agent-chat-message-meta')).toHaveCount(0)\n  399 |     await expect(answer.locator('.agent-chat-run-details')).toHaveCount(0)\n  400 |   })\n    at /private/tmp/mrw-stage3-v6-frontend-recovery-20260907/main/frontend-modern/tests/e2e/agent-chat.spec.ts:397:34"
+            }
+          ],
+          "stdout": [],
+          "stderr": [],
+          "retry": 0,
+          "startTime": "2026-09-06T21:55:39.498Z",
+          "annotations": [
+            {
+              "type": "console-errors",
+              "description": "Failed to load resource: the server responded with a status of 500 (Internal Server Error)\nFailed to load resource: the server responded with a status of 500 (Internal Server Error)\nFailed to load resource: the server responded with a status of 500 (Internal Server Error)\nFailed to load resource: the server responded with a status of 500 (Internal Server Error)\nFailed to load resource: the server responded with a status of 500 (Internal Server Error)\nFailed to load resource: the server responded with a status of 500 (Internal Server Error)\nFailed to load resource: the server responded with a status of 500 (Internal Server Error)\nFailed to load resource: the server responded with a status of 500 (Internal Server Error)"
+            }
+          ],
+          "attachments": [
+            {
+              "name": "error-context",
+              "contentType": "text/markdown",
+              "path": "/private/tmp/mrw-stage3-v6-frontend-recovery-20260907/main/frontend-modern/test-results/agent-chat-agent-chat-user-74057-er-without-execution-chrome-chromium/error-context.md"
+            }
+          ],
+          "errorLocation": {
+            "file": "/private/tmp/mrw-stage3-v6-frontend-recovery-20260907/main/frontend-modern/tests/e2e/agent-chat.spec.ts",
+            "column": 34,
+            "line": 397
+          }
+        }
+      ],
+      "annotations": [
+        {
+          "type": "console-errors",
+          "description": "Failed to load resource: the server responded with a status of 500 (Internal Server Error)\nFailed to load resource: the server responded with a status of 500 (Internal Server Error)\nFailed to load resource: the server responded with a status of 500 (Internal Server Error)\nFailed to load resource: the server responded with a status of 500 (Internal Server Error)\nFailed to load resource: the server responded with a status of 500 (Internal Server Error)\nFailed to load resource: the server responded with a status of 500 (Internal Server Error)\nFailed to load resource: the server responded with a status of 500 (Internal Server Error)\nFailed to load resource: the server responded with a status of 500 (Internal Server Error)"
+        }
+      ]
+    },
+    {
+      "file": "agent-chat.spec.ts",
+      "line": 402,
+      "title": "project and source-library fact questions use read-only project tools",
+      "status": "skipped",
+      "results": [
+        {
+          "workerIndex": -1,
+          "parallelIndex": -1,
+          "status": "skipped",
+          "duration": 0,
+          "errors": [],
+          "stdout": [],
+          "stderr": [],
+          "retry": 0,
+          "startTime": "2026-09-06T21:55:47.783Z",
+          "annotations": [],
+          "attachments": []
+        }
+      ],
+      "annotations": []
+    },
+    {
+      "file": "agent-chat.spec.ts",
+      "line": 419,
+      "title": "explicit source-library execution stays on the frozen mainline without approval pause",
+      "status": "skipped",
+      "results": [
+        {
+          "workerIndex": -1,
+          "parallelIndex": -1,
+          "status": "skipped",
+          "duration": 0,
+          "errors": [],
+          "stdout": [],
+          "stderr": [],
+          "retry": 0,
+          "startTime": "2026-09-06T21:55:47.783Z",
+          "annotations": [],
+          "attachments": []
+        }
+      ],
+      "annotations": []
+    },
+    {
+      "file": "agent-chat.spec.ts",
+      "line": 431,
+      "title": "long task shows split tasks, progressive tool events, source quality, and writing diff",
+      "status": "skipped",
+      "results": [
+        {
+          "workerIndex": -1,
+          "parallelIndex": -1,
+          "status": "skipped",
+          "duration": 0,
+          "errors": [],
+          "stdout": [],
+          "stderr": [],
+          "retry": 0,
+          "startTime": "2026-09-06T21:55:47.783Z",
+          "annotations": [],
+          "attachments": []
+        }
+      ],
+      "annotations": []
+    },
+    {
+      "file": "agent-chat.spec.ts",
+      "line": 469,
+      "title": "natural cancel renders the AgentCore control tool",
+      "status": "skipped",
+      "results": [
+        {
+          "workerIndex": -1,
+          "parallelIndex": -1,
+          "status": "skipped",
+          "duration": 0,
+          "errors": [],
+          "stdout": [],
+          "stderr": [],
+          "retry": 0,
+          "startTime": "2026-09-06T21:55:47.783Z",
+          "annotations": [],
+          "attachments": []
+        }
+      ],
+      "annotations": []
+    },
+    {
+      "file": "agent-chat.spec.ts",
+      "line": 480,
+      "title": "natural continue renders the AgentCore control tool",
+      "status": "skipped",
+      "results": [
+        {
+          "workerIndex": -1,
+          "parallelIndex": -1,
+          "status": "skipped",
+          "duration": 0,
+          "errors": [],
+          "stdout": [],
+          "stderr": [],
+          "retry": 0,
+          "startTime": "2026-09-06T21:55:47.783Z",
+          "annotations": [],
+          "attachments": []
+        }
+      ],
+      "annotations": []
+    },
+    {
+      "file": "agent-chat.spec.ts",
+      "line": 491,
+      "title": "natural retry renders the AgentCore control tool",
+      "status": "skipped",
+      "results": [
+        {
+          "workerIndex": -1,
+          "parallelIndex": -1,
+          "status": "skipped",
+          "duration": 0,
+          "errors": [],
+          "stdout": [],
+          "stderr": [],
+          "retry": 0,
+          "startTime": "2026-09-06T21:55:47.783Z",
+          "annotations": [],
+          "attachments": []
+        }
+      ],
+      "annotations": []
+    },
+    {
+      "file": "agent-chat.spec.ts",
+      "line": 502,
+      "title": "mobile layout has no horizontal overflow after a chat turn",
+      "status": "skipped",
+      "results": [
+        {
+          "workerIndex": -1,
+          "parallelIndex": -1,
+          "status": "skipped",
+          "duration": 0,
+          "errors": [],
+          "stdout": [],
+          "stderr": [],
+          "retry": 0,
+          "startTime": "2026-09-06T21:55:47.783Z",
+          "annotations": [],
+          "attachments": []
+        }
+      ],
+      "annotations": []
+    },
+    {
+      "file": "agent-chat.spec.ts",
+      "line": 525,
+      "title": "keeps default chat empty, renders capabilities as read-only, and surfaces backend failure as retryable error",
+      "status": "skipped",
+      "results": [
+        {
+          "workerIndex": -1,
+          "parallelIndex": -1,
+          "status": "skipped",
+          "duration": 0,
+          "errors": [],
+          "stdout": [],
+          "stderr": [],
+          "retry": 0,
+          "startTime": "2026-09-06T21:55:47.783Z",
+          "annotations": [],
+          "attachments": []
+        }
+      ],
+      "annotations": []
+    },
+    {
+      "file": "agent-chat.spec.ts",
+      "line": 626,
+      "title": "clear session detaches backend session before the next turn",
+      "status": "skipped",
+      "results": [
+        {
+          "workerIndex": -1,
+          "parallelIndex": -1,
+          "status": "skipped",
+          "duration": 0,
+          "errors": [],
+          "stdout": [],
+          "stderr": [],
+          "retry": 0,
+          "startTime": "2026-09-06T21:55:47.783Z",
+          "annotations": [],
+          "attachments": []
+        }
+      ],
+      "annotations": []
+    },
+    {
+      "file": "frontend-runtime-visual.spec.ts",
+      "line": 201,
+      "title": "frontend runtime visual shell contract covers theme, locale, and A/B/C topology",
+      "status": "expected",
+      "results": [
+        {
+          "workerIndex": 2,
+          "parallelIndex": 0,
+          "status": "passed",
+          "duration": 2276,
+          "errors": [],
+          "stdout": [],
+          "stderr": [],
+          "retry": 0,
+          "startTime": "2026-09-06T21:55:48.283Z",
+          "annotations": [],
+          "attachments": []
+        }
+      ],
+      "annotations": []
+    },
+    {
+      "file": "graph-clue-chain.spec.ts",
+      "line": 247,
+      "title": "graph page creates a clue chain from selected graph node seeds",
+      "status": "unexpected",
+      "results": [
+        {
+          "workerIndex": 2,
+          "parallelIndex": 0,
+          "status": "failed",
+          "duration": 7827,
+          "error": {
+            "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('graph-chart-2d')\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('graph-chart-2d')\u001b[22m\n",
+            "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('graph-chart-2d')\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('graph-chart-2d')\u001b[22m\n\n    at selectGraphNode (/private/tmp/mrw-stage3-v6-frontend-recovery-20260907/main/frontend-modern/tests/e2e/graph-clue-chain.spec.ts:242:52)\n    at /private/tmp/mrw-stage3-v6-frontend-recovery-20260907/main/frontend-modern/tests/e2e/graph-clue-chain.spec.ts:251:9",
+            "location": {
+              "file": "/private/tmp/mrw-stage3-v6-frontend-recovery-20260907/main/frontend-modern/tests/e2e/graph-clue-chain.spec.ts",
+              "column": 52,
+              "line": 242
+            },
+            "snippet": "  240 |\n  241 | async function selectGraphNode(page: Page, nodeId: string) {\n> 242 |   await expect(page.getByTestId('graph-chart-2d')).toBeVisible()\n      |                                                    ^\n  243 |   const selected = await page.waitForFunction((id) => window.__graphPageE2E?.selectNode(id) === true, nodeId)\n  244 |   expect(await selected.jsonValue()).toBe(true)\n  245 | }"
+          },
+          "errors": [
+            {
+              "location": {
+                "file": "/private/tmp/mrw-stage3-v6-frontend-recovery-20260907/main/frontend-modern/tests/e2e/graph-clue-chain.spec.ts",
+                "column": 52,
+                "line": 242
+              },
+              "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m(\u001b[22m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('graph-chart-2d')\nExpected: visible\nTimeout: 5000ms\nError: element(s) not found\n\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('graph-chart-2d')\u001b[22m\n\n\n  240 |\n  241 | async function selectGraphNode(page: Page, nodeId: string) {\n> 242 |   await expect(page.getByTestId('graph-chart-2d')).toBeVisible()\n      |                                                    ^\n  243 |   const selected = await page.waitForFunction((id) => window.__graphPageE2E?.selectNode(id) === true, nodeId)\n  244 |   expect(await selected.jsonValue()).toBe(true)\n  245 | }\n    at selectGraphNode (/private/tmp/mrw-stage3-v6-frontend-recovery-20260907/main/frontend-modern/tests/e2e/graph-clue-chain.spec.ts:242:52)\n    at /private/tmp/mrw-stage3-v6-frontend-recovery-20260907/main/frontend-modern/tests/e2e/graph-clue-chain.spec.ts:251:9"
+            }
+          ],
+          "stdout": [],
+          "stderr": [],
+          "retry": 0,
+          "startTime": "2026-09-06T21:55:50.757Z",
+          "annotations": [],
+          "attachments": [
+            {
+              "name": "error-context",
+              "contentType": "text/markdown",
+              "path": "/private/tmp/mrw-stage3-v6-frontend-recovery-20260907/main/frontend-modern/test-results/graph-clue-chain-graph-pag-e341c-m-selected-graph-node-seeds-chromium/error-context.md"
+            }
+          ],
+          "errorLocation": {
+            "file": "/private/tmp/mrw-stage3-v6-frontend-recovery-20260907/main/frontend-modern/tests/e2e/graph-clue-chain.spec.ts",
+            "column": 52,
+            "line": 242
+          }
+        }
+      ],
+      "annotations": []
+    },
+    {
+      "file": "graph-clue-chain.spec.ts",
+      "line": 267,
+      "title": "graph page keeps clue chain creation stable on a dense graph route",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "graph-clue-chain.spec.ts",
+      "line": 282,
+      "title": "graph page surfaces blocked provider hops and evidence drawer details",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "graph-clue-chain.spec.ts",
+      "line": 305,
+      "title": "graph page renders reviewed candidate decisions as non-pending state",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "graph-runtime-pixel-gate.spec.ts",
+      "line": 221,
+      "title": "graph runtime pixel gate proves force3d pixels or shape framing without tenant DB",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "graphpage.spec.ts",
+      "line": 358,
+      "title": "graph page smoke test loads with mocked graph APIs",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "graphpage.spec.ts",
+      "line": 372,
+      "title": "graph page can switch 2D/3D mode and interact with key slider",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "graphpage.spec.ts",
+      "line": 395,
+      "title": "graph page renders force3d canvas backed by graph scene nodes",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "graphpage.spec.ts",
+      "line": 454,
+      "title": "graph page survives rapid 3D engine switch with viewport evidence or fallback",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "graphpage.spec.ts",
+      "line": 568,
+      "title": "graph builder submits local draft to curated workflow graph API",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "graphpage.spec.ts",
+      "line": 639,
+      "title": "graph builder surfaces curated submit conflict without retrying destructively",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "homepage.spec.ts",
+      "line": 3,
+      "title": "homepage is reachable",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "homepage.spec.ts",
+      "line": 9,
+      "title": "core shell elements are visible",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "ingest-single-url.spec.ts",
+      "line": 3,
+      "title": "single url ingest sends standardized payload and shows task feedback",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "ingest-single-url.spec.ts",
+      "line": 65,
+      "title": "single url strict mode failure shows reason in action message",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "runtime-smoke.spec.ts",
+      "line": 3,
+      "title": "homepage runtime smoke uses live backend",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "runtime-smoke.spec.ts",
+      "line": 16,
+      "title": "graph runtime smoke loads against live graph endpoints",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-client.spec.ts",
+      "line": 287,
+      "title": "sha256 fingerprint matches known vectors",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-client.spec.ts",
+      "line": 292,
+      "title": "decoder mirrors the six v2 envelope variants and preserves full meta",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-client.spec.ts",
+      "line": 354,
+      "title": "decoder accepts UNRESOLVED transport meta and rejects scope-carrying unresolved meta",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-client.spec.ts",
+      "line": 445,
+      "title": "decoder enforces exact ok/waiting and error-family variant rules",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-client.spec.ts",
+      "line": 487,
+      "title": "malformed status, missing/invalid meta and control feedback fail closed",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-client.spec.ts",
+      "line": 637,
+      "title": "localStorage stores only preference and pending identity; fetch has no project authority",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-client.spec.ts",
+      "line": 723,
+      "title": "exact retry reuses id/fingerprint; changed payload conflicts; new id dispatches",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-client.spec.ts",
+      "line": 793,
+      "title": "command fingerprint binds expected base token and approval locator",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-client.spec.ts",
+      "line": 831,
+      "title": "changed base/approval binding with same command id conflicts while pending",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-client.spec.ts",
+      "line": 863,
+      "title": "in-flight dedupe collapses double-click to one fetch",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-client.spec.ts",
+      "line": 897,
+      "title": "stale projection responses and scope mismatch fail closed",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-client.spec.ts",
+      "line": 974,
+      "title": "query with UNRESOLVED transport meta passes through without freshness suppression",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-client.spec.ts",
+      "line": 1012,
+      "title": "query refetch is read-only and never dispatches commands or control",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-client.spec.ts",
+      "line": 1066,
+      "title": "request validation rejects kind mismatch and invalid params without dispatching",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-client.spec.ts",
+      "line": 1117,
+      "title": "response exact-bind rejects wrong id, project, projection and source key",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-client.spec.ts",
+      "line": 1171,
+      "title": "custom url and headers are rejected without dispatch",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-client.spec.ts",
+      "line": 1207,
+      "title": "payload and params reject control and unknown fields",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-client.spec.ts",
+      "line": 1270,
+      "title": "cross-project same command id does not dedupe or conflict",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-client.spec.ts",
+      "line": 1326,
+      "title": "projection clock enforces the partial order across cursor, digest, position and offset revision",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-client.spec.ts",
+      "line": 1371,
+      "title": "response trace and unresolved request identity exact-bind",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-client.spec.ts",
+      "line": 1415,
+      "title": "query meta bypass is rejected for ok/waiting and allowed only for error-family",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-client.spec.ts",
+      "line": 1439,
+      "title": "projection snapshot data must exact-match meta",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-client.spec.ts",
+      "line": 1488,
+      "title": "backend serialized fixture decodes with typed candidate values",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-client.spec.ts",
+      "line": 1568,
+      "title": "candidate values decode strictly and unknown fields fail closed",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-client.spec.ts",
+      "line": 1601,
+      "title": "unknown discriminator fails before localStorage or fetch",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-client.spec.ts",
+      "line": 1628,
+      "title": "poisoned pending store fails closed before fetch",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-client.spec.ts",
+      "line": 1675,
+      "title": "composite keys are collision-free under colon ambiguity",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-client.spec.ts",
+      "line": 1761,
+      "title": "explicit empty trace is rejected before storage or fetch",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-client.spec.ts",
+      "line": 1790,
+      "title": "explicit trace mismatch while in flight conflicts without a second fetch",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-client.spec.ts",
+      "line": 1827,
+      "title": "second caller without explicit trace joins the in-flight command",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-client.spec.ts",
+      "line": 1862,
+      "title": "rollback command payload allowlist and pending identity",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-client.spec.ts",
+      "line": 1907,
+      "title": "rollback duplicate click is one fetch and changed intent conflicts",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-client.spec.ts",
+      "line": 1945,
+      "title": "rollback transition receipt decodes strictly from backend fixture",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-client.spec.ts",
+      "line": 1986,
+      "title": "sanctioned rollback transitions the projection clock with a valid receipt",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-client.spec.ts",
+      "line": 2026,
+      "title": "unsanctioned rollback transitions fail closed",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-client.spec.ts",
+      "line": 2075,
+      "title": "same rollback transition repeat is idempotent and refetch does not mutate clock",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-client.spec.ts",
+      "line": 2130,
+      "title": "rollback command is observed only through projection_snapshot refetch",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-client.spec.ts",
+      "line": 2185,
+      "title": "rollback receipt tampering fails canonical digest recomputation",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-client.spec.ts",
+      "line": 2233,
+      "title": "rollback and other command kinds cannot reuse the same pending id",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-client.spec.ts",
+      "line": 2279,
+      "title": "rollback to.offset_ref comes from the receipt and binds the new clock",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-client.spec.ts",
+      "line": 2331,
+      "title": "rollback from.offset_ref must exact-bind the prior clock",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-client.spec.ts",
+      "line": 2368,
+      "title": "new rollback receipts bind the current clock; exact retry of the same receipt is idempotent",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-client.spec.ts",
+      "line": 2445,
+      "title": "backend model_dump snapshot with candidate sink/payload and nested rollback receipt roundtrips",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-client.spec.ts",
+      "line": 2567,
+      "title": "preference functions are localStorage-scoped and non-authoritative",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-observation.spec.ts",
+      "line": 191,
+      "title": "observation state vocabulary preserves exact six-state order",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-observation.spec.ts",
+      "line": 204,
+      "title": "typed rejection codes match the exact seven-code set",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-observation.spec.ts",
+      "line": 218,
+      "title": "derive maps not_started and in_flight phases",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-observation.spec.ts",
+      "line": 224,
+      "title": "derive maps settled ok envelope to SUCCEEDED",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-observation.spec.ts",
+      "line": 228,
+      "title": "derive maps settled waiting envelope to IN_FLIGHT",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-observation.spec.ts",
+      "line": 232,
+      "title": "derive maps settled conflict with typed CONFLICT code to REJECTED_TYPED",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-observation.spec.ts",
+      "line": 237,
+      "title": "derive maps settled error with unknown code to OUTCOME_UNKNOWN",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-observation.spec.ts",
+      "line": 246,
+      "title": "derive maps blocked and unavailable envelopes to OUTCOME_UNKNOWN",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-observation.spec.ts",
+      "line": 254,
+      "title": "derive maps client error to FAILED before envelope status",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-observation.spec.ts",
+      "line": 261,
+      "title": "derive fails closed on missing settled inputs and invalid phase",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-observation.spec.ts",
+      "line": 268,
+      "title": "typed rejection decode recognizes SCOPE_RESOLUTION_FAILED with UNRESOLVED meta",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-observation.spec.ts",
+      "line": 285,
+      "title": "typed rejection decode returns null for non-rejection statuses and unknown codes",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-observation.spec.ts",
+      "line": 294,
+      "title": "resolved scope requires matching projection meta and rejects mismatch or unresolved meta",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-observation.spec.ts",
+      "line": 323,
+      "title": "project server scope decodes projection snapshots and rejects command or error-family envelopes",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-observation.spec.ts",
+      "line": 339,
+      "title": "submit rejects missing actorRef without dispatching",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-observation.spec.ts",
+      "line": 361,
+      "title": "submit keeps actorRef out of the wire body and returns waiting envelope",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-page-wiring.spec.ts",
+      "line": 198,
+      "title": "kernel manifest registers sysSuccessorRuntime as a read-only admin module",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-page-wiring.spec.ts",
+      "line": 207,
+      "title": "successor runtime page builds only read-only projection snapshot queries",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-page-wiring.spec.ts",
+      "line": 223,
+      "title": "six envelope statuses keep their observation semantics under the page vocabulary",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-page-wiring.spec.ts",
+      "line": 240,
+      "title": "page query transport emits only query fetches and observes success plus typed rejection",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "successor-runtime-page-wiring.spec.ts",
+      "line": 277,
+      "title": "kernel browser page mounts the read-only successor observation panel",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "writing-workbench.spec.ts",
+      "line": 92,
+      "title": "creates, edits, saves, and previews a writing document",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "writing-workbench.spec.ts",
+      "line": 122,
+      "title": "reviews an agent-written paragraph with locate and accept controls",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "writing-workbench.spec.ts",
+      "line": 207,
+      "title": "locates an agent range edit by explicit range metadata",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "writing-workbench.spec.ts",
+      "line": 266,
+      "title": "searches selected material through the writing agent without writing back",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "writing-workbench.spec.ts",
+      "line": 306,
+      "title": "rewrites a selected range through real AgentCore and can roll it back",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    },
+    {
+      "file": "writing-workbench.spec.ts",
+      "line": 384,
+      "title": "mobile writing layout keeps the toolbar and canvas inside the viewport",
+      "status": "skipped",
+      "results": [],
+      "annotations": []
+    }
+  ],
+  "limitations": [
+    "e2e max-failures=3 and retries=0; 99 reported skipped include unexecuted after early stop",
+    "VITE_API_PROXY_TARGET=http://127.0.0.1:1; real backend dependency is intentionally unavailable",
+    "Frozen install initial ENOTFOUND recovered via approved escalation",
+    "Initial e2e listen EPERM recovered via approved escalation",
+    "Storybook DEP0205 warning preserved",
+    "No source or lockfile changes permitted; product repair requires successor"
+  ],
+  "product_failures": [
+    "lint React hooks 12 errors",
+    "GraphPage 72 TS errors: missing API exports, MessageKeys, argument mismatch",
+    "Storybook Rollup unresolved direct three import",
+    "e2e agent-chat English 0 tools assertion versus Chinese rendered text; graph chart unavailable"
+  ],
+  "source_state": "development/latest-dev-docs/automation-runs/frontend-runtime-visual/2026-05-22/admin-settings-brand-en.png\ndevelopment/latest-dev-docs/automation-runs/frontend-runtime-visual/2026-05-22/runtime_visual_contract.json\ndevelopment/latest-dev-docs/automation-runs/frontend-runtime-visual/2026-05-22/visual-dashboard-brand-en.png\ndevelopment/latest-dev-docs/automation-runs/frontend-runtime-visual/2026-05-22/workbench-writing-brand-en.png\n",
+  "source_refs": {
+    "main/frontend-modern/package.json": "6777cf6841a2e693844f463d6de8d6146042712d8096dcd5a9b23a18751af947",
+    "main/frontend-modern/pnpm-lock.yaml": "b39911bade7c4968ff9d0c1c7206a1d820a8d73365b53bee10469234aae25137",
+    "main/frontend-modern/src/pages/GraphPage.tsx": "404c50498fec877eb073c7cc756599b6aa4abd31e0aca95792694b890e9b71ea",
+    ".github/workflows/backend-tests.yml": "6c108b0842c600fe100ad560732740f347a5d357625fa753a1e052f0b33a7cc6"
+  },
+  "retained_resources": {
+    "root": "/private/tmp/mrw-stage3-v6-frontend-recovery-20260907",
+    "owner": "recover_frontend",
+    "reason": "candidate-bound failure diagnostics and dependencies retained for supervisor inspection",
+    "generated_file_inventory": [
+      {
+        "path": "/private/tmp/mrw-stage3-v6-frontend-recovery-20260907/main/frontend-modern/test-results/.last-run.json",
+        "sha256": "c18e6cf555c9d71579369af0dc7143e107e961f197317ec4330648753b496223"
+      },
+      {
+        "path": "/private/tmp/mrw-stage3-v6-frontend-recovery-20260907/main/frontend-modern/test-results/graph-clue-chain-graph-pag-e341c-m-selected-graph-node-seeds-chromium/error-context.md",
+        "sha256": "9170c79ae30310ed54e0fdfe9818e36e93ec994ede6ef5c9f63138ff20f98c73"
+      },
+      {
+        "path": "/private/tmp/mrw-stage3-v6-frontend-recovery-20260907/main/frontend-modern/test-results/agent-chat-agent-chat-user-74057-er-without-execution-chrome-chromium/error-context.md",
+        "sha256": "926d700e8af7a36da7ad0c0f9bd7710151000529e2475838be92b8531b479827"
+      },
+      {
+        "path": "/private/tmp/mrw-stage3-v6-frontend-recovery-20260907/main/frontend-modern/test-results/agent-chat-writing-crossfl-61261-d-verifying-a-writing-draft-chromium/error-context.md",
+        "sha256": "d69e7553e07c601c4701fe82a8589a8bd9971e89ee85ede1bacfdb7559a6ae04"
+      }
+    ]
+  },
+  "external_effects": [],
+  "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE"
+}

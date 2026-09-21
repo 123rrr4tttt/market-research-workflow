@@ -50,8 +50,10 @@ class ProbeObservation:
     def __post_init__(self) -> None:
         object.__setattr__(self, "check_id", normalized_text(self.check_id, "check_id"))
         if self.probe_kind not in HealthProbeKind.__args__:
+            # kit:boundary owner=successor_runtime.ops_domain.health_matrix_surface class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_ops_surface_programmer_defect_boundaries
             raise ValueError(f"unknown probe_kind: {self.probe_kind}")
         if self.status not in ("passed", "degraded", "blocked", "unknown"):
+            # kit:boundary owner=successor_runtime.ops_domain.health_matrix_surface class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_ops_surface_programmer_defect_boundaries
             raise ValueError(f"unknown status: {self.status}")
         object.__setattr__(
             self, "detail", normalized_text(self.detail, "detail", required=False)
@@ -88,10 +90,13 @@ class RuntimeHealthMatrixResult:
 
     def __post_init__(self) -> None:
         if self.schema != SURFACE_SCHEMA:
+            # kit:boundary owner=successor_runtime.ops_domain.health_matrix_surface class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_ops_surface_programmer_defect_boundaries
             raise ValueError("RuntimeHealthMatrixResult.schema is not frozen")
         if self.movement_ids != MOVEMENT_IDS:
+            # kit:boundary owner=successor_runtime.ops_domain.health_matrix_surface class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_ops_surface_programmer_defect_boundaries
             raise ValueError("RuntimeHealthMatrixResult.movement_ids drift")
         if self.run_mode not in ("docker", "local", "mixed", "not_run"):
+            # kit:boundary owner=successor_runtime.ops_domain.health_matrix_surface class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_ops_surface_programmer_defect_boundaries
             raise ValueError(f"unknown run_mode: {self.run_mode}")
         if self.overall_status not in (
             "passed",
@@ -99,9 +104,11 @@ class RuntimeHealthMatrixResult:
             "blocked",
             "unknown",
         ):
+            # kit:boundary owner=successor_runtime.ops_domain.health_matrix_surface class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_ops_surface_programmer_defect_boundaries
             raise ValueError(f"unknown overall_status: {self.overall_status}")
         require_authority_false(self.authority)
         if self.no_probe_execution is not True:
+            # kit:boundary owner=successor_runtime.ops_domain.health_matrix_surface class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_ops_surface_programmer_defect_boundaries
             raise ValueError("health matrix never executes probes")
         object.__setattr__(self, "rows", tuple(self.rows))
         object.__setattr__(
@@ -132,6 +139,7 @@ def project_runtime_health_matrix(
     """Classify typed observations into a passive health-matrix result."""
 
     if run_mode not in ("docker", "local", "mixed", "not_run"):
+        # kit:boundary owner=successor_runtime.ops_domain.health_matrix_surface class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_ops_surface_programmer_defect_boundaries
         raise ValueError(f"unknown run_mode: {run_mode}")
     rows = tuple(
         row if isinstance(row, ProbeObservation) else ProbeObservation(**row)

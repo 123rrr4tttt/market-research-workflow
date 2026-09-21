@@ -15,6 +15,7 @@ pytestmark = pytest.mark.unit
 try:
     from app.services.indexer.policy import (
         _build_vector_contract_payload,
+        _raise_indexer_failure,
         _validate_vector_contract_payload,
     )
 
@@ -46,7 +47,7 @@ class PolicyIndexerVectorContractUnitTestCase(unittest.TestCase):
         self.assertEqual(payload["source_domain"], "example.org")
         self.assertEqual(payload["clean_text"], "clean text body")
         self.assertTrue(payload["keep_for_vectorization"])
-        _validate_vector_contract_payload(payload)
+        self.assertIsNone(_validate_vector_contract_payload(payload))
 
     def test_validate_vector_contract_payload_rejects_missing_fields(self):
         payload = {
@@ -61,8 +62,17 @@ class PolicyIndexerVectorContractUnitTestCase(unittest.TestCase):
             "keep_for_vectorization": True,
         }
 
-        with self.assertRaisesRegex(ValueError, "vector_contract_missing_fields"):
-            _validate_vector_contract_payload(payload)
+        failure = _validate_vector_contract_payload(payload)
+        self.assertIsNotNone(failure)
+        assert failure is not None
+        self.assertEqual(failure.family, "indexer.policy.failure")
+        self.assertEqual(failure.code, "vector_contract_missing_fields")
+        self.assertEqual(
+            failure.message,
+            "vector_contract_missing_fields: effective_time,source_domain",
+        )
+        with self.assertRaisesRegex(ValueError, "^vector_contract_missing_fields:"):
+            _raise_indexer_failure(failure)
 
     def test_validate_vector_contract_payload_rejects_non_vectorizable_flag(self):
         payload = {
@@ -77,8 +87,14 @@ class PolicyIndexerVectorContractUnitTestCase(unittest.TestCase):
             "keep_for_vectorization": False,
         }
 
-        with self.assertRaisesRegex(ValueError, "vector_contract_keep_for_vectorization_false"):
-            _validate_vector_contract_payload(payload)
+        failure = _validate_vector_contract_payload(payload)
+        self.assertIsNotNone(failure)
+        assert failure is not None
+        self.assertEqual(failure.family, "indexer.policy.failure")
+        self.assertEqual(failure.code, "vector_contract_not_vectorizable")
+        self.assertEqual(failure.message, "vector_contract_keep_for_vectorization_false")
+        with self.assertRaisesRegex(ValueError, "^vector_contract_keep_for_vectorization_false$"):
+            _raise_indexer_failure(failure)
 
 
 if __name__ == "__main__":

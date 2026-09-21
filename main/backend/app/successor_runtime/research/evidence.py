@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import ClassVar
 
-from .codec import finalize_digest
+from .codec import _failure, _raise_failure, finalize_digest
 
 __all__ = ["QUALIFICATION_DIRECTIONS", "EvidenceQualification", "Validity"]
 
@@ -31,7 +31,15 @@ class Validity:
             and self.valid_to is not None
             and self.valid_from > self.valid_to
         ):
-            raise ValueError("validity valid_from must not be after valid_to")
+            _raise_failure(
+                _failure(
+                    "VALIDITY_INVALID",
+                    "validity valid_from must not be after valid_to",
+                    ValueError,
+                    site="Validity.interval",
+                ),
+                ValueError,
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -61,13 +69,45 @@ class EvidenceQualification:
 
     def __post_init__(self) -> None:
         if not isinstance(self.material_ref, str) or not self.material_ref.strip():
-            raise ValueError("material_ref must be a non-empty reference string")
+            _raise_failure(
+                _failure(
+                    "MATERIAL_REF_INVALID",
+                    "material_ref must be a non-empty reference string",
+                    ValueError,
+                    site="EvidenceQualification.material_ref",
+                ),
+                ValueError,
+            )
         if self.claim_ref is not None and (
             not isinstance(self.claim_ref, str) or not self.claim_ref.strip()
         ):
-            raise ValueError("claim_ref must be null or a non-empty reference string")
+            _raise_failure(
+                _failure(
+                    "EVIDENCE_QUALIFICATION_INVALID",
+                    "claim_ref must be null or a non-empty reference string",
+                    ValueError,
+                    site="EvidenceQualification.claim_ref",
+                ),
+                ValueError,
+            )
         if not isinstance(self.validity, Validity):
-            raise TypeError("validity must be a Validity object")
+            _raise_failure(
+                _failure(
+                    "VALIDITY_INVALID",
+                    "validity must be a Validity object",
+                    TypeError,
+                    site="EvidenceQualification.validity",
+                ),
+                TypeError,
+            )
         if self.direction not in QUALIFICATION_DIRECTIONS:
-            raise ValueError(f"invalid qualification direction: {self.direction}")
+            _raise_failure(
+                _failure(
+                    "EVIDENCE_QUALIFICATION_INVALID",
+                    f"invalid qualification direction: {self.direction}",
+                    ValueError,
+                    site="EvidenceQualification.direction",
+                ),
+                ValueError,
+            )
         finalize_digest(self, "qualification_digest")

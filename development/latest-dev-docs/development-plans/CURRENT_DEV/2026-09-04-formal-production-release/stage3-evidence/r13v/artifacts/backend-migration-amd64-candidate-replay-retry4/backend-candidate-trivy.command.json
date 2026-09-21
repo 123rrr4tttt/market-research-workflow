@@ -1,0 +1,21 @@
+{
+  "argv": [
+    "trivy",
+    "image",
+    "--input",
+    "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13v/artifacts/backend-migration-amd64-candidate-replay-retry4/candidate/backend.oci.tar",
+    "--scanners",
+    "vuln",
+    "--pkg-types",
+    "os,library",
+    "--severity",
+    "HIGH,CRITICAL",
+    "--exit-code",
+    "1",
+    "--format",
+    "json",
+    "--output",
+    "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13v/artifacts/backend-migration-amd64-candidate-replay-retry4/candidate/backend.trivy.json"
+  ],
+  "cwd": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13v/artifacts/backend-migration-amd64-candidate-replay-retry4"
+}

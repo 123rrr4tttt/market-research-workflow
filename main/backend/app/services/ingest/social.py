@@ -11,8 +11,8 @@ from ..collect_runtime.display_meta import build_display_meta
 from ..collect_runtime.contracts import CollectRequest, CollectResult
 from ...models.base import SessionLocal
 from ...models.entities import Document
-from .adapters.social_reddit import RedditAdapter
-from .adapters.http_utils import fetch_html
+from .provider_ports import get_reddit_adapter
+from ..resource_pool.http_port import fetch_html
 from .url_pool import _extract_text_from_html
 from ..keyword_generation import generate_social_keywords
 from .frontdoor_ingress import build_frontdoor_ingress_envelope
@@ -70,7 +70,7 @@ def collect_user_social_sentiment(
         with SessionLocal() as session:
             # 处理Reddit平台
             if "reddit" in platforms:
-                adapter = RedditAdapter()
+                adapter = get_reddit_adapter()
                 
                 # 基础子论坛列表（默认值）
                 if base_subreddits is None:
@@ -287,6 +287,7 @@ def collect_user_social_sentiment(
     except Exception as exc:  # noqa: BLE001
         logger.exception("collect_user_social_sentiment failed")
         fail_job(job_id, str(exc))
+        # kit:boundary owner=ingest.social_sentiment class=SHELL_BOUNDARY_EXCEPTION failure_family=ingest.operation.failure witness=test:test_latest_service_a_ingest_shell_boundaries_reraise_original_errors
         raise
 
 
@@ -466,6 +467,7 @@ def collect_policy_and_regulation(
     except Exception as exc:
         logger.exception("collect_policy_and_regulation failed")
         fail_job(job_id, str(exc))
+        # kit:boundary owner=ingest.policy_regulation class=SHELL_BOUNDARY_EXCEPTION failure_family=ingest.operation.failure witness=test:test_latest_service_a_ingest_shell_boundaries_reraise_original_errors
         raise
 
 

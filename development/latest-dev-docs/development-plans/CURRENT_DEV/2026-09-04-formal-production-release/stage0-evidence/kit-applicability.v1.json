@@ -1,0 +1,407 @@
+{
+  "schema": "stage0-kit-applicability.v1",
+  "status": "CONSUMER_GATE_CLOSED_WITH_UPSTREAM_FINDINGS_RETAINED",
+  "observed_at": "2026-09-05T06:46:41Z",
+  "scope": {
+    "stage": "0B",
+    "work_package": "S0B-KIT-APPLICABILITY",
+    "authority": "NOT_AUTHORITY",
+    "authority_all_false": true,
+    "live_provider": false,
+    "canonical_write": false,
+    "external_checkout_mutated": false
+  },
+  "project_binding": {
+    "project_root": "/Users/wangyiliang/market-research-workflow",
+    "config": "functorial-kit.json",
+    "config_sha256": "b86f5f3efcb871da66647afeeee77ab0d5131fa369ca1acfbc669b7347979f48",
+    "sketches": "sketches.json",
+    "sketches_sha256": "2552513ef05074f4ddf8bd47ad9f1eb6a79f7ea6e51cc3911431c644968e1518",
+    "stage_plan": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/04_production-deployment-stage-plan.v1.md",
+    "stage_plan_sha256": "d04ae870b5d2a13afacdc7a07e9d5a89b7ab77e7b6c2d6cdd4bd2101151f76fa",
+    "consumer_language": "python",
+    "project_head": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+    "project_tree": "5840bf9ba906c49f70020d226c54446f4ba5aa33"
+  },
+  "kit_binding": {
+    "checkout": "/Users/wangyiliang/Desktop/functorial-kit",
+    "commit": "785ff25e201c9eae84c862e68e786bc975e7a800",
+    "branch": "main",
+    "worktree": "DIRTY",
+    "dirty_path_count": 26,
+    "dirty_source_or_generated_paths_observed": true,
+    "binding_mode": "read_only_external_checkout",
+    "isolated_execution_copy": "/private/tmp/functorial-kit-full.MMoIaA/kit",
+    "isolated_source_commit": "785ff25e201c9eae84c862e68e786bc975e7a800",
+    "isolated_source_tree": "40a8019815040ff00c0ce61c0cdca30ac004ec7e",
+    "isolated_tracked_source_sha256": "8ea96363e3c600b828ed07a0adc93691e23aa7b36883196e6f826ed0e8ad4fd2",
+    "isolated_initial_diff": "EMPTY",
+    "isolated_untracked_python_build_sha256": "7ce50ec88c25509f3f828248c81453f0ecb6d93d6bcba70e82acb6d7e7364b57"
+  },
+  "source_refs": [
+    {
+      "path": "/Users/wangyiliang/Desktop/functorial-kit/CONVENTIONS.md",
+      "sha256": "111130e7fdf544af453252e2837762021229e15c3445040b8671037cf167c1a7"
+    },
+    {
+      "path": "/Users/wangyiliang/Desktop/functorial-kit/python/pyproject.toml",
+      "sha256": "9dca832954ed6052c766d0721e85ef80786b686a4e1f25bbf16fb7a2df51e509"
+    },
+    {
+      "path": "/Users/wangyiliang/Desktop/functorial-kit/typescript/package.json",
+      "sha256": "c7a53fc29b7fb16e3cfa2edf73dd78a574db3c0be32eb19467e6625967b32200"
+    },
+    {
+      "path": "/Users/wangyiliang/Desktop/functorial-kit/typescript/pnpm-lock.yaml",
+      "sha256": "30755bdf9a0ccf77894da43c3ef58bef814e8475683ff1cc604460a6c5fb15b4"
+    },
+    {
+      "path": "/Users/wangyiliang/Desktop/functorial-kit/rust/Cargo.toml",
+      "sha256": "dd04866ea785a3868f6475a9762ddf4df58bcc6d29124dfe4477f2f646751404"
+    },
+    {
+      "path": "/Users/wangyiliang/Desktop/functorial-kit/rust/Cargo.lock",
+      "sha256": "1c38c5a4ae6fc67cedd412e6813643df8b3530722c34a32b70d048a12e18cf33"
+    }
+  ],
+  "status_vocabulary": ["PASS", "FAIL", "BLOCKED", "NOT_RUN", "OBSERVED", "CONSUMER_GATE_CLOSED_WITH_UPSTREAM_FINDINGS_RETAINED", "CONSUMER_GATE_CLOSED", "PENDING_CONSUMER_FULL_SCAN", "NOT_APPLICABLE_TO_CONSUMER"],
+  "applicability": {
+    "mrw_consumer": {
+      "consumer_language": "python",
+      "consumer_config_declared_paths": ["core_paths", "shell_paths", "test_paths"],
+      "typescript": "NOT_APPLICABLE_TO_CONSUMER",
+      "rust": "NOT_APPLICABLE_TO_CONSUMER",
+      "consumer_gate_status": "CONSUMER_GATE_CLOSED",
+      "blocked_by": [],
+      "materialized_source": "/private/tmp/mrw-stage0-consumer-gate-20260905-b",
+      "base_source_commit": "785ff25e201c9eae84c862e68e786bc975e7a800",
+      "base_source_tree": "40a8019815040ff00c0ce61c0cdca30ac004ec7e",
+      "patch_sha256": "bab5ddcf18a9312d99be4972e7c2addec233dab8faf7281d27f2148546cc0098",
+      "patch_scope": ["test_tool"],
+      "runtime_dependency_locked_to": "785ff25e201c9eae84c862e68e786bc975e7a800",
+      "execution": {
+        "authority_all_false": true,
+        "commands": [
+          {"command": "isolated consumer gate: patched kit python test_core + test_arch", "executed": true, "result": "PASS", "exit_code": 0, "observed": "49 passed"},
+          {"command": "MRW consumer replay focused tests", "executed": true, "result": "PASS", "exit_code": 0, "observed": "6 passed"},
+          {"command": "MRW current architecture + baseline delta", "executed": true, "result": "PASS", "exit_code": 0, "observed": "295 passed"}
+        ],
+        "status": "PASS",
+        "ceiling": "CONSUMER_GATE_CLOSED_NOT_AUTHORITY_NOT_LIVE_NOT_CUTOVER"
+      }
+    },
+    "upstream_kit_conformance": {
+      "source": "/private/tmp/functorial-kit-full.MMoIaA/kit",
+      "source_commit": "785ff25e201c9eae84c862e68e786bc975e7a800",
+      "source_tree": "40a8019815040ff00c0ce61c0cdca30ac004ec7e",
+      "tracked_source_sha256": "8ea96363e3c600b828ed07a0adc93691e23aa7b36883196e6f826ed0e8ad4fd2",
+      "python": "OBSERVED_WITH_NON_CONSUMER_FINDINGS",
+      "typescript": "PASS",
+      "rust": "PARTIAL_WITH_DEFAULT_FEATURE_FAILURE_AND_TOOLING_BLOCKERS"
+    }
+  },
+  "languages": {
+    "python": {
+      "project_applicability": "APPLICABLE",
+      "applicability_reason": "The project declares functorial-kit as its Python dependency and uses the Python kit gate contract.",
+      "applicable_gates": [
+        "import-direction",
+        "no-throw-in-core",
+        "registry-complete",
+        "one-representation",
+        "fakes-run-laws",
+        "derived-marked",
+        "sketch-valid",
+        "law-suites",
+        "vector-laws"
+      ],
+      "runtime": {
+        "required_python": ">=3.11",
+        "external_kit_python": "3.13.12",
+        "project_venv_python": "3.13.12",
+        "pytest_in_project_venv": "9.1.1",
+        "hypothesis_in_project_venv": "6.167.1",
+        "pyright_in_project_venv": "1.1.411",
+        "external_kit_venv_pytest": "MISSING",
+        "external_kit_venv_pyright": "MISSING"
+      },
+      "commands": [
+        {
+          "command": "/Users/wangyiliang/Desktop/functorial-kit/python/.venv/bin/python --version",
+          "executed": true,
+          "result": "PASS",
+          "exit_code": 0,
+          "observed": "Python 3.13.12"
+        },
+        {
+          "command": "/Users/wangyiliang/Desktop/functorial-kit/python/.venv/bin/python -m pytest --version",
+          "executed": true,
+          "result": "BLOCKED",
+          "exit_code": 1,
+          "blocked_by": ["pytest is not installed in the external kit venv"],
+          "observed": "No module named pytest"
+        },
+        {
+          "command": "/Users/wangyiliang/market-research-workflow/.venv/bin/pyright --version",
+          "executed": true,
+          "result": "PASS",
+          "exit_code": 0,
+          "observed": "pyright 1.1.411"
+        },
+        {
+          "command": "/Users/wangyiliang/market-research-workflow/.venv/bin/pyright /Users/wangyiliang/Desktop/functorial-kit/python/functorial_kit /Users/wangyiliang/Desktop/functorial-kit/python/tests",
+          "executed": true,
+          "result": "FAIL",
+          "exit_code": 1,
+          "blocked_by": ["external kit checkout is dirty", "external kit dev dependencies are absent from its venv"],
+          "observed": "333 errors, including unresolved hypothesis/pytest and strict typing diagnostics"
+        },
+        {
+          "command": "cd /Users/wangyiliang/Desktop/functorial-kit/python && /Users/wangyiliang/Desktop/functorial-kit/python/.venv/bin/python -m pytest -q -p no:cacheprovider",
+          "executed": false,
+          "result": "NOT_RUN",
+          "blocked_by": ["pytest is unavailable in the external kit venv", "no dependency installation permitted in this evidence pass"]
+        },
+        {
+          "command": "cd /Users/wangyiliang/Desktop/functorial-kit/python && /Users/wangyiliang/market-research-workflow/.venv/bin/pyright --project pyproject.toml",
+          "executed": false,
+          "result": "NOT_RUN",
+          "blocked_by": ["project pyright run above already fails on the dirty checkout; no clean-kit claim is authorized"]
+        }
+      ],
+      "consumer_gate_status": "CONSUMER_GATE_CLOSED",
+      "upstream_execution": {
+        "source": "/private/tmp/functorial-kit-full.MMoIaA/kit",
+        "source_commit": "785ff25e201c9eae84c862e68e786bc975e7a800",
+        "source_tree": "40a8019815040ff00c0ce61c0cdca30ac004ec7e",
+        "tracked_source_sha256": "8ea96363e3c600b828ed07a0adc93691e23aa7b36883196e6f826ed0e8ad4fd2",
+        "commands": [
+          {
+            "command": "cd /private/tmp/functorial-kit-full.MMoIaA/kit/python && .venv/bin/python -m pytest -q -p no:cacheprovider",
+            "executed": true,
+            "result": "PASS",
+            "exit_code": 0,
+            "observed": "54 passed"
+          },
+          {
+            "command": "cd /private/tmp/functorial-kit-full.MMoIaA/kit/python && .venv/bin/ruff check functorial_kit tests",
+            "executed": true,
+            "result": "PASS",
+            "exit_code": 0,
+            "observed": "ruff check passed"
+          },
+          {
+            "command": "cd /private/tmp/functorial-kit-full.MMoIaA/kit/python && .venv/bin/ruff format --check functorial_kit tests",
+            "executed": true,
+            "result": "FAIL",
+            "exit_code": 1,
+            "observed": "7 files would be reformatted; 15 files already formatted",
+            "files": ["functorial_kit/arch/gates.py", "functorial_kit/arch/scan.py", "functorial_kit/example.py", "functorial_kit/init.py", "functorial_kit/laws.py", "tests/test_arch.py", "tests/test_core.py"]
+          },
+          {
+            "command": "cd /private/tmp/functorial-kit-full.MMoIaA/kit/python && .venv/bin/pyright --pythonpath .venv/bin/python functorial_kit tests",
+            "executed": true,
+            "result": "FAIL",
+            "exit_code": 1,
+            "observed": "1 real error at tests/test_init_acceptance.py:26:15 (fixture generator annotation) and 1 __all__ unsupported warning",
+            "error_count": 1,
+            "warning_count": 1
+          }
+        ],
+        "status": "BLOCKED",
+        "ceiling": "UPSTREAM_NON_CONSUMER_BLOCKERS_FORMAT_AND_PYRIGHT"
+      },
+      "ceiling": "MRW_CONSUMER_GATE_CLOSED_UPSTREAM_PYTHON_FORMAT_AND_PYRIGHT_FINDINGS_RETAINED"
+    },
+    "typescript": {
+      "project_applicability": "NOT_APPLICABLE_TO_CONSUMER",
+      "applicability_reason": "functorial-kit.json declares Python consumer paths only; the consumer project has no TypeScript source path. Results below are upstream kit conformance evidence, not an MRW Stage 0 gate.",
+      "applicable_gates": [
+        "import-direction",
+        "no-throw-in-core",
+        "registry-complete",
+        "one-representation",
+        "fakes-run-laws",
+        "derived-marked",
+        "sketch-valid",
+        "law-suites",
+        "vector-laws"
+      ],
+      "runtime": {
+        "required_node": ">=22.18",
+        "node": "v26.4.0",
+        "pnpm": "11.22.0",
+        "node_modules": "MISSING",
+        "lockfile": "typescript/pnpm-lock.yaml"
+      },
+      "commands": [
+        {
+          "command": "node --version",
+          "executed": true,
+          "result": "PASS",
+          "exit_code": 0,
+          "observed": "v26.4.0"
+        },
+        {
+          "command": "pnpm --version",
+          "executed": true,
+          "result": "PASS",
+          "exit_code": 0,
+          "observed": "11.22.0"
+        },
+        {
+          "command": "test -d /Users/wangyiliang/Desktop/functorial-kit/typescript/node_modules",
+          "executed": true,
+          "result": "BLOCKED",
+          "exit_code": 1,
+          "blocked_by": ["typescript/node_modules is absent"]
+        },
+        {
+          "command": "cd /Users/wangyiliang/Desktop/functorial-kit/typescript && pnpm run build",
+          "executed": true,
+          "result": "BLOCKED",
+          "exit_code": 255,
+          "blocked_by": ["dependencies are absent", "pnpm attempted dependency preparation and hit EPERM", "install is not permitted in this pass"],
+          "observed": "EPERM opening typescript/_tmp_*; pnpm install failed"
+        },
+        {
+          "command": "cd /Users/wangyiliang/Desktop/functorial-kit/typescript && pnpm test",
+          "executed": false,
+          "result": "NOT_RUN",
+          "blocked_by": ["node_modules is absent", "pnpm install is explicitly out of scope"]
+        },
+        {
+          "command": "cd /Users/wangyiliang/Desktop/functorial-kit/typescript && pnpm run typecheck",
+          "executed": false,
+          "result": "NOT_RUN",
+          "blocked_by": ["node_modules is absent"]
+        }
+      ],
+      "upstream_execution": {
+        "source": "/private/tmp/functorial-kit-full.MMoIaA/kit",
+        "source_commit": "785ff25e201c9eae84c862e68e786bc975e7a800",
+        "source_tree": "40a8019815040ff00c0ce61c0cdca30ac004ec7e",
+        "tracked_source_sha256": "8ea96363e3c600b828ed07a0adc93691e23aa7b36883196e6f826ed0e8ad4fd2",
+        "commands": [
+          {"command": "cd /private/tmp/functorial-kit-full.MMoIaA/kit/typescript && pnpm install --frozen-lockfile", "executed": true, "result": "PASS", "exit_code": 0},
+          {"command": "cd /private/tmp/functorial-kit-full.MMoIaA/kit/typescript && pnpm run build", "executed": true, "result": "PASS", "exit_code": 0},
+          {"command": "cd /private/tmp/functorial-kit-full.MMoIaA/kit/typescript && pnpm run typecheck", "executed": true, "result": "PASS", "exit_code": 0},
+          {"command": "cd /private/tmp/functorial-kit-full.MMoIaA/kit/typescript && pnpm test", "executed": true, "result": "PASS", "exit_code": 0, "observed": "40 tests passed"}
+        ],
+        "status": "PASS",
+        "ceiling": "UPSTREAM_TYPESCRIPT_CONFORMANCE_PASS_NOT_MRW_CONSUMER_GATE"
+      },
+      "ceiling": "NOT_APPLICABLE_TO_CONSUMER_UPSTREAM_TYPESCRIPT_CONFORMANCE_PASS"
+    },
+    "rust": {
+      "project_applicability": "NOT_APPLICABLE_TO_CONSUMER",
+      "applicability_reason": "functorial-kit.json declares Python consumer paths only; the consumer project has no Rust source path. Results below are upstream kit conformance evidence, not an MRW Stage 0 gate.",
+      "applicable_gates": [
+        "import-direction",
+        "no-throw-in-core",
+        "registry-complete",
+        "one-representation",
+        "fakes-run-laws",
+        "derived-marked",
+        "sketch-valid",
+        "law-suites",
+        "vector-laws"
+      ],
+      "feature_applicability": {
+        "default": {
+          "declared": true,
+          "features": [],
+          "command": "cargo test",
+          "result": "NOT_RUN",
+          "blocked_by": ["compilation/test execution would write the external kit target", "no external dependency/build mutation permitted"]
+        },
+        "laws": {
+          "declared": true,
+          "features": ["laws"],
+          "dependency": "proptest",
+          "command": "cargo test --features laws",
+          "result": "NOT_RUN",
+          "blocked_by": ["compilation/test execution would write the external kit target", "no external dependency/build mutation permitted"]
+        }
+      },
+      "runtime": {
+        "cargo": "cargo 1.97.1 (c980f4866 2026-06-30)",
+        "manifest": "rust/Cargo.toml",
+        "lockfile": "rust/Cargo.lock",
+        "target": "PRESENT",
+        "rustfmt": "MISSING",
+        "clippy": "MISSING"
+      },
+      "commands": [
+        {
+          "command": "cargo metadata --no-deps --format-version 1",
+          "executed": true,
+          "result": "PASS",
+          "exit_code": 0,
+          "observed": "manifest resolves; default=[] and laws=[dep:proptest], with lib/bin and three integration test targets"
+        },
+        {
+          "command": "cd /Users/wangyiliang/Desktop/functorial-kit/rust && cargo fmt --check",
+          "executed": true,
+          "result": "BLOCKED",
+          "exit_code": 1,
+          "blocked_by": ["cargo-fmt/rustfmt component is not installed for stable-aarch64-apple-darwin"]
+        },
+        {
+          "command": "cd /Users/wangyiliang/Desktop/functorial-kit/rust && cargo clippy --version",
+          "executed": true,
+          "result": "BLOCKED",
+          "exit_code": 1,
+          "blocked_by": ["cargo-clippy component is not installed for stable-aarch64-apple-darwin"]
+        },
+        {
+          "command": "cd /Users/wangyiliang/Desktop/functorial-kit/rust && cargo test",
+          "executed": false,
+          "result": "NOT_RUN",
+          "blocked_by": ["external target/dependency mutation is out of scope"]
+        },
+        {
+          "command": "cd /Users/wangyiliang/Desktop/functorial-kit/rust && cargo test --features laws",
+          "executed": false,
+          "result": "NOT_RUN",
+          "blocked_by": ["external target/dependency mutation is out of scope"]
+        },
+        {
+          "command": "cd /Users/wangyiliang/Desktop/functorial-kit/rust && cargo clippy --all-targets --all-features -- -D warnings",
+          "executed": false,
+          "result": "NOT_RUN",
+          "blocked_by": ["clippy component is missing", "compilation would mutate the external target"]
+        }
+      ],
+      "upstream_execution": {
+        "source": "/private/tmp/functorial-kit-full.MMoIaA/kit",
+        "source_commit": "785ff25e201c9eae84c862e68e786bc975e7a800",
+        "source_tree": "40a8019815040ff00c0ce61c0cdca30ac004ec7e",
+        "tracked_source_sha256": "8ea96363e3c600b828ed07a0adc93691e23aa7b36883196e6f826ed0e8ad4fd2",
+        "commands": [
+          {"command": "cd /private/tmp/functorial-kit-full.MMoIaA/kit/rust && cargo test", "executed": true, "result": "FAIL", "exit_code": 101, "observed": "5 compile errors in tests/core.rs because law-only symbols/macros are unguarded"},
+          {"command": "cd /private/tmp/functorial-kit-full.MMoIaA/kit/rust && cargo test --features laws", "executed": true, "result": "PASS", "exit_code": 0, "observed": "32 passed (12 arch, 19 core, 1 init; 3 doctests ignored)"},
+          {"command": "cd /private/tmp/functorial-kit-full.MMoIaA/kit/rust && cargo check --all-targets --all-features", "executed": true, "result": "PASS", "exit_code": 0},
+          {"command": "cd /private/tmp/functorial-kit-full.MMoIaA/kit/rust && cargo fmt --check", "executed": true, "result": "BLOCKED", "exit_code": 1, "blocked_by": ["rustfmt component missing"]},
+          {"command": "cd /private/tmp/functorial-kit-full.MMoIaA/kit/rust && cargo clippy --all-targets --all-features -- -D warnings", "executed": true, "result": "BLOCKED", "exit_code": 1, "blocked_by": ["clippy component missing"]}
+        ],
+        "status": "PARTIAL",
+        "ceiling": "UPSTREAM_RUST_LAWS_PASS_DEFAULT_FEATURE_COMPILE_FAILURE_FMT_CLIPPY_BLOCKED"
+      },
+      "ceiling": "NOT_APPLICABLE_TO_CONSUMER_UPSTREAM_RUST_PARTIAL"
+    }
+  },
+  "ceiling": [
+    "S0B_KIT_APPLICABILITY_ONLY",
+    "EXTERNAL_KIT_WORKTREE_DIRTY",
+    "PYTHON_CONSUMER_GATE_CLOSED_UPSTREAM_FINDINGS_RETAINED",
+    "TYPESCRIPT_NOT_APPLICABLE_TO_MRW_CONSUMER_UPSTREAM_CONFORMANCE_PASS",
+    "RUST_NOT_APPLICABLE_TO_MRW_CONSUMER_UPSTREAM_DEFAULT_COMPILE_FAILURE",
+    "RUST_FMT_AND_CLIPPY_BLOCKED_BY_MISSING_COMPONENTS",
+    "UPSTREAM_KIT_FINDINGS_RETAINED_NON_AUTHORITY",
+    "PRODUCTION_RELEASE_NOT_AUTHORIZED",
+    "NOT_LIVE",
+    "NOT_CUTOVER",
+    "NOT_CANONICAL_WRITE_AUTHORITY"
+  ]
+}

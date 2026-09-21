@@ -1,0 +1,26 @@
+{
+  "argv": [
+    "docker",
+    "buildx",
+    "build",
+    "--builder",
+    "mrw-r13v-oci-smoke-47327-1789218494",
+    "--platform",
+    "linux/amd64",
+    "--network",
+    "none",
+    "--no-cache",
+    "--progress",
+    "plain",
+    "--tag",
+    "mrw-r13v-oci-smoke.local/subject:47327-1789218494",
+    "--build-arg",
+    "SOURCE_DATE_EPOCH=0",
+    "--provenance=mode=max",
+    "--sbom=true",
+    "--output",
+    "type=oci,dest=/var/folders/ww/__28yy2d01n97fff8jhw9yxm0000gn/T/mrw-r13v-oci-smoke-b_g0a978/tagged-provenance-sbom.oci.tar,rewrite-timestamp=true",
+    "/var/folders/ww/__28yy2d01n97fff8jhw9yxm0000gn/T/mrw-r13v-oci-smoke-b_g0a978/context"
+  ],
+  "cwd": null
+}

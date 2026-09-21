@@ -1,0 +1,424 @@
+{
+  "schema": "mrw.formal_release.stage0.declared_loss_collect.v1",
+  "version": "1.0.0",
+  "evidence_id": "stage0b-collect-loss-2026-09-05",
+  "stage": "STAGE_0B",
+  "schema_version": "mrw.stage0.declared-loss-collect.v1",
+  "record_id": "stage0-declared-loss-collect-v1",
+  "status": "FACT_REVIEW_COMPLETE_NOT_AUTHORITY",
+  "authoritative": false,
+  "derived_as": "stage0_declared_loss_fact_review",
+  "scope": [
+    "collect execution and routing",
+    "collect auto-batch",
+    "collect result fold",
+    "collect compatibility projection",
+    "crawler provider handoff"
+  ],
+  "packet": "S0B-COLLECT-LOSS",
+  "strategy": "REMEDIATION_INCLUSIVE_RELEASE",
+  "reviewed_surfaces": [
+      "collect.execution.routing",
+      "collect.auto_batch",
+      "collect.result_fold",
+      "collect.compat_projection",
+      "crawler.provider_handoff"
+  ],
+  "authority_ceiling": {
+    "candidate_promotion": false,
+    "production_canonical_write": false,
+    "live_provider": false,
+    "external_delivery": false,
+    "cutover": false,
+    "authority_transfer": false,
+    "legacy_retirement": false
+  },
+  "allowed_decisions": [
+    "ACCEPTED_EXPLICIT_LOSS",
+    "IMPLEMENTED",
+    "IMPLEMENTATION_REQUIRED",
+    "NOT_APPLICABLE"
+  ],
+  "write_scope": {
+    "mode": "ADDITIVE_EVIDENCE_ONLY",
+    "allowed_files": [
+      "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage0-evidence/declared-loss-collect.v1.json",
+      "tests/formal_release/test_stage0_declared_loss_collect.py"
+    ],
+    "source_mutation": false,
+    "registry_mutation": false,
+    "baseline_mutation": false,
+    "progress_mutation": false,
+    "frozen_document_mutation": false
+  },
+  "items": [
+    {
+      "id": "COLLECT-LOSS-EXECUTION-ROUTING-001",
+      "area": "collect_execution_routing",
+      "surface": "collect.execution.routing",
+      "source_object": {
+        "name": "CollectRequest.v1",
+        "path": "main/backend/app/services/collect_runtime/contracts.py",
+        "symbol": "CollectRequest"
+      },
+      "source_morphism": {
+        "name": "CollectRequest to CollectResult route",
+        "path": "main/backend/app/services/collect_runtime/runtime.py",
+        "symbol": "run_collect; _resolve_workflow_mode"
+      },
+      "source": {
+        "object": "CollectRequest.v1",
+        "morphism": "run_collect : CollectRequest -> CollectResult; _resolve_workflow_mode selects legacy or WorkflowRoutingAdapter",
+        "refs": [
+          {
+            "path": "main/backend/app/services/collect_runtime/contracts.py",
+            "lines": "12-28"
+          },
+          {
+            "path": "main/backend/app/services/collect_runtime/runtime.py",
+            "lines": "100-160"
+          }
+        ]
+      },
+      "retained": [
+        "channel selection and CollectRequest fields",
+        "legacy adapter result shape and display_meta projection",
+        "safe default to legacy mode when INGEST_WORKFLOW_ADAPTER is absent or unrecognized"
+      ],
+      "lost": [
+        "typed execution authority, idempotency, attempt identity and cancellation are not part of the legacy request or routing morphism",
+        "workflow mode does not provide a distinct successor interpreter; it delegates to the same process-local adapter registry",
+        "provider receipts and authoritative readback are not guaranteed by the route boundary"
+      ],
+      "affected_callers": [
+        {
+          "path": "main/backend/app/api/ingest.py",
+          "symbol": "_dispatch_market_collect_async; run_collect call sites",
+          "impact": "HTTP sync/async ingest callers observe legacy CollectResult semantics regardless of workflow switch"
+        },
+        {
+          "path": "main/backend/app/services/tasks.py",
+          "symbol": "task_ingest_market; task_collect_policy_regulation",
+          "impact": "Celery callers consume raw/counter fallbacks instead of a typed execution receipt"
+        }
+      ],
+      "alternative_path": "successor typed collect execution interpreter with explicit project/capability binding, runtime attempt identity and legacy rollback flag",
+      "witness": [
+        {
+          "type": "test",
+          "test": "test_successor_route_calls_typed_c3_interpreter_and_orders_outcomes",
+          "path": "main/backend/tests/unit/test_collect_runtime_auto_batch_unittest.py",
+          "ref": "test_successor_route_calls_typed_c3_interpreter_and_orders_outcomes",
+          "asserts": "successor routing invokes the typed C3 interpreter in input order"
+        },
+        {
+          "type": "test",
+          "test": "test_successor_without_effect_gateway_is_unknown_and_does_not_use_legacy_registry",
+          "path": "main/backend/tests/unit/test_collect_runtime_auto_batch_unittest.py",
+          "ref": "test_successor_without_effect_gateway_is_unknown_and_does_not_use_legacy_registry",
+          "asserts": "a missing effect gateway is OutcomeUnknown and does not fall back to legacy routing"
+        }
+      ],
+      "decision": "IMPLEMENTED",
+      "decision_basis": "Successor routing now invokes a typed C3 interpreter and fails to OutcomeUnknown when its effect gateway is absent, without silently using the legacy registry."
+    },
+    {
+      "id": "COLLECT-LOSS-AUTO-BATCH-002",
+      "area": "collect_auto_batch",
+      "surface": "collect.auto_batch",
+      "source_object": {
+        "name": "OrderedCollectBatchPlan.v1 (legacy query-term splitter and executor)",
+        "path": "main/backend/app/services/collect_runtime/runtime.py",
+        "symbol": "_should_auto_batch; _split_query_terms"
+      },
+      "source_morphism": {
+        "name": "ordered terms to batch execution and fold",
+        "path": "main/backend/app/services/collect_runtime/runtime.py",
+        "symbol": "_execute_auto_batch; _merge_collect_results"
+      },
+      "source": {
+        "object": "OrderedCollectBatchPlan.v1 (legacy query-term splitter and executor)",
+        "morphism": "_should_auto_batch -> _split_query_terms -> _execute_auto_batch -> _merge_collect_results",
+        "refs": [
+          {
+            "path": "main/backend/app/services/collect_runtime/runtime.py",
+            "lines": "163-176"
+          },
+          {
+            "path": "main/backend/app/services/collect_runtime/runtime.py",
+            "lines": "284-339"
+          }
+        ]
+      },
+      "retained": [
+        "cleaned query-term membership and deterministic input-index order",
+        "per-batch limit calculation and requested/effective parallelism diagnostics",
+        "serial execution order and parallel completion re-sorting by input index"
+      ],
+      "lost": [
+        "parallel effect completion is not proven commutative and shared provider/database/resource effects may interleave",
+        "default child exceptions are converted to failed children while the aggregate remains top-level completed",
+        "durable cancellation, deadline, concurrency-key reservation and replay identity are absent"
+      ],
+      "affected_callers": [
+        {
+          "path": "main/backend/app/services/collect_runtime/runtime.py",
+          "symbol": "run_collect; _maybe_run_auto_batched",
+          "impact": "market and policy requests meeting the batch threshold execute through the lossy aggregate path"
+        },
+        {
+          "path": "main/backend/tests/unit/test_collect_runtime_auto_batch_unittest.py",
+          "symbol": "test_auto_batch_isolates_failures_by_default",
+          "impact": "the fixture codifies partial child failure with status=completed, so callers can mistake partial collection for full completion"
+        }
+      ],
+      "alternative_path": "successor typed TraverseOrdered plan with explicit resource/failure policy and partial/cancelled outcomes",
+      "witness": [
+        {
+          "type": "test",
+          "test": "test_successor_partial_projection_is_not_completed",
+          "path": "main/backend/tests/unit/test_collect_runtime_auto_batch_unittest.py",
+          "ref": "test_successor_partial_projection_is_not_completed",
+          "asserts": "a partial ordered traversal is projected as partial rather than completed"
+        },
+        {
+          "type": "test",
+          "test": "test_successor_fail_fast_projection_is_cancelled_and_keeps_receipts",
+          "path": "main/backend/tests/unit/test_collect_runtime_auto_batch_unittest.py",
+          "ref": "test_successor_fail_fast_projection_is_cancelled_and_keeps_receipts",
+          "asserts": "fail-fast cancellation preserves typed receipts"
+        }
+      ],
+      "decision": "IMPLEMENTED",
+      "decision_basis": "The successor ordered traversal makes partial and fail-fast cancellation visible, preserves receipts, and requires an explicit effect-independence policy before parallel effects are selected."
+    },
+    {
+      "id": "COLLECT-LOSS-RESULT-FOLD-003",
+      "area": "collect_result_fold",
+      "surface": "collect.result_fold",
+      "source_object": {
+        "name": "CollectResult.v1",
+        "path": "main/backend/app/services/collect_runtime/contracts.py",
+        "symbol": "CollectResult"
+      },
+      "source_morphism": {
+        "name": "ordered child results to aggregate CollectResult",
+        "path": "main/backend/app/services/collect_runtime/runtime.py",
+        "symbol": "_merge_collect_results"
+      },
+      "source": {
+        "object": "CollectResult.v1",
+        "morphism": "_merge_collect_results : Ordered[(query_terms, CollectResult)] -> CollectResult",
+        "refs": [
+          {
+            "path": "main/backend/app/services/collect_runtime/contracts.py",
+            "lines": "30-45"
+          },
+          {
+            "path": "main/backend/app/services/collect_runtime/runtime.py",
+            "lines": "179-264"
+          }
+        ]
+      },
+      "retained": [
+        "input-index fold order",
+        "inserted/updated/skipped totals and stable-first link/job-id deduplication",
+        "raw per-batch metadata, provider type/status/job id and attempt count when supplied"
+      ],
+      "lost": [
+        "mixed child failures are counted but top-level status is initialized to completed",
+        "heterogeneous errors and optional provider fields do not form a typed durable receipt union",
+        "multiple batch receipts collapse into singular top-level fields while full detail remains only in nested raw metadata"
+      ],
+      "affected_callers": [
+        {
+          "path": "main/backend/app/services/tasks.py",
+          "symbol": "task_ingest_market; task_collect_policy_regulation",
+          "impact": "callers return meta.raw or numeric fallback, dropping the distinction between partial and complete collection"
+        },
+        {
+          "path": "main/backend/app/services/collect_runtime/adapters/source_library.py",
+          "symbol": "SourceLibraryAdapter.run; to_source_library_response",
+          "impact": "fold output is reused to build terminal, authority and compatibility projections with separate ownership"
+        }
+      ],
+      "alternative_path": "successor typed ordered receipt fold with Succeeded/Partial/Failed aggregates and explicit receipt_kind",
+      "witness": [
+        {
+          "type": "test",
+          "test": "test_successor_route_calls_typed_c3_interpreter_and_orders_outcomes",
+          "path": "main/backend/tests/unit/test_collect_runtime_auto_batch_unittest.py",
+          "ref": "test_successor_route_calls_typed_c3_interpreter_and_orders_outcomes",
+          "asserts": "ordered typed outcomes are passed to the C3 successor fold"
+        },
+        {
+          "type": "test",
+          "test": "test_successor_partial_projection_is_not_completed",
+          "path": "main/backend/tests/unit/test_collect_runtime_auto_batch_unittest.py",
+          "ref": "test_successor_partial_projection_is_not_completed",
+          "asserts": "mixed outcome aggregates do not project as completed"
+        }
+      ],
+      "decision": "IMPLEMENTED",
+      "decision_basis": "The successor C3 fold exposes ordered Succeeded, Partial, and Failed aggregates; legacy CollectResult remains only an explicit compatibility projection."
+    },
+    {
+      "id": "COLLECT-LOSS-COMPAT-004",
+      "area": "collect_compat_projection",
+      "surface": "collect.compat_projection",
+      "source_object": {
+        "name": "SourceLibraryTerminalOutput.v1 to SourceLibraryCompatProjection.v1",
+        "path": "main/backend/app/services/source_library/terminal_output.py",
+        "symbol": "to_terminal_output_dto"
+      },
+      "source_morphism": {
+        "name": "admitted source observations to terminal/frontdoor/authority/compat read models",
+        "path": "main/backend/app/services/collect_runtime/adapters/source_library.py",
+        "symbol": "to_source_library_response"
+      },
+      "source": {
+        "object": "SourceLibraryTerminalOutput.v1 -> SourceLibraryCompatProjection.v1",
+        "morphism": "to_source_library_response : admitted source observations -> terminal/frontdoor/authority/compat read models",
+        "refs": [
+          {
+            "path": "main/backend/app/services/source_library/terminal_output.py",
+            "lines": "13-78"
+          },
+          {
+            "path": "main/backend/app/services/collect_runtime/adapters/source_library.py",
+            "lines": "143-326"
+          }
+        ]
+      },
+      "retained": [
+        "versioned terminal status, normalized request, records, statistics, errors and provider handoff observations",
+        "deprecated legacy_result payload available for bounded compatibility callers",
+        "projector output is rebuildable from admitted source revision and digest"
+      ],
+      "lost": [
+        "legacy raw_snapshot and inferred mode/statistics are not canonical source facts",
+        "compat_projection cannot preserve legacy write/admission authority or nondeterministic postprocess side effects",
+        "full legacy payload identity is retained only as a compatibility snapshot, not as successor canonical state"
+      ],
+      "affected_callers": [
+        {
+          "path": "main/backend/app/api/ingest.py",
+          "symbol": "_run_single_source_library_entry._external_terminal_payload",
+          "impact": "API callers receive terminal, frontdoor, authority and compat projections together"
+        },
+        {
+          "path": "main/backend/tests/unit/test_collect_runtime_source_library_adapter_unittest.py",
+          "symbol": "test_to_source_library_response_keeps_legacy_fields_and_adds_dual_track_when_raw_is_dict",
+          "impact": "legacy_result and compat_projection remain available as read-only compatibility observations"
+        }
+      ],
+      "alternative_path": "pure versioned C2.4 read-only projector with explicit loss_profile_ref; canonical admission remains a separate ingest operation",
+      "witness": [
+        {
+          "type": "test",
+          "test": "test_profiles_declare_projection_loss_and_zero_authority",
+          "path": "main/backend/tests/successor_runtime/test_p3_c2_4_projection.py",
+          "ref": "test_profiles_declare_projection_loss_and_zero_authority",
+          "asserts": "loss profile and zero authority are explicit"
+        },
+        {
+          "type": "test",
+          "test": "test_read_routing_rollback_retains_projection_rows",
+          "path": "main/backend/tests/successor_runtime/test_p3_c2_4_projection.py",
+          "ref": "test_read_routing_rollback_retains_projection_rows",
+          "asserts": "rollback changes read routing without rewriting projection rows"
+        }
+      ],
+      "decision": "ACCEPTED_EXPLICIT_LOSS",
+      "decision_basis": "This is an intentionally read-only compatibility projection with an explicit loss profile and zero authority. The lost legacy authority/effect behavior is excluded by contract, while the retained observations and rebuild/rollback witnesses are concrete."
+    },
+    {
+      "id": "CRAWLER-LOSS-PROVIDER-HANDOFF-005",
+      "area": "crawler_provider_handoff",
+      "surface": "crawler.provider_handoff",
+      "source_object": {
+        "name": "CrawlerDispatchResult.v1 to CollectResult.v1 / source_library.provider_handoff.v1",
+        "path": "main/backend/app/services/collect_runtime/adapters/crawler_scrapy.py",
+        "symbol": "CrawlerScrapyAdapter.run"
+      },
+      "source_morphism": {
+        "name": "crawler dispatch acknowledgement to collect or terminal handoff",
+        "path": "main/backend/app/services/source_library/runner.py",
+        "symbol": "_run_via_crawler_provider_registry"
+      },
+      "source": {
+        "object": "CrawlerDispatchResult.v1 -> CollectResult.v1 / source_library.provider_handoff.v1",
+        "morphism": "provider.dispatch(CrawlerDispatchRequest) -> provider_status/provider_job_id/attempt_count -> collect or terminal handoff",
+        "refs": [
+          {
+            "path": "main/backend/app/services/collect_runtime/adapters/crawler_scrapy.py",
+            "lines": "20-91"
+          },
+          {
+            "path": "main/backend/app/services/source_library/runner.py",
+            "lines": "170-245"
+          }
+        ]
+      },
+      "retained": [
+        "provider type, provider job id, provider status, attempt count, project and spider",
+        "provider_handoff route/profile metadata in terminal and frontdoor projections",
+        "queued/accepted dispatch acknowledgement remains inspectable in nested raw metadata"
+      ],
+      "lost": [
+        "crawler queued/scheduled/running statuses are mapped to CollectResult.status=completed by the collect adapter",
+        "dispatch acknowledgement is not separated from authoritative provider readback or OutcomeUnknown reconciliation",
+        "legacy handoff has no durable idempotency/cancel binding that prevents duplicate dispatch during rollback"
+      ],
+      "affected_callers": [
+        {
+          "path": "main/backend/tests/integration/test_t22_source_library_scrapy_collect_runtime_integration_unittest.py",
+          "symbol": "test_source_library_scrapy_item_dispatch_chain_surfaces_provider_metadata",
+          "impact": "integration callers assert queued metadata but also receive completed CollectResult status"
+        },
+        {
+          "path": "main/backend/app/services/tasks.py",
+          "symbol": "task_submit_crawler_job; task_poll_crawler_job",
+          "impact": "Celery job tracking separately maps provider status while collect callers may already observe completion"
+        }
+      ],
+      "alternative_path": "typed crawler handoff with dispatch acknowledgement, authoritative readback, and job/attempt-bound retry-cancel-reconcile",
+      "witness": [
+        {
+          "type": "test",
+          "test": "test_handoff_states_never_map_to_completed",
+          "path": "main/backend/tests/unit/test_crawler_provider_effect_remediation_unittest.py",
+          "ref": "test_handoff_states_never_map_to_completed",
+          "asserts": "queued, accepted, scheduled, and running acknowledgements remain non-terminal"
+        },
+        {
+          "type": "test",
+          "test": "test_durable_bridge_replays_across_instances_and_persists_terminal_readback",
+          "path": "main/backend/tests/unit/test_crawler_durable_effect_bridge.py",
+          "ref": "test_durable_bridge_replays_across_instances_and_persists_terminal_readback",
+          "asserts": "the injected durable store replays terminal readback across bridge instances"
+        },
+        {
+          "type": "test",
+          "test": "test_source_library_adapter_keeps_crawler_ack_open_until_terminal_readback",
+          "path": "main/backend/tests/unit/test_collect_runtime_source_library_adapter_unittest.py",
+          "ref": "test_source_library_adapter_keeps_crawler_ack_open_until_terminal_readback",
+          "asserts": "the source-library projection remains open until typed terminal readback"
+        }
+      ],
+      "decision": "IMPLEMENTED",
+      "decision_basis": "Crawler dispatch acknowledgement is now distinct from terminal readback, remains open until a typed terminal result, and is replayable through an injected durable attempt store."
+    }
+  ],
+  "decision_counts": {
+    "ACCEPTED_EXPLICIT_LOSS": 1,
+    "IMPLEMENTED": 4,
+    "IMPLEMENTATION_REQUIRED": 0,
+    "NOT_APPLICABLE": 0
+  },
+  "non_claims": [
+    "This evidence is non-authoritative and does not authorize live providers, canonical writes, promotion or cutover.",
+    "A retained raw snapshot or compatibility field is not semantic parity with the provider operation.",
+    "Implemented items remain non-authoritative and do not authorize live providers, canonical writes, promotion, or cutover."
+  ]
+}

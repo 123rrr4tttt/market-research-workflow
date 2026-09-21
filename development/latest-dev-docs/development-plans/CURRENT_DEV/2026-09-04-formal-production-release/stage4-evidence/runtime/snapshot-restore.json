@@ -1,0 +1,18 @@
+{
+  "authoritative": false,
+  "classification": "TASK_OWNED_SYNTHETIC_PRODUCTION_LIKE_NOT_REAL_PRODUCTION_DATA",
+  "fixture_rows": 3,
+  "production_or_unknown_database_contacted": false,
+  "project_key": "stage4_s4_20260913",
+  "public_table_count": 67,
+  "restore_database": "mrw_stage4_restore",
+  "restore_exit_code": 0,
+  "restored_fixture_sha256": "637f63f65e652fb522b9756099946933690ef123cc6c1f05a557ee07308d3a74",
+  "schema_head": "20260905_000001",
+  "snapshot_bytes": 256929,
+  "snapshot_path": "synthetic-production-like.snapshot.dump",
+  "snapshot_sha256": "143c7128cf2ed0516844e32535fb40c3270b5459e921e8b11ae951fde7f79135",
+  "source_database": "mrw_stage4",
+  "source_fixture_sha256": "637f63f65e652fb522b9756099946933690ef123cc6c1f05a557ee07308d3a74",
+  "status": "PASS"
+}

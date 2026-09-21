@@ -1,0 +1,136 @@
+{
+  "authoritative": false,
+  "authority_ceiling": "LOCAL_ROLE_INPUT_EVIDENCE_NOT_RELEASE_AUTHORITY",
+  "builds": {
+    "canonical": {
+      "backend": {
+        "archive_sha256": "89d18f8e22399646306207867037fc5297ca732e10838b7a7e744a6ab20303df",
+        "artifact_digest": "sha256:63ea52a50b78b201e5203261435686801b3679bc06b71f7e79e90c65a43f1259",
+        "exit_code": 0,
+        "oci_root_digest": "sha256:fbe51a32acf6074207bdc2a1e71dc9e73b17a9a37096a51d5a4c7fd32570e35d",
+        "slsa_provenance_count": 1,
+        "spdx_sbom_count": 1
+      },
+      "frontend": {
+        "archive_sha256": "1307f81da844798ddc93b6f01f08d7cfdaf895263a611c1533d2824df8919112",
+        "artifact_digest": "sha256:34406d92011bcaaa67bd6f7e5de7e29842ee77fe3b880679b9891143daed150e",
+        "exit_code": 0,
+        "oci_root_digest": "sha256:4d5bc00f6e17a808ced8ae7bd1b30ec6df12570c9cdb0615f9ca540f35f3a25b",
+        "slsa_provenance_count": 1,
+        "spdx_sbom_count": 1
+      },
+      "migration-runner": {
+        "archive_sha256": "2c94ffbca65c6f4492d1691f56924c1de19f71f2ef162ba07cf982f1930282a8",
+        "artifact_digest": "sha256:7d44cc7bec8675d7d4f152a220a42931529a9cec36fdee810b863a5a80739c63",
+        "exit_code": 0,
+        "oci_root_digest": "sha256:7d195b06f8f3c568aecca001c588309e66c8be07a8bc4ab5d7f0186000d82b2b",
+        "slsa_provenance_count": 1,
+        "spdx_sbom_count": 1
+      }
+    },
+    "rebuild": {
+      "backend": {
+        "archive_sha256": "aa2ba679edbc1ede9515ffbb5544b5a680ed7b62cd6aee6cabe27cd85cd49f45",
+        "artifact_digest": "sha256:425a5be56b83fed64c0d85398656804e06853a56a4d643339f7a1615451495fc",
+        "exit_code": 0,
+        "oci_root_digest": "sha256:425a5be56b83fed64c0d85398656804e06853a56a4d643339f7a1615451495fc"
+      },
+      "frontend": {
+        "archive_sha256": "089c81dedbc7b04c464039258e4f114f567bd65967c6167bb673e8b8f624d179",
+        "artifact_digest": "sha256:792d16b97838d2c079dc8ae9a9656b019be9b7149b11e330af10dc3b4a1d9b08",
+        "exit_code": 0,
+        "oci_root_digest": "sha256:792d16b97838d2c079dc8ae9a9656b019be9b7149b11e330af10dc3b4a1d9b08"
+      },
+      "migration-runner": {
+        "archive_sha256": "5771697fd4dd65ac1b372352b694af1c0c22c2a284aff06fef27fec19de946b1",
+        "artifact_digest": "sha256:ec9ae4788f9e1a2064064c7de82f2c1e098a20179d757166edf0a99f0a5958d9",
+        "exit_code": 0,
+        "oci_root_digest": "sha256:ec9ae4788f9e1a2064064c7de82f2c1e098a20179d757166edf0a99f0a5958d9"
+      }
+    }
+  },
+  "candidate": {
+    "commit": "342d3b3c35ad987c47990da6ac550dfe936d4818",
+    "effective_manifest": {
+      "path": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260910-v4-r13p/evidence/candidate-manifest.v5.retry1.json",
+      "sha256": "64c04d1d3d6fc7d302d89d5247857bcd20115a83432043ea95e18bf74d52635e"
+    },
+    "tree": "3f87e85dce02b312e445c657c238c11c6809850e"
+  },
+  "collection_integrity": {
+    "detail": "Two r13o runner instances briefly wrote the same evidence paths. The older untracked instance and its task-owned builders were terminated; OCI blob validation passed, but command/log/metadata-to-archive attribution is not sufficient for an independent reproducibility claim.",
+    "status": "LIMITED_DUPLICATE_WRITER_OBSERVED"
+  },
+  "reproducibility": {
+    "backend": {
+      "builders": {
+        "relationship": "separate-task-owned-docker-container-builder-instances"
+      },
+      "canonical_digest": "sha256:63ea52a50b78b201e5203261435686801b3679bc06b71f7e79e90c65a43f1259",
+      "canonical_oci_root_digest": "sha256:fbe51a32acf6074207bdc2a1e71dc9e73b17a9a37096a51d5a4c7fd32570e35d",
+      "comparison_scope": "linux/arm64-image-manifest-digest",
+      "rebuild_digest": "sha256:425a5be56b83fed64c0d85398656804e06853a56a4d643339f7a1615451495fc",
+      "rebuild_oci_root_digest": "sha256:425a5be56b83fed64c0d85398656804e06853a56a4d643339f7a1615451495fc",
+      "role": "backend",
+      "status": "MISMATCH"
+    },
+    "frontend": {
+      "builders": {
+        "relationship": "separate-task-owned-docker-container-builder-instances"
+      },
+      "canonical_digest": "sha256:34406d92011bcaaa67bd6f7e5de7e29842ee77fe3b880679b9891143daed150e",
+      "canonical_oci_root_digest": "sha256:4d5bc00f6e17a808ced8ae7bd1b30ec6df12570c9cdb0615f9ca540f35f3a25b",
+      "comparison_scope": "linux/arm64-image-manifest-digest",
+      "rebuild_digest": "sha256:792d16b97838d2c079dc8ae9a9656b019be9b7149b11e330af10dc3b4a1d9b08",
+      "rebuild_oci_root_digest": "sha256:792d16b97838d2c079dc8ae9a9656b019be9b7149b11e330af10dc3b4a1d9b08",
+      "role": "frontend",
+      "status": "MISMATCH"
+    },
+    "migration-runner": {
+      "builders": {
+        "relationship": "separate-task-owned-docker-container-builder-instances"
+      },
+      "canonical_digest": "sha256:7d44cc7bec8675d7d4f152a220a42931529a9cec36fdee810b863a5a80739c63",
+      "canonical_oci_root_digest": "sha256:7d195b06f8f3c568aecca001c588309e66c8be07a8bc4ab5d7f0186000d82b2b",
+      "comparison_scope": "linux/arm64-image-manifest-digest",
+      "rebuild_digest": "sha256:ec9ae4788f9e1a2064064c7de82f2c1e098a20179d757166edf0a99f0a5958d9",
+      "rebuild_oci_root_digest": "sha256:ec9ae4788f9e1a2064064c7de82f2c1e098a20179d757166edf0a99f0a5958d9",
+      "role": "migration-runner",
+      "status": "MISMATCH"
+    }
+  },
+  "role_input_identity": {
+    "scope": "Only backend, migration-runner, and frontend build inputs are covered; Compose and formal-release binding changes are excluded.",
+    "status": "EXACT_GIT_TREE_MATCH_R13O_TO_R13P",
+    "trees": {
+      "backend": {
+        "main/backend": "9dae51846ae3808587f734a5e2c071bfc2b083ae",
+        "src": "0dfa137c2c9aba658d8b1f39281412ff69c3d67c"
+      },
+      "frontend": {
+        "main/frontend-modern": "f89dc7733737c8a1e3a6350ff32a5d0568771245"
+      },
+      "migration-runner": {
+        "main/backend": "9dae51846ae3808587f734a5e2c071bfc2b083ae",
+        "src": "0dfa137c2c9aba658d8b1f39281412ff69c3d67c"
+      }
+    }
+  },
+  "schema": "mrw.stage3.artifact-evidence.r13p.v1",
+  "source_execution": {
+    "candidate": {
+      "commit": "3669d4ddc19fb722058976b4e1f05e99eccfe96e",
+      "tree": "ce4e4b9ce1b633276192e809fa72007176224e0c"
+    },
+    "evidence_root": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13o/artifacts",
+    "platform": "linux/arm64",
+    "provenance_binding": "The embedded BuildKit SLSA statements name the r13o revision; they are not rewritten or represented as r13p provenance."
+  },
+  "status": "FAILED_OR_INCOMPLETE",
+  "unexecuted_authority_items": [
+    "required remote CI linux/amd64 build",
+    "registry push and immutability verification",
+    "artifact signing and transparency-log verification",
+    "deployment or release approval"
+  ]
+}

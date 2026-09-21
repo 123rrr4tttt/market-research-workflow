@@ -8,6 +8,7 @@ import os
 import sys
 import tempfile
 from pathlib import Path
+from typing import Annotated
 
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -18,7 +19,11 @@ from app.successor_runtime.specification.capability_cell_spec import (
 from app.successor_runtime.specification.runtime_kernel_abi import RuntimeKernelABI
 
 
-def build_bytes() -> bytes:
+def build_bytes() -> Annotated[
+    bytes,
+    "kit:non-authoritative derived_as=generated_evidence "
+    "fact_source=runtime_kernel_abi_contract witness=test:test_w10_cli_generator_derived_metadata_preserves_abi",
+]:
     abi = RuntimeKernelABI(
         program_protocol_version="mrw.successor.program.v1",
         plan_protocol_version="mrw.successor.execution-plan.v1",

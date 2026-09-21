@@ -26,10 +26,12 @@ else:
 class _DelayTaskStub:
     def __init__(self):
         self.calls: list[tuple[str, str | None, dict, str | None]] = []
+        self.kwargs_calls: list[dict] = []
 
     def delay(self, item_key: str, project_key: str | None, override_params: dict, **kwargs):
         task_id = f"task-{len(self.calls) + 1}"
         self.calls.append((item_key, project_key, dict(override_params or {}), kwargs.get("workflow_run_id")))
+        self.kwargs_calls.append(dict(kwargs or {}))
         return SimpleNamespace(id=task_id)
 
 
@@ -38,6 +40,7 @@ class _MarketDelayTaskStub:
         self.calls: list[
             tuple[list[str], int, bool, str | None, None, int | None, str | None, str | None, str | None]
         ] = []
+        self.kwargs_calls: list[dict] = []
 
     def delay(
         self,
@@ -65,6 +68,7 @@ class _MarketDelayTaskStub:
                 kwargs.get("workflow_run_id"),
             )
         )
+        self.kwargs_calls.append(dict(kwargs or {}))
         return SimpleNamespace(id=task_id)
 
 
@@ -475,7 +479,7 @@ class AgentBatchApiUnitTest(unittest.TestCase):
         self.assertEqual(override_params["language"], "zh")
         self.assertEqual(override_params["scope"], "project")
         self.assertEqual(override_params["platforms"], ["web", "rss"])
-        self.assertEqual(override_params["source_mode"], "site_search")
+        self.assertNotIn("source_mode", override_params)
         self.assertEqual(override_params["workflow_run_id"], workflow_run_id)
 
     def test_nl_command_dispatches_search_market_batch(self):
@@ -507,6 +511,10 @@ class AgentBatchApiUnitTest(unittest.TestCase):
         self.assertEqual(resp["data"]["submit"]["accepted_count"], parsed["task_count"])
         self.assertEqual(resp["data"]["submit"]["accepted_job_items"][0]["task_id"], "mkt-1")
         self.assertEqual(len(market_delay_stub.calls), parsed["task_count"])
+        self.assertFalse(resp["data"]["plan"]["search_brief"]["source_preferences"]["attach_source_library"])
+        autonomous_stage = next(stage for stage in resp["data"]["stages"] if stage["name"] == "autonomous_mix")
+        self.assertEqual(autonomous_stage["status"], "skipped")
+        self.assertEqual(autonomous_stage["reason"], "web_first_intent")
         self.assertTrue(resp["data"]["executor"]["worker_online"])
         self.assertTrue(resp["data"]["compat_mode"])
         self.assertTrue(str(resp["data"]["session_id"]))
@@ -614,6 +622,8 @@ class AgentBatchApiUnitTest(unittest.TestCase):
         self.assertEqual(resp["data"]["submit"]["rejected_count"], 1)
         rejected = resp["data"]["submit"]["rejected_job_items"][0]
         self.assertEqual(rejected["reason_code"], "override_params_keys_unsupported")
+        autonomous_stage = next(stage for stage in resp["data"]["stages"] if stage["name"] == "autonomous_mix")
+        self.assertEqual(autonomous_stage["reason"], "web_first_intent")
         self.assertEqual(len(market_delay_stub.calls), 0)
 
     def test_nl_command_submit_response_preserves_optional_run_id_when_present(self):
@@ -1007,6 +1017,53 @@ class AgentBatchApiUnitTest(unittest.TestCase):
         self.assertEqual(override_params["limit"], 10)
         self.assertNotIn("source_mode", override_params)
         self.assertEqual(override_params["workflow_run_id"], workflow_run_id)
+        self.assertEqual(override_params["line_key"], "resource_source_library")
+        self.assertEqual(override_params["queue"], agent_batch_api._resolve_queue_for_lane("subagent"))
+        self.assertEqual(override_params["trace_id"], source_delay_stub.kwargs_calls[0]["trace_id"])
+        self.assertEqual(override_params["runtime_readback"], source_delay_stub.kwargs_calls[0]["runtime_readback"])
+        self.assertEqual(source_delay_stub.kwargs_calls[0]["line_key"], "resource_source_library")
+        self.assertEqual(source_delay_stub.kwargs_calls[0]["queue"], agent_batch_api._resolve_queue_for_lane("subagent"))
+        self.assertEqual(source_delay_stub.kwargs_calls[0]["workflow_run_id"], workflow_run_id)
+        self.assertEqual(source_delay_stub.kwargs_calls[0]["runtime_readback"]["run_id"], workflow_run_id)
+        self.assertTrue(source_delay_stub.kwargs_calls[0]["trace_id"].startswith("trace-"))
+        self.assertTrue(all(call["line_key"] == "search_discovery_index" for call in market_delay_stub.kwargs_calls))
+        self.assertTrue(all(call["queue"] == agent_batch_api._resolve_queue_for_lane("main") for call in market_delay_stub.kwargs_calls))
+        self.assertTrue(all(call["runtime_readback"]["run_id"] == call["workflow_run_id"] for call in market_delay_stub.kwargs_calls))
+
+    def test_retry_attach_source_library_preserves_existing_target_count_when_rewrite_omits_max_items(self):
+        agent_loop_module = __import__("app.services.agent_batch.agent_loop", fromlist=["_apply_retry_action"])
+        tasks = [
+            {
+                "channel": "search.market",
+                "query_terms": ["ai terminal products companies"],
+                "max_items": 8,
+                "provider": "auto",
+                "language": "en",
+                "days_back": 30,
+            }
+        ]
+        retried = agent_loop_module._apply_retry_action(
+            tasks=tasks,
+            retry_action={
+                "action": "attach_source_library",
+                "channel": "source_library",
+                "rewrite": {
+                    "item_key": "ai_terminal.weekly",
+                    "query_terms": ["ai terminal products companies"],
+                    "provider": "auto",
+                    "language": "en",
+                },
+            },
+            command="search ai terminal products companies web only last 30 days top 8",
+        )
+
+        self.assertEqual(len(retried), 2)
+        source_task = retried[1]
+        self.assertEqual(source_task["channel"], "source_library")
+        self.assertEqual(source_task["item_key"], "ai_terminal.weekly")
+        self.assertEqual(source_task["max_items"], 8)
+        self.assertEqual(source_task["query_terms"], ["ai terminal products companies"])
+        self.assertIsNone(source_task["source_mode"])
 
     def test_search_policy_benchmark_pack_and_gate_endpoints_return_contract_shapes(self):
         pack = agent_batch_api.get_agent_batch_search_policy_benchmark_pack()
@@ -1040,6 +1097,67 @@ class AgentBatchApiUnitTest(unittest.TestCase):
             out = agent_batch_api.submit_agent_batch_job(payload)
         self.assertEqual(out["status"], "ok")
         self.assertEqual(out["data"]["accepted_job_items"][0]["lane"], "system")
+
+    def test_submit_job_dispatches_runtime_readback_metadata_for_search_and_source(self):
+        market_delay_stub = _MarketDelayTaskStub()
+        source_delay_stub = _DelayTaskStub()
+        payload = agent_batch_api.AgentBatchSubmitRequest(
+            project_key="proj-test",
+            batch=agent_batch_api.AgentBatchSubmitBatch(
+                jobs=[
+                    agent_batch_api.AgentBatchItemSubmit(
+                        item_id="search-runtime",
+                        channel="search.market",
+                        query_terms=["ai market"],
+                    ),
+                    agent_batch_api.AgentBatchItemSubmit(
+                        item_id="source-runtime",
+                        channel="source_library",
+                        item_key="ai_terminal.weekly",
+                    ),
+                ]
+            ),
+        )
+        with patch.object(agent_batch_api.tasks_module, "task_ingest_market", market_delay_stub), patch.object(
+            agent_batch_api.tasks_module, "task_run_source_library_item", source_delay_stub
+        ):
+            out = agent_batch_api.submit_agent_batch_job(payload)
+
+        self.assertEqual(out["status"], "ok")
+        self.assertEqual(out["data"]["accepted_count"], 2)
+
+        search_item = out["data"]["accepted_job_items"][0]
+        search_kwargs = market_delay_stub.kwargs_calls[0]
+        search_readback = search_kwargs["runtime_readback"]
+        self.assertEqual(search_kwargs["line_key"], "search_discovery_index")
+        self.assertEqual(search_kwargs["queue"], agent_batch_api._resolve_queue_for_lane("main"))
+        self.assertEqual(search_kwargs["trace_id"], search_item["trace_id"])
+        self.assertEqual(search_kwargs["workflow_run_id"], search_item["workflow_run_id"])
+        self.assertEqual(search_readback["line_key"], "search_discovery_index")
+        self.assertEqual(search_readback["queue"], search_kwargs["queue"])
+        self.assertEqual(search_readback["trace_id"], search_item["trace_id"])
+        self.assertEqual(search_readback["run_id"], search_item["workflow_run_id"])
+        self.assertNotIn("synthetic", str(search_readback).lower())
+        self.assertNotIn("fake", str(search_readback).lower())
+        self.assertNotIn("mock", str(search_readback).lower())
+
+        source_item = out["data"]["accepted_job_items"][1]
+        _, _, source_override_params, _ = source_delay_stub.calls[0]
+        source_kwargs = source_delay_stub.kwargs_calls[0]
+        source_readback = source_kwargs["runtime_readback"]
+        self.assertEqual(source_kwargs["line_key"], "resource_source_library")
+        self.assertEqual(source_kwargs["queue"], agent_batch_api._resolve_queue_for_lane("subagent"))
+        self.assertEqual(source_kwargs["trace_id"], source_item["trace_id"])
+        self.assertEqual(source_kwargs["workflow_run_id"], source_item["workflow_run_id"])
+        self.assertEqual(source_override_params["line_key"], "resource_source_library")
+        self.assertEqual(source_override_params["queue"], source_kwargs["queue"])
+        self.assertEqual(source_override_params["trace_id"], source_item["trace_id"])
+        self.assertEqual(source_override_params["workflow_run_id"], source_item["workflow_run_id"])
+        self.assertEqual(source_override_params["runtime_readback"], source_readback)
+        self.assertEqual(source_readback["run_id"], source_item["workflow_run_id"])
+        self.assertNotIn("synthetic", str(source_readback).lower())
+        self.assertNotIn("fake", str(source_readback).lower())
+        self.assertNotIn("mock", str(source_readback).lower())
 
     def test_submit_job_requires_approval_when_rule_set_enabled(self):
         delay_stub = _DelayTaskStub()

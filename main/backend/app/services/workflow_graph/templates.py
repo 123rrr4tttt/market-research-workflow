@@ -9,9 +9,15 @@ from app.services.ingest_config.service import get_config as get_ingest_config
 from app.services.ingest_config.service import upsert_config as upsert_ingest_config
 from app.services.projects import current_project_key
 from app.services.workflow_graph.edit_contract import parse_graph_edit_draft_contract
+from app.services.workflow_graph.contracts import raise_workflow_graph_legacy, workflow_graph_failure
 
 CONFIG_KEY = "workflow_graph_templates_v1"
 CONFIG_TYPE = "workflow_graph_templates"
+
+
+def _raise_template_failure(code: str, message: str, *, exception_type: type[Exception] = ValueError, cause: BaseException | None = None) -> None:
+    failure = workflow_graph_failure(code, message, owner="workflow_graph.templates", public_exception=exception_type, public_message=message, field="template", index=-1)
+    raise_workflow_graph_legacy(failure, exception_type=exception_type, cause=cause)
 
 
 class WorkflowGraphTemplateService:
@@ -40,7 +46,7 @@ class WorkflowGraphTemplateService:
         state = self._load_state()
         template = state["templates"].get(str(template_id))
         if template is None:
-            raise KeyError(f"template not found: {template_id}")
+            _raise_template_failure("object_not_found", f"template not found: {template_id}", exception_type=KeyError)
         return {
             "template": self._serialize_template_detail(template),
             "base_version": state["base_version"],
@@ -49,12 +55,12 @@ class WorkflowGraphTemplateService:
     def patch_template(self, template_id: str, payload: Mapping[str, Any]) -> dict[str, Any]:
         tid = str(template_id).strip()
         if not tid:
-            raise ValueError("template_id is required")
+            _raise_template_failure("contract_invalid", "template_id is required")
 
         def _mutator(state: dict[str, Any]) -> dict[str, Any]:
             template = state["templates"].get(tid)
             if template is None:
-                raise KeyError(f"template not found: {tid}")
+                _raise_template_failure("object_not_found", f"template not found: {tid}", exception_type=KeyError)
             if "name" in payload:
                 template["name"] = str(payload.get("name") or "").strip()
             if "description" in payload:
@@ -66,7 +72,7 @@ class WorkflowGraphTemplateService:
                 elif isinstance(metadata, Mapping):
                     template["metadata"] = dict(metadata)
                 else:
-                    raise ValueError("metadata must be a mapping")
+                    _raise_template_failure("contract_invalid", "metadata must be a mapping")
             template["updated_at"] = _utcnow()
             return state
 
@@ -79,11 +85,11 @@ class WorkflowGraphTemplateService:
     def delete_template(self, template_id: str, payload: Mapping[str, Any] | None = None) -> dict[str, Any]:
         tid = str(template_id).strip()
         if not tid:
-            raise ValueError("template_id is required")
+            _raise_template_failure("contract_invalid", "template_id is required")
 
         def _mutator(state: dict[str, Any]) -> dict[str, Any]:
             if tid not in state["templates"]:
-                raise KeyError(f"template not found: {tid}")
+                _raise_template_failure("object_not_found", f"template not found: {tid}", exception_type=KeyError)
             state["templates"].pop(tid, None)
             return state
 
@@ -105,21 +111,21 @@ class WorkflowGraphTemplateService:
     def create_version(self, template_id: str, payload: Mapping[str, Any]) -> dict[str, Any]:
         dsl = payload.get("dsl")
         if not isinstance(dsl, Mapping):
-            raise ValueError("dsl is required and must be a mapping")
+            _raise_template_failure("contract_invalid", "dsl is required and must be a mapping")
         graph_object_kind = str(
             payload.get("graph_object_kind") or payload.get("object_kind") or "template_graph"
         ).strip()
         parse_graph_edit_draft_contract(dsl, object_kind=graph_object_kind)
         tid = str(template_id).strip()
         if not tid:
-            raise ValueError("template_id is required")
+            _raise_template_failure("contract_invalid", "template_id is required")
         version_id = str(payload.get("version_id") or "").strip() or f"ver_{uuid4().hex}"
         now = _utcnow()
 
         def _mutator(state: dict[str, Any]) -> dict[str, Any]:
             template = self._must_get_template(state, tid)
             if version_id in template["versions"]:
-                raise ValueError(f"version already exists: {version_id}")
+                _raise_template_failure("contract_invalid", f"version already exists: {version_id}")
             template["versions"][version_id] = {
                 "version_id": version_id,
                 "dsl": dict(dsl),
@@ -160,7 +166,7 @@ class WorkflowGraphTemplateService:
         tid = str(template_id).strip()
         vid = str(version_id).strip()
         if not tid or not vid:
-            raise ValueError("template_id and version_id are required")
+            _raise_template_failure("contract_invalid", "template_id and version_id are required")
 
         def _mutator(state: dict[str, Any]) -> dict[str, Any]:
             template = self._must_get_template(state, tid)
@@ -182,7 +188,7 @@ class WorkflowGraphTemplateService:
         template = self._must_get_template(state, template_id)
         resolved_version_id = str(version_id or "").strip() or str(template.get("active_version_id") or "").strip()
         if not resolved_version_id:
-            raise ValueError(f"template has no active version: {template_id}")
+            _raise_template_failure("object_not_found", f"template has no active version: {template_id}")
         version = self._must_get_version(template, resolved_version_id)
         return deepcopy(version["dsl"]), resolved_version_id
 
@@ -202,7 +208,7 @@ class WorkflowGraphTemplateService:
         state = self._load_state()
         current = int(state["base_version"])
         if base_version is not None and base_version != current:
-            raise ValueError(f"conflict: base_version mismatch expected={base_version} actual={current}")
+            _raise_template_failure("revision_conflict", f"conflict: base_version mismatch expected={base_version} actual={current}")
         updated = mutator(deepcopy(state))
         updated["base_version"] = current + 1
         return self._save_state(updated)
@@ -212,7 +218,7 @@ class WorkflowGraphTemplateService:
         tid = str(template_id).strip()
         template = state["templates"].get(tid)
         if template is None:
-            raise KeyError(f"template not found: {template_id}")
+            _raise_template_failure("object_not_found", f"template not found: {template_id}", exception_type=KeyError)
         return template
 
     @staticmethod
@@ -220,7 +226,7 @@ class WorkflowGraphTemplateService:
         vid = str(version_id).strip()
         version = template["versions"].get(vid)
         if version is None:
-            raise KeyError(f"version not found: {version_id}")
+            _raise_template_failure("object_not_found", f"version not found: {version_id}", exception_type=KeyError)
         return version
 
     @staticmethod
@@ -274,10 +280,10 @@ def _create_template_mutation(
     now: str,
 ) -> dict[str, Any]:
     if template_id in state["templates"]:
-        raise ValueError(f"template already exists: {template_id}")
+        _raise_template_failure("contract_invalid", f"template already exists: {template_id}")
     metadata = payload.get("metadata")
     if metadata is not None and not isinstance(metadata, Mapping):
-        raise ValueError("metadata must be a mapping")
+        _raise_template_failure("contract_invalid", "metadata must be a mapping")
     state["templates"][template_id] = {
         "template_id": template_id,
         "name": str(payload.get("name") or "").strip(),
@@ -350,9 +356,9 @@ def _read_base_version(payload: Mapping[str, Any]) -> int | None:
     try:
         value = int(raw)
     except Exception as exc:  # noqa: BLE001
-        raise ValueError("base_version must be an integer") from exc
+        _raise_template_failure("contract_invalid", "base_version must be an integer", cause=exc)
     if value < 0:
-        raise ValueError("base_version must be >= 0")
+        _raise_template_failure("contract_invalid", "base_version must be >= 0")
     return value
 
 

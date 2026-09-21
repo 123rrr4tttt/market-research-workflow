@@ -18,15 +18,24 @@ import {
 } from 'lucide-react'
 import {
   generateKeywords,
+  getSearchRetrievalRun,
   listIngestHistory,
   listSiteEntryGrouped,
   listSourceItems,
 } from '../lib/api'
 import { DEFAULT_APP_LOCALE, translate, useAppLocale, type AppLocale, type MessageKey } from '../app/platform/i18n'
 import type { IngestSingleUrlPayload } from '../lib/api'
-import { useIngestActions } from '../hooks/useIngestActions'
+import { useIngestActions, type IngestActionStatusState } from '../hooks/useIngestActions'
 import { queryKeys } from '../lib/queryKeys'
-import type { AgentBatchEventRow, AgentBatchItemRow, AgentBatchJobDetail, IngestFormState, IngestJobRow, SourceLibraryItem } from '../lib/types'
+import type {
+  AgentBatchEventRow,
+  AgentBatchItemRow,
+  AgentBatchJobDetail,
+  IngestFormState,
+  IngestJobRow,
+  SearchRetrievalRunReadback,
+  SourceLibraryItem,
+} from '../lib/types'
 
 type IngestMessageKey = MessageKey
 type TemplateValues = {
@@ -35,6 +44,69 @@ type TemplateValues = {
 type HandlerGroupedByEntryType = {
   [entryType: string]: { count?: number }
 }
+type SingleUrlPresetKey = 'balanced' | 'strict' | 'searchFirst'
+type RecentSubmissionDetail = {
+  labelKey: IngestMessageKey
+  value: string
+  format?: 'date'
+}
+
+const singleUrlPresetConfigs: Array<{
+  key: SingleUrlPresetKey
+  labelKey: IngestMessageKey
+  summaryKey: IngestMessageKey
+  patch: Partial<IngestFormState>
+}> = [
+  {
+    key: 'balanced',
+    labelKey: 'ingestPage.preset.singleUrlBalanced',
+    summaryKey: 'ingestPage.preset.singleUrlBalancedSummary',
+    patch: {
+      singleUrlStrictMode: false,
+      singleUrlSearchExpand: true,
+      singleUrlSearchExpandLimit: 3,
+      singleUrlFallbackOnInsufficient: true,
+      singleUrlAllowSearchSummaryWrite: false,
+      singleUrlMinResultsRequired: 6,
+      singleUrlTargetCandidates: 6,
+      singleUrlLightFilterEnabled: true,
+      singleUrlLightFilterMinScore: 30,
+    },
+  },
+  {
+    key: 'strict',
+    labelKey: 'ingestPage.preset.singleUrlStrict',
+    summaryKey: 'ingestPage.preset.singleUrlStrictSummary',
+    patch: {
+      singleUrlStrictMode: true,
+      singleUrlSearchExpand: true,
+      singleUrlSearchExpandLimit: 6,
+      singleUrlFallbackOnInsufficient: true,
+      singleUrlAllowSearchSummaryWrite: false,
+      singleUrlMinResultsRequired: 8,
+      singleUrlTargetCandidates: 8,
+      singleUrlLightFilterEnabled: true,
+      singleUrlLightFilterMinScore: 60,
+      singleUrlFilterLowValueCandidates: true,
+    },
+  },
+  {
+    key: 'searchFirst',
+    labelKey: 'ingestPage.preset.singleUrlSearchFirst',
+    summaryKey: 'ingestPage.preset.singleUrlSearchFirstSummary',
+    patch: {
+      singleUrlStrictMode: false,
+      singleUrlSearchExpand: true,
+      singleUrlSearchExpandLimit: 8,
+      singleUrlFallbackOnInsufficient: true,
+      singleUrlAllowSearchSummaryWrite: false,
+      singleUrlMinResultsRequired: 5,
+      singleUrlTargetCandidates: 10,
+      singleUrlLightFilterEnabled: true,
+      singleUrlLightFilterMinScore: 20,
+    },
+  },
+]
 
 function formatIngestTemplate(template: string, values: TemplateValues) {
   return template.replace(/\{([A-Za-z0-9_]+)\}/g, (_, key: string) => String(values[key] ?? ''))
@@ -99,7 +171,7 @@ function formatDate(value?: string | null, locale: AppLocale = DEFAULT_APP_LOCAL
 }
 
 function rowTaskName(row: IngestJobRow) {
-  return row.task_name || row.job_type || row.task_id || String(row.id || '-')
+  return row.task_name || row.job_type || rowTaskId(row) || rowSubmissionId(row) || String(row.id || '-')
 }
 
 function rowStartAt(row: IngestJobRow) {
@@ -108,6 +180,95 @@ function rowStartAt(row: IngestJobRow) {
 
 function rowEndAt(row: IngestJobRow) {
   return row.finished_at || row.updated_at
+}
+
+function rowRecord(row: IngestJobRow | undefined | null) {
+  return row && typeof row === 'object' ? (row as Record<string, unknown>) : {}
+}
+
+function rowParams(row: IngestJobRow | undefined | null) {
+  const params = row?.params && typeof row.params === 'object' ? row.params : null
+  return params || {}
+}
+
+function rowFeedbackState(row: IngestJobRow | undefined | null) {
+  const feedbackState = row?.feedback_state
+  return feedbackState && typeof feedbackState === 'object' && !Array.isArray(feedbackState)
+    ? feedbackState as Record<string, unknown>
+    : {}
+}
+
+function rowTraceChain(row: IngestJobRow | undefined | null) {
+  const direct = row?.trace_chain && typeof row.trace_chain === 'object' ? row.trace_chain : null
+  const params = rowParams(row)
+  const fromParams = params.trace_chain && typeof params.trace_chain === 'object' ? params.trace_chain : null
+  return direct || fromParams as Record<string, unknown> | null
+}
+
+function stringFromRecord(record: Record<string, unknown>, fields: string[]) {
+  for (const field of fields) {
+    const raw = record[field]
+    if (typeof raw === 'string' && raw.trim()) return raw.trim()
+    if (typeof raw === 'number' || typeof raw === 'boolean') return String(raw)
+  }
+  return ''
+}
+
+function rowSubmissionId(row: IngestJobRow | undefined | null) {
+  const traceChain = rowTraceChain(row)
+  return (
+    stringFromRecord(rowRecord(row), ['submission_id']) ||
+    stringFromRecord(rowParams(row), ['submission_id']) ||
+    (traceChain ? stringFromRecord(traceChain, ['submission_id']) : '')
+  )
+}
+
+function rowTaskId(row: IngestJobRow | undefined | null) {
+  const traceChain = rowTraceChain(row)
+  return (
+    stringFromRecord(rowRecord(row), ['task_id', 'process_id']) ||
+    stringFromRecord(rowParams(row), ['task_id', 'process_id']) ||
+    (traceChain ? stringFromRecord(traceChain, ['task_id']) : '')
+  )
+}
+
+function rowStatus(row: IngestJobRow | undefined | null) {
+  const feedback = rowFeedbackState(row)
+  if (typeof row?.feedback_state === 'string' && row.feedback_state.trim()) return row.feedback_state.trim()
+  return (
+    stringFromRecord(rowRecord(row), ['submission_status', 'status']) ||
+    stringFromRecord(feedback, ['status', 'state', 'readback_status']) ||
+    stringFromRecord(rowParams(row), ['submission_status', 'status'])
+  )
+}
+
+function rowSource(row: IngestJobRow | undefined | null) {
+  return (
+    stringFromRecord(rowRecord(row), ['submission_source', 'source', 'source_type']) ||
+    stringFromRecord(rowParams(row), ['submission_source', 'source', 'source_type']) ||
+    row?.task_name ||
+    row?.job_type ||
+    ''
+  )
+}
+
+function rowReason(row: IngestJobRow | undefined | null) {
+  const feedback = rowFeedbackState(row)
+  return (
+    stringFromRecord(rowRecord(row), ['reason', 'error_code']) ||
+    stringFromRecord(feedback, ['reason', 'reason_code', 'error_code']) ||
+    stringFromRecord(rowParams(row), ['reason', 'reason_code', 'error_code']) ||
+    row?.error ||
+    ''
+  )
+}
+
+function rowRetrievalRunId(row: IngestJobRow | undefined | null) {
+  const traceChain = rowTraceChain(row)
+  return (
+    (traceChain ? stringFromRecord(traceChain, ['retrieval_run_id']) : '') ||
+    stringFromRecord(rowParams(row), ['retrieval_run_id'])
+  )
 }
 
 function rowRejectionCount(row: IngestJobRow) {
@@ -125,6 +286,75 @@ function rowDegradationFlags(row: IngestJobRow) {
   const value = params && 'degradation_flags' in params ? (params as Record<string, unknown>).degradation_flags : null
   if (!Array.isArray(value)) return []
   return value.map((v) => String(v || '').trim()).filter(Boolean)
+}
+
+function rowTraceId(row: IngestJobRow) {
+  const traceChain = rowTraceChain(row)
+  return (
+    stringFromRecord(rowRecord(row), ['trace_id']) ||
+    stringFromRecord(rowParams(row), ['trace_id']) ||
+    (traceChain ? stringFromRecord(traceChain, ['trace_id']) : '')
+  )
+}
+
+function sameSubmissionHistoryRow(status: IngestActionStatusState, historyRows: IngestJobRow[]) {
+  const submissionId = status.submissionId || status.traceChain?.submissionId || ''
+  const taskId = status.taskId || status.traceChain?.taskId || ''
+  if (!submissionId && !taskId) return null
+  return historyRows.find((row) => {
+    const rowSubmission = rowSubmissionId(row)
+    const rowTask = rowTaskId(row)
+    return Boolean((submissionId && rowSubmission === submissionId) || (taskId && rowTask === taskId))
+  }) || null
+}
+
+function buildRecentSubmissionDetails(status: IngestActionStatusState, row: IngestJobRow | undefined | null): RecentSubmissionDetail[] {
+  const flags = status.degradationFlags.length ? status.degradationFlags : row ? rowDegradationFlags(row) : []
+  const values: RecentSubmissionDetail[] = [
+    {
+      labelKey: 'ingestPage.status.source',
+      value: status.source || rowSource(row) || '',
+    },
+    {
+      labelKey: 'ingestPage.status.submissionId',
+      value: status.submissionId || status.traceChain?.submissionId || rowSubmissionId(row),
+    },
+    {
+      labelKey: 'ingestPage.table.task',
+      value: status.taskId || status.traceChain?.taskId || rowTaskId(row) || (row ? rowTaskName(row) : ''),
+    },
+    {
+      labelKey: 'ingestPage.table.status',
+      value: status.status || rowStatus(row),
+    },
+    {
+      labelKey: 'ingestPage.status.reason',
+      value: status.reason || rowReason(row),
+    },
+    {
+      labelKey: 'ingestPage.table.degradationFlags',
+      value: flags.slice(0, 4).join(', '),
+    },
+    {
+      labelKey: 'ingestPage.status.traceId',
+      value: status.traceId || (row ? rowTraceId(row) : ''),
+    },
+    {
+      labelKey: 'ingestPage.status.retrievalRunId',
+      value: status.traceChain?.retrievalRunId || rowRetrievalRunId(row),
+    },
+    {
+      labelKey: 'ingestPage.table.startedAt',
+      value: rowStartAt(row || ({} as IngestJobRow)) || '',
+      format: 'date',
+    },
+    {
+      labelKey: 'ingestPage.table.finishedAt',
+      value: rowEndAt(row || ({} as IngestJobRow)) || '',
+      format: 'date',
+    },
+  ]
+  return values.filter((item) => item.value)
 }
 
 function statusClass(status?: string) {
@@ -147,6 +377,37 @@ function toErrorText(value: unknown) {
   } catch {
     return String(value)
   }
+}
+
+function compactJson(value: unknown) {
+  if (!value || typeof value !== 'object') return ''
+  try {
+    return JSON.stringify(value)
+  } catch {
+    return String(value)
+  }
+}
+
+function fieldText(value: unknown, fields: string[]) {
+  if (!value || typeof value !== 'object') return ''
+  const record = value as Record<string, unknown>
+  for (const field of fields) {
+    const raw = record[field]
+    if (typeof raw === 'string' && raw.trim()) return raw.trim()
+    if (typeof raw === 'number' || typeof raw === 'boolean') return String(raw)
+  }
+  return ''
+}
+
+function sourceRefsCount(value: SearchRetrievalRunReadback | null) {
+  return Array.isArray(value?.source_refs) ? value.source_refs.length : 0
+}
+
+function readbackKnownLimitations(value: SearchRetrievalRunReadback | null) {
+  if (Array.isArray(value?.known_limitations)) return value.known_limitations.map((item) => String(item || '').trim()).filter(Boolean)
+  const traceChain = value?.trace_chain && typeof value.trace_chain === 'object' ? value.trace_chain : null
+  const raw = traceChain ? (traceChain as Record<string, unknown>).known_limitations : null
+  return Array.isArray(raw) ? raw.map((item) => String(item || '').trim()).filter(Boolean) : []
 }
 
 function getSourceParams(item: SourceLibraryItem | null) {
@@ -197,6 +458,48 @@ function SliderField({ label, value, min, max, step = 1, unit = '', onChange }: 
   )
 }
 
+type IngestActionStatusProps = {
+  status: IngestActionStatusState
+  pending: boolean
+}
+
+function IngestActionStatus({ status, pending }: IngestActionStatusProps) {
+  const locale = useAppLocale()
+  const t = (key: IngestMessageKey) => translate(locale, key)
+  const details = [
+    status.source ? `${t('ingestPage.status.source')}: ${status.source}` : '',
+    status.status ? `${t('ingestPage.status.state')}: ${status.status}` : '',
+    status.submissionId ? `${t('ingestPage.status.submissionId')}: ${status.submissionId}` : '',
+    status.taskId ? `${t('ingestPage.status.taskId')}: ${status.taskId}` : '',
+    status.errorCode ? `${t('ingestPage.status.errorCode')}: ${status.errorCode}` : '',
+    status.reason ? `${t('ingestPage.status.reason')}: ${status.reason}` : '',
+    status.degradationFlags.length ? `${t('ingestPage.status.degradationFlags')}: ${status.degradationFlags.slice(0, 3).join('/')}` : '',
+    status.traceId ? `${t('ingestPage.status.traceId')}: ${status.traceId}` : '',
+    status.traceChain?.contractVersion ? `${t('ingestPage.status.traceChain')}: ${status.traceChain.contractVersion}` : '',
+    status.traceChain?.retrievalRunId ? `${t('ingestPage.status.retrievalRunId')}: ${status.traceChain.retrievalRunId}` : '',
+    status.traceChain?.provider ? `${t('ingestPage.status.provider')}: ${status.traceChain.provider}` : '',
+    status.traceChain?.fallbackUsed ? `${t('ingestPage.status.fallbackUsed')}: ${status.traceChain.fallbackUsed}` : '',
+    status.traceChain?.indexBackend ? `${t('ingestPage.status.indexBackend')}: ${status.traceChain.indexBackend}` : '',
+    status.traceChain?.knownLimitations.length ? `${t('ingestPage.status.knownLimitations')}: ${status.traceChain.knownLimitations.slice(0, 3).join('/')}` : '',
+  ].filter(Boolean)
+
+  return (
+    <div className={`ingest-action-status ingest-action-status--${status.phase}`} data-testid="ingest-action-status" aria-live="polite">
+      <p className="status-line">
+        {pending ? <LoaderCircle size={14} className="spinning" /> : <Play size={14} />}
+        {status.message}
+      </p>
+      {details.length ? (
+        <div className="ingest-action-status__details">
+          {details.map((detail) => (
+            <span key={detail}>{detail}</span>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 type IngestPageProps = {
   projectKey: string
   variant?: 'ingest' | 'specialized'
@@ -210,6 +513,10 @@ export type IngestPageViewProps = {
   setForm: Dispatch<SetStateAction<IngestFormState>>
   actionPending: boolean
   actionMessage: string
+  actionStatus: IngestActionStatusState
+  retrievalRunReadback: SearchRetrievalRunReadback | null
+  retrievalRunReadbackPending: boolean
+  retrievalRunReadbackError: string
   sourceItemList: SourceLibraryItem[]
   selectedSourceItem: SourceLibraryItem | null
   handlerGroupedByEntryType: HandlerGroupedByEntryType
@@ -230,6 +537,7 @@ export type IngestPageViewProps = {
   onIngestDataApi: () => void
   onIngestCommodity: () => void
   onIngestEcom: () => void
+  onLoadRetrievalRunReadback: (retrievalRunId: string) => void
   onSubmitAgentBatch: () => void
   onSubmitNlAgentBatch: () => void
   onRefreshBatchStatus: () => void
@@ -246,9 +554,13 @@ export default function IngestPage({ projectKey, variant = 'ingest' }: IngestPag
   const [form, setForm] = useState(defaultForm)
   const [agentBatchJobId, setAgentBatchJobId] = useState('')
   const [agentBatchRejectedReasonCodes, setAgentBatchRejectedReasonCodes] = useState([] as string[])
+  const [retrievalRunReadback, setRetrievalRunReadback] = useState<SearchRetrievalRunReadback | null>(null)
+  const [retrievalRunReadbackPending, setRetrievalRunReadbackPending] = useState(false)
+  const [retrievalRunReadbackError, setRetrievalRunReadbackError] = useState('')
   const {
     actionPending,
     actionMessage,
+    actionStatus,
     runAction,
     syncSourceLibrary,
     runSourceLibrary,
@@ -496,6 +808,22 @@ export default function IngestPage({ projectKey, variant = 'ingest' }: IngestPag
     await Promise.all([agentBatchJob.refetch(), agentBatchItems.refetch(), agentBatchEvents.refetch(), history.refetch()])
   }
 
+  const onLoadRetrievalRunReadback = async (retrievalRunId: string) => {
+    const runId = retrievalRunId.trim()
+    if (!runId) return
+    setRetrievalRunReadbackPending(true)
+    setRetrievalRunReadbackError('')
+    try {
+      const detail = await getSearchRetrievalRun(runId)
+      setRetrievalRunReadback(detail)
+    } catch (error) {
+      setRetrievalRunReadback(null)
+      setRetrievalRunReadbackError(toErrorText(error) || t('ingestPage.error.retrievalRunReadbackFailed'))
+    } finally {
+      setRetrievalRunReadbackPending(false)
+    }
+  }
+
   return (
     <IngestPageView
       variant={variant}
@@ -505,6 +833,10 @@ export default function IngestPage({ projectKey, variant = 'ingest' }: IngestPag
       setForm={setForm}
       actionPending={actionPending}
       actionMessage={actionMessage}
+      actionStatus={actionStatus}
+      retrievalRunReadback={retrievalRunReadback}
+      retrievalRunReadbackPending={retrievalRunReadbackPending}
+      retrievalRunReadbackError={retrievalRunReadbackError}
       sourceItemList={sourceItemList}
       selectedSourceItem={selectedSourceItem}
       handlerGroupedByEntryType={handlerGrouped.data?.by_entry_type || {}}
@@ -531,6 +863,8 @@ export default function IngestPage({ projectKey, variant = 'ingest' }: IngestPag
         })
       }}
       onIngestSingleUrl={() => {
+        setRetrievalRunReadback(null)
+        setRetrievalRunReadbackError('')
         void ingestSingleUrl(buildSingleUrlPayload())
       }}
       onIngestPolicyRegulation={() => {
@@ -552,6 +886,9 @@ export default function IngestPage({ projectKey, variant = 'ingest' }: IngestPag
       }}
       onIngestEcom={() => {
         void ingestEcom({ limit: form.ecomLimit, async_mode: form.asyncMode })
+      }}
+      onLoadRetrievalRunReadback={(retrievalRunId) => {
+        void onLoadRetrievalRunReadback(retrievalRunId)
       }}
       onSubmitAgentBatch={() => {
         void onSubmitAgentBatch()
@@ -580,6 +917,10 @@ export function IngestPageView({
   setForm,
   actionPending,
   actionMessage,
+  actionStatus,
+  retrievalRunReadback,
+  retrievalRunReadbackPending,
+  retrievalRunReadbackError,
   sourceItemList,
   selectedSourceItem,
   handlerGroupedByEntryType,
@@ -600,6 +941,7 @@ export function IngestPageView({
   onIngestDataApi,
   onIngestCommodity,
   onIngestEcom,
+  onLoadRetrievalRunReadback,
   onSubmitAgentBatch,
   onSubmitNlAgentBatch,
   onRefreshBatchStatus,
@@ -620,6 +962,41 @@ export function IngestPageView({
     agentBatchRejectedReasonCodes.length ? tf('ingestPage.summary.rejected', { reasons: agentBatchRejectedReasonCodes.join(', ') }) : '',
     hasBatch && failedBatchItems.length ? tf('ingestPage.summary.retryPending', { count: failedBatchItems.length }) : '',
   ].filter(Boolean)
+  const visibleActionStatus = actionStatus.message
+    ? actionStatus
+    : ({
+        phase: 'idle',
+        name: actionMessage || t('ingestPage.status.idleMessage'),
+        message: actionMessage || t('ingestPage.status.idleMessage'),
+        degradationFlags: [],
+      } satisfies IngestActionStatusState)
+  const matchedHistoryRow = sameSubmissionHistoryRow(actionStatus, historyRows)
+  const recentSubmissionIsLive = actionStatus.phase !== 'idle' && Boolean(actionStatus.submissionId || actionStatus.taskId || actionStatus.status || actionStatus.reason || actionStatus.errorCode)
+  const recentHistoryRow = recentSubmissionIsLive ? matchedHistoryRow : historyRows[0]
+  const recentSubmissionDetails = buildRecentSubmissionDetails(actionStatus, recentHistoryRow)
+  const recentSubmissionSource = recentSubmissionIsLive
+    ? t('ingestPage.status.recentSubmissionLive')
+    : recentHistoryRow
+      ? t('ingestPage.status.recentSubmissionHistory')
+      : t('ingestPage.empty.history')
+  const historyReadbackStatus = recentSubmissionIsLive
+    ? matchedHistoryRow
+      ? t('ingestPage.status.historyReadbackMatched')
+      : t('ingestPage.status.historyReadbackPending')
+    : ''
+  const currentRetrievalRunId = actionStatus.traceChain?.retrievalRunId || rowRetrievalRunId(matchedHistoryRow) || ''
+  const visibleRetrievalRunReadback =
+    retrievalRunReadback && currentRetrievalRunId && retrievalRunReadback.retrieval_run_id === currentRetrievalRunId
+      ? retrievalRunReadback
+      : null
+  const readbackStatusRecord = visibleRetrievalRunReadback?.retrieval_run_readback || visibleRetrievalRunReadback?.readback || null
+  const readbackKnownLimits = readbackKnownLimitations(visibleRetrievalRunReadback)
+  const providerStatus =
+    fieldText(visibleRetrievalRunReadback?.provider_trace, ['status', 'provider_status', 'provider']) || '-'
+  const indexStatus =
+    fieldText(visibleRetrievalRunReadback?.index_freshness, ['status', 'freshness_status', 'backend']) || '-'
+  const runReadbackStatus =
+    fieldText(readbackStatusRecord, ['status', 'readback_status', 'result']) || (readbackStatusRecord ? 'available' : '-')
 
   return (
     <div className={`content-stack ingest-page ingest-page--${variant} ingest-page--quiet`}>
@@ -822,6 +1199,24 @@ export function IngestPageView({
                   <SliderField label={t('ingestPage.field.singleUrlSearchLimit')} min={1} max={20} value={form.singleUrlSearchExpandLimit} onChange={(nextValue) => setForm((p) => ({ ...p, singleUrlSearchExpandLimit: Math.max(1, Math.min(20, nextValue)) }))} />
                 </div>
 
+                <div className="ingest-single-url-presets" data-testid="single-url-presets">
+                  <small>{t('ingestPage.section.singleUrlPresets')}</small>
+                  <div className="inline-actions">
+                    {singleUrlPresetConfigs.map((preset) => (
+                      <button
+                        key={preset.key}
+                        type="button"
+                        data-testid={`single-url-preset-${preset.key}`}
+                        disabled={actionPending}
+                        onClick={() => setForm((prev) => ({ ...prev, ...preset.patch }))}
+                      >
+                        <strong>{t(preset.labelKey)}</strong>
+                        <small>{t(preset.summaryKey)}</small>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="form-grid cols-4 ingest-single-url-settings">
                   <label>
                     <span>{t('ingestPage.field.searchProvider')}</span>
@@ -859,6 +1254,45 @@ export function IngestPageView({
                     <Play size={15} />{t('ingestPage.action.ingestSingleUrl')}
                   </button>
                 </div>
+
+                <IngestActionStatus status={visibleActionStatus} pending={actionPending} />
+
+                {currentRetrievalRunId ? (
+                  <div className="ingest-retrieval-readback" data-testid="ingest-retrieval-readback">
+                    <div className="panel-header">
+                      <h3>{t('ingestPage.section.retrievalRunReadback')}</h3>
+                      <button
+                        type="button"
+                        disabled={retrievalRunReadbackPending}
+                        onClick={() => onLoadRetrievalRunReadback(currentRetrievalRunId)}
+                      >
+                        <Search size={14} />
+                        {retrievalRunReadbackPending
+                          ? t('ingestPage.status.readbackLoading')
+                          : t('ingestPage.action.loadRetrievalRunReadback')}
+                      </button>
+                    </div>
+                    <div className="ingest-action-status__details">
+                      <span>{t('ingestPage.status.retrievalRunId')}: {currentRetrievalRunId}</span>
+                      <span>{t('ingestPage.field.sourceRefs')}: {sourceRefsCount(visibleRetrievalRunReadback)}</span>
+                      <span>{t('ingestPage.field.providerTrace')}: {providerStatus}</span>
+                      <span>{t('ingestPage.field.indexFreshness')}: {indexStatus}</span>
+                      <span>{t('ingestPage.field.readbackStatus')}: {runReadbackStatus}</span>
+                      {readbackKnownLimits.length ? (
+                        <span>{t('ingestPage.status.knownLimitations')}: {readbackKnownLimits.slice(0, 3).join('/')}</span>
+                      ) : null}
+                    </div>
+                    {visibleRetrievalRunReadback?.source_query ? (
+                      <pre>{t('ingestPage.field.sourceQuery')}: {compactJson(visibleRetrievalRunReadback.source_query)}</pre>
+                    ) : null}
+                    {visibleRetrievalRunReadback ? (
+                      <p className="status-line">{t('ingestPage.status.readbackAvailable')}</p>
+                    ) : null}
+                    {retrievalRunReadbackError ? (
+                      <p className="status-line">{retrievalRunReadbackError}</p>
+                    ) : null}
+                  </div>
+                ) : null}
               </section>
             </>
           ) : (
@@ -883,10 +1317,7 @@ export function IngestPageView({
                   <button disabled={actionPending} onClick={onIngestEcom}><Database size={16} />{t('ingestPage.action.ingestEcom')}</button>
                 </div>
 
-                <p className="status-line">
-                  {actionPending ? <LoaderCircle size={14} className="spinning" /> : <Play size={14} />}
-                  {actionMessage}
-                </p>
+                <IngestActionStatus status={visibleActionStatus} pending={actionPending} />
               </section>
 
               <section className="ingest-flow-block ingest-page__section ingest-page__section--batch">
@@ -995,6 +1426,25 @@ export function IngestPageView({
               </button>
             </div>
 
+            <div className="ingest-recent-submission" data-testid="ingest-recent-submission">
+              <p className="status-line">
+                <History size={14} />
+                {recentSubmissionSource}
+              </p>
+              {historyReadbackStatus ? (
+                <p className="status-line" data-testid="ingest-history-readback-status">{historyReadbackStatus}</p>
+              ) : null}
+              {recentSubmissionDetails.length ? (
+                <div className="ingest-action-status__details">
+                  {recentSubmissionDetails.map((detail) => (
+                    <span key={`${detail.labelKey}-${detail.value}`}>
+                      {t(detail.labelKey)}: {detail.format === 'date' ? formatDate(detail.value, locale) : detail.value}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+
             <div className="table-wrap">
               <table>
                 <thead>
@@ -1009,9 +1459,9 @@ export function IngestPageView({
                 </thead>
                 <tbody>
                   {historyRows.map((row, idx) => (
-                    <tr key={`${row.id || row.task_id || idx}`}>
+                    <tr key={`${row.id || rowSubmissionId(row) || rowTaskId(row) || idx}`}>
                       <td>{rowTaskName(row)}</td>
-                      <td><span className={statusClass(row.status)}>{row.status || '-'}</span></td>
+                      <td><span className={statusClass(rowStatus(row))}>{rowStatus(row) || '-'}</span></td>
                       <td>{rowRejectionCount(row)}</td>
                       <td>{rowDegradationFlags(row).slice(0, 2).join(', ') || '-'}</td>
                       <td>{formatDate(rowStartAt(row), locale)}</td>

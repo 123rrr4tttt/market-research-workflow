@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   activateProject,
@@ -14,12 +14,31 @@ import {
 import { queryKeys } from '../../lib/queryKeys'
 import { buildProjectOptions, hasProject, isReservedProjectKey, resolveBootstrapTarget, resolveEffectiveProjectKey } from './projectKeys'
 import { buildLayerRouteHash } from './routes'
+import type { ProjectItem } from '../../lib/types'
 import type { KernelModuleKey } from './types'
+
+function resolvePendingProjectKey({
+  projects,
+  projectKey,
+  selectedPendingKey,
+}: {
+  projects?: ProjectItem[] | null
+  projectKey: string
+  selectedPendingKey: string | null
+}) {
+  if (selectedPendingKey !== null) {
+    if (!projects) return selectedPendingKey
+    if (hasProject(projects, selectedPendingKey)) return selectedPendingKey
+    if (!projects.length && !isReservedProjectKey(selectedPendingKey)) return selectedPendingKey
+  }
+  if (projects?.length === 0) return resolveBootstrapTarget(projectKey)
+  return projectKey
+}
 
 export function useKernelRuntime() {
   const queryClient = useQueryClient()
-  const [projectKey, setProjectKey] = useState(getProjectKey())
-  const [pendingProjectKey, setPendingProjectKey] = useState(resolveBootstrapTarget(getProjectKey()))
+  const [projectKeyState, setProjectKeyState] = useState(getProjectKey())
+  const [pendingSelection, setPendingSelection] = useState<string | null>(null)
   const [message, setMessage] = useState('')
 
   const health = useQuery({ queryKey: queryKeys.health.all, queryFn: getHealth })
@@ -36,6 +55,23 @@ export function useKernelRuntime() {
     refetchInterval: 60000,
     refetchIntervalInBackground: true,
   })
+  const resolvedProjectKey = projects.data
+    ? resolveEffectiveProjectKey({
+      projects: projects.data,
+      currentProjectKey: projectKeyState,
+      pendingProjectKey: resolvePendingProjectKey({
+        projects: projects.data,
+        projectKey: projectKeyState,
+        selectedPendingKey: pendingSelection,
+      }),
+    })
+    : projectKeyState
+  const projectKey = resolvedProjectKey
+  const pendingProjectKey = resolvePendingProjectKey({
+    projects: projects.data,
+    projectKey,
+    selectedPendingKey: pendingSelection,
+  })
   const projectOptions = buildProjectOptions({
     activeProjectKey: projectKey,
     pendingProjectKey,
@@ -43,11 +79,16 @@ export function useKernelRuntime() {
   })
   const canActivatePendingProject = hasProject(projects.data, pendingProjectKey)
 
+  const selectProject = useCallback((next: string) => {
+    const normalized = persistProjectKey(next)
+    setProjectKeyState(normalized)
+    setPendingSelection(null)
+  }, [])
+
   const activateMutation = useMutation({
     mutationFn: activateProject,
     onSuccess: (next) => {
-      setProjectKey(next)
-      setPendingProjectKey(next)
+      selectProject(next)
       setMessage(`已切换到项目: ${next}`)
     },
     onError: (error) => {
@@ -70,8 +111,7 @@ export function useKernelRuntime() {
     onSuccess: async (result) => {
       const next = String(result?.project_key || '').trim()
       if (next) {
-        setProjectKey(next)
-        setPendingProjectKey(next)
+        selectProject(next)
       }
       setMessage(`初始化注入完成: ${next || pendingProjectKey}`)
       await queryClient.invalidateQueries({ queryKey: queryKeys.projects.all() })
@@ -82,26 +122,9 @@ export function useKernelRuntime() {
   })
 
   useEffect(() => {
-    setPendingProjectKey(resolveBootstrapTarget(projectKey))
-  }, [projectKey])
-
-  useEffect(() => {
-    if (!projects.data) return
-    const effectiveProjectKey = resolveEffectiveProjectKey({
-      projects: projects.data,
-      currentProjectKey: projectKey,
-      pendingProjectKey,
-    })
-    if (effectiveProjectKey && effectiveProjectKey !== projectKey) {
-      const next = persistProjectKey(effectiveProjectKey)
-      setProjectKey(next)
-      setPendingProjectKey(next)
-      return
-    }
-    if (!projects.data.length && isReservedProjectKey(pendingProjectKey)) {
-      setPendingProjectKey(resolveBootstrapTarget(pendingProjectKey))
-    }
-  }, [pendingProjectKey, projectKey, projects.data])
+    if (!projects.data || projectKey === projectKeyState) return
+    persistProjectKey(projectKey)
+  }, [projectKey, projectKeyState, projects.data])
 
   useEffect(() => {
     const handleCodexAuthRequired = (event: Event) => {
@@ -141,9 +164,9 @@ export function useKernelRuntime() {
 
   return {
     projectKey,
-    setProjectKey,
+    setProjectKey: selectProject,
     pendingProjectKey,
-    setPendingProjectKey,
+    setPendingProjectKey: setPendingSelection,
     message,
     setMessage,
     projects,

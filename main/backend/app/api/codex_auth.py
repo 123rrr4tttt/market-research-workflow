@@ -33,9 +33,11 @@ from ..services.codex_oauth import (
     get_session,
     has_valid_token_sink,
     revoke_session,
+    revoke_token_sink_profile,
 )
 
 
+bootstrap_router = APIRouter(prefix="/codex-auth", tags=["codex-auth"])
 router = APIRouter(prefix="/codex-auth", tags=["codex-auth"])
 _DEVICE_URL_RE = re.compile(r"https://auth\.openai\.com/codex/device\S*")
 _DEVICE_CODE_RE = re.compile(r"\b[A-Z0-9]{4}-[A-Z0-9]{5}\b")
@@ -55,7 +57,7 @@ def _error_json(status_code: int, code: ErrorCode, message: str, *, details: dic
 CodexAuthEnvelope = ApiEnvelope[dict[str, Any]]
 
 
-@router.get(
+@bootstrap_router.get(
     "/login",
     response_class=RedirectResponse,
     response_model=None,
@@ -92,7 +94,7 @@ def codex_auth_login(
         )
 
 
-@router.get(
+@bootstrap_router.get(
     "/callback",
     response_class=RedirectResponse,
     response_model=None,
@@ -134,7 +136,7 @@ async def codex_auth_callback(
     return response
 
 
-@router.get("/status", response_model=CodexAuthEnvelope)
+@bootstrap_router.get("/status", response_model=CodexAuthEnvelope)
 def codex_auth_status(request: Request) -> dict[str, Any]:
     sid = request.cookies.get(codex_cookie_name())
     session = get_session(sid)
@@ -159,12 +161,29 @@ def codex_auth_status(request: Request) -> dict[str, Any]:
     )
 
 
+def codex_auth_bootstrap_routes() -> frozenset[tuple[str, str]]:
+    """Return the explicit GET bootstrap surface in mounted API form."""
+
+    return frozenset(
+        (str(method).upper(), f"/api/v1{route.path}")
+        for route in bootstrap_router.routes
+        for method in (getattr(route, "methods", None) or ())
+    )
+
+
 @router.post("/logout", response_model=CodexAuthEnvelope)
 def codex_auth_logout(request: Request, response: Response) -> dict[str, Any]:
     sid = request.cookies.get(codex_cookie_name())
-    revoke_session(sid)
+    revoke_result = revoke_session(sid)
     response.delete_cookie(key=codex_cookie_name(), path="/")
-    return ok({"logged_out": True})
+    return ok({"logged_out": True, "revoke": revoke_result})
+
+
+@router.post("/token-sink/profile/revoke", response_model=CodexAuthEnvelope)
+def codex_auth_revoke_token_sink_profile(
+    profile_name: str | None = Query(default=None, max_length=128),
+) -> dict[str, Any]:
+    return ok(revoke_token_sink_profile(profile_name=profile_name))
 
 
 @router.post("/cli/bootstrap", response_model=CodexAuthEnvelope)

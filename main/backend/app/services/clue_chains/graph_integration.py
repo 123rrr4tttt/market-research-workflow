@@ -4,7 +4,10 @@ import hashlib
 import re
 import unicodedata
 from copy import deepcopy
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Annotated, Any, Iterable, Mapping, Sequence, NoReturn
+
+from functorial_kit import Failure
+from mrw_functorial_kit.core.w04_service_semantics import clue_chain_failures
 
 CLUE_CHAIN_GRAPH_MUTATION_CONTRACT_VERSION = "clue_chain.graph_mutation.v1"
 CLUE_CHAIN_GRAPH_HANDOFF_CONTRACT_VERSION = "graph_handoff.v1"
@@ -21,6 +24,28 @@ class ClueChainGraphIntegrationError(ValueError):
     """Raised when a Clue Chain candidate cannot be converted into graph mutations."""
 
 
+def clue_chain_failure(code: str, message: str, *, owner: str, public_exception: type[Exception] | str = ClueChainGraphIntegrationError, **details: Any) -> Failure:
+    return clue_chain_failures.fail(code, message, {
+        "owner": owner,
+        "public_exception": public_exception.__name__ if isinstance(public_exception, type) else str(public_exception),
+        "public_message": message,
+        **details,
+    })
+
+
+def raise_clue_chain_legacy(failure: Failure, exception_type: type[Exception] = ClueChainGraphIntegrationError, *, cause: BaseException | None = None) -> NoReturn:
+    context = failure.context or {}
+    if not clue_chain_failures.matches(failure) or context.get("public_exception") != exception_type.__name__ or "public_message" not in context:
+        # kit:boundary owner=clue_chain.graph_integration.failure_lift class=PROGRAMMER_DEFECT failure_family=none witness=test:test_graph_failure_lift_covers_programmer_defect_and_cause
+        raise TypeError("clue chain failure lift context is incomplete or inconsistent")
+    message = str(context["public_message"])
+    if cause is None:
+        # kit:boundary owner=clue_chain.graph_integration.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=clue_chain.failure witness=test:test_graph_failure_lift_covers_programmer_defect_and_cause
+        raise exception_type(message)
+    # kit:boundary owner=clue_chain.graph_integration.failure_lift class=LEGACY_COMPATIBILITY_EXCEPTION failure_family=clue_chain.failure witness=test:test_graph_failure_lift_covers_programmer_defect_and_cause
+    raise exception_type(message) from cause
+
+
 def build_graph_submit_bridge_envelope(
     *,
     graph_id: str | None = None,
@@ -30,7 +55,11 @@ def build_graph_submit_bridge_envelope(
     handoff: Mapping[str, Any] | None = None,
     mutation: Mapping[str, Any] | None = None,
     actor_id: str | None = None,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:prepared-command effect_boundary=clue_chain_graph_submit "
+    "witness=test:test_w04_authority_metadata",
+]:
     """Build a staged graph-submit bridge envelope without mutating the graph."""
 
     handoff_map = handoff if isinstance(handoff, Mapping) else {}
@@ -51,7 +80,11 @@ def build_graph_submit_bridge_envelope(
         or "unknown-chain"
     )
     resolved_base_revision = _optional_non_negative_int(base_revision, "base_revision")
+    if isinstance(resolved_base_revision, Failure):
+        raise_clue_chain_legacy(resolved_base_revision)
     resolved_current_revision = _optional_non_negative_int(current_revision, "current_revision")
+    if isinstance(resolved_current_revision, Failure):
+        raise_clue_chain_legacy(resolved_current_revision)
 
     common_meta = {
         "contract_version": CLUE_CHAIN_GRAPH_SUBMIT_BRIDGE_CONTRACT_VERSION,
@@ -107,6 +140,13 @@ def build_graph_submit_bridge_envelope(
     }
 
 
+def try_build_graph_submit_bridge_envelope(**kwargs: Any) -> dict[str, Any] | Failure:
+    try:
+        return build_graph_submit_bridge_envelope(**kwargs)
+    except ClueChainGraphIntegrationError as exc:
+        return clue_chain_failure("input_invalid", str(exc), owner="clue_chain.graph_integration.submit_bridge")
+
+
 def build_graph_handoff_payload(
     *,
     chain: Mapping[str, Any] | None = None,
@@ -115,8 +155,13 @@ def build_graph_handoff_payload(
     decisions: Sequence[Mapping[str, Any]] | None = None,
     evidence_items: Sequence[Mapping[str, Any]] | None = None,
     existing_alias_index: Mapping[str, str] | None = None,
-) -> dict[str, Any]:
-    mutation = build_graph_mutation_payload(
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view "
+    "fact_source=graph_mutation+evidence_pack "
+    "witness=test:test_w04_authority_metadata",
+]:
+    mutation = try_build_graph_mutation_payload(
         chain=chain,
         graph_id=graph_id,
         candidates=candidates,
@@ -124,6 +169,8 @@ def build_graph_handoff_payload(
         evidence_items=evidence_items,
         existing_alias_index=existing_alias_index,
     )
+    if isinstance(mutation, Failure):
+        raise_clue_chain_legacy(mutation)
     evidence_pack = build_graph_evidence_pack(mutation)
     handoff_id = _stable_id(
         "handoff_clue_chain",
@@ -143,12 +190,39 @@ def build_graph_handoff_payload(
     }
 
 
-def build_graph_evidence_pack(mutation: Mapping[str, Any]) -> dict[str, Any]:
+def try_build_graph_handoff_payload(**kwargs: Any) -> dict[str, Any] | Failure:
+    try:
+        return build_graph_handoff_payload(**kwargs)
+    except ClueChainGraphIntegrationError as exc:
+        return clue_chain_failure("graph_projection_invalid", str(exc), owner="clue_chain.graph_integration.handoff")
+
+
+def build_graph_evidence_pack(
+    mutation: Mapping[str, Any],
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view "
+    "fact_source=graph_mutation_payload "
+    "witness=test:test_w04_authority_metadata",
+]:
+    result = try_build_graph_evidence_pack(mutation)
+    if isinstance(result, Failure):
+        raise_clue_chain_legacy(result)
+    return result
+
+
+def try_build_graph_evidence_pack(mutation: Mapping[str, Any]) -> dict[str, Any] | Failure:
     nodes = _list_of_mappings(mutation.get("nodes"))
     edges = _list_of_mappings(mutation.get("edges"))
     graph_id = _required_text(mutation, "graph_id")
+    if isinstance(graph_id, Failure):
+        return graph_id
     chain_id = _required_text(mutation, "chain_id")
+    if isinstance(chain_id, Failure):
+        return chain_id
     mutation_id = _required_text(mutation, "mutation_id")
+    if isinstance(mutation_id, Failure):
+        return mutation_id
     evidence_ids = sorted(
         {
             _text((item.get("provenance") or {}).get("evidence_id"))
@@ -181,7 +255,34 @@ def build_graph_mutation_payload(
     decisions: Sequence[Mapping[str, Any]] | None = None,
     evidence_items: Sequence[Mapping[str, Any]] | None = None,
     existing_alias_index: Mapping[str, str] | None = None,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view "
+    "fact_source=decisions+candidates+evidence "
+    "witness=test:test_w04_authority_metadata",
+]:
+    result = try_build_graph_mutation_payload(
+        chain=chain,
+        graph_id=graph_id,
+        candidates=candidates,
+        decisions=decisions,
+        evidence_items=evidence_items,
+        existing_alias_index=existing_alias_index,
+    )
+    if isinstance(result, Failure):
+        raise_clue_chain_legacy(result)
+    return result
+
+
+def try_build_graph_mutation_payload(
+    *,
+    chain: Mapping[str, Any] | None = None,
+    graph_id: str | None = None,
+    candidates: Sequence[Mapping[str, Any]] | None = None,
+    decisions: Sequence[Mapping[str, Any]] | None = None,
+    evidence_items: Sequence[Mapping[str, Any]] | None = None,
+    existing_alias_index: Mapping[str, str] | None = None,
+) -> dict[str, Any] | Failure:
     chain_map = dict(chain or {})
     resolved_chain_id = _first_text(chain_map, ("chain_id", "id")) or "unknown-chain"
     resolved_graph_id = _text(graph_id) or _first_text(chain_map, ("graph_id", "project_graph_id")) or "default"
@@ -203,6 +304,8 @@ def build_graph_mutation_payload(
         if not isinstance(candidate, Mapping):
             continue
         candidate_id = _required_text(candidate, "candidate_id")
+        if isinstance(candidate_id, Failure):
+            return candidate_id
         decision = decision_index.get(candidate_id)
         if decision is None:
             continue
@@ -210,18 +313,23 @@ def build_graph_mutation_payload(
         if not evidence_id:
             evidence_id = _first_text(decision, ("evidence_id", "source_evidence_id"))
         if not evidence_id:
-            raise ClueChainGraphIntegrationError(f"candidate {candidate_id} missing evidence_id")
+            return clue_chain_failure("graph_projection_invalid", f"candidate {candidate_id} missing evidence_id", owner="clue_chain.graph_integration.mutation", candidate_id=candidate_id)
         evidence = evidence_index.get(evidence_id)
         if evidence is None:
-            raise ClueChainGraphIntegrationError(f"candidate {candidate_id} references missing evidence {evidence_id}")
+            return clue_chain_failure("graph_projection_invalid", f"candidate {candidate_id} references missing evidence {evidence_id}", owner="clue_chain.graph_integration.mutation", candidate_id=candidate_id, evidence_id=evidence_id)
 
+        decision_id = _required_text(decision, "decision_id")
+        if isinstance(decision_id, Failure):
+            return decision_id
         provenance = _provenance(
             chain_id=_first_text(candidate, ("chain_id",)) or _first_text(evidence, ("chain_id",)) or resolved_chain_id,
             hop_id=_first_text(candidate, ("hop_id",)) or _first_text(evidence, ("hop_id",)),
             evidence_id=evidence_id,
             candidate_id=candidate_id,
-            decision_id=_required_text(decision, "decision_id"),
+            decision_id=decision_id,
         )
+        if isinstance(provenance, Failure):
+            return provenance
         node = _build_node(
             graph_id=resolved_graph_id,
             candidate=candidate,
@@ -447,7 +555,7 @@ def _provenance(
     evidence_id: str,
     candidate_id: str,
     decision_id: str,
-) -> dict[str, str]:
+) -> dict[str, str] | Failure:
     values = {
         "chain_id": chain_id,
         "hop_id": hop_id,
@@ -457,7 +565,7 @@ def _provenance(
     }
     missing = [key for key in _FIELD_PROVENANCE_KEYS if not _text(values.get(key))]
     if missing:
-        raise ClueChainGraphIntegrationError(f"graph provenance missing required fields: {', '.join(missing)}")
+        return clue_chain_failure("graph_projection_invalid", f"graph provenance missing required fields: {', '.join(missing)}", owner="clue_chain.graph_integration.provenance", missing=missing)
     return {key: _text(values[key]) for key in _FIELD_PROVENANCE_KEYS}
 
 
@@ -498,10 +606,10 @@ def _edge_endpoint(item: Mapping[str, Any], field: str, *, alias_index: Mapping[
     return None
 
 
-def _required_text(item: Mapping[str, Any], key: str) -> str:
+def _required_text(item: Mapping[str, Any], key: str) -> str | Failure:
     value = _text(item.get(key))
     if not value:
-        raise ClueChainGraphIntegrationError(f"{key} is required")
+        return clue_chain_failure("input_invalid", f"{key} is required", owner="clue_chain.graph_integration.required_text", field=key)
     return value
 
 
@@ -566,13 +674,13 @@ def _safe_float(value: Any) -> float | None:
         return None
 
 
-def _optional_non_negative_int(value: Any, field: str) -> int | None:
+def _optional_non_negative_int(value: Any, field: str) -> int | None | Failure:
     if value in (None, ""):
         return None
     try:
         resolved = int(value)
-    except (TypeError, ValueError) as exc:
-        raise ClueChainGraphIntegrationError(f"{field} must be an integer") from exc
+    except (TypeError, ValueError):
+        return clue_chain_failure("input_invalid", f"{field} must be an integer", owner="clue_chain.graph_integration.revision", field=field)
     if resolved < 0:
-        raise ClueChainGraphIntegrationError(f"{field} must be non-negative")
+        return clue_chain_failure("input_invalid", f"{field} must be non-negative", owner="clue_chain.graph_integration.revision", field=field)
     return resolved

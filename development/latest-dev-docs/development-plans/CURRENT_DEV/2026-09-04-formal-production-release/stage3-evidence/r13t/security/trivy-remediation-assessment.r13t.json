@@ -1,0 +1,263 @@
+{
+  "schema_version": "mrw.stage3.trivy-remediation-assessment.v1",
+  "generated_at": "2026-09-12T10:01:43Z",
+  "mode": "READ_ONLY_BOUNDED_REMEDIATION_ASSESSMENT_NO_PRODUCT_CHANGE_NO_BUILD_NO_RESCAN",
+  "status": "PARTIAL_SAME_BASE_REMEDIATION_AVAILABLE_RESCAN_REQUIRED",
+  "candidate": {
+    "label": "r13t",
+    "root": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260910-v4-r13t/candidate",
+    "commit": "17e824ab2de3de450bd5215f84bcca428d90218e",
+    "tree": "6e2c8524c7cbd436bf58bc08b37fa2b2bdbc0d92",
+    "clean_before_assessment": true,
+    "backend_tree": "e9511474c0ae03693a45fa818c2603fba0ffb050",
+    "src_tree": "0dfa137c2c9aba658d8b1f39281412ff69c3d67c",
+    "dockerfile_sha256": "8726ec49d21e47c955b33c47da062178f651555d28d9be39f6b95e6b51c0a9f7"
+  },
+  "identity_reuse": {
+    "source_candidate": "r13r",
+    "source_commit": "9b95d1c6c515b3013d6be7fd39ffb54801310c1c",
+    "source_tree": "040f2ed5b223607c63404c709e413f8898c2b504",
+    "r13r_backend_tree": "e9511474c0ae03693a45fa818c2603fba0ffb050",
+    "r13t_backend_tree": "e9511474c0ae03693a45fa818c2603fba0ffb050",
+    "r13r_src_tree": "0dfa137c2c9aba658d8b1f39281412ff69c3d67c",
+    "r13t_src_tree": "0dfa137c2c9aba658d8b1f39281412ff69c3d67c",
+    "equal": true,
+    "scope": "The backend-runtime and migration-runner targets share this Dockerfile base stage and the identical main/backend and src input trees. The r13r scan is reused as the r13t input; this assessment is not a fresh r13t scan."
+  },
+  "inputs": {
+    "backend_report": {
+      "path": "../../r13r/artifacts/canonical/backend.trivy.loaded-image.json",
+      "sha256": "31fbb563a4a9a0011f7b979539300e033a0e22242762d7a47d49448e85661343"
+    },
+    "migration_runner_report": {
+      "path": "../../r13r/artifacts/canonical/migration-runner.trivy.loaded-image.json",
+      "sha256": "efb570cd2f2bcaa080b53b345bb7d328ca1dd13971b352e51594a7b2f64c2b17"
+    },
+    "deduplication_key": [
+      "PkgName",
+      "InstalledVersion",
+      "VulnerabilityID"
+    ],
+    "deduplicated_tuple_set_serialization": "UTF-8 TSV, fields in deduplication_key order, LC_ALL=C sorted, newline after every tuple",
+    "deduplicated_tuple_set_sha256": {
+      "backend": "18f945cb2e251169fb8067ac4cc048141397a36e30cb0f290eb3973797712505",
+      "migration_runner": "18f945cb2e251169fb8067ac4cc048141397a36e30cb0f290eb3973797712505"
+    }
+  },
+  "denominator": {
+    "per_role": {
+      "raw_rows": 148,
+      "deduplicated_package_version_cve_tuples": 148,
+      "affected_package_version_pairs": 28,
+      "unique_vulnerability_ids": 80,
+      "reported_fixed_version_nonempty": 0,
+      "severity": {
+        "CRITICAL": 13,
+        "HIGH": 135
+      }
+    },
+    "roles": 2,
+    "combined_role_rows": 296,
+    "combined_role_package_version_cve_tuples": 296,
+    "cross_role_unique_package_version_cve_tuples": 148,
+    "cross_role_unique_vulnerability_ids": 80,
+    "semantic_comparison": "The two roles have the same 148 package/version/CVE tuples; report-local Fingerprint and image identity fields differ."
+  },
+  "official_sources": {
+    "oci_registry": {
+      "reference": "docker.io/library/python:3.11-slim",
+      "observed_at": "2026-09-12T09:56:00Z",
+      "official_tag_index_digest": "sha256:9534e5a8e315485d4061ed659af0fd78a284c015f9b73661b41d6bab25604534",
+      "pinned_index_digest": "sha256:9534e5a8e315485d4061ed659af0fd78a284c015f9b73661b41d6bab25604534",
+      "pin_is_current_official_tag_digest": true,
+      "linux_amd64_manifest_digest": "sha256:d1053354624536b044162aaab1e418bd000ea35184fb1ae098ab3166b1072e72",
+      "image_version_annotation": "3.11.16-slim-trixie",
+      "image_source_annotation": "https://github.com/docker-library/python.git#688a0b86bb44289df16a363e9f41d90514c1a5f9:3.11/slim-trixie",
+      "official_image_page": "https://hub.docker.com/_/python"
+    },
+    "debian_package_indexes": {
+      "queried_platform": "linux/amd64",
+      "observed_at": "2026-09-12T10:05:00Z",
+      "sources": [
+        "http://deb.debian.org/debian trixie main",
+        "http://deb.debian.org/debian trixie-updates main",
+        "http://deb.debian.org/debian-security trixie-security main"
+      ],
+      "signed_by": "/usr/share/keyrings/debian-archive-keyring.pgp",
+      "release_metadata": {
+        "trixie_date": "2026-09-12T07:55:41Z",
+        "trixie_updates_date": "2026-09-12T02:07:54Z",
+        "trixie_security_date": "2026-09-11T20:42:49Z"
+      }
+    },
+    "debian_security_tracker": {
+      "url": "https://security-tracker.debian.org/tracker/data/json",
+      "retrieved_at": "2026-09-12T09:58:00Z",
+      "http_last_modified": "2026-09-12T09:20:43Z",
+      "content_length": 74081147,
+      "sha256": "cf2dece6fcede14c39f9079c72a847998262c8969a6af6ee7872dc1325c1f29b"
+    }
+  },
+  "package_index_candidates": [
+    {"package":"bsdutils","installed":"1:2.41.5-0+deb13u1","candidate":"1:2.41.5-0+deb13u1","higher":false},
+    {"package":"curl","installed":"8.14.1-2+deb13u4","candidate":"8.14.1-2+deb13u5","higher":true},
+    {"package":"gzip","installed":"1.13-1","candidate":"1.13-1+deb13u1","higher":true},
+    {"package":"libacl1","installed":"2.3.2-2+b1","candidate":"2.3.2-2+b1","higher":false},
+    {"package":"libblkid1","installed":"2.41.5-0+deb13u1","candidate":"2.41.5-0+deb13u1","higher":false},
+    {"package":"libcurl3t64-gnutls","installed":"8.14.1-2+deb13u4","candidate":"8.14.1-2+deb13u5","higher":true},
+    {"package":"libcurl4t64","installed":"8.14.1-2+deb13u4","candidate":"8.14.1-2+deb13u5","higher":true},
+    {"package":"libexpat1","installed":"2.8.3-1~deb13u1","candidate":"2.8.3-1~deb13u1","higher":false},
+    {"package":"liblastlog2-2","installed":"2.41.5-0+deb13u1","candidate":"2.41.5-0+deb13u1","higher":false},
+    {"package":"libmount1","installed":"2.41.5-0+deb13u1","candidate":"2.41.5-0+deb13u1","higher":false},
+    {"package":"libncursesw6","installed":"6.5+20250216-2","candidate":"6.5+20250216-2","higher":false},
+    {"package":"libperl5.40","installed":"5.40.1-6","candidate":"5.40.1-6+deb13u1","higher":true},
+    {"package":"libsmartcols1","installed":"2.41.5-0+deb13u1","candidate":"2.41.5-0+deb13u1","higher":false},
+    {"package":"libsqlite3-0","installed":"3.46.1-7+deb13u1","candidate":"3.46.1-7+deb13u2","higher":true},
+    {"package":"libssh2-1t64","installed":"1.11.1-1+deb13u1","candidate":"1.11.1-1+deb13u2","higher":true},
+    {"package":"libsystemd0","installed":"257.13-1~deb13u1","candidate":"257.13-1~deb13u1","higher":false},
+    {"package":"libtinfo6","installed":"6.5+20250216-2","candidate":"6.5+20250216-2","higher":false},
+    {"package":"libudev1","installed":"257.13-1~deb13u1","candidate":"257.13-1~deb13u1","higher":false},
+    {"package":"libuuid1","installed":"2.41.5-0+deb13u1","candidate":"2.41.5-0+deb13u1","higher":false},
+    {"package":"linux-libc-dev","installed":"6.12.107-1","candidate":"6.12.107-1","higher":false},
+    {"package":"login","installed":"1:4.16.0-2+really2.41.5-0+deb13u1","candidate":"1:4.16.0-2+really2.41.5-0+deb13u1","higher":false},
+    {"package":"mount","installed":"2.41.5-0+deb13u1","candidate":"2.41.5-0+deb13u1","higher":false},
+    {"package":"ncurses-base","installed":"6.5+20250216-2","candidate":"6.5+20250216-2","higher":false},
+    {"package":"ncurses-bin","installed":"6.5+20250216-2","candidate":"6.5+20250216-2","higher":false},
+    {"package":"perl","installed":"5.40.1-6","candidate":"5.40.1-6+deb13u1","higher":true},
+    {"package":"perl-base","installed":"5.40.1-6","candidate":"5.40.1-6+deb13u1","higher":true},
+    {"package":"perl-modules-5.40","installed":"5.40.1-6","candidate":"5.40.1-6+deb13u1","higher":true},
+    {"package":"util-linux","installed":"2.41.5-0+deb13u1","candidate":"2.41.5-0+deb13u1","higher":false}
+  ],
+  "remediation_assessment": {
+    "same_base_apt_upgrade": {
+      "status": "AVAILABLE_ESTIMATE_NOT_EXECUTED",
+      "higher_package_version_pairs": 10,
+      "expected_closed_per_role": {
+        "package_version_cve_rows": 32,
+        "unique_vulnerability_ids": 11
+      },
+      "expected_closed_combined_role_rows": 64,
+      "expected_residual_per_role": {
+        "package_version_cve_rows": 116,
+        "unique_vulnerability_ids": 69
+      },
+      "tracker_resolved_cves": [
+        "CVE-2026-11822",
+        "CVE-2026-11824",
+        "CVE-2026-13221",
+        "CVE-2026-41992",
+        "CVE-2026-42496",
+        "CVE-2026-42497",
+        "CVE-2026-48962",
+        "CVE-2026-57432",
+        "CVE-2026-57433",
+        "CVE-2026-58050",
+        "CVE-2026-8376"
+      ],
+      "higher_versions_without_tracker_closure": [
+        "curl@8.14.1-2+deb13u5",
+        "libcurl3t64-gnutls@8.14.1-2+deb13u5",
+        "libcurl4t64@8.14.1-2+deb13u5"
+      ],
+      "interpretation": "A full upgrade against the observed trixie indexes reaches the tracker fixed versions for gzip, four Perl binaries, libsqlite3-0, and libssh2-1t64. Curl advances one revision but its four CVEs remain open for trixie in the tracker snapshot."
+    },
+    "original_dockerfile_no_cache_rebuild": {
+      "status": "PARTIAL_ESTIMATE_NOT_EXECUTED",
+      "expected_closed_per_role": {
+        "package_version_cve_rows": 29,
+        "unique_vulnerability_ids": 8
+      },
+      "expected_closed_combined_role_rows": 58,
+      "closed_by_live_apt_install_resolution": [
+        "CVE-2026-13221",
+        "CVE-2026-42496",
+        "CVE-2026-42497",
+        "CVE-2026-48962",
+        "CVE-2026-57432",
+        "CVE-2026-57433",
+        "CVE-2026-58050",
+        "CVE-2026-8376"
+      ],
+      "not_closed_without_explicit_upgrade": [
+        "CVE-2026-11822",
+        "CVE-2026-11824",
+        "CVE-2026-41992"
+      ],
+      "basis": "An amd64 apt-get --simulate of the Dockerfile's existing apt-get install list selected current Perl and libssh2 packages, but did not schedule gzip or libsqlite3-0. This estimate assumes --no-cache as used by the r13r canonical/rebuild commands; a cached apt layer can retain the old packages and close zero."
+    },
+    "base_digest_refresh": {
+      "status": "NO_NEW_DIGEST_AT_OBSERVATION_TIME",
+      "expected_incremental_closure_per_role": 0,
+      "basis": "The live official tag index digest exactly equals the Dockerfile pin. A future tag change must be resolved and scanned before assigning closure."
+    },
+    "verified_distribution_change": {
+      "status": "NONE_VERIFIED",
+      "qualified_closed_per_role": 0,
+      "tracker_signal_not_qualified_as_remediation": {
+        "trixie_open_but_forky_resolved": {
+          "package_version_cve_rows": 74,
+          "unique_vulnerability_ids": 59
+        },
+        "trixie_open_but_sid_resolved": {
+          "package_version_cve_rows": 110,
+          "unique_vulnerability_ids": 63
+        }
+      },
+      "reason": "No alternative Debian release image was built, compatibility-tested, reproduced, or rescanned for this candidate. Tracker status in a later release is only a routing signal, not a verified product remediation."
+    },
+    "current_no_upstream_fix": {
+      "status": "NOT_ESTABLISHED",
+      "permanent_no_fix_count": 0,
+      "debian_packaged_resolution_not_visible_through_sid": {
+        "package_version_cve_rows_per_role": 6,
+        "unique_vulnerability_ids": 6,
+        "package": "linux-libc-dev",
+        "cves": [
+          "CVE-2013-7445",
+          "CVE-2019-19449",
+          "CVE-2019-19814",
+          "CVE-2021-3847",
+          "CVE-2021-3864",
+          "CVE-2024-21803"
+        ]
+      },
+      "interpretation": "Open status through Debian sid does not prove that upstream has no patch or that no future Debian package will fix it. Missing Trivy FixedVersion is not treated as permanent unfixability."
+    },
+    "build_only_packages_builder_stage_option": {
+      "status": "INDEPENDENT_DESIGN_OPTION_NOT_IMPLEMENTED_NOT_COUNTED",
+      "candidate_scope": [
+        "build-essential",
+        "libpq-dev",
+        "git"
+      ],
+      "potential_surface_signal": "linux-libc-dev contributes 55 rows and the four Perl binaries contribute 32 rows per role in the present scan, but transitive ownership and runtime need must be proven before counting removals.",
+      "required_validation": "Split build and runtime stages, retain only proven runtime libraries/tools, then run focused runtime/migration tests, reproducibility checks, SBOM generation, and fresh Trivy scans. This is not authorized as part of this evidence-only assessment."
+    }
+  },
+  "decision": {
+    "minimal_local_path": "Add an explicit same-release package upgrade strategy to a new candidate or otherwise install the observed fixed trixie versions, then perform fresh no-cache amd64 builds for both targets and rescan them.",
+    "expected_best_same_base_reduction": "32 of 148 rows per role (64 of 296 role rows combined), leaving 116 rows per role and 69 cross-role unique CVEs before any separately validated package-removal design.",
+    "release_gate": "NOT_CLOSED",
+    "reason": "This assessment predicts a partial reduction only. No product change, new image, fresh SBOM, or fresh Trivy result exists."
+  },
+  "commands": [
+    "git -C <candidate> rev-parse HEAD HEAD^{tree} HEAD:main/backend HEAD:src",
+    "git -C <candidate> status --porcelain=v1",
+    "jq '[.Results[]?.Vulnerabilities[]?] | unique_by([.PkgName,.InstalledVersion,.VulnerabilityID])' <report>",
+    "docker buildx imagetools inspect python:3.11-slim",
+    "docker buildx imagetools inspect python:3.11-slim --raw",
+    "docker run --rm --platform linux/amd64 python:3.11-slim@sha256:9534e5a8e315485d4061ed659af0fd78a284c015f9b73661b41d6bab25604534 sh -ec 'apt-get update; apt-cache policy <28 packages>'",
+    "docker run --rm --platform linux/amd64 python:3.11-slim@sha256:9534e5a8e315485d4061ed659af0fd78a284c015f9b73661b41d6bab25604534 sh -ec 'apt-get update; apt-get --simulate install --no-install-recommends build-essential libpq-dev postgresql-client git curl'",
+    "curl --fail --silent --show-error --location https://security-tracker.debian.org/tracker/data/json",
+    "jq correlate <deduplicated report tuples> with <Debian tracker trixie/forky/sid release status>",
+    "shasum -a 256 <inputs and output>"
+  ],
+  "limitations": [
+    "The Debian package index and Security Tracker are mutable time-bounded observations; repeat them at implementation time.",
+    "Trivy report severity is preserved as the gate denominator; Debian tracker urgency and NODSA policy are not reinterpreted as severity downgrades.",
+    "Expected closure is inferred from Debian fixed-version status and apt candidate selection. Only a fresh scan of newly built images can establish actual closure.",
+    "No reachability or exploitability assessment was performed.",
+    "No distribution change was selected or tested.",
+    "No product, candidate, Dockerfile, dependency, registry, or release state was changed. Ephemeral containers were used only for official index queries and apt simulation."
+  ]
+}

@@ -1,0 +1,140 @@
+{
+  "schema": "mrw.family_fragment_rebind.stage_manifest.v2",
+  "family": "C9",
+  "amendment": "STAGE_B7_C9_ADDITIVE_EXACT_BYTE_CANDIDATE_NOT_AUTHORITY",
+  "fragments": [
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/exact-byte-rebind/stage-b7-2026-09-05/fragments/C9.json",
+      "file_sha256": "32312fec9107cbaa1d4dd3191fb0bf6c7af3f979c391c3aae70dc4f4beca2bbe",
+      "content_digest": "fc358b3cc734b85a99e912233ff6f556ff9f22046b4ebb1ba6226403b1d3513d"
+    }
+  ],
+  "sources": [
+    {
+      "path": "main/backend/app/successor_runtime/specification/shared_family_generator.py",
+      "file_sha256": "917aa8dc19e35a8f74b2f3f15eff243e4e6327278107324fb7e6615894832800"
+    },
+    {
+      "path": "main/backend/app/successor_runtime/specification/capability_cell_spec.py",
+      "file_sha256": "9edaba9fc23584f9095425233bc1f3bed7ef1b0383d4f4d198ce7c35bde2b724"
+    },
+    {
+      "path": "main/backend/app/successor_runtime/specification/runtime_kernel_abi.py",
+      "file_sha256": "216e28db15d99853b35765ae69a5146d557392a4e8f9f72a299ad7fcb428b573"
+    },
+    {
+      "path": "main/backend/app/successor_runtime/specification/c9_p4.py",
+      "file_sha256": "5c96d3415250a394a57dac3bad0d1a1432d0c9b79072e82fbfccdd5a3297fafd"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/01_functorial-successor-migration-development-contract.md",
+      "file_sha256": "13aa3b4c6a1affa46bf73f034351ea359b6ec1902746d3a08dc0d6628823fcee"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/02_functorial-successor-migration-development-contract.freeze.json",
+      "file_sha256": "895de0a699d472a84cd1f6661e5257e01bdbaed0da6cb3af9ddd3e0d04f07524"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/06_functorial-successor-runtime-architecture-correction.draft.zh-CN.md",
+      "file_sha256": "c93b58e15a3dbaa1e5e1be9bebfbc41143b97b8e91eb9774851d1f5d78fe3a93"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/09_functorial-successor-f0-semantic-owner-inventory.v1.json",
+      "file_sha256": "c12a948a356184ceae5b58dbc85deb96759ff74d89f3b2dd09a4e719b9033741"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/13_functorial-successor-c1-c9-locator-pending-inventory.v1.json",
+      "file_sha256": "dcb1a3f09c54ee787f9ebae698b8b75c707fd5b8b1c23569fcca8ebc29be2c38"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/P1FunctorizationEligibility.v1.json",
+      "file_sha256": "16dac2d34f2cdcaeffa4718fe2e63733f48b29ad0ba64daab32ed011527d4642"
+    },
+    {
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p1-fragments/C9.json",
+      "file_sha256": "4f285b7d938ef3c63a0efb816ddf0877db3bbdb942afd8fec1a4ac0f14f90568"
+    },
+    {
+      "path": "main/backend/app/contracts/responses.py",
+      "file_sha256": "c8dd8dfde25c3be60322ed00ed070aac1f9c9d53a40f97d71fcb517a86f461a2"
+    },
+    {
+      "path": "main/backend/app/api/agent_sessions.py",
+      "file_sha256": "9c185595c6990055877f3dee47c615070ca3ff8b89b592e4991ab4c49fbefacd"
+    },
+    {
+      "path": "main/backend/app/main.py",
+      "file_sha256": "85788b093339bfde607d65e5c527715626bf60bb8b1da0ad157f4895aa1e1b8d"
+    },
+    {
+      "path": "main/backend/app/services/agent_sessions/store.py",
+      "file_sha256": "098d70798d7b719dcb50f42492175159a14adca2ff930adbbc3cc824a11ff0b4"
+    },
+    {
+      "path": "main/backend/app/services/agent_sessions/service.py",
+      "file_sha256": "19944b0c1f1a923be004c0c944ff56926db9003d075a37e742d0e3e48d122651"
+    },
+    {
+      "path": "main/backend/app/services/graph/backfill_graph_nodes.py",
+      "file_sha256": "418df05657ea124ea27100e93b2db88ac41c483a93fd250b0d6982397c169bff"
+    },
+    {
+      "path": "main/backend/app/services/indexer/policy.py",
+      "file_sha256": "ca58531efe5f4d4074d30eaeb3d679c26b38b36e11c8019039b27608b9dec011"
+    },
+    {
+      "path": "main/backend/app/successor_runtime/substrate/projections/runtime_run.py",
+      "file_sha256": "44d3cbc71a9cd261eb4cddb888ead0612acbf06a3fc3c62dcd30d9eeb5aea442"
+    },
+    {
+      "path": "main/backend/app/successor_runtime/substrate/postgres/projection_offsets.py",
+      "file_sha256": "f5389ab854a503be4fbad9e53cfce3c1f80f952355327b52fbc775d9060d53c1"
+    },
+    {
+      "path": "main/backend/tests/contract/test_contracts_unittest.py",
+      "file_sha256": "584dc6ada4f5a6912fe58c816c27108061209939a391b939ec579628b488695a"
+    },
+    {
+      "path": "main/backend/app/successor_runtime/runtime/facade_contracts.py",
+      "file_sha256": "47a0a10c17465ea2e6c76fa091fe09747e84dfdcc258968c5aafa51f18ca6b03"
+    },
+    {
+      "path": "main/backend/app/successor_runtime/substrate/projections/registry.py",
+      "file_sha256": "84fe56503715cb20fd6f98e08fd51bbeab73c2184f03b6a2595fb3c531c01a08"
+    },
+    {
+      "path": "main/backend/app/contracts/successor_runtime.py",
+      "file_sha256": "4a494839fab913e2f6615822fe16df2076317c529a9ccf2a1fc25c40cbb6a068"
+    },
+    {
+      "path": "main/backend/scripts/generate_successor_p4_c9_fragment.py",
+      "file_sha256": "a9e0804cebd7833a04fa4b0233576abee9288cde206a764091b0a27ab559f9af"
+    }
+  ],
+  "tests": [
+    {
+      "path": "main/backend/tests/successor_runtime/test_p4_c9_1_facade_contracts.py",
+      "file_sha256": "e7a7f03b7d0f8f734a2efc8f9b1734258e5f6d7e90df714d63cddb42e9f15107"
+    },
+    {
+      "path": "main/backend/tests/successor_runtime/test_p4_c9_2_projector_registry.py",
+      "file_sha256": "c308ab311bec8679042f727cf94491943b3b5c0f924f8d07427f9d095b947f5f"
+    },
+    {
+      "path": "main/backend/tests/successor_runtime/test_p4_c9_3_transport_dto.py",
+      "file_sha256": "2bf88d20238b3fe0693440bc34ac7c8b4f19b5a2431099ad55327101c7b2ee03"
+    },
+    {
+      "path": "main/backend/tests/successor_runtime/test_p4_c9_4_evidence_generator.py",
+      "file_sha256": "4e73347dc22d7152390ec6a9ba01c05a3bf0f21512cbbd021bfbb7829a8e2c10"
+    },
+    {
+      "path": "main/backend/tests/successor_runtime/test_p4_c9_5_p1_consistency_and_public_payload.py",
+      "file_sha256": "2cf1a4959c2ad80a53224b6ec8a513a21b9d29b88b5792c2a73f0bca18dfd35f"
+    },
+    {
+      "path": "main/backend/tests/successor_runtime/test_p4_c9_6_fragment_stability.py",
+      "file_sha256": "cf1384cbbd7ce5464b202a5b17c000642b46ba23dd27b2a29d62f268825be8ff"
+    }
+  ]
+}

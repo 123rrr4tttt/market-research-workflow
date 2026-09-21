@@ -7,6 +7,12 @@
 
 - [当前预发布说明：pre-release-2026-05-14-rc1](../../RELEASE_NOTES_pre-release-2026-05-14-rc1.md)
 - [合并总览](./MERGED_OVERVIEW.md)
+- [当前平台化差距复核（2026-05-26）](./development-plans/G_REVIEW/current-platformization-gap-2026-05-26.md)
+- [分支卫生巡检（2026-06-09）](./automation-runs/branch-hygiene-2026-06-09.md)
+- [业务条线用户流完整性审计](./automation-runs/business-line-user-flow-audit/2026-05-23/README.md)
+- [业务条线 worker readback project matrix automation lane](./automation-runs/business-line-worker-readback-project-matrix/README.md)
+- [性能 / 容量 baseline smoke lane](./automation-runs/performance-capacity-baseline/2026-05-24/README.md)
+- [LLM report token state retention automation lane](./automation-runs/llm-report-token-state-retention/README.md)
 - [同步状态](./SYNC_STATUS.md)
 - [来源台账](./index.md)
 
@@ -37,6 +43,12 @@
 - 当更新日期变化时，必须同步更新目录名、文件名与索引引用（至少包含 `README.md`、`MERGED_OVERVIEW.md`、子目录 `INDEX.md`）。
 
 ## 最新补充
+
+- 分支卫生巡检（2026-06-09）：仓库仍无 stale tracking refs、无非 `main` 打开的 PR，远端仍只有 `5` 个 live heads；但主仓库已停在 `codex/devdocs-supervisor-seed` 且工作树非常脏，本地总分支数升到 `224`，因此继续维持 `yellow` 并建议优先人工复核 `feature/markdown_optimize`、`feature/node_workflow`、`origin/codex/docs-archive-sync`、`origin/task-graph-structured-collect-source-20260227`。证据入口：[branch-hygiene-2026-06-09](./automation-runs/branch-hygiene-2026-06-09.md)。
+
+- 当前平台化差距复核（2026-05-26）：重写平台化判断口径，明确 2026-03 reference-pool 只作为历史参考；当前差距从“中间件替换 / 基础工作流搭建”收敛为 external blocker、生产证据、平台控制面、tenant/secret/policy、SLO/容量与数据质量闭环。证据入口：[current-platformization-gap-2026-05-26](./development-plans/G_REVIEW/current-platformization-gap-2026-05-26.md)。
+
+- LLM report token state retention automation lane（2026-05-24）：将 token state retention 从手工 cleanup 入口提升为 repo-local nightly wrapper、machine-readable automation spec、Codex app cron automation 与 artifact checker；自动化默认写入 dry-run artifact，不执行删除。证据：[LLM report token state retention automation](./automation-runs/llm-report-token-state-retention/README.md)。
 
 - Wave57 external-blocker closure batch（2026-05-23/24）：完成 Source-Library three-lane human review、OSS Node public-corpus semantic relevance 与 Global Vector production-vector quality gates；`2026-03-11-source-library-three-lane-architecture`、`2026-03-05-oss-node-platform-io-plan`、`2026-05-14-global-vectorization-general-foundation` 迁入 `ARCHIVE_CLOSED`，external-blocked review targets 从 `7` 降到 `4`。证据：[source-library human review](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-11-source-library-three-lane-architecture/16_wave57-human-review-closure-2026-05-23.md)、[OSS-node public corpus semantic relevance](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-03-05-oss-node-platform-io-plan/11_wave57-oss-node-public-corpus-semantic-relevance-2026-05-23.md)、[global vector production quality](../../docs/development/development-plans/ARCHIVE_CLOSED/2026-05-14-global-vectorization-general-foundation/14_wave57-production-vector-quality-gate-2026-05-23.md)。
 

@@ -10,7 +10,7 @@ readback-only RECONCILE handler that never re-executes the effect.
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Annotated, Any
 
 import sqlalchemy as sa
 
@@ -104,7 +104,11 @@ def build_successor_c2_2_binding(
     project_scope_digest: str,
     resource_policy_epoch: int = 1,
     runtime_protocol_version: str = "mrw.runtime.protocol.v1",
-) -> InterpreterBinding:
+) -> Annotated[
+    InterpreterBinding,
+    "kit:prepared-command effect_boundary=successor_runtime.interpreter_effect_writer "
+    "witness=test:test_w08d_binding_metadata_preserves_prepared_command_abi",
+]:
     interpreter_digest = (
         c22.build_source_library_c2_2_bundle().profiles["interpreter"].profile_digest
     )
@@ -126,7 +130,11 @@ def build_successor_c2_3_binding(
     project_scope_digest: str,
     resource_policy_epoch: int = 1,
     runtime_protocol_version: str = "mrw.runtime.protocol.v1",
-) -> InterpreterBinding:
+) -> Annotated[
+    InterpreterBinding,
+    "kit:prepared-command effect_boundary=successor_runtime.interpreter_effect_writer "
+    "witness=test:test_w08d_binding_metadata_preserves_prepared_command_abi",
+]:
     interpreter_digest = (
         c23.build_source_library_c2_3_bundle().profiles["interpreter"].profile_digest
     )
@@ -144,7 +152,11 @@ def build_successor_c2_3_binding(
 def build_recovery_c2_3_binding(
     *,
     interpreter_profile_digest: str,
-) -> RecoveryBinding:
+) -> Annotated[
+    RecoveryBinding,
+    "kit:prepared-command effect_boundary=successor_runtime.readback_reconcile_writer "
+    "witness=test:test_w08d_binding_metadata_preserves_prepared_command_abi",
+]:
     return RecoveryBinding.from_content(
         recovery_handler_id="recovery.source_library.c2_3.fixture_readback.v1",
         recovery_handler_version="1",
@@ -160,7 +172,11 @@ def build_c2_3_payload_value_ref(
     *,
     program_id: str,
     project_key: str,
-) -> ValueRef:
+) -> Annotated[
+    ValueRef,
+    "kit:non-authoritative derived_as=view fact_source=request.to_plain "
+    "witness=test:test_w08d_payload_projection_is_nonauthoritative",
+]:
     exact_text = canonical_json(request.to_plain())
     exact_bytes = exact_text.encode("utf-8")
     content_digest_hex = sha256_hex(exact_bytes)
@@ -197,7 +213,11 @@ def build_c2_3_fixture_program(
     project_key: str,
     project_registry_revision: int,
     project_scope_digest: str,
-) -> ProgramSpec:
+) -> Annotated[
+    ProgramSpec,
+    "kit:prepared-command effect_boundary=successor_runtime.language.compile_program "
+    "witness=test:test_w08d_program_spec_preserves_prepared_command_abi",
+]:
     ref = catalog.lookup(c23.SOURCE_LIBRARY_C2_3_KIND)
     if ref is None:
         raise ValueError(
@@ -511,7 +531,11 @@ def build_legacy_c2_2_binding(
     project_scope_digest: str,
     resource_policy_epoch: int = 1,
     runtime_protocol_version: str = "mrw.runtime.protocol.v1",
-) -> InterpreterBinding:
+) -> Annotated[
+    InterpreterBinding,
+    "kit:prepared-command effect_boundary=legacy_source_library.sibling_fixture_replay "
+    "witness=test:test_w08d_binding_metadata_preserves_prepared_command_abi",
+]:
     interpreter_digest = content_digest(
         {
             "interpreter_id": "legacy.source_library.c2_2.four_modes.v1",
@@ -537,7 +561,11 @@ def build_legacy_c2_3_binding(
     project_scope_digest: str,
     resource_policy_epoch: int = 1,
     runtime_protocol_version: str = "mrw.runtime.protocol.v1",
-) -> InterpreterBinding:
+) -> Annotated[
+    InterpreterBinding,
+    "kit:prepared-command effect_boundary=legacy_source_library.donor_fixture_readback "
+    "witness=test:test_w08d_binding_metadata_preserves_prepared_command_abi",
+]:
     interpreter_digest = content_digest(
         {
             "interpreter_id": "legacy.source_library.c2_3.provider_effect.v1",

@@ -11,7 +11,7 @@ from sqlalchemy import select
 from ...models.base import SessionLocal
 from ...models.entities import Document, Source
 from ..job_logger import complete_job, fail_job, start_job
-from .adapters.http_utils import fetch_html, make_html_parser
+from ..resource_pool.http_port import fetch_html, make_html_parser
 from .frontdoor_ingress import build_raw_import_ingress_envelope
 from .postprocess_frontdoor import run_postprocess_frontdoor
 from .structured_extraction import build_structured_summary
@@ -412,7 +412,7 @@ def run_raw_import_documents(payload: dict[str, Any], project_key: str) -> dict[
                         "chunk_overlap": int(chunk_overlap),
                         "truncated_for_extraction": truncated,
                     }
-                    extracted_base = doc.extracted_data if isinstance(doc.extracted_data, dict) else {}
+                    extracted_base = doc.extracted_data if doc is not None and isinstance(doc.extracted_data, dict) else {}
                     extracted_base["_raw_input"] = _deep_merge_json(extracted_base.get("_raw_input", {}), raw_meta)
 
                     extraction_flags = _resolve_extraction_flags(extraction_mode, doc_type)
@@ -538,8 +538,10 @@ def run_raw_import_documents(payload: dict[str, Any], project_key: str) -> dict[
                 "source_name": source.name,
                 "project_key": project_key,
             }
-            complete_job(job_id, result=result)
+            job_status = "failed" if items and len(errors) == len(items) else "completed"
+            complete_job(job_id, status=job_status, result=result)
             return result
     except Exception as exc:  # noqa: BLE001
         fail_job(job_id, str(exc))
+        # kit:boundary owner=ingest.raw_import class=SHELL_BOUNDARY_EXCEPTION failure_family=ingest.operation.failure witness=test:test_latest_service_a_ingest_shell_boundaries_reraise_original_errors
         raise

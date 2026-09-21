@@ -1,5 +1,5 @@
 import { useAppLocale } from '../platform/i18n'
-import type { KernelModuleKey, KernelRenderShellMode } from './types'
+import type { KernelModuleKey, KernelRenderShellMode, KernelRouteRenderVariant } from './types'
 import { renderKernelModuleContent } from './renderKernelModuleContent'
 
 type Props = {
@@ -7,10 +7,11 @@ type Props = {
   projectKey: string
   onProjectChange: (nextProjectKey: string) => void
   shellMode?: KernelRenderShellMode
+  renderVariant?: KernelRouteRenderVariant
 }
 
-export default function ModuleRenderer({ moduleKey, projectKey, onProjectChange, shellMode = 'default' }: Props) {
+export default function ModuleRenderer({ moduleKey, projectKey, onProjectChange, shellMode = 'default', renderVariant }: Props) {
   const locale = useAppLocale()
 
-  return renderKernelModuleContent({ moduleKey, projectKey, onProjectChange, shellMode, locale })
+  return renderKernelModuleContent({ moduleKey, projectKey, onProjectChange, shellMode, renderVariant, locale })
 }

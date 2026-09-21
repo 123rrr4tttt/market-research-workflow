@@ -1,0 +1,51 @@
+{
+  "authoritative": false,
+  "checker": "candidate-identity",
+  "derived_as": "preflight",
+  "findings": [
+    {
+      "check_id": "candidate.strategy",
+      "evidence": [
+        "strategy=REMEDIATION_INCLUSIVE_RELEASE"
+      ],
+      "status": "PASS",
+      "summary": "candidate strategy is supported"
+    },
+    {
+      "check_id": "candidate.commit",
+      "evidence": [
+        "expected=84e2fbc098d341cc3f2fc242f40a3be29d720421",
+        "observed=84e2fbc098d341cc3f2fc242f40a3be29d720421"
+      ],
+      "status": "PASS",
+      "summary": "HEAD commit matches expected value"
+    },
+    {
+      "check_id": "candidate.tree",
+      "evidence": [
+        "expected=9c937baa9a92c21d201cce29af83c3ea79b1a924",
+        "observed=9c937baa9a92c21d201cce29af83c3ea79b1a924"
+      ],
+      "status": "PASS",
+      "summary": "HEAD tree matches expected value"
+    },
+    {
+      "check_id": "candidate.dirty_tracked",
+      "evidence": [
+        "count=0"
+      ],
+      "status": "PASS",
+      "summary": "tracked files are clean"
+    },
+    {
+      "check_id": "candidate.untracked",
+      "evidence": [
+        "count=0"
+      ],
+      "status": "PASS",
+      "summary": "untracked files are clean"
+    }
+  ],
+  "schema_version": "mrw.formal-release-preflight.v1",
+  "status": "PASS"
+}

@@ -1,0 +1,21 @@
+{
+  "schema_version": "mrw.stage3.local-test-cleanup.v1",
+  "authoritative": false,
+  "candidate": {
+    "commit": "8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+    "tree": "ce7c67c831b51f9d64b4c2f1a470a724a50b19df",
+    "candidate_status_lines": 0,
+    "replay_status_lines": 0
+  },
+  "owner": "r13x-tests",
+  "observed_after_all_test_commands": {
+    "labeled_containers": 0,
+    "labeled_volumes": 0,
+    "labeled_networks": 0,
+    "containers_with_mrw_r13x_tests_name_prefix": 0,
+    "private_tmp_mrw_r13x_tests_paths": 0,
+    "private_tmp_architecture_paths": 0
+  },
+  "status": "PASS",
+  "scope": "Task-owned PostgreSQL, Unix-socket, workcopy and architecture-tool temporary resources only; unrelated resources were not modified."
+}

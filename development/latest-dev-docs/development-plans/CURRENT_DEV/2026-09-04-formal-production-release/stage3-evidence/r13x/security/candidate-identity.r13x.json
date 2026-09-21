@@ -1,0 +1,35 @@
+{
+  "authoritative": false,
+  "candidate": {
+    "clean_after": true,
+    "clean_before": true,
+    "commit": "8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+    "root": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260912-v4-r13x/candidate",
+    "tree": "ce7c67c831b51f9d64b4c2f1a470a724a50b19df"
+  },
+  "generated_at_utc": "2026-09-12T16:08:59.049575Z",
+  "schema_version": "mrw.stage3.security-candidate-identity.v1",
+  "source_inputs": {
+    "frontend_lock": {
+      "bytes": 149946,
+      "path": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260912-v4-r13x/candidate/main/frontend-modern/pnpm-lock.yaml",
+      "sha256": "ea0320bbe698b77edf557820c4f739cd9b579b90b98919b996fa6b38c503491d"
+    },
+    "frontend_package": {
+      "bytes": 3626,
+      "path": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260912-v4-r13x/candidate/main/frontend-modern/package.json",
+      "sha256": "1b6f61b17626e79538454c9de4e3fbe8b82113f368dff230812003e99469e381"
+    },
+    "runtime_lock": {
+      "bytes": 262175,
+      "path": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260912-v4-r13x/candidate/main/backend/requirements-runtime-linux-amd64-py311.lock.txt",
+      "sha256": "f4c95ba57ed4edacd88224ad835fb6d256a46cdc3aa2fbaf7079e1a467c342b0"
+    }
+  },
+  "status": "PASS",
+  "workflow": {
+    "bytes": 78330,
+    "path": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260912-v4-r13x/candidate/.github/workflows/backend-tests.yml",
+    "sha256": "47225ea8db96ed23e361e7480fa6d22db78be405e5e4d5dc5d4a2edac1bd1b7f"
+  }
+}

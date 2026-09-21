@@ -1,0 +1,23 @@
+{
+  "attestation_subject_binding": "PASS",
+  "authoritative": false,
+  "blocker": {
+    "cause": "backend Dockerfile retains build-time-dependent /var/log/apk.log in the shared APK layer",
+    "evidence": "artifact-comparison.json",
+    "id": "R13W-APK-LOG-NONDETERMINISM",
+    "required_fix": "remove /var/log/apk.log in the pinned APK installation RUN, then freeze and qualify a new successor",
+    "scope": [
+      "backend",
+      "migration-runner"
+    ]
+  },
+  "builds": "PASS",
+  "cleanup": "COMPLETED_WITH_RELEASE_INPUTS_RETAINED",
+  "docker_load": "PASS",
+  "reproducibility": "FAIL",
+  "schema_version": "mrw.stage3.local-artifacts-result.v1",
+  "source_commit": "6aa7518750f2c29229a443f73248c8133f192e4d",
+  "source_tree": "9853f36db67a5b62c297f6266bc4d0861a28c396",
+  "status": "FAIL",
+  "vulnerability_threshold": "PASS"
+}

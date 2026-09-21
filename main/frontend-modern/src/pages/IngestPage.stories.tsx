@@ -53,6 +53,15 @@ function createIngestViewProps(overrides: Partial<IngestPageViewProps> = {}): In
     setForm: (() => undefined) as IngestPageViewProps['setForm'],
     actionPending: false,
     actionMessage: '准备执行采集任务',
+    actionStatus: {
+      phase: 'idle',
+      name: '准备执行采集任务',
+      message: '准备执行采集任务',
+      degradationFlags: [],
+    },
+    retrievalRunReadback: null,
+    retrievalRunReadbackPending: false,
+    retrievalRunReadbackError: '',
     sourceItemList: [
       {
         item_key: 'market_monitor',
@@ -125,6 +134,7 @@ function createIngestViewProps(overrides: Partial<IngestPageViewProps> = {}): In
     onIngestDataApi: () => undefined,
     onIngestCommodity: () => undefined,
     onIngestEcom: () => undefined,
+    onLoadRetrievalRunReadback: () => undefined,
     onSubmitAgentBatch: () => undefined,
     onSubmitNlAgentBatch: () => undefined,
     onRefreshBatchStatus: () => undefined,
@@ -267,6 +277,7 @@ export const ContainerActionError: Story = {
     applyIngestMocks('market-error')
   },
   play: async ({ canvas }) => {
+    await userEvent.type(canvas.getByRole('textbox', { name: '查询词' }), 'robotics market')
     await userEvent.click(canvas.getByRole('button', { name: '市场采集' }))
     await expect(canvas.getByText('市场采集 失败: provider unavailable')).toBeInTheDocument()
   },

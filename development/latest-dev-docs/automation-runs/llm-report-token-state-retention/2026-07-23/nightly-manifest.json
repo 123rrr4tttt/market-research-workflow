@@ -1,0 +1,43 @@
+{
+  "counts": {
+    "candidate_count": 0,
+    "deleted_count": 0,
+    "memory_candidate_count": 0,
+    "memory_deleted_count": 0
+  },
+  "current": {
+    "contract_version": "llm_report.export_token_state_cleanup_script.v1",
+    "finished_at_utc": "2026-07-23T16:48:19.551974+00:00",
+    "mode": "dry_run",
+    "run_id": "4e3b466e-8fa8-4dee-9767-9818b5d79318",
+    "started_at_utc": "2026-07-23T16:48:19.224756+00:00",
+    "status": "degraded"
+  },
+  "degraded": {
+    "flag": true,
+    "token_state_store_degraded": true
+  },
+  "fail_on_degraded": false,
+  "generated_at": "2026-07-23T16:48:19Z",
+  "lane": "llm_report_token_state_retention_nightly",
+  "mode": "dry_run",
+  "paths": {
+    "artifact": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/automation-runs/llm-report-token-state-retention/2026-07-23/retention-report.json",
+    "history": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/automation-runs/llm-report-token-state-retention/trend-history.jsonl"
+  },
+  "query_window": {
+    "activity_cutoff": "2026-06-23T16:48:19.399502+00:00"
+  },
+  "retention_days": 30,
+  "retention_plan": {
+    "dry_run": true,
+    "include_active_tokens": false,
+    "retention_days": 30
+  },
+  "run_date": "2026-07-23",
+  "schema_version": "llm_report_token_state_retention_nightly_manifest.v1",
+  "status": "degraded",
+  "validation": {
+    "cleanup_exit_code": 0
+  }
+}

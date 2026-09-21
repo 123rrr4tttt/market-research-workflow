@@ -19,6 +19,7 @@ CAPABILITY_SHARED_MODULES = frozenset(
         "catalog",
         "checksum",
         "codecs",
+        "failure",
         "agent_core_c6_common",
         "ingest_c7_common",
         "c8_common",
@@ -224,6 +225,23 @@ def _is_capability_direct_import(
     if target not in nodes:
         return False
     target_head = target.split(".", 1)[1] if "." in target else target
+    importer_head = importer.split(".", 1)[1] if "." in importer else importer
+    # Capability families may split contracts, programs and interpreters into
+    # modules that depend on their family's canonical contract module. Keep
+    # only those explicit root edges legal; sibling-to-sibling imports remain
+    # rejected (for example fixture -> first_specimen).
+    family_roots = (
+        "first_specimen",
+        "agent_core_c6_1",
+        "agent_core_c6_2",
+        "agent_core_c6_3",
+    )
+    for family_root in family_roots:
+        if importer_head == family_root or importer_head.startswith(family_root + "_"):
+            return not (
+                target_head == family_root
+                or target_head in CAPABILITY_SHARED_MODULES
+            )
     return target_head not in CAPABILITY_SHARED_MODULES
 
 

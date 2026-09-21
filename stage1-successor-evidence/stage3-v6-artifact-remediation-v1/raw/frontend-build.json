@@ -1,0 +1,20 @@
+{
+  "artifacts": [
+    {
+      "path": "/Users/wangyiliang/market-research-workflow/stage1-successor-evidence/stage3-v6-artifact-remediation-v1/raw/frontend-build.log",
+      "sha256": "17e912cde2c42ee123eb7ebe6763158cc4f94b0112621f12850fa7cc8e1fe967"
+    }
+  ],
+  "authoritative": false,
+  "command": [
+    "pnpm",
+    "build"
+  ],
+  "cwd": "/Users/wangyiliang/market-research-workflow/main/frontend-modern",
+  "elapsed_seconds": 11.200273990631104,
+  "environment": {
+    "DO_NOT_TRACK": "1",
+    "STORYBOOK_DISABLE_TELEMETRY": "1"
+  },
+  "exit_code": 0
+}

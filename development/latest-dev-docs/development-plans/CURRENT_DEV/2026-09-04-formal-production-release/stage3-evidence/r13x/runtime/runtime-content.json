@@ -1,0 +1,55 @@
+{
+  "authoritative": false,
+  "cmd": [
+    "uvicorn",
+    "app.main:app",
+    "--host",
+    "0.0.0.0",
+    "--port",
+    "8000"
+  ],
+  "compose_assertions": {
+    "backend_build_absent": true,
+    "backend_health_argv_exact": true,
+    "backend_image_exact": true,
+    "backend_source_mounts_absent": true,
+    "frontend_build_absent": true,
+    "frontend_image_exact": true,
+    "worker_build_absent": true,
+    "worker_image_exact": true,
+    "worker_source_mounts_absent": true
+  },
+  "compose_health_argv": [
+    "CMD",
+    "curl",
+    "-f",
+    "http://localhost:8000/api/v1/health"
+  ],
+  "content_paths": [
+    "/app/alembic.ini",
+    "/app/migrations",
+    "/app/app",
+    "/opt/mrw/src"
+  ],
+  "entrypoint": [
+    "/docker-entrypoint.sh"
+  ],
+  "forbidden_tools_absent": [
+    "git",
+    "gcc"
+  ],
+  "imports": [
+    "fastapi",
+    "functorial_kit",
+    "psycopg2",
+    "psutil",
+    "app.main"
+  ],
+  "pip_check": true,
+  "required_tools": [
+    "bash",
+    "curl",
+    "pg_isready"
+  ],
+  "status": "PASS"
+}

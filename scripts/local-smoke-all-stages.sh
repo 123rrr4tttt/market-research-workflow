@@ -89,6 +89,7 @@ for method, path, payload in checks:
 
 # workflow-graph compile -> run -> status -> events -> compiled
 workflow_dsl = {
+    "project_key": "demo_proj",
     "dsl": {
         "version": "1.0",
         "options": {"strict": True},
@@ -111,7 +112,11 @@ graph_id = (((body or {}).get("data") or {}).get("graph_id") or "")
 if not graph_id:
     failed.append(("POST", "/api/v1/workflow-graph/compile", "missing_graph_id"))
 
-code, body = request("POST", "/api/v1/workflow-graph/run", {"graph_id": graph_id, "input": {"query": "market research"}})
+code, body = request(
+    "POST",
+    "/api/v1/workflow-graph/run",
+    {"project_key": "demo_proj", "graph_id": graph_id, "input": {"query": "market research"}},
+)
 print(f'POST /api/v1/workflow-graph/run -> {code}')
 if code != 200:
     failed.append(("POST", "/api/v1/workflow-graph/run", code))

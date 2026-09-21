@@ -1,0 +1,24 @@
+{
+  "owner": "recovery-work-package",
+  "status": "RUN_IN_PROGRESS",
+  "observed_at": "2026-09-13T09:36:00+08:00",
+  "static_preflight": {
+    "python_compile": "PASS",
+    "compose_config": "PASS"
+  },
+  "active_command": "python3 stage5-evidence/recovery/run-recovery.py",
+  "compose_project": "mrw-stage5-recovery",
+  "progress": [
+    "retained final C9 image and migration runner identities fixed",
+    "dedicated Compose project/port/volumes and two independent PostgreSQL instances configured",
+    "real run started; snapshot restore, seed, effect, backup and restore pending"
+  ],
+  "blocker": null,
+  "write_boundary": [
+    "stage5-evidence/recovery/recovery-progress.recovery-agent.json",
+    "stage5-evidence/recovery/recovery-result.json",
+    "stage5-evidence/recovery/*.log",
+    "stage5-evidence/recovery/stage5-task-data.dump"
+  ],
+  "authoritative": false
+}

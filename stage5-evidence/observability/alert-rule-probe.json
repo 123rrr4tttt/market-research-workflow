@@ -1,0 +1,1731 @@
+{
+  "authoritative": false,
+  "classification": "in-process semantic probe using typed runtime source snapshots and actual elapsed HTTP latency values; distinct from real collector observation and external authority",
+  "completed_at": "2026-09-13T10:14:47.864917+00:00",
+  "evaluations": [
+    {
+      "alerts": [
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "domain-rejection",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "route-error",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "release-error",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": 1.0,
+          "reason": "still_triggered",
+          "rule_id": "stage5-local-queue",
+          "state": "triggered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "stage5-local-db-connection",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "stage5-local-provider-failure",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "stage5-local-authority-mismatch",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "stage5-local-projection-drift",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "stage5-local-request-latency",
+          "state": "unknown",
+          "transition": "unknown"
+        }
+      ],
+      "production_receipt_valid": true,
+      "receipt_path": "controller-derived local/runtime receipt replayed with matching observations",
+      "source": {
+        "runtime_source_snapshot": {
+          "database": {
+            "checked_out": 1,
+            "connection_status": "ok",
+            "pool_limit": 15,
+            "pool_size": 10,
+            "pool_status": "ok",
+            "source": "sqlalchemy.engine:select_1+pool_status"
+          },
+          "labels": {},
+          "observed_at": "2026-09-13T10:14:47.851859+00:00",
+          "provider": {
+            "simulated": true,
+            "source": "stage5-local-env-provider-failure",
+            "status": "simulated_healthy"
+          },
+          "queue": {
+            "depth": 1,
+            "read_status": "ok",
+            "source": "redis.broker.llen:celery"
+          },
+          "runtime_binding": {
+            "authority_status": "bound",
+            "projection_release_status": "match",
+            "source": "app.state.production_runtime_bindings+release_identity"
+          }
+        }
+      },
+      "step": "queue_trigger"
+    },
+    {
+      "alerts": [
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "domain-rejection",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "route-error",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "release-error",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "recover_threshold_crossed",
+          "rule_id": "stage5-local-queue",
+          "state": "recovered",
+          "transition": "recovered"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "stage5-local-db-connection",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "stage5-local-provider-failure",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "stage5-local-authority-mismatch",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "stage5-local-projection-drift",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "stage5-local-request-latency",
+          "state": "unknown",
+          "transition": "unknown"
+        }
+      ],
+      "production_receipt_valid": true,
+      "receipt_path": "controller-derived local/runtime receipt replayed with matching observations",
+      "source": {
+        "runtime_source_snapshot": {
+          "database": {
+            "checked_out": 1,
+            "connection_status": "ok",
+            "pool_limit": 15,
+            "pool_size": 10,
+            "pool_status": "ok",
+            "source": "sqlalchemy.engine:select_1+pool_status"
+          },
+          "labels": {},
+          "observed_at": "2026-09-13T10:14:47.853290+00:00",
+          "provider": {
+            "simulated": true,
+            "source": "stage5-local-env-provider-failure",
+            "status": "simulated_healthy"
+          },
+          "queue": {
+            "depth": 0,
+            "read_status": "ok",
+            "source": "redis.broker.llen:celery"
+          },
+          "runtime_binding": {
+            "authority_status": "bound",
+            "projection_release_status": "match",
+            "source": "app.state.production_runtime_bindings+release_identity"
+          }
+        }
+      },
+      "step": "queue_recovery"
+    },
+    {
+      "alerts": [
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "domain-rejection",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "route-error",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "release-error",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "stage5-local-queue",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": 1.0,
+          "reason": "still_triggered",
+          "rule_id": "stage5-local-db-connection",
+          "state": "triggered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "stage5-local-provider-failure",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "stage5-local-authority-mismatch",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "stage5-local-projection-drift",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "stage5-local-request-latency",
+          "state": "unknown",
+          "transition": "unknown"
+        }
+      ],
+      "production_receipt_valid": true,
+      "receipt_path": "controller-derived local/runtime receipt replayed with matching observations",
+      "source": {
+        "runtime_source_snapshot": {
+          "database": {
+            "checked_out": 1,
+            "connection_status": "error: OperationalError",
+            "pool_limit": 15,
+            "pool_size": 10,
+            "pool_status": "error: pool_exhausted",
+            "source": "sqlalchemy.engine:select_1+pool_status"
+          },
+          "labels": {},
+          "observed_at": "2026-09-13T10:14:47.854114+00:00",
+          "provider": {
+            "simulated": true,
+            "source": "stage5-local-env-provider-failure",
+            "status": "simulated_healthy"
+          },
+          "queue": {
+            "depth": 0,
+            "read_status": "ok",
+            "source": "redis.broker.llen:celery"
+          },
+          "runtime_binding": {
+            "authority_status": "bound",
+            "projection_release_status": "match",
+            "source": "app.state.production_runtime_bindings+release_identity"
+          }
+        }
+      },
+      "step": "db_connection_trigger"
+    },
+    {
+      "alerts": [
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "domain-rejection",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "route-error",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "release-error",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "stage5-local-queue",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "recover_threshold_crossed",
+          "rule_id": "stage5-local-db-connection",
+          "state": "recovered",
+          "transition": "recovered"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "stage5-local-provider-failure",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "stage5-local-authority-mismatch",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "stage5-local-projection-drift",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "stage5-local-request-latency",
+          "state": "unknown",
+          "transition": "unknown"
+        }
+      ],
+      "production_receipt_valid": true,
+      "receipt_path": "controller-derived local/runtime receipt replayed with matching observations",
+      "source": {
+        "runtime_source_snapshot": {
+          "database": {
+            "checked_out": 1,
+            "connection_status": "ok",
+            "pool_limit": 15,
+            "pool_size": 10,
+            "pool_status": "ok",
+            "source": "sqlalchemy.engine:select_1+pool_status"
+          },
+          "labels": {},
+          "observed_at": "2026-09-13T10:14:47.854579+00:00",
+          "provider": {
+            "simulated": true,
+            "source": "stage5-local-env-provider-failure",
+            "status": "simulated_healthy"
+          },
+          "queue": {
+            "depth": 0,
+            "read_status": "ok",
+            "source": "redis.broker.llen:celery"
+          },
+          "runtime_binding": {
+            "authority_status": "bound",
+            "projection_release_status": "match",
+            "source": "app.state.production_runtime_bindings+release_identity"
+          }
+        }
+      },
+      "step": "db_connection_recovery"
+    },
+    {
+      "alerts": [
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "domain-rejection",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "route-error",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "release-error",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "stage5-local-queue",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "stage5-local-db-connection",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": 1.0,
+          "reason": "still_triggered",
+          "rule_id": "stage5-local-provider-failure",
+          "state": "triggered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "stage5-local-authority-mismatch",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "stage5-local-projection-drift",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "stage5-local-request-latency",
+          "state": "unknown",
+          "transition": "unknown"
+        }
+      ],
+      "production_receipt_valid": true,
+      "receipt_path": "controller-derived local/runtime receipt replayed with matching observations",
+      "source": {
+        "runtime_source_snapshot": {
+          "database": {
+            "checked_out": 1,
+            "connection_status": "ok",
+            "pool_limit": 15,
+            "pool_size": 10,
+            "pool_status": "ok",
+            "source": "sqlalchemy.engine:select_1+pool_status"
+          },
+          "labels": {},
+          "observed_at": "2026-09-13T10:14:47.855098+00:00",
+          "provider": {
+            "simulated": true,
+            "source": "stage5-local-env-provider-failure",
+            "status": "simulated_failure"
+          },
+          "queue": {
+            "depth": 0,
+            "read_status": "ok",
+            "source": "redis.broker.llen:celery"
+          },
+          "runtime_binding": {
+            "authority_status": "bound",
+            "projection_release_status": "match",
+            "source": "app.state.production_runtime_bindings+release_identity"
+          }
+        }
+      },
+      "step": "provider_failure_trigger"
+    },
+    {
+      "alerts": [
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "domain-rejection",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "route-error",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "release-error",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "stage5-local-queue",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "stage5-local-db-connection",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "recover_threshold_crossed",
+          "rule_id": "stage5-local-provider-failure",
+          "state": "recovered",
+          "transition": "recovered"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "stage5-local-authority-mismatch",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "stage5-local-projection-drift",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "stage5-local-request-latency",
+          "state": "unknown",
+          "transition": "unknown"
+        }
+      ],
+      "production_receipt_valid": true,
+      "receipt_path": "controller-derived local/runtime receipt replayed with matching observations",
+      "source": {
+        "runtime_source_snapshot": {
+          "database": {
+            "checked_out": 1,
+            "connection_status": "ok",
+            "pool_limit": 15,
+            "pool_size": 10,
+            "pool_status": "ok",
+            "source": "sqlalchemy.engine:select_1+pool_status"
+          },
+          "labels": {},
+          "observed_at": "2026-09-13T10:14:47.855510+00:00",
+          "provider": {
+            "simulated": true,
+            "source": "stage5-local-env-provider-failure",
+            "status": "simulated_healthy"
+          },
+          "queue": {
+            "depth": 0,
+            "read_status": "ok",
+            "source": "redis.broker.llen:celery"
+          },
+          "runtime_binding": {
+            "authority_status": "bound",
+            "projection_release_status": "match",
+            "source": "app.state.production_runtime_bindings+release_identity"
+          }
+        }
+      },
+      "step": "provider_failure_recovery"
+    },
+    {
+      "alerts": [
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "domain-rejection",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "route-error",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "release-error",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "stage5-local-queue",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "stage5-local-db-connection",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "stage5-local-provider-failure",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": 1.0,
+          "reason": "still_triggered",
+          "rule_id": "stage5-local-authority-mismatch",
+          "state": "triggered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "stage5-local-projection-drift",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "stage5-local-request-latency",
+          "state": "unknown",
+          "transition": "unknown"
+        }
+      ],
+      "production_receipt_valid": true,
+      "receipt_path": "controller-derived local/runtime receipt replayed with matching observations",
+      "source": {
+        "runtime_source_snapshot": {
+          "database": {
+            "checked_out": 1,
+            "connection_status": "ok",
+            "pool_limit": 15,
+            "pool_size": 10,
+            "pool_status": "ok",
+            "source": "sqlalchemy.engine:select_1+pool_status"
+          },
+          "labels": {},
+          "observed_at": "2026-09-13T10:14:47.856003+00:00",
+          "provider": {
+            "simulated": true,
+            "source": "stage5-local-env-provider-failure",
+            "status": "simulated_healthy"
+          },
+          "queue": {
+            "depth": 0,
+            "read_status": "ok",
+            "source": "redis.broker.llen:celery"
+          },
+          "runtime_binding": {
+            "authority_status": "unbound",
+            "projection_release_status": "match",
+            "source": "app.state.production_runtime_bindings+release_identity"
+          }
+        }
+      },
+      "step": "authority_mismatch_trigger"
+    },
+    {
+      "alerts": [
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "domain-rejection",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "route-error",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "release-error",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "stage5-local-queue",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "stage5-local-db-connection",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "stage5-local-provider-failure",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "recover_threshold_crossed",
+          "rule_id": "stage5-local-authority-mismatch",
+          "state": "recovered",
+          "transition": "recovered"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "stage5-local-projection-drift",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "stage5-local-request-latency",
+          "state": "unknown",
+          "transition": "unknown"
+        }
+      ],
+      "production_receipt_valid": true,
+      "receipt_path": "controller-derived local/runtime receipt replayed with matching observations",
+      "source": {
+        "runtime_source_snapshot": {
+          "database": {
+            "checked_out": 1,
+            "connection_status": "ok",
+            "pool_limit": 15,
+            "pool_size": 10,
+            "pool_status": "ok",
+            "source": "sqlalchemy.engine:select_1+pool_status"
+          },
+          "labels": {},
+          "observed_at": "2026-09-13T10:14:47.856769+00:00",
+          "provider": {
+            "simulated": true,
+            "source": "stage5-local-env-provider-failure",
+            "status": "simulated_healthy"
+          },
+          "queue": {
+            "depth": 0,
+            "read_status": "ok",
+            "source": "redis.broker.llen:celery"
+          },
+          "runtime_binding": {
+            "authority_status": "bound",
+            "projection_release_status": "match",
+            "source": "app.state.production_runtime_bindings+release_identity"
+          }
+        }
+      },
+      "step": "authority_mismatch_recovery"
+    },
+    {
+      "alerts": [
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "domain-rejection",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "route-error",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "release-error",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "stage5-local-queue",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "stage5-local-db-connection",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "stage5-local-provider-failure",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "stage5-local-authority-mismatch",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": 1.0,
+          "reason": "still_triggered",
+          "rule_id": "stage5-local-projection-drift",
+          "state": "triggered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "stage5-local-request-latency",
+          "state": "unknown",
+          "transition": "unknown"
+        }
+      ],
+      "production_receipt_valid": true,
+      "receipt_path": "controller-derived local/runtime receipt replayed with matching observations",
+      "source": {
+        "runtime_source_snapshot": {
+          "database": {
+            "checked_out": 1,
+            "connection_status": "ok",
+            "pool_limit": 15,
+            "pool_size": 10,
+            "pool_status": "ok",
+            "source": "sqlalchemy.engine:select_1+pool_status"
+          },
+          "labels": {},
+          "observed_at": "2026-09-13T10:14:47.858852+00:00",
+          "provider": {
+            "simulated": true,
+            "source": "stage5-local-env-provider-failure",
+            "status": "simulated_healthy"
+          },
+          "queue": {
+            "depth": 0,
+            "read_status": "ok",
+            "source": "redis.broker.llen:celery"
+          },
+          "runtime_binding": {
+            "authority_status": "bound",
+            "projection_release_status": "mismatch",
+            "source": "app.state.production_runtime_bindings+release_identity"
+          }
+        }
+      },
+      "step": "projection_drift_trigger"
+    },
+    {
+      "alerts": [
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "domain-rejection",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "route-error",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "release-error",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "stage5-local-queue",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "stage5-local-db-connection",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "stage5-local-provider-failure",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "stage5-local-authority-mismatch",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "recover_threshold_crossed",
+          "rule_id": "stage5-local-projection-drift",
+          "state": "recovered",
+          "transition": "recovered"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "stage5-local-request-latency",
+          "state": "unknown",
+          "transition": "unknown"
+        }
+      ],
+      "production_receipt_valid": true,
+      "receipt_path": "controller-derived local/runtime receipt replayed with matching observations",
+      "source": {
+        "runtime_source_snapshot": {
+          "database": {
+            "checked_out": 1,
+            "connection_status": "ok",
+            "pool_limit": 15,
+            "pool_size": 10,
+            "pool_status": "ok",
+            "source": "sqlalchemy.engine:select_1+pool_status"
+          },
+          "labels": {},
+          "observed_at": "2026-09-13T10:14:47.859893+00:00",
+          "provider": {
+            "simulated": true,
+            "source": "stage5-local-env-provider-failure",
+            "status": "simulated_healthy"
+          },
+          "queue": {
+            "depth": 0,
+            "read_status": "ok",
+            "source": "redis.broker.llen:celery"
+          },
+          "runtime_binding": {
+            "authority_status": "bound",
+            "projection_release_status": "match",
+            "source": "app.state.production_runtime_bindings+release_identity"
+          }
+        }
+      },
+      "step": "projection_drift_recovery"
+    },
+    {
+      "alerts": [
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "domain-rejection",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "route-error",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "release-error",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "stage5-local-queue",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "stage5-local-db-connection",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "stage5-local-provider-failure",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "stage5-local-authority-mismatch",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "stage5-local-projection-drift",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": 1.0,
+          "reason": "still_triggered",
+          "rule_id": "stage5-local-request-latency",
+          "state": "triggered",
+          "transition": "no_transition"
+        }
+      ],
+      "production_receipt_valid": true,
+      "receipt_path": "controller-derived local/runtime receipt replayed with matching observations",
+      "source": {
+        "http_status": 200,
+        "latency_seconds": 0.25
+      },
+      "step": "request_latency_trigger"
+    },
+    {
+      "alerts": [
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "domain-rejection",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "route-error",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "release-error",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "stage5-local-queue",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "stage5-local-db-connection",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "stage5-local-provider-failure",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "stage5-local-authority-mismatch",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "stage5-local-projection-drift",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "recover_threshold_crossed",
+          "rule_id": "stage5-local-request-latency",
+          "state": "recovered",
+          "transition": "recovered"
+        }
+      ],
+      "production_receipt_valid": true,
+      "receipt_path": "controller-derived local/runtime receipt replayed with matching observations",
+      "source": {
+        "http_status": 200,
+        "latency_seconds": 0.1
+      },
+      "step": "request_latency_recovery"
+    },
+    {
+      "alerts": [
+        {
+          "authority": false,
+          "latest_value": 1.0,
+          "reason": "still_triggered",
+          "rule_id": "domain-rejection",
+          "state": "triggered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "route-error",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "release-error",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "stage5-local-queue",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "stage5-local-db-connection",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "stage5-local-provider-failure",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "stage5-local-authority-mismatch",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "stage5-local-projection-drift",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "stage5-local-request-latency",
+          "state": "recovered",
+          "transition": "no_transition"
+        }
+      ],
+      "production_receipt_valid": true,
+      "receipt_path": "controller-derived local/runtime receipt replayed with matching observations",
+      "source": {
+        "http_status": 403,
+        "latency_seconds": 0.1
+      },
+      "step": "domain_rejection_trigger"
+    },
+    {
+      "alerts": [
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "recover_threshold_crossed",
+          "rule_id": "domain-rejection",
+          "state": "recovered",
+          "transition": "recovered"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "route-error",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "release-error",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "stage5-local-queue",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "stage5-local-db-connection",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "stage5-local-provider-failure",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "stage5-local-authority-mismatch",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "stage5-local-projection-drift",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "stage5-local-request-latency",
+          "state": "recovered",
+          "transition": "no_transition"
+        }
+      ],
+      "production_receipt_valid": true,
+      "receipt_path": "controller-derived local/runtime receipt replayed with matching observations",
+      "source": {
+        "http_status": 200,
+        "latency_seconds": 0.1
+      },
+      "step": "domain_rejection_recovery"
+    },
+    {
+      "alerts": [
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "domain-rejection",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": 1.0,
+          "reason": "still_triggered",
+          "rule_id": "route-error",
+          "state": "triggered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": 1.0,
+          "reason": "still_triggered",
+          "rule_id": "release-error",
+          "state": "triggered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "stage5-local-queue",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "stage5-local-db-connection",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "stage5-local-provider-failure",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "stage5-local-authority-mismatch",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "stage5-local-projection-drift",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "stage5-local-request-latency",
+          "state": "recovered",
+          "transition": "no_transition"
+        }
+      ],
+      "production_receipt_valid": true,
+      "receipt_path": "controller-derived local/runtime receipt replayed with matching observations",
+      "source": {
+        "http_status": 500,
+        "latency_seconds": 0.1
+      },
+      "step": "route_and_release_error_trigger"
+    },
+    {
+      "alerts": [
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "domain-rejection",
+          "state": "recovered",
+          "transition": "no_transition"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "recover_threshold_crossed",
+          "rule_id": "route-error",
+          "state": "recovered",
+          "transition": "recovered"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "recover_threshold_crossed",
+          "rule_id": "release-error",
+          "state": "recovered",
+          "transition": "recovered"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "stage5-local-queue",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "stage5-local-db-connection",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "stage5-local-provider-failure",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "stage5-local-authority-mismatch",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": null,
+          "reason": "no_production_observations",
+          "rule_id": "stage5-local-projection-drift",
+          "state": "unknown",
+          "transition": "unknown"
+        },
+        {
+          "authority": false,
+          "latest_value": 0.0,
+          "reason": "no_prior_alert",
+          "rule_id": "stage5-local-request-latency",
+          "state": "recovered",
+          "transition": "no_transition"
+        }
+      ],
+      "production_receipt_valid": true,
+      "receipt_path": "controller-derived local/runtime receipt replayed with matching observations",
+      "source": {
+        "http_status": 200,
+        "latency_seconds": 0.1
+      },
+      "step": "route_and_release_error_recovery"
+    }
+  ],
+  "exit_code": 0,
+  "gap_rule_coverage": {
+    "authority_mismatch": {
+      "metric_family": "authority.mismatch",
+      "rule_id": "stage5-local-authority-mismatch",
+      "trigger_then_recover": true
+    },
+    "db_connection": {
+      "metric_family": "database.connection_unavailable",
+      "rule_id": "stage5-local-db-connection",
+      "trigger_then_recover": true
+    },
+    "projection_drift": {
+      "metric_family": "projection.drift",
+      "rule_id": "stage5-local-projection-drift",
+      "trigger_then_recover": true
+    },
+    "provider_failure": {
+      "metric_family": "provider.failure",
+      "rule_id": "stage5-local-provider-failure",
+      "trigger_then_recover": true
+    },
+    "queue": {
+      "metric_family": "queue.depth",
+      "rule_id": "stage5-local-queue",
+      "trigger_then_recover": true
+    },
+    "request_latency": {
+      "metric_family": "request.latency_breach_rate",
+      "rule_id": "stage5-local-request-latency",
+      "trigger_then_recover": true
+    }
+  },
+  "local_gap_thresholds": {
+    "boolean_recover": 0.0,
+    "boolean_trigger": 1.0,
+    "latency_breach_seconds": 0.25,
+    "production_applicability": false,
+    "provenance": "local_stage5_validation_non_production",
+    "provider_failure_simulation": "typed local source status; no provider call"
+  },
+  "release_version": "1.0.0",
+  "rules": [
+    {
+      "direction": "above",
+      "domain": "platform",
+      "metric_family": "domain.rejection_rate",
+      "recover_threshold": 0.05,
+      "release_version": "1.0.0",
+      "route": "production-api",
+      "rule_id": "domain-rejection",
+      "trigger_threshold": 0.1
+    },
+    {
+      "direction": "above",
+      "domain": "platform",
+      "metric_family": "route.error_rate",
+      "recover_threshold": 0.01,
+      "release_version": "1.0.0",
+      "route": "production-api",
+      "rule_id": "route-error",
+      "trigger_threshold": 0.05
+    },
+    {
+      "direction": "above",
+      "domain": "platform",
+      "metric_family": "release_version.error_rate",
+      "recover_threshold": 0.01,
+      "release_version": "1.0.0",
+      "route": "production-api",
+      "rule_id": "release-error",
+      "trigger_threshold": 0.05
+    },
+    {
+      "direction": "above",
+      "domain": "platform",
+      "metric_family": "queue.depth",
+      "recover_threshold": 0.0,
+      "release_version": "1.0.0",
+      "route": "production-api",
+      "rule_id": "stage5-local-queue",
+      "trigger_threshold": 1.0
+    },
+    {
+      "direction": "above",
+      "domain": "platform",
+      "metric_family": "database.connection_unavailable",
+      "recover_threshold": 0.0,
+      "release_version": "1.0.0",
+      "route": "production-api",
+      "rule_id": "stage5-local-db-connection",
+      "trigger_threshold": 1.0
+    },
+    {
+      "direction": "above",
+      "domain": "platform",
+      "metric_family": "provider.failure",
+      "recover_threshold": 0.0,
+      "release_version": "1.0.0",
+      "route": "production-api",
+      "rule_id": "stage5-local-provider-failure",
+      "trigger_threshold": 1.0
+    },
+    {
+      "direction": "above",
+      "domain": "platform",
+      "metric_family": "authority.mismatch",
+      "recover_threshold": 0.0,
+      "release_version": "1.0.0",
+      "route": "production-api",
+      "rule_id": "stage5-local-authority-mismatch",
+      "trigger_threshold": 1.0
+    },
+    {
+      "direction": "above",
+      "domain": "platform",
+      "metric_family": "projection.drift",
+      "recover_threshold": 0.0,
+      "release_version": "1.0.0",
+      "route": "production-api",
+      "rule_id": "stage5-local-projection-drift",
+      "trigger_threshold": 1.0
+    },
+    {
+      "direction": "above",
+      "domain": "platform",
+      "metric_family": "request.latency_breach_rate",
+      "recover_threshold": 0.0,
+      "release_version": "1.0.0",
+      "route": "production-api",
+      "rule_id": "stage5-local-request-latency",
+      "trigger_threshold": 1.0
+    }
+  ],
+  "runtime_boundary": {
+    "actual_runtime_http_observation": "health 200, unauthenticated bound route 401, authenticated HTTP bound route 403, subsequent health 200",
+    "controller_state_export": "default Prometheus registry gauges are implemented; controller-state endpoint remains unexposed",
+    "probe_purpose": "validates installed rule trigger/recovery semantics without adding a platform endpoint or calling an external provider",
+    "recovery_receipt_requirement": "receipt-gated recovery remains installed; healthy observations alone cannot recover a latched alert",
+    "scrape_requirement": "real collector observation must be separately evidenced by the source-overlay Compose run"
+  },
+  "runtime_http_snapshots": [
+    "health=200 rc=0 unauth=401 rc=0 trigger=403 rc=0 recover=200 rc=0 post=403 rc=0"
+  ],
+  "runtime_id": "mrw-stage5-local-observability",
+  "schema": "mrw.stage5.observability.alert-rule-probe.v3"
+}

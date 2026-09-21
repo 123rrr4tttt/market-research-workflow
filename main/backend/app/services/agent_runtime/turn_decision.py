@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 import json
 import re
-from typing import Any, Protocol
+from typing import Annotated, Any, Protocol
 
 from .capability_registry import (
     classify_goal,
@@ -34,8 +34,7 @@ class AgentTurnDecisionPlanner(Protocol):
         project_key: str | None,
         routing_hints: dict[str, Any],
         tool_pool: dict[str, Any],
-    ) -> dict[str, Any]:
-        ...
+    ) -> dict[str, Any]: ...
 
 
 def _text(value: Any) -> str:
@@ -51,7 +50,10 @@ def _contains_any(text: str, tokens: Iterable[str]) -> bool:
 
 
 def _capability_map() -> dict[str, dict[str, Any]]:
-    return {str(item.get("capability_id") or ""): dict(item) for item in list_interactive_agent_capabilities()}
+    return {
+        str(item.get("capability_id") or ""): dict(item)
+        for item in list_interactive_agent_capabilities()
+    }
 
 
 def _capabilities_by_id(capability_ids: Iterable[str]) -> list[dict[str, Any]]:
@@ -64,19 +66,27 @@ def _capabilities_by_id(capability_ids: Iterable[str]) -> list[dict[str, Any]]:
             continue
         seen.add(key)
         capability = dict(capabilities.get(key) or {"capability_id": key, "name": key})
-        capability.setdefault("selection_reason", "selected by model-first turn decision")
+        capability.setdefault(
+            "selection_reason", "selected by model-first turn decision"
+        )
         out.append(capability)
     return out
 
 
-def build_routing_hints(message: str) -> dict[str, Any]:
+def build_routing_hints(message: str) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=goal+candidate_capabilities "
+    "witness=test:test_w02_agent_authority_metadata"
+]:
     candidate_capabilities = select_capabilities_for_goal(message)
     goal_class = classify_goal(message)
     return {
         "contract_version": "interactive_agent.routing_hints.v1",
         "goal_class": goal_class,
         "candidate_capability_ids": [
-            str(item.get("capability_id") or "") for item in candidate_capabilities if str(item.get("capability_id") or "")
+            str(item.get("capability_id") or "")
+            for item in candidate_capabilities
+            if str(item.get("capability_id") or "")
         ],
         "candidate_capabilities": candidate_capabilities,
         "rule_source": "classify_goal/select_capabilities_for_goal",
@@ -103,10 +113,18 @@ def normalize_turn_decision(
             agent_mode = "execute"
     selected_ids = [
         str(item or "").strip()
-        for item in list(decision.get("selected_capability_ids") or decision.get("capability_ids") or [])
+        for item in list(
+            decision.get("selected_capability_ids")
+            or decision.get("capability_ids")
+            or []
+        )
         if str(item or "").strip()
     ]
-    if action == "call_tools" and selected_ids and _has_project_data_read_capability(selected_ids):
+    if (
+        action == "call_tools"
+        and selected_ids
+        and _has_project_data_read_capability(selected_ids)
+    ):
         selected_capabilities = _capabilities_by_id(selected_ids)
         if selected_capabilities and all(
             str(item.get("concurrency_class") or "").strip() == "read_only"
@@ -119,21 +137,28 @@ def normalize_turn_decision(
         confidence_value = max(0.0, min(1.0, float(confidence)))
     except Exception:  # noqa: BLE001
         confidence_value = 0.5
-    answer_source = _text(decision.get("answer_source")) or ("model" if bool(decision.get("requires_model_answer")) else "direct")
+    answer_source = _text(decision.get("answer_source")) or (
+        "model" if bool(decision.get("requires_model_answer")) else "direct"
+    )
     direct_answer = _text(decision.get("direct_answer"))
-    requires_model_answer = bool(decision.get("requires_model_answer")) or (answer_source == "model" and not direct_answer)
+    requires_model_answer = bool(decision.get("requires_model_answer")) or (
+        answer_source == "model" and not direct_answer
+    )
     return {
         "contract_version": TURN_DECISION_CONTRACT_VERSION,
         "action": action,
         "agent_mode": agent_mode,
         "confidence": confidence_value,
-        "reason": _text(decision.get("reason")) or "turn decision normalized by model-first router",
+        "reason": _text(decision.get("reason"))
+        or "turn decision normalized by model-first router",
         "selected_capability_ids": selected_ids,
         "direct_answer": direct_answer,
         "clarifying_question": _text(decision.get("clarifying_question")),
         "answer_source": answer_source,
         "requires_model_answer": requires_model_answer,
-        "model_error": decision.get("model_error") if isinstance(decision.get("model_error"), dict) else None,
+        "model_error": decision.get("model_error")
+        if isinstance(decision.get("model_error"), dict)
+        else None,
         "repair_reason": _text(decision.get("repair_reason")),
         "routing_hints": routing_hints,
         "model_path": _text(decision.get("model_path")) or "unknown",
@@ -144,9 +169,15 @@ def normalize_turn_decision(
 def _has_project_data_read_capability(capability_ids: Iterable[str]) -> bool:
     for capability_id in capability_ids:
         item = str(capability_id or "").strip()
-        if item in {"project.summary.read", "project.structured_data.search", "project.context.bundle"}:
+        if item in {
+            "project.summary.read",
+            "project.structured_data.search",
+            "project.context.bundle",
+        }:
             return True
-        if item.startswith(("source_library.", "workflow_graph.", "agent_artifact.", "ingest.")):
+        if item.startswith(
+            ("source_library.", "workflow_graph.", "agent_artifact.", "ingest.")
+        ):
             return True
     return False
 
@@ -324,9 +355,23 @@ _WRITING_CONTEXT_TOKENS = (
 
 _WORKFLOW_TOKENS = ("workflow", "workflow_graph", "工作流", "graph")
 _ARTIFACT_TOKENS = ("artifact", "artifacts", "工件", "产物", "输出文件", "报告草稿")
-_INGEST_STATUS_TOKENS = ("ingest 状态", "ingest status", "采集状态", "source-library 状态")
+_INGEST_STATUS_TOKENS = (
+    "ingest 状态",
+    "ingest status",
+    "采集状态",
+    "source-library 状态",
+)
 
-_CONTROL_TOKENS = ("继续", "重试", "取消", "停止", "abort", "cancel", "retry", "continue")
+_CONTROL_TOKENS = (
+    "继续",
+    "重试",
+    "取消",
+    "停止",
+    "abort",
+    "cancel",
+    "retry",
+    "continue",
+)
 _CONTROL_MUTATION_TOKENS = ("重试", "取消", "停止", "abort", "cancel", "retry")
 
 _SOURCE_EXECUTION_TOKENS = (
@@ -513,7 +558,9 @@ class FastModelFirstTurnDecisionPlanner:
                 ],
             )
 
-        if _contains_any(text, _SESSION_STATUS_TOKENS) and not _contains_any(text, _PROJECT_READ_TOKENS):
+        if _contains_any(text, _SESSION_STATUS_TOKENS) and not _contains_any(
+            text, _PROJECT_READ_TOKENS
+        ):
             return self._decision(
                 action="call_tools",
                 agent_mode="conversation",
@@ -567,7 +614,10 @@ class FastModelFirstTurnDecisionPlanner:
                 agent_mode="read_only",
                 confidence=0.86,
                 reason="workflow graph inspection is read-only unless run is explicit",
-                selected_capability_ids=["workflow_graph.list", "workflow_graph.inspect"],
+                selected_capability_ids=[
+                    "workflow_graph.list",
+                    "workflow_graph.inspect",
+                ],
             )
 
         if _contains_any(text, _INGEST_STATUS_TOKENS):
@@ -585,12 +635,21 @@ class FastModelFirstTurnDecisionPlanner:
                 agent_mode="execute",
                 confidence=0.94,
                 reason="explicit workflow execution needs governed approval",
-                selected_capability_ids=["workflow_graph.inspect", "workflow_graph.run"],
+                selected_capability_ids=[
+                    "workflow_graph.inspect",
+                    "workflow_graph.run",
+                ],
             )
 
         if self._is_source_execution(text):
-            selected = ["source_library.item.list", "ingest.status.read", "ingest.source_library.run"]
-            if _contains_any(text, _PROJECT_MATERIAL_TOKENS) and not _contains_any(text, _SOURCE_LIBRARY_TOKENS):
+            selected = [
+                "source_library.item.list",
+                "ingest.status.read",
+                "ingest.source_library.run",
+            ]
+            if _contains_any(text, _PROJECT_MATERIAL_TOKENS) and not _contains_any(
+                text, _SOURCE_LIBRARY_TOKENS
+            ):
                 selected = [
                     "agent_session.context.read",
                     "project.context.bundle",
@@ -729,7 +788,12 @@ class FastModelFirstTurnDecisionPlanner:
 
     @staticmethod
     def _source_library_read_capabilities(text: str) -> list[str]:
-        selected = ["agent_session.context.read", "project.summary.read", "project.structured_data.search", "source_library.item.list"]
+        selected = [
+            "agent_session.context.read",
+            "project.summary.read",
+            "project.structured_data.search",
+            "source_library.item.list",
+        ]
         if _contains_any(text, _READ_ONLY_SEARCH_TOKENS):
             selected.append("source_library.item.search")
         if _contains_any(text, ("item_key", "详情", "明细", "inspect")):
@@ -743,7 +807,9 @@ class FastModelFirstTurnDecisionPlanner:
             return False
         if _contains_any(text, _REPORT_EXECUTION_TOKENS):
             return False
-        if _contains_any(text, _WRITING_CONTEXT_TOKENS) and _contains_any(text, _PROJECT_MATERIAL_TOKENS):
+        if _contains_any(text, _WRITING_CONTEXT_TOKENS) and _contains_any(
+            text, _PROJECT_MATERIAL_TOKENS
+        ):
             return False
         if (
             _contains_any(text, _PROJECT_MATERIAL_TOKENS)
@@ -751,13 +817,20 @@ class FastModelFirstTurnDecisionPlanner:
             and not _contains_any(text, _INTERNAL_CONTEXT_TOKENS)
         ):
             return False
-        if material_intent.category in {"internal_existing", "internal_generated"} and material_intent.material_state == "existing":
+        if (
+            material_intent.category in {"internal_existing", "internal_generated"}
+            and material_intent.material_state == "existing"
+        ):
             return True
         if _contains_any(text, _PROJECT_MATERIAL_TOKENS):
             return True
-        if _contains_any(text, _PROJECT_READ_TOKENS) or _contains_any(text, _SESSION_STATUS_TOKENS):
+        if _contains_any(text, _PROJECT_READ_TOKENS) or _contains_any(
+            text, _SESSION_STATUS_TOKENS
+        ):
             return True
-        if "总结" in text and ("当前项目" in text or "本项目" in text or "项目进展" in text):
+        if "总结" in text and (
+            "当前项目" in text or "本项目" in text or "项目进展" in text
+        ):
             return True
         if "summary" in text and "project" in text:
             return True
@@ -769,21 +842,34 @@ class FastModelFirstTurnDecisionPlanner:
         if _contains_any(text, _REPORT_EXECUTION_TOKENS):
             return False
         if not (
-            (_contains_any(text, _WRITING_CONTEXT_TOKENS) and _contains_any(text, _PROJECT_MATERIAL_TOKENS))
-            or (material_intent.work_context == "writing" and material_intent.category in {"internal_existing", "internal_generated"})
+            (
+                _contains_any(text, _WRITING_CONTEXT_TOKENS)
+                and _contains_any(text, _PROJECT_MATERIAL_TOKENS)
+            )
+            or (
+                material_intent.work_context == "writing"
+                and material_intent.category
+                in {"internal_existing", "internal_generated"}
+            )
         ):
             return False
-        if _contains_any(text, _SOURCE_LIBRARY_TOKENS) or _contains_any(text, _EXTERNAL_RESEARCH_TOKENS):
+        if _contains_any(text, _SOURCE_LIBRARY_TOKENS) or _contains_any(
+            text, _EXTERNAL_RESEARCH_TOKENS
+        ):
             return False
         return True
 
     @staticmethod
     def _is_workflow_read(text: str) -> bool:
-        return _contains_any(text, _WORKFLOW_TOKENS) and not _contains_any(text, _WORKFLOW_EXECUTION_TOKENS)
+        return _contains_any(text, _WORKFLOW_TOKENS) and not _contains_any(
+            text, _WORKFLOW_EXECUTION_TOKENS
+        )
 
     @staticmethod
     def _is_workflow_execution(text: str) -> bool:
-        return _contains_any(text, _WORKFLOW_TOKENS) and _contains_any(text, _WORKFLOW_EXECUTION_TOKENS + ("运行", "执行", "run"))
+        return _contains_any(text, _WORKFLOW_TOKENS) and _contains_any(
+            text, _WORKFLOW_EXECUTION_TOKENS + ("运行", "执行", "run")
+        )
 
     @staticmethod
     def _is_source_execution(text: str) -> bool:
@@ -797,27 +883,43 @@ class FastModelFirstTurnDecisionPlanner:
             and not _contains_any(text, _EXTERNAL_RESEARCH_TOKENS)
         ):
             return False
-        return _contains_any(text, _SOURCE_EXECUTION_TOKENS) and _contains_any(
-            text,
-            _SOURCE_LIBRARY_TOKENS + ("source",),
-        ) or (material_intent.category == "source_catalog" and material_intent.risk == "write_external")
+        return (
+            _contains_any(text, _SOURCE_EXECUTION_TOKENS)
+            and _contains_any(
+                text,
+                _SOURCE_LIBRARY_TOKENS + ("source",),
+            )
+            or (
+                material_intent.category == "source_catalog"
+                and material_intent.risk == "write_external"
+            )
+        )
 
     @staticmethod
     def _is_generic_collection_execution(text: str) -> bool:
         material_intent = classify_material_intent(text)
         if _contains_any(text, _SOURCE_LIBRARY_TOKENS):
             return False
-        if _contains_any(text, _WRITING_CONTEXT_TOKENS) and not _contains_any(text, _EXTERNAL_RESEARCH_TOKENS):
+        if _contains_any(text, _WRITING_CONTEXT_TOKENS) and not _contains_any(
+            text, _EXTERNAL_RESEARCH_TOKENS
+        ):
             return False
-        if _contains_any(text, _PROJECT_MATERIAL_TOKENS) and _contains_any(text, _INTERNAL_CONTEXT_TOKENS):
+        if _contains_any(text, _PROJECT_MATERIAL_TOKENS) and _contains_any(
+            text, _INTERNAL_CONTEXT_TOKENS
+        ):
             return False
         if material_intent.category in {"external_discovery", "external_ingest"}:
             return True
-        return _contains_any(text, _SOURCE_EXECUTION_TOKENS + ("搜集", "找资料", "collect", "crawl", "gather"))
+        return _contains_any(
+            text,
+            _SOURCE_EXECUTION_TOKENS + ("搜集", "找资料", "collect", "crawl", "gather"),
+        )
 
     @staticmethod
     def _is_external_research_execution(text: str) -> bool:
-        if _contains_any(text, _SOURCE_LIBRARY_TOKENS) and _contains_any(text, _READ_ONLY_SEARCH_TOKENS):
+        if _contains_any(text, _SOURCE_LIBRARY_TOKENS) and _contains_any(
+            text, _READ_ONLY_SEARCH_TOKENS
+        ):
             return False
         if not _contains_any(text, _ANALYSIS_ACTION_TOKENS):
             return False
@@ -827,7 +929,9 @@ class FastModelFirstTurnDecisionPlanner:
 class JsonModelTurnDecisionPlanner:
     """Model-backed turn decision planner for entry-level routing."""
 
-    def __init__(self, *, chat_model: Any | None = None, chat_model_factory: Any | None = None) -> None:
+    def __init__(
+        self, *, chat_model: Any | None = None, chat_model_factory: Any | None = None
+    ) -> None:
         self.chat_model = chat_model
         self.chat_model_factory = chat_model_factory
 
@@ -870,13 +974,15 @@ class JsonModelTurnDecisionPlanner:
         from app.services.llm.provider import get_local_fallback_chat
         from app.settings.config import settings
 
-        timeout = int(getattr(settings, "agent_chat_turn_decision_timeout_seconds", 8) or 8)
+        timeout = int(
+            getattr(settings, "agent_chat_turn_decision_timeout_seconds", 8) or 8
+        )
         self.chat_model = get_local_fallback_chat(
             temperature=0.0,
             max_tokens=700,
             timeout_seconds=timeout,
             codex_cli_timeout_seconds=timeout,
-            codex_cli_reasoning_effort="none",
+            codex_cli_reasoning_effort=None,
         )
         return self.chat_model
 
@@ -890,7 +996,9 @@ class JsonModelTurnDecisionPlanner:
     ) -> str:
         compact_tools = [
             {
-                "capability_id": tool.get("capability_id") or tool.get("tool_name") or tool.get("name"),
+                "capability_id": tool.get("capability_id")
+                or tool.get("tool_name")
+                or tool.get("name"),
                 "description": tool.get("description"),
                 "approval_level": tool.get("approval_level"),
                 "concurrency_class": tool.get("concurrency_class"),
@@ -980,7 +1088,9 @@ class GuardedModelTurnDecisionPlanner:
         if self._should_use_fast_guardrail(fast_decision):
             guarded = dict(fast_decision)
             guarded["model_path"] = "guarded_fast_before_model"
-            guarded["guarded_model_reason"] = "safety/control/direct-safe path does not need a routing model call"
+            guarded["guarded_model_reason"] = (
+                "safety/control/direct-safe path does not need a routing model call"
+            )
             return guarded
 
         try:
@@ -991,19 +1101,36 @@ class GuardedModelTurnDecisionPlanner:
                 tool_pool=tool_pool,
             )
         except Exception as exc:  # noqa: BLE001
-            guarded = self._fallback_after_model_error(message=message, fast_decision=fast_decision)
+            guarded = self._fallback_after_model_error(
+                message=message, fast_decision=fast_decision
+            )
             guarded["model_path"] = "guarded_fast_after_model_error"
-            guarded["model_error"] = {"type": exc.__class__.__name__, "message": self._safe_model_error_message(exc)}
+            guarded["model_error"] = {
+                "type": exc.__class__.__name__,
+                "message": self._safe_model_error_message(exc),
+            }
             return guarded
 
         action = str(model_decision.get("action") or "").strip()
-        selected = [str(item or "").strip() for item in list(model_decision.get("selected_capability_ids") or []) if str(item or "").strip()]
+        selected = [
+            str(item or "").strip()
+            for item in list(model_decision.get("selected_capability_ids") or [])
+            if str(item or "").strip()
+        ]
         if action in {"call_tools", "request_approval"} and not selected:
             repaired = dict(model_decision)
-            repaired["selected_capability_ids"] = list(fast_decision.get("selected_capability_ids") or [])
-            repaired["agent_mode"] = repaired.get("agent_mode") or fast_decision.get("agent_mode")
-            repaired["model_path"] = f"{repaired.get('model_path') or 'json_model_turn_decision'}+fast_capability_repair"
-            repaired["repair_reason"] = "model chose a tool action without concrete tools; reused fast guarded tool selection"
+            repaired["selected_capability_ids"] = list(
+                fast_decision.get("selected_capability_ids") or []
+            )
+            repaired["agent_mode"] = repaired.get("agent_mode") or fast_decision.get(
+                "agent_mode"
+            )
+            repaired["model_path"] = (
+                f"{repaired.get('model_path') or 'json_model_turn_decision'}+fast_capability_repair"
+            )
+            repaired["repair_reason"] = (
+                "model chose a tool action without concrete tools; reused fast guarded tool selection"
+            )
             return repaired
         return model_decision
 
@@ -1011,7 +1138,11 @@ class GuardedModelTurnDecisionPlanner:
     def _should_use_fast_guardrail(decision: dict[str, Any]) -> bool:
         action = str(decision.get("action") or "").strip()
         agent_mode = str(decision.get("agent_mode") or "").strip()
-        selected = [str(item or "").strip() for item in list(decision.get("selected_capability_ids") or []) if str(item or "").strip()]
+        selected = [
+            str(item or "").strip()
+            for item in list(decision.get("selected_capability_ids") or [])
+            if str(item or "").strip()
+        ]
         direct_answer = str(decision.get("direct_answer") or "").strip()
         requires_model_answer = bool(decision.get("requires_model_answer"))
         if action == "request_approval":
@@ -1025,7 +1156,9 @@ class GuardedModelTurnDecisionPlanner:
         return False
 
     @staticmethod
-    def _fallback_after_model_error(*, message: str, fast_decision: dict[str, Any]) -> dict[str, Any]:
+    def _fallback_after_model_error(
+        *, message: str, fast_decision: dict[str, Any]
+    ) -> dict[str, Any]:
         if GuardedModelTurnDecisionPlanner._looks_like_project_context_query(message):
             return {
                 "contract_version": TURN_DECISION_CONTRACT_VERSION,
@@ -1052,12 +1185,45 @@ class GuardedModelTurnDecisionPlanner:
         text = str(message or "").strip().lower()
         if not text:
             return False
-        project_markers = ("项目", "本项目", "当前项目", "workspace", "工作区", "库里", "系统里", "应用里", "project")
-        data_markers = ("数据", "资料", "材料", "证据", "database", "数据库", "有哪些", "有什么", "可以用")
-        availability_markers = ("有哪些", "有什么", "可以用", "能用", "现在", "当前", "已有", "现有", "available")
+        project_markers = (
+            "项目",
+            "本项目",
+            "当前项目",
+            "workspace",
+            "工作区",
+            "库里",
+            "系统里",
+            "应用里",
+            "project",
+        )
+        data_markers = (
+            "数据",
+            "资料",
+            "材料",
+            "证据",
+            "database",
+            "数据库",
+            "有哪些",
+            "有什么",
+            "可以用",
+        )
+        availability_markers = (
+            "有哪些",
+            "有什么",
+            "可以用",
+            "能用",
+            "现在",
+            "当前",
+            "已有",
+            "现有",
+            "available",
+        )
         if _contains_any(text, project_markers) and _contains_any(text, data_markers):
             return True
-        return _contains_any(text, ("数据", "资料", "材料", "证据", "来源", "source", "database", "数据库")) and _contains_any(
+        return _contains_any(
+            text,
+            ("数据", "资料", "材料", "证据", "来源", "source", "database", "数据库"),
+        ) and _contains_any(
             text,
             availability_markers,
         )
@@ -1079,7 +1245,11 @@ def build_turn_decision_plan(
     project_key: str | None,
     planner: AgentTurnDecisionPlanner | None,
     tool_pool: dict[str, Any],
-) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+) -> Annotated[
+    tuple[dict[str, Any], list[dict[str, Any]]],
+    "kit:non-authoritative derived_as=view fact_source=goal+conversation+candidate_capabilities "
+    "witness=test:test_w02_agent_authority_metadata"
+]:
     routing_hints = build_routing_hints(message)
     active_planner = planner or FastModelFirstTurnDecisionPlanner()
     raw_decision = active_planner.decide(
@@ -1088,6 +1258,8 @@ def build_turn_decision_plan(
         routing_hints=routing_hints,
         tool_pool=tool_pool,
     )
-    decision = normalize_turn_decision(raw_decision, message=message, routing_hints=routing_hints)
+    decision = normalize_turn_decision(
+        raw_decision, message=message, routing_hints=routing_hints
+    )
     selected_capabilities = _capabilities_by_id(decision["selected_capability_ids"])
     return decision, selected_capabilities

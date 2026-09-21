@@ -3,7 +3,7 @@ from __future__ import annotations
 from copy import deepcopy
 from datetime import datetime, timezone
 from threading import RLock
-from typing import Any
+from typing import Annotated, Any
 from uuid import uuid4
 import json
 import logging
@@ -13,12 +13,33 @@ from sqlalchemy import func, text
 from app.models.base import Base, SessionLocal, engine
 from app.models.entities import WorkflowGraphEvent, WorkflowGraphRun
 from app.settings.config import settings
+from app.services.projects.schema_initialization import run_serialized_schema_ddl
+from .contracts import raise_workflow_graph_legacy, workflow_graph_failure
 
 TERMINAL_STATUSES = {"succeeded", "failed"}
 NODE_STATUSES = {"queued", "running", "succeeded", "failed"}
 RUN_STATUSES = {"queued", "running", "succeeded", "failed"}
 
 logger = logging.getLogger("app.services.workflow_graph.store")
+
+
+def _raise_store_failure(
+    code: str,
+    message: str,
+    *,
+    exception_type: type[Exception] = ValueError,
+    cause: BaseException | None = None,
+) -> None:
+    failure = workflow_graph_failure(
+        code,
+        message,
+        owner="workflow_graph.store",
+        public_exception=exception_type,
+        public_message=message,
+        field="store",
+        index=-1,
+    )
+    raise_workflow_graph_legacy(failure, exception_type=exception_type, cause=cause)
 
 
 class InMemoryRunStore:
@@ -61,7 +82,7 @@ class InMemoryRunStore:
 
     def set_run_status(self, run_id: str, status: str) -> None:
         if status not in RUN_STATUSES:
-            raise ValueError(f"unsupported run status: {status}")
+            _raise_store_failure("contract_invalid", f"unsupported run status: {status}")
         with self._lock:
             run = self._must_get_run_ref(run_id)
             run["status"] = status
@@ -69,7 +90,7 @@ class InMemoryRunStore:
 
     def set_node_status(self, run_id: str, node_id: str, status: str) -> None:
         if status not in NODE_STATUSES:
-            raise ValueError(f"unsupported node status: {status}")
+            _raise_store_failure("contract_invalid", f"unsupported node status: {status}")
         with self._lock:
             run = self._must_get_run_ref(run_id)
             run["node_statuses"][node_id] = status
@@ -89,13 +110,16 @@ class InMemoryRunStore:
         payload: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         with self._lock:
-            self._must_get_run_ref(run_id)
-            event = {
-                "ts": _utcnow(),
-                "type": str(event_type),
-                "node_id": node_id,
-                "payload": deepcopy(payload or {}),
-            }
+            run = self._must_get_run_ref(run_id)
+            seq = len(self._events[run_id]) + 1
+            event = _build_event_record(
+                run_id=run_id,
+                seq=seq,
+                event_type=str(event_type),
+                node_id=node_id,
+                payload=payload,
+                run_metadata=run.get("metadata"),
+            )
             self._events[run_id].append(event)
             return deepcopy(event)
 
@@ -124,7 +148,7 @@ class InMemoryRunStore:
     def _must_get_run_ref(self, run_id: str) -> dict[str, Any]:
         run = self._runs.get(run_id)
         if run is None:
-            raise KeyError(f"run not found: {run_id}")
+            _raise_store_failure("object_not_found", f"run not found: {run_id}", exception_type=KeyError)
         return run
 
 
@@ -145,7 +169,7 @@ class InMemoryCompiledGraphStore:
         with self._lock:
             row = self._compiled.get(str(graph_id))
         if row is None:
-            raise KeyError(f"compiled graph not found: {graph_id}")
+            _raise_store_failure("object_not_found", f"compiled graph not found: {graph_id}", exception_type=KeyError)
         return deepcopy(row)
 
     def list_compiled(self, limit: int = 20) -> list[dict[str, Any]]:
@@ -158,13 +182,19 @@ class SqlRunStore:
     """DB-backed store for workflow graph runs/events/results."""
 
     def __init__(self) -> None:
-        with engine.begin() as conn:
+        def _create_tables(conn: Any) -> None:
             conn.execute(text('SET search_path TO "public"'))
             Base.metadata.create_all(
                 bind=conn,
                 tables=[WorkflowGraphRun.__table__, WorkflowGraphEvent.__table__],
                 checkfirst=True,
             )
+
+        run_serialized_schema_ddl(
+            engine,
+            schema_name="public",
+            operation=_create_tables,
+        )
 
     def create_run(
         self,
@@ -205,7 +235,7 @@ class SqlRunStore:
 
     def set_run_status(self, run_id: str, status: str) -> None:
         if status not in RUN_STATUSES:
-            raise ValueError(f"unsupported run status: {status}")
+            _raise_store_failure("contract_invalid", f"unsupported run status: {status}")
         with SessionLocal() as session:
             row = self._must_get_run_row(session, run_id)
             row.status = status
@@ -213,7 +243,7 @@ class SqlRunStore:
 
     def set_node_status(self, run_id: str, node_id: str, status: str) -> None:
         if status not in NODE_STATUSES:
-            raise ValueError(f"unsupported node status: {status}")
+            _raise_store_failure("contract_invalid", f"unsupported node status: {status}")
         with SessionLocal() as session:
             row = self._must_get_run_row(session, run_id)
             status_map = dict(row.node_statuses or {})
@@ -254,13 +284,16 @@ class SqlRunStore:
             )
             session.add(row)
             session.commit()
-            return {
-                "ts": _to_iso(row.ts),
-                "seq": seq,
-                "type": row.event_type,
-                "node_id": row.node_id,
-                "payload": deepcopy(row.payload or {}),
-            }
+            run_metadata = deepcopy((self._must_get_run_row(session, run_id).metadata_json or {}))
+            return _build_event_record(
+                run_id=run_id,
+                seq=seq,
+                event_type=row.event_type,
+                node_id=row.node_id,
+                payload=row.payload,
+                run_metadata=run_metadata,
+                created_at=_to_iso(row.ts),
+            )
 
     def get_run(self, run_id: str) -> dict[str, Any]:
         with SessionLocal() as session:
@@ -276,7 +309,8 @@ class SqlRunStore:
 
     def get_events(self, run_id: str) -> list[dict[str, Any]]:
         with SessionLocal() as session:
-            self._must_get_run_row(session, run_id)
+            run = self._must_get_run_row(session, run_id)
+            run_metadata = deepcopy(run.metadata_json or {})
             rows = (
                 session.query(WorkflowGraphEvent)
                 .filter(WorkflowGraphEvent.run_id == run_id)
@@ -284,13 +318,15 @@ class SqlRunStore:
                 .all()
             )
             return [
-                {
-                    "ts": _to_iso(row.ts),
-                    "seq": int(row.seq or 0),
-                    "type": row.event_type,
-                    "node_id": row.node_id,
-                    "payload": deepcopy(row.payload or {}),
-                }
+                _build_event_record(
+                    run_id=run_id,
+                    seq=int(row.seq or 0),
+                    event_type=row.event_type,
+                    node_id=row.node_id,
+                    payload=row.payload,
+                    run_metadata=run_metadata,
+                    created_at=_to_iso(row.ts),
+                )
                 for row in rows
             ]
 
@@ -310,7 +346,7 @@ class SqlRunStore:
     def _must_get_run_row(session: Any, run_id: str) -> WorkflowGraphRun:
         row = session.query(WorkflowGraphRun).filter(WorkflowGraphRun.run_id == run_id).one_or_none()
         if row is None:
-            raise KeyError(f"run not found: {run_id}")
+            _raise_store_failure("object_not_found", f"run not found: {run_id}", exception_type=KeyError)
         return row
 
 
@@ -320,7 +356,7 @@ class SqlCompiledGraphStore:
     _TABLE_NAME = "workflow_graph_compiled_artifacts"
 
     def __init__(self) -> None:
-        with engine.begin() as conn:
+        def _create_table(conn: Any) -> None:
             conn.execute(text('SET search_path TO "public"'))
             conn.execute(
                 text(
@@ -336,6 +372,12 @@ class SqlCompiledGraphStore:
                     """
                 )
             )
+
+        run_serialized_schema_ddl(
+            engine,
+            schema_name="public",
+            operation=_create_table,
+        )
 
     def save_compiled(self, record: dict[str, Any]) -> None:
         normalized = _normalize_compiled_record(record)
@@ -388,7 +430,7 @@ class SqlCompiledGraphStore:
                 {"graph_id": str(graph_id)},
             ).mappings().one_or_none()
         if row is None:
-            raise KeyError(f"compiled graph not found: {graph_id}")
+            _raise_store_failure("object_not_found", f"compiled graph not found: {graph_id}", exception_type=KeyError)
         return _normalize_compiled_payload(row.get("payload_json"))
 
     def list_compiled(self, limit: int = 20) -> list[dict[str, Any]]:
@@ -408,7 +450,11 @@ class SqlCompiledGraphStore:
         return [_normalize_compiled_payload(row.get("payload_json")) for row in rows]
 
 
-def build_run_store() -> InMemoryRunStore | SqlRunStore:
+def build_run_store() -> Annotated[
+    InMemoryRunStore | SqlRunStore,
+    "kit:prepared-command effect_boundary=workflow_graph_run_store "
+    "witness=test:test_w04_authority_metadata",
+]:
     """Construct runtime store with fail-closed option."""
     if not bool(getattr(settings, "workflow_graph_db_store_enabled", True)):
         return InMemoryRunStore()
@@ -416,12 +462,16 @@ def build_run_store() -> InMemoryRunStore | SqlRunStore:
         return SqlRunStore()
     except Exception as exc:  # noqa: BLE001
         if bool(getattr(settings, "workflow_graph_db_store_fail_closed", True)):
-            raise RuntimeError(f"workflow graph db store unavailable (fail-closed): {exc}") from exc
+            _raise_store_failure("store_unavailable", f"workflow graph db store unavailable (fail-closed): {exc}", exception_type=RuntimeError, cause=exc)
         logger.warning("workflow graph db store disabled by runtime error, fallback to memory: %s", exc)
         return InMemoryRunStore()
 
 
-def build_compiled_graph_store() -> InMemoryCompiledGraphStore | SqlCompiledGraphStore:
+def build_compiled_graph_store() -> Annotated[
+    InMemoryCompiledGraphStore | SqlCompiledGraphStore,
+    "kit:prepared-command effect_boundary=workflow_graph_compiled_store "
+    "witness=test:test_w04_authority_metadata",
+]:
     """Construct durable compiled graph store with the same fail-closed policy as run store."""
     if not bool(getattr(settings, "workflow_graph_db_store_enabled", True)):
         return InMemoryCompiledGraphStore()
@@ -429,9 +479,53 @@ def build_compiled_graph_store() -> InMemoryCompiledGraphStore | SqlCompiledGrap
         return SqlCompiledGraphStore()
     except Exception as exc:  # noqa: BLE001
         if bool(getattr(settings, "workflow_graph_db_store_fail_closed", True)):
-            raise RuntimeError(f"workflow graph compiled store unavailable (fail-closed): {exc}") from exc
+            _raise_store_failure("store_unavailable", f"workflow graph compiled store unavailable (fail-closed): {exc}", exception_type=RuntimeError, cause=exc)
         logger.warning("workflow graph compiled store disabled by runtime error, fallback to memory: %s", exc)
         return InMemoryCompiledGraphStore()
+
+
+def _build_event_record(
+    *,
+    run_id: str,
+    seq: int,
+    event_type: str,
+    node_id: str | None,
+    payload: dict[str, Any] | None,
+    run_metadata: dict[str, Any] | None,
+    created_at: str | None = None,
+) -> dict[str, Any]:
+    timestamp = str(created_at or "").strip() or _utcnow()
+    normalized_payload = deepcopy(payload or {})
+    metadata = run_metadata if isinstance(run_metadata, dict) else {}
+    project_key = (
+        str(normalized_payload.get("project_key") or "").strip()
+        or str(metadata.get("project_key") or "").strip()
+        or None
+    )
+    session_id = (
+        str(normalized_payload.get("session_id") or "").strip()
+        or str(metadata.get("session_id") or "").strip()
+        or None
+    )
+    trace_id = (
+        str(normalized_payload.get("trace_id") or "").strip()
+        or str(metadata.get("trace_id") or "").strip()
+        or f"workflow_graph.{run_id}"
+    )
+    return {
+        "event_id": f"{run_id}:{seq}",
+        "event_type": str(event_type),
+        "project_key": project_key,
+        "session_id": session_id,
+        "run_id": str(run_id),
+        "trace_id": trace_id,
+        "created_at": timestamp,
+        "ts": timestamp,
+        "seq": int(seq),
+        "type": str(event_type),
+        "node_id": node_id,
+        "payload": normalized_payload,
+    }
 
 
 def _utcnow() -> str:
@@ -446,16 +540,16 @@ def _to_iso(value: Any) -> str:
 
 def _normalize_compiled_record(record: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(record, dict):
-        raise ValueError("compiled graph record must be a dict")
+        _raise_store_failure("contract_invalid", "compiled graph record must be a dict")
     graph_id = str(record.get("graph_id") or "").strip()
     if not graph_id:
-        raise ValueError("compiled graph record requires graph_id")
+        _raise_store_failure("contract_invalid", "compiled graph record requires graph_id")
     version = str(record.get("version") or "").strip()
     checksum = str(record.get("checksum") or "").strip()
     if not version:
-        raise ValueError("compiled graph record requires version")
+        _raise_store_failure("contract_invalid", "compiled graph record requires version")
     if not checksum:
-        raise ValueError("compiled graph record requires checksum")
+        _raise_store_failure("contract_invalid", "compiled graph record requires checksum")
     return deepcopy(record)
 
 
@@ -464,7 +558,7 @@ def _normalize_compiled_payload(value: Any) -> dict[str, Any]:
         try:
             value = json.loads(value)
         except Exception as exc:  # noqa: BLE001
-            raise ValueError(f"compiled graph payload is not valid JSON: {exc}") from exc
+            _raise_store_failure("contract_invalid", f"compiled graph payload is not valid JSON: {exc}", cause=exc)
     if not isinstance(value, dict):
-        raise ValueError("compiled graph payload must be a dict")
+        _raise_store_failure("contract_invalid", "compiled graph payload must be a dict")
     return _normalize_compiled_record(value)

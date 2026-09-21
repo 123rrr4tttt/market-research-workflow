@@ -1,0 +1,32 @@
+{
+  "builders": {
+    "candidate": "mrw-r13v-amd64-candidate-17657-1789211447",
+    "replay": "mrw-r13v-amd64-replay-17657-1789211447"
+  },
+  "cleanup": {
+    "builder_residue": [],
+    "docker_prune_run": false,
+    "events": [
+      {
+        "environment": "replay",
+        "exit_code": 0,
+        "kind": "builder",
+        "name": "mrw-r13v-amd64-replay-17657-1789211447"
+      },
+      {
+        "environment": "candidate",
+        "exit_code": 0,
+        "kind": "builder",
+        "name": "mrw-r13v-amd64-candidate-17657-1789211447"
+      }
+    ],
+    "free_bytes_after": 8363474944,
+    "temporary_oci_archives_present": []
+  },
+  "error": "RuntimeError: candidate build failed with exit 1",
+  "free_bytes_before": 8364183552,
+  "platform": "linux/amd64",
+  "role": "backend",
+  "status": "FAILED_OR_INCOMPLETE",
+  "target": "backend-runtime"
+}

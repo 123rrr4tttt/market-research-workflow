@@ -1,0 +1,162 @@
+{
+  "schema": "mrw.stage3.r13v.backend-migration-amd64-final-reconciliation.v1",
+  "reconciled_at_utc": "2026-09-12T11:47:04Z",
+  "status": "REBUILD_REQUIRED_INPUT_DRIFT",
+  "authoritative": false,
+  "authority_ceiling": "LOCAL_UNSIGNED_TASK_OWNED_EVIDENCE_NOT_RELEASE_AUTHORITY",
+  "scope": "linux/amd64 backend-runtime and migration-runner candidate/replay image reproducibility, BuildKit provenance/SPDX inspection, and exact-digest Trivy qualification",
+  "candidate_identity": {
+    "commit": "8427e3d626cd12f41e45d38e00223f2ef86d692f",
+    "tree": "4146bcab51e437920a006875e06ed8cdcc32470a",
+    "backend_tree": "eb3794cb92e59ba3a2dace55f967e16295935f3a",
+    "src_tree": "0dfa137c2c9aba658d8b1f39281412ff69c3d67c",
+    "dockerfile_sha256": "8726ec49d21e47c955b33c47da062178f651555d28d9be39f6b95e6b51c0a9f7",
+    "candidate_replay_bytes_equal_for_scoped_inputs": true,
+    "candidate_clean_after": true,
+    "replay_clean_after": true
+  },
+  "retry4_reconciliation": {
+    "evidence_path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13v/artifacts/backend-migration-amd64-candidate-replay-retry4",
+    "checksum_index_sha256": "24af9ccf75218b5bda00570b4397b4f34fe5e7fbf27514ec9462472db8f9b31e",
+    "checksum_index_verified": true,
+    "superseded_top_level_status": "PASS_EXACT_REPRODUCIBILITY_TRIVY_GATE_PASSED_WITH_ATTESTATION_SUBJECT_GAP",
+    "superseded_claim": "TRIVY_GATE_PASSED",
+    "superseded": true,
+    "accepted_facts": {
+      "candidate_replay_exact_image_reproducibility_same_live_input_window": true,
+      "provenance_and_spdx_content_valid": true,
+      "oci_attestation_descriptors_bound_to_image_digest": true,
+      "spdx_package_count_per_role": 329
+    },
+    "trivy_facts": {
+      "backend": {
+        "exit_code": 1,
+        "report_present": false,
+        "gate_status": "NOT_RUN"
+      },
+      "migration_runner": {
+        "exit_code": 1,
+        "report_present": false,
+        "gate_status": "NOT_RUN"
+      },
+      "input_error": "Trivy 0.74.0 --input could not consume the OCI-layout tar: Docker archive manifest.json was absent and OCI index.json was treated as a path below a non-directory tar file.",
+      "fresh_exact_digest_scan_denominator_established": false
+    },
+    "attestation_gap": {
+      "status": "ATTESTATION_SUBJECT_GAP",
+      "backend_statement_subjects": [],
+      "migration_runner_statement_subjects": [],
+      "statement_subject_bound_to_image": false
+    }
+  },
+  "exact_ab_images": {
+    "backend": {
+      "target": "backend-runtime",
+      "platform": "linux/amd64",
+      "candidate_replay_manifest_equal": true,
+      "candidate_replay_config_equal": true,
+      "candidate_replay_layers_equal_in_order": true,
+      "manifest_digest": "sha256:889b93d5350793223f841f6c81cdeeed7b069ced331217b8c07ef3284d80fc90",
+      "config_digest": "sha256:bceec10bc727ce6b73165a5f80bd6c7a5c44e5859d95ec489ec0c6727dfdf4bc",
+      "layer_count": 17
+    },
+    "migration_runner": {
+      "target": "migration-runner",
+      "platform": "linux/amd64",
+      "candidate_replay_manifest_equal": true,
+      "candidate_replay_config_equal": true,
+      "candidate_replay_layers_equal_in_order": true,
+      "manifest_digest": "sha256:f4f8f39c6bddf90cce5f2f8740da3422b1ae2af188b4edf62829966f3caace72",
+      "config_digest": "sha256:c22448639ef17dac25fe640300834f95292326147608d4118d593fba7a22da40",
+      "layer_count": 15
+    }
+  },
+  "trivy_recovery": {
+    "evidence_path": "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13v/artifacts/backend-migration-amd64-trivy-recovery",
+    "checksum_index_sha256": "977f0726246503e21ebec1333d29e8cf7ed37f2b3e6528e94434307f47e6c545",
+    "checksum_index_verified": true,
+    "backend": {
+      "expected_manifest_digest": "sha256:889b93d5350793223f841f6c81cdeeed7b069ced331217b8c07ef3284d80fc90",
+      "observed_manifest_digest": "sha256:feeb2366f247f5f731ce6651c85a98d9b1655bd559ab060b0d50396260a4c93e",
+      "expected_config_digest": "sha256:bceec10bc727ce6b73165a5f80bd6c7a5c44e5859d95ec489ec0c6727dfdf4bc",
+      "observed_config_digest": "sha256:5208550405ac54049dafb82810a8a12676ed926c9a54a0afbd9a91b80744adf0",
+      "manifest_equal": false,
+      "config_equal": false,
+      "layers_equal_in_order": false,
+      "scan_executed": false
+    },
+    "migration_runner": {
+      "expected_manifest_digest": "sha256:f4f8f39c6bddf90cce5f2f8740da3422b1ae2af188b4edf62829966f3caace72",
+      "observed_manifest_digest": "sha256:f353aa22f566aa6f49681a7d8f83bb8e3b56d6f8b8ad526a9e3fcd2bf7f014ea",
+      "expected_config_digest": "sha256:c22448639ef17dac25fe640300834f95292326147608d4118d593fba7a22da40",
+      "observed_config_digest": "sha256:00f63541d10e006bd11e815780fe41c25d2cde633028d45c52f271631af1cae1",
+      "manifest_equal": false,
+      "config_equal": false,
+      "layers_equal_in_order": false,
+      "scan_executed": false
+    },
+    "classification": "CROSS_TIME_FLOATING_APT_PIP_INPUT_DRIFT",
+    "binding_rule": "A scan of a rebuilt image with a different manifest digest cannot qualify or be attached to the retry4 exact A/B image digest.",
+    "cleanup": {
+      "task_builder_residue": false,
+      "task_tag_or_image_residue": false,
+      "temporary_oci_archive_residue": false,
+      "docker_prune_run": false
+    }
+  },
+  "network_attempt_history": [
+    {
+      "attempt": "initial",
+      "outcome": "FAILED_TRANSIENT_NETWORK",
+      "reason": "candidate Debian package downloads returned multiple HTTP 502 responses",
+      "checksum_index_sha256": "b96e3112d8e84f42208e2f3d75bd12ee02164a2e483888eb69f7cf6a7c0eae88",
+      "checksum_index_verified": true
+    },
+    {
+      "attempt": "retry1",
+      "outcome": "FAILED_TRANSIENT_NETWORK",
+      "reason": "candidate completed; replay Debian package downloads returned HTTP 502 responses",
+      "checksum_index_sha256": "c7238e1b802ecea85e699deb51856210e3531e1ece4e3390add70b4b3c39445c",
+      "checksum_index_verified": true
+    },
+    {
+      "attempt": "retry2",
+      "outcome": "FAILED_TRANSIENT_NETWORK",
+      "reason": "candidate completed; replay Docker Hub anonymous token request ended with EOF",
+      "checksum_index_sha256": "f7d8af9a23d3bbadf50008e67596cde81c370603a3a57a36d452d4df42fb0b87",
+      "checksum_index_verified": true
+    },
+    {
+      "attempt": "retry3",
+      "outcome": "FAILED_TRANSIENT_NETWORK",
+      "reason": "candidate buildkit-syft-scanner stable-1 registry request ended with EOF",
+      "checksum_index_sha256": "971678b81f02ce85fc12e7a5a8069162e3e57230192560239f2f9d5632a22a34",
+      "checksum_index_verified": true
+    },
+    {
+      "attempt": "retry4",
+      "outcome": "EXACT_AB_REPRODUCIBILITY_ESTABLISHED_TRIVY_NOT_RUN",
+      "reason": "both roles built exactly across candidate/replay; Trivy OCI-tar ingestion failed before a report existed",
+      "checksum_index_sha256": "24af9ccf75218b5bda00570b4397b4f34fe5e7fbf27514ec9462472db8f9b31e",
+      "checksum_index_verified": true
+    }
+  ],
+  "verification": {
+    "all_attempt_checksum_indexes_verified": true,
+    "recovery_checksum_index_verified": true,
+    "candidate_replay_identity_rechecked_after_recovery": true,
+    "candidate_replay_clean_after_recovery": true,
+    "task_builders_absent_after_recovery": true,
+    "task_tags_and_images_absent_after_recovery": true,
+    "temporary_oci_archives_absent_after_recovery": true,
+    "product_or_candidate_files_modified_by_this_task": false
+  },
+  "unestablished": [
+    "fresh Trivy report for the retry4 backend exact manifest digest",
+    "fresh Trivy report for the retry4 migration-runner exact manifest digest",
+    "Trivy vulnerability threshold pass for either exact digest",
+    "statement-level provenance or SPDX subject binding",
+    "release or deployment authority"
+  ],
+  "stop_rule": "Do not perform another network rebuild in this reconciliation. A future qualification attempt must first freeze or otherwise identify all mutable build inputs and must scan the exact produced digest in the same evidence window."
+}

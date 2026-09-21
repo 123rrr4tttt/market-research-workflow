@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Annotated, Any, Dict
 
 from langchain_core.output_parsers import PydanticOutputParser
 from langchain_core.runnables import Runnable
@@ -18,7 +18,10 @@ class PolicyClassification(BaseModel):
     reason: str = Field(description="简短中文理由")
 
 
-def build_policy_classification_chain() -> Runnable[Dict[str, Any], PolicyClassification]:
+def build_policy_classification_chain() -> Annotated[
+    Runnable[Dict[str, Any], PolicyClassification],
+    "kit:prepared-command effect_boundary=llm.chains witness=test:test_w01_meta",
+]:
     parser = PydanticOutputParser(pydantic_object=PolicyClassification)
     
     # 尝试从数据库读取配置
@@ -45,7 +48,10 @@ def build_policy_classification_chain() -> Runnable[Dict[str, Any], PolicyClassi
     return prompt | llm | parser
 
 
-def build_policy_summary_chain() -> Runnable[Dict[str, Any], str]:
+def build_policy_summary_chain() -> Annotated[
+    Runnable[Dict[str, Any], str],
+    "kit:prepared-command effect_boundary=llm.chains witness=test:test_w01_meta",
+]:
     # 尝试从数据库读取配置
     config = get_llm_config("policy_summary")
     if config and config.get("system_prompt") and config.get("user_prompt_template"):
@@ -68,5 +74,4 @@ def build_policy_summary_chain() -> Runnable[Dict[str, Any], str]:
         llm = get_chat_model().with_retry()
     
     return prompt | llm
-
 

@@ -6,7 +6,7 @@ import threading
 import time
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -23,7 +23,6 @@ from ..services.agent_core import (
     CoreApprovalResume,
     CoreModelStep,
     CoreToolCall,
-    FakeCoreProvider,
     JsonCoreProvider,
     NativeToolCallingCoreProvider,
     build_project_core_tool_registry,
@@ -62,6 +61,8 @@ class AgentChatTurnRequest(BaseModel):
     enable_model_tool_loop: bool = Field(default=False)
     require_high_risk_approval: bool = Field(default=False)
     runtime_variant: str | None = Field(default=None, max_length=32)
+    model: str | None = Field(default=None, max_length=128)
+    reasoning_effort: str | None = Field(default=None, max_length=32)
 
 
 class AgentChatApprovalContinueRequest(BaseModel):
@@ -160,10 +161,38 @@ def _list_source_library_items_for_agent(project_key: str | None) -> list[dict[s
     return items
 
 
-def _build_agent_core_provider() -> Any:
+def _build_agent_core_provider(
+    *,
+    model: str | None = None,
+    reasoning_effort: str | None = None,
+) -> Any:
     if bool(getattr(settings, "agent_core_e2e_scripted_provider_enabled", False)):
         return _build_e2e_scripted_agent_core_provider()
-    return NativeToolCallingCoreProvider(fallback_provider=JsonCoreProvider())
+
+    def chat_model_factory() -> Any:
+        from app.services.llm.provider import get_chat_model
+
+        return get_chat_model(
+            model=model or None,
+            temperature=0.0,
+            max_tokens=1200,
+            codex_cli_timeout_seconds=int(
+                getattr(settings, "agent_chat_model_answer_timeout_seconds", 45) or 45
+            ),
+            codex_cli_reasoning_effort=reasoning_effort,
+        )
+
+    return NativeToolCallingCoreProvider(
+        chat_model_factory=chat_model_factory,
+        fallback_provider=JsonCoreProvider(chat_model_factory=chat_model_factory),
+    )
+
+
+@router.get("/models", response_model=AgentChatEnvelope)
+def list_agent_chat_models() -> dict[str, Any]:
+    from app.services.llm.codex_user_config import list_codex_models
+
+    return ok(list_codex_models())
 
 
 def _build_e2e_scripted_agent_core_provider() -> Any:
@@ -930,7 +959,10 @@ def _run_agent_core_turn(payload: AgentChatTurnRequest, *, command: str, project
     tool_window = select_core_tool_window(message=tool_window_message, tool_specs=all_specs)
     core_context["tool_window_profile"] = tool_window.profile
     core_context["agent_core_auto_answer_after_project_tools"] = False
-    provider = _build_agent_core_provider()
+    provider = _build_agent_core_provider(
+        model=payload.model,
+        reasoning_effort=payload.reasoning_effort,
+    )
     core = AgentCore(provider=provider, tool_registry=registry, tool_specs=list(tool_window.specs), policy_tool_specs=all_specs)
     budgets = _agent_core_turn_budgets(tool_window)
     result = core.run(
@@ -1088,7 +1120,10 @@ def _continue_agent_core_approval(approval_id: str, payload: AgentChatApprovalCo
     tool_window = select_core_tool_window(message=tool_window_message, tool_specs=all_specs, forced_tool_names=forced_tool_names)
     core_context["tool_window_profile"] = tool_window.profile
     core_context["agent_core_auto_answer_after_project_tools"] = False
-    provider = _build_agent_core_provider()
+    provider = _build_agent_core_provider(
+        model=payload.model,
+        reasoning_effort=payload.reasoning_effort,
+    )
     core = AgentCore(provider=provider, tool_registry=registry, tool_specs=list(tool_window.specs), policy_tool_specs=all_specs)
     result = core.run(
         AgentCoreRequest(
@@ -1228,12 +1263,20 @@ def _run_agent_chat_turn_payload(payload: AgentChatTurnRequest) -> dict[str, Any
     return _run_agent_runtime_v2_turn(payload, command=command, project_key=project_key)
 
 
-def _iter_agent_core_stream(payload: AgentChatTurnRequest):
+def _iter_agent_core_stream(
+    payload: AgentChatTurnRequest,
+    *,
+    stream_state: dict[str, Any] | None = None,
+):
+    stream_state = stream_state if isinstance(stream_state, dict) else {}
+    stream_state.setdefault("terminal_outcome", "success")
     command = str(payload.message or "").strip()
     if not command:
+        stream_state["terminal_outcome"] = "application_error"
         yield _sse("agent_core.error", {"status": "error", "error": error_response(ErrorCode.INVALID_INPUT, "message is required")})
         return
     if _agent_chat_requires_explicit_project_key(payload):
+        stream_state["terminal_outcome"] = "application_error"
         yield _sse(
             "agent_core.error",
             {
@@ -1264,7 +1307,10 @@ def _iter_agent_core_stream(payload: AgentChatTurnRequest):
     tool_window = select_core_tool_window(message=tool_window_message, tool_specs=all_specs)
     core_context["tool_window_profile"] = tool_window.profile
     core_context["agent_core_auto_answer_after_project_tools"] = False
-    provider = _build_agent_core_provider()
+    provider = _build_agent_core_provider(
+        model=payload.model,
+        reasoning_effort=payload.reasoning_effort,
+    )
     core = AgentCore(provider=provider, tool_registry=registry, tool_specs=list(tool_window.specs), policy_tool_specs=all_specs)
     budgets = _agent_core_turn_budgets(tool_window)
     event_queue: Queue[Any] = Queue()
@@ -1309,6 +1355,7 @@ def _iter_agent_core_stream(payload: AgentChatTurnRequest):
         yield _sse(f"agent_core.{item.event_type}", item.to_dict())
     thread.join(timeout=1.0)
     if "error" in result_holder:
+        stream_state["terminal_outcome"] = "application_error"
         exc = result_holder["error"]
         code, message, details = map_exception_to_error(exc)
         yield _sse(
@@ -1318,6 +1365,7 @@ def _iter_agent_core_stream(payload: AgentChatTurnRequest):
         return
     result = result_holder.get("result")
     if result is None:
+        stream_state["terminal_outcome"] = "application_error"
         yield _sse(
             "agent_core.error",
             {"status": "error", "error": error_response(ErrorCode.UPSTREAM_ERROR, "agent core stream ended without a result")},
@@ -1337,7 +1385,13 @@ def _iter_agent_core_stream(payload: AgentChatTurnRequest):
     out = {
         "contract_version": "agent_core.turn.v1",
         "runtime_variant": "agent_core_v3",
-        "turn": {"turn_id": result.turn_id, "message": command, "dry_run": bool(payload.dry_run)},
+        "turn": {
+            "turn_id": result.turn_id,
+            "message": command,
+            "dry_run": bool(payload.dry_run),
+            "model": payload.model,
+            "reasoning_effort": payload.reasoning_effort,
+        },
         "session": bundle["session"],
         "tasks": bundle["tasks"],
         "messages": bundle["messages"],
@@ -1417,7 +1471,13 @@ def run_agent_chat_turn(payload: AgentChatTurnRequest) -> dict[str, Any]:
         }
     },
 )
-def stream_agent_chat_turn(payload: AgentChatTurnRequest) -> StreamingResponse:
+def stream_agent_chat_turn(
+    payload: AgentChatTurnRequest,
+    request: Request,
+) -> StreamingResponse:
+    stream_state: dict[str, Any] = {"terminal_outcome": "success"}
+    request.state.production_stream_state = stream_state
+
     def _iter():
         runtime_variant = _resolve_runtime_variant(payload)
         if runtime_variant == "agent_core_v3":
@@ -1429,12 +1489,19 @@ def stream_agent_chat_turn(payload: AgentChatTurnRequest) -> StreamingResponse:
                     "session_id": payload.session_id,
                 },
             )
-            yield from _iter_agent_core_stream(payload)
+            try:
+                yield from _iter_agent_core_stream(payload, stream_state=stream_state)
+            except BaseException:
+                # Mark the terminal failure at the route boundary so the
+                # middleware can preserve and re-raise the original error.
+                stream_state["terminal_outcome"] = "iterator_failure"
+                raise
             return
         yield _sse("interactive_agent.stream_started", {"runtime_variant": runtime_variant})
         try:
             out = _run_agent_chat_turn_payload(payload)
         except Exception as exc:  # noqa: BLE001
+            stream_state["terminal_outcome"] = "application_error"
             code, message, details = map_exception_to_error(exc)
             yield _sse(
                 "interactive_agent.error",
@@ -1446,7 +1513,10 @@ def stream_agent_chat_turn(payload: AgentChatTurnRequest) -> StreamingResponse:
             return
         for event in list(out.get("events") or []):
             if isinstance(event, dict):
-                yield _sse(str(event.get("event_type") or "interactive_agent.event"), event)
+                event_type = str(event.get("event_type") or "interactive_agent.event")
+                if event_type in {"agent_core.error", "interactive_agent.error"}:
+                    stream_state["terminal_outcome"] = "application_error"
+                yield _sse(event_type, event)
         yield _sse(
             "interactive_agent.final_answer",
             {
@@ -1459,7 +1529,11 @@ def stream_agent_chat_turn(payload: AgentChatTurnRequest) -> StreamingResponse:
             },
         )
 
-    return StreamingResponse(_iter(), media_type="text/event-stream")
+    response = StreamingResponse(_iter(), media_type="text/event-stream")
+    # The metrics middleware consumes this side channel after iterator
+    # completion; it never inspects or parses SSE payload text.
+    response._production_stream_state = stream_state
+    return response
 
 
 @router.post("/approvals/{approval_id}/continue", response_model=AgentChatEnvelope)

@@ -22,12 +22,160 @@ export type HealthResponse = {
   status: string
   provider: string
   env: string
+  runtime_mode?: RuntimeMode
+  services?: Record<string, RuntimeServiceStatus>
+  health_url?: string
+  port_hints?: Record<string, number | string>
+  missing_dependencies?: string[]
 }
 
 export type DeepHealthResponse = {
   status: string
   database?: string
   elasticsearch?: string
+}
+
+export type RuntimeMode = 'docker' | 'local' | 'mixed' | 'unknown'
+
+export type RuntimeServiceStatus = {
+  status?: string
+  mode?: RuntimeMode
+  provider?: string
+  host?: string | null
+  health_url?: string | null
+  port_hint?: number | string | null
+  missing_dependencies?: string[]
+}
+
+export type BusinessLineEvidenceMatrixLine = {
+  line_key: string
+  entrypoints?: unknown[]
+  api_groups?: unknown[]
+  current_gaps?: string[] | string | null
+  next_remediation?: string[] | string | null
+  verification_commands?: string[] | string | null
+  [key: string]: unknown
+}
+
+export type BusinessLineScheduledMatrixDiagnostics = {
+  source_lane?: string | null
+  source_artifact?: string | null
+  consumer_surface?: string | null
+  recommended_display_order?: string[] | string | null
+  required_fields?: string[] | string | null
+  blocked_project_fields?: string[] | string | null
+  classification_boundary?: string | Record<string, unknown> | null
+  [key: string]: unknown
+}
+
+export type BusinessLineEvidenceMatrix = {
+  contract_version: 'business_line.evidence_matrix.v1' | string
+  lines: BusinessLineEvidenceMatrixLine[]
+  batch_orchestration?: Record<string, unknown> | null
+  matrix_diagnostics_guidance?: BusinessLineScheduledMatrixDiagnostics | null
+  scheduled_matrix_diagnostics?: BusinessLineScheduledMatrixDiagnostics | null
+  generated_at?: string | null
+  [key: string]: unknown
+}
+
+export type BusinessLineScheduledMatrixArtifactDiagnostics = {
+  runtime_preflight_status?: string | number | boolean | null
+  matrix_exit_code?: string | number | boolean | null
+  first_blocked_reason?: string | number | boolean | null
+  [key: string]: unknown
+}
+
+export type BusinessLineScheduledMatrixArtifactSummary = {
+  contract_version?: string | null
+  source_checker?: string | null
+  lane?: string | null
+  status?: 'passed' | 'blocked' | 'checker_unavailable' | string | null
+  lane_classification?: 'scheduled_run_evidence' | 'scheduled_run_blocked' | 'manual_dry_run' | 'missing' | 'checker_unavailable' | string | null
+  reason?: string | null
+  artifact_path?: string | null
+  diagnostics?: BusinessLineScheduledMatrixArtifactDiagnostics | null
+  summary?: Record<string, unknown> | string | null
+  observed_at?: string | null
+  recommended_command?: string | null
+  completion_boundary?: Record<string, unknown> | string | null
+  [key: string]: unknown
+}
+
+export type BusinessLineScheduledArtifactLaneSummary = {
+  lane?: string | null
+  status?: 'passed' | 'blocked' | string | null
+  lane_classification?: 'scheduled_run_evidence' | 'scheduled_run_blocked' | 'manual_dry_run' | 'missing' | string | null
+  reason?: string | null
+  artifact_path?: string | null
+  diagnostics?: BusinessLineScheduledMatrixArtifactDiagnostics | Record<string, unknown> | null
+  observed_at?: string | null
+  recommended_command?: string | null
+  [key: string]: unknown
+}
+
+export type BusinessLineScheduledArtifactDrilldownArtifact = {
+  artifact_path?: string | null
+  classification?: 'scheduled_run_evidence' | 'scheduled_run_blocked' | 'manual_dry_run' | 'missing' | string | null
+  scheduled_completion_proof?: boolean | null
+  reason?: string | null
+  freshness_rank?: number | null
+  freshness_window_size?: number | null
+  is_latest_for_lane?: boolean | null
+  identity_matches_latest?: boolean | null
+  identity_status?: string | null
+  identity_warning?: string | null
+  identity_warning_severity?: string | null
+  identity_warning_message?: string | null
+  latest_artifact_path?: string | null
+  size_bytes?: number | null
+  sha256?: string | null
+  mtime?: string | number | null
+  observed_at?: string | null
+}
+
+export type BusinessLineScheduledArtifactDrilldownLane = {
+  lane?: string | null
+  status?: 'passed' | 'blocked' | string | null
+  lane_classification?: 'scheduled_run_evidence' | 'scheduled_run_blocked' | 'manual_dry_run' | 'missing' | string | null
+  scheduled_completion_proof?: boolean | null
+  reason?: string | null
+  artifact_path?: string | null
+  base_dir?: string | null
+  artifact_count?: number | null
+  identity_warning_count?: number | null
+  identity_warning_types?: string[] | null
+  identity_warning_severity_counts?: Record<string, number> | null
+  identity_warning_severity_order?: string[] | null
+  identity_warning_highest_severity?: string | null
+  identity_warning_highest_severity_rank?: number | null
+  identity_status_counts?: Record<string, number> | null
+  artifacts?: BusinessLineScheduledArtifactDrilldownArtifact[] | null
+  diagnostics?: BusinessLineScheduledMatrixArtifactDiagnostics | Record<string, unknown> | null
+  recommended_command?: string | null
+}
+
+export type BusinessLineScheduledArtifactDrilldown = {
+  contract_version?: string | null
+  source_checker?: string | null
+  status?: 'passed' | 'blocked' | 'checker_unavailable' | string | null
+  observed_at?: string | null
+  summary?: Record<string, unknown> | string | null
+  lanes?: BusinessLineScheduledArtifactDrilldownLane[] | null
+  completion_boundary?: Record<string, unknown> | string | null
+  recommended_command?: string | null
+}
+
+export type BusinessLineScheduledArtifactSummaries = {
+  contract_version?: string | null
+  source_checker?: string | null
+  status?: 'passed' | 'blocked' | 'checker_unavailable' | string | null
+  summary?: Record<string, unknown> | string | null
+  lanes?: BusinessLineScheduledArtifactLaneSummary[] | null
+  observed_at?: string | null
+  recommended_command?: string | null
+  whitelisted_lanes?: string[] | string | null
+  completion_boundary?: Record<string, unknown> | string | null
+  [key: string]: unknown
 }
 
 export type ProjectItem = {
@@ -150,6 +298,21 @@ export type EnvSettings = Record<string, string>
 
 export type SourceLibraryScope = 'effective' | 'shared' | 'project'
 
+export type SourceLibraryCapabilitySummary =
+  | string
+  | {
+      capability_id?: string | null
+      name?: string | null
+      summary?: string | null
+      execution_mode?: string | null
+      source_mode?: string | null
+      entry_type?: string | null
+      runner_ref?: string | null
+      enabled?: boolean | null
+      status?: string | null
+      [key: string]: unknown
+    }
+
 export type SourceLibraryItem = {
   id?: number
   item_key: string
@@ -167,6 +330,8 @@ export type SourceLibraryItem = {
   execution_plan?: Record<string, unknown>
   item_type?: string
   managed_by?: string
+  capability?: SourceLibraryCapabilitySummary | null
+  capability_summary?: SourceLibraryCapabilitySummary | null
 }
 
 export type SourceLibraryChannel = {
@@ -265,10 +430,18 @@ export type SiteEntryGroupedResponse = {
 
 export type IngestJobRow = {
   id?: string | number
+  submission_id?: string | null
+  idempotency_key?: string | null
+  submission_status?: string | null
   task_id?: string
   task_name?: string
   job_type?: string
   status?: string
+  source?: string | null
+  submission_source?: string | null
+  feedback_state?: string | Record<string, unknown> | null
+  trace_id?: string | null
+  trace_chain?: Record<string, unknown> | null
   created_at?: string
   updated_at?: string
   started_at?: string
@@ -447,6 +620,22 @@ export type AgentChatTurnPayload = {
   enable_model_tool_loop?: boolean | null
   require_high_risk_approval?: boolean | null
   runtime_variant?: 'agent_runtime_v2' | 'legacy_batch' | 'legacy' | 'v2' | string | null
+  model?: string | null
+  reasoning_effort?: string | null
+}
+
+export type CodexModelOption = {
+  model: string
+  display_name: string
+  is_default: boolean
+  supported_reasoning_efforts: string[]
+}
+
+export type CodexModelCatalog = {
+  provider?: string | null
+  current_model?: string | null
+  current_reasoning_effort?: string | null
+  items: CodexModelOption[]
 }
 
 export type AgentChatCapabilityCall = {
@@ -829,27 +1018,276 @@ export type DashboardStats = {
     recent_7d?: number
     extraction_rate?: number
     type_distribution?: Record<string, number>
+    source_query?: DashboardStatsSourceQuery
+    source_refs?: DashboardStatsSourceRef[]
   }
   sources?: {
     total?: number
     enabled?: number
+    source_query?: DashboardStatsSourceQuery
+    source_refs?: DashboardStatsSourceRef[]
   }
   market_stats?: {
     total?: number
     states_count?: number
+    source_query?: DashboardStatsSourceQuery
+    source_refs?: DashboardStatsSourceRef[]
+  }
+  search_history?: {
+    total?: number
+    source_query?: DashboardStatsSourceQuery
+    source_refs?: DashboardStatsSourceRef[]
   }
   tasks?: {
     total?: number
     running?: number
     completed?: number
     failed?: number
+    source_query?: DashboardStatsSourceQuery
+    source_refs?: DashboardStatsSourceRef[]
     frontdoor_tri_state?: {
       states?: Array<'success' | 'degraded_success' | 'failed'>
       counts?: Partial<Record<'success' | 'degraded_success' | 'failed', number>>
       total?: number
       source?: string
+      source_query?: DashboardStatsSourceQuery
+      source_refs?: DashboardStatsSourceRef[]
     }
   }
+  llm_report_quality?: DashboardLlmReportQuality
+  pending_actions?: DashboardPendingAction[]
+}
+
+export type DashboardLlmReportQuality = {
+  contract_version?: string
+  trend_contract_version?: string
+  summary?: {
+    total?: number
+    decisions?: Record<string, number>
+    by_decision?: Record<string, number>
+    readiness?: Record<string, number>
+    project_keys?: Record<string, number>
+    avg_citation_coverage?: number
+    avg_evidence_coverage?: number
+    export_events?: {
+      total?: number
+      success?: number
+      blocked?: number
+      token_invalid?: number
+      failed?: number
+      legacy?: number
+      trusted?: number
+      ui_read_only_context_included_count?: number
+      by_format?: Record<string, number>
+      by_integrity_mode?: Record<string, number>
+    }
+  }
+  recent_records?: DashboardLlmReportQualityRecord[]
+  recent_export_events?: DashboardLlmReportQualityRecord[]
+  storage?: {
+    contract_version?: string
+    memory_count?: number
+    persisted_count?: number
+    persisted_degraded?: boolean
+    database_count?: number
+    database_degraded?: boolean
+    job_log_count?: number
+    job_log_degraded?: boolean
+    merged_count?: number
+  }
+  actionability?: {
+    has_blocked_exports?: boolean
+    has_review_required_exports?: boolean
+    next_action?: string
+  }
+  source_query?: DashboardStatsSourceQuery
+  source_refs?: DashboardStatsSourceRef[]
+}
+
+export type DashboardLlmReportQualityRecord = {
+  trace_id?: string | null
+  request_id?: string | null
+  project_key?: string | null
+  decision?: string
+  readiness?: string
+  citation_coverage?: number
+  evidence_coverage?: number
+  source_count?: number
+  missing_items_count?: number
+  hard_failure_count?: number
+  soft_failure_count?: number
+  job_id?: number | string | null
+  job_status?: string | null
+  topic?: string | null
+  recorded_at?: string | null
+  record_source?: string | null
+  next_action?: string | null
+  event_type?: string | null
+  source_trace_id?: string | null
+  export_format?: string | null
+  export_outcome?: string | null
+  export_integrity_mode?: string | null
+  export_integrity_trusted?: boolean | null
+  artifact_id?: string | null
+  artifact_sha256?: string | null
+  filename?: string | null
+  content_type?: string | null
+  content_size_bytes?: number | null
+  error_code?: string | null
+  ui_read_only_context_included?: boolean | null
+  ui_read_only_context_scope?: string | null
+}
+
+export type DashboardLlmReportDetailParams = {
+  traceId: string
+  projectKey?: string | null
+}
+
+export type DashboardLlmReportDetailResponse = {
+  contract_version?: 'dashboard.llm_report_detail.v1' | string
+  found?: boolean
+  trace_id?: string | null
+  request_id?: string | null
+  project_key?: string | null
+  source_refs?: Array<DashboardStatsSourceRef | string>
+  source_query?: DashboardStatsSourceQuery | null
+  report_artifact?: Record<string, unknown> | null
+  artifact?: Record<string, unknown> | null
+  quality_gate?: Record<string, unknown> | null
+  report_quality_gate?: Record<string, unknown> | null
+  repair_context?: Record<string, unknown> | null
+  export_events?: Array<Record<string, unknown>>
+  export_events_summary?: Record<string, unknown> | null
+  export_audit?: {
+    summary?: Record<string, unknown> | null
+    events?: Array<Record<string, unknown>>
+    storage?: Record<string, unknown>
+    [key: string]: unknown
+  } | null
+  quality_record?: DashboardLlmReportQualityRecord | null
+  [key: string]: unknown
+}
+
+export type DashboardStatsSourceQuery = {
+  scope?: 'dashboard.stats' | string
+  card?: string
+  table?: string
+  metrics?: string[]
+  filters?: Record<string, unknown>
+}
+
+export type DashboardStatsSourceRef = {
+  id?: string
+  kind?: string
+  table?: string
+  columns?: string[]
+  detail?: string
+}
+
+export type DashboardPendingAction = {
+  id?: string
+  type?: string
+  status?: 'open' | 'resolved' | string
+  severity?: 'low' | 'medium' | 'high' | string
+  title?: string
+  detail?: string
+  source_metric?: string
+  filters?: Record<string, unknown>
+  suggested_action?: string | null
+  source_refs?: string[]
+}
+
+export type DashboardDrilldownResponse = {
+  metric?: string
+  source_ref?: string
+  filters?: Record<string, unknown>
+  sample_rows?: Array<Record<string, unknown>>
+  row_count?: number
+  source_query?: DashboardStatsSourceQuery
+  source_refs?: DashboardStatsSourceRef[]
+}
+
+export type DashboardReportFromFilterPayload = {
+  request_type: 'report_from_dashboard_filter' | string
+  project_key?: string
+  dashboard: {
+    variant?: string
+    selected_label?: string | null
+    selected_metric?: string | null
+    selected_source_ref?: string | null
+    pending_action_id?: string | null
+    filters?: Record<string, unknown>
+    action_filters?: Record<string, unknown>
+    drilldown_filters?: Record<string, unknown>
+    source_query?: DashboardStatsSourceQuery | null
+    source_refs?: DashboardStatsSourceRef[]
+    sample_rows?: Array<Record<string, unknown>>
+    sample_row_count?: number
+    reset_telemetry_boundary_context?: Record<string, unknown>
+  }
+  report_options?: {
+    include_dashboard_sample_rows?: boolean
+    preserve_source_refs?: boolean
+    [key: string]: unknown
+  }
+}
+
+export type DashboardReportFromFilterResponse = {
+  contract_version?: string
+  report_id?: string
+  draft_id?: number
+  document_id?: number
+  title?: string
+  status?: string
+  filters?: Record<string, unknown>
+  source_query?: DashboardStatsSourceQuery
+  source_refs?: DashboardStatsSourceRef[]
+  quality?: {
+    status?: string
+    quality_gate_mode?: string
+    next_action?: string
+    report_quality_gate?: Record<string, unknown>
+    checklist?: Array<{
+      id?: string
+      status?: string
+      detail?: string
+    }>
+  }
+  report_quality_gate?: Record<string, unknown>
+  export_artifact?: {
+    artifact_id?: string
+    artifact_token?: string
+    artifact_sha256?: string
+    markdown_sha256?: string
+    gate_decision?: string
+    gate_mode?: string
+    trace_id?: string
+    request_id?: string | null
+    project_key?: string | null
+    job_id?: number | null
+    [key: string]: unknown
+  }
+  artifact?: {
+    artifact_id?: string
+    artifact_token?: string
+    artifact_sha256?: string
+    markdown_sha256?: string
+    gate_decision?: string
+    gate_mode?: string
+    trace_id?: string
+    request_id?: string | null
+    project_key?: string | null
+    job_id?: number | null
+    [key: string]: unknown
+  }
+  draft?: {
+    id?: number
+    report_id?: string
+    title?: string
+    status?: string
+    version?: number | null
+  }
+  evidence_metadata?: Record<string, unknown>
 }
 
 export type IngestFormState = {
@@ -997,6 +1435,139 @@ export type SiteEntryItem = {
   entry_type?: string
   source?: string
   enabled?: boolean
+  scope?: SourceLibraryScope
+  template?: string | null
+  name?: string | null
+  tags?: string[]
+  source_ref?: Record<string, unknown>
+  extra?: Record<string, unknown>
+  lifecycle_state?: ResourcePoolSiteEntryLifecycleState | string
+  lifecycle_summary?: ResourcePoolSiteEntryLifecycleSummary
+  execution_plan_preview?: ResourcePoolSiteEntryExecutionPlanPreview
+  review_closure?: ResourcePoolSiteEntryReviewClosure
+  next_actions?: ResourcePoolSiteEntryNextAction[]
+  evidence_binding?: ResourcePoolSiteEntryEvidenceBinding
+  lifecycle_transition?: ResourcePoolSiteEntryLifecycleTransition
+  single_source_guard?: ResourcePoolSiteEntrySingleSourceGuard
+  execution_fact?: ResourcePoolSiteEntryExecutionFact
+}
+
+export type ResourcePoolSiteEntryLifecycleState =
+  | 'accepted'
+  | 'rejected'
+  | 'needs_review'
+  | 'disabled'
+  | 'candidate'
+  | 'active'
+
+export type ResourcePoolSiteEntryLifecycleSummary = {
+  state?: ResourcePoolSiteEntryLifecycleState | string
+  enabled?: boolean
+  scope?: string | null
+  entry_type?: string | null
+  source?: string | null
+  state_source?: string | null
+  [key: string]: unknown
+}
+
+export type ResourcePoolSiteEntryExecutionPlanPreview = {
+  contract_version?: string
+  site_entry_urls?: string[]
+  expected_entry_type?: string
+  route_bucket_counts?: Record<string, number>
+  plan_meta?: Record<string, unknown>
+  [key: string]: unknown
+}
+
+export type ResourcePoolSiteEntryEvidenceBinding = {
+  contract_version?: string
+  target?: string
+  site_entry_url?: string
+  source_ref?: Record<string, unknown>
+  report_source_ref?: string
+  report_refs?: string[]
+  [key: string]: unknown
+}
+
+export type ResourcePoolSiteEntrySingleSourceGuard = {
+  contract_version?: string
+  strict_source?: boolean
+  guarantee?: boolean
+  status?: 'passed' | 'blocked' | string
+  reason_code?: string | null
+  source_ref?: Record<string, unknown>
+  report_source_ref?: string
+  allowed_urls?: string[]
+  allowed_count?: number
+  blocked_reason?: string | null
+  runner_contract?: Record<string, unknown>
+  [key: string]: unknown
+}
+
+export type ResourcePoolSiteEntryExecutionFact = {
+  contract_version?: string
+  fact_ref?: string
+  reason_code?: string | null
+  review_state?: ResourcePoolSiteEntryLifecycleState | string | null
+  review_status?: string | null
+  guard_status?: 'passed' | 'blocked' | string
+  guard_reason_code?: string | null
+  blocked?: boolean
+  executable?: boolean
+  source_refs?: Array<Record<string, unknown>>
+  source_ref?: Record<string, unknown>
+  report_source_ref?: string
+  execution_plan_ref?: Record<string, unknown>
+  next_actions?: ResourcePoolSiteEntryNextAction[]
+  single_source_guard?: ResourcePoolSiteEntrySingleSourceGuard
+  [key: string]: unknown
+}
+
+export type ResourcePoolSiteEntryLifecycleTransition = {
+  contract_version?: string
+  from_state?: ResourcePoolSiteEntryLifecycleState | string | null
+  to_state?: ResourcePoolSiteEntryLifecycleState | string | null
+  status?: string | null
+  reason?: string | null
+  reason_code?: string | null
+  report_source_ref?: string | null
+  trace_id?: string | null
+  [key: string]: unknown
+}
+
+export type ResourcePoolSiteEntryNextAction = {
+  action?: string
+  enabled?: boolean
+  blocked?: boolean
+  block_reason?: string | null
+  method?: string
+  endpoint?: string
+  handler_key?: string
+  payload?: Record<string, unknown>
+  report_source_ref?: string
+  source_ref?: Record<string, unknown>
+  strict_source?: ResourcePoolSiteEntrySingleSourceGuard
+  single_source_guard?: ResourcePoolSiteEntrySingleSourceGuard
+  [key: string]: unknown
+}
+
+export type ResourcePoolSiteEntryReviewClosure = {
+  contract_version?: string
+  status?: string
+  state?: ResourcePoolSiteEntryLifecycleState | string
+  enabled?: boolean
+  executable?: boolean
+  blocked?: boolean
+  block_reason?: string | null
+  site_entry_url?: string
+  entry_type?: string
+  report_source_ref?: string
+  source_ref?: Record<string, unknown>
+  evidence_binding?: ResourcePoolSiteEntryEvidenceBinding
+  strict_source?: ResourcePoolSiteEntrySingleSourceGuard
+  single_source_guard?: ResourcePoolSiteEntrySingleSourceGuard
+  next_actions?: ResourcePoolSiteEntryNextAction[]
+  [key: string]: unknown
 }
 
 export type WorkflowNode = {
@@ -1115,6 +1686,154 @@ export type WorkflowTemplatePayload = {
   board_layout?: WorkflowBoardLayout | Record<string, unknown>
 }
 
+export type WorkflowTemplateStageName = 'draft' | 'staging' | 'active'
+
+export type WorkflowTemplateDiffStep = {
+  index: number
+  change_type: 'added' | 'removed' | 'modified' | string
+  before?: {
+    handler?: string | null
+    params?: Record<string, unknown>
+    enabled?: boolean
+    name?: string | null
+  } | null
+  after?: {
+    handler?: string | null
+    params?: Record<string, unknown>
+    enabled?: boolean
+    name?: string | null
+  } | null
+}
+
+export type WorkflowTemplateDiffResponse = {
+  project_key?: string
+  workflow_name?: string
+  config_key?: string
+  changed?: boolean
+  current_version?: number
+  next_version?: number
+  version_summary?: {
+    active_version?: number
+    draft_version?: number
+    staging_version?: number | null
+    stage?: string
+    source?: string
+    will_mutate?: boolean
+    requires_publish?: boolean
+    [key: string]: unknown
+  }
+  diff?: {
+    steps?: WorkflowTemplateDiffStep[]
+    step_count_before?: number
+    step_count_after?: number
+    board_layout_changed?: boolean
+    [key: string]: unknown
+  }
+  current?: WorkflowTemplateResponse | Record<string, unknown>
+  proposed?: WorkflowTemplatePayload | Record<string, unknown>
+  [key: string]: unknown
+}
+
+export type WorkflowTemplateStageSummary = {
+  has_draft?: boolean
+  has_staging?: boolean
+  has_active?: boolean
+  active_version?: number | null
+  draft_version?: number | null
+  staging_version?: number | null
+  [key: string]: unknown
+}
+
+export type WorkflowTemplateStageRecord = {
+  stage: WorkflowTemplateStageName | string
+  version?: number | null
+  steps?: WorkflowTemplatePayload['steps']
+  board_layout?: WorkflowBoardLayout | Record<string, unknown>
+  requires_publish?: boolean
+  promoted_from?: string | null
+  [key: string]: unknown
+}
+
+export type WorkflowTemplateVersionListResponse = {
+  project_key?: string
+  workflow_name?: string
+  config_key?: string
+  current_version?: number
+  items?: WorkflowTemplateStageRecord[]
+  stage_summary?: WorkflowTemplateStageSummary
+  [key: string]: unknown
+}
+
+export type WorkflowTemplateStagePayload = WorkflowTemplatePayload & {
+  stage?: WorkflowTemplateStageName
+}
+
+export type WorkflowTemplatePromotePayload = {
+  project_key?: string
+  from_stage?: Extract<WorkflowTemplateStageName, 'draft' | 'staging'>
+  to_stage?: Extract<WorkflowTemplateStageName, 'staging' | 'active'>
+}
+
+export type WorkflowTemplateRollbackPayload = {
+  project_key?: string
+  target_stage?: WorkflowTemplateStageName | string
+  target_version?: number | null
+  reason?: string
+  actor?: string
+  requested_by?: string
+  trace_id?: string
+}
+
+export type WorkflowTemplateStageAuditEvent = {
+  actor?: string | null
+  requested_by?: string | null
+  applied_by?: string | null
+  action?: string
+  from_stage?: string | null
+  to_stage?: string | null
+  version?: number | null
+  created_at?: string | null
+  trace_id?: string | null
+  [key: string]: unknown
+}
+
+export type WorkflowTemplateRollbackPlan = {
+  mode?: string
+  can_execute?: boolean
+  executable?: boolean
+  will_mutate?: boolean
+  reason?: string | null
+  blocked_reason?: string | null
+  from_stage?: string | null
+  to_stage?: string | null
+  target_version?: number | null
+  target_stage_record?: WorkflowTemplateStageRecord | Record<string, unknown> | null
+  apply_endpoint?: string | null
+  requires_explicit_apply?: boolean
+  risks?: string[]
+  [key: string]: unknown
+}
+
+export type WorkflowTemplateStageMutationResponse = WorkflowTemplateMutationResponse & {
+  promoted?: boolean
+  stage?: WorkflowTemplateStageName | string
+  from_stage?: string
+  to_stage?: string
+  current_version?: number
+  next_version?: number
+  version_summary?: NonNullable<WorkflowTemplateDiffResponse['version_summary']>
+  stage_record?: WorkflowTemplateStageRecord
+}
+
+export type WorkflowTemplateRollbackResponse = WorkflowTemplateStageMutationResponse & {
+  rollback_preview?: boolean
+  rolled_back?: boolean
+  applied?: boolean
+  audit?: WorkflowTemplateStageAuditEvent
+  history?: WorkflowTemplateStageAuditEvent[]
+  rollback_plan?: WorkflowTemplateRollbackPlan
+}
+
 export type WorkflowRunResult = {
   task_id?: string
   task_name?: string
@@ -1122,6 +1841,13 @@ export type WorkflowRunResult = {
   started_at?: string
   params?: Record<string, unknown>
   workflow_name?: string
+  dry_run?: boolean | null
+  config_version?: number | string | null
+  readiness?: boolean | string | Record<string, unknown> | null
+  will_execute?: boolean | null
+  writes_blocked?: boolean | null
+  requires_publish?: boolean | null
+  steps?: Array<Record<string, unknown>> | Record<string, unknown> | null
 }
 
 export type WorkflowTemplateMeta = {
@@ -1213,6 +1939,7 @@ export type SourceLibraryItemPayload = {
 
 export type SourceLibraryRunResult = {
   task_id?: string
+  trace_id?: string | null
   async?: boolean
   item_key?: string
   project_key?: string
@@ -1256,6 +1983,10 @@ export type SourceLibraryRunResult = {
     }
   }
   errors?: Array<Record<string, unknown>>
+  single_source_guard?: ResourcePoolSiteEntrySingleSourceGuard
+  strict_source?: ResourcePoolSiteEntrySingleSourceGuard
+  execution_fact?: ResourcePoolSiteEntryExecutionFact
+  trace_chain?: Record<string, unknown> | null
   meta?: {
     reason_code?: string
     retryable?: boolean
@@ -1266,6 +1997,19 @@ export type SourceLibraryRunResult = {
     raw_result_keys?: string[]
   }
   raw_snapshot?: Record<string, unknown>
+}
+
+export type SearchRetrievalRunReadback = {
+  retrieval_run_id?: string
+  retrieval_run?: Record<string, unknown>
+  source_query?: Record<string, unknown> | null
+  source_refs?: Array<Record<string, unknown> | string>
+  provider_trace?: Record<string, unknown> | null
+  index_freshness?: Record<string, unknown> | null
+  retrieval_run_readback?: Record<string, unknown> | null
+  readback?: Record<string, unknown> | null
+  known_limitations?: string[]
+  trace_chain?: Record<string, unknown> | null
 }
 
 export type ProcessTaskCancelResult = {
@@ -1337,9 +2081,38 @@ export type DocumentBulkExtractedPayload = {
   doc_ids: number[]
   mode: 'replace' | 'merge'
   extracted_data: unknown
+  preview?: boolean
+}
+
+export type AdminEvidenceSourceRef = Record<string, unknown> | string
+
+export type AdminEvidencePreview = {
+  execution_result_available?: boolean
+  affected_count?: number
+  sample_rows?: Array<Record<string, unknown>>
+  limitations?: string[]
+  [key: string]: unknown
 }
 
 export type AdminActionResponse = {
+  preview?: boolean
+  schema_version?: string
+  action?: string
+  action_kind?: string
+  audit_event?: Record<string, unknown> | null
+  audit_trail?: Record<string, unknown> | Array<Record<string, unknown>> | null
+  execution_result?: Record<string, unknown> | null
+  rollback_hint?: Record<string, unknown> | string | null
+  rollback_recommendation?: Record<string, unknown> | string | null
+  would_affect_count?: number
+  samples?: Array<Record<string, unknown>>
+  risk_tags?: string[]
+  risk_labels?: string[]
+  source_query?: Record<string, unknown> | string | null
+  source_refs?: AdminEvidenceSourceRef[]
+  trace_chain?: Record<string, unknown> | null
+  evidence_preview?: AdminEvidencePreview | null
+  requires_confirmation?: boolean
   requested?: number
   updated?: number
   skipped?: number
@@ -1352,6 +2125,7 @@ export type AdminActionResponse = {
 
 export type AdminDeleteDocumentsPayload = {
   ids: number[]
+  preview?: boolean
 }
 
 export type AdminReExtractPayload = {
@@ -1361,6 +2135,7 @@ export type AdminReExtractPayload = {
   batch_size?: number
   limit?: number
   treat_empty_er_as_missing?: boolean
+  preview?: boolean
 }
 
 export type AdminTopicExtractPayload = {
@@ -1536,6 +2311,18 @@ export type ResourcePoolUpsertSiteEntryPayload = {
   source?: string
   source_ref?: Record<string, unknown>
   extra?: Record<string, unknown>
+}
+
+export type ResourcePoolSiteEntryLifecyclePatchPayload = {
+  project_key?: string | null
+  scope?: 'project' | 'shared'
+  site_url: string
+  lifecycle_state: ResourcePoolSiteEntryLifecycleState
+  reviewer?: string | null
+  review_note?: string | null
+  review_reason?: string | null
+  enabled?: boolean | null
+  extra_patch?: Record<string, unknown> | null
 }
 
 export type ResourcePoolDiscoverPayload = {

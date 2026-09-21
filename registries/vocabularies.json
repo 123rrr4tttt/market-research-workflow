@@ -1,0 +1,194 @@
+{
+  "entries": [
+    {
+      "members": [
+        "EXTRACT",
+        "CHUNK",
+        "SUMMARIZE",
+        "PASS_THROUGH"
+      ],
+      "name": "c7.digestion.alternatives"
+    },
+    {
+      "members": [
+        "url_driven_external",
+        "raw_import",
+        "report_shaped",
+        "derived_llm_report",
+        "derived_writing_markdown",
+        "unknown"
+      ],
+      "name": "c7.ingest.input_kind"
+    },
+    {
+      "members": [
+        "plain_text",
+        "markdown",
+        "html",
+        "pdf",
+        "structured_json",
+        "other"
+      ],
+      "name": "c7.ingest.content_format"
+    },
+    {
+      "members": [
+        "PRESERVED_AS",
+        "MOVED_TO",
+        "REIMPLEMENTED_AS",
+        "DECLARED_LOSS",
+        "EXPLICITLY_REJECTED",
+        "UNASSIGNED_BLOCKER"
+      ],
+      "name": "c7.movement.disposition"
+    },
+    {
+      "members": [
+        "STRUCTURED_MATERIAL_CANDIDATE",
+        "REJECTED",
+        "DEFERRED"
+      ],
+      "name": "c7.movement.terminal_outcome"
+    },
+    {
+      "members": [
+        "openai",
+        "azure",
+        "ollama",
+        "litellm"
+      ],
+      "name": "llm.provider.name"
+    },
+    {
+      "members": [
+        "c8.typed_knowledge.demand_read.v1",
+        "c8.writing.compose.v1",
+        "c8.writing.stage.v1",
+        "c8.report.stage.v1",
+        "c8.graph.project.v1",
+        "c8.report.verify.v1",
+        "c8.report.admission.v1",
+        "c8.delivery_intent_prepare.v1",
+        "delivery.internal_export.v1"
+      ],
+      "name": "c8.operation.kind"
+    },
+    {
+      "members": [
+        "PROJECTION_APPLIED",
+        "PROJECTION_REBUILT",
+        "PROJECTION_NO_CHANGE"
+      ],
+      "name": "c9.projector.outcome"
+    },
+    {
+      "members": [
+        "SESSION_CREATED",
+        "SESSION_TASK_ASSIGNED",
+        "SESSION_PROJECTION_REFRESHED",
+        "SESSION_TERMINAL_SUCCEEDED",
+        "SESSION_TERMINAL_FAILED"
+      ],
+      "name": "c9.runtime.event.kind"
+    },
+    {
+      "members": [
+        "WAITING",
+        "RUNNING",
+        "TERMINAL_SUCCEEDED",
+        "TERMINAL_FAILED"
+      ],
+      "name": "c9.session.status"
+    },
+    {
+      "members": [
+        "TEXT_SEGMENT",
+        "FIELD_SEGMENT"
+      ],
+      "name": "c9.search.segment.kind"
+    },
+    {
+      "members": [
+        "DECLARED_LOSS",
+        "OMITTED_FIELD",
+        "NOT_EXECUTED"
+      ],
+      "name": "c9.projection.loss.kind"
+    },
+    {
+      "members": [
+        "mrw.successor.c9.runtime-session-source.v1",
+        "mrw.successor.c9.research-graph-source.v1",
+        "mrw.successor.c9.c7-search-source.v1"
+      ],
+      "name": "c9.projection.source.schema"
+    },
+    {
+      "members": [
+        "passed",
+        "blocked"
+      ],
+      "name": "scheduled.automation.evidence.status"
+    },
+    {
+      "members": [
+        "scheduled_run_evidence",
+        "scheduled_run_blocked",
+        "manual_dry_run",
+        "missing"
+      ],
+      "name": "scheduled.automation.evidence.classification"
+    },
+    {
+      "members": [
+        "scheduler_not_observed",
+        "scheduler_configured_pending_run",
+        "scheduler_ran_no_artifact",
+        "artifact_wrong_path",
+        "artifact_present_checker_mismatch",
+        "scheduled_run_blocked"
+      ],
+      "name": "scheduled.automation.evidence.blocker_classification"
+    },
+    {
+      "members": [
+        "passed",
+        "partial"
+      ],
+      "name": "scheduled.automation.evidence.matrix_valid_status"
+    },
+    {
+      "members": [
+        "warning"
+      ],
+      "name": "scheduled.automation.evidence.identity_warning_severity"
+    },
+    {
+      "members": [
+        "trigger",
+        "run_trigger",
+        "source",
+        "run_source",
+        "execution_source",
+        "invocation_source",
+        "origin",
+        "created_by"
+      ],
+      "name": "scheduled.automation.evidence.schedule_source_key"
+    },
+    {
+      "members": [
+        "scheduled",
+        "scheduler",
+        "cron",
+        "codex_app",
+        "codex_app_scheduler",
+        "codex_app_cron",
+        "scheduled_run",
+        "scheduled_run_evidence"
+      ],
+      "name": "scheduled.automation.evidence.schedule_source_value"
+    }
+  ],
+  "version": "kit-registry.vocabularies.v1"
+}

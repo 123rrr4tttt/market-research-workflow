@@ -1,0 +1,12 @@
+{
+  "id": "identity",
+  "command": [
+    "/Users/wangyiliang/market-research-workflow/main/backend/.venv311/bin/python",
+    "-c",
+    "import subprocess,sys,platform,json; print(sys.version); print(platform.platform()); print(sys.path); subprocess.run([\"git\",\"rev-parse\",\"HEAD\",\"HEAD^{tree}\"]); subprocess.run([\"git\",\"status\",\"--porcelain\"])"
+  ],
+  "cwd": "/private/tmp/mrw-stage3-v6-backend-recovery-20260907",
+  "started_at": "2026-09-06T21:52:27.107606+00:00",
+  "exit_code": 0,
+  "log": "identity.log"
+}

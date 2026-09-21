@@ -1,0 +1,7 @@
+{
+  "argv": [
+    "trivy",
+    "--version"
+  ],
+  "cwd": null
+}

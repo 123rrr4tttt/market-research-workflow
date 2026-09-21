@@ -1,0 +1,11 @@
+{
+  "docker_prune_run": false,
+  "free_bytes_after": 7865069568,
+  "task_builder_container_residue": [],
+  "task_builder_names": [
+    "mrw-r13v-amd64-candidate-11947-1789210135",
+    "mrw-r13v-amd64-replay-11947-1789210135"
+  ],
+  "task_builder_residue": [],
+  "temporary_oci_archives": []
+}

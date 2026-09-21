@@ -7,6 +7,7 @@ from typing import Any
 
 import pytest
 
+from app.successor_runtime.capabilities import ingest_c7_movements as c7_movements
 from app.successor_runtime.capabilities.ingest_c7_movements import (
     C7_CHUNK_MAX_BYTES,
     C7_CHUNK_MAX_COUNT,
@@ -29,6 +30,37 @@ from app.successor_runtime.capabilities.ingest_c7_movements import (
     select_exactly_one_digestion_alternative,
     verify_structured_candidate,
 )
+
+
+def test_c7_movement_failure_contract_lifts() -> None:
+    failure = c7_movements._contract_failure(
+        "input_contract_invalid",
+        "C7 movement input is invalid",
+        site="test.contract.lift",
+    )
+    assert failure.family == "c7.ingest.contract_failure"
+    assert failure.code == "input_contract_invalid"
+    assert failure.context == {
+        "owner": "successor_runtime.capabilities.ingest_c7_movements",
+        "operation": "ingest_c7.movements",
+        "site": "test.contract.lift",
+        "public_exception": "ValueError",
+        "public_message": "C7 movement input is invalid",
+        "witness": "test:test_c7_movement_failure_contract_lifts",
+    }
+
+    cause = RuntimeError("source parser failed")
+    with pytest.raises(ValueError, match="C7 movement input is invalid") as raised:
+        c7_movements._raise_contract_failure(failure, cause=cause)
+    assert raised.value.__cause__ is cause
+
+    with pytest.raises(
+        TypeError,
+        match="C7 contract lift context is incomplete or inconsistent",
+    ):
+        c7_movements._raise_contract_failure(object())  # type: ignore[arg-type]
+    with pytest.raises(TypeError, match="C7 internal invariant failed"):
+        c7_movements._raise_programmer_defect("C7 internal invariant failed")
 
 
 def _snapshot(

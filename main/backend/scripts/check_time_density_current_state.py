@@ -7,7 +7,7 @@ import importlib.util
 import json
 from pathlib import Path
 import sys
-from typing import Any
+from typing import Annotated, Any
 
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
@@ -140,7 +140,10 @@ def build_current_state(
     *,
     repo_root: Path | str = REPO_ROOT,
     runtime_contracts: dict[str, dict[str, Any]] | None = None,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=generated_evidence fact_source=deterministic_current_state_contract_checks witness=test:test_c13_cli_graph_workflow_metadata_preserves_abi",
+]:
     root = Path(repo_root)
     failures: list[str] = []
     evidence: dict[str, Any] = {}

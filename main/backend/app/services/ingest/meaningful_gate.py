@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
-from typing import Any
+from typing import Annotated, Any
 from urllib.parse import urlparse
 
 from ...settings.config import settings
@@ -406,7 +406,10 @@ def build_gateplus_snapshot(
     url_gate: GateDecision | None = None,
     content_gate: GateDecision | None = None,
     provenance_gate: dict[str, Any] | None = None,
-) -> dict[str, Any]:
+) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=view fact_source=url_gate+content_gate+provenance_gate witness=test:test_w03_ingest_ports_authority_metadata",
+]:
     checks: list[dict[str, Any]] = []
 
     if url_gate is not None:

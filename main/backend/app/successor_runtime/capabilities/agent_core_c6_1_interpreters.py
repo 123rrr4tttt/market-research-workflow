@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import dataclasses
+from functorial_kit import Failure
 from typing import Any, Protocol, runtime_checkable
 
 from app.successor_runtime.capabilities import agent_core_c6_1 as c6_1
@@ -11,6 +12,8 @@ from app.successor_runtime.capabilities.agent_core_c6_common import (
     InterpreterOutcome,
     InterpreterSuccess,
     ProjectScope,
+    _contract_failure,
+    _raise_contract,
 )
 from app.successor_runtime.capabilities.checksum import (
     canonical_json,
@@ -34,6 +37,7 @@ __all__ = [
     "legacy_interpreter_profile_digest",
     "require_exact_episode_binding",
     "successor_interpreter_profile_digest",
+    "validate_exact_episode_binding",
 ]
 
 
@@ -85,7 +89,39 @@ def require_exact_episode_binding(
     binding: Any,
     expected_interpreter_profile_digest: str | None = None,
 ) -> dict[str, str]:
-    """Fail closed unless the complete C6.1 closure is exact."""
+    """Preserve the public exact-binding exception boundary."""
+
+    binding = validate_exact_episode_binding(
+        program=program,
+        plan=plan,
+        contract_ref=contract_ref,
+        payload_ref=payload_ref,
+        payload=payload,
+        project_scope=project_scope,
+        catalog=catalog,
+        deployment_catalog_digest=deployment_catalog_digest,
+        binding=binding,
+        expected_interpreter_profile_digest=expected_interpreter_profile_digest,
+    )
+    if isinstance(binding, Failure):
+        _raise_contract(binding, EpisodeBindingMismatch)
+    return binding
+
+
+def validate_exact_episode_binding(
+    *,
+    program: Any,
+    plan: Any,
+    contract_ref: OperationContractRef,
+    payload_ref: Any,
+    payload: TurnRequestView,
+    project_scope: ProjectScopeView,
+    catalog: OperationContractCatalogSnapshot,
+    deployment_catalog_digest: str,
+    binding: Any,
+    expected_interpreter_profile_digest: str | None = None,
+) -> dict[str, str] | Failure:
+    """Total exact-binding check; return the canonical Failure on drift."""
 
     failures: list[str] = []
     if payload.operation_kind != AGENT_CORE_C6_1_KIND:
@@ -212,8 +248,17 @@ def require_exact_episode_binding(
         failures.append("binding/interpreter profile")
 
     if failures:
-        raise EpisodeBindingMismatch(
-            "C6.1 episode binding drift: " + ", ".join(sorted(set(failures)))
+        return _contract_failure(
+            code="program_binding_invalid",
+            message="C6.1 episode binding drift",
+            operation=AGENT_CORE_C6_1_KIND,
+            site="episode_binding/exact_closure",
+            public_exception="EpisodeBindingMismatch",
+            public_message=(
+                "C6.1 episode binding drift: "
+                + ", ".join(sorted(set(failures)))
+            ),
+            owner=AGENT_CORE_C6_1_OWNER,
         )
     return {
         "program_digest": program.program_digest,
@@ -281,25 +326,29 @@ class AgentCoreEpisodeInterpreter:
         permission_policy: c6_1.PermissionPolicy,
         redactor: c6_1.EventRedactor,
     ) -> InterpreterOutcome[c6_1.AgentTurnEpisode]:
-        try:
-            require_exact_episode_binding(
-                program=program,
-                plan=plan,
-                contract_ref=contract_ref,
-                payload_ref=payload_ref,
-                payload=payload,
-                project_scope=project_scope,
-                catalog=catalog,
-                deployment_catalog_digest=deployment_catalog_digest,
-                binding=binding,
-                expected_interpreter_profile_digest=(
-                    successor_interpreter_profile_digest()
-                ),
-            )
-        except EpisodeBindingMismatch as exc:
+        binding_receipt = validate_exact_episode_binding(
+            program=program,
+            plan=plan,
+            contract_ref=contract_ref,
+            payload_ref=payload_ref,
+            payload=payload,
+            project_scope=project_scope,
+            catalog=catalog,
+            deployment_catalog_digest=deployment_catalog_digest,
+            binding=binding,
+            expected_interpreter_profile_digest=(
+                successor_interpreter_profile_digest()
+            ),
+        )
+        if isinstance(binding_receipt, Failure):
             return InterpreterFailure(
                 code="ASSIGNMENT_BINDING_MISMATCH",
-                message=str(exc),
+                message=str(
+                    (binding_receipt.context or {}).get(
+                        "public_message",
+                        binding_receipt.message,
+                    )
+                ),
                 retryable=False,
             )
         outcome = c6_1.interpret_agent_turn(

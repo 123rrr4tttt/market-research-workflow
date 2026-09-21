@@ -1,0 +1,178 @@
+{
+  "schema_version": "mrw.stage1.residual_disposition.process_api.v1",
+  "record_id": "stage1-residual-process-api-task-id-fallback-v1",
+  "observed_at": "2026-09-06",
+  "status": "PROPOSED_ADDITIVE_REBIND_NOT_AUTHORITY",
+  "authoritative": false,
+  "scope": {
+    "nodeid": "main/backend/tests/unit/test_collect_runtime_process_fallback_unittest.py::CollectRuntimeProcessFallbackUnitTestCase::test_process_db_job_provider_fallback_consistent_for_info_and_logs",
+    "successor_cell": "C5.4",
+    "legacy_oracle": "legacy.process_readback.v1",
+    "operation": "legacy.runtime_observation.project.v1"
+  },
+  "authority_ceiling": [
+    "NO_SOURCE_EDIT",
+    "NO_B23_HISTORY_MUTATION",
+    "NO_PRODUCTION_WRITE",
+    "NO_DEPLOY",
+    "NO_LIVE_DB_OR_NETWORK",
+    "NO_CANARY",
+    "NO_CUTOVER",
+    "NO_AUTHORITY_TRANSFER",
+    "NO_LEGACY_RETIREMENT"
+  ],
+  "proposed_patch": {
+    "artifact": "process-task-id-fallback.patch",
+    "artifact_sha256": "5ea2bc4389717be260bfb25588776a728e89157166c32e767f92fc612aacdf78",
+    "path": "main/backend/app/api/process.py",
+    "before_sha256": "790b6cb90086d6ba1171309e572b7e7be4c906db3705170dbd4a12ca7ea16c63",
+    "after_sha256": "5687389bdad57881a0f96543ba32ac4eaaaeef0f7939f8f7e36e16316ed7ee61",
+    "before_bytes": 56769,
+    "after_bytes": 56853,
+    "before_lines": 1506,
+    "after_lines": 1509,
+    "change": "Preserve explicit payload task_id; otherwise derive db-job-{job.id} only in the DB runtime projection."
+  },
+  "affected_bindings": {
+    "b23_source_bindings": [
+      {
+        "family": "C5",
+        "artifact": "fragments/C5.json",
+        "json_pointer": "/source_bindings/10",
+        "role": "legacy_donor_c5_4_supplementary",
+        "path": "main/backend/app/api/process.py",
+        "sha256": "790b6cb90086d6ba1171309e572b7e7be4c906db3705170dbd4a12ca7ea16c63",
+        "bytes": 56769,
+        "lines": 1506
+      },
+      {
+        "family": "C5",
+        "artifact": "manifests/C5.json",
+        "json_pointer": "/sources/6",
+        "amendment": "STAGE_B23_C5_EXACT_BYTE_REBIND_CANDIDATE_NOT_AUTHORITY",
+        "path": "main/backend/app/api/process.py",
+        "sha256": "790b6cb90086d6ba1171309e572b7e7be4c906db3705170dbd4a12ca7ea16c63"
+      },
+      {
+        "family": "C5",
+        "artifact": "candidates/C5/candidate.v2.json",
+        "json_pointer": "/sources/6",
+        "status": "CANDIDATE_VALID_NOT_AUTHORITY",
+        "path": "main/backend/app/api/process.py",
+        "sha256": "790b6cb90086d6ba1171309e572b7e7be4c906db3705170dbd4a12ca7ea16c63",
+        "snapshot_path": "snapshots/790b6cb90086d6ba1171309e572b7e7be4c906db3705170dbd4a12ca7ea16c63"
+      },
+      {
+        "family": "I1",
+        "artifact": "fragments/I1.json",
+        "json_pointer": "/bindings/63",
+        "binding_group": "source_bindings",
+        "cell_id": "C5.4",
+        "role": "legacy_donor_c5_4_supplementary",
+        "path": "main/backend/app/api/process.py",
+        "predecessor_sha256": "d3eab110965741ed8c44e2eac31b607675f4102b26679c3ac68b72b8d7addbdc",
+        "successor_sha256": "790b6cb90086d6ba1171309e572b7e7be4c906db3705170dbd4a12ca7ea16c63",
+        "spec_path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/capability-specs/C5.4.v1.json",
+        "spec_sha256": "2ed59f58d051d74a76cd38a7721f2c484465f841b4d6646eb95277d3a34f13dd"
+      },
+      {
+        "family": "I1",
+        "artifact": "manifests/I1.json",
+        "json_pointer": "/sources/96",
+        "amendment": "STAGE_B23_I1_EXACT_BINDING_REBIND_CANDIDATE_NOT_AUTHORITY",
+        "path": "main/backend/app/api/process.py",
+        "sha256": "790b6cb90086d6ba1171309e572b7e7be4c906db3705170dbd4a12ca7ea16c63"
+      },
+      {
+        "family": "I1",
+        "artifact": "candidates/I1/candidate.v2.json",
+        "json_pointer": "/sources/96",
+        "status": "CANDIDATE_VALID_NOT_AUTHORITY",
+        "path": "main/backend/app/api/process.py",
+        "sha256": "790b6cb90086d6ba1171309e572b7e7be4c906db3705170dbd4a12ca7ea16c63",
+        "snapshot_path": "snapshots/790b6cb90086d6ba1171309e572b7e7be4c906db3705170dbd4a12ca7ea16c63"
+      }
+    ],
+    "current_declarations": [
+      {
+        "artifact": "stage1-evidence/production-contract-implementation.v1.json",
+        "json_pointer": "/bindings/required_files/source/80",
+        "path": "main/backend/app/api/process.py",
+        "sha256": "790b6cb90086d6ba1171309e572b7e7be4c906db3705170dbd4a12ca7ea16c63"
+      },
+      {
+        "artifact": "evidence/all-lines-investigation/AllLinesDonorByteClosure.v1.json",
+        "json_pointer": "/entries/20",
+        "path": "main/backend/app/api/process.py",
+        "sha256": "790b6cb90086d6ba1171309e572b7e7be4c906db3705170dbd4a12ca7ea16c63"
+      },
+      {
+        "artifact": "evidence/all-lines-investigation/AllLinesSuccessorMovementInventory.v1.json",
+        "json_pointers": ["/movements/4/donor_byte_closure_refs/4", "/movements/7/donor_byte_closure_refs/1"],
+        "path": "main/backend/app/api/process.py",
+        "sha256": "790b6cb90086d6ba1171309e572b7e7be4c906db3705170dbd4a12ca7ea16c63"
+      }
+    ],
+    "target_test_binding": {
+      "path": "main/backend/tests/unit/test_collect_runtime_process_fallback_unittest.py",
+      "sha256": "c347308d6a1caad2e63df6e2aaac2fede8abae482e281e9d9ed63a14068f61f5",
+      "b23_binding": "UNBOUND_IN_B23_DECLARATIONS",
+      "claim": "DB-backed info and logs must expose one stable task identity"
+    }
+  },
+  "behavioral_analysis": {
+    "query_default": "get_task_info(task_id) is a direct Python call; FastAPI Query(None, ...) is not injected, so omitted project_key is None. HTTP requests receive the same None default through dependency resolution.",
+    "overlay": "_db_job_to_runtime_task_info first builds task_info with task_id=db-job-7, then returns {**task_info, **runtime_projection}; runtime_projection is later and therefore its task_id=None overwrites the canonical value.",
+    "logs_fallback": "get_task_logs uses the requested endpoint task_id directly in its DB summary and returns db-job-7; it does not consume runtime_projection.",
+    "before_observation": {
+      "projection_task_id": null,
+      "info_task_id": null,
+      "logs_task_id": "db-job-7",
+      "classification": "OBSERVABLE_PRODUCTION_DEFECT"
+    },
+    "after_observation": {
+      "projection_task_id": "db-job-7",
+      "info_task_id": "db-job-7",
+      "logs_task_id": "db-job-7",
+      "explicit_payload_task_id": "provider-task-9",
+      "classification": "PROPOSED_BEHAVIOR_ONLY"
+    },
+    "isolated_test_sufficiency": false,
+    "production_effect": "The defect is externally observable through GET /api/v1/process/{task_id}: info returns task_id=null while the paired logs fallback returns db-job-7. An isolated test-only fixture change would weaken the missing-metadata regression claim."
+  },
+  "focused_evidence": [
+    {
+      "id": "pure_projection_simulation",
+      "command": "main/backend/.venv311/bin/python - <<'PY' ... (no imports, DB, network) ... PY",
+      "result": "before projection=None/info=None/logs=db-job-7; after projection=db-job-7/info=db-job-7/logs=db-job-7; explicit provider task id preserved",
+      "exit_code": 0
+    },
+    {
+      "id": "focused_pytest",
+      "command": "PYTHONPATH=src:main/backend main/backend/.venv311/bin/python -m pytest -q main/backend/tests/unit/test_collect_runtime_process_fallback_unittest.py",
+      "result": "import-time workflow graph DB bootstrap is fail-closed in this no-DB environment; target module skipped (no DB contacted)",
+      "exit_code": 0,
+      "qualification": "SKIPPED_BY_ENV"
+    },
+    {
+      "id": "compile_and_diff",
+      "command": "main/backend/.venv311/bin/python -m compileall -q main/backend/app/services/collect_runtime main/backend/tests/unit/test_collect_runtime_process_fallback_unittest.py; git diff --check",
+      "result": "PASS",
+      "exit_code": 0
+    }
+  ],
+  "proposed_successor_operation": {
+    "operation": "CREATE_ONLY_EXACT_BYTE_REBIND_CANDIDATE",
+    "target": "C5.4 process.py supplementary donor plus linked I1 source declaration",
+    "predecessor_sha256": "790b6cb90086d6ba1171309e572b7e7be4c906db3705170dbd4a12ca7ea16c63",
+    "candidate_sha256": "5687389bdad57881a0f96543ba32ac4eaaaeef0f7939f8f7e36e16316ed7ee61",
+    "required_authority": "ADDITIVE_REBIND_AUTHORIZATION_BEFORE_SOURCE_WRITE",
+    "not_done": ["no source edit", "no B23 overwrite", "no promotion", "no history rewrite"]
+  },
+  "immutable_history_ceiling": {
+    "b23_fragments_manifests_snapshots": "IMMUTABLE",
+    "prior_candidate_identity": "790b6cb90086d6ba1171309e572b7e7be4c906db3705170dbd4a12ca7ea16c63",
+    "proposed_hash_is_not_authority": true,
+    "release_status": "PRODUCTION_RELEASE_NOT_AUTHORIZED"
+  }
+}

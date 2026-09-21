@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from sqlalchemy import select
+from functorial_kit import Failure
+
+from .contracts import document_query_failure, raise_document_query_legacy
 
 from ...models.writing_entities import WritingDocument, WritingDocumentCitation, WritingDocumentDraft
 
@@ -21,9 +24,21 @@ def fetch_active_document(session, *, doc_id: int, project_key: str) -> WritingD
 
 
 def require_active_document(session, *, doc_id: int, project_key: str) -> WritingDocument:
+    result = try_require_active_document(session, doc_id=doc_id, project_key=project_key)
+    if isinstance(result, Failure):
+        raise_document_query_legacy(result, exception_type=KeyError)
+    return result
+
+
+def try_require_active_document(session, *, doc_id: int, project_key: str) -> WritingDocument | Failure:
     row = fetch_active_document(session, doc_id=doc_id, project_key=project_key)
     if row is None:
-        raise KeyError(f"writing document not found: {doc_id}")
+        return document_query_failure(
+            "document_not_found",
+            f"writing document not found: {doc_id}",
+            owner="document_queries.writing_documents.require_active_document",
+            public_exception=KeyError,
+        )
     return row
 
 

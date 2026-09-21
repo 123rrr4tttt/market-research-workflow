@@ -19,8 +19,14 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any, Literal, Protocol, runtime_checkable
 
+from functorial_kit import Failure
+
 from app.successor_runtime.research.codec import canonical_json
 from app.successor_runtime.runtime.ports import ProjectScopeRef
+from app.successor_runtime.runtime.failure_policy import (
+    raise_runtime_failure,
+    runtime_failure,
+)
 
 API_STATUS_KINDS: tuple[str, ...] = (
     "ok",
@@ -113,9 +119,12 @@ __all__ = [
     "UiObservation",
     "ValidationResult",
     "derive_c9_request_digest",
+    "derive_c9_request_digest_result",
     "projection_key_digest",
     "rollback_transition_id",
+    "rollback_transition_id_result",
     "rollback_transition_ref",
+    "rollback_transition_ref_result",
     "validate_api_envelope",
     "validate_api_envelope_v2",
     "validate_api_status",
@@ -790,38 +799,120 @@ def projection_key_digest(
     ).hexdigest()
 
 
+def _facade_contract_failure(message: str) -> Failure:
+    return runtime_failure(
+        "FACADE_CONTRACT_INVALID",
+        message,
+        ValueError,
+        site="successor_runtime.runtime.facade_contracts",
+    )
+
+
+def rollback_transition_id_result(
+    *,
+    from_position: Mapping[str, Any],
+    to_position: Mapping[str, Any],
+    generation_completeness_digest: str,
+) -> str | Failure:
+    """ABA-aware rollback identity binding from + to + completeness."""
+
+    try:
+        if len(generation_completeness_digest) != 64 or any(
+            character not in "0123456789abcdef"
+            for character in generation_completeness_digest
+        ):
+            return _facade_contract_failure(
+                "generation_completeness_digest must be canonical SHA-256 hex"
+            )
+        return hashlib.sha256(
+            canonical_json(
+                {
+                    "from": dict(from_position),
+                    "to": dict(to_position),
+                    "generation_completeness_digest": generation_completeness_digest,
+                }
+            ).encode("utf-8")
+        ).hexdigest()
+    except (TypeError, ValueError, KeyError) as exc:
+        return _facade_contract_failure(str(exc))
+
+
 def rollback_transition_id(
     *,
     from_position: Mapping[str, Any],
     to_position: Mapping[str, Any],
     generation_completeness_digest: str,
 ) -> str:
-    """ABA-aware rollback identity binding from + to + completeness."""
+    """Legacy exception ABI over :func:`rollback_transition_id_result`."""
 
-    if len(generation_completeness_digest) != 64 or any(
-        character not in "0123456789abcdef"
-        for character in generation_completeness_digest
-    ):
-        raise ValueError("generation_completeness_digest must be canonical SHA-256 hex")
-    return hashlib.sha256(
-        canonical_json(
-            {
-                "from": dict(from_position),
-                "to": dict(to_position),
-                "generation_completeness_digest": generation_completeness_digest,
-            }
-        ).encode("utf-8")
-    ).hexdigest()
+    result = rollback_transition_id_result(
+        from_position=from_position,
+        to_position=to_position,
+        generation_completeness_digest=generation_completeness_digest,
+    )
+    if isinstance(result, Failure):
+        raise_runtime_failure(result, ValueError)
+    return result
+
+
+def rollback_transition_ref_result(transition_id: str) -> str | Failure:
+    """Deterministic receipt ref bound to the full transition identity."""
+
+    try:
+        if len(transition_id) != 64 or any(
+            character not in "0123456789abcdef" for character in transition_id
+        ):
+            return _facade_contract_failure(
+                "transition_id must be canonical SHA-256 hex"
+            )
+        return f"rollback:{transition_id}"
+    except (TypeError, ValueError) as exc:
+        return _facade_contract_failure(str(exc))
 
 
 def rollback_transition_ref(transition_id: str) -> str:
-    """Deterministic receipt ref bound to the full transition identity."""
+    """Legacy exception ABI over :func:`rollback_transition_ref_result`."""
 
-    if len(transition_id) != 64 or any(
-        character not in "0123456789abcdef" for character in transition_id
-    ):
-        raise ValueError("transition_id must be canonical SHA-256 hex")
-    return f"rollback:{transition_id}"
+    result = rollback_transition_ref_result(transition_id)
+    if isinstance(result, Failure):
+        raise_runtime_failure(result, ValueError)
+    return result
+
+
+def derive_c9_request_digest_result(
+    *,
+    scope_digest: str,
+    actor_ref: str,
+    command_id: str,
+    command_kind: str,
+    payload: Mapping[str, Any],
+    expected_base_token: str | None = None,
+    approval_locator: str | None = None,
+) -> str | Failure:
+    """Derive exact request identity from scope, actor and typed intent."""
+
+    try:
+        if len(scope_digest) != 64 or any(
+            character not in "0123456789abcdef" for character in scope_digest
+        ):
+            return _facade_contract_failure("scope_digest must be canonical SHA-256 hex")
+        if not actor_ref.strip() or not command_id.strip() or not command_kind.strip():
+            return _facade_contract_failure(
+                "actor_ref/command_id/command_kind must be non-empty"
+            )
+        content = {
+            "contract": "C9RequestIdentity.v1",
+            "scope_digest": scope_digest,
+            "actor_ref": actor_ref,
+            "command_id": command_id,
+            "command_kind": command_kind,
+            "payload": dict(payload),
+            "expected_base_token": expected_base_token,
+            "approval_locator": approval_locator,
+        }
+        return hashlib.sha256(canonical_json(content).encode("utf-8")).hexdigest()
+    except (TypeError, ValueError, KeyError) as exc:
+        return _facade_contract_failure(str(exc))
 
 
 def derive_c9_request_digest(
@@ -834,25 +925,20 @@ def derive_c9_request_digest(
     expected_base_token: str | None = None,
     approval_locator: str | None = None,
 ) -> str:
-    """Derive exact request identity from scope, actor and typed intent."""
+    """Legacy exception ABI over :func:`derive_c9_request_digest_result`."""
 
-    if len(scope_digest) != 64 or any(
-        character not in "0123456789abcdef" for character in scope_digest
-    ):
-        raise ValueError("scope_digest must be canonical SHA-256 hex")
-    if not actor_ref.strip() or not command_id.strip() or not command_kind.strip():
-        raise ValueError("actor_ref/command_id/command_kind must be non-empty")
-    content = {
-        "contract": "C9RequestIdentity.v1",
-        "scope_digest": scope_digest,
-        "actor_ref": actor_ref,
-        "command_id": command_id,
-        "command_kind": command_kind,
-        "payload": dict(payload),
-        "expected_base_token": expected_base_token,
-        "approval_locator": approval_locator,
-    }
-    return hashlib.sha256(canonical_json(content).encode("utf-8")).hexdigest()
+    result = derive_c9_request_digest_result(
+        scope_digest=scope_digest,
+        actor_ref=actor_ref,
+        command_id=command_id,
+        command_kind=command_kind,
+        payload=payload,
+        expected_base_token=expected_base_token,
+        approval_locator=approval_locator,
+    )
+    if isinstance(result, Failure):
+        raise_runtime_failure(result, ValueError)
+    return result
 
 
 def validate_facade_meta_v2(meta: FacadeMetaV2) -> ValidationResult:

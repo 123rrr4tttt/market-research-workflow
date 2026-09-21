@@ -4,7 +4,7 @@ import sys
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
@@ -233,6 +233,153 @@ class RuntimeOpsErrorContractIntegrationTestCase(unittest.TestCase):
         self.assertEqual(payload["status"], "error")
         self.assertEqual(payload["error"]["code"], ErrorCode.INTERNAL_ERROR.value)
         self.assertEqual(response.headers.get("x-error-code"), ErrorCode.INTERNAL_ERROR.value)
+
+    def test_health_runtime_status_returns_local_contract(self):
+        with (
+            patch("app.main.os.path.exists", return_value=False),
+            patch.dict(
+                "app.main.os.environ",
+                {
+                    "APP_RUNTIME_MODE": "",
+                    "DOCKER_ENV": "false",
+                    "KUBERNETES_SERVICE_HOST": "",
+                    "RUNTIME_MODE": "",
+                },
+            ),
+            patch("app.main.settings.database_url", "postgresql+psycopg2://postgres:postgres@localhost:5432/postgres"),
+            patch("app.main.settings.es_url", "http://localhost:9200"),
+            patch("app.main.settings.redis_url", "redis://localhost:6379/0"),
+            patch("app.main.settings.llm_provider", "local"),
+        ):
+            response = self.client.get("/api/v1/health", headers=self.headers)
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["status"], "ok")
+        self.assertEqual(payload["runtime_mode"], "local")
+        self.assertEqual(payload["health_url"], "/api/v1/health")
+        self.assertEqual(payload["port_hints"]["api"], 8000)
+        self.assertEqual(payload["services"]["api"]["status"], "ok")
+        self.assertEqual(payload["services"]["database"]["mode"], "local")
+        self.assertIn("missing_dependencies", payload)
+
+    def test_health_runtime_status_reports_mixed_contract(self):
+        with (
+            patch("app.main.os.path.exists", return_value=False),
+            patch.dict(
+                "app.main.os.environ",
+                {
+                    "APP_RUNTIME_MODE": "",
+                    "DOCKER_ENV": "false",
+                    "KUBERNETES_SERVICE_HOST": "",
+                    "RUNTIME_MODE": "",
+                },
+            ),
+            patch("app.main.settings.database_url", "postgresql+psycopg2://postgres:postgres@db:5432/postgres"),
+            patch("app.main.settings.es_url", "http://localhost:9200"),
+            patch("app.main.settings.redis_url", "redis://redis:6379/0"),
+            patch("app.main.settings.llm_provider", "local"),
+        ):
+            response = self.client.get("/api/v1/health", headers=self.headers)
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["runtime_mode"], "mixed")
+        self.assertEqual(payload["services"]["database"]["mode"], "docker")
+        self.assertEqual(payload["services"]["elasticsearch"]["mode"], "local")
+        self.assertEqual(payload["services"]["redis"]["mode"], "docker")
+
+    def test_deep_health_runtime_dependency_ping_returns_startup_contract(self):
+        connect_context = MagicMock()
+        es_client = Mock()
+        es_client.ping.return_value = True
+        with (
+            patch("app.main.os.path.exists", return_value=False),
+            patch.dict(
+                "app.main.os.environ",
+                {
+                    "APP_RUNTIME_MODE": "",
+                    "DOCKER_ENV": "false",
+                    "KUBERNETES_SERVICE_HOST": "",
+                    "RUNTIME_MODE": "",
+                },
+            ),
+            patch("app.main.settings.database_url", "postgresql+psycopg2://postgres:postgres@localhost:5432/postgres"),
+            patch("app.main.settings.es_url", "http://localhost:9200"),
+            patch("app.main.settings.redis_url", "redis://localhost:6379/0"),
+            patch("app.main.settings.llm_provider", "local"),
+            patch("app.main.engine.connect", return_value=connect_context),
+            patch("app.main.get_db_pool_status", return_value={"size": 5, "checkedout": 0}),
+            patch("app.main.get_es_client", return_value=es_client),
+            patch("app.main._tcp_dependency_ping", return_value=(True, None)),
+        ):
+            response = self.client.get("/api/v1/health/deep", headers=self.headers)
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["startup_contract_version"], "runtime-startup.v1")
+        self.assertEqual(payload["runtime_mode"], "local")
+        self.assertFalse(payload["mixed_environment"]["detected"])
+        self.assertEqual(payload["dependency_ping"]["status"], "ok")
+        self.assertEqual(payload["service_results"]["database"]["status"], "ok")
+        self.assertTrue(payload["service_results"]["database"]["reachable"])
+
+    def test_deep_health_runtime_dependency_ping_reports_missing_dependencies(self):
+        with (
+            patch("app.main.settings.database_url", ""),
+            patch("app.main.settings.es_url", ""),
+            patch("app.main.settings.redis_url", ""),
+            patch("app.main.settings.llm_provider", "openai"),
+            patch("app.main.settings.openai_api_key", ""),
+            patch("app.main.engine.connect", side_effect=RuntimeError("db unavailable")),
+            patch("app.main.get_db_pool_status", side_effect=RuntimeError("pool unavailable")),
+            patch("app.main.get_es_client", side_effect=RuntimeError("es unavailable")),
+            patch("app.main._tcp_dependency_ping", return_value=(False, "ConnectionRefusedError")),
+        ):
+            response = self.client.get("/api/v1/health/deep", headers=self.headers)
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["status"], "degraded")
+        self.assertIn("DATABASE_URL", payload["missing_dependencies"])
+        self.assertIn("ES_URL", payload["missing_dependencies"])
+        self.assertIn("REDIS_URL", payload["missing_dependencies"])
+        self.assertIn("OPENAI_API_KEY", payload["missing_dependencies"])
+        self.assertEqual(payload["dependency_ping"]["status"], "missing_dependencies")
+        self.assertEqual(payload["service_results"]["database"]["status"], "missing")
+
+    def test_deep_health_runtime_dependency_ping_reports_mixed_environment(self):
+        connect_context = MagicMock()
+        es_client = Mock()
+        es_client.ping.return_value = True
+        with (
+            patch("app.main.os.path.exists", return_value=False),
+            patch.dict(
+                "app.main.os.environ",
+                {
+                    "APP_RUNTIME_MODE": "",
+                    "DOCKER_ENV": "false",
+                    "KUBERNETES_SERVICE_HOST": "",
+                    "RUNTIME_MODE": "",
+                },
+            ),
+            patch("app.main.settings.database_url", "postgresql+psycopg2://postgres:postgres@db:5432/postgres"),
+            patch("app.main.settings.es_url", "http://localhost:9200"),
+            patch("app.main.settings.redis_url", "redis://redis:6379/0"),
+            patch("app.main.settings.llm_provider", "local"),
+            patch("app.main.engine.connect", return_value=connect_context),
+            patch("app.main.get_db_pool_status", return_value={"size": 5, "checkedout": 0}),
+            patch("app.main.get_es_client", return_value=es_client),
+            patch("app.main._tcp_dependency_ping", return_value=(True, None)),
+        ):
+            response = self.client.get("/api/v1/health/deep", headers=self.headers)
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["runtime_mode"], "mixed")
+        self.assertTrue(payload["mixed_environment"]["detected"])
+        self.assertEqual(payload["mixed_environment"]["modes_by_service"]["database"], "docker")
+        self.assertEqual(payload["mixed_environment"]["modes_by_service"]["elasticsearch"], "local")
 
 
 if __name__ == "__main__":

@@ -14,7 +14,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
@@ -495,6 +495,7 @@ def _build_public_replay_gap_check(root: Path, errors: list[str]) -> dict[str, A
 
     return {
         "a5_status": replay_status,
+        "evidence_source": public_gate.get("evidence_source") or {},
         "public_network_attempted": bool(validation.get("public_network_attempted")),
         "external_blocker": {
             "status": external_blocker.get("status"),
@@ -507,7 +508,10 @@ def _build_public_replay_gap_check(root: Path, errors: list[str]) -> dict[str, A
     }
 
 
-def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
+def build_check(repo_root: Path | str | None = None) -> Annotated[
+    dict[str, Any],
+    "kit:non-authoritative derived_as=generated_evidence fact_source=search_governance_docs+repo_static_checks witness=test:test_c13_cli_graph_workflow_metadata_preserves_abi",
+]:
     root = Path(repo_root) if repo_root is not None else REPO_ROOT
     root = root.resolve()
     errors: list[str] = []
@@ -520,6 +524,7 @@ def build_check(repo_root: Path | str | None = None) -> dict[str, Any]:
     return {
         "contract_version": CONTRACT_VERSION,
         "repo_root": str(root),
+        "evidence_source": public_replay_gaps.get("evidence_source") or {},
         "governance_scope": {
             "public_network_required": False,
             "claims_full_45_site_public_replay": public_replay_gaps.get("full_public_replay_resolved") is True,

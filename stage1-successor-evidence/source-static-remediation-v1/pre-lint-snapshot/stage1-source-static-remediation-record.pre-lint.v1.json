@@ -1,0 +1,473 @@
+{
+  "authoritative": false,
+  "authority_ceiling": "NO_DEPLOY_NO_LIVE_NO_PRODUCTION_WRITE_NO_EXTERNAL_DELIVERY_NO_CANARY_NO_CUTOVER_NO_AUTHORITY_TRANSFER_NO_LEGACY_RETIREMENT_NO_PUSH_NO_REMOTE_MUTATION_NO_REGISTRY_WRITE_NO_SIGNING_WRITE",
+  "binding_and_history_disposition": {
+    "binding_registry": {
+      "authoritative": false,
+      "path": "stage1-successor-evidence/current-byte-remediation-v1/bindings/current-byte-binding-successors.v1.json",
+      "sha256": "7e2a6d84ef37174bf52142a9e2560470a24e60c84549962e856688f4702e401b",
+      "status": "PASS_4_SOURCES_10_SUCCESSORS"
+    },
+    "historical_verification": {
+      "bytes": 19463,
+      "path": "stage1-successor-evidence/contract13-bounded-corrections-v2/historical-candidates/historical-candidates-readonly-verification.v1.json",
+      "sha256": "b21bc780b140792cc96b5f358fc02c2e818af8b0b29da722d2a8e12857526d89"
+    },
+    "v3": {
+      "commit": "f8d84afc2784cf91784da957e353e2b0c0d6952c",
+      "status": "HISTORICAL_EXACT_CLEAN_READ_ONLY",
+      "tree": "1be3dcbc009332ec225297d1b94430862287d816"
+    },
+    "v4": {
+      "closure_sha256": "6e3cf6dfd3ac7c336e81ab5c9b2e310373de7b981edce88109261ac031575c18",
+      "commit": "e1aa59708a22e4238c4d9beaf7b7bd2d2095d483",
+      "manifest_sha256": "abc012b5c114d2d280db5bc5fc24c5591caa5bacc76840b154ec848dca5ae8b0",
+      "r1_sha256": "79f7301e0c1e08553982ccc5c88f5854113825c81019ef6244da6bbd025260f0",
+      "r2_sha256": "8e37eee14ea2eb865a048f57fec7ca55346da642509dc65ac99899b3d69a87ce",
+      "r3_sha256": "86c67a4532a5a125f65c8f7405bd2b4b775472112e1577d85355fe6001ff5383",
+      "record_sha256": "e2797d157c0a97f70b382d6ee6197bbcb073f6e55ac6ced5abe6946318345891",
+      "stage3_index_sha256": "fbe1914ff111879edd1d1f5db02b7322232bdfa0bf05e752581ce2ea53992926",
+      "status": "FAILED_STAGE3_HISTORY_IMMUTABLE",
+      "tree": "d2003fbb8e54c8dd743fa4e84907a8a978ef5107"
+    }
+  },
+  "changed_paths": {
+    "post_residual": [
+      {
+        "before_sha256": "cb4d61a900a626b71d089717a2210c6cac008ec943bfdac07590f31e618e6355",
+        "current_sha256": "696195d3a8ca59a23da069d56147732ea42b991299d088b3c78d3776612f6fff",
+        "disposition": "CHANGED_AND_CURRENT_BOUND",
+        "evidence": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/10_stage1-stage2-source-and-static-closure-return-contract.v1.md",
+        "path": ".github/branch-protection-required-checks.json",
+        "workstream": "PHASE_B_STATIC_CLOSURE"
+      },
+      {
+        "before_sha256": "567fdca6904fbf0e5debc037c656e1b9f722f629a6d886a31c1282eba6f6877f",
+        "current_sha256": "6c108b0842c600fe100ad560732740f347a5d357625fa753a1e052f0b33a7cc6",
+        "disposition": "CHANGED_AND_CURRENT_BOUND",
+        "evidence": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/10_stage1-stage2-source-and-static-closure-return-contract.v1.md",
+        "path": ".github/workflows/backend-tests.yml",
+        "workstream": "PHASE_B_STATIC_CLOSURE"
+      },
+      {
+        "before_sha256": "UNKNOWN_NOT_ATTRIBUTED",
+        "current_sha256": "837b30116e81235c40e809a7ea0b9d0049bdf52a763b2262ed74f3cecc79c655",
+        "disposition": "CHANGED_AND_CURRENT_BOUND",
+        "evidence": "contract10_phase_b_and_verified_current_gate_input",
+        "path": "main/backend/Dockerfile",
+        "workstream": "PHASE_B_STATIC_CLOSURE"
+      },
+      {
+        "before_sha256": "790b6cb90086d6ba1171309e572b7e7be4c906db3705170dbd4a12ca7ea16c63",
+        "current_sha256": "5687389bdad57881a0f96543ba32ac4eaaaeef0f7939f8f7e36e16316ed7ee61",
+        "disposition": "CHANGED_AND_CURRENT_BOUND",
+        "evidence": "stage1-successor-evidence/current-byte-remediation-v1/bindings/current-byte-binding-successors.v1.json",
+        "path": "main/backend/app/api/process.py",
+        "workstream": "CURRENT_BYTE_BINDING_SUCCESSOR"
+      },
+      {
+        "before_sha256": "6766bc85cb01afd79b8f91793ec2b6020ee45ea0d4797ef0a589076072f2d49d",
+        "current_sha256": "013ddec4e03a28e9f15211a346db9481b624cb395b05cf8b05d741e54281b645",
+        "disposition": "CHANGED_AND_CURRENT_BOUND",
+        "evidence": "stage1-successor-evidence/current-byte-remediation-v1/startup/startup-current-byte-remediation.v1.json",
+        "path": "main/backend/app/celery_app.py",
+        "workstream": "STARTUP_CURRENT_BYTE_REMEDIATION_AND_BINDING_SUCCESSOR"
+      },
+      {
+        "before_sha256": "5b81ef9a41bf8e21c87f2d7a0e0239a4afa14c46de0eb7b37601d217422654f4",
+        "current_sha256": "173d95722cef7411f4b1e4606f8dbdbf850d74fbae9847b942b13be1e56c8308",
+        "disposition": "CHANGED_AND_CURRENT_BOUND",
+        "evidence": "stage1-successor-evidence/current-byte-remediation-v1/bindings/current-byte-binding-successors.v1.json",
+        "path": "main/backend/app/models/base.py",
+        "workstream": "CURRENT_BYTE_BINDING_SUCCESSOR"
+      },
+      {
+        "before_sha256": "7d6ff118a0e4b9d552320d18e7122423ed66111d1deda3bcb7b242baca9aba1b",
+        "current_sha256": "7e3189f5ff916480f1243ff805ea2790075d6a187b348fbb2bfa48ee600bd08d",
+        "disposition": "CHANGED_AND_CURRENT_BOUND",
+        "evidence": "stage1-successor-evidence/current-byte-remediation-v1/startup/startup-current-byte-remediation.v1.json",
+        "path": "main/backend/app/services/projects/bootstrap.py",
+        "workstream": "STARTUP_CURRENT_BYTE_REMEDIATION"
+      },
+      {
+        "before_sha256": "ABSENT",
+        "current_sha256": "256faf88704948e94add6be75f8ccab76c506ad568feabd102f0f490bb574424",
+        "disposition": "CHANGED_AND_CURRENT_BOUND",
+        "evidence": "stage1-successor-evidence/current-byte-remediation-v1/startup/startup-current-byte-remediation.v1.json",
+        "path": "main/backend/app/services/projects/schema_initialization.py",
+        "workstream": "STARTUP_CURRENT_BYTE_REMEDIATION"
+      },
+      {
+        "before_sha256": "cb4ae041aef79ce9b8d68a14615c4a85f1b9182319380a5462133534eeca67fc",
+        "current_sha256": "15c22d898b1c90205c43585aae4e3d83a425782e57676926507b92e6b8fb68ca",
+        "disposition": "CHANGED_AND_CURRENT_BOUND",
+        "evidence": "stage1-successor-evidence/current-byte-remediation-v1/bindings/current-byte-binding-successors.v1.json",
+        "path": "main/backend/app/services/workflow_graph/runtime.py",
+        "workstream": "CURRENT_BYTE_BINDING_SUCCESSOR"
+      },
+      {
+        "before_sha256": "UNKNOWN_NOT_ATTRIBUTED",
+        "current_sha256": "462133407d0a4d6f84864b44b3b3c9467a6879199149cd7e73868a02a9feaaed",
+        "disposition": "CHANGED_AND_CURRENT_BOUND",
+        "evidence": "stage1-successor-evidence/current-byte-remediation-v1/startup/startup-current-byte-remediation.v1.json",
+        "path": "main/backend/app/services/workflow_graph/store.py",
+        "workstream": "STARTUP_CURRENT_BYTE_REMEDIATION"
+      },
+      {
+        "before_sha256": "a1426fad870f3aefaf98236725d953f65f35e6b059603f9e29b9bdf0c1a98d74",
+        "current_sha256": "b0ece0fc0fd9ca2d775056ab0ecffed1cedb3400a2d249a416af899399176ba2",
+        "disposition": "CHANGED_AND_CURRENT_BOUND",
+        "evidence": "stage1-successor-evidence/current-byte-remediation-v1/startup/startup-current-byte-remediation.v1.json",
+        "path": "main/backend/app/startup_hooks.py",
+        "workstream": "STARTUP_CURRENT_BYTE_REMEDIATION"
+      },
+      {
+        "before_sha256": "3cb9e57fec7ccb5614e891fbeea4fe9688fd1f61deacab589ffa66676eb4c397",
+        "current_sha256": "add9fa2d0aca3ab202dccbc313550ae6b04dc91a6e2ab671be5cfb42f412a24c",
+        "disposition": "CHANGED_AND_CURRENT_BOUND",
+        "evidence": "stage1-successor-evidence/current-byte-remediation-v1/startup/startup-current-byte-remediation.v1.json",
+        "path": "main/backend/scripts/_cli_runtime.py",
+        "workstream": "STARTUP_CURRENT_BYTE_REMEDIATION"
+      },
+      {
+        "before_sha256": "ABSENT",
+        "current_sha256": "619d821c18134af506c1cc8807c514f07015b8078cc66d551c0a6c540a717999",
+        "disposition": "CHANGED_AND_CURRENT_BOUND",
+        "evidence": "stage1-successor-evidence/current-byte-remediation-v1/startup/startup-current-byte-remediation.v1.json",
+        "path": "main/backend/tests/integration/test_schema_startup_postgres_concurrency.py",
+        "workstream": "STARTUP_CURRENT_BYTE_REMEDIATION"
+      },
+      {
+        "before_sha256": "6bcdd014f81f1e6d0ebc0ce35dae46b2ae1c57d19ae51aa1a4d904e4602da824",
+        "current_sha256": "86c7dbb952a8ed97e8d55e87c56c2b1ba788405823c7aca6e2ac2491f32fc9fc",
+        "disposition": "CHANGED_AND_CURRENT_BOUND",
+        "evidence": "stage1-successor-evidence/current-byte-remediation-v1/startup/startup-current-byte-remediation.v1.json",
+        "path": "main/backend/tests/unit/test_schema_startup_boundary_unittest.py",
+        "workstream": "STARTUP_CURRENT_BYTE_REMEDIATION"
+      },
+      {
+        "before_sha256": "UNKNOWN_NOT_ATTRIBUTED",
+        "current_sha256": "ae4132f1587973c4eeafbbda4f6c64be74563e968193b9b05d197f83c3a16e6b",
+        "disposition": "CHANGED_AND_CURRENT_BOUND",
+        "evidence": "contract10_phase_b_and_verified_current_gate_input",
+        "path": "main/frontend-modern/Dockerfile",
+        "workstream": "PHASE_B_STATIC_CLOSURE"
+      },
+      {
+        "before_sha256": "UNKNOWN_NOT_ATTRIBUTED",
+        "current_sha256": "df8257a37482cecb62797a21ac2323a9c72fcfe3f580c18cf1d8a27a4d2b9c75",
+        "disposition": "CHANGED_AND_CURRENT_BOUND",
+        "evidence": "contract10_phase_b_and_verified_current_gate_input",
+        "path": "scripts/formal_release/check_static_production_contract.py",
+        "workstream": "PHASE_B_STATIC_CLOSURE"
+      },
+      {
+        "before_sha256": "486083e3309f83e74ec1be3526a46899b4f25f8002086475a487f0944ff7640b",
+        "current_sha256": "486083e3309f83e74ec1be3526a46899b4f25f8002086475a487f0944ff7640b",
+        "disposition": "CURRENT_BYTES_EQUAL_RESIDUAL_CHECKPOINT",
+        "evidence": "stage1-successor-evidence/residual-disposition-v1/changed-paths.v1.json",
+        "path": "scripts/formal_release/materialize_stage2_candidate.py",
+        "workstream": "PHASE_A_PROJECTED_SOURCE_GATE"
+      },
+      {
+        "before_sha256": "061d3c3aa5183907f4fe043350ab79cefe998add7971c3c9a01a9894a3031bff",
+        "current_sha256": "7b9a81c9cdf0ae0debc2b75aa6a2ecdc434f0f4ee210dfd282f45c7e51ea6eb4",
+        "disposition": "CHANGED_AND_CURRENT_BOUND",
+        "evidence": "stage1-successor-evidence/residual-disposition-v1/changed-paths.v1.json",
+        "path": "scripts/formal_release/source_closure.py",
+        "workstream": "PHASE_A_PROJECTED_SOURCE_GATE"
+      },
+      {
+        "before_sha256": "977a58ec5a8c854dfc18daffe8f7af3e996118d53b205482ba049ccf697c57db",
+        "current_sha256": "977a58ec5a8c854dfc18daffe8f7af3e996118d53b205482ba049ccf697c57db",
+        "disposition": "CURRENT_BYTES_EQUAL_RESIDUAL_CHECKPOINT",
+        "evidence": "stage1-successor-evidence/residual-disposition-v1/changed-paths.v1.json",
+        "path": "scripts/formal_release/stage2_candidate_intake.py",
+        "workstream": "PHASE_A_PROJECTED_SOURCE_GATE"
+      },
+      {
+        "before_sha256": "c23c3d7c303614b7d601d0f2cb40046e06b0c8f81814cb91d687219cce3a32dd",
+        "current_sha256": "c23c3d7c303614b7d601d0f2cb40046e06b0c8f81814cb91d687219cce3a32dd",
+        "disposition": "INCLUDED_UNMODIFIED_FROM_CONTRACT10_DISPATCH_BYTES",
+        "evidence": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/10_stage1-stage2-source-and-static-closure-return-contract.v1.md",
+        "path": "src/mrw_functorial_kit/core/agent_service_semantics.py",
+        "workstream": "PHASE_A_SOURCE_INCLUSION"
+      },
+      {
+        "before_sha256": "5afc74cc58d59ea2e788758a542906171f2fe82f4edbd87aa2edba24d6b29fe4",
+        "current_sha256": "5afc74cc58d59ea2e788758a542906171f2fe82f4edbd87aa2edba24d6b29fe4",
+        "disposition": "INCLUDED_UNMODIFIED_FROM_CONTRACT10_DISPATCH_BYTES",
+        "evidence": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/10_stage1-stage2-source-and-static-closure-return-contract.v1.md",
+        "path": "src/mrw_functorial_kit/core/w07_semantics.py",
+        "workstream": "PHASE_A_SOURCE_INCLUSION"
+      },
+      {
+        "before_sha256": "UNKNOWN_NOT_ATTRIBUTED",
+        "current_sha256": "eee58d1ea75cd723aded98942ada1cb74004ccc26ae0a47d18a55ebe26f218ef",
+        "disposition": "CHANGED_AND_CURRENT_BOUND",
+        "evidence": "contract10_phase_b_and_verified_current_gate_input",
+        "path": "tests/formal_release/test_check_static_production_contract.py",
+        "workstream": "PHASE_B_STATIC_CLOSURE"
+      },
+      {
+        "before_sha256": "53805282be077854f13d1ce646a26414ff9c7d7e20df69bf6c16f2309bc4c192",
+        "current_sha256": "e3e6aa48688e86e00d2c03887a8ba6e938d8812650b57a4bb6671da6154d4fdd",
+        "disposition": "CHANGED_AND_CURRENT_BOUND",
+        "evidence": "stage1-successor-evidence/residual-disposition-v1/changed-paths.v1.json",
+        "path": "tests/formal_release/test_materialize_stage2_candidate.py",
+        "workstream": "PHASE_A_PROJECTED_SOURCE_GATE"
+      },
+      {
+        "before_sha256": "219eca68cb17be285ca078c14d8a4510e69f0bd69bb96c17d72d84b03731dcd9",
+        "current_sha256": "21824548dbfd226ebd714feb7d337837c94af2ec6706732e3241568c86a3f1da",
+        "disposition": "CHANGED_AND_CURRENT_BOUND",
+        "evidence": "stage1-successor-evidence/residual-disposition-v1/changed-paths.v1.json",
+        "path": "tests/formal_release/test_source_closure.py",
+        "workstream": "PHASE_A_PROJECTED_SOURCE_GATE"
+      },
+      {
+        "before_sha256": "5fc071b97f62353386727a4215b2d24b8411d2dc88517dc75e8b5432415baa2e",
+        "current_sha256": "9b7e2518f8812c0bbf70c471a1c1453bbe9fbab9b52856b1ee8d3704ebd5ca05",
+        "disposition": "CHANGED_AND_CURRENT_BOUND",
+        "evidence": "stage1-successor-evidence/residual-disposition-v1/changed-paths.v1.json",
+        "path": "tests/formal_release/test_stage2_candidate_intake.py",
+        "workstream": "PHASE_A_PROJECTED_SOURCE_GATE"
+      }
+    ],
+    "post_residual_entry_count": 25,
+    "prior_residual_inventory": {
+      "bytes": 67157,
+      "entry_count": 105,
+      "path": "stage1-successor-evidence/residual-disposition-v1/changed-paths.v1.json",
+      "sha256": "d946cf88b022d21cc71c0a1ea424b9cb8f7d2c5a7975fe31c66c67f741790d9b",
+      "status": "HASH_AND_SCHEMA_BOUND"
+    },
+    "scope_note": "Only receipt-bound Stage 1 source/static/current-byte remediation paths are enumerated. Unrelated dirty user paths are excluded. UNKNOWN_NOT_ATTRIBUTED is used where no task-start hash receipt exists; ABSENT is used only where the startup before-hash receipt says ABSENT."
+  },
+  "cleanup_status": {
+    "containers_started": false,
+    "destructive_cleanup": false,
+    "historical_paths_modified": false,
+    "task_output_scope": "stage1-successor-evidence/source-static-remediation-v1/**",
+    "temporary_services_started": false
+  },
+  "contracts": [
+    {
+      "bytes": 13358,
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/10_stage1-stage2-source-and-static-closure-return-contract.v1.md",
+      "sha256": "0c20328727fdefca6a3161e212490a2043efeee17e4bffc854f8ee17847cdd6b"
+    },
+    {
+      "bytes": 8969,
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/11_stage1-backend-unit-remediation-return-contract.v1.md",
+      "sha256": "051dcf9be9b8f03d8bb603537bece6f37cdf8423fa8c6e4a4d6183f230227ca5"
+    },
+    {
+      "bytes": 6660,
+      "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/12_stage1-residual-disposition-return-contract.v1.md",
+      "sha256": "c11c96a68284085dfb2548cd9ce19062de22b5d4bbf5af9d2c2863a16dcf03f2"
+    }
+  ],
+  "external_effects": {
+    "deployment": false,
+    "docker": false,
+    "live_database": false,
+    "live_provider": false,
+    "network": false,
+    "production_write": false,
+    "push_or_remote_mutation": false,
+    "registry": false,
+    "signing": false
+  },
+  "phase_a_source_closure": {
+    "projected_source_gate": {
+      "focused_tests": {
+        "failed": 0,
+        "passed": 194
+      },
+      "negative_gates": [
+        "missing_w07_semantics",
+        "missing_agent_service_semantics",
+        "unknown_exported_name",
+        "source_manifest_omission",
+        "projected_delete_cannot_fall_back_to_checkout",
+        "wrong_base_index_binding",
+        "upsert_metadata_or_bytes_drift"
+      ],
+      "reviewer_tests": {
+        "failed": 0,
+        "passed": 13
+      }
+    },
+    "status": "PASS",
+    "workflow_equivalent_backend_unit": {
+      "collected_selector_population": 4122,
+      "collection_errors": 0,
+      "deselected": 2329,
+      "duration_seconds_from_log": 41.33,
+      "environment": {
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONHASHSEED": "0",
+        "PYTHONPATH": "repo/src",
+        "db_store_flags": {
+          "MRW_STORE_AUTO_CREATE": "false",
+          "MRW_VECTOR_ENABLE_IVFFLAT": "false",
+          "MRW_VECTOR_REQUIRE_PGVECTOR": "false",
+          "MRW_VECTOR_STORE_AUTO_CREATE": "false"
+        },
+        "dependency_install": "reused_existing_backend_venv",
+        "pytest_cacheprovider": "disabled",
+        "python": "main/backend/.venv311/bin/python"
+      },
+      "exit_code": 0,
+      "failed": 0,
+      "inventory": {
+        "deselected_owner": "required marker expression",
+        "skip_owner": "none",
+        "warning_families": [
+          {
+            "count": 3,
+            "family": "PydanticDeprecatedSince20",
+            "owner": "pydantic dependency and model declarations"
+          },
+          {
+            "count": 22,
+            "family": "FastAPI on_event DeprecationWarning",
+            "owner": "FastAPI dependency and application startup-hook declarations"
+          }
+        ]
+      },
+      "junit_errors": 0,
+      "junit_failures": 0,
+      "junit_skipped": 0,
+      "junit_testcase_elements": 1793,
+      "junit_testsuite_tests_including_subtests": 1845,
+      "junit_xml": {
+        "bytes": 322386,
+        "path": "stage1-successor-evidence/source-static-remediation-v1/raw/backend-unit-final.xml",
+        "sha256": "0d215b2a746db7e65af30625039b6e0a4ed78196a560be76ebdc61eda349c35f"
+      },
+      "passed": 1793,
+      "raw_log": {
+        "bytes": 6724,
+        "path": "stage1-successor-evidence/source-static-remediation-v1/raw/backend-unit-final.log",
+        "sha256": "2ab99e647b9be21987e914d153261273c3ab97a485a03e9eda4780600ac3adcc"
+      },
+      "selector": "unit and not external and not flaky",
+      "skipped": 0,
+      "subtests_passed": 52,
+      "warnings": 25
+    }
+  },
+  "phase_b_static_readiness": {
+    "direct_checker": {
+      "bytes": 4810,
+      "path": "stage1-successor-evidence/source-static-remediation-v1/phase-b/static-production-contract.v1.json",
+      "sha256": "9f7bc679db5e6e481090e43c1c4ee9d59cfe29b9efa3d8e9fa470689cda61e03"
+    },
+    "external_stage3_actions": {
+      "attestation_publish": "NOT_RUN_FORBIDDEN",
+      "image_build": "NOT_RUN_STAGE3_PENDING",
+      "image_scan": "NOT_RUN_STAGE3_PENDING",
+      "provenance_generation": "NOT_RUN_STAGE3_PENDING",
+      "registry_publish": "NOT_RUN_FORBIDDEN",
+      "sbom_generation": "NOT_RUN_STAGE3_PENDING",
+      "signing": "NOT_RUN_FORBIDDEN"
+    },
+    "focused_contract_tests": {
+      "failed": 0,
+      "passed": 16,
+      "subtests_passed": 22
+    },
+    "interpreter": "main/backend/.venv311/bin/python",
+    "required_gap_count": 6,
+    "required_gaps": [
+      {
+        "finding_id": "workflow.frontend_component_e2e",
+        "gap_id": "frontend_component_e2e_required",
+        "status": "STATIC_CONTRACT_PASS"
+      },
+      {
+        "finding_id": "workflow.security_scans",
+        "gap_id": "frontend_dependency_audit_required",
+        "status": "STATIC_CONTRACT_PASS"
+      },
+      {
+        "finding_id": "artifact_metadata.immutable_release",
+        "gap_id": "three_artifact_role_identities",
+        "status": "STATIC_CONTRACT_PASS"
+      },
+      {
+        "finding_id": "artifact_metadata.immutable_release",
+        "gap_id": "three_role_sbom_provenance_signature_attestation",
+        "status": "STATIC_CONTRACT_PASS"
+      },
+      {
+        "finding_id": "workflow.image_vulnerability_scan",
+        "gap_id": "three_role_image_vulnerability_scan",
+        "status": "STATIC_CONTRACT_PASS"
+      },
+      {
+        "finding_id": "workflow.required_convergence",
+        "gap_id": "required_branch_and_convergence_propagation",
+        "status": "STATIC_CONTRACT_PASS"
+      }
+    ],
+    "status": "PASS_STATIC_CONTRACT_EXTERNAL_EXECUTION_NOT_RUN"
+  },
+  "preserved_evidence_ceiling": {
+    "contract14_history_currently_qualified_nodeids": 0,
+    "local_or_historical_receipts_do_not_establish_live_or_production_authority": true,
+    "startup_local_focused": "52 passed, 1 skipped, 28 warnings",
+    "startup_skip_owner": {
+      "fixture_scope": "isolated localhost PostgreSQL with mrw_test_ database name",
+      "nodeid": "test_postgresql_cross_process_ddl_race_rolls_back_and_recovers",
+      "reason": "MRW_TEST_POSTGRES_URL absent",
+      "status": "NOT_RUN_NOT_LIVE"
+    }
+  },
+  "production_release_authorized": false,
+  "record_id": "stage1-source-static-remediation-20260906-v1",
+  "referenced_stage1_evidence": [
+    {
+      "bytes": 12772,
+      "path": "stage1-successor-evidence/contract13-bounded-corrections-v2/return.v2.json",
+      "sha256": "0b9dda0595b84176bd38c60b69030b930a128146c98a8da893ce4aec897b1bbc"
+    },
+    {
+      "bytes": 37689,
+      "path": "stage1-successor-evidence/contract14-local-execution-v1/return.v1.json",
+      "sha256": "bf448d36c8cab520644fc2b662327e6a16febdc4eb4dd8134a7eed71d92aa4c4"
+    },
+    {
+      "bytes": 132806,
+      "path": "stage1-successor-evidence/contract14-local-execution-v1/history/history-verification-receipt.v1.json",
+      "sha256": "2187771630e3fd041f73f7de2358d587a96803115f3076926e7def791a38905a"
+    },
+    {
+      "bytes": 6306,
+      "path": "stage1-successor-evidence/current-byte-remediation-v1/startup/startup-current-byte-remediation.v1.json",
+      "sha256": "17951c1124e93832d6e7e727a91236fceebc2a362bceb1abf2e9307c00a2ddda"
+    },
+    {
+      "bytes": 23182,
+      "path": "stage1-successor-evidence/current-byte-remediation-v1/bindings/current-byte-binding-successors.v1.json",
+      "sha256": "7e2a6d84ef37174bf52142a9e2560470a24e60c84549962e856688f4702e401b"
+    }
+  ],
+  "remaining_gaps": [
+    "STAGE2_V5_NOT_CREATED_BY_THIS_RECORD",
+    "STAGE3_ARTIFACT_BUILD_SCAN_SBOM_PROVENANCE_SIGNATURE_ATTESTATION_NOT_RUN",
+    "LIVE_POSTGRES_STARTUP_CONCURRENCY_FIXTURE_NOT_RUN",
+    "CONTRACT14_HISTORICAL_CLAIMS_NOT_CURRENTLY_QUALIFIED",
+    "PRODUCTION_RELEASE_NOT_AUTHORIZED"
+  ],
+  "schema_version": "mrw.stage1.source_static_remediation_record.v1",
+  "source_identity": {
+    "head": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+    "identity_kind": "DISPATCH_AND_CURRENT_HEAD_TREE",
+    "root": "/Users/wangyiliang/market-research-workflow",
+    "tree": "5840bf9ba906c49f70020d226c54446f4ba5aa33"
+  },
+  "status": "PASS_STAGE1_SOURCE_STATIC_REMEDIATION_NOT_AUTHORITY"
+}

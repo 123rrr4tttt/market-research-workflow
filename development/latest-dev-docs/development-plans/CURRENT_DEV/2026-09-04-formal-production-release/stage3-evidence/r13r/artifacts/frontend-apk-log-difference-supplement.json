@@ -1,0 +1,32 @@
+{
+  "bytes": 9194,
+  "candidate": {
+    "commit": "9b95d1c6c515b3013d6be7fd39ffb54801310c1c",
+    "tree": "040f2ed5b223607c63404c709e413f8898c2b504"
+  },
+  "candidate_mutated": false,
+  "canonical_sha256": "a4a868033094ae8ea77dd07863bd92382fdb50fa52998f79eeb2907028b7f0c4",
+  "cause": "APK_WALL_CLOCK_LOG_TIMESTAMP",
+  "derivation": {
+    "canonical": "Read directly from the loaded canonical image; command/log/exit retained.",
+    "rebuild": "Deterministically recovered by substituting every second in the observed build window into the sole wall-clock field of the canonical 9,194-byte file until the exact recorded rebuild SHA-256 matched. Exactly one value matched: 2026-09-10 03:19:50.",
+    "rootfs_scope": "Both inventories contain 2,214 paths; this is the only path difference; runtime config is equal."
+  },
+  "exact_difference": {
+    "canonical_fragment": "Running `apk add --no-cache libuuid=2.42.3-r1` at 2026-09-10 03:18:28",
+    "only_changed_bytes": "03:18:28 -> 03:19:50",
+    "rebuild_fragment": "Running `apk add --no-cache libuuid=2.42.3-r1` at 2026-09-10 03:19:50"
+  },
+  "minimal_successor_repair": "Change line 19 to `RUN apk add --no-cache libuuid=2.42.3-r1 && rm -f /var/log/apk.log`, then mint a successor candidate and rerun both independent linux/amd64 builds plus SBOM/provenance/Trivy/runtime evidence.",
+  "path": "/var/log/apk.log",
+  "platform": "linux/amd64",
+  "rebuild_sha256": "ff1b953597a8f7119928d1429a3b3248f8605339ca89d2c68e8e6f3b4e30440d",
+  "role": "frontend",
+  "schema": "mrw.stage3.r13r.frontend-apk-log-difference.v1",
+  "source_surface": {
+    "instruction": "RUN apk add --no-cache libuuid=2.42.3-r1",
+    "line": 19,
+    "path": "main/frontend-modern/Dockerfile"
+  },
+  "status": "CONFIRMED_ROOT_CAUSE_REQUIRES_SUCCESSOR"
+}

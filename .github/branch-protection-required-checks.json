@@ -1,10 +1,88 @@
 {
   "branch": "main",
   "required_checks": [
-    "backend-tests"
+    "formal-release-check",
+    "backend-unit-check",
+    "backend-integration-check",
+    "frontend-lint-check",
+    "frontend-typecheck-check",
+    "frontend-build-check",
+    "frontend-component-e2e-check",
+    "migration-single-head-check",
+    "security-check",
+    "docker-config-check",
+    "evidence-validation-check",
+    "artifact-metadata-check",
+    "image-vulnerability-scan-check"
   ],
+  "required_check_contracts": {
+    "formal-release": {
+      "required_check": "formal-release-check",
+      "source": ".github/workflows/backend-tests.yml"
+    },
+    "backend-unit": {
+      "required_check": "backend-unit-check",
+      "source": ".github/workflows/backend-tests.yml"
+    },
+    "backend-integration": {
+      "required_check": "backend-integration-check",
+      "source": ".github/workflows/backend-tests.yml"
+    },
+    "frontend-lint": {
+      "required_check": "frontend-lint-check",
+      "source": ".github/workflows/backend-tests.yml"
+    },
+    "frontend-typecheck": {
+      "required_check": "frontend-typecheck-check",
+      "source": ".github/workflows/backend-tests.yml"
+    },
+    "frontend-build": {
+      "required_check": "frontend-build-check",
+      "source": ".github/workflows/backend-tests.yml"
+    },
+    "frontend-component-e2e": {
+      "required_check": "frontend-component-e2e-check",
+      "source": ".github/workflows/backend-tests.yml"
+    },
+    "migration": {
+      "required_check": "migration-single-head-check",
+      "source": ".github/workflows/backend-tests.yml"
+    },
+    "security": {
+      "required_check": "security-check",
+      "source": ".github/workflows/backend-tests.yml"
+    },
+    "docker-config": {
+      "required_check": "docker-config-check",
+      "source": ".github/workflows/backend-tests.yml"
+    },
+    "evidence": {
+      "required_check": "evidence-validation-check",
+      "source": ".github/workflows/backend-tests.yml"
+    },
+    "artifact-metadata": {
+      "required_check": "artifact-metadata-check",
+      "source": ".github/workflows/backend-tests.yml"
+    },
+    "image-vulnerability-scan": {
+      "required_check": "image-vulnerability-scan-check",
+      "source": ".github/workflows/backend-tests.yml"
+    }
+  },
   "required_check_sources": {
-    "backend-tests": ".github/workflows/backend-tests.yml"
+    "formal-release-check": ".github/workflows/backend-tests.yml",
+    "backend-unit-check": ".github/workflows/backend-tests.yml",
+    "backend-integration-check": ".github/workflows/backend-tests.yml",
+    "frontend-lint-check": ".github/workflows/backend-tests.yml",
+    "frontend-typecheck-check": ".github/workflows/backend-tests.yml",
+    "frontend-build-check": ".github/workflows/backend-tests.yml",
+    "frontend-component-e2e-check": ".github/workflows/backend-tests.yml",
+    "migration-single-head-check": ".github/workflows/backend-tests.yml",
+    "security-check": ".github/workflows/backend-tests.yml",
+    "docker-config-check": ".github/workflows/backend-tests.yml",
+    "evidence-validation-check": ".github/workflows/backend-tests.yml",
+    "artifact-metadata-check": ".github/workflows/backend-tests.yml",
+    "image-vulnerability-scan-check": ".github/workflows/backend-tests.yml"
   },
   "default_pr_evidence": {
     "template": ".github/PULL_REQUEST_TEMPLATE.md",
@@ -28,5 +106,5 @@
     "contract",
     "ci-pr"
   ],
-  "note": "Temporary rxx matrix workflows were retired; backend-tests is the current required check baseline as of 2026-05-07"
+  "note": "This repository declaration defines required checks only; it does not claim live remote branch-protection enforcement. required-convergence-check summarizes outcomes and is not itself required."
 }

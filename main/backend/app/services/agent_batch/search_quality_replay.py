@@ -8,6 +8,7 @@ from statistics import mean
 from typing import Any
 from urllib.parse import urlparse
 
+from ..derived import NonAuthoritativeDict
 from .task_contract import (
     AGENT_BATCH_LIVE_QUALITY_THRESHOLD_CONTRACT_VERSION,
     AGENT_BATCH_QUALITY_PROMOTION_READBACK_CONTRACT_VERSION,
@@ -64,19 +65,23 @@ def build_live_provider_gap_state(
     *,
     providers_not_started: list[str] | None = None,
     reason: str | None = None,
-) -> dict[str, Any]:
+) -> NonAuthoritativeDict:
     providers = _normalize_string_list(providers_not_started) or list(_DEFAULT_LIVE_PROVIDER_KEYS)
-    return {
-        "status": "not_run",
-        "live_provider_probe_performed": False,
-        "providers_not_started": providers,
-        "quality_claim_allowed": False,
-        "reason": reason
-        or "deterministic replay does not start SearXNG, YaCy, browser, or external web providers",
-        "unsupported_claims": [
-            f"{provider}_live_quality_verified" for provider in providers
-        ],
-    }
+    return NonAuthoritativeDict(
+        {
+            "status": "not_run",
+            "live_provider_probe_performed": False,
+            "providers_not_started": providers,
+            "quality_claim_allowed": False,
+            "reason": reason
+            or "deterministic replay does not start SearXNG, YaCy, browser, or external web providers",
+            "unsupported_claims": [
+                f"{provider}_live_quality_verified" for provider in providers
+            ],
+        },
+        derived_as="preflight",
+        fact_source="providers_not_started+reason",
+    )
 
 
 def build_symbolic_provider_quality_readiness(
@@ -84,7 +89,7 @@ def build_symbolic_provider_quality_readiness(
     fixture_cases: list[dict[str, Any]],
     provider_statuses: dict[str, dict[str, Any]] | None = None,
     required_live_providers: list[str] | None = None,
-) -> dict[str, Any]:
+) -> NonAuthoritativeDict:
     providers = _normalize_string_list(required_live_providers) or list(_DEFAULT_LIVE_PROVIDER_KEYS)
     benchmark = score_quality_benchmark_replay(cases=fixture_cases)
     fixture_quality = _summarize_fixture_quality(benchmark)
@@ -111,25 +116,29 @@ def build_symbolic_provider_quality_readiness(
     if not remaining_gaps:
         failures.append("remaining live provider gaps were not recorded")
 
-    return {
-        "contract_version": AGENT_BATCH_PROVIDER_QUALITY_READINESS_CONTRACT_VERSION,
-        "scope": PROVIDER_QUALITY_READINESS_SCOPE,
-        "status": "passed" if not failures else "failed",
-        "readiness_state": "fixture_quality_ready_live_provider_gap_open"
-        if not failures
-        else "fixture_quality_or_boundary_failed",
-        "closure_claim": "fixture_quality_recorded_live_provider_quality_not_closed",
-        "fixture_quality": fixture_quality,
-        "provider_readiness": provider_readiness,
-        "unsupported_live_provider_claims": unsupported_claims,
-        "remaining_live_gaps": remaining_gaps,
-        "gate_semantics": {
-            "status_passed_means": "fixture quality and live-gap boundary are valid",
-            "status_passed_does_not_mean": "live provider quality, provider=auto promotion, or production ranking quality",
-            "live_provider_claims_are": "reported as unsupported until a separate live quality replay supplies result quality, latency, timeout, and review evidence",
+    return NonAuthoritativeDict(
+        {
+            "contract_version": AGENT_BATCH_PROVIDER_QUALITY_READINESS_CONTRACT_VERSION,
+            "scope": PROVIDER_QUALITY_READINESS_SCOPE,
+            "status": "passed" if not failures else "failed",
+            "readiness_state": "fixture_quality_ready_live_provider_gap_open"
+            if not failures
+            else "fixture_quality_or_boundary_failed",
+            "closure_claim": "fixture_quality_recorded_live_provider_quality_not_closed",
+            "fixture_quality": fixture_quality,
+            "provider_readiness": provider_readiness,
+            "unsupported_live_provider_claims": unsupported_claims,
+            "remaining_live_gaps": remaining_gaps,
+            "gate_semantics": {
+                "status_passed_means": "fixture quality and live-gap boundary are valid",
+                "status_passed_does_not_mean": "live provider quality, provider=auto promotion, or production ranking quality",
+                "live_provider_claims_are": "reported as unsupported until a separate live quality replay supplies result quality, latency, timeout, and review evidence",
+            },
+            "failures": failures,
         },
-        "failures": failures,
-    }
+        derived_as="preflight",
+        fact_source="fixture_cases+provider_statuses+required_live_providers",
+    )
 
 
 def build_symbolic_live_quality_threshold_contract(
@@ -138,7 +147,7 @@ def build_symbolic_live_quality_threshold_contract(
     live_provider_replay: dict[str, Any] | None = None,
     required_live_providers: list[str] | None = None,
     thresholds: dict[str, Any] | None = None,
-) -> dict[str, Any]:
+) -> NonAuthoritativeDict:
     threshold_config = _merge_live_quality_thresholds(
         thresholds=thresholds,
         required_live_providers=required_live_providers,
@@ -197,28 +206,32 @@ def build_symbolic_live_quality_threshold_contract(
     else:
         threshold_status = "threshold_contract_ready_live_replay_gap_open"
 
-    return {
-        "contract_version": AGENT_BATCH_LIVE_QUALITY_THRESHOLD_CONTRACT_VERSION,
-        "scope": LIVE_QUALITY_THRESHOLD_SCOPE,
-        "status": "passed" if not failures else "failed",
-        "threshold_version": str(threshold_config["threshold_version"]),
-        "threshold_status": threshold_status,
-        "closure_claim": "live_quality_threshold_defined_provider_replay_not_closed",
-        "fixture_quality_boundary": fixture_boundary,
-        "quality_thresholds": threshold_config,
-        "replay_evaluation": {
-            "replay_type": replay_type,
-            "live_replay_performed": live_replay_performed,
-            "operator_review_status": operator_review_status,
-            "providers": provider_rows,
+    return NonAuthoritativeDict(
+        {
+            "contract_version": AGENT_BATCH_LIVE_QUALITY_THRESHOLD_CONTRACT_VERSION,
+            "scope": LIVE_QUALITY_THRESHOLD_SCOPE,
+            "status": "passed" if not failures else "failed",
+            "threshold_version": str(threshold_config["threshold_version"]),
+            "threshold_status": threshold_status,
+            "closure_claim": "live_quality_threshold_defined_provider_replay_not_closed",
+            "fixture_quality_boundary": fixture_boundary,
+            "quality_thresholds": threshold_config,
+            "replay_evaluation": {
+                "replay_type": replay_type,
+                "live_replay_performed": live_replay_performed,
+                "operator_review_status": operator_review_status,
+                "providers": provider_rows,
+            },
+            "live_provider_replay_closed": live_provider_replay_closed,
+            "quality_claim_allowed": live_provider_replay_closed,
+            "provider_auto_promotion_allowed": False,
+            "unsupported_live_provider_claims": unsupported_claims,
+            "remaining_live_gaps": remaining_gaps,
+            "failures": failures,
         },
-        "live_provider_replay_closed": live_provider_replay_closed,
-        "quality_claim_allowed": live_provider_replay_closed,
-        "provider_auto_promotion_allowed": False,
-        "unsupported_live_provider_claims": unsupported_claims,
-        "remaining_live_gaps": remaining_gaps,
-        "failures": failures,
-    }
+        derived_as="preflight",
+        fact_source="fixture_quality+live_provider_replay+quality_thresholds",
+    )
 
 
 def build_symbolic_quality_regression_evaluator(
@@ -229,7 +242,7 @@ def build_symbolic_quality_regression_evaluator(
     required_live_providers: list[str] | None = None,
     live_quality_thresholds: dict[str, Any] | None = None,
     regression_thresholds: dict[str, Any] | None = None,
-) -> dict[str, Any]:
+) -> NonAuthoritativeDict:
     cases = [dict(case or {}) for case in list(fixture_cases or [])]
     provider_inputs = {
         str(provider): dict(status or {})
@@ -315,36 +328,40 @@ def build_symbolic_quality_regression_evaluator(
         )
     )
 
-    return {
-        "contract_version": "agent_batch.symbolic_quality_regression_evaluator.v1",
-        "scope": QUALITY_REGRESSION_EVALUATOR_SCOPE,
-        "status": "passed" if not failures else "failed",
-        "regression_state": (
-            "fixture_quality_regression_passed_live_provider_quality_closed"
-            if live_provider_replay_closed and not failures
-            else "fixture_quality_regression_passed_live_provider_quality_open"
-            if not failures
-            else "fixture_quality_regression_failed"
-        ),
-        "closure_claim": (
-            "live_provider_quality_thresholds_met_operator_review_approved"
-            if live_provider_replay_closed
-            else "provider_independent_quality_regression_passed_live_provider_quality_not_closed"
-        ),
-        "live_provider_quality_open": live_provider_quality_open,
-        "live_provider_quality_closed_by_evaluator": live_provider_replay_closed,
-        "quality_claim_allowed": bool(live_threshold.get("quality_claim_allowed")) is True,
-        "provider_auto_promotion_allowed": False,
-        "threshold_status": threshold_status,
-        "regression_thresholds": regression_config,
-        "fixture_quality_threshold": fixture_quality_threshold,
-        "critic_bounded_retry_trace": critic_retry_trace,
-        "provider_readiness": provider_readiness,
-        "live_quality_threshold": live_threshold,
-        "unsupported_live_provider_claims": unsupported_live_provider_claims,
-        "remaining_live_gaps": remaining_live_gaps,
-        "failures": failures,
-    }
+    return NonAuthoritativeDict(
+        {
+            "contract_version": "agent_batch.symbolic_quality_regression_evaluator.v1",
+            "scope": QUALITY_REGRESSION_EVALUATOR_SCOPE,
+            "status": "passed" if not failures else "failed",
+            "regression_state": (
+                "fixture_quality_regression_passed_live_provider_quality_closed"
+                if live_provider_replay_closed and not failures
+                else "fixture_quality_regression_passed_live_provider_quality_open"
+                if not failures
+                else "fixture_quality_regression_failed"
+            ),
+            "closure_claim": (
+                "live_provider_quality_thresholds_met_operator_review_approved"
+                if live_provider_replay_closed
+                else "provider_independent_quality_regression_passed_live_provider_quality_not_closed"
+            ),
+            "live_provider_quality_open": live_provider_quality_open,
+            "live_provider_quality_closed_by_evaluator": live_provider_replay_closed,
+            "quality_claim_allowed": bool(live_threshold.get("quality_claim_allowed")) is True,
+            "provider_auto_promotion_allowed": False,
+            "threshold_status": threshold_status,
+            "regression_thresholds": regression_config,
+            "fixture_quality_threshold": fixture_quality_threshold,
+            "critic_bounded_retry_trace": critic_retry_trace,
+            "provider_readiness": provider_readiness,
+            "live_quality_threshold": live_threshold,
+            "unsupported_live_provider_claims": unsupported_live_provider_claims,
+            "remaining_live_gaps": remaining_live_gaps,
+            "failures": failures,
+        },
+        derived_as="preflight",
+        fact_source="fixture_cases+provider_statuses+live_provider_replay+regression_thresholds",
+    )
 
 
 def build_symbolic_quality_promotion_readback_gate(
@@ -357,7 +374,7 @@ def build_symbolic_quality_promotion_readback_gate(
     regression_thresholds: dict[str, Any] | None = None,
     input_promotion_decision: dict[str, Any] | None = None,
     provider_auto_rollout_policy: dict[str, Any] | None = None,
-) -> dict[str, Any]:
+) -> NonAuthoritativeDict:
     cases = [dict(case or {}) for case in list(fixture_cases or [])]
     evaluator = build_symbolic_quality_regression_evaluator(
         fixture_cases=cases,
@@ -455,46 +472,50 @@ def build_symbolic_quality_promotion_readback_gate(
         failures.append("provider_independent_boundary_allowed_auto_promotion")
 
     promotion_allowed = bool(promotion_decision.get("promotion_allowed")) is True
-    return {
-        "contract_version": AGENT_BATCH_QUALITY_PROMOTION_READBACK_CONTRACT_VERSION,
-        "scope": QUALITY_PROMOTION_READBACK_SCOPE,
-        "status": "passed" if not failures else "failed",
-        "gate_state": (
-            "live_provider_quality_promotion_approved"
-            if promotion_allowed and not failures
-            else "provider_independent_quality_promotion_held_live_gap_open"
-            if not failures
-            else "provider_independent_quality_promotion_readback_failed"
-        ),
-        "closure_claim": (
-            "live_provider_quality_and_provider_auto_policy_closed"
-            if promotion_allowed
-            else "promotion_decision_readback_validated_live_provider_quality_not_closed"
-        ),
-        "fixture_search_brief": fixture_search_brief,
-        "critic_score_readback": critic_score_readback,
-        "bounded_retry_readback": bounded_retry_readback,
-        "quality_threshold_readback": quality_threshold_readback,
-        "provider_auto_rollout_policy": rollout_policy,
-        "promotion_decision": promotion_decision,
-        "promotion_decision_readback": promotion_decision_readback,
-        "provider_independent_boundary": provider_independent_boundary,
-        "quality_regression_evaluator": evaluator,
-        "unsupported_promotion_claims": unsupported_promotion_claims,
-        "remaining_live_gaps": remaining_live_gaps,
-        "failures": failures,
-    }
+    return NonAuthoritativeDict(
+        {
+            "contract_version": AGENT_BATCH_QUALITY_PROMOTION_READBACK_CONTRACT_VERSION,
+            "scope": QUALITY_PROMOTION_READBACK_SCOPE,
+            "status": "passed" if not failures else "failed",
+            "gate_state": (
+                "live_provider_quality_promotion_approved"
+                if promotion_allowed and not failures
+                else "provider_independent_quality_promotion_held_live_gap_open"
+                if not failures
+                else "provider_independent_quality_promotion_readback_failed"
+            ),
+            "closure_claim": (
+                "live_provider_quality_and_provider_auto_policy_closed"
+                if promotion_allowed
+                else "promotion_decision_readback_validated_live_provider_quality_not_closed"
+            ),
+            "fixture_search_brief": fixture_search_brief,
+            "critic_score_readback": critic_score_readback,
+            "bounded_retry_readback": bounded_retry_readback,
+            "quality_threshold_readback": quality_threshold_readback,
+            "provider_auto_rollout_policy": rollout_policy,
+            "promotion_decision": promotion_decision,
+            "promotion_decision_readback": promotion_decision_readback,
+            "provider_independent_boundary": provider_independent_boundary,
+            "quality_regression_evaluator": evaluator,
+            "unsupported_promotion_claims": unsupported_promotion_claims,
+            "remaining_live_gaps": remaining_live_gaps,
+            "failures": failures,
+        },
+        derived_as="preflight",
+        fact_source="quality_regression_evaluator+input_promotion_decision+rollout_policy",
+    )
 
 
 def build_source_quality_signals(
     *,
     search_brief: dict[str, Any],
     records: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
+) -> list[NonAuthoritativeDict]:
     coverage_axes = _normalize_string_list(search_brief.get("coverage_axes"))
     days_back_limit = _resolve_days_back_limit(search_brief)
     seen_fingerprints: set[str] = set()
-    signals: list[dict[str, Any]] = []
+    signals: list[NonAuthoritativeDict] = []
 
     for index, record in enumerate(records, start=1):
         payload = dict(record or {})
@@ -517,7 +538,8 @@ def build_source_quality_signals(
             2,
         )
         signals.append(
-            {
+            NonAuthoritativeDict(
+                {
                 "record_id": str(payload.get("record_id") or f"record_{index}"),
                 "domain": domain,
                 "channel": str(payload.get("channel") or "search.market").strip() or "search.market",
@@ -535,8 +557,11 @@ def build_source_quality_signals(
                 "freshness_fit": freshness_fit,
                 "domain_relevance": domain_relevance,
                 "duplicate": duplicate,
-                "source_quality_score": source_quality_score,
-            }
+                    "source_quality_score": source_quality_score,
+                },
+                derived_as="view",
+                fact_source="search_brief+source_records",
+            )
         )
     return signals
 

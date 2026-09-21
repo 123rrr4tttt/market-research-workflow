@@ -31,9 +31,18 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
         cls.client = TestClient(backend_app)
         cls.headers = {"X-Project-Key": "demo_proj", "X-Request-Id": "workflow-graph-integration"}
 
+    def _with_project(self, payload: dict | None = None) -> dict:
+        data = dict(payload or {})
+        data.setdefault("project_key", "demo_proj")
+        return data
+
     def test_compile_success(self):
         with patch("app.api.workflow_graph._invoke_compile", return_value={"graph_id": "g-1", "ok": True}):
-            response = self.client.post("/api/v1/workflow-graph/compile", json={"dsl": {}}, headers=self.headers)
+            response = self.client.post(
+                "/api/v1/workflow-graph/compile",
+                json=self._with_project({"dsl": {}}),
+                headers=self.headers,
+            )
 
         self.assertEqual(response.status_code, 200)
         body = response.json()
@@ -47,7 +56,7 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
         ):
             response = self.client.post(
                 "/api/v1/workflow-graph/compile",
-                json={"template_id": "tpl-1", "version_id": "ver-2"},
+                json=self._with_project({"template_id": "tpl-1", "version_id": "ver-2"}),
                 headers=self.headers,
             )
 
@@ -63,13 +72,51 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
             "app.api.workflow_graph._invoke_run",
             return_value={"run_id": "r-1", "status": "running", "session_id": "as-1", "current_phase": "implementation"},
         ):
-            response = self.client.post("/api/v1/workflow-graph/run", json={"graph_id": "g-1"}, headers=self.headers)
+            response = self.client.post(
+                "/api/v1/workflow-graph/run",
+                json=self._with_project({"graph_id": "g-1"}),
+                headers=self.headers,
+            )
 
         self.assertEqual(response.status_code, 200)
         body = response.json()
         self.assertEqual(body["status"], "ok")
         self.assertEqual(body["data"]["run_id"], "r-1")
         self.assertEqual(body["data"]["session_id"], "as-1")
+        self.assertEqual(body["data"]["event"]["event_type"], "workflow_graph.run.accepted")
+        self.assertEqual(body["data"]["event"]["project_key"], "demo_proj")
+        self.assertEqual(body["data"]["event"]["session_id"], "as-1")
+        self.assertEqual(body["data"]["event"]["run_id"], "r-1")
+        self.assertIn("trace_id", body["data"]["event"])
+
+    def test_compile_requires_explicit_project_key(self):
+        with patch("app.api.workflow_graph._invoke_compile") as compile_mock:
+            response = self.client.post("/api/v1/workflow-graph/compile", json={"dsl": {}}, headers=self.headers)
+
+        self.assertEqual(response.status_code, 400)
+        compile_mock.assert_not_called()
+        body = response.json()
+        self.assertEqual(body["status"], "error")
+        self.assertEqual(body["error"]["code"], ErrorCode.PROJECT_KEY_REQUIRED.value)
+        self.assertTrue(body["error"]["details"]["recoverable"])
+        self.assertEqual(body["error"]["details"]["field"], "project_key")
+        self.assertEqual(body["error"]["details"]["next_action"], "retry_with_explicit_project_key")
+        self.assertEqual(body["detail"]["error"]["code"], ErrorCode.PROJECT_KEY_REQUIRED.value)
+
+    def test_run_rejects_blank_project_key(self):
+        with patch("app.api.workflow_graph._invoke_run") as run_mock:
+            response = self.client.post(
+                "/api/v1/workflow-graph/run",
+                json={"project_key": " ", "graph_id": "g-1"},
+                headers=self.headers,
+            )
+
+        self.assertEqual(response.status_code, 400)
+        run_mock.assert_not_called()
+        body = response.json()
+        self.assertEqual(body["error"]["code"], ErrorCode.PROJECT_KEY_REQUIRED.value)
+        self.assertTrue(body["error"]["details"]["recoverable"])
+        self.assertEqual(body["error"]["details"]["next_action"], "retry_with_explicit_project_key")
 
     def test_get_run_success(self):
         with patch(
@@ -95,6 +142,11 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
         body = response.json()
         self.assertEqual(body["status"], "ok")
         self.assertEqual(body["data"]["items"][0]["event"], "started")
+        self.assertEqual(body["data"]["items"][0]["event_type"], "started")
+        self.assertEqual(body["data"]["items"][0]["run_id"], "r-1")
+        self.assertIn("event_id", body["data"]["items"][0])
+        self.assertIn("trace_id", body["data"]["items"][0])
+        self.assertIn("created_at", body["data"]["items"][0])
         self.assertEqual(body["data"]["session_id"], "as-1")
         self.assertEqual(body["data"]["contract_version"], "workflow_graph.v2")
 
@@ -187,7 +239,7 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
         ):
             create_resp = self.client.post(
                 "/api/v1/workflow-graph/templates",
-                json={"name": "n", "base_version": 3},
+                json=self._with_project({"name": "n", "base_version": 3}),
                 headers=self.headers,
             )
         self.assertEqual(create_resp.status_code, 200)
@@ -207,7 +259,7 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
         ):
             patch_resp = self.client.patch(
                 "/api/v1/workflow-graph/templates/tpl-2",
-                json={"name": "n2", "base_version": 4},
+                json=self._with_project({"name": "n2", "base_version": 4}),
                 headers=self.headers,
             )
         self.assertEqual(patch_resp.status_code, 200)
@@ -220,7 +272,7 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
             delete_resp = self.client.request(
                 "DELETE",
                 "/api/v1/workflow-graph/templates/tpl-2",
-                json={"base_version": 5},
+                json=self._with_project({"base_version": 5}),
                 headers=self.headers,
             )
         self.assertEqual(delete_resp.status_code, 200)
@@ -241,7 +293,7 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
         ):
             create_resp = self.client.post(
                 "/api/v1/workflow-graph/templates/tpl-1/versions",
-                json={"version_id": "v2", "dsl": {"nodes": [], "edges": []}, "base_version": 2},
+                json=self._with_project({"version_id": "v2", "dsl": {"nodes": [], "edges": []}, "base_version": 2}),
                 headers=self.headers,
             )
         self.assertEqual(create_resp.status_code, 200)
@@ -261,7 +313,7 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
         ):
             activate_resp = self.client.post(
                 "/api/v1/workflow-graph/templates/tpl-1/versions/v2/activate",
-                json={"base_version": 3},
+                json=self._with_project({"base_version": 3}),
                 headers=self.headers,
             )
         self.assertEqual(activate_resp.status_code, 200)
@@ -274,7 +326,7 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
         ):
             response = self.client.patch(
                 "/api/v1/workflow-graph/templates/tpl-1",
-                json={"name": "renamed", "base_version": 1},
+                json=self._with_project({"name": "renamed", "base_version": 1}),
                 headers=self.headers,
             )
 
@@ -291,7 +343,11 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
             "app.api.workflow_graph._invoke_sync_curated_graph",
             side_effect=WorkflowGraphSyncConflictError(expected_revision=1, actual_revision=2),
         ):
-            response = self.client.post("/api/v1/workflow-graph/curated/g-1/sync", json={"since_revision": 1}, headers=self.headers)
+            response = self.client.post(
+                "/api/v1/workflow-graph/curated/g-1/sync",
+                json=self._with_project({"since_revision": 1}),
+                headers=self.headers,
+            )
 
         self.assertEqual(response.status_code, 400)
         body = response.json()
@@ -319,7 +375,7 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
         ):
             draft_resp = self.client.post(
                 "/api/v1/workflow-graph/curated/cg-1/draft",
-                json={"dsl": {"nodes": [], "edges": []}, "base_revision": 2},
+                json=self._with_project({"dsl": {"nodes": [], "edges": []}, "base_revision": 2}),
                 headers=self.headers,
             )
         self.assertEqual(draft_resp.status_code, 200)
@@ -331,7 +387,7 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
         ):
             submit_resp = self.client.post(
                 "/api/v1/workflow-graph/curated/cg-1/submit",
-                json={"base_revision": 2},
+                json=self._with_project({"base_revision": 2}),
                 headers=self.headers,
             )
         self.assertEqual(submit_resp.status_code, 200)
@@ -344,7 +400,7 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
         ):
             sync_resp = self.client.post(
                 "/api/v1/workflow-graph/curated/cg-1/sync",
-                json={"since_revision": 3},
+                json=self._with_project({"since_revision": 3}),
                 headers=self.headers,
             )
         self.assertEqual(sync_resp.status_code, 200)
@@ -362,23 +418,47 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
                 "audit_id": "audit-rollback-1",
                 "rollback_contract": {
                     "contract_version": "workflow_graph.rollback.v1",
+                    "governance_contract_version": "cross_object.publish_governance.v1",
+                    "object_type": "curated_business_graph",
+                    "object_id": "cg-1",
                     "target_version_id": "cver-1",
+                    "operator": {"actor_id": "frontend-contract"},
+                    "target": {
+                        "object_type": "curated_business_graph",
+                        "object_id": "cg-1",
+                        "version_id": "cver-1",
+                    },
+                    "snapshot": {"kind": "version_snapshot", "version_id": "cver-1"},
+                    "reason": "restore tested snapshot",
+                    "compatible_object_types": ["workflow_template", "dashboard", "report", "project"],
                 },
             },
         ) as rollback_mock:
             rollback_resp = self.client.post(
                 "/api/v1/workflow-graph/curated/cg-1/rollback",
-                json={"base_revision": 3, "target_version_id": "cver-1", "reason": "restore tested snapshot"},
+                json=self._with_project(
+                    {"base_revision": 3, "target_version_id": "cver-1", "reason": "restore tested snapshot"}
+                ),
                 headers=self.headers,
             )
         self.assertEqual(rollback_resp.status_code, 200)
         rollback_mock.assert_called_once_with(
             "cg-1",
-            {"base_revision": 3, "target_version_id": "cver-1", "reason": "restore tested snapshot"},
+            {
+                "base_revision": 3,
+                "target_version_id": "cver-1",
+                "reason": "restore tested snapshot",
+                "project_key": "demo_proj",
+            },
         )
         rollback_data = rollback_resp.json()["data"]
         self.assertEqual(rollback_data["rollback_status"], "succeeded")
         self.assertEqual(rollback_data["rollback_contract"]["contract_version"], "workflow_graph.rollback.v1")
+        self.assertEqual(rollback_data["rollback_contract"]["object_type"], "curated_business_graph")
+        self.assertEqual(rollback_data["rollback_contract"]["object_id"], "cg-1")
+        self.assertEqual(rollback_data["rollback_contract"]["target"]["version_id"], "cver-1")
+        self.assertEqual(rollback_data["rollback_contract"]["snapshot"]["version_id"], "cver-1")
+        self.assertIn("dashboard", rollback_data["rollback_contract"]["compatible_object_types"])
 
         with patch(
             "app.api.workflow_graph._invoke_list_curated_audits",
@@ -412,7 +492,7 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
         ):
             response = self.client.post(
                 "/api/v1/workflow-graph/curated/cg-1/submit",
-                json={"base_revision": 1},
+                json=self._with_project({"base_revision": 1}),
                 headers=self.headers,
             )
         self.assertEqual(response.status_code, 400)
@@ -430,7 +510,7 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
         with patch("app.api.workflow_graph._invoke_build_evidence_pack", return_value=pack):
             pack_resp = self.client.post(
                 "/api/v1/workflow-graph/curated/cg-1/evidence-pack",
-                json={"selected_node_ids": ["n1"]},
+                json=self._with_project({"selected_node_ids": ["n1"]}),
                 headers=self.headers,
             )
         self.assertEqual(pack_resp.status_code, 200)
@@ -451,7 +531,7 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
         ):
             reporting_resp = self.client.post(
                 "/api/v1/workflow-graph/curated/cg-1/handoff/reporting",
-                json={"topic": "robotics"},
+                json=self._with_project({"topic": "robotics"}),
                 headers=self.headers,
             )
         self.assertEqual(reporting_resp.status_code, 200)
@@ -472,7 +552,7 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
         ):
             writing_resp = self.client.post(
                 "/api/v1/workflow-graph/curated/cg-1/handoff/writing",
-                json={"query": "robotics"},
+                json=self._with_project({"query": "robotics"}),
                 headers=self.headers,
             )
         self.assertEqual(writing_resp.status_code, 200)
@@ -549,7 +629,7 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
         ):
             draft_resp = self.client.post(
                 "/api/v1/workflow-graph/curated/cg-contract/draft",
-                json={"dsl": dsl, "actor_id": "frontend-contract"},
+                json=self._with_project({"dsl": dsl, "actor_id": "frontend-contract"}),
                 headers=self.headers,
             )
             self.assertEqual(draft_resp.status_code, 200)
@@ -557,7 +637,7 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
 
             submit_resp = self.client.post(
                 "/api/v1/workflow-graph/curated/cg-contract/submit",
-                json={"base_revision": 0, "actor_id": "frontend-contract"},
+                json=self._with_project({"base_revision": 0, "actor_id": "frontend-contract"}),
                 headers=self.headers,
             )
             self.assertEqual(submit_resp.status_code, 200)
@@ -565,7 +645,7 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
 
             pack_resp = self.client.post(
                 "/api/v1/workflow-graph/curated/cg-contract/evidence-pack",
-                json={"selected_node_ids": ["company-acme", "market-robotics"]},
+                json=self._with_project({"selected_node_ids": ["company-acme", "market-robotics"]}),
                 headers=self.headers,
             )
             self.assertEqual(pack_resp.status_code, 200)
@@ -577,7 +657,7 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
 
             reporting_resp = self.client.post(
                 "/api/v1/workflow-graph/curated/cg-contract/handoff/reporting",
-                json={"topic": "robotics", "selected_node_ids": ["company-acme", "market-robotics"]},
+                json=self._with_project({"topic": "robotics", "selected_node_ids": ["company-acme", "market-robotics"]}),
                 headers=self.headers,
             )
             self.assertEqual(reporting_resp.status_code, 200)
@@ -592,7 +672,7 @@ class WorkflowGraphApiIntegrationTestCase(unittest.TestCase):
 
             writing_resp = self.client.post(
                 "/api/v1/workflow-graph/curated/cg-contract/handoff/writing",
-                json={"query": "robotics", "selected_node_ids": ["company-acme"]},
+                json=self._with_project({"query": "robotics", "selected_node_ids": ["company-acme"]}),
                 headers=self.headers,
             )
             self.assertEqual(writing_resp.status_code, 200)

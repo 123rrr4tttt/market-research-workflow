@@ -2,7 +2,7 @@ import { translate, useAppLocale } from '../platform/i18n'
 import { getKernelModuleContract } from './contracts'
 import LayerSwitch from './LayerSwitch'
 import ModuleRenderer from './ModuleRenderer'
-import type { KernelModuleKey } from './types'
+import type { KernelModuleKey, KernelRouteRenderVariant } from './types'
 import type { useKernelRuntime } from './useKernelRuntime'
 
 type Runtime = ReturnType<typeof useKernelRuntime>
@@ -10,6 +10,7 @@ type Runtime = ReturnType<typeof useKernelRuntime>
 type Props = {
   activeModule: KernelModuleKey
   runtime: Runtime
+  renderVariant?: KernelRouteRenderVariant
 }
 
 const WORKBENCH_MODULES: KernelModuleKey[] = [
@@ -21,7 +22,7 @@ const WORKBENCH_MODULES: KernelModuleKey[] = [
   'flowRawData',
 ]
 
-export default function WorkbenchLayerShell({ activeModule, runtime }: Props) {
+export default function WorkbenchLayerShell({ activeModule, runtime, renderVariant }: Props) {
   const locale = useAppLocale()
   const isWriting = activeModule === 'flowWriting'
 
@@ -87,6 +88,7 @@ export default function WorkbenchLayerShell({ activeModule, runtime }: Props) {
                 projectKey={runtime.projectKey}
                 onProjectChange={runtime.setProjectKey}
                 shellMode="workbench"
+                renderVariant={renderVariant}
               />
             </section>
           </div>

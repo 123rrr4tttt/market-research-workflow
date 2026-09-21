@@ -1,0 +1,19 @@
+{
+  "authoritative": false,
+  "files": [
+    {
+      "path": "stage1-successor-evidence/contract14-local-execution-v1/history/generate_history_verification.py",
+      "sha256": "e4223f52f9e76475b2eac76afa22681321580f3a5493eb2bf375d9fb9ff85ee8"
+    },
+    {
+      "path": "stage1-successor-evidence/contract14-local-execution-v1/history/history-verification-receipt.v1.json",
+      "sha256": "2187771630e3fd041f73f7de2358d587a96803115f3076926e7def791a38905a"
+    },
+    {
+      "path": "stage1-successor-evidence/contract14-local-execution-v1/history/validate_history_verification.py",
+      "sha256": "0c461c7c1a072b9d25b04efb23184e71f8221e458e72d8db61bae5426a2ba456"
+    }
+  ],
+  "production_release_authorized": false,
+  "schema_version": "contract14.history_artifact_hashes.v1"
+}

@@ -46,6 +46,7 @@ class DashboardAdminReadbackRow:
     def __post_init__(self) -> None:
         object.__setattr__(self, "row_id", normalized_text(self.row_id, "row_id"))
         if self.read_kind not in DashboardReadKind.__args__:
+            # kit:boundary owner=successor_runtime.ops_domain.dashboard_admin_surface class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_ops_surface_programmer_defect_boundaries
             raise ValueError(f"unknown read_kind: {self.read_kind}")
         object.__setattr__(
             self,
@@ -96,6 +97,7 @@ class DashboardAdminNoCallDecision:
             self, "action_kind", normalized_text(self.action_kind, "action_kind")
         )
         if self.disposition not in ("EXPLICITLY_REJECTED", "DECLARED_LOSS"):
+            # kit:boundary owner=successor_runtime.ops_domain.dashboard_admin_surface class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_ops_surface_programmer_defect_boundaries
             raise ValueError(f"unknown disposition: {self.disposition}")
         object.__setattr__(
             self,
@@ -176,8 +178,10 @@ class DashboardAdminSurfaceManifest:
 
     def __post_init__(self) -> None:
         if self.schema != SURFACE_SCHEMA:
+            # kit:boundary owner=successor_runtime.ops_domain.dashboard_admin_surface class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_ops_surface_programmer_defect_boundaries
             raise ValueError("DashboardAdminSurfaceManifest.schema is not frozen")
         if self.movement_ids != MOVEMENT_IDS:
+            # kit:boundary owner=successor_runtime.ops_domain.dashboard_admin_surface class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_ops_surface_programmer_defect_boundaries
             raise ValueError("DashboardAdminSurfaceManifest.movement_ids drift")
         require_authority_false(self.authority)
         object.__setattr__(self, "readback_rows", tuple(self.readback_rows))
@@ -232,6 +236,7 @@ def project_dashboard_admin_surface(
     decisions = _merge_no_call(supplied)
     for decision in decisions:
         if not decision.decision_owner:
+            # kit:boundary owner=successor_runtime.ops_domain.dashboard_admin_surface class=PROGRAMMER_DEFECT failure_family=none witness=test:test_w07_ops_surface_programmer_defect_boundaries
             raise ValueError("no-call decision requires an explicit decision_owner")
     return DashboardAdminSurfaceManifest(
         schema=SURFACE_SCHEMA,

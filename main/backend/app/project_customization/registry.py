@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Callable, Dict, List, Tuple
 
+from ..services.projects.context import _project_failure, _raise_project_failure
 from .defaults import DefaultProjectCustomization
 from .interfaces import ProjectCustomization
 
@@ -19,14 +20,30 @@ def _normalize_project_key(project_key: str | None) -> str:
 def register_project_customization(project_key: str, factory: CustomizationFactory) -> None:
     normalized = _normalize_project_key(project_key)
     if not normalized:
-        raise ValueError("project_key is required")
+        _raise_project_failure(
+            _project_failure(
+                "project_key_required",
+                "project_key is required",
+                operation="register_project_customization",
+                site="app.project_customization.registry.register_project_customization",
+                public_exception="ValueError",
+            )
+        )
     _REGISTRY[normalized] = factory
 
 
 def register_project_customization_prefix(prefix: str, factory: CustomizationFactory) -> None:
     normalized = _normalize_project_key(prefix)
     if not normalized:
-        raise ValueError("prefix is required")
+        _raise_project_failure(
+            _project_failure(
+                "prefix_required",
+                "prefix is required",
+                operation="register_project_customization_prefix",
+                site="app.project_customization.registry.register_project_customization_prefix",
+                public_exception="ValueError",
+            )
+        )
     _PREFIX_REGISTRY.append((normalized, factory))
     _PREFIX_REGISTRY.sort(key=lambda item: len(item[0]), reverse=True)
 

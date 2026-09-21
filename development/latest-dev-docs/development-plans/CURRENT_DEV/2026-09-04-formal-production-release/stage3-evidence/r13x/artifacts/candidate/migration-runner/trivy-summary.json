@@ -1,0 +1,31 @@
+{
+  "authoritative": false,
+  "bound_artifact_digest": "sha256:535ac0b1b06ed507e14bc9a1bfc96c27d4522bada61cbc63a9fa959721b59bc5",
+  "counts": {
+    "CRITICAL": 0,
+    "HIGH": 0
+  },
+  "exit_code": 0,
+  "input": "layouts/migration-runner",
+  "report_identity": {
+    "artifact_name": "/work/layouts/migration-runner",
+    "artifact_type": "container_image",
+    "matches_layout": true
+  },
+  "report_sha256": "e1bd3ea156233d3c2952197d7c77db5d007307808086e85f7d5d0957aa955e63",
+  "role": "migration-runner",
+  "scanner": "aquasec/trivy:0.67.2",
+  "status": "PASS",
+  "threshold": {
+    "exit_code": 1,
+    "ignore_unfixed": false,
+    "severity": [
+      "HIGH",
+      "CRITICAL"
+    ],
+    "vulnerability_types": [
+      "os",
+      "library"
+    ]
+  }
+}

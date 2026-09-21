@@ -1,0 +1,102 @@
+{
+  "schema_version": "contract13.startup_preservation.v2",
+  "authoritative": false,
+  "status": "LOCAL_ACCEPTANCE_GAPS_REMAIN",
+  "contract": {
+    "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/13_contract12-supervisor-review-and-return.v1.md",
+    "sha256": "ac1629315b3ae91aa9de59b7ae87da04a5f10c54d643e406d8785a0783071717",
+    "requirement": 4
+  },
+  "source_receipt": {
+    "path": "stage1-successor-evidence/residual-disposition-v1/effects/import-time-db-effects.v1.json",
+    "sha256": "280d22ccdcc8850c68f14cb42e03182fba89419d859001707b9cdc1fad24c24f"
+  },
+  "scope": "Read-only analysis plus isolated no-network/no-database fixtures. No shared runtime or repository test file was changed.",
+  "focused_patch": {
+    "path": "stage1-successor-evidence/contract13-bounded-corrections-v2/startup-preservation/focused-import-time-db-boundary.patch",
+    "sha256": "961b137fc49ca5b7f4576aac9a021dc797fd9e16700ae688594c439dfb6f7467",
+    "qualification": "review-only extraction of the import-time boundary hunks; unrelated dirty-checkout changes are intentionally excluded"
+  },
+  "checks": [
+    {
+      "check_id": "fastapi_startup_handler_order",
+      "status": "PASS",
+      "evidence": [
+        "startup_hooks.py registers _ensure_default_project_schema before the other five hooks",
+        "main.py calls register_startup_hooks before registering _validate_production_composition",
+        "isolated composed-app witness observed exact order: schema, project bootstrap, all-project schemas, prompt sync, shared tables, production composition"
+      ],
+      "preserved_semantics": "The default schema DDL is first in the FastAPI startup list. Development/test logs and continues on failure; prod/production re-raises and fails startup. CREATE SCHEMA uses IF NOT EXISTS.",
+      "ceiling": "No live startup or database was exercised."
+    },
+    {
+      "check_id": "celery_and_cli_schema_initialization",
+      "status": "LOCAL_ACCEPTANCE_GAP",
+      "evidence": [
+        "celery_app.py does not register or invoke initialize_default_project_schema",
+        "models.base no longer performs module-scope CREATE SCHEMA",
+        "an isolated Celery plus workflow_graph_smoke_local import, with the unrelated SQLite cache replaced and Engine.begin/connect fail-fast guards installed, made zero guarded DB calls",
+        "ensure_project_schema_ready exists for direct scripts but repository search found only four explicit callers; it is not a universal CLI boundary"
+      ],
+      "not_preserved": "The former incidental default-schema initialization inherited by Celery and direct CLI imports is absent. A pre-provisioned schema or script-specific explicit bootstrap is now required.",
+      "minimum_follow_up": "Define and test one explicit Celery worker-start initialization boundary with production failure propagation, and require every DB-using CLI entrypoint to invoke the existing project bootstrap/preflight or a shared CLI wrapper. Do not restore import-time DDL."
+    },
+    {
+      "check_id": "first_operation_sql_fail_closed_fallback_retry",
+      "status": "PASS",
+      "evidence": [
+        "build_run_store and build_compiled_graph_store remain the only configuration/failure owners",
+        "fail_closed=true raises registered store_unavailable",
+        "fail_closed=false returns the corresponding in-memory store",
+        "compiler, runtime and handoff lazy fields remain unset when the builder raises, and a later first operation retries",
+        "a selected in-memory fallback is cached for the service lifetime and does not silently switch back to SQL"
+      ],
+      "preserved_semantics": "First requested SQL effect fails closed or selects the configured memory fallback. Fail-closed initialization is retryable on a later operation; selected fallback remains process-lifetime sticky and SQL is reconsidered only after reconstruction/restart.",
+      "ceiling": "No live SQL outage/recovery was exercised."
+    },
+    {
+      "check_id": "concurrent_first_use_initialization",
+      "status": "PASS",
+      "scope": "single service instance in one process",
+      "evidence": [
+        "WorkflowGraphCompilerService, WorkflowGraphRuntimeService and WorkflowGraphHandoffStore each own an RLock around check-build-assign",
+        "24 calls across 12 threads produced one builder call and one shared resolved object for each service"
+      ],
+      "preserved_semantics": "Within one service instance, initialization is serialized; a successful builder result is published once. A throwing builder publishes nothing, so a waiting or later caller may retry."
+    },
+    {
+      "check_id": "cross_process_first_use_initialization",
+      "status": "LOCAL_ACCEPTANCE_GAP",
+      "evidence": [
+        "the RLocks are instance-local and process-local",
+        "default schema and compiled store DDL use IF NOT EXISTS",
+        "run store uses Base.metadata.create_all(checkfirst=true)"
+      ],
+      "not_proven": "Multi-worker/process racing, PostgreSQL DDL lock behavior, partial initialization, and recovery after concurrent DDL failure were not exercised without a live database.",
+      "minimum_follow_up": "Add a disposable-PostgreSQL multi-process acceptance test or a single authoritative migration/startup owner before claiming cross-process preservation."
+    },
+    {
+      "check_id": "unrelated_celery_llm_sqlite_import_effect",
+      "status": "OUT_OF_SCOPE",
+      "evidence": "Unmodified app.services.llm.cache still calls setup_cache at import and constructs SQLiteCache outside production.",
+      "minimum_follow_up": "Track separately if all Celery import-time database effects, rather than only these eight changed paths, must be eliminated."
+    }
+  ],
+  "changed_paths": [
+    {"path": "main/backend/app/models/base.py", "sha256": "173d95722cef7411f4b1e4606f8dbdbf850d74fbae9847b942b13be1e56c8308", "matches_residual_receipt": true},
+    {"path": "main/backend/app/startup_hooks.py", "sha256": "a1426fad870f3aefaf98236725d953f65f35e6b059603f9e29b9bdf0c1a98d74", "matches_residual_receipt": true},
+    {"path": "main/backend/app/services/workflow_graph/__init__.py", "sha256": "91cb7b802294a13b5831e7906c7cbceae16c4bd7c99655db99c0aa4ad4fd0f97", "matches_residual_receipt": true},
+    {"path": "main/backend/app/services/workflow_graph/runtime.py", "sha256": "15c22d898b1c90205c43585aae4e3d83a425782e57676926507b92e6b8fb68ca", "matches_residual_receipt": true},
+    {"path": "main/backend/app/services/workflow_graph/executors/__init__.py", "sha256": "8901889f8929a4326a1625f582fa6c6c1d5176cfe8b34ce5c1abd5174af6e2c6", "matches_residual_receipt": true},
+    {"path": "main/backend/app/services/workflow_graph/handoff_store.py", "sha256": "08b7e60567122f689f6ec67736b5282ba6b89fdc452e82d8c0de2d6c3428e814", "matches_residual_receipt": true},
+    {"path": "main/backend/tests/unit/test_schema_startup_boundary_unittest.py", "sha256": "6bcdd014f81f1e6d0ebc0ce35dae46b2ae1c57d19ae51aa1a4d904e4602da824", "matches_residual_receipt": true},
+    {"path": "main/backend/tests/unit/test_workflow_graph_import_boundary_unittest.py", "sha256": "a38e3ee51fbf1b3b26822bbbd832c5d5cd50dc1838cdf9a87777fdaa104b1eb1", "matches_residual_receipt": true}
+  ],
+  "verification": {
+    "existing_focused_tests": "PASS: 32 passed, 13 warnings",
+    "isolated_witness": "PASS: 12 passed, 10 warnings",
+    "witness_path": "stage1-successor-evidence/contract13-bounded-corrections-v2/startup-preservation/test_startup_preservation_witness.py",
+    "witness_sha256": "a96e81676a8b5b19fb5739d16b4aa191697df500c704e3b129b03eae06737816"
+  },
+  "authority_ceiling": "LOCAL_DETERMINISTIC_EVIDENCE_ONLY_NO_LIVE_DB_NO_NETWORK_NO_DEPLOY_NO_RELEASE_NO_REBIND_NO_AUTHORITY_TRANSFER"
+}

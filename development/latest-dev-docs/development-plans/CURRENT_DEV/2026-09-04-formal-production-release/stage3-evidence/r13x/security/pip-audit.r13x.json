@@ -1,0 +1,81 @@
+{
+  "attempts": [
+    {
+      "attempt": 1,
+      "exit_code": 1,
+      "reason": "PyPI HTTPS request ended with SSL unexpected EOF; no vulnerability conclusion was drawn.",
+      "status": "EXTERNAL_QUERY_ERROR",
+      "stderr": {
+        "bytes": 3935,
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/security/raw/pip-audit.attempt1.stderr.log",
+        "sha256": "d01f44d05548f1397aeff93e7c1c742132d8aacbbde51962ef5c4c9e001c3236"
+      }
+    },
+    {
+      "attempt": 2,
+      "exit_code": 0,
+      "status": "PASS",
+      "stderr": {
+        "bytes": 352,
+        "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/security/raw/pip-audit.attempt2.stderr.log",
+        "sha256": "53f3d56d544990bd4f86117c0cea86ba5a606814ce92178522ff508c3cdaaee4"
+      }
+    }
+  ],
+  "authoritative": false,
+  "candidate": {
+    "commit": "8c965dd2dcdc5d3e0883c3d7f65fb720dc2d87a2",
+    "tree": "ce7c67c831b51f9d64b4c2f1a470a724a50b19df"
+  },
+  "command": "pip-audit -r <task-tmp>/mrw-public-pypi-requirements.txt --strict --require-hashes --no-deps --disable-pip --format json --output <security>/raw/pip-audit.report.json",
+  "cwd": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260912-v4-r13x/candidate/main/backend",
+  "dependencies": 123,
+  "derived_public_pypi_input": {
+    "bytes": 262021,
+    "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/security/raw/mrw-public-pypi-requirements.txt",
+    "sha256": "3265fbc339dea01d995dde63b2a883f7a494fb0ec36057fad74942ff051287c0"
+  },
+  "generated_at_utc": "2026-09-12T16:08:59.049575Z",
+  "input_derivation": {
+    "excluded_non_pypi_entries": [
+      "./vendor/functorial_kit-0.1.0-py3-none-any.whl"
+    ],
+    "status": "PASS",
+    "workflow_semantics": "Remove at most one local --find-links ./vendor option and exactly the ./vendor/functorial_kit-0.1.0-py3-none-any.whl chunk; reject other non-PyPI entries."
+  },
+  "known_vulnerabilities": 0,
+  "execution": {
+    "argv": [
+      "/private/tmp/mrw-r13x-security-fIVnzM/tools-venv/bin/pip-audit",
+      "-r",
+      "/private/tmp/mrw-r13x-security-fIVnzM/mrw-public-pypi-requirements.txt",
+      "--strict",
+      "--require-hashes",
+      "--no-deps",
+      "--disable-pip",
+      "--format",
+      "json",
+      "--output",
+      "/Users/wangyiliang/market-research-workflow/development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/security/raw/pip-audit.report.json"
+    ],
+    "cwd": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260912-v4-r13x/candidate/main/backend"
+  },
+  "limitations": [
+    "The fixed lock input is exact, while advisory availability results reflect the PyPI service available at scan time.",
+    "The fixed Git dependency is intentionally excluded by the workflow's separate dependency-audit lane.",
+    "Local source dependency evidence only; this is not release or security approval."
+  ],
+  "report": {
+    "bytes": 7102,
+    "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-09-04-formal-production-release/stage3-evidence/r13x/security/raw/pip-audit.report.json",
+    "sha256": "6cb46f2085bfb506cf1dc191defc15dfdc7c7e4032bcbf45a7b1cd18dc486e16"
+  },
+  "schema_version": "mrw.stage3.pip-audit-gate.v1",
+  "source_lock": {
+    "bytes": 262175,
+    "path": "/Users/wangyiliang/.codex/release-rehearsals/mrw-stage2-20260912-v4-r13x/candidate/main/backend/requirements-runtime-linux-amd64-py311.lock.txt",
+    "sha256": "f4c95ba57ed4edacd88224ad835fb6d256a46cdc3aa2fbaf7079e1a467c342b0"
+  },
+  "status": "PASS",
+  "workflow_required_command": "pip-audit -r ${RUNNER_TEMP}/mrw-public-pypi-requirements.txt --strict --require-hashes --no-deps --disable-pip"
+}
