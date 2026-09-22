@@ -1,0 +1,112 @@
+{
+  "schema": "mrw.functorial-successor.all-lines-gap-backend-production-wiring.v1",
+  "status": "BACKEND_PRODUCTION_WIRING_LOCAL_ONLY_BUILT",
+  "date": "2026-09-03",
+  "worktree": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0",
+  "branch": "codex/functorial-successor-p0",
+  "baseline_commit": "b26da684690c15bf093a625701b221aae87126e9",
+  "committed": false,
+  "authority_ceiling": {
+    "canonical_write": false,
+    "live_provider": false,
+    "external_delivery": false,
+    "cutover": false,
+    "authority_transfer": false,
+    "candidate_created": false,
+    "legacy_retired": false
+  },
+  "scope": "Lane A backend production wiring only",
+  "modified_files": [
+    "main/backend/app/settings/config.py",
+    "main/backend/app/successor_runtime/assembly/app_assembly.py",
+    "main/backend/app/api/successor_runtime.py",
+    "main/backend/app/api/__init__.py",
+    "main/backend/app/main.py",
+    "main/backend/.env.example"
+  ],
+  "new_tests": [
+    "main/backend/tests/successor_runtime/test_successor_production_wiring.py"
+  ],
+  "settings_semantics": {
+    "successor_mount_mode": {
+      "default": "local_only",
+      "allowed": ["local_only", "production_registry"]
+    },
+    "successor_production_requires_auth": {
+      "default": true,
+      "fail_closed_rule": "production_registry requires codex_auth_enabled=true unless successor_production_requires_auth=false"
+    },
+    "codex_auth_protected_prefixes": {
+      "default_includes": "/api/v1/successor-runtime"
+    }
+  },
+  "implementation_semantics": {
+    "local_only_default": "import-time closed fixture mount, byte-compatible with WP-I1-06 route-mount contract",
+    "production_registry": "app.state-backed lazy router; no engine/connection at import; startup calls initialize_successor_registry_mount(app)",
+    "resolver": "RegistryBackedProjectScopeResolver opens short-lived fixed-public connections and delegates to ServerProjectScopeResolver per request",
+    "actor_identity_kind": "production-authenticated",
+    "actor_provider": "structural bearer/X-Codex-Auth token hash or codex oauth cookie hash; app startup injects sink-aware provider in main.py",
+    "fail_closed": "production_registry without required auth raises at Settings/startup; uninitialized state router returns typed 503 MOUNT_NOT_INITIALIZED; never silently falls back to local_only"
+  },
+  "validation_commands": [
+    {
+      "command": "python3.11 -m pytest -q --assert=plain -p no:cacheprovider tests/successor_runtime/test_api_successor_runtime_mount.py tests/successor_runtime/test_successor_production_wiring.py tests/successor_runtime/test_p0c_boundaries.py",
+      "exit_code": 0,
+      "result": "36 passed"
+    },
+    {
+      "command": "python3.11 -m pytest -q --assert=plain -p no:cacheprovider tests/successor_runtime/test_p4_c7_6_postgres.py",
+      "exit_code": 0,
+      "result": "4 passed (disposable PG; registry resolver behavior unchanged)"
+    },
+    {
+      "command": "ruff check (scoped: app_assembly, api/successor_runtime, api/__init__, new test file)",
+      "exit_code": 0,
+      "result": "All checks passed"
+    },
+    {
+      "command": "ruff format --check (scoped 4 files)",
+      "exit_code": 0,
+      "result": "4 files already formatted"
+    },
+    {
+      "command": "git diff --check",
+      "exit_code": 0,
+      "result": "PASS"
+    },
+    {
+      "command": "full tests/successor_runtime suite",
+      "exit_code": 1,
+      "result": "1573 passed, 119 skipped, 7 failed",
+      "failure_analysis": "All 7 failures are C9/semantic-movement evidence-drift checks caused by concurrent Lane B frontend kernel/catalog edits changing generator inputs (C9 fragment digests). No failure is in Lane A code. Evidence rebind is integration work and was intentionally not performed in this lane."
+    },
+    {
+      "command": "ruff full-file baseline comparison for app/settings/config.py and app/main.py",
+      "exit_code": 1,
+      "result": "Preexisting baseline findings only; no new finding codes introduced (I001 count actually decreased by 1 after import sorting). Lane A successor modules are clean under full ruff."
+    },
+    {
+      "command": "PG residual check after disposable tests",
+      "exit_code": 0,
+      "result": "RESIDUAL_DBS [] / RESIDUAL_ROLES []"
+    }
+  ],
+  "subprocess_smoke": {
+    "production_routes_mounted_with_auth": {
+      "env": "SUCCESSOR_MOUNT_MODE=production_registry CODEX_AUTH_ENABLED=true",
+      "exit_code": 0,
+      "result": "2 successor-runtime routes mounted via state router"
+    },
+    "production_without_auth_fails_closed": {
+      "env": "SUCCESSOR_MOUNT_MODE=production_registry CODEX_AUTH_ENABLED=false",
+      "exit_code": 1,
+      "result": "Settings ValidationError: successor_mount_mode=production_registry requires codex_auth_enabled=true"
+    }
+  },
+  "risks": [
+    "Concurrent Lane B frontend wiring changed generator inputs; full-suite evidence-drift failures (7) must be resolved by post-Lane-B evidence rebind, not by this lane.",
+    "production_registry actor provider is structural; codex-auth middleware is the actual gate when auth is enabled.",
+    "successor registry mount depends on project_scope_registry rows existing in the deployment database.",
+    "No push/commit performed in this lane."
+  ]
+}

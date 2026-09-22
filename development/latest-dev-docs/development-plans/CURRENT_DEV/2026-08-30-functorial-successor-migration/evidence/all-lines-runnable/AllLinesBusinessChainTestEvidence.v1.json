@@ -1,0 +1,194 @@
+{
+  "schema": "mrw.functorial_successor.all_lines.business_chain_test_evidence.v1",
+  "version": "1.0.0",
+  "record_id": "all-lines-business-chain-test-2026-09-03",
+  "date": "2026-09-03",
+  "generated_at": "2026-09-03T02:00:00+08:00",
+  "generated_by": "business_chain_test_batch_agent",
+  "status": "PASS_BUSINESS_CHAIN_TEST_BATCH",
+  "commit": {
+    "commit": "68c767d863eae79ea556b60e737c8085b65980b8",
+    "branch": "codex/functorial-successor-p0",
+    "worktree": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0",
+    "dirty_before": [
+      "main/frontend-modern/pnpm-lock.yaml",
+      "main/frontend-modern/pnpm-workspace.yaml",
+      "main/ops/.rollback_snapshots/"
+    ],
+    "dirty_after_additions": [
+      "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/all-lines-runnable/AllLinesBusinessChainTestEvidence.v1.json (intended evidence, uncommitted)"
+    ]
+  },
+  "scope": "18 legacy business lines on the successor business chain: semantic movement / worker readback / registry / export faces; no full unit suite was run",
+  "python": "/Users/wangyiliang/.local/bin/python3.11",
+  "backend_cwd": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0/main/backend",
+  "groups": [
+    {
+      "name": "s1_s2_s2b_s2c_horizontal_capability_chain",
+      "command": "env -u SUCCESSOR_TEST_DATABASE_URL -u SUCCESSOR_DATABASE_URL -u SUCCESSOR_P3_C5_DATABASE_URL PYTHONDONTWRITEBYTECODE=1 /Users/wangyiliang/.local/bin/python3.11 -m pytest tests/successor_runtime/test_s1_assembly_wiring.py tests/successor_runtime/test_s1_line_event_readback.py tests/successor_runtime/test_s1_quality_promotion.py tests/successor_runtime/test_s1_request_identity.py tests/successor_runtime/test_s1_single_source_guard.py tests/successor_runtime/test_s2_line_event_readback.py tests/successor_runtime/test_s2_quality_promotion.py tests/successor_runtime/test_s2_request_identity.py tests/successor_runtime/test_s2_single_source_guard.py tests/successor_runtime/test_s2b_c7_ingest_registry.py tests/successor_runtime/test_s2b_c8_export_token_state.py tests/successor_runtime/test_s2b_c9_evidence_matrix.py tests/successor_runtime/test_s2b_cell_extension_wiring.py tests/successor_runtime/test_s2c_evidence_consumption.py tests/successor_runtime/test_s2c_ops_domain_surfaces.py tests/successor_runtime/test_s2c_surface_assembly_wiring.py tests/successor_runtime/test_s2c_worker_and_retrieval_surfaces.py -q -p no:cacheprovider",
+      "exit_code": 0,
+      "passed": 140,
+      "skipped": 0,
+      "failed": 0,
+      "errors": 0,
+      "seconds": 0.75,
+      "files": 17,
+      "notes": "First run 140 passed in 0.75s; rerun with junit capture 140 passed in 0.65s, both exit 0"
+    },
+    {
+      "name": "c8_report_export_c4_agent_batch_quality_promotion",
+      "command": "env -u SUCCESSOR_TEST_DATABASE_URL -u SUCCESSOR_DATABASE_URL -u SUCCESSOR_P3_C5_DATABASE_URL PYTHONDONTWRITEBYTECODE=1 /Users/wangyiliang/.local/bin/python3.11 -m pytest tests/successor_runtime/test_p3_c4_evidence_generator.py tests/successor_runtime/test_p4_c8_evidence_generator.py tests/successor_runtime/test_s2_quality_promotion.py -q -p no:cacheprovider",
+      "exit_code": 0,
+      "passed": 21,
+      "skipped": 0,
+      "failed": 0,
+      "errors": 0,
+      "seconds": 2.46,
+      "files": 3,
+      "notes": "Non-PG business chain"
+    }
+  ],
+  "pg_files": [
+    {
+      "file": "tests/successor_runtime/test_c7_movement_admission_postgres.py",
+      "exit_code": 0,
+      "passed": 50,
+      "skipped": 0,
+      "failed": 0,
+      "errors": 0,
+      "seconds": 4.66,
+      "disposable_database_used": "mrw_c7_movement_admission_test",
+      "database_owner": "test fixture (creates and drops its own disposable database)",
+      "teardown_zero": true,
+      "notes": "Fixture-owned hardcoded disposable DB follows the existing PgEvidence pattern; env SUCCESSOR_TEST_DATABASE_URL only supplies the localhost:5432 server connection"
+    },
+    {
+      "file": "tests/successor_runtime/test_c8_movement_closure_postgres.py",
+      "exit_code": 0,
+      "passed": 23,
+      "skipped": 0,
+      "failed": 0,
+      "errors": 0,
+      "seconds": 2.84,
+      "disposable_database_used": "mrw_c8_movement_closure_test",
+      "database_owner": "test fixture (creates and drops its own disposable database)",
+      "teardown_zero": true,
+      "notes": "Fixture-owned hardcoded disposable DB follows the existing PgEvidence pattern"
+    },
+    {
+      "file": "tests/successor_runtime/test_c9_movement_closure_backend_postgres.py",
+      "exit_code": 0,
+      "passed": 38,
+      "skipped": 0,
+      "failed": 0,
+      "errors": 0,
+      "seconds": 4.61,
+      "disposable_database_used": "mrw_c9_movement_closure_test",
+      "database_owner": "test fixture (creates and drops its own disposable database)",
+      "teardown_zero": true,
+      "notes": "Fixture-owned hardcoded disposable DB follows the existing PgEvidence pattern"
+    }
+  ],
+  "real_db_readonly_smoke": {
+    "method": "isolated python subprocess, TestClient against app.main without context-manager startup; production_registry mount initialized manually into app.state; legacy startup hooks NOT triggered so smoke stayed read-only; ambient Codex oauth/token-sink/CLI auth disabled via env overrides; temporary process-local bearer token value never printed",
+    "target_database": {
+      "host": "localhost",
+      "dbname": "postgres",
+      "alembic_version": "20260831_000002",
+      "active_registry_row": {
+        "project_key": "demo_proj_compare_0303_121137",
+        "resolved_schema": "project_demo_proj_compare_0303_121137",
+        "registry_revision": 1,
+        "state": "ACTIVE",
+        "incarnation": "incarnation:production-go-live:v1"
+      }
+    },
+    "env_used": {
+      "SUCCESSOR_MOUNT_MODE": "production_registry",
+      "SUCCESSOR_PRODUCTION_REQUIRES_AUTH": "true",
+      "CODEX_AUTH_ENABLED": "true",
+      "CODEX_AUTH_TOKENS": "temporary process-local value (not printed, not sourced from .env)",
+      "CODEX_AUTH_PROTECTED_PREFIXES": "/api/v1/successor-runtime",
+      "ACTIVE_PROJECT_KEY": "demo_proj_compare_0303_121137",
+      "CODEX_OAUTH_ENABLED": "false",
+      "CODEX_OAUTH_TOKEN_SINK_ENABLED": "false",
+      "CODEX_OAUTH_TOKEN_SINK_PATH": "/tmp/mrw-bc-nonexistent-token-sink.json",
+      "CODEX_CLI_AUTH_PATH": "/tmp/mrw-bc-nonexistent-cli-auth.json",
+      "DATABASE_URL": "postgresql+psycopg2://localhost/postgres (db=postgres explicit)"
+    },
+    "http_codes": {
+      "health": 200,
+      "no_token": 401,
+      "wrong_token": 401,
+      "valid_bearer": 200
+    },
+    "valid_bearer_envelope": {
+      "status": "ok",
+      "control_feedback": false,
+      "meta_project_key": "demo_proj_compare_0303_121137",
+      "registry_revision": 1,
+      "scope_digest": "88fe54420b357e5a5a932d280d008badf940c35629753c6cefda5b3172b17b67",
+      "no_postgres_write": true,
+      "cells": {
+        "C9.1": "INSTALLED",
+        "C9.2": "INSTALLED",
+        "C9.3": "PROJECTOR_WIRING_DECLARED"
+      }
+    },
+    "projection_queries_attempted": [
+      {
+        "label": "evidence-matrix type projection query",
+        "status": 200,
+        "envelope_status": "ok",
+        "result": "typed envelope ok; response projection carried c9.local-offline.validation.projector.v1 and no_postgres_write=true, not an evidence-matrix projector payload"
+      },
+      {
+        "label": "ingest-registry type projection query",
+        "status": 200,
+        "envelope_status": "ok",
+        "result": "typed envelope ok; response projection carried c9.local-offline.validation.projector.v1 and no_postgres_write=true, not an ingest-registry projector payload"
+      }
+    ],
+    "registry_backed_projection_read_wired": false,
+    "registry_backed_scope_resolution_wired": true,
+    "projection_boundary_note": "On the registry-backed mount only scope resolution is database-backed; the C9 facade query port is the deterministic closed-fixture _MemoryQueryReadPort (no_postgres_write=true). Evidence-matrix/ingest-registry projector reads are therefore not queryable as real registry-backed projections in the mounted wire path and are recorded as not wired, not as failed queries.",
+    "counts_before_after": {
+      "before": {
+        "projects": 9,
+        "agent_sessions": 2409,
+        "registry_rows": 1
+      },
+      "after": {
+        "projects": 9,
+        "agent_sessions": 2409,
+        "registry_rows": 1
+      },
+      "equal": true
+    }
+  },
+  "teardown": {
+    "pg_database_baseline": [
+      "codex_p0c_full_chain_test",
+      "mrw_p0b_rereview_test_01a0504c"
+    ],
+    "pg_database_after": [
+      "codex_p0c_full_chain_test",
+      "mrw_p0b_rereview_test_01a0504c"
+    ],
+    "pg_databases_equal_baseline": true,
+    "pg_roles_equal_baseline": true,
+    "residual_databases": 0,
+    "residual_roles": 0,
+    "residual_processes": 0,
+    "no_commit_no_push": true,
+    "donor_untouched": true,
+    "real_db_counts_unchanged": true
+  },
+  "risks": [
+    "All evidence is local; green business-chain suites are bounded evidence and do not establish provider attestation, canonical production write, cutover, authority transfer, or legacy retirement.",
+    "PG tests create and drop their own fixture-owned disposable databases (mrw_c7_movement_admission_test, mrw_c8_movement_closure_test, mrw_c9_movement_closure_test); these names are hardcoded in the test files and follow the existing PgEvidence convention rather than an explicit mrw_chainbatch_* name.",
+    "The real-db read-only smoke ran without legacy startup hooks and did not execute any production canonical write; counts before/after are unchanged.",
+    "The evidence-matrix/ingest-registry projection reads are not wired as registry-backed projectors in the mounted production_registry facade; only registry scope resolution is database-backed on that path.",
+    "The evidence JSON is the only new worktree file from this run; the three pre-existing untracked noise paths were left untouched."
+  ]
+}

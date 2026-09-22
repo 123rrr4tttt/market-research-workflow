@@ -1,78 +1,23 @@
 import logging
-import inspect
 import os
-import socket
 import time
 import uuid
 import json
-from datetime import UTC, datetime
 from pathlib import Path
-from types import SimpleNamespace
-from urllib.parse import urlparse
 
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from sqlalchemy import or_, select, text
-from prometheus_client import Counter, Gauge, Histogram, REGISTRY, generate_latest, CONTENT_TYPE_LATEST
+from sqlalchemy import text
+from prometheus_client import Counter, Histogram, REGISTRY, generate_latest, CONTENT_TYPE_LATEST
 
 from .contracts.errors import ErrorCode, map_exception_to_error, map_status_to_error_code
-from .contracts.responses import ApiMetaModel, fail, ok, reset_api_context_meta, set_api_context_meta
+from .contracts.responses import ApiMetaModel, fail, ok
 from .settings.config import get_effective_project_key_enforcement_mode, settings
-from .release_identity import RELEASE_VERSION
-from .composition.production import (
-    is_production_environment,
-    production_metrics_label,
-    require_observability_token,
-    validate_production_startup,
-)
-from .composition.production_runtime import build_production_runtime_bindings
-from .production_observability import (
-    DatabaseRuntimeSignal,
-    ProjectionDriftStatus,
-    ProjectionReadStatus,
-    ProjectionRuntimeSignal,
-    ProviderRuntimeSignal,
-    ProviderRuntimeStatus,
-    ProductionObservabilityController,
-    QueueReadStatus,
-    QueueRuntimeSignal,
-    RuntimeBindingSignal,
-    RuntimeBindingStatus,
-    RuntimeAuthorityReadSignal,
-    RuntimeAuthorityReadStatus,
-    RuntimeHealthSnapshot,
-    ProjectionReleaseStatus,
-    install_production_observability,
-    production_observability_config_from_settings,
-)
-from .production_observability.worker_telemetry import (
-    export_worker_telemetry_metrics,
-    read_worker_telemetry_snapshot,
-)
 from .models.base import engine, get_db_pool_status
 from .services.search.es_client import get_es_client
 from .services.projects import bind_project
-from .services.codex_oauth import (
-    codex_cookie_name,
-    codex_oauth_enabled,
-    get_session,
-    get_token_sink_claims_context,
-    has_valid_token_sink,
-)
-from .services.request_identity import (
-    RequestActorContext,
-    actor_id_from_secret,
-    authenticated_actor_context,
-    legacy_actor_id_from_request,
-    resolve_request_actor_context,
-    set_request_actor_context,
-)
-from .composition.collect_runtime import configure_default_collect_adapters
-from .composition.ingest import configure_ingest_adapters
-from .composition.llm import configure_llm_providers
-from .composition.resource_pool import configure_resource_pool_ports
-from .composition.source_library import configure_source_library_adapters
+from .services.codex_oauth import codex_cookie_name, codex_oauth_enabled, get_session, has_valid_token_sink
 from .startup_hooks import register_startup_hooks
 from .web_ui_routes import register_ui_routes
 
@@ -82,10 +27,7 @@ from .web_ui_routes import register_ui_routes
 
 # Stable service metadata for observability
 _SERVICE_NAME = os.getenv("SERVICE_NAME", "market-intel-api")
-_SERVICE_VERSION = RELEASE_VERSION
-_SERVICE_VERSION_OVERRIDE = os.getenv("SERVICE_VERSION", "").strip()
-if _SERVICE_VERSION_OVERRIDE and _SERVICE_VERSION_OVERRIDE != RELEASE_VERSION:
-    raise RuntimeError("SERVICE_VERSION must equal release_identity.RELEASE_VERSION")
+_SERVICE_VERSION = os.getenv("SERVICE_VERSION", "0.1.0-rc.1")
 _DEPLOY_COLOR = os.getenv("DEPLOY_COLOR", os.getenv("COLOR", "blue"))
 
 class _StaticContextFilter(logging.Filter):
@@ -163,288 +105,10 @@ _API_PREFIX = "/api/v1/"
 _API_CONTRACT_EXEMPT_PATHS = {"/api/v1/health", "/api/v1/health/deep"}
 _ZERO_TRACE_ID = "0" * 32
 _ZERO_PARENT_ID = "0" * 16
-_RUNTIME_MODES = {"docker", "local", "mixed", "unknown"}
-_LOCAL_RUNTIME_HOSTS = {"localhost", "127.0.0.1", "0.0.0.0", "::1", "host.docker.internal"}
-_DOCKER_RUNTIME_HOSTS = {"db", "postgres", "redis", "es", "elasticsearch", "api", "backend", "frontend", "worker"}
-_STARTUP_CONTRACT_VERSION = "runtime-startup.v1"
 
 
 def _is_contract_api_path(path: str) -> bool:
     return path.startswith(_API_PREFIX) and path not in _API_CONTRACT_EXEMPT_PATHS
-
-
-def _env_int(name: str, default: int) -> int:
-    raw_value = str(os.getenv(name, "")).strip()
-    if not raw_value:
-        return default
-    try:
-        return int(raw_value)
-    except ValueError:
-        return default
-
-
-def _env_float(name: str, default: float) -> float:
-    raw_value = str(os.getenv(name, "")).strip()
-    if not raw_value:
-        return default
-    try:
-        return float(raw_value)
-    except ValueError:
-        return default
-
-
-def _current_process_runtime_mode() -> str:
-    explicit_mode = str(os.getenv("RUNTIME_MODE") or os.getenv("APP_RUNTIME_MODE") or "").strip().lower()
-    if explicit_mode in _RUNTIME_MODES:
-        return explicit_mode
-    docker_env = str(os.getenv("DOCKER_ENV") or os.getenv("CONTAINER") or "").strip().lower()
-    if docker_env in {"1", "true", "yes"} or os.getenv("KUBERNETES_SERVICE_HOST") or os.path.exists("/.dockerenv"):
-        return "docker"
-    if str(getattr(settings, "env", "") or "").strip().lower() in {"dev", "local", "test"}:
-        return "local"
-    return "unknown"
-
-
-def _url_host_port(raw_url: str | None) -> tuple[str | None, int | None]:
-    value = str(raw_url or "").strip()
-    if not value:
-        return None, None
-    try:
-        parsed = urlparse(value)
-        host = parsed.hostname
-        try:
-            port = parsed.port
-        except ValueError:
-            port = None
-        return host, port
-    except Exception:  # noqa: BLE001 - health diagnostics must not fail the endpoint
-        return None, None
-
-
-def _redact_url_credentials(raw_url: str | None) -> str | None:
-    """Keep health diagnostics useful without serializing URL userinfo."""
-    value = str(raw_url or "").strip()
-    if not value or "://" not in value:
-        return value or None
-    scheme, remainder = value.split("://", 1)
-    if "@" not in remainder:
-        return value
-    return f"{scheme}://{remainder.rsplit('@', 1)[-1]}"
-
-
-def _runtime_mode_for_host(host: str | None) -> str:
-    normalized = str(host or "").strip().strip("[]").lower()
-    if not normalized:
-        return "unknown"
-    if normalized in _LOCAL_RUNTIME_HOSTS:
-        return "local"
-    if normalized in _DOCKER_RUNTIME_HOSTS:
-        return "docker"
-    return "unknown"
-
-
-def _dependency_service_status(
-    *,
-    url: str | None,
-    required_env: str,
-    default_port: int,
-    health_url: str | None = None,
-) -> dict:
-    host, parsed_port = _url_host_port(url)
-    configured = bool(str(url or "").strip())
-    missing = [] if configured else [required_env]
-    service = {
-        "status": "configured" if configured else "missing",
-        "mode": _runtime_mode_for_host(host),
-        "host": host,
-        "port_hint": parsed_port or default_port,
-        "missing_dependencies": missing,
-    }
-    if health_url:
-        service["health_url"] = _redact_url_credentials(health_url)
-    return service
-
-
-def _llm_service_status() -> dict:
-    provider = str(getattr(settings, "llm_provider", "") or "").strip().lower() or "unknown"
-    required_by_provider = {
-        "openai": ("openai_api_key", "OPENAI_API_KEY"),
-        "azure": ("azure_api_key", "AZURE_API_KEY"),
-        "litellm": ("litellm_api_key", "LITELLM_API_KEY"),
-    }
-    field_name, env_name = required_by_provider.get(provider, ("", ""))
-    missing = [env_name] if field_name and not str(getattr(settings, field_name, "") or "").strip() else []
-    ollama_host, ollama_port = _url_host_port(getattr(settings, "ollama_base_url", None))
-    is_local_provider = provider in {"ollama", "local"}
-    return {
-        "status": "missing" if missing else "configured",
-        "mode": _runtime_mode_for_host(ollama_host) if is_local_provider else "unknown",
-        "provider": provider,
-        "health_url": _redact_url_credentials(getattr(settings, "ollama_base_url", None)) if is_local_provider else None,
-        "port_hint": (ollama_port or 11434) if is_local_provider else None,
-        "missing_dependencies": missing,
-    }
-
-
-def _tcp_dependency_ping(host: str, port: int, timeout_seconds: float) -> tuple[bool, str | None]:
-    try:
-        with socket.create_connection((host, port), timeout=timeout_seconds):
-            return True, None
-    except Exception as exc:  # noqa: BLE001 - health diagnostics must not fail the endpoint
-        return False, type(exc).__name__
-
-
-def _dependency_ping_result(name: str, service: dict, *, timeout_seconds: float) -> dict:
-    missing_dependencies = list(service.get("missing_dependencies") or [])
-    result = {
-        "status": "missing" if missing_dependencies else "skipped",
-        "configured": not missing_dependencies,
-        "reachable": False if missing_dependencies else None,
-        "mode": str(service.get("mode") or "unknown"),
-        "host": service.get("host"),
-        "port": service.get("port_hint"),
-        "missing_dependencies": missing_dependencies,
-    }
-    if missing_dependencies:
-        return result
-    if name == "api":
-        result.update({"status": "ok", "reachable": True, "reason": "current_process"})
-        return result
-    if name == "frontend":
-        result.update({"status": "hint", "reason": "not_a_backend_live_dependency"})
-        return result
-
-    host = service.get("host")
-    port = service.get("port_hint")
-    if not host:
-        host, parsed_port = _url_host_port(service.get("health_url"))
-        port = port or parsed_port
-    if not host or not port:
-        result.update({"status": "configured", "reason": "no_live_ping_target"})
-        return result
-
-    start = time.perf_counter()
-    reachable, error = _tcp_dependency_ping(str(host), int(port), timeout_seconds)
-    result.update(
-        {
-            "status": "ok" if reachable else "unreachable",
-            "reachable": reachable,
-            "host": str(host),
-            "port": int(port),
-            "latency_ms": round((time.perf_counter() - start) * 1000, 2),
-        }
-    )
-    if error:
-        result["error"] = error
-    return result
-
-
-def _build_dependency_ping(services: dict[str, dict]) -> dict:
-    timeout_seconds = max(0.05, min(_env_float("HEALTH_DEPENDENCY_PING_TIMEOUT_SECONDS", 0.2), 2.0))
-    service_results = {
-        name: _dependency_ping_result(name, service, timeout_seconds=timeout_seconds)
-        for name, service in services.items()
-    }
-    statuses = [str(result.get("status") or "unknown") for result in service_results.values()]
-    if any(status == "unreachable" for status in statuses):
-        summary = "degraded"
-    elif any(status == "missing" for status in statuses):
-        summary = "missing_dependencies"
-    else:
-        summary = "ok"
-    return {
-        "status": summary,
-        "timeout_seconds": timeout_seconds,
-        "service_results": service_results,
-    }
-
-
-def _build_mixed_environment(runtime_mode: str, services: dict[str, dict]) -> dict:
-    modes_by_service = {
-        name: str(service.get("mode") or "unknown")
-        for name, service in services.items()
-        if str(service.get("mode") or "unknown") in {"docker", "local", "mixed"}
-    }
-    detected = runtime_mode == "mixed" or "mixed" in modes_by_service.values()
-    return {
-        "detected": detected,
-        "runtime_mode": runtime_mode,
-        "modes_by_service": modes_by_service,
-        "message": "mixed runtime dependencies detected" if detected else None,
-    }
-
-
-def _build_runtime_status(*, include_dependency_ping: bool = False) -> dict:
-    api_port = _env_int("API_PORT", _env_int("PORT", 8000))
-    frontend_port = _env_int("FRONTEND_PORT", _env_int("VITE_PORT", 5173))
-    services = {
-        "api": {
-            "status": "ok",
-            "mode": _current_process_runtime_mode(),
-            "health_url": "/api/v1/health",
-            "port_hint": api_port,
-            "missing_dependencies": [],
-        },
-        "frontend": {
-            "status": "hint",
-            "mode": "local",
-            "health_url": f"http://localhost:{frontend_port}",
-            "port_hint": frontend_port,
-            "missing_dependencies": [],
-        },
-        "database": _dependency_service_status(
-            url=getattr(settings, "database_url", None),
-            required_env="DATABASE_URL",
-            default_port=5432,
-        ),
-        "elasticsearch": _dependency_service_status(
-            url=getattr(settings, "es_url", None),
-            required_env="ES_URL",
-            default_port=9200,
-            health_url=str(getattr(settings, "es_url", "") or "") or None,
-        ),
-        "redis": _dependency_service_status(
-            url=getattr(settings, "redis_url", None),
-            required_env="REDIS_URL",
-            default_port=6379,
-        ),
-        "llm": _llm_service_status(),
-    }
-    backend_dependency_modes = [
-        str(service.get("mode") or "unknown")
-        for name, service in services.items()
-        if name != "frontend"
-    ]
-    mode_values = {mode for mode in backend_dependency_modes if mode in {"docker", "local"}}
-    runtime_mode = "mixed" if "mixed" in backend_dependency_modes or len(mode_values) > 1 else next(iter(mode_values), "unknown")
-    missing_dependencies = sorted(
-        {
-            dependency
-            for service in services.values()
-            for dependency in service.get("missing_dependencies", [])
-            if dependency
-        }
-    )
-    runtime_status = {
-        "startup_contract_version": _STARTUP_CONTRACT_VERSION,
-        "runtime_mode": runtime_mode,
-        "services": services,
-        "health_url": "/api/v1/health",
-        "port_hints": {
-            "api": api_port,
-            "frontend": frontend_port,
-            "database": int(services["database"].get("port_hint") or 5432),
-            "elasticsearch": int(services["elasticsearch"].get("port_hint") or 9200),
-            "redis": int(services["redis"].get("port_hint") or 6379),
-        },
-        "missing_dependencies": missing_dependencies,
-    }
-    runtime_status["mixed_environment"] = _build_mixed_environment(runtime_mode, services)
-    if include_dependency_ping:
-        dependency_ping = _build_dependency_ping(services)
-        runtime_status["dependency_ping"] = dependency_ping
-        runtime_status["service_results"] = dependency_ping["service_results"]
-    return runtime_status
 
 
 def _is_lower_hex(value: str, length: int) -> bool:
@@ -540,38 +204,6 @@ def _is_already_envelope(payload: object) -> bool:
     )
 
 
-def _copy_response_headers(source: Response, target: Response) -> None:
-    for k, v in source.headers.items():
-        lk = k.lower()
-        if lk in {"content-length", "content-type"}:
-            continue
-        target.headers[k] = v
-
-
-def _enrich_existing_envelope_meta(
-    payload: dict,
-    *,
-    trace_id: str,
-    project_key: str,
-) -> tuple[dict, bool]:
-    meta = payload.get("meta")
-    if not isinstance(meta, dict):
-        meta = {}
-    updated_meta = dict(meta)
-    changed = False
-    if not updated_meta.get("trace_id"):
-        updated_meta["trace_id"] = trace_id
-        changed = True
-    if not updated_meta.get("project_key"):
-        updated_meta["project_key"] = project_key
-        changed = True
-    if not changed:
-        return payload, False
-    enriched = dict(payload)
-    enriched["meta"] = updated_meta
-    return enriched, True
-
-
 def _maybe_wrap_success_json_response(
     request: Request,
     response: Response,
@@ -599,21 +231,16 @@ def _maybe_wrap_success_json_response(
         return response
 
     if _is_already_envelope(payload):
-        enriched_payload, changed = _enrich_existing_envelope_meta(
-            payload,
-            trace_id=trace_id,
-            project_key=project_key,
-        )
-        if not changed:
-            return response
-        enriched_response = JSONResponse(status_code=response.status_code, content=enriched_payload)
-        _copy_response_headers(response, enriched_response)
-        return enriched_response
+        return response
 
     meta = ApiMetaModel(trace_id=trace_id, project_key=project_key)
     wrapped = ok(payload, meta=meta)
     wrapped_response = JSONResponse(status_code=response.status_code, content=wrapped)
-    _copy_response_headers(response, wrapped_response)
+    for k, v in response.headers.items():
+        lk = k.lower()
+        if lk in {"content-length", "content-type"}:
+            continue
+        wrapped_response.headers[k] = v
     return wrapped_response
 
 def _get_active_project_key_fallback() -> str | None:
@@ -680,73 +307,6 @@ def _has_valid_codex_oauth_session(request: Request) -> bool:
     return get_session(sid) is not None or has_valid_token_sink()
 
 
-def _actor_id_from_codex_oauth_claims(claims: dict) -> str | None:
-    oidc_subject = str(claims.get("sub") or "").strip()
-    if oidc_subject:
-        return oidc_subject
-    if claims.get("email_verified") is not True:
-        return None
-    normalized_email = str(claims.get("email") or "").strip().lower()
-    if not normalized_email:
-        return None
-    return actor_id_from_secret("codex_oauth_email", normalized_email)
-
-
-def _resolve_codex_oauth_actor_context(request: Request) -> RequestActorContext | None:
-    legacy_actor_id = legacy_actor_id_from_request(request)
-    sid = (request.cookies.get(codex_cookie_name()) or "").strip()
-    if sid:
-        session = get_session(sid)
-        if session is not None:
-            raw_claims = getattr(session, "claims", None) or getattr(session, "identity_claims", None)
-            claims = raw_claims if isinstance(raw_claims, dict) else {}
-            claims_actor_id = _actor_id_from_codex_oauth_claims(claims)
-            if claims_actor_id:
-                return authenticated_actor_context(
-                    actor_id=claims_actor_id,
-                    source="authenticated_oauth_session_claims",
-                    auth_mode="codex_oauth_session_oidc_claims",
-                    legacy_actor_id=legacy_actor_id,
-                )
-            if is_production_environment():
-                # A session without verified OIDC claims is not a trusted
-                # production actor; do not synthesize identity from its SID.
-                return None
-            return authenticated_actor_context(
-                actor_id=actor_id_from_secret("codex_oauth_session", session.session_id),
-                source="authenticated_oauth_session",
-                auth_mode="codex_oauth_session",
-                legacy_actor_id=legacy_actor_id,
-            )
-    token_sink_claims = get_token_sink_claims_context()
-    if token_sink_claims.has_valid_token_sink and token_sink_claims.from_token_sink:
-        claims = token_sink_claims.claims if isinstance(token_sink_claims.claims, dict) else {}
-        claims_actor_id = _actor_id_from_codex_oauth_claims(claims)
-        token_sink_actor_metadata = token_sink_claims.profile_metadata()
-        if claims_actor_id:
-            return authenticated_actor_context(
-                actor_id=claims_actor_id,
-                source="authenticated_oauth_token_sink_claims",
-                auth_mode="codex_oauth_token_sink_oidc_claims",
-                legacy_actor_id=legacy_actor_id,
-                actor_metadata=token_sink_actor_metadata,
-            )
-    else:
-        token_sink_actor_metadata = {}
-    if has_valid_token_sink():
-        if is_production_environment():
-            # Token-sink presence alone is not a verified claim set.
-            return None
-        return authenticated_actor_context(
-            actor_id="codex_oauth_token_sink",
-            source="authenticated_oauth_token_sink",
-            auth_mode="codex_oauth_token_sink",
-            legacy_actor_id=legacy_actor_id,
-            actor_metadata=token_sink_actor_metadata,
-        )
-    return None
-
-
 def _build_codex_auth_error(request: Request, *, reason: str) -> JSONResponse:
     payload = _build_error_payload(
         request,
@@ -765,11 +325,6 @@ def _build_codex_auth_error(request: Request, *, reason: str) -> JSONResponse:
 APP_ROOT = Path(__file__).resolve().parent
 USA_MAP_PATH = APP_ROOT / "assets" / "maps" / "USA.json"
 register_startup_hooks(app)
-configure_default_collect_adapters()
-configure_resource_pool_ports()
-configure_ingest_adapters()
-configure_llm_providers()
-configure_source_library_adapters()
 
 def _get_or_create_counter(name: str, documentation: str, labelnames: list[str]) -> Counter:
     existing = REGISTRY._names_to_collectors.get(name)
@@ -785,13 +340,6 @@ def _get_or_create_histogram(name: str, documentation: str, labelnames: list[str
     return Histogram(name, documentation, labelnames)
 
 
-def _get_or_create_gauge(name: str, documentation: str, labelnames: list[str]) -> Gauge:
-    existing = REGISTRY._names_to_collectors.get(name)
-    if existing is not None:
-        return existing  # type: ignore[return-value]
-    return Gauge(name, documentation, labelnames)
-
-
 REQUEST_COUNT = _get_or_create_counter(
     "market_api_requests_total",
     "API request count",
@@ -802,596 +350,6 @@ REQUEST_LATENCY = _get_or_create_histogram(
     "API request latency",
     ["endpoint"],
 )
-PRODUCTION_REQUEST_COUNT = _get_or_create_counter(
-    "market_api_production_requests_total",
-    "Production API request count by stable route binding",
-    ["method", "domain", "route", "release_version", "status"],
-)
-PRODUCTION_REQUEST_LATENCY = _get_or_create_histogram(
-    "market_api_production_request_latency_seconds",
-    "Production API request latency by stable route binding",
-    ["domain", "route", "release_version"],
-)
-PRODUCTION_ALERT_STATE = _get_or_create_gauge(
-    "market_api_production_observability_alert_state",
-    "Current non-authoritative R7 alert state, one-hot by rule and state",
-    ["rule_id", "state"],
-)
-
-
-def _export_production_observability_state(controller: object) -> None:
-    """Expose the controller's read-only alert projection for the real scrape."""
-
-    config = getattr(controller, "config", None)
-    rules = tuple(getattr(config, "alert_rules", ()) or ())
-    last = getattr(controller, "last_evaluation", None)
-    evaluation = last() if callable(last) else last
-    states = {
-        item.rule_id: getattr(item.state, "value", str(item.state))
-        for item in tuple(getattr(getattr(evaluation, "decision", None), "alert_evaluations", ()) or ())
-    }
-    for rule in rules:
-        rule_id = str(getattr(rule, "rule_id", ""))
-        current = states.get(rule_id, "unknown")
-        for state in ("unknown", "triggered", "recovered"):
-            PRODUCTION_ALERT_STATE.labels(rule_id, state).set(1.0 if current == state else 0.0)
-
-
-def _read_runtime_queue_signal() -> QueueRuntimeSignal:
-    queue_names = tuple(
-        dict.fromkeys(
-            item.strip()
-            for item in str(getattr(settings, "celery_queues", "") or "celery").split(",")
-            if item.strip()
-        )
-    )
-    try:
-        import redis as redis_client
-
-        client = redis_client.Redis.from_url(
-            str(getattr(settings, "redis_url", "") or ""),
-            socket_connect_timeout=0.5,
-            socket_timeout=0.5,
-        )
-        depth = sum(int(client.llen(queue_name)) for queue_name in queue_names)
-        return QueueRuntimeSignal(
-            source=f"redis.broker.llen:{','.join(queue_names)}",
-            read_status=QueueReadStatus.OK,
-            depth=depth,
-        )
-    except Exception:  # noqa: BLE001 - health observation reports the failed source
-        return QueueRuntimeSignal(
-            source=f"redis.broker.llen:{','.join(queue_names)}",
-            read_status=QueueReadStatus.ERROR,
-            depth=0,
-        )
-
-
-_AUTHORITY_READ_SOURCE = (
-    "postgres.project_scope_registry+runtime_step_authorizations+runtime_capability_authority"
-)
-_AUTHORITY_REQUIRED_FIELDS = (
-    "task",
-    "tenant",
-    "project_scope",
-    "capability",
-    "step",
-    "epoch",
-)
-
-
-def _authority_not_observed(
-    reason: str,
-    *,
-    task_id: str | None,
-    tenant_id: str | None,
-) -> RuntimeAuthorityReadSignal:
-    missing = list(_AUTHORITY_REQUIRED_FIELDS)
-    if task_id:
-        missing.remove("task")
-    if tenant_id:
-        missing.remove("tenant")
-    return RuntimeAuthorityReadSignal(
-        source=_AUTHORITY_READ_SOURCE,
-        read_status=RuntimeAuthorityReadStatus.NOT_OBSERVED,
-        task_id=task_id,
-        tenant_id=tenant_id,
-        not_observed_fields=tuple(missing),
-        read_error=reason,
-    )
-
-
-def _runtime_authority_read_signal_from_rows(
-    *,
-    scope: object,
-    step: object,
-    capability: object,
-    task_id: str,
-) -> RuntimeAuthorityReadSignal:
-    tenant_id = str(getattr(scope, "project_key", "") or "")
-    project_scope_digest = str(getattr(step, "project_scope_digest", "") or "")
-    project_registry_revision = getattr(step, "project_registry_revision", None)
-    capability_id = str(getattr(step, "capability_id", "") or "")
-    step_id = str(getattr(step, "step_id", "") or "")
-    claim_epoch = getattr(step, "claim_authority_epoch", None)
-    expected_scope_digest = str(getattr(scope, "scope_digest", "") or "")
-    expected_revision = getattr(scope, "project_registry_revision", None)
-    expected_epoch = getattr(capability, "authority_epoch", None)
-
-    not_observed: list[str] = []
-    if not project_scope_digest or not isinstance(project_registry_revision, int):
-        not_observed.append("project_scope")
-    if not capability_id:
-        not_observed.append("capability")
-    if not step_id:
-        not_observed.append("step")
-    if not isinstance(claim_epoch, int) or not isinstance(expected_epoch, int):
-        not_observed.append("epoch")
-    if not_observed:
-        return RuntimeAuthorityReadSignal(
-            source=_AUTHORITY_READ_SOURCE,
-            read_status=RuntimeAuthorityReadStatus.NOT_OBSERVED,
-            task_id=task_id,
-            tenant_id=tenant_id or None,
-            project_scope_digest=project_scope_digest or None,
-            project_registry_revision=project_registry_revision
-            if isinstance(project_registry_revision, int)
-            else None,
-            capability_id=capability_id or None,
-            step_id=step_id or None,
-            claim_authority_epoch=claim_epoch
-            if isinstance(claim_epoch, int)
-            else None,
-            expected_project_scope_digest=expected_scope_digest or None,
-            expected_project_registry_revision=expected_revision
-            if isinstance(expected_revision, int)
-            else None,
-            not_observed_fields=tuple(not_observed),
-            read_error="task authority identity fields are incomplete",
-        )
-
-    mismatched: list[str] = []
-    if str(getattr(step, "project_key", "") or "") != tenant_id or str(
-        getattr(capability, "project_key", "") or ""
-    ) != tenant_id:
-        mismatched.append("tenant")
-    if (
-        project_scope_digest != expected_scope_digest
-        or project_registry_revision != expected_revision
-    ):
-        mismatched.append("project_scope")
-    if str(getattr(capability, "capability_id", "") or "") != capability_id:
-        mismatched.append("capability")
-    if claim_epoch != expected_epoch:
-        mismatched.append("epoch")
-
-    return RuntimeAuthorityReadSignal(
-        source=_AUTHORITY_READ_SOURCE,
-        read_status=(
-            RuntimeAuthorityReadStatus.MISMATCH
-            if mismatched
-            else RuntimeAuthorityReadStatus.OBSERVED
-        ),
-        task_id=task_id,
-        tenant_id=tenant_id or None,
-        project_scope_digest=project_scope_digest,
-        project_registry_revision=project_registry_revision,
-        capability_id=capability_id,
-        step_id=step_id,
-        claim_authority_epoch=claim_epoch,
-        expected_project_scope_digest=expected_scope_digest,
-        expected_project_registry_revision=expected_revision,
-        expected_claim_authority_epoch=expected_epoch,
-        mismatch_fields=tuple(mismatched),
-    )
-
-
-def _read_runtime_authority_signal(
-    *,
-    task_id: str | None,
-    tenant_id: str | None,
-) -> RuntimeAuthorityReadSignal:
-    """Read exact task-tenant authority identity without mutating authority state."""
-
-    clean_task_id = str(task_id or "").strip()
-    clean_tenant_id = str(
-        tenant_id or _get_active_project_key_fallback() or getattr(settings, "active_project_key", "") or ""
-    ).strip()
-    if not clean_task_id or not clean_tenant_id:
-        return _authority_not_observed(
-            "task id and tenant id are required",
-            task_id=clean_task_id or None,
-            tenant_id=clean_tenant_id or None,
-        )
-
-    from app.successor_runtime.substrate.postgres.models import PUBLIC_TABLES
-    from app.successor_runtime.substrate.postgres.session import ServerProjectScopeResolver
-
-    steps = PUBLIC_TABLES["runtime_step_authorizations"]
-    capabilities = PUBLIC_TABLES["runtime_capability_authority"]
-    try:
-        with engine.connect() as connection:
-            project_scope = ServerProjectScopeResolver(connection=connection).resolve(clean_tenant_id)
-            step_rows = (
-                connection.execute(
-                    select(steps)
-                    .where(
-                        steps.c.project_key == project_scope.project_key,
-                        or_(steps.c.run_id == clean_task_id, steps.c.step_id == clean_task_id),
-                    )
-                    .order_by(steps.c.updated_at.desc())
-                    .limit(2)
-                )
-                .mappings()
-                .all()
-            )
-            if len(step_rows) != 1:
-                return _authority_not_observed(
-                    "task authority row is absent or ambiguous",
-                    task_id=clean_task_id,
-                    tenant_id=clean_tenant_id,
-                )
-            step = step_rows[0]
-            capability = connection.execute(
-                select(capabilities)
-                .where(
-                    capabilities.c.project_key == project_scope.project_key,
-                    capabilities.c.capability_id == step["capability_id"],
-                )
-                .limit(2)
-            ).mappings().first()
-            if capability is None:
-                partial = _runtime_authority_read_signal_from_rows(
-                    scope=project_scope,
-                    step=SimpleNamespace(**step),
-                    capability=SimpleNamespace(),
-                    task_id=clean_task_id,
-                )
-                return RuntimeAuthorityReadSignal(
-                    source=_AUTHORITY_READ_SOURCE,
-                    read_status=RuntimeAuthorityReadStatus.NOT_OBSERVED,
-                    task_id=clean_task_id,
-                    tenant_id=clean_tenant_id,
-                    project_scope_digest=partial.project_scope_digest,
-                    project_registry_revision=partial.project_registry_revision,
-                    capability_id=partial.capability_id,
-                    step_id=partial.step_id,
-                    claim_authority_epoch=partial.claim_authority_epoch,
-                    expected_project_scope_digest=partial.expected_project_scope_digest,
-                    expected_project_registry_revision=partial.expected_project_registry_revision,
-                    not_observed_fields=("capability_authority_epoch",),
-                    read_error="capability authority row is absent or ambiguous",
-                )
-            return _runtime_authority_read_signal_from_rows(
-                scope=project_scope,
-                step=SimpleNamespace(**step),
-                capability=SimpleNamespace(**capability),
-                task_id=clean_task_id,
-            )
-    except Exception as exc:  # noqa: BLE001 - health observation reports the failed source
-        return _authority_not_observed(
-            f"authority read failed: {type(exc).__name__}",
-            task_id=clean_task_id,
-            tenant_id=clean_tenant_id,
-        )
-
-
-def _projection_unavailable(
-    *,
-    read_status: ProjectionReadStatus,
-    reason: str,
-) -> ProjectionRuntimeSignal:
-    return ProjectionRuntimeSignal(
-        source="postgres.c9:semantic-source-closure+active-offset",
-        read_status=read_status,
-        drift_status=ProjectionDriftStatus.UNKNOWN,
-        active_source_digest="",
-        expected_source_digest="",
-        projection_generation=0,
-        offset_revision=0,
-        source_revision=0,
-        offset_ref="",
-        status_detail=reason,
-    )
-
-
-def _projection_not_observed(reason: str) -> ProjectionRuntimeSignal:
-    return _projection_unavailable(
-        read_status=ProjectionReadStatus.NOT_OBSERVED,
-        reason=reason,
-    )
-
-
-def _projection_read_error(reason: str) -> ProjectionRuntimeSignal:
-    return _projection_unavailable(
-        read_status=ProjectionReadStatus.ERROR,
-        reason=reason,
-    )
-
-
-def _read_runtime_projection_signal() -> ProjectionRuntimeSignal:
-    """Read the active C9 closure/offset position without mutating authority state."""
-
-    project_key = _get_active_project_key_fallback() or str(
-        getattr(settings, "active_project_key", "") or ""
-    ).strip()
-    if not project_key:
-        return _projection_not_observed("active project binding unavailable")
-    runtime_bindings = getattr(app.state, "production_runtime_bindings", None)
-    resolver = getattr(runtime_bindings, "project_scope_resolver", None)
-    if not callable(getattr(resolver, "resolve", None)):
-        return _projection_not_observed("project scope resolver unavailable")
-
-    from app.successor_runtime.runtime.ports import RuntimeScope
-    from app.successor_runtime.substrate.postgres.c9_projection_sources import (
-        C9_SEMANTIC_SOURCE_KIND,
-        C9_TYPED_SOURCE_PROJECTOR_ID,
-        C9_TYPED_SOURCE_PROJECTOR_VERSION,
-        C9SourceClosureDriftError,
-        C9SourceError,
-        build_semantic_source_closure,
-        load_exact_semantic_source_closure,
-    )
-    from app.successor_runtime.substrate.postgres.projection_offsets import (
-        ProjectionOffsetKey,
-        ProjectionOffsetRepository,
-    )
-
-    try:
-        project_scope = resolver.resolve(project_key)
-        scope = RuntimeScope(
-            project_scope=project_scope,
-            actor_id="production-observability:runtime-health",
-        )
-        key = ProjectionOffsetKey(
-            projector_id=C9_TYPED_SOURCE_PROJECTOR_ID,
-            projector_version=C9_TYPED_SOURCE_PROJECTOR_VERSION,
-            source_kind=C9_SEMANTIC_SOURCE_KIND,
-            source_ref=f"project:{project_key}:semantic-sources",
-            source_incarnation=project_scope.incarnation,
-        )
-        with engine.connect() as connection:
-            live = build_semantic_source_closure(connection, scope)
-            offset = ProjectionOffsetRepository(connection, scope).load_source(key)
-            if offset is None:
-                return _projection_not_observed("active C9 semantic-source offset missing")
-            active_digest = str(offset["source_digest"])
-            try:
-                load_exact_semantic_source_closure(connection, scope)
-            except C9SourceClosureDriftError:
-                # The persisted closure is independently validated, but the
-                # drift verdict is strictly the active pointer digest versus
-                # the freshly derived C9 source closure digest.
-                pass
-            if active_digest != live.closure_digest:
-                return ProjectionRuntimeSignal(
-                    source="postgres.c9:semantic-source-closure+active-offset",
-                    read_status=ProjectionReadStatus.OK,
-                    drift_status=ProjectionDriftStatus.MISMATCH,
-                    active_source_digest=active_digest,
-                    expected_source_digest=live.closure_digest,
-                    projection_generation=int(offset["projection_generation"]),
-                    offset_revision=int(offset["revision"]),
-                    source_revision=int(offset["source_revision"]),
-                    offset_ref=str(offset["offset_ref"]),
-                )
-            return ProjectionRuntimeSignal(
-                source="postgres.c9:semantic-source-closure+active-offset",
-                read_status=ProjectionReadStatus.OK,
-                drift_status=ProjectionDriftStatus.MATCH,
-                active_source_digest=active_digest,
-                expected_source_digest=live.closure_digest,
-                projection_generation=int(offset["projection_generation"]),
-                offset_revision=int(offset["revision"]),
-                source_revision=int(offset["source_revision"]),
-                offset_ref=str(offset["offset_ref"]),
-            )
-    except C9SourceError as exc:
-        return _projection_read_error(f"c9 source read failed: {type(exc).__name__}")
-    except Exception as exc:  # noqa: BLE001 - health observation reports the failed source
-        return _projection_read_error(f"projection source read failed: {type(exc).__name__}")
-
-
-def _build_runtime_health_snapshot(
-    *,
-    database_connection_status: str,
-    database_pool_status: str,
-    pool_status: dict,
-    runtime_status: dict,
-    authority_task_id: str | None = None,
-    authority_tenant_id: str | None = None,
-) -> RuntimeHealthSnapshot:
-    controller = getattr(app.state, "production_observability_r7", None)
-    authority_read = _read_runtime_authority_signal(
-        task_id=authority_task_id,
-        tenant_id=authority_tenant_id,
-    )
-    authority_status = (
-        RuntimeBindingStatus.MISMATCH
-        if authority_read.read_status is RuntimeAuthorityReadStatus.MISMATCH
-        else RuntimeBindingStatus.BOUND
-        if authority_read.read_status is RuntimeAuthorityReadStatus.OBSERVED
-        else RuntimeBindingStatus.UNKNOWN
-    )
-    pool_size = int(pool_status.get("size") or getattr(settings, "db_pool_size", 0))
-    checked_out = int(pool_status.get("checkedout") or 0)
-    pool_limit = pool_size + max(0, int(getattr(settings, "db_pool_max_overflow", 0)))
-    simulated_failure = str(os.getenv("STAGE5_SIMULATE_PROVIDER_FAILURE", "")).strip().lower() in {
-        "1",
-        "true",
-        "yes",
-        "on",
-    }
-    return RuntimeHealthSnapshot(
-        observed_at=datetime.now(UTC),
-        queue=_read_runtime_queue_signal(),
-        database=DatabaseRuntimeSignal(
-            source="sqlalchemy.engine:select_1+pool_status",
-            connection_status=database_connection_status,
-            pool_status=database_pool_status,
-            pool_size=pool_size,
-            checked_out=checked_out,
-            pool_limit=pool_limit,
-        ),
-        provider=ProviderRuntimeSignal(
-            source="stage5-local-env-provider-failure",
-            status=(
-                ProviderRuntimeStatus.SIMULATED_FAILURE
-                if simulated_failure
-                else ProviderRuntimeStatus.SIMULATED_HEALTHY
-            ),
-            simulated=True,
-        ),
-        runtime_binding=RuntimeBindingSignal(
-            source=_AUTHORITY_READ_SOURCE,
-            authority_status=authority_status,
-            projection_release_status=(
-                ProjectionReleaseStatus.MATCH
-                if controller is not None
-                and str(getattr(getattr(controller, "config", None), "release_version", ""))
-                == RELEASE_VERSION
-                else ProjectionReleaseStatus.MISMATCH
-            ),
-            authority_read=authority_read,
-        ),
-        projection=_read_runtime_projection_signal(),
-        labels={"runtime_mode": str(runtime_status.get("runtime_mode") or "unknown")},
-    )
-
-
-def _latch_production_observer_failure(
-    *,
-    controller: object,
-    request_id: str,
-    reason: str,
-) -> None:
-    """Latch observer/metric failures without changing the in-flight response."""
-
-    latch_runtime_failure = getattr(controller, "latch_runtime_failure", None)
-    if not callable(latch_runtime_failure):
-        return
-    try:
-        latch_runtime_failure(request_id=request_id, reason=reason)
-    except Exception:  # noqa: BLE001 - failure handling must not mask the response
-        _REQUEST_LOGGER.exception(
-            "event=production_observability_stop_latch_failed request_id=%s",
-            request_id,
-        )
-
-
-def _observe_production_http_request(
-    *,
-    controller: object,
-    request_id: str,
-    status_code: int,
-    terminal_outcome: str | None = None,
-    latency_seconds: float | None = None,
-) -> None:
-    """Invoke the R7 observer while tolerating pre-R7 test doubles.
-
-    ``terminal_outcome`` is a route-local side channel for streams.  Older
-    doubles may expose only the original two-argument observer contract; in
-    that case the status observation remains valid and iterator failures are
-    latched explicitly below.
-    """
-
-    observer = getattr(controller, "observe_http_request", None)
-    if not callable(observer):
-        return
-    try:
-        parameters = inspect.signature(observer).parameters
-        supports_var_keyword = any(
-            parameter.kind is inspect.Parameter.VAR_KEYWORD
-            for parameter in parameters.values()
-        )
-        supports_terminal = "terminal_outcome" in parameters or supports_var_keyword
-        supports_latency = "latency_seconds" in parameters or supports_var_keyword
-        kwargs = {}
-        if terminal_outcome is not None and supports_terminal:
-            kwargs["terminal_outcome"] = terminal_outcome
-        if latency_seconds is not None and supports_latency:
-            kwargs["latency_seconds"] = latency_seconds
-        observer(observation_id=request_id, status_code=status_code, **kwargs)
-    except TypeError as exc:
-        # Older test doubles may predate either optional observer input.
-        message = str(exc)
-        if "terminal_outcome" not in message and "latency_seconds" not in message:
-            raise
-        observer(observation_id=request_id, status_code=status_code)
-        if terminal_outcome == "iterator_failure":
-            latch_runtime_failure = getattr(controller, "latch_runtime_failure", None)
-            if callable(latch_runtime_failure):
-                latch_runtime_failure(
-                    request_id=f"{request_id}:stream-terminal-failure",
-                    reason="SSE iterator failed",
-                )
-
-
-def _finalize_request_metrics(
-    *,
-    request: Request,
-    response: Response,
-    request_id: str,
-    endpoint: str,
-    metric_labels: dict[str, str],
-    elapsed: float,
-    production_runtime: bool,
-    controller: object,
-    terminal_outcome: str | None = None,
-) -> None:
-    """Record legacy and production metrics exactly once for a response."""
-
-    try:
-        REQUEST_COUNT.labels(request.method, endpoint, response.status_code).inc()
-        REQUEST_LATENCY.labels(endpoint).observe(elapsed)
-    except Exception as exc:  # noqa: BLE001 - metrics are non-authoritative
-        _REQUEST_LOGGER.exception(
-            "event=request_metrics_failed request_id=%s",
-            request_id,
-        )
-        if production_runtime:
-            _latch_production_observer_failure(
-                controller=controller,
-                request_id=f"{request_id}:legacy-metrics-failure",
-                reason=f"legacy request metrics failed: {type(exc).__name__}",
-            )
-
-    if not production_runtime:
-        return
-
-    try:
-        PRODUCTION_REQUEST_COUNT.labels(
-            request.method,
-            metric_labels["domain"],
-            metric_labels["route"],
-            metric_labels["release_version"],
-            response.status_code,
-        ).inc()
-        PRODUCTION_REQUEST_LATENCY.labels(
-            metric_labels["domain"],
-            metric_labels["route"],
-            metric_labels["release_version"],
-        ).observe(elapsed)
-        _observe_production_http_request(
-            controller=controller,
-            request_id=request_id,
-            status_code=response.status_code,
-            terminal_outcome=terminal_outcome,
-            latency_seconds=elapsed,
-        )
-        _export_production_observability_state(controller)
-    except Exception as exc:  # noqa: BLE001 - observer is non-authoritative
-        # The business effect has already completed.  Preserve its response
-        # (or the stream's original exception), and stop subsequent traffic.
-        _latch_production_observer_failure(
-            controller=controller,
-            request_id=f"{request_id}:observation-failure",
-            reason=f"http observation failed: {type(exc).__name__}",
-        )
-        _REQUEST_LOGGER.exception(
-            "event=production_observability_failed request_id=%s",
-            request_id,
-        )
 
 _LEGACY_ROUTE_REWRITES: dict[str, str] = {
     "/api/v1/ingest/social/sentiment": "/api/v1/ingest/data-api",
@@ -1415,19 +373,13 @@ async def legacy_route_rewrite_middleware(request: Request, call_next):
 
 @app.middleware("http")
 async def metrics_middleware(request: Request, call_next):
-    actor_context: RequestActorContext | None = None
     if _is_codex_protected_path(request.url.path):
         valid_tokens = _parse_codex_auth_tokens()
         token = _extract_codex_token(request)
         if token and token in valid_tokens:
-            actor_context = authenticated_actor_context(
-                actor_id=actor_id_from_secret("codex_auth_token", token),
-                source="authenticated_codex_token",
-                auth_mode="codex_auth_token",
-                legacy_actor_id=legacy_actor_id_from_request(request),
-            )
-        elif (oauth_actor_context := _resolve_codex_oauth_actor_context(request)) is not None:
-            actor_context = oauth_actor_context
+            pass
+        elif _has_valid_codex_oauth_session(request):
+            pass
         elif token:
             return _build_codex_auth_error(request, reason="invalid_token")
         elif valid_tokens:
@@ -1436,9 +388,6 @@ async def metrics_middleware(request: Request, call_next):
             return _build_codex_auth_error(request, reason="missing_oauth_session")
         else:
             return _build_codex_auth_error(request, reason="codex_auth_tokens_not_configured")
-    if actor_context is None:
-        actor_context = resolve_request_actor_context(request)
-    set_request_actor_context(request, actor_context)
 
     project_key, project_key_source, project_key_is_fallback = _resolve_request_project_context(request)
     effective_project_key_mode = get_effective_project_key_enforcement_mode()
@@ -1450,12 +399,8 @@ async def metrics_middleware(request: Request, call_next):
     request.state.project_key_resolved = project_key
     request.state.project_key_source = project_key_source
     request.state.project_key_is_fallback = project_key_is_fallback
-    api_context_tokens = set_api_context_meta(trace_id=trace_id, project_key=project_key)
-    try:
-        with bind_project(project_key):
-            response: Response = await call_next(request)
-    finally:
-        reset_api_context_meta(api_context_tokens)
+    with bind_project(project_key):
+        response: Response = await call_next(request)
     response = _maybe_wrap_success_json_response(
         request,
         response,
@@ -1465,11 +410,6 @@ async def metrics_middleware(request: Request, call_next):
     )
     elapsed = time.perf_counter() - start
     endpoint = request.url.path
-    metric_labels = {
-        "domain": "unbound",
-        "route": "unbound",
-        "release_version": RELEASE_VERSION,
-    }
     response.headers["X-Request-Id"] = request_id
     response.headers["X-Trace-Id"] = trace_id
     response.headers["X-Project-Key-Resolved"] = project_key
@@ -1478,90 +418,8 @@ async def metrics_middleware(request: Request, call_next):
     response.headers["X-Project-Key-Fallback-Allowed"] = "false" if effective_project_key_mode == "require" else "true"
     if project_key_is_fallback:
         response.headers["X-Project-Key-Warning"] = "fallback_used"
-    production_runtime = is_production_environment()
-    controller = getattr(app.state, "production_observability_r7", None)
-    if production_runtime:
-        try:
-            metric_labels = production_metrics_label(request)
-            endpoint = metric_labels["route"]
-        except Exception as exc:  # noqa: BLE001
-            route = str(getattr(request.scope.get("route"), "path", "") or "")
-            endpoint = route or "unbound"
-            _latch_production_observer_failure(
-                controller=controller,
-                request_id=f"{request_id}:metric-binding-failure",
-                reason=f"metric binding failed: {type(exc).__name__}",
-            )
-            _REQUEST_LOGGER.exception(
-                "event=production_metric_binding_failed request_id=%s",
-                request_id,
-            )
-    stream_content_type = str(response.headers.get("content-type") or "").split(";", 1)[0].strip().lower()
-    stream_state = getattr(request.state, "production_stream_state", None)
-    if not isinstance(stream_state, dict):
-        stream_state = getattr(response, "_production_stream_state", None)
-    is_stream = stream_content_type == "text/event-stream" or isinstance(stream_state, dict)
-    if is_stream and getattr(response, "body_iterator", None) is not None:
-        # BaseHTTPMiddleware returns a proxy response.  Wrapping its iterator
-        # here makes observation happen only after the client-facing stream is
-        # fully consumed, while preserving any iterator exception verbatim.
-        original_iterator = response.body_iterator
-        finalized = False
-
-        async def _observed_stream_iterator():
-            nonlocal finalized
-            try:
-                async for chunk in original_iterator:
-                    yield chunk
-            except BaseException:
-                if not finalized:
-                    finalized = True
-                    stream_elapsed = time.perf_counter() - start
-                    _finalize_request_metrics(
-                        request=request,
-                        response=response,
-                        request_id=request_id,
-                        endpoint=endpoint,
-                        metric_labels=metric_labels,
-                        elapsed=stream_elapsed,
-                        production_runtime=production_runtime,
-                        controller=controller,
-                        terminal_outcome="iterator_failure",
-                    )
-                raise
-            else:
-                if not finalized:
-                    finalized = True
-                    stream_elapsed = time.perf_counter() - start
-                    terminal_outcome = (
-                        str(stream_state.get("terminal_outcome") or "success")
-                        if isinstance(stream_state, dict)
-                        else "success"
-                    )
-                    _finalize_request_metrics(
-                        request=request,
-                        response=response,
-                        request_id=request_id,
-                        endpoint=endpoint,
-                        metric_labels=metric_labels,
-                        elapsed=stream_elapsed,
-                        production_runtime=production_runtime,
-                        controller=controller,
-                        terminal_outcome=terminal_outcome,
-                    )
-
-        response.body_iterator = _observed_stream_iterator()
-    else:
-        _finalize_request_metrics(
-            request=request,
-            response=response,
-            request_id=request_id,
-            endpoint=endpoint,
-            metric_labels=metric_labels,
-            elapsed=elapsed,
-            production_runtime=production_runtime,
-            controller=controller,
-        )
+    REQUEST_COUNT.labels(request.method, endpoint, response.status_code).inc()
+    REQUEST_LATENCY.labels(endpoint).observe(elapsed)
     if project_key_is_fallback:
         _REQUEST_LOGGER.warning(
             "event=project_key_fallback http_target=%s project_key=%s request_id=%s enforcement_mode=%s fallback_allowed=%s",
@@ -1634,46 +492,20 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
 
 
 @app.get("/api/v1/health")
-def health_check(request: Request) -> dict:
+def health_check() -> dict:
     """Lightweight health check; deep checks added later."""
-    require_observability_token(request, str(getattr(settings, "production_metrics_token", "") or ""))
-    if is_production_environment():
-        return {"status": "ok"}
     return {
         "status": "ok",
         "provider": settings.llm_provider,
         "env": settings.env,
-        **_build_runtime_status(),
     }
 
 
 @app.get("/api/v1/health/deep")
-def deep_health_check(request: Request) -> dict:
+def deep_health_check() -> dict:
     """Deep health check: DB + pool + Elasticsearch connectivity and simple latency probes."""
-    require_observability_token(request, str(getattr(settings, "production_metrics_token", "") or ""))
     checks: dict[str, str] = {}
     details: dict[str, object] = {}
-    runtime_status = _build_runtime_status(include_dependency_ping=True)
-    pool_status: dict = {}
-    worker_telemetry = read_worker_telemetry_snapshot()
-    details["worker_observability"] = worker_telemetry.to_dict()
-    if str(request.query_params.get("dispatch_worker_probe") or "").strip().lower() in {"1", "true", "yes"}:
-        from .services.tasks import task_worker_observability_noop
-
-        worker_task = task_worker_observability_noop.delay(
-            request_id=str(getattr(request.state, "request_id", "") or ""),
-            run_id=f"stage5-worker-run:{str(getattr(request.state, 'request_id', '') or uuid.uuid4())}",
-            trace_id=str(getattr(request.state, "trace_id", "") or ""),
-            project_key=str(getattr(request.state, "project_key_resolved", "") or ""),
-            candidate_id="stage5:worker-telemetry-probe",
-        )
-        worker_result = worker_task.get(timeout=8, propagate=False)
-        details["worker_probe"] = {
-            "task_id": str(worker_task.id),
-            "ready": worker_task.ready(),
-            "successful": worker_task.successful() if worker_task.ready() else None,
-            "result": worker_result,
-        }
 
     # DB check
     db_start = time.perf_counter()
@@ -1720,42 +552,12 @@ def deep_health_check(request: Request) -> dict:
     except Exception as e:  # noqa: BLE001
         checks["elasticsearch"] = f"error: {type(e).__name__}"
 
-    controller = getattr(app.state, "production_observability_r7", None)
-    if controller is not None:
-        try:
-            snapshot = _build_runtime_health_snapshot(
-                database_connection_status=checks.get("database", "error: not_observed"),
-                database_pool_status=checks.get("database_pool", "error: not_observed"),
-                pool_status=pool_status,
-                runtime_status=runtime_status,
-                authority_task_id=request.query_params.get("authority_task_id"),
-                authority_tenant_id=request.query_params.get("authority_tenant_id"),
-            )
-            controller.observe_runtime_health(
-                observation_id=f"deep-health:{uuid.uuid4()}",
-                snapshot=snapshot,
-            )
-        except Exception as exc:  # noqa: BLE001 - health response remains authoritative over observer failure
-            _latch_production_observer_failure(
-                controller=controller,
-                request_id=f"deep-health:{uuid.uuid4()}:runtime-health-observation",
-                reason=f"runtime health observation failed: {type(exc).__name__}",
-            )
-            _REQUEST_LOGGER.exception("event=production_runtime_health_observation_failed")
-
     status = "ok" if all(v == "ok" for v in checks.values()) else "degraded"
-    if runtime_status.get("dependency_ping", {}).get("status") in {"degraded", "missing_dependencies"}:
-        status = "degraded"
-    return {"status": status, **checks, "details": details, **runtime_status}
+    return {"status": status, **checks, "details": details}
 
 
 @app.get("/metrics")
-def metrics(request: Request):
-    require_observability_token(request, str(getattr(settings, "production_metrics_token", "") or ""))
-    controller = getattr(app.state, "production_observability_r7", None)
-    if controller is not None:
-        _export_production_observability_state(controller)
-    export_worker_telemetry_metrics(read_worker_telemetry_snapshot())
+def metrics():
     return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 register_ui_routes(app, usa_map_path=USA_MAP_PATH)
 
@@ -1765,27 +567,33 @@ from .api import router as api_router  # type: ignore
 
 app.include_router(api_router, prefix="/api/v1")
 
+# Successor production registry mount: initialize app.state only at startup so
+# no database connection or server registry resolver is created at import time.
+if str(getattr(settings, "successor_mount_mode", "local_only")).strip().lower() == (
+    "production_registry"
+):
+    from app.successor_runtime.assembly.app_assembly import (
+        AuthActorUnresolvedError,
+        authenticated_oauth_session_actor_ref,
+        authenticated_token_actor_ref,
+        initialize_successor_registry_mount,
+    )
 
-@app.on_event("startup")
-def _validate_production_composition() -> None:
-    if is_production_environment():
-        # Validate only declarative bindings.  No database/provider/canary
-        # operation is performed by this gate.
-        runtime_bindings = build_production_runtime_bindings(engine, settings)
-        app.state.production_runtime_bindings = runtime_bindings
-        validate_production_startup(
-            settings,
-            routes=app.routes,
-            runtime_bindings=runtime_bindings,
+    def _successor_production_actor_provider(request: Request) -> str:
+        token = _extract_codex_token(request)
+        if token:
+            return authenticated_token_actor_ref(token)
+        if _has_valid_codex_oauth_session(request):
+            sid = (request.cookies.get(codex_cookie_name()) or "").strip()
+            if sid:
+                return authenticated_oauth_session_actor_ref(sid)
+            return "actor:codex-oauth:token-sink"
+        raise AuthActorUnresolvedError(
+            "no authenticated actor identity found on successor request"
         )
-        observability_config = production_observability_config_from_settings(
-            settings,
-            release_version=RELEASE_VERSION,
+
+    @app.on_event("startup")
+    def _initialize_successor_registry_mount() -> None:
+        initialize_successor_registry_mount(
+            app, actor_provider=_successor_production_actor_provider
         )
-        existing = getattr(app.state, "production_observability_r7", None)
-        if existing is None:
-            install_production_observability(app, observability_config)
-        elif not isinstance(existing, ProductionObservabilityController) or (
-            existing.config != observability_config
-        ):
-            raise RuntimeError("production observability runtime binding drift")

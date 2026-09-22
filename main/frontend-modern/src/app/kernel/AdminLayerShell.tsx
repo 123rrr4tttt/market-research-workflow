@@ -5,6 +5,7 @@ import {
   Boxes,
   DatabaseZap,
   FolderKanban,
+  Gauge,
   Radar,
   Settings2,
   ShieldCheck,
@@ -29,7 +30,7 @@ type Props = {
 const ADMIN_GROUPS: Array<{ labelKey: MessageKey; items: KernelModuleKey[] }> = [
   { labelKey: 'shell.admin.group.operations', items: ['overviewTasks', 'flowProcessing', 'overviewData', 'sysBackend'] },
   { labelKey: 'shell.admin.group.governance', items: ['sysProjects', 'sysCrawler', 'sysResource', 'flowExtract'] },
-  { labelKey: 'shell.admin.group.system', items: ['sysSettings', 'sysLlm'] },
+  { labelKey: 'shell.admin.group.system', items: ['sysSettings', 'sysLlm', 'sysSuccessorRuntime'] },
 ]
 
 const ICON_BY_MODULE: Record<KernelModuleKey, LucideIcon> = {
@@ -64,6 +65,7 @@ const ICON_BY_MODULE: Record<KernelModuleKey, LucideIcon> = {
   sysBackend: ShieldCheck,
   sysSettings: Settings2,
   sysLlm: Bot,
+  sysSuccessorRuntime: Gauge,
 }
 
 function statusChipClass(value: string | boolean) {

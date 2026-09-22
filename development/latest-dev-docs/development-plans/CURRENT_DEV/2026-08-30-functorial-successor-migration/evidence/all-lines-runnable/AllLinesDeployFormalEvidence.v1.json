@@ -1,0 +1,144 @@
+{
+  "schema": "mrw.functorial_successor.all_lines.deploy_formal_evidence.v1",
+  "version": "1.0.0",
+  "record_id": "all-lines-deploy-formal-2026-09-03",
+  "date": "2026-09-03",
+  "status": "DEPLOY_FORMAL_LOCAL_GO_LIVE",
+  "commit": "981dba4b",
+  "build": {
+    "frontend": {
+      "command": "tsc -b --pretty false && vite build",
+      "cwd": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0/main/frontend-modern",
+      "exit_code": 0,
+      "built_in_seconds": 4.33,
+      "dist": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0/main/frontend-modern/dist",
+      "note": "SuccessorRuntimePage chunk present in dist/assets/SuccessorRuntimePage-*.js"
+    }
+  },
+  "static_entry": {
+    "kind": "docker nginx:1.27-alpine",
+    "container": "mrw-formal-frontend",
+    "restart_policy": "unless-stopped",
+    "ports": {
+      "http": "127.0.0.1:5174:80",
+      "https": "127.0.0.1:8443:443"
+    },
+    "mounts": [
+      "dist -> /usr/share/nginx/html:ro",
+      "/tmp/mrw-formal-tls -> /etc/nginx/tls:ro",
+      "host-nginx.conf -> /etc/nginx/conf.d/default.conf:ro"
+    ],
+    "api_proxy": "http://host.docker.internal:8000",
+    "container_status": "Up",
+    "certificate": "self-signed CN=127.0.0.1 SAN IP:127.0.0.1,DNS:localhost valid 30 days (NOT a public production certificate)"
+  },
+  "backend_service": {
+    "kind": "launchd LaunchAgent",
+    "label": "com.mrw.successor-backend",
+    "plist": "/Users/wangyiliang/Library/LaunchAgents/com.mrw.successor-backend.plist",
+    "program": [
+      "/Users/wangyiliang/.local/bin/python3.11",
+      "-m",
+      "uvicorn",
+      "app.main:app",
+      "--host",
+      "127.0.0.1",
+      "--port",
+      "8000"
+    ],
+    "cwd": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0/main/backend",
+    "state": "running",
+    "pid": 50277,
+    "keep_alive": true,
+    "stdout_log": "/tmp/mrw-successor-backend.out.log",
+    "stderr_log": "/tmp/mrw-successor-backend.err.log",
+    "env": {
+      "SUCCESSOR_MOUNT_MODE": "production_registry",
+      "SUCCESSOR_PRODUCTION_REQUIRES_AUTH": "true",
+      "CODEX_AUTH_ENABLED": "true",
+      "CODEX_AUTH_TOKENS": "<configured, value not persisted in evidence>",
+      "CODEX_OAUTH_ENABLED": "false",
+      "CODEX_OAUTH_TOKEN_SINK_ENABLED": "false",
+      "CODEX_OAUTH_TOKEN_SINK_PATH": "/tmp/mrw-formal-nonexistent-token-sink.json",
+      "CODEX_CLI_AUTH_PATH": "/tmp/mrw-formal-nonexistent-cli-auth.json",
+      "ACTIVE_PROJECT_KEY": "demo_proj_compare_0303_121137",
+      "DATABASE_URL": "inherited from backend/.env (db=postgres Unix socket)"
+    }
+  },
+  "auth_matrix": {
+    "method": "curl over launchd backend; no cookies sent; ambient token-sink/CLI-auth disabled via env paths + CODEX_OAUTH_ENABLED=false + CODEX_OAUTH_TOKEN_SINK_ENABLED=false",
+    "cases": [
+      {
+        "label": "POST /api/v1/successor-runtime/v2/queries no token",
+        "http_code": 401,
+        "detail": "reason_code=missing_token",
+        "cookie": false,
+        "ambient_env": false
+      },
+      {
+        "label": "POST /api/v1/successor-runtime/v2/queries wrong bearer",
+        "http_code": 401,
+        "detail": "reason_code=invalid_token",
+        "cookie": false,
+        "ambient_env": false
+      },
+      {
+        "label": "POST /api/v1/successor-runtime/v2/queries valid bearer",
+        "http_code": 200,
+        "detail": "status=ok cells C9.1/C9.2 INSTALLED C9.3 PROJECTOR_WIRING_DECLARED no_postgres_write=true",
+        "cookie": false,
+        "ambient_env": false
+      }
+    ]
+  },
+  "urls": {
+    "frontend_http": {
+      "url": "http://127.0.0.1:5174/",
+      "http_code": 200
+    },
+    "successor_page_route": {
+      "url": "http://127.0.0.1:5174/admin/successor-runtime",
+      "http_code": 200
+    },
+    "api_health_direct": {
+      "url": "http://127.0.0.1:8000/api/v1/health",
+      "http_code": 200
+    },
+    "api_health_via_nginx": {
+      "url": "http://127.0.0.1:5174/api/v1/health",
+      "http_code": 200
+    },
+    "successor_query_via_nginx": {
+      "url": "http://127.0.0.1:5174/api/v1/successor-runtime/v2/queries",
+      "http_code": 200
+    },
+    "https_8443_health": {
+      "url": "https://127.0.0.1:8443/api/v1/health",
+      "http_code": 200,
+      "certificate": "self-signed, curl -k used"
+    }
+  },
+  "registry_scope_observed": {
+    "project_key": "demo_proj_compare_0303_121137",
+    "resolved_schema": "project_demo_proj_compare_0303_121137",
+    "registry_revision": 1,
+    "incarnation": "incarnation:production-go-live:v1",
+    "scope_digest": "88fe54420b357e5a5a932d280d008badf940c35629753c6cefda5b3172b17b67",
+    "no_postgres_write": true
+  },
+  "authority_ceiling": {
+    "service_running_local": true,
+    "production_canonical_write": false,
+    "cutover": false,
+    "authority_transfer": false,
+    "legacy_retired": false
+  },
+  "teardown_note": "Intentional persistent local deployment; rollback commands recorded for reference, NOT executed: launchctl bootout gui/501/com.mrw.successor-backend; docker rm -f mrw-formal-frontend. No DB rows written by this evidence run.",
+  "risks": [
+    "TLS certificate is self-signed; public domain/production certificate still requires external configuration",
+    "frontend served by nginx container pinned to image nginx:1.27-alpine without digest pinning",
+    "ES service not running on host; /api/v1/health/deep remains degraded",
+    "production monitoring/alerting, metrics dashboards, secret scan and RPO scheduling remain outside this deployment",
+    "deploy token used by launchd process; rotate before exposing the endpoint beyond localhost"
+  ]
+}

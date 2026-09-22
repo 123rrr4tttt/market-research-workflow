@@ -64,6 +64,9 @@ export const queryKeys = {
   config: {
     envStatus: () => ['app-env-status'] as const,
   },
+  successorRuntime: {
+    snapshot: (projectKey: string) => ['successor-runtime', 'snapshot', projectKey] as const,
+  },
   process: {
     all: () => ['process'] as const,
     list: (limit = 50) => ['process', 'list', limit] as const,

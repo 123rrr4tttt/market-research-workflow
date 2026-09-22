@@ -1,0 +1,130 @@
+{
+  "schema": "mrw.functorial_successor.all_lines.business_cutover_acceptance_evidence.v1",
+  "status": "BLOCK_CANONICAL_WRITE_CHAIN_NOT_RUNNABLE_ON_REAL_POSTGRES",
+  "supervisor": "cutover acceptance milestone (NEW_TASK from /root)",
+  "date": "2026-09-03",
+  "target": {
+    "worktree": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0",
+    "head": "edda54b2",
+    "database": "settings.database_url (backend .env DATABASE_URL, local postgres)",
+    "active_registry": {
+      "project_key": "demo_proj_compare_0303_121137",
+      "resolved_schema": "project_demo_proj_compare_0303_121137",
+      "registry_revision": 1,
+      "state": "ACTIVE",
+      "scope_digest": "88fe54420b357e5a5a932d280d008badf940c35629753c6cefda5b3172b17b67",
+      "incarnation": "incarnation:production-go-live:v1"
+    }
+  },
+  "backup": {
+    "note": "Pre-existing scheduled dump available at /Users/wangyiliang/.codex/rollback/production-backup/postgres-20260903-023158.dump (sha256 in postgres-20260903-023158.dump.sha256); probe performed no writes so no new milestone dump was required",
+    "writes_performed": 0
+  },
+  "chain_selected": {
+    "candidate": "C7.2 canonical document write (admit_verified_candidate / PostgresC7CanonicalWritePort)",
+    "candidate_2": "C7.2 ingest submission registry (C7IngestRegistryRuntimeHandler)",
+    "selected": "C7 canonical document write (only real-postgres successor write port found)",
+    "real_database_write_executed": false
+  },
+  "verification_method": "Read-only real-postgres probe (cutover_acceptance_probe_20260903.py) + code-path inventory; no table was created, no row inserted, no runtime row seeded, no migration run",
+  "observed_preconditions": {
+    "project_scope_registry_ACTIVE": 1,
+    "runtime_capability_authority": 0,
+    "runtime_runs": 0,
+    "runtime_steps": 0,
+    "runtime_effect_attempts": 0,
+    "runtime_events": 0,
+    "runtime_program_refs": 0,
+    "required_canonical_table_exists": false,
+    "canonical_read_probe": {
+      "select_succeeded": false,
+      "error_class": "ProgrammingError",
+      "error_condensed": "relation \"c7_movement_canonical_documents\" does not exist"
+    },
+    "legacy_counts_before": {
+      "projects": 9,
+      "agent_sessions": 2409
+    }
+  },
+  "blockers": [
+    {
+      "id": "BLOCKER-1",
+      "title": "c7_movement_canonical_documents is absent from the real postgres schema and from all alembic migrations",
+      "evidence": [
+        "to_regclass('public.c7_movement_canonical_documents') = false on real postgres",
+        "migrations/versions/20260830_000001 and 20260831_000002 create only PUBLIC_TABLES from models.py",
+        "models.py PUBLIC_TABLES does not include c7_movement_canonical_documents",
+        "the table exists only as an inline sa.Table in ingest_c7_movement_admission.py and is created in disposable test fixtures only",
+        "read-only probe returned ProgrammingError: relation does not exist"
+      ],
+      "impact": "admit_verified_candidate (C7 canonical write) cannot execute its first journal/canonical access on real postgres; a real write would fail closed",
+      "needed_to_unblock": "add a successor alembic migration creating c7_movement_canonical_documents (project_key/object_id PK + full canonical head columns) and run alembic upgrade on the real database, or create the table through the repository's normal DDL discipline"
+    },
+    {
+      "id": "BLOCKER-2",
+      "title": "Real postgres has no runtime predecessor/authority state and no production execution composition root drives C7 admission",
+      "evidence": [
+        "runtime_capability_authority rows for project_key = 0",
+        "runtime_runs/runtime_steps/runtime_effect_attempts/runtime_events/runtime_program_refs rows for project_key = 0",
+        "disposable admission tests seed these rows in-test; no repository production program/driver/API path exists that seeds and drives them",
+        "api/successor_runtime.py exposes POST /successor-runtime/v2/commands and /queries, but build_successor_registry_app_dependencies wires assembly_options.c9.facade = build_deterministic_facade_closure() whose submission port is _MemoryCommandSubmissionPort",
+        "SuccessorRuntimeAppDependencies.authority_ceiling = AUTHORITY_CEILING_CLOSED"
+      ],
+      "impact": "even after BLOCKER-1 is fixed, a real canonical admission has no persisted capability-authority grant, run/step/attempt/journal rows, or invoked program to lock against; admission requires them and would fail closed",
+      "needed_to_unblock": "production execution composition: a bounded real driver (repository program -> runtime node -> postgres journal/claim/commit-intent adapters -> C7 admission) with an explicit authority grant recorded in runtime_capability_authority and runtime predecessor rows scoped to the ACTIVE registry row"
+    },
+    {
+      "id": "BLOCKER-3",
+      "title": "C7.2 ingest submission registry successor handler has no PostgreSQL store adapter",
+      "evidence": [
+        "IngestRegistryStore implementations found: LocalSuccessorIngestRegistryStore (in-memory) only",
+        "no file outside capabilities/ingest_c7_registry.py and substrate/postgres/ingest_c7_registry_handler.py references the successor ingest registry store",
+        "legacy project_schema.ingest_submission_registry (20260524_000001) is a donor table outside successor write scope"
+      ],
+      "impact": "the alternate chain (C7.2 canonical ingest submission registry) cannot perform a durable real-postgres write either",
+      "needed_to_unblock": "a successor-owned PostgreSQL ingest registry store adapter (e.g. successor_ingest_submission_registry table with migration) wired to the C7IngestRegistryRuntimeHandler"
+    }
+  ],
+  "canonical_write": {
+    "handler": "C7_2CanonicalCommitWriteHandler / admit_verified_candidate (real repository program path)",
+    "table_schema": "public.c7_movement_canonical_documents (missing on real postgres)",
+    "rows_before": null,
+    "rows_after": null,
+    "receipt": null,
+    "exit": "NOT_EXECUTED_BLOCKED",
+    "note": "No partial write occurred; probe was read-only and no runtime predecessor rows exist to clean up"
+  },
+  "readback": {
+    "executed": false,
+    "reason": "no canonical head exists and none could be admitted (BLOCKER-1/2)"
+  },
+  "projection_read": {
+    "executed": false,
+    "reason": "registry-backed DB projection read chain is not independently wired; the C7.3 projector requires a canonical head row produced by the blocked admission path",
+    "available_local_evidence": "C7.3 projector offset/value reads pass only on disposable databases (test_c7_canonical_write_projector_postgres.py)"
+  },
+  "switch": {
+    "created": false,
+    "reason": "no chain reached PASS; no runnable/authority flag was flipped and no env doc was added",
+    "legacy_retired": false,
+    "cutover": false,
+    "authority_transfer": false
+  },
+  "legacy_counts_after": {
+    "projects": 9,
+    "agent_sessions": 2409
+  },
+  "authority_ceiling": {
+    "production_canonical_write": false,
+    "cutover": false,
+    "authority_transfer": false,
+    "legacy_retired": false
+  },
+  "risks": [
+    "BLOCKER-1/2/3 are repository-realization gaps, not approval gaps: all authorizations were honored and no write was attempted outside the runnable path",
+    "resolving BLOCKER-1 via ad-hoc CREATE TABLE outside alembic would leave the real schema ahead of migrations and break the rollback chain; the fix must be an additive successor migration",
+    "seeding runtime predecessor rows by hand would bypass the production runtime node and must not be the acceptance path"
+  ],
+  "probe_script": "cutover_acceptance_probe_20260903.py (same directory)",
+  "evidence_sha256": null
+}

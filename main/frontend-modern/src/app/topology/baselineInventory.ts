@@ -40,6 +40,7 @@ const BASELINE_MODE_CATALOG: readonly NavMode[] = [
   'sysBackend',
   'sysSettings',
   'sysLlm',
+  'sysSuccessorRuntime',
 ] as const
 
 export const BASELINE_PAGE_INVENTORY: readonly BaselinePageRecord[] = [
@@ -62,6 +63,7 @@ export const BASELINE_PAGE_INVENTORY: readonly BaselinePageRecord[] = [
   { page: 'CrawlerManagePage', navModes: ['sysCrawler'], defaultSurface: 'management' },
   { page: 'ResourcePage', navModes: ['sysResource', 'flowExtract'], defaultSurface: 'management' },
   { page: 'SettingsPage', navModes: ['sysSettings', 'sysLlm'], defaultSurface: 'management' },
+  { page: 'SuccessorRuntimePage', navModes: ['sysSuccessorRuntime'], defaultSurface: 'management' },
 ] as const
 
 export function getBaselineModeCatalog(): readonly NavMode[] {

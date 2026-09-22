@@ -1,0 +1,121 @@
+{
+  "schema": "mrw.functorial_successor.all_lines_i2_exact_candidate_final_review.v1",
+  "version": "1.0.0",
+  "verdict": "PASS_EXACT_CANDIDATE",
+  "candidate": {
+    "commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+    "tree": "5840bf9ba906c49f70020d226c54446f4ba5aa33",
+    "branch": "codex/functorial-successor-p0"
+  },
+  "date": "2026-09-02",
+  "reviewer": "all_lines_i2_candidate_review",
+  "items": [
+    {
+      "id": "freeze_members_immutable",
+      "status": "PASS",
+      "detail": "frozen_contract_family 16/16 members verified by recomputed SHA-256 and byte length in candidate tree; ALL_MATCH, exit 0."
+    },
+    {
+      "id": "semantic_movement_generator_check",
+      "status": "PASS",
+      "detail": "scripts/generate_successor_p1_p3_semantic_movement.py --repo-root ../.. --output-root ../.. --check returned exit 0 with {\"status\":\"CHECK_OK\",\"total_movements\":60,\"external_c7_movements\":20,\"inline_movements\":40,\"exact_blockers\":0}."
+    },
+    {
+      "id": "semantic_movement_validator",
+      "status": "PASS",
+      "detail": "scripts/validate_successor_semantic_movement.py returned exit 0; overall status PASS; evidence_refs_resolve 323/323 resolved with unresolved [] and unexpected_unresolved []; movement_counts 60 unique; c7_external_exact_binding EXACT_BOUND."
+    },
+    {
+      "id": "capability_spec_cli_30_of_30",
+      "status": "PASS",
+      "detail": "generate_capability_spec_pilots.py --check executed for all 30 capability-specs C*.v1.json against RuntimeKernelABI.v1.json and candidate BuildManifest outputs; 30/30 MATCH, 0 FAIL, exit 0."
+    },
+    {
+      "id": "all_lines_movement_gate_artifacts",
+      "status": "PASS",
+      "detail": "AllLinesSuccessorMovementInventory.v1.json parsed: movements=20 (18 business-line + 2 supplementary gap records), summary.unassigned_movement_records=0, summary.authority_ceiling all six flags false; reviews/ contains three PASS verdict files: AllLinesMovementDeclaredScopeReview.v1.json (PASS_ALL_LINES_MOVEMENT_GATE), AllLinesMovementPredecessorReview.v1.json (PASS_ALL_LINES_MOVEMENT_GATE), AllLinesP1ClosureIndependentReview.v1.json (PASS_P1_CLOSURE_REVIEWED); no truthy structured authority field in reviews or inventory."
+    },
+    {
+      "id": "full_non_pg_successor_runtime_official",
+      "status": "PASS",
+      "detail": "Candidate bytes run from detached worktree, cwd main/backend, with SUCCESSOR_* database env unset and PYTHONDONTWRITEBYTECODE=1: pytest tests/successor_runtime -q -p no:cacheprovider returned exit 0 with 1565 passed, 119 skipped, 0 failed, 0 errors (69.53s), matching PgEvidence.AllLines.2026-09-02.md."
+    },
+    {
+      "id": "pg_dedicated_bounded_canary",
+      "status": "PASS",
+      "detail": "PostgreSQL localhost:5432 available; 2/39 PG files rerun with per-file dedicated databases using the unified create/run/drop commands from PgEvidence.AllLines.2026-09-02.md: test_c7_canonical_write_projector_postgres.py exit 0 (9 passed), test_c7_movement_admission_postgres.py exit 0 (50 passed); pre/post filtered pg_database (^(mrw_|codex_)) and pg_roles snapshots identical; no residual databases/roles created (only pre-existing baselines codex_p0c_full_chain_test and mrw_p0b_rereview_test_01a0504c remained)."
+    },
+    {
+      "id": "dependency_lint",
+      "status": "PASS",
+      "detail": "scripts/check_successor_runtime_dependencies.py returned exit 0 with ok=true, files_checked=237, function_local_imports_scanned=43, violations=[]."
+    },
+    {
+      "id": "candidate_worktree_clean",
+      "status": "PASS",
+      "detail": "Detached candidate worktree git status --porcelain empty (0 lines) after all checks; candidate commit 3706655f372f6d34fc62683551b8c3d1f4ff8146, tree 5840bf9ba906c49f70020d226c54446f4ba5aa33, checked out detached from branch codex/functorial-successor-p0."
+    },
+    {
+      "id": "evidence_counts_consistency",
+      "status": "PASS",
+      "detail": "PgEvidence.AllLines.2026-09-02.md table contains 39 rows whose pass counts sum to 353 with 0 failed/0 errors rows, matching its 39/39 and 353-pass claims and ProductionCutoverRehearsalEvidence.v1.json file list (39/39 name match); non-PG claim 1565/119/0 and per-file cells canonical-write 9 and movement-admission 50 match this review's reruns; inventory counts (20=18 business lines + 2 supplementary gaps, 18 CLOSED + 2 NON_BLOCKER_RECORD, 20 REIMPLEMENTED_AS, 0 unassigned) match AllLinesP1ClosureIndependentReview claims; 18 distinct business_line ids in movement rows match 18 frozen business lines in AllLinesMigrationScope.freeze.v1.json."
+    }
+  ],
+  "open_findings": [
+    {
+      "priority": "P1",
+      "id": "ALL_LINES_EXACT_REFERENCE_GAP",
+      "title": "Inherited declared-scope reference exactness gap",
+      "detail": "Inherited from AllLinesMovementDeclaredScopeReview.v1.json: ALL-SM-007 uses glob target/acceptance refs and ALL-SM-015 uses P1P3 matrix row-range refs plus whole-file test refs; refs resolve but are not maximal exactness. The review verdict was PASS_ALL_LINES_MOVEMENT_GATE with this P1 open.",
+      "evidence": "evidence/all-lines-investigation/reviews/AllLinesMovementDeclaredScopeReview.v1.json (open_findings.p1[0])"
+    },
+    {
+      "priority": "P1",
+      "id": "PRIOR_STATE_DOCUMENTS_NOT_SUPERSEDED_INLINE",
+      "title": "Inherited historical-state documents not superseded inline",
+      "detail": "Inherited from AllLinesMovementPredecessorReview.v1.json: AllLinesMigrationScope.freeze.v1.json, LegacyVsMovementGap.v1.json and AllLinesDispositions.amendment.v1.json still report the prior 16 UNASSIGNED_BLOCKER / 15 UNMAPPED state; current 0-UB state is carried by the closure chain and AllLinesClosureStatus.v1.json supersede marker. Review verdict was PASS_ALL_LINES_MOVEMENT_GATE with this P1 open.",
+      "evidence": "evidence/all-lines-investigation/reviews/AllLinesMovementPredecessorReview.v1.json (open_findings.p1[0])"
+    },
+    {
+      "priority": "P2",
+      "id": "P1_ADDENDUM_AND_STATUS_POSTDATED_REVIEW",
+      "title": "P1 addendum and closure-status marker postdate original double-gate reviews",
+      "detail": "AllLinesP1ClosureIndependentReview.v1.json closes this gap for the addendum and supersede marker only; its verdict PASS_P1_CLOSURE_REVIEWED carries a NOTE finding. Accepted as non-blocking for this candidate.",
+      "evidence": "evidence/all-lines-investigation/reviews/AllLinesP1ClosureIndependentReview.v1.json (open_findings[0])"
+    },
+    {
+      "priority": "P2",
+      "id": "PG_CANARY_37_OF_39_NOT_RERUN",
+      "title": "Bounded PG canary covers 2 of 39 PG files",
+      "detail": "Per review scope, only test_c7_canonical_write_projector_postgres.py and test_c7_movement_admission_postgres.py were re-executed against PostgreSQL. The other 37 PG files rest on the candidate's recorded PgEvidence.AllLines.2026-09-02.md and ProductionCutoverRehearsalEvidence.v1.json (39-row counts and file list verified consistent this review, but not re-executed).",
+      "evidence": "evidence/i1-successor-assembly/PgEvidence.AllLines.2026-09-02.md; evidence/i1-successor-assembly/ProductionCutoverRehearsalEvidence.v1.json"
+    },
+    {
+      "priority": "P2",
+      "id": "PG_EVIDENCE_HEAD_IS_GENERATION_CONTEXT",
+      "title": "PgEvidence worktree.head records 38acdee8 as generation context",
+      "detail": "PgEvidence.AllLines.2026-09-02.md states HEAD 38acdee8 while the reviewed candidate commit is 3706655f; per I1EvidenceCandidateBindingConvention this is a generation-context/external binding field, not a candidate byte-binding claim. Current-byte reruns of the non-PG suite and PG canary match all recorded counts, so this is recorded as P2 context, not a BLOCK.",
+      "evidence": "evidence/i1-successor-assembly/PgEvidence.AllLines.2026-09-02.md (header); evidence/reviews/I1EvidenceCandidateBindingConvention.v1.json"
+    }
+  ],
+  "authority": {
+    "authority_transfer": false,
+    "business_authority_migrated": false,
+    "cutover": false,
+    "external_delivery": false,
+    "live_provider": false,
+    "successor_claim_enabled_for_all_lines": false,
+    "candidate_promotion_granted": false
+  },
+  "risks": [
+    "This PASS is a local exact-candidate gate only; it grants no authority transfer, cutover, live provider, external delivery, or business-authority migration. All authority fields remain false.",
+    "The recorded PG evidence was generated with /opt/homebrew/bin/python3.11 (Python 3.11.15, pytest 8.4.2); this review reran with /Users/wangyiliang/.local/bin/python3.11 (Python 3.11.14, pytest 9.0.2) and obtained identical counts for the non-PG suite and both PG canary files.",
+    "PASS_ALL_LINES_MOVEMENT_GATE with inherited open P1 reference-exactness findings means the candidate is promotion-eligible at I2 scope but not semantically pristine for exactness of every acceptance trace.",
+    "S2b/S2c pure local surface tests are unit-only evidence and do not prove live PostgreSQL handler behavior for C7.2/C8.3/C9.1 or ops-domain surfaces; this boundary is explicitly recorded in PgEvidence.AllLines.2026-09-02.md section 4."
+  ],
+  "notes": [
+    "All checks were executed on a detached worktree (/tmp/alllines-i2-kprE3G) at commit 3706655f for byte purity; the detached worktree was clean before and after checks and will be removed after this review is written.",
+    "The review's sole repository write is this file. No commit, push, reset, clean, or other repository mutation was performed.",
+    "Subsequent documentation commits af9d8f09/02afce68/307004d5 were excluded from candidate bytes by checking out 3706655f; they only affect 03/SUPERVISOR_REVIEW_REQUEST/decision-request files and do not change this verdict."
+  ]
+}

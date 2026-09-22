@@ -1,0 +1,65 @@
+{
+  "schema": "mrw.functorial_successor.all_lines.item04_donor_cutover_evidence.v1",
+  "version": "1.0.0",
+  "record_id": "all-lines-item04-donor-cutover-2026-09-03",
+  "date": "2026-09-03",
+  "generated_at_utc": "2026-09-03T00:45:00Z",
+  "status": "DONOR_CODE_CUTOVER_EXECUTED_ROLLBACK_POINT_ESTABLISHED",
+  "user_instruction": "donor/origin cutover -> 给出明确回滚点并执行donor",
+  "executed": {
+    "action": "switch donor main worktree to new cutover branch at exact candidate bytes",
+    "donor_worktree": "/Users/wangyiliang/market-research-workflow",
+    "pre_cutover": {
+      "branch": "codex/devdocs-supervisor-seed",
+      "head": "35ca039c59d2efae8038a678995e8a0812032e43",
+      "tree": "d32b888edd1a03ed555f1087f4f97e52a84580e9",
+      "dirty_entries": 606
+    },
+    "post_cutover": {
+      "branch": "codex/all-lines-donor-cutover",
+      "head": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+      "tree": "5840bf9ba906c49f70020d226c54446f4ba5aa33",
+      "candidate_review": "PASS_EXACT_CANDIDATE",
+      "successor_files_present": true,
+      "env_preserved": true,
+      "dirty_entries_preserved": 598
+    }
+  },
+  "rollback_point": {
+    "git_tag": "rollback/all-lines-donor-pre-cutover-2026-09-03",
+    "tag_target": "35ca039c59d2efae8038a678995e8a0812032e43",
+    "branch_preserved": "codex/devdocs-supervisor-seed",
+    "artifact_dir": "/Users/wangyiliang/.codex/rollback/all-lines-donor-cutover-2026-09-03",
+    "artifacts": [
+      "donor-pre-state.json (606-entry dirty snapshot)",
+      "donor-tracked-dirty.patch (binary diff of tracked modifications/deletions)",
+      "deleted-files.list",
+      "untracked-files.list",
+      "overlap-copies/ (8 tracked-modified + 21 untracked candidate-overlap originals)",
+      "ROLLBACK.md (exact restore steps)"
+    ]
+  },
+  "dirty_state_handling": {
+    "carried_over_untouched": "all pre-existing dirty files not overlapping candidate changes",
+    "superseded_by_candidate": [
+      "8 tracked-modified overlap files (originals saved in overlap-copies)",
+      "21 untracked overlap files whose paths are tracked in candidate (originals saved in overlap-copies)"
+    ],
+    "no_donor_commit_or_push": true
+  },
+  "authority_ceiling": {
+    "cutover": "code-level donor branch cutover only",
+    "authority_transfer": false,
+    "legacy_retired": false,
+    "production_canonical_write": false,
+    "live_provider": true,
+    "candidate_promotion": false,
+    "origin_push": false
+  },
+  "risks": [
+    "Donor runtime is not byte-identical to the tested candidate while the carried-over 598 dirty entries remain uncommitted; production service start should use a clean checkout or commit/stash the dirty set first",
+    "Origin push was NOT executed; codex/all-lines-donor-cutover exists only locally",
+    "Legacy routes/pages remain available in the candidate tree; legacy retirement (deleting or disabling legacy UI/API) was not executed",
+    "Rollback restores branch/HEAD plus the full 606-entry dirty snapshot from the artifact directory"
+  ]
+}

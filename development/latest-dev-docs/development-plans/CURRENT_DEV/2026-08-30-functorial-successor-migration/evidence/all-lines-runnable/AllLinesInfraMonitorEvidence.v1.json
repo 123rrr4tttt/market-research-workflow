@@ -1,0 +1,175 @@
+{
+  "schema": "mrw.functorial_successor.all_lines.infra_monitor_evidence.v1",
+  "status": "PASS_INFRA_MONITOR_LOCAL",
+  "generated_at_utc": "2026-09-02T18:36:00Z",
+  "generated_by": "infra_monitor_agent",
+  "authority": {
+    "commit_push": false,
+    "donor_write": false,
+    "legacy_retired": false,
+    "production_canonical_write": false,
+    "cutover": false
+  },
+  "worktree": {
+    "path": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0",
+    "head": "981dba4b",
+    "committed": false,
+    "note": "All infra files are local untracked changes; supervisor decides commit/push."
+  },
+  "elasticsearch": {
+    "compose_file": "main/ops/mrw-infra/docker-compose.yml",
+    "compose_project": "mrw-infra",
+    "image": "docker.elastic.co/elasticsearch/elasticsearch:8.15.3",
+    "container": "mrw-infra-es",
+    "config": {
+      "discovery_type": "single-node",
+      "xpack_security_enabled": false,
+      "host_port": "9200:9200",
+      "mem_limit": "1g",
+      "restart": "unless-stopped",
+      "healthcheck": true
+    },
+    "container_status": "Up (healthy)",
+    "cluster_health": {
+      "http_code": 200,
+      "status": "green",
+      "number_of_nodes": 1,
+      "number_of_data_nodes": 1,
+      "active_primary_shards": 0,
+      "unassigned_shards": 0,
+      "number_of_pending_tasks": 0,
+      "active_shards_percent_as_number": 100.0
+    },
+    "backend_es_url": "http://localhost:9200 (unchanged from .env key ES_URL)",
+    "deep_health_before": "degraded / elasticsearch error: ping failed",
+    "deep_health_after": {
+      "http_code": 200,
+      "status": "ok",
+      "database": "ok",
+      "database_pool": "ok",
+      "elasticsearch": "ok",
+      "details": {
+        "database_latency_ms": 0.75,
+        "elasticsearch_latency_ms": 6.83
+      }
+    }
+  },
+  "backup_rpo": {
+    "script": "/Users/wangyiliang/.codex/rollback/production-backup/backup-postgres.sh",
+    "script_mode": "0755",
+    "connection_note": "pg_dump -Fc -d postgres via Homebrew local socket/current OS user; MRW_PG_DUMP_ARGS override supported; .env secrets never read",
+    "rotation": "keep newest 14 backups",
+    "first_backup": {
+      "file": "/Users/wangyiliang/.codex/rollback/production-backup/postgres-20260903-023158.dump",
+      "bytes": 66157986,
+      "sha256": "24fc2eeee7ec416f32e7e3dc05fe2d6ee249370f6b08f507d64cc7998529c1de",
+      "log_line": "2026-09-03 02:32:06 CST OK postgres-20260903-023158.dump sha256=24fc2eeee7ec416f32e7e3dc05fe2d6ee249370f6b08f507d64cc7998529c1de"
+    },
+    "launchd": {
+      "plist": "/Users/wangyiliang/Library/LaunchAgents/com.github.mrw.postgres-backup.plist",
+      "label": "com.github.mrw.postgres-backup",
+      "schedule": "daily 02:30 local (StartCalendarInterval Hour=2 Minute=30)",
+      "loaded": true,
+      "last_exit": 0
+    },
+    "alert_webhook_launchd": {
+      "plist": "/Users/wangyiliang/Library/LaunchAgents/com.github.mrw.alert-webhook.plist",
+      "label": "com.github.mrw.alert-webhook",
+      "loaded": true,
+      "pid": 50769,
+      "endpoint_probe": {
+        "url": "http://127.0.0.1:9094/",
+        "http_code": 200,
+        "body": "{\"ok\": true, \"file\": \"/Users/wangyiliang/.codex/rollback/production-backup/alerts.jsonl\"}"
+      },
+      "alert_trail_file": "/Users/wangyiliang/.codex/rollback/production-backup/alerts.jsonl"
+    }
+  },
+  "monitoring": {
+    "compose_dir": "main/ops/mrw-monitoring",
+    "compose_project": "mrw-monitoring",
+    "compose_file_sha256": "d8aac9bfe1f7d1a61083622d018cc1f0beaaeaa03d90b0a305eb588493bbf06c",
+    "rules_file_sha256": "c4fb0dcaa8d86958f8720348e0524549d9472eb98284c3b11e99ba5641d77b64",
+    "infra_compose_sha256": "49ccd24555677e0a33921f7f7f95d4a0e6f19e77d506377749ffe8fdf1cb9740",
+    "prometheus": {
+      "image": "prom/prometheus:v2.55.1",
+      "container": "mrw-monitoring-prometheus",
+      "status": "Up (healthy)",
+      "healthy_endpoint": "http://127.0.0.1:9090/-/healthy -> 200",
+      "targets": [
+        {"job": "mrw-backend", "instance": "host.docker.internal:8000", "health": "up"},
+        {"job": "mrw-deep-health", "instance": "http://host.docker.internal:8000/api/v1/health/deep", "health": "up"},
+        {"job": "mrw-blackbox", "instance": "blackbox-exporter:9115", "health": "up"},
+        {"job": "prometheus-self", "instance": "localhost:9090", "health": "up"}
+      ],
+      "probe_success": 1,
+      "rules": [
+        {"name": "MRWBackendDown", "health": "ok", "state": "inactive"},
+        {"name": "MRWDeepHealthProbeDown", "health": "ok", "state": "inactive"},
+        {"name": "MRWSuccessor5xxRate", "health": "ok", "state": "inactive"},
+        {"name": "MRWApi5xxRate", "health": "ok", "state": "inactive"}
+      ],
+      "rules_loaded_count": 4
+    },
+    "alertmanager": {
+      "image": "prom/alertmanager:v0.28.1",
+      "container": "mrw-monitoring-alertmanager",
+      "status": "Up (healthy)",
+      "healthy_endpoint": "http://127.0.0.1:9093/-/healthy -> 200",
+      "receiver": "mrw-file-webhook -> http://host.docker.internal:9094/alert"
+    },
+    "blackbox": {
+      "image": "prom/blackbox-exporter:v0.25.0",
+      "container": "mrw-monitoring-blackbox",
+      "fix_note": "host.docker.internal resolved to unreachable IPv6; blackbox.yml preferred_ip_protocol=ip4 applied; probe_success recovered to 1"
+    },
+    "grafana": {
+      "image": "grafana/grafana:11.4.0",
+      "container": "mrw-monitoring-grafana",
+      "status": "Up (healthy)",
+      "health": {"http_code": 200, "database": "ok", "version": "11.4.0"},
+      "url": "http://127.0.0.1:3000",
+      "admin_password": "random compose secret file, mode 0600, not committed"
+    }
+  },
+  "files": {
+    "created_or_changed": [
+      "main/ops/mrw-infra/docker-compose.yml",
+      "main/ops/mrw-monitoring/docker-compose.yml",
+      "main/ops/mrw-monitoring/prometheus/prometheus.yml",
+      "main/ops/mrw-monitoring/prometheus/rules.yml",
+      "main/ops/mrw-monitoring/blackbox/blackbox.yml",
+      "main/ops/mrw-monitoring/alertmanager/alertmanager.yml",
+      "main/ops/mrw-monitoring/secrets/grafana-admin-password.txt (generated random, mode 0600)",
+      "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/production-readiness/monitoring-and-rollback.md (section 8 appended)",
+      "/Users/wangyiliang/.codex/rollback/production-backup/backup-postgres.sh",
+      "/Users/wangyiliang/.codex/rollback/production-backup/postgres-20260903-023158.dump + .sha256",
+      "/Users/wangyiliang/.codex/rollback/production-backup/backup.log",
+      "/Users/wangyiliang/.codex/rollback/production-monitoring/alert-webhook.py",
+      "/Users/wangyiliang/Library/LaunchAgents/com.github.mrw.postgres-backup.plist",
+      "/Users/wangyiliang/Library/LaunchAgents/com.github.mrw.alert-webhook.plist"
+    ],
+    "left_running": [
+      "mrw-infra-es (restart unless-stopped)",
+      "mrw-monitoring-prometheus",
+      "mrw-monitoring-alertmanager",
+      "mrw-monitoring-blackbox",
+      "mrw-monitoring-grafana",
+      "com.github.mrw.alert-webhook (launchd KeepAlive)",
+      "com.github.mrw.postgres-backup (launchd scheduled)"
+    ]
+  },
+  "remaining_gaps": [
+    "Semantic deep_health degraded alert requires backend metric (deep_health_status) - NOT implemented; HTTP probe rule only covers endpoint down",
+    "External notification channels (email/Slack/PagerDuty) not configured; local file webhook only",
+    "TLS termination, image digest pinning, secret/dependency vulnerability scanning, volume-level restore drill, network-level ingress auth retest, production owner/ACL remain environment-boundary gaps",
+    "Grafana admin secret is a local random file; must move to secret management before any commit/push",
+    "No alerts have fired yet during observation window (trail file empty); firing-path evidence pending a forced alert"
+  ],
+  "risks": [
+    "Prometheus containers are pinned to compose project mrw-monitoring; host restarts restart them via unless-stopped only if Docker Desktop auto-starts",
+    "Backup script depends on Homebrew pg_dump on PATH at launchd runtime; PATH is resolved at load time (verified pg_dump at /opt/homebrew/opt/postgresql/bin/pg_dump)",
+    "ES volume mrw_es_data and monitoring volumes are Docker named volumes; a separate volume-level restore drill is not yet executed",
+    "Evidence generated while worktree HEAD=981dba4b with uncommitted infra files; runtime bytes verified, repository bytes pending supervisor decision"
+  ]
+}

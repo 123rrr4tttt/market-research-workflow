@@ -18,6 +18,7 @@ const WritingWorkbenchPage = lazy(() => import('../../pages/WritingWorkbenchPage
 const CodexAgentPage = lazy(() => import('../../pages/CodexAgentPage'))
 const AgentChatPage = lazy(() => import('../../pages/AgentChatPage'))
 const LlmDesignerPage = lazy(() => import('../../pages/LlmDesignerPage'))
+const SuccessorRuntimePage = lazy(() => import('../../pages/SuccessorRuntimePage'))
 
 type RenderKernelModuleContentArgs = {
   moduleKey: KernelModuleKey
@@ -127,6 +128,10 @@ function renderModuleNode({
   }
   if (moduleKey === 'sysLlm') {
     return <SettingsPage projectKey={projectKey} variant="llm" />
+  }
+  if (moduleKey === 'sysSuccessorRuntime') {
+    if (shellMode === 'admin') return <SuccessorRuntimePage projectKey={projectKey} />
+    return null
   }
   return null
 }

@@ -1,0 +1,126 @@
+{
+  "schema": "mrw.functorial_successor.all_lines.c7_production_admission_evidence.v1",
+  "status": "PASS_C7_PRODUCTION_ADMISSION_BOUNDED",
+  "generated_at": "2026-09-03T03:05:00+08:00",
+  "worktree": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0",
+  "worktree_head": "edda54b2",
+  "candidate": {
+    "revision": "edda54b2",
+    "origin_main_head": "edda54b2",
+    "note": "Local lane changes are intentionally uncommitted and unpushed for supervisor review."
+  },
+  "migration": {
+    "revision": "20260903_000003",
+    "down_revision": "20260831_000002",
+    "file": "main/backend/migrations/versions/20260903_000003_add_c7_canonical_documents.py",
+    "table": "public.c7_movement_canonical_documents",
+    "real_database_upgrade_exit": 0,
+    "real_database_version_after": "20260903_000003",
+    "disposable_upgrade_exit": 0,
+    "disposable_downgrade_exit": 0,
+    "disposable_reupgrade_exit": 0,
+    "column_parity_guard": "PASS",
+    "note": "Column-by-column parity between migration and C7_MOVEMENT_CANONICAL_DOCUMENTS is enforced by test_c7_canonical_migration_parity_postgres.py."
+  },
+  "fixture_chain": {
+    "disposable_migration_runner": {
+      "fresh_status": "COMMITTED",
+      "replay_status": "REPLAYED_COMMITTED",
+      "replay_readback_equal": true,
+      "legacy_documents_unchanged": true
+    },
+    "focused_test_counts": {
+      "test_c7_movement_admission_postgres.py": 50,
+      "test_c7_canonical_write_projector_postgres.py": 9,
+      "test_c7_production_admission_runner_postgres.py": 2,
+      "test_c7_canonical_migration_parity_postgres.py": 1,
+      "total_focused": 62
+    },
+    "full_successor_runtime": {
+      "passed": 1583,
+      "skipped": 119,
+      "failed": 0
+    }
+  },
+  "runner": {
+    "handler": "run_c7_production_cutover_admission",
+    "module": "main/backend/app/successor_runtime/substrate/postgres/c7_production_admission.py",
+    "real_database_target": "postgres",
+    "project_key": "demo_proj_compare_0303_121137",
+    "resolved_schema": "project_demo_proj_compare_0303_121137",
+    "trace": "production-cutover-acceptance-2026-09-03",
+    "actor": "actor:c7-production-supervisor",
+    "approval_ref": "approval:user-full-authorization:production-cutover-acceptance-2026-09-03",
+    "exit": 0,
+    "status": "COMMITTED",
+    "rows_before": 0,
+    "rows_after": 1,
+    "replay": {
+      "status": "REPLAYED_COMMITTED",
+      "rows_before": 1,
+      "rows_after": 1,
+      "readback_equal_to_first": true
+    },
+    "receipt": {
+      "commit_intent_id": "commit:c7-production:production-cutover-acceptance-2026-09-03",
+      "idempotency_key": "idem:c7-production:production-cutover-acceptance-2026-09-03",
+      "run_id": "run:c7-production:production-cutover-acceptance-2026-09-03",
+      "attempt_id": "53a52f6f0898b5df09234b0ed08ac949d9a8fdd2a4e4bd0b4cc29b0339dbf4d6",
+      "committed_revision": 1,
+      "object_id": "ingest-doc:c7-production-cutover-acceptance-2026-09-03",
+      "content_digest": "d2495d61135d7e2436a97b4da2b2d64b04767f25881eeb65e2d7a1a018310337",
+      "readback_digest": "dfe9777468d2f16fabd5477907b8b229be0bad311ca3e41287a153259edb4b6d"
+    },
+    "readback_ok": true
+  },
+  "legacy_counts": {
+    "public.projects": {"before": 9, "after": 9},
+    "public.agent_sessions": {"before": 2409, "after": 2409},
+    "project_scope_registry_active_for_project": {"before": 1, "after": 1},
+    "legacy_documents_schema_untouched": true
+  },
+  "successor_written": {
+    "public.c7_movement_canonical_documents": 1,
+    "public.runtime_capability_authority": 1,
+    "public.runtime_program_refs": 1,
+    "public.runtime_plan_refs": 1,
+    "public.runtime_runs": 1,
+    "public.runtime_steps": 1,
+    "public.runtime_effect_attempts": 1,
+    "public.runtime_events": 5,
+    "public.runtime_commit_intents": 1,
+    "project_demo_proj_compare_0303_121137.successor_values": 1,
+    "note": "The canonical acceptance row is intentionally retained as an audit fixture."
+  },
+  "backup": {
+    "script": "/Users/wangyiliang/.codex/rollback/production-backup/backup-postgres.sh",
+    "dump": "/Users/wangyiliang/.codex/rollback/production-backup/postgres-20260903-024913.dump",
+    "sha256": "bf44b11e739b51dda93cff8bdeeeeb28daecc79b0476c153ba2688a8ad1b95e4",
+    "rollback_dir": "/Users/wangyiliang/.codex/rollback/production-postgres-go-live-2026-09-03"
+  },
+  "teardown": {
+    "disposable_databases_dropped": true,
+    "remaining_disposable_c7_databases": 0,
+    "real_database_kept_at_head": true
+  },
+  "authority_ceiling": {
+    "c7_canonical_write_production": true,
+    "scope": "bounded single canonical document under project demo_proj_compare_0303_121137",
+    "cutover": false,
+    "authority_transfer": false,
+    "legacy_retired": false,
+    "note": "This lane opens one successor canonical-write execution path only; runnable cutover, authority transfer and legacy retirement remain ungated."
+  },
+  "additional_inline_tables_scan": {
+    "inline_sa_tables_in_substrate": ["C7_MOVEMENT_CANONICAL_DOCUMENTS"],
+    "missing_migration_count": 0,
+    "note": "Scan found no additional successor-owned inline tables beyond the one migrated in 20260903_000003."
+  },
+  "risks": [
+    "Local lane changes (migration, runner, tests, p0b contract expectation) are uncommitted and unpushed per supervisor instructions.",
+    "One real canonical acceptance row plus its runtime/authority/event rows remain in the real postgres database as bounded audit fixtures.",
+    "The full successor_runtime suite needed one pre-existing assertion update: p0b schema contract expected down_revision 20260402_000004 but the earlier migration bridge made 20260525_000001 the legal predecessor.",
+    "The production runner does not wire the HTTP app composition root; it is a repository-owned program invoked by this acceptance lane. HTTP wiring remains outside this lane.",
+    "No commit or push was performed by this lane."
+  ]
+}

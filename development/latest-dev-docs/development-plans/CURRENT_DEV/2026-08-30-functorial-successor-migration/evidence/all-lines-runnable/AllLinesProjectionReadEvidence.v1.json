@@ -1,0 +1,124 @@
+{
+  "schema": "mrw.functorial_successor.all_lines.projection_read_evidence.v1",
+  "status": "PASS_PROJECTION_READ_REAL_DB",
+  "generated_at": "2026-09-03T02:54:33+08:00",
+  "worktree": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0",
+  "worktree_head": "b070cc9959c01bebe2f9ec4a576fbf5dac7e6022",
+  "candidate": {
+    "revision": "b070cc9959c01bebe2f9ec4a576fbf5dac7e6022",
+    "note": "Projection Read Lane changes (probe + evidence + documentation) are intentionally uncommitted and unpushed for supervisor review."
+  },
+  "probe": {
+    "name": "projection_read_probe_20260903.py",
+    "reference": "mrw.all-lines.projection-read.probe.v1",
+    "run_as": "repository-owned Python probe over the migrated real database"
+  },
+  "path_selected": {
+    "module": "main/backend/app/successor_runtime/substrate/postgres/c7_projector_driver.py",
+    "method": "C7ProjectorDriver.read_document",
+    "source_table": "public.c7_movement_canonical_documents",
+    "why_feasible": "Registry ACTIVE row is resolved from public.project_scope_registry, the C7.3 projector driver reads the committed canonical document by project_key/object_id and returns the content-addressed DocumentRef; this is the source projection for the registered C7 search/graph projectors and performs SELECT only."
+  },
+  "real_database": {
+    "target": "local PostgreSQL 18.3 database postgres (Unix socket, backend .env DATABASE_URL)",
+    "alembic_version_verified": "20260903_000003 (head)",
+    "project_key": "demo_proj_compare_0303_121137",
+    "resolved_schema": "project_demo_proj_compare_0303_121137",
+    "registry_revision": 1,
+    "registry_incarnation": "incarnation:production-go-live:v1",
+    "scope_digest": "88fe54420b357e5a5a932d280d008badf940c35629753c6cefda5b3172b17b67"
+  },
+  "transaction_read_only": true,
+  "rows_read": {
+    "c7_movement_canonical_documents_filtered": 1,
+    "project_scope_registry_active": 1
+  },
+  "object_refs": [
+    {
+      "object_id": "ingest-doc:c7-production-cutover-acceptance-2026-09-03",
+      "revision": 1,
+      "incarnation": "incarnation:production-go-live:v1",
+      "content_digest": "d2495d61135d7e2436a97b4da2b2d64b04767f25881eeb65e2d7a1a018310337",
+      "canonical_owner": "document.canonical.v1"
+    }
+  ],
+  "digest_assert": {
+    "expected": "d2495d61135d7e2436a97b4da2b2d64b04767f25881eeb65e2d7a1a018310337",
+    "observed": "d2495d61135d7e2436a97b4da2b2d64b04767f25881eeb65e2d7a1a018310337",
+    "match": true
+  },
+  "revision_assert": {
+    "expected": 1,
+    "observed": 1,
+    "match": true
+  },
+  "read_only_verified": true,
+  "exit_code": 0,
+  "http_boundary": {
+    "status": "HTTP_QUERY_ENDPOINT_LIVE_BUT_DETERMINISTIC_FACADE",
+    "endpoint": "POST http://127.0.0.1:8000/api/v1/successor-runtime/v2/queries",
+    "http_code": 200,
+    "observed": {
+      "status": "ok",
+      "project_key": "demo_proj_compare_0303_121137",
+      "project_scope_ref": {
+        "resolved_schema": "project_demo_proj_compare_0303_121137",
+        "project_registry_revision": 1,
+        "incarnation": "incarnation:production-go-live:v1",
+        "scope_digest": "88fe54420b357e5a5a932d280d008badf940c35629753c6cefda5b3172b17b67"
+      },
+      "projector_id": "c9.local-offline.validation.projector.v1",
+      "source_ref": "local-offline:facade-validation",
+      "cells": {
+        "C9.1": "INSTALLED",
+        "C9.2": "INSTALLED",
+        "C9.3": "PROJECTOR_WIRING_DECLARED"
+      },
+      "no_postgres_write": true
+    },
+    "db_projection_content_returned": false,
+    "reason": "The production registry composition root still binds the deterministic in-memory facade closure (build_successor_registry_app_dependencies -> build_deterministic_facade_closure); PostgresC9QueryRepository/projection_snapshot and the C7 read path are exercised by repository-owned tests/programs and are not wired into the HTTP composition root.",
+    "ui_shows_real_data": false,
+    "ui_switch_condition": "Wire the registry-backed projection facade/query repository into the HTTP composition root (and bind the SuccessorRuntime UI read to that query), then re-run the projection read over the real registry ACTIVE scope before declaring the UI real-data projection."
+  },
+  "first_business_chain_acceptance": {
+    "chain_id": "C7_canonical_document_verify_admit_readback",
+    "write": {
+      "status": "PASS_C7_PRODUCTION_ADMISSION_BOUNDED",
+      "evidence": "AllLinesC7ProductionAdmissionEvidence.v1.json",
+      "row": "ingest-doc:c7-production-cutover-acceptance-2026-09-03 revision 1",
+      "authority": "c7_canonical_write_production=true (bounded single acceptance row)"
+    },
+    "projection_read": {
+      "status": "PASS_PROJECTION_READ_REAL_DB",
+      "evidence": "AllLinesProjectionReadEvidence.v1.json",
+      "rows_read": 1,
+      "digest_match": true
+    }
+  },
+  "rollback_and_recovery": {
+    "pre_go_live_backup": {
+      "path": "/Users/wangyiliang/.codex/rollback/production-postgres-go-live-2026-09-03/postgres-full.dump",
+      "sha256": "c3161d0a2dce426b1039ffbc69fc08bbda22a4c1e8c743a70d75a3288d25da8f"
+    },
+    "rollback_notes_path": "/Users/wangyiliang/.codex/rollback/production-postgres-go-live-2026-09-03/ROLLBACK.md",
+    "alembic_downgrade": "alembic downgrade 20260831_000002 removes the c7_movement_canonical_documents migration revision 20260903_000003 (verified disposable downgrade/re-upgrade in the C7 production admission lane)",
+    "runner_idempotent_replay": "The C7 production admission runner is idempotent by idempotency_key; replay returned REPLAYED_COMMITTED with readback equal to the first commit."
+  },
+  "authority_ceiling": {
+    "c7_canonical_write_production": true,
+    "scope": "bounded single canonical acceptance document under project demo_proj_compare_0303_121137",
+    "projection_read": "read-only registry-backed DB projection read (no writes in this lane)",
+    "cutover": false,
+    "authority_transfer": false,
+    "legacy_retired": false,
+    "candidate_promotion": false,
+    "note": "This lane proves the read side of the first business chain only; HTTP/UI projection wiring, production canonical write of business traffic, cutover and authority transfer remain ungated."
+  },
+  "risks": [
+    "Probe and evidence are uncommitted/unpushed local changes on branch codex/functorial-successor-p0 for supervisor review.",
+    "The read proof covers one real committed C7 acceptance document under the ACTIVE project scope; it does not generalize to all C7 documents or other movement projections without equivalent evidence.",
+    "HTTP facade is still deterministic/memory-backed: UI does not yet display this real DB data, and no claim of UI real-data projection is made.",
+    "No rows were written by this lane; transaction_read_only was verified on the connection."
+  ]
+}

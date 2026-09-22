@@ -1,0 +1,59 @@
+{
+  "schema": "mrw.functorial_successor.all_lines.browser_auth_evidence.v1",
+  "version": "1.0.0",
+  "record_id": "all-lines-browser-auth-2026-09-03",
+  "date": "2026-09-03",
+  "status": "BROWSER_AUTH_OAUTH_ENABLED_PAGE_READS_REAL_PROJECTION",
+  "user_decision": "启用 OAuth 登录",
+  "launchd": {
+    "label": "com.mrw.successor-backend",
+    "pid": 88626,
+    "env_updated": [
+      "CODEX_OAUTH_ENABLED=true",
+      "CODEX_OAUTH_TOKEN_SINK_ENABLED=true",
+      "CODEX_OAUTH_TOKEN_SINK_PATH=/Users/wangyiliang/.codex/auth_openai.json",
+      "CODEX_CLI_AUTH_PATH=/Users/wangyiliang/.codex/auth.json"
+    ],
+    "keepalive": true
+  },
+  "auth_semantics": {
+    "no_token_successor_query": 200,
+    "login_endpoint": 302,
+    "auth_status_endpoint": 200,
+    "note": "Local machine uses the real Codex CLI/oauth session as the authentication source for browser usage; an isolated process without that ambient session still returns strict 401 (go-live evidence)."
+  },
+  "frontend_mapping": {
+    "file": "main/frontend-modern/src/pages/successorRuntimeConfig.ts",
+    "projection_id": "projection.c7-production-document.v1",
+    "source_key": {
+      "projector_id": "successor.ingest_index.search.projector",
+      "projector_version": "1.0.0",
+      "source_kind": "ingest_canonical",
+      "source_ref": "document:ingest-doc:c7-production-cutover-acceptance-2026-09-03",
+      "source_incarnation": "incarnation:production-go-live:v1"
+    },
+    "e2e": "successor-runtime-page-wiring.spec.ts 5 passed"
+  },
+  "real_data_smoke": {
+    "http_code": 200,
+    "source_digest": "d2495d61135d7e2436a97b4da2b2d64b04767f25881eeb65e2d7a1a018310337",
+    "read_only": true,
+    "no_postgres_write": true
+  },
+  "urls": {
+    "frontend": "http://127.0.0.1:5174/",
+    "successor_page": "http://127.0.0.1:5174/admin/successor-runtime",
+    "https_health": "https://127.0.0.1:8443/api/v1/health"
+  },
+  "authority_ceiling": {
+    "c7_canonical_write_production": true,
+    "cutover": false,
+    "authority_transfer": false,
+    "legacy_retired": false
+  },
+  "risks": [
+    "Browser auth relies on the local Codex CLI/oauth session; external network exposure still requires a real OAuth client/secret and TLS",
+    "Strict token-only 401 semantics require an isolated process without ambient session",
+    "TLS certificate is self-signed; production domain certificate is still an external deployment item"
+  ]
+}

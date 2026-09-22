@@ -1,0 +1,85 @@
+{
+  "schema": "mrw.all_lines.frontend_gap_wiring_evidence.v1",
+  "status": "FRONTEND_GAP_WIRING_LOCAL_ONLY",
+  "candidate": null,
+  "authority_ceiling": {
+    "authority_transfer": false,
+    "candidate_created": false,
+    "canonical_write": false,
+    "cutover": false,
+    "external_delivery": false,
+    "legacy_retirement": false,
+    "live_provider": false,
+    "production_canonical_authority": false,
+    "promotion": false
+  },
+  "module": {
+    "moduleKey": "sysSuccessorRuntime",
+    "layerId": "C",
+    "surfaceKind": "management",
+    "entryRoute": "/admin/successor-runtime",
+    "legacyHash": "#successor-runtime.html",
+    "navGroupKey": "navigation.group.system",
+    "visibleInNav": true,
+    "titleKey": "shell.title.sysSuccessorRuntime",
+    "navLabelKey": "navigation.item.sysSuccessorRuntime"
+  },
+  "read_only_boundary": {
+    "query_kinds_allowed": ["projection_snapshot"],
+    "command_submit_imported_by_page": false,
+    "command_url_referenced_by_page": false,
+    "actor_ref_on_page_options": false,
+    "custom_transport_url_allowed": false,
+    "browser_test_command_request_count": 0,
+    "notes": [
+      "SuccessorRuntimePage only calls fetchSuccessorQuery through successorRuntimeConfig options; it never builds a v2 URL and never submits a command.",
+      "The projection source key is a local-offline C9 projector contract mirror; it is a placeholder until the backend registry supplies an exact per-project projection key, so the module fails closed against the current LOCAL_ONLY mount unless a real projection exists.",
+      "Reuses SuccessorRuntimeObservation/SuccessorRuntimeStatus, successor-runtime transport, moduleManifest/kernel registration, existing i18n mechanics and shared panel/table CSS; no new npm/pnpm dependency and no legacy page stack copy."
+    ]
+  },
+  "changed_files": [
+    {"path": "main/frontend-modern/src/app/kernel/types.ts", "sha256": "05c767c0ddc660bc4dc50a59b0c84e12b46e97b460b0af4ce965796a642bcf34", "change": "added sysSuccessorRuntime to KernelModuleKey"},
+    {"path": "main/frontend-modern/src/app/kernel/moduleManifest.ts", "sha256": "7f96362a2eb09d2a4aaf9497e10b49f6bf264671ccb942e98cd609118ac105c4", "change": "registered title/nav keys and C-layer admin module"},
+    {"path": "main/frontend-modern/src/app/kernel/moduleChrome.ts", "sha256": "8e8fffb0ba9b113f8d5739f48c4689330bc24e4b3afb3aa3431a0ba7e09ac9ac", "change": "added module icon"},
+    {"path": "main/frontend-modern/src/app/kernel/AdminLayerShell.tsx", "sha256": "3eb469cbad0dbac059c05d5180773db1460610d0e3398cbb7a2661e0467803df", "change": "added nav item to system group and icon"},
+    {"path": "main/frontend-modern/src/app/kernel/renderKernelModuleContent.tsx", "sha256": "c5af06dead332562b50d502d2f34c9e01bc2678825f7cad16ff28e00eba0f7a3", "change": "mounted SuccessorRuntimePage under admin shell mode"},
+    {"path": "main/frontend-modern/src/app/topology/baselineInventory.ts", "sha256": "713d361a7d3a548baff43e2e40eb48c0166296454159db65000bbc036b543145", "change": "added module to baseline mode catalog/page inventory"},
+    {"path": "main/frontend-modern/src/app/topology/pagePlacementMatrix.ts", "sha256": "da092e6c0da0dea5269f25d13186bf2525ff2f656907cee7505c24e7b940496e", "change": "placed SuccessorRuntimePage on management surface"},
+    {"path": "main/frontend-modern/src/lib/queryKeys.ts", "sha256": "4ffeb514b76599510c8d484776957eeb0bb420edf5cee8d9176912fefad73637", "change": "registered successorRuntime snapshot query key"},
+    {"path": "main/frontend-modern/src/app/platform/i18n/catalog.ts", "sha256": "a9719a75dcf05ceb128f1052cc7dcfdacac7c786593ae21646772d3d615bae94", "change": "added zh/en title, nav item and refresh keys"},
+    {"path": "main/frontend-modern/src/pages/successorRuntimeConfig.ts", "sha256": "007e7c63e4c83696a30f68a269621fbb9600e8d97856e86915587a75f12463c5", "change": "added read-only projection query option factory"},
+    {"path": "main/frontend-modern/src/pages/SuccessorRuntimePage.tsx", "sha256": "33a7aa1603ebd1b5eebf45805906a2bf849f8ea09d092bcb29bb5ba9ff4661bc", "change": "added minimal read-only successor runtime observation page"},
+    {"path": "main/frontend-modern/tests/e2e/successor-runtime-page-wiring.spec.ts", "sha256": "a3e755d0680b6d2a196da180588b542febb9e108f7117493cf2bee11f649d0d1", "change": "added kernel/manifest, six-state observation, fake-transport and browser mount tests"}
+  ],
+  "verification": {
+    "tsc": {"command": "cd main/frontend-modern && ./node_modules/.bin/tsc -b --pretty false", "exit_code": 0},
+    "eslint_changed_files": {"command": "./node_modules/.bin/eslint <12 changed source/test files>", "exit_code": 0},
+    "layer_shell_contract": {"command": "node scripts/check_layer_shell_contract.mjs", "exit_code": 0, "modules": 32},
+    "topology_platform_contract": {"command": "node scripts/check_topology_platform_contract.mjs", "exit_code": 0, "modules": 32},
+    "i18n_page_shell_disjoint": {"command": "node scripts/check_i18n_page_shell_disjoint_gate.mjs", "exit_code": 0},
+    "business_string_audit": {"command": "node scripts/check_frontend_business_string_audit.mjs", "exit_code": 0, "remaining_non_fatal_gaps": 5},
+    "focused_playwright": {
+      "command": "./node_modules/.bin/playwright test tests/e2e/successor-runtime-page-wiring.spec.ts --project=chromium --reporter=line --workers=1",
+      "exit_code": 0,
+      "passed": 5,
+      "failed": 0,
+      "includes_browser_mount": true
+    },
+    "successor_suite_playwright": {
+      "command": "./node_modules/.bin/playwright test tests/e2e/successor-runtime-client.spec.ts tests/e2e/successor-runtime-observation.spec.ts tests/e2e/successor-runtime-page-wiring.spec.ts --project=chromium --reporter=line --workers=1",
+      "exit_code": 0,
+      "passed": 65,
+      "failed": 0
+    },
+    "git_diff_check": {"command": "git diff --check", "exit_code": 0},
+    "browser_runtime_notes": [
+      "Chromium 151 headless shell was installed into the local ms-playwright cache to run the browser mount test; no package lock or repo file was changed by the install.",
+      "Full-page screenshot was rendered at 1280x800 through a mocked transport and the module DOM reached data-observation=SUCCEEDED; no image input support was available in this session for pixel-level review."
+    ]
+  },
+  "known_open_boundaries": [
+    "Backend C9.2 capability spec/build manifests and all-lines inventory bind the previous frontend file SHAs; this lane records the new SHAs and must be followed by a spec/manifest rebind before any candidate promotion.",
+    "The current LOCAL_ONLY backend mount does not expose a real exact projection snapshot for the placeholder source key, so production success depends on the separate production resolver/projector wiring gate.",
+    "No commit or push was performed in this lane."
+  ]
+}

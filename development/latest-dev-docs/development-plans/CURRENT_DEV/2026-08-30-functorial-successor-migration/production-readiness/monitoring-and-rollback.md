@@ -1,6 +1,6 @@
 # Successor 生产监控与回滚
 
-> 状态：`RECOMMENDATION_NOT_IMPLEMENTED`。本文件把候选里已有的可观测/回滚基础与尚缺的生产能力分开；所有阈值、canary 与回滚步骤都是建议流程，标注为“待真实环境验证”的部分没有在本轮被执行。
+> 状态：`RECOMMENDATION_NOT_IMPLEMENTED`，但 2026-09-03 已完成三项本地 cutover drill（真实 rollback drill、DB 备份/恢复、DB 迁移 downgrade），见第 6 节。本文件把候选里已有的可观测/回滚基础与尚缺的生产能力分开；真实生产监控/告警/TLS/secret 扫描与生产回滚编排仍未实现。
 
 ## 1. 候选已有的可观测性基础
 
@@ -133,3 +133,237 @@ curl -fsS http://localhost:8000/api/v1/health/deep
 ```
 
 再按回退目标执行 legacy 功能回归与 successor 路由存在性断言。回退完成后更新监控基线，保留 snapshot 至少一个发布周期。
+
+## 6. 2026-09-03 Lane C 实测 drill 记录
+
+> 执行范围：候选 commit `3706655f` / tree `5840bf9b` 的干净快照 `/tmp/mrw-cutover-drill.umjWv5`（`git archive 3706655f` 生成，`.env` 由 `.env.example` 复制，无真实密钥）。当时 live worktree 正被另一条线并发改写（15 个 backend/frontend 文件未提交），因此 drill 不在半成品字节上执行；最终 cutover 前需在 Lane A 收口后的字节上复跑。证据 JSON：`../evidence/all-lines-runnable/AllLinesItem04CutoverDrillsEvidence.v1.json`。
+
+### 6.1 wrapper 限制实测
+
+```text
+COMPOSE_PROJECT_NAME=mrw-alllines-rehearsal ./scripts/docker-deploy.sh rollback-drill --skip-preflight --profile modern-ui
+-> exit 1：start-all 非交互端口检查命中宿主 5432（Homebrew PostgreSQL），未启动任何容器
+```
+
+等价 drill（`COMPOSE_PROJECT_NAME=mrw-alllines-rehearsal`，`main/ops/docker-compose.yml` + db/es/redis 内部端口 override，profile `modern-ui`；backend 8000、frontend-modern 5174 暴露宿主）：
+
+```text
+docker compose ... config -q                                        -> exit 0
+docker compose ... up -d db es redis backend celery-worker frontend-modern
+                                                                    -> exit 0（cycle 1）
+backend/celery/db/es: Up (healthy)；redis/frontend-modern: Up
+GET /api/v1/health                                                   -> 200
+GET /api/v1/health/deep                                              -> 200（database/pool/es ok）
+POST /api/v1/successor-runtime/v2/queries                            -> 200（typed envelope，no_postgres_write=true）
+GET /api/v1/agent-batch/executor/health（legacy）                    -> 200
+GET http://localhost:5174/                                           -> 200
+docker exec <es> curl http://localhost:9200/_cluster/health          -> green
+docker compose ... down --remove-orphans（保留 volumes）             -> exit 0；残留容器 0
+docker compose ... up -d ...                                         -> exit 0（cycle 2，20s 内全 healthy）
+GET /api/v1/health、/api/v1/health/deep、http://localhost:5174/      -> 全部 200
+docker compose ... down -v --remove-orphans                          -> exit 0；残留容器/网络/volume = 0/0/0
+```
+
+镜像沿用 ITEM-03 产物并保留：`mrw-alllines-rehearsal-backend:latest (25c7b263cf12)`、`-celery-worker:latest (eacf5d2c243f)`、`-frontend-modern:latest (16b83649a705)`。
+
+### 6.2 DB 备份/恢复 drill（disposable local PG，完整 29 条迁移链）
+
+```text
+库名：mrw_cutover_drill_backup_20260903
+alembic upgrade head                                                -> exit 0，version=20260831_000002
+seed：public.project_scope_registry 一行（count=1）
+pg_dump --format=custom                                             -> sha256 30a25e39ccf33626110f72feae1e850e02e69d1ea7b77ac993af951b39fdfbdc
+DROP DATABASE ... WITH (FORCE) → CREATE DATABASE → pg_restore（--no-owner --no-privileges --exit-on-error）
+                                                                    -> exit 0；version=20260831_000002；seed row 恢复（count=1）
+C7 focused PG：test_c7_canonical_write_projector_postgres.py          -> exit 0，9 passed / 0 failed（1.29s，自建自删专用库）
+teardown：删除 drill 库；pg_database/pg_roles 回到基线
+```
+
+### 6.3 DB 迁移 downgrade drill（disposable local PG）
+
+```text
+库名：mrw_cutover_drill_downgrade_20260903
+alembic upgrade head                                                -> exit 0；version=20260831_000002；runtime_* 表 22、project_scope_registry 1
+alembic downgrade 20260402_000004                                   -> exit 0；version=20260402_000004；runtime_* 表 0、project_scope_registry 0
+alembic upgrade head（再次）                                         -> exit 0；version=20260831_000002；runtime_* 表 22
+teardown：删除 drill 库；残留 0
+```
+
+### 6.4 结论与剩余环境项
+
+- 三项 drill 在本机 disposable/local 范围通过并零残留；这是 local 演练证据，不是生产 cutover/authority 证据。
+- 尚未满足的生产环境项（如实保留为缺口）：TLS 终结、镜像 digest/registry tag、Prometheus/Alertmanager 在线告警、secret/依赖漏洞扫描、生产 successor registry resolver + 端点认证、successor 前端页面接线、计划备份/RPO 自动化、生产 owner/ACL 与 volume 级恢复 drill。
+
+## 7. 2026-09-03 最终字节复跑记录（commit `6f5f5900`）
+
+> 执行范围：最终提交 `6f5f5900` / tree `28b64ad6` 的干净快照（`git archive 6f5f5900` 生成，`.env` 由 `.env.example` 复制，无真实密钥）。三项 drill 与 production_registry smoke 均在该字节上执行，产出证据见 `../evidence/all-lines-runnable/AllLinesFinalRunnableEvidence.v1.json`。本轮只做本地 disposable 复跑与记录，不 commit/push，不改 donor。
+
+### 7.1 rollback drill（project `mrw-final-runnable`，等价 compose）
+
+`docker-deploy.sh rollback-drill --skip-preflight` 仍因宿主端口 5432（Homebrew PostgreSQL）被占用返回 `rc=1`，未启动任何容器；本轮用 `main/ops/docker-compose.yml` + db/es/redis 内部端口 override（backend 8000、frontend-modern 5174 暴露宿主）执行等价 rollback drill：
+
+```text
+config -q                                                       -> exit 0
+up -d db es redis backend celery-worker frontend-modern         -> exit 0（cycle 1，含 --build）
+backend/celery/db/es: Up (healthy)；redis/frontend-modern: Up
+GET /api/v1/health                                               -> 200
+GET /api/v1/health/deep                                          -> 200（database/database_pool/elasticsearch ok）
+POST /api/v1/successor-runtime/v2/queries                        -> 200（typed envelope，status=ok，no_postgres_write=true）
+GET /api/v1/agent-batch/executor/health（legacy）                -> 200
+GET http://localhost:5174/                                       -> 200
+ES cluster health（docker exec）                                  -> green
+down --remove-orphans（卷保留）                                   -> exit 0；容器/网络残留 0
+up -d ...                                                        -> exit 0（cycle 2，全 healthy）
+GET /api/v1/health、/health/deep、successor query、:5174/         -> 全部 200
+down -v --remove-orphans                                         -> exit 0；残留 0/0/0
+```
+
+镜像按 project 名保留未删除：`mrw-final-runnable-backend:latest (3e01f63b99b3)`、`mrw-final-runnable-celery-worker:latest (5129a464d5bd)`、`mrw-final-runnable-frontend-modern:latest (8dc65e724970)`。
+
+### 7.2 DB 备份/恢复 drill（disposable local PG）
+
+```text
+库名：mrw_final_drill_backup_20260903
+alembic upgrade head                                            -> exit 0；version=20260831_000002
+seed：public.project_scope_registry 一行 ACTIVE（digest 2242a8d1…，pre_dump_count=1）
+pg_dump --format=custom                                         -> sha256 7136b4a8f9174412a826242deb4f037d7ef1252f149e773037b52b5dbbed05c8
+DROP → CREATE → pg_restore（--no-owner --no-privileges --exit-on-error）
+                                                                -> exit 0；version=20260831_000002；seed row count=1
+C7 focused PG：test_c7_canonical_write_projector_postgres.py      -> 9 passed / 0 failed（1.27s，自建自删专用库）
+teardown：删除 drill 库；pg_database/pg_roles 回到基线
+```
+
+### 7.3 DB 迁移 downgrade/upgrade drill（disposable local PG）
+
+```text
+库名：mrw_final_drill_downgrade_20260903
+alembic upgrade head                                            -> exit 0；version=20260831_000002
+alembic downgrade 20260402_000004                               -> exit 0；version=20260402_000004；public successor 表 0
+alembic upgrade head（再次）                                     -> exit 0；version=20260831_000002；public successor 表 23
+teardown：删除 drill 库；残留 0
+```
+
+### 7.4 production_registry runnable smoke（关键新证据）
+
+disposable 库 `mrw_final_runnable_prod_20260903` upgrade head 后 seed 一行 ACTIVE registry（key `final-runnable-prod`），以 `SUCCESSOR_MOUNT_MODE=production_registry`、`SUCCESSOR_PRODUCTION_REQUIRES_AUTH=true`、`CODEX_AUTH_ENABLED=true`、`CODEX_AUTH_TOKENS=dev-final-runnable-token` 启动 app：
+
+```text
+（隔离 ambient 会话后，禁用 token-sink/CLI auth/oauth）
+无 Authorization                          -> HTTP 401
+错误 Bearer                               -> HTTP 401
+Authorization: Bearer dev-final-runnable-token -> HTTP 200
+  status=ok；meta.project_key=final-runnable-prod
+  project_scope_ref.scope_digest=e7bd7d36…；registry_revision=1
+  data.no_postgres_write=true；无 503
+负例：production_registry + requires_auth=true + codex_auth_enabled=false
+  -> 进程退出 1（ValidationError：requires codex_auth_enabled=true），fail-closed 生效
+```
+
+说明：本机若保留真实 Codex token-sink/CLI 登录且 `codex_oauth_token_sink_enabled=true`，中间件会把宿主机会话视为已认证 OAuth 会话，无 token 请求也会放行（首轮实测 200）。因此上述 401 语义是在禁用 ambient 会话源的隔离进程中验证的；真实生产 ingress 的认证边界仍应以部署环境配置复测。
+
+### 7.5 本轮未满足项（与 6.4 相比已收口/保留）
+
+- 已收口：生产 successor registry resolver + 端点认证接线、successor 前端页面接线在最终字节已存在并通过本机 smoke；这两项不再属于剩余缺口。
+- 仍保留为环境边界缺口：TLS 终结、镜像 digest/registry tag、Prometheus/Alertmanager 在线告警、secret/依赖漏洞扫描、计划备份/RPO 自动化、生产 owner/ACL 与 volume 级恢复 drill、真实网络级（非 TestClient）ingress 认证复测。
+- 本轮全部结果仅对 disposable/local 快照成立；`production_canonical_write=false`、`legacy_retired=false`、`authority_transfer=false`、正式 `cutover=false`。
+
+## 8. Infra 上线差距 #3：已执行/已调度记录（2026-09-03）
+
+> 本节把第 7.5 节列为环境边界缺口的 ES、计划备份/RPO、Prometheus/Alertmanager 在线告警三项落实为本机实际运行/调度状态。本节证据文件：`evidence/all-lines-runnable/AllLinesInfraMonitorEvidence.v1.json`。全部文件未 commit/push，交由监督裁决。
+
+### 8.1 Elasticsearch（本机单节点，独立 compose project `mrw-infra`）
+
+- 新增 `main/ops/mrw-infra/docker-compose.yml`：`docker.elastic.co/elasticsearch/elasticsearch:8.15.3`，单节点、`xpack.security.enabled=false`、`discovery.type=single-node`、host `9200:9200`、`mrw_es_data` volume、healthcheck、`mem_limit: 1g`、`restart: unless-stopped`。
+- 容器 `mrw-infra-es` healthy；`GET http://127.0.0.1:9200/_cluster/health` → `status=green`、`number_of_nodes=1`、`number_of_pending_tasks=0`。
+- 后端 `.env` 原 `ES_URL=http://localhost:9200`（未改 secret/配置）；`GET /api/v1/health/deep` → `status=ok, database=ok, database_pool=ok, elasticsearch=ok`（此前为 `elasticsearch: error: ping failed`）。
+
+### 8.2 计划备份/RPO（脚本 + launchd，每日 02:30）
+
+- 新增备份脚本 `/Users/wangyiliang/.codex/rollback/production-backup/backup-postgres.sh`（chmod +x）：`pg_dump -Fc -d postgres`（默认 Homebrew 本机 socket/当前 OS 用户，可经 `MRW_PG_DUMP_ARGS` 覆写；不读取 `.env` secret）→ 时间戳文件 + `.sha256` + 日志 + 轮转保留最近 14 份。
+- 立即执行一次真实备份成功：
+  - 文件：`postgres-20260903-023158.dump`（66,157,986 bytes）
+  - SHA-256：`24fc2eeee7ec416f32e7e3dc05fe2d6ee249370f6b08f507d64cc7998529c1de`
+- launchd：`~/Library/LaunchAgents/com.github.mrw.postgres-backup.plist`，`StartCalendarInterval` Hour=2 Minute=30，已 `launchctl load`，状态 exit 0。
+- 告警 webhook 本地落盘接收器：`/Users/wangyiliang/.codex/rollback/production-monitoring/alert-webhook.py` + `com.github.mrw.alert-webhook.plist`（已加载，pid 运行中，`GET :9094/` → `{"ok":true}`）；告警落点 `/Users/wangyiliang/.codex/rollback/production-backup/alerts.jsonl`（当前无告警属正常）。
+
+### 8.3 Prometheus + Alertmanager + Grafana（独立 compose project `mrw-monitoring`）
+
+- 新增 `main/ops/mrw-monitoring/`：`docker-compose.yml`（prometheus:2.55.1 / alertmanager:0.28.1 / blackbox-exporter:0.25.0 / grafana:11.4.0，30d TSDB 保留，容器 healthcheck，`restart: unless-stopped`）、`prometheus/prometheus.yml`、`prometheus/rules.yml`、`blackbox/blackbox.yml`、`alertmanager/alertmanager.yml`。
+- 运行态（2026-09-03 本机）：
+  - Prometheus `:9090/-/healthy` 200；targets：`mrw-backend`、`mrw-deep-health`、`mrw-blackbox`、`prometheus-self` 全部 `health=up`；`probe_success{job="mrw-deep-health"}=1`。
+  - 告警规则 4 条已加载且 `health=ok`：`MRWBackendDown`（真实 `up==0`）、`MRWDeepHealthProbeDown`（HTTP 探针失败）、`MRWSuccessor5xxRate`（真实 `market_api_requests_total{endpoint=~"/api/v1/successor-runtime.*",status=~"5.."}` 5m rate）、`MRWApi5xxRate`。
+  - Alertmanager `:9093/-/healthy` 200；receiver 为本地 webhook（`host.docker.internal:9094`）。
+  - Grafana `:3000/api/health` → `database=ok, version=11.4.0`；管理员密码以 compose secret 文件随机生成（`main/ops/mrw-monitoring/secrets/`，权限 600，owner 本机用户）。
+- 修复记录：blackbox 探针曾因 `host.docker.internal` 解析为不可达 IPv6 地址导致 `probe_success=0`；在 `blackbox.yml` 增加 `preferred_ip_protocol: ip4` 后 `probe_success=1`。
+
+### 8.4 缺口收口/保留（如实更新）
+
+- 已收口（原 7.5 保留项）：ES 单节点运行并接入 deep health；计划备份脚本 + launchd 调度 + 一次真实备份（RPO 基线文件存在）；Prometheus/Alertmanager 在线采集与本地告警落盘。
+- 仍保留：deep health `status=degraded`（HTTP 200 + JSON degraded）的语义级告警需后端领域指标（如 `deep_health_status`），规则中已注释标注未实现；外部通知通道（email/Slack/PagerDuty）未配置（仅本地文件 webhook）；TLS 终结、镜像 digest、secret/依赖漏洞扫描、volume 级恢复 drill、真实网络级 ingress 认证复测、生产 owner/ACL 仍为环境边界缺口。
+- Grafana 登录凭据是本机随机生成文件（非仓库 commit 内容，未 commit/push）；若纳入版本管理需先迁移到 secret 管理。
+
+## 9. 第一条业务链验收：C7 canonical verify/admit + 真实库投影读（2026-09-03 Projection Read Lane）
+
+> 本节固化第一条业务链的验收状态，并记录回退/可逆开关与 authority 上限。写侧证据：`evidence/all-lines-runnable/AllLinesC7ProductionAdmissionEvidence.v1.json`（PASS_C7_PRODUCTION_ADMISSION_BOUNDED）；读侧证据：`evidence/all-lines-runnable/AllLinesProjectionReadEvidence.v1.json`（PASS_PROJECTION_READ_REAL_DB，SHA-256 `70b3bc1020773c896d447547e0e5a5b80254b3b9d1651417abb7c2de772d2c38`）。本线改动未 commit/push。
+
+### 9.1 第一条业务链定义
+
+第一条业务链 = **C7 canonical document verify/admit（真实写已 PASS）→ registry ACTIVE scope 定位 → C7.3 投影源只读回读（本轮 PASS）**。
+
+真实库当前状态：
+
+```text
+alembic version      -> 20260903_000003 (head)
+ACTIVE registry      -> demo_proj_compare_0303_121137
+resolved_schema      -> project_demo_proj_compare_0303_121137
+registry_revision    -> 1
+scope_digest         -> 88fe54420b357e5a5a932d280d008badf940c35629753c6cefda5b3172b17b67
+canonical row        -> ingest-doc:c7-production-cutover-acceptance-2026-09-03, revision 1
+row content_digest   -> d2495d61135d7e2436a97b4da2b2d64b04767f25881eeb65e2d7a1a018310337
+```
+
+### 9.2 本轮读侧实测（真实库，只读事务）
+
+投影读取路径：`main/backend/app/successor_runtime/substrate/postgres/c7_projector_driver.py` 的 `C7ProjectorDriver.read_document`，由 `projection_read_probe_20260903.py` 在 `SET TRANSACTION READ ONLY` 事务内执行。
+
+```text
+project scope registry ACTIVE rows read     -> 1
+c7_movement_canonical_documents rows read   -> 1（按 project_key + object_id 过滤）
+returned object_id                          -> ingest-doc:c7-production-cutover-acceptance-2026-09-03
+returned revision                           -> 1（expected=1，match=true）
+returned content_digest                     -> d2495d61135d7e2436a97b4da2b2d64b04767f25881eeb65e2d7a1a018310337（match=true）
+transaction_read_only                       -> on
+exit code                                   -> 0
+```
+
+该结果证明 repository-owned 投影源读取链路已到达真实 committed 数据并做 digest/revision 校验；未写任何行、未动 legacy。
+
+### 9.3 HTTP/UI 边界（如实记录）
+
+本轮对运行中的 `POST http://127.0.0.1:8000/api/v1/successor-runtime/v2/queries`（Bearer 认证 200）做了实测：返回仍是**确定性 in-memory facade** envelope（projector_id=`c9.local-offline.validation.projector.v1`、source_ref=`local-offline:facade-validation`、cells C9.1/C9.2 INSTALLED、`no_postgres_write=true`），**不返回真实 C7 DB 数据**。
+
+原因：`build_successor_registry_app_dependencies` 的 facade 仍默认绑定 `build_deterministic_facade_closure()`；`PostgresC9QueryRepository`/`projection_snapshot` 与 C7 read 路径未挂进 HTTP composition root。
+
+因此 **UI 切换条件尚未满足**：需要先把 registry-backed projection facade/query repository 接进 HTTP composition root，再把 SuccessorRuntime 前端的只读观察绑定到该 query，并对真实 ACTIVE scope 复测后，才能声明“UI 显示真实投影数据”。
+
+### 9.4 authority 记录
+
+```text
+c7_canonical_write_production  -> true（bounded：单条 production-cutover acceptance 文档）
+projection read                -> read-only registry-backed DB projection read
+cutover                        -> false
+authority_transfer             -> false
+legacy_retired                 -> false
+candidate_promotion            -> false
+```
+
+### 9.5 回退/可逆开关
+
+- 真实库 go-live 前全量备份：`/Users/wangyiliang/.codex/rollback/production-postgres-go-live-2026-09-03/postgres-full.dump`，SHA-256 `c3161d0a2dce426b1039ffbc69fc08bbda22a4c1e8c743a70d75a3288d25da8f`；恢复说明见同目录 `ROLLBACK.md`。
+- schema 回退：`alembic downgrade 20260831_000002` 会撤销 revision `20260903_000003`（`c7_movement_canonical_documents` 所在迁移）；disposable downgrade/re-upgrade 已在此前 admission 线验证过。
+- 重放语义：C7 production admission runner 按 idempotency_key 幂等；replay 结果为 `REPLAYED_COMMITTED` 且 readback 与首次一致。
+- 本轮读侧为只读事务，无写入，因此无额外回滚需求；HTTP/UI 接线若后续实施，应以第 4 节 stop/go 与第 5 节回滚流程执行。
+
+### 9.6 结论
+
+第一条业务链的**真实写 + repository-owned 真实读**已闭环并有各自 PASS 证据；**HTTP/UI 投影展示与 production 业务切流仍未授权/未接线**，cutover、authority transfer、legacy retirement 继续为 false。

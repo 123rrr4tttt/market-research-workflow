@@ -338,3 +338,103 @@ SUPERVISOR_REVIEW_REQUEST
 ## All-lines P1 independent review PASS (2026-09-02)
 
 - `AllLinesP1ClosureIndependentReview.v1.json`（SHA `76502214…`）verdict `PASS_P1_CLOSURE_REVIEWED`，无阻断 finding。
+
+## All-lines local closure baseline committed (2026-09-02)
+
+- 状态：`ALL_LINES_0_UB_LOCAL_CLOSURE_COMMITTED · NOT_PROMOTED`；candidate 仍 `null`；authority/live/cutover 全 false；未 push。
+- 监督复核实测：非 PG 全量 `1565 passed / 119 skipped / 0 failed`；semantic generator `CHECK_OK 60/0`；semantic validator `PASS`（refs 323/323、unresolved 0）。
+- local-only closure commit：`3706655f`（129 文件，含 20/20 REIMPLEMENTED_AS inventory、S1-S2c 代码/测试/evidence、spec/manifest 重绑、标准同步与台账）。
+- 提交边界：`main/frontend-modern/pnpm-lock.yaml` 与 `pnpm-workspace.yaml`（盘点前已存在、依赖管理裁决未决）未纳入。
+- 下一步：all-lines 的 authority/candidate/live/cutover 需用户明确决策；批准后才评估运行面验收。
+
+## All-lines authority decision request recorded (2026-09-02)
+
+- `AllLinesAuthorityDecisionRequest.v1.json`（commit `02afce68`）状态 `AWAITING_USER_AUTHORITY_DECISION_NOT_GRANTED`；authority 六项全 false。
+- 决策选项已结构化：OPT-A = 仅 local-only exact-candidate + I2 式候选终审；OPT-B = OPT-A 通过后再逐项评估 runnable/authority 门。live/cutover/authority transfer 不在任何选项的默认解锁范围内。
+- 等待用户批准；批准前不创建候选、不做运行面验收。
+
+## User authorization: OPT-B selected (2026-09-02)
+
+- 用户选择 `OPT-B`：执行 all-lines local-only exact-candidate + I2 式终审；PASS 后逐项评估 runnable/authority 门（每项仍需明确批准）。
+
+## All-lines exact-candidate I2 review PASS (2026-09-02)
+
+- `evidence/reviews/AllLinesExactCandidateFinalReview.v1.json`（SHA-256 `84bca5dc…`）verdict `PASS_EXACT_CANDIDATE`；candidate commit `3706655f` / tree `5840bf9b…`；10/10 PASS。
+- 实测：freeze 16/16、generator `CHECK_OK 60/0`、validator PASS、spec 30/30 MATCH、非 PG `1565/119/0`、PG canary `9+50 passed`、dependency 237/0、candidate tree clean。
+- 非阻断 open findings：P1 x2（精确引用 gap / 历史状态未行内 supersede，继承），P2 x3（postdate、37/39 PG 未复跑、PG head 为生成上下文）。
+- 监督接受：`SUPERVISOR_ACCEPT_ALL_LINES_EXACT_CANDIDATE_LOCAL_ONLY`；authority 全 false；live/cutover/authority transfer 未解锁。
+- 下一步：按 OPT-B 把 runnable/authority 门逐项列出供用户批准；每项批准后才执行。
+
+## User authorization: ITEM-01..04 recorded; ITEM-01..03 execute (2026-09-03)
+
+- 用户指令：先 01-04 记录文档，然后 01-03 执行。
+- ITEM-01 生产 canonical write（仅 successor 表，disposable/local 库，exact-candidate 字节）→ 授权执行。
+- ITEM-02 live provider bounded parity（真实凭据存在且 parity 通过才执行；否则如实 BLOCK）→ 授权执行。
+- ITEM-03 Docker 全栈 all-lines cutover rehearsal（容器化，legacy 可用，不替换生产路由）→ 授权执行。
+- ITEM-04 生产 cutover / authority transfer / legacy retirement → 仅记录文档，不执行，后续另行批准。
+- 边界：候选字节 `3706655f`；authority_transfer/cutover/legacy retirement 保持 false；不 push。
+
+## ITEM-01..03 execution PASS records (2026-09-03)
+
+- 证据目录：`evidence/all-lines-runnable/`（3 份，均 local-only）。
+- ITEM-01 `PASS_CANONICAL_WRITE_BOUNDED_LOCAL_ONLY`：SHA `2bcea274…`；141 passed / 0 failed；disposable PG 每文件专用库；teardown 零残留。
+- ITEM-02 `PASS_LIVE_PROVIDER_PARITY_BOUNDED`：SHA `cd825e89…`；C2.3 Serper + C6.2 OpenAI 各 1 次真实调用；`.env` 变量名存在性审计，未读值。
+- ITEM-03 `PASS_CUTOVER_REHEARSAL_LOCAL_ONLY`：SHA `f4a52b1a…`；`mrw-alllines-rehearsal` 6 容器 healthy；successor 只读 route 与 legacy route 均 200；teardown 零残留容器。
+- 偏差注记：ITEM-03 执行代理对 ITEM-02 证据文件名/字段做了规范化，超出其单文件写边界；磁盘复核最终 3 份文件自洽，无 secret，采纳当前字节并记录偏差。
+- 状态：authority 仅解锁 bounded live_provider 与 disposable/local canonical_write；production_canonical_write/cutover/authority_transfer/legacy_retired/candidate_promotion 全 false；ITEM-04 仅记录未执行。
+
+## ITEM-04 milestone preparation (2026-09-03)
+
+- 用户指令 `04执行`。checkpoint `20260903-002841` 已建；rollback-drill dry-run 计划 OK；里程碑证据 `evidence/all-lines-runnable/AllLinesItem04CutoverMilestoneEvidence.v1.json`。
+- 状态：`ITEM_04_MILESTONE_PREPARED_CUTOVER_BLOCKED_BY_PRODUCTION_GAPS_AND_UNADDRESSED_SCOPE`。
+- 未执行字面 cutover/retirement 的原因（证据化）：successor production resolver 关闭、端点默认无认证、前端 successor 未接线、真实回滚/备份/降级 drill 未跑；donor/origin 目标未获授权；ITEM-04 的 legacy retirement 与“legacy 保持可用且不退休”条款冲突。
+- 等待用户明确目标（本地栈 cutover vs donor/origin cutover）或批准补足生产缺口后再执行 stop/go cutover。
+
+## Donor cutover executed with rollback point (2026-09-03)
+
+- 用户批准 donor/origin cutover 并要求“给出明确回滚点并执行 donor”。
+- 回滚点：tag `rollback/all-lines-donor-pre-cutover-2026-09-03` → `35ca039c`；旧分支 `codex/devdocs-supervisor-seed` 保留；rollback 包 `/Users/wangyiliang/.codex/rollback/all-lines-donor-cutover-2026-09-03/`。
+- donor 主工作树已切换：`codex/all-lines-donor-cutover` → HEAD/tree `3706655f`/`5840bf9b`（exact candidate）；证据 `evidence/all-lines-runnable/AllLinesItem04DonorCutoverEvidence.v1.json`。
+- 边界：未 push/merge origin、未删除 legacy 代码、未做 runnable cutover；598 项既有 dirty 延续并留痕。authority：code-level cutover only。
+- 待决：是否干净 checkout 启动 donor 服务 / 授权 origin / 补齐生产缺口后正式 runnable cutover。
+
+## Gap closure complete + origin branch push (2026-09-03)
+
+- Lane A 生产装配（registry-backed resolver/actor/auth prefix，fail-closed）、Lane B 前端只读 slice、Lane C cutover drills 证据、全量 evidence rebind 均完成；非 PG `1580/119/0`，spec 30/30 MATCH，PG canary 零残留。
+- 本地集成 commit `ec29ced6`；用户已授权 push。
+- 已 push origin 新分支：`codex/functorial-successor-p0`（commit `ec29ced6`；非 force；未覆盖 main）；PR 链接 `https://github.com/123rrr4tttt/market-research-workflow/pull/new/codex/functorial-successor-p0`。
+- 证据：`evidence/all-lines-runnable/AllLinesGapBackendProductionWiring.v1.json`、`AllLinesGapFrontendWiring.v1.json`、`AllLinesItem04CutoverDrillsEvidence.v1.json`、`AllLinesGapEvidenceRebind.v1.json`、`AllLinesOriginPushEvidence.v1.json`。
+- 边界：正式 runnable cutover/main merge/authority transfer/legacy retirement 未执行；donor 仍停 `@3706655f` 保留 dirty 与回滚点；部署环境项（TLS/digest/告警/扫描/RPO）如实保留待部署环境处理。
+
+## Production: origin main cutover + final runnable evidence (2026-09-03)
+
+- 用户授权所有工作推进到投产；origin `main` 已快进到 `6f5f5900`（本地 main 同步）。
+- 最终字节复跑（`AllLinesFinalRunnableEvidence.v1.json`，SHA `34bc3b6e…`）：rollback drill、backup/restore、downgrade/upgrade 全 PASS 零残留；production_registry+auth smoke 401/200/fail-closed 验证通过。
+- 边界：production_canonical_write/authority_transfer/legacy_retired/正式 cutover 仍 false；TLS/镜像固定/在线告警/secret 扫描/RPO/ingress auth 为部署环境待办，未假完成。
+
+## Production local go-live PASS (2026-09-03)
+
+- 目标库确认：本地 `postgres`。桥接 commit `b416c723`（6 donor 迁移 + 起点 `20260525_000001`）已推 origin/main 与功能分支。
+- 真实库 upgrade head 成功至 `20260831_000002`；ACTIVE registry seed `demo_proj_compare_0303_121137`/`project_demo_proj_compare_0303_121137`（digest `88fe5442…`）；production_registry+auth smoke 401/401/200/health 200。
+- legacy 保留核验通过；teardown 零残留；备份 `postgres-full.dump`（SHA `c3161d0a…`）+ ROLLBACK.md。
+- 证据：`AllLinesProductionLocalGoLiveEvidence.v1.json`（SHA `e4427f21…`），状态 `PASS_PRODUCTION_LOCAL_GO_LIVE`。
+- 边界：cutover/authority_transfer/legacy_retired 仍 false；正式常驻启动与真实业务 canonical write 面、TLS/镜像/告警/扫描/RPO/ingress auth 为下一部署步骤，未假完成。
+
+## Business-chain test batch PASS (2026-09-03)
+
+- 用户指令聚焦业务链：S1/S2/S2b/S2c 能力链 17 文件 `140/0`；C8/C4 非 PG `21/0`；C7/C8/C9 canonical PG disposable `111/0`；真实 postgres 只读 production_registry smoke 401/401/200 + 计数不变。
+- 证据：`AllLinesBusinessChainTestEvidence.v1.json`（SHA `d873d5db…`），状态 `PASS_BUSINESS_CHAIN_TEST_BATCH`；零残留。
+- 边界：局部绿链不建立 canonical production write/cutover/authority transfer/legacy retirement；registry-backed DB 投影读取仍待专门证据。
+
+## C7 production admission PASS (2026-09-03)
+
+- BLOCK 探针已解封：迁移 `20260903_000003`（c7_movement_canonical_documents）+ 生产 runner + parity/runner 测试；真实库 upgrade 至 `20260903_000003`，runner 0→1/replay 1→1/readback 一致，legacy 计数不变。
+- focused `62 passed`；全量非 PG `1583/119/0`；备份 `postgres-20260903-024913.dump`（SHA `bf44b11e…`）。
+- 证据：`AllLinesC7ProductionAdmissionEvidence.v1.json`（SHA `fe4c0ef6…`）。authority：c7 canonical write（本链 bounded）true；cutover/authority_transfer/legacy_retired false。
+
+## HTTP projection + browser OAuth go-live PASS (2026-09-03)
+
+- HTTP 只读投影接线到真实 DB（C7ProjectorDriver + PostgresC9QueryRepository 分发），production_registry facade 返回真实 committed digest；全量非 PG `1585/119/0`。
+- 前端源键切到真实 C7 投影（successorRuntimeConfig.ts），wiring e2e 5 passed。
+- 用户选择 OAuth 登录；launchd 恢复 OAuth/sink/CLI auth；浏览器 no-token 200（本机会话）、login 302、UI/api 200。
+- 证据：ProjectionRead `70b3bc10…`、HttpProjection `3e59d3a8…`、BrowserAuth 新记录。authority：c7 write bounded true；cutover/authority_transfer/legacy_retired false；公网证书/OAuth client 为外部部署项。

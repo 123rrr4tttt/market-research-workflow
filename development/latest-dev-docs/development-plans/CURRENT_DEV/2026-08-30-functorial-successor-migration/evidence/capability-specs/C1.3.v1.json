@@ -83,17 +83,17 @@
     },
         {
             "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/P1P3SuccessorMovementMatrix.v1.json",
-            "file_sha256": "482ae2934fbe8ffd19a2e8d43365d4f910ff8cb82398cfd885086f07bb2740db",
+            "file_sha256": "5f7da07b34480d206bda6474704500afe0fba712cfc1cd93afdb2a4177f2f35b",
             "role": "movement_matrix"
         },
         {
             "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/P1P3LegacyDonorSemanticMovementInventory.v1.json",
-            "file_sha256": "c032207f0070424b83fc81a8d49167dbb8f5624f08aaa97853e34f7a6f296be9",
+            "file_sha256": "c3dbea1c405a8274a19dff8d60bfd66b7df3a229a0412fa3d218fa11b37d52af",
             "role": "donor_inventory"
         },
         {
             "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/semantic-movement/fragments/C1.v1.json",
-            "file_sha256": "0ffd28226ff542f7f4d011ccf612bad8a84b35fd390be59c7694318e4b5ef138",
+            "file_sha256": "8ca25cd4fb56d90a1beb7d2c86e05328c91c1b2723a5eb3d8dd9576bcc4ad525",
             "role": "movement_fragment"
         },
     {
@@ -113,7 +113,7 @@
     },
     {
       "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/P5C1SliceAcceptance.v1.json",
-      "file_sha256": "ba428b3d50137bed259761fd45b06f9ee4f23c3c96f0f43b808cbe9b5ac5a20e",
+      "file_sha256": "5d0613b5a97403f0f8eaada7b224dab30dfbc809304bd67d0db81a983fc8e511",
       "role": "slice_aggregate_acceptance"
     }
   ],
@@ -137,17 +137,17 @@
   "rollback_bindings": [
     {
       "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p5-c1-slices/C1SliceA.v1.json",
-      "file_sha256": "ad4bfc92eade8e7bd190f276ad44f306da056f859e910dd5c7d224773386170f",
+      "file_sha256": "5a5a65884f8698a8295288e17bb99aaa02aceef3e560ff8518852680b5d04c1e",
       "role": "c1_3_rollback_slice_a"
     },
     {
       "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p5-c1-slices/C1SliceB.v1.json",
-      "file_sha256": "8950c1fe7728422ec1b6a2357c83af6e219c919fcb1a0802f2ade1aa41dfb8ce",
+      "file_sha256": "a445d45b3fd44e8aed3a7ff831b6e90e3c222291bc236ef02282098482b84c5b",
       "role": "c1_3_rollback_slice_b"
     },
     {
       "path": "development/latest-dev-docs/development-plans/CURRENT_DEV/2026-08-30-functorial-successor-migration/evidence/p5-c1-slices/C1SliceC.v1.json",
-      "file_sha256": "38e2cf14dbdfcfaa10d2f6640c8bfa7c6d9949117a1905375054c4423cbf1ac6",
+      "file_sha256": "1e9489675848a4c204247cd58c75163dff30b75723627e40941a42d0689a06ff",
       "role": "c1_3_rollback_slice_c"
     },
     {

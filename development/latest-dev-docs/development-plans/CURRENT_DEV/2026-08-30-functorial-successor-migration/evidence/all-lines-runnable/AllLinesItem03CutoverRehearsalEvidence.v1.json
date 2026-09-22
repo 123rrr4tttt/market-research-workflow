@@ -1,0 +1,174 @@
+{
+ "schema": "mrw.functorial_successor.all_lines.item03_cutover_rehearsal_evidence.v1",
+ "version": "1.0.0",
+ "record_id": "all-lines-item03-cutover-rehearsal-evidence-v1",
+ "date": "2026-09-03",
+ "generated_at": "2026-09-03T00:25:00+08:00",
+ "generated_by": "item03-cutover-rehearsal-supervisor",
+ "status": "PASS_CUTOVER_REHEARSAL_LOCAL_ONLY",
+ "candidate": {
+  "commit": "3706655f372f6d34fc62683551b8c3d1f4ff8146",
+  "commit_message": "all-lines closure: migrate 18 legacy business-line surfaces + 2 supplementary gaps into successor_runtime",
+  "tree_sha": "5840bf9ba906c49f70020d226c54446f4ba5aa33"
+ },
+ "worktree": {
+  "path": "/Users/wangyiliang/.codex/manual-worktrees/mrw-functorial-successor-p0",
+  "branch": "codex/functorial-successor-p0",
+  "head_sha": "8a99b68ef90c3214a92b65f36a6dc2dd8ab0ba60",
+  "head_subject": "docs: record user authorization ITEM-01..04 documented, ITEM-01..03 execution authorized, ITEM-04 recorded only",
+  "diff_main_3706655f_to_head_empty": true,
+  "legacy_untouched": true
+ },
+ "docker_env": {
+  "server_version": "29.2.1",
+  "compose_project": "mrw-alllines-rehearsal",
+  "host_port_mode": "backend 8000 and frontend-modern 5174 exposed to host; db/es/redis kept on internal compose network because local 5432 and 6379 were occupied",
+  "compose_file": "main/ops/docker-compose.yml",
+  "profile": "modern-ui",
+  "services_started": [
+   "db",
+   "es",
+   "redis",
+   "backend",
+   "celery-worker",
+   "frontend-modern"
+  ],
+  "images_used": {
+   "backend": "mrw-alllines-rehearsal-backend:latest (25c7b263cf12)",
+   "celery_worker": "mrw-alllines-rehearsal-celery-worker:latest (eacf5d2c243f)",
+   "frontend_modern": "mrw-alllines-rehearsal-frontend-modern:latest (16b83649a705)",
+   "db": "ankane/pgvector:latest (956744bd14e9)",
+   "es": "docker.elastic.co/elasticsearch/elasticsearch:8.15.3 (01c1732062b4)",
+   "redis": "redis:7.4 (71da9275c5f3)"
+  },
+  "start_wrapper_note": "COMPOSE_PROJECT_NAME=mrw-alllines-rehearsal ./scripts/docker-deploy.sh start --services db,es,redis,backend,celery-worker,frontend-modern --non-interactive --force; wrapper exited 1 only because its host ES probe curls localhost:9200 while --force kept ES internal-only; container health independently verified (known orchestration-script limitation, identical to prior mrw-cutover-rehearsal evidence)."
+ },
+ "services": [
+  {
+   "name": "mrw-alllines-rehearsal-db-1",
+   "image": "ankane/pgvector:latest",
+   "status": "Up (healthy)",
+   "ports": "5432 internal only"
+  },
+  {
+   "name": "mrw-alllines-rehearsal-es-1",
+   "image": "docker.elastic.co/elasticsearch/elasticsearch:8.15.3",
+   "status": "Up (healthy)",
+   "ports": "9200/9300 internal only"
+  },
+  {
+   "name": "mrw-alllines-rehearsal-redis-1",
+   "image": "redis:7.4",
+   "status": "Up",
+   "ports": "6379 internal only"
+  },
+  {
+   "name": "mrw-alllines-rehearsal-backend-1",
+   "image": "mrw-alllines-rehearsal-backend:latest",
+   "status": "Up (healthy)",
+   "ports": "0.0.0.0:8000->8000/tcp"
+  },
+  {
+   "name": "mrw-alllines-rehearsal-celery-worker-1",
+   "image": "mrw-alllines-rehearsal-celery-worker:latest",
+   "status": "Up (healthy)",
+   "ports": "8000 internal only"
+  },
+  {
+   "name": "mrw-alllines-rehearsal-frontend-modern-1",
+   "image": "mrw-alllines-rehearsal-frontend-modern:latest",
+   "status": "Up",
+   "ports": "0.0.0.0:5174->80/tcp"
+  }
+ ],
+ "smoke": [
+  {
+   "label": "backend health endpoint",
+   "endpoint": "GET http://localhost:8000/api/v1/health",
+   "http_code": 200,
+   "result": "PASS",
+   "body_summary": "status=ok, provider=openai, env=dev"
+  },
+  {
+   "label": "backend deep health (legacy route preserved)",
+   "endpoint": "GET http://localhost:8000/api/v1/health/deep",
+   "http_code": 200,
+   "result": "PASS",
+   "body_summary": "status=ok, database=ok, database_pool=ok, elasticsearch=ok"
+  },
+  {
+   "label": "successor runtime read-only query (typed envelope)",
+   "endpoint": "POST http://localhost:8000/api/v1/successor-runtime/v2/queries",
+   "http_code": 200,
+   "result": "PASS",
+   "body_summary": "status=ok, control_feedback=false, cells C9.1=INSTALLED C9.2=INSTALLED C9.3=PROJECTOR_WIRING_DECLARED, no_postgres_write=true; projection_snapshot wire payload"
+  },
+  {
+   "label": "legacy agent-batch executor health route preserved",
+   "endpoint": "GET http://localhost:8000/api/v1/agent-batch/executor/health",
+   "http_code": 200,
+   "result": "PASS",
+   "body_summary": "status=ok, worker_online=true, workers=[celery@...], broker_url_masked"
+  },
+  {
+   "label": "legacy admin stats route preserved",
+   "endpoint": "GET http://localhost:8000/api/v1/admin/stats",
+   "http_code": 200,
+   "result": "PASS",
+   "body_summary": "status=ok, documents/social_data/sources/market_stats/search_history totals present"
+  },
+  {
+   "label": "internal ES cluster health",
+   "endpoint": "docker exec mrw-alllines-rehearsal-es-1 curl http://localhost:9200/_cluster/health",
+   "http_code": 200,
+   "result": "PASS",
+   "body_summary": "cluster_status=green, 1 node, no shards"
+  },
+  {
+   "label": "frontend-modern legacy page index preserved",
+   "endpoint": "GET http://localhost:5174/",
+   "http_code": 200,
+   "result": "PASS",
+   "body_summary": "HTML index served by frontend-modern nginx"
+  }
+ ],
+ "teardown": {
+  "command": "COMPOSE_PROJECT_NAME=mrw-alllines-rehearsal docker compose -f main/ops/docker-compose.yml --profile modern-ui down -v --remove-orphans",
+  "exit_code": 0,
+  "residual_containers_for_project": 0,
+  "residual_networks_for_project": 0,
+  "volumes_removed": [
+   "mrw-alllines-rehearsal_db_data",
+   "mrw-alllines-rehearsal_es_data",
+   "mrw-alllines-rehearsal_codex_auth"
+  ],
+  "images_retained": true,
+  "other_containers_touched": false,
+  "zero_residual": true
+ },
+ "log_tail_sample": [
+  "INFO app.request service=market-intel-api env=dev version=0.1.0-rc.1 deploy_color=blue request http_target=/api/v1/admin/stats http_status=200 duration_ms=27",
+  "INFO: 192.168.65.1:57439 - GET /api/v1/admin/stats HTTP/1.1 200 OK",
+  "WARNING app.request service=market-intel-api env=dev event=project_key_fallback http_target=/api/v1/market/stats enforcement_mode=warn fallback_allowed=true",
+  "INFO app.request http_target=/api/v1/market/stats http_status=404 duration_ms=1 (unknown route, expected 404)",
+  "INFO: uvicorn startup / request handling lines consistent with normal backend boot and request serving"
+ ],
+ "risks": [
+  "Start wrapper exits 1 because its host ES readiness probe curls localhost:9200 while --force kept ES on the internal network; container health is independently verified. This is an orchestration-script limitation, not a service failure (same finding as prior mrw-cutover-rehearsal evidence).",
+  "Docker db/es/redis ran on the internal compose network only; host-bound port paths for those services were not exercised in this rehearsal.",
+  "The rehearsal mounts the successor code as local-only app-mount; the mounted successor facade is the deterministic LOCAL_ONLY closure (authority ceiling closed), not the production postgres-backed facade.",
+  "Real provider calls were not executed during this rehearsal; live provider bounded parity is recorded separately in AllLinesItem02LiveProviderEvidence.v1.json.",
+  "Project images built/tagged by this compose project (mrw-alllines-rehearsal-*) were retained after teardown.",
+  "This evidence is a local Docker cutover rehearsal only; it does not establish production cutover, authority transfer, legacy retirement, external delivery, or production adoption.",
+  "Legacy business routes and frontend pages were verified reachable and were not replaced."
+ ],
+ "authority_ceiling": {
+  "cutover": false,
+  "authority_transfer": false,
+  "legacy_retired": false,
+  "live_provider": false,
+  "production_canonical_write": false,
+  "candidate_promotion": false,
+  "rehearsal_local_only": true
+ }
+}
