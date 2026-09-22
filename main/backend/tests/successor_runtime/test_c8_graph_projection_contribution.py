@@ -21,10 +21,13 @@ from app.successor_runtime.assembly.c8_assembly import build_c8_assembly
 from app.successor_runtime.capabilities.c8_graph_projection_contribution import (
     C8_4_FAILURE_CODES,
     C8_GRAPH_PROJECTION_DEFINITION,
+    C8_GRAPH_PROJECTION_NATIVE_RULE,
     C8GraphProjectionAssemblyContext,
+    C8GraphProjectionAuthorSource,
     C8GraphProjectionRuntimeBinding,
     assemble_c8_graph_projection_definition,
     define_c8_graph_projection_cell,
+    lower_c8_graph_projection_author_source,
     project_c8_graph_projection_definition,
     validate_c8_graph_projection_binding,
 )
@@ -33,6 +36,7 @@ from app.successor_runtime.capabilities.c8_program import (
     build_c8_bundle,
     build_c8_catalog,
     build_c8_program,
+    GraphProjectionNativeContribution,
     build_c8_registry,
     compose_default_c8_graph_projection_contributions,
     validate_c8_graph_projection_contributions,
@@ -40,6 +44,7 @@ from app.successor_runtime.capabilities.c8_program import (
 from app.successor_runtime.capabilities.checksum import content_digest
 from app.successor_runtime.specification import c8_p4
 from app.successor_runtime.research.object_types import ObjectType
+from functorial_kit.contribution_compiler import compile_native_contribution
 from functorial_kit.contributions import compose_contributions
 from functorial_kit.core.failure import Failure
 from functorial_kit.law_witness import LawWitness, law_witness_reference
@@ -114,8 +119,8 @@ def _native(definition: Any, *, calls: list[int] | None = None) -> Any:
     return native
 
 
-def _extra_native() -> Any:
-    definition = define_c8_graph_projection_cell(
+def _extra_source() -> C8GraphProjectionAuthorSource:
+    return C8GraphProjectionAuthorSource(
         cell_id="C8.4.test",
         owner=EXTRA_OWNER,
         operation_id="c8.graph.project.test",
@@ -127,11 +132,17 @@ def _extra_native() -> Any:
         projector_wiring=None,
         rollback_refs=("test:graph-projection-extension",),
     )
-    return _native(definition)
+
+
+def _compile_extra_native(source: C8GraphProjectionAuthorSource) -> GraphProjectionNativeContribution:
+    native = compile_native_contribution(source, C8_GRAPH_PROJECTION_NATIVE_RULE)
+    assert not isinstance(native, Failure)
+    return native
 
 
 def test_default_runtime_uses_single_catalog_contribution() -> None:
     assert C8_4_FAILURE_CODES is c8_graph_failures.codes
+    assert C8_GRAPH_PROJECTION_DEFINITION is c8_graph_projection_native_contribution.definition
     natives = compose_default_c8_graph_projection_contributions()
     assert [native.projection.id for native in natives] == ["mrw.successor.c8.graph-projection.v1"]
     assert natives[0] is c8_graph_projection_native_contribution
@@ -152,10 +163,42 @@ def test_default_runtime_uses_single_catalog_contribution() -> None:
     assert assembly.coverage()["C8.4"] == "PROJECTOR_WIRING_DECLARED"
 
 
+def test_legacy_cell_constructor_lowers_the_same_author_source() -> None:
+    source = _extra_source()
+    legacy = define_c8_graph_projection_cell(
+        cell_id=source.cell_id,
+        contribution_id=source.contribution_id,
+        owner=source.owner,
+        operation_id=source.operation_id,
+        kind=source.kind,
+        payload_codec_id=source.payload_codec_id,
+        input_type=source.input_type,
+        output_type=source.output_type,
+        payload_type=source.payload_type,
+        projector_wiring=source.projector_wiring,
+        rollback_refs=source.rollback_refs,
+        failure_codes=source.failure_codes,
+        return_contract_ref=source.return_contract_ref,
+    )
+    lowered = lower_c8_graph_projection_author_source(source)
+    assert legacy == dataclasses.replace(lowered, payload_codec=legacy.payload_codec)
+    assert legacy.cell_id == "C8.4.test"
+    assert legacy.payload_codec.codec_id == source.payload_codec_id
+
+
 def test_catalog_composition_is_pure_and_extra_entry_reaches_native_registries() -> None:
     calls: list[int] = []
     observed = _native(C8_GRAPH_PROJECTION_DEFINITION, calls=calls)
-    extra = _extra_native()
+    extra_source = _extra_source()
+    extra = _compile_extra_native(extra_source)
+    relowered = lower_c8_graph_projection_author_source(extra_source)
+    # PayloadCodec dataclasses contain generated encode/decode closures; structural identity
+    # is exercised through the bundle/Program checks below rather than function object equality.
+    assert extra.definition == dataclasses.replace(
+        relowered,
+        payload_codec=extra.definition.payload_codec,
+    )
+    assert extra.projection.id == "mrw.successor.c8.4.test.graph-projection.v1"
     natives = (observed, extra)
     composition = compose_contributions(tuple(native.projection for native in natives))
     _not_failure(composition)
@@ -242,20 +285,18 @@ def test_definition_consistency_and_duplicate_cell_ids_fail_closed() -> None:
     assert isinstance(rejected_native, Failure)
     assert rejected_native.context == projection.context
 
-    duplicate_cell_definition = define_c8_graph_projection_cell(
-        cell_id="C8.4",
-        contribution_id="mrw.test.c8.duplicate-cell.v1",
-        owner=EXTRA_OWNER,
-        operation_id="c8.graph.project.test",
-        kind=EXTRA_KIND,
-        payload_codec_id="mrw.successor.c8.c8-4.test.payload.codec.v1",
-        input_type=EXTRA_INPUT,
-        output_type=EXTRA_RESULT,
-        payload_type=_ExtraInput,
-        projector_wiring=None,
-        rollback_refs=("test:graph-projection-extension",),
+    invalid_source = dataclasses.replace(_extra_source(), contribution_id="")
+    invalid_native = compile_native_contribution(invalid_source, C8_GRAPH_PROJECTION_NATIVE_RULE)
+    assert isinstance(invalid_native, Failure)
+    assert invalid_native.code == "CONTRIBUTION_INVALID"
+
+    duplicate_cell = _compile_extra_native(
+        dataclasses.replace(
+            _extra_source(),
+            cell_id="C8.4",
+            contribution_id="mrw.test.c8.duplicate-cell.v1",
+        )
     )
-    duplicate_cell = _native(duplicate_cell_definition)
     with pytest.raises(ValueError, match="duplicate native graph cell id C8.4"):
         validate_c8_graph_projection_contributions((c8_graph_projection_native_contribution, duplicate_cell))
 

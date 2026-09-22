@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import dataclasses
 from collections.abc import Mapping
-from typing import Annotated, Any
+from typing import Annotated, Any, TYPE_CHECKING
 
 from sqlalchemy.engine import Engine
 from functorial_kit.core.failure import Failure
@@ -26,7 +26,6 @@ from app.successor_runtime.assembly.base import (
     FamilyAssembly,
     ProjectorSourceKey,
     ProjectorWiring,
-    RollbackBindingDeclaration,
     require_assembly_digest,
     sha256_hex,
     successor_binding,
@@ -36,6 +35,16 @@ from app.successor_runtime.capabilities.c8_graph_projection_contribution import 
     C8_4_DECLARED_LOSS,
     C8_4_ROLLBACK_REF,
     C8GraphProjectionAssemblyContext,
+)
+from app.successor_runtime.capabilities.c8_native_contribution import C8NativeAssemblyContext
+from app.successor_runtime.capabilities.c8_report_contribution import (
+    C8_3_ROLLBACK_REF as _C8_3_NATIVE_ROLLBACK_REF,
+)
+from app.successor_runtime.capabilities.c8_typed_knowledge_contribution import (
+    C8_1_ROLLBACK_REFS as _C8_1_NATIVE_ROLLBACK_REFS,
+)
+from app.successor_runtime.capabilities.c8_writing_contribution import (
+    C8_2_ROLLBACK_REFS as _C8_2_NATIVE_ROLLBACK_REFS,
 )
 from app.successor_runtime.capabilities.c8_program import (
     C8_1_KIND,
@@ -55,8 +64,10 @@ from app.successor_runtime.capabilities.c8_program import (
     build_c8_delivery_bridge_program,
     compile_c8_delivery_bridge_program,
     compose_default_c8_graph_projection_contributions,
+    compose_default_c8_native_contributions,
     exact_contract_ref,
     validate_c8_graph_projection_contributions,
+    validate_c8_native_contributions,
 )
 from app.successor_runtime.capabilities.c8_typed_knowledge import demand_read
 from app.successor_runtime.capabilities.c8_writing import (
@@ -98,11 +109,14 @@ from app.successor_runtime.substrate.projections.c8_handler_bindings import (
     build_c8_delivery_activation_catalog,
 )
 
+if TYPE_CHECKING:
+    from app.successor_runtime.capabilities.c8_program import C8NativeContribution
+
 C8_FAMILY_ID = "C8"
 
-C8_1_ROLLBACK_REF = "main/backend/app/successor_migration/legacy_c8_typed_knowledge.py"
-C8_2_ROLLBACK_REF = "main/backend/app/successor_migration/legacy_c8_writing.py"
-C8_3_ROLLBACK_REF = "main/backend/app/successor_migration/legacy_c8_report.py"
+C8_1_ROLLBACK_REF = _C8_1_NATIVE_ROLLBACK_REFS[0]
+C8_2_ROLLBACK_REF = _C8_2_NATIVE_ROLLBACK_REFS[0]
+C8_3_ROLLBACK_REF = _C8_3_NATIVE_ROLLBACK_REF
 C8_ROUTE_ASSEMBLY_ROLLBACK_REF = (
     "main/backend/app/successor_runtime/assembly/c8_assembly.py"
 )
@@ -286,115 +300,11 @@ class C8_2WritingComposeStageRouteHandler(RuntimeHandler):
         return InterpreterOutcome.succeeded(content_digest(artifact))
 
 
-def _unwired_c8_1_cell() -> CellBinding:
-    return CellBinding(
-        cell_id="C8.1",
-        family_id=C8_FAMILY_ID,
-        status="UNWIRED_DECLARED",
-        operation_contract_refs=("c8.typed_knowledge.demand_read.v1",),
-        recovery_binding_ref=(
-            "c8.typed_knowledge.recovery.v1#route-back-to-legacy-repository-"
-            "read-handle-retained;no-dual-write"
-        ),
-        required_wiring=(
-            "c81_payload demand-read 纯 route closure",
-            "admission_not_called/export_not_executed 保持",
-        ),
-        note=(
-            "缺 c81_payload 的 demand_read 纯 route closure"
-            "（item(s)/item_key/fields/project_key/registry）；"
-            "admission/export authority closed"
-        ),
-    )
-
-
-def _installed_c8_1_cell(handler: C8_1DemandReadRouteHandler) -> CellBinding:
-    return CellBinding(
-        cell_id="C8.1",
-        family_id=C8_FAMILY_ID,
-        status="INSTALLED",
-        operation_contract_refs=("c8.typed_knowledge.demand_read.v1",),
-        handler_binding_digest=handler.handler_binding_digest,
-        recovery_binding_ref=(
-            "c8.typed_knowledge.recovery.v1#route-back-to-legacy-repository-"
-            "read-handle-retained;no-dual-write"
-        ),
-        required_wiring=("admission_not_called/export_not_executed 保持",),
-        note=(
-            "LOCAL_OFFLINE C8.1 demand_read pure route handler installed; "
-            "read-only; no PostgreSQL write adopted"
-        ),
-    )
-
-
-def _unwired_c8_2_cell() -> CellBinding:
-    return CellBinding(
-        cell_id="C8.2",
-        family_id=C8_FAMILY_ID,
-        status="UNWIRED_DECLARED",
-        operation_contract_refs=("c8.writing.compose.v1", "c8.writing.stage.v1"),
-        recovery_binding_ref=(
-            "c8.writing.recovery.v1#retained-staged-values-no-authority-reversal"
-        ),
-        required_wiring=(
-            "c82_payload compose+stage 纯 route closure",
-            "admission_not_called/export_not_executed 保持",
-        ),
-        note=(
-            "缺 c82_payload 的 compose_writing_handoff + stage_writing_artifact "
-            "纯 route closure（read/handoff 输入）；"
-            "admission/export authority closed"
-        ),
-    )
-
-
-def _installed_c8_2_cell(handler: C8_2WritingComposeStageRouteHandler) -> CellBinding:
-    return CellBinding(
-        cell_id="C8.2",
-        family_id=C8_FAMILY_ID,
-        status="INSTALLED",
-        operation_contract_refs=("c8.writing.compose.v1", "c8.writing.stage.v1"),
-        handler_binding_digest=handler.handler_binding_digest,
-        recovery_binding_ref=(
-            "c8.writing.recovery.v1#retained-staged-values-no-authority-reversal"
-        ),
-        required_wiring=("admission_not_called/export_not_executed 保持",),
-        note=(
-            "LOCAL_OFFLINE C8.2 compose+stage pure route handler installed; "
-            "no PostgreSQL write adopted"
-        ),
-    )
-
-
-def _unwired_c8_3_cell() -> CellBinding:
-    return CellBinding(
-        cell_id="C8.3",
-        family_id=C8_FAMILY_ID,
-        status="UNWIRED_DECLARED",
-        operation_contract_refs=(
-            "c8.report.stage.v1",
-            "c8.report.admission.v1",
-            "c8.report.delivery.v1",
-        ),
-        recovery_binding_ref=(
-            "c8.report.admission.recovery.v1#verification-and-receipt-readback-only;"
-            "no-repeat-export"
-        ),
-        required_wiring=(
-            "app 层调用方/挂载",
-            "admission/export authority gate 保持关闭",
-        ),
-        note=(
-            "build_postgres_c8_delivery_assembly exists but no app caller "
-            "instantiates it; admission/export authority gate stays closed"
-        ),
-    )
-
-
 def _installed_c8_3_cell(
     *,
     bundle: C8CapabilityBundle,
     delivery_assembly: Any,
+    declared: CellBinding,
 ) -> CellBinding:
     """Resolve the exact C8.3 handler binding from the delivery assembly."""
 
@@ -416,24 +326,10 @@ def _installed_c8_3_cell(
             "C8 delivery assembly must contain one exact C8.3 handler "
             "for the C8_3_KIND operation"
         )
-    return CellBinding(
-        cell_id="C8.3",
-        family_id=C8_FAMILY_ID,
+    return dataclasses.replace(
+        declared,
         status="INSTALLED",
-        operation_contract_refs=(
-            "c8.report.stage.v1",
-            "c8.report.admission.v1",
-            "c8.report.delivery.v1",
-        ),
         handler_binding_digest=handlers[0].handler_binding_digest,
-        recovery_binding_ref=(
-            "c8.report.admission.recovery.v1#verification-and-receipt-readback-only;"
-            "no-repeat-export"
-        ),
-        required_wiring=(
-            "app 层调用方/挂载",
-            "admission/export authority gate 保持关闭",
-        ),
         note=(
             "reuses build_postgres_c8_delivery_assembly unchanged; exact "
             "C8.3 handler binding digest from the installed bridge"
@@ -443,24 +339,16 @@ def _installed_c8_3_cell(
 
 def _installed_c8_3_export_token_cell(
     handler: C8_3ExportTokenStateRuntimeHandler,
+    declared: CellBinding,
 ) -> CellBinding:
     """Install C8.3 through the typed export/token-state successor route."""
 
-    return CellBinding(
-        cell_id="C8.3",
-        family_id=C8_FAMILY_ID,
+    return dataclasses.replace(
+        declared,
         status="INSTALLED",
-        operation_contract_refs=(
-            "c8.report.stage.v1",
-            "c8.report.admission.v1",
-            "c8.report.delivery.v1",
-            _C8_3_EXPORT_TOKEN_OPERATION_REF,
-        ),
+        operation_contract_refs=declared.operation_contract_refs
+        + (_C8_3_EXPORT_TOKEN_OPERATION_REF,),
         handler_binding_digest=handler.handler_binding_digest,
-        recovery_binding_ref=(
-            "c8.report.admission.recovery.v1#verification-and-receipt-readback-only;"
-            "no-repeat-export"
-        ),
         required_wiring=(
             "successor export/token-state store command closure",
             "admission/export authority gate 保持关闭",
@@ -473,9 +361,13 @@ def _installed_c8_3_export_token_cell(
     )
 
 
-def _c8_operation_contract_digest(kind: str) -> str:
+def _c8_operation_contract_digest(
+    kind: str,
+    *,
+    native_composition: tuple[C8NativeContribution, ...] | None = None,
+) -> str:
     return exact_contract_ref(
-        build_c8_catalog(build_c8_bundle()),
+        build_c8_catalog(build_c8_bundle(native_composition=native_composition)),
         kind=kind,
     ).contract_digest
 
@@ -484,9 +376,13 @@ def _build_c8_1_route_handler(
     *,
     project_scope_digest: str,
     payload: Mapping[str, Any],
+    native_composition: tuple[C8NativeContribution, ...] | None = None,
 ) -> C8_1DemandReadRouteHandler:
     binding = successor_binding(
-        operation_contract_digest=_c8_operation_contract_digest(C8_1_KIND),
+        operation_contract_digest=_c8_operation_contract_digest(
+            C8_1_KIND,
+            native_composition=native_composition,
+        ),
         interpreter_profile_digest=C8_1_INTERPRETER_PROFILE_DIGEST,
         deployment_catalog_digest=C8_DEPLOYMENT_CATALOG_DIGEST,
         project_scope_digest=project_scope_digest,
@@ -505,8 +401,9 @@ def _build_c8_2_route_handler(
     *,
     project_scope_digest: str,
     payload: Mapping[str, Any],
+    native_composition: tuple[C8NativeContribution, ...] | None = None,
 ) -> C8_2WritingComposeStageRouteHandler:
-    catalog = build_c8_catalog(build_c8_bundle())
+    catalog = build_c8_catalog(build_c8_bundle(native_composition=native_composition))
     for kind in C8_2_ROUTE_OPERATION_KINDS:
         exact_contract_ref(catalog, kind=kind)
     binding = successor_binding(
@@ -741,16 +638,41 @@ def build_c8_assembly(
 ]:
     """Build the C8 family assembly with optional route/bridge installation.
 
-    C8.4 stays ``PROJECTOR_WIRING_DECLARED`` until the run owner supplies a
-    per-run source key; with a key it registers one read-only projector
-    contract in the family registry and becomes ``INSTALLED``.
+    C8.1--C8.3 CellBinding and rollback declarations come from their native
+    contributions.  C8.3 remains authority-closed unless its existing delivery
+    dependencies are supplied.  C8.4 stays ``PROJECTOR_WIRING_DECLARED`` until
+    the run owner supplies a per-run source key; with a key it registers one
+    read-only projector contract in the family registry and becomes
+    ``INSTALLED``.
     """
 
     require_assembly_digest(project_scope_digest, "C8 project scope digest")
     c8_options = options or C8AssemblyOptions()
-    c8_3_cell = _unwired_c8_3_cell()
+    selected_native_composition = c8_options.native_composition
+    native_contributions = (
+        compose_default_c8_native_contributions()
+        if selected_native_composition is None
+        else validate_c8_native_contributions(selected_native_composition)
+    )
+    native_bindings = []
+    for native in native_contributions:
+        native_binding = native.assemble(C8NativeAssemblyContext())
+        if isinstance(native_binding, Failure):
+            raise ValueError(
+                f"native C8 contribution {native.projection.id} invalid: "
+                f"{native_binding.message}"
+            )
+        native_bindings.append(native_binding)
+    native_bindings_by_cell = {
+        native_binding.cell_id: native_binding for native_binding in native_bindings
+    }
+    c8_1_binding = native_bindings_by_cell["C8.1"]
+    c8_2_binding = native_bindings_by_cell["C8.2"]
+    c8_3_binding = native_bindings_by_cell["C8.3"]
+
     handlers: list[Any] = []
     recovery_handlers: list[Any] = []
+    c8_3_cell = c8_3_binding.declared_cell()
     if all(
         value is not None
         for value in (
@@ -768,6 +690,7 @@ def build_c8_assembly(
         c8_3_cell = _installed_c8_3_cell(
             bundle=c8_options.bundle,
             delivery_assembly=delivery_assembly,
+            declared=c8_3_cell,
         )
         handlers.extend(delivery_assembly.handlers)
         recovery_handlers.extend(delivery_assembly.recovery_handlers)
@@ -797,7 +720,10 @@ def build_c8_assembly(
             deployment_catalog_digest=export_binding.deployment_catalog_digest,
         )
         if c8_3_cell.status == "UNWIRED_DECLARED":
-            c8_3_cell = _installed_c8_3_export_token_cell(export_handler)
+            c8_3_cell = _installed_c8_3_export_token_cell(
+                export_handler,
+                declared=c8_3_binding.declared_cell(),
+            )
         else:
             c8_3_cell = dataclasses.replace(
                 c8_3_cell,
@@ -811,57 +737,59 @@ def build_c8_assembly(
             )
         handlers.append(export_handler)
 
-    c8_1_cell = _unwired_c8_1_cell()
+    c8_1_cell = c8_1_binding.declared_cell()
     if c8_options.c81_payload is not None:
         if not isinstance(c8_options.c81_payload, Mapping):
             raise ValueError("C8.1 options c81_payload must be a mapping")
         c8_1_handler = _build_c8_1_route_handler(
             project_scope_digest=project_scope_digest,
             payload=c8_options.c81_payload,
+            native_composition=selected_native_composition,
         )
-        c8_1_cell = _installed_c8_1_cell(c8_1_handler)
+        c8_1_cell = c8_1_binding.installed_cell(c8_1_handler.handler_binding_digest)
         handlers.append(c8_1_handler)
 
-    c8_2_cell = _unwired_c8_2_cell()
+    c8_2_cell = c8_2_binding.declared_cell()
     if c8_options.c82_payload is not None:
         if not isinstance(c8_options.c82_payload, Mapping):
             raise ValueError("C8.2 options c82_payload must be a mapping")
         c8_2_handler = _build_c8_2_route_handler(
             project_scope_digest=project_scope_digest,
             payload=c8_options.c82_payload,
+            native_composition=selected_native_composition,
         )
-        c8_2_cell = _installed_c8_2_cell(c8_2_handler)
+        c8_2_cell = c8_2_binding.installed_cell(c8_2_handler.handler_binding_digest)
         handlers.append(c8_2_handler)
 
     graph_composition = c8_options.graph_projection_composition
-    native_contributions = (
+    graph_native_contributions = (
         compose_default_c8_graph_projection_contributions()
         if graph_composition is None
         else validate_c8_graph_projection_contributions(graph_composition)
     )
     graph_bindings = []
-    for native in native_contributions:
-        binding = native.assemble(C8GraphProjectionAssemblyContext())
-        if isinstance(binding, Failure):
+    for native in graph_native_contributions:
+        graph_binding = native.assemble(C8GraphProjectionAssemblyContext())
+        if isinstance(graph_binding, Failure):
             raise ValueError(
                 f"native graph contribution {native.projection.id} invalid: "
-                f"{binding.message}"
+                f"{graph_binding.message}"
             )
-        graph_bindings.append(binding)
+        graph_bindings.append(graph_binding)
 
     graph_cells: list[CellBinding] = []
     graph_wirings: list[ProjectorWiring] = []
-    graph_rollback_bindings: list[RollbackBindingDeclaration] = []
+    graph_rollback_bindings: list[Any] = []
     projector_registry = None
-    for binding in graph_bindings:
-        source_key = (projector_source_keys or {}).get(binding.cell_id)
+    for graph_binding in graph_bindings:
+        source_key = (projector_source_keys or {}).get(graph_binding.cell_id)
         if source_key is None:
-            graph_cells.append(binding.unbound_cell())
+            graph_cells.append(graph_binding.unbound_cell())
         else:
-            installed = binding.install(source_key)
+            installed = graph_binding.install(source_key)
             if installed is None:
                 raise ValueError(
-                    f"{binding.cell_id} has a source key but no projector wiring"
+                    f"{graph_binding.cell_id} has a source key but no projector wiring"
                 )
             installed_cell, installed_registry = installed
             graph_cells.append(installed_cell)
@@ -874,30 +802,22 @@ def build_c8_assembly(
                         projector_registry.projectors + installed_registry.projectors
                     ),
                 )
-        if binding.projector_wiring is not None:
-            graph_wirings.append(binding.assembly_projector_wiring())
-        graph_rollback_bindings.append(binding.assembly_rollback_binding())
+        if graph_binding.projector_wiring is not None:
+            graph_wirings.append(graph_binding.assembly_projector_wiring())
+        graph_rollback_bindings.append(graph_binding.assembly_rollback_binding())
 
     cells = (c8_1_cell, c8_2_cell, c8_3_cell, *graph_cells)
-    c8_3_rollback_refs = (C8_3_ROLLBACK_REF,)
+    c8_3_rollback = c8_3_binding.assembly_rollback_binding()
     if export_token_installed:
-        c8_3_rollback_refs += (_C8_3_EXPORT_TOKEN_HANDLER_MODULE,)
+        c8_3_rollback = dataclasses.replace(
+            c8_3_rollback,
+            binding_refs=c8_3_rollback.binding_refs
+            + (_C8_3_EXPORT_TOKEN_HANDLER_MODULE,),
+        )
     rollback_bindings = (
-        RollbackBindingDeclaration(
-            cell_id="C8.1",
-            status="PRESENT",
-            binding_refs=(C8_1_ROLLBACK_REF, C8_ROUTE_ASSEMBLY_ROLLBACK_REF),
-        ),
-        RollbackBindingDeclaration(
-            cell_id="C8.2",
-            status="PRESENT",
-            binding_refs=(C8_2_ROLLBACK_REF, C8_ROUTE_ASSEMBLY_ROLLBACK_REF),
-        ),
-        RollbackBindingDeclaration(
-            cell_id="C8.3",
-            status="PRESENT",
-            binding_refs=c8_3_rollback_refs,
-        ),
+        c8_1_binding.assembly_rollback_binding(),
+        c8_2_binding.assembly_rollback_binding(),
+        c8_3_rollback,
         *graph_rollback_bindings,
     )
     return FamilyAssembly(
@@ -907,7 +827,7 @@ def build_c8_assembly(
         recovery_handlers=tuple(recovery_handlers),
         projector_wiring=tuple(graph_wirings),
         projector_registry=projector_registry,
-        rollback_bindings=rollback_bindings,
+        rollback_bindings=tuple(rollback_bindings),
     )
 
 

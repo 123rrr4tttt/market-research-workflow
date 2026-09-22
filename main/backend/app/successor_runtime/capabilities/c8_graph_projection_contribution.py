@@ -14,7 +14,11 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Annotated, Any, Literal
 
-from app.successor_runtime.capabilities.c8_common import reject_c8_projection, reject_c8_value
+from app.successor_runtime.capabilities.c8_common import (
+    reject_c8_contract,
+    reject_c8_projection,
+    reject_c8_value,
+)
 from app.successor_runtime.capabilities.c8_graph import GRAPH_CONTEXT_PROJECTION, GRAPH_PROJECTION_SCHEMA
 from app.successor_runtime.capabilities.checksum import content_digest, require_hex64
 from app.successor_runtime.capabilities.codecs import PayloadCodec, dataclass_codec
@@ -35,10 +39,12 @@ from app.successor_runtime.language.profiles import (
 from app.successor_runtime.research.object_types import ObjectType
 from functorial_kit.contributions import ContributionObject, contribution_failures
 from functorial_kit.core.failure import Failure
+from functorial_kit.contribution_compiler import NativeContributionRule, compile_native_contribution
 from functorial_kit.native_contribution import (
     BindingAccepted,
     BindingRejected,
     NativeBindingIssue,
+    NativeContribution,
     ProjectedContributionSpec,
 )
 from mrw_functorial_kit.core.c8_semantics import c8_graph_failures, c8_operation_kinds
@@ -59,21 +65,26 @@ __all__ = [
     "C8CellDefinition",
     "C8GraphProjectInput",
     "C8GraphProjectionAssemblyContext",
+    "C8GraphProjectionAuthorSource",
     "C8GraphProjectionDefinition",
     "C8GraphProjectionOperationDefinition",
     "C8GraphProjectionRollback",
     "C8GraphProjectionRuntimeBinding",
     "C8GraphProjectionWiring",
     "C8ProgramAtomWiring",
+    "C8_GRAPH_PROJECTION_AUTHOR_SOURCE",
     "C8_GRAPH_PROJECTION_DEFINITION",
+    "C8_GRAPH_PROJECTION_NATIVE_RULE",
     "C8_GRAPH_PROJECTOR_ID",
     "C8_GRAPH_PROJECTOR_VERSION",
     "C8_GRAPH_SOURCE_KIND",
     "C8_GRAPH_VALUE_SCHEMA",
     "assemble_c8_graph_projection_definition",
     "build_c8_graph_projection_binding",
+    "c8_graph_projection_native_contribution",
     "c8_graph_projection_definition_issues",
     "define_c8_graph_projection_cell",
+    "lower_c8_graph_projection_author_source",
     "project_c8_graph_projection_definition",
     "validate_c8_graph_projection_binding",
 ]
@@ -154,6 +165,25 @@ class C8ProgramAtomWiring:
     output_type: ObjectType
     return_contract_ref: str
     value_suffix: str
+
+
+@dataclass(frozen=True, slots=True)
+class C8GraphProjectionAuthorSource:
+    """Immutable native author facts lowered into one C8 graph cell definition."""
+
+    cell_id: str
+    owner: str
+    operation_id: str
+    kind: str
+    payload_codec_id: str
+    input_type: ObjectType
+    output_type: ObjectType
+    payload_type: type
+    projector_wiring: C8GraphProjectionWiring | None
+    rollback_refs: tuple[str, ...]
+    failure_codes: tuple[str, ...] = C8_4_FAILURE_CODES
+    return_contract_ref: str = C8_4_RETURN_CONTRACT_REF
+    contribution_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -332,6 +362,76 @@ def _profiles(
     )
 
 
+def lower_c8_graph_projection_author_source(
+    source: C8GraphProjectionAuthorSource,
+) -> C8CellDefinition:
+    """Lower native author facts into profiles, contract, codec, and Program atom."""
+
+    profiles = _profiles(
+        cell_id=source.cell_id,
+        owner=source.owner,
+        kind=source.kind,
+        input_type=source.input_type,
+        output_type=source.output_type,
+        failure_codes=source.failure_codes,
+    )
+    operation = make_operation_contract(
+        kind=source.kind,
+        contract_version="1.0.0",
+        input_type=source.input_type,
+        output_type=source.output_type,
+        return_contract_ref=source.return_contract_ref,
+        semantic_profile_ref=_profile_ref(profiles["semantic"]),
+        effect_profile_ref=_profile_ref(profiles["effect"]),
+        resource_profile_ref=_profile_ref(profiles["resource"]),
+        failure_profile_ref=_profile_ref(profiles["failure"]),
+        authority_profile_ref=_profile_ref(profiles["authority"]),
+        interpreter_compatibility_ref=_profile_ref(profiles["interpreter"]),
+        observation_profile_ref=_profile_ref(profiles["observation"]),
+        allowed_override_schema_ref="mrw.functorial-successor.override.none.v1",
+        owner_capability_id=source.owner,
+    )
+    codec = dataclass_codec(
+        codec_id=source.payload_codec_id,
+        codec_version="1",
+        contract_ref=operation.ref,
+        payload_type_id=source.input_type.type_id,
+        dto_cls=source.payload_type,
+    )
+    atom = C8ProgramAtomWiring(
+        operation_id=source.operation_id,
+        operation_kind=source.kind,
+        payload_codec_id=source.payload_codec_id,
+        input_type=source.input_type,
+        output_type=source.output_type,
+        return_contract_ref=source.return_contract_ref,
+        value_suffix=source.cell_id.lower().replace(".", "-"),
+    )
+    return C8CellDefinition(
+        family_id=C8_FAMILY_ID,
+        contribution_id=(
+            source.contribution_id
+            if source.contribution_id is not None
+            else f"mrw.successor.{source.cell_id.lower()}.graph-projection.v1"
+        ),
+        cell_id=source.cell_id,
+        owner=source.owner,
+        operation_id=source.operation_id,
+        kind=source.kind,
+        input_type=source.input_type,
+        output_type=source.output_type,
+        return_contract_ref=source.return_contract_ref,
+        payload_type=source.payload_type,
+        payload_codec=codec,
+        profiles=profiles,
+        operation_contract=operation,
+        program_atom=atom,
+        failure_codes=source.failure_codes,
+        projector_wiring=source.projector_wiring,
+        rollback_binding=C8GraphProjectionRollback(source.rollback_refs),
+    )
+
+
 def define_c8_graph_projection_cell(
     *,
     cell_id: str,
@@ -348,70 +448,27 @@ def define_c8_graph_projection_cell(
     failure_codes: tuple[str, ...] = C8_4_FAILURE_CODES,
     return_contract_ref: str = C8_4_RETURN_CONTRACT_REF,
 ) -> C8CellDefinition:
-    profiles = _profiles(
-        cell_id=cell_id,
-        owner=owner,
-        kind=kind,
-        input_type=input_type,
-        output_type=output_type,
-        failure_codes=failure_codes,
+    lowered = lower_c8_graph_projection_author_source(
+        C8GraphProjectionAuthorSource(
+            cell_id=cell_id,
+            contribution_id=contribution_id,
+            owner=owner,
+            operation_id=operation_id,
+            kind=kind,
+            payload_codec_id=payload_codec_id,
+            input_type=input_type,
+            output_type=output_type,
+            payload_type=payload_type,
+            projector_wiring=projector_wiring,
+            rollback_refs=rollback_refs,
+            failure_codes=failure_codes,
+            return_contract_ref=return_contract_ref,
+        )
     )
-    operation = make_operation_contract(
-        kind=kind,
-        contract_version="1.0.0",
-        input_type=input_type,
-        output_type=output_type,
-        return_contract_ref=return_contract_ref,
-        semantic_profile_ref=_profile_ref(profiles["semantic"]),
-        effect_profile_ref=_profile_ref(profiles["effect"]),
-        resource_profile_ref=_profile_ref(profiles["resource"]),
-        failure_profile_ref=_profile_ref(profiles["failure"]),
-        authority_profile_ref=_profile_ref(profiles["authority"]),
-        interpreter_compatibility_ref=_profile_ref(profiles["interpreter"]),
-        observation_profile_ref=_profile_ref(profiles["observation"]),
-        allowed_override_schema_ref="mrw.functorial-successor.override.none.v1",
-        owner_capability_id=owner,
-    )
-    codec = dataclass_codec(
-        codec_id=payload_codec_id,
-        codec_version="1",
-        contract_ref=operation.ref,
-        payload_type_id=input_type.type_id,
-        dto_cls=payload_type,
-    )
-    atom = C8ProgramAtomWiring(
-        operation_id=operation_id,
-        operation_kind=kind,
-        payload_codec_id=payload_codec_id,
-        input_type=input_type,
-        output_type=output_type,
-        return_contract_ref=return_contract_ref,
-        value_suffix=cell_id.lower().replace(".", "-"),
-    )
-    return C8CellDefinition(
-        family_id=C8_FAMILY_ID,
-        contribution_id=(
-            contribution_id if contribution_id is not None else f"mrw.successor.{cell_id.lower()}.graph-projection.v1"
-        ),
-        cell_id=cell_id,
-        owner=owner,
-        operation_id=operation_id,
-        kind=kind,
-        input_type=input_type,
-        output_type=output_type,
-        return_contract_ref=return_contract_ref,
-        payload_type=payload_type,
-        payload_codec=codec,
-        profiles=profiles,
-        operation_contract=operation,
-        program_atom=atom,
-        failure_codes=failure_codes,
-        projector_wiring=projector_wiring,
-        rollback_binding=C8GraphProjectionRollback(rollback_refs),
-    )
+    return lowered
 
 
-C8_GRAPH_PROJECTION_DEFINITION = define_c8_graph_projection_cell(
+C8_GRAPH_PROJECTION_AUTHOR_SOURCE = C8GraphProjectionAuthorSource(
     cell_id=C8_4_CELL_ID,
     contribution_id="mrw.successor.c8.graph-projection.v1",
     owner=C8_4_OWNER,
@@ -712,6 +769,39 @@ def c8_graph_projection_definition_issues(
         (bool(definition.rollback_binding.binding_refs), "$.definition.rollback_binding", "rollback binding is empty"),
     )
     return tuple(NativeBindingIssue(path, message) for valid, path, message in checks if not valid)
+
+
+# One reusable MRW rule wires shared graph lowering and the existing definition callbacks.
+# The default is compiled through this rule exactly once; no second hand-built definition exists.
+C8_GRAPH_PROJECTION_NATIVE_RULE = NativeContributionRule[
+    C8GraphProjectionAuthorSource,
+    C8CellDefinition,
+    C8GraphProjectionAssemblyContext,
+    C8GraphProjectionRuntimeBinding,
+](
+    lower=lower_c8_graph_projection_author_source,
+    project=project_c8_graph_projection_definition,
+    assemble=assemble_c8_graph_projection_definition,
+    validate_binding=validate_c8_graph_projection_binding,
+)
+
+_compiled_c8_graph_projection_native = compile_native_contribution(
+    C8_GRAPH_PROJECTION_AUTHOR_SOURCE,
+    C8_GRAPH_PROJECTION_NATIVE_RULE,
+)
+if isinstance(_compiled_c8_graph_projection_native, Failure):
+    reject_c8_contract(
+        f"invalid native C8 graph contribution: {_compiled_c8_graph_projection_native.message}",
+        exception_type=RuntimeError,
+        operation=C8_4_OPERATION_ID,
+        site="c8_graph_projection_contribution.import",
+    )
+c8_graph_projection_native_contribution: NativeContribution[
+    C8CellDefinition,
+    C8GraphProjectionAssemblyContext,
+    C8GraphProjectionRuntimeBinding,
+] = _compiled_c8_graph_projection_native
+C8_GRAPH_PROJECTION_DEFINITION = c8_graph_projection_native_contribution.definition
 
 
 def build_c8_graph_projection_binding(

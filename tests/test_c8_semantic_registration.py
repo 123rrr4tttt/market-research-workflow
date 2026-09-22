@@ -1,11 +1,29 @@
 from __future__ import annotations
 
 import json
-import re
+from dataclasses import asdict
 from pathlib import Path
 
-from app.successor_runtime.capabilities.c8_graph_projection_contribution import (
-    C8_4_FAILURE_CODES,
+import pytest
+
+from app.successor_runtime.capabilities.c8_graph_projection_contribution import C8_4_KIND
+from app.successor_runtime.capabilities.c8_program import (
+    C8_ADMISSION_KIND,
+    C8_DELIVERY_INTENT_PREPARE_KIND,
+    C8_VERIFY_KIND,
+    DELIVERY_INTERNAL_EXPORT_KIND,
+    build_c8_bundle,
+)
+from app.successor_runtime.capabilities.c8_report_contribution import C8_3_KIND
+from app.successor_runtime.capabilities.c8_typed_knowledge_contribution import C8_1_KIND
+from app.successor_runtime.capabilities.c8_writing_contribution import (
+    C8_2_COMPOSE_KIND,
+    C8_2_STAGE_KIND,
+)
+from app.successor_runtime.language.profiles import (
+    FailureProfile,
+    build_profile,
+    content_digest,
 )
 from mrw_functorial_kit.core.c8_semantics import (
     c8_graph_failures,
@@ -17,35 +35,35 @@ from mrw_functorial_kit.core.c8_semantics import (
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PROGRAM = ROOT / "main/backend/app/successor_runtime/capabilities/c8_program.py"
-CONTRIBUTION = ROOT / (
-    "main/backend/app/successor_runtime/capabilities/"
-    "c8_graph_projection_contribution.py"
-)
 
 
-def _quoted_members(section: str) -> tuple[str, ...]:
-    if section == "C8.4":
-        return C8_4_FAILURE_CODES
-    source = PROGRAM.read_text(encoding="utf-8")
-    profile = source.split("def _failure_profile", 1)[1].split(
-        "def _authority_profile", 1
-    )[0]
-    match = re.search(rf'"{re.escape(section)}": \((.*?)\),', profile, re.DOTALL)
-    assert match is not None
-    return tuple(re.findall(r'"([A-Z0-9_]+)"', match.group(1)))
+def _assert_failure_families_match_cells(
+    profiles: dict[str, dict[str, object]],
+) -> None:
+    expected = {
+        "C8.1": c8_typed_knowledge_failures.codes,
+        "C8.2": c8_writing_failures.codes,
+        "C8.3": c8_report_delivery_failures.codes,
+        "C8.4": c8_graph_failures.codes,
+    }
+    for cell, codes in expected.items():
+        profile = profiles[cell]["failure"]
+        assert isinstance(profile, FailureProfile), cell
+        assert profile.typed_failures == codes, cell
+        assert len(set(profile.typed_failures)) == len(profile.typed_failures), cell
 
 
 def test_INVARIANT__c8_operation_kinds_match_static_runtime_constants() -> None:
-    source = PROGRAM.read_text(encoding="utf-8") + CONTRIBUTION.read_text(
-        encoding="utf-8"
-    )
-    constants = re.findall(
-        r'^(?:C8_(?:1_KIND|2_COMPOSE_KIND|2_STAGE_KIND|3_KIND|4_KIND|VERIFY_KIND|'
-        r'ADMISSION_KIND|DELIVERY_INTENT_PREPARE_KIND)|DELIVERY_INTERNAL_EXPORT_KIND) '
-        r'= "([^"]+)"',
-        source,
-        re.MULTILINE,
+    constants = (
+        C8_1_KIND,
+        C8_2_COMPOSE_KIND,
+        C8_2_STAGE_KIND,
+        C8_3_KIND,
+        C8_4_KIND,
+        C8_VERIFY_KIND,
+        C8_ADMISSION_KIND,
+        C8_DELIVERY_INTENT_PREPARE_KIND,
+        DELIVERY_INTERNAL_EXPORT_KIND,
     )
     assert len(constants) == len(set(constants)) == 9
     assert len(c8_operation_kinds.members) == len(set(c8_operation_kinds.members)) == 9
@@ -53,10 +71,27 @@ def test_INVARIANT__c8_operation_kinds_match_static_runtime_constants() -> None:
 
 
 def test_INVARIANT__c8_failure_families_match_runtime_profiles() -> None:
-    assert c8_typed_knowledge_failures.codes == _quoted_members("C8.1")
-    assert c8_writing_failures.codes == _quoted_members("C8.2")
-    assert c8_report_delivery_failures.codes == _quoted_members("C8.3")
-    assert c8_graph_failures.codes == _quoted_members("C8.4")
+    _assert_failure_families_match_cells(build_c8_bundle().profiles)
+
+
+def test_INVARIANT__c8_failure_family_runtime_drift_is_rejected() -> None:
+    bundle = build_c8_bundle()
+    original = bundle.profiles["C8.2"]["failure"]
+    assert isinstance(original, FailureProfile)
+    values = asdict(original)
+    values.pop("profile_digest")
+    values["typed_failures"] = original.typed_failures[:-1]
+    with pytest.raises(ValueError):
+        FailureProfile(**values, profile_digest=original.profile_digest)
+    drifted = dict(bundle.profiles)
+    drifted["C8.2"] = dict(
+        bundle.profiles["C8.2"],
+        failure=build_profile(
+            FailureProfile, **values, profile_digest=content_digest(values)
+        ),
+    )
+    with pytest.raises(AssertionError):
+        _assert_failure_families_match_cells(drifted)
 
 
 def test_INVARIANT__c8_registry_entries_match_kit_declarations() -> None:

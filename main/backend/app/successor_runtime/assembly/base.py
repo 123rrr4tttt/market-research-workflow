@@ -19,11 +19,10 @@ import hashlib
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from app.successor_runtime.runtime.assignments import InterpreterBinding
 from app.successor_runtime.runtime.node import RuntimeHandler
-from functorial_kit.contributions import ComposedContributions
 from app.successor_runtime.substrate.projections.registry import (
     ProjectorContract,
     ProjectorKey,
@@ -31,6 +30,12 @@ from app.successor_runtime.substrate.projections.registry import (
     validate_projector_contract,
     validate_registry,
 )
+
+if TYPE_CHECKING:
+    from app.successor_runtime.capabilities.c8_program import (
+        C8NativeContribution,
+        GraphProjectionNativeContribution,
+    )
 
 AssemblyStatus = Literal[
     "INSTALLED",
@@ -530,7 +535,8 @@ class C8AssemblyOptions:
     delivery_interpreter: Any | None = None
     c81_payload: Any | None = None
     c82_payload: Any | None = None
-    graph_projection_composition: ComposedContributions[Any, Any] | None = None
+    native_composition: tuple[C8NativeContribution, ...] | None = None
+    graph_projection_composition: tuple[GraphProjectionNativeContribution, ...] | None = None
     export_token_store: Any | None = None
     export_token_command: Any | None = None
     note: str = "reuses build_postgres_c8_delivery_assembly unchanged"

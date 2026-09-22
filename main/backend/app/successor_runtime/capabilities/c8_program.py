@@ -34,6 +34,45 @@ from app.successor_runtime.capabilities.c8_graph_projection_contribution import 
     C8GraphProjectionRuntimeBinding,
     c8_graph_projection_definition_issues,
 )
+from app.successor_runtime.capabilities.c8_native_contribution import (
+    C8NativeAssemblyContext,
+    C8NativeDefinition,
+    C8NativeRuntimeBinding,
+)
+from app.successor_runtime.capabilities.c8_report_contribution import (
+    C8_3_INPUT_TYPE,
+    C8_3_KIND,
+    C8_3_OPERATION_ID,
+    C8_3_OWNER,
+    C8_3_PAYLOAD_CODEC_ID,
+    C8_3_RESULT_TYPE,
+    C8ReportStageInput,  # noqa: F401 - retained public compatibility export
+    c8_report_native_contribution,
+)
+from app.successor_runtime.capabilities.c8_typed_knowledge_contribution import (
+    C8_1_INPUT_TYPE,
+    C8_1_KIND,
+    C8_1_OPERATION_ID,
+    C8_1_OWNER,
+    C8_1_PAYLOAD_CODEC_ID,
+    C8_1_RESULT_TYPE,
+    C8DemandReadInput,  # noqa: F401 - retained public compatibility export
+    C8_TYPED_KNOWLEDGE_NATIVE,
+)
+from app.successor_runtime.capabilities.c8_writing_contribution import (
+    C8_2_COMPOSE_INPUT_TYPE,
+    C8_2_COMPOSE_KIND,
+    C8_2_COMPOSE_OPERATION_ID,
+    C8_2_COMPOSE_PAYLOAD_CODEC_ID,
+    C8_2_COMPOSE_RESULT_TYPE,
+    C8_2_OWNER,
+    C8_2_STAGE_INPUT_TYPE,
+    C8_2_STAGE_KIND,
+    C8_2_STAGE_OPERATION_ID,
+    C8_2_STAGE_RESULT_TYPE,
+    C8WritingComposeInput,  # noqa: F401 - retained public compatibility export
+    c8_writing_native_contribution,
+)
 from app.successor_runtime.capabilities.checksum import (
     canonical_json,
     content_digest,
@@ -91,6 +130,7 @@ __all__ = [
     "C8_1_RESULT_TYPE",
     "C8_2_COMPOSE_INPUT_TYPE",
     "C8_2_COMPOSE_KIND",
+    "C8_2_COMPOSE_PAYLOAD_CODEC_ID",
     "C8_2_COMPOSE_OPERATION_ID",
     "C8_2_COMPOSE_RESULT_TYPE",
     "C8_2_OWNER",
@@ -125,6 +165,7 @@ __all__ = [
     "C8_VERIFY_RESULT_TYPE",
     "C8CapabilityBundle",
     "C8DemandReadInput",
+    "C8NativeContribution",
     "C8GraphProjectInput",
     "C8ReportStageInput",
     "C8WritingComposeInput",
@@ -135,10 +176,14 @@ __all__ = [
     "graph_projection_binding",
     "graph_projection_definition",
     "validate_c8_graph_projection_contributions",
+    "validate_c8_native_contributions",
     "build_c8_delivery_bridge_bundle",
     "build_c8_delivery_bridge_program",
     "build_c8_program",
     "build_c8_registry",
+    "c8_native_binding",
+    "c8_native_definition",
+    "compose_default_c8_native_contributions",
     "build_c8_report_bridge_program",
     "c8_return_contract",
     "compile_c8_delivery_bridge_program",
@@ -157,31 +202,6 @@ C8_OPERATION_CATALOG_ID = "mrw.functorial-successor.c8.operations"
 C8_OPERATION_CATALOG_VERSION = "1.0.0"
 C8_OPERATION_SEMANTIC_IDENTITY = "c8.knowledge-writing-report-graph"
 C8_OBSERVATION_PROFILE = "mrw.successor.c8.observation.v1"
-
-C8_1_OWNER = "typed_knowledge.c8.1.v1"
-C8_2_OWNER = "writing.c8.2.v1"
-C8_3_OWNER = "report.c8.3.v1"
-C8_1_OPERATION_ID = "c8.typed_knowledge.demand_read"
-C8_1_KIND = "c8.typed_knowledge.demand_read.v1"
-C8_1_PAYLOAD_CODEC_ID = "mrw.successor.c8.c8-1.payload.codec.v1"
-C8_1_INPUT_TYPE = ObjectType("C8DemandReadInput.v1")
-C8_1_RESULT_TYPE = ObjectType("C8DemandReadResult.v1")
-
-C8_2_COMPOSE_OPERATION_ID = "c8.writing.compose"
-C8_2_COMPOSE_KIND = "c8.writing.compose.v1"
-C8_2_COMPOSE_PAYLOAD_CODEC_ID = "mrw.successor.c8.c8-2.compose.payload.codec.v1"
-C8_2_COMPOSE_INPUT_TYPE = ObjectType("C8WritingComposeInput.v1")
-C8_2_COMPOSE_RESULT_TYPE = ObjectType("C8WritingHandoff.v1")
-C8_2_STAGE_OPERATION_ID = "c8.writing.stage"
-C8_2_STAGE_KIND = "c8.writing.stage.v1"
-C8_2_STAGE_INPUT_TYPE = C8_2_COMPOSE_RESULT_TYPE
-C8_2_STAGE_RESULT_TYPE = ObjectType("C8StagedWritingArtifact.v1")
-
-C8_3_OPERATION_ID = "c8.report.stage"
-C8_3_KIND = "c8.report.stage.v1"
-C8_3_PAYLOAD_CODEC_ID = "mrw.successor.c8.c8-3.payload.codec.v1"
-C8_3_INPUT_TYPE = ObjectType("C8ReportSourceReads.v1")
-C8_3_RESULT_TYPE = ObjectType("C8StagedReport.v1")
 
 C8_VERIFY_OPERATION_ID = "c8.report.verify"
 C8_VERIFY_KIND = "c8.report.verify.v1"
@@ -210,42 +230,6 @@ _C8_4_RETURN_CONTRACT_REF = C8_4_RETURN_CONTRACT_REF
 _CELL_IDS = ("C8.1", "C8.2", "C8.3")
 
 
-@dataclass(frozen=True, slots=True)
-class C8DemandReadInput:
-    project_key: str
-    item_key: str
-    fields: tuple[str, ...]
-    payload_digest: str = ""
-
-    def __post_init__(self) -> None:
-        _bind_payload_digest(self, "C8DemandReadInput")
-
-
-@dataclass(frozen=True, slots=True)
-class C8WritingComposeInput:
-    project_key: str
-    knowledge_item_key: str
-    selection_hash: str
-    selection_text: str
-    demand_fields: tuple[str, ...]
-    payload_digest: str = ""
-
-    def __post_init__(self) -> None:
-        _bind_payload_digest(self, "C8WritingComposeInput")
-
-
-@dataclass(frozen=True, slots=True)
-class C8ReportStageInput:
-    project_key: str
-    report_id: str
-    topic: str
-    source_keys: tuple[str, ...]
-    payload_digest: str = ""
-
-    def __post_init__(self) -> None:
-        _bind_payload_digest(self, "C8ReportStageInput")
-
-
 def payload_body_digest(payload: Any) -> str:
     body = {
         name: value
@@ -255,16 +239,16 @@ def payload_body_digest(payload: Any) -> str:
     return content_digest(body)
 
 
-def _bind_payload_digest(payload: Any, type_name: str) -> None:
-    expected = payload_body_digest(payload)
-    if payload.payload_digest == "":
-        object.__setattr__(payload, "payload_digest", expected)
-        return
-    require_hex64(payload.payload_digest, f"{type_name}.payload_digest")
-    if payload.payload_digest != expected:
-        reject_c8_value(
-            f"{type_name}.payload_digest does not match recomputed body digest"
-        )
+def _profile_ref(profile: Any) -> ContractProfileRef:
+    return ContractProfileRef(
+        profile.profile_id,
+        profile.profile_version,
+        profile.profile_digest,
+    )
+
+
+def _cell_suffix(cell_id: str) -> str:
+    return cell_id.lower().replace(".", "-")
 
 
 @dataclass(frozen=True, slots=True)
@@ -281,187 +265,94 @@ class C8CapabilityBundle:
         reject_c8_key(f"no C8 payload codec for kind {kind}")
 
 
-def _profile_ref(profile: Any) -> ContractProfileRef:
-    return ContractProfileRef(
-        profile.profile_id,
-        profile.profile_version,
-        profile.profile_digest,
+C8NativeContribution = NativeContribution[
+    C8NativeDefinition,
+    C8NativeAssemblyContext,
+    C8NativeRuntimeBinding,
+]
+
+c8_native_contributions: tuple[C8NativeContribution, ...] = (
+    C8_TYPED_KNOWLEDGE_NATIVE,
+    c8_writing_native_contribution,
+    c8_report_native_contribution,
+)
+
+
+def compose_default_c8_native_contributions() -> tuple[
+    C8NativeContribution, ...
+]:
+    """Return the non-graph native list after validating its projections."""
+
+    return validate_c8_native_contributions(c8_native_contributions)
+
+
+def validate_c8_native_contributions(
+    natives: tuple[C8NativeContribution, ...],
+) -> tuple[C8NativeContribution, ...]:
+    composition = compose_contributions(tuple(native.projection for native in natives))
+    if isinstance(composition, Failure):
+        reject_c8_value(
+            "C8 native contribution catalog invalid: " f"{composition.message}"
+        )
+    cell_ids: set[str] = set()
+    for native in natives:
+        definition = native.definition
+        expected_cells = {"C8.1", "C8.2", "C8.3"}
+        if definition.cell_id not in expected_cells:
+            reject_c8_value(
+                f"unexpected non-graph C8 native cell {definition.cell_id}"
+            )
+        if definition.cell_id in cell_ids:
+            reject_c8_value(f"duplicate native C8 cell id {definition.cell_id}")
+        cell_ids.add(definition.cell_id)
+    return natives
+
+
+def _c8_native_bindings(
+    native_composition: tuple[C8NativeContribution, ...] | None,
+) -> tuple[C8NativeRuntimeBinding, ...]:
+    natives = (
+        compose_default_c8_native_contributions()
+        if native_composition is None
+        else validate_c8_native_contributions(native_composition)
     )
+    bindings: list[C8NativeRuntimeBinding] = []
+    for native in natives:
+        binding = native.assemble(C8NativeAssemblyContext())
+        if isinstance(binding, Failure):
+            reject_c8_value(
+                f"native C8 contribution {native.projection.id} invalid: "
+                f"{binding.message}"
+            )
+        bindings.append(binding)
+    return tuple(bindings)
 
 
-def _cell_suffix(cell_id: str) -> str:
-    return cell_id.lower().replace(".", "-")
+def c8_native_binding(
+    cell_id: str,
+    *,
+    native_composition: tuple[C8NativeContribution, ...] | None = None,
+) -> C8NativeRuntimeBinding:
+    for binding in _c8_native_bindings(native_composition):
+        if binding.cell_id == cell_id:
+            return binding
+    reject_c8_value(f"native C8 operation binding {cell_id} is not declared")
 
 
-def _semantic_profile(cell_id: str) -> SemanticProfile:
-    suffix = _cell_suffix(cell_id)
-    reads_creates = {
-        "C8.1": (("C8DemandReadInput.v1",), ("C8DemandReadResult.v1",), ()),
-        "C8.2": (
-            ("C8WritingComposeInput.v1",),
-            ("C8WritingHandoff.v1", "C8StagedWritingArtifact.v1"),
-            (),
-        ),
-        "C8.3": (("C8ReportSourceReads.v1",), ("C8StagedReport.v1",), ()),
-    }[cell_id]
-    values = {
-        "semantic_profile_id": f"c8.{suffix}.semantic",
-        "semantic_profile_version": "1.0.0",
-        "reads": reads_creates[0],
-        "creates": reads_creates[1],
-        "creates_relations": reads_creates[2],
-        "declared_loss": ("graph_node_filter", "report_export_body") if cell_id == "C8.3" else (),
-        "observation_profile_ref": f"mrw.successor.c8.{suffix}.observation.v1",
-    }
-    return SemanticProfile(**values, profile_digest=content_digest(values))
-
-
-def _effect_profile(cell_id: str) -> EffectProfile:
-    suffix = _cell_suffix(cell_id)
-    execution_class = {
-        "C8.1": "EFFECTFUL",
-        "C8.2": "PURE_TRANSFORM",
-        "C8.3": "ADMISSION",
-    }[cell_id]
-    values = {
-        "effect_profile_id": f"c8.{suffix}.effect",
-        "effect_profile_version": "1.0.0",
-        "execution_class": execution_class,
-        "external_visibility": "NONE",
-        "network_required": False,
-        "irreversible": False,
-        "cancellation_points": (),
-        "internal_export_only": False,
-        "human_approval_required": False,
-        "external_acquisition": False,
-        "idempotency_profile_ref": f"mrw.successor.c8.{suffix}.idempotency.v1",
-    }
-    return EffectProfile(**values, profile_digest=content_digest(values))
-
-
-def _resource_profile(cell_id: str) -> ResourceProfile:
-    suffix = _cell_suffix(cell_id)
-    values = {
-        "resource_profile_id": f"c8.{suffix}.resource",
-        "resource_profile_version": "1.0.0",
-        "resource_classes": ("CPU_LIGHT",),
-        "concurrency_key": f"c8.{suffix}",
-        "budget_units": "units",
-        "default_soft_limit_seconds": 5,
-        "default_hard_limit_seconds": 30,
-        "node_profile_selector": "any",
-        "budget_ref": f"mrw.functorial-successor.budget.c8-{suffix}.v1",
-        "deadline_policy_ref": f"mrw.functorial-successor.deadline.c8-{suffix}.v1",
-        "node_profile_requirements": ("any",),
-        "units": 1,
-    }
-    return ResourceProfile(**values, profile_digest=content_digest(values))
-
-
-def _failure_profile(cell_id: str) -> FailureProfile:
-    suffix = _cell_suffix(cell_id)
-    failures = {
-        "C8.1": (
-            "DEMAND_READ_UNAVAILABLE",
-            "DEMAND_READ_AMBIGUOUS",
-            "CANONICAL_REF_VALIDATION_FAILED",
-        ),
-        "C8.2": ("WRITING_SYNTHESIS_INCOMPLETE", "WRITING_STAGE_INVALID"),
-        "C8.3": (
-            "REPORT_LOCATOR_READ_ONLY_UNAVAILABLE",
-            "REPORT_ADMISSION_INTERFACE_ONLY",
-            "REPORT_EXPORT_NOT_EXECUTED",
-        ),
-    }[cell_id]
-    values = {
-        "failure_profile_id": f"c8.{suffix}.failure",
-        "failure_profile_version": "1.0.0",
-        "typed_failures": failures,
-        "retryable": False,
-        "degraded_acceptable": False,
-        "unknown_outcome_supported": True,
-        "readback_or_compensation": "readback",
-        "failure_union_ref": f"mrw.functorial-successor.failures.c8-{suffix}.v1",
-        "retryable_failure_kinds": (),
-        "readback_profile_ref": {
-            "C8.1": "c8.typed_knowledge.readback.v1",
-            "C8.2": "c8.writing.readback.v1",
-            "C8.3": "c8.report.admission.readback.v1",
-        }[cell_id],
-        "compensation_profile_ref": None,
-    }
-    return FailureProfile(**values, profile_digest=content_digest(values))
-
-
-def _authority_profile(cell_id: str) -> AuthorityProfile:
-    suffix = _cell_suffix(cell_id)
-    owner = {
-        "C8.1": C8_1_OWNER,
-        "C8.2": C8_2_OWNER,
-        "C8.3": C8_3_OWNER,
-    }[cell_id]
-    values = {
-        "authority_profile_id": f"c8.{suffix}.authority",
-        "authority_profile_version": "1.0.0",
-        "grant_scopes": ("project",),
-        "approval_required": False,
-        "approval_kinds": (),
-        "credential_refs": (),
-        "canonical_owner": owner,
-        "revalidation_points": ("claim_time",),
-        "authority_epoch": 1,
-    }
-    return AuthorityProfile(**values, profile_digest=content_digest(values))
-
-
-def _interpreter_profile(cell_id: str) -> InterpreterProfile:
-    suffix = _cell_suffix(cell_id)
-    supported_kinds = {
-        "C8.1": (C8_1_KIND,),
-        "C8.2": (C8_2_COMPOSE_KIND, C8_2_STAGE_KIND),
-        "C8.3": (C8_3_KIND,),
-    }[cell_id]
-    values = {
-        "interpreter_profile_id": f"successor.c8.{suffix}.v1",
-        "interpreter_profile_version": "1.0.0",
-        "supported_contract_kinds": supported_kinds,
-        "supported_contract_refs": (),
-        "dependency_digest": content_digest(
-            {
-                "interpreter": f"successor-native.c8.{suffix}",
-                "version": "1.0.0",
-                "boundary": "pure typed knowledge consumer; no legacy writer import",
-            }
-        ),
-        "security_profile_ref": "mrw.functorial-successor.security.pure.v1",
-        "resource_profile_ref": f"c8.{suffix}.resource@1.0.0",
-        "credential_requirements_ref": None,
-        "cancellation_profile_ref": "step_boundary",
-        "idempotency_profile_ref": "logical_request_id",
-        "authoritative_readback_profile_ref": None,
-        "receipt_codec_ref": f"mrw.successor.c8.{suffix}.observation.v1",
-    }
-    return InterpreterProfile(**values, profile_digest=content_digest(values))
-
-
-def _observation_profile(cell_id: str) -> ObservationProfile:
-    suffix = _cell_suffix(cell_id)
-    values = {
-        "observation_profile_id": f"mrw.successor.c8.{suffix}.observation.v1",
-        "observation_profile_version": "1.0.0",
-        "dimensions": {
-            "C8.1": ("read_handle", "canonical_identity", "provider_calls_zero"),
-            "C8.2": ("ordered_composition", "declared_loss", "provenance_chain"),
-            "C8.3": (
-                "read_only_unavailable",
-                "admission_interface_only",
-                "declared_loss",
-            ),
-        }[cell_id],
-        "compatible_with_legacy": True,
-        "observation_schema_ref": f"mrw.successor.c8.{suffix}.observation.v1",
-    }
-    return ObservationProfile(**values, profile_digest=content_digest(values))
+def c8_native_definition(
+    cell_id: str,
+    *,
+    native_composition: tuple[C8NativeContribution, ...] | None = None,
+) -> C8NativeDefinition:
+    natives = (
+        compose_default_c8_native_contributions()
+        if native_composition is None
+        else validate_c8_native_contributions(native_composition)
+    )
+    for native in natives:
+        if native.definition.cell_id == cell_id:
+            return native.definition
+    reject_c8_value(f"native C8 operation definition {cell_id} is not declared")
 
 
 def _make_contract(
@@ -596,121 +487,35 @@ def graph_projection_definition(
 
 def build_c8_bundle(
     *,
+    native_composition: tuple[C8NativeContribution, ...] | None = None,
     graph_projection_composition: tuple[GraphProjectionNativeContribution, ...]
     | None = None,
 ) -> Annotated[  # NonAuthoritative
     C8CapabilityBundle,
-    Literal["kit:non-authoritative derived_as=view fact_source=C8_contract_and_profile_constants witness=test:test_w06_successor_authority_metadata"],
+    Literal[
+        "kit:non-authoritative derived_as=view fact_source=native_C8_definitions "
+        "witness=test:test_w08a_remaining_assembly_bindings_are_prepared_commands"
+    ],
 ]:
     profiles_by_cell: dict[str, dict[str, object]] = {}
     contracts: list[OperationContract] = []
-    for cell_id in _CELL_IDS:
-        semantic = _semantic_profile(cell_id)
-        effect = _effect_profile(cell_id)
-        resource = _resource_profile(cell_id)
-        failure = _failure_profile(cell_id)
-        authority = _authority_profile(cell_id)
-        interpreter = _interpreter_profile(cell_id)
-        observation = _observation_profile(cell_id)
-        profiles_by_cell[cell_id] = {
-            "semantic": semantic,
-            "effect": effect,
-            "resource": resource,
-            "failure": failure,
-            "authority": authority,
-            "interpreter": interpreter,
-            "observation": observation,
-        }
-        owner = {
-            "C8.1": C8_1_OWNER,
-            "C8.2": C8_2_OWNER,
-            "C8.3": C8_3_OWNER,
-        }[cell_id]
-        kind, input_type, output_type, return_ref = {
-            "C8.1": (
-                C8_1_KIND,
-                C8_1_INPUT_TYPE,
-                C8_1_RESULT_TYPE,
-                _C8_1_RETURN_CONTRACT_REF,
-            ),
-            "C8.2": (
-                C8_2_COMPOSE_KIND,
-                C8_2_COMPOSE_INPUT_TYPE,
-                C8_2_COMPOSE_RESULT_TYPE,
-                _C8_2_RETURN_CONTRACT_REF,
-            ),
-            "C8.3": (
-                C8_3_KIND,
-                C8_3_INPUT_TYPE,
-                C8_3_RESULT_TYPE,
-                _C8_3_RETURN_CONTRACT_REF,
-            ),
-        }[cell_id]
-        contracts.append(
-            _make_contract(
-                kind=kind,
-                input_type=input_type,
-                output_type=output_type,
-                return_contract_ref=return_ref,
-                semantic=semantic,
-                effect=effect,
-                resource=resource,
-                failure=failure,
-                authority=authority,
-                interpreter=interpreter,
-                observation=observation,
-                owner=owner,
-            )
-        )
-        if cell_id == "C8.2":
-            contracts.append(
-                _make_contract(
-                    kind=C8_2_STAGE_KIND,
-                    input_type=C8_2_STAGE_INPUT_TYPE,
-                    output_type=C8_2_STAGE_RESULT_TYPE,
-                    return_contract_ref=_C8_2_RETURN_CONTRACT_REF,
-                    semantic=semantic,
-                    effect=effect,
-                    resource=resource,
-                    failure=failure,
-                    authority=authority,
-                    interpreter=interpreter,
-                    observation=observation,
-                    owner=owner,
-                )
-            )
-    graph_bindings = _graph_projection_bindings(graph_projection_composition)
-    for binding in graph_bindings:
-        contracts.append(binding.operation_contract)
+    codecs: list[PayloadCodec] = []
+    for binding in _c8_native_bindings(native_composition):
         profiles_by_cell[binding.cell_id] = dict(binding.profiles)
-    codecs = (
-        _payload_codec(
-            _contract_by_kind(contracts, C8_1_KIND).ref,
-            C8_1_PAYLOAD_CODEC_ID,
-            C8_1_INPUT_TYPE,
-            C8DemandReadInput,
-        ),
-        _payload_codec(
-            _contract_by_kind(contracts, C8_2_COMPOSE_KIND).ref,
-            C8_2_COMPOSE_PAYLOAD_CODEC_ID,
-            C8_2_COMPOSE_INPUT_TYPE,
-            C8WritingComposeInput,
-        ),
-        _payload_codec(
-            _contract_by_kind(contracts, C8_3_KIND).ref,
-            C8_3_PAYLOAD_CODEC_ID,
-            C8_3_INPUT_TYPE,
-            C8ReportStageInput,
-        ),
-        *(binding.payload_codec for binding in graph_bindings),
-    )
+        for operation in binding.operations:
+            contracts.append(operation.operation_contract)
+            if operation.payload_codec is not None:
+                codecs.append(operation.payload_codec)
+    for binding in _graph_projection_bindings(graph_projection_composition):
+        profiles_by_cell[binding.cell_id] = dict(binding.profiles)
+        contracts.append(binding.operation_contract)
+        codecs.append(binding.payload_codec)
     return C8CapabilityBundle(
         bundle_id="mrw.functorial-successor.c8",
         operations=tuple(contracts),
-        codecs=codecs,
+        codecs=tuple(codecs),
         profiles=profiles_by_cell,
     )
-
 
 def _contract_by_kind(
     contracts: list[OperationContract], kind: str
@@ -872,113 +677,113 @@ def build_c8_program(
     project_key: str,
     project_registry_revision: int,
     project_scope_digest: str,
+    native_composition: tuple[C8NativeContribution, ...] | None = None,
     graph_projection_composition: tuple[GraphProjectionNativeContribution, ...]
     | None = None,
 ) -> Annotated[  # NonAuthoritative
     ProgramSpec,
-    Literal["kit:non-authoritative derived_as=view fact_source=payload+catalog+program_inputs witness=test:test_w06_successor_authority_metadata"],
+    Literal[
+        "kit:non-authoritative derived_as=view "
+        "fact_source=payload+native_C8_definition+program_inputs "
+        "witness=test:test_w06_successor_authority_metadata"
+    ],
 ]:
     if payload.project_key != project_key:
         reject_c8_value("payload project_key does not match Program project_key")
     extra_metadata: dict[str, object] = {}
-    program_owner: str
-    if cell_id == "C8.2":
-        compose_ref = exact_contract_ref(catalog, kind=C8_2_COMPOSE_KIND)
-        stage_ref = exact_contract_ref(catalog, kind=C8_2_STAGE_KIND)
-        handoff_value = payload_value_ref(
-            payload,
-            program_id=program_id,
-            project_key=project_key,
-            codec_id=C8_2_COMPOSE_PAYLOAD_CODEC_ID,
-            object_type=C8_2_COMPOSE_INPUT_TYPE,
-            value_suffix="c8-2-compose",
+    if cell_id in {"C8.1", "C8.2", "C8.3"}:
+        native = c8_native_definition(
+            cell_id, native_composition=native_composition
         )
-        stage_input = ValueRef(
-            value_id=f"{program_id}:payload:c8-2-stage",
-            project_key=project_key,
-            object_type=C8_2_STAGE_INPUT_TYPE,
-            codec_id=C8_2_COMPOSE_PAYLOAD_CODEC_ID,
-            content_digest=handoff_value.content_digest,
-            storage_kind="project_value_ref",
-            store_id="successor_values",
-            store_version="1",
-            storage_ref=handoff_value.storage_ref,
-            byte_size=handoff_value.byte_size,
-            provenance_digest=handoff_value.provenance_digest,
+        operations = tuple(
+            native.operation_by_id[operation_id]
+            for operation_id in native.ordered_operation_ids
         )
-        compose_atom = _atom(
-            operation_id=C8_2_COMPOSE_OPERATION_ID,
-            contract_ref=compose_ref,
-            input_type=C8_2_COMPOSE_INPUT_TYPE,
-            output_type=C8_2_COMPOSE_RESULT_TYPE,
-            return_contract_ref=_C8_2_RETURN_CONTRACT_REF,
-            value_ref=handoff_value,
-        )
-        stage_atom = _atom(
-            operation_id=C8_2_STAGE_OPERATION_ID,
-            contract_ref=stage_ref,
-            input_type=C8_2_STAGE_INPUT_TYPE,
-            output_type=C8_2_STAGE_RESULT_TYPE,
-            return_contract_ref=_C8_2_RETURN_CONTRACT_REF,
-            value_ref=stage_input,
-        )
-        root = then_node(compose_atom, stage_atom)
-        input_type = C8_2_COMPOSE_INPUT_TYPE
-        output_type = C8_2_STAGE_RESULT_TYPE
-        return_contract_ref = _C8_2_RETURN_CONTRACT_REF
-        operation_kinds = (C8_2_COMPOSE_KIND, C8_2_STAGE_KIND)
-        payload_value = handoff_value
-        program_owner = C8_2_OWNER
-    elif cell_id in ("C8.1", "C8.3"):
-        kind, operation_id, codec_id, suffix, object_type, result_type = {
-            "C8.1": (
-                C8_1_KIND,
-                C8_1_OPERATION_ID,
-                C8_1_PAYLOAD_CODEC_ID,
-                "c8-1",
-                C8_1_INPUT_TYPE,
-                C8_1_RESULT_TYPE,
-            ),
-            "C8.3": (
-                C8_3_KIND,
-                C8_3_OPERATION_ID,
-                C8_3_PAYLOAD_CODEC_ID,
-                "c8-3",
-                C8_3_INPUT_TYPE,
-                C8_3_RESULT_TYPE,
-            ),
-        }[cell_id]
-        ref = exact_contract_ref(catalog, kind=kind)
-        value = payload_value_ref(
-            payload,
-            program_id=program_id,
-            project_key=project_key,
-            codec_id=codec_id,
-            object_type=object_type,
-            value_suffix=suffix,
-        )
-        return_contract_ref = {
-            "C8.1": _C8_1_RETURN_CONTRACT_REF,
-            "C8.3": _C8_3_RETURN_CONTRACT_REF,
-        }[cell_id]
-        root = _atom(
-            operation_id=operation_id,
-            contract_ref=ref,
-            input_type=object_type,
-            output_type=result_type,
-            return_contract_ref=return_contract_ref,
-            value_ref=value,
-        )
-        input_type = root.input_type
-        output_type = root.output_type
-        operation_kinds = (kind,)
-        payload_value = value
-        program_owner = {"C8.1": C8_1_OWNER, "C8.3": C8_3_OWNER}[cell_id]
-        if cell_id == "C8.3":
-            extra_metadata = {
-                "admission_interface_digest": c8.C8_3_ADMISSION_INTERFACE_DIGEST,
-                "delivery_interface_digest": c8.C8_3_DELIVERY_INTERFACE_DIGEST,
-            }
+        if len(operations) == 2:
+            compose_operation, stage_operation = operations
+            compose_atom_values = compose_operation.program_atom
+            stage_atom_values = stage_operation.program_atom
+            if compose_atom_values.payload_codec_id is None:
+                reject_c8_value("ordered C8 native operation lacks a payload codec")
+            handoff_value = payload_value_ref(
+                payload,
+                program_id=program_id,
+                project_key=project_key,
+                codec_id=compose_atom_values.payload_codec_id,
+                object_type=compose_atom_values.input_type,
+                value_suffix=compose_atom_values.value_suffix,
+            )
+            stage_input = ValueRef(
+                value_id=f"{program_id}:payload:{stage_atom_values.value_suffix}",
+                project_key=project_key,
+                object_type=stage_atom_values.input_type,
+                codec_id=compose_atom_values.payload_codec_id,
+                content_digest=handoff_value.content_digest,
+                storage_kind="project_value_ref",
+                store_id="successor_values",
+                store_version="1",
+                storage_ref=handoff_value.storage_ref,
+                byte_size=handoff_value.byte_size,
+                provenance_digest=handoff_value.provenance_digest,
+            )
+            compose_atom = _atom(
+                operation_id=compose_atom_values.operation_id,
+                contract_ref=exact_contract_ref(
+                    catalog, kind=compose_atom_values.operation_kind
+                ),
+                input_type=compose_atom_values.input_type,
+                output_type=compose_atom_values.output_type,
+                return_contract_ref=compose_atom_values.return_contract_ref,
+                value_ref=handoff_value,
+            )
+            stage_atom = _atom(
+                operation_id=stage_atom_values.operation_id,
+                contract_ref=exact_contract_ref(
+                    catalog, kind=stage_atom_values.operation_kind
+                ),
+                input_type=stage_atom_values.input_type,
+                output_type=stage_atom_values.output_type,
+                return_contract_ref=stage_atom_values.return_contract_ref,
+                value_ref=stage_input,
+            )
+            root = then_node(compose_atom, stage_atom)
+            input_type = compose_atom_values.input_type
+            output_type = stage_atom_values.output_type
+            return_contract_ref = compose_atom_values.return_contract_ref
+            operation_kinds = (
+                compose_atom_values.operation_kind,
+                stage_atom_values.operation_kind,
+            )
+            payload_value = handoff_value
+        else:
+            atom_values = operations[0].program_atom
+            if atom_values.payload_codec_id is None:
+                reject_c8_value("C8 native operation lacks a payload codec")
+            value = payload_value_ref(
+                payload,
+                program_id=program_id,
+                project_key=project_key,
+                codec_id=atom_values.payload_codec_id,
+                object_type=atom_values.input_type,
+                value_suffix=atom_values.value_suffix,
+            )
+            root = _atom(
+                operation_id=atom_values.operation_id,
+                contract_ref=exact_contract_ref(
+                    catalog, kind=atom_values.operation_kind
+                ),
+                input_type=atom_values.input_type,
+                output_type=atom_values.output_type,
+                return_contract_ref=atom_values.return_contract_ref,
+                value_ref=value,
+            )
+            input_type = root.input_type
+            output_type = root.output_type
+            return_contract_ref = atom_values.return_contract_ref
+            operation_kinds = (atom_values.operation_kind,)
+            payload_value = value
+        program_owner = native.owner
+        extra_metadata = dict(native.extra_program_metadata)
     else:
         graph_definition = graph_projection_definition(
             cell_id,
@@ -1048,7 +853,6 @@ def build_c8_program(
         metadata=metadata,
         program_digest="",
     ).with_digest()
-
 
 def compile_c8_program(
     program: ProgramSpec,

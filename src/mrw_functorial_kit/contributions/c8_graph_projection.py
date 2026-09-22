@@ -9,19 +9,10 @@ from functorial_kit.law_witness import (
     define_law_witness,
     law_witness_reference,
 )
-from functorial_kit.native_contribution import (
-    NativeContribution,
-    NativeContributionSpec,
-    define_native_contribution,
-)
 from app.successor_runtime.capabilities.c8_graph_projection_contribution import (
-    C8_GRAPH_PROJECTION_DEFINITION,
-    C8CellDefinition,
     C8GraphProjectionAssemblyContext,
     C8GraphProjectionRuntimeBinding,
-    assemble_c8_graph_projection_definition,
-    project_c8_graph_projection_definition,
-    validate_c8_graph_projection_binding,
+    c8_graph_projection_native_contribution,
 )
 
 
@@ -93,23 +84,6 @@ c8_graph_projection_law_witnesses: tuple[LawWitness, ...] = (_catalog_law,)
 c8_graph_projection_law_witness_references = tuple(
     law_witness_reference(witness) for witness in c8_graph_projection_law_witnesses
 )
-
-_native = define_native_contribution(
-    NativeContributionSpec(
-        definition=C8_GRAPH_PROJECTION_DEFINITION,
-        project=project_c8_graph_projection_definition,
-        assemble=assemble_c8_graph_projection_definition,
-        validate_binding=validate_c8_graph_projection_binding,
-    )
-)
-if isinstance(_native, Failure):
-    raise RuntimeError(f"invalid native C8 graph contribution: {_native.message}")
-
-c8_graph_projection_native_contribution: NativeContribution[
-    C8CellDefinition,
-    C8GraphProjectionAssemblyContext,
-    C8GraphProjectionRuntimeBinding,
-] = _native
 
 # This tuple is the sole native contribution catalog.  Both runtime consumers
 # and the factory-free legacy catalog projection derive from it.

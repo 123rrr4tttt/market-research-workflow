@@ -10,6 +10,35 @@
           ],
           "name": "c8.graph.failure"
         }
+      },
+      "c8.report_delivery.failure": {
+        "content": {
+          "codes": [
+            "REPORT_LOCATOR_READ_ONLY_UNAVAILABLE",
+            "REPORT_ADMISSION_INTERFACE_ONLY",
+            "REPORT_EXPORT_NOT_EXECUTED"
+          ],
+          "name": "c8.report_delivery.failure"
+        }
+      },
+      "c8.typed_knowledge.failure": {
+        "content": {
+          "codes": [
+            "DEMAND_READ_UNAVAILABLE",
+            "DEMAND_READ_AMBIGUOUS",
+            "CANONICAL_REF_VALIDATION_FAILED"
+          ],
+          "name": "c8.typed_knowledge.failure"
+        }
+      },
+      "c8.writing.failure": {
+        "content": {
+          "codes": [
+            "WRITING_SYNTHESIS_INCOMPLETE",
+            "WRITING_STAGE_INVALID"
+          ],
+          "name": "c8.writing.failure"
+        }
       }
     },
     "ports": {},
