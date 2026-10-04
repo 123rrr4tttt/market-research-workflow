@@ -144,6 +144,10 @@ dmypy.json
 # -----------------------------------------------------------------------------
 # Generated / Analysis outputs (scripts produce these)
 # -----------------------------------------------------------------------------
+# OCI payloads stay local; retain evidence manifests and indexes in Git.
+**/image.oci.tar
+**/artifacts/layouts/**/blobs/
+
 main/backend/scripts/*_analysis.json
 main/backend/scripts/*_check.json
 main/backend/scripts/remaining_docs_deep_analysis.json
