@@ -7,7 +7,7 @@ analysis brief); it is not a global MRW enum and this module cannot edit it.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from hashlib import sha256
 import json
 from typing import Any, Mapping
@@ -175,6 +175,7 @@ def make_retrieval_profile(vocabulary: DomainVocabulary) -> ProfileSpec:
             "perspective": AttributeRule("string"), "registration": AttributeRule("string"),
             "snapshot_path": AttributeRule("array"), "candidate_key": AttributeRule("string"),
             "candidate_id": AttributeRule("string"),
+            "document_ref": AttributeRule("object"),
         }),
         "evidence": TypeRule(attributes={
             "name": AttributeRule("string"),
@@ -350,6 +351,40 @@ def vocabulary_record_attributes(vocabulary: DomainVocabulary) -> Mapping[str, A
     }
 
 
+def make_document_retrieval_profile(vocabulary: DomainVocabulary) -> ProfileSpec:
+    """V2 materials are placements of canonical Documents, not source bodies."""
+    legacy = make_retrieval_profile(vocabulary)
+    types = dict(legacy.types)
+    attributes = dict(types["material"].attributes)
+    for key in ("title", "url", "content_name", "content_summary", "source_uri", "source_status"):
+        attributes.pop(key, None)
+    attributes["document_ref"] = AttributeRule("object")
+    types["material"] = replace(types["material"], attributes=attributes)
+
+    def validate_documents(state: TopologyState) -> Failure | None:
+        for element in state.elements:
+            if element.ref.ref.type_id != "material":
+                continue
+            attrs = element.attributes
+            ref = attrs.get("document_ref")
+            if attrs.get("reference_status") == "unresolved_reference":
+                if ref is not None:
+                    return topology_failures.fail("INVALID_STRUCTURE", "unresolved material cannot claim a Document")
+                continue
+            if (not isinstance(ref, Mapping) or set(ref) != {
+                "project_key", "module_id", "namespace", "type_id", "local_id"
+            } or ref.get("project_key") != element.ref.ref.project_key
+                or (ref.get("module_id"), ref.get("namespace"), ref.get("type_id")) !=
+                ("documents", "documents", "document")
+                or not isinstance(ref.get("local_id"), str)
+                or not ref["local_id"].isdigit() or int(ref["local_id"]) <= 0):
+                return topology_failures.fail("INVALID_STRUCTURE", "material requires a canonical project Document reference")
+        return None
+
+    return replace(legacy, version="2+" + legacy.version.removeprefix("1+"),
+                   types=types, constraints=(*legacy.constraints, validate_documents))
+
+
 def domain_vocabulary_element(vocabulary: DomainVocabulary) -> Element:
     """Construct the one immutable snapshot element required by this profile."""
     profile = make_retrieval_profile(vocabulary)
@@ -419,7 +454,8 @@ def profile_from_state_payload(
         profile = (
             make_rapid_proposal_profile(vocabulary)
             if profile_id.startswith(RAPID_PROPOSAL_PROFILE_ID_PREFIX)
-            else make_retrieval_profile(vocabulary)
+            else (make_document_retrieval_profile(vocabulary)
+                  if profile_version.startswith("2+") else make_retrieval_profile(vocabulary))
         )
     except (TypeError, ValueError) as exc:
         return topology_failures.fail("INVALID_STRUCTURE", f"persisted domain vocabulary is invalid: {exc}")

@@ -24,8 +24,6 @@ from ..services.extraction.topic_workflow import (
     topic_has_data as wf_topic_has_data,
 )
 from ..services.projects import bind_project
-from ..services.information_topology.service import InformationTopologyService
-from ..services.information_topology.structural_schema import derive_structural_attributes
 from ..services.graph.relation_ontology import relation_annotation
 from ..contracts import ApiEnvelope, ErrorCode, error_response, success_response, task_result_response
 from ..services.ingest.adapters.http_utils import fetch_html
@@ -237,55 +235,8 @@ class DocumentListRequest(BaseModel):
     search: Optional[str] = None
     sort_by: Optional[str] = Field(default="created_at", description="排序字段: created_at, publish_date, id")
     sort_order: Optional[str] = Field(default="desc", pattern="^(asc|desc)$", description="排序方向: asc, desc")
-    include_topology_materials: bool = Field(default=False, description="同时列出信息拓扑 current material 的只读文档投影")
+    include_topology_materials: bool = Field(default=False, deprecated=True, description="兼容旧客户端；所有材料统一由 documents 查询")
 
-
-def _topology_material_document_items(request: Request, project_key: str) -> list[dict[str, Any]]:
-    from functorial_kit import Failure
-
-    service = getattr(request.app.state, "information_topology_service", None)
-    if not isinstance(service, InformationTopologyService):
-        raise HTTPException(status_code=503, detail="information-topology dependencies are not configured")
-    topologies = service.list_topologies(project_key)
-    if isinstance(topologies, Failure):
-        raise HTTPException(status_code=422, detail=topologies.message)
-    items: list[dict[str, Any]] = []
-    for topology in topologies["items"]:
-        topology_ref = topology["topology_ref"]
-        created_at = topology.get("created_at")
-        for element in topology["topology"]["elements"]:
-            ref = element["ref"]["ref"]
-            if ref["type_id"] != "material":
-                continue
-            attributes = element.get("attributes", {})
-            structural = derive_structural_attributes("material", attributes)
-            title = str(structural.get("content_name") or "").strip()
-            if attributes.get("reference_status") == "unresolved_reference":
-                title = "未解析材料引用"
-            items.append({
-                "id": ":".join((
-                    "topology", str(topology_ref["module_id"]), str(topology_ref["namespace"]),
-                    str(topology_ref["state_id"]), str(ref["local_id"]),
-                )),
-                "title": title,
-                "doc_type": "topology_material",
-                "uri": str(structural.get("source_uri") or "").strip(),
-                "state": "ACTIVE",
-                "source_id": None,
-                "created_at": created_at,
-                "updated_at": created_at,
-                "publish_date": None,
-                "has_extracted_data": False,
-                "source_kind": "information_topology_material",
-                "source_ref": {
-                    "topology_ref": topology_ref,
-                    "material_ref": ref,
-                    "observed_revision": element["ref"].get("observed_revision"),
-                    "content_digest": element["ref"].get("content_digest"),
-                },
-                "readonly": True,
-            })
-    return items
 
 
 class SourceListRequest(BaseModel):
@@ -1349,16 +1300,11 @@ def get_stats(request: Request):
         # 搜索历史统计
             history_total = session.execute(select(func.count(SearchHistory.id))).scalar() or 0
 
-            topology_service = getattr(request.app.state, "information_topology_service", None)
-            topology_document_total = 0
-            if isinstance(topology_service, InformationTopologyService):
-                topology_document_total = topology_service.count_current_elements(project_key, "material")
-
             return success_response({
                 "documents": {
-                    "total": doc_total + topology_document_total,
+                    "total": doc_total,
                     "table_total": doc_total,
-                    "topology_material_total": topology_document_total,
+                    "topology_material_total": 0,
                     "recent_today": doc_recent,
                 },
                 "social_data": {
@@ -1400,221 +1346,151 @@ def list_documents(request: Request, payload: DocumentListRequest):
         with SessionLocal() as session:
             query = select(Document)
         
-        # 过滤条件
-        conditions = []
-        if payload.state:
-            conditions.append(Document.state == payload.state.upper())
-        if payload.doc_type:
-            conditions.append(Document.doc_type == payload.doc_type)
-        if payload.has_extracted_data is True:
-            conditions.append(document_queries.document_has_extracted_data_condition())
-        elif payload.has_extracted_data is False:
-            conditions.append(document_queries.document_missing_extracted_data_condition())
-        if payload.search:
-            search_term = f"%{payload.search}%"
-            conditions.append(
-                or_(
-                    Document.title.ilike(search_term),
-                    Document.summary.ilike(search_term),
-                    Document.uri.ilike(search_term),
+            # 过滤条件
+            conditions = []
+            if payload.state:
+                conditions.append(Document.state == payload.state.upper())
+            if payload.doc_type:
+                conditions.append(Document.doc_type == payload.doc_type)
+            if payload.has_extracted_data is True:
+                conditions.append(document_queries.document_has_extracted_data_condition())
+            elif payload.has_extracted_data is False:
+                conditions.append(document_queries.document_missing_extracted_data_condition())
+            if payload.search:
+                search_term = f"%{payload.search}%"
+                conditions.append(
+                    or_(
+                        Document.title.ilike(search_term),
+                        Document.summary.ilike(search_term),
+                        Document.uri.ilike(search_term),
+                    )
                 )
-            )
-        
-        if conditions:
-            query = query.where(and_(*conditions))
 
-        if payload.include_topology_materials:
-            # The unified list is a read model: Document rows remain writable
-            # records, while topology materials are projected observations with
-            # stable source references and no document-table side effects.
+            if conditions:
+                query = query.where(and_(*conditions))
+
+            # 总数
+            total_query = select(func.count()).select_from(Document)
+            if conditions:
+                total_query = total_query.where(and_(*conditions))
+            total = session.execute(total_query).scalar() or 0
+
+            # 排序 - 重新构建查询以确保排序正确应用
+            sort_by = payload.sort_by or "created_at"
+            sort_order = payload.sort_order or "desc"
+
+            logger.info(f"文档列表排序参数: sort_by={sort_by}, sort_order={sort_order}, payload.sort_by={payload.sort_by}, payload.sort_order={payload.sort_order}")
+
+            # 重新构建查询：先构建基础查询（带过滤条件），然后应用排序
             base_query = select(Document)
             if conditions:
                 base_query = base_query.where(and_(*conditions))
-            sort_by = payload.sort_by or "created_at"
-            sort_order = payload.sort_order or "desc"
+
             if sort_by == "publish_date":
-                ordered_documents = base_query.order_by(
-                    nullslast(Document.publish_date.desc() if sort_order == "desc" else Document.publish_date.asc()),
-                    Document.id.desc() if sort_order == "desc" else Document.id.asc(),
-                )
+                if sort_order == "desc":
+                    # 使用nullslast函数确保null值在最后，然后按id降序作为二级排序
+                    query = base_query.order_by(
+                        nullslast(Document.publish_date.desc()),
+                        Document.id.desc()
+                    )
+                    logger.info("应用排序: publish_date DESC NULLS LAST, id DESC")
+                else:
+                    query = base_query.order_by(
+                        nullslast(Document.publish_date.asc()),
+                        Document.id.asc()
+                    )
+                    logger.info("应用排序: publish_date ASC NULLS LAST, id ASC")
+            elif sort_by == "created_at":
+                if sort_order == "desc":
+                    # 先按created_at降序，然后按id降序作为二级排序
+                    query = base_query.order_by(
+                        Document.created_at.desc(),
+                        Document.id.desc()
+                    )
+                    logger.info("应用排序: created_at DESC, id DESC")
+                else:
+                    query = base_query.order_by(
+                        Document.created_at.asc(),
+                        Document.id.asc()
+                    )
+                    logger.info("应用排序: created_at ASC, id ASC")
             elif sort_by == "id":
-                ordered_documents = base_query.order_by(
-                    Document.id.desc() if sort_order == "desc" else Document.id.asc()
-                )
+                if sort_order == "desc":
+                    query = base_query.order_by(Document.id.desc())
+                    logger.info("应用排序: id DESC")
+                else:
+                    query = base_query.order_by(Document.id.asc())
+                    logger.info("应用排序: id ASC")
             else:
-                ordered_documents = base_query.order_by(
-                    nullslast(Document.created_at.desc() if sort_order == "desc" else Document.created_at.asc()),
-                    Document.id.desc() if sort_order == "desc" else Document.id.asc(),
-                )
-            documents = session.execute(ordered_documents).scalars().all()
-            combined: list[dict[str, Any]] = [{
-                "id": doc.id,
-                "title": doc.title,
-                "doc_type": doc.doc_type,
-                "state": doc.state,
-                "uri": doc.uri,
-                "source_id": doc.source_id,
-                "created_at": doc.created_at.isoformat() if doc.created_at else None,
-                "updated_at": doc.updated_at.isoformat() if doc.updated_at else None,
-                "publish_date": doc.publish_date.isoformat() if doc.publish_date else None,
-                "has_extracted_data": doc.extracted_data is not None,
-                "source_kind": "document",
-                "readonly": False,
-            } for doc in documents]
-            combined.extend(_topology_material_document_items(request, project_key))
-            if payload.state:
-                combined = [item for item in combined if str(item.get("state") or "").upper() == payload.state.upper()]
-            if payload.doc_type:
-                combined = [item for item in combined if item.get("doc_type") == payload.doc_type]
-            if payload.has_extracted_data is True:
-                combined = [item for item in combined if item.get("has_extracted_data") is True]
-            elif payload.has_extracted_data is False:
-                combined = [item for item in combined if item.get("has_extracted_data") is not True]
-            if payload.search:
-                term = payload.search.casefold()
-                combined = [
-                    item for item in combined
-                    if term in str(item.get("title") or "").casefold()
-                    or term in str(item.get("uri") or "").casefold()
-                    or term in str(item.get("id") or "").casefold()
-                ]
+                query = base_query.order_by(Document.created_at.desc(), Document.id.desc())
+                logger.info("应用默认排序: created_at DESC, id DESC")
 
-            def sort_key(item: dict[str, Any]) -> tuple[bool, Any]:
-                value = item.get(sort_by if sort_by in {"created_at", "publish_date"} else "id")
-                if not isinstance(value, str):
-                    value = str(value)
-                return (value is None, value)
+            # 打印SQL查询用于调试
+            try:
+                compiled_query = str(query.compile(compile_kwargs={"literal_binds": False}))
+                logger.info(f"SQL查询编译结果: {compiled_query[:500]}...")  # 只打印前500字符
+            except Exception as e:
+                logger.warning(f"无法编译SQL查询: {e}")
 
-            combined.sort(key=sort_key, reverse=sort_order == "desc")
-            total = len(combined)
+            # 分页
             offset = (payload.page - 1) * payload.page_size
-            page_items = combined[offset:offset + payload.page_size]
+            query = query.offset(offset).limit(payload.page_size)
+
+            logger.info(f"执行查询: offset={offset}, limit={payload.page_size}")
+            documents = session.execute(query).scalars().all()
+            logger.info(f"查询返回 {len(documents)} 条记录")
+
+            # 记录排序后的前几条数据的ID和排序字段值，用于调试
+            if documents:
+                sample_ids = [doc.id for doc in documents[:5]]
+                if sort_by == "created_at":
+                    sample_values = [doc.created_at.isoformat() if doc.created_at else None for doc in documents[:5]]
+                elif sort_by == "publish_date":
+                    sample_values = [doc.publish_date.isoformat() if doc.publish_date else None for doc in documents[:5]]
+                elif sort_by == "id":
+                    sample_values = [doc.id for doc in documents[:5]]
+                else:
+                    sample_values = []
+                logger.info(f"排序后前5条数据: IDs={sample_ids}, {sort_by}={sample_values}")
+
+                # 验证排序是否正确
+                if sort_by == "created_at" and len(documents) > 1:
+                    for i in range(len(documents) - 1):
+                        if documents[i].created_at and documents[i+1].created_at:
+                            if sort_order == "desc":
+                                if documents[i].created_at < documents[i+1].created_at:
+                                    logger.warning(f"排序错误: 位置{i}的created_at ({documents[i].created_at}) < 位置{i+1}的created_at ({documents[i+1].created_at})")
+                                elif documents[i].created_at == documents[i+1].created_at and documents[i].id < documents[i+1].id:
+                                    logger.warning(f"二级排序错误: 位置{i}和{i+1}的created_at相同，但ID顺序错误 ({documents[i].id} < {documents[i+1].id})")
+                            else:
+                                if documents[i].created_at > documents[i+1].created_at:
+                                    logger.warning(f"排序错误: 位置{i}的created_at ({documents[i].created_at}) > 位置{i+1}的created_at ({documents[i+1].created_at})")
+                                elif documents[i].created_at == documents[i+1].created_at and documents[i].id > documents[i+1].id:
+                                    logger.warning(f"二级排序错误: 位置{i}和{i+1}的created_at相同，但ID顺序错误 ({documents[i].id} > {documents[i+1].id})")
+
+            items = []
+            for doc in documents:
+                items.append({
+                    "id": doc.id,
+                    "title": doc.title,
+                    "doc_type": doc.doc_type,
+                    "state": doc.state,
+                    "source_id": doc.source_id,
+                    "uri": doc.uri,
+                    "source_kind": "document",
+                    "readonly": False,
+                    "created_at": doc.created_at.isoformat() if doc.created_at else None,
+                    "updated_at": doc.updated_at.isoformat() if doc.updated_at else None,
+                    "publish_date": doc.publish_date.isoformat() if doc.publish_date else None,
+                    "has_extracted_data": doc.extracted_data is not None,
+                })
+
             return success_response({
-                "items": page_items,
+                "items": items,
                 "total": total,
                 "page": payload.page,
                 "page_size": payload.page_size,
             })
-        
-        # 总数
-        total_query = select(func.count()).select_from(Document)
-        if conditions:
-            total_query = total_query.where(and_(*conditions))
-        total = session.execute(total_query).scalar() or 0
-        
-        # 排序 - 重新构建查询以确保排序正确应用
-        sort_by = payload.sort_by or "created_at"
-        sort_order = payload.sort_order or "desc"
-        
-        logger.info(f"文档列表排序参数: sort_by={sort_by}, sort_order={sort_order}, payload.sort_by={payload.sort_by}, payload.sort_order={payload.sort_order}")
-        
-        # 重新构建查询：先构建基础查询（带过滤条件），然后应用排序
-        base_query = select(Document)
-        if conditions:
-            base_query = base_query.where(and_(*conditions))
-        
-        if sort_by == "publish_date":
-            if sort_order == "desc":
-                # 使用nullslast函数确保null值在最后，然后按id降序作为二级排序
-                query = base_query.order_by(
-                    nullslast(Document.publish_date.desc()),
-                    Document.id.desc()
-                )
-                logger.info("应用排序: publish_date DESC NULLS LAST, id DESC")
-            else:
-                query = base_query.order_by(
-                    nullslast(Document.publish_date.asc()),
-                    Document.id.asc()
-                )
-                logger.info("应用排序: publish_date ASC NULLS LAST, id ASC")
-        elif sort_by == "created_at":
-            if sort_order == "desc":
-                # 先按created_at降序，然后按id降序作为二级排序
-                query = base_query.order_by(
-                    Document.created_at.desc(),
-                    Document.id.desc()
-                )
-                logger.info("应用排序: created_at DESC, id DESC")
-            else:
-                query = base_query.order_by(
-                    Document.created_at.asc(),
-                    Document.id.asc()
-                )
-                logger.info("应用排序: created_at ASC, id ASC")
-        elif sort_by == "id":
-            if sort_order == "desc":
-                query = base_query.order_by(Document.id.desc())
-                logger.info("应用排序: id DESC")
-            else:
-                query = base_query.order_by(Document.id.asc())
-                logger.info("应用排序: id ASC")
-        else:
-            query = base_query.order_by(Document.created_at.desc(), Document.id.desc())
-            logger.info("应用默认排序: created_at DESC, id DESC")
-        
-        # 打印SQL查询用于调试
-        try:
-            compiled_query = str(query.compile(compile_kwargs={"literal_binds": False}))
-            logger.info(f"SQL查询编译结果: {compiled_query[:500]}...")  # 只打印前500字符
-        except Exception as e:
-            logger.warning(f"无法编译SQL查询: {e}")
-        
-        # 分页
-        offset = (payload.page - 1) * payload.page_size
-        query = query.offset(offset).limit(payload.page_size)
-        
-        logger.info(f"执行查询: offset={offset}, limit={payload.page_size}")
-        documents = session.execute(query).scalars().all()
-        logger.info(f"查询返回 {len(documents)} 条记录")
-        
-        # 记录排序后的前几条数据的ID和排序字段值，用于调试
-        if documents:
-            sample_ids = [doc.id for doc in documents[:5]]
-            if sort_by == "created_at":
-                sample_values = [doc.created_at.isoformat() if doc.created_at else None for doc in documents[:5]]
-            elif sort_by == "publish_date":
-                sample_values = [doc.publish_date.isoformat() if doc.publish_date else None for doc in documents[:5]]
-            elif sort_by == "id":
-                sample_values = [doc.id for doc in documents[:5]]
-            else:
-                sample_values = []
-            logger.info(f"排序后前5条数据: IDs={sample_ids}, {sort_by}={sample_values}")
-            
-            # 验证排序是否正确
-            if sort_by == "created_at" and len(documents) > 1:
-                for i in range(len(documents) - 1):
-                    if documents[i].created_at and documents[i+1].created_at:
-                        if sort_order == "desc":
-                            if documents[i].created_at < documents[i+1].created_at:
-                                logger.warning(f"排序错误: 位置{i}的created_at ({documents[i].created_at}) < 位置{i+1}的created_at ({documents[i+1].created_at})")
-                            elif documents[i].created_at == documents[i+1].created_at and documents[i].id < documents[i+1].id:
-                                logger.warning(f"二级排序错误: 位置{i}和{i+1}的created_at相同，但ID顺序错误 ({documents[i].id} < {documents[i+1].id})")
-                        else:
-                            if documents[i].created_at > documents[i+1].created_at:
-                                logger.warning(f"排序错误: 位置{i}的created_at ({documents[i].created_at}) > 位置{i+1}的created_at ({documents[i+1].created_at})")
-                            elif documents[i].created_at == documents[i+1].created_at and documents[i].id > documents[i+1].id:
-                                logger.warning(f"二级排序错误: 位置{i}和{i+1}的created_at相同，但ID顺序错误 ({documents[i].id} > {documents[i+1].id})")
-        
-        items = []
-        for doc in documents:
-            items.append({
-                "id": doc.id,
-                "title": doc.title,
-                "doc_type": doc.doc_type,
-                "state": doc.state,
-                "source_id": doc.source_id,
-                "created_at": doc.created_at.isoformat() if doc.created_at else None,
-                "updated_at": doc.updated_at.isoformat() if doc.updated_at else None,
-                "publish_date": doc.publish_date.isoformat() if doc.publish_date else None,
-                "has_extracted_data": doc.extracted_data is not None,
-            })
-        
-        return success_response({
-            "items": items,
-            "total": total,
-            "page": payload.page,
-            "page_size": payload.page_size,
-        })
 
 
 @router.get("/documents/{doc_id}", response_model=ApiEnvelope[dict[str, Any]])

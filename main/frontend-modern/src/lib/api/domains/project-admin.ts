@@ -95,7 +95,6 @@ export async function listAdminDocuments(payload: AdminDocumentListPayload = {})
     search: payload.search ?? null,
     sort_by: payload.sort_by ?? 'created_at',
     sort_order: payload.sort_order ?? 'desc',
-    include_topology_materials: payload.include_topology_materials ?? false,
   })
 }
 

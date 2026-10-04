@@ -5,6 +5,7 @@ import { Activity, Boxes, Building2, ChartPie, GitBranchPlus, LoaderCircle, Netw
 import * as THREE from 'three'
 import {
   getGraphConfig,
+  getAdminDocument,
   getMarketGraph,
   getPolicyGraph,
   getSocialGraph,
@@ -55,6 +56,7 @@ import { useWorkflowTemplateController } from './graph/hooks/useWorkflowTemplate
 import type { RenderNode } from './graph/renderers/types'
 import { ClueChainInspector } from './graph/ClueChainInspector'
 import { GraphTopologyPanel } from './graph/GraphTopologyPanel'
+import GraphBusinessCardSections from '../components/GraphBusinessCardSections'
 import { getGraphProjection, GRAPH_PROJECTIONS_BY_KIND, type GraphProjectionId } from './graph/realizer/definitions'
 import type { GraphProjectionDefinition } from './graph/realizer/contract'
 import { readGraphProjection } from './graph/realizer/sourceAdapter'
@@ -751,6 +753,12 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
     limit: templateBuilder ? 50 : GRAPH_LIMIT_DEFAULT,
   })
   const [selectedNode, setSelectedNode] = useState<GraphNodeItem | null>(null)
+  const selectedDocumentId = typeof selectedNode?.document_id === 'number' ? selectedNode.document_id : null
+  const selectedDocument = useQuery({
+    queryKey: queryKeys.admin.documentDetail(projectKey, selectedDocumentId),
+    queryFn: () => getAdminDocument(Number(selectedDocumentId)),
+    enabled: Boolean(projectKey && selectedDocumentId),
+  })
   const [nodeCardAnchor, setNodeCardAnchor] = useState<NodeCardAnchor | null>(null)
   const [chartReadyRaw, setChartReady] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -5706,6 +5714,9 @@ export default function GraphPage({ projectKey, variant, templateBuilder = false
                 </button>
               </div>
               <div className="gv2-node-card-body">
+                  {selectedDocumentId && selectedDocument.isLoading ? <LoaderCircle size={18} aria-label={t('graphPage.action.refresh')} /> : null}
+                  {selectedDocument.error ? <p role="alert">{selectedDocument.error.message}</p> : null}
+                  {selectedDocument.data ? <GraphBusinessCardSections node={selectedDocument.data as unknown as Record<string, unknown>} /> : null}
                   <div className="gv2-node-grid">
                     {cardFields(selectedNode, cardFieldLabel).map(([k, v]) => (
                       <div key={`${k}-${v}`} className="gv2-node-grid-item">

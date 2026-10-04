@@ -218,7 +218,7 @@ def _formal_group(
         return {"code": "EVIDENCE_QUOTE_NOT_LOCATED", "message": "original_excerpt is absent from the read body"}
     document_id = str(receipt.get("document_id") or "")
     candidate_id = str(package.get("candidate_id") or "")
-    if not document_id or not candidate_id:
+    if not document_id.isdigit() or int(document_id) <= 0 or not candidate_id:
         return {"code": "FORMAL_PROPOSAL_INVALID", "message": "document/candidate identity is missing"}
     observation = str(receipt.get("document_updated_at") or observed)
     prefix = _digest((session_id, document_id, candidate_id))[:24]
@@ -279,6 +279,11 @@ def _formal_group(
         "candidate_key": candidate_id,
         "snapshot_path": [f"document:{document_id}"],
     }
+    from app.services.document_queries.identity import document_identity
+    material_attrs["document_ref"] = document_identity(project_key, int(document_id))
+    if profile.version.startswith("2+"):
+        material_attrs.pop("title")
+        material_attrs.pop("url")
     material_ref = bound("material", f"material-{prefix}", material_attrs)
     group.append(Element(material_ref, material_attrs))
     judgment_id, evidence_id, clue_id = f"judgment-{prefix}", f"evidence-{prefix}", f"clue-{prefix}"

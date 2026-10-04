@@ -34,6 +34,7 @@ const LEGEND_GROUP_BY_TYPE: Record<string, GraphLegendGroupId> = {
   judgment: 'reflection',
   evidence: 'evidence',
   material: 'evidence',
+  document: 'evidence',
   attempt: 'activity',
   clue: 'method',
   domain_vocabulary: 'method',

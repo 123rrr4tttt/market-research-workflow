@@ -1,4 +1,4 @@
-import type { CurrentTopologyItem, BoundRef } from '../../../features/information-topology/types'
+import type { CurrentTopologyItem, BoundRef, ElementRef } from '../../../features/information-topology/types'
 import type { GraphEdgeItem, GraphNodeItem, GraphResponse } from '../../../lib/types'
 import { topologyDisplayName } from './displaySchema'
 
@@ -75,9 +75,13 @@ export function projectInformationTopologies(
   const elementsByIdentity = new Map<string, ProjectedElement>()
   const edgeIds = new Set<string>()
   const ensureNode = (bound: BoundRef, attributes: Record<string, unknown> = {}): string => {
-    const id = topologyBoundIdentity(bound)
+    const document = attributes.document_ref as ElementRef | undefined
+    const canonical = document?.module_id === 'documents' && attributes.document_revision
+      ? { ref: document, observed_revision: String(attributes.document_revision), content_digest: null }
+      : bound
+    const id = topologyBoundIdentity(canonical)
     if (!nodesByIdentity.has(id)) {
-      const ref = bound.ref
+      const ref = canonical.ref
       const type = ref.type_id
       const displayName = topologyDisplayName(type, attributes)
       nodesByIdentity.set(id, {
@@ -88,8 +92,10 @@ export function projectInformationTopologies(
         title: displayName,
         canonical_name: displayName,
         topology_ref: ref,
-        observed_revision: bound.observed_revision,
-        content_digest: bound.content_digest,
+        material_ref: document ? bound.ref : undefined,
+        document_id: attributes.document_id,
+        observed_revision: canonical.observed_revision,
+        content_digest: canonical.content_digest,
         topology_attributes: attributes,
       })
     }
@@ -115,7 +121,10 @@ export function projectInformationTopologies(
     if (isAnnotatedElement(element)) return undefined
     if (seen.has(identity) || seen.size >= RELATION_AXIS_MAX_DEPTH) return undefined
     const axis = declaredRelationAxis(element)
-    if (!axis) return { id: ensureNode(bound, element.attributes), type: bound.ref.type_id }
+    if (!axis) {
+      const id = ensureNode(bound, element.attributes)
+      return { id, type: nodesByIdentity.get(id)?.type ?? bound.ref.type_id }
+    }
     const target = endpointByRole(element, axis[1])
     if (!target) return undefined
     const nextSeen = new Set<string>(seen)
@@ -244,7 +253,7 @@ export function projectInformationTopologies(
         const targetNode = resolveNode(endpoint.target)
         if (!targetNode) continue
         pushEdge({
-          id: `${sourceId}→${endpoint.role}→${targetNode.id}→${endpoint.position ?? ''}`,
+          id: `${sourceId}→${endpoint.role}→${topologyBoundIdentity(endpoint.target)}→${endpoint.position ?? ''}`,
           type: 'topology_incidence',
           predicate: endpoint.role,
           predicate_raw: endpoint.role,

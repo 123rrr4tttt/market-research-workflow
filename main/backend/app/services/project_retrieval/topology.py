@@ -12,6 +12,9 @@ from app.services.information_topology.io.retrieval import (
 )
 from app.services.information_topology.repository import InformationTopologyRepository
 from app.services.information_topology.service import InformationTopologyDependencies, InformationTopologyService
+from app.services.information_topology.document_materials import (
+    bind_material_documents, project_document_materials, resolve_document,
+)
 
 
 def build_topology_service() -> Annotated[
@@ -24,8 +27,11 @@ def build_topology_service() -> Annotated[
         vocabulary_resolver=resolve_domain_vocabulary,
         store=RepositoryRetrievalStore(repository),
         session_factory=SessionLocal,
+        material_binder=bind_material_documents,
     )
     return InformationTopologyService(InformationTopologyDependencies(
         profiles=profiles, mappings={}, io=io, repository=repository,
         session_factory=SessionLocal,
+        material_binder=bind_material_documents, read_model_projector=project_document_materials,
+        native_resolver=resolve_document,
     ))

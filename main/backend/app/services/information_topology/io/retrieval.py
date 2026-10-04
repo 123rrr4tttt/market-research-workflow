@@ -6,7 +6,7 @@ explicit port so callers must use the PostgreSQL repository in production.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from hashlib import sha256
 import json
 from pathlib import Path, PurePosixPath
@@ -16,7 +16,7 @@ from typing import Annotated, Any, Callable, Mapping, Protocol, Sequence
 from functorial_kit import Failure
 from sqlalchemy.orm import Session
 
-from ..contracts import BoundRef, Element, ElementRef, Endpoint, TopologyState, topology_failures
+from ..contracts import BoundRef, Element, ElementRef, Endpoint, TopologyState, topology_failures, topology_state_codec
 from ..bindings import ProjectSemanticBinding, resolve_project_semantics
 from ..modules.retrieval import (
     DomainVocabulary, domain_vocabulary_element, make_retrieval_profile,
@@ -643,11 +643,13 @@ class RetrievalStructureIO:
 
     def __init__(self, *, vocabulary_resolver: Callable[[str, Mapping[str, Any]], DomainVocabulary | Failure] | None = None,
                  store: RetrievalTopologyStore,
-                 session_factory, profiles: Mapping[tuple[str, str], ProfileSpec] | None = None):
+                 session_factory, profiles: Mapping[tuple[str, str], ProfileSpec] | None = None,
+                 material_binder: Callable[[Session, TopologyState], TopologyState | Failure] | None = None):
         self.vocabulary_resolver = vocabulary_resolver or resolve_domain_vocabulary
         self.store = store
         self.session_factory = session_factory
         self.profiles = profiles
+        self.material_binder = material_binder
 
     def import_structure(self, *, project_key: str, module_id: str, source: Mapping[str, Any]) -> Any:
         vocabulary = self.vocabulary_resolver(project_key, source)
@@ -677,14 +679,29 @@ class RetrievalStructureIO:
         with self.session_factory() as session:
             with session.begin():
                 existing = self.store.read(session, preview.state_key)
+                if isinstance(existing, Failure):
+                    return existing
                 if existing is not None:
                     prior_digest = (existing.get("provenance") or {}).get("source_digest")
                     if prior_digest != preview.source_digest:
                         return topology_failures.fail("SOURCE_CHANGED", "source identity already exists with changed content")
                     return {"accepted": True, "idempotent": True, "revision": existing["revision"],
                             "state_id": preview.state_key[3], "loss": list(preview.loss)}
+                if self.material_binder is not None:
+                    bound_state = self.material_binder(session, preview.state)
+                    if isinstance(bound_state, Failure):
+                        session.rollback()
+                        return bound_state
+                    profile = profile_from_state_payload(project_key, bound_state.profile_id,
+                        bound_state.profile_version, topology_state_codec.to_wire(bound_state))
+                    if isinstance(profile, Failure):
+                        session.rollback()
+                        return profile
+                    preview = replace(preview, state=bound_state, profile=profile,
+                        provenance={**preview.provenance, "initial_state_digest": _state_digest(bound_state)})
                 result = self.store.write(session, preview, expected_revision=None)
                 if isinstance(result, Failure):
+                    session.rollback()
                     return result
                 return {"accepted": True, "idempotent": False, "revision": result[0]["revision"],
                         "state_id": preview.state_key[3], "loss": list(preview.loss)}

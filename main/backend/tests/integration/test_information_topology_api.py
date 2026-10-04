@@ -174,6 +174,9 @@ def test_topology_operation_paths_are_exposed():
 
 
 class _FakeSession:
+    def rollback(self):
+        pass
+
     @contextmanager
     def begin(self):
         yield self

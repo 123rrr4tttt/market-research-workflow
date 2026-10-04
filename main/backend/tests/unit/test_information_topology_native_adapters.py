@@ -69,6 +69,8 @@ def test_native_adapters_bind_identity_and_report_source_version_capability():
     assert isinstance(adapt_typed_knowledge({"project_key": "other", "identity_ref": "x"}, project_key="p"), Failure)
     with pytest.raises(ValueError, match="project_key and native identity"):
         adapt_document({"id": 12}, project_key="")
+    with pytest.raises(ValueError, match="project_key and native identity"):
+        adapt_document({"id": ""}, project_key="p")
 
 
 def test_clue_state_is_a_read_only_observation_and_mapping_requires_same_project():

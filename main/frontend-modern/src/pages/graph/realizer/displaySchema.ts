@@ -12,6 +12,7 @@ const GENERIC_RULES: Record<string, TopologyDisplayRule> = {
   evidence: { contentFields: ['name', 'original_excerpt'], fallbackLabel: '未命名证据' },
   clue: { contentFields: ['name'], fallbackLabel: '未命名线索' },
   material: { contentFields: ['title'], fallbackLabel: '未命名材料' },
+  document: { contentFields: ['title'], fallbackLabel: '未命名文档' },
   attempt: { contentFields: ['result_note', 'actual_query'], fallbackLabel: '未命名检索尝试' },
   domain_vocabulary: { contentFields: ['name'], fallbackLabel: '未命名域词表' },
   source_route: { contentFields: ['entry'], fallbackLabel: '未命名来源路线' },

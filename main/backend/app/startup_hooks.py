@@ -15,14 +15,7 @@ from .services.projects.schema_initialization import (
     initialize_default_project_schema,
     run_serialized_schema_ddl,
 )
-from .services.information_topology.catalog import profile_catalog
-from .services.information_topology.io.retrieval import (
-    RepositoryRetrievalStore,
-    RetrievalStructureIO,
-    resolve_domain_vocabulary,
-)
-from .services.information_topology.repository import InformationTopologyRepository
-from .services.information_topology.service import InformationTopologyDependencies, InformationTopologyService
+from .services.project_retrieval.topology import build_topology_service
 from .models.entities import (
     AgentApproval,
     AgentArtifact,
@@ -65,25 +58,7 @@ from .models.writing_entities import WritingDocument, WritingDocumentCitation, W
 def register_startup_hooks(app: FastAPI) -> None:
     logger = logging.getLogger("app")
 
-    # Construct services without opening a connection. Project context and the
-    # session's search_path scope each request to its existing tenant schema.
-    profiles = dict(profile_catalog())
-    topology_repository = InformationTopologyRepository(profiles)
-    retrieval_io = RetrievalStructureIO(
-        vocabulary_resolver=resolve_domain_vocabulary,
-        store=RepositoryRetrievalStore(topology_repository),
-        session_factory=SessionLocal,
-    )
-    app.state.information_topology_service = InformationTopologyService(
-        InformationTopologyDependencies(
-            profiles=profiles,
-            mappings={},
-            io=retrieval_io,
-            repository=topology_repository,
-            session_factory=SessionLocal,
-        )
-    )
-
+    app.state.information_topology_service = build_topology_service()
     @app.on_event("startup")
     def _ensure_default_project_schema() -> None:
         initialize_default_project_schema(logger_obj=logger)

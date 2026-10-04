@@ -52,6 +52,8 @@ class InformationTopologyDependencies:
     native_resolver: NativeResolver | None = None
     repository: InformationTopologyRepository | None = None
     session_factory: Callable[[], Session] = SessionLocal
+    material_binder: Callable[[Session, TopologyState], TopologyState | Failure] | None = None
+    read_model_projector: Callable[[Session, str, dict[str, Any]], dict[str, Any]] | None = None
 
 
 def _ref_dict(ref: ElementRef) -> dict[str, str]:
@@ -119,6 +121,12 @@ class InformationTopologyService:
             )
         else:
             self.repository = InformationTopologyRepository(dependencies.profiles)
+
+    def _read_model(self, session: Session, project_key: str, profile: ProfileSpec,
+                    state: TopologyState) -> dict[str, Any]:
+        wire = _read_model_wire(profile, state)
+        projector = self.dependencies.read_model_projector
+        return projector(session, project_key, wire) if projector is not None else wire
 
     def _resolve_profile(self, project_key: str, profile_id: str, profile_version: str,
                          payload: Mapping[str, Any], source_ref: Mapping[str, Any] | None) -> ProfileSpec | Failure:
@@ -188,7 +196,7 @@ class InformationTopologyService:
                     "profile_id": row["profile_id"], "profile_version": row["profile_version"],
                     "revision": row["revision"], "digest": row["digest"],
                     "created_at": row["created_at"].isoformat() if row.get("created_at") else None,
-                    "element_count": row["element_count"], "topology": _read_model_wire(profile, state),
+                    "element_count": row["element_count"], "topology": self._read_model(session, project_key, profile, state),
                 })
         return {"items": list(items), "total": len(items)}
 
@@ -215,6 +223,44 @@ class InformationTopologyService:
                     total += 1
         return total
 
+    def merge_material_documents(self, project_key: str) -> dict[str, Any] | Failure:
+        """Explicit atomic V1 migration; historical revisions remain unchanged."""
+        binder = self.dependencies.material_binder
+        if binder is None:
+            return topology_failures.fail("INVALID_STRUCTURE", "Document material binding is not configured")
+        with self.dependencies.session_factory() as session:
+            with session.begin():
+                rows = self.repository.list_current_states(session, project_key)
+                writes = []
+                for row in rows:
+                    if not row["profile_id"].startswith("retrieval.domain.") or row["profile_version"].startswith("2+"):
+                        continue
+                    key = (project_key, row["module_id"], row["namespace"], row["state_id"])
+                    current = self.repository.read_state(session, key)
+                    if isinstance(current, Failure) or current is None:
+                        session.rollback()
+                        return current or topology_failures.fail("NOT_FOUND", "migration state disappeared")
+                    profile = self._resolve_profile(project_key, row["profile_id"], row["profile_version"], row["payload"], None)
+                    if isinstance(profile, Failure):
+                        session.rollback()
+                        return profile
+                    state = decode_state(profile, row["payload"])
+                    if isinstance(state, Failure):
+                        session.rollback()
+                        return state
+                    bound = binder(session, state)
+                    if isinstance(bound, Failure):
+                        session.rollback()
+                        return bound
+                    writes.append(StateWrite(
+                        key, bound, row["revision"], current.get("provenance"),
+                    ))
+                result = self.repository.apply_batch(session, states=tuple(writes)) if writes else ()
+                if isinstance(result, Failure):
+                    session.rollback()
+                    return result
+        return {"project_key": project_key, "migrated_states": len(writes)}
+
     def resolve(self, project_key: str, refs: Sequence[Mapping[str, Any]]) -> dict[str, Any] | Failure:
         resolved: list[dict[str, Any]] = []
         with self.dependencies.session_factory() as session:
@@ -222,8 +268,9 @@ class InformationTopologyService:
                 ref = _element_ref(raw)
                 if ref.project_key != project_key:
                     return topology_failures.fail("UNRESOLVABLE_REFERENCE", "reference is outside the active project")
-                result = (self.dependencies.native_resolver(session, project_key, ref)
-                          if self.dependencies.native_resolver else self._resolve_topology_ref(session, project_key, ref))
+                result = self.dependencies.native_resolver(session, project_key, ref) if self.dependencies.native_resolver else None
+                if result is None:
+                    result = self._resolve_topology_ref(session, project_key, ref)
                 if isinstance(result, Failure):
                     return result
                 if result is None:
@@ -273,6 +320,12 @@ class InformationTopologyService:
                 if isinstance(profile, Failure):
                     return profile
                 state = decode_state(profile, row["payload"])
+            if not isinstance(state, Failure):
+                profile = self._resolve_profile(project_key, row["profile_id"], row["profile_version"],
+                                                row["payload"], self._source_ref_from_payload(row["payload"]))
+                if isinstance(profile, Failure):
+                    return profile
+                wire = self._read_model(session, project_key, profile, state)
         if isinstance(state, Failure):
             return state
         unknown_filters = set(filters) - {"type_ids", "local_ids"}
@@ -284,11 +337,10 @@ class InformationTopologyService:
         if local_ids is not None and (not isinstance(local_ids, list) or any(not isinstance(x, str) for x in local_ids)):
             return topology_failures.fail("INVALID_STRUCTURE", "local_ids filter must be a list of strings")
         if type_ids is not None or local_ids is not None:
-            state = TopologyState(state.profile_id, state.profile_version, tuple(
-                element for element in state.elements
-                if (type_ids is None or element.ref.ref.type_id in type_ids)
-                and (local_ids is None or element.ref.ref.local_id in local_ids)))
-        return {"topology": _state_wire(state), "revision": row["revision"], "digest": row["digest"]}
+            wire["elements"] = [element for element in wire["elements"]
+                if (type_ids is None or element["ref"]["ref"]["type_id"] in type_ids)
+                and (local_ids is None or element["ref"]["ref"]["local_id"] in local_ids)]
+        return {"topology": wire, "revision": row["revision"], "digest": row["digest"]}
 
     def find_relations(self, project_key: str, ref: Mapping[str, Any], relation_types: Sequence[str], direction: str) -> dict[str, Any] | Failure:
         bound = _bound_ref(ref)
@@ -459,6 +511,10 @@ class InformationTopologyService:
                         for raw in item.get("patch", ()):
                             ref = _bound_ref(raw["ref"])
                             element = _element(raw["element"]) if raw.get("element") is not None else None
+                            if element is not None and ref.ref.type_id == "material":
+                                prior = next((e for e in original.elements if e.ref == ref), None)
+                                if prior is not None and prior.attributes.get("document_ref") != element.attributes.get("document_ref"):
+                                    return topology_failures.fail("INVALID_PATCH", "material Document identity cannot be rebound by a structural patch")
                             if ref.ref.project_key != project_key or (element and any(
                                 candidate.ref.project_key != project_key
                                 for candidate in (element.ref, *(ep.target for ep in element.endpoints))
@@ -477,11 +533,22 @@ class InformationTopologyService:
                         state_writes.append(StateWrite(key, changed, expected_revision))
                         changed_states.append(changed)
 
+                    if self.dependencies.material_binder is not None:
+                        normalized_writes = []
+                        for write in state_writes:
+                            bound_state = self.dependencies.material_binder(session, write.state)
+                            if isinstance(bound_state, Failure):
+                                session.rollback()
+                                return bound_state
+                            normalized_writes.append(StateWrite(write.key, bound_state, write.expected_revision, write.provenance))
+                        state_writes = normalized_writes
+                        changed_states = [write.state for write in state_writes]
                     result = self.repository.apply_batch(
                         session, states=tuple(state_writes), links=tuple(writes),
                         read_set=tuple(parsed_reads), link_read_set=tuple(parsed_link_reads),
                     )
                     if isinstance(result, Failure):
+                        session.rollback()
                         return result
                 state_results = [
                     {"target": {"module_id": key[1], "namespace": key[2], "state_id": key[3]},

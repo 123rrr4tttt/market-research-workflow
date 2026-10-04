@@ -754,7 +754,6 @@ export default function OpsPage({ projectKey, variant = 'ops' }: OpsPageProps) {
         doc_type: docTypeFilter.trim() || null,
         state: docStateFilter.trim() || null,
         search: docSearch.trim() || null,
-        include_topology_materials: true,
       }),
     enabled: Boolean(projectKey),
   })

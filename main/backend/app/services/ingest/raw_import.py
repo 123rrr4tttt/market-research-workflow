@@ -416,7 +416,7 @@ def run_raw_import_documents(payload: dict[str, Any], project_key: str) -> dict[
                         existing = session.execute(select(Document).where(Document.text_hash == text_hash)).scalar_one_or_none()
 
                     doc = existing
-                    if doc and not overwrite_on_uri:
+                    if doc and not overwrite_on_uri and not (doc.status == "reference_only" and not doc.content):
                         skipped += 1
                         item_results.append({"index": idx, "doc_id": doc.id, "status": "skipped_exists", "uri": doc.uri})
                         continue
@@ -436,6 +436,8 @@ def run_raw_import_documents(payload: dict[str, Any], project_key: str) -> dict[
                         doc.title = title or doc.title
                         doc.publish_date = publish_date_value or doc.publish_date
                         doc.content = text
+                        if doc.status == "reference_only":
+                            doc.status = None
                         doc.summary = summary or doc.summary
                         doc.text_hash = text_hash
                         doc.uri = uri or doc.uri
